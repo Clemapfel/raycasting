@@ -1,0 +1,5 @@
+cd enkiTS
+mkdir build
+cd build
+cmake .. -DENKITS_BUILD_C_INTERFACE=ON -DENKITS_BUILD_SHARED=ON -DENKITS_BUILD_EXAMPLES=OFF
+cmake --build . --config Release

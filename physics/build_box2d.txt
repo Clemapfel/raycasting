@@ -1,0 +1,5 @@
+cd box2d_extension/box2d
+mkdir build
+cd build
+cmake .. -DBUILD_SHARED_LIBS=ON -DBOX2D_SAMPLES=OFF -DBOX2D_UNIT_TESTS=OFF -DBOX2D_BENCHMARKS=OFF
+cmake --build . --config Release

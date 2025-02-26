@@ -1,0 +1,5 @@
+cd box2d_extension
+mkdir build
+cd build
+cmake ..
+cmake -- build .
