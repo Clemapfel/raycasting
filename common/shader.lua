@@ -11,7 +11,7 @@ function rt.Shader:instantiate(path)
     end
 
     meta.install(self, {
-        _path_or_source = path,
+        _path = path,
         _native = cached
     })
 end
@@ -30,8 +30,7 @@ end
 function rt.Shader:send(name, value)
     assert(value ~= nil, "In Shader.send: value for uniform `name` is nil")
     if self._native:hasUniform(name) ~= true then
-        local log = require "log"
-        log.warning("In Shader.send: shader has no uniform called `" .. name .. "`")
+        rt.warning("In Shader.send: shader has no uniform called `" .. name .. "`")
         return
     end
 
@@ -51,8 +50,8 @@ end
 
 --- @brief
 function rt.Shader:recompile()
-    self._native = love.graphics.newShader(self.path_or_source)
-    _path_to_shader[self.hash] = self._native
+    self._native = love.graphics.newShader(self._path)
+    _path_to_shader[self._path] = self._native
 end
 
 --- @brief

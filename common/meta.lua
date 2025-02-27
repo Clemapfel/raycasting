@@ -563,4 +563,10 @@ function meta.make_immutable(t)
     return setmetatable({}, metatable), metatable
 end
 
+--- @brief
+function meta.get_instance_metatable(type)
+    meta.assert(type, "Type")
+    return _type_to_instance_metatable[type]
+end
+
 return meta

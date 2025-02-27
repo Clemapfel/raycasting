@@ -1,5 +1,26 @@
 io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
+-- splash screen
+
+do
+    local screen_w, screen_h = love.graphics.getWidth(), love.graphics.getHeight()
+    love.graphics.setColor(0, 0, 0, 1)
+    local label = "loading..."
+    local font = love.graphics.newFont(0.15 * love.graphics.getHeight())
+    local label_w, label_h = font:getWidth(label), font:getHeight(label)
+
+    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.rectangle("fill", 0, 0, screen_w, screen_h)
+
+    local value = 0.3
+    love.graphics.setColor(value, value, value, 1)
+    love.graphics.print(label, font,
+        math.floor(0.5 * screen_w - 0.5 * label_w),
+        math.floor(0.5 * screen_h - 0.5 * label_h)
+    )
+    love.graphics.present()
+end
+
 -- debugger
 
 _G.DEBUG = false
@@ -25,20 +46,22 @@ require "common.common"
 meta = require "common.meta"
 
 -- globals
+rt = {}
+mn = {}
 
-for name in range("rt", "mn") do
-    _G[name] = setmetatable({}, {
+for _, t in pairs({
+    {"_G", _G},
+    {"rt", rt},
+    {"mn", mn},
+    {"meta", meta}
+}) do
+    setmetatable(t, {
         __index = function(self, key)
-            error("In " .. name .. "." .. key .. ": trying to access `" .. key .. "`, but no such value exists in table " .. name .. "")
+            error("In _G." .. key .. ": trying to access `" .. key .. "`, but no such value exists in table _G")
         end
     })
 end
 
-setmetatable(_G, {
-    __index = function(self, key)
-        error("In _G." .. key .. ": trying to access `" .. key .. "`, but no such value exists in table _G")
-    end
-})
 
 require "common.log"
 

@@ -53,6 +53,11 @@ function rt.Widget:already_realized()
 end
 
 --- @brief
+function rt.Widget:get_is_realized()
+    return self._is_realized
+end
+
+--- @brief
 function rt.Widget:measure()
     return self._bounds.width, self._bounds.height
 end

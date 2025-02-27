@@ -19,8 +19,10 @@ end
 
 --- @brief
 function rt.Background:realize()
+    if self:already_realized() then return end
+
     self._shape = rt.MeshRectangle(0, 0, 1, 1)
-    self._shader = rt.Shader(self._shader_path)
+    self._shader = rt.Shader(self._path)
 
     if self._shader:has_uniform(_elapsed_name) then
         self._shader:send(_elapsed_name, 0)
@@ -35,8 +37,8 @@ end
 --- @brief
 function rt.Background:draw()
     self._shader:bind()
-    if self._shader:has_uniform("elapsed") then
-        self._shader:send("elased", self._elapsed)
+    if self._shader:has_uniform(_elapsed_name) then
+        self._shader:send(_elapsed_name, self._elapsed)
     end
     self._shape:draw()
     self._shader:unbind()
@@ -45,4 +47,17 @@ end
 --- @brief
 function rt.Background:update(delta)
     self._elapsed = self._elapsed + delta
+end
+
+--- @brief
+function rt.Background:recompile(reset_time)
+    self._shader:recompile()
+    if reset_time == true then
+        self._elapsed = 0
+    end
+end
+
+--- @brief
+function rt.Background:send(uniform_name, value)
+    self._shader:send(uniform_name, value)
 end

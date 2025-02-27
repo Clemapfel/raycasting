@@ -24,6 +24,7 @@ function rt.SceneManager:set_scene(scene_type, ...)
     local scene = self._scene_type_to_scene[scene_type]
     if scene == nil then
         scene = scene_type()
+        scene:realize()
         self._scene_type_to_scene[scene_type] = scene
 
         scene._scene_manager_current_size_x = 0
