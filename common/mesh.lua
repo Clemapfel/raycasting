@@ -1,9 +1,4 @@
---- @class rt.GraphicsBufferUsage
-rt.GraphicsBufferUsage = meta.enum("GraphicsBufferUsage", {
-    DYNAMIC = "dynamic",
-    STATIC = "static",
-    STREAM = "stream"
-})
+require "common.graphics_buffer_usage"
 
 --- @class rt.MeshDrawMode
 rt.MeshDrawMode = meta.enum("MeshDrawMode", {
@@ -109,7 +104,7 @@ rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertice
     )
     native:setVertexMap(map)
 
-    local out = setmetatable({}, meta.get_instance_metatable(b2.Shape))
+    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
     return meta.install(out, {
         _native = native,
         _r = 1,

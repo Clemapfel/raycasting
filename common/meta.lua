@@ -66,19 +66,16 @@ end
 
 --- @brief
 function meta.isa(x, type)
-    if x == nil and type ~= _native_type_to_type["nil"] then return false end
+    -- search super types
+    repeat
+        local metatable = getmetatable(x)
+        if metatable == nil or metatable.__index == nil then return false end
+        local super = metatable.__index
+        if super == type then return true end
+        type = super
+    until type == nil
 
-    local metatable = getmetatable(x)
-    if metatable == nil then
-        return _native_type_to_type[_G.type(x)] == type
-    end
-
-    local typename = metatable.__typename
-    if typename == nil then
-        return _native_type_to_type[_G.type(x)] == type
-    end
-
-    return typename == _type_to_typename[type]
+    return false
 end
 
 --- @brief
@@ -358,9 +355,10 @@ end
 --- @param typename String
 --- @param super meta.Type
 --- @return meta.Type
-function meta.class(typename, super)
+function meta.class(typename, super, instantiate_maybe)
     meta.assert(typename, "String")
     if super ~= nil then assert(meta.typeof(super) == "Type") end
+    if instantiate_maybe ~= nil then assert(meta.typeof(instantiate_maybe) == "function") end
 
     -- instance metatable
     local type = {}
@@ -423,6 +421,10 @@ function meta.class(typename, super)
     _type_to_instance_metatable[type] = instance_metatable
     _typename_to_type[typename] = type
     _type_to_typename[type] = typename
+
+    if instantiate_maybe ~= nil then
+        type.instantiate = instantiate_maybe
+    end
 
     return type
 end

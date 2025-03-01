@@ -138,15 +138,16 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
     uv.y *= love_ScreenSize.y / love_ScreenSize.x;
 
     float noise1 = (gradient_noise(vec3(6 * uv, elapsed)) + 1) / 2 * 1;
-    float noise1_step = 10;
-    uv.x += dFdx(noise1) * noise1_step;
-    uv.y += dFdy(noise1) * noise1_step;
-
-    float noise2 = (worley_noise(vec3(8 * uv, elapsed)) + 1) / 2;
+    float noise2 = (worley_noise(vec3(8 * uv, elapsed / 10)) + 1) / 2;
+    float noise_elapsed = ((sin(elapsed / 3 - PI) + 1) / 2);
+    float noise1_step = noise_elapsed * 10;
+    float noise2_step = noise_elapsed * 3;
+    uv.x += dFdx(noise1) * noise1_step + (noise2) * noise2_step;
+    uv.y += dFdy(noise1) * noise1_step + (noise2) * noise2_step;
 
     float speed = 1 / 10.0;
     uv.y -= elapsed * speed;
-    uv = rotate(uv, -PI / 10);
+    uv = rotate(uv, -PI / 2);
     uv.x -= elapsed * speed / 2;
     uv.y += ((sin(20 * uv.x) + 1) / 2) * (1 / 10.0);
     uv.y *= 30;

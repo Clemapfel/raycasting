@@ -1,5 +1,13 @@
 io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
+-- compat assertion
+do
+    local supported = love.graphics.getSupported()
+    if supported.glsl4 ~= true then
+        error("In include.lua: This machine does not have a graphics card or graphics card driver capable of glsl4, which many advanced graphical effects require. This game cannot run on this machine, we apologize for the inconvenience.")
+    end
+end
+
 -- splash screen
 
 do
@@ -48,11 +56,13 @@ meta = require "common.meta"
 -- globals
 rt = {}
 mn = {}
+ow = {}
 
 for _, t in pairs({
     {"_G", _G},
     {"rt", rt},
     {"mn", mn},
+    {"ow", ow},
     {"meta", meta}
 }) do
     setmetatable(t, {

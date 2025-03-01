@@ -5,6 +5,9 @@ rt._render_texture_dummy = love.graphics.newCanvas(1, 1)
 -- @class rt.RenderTexture
 --- @param width Number
 --- @param height Number
+--- @param msaa Number?
+--- @param format rt.TextureFormat?
+--- @param is_compue boolean?
 rt.RenderTexture = meta.class("RenderTexture", rt.Texture)
 
 --- @brief
