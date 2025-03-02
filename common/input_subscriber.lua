@@ -3,6 +3,11 @@ require "common.input_manager"
 --- @class InputCallbackID
 --- @brief list of available input event callbacks, see input_subscriber.lua on how to connect to these
 rt.InputCallbackID = meta.enum("InputCallbackID", {
+    -- input button pressed
+    INPUT_BUTTON_PRESSED = "pressed",
+
+    INPUT_BUTTON_RELEASED = "released",
+
     -- cursor moves while inside the windows bounds
     -- callback: (x, y, dx, dy) -> nil
     MOUSE_MOVED = "mouse_moved",

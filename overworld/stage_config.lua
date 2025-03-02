@@ -115,6 +115,31 @@ function ow.StageConfig:instantiate(stage_id)
             to_add.type = ow.LayerType.OBJECTS
             for object in values(ow._parse_object_group(layer_entry)) do
                 table.insert(to_add.objects, object)
+
+                if object.type == ow.ObjectType.SPRITE then
+                    local sprite = object
+
+                    -- if sprite, set texture
+                    local tile_entry = self._gid_to_tileset_id[sprite.gid]
+                    sprite.texture = tile_entry.tileset:get_texture()
+                    local tx, ty, tw, th = tile_entry.tileset:get_tile_texture_bounds(tile_entry.id)
+                    sprite.texture_x, sprite.texture_y, sprite.texture_width, sprite.texture_height = tx, ty, tw, th
+
+                    -- also collect objects of sprite tile, inherit sprite transform
+                    for sprite_object in values(tile_entry.tileset:get_tile_objects(tile_entry.id)) do
+                        sprite_object.offset_x = sprite.x
+                        sprite_object.offset_y = sprite.y
+                        sprite_object.rotation_origin_x = sprite.origin_x
+                        sprite_object.rotation_origin_y = sprite.origin_y
+                        sprite_object.flip_horizontally = sprite.flip_horizontally
+                        sprite_object.flip_vertically = sprite.flip_vertically
+                        sprite_object.flip_origin_x = sprite.flip_origin_x
+                        sprite_object.flip_origin_y = sprite.flip_origin_y
+                        sprite_object.rotation_offset = sprite.rotation
+
+                        table.insert(to_add.objects, sprite_object)
+                    end
+                end
             end
         elseif layer_type == "imagelayer" then
             -- noop
@@ -147,6 +172,8 @@ function ow.StageConfig:instantiate(stage_id)
 
                             -- collect per-tile objects
                             for object in values(tile_entry.tileset:get_tile_objects(tile_entry.id)) do
+                                object.offset_x = ((x - 1) + x_offset) * self._tile_width
+                                object.offset_y = ((y - 1) + y_offset) * self._tile_height
                                 table.insert(to_add.objects, object)
                             end
                         end
@@ -271,6 +298,16 @@ function ow.StageConfig:instantiate(stage_id)
                                 origin_x = x,
                                 origin_y = y,
                                 rotation = 0,
+                                offset_x = 0,
+                                offset_y = 0,
+                                rotation_offset = 0,
+                                rotation_origin_x = 0,
+                                rotation_origin_y = 0,
+                                flip_horizontally = false,
+                                flip_vertically = false,
+                                flip_origin_x = 0,
+                                flip_origin_y = 0,
+
                                 properties = {}
                             })
                         end

@@ -99,8 +99,8 @@ function ow.Tileset:instantiate(tileset_name)
             local to_remove = {}
             for object_i, object in ipairs(to_push.objects) do
                 if object.type == ow.ObjectType.RECTANGLE
-                    and object.width * object.height >= to_push.width * to_push.height
-                    and to_push.properties[is_solid_property_name] == nil
+                    and object.width * object.height >= to_push.width * to_push.height - 1
+                    and object.properties[is_solid_property_name] == nil
                 then
                     to_push.properties[is_solid_property_name] = true
                     table.insert(to_remove, object_i)
@@ -234,7 +234,11 @@ function ow.Tileset:get_tile_objects(id)
         return nil
     end
 
-    return { table.unpack(tile.objects) }
+    local out = {}
+    for object in values(tile.objects) do
+        table.insert(out, table.deepcopy(object))
+    end
+    return out
 end
 
 --- @brief

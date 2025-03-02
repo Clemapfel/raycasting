@@ -6,7 +6,7 @@
  <tileset firstgid="1" source="../tilesets/debug_tileset.tsx"/>
  <tileset firstgid="69" source="../tilesets/debug_tileset_objects.tsx"/>
  <imagelayer id="8" name="Image Layer 1" offsetx="959.49" offsety="72.4053" repeatx="1" repeaty="1">
-  <image source="../sprites/why_scaled.png" width="480" height="480"/>
+  <image source="../sprites/why_scaled.png"/>
  </imagelayer>
  <layer id="4" name="Ground" width="57" height="37">
   <data encoding="csv">
@@ -32,7 +32,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 67,68,67,68,67,68,67,68,67,68,67,68,0,0,0,0,
 68,67,68,67,68,67,68,67,68,67,68,67,0,0,0,0,
-67,68,67,68,67,68,67,68,0,68,67,68,67,68,67,68,
+67,68,67,68,67,68,67,68,67,68,67,68,67,68,67,68,
 68,67,68,67,68,67,68,67,68,67,68,67,68,67,68,67,
 67,68,67,68,67,68,67,68,67,68,67,68,67,68,67,68,
 68,67,68,67,68,67,68,67,68,67,68,67,68,67,68,67,
@@ -305,7 +305,7 @@
   </data>
  </layer>
  <objectgroup id="3" name="Objects">
-  <object id="14" gid="73" x="1497.78" y="226.1" width="222" height="167"/>
+  <object id="14" gid="73" x="1563.11" y="205.433" width="222" height="167" rotation="-23"/>
   <object id="15" gid="1073741897" x="1541.94" y="264.286" width="222" height="167"/>
   <object id="16" gid="1073741896" x="1657.06" y="562.525" width="100" height="109"/>
   <object id="17" gid="72" x="1654.16" y="439.995" width="100" height="109"/>

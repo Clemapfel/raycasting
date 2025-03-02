@@ -168,7 +168,18 @@ function ow._parse_object_group(object_group)
         local wrapper = {
             class = _get(object, "type"),
             type = nil,
-            properties = {}
+
+            offset_x = 0, -- transform properties
+            offset_y = 0,
+            rotation_offset = 0,
+            rotation_origin_x = 0,
+            rotation_origin_y = 0,
+            flip_horizontally = false,
+            flip_vertically = false,
+            flip_origin_x = 0,
+            flip_origin_y = 0,
+
+            properties = {},
         }
 
         for key, value in values(_get(object, "properties")) do
@@ -201,7 +212,13 @@ function ow._parse_object_group(object_group)
                 origin_x = x, -- bottom left
                 origin_y = y,
                 flip_origin_x = 0.5 * width,
-                flip_origin_y = 0.5 * height
+                flip_origin_y = 0.5 * height,
+
+                texture_x = 0, -- set in stage_config once tileset is initialized
+                texture_y = 0,
+                texture_width = 1,
+                texutre_height = 1,
+                texture = nil
             })
         else
             local shape_type = _get(object, "shape")
@@ -288,9 +305,28 @@ function ow._draw_object(object)
     local fill_a, line_a = 0.2, 0.8
 
     love.graphics.push()
+
     love.graphics.translate(object.origin_x, object.origin_y)
     love.graphics.rotate(object.rotation)
     love.graphics.translate(-object.origin_x, -object.origin_y)
+
+    love.graphics.translate(object.offset_x, object.offset_y)
+
+    if object.type ~= ow.ObjectType.SPRITE then
+        if object.flip_horizontally or object.flip_vertically then
+            love.graphics.translate(object.flip_origin_x, object.flip_origin_y)
+            love.graphics.scale(
+                object.flip_horizontally and -1 or 1,
+                object.flip_vertically and -1 or 1
+            )
+            love.graphics.translate(-object.flip_origin_x, -object.flip_origin_y)
+        end
+    end
+
+    love.graphics.translate(object.rotation_origin_x, object.rotation_origin_y)
+    love.graphics.rotate(object.rotation_offset)
+    love.graphics.translate(-object.rotation_origin_x, -object.rotation_origin_y)
+
     if object.type == ow.ObjectType.POINT then
         love.graphics.setColor(r, g, b, line_a)
         love.graphics.points(object.x, object.y)
