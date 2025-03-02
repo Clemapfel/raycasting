@@ -14,7 +14,7 @@ uniform float line_length;
 #define MODE_DRAW_CIRCLE 1
 
 #ifndef MODE
-#error "MODE"
+#error "MODE should be 0 or 1"
 #endif
 
 #define PI 3.1415926535897932384626433832795
@@ -40,6 +40,8 @@ vec4 position(mat4 transform, vec4 vertex_position)
 
     #if MODE == MODE_DRAW_LINE
 
+    // rotate and scale line in direction of gradient
+
     vec2 origin = position;
     vec2 destination = position + translation;
     vec2 direction = normalize(destination - origin);
@@ -55,6 +57,8 @@ vec4 position(mat4 transform, vec4 vertex_position)
     vertex_position.xy = offsets[gl_VertexID];
 
     #elif MODE == MODE_DRAW_CIRCLE
+
+    // draw circle on top
 
     vertex_position.xy += position + translation;
 
@@ -99,7 +103,8 @@ varying float angle;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position)
 {
-    float min_magnitude = 0.6;
-    return vec4(lch_to_rgb(vec3(0.8, min_magnitude + (1 - min_magnitude) * magnitude, angle)), 1);
+    float min_magnitude = 0.3;
+    return vec4(lch_to_rgb(vec3(0.8, 1, min_magnitude + (1 - min_magnitude) * magnitude)), 1);
 }
+
 #endif

@@ -51,7 +51,7 @@ float worley_noise(vec3 p) {
 #define MODE_UPDATE_DERIVATIVE 1
 
 #ifndef MODE
-#error "MODE"
+#error "MODE should be 0 or 1"
 #endif
 
 #if MODE == MODE_UPDATE_NOISE
@@ -72,19 +72,24 @@ void computemain() {
 
     #if MODE == MODE_UPDATE_NOISE
 
+    // continuous noise
     vec2 size = imageSize(noise_texture);
-    float worley_scale = 1 / 100.0;
-    float gradient_scale = 1 / 10.;
+    float worley_scale = 1 / 10.0;
+    float gradient_scale = 1 / 9.;
 
     vec2 position_offset = vec2(
         worley_noise(vec3(position / size * worley_scale, elapsed)),
         worley_noise(vec3(position / size * worley_scale, -1 * elapsed))
     );
-    float value = 10 * position_offset.x * position_offset.y * (gradient_noise(vec3(vec2(position) * gradient_scale, elapsed)) + 1) / 2;
+    float value = 2 * (gradient_noise(vec3(vec2(position + 20 * elapsed) * gradient_scale, elapsed)) + 1) / 2;
 
+
+    // store in noise texture
     imageStore(noise_texture, position, vec4(value, 0, 0, 0.5));
 
     #elif MODE == MODE_UPDATE_DERIVATIVE
+
+    // compute gradient of vector field, quantized to texture
 
     const mat3 sobel_x = mat3(
         -1.0,  0.0,  1.0,
@@ -114,8 +119,8 @@ void computemain() {
             x_gradient += value * sobel_x[j + 1][i + 1];
             y_gradient += value * sobel_y[j + 1][i + 1];
 
-            if (i == 0 && j == 0) // skips one texture read after loop
-            noise_value = value;
+            if (i == 0 && j == 0) // saves one texture read after loop
+                noise_value = value;
         }
     }
 

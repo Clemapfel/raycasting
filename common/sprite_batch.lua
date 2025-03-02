@@ -23,7 +23,7 @@ function rt.SpriteBatch:instantiate(texture)
     })
 end
 
-function ow.SpriteBatch._params_to_data(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
+function rt.SpriteBatch._params_to_data(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
     local flip_v, flip_h
     if flip_horizontally == true then flip_h = 1 else flip_h = 0 end
     if flip_vertically == true then flip_v = 1 else flip_v = 0 end
@@ -48,7 +48,7 @@ end
 --- @brief
 --- @param rotation radians rotates bottom left corner
 --- @return
-function ow.SpriteBatch:add(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
+function rt.SpriteBatch:add(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
     if flip_horizontally == nil then flip_horizontally = false end
     if flip_vertically == nil then flip_vertically = false end
     if angle == nil then angle = 0 end
@@ -82,7 +82,7 @@ function ow.SpriteBatch:add(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_
 end
 
 --- @brief
-function ow.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
+function rt.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
     if flip_horizontally == nil then flip_horizontally = false end
     if flip_vertically == nil then flip_vertically = false end
     if angle == nil then angle = 0 end
@@ -102,7 +102,7 @@ function ow.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, fl
     )
 
     if i > self._current_i then
-        rt.error("In ow.SpriteBatch.set: index `" .. i .. "` is out of bounds for a batch with `" .. self._current_i .. "` sprites")
+        rt.error("In rt.SpriteBatch.set: index `" .. i .. "` is out of bounds for a batch with `" .. self._current_i .. "` sprites")
         return
     end
 
@@ -119,7 +119,7 @@ function ow.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, fl
 end
 
 --- @brief
-function ow.SpriteBatch:_upload()
+function rt.SpriteBatch:_upload()
     if self._buffer == nil then
         self._buffer_format = self._draw_shader:get_buffer_format("SpriteBuffer")
         self._buffer = rt.GraphicsBuffer(self._buffer_format, self._current_i)
@@ -142,7 +142,7 @@ function ow.SpriteBatch:_upload()
 end
 
 --- @brief
-function ow.SpriteBatch:draw()
+function rt.SpriteBatch:draw()
     if self._needs_update then
         self:_upload()
         self._needs_update = false
