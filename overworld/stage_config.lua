@@ -114,6 +114,7 @@ function ow.StageConfig:instantiate(stage_id)
         if layer_type == "objectgroup" then
             to_add.type = ow.LayerType.OBJECTS
             for object in values(ow._parse_object_group(layer_entry)) do
+                assert(meta.typeof(object) == "ObjectWrapper")
                 table.insert(to_add.objects, object)
 
                 if object.type == ow.ObjectType.SPRITE then
@@ -304,18 +305,14 @@ end
 
 --- @brief
 function ow.StageConfig:draw()
-    for layer in values(self._layer_i_to_layer) do
-        love.graphics.push()
-        love.graphics.translate(layer.x_offset, layer.y_offset)
-        for spritebatch in values(layer.spritebatches) do
-            spritebatch:draw()
+    for i = 1, self._n_layers do
+        for batch in values(self:get_layer_sprite_batches(i)) do
+            batch:draw()
         end
 
-        for object in values(layer.objects) do
+        for object in values(self:get_layer_object_wrappers(i)) do
             ow._draw_object(object)
         end
-
-        love.graphics.pop()
     end
 end
 

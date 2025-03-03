@@ -3,14 +3,11 @@ require "include"
 local SceneManager = require "common.scene_manager"
 require "menu.main_menu_scene"
 
-require "overworld.tileset"
-local tileset = ow.Tileset("debug_tileset_objects")
-
-require "overworld.stage_config"
-local stage_config = ow.StageConfig("debug_stage")
-
 require "overworld.camera"
 local camera = ow.Camera()
+
+require "overworld.stage"
+local stage = ow.Stage("debug_stage")
 
 love.load = function()
     SceneManager:set_scene(mn.MainMenuScene)
@@ -26,7 +23,8 @@ love.draw = function()
     --SceneManager:draw()
 
     camera:bind()
-    stage_config:draw()
+    --stage:draw()
+    stage._config:draw()
     camera:unbind()
 end
 

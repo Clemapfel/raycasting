@@ -234,11 +234,7 @@ function ow.Tileset:get_tile_objects(id)
         return nil
     end
 
-    local out = {}
-    for object in values(tile.objects) do
-        table.insert(out, table.deepcopy(object))
-    end
-    return out
+    return { table.unpack(tile.objects) }
 end
 
 --- @brief

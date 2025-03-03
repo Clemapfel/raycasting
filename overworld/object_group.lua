@@ -299,6 +299,8 @@ function ow._parse_object_group(object_group)
                 flip_horizontally, flip_vertically, -- flip
                 0.5 * width, 0.5 * height -- flip origin
             )
+
+            if wrapper.class == nil then wrapper.class = "Sprite" end
         else
             local shape_type = _get(object, "shape")
             if shape_type == "rectangle" then
@@ -356,6 +358,8 @@ function ow._parse_object_group(object_group)
 
                 if object.rotation ~= nil then assert(object.rotation == 0) end
             end
+
+            if wrapper.class == nil then wrapper.class = "Hitbox" end
         end
 
         table.insert(objects, wrapper)

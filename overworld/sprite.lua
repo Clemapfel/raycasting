@@ -24,7 +24,7 @@ function ow.Sprite:instantiate(wrapper)
         },
         rt.MeshDrawMode.TRIANGLE_FAN
     )
-    self._mesh:setTexture(wrapper.texture)
+    self._mesh:setTexture(wrapper.texture._native)
 
     for which in range(
         "x", "y",
@@ -35,14 +35,18 @@ function ow.Sprite:instantiate(wrapper)
         "rotation_offset",
         "rotation_origin_x", "rotation_origin_y"
     ) do
-        self["_" .. which] = wrapper.which
+        self["_" .. which] = wrapper[which]
     end
 end
 
 --- @brief
 function ow.Sprite:draw()
     love.graphics.push()
-    
+
+    love.graphics.translate(self._origin_x, self._origin_y)
+    love.graphics.rotate(self._rotation)
+    love.graphics.translate(-self._origin_x, -self._origin_y)
+
     love.graphics.translate(self._x, self._y)
 
     love.graphics.translate(self._rotation_origin_x, self._rotation_origin_y)
@@ -60,10 +64,7 @@ function ow.Sprite:draw()
         love.graphics.translate(-self._flip_origin_x, -self._flip_origin_y)
     end
 
-    love.graphics.translate(self._origin_x, self._origin_y)
-    love.graphics.rotate(self._rotation)
-    love.graphics.translate(-self._origin_x, -self._origin_y)
-    
+    love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(self._mesh)
     
     love.graphics.pop()

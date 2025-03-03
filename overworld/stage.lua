@@ -1,7 +1,7 @@
 require "overworld.stage_config"
 require "overworld.object_group"
 require "overworld.hitbox"
-require "overword.sprite"
+require "overworld.sprite"
 
 --- @class ow.Stage
 ow.Stage = meta.class("Stage", rt.Drawable)
@@ -9,7 +9,7 @@ ow.Stage = meta.class("Stage", rt.Drawable)
 local _stage_config_atlas = {}
 
 --- @brief
-function ow.Stage:instantiated(id)
+function ow.Stage:instantiate(id)
     local config = _stage_config_atlas[id]
     if config == nil then
         config = ow.StageConfig(id)
@@ -71,6 +71,10 @@ end
 --- @brief
 function ow.Stage:draw()
     for f in values(self._to_draw) do
-        f()
+        --f()
+    end
+
+    for h in values(self._hitboxes) do
+        h:draw()
     end
 end
