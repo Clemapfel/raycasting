@@ -7,11 +7,117 @@ ow.ObjectType = meta.enum("ObjectType", {
     POINT = "point"
 })
 
+--- @class ow.ObjectWrapper
+ow.ObjectWrapper = meta.class("ObjectWrapper")
+
+--- @brief
+function ow.ObjectWrapper:instantiate(type)
+    local class = nil
+    if type ~= "" then class = type end
+    meta.install(self, {
+        class = class,
+        type = nil,
+
+        origin_x = 0,
+        origin_y = 0,
+        rotation = 0,
+
+        offset_x = 0, -- transform properties inherited from sprite
+        offset_y = 0,
+
+        flip_horizontally = false,
+        flip_vertically = false,
+        flip_origin_x = 0,
+        flip_origin_y = 0,
+
+        rotation_offset = 0,
+        rotation_origin_x = 0,
+        rotation_origin_y = 0,
+
+        properties = {},
+    })
+end
+
+--- @brief
+function ow.ObjectWrapper:as_sprite(gid, x, y, width, height, origin_x, origin_y, flip_horizontally, flip_vertically, flip_origin_x, flip_origin_y)
+    self.type = ow.ObjectType.SPRITE
+    return meta.install(self, {
+        gid = gid,
+        x = x,
+        y = y,
+        width = width,
+        height = height,
+        origin_x = origin_x,
+        origin_y = origin_y,
+
+        flip_horizontally = flip_horizontally,
+        flip_vertically = flip_vertically,
+        flip_origin_x = flip_origin_x,
+        flip_origin_y = flip_origin_y,
+
+        texture_x = 0, -- set in stage_config once tileset is initialized
+        texture_y = 0,
+        texture_width = 1,
+        texutre_height = 1,
+        texture = nil
+    })
+end
+
+--- @brief
+function ow.ObjectWrapper:as_rectangle(x, y, width, height, origin_x, origin_y)
+    self.type = ow.ObjectType.RECTANGLE
+    return meta.install(self, {
+        x = x,
+        y = y,
+        width = width,
+        height = height,
+        origin_x = origin_x,
+        origin_y = origin_y,
+    })
+end
+
+--- @brief
+function ow.ObjectWrapper:as_ellipse(x, y, center_x, center_y, x_radius, y_radius, origin_x, origin_y)
+    self.type = ow.ObjectType.ELLIPSE
+    return meta.install(self, {
+        x = x,
+        y = y,
+        center_x = center_x,
+        center_y = center_y,
+        x_radius = x_radius,
+        y_radius = y_radius,
+        origin_x = origin_x,
+        origin_y = origin_y
+    })
+end
+
+--- @brief
+function ow.ObjectWrapper:as_polygon(vertices, shapes, origin_x, origin_y)
+    self.type = ow.ObjectType.POLYGON
+    return meta.install(self, {
+        vertices = vertices,
+        shapes = shapes,
+        origin_x = origin_x,
+        origin_y = origin_y
+    })
+end
+
+--- @brief
+function ow.ObjectWrapper:as_point(x, y, origin_x, origin_y)
+    self.type = ow.ObjectType.POINT
+    return meta.install(self, {
+        x = x,
+        y = y,
+        origin_x = origin_x,
+        origin_y = origin_y
+    })
+end
+
 -- safe table access
 local _get = function(t, name)
     local out = t[name]
     if out == nil then
-        rt.error("In ow._parse_object_group: trying to access property `" .. name .. "` of tileset at `" .. path .. "`, but it does not exist")
+        rt.error("In ow._parse_object_group: trying to access property `" .. name .. "` but it does not exist")
     end
     return out
 end
@@ -165,22 +271,7 @@ function ow._parse_object_group(object_group)
     local group_visible = _get(object_group, "visible")
 
     for object in values(object_group.objects) do
-        local wrapper = {
-            class = _get(object, "type"),
-            type = nil,
-
-            offset_x = 0, -- transform properties
-            offset_y = 0,
-            rotation_offset = 0,
-            rotation_origin_x = 0,
-            rotation_origin_y = 0,
-            flip_horizontally = false,
-            flip_vertically = false,
-            flip_origin_x = 0,
-            flip_origin_y = 0,
-
-            properties = {},
-        }
+        local wrapper = ow.ObjectWrapper(_get(object, "type"))
 
         for key, value in values(_get(object, "properties")) do
             if meta.is_table(value) then -- object property
@@ -199,42 +290,26 @@ function ow._parse_object_group(object_group)
             local x, y = _get(object, "x"), _get(object, "y")
             local width, height = _get(object, "width"), _get(object, "height")
 
-            -- TYPE: sprite
-            wrapper.type = ow.ObjectType.SPRITE
-            meta.install(wrapper, {
-                gid = true_gid,
-                x = x + group_offset_x,
-                y = y - height + group_offset_y, -- tiled uses bottom left
-                width = width,
-                height = height,
-                flip_vertically = flip_vertically,
-                flip_horizontally = flip_horizontally,
-                origin_x = x, -- bottom left
-                origin_y = y,
-                flip_origin_x = 0.5 * width,
-                flip_origin_y = 0.5 * height,
-
-                texture_x = 0, -- set in stage_config once tileset is initialized
-                texture_y = 0,
-                texture_width = 1,
-                texutre_height = 1,
-                texture = nil
-            })
+            wrapper:as_sprite(
+                true_gid,
+                x + group_offset_x,
+                y - height + group_offset_y, -- position
+                width, height, -- size
+                x, y, -- origin
+                flip_horizontally, flip_vertically, -- flip
+                0.5 * width, 0.5 * height -- flip origin
+            )
         else
             local shape_type = _get(object, "shape")
             if shape_type == "rectangle" then
                 local x, y = _get(object, "x"), _get(object, "y")
+                local width, height = _get(object, "width"), _get(object, "height")
 
-                -- TYPE: rectangle
-                wrapper.type = ow.ObjectType.RECTANGLE
-                meta.install(wrapper, {
-                    x = x + group_offset_y, -- top left
-                    y = y + group_offset_y,
-                    width = _get(object, "width"),
-                    height = _get(object, "height"),
-                    origin_x = x,
-                    origin_y = y
-                })
+                wrapper:as_rectangle(
+                    x + group_offset_x, y + group_offset_y, -- top left
+                    width, height, -- size
+                    x, y -- origin
+                )
 
             elseif shape_type == "ellipse" then
                 local x = _get(object, "x") + group_offset_x
@@ -242,18 +317,16 @@ function ow._parse_object_group(object_group)
                 local width = _get(object, "width")
                 local height = _get(object, "height")
 
-                -- TYPE: circle / ellipse
-                wrapper.type = ow.ObjectType.ELLIPSE
-                meta.install(wrapper, {
-                    x = x, -- top left
-                    y = y,
-                    center_x = x + 0.5 * width,
-                    center_y = y + 0.5 * height,
-                    x_radius = 0.5 * width,
-                    y_radius = 0.5 * height,
-                    origin_x = x,
-                    origin_y = y
-                })
+                wrapper:as_ellipse(
+                    x, -- top left
+                    y,
+                    x + 0.5 * width,    -- center
+                    y + 0.5 * height,
+                    0.5 * width, -- radii
+                    0.5 * height,
+                    x, -- origin
+                    y
+                )
 
             elseif shape_type == "polygon" then
                 local vertices = {}
@@ -264,26 +337,22 @@ function ow._parse_object_group(object_group)
                     table.insert(vertices, y + offset_y + group_offset_y)
                 end
 
-                -- TYPE: polygon
-                wrapper.type = ow.ObjectType.POLYGON
-                meta.install(wrapper, {
-                    vertices = vertices,
-                    shapes = _decompose_polygon(vertices),
-                    origin_x = offset_x,
-                    origin_y = offset_y
-                })
+                wrapper:as_polygon(
+                    vertices,
+                    _decompose_polygon(vertices),
+                    offset_x,
+                    offset_y
+                )
 
             elseif shape_type == "point" then
                 local x, y = _get(object, "x"),  _get(object, "y")
 
-                -- TYPE: point
-                wrapper.type = ow.ObjectType.POINT
-                meta.install(wrapper, {
-                    x = x + group_offset_x,
-                    y = y + group_offset_y,
-                    origin_x = x,
-                    origin_y = y
-                })
+                wrapper:as_point(
+                    x + group_offset_x,
+                    y + group_offset_y,
+                    x,
+                    y
+                )
 
                 if object.rotation ~= nil then assert(object.rotation == 0) end
             end
@@ -306,26 +375,28 @@ function ow._draw_object(object)
 
     love.graphics.push()
 
-    love.graphics.translate(object.origin_x, object.origin_y)
-    love.graphics.rotate(object.rotation)
-    love.graphics.translate(-object.origin_x, -object.origin_y)
-
-    love.graphics.translate(object.offset_x, object.offset_y)
-
-    if object.type ~= ow.ObjectType.SPRITE then
-        if object.flip_horizontally or object.flip_vertically then
-            love.graphics.translate(object.flip_origin_x, object.flip_origin_y)
-            love.graphics.scale(
-                object.flip_horizontally and -1 or 1,
-                object.flip_vertically and -1 or 1
-            )
-            love.graphics.translate(-object.flip_origin_x, -object.flip_origin_y)
-        end
-    end
-
+    -- sprite inherited offsets
     love.graphics.translate(object.rotation_origin_x, object.rotation_origin_y)
     love.graphics.rotate(object.rotation_offset)
     love.graphics.translate(-object.rotation_origin_x, -object.rotation_origin_y)
+
+    -- sprite position
+    love.graphics.translate(object.offset_x, object.offset_y)
+
+    -- flip
+    if object.type ~= ow.ObjectType.SPRITE and (object.flip_horizontally or object.flip_vertically) then
+        love.graphics.translate(object.flip_origin_x, object.flip_origin_y)
+        love.graphics.scale(
+            object.flip_horizontally and -1 or 1,
+            object.flip_vertically and -1 or 1
+        )
+        love.graphics.translate(-object.flip_origin_x, -object.flip_origin_y)
+    end
+
+    -- object rotation
+    love.graphics.translate(object.origin_x, object.origin_y)
+    love.graphics.rotate(object.rotation)
+    love.graphics.translate(-object.origin_x, -object.origin_y)
 
     if object.type == ow.ObjectType.POINT then
         love.graphics.setColor(r, g, b, line_a)
@@ -355,5 +426,6 @@ function ow._draw_object(object)
     else
         rt.error("In ow.Tileset._debug_draw: unhandled shape type `" .. object.type .. "`")
     end
+
     love.graphics.pop()
 end

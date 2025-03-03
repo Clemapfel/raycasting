@@ -287,29 +287,8 @@ function ow.StageConfig:instantiate(stage_id)
                             w = w * self._tile_width
                             h = h * self._tile_height
 
-                            -- emulates ow._parse_object_group
-                            table.insert(to_add.objects, {
-                                class = "Hitbox",
-                                type = ow.ObjectType.RECTANGLE,
-                                x = x,
-                                y = y,
-                                width = w,
-                                height = h,
-                                origin_x = x,
-                                origin_y = y,
-                                rotation = 0,
-                                offset_x = 0,
-                                offset_y = 0,
-                                rotation_offset = 0,
-                                rotation_origin_x = 0,
-                                rotation_origin_y = 0,
-                                flip_horizontally = false,
-                                flip_vertically = false,
-                                flip_origin_x = 0,
-                                flip_origin_y = 0,
-
-                                properties = {}
-                            })
+                            local wrapper = ow.ObjectWrapper("Hitbox"):as_rectangle(x, y, w, h)
+                            table.insert(to_add.objects, wrapper)
                         end
                     end
                 end
@@ -319,6 +298,8 @@ function ow.StageConfig:instantiate(stage_id)
         layer_i = layer_i + 1
         n_layers = n_layers + 1
     end
+
+    self._n_layers = n_layers
 end
 
 --- @brief
@@ -338,4 +319,27 @@ function ow.StageConfig:draw()
     end
 end
 
+--- @brief
+function ow.StageConfig:get_n_layers()
+    return self._n_layers
+end
 
+--- @brief
+function ow.StageConfig:get_layer_sprite_batches(layer_i)
+    local layer = self._layer_i_to_layer[layer_i]
+    if layer == nil then
+        rt.error("In ow.StageConfig.get_layer_sprite_batches: no layer with id `" .. tostring(layer_i) .. "`")
+    end
+
+    return { table.unpack(layer.spritebatches) }
+end
+
+--- @brief
+function ow.StageConfig:get_layer_object_wrappers(layer_i)
+    local layer = self._layer_i_to_layer[layer_i]
+    if layer == nil then
+        rt.error("In ow.StageConfig.get_layeget_layer_object_wrappersr_sprite_batches: no layer with id `" .. tostring(layer_i) .. "`")
+    end
+
+    return { table.unpack(layer.objects) }
+end
