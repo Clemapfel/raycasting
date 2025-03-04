@@ -23,8 +23,8 @@ love.draw = function()
     --SceneManager:draw()
 
     camera:bind()
-    --stage:draw()
-    stage._config:draw()
+    stage:draw()
+    --stage._config:draw()
     camera:unbind()
 end
 

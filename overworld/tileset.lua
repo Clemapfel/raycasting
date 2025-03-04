@@ -1,6 +1,6 @@
 require "common.render_texture"
 require "common.drawable"
-require "overworld.object_group"
+require "overworld.object_wrapper"
 
 rt.settings.overworld.tileset = {
     config_path = "assets/tilesets",
@@ -234,7 +234,11 @@ function ow.Tileset:get_tile_objects(id)
         return nil
     end
 
-    return { table.unpack(tile.objects) }
+    local out = {}
+    for object in values(tile.objects) do
+        table.insert(out, object:clone())
+    end
+    return out
 end
 
 --- @brief

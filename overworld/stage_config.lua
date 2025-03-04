@@ -1,6 +1,6 @@
 require "common.matrix"
 require "common.sprite_batch"
-require "overworld.object_group"
+require "overworld.object_wrapper"
 require "overworld.tileset"
 
 rt.settings.overworld.stage_config = {

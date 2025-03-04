@@ -39,6 +39,15 @@ function ow.ObjectWrapper:instantiate(type)
 end
 
 --- @brief
+function ow.ObjectWrapper:clone()
+    local out = ow.ObjectWrapper()
+    for k, v in pairs(self) do
+        out[k] = v
+    end
+    return out
+end
+
+--- @brief
 function ow.ObjectWrapper:as_sprite(gid, x, y, width, height, origin_x, origin_y, flip_horizontally, flip_vertically, flip_origin_x, flip_origin_y)
     self.type = ow.ObjectType.SPRITE
     return meta.install(self, {
@@ -379,15 +388,12 @@ function ow._draw_object(object)
 
     love.graphics.push()
 
-    -- sprite inherited offsets
     love.graphics.translate(object.rotation_origin_x, object.rotation_origin_y)
     love.graphics.rotate(object.rotation_offset)
     love.graphics.translate(-object.rotation_origin_x, -object.rotation_origin_y)
 
-    -- sprite position
     love.graphics.translate(object.offset_x, object.offset_y)
 
-    -- flip
     if object.type ~= ow.ObjectType.SPRITE and (object.flip_horizontally or object.flip_vertically) then
         love.graphics.translate(object.flip_origin_x, object.flip_origin_y)
         love.graphics.scale(
@@ -397,7 +403,6 @@ function ow._draw_object(object)
         love.graphics.translate(-object.flip_origin_x, -object.flip_origin_y)
     end
 
-    -- object rotation
     love.graphics.translate(object.origin_x, object.origin_y)
     love.graphics.rotate(object.rotation)
     love.graphics.translate(-object.origin_x, -object.origin_y)

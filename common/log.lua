@@ -4,7 +4,7 @@ log._message_hook = function(message)
     return true
 end
 
-local _prefix_label = "[rc]"
+local _prefix_label = "[rt]"
 local _prefix_format = {
     bold = false,
     italic = false

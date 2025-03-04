@@ -1,4 +1,5 @@
-require "overworld.object_group"
+require "common.blend_mode"
+require "overworld.object_wrapper"
 
 --- @class ow.Hitbox
 ow.Hitbox = meta.class("OverworldHitbox", rt.Drawable) -- TODO: not drawable
@@ -8,39 +9,34 @@ ow.PhysicsShapeType = meta.enum("PhysicsShapeType", {
     POLYGON = "polygon"
 })
 
-local function _process_polygon(vertices,
-    angle,
-    origin_x, origin_y,
-    offset_x, offset_y,
-    flip_horizontally, flip_vertically, flip_origin_x, flip_origin_y,
-    rotation_offset, rotation_origin_x, rotation_origin_y
-)
-    local function rotate(x, y, origin_x, origin_y, angle)
-        local cos_angle = math.cos(angle)
-        local sin_angle = math.sin(angle)
-        x = x - origin_x
-        y = y - origin_y
-        local new_x = x * cos_angle - y * sin_angle
-        local new_y = x * sin_angle + y * cos_angle
+local function _process_polygon(vertices, object)
 
-        return new_x + origin_x, new_y + origin_y
+    local function rotate_point(x, y, angle)
+        local cos_theta = math.cos(angle)
+        local sin_theta = math.sin(angle)
+        return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
     end
 
     local out = {}
     for i = 1, #vertices, 2 do
         local x, y = vertices[i], vertices[i + 1]
 
-        if flip_horizontally == true then
-            x = flip_origin_x - x
-        end
-        if flip_vertically == true then
-            y = flip_origin_y - y
+        x, y = x - object.origin_x, y - object.origin_y
+        x, y = rotate_point(x, y, object.rotation)
+        x, y = x + object.origin_x, y + object.origin_y
+
+        if object.flip_horizontally or object.flip_vertically then
+            x, y = x - object.flip_origin_x, y - object.flip_origin_y
+            x = object.flip_horizontally and -x or x
+            y = object.flip_vertically and -y or y
+            x, y = x + object.flip_origin_x, y + object.flip_origin_y
         end
 
-        x, y = rotate(x, y, origin_x, origin_y, angle)
+        x, y = x + object.offset_x, y + object.offset_y
 
-        x = x + offset_x
-        y = y + offset_y
+        x, y = x - object.rotation_origin_x, y - object.rotation_origin_y
+        x, y = rotate_point(x, y, object.rotation_offset)
+        x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
 
         table.insert(out, x)
         table.insert(out, y)
@@ -49,17 +45,12 @@ local function _process_polygon(vertices,
     return out
 end
 
-local seen = {}
-
-
 --- @brief
 function ow.Hitbox:instantiate(...)
     self._shapes = {}
     for i = 1, select("#", ...) do
         local object = select(i, ...)
         meta.assert_typeof(object, "ObjectWrapper", i)
-        --assert(seen[meta.hash(object)] == nil)
-        seen[meta.hash(object)] = true
 
         if object.type == ow.ObjectType.RECTANGLE then
             local x, y = object.x, object.y
@@ -73,42 +64,17 @@ function ow.Hitbox:instantiate(...)
                     x + w, y + h,
                     x, y + h
                 },
-                    object.rotation,
-                    object.origin_x,
-                    object.origin_y,
-                    object.offset_x,
-                    object.offset_y,
-                    object.flip_horizontally,
-                    object.flip_vertically,
-                    object.flip_origin_x,
-                    object.flip_origin_y,
-                    object.rotation_offset,
-                    object.rotation_origin_x,
-                    object.rotation_origin_y
+                    object
                 );
             })
         elseif object.type == ow.ObjectType.ELLIPSE then
             local is_circle = math.abs(object.x_radius - object.y_radius) < 1
             if is_circle then
-                local vertices = {
+                local vertices = _process_polygon({
                     object.center_x,
                     object.center_y
-                }
-
-                vertices = _process_polygon(
-                    vertices,
-                    object.rotation,
-                    object.origin_x,
-                    object.origin_y,
-                    object.offset_x,
-                    object.offset_y,
-                    object.flip_horizontally,
-                    object.flip_vertically,
-                    object.flip_origin_x,
-                    object.flip_origin_y,
-                    object.rotation_offset,
-                    object.rotation_origin_x,
-                    object.rotation_origin_y
+                },
+                    object
                 )
 
                 table.insert(self._shapes, {
@@ -146,18 +112,7 @@ function ow.Hitbox:instantiate(...)
                         type = ow.PhysicsShapeType.POLYGON,
                         vertices = _process_polygon(
                             vertices,
-                            object.rotation,
-                            object.origin_x,
-                            object.origin_y,
-                            object.offset_x,
-                            object.offset_y,
-                            object.flip_horizontally,
-                            object.flip_vertically,
-                            object.flip_origin_x,
-                            object.flip_origin_y,
-                            object.rotation_offset,
-                            object.rotation_origin_x,
-                            object.rotation_origin_y
+                            object
                         )
                     })
                 end
@@ -168,18 +123,7 @@ function ow.Hitbox:instantiate(...)
                     type = ow.PhysicsShapeType.POLYGON,
                     vertices = _process_polygon(
                         vertices,
-                        object.rotation,
-                        object.origin_x,
-                        object.origin_y,
-                        object.offset_x,
-                        object.offset_y,
-                        object.flip_horizontally,
-                        object.flip_vertically,
-                        object.flip_origin_x,
-                        object.flip_origin_y,
-                        object.rotation_offset,
-                        object.rotation_origin_x,
-                        object.rotation_origin_y
+                        object
                     )
                 })
             end
@@ -191,22 +135,25 @@ end
 
 --- @brief
 function ow.Hitbox:draw()
-    local line_a = 0.1
-    local fill_a = 0.1
-    local r, g, b, a = 1, 1, 1, 1 --rt.hsva_to_rgba((meta.hash(self) * 10 % 256) / 256, 1, 1, 1)
+    local fill_a = 0
+    local line_a = 1
+    local value = 1
+    local r, g, b = rt.lcha_to_rgba(0.8, 1, ((meta.hash(self) * 1234567) % 256) / 256)
+    rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.NORMAL)
     for shape in values(self._shapes) do
         if shape.type == ow.PhysicsShapeType.CIRCLE then
             love.graphics.setColor(r, g, b, fill_a)
-            love.graphics.circle("fill", shape.x, shape.y, shape.radius)
+            --love.graphics.circle("fill", shape.x, shape.y, shape.radius)
             love.graphics.setColor(r, g, b, line_a)
             love.graphics.circle("line", shape.x, shape.y, shape.radius)
         elseif shape.type == ow.PhysicsShapeType.POLYGON then
             love.graphics.setColor(r, g, b, fill_a)
-            love.graphics.polygon("fill", shape.vertices)
+            --love.graphics.polygon("fill", shape.vertices)
             love.graphics.setColor(r, g, b, line_a)
             love.graphics.polygon("line", shape.vertices)
         else
             rt.error("In ow.Hitbox: unhandled physics object type `" .. tostring(shape.type) .. "`")
         end
     end
+    rt.graphics.set_blend_mode()
 end

@@ -1,5 +1,5 @@
 require "overworld.stage_config"
-require "overworld.object_group"
+require "overworld.object_wrapper"
 require "overworld.hitbox"
 require "overworld.sprite"
 
@@ -71,7 +71,7 @@ end
 --- @brief
 function ow.Stage:draw()
     for f in values(self._to_draw) do
-        --f()
+        f()
     end
 
     for h in values(self._hitboxes) do
