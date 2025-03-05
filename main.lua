@@ -3,22 +3,53 @@ _G.DEBUG = false
 require "include"
 require "physics.physics"
 
-local world, player, obstacle
+local SceneManager = require "common.scene_manager"
+
+local world, player, obstacle, floor
+local balls = {}
 
 love.load = function()
     local w, h = love.graphics.getDimensions()
 
-    world = b2.World(w, h)
+    world = b2.World(w, h, {
+        quadTreeMaxData = 1000
+    })
 
-    obstacle = b2.Body(world,
+    local obstacle_w, obstacle_h = 1000, 50
+    obstacle = b2.Body(world, b2.BodyType.KINEMATIC,
         0.5 * w, 0.5 * h,
-        b2.Rectangle(-50, -50, 100, 100)
+        b2.Rectangle(-0.5 * obstacle_w, -0.5 * obstacle_h, obstacle_w, obstacle_h)
     )
 
-    player = b2.Body(world,
+    player = b2.Body(world, b2.BodyType.KINEMATIC,
         0.5 * w, 0.5 * h,
         b2.Circle(0, 0, 50)
     )
+
+    local wall_w = 30
+    local b = 1000 -- buffer
+    floor = b2.Body(world, b2.BodyType.STATIC,
+        0, 0,
+        b2.Rectangle(-b, -b, 10 + b, h + b),
+        b2.Rectangle(-b, -b, w + b, 10 + b),
+        b2.Rectangle(w - 10, -b, 10 + b, h + b),
+        b2.Rectangle(-b, h - 10, w + b, 10 + b)
+    )
+
+    for i = 1, 100 do
+        local r = love.math.random(5, 10)
+        local ball = b2.Body(
+            world, b2.BodyType.DYNAMIC,
+            love.math.random(wall_w + r, w - wall_w - r),
+            love.math.random(wall_w + r, h - wall_w - r),
+            b2.Circle(0, 0, r)
+        )
+
+        ball:set_mass(1)
+        table.insert(balls, ball)
+    end
+
+    world:set_gravity(0, 100)
 end
 
 local ray_x1, ray_y1, ray_x2, ray_y2, ray_x3, ray_y3
@@ -30,14 +61,17 @@ love.keypressed = function(which)
 end
 
 love.update = function(delta)
+    if not love.keyboard.isDown("space") then return end
     world:update(delta)
 
     local target_x, target_y = love.mouse.getPosition()
     local current_x, current_y = player:get_position()
     local dx, dy = math.normalize(target_x - current_x, target_y - current_y)
-    local speed = 400 * math.clamp(math.distance(current_x, current_y, target_x, target_y), 0, 2)
+    local speed = 400 * math.distance(current_x, current_y, target_x, target_y) / 10
     player:set_velocity(dx * speed, dy * speed)
 
+    obstacle:set_angular_velocity(2 * math.pi / 10)
+    player._transform.x, player._transform.y = player._world._native:push(player, b2._default_filter, player:get_position())
 
     local angle = obstacle:get_rotation()
     local rotation_speed = 2 * math.pi / 10
@@ -95,6 +129,12 @@ end
 love.draw = function()
     player:draw()
     obstacle:draw()
+    floor:draw()
+    for ball in values(balls) do
+        ball:draw()
+    end
+
+    SceneManager:draw()
 
     --love.graphics.line(ray_x1, ray_y1, ray_x2, ray_y2, ray_x3, ray_y3)
 end
