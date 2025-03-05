@@ -166,15 +166,15 @@ function ow.StageConfig:instantiate(stage_id)
 
                             local tile_entry = self._gid_to_tileset_id[gid]
                             local is_solid = tile_entry.tileset:get_tile_property(tile_entry.id, is_solid_property_name) == true
-
                             if is_solid then
                                 is_solid_matrix:set(x + x_offset, y + y_offset, true)
                             end
 
                             -- collect per-tile objects
+                            local tile_w, tile_h = tile_entry.tileset:get_tile_size(tile_entry.id)
                             for object in values(tile_entry.tileset:get_tile_objects(tile_entry.id)) do
                                 object.offset_x = ((x - 1) + x_offset) * self._tile_width
-                                object.offset_y = ((y - 1) + y_offset) * self._tile_height
+                                object.offset_y = ((y - 1) + y_offset) * self._tile_height - tile_h + self._tile_height -- tiled uses bottom left origin
                                 table.insert(to_add.objects, object)
                             end
                         end
@@ -207,7 +207,10 @@ function ow.StageConfig:instantiate(stage_id)
                             local texture_x, texture_y, texture_w, texture_h = tileset:get_tile_texture_bounds(local_id)
                             local tile_w, tile_h = tileset:get_tile_size(local_id)
                             spritebatch:add(
-                                current_x, current_y, tile_w, tile_h,
+                                current_x,
+                                current_y + self._tile_height - tile_h, -- tiled uses bottom left
+                                tile_w,
+                                tile_h,
                                 texture_x, texture_y, texture_w, texture_h,
                                 false, false, 0
                             )

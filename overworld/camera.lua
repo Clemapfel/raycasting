@@ -9,6 +9,7 @@ function ow.Camera:instantiate()
         _scale = 1,
         _offset_x = 0,
         _offset_y = 0,
+        _angle = 0,
         _input = rt.InputSubscriber()
     })
 
@@ -38,6 +39,11 @@ function ow.Camera:bind()
     love.graphics.scale(self._scale, self._scale)
     love.graphics.translate(-0.5 * w, -0.5 * h)
     love.graphics.translate(self._offset_x, self._offset_y)
+
+    local camera_origin_x, camera_origin_y = self._offset_x + 0.5 * w, self._offset_y + 0.5 * h
+    love.graphics.translate(camera_origin_x, camera_origin_y)
+    love.graphics.rotate(self._angle)
+    love.graphics.translate(-camera_origin_x, -camera_origin_y)
 end
 
 --- @brief
@@ -49,6 +55,7 @@ end
 function ow.Camera:update(delta)
     local scroll_margin_factor = 0.1
     local scroll_speed = 300
+    local angle_speed = 2 * math.pi / 10
     local scale_speed = 1
 
     if self._mouse_active then
@@ -79,6 +86,23 @@ function ow.Camera:update(delta)
     elseif love.keyboard.isDown("y") then
         self._scale = self._scale - scale_speed * delta
     end
+
+    if love.keyboard.isDown("m") then
+        self._angle = self._angle + angle_speed * delta
+    elseif love.keyboard.isDown("n") then
+        self._angle = self._angle - angle_speed * delta
+    end
+
+    local step = scroll_speed * delta
+    if love.keyboard.isDown("up") then
+        self._offset_y = self._offset_y - step
+    elseif love.keyboard.isDown("right") then
+        self._offset_x = self._offset_x - step
+    elseif love.keyboard.isDown("down") then
+        self._offset_y = self._offset_y + step
+    elseif love.keyboard.isDown("left") then
+        self._offset_x = self._offset_x + step
+    end
 end
 
 --- @brief
@@ -86,4 +110,5 @@ function ow.Camera:reset()
     self._scale = 1
     self._offset_x = 0
     self._offset_y = 0
+    self._angle = 0
 end

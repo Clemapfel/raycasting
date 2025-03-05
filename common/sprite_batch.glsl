@@ -75,11 +75,43 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 
 #ifdef PIXEL
 
+#define APPLY_ANTI_ALIAS_CORRECTION 1
+
+#ifdef APPLY_ANTI_ALIAS_CORRECTION
+
+varying vec2 texture_coords;
+uniform vec2 texture_resolution; // resolution of spritesheet
+
+vec4 effect(vec4 color, Image tex, vec2 _, vec2 screen_coords)
+{
+    // adapted from: https://github.com/Nikaoto/subpixel/blob/master/subpixel_grad.frag
+    vec2 texel_size = vec2(1.0) / texture_resolution;
+
+    vec2 uv = texture_coords;
+
+    vec2 ddx = dFdx(uv);
+    vec2 ddy = dFdy(uv);
+    vec2 fw = abs(ddx) + abs(ddy);
+
+    vec2 xy = uv * texture_resolution;
+    vec2 xy_floor = vec2(floor(xy.x + 0.5), floor(xy.y + 0.5)) - vec2(0.5);
+    vec2 f = xy - xy_floor;
+    vec2 f_uv = f * texel_size - vec2(0.5) * texel_size;
+
+    f = clamp(f_uv / fw + vec2(0.5), 0.0, 1.0);
+    uv = xy_floor * texel_size;
+    return color * textureGrad(tex, uv + f * texel_size, ddx, ddy);
+}
+
+#else
+
 varying vec2 texture_coords;
 
-vec4 effect(vec4 color, Image image, vec2, vec2 screen_coords)
+vec4 effect(vec4 color, Image tex, vec2 _, vec2 screen_coords)
 {
-    return color * Texel(image, texture_coords);
+    return color * texture(tex, texture_coords);
 }
+
+#endif
 
 #endif

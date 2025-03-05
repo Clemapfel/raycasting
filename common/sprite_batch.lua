@@ -135,7 +135,6 @@ function rt.SpriteBatch:_upload()
         self._last_index_that_needs_update - self._first_index_that_needs_update + 1 -- count
     )
 
-    self._draw_shader:send("SpriteBuffer", self._buffer)
     self._mesh:set_texture(self._texture)
     self._first_index_that_needs_update = math.huge
     self._last_index_that_needs_update = -math.huge
@@ -149,6 +148,8 @@ function rt.SpriteBatch:draw()
     end
 
     self._draw_shader:bind()
+    self._draw_shader:send("SpriteBuffer", self._buffer)
+    self._draw_shader:send("texture_resolution", { self._texture:get_size() })
     self._mesh:draw_instanced(self._current_i)
     self._draw_shader:unbind()
 end

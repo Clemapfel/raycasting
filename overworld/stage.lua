@@ -3,6 +3,8 @@ require "overworld.object_wrapper"
 require "overworld.hitbox"
 require "overworld.sprite"
 
+require "physics.physics"
+
 --- @class ow.Stage
 ow.Stage = meta.class("Stage", rt.Drawable)
 
@@ -66,6 +68,18 @@ function ow.Stage:instantiate(id)
             end
         end)
     end
+
+    self._physics_world = b2.World(0, 0)
+    --self._physics_stage_body = b2.Body(self._physics_world, b2.BodyType.STATIC, 0, 0)
+
+    --[[
+    self._physics_stage_shapes = {}
+    for hitbox in values(self._hitboxes) do
+        for shape in values(hitbox:as_physics_shapes(self._physics_stage_body)) do
+            table.insert(self._physics_stage_shapes, shape)
+        end
+    end
+    ]]--
 end
 
 --- @brief
@@ -74,7 +88,5 @@ function ow.Stage:draw()
         f()
     end
 
-    for h in values(self._hitboxes) do
-        h:draw()
-    end
+    self._physics_world:draw()
 end

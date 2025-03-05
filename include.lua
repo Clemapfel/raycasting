@@ -53,6 +53,18 @@ bit = require "bit"
 require "common.common"
 meta = require "common.meta"
 
+-- load box2d
+box2d = ffi.load("box2dd")
+box2d_cdef = love.filesystem.read("physics/box2d_cdef.h")
+ffi.cdef(box2d_cdef)
+
+-- load enkiTS
+enkiTS = ffi.load("enkiTS")
+enkiTS_cdef = love.filesystem.read("physics/enkits_cdef.h")
+ffi.cdef(enkiTS_cdef)
+
+
+
 -- globals
 rt = {}
 mn = {}

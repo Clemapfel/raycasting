@@ -19,10 +19,9 @@ function b2.World:instantiate(gravity_x, gravity_y, n_threads)
         local def = box2d.b2DefaultWorldDef()
         def.gravity = b2.Vec2(gravity_x * scale, gravity_y * scale)
         def.restitutionThreshold = 0
-        meta.install(self,{
-            _native = box2d.b2CreateWorld(def),
-            _user_context = nil
-        })
+
+        self._native = box2d.b2CreateWorld(def)
+        self._user_context = nil
     else
         local def = box2d.b2DefaultWorldDef()
         def.gravity = b2.Vec2(gravity_x * scale, gravity_y * scale)
@@ -45,10 +44,9 @@ function b2.World:instantiate(gravity_x, gravity_y, n_threads)
 
         def.userTaskContext = context
 
-        meta.install(self, {
-            _native = box2d.b2CreateWorld(def),
-            _user_context = context
-        })
+        self._def = def
+        self._native = box2d.b2CreateWorld(def)
+        self._user_context = context
     end
 
     self._debug_draw = box2d.b2CreateDebugDraw(
@@ -72,8 +70,6 @@ function b2.World:instantiate(gravity_x, gravity_y, n_threads)
         false,  -- draw_contact_impulses,
         false   -- draw_friction_impulses,
     )
-
-    return out
 end
 
 --- @brief [internal]
@@ -352,9 +348,9 @@ do -- use upvalues to minimize luajit callback count
     end
 
     --- @brief
-    --- @param x x_offset
-    --- @param y y_offset
-    --- @param angle rotation
+    --- @param x Number x_offset
+    --- @param y Number y_offset
+    --- @param angle Number rotation
     --- @param shape b2.Shape
     --- @param callback (b2.Shape) -> Boolean
     function b2.World:overlap_shape(shape, x, y, angle, callback)

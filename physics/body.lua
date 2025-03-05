@@ -25,6 +25,7 @@ function b2.Body:instantiate(world, type, position_x, position_y, automatic_mass
 
     def.allowFastRotation = true
 
+    self._def = def
     self._native = ffi.gc(box2d.b2CreateBody(world._native, def), box2d.b2DestroyBody)
 end
 
