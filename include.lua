@@ -30,9 +30,8 @@ do
 end
 
 -- debugger
-
-_G.DEBUG = false
-if _G.DEBUG then
+if _G.DEBUG == nil then _G.DEBUG = false end
+if _G.DEBUG == true then
     pcall(function()
         package.cpath = package.cpath .. ';C:/Users/cleme/AppData/Roaming/JetBrains/CLion2023.3/plugins/EmmyLua/debugger/emmy/windows/x64/?.dll'
         local dbg = require('emmy_core')
@@ -52,18 +51,6 @@ utf8 = require "utf8"
 bit = require "bit"
 require "common.common"
 meta = require "common.meta"
-
--- load box2d
-box2d = ffi.load("box2dd")
-box2d_cdef = love.filesystem.read("physics/box2d_cdef.h")
-ffi.cdef(box2d_cdef)
-
--- load enkiTS
-enkiTS = ffi.load("enkiTS")
-enkiTS_cdef = love.filesystem.read("physics/enkits_cdef.h")
-ffi.cdef(enkiTS_cdef)
-
-
 
 -- globals
 rt = {}

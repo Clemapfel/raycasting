@@ -69,8 +69,11 @@ function ow.Stage:instantiate(id)
         end)
     end
 
-    self._physics_world = b2.World(0, 0)
-    --self._physics_stage_body = b2.Body(self._physics_world, b2.BodyType.STATIC, 0, 0)
+    local worldef = box2d.b2DefaultWorldDef()
+    local world = { _native = box2d.b2CreateWorld(worldef) }
+    local body = b2.Body(world, 0, 0)
+
+   -- self._physics_stage_body = b2.Body(self._physics_world, b2.BodyType.STATIC, 0, 0)
 
     --[[
     self._physics_stage_shapes = {}
@@ -88,5 +91,5 @@ function ow.Stage:draw()
         f()
     end
 
-    self._physics_world:draw()
+    --self._physics_world:draw()
 end

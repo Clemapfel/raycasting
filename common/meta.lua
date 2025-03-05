@@ -358,7 +358,7 @@ end
 function meta.class(typename, super, instantiate_maybe)
     meta.assert(typename, "String")
     if super ~= nil then assert(meta.typeof(super) == "Type") end
-    if instantiate_maybe ~= nil then assert(meta.typeof(instantiate_maybe) == "function") end
+    if instantiate_maybe ~= nil then assert(meta.is_function(instantiate_maybe)) end
 
     -- instance metatable
     local type = {}

@@ -493,13 +493,7 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
                     index = index + 1
                 else
                     if type(key) == "string" then
-                        -- check if string is valid variable name, if no, escape
-                        local _, error_maybe = load(key .. " = 1")
-                        if error_maybe == nil then
-                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), tostring(key), " = ")
-                        else
-                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[\"", tostring(key), "\"]", " = ")
-                        end
+                        _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[\"", tostring(key), "\"]", " = ")
                     elseif type(key) == "number" then
                         _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", tostring(key), "] = ")
                     else
