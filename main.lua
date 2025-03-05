@@ -1,4 +1,4 @@
-_G.DEBUG = true
+_G.DEBUG = false
 
 require "include"
 require "physics.physics"
@@ -7,38 +7,39 @@ local world, player, obstacle
 
 love.load = function()
     local w, h = love.graphics.getDimensions()
-    world = slick.newWorld(w, h)
 
-    obstacle = {
-        shape = b2.Rectangle(-50, -50, 100, 100),
-        transform = slick.newTransform(0.5 * w, 0.5 * h, 0)
-    }
-    obstacle.id = world:add(obstacle, obstacle.transform, obstacle.shape._native)
+    world = b2.World(w, h)
 
-    local player_radius = 20
-    player = {
-        shape = b2.Circle(0, 0, 50),
-        transform = slick.newTransform(0.5 * w, 0.5 * h, 0)
-    }
-    player.id = world:add(player, player.transform, player.shape._native)
+    obstacle = b2.Body(world,
+        0.5 * w, 0.5 * h,
+        b2.Rectangle(-50, -50, 100, 100)
+    )
 
-    --[[
-    player.x, player.y = world:push(player, function()
-        return true
-    end, player.transform)
-    ]]--
+    player = b2.Body(world,
+        0.5 * w, 0.5 * h,
+        b2.Circle(0, 0, 50)
+    )
 end
 
 local ray_x1, ray_y1, ray_x2, ray_y2, ray_x3, ray_y3
 
-love.update = function(delta)
-    local x, y = love.mouse.getPosition()
-    player.transform.x, player.transform.y = world:move(
-        player,
-        x, y
-    )
+love.keypressed = function(which)
+    if which == "space" then
+        player:set_position(obstacle:get_position())
+    end
+end
 
-    local angle = obstacle.transform.rotation
+love.update = function(delta)
+    world:update(delta)
+
+    local target_x, target_y = love.mouse.getPosition()
+    local current_x, current_y = player:get_position()
+    local dx, dy = math.normalize(target_x - current_x, target_y - current_y)
+    local speed = 400 * math.clamp(math.distance(current_x, current_y, target_x, target_y), 0, 2)
+    player:set_velocity(dx * speed, dy * speed)
+
+
+    local angle = obstacle:get_rotation()
     local rotation_speed = 2 * math.pi / 10
     if love.keyboard.isDown("m") then
         angle = angle + rotation_speed * delta
@@ -46,7 +47,7 @@ love.update = function(delta)
         angle = angle - rotation_speed * delta
     end
 
-    local scale = obstacle.transform.scaleX
+    local scale = obstacle:get_scale()
     local scale_speed = 1
     if love.keyboard.isDown("x") then
         scale = scale + scale_speed * delta
@@ -54,8 +55,11 @@ love.update = function(delta)
         scale = scale - scale_speed * delta
     end
 
-    obstacle.transform:setTransform(obstacle.transform.x, obstacle.transform.y, angle, scale, scale)
-    obstacle.transform.x, obstacle.transform.y = world:update(obstacle, obstacle.transform)
+    local x, y = obstacle:get_position()
+    obstacle:set_transform(x, y, angle, scale, scale)
+
+
+   --[[
 
     ray_x1, ray_y1 = player.transform.x, player.transform.y
     local ray_dx, ray_dy = obstacle.transform.x - player.transform.x, obstacle.transform.y - player.transform.y
@@ -85,13 +89,14 @@ love.update = function(delta)
 
         ray_x3, ray_y3 = contact_x + reflection_dx * 100, contact_y + reflection_dy * 100
     end
+    ]]--
 end
 
 love.draw = function()
-    player.shape:draw(world:get(player).transform)
-    obstacle.shape:draw(world:get(obstacle).transform)
+    player:draw()
+    obstacle:draw()
 
-    love.graphics.line(ray_x1, ray_y1, ray_x2, ray_y2, ray_x3, ray_y3)
+    --love.graphics.line(ray_x1, ray_y1, ray_x2, ray_y2, ray_x3, ray_y3)
 end
 
 --[[

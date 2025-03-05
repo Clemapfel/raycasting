@@ -257,6 +257,31 @@ function math.tanh(x)
     return x
 end
 
+--- @brief normalize a vector
+--- @param x number x component of the vector
+--- @param y number y component of the vector
+--- @return number, number normalized x and y components
+function math.normalize(x, y)
+    local magnitude = math.sqrt(x * x + y * y)
+    if magnitude == 0 then
+        return 0, 0
+    else
+        return x / magnitude, y / magnitude
+    end
+end
+
+--- @brief get distance between two points
+--- @param x1 number x component of the first point
+--- @param y1 number y component of the first point
+--- @param x2 number x component of the second point
+--- @param y2 number y component of the second point
+--- @return number the distance between the two points
+function math.distance(x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    return math.sqrt(dx * dx + dy * dy)
+end
+
 --- @brief create a table with n copies of object
 --- @param x any
 --- @param n Number

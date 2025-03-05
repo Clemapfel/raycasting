@@ -1,12 +1,6 @@
 --- @class b2.Shape
 b2.Shape = meta.abstract_class("Shape")
 
---- @brief
-function b2.Shape:_unpack()
-    assert(self._native.arguments ~= nil)
-    return table.unpack(self._native.arguments)
-end
-
 local _fill_a = 0.4
 local _line_a = 1
 
@@ -40,7 +34,7 @@ end
 function b2.Rectangle:draw(transform)
     _bind_transform(transform)
 
-    local x, y, w, h = self:_unpack()
+    local x, y, w, h = table.unpack(self._native.arguments)
     love.graphics.setColor(1, 1, 1, _fill_a)
     love.graphics.rectangle("fill", x, y, w, h)
 
@@ -64,7 +58,7 @@ end)
 function b2.Circle:draw(transform)
     _bind_transform(transform)
 
-    local x, y, r = self:_unpack()
+    local x, y, r = table.unpack(self._native.arguments)
     love.graphics.setColor(1, 1, 1, _fill_a)
     love.graphics.circle("fill", x, y, r)
 
