@@ -1,74 +1,97 @@
-_G.DEBUG = false
+_G.DEBUG = true
 
 require "include"
 require "physics.physics"
 
-local world
-local floor, player, obstacle
-
-local _fill_a = 0.3
-local _line_a = 1
+local world, player, obstacle
 
 love.load = function()
     local w, h = love.graphics.getDimensions()
     world = slick.newWorld(w, h)
 
     obstacle = {
-        x = 0.5 * w,
-        y = 0.5 * h,
         shape = b2.Rectangle(-50, -50, 100, 100),
-        angle = 0
+        transform = slick.newTransform(0.5 * w, 0.5 * h, 0)
     }
-    obstacle.id = world:add(obstacle, obstacle.x, obstacle.y, obstacle.shape._native)
+    obstacle.id = world:add(obstacle, obstacle.transform, obstacle.shape._native)
 
     local player_radius = 20
     player = {
-        x = 0.5 * w,
-        y = 0.5 * h,
         shape = b2.Circle(0, 0, 50),
-        angle = 0
+        transform = slick.newTransform(0.5 * w, 0.5 * h, 0)
     }
-    player.id = world:add(player, player.x, player.y, player.shape._native)
+    player.id = world:add(player, player.transform, player.shape._native)
 
+    --[[
     player.x, player.y = world:push(player, function()
         return true
-    end, player.x, player.y)
+    end, player.transform)
+    ]]--
 end
+
+local ray_x1, ray_y1, ray_x2, ray_y2, ray_x3, ray_y3
 
 love.update = function(delta)
     local x, y = love.mouse.getPosition()
-
-    --[[
-    local dx, dy = x - player.x, y - player.y
-    local speed = 100
-    player.x, player.y = world:move(
-        player,
-        player.x + dx * delta * speed,
-        player.y + dy * delta * speed
-    )
-    ]]--
-
-    player.x, player.y = world:move(
+    player.transform.x, player.transform.y = world:move(
         player,
         x, y
     )
 
-    local angle = obstacle.angle
-    local rotation_speed = 2 * math.pi / 100
+    local angle = obstacle.transform.rotation
+    local rotation_speed = 2 * math.pi / 10
     if love.keyboard.isDown("m") then
         angle = angle + rotation_speed * delta
     elseif love.keyboard.isDown("n") then
         angle = angle - rotation_speed * delta
     end
-    if angle ~= obstacle.angle then
-        obstacle.angle = angle
-        obstacle.x, obstacle.y = world:update(obstacle, slick.newTransform(obstacle.x + delta, obstacle.y, obstacle.angle))
+
+    local scale = obstacle.transform.scaleX
+    local scale_speed = 1
+    if love.keyboard.isDown("x") then
+        scale = scale + scale_speed * delta
+    elseif love.keyboard.isDown("y") then
+        scale = scale - scale_speed * delta
+    end
+
+    obstacle.transform:setTransform(obstacle.transform.x, obstacle.transform.y, angle, scale, scale)
+    obstacle.transform.x, obstacle.transform.y = world:update(obstacle, obstacle.transform)
+
+    ray_x1, ray_y1 = player.transform.x, player.transform.y
+    local ray_dx, ray_dy = obstacle.transform.x - player.transform.x, obstacle.transform.y - player.transform.y
+
+    local responses, n, query = world:queryRay(
+        ray_x1, ray_y1,
+        ray_dx, ray_dy
+    )
+    debugger.breakHere()
+
+    for i = 1, n do
+        local response = responses[i]
+        local normal_x, normal_y = response.normal.x, response.normal.y
+        local contact_x, contact_y = response.touch.x, response.touch.y
+        ray_x2, ray_y2 = contact_x, contact_y
+
+        local normal_length = math.sqrt(normal_x^2 + normal_y^2)
+        local nx = normal_x / normal_length
+        local ny = normal_y / normal_length
+
+        local dot_product = ray_dx * nx + ray_dy * ny
+
+        local reflection_dx = ray_dx - 2 * dot_product * nx
+        local reflection_dy = ray_dy - 2 * dot_product * ny
+        reflection_dx = reflection_dx * -1
+        reflection_dy = reflection_dy * -1
+
+        ray_x3, ray_y3 = contact_x + reflection_dx * 100, contact_y + reflection_dy * 100
     end
 end
 
 love.draw = function()
-    player.shape:draw(player.x, player.y, player.angle)
-    obstacle.shape:draw(obstacle.x, obstacle.y, obstacle.angle)
+    player.shape:draw(world:get(player).transform)
+    obstacle.shape:draw(world:get(obstacle).transform)
+
+    love.graphics.line(ray_x1, ray_y1, ray_x2, ray_y2, ray_x3, ray_y3)
 end
 
 --[[

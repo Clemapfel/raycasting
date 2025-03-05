@@ -21,15 +21,24 @@ b2.Rectangle = meta.class("PhysicsRectangle", b2.Shape, function(self, x, y, wid
     })
 end)
 
---- @brief
-function b2.Rectangle:draw(offset_x, offset_y, angle)
-    if offset_x == nil then offset_x = 0 end
-    if offset_y == nil then offset_y = 0 end
-    if angle == nil then angle = 0 end
+local _identity_transform = slick.newTransform()
 
+local _bind_transform = function(transform)
+    if transform == nil then return end
     love.graphics.push()
-    love.graphics.translate(offset_x, offset_y)
-    love.graphics.rotate(angle)
+    love.graphics.translate(transform.x or 0, transform.y or 0)
+    love.graphics.rotate(transform.rotation or 0)
+    love.graphics.scale(transform.scaleX or 1, transform.scaleY or 1)
+end
+
+local _unbind_transform = function(transform)
+    if transform == nil then return end
+    love.graphics.pop()
+end
+
+--- @brief
+function b2.Rectangle:draw(transform)
+    _bind_transform(transform)
 
     local x, y, w, h = self:_unpack()
     love.graphics.setColor(1, 1, 1, _fill_a)
@@ -38,7 +47,7 @@ function b2.Rectangle:draw(offset_x, offset_y, angle)
     love.graphics.setColor(1, 1, 1, _line_a)
     love.graphics.rectangle("line", x, y, w, h)
 
-    love.graphics.pop()
+    _unbind_transform(transform)
 end
 
 --- @class b2.Circle
@@ -52,14 +61,8 @@ b2.Circle = meta.class("PhysicsCircle", b2.Shape,function(self, x, y, radius)
 end)
 
 --- @brief
-function b2.Circle:draw(offset_x, offset_y, angle)
-    if offset_x == nil then offset_x = 0 end
-    if offset_y == nil then offset_y = 0 end
-    if angle == nil then angle = 0 end
-
-    love.graphics.push()
-    love.graphics.translate(offset_x, offset_y)
-    love.graphics.rotate(angle)
+function b2.Circle:draw(transform)
+    _bind_transform(transform)
 
     local x, y, r = self:_unpack()
     love.graphics.setColor(1, 1, 1, _fill_a)
@@ -68,7 +71,7 @@ function b2.Circle:draw(offset_x, offset_y, angle)
     love.graphics.setColor(1, 1, 1, _line_a)
     love.graphics.circle("line", x, y, r)
 
-    love.graphics.pop()
+    _unbind_transform(transform)
 end
 
 --- @class b2.Polygon
@@ -81,19 +84,15 @@ b2.Polygon = meta.class("PhysicsPolygon", b2.Shape,function(self, vertices, ...)
 end)
 
 --- @brief
-function b2.Polygon:draw(offset_x, offset_y, angle)
-    if offset_x == nil then offset_x = 0 end
-    if offset_y == nil then offset_y = 0 end
-    if angle == nil then angle = 0 end
+function b2.Polygon:draw(transform)
+    _bind_transform(transform)
 
-    love.graphics.push()
-    love.graphics.translate(offset_x, offset_y)
-    love.graphics.rotate(angle)
-
+    local vertices = self._native.arguments
     love.graphics.setColor(1, 1, 1, _fill_a)
-    love.graphics.polygon("fill", self._native.arguments)
+    love.graphics.polygon("fill", vertices)
 
     love.graphics.setColor(1, 1, 1, _line_a)
-    love.graphics.polygon("line", self._native.arguments)
-    love.graphics.pop()
+    love.graphics.polygon("line", vertices)
+
+    _unbind_transform(transform)
 end
