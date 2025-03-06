@@ -1,7 +1,8 @@
 require "include"
-require "physics.physics"
+local slick = require "physics.slick.slick"
 
-local shapes = {
+-- raw data from my engine
+local data = {
     [1] = {
         ["type"] = "polygon",
         ["vertices"] = {
@@ -148,33 +149,117 @@ local shapes = {
     }
 }
 
+-- process raw data to translate from map coordinates to screenspace
 local min_x, min_y = math.huge, math.huge
-for entry in values(shapes) do
+for _, entry in pairs(data) do
     for i = 1, #entry.vertices, 2 do
         min_x = math.min(min_x, entry.vertices[i])
         min_y = math.min(min_y, entry.vertices[i+1])
     end
 end
 
-local true_shapes = {}
-for entry in values(shapes) do
+local offset_x, offset_y = 50, 50
+local shapes = {}
+for _, entry in pairs(data) do
     local translated = {}
     for i = 1, #entry.vertices, 2 do
-        table.insert(translated, entry.vertices[i] - min_x)
-        table.insert(translated, entry.vertices[i+1] - min_y)
+        table.insert(translated, entry.vertices[i] - min_x + offset_x)
+        table.insert(translated, entry.vertices[i+1] - min_y + offset_y)
     end
-    table.insert(true_shapes, translated)
+    table.insert(shapes, translated)
 end
 
+dbg(shapes)
+
+local world, player
+love.load = function()
+    world = slick.newWorld(love.graphics.getDimensions())
+
+    local id = 0
+    for _, shape in pairs(shapes) do
+        world:add(id, 0, 0, slick.newPolygonShape(shape))
+        id = id + 1
+    end
+
+    local player_radius = 10
+    local player_x, player_y = 0, 0
+    player = {
+        x = player_x,
+        y = player_y,
+        radius = player_radius,
+        velocity_x = 0,
+        velocity_y = 0,
+        entity = nil
+    }
+    player.entity = world:add(player, player_x, player_y, slick.newCircleShape(0, 0, player_radius))
+end
+
+love.update = function(delta)
+    player.x, player.y = world:move(
+        player,
+        player.x + delta * player.velocity_x,
+        player.y + delta * player.velocity_y
+    )
+end
+
+local handle_key = function(which, pressed_or_released)
+    local max_velocity = 100
+    local vx, vy = player.velocity_x, player.velocity_y
+    if which == "left" then
+        if pressed_or_released then
+            vx = -1 * max_velocity
+        else
+            vx = 0
+        end
+    end
+
+    if which == "right" then
+        if pressed_or_released then
+            vx = 1 * max_velocity
+        else
+            vx = 0
+        end
+    end
+
+    if which == "up" then
+        if pressed_or_released then
+            vy = -1 * max_velocity
+        else
+            vy = 0
+        end
+    end
+
+    if which == "down" then
+        if pressed_or_released then
+            vy = 1 * max_velocity
+        else
+            vy = 0
+        end
+    end
+
+    player.velocity_x, player.velocity_y = vx, vy
+end
+
+love.keypressed = function(which)
+    handle_key(which, true)
+end
+
+love.keyreleased = function(which)
+    handle_key(which, false)
+end
 
 love.draw = function()
-    love.graphics.push()
-    for _, vertices in pairs(true_shapes) do
+    for _, vertices in pairs(shapes) do
         love.graphics.setColor(1, 1, 1, 0.2)
         love.graphics.polygon("fill", vertices)
 
         love.graphics.setColor(1, 1, 1, 0.8)
         love.graphics.polygon("line", vertices)
     end
-    love.graphics.pop()
+
+    love.graphics.setColor(1, 1, 1, 0.2)
+    love.graphics.circle("fill", player.x, player.y, player.radius)
+
+    love.graphics.setColor(1, 1, 1, 0.8)
+    love.graphics.circle("fill", player.x, player.y, player.radius)
 end
