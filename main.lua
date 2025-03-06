@@ -37,7 +37,7 @@ love.load = function()
     )
 
     for i = 1, 100 do
-        local r = love.math.random(5, 10)
+        local r = love.math.random(5, 30)
         local ball = b2.Body(
             world, b2.BodyType.DYNAMIC,
             love.math.random(wall_w + r, w - wall_w - r),
@@ -68,7 +68,8 @@ love.update = function(delta)
     local current_x, current_y = player:get_position()
     local dx, dy = math.normalize(target_x - current_x, target_y - current_y)
     local speed = 400 * math.distance(current_x, current_y, target_x, target_y) / 10
-    player:set_velocity(dx * speed, dy * speed)
+    --player:set_velocity(dx * speed, dy * speed)
+    player:set_position(target_x, target_y)
 
     obstacle:set_angular_velocity(2 * math.pi / 10)
     player._transform.x, player._transform.y = player._world._native:push(player, b2._default_filter, player:get_position())
