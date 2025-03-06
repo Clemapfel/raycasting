@@ -68,6 +68,13 @@ function b2.World:update(delta)
     end
 end
 
+--- @brief
+function b2.World:draw()
+    for body in values(self._bodies) do
+        body:draw()
+    end
+end
+
 --- @brief [internal]
 function b2.World:_notify_push_needed(body)
     table.insert(self._needs_push, body)

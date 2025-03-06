@@ -5,6 +5,10 @@ require "overworld.sprite"
 
 require "physics.physics"
 
+rt.settings.overworld.stage = {
+    physics_world_buffer_length = 100
+}
+
 --- @class ow.Stage
 ow.Stage = meta.class("Stage", rt.Drawable)
 
@@ -69,27 +73,45 @@ function ow.Stage:instantiate(id)
         end)
     end
 
-    local worldef = box2d.b2DefaultWorldDef()
-    local world = { _native = box2d.b2CreateWorld(worldef) }
-    local body = b2.Body(world, 0, 0)
-
    -- self._physics_stage_body = b2.Body(self._physics_world, b2.BodyType.STATIC, 0, 0)
 
-    --[[
+
+    local buffer = rt.settings.overworld.stage.physics_world_buffer_length
+    local w, h = self._config:get_size()
+    self._physics_world = b2.World(w + 2 * buffer, h + 2 * buffer, {
+        quadTreeX = -buffer,
+        quadTreeY = -buffer
+    })
+
     self._physics_stage_shapes = {}
+    self._physics_stage_bodies = {}
     for hitbox in values(self._hitboxes) do
         for shape in values(hitbox:as_physics_shapes(self._physics_stage_body)) do
-            table.insert(self._physics_stage_shapes, shape)
+            --dbg(shape)
+            table.insert(self._physics_stage_shapes, b2.Body(
+                self._physics_world,
+                b2.BodyType.STATIC,
+                0, 0,
+                shape
+            ))
         end
     end
+
+    --[[
+    self._physics_stage_body = b2.Body(
+        self._physics_world,
+        b2.BodyType.STATIC,
+        0, 0,
+        self._physics_stage_shapes
+    )
     ]]--
 end
 
 --- @brief
 function ow.Stage:draw()
     for f in values(self._to_draw) do
-        f()
+        --f()
     end
 
-    --self._physics_world:draw()
+    self._physics_world:draw()
 end

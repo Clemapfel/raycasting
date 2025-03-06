@@ -16,13 +16,30 @@ b2.BodyType = meta.enum("PhysicsBodyType", {
 --- @param ... b2.Shapes
 function b2.Body:instantiate(world, type, x, y, shape, ...)
     meta.assert_enum_value(type, b2.BodyType)
-    meta.assert(world, "PhysicsWorld", x, "Number", y, "Number")
+    meta.assert(x, "Number", y, "Number")
 
-    local shapes = {shape, ...}
+    local shapes
+    if meta.isa(shape, b2.Shape) then
+        shapes = {shape, ...}
+    else
+        meta.assert_typeof(shape, "Table", 5)
+        shapes = shape
+    end
+
     local natives = {}
+    local n_natives = 0
     for i, current_shape in ipairs(shapes) do
         assert(meta.isa(current_shape, b2.Shape), "In b2.Body: argument #" .. 3 + i .. ": expected `b2.Shape`, got `" .. meta.typeof(current_shape) .. "`")
         table.insert(natives, current_shape._native)
+    end
+
+    local group
+    if n_natives > 1 then
+        group = slick.newShapeGroup(
+            table.unpack(natives)
+        )
+    else
+        group = natives[1]
     end
 
     meta.install(self, {
@@ -30,10 +47,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _shapes = shapes,
         _type = type,
         _world = world,
-        _entity = world._native:add(self, x, y, slick.newShapeGroup(
-            table.unpack(natives)
-        )),
-
+        _entity = world._native:add(self, x, y, group),
         _velocity_x = 0,
         _velocity_y = 0,
         _acceleration_x = 0,

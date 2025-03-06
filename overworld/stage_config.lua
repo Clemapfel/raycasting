@@ -341,5 +341,14 @@ function ow.StageConfig:get_layer_object_wrappers(layer_i)
         rt.error("In ow.StageConfig.get_layeget_layer_object_wrappersr_sprite_batches: no layer with id `" .. tostring(layer_i) .. "`")
     end
 
-    return { table.unpack(layer.objects) }
+    local out = {}
+    for object in values(layer.objects) do
+        table.insert(out, object:clone())
+    end
+    return out
+end
+
+--- @brief
+function ow.StageConfig:get_size()
+    return self._n_columns * self._tile_width, self._n_rows * self._tile_height
 end

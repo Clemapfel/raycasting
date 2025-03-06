@@ -159,14 +159,13 @@ function ow.Hitbox:draw()
 end
 
 --- @brief
-function ow.Hitbox:as_physics_shapes(body)
-    meta.assert(body, "PhysicsBody")
+function ow.Hitbox:as_physics_shapes()
     local out = {}
     for shape in values(self._shapes) do
         if shape.type == ow.PhysicsShapeType.CIRCLE then
-            table.insert(out, b2.CircleShape(body, b2.Circle(shape.radius)))
+            table.insert(out, b2.Circle(shape.x, shape.y, shape.radius))
         elseif shape.type == ow.PhysicsShapeType.POLYGON then
-            table.insert(out, b2.PolygonShape(body, b2.Polygon(shape.vertices)))
+            table.insert(out, b2.Polygon(shape.vertices))
         else
             rt.error("In ow.Hitbox:as_physics_shape: unhandled shape type `" .. tostring(shape.type) .. "`")
         end
