@@ -134,7 +134,7 @@ end
 function love.run()
     io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
-    if love.load then love.load() end
+    if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
     if love.timer then love.timer.step() end
 
     local delta = 0

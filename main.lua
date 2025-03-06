@@ -11,7 +11,7 @@ local camera = ow.Camera()
 require "overworld.stage"
 local stage = ow.Stage("debug_stage")
 
-love.load = function()
+love.load = function(args)
     SceneManager:set_scene(mn.MainMenuScene)
 end
 
@@ -19,9 +19,11 @@ love.update = function(delta)
     SceneManager:update(delta)
 
     camera:update(delta)
+    stage:update(delta)
 end
 
 love.draw = function()
+    DRAW_ACTIVE = true
     --SceneManager:draw()
 
     camera:bind()

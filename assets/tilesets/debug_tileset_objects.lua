@@ -233,33 +233,9 @@ return {
               { x = -17.4912, y = 5.45598 },
               { x = -14.2818, y = 9.78866 }
             },
-            properties = {}
-          },
-          {
-            id = 2,
-            name = "",
-            type = "Hitbox",
-            shape = "ellipse",
-            x = 12.3562,
-            y = 56.3249,
-            width = 17.9726,
-            height = 18.2936,
-            rotation = 0,
-            visible = true,
-            properties = {}
-          },
-          {
-            id = 3,
-            name = "",
-            type = "Hitbox",
-            shape = "ellipse",
-            x = 198.822,
-            y = 144.904,
-            width = 19.7378,
-            height = 20.0587,
-            rotation = 0,
-            visible = true,
-            properties = {}
+            properties = {
+              ["print"] = true
+            }
           }
         }
       }

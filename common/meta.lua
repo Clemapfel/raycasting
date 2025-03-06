@@ -66,14 +66,19 @@ end
 
 --- @brief
 function meta.isa(x, type)
-    -- search super types
-    repeat
+    local super
+    do
         local metatable = getmetatable(x)
-        if metatable == nil or metatable.__index == nil then return false end
-        local super = metatable.__index
+        if metatable == nil then return false end
+        super = metatable.__index
+    end
+
+    while super ~= nil do
         if super == type then return true end
-        type = super
-    until type == nil
+        local metatable = getmetatable(super)
+        if metatable == nil then return false end
+        super = metatable.__index
+    end
 
     return false
 end
@@ -84,7 +89,10 @@ function meta.assert(...)
     assert(n % 2 == 0)
     for i = 1, n, 2 do
         local instance = select(i+0, ...)
-        local typename = select(i+1, ...)
+        local type = select(i+1, ...)
+        local typename = _type_to_typename[type]
+        if typename == nil then typename = type end -- assume string
+
         assert(meta.typeof(instance) == typename, "In meta.assert: wrong type for argument #" .. i.. ": expected `" .. typename .. "`, got `" .. meta.typeof(instance) .. "`")
     end
 end

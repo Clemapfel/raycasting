@@ -23,6 +23,9 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         shapes = {shape, ...}
     else
         meta.assert_typeof(shape, "Table", 5)
+        for shape in values(shapes) do
+            meta.assert_typeof(shape, "PhysicsShape")
+        end
         shapes = shape
     end
 

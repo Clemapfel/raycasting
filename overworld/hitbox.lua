@@ -2,7 +2,7 @@ require "common.blend_mode"
 require "overworld.object_wrapper"
 
 --- @class ow.Hitbox
-ow.Hitbox = meta.class("OverworldHitbox", rt.Drawable) -- TODO: not drawable
+ow.Hitbox = meta.class("OverworldHitbox")
 
 ow.PhysicsShapeType = meta.enum("PhysicsShapeType", {
     CIRCLE = "circle",
@@ -48,8 +48,10 @@ end
 --- @brief
 function ow.Hitbox:instantiate(...)
     self._shapes = {}
+    local print = false
     for i = 1, select("#", ...) do
         local object = select(i, ...)
+        print = print or object.properties["print"]
         meta.assert_typeof(object, "ObjectWrapper", i)
 
         if object.type == ow.ObjectType.RECTANGLE then
@@ -84,36 +86,28 @@ function ow.Hitbox:instantiate(...)
                     radius = math.max(object.x_radius, object.y_radius)
                 })
             else
-                -- box2d does not support ellipses, so construct one as series of polygons
-                local triangles = {}
+                local vertices = {}
+
                 local center_x, center_y = object.center_x, object.center_y
                 local x_radius, y_radius = object.x_radius, object.y_radius
                 local n_outer_vertices = 16
-
                 local angle_step = (2 * math.pi) / n_outer_vertices
-                for i = 0, n_outer_vertices - 1 do
-                    local angle1 = i * angle_step
-                    local angle2 = (i + 1) * angle_step
-
-                    local x1 = center_x + x_radius * math.cos(angle1)
-                    local y1 = center_y + y_radius * math.sin(angle1)
-                    local x2 = center_x + x_radius * math.cos(angle2)
-                    local y2 = center_y + y_radius * math.sin(angle2)
-
-                    table.insert(triangles, {
-                        x1, y1,
-                        x2, y2,
-                        center_x, center_y
-                    })
+                for angle = 0, 2 * math.pi, angle_step do
+                    table.insert(vertices, center_x + x_radius * math.cos(angle))
+                    table.insert(vertices, center_y + y_radius * math.sin(angle))
                 end
 
-                for vertices in values(triangles) do
+                vertices = _process_polygon(
+                    vertices,
+                    object
+                )
+
+                local polygonization = slick.polygonize(8, { vertices })
+
+                for shape in values(polygonization) do
                     table.insert(self._shapes, {
                         type = ow.PhysicsShapeType.POLYGON,
-                        vertices = _process_polygon(
-                            vertices,
-                            object
-                        )
+                        vertices = shape
                     })
                 end
             end
@@ -130,6 +124,10 @@ function ow.Hitbox:instantiate(...)
         else
             rt.error("In ow.Hitbox: unhandled object type `" .. tostring(object.type) .. "`")
         end
+    end
+
+    if print then
+        dbg(self._shapes)
     end
 end
 
@@ -170,5 +168,6 @@ function ow.Hitbox:as_physics_shapes()
             rt.error("In ow.Hitbox:as_physics_shape: unhandled shape type `" .. tostring(shape.type) .. "`")
         end
     end
+
     return out
 end

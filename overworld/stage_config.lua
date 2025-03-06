@@ -51,6 +51,7 @@ local _tileset_atlas = {}
 --- @brief
 function ow.StageConfig:instantiate(stage_id)
     self._path = rt.settings.overworld.stage_config.config_path .. "/" .. stage_id .. ".lua"
+    self._id = stage_id
     self._config = _load_config(self._path, "ow.StageConfig.instantiate")
 
     -- init tilesets
@@ -351,4 +352,9 @@ end
 --- @brief
 function ow.StageConfig:get_size()
     return self._n_columns * self._tile_width, self._n_rows * self._tile_height
+end
+
+--- @brief
+function ow.StageConfig:get_id()
+    return self._id
 end
