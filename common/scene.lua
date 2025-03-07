@@ -14,13 +14,13 @@ meta.add_signals(rt.Scene,
 )
 
 --- @brief
-function rt.Scene:enter()
+function rt.Scene:enter(...)
     rt.error("In " .. meta.typeof(self) .. ".enter: abstract method called")
 end
 
 --- @brief
 function rt.Scene:exit()
-    rt.error("In " .. meta.typeof(self) .. ".exit: abstract method called")
+    -- noop
 end
 
 --- @brief
@@ -30,12 +30,12 @@ end
 
 --- @override
 function rt.Scene:realize()
-    rt.error("In " .. meta.typeof(self) .. ".realize: abstract method called")
+    -- noop
 end
 
 --- @override
 function rt.Scene:size_allocate(x, y, width, height)
-    rt.error("In " .. meta.typeof(self) .. ".realize: abstract method called")
+    rt.error("In " .. meta.typeof(self) .. ".size_allocate: abstract method called")
 end
 
 --- @override

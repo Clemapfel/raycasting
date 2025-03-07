@@ -7,6 +7,6 @@ b2._default_filter = function(self, other, self_shape, other_shape)
     return true
 end
 
-require "physics.world"
-require "physics.shapes"
-require "physics.body"
+require("physics.world")
+require("physics.shapes")
+require("physics.body")

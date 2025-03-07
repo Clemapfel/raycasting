@@ -1,6 +1,12 @@
 --- @class b2.World
 b2.World = meta.class("PhysicsWorld")
 
+b2.CollisionResponseType = meta.enum("PhysicsCollisionResponseType", {
+    GHOST = "cross",
+    SLIDE = "slide",
+    TOUCH = "touch"
+})
+
 --- @brief
 function b2.World:instantiate(width, height, ...)
     meta.assert(width, "Number", height, "Number")
@@ -11,6 +17,46 @@ function b2.World:instantiate(width, height, ...)
         _gravity_x = 0,
         _gravity_y = 0
     })
+
+    -- TODO
+    local point = require "physics.slick.slick.geometry.point"
+    local _cachedSlideCurrentPosition = point.new()
+    local _cachedSlideTouchPosition = point.new()
+    local _cachedSlideGoalPosition = point.new()
+    local _cachedSlideGoalDirection = point.new()
+    local _cachedSlideNewGoalPosition = point.new()
+    local _cachedSlideDirection = point.new()
+    local _cachedSlideNormal = point.new()
+
+    local last_goalDotDirection = 0
+    local function slide(world, query, response, x, y, goalX, goalY, filter, result)
+           dbg(tostring(response.entity), tostring(response.otherEntity))
+        local true_goal_x, true_goal_y = goalX, goalY
+        _cachedSlideCurrentPosition:init(x, y)
+        _cachedSlideTouchPosition:init(response.touch.x, response.touch.y)
+        _cachedSlideGoalPosition:init(goalX, goalY)
+
+        response.normal:left(_cachedSlideGoalDirection)
+
+        _cachedSlideCurrentPosition:direction(_cachedSlideGoalPosition, _cachedSlideNewGoalPosition)
+        _cachedSlideNewGoalPosition:normalize(_cachedSlideDirection)
+
+        local goalDotDirection = _cachedSlideNewGoalPosition:dot(_cachedSlideGoalDirection)
+        local last = last_goalDotDirection
+        last_goalDotDirection = goalDotDirection
+        _cachedSlideGoalDirection:multiplyScalar(goalDotDirection, _cachedSlideGoalDirection)
+        _cachedSlideTouchPosition:add(_cachedSlideGoalDirection, _cachedSlideNewGoalPosition)
+
+        local newGoalX = _cachedSlideNewGoalPosition.x
+        local newGoalY = _cachedSlideNewGoalPosition.y
+        local touchX, touchY = response.touch.x, response.touch.y
+
+        result:push(response)
+        world:project(response.item, touchX, touchY, newGoalX, newGoalY, filter, query)
+        return touchX, touchY, newGoalX, newGoalY, "slide", nil -- here
+    end
+
+    self._native.responses["slide"] = slide
 end
 
 --- @brief
@@ -24,6 +70,11 @@ function b2.World:get_gravity()
 end
 
 local body_type_static, body_type_dynamic
+local _default_filter_query_function = function(item, other)
+    local type = item:get_collision_response_type()
+    if type == b2.CollisionResponseType.GHOST then return false end
+    return type
+end
 
 --- @brief
 function b2.World:update(delta)
@@ -48,11 +99,15 @@ function b2.World:update(delta)
             local x, y = body._transform.x, body._transform.y
             local vx, vy = body._velocity_x, body._velocity_y
             if math.abs(vx) > 0 or math.abs(vy) > 0 then
-                body._transform.x, body._transform.y = self._native:move(
+                local x, y, responses, n_responses, query = self._native:move(
                     body,
                     x + vx * delta,
-                    y + vy * delta
+                    y + vy * delta,
+                    _default_filter_query_function
                 )
+
+                body._transform.x = x
+                body._transform.y = y
             end
 
             local v = body._angular_velocity

@@ -1,188 +1,140 @@
-require "include"
-local slick = require "physics.slick.slick"
+local slick = require "physics.slick.slick" -- change this path
+local USE_POLYGONAL_CIRCLE = true
 
--- raw data from my engine
-local data = {
+-- shape data
+local shapes = {
     [1] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1571.4665,
-            [2] = 201.3818,
-            [3] = 1557.1847,
-            [4] = 191.59314,
-            [5] = 1553.9753,
-            [6] = 195.92582,
-            [7] = 1553.9753,
-            [8] = 196.08629,
-            [9] = 1563.76395,
-            [10] = 213.417
-        }
+        [1] = 68.29355,
+        [2] = 161.8475,
+        [3] = 58.5049,
+        [4] = 144.51679,
+        [5] = 53.8513,
+        [6] = 151.57747,
+        [7] = 51.6047,
+        [8] = 157.35438,
+        [9] = 50,
+        [10] = 163.2918,
+        [11] = 67.00979,
+        [12] = 172.599
     },
     [2] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1563.76395,
-            [2] = 213.417,
-            [3] = 1553.9753,
-            [4] = 196.08629,
-            [5] = 1549.3217,
-            [6] = 203.14697,
-            [7] = 1547.0751,
-            [8] = 208.92388,
-            [9] = 1545.4704,
-            [10] = 214.8613,
-            [11] = 1562.48019,
-            [12] = 224.1685
-        }
+        [1] = 73.74952,
+        [2] = 187.6832,
+        [3] = 53.6908,
+        [4] = 190.0902,
+        [5] = 61.5538,
+        [6] = 200.0394,
+        [7] = 70.86106,
+        [8] = 206.4582,
+        [9] = 81.77301,
+        [10] = 191.374
     },
     [3] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1562.48019,
-            [2] = 224.1685,
-            [3] = 1545.4704,
-            [4] = 214.8613,
-            [5] = 1545.4704,
-            [6] = 223.0452,
-            [7] = 1545.7913,
-            [8] = 231.5501,
-            [9] = 1563.92442,
-            [10] = 232.192
-        }
+        [1] = 68.45402,
+        [2] = 180.6225,
+        [3] = 50.3209,
+        [4] = 179.9806,
+        [5] = 53.6908,
+        [6] = 190.0902,
+        [7] = 73.74952,
+        [8] = 187.6832
     },
     [4] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1563.92442,
-            [2] = 232.192,
-            [3] = 1545.7913,
-            [4] = 231.5501,
-            [5] = 1549.1612,
-            [6] = 241.6597,
-            [7] = 1569.21992,
-            [8] = 239.2527
-        }
+        [1] = 109.3738,
+        [2] = 185.5971,
+        [3] = 118.1997,
+        [4] = 202.1255,
+        [5] = 263.1041,
+        [6] = 62.6772,
+        [7] = 250.2661,
+        [8] = 50
     },
     [5] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1569.21992,
-            [2] = 239.2527,
-            [3] = 1549.1612,
-            [4] = 241.6597,
-            [5] = 1557.0242,
-            [6] = 251.6089,
-            [7] = 1566.33146,
-            [8] = 258.0277,
-            [9] = 1577.24341,
-            [10] = 242.9435
-        }
+        [1] = 104.7202,
+        [2] = 189.1274,
+        [3] = 109.2134,
+        [4] = 208.2233,
+        [5] = 118.1997,
+        [6] = 202.1255,
+        [7] = 109.3738,
+        [8] = 185.5971
     },
     [6] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1577.24341,
-            [2] = 242.9435,
-            [3] = 1566.33146,
-            [4] = 258.0277,
-            [5] = 1576.2806,
-            [6] = 261.7185,
-            [7] = 1585.4274,
-            [8] = 244.2273
-        }
+        [1] = 98.1409,
+        [2] = 191.6949,
+        [3] = 99.1038,
+        [4] = 210.9513,
+        [5] = 99.2642,
+        [6] = 210.9513,
+        [7] = 109.2134,
+        [8] = 208.2233,
+        [9] = 104.7202,
+        [10] = 189.1274
     },
     [7] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1585.4274,
-            [2] = 244.2273,
-            [3] = 1576.2806,
-            [4] = 261.7185,
-            [5] = 1585.5878,
-            [6] = 262.3603,
-            [7] = 1594.5742,
-            [8] = 262.5208,
-            [9] = 1593.6113,
-            [10] = 243.2644
-        }
+        [1] = 67.00979,
+        [2] = 172.599,
+        [3] = 50,
+        [4] = 163.2918,
+        [5] = 50,
+        [6] = 171.4757,
+        [7] = 50.3209,
+        [8] = 179.9806,
+        [9] = 68.45402,
+        [10] = 180.6225
     },
     [8] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1593.6113,
-            [2] = 243.2644,
-            [3] = 1594.5742,
-            [4] = 262.5208,
-            [5] = 1594.7346,
-            [6] = 262.5208,
-            [7] = 1604.6838,
-            [8] = 259.7928,
-            [9] = 1600.1906,
-            [10] = 240.6969
-        }
+        [1] = 89.957,
+        [2] = 192.6578,
+        [3] = 80.8102,
+        [4] = 210.149,
+        [5] = 90.1174,
+        [6] = 210.7908,
+        [7] = 99.1038,
+        [8] = 210.9513,
+        [9] = 98.1409,
+        [10] = 191.6949
     },
     [9] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1600.1906,
-            [2] = 240.6969,
-            [3] = 1604.6838,
-            [4] = 259.7928,
-            [5] = 1613.6701,
-            [6] = 253.695,
-            [7] = 1604.8442,
-            [8] = 237.1666
-        }
+        [1] = 75.9961,
+        [2] = 149.8123,
+        [3] = 61.7143,
+        [4] = 140.02364,
+        [5] = 58.5049,
+        [6] = 144.35632,
+        [7] = 58.5049,
+        [8] = 144.51679,
+        [9] = 68.29355,
+        [10] = 161.8475
     },
     [10] = {
-        ["type"] = "polygon",
-        ["vertices"] = {
-            [1] = 1604.8442,
-            [2] = 237.1666,
-            [3] = 1613.6701,
-            [4] = 253.695,
-            [5] = 1758.5745,
-            [6] = 114.2467,
-            [7] = 1745.7365,
-            [8] = 101.5695
-        }
+        [1] = 81.77301,
+        [2] = 191.374,
+        [3] = 70.86106,
+        [4] = 206.4582,
+        [5] = 80.8102,
+        [6] = 210.149,
+        [7] = 89.957,
+        [8] = 192.6578
     }
 }
 
--- process raw data to translate from map coordinates to screenspace
-local min_x, min_y = math.huge, math.huge
-for _, entry in pairs(data) do
-    for i = 1, #entry.vertices, 2 do
-        min_x = math.min(min_x, entry.vertices[i])
-        min_y = math.min(min_y, entry.vertices[i+1])
-    end
-end
-
-local offset_x, offset_y = 50, 50
-local shapes = {}
-for _, entry in pairs(data) do
-    local translated = {}
-    for i = 1, #entry.vertices, 2 do
-        table.insert(translated, entry.vertices[i] - min_x + offset_x)
-        table.insert(translated, entry.vertices[i+1] - min_y + offset_y)
-    end
-    table.insert(shapes, translated)
-end
-
-dbg(shapes)
-
 local world, player
+
 love.load = function()
+    -- create world
     world = slick.newWorld(love.graphics.getDimensions())
 
+    -- add polygon shapes using anonymous id
     local id = 0
     for _, shape in pairs(shapes) do
         world:add(id, 0, 0, slick.newPolygonShape(shape))
         id = id + 1
     end
 
+    -- init player
     local player_radius = 10
-    local player_x, player_y = 0, 0
+    local player_x, player_y = 5 * player_radius, 5 * player_radius
     player = {
         x = player_x,
         y = player_y,
@@ -191,9 +143,26 @@ love.load = function()
         velocity_y = 0,
         entity = nil
     }
-    player.entity = world:add(player, player_x, player_y, slick.newCircleShape(0, 0, player_radius))
+
+    if USE_POLYGONAL_CIRCLE then
+        local vertices = {}
+        local center_x, center_y = 0, 0
+        local x_radius, y_radius = player_radius, player_radius
+        local n_outer_vertices = 16
+        local angle_step = (2 * math.pi) / n_outer_vertices
+        for angle = 0, 2 * math.pi, angle_step do
+            table.insert(vertices, center_x + x_radius * math.cos(angle))
+            table.insert(vertices, center_y + y_radius * math.sin(angle))
+        end
+
+        player.vertices = vertices
+        player.entity = world:add(player, player_x, player_y, slick.newPolygonShape(vertices))
+    else
+        player.entity = world:add(player, player_x, player_y, slick.newCircleShape(0, 0, player.radius))
+    end
 end
 
+-- update player position
 love.update = function(delta)
     player.x, player.y = world:move(
         player,
@@ -202,10 +171,11 @@ love.update = function(delta)
     )
 end
 
+-- handle input to move player
 local handle_key = function(which, pressed_or_released)
     local max_velocity = 100
     local vx, vy = player.velocity_x, player.velocity_y
-    if which == "left" then
+    if which == "left" or which == "a" then
         if pressed_or_released then
             vx = -1 * max_velocity
         else
@@ -213,7 +183,7 @@ local handle_key = function(which, pressed_or_released)
         end
     end
 
-    if which == "right" then
+    if which == "right" or which == "d" then
         if pressed_or_released then
             vx = 1 * max_velocity
         else
@@ -221,7 +191,7 @@ local handle_key = function(which, pressed_or_released)
         end
     end
 
-    if which == "up" then
+    if which == "up" or which == "w" then
         if pressed_or_released then
             vy = -1 * max_velocity
         else
@@ -229,7 +199,7 @@ local handle_key = function(which, pressed_or_released)
         end
     end
 
-    if which == "down" then
+    if which == "down" or which == "s" then
         if pressed_or_released then
             vy = 1 * max_velocity
         else
@@ -248,6 +218,7 @@ love.keyreleased = function(which)
     handle_key(which, false)
 end
 
+-- draw
 love.draw = function()
     for _, vertices in pairs(shapes) do
         love.graphics.setColor(1, 1, 1, 0.2)
@@ -257,9 +228,24 @@ love.draw = function()
         love.graphics.polygon("line", vertices)
     end
 
-    love.graphics.setColor(1, 1, 1, 0.2)
-    love.graphics.circle("fill", player.x, player.y, player.radius)
+    if USE_POLYGONAL_CIRCLE then
+        love.graphics.push()
+        love.graphics.translate(player.x, player.y)
+        love.graphics.setColor(1, 1, 1, 0.2)
+        love.graphics.polygon("fill", player.vertices)
 
-    love.graphics.setColor(1, 1, 1, 0.8)
-    love.graphics.circle("fill", player.x, player.y, player.radius)
+        love.graphics.setColor(1, 1, 1, 0.8)
+        love.graphics.polygon("line", player.vertices)
+        love.graphics.pop()
+    else
+        love.graphics.push()
+        love.graphics.setColor(1, 1, 1, 0.2)
+        love.graphics.circle("fill", player.x, player.y, player.radius)
+
+        love.graphics.setColor(1, 1, 1, 0.8)
+        love.graphics.circle("line", player.x, player.y, player.radius)
+        love.graphics.pop()
+    end
+
+    love.graphics.printf("Use Arrows or WASD to move | player is polygon: " .. tostring(USE_POLYGONAL_CIRCLE), 10, 10, math.huge)
 end

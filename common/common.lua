@@ -270,6 +270,21 @@ function math.normalize(x, y)
     end
 end
 
+--- @brief
+function math.magnitude(x, y)
+    return math.sqrt(x * x + y * y)
+end
+
+--- @brief
+function math.angle(x, y)
+    return math.atan2(y, x)
+end
+
+--- @brief
+function math.translate_by_angle(x, y, angle, distance)
+    return x + math.cos(angle) * distance, y + math.sin(angle) * distance
+end
+
 --- @brief get distance between two points
 --- @param x1 number x component of the first point
 --- @param y1 number y component of the first point

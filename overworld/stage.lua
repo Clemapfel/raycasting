@@ -111,16 +111,6 @@ function ow.Stage:instantiate(id)
         end
     end
 
-    --[[
-    self._physics_stage_body = b2.Body(
-        self._physics_world,
-        b2.BodyType.STATIC,
-        0, 0,
-        self._physics_stage_shapes
-    )
-    ]]--
-
-    self._player = ow.Player(self)
 end
 
 --- @brief
@@ -129,7 +119,6 @@ function ow.Stage:draw()
         f()
     end
 
-    self._player:draw()
     self._physics_world:draw()
 end
 

@@ -58,7 +58,8 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
 
         _angular_velocity = 0,
         _angular_acceleration = 0,
-        _mass = 0
+        _mass = 0,
+        _collision_response_type = b2.CollisionResponseType.SLIDE
     })
 
     self._world:_notify_body_added(self)
@@ -78,7 +79,6 @@ function b2.Body:set_position(x, y)
     if x == self._transform.x or y == self._transform.y then return end
     self._transform:setTransform(x, y)
     self._world:_notify_transform_changed(self)
-    self._world:_notify_push_needed(self)
 end
 
 --- @brief
@@ -180,4 +180,14 @@ end
 function b2.Body:set_origin(x, y)
     self._transform:setTransform(nil, nil, nil, nil, nil, x, y)
     self._world:_notify_transform_changed(self)
+end
+
+--- @brief
+function b2.Body:set_collision_response_type(type)
+    self._collision_response_type = type
+end
+
+--- @brief
+function b2.Body:get_collision_response_type()
+    return self._collision_response_type
 end
