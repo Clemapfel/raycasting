@@ -13,7 +13,8 @@ function ow.OverworldScene:instantiate()
         _camera = ow.Camera(),
         _current_stage_id = nil,
         _stage = nil,
-        _player = ow.Player()
+        _player = ow.Player(),
+        _input = rt.InputSubscriber()
     })
 end
 

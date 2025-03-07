@@ -1,3 +1,4 @@
+require "common.widget"
 require "common.texture"
 require "common.palette"
 require "common.font"
@@ -27,14 +28,9 @@ rt.JustifyMode = meta.enum("JustifyMode", {
 rt.Label = meta.class("Label", rt.Widget)
 
 function rt.Label:instantiate(text, font, monospace_font)
+    meta.assert(text, "String")
     if font == nil then font = rt.settings.font.default end
     if monospace_font == nil then monospace_font = rt.settings.font.default_mono end
-    meta.assert(
-        text, "String",
-        font, "Font",
-        monospace_font, "Font"
-    )
-
     local black = rt.Palette.BLACK
     meta.install(self, {
         _raw = text,
@@ -251,10 +247,10 @@ function rt.Label:get_line_height()
 end
 
 local _make_set = function(...)
-    local n_args = select("#", ...)
+    local n_args = _G.select("#", ...)
     local out = {}
     for i = 1, n_args do
-        local arg = select(i, ...)
+        local arg = _G.select(i, ...)
         out[arg] = true
     end
     return out
@@ -324,11 +320,11 @@ for set_settings_key in range(
     {_syntax.STRIKETHROUGH_TAG_START, "is_strikethrough"},
     {_syntax.STRIKETHROUGH_TAG_END, "is_strikethrough"},
 
-    --{_syntax.COLOR_TAG_START, "color_active"}, sic
-    --{_syntax.COLOR_TAG_END, "color_active"}, sic
+--{_syntax.COLOR_TAG_START, "color_active"}, sic
+--{_syntax.COLOR_TAG_END, "color_active"}, sic
 
-    --{_syntax.OUTLINE_COLOR_TAG_START, "outline_color_active"}, sic
-    --{_syntax.OUTLINE_COLOR_TAG_END, "outline_color_active"}, sic
+--{_syntax.OUTLINE_COLOR_TAG_START, "outline_color_active"}, sic
+--{_syntax.OUTLINE_COLOR_TAG_END, "outline_color_active"}, sic
 
     {_syntax.OUTLINE_TAG_START, "is_outlined"},
     {_syntax.OUTLINE_TAG_END, "is_outlined"},
@@ -995,3 +991,4 @@ function rt.Label:_update_texture()
     love.graphics.setCanvas(nil)
     love.graphics.pop()
 end
+

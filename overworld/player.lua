@@ -1,7 +1,7 @@
 require "common.input_subscriber"
 require "physics.physics"
 
-local max_velocity = 200
+local max_velocity = 400
 rt.settings.overworld.player = {
     radius = 10,
     max_velocity = max_velocity, -- px / s
@@ -16,7 +16,7 @@ ow.Player = meta.class("OverworldPlayer")
 function ow.Player:instantiate(stage)
 
     local vertices = {}
-    local radius = 3 * rt.settings.overworld.player.radius
+    local radius = rt.settings.overworld.player.radius
     local n_outer_vertices = 6
     local angle_step = (2 * math.pi) / n_outer_vertices
     local offset = 0
