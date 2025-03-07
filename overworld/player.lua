@@ -82,6 +82,11 @@ function ow.Player:teleport_to(x, y)
 end
 
 --- @brief
+function ow.Player:get_position()
+    return self._body:get_position()
+end
+
+--- @brief
 function ow.Player:draw()
     self._body:draw()
 

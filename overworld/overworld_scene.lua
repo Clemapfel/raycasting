@@ -23,6 +23,7 @@ function ow.OverworldScene:enter(stage_id)
         self._current_stage_id = stage_id
         self._stage = ow.Stage(stage_id)
         self._player:move_to_stage(self._stage)
+        self._camera:move_to(self._player:get_position())
     end
 end
 
@@ -49,4 +50,6 @@ function ow.OverworldScene:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
     self._player:update(delta)
+
+    self._camera:move_to(self._player:get_position())
 end
