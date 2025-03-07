@@ -16,6 +16,13 @@ function ow.OverworldScene:instantiate()
         _player = ow.Player(),
         _input = rt.InputSubscriber()
     })
+
+    self._input:signal_connect("pressed", function(_, which)
+        local target = math.random() * 2 * math.pi
+        dbg(target)
+        self._camera:rotate_to(target)
+
+    end)
 end
 
 --- @brief
@@ -24,7 +31,7 @@ function ow.OverworldScene:enter(stage_id)
         self._current_stage_id = stage_id
         self._stage = ow.Stage(stage_id)
         self._player:move_to_stage(self._stage)
-        self._camera:move_to(self._player:get_position())
+        self._camera:move_to(self._player:get_predicted_position(2 * love.timer.getFPS()))
     end
 end
 
@@ -53,4 +60,6 @@ function ow.OverworldScene:update(delta)
     self._player:update(delta)
 
     self._camera:move_to(self._player:get_position())
+
+    local speed = 2 * math.pi
 end

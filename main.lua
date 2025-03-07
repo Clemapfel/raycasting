@@ -14,7 +14,7 @@ love.load = function(args)
     SceneManager:set_scene(ow.OverworldScene, "debug_stage")
 end
 
-local start = false
+local start = true
 love.update = function(delta)
     if love.keyboard.isDown("space") then start = true end
 

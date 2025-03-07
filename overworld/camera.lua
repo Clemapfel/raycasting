@@ -1,16 +1,12 @@
-require "common.input_subscriber"
-require "common.timed_animation"
+rt.settings.overworld.camera = {
+    acceleration = 10,
+    mass = 1,
+    damping = 0.9,
 
-do
-    local max_velocity = 5000
-    local acceleration = 500 -- New acceleration parameter
-    rt.settings.overworld.camera = {
-        translation_speed = max_velocity, -- px / s
-        acceleration = 2 * max_velocity, -- px / s^2
-        angular_acceleration = 2 * math.pi,
-        damping_factor = 0.95 -- New damping factor for inertia
-    }
-end
+    angular_acceleration = 2 * math.pi / 2,
+    angular_mass = 1,
+    angular_damping = 1,
+}
 
 --- @class ow.Camera
 ow.Camera = meta.class("Camera")
@@ -21,15 +17,18 @@ function ow.Camera:instantiate()
         _scale = 1,
         _offset_x = 0,
         _offset_y = 0,
-        _angle = 0,
 
         _current_x = 0,
         _current_y = 0,
         _target_x = 0,
         _target_y = 0,
 
-        _velocity_magnitude = 0,
-        _velocity_angle = 0
+        _velocity_x = 0,
+        _velocity_y = 0,
+        _angular_velocity = 0,
+
+        _current_angle = 0,
+        _target_angle = 0
     })
 end
 
@@ -46,7 +45,7 @@ function ow.Camera:bind()
 
     local camera_origin_x, camera_origin_y = self._offset_x + 0.5 * w, self._offset_y + 0.5 * h
     love.graphics.translate(camera_origin_x, camera_origin_y)
-    love.graphics.rotate(self._angle)
+    love.graphics.rotate(self._current_angle)
     love.graphics.translate(-camera_origin_x, -camera_origin_y)
 end
 
@@ -61,26 +60,67 @@ function ow.Camera:move_to(x, y)
 end
 
 function ow.Camera:update(delta)
-    local cx, cy = self._current_x, self._current_y
-    local tx, ty = self._target_x, self._target_y
+    local dx = self._target_x - self._current_x
+    local dy = self._target_y - self._current_y
 
-    local angle = math.angle(tx - cx, ty - cy)
-    local angular_acceleration = rt.settings.overworld.camera.angular_acceleration
-    local angle_difference = (angle - self._velocity_angle + math.pi) % (2 * math.pi) - math.pi
+    -- Calculate acceleration
+    local ax = (dx / rt.settings.overworld.camera.mass) * rt.settings.overworld.camera.acceleration
+    local ay = (dy / rt.settings.overworld.camera.mass) * rt.settings.overworld.camera.acceleration
 
-    if angle_difference > 0 then
-        self._velocity_angle = self._velocity_angle + math.min(angle_difference, angular_acceleration * delta)
-    else
-        self._velocity_angle = self._velocity_angle + math.max(angle_difference, -angular_acceleration * delta)
+    local function smoothstep(edge0, edge1, x)
+        x = math.max(0, math.min(1, (x - edge0) / (edge1 - edge0)))
+        return x * x * (3 - 2 * x) ^ 3
     end
-    self._velocity_angle = angle --math.clamp(self._velocity_angle, angle - angular_acceleration * delta, angle + angular_acceleration * delta)
 
-    local distance = math.distance(cx, cy, tx, ty)
-    self._velocity_magnitude = distance ^ 1.2
+    -- multiply velocity if target is outside the frame
+    local target_w = 0.5 * love.graphics.getWidth()
+    local catchup_factor_x = smoothstep(0, target_w, math.abs(dx))
 
-    local magnitude = self._velocity_magnitude
-    self._current_x = self._current_x + math.cos(self._velocity_angle) * magnitude * delta
-    self._current_y = self._current_y + math.sin(self._velocity_angle) * magnitude * delta
+    local target_h = 0.5 * love.graphics.getWidth()
+    local catchup_factor_y = smoothstep(0, target_h, math.abs(dy))
+
+    self._velocity_x = self._velocity_x + ax * delta * catchup_factor_x
+    self._velocity_y = self._velocity_y + ay * delta * catchup_factor_y
+
+    self._velocity_x = self._velocity_x * rt.settings.overworld.camera.damping
+    self._velocity_y = self._velocity_y * rt.settings.overworld.camera.damping
+
+    local new_x = self._current_x + self._velocity_x * delta
+    local new_y = self._current_y + self._velocity_y * delta
+
+    -- prevent overshooting
+    if math.abs(new_x - self._target_x) < math.abs(self._current_x - self._target_x) then
+        self._current_x = new_x
+    else
+        self._current_x = self._target_x
+        self._velocity_x = 0
+    end
+
+    if math.abs(new_y - self._target_y) < math.abs(self._current_y - self._target_y) then
+        self._current_y = new_y
+    else
+        self._current_y = self._target_y
+        self._velocity_y = 0
+    end
+
+    -- Calculate the shortest path on the circle
+    local angle_diff = (self._target_angle - self._current_angle + math.pi) % (2 * math.pi) - math.pi
+
+    -- Calculate angular acceleration
+    local angular_acceleration = (angle_diff / rt.settings.overworld.camera.angular_mass) * rt.settings.overworld.camera.angular_acceleration
+
+    -- Update angular velocity
+    self._angular_velocity = self._angular_velocity + angular_acceleration * delta
+    self._angular_velocity = self._angular_velocity * rt.settings.overworld.camera.angular_damping
+
+    -- Calculate new angle
+    local new_angle = self._current_angle + self._angular_velocity * delta * (1 + angle_diff)
+    local new_angle_diff = (self._target_angle - new_angle + math.pi) % (2 * math.pi) - math.pi
+    if math.abs(new_angle_diff) < math.abs(angle_diff) then
+        self._current_angle = new_angle
+    end
+
+    self._current_angle = (self._current_angle + 2 * math.pi) % (2 * math.pi)
 end
 
 --- @brief
@@ -88,5 +128,18 @@ function ow.Camera:reset()
     self._scale = 1
     self._offset_x = 0
     self._offset_y = 0
-    self._angle = 0
+    self._current_angle = 0
+    self._velocity_x = 0
+    self._velocity_y = 0
+    self._angular_velocity = 0
+end
+
+--- @brief
+function ow.Camera:rotate_to(angle)
+    self._target_angle = angle
+end
+
+--- @brief
+function ow.Camera:get_rotation()
+    return self._current_angle
 end

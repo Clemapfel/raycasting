@@ -30,6 +30,7 @@ function ow.Player:instantiate(stage)
         _input = rt.InputSubscriber(),
         _velocity_angle = 0,
         _velocity_magnitude = 0,
+        _velocity_multiplier = 1,
 
         _direction_indicator_x = 0,
         _direction_indicator_y = 0,
@@ -87,6 +88,15 @@ function ow.Player:get_position()
 end
 
 --- @brief
+function ow.Player:get_predicted_position(delta)
+    local velocity_x = math.cos(self._velocity_angle) * self._velocity_magnitude * self._velocity_multiplier
+    local velocity_y = math.sin(self._velocity_angle) * self._velocity_magnitude * self._velocity_multiplier
+
+    local x, y = self._body:get_position()
+    return x + velocity_x * delta, y + velocity_y * delta
+end
+
+--- @brief
 function ow.Player:draw()
     self._body:draw()
 
@@ -113,7 +123,10 @@ function ow.Player:update(delta)
     local velocity_x = math.cos(self._velocity_angle)
     local velocity_y = math.sin(self._velocity_angle)
 
-    self._body:set_velocity(velocity_x * self._velocity_magnitude, velocity_y * self._velocity_magnitude)
+    self._body:set_velocity(
+        velocity_x * self._velocity_magnitude * self._velocity_multiplier,
+        velocity_y * self._velocity_magnitude * self._velocity_multiplier
+    )
 
     local radius = rt.settings.overworld.player.radius
     local x, y = self._body:get_position()
@@ -175,6 +188,14 @@ function ow.Player:_handle_button(which, pressed_or_released)
             if before ~= b2.CollisionResponseType.SLIDE then
                 self._world:_notify_push_needed(self._body)
             end
+        end
+    end
+
+    if which == rt.InputButton.B then
+        if pressed_or_released then
+            self._velocity_multiplier = 2
+        else
+            self._velocity_multiplier = 1
         end
     end
 end
