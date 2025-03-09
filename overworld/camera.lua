@@ -1,6 +1,9 @@
+require "common.sprite_batch"
+
 rt.settings.overworld.camera = {
 
 }
+
 
 --- @class ow.Camera
 ow.Camera = meta.class("Camera")
@@ -18,7 +21,20 @@ function ow.Camera:instantiate()
 
         _current_angle = 0,
         _current_zoom = 1,
+
+        _bounds_x = -math.huge,
+        _bounds_y = -math.huge,
+        _bounds_width = math.huge,
+        _bounds_height = math.huge,
+        _apply_bounds = true
     })
+end
+
+local _floor
+if rt.settings.sprite_batch.use_subpixel_filtering then
+    _floor = function(x) return x end
+else
+    _floor = math.floor
 end
 
 --- @brief
@@ -27,23 +43,21 @@ function ow.Camera:bind()
     love.graphics.push()
     love.graphics.origin()
 
-    local origin_x, origin_y = 0.5 * w, 0.5 * h
+    local origin_x, origin_y = _floor(0.5 * w), _floor(0.5 * h)
     love.graphics.translate(origin_x, origin_y)
     love.graphics.scale(self._current_zoom, self._current_zoom)
     love.graphics.rotate(self._current_angle)
     love.graphics.translate(-origin_x, -origin_y)
-
-    love.graphics.translate(-self._current_x + 0.5 * w, -self._current_y + 0.5 * h)
+    love.graphics.translate(-_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h)
 end
 
 --- @brief
 function ow.Camera:unbind()
+    --love.graphics.rectangle("line", self._bounds_x, self._bounds_y, self._bounds_width, self._bounds_height)
     love.graphics.pop()
 end
 
 function ow.Camera:update(delta)
-    if self._to_follow ~= nil then self:move_to(self._to_follow:get_position()) end
-
     local screen_w, screen_h = love.graphics.getDimensions()
 
     local exp = 1.3
@@ -59,10 +73,30 @@ function ow.Camera:update(delta)
     self._velocity_x = math.min(dx * velocity, max_velocity)
     self._velocity_y = math.min(dy * velocity, max_velocity)
 
-    local target_x = self._current_x + self._velocity_x * delta
-    local target_y = self._current_y + self._velocity_y * delta
-    self._current_x = math.round(target_x)
-    self._current_y = math.round(target_y)
+    local final_delta_x = self._velocity_x * delta
+    local final_delta_y = self._velocity_y * delta
+
+    local cutoff = 1.5 -- if delta is less than 1 px, skip update, to prevent stuttering for small movements
+    if math.abs(final_delta_x) < cutoff then final_delta_x = 0 end
+    if math.abs(final_delta_y) < cutoff then final_delta_y = 0 end
+    self._current_x = self._current_x + final_delta_x
+    self._current_y = self._current_y + final_delta_y
+
+    -- constrain to bounds
+    if self._apply_bounds == true then
+        -- TODO: clamp zoom
+
+        local w, h = screen_w / self._current_zoom, screen_h / self._current_zoom
+        self._current_x = math.clamp(self._current_x,
+            math.ceil(0.5 * w + self._bounds_x),
+            math.floor(0.5 * w - w + self._bounds_x + self._bounds_width)
+        )
+
+        self._current_y = math.clamp(self._current_y,
+            math.ceil(0.5 * h + self._bounds_y),
+            math.floor(0.5 * h - h + self._bounds_y + self._bounds_height)
+        )
+    end
 end
 
 --- @brief
@@ -111,6 +145,37 @@ end
 --- @brief
 function ow.Camera:set_zoom(s)
     self._current_zoom = s
+end
+
+--- @brief
+function ow.Camera:set_bounds(bounds)
+    if bounds ~= nil then
+        meta.assert(bounds, "AABB")
+        self._bounds_x = bounds.x
+        self._bounds_y = bounds.y
+        self._bounds_width = bounds.width
+        self._bounds_height = bounds.height
+    else
+        self._bounds_x = -math.huge
+        self._bounds_y = -math.huge
+        self._bounds_width = math.huge
+        self._bounds_height = math.huge
+    end
+end
+
+--- @brief
+function ow.Camera:get_bounds()
+    return rt.AABB(self._bounds_x, self._bounds_y, self._bounds_width, self._bounds_height)
+end
+
+--- @brief
+function ow.Camera:set_apply_bounds(b)
+    self._apply_bounds = b
+end
+
+--- @brief
+function ow.Camera:get_apply_bounds()
+    return self._apply_bounds
 end
 
 --- @brief
