@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.11.2" name="debug_tileset" tilewidth="32" tileheight="32" tilecount="35" columns="0">
+<tileset version="1.10" tiledversion="1.11.2" name="debug_tileset" tilewidth="32" tileheight="32" tilecount="36" columns="0">
  <editorsettings>
   <export target="debug_tileset.lua" format="lua"/>
  </editorsettings>
@@ -210,5 +210,8 @@
  </tile>
  <tile id="67">
   <image source="debug_tileset/Frame035.png" width="32" height="32"/>
+ </tile>
+ <tile id="68">
+  <image source="debug_tileset/Frame036.png" width="32" height="32"/>
  </tile>
 </tileset>

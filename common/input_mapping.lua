@@ -19,6 +19,37 @@ rt.InputMapping = meta.class("InputMapping")
 
 --- @brief [internal]
 function rt.InputMapping:instantiate()
+    -- sanitize INPUT_MAPPING
+    for input_button in range(
+        rt.InputButton.UP,
+        rt.InputButton.RIGHT,
+        rt.InputButton.DOWN,
+        rt.InputButton.LEFT,
+        rt.InputButton.A,
+        rt.InputButton.B,
+        rt.InputButton.X,
+        rt.InputButton.Y,
+        rt.InputButton.START,
+        rt.InputButton.SELECT,
+        rt.InputButton.L,
+        rt.InputButton.R
+    ) do
+        local mapped = _G.SETTINGS.INPUT_MAPPING[input_button]
+        if mapped == nil then
+            rt.error("In rt.InputMapping: mapping in conf.lua does not map input action `" .. input_button .. "`")
+        end
+
+        if not meta.is_table(mapped.keyboard) then mapped.keyboard = { mapped.keyboard } end
+        if not meta.is_table(mapped.controller) then mapped.controller = { mapped.controller } end
+        if table.sizeof(mapped.keyboard) == 0 then
+            rt.error("In rt.InputMapping: mapping in conf.lua does not assign a keyboard key to input action `" .. input_button .. "`")
+        end
+
+        if table.sizeof(mapped.controller) == 0 then
+            rt.error("In rt.InputMapping: mapping in conf.lua does not assign a controller button to input action `" .. input_button .. "`")
+        end
+    end
+
     self:update_reverse_mapping()
 end
 
@@ -72,15 +103,14 @@ end
 
 --- @brief 
 function rt.InputMapping:get_mapping(input_action)
-
-    local mapped = _G.SETTINGS.KEYMAP[input_action]
+    local mapped = _G.SETTINGS.INPUT_MAPPING[input_action]
     if mapped == nil then
         log.error("In rt.InputMapping.get_mapping: no mapping for input action `" .. input_action .. "`")
         return nil, nil
     end
 
-    local keyboard = { table.unpack(_G.SETTINGS.KEYMAP.keyboard) }
-    local controller = { table.unpack(_G.SETTINGS.KEYMAP.controller) }
+    local keyboard = { table.unpack(_G.SETTINGS.INPUT_MAPPING[input_action].keyboard) }
+    local controller = { table.unpack(_G.SETTINGS.INPUT_MAPPING[input_action].controller) }
     return keyboard, controller
 end
 
@@ -91,7 +121,7 @@ end
 function rt.InputMapping:set_mapping(input_action, keyboard, controller)
     assert(meta.is_enum_value(input_action), type(keyboard) == "table" and type(controller) == "table")
 
-    local mapped = _G.SETTINGS.KEYMAP[input_action]
+    local mapped = _G.SETTINGS.INPUT_MAPPING[input_action]
     if mapped == nil then
         log.error("In rt.InputMapping.set_mapping: no mapping for input action `" .. input_action .. "`")
         return nil, nil

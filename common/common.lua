@@ -185,6 +185,8 @@ function math.smoothstep(lower, upper, ratio)
     return t * t * (3.0 - 2.0 * t);
 end
 
+math.eps = 10e-4
+
 --- @brief
 function math.fract(x)
     return math.fmod(x, 1.0)
@@ -206,6 +208,11 @@ function math.sign(x)
     else
         return 0
     end
+end
+
+--- @brief
+function math.is_nan(x)
+    return x ~= x
 end
 
 --- @brief evaluate erf integral

@@ -7,8 +7,25 @@ rt.InputManager = meta.class("rt.InputManager")
 function rt.InputManager:instantiate()
     meta.install(self, {
         _subscribers = meta.make_weak({}),
-        _cursor_in_bounds = true
+        _cursor_in_bounds = true,
+        _last_active_joystick = nil
     })
+end
+
+--- @brief
+function rt.InputManager:is_keyboard_key_down(key)
+    return love.keyboard.isDown(key)
+end
+
+--- @brief
+function rt.InputManager:is_controller_button_down(button)
+    local joystick = self._last_active_joystick
+    if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
+    if joystick == nil then
+        return false
+    else
+        return joystick:isDown(button)
+    end
 end
 
 rt.InputManager = rt.InputManager() -- static singleton instance
@@ -102,6 +119,8 @@ love.mousefocus = function(b)
 end
 
 love.gamepadpressed = function(joystick, button)
+    rt.InputManager._last_active_joystick = joystick
+
     for sub in values(rt.InputManager._subscribers) do
         sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_PRESSED, button, joystick:getID())
     end
@@ -115,6 +134,8 @@ love.gamepadpressed = function(joystick, button)
 end
 
 love.gamepadreleased = function(joystick, button)
+    rt.InputManager._last_active_joystick = joystick
+
     for sub in values(rt.InputManager._subscribers) do
         sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_RELEASED, button, joystick:getID())
     end
@@ -128,6 +149,8 @@ love.gamepadreleased = function(joystick, button)
 end
 
 love.gamepadaxis = function(joystick, axis, value)
+    rt.InputManager._last_active_joystick = joystick
+
     if axis == "leftx" or axis == "lefty" then
         for sub in values(rt.InputManager._subscribers) do
             sub:signal_emit(rt.InputCallbackID.LEFT_JOYSTICK_MOVED, joystick:getAxis("leftx"), joystick:getAxis("lefty"), joystick:getID())

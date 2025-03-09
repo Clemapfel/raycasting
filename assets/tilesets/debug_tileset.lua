@@ -23,7 +23,7 @@ return {
   },
   properties = {},
   wangsets = {},
-  tilecount = 35,
+  tilecount = 36,
   tiles = {
     {
       id = 25,
@@ -64,7 +64,7 @@ return {
             x = 0,
             y = 0,
             width = 32,
-            height = 17,
+            height = 18,
             rotation = 0,
             visible = true,
             properties = {}
@@ -1164,6 +1164,12 @@ return {
     {
       id = 67,
       image = "debug_tileset/Frame035.png",
+      width = 32,
+      height = 32
+    },
+    {
+      id = 68,
+      image = "debug_tileset/Frame036.png",
       width = 32,
       height = 32
     }

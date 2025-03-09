@@ -30,7 +30,6 @@ function b2.World:instantiate(width, height, ...)
 
     local last_goalDotDirection = 0
     local function slide(world, query, response, x, y, goalX, goalY, filter, result)
-           dbg(tostring(response.entity), tostring(response.otherEntity))
         local true_goal_x, true_goal_y = goalX, goalY
         _cachedSlideCurrentPosition:init(x, y)
         _cachedSlideTouchPosition:init(response.touch.x, response.touch.y)

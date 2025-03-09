@@ -1,13 +1,9 @@
-_G.DEBUG = false
+_G.DEBUG = true
 
 require "include"
 require "common.label"
 
 local SceneManager = require "common.scene_manager"
-
-local label = rt.Label("<outline_color=WHITE><color=BLACK>BIG</color></outline_color>", rt.settings.font.default_huge)
-label:realize()
-label:reformat(50, 50)
 
 love.load = function(args)
     require "overworld.overworld_scene"

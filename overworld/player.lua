@@ -1,20 +1,27 @@
 require "common.input_subscriber"
 require "physics.physics"
 
-local max_velocity = 400
+local velocity = 200
 rt.settings.overworld.player = {
     radius = 10,
-    max_velocity = max_velocity, -- px / s
-    acceleration = 2 * max_velocity,
-    deceleration = 10 * max_velocity
+    velocity = velocity, -- px / s
+    acceleration = 2 * velocity,
+    deceleration = 10 * velocity,
+    velocity_magnitude_history_n = 3
 }
 
---- @class
+--- @class ow.Player
+--- @signal movement_start (self, position_x, position_y) -> nil
+--- @signal movement_stop (self, position_x, position_y) -> nil
 ow.Player = meta.class("OverworldPlayer")
+
+meta.add_signals(ow.Player,
+    "movement_start",
+    "movement_stop"
+)
 
 --- @brief
 function ow.Player:instantiate(stage)
-
     local vertices = {}
     local radius = rt.settings.overworld.player.radius
     local n_outer_vertices = 6
@@ -28,6 +35,9 @@ function ow.Player:instantiate(stage)
     meta.install(self, {
         _shapes = { b2.Polygon(vertices), b2.Circle(0, 0, radius * 0.95) },
         _input = rt.InputSubscriber(),
+
+        _facing_angle = 0,
+
         _velocity_angle = 0,
         _velocity_magnitude = 0,
         _velocity_multiplier = 1,
@@ -42,8 +52,16 @@ function ow.Player:instantiate(stage)
         _up_pressed = false,
         _down_pressed = false,
         _left_pressed = false,
-        _right_pressed = false
+        _right_pressed = false,
+
+        _velocity_magnitude_history = {},
+        _velocity_magnitude_sum = 0,
+        _is_moving = false
     })
+
+    for i = 1, rt.settings.overworld.player.velocity_magnitude_history_n do
+        table.insert(self._velocity_magnitude_history, 0)
+    end
 
     self._input:signal_connect("pressed", function(_, which)
         self:_handle_button(which, true)
@@ -89,8 +107,9 @@ end
 
 --- @brief
 function ow.Player:get_predicted_position(delta)
-    local velocity_x = math.cos(self._velocity_angle) * self._velocity_magnitude * self._velocity_multiplier
-    local velocity_y = math.sin(self._velocity_angle) * self._velocity_magnitude * self._velocity_multiplier
+    local magnitude = self._velocity_magnitude_sum / rt.settings.overworld.player.velocity_magnitude_history_n
+    local velocity_x = math.cos(self._velocity_angle) * magnitude * delta
+    local velocity_y = math.sin(self._velocity_angle) * magnitude * delta
 
     local x, y = self._body:get_position()
     return x + velocity_x * delta, y + velocity_y * delta
@@ -106,6 +125,11 @@ function ow.Player:draw()
     end
 end
 
+--- @brief
+function ow.Player:set_facing_angle(angle)
+    self._facing_angle = angle
+end
+
 local _last_x, _last_y
 
 --- @brief
@@ -118,10 +142,11 @@ function ow.Player:update(delta)
     else
         self._velocity_magnitude = current - deceleration * delta
     end
-    self._velocity_magnitude = math.clamp(self._velocity_magnitude, 0, rt.settings.overworld.player.max_velocity)
+    self._velocity_magnitude = math.clamp(self._velocity_magnitude, 0, rt.settings.overworld.player.velocity)
 
-    local velocity_x = math.cos(self._velocity_angle)
-    local velocity_y = math.sin(self._velocity_angle)
+    local angle_offset = 2 * math.pi - self._facing_angle
+    local velocity_x = math.cos(self._velocity_angle + angle_offset)
+    local velocity_y = math.sin(self._velocity_angle + angle_offset)
 
     self._body:set_velocity(
         velocity_x * self._velocity_magnitude * self._velocity_multiplier,
@@ -136,16 +161,24 @@ function ow.Player:update(delta)
     local cx, cy = self._body:get_position()
     local lx, ly = self._position_last_x, self._position_last_y
 
-    local eps = 10e-4
-    if self._velocity_magnitude > eps and math.magnitude(cx - lx, cy - ly) < eps then
-        if self._n_stuck_frames > 20 then
-        end
-        self._n_stuck_frames = self._n_stuck_frames + 1
-    else
-        self._n_stuck_frames = 0
+    local actual_velocity_x, actual_velocity_y = cx - self._position_last_x, cy - self._position_last_y
+    local actual_velocity = math.magnitude(actual_velocity_x, actual_velocity_y)
+
+    local eps = 0.01
+    local past_velocity = self._velocity_magnitude_sum / #self._velocity_magnitude_history
+    if actual_velocity >= eps and self._is_moving == false then
+        self:signal_emit("movement_start", cx, cy)
+        self._is_moving = true
+    elseif actual_velocity <= eps and self._is_moving == true then
+        self:signal_emit("movement_stop", cx, y)
+        self._is_moving = false
     end
 
-    self._position_last_x, self._position_last_y = cx, cy
+    self._velocity_magnitude_sum = self._velocity_magnitude_sum + actual_velocity - self._velocity_magnitude_history[1]
+    table.insert(self._velocity_magnitude_history, actual_velocity)
+    table.remove(self._velocity_magnitude_history, 1)
+
+    self._position_last_x, self._position_last_y = self._body:get_position()
 end
 
 --- @brief

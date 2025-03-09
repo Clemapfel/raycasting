@@ -1,4 +1,5 @@
 require "common.input_manager"
+require "common.input_mapping"
 
 --- @class InputCallbackID
 --- @brief list of available input event callbacks, see input_subscriber.lua on how to connect to these
@@ -72,6 +73,26 @@ function rt.InputSubscriber:instantiate()
         _callback_id_to_is_blocked = {},
         _override_warning_printed = false
     })
+end
+
+--- @brief
+function rt.InputSubscriber:get_mouse_position()
+    return love.mouse.getPosition()
+end
+
+--- @brief
+function rt.InputSubscriber:is_down(input_button)
+    local keyboard_keys, controller_buttons = rt.InputMapping:get_mapping(input_button)
+
+    for key in values(keyboard_keys) do
+        if rt.InputManager:is_keyboard_key_down(key) then return true end
+    end
+
+    for button in values(controller_buttons) do
+        if rt.InputManager:is_controller_button_down(button) then return true end
+    end
+
+    return false
 end
 
 meta.add_signals(rt.InputSubscriber,

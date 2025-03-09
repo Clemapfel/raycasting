@@ -16,28 +16,6 @@ ow.LayerType = meta.enum("LayerType", {
 
 --- @class ow.StageConfig
 ow.StageConfig = meta.class("StageConfig")
-
-local function _load_config(path, error_name)
-    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
-    if not load_success then
-        rt.error("In ow.StageConfig: error when parsing file at `" .. path .. "`: " .. chunk_or_error)
-        return
-    end
-
-    if love_error ~= nil then
-        rt.error("In ow.StageConfig: error when loading file at `" .. path .. "`: " .. love_error)
-        return
-    end
-
-    local chunk_success, config_or_error = pcall(chunk_or_error)
-    if not chunk_success then
-        rt.error("In ow.StageConfig: error when running file at `" .. path .. "`: " .. config_or_error)
-        return
-    end
-
-    return config_or_error
-end
-
 local _get = function(x, key)
     local out = x[key]
     if out == nil then
@@ -52,7 +30,26 @@ local _tileset_atlas = {}
 function ow.StageConfig:instantiate(stage_id)
     self._path = rt.settings.overworld.stage_config.config_path .. "/" .. stage_id .. ".lua"
     self._id = stage_id
-    self._config = _load_config(self._path, "ow.StageConfig.instantiate")
+
+    -- Inlining _load_config logic
+    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, self._path)
+    if not load_success then
+        rt.error("In ow.StageConfig: error when parsing file at `" .. self._path .. "`: " .. chunk_or_error)
+        return
+    end
+
+    if love_error ~= nil then
+        rt.error("In ow.StageConfig: error when loading file at `" .. self._path .. "`: " .. love_error)
+        return
+    end
+
+    local chunk_success, config_or_error = pcall(chunk_or_error)
+    if not chunk_success then
+        rt.error("In ow.StageConfig: error when running file at `" .. self._path .. "`: " .. config_or_error)
+        return
+    end
+
+    self._config = config_or_error
 
     -- init tilesets
 
@@ -82,6 +79,8 @@ function ow.StageConfig:instantiate(stage_id)
     end
 
     -- parse layers
+
+    local tile_min_x, tile_min_y, tile_max_x, tile_max_y = math.huge, math.huge, -math.huge, -math.huge
 
     self._n_columns = _get(self._config, "width")
     self._n_rows = _get(self._config, "height")
@@ -158,12 +157,19 @@ function ow.StageConfig:instantiate(stage_id)
                 local width = _get(chunk, "width")
                 local height = _get(chunk, "height")
                 local data = _get(chunk, "data")
+
+                tile_min_x = math.min(tile_min_x, x_offset)
+                tile_min_y = math.min(tile_min_y, y_offset)
+
                 for y = 1, height do
                     for x = 1, width do
                         local gid = data[(y - 1) * width + x]
                         if gid ~= 0 then -- empty tile
                             assert(gid_matrix:get(x + x_offset, y + y_offset) == nil)
                             gid_matrix:set(x + x_offset, y + y_offset, gid)
+
+                            tile_max_x = math.max(x + x_offset)
+                            tile_max_y = math.max(y + y_offset)
 
                             local tile_entry = self._gid_to_tileset_id[gid]
                             local is_solid = tile_entry.tileset:get_tile_property(tile_entry.id, is_solid_property_name) == true
@@ -183,43 +189,39 @@ function ow.StageConfig:instantiate(stage_id)
                 end
             end
 
+            dbg(tile_min_x, tile_max_x, tile_min_y, tile_max_y)
+
             -- construct tile spritebatches
 
             local tileset_to_spritebatch = {}
 
-            do
-                local current_x, current_y = 0, 0
-                for row_i = 1, self._n_rows do
-                    for col_i = 1, self._n_columns do
-                        local gid = gid_matrix:get(col_i, row_i)
-                        if gid ~= nil then
-                            local tile_entry = self._gid_to_tileset_id[gid]
-                            assert(tile_entry ~= nil)
+            for row_i = tile_min_y, tile_max_y do
+                for col_i = tile_min_x, tile_max_x do
+                    local gid = gid_matrix:get(col_i, row_i)
+                    if gid ~= nil then
+                        local tile_entry = self._gid_to_tileset_id[gid]
+                        assert(tile_entry ~= nil)
 
-                            local tileset = tile_entry.tileset
-                            local spritebatch = tileset_to_spritebatch[tileset]
-                            if spritebatch == nil then
-                                spritebatch = rt.SpriteBatch(tileset:get_texture())
-                                table.insert(to_add.spritebatches, spritebatch)
-                                tileset_to_spritebatch[tileset] = spritebatch
-                            end
-
-                            local local_id = tile_entry.id
-                            local texture_x, texture_y, texture_w, texture_h = tileset:get_tile_texture_bounds(local_id)
-                            local tile_w, tile_h = tileset:get_tile_size(local_id)
-                            spritebatch:add(
-                                current_x,
-                                current_y + self._tile_height - tile_h, -- tiled uses bottom left
-                                tile_w,
-                                tile_h,
-                                texture_x, texture_y, texture_w, texture_h,
-                                false, false, 0
-                            )
+                        local tileset = tile_entry.tileset
+                        local spritebatch = tileset_to_spritebatch[tileset]
+                        if spritebatch == nil then
+                            spritebatch = rt.SpriteBatch(tileset:get_texture())
+                            table.insert(to_add.spritebatches, spritebatch)
+                            tileset_to_spritebatch[tileset] = spritebatch
                         end
-                        current_x = current_x + self._tile_width -- sic, use global tilewidth override instead of actual tile size
+
+                        local local_id = tile_entry.id
+                        local texture_x, texture_y, texture_w, texture_h = tileset:get_tile_texture_bounds(local_id)
+                        local tile_w, tile_h = tileset:get_tile_size(local_id)
+                        spritebatch:add(
+                            (col_i - 1) * self._tile_width,
+                            (row_i - 1 + 1) * self._tile_height - tile_h, -- tiled uses bottom left
+                            tile_w,
+                            tile_h,
+                            texture_x, texture_y, texture_w, texture_h,
+                            false, false, 0
+                        )
                     end
-                    current_y = current_y + self._tile_height
-                    current_x = 0
                 end
             end
 
@@ -304,6 +306,8 @@ function ow.StageConfig:instantiate(stage_id)
         n_layers = n_layers + 1
     end
 
+    self._width = (tile_max_x - tile_min_x) * self._tile_width
+    self._height = (tile_max_y - tile_min_y) * self._tile_height
     self._n_layers = n_layers
 end
 
@@ -351,7 +355,7 @@ end
 
 --- @brief
 function ow.StageConfig:get_size()
-    return self._n_columns * self._tile_width, self._n_rows * self._tile_height
+    return self._width, self._height
 end
 
 --- @brief
