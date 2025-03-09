@@ -3,6 +3,7 @@ ow.ObjectType = meta.enum("ObjectType", {
     SPRITE = "sprite", -- rectangle + gid set
     RECTANGLE = "rectangle",
     ELLIPSE = "ellipse",
+    CIRCLE = "ellipse", -- sic
     POLYGON = "polygon",
     POINT = "point"
 })
@@ -238,7 +239,7 @@ function ow._parse_object_group(object_group)
                 if object.rotation ~= nil then assert(object.rotation == 0) end
             end
 
-            if wrapper.class == nil then wrapper.class = "Hitbox" end
+            if wrapper.class == nil then wrapper.class = "ObjectWrapper" end
         end
 
         table.insert(objects, wrapper)
@@ -246,6 +247,137 @@ function ow._parse_object_group(object_group)
 
     return objects
 end
+
+ow.PhysicsShapeType = meta.enum("PhysicsShapeType", {
+    CIRCLE = "circle",
+    POLYGON = "polygon"
+})
+
+local function _rotate_point(x, y, angle)
+    local cos_theta = math.cos(angle)
+    local sin_theta = math.sin(angle)
+    return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
+end
+
+local function _process_polygon(vertices, object)
+    local out = {}
+    for i = 1, #vertices, 2 do
+        local x, y = vertices[i], vertices[i + 1]
+
+        x, y = x - object.origin_x, y - object.origin_y
+        x, y = _rotate_point(x, y, object.rotation)
+        x, y = x + object.origin_x, y + object.origin_y
+
+        if object.flip_horizontally or object.flip_vertically then
+            x, y = x - object.flip_origin_x, y - object.flip_origin_y
+            x = object.flip_horizontally and -x or x
+            y = object.flip_vertically and -y or y
+            x, y = x + object.flip_origin_x, y + object.flip_origin_y
+        end
+
+        x, y = x + object.offset_x, y + object.offset_y
+
+        x, y = x - object.rotation_origin_x, y - object.rotation_origin_y
+        x, y = _rotate_point(x, y, object.rotation_offset)
+        x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
+
+        table.insert(out, x)
+        table.insert(out, y)
+    end
+
+    return out
+end
+
+--- @brief
+function ow.ObjectWrapper:get_physics_shapes()
+    local object = self
+    self._shapes = {}
+    if object.type == ow.ObjectType.RECTANGLE then
+        local x, y = object.x, object.y
+        local w, h = object.width, object.height
+
+        table.insert(self._shapes, {
+            type = ow.PhysicsShapeType.POLYGON,
+            vertices = _process_polygon({
+                x, y,
+                x + w, y,
+                x + w, y + h,
+                x, y + h
+            },
+                object
+            );
+        })
+    elseif object.type == ow.ObjectType.ELLIPSE then
+        local is_circle = math.abs(object.x_radius - object.y_radius) < 1
+        if is_circle then
+            local vertices = _process_polygon({
+                object.center_x,
+                object.center_y
+            },
+                object
+            )
+
+            table.insert(self._shapes, {
+                type = ow.PhysicsShapeType.CIRCLE,
+                x = vertices[1],
+                y = vertices[2],
+                radius = math.max(object.x_radius, object.y_radius)
+            })
+        else
+            local vertices = {}
+
+            local center_x, center_y = object.center_x, object.center_y
+            local x_radius, y_radius = object.x_radius, object.y_radius
+            local n_outer_vertices = 16
+            local angle_step = (2 * math.pi) / n_outer_vertices
+            for angle = 0, 2 * math.pi, angle_step do
+                table.insert(vertices, center_x + x_radius * math.cos(angle))
+                table.insert(vertices, center_y + y_radius * math.sin(angle))
+            end
+
+            vertices = _process_polygon(
+                vertices,
+                object
+            )
+
+            local polygonization = slick.polygonize(8, { vertices })
+
+            for shape in values(polygonization) do
+                table.insert(self._shapes, {
+                    type = ow.PhysicsShapeType.POLYGON,
+                    vertices = shape
+                })
+            end
+        end
+    elseif object.type == ow.ObjectType.POLYGON then
+        for vertices in values(object.shapes) do
+            table.insert(self._shapes, {
+                type = ow.PhysicsShapeType.POLYGON,
+                vertices = _process_polygon(
+                    vertices,
+                    object
+                )
+            })
+        end
+    else
+        rt.error("In ow.ObjectWrapper: unhandled object type `" .. tostring(object.type) .. "`")
+    end
+
+    -- add to world
+    local shapes = {}
+    for shape in values(self._shapes) do
+        if shape.type == ow.PhysicsShapeType.CIRCLE then
+            table.insert(shapes, b2.Circle(shape.x, shape.y, shape.radius))
+        elseif shape.type == ow.PhysicsShapeType.POLYGON then
+            table.insert(shapes, b2.Polygon(shape.vertices))
+        else
+            rt.error("In ow.ObjectWrapper:as_physics_shape: unhandled shape type `" .. tostring(shape.type) .. "`")
+        end
+    end
+    
+    return shapes
+end
+
 
 --- @brief
 function ow._draw_object(object)

@@ -33,11 +33,14 @@ function ow.Stage:instantiate(id)
 
     self._config = config
     self._to_draw = {}  -- Table<Function>
-    self._hitboxes = {} -- Table<ow.Hitbox>
     self._sprites = {}  -- Table<ow.Sprite>
     self._objects = {}  -- Table<any>
 
     self._player_spawn_x, self._player_spawn_y = nil, nil
+
+    local buffer = rt.settings.overworld.stage.physics_world_buffer_length
+    local w, h = self._config:get_size()
+    self._world = b2.World(w + 2 * buffer, h + 2 * buffer)
 
     local hitbox_class_name = rt.settings.overworld.stage.hitbox_class_name
     local sprite_class_name = rt.settings.overworld.stage.sprite_class_name
@@ -57,14 +60,13 @@ function ow.Stage:instantiate(id)
         local drawables = {}
         if table.sizeof(object_wrappers) > 0 then
             for wrapper in values(object_wrappers) do
+                if wrapper.class == nil then
+                    rt.warning("In ow.Stage.instantiate: object `" .. wrapper.id .. "` of stage `" .. self._config:get_id() .. "` has no class, assuming `Hitbox`")
+                    wrapper.class = hitbox_class_name
+                end
+
                 local object
-                if wrapper.class == hitbox_class_name then
-                    object = ow.Hitbox(wrapper)
-                    table.insert(self._hitboxes, object)
-                elseif wrapper.class == sprite_class_name then
-                    object = ow.Sprite(wrapper)
-                    table.insert(self._sprites, object)
-                elseif wrapper.class == player_spawn_class_name then
+                if wrapper.class == player_spawn_class_name then
                     assert(wrapper.type == ow.ObjectType.POINT, "In ow.Stage: object of class `" .. player_spawn_class_name .. "` is not a point")
                     assert(self._player_spawn_x == nil and self._player_spawn_y == nil, "In ow.Stage: more than one object of type `" .. player_spawn_class_name .. "`")
                     self._player_spawn_x, self._player_spawn_y = wrapper.x, wrapper.y
@@ -75,7 +77,7 @@ function ow.Stage:instantiate(id)
                     if Type == nil then
                         rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
                     end
-                    object = Type(wrapper)
+                    object = Type(wrapper, self._world)
                     table.insert(self._objects, object)
                 end
 
@@ -95,25 +97,7 @@ function ow.Stage:instantiate(id)
     if self._player_spawn_x == nil or self._player_spawn_y == nil then
         rt.error("In ow.Stage: no player spawn in stage `" .. self._config:get_id() .. "`")
     end
-
-    local buffer = rt.settings.overworld.stage.physics_world_buffer_length
-    local w, h = self._config:get_size()
-    self._physics_world = b2.World(w + 2 * buffer, h + 2 * buffer)
-
-    self._physics_stage_shapes = {}
-    self._physics_stage_bodies = {}
-    for hitbox in values(self._hitboxes) do
-        for shape in values(hitbox:as_physics_shapes(self._physics_stage_body)) do
-            table.insert(self._physics_stage_shapes, shape)
-            table.insert(self._physics_stage_bodies, b2.Body(
-                self._physics_world, b2.BodyType.STATIC,
-                0, 0,
-                shape
-            ))
-        end
-    end
-
-
+    
     self._bounds = rt.AABB(0, 0, w, h)
 end
 
@@ -125,17 +109,17 @@ function ow.Stage:draw()
         f()
     end
 
-    self._physics_world:draw()
+    self._world:draw()
 end
 
 --- @brief
 function ow.Stage:update(delta)
-    self._physics_world:update(delta)
+    self._world:update(delta)
 end
 
 --- @brief
 function ow.Stage:get_physics_world()
-    return self._physics_world
+    return self._world
 end
 
 --- @brief
