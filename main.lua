@@ -1,7 +1,10 @@
 _G.DEBUG = false
 
+
 require "include"
 require "common.label"
+
+dbg(math.eps)
 
 local SceneManager = require "common.scene_manager"
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="11" nextobjectid="77">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="11" nextobjectid="79">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -9,7 +9,7 @@
   <image source="../sprites/why_scaled.png"/>
  </imagelayer>
  <objectgroup id="10" name="camera_bounds">
-  <object id="76" type="CameraBounds" x="-7.94224" y="-0.822208" width="1839.58" height="737.686"/>
+  <object id="76" type="CameraBounds" x="-7.94224" y="-0.822208" width="1839.58" height="737.686" visible="0"/>
  </objectgroup>
  <layer id="4" name="Ground" width="57" height="37">
   <data encoding="csv">
@@ -213,7 +213,7 @@
 28,28,28,28,28,35,26,26,26,26,26,36,49,45,45,45,
 26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,
 26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,
-26,26,26,26,40,26,0,26,0,26,40,26,50,43,43,43
+26,26,26,26,40,26,0,26,0,40,0,26,50,43,43,43
 </chunk>
    <chunk x="32" y="0" width="16" height="16">
 52,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,
@@ -271,7 +271,7 @@
 </chunk>
    <chunk x="16" y="16" width="16" height="16">
 55,26,26,26,26,26,26,26,26,26,26,26,46,0,0,0,
-42,26,26,26,40,26,0,26,0,26,40,26,46,0,40,0,
+42,26,26,26,40,26,0,26,0,40,0,26,46,0,40,0,
 42,26,26,26,26,26,26,26,26,26,26,26,46,0,40,0,
 43,43,43,43,43,47,0,0,50,43,43,43,54,0,40,0,
 0,0,0,0,0,44,0,0,46,0,0,0,0,0,0,0,
@@ -367,6 +367,11 @@
   <object id="75" template="../templates/Teleporter.tx" type="Teleporter" x="1762.02" y="577.302">
    <properties>
     <property name="target" type="object" value="73"/>
+   </properties>
+  </object>
+  <object id="77" type="StageTransition" x="671.445" y="704.121" width="128.597" height="119.11">
+   <properties>
+    <property name="target" value="debug_room_o2"/>
    </properties>
   </object>
  </objectgroup>

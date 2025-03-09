@@ -1,7 +1,7 @@
 require "common.sprite_batch"
 
 rt.settings.overworld.camera = {
-
+    speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
 }
 
 
@@ -57,14 +57,34 @@ function ow.Camera:unbind()
     love.graphics.pop()
 end
 
+--- @brief [internal]
+function ow.Camera:_constrain(x, y)
+    if self._apply_bounds == true then
+        local screen_w, screen_h = love.graphics.getDimensions()
+        local w, h = screen_w / self._current_zoom, screen_h / self._current_zoom
+        x = math.clamp(x,
+            math.ceil(0.5 * w + self._bounds_x),
+            math.floor(0.5 * w - w + self._bounds_x + self._bounds_width)
+        )
+
+        y = math.clamp(y,
+            math.ceil(0.5 * h + self._bounds_y),
+            math.floor(0.5 * h - h + self._bounds_y + self._bounds_height)
+        )
+    end
+    return x, y
+end
+
+local _distance_f = function(x)
+    local speed = rt.settings.overworld.camera.speed
+    return math.sqrt(math.abs(x)) * math.abs(x)^(1 - (1 - speed)) * math.sign(x)
+end
+
 function ow.Camera:update(delta)
     local screen_w, screen_h = love.graphics.getDimensions()
 
-    local exp = 1.3
-    local dx = self._target_x - self._current_x
-    local dy = self._target_y - self._current_y
-    dx = math.abs(dx)^exp * math.sign(dx)
-    dy = math.abs(dy)^exp * math.sign(dy)
+    local dx = _distance_f(self._target_x - self._current_x)
+    local dy = _distance_f(self._target_y - self._current_y)
     dx = dx / screen_w
     dy = dy / screen_h
 
@@ -76,27 +96,8 @@ function ow.Camera:update(delta)
     local final_delta_x = self._velocity_x * delta
     local final_delta_y = self._velocity_y * delta
 
-    local cutoff = 1.5 -- if delta is less than 1 px, skip update, to prevent stuttering for small movements
-    if math.abs(final_delta_x) < cutoff then final_delta_x = 0 end
-    if math.abs(final_delta_y) < cutoff then final_delta_y = 0 end
     self._current_x = self._current_x + final_delta_x
     self._current_y = self._current_y + final_delta_y
-
-    -- constrain to bounds
-    if self._apply_bounds == true then
-        -- TODO: clamp zoom
-
-        local w, h = screen_w / self._current_zoom, screen_h / self._current_zoom
-        self._current_x = math.clamp(self._current_x,
-            math.ceil(0.5 * w + self._bounds_x),
-            math.floor(0.5 * w - w + self._bounds_x + self._bounds_width)
-        )
-
-        self._current_y = math.clamp(self._current_y,
-            math.ceil(0.5 * h + self._bounds_y),
-            math.floor(0.5 * h - h + self._bounds_y + self._bounds_height)
-        )
-    end
 end
 
 --- @brief
@@ -134,7 +135,8 @@ end
 
 --- @brief
 function ow.Camera:move_to(x, y)
-    self._target_x, self._target_y = x, y
+    local before_x, before_y = x, y
+    self._target_x, self._target_y = self:_constrain(x, y)
 end
 
 --- @brief
@@ -145,6 +147,7 @@ end
 --- @brief
 function ow.Camera:set_zoom(s)
     self._current_zoom = s
+    self._target_x, self._target_x = self:_constrain(self._target_x, self._target_y)
 end
 
 --- @brief

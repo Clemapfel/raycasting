@@ -185,7 +185,12 @@ function math.smoothstep(lower, upper, ratio)
     return t * t * (3.0 - 2.0 * t);
 end
 
-math.eps = 10e-4
+math.eps = 1.0
+local n = 0
+while (1.0 + math.eps / 2.0) > 1.0 do
+    math.eps = math.eps / 2.0
+    n = n + 1
+end
 
 --- @brief
 function math.fract(x)

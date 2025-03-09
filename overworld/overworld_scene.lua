@@ -22,7 +22,9 @@ function ow.OverworldScene:instantiate()
     })
 
     self._input:signal_connect("pressed", function(_, which)
-
+        if which == rt.InputButton.X then
+            self._camera:reset()
+        end
     end)
 
     self._input:signal_connect("mouse_moved", function(_, x, y)
@@ -62,6 +64,10 @@ end
 
 --- @brief
 function ow.OverworldScene:draw()
+    love.graphics.setColor(rt.color_unpack(rt.Palette.BLACK))
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    love.graphics.setColor(1, 1, 1, 1)
+
     self._camera:bind()
     self._stage:draw()
     self._player:draw()
