@@ -34,6 +34,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     for i, current_shape in ipairs(shapes) do
         assert(meta.isa(current_shape, b2.Shape), "In b2.Body: argument #" .. 3 + i .. ": expected `b2.Shape`, got `" .. meta.typeof(current_shape) .. "`")
         table.insert(natives, current_shape._native)
+        n_natives = n_natives + 1
     end
 
     local group

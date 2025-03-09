@@ -2,6 +2,10 @@ require "common.mesh"
 require "common.shader"
 require "common.graphics_buffer"
 
+rt.settings.sprite_batch = {
+    use_subpixel_filtering = true
+}
+
 --- @class rt.SpriteBatch
 rt.SpriteBatch = meta.class("SpriteBatch")
 
@@ -9,11 +13,19 @@ rt.SpriteBatch = meta.class("SpriteBatch")
 function rt.SpriteBatch:instantiate(texture)
     assert(meta.isa(texture, rt.Texture), "In rt.SpriteBatch: expected `Texture`, got `" .. meta.typeof(texture) .. "`")
     texture:set_wrap_mode(rt.TextureWrapMode.REPEAT)
-    
+
+    local defines = {}
+    if rt.settings.sprite_batch.use_subpixel_filtering then
+        texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+        defines.APPLY_ANTI_ALIAS_CORRECTION = 1
+    else
+        texture:set_scale_mode(rt.TextureScaleMode.NEAREST)
+    end
+
     meta.install(self, {
         _texture = texture,
         _mesh = rt.MeshRectangle(0, 0, 1, 1),
-        _draw_shader = rt.Shader("common/sprite_batch.glsl"),
+        _draw_shader = rt.Shader("common/sprite_batch.glsl", defines),
         _buffer = nil,
         _needs_update = true,
         _first_index_that_needs_update = 1,

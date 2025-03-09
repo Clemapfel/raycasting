@@ -25,6 +25,7 @@ function ow.Sprite:instantiate(wrapper)
         rt.MeshDrawMode.TRIANGLE_FAN
     )
     self._mesh:setTexture(wrapper.texture._native)
+    wrapper.texture:set_scale_mode(rt.TextureScaleMode.NEAREST)
 
     for which in range(
         "x", "y",

@@ -44,6 +44,7 @@ function ow.OverworldScene:enter(stage_id)
             self._player_is_focused = false
         end)
 
+        self._camera:set_bounds(self._stage:get_camera_bounds())
         self._camera:move_to(self._player:get_position())
     end
 end
@@ -74,7 +75,13 @@ function ow.OverworldScene:update(delta)
     self._player:update(delta)
 
     if self._player_is_focused then
-        self._camera:move_to(self._player:get_position())
+        local x, y = self._player:get_position()
+        self._camera:move_to(x, y)
+        if self._camera:get_bounds():contains(x, y) == false then
+            self._camera:set_apply_bounds(false)
+        else
+            self._camera:set_apply_bounds(true)
+        end
     end
 
     local scale_speed = 1

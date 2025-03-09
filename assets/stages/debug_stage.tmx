@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="10" nextobjectid="76">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="11" nextobjectid="77">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -8,6 +8,9 @@
  <imagelayer id="8" name="Image Layer 1" offsetx="959.49" offsety="72.4053" repeatx="1" repeaty="1">
   <image source="../sprites/why_scaled.png"/>
  </imagelayer>
+ <objectgroup id="10" name="camera_bounds">
+  <object id="76" type="CameraBounds" x="-7.94224" y="-0.822208" width="1839.58" height="737.686"/>
+ </objectgroup>
  <layer id="4" name="Ground" width="57" height="37">
   <data encoding="csv">
    <chunk x="0" y="0" width="16" height="16">

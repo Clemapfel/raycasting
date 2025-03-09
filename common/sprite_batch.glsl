@@ -44,6 +44,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
         sprite.bottom_right,
         sprite.bottom_left
     );
+
     vec2 offset = position_offsets[vertex_i];
 
     vec2 origin = sprite.origin;
@@ -75,8 +76,6 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 
 #ifdef PIXEL
 
-#define APPLY_ANTI_ALIAS_CORRECTION 1
-
 #ifdef APPLY_ANTI_ALIAS_CORRECTION
 
 varying vec2 texture_coords;
@@ -84,23 +83,71 @@ uniform vec2 texture_resolution; // resolution of spritesheet
 
 vec4 effect(vec4 color, Image tex, vec2 _, vec2 screen_coords)
 {
-    // adapted from: https://github.com/Nikaoto/subpixel/blob/master/subpixel_grad.frag
-    vec2 texel_size = vec2(1.0) / texture_resolution;
-
     vec2 uv = texture_coords;
+
+    // adapted from: https://github.com/Nikaoto/subpixel/blob/master/subpixel_grad.frag
+    vec2 texel_size = vec2(1) / texture_resolution ;
 
     vec2 ddx = dFdx(uv);
     vec2 ddy = dFdy(uv);
     vec2 fw = abs(ddx) + abs(ddy);
 
     vec2 xy = uv * texture_resolution;
-    vec2 xy_floor = vec2(floor(xy.x + 0.5), floor(xy.y + 0.5)) - vec2(0.5);
-    vec2 f = xy - xy_floor;
+    vec2 xy_rounded = vec2(round(xy.x + 0.5), round(xy.y + 0.5)) - vec2(0.5);
+    vec2 f = xy - xy_rounded;
     vec2 f_uv = f * texel_size - vec2(0.5) * texel_size;
 
     f = clamp(f_uv / fw + vec2(0.5), 0.0, 1.0);
-    uv = xy_floor * texel_size;
+    uv = xy_rounded * texel_size;
     return color * textureGrad(tex, uv + f * texel_size, ddx, ddy);
+
+    /*
+    vec2 fw = fwidth(uv);
+    if (fw.x < 1.0/texture_resolution.x && fw.y < 1.0/texture_resolution.y) {
+
+        vec2 mins = (uv - 0.5 * fw) * texture_resolution;
+        vec2 maxes = (uv + 0.5 * fw) * texture_resolution;
+
+        if (mins.x >= floor(uv.x * texture_resolution.x) && maxes.x < ceil(uv.x * texture_resolution.x)) {
+            uv.x = (floor(mins.x) + 0.5) / texture_resolution.x;
+        }
+        else
+        {
+            float right_side_coverage = fract(maxes.x);
+            float sum = maxes.x - mins.x;
+            float left_offset = (right_side_coverage / sum);
+            float u_tex_center = floor(mins.x) + 0.5;
+            uv.x = (u_tex_center + left_offset) / texture_resolution.x;
+        }
+
+        if (mins.y >= floor(uv.y * texture_resolution.y) && maxes.y < ceil(uv.y * texture_resolution.y)) {
+            uv.y = (floor(mins.y) + 0.5) / texture_resolution.y;
+        }
+        else
+        {
+            float bottom_side_coverage = fract(maxes.y);
+            float sum = maxes.y - mins.y;
+            float top_offset = bottom_side_coverage / sum;
+            float u_tex_center = floor(mins.y) + 0.5;
+            uv.y = (u_tex_center + top_offset) / texture_resolution.y;
+        }
+    }
+
+    vec2 xy = texture_resolution * uv - 0.5;
+    vec2 f = fract(xy);
+    vec2 xy_floor = floor(xy);
+
+    vec4 p00 = texture(tex, (xy_floor + vec2(0.0, 0.0) + 0.5) / texture_resolution);
+    vec4 p10 = texture(tex, (xy_floor + vec2(1.0, 0.0) + 0.5) / texture_resolution);
+    vec4 p01 = texture(tex, (xy_floor + vec2(0.0, 1.0) + 0.5) / texture_resolution);
+    vec4 p11 = texture(tex, (xy_floor + vec2(1.0, 1.0) + 0.5) / texture_resolution);
+
+    vec4 pX0 = p00 * (1.0 - f.x) + p10 * f.x;
+    vec4 pX1 = p01 * (1.0 - f.x) + p11 * f.x;
+    vec4 pXX = pX0 * (1.0 - f.y) + pX1 * f.y;
+
+    return pXX * color;
+    */
 }
 
 #else
@@ -114,4 +161,4 @@ vec4 effect(vec4 color, Image tex, vec2 _, vec2 screen_coords)
 
 #endif
 
-#endif
+#endif // ifdef PIXEL

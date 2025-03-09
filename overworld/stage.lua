@@ -11,9 +11,8 @@ end
 
 rt.settings.overworld.stage = {
     physics_world_buffer_length = 0,
-    hitbox_class_name = "Hitbox",
-    sprite_class_name = "Sprite",
-    player_spawn_class_name = "PlayerSpawn"
+    player_spawn_class_name = "PlayerSpawn",
+    camera_bounds_class_name = "CameraBounds"
 }
 
 --- @class ow.Stage
@@ -35,14 +34,15 @@ function ow.Stage:instantiate(id)
     self._objects = {}  -- Table<any>
 
     self._player_spawn_x, self._player_spawn_y = nil, nil
+    self._camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge)
+    local camera_bounds_seen = false
 
     local buffer = rt.settings.overworld.stage.physics_world_buffer_length
     local w, h = self._config:get_size()
     self._world = b2.World(w + 2 * buffer, h + 2 * buffer)
 
-    local hitbox_class_name = rt.settings.overworld.stage.hitbox_class_name
-    local sprite_class_name = rt.settings.overworld.stage.sprite_class_name
     local player_spawn_class_name = rt.settings.overworld.stage.player_spawn_class_name
+    local camera_bounds_class_name = rt.settings.overworld.stage.camera_bounds_class_name
 
     for layer_i = 1, self._config:get_n_layers() do
         local spritebatches = self._config:get_layer_sprite_batches(layer_i)
@@ -60,7 +60,7 @@ function ow.Stage:instantiate(id)
             for wrapper in values(object_wrappers) do
                 if wrapper.class == nil then
                     rt.warning("In ow.Stage.instantiate: object `" .. wrapper.id .. "` of stage `" .. self._config:get_id() .. "` has no class, assuming `Hitbox`")
-                    wrapper.class = hitbox_class_name
+                    wrapper.class = "Hitbox"
                 end
 
                 local object
@@ -68,8 +68,16 @@ function ow.Stage:instantiate(id)
                     assert(wrapper.type == ow.ObjectType.POINT, "In ow.Stage: object of class `" .. player_spawn_class_name .. "` is not a point")
                     assert(self._player_spawn_x == nil and self._player_spawn_y == nil, "In ow.Stage: more than one object of type `" .. player_spawn_class_name .. "`")
                     self._player_spawn_x, self._player_spawn_y = wrapper.x, wrapper.y
-                elseif wrapper.class == nil then
-
+                elseif wrapper.class == camera_bounds_class_name then
+                    assert(wrapper.type == ow.ObjectType.RECTANGLE and wrapper.rotation == 0, "In ow.Stage: object of class `" .. camera_bounds_class_name .. "` is not an axis-aligned rectangle")
+                    assert(camera_bounds_seen == false, "In ow.Stage: more than one object of type `" .. camera_bounds_class_name .. "`")
+                    self._camera_bounds = rt.AABB(
+                        wrapper.x,
+                        wrapper.y,
+                        wrapper.width,
+                        wrapper.height
+                    )
+                    camera_bounds_seen = true
                 else
                     local Type = ow[wrapper.class]
                     if Type == nil then
@@ -95,19 +103,17 @@ function ow.Stage:instantiate(id)
     if self._player_spawn_x == nil or self._player_spawn_y == nil then
         rt.error("In ow.Stage: no player spawn in stage `" .. self._config:get_id() .. "`")
     end
-    
+
     self._bounds = rt.AABB(0, 0, w, h)
 end
 
 --- @brief
 function ow.Stage:draw()
-    love.graphics.rectangle("line", self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
-    love.graphics.circle("fill", 0, 0, 10)
     for f in values(self._to_draw) do
         f()
     end
 
-    self._world:draw()
+    --self._world:draw()
 end
 
 --- @brief
@@ -123,6 +129,11 @@ end
 --- @brief
 function ow.Stage:get_player_spawn()
     return self._player_spawn_x, self._player_spawn_y
+end
+
+--- @brief
+function ow.Stage:get_camera_bounds()
+    return self._camera_bounds
 end
 
 --- @brief
