@@ -291,7 +291,7 @@ function ow.StageConfig:instantiate(stage_id)
                             w = w * self._tile_width
                             h = h * self._tile_height
 
-                            local wrapper = ow.ObjectWrapper("Hitbox"):as_rectangle(x, y, w, h)
+                            local wrapper = ow.ObjectWrapper("Hitbox"):_as_rectangle(x, y, w, h)
                             table.insert(to_add.objects, wrapper)
                         end
                     end

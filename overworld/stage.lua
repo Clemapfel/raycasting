@@ -1,7 +1,5 @@
 require "overworld.stage_config"
 require "overworld.object_wrapper"
-require "overworld.hitbox"
-require "overworld.sprite"
 require "overworld.player"
 
 require "physics.physics"

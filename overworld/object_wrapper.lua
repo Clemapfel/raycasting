@@ -1,15 +1,14 @@
+--- @class ow.ObjectWrapper
+ow.ObjectWrapper = meta.class("ObjectWrapper")
+
 --- @class ow.ObjectType
 ow.ObjectType = meta.enum("ObjectType", {
     SPRITE = "sprite", -- rectangle + gid set
     RECTANGLE = "rectangle",
     ELLIPSE = "ellipse",
-    CIRCLE = "ellipse", -- sic
     POLYGON = "polygon",
     POINT = "point"
 })
-
---- @class ow.ObjectWrapper
-ow.ObjectWrapper = meta.class("ObjectWrapper")
 
 --- @brief
 function ow.ObjectWrapper:instantiate(type)
@@ -40,16 +39,7 @@ function ow.ObjectWrapper:instantiate(type)
 end
 
 --- @brief
-function ow.ObjectWrapper:clone()
-    local out = ow.ObjectWrapper()
-    for k, v in pairs(self) do
-        out[k] = v
-    end
-    return out
-end
-
---- @brief
-function ow.ObjectWrapper:as_sprite(gid, x, y, width, height, origin_x, origin_y, flip_horizontally, flip_vertically, flip_origin_x, flip_origin_y)
+function ow.ObjectWrapper:_as_sprite(gid, x, y, width, height, origin_x, origin_y, flip_horizontally, flip_vertically, flip_origin_x, flip_origin_y)
     self.type = ow.ObjectType.SPRITE
     return meta.install(self, {
         gid = gid,
@@ -74,7 +64,7 @@ function ow.ObjectWrapper:as_sprite(gid, x, y, width, height, origin_x, origin_y
 end
 
 --- @brief
-function ow.ObjectWrapper:as_rectangle(x, y, width, height, origin_x, origin_y)
+function ow.ObjectWrapper:_as_rectangle(x, y, width, height, origin_x, origin_y)
     self.type = ow.ObjectType.RECTANGLE
     return meta.install(self, {
         x = x,
@@ -87,7 +77,7 @@ function ow.ObjectWrapper:as_rectangle(x, y, width, height, origin_x, origin_y)
 end
 
 --- @brief
-function ow.ObjectWrapper:as_ellipse(x, y, center_x, center_y, x_radius, y_radius, origin_x, origin_y)
+function ow.ObjectWrapper:_as_ellipse(x, y, center_x, center_y, x_radius, y_radius, origin_x, origin_y)
     self.type = ow.ObjectType.ELLIPSE
     return meta.install(self, {
         x = x,
@@ -102,7 +92,7 @@ function ow.ObjectWrapper:as_ellipse(x, y, center_x, center_y, x_radius, y_radiu
 end
 
 --- @brief
-function ow.ObjectWrapper:as_polygon(vertices, shapes, origin_x, origin_y)
+function ow.ObjectWrapper:_as_polygon(vertices, shapes, origin_x, origin_y)
     self.type = ow.ObjectType.POLYGON
     return meta.install(self, {
         vertices = vertices,
@@ -113,7 +103,7 @@ function ow.ObjectWrapper:as_polygon(vertices, shapes, origin_x, origin_y)
 end
 
 --- @brief
-function ow.ObjectWrapper:as_point(x, y, origin_x, origin_y)
+function ow.ObjectWrapper:_as_point(x, y, origin_x, origin_y)
     self.type = ow.ObjectType.POINT
     return meta.install(self, {
         x = x,
@@ -121,6 +111,174 @@ function ow.ObjectWrapper:as_point(x, y, origin_x, origin_y)
         origin_x = origin_x,
         origin_y = origin_y
     })
+end
+
+--- @brief
+function ow.ObjectWrapper:clone()
+    local out = ow.ObjectWrapper()
+    for k, v in pairs(self) do
+        out[k] = v
+    end
+    return out
+end
+
+--- @brief
+--- @return Table<b2.Shape>
+function ow.ObjectWrapper:get_physics_shapes()
+    local function _rotate_point(x, y, angle)
+        local cos_theta = math.cos(angle)
+        local sin_theta = math.sin(angle)
+        return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
+    end
+
+    local function _process_polygon(vertices, object)
+        local out = {}
+        for i = 1, #vertices, 2 do
+            local x, y = vertices[i], vertices[i + 1]
+
+            x, y = x - object.origin_x, y - object.origin_y
+            x, y = _rotate_point(x, y, object.rotation)
+            x, y = x + object.origin_x, y + object.origin_y
+
+            if object.flip_horizontally or object.flip_vertically then
+                x, y = x - object.flip_origin_x, y - object.flip_origin_y
+                x = object.flip_horizontally and -x or x
+                y = object.flip_vertically and -y or y
+                x, y = x + object.flip_origin_x, y + object.flip_origin_y
+            end
+
+            x, y = x + object.offset_x, y + object.offset_y
+
+            x, y = x - object.rotation_origin_x, y - object.rotation_origin_y
+            x, y = _rotate_point(x, y, object.rotation_offset)
+            x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
+
+            table.insert(out, x)
+            table.insert(out, y)
+        end
+
+        return out
+    end
+
+    local shapes = {}
+    if self.type == ow.ObjectType.RECTANGLE then
+        local x, y = self.x, self.y
+        local w, h = self.width, self.height
+        table.insert(shapes, b2.Polygon(_process_polygon({
+                x, y,
+                x + w, y,
+                x + w, y + h,
+                x, y + h
+            }, self)
+        ))
+    elseif self.type == ow.ObjectType.ELLIPSE then
+        local is_circle = math.abs(self.x_radius - self.y_radius) < 1
+        if is_circle then
+            local vertices = _process_polygon({
+                self.center_x,
+                self.center_y
+            }, self)
+
+            table.insert(shapes, b2.Circle(
+                vertices[1], -- x
+                vertices[2], -- y
+                math.max(self.x_radius, self.y_radius) -- radius
+            ))
+        else
+            local vertices = {}
+
+            local center_x, center_y = self.center_x, self.center_y
+            local x_radius, y_radius = self.x_radius, self.y_radius
+            local n_outer_vertices = 16
+            local angle_step = (2 * math.pi) / n_outer_vertices
+            for angle = 0, 2 * math.pi, angle_step do
+                table.insert(vertices, center_x + x_radius * math.cos(angle))
+                table.insert(vertices, center_y + y_radius * math.sin(angle))
+            end
+
+            vertices = _process_polygon(
+                vertices,
+                self
+            )
+
+            local polygonization = slick.polygonize(8, { vertices })
+            for shape in values(polygonization) do
+                table.insert(shapes, b2.Polygon(shape))
+            end
+        end
+    elseif self.type == ow.ObjectType.POLYGON then
+        for vertices in values(self.shapes) do
+            table.insert(shapes, b2.Polygon(
+                _process_polygon(vertices, self)
+            ))
+        end
+    else
+        rt.error("In ow.ObjectWrapper: unhandled object type `" .. tostring(self.type) .. "`")
+    end
+
+    return shapes
+end
+
+--- @brief
+function ow.ObjectWrapper:draw()
+    love.graphics.setPointSize(4)
+    love.graphics.setLineWidth(1)
+    love.graphics.setLineJoin("miter")
+
+    local r, g, b = 0, 1, 1
+    local fill_a, line_a = 0.2, 0.8
+
+    love.graphics.push()
+
+    love.graphics.translate(self.rotation_origin_x, self.rotation_origin_y)
+    love.graphics.rotate(self.rotation_offset)
+    love.graphics.translate(-self.rotation_origin_x, -self.rotation_origin_y)
+
+    love.graphics.translate(self.offset_x, self.offset_y)
+
+    if self.type ~= ow.ObjectType.SPRITE and (self.flip_horizontally or self.flip_vertically) then
+        love.graphics.translate(self.flip_origin_x, self.flip_origin_y)
+        love.graphics.scale(
+            self.flip_horizontally and -1 or 1,
+            self.flip_vertically and -1 or 1
+        )
+        love.graphics.translate(-self.flip_origin_x, -self.flip_origin_y)
+    end
+
+    love.graphics.translate(self.origin_x, self.origin_y)
+    love.graphics.rotate(self.rotation)
+    love.graphics.translate(-self.origin_x, -self.origin_y)
+
+    if self.type == ow.ObjectType.POINT then
+        love.graphics.setColor(r, g, b, line_a)
+        love.graphics.points(self.x, self.y)
+    elseif self.type == ow.ObjectType.RECTANGLE then
+        love.graphics.setColor(r, g, b, fill_a)
+        love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+        love.graphics.setColor(r, g, b, line_a)
+        love.graphics.rectangle("line", self.x, self.y, self.width, self.height)
+    elseif self.type == ow.ObjectType.ELLIPSE then
+        love.graphics.setColor(r, g, b, fill_a)
+        love.graphics.ellipse("fill", self.center_x, self.center_y, self.x_radius, self.y_radius)
+        love.graphics.setColor(r, g, b, line_a)
+        love.graphics.ellipse("line", self.center_x, self.center_y, self.x_radius, self.y_radius)
+    elseif self.type == ow.ObjectType.POLYGON then
+        for d in values(self.shapes) do
+            love.graphics.setColor(r, g, b, fill_a)
+            love.graphics.polygon("fill", d)
+            love.graphics.setColor(r, g, b, line_a)
+            love.graphics.polygon("line", d)
+        end
+    elseif self.type == ow.ObjectType.SPRITE then
+        love.graphics.setColor(r, g, b, fill_a)
+        love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+        love.graphics.setColor(r, g, b, line_a)
+        love.graphics.rectangle("line", self.x, self.y, self.width, self.height)
+    else
+        rt.error("In ow.Tileset._debug_draw: unhandled shape type `" .. self.type .. "`")
+    end
+
+    love.graphics.pop()
 end
 
 -- safe table access
@@ -170,7 +328,7 @@ function ow._parse_object_group(object_group)
             local x, y = _get(object, "x"), _get(object, "y")
             local width, height = _get(object, "width"), _get(object, "height")
 
-            wrapper:as_sprite(
+            wrapper:_as_sprite(
                 true_gid,
                 x + group_offset_x,
                 y - height + group_offset_y, -- position
@@ -187,7 +345,7 @@ function ow._parse_object_group(object_group)
                 local x, y = _get(object, "x"), _get(object, "y")
                 local width, height = _get(object, "width"), _get(object, "height")
 
-                wrapper:as_rectangle(
+                wrapper:_as_rectangle(
                     x + group_offset_x, y + group_offset_y, -- top left
                     width, height, -- size
                     x, y -- origin
@@ -199,7 +357,7 @@ function ow._parse_object_group(object_group)
                 local width = _get(object, "width")
                 local height = _get(object, "height")
 
-                wrapper:as_ellipse(
+                wrapper:_as_ellipse(
                     x, -- top left
                     y,
                     x + 0.5 * width,    -- center
@@ -219,7 +377,7 @@ function ow._parse_object_group(object_group)
                     table.insert(vertices, y + offset_y + group_offset_y)
                 end
 
-                wrapper:as_polygon(
+                wrapper:_as_polygon(
                     vertices,
                     _decompose_polygon(vertices),
                     offset_x,
@@ -229,7 +387,7 @@ function ow._parse_object_group(object_group)
             elseif shape_type == "point" then
                 local x, y = _get(object, "x"),  _get(object, "y")
 
-                wrapper:as_point(
+                wrapper:_as_point(
                     x + group_offset_x,
                     y + group_offset_y,
                     x,
@@ -246,197 +404,4 @@ function ow._parse_object_group(object_group)
     end
 
     return objects
-end
-
-ow.PhysicsShapeType = meta.enum("PhysicsShapeType", {
-    CIRCLE = "circle",
-    POLYGON = "polygon"
-})
-
-local function _rotate_point(x, y, angle)
-    local cos_theta = math.cos(angle)
-    local sin_theta = math.sin(angle)
-    return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
-end
-
-local function _process_polygon(vertices, object)
-    local out = {}
-    for i = 1, #vertices, 2 do
-        local x, y = vertices[i], vertices[i + 1]
-
-        x, y = x - object.origin_x, y - object.origin_y
-        x, y = _rotate_point(x, y, object.rotation)
-        x, y = x + object.origin_x, y + object.origin_y
-
-        if object.flip_horizontally or object.flip_vertically then
-            x, y = x - object.flip_origin_x, y - object.flip_origin_y
-            x = object.flip_horizontally and -x or x
-            y = object.flip_vertically and -y or y
-            x, y = x + object.flip_origin_x, y + object.flip_origin_y
-        end
-
-        x, y = x + object.offset_x, y + object.offset_y
-
-        x, y = x - object.rotation_origin_x, y - object.rotation_origin_y
-        x, y = _rotate_point(x, y, object.rotation_offset)
-        x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
-
-        table.insert(out, x)
-        table.insert(out, y)
-    end
-
-    return out
-end
-
---- @brief
-function ow.ObjectWrapper:get_physics_shapes()
-    local object = self
-    self._shapes = {}
-    if object.type == ow.ObjectType.RECTANGLE then
-        local x, y = object.x, object.y
-        local w, h = object.width, object.height
-
-        table.insert(self._shapes, {
-            type = ow.PhysicsShapeType.POLYGON,
-            vertices = _process_polygon({
-                x, y,
-                x + w, y,
-                x + w, y + h,
-                x, y + h
-            },
-                object
-            );
-        })
-    elseif object.type == ow.ObjectType.ELLIPSE then
-        local is_circle = math.abs(object.x_radius - object.y_radius) < 1
-        if is_circle then
-            local vertices = _process_polygon({
-                object.center_x,
-                object.center_y
-            },
-                object
-            )
-
-            table.insert(self._shapes, {
-                type = ow.PhysicsShapeType.CIRCLE,
-                x = vertices[1],
-                y = vertices[2],
-                radius = math.max(object.x_radius, object.y_radius)
-            })
-        else
-            local vertices = {}
-
-            local center_x, center_y = object.center_x, object.center_y
-            local x_radius, y_radius = object.x_radius, object.y_radius
-            local n_outer_vertices = 16
-            local angle_step = (2 * math.pi) / n_outer_vertices
-            for angle = 0, 2 * math.pi, angle_step do
-                table.insert(vertices, center_x + x_radius * math.cos(angle))
-                table.insert(vertices, center_y + y_radius * math.sin(angle))
-            end
-
-            vertices = _process_polygon(
-                vertices,
-                object
-            )
-
-            local polygonization = slick.polygonize(8, { vertices })
-
-            for shape in values(polygonization) do
-                table.insert(self._shapes, {
-                    type = ow.PhysicsShapeType.POLYGON,
-                    vertices = shape
-                })
-            end
-        end
-    elseif object.type == ow.ObjectType.POLYGON then
-        for vertices in values(object.shapes) do
-            table.insert(self._shapes, {
-                type = ow.PhysicsShapeType.POLYGON,
-                vertices = _process_polygon(
-                    vertices,
-                    object
-                )
-            })
-        end
-    else
-        rt.error("In ow.ObjectWrapper: unhandled object type `" .. tostring(object.type) .. "`")
-    end
-
-    -- add to world
-    local shapes = {}
-    for shape in values(self._shapes) do
-        if shape.type == ow.PhysicsShapeType.CIRCLE then
-            table.insert(shapes, b2.Circle(shape.x, shape.y, shape.radius))
-        elseif shape.type == ow.PhysicsShapeType.POLYGON then
-            table.insert(shapes, b2.Polygon(shape.vertices))
-        else
-            rt.error("In ow.ObjectWrapper:as_physics_shape: unhandled shape type `" .. tostring(shape.type) .. "`")
-        end
-    end
-    
-    return shapes
-end
-
-
---- @brief
-function ow._draw_object(object)
-    love.graphics.setPointSize(4)
-    love.graphics.setLineWidth(1)
-    love.graphics.setLineJoin("miter")
-
-    local r, g, b = 0, 1, 1
-    local fill_a, line_a = 0.2, 0.8
-
-    love.graphics.push()
-
-    love.graphics.translate(object.rotation_origin_x, object.rotation_origin_y)
-    love.graphics.rotate(object.rotation_offset)
-    love.graphics.translate(-object.rotation_origin_x, -object.rotation_origin_y)
-
-    love.graphics.translate(object.offset_x, object.offset_y)
-
-    if object.type ~= ow.ObjectType.SPRITE and (object.flip_horizontally or object.flip_vertically) then
-        love.graphics.translate(object.flip_origin_x, object.flip_origin_y)
-        love.graphics.scale(
-            object.flip_horizontally and -1 or 1,
-            object.flip_vertically and -1 or 1
-        )
-        love.graphics.translate(-object.flip_origin_x, -object.flip_origin_y)
-    end
-
-    love.graphics.translate(object.origin_x, object.origin_y)
-    love.graphics.rotate(object.rotation)
-    love.graphics.translate(-object.origin_x, -object.origin_y)
-
-    if object.type == ow.ObjectType.POINT then
-        love.graphics.setColor(r, g, b, line_a)
-        love.graphics.points(object.x, object.y)
-    elseif object.type == ow.ObjectType.RECTANGLE then
-        love.graphics.setColor(r, g, b, fill_a)
-        love.graphics.rectangle("fill", object.x, object.y, object.width, object.height)
-        love.graphics.setColor(r, g, b, line_a)
-        love.graphics.rectangle("line", object.x, object.y, object.width, object.height)
-    elseif object.type == ow.ObjectType.ELLIPSE then
-        love.graphics.setColor(r, g, b, fill_a)
-        love.graphics.ellipse("fill", object.center_x, object.center_y, object.x_radius, object.y_radius)
-        love.graphics.setColor(r, g, b, line_a)
-        love.graphics.ellipse("line", object.center_x, object.center_y, object.x_radius, object.y_radius)
-    elseif object.type == ow.ObjectType.POLYGON then
-        for d in values(object.shapes) do
-            love.graphics.setColor(r, g, b, fill_a)
-            love.graphics.polygon("fill", d)
-            love.graphics.setColor(r, g, b, line_a)
-            love.graphics.polygon("line", d)
-        end
-    elseif object.type == ow.ObjectType.SPRITE then
-        love.graphics.setColor(r, g, b, fill_a)
-        love.graphics.rectangle("fill", object.x, object.y, object.width, object.height)
-        love.graphics.setColor(r, g, b, line_a)
-        love.graphics.rectangle("line", object.x, object.y, object.width, object.height)
-    else
-        rt.error("In ow.Tileset._debug_draw: unhandled shape type `" .. object.type .. "`")
-    end
-
-    love.graphics.pop()
 end
