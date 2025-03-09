@@ -125,10 +125,6 @@ function ow.Hitbox:instantiate(...)
             rt.error("In ow.Hitbox: unhandled object type `" .. tostring(object.type) .. "`")
         end
     end
-
-    if print then
-        dbg(self._shapes)
-    end
 end
 
 --- @brief

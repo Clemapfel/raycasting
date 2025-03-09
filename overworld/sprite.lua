@@ -66,6 +66,6 @@ function ow.Sprite:draw()
 
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(self._mesh)
-    
+
     love.graphics.pop()
 end

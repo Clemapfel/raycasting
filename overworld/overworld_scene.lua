@@ -26,7 +26,6 @@ function ow.OverworldScene:instantiate()
     end)
 
     self._input:signal_connect("mouse_moved", function(_, x, y)
-        dbg(x, y)
     end)
 end
 

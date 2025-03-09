@@ -6,6 +6,11 @@ require "overworld.player"
 
 require "physics.physics"
 
+-- include all overworld classes
+for file in values(love.filesystem.getDirectoryItems("overworld/objects")) do
+    require("overworld.objects." .. string.match(file, "^(.-)%.lua$"))
+end
+
 rt.settings.overworld.stage = {
     physics_world_buffer_length = 0,
     hitbox_class_name = "Hitbox",
@@ -52,9 +57,6 @@ function ow.Stage:instantiate(id)
         local drawables = {}
         if table.sizeof(object_wrappers) > 0 then
             for wrapper in values(object_wrappers) do
-
-                if wrapper.properties["print"] == true then dbg(wrapper) end
-
                 local object
                 if wrapper.class == hitbox_class_name then
                     object = ow.Hitbox(wrapper)
