@@ -7,7 +7,7 @@ require "overworld.player"
 require "physics.physics"
 
 rt.settings.overworld.stage = {
-    physics_world_buffer_length = 100,
+    physics_world_buffer_length = 0,
     hitbox_class_name = "Hitbox",
     sprite_class_name = "Sprite",
     player_spawn_class_name = "PlayerSpawn"
@@ -111,10 +111,14 @@ function ow.Stage:instantiate(id)
         end
     end
 
+
+    self._bounds = rt.AABB(0, 0, w, h)
 end
 
 --- @brief
 function ow.Stage:draw()
+    love.graphics.rectangle("line", self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
+    love.graphics.circle("fill", 0, 0, 10)
     for f in values(self._to_draw) do
         f()
     end
@@ -135,4 +139,11 @@ end
 --- @brief
 function ow.Stage:get_player_spawn()
     return self._player_spawn_x, self._player_spawn_y
+end
+
+--- @brief
+function ow.Stage:get_size()
+    local buffer = rt.settings.overworld.stage.physics_world_buffer_length
+    local w, h = self._config:get_size()
+    return w + 2 * buffer, h * 2 + buffer
 end
