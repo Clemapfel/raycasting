@@ -20,7 +20,7 @@ function ow.Camera:instantiate()
         _velocity_y = 0,
 
         _current_angle = 0,
-        _current_zoom = 1,
+        _current_scale = 1,
 
         _bounds_x = -math.huge,
         _bounds_y = -math.huge,
@@ -45,7 +45,7 @@ function ow.Camera:bind()
 
     local origin_x, origin_y = _floor(0.5 * w), _floor(0.5 * h)
     love.graphics.translate(origin_x, origin_y)
-    love.graphics.scale(self._current_zoom, self._current_zoom)
+    love.graphics.scale(self._current_scale, self._current_scale)
     love.graphics.rotate(self._current_angle)
     love.graphics.translate(-origin_x, -origin_y)
     love.graphics.translate(-_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h)
@@ -61,7 +61,7 @@ end
 function ow.Camera:_constrain(x, y)
     if self._apply_bounds == true then
         local screen_w, screen_h = love.graphics.getDimensions()
-        local w, h = screen_w / self._current_zoom, screen_h / self._current_zoom
+        local w, h = screen_w / self._current_scale, screen_h / self._current_scale
         x = math.clamp(x,
             math.ceil(0.5 * w + self._bounds_x),
             math.floor(0.5 * w - w + self._bounds_x + self._bounds_width)
@@ -107,7 +107,7 @@ function ow.Camera:reset()
     self._velocity_x = 0
     self._velocity_y = 0
     self._current_angle = 0
-    self._current_zoom = 1
+    self._current_scale = 1
 end
 
 --- @brief
@@ -127,6 +127,7 @@ end
 
 --- @brief
 function ow.Camera:set_position(x, y)
+    x, y = self:_constrain(x, y)
     self._target_x = x
     self._target_y = y
     self._current_x = x
@@ -140,13 +141,13 @@ function ow.Camera:move_to(x, y)
 end
 
 --- @brief
-function ow.Camera:get_zoom()
-    return self._current_zoom
+function ow.Camera:get_scale()
+    return self._current_scale
 end
 
 --- @brief
-function ow.Camera:set_zoom(s)
-    self._current_zoom = s
+function ow.Camera:set_scale(s)
+    self._current_scale = s
     self._target_x, self._target_x = self:_constrain(self._target_x, self._target_y)
 end
 
@@ -189,8 +190,8 @@ function ow.Camera:screen_xy_to_world_xy(screen_x, screen_y)
     local x = screen_x - origin_x
     local y = screen_y - origin_y
 
-    x = x / self._current_zoom
-    y = y / self._current_zoom
+    x = x / self._current_scale
+    y = y / self._current_scale
 
     local cos_angle = math.cos(-self._current_angle)
     local sin_angle = math.sin(-self._current_angle)
@@ -216,8 +217,8 @@ function ow.Camera:world_xy_to_screen_xy(world_x, world_y)
     local screen_x = x * cos_angle - y * sin_angle
     local screen_y = x * sin_angle + y * cos_angle
 
-    screen_x = screen_x * self._current_zoom
-    screen_y = screen_y * self._current_zoom
+    screen_x = screen_x * self._current_scale
+    screen_y = screen_y * self._current_scale
 
     screen_x = screen_x + origin_x
     screen_y = screen_y + origin_y

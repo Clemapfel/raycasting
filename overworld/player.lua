@@ -14,13 +14,11 @@ rt.settings.overworld.player = {
 --- @signal movement_start (self, position_x, position_y) -> nil
 --- @signal movement_stop (self, position_x, position_y) -> nil
 ow.Player = meta.class("OverworldPlayer")
-
 meta.add_signals(ow.Player,
     "movement_start",
     "movement_stop"
 )
 
---- @brief
 function ow.Player:instantiate(stage)
     local vertices = {}
     local radius = rt.settings.overworld.player.radius
@@ -41,27 +39,21 @@ function ow.Player:instantiate(stage)
         _velocity_angle = 0,
         _velocity_magnitude = 0,
         _velocity_multiplier = 1,
+        _is_accelerating = false,
 
-        _direction_indicator_x = 0,
+        _last_position_x = 0, -- for true velocity calculation
+        _last_position_y = 0,
+
+        _facing_angle = 0, -- angle offset of camera
+
+        _direction_indicator_x = 0, -- graphics
         _direction_indicator_y = 0,
 
-        _position_last_x = 0,
-        _position_last_y = 0,
-        _n_stuck_frames = 0,
-
-        _up_pressed = false,
-        _down_pressed = false,
-        _left_pressed = false,
-        _right_pressed = false,
-
-        _velocity_magnitude_history = {},
+        _velocity_magnitude_history = {}, -- position prediction
         _velocity_magnitude_sum = 0,
-        _is_moving = false
-    })
 
-    for i = 1, rt.settings.overworld.player.velocity_magnitude_history_n do
-        table.insert(self._velocity_magnitude_history, 0)
-    end
+        _is_moving = false, -- for signal emission
+    })
 
     self._input:signal_connect("pressed", function(_, which)
         self:_handle_button(which, true)
@@ -71,7 +63,127 @@ function ow.Player:instantiate(stage)
         self:_handle_button(which, false)
     end)
 
+    self._input:signal_connect("left_joystick_moved", function(_, x, y)
+        self:_handle_joystick(x, y, true)
+    end)
+
+    for i = 1, rt.settings.overworld.player.velocity_magnitude_history_n do
+        table.insert(self._velocity_magnitude_history, 0)
+    end
+
     if stage ~= nil then self:move_to_stage(stage) end
+end
+
+--- @brief
+function ow.Player:_update_velocity_angle(dx, dy)
+    if math.abs(dx) > 0 or math.abs(dy) > 0 then -- do not reset direction to 0
+        self._velocity_angle = math.atan2(dy, dx)
+        self._body:set_rotation(self._velocity_angle)
+    end
+end
+
+--- @brief
+function ow.Player:_handle_joystick(x, y, left_or_right)
+    if left_or_right == true then
+        self:_update_velocity_angle(x, y)
+        self._is_accelerating = math.magnitude(x, y) > 0
+    end
+end
+
+do
+
+    local _left_pressed = false
+    local _right_pressed = false
+    local _up_pressed = false
+    local _down_pressed = false
+
+    --- @brief
+    function ow.Player:_handle_button(which, pressed_or_released)
+        local dx, dy = 0, 0
+
+        if which == rt.InputButton.LEFT then
+            _left_pressed = pressed_or_released
+        end
+
+        if which == rt.InputButton.RIGHT then
+            _right_pressed = pressed_or_released
+        end
+
+        if which == rt.InputButton.UP then
+            _up_pressed = pressed_or_released
+        end
+
+        if which == rt.InputButton.DOWN then
+            _down_pressed = pressed_or_released
+        end
+
+        if _left_pressed then dx = dx - 1 end
+        if _right_pressed then dx = dx + 1 end
+        if _up_pressed then dy = dy - 1 end
+        if _down_pressed then dy = dy + 1 end
+
+        self:_update_velocity_angle(dx, dy)
+        self._is_accelerating = _left_pressed or _right_pressed or _up_pressed or _down_pressed
+
+        -- TODO
+        if which == rt.InputButton.B then
+            if pressed_or_released == false then
+                self._body:set_is_solid(true)
+            else
+                self._body:set_is_solid(false)
+                self._body._transform.x, self._body._transform.y = self._world._native:push(self._body, function() return true end, self._body._transform.x, self._body._transform.y)
+            end
+        end
+    end
+end
+
+--- @brief
+function ow.Player:update(delta)
+    -- update velocity and position
+    local acceleration = rt.settings.overworld.player.acceleration
+    local deceleration = rt.settings.overworld.player.deceleration
+    local max_velocity = rt.settings.overworld.player.velocity
+
+    local current = self._velocity_magnitude
+    if self._is_accelerating then
+        self._velocity_magnitude = current + acceleration * delta
+    else
+        self._velocity_magnitude = current - deceleration * delta
+    end
+    self._velocity_magnitude = math.clamp(self._velocity_magnitude, 0, max_velocity)
+
+    local angle_offset = 2 * math.pi - self._facing_angle
+    local velocity_x = math.cos(self._velocity_angle - self._facing_angle)
+    local velocity_y = math.sin(self._velocity_angle - self._facing_angle)
+
+    self._body:set_velocity(
+        velocity_x * self._velocity_magnitude * self._velocity_multiplier,
+        velocity_y * self._velocity_magnitude * self._velocity_multiplier
+    )
+
+    -- update graphics
+    local radius = rt.settings.overworld.player.radius
+    local x, y = self._body:get_position()
+    self._direction_indicator_x, self._direction_indicator_y = x + velocity_x * radius, y + velocity_y * radius
+
+    local actual_velocity_x, actual_velocity_y = x - self._last_position_x, y - self._last_position_y
+    local actual_velocity = math.magnitude(actual_velocity_x, actual_velocity_y)
+
+    local eps = 0.01
+    local past_velocity = self._velocity_magnitude_sum / #self._velocity_magnitude_history
+    if actual_velocity >= eps and self._is_moving == false then
+        self:signal_emit("movement_start", x, y)
+        self._is_moving = true
+    elseif actual_velocity <= eps and self._is_moving == true then
+        self:signal_emit("movement_stop", x, y)
+        self._is_moving = false
+    end
+
+    self._velocity_magnitude_sum = self._velocity_magnitude_sum + actual_velocity - self._velocity_magnitude_history[1]
+    table.insert(self._velocity_magnitude_history, actual_velocity)
+    table.remove(self._velocity_magnitude_history, 1)
+
+    self._last_position_x, self._last_position_y = x, y
 end
 
 --- @brief
@@ -85,24 +197,38 @@ function ow.Player:move_to_stage(stage)
         player_x, player_y,
         self._shapes
     )
+    self._body:add_tag("player")
 
     self:teleport_to(player_x, player_y)
 end
 
 --- @brief
+function ow.Player:set_facing_angle(angle)
+    self._facing_angle = angle
+end
+
+--- @brief
 function ow.Player:teleport_to(x, y)
-    self._position_last_x = x
-    self._position_last_y = y
-    self._position_current_x = x
-    self._position_current_y = y
     if self._body ~= nil then
         self._body:set_position(x, y)
+        self._last_position_x = x
+        self._last_position_y = y
     end
 end
 
 --- @brief
 function ow.Player:get_position()
     return self._body:get_position()
+end
+
+--- @brief
+function ow.Player:get_velocity()
+    local angle_offset = 2 * math.pi - self._facing_angle
+    local velocity_x = math.cos(self._velocity_angle - self._facing_angle)
+    local velocity_y = math.sin(self._velocity_angle - self._facing_angle)
+
+    return velocity_x * self._velocity_magnitude * self._velocity_multiplier,
+        velocity_y * self._velocity_magnitude * self._velocity_multiplier
 end
 
 --- @brief
@@ -125,110 +251,3 @@ function ow.Player:draw()
     end
 end
 
---- @brief
-function ow.Player:set_facing_angle(angle)
-    self._facing_angle = angle
-end
-
-local _last_x, _last_y
-
---- @brief
-function ow.Player:update(delta)
-    local acceleration = rt.settings.overworld.player.acceleration
-    local deceleration = rt.settings.overworld.player.deceleration
-    local current = self._velocity_magnitude
-    if self._up_pressed or self._right_pressed or self._down_pressed or self._left_pressed then
-        self._velocity_magnitude = current + acceleration * delta
-    else
-        self._velocity_magnitude = current - deceleration * delta
-    end
-    self._velocity_magnitude = math.clamp(self._velocity_magnitude, 0, rt.settings.overworld.player.velocity)
-
-    local angle_offset = 2 * math.pi - self._facing_angle
-    local velocity_x = math.cos(self._velocity_angle + angle_offset)
-    local velocity_y = math.sin(self._velocity_angle + angle_offset)
-
-    self._body:set_velocity(
-        velocity_x * self._velocity_magnitude * self._velocity_multiplier,
-        velocity_y * self._velocity_magnitude * self._velocity_multiplier
-    )
-
-    local radius = rt.settings.overworld.player.radius
-    local x, y = self._body:get_position()
-    self._direction_indicator_x, self._direction_indicator_y = x + velocity_x * radius, y + velocity_y * radius
-
-    -- push body in the opposite direction of collision normal
-    local cx, cy = self._body:get_position()
-    local lx, ly = self._position_last_x, self._position_last_y
-
-    local actual_velocity_x, actual_velocity_y = cx - self._position_last_x, cy - self._position_last_y
-    local actual_velocity = math.magnitude(actual_velocity_x, actual_velocity_y)
-
-    local eps = 0.01
-    local past_velocity = self._velocity_magnitude_sum / #self._velocity_magnitude_history
-    if actual_velocity >= eps and self._is_moving == false then
-        self:signal_emit("movement_start", cx, cy)
-        self._is_moving = true
-    elseif actual_velocity <= eps and self._is_moving == true then
-        self:signal_emit("movement_stop", cx, y)
-        self._is_moving = false
-    end
-
-    self._velocity_magnitude_sum = self._velocity_magnitude_sum + actual_velocity - self._velocity_magnitude_history[1]
-    table.insert(self._velocity_magnitude_history, actual_velocity)
-    table.remove(self._velocity_magnitude_history, 1)
-
-    self._position_last_x, self._position_last_y = self._body:get_position()
-end
-
---- @brief
-function ow.Player:_handle_button(which, pressed_or_released)
-    if which == rt.InputButton.LEFT then
-        self._left_pressed = pressed_or_released
-    end
-
-    if which == rt.InputButton.RIGHT then
-        self._right_pressed = pressed_or_released
-    end
-
-    if which == rt.InputButton.UP then
-        self._up_pressed = pressed_or_released
-    end
-
-    if which == rt.InputButton.DOWN then
-        self._down_pressed = pressed_or_released
-    end
-
-    local dx = 0
-    local dy = 0
-
-    if self._left_pressed then dx = dx - 1 end
-    if self._right_pressed then dx = dx + 1 end
-    if self._up_pressed then dy = dy - 1 end
-    if self._down_pressed then dy = dy + 1 end
-
-    if math.abs(dx) > 0 or math.abs(dy) > 0 then -- do not reset direction to 0
-        self._velocity_angle = math.atan2(dy, dx)
-        self._body:set_rotation(self._velocity_angle)
-    end
-
-    if which == rt.InputButton.A then
-        if pressed_or_released then
-            self._body:set_collision_response_type(b2.CollisionResponseType.GHOST)
-        else
-            local before = self._body:get_collision_response_type()
-            self._body:set_collision_response_type(b2.CollisionResponseType.SLIDE)
-            if before ~= b2.CollisionResponseType.SLIDE then
-                self._world:_notify_push_needed(self._body)
-            end
-        end
-    end
-
-    if which == rt.InputButton.B then
-        if pressed_or_released then
-            self._velocity_multiplier = 2
-        else
-            self._velocity_multiplier = 1
-        end
-    end
-end

@@ -31,19 +31,19 @@ rt.InputCallbackID = meta.enum("InputCallbackID", {
 
     -- keyboard key was pressed
     -- callback: (love.KeyConstant) -> nil -- cf. https://love2d.org/wiki/KeyConstant
-    KEYBOARD_KEY_PRESSED = "key_pressed",
+    KEYBOARD_KEY_PRESSED = "keyboard_key_pressed",
 
     -- keyboard key was released
     -- callback: (love.KeyConstant) -> nil
-    KEYBOARD_KEY_RELEASED = "key_released",
+    KEYBOARD_KEY_RELEASED = "keyboard_key_released",
 
     -- controller button (excluding triggers) was pressed
     -- callback: (love.JoystickButton, ControllerID) -> nil -- cf. https://love2d.org/wiki/GamepadButton
-    CONTROLLER_BUTTON_PRESSED = "button_pressed",
+    CONTROLLER_BUTTON_PRESSED = "controller_button_pressed",
 
     -- controller button (excluding triggers) was released
     -- callback: (love.JoystickButton, ControllerID) -> nil -- cf. https://love2d.org/wiki/GamepadButton
-    CONTROLLER_BUTTON_RELEASED = "button_released",
+    CONTROLLER_BUTTON_RELEASED = "controller_button_released",
 
     -- left joystick (not dpad) changes position
     -- callback: (x, y, ControllerID) -> nil
@@ -54,12 +54,16 @@ rt.InputCallbackID = meta.enum("InputCallbackID", {
     RIGHT_JOYSTICK_MOVED = "right_joystick_moved",
 
     -- left trigger changes value
-    -- callback: (value, ControllerID) -> nil
+    -- callback: (left, ControllerID) -> nil
     LEFT_TRIGGER_MOVED = "left_trigger_moved",
 
-    -- right trigger changes value
-    -- callback: (value, ControllerID) -> nil
-    RIGHT_TRIGGER_MOVED = "right_trigger_moved"
+    -- left trigger changes value
+    -- callback: (right, ControllerID) -> nil
+    RIGHT_TRIGGER_MOVED = "right_trigger_moved",
+
+    -- input
+    -- callback: (method, ControllerID?) -> nil
+    INPUT_METHOD_CHANGED = "input_method_changed"
 })
 
 --- @class rt.InputSubscriber
@@ -110,7 +114,8 @@ meta.add_signals(rt.InputSubscriber,
     rt.InputCallbackID.LEFT_JOYSTICK_MOVED,
     rt.InputCallbackID.RIGHT_JOYSTICK_MOVED,
     rt.InputCallbackID.LEFT_TRIGGER_MOVED,
-    rt.InputCallbackID.RIGHT_TRIGGER_MOVED
+    rt.InputCallbackID.RIGHT_TRIGGER_MOVED,
+    rt.InputCallbackID.INPUT_METHOD_CHANGED
 )
 
 

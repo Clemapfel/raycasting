@@ -311,9 +311,12 @@ function ow._parse_object_group(object_group)
 
     for object in values(object_group.objects) do
         local wrapper = ow.ObjectWrapper(_get(object, "type"))
-        for key, value in values(_get(object, "properties")) do
+        wrapper.id = _get(object, "id")
+        wrapper.name = _get(object, "name")
+
+        for key, value in pairs(_get(object, "properties")) do
             if meta.is_table(value) then -- object property
-                rt.error("In ow.StageConfig._parse_object: unhandled object property of object `" .. wrapper.tiled_id .. "`")
+                rt.warning("In ow.StageConfig._parse_object: unhandled object property of object `" .. wrapper.id .. "`")
             else
                 wrapper.properties[key] = value
             end

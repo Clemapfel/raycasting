@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 11,
-  nextobjectid = 77,
+  nextobjectid = 80,
   properties = {},
   tilesets = {
     {
@@ -62,10 +62,10 @@ return {
           name = "",
           type = "CameraBounds",
           shape = "rectangle",
-          x = -7.94224,
-          y = -0.822208,
-          width = 1839.58,
-          height = 737.686,
+          x = -167.261,
+          y = -221.274,
+          width = 2178.59,
+          height = 958.138,
           rotation = 0,
           visible = true,
           properties = {}
@@ -338,7 +338,7 @@ return {
             28, 28, 28, 28, 28, 35, 26, 26, 26, 26, 26, 36, 49, 45, 45, 45,
             26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
             26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
-            26, 26, 26, 26, 40, 26, 0, 26, 0, 26, 40, 26, 50, 43, 43, 43
+            26, 26, 26, 26, 40, 26, 0, 26, 0, 40, 0, 26, 50, 43, 43, 43
           }
         },
         {
@@ -408,7 +408,7 @@ return {
           x = 16, y = 16, width = 16, height = 16,
           data = {
             55, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 46, 0, 0, 0,
-            42, 26, 26, 26, 40, 26, 0, 26, 0, 26, 40, 26, 46, 0, 40, 0,
+            42, 26, 26, 26, 40, 26, 0, 26, 0, 40, 0, 26, 46, 0, 40, 0,
             42, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 46, 0, 40, 0,
             43, 43, 43, 43, 43, 47, 0, 0, 50, 43, 43, 43, 54, 0, 40, 0,
             0, 0, 0, 0, 0, 44, 0, 0, 46, 0, 0, 0, 0, 0, 0, 0,
@@ -812,6 +812,21 @@ return {
           properties = {
             ["target"] = { id = 73 }
           }
+        },
+        {
+          id = 77,
+          name = "",
+          type = "StageTransition",
+          shape = "rectangle",
+          x = 671.445,
+          y = 704.121,
+          width = 128.597,
+          height = 119.11,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = "debug_room_o2"
+          }
         }
       }
     },
@@ -874,7 +889,7 @@ return {
         {
           id = 60,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 369.333,
           y = 725.333,
@@ -898,7 +913,9 @@ return {
             { x = 169.333, y = 101.333 },
             { x = 78.6667, y = -54.6667 }
           },
-          properties = {}
+          properties = {
+            ["rotate"] = true
+          }
         },
         {
           id = 61,
@@ -909,6 +926,19 @@ return {
           y = 450.89,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 79,
+          name = "",
+          type = "Hitbox",
+          shape = "ellipse",
+          x = 172.286,
+          y = 746.573,
+          width = 59.2812,
+          height = 61.1338,
           rotation = 0,
           visible = true,
           properties = {}

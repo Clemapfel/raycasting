@@ -1,11 +1,18 @@
 --- @class b2.Body
+--- @signal collision (b2.Body, b2.Body, x, y, normal_x, normal_y) -> nil
 b2.Body = meta.class("PhysicsBody")
+meta.add_signals(b2.Body, "collision")
 
 --- @class b2.BodyType
 b2.BodyType = meta.enum("PhysicsBodyType", {
     STATIC = "STATIC",
     KINEMATIC = "KINEMATIC",
     DYNAMIC = "DYNAMIC"
+})
+
+--- @class b2.BodyTag
+b2.BodyTag = meta.enum("PhysicsBodyTag", {
+    IS_PLAYER = "player"
 })
 
 --- @brief
@@ -60,7 +67,13 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _angular_velocity = 0,
         _angular_acceleration = 0,
         _mass = 0,
-        _collision_response_type = b2.CollisionResponseType.SLIDE
+
+        _rotation = 0,
+
+        _is_enabled = true, -- whether body will participate in velocity simulation and collision
+        _is_solid = true, -- whether body will participate in collision
+        _is_sensor = false, -- whether body will emit on collision
+        _tags = {}, -- Set<String>
     })
 
     self._world:_notify_body_added(self)
@@ -90,7 +103,7 @@ end
 --- @brief
 function b2.Body:set_rotation(angle)
     meta.assert(angle, "Number")
-    self._transform:setTransform(nil, nil, angle)
+    self._transform:setTransform(self._transform.x, self._transform.y, angle)
     self._world:_notify_transform_changed(self)
 end
 
@@ -191,4 +204,49 @@ end
 --- @brief
 function b2.Body:get_collision_response_type()
     return self._collision_response_type
+end
+
+--- @brief
+function b2.Body:set_is_solid(b)
+    self._is_solid = b
+end
+
+--- @brief
+function b2.Body:get_is_solid()
+    return self._is_solide
+end
+
+--- @brief
+function b2.Body:set_is_enabled(b)
+    self._is_enabled = b
+end
+
+--- @brief
+function b2.Body:get_is_enabled()
+    return self._is_enabled
+end
+
+--- @brief
+function b2.Body:set_is_sensor(b)
+    self._is_sensor = b
+end
+
+--- @brief
+function b2.Body:get_is_sensor()
+    return self._is_sensor
+end
+
+--- @brief
+function b2.Body:add_tag(tag)
+    self._tags[tag] = true
+end
+
+--- @brief
+function b2.Body:remove_tag(tag)
+    self._tags[tag] = false
+end
+
+--- @brief
+function b2.Body:has_tag(tag)
+    return self._tags[tag]
 end

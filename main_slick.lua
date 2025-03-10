@@ -1,5 +1,5 @@
 local slick = require "physics.slick.slick" -- change this path
-local USE_POLYGONAL_CIRCLE = true
+local USE_POLYGONAL_CIRCLE = false
 
 -- shape data
 local shapes = {
@@ -119,18 +119,22 @@ local shapes = {
     }
 }
 
-local world, player
+local world, player, shape
 
 love.load = function()
     -- create world
     world = slick.newWorld(love.graphics.getDimensions())
 
-    -- add polygon shapes using anonymous id
-    local id = 0
+
+    shape = {
+        rotation = 0
+    }
+
+    local natives = {}
     for _, shape in pairs(shapes) do
-        world:add(id, 0, 0, slick.newPolygonShape(shape))
-        id = id + 1
+        table.insert(natives, slick.newPolygonShape(shape))
     end
+    world:add(shape, 0, 0, slick.newShapeGroup(unpack(natives)))
 
     -- init player
     local player_radius = 10
@@ -163,12 +167,16 @@ love.load = function()
 end
 
 -- update player position
+local rotation_speed = 0.01 * 2 * math.pi
 love.update = function(delta)
     player.x, player.y = world:move(
         player,
         player.x + delta * player.velocity_x,
         player.y + delta * player.velocity_y
     )
+
+    shape.rotation = shape.rotation - rotation_speed * delta
+    world:rotate(shape, shape.rotation, function() return true end, function() return true end)
 end
 
 -- handle input to move player
@@ -220,6 +228,8 @@ end
 
 -- draw
 love.draw = function()
+    love.graphics.push()
+    love.graphics.rotate(shape.rotation)
     for _, vertices in pairs(shapes) do
         love.graphics.setColor(1, 1, 1, 0.2)
         love.graphics.polygon("fill", vertices)
@@ -227,6 +237,7 @@ love.draw = function()
         love.graphics.setColor(1, 1, 1, 0.8)
         love.graphics.polygon("line", vertices)
     end
+    love.graphics.pop()
 
     if USE_POLYGONAL_CIRCLE then
         love.graphics.push()

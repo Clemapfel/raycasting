@@ -1,5 +1,4 @@
-_G.DEBUG = false
-
+_G.DEBUG = true
 
 require "include"
 require "common.label"
