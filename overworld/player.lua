@@ -69,6 +69,17 @@ function ow.Player:instantiate(scene, stage)
         self:_handle_joystick(x, y, true)
     end)
 
+    self._input:signal_connect("mouse_moved", function(_, x, y)
+        if self._raycast_active then
+            local px, py = self._body:get_position()
+            local mx, my = love.mouse.getPosition()
+            mx, my = self._scene._camera:screen_xy_to_world_xy(mx, my)
+
+            local angle = math.atan(py - my, px - mx)
+            self._raycast:cast(px, py, mx - px, my - py)
+        end
+    end)
+
     for i = 1, rt.settings.overworld.player.velocity_magnitude_history_n do
         table.insert(self._velocity_magnitude_history, 0)
     end
@@ -93,7 +104,6 @@ function ow.Player:_handle_joystick(x, y, left_or_right)
 end
 
 do
-
     local _left_pressed = false
     local _right_pressed = false
     local _up_pressed = false
@@ -128,7 +138,6 @@ do
         self._is_accelerating = _left_pressed or _right_pressed or _up_pressed or _down_pressed
 
         if which == rt.InputButton.A and self._raycast ~= nil then
-
             if pressed_or_released then
                 local px, py = self._body:get_position()
                 local mx, my = love.mouse.getPosition()

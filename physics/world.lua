@@ -173,24 +173,29 @@ function b2.World:_set_origin(body, x, y)
 end
 
 local _default_query_filter = function(item, other)
-    if item:has_tag(b2.BodyTag.IS_PLAYER) then return false end
-    return item._is_enabled == true
+    return item._is_enabled == true and item:has_tag(b2.BodyTag.IS_PLAYER) ~= true
 end
 
---- @brie
-function b2.World:cast_ray(origin_x, origin_y, direction_x, direction_y)
+--- @brief
+function b2.World:cast_ray(origin_x, origin_y, direction_x, direction_y, filter)
     local responses, n_responses = self._native:queryRay(
         origin_x, origin_y,
         direction_x, direction_y,
-        function() return true end
+        _default_query_filter
     )
 
     local points = {}
     for i = 1, n_responses do
         local response = responses[i]
-        table.insert(points, response.touch.x)
-        table.insert(points, response.touch.y)
+        local response_vector_x = response.touch.x - origin_x
+        local response_vector_y = response.touch.y - origin_y
+
+        -- filter buggy hits, cf: https://github.com/erinmaus/slick/issues/67
+        local dot_product = response_vector_x * direction_x + response_vector_y * direction_y
+        if dot_product >= 0 then
+            return response.touch.x, response.touch.y, response.normal.y, -response.normal.x
+        end
     end
 
-    return points
+    return nil
 end
