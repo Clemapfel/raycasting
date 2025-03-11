@@ -1,7 +1,7 @@
 --- @class b2.Body
 --- @signal collision (b2.Body, b2.Body, x, y, normal_x, normal_y) -> nil
 b2.Body = meta.class("PhysicsBody")
-meta.add_signals(b2.Body, "collided")
+meta.add_signals(b2.Body, "collision_start", "collision_end")
 
 --- @class b2.BodyType
 b2.BodyType = meta.enum("PhysicsBodyType", {
@@ -73,6 +73,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _is_solid = true, -- whether body will participate in collision
         _is_sensor = false, -- whether body will emit on collision
         _tags = {}, -- Set<String>
+        _colliding_with = meta.make_weak({}), -- Set<Body>, only used for sensors
     })
 
     self._world:_notify_body_added(self)

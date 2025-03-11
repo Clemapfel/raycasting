@@ -30,18 +30,28 @@ do
 end
 
 -- debugger
-if _G.DEBUG == nil then _G.DEBUG = false end
-if _G.DEBUG == true then
-    pcall(function()
-        package.cpath = package.cpath .. ';C:/Users/cleme/AppData/Roaming/JetBrains/CLion2023.3/plugins/EmmyLua/debugger/emmy/windows/x64/?.dll'
-        debugger = require('emmy_core')
-        debugger.tcpConnect('localhost', 8172)
+debugger = {}
+local _debugger_active, _emmy_debugger = false
+function debugger.break_here()
+    if _debugger_active == false then
+        pcall(function()
+            -- connect debugger
+            package.cpath = package.cpath .. ';C:/Users/cleme/AppData/Roaming/JetBrains/CLion2023.3/plugins/EmmyLua/debugger/emmy/windows/x64/?.dll'
+            _emmy_debugger = require('emmy_core')
+            _emmy_debugger.tcpConnect('localhost', 8172)
 
-        love.errorhandler = function(msg)
-            debugger.breakHere()
-            return nil -- exit
-        end
-    end)
+            love.errorhandler = function(msg)
+            _emmy_debugger.breakHere()
+            return nil
+            end
+
+            _debugger_active = true
+        end)
+    end
+
+    if _emmy_debugger ~= nil then
+        _emmy_debugger.breakHere()
+    end
 end
 
 -- standard library extension

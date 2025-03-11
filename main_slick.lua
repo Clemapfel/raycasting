@@ -1,182 +1,34 @@
 local slick = require "physics.slick.slick" -- change this path
-local USE_POLYGONAL_CIRCLE = false
 
--- shape data
-local shapes = {
-    [1] = {
-        [1] = 68.29355,
-        [2] = 161.8475,
-        [3] = 58.5049,
-        [4] = 144.51679,
-        [5] = 53.8513,
-        [6] = 151.57747,
-        [7] = 51.6047,
-        [8] = 157.35438,
-        [9] = 50,
-        [10] = 163.2918,
-        [11] = 67.00979,
-        [12] = 172.599
-    },
-    [2] = {
-        [1] = 73.74952,
-        [2] = 187.6832,
-        [3] = 53.6908,
-        [4] = 190.0902,
-        [5] = 61.5538,
-        [6] = 200.0394,
-        [7] = 70.86106,
-        [8] = 206.4582,
-        [9] = 81.77301,
-        [10] = 191.374
-    },
-    [3] = {
-        [1] = 68.45402,
-        [2] = 180.6225,
-        [3] = 50.3209,
-        [4] = 179.9806,
-        [5] = 53.6908,
-        [6] = 190.0902,
-        [7] = 73.74952,
-        [8] = 187.6832
-    },
-    [4] = {
-        [1] = 109.3738,
-        [2] = 185.5971,
-        [3] = 118.1997,
-        [4] = 202.1255,
-        [5] = 263.1041,
-        [6] = 62.6772,
-        [7] = 250.2661,
-        [8] = 50
-    },
-    [5] = {
-        [1] = 104.7202,
-        [2] = 189.1274,
-        [3] = 109.2134,
-        [4] = 208.2233,
-        [5] = 118.1997,
-        [6] = 202.1255,
-        [7] = 109.3738,
-        [8] = 185.5971
-    },
-    [6] = {
-        [1] = 98.1409,
-        [2] = 191.6949,
-        [3] = 99.1038,
-        [4] = 210.9513,
-        [5] = 99.2642,
-        [6] = 210.9513,
-        [7] = 109.2134,
-        [8] = 208.2233,
-        [9] = 104.7202,
-        [10] = 189.1274
-    },
-    [7] = {
-        [1] = 67.00979,
-        [2] = 172.599,
-        [3] = 50,
-        [4] = 163.2918,
-        [5] = 50,
-        [6] = 171.4757,
-        [7] = 50.3209,
-        [8] = 179.9806,
-        [9] = 68.45402,
-        [10] = 180.6225
-    },
-    [8] = {
-        [1] = 89.957,
-        [2] = 192.6578,
-        [3] = 80.8102,
-        [4] = 210.149,
-        [5] = 90.1174,
-        [6] = 210.7908,
-        [7] = 99.1038,
-        [8] = 210.9513,
-        [9] = 98.1409,
-        [10] = 191.6949
-    },
-    [9] = {
-        [1] = 75.9961,
-        [2] = 149.8123,
-        [3] = 61.7143,
-        [4] = 140.02364,
-        [5] = 58.5049,
-        [6] = 144.35632,
-        [7] = 58.5049,
-        [8] = 144.51679,
-        [9] = 68.29355,
-        [10] = 161.8475
-    },
-    [10] = {
-        [1] = 81.77301,
-        [2] = 191.374,
-        [3] = 70.86106,
-        [4] = 206.4582,
-        [5] = 80.8102,
-        [6] = 210.149,
-        [7] = 89.957,
-        [8] = 192.6578
-    }
-}
-
-local world, player, shape
+local world, player, rectangle, circle
+local ray = {}
 
 love.load = function()
-    -- create world
     world = slick.newWorld(love.graphics.getDimensions())
 
-
-    shape = {
-        rotation = 0
+    circle = {
+        x = 50,
+        y = 50,
+        r = 30
     }
+    circle.entity = world:add(circle, circle.x, circle.y, slick.newCircleShape(0, 0, circle.r))
 
-    local natives = {}
-    for _, shape in pairs(shapes) do
-        table.insert(natives, slick.newPolygonShape(shape))
-    end
-    world:add(shape, 0, 0, slick.newShapeGroup(unpack(natives)))
+    rectangle = {
+        x = 200,
+        y = 200,
+        w = 40,
+        h = 50
+    }
+    rectangle.entity = world:add(rectangle, rectangle.x, rectangle.y, slick.newRectangleShape(0, 0, rectangle.w, rectangle.h))
 
-    -- init player
-    local player_radius = 10
-    local player_x, player_y = 5 * player_radius, 5 * player_radius
     player = {
-        x = player_x,
-        y = player_y,
-        radius = player_radius,
+        x = 140,
+        y = 140,
+        r = 10,
         velocity_x = 0,
-        velocity_y = 0,
-        entity = nil
+        velocity_y = 0
     }
-
-    if USE_POLYGONAL_CIRCLE then
-        local vertices = {}
-        local center_x, center_y = 0, 0
-        local x_radius, y_radius = player_radius, player_radius
-        local n_outer_vertices = 16
-        local angle_step = (2 * math.pi) / n_outer_vertices
-        for angle = 0, 2 * math.pi, angle_step do
-            table.insert(vertices, center_x + x_radius * math.cos(angle))
-            table.insert(vertices, center_y + y_radius * math.sin(angle))
-        end
-
-        player.vertices = vertices
-        player.entity = world:add(player, player_x, player_y, slick.newPolygonShape(vertices))
-    else
-        player.entity = world:add(player, player_x, player_y, slick.newCircleShape(0, 0, player.radius))
-    end
-end
-
--- update player position
-local rotation_speed = 0.01 * 2 * math.pi
-love.update = function(delta)
-    player.x, player.y = world:move(
-        player,
-        player.x + delta * player.velocity_x,
-        player.y + delta * player.velocity_y
-    )
-
-    shape.rotation = shape.rotation - rotation_speed * delta
-    world:rotate(shape, shape.rotation, function() return true end, function() return true end)
+    player.entity = world:add(player, player.x, player.y, slick.newCircleShape(0, 0, player.r))
 end
 
 -- handle input to move player
@@ -216,6 +68,21 @@ local handle_key = function(which, pressed_or_released)
     end
 
     player.velocity_x, player.velocity_y = vx, vy
+
+    -- cast ray
+    if which == "space" then
+        local px, py = player.x, player.y
+        local mx, my = love.mouse.getPosition()
+        local dx, dy = mx - px, my - py
+
+        local responses, n_responses = world:queryRay(px, py, dx, dy, function() return true end)
+        ray = {}
+        for i = 1, n_responses do
+            local response = responses[i]
+            table.insert(ray, response.touch.x)
+            table.insert(ray, response.touch.y)
+        end
+    end
 end
 
 love.keypressed = function(which)
@@ -226,37 +93,32 @@ love.keyreleased = function(which)
     handle_key(which, false)
 end
 
+love.update = function(delta)
+    player.x, player.y = world:move(player,
+        player.x + player.velocity_x * delta,
+        player.y + player.velocity_y * delta
+    )
+end
+
 -- draw
 love.draw = function()
-    love.graphics.push()
-    love.graphics.rotate(shape.rotation)
-    for _, vertices in pairs(shapes) do
-        love.graphics.setColor(1, 1, 1, 0.2)
-        love.graphics.polygon("fill", vertices)
+    love.graphics.setColor(1, 0, 1, 0.4)
+    love.graphics.circle("fill", player.x, player.y, player.r)
 
-        love.graphics.setColor(1, 1, 1, 0.8)
-        love.graphics.polygon("line", vertices)
-    end
-    love.graphics.pop()
+    local mouse_x, mouse_y = love.mouse.getPosition()
+    love.graphics.circle("fill", mouse_x, mouse_y, 3)
 
-    if USE_POLYGONAL_CIRCLE then
-        love.graphics.push()
-        love.graphics.translate(player.x, player.y)
-        love.graphics.setColor(1, 1, 1, 0.2)
-        love.graphics.polygon("fill", player.vertices)
+    love.graphics.setColor(1, 1, 1, 0.5)
+    love.graphics.circle("fill", circle.x, circle.y, circle.r)
+    love.graphics.rectangle("fill", rectangle.x, rectangle.y, rectangle.w, rectangle.h)
 
-        love.graphics.setColor(1, 1, 1, 0.8)
-        love.graphics.polygon("line", player.vertices)
-        love.graphics.pop()
-    else
-        love.graphics.push()
-        love.graphics.setColor(1, 1, 1, 0.2)
-        love.graphics.circle("fill", player.x, player.y, player.radius)
-
-        love.graphics.setColor(1, 1, 1, 0.8)
-        love.graphics.circle("line", player.x, player.y, player.radius)
-        love.graphics.pop()
+    if #ray >= 4 then
+        love.graphics.setPointSize(5)
+        love.graphics.points(ray)
+        love.graphics.line(ray)
     end
 
-    love.graphics.printf("Use Arrows or WASD to move | player is polygon: " .. tostring(USE_POLYGONAL_CIRCLE), 10, 10, math.huge)
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.printf("Use Arrows or WASD to move | space to cast ray", 2, 2, math.huge)
 end

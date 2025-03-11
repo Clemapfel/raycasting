@@ -17,7 +17,7 @@ function ow.StageTransition:instantiate(object, stage, scene)
     assert(meta.typeof(self._target) == "String", "In ow.StageTransition.instantiate: tiled object `" .. object.id .. "` of stage `" .. stage:get_id() .. "` does not have `target` property, which should be a stage id")
 
     self._scene:preload_stage(self._target)
-    self._body:signal_connect("collided", function(_, other)
+    self._body:signal_connect("collision_start", function(_, other)
         if other:has_tag(b2.BodyTag.IS_PLAYER) then
             self._scene:set_stage(self._target)
         end

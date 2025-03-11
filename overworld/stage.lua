@@ -113,10 +113,10 @@ end
 --- @brief
 function ow.Stage:draw()
     for f in values(self._to_draw) do
-        f()
+        --f()
     end
 
-    --self._world:draw()
+    self._world:draw()
 end
 
 --- @brief

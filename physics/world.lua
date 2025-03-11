@@ -15,13 +15,14 @@ function b2.World:instantiate(width, height, ...)
         _bodies = {},
         _needs_push = {},
         _gravity_x = 0,
-        _gravity_y = 0
+        _gravity_y = 0,
+        _active_sensors = {}
     })
 
     local _old = self._native.responses["slide"]
     self._native.responses["slide"] = function(...)
         local touch_x, touch_y, new_goal_x, new_goal_y = _old(...)
-        return touch_x, touch_y, new_goal_x, new_goal_y, "slide", nil
+        return touch_x, touch_y, new_goal_x, new_goal_y, "bounce", nil
     end
 end
 
@@ -57,7 +58,6 @@ local _default_push_filter = function(self, other)
     return self._type ~= b2.BodyType.STATIC
 end
 
-
 --- @brief [internal]
 function b2.World:_handle_collision_responses(responses, n_responses)
     for i = 1, n_responses do
@@ -65,11 +65,19 @@ function b2.World:_handle_collision_responses(responses, n_responses)
         local a, b = response.item, response.other
         if a ~= nil and b ~= nil then
             if a._is_sensor == true then
-                a:signal_emit("collided", b, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
+                if a._colliding_with[b] == nil then
+                    a:signal_emit("collision_start", b, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
+                end
+                a._colliding_with[b] = true
+                self._active_sensors[a] = true
             end
 
             if b._is_sensor == true then
-                b:signal_emit("collided", a, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
+                if b._colliding_with[a] == nil then
+                    b:signal_emit("collision_start", a, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
+                end
+                b._colliding_with[a] = true
+                self._active_sensors[b] = true
             end
         end
     end
@@ -146,6 +154,7 @@ end
 --- @brief
 function b2.World:_update_position(body, x, y)
     body:get_transform():setTransform(x, y)
+    self._native:move(body, x, y, _default_move_filter) -- trigger collision
 end
 
 --- @brief
@@ -161,4 +170,27 @@ end
 --- @brief
 function b2.World:_set_origin(body, x, y)
     body:get_transform():setTransform(nil, nil, nil, nil, nil, x, y)
+end
+
+local _default_query_filter = function(item, other)
+    if item:has_tag(b2.BodyTag.IS_PLAYER) then return false end
+    return item._is_enabled == true
+end
+
+--- @brie
+function b2.World:cast_ray(origin_x, origin_y, direction_x, direction_y)
+    local responses, n_responses = self._native:queryRay(
+        origin_x, origin_y,
+        direction_x, direction_y,
+        function() return true end
+    )
+
+    local points = {}
+    for i = 1, n_responses do
+        local response = responses[i]
+        table.insert(points, response.touch.x)
+        table.insert(points, response.touch.y)
+    end
+
+    return points
 end

@@ -133,44 +133,44 @@ ow.ObjectWrapperShapeType = meta.enum("ObjectWrapperShapeType", {
     POLYGON = false
 })
 
+local function _rotate_point(x, y, angle)
+    local cos_theta = math.cos(angle)
+    local sin_theta = math.sin(angle)
+    return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
+end
+
+local function _process_polygon(vertices, object)
+    local out = {}
+    for i = 1, #vertices, 2 do
+        local x, y = vertices[i], vertices[i + 1]
+
+        x, y = x - object.origin_x, y - object.origin_y
+        x, y = _rotate_point(x, y, object.rotation)
+        x, y = x + object.origin_x, y + object.origin_y
+
+        if object.flip_horizontally or object.flip_vertically then
+            x, y = x - object.flip_origin_x, y - object.flip_origin_y
+            x = object.flip_horizontally and -x or x
+            y = object.flip_vertically and -y or y
+            x, y = x + object.flip_origin_x, y + object.flip_origin_y
+        end
+
+        x, y = x + object.offset_x, y + object.offset_y
+
+        x, y = x - object.rotation_origin_x, y - object.rotation_origin_y
+        x, y = _rotate_point(x, y, object.rotation_offset)
+        x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
+
+        table.insert(out, x)
+        table.insert(out, y)
+    end
+
+    return out
+end
+
 --- @brief [internal]
 function ow.ObjectWrapper:_initialize_prototypes()
     if self._prototypes_initialized == true then return end
-
-    local function _rotate_point(x, y, angle)
-        local cos_theta = math.cos(angle)
-        local sin_theta = math.sin(angle)
-        return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
-    end
-
-    local function _process_polygon(vertices, object)
-        local out = {}
-        for i = 1, #vertices, 2 do
-            local x, y = vertices[i], vertices[i + 1]
-
-            x, y = x - object.origin_x, y - object.origin_y
-            x, y = _rotate_point(x, y, object.rotation)
-            x, y = x + object.origin_x, y + object.origin_y
-
-            if object.flip_horizontally or object.flip_vertically then
-                x, y = x - object.flip_origin_x, y - object.flip_origin_y
-                x = object.flip_horizontally and -x or x
-                y = object.flip_vertically and -y or y
-                x, y = x + object.flip_origin_x, y + object.flip_origin_y
-            end
-
-            x, y = x + object.offset_x, y + object.offset_y
-
-            x, y = x - object.rotation_origin_x, y - object.rotation_origin_y
-            x, y = _rotate_point(x, y, object.rotation_offset)
-            x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
-
-            table.insert(out, x)
-            table.insert(out, y)
-        end
-
-        return out
-    end
 
     local prototypes = {}
     if self.type == ow.ObjectType.RECTANGLE then
@@ -268,6 +268,28 @@ function ow.ObjectWrapper:get_physics_shapes()
 end
 
 --- @brief
+function ow.ObjectWrapper:get_centroid()
+    local xy
+    if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
+        xy = { self.x + 0.5 * self.width, self.y + 0.5 * self.height }
+    elseif self.type == ow.ObjectType.ELLIPSE then
+        xy = { self.center_x, self.center_y }
+    elseif self.type == ow.ObjectType.POLYGON then
+        local x_sum, y_sum, n = 0, 0, 0
+        for i = 1, #self.vertices, 2 do
+            x_sum = x_sum * self.vertices[i + 0]
+            y_sum = y_sum * self.vertices[i + 1]
+            n = n + 1
+        end
+        xy = { x_sum / n, y_sum / n }
+    elseif self.type == ow.ObjectType.POINT then
+        xy = { self.x, self.y }
+    end
+
+    return table.unpack(_process_polygon(xy, self))
+end
+
+--- @brief
 function ow.ObjectWrapper:draw()
     love.graphics.setPointSize(4)
     love.graphics.setLineWidth(1)
@@ -299,7 +321,7 @@ function ow.ObjectWrapper:draw()
 
     if self.type == ow.ObjectType.POINT then
         love.graphics.setColor(r, g, b, line_a)
-        love.graphics.points(self.x, self.y)
+        love.graphics.circle("fill", self.x, self.y, rt.settings.overworld.object_wrapper.point_radius)
     elseif self.type == ow.ObjectType.RECTANGLE then
         love.graphics.setColor(r, g, b, fill_a)
         love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
@@ -357,14 +379,17 @@ function ow._parse_object_group(object_group)
     local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
     local group_visible = _get(object_group, "visible")
 
+    local object_id_to_wrapper = {}
+
     for object in values(object_group.objects) do
         local wrapper = ow.ObjectWrapper(_get(object, "type"))
         wrapper.id = _get(object, "id")
         wrapper.name = _get(object, "name")
 
+        wrapper.to_replace = {}
         for key, value in pairs(_get(object, "properties")) do
-            if meta.is_table(value) then -- object property
-                rt.warning("In ow.StageConfig._parse_object: unhandled object property of object `" .. wrapper.id .. "`")
+            if meta.is_table(value) then -- object property, evaluated on second pass
+                wrapper.to_replace[key] = _get(value, "id")
             else
                 wrapper.properties[key] = value
             end
@@ -452,6 +477,15 @@ function ow._parse_object_group(object_group)
         end
 
         table.insert(objects, wrapper)
+        object_id_to_wrapper[wrapper.id] = wrapper
+    end
+
+    -- second pass, set "object" tiled property
+    for wrapper in values(objects) do
+        for key, id in pairs(wrapper.to_replace) do
+            wrapper.properties[key] = object_id_to_wrapper[id]
+        end
+        wrapper.to_replace = nil
     end
 
     return objects

@@ -19,7 +19,7 @@ function ow.OverworldScene:instantiate()
         _camera = ow.Camera(),
         _current_stage_id = nil,
         _stage = nil,
-        _player = ow.Player(),
+        _player = nil,
         _input = rt.InputSubscriber(),
 
         _camera_translation_velocity_x = 0,
@@ -30,6 +30,8 @@ function ow.OverworldScene:instantiate()
         _camera_position_offset_y = 0,
         _player_is_focused = true
     })
+
+    self._player = ow.Player(self)
 
     self._input:signal_connect("pressed", function(_, which)
         self:_handle_button(which, true)

@@ -1,5 +1,6 @@
 require "common.input_subscriber"
 require "physics.physics"
+require "overworld.raycast"
 
 local velocity = 200
 rt.settings.overworld.player = {
@@ -19,7 +20,7 @@ meta.add_signals(ow.Player,
     "movement_stop"
 )
 
-function ow.Player:instantiate(stage)
+function ow.Player:instantiate(scene, stage)
     local vertices = {}
     local radius = rt.settings.overworld.player.radius
     local n_outer_vertices = 6
@@ -31,10 +32,9 @@ function ow.Player:instantiate(stage)
     end
 
     meta.install(self, {
+        _scene = scene,
         _shapes = { b2.Polygon(vertices), b2.Circle(0, 0, radius * 0.95) },
         _input = rt.InputSubscriber(),
-
-        _facing_angle = 0,
 
         _velocity_angle = 0,
         _velocity_magnitude = 0,
@@ -53,6 +53,8 @@ function ow.Player:instantiate(stage)
         _velocity_magnitude_sum = 0,
 
         _is_moving = false, -- for signal emission
+        _raycast = nil,
+        _raycast_active = false
     })
 
     self._input:signal_connect("pressed", function(_, which)
@@ -125,6 +127,21 @@ do
         self:_update_velocity_angle(dx, dy)
         self._is_accelerating = _left_pressed or _right_pressed or _up_pressed or _down_pressed
 
+        if which == rt.InputButton.A and self._raycast ~= nil then
+
+            if pressed_or_released then
+                local px, py = self._body:get_position()
+                local mx, my = love.mouse.getPosition()
+                mx, my = self._scene._camera:screen_xy_to_world_xy(mx, my)
+
+                local angle = math.atan(py - my, px - mx)
+                self._raycast:cast(px, py, mx - px, my - py)
+                self._raycast_active = true
+            else
+                self._raycast_active = false
+            end
+        end
+
         -- TODO
         if which == rt.InputButton.B then
             if pressed_or_released == false then
@@ -152,7 +169,6 @@ function ow.Player:update(delta)
     end
     self._velocity_magnitude = math.clamp(self._velocity_magnitude, 0, max_velocity)
 
-    local angle_offset = 2 * math.pi - self._facing_angle
     local velocity_x = math.cos(self._velocity_angle - self._facing_angle)
     local velocity_y = math.sin(self._velocity_angle - self._facing_angle)
 
@@ -198,6 +214,7 @@ function ow.Player:move_to_stage(stage)
         self._shapes
     )
     self._body:add_tag("player")
+    self._raycast = ow.Raycast(world)
 
     self:teleport_to(player_x, player_y)
 end
@@ -249,5 +266,7 @@ function ow.Player:draw()
         love.graphics.setPointSize(5)
         love.graphics.points(self._direction_indicator_x, self._direction_indicator_y)
     end
+
+    if self._raycast_active then self._raycast:draw() end
 end
 

@@ -12,13 +12,16 @@ function ow.Teleporter:instantiate(object, stage, scene)
         object:get_physics_shapes()
     )
 
+    local target = object.properties.target
+    assert(target ~= nil, "In ow.Teleporter.instantiate: `target` property of Teleporter class is nil")
+    self._target_x, self._target_y = target:get_centroid()
+
     self._body:set_is_solid(false)
     self._body:set_is_sensor(true)
-    self._body:signal_connect("collided", function(self, other, x, y, normal_x, normal_y)
-        if other:has_tag(b2.BodyTag.IS_PLAYER) then
-            other:set_position(50, 50)
-        end
+    self._body:signal_connect("collision_start", function(_, other, x, y, normal_x, normal_y)
+        rt.warning("In ow.Teleporter: todo")
     end)
+
 end
 
 --- @brief
