@@ -1,3 +1,7 @@
+rt.settings.overworld.object_wrapper = {
+    point_radius = 1
+}
+
 --- @class ow.ObjectWrapper
 ow.ObjectWrapper = meta.class("ObjectWrapper")
 
@@ -35,6 +39,8 @@ function ow.ObjectWrapper:instantiate(type)
         rotation_origin_y = 0,
 
         properties = {},
+        prototypes = {},
+        prototypes_initialized = false,
     })
 end
 
@@ -128,13 +134,9 @@ ow.ObjectWrapperShapeType = meta.enum("ObjectWrapperShapeType", {
 })
 
 --- @brief [internal]
-function ow.ObjectWrapper:_preprocess_shapes()
+function ow.ObjectWrapper:_initialize_prototypes()
+    if self._prototypes_initialized == true then return end
 
-end
-
---- @brief
---- @return Table<b2.Shape>
-function ow.ObjectWrapper:get_physics_shapes()
     local function _rotate_point(x, y, angle)
         local cos_theta = math.cos(angle)
         local sin_theta = math.sin(angle)
@@ -170,17 +172,19 @@ function ow.ObjectWrapper:get_physics_shapes()
         return out
     end
 
-    local shapes = {}
+    local prototypes = {}
     if self.type == ow.ObjectType.RECTANGLE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
-        table.insert(shapes, b2.Polygon(_process_polygon({
+        table.insert(prototypes, {
+            type = ow.ObjectWrapperShapeType.POLYGON,
+            vertices = _process_polygon({
                 x, y,
                 x + w, y,
                 x + w, y + h,
                 x, y + h
             }, self)
-        ))
+        })
     elseif self.type == ow.ObjectType.ELLIPSE then
         local is_circle = math.abs(self.x_radius - self.y_radius) < 1
         if is_circle then
@@ -189,11 +193,12 @@ function ow.ObjectWrapper:get_physics_shapes()
                 self.center_y
             }, self)
 
-            table.insert(shapes, b2.Circle(
-                vertices[1], -- x
-                vertices[2], -- y
-                math.max(self.x_radius, self.y_radius) -- radius
-            ))
+            table.insert(prototypes, {
+                type = ow.ObjectWrapperShapeType.CIRCLE,
+                x = vertices[1], -- x
+                y = vertices[2], -- y
+                radius = math.max(self.x_radius, self.y_radius) -- radius
+            })
         else
             local vertices = {}
 
@@ -213,20 +218,53 @@ function ow.ObjectWrapper:get_physics_shapes()
 
             local polygonization = slick.polygonize(8, { vertices })
             for shape in values(polygonization) do
-                table.insert(shapes, b2.Polygon(shape))
+                table.insert(prototypes, {
+                    type = ow.ObjectWrapperShapeType.POLYGON,
+                    vertices = shape
+                })
             end
         end
     elseif self.type == ow.ObjectType.POLYGON then
         for vertices in values(self.shapes) do
-            table.insert(shapes, b2.Polygon(
-                _process_polygon(vertices, self)
-            ))
+            table.insert(prototypes, {
+                type = ow.ObjectWrapperShapeType.POLYGON,
+                vertices = _process_polygon(vertices, self)
+            })
         end
+    elseif self.type == ow.ObjectType.POINT then
+        local xy = _process_polygon({ self.x, self.y }, self)
+        table.insert(prototypes, {
+            type = ow.ObjectWrapperShapeType.CIRCLE,
+            x = xy[1],
+            y = xy[2],
+            radius = rt.settings.overworld.object_wrapper.point_radius
+        })
     else
-        rt.error("In ow.ObjectWrapper: unhandled object type `" .. tostring(self.type) .. "`")
+        rt.error("In ow.ObjectWrapper._preprocess_shapes: unhandled object type `" .. tostring(self.type) .. "`")
     end
 
-    return shapes
+    self.prototypes = prototypes
+    self.prototypes_initialized = true
+end
+
+--- @brief
+--- @return Table<b2.Shape>
+function ow.ObjectWrapper:get_physics_shapes()
+    if self.prototypes_initialized ~= true then
+        self:_initialize_prototypes()
+    end
+
+    local out = {}
+    for prototype in values(self.prototypes) do
+        if prototype.type == ow.ObjectWrapperShapeType.POLYGON then
+            table.insert(out, b2.Polygon(prototype.vertices))
+        elseif prototype.type == ow.ObjectWrapperShapeType.CIRCLE then
+            table.insert(out, b2.Circle(prototype.x, prototype.y, prototype.radius))
+        else
+            rt.error("In ow.ObjectWrapper:get_physics_shape: unhandled prototype shape type `" .. tostring(prototype.type) .. "`")
+        end
+    end
+    return out
 end
 
 --- @brief
