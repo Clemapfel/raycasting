@@ -122,6 +122,16 @@ function ow.ObjectWrapper:clone()
     return out
 end
 
+ow.ObjectWrapperShapeType = meta.enum("ObjectWrapperShapeType", {
+    CIRCLE = true,
+    POLYGON = false
+})
+
+--- @brief [internal]
+function ow.ObjectWrapper:_preprocess_shapes()
+
+end
+
 --- @brief
 --- @return Table<b2.Shape>
 function ow.ObjectWrapper:get_physics_shapes()

@@ -18,14 +18,17 @@ rt.settings.overworld.stage = {
 --- @class ow.Stage
 ow.Stage = meta.class("Stage", rt.Drawable)
 
-local _stage_config_atlas = {}
+ow.Stage._config_atlas = {}
 
 --- @brief
-function ow.Stage:instantiate(id)
-    local config = _stage_config_atlas[id]
+function ow.Stage:instantiate(scene, id)
+    meta.assert(scene, "OverworldScene", id, "String")
+    self._scene = scene
+
+    local config = ow.Stage._config_atlas[id]
     if config == nil then
         config = ow.StageConfig(id)
-        _stage_config_atlas[id] = config
+        ow.Stage._config_atlas[id] = config
     end
 
     self._config = config
@@ -83,7 +86,7 @@ function ow.Stage:instantiate(id)
                     if Type == nil then
                         rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
                     end
-                    object = Type(wrapper, self._world)
+                    object = Type(wrapper, self, self._scene)
                     table.insert(self._objects, object)
                 end
 
@@ -141,4 +144,9 @@ function ow.Stage:get_size()
     local buffer = rt.settings.overworld.stage.physics_world_buffer_length
     local w, h = self._config:get_size()
     return w + 2 * buffer, h * 2 + buffer
+end
+
+--- @brief
+function ow.Stage:get_id()
+    return self._config:get_id()
 end

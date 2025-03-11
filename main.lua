@@ -1,13 +1,15 @@
-_G.DEBUG = true
+_G.DEBUG = false
 
 require "include"
 require "common.label"
 
-dbg(math.eps)
-
 local SceneManager = require "common.scene_manager"
 
 love.load = function(args)
+    local data = love.image.newImageData("assets/sprites/cursor.png")
+    local cursor = love.mouse.newCursor(data)
+    love.mouse.setCursor(cursor, data:getWidth() / 2, data:getHeight() / 2)
+
     require "overworld.overworld_scene"
     SceneManager:set_scene(ow.OverworldScene, "debug_stage")
 end

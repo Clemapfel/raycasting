@@ -1,7 +1,7 @@
 --- @class b2.Body
 --- @signal collision (b2.Body, b2.Body, x, y, normal_x, normal_y) -> nil
 b2.Body = meta.class("PhysicsBody")
-meta.add_signals(b2.Body, "collision")
+meta.add_signals(b2.Body, "collided")
 
 --- @class b2.BodyType
 b2.BodyType = meta.enum("PhysicsBodyType", {
@@ -54,7 +54,6 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     end
 
     meta.install(self, {
-        _transform = slick.newTransform(x, y),
         _shapes = shapes,
         _type = type,
         _world = world,
@@ -84,50 +83,41 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
 end
 
 --- @brief
+function b2.Body:get_transform()
+    return self._entity.transform
+end
+
+--- @brief
 function b2.Body:get_position()
-    return self._transform.x, self._transform.y
+    return self._entity.transform.x, self._entity.transform.y
 end
 
 --- @brief
 function b2.Body:set_position(x, y)
-    if x == self._transform.x or y == self._transform.y then return end
-    self._transform:setTransform(x, y)
-    self._world:_notify_transform_changed(self)
+    if x == self._entity.transform.x or y == self._entity.transform.y then return end
+    self._world:_update_position(self, x, y)
 end
 
 --- @brief
 function b2.Body:get_rotation()
-    return self._transform.rotation
+    return self:get_transform().rotation
 end
 
 --- @brief
 function b2.Body:set_rotation(angle)
-    meta.assert(angle, "Number")
-    self._transform:setTransform(self._transform.x, self._transform.y, angle)
-    self._world:_notify_transform_changed(self)
+    self._world:_update_rotation(self, angle)
 end
 
 --- @brief
 function b2.Body:get_scale()
-    return self._transform.scaleX, self._transform.scaleY
+    local transform = self:get_transform()
+    return transform.scaleX, transform.scaleY
 end
 
 --- @brief
 function b2.Body:set_scale(scale_x, scale_y)
     if scale_y == nil then scale_y = scale_x end
-    meta.assert(scale_x, "Number", scale_y, "Number")
-    self._transform:setTransform(nil, nil, nil, scale_x, scale_y)
-    self._world:_notify_transform_changed(self)
-end
-
---- @brief
-function b2.Body:set_transform(x, y, angle, scale_x, scale_y, origin_x, origin_y)
-    self._transform:setTransform(x, y, angle, scale_x, scale_y, origin_x, origin_y) -- nils handled in slick
-    self._world:_notify_transform_changed(self)
-
-    if (x ~= nil and x ~= self._transform.x) or (y ~= nil and y ~= self._transform.y) then
-        self._world:_notify_push_needed(self)
-    end
+    self._world:_update_scale(self, scale_x, scale_y)
 end
 
 --- @brief
@@ -186,14 +176,13 @@ end
 --- @brief
 function b2.Body:draw()
     for shape in values(self._shapes) do
-        shape:draw(self._transform)
+        shape:draw(self:get_transform())
     end
 end
 
 --- @brief
 function b2.Body:set_origin(x, y)
-    self._transform:setTransform(nil, nil, nil, nil, nil, x, y)
-    self._world:_notify_transform_changed(self)
+    self._world:_update_origin(self, x, y)
 end
 
 --- @brief

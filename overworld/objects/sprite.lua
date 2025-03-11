@@ -8,7 +8,7 @@ local _vertex_format = {
 }
 
 --- @brief
-function ow.Sprite:instantiate(wrapper)
+function ow.Sprite:instantiate(wrapper, stage, scene)
     meta.assert(wrapper, "ObjectWrapper")
     self._wrapper = wrapper
 

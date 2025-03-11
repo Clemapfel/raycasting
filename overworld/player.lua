@@ -129,9 +129,9 @@ do
         if which == rt.InputButton.B then
             if pressed_or_released == false then
                 self._body:set_is_solid(true)
+                self._body._world:_notify_push_needed(self._body)
             else
                 self._body:set_is_solid(false)
-                self._body._transform.x, self._body._transform.y = self._world._native:push(self._body, function() return true end, self._body._transform.x, self._body._transform.y)
             end
         end
     end

@@ -35,13 +35,15 @@ function b2.World:get_gravity()
     return self._gravity_x, self._gravity_y
 end
 
-local _default_filter_query_function = function(self, other)
+local body_type_static, body_type_dynamic
+
+local _default_move_filter = function(self, other)
     if self._is_enabled == false or other._is_enabled == false then
         return false
     end
 
     if self._is_solid == true and other._is_solid == true then
-        return "slide"
+        return true
     end
 
     if self._is_sensor == true or other._is_sensor == true then
@@ -50,7 +52,11 @@ local _default_filter_query_function = function(self, other)
 
     return false
 end
-local body_type_static, body_type_dynamic
+
+local _default_push_filter = function(self, other)
+    return self._type ~= b2.BodyType.STATIC
+end
+
 
 --- @brief [internal]
 function b2.World:_handle_collision_responses(responses, n_responses)
@@ -59,11 +65,11 @@ function b2.World:_handle_collision_responses(responses, n_responses)
         local a, b = response.item, response.other
         if a ~= nil and b ~= nil then
             if a._is_sensor == true then
-                a:signal_emit("collision", b, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
+                a:signal_emit("collided", b, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
             end
 
             if b._is_sensor == true then
-                b:signal_emit("collision", a, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
+                b:signal_emit("collided", a, response.touch.x, response.touch.y, response.normal.x, response.normal.y)
             end
         end
     end
@@ -74,49 +80,37 @@ function b2.World:update(delta)
     if body_type_static == nil then body_type_static = b2.BodyType.STATIC end
     if body_type_dynamic == nil then body_type_dynamic = b2.BodyType.DYNAMIC end
 
-    -- initial push when bodies spawn or change position
-    for body in values(self._needs_push) do
-        body._transform.x, body._transform.y = self._native:push(body, b2._default_filter, body:get_position())
-    end
-    self._needs_push = {}
-
     -- velocity simulation
     for body in values(self._bodies) do
         if body._is_enabled ~= false then
-            --[[
             if body._type == body_type_dynamic then
                 body._velocity_x = body._velocity_x + (body._acceleration_x + self._gravity_x * body._mass) * delta
                 body._velocity_y = body._velocity_y + (body._acceleration_y + self._gravity_y * body._mass) * delta
                 body._angular_velocity = body._angular_velocity + body._angular_acceleration * delta
             end
-            ]]--
+
+            local transform = body:get_transform()
 
             if body._type ~= body_type_static then -- kinematic or dynamic
-                local x, y = body._transform.x, body._transform.y
                 local vx, vy = body._velocity_x, body._velocity_y
                 if math.abs(vx) > 0 or math.abs(vy) > 0 then
-                    local x, y, responses, n_responses, query = self._native:move(
+                    local _, _, responses, n_responses, query = self._native:move(
                         body,
-                        x + vx * delta,
-                        y + vy * delta,
-                        _default_filter_query_function
+                        transform.x + vx * delta,
+                        transform.y + vy * delta,
+                        _default_move_filter
                     )
 
                     self:_handle_collision_responses(responses, n_responses)
-
-                    body._transform.x = x
-                    body._transform.y = y
                 end
 
                 local v = body._angular_velocity
-                local current = body._transform.rotation
                 if math.abs(v) > 0 then
-                    body._transform:setTransform(body._transform.x, body._transform.y, current + v * delta)
                     local responses, n_responses = self._native:rotate(
                         body,
-                        body._transform.rotation,
-                        function() return true end,
-                        function() return false end
+                        transform.rotation + v * delta,
+                        _default_push_filter,
+                        _default_push_filter
                     )
 
                     self:_handle_collision_responses(responses, n_responses)
@@ -133,23 +127,38 @@ function b2.World:draw()
     end
 end
 
---- @brief [internal]
-function b2.World:_notify_push_needed(body)
-    table.insert(self._needs_push, body)
+--- @brief
+function b2.World:_notify_body_added(body)
+    table.insert(self._bodies, body)
 end
 
---- @brief [internal]
-function b2.World:_notify_transform_changed(body)
-    self._native:update(body, body._transform)
-    body._transform.x, body._transform.y = self._native:push(
+--- @brief
+function b2.World:_notify_push_needed(body)
+    local transform = body:get_transform()
+    self._native:push(
         body,
-        _default_filter_query_function,
-        body._transform.x,
-        body._transform.y
+        _default_push_filter,
+        transform.x,
+        transform.y
     )
 end
 
---- @brief [internal]
-function b2.World:_notify_body_added(body)
-    table.insert(self._bodies, body)
+--- @brief
+function b2.World:_update_position(body, x, y)
+    body:get_transform():setTransform(x, y)
+end
+
+--- @brief
+function b2.World:_update_rotation(body, angle)
+    body:get_transform():setTransform(nil, nil, angle)
+end
+
+--- @brief
+function b2.World:_update_scale(body, scale_x, scale_y)
+    body:get_transform():setTransform(nil, nil, nil, scale_x, scale_y)
+end
+
+--- @brief
+function b2.World:_set_origin(body, x, y)
+    body:get_transform():setTransform(nil, nil, nil, nil, nil, x, y)
 end

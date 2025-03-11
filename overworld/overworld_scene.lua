@@ -124,13 +124,7 @@ end
 
 --- @brief
 function ow.OverworldScene:enter(stage_id)
-    if stage_id ~= self._stage_id then
-        self._current_stage_id = stage_id
-        self._stage = ow.Stage(stage_id)
-        self._player:move_to_stage(self._stage)
-        self._camera:set_bounds(self._stage:get_camera_bounds())
-        self._player_is_focused = true
-    end
+    self:set_stage(stage_id)
 end
 
 --- @brief
@@ -140,6 +134,25 @@ end
 --- @brief
 function ow.OverworldScene:size_allocate(x, y, width, height)
 
+end
+
+--- @brief
+function ow.OverworldScene:set_stage(stage_id)
+    if stage_id ~= self._stage_id then
+        self._current_stage_id = stage_id
+        self._stage = ow.Stage(self, stage_id)
+        self._player:move_to_stage(self._stage)
+        self._camera:set_bounds(self._stage:get_camera_bounds())
+        self._camera:move_to(self._player:get_position())
+        self._player_is_focused = true
+    end
+end
+
+--- @brief
+function ow.OverworldScene:preload_stage(stage_id)
+    if ow.Stage._config_atlas[stage_id] == nil then
+        ow.Stage._config_atlas[stage_id] = ow.StageConfig(stage_id)
+    end
 end
 
 --- @brief

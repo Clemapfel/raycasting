@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 11,
-  nextobjectid = 80,
+  nextobjectid = 82,
   properties = {},
   tilesets = {
     {
@@ -825,7 +825,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = "debug_room_o2"
+            ["target"] = "debug_stage_alt_room"
           }
         }
       }
@@ -941,7 +941,9 @@ return {
           height = 61.1338,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["body_type"] = "DYNAMIC"
+          }
         }
       }
     }
