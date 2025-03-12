@@ -18,9 +18,6 @@ function ow.StageTransition:instantiate(object, stage, scene)
 
     self._scene:preload_stage(self._target)
     self._body:signal_connect("collision_start", function(_, other)
-        if other:has_tag(b2.BodyTag.IS_PLAYER) then
-            self._scene:set_stage(self._target)
-        end
     end)
     self._body:set_is_sensor(true)
     self._body:set_is_solid(false)

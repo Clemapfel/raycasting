@@ -15,19 +15,33 @@ b2.Rectangle = meta.class("PhysicsRectangle", b2.Shape, function(self, x, y, wid
     })
 end)
 
+local _identity_transform = slick.newTransform()
+
+local _bind_transform = function(transform)
+    if transform == nil then return end
+    love.graphics.push()
+    love.graphics.translate(transform.x or 0, transform.y or 0)
+    love.graphics.rotate(transform.rotation or 0)
+    love.graphics.scale(transform.scaleX or 1, transform.scaleY or 1)
+end
+
+local _unbind_transform = function(transform)
+    if transform == nil then return end
+    love.graphics.pop()
+end
+
 --- @brief
-function b2.Rectangle:draw()
+function b2.Rectangle:draw(transform)
+    _bind_transform(transform)
+
     local x, y, w, h = table.unpack(self._native.arguments)
     love.graphics.setColor(1, 1, 1, _fill_a)
     love.graphics.rectangle("fill", x, y, w, h)
 
     love.graphics.setColor(1, 1, 1, _line_a)
     love.graphics.rectangle("line", x, y, w, h)
-end
 
---- @brief
-function b2.Rectangle:_add_to_body(body)
-    return love.physics.newRectangleshape(body, table.unpack(self._native.arguments))
+    _unbind_transform(transform)
 end
 
 --- @class b2.Circle
@@ -41,18 +55,17 @@ b2.Circle = meta.class("PhysicsCircle", b2.Shape,function(self, x, y, radius)
 end)
 
 --- @brief
-function b2.Circle:draw()
+function b2.Circle:draw(transform)
+    _bind_transform(transform)
+
     local x, y, r = table.unpack(self._native.arguments)
     love.graphics.setColor(1, 1, 1, _fill_a)
     love.graphics.circle("fill", x, y, r)
 
     love.graphics.setColor(1, 1, 1, _line_a)
     love.graphics.circle("line", x, y, r)
-end
 
---- @brief
-function b2.Circle:_add_to_body(body)
-    return love.physics.newCircleShape(body, table.unpack(self._native.arguments))
+    _unbind_transform(transform)
 end
 
 --- @class b2.Polygon
@@ -61,21 +74,19 @@ b2.Polygon = meta.class("PhysicsPolygon", b2.Shape,function(self, vertices, ...)
     if meta.is_number(vertices) then
         vertices = {vertices, ...}
     end
-
     self._native = slick.newPolygonShape(vertices)
 end)
 
 --- @brief
-function b2.Polygon:draw()
+function b2.Polygon:draw(transform)
+    _bind_transform(transform)
+
     local vertices = self._native.arguments
     love.graphics.setColor(1, 1, 1, _fill_a)
     love.graphics.polygon("fill", vertices)
 
     love.graphics.setColor(1, 1, 1, _line_a)
     love.graphics.polygon("line", vertices)
-end
 
---- @brief
-function b2.Polygon:_add_to_body(body)
-    return love.physics.newPolygonShape(body, self._native.arguments)
+    _unbind_transform(transform)
 end

@@ -913,9 +913,7 @@ return {
             { x = 169.333, y = 101.333 },
             { x = 78.6667, y = -54.6667 }
           },
-          properties = {
-            ["rotate"] = true
-          }
+          properties = {}
         },
         {
           id = 61,
@@ -941,9 +939,7 @@ return {
           height = 61.1338,
           rotation = 0,
           visible = true,
-          properties = {
-            ["body_type"] = "DYNAMIC"
-          }
+          properties = {}
         }
       }
     }

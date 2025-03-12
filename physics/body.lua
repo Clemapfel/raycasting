@@ -5,14 +5,9 @@ meta.add_signals(b2.Body, "collision_start", "collision_end")
 
 --- @class b2.BodyType
 b2.BodyType = meta.enum("PhysicsBodyType", {
-    STATIC = "STATIC",
-    KINEMATIC = "KINEMATIC",
-    DYNAMIC = "DYNAMIC"
-})
-
---- @class b2.BodyTag
-b2.BodyTag = meta.enum("PhysicsBodyTag", {
-    IS_PLAYER = "player"
+    STATIC = "static",
+    KINEMATIC = "kinematic",
+    DYNAMIC = "dynamic"
 })
 
 --- @brief
@@ -25,175 +20,91 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     meta.assert_enum_value(type, b2.BodyType)
     meta.assert(x, "Number", y, "Number")
 
-    local shapes
-    if meta.isa(shape, b2.Shape) then
-        shapes = {shape, ...}
-    else
-        meta.assert_typeof(shape, "Table", 5)
-        for shape in values(shapes) do
-            meta.assert_typeof(shape, "PhysicsShape")
-        end
-        shapes = shape
-    end
-
-    local natives = {}
-    local n_natives = 0
-    for i, current_shape in ipairs(shapes) do
-        assert(meta.isa(current_shape, b2.Shape), "In b2.Body: argument #" .. 3 + i .. ": expected `b2.Shape`, got `" .. meta.typeof(current_shape) .. "`")
-        table.insert(natives, current_shape._native)
-        n_natives = n_natives + 1
-    end
-
-    local group
-    if n_natives > 1 then
-        group = slick.newShapeGroup(
-            table.unpack(natives)
-        )
-    else
-        group = natives[1]
-    end
-
     meta.install(self, {
-        _shapes = shapes,
-        _type = type,
-        _world = world,
-        _entity = world._native:add(self, x, y, group),
-        _velocity_x = 0,
-        _velocity_y = 0,
-        _acceleration_x = 0,
-        _acceleration_y = 0,
-
-        _angular_velocity = 0,
-        _angular_acceleration = 0,
-        _mass = 0,
-
-        _rotation = 0,
-
-        _is_enabled = true, -- whether body will participate in velocity simulation and collision
-        _is_solid = true, -- whether body will participate in collision
-        _is_sensor = false, -- whether body will emit on collision
+        _native = love.physics.newBody(world._native, x, y, type),
+        _shapes = {},
         _tags = {}, -- Set<String>
-        _colliding_with = meta.make_weak({}), -- Set<Body>, only used for sensors
+        _is_sensor = false
     })
 
-    self._world:_notify_body_added(self)
-
-    if self._type == b2.BodyType.DYNAMIC then
-        self._world:_notify_push_needed(self)
+    local shapes
+    if meta.typeof(shape) == "Table" then
+        shapes = shape
+    else
+        shapes = { shape, ... }
     end
-end
 
---- @brief
-function b2.Body:get_transform()
-    return self._entity.transform
+    for non_native in values(shapes) do
+        local native = non_native:_add_to_body(self._native)
+        native:setUserData(non_native)
+    end
+    --self._native:setMass(1)
+    self._native:setUserData(self)
 end
 
 --- @brief
 function b2.Body:get_position()
-    return self._entity.transform.x, self._entity.transform.y
+    return self._native:getPosition()
 end
 
 --- @brief
 function b2.Body:set_position(x, y)
-    if x == self._entity.transform.x or y == self._entity.transform.y then return end
-    self._world:_update_position(self, x, y)
+    self._native:setPosition(x, y)
 end
 
 --- @brief
 function b2.Body:get_rotation()
-    return self:get_transform().rotation
+    return self._native:getAngle()
 end
 
 --- @brief
 function b2.Body:set_rotation(angle)
-    self._world:_update_rotation(self, angle)
-end
-
---- @brief
-function b2.Body:get_scale()
-    local transform = self:get_transform()
-    return transform.scaleX, transform.scaleY
-end
-
---- @brief
-function b2.Body:set_scale(scale_x, scale_y)
-    if scale_y == nil then scale_y = scale_x end
-    self._world:_update_scale(self, scale_x, scale_y)
+    self._native:setAngle(angle)
 end
 
 --- @brief
 function b2.Body:get_linear_velocity()
-    return self._velocity_x, self._velocity_y
+    return self._native:getLinearVelocity()
 end
 b2.Body.get_velocity = b2.Body.get_linear_velocity
 
 --- @brief
 function b2.Body:set_linear_velocity(dx, dy)
-    meta.assert(dx, "Number", dy, "Number")
-    self._velocity_x, self._velocity_y = dx, dy
+    self._native:setLinearVelocity(dx, dy)
 end
 b2.Body.set_velocity = b2.Body.set_linear_velocity
 
 --- @brief
-function b2.Body:set_linear_acceleration(ax, ay)
-    self._acceleration_x, self._acceleration_y = ax, ay
-end
-
---- @brief
-function b2.Body:get_linear_acceleration()
-    return self._acceleration_x, self._acceleration_y
-end
-
---- @brief
 function b2.Body:set_angular_velocity(value)
-    self._angular_velocity = value
+    self._native:setAngularVelocity(value)
 end
 
 --- @brief
 function b2.Body:get_angular_velocity(value)
-    return self._angular_velocity
-end
-
---- @brief
-function b2.Body:set_angular_acceleration(value)
-    self._angular_acceleration = value
-end
-
---- @brief
-function b2.Body:get_angular_acceleration()
-    return self._angular_acceleration
+   return self._native:getAngularVelocity()
 end
 
 --- @brief
 function b2.Body:set_mass(mass)
-    self._mass = mass
+    self._native:setMass(mass)
 end
 
 --- @brief
 function b2.Body:get_mass()
-    return self._mass
+    return self._native:getMass()
 end
 
 --- @brief
 function b2.Body:draw()
-    for shape in values(self._shapes) do
-        shape:draw(self:get_transform())
+    love.graphics.push()
+    love.graphics.translate(self._native:getPosition())
+    love.graphics.rotate(self._native:getAngle())
+
+    for shape in values(self._native:getShapes()) do
+        shape:getUserData():draw()
     end
-end
 
---- @brief
-function b2.Body:set_origin(x, y)
-    self._world:_update_origin(self, x, y)
-end
-
---- @brief
-function b2.Body:set_collision_response_type(type)
-    self._collision_response_type = type
-end
-
---- @brief
-function b2.Body:get_collision_response_type()
-    return self._collision_response_type
+    love.graphics.pop()
 end
 
 --- @brief
@@ -208,17 +119,20 @@ end
 
 --- @brief
 function b2.Body:set_is_enabled(b)
-    self._is_enabled = b
+    self._native:setActive(b)
 end
 
 --- @brief
 function b2.Body:get_is_enabled()
-    return self._is_enabled
+    return self._native:getActive()
 end
 
 --- @brief
 function b2.Body:set_is_sensor(b)
     self._is_sensor = b
+    for shape in values(self._native:getShapes()) do
+        shape:setSensor(b)
+    end
 end
 
 --- @brief

@@ -218,7 +218,7 @@ function ow.Player:move_to_stage(stage)
 
     self._world = world
     self._body = b2.Body(
-        world, b2.BodyType.KINEMATIC,
+        world, b2.BodyType.DYNAMIC,
         player_x, player_y,
         self._shapes
     )

@@ -380,18 +380,12 @@
   <object id="33" gid="72" x="582" y="172.921" width="72" height="70"/>
   <object id="56" gid="70" x="562.863" y="154.119" width="36" height="36"/>
   <object id="60" type="Hitbox" x="369.333" y="725.333">
-   <properties>
-    <property name="rotate" type="bool" value="true"/>
-   </properties>
    <polygon points="-176,106.667 126.667,54.6667 122.667,109.333 66.6667,146.667 -118.667,162.667 -122.667,121.333 -125.333,37.3333 -72,-10.6667 -102.667,40 -100,132 -22.6667,177.333 -40,-37.3333 169.333,101.333 78.6667,-54.6667"/>
   </object>
   <object id="61" type="PlayerSpawn" x="121.854" y="450.89">
    <point/>
   </object>
   <object id="79" type="Hitbox" x="172.286" y="746.573" width="59.2812" height="61.1338">
-   <properties>
-    <property name="body_type" value="DYNAMIC"/>
-   </properties>
    <ellipse/>
   </object>
  </objectgroup>

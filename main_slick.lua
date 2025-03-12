@@ -1,7 +1,7 @@
 local slick = require "physics.slick.slick" -- change this path
 
 local world, player, rectangle, circle
-local ray = {}
+local ray, normals = {}, {}
 
 love.load = function()
     world = slick.newWorld(love.graphics.getDimensions())
@@ -77,10 +77,18 @@ local handle_key = function(which, pressed_or_released)
 
         local responses, n_responses = world:queryRay(px, py, dx, dy, function() return true end)
         ray = {}
+        normals = {}
         for i = 1, n_responses do
             local response = responses[i]
             table.insert(ray, response.touch.x)
             table.insert(ray, response.touch.y)
+
+            table.insert(normals, {
+                response.touch.x,
+                response.touch.y,
+                response.touch.x + 20 * response.normal.x,
+                response.touch.y + 20 * response.normal.y
+            })
         end
     end
 end
@@ -118,6 +126,10 @@ love.draw = function()
         love.graphics.line(ray)
     end
 
+    love.graphics.setColor(0, 1, 0, 1)
+    for _, normal in pairs(normals) do
+        love.graphics.line(normal)
+    end
 
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.printf("Use Arrows or WASD to move | space to cast ray", 2, 2, math.huge)

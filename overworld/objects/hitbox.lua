@@ -13,7 +13,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
     local type = b2.BodyType.STATIC
     if object.properties.body_type ~= nil then
         type = object.properties.body_type
-        meta.assert_enum_value(type, b2.BodyType)
+        assert(meta.is_enum_value(type, b2.BodyType), "In ow.Hitbox.instantiate: `type` property of object `" .. object.id .. "` is `" .. type .. "` which is not a b2.BodyType")
     end
 
     self._body = b2.Body(self._world, type, 0, 0, object:get_physics_shapes())
