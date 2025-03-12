@@ -8,6 +8,7 @@ rt.settings.overworld.player = {
     velocity = velocity, -- px / s
     acceleration = 2 * velocity,
     deceleration = 10 * velocity,
+    sprint_multiplier = 3,
     velocity_magnitude_history_n = 3
 }
 
@@ -33,7 +34,8 @@ function ow.Player:instantiate(scene, stage)
 
     meta.install(self, {
         _scene = scene,
-        _shapes = { b2.Polygon(vertices), b2.Circle(0, 0, radius * 0.95) },
+        _shapes = { b2.Circle(0, 0, radius) }, --{ b2.Polygon(vertices), b2.Circle(0, 0, radius * 0.95) },
+        _radius = radius,
         _input = rt.InputSubscriber(),
 
         _velocity_angle = 0,
@@ -54,7 +56,10 @@ function ow.Player:instantiate(scene, stage)
 
         _is_moving = false, -- for signal emission
         _raycast = nil,
-        _raycast_active = false
+        _raycast_active = false,
+
+        _timeout_elapsed = 0,
+        _is_disabled = false
     })
 
     self._input:signal_connect("pressed", function(_, which)
@@ -70,14 +75,7 @@ function ow.Player:instantiate(scene, stage)
     end)
 
     self._input:signal_connect("mouse_moved", function(_, x, y)
-        if self._raycast_active then
-            local px, py = self._body:get_position()
-            local mx, my = love.mouse.getPosition()
-            mx, my = self._scene._camera:screen_xy_to_world_xy(mx, my)
-
-            local angle = math.atan(py - my, px - mx)
-            self._raycast:cast(px, py, mx - px, my - py)
-        end
+        if self._raycast_active then self:_update_raycast() end
     end)
 
     for i = 1, rt.settings.overworld.player.velocity_magnitude_history_n do
@@ -101,6 +99,17 @@ function ow.Player:_handle_joystick(x, y, left_or_right)
         self:_update_velocity_angle(x, y)
         self._is_accelerating = math.magnitude(x, y) > 0
     end
+end
+
+--- @brief [internal]
+function ow.Player:_update_raycast()
+    local px, py = self._body:get_position()
+    local mx, my = love.mouse.getPosition()
+    mx, my = self._scene._camera:screen_xy_to_world_xy(mx, my)
+
+    local angle = math.atan(py - my, px - mx)
+    self._raycast:cast(px, py, mx - px, my - py)
+    self._raycast_active = true
 end
 
 do
@@ -138,26 +147,17 @@ do
         self._is_accelerating = _left_pressed or _right_pressed or _up_pressed or _down_pressed
 
         if which == rt.InputButton.A and self._raycast ~= nil then
-            if pressed_or_released then
-                local px, py = self._body:get_position()
-                local mx, my = love.mouse.getPosition()
-                mx, my = self._scene._camera:screen_xy_to_world_xy(mx, my)
-
-                local angle = math.atan(py - my, px - mx)
-                self._raycast:cast(px, py, mx - px, my - py)
-                self._raycast_active = true
-            else
-                self._raycast_active = false
-            end
+            if pressed_or_released == true then self:_update_raycast() end
+            self._raycast_active = pressed_or_released
         end
 
-        -- TODO
         if which == rt.InputButton.B then
             if pressed_or_released == false then
                 self._body:set_is_solid(true)
-                self._body._world:_notify_push_needed(self._body)
+                self._velocity_multiplier = 1
             else
                 self._body:set_is_solid(false)
+                self._velocity_multiplier = rt.settings.overworld.player.sprint_multiplier
             end
         end
     end
@@ -165,6 +165,8 @@ end
 
 --- @brief
 function ow.Player:update(delta)
+    self._timeout_elapsed = self._timeout_elapsed - delta
+
     -- update velocity and position
     local acceleration = rt.settings.overworld.player.acceleration
     local deceleration = rt.settings.overworld.player.deceleration
@@ -180,6 +182,11 @@ function ow.Player:update(delta)
 
     local velocity_x = math.cos(self._velocity_angle - self._facing_angle)
     local velocity_y = math.sin(self._velocity_angle - self._facing_angle)
+
+    if self._is_disabled or self._timeout_elapsed > 0 then
+        velocity_x = 0
+        velocity_y = 0
+    end
 
     self._body:set_velocity(
         velocity_x * self._velocity_magnitude * self._velocity_multiplier,
@@ -209,23 +216,29 @@ function ow.Player:update(delta)
     table.remove(self._velocity_magnitude_history, 1)
 
     self._last_position_x, self._last_position_y = x, y
+
+    if actual_velocity >= eps and self._raycast_active then
+        self:_update_raycast()
+    end
 end
 
 --- @brief
-function ow.Player:move_to_stage(stage)
+function ow.Player:move_to_stage(stage, x, y)
     local world = stage:get_physics_world()
-    local player_x, player_y = stage:get_player_spawn()
+
+    if x == nil or y == nil then x, y = stage:get_player_spawn() end
 
     self._world = world
     self._body = b2.Body(
         world, b2.BodyType.DYNAMIC,
-        player_x, player_y,
+        x, y,
         self._shapes
     )
     self._body:add_tag("player")
-    self._raycast = ow.Raycast(world)
+    self._body:set_is_rotation_fixed(true)
+    self._body:set_user_data(self)
 
-    self:teleport_to(player_x, player_y)
+    self._raycast = ow.Raycast(world)
 end
 
 --- @brief
@@ -268,6 +281,11 @@ function ow.Player:get_predicted_position(delta)
 end
 
 --- @brief
+function ow.Player:set_timeout(seconds)
+    self._timeout_elapsed = seconds
+end
+
+--- @brief
 function ow.Player:draw()
     self._body:draw()
 
@@ -279,3 +297,17 @@ function ow.Player:draw()
     if self._raycast_active then self._raycast:draw() end
 end
 
+--- @brief
+function ow.Player:set_is_disabled(b)
+    self._is_disabled = b
+end
+
+--- @brief
+function ow.Player:get_is_disabled()
+    return self._is_disabled
+end
+
+--- @brief
+function ow.Player:get_radius()
+    return self._radius
+end

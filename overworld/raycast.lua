@@ -10,7 +10,7 @@ function ow.Raycast:instantiate(world)
     })
 end
 
-local max_n_bounces = 1000
+local max_n_bounces = 10
 
 function ow.Raycast:cast(x, y, dx, dy)
     self._points = {x, y}

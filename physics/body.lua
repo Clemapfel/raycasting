@@ -1,5 +1,6 @@
 --- @class b2.Body
---- @signal collision (b2.Body, b2.Body, x, y, normal_x, normal_y) -> nil
+--- @signal collision_start (b2.Body, b2.Body, normal_x, normal_y, x1, y1, x2, y2) -> nil
+--- @signal collision_end (b2.Body, b2.Body, normal_x, normal_y, x1, y1, x2, y2) -> nil
 b2.Body = meta.class("PhysicsBody")
 meta.add_signals(b2.Body, "collision_start", "collision_end")
 
@@ -21,11 +22,20 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     meta.assert(x, "Number", y, "Number")
 
     meta.install(self, {
+        _world = world,
         _native = love.physics.newBody(world._native, x, y, type),
         _shapes = {},
         _tags = {}, -- Set<String>
-        _is_sensor = false
+        _is_sensor = false,
+        _user_data = nil,
     })
+
+    -- data needed for predicted position
+    self._current_timestamp = love.timer.getTime()
+    self._last_timestamp = love.timer.getTime()
+    self._last_velocity_x, self._last_velocity_y = self._native:getLinearVelocity()
+    self._last_x, self._last_y = self._native:getPosition()
+    self._current_x, self._current_y = self._native:getPosition()
 
     local shapes
     if meta.typeof(shape) == "Table" then
@@ -38,7 +48,8 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         local native = non_native:_add_to_body(self._native)
         native:setUserData(non_native)
     end
-    --self._native:setMass(1)
+
+    self._native:setMass(1)
     self._native:setUserData(self)
 end
 
@@ -49,7 +60,7 @@ end
 
 --- @brief
 function b2.Body:set_position(x, y)
-    self._native:setPosition(x, y)
+    self._world:_notify_position_changed(self, x, y)
 end
 
 --- @brief
@@ -57,9 +68,39 @@ function b2.Body:get_rotation()
     return self._native:getAngle()
 end
 
+--- @brief [internal]
+function b2.Body:_pre_update_notify()
+    self._last_x, self._last_y = self._native:getPosition()
+end
+
+--- @brief [internal]
+function b2.Body:_post_update_notify(timestamp)
+    self._last_timestamp = self._current_timestamp
+    self._current_timestamp = timestamp
+
+    self._current_x, self._current_y = self._native:getPosition()
+    self._last_velocity_x, self._last_velocity_y = self._native:getLinearVelocity()
+end
+
+--- @brief get framerate-independent position
+function b2.Body:get_predicted_position()
+    local dt = self._current_timestamp - self._last_timestamp
+
+    local dx = self._current_x - self._last_x
+    local dy = self._current_y - self._last_y
+
+    -- clamp to catch teleports
+    dx = math.min(dx, self._last_velocity_x * dt)
+    dy = math.min(dy, self._last_velocity_y * dt)
+
+    local delta = love.timer.getTime() - self._current_timestamp
+    local cx, cy = self._native:getPosition()
+    return cx + dx * dt * delta, cy + dy * dt * delta
+end
+
 --- @brief
 function b2.Body:set_rotation(angle)
-    self._native:setAngle(angle)
+    self._world:_notify_rotation_changed(self, angle)
 end
 
 --- @brief
@@ -70,6 +111,7 @@ b2.Body.get_velocity = b2.Body.get_linear_velocity
 
 --- @brief
 function b2.Body:set_linear_velocity(dx, dy)
+    if dy == nil then dy = dx end
     self._native:setLinearVelocity(dx, dy)
 end
 b2.Body.set_velocity = b2.Body.set_linear_velocity
@@ -97,7 +139,7 @@ end
 --- @brief
 function b2.Body:draw()
     love.graphics.push()
-    love.graphics.translate(self._native:getPosition())
+    love.graphics.translate(self:get_predicted_position())
     love.graphics.rotate(self._native:getAngle())
 
     for shape in values(self._native:getShapes()) do
@@ -109,12 +151,23 @@ end
 
 --- @brief
 function b2.Body:set_is_solid(b)
+    if b == self._is_solid then return end
     self._is_solid = b
+
+    if b then
+        for shape in values(self._native:getShapes()) do
+            shape:setFilterData(bit.bnot(0), bit.bnot(0), 0)
+        end
+    else
+        for shape in values(self._native:getShapes()) do
+            shape:setFilterData(0, 0, 0)
+        end
+    end
 end
 
 --- @brief
 function b2.Body:get_is_solid()
-    return self._is_solide
+    return self._is_solid
 end
 
 --- @brief
@@ -153,4 +206,24 @@ end
 --- @brief
 function b2.Body:has_tag(tag)
     return self._tags[tag]
+end
+
+--- @brief
+function b2.Body:set_is_rotation_fixed(b)
+    self._native:setFixedRotation(b)
+end
+
+--- @brief
+function b2.Body:set_is_rotation_fixed()
+    return self._native:isFixedRotation()
+end
+
+--- @brief
+function b2.Body:set_user_data(any)
+    self._user_data = any
+end
+
+--- @brief
+function b2.Body:get_user_data()
+    return self._user_data
 end

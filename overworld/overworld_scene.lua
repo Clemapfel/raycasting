@@ -139,11 +139,11 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function ow.OverworldScene:set_stage(stage_id)
+function ow.OverworldScene:set_stage(stage_id, x, y)
     if stage_id ~= self._stage_id then
         self._current_stage_id = stage_id
         self._stage = ow.Stage(self, stage_id)
-        self._player:move_to_stage(self._stage)
+        self._player:move_to_stage(self._stage, x, y)
         self._camera:set_bounds(self._stage:get_camera_bounds())
         self._camera:move_to(self._player:get_position())
         self._player_is_focused = true
@@ -171,6 +171,7 @@ end
 
 --- @brief
 function ow.OverworldScene:update(delta)
+
     self._camera:update(delta)
     self._stage:update(delta)
     self._player:update(delta)
@@ -186,6 +187,22 @@ function ow.OverworldScene:update(delta)
             self._camera:set_apply_bounds(false)
         else
             self._camera:set_apply_bounds(true)
+        end
+
+        if self._camera:get_apply_bounds() then
+            -- freeze player until camera catches up
+            local pos_x, pos_y = self._player:get_position()
+            local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)
+            local bottom_right_x, bottom_right_y = self._camera:screen_xy_to_world_xy(love.graphics.getWidth(), love.graphics.getHeight())
+
+            local buffer = -1 * self._player:get_radius() * 2 -- to prevent softlock at edge of screen
+            top_left_x = top_left_x + buffer
+            top_left_y = top_left_y + buffer
+            bottom_right_x = bottom_right_x - buffer
+            bottom_right_y = bottom_right_y - buffer
+
+            local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
+            self._player:set_is_disabled(not on_screen)
         end
     else
         local cx, cy = self._camera:get_position()

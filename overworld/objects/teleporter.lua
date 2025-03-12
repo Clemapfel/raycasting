@@ -15,13 +15,31 @@ function ow.Teleporter:instantiate(object, stage, scene)
     local target = object.properties.target
     assert(target ~= nil, "In ow.Teleporter.instantiate: `target` property of Teleporter class is nil")
     self._target_x, self._target_y = target:get_centroid()
+    self._blocking_body = nil
 
-    self._body:set_is_solid(false)
     self._body:set_is_sensor(true)
-    self._body:signal_connect("collision_start", function(_, other, x, y, normal_x, normal_y)
-        rt.warning("In ow.Teleporter: todo")
+    self._body:signal_connect("collision_start", function(self_body, other_body, x, y, normal_x, normal_y)
+        if self._blocking_body ~= nil then return end
+
+        if other_body:has_tag("player") then
+            -- block other teleporters to prevent loop
+            for other_teleporter in values(target.instances) do
+                other_teleporter._blocking_body = other_body
+            end
+
+            -- teleport player
+            other_body:set_position(self._target_x, self._target_y)
+            other_body:set_linear_velocity(0, 0)
+            other_body:get_user_data():set_timeout(0.2)
+        end
     end)
 
+    self._body:signal_connect("collision_end", function(self_body, other_body, ...)
+        if other_body == self._blocking_body then
+            -- unblock when player leaves teleporter
+            self._blocking_body = nil
+        end
+    end)
 end
 
 --- @brief

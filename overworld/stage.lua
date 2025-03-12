@@ -88,6 +88,7 @@ function ow.Stage:instantiate(scene, id)
                     end
                     object = Type(wrapper, self, self._scene)
                     table.insert(self._objects, object)
+                    table.insert(wrapper.instances, object) -- mark object so object properties
                 end
 
                 if meta.isa(object, rt.Drawable) then
@@ -103,22 +104,20 @@ function ow.Stage:instantiate(scene, id)
         end)
     end
 
-    if self._player_spawn_x == nil or self._player_spawn_y == nil then
-        rt.error("In ow.Stage: no player spawn in stage `" .. self._config:get_id() .. "`")
-    end
+    if self._player_spawn_x == nil then self._player_spawn_x = 0 end
+    if self._player_spawn_y == nil then self._player_spawn_y = 0 end
 
     self._bounds = rt.AABB(0, 0, w, h)
-
     self._body = b2.Body(self._world, b2.BodyType.DYNAMIC, 0, 0, b2.Circle(0, 0, 50))
 end
 
 --- @brief
 function ow.Stage:draw()
     for f in values(self._to_draw) do
-        --f()
+        f()
     end
 
-    self._world:draw()
+    --self._world:draw()
 end
 
 --- @brief

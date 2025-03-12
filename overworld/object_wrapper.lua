@@ -41,6 +41,8 @@ function ow.ObjectWrapper:instantiate(type)
         properties = {},
         prototypes = {},
         prototypes_initialized = false,
+
+        instances = meta.make_weak({})
     })
 end
 

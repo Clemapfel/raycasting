@@ -67,7 +67,7 @@ return {
           width = 2178.59,
           height = 958.138,
           rotation = 0,
-          visible = true,
+          visible = false,
           properties = {}
         }
       }
@@ -758,8 +758,8 @@ return {
           name = "",
           type = "Teleporter",
           shape = "ellipse",
-          x = 386.116,
-          y = 194.058,
+          x = 386.045,
+          y = 193.987,
           width = 27.228,
           height = 27.9322,
           rotation = 0,
@@ -788,8 +788,8 @@ return {
           name = "",
           type = "Teleporter",
           shape = "ellipse",
-          x = 386.116,
-          y = 289.087,
+          x = 385.854,
+          y = 289.997,
           width = 27.228,
           height = 27.9322,
           rotation = 0,

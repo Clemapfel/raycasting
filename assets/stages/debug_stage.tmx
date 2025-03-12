@@ -9,7 +9,7 @@
   <image source="../sprites/why_scaled.png"/>
  </imagelayer>
  <objectgroup id="10" name="camera_bounds">
-  <object id="76" type="CameraBounds" x="-167.261" y="-221.274" width="2178.59" height="958.138"/>
+  <object id="76" type="CameraBounds" x="-167.261" y="-221.274" width="2178.59" height="958.138" visible="0"/>
  </objectgroup>
  <layer id="4" name="Ground" width="57" height="37">
   <data encoding="csv">
@@ -349,7 +349,7 @@
    <ellipse/>
   </object>
   <object id="58" gid="3221225546" x="107.667" y="801.833" width="222" height="167" rotation="-44"/>
-  <object id="72" template="../templates/Teleporter.tx" type="Teleporter" x="386.116" y="194.058">
+  <object id="72" template="../templates/Teleporter.tx" type="Teleporter" x="386.045" y="193.987">
    <properties>
     <property name="target" type="object" value="74"/>
    </properties>
@@ -359,7 +359,7 @@
     <property name="target" type="object" value="75"/>
    </properties>
   </object>
-  <object id="74" template="../templates/Teleporter.tx" type="Teleporter" x="386.116" y="289.087">
+  <object id="74" template="../templates/Teleporter.tx" type="Teleporter" x="385.854" y="289.997">
    <properties>
     <property name="target" type="object" value="72"/>
    </properties>
