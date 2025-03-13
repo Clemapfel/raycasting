@@ -2,13 +2,39 @@
 --- @signal collision_start (b2.Body, b2.Body, normal_x, normal_y, x1, y1, x2, y2) -> nil
 --- @signal collision_end (b2.Body, b2.Body, normal_x, normal_y, x1, y1, x2, y2) -> nil
 b2.Body = meta.class("PhysicsBody")
-meta.add_signals(b2.Body, "collision_start", "collision_end")
+meta.add_signals(b2.Body,
+    "collision_start",
+    "collision_end"
+)
 
 --- @class b2.BodyType
 b2.BodyType = meta.enum("PhysicsBodyType", {
     STATIC = "static",
     KINEMATIC = "kinematic",
     DYNAMIC = "dynamic"
+})
+
+--- @class b2.CollisionGroup
+b2.CollisionGroup = meta.enum("PhysicsCollisionGroup", {
+    NONE = 0x0000,
+    ALL = 0xFFFF,
+    DEFAULT = 1,
+    GROUP_01 = bit.lshift(1, 0),
+    GROUP_02 = bit.lshift(1, 1),
+    GROUP_03 = bit.lshift(1, 2),
+    GROUP_04 = bit.lshift(1, 3),
+    GROUP_05 = bit.lshift(1, 4),
+    GROUP_06 = bit.lshift(1, 5),
+    GROUP_07 = bit.lshift(1, 6),
+    GROUP_08 = bit.lshift(1, 7),
+    GROUP_09 = bit.lshift(1, 8),
+    GROUP_10 = bit.lshift(1, 9),
+    GROUP_11 = bit.lshift(1, 10),
+    GROUP_12 = bit.lshift(1, 11),
+    GROUP_13 = bit.lshift(1, 12),
+    GROUP_14 = bit.lshift(1, 13),
+    GROUP_15 = bit.lshift(1, 14),
+    GROUP_16 = bit.lshift(1, 15),
 })
 
 --- @brief
@@ -28,6 +54,9 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _tags = {}, -- Set<String>
         _is_sensor = false,
         _user_data = nil,
+
+        _collision_groups = b2.CollisionGroup.DEFAULT,
+        _collides_with = b2.CollisionGroup.ALL
     })
 
     -- data needed for predicted position
@@ -47,9 +76,9 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     for non_native in values(shapes) do
         local native = non_native:_add_to_body(self._native)
         native:setUserData(non_native)
+        self:_update_filter_data(native)
     end
 
-    self._native:setMass(1)
     self._native:setUserData(self)
 end
 
@@ -150,34 +179,13 @@ function b2.Body:draw()
 end
 
 --- @brief
-function b2.Body:set_is_solid(b)
-    if b == self._is_solid then return end
-    self._is_solid = b
-
-    if b then
-        for shape in values(self._native:getShapes()) do
-            shape:setFilterData(bit.bnot(0), bit.bnot(0), 0)
-        end
-    else
-        for shape in values(self._native:getShapes()) do
-            shape:setFilterData(0, 0, 0)
-        end
-    end
-end
-
---- @brief
-function b2.Body:get_is_solid()
-    return self._is_solid
-end
-
---- @brief
 function b2.Body:set_is_enabled(b)
     self._native:setActive(b)
 end
 
 --- @brief
 function b2.Body:get_is_enabled()
-    return self._native:getActive()
+    return self._native:isActive()
 end
 
 --- @brief
@@ -200,12 +208,12 @@ end
 
 --- @brief
 function b2.Body:remove_tag(tag)
-    self._tags[tag] = false
+    self._tags[tag] = nil
 end
 
 --- @brief
 function b2.Body:has_tag(tag)
-    return self._tags[tag]
+    return self._tags[tag] == true
 end
 
 --- @brief
@@ -226,4 +234,55 @@ end
 --- @brief
 function b2.Body:get_user_data()
     return self._user_data
+end
+
+--- @brief
+function b2.Body:_update_filter_data(shape)
+    shape:setFilterData(self._collision_groups, self._collides_with, 0)
+end
+
+--- @brief
+function b2.Body:set_collision_group(...)
+    local out = 0x0
+    for i = 1, select("#", ...) do
+        out = bit.bor(out, select(i, ...))
+    end
+
+    self._collision_groups = out
+    for shape in values(self._native:getShapes()) do
+        self:_update_filter_data(shape)
+    end
+end
+
+--- @brief
+function b2.Body:set_collides_with(...)
+    local n = select("#",  ...)
+    local out = 0x0
+    for i = 1, select("#", ...) do
+        out = bit.bor(out, select(i, ...))
+    end
+
+    self._collides_with = out
+    for shape in values(self._native:getShapes()) do
+        self:_update_filter_data(shape)
+    end
+end
+
+--- @brief
+function b2.Body:set_does_not_collide_with(...)
+    local n = select("#", ...)
+    local out = self._collides_with
+    for i = 1, n do
+        out = bit.band(out, bit.bnot(select(i, ...)))
+    end
+
+    self._collides_with = out
+    for shape in values(self._native:getShapes()) do
+        self:_update_filter_data(shape)
+    end
+end
+
+--- @brief
+function b2.Body:destroy()
+    self._native:destroy()
 end

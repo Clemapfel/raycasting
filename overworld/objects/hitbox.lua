@@ -10,7 +10,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
     meta.assert(object, "ObjectWrapper", stage, "Stage", scene, "OverworldScene")
 
     self._world = stage:get_physics_world()
-    local type = b2.BodyType.STATIC
+    local type = b2.BodyType.KINEMATIC
     if object.properties.body_type ~= nil then
         type = object.properties.body_type
         assert(meta.is_enum_value(type, b2.BodyType), "In ow.Hitbox.instantiate: `type` property of object `" .. object.id .. "` is `" .. type .. "` which is not a b2.BodyType")

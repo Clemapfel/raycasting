@@ -14,7 +14,7 @@ local max_n_bounces = 10
 
 function ow.Raycast:cast(x, y, dx, dy)
     self._points = {x, y}
-    local contact_x, contact_y, normal_x, normal_y = self._world:cast_ray(x, y, dx, dy)
+    local contact_x, contact_y, normal_x, normal_y = self._world:query_ray(x, y, dx, dy)
     local n_bounces = 0
 
     while contact_x ~= nil do
@@ -25,7 +25,7 @@ function ow.Raycast:cast(x, y, dx, dy)
         dx = dx - 2 * dot_product * normal_x
         dy = dy - 2 * dot_product * normal_y
 
-        contact_x, contact_y, normal_x, normal_y = self._world:cast_ray(contact_x, contact_y, dx, dy)
+        contact_x, contact_y, normal_x, normal_y = self._world:query_ray(contact_x, contact_y, dx, dy)
 
         n_bounces = n_bounces + 1
         if n_bounces > max_n_bounces then

@@ -108,7 +108,6 @@ function ow.Stage:instantiate(scene, id)
     if self._player_spawn_y == nil then self._player_spawn_y = 0 end
 
     self._bounds = rt.AABB(0, 0, w, h)
-    self._body = b2.Body(self._world, b2.BodyType.DYNAMIC, 0, 0, b2.Circle(0, 0, 50))
 end
 
 --- @brief

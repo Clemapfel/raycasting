@@ -145,7 +145,7 @@ function ow.OverworldScene:set_stage(stage_id, x, y)
         self._stage = ow.Stage(self, stage_id)
         self._player:move_to_stage(self._stage, x, y)
         self._camera:set_bounds(self._stage:get_camera_bounds())
-        self._camera:move_to(self._player:get_position())
+        self._camera:set_position(self._player:get_position())
         self._player_is_focused = true
     end
 end

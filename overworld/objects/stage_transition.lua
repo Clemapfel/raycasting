@@ -1,5 +1,5 @@
 --- @class ow.StageTransition
-ow.StageTransition = meta.class("StageTransition")
+ow.StageTransition = meta.class("StageTransition", rt.Drawable)
 
 --- @brief
 function ow.StageTransition:instantiate(object, stage, scene)
@@ -18,8 +18,14 @@ function ow.StageTransition:instantiate(object, stage, scene)
 
     self._scene:preload_stage(self._target)
     self._body:signal_connect("collision_start", function(_, other)
-
-        self._scene:set_stage(self._target)
+        if other:has_tag("player") then
+            self._scene:set_stage(self._target)
+        end
     end)
     self._body:set_is_sensor(true)
+end
+
+--- @brief
+function ow.StageTransition:draw()
+    self._body:draw()
 end

@@ -288,6 +288,13 @@ function math.magnitude(x, y)
 end
 
 --- @brief
+function math.rotate(x, y, angle)
+    local cos_theta = math.cos(angle)
+    local sin_theta = math.sin(angle)
+    return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
+end
+
+--- @brief
 function math.angle(x, y)
     return math.atan2(y, x)
 end
