@@ -104,8 +104,9 @@ function ow.Stage:instantiate(scene, id)
         end)
     end
 
-    if self._player_spawn_x == nil then self._player_spawn_x = 0 end
-    if self._player_spawn_y == nil then self._player_spawn_y = 0 end
+    local w, h = self._config:get_size()
+    if self._player_spawn_x == nil then self._player_spawn_x = 0.5 * w end
+    if self._player_spawn_y == nil then self._player_spawn_y = 0.5 * h end
 
     self._bounds = rt.AABB(0, 0, w, h)
 end

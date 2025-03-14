@@ -532,11 +532,13 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
     elseif type(object) == "nil" then
         _serialize_insert(buffer, "nil")
     elseif type(object) == "table" then
-        local n_entries = table.sizeof(object)
         if seen[object] then
-            _serialize_insert(buffer, " { ...")
+            _serialize_insert(buffer, "-- [[ ... ]]")
             return
         end
+
+        seen[object] = true
+        local n_entries = table.sizeof(object)
 
         if n_entries > 0 then
             _serialize_insert(buffer, "{\n")
@@ -544,12 +546,8 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
 
             local index = 0
             for key, value in pairs(object) do
-                if comment_out and type(value) == "function" or type(value) == "userdata" then
+                if comment_out and (type(value) == "function" or type(value) == "userdata") then
                     _serialize_insert(buffer, "--[[ ", key, " = ", tostring(value), ", ]]\n")
-                    index = index + 1
-                elseif comment_out and seen[object] then
-                    _serialize_insert(buffer, "--[[ ", key, " = ..., ]]\n")
-                    index = index + 1
                 else
                     if type(key) == "string" then
                         _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[\"", tostring(key), "\"]", " = ")
@@ -559,7 +557,7 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
                         _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", serialize(key), "] = ")
                     end
 
-                    _serialize_inner(buffer, value, n_indent_tabs, seen)
+                    _serialize_inner(buffer, value, n_indent_tabs, seen, comment_out)
 
                     index = index + 1
                     if index < n_entries then
@@ -573,10 +571,7 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
         else
             _serialize_insert(buffer, "{}")
         end
-
-        seen[object] = true
     else
-        -- function, userdata, when not commented out
         _serialize_insert(buffer, "[", tostring(object), "]")
     end
 end

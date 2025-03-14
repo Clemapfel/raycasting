@@ -369,7 +369,7 @@
     <property name="target" type="object" value="73"/>
    </properties>
   </object>
-  <object id="77" type="StageTransition" x="671.445" y="704.121" width="128.597" height="119.11">
+  <object id="77" type="StageTransition" x="671.445" y="704.121" width="128.597" height="31.7791">
    <properties>
     <property name="target" value="debug_stage_alt_room"/>
    </properties>

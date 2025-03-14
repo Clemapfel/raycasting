@@ -310,11 +310,9 @@ end
 
 --- @brief
 function ow.Player:move_to_stage(stage, x, y)
-    local world = stage:get_physics_world()
-    if x == nil then
-        x, y = stage:get_player_spawn()
-    end
+    meta.assert(stage, "Stage", x, "Number", y, "Number")
 
+    local world = stage:get_physics_world()
     if self._world ~= world then
         self._world = world
         self:_create_physics_body(x, y)

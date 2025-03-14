@@ -28,7 +28,9 @@ function ow.OverworldScene:instantiate()
         _camera_rotate_velocity = 0,
         _camera_position_offset_x = 0,
         _camera_position_offset_y = 0,
-        _player_is_focused = true
+        _player_is_focused = true,
+
+        _stage_mapping = {} -- cf _notify_stage_transition
     })
 
     self._player = ow.Player(self)
@@ -139,11 +141,24 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function ow.OverworldScene:set_stage(stage_id, x, y)
+function ow.OverworldScene:set_stage(stage_id, entrance_i)
+    if entrance_i == nil then entrance_i = 1 end
+
     if stage_id ~= self._stage_id then
-        self._current_stage_id = stage_id
-        self._stage = ow.Stage(self, stage_id)
-        self._player:move_to_stage(self._stage, x, y)
+        local next_entry = self:_get_stage_entry(stage_id)
+        local spawn_x, spawn_y = next_entry.spawn_x, next_entry.spawn_y
+        if self._stage_id ~= nil then -- leaving current room
+            local current_entry = self:_get_stage_entry(self._stage_id)
+            local exit_entry = current_entry.exits[stage_id][entrance_i]
+            if exit_entry ~= nil then
+                spawn_x, spawn_y = exit_entry.x, exit_entry.y
+            end
+        end
+
+        self._stage_id = stage_id
+        self._stage = next_entry.stage
+
+        self._player:move_to_stage(self._stage, spawn_x, spawn_y)
         self._camera:set_bounds(self._stage:get_camera_bounds())
         self._camera:set_position(self._player:get_position())
         self._player_is_focused = true
@@ -151,10 +166,44 @@ function ow.OverworldScene:set_stage(stage_id, x, y)
 end
 
 --- @brief
-function ow.OverworldScene:preload_stage(stage_id)
-    if ow.Stage._config_atlas[stage_id] == nil then
-        ow.Stage._config_atlas[stage_id] = ow.StageConfig(stage_id)
+function ow.OverworldScene:_get_stage_entry(stage_id)
+    local out = self._stage_mapping[stage_id]
+    if out == nil then
+        out = {
+            stage = nil,
+            spawn_x = nil,
+            spawn_y = nil,
+            exits = {}
+        }
+        self._stage_mapping[stage_id] = out
+
+        local stage = ow.Stage(self, stage_id)
+        local x, y = stage:get_player_spawn()
+        out.stage = stage
+        out.spawn_x, out.spawn_y = x, y
     end
+    return out
+end
+
+--- @brief [internal] builds world map
+function ow.OverworldScene:_notify_stage_transition(from_id, to_id, entrance_i, spawn_x, spawn_y)
+    meta.assert(from_id, "String", to_id, "String", entrance_i, "Number", spawn_x, "Number", spawn_y, "Number")
+
+    -- pre-load configs
+    if ow.Stage._config_atlas[from_id] == nil then
+        ow.Stage._config_atlas[from_id] = ow.StageConfig(from_id)
+    end
+
+    if ow.Stage._config_atlas[to_id] == nil then
+        ow.Stage._config_atlas[to_id] = ow.StageConfig(to_id)
+    end
+
+    local from_entry = self:_get_stage_entry(from_id)
+    local to_entry = self:_get_stage_entry(to_id)
+
+    from_entry.exits[to_id] = {
+        [entrance_i] = { x = spawn_x, y = spawn_y }
+    }
 end
 
 --- @brief

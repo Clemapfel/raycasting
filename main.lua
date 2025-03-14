@@ -8,8 +8,9 @@ love.load = function(args)
     local cursor = love.mouse.newCursor(data)
     --love.mouse.setCursor(cursor, data:getWidth(), data:getHeight())
 
+
     require "overworld.overworld_scene"
-    SceneManager:set_scene(ow.OverworldScene, "debug_stage_alt_room")
+    SceneManager:set_scene(ow.OverworldScene, "debug_stage")
 end
 
 local start = true
