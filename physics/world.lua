@@ -176,8 +176,41 @@ function b2.World:query_ray(origin_x, origin_y, direction_x, direction_y, ...)
 
     local shape, x, y, nx, ny, fraction = self._native:rayCastClosest(
         origin_x, origin_y,
-        origin_x + direction_x * 10e6, -- infinite ray
-        origin_y + direction_y * 10e6,
+        origin_x + direction_x,
+        origin_y + direction_y,
+        group
+    )
+
+    if shape ~= nil then shape = shape:getBody():getUserData() end
+    return x, y, nx, ny, shape
+end
+
+--- @brief
+--- @param origin_x Number
+--- @param origin_y Number
+--- @param direction_x Number
+--- @param direction_y Number
+--- @param ... b2.CollisionGroup
+--- @return number, number, number, number, b2.Body x, y, normal_x, normal_y
+function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, ...)
+    local min_fraction = math.huge
+    local x_out, y_out, normal_x_out, normal_y_out
+
+    local group
+    local n = select("#", ...)
+    if n > 0 then
+        group = 0x0
+        for i = 1, n do
+            group = bit.bor(group, select(i, ...))
+        end
+    else
+        group = b2.CollisionGroup.ALL
+    end
+
+    local shape, x, y, nx, ny, fraction = self._native:rayCastAny(
+        origin_x, origin_y,
+        origin_x + direction_x,
+        origin_y + direction_y,
         group
     )
 

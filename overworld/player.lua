@@ -2,16 +2,22 @@ require "common.input_subscriber"
 require "physics.physics"
 require "overworld.raycast"
 require "common.blend_mode"
+require "common.sound_manager"
 
 local velocity = 200
 rt.settings.overworld.player = {
     radius = 10,
-    activator_radius_factor = 1,
     velocity = velocity, -- px / s
     acceleration = 2 * velocity,
     deceleration = 10 * velocity,
     sprint_multiplier = 3,
-    velocity_magnitude_history_n = 3
+    velocity_magnitude_history_n = 3,
+
+    activator_n_rays = 9,
+    activator_ray_arc = (2 * math.pi) / 4,
+    activator_ray_length = 30,
+
+    activation_sound_id = "player_activation_sound"
 }
 
 --- @class ow.Player
@@ -27,14 +33,11 @@ ow.PlayerCollisionGroup = b2.CollisionGroup.GROUP_16
 
 function ow.Player:instantiate(scene, stage)
     local player_radius = rt.settings.overworld.player.radius
-    local activator_radius = rt.settings.overworld.player.activator_radius_factor * player_radius
 
     meta.install(self, {
         _scene = scene,
         _shapes = { b2.Circle(0, 0, player_radius) },
-        _activator_shapes = { b2.Circle(0, 0, activator_radius) },
         _radius = player_radius,
-        _activator_radius = activator_radius,
         _input = rt.InputSubscriber(),
 
         _velocity_angle = 0,
@@ -46,8 +49,6 @@ function ow.Player:instantiate(scene, stage)
         _last_position_y = 0,
 
         _facing_angle = 0, -- angle offset of camera
-
-        _activator = nil, -- b2.Body
 
         _velocity_indicator_x = 0, -- graphics
         _velocity_indicator_y = 0,
@@ -61,6 +62,8 @@ function ow.Player:instantiate(scene, stage)
         _is_moving = false, -- for signal emission
         _raycast = nil,
         _raycast_active = false,
+
+        _activation_active = false,
 
         _timeout_elapsed = 0,
         _is_disabled = false
@@ -152,10 +155,14 @@ do
         self:_update_velocity_angle(dx, dy)
         self._is_accelerating = _left_pressed or _right_pressed or _up_pressed or _down_pressed
 
-        if which == rt.InputButton.A and self._raycast ~= nil then
-            self._activator:set_is_enabled(pressed_or_released)
-            if pressed_or_released == true then self:_update_raycast() end
-            self._raycast_active = pressed_or_released
+        if which == rt.InputButton.A then
+            if self._activation_active == false and pressed_or_released then
+                self:_activate()
+            end
+            self._activation_active = pressed_or_released
+
+            --if pressed_or_released == true then self:_update_raycast() end
+            --self._raycast_active = pressed_or_released
         end
 
         if which == rt.InputButton.B then
@@ -200,14 +207,6 @@ function ow.Player:update(delta)
         velocity_y * self._velocity_magnitude * self._velocity_multiplier
     )
 
-    local activator_x, activator_y = self._body:get_predicted_position()
-    local angle = self._velocity_angle + self._facing_angle
-    activator_x = activator_x + math.cos(angle) * (self._radius + 0.5 * self._activator_radius)
-    activator_y = activator_y + math.sin(angle) * (self._radius + 0.5 * self._activator_radius)
-    self._activator:set_position(
-        activator_x, activator_y
-    )
-
     -- update graphics
     local x, y = self._body:get_position()
     self._velocity_indicator_x = x + math.cos(self._velocity_angle + self._facing_angle) * self._radius
@@ -235,16 +234,11 @@ function ow.Player:update(delta)
     if actual_velocity >= eps and self._raycast_active then
         self:_update_raycast()
     end
-
-    if self._activation_active then
-        self._activation_active = false
-    end
 end
 
 --- @brief
 function ow.Player:_create_physics_body(x, y)
     if self._body ~= nil then self._body:destroy() end
-    if self._activator ~= nil then self._activator:destroy() end
 
     self._body = b2.Body(
         self._world, b2.BodyType.DYNAMIC,
@@ -254,32 +248,64 @@ function ow.Player:_create_physics_body(x, y)
     self._body:add_tag("player")
     self._body:set_is_rotation_fixed(true)
     self._body:set_user_data(self)
-    self._body:set_collision_group(b2.CollisionGroup.GROUP_16)
-
-    self._activator = b2.Body(
-        self._world, b2.BodyType.DYNAMIC,
-        x, y,
-        self._activator_shapes
-    )
-    self._activator:set_is_sensor(true)
-    self._activator:add_tag("activator")
-    self._activator:set_does_not_collide_with(b2.CollisionGroup.GROUP_16)
-    self._activator:set_is_enabled(false)
-
-    self._activation_candidates = {}
-    local n_candidates = 0
-
-    self._activator:signal_connect("collision_start", function(a, other)
-        other:add_tag("draw")
-    end)
-
-    self._activator:signal_connect("collision_end",  function(_, other)
-        other:remove_tag("draw")
-    end)
+    self._body:set_collision_group(ow.PlayerCollisionGroup)
 end
 
 --- @brief
 function ow.Player:_activate()
+    local angle = self._velocity_angle + self._facing_angle
+    local ray_length = rt.settings.overworld.player.activator_ray_length
+    local n_rays = rt.settings.overworld.player.activator_n_rays
+    local angle_arc = rt.settings.overworld.player.activator_ray_arc
+    local origin_x, origin_y = self._body:get_position() -- sic, not predicted
+
+    local cast = function(x, y)
+        local cx, cy, _, _, body = self._world:query_ray_any(
+            origin_x,
+            origin_y,
+            x * ray_length,
+            y * ray_length,
+            bit.bnot(ow.PlayerCollisionGroup)
+        )
+
+        if body ~= nil then
+            assert(not body:has_tag("player"))
+            if body:has_tag("activatable") then
+                local data = body:get_user_data()
+                if data == nil then
+                    rt.warning("In ow.Player._activate: body has `activatable` tag but user data is not set")
+                    return true
+                end
+
+                if data.signal_emit == nil or data:signal_has_signal("activate") == false then
+                    rt.warning("In ow.Player._activate: body has `activatable` tag but user data `" .. meta.typeof(data) .. "` is not a signal emitter")
+                    return true
+                end
+
+                local out = data:signal_try_emit("activate")
+                if out == true then
+                    rt.SoundManager:player(rt.settings.overworld.player.activation_sound_id)
+                end
+                return out
+            end
+        end
+    end
+
+    local hue_step = 1 / n_rays
+    if cast(math.cos(angle), math.sin(angle)) then return end
+    for i = 2, n_rays do
+        if i % 2 == 0 then
+            local offset = (i / 2) * (angle_arc / n_rays)
+            if cast(math.cos(angle - offset), math.sin(angle - offset)) then
+                return
+            end
+        else
+            local offset = (i - 1) / 2 * (angle_arc / n_rays)
+            if cast(math.cos(angle + offset), math.sin(angle + offset)) then
+                return
+            end
+        end
+    end
 end
 
 --- @brief
@@ -375,15 +401,40 @@ function ow.Player:_draw_model()
     love.graphics.ellipse("line", table.unpack(self._model_body))
 
     love.graphics.pop()
+
+    if self._activation_active then
+        local angle = self._velocity_angle + self._facing_angle
+        local ray_length = rt.settings.overworld.player.activator_ray_length
+        local n_rays = rt.settings.overworld.player.activator_n_rays
+        local angle_arc = rt.settings.overworld.player.activator_ray_arc
+        local origin_x, origin_y = self._body:get_position() -- sic, not predicted
+
+        local cast = function(x, y)
+            love.graphics.line(
+                origin_x,
+                origin_y,
+                origin_x + x * ray_length,
+                origin_y + y * ray_length
+            )
+        end
+
+        local hue_step = 1 / n_rays
+        cast(math.cos(angle), math.sin(angle))
+        for i = 2, n_rays do
+            if i % 2 == 0 then
+                local offset = (i / 2) * (angle_arc / n_rays)
+                cast(math.cos(angle - offset), math.sin(angle - offset))
+            else
+                local offset = (i - 1) / 2 * (angle_arc / n_rays)
+                cast(math.cos(angle + offset), math.sin(angle + offset))
+            end
+        end
+    end
 end
 
 --- @brief
 function ow.Player:draw()
     self:_draw_model()
-
-   -- if self._activation_active then
-        self._activator:draw()
-    --end
 
     if self._velocity_magnitude > 0 then
         love.graphics.setPointSize(5)

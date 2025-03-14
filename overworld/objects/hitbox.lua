@@ -17,6 +17,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
     end
 
     self._body = b2.Body(self._world, type, 0, 0, object:get_physics_shapes())
+    self._body:add_tag("activatable")
+    self._body:set_user_data(self)
 end
 
 --- @brief

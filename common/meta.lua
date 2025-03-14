@@ -160,6 +160,21 @@ local _signal_emit = function(instance, id, ...)
     end
 end
 
+local _signal_try_emit = function(instance, id, ...)
+    local component = instance[_object_signal_component_index]
+    if component == nil then return false end
+
+    local entry = component[id]
+    if entry == nil then return false end
+
+    local emitted = false
+    for callback in values(entry.callbacks_in_order) do
+        callback(instance, ...)
+        emitted = true
+    end
+    return emitted
+end
+
 local _signal_connect = function(instance, id, callback)
     local component = instance[_object_signal_component_index]
     local entry = component[id]
@@ -337,6 +352,7 @@ local function _install_signals(instance, type)
             component = {}
             instance[_object_signal_component_index] = component
             instance.signal_emit = _signal_emit
+            instance.signal_try_emit = _signal_try_emit
             instance.signal_connect = _signal_connect
             instance.signal_disconnect = _signal_disconnect
             instance.signal_disconnect_all = _signal_disconnect_all
