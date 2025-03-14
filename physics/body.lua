@@ -98,33 +98,50 @@ function b2.Body:get_rotation()
 end
 
 --- @brief [internal]
-function b2.Body:_pre_update_notify()
-    self._last_x, self._last_y = self._native:getPosition()
-end
-
---- @brief [internal]
-function b2.Body:_post_update_notify(timestamp)
+function b2.Body:_post_update_notify(step)
     self._last_timestamp = self._current_timestamp
-    self._current_timestamp = timestamp
+    self._last_x, self._last_y = self._current_x, self._current_y
 
+    self._current_timestamp = self._last_timestamp + step
     self._current_x, self._current_y = self._native:getPosition()
+
+    if self._current_timestamp - self._last_timestamp == 0 then
+        debugger.break_here()
+    end
+
     self._last_velocity_x, self._last_velocity_y = self._native:getLinearVelocity()
 end
 
 --- @brief get framerate-independent position
 function b2.Body:get_predicted_position()
     local dt = self._current_timestamp - self._last_timestamp
+    if dt == 0 then
+        return self._native:getPosition()
+    end
 
     local dx = self._current_x - self._last_x
     local dy = self._current_y - self._last_y
 
-    -- clamp to catch teleports
-    dx = math.min(dx, self._last_velocity_x * dt)
-    dy = math.min(dy, self._last_velocity_y * dt)
-
+    local x, y = self._current_x, self._current_y
     local delta = love.timer.getTime() - self._current_timestamp
-    local cx, cy = self._native:getPosition()
-    return cx + dx * dt * delta, cy + dy * dt * delta
+
+    local vx = dx / dt
+    local vy = dy / dt
+
+    -- safeguard when teleporting
+    if vx < 0 then
+        vx = math.max(vx, self._last_velocity_x)
+    else
+        vx = math.min(vx, self._last_velocity_x)
+    end
+
+    if vy < 0 then
+        vy = math.max(vy, self._last_velocity_y)
+    else
+        vy = math.min(vy, self._last_velocity_y)
+    end
+
+    return x + vx * delta, y + vy * delta
 end
 
 --- @brief
@@ -171,6 +188,7 @@ function b2.Body:draw()
     love.graphics.translate(self:get_predicted_position())
     love.graphics.rotate(self._native:getAngle())
 
+    love.graphics.setColor(1, 1, 1, 1)
     for shape in values(self._native:getShapes()) do
         shape:getUserData():draw()
     end

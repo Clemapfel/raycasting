@@ -208,10 +208,7 @@ function ow.Player:update(delta)
     )
 
     -- update graphics
-    local x, y = self._body:get_position()
-    self._velocity_indicator_x = x + math.cos(self._velocity_angle + self._facing_angle) * self._radius
-    self._velocity_indicator_y = y + math.sin(self._velocity_angle + self._facing_angle) * self._radius
-
+    local x, y = self._body:get_predicted_position()
     local actual_velocity_x, actual_velocity_y = x - self._last_position_x, y - self._last_position_y
     local actual_velocity = math.magnitude(actual_velocity_x, actual_velocity_y)
 
@@ -323,7 +320,7 @@ end
 
 --- @brief
 function ow.Player:set_facing_angle(angle)
-    self._facing_angle = angle
+    self._facing_angle = ((2 * math.pi) - (angle + math.pi) % (2 * math.pi)) - math.pi
 end
 
 --- @brief
@@ -348,16 +345,6 @@ function ow.Player:get_velocity()
 
     return velocity_x * self._velocity_magnitude * self._velocity_multiplier,
         velocity_y * self._velocity_magnitude * self._velocity_multiplier
-end
-
---- @brief
-function ow.Player:get_predicted_position(delta)
-    local magnitude = self._velocity_magnitude_sum / rt.settings.overworld.player.velocity_magnitude_history_n
-    local velocity_x = math.cos(self._velocity_angle) * magnitude * delta
-    local velocity_y = math.sin(self._velocity_angle) * magnitude * delta
-
-    local x, y = self._body:get_position()
-    return x + velocity_x * delta, y + velocity_y * delta
 end
 
 --- @brief
@@ -433,12 +420,6 @@ end
 --- @brief
 function ow.Player:draw()
     self:_draw_model()
-
-    if self._velocity_magnitude > 0 then
-        love.graphics.setPointSize(5)
-        love.graphics.points(self._velocity_indicator_x, self._velocity_indicator_y)
-    end
-
     if self._raycast_active then self._raycast:draw() end
 end
 

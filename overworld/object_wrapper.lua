@@ -292,6 +292,52 @@ function ow.ObjectWrapper:get_centroid()
 end
 
 --- @brief
+function ow.ObjectWrapper:get_string(id, assert_exists)
+    if assert_exists == nil then assert_exists = false end
+
+    local out = self.properties[id]
+    if out == nil then
+        if assert_exists == true then
+            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+        end
+        return nil
+    end
+    if meta.is_table(out) then
+        rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `String`, got `Table`")
+        return nil
+    end
+
+    if meta.is_number(out) then return tostring(out) end
+    return out
+end
+
+--- @brief
+--- @param id String
+--- @param assert_exists Boolean?
+function ow.ObjectWrapper:get_number(id, assert_exists)
+    if assert_exists == nil then assert_exists = false end
+
+    local out = self.properties[id]
+    if out == nil then return nil end
+
+    if meta.is_table(id) then
+        rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `Number`, got `Table`")
+    end
+
+    if meta.is_string(out) then
+        local parsed = tonumber(out)
+        if parsed == nil then
+            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `Number`, got `\"" .. out .. "\"`")
+        end
+        return parsed
+    end
+
+    return out
+end
+
+--- @brief
+--- @param id String
+--- @param assert_exists Boolean?
 function ow.ObjectWrapper:draw()
     love.graphics.setPointSize(4)
     love.graphics.setLineWidth(1)

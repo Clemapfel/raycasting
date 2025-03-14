@@ -149,10 +149,19 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
         local spawn_x, spawn_y = next_entry.spawn_x, next_entry.spawn_y
         if self._stage_id ~= nil then -- leaving current room
             local current_entry = self:_get_stage_entry(self._stage_id)
-            local exit_entry = current_entry.exits[stage_id][entrance_i]
-            if exit_entry ~= nil then
-                spawn_x, spawn_y = exit_entry.x, exit_entry.y
+            local exit = current_entry.exits[stage_id]
+            if exit ~= nil then
+                local entrance = exit[entrance_i]
+                if entrance == nil then
+                    rt.warning("In ow.OverworldScene.set_stage: stage `" .. stage_id .. "` has no entrance with id `" .. entrance_i .. "`")
+                    debugger.break_here()
+                    entrance = exit[1]
+                else
+                    spawn_x, spawn_y = entrance.x, entrance.y
+                    entrance.object:set_is_disabled(true)
+                end
             end
+            -- else use default spawn
         end
 
         self._stage_id = stage_id
@@ -173,7 +182,7 @@ function ow.OverworldScene:_get_stage_entry(stage_id)
             stage = nil,
             spawn_x = nil,
             spawn_y = nil,
-            exits = {}
+            exits = {} -- Table<StageID, { x : Number, y : Number, object : ow.StageTransition }>
         }
         self._stage_mapping[stage_id] = out
 
@@ -186,23 +195,40 @@ function ow.OverworldScene:_get_stage_entry(stage_id)
 end
 
 --- @brief [internal] builds world map
-function ow.OverworldScene:_notify_stage_transition(from_id, to_id, entrance_i, spawn_x, spawn_y)
-    meta.assert(from_id, "String", to_id, "String", entrance_i, "Number", spawn_x, "Number", spawn_y, "Number")
+function ow.OverworldScene:_notify_stage_transition_added(
+    object,
+    from_stage_id, from_entrance_i,
+    to_stage_id, to_entrance_i
+)
+    meta.assert(object, ow.StageTransition,
+        from_stage_id, "String",
+        from_entrance_i, "Number",
+        to_stage_id, "String",
+        to_entrance_i, "Number"
+    )
 
-    -- pre-load configs
-    if ow.Stage._config_atlas[from_id] == nil then
-        ow.Stage._config_atlas[from_id] = ow.StageConfig(from_id)
+    -- pre-load configs now
+    if ow.Stage._config_atlas[from_stage_id] == nil then
+        ow.Stage._config_atlas[from_stage_id] = ow.StageConfig(from_stage_id)
     end
 
-    if ow.Stage._config_atlas[to_id] == nil then
-        ow.Stage._config_atlas[to_id] = ow.StageConfig(to_id)
+    if ow.Stage._config_atlas[to_stage_id] == nil then
+        ow.Stage._config_atlas[to_stage_id] = ow.StageConfig(to_stage_id)
     end
 
-    local from_entry = self:_get_stage_entry(from_id)
-    local to_entry = self:_get_stage_entry(to_id)
+    local to_entry = self:_get_stage_entry(to_stage_id)
+    local x, y = object:get_spawn_position()
 
-    from_entry.exits[to_id] = {
-        [entrance_i] = { x = spawn_x, y = spawn_y }
+    local exits = to_entry.exits[from_stage_id]
+    if exits == nil then
+        exits = {}
+        to_entry.exits[from_stage_id] = exits
+    end
+
+    exits[from_entrance_i] = {
+        x = x,
+        y = y,
+        object = object
     }
 end
 

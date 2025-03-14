@@ -109,20 +109,11 @@ local _step = 1 / 120
 function b2.World:update(delta)
     _elapsed = _elapsed + delta
 
-    for native in values(self._native:getBodies()) do
-        if native:getType() == "dynamic" then
-            native:getUserData():_pre_update_notify()
-        end
-    end
-
-    local now = nil
+    local total_step = 0
     while _elapsed > _step do
-        self._native:update(_step)
-        now = love.timer.getTime()
-
-        -- work through queued body updates
+        -- work through queued body updates from when world was locked
         for entry in values(self._transform_queue) do
-            if entry.x ~= nil then
+            if entry.x ~= nil and entry.y ~= nil then
                 entry.body._native:setPosition(entry.x, entry.y)
             end
 
@@ -133,15 +124,17 @@ function b2.World:update(delta)
         self._transform_queue = {}
         self._body_to_transform_queue_entry = {}
 
-        _elapsed = _elapsed - _step
-    end
+        -- update
+        self._native:update(_step)
 
-    if now ~= nil then
+        -- notify bodies for frame interpolation
         for native in values(self._native:getBodies()) do
-            if native:getType() == "dynamic" then
-                native:getUserData():_post_update_notify(now)
+            if native:getType() ~= "static" then
+                native:getUserData():_post_update_notify(_step)
             end
         end
+
+        _elapsed = _elapsed - _step
     end
 end
 
