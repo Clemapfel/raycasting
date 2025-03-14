@@ -6,7 +6,7 @@ require "common.blend_mode"
 local velocity = 200
 rt.settings.overworld.player = {
     radius = 10,
-    activator_radius = 15,
+    activator_radius_factor = 1,
     velocity = velocity, -- px / s
     acceleration = 2 * velocity,
     deceleration = 10 * velocity,
@@ -27,7 +27,7 @@ ow.PlayerCollisionGroup = b2.CollisionGroup.GROUP_16
 
 function ow.Player:instantiate(scene, stage)
     local player_radius = rt.settings.overworld.player.radius
-    local activator_radius = rt.settings.overworld.player.activator_radius
+    local activator_radius = rt.settings.overworld.player.activator_radius_factor * player_radius
 
     meta.install(self, {
         _scene = scene,
@@ -202,8 +202,8 @@ function ow.Player:update(delta)
 
     local activator_x, activator_y = self._body:get_predicted_position()
     local angle = self._velocity_angle + self._facing_angle
-    activator_x = activator_x + math.cos(angle) * (self._radius + self._activator_radius)
-    activator_y = activator_y + math.sin(angle) * (self._radius + self._activator_radius)
+    activator_x = activator_x + math.cos(angle) * (self._radius + 0.5 * self._activator_radius)
+    activator_y = activator_y + math.sin(angle) * (self._radius + 0.5 * self._activator_radius)
     self._activator:set_position(
         activator_x, activator_y
     )
@@ -235,19 +235,19 @@ function ow.Player:update(delta)
     if actual_velocity >= eps and self._raycast_active then
         self:_update_raycast()
     end
+
+    if self._activation_active then
+        self._activation_active = false
+    end
 end
 
 --- @brief
-function ow.Player:move_to_stage(stage, x, y)
-    local world = stage:get_physics_world()
-    if x == nil or y == nil then x, y = stage:get_player_spawn() end
-
+function ow.Player:_create_physics_body(x, y)
     if self._body ~= nil then self._body:destroy() end
     if self._activator ~= nil then self._activator:destroy() end
 
-    self._world = world
     self._body = b2.Body(
-        world, b2.BodyType.DYNAMIC,
+        self._world, b2.BodyType.DYNAMIC,
         x, y,
         self._shapes
     )
@@ -257,21 +257,42 @@ function ow.Player:move_to_stage(stage, x, y)
     self._body:set_collision_group(b2.CollisionGroup.GROUP_16)
 
     self._activator = b2.Body(
-        world, b2.BodyType.DYNAMIC,
+        self._world, b2.BodyType.DYNAMIC,
         x, y,
         self._activator_shapes
     )
     self._activator:set_is_sensor(true)
     self._activator:add_tag("activator")
     self._activator:set_does_not_collide_with(b2.CollisionGroup.GROUP_16)
+    self._activator:set_is_enabled(false)
 
-    self._activator:signal_connect("collision_start", function(_, other)
-        dbg("start: ", meta.hash(other))
+    self._activation_candidates = {}
+    local n_candidates = 0
+
+    self._activator:signal_connect("collision_start", function(a, other)
+        other:add_tag("draw")
     end)
 
-    self._activator:signal_connect("collision_end", function(_, other)
-        dbg("end: ", meta.hash(other))
+    self._activator:signal_connect("collision_end",  function(_, other)
+        other:remove_tag("draw")
     end)
+end
+
+--- @brief
+function ow.Player:_activate()
+end
+
+--- @brief
+function ow.Player:move_to_stage(stage, x, y)
+    local world = stage:get_physics_world()
+    if x == nil then
+        x, y = stage:get_player_spawn()
+    end
+
+    if self._world ~= world then
+        self._world = world
+        self:_create_physics_body(x, y)
+    end
 
     self._raycast = ow.Raycast(world)
 end
@@ -360,9 +381,9 @@ end
 function ow.Player:draw()
     self:_draw_model()
 
-    if self._activator:get_is_enabled() then
+   -- if self._activation_active then
         self._activator:draw()
-    end
+    --end
 
     if self._velocity_magnitude > 0 then
         love.graphics.setPointSize(5)

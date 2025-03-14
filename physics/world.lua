@@ -8,8 +8,6 @@ local _begin_contact_callback = function(shape_a, shape_b, contact)
     local x1, y1, x2, y2 = contact:getPositions()
     local normal_x, normal_y = contact:getNormal()
 
-    --dbg(body_a:get_is_sensor(), body_b:get_is_sensor())
-
     if body_a:get_is_sensor() then
         body_a:signal_emit("collision_start", body_b, normal_x, normal_y, x1, y1, x2, y2)
     end
@@ -35,6 +33,7 @@ local _end_contact_callback = function(shape_a, shape_b, contact)
     end
 end
 
+
 --- @brief
 function b2.World:instantiate(width, height, ...)
     meta.assert(width, "Number", height, "Number")
@@ -47,7 +46,11 @@ function b2.World:instantiate(width, height, ...)
     self._native:setCallbacks(
         _begin_contact_callback,
         _end_contact_callback,
-        nil,
+        function(a, b)
+            if a:getBody():getUserData():has_tag("activator") or b:getBody():getUserData():has_tag("activator") then
+                println("called")
+            end
+        end,
         nil
     )
 end

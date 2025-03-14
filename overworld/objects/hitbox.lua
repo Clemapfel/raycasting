@@ -3,7 +3,7 @@ require "overworld.object_wrapper"
 
 --- @class ow.Hitbox
 --- @field body_type b2.BodyType
-ow.Hitbox = meta.class("OverworldHitbox") --, rt.Drawable)
+ow.Hitbox = meta.class("OverworldHitbox", rt.Drawable)
 
 --- @brief
 function ow.Hitbox:instantiate(object, stage, scene)
@@ -21,5 +21,7 @@ end
 
 --- @brief
 function ow.Hitbox:draw()
-    self._body:draw()
+    if self._body:has_tag("draw") then
+        self._body:draw()
+    end
 end
