@@ -250,7 +250,7 @@ end
 
 --- @brief
 function ow.Player:_activate()
-    local angle = self._velocity_angle + self._facing_angle
+    local angle = self._velocity_angle - self._facing_angle
     local ray_length = rt.settings.overworld.player.activator_ray_length
     local n_rays = rt.settings.overworld.player.activator_n_rays
     local angle_arc = rt.settings.overworld.player.activator_ray_arc
@@ -320,7 +320,7 @@ end
 
 --- @brief
 function ow.Player:set_facing_angle(angle)
-    self._facing_angle = ((2 * math.pi) - (angle + math.pi) % (2 * math.pi)) - math.pi
+    self._facing_angle = angle
 end
 
 --- @brief
@@ -339,7 +339,6 @@ end
 
 --- @brief
 function ow.Player:get_velocity()
-    local angle_offset = 2 * math.pi - self._facing_angle
     local velocity_x = math.cos(self._velocity_angle - self._facing_angle)
     local velocity_y = math.sin(self._velocity_angle - self._facing_angle)
 
@@ -371,7 +370,7 @@ end
 --- @brief [internal]
 function ow.Player:_draw_model()
     local x, y = self._body:get_predicted_position()
-    local angle = self._velocity_angle + self._facing_angle
+    local angle = self._velocity_angle - self._facing_angle
 
     love.graphics.setLineWidth(1)
     love.graphics.push()
@@ -388,7 +387,6 @@ function ow.Player:_draw_model()
     love.graphics.pop()
 
     if self._activation_active then
-        local angle = self._velocity_angle + self._facing_angle
         local ray_length = rt.settings.overworld.player.activator_ray_length
         local n_rays = rt.settings.overworld.player.activator_n_rays
         local angle_arc = rt.settings.overworld.player.activator_ray_arc
