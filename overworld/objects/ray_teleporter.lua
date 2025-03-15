@@ -32,48 +32,36 @@ function ow.RayTeleporter:instantiate(object, stage, scene)
 end
 
 function ow.RayTeleporter:teleport_ray(contact_x, contact_y, dx, dy, normal_x, normal_y)
-    local self_x, self_y, self_w, self_h = self._object.x, self._object.y, self._object.width, self._object.height
-    local other_x, other_y, other_w, other_h = self._target.x, self._target.y, self._target.width, self._target.height
+    local self_x, self_y = self._object.x, self._object.y
+    local other_x, other_y = self._target.x, self._target.y
     local self_angle, other_angle = self._object.rotation, self._target.rotation
 
-    -- Calculate the center of the self rectangle
-    local self_center_x = self_x + self_w / 2
-    local self_center_y = self_y + self_h / 2
+    -- Rotate contact point by the negative angle of the first rectangle around its top-left corner
+    local cos_self = math.cos(-self_angle)
+    local sin_self = math.sin(-self_angle)
+    local rotated_x = (contact_x - self_x) * cos_self - (contact_y - self_y) * sin_self
+    local rotated_y = (contact_x - self_x) * sin_self + (contact_y - self_y) * cos_self
 
-    -- Calculate the center of the other rectangle
-    local other_center_x = other_x + other_w / 2
-    local other_center_y = other_y + other_h / 2
+    -- Rotate direction vector by the negative angle of the first rectangle
+    local rotated_dx = dx * cos_self - dy * sin_self
+    local rotated_dy = dx * sin_self + dy * cos_self
 
-    -- Translate contact point to local coordinates of self, using the center as origin
-    local local_contact_x = (contact_x - self_center_x) * math.cos(-self_angle) + (contact_y - self_center_y) * math.sin(-self_angle)
-    local local_contact_y = -(contact_x - self_center_x) * math.sin(-self_angle) + (contact_y - self_center_y) * math.cos(-self_angle)
+    -- Rotate contact point by the angle of the second rectangle around its top-left corner
+    local cos_other = math.cos(other_angle)
+    local sin_other = math.sin(other_angle)
+    local final_x = rotated_x * cos_other - rotated_y * sin_other
+    local final_y = rotated_x * sin_other + rotated_y * cos_other
 
-    -- Calculate relative position within self
-    local relative_x = local_contact_x / self_w
-    local relative_y = local_contact_y / self_h
+    -- Rotate direction vector by the angle of the second rectangle
+    local final_dx = rotated_dx * cos_other + rotated_dy * sin_other
+    local final_dy = rotated_dx * sin_other - rotated_dy * cos_other
 
-    -- Determine the opposite side for translation
-    local opposite_relative_x = 1 - relative_x
-    local opposite_relative_y = 1 - relative_y
+    -- Translate to the position of the second rectangle
+    local new_contact_x = final_x + other_x
+    local new_contact_y = final_y + other_y
 
-    -- Translate relative position to local coordinates of other
-    local local_translated_x = opposite_relative_x * other_w
-    local local_translated_y = opposite_relative_y * other_h
-
-    -- Transform local coordinates to world coordinates of other, using the center as origin
-    local translated_x = other_center_x + local_translated_x * math.cos(other_angle) + local_translated_y * math.sin(other_angle)
-    local translated_y = other_center_y - local_translated_x * math.sin(other_angle) + local_translated_y * math.cos(other_angle)
-
-    -- Calculate the angle difference
-    local angle_difference = other_angle - self_angle
-
-    -- Rotate the direction vector (dx, dy) by the angle difference
-    local rotated_dx = dx * math.cos(angle_difference) + dy * math.sin(angle_difference)
-    local rotated_dy = -dx * math.sin(angle_difference) + dy * math.cos(angle_difference)
-
-    return translated_x, translated_y, rotated_dx, rotated_dy
+    return new_contact_x, new_contact_y, final_dx, final_dy
 end
-
 --- @brief
 function ow.RayTeleporter:draw()
     self._body:draw()

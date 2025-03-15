@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 11,
-  nextobjectid = 99,
+  nextobjectid = 102,
   properties = {},
   tilesets = {
     {
@@ -968,14 +968,14 @@ return {
           name = "Teleporter",
           type = "RayTeleporter",
           shape = "rectangle",
-          x = 480.503,
-          y = 288.402,
-          width = 32.4082,
+          x = 448.99,
+          y = 599.981,
+          width = 63.4136,
           height = 8.12898,
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 98 }
+            ["target"] = { id = 100 }
           }
         },
         {
@@ -990,7 +990,57 @@ return {
           rotation = -90,
           visible = true,
           properties = {
+            ["target"] = { id = 99 }
+          }
+        },
+        {
+          id = 99,
+          name = "Teleporter",
+          type = "RayTeleporter",
+          shape = "rectangle",
+          x = 480.899,
+          y = 288.199,
+          width = 32.4082,
+          height = 8.12898,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 98 }
+          }
+        },
+        {
+          id = 100,
+          name = "Teleporter",
+          type = "RayTeleporter",
+          shape = "rectangle",
+          x = 543.164,
+          y = 599.778,
+          width = 63.4136,
+          height = 8.12898,
+          rotation = 0,
+          visible = true,
+          properties = {
             ["target"] = { id = 95 }
+          }
+        },
+        {
+          id = 101,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 764.969,
+          y = 290.739,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 128.596, y = 127.071 },
+            { x = 130.121, y = -0.508285 }
+          },
+          properties = {
+            ["is_reflective"] = true
           }
         }
       }
