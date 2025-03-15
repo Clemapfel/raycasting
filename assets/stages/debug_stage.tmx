@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="11" nextobjectid="95">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="11" nextobjectid="99">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -413,6 +413,16 @@
   <object id="94" name="mirror" type="Hitbox" x="380.074" y="26.4451" width="153.751" height="13.5305">
    <properties>
     <property name="is_reflective" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="95" name="Teleporter" type="RayTeleporter" x="480.503" y="288.402" width="32.4082" height="8.12898">
+   <properties>
+    <property name="target" type="object" value="98"/>
+   </properties>
+  </object>
+  <object id="98" name="Teleporter" type="RayTeleporter" x="688.74" y="401.19" width="32.4082" height="8.12898" rotation="-90">
+   <properties>
+    <property name="target" type="object" value="95"/>
    </properties>
   </object>
  </objectgroup>

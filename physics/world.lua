@@ -221,3 +221,8 @@ function b2.World:query_aabb(x, y, width, height)
     end
     return out
 end
+
+--- @brief
+function b2.World:get_native()
+    return self._native
+end

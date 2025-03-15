@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 11,
-  nextobjectid = 95,
+  nextobjectid = 99,
   properties = {},
   tilesets = {
     {
@@ -961,6 +961,36 @@ return {
           visible = true,
           properties = {
             ["is_reflective"] = true
+          }
+        },
+        {
+          id = 95,
+          name = "Teleporter",
+          type = "RayTeleporter",
+          shape = "rectangle",
+          x = 480.503,
+          y = 288.402,
+          width = 32.4082,
+          height = 8.12898,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 98 }
+          }
+        },
+        {
+          id = 98,
+          name = "Teleporter",
+          type = "RayTeleporter",
+          shape = "rectangle",
+          x = 688.74,
+          y = 401.19,
+          width = 32.4082,
+          height = 8.12898,
+          rotation = -90,
+          visible = true,
+          properties = {
+            ["target"] = { id = 95 }
           }
         }
       }
