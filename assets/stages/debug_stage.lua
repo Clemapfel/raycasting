@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 11,
-  nextobjectid = 85,
+  nextobjectid = 95,
   properties = {},
   tilesets = {
     {
@@ -67,7 +67,7 @@ return {
           width = 2088.8,
           height = 958.138,
           rotation = 0,
-          visible = true,
+          visible = false,
           properties = {}
         }
       }
@@ -324,7 +324,7 @@ return {
           x = 16, y = 0, width = 16, height = 16,
           data = {
             45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 53, 0, 0, 0,
-            26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 46, 0, 0, 0,
+            26, 26, 26, 69, 26, 26, 69, 26, 26, 26, 26, 26, 46, 0, 0, 0,
             26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 49, 45, 45, 45,
             26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
             26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
@@ -758,14 +758,14 @@ return {
           name = "",
           type = "Teleporter",
           shape = "ellipse",
-          x = 386.045,
-          y = 193.987,
+          x = 609.907,
+          y = 34.0854,
           width = 27.228,
           height = 27.9322,
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 74 }
+            ["target"] = { id = 92 }
           }
         },
         {
@@ -789,13 +789,13 @@ return {
           type = "Teleporter",
           shape = "ellipse",
           x = 385.854,
-          y = 289.997,
+          y = 196.516,
           width = 27.228,
           height = 27.9322,
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 72 }
+            ["target"] = { id = 93 }
           }
         },
         {
@@ -872,6 +872,96 @@ return {
             ["target"] = "debug_stage_alt_room",
             ["target_entrance"] = 2
           }
+        },
+        {
+          id = 87,
+          name = "glass",
+          type = "Hitbox",
+          shape = "rectangle",
+          x = 662.977,
+          y = 33.2103,
+          width = 14.7601,
+          height = 191.882,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["is_transmissive"] = true
+          }
+        },
+        {
+          id = 88,
+          name = "filter",
+          type = "Hitbox",
+          shape = "rectangle",
+          x = 571.956,
+          y = 29.5203,
+          width = 14.7601,
+          height = 196.802,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["is_filtrative"] = true
+          }
+        },
+        {
+          id = 90,
+          name = "mirror",
+          type = "Hitbox",
+          shape = "rectangle",
+          x = 376.384,
+          y = 28.9053,
+          width = 14.7601,
+          height = 161.132,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["is_reflective"] = true
+          }
+        },
+        {
+          id = 92,
+          name = "",
+          type = "Teleporter",
+          shape = "ellipse",
+          x = 708.403,
+          y = 34.0044,
+          width = 27.228,
+          height = 27.9322,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 72 }
+          }
+        },
+        {
+          id = 93,
+          name = "",
+          type = "Teleporter",
+          shape = "ellipse",
+          x = 387.37,
+          y = 289.847,
+          width = 27.228,
+          height = 27.9322,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 74 }
+          }
+        },
+        {
+          id = 94,
+          name = "mirror",
+          type = "Hitbox",
+          shape = "rectangle",
+          x = 380.074,
+          y = 26.4451,
+          width = 153.751,
+          height = 13.5305,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["is_reflective"] = true
+          }
         }
       }
     },
@@ -889,48 +979,6 @@ return {
       parallaxy = 1,
       properties = {},
       objects = {
-        {
-          id = 31,
-          name = "",
-          type = "",
-          shape = "rectangle",
-          x = 606.863,
-          y = 195.096,
-          width = 123,
-          height = 123,
-          rotation = 0,
-          gid = 71,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 33,
-          name = "",
-          type = "",
-          shape = "rectangle",
-          x = 582,
-          y = 172.921,
-          width = 72,
-          height = 70,
-          rotation = 0,
-          gid = 72,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 56,
-          name = "",
-          type = "",
-          shape = "rectangle",
-          x = 562.863,
-          y = 154.119,
-          width = 36,
-          height = 36,
-          rotation = 0,
-          gid = 70,
-          visible = true,
-          properties = {}
-        },
         {
           id = 60,
           name = "",
@@ -969,6 +1017,19 @@ return {
           y = 450.89,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 85,
+          name = "Receiver",
+          type = "RayReceiver",
+          shape = "ellipse",
+          x = 444.693,
+          y = 94.7109,
+          width = 60,
+          height = 60,
           rotation = 0,
           visible = true,
           properties = {}

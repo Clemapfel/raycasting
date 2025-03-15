@@ -318,9 +318,14 @@ function ow.ObjectWrapper:get_number(id, assert_exists)
     if assert_exists == nil then assert_exists = false end
 
     local out = self.properties[id]
-    if out == nil then return nil end
+    if out == nil then
+        if assert_exists == true then
+            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+        end
+        return nil
+    end
 
-    if meta.is_table(id) then
+    if meta.is_table(out) then
         rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `Number`, got `Table`")
     end
 
@@ -330,6 +335,58 @@ function ow.ObjectWrapper:get_number(id, assert_exists)
             rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `Number`, got `\"" .. out .. "\"`")
         end
         return parsed
+    end
+
+    return out
+end
+
+--- @brief
+function ow.ObjectWrapper:get_boolean(id, assert_exists)
+    if assert_exists == nil then assert_exists = false end
+
+    local out = self.properties[id]
+    if out == nil then
+        if assert_exists == true then
+            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+        end
+        return nil
+    end
+
+    if meta.is_boolean(out) then return out end
+    if meta.is_number(out) then
+        if out == 0 then
+            return false
+        elseif out == 1 then
+            return true
+        end
+    end
+
+    if meta.is_string(out) then
+        if out == "true" then
+            return true
+        elseif out == "false" then
+            return false
+        end
+    end
+
+    rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `boolean`, got `" .. meta.typeof(out) .. "`")
+    return nil
+end
+
+--- @brief
+function ow.ObjectWrapper:get_object(id, assert_exists)
+    if assert_exists == nil then assert_exists = false end
+
+    local out = self.properties[id]
+    if out == nil then
+        if assert_exists == true then
+            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+        end
+        return nil
+    end
+
+    if not meta.is_table(out) then
+        rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `ObjectWrapper`, got `" .. meta.typeof(out) .. "`")
     end
 
     return out
@@ -393,7 +450,7 @@ function ow.ObjectWrapper:draw()
         love.graphics.setColor(r, g, b, line_a)
         love.graphics.rectangle("line", self.x, self.y, self.width, self.height)
     else
-        rt.error("In ow.Tileset._debug_draw: unhandled shape type `" .. self.type .. "`")
+        rt.error("In ow.Tileset._debug_draw: unhandled shape type `" .. tostring(self.type) .. "`")
     end
 
     love.graphics.pop()

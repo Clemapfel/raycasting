@@ -33,6 +33,7 @@ function ow.Stage:instantiate(scene, id)
 
     self._config = config
     self._to_draw = {}  -- Table<Function>
+    self._to_update = {} -- Table<Any>
     self._sprites = {}  -- Table<ow.Sprite>
     self._objects = {}  -- Table<any>
 
@@ -89,10 +90,14 @@ function ow.Stage:instantiate(scene, id)
                     object = Type(wrapper, self, self._scene)
                     table.insert(self._objects, object)
                     table.insert(wrapper.instances, object) -- mark object so object properties
-                end
 
-                if meta.isa(object, rt.Drawable) then
-                    table.insert(drawables, object)
+                    if meta.isa(object, rt.Drawable) then
+                        table.insert(drawables, object)
+                    end
+
+                    if object.update ~= nil then
+                        table.insert(self._to_update, object)
+                    end
                 end
             end
         end
@@ -123,6 +128,10 @@ end
 --- @brief
 function ow.Stage:update(delta)
     self._world:update(delta)
+
+    for updatable in values(self._to_update) do
+        updatable:update(delta)
+    end
 end
 
 --- @brief

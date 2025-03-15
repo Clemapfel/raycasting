@@ -1,6 +1,7 @@
 require "common.input_subscriber"
 require "physics.physics"
-require "overworld.raycast"
+require "overworld.ray_cast"
+require "overworld.ray_material"
 require "common.blend_mode"
 require "common.sound_manager"
 
@@ -28,8 +29,6 @@ meta.add_signals(ow.Player,
     "movement_start",
     "movement_stop"
 )
-
-ow.PlayerCollisionGroup = b2.CollisionGroup.GROUP_16
 
 function ow.Player:instantiate(scene, stage)
     local player_radius = rt.settings.overworld.player.radius
@@ -117,7 +116,7 @@ function ow.Player:_update_raycast()
     mx, my = self._scene._camera:screen_xy_to_world_xy(mx, my)
 
     local angle = math.atan(py - my, px - mx)
-    self._raycast:cast(px, py, mx - px, my - py)
+    self._raycast:start(px, py, mx - px, my - py)
     self._raycast_active = true
 end
 
@@ -160,17 +159,17 @@ do
                 self:_activate()
             end
             self._activation_active = pressed_or_released
-
-            --if pressed_or_released == true then self:_update_raycast() end
-            --self._raycast_active = pressed_or_released
-        end
-
-        if which == rt.InputButton.B then
+        elseif which == rt.InputButton.X then
+            if pressed_or_released == true then
+                self:_update_raycast()
+            else
+                self._raycast:stop()
+            end
+            self._raycast_active = pressed_or_released
+        elseif which == rt.InputButton.B then
             if pressed_or_released == false then
-                self._body:set_collides_with(b2.CollisionGroup.ALL)
                 self._velocity_multiplier = 1
             else
-                self._body:set_collides_with(b2.CollisionGroup.NONE)
                 self._velocity_multiplier = rt.settings.overworld.player.sprint_multiplier
             end
         end
@@ -245,7 +244,11 @@ function ow.Player:_create_physics_body(x, y)
     self._body:add_tag("player")
     self._body:set_is_rotation_fixed(true)
     self._body:set_user_data(self)
-    self._body:set_collision_group(ow.PlayerCollisionGroup)
+    self._body:set_collision_group(ow.RayMaterial.TRANSMISSIVE)
+
+    local mask = b2.CollisionGroup.ALL
+    mask = bit.bxor(mask, ow.RayMaterial.FILTRATIVE) -- player can pass through filtrative
+    self._body:set_collides_with(mask)
 end
 
 --- @brief
@@ -262,7 +265,7 @@ function ow.Player:_activate()
             origin_y,
             x * ray_length,
             y * ray_length,
-            bit.bnot(ow.PlayerCollisionGroup)
+            bit.bnot(ow.RayMaterial.TRANSMISSIVE)
         )
 
         if body ~= nil then
@@ -315,7 +318,7 @@ function ow.Player:move_to_stage(stage, x, y)
         self:_create_physics_body(x, y)
     end
 
-    self._raycast = ow.Raycast(world)
+    self._raycast = ow.Raycast(self._scene, world)
 end
 
 --- @brief

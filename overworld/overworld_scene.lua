@@ -1,13 +1,14 @@
 require "common.scene"
-
+require "common.mesh"
 require "overworld.stage"
 require "overworld.camera"
 require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
-    camera_translation_velocity = 600, -- px / s,
+    camera_translation_velocity = 400, -- px / s,
     camera_scale_velocity = 0.75, -- % / s
-    camera_rotate_velocity = 2 * math.pi / 10 -- rad / s
+    camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
+    camera_pan_width_factor = 0.15
 }
 
 --- @class
@@ -30,7 +31,19 @@ function ow.OverworldScene:instantiate()
         _camera_position_offset_y = 0,
         _player_is_focused = true,
 
-        _stage_mapping = {} -- cf _notify_stage_transition
+        _stage_mapping = {}, -- cf _notify_stage_transition
+
+        _camera_pan_area_width = 0,
+        _camera_pan_gradient_top = nil,
+        _camera_pan_up_speed = 0,
+        _camera_pan_gradient_right = nil,
+        _camera_pan_right_speed = 0,
+        _camera_pan_gradient_bottom = nil,
+        _camera_pan_down_speed = 0,
+        _camera_pan_gradient_left = nil,
+        _camera_pan_left_speed = 0,
+
+        _cursor_visible = false
     })
 
     self._player = ow.Player(self)
@@ -124,19 +137,78 @@ function ow.OverworldScene:instantiate()
 
         _update_velocity()
     end)
+
+    self._input:signal_connect("mouse_moved", function(_, x, y)
+        local w = self._camera_pan_area_width
+        self._camera_pan_up_speed = math.max((w - y) / w, 0)
+        self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
+        self._camera_pan_down_speed = math.max((y - (self._bounds.y + self._bounds.height - w)) / w, 0)
+        self._camera_pan_left_speed = math.max((w - x) / w, 0)
+
+        self._cursor_visible = true
+    end)
+
+    self._input:signal_connect("mouse_entered_screen", function(_)
+        self._cursor_visible = true
+    end)
+
+    self._input:signal_connect("mouse_left_screen", function(_)
+        self._cursor_visible = false
+    end)
 end
+
+local _cursor = nil
 
 --- @brief
 function ow.OverworldScene:enter(stage_id)
     self:set_stage(stage_id)
+
+    love.mouse.setVisible(false)
+    love.mouse.setGrabbed(false)
+    love.mouse.setCursor(_cursor)
 end
 
 --- @brief
 function ow.OverworldScene:exit()
+    love.mouse.setGrabbed(false)
+    love.mouse.setCursor(nil)
 end
 
 --- @brief
 function ow.OverworldScene:size_allocate(x, y, width, height)
+    local factor = rt.settings.overworld.overworld_scene.camera_pan_width_factor
+    local gradient_w = factor * math.min(width, height)
+    local gradient_h = gradient_w
+    local r, g, b, a = 1, 1, 1, 0.2
+    self._camera_pan_area_width = gradient_w
+
+    self._pan_gradient_top = rt.Mesh({
+        { x, y,                       0, 0, r, g, b, a },
+        { x + width, y,               0, 0, r, g, b, a },
+        { x + width, y + gradient_h,  0, 0, r, g, b, 0 },
+        { x, y + gradient_h,          0, 0, r, g, b, 0 }
+    })
+
+    self._pan_gradient_bottom = rt.Mesh({
+        { x, y + height - gradient_h,         0, 0, r, g, b, 0 },
+        { x + width, y + height - gradient_h, 0, 0, r, g, b, 0 },
+        { x + width, y + height,              0, 0, r, g, b, a },
+        { x, y + height,                      0, 0, r, g, b, a }
+    })
+
+    self._pan_gradient_left = rt.Mesh({
+        { x, y,                       0, 0, r, g, b, a },
+        { x + gradient_w, y,          0, 0, r, g, b, 0 },
+        { x + gradient_w, y + height, 0, 0, r, g, b, 0 },
+        { x, y + height,              0, 0, r, g, b, a }
+    })
+
+    self._pan_gradient_right = rt.Mesh({
+        { x + width - gradient_w, y,          0, 0, r, g, b, 0 },
+        { x + width, y,                       0, 0, r, g, b, a },
+        { x + width, y + height,              0, 0, r, g, b, a },
+        { x + width - gradient_w, y + height, 0, 0, r, g, b, 0 }
+    })
 
 end
 
@@ -232,6 +304,9 @@ function ow.OverworldScene:_notify_stage_transition_added(
     }
 end
 
+local _white_r, _white_g, _white_b = rt.color_unpack(rt.Palette.WHITE)
+local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
+
 --- @brief
 function ow.OverworldScene:draw()
     love.graphics.setColor(rt.color_unpack(rt.Palette.BLACK))
@@ -242,14 +317,55 @@ function ow.OverworldScene:draw()
     self._stage:draw()
     self._player:draw()
     self._camera:unbind()
+
+    if self._cursor_visible and not self._player_is_focused then -- cursor in window
+        love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
+        love.graphics.draw(self._pan_gradient_top._native)
+
+        love.graphics.setColor(1, 1, 1, self._camera_pan_right_speed)
+        love.graphics.draw(self._pan_gradient_right._native)
+
+        love.graphics.setColor(1, 1, 1, self._camera_pan_down_speed)
+        love.graphics.draw(self._pan_gradient_bottom._native)
+
+        love.graphics.setColor(1, 1, 1, self._camera_pan_left_speed)
+        love.graphics.draw(self._pan_gradient_left._native)
+    end
+
+    if self._cursor_visible then
+        local x, y = love.mouse.getPosition()
+        local scale = love.window.getDPIScale()
+        love.graphics.setLineStyle("smooth")
+
+        love.graphics.setColor(_white_r, _white_g, _white_b, 0.7)
+        love.graphics.circle("fill", x, y, 6 * scale)
+
+        love.graphics.setLineWidth(1.5)
+        love.graphics.setColor(_white_r, _white_g, _white_b, 1)
+        love.graphics.circle("line", x, y, 6 * scale - 1)
+
+        love.graphics.setLineWidth(1)
+        love.graphics.setColor(_black_r, _black_g, _black_b, 1)
+        love.graphics.circle("line", x, y, 6 * scale)
+    end
 end
 
 --- @brief
 function ow.OverworldScene:update(delta)
-
     self._camera:update(delta)
     self._stage:update(delta)
     self._player:update(delta)
+
+    -- mouse-based scrolling
+    if self._cursor_visible == true then
+        local max_velocity = rt.settings.overworld.overworld_scene.camera_translation_velocity
+        self._camera_translation_velocity_x = (-1 * self._camera_pan_left_speed + 1 * self._camera_pan_right_speed) * max_velocity
+        self._camera_translation_velocity_y = (-1 * self._camera_pan_up_speed + 1 * self._camera_pan_down_speed) * max_velocity
+
+        if math.magnitude(self._camera_translation_velocity_x, self._camera_translation_velocity_y) > 0 then
+            self._player_is_focused = false
+        end
+    end
 
     if self._player_is_focused == false and math.magnitude(self._player:get_velocity()) > 0 then
         self._player_is_focused = true
@@ -280,14 +396,15 @@ function ow.OverworldScene:update(delta)
             self._player:set_is_disabled(not on_screen)
         end
     else
-        local cx, cy = self._camera:get_position()
-        cx = cx + self._camera_translation_velocity_x * delta
-        cy = cy + self._camera_translation_velocity_y * delta
-        self._camera:set_position(cx, cy)
+        if self._cursor_visible then
+            local cx, cy = self._camera:get_position()
+            cx = cx + self._camera_translation_velocity_x * delta
+            cy = cy + self._camera_translation_velocity_y * delta
+            self._camera:set_position(cx, cy)
+        end
     end
 
     self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
-    self._camera:set_rotation(self._camera:get_rotation() + self._camera_rotate_velocity * delta)
     self._player:set_facing_angle(self._camera:get_rotation())
 end
 
@@ -350,4 +467,14 @@ function ow.OverworldScene:_handle_trigger(value, left_or_right)
     else
         self._camera_scale_velocity = -value * max_velocity
     end
+end
+
+--- @brief
+function ow.OverworldScene:screen_xy_to_world_xy(x, y)
+    return self._camera:screen_xy_to_world_xy(x, y)
+end
+
+--- @brief
+function ow.OverworldScene:world_xy_to_screen_xy(x, y)
+    return self._camera:world_xy_to_screen_xy(x, y)
 end

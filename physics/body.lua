@@ -304,3 +304,12 @@ end
 function b2.Body:destroy()
     self._native:destroy()
 end
+
+--- @brief
+function b2.Body:get_shapes()
+    local out = {}
+    for shape in values(self._native:getShapes()) do
+        table.insert(out, shape:getUserData())
+    end
+    return out
+end

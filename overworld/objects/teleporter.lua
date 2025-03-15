@@ -40,6 +40,8 @@ function ow.Teleporter:instantiate(object, stage, scene)
             self._blocking_body = nil
         end
     end)
+
+    self._body:set_collision_group(ow.RayMaterial.TRANSMISSIVE)
 end
 
 --- @brief

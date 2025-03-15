@@ -234,7 +234,7 @@ return {
               { x = -14.2818, y = 9.78866 }
             },
             properties = {
-              ["print"] = true
+              ["is_reflective"] = true
             }
           },
           {
@@ -248,7 +248,9 @@ return {
             height = 18.2936,
             rotation = 0,
             visible = true,
-            properties = {}
+            properties = {
+              ["is_reflective"] = true
+            }
           },
           {
             id = 3,
@@ -261,7 +263,9 @@ return {
             height = 20.0587,
             rotation = 0,
             visible = true,
-            properties = {}
+            properties = {
+              ["is_reflective"] = true
+            }
           }
         }
       }
@@ -296,7 +300,9 @@ return {
             height = 82.9259,
             rotation = 23,
             visible = true,
-            properties = {}
+            properties = {
+              ["is_transmissive"] = true
+            }
           }
         }
       }

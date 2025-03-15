@@ -38,6 +38,12 @@ function ow.Sprite:instantiate(wrapper, stage, scene)
     ) do
         self["_" .. which] = wrapper[which]
     end
+
+    for which in range(
+        "x", "y", "origin_x", "origin_y", "offset_x", "offset_y", "flip_origin_x", "flip_origin_y"
+    ) do
+        self["_" .. which] = math.round(self["_" .. which])
+    end
 end
 
 --- @brief

@@ -89,3 +89,10 @@ do -- load from image
     rt.Palette.SPEED = rt.Palette.MINT_2
     rt.Palette.HP = rt.Palette.PURPLE_1
 end
+
+setmetatable(rt.Palette, {
+    __index = function(self, key)
+        rt.error("In rt.Palette. trying to access color `" .. key .. "`, but it does not exist")
+        return nil
+    end
+})

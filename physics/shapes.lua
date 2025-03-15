@@ -18,10 +18,11 @@ end)
 --- @brief
 function b2.Rectangle:draw()
     local x, y, w, h = table.unpack(self._native.arguments)
-    love.graphics.setColor(1, 1, 1, _fill_a)
+    local r, g, b, a = love.graphics.getColor()
+    love.graphics.setColor(r, g, b, _fill_a * a)
     love.graphics.rectangle("fill", x, y, w, h)
 
-    love.graphics.setColor(1, 1, 1, _line_a)
+    love.graphics.setColor(r, g, b, _line_a * a)
     love.graphics.rectangle("line", x, y, w, h)
 end
 
@@ -42,12 +43,13 @@ end)
 
 --- @brief
 function b2.Circle:draw()
-    local x, y, r = table.unpack(self._native.arguments)
-    love.graphics.setColor(1, 1, 1, _fill_a)
-    love.graphics.circle("fill", x, y, r)
+    local x, y, radius = table.unpack(self._native.arguments)
+    local r, g, b, a = love.graphics.getColor()
+    love.graphics.setColor(r, g, b, _fill_a * a)
+    love.graphics.circle("fill", x, y, radius)
 
-    love.graphics.setColor(1, 1, 1, _line_a)
-    love.graphics.circle("line", x, y, r)
+    love.graphics.setColor(r, g, b, _line_a * a)
+    love.graphics.circle("line", x, y, radius)
 end
 
 --- @brief
@@ -68,10 +70,11 @@ end)
 --- @brief
 function b2.Polygon:draw()
     local vertices = self._native.arguments
-    love.graphics.setColor(1, 1, 1, _fill_a)
+    local r, g, b, a = love.graphics.getColor()
+    love.graphics.setColor(r, g, b, _fill_a * a)
     love.graphics.polygon("fill", vertices)
 
-    love.graphics.setColor(1, 1, 1, _line_a)
+    love.graphics.setColor(r, g, b, _line_a * a)
     love.graphics.polygon("line", vertices)
 end
 
