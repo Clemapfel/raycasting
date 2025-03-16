@@ -73,6 +73,8 @@ function ow.Player:instantiate(scene, stage)
 
         _activation_active = false,
         _timeout_elapsed = 0,
+
+        _grabbed = nil
     })
 
     local x, y = 0, 0
@@ -230,6 +232,8 @@ function ow.Player:update(delta)
         velocity_y * velocity * self._velocity_multiplier
     )
 
+    self._bump_sensor:set_position(self._body:get_position())
+
     -- update graphics
     local x, y = self._body:get_predicted_position()
     local actual_velocity_x, actual_velocity_y = x - self._last_position_x, y - self._last_position_y
@@ -312,7 +316,30 @@ function ow.Player:move_to_stage(stage, x, y)
         self._body:add_tag("player")
         self._body:set_is_rotation_fixed(true)
         self._body:set_user_data(self)
-        self._body:set_collision_group(ow.RayMaterial.TRANSMISSIVE)
+        self._body:set_collision_group(ow.RayMaterial.ABSORPTIVE)
+
+        self._bump_sensor = b2.Body(
+            self._world, b2.BodyType.DYNAMIC,
+            x, y,
+            b2.Circle(0, 0, self._radius)
+        )
+        self._bump_sensor:set_collides_with(b2.CollisionGroup.GROUP_01)
+        self._bump_sensor:set_collision_group(self._body:get_collision_group())
+        self._bump_sensor:set_is_sensor(true)
+
+        local _bumped = {}
+        self._bump_sensor:signal_connect("collision_start", function(_, other)
+            if _bumped[other] ~= true then
+                if meta.typeof(other:get_user_data()) == "OverworldHitbox" then
+                    rt.SoundManager:play(rt.settings.overworld.player.bump_sound_id)
+                    _bumped[other] = true
+                end
+            end
+        end)
+
+        self._bump_sensor:signal_connect("collision_end", function(_, other)
+            _bumped[other] = nil
+        end)
 
         local mask = b2.CollisionGroup.ALL
         mask = bit.bxor(mask, ow.RayMaterial.FILTRATIVE) -- player can pass through filtrative
@@ -338,6 +365,12 @@ function ow.Player:draw()
     love.graphics.ellipse("line", table.unpack(self._model_body))
 
     love.graphics.pop()
+
+    self._bump_sensor:draw()
+
+    if self._grabbed ~= nil then
+        self._grabbed:draw()
+    end
 
     if self._activation_active then
         local ray_length = rt.settings.overworld.player.activator_ray_length

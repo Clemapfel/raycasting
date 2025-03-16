@@ -14,13 +14,13 @@ function ow.Hitbox:instantiate(object, stage, scene)
     meta.assert(object, "ObjectWrapper", stage, "Stage", scene, "OverworldScene")
 
     self._world = stage:get_physics_world()
-    local type = b2.BodyType.KINEMATIC
-    if object.properties.body_type ~= nil then
-        type = object.properties.body_type
-        assert(meta.is_enum_value(type, b2.BodyType), "In ow.Hitbox.instantiate: `type` property of object `" .. object.id .. "` is `" .. type .. "` which is not a b2.BodyType")
+    self._body = object:create_physics_body(self._world)
+
+    if type == b2.BodyType.DYNAMIC then
+        self._body._native:setLinearDamping(30)
+        self._body._native:setAngularDamping(30)
     end
 
-    self._body = b2.Body(self._world, type, 0, 0, object:get_physics_shapes())
     self._body:set_user_data(self)
     self._color = rt.Palette.GRAY_4
 
@@ -54,15 +54,15 @@ function ow.Hitbox:instantiate(object, stage, scene)
 
     self._body:set_collision_group(group)
     self._shapes = self._body:get_shapes()
+
+    if type == b2.BodyType.DYNAMIC then
+        self._body:add_tag("draw")
+    end
 end
 
 --- @brief
 function ow.Hitbox:draw()
     if self._body:has_tag("draw") then
-        love.graphics.setColor(rt.color_unpack(self._color))
-        love.graphics.translate(self._body:get_position())
-        for shape in values(self._shapes) do
-            shape:draw()
-        end
+        self._body:draw()
     end
 end

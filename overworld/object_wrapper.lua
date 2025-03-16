@@ -270,6 +270,13 @@ function ow.ObjectWrapper:get_physics_shapes()
 end
 
 --- @brief
+function ow.ObjectWrapper:create_physics_body(world)
+    meta.assert(world, b2.World)
+    local type = self:get_string("type") or b2.BodyType.STATIC
+    return b2.Body(world, type, 0, 0, self:get_physics_shapes())
+end
+
+--- @brief
 function ow.ObjectWrapper:get_centroid()
     local xy
     if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then

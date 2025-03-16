@@ -94,8 +94,10 @@ function ow.StageConfig:instantiate(stage_id)
     local n_layers = 0
     for layer_entry in values(_get(self._config, "layers")) do
         local layer_type = _get(layer_entry, "type")
+        local layer_class = _get(layer_entry, "class")
         local to_add = {
             type = nil,
+            class = layer_class,
             is_visible = _get(layer_entry, "visible"),
             x_offset = _get(layer_entry, "offsetx"),
             y_offset = _get(layer_entry, "offsety"),
@@ -348,6 +350,16 @@ function ow.StageConfig:get_layer_object_wrappers(layer_i)
         table.insert(out, object:clone())
     end
     return out
+end
+
+--- @brief
+function ow.StageConfig:get_layer_class(layer_i)
+    local layer = self._layer_i_to_layer[layer_i]
+    if layer == nil then
+        rt.error("In ow.StageConfig.get_layeget_layer_object_wrappersr_sprite_batches: no layer with id `" .. tostring(layer_i) .. "`")
+    end
+
+    return layer.class
 end
 
 --- @brief

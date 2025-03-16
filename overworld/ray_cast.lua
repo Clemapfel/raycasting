@@ -1,17 +1,58 @@
 require "overworld.ray_material"
+require "common.particle_emitter"
 
 --- @class ow.Raycast
 ow.Raycast = meta.class("OverworldRaycast", rt.Drawable)
 
+local _particle_texture = nil
+
 --- @brief
 function ow.Raycast:instantiate(world)
     meta.assert(world, "PhysicsWorld")
+
+    if _particle_texture == nil then
+        _particle_texture = rt.Texture("assets/sprites/laser_particle.png")
+    end
+
     meta.install(self, {
         _lines = {},
         _world = world,
         _receivers = {},
-        _is_active = false
+        _is_active = false,
+
+        _last_origin_x = 0,
+        _last_origin_y = 0,
+        _last_direction_x = 0,
+        _last_direction_y = 0,
+
+        _particle = _particle_texture,
+        _particle_emitter = rt.ParticleEmitter(_particle_texture),
+
+        _particle_x = 0,
+        _particle_y = 0,
+        _particle_visible = false,
     })
+
+    self._particle_emitter:realize()
+    self._particle_emitter:set_emission_rate(50)
+    self._particle_emitter:set_particle_lifetime(0.2, 0.3)
+    self._particle_emitter:set_emission_area(rt.ParticleEmissionAreaShape.ROUND)
+    self._particle_emitter:set_rotation(0, 2 * math.pi)
+    self._particle_emitter:set_sizes(0.1, 0.5)
+
+    local r = 3
+    self._particle_emitter:reformat(0, 0, 2 * r, 2 *  r)
+
+    local _elapsed = 0
+    world:signal_connect("step", function(world, delta)
+        _elapsed = _elapsed + delta
+        if _elapsed > 1 / 60 then
+            if self._is_active then
+                self:start(self._last_origin_x, self._last_origin_y, self._last_direction_x, self._last_direction_y)
+            end
+            _elapsed = 0
+        end
+    end)
 end
 
 --- @brief
@@ -43,6 +84,14 @@ end
 --- @brief
 function ow.Raycast:start(x, y, dx, dy)
     self:stop()
+
+    self._last_origin_x = x
+    self._last_origin_y = y
+    self._last_direction_x = dx
+    self._last_direction_y = dy
+
+    self._particle_visible = false
+
     self._is_active = true
     self._lines = {{x, y}}
     local n_lines = 1
@@ -102,8 +151,11 @@ function ow.Raycast:start(x, y, dx, dy)
                 contact_x + ndx, contact_y + ndy,
                 _mask
             )
-        else
-            break -- absorptive
+        else -- absorptive
+            self._particle_x = contact_x
+            self._particle_y = contact_y
+            self._particle_visible = true
+            break
         end
 
         n_bounces = n_bounces + 1
@@ -116,6 +168,11 @@ function ow.Raycast:start(x, y, dx, dy)
         table.insert(points, last_x + dx)
         table.insert(points, last_y + dy)
     end
+end
+
+--- @brief
+function ow.Raycast:update(delta)
+    self._particle_emitter:update(delta)
 end
 
 --- @brief
@@ -133,5 +190,12 @@ function ow.Raycast:draw()
                 love.graphics.circle("fill", line[i], line[i+1], 0.5 * line_width)
             end
         end
+    end
+
+    if self._particle_visible then
+        love.graphics.push()
+        love.graphics.translate(self._particle_x, self._particle_y)
+        self._particle_emitter:draw()
+        love.graphics.pop()
     end
 end

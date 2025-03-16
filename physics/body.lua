@@ -56,7 +56,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _is_sensor = false,
         _user_data = nil,
 
-        _collision_groups = b2.CollisionGroup.DEFAULT,
+        _collision_group = b2.CollisionGroup.DEFAULT,
         _collides_with = b2.CollisionGroup.ALL
     })
 
@@ -257,7 +257,7 @@ end
 
 --- @brief
 function b2.Body:_update_filter_data(shape)
-    shape:setFilterData(self._collision_groups, self._collides_with, 0)
+    shape:setFilterData(self._collision_group, self._collides_with, 0)
 end
 
 --- @brief
@@ -267,10 +267,15 @@ function b2.Body:set_collision_group(...)
         out = bit.bor(out, select(i, ...))
     end
 
-    self._collision_groups = out
+    self._collision_group = out
     for shape in values(self._native:getShapes()) do
         self:_update_filter_data(shape)
     end
+end
+
+--- @brief
+function b2.Body:get_collision_group()
+    return self._collision_group
 end
 
 --- @brief

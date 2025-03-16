@@ -5,12 +5,7 @@ ow.Teleporter = meta.class("Teleporter", rt.Drawable)
 function ow.Teleporter:instantiate(object, stage, scene)
     meta.assert(object, "ObjectWrapper", stage, "Stage", scene, "OverworldScene")
     assert(object.type == ow.ObjectType.ELLIPSE)
-    self._body = b2.Body(
-        stage:get_physics_world(),
-        b2.BodyType.STATIC,
-        0, 0,
-        object:get_physics_shapes()
-    )
+    self._body = object:create_physics_body(stage:get_physics_world())
 
     local target = object.properties.target
     assert(target ~= nil, "In ow.Teleporter.instantiate: `target` property of Teleporter class is nil")

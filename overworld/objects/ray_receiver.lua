@@ -6,13 +6,7 @@ meta.add_signals(ow.RayReceiver, "ray_collision_start", "ray_collision_end")
 function ow.RayReceiver:instantiate(object, stage, scene)
     meta.assert(object, "ObjectWrapper", stage, "Stage", scene, "OverworldScene")
     self._world = stage:get_physics_world()
-
-    local type = b2.BodyType.KINEMATIC
-    if object:get_string("body_type") == b2.BodyType.DYNAMIC then
-        type = b2.BodyType.DYNAMIC
-    end
-
-    self._body = b2.Body(self._world, type, 0, 0, object:get_physics_shapes())
+    self._body = object:create_physics_body(self._world)
     self._body:set_user_data(self)
 
     local group = 0x0

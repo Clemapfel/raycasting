@@ -12,7 +12,9 @@ end
 rt.settings.overworld.stage = {
     physics_world_buffer_length = 0,
     player_spawn_class_name = "PlayerSpawn",
-    camera_bounds_class_name = "CameraBounds"
+    camera_bounds_class_name = "CameraBounds",
+    wall_class_name = "Wall",
+    floor_class_name = "Floor",
 }
 
 --- @class ow.Stage
@@ -32,7 +34,6 @@ function ow.Stage:instantiate(scene, id)
     end
 
     self._config = config
-    self._to_draw = {}  -- Table<Function>
     self._to_update = {} -- Table<Any>
     self._sprites = {}  -- Table<ow.Sprite>
     self._objects = {}  -- Table<any>
@@ -47,11 +48,26 @@ function ow.Stage:instantiate(scene, id)
 
     local player_spawn_class_name = rt.settings.overworld.stage.player_spawn_class_name
     local camera_bounds_class_name = rt.settings.overworld.stage.camera_bounds_class_name
+    local floor_class_name = rt.settings.overworld.stage.floor_class_name
+    local wall_class_name = rt.settings.overworld.stage.wall_class_name
+
+
+    self._floor_to_draw = {}
+    self._other_to_draw = {}
+    self._walls_to_draw = {}
 
     for layer_i = 1, self._config:get_n_layers() do
+        local to_draw = self._other_to_draw
+        local layer_class = self._config:get_layer_class(layer_i)
+        if layer_class == wall_class_name then
+            to_draw = self._walls_to_draw
+        elseif layer_class == floor_class_name then
+            to_draw = self._floor_to_draw
+        end
+
         local spritebatches = self._config:get_layer_sprite_batches(layer_i)
         if table.sizeof(spritebatches) > 0 then
-            table.insert(self._to_draw, function()
+            table.insert(to_draw, function()
                 for spritebatch in values(spritebatches) do
                     spritebatch:draw()
                 end
@@ -102,7 +118,7 @@ function ow.Stage:instantiate(scene, id)
             end
         end
 
-        table.insert(self._to_draw, function()
+        table.insert(to_draw, function()
             for drawable in values(drawables) do
                 drawable:draw()
             end
@@ -117,12 +133,31 @@ function ow.Stage:instantiate(scene, id)
 end
 
 --- @brief
-function ow.Stage:draw()
-    for f in values(self._to_draw) do
+function ow.Stage:draw_floors()
+    for f in values(self._floor_to_draw) do
         f()
     end
+end
 
-    --self._world:draw()
+--- @brief
+function ow.Stage:draw_objects()
+    for f in values(self._other_to_draw) do
+        f()
+    end
+end
+
+--- @brief
+function ow.Stage:draw_walls()
+    for f in values(self._walls_to_draw) do
+        f()
+    end
+end
+
+--- @brief
+function ow.Stage:draw()
+    self:draw_floors()
+    self:draw_objects()
+    self:draw_walls()
 end
 
 --- @brief

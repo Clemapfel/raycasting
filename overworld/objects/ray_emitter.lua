@@ -5,11 +5,9 @@ ow.RayEmitterDirection = meta.class("RayEmitterDirection") -- dummy
 --- @brief
 function ow.RayEmitter:instantiate(object, stage, scene)
     local world = stage:get_physics_world()
-    local type = object:get_string("type") or b2.BodyType.STATIC
-
 
     meta.install(self, {
-        _body = b2.Body(world, type, 0, 0, object:get_physics_shapes()),
+        _body = object:create_physics_body(world),
         _raycast = ow.Raycast(world),
         _ray_active = false
     })
@@ -36,4 +34,9 @@ end
 function ow.RayEmitter:draw()
     self._raycast:draw()
     self._body:draw()
+end
+
+--- @brief
+function ow.RayEmitter:update(delta)
+    self._raycast:update(delta)
 end

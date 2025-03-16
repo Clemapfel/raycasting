@@ -17,13 +17,8 @@ function ow.RayTeleporter:instantiate(object, stage, scene)
     local other = object:get_object("target", true)
     assert(object.type == ow.ObjectType.RECTANGLE, "In ow.RayTeleporter: expected `RECTANGLE` for `target` property, got `" .. other.type .. "`")
 
-    local type = b2.BodyType.STATIC
-    if object:get_string("type") ~= nil then
-        type = object:get_string("type")
-    end
-
     self._world = stage:get_physics_world()
-    self._body = b2.Body(self._world, type, 0, 0, object:get_physics_shapes())
+    self._body = object:create_physics_body(self._world)
     self._body:set_collision_group(ow.RayMaterial.TELEPORTER)
     self._body:set_user_data(self)
 

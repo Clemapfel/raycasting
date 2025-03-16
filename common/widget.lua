@@ -37,11 +37,12 @@ end
 
 --- @brief
 function rt.Widget:reformat(x, y, width, height)
-    self._bounds.x = x or self._bounds.x
-    self._bounds.y = y or self._bounds.y
-    self._bounds.width = width or self._bounds.width
-    self._bounds.height = height or self._bounds.height
-    self:size_allocate(x, y, width, height)
+    if x ~= nil then self._bounds.x = x end
+    if y ~= nil then self._bounds.y = y end
+    if width ~= nil then self._bounds.width = width end
+    if height ~= nil then self._bounds.height = height end
+
+    self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
 end
 
 --- @brief

@@ -14,10 +14,7 @@ function ow.StageTransition:instantiate(object, stage, scene)
     local target_entrance_i = object:get_number("target_entrance", false)
 
     meta.install(self, {
-        _body = b2.Body(stage:get_physics_world(), b2.BodyType.STATIC,
-            0, 0,
-            object:get_physics_shapes()
-        ),
+        _body = object:create_physics_body(stage:get_physics_world()),
         _stage = stage,
         _scene = scene,
         _target_stage = object.properties.target,

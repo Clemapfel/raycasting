@@ -320,8 +320,10 @@ function ow.OverworldScene:draw()
     love.graphics.setColor(1, 1, 1, 1)
 
     self._camera:bind()
-    self._stage:draw()
+    self._stage:draw_floors()
+    self._stage:draw_objects()
     self._player:draw()
+    self._stage:draw_walls()
     self._camera:unbind()
 
     if self._cursor_visible and not self._player_is_focused then -- cursor in window

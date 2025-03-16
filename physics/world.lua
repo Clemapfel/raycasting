@@ -1,5 +1,6 @@
 --- @class b2.World
 b2.World = meta.class("PhysicsWorld")
+meta.add_signals(b2.World, "step")
 
 local _begin_contact_callback = function(shape_a, shape_b, contact)
     local body_a = shape_a:getBody():getUserData()
@@ -46,11 +47,7 @@ function b2.World:instantiate(width, height, ...)
     self._native:setCallbacks(
         _begin_contact_callback,
         _end_contact_callback,
-        function(a, b)
-            if a:getBody():getUserData():has_tag("activator") or b:getBody():getUserData():has_tag("activator") then
-                println("called")
-            end
-        end,
+        nil,
         nil
     )
 end
@@ -133,6 +130,8 @@ function b2.World:update(delta)
                 native:getUserData():_post_update_notify(_step)
             end
         end
+
+        self:signal_emit("step", _step)
 
         _elapsed = _elapsed - _step
     end
