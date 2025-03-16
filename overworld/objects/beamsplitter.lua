@@ -10,6 +10,7 @@ function ow.BeamSplitter:instantiate(object, stage, scene)
         _object = object,
 
         _generated_beams = {},
+        _valid_rays = {}
     })
 
     assert(object.type == ow.ObjectType.RECTANGLE)
@@ -32,55 +33,14 @@ function ow.BeamSplitter:instantiate(object, stage, scene)
     x2, y2 = math.rotate(x2, y2, angle, origin_x, origin_y)
 end
 
-local function _is_point_on_segment(px, py, x1, y1, x2, y2)
-    local cross_product = (py - y1) * (x2 - x1) - (px - x1) * (y2 - y1)
-
-    if math.abs(cross_product) > 1e-10 then
-        return false
-    end
-
-    local dot_product = (px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)
-    if dot_product < 0 then
-        return false
-    end
-
-    local squared_length = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
-    if dot_product > squared_length then
-        return false
-    end
-
-    return true
-end
-
 --- @brief
 function ow.BeamSplitter:update(delta)
-    local object = self._object
-    local x1, y1 = object.x, object.y
-    local x2, y2 = object.x + object.width, object.y + object.height
-
-    local x_offset, y_offset = self._body:get_position()
-    x1 = x1 + x_offset
-    y1 = y1 + y_offset
-    x2 = x2 + x_offset
-    y2 = y2 + y_offset
-
-    local origin_x, origin_y = object.rotation_origin_x + x_offset, object.rotation_origin_y + y_offset
-    local angle = object.rotation + self._body:get_rotation()
-
-    x1, y1 = math.rotate(x1, y1, angle, origin_x, origin_y)
-    x2, y2 = math.rotate(x2, y2, angle, origin_x, origin_y)
-
-    local to_remove = {}
     for key, entry in pairs(self._generated_beams) do
-        if not _is_point_on_segment(entry.origin_x, entry.origin_y, x1, y1, x2, y2) then
-            table.insert(to_remove, key)
+        if not self._valid_rays[key] == true then
+            self._generated_beams[key] = nil
         else
             entry.beam:update(delta)
         end
-    end
-
-    for key in values(to_remove) do
-        self._generated_beams[key] = nil
     end
 end
 
