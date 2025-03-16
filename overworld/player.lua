@@ -13,7 +13,7 @@ rt.settings.overworld.player = {
     velocity = velocity, -- px / s
     acceleration = 0.9 * velocity,
     deceleration = 10 * velocity,
-    sprint_multiplier = 3,
+    sprint_multiplier = 2.5,
 
     velocity_magnitude_history_n = 3,
     acceleration_delay = 3 / 60,
@@ -126,6 +126,12 @@ function ow.Player:_connect_input()
         self:_update_velocity_angle(x, y)
         self._velocity_magnitude = math.magnitude(x, y)
     end)
+
+    self._input:signal_connect("right_joystick_moved", function(_, x, y)
+        if self._velocity_magnitude <= 0 then
+            self:_update_velocity_angle(x, y)
+        end
+    end)
 end
 
 --- @brief
@@ -191,8 +197,8 @@ function ow.Player:_activate()
             assert(not body:has_tag("player"))
             if body:signal_try_emit("activate") then
                 rt.SoundManager:play(rt.settings.overworld.player.activation_sound_id)
+                return true
             end
-            return true
         end
 
         return false

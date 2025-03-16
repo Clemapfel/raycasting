@@ -103,6 +103,11 @@ function rt.InputSubscriber:is_down(input_button)
     return false
 end
 
+--- @brief
+function rt.InputSubscriber:get_input_method()
+    return rt.InputManager._input_method
+end
+
 meta.add_signals(rt.InputSubscriber,
     "pressed",
     "released",

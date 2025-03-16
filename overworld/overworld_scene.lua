@@ -48,14 +48,6 @@ function ow.OverworldScene:instantiate()
 
     self._player = ow.Player(self)
 
-    self._input:signal_connect("pressed", function(_, which)
-        self:_handle_button(which, true)
-    end)
-
-    self._input:signal_connect("released", function(_, which)
-        self:_handle_button(which, false)
-    end)
-
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, true)
     end)
@@ -139,13 +131,21 @@ function ow.OverworldScene:instantiate()
     end)
 
     self._input:signal_connect("mouse_moved", function(_, x, y)
-        local w = self._camera_pan_area_width
-        self._camera_pan_up_speed = math.max((w - y) / w, 0)
-        self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
-        self._camera_pan_down_speed = math.max((y - (self._bounds.y + self._bounds.height - w)) / w, 0)
-        self._camera_pan_left_speed = math.max((w - x) / w, 0)
+        if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
+            local w = self._camera_pan_area_width
+            self._camera_pan_up_speed = math.max((w - y) / w, 0)
+            self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
+            self._camera_pan_down_speed = math.max((y - (self._bounds.y + self._bounds.height - w)) / w, 0)
+            self._camera_pan_left_speed = math.max((w - x) / w, 0)
+            self._cursor_visible = true
+        end
+    end)
 
-        self._cursor_visible = true
+    self._input:signal_connect("input_method_changed", function(_, which)
+        if which ~= rt.InputMethod.KEYBOARD then
+            self._cursor_visible = false
+            -- only hide, reveal could mess up out-of-window disable
+        end
     end)
 
     self._input:signal_connect("mouse_entered_screen", function(_)
@@ -413,54 +413,13 @@ function ow.OverworldScene:update(delta)
     self._player:set_facing_angle(self._camera:get_rotation())
 end
 
-local _l_pressed = false
-local _r_pressed = false
-
---- @brief
-function ow.OverworldScene:_handle_button(which, pressed_or_released)
-    do
-        if which == rt.InputButton.L then
-            _l_pressed = pressed_or_released
-        elseif which == rt.InputButton.R then
-            _r_pressed = pressed_or_released
-        end
-
-        if _l_pressed == _r_pressed then -- both or neither
-            self._camera_rotate_velocity = 0
-        else
-
-            local max_velocity = rt.settings.overworld.overworld_scene.camera_rotate_velocity
-            if _l_pressed then
-                self._camera_rotate_velocity = self._camera_rotate_velocity - 1 * max_velocity
-            elseif _r_pressed then
-                self._camera_rotate_velocity = self._camera_rotate_velocity + 1 * max_velocity
-            end
-        end
-    end
-end
-
 --- @brief
 function ow.OverworldScene:_handle_joystick(x, y, left_or_right)
     if left_or_right == false then
-        if math.magnitude(self._player:get_velocity()) == 0 then
-            -- when standing still, allow scrolling
-            if math.magnitude(x, y) > 0 then
-                local max_velocity = rt.settings.overworld.overworld_scene.camera_translation_velocity
-                self._camera_translation_velocity_x = x * max_velocity
-                self._camera_translation_velocity_y = y * max_velocity
-            else
-                self._camera_translation_velocity_x = 0
-                self._camera_translation_velocity_y = 0
-            end
-            self._player_is_focused = false
-            self._camera_position_offset_x = 0
-            self._camera_position_offset_y = 0
-        else
-            -- when moving, allow look-ahead but keep player on screen
-            local radius = 0.5 * math.min(love.graphics.getWidth(), love.graphics.getHeight())
-            self._camera_position_offset_x = x * radius
-            self._camera_position_offset_y = y * radius
-        end
+        -- when moving, allow look-ahead but keep player on screen
+        local radius = 0.5 * math.min(love.graphics.getWidth(), love.graphics.getHeight())
+        self._camera_position_offset_x = x * radius
+        self._camera_position_offset_y = y * radius
     end
 end
 
@@ -468,9 +427,9 @@ end
 function ow.OverworldScene:_handle_trigger(value, left_or_right)
     local max_velocity = rt.settings.overworld.overworld_scene.camera_scale_velocity
     if left_or_right == false then
-        self._camera_scale_velocity = value * max_velocity
+        self._camera_scale_velocity = value * max_velocity * 5
     else
-        self._camera_scale_velocity = -value * max_velocity
+        self._camera_scale_velocity = -value * max_velocity * 5
     end
 end
 
