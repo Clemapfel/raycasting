@@ -237,11 +237,12 @@ end
 
 --- @brief
 function b2.Body:set_is_rotation_fixed(b)
+    meta.assert(b, "Boolean")
     self._native:setFixedRotation(b)
 end
 
 --- @brief
-function b2.Body:set_is_rotation_fixed()
+function b2.Body:get_is_rotation_fixed()
     return self._native:isFixedRotation()
 end
 

@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 115,
+  nextobjectid = 118,
   properties = {},
   tilesets = {
     {
@@ -1119,7 +1119,7 @@ return {
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 128.596, y = 127.071 },
+            { x = 81.7283, y = 114.497 },
             { x = 130.121, y = -0.508285 }
           },
           properties = {
@@ -1131,8 +1131,8 @@ return {
           name = "Splitter",
           type = "BeamSplitter",
           shape = "rectangle",
-          x = 837.45,
-          y = 430.589,
+          x = 740.285,
+          y = 370.003,
           width = 36.5631,
           height = 36.5631,
           rotation = 0,
@@ -1234,6 +1234,34 @@ return {
           shape = "point",
           x = 465.871,
           y = 418.846,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 115,
+          name = "Emitter",
+          type = "RayEmitter",
+          shape = "rectangle",
+          x = 32.5441,
+          y = 434.942,
+          width = 6.53769,
+          height = 21.9206,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["direction"] = { id = 116 }
+          }
+        },
+        {
+          id = 116,
+          name = "",
+          type = "",
+          shape = "point",
+          x = 49.3191,
+          y = 445.92,
           width = 0,
           height = 0,
           rotation = 0,

@@ -6,5 +6,6 @@ ow.RayMaterial = meta.enum("RayMaterial", {
     FILTRATIVE = b2.CollisionGroup.GROUP_04,   -- player: pass,       ray: can't pass
 
     RECEIVER = b2.CollisionGroup.GROUP_05, -- per-shape markers
-    TELEPORTER = b2.CollisionGroup.GROUP_06
+    TELEPORTER = b2.CollisionGroup.GROUP_06,
+    BEAM_SPLITTER = b2.CollisionGroup.GROUP_07
 })

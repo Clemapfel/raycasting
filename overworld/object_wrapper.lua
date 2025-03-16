@@ -273,7 +273,12 @@ end
 function ow.ObjectWrapper:create_physics_body(world)
     meta.assert(world, b2.World)
     local type = self:get_string("type") or b2.BodyType.STATIC
-    return b2.Body(world, type, 0, 0, self:get_physics_shapes())
+    local out = b2.Body(world, type, 0, 0, self:get_physics_shapes())
+    if type == b2.BodyType.DYNAMIC then
+        out._native:setLinearDamping(30)
+        out._native:setAngularDamping(30)
+    end
+    return out
 end
 
 --- @brief

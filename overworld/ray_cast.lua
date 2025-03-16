@@ -79,6 +79,7 @@ do
     _mask = bit.bor(_mask, ow.RayMaterial.REFLECTIVE)
     _mask = bit.bor(_mask, ow.RayMaterial.RECEIVER)
     _mask = bit.bor(_mask, ow.RayMaterial.TELEPORTER)
+    _mask = bit.bor(_mask, ow.RayMaterial.BEAM_SPLITTER)
 end
 
 --- @brief
@@ -151,6 +152,24 @@ function ow.Raycast:start(x, y, dx, dy)
                 contact_x + ndx, contact_y + ndy,
                 _mask
             )
+        elseif bit.band(category, ow.RayMaterial.BEAM_SPLITTER) ~= 0x0 then
+            local beam_splitter = shape:getBody():getUserData():get_user_data()
+            meta.assert(beam_splitter, ow.BeamSplitter)
+
+            table.insert(self._lines[n_lines], contact_x)
+            table.insert(self._lines[n_lines], contact_y)
+
+            contact_x, contact_y, dx, dy = beam_splitter:split_ray(contact_x, contact_y, dx, dy, normal_x, normal_y)
+
+            table.insert(self._lines[n_lines], contact_x)
+            table.insert(self._lines[n_lines], contact_y)
+
+            shape, contact_x, contact_y, normal_x, normal_y = world:rayCastClosest(
+                contact_x, contact_y,
+                contact_x + ndx, contact_y + ndy,
+                _mask
+            )
+
         else -- absorptive
             self._particle_x = contact_x
             self._particle_y = contact_y
@@ -187,7 +206,7 @@ function ow.Raycast:draw()
         if #line >= 4 then
             love.graphics.line(line)
             for i = 1, #line, 2 do
-                love.graphics.circle("fill", line[i], line[i+1], 0.5 * line_width)
+                love.graphics.circle("fill", line[i], line[i+1], 2 * line_width)
             end
         end
     end
