@@ -4,13 +4,13 @@ require "overworld.ray_material"
 ow.Raycast = meta.class("OverworldRaycast", rt.Drawable)
 
 --- @brief
-function ow.Raycast:instantiate(scene, world)
+function ow.Raycast:instantiate(world)
     meta.assert(world, "PhysicsWorld")
     meta.install(self, {
         _lines = {},
-        _scene = scene,
         _world = world,
-        _receivers = {}
+        _receivers = {},
+        _is_active = false
     })
 end
 
@@ -20,6 +20,8 @@ function ow.Raycast:stop()
         receiver:signal_emit("ray_collision_end")
     end
     self._receivers = {}
+    self._lines = {}
+    self._is_active = false
 end
 
 local _max_n_bounces = 10000
@@ -41,6 +43,7 @@ end
 --- @brief
 function ow.Raycast:start(x, y, dx, dy)
     self:stop()
+    self._is_active = true
     self._lines = {{x, y}}
     local n_lines = 1
 
@@ -117,6 +120,8 @@ end
 
 --- @brief
 function ow.Raycast:draw()
+    if self._is_active == false then return end
+
     local line_width = 2
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(line_width)

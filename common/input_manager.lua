@@ -146,6 +146,13 @@ love.mousefocus = function(b)
     end
 end
 
+love.wheelmoved = function(x, y)
+    rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
+    for sub in values(rt.InputManager._subscribers) do
+        sub:signal_emit(rt.InputCallbackID.MOUSE_WHEEL_MOVED, x, y)
+    end
+end
+
 love.gamepadpressed = function(joystick, button)
     rt.InputManager._last_active_joystick = joystick
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)

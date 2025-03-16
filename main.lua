@@ -1,11 +1,12 @@
+_G.DEBUG = false
+
 require "include"
 require "common.label"
 require "overworld.player_body"
 
 local SceneManager = require "common.scene_manager"
 
-local rope = rt.Rope(200, 25, love.mouse.getPosition())
-rope:realize()
+local x, y = love.mouse.getPosition()
 
 love.load = function(args)
     local data = love.image.newImageData("assets/sprites/cursor.png")
@@ -23,14 +24,10 @@ love.update = function(delta)
     if start then
         SceneManager:update(delta)
     end
-
-    rope:set_anchor(love.mouse.getPosition())
-    rope:update(delta)
 end
 
 love.draw = function()
     SceneManager:draw()
-    rope:draw()
 end
 
 love.resize = function(width, height)

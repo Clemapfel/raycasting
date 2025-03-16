@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 11,
-  nextobjectid = 102,
+  nextobjectid = 106,
   properties = {},
   tilesets = {
     {
@@ -998,8 +998,8 @@ return {
           name = "Teleporter",
           type = "RayTeleporter",
           shape = "rectangle",
-          x = 480.899,
-          y = 288.199,
+          x = 544.579,
+          y = 401.233,
           width = 32.4082,
           height = 8.12898,
           rotation = 0,
@@ -1110,6 +1110,34 @@ return {
           y = 94.7109,
           width = 60,
           height = 60,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 102,
+          name = "Emitter",
+          type = "RayEmitter",
+          shape = "rectangle",
+          x = 460.841,
+          y = 402.059,
+          width = 10.1657,
+          height = 3.31925,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["direction"] = { id = 103 }
+          }
+        },
+        {
+          id = 103,
+          name = "",
+          type = "RayEmitterDirection",
+          shape = "point",
+          x = 465.871,
+          y = 418.846,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {}

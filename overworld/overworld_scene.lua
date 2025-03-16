@@ -6,7 +6,7 @@ require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
     camera_translation_velocity = 400, -- px / s,
-    camera_scale_velocity = 0.75, -- % / s
+    camera_scale_velocity = 0.1, -- % / s
     camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
     camera_pan_width_factor = 0.15
 }
@@ -154,6 +154,12 @@ function ow.OverworldScene:instantiate()
 
     self._input:signal_connect("mouse_left_screen", function(_)
         self._cursor_visible = false
+    end)
+
+    self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
+        local current = self._camera:get_scale()
+        current = current + dy * rt.settings.overworld.overworld_scene.camera_scale_velocity
+        self._camera:set_scale(math.clamp(current, 1 / 3, 3))
     end)
 end
 
@@ -393,7 +399,6 @@ function ow.OverworldScene:update(delta)
             bottom_right_y = bottom_right_y - buffer
 
             local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
-            self._player:set_is_disabled(not on_screen)
         end
     else
         if self._cursor_visible then

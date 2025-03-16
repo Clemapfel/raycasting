@@ -34,25 +34,31 @@ debugger = {}
 local _debugger_active, _emmy_debugger = false
 function debugger.break_here()
     if _debugger_active == false then
-        pcall(function()
-            -- connect debugger only when required
-            package.cpath = package.cpath .. ';C:/Users/cleme/AppData/Roaming/JetBrains/CLion2023.3/plugins/EmmyLua/debugger/emmy/windows/x64/?.dll'
-            _emmy_debugger = require('emmy_core')
-            _emmy_debugger.tcpConnect('localhost', 8172)
-
-            love.errorhandler = function(msg)
-                _emmy_debugger.breakHere()
-                return nil
-            end
-
-            _debugger_active = true
-        end)
+        debugger.connect()
     end
 
     if _emmy_debugger ~= nil then
         _emmy_debugger.breakHere()
     end
 end
+
+function debugger.connect()
+    pcall(function()
+        -- connect debugger only when required
+        package.cpath = package.cpath .. ';C:/Users/cleme/AppData/Roaming/JetBrains/CLion2023.3/plugins/EmmyLua/debugger/emmy/windows/x64/?.dll'
+        _emmy_debugger = require('emmy_core')
+        _emmy_debugger.tcpConnect('localhost', 8172)
+
+        love.errorhandler = function(msg)
+            _emmy_debugger.breakHere()
+            return nil
+        end
+
+        _debugger_active = true
+    end)
+end
+
+if _G.DEBUG == true then debugger.connect() end
 
 -- standard library extension
 

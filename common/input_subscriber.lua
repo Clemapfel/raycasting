@@ -25,6 +25,10 @@ rt.InputCallbackID = meta.enum("InputCallbackID", {
     -- callback: () -> nil
     MOUSE_LEFT_SCREEN = "mouse_left_screen",
 
+    -- mouse wheel move
+    -- callback: (dx, dy) -> nil
+    MOUSE_WHEEL_MOVED = "mouse_wheel_moved",
+
     -- mouse cursor entered the window
     -- callback: () -> nil
     MOUSE_ENTERED_SCREEN = "mouse_entered_screen",
@@ -107,6 +111,7 @@ meta.add_signals(rt.InputSubscriber,
     rt.InputCallbackID.MOUSE_BUTTON_RELEASED,
     rt.InputCallbackID.MOUSE_LEFT_SCREEN,
     rt.InputCallbackID.MOUSE_ENTERED_SCREEN,
+    rt.InputCallbackID.MOUSE_WHEEL_MOVED,
     rt.InputCallbackID.KEYBOARD_KEY_PRESSED,
     rt.InputCallbackID.KEYBOARD_KEY_RELEASED,
     rt.InputCallbackID.CONTROLLER_BUTTON_PRESSED,
