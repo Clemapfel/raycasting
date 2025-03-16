@@ -5,18 +5,17 @@ require "overworld.ray_material"
 require "common.blend_mode"
 require "common.sound_manager"
 require "overworld.player_body"
+require "common.timed_animation"
 
 local velocity = 200
 rt.settings.overworld.player = {
     radius = 10,
 
     velocity = velocity, -- px / s
-    acceleration = 0.9 * velocity,
-    deceleration = 10 * velocity,
     sprint_multiplier = 2.5,
+    digital_movement_acceleration_duration = 10 / 60, -- time until 100% speed is reached
 
     velocity_magnitude_history_n = 3,
-    acceleration_delay = 3 / 60,
 
     activator_n_rays = 16,
     activator_ray_arc = (2 * math.pi) / 4,
@@ -55,12 +54,15 @@ function ow.Player:instantiate(scene, stage)
         _velocity_magnitude_sum = 0,
         _is_moving = false, -- for signal emission
 
-        _direction_timers = {
-            [rt.InputButton.UP] = 0,
-            [rt.InputButton.RIGHT] = 0,
-            [rt.InputButton.DOWN] = 0,
-            [rt.InputButton.LEFT] = 0
-        },
+        _digital_control_activate = true,
+        _up_pressed_timer = 0,
+        _right_pressed_timer = 0,
+        _down_pressed_timer = 0,
+        _left_pressed_timer = 0,
+        _up_pressed = false,
+        _right_pressed = false,
+        _down_pressed = false,
+        _left_pressed = false,
 
         _facing_angle = 0, -- angle offset of camera
 
@@ -105,21 +107,49 @@ function ow.Player:_connect_input()
                 self:_activate()
                 self._activation_active = true
             end
+            return
         elseif which == rt.InputButton.B then
             self._velocity_multiplier = rt.settings.overworld.player.sprint_multiplier
+            return
         end
 
-        -- TODO: directions
+        if which == rt.InputButton.UP then
+            self._up_pressed = true
+            self._up_pressed_timer = 0
+        elseif which == rt.InputButton.RIGHT then
+            self._right_pressed = true
+            self._right_pressed_timer = 0
+        elseif which == rt.InputButton.DOWN then
+            self._down_pressed = true
+            self._down_pressed_timer = 0
+        elseif which == rt.InputButton.LEFT then
+            self._left_pressed = true
+            self._left_pressed_timer = 0
+        end
     end)
 
     self._input:signal_connect("released", function(_, which)
         if which == rt.InputButton.A then
             self._activation_active = false
+            return
         elseif which == rt.InputButton.B then
             self._velocity_multiplier = 1
+            return
         end
 
-        -- TODO: directions
+        if which == rt.InputButton.UP then
+            self._up_pressed = false
+            self._up_pressed_timer = 0
+        elseif which == rt.InputButton.RIGHT then
+            self._right_pressed = false
+            self._right_pressed_timer = 0
+        elseif which == rt.InputButton.DOWN then
+            self._down_pressed = false
+            self._down_pressed_timer = 0
+        elseif which == rt.InputButton.LEFT then
+            self._left_pressed = false
+            self._left_pressed_timer = 0
+        end
     end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
@@ -138,12 +168,57 @@ end
 function ow.Player:update(delta)
     self._timeout_elapsed = self._timeout_elapsed - delta
 
-    -- update velocity and position
     local max_velocity = rt.settings.overworld.player.velocity
-    local velocity = math.clamp(self._velocity_magnitude, 0, 1) * max_velocity
+    local velocity_x, velocity_y
 
-    local velocity_x = math.cos(self._velocity_angle - self._facing_angle)
-    local velocity_y = math.sin(self._velocity_angle - self._facing_angle)
+    local up, right, down, left = self._up_pressed, self._right_pressed, self._down_pressed, self._left_pressed
+    if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
+
+        if up then self._up_pressed_timer = self._up_pressed_timer + delta end
+        if right then self._right_pressed_timer = self._right_pressed_timer + delta end
+        if down then self._down_pressed_timer = self._down_pressed_timer + delta end
+        if left then self._left_pressed_timer = self._left_pressed_timer + delta end
+
+        local max_t = rt.settings.overworld.player.digital_movement_acceleration_duration
+        local _accel = function(x) return x^3.5 end
+        local factor = 1 + self._velocity_magnitude
+
+        local up_pressed_t = _accel(math.min(factor * self._up_pressed_timer / max_t, 1))
+        local right_pressed_t = _accel(math.min(factor * self._right_pressed_timer / max_t, 1))
+        local down_pressed_t = _accel(math.min(factor * self._down_pressed_timer / max_t, 1))
+        local left_pressed_t = _accel(math.min(factor * self._left_pressed_timer / max_t, 1))
+
+        -- digital movement
+        local dx, dy = 0, 0
+
+        if up then
+            dy = dy - up_pressed_t
+        end
+
+        if right then
+            dx = dx + right_pressed_t
+        end
+
+        if down then
+            dy = dy + down_pressed_t
+        end
+
+        if left then
+            dx = dx - left_pressed_t
+        end
+
+        if math.abs(dx) > 0 or math.abs(dy) > 0 then
+            self._velocity_magnitude = math.magnitude(dx, dy)
+            self._velocity_angle = math.atan2(math.normalize(dy, dx))
+        else
+            self._velocity_magnitude = 0
+        end
+    end
+
+    -- analog sets these directly
+    velocity = math.clamp(self._velocity_magnitude, 0, 1) * max_velocity
+    velocity_x = math.cos(self._velocity_angle - self._facing_angle)
+    velocity_y = math.sin(self._velocity_angle - self._facing_angle)
 
     if self._timeout_elapsed > 0 then
         velocity_x = 0
