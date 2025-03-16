@@ -33,6 +33,8 @@ function ow.Raycast:instantiate(world)
         _particle_visible = false,
     })
 
+    self._id = meta.hash(self)
+
     self._particle_emitter:realize()
     self._particle_emitter:set_emission_rate(50)
     self._particle_emitter:set_particle_lifetime(0.2, 0.3)
@@ -138,7 +140,7 @@ function ow.Raycast:start(x, y, dx, dy)
             meta.assert(teleporter, ow.RayTeleporter)
 
             -- move ray origin and direction based on teleporter
-            contact_x, contact_y, dx, dy = teleporter:teleport_ray(contact_x, contact_y, dx, dy, normal_x, normal_y)
+            contact_x, contact_y, dx, dy = teleporter:teleport_ray(self._id, contact_x, contact_y, dx, dy, normal_x, normal_y)
 
             ndx, ndy = _scale(dx, dy)
             contact_x = math.round(contact_x) -- to reduce numerical error
@@ -159,7 +161,7 @@ function ow.Raycast:start(x, y, dx, dy)
             table.insert(self._lines[n_lines], contact_x)
             table.insert(self._lines[n_lines], contact_y)
 
-            contact_x, contact_y, dx, dy = beam_splitter:split_ray(contact_x, contact_y, dx, dy, normal_x, normal_y)
+            contact_x, contact_y, dx, dy = beam_splitter:split_ray(self._id, contact_x, contact_y, dx, dy, normal_x, normal_y)
 
             table.insert(self._lines[n_lines], contact_x)
             table.insert(self._lines[n_lines], contact_y)

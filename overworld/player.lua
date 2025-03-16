@@ -193,21 +193,10 @@ function ow.Player:update(delta)
         -- digital movement
         local dx, dy = 0, 0
 
-        if up then
-            dy = dy - up_pressed_t
-        end
-
-        if right then
-            dx = dx + right_pressed_t
-        end
-
-        if down then
-            dy = dy + down_pressed_t
-        end
-
-        if left then
-            dx = dx - left_pressed_t
-        end
+        if up then dy = dy - up_pressed_t end
+        if right then dx = dx + right_pressed_t end
+        if down then dy = dy + down_pressed_t end
+        if left then dx = dx - left_pressed_t end
 
         if math.abs(dx) > 0 or math.abs(dy) > 0 then
             self._velocity_magnitude = math.magnitude(dx, dy)

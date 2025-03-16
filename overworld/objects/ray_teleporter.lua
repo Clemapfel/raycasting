@@ -26,7 +26,7 @@ function ow.RayTeleporter:instantiate(object, stage, scene)
     self._target = other
 end
 
-function ow.RayTeleporter:teleport_ray(contact_x, contact_y, dx, dy, normal_x, normal_y)
+function ow.RayTeleporter:teleport_ray(beam_id, contact_x, contact_y, dx, dy, normal_x, normal_y)
     local self_x, self_y = self._object.x, self._object.y
     local other_x, other_y = self._target.x, self._target.y
     local self_angle, other_angle = self._object.rotation, self._target.rotation

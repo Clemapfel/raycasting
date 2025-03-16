@@ -191,7 +191,10 @@ function b2.Body:draw()
 
     love.graphics.setColor(1, 1, 1, 1)
     for shape in values(self._native:getShapes()) do
-        shape:getUserData():draw()
+        local userdata = shape:getUserData()
+        if userdata ~= nil then
+            userdata:draw()
+        end
     end
 
     love.graphics.pop()

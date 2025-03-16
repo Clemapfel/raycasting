@@ -96,8 +96,8 @@ function ow.Camera:update(delta)
     local final_delta_x = self._velocity_x * delta
     local final_delta_y = self._velocity_y * delta
 
-    self._current_x = self._current_x + final_delta_x
-    self._current_y = self._current_y + final_delta_y
+    self._current_x = math.round(self._current_x + final_delta_x)
+    self._current_y = math.round(self._current_y + final_delta_y)
 end
 
 --- @brief

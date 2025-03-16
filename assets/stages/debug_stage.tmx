@@ -493,11 +493,11 @@
     <property name="target" type="object" value="95"/>
    </properties>
   </object>
-  <object id="101" type="Hitbox" x="764.969" y="290.739">
+  <object id="101" type="Hitbox" x="760.603" y="291.467">
    <properties>
     <property name="is_reflective" type="bool" value="true"/>
    </properties>
-   <polygon points="0,0 81.7283,114.497 130.121,-0.508285"/>
+   <polygon points="2.18325,-2.911 134.126,126.869 135.215,-2.69153"/>
   </object>
   <object id="114" name="Splitter" type="BeamSplitter" x="740.285" y="370.003" width="36.5631" height="36.5631">
    <properties>

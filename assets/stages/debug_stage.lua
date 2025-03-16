@@ -1111,16 +1111,16 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 764.969,
-          y = 290.739,
+          x = 760.603,
+          y = 291.467,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 81.7283, y = 114.497 },
-            { x = 130.121, y = -0.508285 }
+            { x = 2.18325, y = -2.911 },
+            { x = 134.126, y = 126.869 },
+            { x = 135.215, y = -2.69153 }
           },
           properties = {
             ["is_reflective"] = true
