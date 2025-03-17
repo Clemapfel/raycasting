@@ -1,5 +1,48 @@
 local slick = require "physics.slick.slick" -- change this path
 
+local _sin, _cos = math.sin, math.cos
+local segments = {
+    [1] = {
+        ["x"] = 121.85400390625,
+        ["y"] = 450.89001464844,
+        ["radius"] = 13.5
+    },
+    [2] = {
+        ["x"] = 108.35400390625,
+        ["y"] = 450.89001464844,
+        ["radius"] = 14
+    },
+    [3] = {
+        ["x"] = 94.35400390625,
+        ["y"] = 450.89001464844,
+        ["radius"] = 12
+    },
+    [4] = {
+        ["x"] = 82.35400390625,
+        ["y"] = 450.89001464844,
+        ["radius"] = 9
+    }
+}
+
+local vertices = {}
+local step = (2 * math.pi) / 32
+
+for i, segment in ipairs(segments) do
+    for angle = 0, 2 * math.pi + step, step do
+        local x = segment.x + _cos(angle) * segment.radius
+        local y = segment.y + _sin(angle) * segment.radius
+
+        table.insert(vertices, x)
+        table.insert(vertices, y)
+    end
+end
+
+io.write("n_vertices: ", #vertices); io.flush()
+local out = slick.polygonize({vertices})
+io.write("done"); io.flush()
+exit(0)
+
+
 local world, player, rectangle, circle
 local ray, normals = {}, {}
 

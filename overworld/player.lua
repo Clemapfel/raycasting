@@ -2,6 +2,7 @@ require "common.input_subscriber"
 require "physics.physics"
 require "overworld.ray_cast"
 require "overworld.ray_material"
+require "overworld.player_body"
 require "common.blend_mode"
 require "common.sound_manager"
 require "common.timed_animation"
@@ -242,6 +243,8 @@ function ow.Player:update(delta)
     table.remove(self._velocity_magnitude_history, 1)
 
     self._last_position_x, self._last_position_y = x, y
+
+    self._soft_body:set_position(self._body:get_predicted_position())
 end
 
 --- @brief [internal]
@@ -332,6 +335,8 @@ function ow.Player:move_to_stage(stage, x, y)
         local mask = b2.CollisionGroup.ALL
         mask = bit.bxor(mask, ow.RayMaterial.FILTRATIVE) -- player can pass through filtrative
         self._body:set_collides_with(mask)
+
+        self._soft_body = ow.PlayerBody(self._world, self._radius, self._body:get_position())
     end
 end
 
@@ -355,6 +360,7 @@ function ow.Player:draw()
     love.graphics.pop()
 
     self._bump_sensor:draw()
+    self._soft_body:draw()
 
     if self._grabbed ~= nil then
         self._grabbed:draw()

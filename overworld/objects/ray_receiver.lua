@@ -1,5 +1,9 @@
+require "common.sound_manager"
+
 rt.settings.overworld.ray_receiver = {
     fill_duration = 5, -- seconds
+    fill_sound_id = "ray_receiver_fill",
+    fill_complete_sound_id = "ray_receiver_fill_complete"
 }
 
 --- @class ow.RayReceiver
@@ -76,8 +80,14 @@ function ow.RayReceiver:update(delta)
     self._fraction = math.clamp(self._fraction, 0, 1)
     if before ~= self._fraction then
         self:_update_fraction()
+
+        local fraction_delta = self._fraction - before
+        local x, y = self._body:get_position()
+        rt.SoundManager:play(rt.settings.overworld.ray_receiver.fill_sound_id, x, y, self._fraction) -- pitch
+
         if self._fraction == 1 and not self._signal_emitted then
             self:signal_emit("activate")
+            rt.SoundManager:player(rt.settings.overworld.ray_receiver.fill_complete_sound_id, x, y)
             self._signal_emitted = true
         elseif self._fraction < 1 then
             self._signal_emitted = false
@@ -87,7 +97,6 @@ end
 
 --- @brief
 function ow.RayReceiver:_update_fraction()
-    dbg(self._fraction)
     local x, y, x_radius, y_radius = self._x, self._y, self._x_radius, self._y_radius
 
     local height = 2 * y_radius
