@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 118,
+  nextobjectid = 120,
   properties = {},
   tilesets = {
     {
@@ -1262,6 +1262,34 @@ return {
           shape = "point",
           x = 49.3191,
           y = 445.92,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 118,
+          name = "Emitter",
+          type = "RayEmitter",
+          shape = "rectangle",
+          x = 560.686,
+          y = 219.352,
+          width = 10.1657,
+          height = 3.31925,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["direction"] = { id = 119 }
+          }
+        },
+        {
+          id = 119,
+          name = "",
+          type = "",
+          shape = "point",
+          x = 544.381,
+          y = 166.013,
           width = 0,
           height = 0,
           rotation = 0,
