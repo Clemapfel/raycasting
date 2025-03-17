@@ -2,7 +2,6 @@ _G.DEBUG = false
 
 require "include"
 require "common.label"
-require "overworld.player_body"
 
 local SceneManager = require "common.scene_manager"
 

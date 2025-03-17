@@ -4,7 +4,6 @@ require "overworld.ray_cast"
 require "overworld.ray_material"
 require "common.blend_mode"
 require "common.sound_manager"
-require "overworld.player_body"
 require "common.timed_animation"
 
 local velocity = 200

@@ -54,3 +54,8 @@ end
 function rt.Shader:recompile()
     self._native = love.graphics.newShader(self._filename)
 end
+
+--- @brief
+function rt.Shader:get_native()
+    return self._native
+end

@@ -138,8 +138,14 @@ function rt.Texture:draw(x, y, r, g, b, a)
     love.graphics.draw(self._native, x, y)
 end
 
+--- @brief
 function rt.Texture:release()
     self._native:release()
+end
+
+--- @brief
+function rt.Texture:get_native()
+    return self._native
 end
 
 if love.getVersion() >= 12 then

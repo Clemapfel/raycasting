@@ -11,18 +11,18 @@ function rt.Widget:instantiate()
     meta.install(self, {
         _is_realized = false,
         _bounds = rt.AABB(0, 0, 1, 1),
-        _selection_state = nil
+        _selection_state = nil,
+        _opacity = 1
     })
 end
 
 --- @brief
 function rt.Widget:realize()
-    log.error("In Widget.realize: abstract method called")
 end
 
 --- @brief
 function rt.Widget:size_allocate(x, y, width, height)
-    log.error("In Widget.size_allocate: abstract method called")
+    rt.error("In Widget.size_allocate: abstract method called")
 end
 
 --- @brief

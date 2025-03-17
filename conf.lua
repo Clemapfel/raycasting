@@ -1,4 +1,5 @@
 function love.conf(settings)
+    settings.window.msaa = 4
     --settings.graphics.renderers = {"opengl"}
 end
 

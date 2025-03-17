@@ -1,5 +1,6 @@
 require "common.scene"
 require "common.mesh"
+require "common.blur"
 require "overworld.stage"
 require "overworld.camera"
 require "physics.physics"
@@ -43,7 +44,9 @@ function ow.OverworldScene:instantiate()
         _camera_pan_gradient_left = nil,
         _camera_pan_left_speed = 0,
 
-        _cursor_visible = false
+        _cursor_visible = false,
+
+        _blur = nil, -- rt.Blur
     })
 
     self._player = ow.Player(self)
@@ -216,6 +219,8 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         { x + width - gradient_w, y + height, 0, 0, r, g, b, 0 }
     })
 
+    self._blur = rt.Blur(width, height)
+    self._blur:set_blur_strength(10)
 end
 
 --- @brief
