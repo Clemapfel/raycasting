@@ -45,6 +45,7 @@ function ow.OverworldScene:instantiate()
         _camera_pan_left_speed = 0,
 
         _cursor_visible = false,
+        _cursor_active = false,
 
         _blur = nil, -- rt.Blur
     })
@@ -53,18 +54,22 @@ function ow.OverworldScene:instantiate()
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, true)
+        self._cursor_active = false
     end)
 
     self._input:signal_connect("right_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, false)
+        self._cursor_active = false
     end)
 
     self._input:signal_connect("left_trigger_moved", function(_, value)
         self:_handle_trigger(value, true)
+        self._cursor_active = false
     end)
 
     self._input:signal_connect("right_trigger_moved", function(_, value)
         self:_handle_trigger(value, false)
+        self._cursor_active = false
     end)
 
     -- raw inputs
@@ -74,6 +79,7 @@ function ow.OverworldScene:instantiate()
             self._camera:reset()
             self._camera:set_position(self._player:get_position())
         end
+        self._cursor_active = false
     end)
 
     local _up_pressed = false
@@ -117,6 +123,7 @@ function ow.OverworldScene:instantiate()
         end
 
         _update_velocity()
+        self._cursor_active = false
     end)
 
     self._input:signal_connect("keyboard_key_released", function(_, which)
@@ -131,10 +138,12 @@ function ow.OverworldScene:instantiate()
         end
 
         _update_velocity()
+        self._cursor_active = false
     end)
 
     self._input:signal_connect("mouse_moved", function(_, x, y)
-        if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
+        self._cursor_active = true
+        if self._input:get_input_method() == rt.InputMethod.KEYBOARD and self._cursor_active then
             local w = self._camera_pan_area_width
             self._camera_pan_up_speed = math.max((w - y) / w, 0)
             self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
@@ -147,6 +156,7 @@ function ow.OverworldScene:instantiate()
     self._input:signal_connect("input_method_changed", function(_, which)
         if which ~= rt.InputMethod.KEYBOARD then
             self._cursor_visible = false
+            self._cursor_active = false
             -- only hide, reveal could mess up out-of-window disable
         end
     end)
@@ -220,7 +230,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     })
 
     self._blur = rt.Blur(width, height)
-    self._blur:set_blur_strength(10)
+    self._blur:set_blur_strength(4)
 end
 
 --- @brief
@@ -324,14 +334,35 @@ function ow.OverworldScene:draw()
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     love.graphics.setColor(1, 1, 1, 1)
 
+
     self._camera:bind()
     self._stage:draw_floors()
-    self._stage:draw_objects()
     self._player:draw()
+    self._stage:draw_objects()
+    self._camera:unbind()
+
+    self._blur:bind()
+    local r, g, b = rt.color_unpack(rt.settings.overworld.raycast.laser_color)
+    love.graphics.clear(r, g, b, 0)
+    self._camera:bind()
+    ow.Raycast.draw_all()
+    self._camera:unbind()
+    self._blur:unbind()
+
+    love.graphics.setColor(1, 1, 1, 0.6)
+    self._blur:draw()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    self._camera:bind()
+    ow.Raycast.draw_all()
+    self._camera:unbind()
+
+    self._camera:bind()
+
     self._stage:draw_walls()
     self._camera:unbind()
 
-    if self._cursor_visible and not self._player_is_focused then -- cursor in window
+    if self._cursor_visible and self._cursor_active and not self._player_is_focused then -- cursor in window
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
 
@@ -345,7 +376,7 @@ function ow.OverworldScene:draw()
         love.graphics.draw(self._pan_gradient_left._native)
     end
 
-    if self._cursor_visible then
+    if self._cursor_visible and self._cursor_active then
         local x, y = love.mouse.getPosition()
         local scale = love.window.getDPIScale()
         love.graphics.setLineStyle("smooth")

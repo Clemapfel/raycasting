@@ -10,7 +10,7 @@ function ow.BeamSplitter:instantiate(object, stage, scene)
         _object = object,
 
         _generated_beams = {},
-        _valid_rays = {}
+        _blacklisted = {}
     })
 
     assert(object.type == ow.ObjectType.RECTANGLE)
@@ -36,11 +36,7 @@ end
 --- @brief
 function ow.BeamSplitter:update(delta)
     for key, entry in pairs(self._generated_beams) do
-        if not self._valid_rays[key] == true then
-            self._generated_beams[key] = nil
-        else
-            entry.beam:update(delta)
-        end
+        entry.beam:update(delta)
     end
 end
 
@@ -71,10 +67,6 @@ function ow.BeamSplitter:draw()
 end
 
 function ow.BeamSplitter:split_ray(beam_id, contact_x, contact_y, dx, dy, normal_x, normal_y)
-    for entry in values(self._generated_beams) do
-        if beam_id == entry.beam._id then return contact_x, contact_y, dx, dy end
-    end
-
     local object = self._object
     local x1, y1 = object.x, object.y
     local x2, y2 = object.x + object.width, object.y + object.height
@@ -130,16 +122,20 @@ function ow.BeamSplitter:split_ray(beam_id, contact_x, contact_y, dx, dy, normal
 
     ndx, ndy = math.normalize(dx, dy)
 
-    local to_push = {
-        beam = ow.Raycast(self._world),
-        origin_x = intersect_x,
-        origin_y = intersect_y,
-        dx = ndx,
-        dy = ndy
-    }
-    to_push.beam._id = beam_id -- override ID to prevent loops
-    self._generated_beams[beam_id] = to_push
-    to_push.beam:start(to_push.origin_x, to_push.origin_y, to_push.dx, to_push.dy)
+    local entry = self._generated_beams[beam_id]
+    if entry == nil then
+        entry = {
+            beam = ow.Raycast(self._world),
+            origin_x = intersect_x,
+            origin_y = intersect_y,
+            dx = ndx,
+            dy = ndy,
+            active = true
+        }
+        entry.beam._id = beam_id -- override ID to prevent loops
+        self._generated_beams[beam_id] = entry
+    end
+    entry.beam:start(intersect_x, intersect_y, ndx, ndy)
 
     return intersect_x, intersect_y, dx_before, dy_before
 end

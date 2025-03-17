@@ -1,10 +1,16 @@
 require "overworld.ray_material"
 require "common.particle_emitter"
 
+rt.settings.overworld.raycast = {
+    width = 2,
+    laser_color = rt.Palette.RED_4
+}
+
 --- @class ow.Raycast
 ow.Raycast = meta.class("OverworldRaycast", rt.Drawable)
 
 local _particle_texture = nil
+local _static_instances = meta.make_weak({})
 
 --- @brief
 function ow.Raycast:instantiate(world)
@@ -41,6 +47,7 @@ function ow.Raycast:instantiate(world)
     self._particle_emitter:set_emission_area(rt.ParticleEmissionAreaShape.ROUND)
     self._particle_emitter:set_rotation(0, 2 * math.pi)
     self._particle_emitter:set_sizes(0.1, 0.5)
+    self._particle_emitter:set_color(rt.color_unpack(rt.settings.overworld.raycast.laser_color))
 
     local r = 3
     self._particle_emitter:reformat(0, 0, 2 * r, 2 *  r)
@@ -55,6 +62,8 @@ function ow.Raycast:instantiate(world)
             _elapsed = 0
         end
     end)
+
+    table.insert(_static_instances, self)
 end
 
 --- @brief
@@ -200,7 +209,9 @@ end
 function ow.Raycast:draw()
     if self._is_active == false then return end
 
-    local line_width = 2
+    --[[
+    local line_width = rt.settings.overworld.raycast.width
+
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(line_width)
     love.graphics.setLineJoin("none")
@@ -212,11 +223,33 @@ function ow.Raycast:draw()
             end
         end
     end
+    ]]--
 
     if self._particle_visible then
         love.graphics.push()
         love.graphics.translate(self._particle_x, self._particle_y)
         self._particle_emitter:draw()
         love.graphics.pop()
+    end
+end
+
+--- @brief
+function ow.Raycast.draw_all()
+    local line_width = rt.settings.overworld.raycast.width
+    love.graphics.setColor(rt.color_unpack(rt.settings.overworld.raycast.laser_color))
+    love.graphics.setLineWidth(line_width)
+    love.graphics.setLineJoin("none")
+
+    for object in values(_static_instances) do
+        if object._is_active then
+            for line in values(object._lines) do
+                if #line >= 4 then
+                    love.graphics.line(line)
+                    for i = 1, #line, 2 do
+                        love.graphics.circle("fill", line[i], line[i+1], line_width)
+                    end
+                end
+            end
+        end
     end
 end

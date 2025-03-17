@@ -22,7 +22,10 @@ function rt.ParticleEmitter:instantiate(particle)
         _native = love.graphics.newParticleSystem(particle._native),
         _bounds = rt.AABB(0, 0, 1, 1),
         _speed = rt.settings.particle_emitter.default_speed,
-        _color = rt.RGBA(1, 1, 1, 1),
+        _color_r = 1,
+        _color_g = 1,
+        _color_b = 1,
+        _color_a = 1,
         _emission_area_shape = rt.ParticleEmissionAreaShape.ROUND,
         _opacity = 1
     })
@@ -60,7 +63,7 @@ end
 
 --- @override
 function rt.ParticleEmitter:draw()
-    love.graphics.setColor(self._color.r, self._color.g, self._color.b, 1) -- opacity set in setColors
+    love.graphics.setColor(self._color_r, self._color_g, self._color_b, self._color_a, 1) -- opacity set in setColors
     love.graphics.draw(self._native)
 end
 
@@ -139,13 +142,9 @@ function rt.ParticleEmitter:emit(n)
 end
 
 --- @brief
-function rt.ParticleEmitter:set_color(color)
-    if meta.is_hsva(color) then
-        self._color = rt.hsva_to_rgba(color)
-    elseif meta.is_lcha(color) then
-        self._color = rt.lcha_to_rgba(color)
-    else
-        meta.assert_rgba(color)
-        self._color = color
-    end
+function rt.ParticleEmitter:set_color(r, g, b, a)
+    self._color_r = r
+    self._color_g = g
+    self._color_b = b
+    self._color_a = a
 end

@@ -40,7 +40,7 @@ end
 
 --- @brief
 function rt.Blur:unbind()
-    lg.setCanvas(_before)
+    lg.setCanvas(nil)
 end
 
 --- @brief
@@ -57,6 +57,12 @@ end
 function rt.Blur:_apply_blur()
     if self._blur_strength > 0 then
         lg.push()
+        lg.origin()
+
+        lg.setCanvas(self._texture_b)
+        lg.origin()
+        lg.clear(0, 0, 0, 0)
+        lg.setCanvas(nil)
 
         _blur_shader_horizontal:send("texture_size", { self._texture_w, self._texture_h })
         _blur_shader_vertical:send("texture_size", { self._texture_w, self._texture_h })
@@ -72,6 +78,7 @@ function rt.Blur:_apply_blur()
         end
 
         lg.setCanvas(nil)
+        lg.setShader(nil)
         lg.pop()
     end
 end
@@ -83,7 +90,6 @@ function rt.Blur:draw(...)
         self._blur_applied = true
     end
 
-    love.graphics.setColor(1, 1, 1, 1)
-    lg.draw(self._texture_b)
+    lg.draw(self._texture_a, ...)
 end
 
