@@ -65,9 +65,16 @@ function ow.BeamSplitter:draw()
     x2, y2 = math.rotate(x2, y2, angle, origin_x, origin_y)
 
     love.graphics.line(x1, y1, x2, y2)
+    for entry in values(self._generated_beams) do
+        entry.beam:draw()
+    end
 end
 
 function ow.BeamSplitter:split_ray(beam_id, contact_x, contact_y, dx, dy, normal_x, normal_y)
+    for entry in values(self._generated_beams) do
+        if beam_id == entry.beam._id then return contact_x, contact_y, dx, dy end
+    end
+
     local object = self._object
     local x1, y1 = object.x, object.y
     local x2, y2 = object.x + object.width, object.y + object.height
@@ -101,7 +108,7 @@ function ow.BeamSplitter:split_ray(beam_id, contact_x, contact_y, dx, dy, normal
         self._origin_y = 0
         self._dx = 0
         self._dy = 0
-        return false
+        return contact_x, contact_y, dx, dy
     end
 
     -- normal of the screen
@@ -122,5 +129,17 @@ function ow.BeamSplitter:split_ray(beam_id, contact_x, contact_y, dx, dy, normal
     dy = dy - 2 * dot_product * ny
 
     ndx, ndy = math.normalize(dx, dy)
-    return true, intersect_x, intersect_y, ndx, ndy
+
+    local to_push = {
+        beam = ow.Raycast(self._world),
+        origin_x = intersect_x,
+        origin_y = intersect_y,
+        dx = ndx,
+        dy = ndy
+    }
+    to_push.beam._id = beam_id -- override ID to prevent loops
+    self._generated_beams[beam_id] = to_push
+    to_push.beam:start(to_push.origin_x, to_push.origin_y, to_push.dx, to_push.dy)
+
+    return intersect_x, intersect_y, dx_before, dy_before
 end
