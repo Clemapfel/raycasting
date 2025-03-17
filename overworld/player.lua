@@ -245,6 +245,7 @@ function ow.Player:update(delta)
     self._last_position_x, self._last_position_y = x, y
 
     self._soft_body:set_position(self._body:get_predicted_position())
+    self._soft_body:update(delta)
 end
 
 --- @brief [internal]
