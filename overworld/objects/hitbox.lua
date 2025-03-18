@@ -56,7 +56,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
     self._body:set_collision_group(group)
     self._shapes = self._body:get_shapes()
 
-    if type == b2.BodyType.DYNAMIC then
+    if object:get_boolean("draw") == true then
         self._body:add_tag("draw")
     end
 end

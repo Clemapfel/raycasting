@@ -244,7 +244,7 @@ function ow.Player:update(delta)
 
     self._last_position_x, self._last_position_y = x, y
 
-    self._soft_body:update(delta)
+    --self._soft_body:update(delta)
 end
 
 --- @brief [internal]
@@ -336,7 +336,7 @@ function ow.Player:move_to_stage(stage, x, y)
         mask = bit.bxor(mask, ow.RayMaterial.FILTRATIVE) -- player can pass through filtrative
         self._body:set_collides_with(mask)
 
-        self._soft_body = ow.PlayerBody(self._world, self._radius, self._body)
+        --self._soft_body = ow.PlayerBody(self._world, self._radius, self._body)
     end
 end
 
@@ -351,18 +351,17 @@ function ow.Player:draw()
     love.graphics.translate(x, y)
     love.graphics.rotate(angle)
 
-    --[[
     love.graphics.setColor(1, 1, 1, 0.6)
     love.graphics.polygon("fill", table.unpack(self._model_face))
     love.graphics.ellipse("fill", table.unpack(self._model_body))
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.polygon("line", table.unpack(self._model_face))
     love.graphics.ellipse("line", table.unpack(self._model_body))
-    ]]--
+
     love.graphics.pop()
 
     --self._bump_sensor:draw()
-    self._soft_body:draw()
+    --self._soft_body:draw()
 
     if self._grabbed ~= nil then
         self._grabbed:draw()

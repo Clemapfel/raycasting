@@ -439,7 +439,7 @@ function ow.OverworldScene:update(delta)
             local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
         end
     else
-        if self._cursor_visible then
+        if false then --self._cursor_visible then
             local cx, cy = self._camera:get_position()
             cx = cx + self._camera_translation_velocity_x * delta
             cy = cy + self._camera_translation_velocity_y * delta

@@ -14,6 +14,8 @@ love.load = function(args)
 
     require "overworld.overworld_scene"
     SceneManager:set_scene(ow.OverworldScene, "debug_stage")
+
+    local joystick = love.joystick.getPosition
 end
 
 local start = true

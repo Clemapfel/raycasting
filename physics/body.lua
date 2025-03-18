@@ -146,6 +146,20 @@ function b2.Body:get_predicted_position()
 end
 
 --- @brief
+function b2.Body:get_center_of_mass()
+    local mean_x, mean_y, n = 0, 0, 0
+    local tx, ty = self._native:getPosition()
+    local angle = self._native:getAngle()
+    for shape in values(self._native:getShapes()) do
+        local x, y, _, _ = shape:getMassData()
+        mean_x = mean_x + x
+        mean_y = mean_y + y
+        n = n + 1
+    end
+    return mean_x / n + tx, mean_y / n + ty
+end
+
+--- @brief
 function b2.Body:set_rotation(angle)
     self._world:_notify_rotation_changed(self, angle)
 end
@@ -322,4 +336,9 @@ function b2.Body:get_shapes()
         table.insert(out, shape:getUserData())
     end
     return out
+end
+
+--- @brief
+function b2.Body:get_native()
+    return self._native
 end

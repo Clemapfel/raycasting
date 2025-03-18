@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 121,
+  nextobjectid = 129,
   properties = {},
   tilesets = {
     {
@@ -1114,33 +1114,33 @@ return {
           }
         },
         {
-          id = 120,
-          name = "",
-          type = "Hitbox",
-          shape = "polygon",
-          x = 1173.2,
-          y = 319.444,
-          width = 0,
-          height = 0,
+          id = 125,
+          name = "Linear Motor",
+          type = "LinearMotor",
+          shape = "rectangle",
+          x = 1267.97,
+          y = 277.778,
+          width = 22.0588,
+          height = 23.6928,
           rotation = 0,
           visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -2.45098, y = -56.3725 },
-            { x = 19.6078, y = -56.3725 },
-            { x = 21.2418, y = -2.45098 },
-            { x = 81.6993, y = -4.90196 },
-            { x = 84.1503, y = 21.2418 },
-            { x = 23.6928, y = 21.2418 },
-            { x = 26.1438, y = 77.6144 },
-            { x = -2.45098, y = 78.4314 },
-            { x = -2.45098, y = 22.0588 },
-            { x = -62.0915, y = 24.5098 },
-            { x = -62.9085, y = -3.26797 }
-          },
           properties = {
-            ["type"] = "dynamic"
+            ["initial_position"] = 0,
+            ["target"] = { id = 128 }
           }
+        },
+        {
+          id = 128,
+          name = "",
+          type = "",
+          shape = "ellipse",
+          x = 1177.29,
+          y = 281.863,
+          width = 12.2549,
+          height = 13.8889,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },
@@ -1192,8 +1192,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = 121.854,
-          y = 450.89,
+          x = 1295.06,
+          y = 327.524,
           width = 0,
           height = 0,
           rotation = 0,

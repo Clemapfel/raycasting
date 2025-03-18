@@ -174,6 +174,8 @@ end
 function ow.ObjectWrapper:_initialize_prototypes()
     if self._prototypes_initialized == true then return end
 
+    _x_sum, _y_sum, _n = 0, 0, 0
+
     local prototypes = {}
     if self.type == ow.ObjectType.RECTANGLE then
         local x, y = self.x, self.y
@@ -266,13 +268,18 @@ function ow.ObjectWrapper:get_physics_shapes()
             rt.error("In ow.ObjectWrapper:get_physics_shape: unhandled prototype shape type `" .. tostring(prototype.type) .. "`")
         end
     end
+
     return out
 end
 
 --- @brief
-function ow.ObjectWrapper:create_physics_body(world)
+function ow.ObjectWrapper:create_physics_body(world, type)
     meta.assert(world, b2.World)
-    local type = self:get_string("type") or b2.BodyType.STATIC
+    if type == nil then
+        type = self:get_string("type") or b2.BodyType.STATIC
+    end
+
+    if not self.prototypes_initialized then self:_initialize_prototypes() end
     local out = b2.Body(world, type, 0, 0, self:get_physics_shapes())
     if type == b2.BodyType.DYNAMIC then
         out._native:setLinearDamping(30)
