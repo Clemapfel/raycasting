@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 129,
+  nextobjectid = 136,
   properties = {},
   tilesets = {
     {
@@ -1118,26 +1118,54 @@ return {
           name = "Linear Motor",
           type = "LinearMotor",
           shape = "rectangle",
-          x = 1267.97,
-          y = 277.778,
-          width = 22.0588,
-          height = 23.6928,
+          x = 1284.96,
+          y = 306.703,
+          width = 12.0358,
+          height = 12.9273,
           rotation = 0,
           visible = true,
           properties = {
             ["initial_position"] = 0,
-            ["target"] = { id = 128 }
+            ["target"] = { id = 132 }
           }
         },
         {
-          id = 128,
+          id = 132,
           name = "",
           type = "",
+          shape = "rectangle",
+          x = 1276.72,
+          y = 278.046,
+          width = 28.784,
+          height = 4.45467,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 133,
+          name = "",
+          type = "Hitbox",
           shape = "ellipse",
-          x = 1177.29,
-          y = 281.863,
-          width = 12.2549,
-          height = 13.8889,
+          x = 1140.24,
+          y = 307.571,
+          width = 18.2782,
+          height = 17.0597,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["type"] = "dynamic"
+          }
+        },
+        {
+          id = 134,
+          name = "Pin",
+          type = "Pin",
+          shape = "point",
+          x = 1148.92,
+          y = 315.812,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {}
@@ -1189,11 +1217,11 @@ return {
         },
         {
           id = 61,
-          name = "",
+          name = "spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1295.06,
-          y = 327.524,
+          x = 1414.34,
+          y = 242.557,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1295,6 +1323,40 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 130,
+          name = "Rotary motor",
+          type = "RotaryMotor",
+          shape = "rectangle",
+          x = 1183.01,
+          y = 306.373,
+          width = 15.5229,
+          height = 15.5229,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 131 }
+          }
+        },
+        {
+          id = 131,
+          name = "",
+          type = "RotaryMotorTarget",
+          shape = "polygon",
+          x = 1146.24,
+          y = 309.641,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = false,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 89.0523, y = 0 },
+            { x = 88.2353, y = 9.80392 },
+            { x = 0, y = 9.80392 }
+          },
           properties = {}
         }
       }

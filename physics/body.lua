@@ -203,6 +203,7 @@ function b2.Body:draw()
     love.graphics.translate(self:get_predicted_position())
     love.graphics.rotate(self._native:getAngle())
 
+    love.graphics.setLineWidth(1)
     love.graphics.setColor(1, 1, 1, 1)
     for shape in values(self._native:getShapes()) do
         local userdata = shape:getUserData()

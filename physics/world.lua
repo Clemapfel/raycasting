@@ -215,8 +215,13 @@ end
 function b2.World:query_aabb(x, y, width, height)
     local shapes = self._native:getShapesInArea(x, y, x + width, y + height)
     local out = {}
+    local seen = {}
     for shape in values(shapes) do
-        table.insert(out, shape:getBody():getUserData())
+        local body = shape:getBody()
+        if seen[body] == nil then
+            table.insert(out, body:getUserData())
+            seen[body] = true
+        end
     end
     return out
 end

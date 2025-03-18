@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="129">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="136">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -502,21 +502,28 @@
     <property name="type" value="dynamic"/>
    </properties>
   </object>
-  <object id="125" name="Linear Motor" type="LinearMotor" x="1267.97" y="277.778" width="22.0588" height="23.6928">
+  <object id="125" name="Linear Motor" type="LinearMotor" x="1284.96" y="306.703" width="12.0358" height="12.9273">
    <properties>
     <property name="initial_position" type="float" value="0"/>
-    <property name="target" type="object" value="128"/>
+    <property name="target" type="object" value="132"/>
    </properties>
   </object>
-  <object id="128" x="1177.29" y="281.863" width="12.2549" height="13.8889">
+  <object id="132" x="1276.72" y="278.046" width="28.784" height="4.45467"/>
+  <object id="133" type="Hitbox" x="1140.24" y="307.571" width="18.2782" height="17.0597">
+   <properties>
+    <property name="type" value="dynamic"/>
+   </properties>
    <ellipse/>
+  </object>
+  <object id="134" name="Pin" type="Pin" x="1148.92" y="315.812">
+   <point/>
   </object>
  </objectgroup>
  <objectgroup draworder="index" id="5" name="Object Layer 2">
   <object id="60" type="Hitbox" x="369.333" y="725.333">
    <polygon points="-176,106.667 126.667,54.6667 122.667,109.333 66.6667,146.667 -118.667,162.667 -122.667,121.333 -125.333,37.3333 -72,-10.6667 -102.667,40 -100,132 -22.6667,177.333 -40,-37.3333 169.333,101.333 78.6667,-54.6667"/>
   </object>
-  <object id="61" type="PlayerSpawn" x="1295.06" y="327.524">
+  <object id="61" name="spawn" type="PlayerSpawn" x="1414.34" y="242.557">
    <point/>
   </object>
   <object id="85" name="Receiver" type="RayReceiver" x="444.693" y="94.7109" width="60" height="60">
@@ -545,6 +552,14 @@
   </object>
   <object id="119" x="544.381" y="166.013">
    <point/>
+  </object>
+  <object id="130" name="Rotary motor" type="RotaryMotor" x="1183.01" y="306.373" width="15.5229" height="15.5229">
+   <properties>
+    <property name="target" type="object" value="131"/>
+   </properties>
+  </object>
+  <object id="131" type="RotaryMotorTarget" x="1146.24" y="309.641">
+   <polygon points="0,0 89.0523,0 88.2353,9.80392 0,9.80392"/>
   </object>
  </objectgroup>
 </map>

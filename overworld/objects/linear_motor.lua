@@ -1,6 +1,7 @@
 --- @class ow.LinearMotor
 --- @field target ow.ObjectWrapper
---- @field initial_position Number
+--- @field speed Number?
+--- @field initial_position Number?
 ow.LinearMotor = meta.class("LinearMotor", rt.Drawable)
 
 --- @class ow.LinearMotorTarget
@@ -30,7 +31,7 @@ function ow.LinearMotor:instantiate(object, stage, scene)
     )
 
     self._joint:setMotorEnabled(true)
-    self._joint:setMotorSpeed(100)
+    self._joint:setMotorSpeed(100 or object:get_number("speed"))
     self._joint:setMaxMotorForce(math.huge)
     self._joint:setLimitsEnabled(true)
     self._joint:setLowerLimit(-math.huge)
@@ -51,6 +52,11 @@ end
 function ow.LinearMotor:set_value(x)
     self._value = x
     self._joint:setUpperLimit(x * self._length - self._length)
+end
+
+--- @brief
+function ow.LinearMotor:set_speed()
+    self._joint:setMotorSpeed(100)
 end
 
 local _elapsed = 0

@@ -18,7 +18,9 @@ rt.settings.overworld.stage = {
 }
 
 --- @class ow.Stage
+--- @signal initialized (self) -> nil
 ow.Stage = meta.class("Stage", rt.Drawable)
+meta.add_signals(ow.Stage, "initialized")
 
 ow.Stage._config_atlas = {}
 
@@ -130,6 +132,7 @@ function ow.Stage:instantiate(scene, id)
     if self._player_spawn_y == nil then self._player_spawn_y = 0.5 * h end
 
     self._bounds = rt.AABB(0, 0, w, h)
+    self:signal_emit("initialized")
 end
 
 --- @brief
