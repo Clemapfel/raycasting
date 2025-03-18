@@ -25,6 +25,7 @@ function ow.PlayerBody:instantiate(world, player_radius, main_body)
     self._small_radius = small_radius
     self._bodies = {}
     self._main_body = main_body
+
     self._line = {}
     for angle = 0, 2 * math.pi, (2 * math.pi) / n_steps do
         local r = radius
@@ -41,6 +42,16 @@ function ow.PlayerBody:instantiate(world, player_radius, main_body)
         table.insert(self._line, body_y)
     end
 
+    self._highlight_radius = radius * 0.8
+    self._highlight_outer_body = b2.Body(world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, self._highlight_radius))
+    love.physics.newRopeJoint(main_body._native, self._highlight_outer_body._native, x, y, x, y, 0.3)
+    self._highlight_inner_body = b2.Body(world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, self._highlight_radius * 0.8))
+    love.physics.newRopeJoint(self._highlight_outer_body._native, self._highlight_inner_body._native, x, y, x, y, radius * 0.1)
+
+    for body in range(self._highlight_inner_body, self._highlight_outer_body) do
+        body:set_is_sensor(true)
+    end
+
     local buffer = 30
     self._buffer = buffer
     self._texture = rt.Blur(
@@ -48,7 +59,7 @@ function ow.PlayerBody:instantiate(world, player_radius, main_body)
         2 * radius + 2 * buffer,
         8
     )
-    self._texture:set_blur_strength(3)
+    self._texture:set_blur_strength(2)
 end
 
 function ow.PlayerBody:update(delta)
@@ -99,6 +110,16 @@ function ow.PlayerBody:draw()
 
     love.graphics.pop()
     self._texture:unbind()
+
+    do
+        local x, y = self._highlight_outer_body:get_position()
+        love.graphics.setColor(rt.color_unpack(rt.Palette.WHITE))
+        love.graphics.circle("fill", x, y, self._highlight_radius)
+
+        x, y = self._highlight_inner_body:get_position()
+        love.graphics.setColor(rt.color_unpack(rt.Palette.BLACK))
+        love.graphics.circle("fill", x, y, self._highlight_radius * 0.5)
+    end
 
     _shader:bind()
     love.graphics.setColor(1, 1, 1, 1)
