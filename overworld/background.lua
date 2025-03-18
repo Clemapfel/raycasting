@@ -10,6 +10,6 @@ function ow.Background:size_allocate(x, y, width, height)
     for i = 1, 100 do
         local cx = rt.random.number(x, x + width)
         local cy = rt.random.number(y, y + height)
-        local sprite =
+        local sprite = nil
     end
 end

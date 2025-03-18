@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="120">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="121">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -388,15 +388,13 @@
   <object id="15" gid="1073741898" x="1541.94" y="264.286" width="222" height="167"/>
   <object id="16" gid="1073741897" x="1657.06" y="562.525" width="100" height="109"/>
   <object id="17" gid="73" x="1654.16" y="439.995" width="100" height="109"/>
-  <object id="21" gid="72" x="1247.01" y="357.291" width="72" height="70"/>
   <object id="18" gid="2147483721" x="1512.71" y="438.254" width="100" height="109"/>
   <object id="19" gid="3221225545" x="1512.24" y="558.675" width="100" height="109"/>
-  <object id="20" gid="71" x="1250.65" y="318.659" width="123" height="123"/>
-  <object id="22" gid="72" x="1336.51" y="468.27" width="72" height="70"/>
+  <object id="20" gid="71" x="1363.4" y="504.934" width="123" height="123"/>
+  <object id="22" gid="72" x="1334.06" y="464.185" width="72" height="70"/>
   <object id="24" gid="70" x="1093.17" y="160.1" width="36" height="36"/>
   <object id="25" gid="70" x="1118.23" y="228.119" width="36" height="36"/>
   <object id="26" gid="70" x="1255.46" y="96.8544" width="36" height="36"/>
-  <object id="29" gid="70" x="1250.69" y="373.704" width="36" height="36"/>
   <object id="45" type="Hitbox" x="492.719" y="-184.214" width="224.271" height="108.151" rotation="7"/>
   <object id="46" type="Hitbox" x="798.042" y="-72.8597" rotation="30">
    <polygon points="0,0 265.255,-102.459 59.1985,-125.228 58.0601,-91.0747 -34.153,-95.6284"/>
@@ -503,6 +501,12 @@
    <properties>
     <property name="type" value="dynamic"/>
    </properties>
+  </object>
+  <object id="120" type="Hitbox" x="1173.2" y="319.444">
+   <properties>
+    <property name="type" value="dynamic"/>
+   </properties>
+   <polygon points="0,0 -2.45098,-56.3725 19.6078,-56.3725 21.2418,-2.45098 81.6993,-4.90196 84.1503,21.2418 23.6928,21.2418 26.1438,77.6144 -2.45098,78.4314 -2.45098,22.0588 -62.0915,24.5098 -62.9085,-3.26797"/>
   </object>
  </objectgroup>
  <objectgroup draworder="index" id="5" name="Object Layer 2">

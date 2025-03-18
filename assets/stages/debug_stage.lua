@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 120,
+  nextobjectid = 121,
   properties = {},
   tilesets = {
     {
@@ -623,20 +623,6 @@ return {
           properties = {}
         },
         {
-          id = 21,
-          name = "",
-          type = "",
-          shape = "rectangle",
-          x = 1247.01,
-          y = 357.291,
-          width = 72,
-          height = 70,
-          rotation = 0,
-          gid = 72,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 18,
           name = "",
           type = "",
@@ -669,8 +655,8 @@ return {
           name = "",
           type = "",
           shape = "rectangle",
-          x = 1250.65,
-          y = 318.659,
+          x = 1363.4,
+          y = 504.934,
           width = 123,
           height = 123,
           rotation = 0,
@@ -683,8 +669,8 @@ return {
           name = "",
           type = "",
           shape = "rectangle",
-          x = 1336.51,
-          y = 468.27,
+          x = 1334.06,
+          y = 464.185,
           width = 72,
           height = 70,
           rotation = 0,
@@ -727,20 +713,6 @@ return {
           shape = "rectangle",
           x = 1255.46,
           y = 96.8544,
-          width = 36,
-          height = 36,
-          rotation = 0,
-          gid = 70,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 29,
-          name = "",
-          type = "",
-          shape = "rectangle",
-          x = 1250.69,
-          y = 373.704,
           width = 36,
           height = 36,
           rotation = 0,
@@ -1137,6 +1109,35 @@ return {
           height = 36.5631,
           rotation = 0,
           visible = true,
+          properties = {
+            ["type"] = "dynamic"
+          }
+        },
+        {
+          id = 120,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1173.2,
+          y = 319.444,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -2.45098, y = -56.3725 },
+            { x = 19.6078, y = -56.3725 },
+            { x = 21.2418, y = -2.45098 },
+            { x = 81.6993, y = -4.90196 },
+            { x = 84.1503, y = 21.2418 },
+            { x = 23.6928, y = 21.2418 },
+            { x = 26.1438, y = 77.6144 },
+            { x = -2.45098, y = 78.4314 },
+            { x = -2.45098, y = 22.0588 },
+            { x = -62.0915, y = 24.5098 },
+            { x = -62.9085, y = -3.26797 }
+          },
           properties = {
             ["type"] = "dynamic"
           }

@@ -16,9 +16,10 @@ function ow.Hitbox:instantiate(object, stage, scene)
     self._world = stage:get_physics_world()
     self._body = object:create_physics_body(self._world)
 
-    if type == b2.BodyType.DYNAMIC then
+    if object:get_string("type") == b2.BodyType.DYNAMIC then
         self._body._native:setLinearDamping(30)
         self._body._native:setAngularDamping(30)
+        self._body:add_tag("draw")
     end
 
     self._body:set_user_data(self)

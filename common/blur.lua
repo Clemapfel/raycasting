@@ -18,13 +18,13 @@ function rt.Blur:instantiate(width, height, ...)
     end
 
     return meta.install(self, {
-        _strength = 1, -- Integer
+        _blur_strength = 1, -- Integer
         _texture_w = width,
         _texture_h = height,
         _texture_a = rt.RenderTexture(width, height, ...):get_native(),
         _texture_b = rt.RenderTexture(width, height, ...):get_native(),
         _a_or_b = true,
-        _blur_applied = false
+        _blur_applied = false,
     })
 end
 
@@ -85,11 +85,13 @@ end
 
 --- @brief
 function rt.Blur:draw(...)
+    local before = lg.getShader()
     if self._blur_applied == false then
         self:_apply_blur()
         self._blur_applied = true
     end
 
+    lg.setShader(before)
     lg.draw(self._texture_a, ...)
 end
 

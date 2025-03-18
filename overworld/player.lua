@@ -39,7 +39,7 @@ function ow.Player:instantiate(scene, stage)
 
     meta.install(self, {
         _scene = scene,
-        _shapes = { b2.Circle(0, 0, player_radius) },
+        _shapes = { b2.Circle(0, 0, player_radius * 0.5) },
         _radius = player_radius,
         _input = rt.InputSubscriber(),
 
@@ -244,7 +244,6 @@ function ow.Player:update(delta)
 
     self._last_position_x, self._last_position_y = x, y
 
-    self._soft_body:set_position(self._body:get_predicted_position())
     self._soft_body:update(delta)
 end
 
@@ -306,7 +305,7 @@ function ow.Player:move_to_stage(stage, x, y)
             self._shapes
         )
         self._body:add_tag("player")
-        self._body:set_is_rotation_fixed(true)
+        self._body:set_is_rotation_fixed(false)
         self._body:set_user_data(self)
         self._body:set_collision_group(ow.RayMaterial.ABSORPTIVE)
 
@@ -337,12 +336,13 @@ function ow.Player:move_to_stage(stage, x, y)
         mask = bit.bxor(mask, ow.RayMaterial.FILTRATIVE) -- player can pass through filtrative
         self._body:set_collides_with(mask)
 
-        self._soft_body = ow.PlayerBody(self._world, self._radius, self._body:get_position())
+        self._soft_body = ow.PlayerBody(self._world, self._radius, self._body)
     end
 end
 
 --- @brief
 function ow.Player:draw()
+
     local x, y = self._body:get_predicted_position()
     local angle = self._velocity_angle - self._facing_angle
 
@@ -351,16 +351,17 @@ function ow.Player:draw()
     love.graphics.translate(x, y)
     love.graphics.rotate(angle)
 
+    --[[
     love.graphics.setColor(1, 1, 1, 0.6)
     love.graphics.polygon("fill", table.unpack(self._model_face))
     love.graphics.ellipse("fill", table.unpack(self._model_body))
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.polygon("line", table.unpack(self._model_face))
     love.graphics.ellipse("line", table.unpack(self._model_body))
-
+    ]]--
     love.graphics.pop()
 
-    self._bump_sensor:draw()
+    --self._bump_sensor:draw()
     self._soft_body:draw()
 
     if self._grabbed ~= nil then
