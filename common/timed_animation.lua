@@ -323,4 +323,3 @@ end
 function rt.TimedAnimation:set_elapsed(elapsed)
     self._elapsed = elapsed
 end
-

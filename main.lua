@@ -7,6 +7,9 @@ local SceneManager = require "common.scene_manager"
 
 local x, y = love.mouse.getPosition()
 
+require "overworld.text_box"
+local box = ow.TextBox("debug_dialog")
+
 love.load = function(args)
     local data = love.image.newImageData("assets/sprites/cursor.png")
     local cursor = love.mouse.newCursor(data)
