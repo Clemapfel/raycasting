@@ -12,7 +12,7 @@ return {
         [2] = {
             portrait = nil,
             speaker = nil,
-            next = 3,
+            next = 4,
 
             "This is a question?"
         },

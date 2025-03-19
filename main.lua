@@ -10,6 +10,14 @@ local x, y = love.mouse.getPosition()
 require "overworld.dialog_box"
 local box = ow.DialogBox("debug_dialog")
 
+require "common.input_subscriber"
+input = rt.InputSubscriber()
+input:signal_connect("pressed", function(_, which)
+    if which == rt.InputButton.A then
+        box:advance()
+    end
+end)
+
 love.load = function(args)
     local data = love.image.newImageData("assets/sprites/cursor.png")
     local cursor = love.mouse.newCursor(data)

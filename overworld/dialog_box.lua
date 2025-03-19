@@ -2,6 +2,7 @@ require "common.font"
 require "common.label"
 require "common.frame"
 require "common.mesh"
+require "common.sprite"
 
 -- accepted ids for dialog node in config file
 rt.settings.overworld.dialog_box = {
@@ -12,32 +13,40 @@ rt.settings.overworld.dialog_box = {
 
     portrait_resolution_w = 40,
     portrait_resolution_h = 40,
-    n_lines = 3
+    n_lines = 3,
+
+    advance_sound_id = "dialog_box_advance"
 }
 
 --- @class ow.DialogBox
 ow.DialogBox = meta.class("OverworldDialogBox", rt.Widget)
+meta.add_signals(ow.DialogBox, "done")
 
 --- @brief
 function ow.DialogBox:instantiate(dialog_id)
     meta.install(self, {
         _dialog_id = dialog_id,
         _is_initialized = false,
-        _is_done = false,
+        _done_emitted = false,
 
         _id_to_node = {},
         _portrait_id_to_portrait = {},
         _speaker_to_orientation = {},
         _active_node = nil,
-
+        _should_auto_advance = false,
         _is_waiting_for_advance = false,
+
+        _frame = rt.Frame(),
+        _frame_x = 0,
+        _frame_y = 0,
+        _node_offset_x = 0,
+        _node_offset_y = 0,
 
         _portrait_frame = rt.Frame(),
         _portrait_left_x = 0,
         _portrait_left_y = 0,
         _portrait_right_x = 0,
         _portrait_right_y = 0,
-        _portrait_mesh = rt.MeshRectangle(),
         _portrait_visible = false,
         _portrait_left_or_right = true,
 
@@ -53,8 +62,6 @@ function ow.DialogBox:instantiate(dialog_id)
         _speaker_label_right_x = 0,
         _speaker_label_right_y = 0,
         _speaker_visible = false,
-
-        _frame = rt.Frame(),
 
         _advance_indicator = {},
         _advance_indicator_outline = {},
@@ -126,13 +133,13 @@ function ow.DialogBox:realize()
 
             local portrait_id = node_entry[portrait_key]
             if portrait_id ~= nil then
-                local texture = self._portrait_id_to_portrait[portrait_id]
-                if texture == nil then
-                    texture = rt.Texture(portrait_id)
-                    self._portrait_id_to_portrait[portrait_id] = texture
+                local sprite = self._portrait_id_to_portrait[portrait_id]
+                if sprite == nil then
+                    sprite = rt.Sprite(portrait_id)
+                    self._portrait_id_to_portrait[portrait_id] = sprite
                 end
 
-                node.portrait = texture
+                node.portrait = sprite
             end
 
             if not meta.is_string(node_entry[1]) then
@@ -141,13 +148,14 @@ function ow.DialogBox:realize()
 
             do
                 local i = 1
-                local text = node[i]
+                local text = node_entry[i]
                 while text ~= nil do
                     local label = rt.Label(text)
                     label:realize()
+                    label:set_n_visible_characters(0)
                     table.insert(node.labels, label)
-
                     i = i + 1
+                    text = node_entry[i+1]
                 end
             end
         end
@@ -156,16 +164,24 @@ function ow.DialogBox:realize()
         self._id_to_node[key] = node
     end
 
-    for node, visited in pairs(can_be_visited) do
-        if visited == false then
-            rt.warning("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`: node `" .. node.id .. "` has no other pointing to it, it cannot be visited" )
-        end
-    end
-
     local first_node = self._id_to_node[1]
     if first_node == nil then
         rt.warning("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`, no node with id `1`")
         first_node = table.first(self._id_to_node)
+    end
+
+    can_be_visited[first_node] = true
+    for node in values(self._id_to_node) do
+        node.next = self._id_to_node[node.next_id]
+        if node.next ~= nil then
+            can_be_visited[node.next] = true
+        end
+    end
+
+    for node, visited in pairs(can_be_visited) do
+        if visited == false then
+            rt.warning("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`: node `" .. node.id .. "` has no other pointing to it, it cannot be visited" )
+        end
     end
 
     self._is_initialized = true
@@ -186,14 +202,18 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local frame_x = x + outer_margin
     local frame_y = y + height - outer_margin - frame_h
 
+    self._frame_x = frame_x
+    self._frame_y = frame_y
     self._frame:reformat(frame_x, frame_y, frame_w, frame_h)
+
+    local thickness = self._speaker_frame:get_thickness()
 
     local speaker_frame_w = 0.3 * frame_w -- resize depending on speaker label
     local speaker_frame_h = line_height + m
     self._speaker_frame_w = speaker_frame_w
     self._speaker_frame_h = speaker_frame_h
     self._speaker_frame_left_x = frame_x + m
-    self._speaker_frame_left_y = frame_y - 3 * m
+    self._speaker_frame_left_y = frame_y - 3 * m - thickness
     self._speaker_frame_right_x = frame_x + frame_w - m
     self._speaker_frame_right_y = self._speaker_frame_left_y
     self._speaker_frame:reformat(0, 0, speaker_frame_w, speaker_frame_h)
@@ -207,7 +227,6 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     self._portrait_right_x = frame_x + frame_w - m - portrait_w
     self._portrait_right_y = self._portrait_left_y
     self._portrait_frame:reformat(0, 0, portrait_w, portrait_h)
-    self._portrait_mesh = rt.MeshRectangle(0, 0, portrait_w, portrait_h)
 
     do
         local advance_radius = m
@@ -228,7 +247,7 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local area_h = frame_h - 2 * m
     for node in values(self._id_to_node) do
         if node.type == _node_type_text then
-            local current_x, current_y = 0, 0
+            local current_x, current_y = outer_margin, m
             for label in values(node.labels) do
                 label:reformat(current_x, current_y, area_w)
                 local label_w, label_h = label:measure()
@@ -242,17 +261,26 @@ end
 
 --- @brief
 function ow.DialogBox:_set_active_node(node)
-    self._active_node = node
-    if self._active_node == nil then
-        self._is_done = true
-        return
+    if node == nil then
+        if self._done_emitted == false then
+            self:signal_emit("done")
+            rt.SoundManager:play(rt.settings.overworld.dialog_box.advance_sound_id)
+            dbg("done")
+            self._done_emitted = true
+        end
+        return -- hang on last message
     end
 
+    self._active_node = node
+
     if self._active_node.type == _node_type_text then
-        self._portrait_mesh:set_texture(node.portrait)
         self._portrait_visible = node.portrait ~= nil
+
         local left_or_right = self._speaker_to_orientation[node.speaker_id]
-        self._portrait_left_or_right = false-- TODO left_or_right or true
+        self._portrait_left_or_right = left_or_right or true
+        if self._portrait_visible then
+            node.portrait:set_flip_horizontally(not self._portrait_left_or_right) -- all portraits look to the right
+        end
 
         local speaker_label = node.speaker
         self._speaker_visible = speaker_label ~= nil
@@ -268,14 +296,64 @@ function ow.DialogBox:_set_active_node(node)
     end
 end
 
+--- @brief
+function ow.DialogBox:set_should_auto_advance(b)
+    self._should_auto_advance = b
+end
+
 local _advance_indicator_elapsed = 0
 
 --- @brief
 function ow.DialogBox:update(delta)
-    if self._is_done then return end
+    if self._active_node == nil then return end
     _advance_indicator_elapsed = _advance_indicator_elapsed + delta
     local offset = (math.sin(3 * _advance_indicator_elapsed) + 1) / 2 - 1
     self._advance_indicator_offset = offset * self._advance_indicator_radius * 0.5
+
+    if self._active_node == nil then return end
+    local all_labels_done = true
+    for label in values(self._active_node.labels) do
+        if label.dialog_box_is_done ~= true then
+            if label.dialog_box_elapsed == nil then
+                -- inject per-label properties
+                label.dialog_box_elapsed = 0
+                label.dialog_box_is_done = false
+            end
+
+            label.dialog_box_elapsed = label.dialog_box_elapsed + delta
+            local is_done, n_visible_rows, n_characters = label:update_n_visible_characters_from_elapsed(label.dialog_box_elapsed)
+            label.dialog_box_is_done = is_done
+            if not is_done then
+                all_labels_done = false
+                break
+            end
+        end
+    end
+
+    if all_labels_done then
+        self._is_waiting_for_advance = true
+        if self._should_auto_advance then self:advance() end
+    end
+end
+
+--- @brief
+function ow.DialogBox:advance()
+    local sound_id = rt.settings.overworld.dialog_box.advance_sound_id
+    if self._active_node == nil then return end
+    if not self._is_waiting_for_advance then
+        for label in values(self._active_node.labels) do
+            label.dialog_box_is_done = true
+            label:set_n_visible_characters(math.huge)
+            rt.SoundManager:play(sound_id)
+            return
+        end
+    else
+        local before = self._active_node
+        self:_set_active_node(self._active_node.next)
+        if self._active_node ~= before then
+            rt.SoundManager:play(sound_id)
+        end
+    end
 end
 
 --- @brief
@@ -285,21 +363,23 @@ end
 
 --- @brief
 function ow.DialogBox:draw()
-    if self._is_initialized == false or self._is_done then return end
+    if self._is_initialized == false or self._active_node == nil then return end
 
     self._frame:draw()
 
-    love.graphics.push()
-    if self._portrait_left_or_right then
-        love.graphics.translate(self._portrait_left_x, self._portrait_left_y)
-    else
-        love.graphics.translate(self._portrait_right_x, self._portrait_right_y)
+    if self._portrait_visible then
+        love.graphics.push()
+        if self._portrait_left_or_right then
+            love.graphics.translate(self._portrait_left_x, self._portrait_left_y)
+        else
+            love.graphics.translate(self._portrait_right_x, self._portrait_right_y)
+        end
+        self._portrait_frame:draw()
+        self._portrait_frame:bind_stencil()
+        self._active_node.portrait:draw()
+        self._portrait_frame:unbind_stencil()
+        love.graphics.pop()
     end
-    self._portrait_frame:draw()
-    self._portrait_frame:bind_stencil()
-    self._portrait_mesh:draw()
-    self._portrait_frame:unbind_stencil()
-    love.graphics.pop()
 
     if self._speaker_visible then
         love.graphics.push()
@@ -323,20 +403,31 @@ function ow.DialogBox:draw()
 
     love.graphics.push()
 
-    rt.Palette.BACKGROUND:bind()
-    love.graphics.translate(0, self._advance_indicator_offset)
-    love.graphics.polygon("fill", self._advance_indicator)
+    if self._is_waiting_for_advance then
+        rt.Palette.BACKGROUND:bind()
+        love.graphics.translate(0, self._advance_indicator_offset)
+        love.graphics.polygon("fill", self._advance_indicator)
 
-    love.graphics.setLineStyle("smooth")
-    love.graphics.setLineJoin("miter")
+        love.graphics.setLineStyle("smooth")
+        love.graphics.setLineJoin("miter")
 
-    self._advance_indicator_outline_color:bind()
-    love.graphics.setLineWidth(self._advance_indicator_outline_w + 1)
-    love.graphics.line(self._advance_indicator_outline)
+        self._advance_indicator_outline_color:bind()
+        love.graphics.setLineWidth(self._advance_indicator_outline_w + 1)
+        love.graphics.line(self._advance_indicator_outline)
 
-    self._advance_indicator_color:bind()
-    love.graphics.setLineWidth(self._advance_indicator_outline_w)
-    love.graphics.line(self._advance_indicator_outline)
+        self._advance_indicator_color:bind()
+        love.graphics.setLineWidth(self._advance_indicator_outline_w)
+        love.graphics.line(self._advance_indicator_outline)
+    end
 
+    love.graphics.pop()
+
+    love.graphics.push()
+    self._frame:bind_stencil()
+    love.graphics.translate(self._node_offset_x + self._frame_x, self._node_offset_y + self._frame_y)
+    for label in values(self._active_node.labels) do
+        label:draw()
+    end
+    self._frame:unbind_stencil()
     love.graphics.pop()
 end
