@@ -515,9 +515,6 @@
    </properties>
    <ellipse/>
   </object>
-  <object id="134" name="Pin" type="Pin" x="1148.92" y="315.812">
-   <point/>
-  </object>
  </objectgroup>
  <objectgroup draworder="index" id="5" name="Object Layer 2">
   <object id="60" type="Hitbox" x="369.333" y="725.333">
