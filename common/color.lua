@@ -11,6 +11,11 @@ function rt.RGBA:instantiate(r, g, b, a)
     })
 end
 
+--- @brief
+function rt.RGBA:bind()
+    love.graphics.setColor(self.r, self.g, self.b, self.a)
+end
+
 --- @class HSVA
 rt.HSVA = meta.class("HSVA")
 
