@@ -1,5 +1,3 @@
-rt.graphics = {}
-
 --- @class rt.BlendMode
 rt.BlendMode = meta.enum("BlendMode", {
     NONE = -1,

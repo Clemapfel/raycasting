@@ -3,6 +3,7 @@ require "common.label"
 require "common.frame"
 require "common.mesh"
 require "common.sprite"
+require "common.stencil"
 
 -- accepted ids for dialog node in config file
 rt.settings.overworld.dialog_box = {
@@ -68,7 +69,12 @@ function ow.DialogBox:instantiate(dialog_id)
         _advance_indicator_color = rt.Palette.FOREGROUND,
         _advance_indicator_outline_color = rt.Palette.BACKGROUND_OUTLINE,
         _advance_indicator_outline_w = 2,
-        _advance_indicator_offset = 0
+        _advance_indicator_offset = 0,
+
+        _text_stencil = rt.AABB(0, 0, 1, 1),
+
+        _line_height = select(2, rt.settings.font.default:measure_glyph("|")),
+        _max_n_lines = rt.settings.overworld.dialog_box.n_lines
     })
 end
 
@@ -155,7 +161,7 @@ function ow.DialogBox:realize()
                     label:set_n_visible_characters(0)
                     table.insert(node.labels, label)
                     i = i + 1
-                    text = node_entry[i+1]
+                    text = node_entry[i]
                 end
             end
         end
@@ -180,7 +186,7 @@ function ow.DialogBox:realize()
 
     for node, visited in pairs(can_be_visited) do
         if visited == false then
-            rt.warning("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`: node `" .. node.id .. "` has no other pointing to it, it cannot be visited" )
+            rt.warning("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`: node `" .. node.id .. "` has node pointing to it, it cannot be visited" )
         end
     end
 
@@ -195,10 +201,8 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
 
-    local _, line_height = rt.settings.font.default:measure_glyph("|")
-
     local frame_w = width - 2 * outer_margin
-    local frame_h = rt.settings.overworld.dialog_box.n_lines * line_height + 2 * m
+    local frame_h = self._max_n_lines * self._line_height + 2 * m
     local frame_x = x + outer_margin
     local frame_y = y + height - outer_margin - frame_h
 
@@ -209,7 +213,7 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local thickness = self._speaker_frame:get_thickness()
 
     local speaker_frame_w = 0.3 * frame_w -- resize depending on speaker label
-    local speaker_frame_h = line_height + m
+    local speaker_frame_h = self._line_height + m
     self._speaker_frame_w = speaker_frame_w
     self._speaker_frame_h = speaker_frame_h
     self._speaker_frame_left_x = frame_x + m
@@ -256,6 +260,13 @@ function ow.DialogBox:size_allocate(x, y, width, height)
         end
     end
 
+    self._text_stencil = rt.AABB(
+        frame_x + 2 * m,
+        frame_y + m,
+        area_w,
+        area_h
+    )
+
     self:_set_active_node(self._active_node)
 end
 
@@ -301,6 +312,11 @@ function ow.DialogBox:set_should_auto_advance(b)
     self._should_auto_advance = b
 end
 
+--- @brief [internal]
+function ow.DialogBox:_update_node_offset_from_n_lines_visible(n_lines_visible)
+    self._node_offset_y = -1 * math.max( n_lines_visible - self._max_n_lines + 1, 0) * self._line_height
+end
+
 local _advance_indicator_elapsed = 0
 
 --- @brief
@@ -312,23 +328,31 @@ function ow.DialogBox:update(delta)
 
     if self._active_node == nil then return end
     local all_labels_done = true
+    local n_lines_visible = 0
     for label in values(self._active_node.labels) do
-        if label.dialog_box_is_done ~= true then
-            if label.dialog_box_elapsed == nil then
-                -- inject per-label properties
-                label.dialog_box_elapsed = 0
-                label.dialog_box_is_done = false
-            end
+        if label.dialog_box_elapsed == nil then
+            -- inject per-label properties
+            label.dialog_box_elapsed = 0
+            label.dialog_box_is_done = false
+        end
 
+        if label.dialog_box_is_done == true then
+            n_lines_visible = n_lines_visible + label:get_n_lines()
+            label.dialog_box_is_done = true
+        else
             label.dialog_box_elapsed = label.dialog_box_elapsed + delta
-            local is_done, n_visible_rows, n_characters = label:update_n_visible_characters_from_elapsed(label.dialog_box_elapsed)
+            local is_done, n_lines, n_characters = label:update_n_visible_characters_from_elapsed(label.dialog_box_elapsed)
+            n_lines_visible = n_lines_visible + n_lines
             label.dialog_box_is_done = is_done
-            if not is_done then
-                all_labels_done = false
-                break
-            end
+        end
+
+        if not label.dialog_box_is_done then
+            all_labels_done = false
+            break
         end
     end
+
+    self:_update_node_offset_from_n_lines_visible(n_lines_visible)
 
     if all_labels_done then
         self._is_waiting_for_advance = true
@@ -340,13 +364,23 @@ end
 function ow.DialogBox:advance()
     local sound_id = rt.settings.overworld.dialog_box.advance_sound_id
     if self._active_node == nil then return end
+    local n_lines_visible = 0
+    local should_break = false
     if not self._is_waiting_for_advance then
         for label in values(self._active_node.labels) do
-            label.dialog_box_is_done = true
-            label:set_n_visible_characters(math.huge)
-            rt.SoundManager:play(sound_id)
-            return
+            if label.dialog_box_is_done ~= true then
+                label.dialog_box_is_done = true
+                label:set_n_visible_characters(math.huge)
+                rt.SoundManager:play(sound_id)
+                should_break = true
+            end
+
+            n_lines_visible = n_lines_visible + label:get_n_lines()
+            if should_break then break end
         end
+
+        self:_update_node_offset_from_n_lines_visible(n_lines_visible)
+        return
     else
         local before = self._active_node
         self:_set_active_node(self._active_node.next)
@@ -423,11 +457,17 @@ function ow.DialogBox:draw()
     love.graphics.pop()
 
     love.graphics.push()
-    self._frame:bind_stencil()
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.stencil(stencil_value, function()
+        love.graphics.rectangle("fill", self._text_stencil:unpack())
+    end)
+    rt.graphics.set_stencil_test(rt.StencilCompareMode.EQUAL, stencil_value)
+
     love.graphics.translate(self._node_offset_x + self._frame_x, self._node_offset_y + self._frame_y)
     for label in values(self._active_node.labels) do
         label:draw()
     end
-    self._frame:unbind_stencil()
+
+    rt.graphics.set_stencil_test()
     love.graphics.pop()
 end

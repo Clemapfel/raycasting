@@ -1,6 +1,7 @@
 require "common.widget"
 require "common.palette"
 require "common.aabb"
+require "common.stencil"
 
 rt.settings.frame = {
     thickness = 2, -- px
@@ -101,7 +102,7 @@ function rt.Frame:_update_draw()
 end
 
 function rt.Frame:bind_stencil()
-    local stencil_value = meta.hash(self) % 254 + 1
+    local stencil_value = rt.graphics.get_stencil_value()
     love.graphics.setStencilMode("draw", stencil_value)
     local x, y, w, h = self._bounds:unpack()
     local corner_radius = self._corner_radius

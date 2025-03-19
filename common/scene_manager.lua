@@ -71,6 +71,8 @@ function rt.SceneManager:draw(...)
         self:_draw_performance_metrics()
         love.graphics.pop()
     end
+
+    rt.graphics._stencil_value = 1
 end
 
 --- @brief

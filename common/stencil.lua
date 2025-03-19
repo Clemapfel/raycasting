@@ -5,7 +5,7 @@ rt.StencilMode = meta.enum("StencilMode", {
     DECREMENT = "decrement"
 })
 
-rt.graphics._stencil_value = 1
+rt.graphics._stencil_value = 1 -- reset by in SceneManager
 function rt.graphics.get_stencil_value()
     local out = rt.graphics._stencil_value
     rt.graphics._stencil_value = rt.graphics._stencil_value + 1

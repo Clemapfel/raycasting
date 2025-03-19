@@ -74,6 +74,7 @@ meta = require "common.meta"
 rt = {}
 mn = {}
 ow = {}
+rt.graphics = {}
 
 for _, t in pairs({
     {"_G", _G},
