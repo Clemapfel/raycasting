@@ -42,6 +42,11 @@ end
 
 --- @class rt.VertexRectangle
 rt.MeshRectangle = function(x, y, width, height)
+    if x == nil then x = 0 end
+    if y == nil then y = 0 end
+    if width == nil then width = 1 end
+    if height == nil then height = 1 end
+
     local data = {
         {x + 0 * width, y + 0 * height, 0, 0, 1, 1, 1, 1},
         {x + 1 * width, y + 0 * height, 1, 0, 1, 1, 1, 1},

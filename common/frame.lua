@@ -103,7 +103,7 @@ end
 function rt.Frame:bind_stencil()
     local stencil_value = meta.hash(self) % 254 + 1
     love.graphics.setStencilMode("draw", stencil_value)
-    local x, y, w, h = rt.aabb_unpack(self._bounds)
+    local x, y, w, h = self._bounds:unpack()
     local corner_radius = self._corner_radius
     local thickness = self._thickness
     love.graphics.rectangle(

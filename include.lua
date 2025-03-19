@@ -92,5 +92,6 @@ end
 require "common.log"
 
 rt.settings = meta.make_auto_extend({
-    margin_unit = 10
+    margin_unit = 10,
+    sprite_scale = 2
 }, true)

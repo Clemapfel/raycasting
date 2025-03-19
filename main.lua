@@ -7,8 +7,8 @@ local SceneManager = require "common.scene_manager"
 
 local x, y = love.mouse.getPosition()
 
-require "overworld.text_box"
-local box = ow.TextBox("debug_dialog")
+require "overworld.dialog_box"
+local box = ow.DialogBox("debug_dialog")
 
 love.load = function(args)
     local data = love.image.newImageData("assets/sprites/cursor.png")
@@ -19,6 +19,9 @@ love.load = function(args)
     SceneManager:set_scene(ow.OverworldScene, "debug_stage")
 
     local joystick = love.joystick.getPosition
+
+    box:realize()
+    box:reformat(0, 0, love.graphics.getDimensions())
 end
 
 local start = true
@@ -28,10 +31,14 @@ love.update = function(delta)
     if start then
         SceneManager:update(delta)
     end
+
+    box:update(delta)
 end
 
 love.draw = function()
     SceneManager:draw()
+
+    box:draw()
 end
 
 love.resize = function(width, height)
