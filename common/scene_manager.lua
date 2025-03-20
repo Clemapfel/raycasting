@@ -65,13 +65,6 @@ function rt.SceneManager:draw(...)
         self._current_scene:draw(...)
     end
 
-    if self._show_performance_metrics then
-        love.graphics.push()
-        love.graphics.origin()
-        self:_draw_performance_metrics()
-        love.graphics.pop()
-    end
-
     rt.graphics._stencil_value = 1
 end
 
@@ -163,11 +156,18 @@ function love.run()
 
         if love.graphics and love.graphics.isActive() then
             love.graphics.reset()
-            love.graphics.clear(love.graphics.getBackgroundColor())
+            love.graphics.clear(true, true, true)
 
             draw_before = love.timer.getTime()
             if love.draw then love.draw() end
             draw_after = love.timer.getTime()
+
+            if rt.SceneManager._show_performance_metrics then
+                love.graphics.push()
+                love.graphics.origin()
+                rt.SceneManager:_draw_performance_metrics()
+                love.graphics.pop()
+            end
 
             love.graphics.present()
         end

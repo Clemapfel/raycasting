@@ -64,7 +64,9 @@ function rt.Label:instantiate(text, font, monospace_font)
 
         _width = 0,
         _height = 0,
-        _first_wrap = true
+        _first_wrap = true,
+
+        _total_beats = 0,
     })
 end
 
@@ -368,6 +370,9 @@ function rt.Label:_parse()
     self._use_outline = false
     self._use_animation = false
 
+    self._total_beats = 0
+    local beat_weights = _syntax.BEAT_WEIGHTS
+
     local glyphs = self._glyphs
     local glyph_indices = self._glyph_indices
 
@@ -424,8 +429,9 @@ function rt.Label:_parse()
         local color_r, color_g, color_b = _rt_color_unpack(_rt_palette[settings.color])
         local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(_rt_palette[settings.outline_color])
 
+        local word = _concat(current_word)
         local to_insert = self:_glyph_new(
-            _concat(current_word), font, style, settings.is_mono,
+           word, font, style, settings.is_mono,
             color_r, color_g, color_b,
             outline_color_r, outline_color_g, outline_color_b,
             settings.is_underlined,
@@ -453,6 +459,13 @@ function rt.Label:_parse()
 
         self._n_characters = self._n_characters + to_insert.n_visible_characters
         self._n_glyphs = self._n_glyphs + 1
+
+        for j = 1, utf8.len(word) do
+            local weight = beat_weights[utf8.sub(word, j, j)]
+            if weight == nil then weight = 1 end
+            self._total_beats = self._total_beats + weight
+        end
+
         current_word = {}
     end
 
@@ -475,15 +488,19 @@ function rt.Label:_parse()
         elseif s == " " then
             push_glyph()
             _insert(glyphs, _syntax.SPACE)
+            self._total_beats = self._total_beats + (beat_weights[_syntax.SPACE] or 1)
         elseif s == "\n" then
             push_glyph()
             _insert(glyphs, _syntax.NEWLINE)
+            self._total_beats = self._total_beats + (beat_weights[_syntax.NEWLINE] or 1)
         elseif s == "\t" then
             push_glyph()
             _insert(glyphs, _syntax.TAB)
+            self._total_beats = self._total_beats + (beat_weights[_syntax.TAB] or 1)
         elseif s == _syntax.BEAT then
             push_glyph() -- remove?
             _insert(glyphs, _syntax.BEAT)
+            self._total_beats = self._total_beats + (beat_weights[_syntax.BEAT] or 1)
         elseif s == "<" then
             push_glyph()
 
@@ -860,14 +877,16 @@ end
 
 --- @brief
 --- @return Boolean, Number, Number is_done, n_visible_rows, n_characters
-function rt.Label:update_n_visible_characters_from_elapsed(elapsed, scroll_speed)
+function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end
+
+    if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed end
 
     self._font:initialize()
     self._monospace_font:initialize()
 
     local so_far = elapsed
-    local step = 1 / (scroll_speed or rt.settings.label.scroll_speed)
+    local step = 1 / n_characters_per_second
     local n_visible = 0
     local weights = _syntax.BEAT_WEIGHTS
     local max_row = 0
@@ -901,7 +920,8 @@ function rt.Label:update_n_visible_characters_from_elapsed(elapsed, scroll_speed
         end
     end
 
-    local is_done = n_visible >= self._n_characters
+
+    local is_done = elapsed > self._total_beats * (1 / n_characters_per_second)
     self:_update_texture()
     local rest_delta = so_far
     return is_done, max_row, so_far

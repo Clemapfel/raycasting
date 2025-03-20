@@ -16,6 +16,11 @@ function rt.RGBA:bind()
     love.graphics.setColor(self.r, self.g, self.b, self.a)
 end
 
+--- @brief
+function rt.RGBA:unpack()
+    return self.r, self.g, self.g, self.a
+end
+
 --- @class HSVA
 rt.HSVA = meta.class("HSVA")
 
@@ -27,6 +32,11 @@ function rt.HSVA:instantiate(h, s, v, a)
         v = v or 1,
         a = a or 1
     })
+end
+
+--- @brief
+function rt.HSVA:unpack()
+    return self.r, self.g, self.b, self.a
 end
 
 --- @brief
