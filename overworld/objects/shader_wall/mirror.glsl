@@ -64,25 +64,22 @@ vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
     float time = elapsed / 2;
 
-    uv += vec2(fwidth(gradient_noise(vec3(elapsed))));
-
-    const float n_tiles = 6;
+    // Apply rotation and scaling
     uv = rotate(uv, (2 * PI) / 8);
-    float xi = floor(uv.x * n_tiles);
-    float yi = floor(uv.y * n_tiles);
+    uv.x /= 30;
+    uv.y -= elapsed / 50;
 
-    vec2 ball_uv = fract(uv * n_tiles);
+    // Introduce distortion using noise
+    float distortion_strength = 0.1; // Control the intensity of distortion
+    vec2 distortion = vec2(
+    gradient_noise(vec3(uv * 10, 1)),
+    gradient_noise(vec3(uv * 10, 1))
+    ) * distortion_strength;
 
-    ball_uv = fract(ball_uv + time + gradient_noise(vec3(xi, yi, 1)));
-    ball_uv = ball_uv + vec2(
-    gradient_noise(vec3(xi, yi, elapsed)),
-    gradient_noise(vec3(yi, xi, elapsed))
-    );
-    float balls = 1 - distance(ball_uv, vec2(0.5)) * 2;
-    balls *= (gradient_noise(vec3(uv * n_tiles, elapsed)) + 1) / 2;
-    balls *= 1.5;
+    uv += distortion;
 
-    return vec4(vec3(balls), 1);
+    float balls = gaussian(gradient_noise(vec3(uv * 10, 1)), 1.4);
+    return vec4(balls); //vec4(vec3(balls), 1);
 }
 
 #endif
