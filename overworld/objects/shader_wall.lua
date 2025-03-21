@@ -14,6 +14,7 @@ local _scene_connected = false
 
 local _id_to_shader = {}
 
+
 --- @brief
 function ow.ShaderWall:instantiate(object, stage, scene)
     local id = object:get_string("shader", true)
@@ -24,13 +25,18 @@ function ow.ShaderWall:instantiate(object, stage, scene)
         _id_to_shader[id] = shader
     end
 
-    local mesh, outline = object:create_mesh()
+    local mesh, tris = object:create_mesh()
     meta.install(self, {
         _body = object:create_physics_body(stage:get_physics_world()),
         _mesh = mesh,
-        _outline = outline,
+        _mesh_triangles = tris,
         _shader = shader,
     })
+
+    for tri in values(tris) do -- close for line loop
+        table.insert(tri, tri[1])
+        table.insert(tri, tri[2])
+    end
 
     if _scene_connected ~= true then
         scene:signal_connect("update", function(scene, delta)
@@ -53,9 +59,40 @@ function ow.ShaderWall:draw()
     love.graphics.translate(self._body:get_position())
     self._mesh:draw()
     self._shader:unbind()
-    rt.Palette.FOREGROUND:bind()
-    love.graphics.line(self._outline)
-    love.graphics.setLineWidth(3)
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    love.graphics.setColor(1, 1, 1, 1)
+    rt.graphics.stencil(stencil_value, function()
+        for tri in values(self._mesh_triangles) do
+            love.graphics.polygon("fill", tri)
+        end
+    end)
+    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+
+    local line_width = 2
+    love.graphics.setLineJoin("none")
+    for tri in values(self._mesh_triangles) do
+        rt.Palette.BASE_OUTLINE:bind()
+        love.graphics.setLineWidth(2 * (line_width + 1))
+        love.graphics.line(tri)
+
+
+        for i = 1, #tri, 2 do
+            love.graphics.circle("fill", tri[i], tri[i+1], line_width + 1)
+        end
+    end
+
+    for tri in values(self._mesh_triangles) do
+        rt.Palette.FOREGROUND:bind()
+        love.graphics.setLineWidth(2 * line_width)
+        love.graphics.line(tri)
+
+        for i = 1, #tri, 2 do
+            love.graphics.circle("fill", tri[i], tri[i+1], line_width)
+        end
+    end
+    rt.graphics.set_stencil_test()
+
     love.graphics.pop()
 end
 
