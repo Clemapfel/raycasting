@@ -24,9 +24,11 @@ function ow.ShaderWall:instantiate(object, stage, scene)
         _id_to_shader[id] = shader
     end
 
+    local mesh, outline = object:create_mesh()
     meta.install(self, {
         _body = object:create_physics_body(stage:get_physics_world()),
-        _mesh = object:create_mesh(),
+        _mesh = mesh,
+        _outline = outline,
         _shader = shader,
     })
 
@@ -47,8 +49,14 @@ function ow.ShaderWall:draw()
     self._shader:send("elapsed", _elapsed)
     self._shader:send("camera_offset", { _offset_x, _offset_y})
     self._shader:send("camera_scale", _scale)
-    self._body:draw()
+    love.graphics.push()
+    love.graphics.translate(self._body:get_position())
+    self._mesh:draw()
     self._shader:unbind()
+    rt.Palette.FOREGROUND:bind()
+    love.graphics.line(self._outline)
+    love.graphics.setLineWidth(3)
+    love.graphics.pop()
 end
 
 --- @brief

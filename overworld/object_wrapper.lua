@@ -43,8 +43,8 @@ function ow.ObjectWrapper:instantiate(type)
         physics_prototypes = {},
         physics_prototypes_initialized = false,
 
-        mesh_prototypes = {},
-        mesh_prototypes_initialized = false,
+        mesh_prototype = {},
+        mesh_prototype_initialized = false,
 
         instances = meta.make_weak({})
     })
@@ -246,7 +246,7 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
             radius = rt.settings.overworld.object_wrapper.point_radius
         })
     else
-        rt.error("In ow.ObjectWrapper._preprocess_shapes: unhandled object type `" .. tostring(self.type) .. "`")
+        rt.error("In ow.ObjectWrapper._initialize_physics_prototypes: unhandled object type `" .. tostring(self.type) .. "`")
     end
 
     self.physics_prototypes = prototypes
@@ -295,33 +295,127 @@ function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
 end
 
 --- @brief
-function ow.ObjectWrapper:_initialize_mesh_prototypes()
-    if self.mesh_prototypes_initialized == true then return end
-    local tris = {}
+function ow.ObjectWrapper:_initialize_mesh_prototype()
+    if self.mesh_prototype_initialized == true then return end
+    local data = {}
+    local pairs = {}
+    local x_sum = 0
+    local y_sum = 0
+    local n_points = 0
+    local push_tri = function(tri)
+        assert(#tri == 6)
+        for i = 1, #tri, 2 do
+            table.insert(data, {
+                tri[i], tri[i+1],  0, 0,    1, 1, 1, 1
+            })
+        end
+
+        for i = 1, #tri - 2, 2 do
+            local a_x, a_y = tri[i+0], tri[i+1]
+            local b_x, b_y = tri[i+2], tri[i+3]
+
+            x_sum = x_sum + a_x + b_x
+            y_sum = y_sum + a_y + b_y
+            n_points = n_points + 2
+
+            local sorted_points = {}
+            if a_x < b_x or (a_x == b_x and a_y < b_y) then
+                sorted_points = {a_x, a_y, b_x, b_y}
+            else
+                sorted_points = {b_x, b_y, a_x, a_y}
+            end
+
+            local hash = table.concat(sorted_points, ",")
+            local entry = pairs[hash]
+            if entry == nil then
+                pairs[hash] = {
+                    a_x = a_x,
+                    a_y = a_y,
+                    b_x = b_x,
+                    b_y = b_y,
+                    count = 1
+                }
+            else
+                entry.count = entry.count + 1
+            end
+        end
+    end
+
     if self.type == ow.ObjectType.RECTANGLE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
-        table.insert(tris, {
-            x, y,
-            x + w, y,
-            x + w, y + h
-        })
-
-        table.insert(tris, {
-            x + y,
-            x + w, y + h,
-            x, y + h
-        })
+        for tri in values(slick.polygonize(3, {{
+                                                   x, y,
+                                                   x + w, y,
+                                                   x + w, y + h,
+                                                   x, y + h
+                                               }})) do
+            push_tri(tri)
+        end
+    elseif self.type == ow.ObjectType.ELLIPSE then
+        local x, y = self.center_x, self.center_y
+        local x_radius, y_radius = self.x_radius, self.y_radius
+        local points = { x, y }
+        for angle = 0, 2 * math.pi, (2 * math.pi) / 15 do
+            table.insert(points, x + math.cos(angle) * x_radius)
+            table.insert(points, y + math.sin(angle) * y_radius)
+        end
+        for tri in values(slick.polygonize(3, {points})) do
+            push_tri(tri)
+        end
+    elseif self.type == ow.ObjectType.POLYGON then
+        for tri in values(slick.polygonize(3, {self.vertices})) do
+            push_tri(tri)
+        end
+    elseif self.type == ow.ObjectType.POINT then
+        -- noop
+    else
+        rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `" .. tostring(self.type) .. "`")
     end
+
+    local centroid_x, centroid_y = x_sum / n_points, y_sum / n_points
+    local contour = {}
+    for entry in values(pairs) do
+        if entry.count == 1 then
+            table.insert(contour, {entry.a_x, entry.a_y, entry.b_x, entry.b_y})
+            dbg({entry.a_x, entry.a_y, entry.b_x, entry.b_y})
+        end
+    end
+
+    local function calculate_angle(x, y)
+        return math.atan2(y - centroid_y, x - centroid_x)
+    end
+
+    table.sort(contour, function(a, b)
+        local angle_a = calculate_angle((a[1] + a[3]) / 2, (a[2] + a[4]) / 2)
+        local angle_b = calculate_angle((b[1] + b[3]) / 2, (b[2] + b[4]) / 2)
+        return angle_a < angle_b
+    end)
+
+    -- Use a set to track added points
+    local added_points = {}
+    self.mesh_contour = {}
+    for entry in values(contour) do
+        for i = 1, #entry, 2 do
+            local point = entry[i] .. "," .. entry[i+1]
+            if not added_points[point] then
+                table.insert(self.mesh_contour, entry[i])
+                table.insert(self.mesh_contour, entry[i+1])
+                added_points[point] = true
+            end
+        end
+    end
+
+    self.mesh_prototype = data
 end
 
 --- @brief
 function ow.ObjectWrapper:create_mesh()
-    if self.mesh_prototypes_initialized ~= true then
-        self:_initialize_mesh_prototypes()
+    if self.mesh_prototype_initialized ~= true then
+        self:_initialize_mesh_prototype()
     end
 
-    return rt.MeshRectangle(0, 0, 1, 1)
+    return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_contour
 end
 
 --- @brief
