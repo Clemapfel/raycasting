@@ -56,6 +56,7 @@ function rt.SceneManager:update(delta)
 
     if self._current_scene ~= nil then
         self._current_scene:update(delta)
+        self._current_scene:signal_emit("update", delta)
     end
 end
 
@@ -162,7 +163,7 @@ function love.run()
             if love.draw then love.draw() end
             draw_after = love.timer.getTime()
 
-            if rt.SceneManager._show_performance_metrics then
+            if true then --rt.SceneManager._show_performance_metrics then
                 love.graphics.push()
                 love.graphics.origin()
                 rt.SceneManager:_draw_performance_metrics()

@@ -88,6 +88,9 @@ do -- load from image
     rt.Palette.DEFENSE = rt.Palette.ALLY
     rt.Palette.SPEED = rt.Palette.MINT_2
     rt.Palette.HP = rt.Palette.PURPLE_1
+
+    rt.Palette.COLOR_A = rt.Palette.GRAY_1
+    rt.Palette.COLOR_B = rt.Palette.GRAY_7
 end
 
 setmetatable(rt.Palette, {

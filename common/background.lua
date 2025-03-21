@@ -4,13 +4,24 @@ require "common.mesh"
 
 local _elapsed_name = "elapsed"
 
+rt.settings.background = {
+    config_path = "common/backgrounds/"
+}
+
 --- @class rt.Background
 rt.Background = meta.class("Background", rt.Widget)
 
 --- @brief
-function rt.Background:instantiate(shader_path)
+function rt.Background:instantiate(id, override_path)
+    local path
+    if override_path == true then
+        path = id
+    else
+        path = rt.settings.background.config_path .. id .. ".glsl"
+    end
+
     meta.install(self, {
-        _path = shader_path,
+        _path = path,
         _shape = nil,
         _shader = nil,
         _elapsed = 0

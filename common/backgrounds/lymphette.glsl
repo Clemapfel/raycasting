@@ -9,8 +9,6 @@ vec2 rotate(vec2 v, float angle) {
 #ifdef PIXEL
 
 uniform float elapsed;
-uniform vec4 color_a;
-uniform vec4 color_b;
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = vertex_position / love_ScreenSize.xy;
@@ -36,7 +34,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_pos
     float x_bias = (cos(uv.x * 3.0) + 1.0) / 2.0;
     float y_bias = (sin((uv.y + 0.5) * 3.0) + 1.0) / 2.0;
     float value = length(vec2(x_bias, y_bias)) - 1.0;
-    return vec4(mix(color_b.rgb, color_a.rgb, value), 1.0);
+    return vec4(mix(vec3(0), vec3(1), value), 1.0);
 }
 
 #endif

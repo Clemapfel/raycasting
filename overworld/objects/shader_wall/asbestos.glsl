@@ -36,13 +36,26 @@ uniform float elapsed;
 uniform vec4 color_a;
 uniform vec4 color_b;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
-    vec2 uv = vertex_position / love_ScreenSize.xy;
-    float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
-    uv.x = uv.x * aspect_ratio + 0.5 * aspect_ratio;
-    float time = elapsed / 16.0;
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
 
-    uv += vec2(time / 2.0);
+vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
+    vec2 uv = to_uv(frag_position);
+    float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
+    uv.x += 0.5 * aspect_ratio;
+    float time = elapsed / 8.0;
+
     uv *= 10;
 
     const float n_steps = 10.0;
@@ -50,7 +63,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_pos
     float step_multiplier = 1.1;
 
     vec2 start = uv;
-    vec2 prev_uv = uv; // Track the previous UV position
+    vec2 prev_uv = uv;
     for (int i = 1; i < int(n_steps); i++) {
         float step_time = time * (1.0 + float(i) / n_steps * (n_steps / 30.0));
         vec2 delta_uv;
@@ -63,7 +76,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_pos
         delta_uv = length(delta_uv) * vec2(cos(angle), sin(angle));
 
         uv += delta_uv;
-        prev_uv = uv; // Update the previous UV position
+        prev_uv = uv;
     }
 
     float x_bias = (cos(uv.x * 3.0) + 1.0) / 2.0;

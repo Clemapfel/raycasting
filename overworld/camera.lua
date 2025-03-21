@@ -225,3 +225,9 @@ function ow.Camera:world_xy_to_screen_xy(world_x, world_y)
 
     return screen_x, screen_y
 end
+
+--- @brief
+function ow.Camera:get_offset()
+    local w, h = love.graphics.getDimensions()
+    return -_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h
+end

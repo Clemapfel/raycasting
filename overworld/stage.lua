@@ -6,7 +6,9 @@ require "physics.physics"
 
 -- include all overworld classes
 for file in values(love.filesystem.getDirectoryItems("overworld/objects")) do
-    require("overworld.objects." .. string.match(file, "^(.-)%.lua$"))
+    if love.filesystem.getInfo("overworld/objects/" .. file).type == "file" then
+        require("overworld.objects." .. string.match(file, "^(.-)%.lua$"))
+    end
 end
 
 rt.settings.overworld.stage = {

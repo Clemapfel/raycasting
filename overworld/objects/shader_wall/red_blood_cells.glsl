@@ -47,8 +47,12 @@ float worley_noise(vec3 p) {
     return 1 - dist;
 }
 
-float project(float value, float a, float b) {
-    return a + (b - a) * value;
+#define PI 3.1415926535897932384626433832795
+
+float gaussian(float x, float ramp)
+{
+    // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
 #ifdef PIXEL
@@ -58,19 +62,30 @@ uniform vec4 color_b;
 
 uniform float elapsed;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
-    const float outer_scale = 10;
-    const float inner_scale = 16;
-    float time = pow(elapsed, 1.001);
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
 
-    float gnoise = gradient_noise(vec3(
-        texture_coords.x * outer_scale + gradient_noise(vec3(texture_coords.xy * inner_scale, time)),
-        texture_coords.y * outer_scale - gradient_noise(vec3(texture_coords.xy * inner_scale, time)),
-        time
-    ));
+vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
 
-    float value = clamp(fwidth(gnoise) * 15, 0, 1);
-    return vec4(mix(color_b.rgb, color_a.rgb, project(value, -0.8, 0.7)), 1);
+    vec2 uv = to_uv(frag_position);
+    uv *= 1.5;
+    float time = elapsed;
+    float wnoise = worley_noise(vec3(vec2(uv.xy + vec2(0, 0)) * 9, elapsed));
+    const float eps = 0.35;
+    wnoise = smoothstep(0 - eps, 0 + eps, gaussian(1 - wnoise, 1.3));
+    wnoise = 1.2 * gradient_noise(vec3(vec2(uv.xy + -gaussian(length(vec2(dFdx(wnoise), dFdy(wnoise))) * camera_scale, 3)) * 10, elapsed));
+    return vec4(mix(color_b.rgb, color_a.rgb, wnoise), 1);
 }
 
 #endif

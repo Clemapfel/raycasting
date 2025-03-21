@@ -1,6 +1,7 @@
 require "common.scene"
 require "common.mesh"
 require "common.blur"
+require "common.background"
 require "overworld.stage"
 require "overworld.camera"
 require "physics.physics"
@@ -46,6 +47,8 @@ function ow.OverworldScene:instantiate()
 
         _cursor_visible = false,
         _cursor_active = false,
+
+        _background = rt.Background("lymphette"),
 
         _blur = nil, -- rt.Blur
     })
@@ -174,6 +177,8 @@ function ow.OverworldScene:instantiate()
         current = current + dy * rt.settings.overworld.overworld_scene.camera_scale_velocity
         self._camera:set_scale(math.clamp(current, 1 / 3, 3))
     end)
+
+    self._background:realize()
 end
 
 local _cursor = nil
@@ -231,6 +236,8 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
 
     self._blur = rt.Blur(width, height)
     self._blur:set_blur_strength(4)
+
+    self._background:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -330,10 +337,7 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
 --- @brief
 function ow.OverworldScene:draw()
-    love.graphics.setColor(rt.color_unpack(rt.Palette.BLACK))
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-    love.graphics.setColor(1, 1, 1, 1)
-
+    self._background:draw()
 
     self._camera:bind()
     self._stage:draw_floors()
@@ -396,6 +400,7 @@ end
 
 --- @brief
 function ow.OverworldScene:update(delta)
+    self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
     self._player:update(delta)
@@ -449,6 +454,8 @@ function ow.OverworldScene:update(delta)
 
     self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
     self._player:set_facing_angle(self._camera:get_rotation())
+
+
 end
 
 --- @brief
@@ -479,4 +486,9 @@ end
 --- @brief
 function ow.OverworldScene:world_xy_to_screen_xy(x, y)
     return self._camera:world_xy_to_screen_xy(x, y)
+end
+
+--- @brief
+function ow.OverworldScene:get_camera()
+    return self._camera
 end

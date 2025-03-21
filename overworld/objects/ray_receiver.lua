@@ -10,12 +10,21 @@ rt.settings.overworld.ray_receiver = {
 ow.RayReceiver = meta.class("RayReceiver", rt.Drawable)
 meta.add_signals(ow.RayReceiver, "ray_collision_start", "ray_collision_end", "activate")
 
+local _shader
+
 --- @brief
 function ow.RayReceiver:instantiate(object, stage, scene)
     meta.assert(object, "ObjectWrapper", stage, "Stage", scene, "OverworldScene")
     self._world = stage:get_physics_world()
     self._body = object:create_physics_body(self._world)
     self._body:set_user_data(self)
+
+    if _shader == nil then
+        _shader = rt.Shader("overworld/objects/shader_wall/asbestos.glsl")
+        _shader:send("color_a", { rt.Palette.COLOR_A:unpack() })
+        _shader:send("color_b", { rt.Palette.COLOR_B:unpack() })
+    end
+    self._elapsed = 0
 
     local group = 0x0
     group = bit.bor(group, ow.RayMaterial.ABSORPTIVE)
@@ -37,7 +46,7 @@ function ow.RayReceiver:instantiate(object, stage, scene)
     self._y_radius = object.y_radius
     self._fraction_vertices = {}
 
-    self._fraction = 0
+    self._fraction = 1
     self._signal_emitted = false
 end
 
@@ -57,10 +66,18 @@ function ow.RayReceiver:draw()
     love.graphics.ellipse("fill", self._x, self._y, self._x_radius, self._y_radius)
 
     if self._fraction > 0 and #self._fraction_vertices >= 6 then
-        local r, g, b = rt.color_unpack(rt.settings.overworld.raycast.laser_color)
-        love.graphics.setColor(r, g, b, 0.8)
+        _shader:bind()
+        _shader:send("elapsed", self._elapsed)
+        love.graphics.setColor(1, 1, 1, 0.8)
         love.graphics.polygon("fill", self._fraction_vertices)
-        love.graphics.setColor(r - 0.2, g - 0.2, b - 0.2, 1)
+        _shader:unbind()
+
+        rt.Palette.BASE_OUTLINE:bind()
+        love.graphics.setLineWidth(3)
+        love.graphics.polygon("line", self._fraction_vertices)
+
+        rt.Palette.COLOR_B:bind()
+        love.graphics.setLineWidth(2)
         love.graphics.polygon("line", self._fraction_vertices)
     end
 
@@ -87,12 +104,14 @@ function ow.RayReceiver:update(delta)
 
         if self._fraction == 1 and not self._signal_emitted then
             self:signal_emit("activate")
-            rt.SoundManager:player(rt.settings.overworld.ray_receiver.fill_complete_sound_id, x, y)
+            rt.SoundManager:play(rt.settings.overworld.ray_receiver.fill_complete_sound_id, x, y)
             self._signal_emitted = true
         elseif self._fraction < 1 then
             self._signal_emitted = false
         end
     end
+
+    self._elapsed = self._elapsed + delta
 end
 
 --- @brief

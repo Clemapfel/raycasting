@@ -39,8 +39,12 @@ function ow.ObjectWrapper:instantiate(type)
         rotation_origin_y = 0,
 
         properties = {},
-        prototypes = {},
-        prototypes_initialized = false,
+
+        physics_prototypes = {},
+        physics_prototypes_initialized = false,
+
+        mesh_prototypes = {},
+        mesh_prototypes_initialized = false,
 
         instances = meta.make_weak({})
     })
@@ -171,11 +175,9 @@ local function _process_polygon(vertices, object)
 end
 
 --- @brief [internal]
-function ow.ObjectWrapper:_initialize_prototypes()
-    if self._prototypes_initialized == true then return end
-
-    _x_sum, _y_sum, _n = 0, 0, 0
-
+function ow.ObjectWrapper:_initialize_physics_prototypes()
+    if self.physics_prototypes_initialized == true then return end
+    
     local prototypes = {}
     if self.type == ow.ObjectType.RECTANGLE then
         local x, y = self.x, self.y
@@ -247,19 +249,19 @@ function ow.ObjectWrapper:_initialize_prototypes()
         rt.error("In ow.ObjectWrapper._preprocess_shapes: unhandled object type `" .. tostring(self.type) .. "`")
     end
 
-    self.prototypes = prototypes
-    self.prototypes_initialized = true
+    self.physics_prototypes = prototypes
+    self.physics_prototypes_initialized = true
 end
 
 --- @brief
 --- @return Table<b2.Shape>
 function ow.ObjectWrapper:get_physics_shapes()
-    if self.prototypes_initialized ~= true then
-        self:_initialize_prototypes()
+    if self.physics_prototypes_initialized ~= true then
+        self:_initialize_physics_prototypes()
     end
 
     local out = {}
-    for prototype in values(self.prototypes) do
+    for prototype in values(self.physics_prototypes) do
         if prototype.type == ow.ObjectWrapperShapeType.POLYGON then
             table.insert(out, b2.Polygon(prototype.vertices))
         elseif prototype.type == ow.ObjectWrapperShapeType.CIRCLE then
@@ -273,19 +275,37 @@ function ow.ObjectWrapper:get_physics_shapes()
 end
 
 --- @brief
-function ow.ObjectWrapper:create_physics_body(world, type)
+function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
     meta.assert(world, b2.World)
     if type == nil then
         type = self:get_string("type") or b2.BodyType.STATIC
     end
 
-    if not self.prototypes_initialized then self:_initialize_prototypes() end
+    if is_sensor == nil then
+        is_sensor = self:get_boolean("is_sensor") or false
+    end
+
     local out = b2.Body(world, type, 0, 0, self:get_physics_shapes())
     if type == b2.BodyType.DYNAMIC then
         out._native:setLinearDamping(30)
         out._native:setAngularDamping(30)
     end
+    out:set_is_sensor(is_sensor)
     return out
+end
+
+--- @brief
+function ow.ObjectWrapper:_initialize_mesh_prototypes()
+    rt.warning("in ow.ObjectWrapper._initialize_mesh_prototypes: TODO")
+end
+
+--- @brief
+function ow.ObjectWrapper:create_mesh()
+    if self.mesh_prototypes_initialized ~= true then
+        self:_initialize_mesh_prototypes()
+    end
+
+    return rt.MeshRectangle(0, 0, 1, 1)
 end
 
 --- @brief

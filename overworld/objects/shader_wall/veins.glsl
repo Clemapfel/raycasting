@@ -100,12 +100,24 @@ uniform float elapsed;
 uniform vec4 color_a;
 uniform vec4 color_b;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
 
-    vec2 uv = vertex_position / love_ScreenSize.xy;
-    float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
-    uv.x = uv.x * aspect_ratio;
-    uv *= 4;
+vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 vertex_position) {
+
+    vec2 uv = to_uv(vertex_position);
+    uv *= 8.5;
 
     float time = elapsed;
 
