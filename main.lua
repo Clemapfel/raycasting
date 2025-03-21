@@ -12,7 +12,7 @@ local box = ow.DialogBox("debug_dialog")
 local box_shown = false
 
 require "common.background"
-local background = rt.Background("common/backgrounds/worms.glsl")
+local background = rt.Background("common/backgrounds/asbestos.glsl")
 background:realize()
 local color_a = rt.Palette.RED_1
 local color_b = rt.Palette.RED_7

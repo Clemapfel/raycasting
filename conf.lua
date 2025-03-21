@@ -1,5 +1,6 @@
 function love.conf(settings)
     settings.window.msaa = 4
+    settings.window.resizable = true
     --settings.graphics.renderers = {"opengl"}
 end
 
