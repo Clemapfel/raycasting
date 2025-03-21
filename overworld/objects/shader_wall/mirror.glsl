@@ -67,14 +67,16 @@ vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
     // Apply rotation and scaling
     //uv -= camera_offset / love_ScreenSize.xy;
     uv = rotate(uv, (2 * PI) / 8);
-    uv.x /= 75;
+    //uv.x /= 75;
     uv.y -= elapsed / 100;
 
     // Introduce distortion using noise
     float distortion_strength = 0.14; // Control the intensity of distortion
+    float distortion_scale = 10;
+    float distortion_speed = 1 / 2.0;
     vec2 distortion = vec2(
-    gradient_noise(vec3(uv * 10, 1)),
-    gradient_noise(vec3(uv * 10, 1))
+    gradient_noise(vec3(uv * distortion_scale, elapsed * distortion_speed)),
+    gradient_noise(vec3(uv * distortion_scale, elapsed * distortion_speed))
     ) * distortion_strength;
 
     uv += distortion;

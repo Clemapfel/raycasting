@@ -296,7 +296,23 @@ end
 
 --- @brief
 function ow.ObjectWrapper:_initialize_mesh_prototypes()
-    rt.warning("in ow.ObjectWrapper._initialize_mesh_prototypes: TODO")
+    if self.mesh_prototypes_initialized == true then return end
+    local tris = {}
+    if self.type == ow.ObjectType.RECTANGLE then
+        local x, y = self.x, self.y
+        local w, h = self.width, self.height
+        table.insert(tris, {
+            x, y,
+            x + w, y,
+            x + w, y + h
+        })
+
+        table.insert(tris, {
+            x + y,
+            x + w, y + h,
+            x, y + h
+        })
+    end
 end
 
 --- @brief
