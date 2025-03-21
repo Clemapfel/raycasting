@@ -62,6 +62,8 @@ love.draw = function()
     if box_shown then
         box:draw()
     end
+
+    --bg:draw()
 end
 
 love.resize = function(width, height)

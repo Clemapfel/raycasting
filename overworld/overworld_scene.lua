@@ -112,6 +112,16 @@ function ow.OverworldScene:instantiate()
             self._player_is_focused = false
         end
     end
+    
+    function self:_set_cursor_visible(b)
+        self._cursor_visible = b
+        if b == false then
+            self._camera_pan_up_speed = 0
+            self._camera_pan_right_speed = 0
+            self._camera_pan_down_speed = 0
+            self._camera_pan_left_speed = 0
+        end
+    end
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         local max_velocity = rt.settings.overworld.overworld_scene.camera_translation_velocity
@@ -127,6 +137,10 @@ function ow.OverworldScene:instantiate()
 
         _update_velocity()
         self._cursor_active = false
+        self._camera_pan_up_speed = 0
+        self._camera_pan_right_speed = 0
+        self._camera_pan_down_speed = 0
+        self._camera_pan_left_speed = 0
     end)
 
     self._input:signal_connect("keyboard_key_released", function(_, which)
@@ -152,24 +166,23 @@ function ow.OverworldScene:instantiate()
             self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
             self._camera_pan_down_speed = math.max((y - (self._bounds.y + self._bounds.height - w)) / w, 0)
             self._camera_pan_left_speed = math.max((w - x) / w, 0)
-            self._cursor_visible = true
+            self:_set_cursor_visible(true)
         end
     end)
 
     self._input:signal_connect("input_method_changed", function(_, which)
         if which ~= rt.InputMethod.KEYBOARD then
-            self._cursor_visible = false
+            self:_set_cursor_visible(false)
             self._cursor_active = false
             -- only hide, reveal could mess up out-of-window disable
         end
     end)
 
     self._input:signal_connect("mouse_entered_screen", function(_)
-        self._cursor_visible = true
     end)
 
     self._input:signal_connect("mouse_left_screen", function(_)
-        self._cursor_visible = false
+        self:_set_cursor_visible(false)
     end)
 
     self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
@@ -444,7 +457,7 @@ function ow.OverworldScene:update(delta)
             local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
         end
     else
-        if false then --self._cursor_visible then
+        if self._cursor_visible then
             local cx, cy = self._camera:get_position()
             cx = cx + self._camera_translation_velocity_x * delta
             cy = cy + self._camera_translation_velocity_y * delta

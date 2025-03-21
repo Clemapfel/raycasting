@@ -126,8 +126,8 @@ function b2.Body:get_predicted_position()
     local x, y = self._current_x, self._current_y
     local delta = love.timer.getTime() - self._current_timestamp
 
-    local vx = dx-- / dt
-    local vy = dy-- / dt
+    local vx = dx * dt
+    local vy = dy * dt
 
     -- safeguard when teleporting
     if vx < 0 then
