@@ -165,8 +165,10 @@ function math.clamp(x, lower_bound, upper_bound)
 end
 
 --- @brief
-function math.project(value, lower, upper)
-    return value * math.abs(upper - lower) + math.min(lower, upper);
+function math.project(x, target_range_lower, target_range_upper, original_range_lower, original_range_upper)
+    if original_range_lower == nil then original_range_lower = 0 end
+    if original_range_upper == nil then original_range_upper = 1 end
+    return ((x - original_range_lower) / (original_range_upper - original_range_lower)) * (target_range_upper - target_range_lower) + target_range_lower
 end
 
 --- @brief linear interpolate between two values

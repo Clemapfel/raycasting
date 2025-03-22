@@ -1,8 +1,11 @@
+rt.settings.overworld.rotary_motor = {
+    speed = 1.5
+}
+
 --- @class ow.RotaryMotor
 --- @field target ow.ObjectWrapper
 --- @field speed Number?
 --- @field initial_position Number?
-
 ow.RotaryMotor = meta.class("RotaryMotor", rt.Drawable)
 meta.add_signals(ow.RotaryMotor,
     "start", --- @signal start (self) -> nil
@@ -15,6 +18,9 @@ meta.add_signals(ow.RotaryMotor,
 function ow.RotaryMotor:instantiate(object, stage, scene)
     local world = stage:get_physics_world()
     local target = object:get_object("target", true)
+
+    self._speed = rt.settings.overworld.rotary_motor.speed
+    self._value = 0
 
     -- delay until other object is initialized
     local signal_id
@@ -39,31 +45,40 @@ function ow.RotaryMotor:instantiate(object, stage, scene)
             false
         )
 
-        self._joint:setMotorEnabled(false)
-        self._joint:setMotorSpeed(100 or object:get_number("speed"))
+        self._joint:setMotorEnabled(true)
+        self._joint:setMotorSpeed(0)
         self._joint:setMaxMotorTorque(math.huge)
         self._joint:setLimitsEnabled(true)
-        self._joint:setLowerLimit(-math.huge)
+        self._joint:setLimits(0, 2 * math.pi)
         self._joint:setUserData(self)
+
+        self._is_active = true
 
         local initial_position = object:get_number("initial_position", false)
         if initial_position ~= nil then
             self:set_value(initial_position)
-        else
-            self:set_value(1)
         end
 
         self:signal_connect("start", function(self)
-            self._joint:setMotorEnabled(true)
+            self._is_active = true
         end)
 
         self:signal_connect("stop", function(self)
-            self._joint:setMotorEnabled(false)
+            self._is_active = false
         end)
 
         self:signal_connect("set", function(self, value)
-            self._joint:setMotorEnabled(true)
+            self._is_active = true
             self:set_value(value)
+        end)
+
+        self:signal_connect("toggle", function(self, value)
+            self._is_active = true
+            if self._value > 0 then
+                self:set_value(0)
+            else
+                self:set_value(1)
+            end
         end)
 
         stage:signal_disconnect("initialized", signal_id)
@@ -73,12 +88,17 @@ end
 --- @brief
 --- @param x Number radians
 function ow.RotaryMotor:set_value(x)
-    self._joint:setUpperLimit(x * (2 * math.pi))
+    self._value = x
 end
 
 --- @brief
-function ow.RotaryMotor:set_speed(x)
-    self._joint:setMotorSpeed(x)
+function ow.RotaryMotor:update(delta)
+    if self._is_active ~= true then return end
+
+    local target_angle = self._value * (2 * math.pi)
+    local current_angle = self._joint:getJointAngle()
+    local angle_difference = target_angle - current_angle
+    self._joint:setMotorSpeed(angle_difference * self._speed)
 end
 
 --- @brief

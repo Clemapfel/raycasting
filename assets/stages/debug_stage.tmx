@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="143">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="144">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -429,13 +429,14 @@
    </properties>
    <polygon points="2.18325,-2.911 134.126,126.869 135.215,-2.69153"/>
   </object>
-  <object id="132" type="Hitbox" x="577.072" y="96.9295" width="29.7322" height="4.60142">
+  <object id="132" type="Hitbox" x="568.296" y="81.4416" width="29.7322" height="3.5689" rotation="92">
    <properties>
     <property name="type" value="dynamic"/>
    </properties>
   </object>
-  <object id="136" name="LinearMotor" type="LinearMotor" x="591.88" y="147.1">
+  <object id="136" name="LinearMotor" type="LinearMotor" x="499.948" y="93.3105">
    <properties>
+    <property name="lower" type="float" value="-2"/>
     <property name="target" type="object" value="132"/>
    </properties>
    <point/>
@@ -446,7 +447,7 @@
   <object id="61" name="spawn" type="PlayerSpawn" x="426.671" y="117.436">
    <point/>
   </object>
-  <object id="131" type="Hitbox" x="690.924" y="117.586">
+  <object id="131" type="Hitbox" x="694.022" y="118.102">
    <properties>
     <property name="type" value="dynamic"/>
    </properties>
@@ -463,6 +464,13 @@
     <property name="draw" type="bool" value="true"/>
     <property name="signal" value="toggle"/>
     <property name="target" type="object" value="136"/>
+   </properties>
+  </object>
+  <object id="143" name="Start Motors" type="OverlapTrigger" x="475.251" y="149.144" width="48.8998" height="49.8778">
+   <properties>
+    <property name="draw" type="bool" value="true"/>
+    <property name="signal" value="toggle"/>
+    <property name="target" type="object" value="139"/>
    </properties>
   </object>
  </objectgroup>

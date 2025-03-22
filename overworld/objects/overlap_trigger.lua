@@ -17,6 +17,7 @@ function ow.OverlapTrigger:instantiate(object, stage, scene)
     local signal_id
     signal_id = stage:signal_connect("initialized", function(stage)
         self._receiver = stage:get_object_instance(self._target)
+        dbg(meta.typeof(self._receiver))
         if not self._receiver:signal_has_signal(self._signal) then
             rt.error("In ow.OverlapTrigger: trigger `" .. object:get_id() .. "` is set to trigger signal `" .. self._signal .. "` in object `" .. meta.typeof(self._receiver) .. "`, but it does not have that signal")
         end

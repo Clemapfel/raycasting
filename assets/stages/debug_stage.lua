@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 143,
+  nextobjectid = 144,
   properties = {},
   tilesets = {
     {
@@ -932,11 +932,11 @@ return {
           name = "",
           type = "Hitbox",
           shape = "rectangle",
-          x = 577.072,
-          y = 96.9295,
+          x = 568.296,
+          y = 81.4416,
           width = 29.7322,
-          height = 4.60142,
-          rotation = 0,
+          height = 3.5689,
+          rotation = 92,
           visible = true,
           properties = {
             ["type"] = "dynamic"
@@ -947,13 +947,14 @@ return {
           name = "LinearMotor",
           type = "LinearMotor",
           shape = "point",
-          x = 591.88,
-          y = 147.1,
+          x = 499.948,
+          y = 93.3105,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
+            ["lower"] = -2,
             ["target"] = { id = 132 }
           }
         },
@@ -1004,8 +1005,8 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 690.924,
-          y = 117.586,
+          x = 694.022,
+          y = 118.102,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1050,6 +1051,23 @@ return {
             ["draw"] = true,
             ["signal"] = "toggle",
             ["target"] = { id = 136 }
+          }
+        },
+        {
+          id = 143,
+          name = "Start Motors",
+          type = "OverlapTrigger",
+          shape = "rectangle",
+          x = 475.251,
+          y = 149.144,
+          width = 48.8998,
+          height = 49.8778,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["draw"] = true,
+            ["signal"] = "toggle",
+            ["target"] = { id = 139 }
           }
         }
       }
