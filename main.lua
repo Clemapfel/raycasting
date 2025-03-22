@@ -35,7 +35,7 @@ love.load = function(args)
     --love.mouse.setCursor(cursor, data:getWidth(), data:getHeight())
 
     require "overworld.overworld_scene"
-    SceneManager:set_scene(ow.OverworldScene, "debug_stage_alt_room")
+    SceneManager:set_scene(ow.OverworldScene, "debug_stage")
 
     local joystick = love.joystick.getPosition
 
@@ -71,5 +71,4 @@ love.resize = function(width, height)
 
     box:reformat(0, 0, love.graphics.getDimensions())
     bg:reformat(0, 0, love.graphics.getDimensions())
-
 end

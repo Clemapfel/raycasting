@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 136,
+  nextobjectid = 143,
   properties = {},
   tilesets = {
     {
@@ -312,27 +312,6 @@ return {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-          }
-        },
-        {
-          x = 16, y = 0, width = 16, height = 16,
-          data = {
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 69, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -809,21 +788,6 @@ return {
           properties = {}
         },
         {
-          id = 72,
-          name = "",
-          type = "Teleporter",
-          shape = "ellipse",
-          x = 609.907,
-          y = 34.0854,
-          width = 27.228,
-          height = 27.9322,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 92 }
-          }
-        },
-        {
           id = 73,
           name = "",
           type = "Teleporter",
@@ -843,8 +807,8 @@ return {
           name = "",
           type = "Teleporter",
           shape = "ellipse",
-          x = 385.854,
-          y = 196.516,
+          x = 386.114,
+          y = 193.92,
           width = 27.228,
           height = 27.9322,
           rotation = 0,
@@ -929,153 +893,18 @@ return {
           }
         },
         {
-          id = 87,
-          name = "glass",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = 662.977,
-          y = 33.2103,
-          width = 14.7601,
-          height = 191.882,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["is_transmissive"] = true
-          }
-        },
-        {
-          id = 88,
-          name = "filter",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = 571.956,
-          y = 29.5203,
-          width = 14.7601,
-          height = 196.802,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["is_filtrative"] = true
-          }
-        },
-        {
-          id = 90,
-          name = "mirror",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = 376.384,
-          y = 28.9053,
-          width = 14.7601,
-          height = 161.132,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["is_reflective"] = true
-          }
-        },
-        {
-          id = 92,
-          name = "",
-          type = "Teleporter",
-          shape = "ellipse",
-          x = 708.403,
-          y = 34.0044,
-          width = 27.228,
-          height = 27.9322,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 72 }
-          }
-        },
-        {
           id = 93,
           name = "",
           type = "Teleporter",
           shape = "ellipse",
-          x = 387.37,
-          y = 289.847,
+          x = 386.072,
+          y = 290.107,
           width = 27.228,
           height = 27.9322,
           rotation = 0,
           visible = true,
           properties = {
             ["target"] = { id = 74 }
-          }
-        },
-        {
-          id = 94,
-          name = "mirror",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = 380.074,
-          y = 26.4451,
-          width = 153.751,
-          height = 13.5305,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["is_reflective"] = true
-          }
-        },
-        {
-          id = 95,
-          name = "Teleporter",
-          type = "RayTeleporter",
-          shape = "rectangle",
-          x = 448.99,
-          y = 599.981,
-          width = 63.4136,
-          height = 8.12898,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 100 }
-          }
-        },
-        {
-          id = 98,
-          name = "Teleporter",
-          type = "RayTeleporter",
-          shape = "rectangle",
-          x = 688.74,
-          y = 401.19,
-          width = 32.4082,
-          height = 8.12898,
-          rotation = -90,
-          visible = true,
-          properties = {
-            ["target"] = { id = 99 }
-          }
-        },
-        {
-          id = 99,
-          name = "Teleporter",
-          type = "RayTeleporter",
-          shape = "rectangle",
-          x = 544.579,
-          y = 401.233,
-          width = 32.4082,
-          height = 8.12898,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 98 }
-          }
-        },
-        {
-          id = 100,
-          name = "Teleporter",
-          type = "RayTeleporter",
-          shape = "rectangle",
-          x = 543.164,
-          y = 599.778,
-          width = 63.4136,
-          height = 8.12898,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 95 }
           }
         },
         {
@@ -1099,58 +928,14 @@ return {
           }
         },
         {
-          id = 114,
-          name = "Splitter",
-          type = "BeamSplitter",
-          shape = "rectangle",
-          x = 740.285,
-          y = 370.003,
-          width = 36.5631,
-          height = 36.5631,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["type"] = "dynamic"
-          }
-        },
-        {
-          id = 125,
-          name = "Linear Motor",
-          type = "LinearMotor",
-          shape = "rectangle",
-          x = 1284.96,
-          y = 306.703,
-          width = 12.0358,
-          height = 12.9273,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["initial_position"] = 0,
-            ["target"] = { id = 132 }
-          }
-        },
-        {
           id = 132,
           name = "",
-          type = "",
-          shape = "rectangle",
-          x = 1276.72,
-          y = 278.046,
-          width = 28.784,
-          height = 4.45467,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 133,
-          name = "",
           type = "Hitbox",
-          shape = "ellipse",
-          x = 1140.24,
-          y = 307.571,
-          width = 18.2782,
-          height = 17.0597,
+          shape = "rectangle",
+          x = 577.072,
+          y = 96.9295,
+          width = 29.7322,
+          height = 4.60142,
           rotation = 0,
           visible = true,
           properties = {
@@ -1158,41 +943,27 @@ return {
           }
         },
         {
-          id = 134,
-          name = "Pin",
-          type = "Pin",
+          id = 136,
+          name = "LinearMotor",
+          type = "LinearMotor",
           shape = "point",
-          x = 1148.92,
-          y = 315.812,
+          x = 591.88,
+          y = 147.1,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        }
-      }
-    },
-    {
-      type = "objectgroup",
-      draworder = "index",
-      id = 5,
-      name = "Object Layer 2",
-      class = "",
-      visible = true,
-      opacity = 1,
-      offsetx = 0,
-      offsety = 0,
-      parallaxx = 1,
-      parallaxy = 1,
-      properties = {},
-      objects = {
+          properties = {
+            ["target"] = { id = 132 }
+          }
+        },
         {
           id = 60,
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 369.333,
-          y = 725.333,
+          x = 403.32,
+          y = 712.871,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1220,8 +991,8 @@ return {
           name = "spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1414.34,
-          y = 242.557,
+          x = 426.671,
+          y = 117.436,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1229,111 +1000,35 @@ return {
           properties = {}
         },
         {
-          id = 85,
-          name = "Receiver",
-          type = "RayReceiver",
-          shape = "ellipse",
-          x = 444.693,
-          y = 94.7109,
-          width = 60,
-          height = 60,
+          id = 131,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 690.924,
+          y = 117.586,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 102,
-          name = "Emitter",
-          type = "RayEmitter",
-          shape = "rectangle",
-          x = 460.841,
-          y = 402.059,
-          width = 10.1657,
-          height = 3.31925,
-          rotation = 0,
-          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 89.0523, y = 0 },
+            { x = 88.2353, y = 9.80392 },
+            { x = 0, y = 9.80392 }
+          },
           properties = {
-            ["direction"] = { id = 103 }
+            ["type"] = "dynamic"
           }
         },
         {
-          id = 103,
-          name = "",
-          type = "RayEmitterDirection",
-          shape = "point",
-          x = 465.871,
-          y = 418.846,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 115,
-          name = "Emitter",
-          type = "RayEmitter",
-          shape = "rectangle",
-          x = 32.5441,
-          y = 434.942,
-          width = 6.53769,
-          height = 21.9206,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["direction"] = { id = 116 }
-          }
-        },
-        {
-          id = 116,
-          name = "",
-          type = "",
-          shape = "point",
-          x = 49.3191,
-          y = 445.92,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 118,
-          name = "Emitter",
-          type = "RayEmitter",
-          shape = "rectangle",
-          x = 560.686,
-          y = 219.352,
-          width = 10.1657,
-          height = 3.31925,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["direction"] = { id = 119 }
-          }
-        },
-        {
-          id = 119,
-          name = "",
-          type = "",
-          shape = "point",
-          x = 544.381,
-          y = 166.013,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 130,
-          name = "Rotary motor",
+          id = 139,
+          name = "RotaryMotor",
           type = "RotaryMotor",
-          shape = "rectangle",
-          x = 1183.01,
-          y = 306.373,
-          width = 15.5229,
-          height = 15.5229,
+          shape = "point",
+          x = 735.458,
+          y = 122.83,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {
@@ -1341,23 +1036,21 @@ return {
           }
         },
         {
-          id = 131,
-          name = "",
-          type = "RotaryMotorTarget",
-          shape = "polygon",
-          x = 1146.24,
-          y = 309.641,
-          width = 0,
-          height = 0,
+          id = 141,
+          name = "Start Motors",
+          type = "OverlapTrigger",
+          shape = "rectangle",
+          x = 475.306,
+          y = 147.677,
+          width = 48.8998,
+          height = 49.8778,
           rotation = 0,
-          visible = false,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 89.0523, y = 0 },
-            { x = 88.2353, y = 9.80392 },
-            { x = 0, y = 9.80392 }
-          },
-          properties = {}
+          visible = true,
+          properties = {
+            ["draw"] = true,
+            ["signal"] = "toggle",
+            ["target"] = { id = 136 }
+          }
         }
       }
     }

@@ -187,6 +187,7 @@ local _signal_connect = function(instance, id, callback)
     entry.current_callback_id = entry.current_callback_id + 1
     entry.callback_id_to_callback[callback_id] = callback
     table.insert(entry.callbacks_in_order, callback)
+    return callback_id
 end
 
 local _signal_disconnect = function(instance, id, callback_id)
@@ -203,7 +204,7 @@ local _signal_disconnect = function(instance, id, callback_id)
     end
 
     if callback_id == nil then
-        self:signal_disconnect_all(id)
+        instance:signal_disconnect_all(id)
     else
         local callback = entry.callback_id_to_callback[callback_id]
         if callback == nil then

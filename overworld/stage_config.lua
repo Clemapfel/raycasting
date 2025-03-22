@@ -25,6 +25,7 @@ local _get = function(x, key)
 end
 
 local _tileset_atlas = {}
+local _dummy_hitbox_id = -1
 
 --- @brief
 function ow.StageConfig:instantiate(stage_id)
@@ -293,7 +294,8 @@ function ow.StageConfig:instantiate(stage_id)
                             w = w * self._tile_width
                             h = h * self._tile_height
 
-                            local wrapper = ow.ObjectWrapper("Hitbox"):_as_rectangle(x, y, w, h)
+                            local wrapper = ow.ObjectWrapper("Hitbox", _dummy_hitbox_id):_as_rectangle(x, y, w, h)
+                            _dummy_hitbox_id = _dummy_hitbox_id - 1
                             table.insert(to_add.objects, wrapper)
                         end
                     end

@@ -18,7 +18,7 @@ local _id_to_shader = {}
 function ow.Hitbox:instantiate(object, stage, scene)
     local id = object:get_string("shader", false)
 
-    TODO: choose shader base on properties
+    -- TODO: choose shader base on properties
 
     local shader = nil
     if id ~= nil then
@@ -50,8 +50,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
 
     if _scene_connected ~= true then
         scene:signal_connect("update", function(scene, delta)
-            ow.Hitbox.notify_frame_advance(delta)
-            ow.Hitbox.notify_camera_changed(scene:get_camera())
+            ow.Hitbox._notify_frame_advance(delta)
+            ow.Hitbox._notify_camera_changed(scene:get_camera())
         end)
         _scene_connected = true
     end
@@ -59,34 +59,6 @@ function ow.Hitbox:instantiate(object, stage, scene)
     if object:get_string("type") == b2.BodyType.DYNAMIC then
         self._body._native:setLinearDamping(30)
         self._body._native:setAngularDamping(30)
-    end
-
-    local group = 0x0
-    local once = false
-    if object:get_boolean("is_reflective") then
-        group = bit.bor(group, ow.RayMaterial.REFLECTIVE)
-        self._body:add_tag("draw")
-        self._color = rt.Palette.WHITE
-        once = true
-    end
-
-    if object:get_boolean("is_transmissive") then
-        group = bit.bor(group, ow.RayMaterial.TRANSMISSIVE)
-        self._body:add_tag("draw")
-        self._color = rt.Palette.BLUE_2
-        once = true
-    end
-
-    if object:get_boolean("is_filtrative") then
-        group = bit.bor(group, ow.RayMaterial.FILTRATIVE)
-        self._body:add_tag("draw")
-        self._color = rt.Palette.BLACK
-        once = true
-    end
-
-    if object:get_boolean("is_absorptive") or once == false then
-        group = bit.bor(group, ow.RayMaterial.ABSORPTIVE)
-        once = true
     end
 end
 
@@ -106,14 +78,12 @@ function ow.Hitbox:draw()
 
         self._mesh:draw()
         self._shader:unbind()
+    end
 
+    if self._shader ~= nil or self._body:has_tag("draw") then
         local stencil_value = rt.graphics.get_stencil_value()
         love.graphics.setColor(1, 1, 1, 1)
-        rt.graphics.stencil(stencil_value, function()
-            for tri in values(self._mesh_triangles) do
-                love.graphics.polygon("fill", tri)
-            end
-        end)
+        rt.graphics.stencil(stencil_value, self._mesh)
         rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
         local line_width = 2
@@ -151,12 +121,17 @@ function ow.Hitbox:draw()
 end
 
 --- @brief
-function ow.Hitbox.notify_frame_advance(delta)
+function ow.Hitbox._notify_frame_advance(delta)
     _elapsed = _elapsed + delta
 end
 
 --- @brief
-function ow.Hitbox.notify_camera_changed(camera)
+function ow.Hitbox._notify_camera_changed(camera)
     _offset_x, _offset_y = camera:get_offset()
     _scale = camera:get_scale()
+end
+
+--- @brief
+function ow.Hitbox:get_physics_body()
+    return self._body
 end

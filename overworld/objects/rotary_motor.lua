@@ -2,45 +2,72 @@
 --- @field target ow.ObjectWrapper
 --- @field speed Number?
 --- @field initial_position Number?
-ow.RotaryMotor = meta.class("RotaryMotor", rt.Drawable)
 
---- @class ow.RotaryMotorTarget
-ow.RotaryMotorTarget = meta.class("RotaryMotorTarget") -- dummy
+ow.RotaryMotor = meta.class("RotaryMotor", rt.Drawable)
+meta.add_signals(ow.RotaryMotor,
+    "start", --- @signal start (self) -> nil
+    "stop",  --- @signal stop (self) -> nil
+    "set",   --- @signal set (self, Number) -> nil
+    "toggle" --- @signal toggle (self) -> nil
+)
 
 --- @brief
 function ow.RotaryMotor:instantiate(object, stage, scene)
     local world = stage:get_physics_world()
     local target = object:get_object("target", true)
 
-    meta.install(self, {
-        _anchor = object:create_physics_body(world, b2.BodyType.STATIC),
-        _target = target:create_physics_body(world, b2.BodyType.DYNAMIC)
-    })
+    -- delay until other object is initialized
+    local signal_id
+    signal_id = stage:signal_connect("initialized", function(stage)
+        meta.install(self, {
+            _anchor = object:create_physics_body(world, b2.BodyType.STATIC),
+            _target = stage:get_object_instance(target):get_physics_body()
+        })
 
-    self._anchor:set_is_sensor(true)
+        if self._target:get_type() == b2.BodyType.STATIC then
+            rt.warning("In ow.RotaryMotor: instance of target object `" .. object.id .. "` of stage `" .. stage:get_id() .. "` is static, it cannot be moved")
+        end
 
-    local anchor_x, anchor_y = object:get_centroid()
-    self._anchor_x, self._anchor_y = anchor_x, anchor_y
-    self._joint = love.physics.newRevoluteJoint(
-        self._anchor:get_native(),
-        self._target:get_native(),
-        anchor_x, anchor_y, -- pivot is centroid of anchor
-        false
-    )
+        self._anchor:set_is_sensor(true)
 
-    self._joint:setMotorEnabled(true)
-    self._joint:setMotorSpeed(100 or object:get_number("speed"))
-    self._joint:setMaxMotorTorque(math.huge)
-    self._joint:setLimitsEnabled(true)
-    self._joint:setLowerLimit(-math.huge)
-    self._joint:setUserData(self)
+        local anchor_x, anchor_y = object:get_centroid()
+        self._anchor_x, self._anchor_y = anchor_x, anchor_y
+        self._joint = love.physics.newRevoluteJoint(
+            self._anchor:get_native(),
+            self._target:get_native(),
+            anchor_x, anchor_y, -- pivot is centroid of anchor
+            false
+        )
 
-    local initial_position = object:get_number("initial_position", false)
-    if initial_position ~= nil then
-        self:set_value(initial_position)
-    else
-        self:set_value(1)
-    end
+        self._joint:setMotorEnabled(false)
+        self._joint:setMotorSpeed(100 or object:get_number("speed"))
+        self._joint:setMaxMotorTorque(math.huge)
+        self._joint:setLimitsEnabled(true)
+        self._joint:setLowerLimit(-math.huge)
+        self._joint:setUserData(self)
+
+        local initial_position = object:get_number("initial_position", false)
+        if initial_position ~= nil then
+            self:set_value(initial_position)
+        else
+            self:set_value(1)
+        end
+
+        self:signal_connect("start", function(self)
+            self._joint:setMotorEnabled(true)
+        end)
+
+        self:signal_connect("stop", function(self)
+            self._joint:setMotorEnabled(false)
+        end)
+
+        self:signal_connect("set", function(self, value)
+            self._joint:setMotorEnabled(true)
+            self:set_value(value)
+        end)
+
+        stage:signal_disconnect("initialized", signal_id)
+    end)
 end
 
 --- @brief
@@ -52,14 +79,6 @@ end
 --- @brief
 function ow.RotaryMotor:set_speed(x)
     self._joint:setMotorSpeed(x)
-end
-
-local _elapsed = 0
-
---- @brief
-function ow.RotaryMotor:update(delta)
-    _elapsed = _elapsed + delta
-    self:set_value(math.sin(_elapsed))
 end
 
 --- @brief

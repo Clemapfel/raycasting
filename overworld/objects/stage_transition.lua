@@ -24,9 +24,7 @@ function ow.StageTransition:instantiate(object, stage, scene)
         _centroid_y = centroid_y,
         _is_disabled = false
     })
-
     self._body:set_is_sensor(true)
-    self._body:set_collision_group(ow.RayMaterial.TRANSMISSIVE)
 
     self._scene:_notify_stage_transition_added( -- set self as spawn point when entering
         self,

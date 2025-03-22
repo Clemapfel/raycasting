@@ -101,13 +101,15 @@ end
 
 local _elapsed = 0
 local _step = 1 / 120
+local _max_n_steps_per_frame = 2 / 30 * (1 / _step) -- max 2 steps at 30fps
 
 --- @brief
 function b2.World:update(delta)
     _elapsed = _elapsed + delta
 
     local total_step = 0
-    while _elapsed > _step do
+    local n_steps = 0
+    while _elapsed > _step and n_steps < _max_n_steps_per_frame do
         -- work through queued body updates from when world was locked
         for entry in values(self._transform_queue) do
             if entry.x ~= nil and entry.y ~= nil then
@@ -134,6 +136,7 @@ function b2.World:update(delta)
         self:signal_emit("step", _step)
 
         _elapsed = _elapsed - _step
+        n_steps = n_steps + 1
     end
 end
 

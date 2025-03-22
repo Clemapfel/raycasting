@@ -15,12 +15,14 @@ ow.ObjectType = meta.enum("ObjectType", {
 })
 
 --- @brief
-function ow.ObjectWrapper:instantiate(type)
+function ow.ObjectWrapper:instantiate(type, id)
+    meta.assert(type, "String", id, "Number")
     local class = nil
     if type ~= "" then class = type end
     meta.install(self, {
         class = class,
-        type = nil,
+        id = id,
+        type = nil, -- set in _parse_object_group
 
         origin_x = 0,
         origin_y = 0,
@@ -127,7 +129,7 @@ end
 
 --- @brief
 function ow.ObjectWrapper:clone()
-    local out = ow.ObjectWrapper()
+    local out = ow.ObjectWrapper(self.type, self.id)
     for k, v in pairs(self) do
         out[k] = v
     end
@@ -479,6 +481,18 @@ function ow.ObjectWrapper:get_object(id, assert_exists)
 end
 
 --- @brief
+function ow.ObjectWrapper:get(id, assert_exists)
+    if assert_exists == nil then assert_exists = false end
+    local out = self.properties[id]
+    if out == nil then
+        if assert_exists == true then
+            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+        end
+    end
+    return out
+end
+
+--- @brief
 --- @param id String
 --- @param assert_exists Boolean?
 function ow.ObjectWrapper:draw()
@@ -573,8 +587,7 @@ function ow._parse_object_group(object_group)
     local object_id_to_wrapper = {}
 
     for object in values(object_group.objects) do
-        local wrapper = ow.ObjectWrapper(_get(object, "type"))
-        wrapper.id = _get(object, "id")
+        local wrapper = ow.ObjectWrapper(_get(object, "type"), _get(object, "id"))
         wrapper.name = _get(object, "name")
 
         wrapper.to_replace = {}
@@ -589,7 +602,7 @@ function ow._parse_object_group(object_group)
         wrapper.rotation = math.rad(_get(object, "rotation"))
 
         if object.gid ~= nil then
-            assert(object.shape == "rectangle", "In ow.parse_tiled_object: object has gid, but is not a rectangle")
+            assert(object.shape == "rectangle", "In ow._parse_object_group: object has gid, but is not a rectangle")
 
             local true_gid, flip_horizontally, flip_vertically = _decode_gid(object.gid)
             local x, y = _get(object, "x"), _get(object, "y")
@@ -664,7 +677,10 @@ function ow._parse_object_group(object_group)
                 if object.rotation ~= nil then assert(object.rotation == 0) end
             end
 
-            if wrapper.class == nil then wrapper.class = "ObjectWrapper" end
+            if wrapper.class == nil then
+                rt.warning("In ow._parse_object_group: object `" .. wrapper.id .. "` has no class, assuming `Hitbox`")
+                wrapper.class = "Hitbox"
+            end
         end
 
         table.insert(objects, wrapper)
@@ -675,6 +691,7 @@ function ow._parse_object_group(object_group)
     for wrapper in values(objects) do
         for key, id in pairs(wrapper.to_replace) do
             wrapper.properties[key] = object_id_to_wrapper[id]
+            assert(wrapper.properties[key] ~= nil, "In ow._parse_object_group: object `" .. wrapper.id .. "` points to `" .. id .. "`, but not object with that id is located on the same layer")
         end
         wrapper.to_replace = nil
     end

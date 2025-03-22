@@ -356,26 +356,6 @@ function ow.OverworldScene:draw()
     self._stage:draw_floors()
     self._player:draw()
     self._stage:draw_objects()
-    self._camera:unbind()
-
-    self._blur:bind()
-    local r, g, b = rt.color_unpack(rt.settings.overworld.raycast.laser_color)
-    love.graphics.clear(r, g, b, 0)
-    self._camera:bind()
-    ow.Raycast.draw_all()
-    self._camera:unbind()
-    self._blur:unbind()
-
-    love.graphics.setColor(1, 1, 1, 0.6)
-    self._blur:draw()
-
-    love.graphics.setColor(1, 1, 1, 1)
-    self._camera:bind()
-    ow.Raycast.draw_all()
-    self._camera:unbind()
-
-    self._camera:bind()
-
     self._stage:draw_walls()
     self._camera:unbind()
 

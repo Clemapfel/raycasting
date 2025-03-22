@@ -30,6 +30,7 @@ ow.Stage._config_atlas = {}
 function ow.Stage:instantiate(scene, id)
     meta.assert(scene, "OverworldScene", id, "String")
     self._scene = scene
+    self._is_initialized = false
 
     local config = ow.Stage._config_atlas[id]
     if config == nil then
@@ -55,10 +56,10 @@ function ow.Stage:instantiate(scene, id)
     local floor_class_name = rt.settings.overworld.stage.floor_class_name
     local wall_class_name = rt.settings.overworld.stage.wall_class_name
 
-
     self._floor_to_draw = {}
     self._other_to_draw = {}
     self._walls_to_draw = {}
+    self._object_id_to_instance = meta.make_weak({})
 
     for layer_i = 1, self._config:get_n_layers() do
         local to_draw = self._other_to_draw
@@ -109,7 +110,7 @@ function ow.Stage:instantiate(scene, id)
                     end
                     object = Type(wrapper, self, self._scene)
                     table.insert(self._objects, object)
-                    table.insert(wrapper.instances, object) -- mark object so object properties
+                    self._object_id_to_instance[wrapper.id] = object
 
                     if meta.isa(object, rt.Drawable) then
                         table.insert(drawables, object)
@@ -134,6 +135,7 @@ function ow.Stage:instantiate(scene, id)
     if self._player_spawn_y == nil then self._player_spawn_y = 0.5 * h end
 
     self._bounds = rt.AABB(0, 0, w, h)
+    self._is_initialized = true
     self:signal_emit("initialized")
 end
 
@@ -199,4 +201,15 @@ end
 --- @brief
 function ow.Stage:get_id()
     return self._config:get_id()
+end
+
+--- @brief
+function ow.Stage:get_object_instance(object)
+    meta.assert(object, ow.ObjectWrapper)
+    if not self._is_initialized then
+        rt.error("In ow.Stage:get_object_instance: stage is not yet fully initialized")
+        return
+    end
+
+    return self._object_id_to_instance[object.id]
 end

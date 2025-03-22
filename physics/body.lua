@@ -200,7 +200,7 @@ end
 --- @brief
 function b2.Body:draw()
     love.graphics.push()
-    love.graphics.translate(self:get_predicted_position())
+    love.graphics.translate(self:get_position())
     love.graphics.rotate(self._native:getAngle())
 
     love.graphics.setLineWidth(1)
@@ -342,4 +342,9 @@ end
 --- @brief
 function b2.Body:get_native()
     return self._native
+end
+
+--- @brief
+function b2.Body:get_type()
+    return self._native:getType()
 end

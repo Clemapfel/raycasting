@@ -1,8 +1,5 @@
 require "common.input_subscriber"
 require "physics.physics"
-require "overworld.ray_cast"
-require "overworld.ray_material"
-require "overworld.player_body"
 require "common.blend_mode"
 require "common.sound_manager"
 require "common.timed_animation"
@@ -307,7 +304,6 @@ function ow.Player:move_to_stage(stage, x, y)
         self._body:add_tag("player")
         self._body:set_is_rotation_fixed(false)
         self._body:set_user_data(self)
-        self._body:set_collision_group(ow.RayMaterial.ABSORPTIVE)
 
         self._bump_sensor = b2.Body(
             self._world, b2.BodyType.DYNAMIC,
@@ -331,12 +327,6 @@ function ow.Player:move_to_stage(stage, x, y)
         self._bump_sensor:signal_connect("collision_end", function(_, other)
             _bumped[other] = nil
         end)
-
-        local mask = b2.CollisionGroup.ALL
-        mask = bit.bxor(mask, ow.RayMaterial.FILTRATIVE) -- player can pass through filtrative
-        self._body:set_collides_with(mask)
-
-        --self._soft_body = ow.PlayerBody(self._world, self._radius, self._body)
     end
 end
 
@@ -359,9 +349,6 @@ function ow.Player:draw()
     love.graphics.ellipse("line", table.unpack(self._model_body))
 
     love.graphics.pop()
-
-    --self._bump_sensor:draw()
-    --self._soft_body:draw()
 
     if self._grabbed ~= nil then
         self._grabbed:draw()

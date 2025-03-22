@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="136">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="143">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -197,24 +197,6 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </chunk>
-   <chunk x="16" y="0" width="16" height="16">
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,69,0,0,69,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-</chunk>
    <chunk x="48" y="16" width="16" height="16">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -405,17 +387,12 @@
    <ellipse/>
   </object>
   <object id="58" gid="3221225546" x="107.667" y="801.833" width="222" height="167" rotation="-44"/>
-  <object id="72" template="../templates/Teleporter.tx" type="Teleporter" x="609.907" y="34.0854">
-   <properties>
-    <property name="target" type="object" value="92"/>
-   </properties>
-  </object>
   <object id="73" template="../templates/Teleporter.tx" type="Teleporter" x="-61.8822" y="418.462" width="27.228" height="27.0326">
    <properties>
     <property name="target" type="object" value="75"/>
    </properties>
   </object>
-  <object id="74" template="../templates/Teleporter.tx" type="Teleporter" x="385.854" y="196.516">
+  <object id="74" template="../templates/Teleporter.tx" type="Teleporter" x="386.114" y="193.92">
    <properties>
     <property name="target" type="object" value="93"/>
    </properties>
@@ -441,54 +418,9 @@
     <property name="target_entrance" type="int" value="2"/>
    </properties>
   </object>
-  <object id="87" name="glass" type="Hitbox" x="662.977" y="33.2103" width="14.7601" height="191.882">
-   <properties>
-    <property name="is_transmissive" type="bool" value="true"/>
-   </properties>
-  </object>
-  <object id="88" name="filter" type="Hitbox" x="571.956" y="29.5203" width="14.7601" height="196.802">
-   <properties>
-    <property name="is_filtrative" type="bool" value="true"/>
-   </properties>
-  </object>
-  <object id="90" name="mirror" type="Hitbox" x="376.384" y="28.9053" width="14.7601" height="161.132">
-   <properties>
-    <property name="is_reflective" type="bool" value="true"/>
-   </properties>
-  </object>
-  <object id="92" template="../templates/Teleporter.tx" type="Teleporter" x="708.403" y="34.0044">
-   <properties>
-    <property name="target" type="object" value="72"/>
-   </properties>
-  </object>
-  <object id="93" template="../templates/Teleporter.tx" type="Teleporter" x="387.37" y="289.847">
+  <object id="93" template="../templates/Teleporter.tx" type="Teleporter" x="386.072" y="290.107">
    <properties>
     <property name="target" type="object" value="74"/>
-   </properties>
-  </object>
-  <object id="94" name="mirror" type="Hitbox" x="380.074" y="26.4451" width="153.751" height="13.5305">
-   <properties>
-    <property name="is_reflective" type="bool" value="true"/>
-   </properties>
-  </object>
-  <object id="95" name="Teleporter" type="RayTeleporter" x="448.99" y="599.981" width="63.4136" height="8.12898">
-   <properties>
-    <property name="target" type="object" value="100"/>
-   </properties>
-  </object>
-  <object id="98" name="Teleporter" type="RayTeleporter" x="688.74" y="401.19" width="32.4082" height="8.12898" rotation="-90">
-   <properties>
-    <property name="target" type="object" value="99"/>
-   </properties>
-  </object>
-  <object id="99" name="Teleporter" type="RayTeleporter" x="544.579" y="401.233" width="32.4082" height="8.12898">
-   <properties>
-    <property name="target" type="object" value="98"/>
-   </properties>
-  </object>
-  <object id="100" name="Teleporter" type="RayTeleporter" x="543.164" y="599.778" width="63.4136" height="8.12898">
-   <properties>
-    <property name="target" type="object" value="95"/>
    </properties>
   </object>
   <object id="101" type="Hitbox" x="760.603" y="291.467">
@@ -497,66 +429,41 @@
    </properties>
    <polygon points="2.18325,-2.911 134.126,126.869 135.215,-2.69153"/>
   </object>
-  <object id="114" name="Splitter" type="BeamSplitter" x="740.285" y="370.003" width="36.5631" height="36.5631">
+  <object id="132" type="Hitbox" x="577.072" y="96.9295" width="29.7322" height="4.60142">
    <properties>
     <property name="type" value="dynamic"/>
    </properties>
   </object>
-  <object id="125" name="Linear Motor" type="LinearMotor" x="1284.96" y="306.703" width="12.0358" height="12.9273">
+  <object id="136" name="LinearMotor" type="LinearMotor" x="591.88" y="147.1">
    <properties>
-    <property name="initial_position" type="float" value="0"/>
     <property name="target" type="object" value="132"/>
    </properties>
+   <point/>
   </object>
-  <object id="132" x="1276.72" y="278.046" width="28.784" height="4.45467"/>
-  <object id="133" type="Hitbox" x="1140.24" y="307.571" width="18.2782" height="17.0597">
+  <object id="60" type="Hitbox" x="403.32" y="712.871">
+   <polygon points="-176,106.667 126.667,54.6667 122.667,109.333 66.6667,146.667 -118.667,162.667 -122.667,121.333 -125.333,37.3333 -72,-10.6667 -102.667,40 -100,132 -22.6667,177.333 -40,-37.3333 169.333,101.333 78.6667,-54.6667"/>
+  </object>
+  <object id="61" name="spawn" type="PlayerSpawn" x="426.671" y="117.436">
+   <point/>
+  </object>
+  <object id="131" type="Hitbox" x="690.924" y="117.586">
    <properties>
     <property name="type" value="dynamic"/>
    </properties>
-   <ellipse/>
+   <polygon points="0,0 89.0523,0 88.2353,9.80392 0,9.80392"/>
   </object>
- </objectgroup>
- <objectgroup draworder="index" id="5" name="Object Layer 2">
-  <object id="60" type="Hitbox" x="369.333" y="725.333">
-   <polygon points="-176,106.667 126.667,54.6667 122.667,109.333 66.6667,146.667 -118.667,162.667 -122.667,121.333 -125.333,37.3333 -72,-10.6667 -102.667,40 -100,132 -22.6667,177.333 -40,-37.3333 169.333,101.333 78.6667,-54.6667"/>
-  </object>
-  <object id="61" name="spawn" type="PlayerSpawn" x="1414.34" y="242.557">
-   <point/>
-  </object>
-  <object id="85" name="Receiver" type="RayReceiver" x="444.693" y="94.7109" width="60" height="60">
-   <ellipse/>
-  </object>
-  <object id="102" name="Emitter" type="RayEmitter" x="460.841" y="402.059" width="10.1657" height="3.31925">
-   <properties>
-    <property name="direction" type="object" value="103"/>
-   </properties>
-  </object>
-  <object id="103" type="RayEmitterDirection" x="465.871" y="418.846">
-   <point/>
-  </object>
-  <object id="115" name="Emitter" type="RayEmitter" x="32.5441" y="434.942" width="6.53769" height="21.9206">
-   <properties>
-    <property name="direction" type="object" value="116"/>
-   </properties>
-  </object>
-  <object id="116" x="49.3191" y="445.92">
-   <point/>
-  </object>
-  <object id="118" name="Emitter" type="RayEmitter" x="560.686" y="219.352" width="10.1657" height="3.31925">
-   <properties>
-    <property name="direction" type="object" value="119"/>
-   </properties>
-  </object>
-  <object id="119" x="544.381" y="166.013">
-   <point/>
-  </object>
-  <object id="130" name="Rotary motor" type="RotaryMotor" x="1183.01" y="306.373" width="15.5229" height="15.5229">
+  <object id="139" name="RotaryMotor" type="RotaryMotor" x="735.458" y="122.83">
    <properties>
     <property name="target" type="object" value="131"/>
    </properties>
+   <point/>
   </object>
-  <object id="131" type="RotaryMotorTarget" x="1146.24" y="309.641">
-   <polygon points="0,0 89.0523,0 88.2353,9.80392 0,9.80392"/>
+  <object id="141" name="Start Motors" type="OverlapTrigger" x="475.306" y="147.677" width="48.8998" height="49.8778">
+   <properties>
+    <property name="draw" type="bool" value="true"/>
+    <property name="signal" value="toggle"/>
+    <property name="target" type="object" value="136"/>
+   </properties>
   </object>
  </objectgroup>
 </map>
