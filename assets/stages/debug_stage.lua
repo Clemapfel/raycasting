@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 144,
+  nextobjectid = 148,
   properties = {},
   tilesets = {
     {
@@ -1066,6 +1066,38 @@ return {
           visible = true,
           properties = {
             ["draw"] = true,
+            ["signal"] = "toggle",
+            ["target"] = { id = 139 }
+          }
+        },
+        {
+          id = 146,
+          name = "",
+          type = "InteractTrigger",
+          shape = "point",
+          x = 622.126,
+          y = 176.991,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["signal"] = "toggle",
+            ["target"] = { id = 136 }
+          }
+        },
+        {
+          id = 147,
+          name = "",
+          type = "InteractTrigger",
+          shape = "point",
+          x = 622.29,
+          y = 176.984,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
             ["signal"] = "toggle",
             ["target"] = { id = 139 }
           }

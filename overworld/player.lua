@@ -14,13 +14,25 @@ rt.settings.overworld.player = {
 
     velocity_magnitude_history_n = 3,
 
-    activator_n_rays = 16,
     activator_ray_arc = (2 * math.pi) / 4,
     activator_ray_length = 40,
 
     activation_sound_id = "player_activation",
     bump_sound_id = "player_bump",
 }
+
+do
+    -- calculate number of rays for activator raycast based on minimal object radius
+    require "overworld.object_wrapper"
+    local target_r = rt.settings.overworld.object_wrapper.point_radius * 2
+    local radius = rt.settings.overworld.player.activator_ray_length
+    local angle = rt.settings.overworld.player.activator_ray_arc
+
+    local arc = radius * angle
+    local n_rays = math.ceil(arc / target_r)
+    if n_rays % 2 == 0 then n_rays = n_rays + 1 end
+    rt.settings.overworld.player.activator_n_rays = n_rays
+end
 
 --- @class ow.Player
 --- @signal movement_start (self, position_x, position_y) -> nil
@@ -240,8 +252,6 @@ function ow.Player:update(delta)
     table.remove(self._velocity_magnitude_history, 1)
 
     self._last_position_x, self._last_position_y = x, y
-
-    --self._soft_body:update(delta)
 end
 
 --- @brief [internal]
@@ -252,23 +262,26 @@ function ow.Player:_activate()
     local angle_arc = rt.settings.overworld.player.activator_ray_arc
     local origin_x, origin_y = self._body:get_position() -- sic, not predicted
 
+    local seen = {}
+    local sound_played = false
+
     local cast = function(x, y)
-        local cx, cy, _, _, body = self._world:query_ray_any(
+        local bodies = self._world:query_segment(
             origin_x,
             origin_y,
             x * ray_length,
             y * ray_length
         )
 
-        if body ~= nil then
-            assert(not body:has_tag("player"))
-            if body:signal_try_emit("activate") then
-                rt.SoundManager:play(rt.settings.overworld.player.activation_sound_id)
-                return true
+        for body in values(bodies) do
+            if seen[body] ~= true then
+                if body:signal_try_emit("activate", self._body) and sound_played == false then
+                    rt.SoundManager:play(rt.settings.overworld.player.activation_sound_id)
+                    sound_played = true
+                end
+                seen[body] = true
             end
         end
-
-        return false
     end
 
     if cast(math.cos(angle), math.sin(angle)) then return end
@@ -276,12 +289,10 @@ function ow.Player:_activate()
         if i % 2 == 0 then
             local offset = (i / 2) * (angle_arc / n_rays)
             if cast(math.cos(angle - offset), math.sin(angle - offset)) then
-                return
             end
         else
             local offset = (i - 1) / 2 * (angle_arc / n_rays)
             if cast(math.cos(angle + offset), math.sin(angle + offset)) then
-                return
             end
         end
     end

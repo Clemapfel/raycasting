@@ -1,6 +1,7 @@
 --- @class b2.Body
 --- @signal collision_start (b2.Body, b2.Body, normal_x, normal_y, x1, y1, x2, y2) -> nil
 --- @signal collision_end (b2.Body, b2.Body, normal_x, normal_y, x1, y1, x2, y2) -> nil
+--- @signal activate (b2.Body) -> nil
 b2.Body = meta.class("PhysicsBody")
 meta.add_signals(b2.Body,
     "collision_start",

@@ -1,5 +1,5 @@
 rt.settings.overworld.object_wrapper = {
-    point_radius = 1
+    point_radius = 2
 }
 
 --- @class ow.ObjectWrapper
