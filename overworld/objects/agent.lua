@@ -28,19 +28,19 @@ end
 
 --- @brief
 function ow.Agent:update(delta)
+    local world = self._world:get_native()
+    local radius = rt.settings.overworld.agent.detection_radius
+
     local origin_x, origin_y = self._body:get_position()
     origin_x, origin_y = self._scene:screen_xy_to_world_xy(love.mouse.getPosition())
 
-    local world = self._world:get_native()
-    local radius = rt.settings.overworld.agent.detection_radius
-    --local shapes = self._world:get_native():getShapesInArea(x - radius, y - radius, 2 * radius, 2 * radius)
-
     local group = bit.bnot(ow.AgentCollisionGroup)
+    local path_data = {}
+    self._rays = {}
+
     local circumference = 2 * math.pi * radius
     local n_rays = circumference * rt.settings.overworld.agent.ray_density
 
-    self._rays = {}
-    local path_data = {}
     for angle = 0, 2 * math.pi, (2 * math.pi) / n_rays do
         local shape, cx, cy, nx, ny, fraction = world:rayCastClosest(
             origin_x,
@@ -62,14 +62,15 @@ function ow.Agent:update(delta)
                 origin_y + math.sin(angle) * (fraction * radius)
             })
         else
+            local _inf = 10e9
             self._angle_to_distance[angle] = math.huge
             table.insert(path_data, angle)
             table.insert(path_data, math.huge)
 
             table.insert(self._rays, {
                 origin_x, origin_y,
-                origin_x + math.cos(angle) * math.huge,
-                origin_y + math.sin(angle) * math.huge
+                origin_x + math.cos(angle) * 10e9,
+                origin_y + math.sin(angle) * 10e9
             })
         end
     end

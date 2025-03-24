@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="148">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="149">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -372,8 +372,8 @@
   <object id="17" gid="73" x="1654.16" y="439.995" width="100" height="109"/>
   <object id="18" gid="2147483721" x="1512.71" y="438.254" width="100" height="109"/>
   <object id="19" gid="3221225545" x="1512.24" y="558.675" width="100" height="109"/>
-  <object id="20" gid="71" x="1363.4" y="504.934" width="123" height="123"/>
-  <object id="22" gid="72" x="1334.06" y="464.185" width="72" height="70"/>
+  <object id="20" gid="71" x="1293.59" y="403.482" width="123" height="123"/>
+  <object id="22" gid="72" x="1264.25" y="362.733" width="72" height="70"/>
   <object id="24" gid="70" x="1093.17" y="160.1" width="36" height="36"/>
   <object id="25" gid="70" x="1118.23" y="228.119" width="36" height="36"/>
   <object id="26" gid="70" x="1255.46" y="96.8544" width="36" height="36"/>
@@ -487,5 +487,6 @@
    </properties>
    <point/>
   </object>
+  <object id="148" gid="70" x="1248.75" y="331.963" width="36" height="36"/>
  </objectgroup>
 </map>

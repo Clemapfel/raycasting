@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 148,
+  nextobjectid = 149,
   properties = {},
   tilesets = {
     {
@@ -634,8 +634,8 @@ return {
           name = "",
           type = "",
           shape = "rectangle",
-          x = 1363.4,
-          y = 504.934,
+          x = 1293.59,
+          y = 403.482,
           width = 123,
           height = 123,
           rotation = 0,
@@ -648,8 +648,8 @@ return {
           name = "",
           type = "",
           shape = "rectangle",
-          x = 1334.06,
-          y = 464.185,
+          x = 1264.25,
+          y = 362.733,
           width = 72,
           height = 70,
           rotation = 0,
@@ -1101,6 +1101,20 @@ return {
             ["signal"] = "toggle",
             ["target"] = { id = 139 }
           }
+        },
+        {
+          id = 148,
+          name = "",
+          type = "",
+          shape = "rectangle",
+          x = 1248.75,
+          y = 331.963,
+          width = 36,
+          height = 36,
+          rotation = 0,
+          gid = 70,
+          visible = true,
+          properties = {}
         }
       }
     }
