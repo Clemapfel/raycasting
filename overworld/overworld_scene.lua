@@ -353,10 +353,13 @@ function ow.OverworldScene:draw()
     self._background:draw()
 
     self._camera:bind()
+    --[[
     self._stage:draw_floors()
-    self._player:draw()
     self._stage:draw_objects()
     self._stage:draw_walls()
+    ]]--
+    self._player:draw()
+    self._stage._world:draw()
     self._camera:unbind()
 
     if self._cursor_visible and self._cursor_active and not self._player_is_focused then -- cursor in window
@@ -443,6 +446,15 @@ function ow.OverworldScene:update(delta)
             cy = cy + self._camera_translation_velocity_y * delta
             self._camera:set_position(cx, cy)
         end
+    end
+
+    local max_velocity = rt.settings.overworld.overworld_scene.camera_scale_velocity
+    if love.keyboard.isDown("m") then
+        self._camera_scale_velocity = 1 * max_velocity * 5
+    elseif love.keyboard.isDown("n") then
+        self._camera_scale_velocity = -1 * max_velocity * 5
+    else
+        self._camera_scale_velocity = 0
     end
 
     self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
