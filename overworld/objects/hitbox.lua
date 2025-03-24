@@ -24,7 +24,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
     if id ~= nil then
         shader = _id_to_shader[id]
         if shader == nil then
-            shader = rt.Shader("overworld/objects/shader_wall/" .. id .. ".glsl")
+            shader = rt.Shader("overworld/objects/hitbox/" .. id .. ".glsl")
             _id_to_shader[id] = shader
         end
     end

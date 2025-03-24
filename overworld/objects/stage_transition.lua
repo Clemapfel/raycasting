@@ -35,7 +35,7 @@ function ow.StageTransition:instantiate(object, stage, scene)
     )
 
     self._body:signal_connect("collision_start", function(_, other)
-        if self._is_disabled ~= true and other:has_tag("player") then
+        if self._is_disabled ~= true and (other:has_tag("player") or other:has_tag("agent"))  then
             self._scene:set_stage(self._target_stage, self._target_entrance_i)
         end
     end)

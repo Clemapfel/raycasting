@@ -26,7 +26,7 @@ function ow.OverlapTrigger:instantiate(object, stage, scene)
     self._body:set_is_sensor(true)
     self._body:signal_connect("collision_start", function(self_body, other_body, x, y, nx, ny)
         assert(self._receiver ~= nil)
-        if other_body:has_tag("player") then
+        if other_body:has_tag("player") or other_body:has_tag("agent") then
             self._receiver:signal_emit(self._signal, self._value)
         end
     end)

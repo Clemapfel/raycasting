@@ -25,7 +25,7 @@ function ow.InteractTrigger:instantiate(object, stage, scene)
 
     self._body:signal_connect("activate", function(self_body, activating_body)
         assert(self._receiver ~= nil)
-        if activating_body:has_tag("player") then
+        if activating_body:has_tag("player") or activating_body:has_tag("agent") then
             self._receiver:signal_emit(self._signal, self._value)
         end
     end)

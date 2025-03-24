@@ -15,7 +15,7 @@ function ow.Teleporter:instantiate(object, stage, scene)
         self._body:signal_connect("collision_start", function(self_body, other_body, x, y, normal_x, normal_y)
             if self_body.teleporter_blocking_body ~= nil then return end
 
-            if other_body:has_tag("player") then
+            if other_body:has_tag("player") or other_body:has_tag("agent") then
                 self._other.teleporter_blocking_body = other_body
 
                 other_body:set_position(self._target_x, self._target_y)
