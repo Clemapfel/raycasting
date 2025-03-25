@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="149">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="152">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -366,7 +366,7 @@
   </data>
  </layer>
  <objectgroup id="3" name="Objects">
-  <object id="14" gid="74" x="1563.11" y="205.433" width="222" height="167"/>
+  <object id="14" gid="74" x="1540.25" y="205.433" width="222" height="167"/>
   <object id="15" gid="1073741898" x="1541.94" y="264.286" width="222" height="167"/>
   <object id="16" gid="1073741897" x="1657.06" y="562.525" width="100" height="109"/>
   <object id="17" gid="73" x="1654.16" y="439.995" width="100" height="109"/>
@@ -444,7 +444,7 @@
   <object id="60" type="Hitbox" x="403.32" y="712.871">
    <polygon points="-176,106.667 126.667,54.6667 122.667,109.333 66.6667,146.667 -118.667,162.667 -122.667,121.333 -125.333,37.3333 -72,-10.6667 -102.667,40 -100,132 -22.6667,177.333 -40,-37.3333 169.333,101.333 78.6667,-54.6667"/>
   </object>
-  <object id="61" name="spawn" type="PlayerSpawn" x="426.671" y="117.436">
+  <object id="61" name="spawn" type="PlayerSpawn" x="1128.99" y="428.222">
    <point/>
   </object>
   <object id="131" type="Hitbox" x="694.022" y="118.102">
@@ -488,5 +488,8 @@
    <point/>
   </object>
   <object id="148" gid="70" x="1248.75" y="331.963" width="36" height="36"/>
+  <object id="151" name="Agent" type="Agent" x="1432.84" y="188.994" width="29.8875" height="29.8875">
+   <ellipse/>
+  </object>
  </objectgroup>
 </map>

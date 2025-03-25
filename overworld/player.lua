@@ -252,8 +252,6 @@ function ow.Player:update(delta)
     table.remove(self._velocity_magnitude_history, 1)
 
     self._last_position_x, self._last_position_y = x, y
-
-    self._agent:update(delta) -- TODO
 end
 
 --- @brief [internal]
@@ -341,15 +339,10 @@ function ow.Player:move_to_stage(stage, x, y)
             _bumped[other] = nil
         end)
     end
-
-    -- TODO
-    self._agent = ow.Agent({x = x, y = y}, stage, self._scene)
 end
 
 --- @brief
 function ow.Player:draw()
-    self._agent:draw() -- TODO
-
     local x, y = self._body:get_predicted_position()
     local angle = self._velocity_angle - self._facing_angle
 

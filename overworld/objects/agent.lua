@@ -2,7 +2,7 @@ require "common.path"
 
 rt.settings.overworld.agent = {
     detection_radius = 1000,
-    ray_density = 0.2, -- [0, 1]
+    ray_density = 0.02, -- [0, 1]
 }
 
 --- @class ow.Agent
@@ -32,7 +32,6 @@ function ow.Agent:update(delta)
     local radius = rt.settings.overworld.agent.detection_radius
 
     local origin_x, origin_y = self._body:get_position()
-    origin_x, origin_y = self._scene:screen_xy_to_world_xy(love.mouse.getPosition())
 
     local group = bit.bnot(ow.AgentCollisionGroup)
     local path_data = {}
@@ -41,8 +40,9 @@ function ow.Agent:update(delta)
     local circumference = 2 * math.pi * radius
     local n_rays = circumference * rt.settings.overworld.agent.ray_density
 
-    for angle = 0, 2 * math.pi, (2 * math.pi) / n_rays do
-        local shape, cx, cy, nx, ny, fraction = world:rayCastClosest(
+    local step = (2 * math.pi) / n_rays
+    for angle = 0, 2 * math.pi - step, step do
+        local hit, cx, cy, nx, ny, fraction = world:rayCastClosest(
             origin_x,
             origin_y,
             origin_x + math.cos(angle) * radius,
@@ -50,7 +50,7 @@ function ow.Agent:update(delta)
             group
         )
 
-        if shape ~= nil then
+        if hit ~= nil then
             local distance = fraction * radius
             self._angle_to_distance[angle] = distance
             table.insert(path_data, angle)
@@ -75,6 +75,56 @@ function ow.Agent:update(delta)
         end
     end
 
+    --[[
+    -- TODO: this also casts to all nearby shapes, but it doesn't seem to be worth the performance cost
+    for shape in values(world:getShapesInArea(
+        origin_x - radius, origin_y - radius,
+        2 * radius, 2 * radius)
+    ) do
+        local body = shape:getBody()
+        local body_x, body_y = body:getPosition()
+        local shape_x, shape_y = shape:getMassData()
+        local target_x, target_y = body_x + shape_x, body_y + shape_y
+
+        local hit, cx, cy, nx, ny, fraction = world:rayCastClosest(
+            origin_x,
+            origin_y,
+            target_x,
+            target_y,
+            group
+        )
+
+        local angle = math.angle(target_x - origin_x, target_y - origin_y)
+        local dx, dy = target_x - origin_x, target_y - origin_y
+
+        if hit ~= nil then
+            local distance = fraction * radius
+            self._angle_to_distance[angle] = distance
+            table.insert(path_data, angle)
+            table.insert(path_data, distance)
+
+            table.insert(self._rays, {
+                origin_x,
+                origin_y,
+                origin_x + dx * fraction,
+                origin_y + dy * fraction
+            })
+        else
+            local _inf = 10e9
+            self._angle_to_distance[angle] = math.huge
+            table.insert(path_data, angle)
+            table.insert(path_data, math.huge)
+
+            table.insert(self._rays, {
+                origin_x,
+                origin_y,
+                origin_x + dx * 10e9,
+                origin_y + dy * 10e9
+            })
+        end
+    end
+    ]]--
+
     -- path used to linearly interpolate between ray results
     self._distance_function = rt.Path(path_data)
 end
@@ -92,6 +142,8 @@ function ow.Agent:draw()
     for ray in values(self._rays) do
         love.graphics.line(ray)
     end
+
+    self._body:draw()
 end
 
 --- @brief

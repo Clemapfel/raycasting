@@ -353,13 +353,12 @@ function ow.OverworldScene:draw()
     self._background:draw()
 
     self._camera:bind()
-    --[[
-    self._stage:draw_floors()
-    self._stage:draw_objects()
-    self._stage:draw_walls()
-    ]]--
-    self._player:draw()
     self._stage._world:draw()
+
+    --self._stage:draw_floors()
+    self._stage:draw_objects()
+    --self._stage:draw_walls()
+    self._player:draw()
     self._camera:unbind()
 
     if self._cursor_visible and self._cursor_active and not self._player_is_focused then -- cursor in window

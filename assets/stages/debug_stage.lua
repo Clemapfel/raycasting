@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 149,
+  nextobjectid = 152,
   properties = {},
   tilesets = {
     {
@@ -550,7 +550,7 @@ return {
           name = "",
           type = "",
           shape = "rectangle",
-          x = 1563.11,
+          x = 1540.25,
           y = 205.433,
           width = 222,
           height = 167,
@@ -992,8 +992,8 @@ return {
           name = "spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 426.671,
-          y = 117.436,
+          x = 1128.99,
+          y = 428.222,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1113,6 +1113,19 @@ return {
           height = 36,
           rotation = 0,
           gid = 70,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 151,
+          name = "Agent",
+          type = "Agent",
+          shape = "ellipse",
+          x = 1432.84,
+          y = 188.994,
+          width = 29.8875,
+          height = 29.8875,
+          rotation = 0,
           visible = true,
           properties = {}
         }
