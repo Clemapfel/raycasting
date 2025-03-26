@@ -40,7 +40,6 @@ function ow.Stage:instantiate(scene, id)
 
     self._config = config
     self._to_update = {} -- Table<Any>
-    self._sprites = {}  -- Table<ow.Sprite>
     self._objects = {}  -- Table<any>
 
     self._player_spawn_x, self._player_spawn_y = nil, nil
@@ -112,7 +111,7 @@ function ow.Stage:instantiate(scene, id)
                     table.insert(self._objects, object)
                     self._object_id_to_instance[wrapper.id] = object
 
-                    if meta.isa(object, rt.Drawable) then
+                    if meta.typeof(object, ow.Agent) then --meta.isa(object, rt.Drawable) then -- TODO
                         table.insert(drawables, object)
                     end
 

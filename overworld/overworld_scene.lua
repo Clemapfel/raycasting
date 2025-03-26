@@ -353,13 +353,12 @@ function ow.OverworldScene:draw()
     --self._background:draw()
 
     self._camera:bind()
-
+    self._stage._world:draw()
     --self._stage:draw_floors()
     self._stage:draw_objects()
     --self._stage:draw_walls()
     self._player:draw()
 
-    self._stage._world:draw()
     self._camera:unbind()
 
 

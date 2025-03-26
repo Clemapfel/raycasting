@@ -64,8 +64,8 @@ function ow.Agent:update(delta)
         table.insert(path_data, x)
         table.insert(path_data, y)
         
-        table.insert(draw_data, math.fmod(x + math.pi, 2 * math.pi) / (2 * math.pi) * love.graphics.getWidth())
-        table.insert(draw_data, math.min(y, 10e9) * _draw_y_scale )
+        table.insert(draw_data, math.fmod(x + 2 * math.pi, 2 * math.pi) / (2 * math.pi) * love.graphics.getWidth())
+        table.insert(draw_data, math.min(y, rt.settings.overworld.agent.detection_radius) * _draw_y_scale )
     end
     self._rays = {}
 
@@ -126,7 +126,7 @@ end
 
 --- @brief
 function ow.Agent:_query_distance(angle)
-    local t = math.fmod(angle, 2 * math.pi) / (2 * math.pi)
+    local t = math.fmod(angle + 2 * math.pi, 2 * math.pi) / (2 * math.pi)
     return self._path:at(t)
 end
 
@@ -149,9 +149,7 @@ function ow.Agent:draw()
     love.graphics.line(self._current_x, self._current_y, self._goal_x, self._goal_y)
 
     local angle = math.angle(self._goal_x - self._current_x, self._goal_y - self._current_y)
-    angle = math.fmod(angle + math.pi, 2 * math.pi) / (2 * math.pi) * love.graphics.getWidth()
-
-    dbg(angle)
+    angle = math.fmod(angle + 2 * math.pi, 2 * math.pi) / (2 * math.pi) * love.graphics.getWidth()
 
     local dist = math.distance(self._goal_x, self._goal_y, self._current_x, self._current_y)
     local dist2 = math.distance(self._secondary_goal_x, self._secondary_goal_y, self._current_x, self._current_y)
@@ -173,6 +171,8 @@ function ow.Agent:draw()
             love.graphics.line(a_x, a_y, b_x, b_y)
             hue_i = hue_i + 1
         end
+
+        --love.graphics.line(points[1], points[2], points[#points-1], points[#points])
     end
 
     love.graphics.setLineWidth(5)
