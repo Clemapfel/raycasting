@@ -108,20 +108,24 @@ do
                 closest_entry = self._entries[2]
             end
         else
-            -- binary search for closest fraction
             local low = 1
             local high = n_entries
-            while low <= high do
+            while low < high do
                 local mid = _ceil((low + high) / 2)
-                closest_entry = entries[mid]
-                local right = entries[mid + 1]
-                if right == nil or (closest_entry.fraction <= t and right.fraction >= t) then
+                local left = entries[mid]
+                local right = entries[mid+1]
+                if left.fraction < t and right.fraction > t then
+                    closest_entry = left
                     break
-                elseif closest_entry.fraction < t then
-                    low = mid + 1
-                elseif closest_entry.fraction > t then
+                elseif t < left.fraction then
                     high = mid - 1
+                else
+                    low = mid + 1
                 end
+            end
+
+            if not closest_entry then
+                closest_entry = entries[low]
             end
         end
 

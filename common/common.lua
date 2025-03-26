@@ -315,6 +315,26 @@ function math.translate_by_angle(x, y, angle, distance)
     return x + math.cos(angle) * distance, y + math.sin(angle) * distance
 end
 
+--- @brief
+function math.turn(x, y, left_or_right)
+    if left_or_right == nil then left_or_right = true end
+    if left_or_right then
+        return y, -x
+    else
+        return -y, x
+    end
+end
+
+--- @brief
+function math.turn_left(x, y)
+    return math.turn(x, y, true)
+end
+
+--- @brief
+function math.turn_right(x, y)
+    return math.turn(x, y, false)
+end
+
 --- @brief get distance between two points
 --- @param x1 number x component of the first point
 --- @param y1 number y component of the first point
