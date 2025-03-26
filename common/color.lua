@@ -36,7 +36,37 @@ end
 
 --- @brief
 function rt.HSVA:unpack()
-    return self.r, self.g, self.b, self.a
+    return self.h, self.s, self.v, self.a
+end
+
+--- @brie
+function rt.HSVA:bind()
+    local r, g, b, a = rt.hsva_to_rgba(self.h, self.s, self.v, self.a)
+    love.graphics.setColor(r, g, b, a)
+end
+
+--- @class LCHA
+rt.LCHA = meta.class("LCHA")
+
+--- @brief
+function rt.LCHA:instantiate(l, c, h, a)
+    meta.install(self, {
+        l = l or 1,
+        c = c or 1,
+        h = h or 0,
+        a = a or 1
+    })
+end
+
+--- @brief
+function rt.LCHA:unpack()
+    return self.l, self.c, self.h, self.a
+end
+
+--- @brie
+function rt.LCHA:bind()
+    local r, g, b, a = rt.lcha_to_rgba(self.l, self.c, self.h, self.a)
+    love.graphics.setColor(r, g, b, a)
 end
 
 --- @brief

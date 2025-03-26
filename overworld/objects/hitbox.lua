@@ -1,6 +1,7 @@
 require "common.shader"
 require "common.widget"
 require "common.mesh"
+require "common.stencil"
 
 --- @class ow.Hitbox
 ow.Hitbox = meta.class("Hitbox", rt.Drawable)

@@ -34,6 +34,7 @@ function rt.InputManager:_set_input_method(method)
             end
         end
     end
+    self._input_method = method
 end
 
 --- @brief
@@ -87,6 +88,8 @@ love.keyreleased = function(key, scancode)
 end
 
 love.mousepressed = function(x, y, button_id)
+    rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
+
     if rt.InputManager._upscaler ~= nil and rt.InputManager._convert_to_native_resolution == true then
         x, y = rt.InputManager._upscaler:convertWindowToNativePosition(x, y)
     end
@@ -97,6 +100,8 @@ love.mousepressed = function(x, y, button_id)
 end
 
 love.mousereleased = function(x, y, button_id)
+    rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
+
     if rt.InputManager._upscaler ~= nil and rt.InputManager._convert_to_native_resolution == true then
         x, y = rt.InputManager._upscaler:convertWindowToNativePosition(x, y)
     end
@@ -107,6 +112,8 @@ love.mousereleased = function(x, y, button_id)
 end
 
 love.mousemoved = function(x, y, dx, dy)
+    rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
+
     if rt.InputManager._upscaler ~= nil then
         -- check if cursor left upscaler area and emit as if it left window
         local before = rt.InputManager._cursor_in_bounds

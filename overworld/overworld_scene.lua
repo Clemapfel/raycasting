@@ -350,16 +350,20 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
 --- @brief
 function ow.OverworldScene:draw()
-    self._background:draw()
+    --self._background:draw()
 
     self._camera:bind()
-    self._stage._world:draw()
 
     --self._stage:draw_floors()
     self._stage:draw_objects()
     --self._stage:draw_walls()
     self._player:draw()
+
+    self._stage._world:draw()
     self._camera:unbind()
+
+
+
 
     if self._cursor_visible and self._cursor_active and not self._player_is_focused then -- cursor in window
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
@@ -495,4 +499,9 @@ end
 --- @brief
 function ow.OverworldScene:get_camera()
     return self._camera
+end
+
+--- @brief
+function ow.OverworldScene:get_player()
+    return self._player
 end
