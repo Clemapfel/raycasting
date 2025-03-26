@@ -362,8 +362,6 @@ function ow.OverworldScene:draw()
     self._camera:unbind()
 
 
-
-
     if self._cursor_visible and self._cursor_active and not self._player_is_focused then -- cursor in window
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)

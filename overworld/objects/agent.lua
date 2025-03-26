@@ -1,8 +1,9 @@
 require "common.path"
 
 rt.settings.overworld.agent = {
-    detection_radius = 1000,
-    ray_density = 0.01, -- [0, 1]
+    detection_radius = 200,
+    ray_density = 0.05, -- [0, 1]
+    sweep_range = 0.25 * (2 * math.pi)
 }
 
 --- @class ow.Agent
@@ -10,28 +11,37 @@ ow.Agent = meta.class("Agent", rt.Drawable)
 
 ow.AgentCollisionGroup = b2.CollisionGroup.GROUP_15
 
+ow.AgentMotionMode = meta.enum("AgentMotionMode", {
+    MOVE_TO_GOAL = 1,
+    FOLLOW_BOUNDARY = 2
+})
+
 --- @brief
 function ow.Agent:instantiate(object, stage, scene)
     local world = stage:get_physics_world()
+    local shape = b2.Circle(0, 0, 10)
+
     meta.install(self, {
         _stage = stage,
         _scene = scene,
         _world = world,
-        _body = b2.Body(world, b2.BodyType.DYNAMIC, object.x, object.y),
-        _angle_to_distance = {},
-        _rays = {},
-        _distance_function_draw = nil, -- rt.Path
+        _body = b2.Body(world, b2.BodyType.DYNAMIC, object.x, object.y, shape),
         _distance_function = nil, --rt.Path
 
         _goal_x = 0,
         _goal_y = 0,
+        _mode = ow.AgentMotionMode.MOVE_TO_GOAL,
+        _max_velocity = 100,
 
-        _secondary_goal_x = 0,
-        _secondary_goal_y = 0,
-
-        _current_x = 0,
-        _current_y = 0,
-
+        -- debug drawing
+        _debug_drawing_enabled = true,
+        _rays = {},
+        _ray_colors = {},
+        _graph_width = 0.5 * love.graphics.getWidth(),
+        _graph_height = 0.25 * love.graphics.getHeight(),
+        _distance_function_graph = {}, -- same size as _rays
+        _distance_function_graph_goal_x = 0,
+        _distance_function_graph_goal_y = 0,
     })
 
     self._body:set_collision_group(ow.AgentCollisionGroup)
@@ -42,164 +52,145 @@ function ow.Agent:instantiate(object, stage, scene)
     end)
 end
 
+local _normalize_angle = function(angle)
+    return math.fmod(angle + math.pi, 2 * math.pi)
+end
 
-local _draw_max = 300
-local _draw_x_scale = 100
-local _draw_y_scale = 1 / 2
+function ow.Agent:get_position()
+    return self._body:get_position()
+end
 
 --- @brief
-function ow.Agent:update(delta)
-    local world = self._world:get_native()
+--- @param direction_angle Number radians
+--- @param sweep_range Number radians, final arc will be direction_angle - sweep_range, direction_angle + sweep_range
+function ow.Agent:_sample_distance_function(direction_angle)
+    local sweep_range = rt.settings.overworld.agent.sweep_range
     local radius = rt.settings.overworld.agent.detection_radius
+    local ray_density = rt.settings.overworld.agent.ray_density
 
-    local origin_x, origin_y = self._body:get_position()
-    origin_x, origin_y = self._scene:get_player():get_position()
+    local length = 2 * sweep_range * radius
+    local n_rays = math.ceil(ray_density * length)
 
-    self._current_x, self._current_y = origin_x, origin_y
+    local world = self._world:get_native()
+    local origin_x, origin_y = self:get_position()
+    local mask = bit.bnot(ow.AgentCollisionGroup)
 
-    local group = bit.bnot(ow.AgentCollisionGroup)
-    local path_data = {}
-    local draw_data = {}
-    local function push_path_data(x, y)
-        table.insert(path_data, x)
-        table.insert(path_data, y)
-        
-        table.insert(draw_data, math.fmod(x + 2 * math.pi, 2 * math.pi) / (2 * math.pi) * love.graphics.getWidth())
-        table.insert(draw_data, math.min(y, rt.settings.overworld.agent.detection_radius) * _draw_y_scale )
-    end
     self._rays = {}
+    self._ray_colors = {}
+    local ray_i = 0
 
-    -- sample distance function
-    local circumference = 2 * math.pi * radius
-    local n_rays = math.ceil(circumference * rt.settings.overworld.agent.ray_density)
-
-    local step = (2 * math.pi) / n_rays
-    for angle = 0, 2 * math.pi, step do
+    local path_data = {}
+    for angle = direction_angle - sweep_range, direction_angle + sweep_range, (2 * sweep_range) / n_rays do
         local hit, cx, cy, nx, ny, fraction = world:rayCastClosest(
             origin_x,
             origin_y,
             origin_x + math.cos(angle) * radius,
             origin_y + math.sin(angle) * radius,
-            group
+            mask
         )
 
+        local distance
         if hit ~= nil then
-            local distance = fraction * radius
-            self._angle_to_distance[angle] = distance
-            push_path_data(angle, distance)
-        
-            table.insert(self._rays, {
-                origin_x, origin_y,
-                origin_x + math.cos(angle) * (fraction * radius),
-                origin_y + math.sin(angle) * (fraction * radius)
-            })
+            distance = fraction * radius
         else
-            local _inf = 10e9
-            self._angle_to_distance[angle] = math.huge
-            push_path_data(angle, math.huge)
-        
+            distance = math.huge
+        end
+
+        local normalized = _normalize_angle(angle)
+        table.insert(path_data, normalized)
+        table.insert(path_data, distance)
+
+        if self._debug_drawing_enabled then
             table.insert(self._rays, {
                 origin_x, origin_y,
-                origin_x + math.cos(angle) * 10e9,
-                origin_y + math.sin(angle) * 10e9
+                origin_x + math.cos(angle) * math.min(distance, radius),
+                origin_y + math.sin(angle) * math.min(distance, radius)
             })
+
+            table.insert(self._ray_colors, {
+                rt.lcha_to_rgba(0.8, 1, ray_i / n_rays, 1)
+            })
+
+            ray_i = ray_i + 1
         end
     end
 
-    -- path used to linearly interpolate between ray results
     self._distance_function = rt.Path(path_data)
-    self._distance_function_draw = rt.Path(draw_data)
 
-    -- test directly towards goal
-    local shape, cx, cy, normal_x, normal_y, fraction = world:rayCastClosest(
-        origin_x, origin_y,
-        self._goal_x, self._goal_y,
-        group
-    )
+    if self._debug_drawing_enabled then
+        self._distance_function_graph = {}
+        for i = 1, #path_data, 2 do
+            local x = path_data[i+0]
+            local y = path_data[i+1]
 
-    if shape ~= nil then
-        self._secondary_goal_x, self._secondary_goal_y = cx, cy
-    else
-        self._secondary_goal_x, self._secondary_goal_y = self._goal_x, self._goal_y
+            x = _normalize_angle(x + sweep_range - direction_angle) / (2 * sweep_range) * self._graph_width
+            y = self._graph_height - (y / radius) * self._graph_height
+            table.insert(self._distance_function_graph, x)
+            table.insert(self._distance_function_graph, y)
+        end
+
+        self._distance_function_graph_goal_x = (direction_angle + sweep_range - direction_angle) / (2 * sweep_range) * self._graph_width
+        self._distance_function_graph_goal_y = self._graph_height - (math.distance(self._goal_x, self._goal_y, origin_x, origin_y) / radius) * self._graph_height
     end
+
 end
 
 --- @brief
-function ow.Agent:_query_distance(angle)
-    local t = math.fmod(angle + 2 * math.pi, 2 * math.pi) / (2 * math.pi)
-    return self._path:at(t)
+function ow.Agent:update(delta)
+    local current_x, current_y = self:get_position()
+    local direction_x, direction_y = self._goal_x - current_x, self._goal_y - current_y
+    self:_sample_distance_function(math.angle(direction_x, direction_y))
+
+    if self._mode == ow.AgentMotionMode.MOVE_TO_GOAL then
+        local magnitude = math.magnitude(direction_x, direction_y)
+        local dx, dy = math.normalize(direction_x, direction_y)
+        dx = dx * math.min(magnitude, self._max_velocity)
+        dy = dy * math.min(magnitude, self._max_velocity)
+        self._body:set_velocity(dx, dy)
+    end
 end
 
 --- @brief
 function ow.Agent:draw()
-    love.graphics.setColor(1, 1, 1, 0.5)
-    love.graphics.setLineWidth(1)
-
-    local n = table.sizeof(self._rays)
-    for i, ray in ipairs(self._rays) do
-        rt.LCHA(0.8, 1, (i - 1) / n, 1):bind()
-        love.graphics.line(ray)
-    end
-
     self._body:draw()
 
-    love.graphics.push()
-    love.graphics.setLineWidth(2)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(self._current_x, self._current_y, self._goal_x, self._goal_y)
-
-    local angle = math.angle(self._goal_x - self._current_x, self._goal_y - self._current_y)
-    angle = math.fmod(angle + 2 * math.pi, 2 * math.pi) / (2 * math.pi) * love.graphics.getWidth()
-
-    local dist = math.distance(self._goal_x, self._goal_y, self._current_x, self._current_y)
-    local dist2 = math.distance(self._secondary_goal_x, self._secondary_goal_y, self._current_x, self._current_y)
-
-    dist = dist * _draw_y_scale--math.min(dist, 10e9) / rt.settings.overworld.agent.detection_radius * _draw_max
-
-    love.graphics.origin()
-    love.graphics.translate(0, love.graphics.getHeight())
-    love.graphics.scale(1, -1)
-
-    local draw_path = function()
-        local points = self._distance_function_draw._points
-        local n_points = #points
-        local hue_i = 0
-        for i = 1, n_points - 2, 2 do
-            local a_x, a_y = points[i+0], points[i+1]
-            local b_x, b_y = points[i+2], points[i+3]
-            rt.LCHA(0.8, 1, (hue_i - 1) / (n_points / 2)):bind()
-            love.graphics.line(a_x, a_y, b_x, b_y)
-            hue_i = hue_i + 1
+    if self._debug_drawing_enabled then
+        love.graphics.setLineWidth(2)
+        for i, ray in ipairs(self._rays) do
+            love.graphics.setColor(table.unpack(self._ray_colors[i]))
+            love.graphics.line(ray)
         end
 
-        --love.graphics.line(points[1], points[2], points[#points-1], points[#points])
+        love.graphics.setColor(1, 1, 1, 1)
+        local current_x, current_y = self:get_position()
+        love.graphics.line(current_x, current_y, self._goal_x, self._goal_y)
+        love.graphics.circle("fill", self._goal_x, self._goal_y, 4)
+
+        love.graphics.push()
+        love.graphics.origin()
+        love.graphics.setColor(0, 0, 0, 0.9)
+        love.graphics.rectangle("line", 0, 0, self._graph_width, self._graph_height)
+        love.graphics.setColor(0, 0, 0, 0.4)
+        love.graphics.rectangle("fill", 0, 0, self._graph_width, self._graph_height)
+
+        local ray_i = 1
+        for i = 1, #self._distance_function_graph - 2, 2 do
+            love.graphics.setColor(table.unpack(self._ray_colors[ray_i]))
+            love.graphics.line(
+                self._distance_function_graph[i+0], self._distance_function_graph[i+1],
+                self._distance_function_graph[i+2], self._distance_function_graph[i+3]
+            )
+            ray_i = ray_i + 1
+        end
+
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.line(
+            self._distance_function_graph_goal_x, self._graph_height,
+            self._distance_function_graph_goal_x, self._distance_function_graph_goal_y
+        )
+
+        love.graphics.pop()
     end
-
-    love.graphics.setLineWidth(5)
-    love.graphics.setColor(0, 0, 0, 1)
-    self._distance_function_draw:draw()
-
-    love.graphics.setLineWidth(3)
-    love.graphics.setColor(1, 1, 1, 1)
-    draw_path()
-
-    love.graphics.setLineWidth(4)
-    love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.line(angle, 0, angle, dist)
-
-    love.graphics.setLineWidth(3)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(angle, 0, angle, dist)
-
-    love.graphics.pop()
-
-    love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.circle("fill", self._goal_x, self._goal_y, 4)
-    love.graphics.circle("fill", self._secondary_goal_x, self._secondary_goal_y, 6)
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.circle("fill", self._goal_x, self._goal_y, 3)
-    love.graphics.circle("fill", self._secondary_goal_x, self._secondary_goal_y, 5)
 end
 
 --- @brief

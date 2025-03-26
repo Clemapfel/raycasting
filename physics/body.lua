@@ -189,8 +189,20 @@ function b2.Body:get_angular_velocity(value)
 end
 
 --- @brief
+function b2.Body:apply_force(dx, dy)
+    self._native:applyForce(dx, dy)
+end
+
+--- @brief
 function b2.Body:set_mass(mass)
     self._native:setMass(mass)
+end
+
+--- @brief
+function b2.Body:set_friction(friction)
+    for shape in values(self._native:getShapes()) do
+        shape:setFriction(friction)
+    end
 end
 
 --- @brief
