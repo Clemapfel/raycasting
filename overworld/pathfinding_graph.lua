@@ -31,7 +31,8 @@ end
 --- @brief
 function ow.PathfindingGraph:instantiate()
     meta.install(self, {
-        _data = {}
+        _data = {},
+        _lines = {}
     })
 end
 
@@ -54,12 +55,99 @@ function ow.PathfindingGraph:add(a, b)
         self._data[b] = b_data
     end
     a_data[a] = distance
+
+    table.insert(self._lines, {
+        a.x, a.y, b.x, b.y
+    })
+end
+
+--- @brief
+function ow.PathfindingGraph:_a_star(from, to)
+    local function heuristic(node, goal)
+        return math.distance(node.x, node.y, goal.x, goal.y)
+    end
+
+    -- https://en.wikipedia.org/wiki/A*_search_algorithm#Pseudocode
+    local open_set = {[from] = true}
+    local came_from = {}
+    local g_score = {[from] = 0}
+    local f_score = {[from] = heuristic(from, to)}
+
+    while next(open_set) do
+        local current = nil
+        local lowest_f_score = math.huge
+        for node in pairs(open_set) do
+            if f_score[node] < lowest_f_score then
+                lowest_f_score = f_score[node]
+                current = node
+            end
+        end
+
+        if current == to then
+            local path = {}
+            while current do
+                table.insert(path, 1, current)
+                current = came_from[current]
+            end
+            return path
+        end
+
+        open_set[current] = nil
+
+        for neighbor, weight in pairs(self._data[current] or {}) do
+            local tentative_g_score = g_score[current] + weight
+            if tentative_g_score < (g_score[neighbor] or math.huge) then
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g_score
+                f_score[neighbor] = tentative_g_score + heuristic(neighbor, to)
+                open_set[neighbor] = true
+            end
+        end
+    end
+
+    return nil -- no path is found
 end
 
 --- @brief
 function ow.PathfindingGraph:get_path(from, to)
-    local function get_edge_weight(a, b)
-        returself._data[a][b]
+    meta.assert_isa(from, ow.PathfindingNode, to, ow.PathfindingNode)
+
+    local path_data = {}
+    for node in values(self:_a_star(from, to)) do
+        table.insert(path_data, node.x)
+        table.insert(path_data, node.y)
     end
 
+    return rt.Path(path_data)
+end
+
+--- @brief
+function ow.PathfindingGraph:get_closest_node(x, y)
+    local min_distance = math.huge
+    local min_node = nil
+    for node in keys(self._data) do
+        local distance = math.distance(node.x, node.y, x, y)
+        if distance < min_distance then
+            min_distance = distance
+            min_node = node
+        end
+    end
+
+    return min_node.x, min_node.y
+end
+
+--- @brief
+function ow.PathfindingGraph:draw()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setLineWidth(2)
+    for line in values(self._lines) do
+        love.graphics.line(table.unpack(line))
+    end
+
+    for node in keys(self._data) do
+        love.graphics.setColor(0, 0, 0, 1)
+        love.graphics.circle("fill", node.x, node.y, 4)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.circle("fill", node.x, node.y, 3)
+    end
 end

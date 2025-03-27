@@ -166,6 +166,7 @@ function ow.Stage:draw()
     self:draw_floors()
     self:draw_objects()
     self:draw_walls()
+    self._pathfinding_graph:draw()
 end
 
 --- @brief

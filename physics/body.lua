@@ -194,6 +194,11 @@ function b2.Body:apply_force(dx, dy)
 end
 
 --- @brief
+function b2.Body:apply_linear_impulse(dx, dy)
+    self._native:applyLinearImpulse(dx, dy)
+end
+
+--- @brief
 function b2.Body:set_mass(mass)
     self._native:setMass(mass)
 end

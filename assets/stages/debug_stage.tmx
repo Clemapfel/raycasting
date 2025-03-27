@@ -537,14 +537,14 @@
   <object id="202" type="PathfindingNode" x="1214.84" y="444.796">
    <properties>
     <property name="1" type="object" value="203"/>
-    <property name="2" type="object" value="0"/>
+    <property name="2" type="object" value="221"/>
    </properties>
    <point/>
   </object>
   <object id="203" type="PathfindingNode" x="1392.41" y="478.2">
    <properties>
     <property name="1" type="object" value="204"/>
-    <property name="2" type="object" value="0"/>
+    <property name="2" type="object" value="211"/>
    </properties>
    <point/>
   </object>
