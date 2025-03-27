@@ -2,8 +2,8 @@ require "common.path"
 
 rt.settings.overworld.agent = {
     detection_radius = 50,
-    n_rays = 32,
-    sweep_range = 0.5 * (2 * math.pi)
+    n_rays = 8,
+    sweep_range = 0.1 * (2 * math.pi)
 }
 
 --- @class ow.Agent
@@ -34,7 +34,6 @@ function ow.Agent:instantiate(object, stage, scene)
 
         _goal_x = 0,
         _goal_y = 0,
-        _mode = ow.AgentMotionMode.MOVE_TO_GOAL,
         _max_velocity = 100,
 
         _direction_x = 0,
@@ -91,7 +90,7 @@ function ow.Agent:_sample_distance_function(direction_angle)
     local path_data = {}
     self._data = {}
     for angle = direction_angle - sweep_range, direction_angle + sweep_range, (2 * sweep_range) / n_rays do
-        local hit, cx, cy, nx, ny, fraction = world:rayCastClosest(
+        local hit, cx, cy, normal_x, normal_y, fraction = world:rayCastClosest(
             origin_x,
             origin_y,
             origin_x + math.cos(angle) * radius,
@@ -115,8 +114,11 @@ function ow.Agent:_sample_distance_function(direction_angle)
         table.insert(self._data, {
             x = cx,
             y = cy,
+            normal_x = normal_x,
+            normal_y = normal_y,
             angle = angle,
-            distance = distance
+            distance = distance,
+            is_valid = hit ~= nil
         })
 
         if self._debug_drawing_enabled then
@@ -154,11 +156,11 @@ function ow.Agent:_sample_distance_function(direction_angle)
     end
 end
 
-local _last_direction = false -- left or right
-local _last_gradient = 0
+local _stalling_counter = 0
 
 function ow.Agent:_update_mode()
     local radius = rt.settings.overworld.agent.detection_radius
+    self._rays = {}
 
     -- test directly towards goal
     local origin_x, origin_y = self:get_position()
@@ -166,7 +168,7 @@ function ow.Agent:_update_mode()
 
     local dx, dy = math.normalize(goal_x - origin_x, goal_y - origin_y)
 
-    local hit, cx, cy, normal_x, normal_y, fraction = self._world:get_native():rayCastClosest(
+    local hit, center_x, center_y, normal_x, normal_y, fraction = self._world:get_native():rayCastClosest(
         origin_x,
         origin_y,
         origin_x + dx * radius,
@@ -181,62 +183,66 @@ function ow.Agent:_update_mode()
         distance = math.huge
     end
 
-
     self:_sample_distance_function(math.angle(dx, dy))
 
-    self._ray_hit_x, self._ray_hit_y = cx, cy
+    self._ray_hit_x, self._ray_hit_y = center_x, center_y
 
     -- if ray in direction of goal does not hit anything, move straight to goal
     if hit == nil then
-        self._mode = ow.AgentMotionMode.MOVE_TO_GOAL
         self._direction_x, self._direction_y = math.normalize(dx, dy)
         return
-    end
-
-    local center_i = math.ceil(self._n_rays / 2)
-    local left = self._data[center_i - 1]
-    local center = self._data[center_i]
-    local right = self._data[center_i + 1]
-
-    local left_gradient = center.distance - left.distance
-    local right_gradient = center.distance - right.distance
-
-    if left_gradient > 0 and left_gradient > math.abs(_last_gradient) then
-        self._direction_x, self._direction_y = math.normalize(math.turn_left(normal_x, normal_y))
-        _last_direction = true
-        _last_gradient = left_gradient
-    elseif right_gradient > 0 and right_gradient > math.abs(_last_gradient) then
-        self._direction_x, self._direction_y = math.normalize(math.turn_right(normal_x, normal_y))
-        _last_direction = false
     else
-        if _last_direction == true then
-            self._direction_x, self._direction_y = math.normalize(math.turn_left(normal_x, normal_y))
+        local angle = math.angle(dx, dy)
+        local step = (2 * math.pi) / 8
+        local hit_left, left_x, left_y, left_nx, left_ny, left_fraction = self._world:get_native():rayCastClosest(
+            origin_x,
+            origin_y,
+            origin_x + math.cos(angle - step) * radius,
+            origin_y + math.sin(angle - step) * radius,
+            _ray_mask
+        )
+
+        local hit_right, right_x, right_y, right_nx, right_ny, right_fraction = self._world:get_native():rayCastClosest(
+            origin_x,
+            origin_y,
+            origin_x + math.cos(angle + step) * radius,
+            origin_y + math.sin(angle + step) * radius,
+            _ray_mask
+        )
+
+        local left, right = true, false
+        local left_or_right = nil
+
+        dbg(hit_right == nil, hit_left == nil)
+
+        local right_distance, left_distance
+        if hit_right and not hit_left then
+            left_distance = math.magnitude(center_x, center_y, self._goal_x, self._goal_y)
+            right_distance = math.magnitude(right_x, right_y, self._goal_x, self._goal_y)
+        elseif hit_left and not hit_right then
+            right_distance = math.magnitude(center_x, center_y, self._goal_x, self._goal_y)
+            left_distance = math.magnitude(left_x, left_y, self._goal_x, self._goal_y)
+        elseif hit_left and hit_right then
+            left_distance = math.magnitude(left_x, left_y, self._goal_x, self._goal_y)
+            right_distance = math.magnitude(right_x, right_y, self._goal_x, self._goal_y)
         else
-            self._direction_x, self._direction_y = math.normalize(math.turn_right(normal_x, normal_y))
+            return
         end
+
+        if left_distance < right_distance then
+            left_or_right = left
+        elseif left_distance > right_distance then
+            left_or_right = right
+        end
+
+        if left_or_right == left then
+            self._direction_x, self._direction_y = math.turn_right(normal_x, normal_y)
+        else
+            self._direction_x, self._direction_y = math.turn_left(normal_x, normal_y)
+        end
+
+        return
     end
-
-    --[[
-    self:_sample_distance_function(math.angle(dx, dy))
-
-    assert(hit ~= nil)
-    self._ray_hit_x, self._ray_hit_y = cx, cy
-
-    local center_i = math.ceil(self._n_rays / 2)
-    local left = self._data[center_i - 1]
-    local center = self._data[center_i]
-    local right = self._data[center_i + 1]
-
-    -- Compute the gradient of the distance function
-    local gradient_x = right.x - left.x
-    local gradient_y = right.y - left.y
-
-    -- Compute the tangent vector (perpendicular to the gradient)
-    self._direction_x, self._direction_y = math.turn_left(normal_x, normal_y)
-
-    -- Normalize the tangent vector
-    self._direction_x, self._direction_y = math.normalize(self._direction_x, self._direction_y)
-    ]]--
 end
 
 --- @brief
@@ -248,7 +254,7 @@ function ow.Agent:update(delta)
 
     -- update velocity
     local dx, dy = self._direction_x, self._direction_y
-    local magnitude = 100
+    local magnitude = math.distance(current_x, current_y, self._goal_x, self._goal_y)
     dx = dx * math.min(magnitude, self._max_velocity)
     dy = dy * math.min(magnitude, self._max_velocity)
     self._body:set_velocity(dx, dy)

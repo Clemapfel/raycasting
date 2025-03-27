@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 12,
-  nextobjectid = 152,
+  nextobjectid = 223,
   properties = {},
   tilesets = {
     {
@@ -992,8 +992,8 @@ return {
           name = "spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1128.99,
-          y = 428.222,
+          x = 1128.11,
+          y = 376.358,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1128,6 +1128,425 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 152,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 498.418,
+          y = 457.982,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 198 },
+            ["2"] = { id = 201 }
+          }
+        },
+        {
+          id = 197,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 130.098,
+          y = 441.28,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 152 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 198,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 495.781,
+          y = 324.367,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 199,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 740.155,
+          y = 318.214,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 198 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 200,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 735.759,
+          y = 636.428,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 201,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 736.639,
+          y = 444.796,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 199 },
+            ["2"] = { id = 200 },
+            ["3"] = { id = 202 }
+          }
+        },
+        {
+          id = 202,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1214.84,
+          y = 444.796,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 203 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 203,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1392.41,
+          y = 478.2,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 204 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 204,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1638.54,
+          y = 601.266,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 205 },
+            ["2"] = { id = 208 }
+          }
+        },
+        {
+          id = 205,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1635.02,
+          y = 451.828,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 207 },
+            ["2"] = { id = 206 },
+            ["3"] = { id = 209 }
+          }
+        },
+        {
+          id = 206,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1543.6,
+          y = 443.917,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 207,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1724.68,
+          y = 443.917,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 208,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1773.03,
+          y = 537.096,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 209,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1633.26,
+          y = 316.456,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 210 },
+            ["2"] = { id = 215 },
+            ["3"] = { id = 211 }
+          }
+        },
+        {
+          id = 210,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1824.89,
+          y = 291.842,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 211,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1480.31,
+          y = 287.447,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 213 },
+            ["2"] = { id = 212 }
+          }
+        },
+        {
+          id = 212,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1299.23,
+          y = 217.124,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 213,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1471.52,
+          y = 140.647,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 214 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 214,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1610.41,
+          y = 155.591,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 215,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1707.1,
+          y = 243.495,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 216 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 216,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1774.79,
+          y = 216.245,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 218 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 218,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1773.03,
+          y = 72.9606,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 219 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 219,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1692.16,
+          y = 77.3558,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 220,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1025.84,
+          y = 150.316,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 222 },
+            ["2"] = { id = 0 }
+          }
+        },
+        {
+          id = 221,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 1151.55,
+          y = 297.996,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 212 },
+            ["2"] = { id = 220 }
+          }
+        },
+        {
+          id = 222,
+          name = "",
+          type = "PathfindingNode",
+          shape = "point",
+          x = 855.309,
+          y = 157.349,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["1"] = { id = 0 },
+            ["2"] = { id = 0 }
+          }
         }
       }
     }

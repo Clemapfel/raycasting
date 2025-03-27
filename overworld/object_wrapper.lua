@@ -690,8 +690,10 @@ function ow._parse_object_group(object_group)
     -- second pass, set "object" tiled property
     for wrapper in values(objects) do
         for key, id in pairs(wrapper.to_replace) do
-            wrapper.properties[key] = object_id_to_wrapper[id]
-            assert(wrapper.properties[key] ~= nil, "In ow._parse_object_group: object `" .. wrapper.id .. "` points to `" .. id .. "`, but not object with that id is located on the same layer")
+            if id > 0 then
+                wrapper.properties[key] = object_id_to_wrapper[id]
+                assert(wrapper.properties[key] ~= nil, "In ow._parse_object_group: object `" .. wrapper.id .. "` points to `" .. id .. "`, but not object with that id is located on the same layer")
+            end
         end
         wrapper.to_replace = nil
     end

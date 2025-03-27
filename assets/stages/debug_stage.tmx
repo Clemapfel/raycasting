@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="152">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="57" height="37" tilewidth="32" tileheight="32" infinite="1" nextlayerid="12" nextobjectid="223">
  <editorsettings>
   <export target="debug_stage.lua" format="lua"/>
  </editorsettings>
@@ -444,7 +444,7 @@
   <object id="60" type="Hitbox" x="403.32" y="712.871">
    <polygon points="-176,106.667 126.667,54.6667 122.667,109.333 66.6667,146.667 -118.667,162.667 -122.667,121.333 -125.333,37.3333 -72,-10.6667 -102.667,40 -100,132 -22.6667,177.333 -40,-37.3333 169.333,101.333 78.6667,-54.6667"/>
   </object>
-  <object id="61" name="spawn" type="PlayerSpawn" x="1128.99" y="428.222">
+  <object id="61" name="spawn" type="PlayerSpawn" x="1128.11" y="376.358">
    <point/>
   </object>
   <object id="131" type="Hitbox" x="694.022" y="118.102">
@@ -490,6 +490,191 @@
   <object id="148" gid="70" x="1248.75" y="331.963" width="36" height="36"/>
   <object id="151" name="Agent" type="Agent" x="1432.84" y="188.994" width="29.8875" height="29.8875">
    <ellipse/>
+  </object>
+  <object id="152" type="PathfindingNode" x="498.418" y="457.982">
+   <properties>
+    <property name="1" type="object" value="198"/>
+    <property name="2" type="object" value="201"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="197" type="PathfindingNode" x="130.098" y="441.28">
+   <properties>
+    <property name="1" type="object" value="152"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="198" type="PathfindingNode" x="495.781" y="324.367">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="199" type="PathfindingNode" x="740.155" y="318.214">
+   <properties>
+    <property name="1" type="object" value="198"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="200" type="PathfindingNode" x="735.759" y="636.428">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="201" type="PathfindingNode" x="736.639" y="444.796">
+   <properties>
+    <property name="1" type="object" value="199"/>
+    <property name="2" type="object" value="200"/>
+    <property name="3" type="object" value="202"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="202" type="PathfindingNode" x="1214.84" y="444.796">
+   <properties>
+    <property name="1" type="object" value="203"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="203" type="PathfindingNode" x="1392.41" y="478.2">
+   <properties>
+    <property name="1" type="object" value="204"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="204" type="PathfindingNode" x="1638.54" y="601.266">
+   <properties>
+    <property name="1" type="object" value="205"/>
+    <property name="2" type="object" value="208"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="205" type="PathfindingNode" x="1635.02" y="451.828">
+   <properties>
+    <property name="1" type="object" value="207"/>
+    <property name="2" type="object" value="206"/>
+    <property name="3" type="object" value="209"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="206" type="PathfindingNode" x="1543.6" y="443.917">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="207" type="PathfindingNode" x="1724.68" y="443.917">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="208" type="PathfindingNode" x="1773.03" y="537.096">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="209" type="PathfindingNode" x="1633.26" y="316.456">
+   <properties>
+    <property name="1" type="object" value="210"/>
+    <property name="2" type="object" value="215"/>
+    <property name="3" type="object" value="211"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="210" type="PathfindingNode" x="1824.89" y="291.842">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="211" type="PathfindingNode" x="1480.31" y="287.447">
+   <properties>
+    <property name="1" type="object" value="213"/>
+    <property name="2" type="object" value="212"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="212" type="PathfindingNode" x="1299.23" y="217.124">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="213" type="PathfindingNode" x="1471.52" y="140.647">
+   <properties>
+    <property name="1" type="object" value="214"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="214" type="PathfindingNode" x="1610.41" y="155.591">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="215" type="PathfindingNode" x="1707.1" y="243.495">
+   <properties>
+    <property name="1" type="object" value="216"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="216" type="PathfindingNode" x="1774.79" y="216.245">
+   <properties>
+    <property name="1" type="object" value="218"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="218" type="PathfindingNode" x="1773.03" y="72.9606">
+   <properties>
+    <property name="1" type="object" value="219"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="219" type="PathfindingNode" x="1692.16" y="77.3558">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="220" type="PathfindingNode" x="1025.84" y="150.316">
+   <properties>
+    <property name="1" type="object" value="222"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="221" type="PathfindingNode" x="1151.55" y="297.996">
+   <properties>
+    <property name="1" type="object" value="212"/>
+    <property name="2" type="object" value="220"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="222" type="PathfindingNode" x="855.309" y="157.349">
+   <properties>
+    <property name="1" type="object" value="0"/>
+    <property name="2" type="object" value="0"/>
+   </properties>
+   <point/>
   </object>
  </objectgroup>
 </map>

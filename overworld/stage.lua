@@ -1,6 +1,7 @@
 require "overworld.stage_config"
 require "overworld.object_wrapper"
 require "overworld.player"
+require "overworld.pathfinding_graph"
 
 require "physics.physics"
 
@@ -41,6 +42,7 @@ function ow.Stage:instantiate(scene, id)
     self._config = config
     self._to_update = {} -- Table<Any>
     self._objects = {}  -- Table<any>
+    self._pathfinding_graph = ow.PathfindingGraph()
 
     self._player_spawn_x, self._player_spawn_y = nil, nil
     self._camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge)
@@ -111,7 +113,7 @@ function ow.Stage:instantiate(scene, id)
                     table.insert(self._objects, object)
                     self._object_id_to_instance[wrapper.id] = object
 
-                    if meta.typeof(object, ow.Agent) then --meta.isa(object, rt.Drawable) then -- TODO
+                    if meta.isa(object, rt.Drawable) then
                         table.insert(drawables, object)
                     end
 
@@ -211,4 +213,9 @@ function ow.Stage:get_object_instance(object)
     end
 
     return self._object_id_to_instance[object.id]
+end
+
+--- @brief
+function ow.Stage:get_pathfinding_graph()
+    return self._pathfinding_graph
 end
