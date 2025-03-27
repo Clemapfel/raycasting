@@ -63,10 +63,6 @@ end
 
 --- @brief
 function ow.PathfindingGraph:_a_star(from, to)
-    local function heuristic(node, goal)
-        return math.distance(node.x, node.y, goal.x, goal.y)
-    end
-
     -- https://en.wikipedia.org/wiki/A*_search_algorithm#Pseudocode
     local open_set = {[from] = true}
     local came_from = {}
@@ -110,15 +106,15 @@ end
 
 --- @brief
 function ow.PathfindingGraph:get_path(from, to)
-    meta.assert_isa(from, ow.PathfindingNode, to, ow.PathfindingNode)
+    meta.assert(from, ow.PathfindingNode, to, ow.PathfindingNode)
 
-    local path_data = {}
+    local path = {}
     for node in values(self:_a_star(from, to)) do
-        table.insert(path_data, node.x)
-        table.insert(path_data, node.y)
+        table.insert(path, node.x)
+        table.insert(path, node.y)
     end
 
-    return rt.Path(path_data)
+    return path
 end
 
 --- @brief
@@ -133,7 +129,7 @@ function ow.PathfindingGraph:get_closest_node(x, y)
         end
     end
 
-    return min_node.x, min_node.y
+    return min_node
 end
 
 --- @brief
