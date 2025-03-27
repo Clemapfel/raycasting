@@ -54,6 +54,7 @@ function ow.Agent:instantiate(object, stage, scene)
     })
 
     self._body:set_collision_group(ow.AgentCollisionGroup)
+    self._body:set_restitution(0.3)
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("mouse_pressed", function(_, _, x, y)
@@ -241,6 +242,8 @@ function ow.Agent:_update_mode()
             self._direction_x, self._direction_y = math.turn_left(normal_x, normal_y)
         end
 
+        --self._body:apply_force(self._direction_x * 100, self._direction_y * 100)
+
         return
     end
 end
@@ -250,14 +253,19 @@ function ow.Agent:update(delta)
     local current_x, current_y = self:get_position()
     local direction_x, direction_y = self._goal_x - current_x, self._goal_y - current_y
 
-    self:_update_mode()
+    local dx, dy = math.normalize(direction_x, direction_y)
+    self._body:apply_force(direction_x, direction_y)
+    self._body._native:setLinearDamping(1 - math.min(math.magnitude(direction_x, direction_y) / 1500, 1))
+    --self:_update_mode()
 
     -- update velocity
+    --[[
     local dx, dy = self._direction_x, self._direction_y
     local magnitude = math.distance(current_x, current_y, self._goal_x, self._goal_y)
     dx = dx * math.min(magnitude, self._max_velocity)
     dy = dy * math.min(magnitude, self._max_velocity)
     self._body:set_velocity(dx, dy)
+    ]]--
 end
 
 --- @brief

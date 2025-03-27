@@ -206,6 +206,13 @@ function b2.Body:set_friction(friction)
 end
 
 --- @brief
+function b2.Body:set_restitution(value)
+    for shape in values(self._native:getShapes()) do
+        shape:setRestitution(value)
+    end
+end
+
+--- @brief
 function b2.Body:get_mass()
     return self._native:getMass()
 end
