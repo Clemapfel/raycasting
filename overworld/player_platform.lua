@@ -7,13 +7,15 @@ local velocity = 200
 rt.settings.overworld.player = {
     radius = 10,
 
-    velocity = velocity, -- px / s
+    max_velocity_x = velocity, -- px / s
+    max_velocity_y = 3 * velocity,
     grounded_ray_length_factor = 1.5,
     sprint_multiplier = 2.5,
 
-    jump_n_ticks = 10,
-    jump_tick_strength = 0.08, -- times gravity
-    jump_tick_duration = 1 / 60
+    jump_total_force = 1600,
+    jump_duration = 13 / 60,
+
+    coyote_time = 6 / 60
 }
 
 --- @class ow.Player
@@ -25,7 +27,7 @@ meta.add_signals(ow.Player,
     "movement_stop"
 )
 
-local _gravity = 1000
+local _gravity = 1500
 
 function ow.Player:instantiate(scene, stage)
     local player_radius = rt.settings.overworld.player.radius
@@ -37,41 +39,58 @@ function ow.Player:instantiate(scene, stage)
         _input = rt.InputSubscriber(),
 
         _is_midair = true,
+        _is_midair_timer = 0,
+        _last_known_grounded_y = math.huge,
+
         _left_wall = false,
         _right_wall = false,
 
         _velocity_sign = 0, -- left or right
         _velocity_magnitude = 0,
         _velocity_multiplier = 1,
+
+        _next_multiplier_apply_when_grounded = false,
+        _next_multiplier = 1,
         
         _jump_button_down = false,
-        _jump_n_ticks_left = 0,
-        _jump_tick_elapsed = 0,
+        _jump_elapsed = 0
     })
 
     self:_connect_input()
+end
+
+--- @brie
+function ow.Player:get_is_midair()
+    local _, current_y = self._body:get_position()
+    current_y = math.huge --current_y + self._radius
+    dbg(self._is_midair_timer < rt.settings.overworld.player.coyote_time)
+    if current_y >= self._last_known_grounded_y and self._is_midair_timer < rt.settings.overworld.player.coyote_time then
+        return false
+    else
+        return self._is_midair
+    end
 end
 
 --- @brief
 function ow.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputButton.A then
-            if not self._is_midair then
-                self._jump_n_ticks_left = rt.settings.overworld.player.jump_n_ticks
-                self._jump_tick_elapsed = 0
-                local vx, vy = self._body:get_velocity()
-                self._body:set_velocity(vx, 0)
+            if not self:get_is_midair() then
+                self._jump_elapsed = 0
+                self._is_midair_timer = math.huge -- prevent double jump during coyote time
             end
             self._jump_button_down = true
         elseif which == rt.InputButton.B then
+            self._next_multiplier = rt.settings.overworld.player.sprint_multiplier
+            self._next_multiplier_apply_when_grounded = true
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
         if which == rt.InputButton.A then
-            self._jump_button_down = false
-            self._jump_n_ticks_left = 0
         elseif which == rt.InputButton.B then
+            self._next_multiplier = 1
+            self._next_multiplier_apply_when_grounded = true
         end
     end)
 
@@ -88,31 +107,52 @@ end
 
 --- @brief
 function ow.Player:update(delta)
-    local max_velocity = rt.settings.overworld.player.velocity
+    local max_velocity = rt.settings.overworld.player.max_velocity_x
     local acceleration_duration = rt.settings.overworld.player.digital_movement_acceleration_duration
 
+    local velocity_x = self._velocity_sign * self._velocity_magnitude * self._velocity_multiplier * max_velocity
+
     if self._jump_button_down then
-        self._jump_tick_elapsed = self._jump_tick_elapsed + delta
-        local step = rt.settings.overworld.player.jump_tick_duration
-        local max_ticks = rt.settings.overworld.player.jump_n_ticks
-        local strength = rt.settings.overworld.player.jump_tick_strength
-        while self._jump_tick_elapsed > step and self._jump_n_ticks_left > 0 do
-            self._body:apply_linear_impulse(0, -1 * strength * _gravity)
-            self._jump_tick_elapsed = self._jump_tick_elapsed - step
-            self._jump_n_ticks_left = self._jump_n_ticks_left - 1
-        end
+        self._jump_elapsed = self._jump_elapsed + delta
+        local total_force = rt.settings.overworld.player.jump_total_force
+        local multiplier = self._velocity_multiplier -- in [1, ...]
+        local magnitude = self._velocity_magnitude -- in [0, 1]
+        local adjusted_force = total_force
+        local duration = rt.settings.overworld.player.jump_duration
+        local fraction = math.min(self._jump_elapsed / duration, 1)
+        local impulse = (adjusted_force * delta) / duration
+        self._body:apply_linear_impulse(0, -1 * impulse * (1 - fraction))
     end
 
-    local velocity_x = self._velocity_sign * self._velocity_magnitude * max_velocity
     local vx, vy = self._body:get_velocity()
-    self._body:set_velocity(velocity_x, vy)
+    self._body:set_velocity(
+        velocity_x,
+        math.max(vy, -1 * rt.settings.overworld.player.max_velocity_y) -- only limit upwards speed
+    )
 
     local x, y = self._body:get_position()
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
     local mask = bit.bnot(b2.CollisionGroup.GROUP_16)
+    local before = self._is_midair
     self._is_midair = self._world:query_ray_any(x, y, 0, r, mask) == nil
+
+    if self._is_midair == true then
+        self._last_known_grounded_y = select(2, self._body:get_position()) + self._radius
+    end
+
+    self._is_midair_timer = self._is_midair_timer + delta
+    if before == false and self._is_midair == true then
+        self._is_midair_timer = 0
+    end
+
+
     self._left_wall = self._world:query_ray_any(x, y, -r, 0, mask) ~= nil
     self._right_wall = self._world:query_ray_any(x, y, r, 0, mask) ~= nil
+
+    if not self._is_midair and self._next_multiplier_apply_when_grounded then
+        self._velocity_multiplier = self._next_multiplier
+        self._next_multiplier_apply_when_grounded = false
+    end
 end
 
 --- @brief

@@ -88,8 +88,8 @@ function ow.Camera:update(delta)
     dx = dx / screen_w
     dy = dy / screen_h
 
-    local velocity = rt.settings.overworld.player.velocity * 2
-    local max_velocity = rt.settings.overworld.player.velocity * 4
+    local velocity = rt.settings.overworld.player.max_velocity_x * 2
+    local max_velocity = rt.settings.overworld.player.max_velocity_x * 4
     self._velocity_x = dx * velocity
     self._velocity_y = dy * velocity
 
