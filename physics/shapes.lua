@@ -28,7 +28,13 @@ end
 
 --- @brief
 function b2.Rectangle:_add_to_body(body)
-    return love.physics.newRectangleshape(body, table.unpack(self._native.arguments))
+    local x, y, w, h = table.unpack(self._native.arguments)
+    return love.physics.newPolygonShape(body, {
+        x, y,
+        x + w, y,
+        x + w, y + h,
+        x, y + h
+    })
 end
 
 --- @class b2.Circle

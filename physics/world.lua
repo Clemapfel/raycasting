@@ -274,6 +274,42 @@ function b2.World:query_aabb(x, y, width, height)
 end
 
 --- @brief
+--- @return Boolean true if occluded, false otherwise
+function b2.World:circle_cast(radius, from_x, from_y, to_x, to_y, mask)
+    local direction_x, direction_y = to_x - from_x, to_y - from_y
+    local ndx, ndy = math.normalize(direction_x, direction_y)
+    local center_x, center_y = from_x, from_y
+
+    local up_x, up_y = math.turn_left(ndx, ndy)
+    local top_x, top_y = center_x + up_x * radius, center_y + up_y * radius
+
+    local down_x, down_y = math.turn_right(ndx, ndy)
+    local bottom_x, bottom_y = center_x + down_x * radius, center_y + down_y * radius
+
+    local native = self:get_native()
+
+    local center_shape, center_cx, center_cy, center_nx, center_ny, center_fraction = native:rayCastAny(
+        center_x, center_y, center_x + direction_x, center_y + direction_y, mask
+    )
+
+    if center_shape ~= nil then return true end
+
+    local top_shape, top_cx, top_cy, top_nx, top_ny, top_fraction = native:rayCastAny(
+        top_x, top_y, top_x + direction_x, top_y + direction_y, mask
+    )
+
+    if top_shape ~= nil then return true end
+
+    local bottom_shape, bottom_cx, bottom_cy, bottom_nx, bottom_ny, bottom_fraction = native:rayCastAny(
+        bottom_x, bottom_y, bottom_x + direction_x, bottom_y + direction_y, mask
+    )
+
+    if bottom_shape ~= nil then return true end
+
+    return false
+end
+
+--- @brief
 function b2.World:get_native()
     return self._native
 end

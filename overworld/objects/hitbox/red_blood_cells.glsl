@@ -76,16 +76,46 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
+float wnoise(vec2 uv) {
+    const float eps = 0.35;
+    float res = worley_noise(vec3(vec2(uv.xy) * 7, elapsed));
+    return smoothstep(0 - eps, 0 + eps, gaussian(1 - res, 1.3));
+}
+
 vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
 
     vec2 uv = to_uv(frag_position);
     uv *= 1.5;
     float time = elapsed;
-    float wnoise = worley_noise(vec3(vec2(uv.xy + vec2(0, 0)) * 9, elapsed));
-    const float eps = 0.35;
-    wnoise = smoothstep(0 - eps, 0 + eps, gaussian(1 - wnoise, 1.3));
-    wnoise = 1.2 * gradient_noise(vec3(vec2(uv.xy + -gaussian(length(vec2(dFdx(wnoise), dFdy(wnoise))) * camera_scale, 3)) * 10, elapsed));
-    return vec4(mix(color_b.rgb, color_a.rgb, wnoise), 1);
+    vec2 pixel_size = 1 / love_ScreenSize.xy;
+    float wn = wnoise(uv);
+
+mat3 sobel_x = mat3(
+    -1, 0, 1,
+    -2, 0, 2,
+    -1, 0, 1
+);
+
+mat3 sobel_y = mat3(
+    -1, -2, -1,
+    0, 0, 0,
+    1, 2, 1
+);
+
+float gradient_x = 0.0;
+float gradient_y = 0.0;
+
+for (int i = -1; i <= 1; i++) {
+    for (int j = -1; j <= 1; j++) {
+        vec2 neighbor_uv = uv + vec2(i, j) * pixel_size / camera_scale;
+        float neighbor_wn = wnoise(neighbor_uv);
+        gradient_x += neighbor_wn * sobel_x[i + 1][j + 1];
+        gradient_y += neighbor_wn * sobel_y[i + 1][j + 1];
+    }
 }
 
+float sobel_magnitude = length(vec2(gradient_x, gradient_y));
+wn = 1.2 * gradient_noise(vec3(vec2(uv.xy + sobel_magnitude * camera_scale) * 10, elapsed));
+return vec4(mix(color_b.rgb, color_a.rgb, wn), 1);
+}
 #endif

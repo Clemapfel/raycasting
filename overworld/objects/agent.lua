@@ -8,29 +8,28 @@ ow.Agent = meta.class("Agent", rt.Drawable)
 --- @brief
 function ow.Agent:instantiate(object, stage, scene)
     local world = stage:get_physics_world()
-    local shape = b2.Circle(0, 0, 10)
+    local radius = 10
+    local shape = b2.Circle(0, 0, radius)
     meta.install(self, {
         _stage = stage,
         _scene = scene,
         _world = world,
         _body = b2.Body(world, b2.BodyType.DYNAMIC, object.x, object.y, shape),
-
+        _radius = radius,
         _path = { object.x, object.y },
         _path_i = 1,
     })
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("mouse_pressed", function(_, _, x, y)
+        local current_x, current_y = self._body:get_position()
         local goal_x, goal_y = self._scene:screen_xy_to_world_xy(x, y)
 
         -- get closest nodes to start and end, move along graph path
         local graph = self._stage:get_pathfinding_graph()
-        local start = graph:get_closest_node(self._body:get_position())
-        local finish = graph:get_closest_node(goal_x, goal_y)
-
-        dbg(start, finish)
-
-        self._path = graph:get_path(start, finish)
+        local from = graph:get_closest_reachable_node(current_x, current_y, self._world, self._radius)
+        local to = graph:get_closest_reachable_node(goal_x, goal_y, self._world, self._radius)
+        self._path = graph:get_path(from, to)
 
         -- at the end, leave path and go to goal
         table.insert(self._path, goal_x)
@@ -60,6 +59,14 @@ function ow.Agent:update(delta)
     if distance < 10 and self._path_i < #self._path - 2 then
         self._path_i = self._path_i + 2
     end
+
+    -- check if goal is reachable already
+    local final_x, final_y = self._path[#self._path - 1], self._path[#self._path]
+    if math.distance(current_x, current_y, final_x, final_y) > 10 and
+        not self._world:circle_cast(self._radius, current_x, current_y, final_x, final_y)
+    then
+        self._path_i = #self._path - 1 -- skip to end
+    end
 end
 
 --- @brief
@@ -69,6 +76,12 @@ function ow.Agent:draw()
     local goal_x, goal_y = self:_get_goal()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.circle("fill", goal_x, goal_y, 10)
+
+    love.graphics.setColor(1, 0, 1, 1)
+    love.graphics.setLineWidth(3)
+    if #self._path >= 4 then
+        love.graphics.line(self._path)
+    end
 end
 
 --- @brief

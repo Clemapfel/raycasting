@@ -1239,7 +1239,7 @@ return {
           visible = true,
           properties = {
             ["1"] = { id = 203 },
-            ["2"] = { id = 0 }
+            ["2"] = { id = 221 }
           }
         },
         {
@@ -1255,7 +1255,7 @@ return {
           visible = true,
           properties = {
             ["1"] = { id = 204 },
-            ["2"] = { id = 0 }
+            ["2"] = { id = 211 }
           }
         },
         {
