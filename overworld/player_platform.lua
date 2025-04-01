@@ -5,7 +5,7 @@ require "common.blend_mode"
 local velocity = 200
 
 rt.settings.overworld.player = {
-    radius = 10,
+    radius = 13.5,
 
     max_velocity_x = velocity, -- px / s
     max_velocity_y = 3 * velocity,
@@ -16,7 +16,8 @@ rt.settings.overworld.player = {
     jump_duration = 13 / 60,
 
     downwards_force = 10000,
-    n_outer_bodies = 24,
+    squeeze_force = 15000,
+    n_outer_bodies = 31,
     ground_collision_ray_span = 0.1 * math.pi,
 
     digital_movement_acceleration_duration = 10 / 60,
@@ -45,7 +46,7 @@ function ow.Player:instantiate(scene, stage)
         _scene = scene,
         _shapes = { b2.Circle(0, 0, player_radius) },
         _radius = player_radius,
-        _spring_body_radius = 0.15 * player_radius,
+        _spring_body_radius = (player_radius * 2 * math.pi) / rt.settings.overworld.player.n_outer_bodies / 2,
 
         _input = rt.InputSubscriber(),
 
@@ -87,7 +88,6 @@ function ow.Player:instantiate(scene, stage)
         _spring_is_sensor = {},
     })
 
-    self._soft_body = ow.PlayerBody(self)
     self:_connect_input()
 end
 
@@ -173,6 +173,8 @@ function ow.Player:_connect_input()
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self._joystick_position = x
         self._down_button_down = math.abs(x) < 0.1 and y > 0.5
+        self._right_is_down = math.abs(y) < 0.1 and x > 0.5
+        self._left_is_down = math.abs(y) < 0.1 and x < -0.5
     end)
 
     self._input:signal_connect("right_joystick_moved", function(_, x, y)
@@ -261,6 +263,13 @@ function ow.Player:update(delta)
         self._body:apply_force(0, rt.settings.overworld.player.downwards_force)
     end
 
+    if self._left_is_down and self._top_wall and not (self._is_midair) then
+        self._body:apply_force(-1 * rt.settings.overworld.player.squeeze_force, 0)
+    elseif self._right_is_down and self._top_wall and not (self._is_midair) then
+        self._body:apply_force(rt.settings.overworld.player.squeeze_force, 0)
+    end
+
+
     local x, y = self._body:get_position()
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
     local mask = bit.bnot(b2.CollisionGroup.GROUP_15)
@@ -325,9 +334,9 @@ function ow.Player:move_to_stage(stage, x, y)
     self._body = b2.Body(
         self._world, b2.BodyType.DYNAMIC,
         x, y,
-        b2.Circle(0, 0, 2) --0.0 * self._radius)
+        b2.Circle(0, 0, 4) --0.0 * self._radius)
     )
-    self._body:set_is_sensor(true) -- TODO
+    self._body:set_is_sensor(false) -- TODO
     self._body:add_tag("player")
     self._body:set_is_rotation_fixed(true)
     self._body:set_collision_group(b2.CollisionGroup.GROUP_16)
@@ -335,8 +344,9 @@ function ow.Player:move_to_stage(stage, x, y)
 
     local n_outer_bodies = rt.settings.overworld.player.n_outer_bodies
     local outer_radius = self._radius - self._spring_body_radius
-    local outer_body_shape = b2.Circle(0, 0, 0.15 * self._radius)
-    for angle = 0, 2 * math.pi, (2 * math.pi) / n_outer_bodies do
+    local outer_body_shape = b2.Circle(0, 0, self._spring_body_radius)
+    local step = (2 * math.pi) / n_outer_bodies
+    for angle = 0, 2 * math.pi - step, step do
         local cx = x + math.cos(angle) * outer_radius
         local cy = y + math.sin(angle) * outer_radius
 
@@ -365,6 +375,7 @@ function ow.Player:move_to_stage(stage, x, y)
     end
 
     self._max_spring_length = outer_radius * rt.settings.overworld.player.max_spring_length_factor
+    self._soft_body = ow.PlayerBody(self)
 end
 
 --- @brief
@@ -372,7 +383,7 @@ function ow.Player:draw()
 
     --self._body:draw()
     self._soft_body:draw()
-    --[[
+
     local x, y = self._body:get_position()
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
 
@@ -408,7 +419,6 @@ function ow.Player:draw()
         self._spring_colors[i]:bind()
         spring:draw()
     end
-    ]]--
 end
 
 --- @brief
