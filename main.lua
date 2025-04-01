@@ -52,12 +52,23 @@ function update_mesh()
         local x2, y2 = vertices[i2][1], vertices[i2][2]
         local x3, y3 = cx, cy
         local area = 0.5 * math.abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+        areas[i] = area
+        total_area = total_area + area
+    end
+
+    do
+        local x1, y1 = vertices[n-1][1], vertices[n-1][2]
+        local x2, y2 = vertices[n][1], vertices[n][2]
+        local x3, y3 = cx, cy
+        local area = 0.5 * math.abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+        areas[1] = area
         total_area = total_area + area
     end
 
     local numerator = math.gamma((3 + m) / 2)
     local denominator = math.gamma(3 + m / 2)
     local analytic_area = 4 * math.sqrt(math.pi) * numerator / denominator
+    dbg(total_area, analytic_area)
 
     local x_sum, y_sum, tri_n, total_fraction = 0, 0, 0, 0
     for i = 2, n do
