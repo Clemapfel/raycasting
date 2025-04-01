@@ -28,9 +28,9 @@ function update_mesh()
 
         local tx = cx + x * x_radius
         local ty = cy + y * y_radius
-        table.insert(vertices, {
-            tx, ty, 0, 0, r, g, b, a
-        })
+        table.insert(vertices,
+            {tx, ty}
+        )
 
         n = n + 1
     end
@@ -65,9 +65,7 @@ function update_mesh()
         total_area = total_area + area
     end
 
-    local numerator = math.gamma((3 + m) / 2)
-    local denominator = math.gamma(3 + m / 2)
-    local analytic_area = 4 * math.sqrt(math.pi) * numerator / denominator
+    local analytic_area = 4 * math.sqrt(math.pi) * math.gamma((3 + m) / 2) / math.gamma(3 + m / 2)
     dbg(total_area, analytic_area)
 
     local x_sum, y_sum, tri_n, total_fraction = 0, 0, 0, 0
@@ -87,6 +85,15 @@ function update_mesh()
         y_sum = y_sum + (y1 + y2 + y3) * fraction
         total_fraction = total_fraction + fraction
         tri_n = tri_n + 3 * fraction
+    end
+
+    do
+        local x1, y1 = vertices[n-1][1], vertices[n-1][2]
+        local x2, y2 = vertices[n][1], vertices[n][2]
+        local x3, y3 = cx, cy
+        local area = 0.5 * math.abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+        areas[1] = area
+        total_area = total_area + area
     end
 
     table.insert(vertices, 1,{
@@ -123,7 +130,6 @@ end
 
 love.draw = function()
     --SceneManager:draw()
-    love.graphics.setWireframe(true)
     mesh:draw()
 end
 
