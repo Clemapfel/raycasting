@@ -45,7 +45,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
         -- drawables, optional
         _mesh = mesh,
         _mesh_triangles = tris,
-        _shader = shader,
+        _shader = nil --shader,
     })
 
 
@@ -72,12 +72,14 @@ function ow.Hitbox:draw()
         self._shader:send("elapsed", _elapsed)
         self._shader:send("camera_offset", { _offset_x, _offset_y})
         self._shader:send("camera_scale", _scale)
+    end
 
         love.graphics.push()
         love.graphics.translate(self._body:get_position())
         love.graphics.rotate(self._body:get_rotation())
-
         self._mesh:draw()
+
+    if self._shader ~= nil then
         self._shader:unbind()
     end
 
@@ -117,8 +119,8 @@ function ow.Hitbox:draw()
         end
 
         rt.graphics.set_stencil_test()
-        love.graphics.pop()
     end
+    love.graphics.pop()
 end
 
 --- @brief

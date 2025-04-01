@@ -10,10 +10,17 @@ rt.settings.overworld.player = {
     max_velocity_x = velocity, -- px / s
     max_velocity_y = 3 * velocity,
     grounded_ray_length_factor = 1.5,
-    sprint_multiplier = 2.5,
+    sprint_multiplier = 2,
 
     jump_total_force = 1600,
     jump_duration = 13 / 60,
+
+    downwards_force = 10000,
+    n_outer_bodies = 24,
+
+    digital_movement_acceleration_duration = 10 / 60,
+    deceleration_duration = 0.2, -- n seconds until 0
+    max_spring_length_factor = 1.5,
 
     coyote_time = 6 / 60
 }
@@ -41,9 +48,11 @@ function ow.Player:instantiate(scene, stage)
         _is_midair = true,
         _is_midair_timer = 0,
         _last_known_grounded_y = math.huge,
+        _last_known_grounded_sign = 0,
 
         _left_wall = false,
         _right_wall = false,
+        _top_wall = false,
 
         _velocity_sign = 0, -- left or right
         _velocity_magnitude = 0,
@@ -53,17 +62,36 @@ function ow.Player:instantiate(scene, stage)
         _next_multiplier = 1,
         
         _jump_button_down = false,
-        _jump_elapsed = 0
+        _jump_elapsed = 0,
+
+        _down_button_down = false,
+
+        -- digital movements
+        _left_is_down = false,
+        _right_is_down = false,
+        _digital_movement_timer = 0,
+
+        _walljump_allowed = true,
+
+        -- analog movement
+        _joystick_position = 0,
+
+        -- softbody
+        _spring_bodies = {},
+        _spring_joints = {},
+        _spring_colors = {},
+        _spring_is_sensor = {},
     })
 
     self:_connect_input()
 end
 
+local _JUMP_BUTTON = rt.InputButton.A
+local _SPRINT_BUTTON = rt.InputButton.B
+
 --- @brie
 function ow.Player:get_is_midair()
     local _, current_y = self._body:get_position()
-    current_y = math.huge --current_y + self._radius
-    dbg(self._is_midair_timer < rt.settings.overworld.player.coyote_time)
     if current_y >= self._last_known_grounded_y and self._is_midair_timer < rt.settings.overworld.player.coyote_time then
         return false
     else
@@ -72,31 +100,63 @@ function ow.Player:get_is_midair()
 end
 
 --- @brief
+function ow.Player:_get_can_jump()
+    if self._walljump_allowed and (self._left_wall or self._right_wall) then
+        return true
+    else
+        return not self:get_is_midair()
+    end
+end
+
+--- @brief
 function ow.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputButton.A then
-            if not self:get_is_midair() then
+        if which == _JUMP_BUTTON then
+            if self:_get_can_jump() then
                 self._jump_elapsed = 0
                 self._is_midair_timer = math.huge -- prevent double jump during coyote time
             end
             self._jump_button_down = true
-        elseif which == rt.InputButton.B then
+        elseif which == _SPRINT_BUTTON then
             self._next_multiplier = rt.settings.overworld.player.sprint_multiplier
             self._next_multiplier_apply_when_grounded = true
+        end
+
+        if which == rt.InputButton.LEFT then
+            self._left_is_down = true
+            if not self._right_is_down then
+                self._digital_movement_timer = 0
+            end
+        elseif which == rt.InputButton.RIGHT then
+            self._right_is_down = true
+            if not self._left_is_down then
+                self._digital_movement_timer = 0
+            end
+        elseif which == rt.InputButton.DOWN then
+            self._down_button_down = true
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if which == rt.InputButton.A then
-        elseif which == rt.InputButton.B then
+        if which == _JUMP_BUTTON then
+        elseif which == _SPRINT_BUTTON then
             self._next_multiplier = 1
             self._next_multiplier_apply_when_grounded = true
+        end
+
+        if which == rt.InputButton.LEFT then
+            self._left_is_down = false
+        elseif which == rt.InputButton.RIGHT then
+            self._right_is_down = false
+        elseif which == rt.InputButton.DOWN then
+            self._down_button_down = false
         end
     end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
-        self._velocity_sign = math.sign(x)
-        self._velocity_magnitude = math.magnitude(x, y)
+        self._joystick_position = x
+
+        self._down_button_down = y > 0.5
     end)
 
     self._input:signal_connect("right_joystick_moved", function(_, x, y)
@@ -104,40 +164,90 @@ function ow.Player:_connect_input()
     end)
 end
 
-
 --- @brief
 function ow.Player:update(delta)
     local max_velocity = rt.settings.overworld.player.max_velocity_x
-    local acceleration_duration = rt.settings.overworld.player.digital_movement_acceleration_duration
+    local fraction = self._digital_movement_timer / rt.settings.overworld.player.digital_movement_acceleration_duration
+
+    local _accel = function(x)
+        if self:get_is_midair() then
+            return 1 -- instant acceleration and not sprint for air horizontal movements
+        else
+            return math.min(x, 1)^2.5
+        end
+    end
+
+    if self._left_is_down then
+        self._velocity_sign = self._velocity_sign + -1
+        self._velocity_magnitude = _accel(fraction)
+    end
+
+    if self._right_is_down then
+        self._velocity_sign = self._velocity_sign + 1
+        self._velocity_magnitude = _accel(fraction)
+    end
+
+    if self._velocity_sign < -1 then self._velocity_sign = -1 end
+    if self._velocity_sign > 1 then self._velocity_sign = 1 end
+
+    local midair_turn_active = false
+    if self._is_midair and self._velocity_sign ~= self._last_known_grounded_sign and self._velocity_multiplier ~= 1 then
+        -- if doing mid-air turnaround, reset sprint multiplier, but start sprinting again once grounded
+        -- if sprint button is after this, it will be overriden
+        local before = self._velocity_multiplier
+        self._velocity_multiplier = 1
+        self._next_multiplier = before
+        self._next_multiplier_apply_when_grounded = true
+        self._digital_movement_timer = 0
+        midair_turn_active = true
+    end
+
+    if self._left_is_down or self._right_is_down then
+        self._digital_movement_timer = self._digital_movement_timer + delta
+    else
+        local deceleration = rt.settings.overworld.player.deceleration_duration * self._velocity_multiplier
+        if deceleration == 0 then
+            self._velocity_magnitude = 0
+        else
+            self._velocity_magnitude = math.max(self._velocity_magnitude - (1 / deceleration) * delta, 0)
+        end
+    end
+
+    if self._joystick_position ~= 0 then
+        -- overrides when using a analog controls
+        self._velocity_sign = math.sign(self._joystick_position)
+        self._velocity_magnitude = math.abs(self._joystick_position)
+    end
 
     local velocity_x = self._velocity_sign * self._velocity_magnitude * self._velocity_multiplier * max_velocity
 
     if self._jump_button_down then
         self._jump_elapsed = self._jump_elapsed + delta
-        local total_force = rt.settings.overworld.player.jump_total_force
-        local multiplier = self._velocity_multiplier -- in [1, ...]
-        local magnitude = self._velocity_magnitude -- in [0, 1]
-        local adjusted_force = total_force
-        local duration = rt.settings.overworld.player.jump_duration
-        local fraction = math.min(self._jump_elapsed / duration, 1)
-        local impulse = (adjusted_force * delta) / duration
-        self._body:apply_linear_impulse(0, -1 * impulse * (1 - fraction))
+        local impulse = (rt.settings.overworld.player.jump_total_force * delta) / rt.settings.overworld.player.jump_duration
+        self._body:apply_linear_impulse(0, -1 * impulse * (1 - math.min(self._jump_elapsed / rt.settings.overworld.player.jump_duration, 1)))
     end
 
     local vx, vy = self._body:get_velocity()
+
+    local max_velocity_y = rt.settings.overworld.player.max_velocity_y
     self._body:set_velocity(
         velocity_x,
-        math.max(vy, -1 * rt.settings.overworld.player.max_velocity_y) -- only limit upwards speed
+        math.clamp(vy, -1 * max_velocity_y, 3 * max_velocity_y) -- only limit upwards speed
     )
+
+    if self._down_button_down and (self:get_is_midair() or self._velocity_magnitude < 10e-3) then
+        self._body:apply_force(0, rt.settings.overworld.player.downwards_force)
+    end
 
     local x, y = self._body:get_position()
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
-    local mask = bit.bnot(b2.CollisionGroup.GROUP_16)
+    local mask = bit.bnot(b2.CollisionGroup.GROUP_15)
     local before = self._is_midair
     self._is_midair = self._world:query_ray_any(x, y, 0, r, mask) == nil
 
     if self._is_midair == true then
-        self._last_known_grounded_y = select(2, self._body:get_position()) + self._radius
+        self._last_known_grounded_y = select(2, self._body:get_position())
+        self._last_known_grounded_sign = self._velocity_sign
     end
 
     self._is_midair_timer = self._is_midair_timer + delta
@@ -145,13 +255,20 @@ function ow.Player:update(delta)
         self._is_midair_timer = 0
     end
 
-
     self._left_wall = self._world:query_ray_any(x, y, -r, 0, mask) ~= nil
     self._right_wall = self._world:query_ray_any(x, y, r, 0, mask) ~= nil
+    self._top_wall = self._world:query_ray_any(x, y, 0, -r, mask) ~= nil
 
     if not self._is_midair and self._next_multiplier_apply_when_grounded then
         self._velocity_multiplier = self._next_multiplier
         self._next_multiplier_apply_when_grounded = false
+    end
+
+    -- safeguard against one of the springs catching
+    for i, body in ipairs(self._spring_bodies) do
+        local translation = self._spring_joints[i]:getJointTranslation()
+        if translation > self._max_spring_length then dbg("true") end
+        body:set_is_sensor(translation > self._max_spring_length)
     end
 end
 
@@ -160,21 +277,56 @@ function ow.Player:move_to_stage(stage, x, y)
     meta.assert(stage, "Stage", x, "Number", y, "Number")
 
     local world = stage:get_physics_world()
-    if self._world ~= world then
-        self._world = world
-        self._world:set_gravity(0, _gravity)
+    if world == self._world then return end
 
-        -- create physics bodies
-        self._body = b2.Body(
-            self._world, b2.BodyType.DYNAMIC,
+    self._world = world
+    self._world:set_gravity(0, _gravity)
+
+    -- create physics bodies
+    self._body = b2.Body(
+        self._world, b2.BodyType.DYNAMIC,
+        x, y,
+        b2.Circle(0, 0, 2) --0.0 * self._radius)
+    )
+    self._body:set_is_sensor(false) -- TODO
+    self._body:add_tag("player")
+    self._body:set_is_rotation_fixed(true)
+    self._body:set_collision_group(b2.CollisionGroup.GROUP_16)
+    self._body:set_mass(1)
+
+    local n_outer_bodies = rt.settings.overworld.player.n_outer_bodies
+    local small_radius = 0.15 * self._radius
+    local outer_radius = self._radius - small_radius
+    local outer_body_shape = b2.Circle(0, 0, 0.15 * self._radius)
+    for angle = 0, 2 * math.pi, (2 * math.pi) / n_outer_bodies do
+        local cx = x + math.cos(angle) * outer_radius
+        local cy = y + math.sin(angle) * outer_radius
+
+        local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
+        body:set_mass(10e-4)
+        body:set_collision_group(b2.CollisionGroup.GROUP_15)
+        body:set_collides_with(bit.bnot(b2.CollisionGroup.GROUP_15))
+
+        local joint = love.physics.newPrismaticJoint(
+            self._body:get_native(),
+            body:get_native(),
             x, y,
-            self._shapes
+            cx - x, cy - y,
+            false
         )
-        self._body:add_tag("player")
-        self._body:set_is_rotation_fixed(true)
-        self._body:set_collision_group(b2.CollisionGroup.GROUP_16)
-        self._body:set_mass(1)
+
+        joint:setLimitsEnabled(true)
+        -- Use smoothstep to vary limit_eps
+        local limit_eps = 0
+        joint:setLimits(0.5 * outer_radius - limit_eps, 0.5 * outer_radius + limit_eps)
+
+        table.insert(self._spring_bodies, body)
+        table.insert(self._spring_joints, joint)
+        table.insert(self._spring_colors, rt.LCHA(0.8, 1, angle / (2 * math.pi), 1))
+        table.insert(self._spring_is_sensor, false)
     end
+
+    self._max_spring_length = outer_radius * rt.settings.overworld.player.max_spring_length_factor
 end
 
 --- @brief
@@ -187,10 +339,18 @@ function ow.Player:draw()
     love.graphics.line(x, y, x + 0, y + r)
 
     if self._left_wall then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
-    love.graphics.line(x, y, x - r, y)
+    love.graphics.line(x, y, x - r / 2, y)
 
     if self._right_wall then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
-    love.graphics.line(x, y, x + r, y)
+    love.graphics.line(x, y, x + r / 2, y)
+
+    if self._top_wall then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
+    love.graphics.line(x, y, x, y - r)
+
+    for i, spring in ipairs(self._spring_bodies) do
+        self._spring_colors[i]:bind()
+        spring:draw()
+    end
 end
 
 --- @brief
@@ -219,4 +379,9 @@ end
 --- @brief
 function ow.Player:get_radius()
     return self._radius
+end
+
+--- @brief
+function ow.Player:set_walljump_allowed(b)
+    self._walljump_allowed = b
 end

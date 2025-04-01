@@ -229,7 +229,6 @@ function b2.Body:draw()
     love.graphics.rotate(self._native:getAngle())
 
     love.graphics.setLineWidth(1)
-    love.graphics.setColor(1, 1, 1, 1)
     for shape in values(self._native:getShapes()) do
         local userdata = shape:getUserData()
         if userdata ~= nil then
@@ -252,9 +251,11 @@ end
 
 --- @brief
 function b2.Body:set_is_sensor(b)
-    self._is_sensor = b
-    for shape in values(self._native:getShapes()) do
-        shape:setSensor(b)
+    if self._is_sensor ~= b then
+        self._is_sensor = b
+        for shape in values(self._native:getShapes()) do
+            shape:setSensor(b)
+        end
     end
 end
 

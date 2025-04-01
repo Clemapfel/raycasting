@@ -100,7 +100,7 @@ function b2.World:get_gravity()
 end
 
 local _elapsed = 0
-local _step = 1 / 120
+local _step = 1 / (60 * 3)
 local _max_n_steps_per_frame = 2 / 30 * (1 / _step) -- max 2 steps at 30fps
 
 --- @brief
