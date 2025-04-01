@@ -45,6 +45,8 @@ function ow.Player:instantiate(scene, stage)
         _scene = scene,
         _shapes = { b2.Circle(0, 0, player_radius) },
         _radius = player_radius,
+        _spring_body_radius = 0.15 * player_radius,
+
         _input = rt.InputSubscriber(),
 
         _is_midair = true,
@@ -85,6 +87,7 @@ function ow.Player:instantiate(scene, stage)
         _spring_is_sensor = {},
     })
 
+    self._soft_body = ow.PlayerBody(self)
     self:_connect_input()
 end
 
@@ -304,6 +307,8 @@ function ow.Player:update(delta)
         if translation > self._max_spring_length then dbg("true") end
         body:set_is_sensor(translation > self._max_spring_length)
     end
+
+    self._soft_body:update()
 end
 
 --- @brief
@@ -322,15 +327,14 @@ function ow.Player:move_to_stage(stage, x, y)
         x, y,
         b2.Circle(0, 0, 2) --0.0 * self._radius)
     )
-    self._body:set_is_sensor(false) -- TODO
+    self._body:set_is_sensor(true) -- TODO
     self._body:add_tag("player")
     self._body:set_is_rotation_fixed(true)
     self._body:set_collision_group(b2.CollisionGroup.GROUP_16)
     self._body:set_mass(1)
 
     local n_outer_bodies = rt.settings.overworld.player.n_outer_bodies
-    local small_radius = 0.15 * self._radius
-    local outer_radius = self._radius - small_radius
+    local outer_radius = self._radius - self._spring_body_radius
     local outer_body_shape = b2.Circle(0, 0, 0.15 * self._radius)
     for angle = 0, 2 * math.pi, (2 * math.pi) / n_outer_bodies do
         local cx = x + math.cos(angle) * outer_radius
@@ -365,8 +369,10 @@ end
 
 --- @brief
 function ow.Player:draw()
-    self._body:draw()
 
+    --self._body:draw()
+    self._soft_body:draw()
+    --[[
     local x, y = self._body:get_position()
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
 
@@ -402,6 +408,7 @@ function ow.Player:draw()
         self._spring_colors[i]:bind()
         spring:draw()
     end
+    ]]--
 end
 
 --- @brief
