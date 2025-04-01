@@ -168,7 +168,7 @@ function ow.PlayerBody:update()
     self._colors = {}
 
     for i, joint in ipairs(self._player._spring_joints) do
-        local scale = math.max(1 + joint:getJointTranslation() / (self._player._radius - self._player._spring_body_radius), 0)
+        local scale = math.max(1 + joint:get_distance() / (self._player._radius - self._player._spring_body_radius), 0)
         table.insert(self._scales, scale)
 
         table.insert(self._colors, rt.RGBA(rt.lcha_to_rgba(0.8, 1, i / n, 1)))

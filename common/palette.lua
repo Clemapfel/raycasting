@@ -91,6 +91,9 @@ do -- load from image
 
     rt.Palette.COLOR_A = rt.Palette.GRAY_1
     rt.Palette.COLOR_B = rt.Palette.GRAY_7
+
+    -- overworld
+    rt.Palette.STICKY = rt.Palette.FOREGROUND
 end
 
 setmetatable(rt.Palette, {

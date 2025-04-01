@@ -10,3 +10,4 @@ end
 require("physics.world")
 require("physics.shapes")
 require("physics.body")
+require("physics.spring")

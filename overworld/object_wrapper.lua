@@ -299,30 +299,17 @@ end
 --- @brief
 function ow.ObjectWrapper:_initialize_mesh_prototype()
     if self.mesh_prototype_initialized == true then return end
-    local data = {}
-    local tris = {}
-
-    local push_tri = function(tri)
-        assert(#tri == 6)
-        for i = 1, #tri, 2 do
-            table.insert(data, {
-                tri[i], tri[i+1],  0, 0,    1, 1, 1, 1
-            })
-        end
-        table.insert(tris, tri)
-    end
+    local to_polygonize = {}
 
     if self.type == ow.ObjectType.RECTANGLE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
-        for tri in values(slick.polygonize(3, {{
+        to_polygonize = {
             x, y,
-           x + w, y,
-           x + w, y + h,
-           x, y + h
-        }})) do
-            push_tri(tri)
-        end
+            x + w, y,
+            x + w, y + h,
+            x, y + h
+        }
     elseif self.type == ow.ObjectType.ELLIPSE then
         local x, y = self.center_x, self.center_y
         local x_radius, y_radius = self.x_radius, self.y_radius
@@ -331,21 +318,31 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
             table.insert(points, x + math.cos(angle) * x_radius)
             table.insert(points, y + math.sin(angle) * y_radius)
         end
-        for tri in values(slick.polygonize(3, {points})) do
-            push_tri(tri)
-        end
+        to_polygonize = points
     elseif self.type == ow.ObjectType.POLYGON then
-        for tri in values(slick.polygonize(3, {self.vertices})) do
-            push_tri(tri)
-        end
+        to_polygonize = self.vertices
     elseif self.type == ow.ObjectType.POINT then
         -- noop
     else
         rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `" .. tostring(self.type) .. "`")
     end
 
-    self.mesh_prototype = data
-    self.mesh_triangles = tris
+    self.mesh_prototype = {}
+    self.mesh_triangles = {}
+
+    local polygonized = slick.polygonize(3, {to_polygonize})
+    if #polygonized == 0 then -- slick failed to polygonize
+        polygonized = love.math.triangulate(to_polygonize)
+    end
+
+    for tri in values(polygonized) do
+        for i = 1, #tri, 2 do
+            table.insert(self.mesh_prototype, {
+                tri[i], tri[i+1],  0, 0,    1, 1, 1, 1
+            })
+        end
+        table.insert(self.mesh_triangles, tri)
+    end
 end
 
 --- @brief

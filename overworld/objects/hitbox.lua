@@ -30,13 +30,10 @@ function ow.Hitbox:instantiate(object, stage, scene)
         end
     end
 
-    local mesh, tris = nil, nil
-    if shader ~= nil then
-        mesh, tris = object:create_mesh()
-        for tri in values(tris) do -- close for line loop
-            table.insert(tri, tri[1])
-            table.insert(tri, tri[2])
-        end
+    local mesh, tris = object:create_mesh()
+    for tri in values(tris) do -- close for line loop
+        table.insert(tri, tri[1])
+        table.insert(tri, tri[2])
     end
 
     meta.install(self, {
@@ -59,6 +56,15 @@ function ow.Hitbox:instantiate(object, stage, scene)
     if object:get_string("type") == b2.BodyType.DYNAMIC then
         self._body._native:setLinearDamping(30)
         self._body._native:setAngularDamping(30)
+    end
+
+    for property in range(
+        "slippery",
+        "sticky"
+    ) do
+        if object:get_boolean(property) then
+            self._body:add_tag(property)
+        end
     end
 end
 
@@ -84,6 +90,7 @@ function ow.Hitbox:draw()
 
     if self._shader ~= nil or self._body:has_tag("draw") then
         local stencil_value = rt.graphics.get_stencil_value()
+
         love.graphics.setColor(1, 1, 1, 1)
         rt.graphics.stencil(stencil_value, self._mesh)
         rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
@@ -93,27 +100,41 @@ function ow.Hitbox:draw()
         -- multiple for loops for batching
         love.graphics.setLineJoin("none")
 
-        rt.Palette.BASE_OUTLINE:bind()
-        love.graphics.setLineWidth(2 * (line_width + 1))
-        for tri in values(self._mesh_triangles) do
-            love.graphics.line(tri)
-        end
-
-        for tri in values(self._mesh_triangles) do
-            for i = 1, #tri, 2 do
-                love.graphics.circle("fill", tri[i], tri[i+1], line_width + 1)
+        if self._body:has_tag("slippery") then
+            rt.Palette.BASE_OUTLINE:bind()
+            love.graphics.setLineWidth(line_width)
+            for tri in values(self._mesh_triangles) do
+                love.graphics.line(tri)
             end
-        end
 
-        rt.Palette.FOREGROUND:bind()
-        love.graphics.setLineWidth(2 * line_width)
-        for tri in values(self._mesh_triangles) do
-            love.graphics.line(tri)
-        end
+            for tri in values(self._mesh_triangles) do
+                for i = 1, #tri, 2 do
+                    love.graphics.circle("fill", tri[i], tri[i+1], line_width)
+                end
+            end
+        else
+            rt.Palette.BASE_OUTLINE:bind()
+            love.graphics.setLineWidth(2 * (line_width + 1))
+            for tri in values(self._mesh_triangles) do
+                love.graphics.line(tri)
+            end
 
-        for tri in values(self._mesh_triangles) do
-            for i = 1, #tri, 2 do
-                love.graphics.circle("fill", tri[i], tri[i+1], line_width)
+            for tri in values(self._mesh_triangles) do
+                for i = 1, #tri, 2 do
+                    love.graphics.circle("fill", tri[i], tri[i+1], line_width + 1)
+                end
+            end
+
+            rt.Palette.STICKY:bind()
+            love.graphics.setLineWidth(2 * line_width)
+            for tri in values(self._mesh_triangles) do
+                love.graphics.line(tri)
+            end
+
+            for tri in values(self._mesh_triangles) do
+                for i = 1, #tri, 2 do
+                    love.graphics.circle("fill", tri[i], tri[i+1], line_width)
+                end
             end
         end
 

@@ -100,7 +100,7 @@ function b2.World:get_gravity()
 end
 
 local _elapsed = 0
-local _step = 1 / (60 * 3)
+local _step = 1 / 120
 local _max_n_steps_per_frame = 2 / 30 * (1 / _step) -- max 2 steps at 30fps
 
 --- @brief
@@ -124,7 +124,7 @@ function b2.World:update(delta)
         self._body_to_transform_queue_entry = {}
 
         -- update
-        self._native:update(_step)
+        self._native:update(_step, 5, 2)
 
         -- notify bodies for frame interpolation
         for native in values(self._native:getBodies()) do

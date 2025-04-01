@@ -141,6 +141,12 @@ function ow.OverworldScene:instantiate()
         self._camera_pan_right_speed = 0
         self._camera_pan_down_speed = 0
         self._camera_pan_left_speed = 0
+
+        if which == "escape" then
+            local next_entry = self:_get_stage_entry(self._stage_id)
+            local spawn_x, spawn_y = next_entry.spawn_x, next_entry.spawn_y
+            self._player:teleport_to(spawn_x, spawn_y)
+        end
     end)
 
     self._input:signal_connect("keyboard_key_released", function(_, which)

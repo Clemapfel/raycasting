@@ -100,7 +100,7 @@ function ow.LinearMotor:update(delta)
 
     local value = math.clamp(self._value, self._lower, self._upper)
     local target_length = self._length * (value - 1)
-    local current_length = self._joint:getJointTranslation()
+    local current_length = self._joint:getDistance()
     self._joint:setMotorSpeed((target_length - current_length) * self._speed)
 end
 

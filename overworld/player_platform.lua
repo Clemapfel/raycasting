@@ -12,16 +12,16 @@ rt.settings.overworld.player = {
     grounded_ray_length_factor = 1.5,
     sprint_multiplier = 2,
 
-    jump_total_force = 1600,
+    jump_total_force = 1400,
     jump_duration = 13 / 60,
 
     downwards_force = 10000,
     squeeze_force = 15000,
     n_outer_bodies = 31,
-    ground_collision_ray_span = 0.08 * math.pi,
+    ground_collision_ray_span = 0.01 * math.pi,
 
     digital_movement_acceleration_duration = 10 / 60,
-    air_deceleration_duration = 1, -- n seconds until 0
+    air_deceleration_duration = 0.8, -- n seconds until 0
     ground_deceleration_duration = 0.1,
     max_spring_length_factor = 1.5,
 
@@ -259,8 +259,9 @@ function ow.Player:update(delta)
         math.clamp(vy, -1 * max_velocity_y, 3 * max_velocity_y) -- only limit upwards speed
     )
 
+    local downwards_force = rt.settings.overworld.player.downwards_force
     if self._down_button_down and (self:get_is_midair() or self._velocity_magnitude < 10e-3) then
-        self._body:apply_force(0, rt.settings.overworld.player.downwards_force)
+        self._body:apply_force(0, downwards_force)
     end
 
     if self._left_is_down and self._top_wall and not (self._is_midair) then
@@ -268,7 +269,6 @@ function ow.Player:update(delta)
     elseif self._right_is_down and self._top_wall and not (self._is_midair) then
         self._body:apply_force(rt.settings.overworld.player.squeeze_force, 0)
     end
-
 
     local x, y = self._body:get_position()
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
@@ -302,19 +302,38 @@ function ow.Player:update(delta)
     end
 
     local ray_length = self._radius - self._spring_body_radius
-    self._left_wall = self._world:query_ray_any(x, y, -ray_length, 0, mask) ~= nil
-    self._right_wall = self._world:query_ray_any(x, y, ray_length, 0, mask) ~= nil
-    self._top_wall = self._world:query_ray_any(x, y, 0, -ray_length, mask) ~= nil
+
+    local _, _, _, _, left_wall_body = self._world:query_ray_any(x, y, -ray_length, 0, mask)
+    local _, _, _, _, right_wall_body = self._world:query_ray_any(x, y, ray_length, 0, mask)
+    local _, _, _, _, top_wall_body = self._world:query_ray_any(x, y, 0, -ray_length, mask)
+    self._left_wall = left_wall_body ~= nil
+    self._right_wall = right_wall_body ~= nil
+    self._top_wall = top_wall_body ~= nil
 
     if not self._is_midair and self._next_multiplier_apply_when_grounded then
         self._velocity_multiplier = self._next_multiplier
         self._next_multiplier_apply_when_grounded = false
     end
 
+    -- slide down walls
+    if (self._left_wall or self._right_wall) and not hit then
+        local is_slippery = false
+        if self._left_wall and left_wall_body:has_tag("slippery") then
+            is_slippery = true
+        end
+
+        if self._right_wall and right_wall_body:has_tag("slippery") then
+            is_slippery = true
+        end
+
+        if is_slippery then
+            self._body:apply_force(0, downwards_force)
+        end
+    end
+
     -- safeguard against one of the springs catching
     for i, body in ipairs(self._spring_bodies) do
-        local translation = self._spring_joints[i]:getJointTranslation()
-        if translation > self._max_spring_length then dbg("true") end
+        local translation = self._spring_joints[i]:get_distance()
         body:set_is_sensor(translation > self._max_spring_length)
     end
 
@@ -338,6 +357,7 @@ function ow.Player:move_to_stage(stage, x, y)
         b2.Circle(0, 0, 3.4) -- half of 8, plus polygon skin allowance
     )
     self._body:set_is_sensor(false) -- TODO
+    self._body._native:setBullet(true)
     self._body:add_tag("player")
     self._body:set_is_rotation_fixed(true)
     self._body:set_collision_group(b2.CollisionGroup.GROUP_16)
@@ -355,19 +375,9 @@ function ow.Player:move_to_stage(stage, x, y)
         body:set_mass(10e-4)
         body:set_collision_group(b2.CollisionGroup.GROUP_15)
         body:set_collides_with(bit.bnot(b2.CollisionGroup.GROUP_15))
+        body._native:setBullet(true)
 
-        local joint = love.physics.newPrismaticJoint(
-            self._body:get_native(),
-            body:get_native(),
-            x, y,
-            cx - x, cy - y,
-            false
-        )
-
-        joint:setLimitsEnabled(true)
-        -- Use smoothstep to vary limit_eps
-        local limit_eps = 0
-        joint:setLimits(0.5 * outer_radius - limit_eps, 0.5 * outer_radius + limit_eps)
+        local joint = b2.Spring(self._body, body, x, y, cx, cy)
 
         table.insert(self._spring_bodies, body)
         table.insert(self._spring_joints, joint)
@@ -432,6 +442,10 @@ end
 function ow.Player:teleport_to(x, y)
     if self._body ~= nil then
         self._body:set_position(x, y)
+
+        for body in values(self._spring_bodies) do
+            body:set_position(x, y)
+        end
     end
 end
 
