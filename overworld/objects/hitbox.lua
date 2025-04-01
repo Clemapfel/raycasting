@@ -45,9 +45,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
         -- drawables, optional
         _mesh = mesh,
         _mesh_triangles = tris,
-        _shader = nil --shader,
+        _shader = shader,
     })
-
 
     if _scene_connected ~= true then
         scene:signal_connect("update", function(scene, delta)
@@ -74,10 +73,10 @@ function ow.Hitbox:draw()
         self._shader:send("camera_scale", _scale)
     end
 
-        love.graphics.push()
-        love.graphics.translate(self._body:get_position())
-        love.graphics.rotate(self._body:get_rotation())
-        self._mesh:draw()
+    love.graphics.push()
+    love.graphics.translate(self._body:get_position())
+    love.graphics.rotate(self._body:get_rotation())
+    self._mesh:draw()
 
     if self._shader ~= nil then
         self._shader:unbind()

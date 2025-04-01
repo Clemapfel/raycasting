@@ -17,9 +17,11 @@ rt.settings.overworld.player = {
 
     downwards_force = 10000,
     n_outer_bodies = 24,
+    ground_collision_ray_span = 0.1 * math.pi,
 
     digital_movement_acceleration_duration = 10 / 60,
-    deceleration_duration = 0.2, -- n seconds until 0
+    air_deceleration_duration = 1, -- n seconds until 0
+    ground_deceleration_duration = 0.1,
     max_spring_length_factor = 1.5,
 
     coyote_time = 6 / 60
@@ -86,8 +88,15 @@ function ow.Player:instantiate(scene, stage)
     self:_connect_input()
 end
 
-local _JUMP_BUTTON = rt.InputButton.A
-local _SPRINT_BUTTON = rt.InputButton.B
+local _JUMP_BUTTONS = {
+    [rt.InputButton.A] = true
+}
+
+local _SPRINT_BUTTON = {
+    [rt.InputButton.B] = true,
+    [rt.InputButton.L] = true,
+    [rt.InputButton.R] = true
+}
 
 --- @brie
 function ow.Player:get_is_midair()
@@ -111,18 +120,19 @@ end
 --- @brief
 function ow.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
-        if which == _JUMP_BUTTON then
+        local is_jump_button = _JUMP_BUTTONS[which] == true
+        local is_sprint_button = _SPRINT_BUTTON[which] == true
+
+        if is_jump_button then
             if self:_get_can_jump() then
                 self._jump_elapsed = 0
                 self._is_midair_timer = math.huge -- prevent double jump during coyote time
             end
             self._jump_button_down = true
-        elseif which == _SPRINT_BUTTON then
+        elseif is_sprint_button then
             self._next_multiplier = rt.settings.overworld.player.sprint_multiplier
             self._next_multiplier_apply_when_grounded = true
-        end
-
-        if which == rt.InputButton.LEFT then
+        elseif which == rt.InputButton.LEFT then
             self._left_is_down = true
             if not self._right_is_down then
                 self._digital_movement_timer = 0
@@ -138,8 +148,12 @@ function ow.Player:_connect_input()
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if which == _JUMP_BUTTON then
-        elseif which == _SPRINT_BUTTON then
+        local is_jump_button = _JUMP_BUTTONS[which] == true
+        local is_sprint_button = _SPRINT_BUTTON[which] == true
+
+        if is_jump_button then
+            -- noop
+        elseif is_sprint_button then
             self._next_multiplier = 1
             self._next_multiplier_apply_when_grounded = true
         end
@@ -155,8 +169,7 @@ function ow.Player:_connect_input()
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self._joystick_position = x
-
-        self._down_button_down = y > 0.5
+        self._down_button_down = math.abs(x) < 0.1 and y > 0.5
     end)
 
     self._input:signal_connect("right_joystick_moved", function(_, x, y)
@@ -204,13 +217,19 @@ function ow.Player:update(delta)
 
     if self._left_is_down or self._right_is_down then
         self._digital_movement_timer = self._digital_movement_timer + delta
+    end
+
+    local deceleration
+    if self._is_midair then
+        deceleration = rt.settings.overworld.player.air_deceleration_duration * self._velocity_multiplier
     else
-        local deceleration = rt.settings.overworld.player.deceleration_duration * self._velocity_multiplier
-        if deceleration == 0 then
-            self._velocity_magnitude = 0
-        else
-            self._velocity_magnitude = math.max(self._velocity_magnitude - (1 / deceleration) * delta, 0)
-        end
+        deceleration = rt.settings.overworld.player.ground_deceleration_duration * self._velocity_multiplier
+    end
+
+    if deceleration == 0 then
+        self._velocity_magnitude = 0
+    else
+        self._velocity_magnitude = math.max(self._velocity_magnitude - (1 / deceleration) * delta, 0)
     end
 
     if self._joystick_position ~= 0 then
@@ -243,7 +262,22 @@ function ow.Player:update(delta)
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
     local mask = bit.bnot(b2.CollisionGroup.GROUP_15)
     local before = self._is_midair
-    self._is_midair = self._world:query_ray_any(x, y, 0, r, mask) == nil
+
+    local span = rt.settings.overworld.player.ground_collision_ray_span
+    local hit = false
+    for angle = math.rad(90) - span, math.rad(90) + span, span do
+        if self._world:query_ray_any(
+            x,
+            y,
+            math.cos(angle) * r,
+            math.sin(angle) * r,
+        mask) ~= nil then
+            hit = true
+            break
+        end
+    end
+
+    self._is_midair = not hit
 
     if self._is_midair == true then
         self._last_known_grounded_y = select(2, self._body:get_position())
@@ -333,9 +367,26 @@ end
 function ow.Player:draw()
     self._body:draw()
 
-    if not self._is_midair then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
     local x, y = self._body:get_position()
     local r = self._radius * rt.settings.overworld.player.grounded_ray_length_factor
+
+    local mask = bit.bnot(b2.CollisionGroup.GROUP_15)
+    local span = rt.settings.overworld.player.ground_collision_ray_span
+    for angle = math.rad(90) - span, math.rad(90) + span, span do
+        local dx, dy =  math.cos(angle) * r, math.sin(angle) * r
+        local hit = self._world:query_ray_any(
+            x,
+            y,
+            dx,
+            dy,
+            mask
+        ) ~= nil
+
+        if hit then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
+        love.graphics.line(x, y, x + dx, y + dy)
+    end
+
+
     love.graphics.line(x, y, x + 0, y + r)
 
     if self._left_wall then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end

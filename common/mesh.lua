@@ -192,3 +192,9 @@ end
 function rt.Mesh:replace_data(data)
     self._native:setVertices(data)
 end
+
+
+--- @brief
+function rt.Mesh:set_vertex_map(map)
+    self._native:setVertexMap(map)
+end

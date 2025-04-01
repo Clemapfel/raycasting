@@ -40,7 +40,7 @@ _G.SETTINGS = {
         },
 
         ["B"] = {
-            keyboard = "b",
+            keyboard = {"lshift", "b"},
             controller = GAMEPAD_BUTTON_LEFT
         },
 
