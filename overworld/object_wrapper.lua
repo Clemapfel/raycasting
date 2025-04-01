@@ -169,8 +169,8 @@ local function _process_polygon(vertices, object)
         x, y = _rotate_point(x, y, object.rotation_offset)
         x, y = x + object.rotation_origin_x, y + object.rotation_origin_y
 
-        table.insert(out, x)
-        table.insert(out, y)
+        table.insert(out, math.round(x))
+        table.insert(out, math.round(y))
     end
 
     return out

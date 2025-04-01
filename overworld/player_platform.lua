@@ -18,7 +18,7 @@ rt.settings.overworld.player = {
     downwards_force = 10000,
     squeeze_force = 15000,
     n_outer_bodies = 31,
-    ground_collision_ray_span = 0.1 * math.pi,
+    ground_collision_ray_span = 0.08 * math.pi,
 
     digital_movement_acceleration_duration = 10 / 60,
     air_deceleration_duration = 1, -- n seconds until 0
@@ -301,9 +301,10 @@ function ow.Player:update(delta)
         self._is_midair_timer = 0
     end
 
-    self._left_wall = self._world:query_ray_any(x, y, -r, 0, mask) ~= nil
-    self._right_wall = self._world:query_ray_any(x, y, r, 0, mask) ~= nil
-    self._top_wall = self._world:query_ray_any(x, y, 0, -r, mask) ~= nil
+    local ray_length = self._radius - self._spring_body_radius
+    self._left_wall = self._world:query_ray_any(x, y, -ray_length, 0, mask) ~= nil
+    self._right_wall = self._world:query_ray_any(x, y, ray_length, 0, mask) ~= nil
+    self._top_wall = self._world:query_ray_any(x, y, 0, -ray_length, mask) ~= nil
 
     if not self._is_midair and self._next_multiplier_apply_when_grounded then
         self._velocity_multiplier = self._next_multiplier
@@ -334,7 +335,7 @@ function ow.Player:move_to_stage(stage, x, y)
     self._body = b2.Body(
         self._world, b2.BodyType.DYNAMIC,
         x, y,
-        b2.Circle(0, 0, 4) --0.0 * self._radius)
+        b2.Circle(0, 0, 3.4) -- half of 8, plus polygon skin allowance
     )
     self._body:set_is_sensor(false) -- TODO
     self._body:add_tag("player")
@@ -404,6 +405,7 @@ function ow.Player:draw()
     end
 
 
+    local r = self._radius - self._spring_body_radius
     love.graphics.line(x, y, x + 0, y + r)
 
     if self._left_wall then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
