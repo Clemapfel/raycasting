@@ -187,7 +187,7 @@ function ow.PlayerBody:draw()
     --love.graphics.translate(0.5 * w, 0.5 * h)
     --love.graphics.scale(scale, scale)
 
-    local player_x, player_y = self._player._body:get_position()
+    local player_x, player_y = self._player._body:get_predicted_position()
 
     rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.NORMAL)
     love.graphics.setColor(1, 1, 1, 1)

@@ -464,9 +464,7 @@ function ow.OverworldScene:update(delta)
     end
 
     self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
-    self._player:set_facing_angle(self._camera:get_rotation())
-
-
+    --self._player:set_facing_angle(self._camera:get_rotation())
 end
 
 --- @brief

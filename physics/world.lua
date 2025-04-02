@@ -124,7 +124,7 @@ function b2.World:update(delta)
         self._body_to_transform_queue_entry = {}
 
         -- update
-        self._native:update(_step, 5, 2)
+        self._native:update(_step, 7, 2)
 
         -- notify bodies for frame interpolation
         for native in values(self._native:getBodies()) do
@@ -200,6 +200,10 @@ function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, ..
         end
     else
         group = b2.CollisionGroup.ALL
+    end
+
+    if math.magnitude(direction_x, direction_y) < 1 then
+        direction_x, direction_y = math.normalize(direction_x, direction_y)
     end
 
     local shape, x, y, nx, ny, fraction = self._native:rayCastAny(

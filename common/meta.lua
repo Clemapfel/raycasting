@@ -208,8 +208,15 @@ local _signal_disconnect = function(instance, id, callback_id)
     else
         local callback = entry.callback_id_to_callback[callback_id]
         if callback == nil then
-            rt.error("In " .. meta.typeof(instance) .. ".signal_disconnect: no callback with id `" .. id .. "` connected to signal `" .. id .. "`")
+            rt.error("In " .. meta.typeof(instance) .. ".signal_disconnect: no callback with id `" .. tostring(callback_id) .. "` connected to signal `" .. id .. "`")
             return
+        end
+        entry.callback_id_to_callback[callback_id] = nil
+        for i, other in ipairs(entry.callbacks_in_order) do
+            if other == callback then
+                table.remove(entry.callbacks_in_order, i)
+                break
+            end
         end
     end
 end

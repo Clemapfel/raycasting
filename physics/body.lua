@@ -218,6 +218,13 @@ function b2.Body:set_restitution(value)
 end
 
 --- @brief
+function b2.Body:set_friction(value)
+    for shape in values(self._native:getShapes()) do
+        shape:setFriction(value)
+    end
+end
+
+--- @brief
 function b2.Body:get_mass()
     return self._native:getMass()
 end
@@ -373,4 +380,9 @@ end
 --- @brief
 function b2.Body:get_type()
     return self._native:getType()
+end
+
+--- @brief
+function b2.Body:set_use_continuous_collision(b)
+    self._native:setBullet(b)
 end

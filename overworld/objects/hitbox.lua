@@ -66,6 +66,12 @@ function ow.Hitbox:instantiate(object, stage, scene)
             self._body:add_tag(property)
         end
     end
+
+    if self._body:has_tag("slippery") then
+        self._body:set_friction(0)
+    else
+        -- noop
+    end
 end
 
 --- @brief
