@@ -2,6 +2,58 @@ require "common.input_subscriber"
 require "physics.physics"
 require "common.blend_mode"
 
+--[[
+WISHLIST:
+
+Wind Tunnels
+    apply force while inside sensor
+
+Teleporters:
+    already done
+
+Portals:
+    render player to canvas
+    slice canvas along axis of portal
+    teleport player if centroid moves through portal
+
+Bouncy Pads:
+    body with a bunch of prismatic joints as springs?
+
+Button / Motor: already done
+
+Seasaw:
+    pivot join in the middle
+
+Fog door:
+    one-sided chain shape on top
+    sensor, saves when leaving sensor
+
+Hook:
+    sensor body, when player overlaps, weld joint to center
+    solver should smoothly snap player to hook
+
+Respawn Checkpoint:
+    black/white cross with sensor below it
+    if player enters sensor, cross turns player color
+
+Anti-Gravity Body
+    sensor, if overlap, player:setAffectedByGravity(enter_exit)
+    also add small force upwards
+
+Pause Menu
+
+Main Menu
+
+Keybindings
+
+
+
+Chunked Loading?
+
+
+
+]]--
+
 local velocity = 200
 
 rt.settings.overworld.player = {
