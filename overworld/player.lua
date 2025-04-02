@@ -9,7 +9,6 @@ rt.settings.overworld.player = {
     max_spring_length = 13.5 * 1.5,
 
     restitution = 0.2,
-    friction = 0,
 
     max_velocity_x = 200,
     max_velocity_y = 3 * 200,
@@ -20,11 +19,15 @@ rt.settings.overworld.player = {
     gravity = 1500,
 
     bottom_wall_ray_length_factor = 1.5,
-    side_wall_ray_length_factor = 1,
+    side_wall_ray_length_factor = 1.1,
     top_wall_ray_length_factor = 1,
 
     jump_total_force = 1400,
     jump_duration = 13 / 60,
+    wall_jump_multiplier = nil,
+
+    wall_slide_allow_hold = false,
+    wall_slide_force_factor = 0.5, -- upwards momentum after walljumping
 
     downwards_force = 10e3,
 
@@ -35,6 +38,7 @@ rt.settings.overworld.player = {
 
     debug_drawing_enabled = true
 }
+
 
 local _settings = rt.settings.overworld.player
 
@@ -71,11 +75,14 @@ function ow.Player:instantiate(scene, stage)
         _bottom_wall_body = nil,
         _bottom_ray = {0, 0, 0, 0},
 
+        _left_wall_jump_blocked = false,
+        _right_wall_jump_blocked = false,
+
         _velocity_sign = 0, -- left or right
         _velocity_magnitude = 0,
         _velocity_multiplier = 1,
 
-        _acceleration_timer = 0,
+        _freeze_velocities_timer = math.huge,
 
         _next_velocity_multiplier = 1,
         _next_velocity_mutiplier_apply_when_grounded = false,
@@ -85,9 +92,10 @@ function ow.Player:instantiate(scene, stage)
 
         _jump_button_down = false,
         _jump_elapsed = 0,
-        _jump_allowed_override = false,
+        _jump_allowed_override = nil,
         _jump_direction_x = 0,
         _jump_direction_y = 1,
+        _jump_multiplier = 1,
 
         _joystick_position = 0, -- x axis
 
@@ -104,6 +112,8 @@ function ow.Player:instantiate(scene, stage)
         -- hard body
         _body = nil,
         _world = nil,
+
+        _mass = 1,
 
         _input = rt.InputSubscriber()
     })
@@ -150,9 +160,10 @@ end
 
 --- @brief
 function ow.Player:_get_can_jump()
-    if self._jump_allowed_override then
-        self._jump_allowed_override = false
-        return true -- midair jump
+    if self._jump_allowed_override ~= nil then
+        local out = self._jump_allowed_override
+        self._jump_allowed_override = nil
+        return out
     end
 
     if self._bottom_wall == false and (self._left_wall == true or self._right_wall == true) then
@@ -162,7 +173,11 @@ function ow.Player:_get_can_jump()
             return false -- prevent walljump for slippery
         end
 
-        return true -- wall jump
+        if (self._left_wall and self._left_wall_jump_blocked) or (self._right_wall and self._right_wall_jump_blocked) then
+            return false
+        end
+
+        return true -- walljump
     else
         return not self:_get_is_midair() -- grounded jump
     end
@@ -177,6 +192,23 @@ function ow.Player:_connect_input()
                 self._jump_button_is_down = true
                 self._jump_elapsed = 0 -- reset jump timer
                 self:signal_emit("jump")
+
+                self._jump_direction_x = 0
+                self._jump_multiplier = 1
+
+                if self._left_wall then
+                    self._jump_direction_x = -1
+                    self._left_wall_jump_blocked = true
+                end
+
+                if self._right_wall then
+                    self._jump_direction_x = 1
+                    self._right_wall_jump_blocked = true
+                end
+
+                if (self._left_wall or self._right_wall) and not self._bottom_wall then
+                    self._jump_elapsed = 0
+                end
             end
 
         elseif self:get_is_sprint_button(which) then
@@ -228,8 +260,8 @@ function ow.Player:_connect_input()
         local eps = _settings.joystick_to_analog_eps
         self._up_button_is_down = math.abs(x) < eps and y < 0.5
         self._down_button_is_down = math.abs(x) < eps and y > 0.5
-        self._right_button_is_down = math.abs(y) < eps and x > 0.5
-        self._left_button_is_down = math.abs(y) < eps and x < -0.5
+        self._right_button_is_down = math.abs(y) < 0.5 and x > 0
+        self._left_button_is_down = math.abs(y) < 0.5 and x < 0
     end)
 end
 
@@ -256,21 +288,38 @@ function ow.Player:update(delta)
     local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray_any(x, y, bottom_dx, bottom_dy, mask)
     local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
 
-    self._left_wall = left_wall_body ~= nil
+    local left_before = self._left_wall
+    local right_before = self._right_wall
+    local bottom_before = self._bottom_wall
+
+    self._left_wall = left_wall_body ~= nil and not left_wall_body:get_is_sensor()
     self._left_wall_body = left_wall_body
     self._left_ray = {x, y, x + left_dx, y + left_dy}
 
-    self._right_wall = right_wall_body ~= nil
+    self._right_wall = right_wall_body ~= nil and not right_wall_body:get_is_sensor()
     self._right_wall_body = right_wall_body
     self._right_ray = {x, y, x + right_dx, y + right_dy}
 
-    self._top_wall = top_wall_body ~= nil
+    self._top_wall = top_wall_body ~= nil and not top_wall_body:get_is_sensor()
     self._top_wall_body = top_wall_body
     self._top_ray = {x, y, x + top_dx, y + top_dy}
 
-    self._bottom_wall = bottom_wall_body ~= nil
+    self._bottom_wall = bottom_wall_body ~= nil and not bottom_wall_body:get_is_sensor()
     self._bottom_wall_body = bottom_wall_body
     self._bottom_ray = {x, y, x + bottom_dx, y + bottom_dy}
+
+    -- unblock walljump after leaving wall
+    if self._bottom_wall or self._left_wall == true and left_before == false then
+        self._left_wall_jump_blocked = false
+    end
+
+    if self._bottom_wall or self._right_wall == true and right_before == false then
+        self._right_wall_jump_blocked = false
+    end
+
+    if self._bottom_wall and bottom_before == false then
+        self._jump_multiplier = 1
+    end
 
     -- update velocity
     if self._joystick_position ~= 0 then
@@ -303,12 +352,37 @@ function ow.Player:update(delta)
         self._next_velocity_mutiplier_apply_when_grounded = false
     end
 
+    -- update velocity
     local current_velocity_x, current_velocity_y = self._body:get_linear_velocity()
-    local next_velocity_x = self._velocity_sign * self._velocity_magnitude * self._velocity_multiplier * _settings.max_velocity_x
+    local desired_velocity_x = self._velocity_sign * self._velocity_magnitude * self._velocity_multiplier * _settings.max_velocity_x
+    local desired_velocity_y = math.clamp(current_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
 
-    self._body:set_velocity(
-        next_velocity_x,
-        math.clamp(current_velocity_y, - _settings.max_velocity_y, _settings.max_velocity_y)
+    -- apply friction
+    local wall_clinging = self._bottom_wall == false and
+        ((self._left_button_is_down or self._joystick_position < 0) and self._left_wall) or
+        ((self._right_button_is_down or self._joystick_position > 0) and self._right_wall)
+    if wall_clinging then
+        local fraction
+        if self._left_wall then
+            fraction = math.distance(x, y, left_x, left_y) / self._radius / 2
+        end
+
+        if self._right_wall then
+            fraction = math.distance(x, y, right_x, right_y) / self._radius / 2
+        end
+
+        if current_velocity_y > 0 then
+            --self._body:apply_force(0, -1 * _settings.gravity * self._mass * (1 + 1 - fraction))
+        end
+
+        if (not self._left_wall_jump_blocked or not self._right_wall_jump_blocked) then
+            --desired_velocity_y = 0
+        end
+    end
+
+    self._body:apply_linear_impulse(
+        (desired_velocity_x - current_velocity_x) * self._body:get_mass(),
+        (desired_velocity_y - current_velocity_y) * self._body:get_mass()
     )
 
     -- apply jump force
@@ -316,7 +390,7 @@ function ow.Player:update(delta)
         self._jump_elapsed = self._jump_elapsed + delta
         local impulse = (_settings.jump_total_force * delta) / _settings.jump_duration
         local fraction = math.min(self._jump_elapsed / _settings.jump_duration, 1)
-        local magnitude = -1 * impulse * (1 - fraction)
+        local magnitude = -1 * impulse * (1 - fraction) * self._jump_multiplier
         self._body:apply_linear_impulse(self._jump_direction_x * magnitude, self._jump_direction_y * magnitude)
     end
 
@@ -390,13 +464,19 @@ function ow.Player:move_to_stage(stage, x, y)
         body:set_collision_group(_settings.player_outer_body_collision_group)
         body:set_collides_with(mask)
         body:set_restitution(_settings.restitution)
-        body:set_friction(_settings.friction)
+        body:set_friction(0)
         body:set_use_continuous_collision(true)
+        body:set_user_data(self)
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
 
         table.insert(self._spring_bodies, body)
         table.insert(self._spring_joints, joint)
+    end
+
+    self._mass = self._body:get_mass()
+    for body in values(self._spring_bodies) do
+        self._mass = self._mass + body:get_mass()
     end
 
     -- TODO: soft body graphics
@@ -455,6 +535,11 @@ end
 --- @brief
 function ow.Player:set_jump_allowed(b)
     self._jump_allowed_override = b
+end
+
+--- @brief
+function ow.Player:get_physics_body()
+    return self._body
 end
 
 

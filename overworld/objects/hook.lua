@@ -1,3 +1,7 @@
+rt.settings.overworld.hook = {
+    cooldown = 0.4
+}
+
 --- @class ow.Hook
 ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
@@ -6,45 +10,57 @@ function ow.Hook:instantiate(object, stage, scene)
     meta.install(self, {
         _body = object:create_physics_body(stage:get_physics_world()),
         _joint = nil,
-        _input = rt.InputSubscriber()
+        _deactivated = false
     })
 
     local hook = self
     self._body:set_is_sensor(true)
-    self._body:set_collides_with(b2.CollisionGroup.GROUP_16)
-    self._body:signal_connect("collision_start", function(self, player)
-        if hook._joint == nil then
-            local signal_id
-            signal_id = stage:get_physics_world():signal_connect("step", function()
+    self._body:add_tag("slippery")
+    self._body:set_collides_with(bit.bor(
+        rt.settings.overworld.player.player_collision_group,
+        rt.settings.overworld.player.player_outer_body_collision_group
+    ))
+
+    self._body:signal_connect("collision_start", function(self, player_body)
+        local player = player_body:get_user_data()
+
+        if hook._joint == nil and not hook._deactivated then
+            local world_signal_id
+            world_signal_id = stage:get_physics_world():signal_connect("step", function()
                 local self_x, self_y = self:get_center_of_mass()
-                local player_x, player_y = player:get_position()
-                player:set_position(self_x, self_y)
+                player:teleport_to(self_x, self_y)
+
                 hook._joint = love.physics.newDistanceJoint(
                     self:get_native(),
-                    player:get_native(),
+                    player:get_physics_body():get_native(),
                     self_x, self_y,
                     self_x, self_y
                 )
-                stage:get_physics_world():signal_disconnect("step", signal_id)
+                stage:get_physics_world():signal_disconnect("step", world_signal_id)
+
             end)
 
-            self._player = player:get_user_data()
-            player:get_user_data():signal_connect("jump", function()
+            local player_signal_id
+            player_signal_id = player:signal_connect("jump", function()
                 hook._joint:destroy()
                 hook._joint = nil
+                player:signal_disconnect("jump", player_signal_id)
             end)
-            player:get_user_data():set_jump_allowed(true) -- override
+
+            player:set_jump_allowed(true) -- mid-air jumpt to escape
+            hook._deactivated = true
         end
     end)
+
+    self._body:signal_connect("collision_end", function(self, player)
+        if player:has_tag("player") then
+            hook._deactivated = false
+        end
+    end)
+
 end
 
 --- @brief
 function ow.Hook:draw()
     self._body:draw()
-end
-
-function ow.Hook:update()
-    if self._player ~= nil then
-        self._player:set_jump_allowed(true) -- override
-    end
 end
