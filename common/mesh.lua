@@ -198,3 +198,8 @@ end
 function rt.Mesh:set_vertex_map(map)
     self._native:setVertexMap(map)
 end
+
+--- @brief
+function rt.Mesh:get_native()
+    return self._native
+end

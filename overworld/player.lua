@@ -25,8 +25,8 @@ rt.settings.overworld.player = {
     jump_total_force = 700,
     jump_duration = 8 / 60,
 
-    wall_jump_total_force = 600,
-    wall_jump_duration = 2 / 30,
+    wall_jump_total_force = 700,
+    wall_jump_duration = 8 / 60,
 
     wall_slide_allow_hold = false,
     wall_slide_force_factor = 0.5, -- upwards momentum after walljumping
@@ -113,6 +113,15 @@ function ow.Player:instantiate(scene, stage)
         -- soft body
         _spring_bodies = {},
         _spring_joints = {},
+
+        _outer_body_mesh = nil,
+        _outer_body_mesh_origin_x = 0,
+        _outer_body_mesh_origin_y = 0,
+        _outer_body_center_mesh = nil,
+        _outer_body_centers_x = {},
+        _outer_body_centers_y = {},
+        _outer_body_angles = {},
+        _outer_body_scales = {},
 
         -- hard body
         _body = nil,
@@ -410,7 +419,6 @@ function ow.Player:update(delta)
             magnitude = delta * force_per_second
             dx, dy = -self._jump_direction_x, self._jump_direction_y
             if self._wall_jump_elapsed > duration then magnitude = 0 end
-            self._wall_jump_elapsed = self._wall_jump_elapsed + delta
         elseif not wall_clinging then
             local total_force = _settings.jump_total_force
             local duration = _settings.jump_duration
@@ -418,8 +426,10 @@ function ow.Player:update(delta)
             magnitude = delta * force_per_second
             dx, dy = 0, -1
             if self._jump_elapsed > duration then magnitude = 0 end
-            self._jump_elapsed = self._jump_elapsed + delta
         end
+
+        self._wall_jump_elapsed = self._wall_jump_elapsed + delta
+        self._jump_elapsed = self._jump_elapsed + delta
 
         self._body:apply_linear_impulse(dx * magnitude, dy * magnitude)
     end
@@ -451,6 +461,19 @@ function ow.Player:update(delta)
     for i, body in ipairs(self._spring_bodies) do
         local distance = math.distance(x, y, body:get_position())
         body:set_is_sensor(distance >= _settings.max_spring_length)
+    end
+
+    -- update mesh
+    local player_x, player_y = self._body:get_predicted_position()
+    for i, body in ipairs(self._spring_bodies) do
+        local cx, cy = body:get_predicted_position()
+        self._outer_body_centers_x[i] = cx
+        self._outer_body_centers_y[i] = cy
+        local dx, dy = cx - player_x, cy - player_y
+        self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
+
+        local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
+        self._outer_body_scales[i] = math.max(scale / 2, 0)
     end
 end
 
@@ -485,7 +508,7 @@ function ow.Player:move_to_stage(stage, x, y)
 
     local mask = bit.bnot(_settings.player_outer_body_collision_group)
 
-    for angle = 0, 2 * math.pi - step, step do
+    for angle = 0, 2 * math.pi, step do
         local cx = x + math.cos(angle) * outer_radius
         local cy = y + math.sin(angle) * outer_radius
 
@@ -495,6 +518,7 @@ function ow.Player:move_to_stage(stage, x, y)
         body:set_collides_with(mask)
         body:set_restitution(_settings.restitution)
         body:set_friction(0)
+        body:set_is_rotation_fixed(true)
         body:set_use_continuous_collision(true)
         body:set_user_data(self)
 
@@ -504,20 +528,118 @@ function ow.Player:move_to_stage(stage, x, y)
         table.insert(self._spring_joints, joint)
     end
 
+    -- true mass
     self._mass = self._body:get_mass()
     for body in values(self._spring_bodies) do
         self._mass = self._mass + body:get_mass()
     end
 
-    -- TODO: soft body graphics
+    -- two tone colors for gradients
+    local ar, ag, ab = 1, 1, 1
+    local br, bg, bb = 0, 0, 0
+
+    if self._outer_body_mesh == nil then
+        local n_outer_vertices = 32
+
+        -- generate vertices for outer body mesh
+        local radius = self._radius
+        local x_radius = radius / 2
+
+        local n_bodies = rt.settings.overworld.player.n_outer_bodies
+        local circumference = 2 * math.pi * radius
+        local y_radius = (circumference / n_bodies)
+
+        local small_radius = self._outer_body_radius
+        local cx, cy = 0, 0
+        local vertices = {
+            {cx, cy}
+        }
+
+        local m = 4
+        local n = 0
+        local step = 2 * math.pi / n_outer_vertices
+        for angle = 0, 2 * math.pi + step, step do
+            local x = cx + math.cos(angle) * x_radius
+            local y = cy + (math.sin(angle) * math.sin(0.5 * angle)^m) * y_radius
+            table.insert(vertices, {x, y})
+            n = n + 1
+        end
+
+        -- generate mesh data
+        local data = {}
+        local indices = {}
+        for i = 1, n do
+            local x, y = vertices[i][1], vertices[i][2]
+
+            local r, g, b, a
+            if i == 1 then
+                r, g, b, a = ar, ag, ab, 1
+            else
+                r, g, b, a = br, bg, bb, 1
+            end
+
+            table.insert(data, {x, y,  0, 0,  r, g, b, a})
+
+            if i < n then
+                for index in range(i, i + 1, 1) do
+                    table.insert(indices, index)
+                end
+            end
+        end
+
+        for index in range(n, 1, 2) do
+            table.insert(indices, index)
+        end
+
+        self._outer_body_mesh = rt.Mesh(data, rt.MeshDrawMode.TRIANGLES)
+        self._outer_body_mesh:set_vertex_map(indices)
+        self._outer_body_mesh_origin_x, self._outer_body_mesh_origin_y = -x_radius, 0 -- top of left bulb
+
+        self._outer_body_center_mesh = rt.MeshCircle(0, 0, self._radius * 0.5)
+        for i = 1, self._outer_body_center_mesh:get_n_vertices() do
+            if i == 1 then
+                self._outer_body_center_mesh:set_vertex_color(i, ar, ag, ab, 1)
+            else
+                self._outer_body_center_mesh:set_vertex_color(i, br, bg, bb, 1)
+            end
+        end
+    end
+
+    self._outer_body_centers_x = {}
+    self._outer_body_centers_y = {}
+    self._outer_body_scales = {}
+    self._outer_body_angles = {}
 end
 
 --- @brief
 function ow.Player:draw()
+    -- draw mesh
+
+    love.graphics.push()
+
+    for i, scale in ipairs(self._outer_body_scales) do
+        local x = self._outer_body_centers_x[i]
+        local y = self._outer_body_centers_y[i]
+
+        local origin_x = self._outer_body_mesh_origin_x
+        local origin_y = self._outer_body_mesh_origin_y
+
+        local angle = self._outer_body_angles[i]
+        love.graphics.draw(self._outer_body_mesh:get_native(),
+            x, y,
+            angle, -- rotation
+            scale, 1, -- scale
+            origin_x, origin_y -- origin
+        )
+    end
+
+    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
+    love.graphics.pop()
+
     if _settings.debug_drawing_enabled then
         self._body:draw()
         for body in values(self._spring_bodies) do
-            body:draw()
+            --body:draw()
         end
 
         love.graphics.setLineWidth(1)
