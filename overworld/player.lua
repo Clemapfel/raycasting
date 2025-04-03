@@ -11,7 +11,7 @@ rt.settings.overworld.player = {
     restitution = 0.2,
 
     max_velocity_x = 200,
-    max_velocity_y = 3 * 200,
+    max_velocity_y = 6 * 200,
     sprint_multiplier = 2.3,
     air_deceleration_duration = 0.8, -- n seconds until 0
     ground_deceleration_duration = 0.1,
@@ -19,12 +19,14 @@ rt.settings.overworld.player = {
     gravity = 1500,
 
     bottom_wall_ray_length_factor = 1.5,
-    side_wall_ray_length_factor = 1.1,
+    side_wall_ray_length_factor = 0.9,
     top_wall_ray_length_factor = 1,
 
-    jump_total_force = 1400,
-    jump_duration = 13 / 60,
-    wall_jump_multiplier = nil,
+    jump_total_force = 700,
+    jump_duration = 8 / 60,
+
+    wall_jump_total_force = 600,
+    wall_jump_duration = 2 / 30,
 
     wall_slide_allow_hold = false,
     wall_slide_force_factor = 0.5, -- upwards momentum after walljumping
@@ -94,8 +96,11 @@ function ow.Player:instantiate(scene, stage)
         _jump_elapsed = 0,
         _jump_allowed_override = nil,
         _jump_direction_x = 0,
-        _jump_direction_y = 1,
+        _jump_direction_y = -1,
         _jump_multiplier = 1,
+
+        _wall_jump_active = false,
+        _wall_jump_elapsed = 0,
 
         _joystick_position = 0, -- x axis
 
@@ -193,21 +198,20 @@ function ow.Player:_connect_input()
                 self._jump_elapsed = 0 -- reset jump timer
                 self:signal_emit("jump")
 
-                self._jump_direction_x = 0
-                self._jump_multiplier = 1
-
                 if self._left_wall then
-                    self._jump_direction_x = -1
+                    self._jump_direction_x = 1
                     self._left_wall_jump_blocked = true
                 end
 
                 if self._right_wall then
-                    self._jump_direction_x = 1
+                    self._jump_direction_x = -1
                     self._right_wall_jump_blocked = true
                 end
 
                 if (self._left_wall or self._right_wall) and not self._bottom_wall then
                     self._jump_elapsed = 0
+                    self._wall_jump_elapsed = 0
+                    self._wall_jump_active = true
                 end
             end
 
@@ -311,10 +315,12 @@ function ow.Player:update(delta)
     -- unblock walljump after leaving wall
     if self._bottom_wall or self._left_wall == true and left_before == false then
         self._left_wall_jump_blocked = false
+        self._wall_jump_active = false
     end
 
     if self._bottom_wall or self._right_wall == true and right_before == false then
         self._right_wall_jump_blocked = false
+        self._wall_jump_active = false
     end
 
     if self._bottom_wall and bottom_before == false then
@@ -355,7 +361,7 @@ function ow.Player:update(delta)
     -- update velocity
     local current_velocity_x, current_velocity_y = self._body:get_linear_velocity()
     local desired_velocity_x = self._velocity_sign * self._velocity_magnitude * self._velocity_multiplier * _settings.max_velocity_x
-    local desired_velocity_y = math.clamp(current_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
+    local desired_velocity_y = current_velocity_y
 
     -- apply friction
     local wall_clinging = self._bottom_wall == false and
@@ -372,11 +378,11 @@ function ow.Player:update(delta)
         end
 
         if current_velocity_y > 0 then
-            --self._body:apply_force(0, -1 * _settings.gravity * self._mass * (1 + 1 - fraction))
+            self._body:apply_force(0, -1 * _settings.gravity * self._mass * (1 + 1 - fraction))
         end
 
         if (not self._left_wall_jump_blocked or not self._right_wall_jump_blocked) then
-            --desired_velocity_y = 0
+            if current_velocity_y > 0 then desired_velocity_y = 0 end
         end
     end
 
@@ -385,13 +391,37 @@ function ow.Player:update(delta)
         (desired_velocity_y - current_velocity_y) * self._body:get_mass()
     )
 
+    local vx, vy = self._body:get_velocity()
+    if math.abs(vy) > _settings.max_velocity_y then
+        self._body:set_velocity(vx, _settings.max_velocity_y * math.sign(vy))
+    end
+
     -- apply jump force
+    if self._bottom_wall then
+        self._wall_jump_active = false
+    end
+
     if self._jump_button_is_down then
-        self._jump_elapsed = self._jump_elapsed + delta
-        local impulse = (_settings.jump_total_force * delta) / _settings.jump_duration
-        local fraction = math.min(self._jump_elapsed / _settings.jump_duration, 1)
-        local magnitude = -1 * impulse * (1 - fraction) * self._jump_multiplier
-        self._body:apply_linear_impulse(self._jump_direction_x * magnitude, self._jump_direction_y * magnitude)
+        local dx, dy, magnitude = 0, 0, 0
+        if self._wall_jump_active and not wall_clinging then
+            local total_force = _settings.wall_jump_total_force
+            local duration = _settings.wall_jump_duration
+            local force_per_second = total_force / duration
+            magnitude = delta * force_per_second
+            dx, dy = -self._jump_direction_x, self._jump_direction_y
+            if self._wall_jump_elapsed > duration then magnitude = 0 end
+            self._wall_jump_elapsed = self._wall_jump_elapsed + delta
+        elseif not wall_clinging then
+            local total_force = _settings.jump_total_force
+            local duration = _settings.jump_duration
+            local force_per_second = total_force / duration
+            magnitude = delta * force_per_second
+            dx, dy = 0, -1
+            if self._jump_elapsed > duration then magnitude = 0 end
+            self._jump_elapsed = self._jump_elapsed + delta
+        end
+
+        self._body:apply_linear_impulse(dx * magnitude, dy * magnitude)
     end
 
     -- apply downwards force
