@@ -363,6 +363,7 @@ function ow.OverworldScene:draw()
     self._stage:draw_floors()
     self._stage:draw_objects()
     self._stage:get_pathfinding_graph():draw()
+    self._stage:draw_blood_splatter()
     self._player:draw()
     self._stage:draw_walls()
 

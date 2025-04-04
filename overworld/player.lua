@@ -6,10 +6,10 @@ rt.settings.overworld.player = {
     radius = 13.5,
     inner_body_radius = 8 / 2 - 0.5,
     n_outer_bodies = 31,
-    max_spring_length = 13.5 * 1.5,
+    max_spring_length = 13.5 * 5,
 
     bottom_wall_ray_length_factor = 1.5,
-    side_wall_ray_length_factor = 1.3,
+    side_wall_ray_length_factor = 1.05,
     corner_wall_ray_length_factor = 0.8,
     top_wall_ray_length_factor = 1,
     joystick_to_analog_eps = 0.35,
@@ -46,7 +46,9 @@ rt.settings.overworld.player = {
     max_velocity_y = 1000,
     squeeze_multiplier = 1.3,
 
-    debug_drawing_enabled = true
+    debug_drawing_enabled = false,
+
+
 }
 
 local _settings = rt.settings.overworld.player
@@ -114,6 +116,10 @@ function ow.Player:instantiate(scene, stage)
         _jump_button_is_down = false,
         _sprint_button_is_down = false,
 
+        _sprint_multiplier = 1,
+        _next_sprint_multiplier = 1,
+        _next_sprint_multiplier_update_when_grounded = false,
+
         -- soft body
         _spring_bodies = {},
         _spring_joints = {},
@@ -126,6 +132,8 @@ function ow.Player:instantiate(scene, stage)
         _outer_body_centers_y = {},
         _outer_body_angles = {},
         _outer_body_scales = {},
+
+        _outer_body_tris = {},
 
         -- hard body
         _body = nil,
@@ -174,6 +182,8 @@ function ow.Player:_connect_input()
             self:signal_emit("jump")
         elseif self:get_is_sprint_button(which) then
             self._sprint_button_is_down = true
+            self._next_sprint_multiplier = _settings.sprint_multiplier
+            self._next_sprint_multiplier_update_when_grounded = true
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = true
         elseif which == rt.InputButton.RIGHT then
@@ -191,6 +201,8 @@ function ow.Player:_connect_input()
             self._wall_jump_button_locked = false
         elseif self:get_is_sprint_button(which) then
             self._sprint_button_is_down = false
+            self._next_sprint_multiplier = 1
+            self._next_sprint_multiplier_update_when_grounded = true
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = false
         elseif which == rt.InputButton.RIGHT then
@@ -277,6 +289,11 @@ function ow.Player:update(delta)
     self._bottom_right_wall_body = bottom_right_body
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
 
+    -- update sprint once landed
+    if self._next_sprint_multiplier_update_when_grounded and (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) then
+        self._sprint_multiplier = self._next_sprint_multiplier
+    end
+
     -- update velocity
     local next_velocity_x, next_velocity_y
     do
@@ -298,12 +315,7 @@ function ow.Player:update(delta)
             magnitude = self._joystick_position -- analog control when using joystick overrides digital
         end
 
-        local multiplier = 1
-        if self._sprint_button_is_down then
-            multiplier = _settings.sprint_multiplier
-        end
-
-        local target_velocity_x = magnitude * _settings.target_velocity_x * multiplier
+        local target_velocity_x = magnitude * _settings.target_velocity_x * self._sprint_multiplier
         if frozen and math.sign(target_velocity_x) ~= 0 and math.sign(target_velocity_x) == self._wall_jump_freeze_sign then
             target_velocity_x = 0
         end
@@ -427,13 +439,19 @@ function ow.Player:update(delta)
 
         -- gravity and downwards force
         if not frozen and self._down_button_is_down then
-            next_velocity_y = next_velocity_y + _settings.downwards_force_factor * _settings.gravity * delta
+            local factor = _settings.downwards_force_factor
+            if self._bottom_wall then factor = factor * 4 end
+            next_velocity_y = next_velocity_y + factor * _settings.gravity * delta
         end
         next_velocity_y = next_velocity_y + _settings.gravity * delta
 
-        -- add force when squeezing through softbody gaps
-        if self._top_wall and self._bottom_wall then
+        -- add force when squeezing through gaps
+        if (self._top_wall and self._bottom_wall) then
             next_velocity_x = next_velocity_x * _settings.squeeze_multiplier
+        end
+
+        if (self._left_wall and self._right_wall) then
+            next_velocity_y = next_velocity_y * _settings.squeeze_multiplier
         end
 
         -- apply to body
@@ -443,11 +461,12 @@ function ow.Player:update(delta)
     -- safeguard against one of the springs catching
     for i, body in ipairs(self._spring_bodies) do
         local distance = math.distance(x, y, body:get_position())
-        body:set_is_sensor(distance >= _settings.max_spring_length)
+        body:set_is_sensor(self._spring_joints[i]._prismatic_joint:getJointSpeed() > 100)
     end
 
     -- update mesh
     local player_x, player_y = self._body:get_position()
+    local to_polygonize = {}
     for i, body in ipairs(self._spring_bodies) do
         local cx, cy = body:get_position()
         self._outer_body_centers_x[i] = cx
@@ -457,6 +476,17 @@ function ow.Player:update(delta)
 
         local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
         self._outer_body_scales[i] = math.max(scale / 2, 0)
+
+        table.insert(to_polygonize, cx)
+        table.insert(to_polygonize, cy)
+    end
+
+    do
+        local success
+        success, self._outer_body_tris = pcall(love.math.triangulate, to_polygonize)
+        if not success then
+            success, self._outer_body_tris = pcall(slick.triangulate, {to_polygonize})
+        end
     end
 
     -- add blood splatter
@@ -528,7 +558,7 @@ function ow.Player:move_to_stage(stage, x, y)
         body:set_collision_group(_settings.player_outer_body_collision_group)
         body:set_collides_with(mask)
         body:set_friction(0)
-        body:set_is_rotation_fixed(true)
+        body:set_is_rotation_fixed(false)
         body:set_use_continuous_collision(true)
         body:set_user_data(self)
         body:add_tag("player_outer_body")
@@ -547,7 +577,7 @@ function ow.Player:move_to_stage(stage, x, y)
 
     -- two tone colors for gradients
     local ar, ag, ab = 1, 1, 1
-    local br, bg, bb = 0, 0, 0
+    local br, bg, bb = 0.3, 0.3, 0.3
 
     if self._outer_body_mesh == nil then
         local n_outer_vertices = 32
@@ -606,7 +636,7 @@ function ow.Player:move_to_stage(stage, x, y)
         self._outer_body_mesh:set_vertex_map(indices)
         self._outer_body_mesh_origin_x, self._outer_body_mesh_origin_y = -x_radius, 0 -- top of left bulb
 
-        self._outer_body_center_mesh = rt.MeshCircle(0, 0, self._radius * 0.5)
+        self._outer_body_center_mesh = rt.MeshCircle(0, 0, _settings.inner_body_radius)
         for i = 1, self._outer_body_center_mesh:get_n_vertices() do
             if i == 1 then
                 self._outer_body_center_mesh:set_vertex_color(i, ar, ag, ab, 1)
@@ -640,6 +670,19 @@ function ow.Player:draw()
     -- draw mesh
     love.graphics.push()
 
+    local x, y = self._body:get_predicted_position()
+    love.graphics.translate(x, y)
+    love.graphics.rotate(self._body:get_rotation())
+    love.graphics.translate(-x, -y)
+
+    local r, g, b, a = rt.Palette.MINT_2:unpack()
+
+    love.graphics.setColor(r, g, b, 0.3)
+    for tri in values(self._outer_body_tris) do
+        love.graphics.polygon("fill", tri)
+    end
+
+    love.graphics.setColor(r, g, b, 1)
     for i, scale in ipairs(self._outer_body_scales) do
         local x = self._outer_body_centers_x[i]
         local y = self._outer_body_centers_y[i]
@@ -656,7 +699,8 @@ function ow.Player:draw()
         )
     end
 
-    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
+    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
+
     love.graphics.pop()
 
     if _settings.debug_drawing_enabled then

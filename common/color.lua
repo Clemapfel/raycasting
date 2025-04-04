@@ -18,7 +18,7 @@ end
 
 --- @brief
 function rt.RGBA:unpack()
-    return self.r, self.g, self.g, self.a
+    return self.r, self.g, self.b, self.a
 end
 
 --- @class HSVA

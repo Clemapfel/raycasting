@@ -157,11 +157,15 @@ function ow.Stage:draw_objects()
 end
 
 --- @brief
+function ow.Stage:draw_blood_splatter()
+    self._blood_splatter:draw()
+end
+
+--- @brief
 function ow.Stage:draw_walls()
     for f in values(self._walls_to_draw) do
         f()
     end
-    self._blood_splatter:draw()
 end
 
 --- @brief
