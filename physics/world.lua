@@ -5,32 +5,28 @@ meta.add_signals(b2.World, "step")
 local _begin_contact_callback = function(shape_a, shape_b, contact)
     local body_a = shape_a:getBody():getUserData()
     local body_b = shape_b:getBody():getUserData()
-
-    local x1, y1, x2, y2 = contact:getPositions()
     local normal_x, normal_y = contact:getNormal()
 
-    if body_a:get_is_sensor() then
-        body_a:signal_emit("collision_start", body_b, normal_x, normal_y, x1, y1, x2, y2)
-    end
+    --if shape_a:isSensor() then
+        body_a:signal_emit("collision_start", body_b, normal_x, normal_y, contact)
+    --end
 
-    if body_b:get_is_sensor() then
-        body_b:signal_emit("collision_start", body_a, normal_x, normal_y, x1, y1, x2, y2)
-    end
+    --if shape_b:isSensor() then
+        body_b:signal_emit("collision_start", body_a, normal_x, normal_y, contact)
+    --end
 end
 
 local _end_contact_callback = function(shape_a, shape_b, contact)
     local body_a = shape_a:getBody():getUserData()
     local body_b = shape_b:getBody():getUserData()
-
-    local x1, y1, x2, y2 = contact:getPositions()
     local normal_x, normal_y = contact:getNormal()
 
-    if body_a:get_is_sensor() then
-        body_a:signal_emit("collision_end", body_b, normal_x, normal_y, x1, y1, x2, y2)
+    if shape_a:isSensor() then
+        body_a:signal_emit("collision_end", body_b, normal_x, normal_y, contact)
     end
 
-    if body_b:get_is_sensor() then
-        body_b:signal_emit("collision_end", body_a, normal_x, normal_y, x1, y1, x2, y2)
+    if shape_b:isSensor() then
+        body_b:signal_emit("collision_end", body_a, normal_x, normal_y, contact)
     end
 end
 
@@ -154,26 +150,15 @@ end
 --- @param direction_y Number
 --- @param ... b2.CollisionGroup
 --- @return number, number, number, number, b2.Body x, y, normal_x, normal_y
-function b2.World:query_ray(origin_x, origin_y, direction_x, direction_y, ...)
+function b2.World:query_ray(origin_x, origin_y, direction_x, direction_y, mask)
     local min_fraction = math.huge
     local x_out, y_out, normal_x_out, normal_y_out
-
-    local group
-    local n = select("#", ...)
-    if n > 0 then
-        group = 0x0
-        for i = 1, n do
-            group = bit.bor(group, select(i, ...))
-        end
-    else
-        group = b2.CollisionGroup.ALL
-    end
 
     local shape, x, y, nx, ny, fraction = self._native:rayCastClosest(
         origin_x, origin_y,
         origin_x + direction_x,
         origin_y + direction_y,
-        group
+        mask
     )
 
     if shape ~= nil then shape = shape:getBody():getUserData() end
@@ -187,20 +172,8 @@ end
 --- @param direction_y Number
 --- @param ... b2.CollisionGroup
 --- @return number, number, number, number, b2.Body x, y, normal_x, normal_y
-function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, ...)
+function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, mask)
     local min_fraction = math.huge
-    local x_out, y_out, normal_x_out, normal_y_out
-
-    local group
-    local n = select("#", ...)
-    if n > 0 then
-        group = 0x0
-        for i = 1, n do
-            group = bit.bor(group, select(i, ...))
-        end
-    else
-        group = b2.CollisionGroup.ALL
-    end
 
     if math.magnitude(direction_x, direction_y) < 1 then
         direction_x, direction_y = math.normalize(direction_x, direction_y)
@@ -210,7 +183,7 @@ function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, ..
         origin_x, origin_y,
         origin_x + direction_x,
         origin_y + direction_y,
-        group
+        mask
     )
 
     if shape ~= nil then shape = shape:getBody():getUserData() end

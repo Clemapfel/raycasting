@@ -2,6 +2,7 @@ require "overworld.stage_config"
 require "overworld.object_wrapper"
 require "overworld.player"
 require "overworld.pathfinding_graph"
+require "overworld.blood_splatter"
 
 require "physics.physics"
 
@@ -43,6 +44,7 @@ function ow.Stage:instantiate(scene, id)
     self._to_update = {} -- Table<Any>
     self._objects = {}  -- Table<any>
     self._pathfinding_graph = ow.PathfindingGraph()
+    self._blood_splatter = ow.BloodSplatter(self)
 
     self._player_spawn_x, self._player_spawn_y = nil, nil
     self._camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge)
@@ -159,6 +161,7 @@ function ow.Stage:draw_walls()
     for f in values(self._walls_to_draw) do
         f()
     end
+    self._blood_splatter:draw()
 end
 
 --- @brief
@@ -219,4 +222,10 @@ end
 --- @brief
 function ow.Stage:get_pathfinding_graph()
     return self._pathfinding_graph
+end
+
+--- @brief
+function ow.Stage:add_blood_splatter(x1, y1, x2, y2)
+    meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number")
+    self._blood_splatter:add(x1, y1, x2, y2)
 end

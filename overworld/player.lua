@@ -22,11 +22,12 @@ rt.settings.overworld.player = {
     side_wall_ray_length_factor = 0.9,
     top_wall_ray_length_factor = 1,
 
-    jump_total_force = 700,
+    jump_total_force = 1000,
     jump_duration = 8 / 60,
 
-    wall_jump_total_force = 700,
-    wall_jump_duration = 8 / 60,
+    wall_jump_up_force = 1200,
+    wall_jump_side_force = 400,
+    wall_jump_freeze_duration = 0.2,
 
     wall_slide_allow_hold = false,
     wall_slide_force_factor = 0.5, -- upwards momentum after walljumping
@@ -40,6 +41,12 @@ rt.settings.overworld.player = {
 
     debug_drawing_enabled = true
 }
+
+--[[
+forces:
+    velocity: xy, path of object
+    inertia: vector opposite velocity if accelerating, same direction as velocity if decelerating, equal to mass
+]]--
 
 
 local _settings = rt.settings.overworld.player
@@ -100,7 +107,10 @@ function ow.Player:instantiate(scene, stage)
         _jump_multiplier = 1,
 
         _wall_jump_active = false,
+        _wall_jump_spend = false,
         _wall_jump_elapsed = 0,
+        _wall_jump_freeze_elapsed = math.huge,
+        _wall_jump_freeze_sign = 0,
 
         _joystick_position = 0, -- x axis
 
@@ -128,6 +138,7 @@ function ow.Player:instantiate(scene, stage)
         _world = nil,
 
         _mass = 1,
+        _blood_splatter_sensor = nil, -- b2.Body
 
         _input = rt.InputSubscriber()
     })
@@ -217,10 +228,24 @@ function ow.Player:_connect_input()
                     self._right_wall_jump_blocked = true
                 end
 
-                if (self._left_wall or self._right_wall) and not self._bottom_wall then
+                if not self._wall_jump_active and (self._left_wall or self._right_wall) and not self._bottom_wall then
                     self._jump_elapsed = 0
                     self._wall_jump_elapsed = 0
                     self._wall_jump_active = true
+                    self._wall_jump_freeze_elapsed = 0
+
+                    if self._left_wall and not self._right_wall then
+                        self._wall_jump_freeze_sign = -1
+                    elseif self._right_wall and not self._left_wall then
+                        self._wall_jump_freeze_sign = 1
+                    else
+                        self._wall_jump_freeze_sign = 0
+                    end
+
+                    local vx, vy = self._body:get_velocity()
+                    vx = 0
+                    if vy < 0 then vy = 0 end
+                    self._body:set_velocity(vx, vy)
                 end
             end
 
@@ -298,7 +323,7 @@ function ow.Player:update(delta)
 
     local top_x, top_y, top_nx, top_ny, top_wall_body = self._world:query_ray_any(x, y, top_dx, top_dy, mask)
     local right_x, right_y, right_nx, right_ny, right_wall_body = self._world:query_ray(x, y, right_dx, right_dy, mask)
-    local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray_any(x, y, bottom_dx, bottom_dy, mask)
+    local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray(x, y, bottom_dx, bottom_dy, mask)
     local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
 
     local left_before = self._left_wall
@@ -325,11 +350,13 @@ function ow.Player:update(delta)
     if self._bottom_wall or self._left_wall == true and left_before == false then
         self._left_wall_jump_blocked = false
         self._wall_jump_active = false
+        self._wall_jump_spend = false
     end
 
     if self._bottom_wall or self._right_wall == true and right_before == false then
         self._right_wall_jump_blocked = false
         self._wall_jump_active = false
+        self._wall_jump_spend = false
     end
 
     if self._bottom_wall and bottom_before == false then
@@ -372,10 +399,11 @@ function ow.Player:update(delta)
     local desired_velocity_x = self._velocity_sign * self._velocity_magnitude * self._velocity_multiplier * _settings.max_velocity_x
     local desired_velocity_y = current_velocity_y
 
-    -- apply friction
     local wall_clinging = self._bottom_wall == false and
         ((self._left_button_is_down or self._joystick_position < 0) and self._left_wall) or
         ((self._right_button_is_down or self._joystick_position > 0) and self._right_wall)
+
+    -- apply friction
     if wall_clinging then
         local fraction
         if self._left_wall then
@@ -395,10 +423,17 @@ function ow.Player:update(delta)
         end
     end
 
-    self._body:apply_linear_impulse(
-        (desired_velocity_x - current_velocity_x) * self._body:get_mass(),
+    local impulse_x, impulse_y = (desired_velocity_x - current_velocity_x) * self._body:get_mass(),
         (desired_velocity_y - current_velocity_y) * self._body:get_mass()
-    )
+
+    if self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration then
+        if self._wall_jump_freeze_sign == self._velocity_sign then
+            impulse_x = 0
+        end
+    end
+    self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+
+    self._body:apply_linear_impulse(impulse_x, impulse_y)
 
     local vx, vy = self._body:get_velocity()
     if math.abs(vy) > _settings.max_velocity_y then
@@ -411,27 +446,38 @@ function ow.Player:update(delta)
     end
 
     if self._jump_button_is_down then
-        local dx, dy, magnitude = 0, 0, 0
-        if self._wall_jump_active and not wall_clinging then
-            local total_force = _settings.wall_jump_total_force
-            local duration = _settings.wall_jump_duration
-            local force_per_second = total_force / duration
-            magnitude = delta * force_per_second
-            dx, dy = -self._jump_direction_x, self._jump_direction_y
-            if self._wall_jump_elapsed > duration then magnitude = 0 end
-        elseif not wall_clinging then
+        local dx, dy, magnitude_x, magnitude_y = 0, 0, 0, 0
+        if self._wall_jump_active and not self._wall_jump_spend then
+            -- wall jump
+            magnitude_y = _settings.wall_jump_up_force
+            magnitude_x = _settings.wall_jump_side_force
+            if self._left_wall then dx = 1 elseif self._right_wall then dx = -1 else dx = 0 end
+            dy = -1
+            dx, dy = math.normalize(dx, dy)
+
+            -- reset x velocity when walljumping, since it freezes x impulses
+            self._velocity_sign = 0
+            self._velocity_magnitude = 0
+            self._wall_jump_spend = true
+        elseif not wall_clinging and not self._wall_jump_spend then
+            -- regular jump
+            dx, dy = 0, -1
             local total_force = _settings.jump_total_force
             local duration = _settings.jump_duration
             local force_per_second = total_force / duration
-            magnitude = delta * force_per_second
-            dx, dy = 0, -1
-            if self._jump_elapsed > duration then magnitude = 0 end
+            magnitude_y = delta * force_per_second
+            if duration == 0 then
+                magnitude_y = total_force
+            end
+
+            if self._jump_elapsed > duration then magnitude_y = 0 end
+            magnitude_x = magnitude_x
         end
 
         self._wall_jump_elapsed = self._wall_jump_elapsed + delta
         self._jump_elapsed = self._jump_elapsed + delta
 
-        self._body:apply_linear_impulse(dx * magnitude, dy * magnitude)
+        self._body:apply_linear_impulse(dx * magnitude_x, dy * magnitude_y)
     end
 
     -- apply downwards force
@@ -475,6 +521,34 @@ function ow.Player:update(delta)
         local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
         self._outer_body_scales[i] = math.max(scale / 2, 0)
     end
+
+    -- add blood splatter
+    local function _add_blood_splatter(contact_x, contact_y, nx, ny)
+        local nx_top, ny_top = math.turn_left(nx, ny)
+        local nx_bottom, ny_bottom = math.turn_right(nx, ny)
+
+        local r = 0.5 * self._radius
+        local top_x, top_y = contact_x + nx_top * r, contact_y + ny_top * r
+        local bottom_x, bottom_y = contact_x + nx_bottom * r, contact_y + ny_bottom * r
+
+        self._stage:add_blood_splatter(top_x, top_y, bottom_x, bottom_y)
+    end
+
+    if self._top_wall then
+        _add_blood_splatter(top_x, top_y, top_nx, top_ny)
+    end
+
+    if self._right_wall then
+        _add_blood_splatter(right_x, right_y, right_nx, right_ny)
+    end
+
+    if self._bottom_wall then
+        _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
+    end
+
+    if self._left_wall then
+        _add_blood_splatter(left_x, left_y, left_nx, left_ny)
+    end
 end
 
 --- @brief
@@ -483,6 +557,7 @@ function ow.Player:move_to_stage(stage, x, y)
     local world = stage:get_physics_world()
     if world == self._world then return end
 
+    self._stage = stage
     self._world = world
     self._world:set_gravity(0, _settings.gravity)
 
@@ -521,6 +596,7 @@ function ow.Player:move_to_stage(stage, x, y)
         body:set_is_rotation_fixed(true)
         body:set_use_continuous_collision(true)
         body:set_user_data(self)
+        body:add_tag("player_outer_body")
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
 
@@ -609,6 +685,19 @@ function ow.Player:move_to_stage(stage, x, y)
     self._outer_body_centers_y = {}
     self._outer_body_scales = {}
     self._outer_body_angles = {}
+
+    -- blood splatter
+    self._blood_splatter_sensor = b2.Body(self._world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, self._radius))
+    self._blood_splatter_sensor:set_is_sensor(true)
+    local splatter_mask = bit.bnot(bit.bor(
+        _settings.player_collision_group,
+        _settings.player_outer_body_collision_group
+    ))
+    self._blood_splatter_sensor:set_collides_with(splatter_mask)
+    self._blood_splatter_sensor:signal_connect("collision_start", function(self_body, other_body, contact_normal_x, contact_normal_y)
+    end)
+
+    love.physics.newWeldJoint(self._body:get_native(), self._blood_splatter_sensor:get_native(), x, y)
 end
 
 --- @brief
@@ -654,6 +743,8 @@ function ow.Player:draw()
             if wall then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
             love.graphics.line(ray)
         end
+
+        self._blood_splatter_sensor:draw()
     end
 end
 
