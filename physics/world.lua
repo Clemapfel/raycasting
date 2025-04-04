@@ -37,7 +37,8 @@ function b2.World:instantiate(width, height, ...)
     meta.install(self, {
         _native = love.physics.newWorld(0, 0),
         _transform_queue = {}, -- used by bodies to delay transformation after collision callbacks
-        _body_to_transform_queue_entry = {}
+        _body_to_transform_queue_entry = {},
+        _dynamic_bodies = meta.make_weak({}), -- set
     })
 
     self._native:setCallbacks(
@@ -86,6 +87,11 @@ function b2.World:_notify_rotation_changed(body, rotation)
 end
 
 --- @brief
+function b2.World:_notify_dynamic_body_added(body)
+    self._dynamic_bodies[body] = true
+end
+
+--- @brief
 function b2.World:set_gravity(x, y)
     self._native:setGravity(x, y)
 end
@@ -123,10 +129,8 @@ function b2.World:update(delta)
         self._native:update(_step, 7, 2)
 
         -- notify bodies for frame interpolation
-        for native in values(self._native:getBodies()) do
-            if native:getType() ~= "static" then
-                native:getUserData():_post_update_notify(_step)
-            end
+        for body in keys(self._dynamic_bodies) do
+            body:_post_update_notify(_step)
         end
 
         self:signal_emit("step", _step)

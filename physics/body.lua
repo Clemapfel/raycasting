@@ -58,7 +58,11 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _user_data = nil,
 
         _collision_group = b2.CollisionGroup.DEFAULT,
-        _collides_with = b2.CollisionGroup.ALL
+        _collides_with = b2.CollisionGroup.ALL,
+
+        _use_manual_velocity = false,
+        _manual_velocity_x = 0,
+        _manual_velocity_y = 0
     })
 
     -- data needed for predicted position
@@ -82,6 +86,10 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     end
 
     self._native:setUserData(self)
+
+    if type == b2.BodyType.DYNAMIC then
+        self._world:_notify_dynamic_body_added(self)
+    end
 end
 
 --- @brief
@@ -107,11 +115,11 @@ function b2.Body:_post_update_notify(step)
     self._current_timestamp = self._last_timestamp + step
     self._current_x, self._current_y = self._native:getPosition()
 
-    if self._current_timestamp - self._last_timestamp == 0 then
-        debugger.break_here()
-    end
-
     self._last_velocity_x, self._last_velocity_y = self._native:getLinearVelocity()
+
+    if self._use_manual_velocity then
+        --self._native:setLinearVelocity(self._manual_velocity_x, self._manual_velocity_y)
+    end
 end
 
 --- @brief get framerate-independent position
@@ -175,6 +183,11 @@ b2.Body.get_velocity = b2.Body.get_linear_velocity
 function b2.Body:set_linear_velocity(dx, dy)
     if dy == nil then dy = dx end
     self._native:setLinearVelocity(dx, dy)
+
+    if self._manual_velocity then
+        self._manual_velocity_x = dx
+        self._manual_velocity_y = dy
+    end
 end
 b2.Body.set_velocity = b2.Body.set_linear_velocity
 
@@ -186,6 +199,11 @@ end
 --- @brief
 function b2.Body:get_angular_velocity(value)
    return self._native:getAngularVelocity()
+end
+
+--- @brief
+function b2.Body:set_use_manual_velocity(b)
+    self._use_manual_velocity = b
 end
 
 --- @brief
