@@ -126,7 +126,7 @@ function b2.World:update(delta)
         self._body_to_transform_queue_entry = {}
 
         -- update
-        self._native:update(_step, 7, 2)
+        self._native:update(_step, 5, 2)
 
         -- notify bodies for frame interpolation
         for body in keys(self._dynamic_bodies) do

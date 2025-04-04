@@ -38,6 +38,11 @@ function rt.InputManager:_set_input_method(method)
 end
 
 --- @brief
+function rt.InputManager:get_input_method()
+    return self._input_method
+end
+
+--- @brief
 function rt.InputManager:is_keyboard_key_down(key)
     return love.keyboard.isDown(key)
 end

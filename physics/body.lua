@@ -116,10 +116,6 @@ function b2.Body:_post_update_notify(step)
     self._current_x, self._current_y = self._native:getPosition()
 
     self._last_velocity_x, self._last_velocity_y = self._native:getLinearVelocity()
-
-    if self._use_manual_velocity then
-        --self._native:setLinearVelocity(self._manual_velocity_x, self._manual_velocity_y)
-    end
 end
 
 --- @brief get framerate-independent position

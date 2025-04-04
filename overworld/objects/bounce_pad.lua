@@ -9,7 +9,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
     })
 
     self._body:set_restitution(2)
-    self._body:add_tag("slippery")
 end
 
 --- @brief
