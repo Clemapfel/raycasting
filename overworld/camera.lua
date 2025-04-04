@@ -2,6 +2,7 @@ require "common.sprite_batch"
 
 rt.settings.overworld.camera = {
     speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
+    max_velocity = 2000
 }
 
 
@@ -88,8 +89,8 @@ function ow.Camera:update(delta)
     dx = dx / screen_w
     dy = dy / screen_h
 
-    self._velocity_x = dx * rt.settings.overworld.player.max_velocity_x * 2
-    self._velocity_y = dy * rt.settings.overworld.player.max_velocity_y * 2
+    self._velocity_x = dx * rt.settings.overworld.camera.max_velocity
+    self._velocity_y = dy * rt.settings.overworld.camera.max_velocity
 
     local final_delta_x = self._velocity_x * delta
     local final_delta_y = self._velocity_y * delta

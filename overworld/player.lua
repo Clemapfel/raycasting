@@ -6,7 +6,7 @@ rt.settings.overworld.player = {
     radius = 13.5,
     inner_body_radius = 8 / 2 - 0.5,
     n_outer_bodies = 31,
-    max_spring_length = 13.5 * 5,
+    max_spring_length = 13.5 * 1.5,
 
     bottom_wall_ray_length_factor = 1.5,
     side_wall_ray_length_factor = 1.05,
@@ -42,9 +42,9 @@ rt.settings.overworld.player = {
     wall_regular_friction = 0.8, -- times of gravity
     wall_slippery_friction = 0,
 
-    max_velocity_x = 1000, -- TODO
-    max_velocity_y = 1000,
-    squeeze_multiplier = 1.3,
+    max_velocity_x = 8000, -- TODO
+    max_velocity_y = 13000,
+    squeeze_multiplier = 1.4,
 
     debug_drawing_enabled = false,
 
@@ -454,14 +454,25 @@ function ow.Player:update(delta)
             next_velocity_y = next_velocity_y * _settings.squeeze_multiplier
         end
 
+        next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
+        next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
+
         -- apply to body
         self._body:set_velocity(next_velocity_x, next_velocity_y)
     end
 
     -- safeguard against one of the springs catching
+    local disabled = false
     for i, body in ipairs(self._spring_bodies) do
         local distance = math.distance(x, y, body:get_position())
-        body:set_is_sensor(self._spring_joints[i]._prismatic_joint:getJointSpeed() > 100)
+        --body:set_is_sensor(distance > _settings.max_spring_length)
+        local should_be_disabled = distance > _settings.max_spring_length--self._spring_joints[i]._prismatic_joint:getJointSpeed() > 100
+        body:set_is_sensor(should_be_disabled)
+        if should_be_disabled == true then disabled = true end
+    end
+
+    if disabled then
+        self._body:set_velocity(0, 0)
     end
 
     -- update mesh
@@ -482,10 +493,16 @@ function ow.Player:update(delta)
     end
 
     do
-        local success
-        success, self._outer_body_tris = pcall(love.math.triangulate, to_polygonize)
+        -- triangulate body for see-through part
+        -- try love, if fails, try slick (because slick is slower), if it fails, do not change body
+        local success, new_tris
+        success, new_tris = pcall(love.math.triangulate, to_polygonize)
         if not success then
-            success, self._outer_body_tris = pcall(slick.triangulate, {to_polygonize})
+            success, new_tris = pcall(slick.triangulate, {to_polygonize})
+        end
+
+        if success then
+            self._outer_body_tris = new_tris
         end
     end
 
