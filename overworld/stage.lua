@@ -115,7 +115,7 @@ function ow.Stage:instantiate(scene, id)
                     table.insert(self._objects, object)
                     self._object_id_to_instance[wrapper.id] = object
 
-                    if meta.isa(object, rt.Drawable) then
+                    if object.draw ~= nil then
                         table.insert(drawables, object)
                     end
 

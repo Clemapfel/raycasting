@@ -122,6 +122,9 @@ function ow.Player:instantiate(scene, stage)
         _next_sprint_multiplier = 1,
         _next_sprint_multiplier_update_when_grounded = false,
 
+        _interact_targets = {}, -- Set
+        _is_disabled = false,
+
         -- soft body
         _spring_bodies = {},
         _spring_joints = {},
@@ -156,13 +159,17 @@ end
 
 
 local _JUMP_BUTTONS = {
-    [rt.InputButton.A] = true
+    [rt.InputButton.B] = true
 }
 
 local _SPRINT_BUTTON = {
-    [rt.InputButton.B] = true,
+    [rt.InputButton.Y] = true,
     [rt.InputButton.L] = true,
     [rt.InputButton.R] = true
+}
+
+local _INTERACT_BUTTON = {
+    [rt.InputButton.A] = true
 }
 
 --- @brief
@@ -176,6 +183,11 @@ function ow.Player:get_is_sprint_button(which)
 end
 
 --- @brief
+function ow.Player:get_is_interact_button(which)
+    return _INTERACT_BUTTON[which] == true
+end
+
+--- @brief
 function ow.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
         if self:get_is_jump_button(which) then
@@ -186,6 +198,11 @@ function ow.Player:_connect_input()
             self._sprint_button_is_down = true
             self._next_sprint_multiplier = _settings.sprint_multiplier
             self._next_sprint_multiplier_update_when_grounded = true
+        elseif self:get_is_interact_button(which) then
+            -- interact
+            for target in keys(self._interact_targets) do
+                target:signal_emit("activate", self)
+            end
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = true
         elseif which == rt.InputButton.RIGHT then
@@ -480,7 +497,11 @@ function ow.Player:update(delta)
         next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
 
         -- apply to body
-        self._body:set_velocity(next_velocity_x, next_velocity_y)
+        if self._is_disabled then
+            self._body:set_velocity(0, current_velocity_y + _settings.gravity * delta)
+        else
+            self._body:set_velocity(next_velocity_x, next_velocity_y)
+        end
     end
 
     -- safeguard against one of the springs catching
@@ -804,6 +825,25 @@ function ow.Player:get_physics_body()
     return self._body
 end
 
+--- @brief
+function ow.Player:add_interact_target(target)
+    self._interact_targets[target] = true
+end
+
+--- @brief
+function ow.Player:remove_interact_target(target)
+    self._interact_targets[target] = false
+end
+
+--- @brief
+function ow.Player:set_is_disabled(b)
+    self._is_disabled = b
+end
+
+--- @brief
+function ow.Player:get_is_disabled()
+    return self._is_disabled
+end
 
 
 

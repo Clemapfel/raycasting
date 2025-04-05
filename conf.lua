@@ -36,12 +36,12 @@ _G.SETTINGS = {
 
         ["A"] = {
             keyboard = {"space", "e"},
-            controller = GAMEPAD_BUTTON_BOTTOM
+            controller = GAMEPAD_BUTTON_RIGHT
         },
 
         ["B"] = {
             keyboard = {"lshift", "b"},
-            controller = GAMEPAD_BUTTON_LEFT
+            controller = GAMEPAD_BUTTON_BOTTOM
         },
 
         ["X"] = {
@@ -51,7 +51,7 @@ _G.SETTINGS = {
 
         ["Y"] = {
             keyboard = "y",
-            controller = GAMEPAD_BUTTON_RIGHT
+            controller = GAMEPAD_BUTTON_LEFT
         },
 
         ["L"] = {

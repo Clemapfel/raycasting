@@ -2,7 +2,9 @@
 --- @field signal String
 --- @field target ow.ObjectWrapper
 --- @field value any?
+--- @signal activate (self, ow.Player) -> nil
 ow.OverlapTrigger = meta.class("OverlapTrigger", rt.Drawable) -- TODO
+meta.add_signals(ow.OverlapTrigger, "activate")
 
 --- @brief
 function ow.OverlapTrigger:instantiate(object, stage, scene)
@@ -14,25 +16,38 @@ function ow.OverlapTrigger:instantiate(object, stage, scene)
         _receiver = nil
     })
 
+    -- add receive once stage is initialized
     local signal_id
     signal_id = stage:signal_connect("initialized", function(stage)
         self._receiver = stage:get_object_instance(self._target)
+
+        if self._receiver == nil then
+            rt.error("In ow.OverlapTrigger: trigger `" .. object:get_id() .. "` targets object, but object `" .. self._target .. "`is not present on the same layer")
+        end
+
         if not self._receiver:signal_has_signal(self._signal) then
             rt.error("In ow.OverlapTrigger: trigger `" .. object:get_id() .. "` is set to trigger signal `" .. self._signal .. "` in object `" .. meta.typeof(self._receiver) .. "`, but it does not have that signal")
         end
+
         stage:signal_disconnect("initialized", signal_id)
     end)
 
+    -- if player overlaps, activate
     self._body:set_is_sensor(true)
     self._body:signal_connect("collision_start", function(self_body, other_body, x, y, nx, ny)
-        assert(self._receiver ~= nil)
         if other_body:has_tag("player") or other_body:has_tag("agent") then
-            self._receiver:signal_emit(self._signal, self._value)
+            self:signal_emit("activate")
         end
+    end)
+
+    -- if activated, emit receiver
+    self:signal_connect("activate", function()
+        self._receiver:signal_emit(self._signal, self._value)
     end)
 end
 
 --- @brief
 function ow.OverlapTrigger:draw()
+    love.graphics.setColor(1, 1, 1, 1)
     self._body:draw()
 end

@@ -4,6 +4,7 @@ require "common.frame"
 require "common.mesh"
 require "common.sprite"
 require "common.stencil"
+require "common.sound_manager"
 
 -- accepted ids for dialog node in config file
 rt.settings.overworld.dialog_box = {
@@ -263,8 +264,8 @@ function ow.DialogBox:_set_active_node(node)
 
     if node == nil then
         if self._done_emitted == false then
-            self:signal_emit("done")
             self._done_emitted = true
+            self:signal_emit("done")
         end
     elseif node.type == _node_type_choice then
         self._active_choice_node = node
@@ -608,4 +609,20 @@ end
 --- @brief
 function ow.DialogBox:set_should_auto_advance(b)
     self._should_auto_advance = b
+end
+
+--- @brief
+function ow.DialogBox:reset()
+    for node in values(self._id_to_node) do
+        if node.type == _node_type_text then
+            for label in values(node.labels) do
+                label.dialog_box_elapsed = nil
+                label.dialog_box_is_done = nil
+                label:set_n_visible_characters(0)
+            end
+        end
+    end
+
+    self:_set_active_node(self._id_to_node[1])
+    self._done_emitted = false
 end

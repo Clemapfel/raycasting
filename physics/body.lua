@@ -5,8 +5,7 @@
 b2.Body = meta.class("PhysicsBody")
 meta.add_signals(b2.Body,
     "collision_start",
-    "collision_end",
-    "activate"
+    "collision_end"
 )
 
 --- @class b2.BodyType
