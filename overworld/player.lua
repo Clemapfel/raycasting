@@ -103,6 +103,10 @@ function ow.Player:instantiate(scene, stage)
         _wall_jump_right_blocked = false,
         _wall_jump_button_locked = false,
 
+        _bounce_impulse_x = 0,
+        _bounce_impulse_y = 0,
+        _should_apply_bounce_impulse = false,
+
         -- controls
         _joystick_position = 0, -- x axis
         _use_controller_input = rt.InputManager:get_input_method() == rt.InputMethod.CONTROLLER,
@@ -138,9 +142,8 @@ function ow.Player:instantiate(scene, stage)
         _world = nil,
 
         _mass = 1,
-        _blood_splatter_sensor = nil, -- b2.Body
-        _blood_splatter_pin = nil, -- b2.Pin
-
+        _bounce_sensor = nil, -- b2.Body
+        _bounce_sensor_pin = nil, -- b2.Pin
         _input = rt.InputSubscriber()
     })
 
@@ -431,39 +434,6 @@ function ow.Player:update(delta)
             self._jump_allowed_override = nil
         end
 
-        do -- manual restitution
-            local restitution = 1
-            local self_velocity_x, self_velocity_y = next_velocity_x, next_velocity_y
-
-            local seen = {}
-            for body_normal in range(
-                {bottom_left_wall_body, bottom_left_nx, bottom_left_ny},
-                {bottom_wall_body, bottom_nx, bottom_ny},
-                {bottom_right_wall_body, bottom_right_nx, bottom_right_ny},
-                {right_wall_body, right_nx, right_ny},
-                {left_wall_body, left_nx, left_ny},
-                {top_wall_body, top_nx, top_ny}
-            ) do
-                local body, normal_x, normal_y = table.unpack(body_normal)
-                if body ~= nil and not seen[body] == true and body:has_tag("bouncy") then
-                    local collision_normal_x, collision_normal_y = normal_x, normal_y
-                    local velocity_along_normal = (self_velocity_x * collision_normal_x + self_velocity_y * collision_normal_y)
-                    local impulse_scalar = 1 * restitution * velocity_along_normal
-
-                    local impulse_x = impulse_scalar * collision_normal_x
-                    local impulse_y = impulse_scalar * collision_normal_y
-
-                    self_velocity_x = self_velocity_x + impulse_x
-                    self_velocity_y = self_velocity_y + impulse_y
-
-                    seen[body] = true
-                end
-            end
-
-            next_velocity_x = self_velocity_x
-            next_velocity_y = self_velocity_y
-        end
-
         local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
 
         -- apply friction when wall_clinging
@@ -497,6 +467,13 @@ function ow.Player:update(delta)
 
         if (self._left_wall and self._right_wall) then
             next_velocity_y = next_velocity_y * _settings.squeeze_multiplier
+        end
+
+        -- bounce
+        if self._should_apply_bounce_impulse then
+            next_velocity_x = self._bounce_impulse_x
+            next_velocity_y = self._bounce_impulse_y
+            --self._should_apply_bounce_impulse = false
         end
 
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
@@ -631,8 +608,22 @@ function ow.Player:move_to_stage(stage, x, y)
         table.insert(self._spring_joints, joint)
     end
 
+    -- bounce sensor
+    self._bounce_sensor = b2.Body(self._world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, 1.5 * self._radius))
+    self._bounce_sensor:set_mass(10e-4)
+    self._bounce_sensor:set_collides_with(b2.CollisionGroup.GROUP_14)
+    self._bounce_sensor_pin = b2.Pin(self._body, self._bounce_sensor, x, y)
+
+    self._bounce_sensor:signal_connect("collision_start", function(_, other, normal_x, normal_y, contact)
+
+    end)
+
+    self._bounce_sensor:signal_connect("collision_end", function(_, other)
+        --self._should_apply_bounce_impulse = false
+    end)
+
     -- true mass
-    self._mass = self._body:get_mass()
+    self._mass = self._body:get_mass() + self._bounce_sensor:get_mass()
     for body in values(self._spring_bodies) do
         self._mass = self._mass + body:get_mass()
     end
@@ -713,18 +704,6 @@ function ow.Player:move_to_stage(stage, x, y)
     self._outer_body_scales = {}
     self._outer_body_angles = {}
 
-    -- blood splatter
-    self._blood_splatter_sensor = b2.Body(self._world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, self._radius))
-    self._blood_splatter_sensor:set_is_sensor(true)
-    local splatter_mask = bit.bnot(bit.bor(
-        _settings.player_collision_group,
-        _settings.player_outer_body_collision_group
-    ))
-    self._blood_splatter_sensor:set_collides_with(splatter_mask)
-    self._blood_splatter_sensor:signal_connect("collision_start", function(self_body, other_body, contact_normal_x, contact_normal_y)
-    end)
-
-    self._blood_splatter_pin = b2.Pin(self._body, self._blood_splatter_sensor, x, y)
 end
 
 --- @brief

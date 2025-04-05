@@ -7,6 +7,9 @@ local _begin_contact_callback = function(shape_a, shape_b, contact)
     local body_b = shape_b:getBody():getUserData()
     local normal_x, normal_y = contact:getNormal()
 
+    contact:setRestitution(0)
+    contact:setFriction(0)
+
     --if shape_a:isSensor() then
         body_a:signal_emit("collision_start", body_b, normal_x, normal_y, contact)
     --end
@@ -21,13 +24,13 @@ local _end_contact_callback = function(shape_a, shape_b, contact)
     local body_b = shape_b:getBody():getUserData()
     local normal_x, normal_y = contact:getNormal()
 
-    if shape_a:isSensor() then
+    --if shape_a:isSensor() then
         body_a:signal_emit("collision_end", body_b, normal_x, normal_y, contact)
-    end
+    --end
 
-    if shape_b:isSensor() then
+    --if shape_b:isSensor() then
         body_b:signal_emit("collision_end", body_a, normal_x, normal_y, contact)
-    end
+    --end
 end
 
 
@@ -39,6 +42,7 @@ function b2.World:instantiate(width, height, ...)
         _transform_queue = {}, -- used by bodies to delay transformation after collision callbacks
         _body_to_transform_queue_entry = {},
         _dynamic_bodies = meta.make_weak({}), -- set
+        _timestamp = love.timer.getTime()
     })
 
     self._native:setCallbacks(
@@ -87,11 +91,6 @@ function b2.World:_notify_rotation_changed(body, rotation)
 end
 
 --- @brief
-function b2.World:_notify_dynamic_body_added(body)
-    self._dynamic_bodies[body] = true
-end
-
---- @brief
 function b2.World:set_gravity(x, y)
     self._native:setGravity(x, y)
 end
@@ -127,11 +126,7 @@ function b2.World:update(delta)
 
         -- update
         self._native:update(_step, 5, 2)
-
-        -- notify bodies for frame interpolation
-        for body in keys(self._dynamic_bodies) do
-            body:_post_update_notify(_step)
-        end
+        self._timestamp = love.timer.getTime()
 
         self:signal_emit("step", _step)
 
@@ -293,4 +288,9 @@ end
 --- @brief
 function b2.World:get_native()
     return self._native
+end
+
+--- @brief
+function b2.World:get_timestamp()
+    return self._timestamp
 end

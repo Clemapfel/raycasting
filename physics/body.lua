@@ -65,13 +65,6 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _manual_velocity_y = 0
     })
 
-    -- data needed for predicted position
-    self._current_timestamp = love.timer.getTime()
-    self._last_timestamp = love.timer.getTime()
-    self._last_velocity_x, self._last_velocity_y = self._native:getLinearVelocity()
-    self._last_x, self._last_y = self._native:getPosition()
-    self._current_x, self._current_y = self._native:getPosition()
-
     local shapes
     if meta.typeof(shape) == "Table" then
         shapes = shape
@@ -86,10 +79,6 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     end
 
     self._native:setUserData(self)
-
-    if type == b2.BodyType.DYNAMIC then
-        self._world:_notify_dynamic_body_added(self)
-    end
 end
 
 --- @brief
@@ -107,47 +96,19 @@ function b2.Body:get_rotation()
     return self._native:getAngle()
 end
 
---- @brief [internal]
-function b2.Body:_post_update_notify(step)
-    self._last_timestamp = self._current_timestamp
-    self._last_x, self._last_y = self._current_x, self._current_y
-
-    self._current_timestamp = self._last_timestamp + step
-    self._current_x, self._current_y = self._native:getPosition()
-
-    self._last_velocity_x, self._last_velocity_y = self._native:getLinearVelocity()
-end
-
 --- @brief get framerate-independent position
 function b2.Body:get_predicted_position()
-    local dt = self._current_timestamp - self._last_timestamp
-    if dt == 0 then
-        return self._native:getPosition()
-    end
+    -- predict current position independent of the physics state
+    local last_x, last_y = self._native:getPosition()
+    local last_timestamp = self._world:get_timestamp()
+    local velocity_x, velocity_y = self._native:getLinearVelocity()
 
-    local dx = self._current_x - self._last_x
-    local dy = self._current_y - self._last_y
+    local time_elapsed = love.timer.getTime() - last_timestamp
 
-    local x, y = self._current_x, self._current_y
-    local delta = love.timer.getTime() - self._current_timestamp
+    local predicted_x = last_x + velocity_x * time_elapsed
+    local predicted_y = last_y + velocity_y * time_elapsed
 
-    local vx = dx * dt
-    local vy = dy * dt
-
-    -- safeguard when teleporting
-    if vx < 0 then
-        vx = math.max(vx, self._last_velocity_x)
-    else
-        vx = math.min(vx, self._last_velocity_x)
-    end
-
-    if vy < 0 then
-        vy = math.max(vy, self._last_velocity_y)
-    else
-        vy = math.min(vy, self._last_velocity_y)
-    end
-
-    return x + vx * delta, y + vy * delta
+    return predicted_x, predicted_y
 end
 
 --- @brief
