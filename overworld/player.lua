@@ -47,8 +47,6 @@ rt.settings.overworld.player = {
     squeeze_multiplier = 1.4,
 
     debug_drawing_enabled = false,
-
-
 }
 
 local _settings = rt.settings.overworld.player
@@ -88,11 +86,11 @@ function ow.Player:instantiate(scene, stage)
         _bottom_ray = {0, 0, 0, 0},
 
         _bottom_left_wall = false,
-        _bottom_left_body = nil,
+        _bottom_left_wall_body = nil,
         _bottom_left_ray = {0, 0, 0, 0},
 
         _bottom_right_wall = false,
-        _bottom_right_body = nil,
+        _bottom_right_wall_body = nil,
         _bottom_right_ray = {0, 0, 0, 0},
 
         -- jump
@@ -141,6 +139,7 @@ function ow.Player:instantiate(scene, stage)
 
         _mass = 1,
         _blood_splatter_sensor = nil, -- b2.Body
+        _blood_splatter_pin = nil, -- b2.Pin
 
         _input = rt.InputSubscriber()
     })
@@ -256,8 +255,8 @@ function ow.Player:update(delta)
     local right_x, right_y, right_nx, right_ny, right_wall_body = self._world:query_ray(x, y, right_dx, right_dy, mask)
     local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray(x, y, bottom_dx, bottom_dy, mask)
     local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
-    local bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny, bottom_left_body = self._world:query_ray(x, y, bottom_left_dx, bottom_left_dy, mask)
-    local bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny, bottom_right_body = self._world:query_ray(x, y, bottom_right_dx, bottom_right_dy, mask)
+    local bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny, bottom_left_wall_body = self._world:query_ray(x, y, bottom_left_dx, bottom_left_dy, mask)
+    local bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny, bottom_right_wall_body = self._world:query_ray(x, y, bottom_right_dx, bottom_right_dy, mask)
 
     local left_before = self._left_wall
     local right_before = self._right_wall
@@ -281,12 +280,12 @@ function ow.Player:update(delta)
     self._bottom_wall_body = bottom_wall_body
     self._bottom_ray = {x, y, x + bottom_dx, y + bottom_dy}
 
-    self._bottom_left_wall = bottom_left_body ~= nil and not bottom_left_body:get_is_sensor()
-    self._bottom_left_wall_body = bottom_left_body
+    self._bottom_left_wall = bottom_left_wall_body ~= nil and not bottom_left_wall_body:get_is_sensor()
+    self._bottom_left_wall_body = bottom_left_wall_body
     self._bottom_left_ray = {x, y, x + bottom_left_dx, y + bottom_left_dy}
 
-    self._bottom_right_wall = bottom_right_body ~= nil and not bottom_right_body:get_is_sensor()
-    self._bottom_right_wall_body = bottom_right_body
+    self._bottom_right_wall = bottom_right_wall_body ~= nil and not bottom_right_wall_body:get_is_sensor()
+    self._bottom_right_wall_body = bottom_right_wall_body
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
 
     -- update sprint once landed
@@ -365,6 +364,19 @@ function ow.Player:update(delta)
         local can_jump = (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) and not (self._left_wall or self._right_wall or self._top_wall)
         local can_wall_jump = not can_jump and not frozen and not self._wall_jump_button_locked and ((self._left_wall and not self._left_wall_jump_blocked) or (self._right_wall and not self._right_wall_jump_blocked))
 
+        if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
+            (self._bottom_left_wall and bottom_left_wall_body:has_tag("unjumpable")) or
+            (self._bottom_right_wall and bottom_right_wall_body:has_tag("unjumpable"))
+        then
+            can_jump = false
+        end
+
+        if (self._left_wall and left_wall_body:has_tag("slippery")) or
+            (self._right_wall and right_wall_body:has_tag("slippery"))
+        then
+            can_wall_jump = false
+        end
+
         -- reset jump button when going from air to ground, to disallow buffering jumps while falling
         local grounded_before = bottom_before -- only use bottom, not corner
         local grounded_now = self._bottom_wall
@@ -417,6 +429,39 @@ function ow.Player:update(delta)
 
         if self._jump_elapsed >= _settings.jump_duration then
             self._jump_allowed_override = nil
+        end
+
+        do -- manual restitution
+            local restitution = 1
+            local self_velocity_x, self_velocity_y = next_velocity_x, next_velocity_y
+
+            local seen = {}
+            for body_normal in range(
+                {bottom_left_wall_body, bottom_left_nx, bottom_left_ny},
+                {bottom_wall_body, bottom_nx, bottom_ny},
+                {bottom_right_wall_body, bottom_right_nx, bottom_right_ny},
+                {right_wall_body, right_nx, right_ny},
+                {left_wall_body, left_nx, left_ny},
+                {top_wall_body, top_nx, top_ny}
+            ) do
+                local body, normal_x, normal_y = table.unpack(body_normal)
+                if body ~= nil and not seen[body] == true and body:has_tag("bouncy") then
+                    local collision_normal_x, collision_normal_y = normal_x, normal_y
+                    local velocity_along_normal = (self_velocity_x * collision_normal_x + self_velocity_y * collision_normal_y)
+                    local impulse_scalar = 1 * restitution * velocity_along_normal
+
+                    local impulse_x = impulse_scalar * collision_normal_x
+                    local impulse_y = impulse_scalar * collision_normal_y
+
+                    self_velocity_x = self_velocity_x + impulse_x
+                    self_velocity_y = self_velocity_y + impulse_y
+
+                    seen[body] = true
+                end
+            end
+
+            next_velocity_x = self_velocity_x
+            next_velocity_y = self_velocity_y
         end
 
         local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
@@ -679,7 +724,7 @@ function ow.Player:move_to_stage(stage, x, y)
     self._blood_splatter_sensor:signal_connect("collision_start", function(self_body, other_body, contact_normal_x, contact_normal_y)
     end)
 
-    love.physics.newWeldJoint(self._body:get_native(), self._blood_splatter_sensor:get_native(), x, y)
+    self._blood_splatter_pin = b2.Pin(self._body, self._blood_splatter_sensor, x, y)
 end
 
 --- @brief
