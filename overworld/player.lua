@@ -498,10 +498,8 @@ function ow.Player:update(delta)
             local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
             local velocity_angle = math.angle(velocity_nx, velocity_ny)
             local bounce_angle = math.angle(self._bounce_direction_x, self._bounce_direction_y)
-
             local final_angle = math.mix_angles(velocity_angle, bounce_angle, 1 - math.sqrt(fraction)^0.6)
-            velocity_magnitude = velocity_magnitude
-            velocity_magnitude = velocity_magnitude + (1 - fraction) * _settings.bounce_total_force
+            velocity_magnitude = velocity_magnitude + rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(fraction) * _settings.bounce_total_force
             next_velocity_x, next_velocity_y = math.normalize(math.cos(final_angle), math.sin(final_angle))
             next_velocity_x = next_velocity_x * velocity_magnitude
             next_velocity_y = next_velocity_y * velocity_magnitude
