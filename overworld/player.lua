@@ -1,5 +1,6 @@
 require "common.input_subscriber"
 require "physics.physics"
+require "common.timed_animation"
 
 
 rt.settings.overworld.player = {
@@ -34,6 +35,10 @@ rt.settings.overworld.player = {
     wall_jump_angle = 35, -- degrees
     wall_jump_freeze_duration = 10 / 60,
     wall_magnet_force = 300,
+
+    bounce_velocity = 200,
+    bounce_duration = 0.5,
+    bounce_total_force = 50,
 
     gravity = 1500, -- px / s
     downwards_force_factor = 2, -- times gravity
@@ -103,9 +108,9 @@ function ow.Player:instantiate(scene, stage)
         _wall_jump_right_blocked = false,
         _wall_jump_button_locked = false,
 
-        _bounce_impulse_x = 0,
-        _bounce_impulse_y = 0,
-        _should_apply_bounce_impulse = false,
+        _bounce_direction_x = 0,
+        _bounce_direction_y = 0,
+        _bounce_elapsed = math.huge,
 
         -- controls
         _joystick_position = 0, -- x axis
@@ -487,11 +492,21 @@ function ow.Player:update(delta)
         end
 
         -- bounce
-        if self._should_apply_bounce_impulse then
-            next_velocity_x = self._bounce_impulse_x
-            next_velocity_y = self._bounce_impulse_y
-            --self._should_apply_bounce_impulse = false
+        local fraction = self._bounce_elapsed / _settings.bounce_duration
+        if fraction <= 1 then
+            local velocity_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
+            local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
+            local velocity_angle = math.angle(velocity_nx, velocity_ny)
+            local bounce_angle = math.angle(self._bounce_direction_x, self._bounce_direction_y)
+
+            local final_angle = math.mix_angles(velocity_angle, bounce_angle, 1 - math.sqrt(fraction)^0.6)
+            velocity_magnitude = velocity_magnitude
+            velocity_magnitude = velocity_magnitude + (1 - fraction) * _settings.bounce_total_force
+            next_velocity_x, next_velocity_y = math.normalize(math.cos(final_angle), math.sin(final_angle))
+            next_velocity_x = next_velocity_x * velocity_magnitude
+            next_velocity_y = next_velocity_y * velocity_magnitude
         end
+        self._bounce_elapsed = self._bounce_elapsed + delta
 
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
         next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
@@ -632,16 +647,9 @@ function ow.Player:move_to_stage(stage, x, y)
     -- bounce sensor
     self._bounce_sensor = b2.Body(self._world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, 1.5 * self._radius))
     self._bounce_sensor:set_mass(10e-4)
+    self._bounce_sensor:set_user_data(self)
     self._bounce_sensor:set_collides_with(b2.CollisionGroup.GROUP_14)
     self._bounce_sensor_pin = b2.Pin(self._body, self._bounce_sensor, x, y)
-
-    self._bounce_sensor:signal_connect("collision_start", function(_, other, normal_x, normal_y, contact)
-
-    end)
-
-    self._bounce_sensor:signal_connect("collision_end", function(_, other)
-        --self._should_apply_bounce_impulse = false
-    end)
 
     -- true mass
     self._mass = self._body:get_mass() + self._bounce_sensor:get_mass()
@@ -832,7 +840,7 @@ end
 
 --- @brief
 function ow.Player:remove_interact_target(target)
-    self._interact_targets[target] = false
+    self._interact_targets[target] = nil
 end
 
 --- @brief
@@ -843,6 +851,13 @@ end
 --- @brief
 function ow.Player:get_is_disabled()
     return self._is_disabled
+end
+
+--- @brief
+function ow.Player:bounce(nx, ny)
+    self._bounce_direction_x = nx
+    self._bounce_direction_y = ny
+    self._bounce_elapsed = 0
 end
 
 

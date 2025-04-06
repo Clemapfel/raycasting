@@ -182,6 +182,27 @@ function math.mix(lower, upper, ratio)
 end
 
 --- @brief
+function math.normalize_angle(angle)
+    return angle - (2 * math.pi) * math.floor(angle / (2 * math.pi))
+end
+
+--- @brief
+function math.mix_angles(angle_a, angle_b, ratio)
+    angle_a = math.normalize_angle(angle_a)
+    angle_b = math.normalize_angle(angle_b)
+
+    local difference = angle_b - angle_a
+
+    if difference > math.pi then
+        difference = difference - 2 * math.pi
+    elseif difference < -math.pi then
+        difference = difference + 2 * math.pi
+    end
+
+    return math.normalize_angle(angle_a + difference * ratio)
+end
+
+--- @brief
 function math.smoothstep(lower, upper, ratio)
     local t = clamp((ratio - lower) / (upper - lower), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);
