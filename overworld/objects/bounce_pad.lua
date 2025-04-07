@@ -10,22 +10,26 @@ function ow.BouncePad:instantiate(object, stage, scene)
         _cooldown = false,
     })
 
-    self._body:set_restitution(2)
-    local i = 0
+
+    local blocking_body = nil
+    self._body:set_collides_with(b2.CollisionGroup.GROUP_16)
     self._body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, x1, y1, x2, y2, contact)
         local player = other_body:get_user_data()
         if player == nil then return end
 
+        if player:get_is_ragdoll() then
+            contact:setRestitution(1)
+            return
+        end
+
+        blocking_body = other_body
         if self._cooldown == false then
-            contact:setRestitution(10)
+            player:bounce(normal_x, normal_y)
             self._cooldown = true
-        else
-            player:set_bounce(normal_x, normal_y, 100)
-            contact:setRestitution(0)
         end
     end)
 
-    self._body:signal_connect("collision_end", function(self_body, other_body)
+    self._world:signal_connect("step", function()
         self._cooldown = false
     end)
 end

@@ -37,10 +37,11 @@ rt.settings.overworld.player = {
     wall_magnet_force = 300,
 
     bounce_duration = 0.1,
-    bounce_force = 500,
+    bounce_min_force = 500,
     bounce_max_force = 2000,
 
     gravity = 1500, -- px / s
+    air_resistance = 0.03, -- [0, 1]
     downwards_force_factor = 2, -- times gravity
     ground_regular_friction = 0,
     ground_slippery_friction = -1000,
@@ -57,7 +58,15 @@ rt.settings.overworld.player = {
     debug_drawing_enabled = true,
 }
 
-local _settings = rt.settings.overworld.player
+local _settings = setmetatable({}, {
+    __index = function(self, key)
+        local res = debugger.get(key)
+        if res == nil then
+            res = rt.settings.overworld.player[key]
+        end
+        return res
+    end
+})
 
 --- @class ow.Player
 ow.Player = meta.class("OverworldPlayer")
@@ -115,6 +124,7 @@ function ow.Player:instantiate(scene, stage)
         _bounce_direction_y = 0,
         _bounce_force = 0,
         _bounce_elapsed = math.huge,
+        _bounce_locked = true,
 
         _last_velocity_x = 0,
         _last_velocity_y = 0,
@@ -160,6 +170,10 @@ function ow.Player:instantiate(scene, stage)
         _world = nil,
 
         _mass = 1,
+        _gravity_direction_x = 0,
+        _gravity_direction_y = 1,
+        _gravity_multiplier = 1,
+
         _bounce_sensor = nil, -- b2.Body
         _bounce_sensor_pin = nil, -- b2.Pin
         _input = rt.InputSubscriber()
@@ -332,9 +346,12 @@ function ow.Player:update(delta)
         self._sprint_multiplier = self._next_sprint_multiplier
     end
 
-    local next_velocity_x, next_velocity_y = self._body:get_velocity()
+    local gravity = _settings.gravity * delta * self._gravity_multiplier
+
+    local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
+
     if self._ragdoll_button_is_down then --or ((self._top_wall == false and self._right_wall == false and self._bottom_wall == false and self._left_wall == false) and not (self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._sprint_button_is_down or self._jump_button_is_down) and self._joystick_position < 10e-4) then
-        self._body:apply_linear_impulse(0, _settings.gravity * delta)
+        self._body:apply_linear_impulse(self._gravity_direction_x * gravity, self._gravity_direction_y * gravity)
         self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
         self._jump_elapsed = self._jump_elapsed + delta
         self._coyote_elapsed = self._coyote_elapsed + delta
@@ -400,11 +417,20 @@ function ow.Player:update(delta)
             duration = self._bottom_wall and _settings.ground_deceleration_duration or _settings.air_deceleration_duration
         end
 
-        if duration == 0 then
-            next_velocity_x = target_velocity_x
-        else
-            local velocity_change = (target_velocity_x - current_velocity_x) / duration
-            next_velocity_x = current_velocity_x + velocity_change * delta
+        -- only update x velocity while in the air and controller
+        if (self._left_button_is_down or self._right_button_is_down) or (math.abs(self._joystick_position) > 0) or
+            self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall or self._left_wall or self._right_wall
+        then
+            if duration == 0 then
+                next_velocity_x = target_velocity_x
+            else
+                local velocity_change = (target_velocity_x - current_velocity_x) / duration
+                next_velocity_x = current_velocity_x + velocity_change * delta
+            end
+        end
+
+        if not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
+            next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
         end
 
         if self._bottom_wall then -- ground friction
@@ -444,7 +470,7 @@ function ow.Player:update(delta)
             (self._right_wall and not self._right_wall_jump_blocked and (self._right_button_is_down or left_right_wall))
         )
 
-        -- override if wall conditions
+        -- override wall conditions
         if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
             (self._bottom_left_wall and bottom_left_wall_body:has_tag("unjumpable")) or
             (self._bottom_right_wall and bottom_right_wall_body:has_tag("unjumpable"))
@@ -522,7 +548,7 @@ function ow.Player:update(delta)
 
         -- apply friction when wall_clinging
         local _apply_wall_friction = function(coefficient, tx, ty)
-            local friction_force = coefficient * _settings.gravity * delta * math.sign(current_velocity_y)
+            local friction_force = coefficient * gravity * math.sign(current_velocity_y)
             next_velocity_y = next_velocity_y - friction_force
         end
 
@@ -543,7 +569,7 @@ function ow.Player:update(delta)
             local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
             local bounce_nx, bounce_ny = self._bounce_direction_x, self._bounce_direction_y
 
-            local bounce_force = (1 - fraction) * self._bounce_force * 0.8
+            local bounce_force = (1 - fraction) * self._bounce_force * 2
             next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
             next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
         end
@@ -553,21 +579,22 @@ function ow.Player:update(delta)
         if not frozen and self._down_button_is_down then
             local factor = _settings.downwards_force_factor
             if self._bottom_wall then factor = factor * 4 end
-            next_velocity_y = next_velocity_y + factor * _settings.gravity * delta
+            next_velocity_y = next_velocity_y + factor * gravity
                 * math.clamp(fraction, 0, 1) -- disable during bounce
         end
 
+        if self._is_disabled then
+            next_velocity_x = 0
+            next_velocity_y = current_velocity_y
+        end
+
         -- gravity
-        next_velocity_y = next_velocity_y + _settings.gravity * delta
+        next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
+        next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
         next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
 
-        -- apply to body
-        if self._is_disabled then
-            next_velocity_x = 0
-            next_velocity_y = current_velocity_y + _settings.gravity * delta
-        end
 
         self._body:set_velocity(next_velocity_x, next_velocity_y)
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
@@ -667,6 +694,8 @@ function ow.Player:update(delta)
     if self._left_wall then
         _add_blood_splatter(left_x, left_y, left_nx, left_ny)
     end
+
+    self._bounce_locked = false
 end
 
 --- @brief
@@ -941,21 +970,14 @@ function ow.Player:get_is_ragdoll()
     return self._is_ragdoll
 end
 
-function ow.Player:bounce(nx, ny)
-    local vx, vy = self._body:get_linear_velocity()
-    local nvx, nvy = math.normalize(vx, vy)
-    local normal_alignment = 1 - math.abs(math.dot(nvx, nvy, nx, ny))
-    local gravity_alignment = math.min(math.abs(ny - 1), 1)
-    local restitution = 0.8
-    local impulse = normal_alignment * math.magnitude(vx, vy) * 0.8
-    if impulse < _settings.bounce_force then impulse = _settings.bounce_force end
+function ow.Player:bounce(nx, ny, force)
+    if self._bounce_locked then return end
 
-    --impulse = impulse * gravity_alignment -- penalize up bounces where the velocity has a gravity component
-
-    self._bounce_force = impulse
+    self._bounce_force = math.clamp(math.magnitude(self._last_velocity_x, self._last_velocity_y), _settings.bounce_min_force, _settings.bounce_max_force)
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
     self._bounce_elapsed = 0
+    self._bounce_locked = true
 end
 
 
