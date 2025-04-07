@@ -50,6 +50,9 @@ rt.settings.overworld.player = {
     max_velocity_y = 13000,
     squeeze_multiplier = 1.4,
 
+    ragdoll_trigger_jump_height = 7,
+    ragdoll_friction = 8,
+
     debug_drawing_enabled = false,
 }
 
@@ -114,6 +117,8 @@ function ow.Player:instantiate(scene, stage)
 
         _last_velocity_x = 0,
         _last_velocity_y = 0,
+
+        _is_ragdoll = false,
 
         -- controls
         _joystick_position = 0, -- x axis
@@ -327,11 +332,37 @@ function ow.Player:update(delta)
     end
 
     local next_velocity_x, next_velocity_y = self._body:get_velocity()
-    if self._ragdoll_button_is_down or ((self._top_wall == false and self._right_wall == false and self._bottom_wall == false and self._left_wall == false) and not (self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._sprint_button_is_down or self._jump_button_is_down) and self._joystick_position < 10e-4) then
-        --local vx, vy = self._body:get_linear_velocity()
-        --self._body:set_linear_velocity(vx, vy + _settings.gravity * delta)
+    if self._ragdoll_button_is_down then --or ((self._top_wall == false and self._right_wall == false and self._bottom_wall == false and self._left_wall == false) and not (self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._sprint_button_is_down or self._jump_button_is_down) and self._joystick_position < 10e-4) then
         self._body:apply_linear_impulse(0, _settings.gravity * delta)
+        self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+        self._jump_elapsed = self._jump_elapsed + delta
+        self._coyote_elapsed = self._coyote_elapsed + delta
+        self._bounce_elapsed = self._bounce_elapsed + delta
+
+        -- ragdolling
+        if self._is_ragdoll == false then
+            local do_jump = self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall -- resets box2d contact friction
+            for body in values(self._spring_bodies) do
+                body:set_friction(_settings.ragdoll_friction)
+                if do_jump then
+                    body:apply_linear_impulse(0, -_settings.ragdoll_trigger_jump_height)
+                end
+            end
+        end
+        self._is_ragdoll = true
+
         goto skip_velocity_update
+    end
+
+    if self._is_ragdoll == true then
+        self._is_ragdoll = false
+        local do_jump = self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall
+        for body in values(self._spring_bodies) do
+            body:set_friction(0)
+            if do_jump then
+                body:apply_linear_impulse(0, -_settings.ragdoll_trigger_jump_height)
+            end
+        end
     end
 
     -- update velocity
@@ -496,16 +527,6 @@ function ow.Player:update(delta)
             math.turn_right(right_nx, right_ny)
         ) end
 
-
-        -- add force when squeezing through gaps
-        if (self._top_wall and self._bottom_wall) then
-            next_velocity_x = next_velocity_x * _settings.squeeze_multiplier
-        end
-
-        if (self._left_wall and self._right_wall) then
-            next_velocity_y = next_velocity_y * _settings.squeeze_multiplier
-        end
-
         local fraction = self._bounce_elapsed / _settings.bounce_duration
         if fraction <= 1 then
             -- bounce
@@ -544,6 +565,25 @@ function ow.Player:update(delta)
     end
 
     ::skip_velocity_update::
+
+    -- add force when squeezing through gaps
+    do
+        local needs_update = false
+        local vx, vy = self._body:get_velocity()
+        if (self._top_wall and self._bottom_wall) then
+            vx = vx * 1.11
+            needs_update = true
+        end
+
+        if (self._left_wall and self._right_wall) then
+            vy = vy * 1.11
+            needs_update = true
+        end
+
+        if needs_update then
+            self._body:set_velocity(vx, vy)
+        end
+    end
 
     -- safeguard against one of the springs catching
     local disabled = false
@@ -791,7 +831,6 @@ function ow.Player:draw()
     end
 
     love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
-
     love.graphics.pop()
 
     if _settings.debug_drawing_enabled then
