@@ -87,6 +87,11 @@ function rt.SceneManager:get_previous_scene()
 end
 
 --- @brief
+function rt.SceneManager:get_current_scene()
+    return self._current_scene
+end
+
+--- @brief
 function rt.SceneManager:set_show_performance_metrics(b)
     assert(type(b) == "boolean")
     self._show_performance_metrics = b

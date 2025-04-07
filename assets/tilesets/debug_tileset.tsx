@@ -123,8 +123,7 @@
  <tile id="44">
   <image source="debug_tileset/Frame020.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
-   <object id="1" x="0" y="0" width="32" height="32"/>
-   <object id="2" type="Hitbox" x="0" y="0" width="32" height="32"/>
+   <object id="1" type="Hitbox" x="0" y="0" width="32" height="32"/>
   </objectgroup>
  </tile>
  <tile id="45">

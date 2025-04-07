@@ -165,8 +165,7 @@ function log.setMessageHook(hook)
     log._message_hook = hook
 end
 
-rt.log = log
-rt.message = log.message
+rt.log = log.message
 rt.warning = log.warning
 rt.error = log.error
 

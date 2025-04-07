@@ -580,7 +580,7 @@ local function _decode_gid(gid)
 end
 
 --- @return Table
-function ow._parse_object_group(object_group)
+function ow._parse_object_group(object_group, scope)
     local objects = {}
     local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
     local group_visible = _get(object_group, "visible")
@@ -603,7 +603,7 @@ function ow._parse_object_group(object_group)
         wrapper.rotation = math.rad(_get(object, "rotation"))
 
         if object.gid ~= nil then
-            assert(object.shape == "rectangle", "In ow._parse_object_group: object has gid, but is not a rectangle")
+            assert(object.shape == "rectangle", "In ow._parse_object_group (" .. scope .. "): object has gid, but is not a rectangle")
 
             local true_gid, flip_horizontally, flip_vertically = _decode_gid(object.gid)
             local x, y = _get(object, "x"), _get(object, "y")
@@ -679,7 +679,7 @@ function ow._parse_object_group(object_group)
             end
 
             if wrapper.class == nil then
-                rt.warning("In ow._parse_object_group: object `" .. wrapper.id .. "` has no class, assuming `Hitbox`")
+                rt.warning("In ow._parse_object_group (" .. scope .. "): object `" .. wrapper.id .. "` has no class, assuming `Hitbox`")
                 wrapper.class = "Hitbox"
             end
         end

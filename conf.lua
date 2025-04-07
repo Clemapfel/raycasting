@@ -35,12 +35,12 @@ _G.SETTINGS = {
         },
 
         ["A"] = {
-            keyboard = {"b", "e"},
+            keyboard = {"x"},
             controller = GAMEPAD_BUTTON_RIGHT
         },
 
         ["B"] = {
-            keyboard = {"space", "x"},
+            keyboard = {"space"},
             controller = GAMEPAD_BUTTON_BOTTOM
         },
 

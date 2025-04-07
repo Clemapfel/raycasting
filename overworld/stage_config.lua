@@ -32,7 +32,6 @@ function ow.StageConfig:instantiate(stage_id)
     self._path = rt.settings.overworld.stage_config.config_path .. "/" .. stage_id .. ".lua"
     self._id = stage_id
 
-    -- Inlining _load_config logic
     local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, self._path)
     if not load_success then
         rt.error("In ow.StageConfig: error when parsing file at `" .. self._path .. "`: " .. chunk_or_error)
@@ -116,7 +115,7 @@ function ow.StageConfig:instantiate(stage_id)
 
         if layer_type == "objectgroup" then
             to_add.type = ow.LayerType.OBJECTS
-            for object in values(ow._parse_object_group(layer_entry)) do
+            for object in values(ow._parse_object_group(layer_entry, stage_id .. " Layer #" .. layer_i)) do
                 assert(meta.typeof(object) == "ObjectWrapper")
                 table.insert(to_add.objects, object)
 

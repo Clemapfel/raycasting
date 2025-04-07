@@ -37,7 +37,8 @@ rt.settings.overworld.player = {
     wall_magnet_force = 300,
 
     bounce_duration = 0.1,
-    bounce_force = 200,
+    bounce_force = 500,
+    bounce_max_force = 2000,
 
     gravity = 1500, -- px / s
     downwards_force_factor = 2, -- times gravity
@@ -48,12 +49,12 @@ rt.settings.overworld.player = {
 
     max_velocity_x = 8000, -- TODO
     max_velocity_y = 13000,
-    squeeze_multiplier = 1.4,
 
+    squeeze_multiplier = 1.4,
     ragdoll_trigger_jump_height = 7,
     ragdoll_friction = 8,
 
-    debug_drawing_enabled = false,
+    debug_drawing_enabled = true,
 }
 
 local _settings = rt.settings.overworld.player
@@ -432,8 +433,16 @@ function ow.Player:update(delta)
         if left_before == true and self._left_wall == false then self._left_wall_jump_blocked = false end
         if right_before == true and self._right_wall == false then self._right_wall_jump_blocked = false end
 
-        local can_jump = (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) and not (self._left_wall or self._right_wall or self._top_wall)
-        local can_wall_jump = not can_jump and not frozen and not self._wall_jump_button_locked and ((self._left_wall and not self._left_wall_jump_blocked) or (self._right_wall and not self._right_wall_jump_blocked))
+        local can_jump = (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) and
+            not (self._left_wall or self._right_wall or self._top_wall)
+
+        local left_right_wall = self._left_wall and self._right_wall
+        local can_wall_jump = not can_jump and
+            not frozen and
+            not self._wall_jump_button_locked and (
+            (self._left_wall and not self._left_wall_jump_blocked and (self._left_button_is_down or left_right_wall)) or
+            (self._right_wall and not self._right_wall_jump_blocked and (self._right_button_is_down or left_right_wall))
+        )
 
         -- override if wall conditions
         if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
@@ -569,14 +578,15 @@ function ow.Player:update(delta)
     -- add force when squeezing through gaps
     do
         local needs_update = false
+        local multiplier = _settings.squeeze_multiplier
         local vx, vy = self._body:get_velocity()
         if (self._top_wall and self._bottom_wall) then
-            vx = vx * 1.11
+            vx = vx * multiplier
             needs_update = true
         end
 
         if (self._left_wall and self._right_wall) then
-            vy = vy * 1.11
+            vy = vy * multiplier
             needs_update = true
         end
 
@@ -926,10 +936,21 @@ function ow.Player:get_is_disabled()
     return self._is_disabled
 end
 
+--- @brief
+function ow.Player:get_is_ragdoll()
+    return self._is_ragdoll
+end
+
 function ow.Player:bounce(nx, ny)
     local vx, vy = self._body:get_linear_velocity()
-    local impulse = math.dot(nx, ny, math.normalize(vx, vy)) * math.magnitude(vx, vy)
+    local nvx, nvy = math.normalize(vx, vy)
+    local normal_alignment = 1 - math.abs(math.dot(nvx, nvy, nx, ny))
+    local gravity_alignment = math.min(math.abs(ny - 1), 1)
+    local restitution = 0.8
+    local impulse = normal_alignment * math.magnitude(vx, vy) * 0.8
     if impulse < _settings.bounce_force then impulse = _settings.bounce_force end
+
+    --impulse = impulse * gravity_alignment -- penalize up bounces where the velocity has a gravity component
 
     self._bounce_force = impulse
     self._bounce_direction_x = nx

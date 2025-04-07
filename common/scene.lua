@@ -47,3 +47,8 @@ end
 function rt.Scene:update(delta)
     rt.error("In " .. meta.typeof(self) .. ".update: abstract method called")
 end
+
+--- @override
+function rt.Scene:reload()
+    rt.error("In " .. meta.typeof(self) .. ".reload: abstract method called")
+end

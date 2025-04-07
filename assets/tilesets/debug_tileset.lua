@@ -674,19 +674,6 @@ return {
           {
             id = 1,
             name = "",
-            type = "",
-            shape = "rectangle",
-            x = 0,
-            y = 0,
-            width = 32,
-            height = 32,
-            rotation = 0,
-            visible = true,
-            properties = {}
-          },
-          {
-            id = 2,
-            name = "",
             type = "Hitbox",
             shape = "rectangle",
             x = 0,
