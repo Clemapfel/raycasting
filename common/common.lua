@@ -423,6 +423,13 @@ function table.clear(t)
     end
 end
 
+--- @brief
+function table.first(t)
+    for _, y in pairs(t) do
+        return y
+    end
+end
+
 if utf8 == nil then utf8 = require "utf8" end
 
 --- @brief

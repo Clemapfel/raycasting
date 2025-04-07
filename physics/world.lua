@@ -6,16 +6,16 @@ local _begin_contact_callback = function(shape_a, shape_b, contact)
     local body_a = shape_a:getBody():getUserData()
     local body_b = shape_b:getBody():getUserData()
     local normal_x, normal_y = contact:getNormal()
+    local x1, y1, x2, y2 = contact:getPositions() -- may be nil
 
     contact:setRestitution(0)
-    contact:setFriction(0)
 
     --if shape_a:isSensor() then
-        body_a:signal_emit("collision_start", body_b, normal_x, normal_y, contact)
+        body_a:signal_emit("collision_start", body_b, normal_x, normal_y, x1, y1, x2, y2, contact)
     --end
 
     --if shape_b:isSensor() then
-        body_b:signal_emit("collision_start", body_a, normal_x, normal_y, contact)
+        body_b:signal_emit("collision_start", body_a, normal_x, normal_y, x1, y1, x2, y2, contact)
     --end
 end
 

@@ -36,9 +36,8 @@ rt.settings.overworld.player = {
     wall_jump_freeze_duration = 10 / 60,
     wall_magnet_force = 300,
 
-    bounce_velocity = 200,
-    bounce_duration = 0.5,
-    bounce_total_force = 50,
+    bounce_duration = 0.1,
+    bounce_force = 200,
 
     gravity = 1500, -- px / s
     downwards_force_factor = 2, -- times gravity
@@ -110,7 +109,11 @@ function ow.Player:instantiate(scene, stage)
 
         _bounce_direction_x = 0,
         _bounce_direction_y = 0,
+        _bounce_force = 0,
         _bounce_elapsed = math.huge,
+
+        _last_velocity_x = 0,
+        _last_velocity_y = 0,
 
         -- controls
         _joystick_position = 0, -- x axis
@@ -122,6 +125,7 @@ function ow.Player:instantiate(scene, stage)
         _up_button_is_down = false,
         _jump_button_is_down = false,
         _sprint_button_is_down = false,
+        _ragdoll_button_is_down = false,
 
         _sprint_multiplier = 1,
         _next_sprint_multiplier = 1,
@@ -208,6 +212,8 @@ function ow.Player:_connect_input()
             for target in keys(self._interact_targets) do
                 target:signal_emit("activate", self)
             end
+        elseif which == rt.InputButton.X then
+            self._ragdoll_button_is_down = true
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = true
         elseif which == rt.InputButton.RIGHT then
@@ -227,6 +233,8 @@ function ow.Player:_connect_input()
             self._sprint_button_is_down = false
             self._next_sprint_multiplier = 1
             self._next_sprint_multiplier_update_when_grounded = true
+        elseif which == rt.InputButton.X then
+            self._ragdoll_button_is_down = false
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = false
         elseif which == rt.InputButton.RIGHT then
@@ -318,8 +326,15 @@ function ow.Player:update(delta)
         self._sprint_multiplier = self._next_sprint_multiplier
     end
 
+    local next_velocity_x, next_velocity_y = self._body:get_velocity()
+    if self._ragdoll_button_is_down or ((self._top_wall == false and self._right_wall == false and self._bottom_wall == false and self._left_wall == false) and not (self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._sprint_button_is_down or self._jump_button_is_down) and self._joystick_position < 10e-4) then
+        --local vx, vy = self._body:get_linear_velocity()
+        --self._body:set_linear_velocity(vx, vy + _settings.gravity * delta)
+        self._body:apply_linear_impulse(0, _settings.gravity * delta)
+        goto skip_velocity_update
+    end
+
     -- update velocity
-    local next_velocity_x, next_velocity_y
     do
         -- do not allow for directional input after walljump
         self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
@@ -389,6 +404,7 @@ function ow.Player:update(delta)
         local can_jump = (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) and not (self._left_wall or self._right_wall or self._top_wall)
         local can_wall_jump = not can_jump and not frozen and not self._wall_jump_button_locked and ((self._left_wall and not self._left_wall_jump_blocked) or (self._right_wall and not self._right_wall_jump_blocked))
 
+        -- override if wall conditions
         if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
             (self._bottom_left_wall and bottom_left_wall_body:has_tag("unjumpable")) or
             (self._bottom_right_wall and bottom_right_wall_body:has_tag("unjumpable"))
@@ -396,10 +412,16 @@ function ow.Player:update(delta)
             can_jump = false
         end
 
-        if (self._left_wall and left_wall_body:has_tag("slippery")) or
-            (self._right_wall and right_wall_body:has_tag("slippery"))
-        then
-            can_wall_jump = false
+        if self._left_wall then
+            if left_wall_body:has_tag("slippery") or left_wall_body:has_tag("unjumpable") then
+                can_wall_jump = false
+            end
+        end
+
+        if self._right_wall then
+            if right_wall_body:has_tag("slippery") or right_wall_body:has_tag("unjumpable") then
+                can_wall_jump = false
+            end
         end
 
         -- reset jump button when going from air to ground, to disallow buffering jumps while falling
@@ -474,13 +496,6 @@ function ow.Player:update(delta)
             math.turn_right(right_nx, right_ny)
         ) end
 
-        -- gravity and downwards force
-        if not frozen and self._down_button_is_down then
-            local factor = _settings.downwards_force_factor
-            if self._bottom_wall then factor = factor * 4 end
-            next_velocity_y = next_velocity_y + factor * _settings.gravity * delta
-        end
-        next_velocity_y = next_velocity_y + _settings.gravity * delta
 
         -- add force when squeezing through gaps
         if (self._top_wall and self._bottom_wall) then
@@ -491,31 +506,44 @@ function ow.Player:update(delta)
             next_velocity_y = next_velocity_y * _settings.squeeze_multiplier
         end
 
-        -- bounce
         local fraction = self._bounce_elapsed / _settings.bounce_duration
         if fraction <= 1 then
+            -- bounce
             local velocity_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
             local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
-            local velocity_angle = math.angle(velocity_nx, velocity_ny)
-            local bounce_angle = math.angle(self._bounce_direction_x, self._bounce_direction_y)
-            local final_angle = math.mix_angles(velocity_angle, bounce_angle, 1 - math.sqrt(fraction)^0.6)
-            velocity_magnitude = velocity_magnitude + rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(fraction) * _settings.bounce_total_force
-            next_velocity_x, next_velocity_y = math.normalize(math.cos(final_angle), math.sin(final_angle))
-            next_velocity_x = next_velocity_x * velocity_magnitude
-            next_velocity_y = next_velocity_y * velocity_magnitude
+            local bounce_nx, bounce_ny = self._bounce_direction_x, self._bounce_direction_y
+
+            local bounce_force = (1 - fraction) * self._bounce_force * 0.8
+            next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
+            next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
         end
         self._bounce_elapsed = self._bounce_elapsed + delta
+
+        -- downwards force
+        if not frozen and self._down_button_is_down then
+            local factor = _settings.downwards_force_factor
+            if self._bottom_wall then factor = factor * 4 end
+            next_velocity_y = next_velocity_y + factor * _settings.gravity * delta
+                * math.clamp(fraction, 0, 1) -- disable during bounce
+        end
+
+        -- gravity
+        next_velocity_y = next_velocity_y + _settings.gravity * delta
 
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
         next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
 
         -- apply to body
         if self._is_disabled then
-            self._body:set_velocity(0, current_velocity_y + _settings.gravity * delta)
-        else
-            self._body:set_velocity(next_velocity_x, next_velocity_y)
+            next_velocity_x = 0
+            next_velocity_y = current_velocity_y + _settings.gravity * delta
         end
+
+        self._body:set_velocity(next_velocity_x, next_velocity_y)
+        self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
     end
+
+    ::skip_velocity_update::
 
     -- safeguard against one of the springs catching
     local disabled = false
@@ -599,6 +627,7 @@ function ow.Player:move_to_stage(stage, x, y)
 
     self._stage = stage
     self._world = world
+    self._world:set_gravity(0, 0)
 
     -- hard body
     self._body = b2.Body(
@@ -642,15 +671,9 @@ function ow.Player:move_to_stage(stage, x, y)
         table.insert(self._spring_joints, joint)
     end
 
-    -- bounce sensor
-    self._bounce_sensor = b2.Body(self._world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, 1.5 * self._radius))
-    self._bounce_sensor:set_mass(10e-4)
-    self._bounce_sensor:set_user_data(self)
-    self._bounce_sensor:set_collides_with(b2.CollisionGroup.GROUP_14)
-    self._bounce_sensor_pin = b2.Pin(self._body, self._bounce_sensor, x, y)
 
     -- true mass
-    self._mass = self._body:get_mass() + self._bounce_sensor:get_mass()
+    self._mass = self._body:get_mass()
     for body in values(self._spring_bodies) do
         self._mass = self._mass + body:get_mass()
     end
@@ -851,8 +874,12 @@ function ow.Player:get_is_disabled()
     return self._is_disabled
 end
 
---- @brief
 function ow.Player:bounce(nx, ny)
+    local vx, vy = self._body:get_linear_velocity()
+    local impulse = math.dot(nx, ny, math.normalize(vx, vy)) * math.magnitude(vx, vy)
+    if impulse < _settings.bounce_force then impulse = _settings.bounce_force end
+
+    self._bounce_force = impulse
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
     self._bounce_elapsed = 0
