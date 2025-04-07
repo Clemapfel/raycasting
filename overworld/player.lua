@@ -562,16 +562,22 @@ function ow.Player:update(delta)
             math.turn_right(right_nx, right_ny)
         ) end
 
+
         local fraction = self._bounce_elapsed / _settings.bounce_duration
         if fraction <= 1 then
             -- bounce
-            local velocity_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
-            local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
-            local bounce_nx, bounce_ny = self._bounce_direction_x, self._bounce_direction_y
+            if _settings.bounce_duration == 0 then
+                next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force
+                next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force
+            else
+                local velocity_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
+                local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
+                local bounce_nx, bounce_ny = self._bounce_direction_x, self._bounce_direction_y
 
-            local bounce_force = (1 - fraction) * self._bounce_force * 2
-            next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
-            next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
+                local bounce_force = (1 - fraction) * self._bounce_force * 2
+                next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
+                next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
+            end
         end
         self._bounce_elapsed = self._bounce_elapsed + delta
 
