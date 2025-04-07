@@ -8,6 +8,7 @@ local _begin_contact_callback = function(shape_a, shape_b, contact)
     local normal_x, normal_y = contact:getNormal()
     local x1, y1, x2, y2 = contact:getPositions() -- may be nil
 
+
     contact:setRestitution(0)
 
     --if shape_a:isSensor() then

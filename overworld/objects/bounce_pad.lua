@@ -1,15 +1,28 @@
+rt.settings.overworld.bounce_pad = {
+    -- bounce simulation parameters
+    gravity = 1,
+    stiffness = 10,
+    damping = 0.9,
+    center = 0
+}
 
 --- @class ow.BouncePad
 ow.BouncePad = meta.class("BouncePad", rt.Drawable)
 
 --- @brief
 function ow.BouncePad:instantiate(object, stage, scene)
+    local angle = object.rotation
     meta.install(self, {
         _world = stage:get_physics_world(),
         _body = object:create_physics_body(stage:get_physics_world()),
-        _cooldown = false,
-    })
+        _cooldown = false, -- prevent multiple impulses per step
 
+        _bounce_axis_x = 0,
+        _bounce_axis_y = 1,
+
+        _bounce_position = 1, -- in [0, 1]
+        _bounce_velocity = -1
+    })
 
     local blocking_body = nil
     self._body:set_collides_with(b2.CollisionGroup.GROUP_16)
@@ -27,6 +40,14 @@ function ow.BouncePad:instantiate(object, stage, scene)
             player:bounce(normal_x, normal_y)
             self._cooldown = true
         end
+
+        if x2 ~= nil or y2 ~= nil then
+            x1 = (x1 + x2) / 2
+            y1 = (y1 + y2) / 2
+        end
+
+        local px, py = player:get_position()
+        self._bounce_axis_x, self._bounce_axis_y = math.normalize(px - x1, py - y1)
     end)
 
     self._world:signal_connect("step", function()
@@ -37,5 +58,28 @@ end
 --- @brief
 function ow.BouncePad:draw()
     rt.Palette.PINK:bind()
+
+    local scale = self._bounce_position
+    local axis_x, axis_y = self._bounce_axis_x, self._bounce_axis_y
+
+    -- Draw the object
     self._body:draw()
+
+    -- Draw the bounce axis line
+    love.graphics.line(x, y, x + self._bounce_axis_x * scale * 100, y + self._bounce_axis_y * scale * 100)
+end
+
+-- simulate ball-on-a-spring for bouncing animation
+local gravity = rt.settings.overworld.bounce_pad.gravity
+local stiffness = rt.settings.overworld.bounce_pad.stiffness
+local center = rt.settings.overworld.bounce_pad.center
+local damping = rt.settings.overworld.bounce_pad.damping
+
+--- @brief
+function ow.BouncePad:update(delta)
+    if math.abs(self._bounce_velocity) > 0.01 then
+        self._bounce_velocity = self._bounce_velocity + gravity + -1 * (self._bounce_position - center) * stiffness
+        self._bounce_velocity = self._bounce_velocity * damping
+        self._bounce_position = self._bounce_position + self._bounce_velocity * delta
+    end
 end
