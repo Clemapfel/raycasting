@@ -806,9 +806,19 @@ function ow.Player:draw()
     love.graphics.rotate(self._body:get_rotation())
     love.graphics.translate(-x, -y)
 
-    local r, g, b, a = rt.Palette.MINT_2:unpack()
+    rt.Palette.MINT_1:bind()
+    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
+    love.graphics.pop()
 
-    love.graphics.setColor(r, g, b, 0.3)
+    local r, g, b, a = rt.Palette.MINT_2:unpack()
+    local rag_a, rag_g, rag_b = rt.Palette.GRAY_2:unpack()
+
+    if self._is_ragdoll then
+        love.graphics.setColor(rag_a, rag_g, rag_b, 0.3)
+    else
+        love.graphics.setColor(r, g, b, 0.3)
+    end
+
     for tri in values(self._outer_body_tris) do
         love.graphics.polygon("fill", tri)
     end
@@ -830,8 +840,11 @@ function ow.Player:draw()
         )
     end
 
-    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
-    love.graphics.pop()
+    if self._is_ragdoll then
+        love.graphics.setColor(rag_a, rag_g, rag_b, 1)
+    else
+        love.graphics.setColor(r, g, b, 1)
+    end
 
     if _settings.debug_drawing_enabled then
         self._body:draw()
