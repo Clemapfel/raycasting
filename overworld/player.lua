@@ -29,16 +29,17 @@ rt.settings.overworld.player = {
     coyote_time = 8 / 60,
 
     jump_duration = 10 / 60,
-    jump_velocity = 400,
+    jump_velocity = 445,
 
-    wall_jump_velocity = 1000,
+    wall_jump_velocity = 800,
     wall_jump_angle = 35, -- degrees
     wall_jump_freeze_duration = 10 / 60,
     wall_magnet_force = 300,
+    wall_jump_buffer_delay = 10 / 60,
 
-    bounce_duration = 0.1,
-    bounce_min_force = 500,
-    bounce_max_force = 2000,
+    bounce_min_force = 50,
+    bounce_max_force = 220,
+    bounce_duration = 2 / 60,
 
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
@@ -110,6 +111,9 @@ function ow.Player:instantiate(scene, stage)
         _bottom_right_wall_body = nil,
         _bottom_right_ray = {0, 0, 0, 0},
 
+        _left_wall_elapsed = 0,
+        _right_wall_elapsed = 0,
+
         -- jump
         _jump_elapsed = 0,
         _coyote_elapsed = 0,
@@ -128,6 +132,9 @@ function ow.Player:instantiate(scene, stage)
 
         _last_velocity_x = 0,
         _last_velocity_y = 0,
+
+        _velocity_multiplier_x = 1,
+        _velocity_multiplier_y = 1,
 
         _is_ragdoll = false,
 
@@ -356,6 +363,8 @@ function ow.Player:update(delta)
         self._jump_elapsed = self._jump_elapsed + delta
         self._coyote_elapsed = self._coyote_elapsed + delta
         self._bounce_elapsed = self._bounce_elapsed + delta
+        self._left_wall_elapsed = self._left_wall_elapsed + delta
+        self._right_wall_elapsed = self._right_wall_elapsed + delta
 
         -- ragdolling
         if self._is_ragdoll == false then
@@ -409,6 +418,8 @@ function ow.Player:update(delta)
         end
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
+        current_velocity_x = current_velocity_x / self._velocity_multiplier_x
+        current_velocity_y = current_velocity_y / self._velocity_multiplier_y
 
         local duration
         if (math.sign(target_velocity_x) == math.sign(current_velocity_x) and math.abs(target_velocity_x) > math.abs(current_velocity_x)) then
@@ -463,12 +474,14 @@ function ow.Player:update(delta)
             not (self._left_wall or self._right_wall or self._top_wall)
 
         local left_right_wall = self._left_wall and self._right_wall
+        local left_wall_jump_allowed = (self._left_wall and not self._left_wall_jump_blocked and (self._left_button_is_down or left_right_wall or self._left_wall_elapsed < _settings.wall_jump_buffer_delay))
+        local right_wall_jump_allowed = (self._right_wall and not self._right_wall_jump_blocked and (self._right_button_is_down or left_right_wall or self._right_wall_elapsed < _settings.wall_jump_buffer_delay))
         local can_wall_jump = not can_jump and
             not frozen and
-            not self._wall_jump_button_locked and (
-            (self._left_wall and not self._left_wall_jump_blocked and (self._left_button_is_down or left_right_wall)) or
-            (self._right_wall and not self._right_wall_jump_blocked and (self._right_button_is_down or left_right_wall))
-        )
+            not self._wall_jump_button_locked and (left_wall_jump_allowed or right_wall_jump_allowed)
+
+        if self._left_wall and can_wall_jump then self._left_wall_elapsed = 0 end
+        if self._right_wall and can_wall_jump then self._righ_wall_elapsed = 0 end
 
         -- override wall conditions
         if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
@@ -601,8 +614,10 @@ function ow.Player:update(delta)
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
         next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
 
-
-        self._body:set_velocity(next_velocity_x, next_velocity_y)
+        self._body:set_velocity(
+            next_velocity_x * self._velocity_multiplier_x,
+            next_velocity_y * self._velocity_multiplier_y
+        )
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
     end
 

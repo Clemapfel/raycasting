@@ -10,7 +10,8 @@ function ow.Hook:instantiate(object, stage, scene)
     meta.install(self, {
         _body = object:create_physics_body(stage:get_physics_world()),
         _joint = nil,
-        _deactivated = false
+        _deactivated = false,
+        _input = rt.InputSubscriber()
     })
 
     local hook = self
@@ -42,8 +43,7 @@ function ow.Hook:instantiate(object, stage, scene)
 
             local player_signal_id
             player_signal_id = player:signal_connect("jump", function()
-                hook._joint:destroy()
-                hook._joint = nil
+                hook:_unhook()
                 player:signal_disconnect("jump", player_signal_id)
             end)
 
@@ -58,6 +58,20 @@ function ow.Hook:instantiate(object, stage, scene)
         end
     end)
 
+    self._input:signal_connect("pressed", function(_, which)
+        if which == rt.InputButton.DOWN then
+            self:_unhook()
+        end
+    end)
+
+end
+
+--- @brief
+function ow.Hook:_unhook()
+    if self._joint ~= nil then
+        self._joint:destroy()
+        self._joint = nil
+    end
 end
 
 --- @brief
