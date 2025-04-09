@@ -42,25 +42,23 @@ function rt.random.number(min, max)
     return lower + rt.rand() * (upper - lower)
 end
 
+local _sizeof = table.sizeof
+
 --- @brief pick random element from table
 --- @param set Table
-function rt.random.choose(set)
-    local i = rt.random.integer(1, sizeof(set))
-    local n_seen = 1
-    for key, value in pairs(set) do
-        if n_seen == i then return value end
-        n_seen = n_seen + 1
-    end
+function rt.random.choose(...)
+    local n = select("#", ...)
+    return select(rt.random.integer(1, n), ...)
 end
 
 --- @brief pick random subset, no repeats
 function rt.random.choose_multiple(set)
     local out = {}
-    local n_indices = rt.random.integer(1, sizeof(set))
+    local n_indices = rt.random.integer(1, _sizeof(set))
     local indices = {}
     for i = 1, n_indices do
         ::retry::
-        local index = rt.random.integer(1, sizeof(set))
+        local index = rt.random.integer(1, _sizeof(set))
         if indices[index] == true then
             goto retry
         end
@@ -86,7 +84,7 @@ end
 --- @brief reorder table
 function rt.random.shuffle(t)
     local indices = {}
-    for i = 1, sizeof(t) do
+    for i = 1, _sizeof(t) do
         table.insert(indices, i)
     end
     rt.random.shuffle_in_place(indices)
@@ -100,7 +98,7 @@ end
 
 --- @brief
 function rt.random.toss_coin(success_chance)
-    success_chance = which(success_chance, 0.5)
+    success_chance = success_chance or 0.5
     return rt.rand() <= success_chance
 end
 

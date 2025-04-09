@@ -32,6 +32,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
         local player = other_body:get_user_data()
         if player == nil then return end
 
+        if other_body:get_is_sensor() then return end
+
         if player:get_is_ragdoll() then
             contact:setRestitution(1)
             return

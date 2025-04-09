@@ -146,35 +146,6 @@ function meta.is_function(x)
 end
 
 -- signals
-
-local _signal_emit = function(instance, id, ...)
-    local component = instance[_object_signal_component_index]
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In " .. meta.typeof(instance) .. ".signal_emit: no signal with id `" .. id .. "`")
-        return
-    end
-
-    for callback in values(entry.callbacks_in_order) do
-        callback(instance, ...)
-    end
-end
-
-local _signal_try_emit = function(instance, id, ...)
-    local component = instance[_object_signal_component_index]
-    if component == nil then return false end
-
-    local entry = component[id]
-    if entry == nil then return false end
-
-    local emitted = false
-    for callback in values(entry.callbacks_in_order) do
-        callback(instance, ...)
-        emitted = true
-    end
-    return emitted
-end
-
 local _signal_connect = function(instance, id, callback)
     local component = instance[_object_signal_component_index]
     local entry = component[id]
@@ -351,6 +322,59 @@ local _signal_list_signals = function(instance)
         table.insert(out, id)
     end
     return out
+end
+
+
+
+local _signal_emit = function(instance, id, ...)
+    local component = instance[_object_signal_component_index]
+    local entry = component[id]
+    if entry == nil then
+        rt.error("In " .. meta.typeof(instance) .. ".signal_emit: no signal with id `" .. id .. "`")
+        return
+    end
+
+    -- delay disconnection to after emission is done, otherwise
+    -- table.remove will mess up iteration of entry.callbacks_in_order during
+    local _delayed_emit_buffer = {}
+    local _should_disconnect_all = false
+    local _signal_disconnect_override = function(instance, id, callback_id)
+        if callback_id == nil then
+            _should_disconnect_all = true
+        end
+        table.insert(_delayed_emit_buffer, callback_id)
+    end
+
+    instance.signal_disconnect = _signal_disconnect_override
+
+    for callback in values(entry.callbacks_in_order) do
+        callback(instance, ...)
+    end
+
+    instance.signal_disconnect = _signal_disconnect
+
+    if _should_disconnect_all == true then
+        instance:signal_disconnect_all(id)
+    else
+        for callback_id in values(_delayed_emit_buffer) do
+            instance:signal_disconnect(id, callback_id)
+        end
+    end
+end
+
+local _signal_try_emit = function(instance, id, ...)
+    local component = instance[_object_signal_component_index]
+    if component == nil then return false end
+
+    local entry = component[id]
+    if entry == nil then return false end
+
+    local emitted = false
+    for callback in values(entry.callbacks_in_order) do
+        callback(instance, ...)
+        emitted = true
+    end
+    return emitted
 end
 
 local function _install_signals(instance, type)
