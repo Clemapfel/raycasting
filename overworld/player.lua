@@ -83,8 +83,8 @@ meta.add_signals(ow.Player,
 
 ow.PlayerState = meta.enum("OverworldPlayerState", {
     ACTIVE = 1,
-    INACTIVE = 2,
-    RESPAWNING = 3
+    DISABLED = 2,
+    RESPAWNING = 4
 })
 
 --- @brief
@@ -151,6 +151,7 @@ function ow.Player:instantiate(scene, stage)
         _velocity_multiplier_y = 1,
 
         _is_ragdoll = false,
+        _is_frozen = false,
         _respawn_elapsed = 0,
 
         -- controls
@@ -299,13 +300,20 @@ function ow.Player:update(delta)
         self._stage:add_blood_splatter(top_x, top_y, bottom_x, bottom_y)
     end
 
-    if self._state == ow.PlayerState.INACTIVE then
+    if self._state == ow.PlayerState.DISABLED then
         local vx, vy = self._last_velocity_x, self._last_velocity_y
         vx = 0
         vy = vy + gravity
 
-        self._body:set_linear_velocity(vx, vy)
-        self._last_velocity_x, self._last_velocity_y = vx, vy
+        if self._is_frozen then
+            self._body:set_linear_velocity(0, 0)
+            self._last_velocity_x, self._last_velocity_y = 0, 0
+        else
+            self._body:set_linear_velocity(vx, vy)
+            self._last_velocity_x, self._last_velocity_y = vx, vy
+        end
+
+        self:_update_mesh()
         return
     elseif self._state == ow.PlayerState.RESPAWNING then
         self._respawn_elapsed = self._respawn_elapsed + delta
@@ -379,6 +387,8 @@ function ow.Player:update(delta)
                     _add_blood_splatter(left_x, left_y, left_nx, left_ny)
                 end
             end
+
+            self:_update_mesh()
             
             return
         end
@@ -731,17 +741,19 @@ function ow.Player:update(delta)
     end
 
     -- safeguard against one of the springs catching
-    local disabled = false
     for i, body in ipairs(self._spring_bodies) do
         local distance = math.distance(x, y, body:get_position())
         --body:set_is_sensor(distance > _settings.max_spring_length)
         local should_be_disabled = distance > _settings.max_spring_length--self._spring_joints[i]._prismatic_joint:getJointSpeed() > 100
         body:set_is_sensor(should_be_disabled)
-        if should_be_disabled == true then disabled = true end
     end
 
-    if disabled then
-        self._body:set_velocity(0, 0)
+    if self._is_frozen then
+        self._body:set_velocity(
+            next_velocity_x * self._velocity_multiplier_x,
+            next_velocity_y * self._velocity_multiplier_y
+        )
+        self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
     end
 
     self:_update_mesh()
@@ -855,6 +867,7 @@ function ow.Player:move_to_stage(stage, x, y)
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, 0, 0, death_body_shape)
         body:set_is_enabled(false)
         body:set_mass(1)
+        body:set_restitution(0.5)
         body:set_is_rotation_fixed(false)
         body:set_collides_with(bit.bnot(_settings.player_outer_body_collision_group))
         body:set_collision_group(_settings.player_outer_body_collision_group)
@@ -864,6 +877,7 @@ function ow.Player:move_to_stage(stage, x, y)
     self._death_body = b2.Body(self._world, b2.BodyType.DYNAMIC, 0, 0, death_body_shape)
     self._death_body:set_is_enabled(false)
     self._death_body:set_mass(1)
+    self._death_body:set_restitution(1)
     self._death_body:set_is_rotation_fixed(false)
     self._death_body:set_collides_with(bit.bnot(_settings.player_outer_body_collision_group))
     self._death_body:set_collision_group(_settings.player_outer_body_collision_group)
@@ -949,22 +963,35 @@ function ow.Player:_update_mesh()
     -- update mesh
     local player_x, player_y = self._body:get_position()
     local to_polygonize = {}
-    for i, body in ipairs(self._spring_bodies) do
-        local cx, cy = body:get_position()
-        self._outer_body_centers_x[i] = cx
-        self._outer_body_centers_y[i] = cy
-        local dx, dy = cx - player_x, cy - player_y
-        self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
 
-        if self._state == ow.PlayerState.RESPAWNING then
+    if self._state == ow.PlayerState.RESPAWNING then
+        for i, body in ipairs(self._death_outer_bodies) do
+            local cx, cy = body:get_position()
+            self._outer_body_centers_x[i] = cx
+            self._outer_body_centers_y[i] = cy
+
+            local ox, oy = self._spring_bodies[i]:get_position()
+            self._outer_body_angles[i] = math.angle(ox - player_x, oy - player_y) + math.pi
+
             self._outer_body_scales[i] = 1
-        else
+
+            table.insert(to_polygonize, cx)
+            table.insert(to_polygonize, cy)
+        end
+    else
+        for i, body in ipairs(self._spring_bodies) do
+            local cx, cy = body:get_position()
+            self._outer_body_centers_x[i] = cx
+            self._outer_body_centers_y[i] = cy
+            local dx, dy = cx - player_x, cy - player_y
+            self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
+
             local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
             self._outer_body_scales[i] = math.max(scale / 2, 0)
-        end
 
-        table.insert(to_polygonize, cx)
-        table.insert(to_polygonize, cy)
+            table.insert(to_polygonize, cx)
+            table.insert(to_polygonize, cy)
+        end
     end
 
     do
@@ -973,7 +1000,7 @@ function ow.Player:_update_mesh()
         local success, new_tris
         success, new_tris = pcall(love.math.triangulate, to_polygonize)
         if not success then
-          --  success, new_tris = pcall(slick.triangulate, {to_polygonize})
+            success, new_tris = pcall(slick.triangulate, {to_polygonize})
         end
 
         if success then
@@ -1026,9 +1053,24 @@ function ow.Player:draw()
     else
         rt.Palette.MINT_1:bind()
         love.graphics.draw(self._outer_body_center_mesh:get_native(), self._death_body:get_position())
-        for body in values(self._death_outer_bodies) do
-            love.graphics.draw(self._outer_body_center_mesh:get_native(), body:get_position())
+
+        for i, scale in ipairs(self._outer_body_scales) do
+            local x = self._outer_body_centers_x[i]
+            local y = self._outer_body_centers_y[i]
+
+            local origin_x = self._outer_body_mesh_origin_x
+            local origin_y = self._outer_body_mesh_origin_y
+
+            local angle = self._outer_body_angles[i]
+            love.graphics.draw(self._outer_body_mesh:get_native(),
+                x, y,
+                angle, -- rotation
+                scale, 1, -- scale
+                origin_x, origin_y -- origin
+            )
         end
+
+
     end
 
     if _settings.debug_drawing_enabled then
@@ -1106,7 +1148,12 @@ local _before = nil
 --- @brief
 function ow.Player:disable()
     _before = self._state
-    self._state = ow.PlayerState.INACTIVE
+    self._state = ow.PlayerState.DISABLED
+
+    self._body:set_is_sensor(true)
+    for body in values(self._spring_bodies) do
+        body:set_is_sensor(true)
+    end
 end
 
 --- @brief
@@ -1116,6 +1163,22 @@ function ow.Player:enable()
     else
         self._state = _before
     end
+
+    self._body:set_is_sensor(false)
+    for body in values(self._spring_bodies) do
+        body:set_is_sensor(false)
+    end
+end
+
+--- @brief
+function ow.Player:set_velocity(x, y)
+    self._body:set_velocity(x, y)
+    self._last_velocity_x, self._last_velocity_y = x, y
+end
+
+--- @brief
+function ow.Player:get_velocity()
+    return self._last_velocity_x, self._last_velocity_y
 end
 
 --- @brief
@@ -1132,6 +1195,11 @@ function ow.Player:bounce(nx, ny, force)
     self._bounce_direction_y = ny
     self._bounce_elapsed = 0
     self._bounce_locked = true
+end
+
+--- @brief
+function ow.Player:set_is_frozen(b)
+    self._is_frozen = b
 end
 
 --- @brief
@@ -1163,7 +1231,5 @@ function ow.Player:kill(respawn_x, respawn_y)
         body:set_is_enabled(true)
     end
 end
-
-
 
 

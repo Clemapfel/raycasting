@@ -16,6 +16,12 @@ rt.settings.overworld.overworld_scene = {
 --- @class
 ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
 
+ow.CameraMode = meta.enum("CameraMode", {
+    AUTO = "AUTO",
+    MANUAL = "MANUAL",
+    FOCUS_PLAYER = "FOCUS_PLAYER"
+})
+
 --- @brief
 function ow.OverworldScene:instantiate()
     meta.install(self, {
@@ -78,7 +84,7 @@ function ow.OverworldScene:instantiate()
     -- raw inputs
 
     self._input:signal_connect("controller_button_pressed", function(_, which)
-        if which == "leftstick" or which == "rightstick" then
+        if which == "leftstick" or which == "rightstick" and self._camera_mode ~= ow.CameraMode.MANUAL then
             self._camera:reset()
             self._camera:set_position(self._player:get_position())
         end
@@ -186,9 +192,11 @@ function ow.OverworldScene:instantiate()
     end)
 
     self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
-        local current = self._camera:get_scale()
-        current = current + dy * rt.settings.overworld.overworld_scene.camera_scale_velocity
-        self._camera:set_scale(math.clamp(current, 1 / 3, 3))
+        if self._camera_mode ~= ow.CameraMode.MANUAL then
+            local current = self._camera:get_scale()
+            current = current + dy * rt.settings.overworld.overworld_scene.camera_scale_velocity
+            self._camera:set_scale(math.clamp(current, 1 / 3, 3))
+        end
     end)
 
     self._background:realize()
@@ -281,8 +289,12 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
         self._stage = next_entry.stage
 
         self._player:move_to_stage(self._stage, spawn_x, spawn_y)
-        self._camera:set_bounds(self._stage:get_camera_bounds())
-        self._camera:set_position(self._player:get_position())
+
+        if self._camera_mode ~= ow.CameraMode.MANUAL then
+            self._camera:set_bounds(self._stage:get_camera_bounds())
+            self._camera:set_position(self._player:get_position())
+        end
+
         self._player_is_focused = true
     end
 end
@@ -417,7 +429,7 @@ function ow.OverworldScene:update(delta)
         self._player_is_focused = true
     end
 
-    if self._player_is_focused then
+    if self._player_is_focused and self._camera_mode ~= ow.CameraMode.MANUAL then
         local x, y = self._player:get_position()
         self._camera:move_to(x + self._camera_position_offset_x, y + self._camera_position_offset_y)
         if self._camera:get_bounds():contains(x, y) == false then
@@ -441,7 +453,7 @@ function ow.OverworldScene:update(delta)
             local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
         end
     else
-        if self._cursor_visible then
+        if self._cursor_visible and self._camera_mode ~= ow.CameraMode.MANUAL then
             local cx, cy = self._camera:get_position()
             cx = cx + self._camera_translation_velocity_x * delta
             cy = cy + self._camera_translation_velocity_y * delta
@@ -458,7 +470,9 @@ function ow.OverworldScene:update(delta)
         self._camera_scale_velocity = 0
     end
 
-    self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
+    if self._camera_mode ~= ow.CameraMode.MANUAL then
+        self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
+    end
     --self._player:set_facing_angle(self._camera:get_rotation())
 end
 
@@ -500,6 +514,11 @@ end
 --- @brief
 function ow.OverworldScene:get_player()
     return self._player
+end
+
+--- @brief
+function ow.OverworldScene:set_camera_mode(mode)
+    self._camera_mode = mode
 end
 
 --- @brief

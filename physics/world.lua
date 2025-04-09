@@ -9,8 +9,6 @@ local _begin_contact_callback = function(shape_a, shape_b, contact)
     local x1, y1, x2, y2 = contact:getPositions() -- may be nil
 
 
-    contact:setRestitution(0)
-
     --if shape_a:isSensor() then
         body_a:signal_emit("collision_start", body_b, normal_x, normal_y, x1, y1, x2, y2, contact)
     --end

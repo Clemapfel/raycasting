@@ -23,6 +23,10 @@ function ow.Camera:instantiate()
         _current_angle = 0,
         _current_scale = 1,
 
+        _timestamp = love.timer.getTime(),
+        _last_x = 0,
+        _last_y = 0,
+
         _bounds_x = -math.huge,
         _bounds_y = -math.huge,
         _bounds_width = math.huge,
@@ -95,6 +99,7 @@ function ow.Camera:update(delta)
     local final_delta_x = self._velocity_x * delta
     local final_delta_y = self._velocity_y * delta
 
+    self._last_x, self._last_y = self._current_x, self._current_y
     self._current_x = math.round(self._current_x + final_delta_x)
     self._current_y = math.round(self._current_y + final_delta_y)
 end
@@ -122,6 +127,21 @@ end
 --- @brief
 function ow.Camera:get_position()
     return self._current_x, self._current_y
+end
+
+--- @brief
+function ow.Camera:get_velocity()
+    local now = love.timer.getTime()
+    local dt = now - self._timestamp
+    local dx = self._current_x - self._last_x
+    local dy = self._current_y - self._last_y
+    return dx / dt, dy / dt
+end
+
+--- @brief
+function ow.Camera:get_size()
+    local w, h = love.graphics.getDimensions()
+    return w * self._current_scale, h * self._current_scale
 end
 
 --- @brief
