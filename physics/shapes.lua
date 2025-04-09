@@ -48,6 +48,11 @@ b2.Circle = meta.class("PhysicsCircle", b2.Shape,function(self, x, y, radius)
 end)
 
 --- @brief
+function b2.Circle:get_radius()
+    return self._native.arguments[3]
+end
+
+--- @brief
 function b2.Circle:draw()
     local x, y, radius = table.unpack(self._native.arguments)
     local r, g, b, a = love.graphics.getColor()

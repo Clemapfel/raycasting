@@ -54,35 +54,3 @@ function b2.Spring:get_distance()
     if self._is_disabled then return 0 end
     return math.abs(self._prismatic_joint:getJointTranslation())
 end
-
---- @brief
-function b2.Spring:set_enabled(b)
-    self._prismatic_joint:setLimitsEnabled(b)
-
-    --[[
-    local ax, ay = self._body_a:get_position()
-    local bx, by = self._body_b:get_position()
-    local x1, y1 = self._x1 + ax, self._y1 + ay
-    local x2, y2 = self._x2 + bx, self._y2 + by
-    local distance = math.distance(x1, y1, x2, y2)
-
-    if not b then
-        self._prismatic_joint:setLimits(100 * distance, 100 * distance)
-    else
-        self._prismatic_joint:setLimits(distance, distance)
-    end
-    ]]--
-
-    --[[
-    if b == false and self._is_disabled == false then
-        self._prismatic_joint:destroy()
-        self._prismatic_joint = nil
-        self._distance_joint:destroy()
-        self._distance_joint = nil
-        self._is_disabled = true
-    elseif b == true and self._is_disabled == true then
-        self:_initialize()
-        self._is_disabled = false
-    end
-    ]]--
-end

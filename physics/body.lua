@@ -222,7 +222,7 @@ end
 
 --- @brief
 function b2.Body:set_is_enabled(b)
-    self._native:setActive(b)
+    self._world:_notify_active_changed(self, b)
 end
 
 --- @brief

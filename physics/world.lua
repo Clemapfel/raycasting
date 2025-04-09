@@ -40,9 +40,9 @@ function b2.World:instantiate(width, height, ...)
     meta.assert(width, "Number", height, "Number")
     meta.install(self, {
         _native = love.physics.newWorld(0, 0),
-        _transform_queue = {}, -- used by bodies to delay transformation after collision callbacks
-        _body_to_transform_queue_entry = {},
-        _dynamic_bodies = meta.make_weak({}), -- set
+        _body_to_move_queue = {},
+        _body_to_rotate_queue = {},
+        _body_to_activate_queue = {},
         _timestamp = love.timer.getTime()
     })
 
@@ -54,29 +54,14 @@ function b2.World:instantiate(width, height, ...)
     )
 end
 
-function b2.World:_update_transform_entry(body, x, y, rotation)
-    local entry = self._body_to_transform_queue_entry[body]
-    if entry == nil then
-        entry = {
-            body = body,
-            x = nil,
-            y = nil,
-            rotation = nil
-        }
-
-        self._body_to_transform_queue_entry[body] = entry
-        table.insert(self._transform_queue, entry)
-    end
-
-    if x ~= nil then entry.x = x end
-    if y ~= nil then entry.y = y end
-    if rotation ~= nil then entry.rotation = rotation end
-end
-
 --- @brief
 function b2.World:_notify_position_changed(body, x, y)
     if self._native:isLocked() == true then
-        self:_update_transform_entry(body, x, y, nil)
+        table.insert(self._body_to_move_queue, {
+            body = body:get_native(),
+            position_x = x,
+            position_y = y,
+        })
     else
         body._native:setPosition(x, y)
     end
@@ -85,9 +70,24 @@ end
 --- @brief
 function b2.World:_notify_rotation_changed(body, rotation)
     if self._native:isLocked() == true then
-        self:_update_transform_entry(body, nil, nil, rotation)
+        table.insert(self._body_to_rotate_queue, {
+            body = body:get_native(),
+            angle = rotation
+        })
     else
         body._native:setAngle(rotation)
+    end
+end
+
+--- @brief
+function b2.World:_notify_active_changed(body, b)
+    if self._native:isLocked() == true then
+        table.insert(self._body_to_activate_queue, {
+            body = body:get_native(),
+            is_active = b
+        })
+    else
+        body._native:setActive(b)
     end
 end
 
@@ -112,22 +112,27 @@ function b2.World:update(delta)
     local total_step = 0
     local n_steps = 0
     while _elapsed > _step and n_steps < _max_n_steps_per_frame do
-        -- work through queued body updates from when world was locked
-        for entry in values(self._transform_queue) do
-            if entry.x ~= nil and entry.y ~= nil then
-                entry.body._native:setPosition(entry.x, entry.y)
-            end
-
-            if entry.rotation ~= nil then
-                entry.body._native:setAngle(entry.rotation)
-            end
-        end
-        self._transform_queue = {}
-        self._body_to_transform_queue_entry = {}
-
         -- update
         self._native:update(_step, 5, 2)
         self._timestamp = love.timer.getTime()
+
+        -- work through queued updates
+        for entry in values(self._body_to_move_queue) do
+            entry.body:setPosition(entry.position_x, entry.position_y)
+        end
+        self._body_to_move_queue = {}
+
+        for entry in values(self._body_to_rotate_queue) do
+            entry.body:setAngle(entry.angle)
+        end
+        self._body_to_rotate_queue = {}
+
+        for entry in values(self._body_to_activate_queue) do
+            entry.body:setActive(entry.is_active)
+        end
+        self._body_to_activate_queue = {}
+
+
 
         self:signal_emit("step", _step)
 
