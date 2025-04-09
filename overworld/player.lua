@@ -1,12 +1,13 @@
 require "common.input_subscriber"
 require "physics.physics"
 require "common.timed_animation"
+require "common.random"
 
 
 rt.settings.overworld.player = {
     radius = 13.5,
     inner_body_radius = 8 / 2 - 0.5,
-    n_outer_bodies = 31,
+    n_outer_bodies = 17,--31,
     max_spring_length = 13.5 * 1.5,
 
     bottom_wall_ray_length_factor = 1.5,
@@ -52,11 +53,13 @@ rt.settings.overworld.player = {
     max_velocity_x = 8000, -- TODO
     max_velocity_y = 13000,
 
+    respawn_max_duration = 5,
+
     squeeze_multiplier = 1.4,
     ragdoll_trigger_jump_height = 7,
     ragdoll_friction = 8,
 
-    debug_drawing_enabled = true,
+    --debug_drawing_enabled = true,
 }
 
 local _settings = setmetatable({}, {
@@ -75,12 +78,20 @@ meta.add_signals(ow.Player,
     "jump"
 )
 
+ow.PlayerState = meta.enum("OverworldPlayerState", {
+    ACTIVE = 1,
+    INACTIVE = 2,
+    RESPAWNING = 3
+})
+
 --- @brief
 function ow.Player:instantiate(scene, stage)
     local player_radius = _settings.radius
     meta.install(self, {
         _scene = scene,
         _stage = stage,
+
+        _state = ow.PlayerState.ACTIVE,
 
         _radius = player_radius,
         _inner_body_radius = _settings.inner_body_radius,
@@ -137,6 +148,7 @@ function ow.Player:instantiate(scene, stage)
         _velocity_multiplier_y = 1,
 
         _is_ragdoll = false,
+        _respawn_elapsed = 0,
 
         -- controls
         _joystick_position = 0, -- x axis
@@ -155,11 +167,13 @@ function ow.Player:instantiate(scene, stage)
         _next_sprint_multiplier_update_when_grounded = false,
 
         _interact_targets = {}, -- Set
-        _is_disabled = false,
 
         -- soft body
         _spring_bodies = {},
         _spring_joints = {},
+        _spring_body_offsets_x = {},
+        _spring_body_offsets_y = {},
+
 
         _outer_body_mesh = nil,
         _outer_body_mesh_origin_x = 0,
@@ -181,6 +195,10 @@ function ow.Player:instantiate(scene, stage)
         _gravity_direction_y = 1,
         _gravity_multiplier = 1,
 
+        _last_respawn_x = 0,
+        _last_respawn_y = 0,
+        _respawn_elapsed = 0,
+
         _bounce_sensor = nil, -- b2.Body
         _bounce_sensor_pin = nil, -- b2.Pin
         _input = rt.InputSubscriber()
@@ -194,53 +212,27 @@ function ow.Player:instantiate(scene, stage)
 end
 
 
-local _JUMP_BUTTONS = {
-    [rt.InputButton.B] = true
-}
-
-local _SPRINT_BUTTON = {
-    [rt.InputButton.Y] = true,
-    [rt.InputButton.L] = true,
-    [rt.InputButton.R] = true
-}
-
-local _INTERACT_BUTTON = {
-    [rt.InputButton.A] = true
-}
-
---- @brief
-function ow.Player:get_is_jump_button(which)
-    return _JUMP_BUTTONS[which] == true
-end
-
---- @brief
-function ow.Player:get_is_sprint_button(which)
-    return _SPRINT_BUTTON[which] == true
-end
-
---- @brief
-function ow.Player:get_is_interact_button(which)
-    return _INTERACT_BUTTON[which] == true
-end
-
 --- @brief
 function ow.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
-        if self:get_is_jump_button(which) then
+        if which == rt.InputButton.JUMP then
             self._jump_button_is_down = true
             self._jump_elapsed = 0 -- jump
             self:signal_emit("jump")
-        elseif self:get_is_sprint_button(which) then
+        elseif which == rt.InputButton.SPRINT then
             self._sprint_button_is_down = true
             self._next_sprint_multiplier = _settings.sprint_multiplier
             self._next_sprint_multiplier_update_when_grounded = true
-        elseif self:get_is_interact_button(which) then
+        elseif which == rt.InputButton.INTERACT then
             -- interact
             for target in keys(self._interact_targets) do
                 target:signal_emit("activate", self)
             end
+        elseif which == rt.InputButton.RESPAWN then
+            self:kill(self._last_respawn_x, self._last_respawn_y)
         elseif which == rt.InputButton.X then
             self._ragdoll_button_is_down = true
+        elseif which == rt.InputButton.Y then
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = true
         elseif which == rt.InputButton.RIGHT then
@@ -253,10 +245,10 @@ function ow.Player:_connect_input()
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if self:get_is_jump_button(which) then
+        if which == rt.InputButton.JUMP then
             self._jump_button_is_down = false
             self._wall_jump_button_locked = false
-        elseif self:get_is_sprint_button(which) then
+        elseif which == rt.InputButton.SPRINT then
             self._sprint_button_is_down = false
             self._next_sprint_multiplier = 1
             self._next_sprint_multiplier_update_when_grounded = true
@@ -291,6 +283,73 @@ end
 
 --- @brief
 function ow.Player:update(delta)
+    local gravity = _settings.gravity * delta * self._gravity_multiplier
+
+    if self._state == ow.PlayerState.INACTIVE then
+        local vx, vy = self._last_velocity_x, self._last_velocity_y
+        vx = 0
+        vy = vy + gravity
+
+        self._body:set_linear_velocity(vx, vy)
+        self._last_velocity_x, self._last_velocity_y = vx, vy
+        return
+    elseif self._state == ow.PlayerState.RESPAWNING then
+        self._respawn_elapsed = self._respawn_elapsed + delta
+
+        local distance = math.distance(
+            self._last_respawn_x, self._last_respawn_y,
+            self._body:get_position()
+        )
+
+        if self._respawn_elapsed > _settings.respawn_max_duration or distance <= 1 then
+            self._body:set_position(self._last_respawn_x, self._last_respawn_y)
+            self._body:set_velocity(0, 0)
+
+            for i, body in ipairs(self._spring_bodies) do
+                body:set_is_sensor(false)
+                body:set_position(
+                    self._last_respawn_x + self._spring_body_offsets_x[i],
+                    self._last_respawn_y + self._spring_body_offsets_y[i]
+                )
+                body:set_velocity(0, 0)
+
+                self._spring_joints[i]:set_enabled(true)
+            end
+
+            self._state = ow.Player.ACTIVE
+        else
+            local _move_body = function(body, target_x, target_y)
+                local current_x, current_y = body:get_position()
+
+                local dx, dy = target_x - current_x, target_y - current_y
+                local distance = math.distance(current_x, current_y, target_x, target_y)
+                local magnitude = distance * 10
+
+                local max_velocity = 300
+                local current_velocity_x, current_velocity_y = body:get_velocity()
+
+                -- Set damping based on distance to target
+                local damping = math.min(distance / 100, 1)
+
+                local velocity_x, velocity_y = dx * magnitude * delta * delta, dy * magnitude * delta * delta
+                local vx, vy = math.mix(current_velocity_x, velocity_x, damping)
+                math.mix(current_velocity_y, velocity_y, damping)
+
+                body:set_velocity(vx, vy)
+            end
+
+            _move_body(self._body, self._last_respawn_x, self._last_respawn_y)
+
+            for i, body in ipairs(self._spring_bodies) do
+                _move_body(body, self._last_respawn_x + self._spring_body_offsets_x[i], self._last_respawn_y + self._spring_body_offsets_y[i])
+            end
+
+            self:_update_mesh()
+            return
+        end
+    end
+    -- else _state == ACTIVE
+
     local midair_before = not self._bottom_wall
 
     -- raycast to check for walls
@@ -352,8 +411,6 @@ function ow.Player:update(delta)
     if self._next_sprint_multiplier_update_when_grounded and (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) then
         self._sprint_multiplier = self._next_sprint_multiplier
     end
-
-    local gravity = _settings.gravity * delta * self._gravity_multiplier
 
     local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
 
@@ -602,11 +659,6 @@ function ow.Player:update(delta)
                 * math.clamp(fraction, 0, 1) -- disable during bounce
         end
 
-        if self._is_disabled then
-            next_velocity_x = 0
-            next_velocity_y = current_velocity_y
-        end
-
         -- gravity
         next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
         next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
@@ -657,36 +709,7 @@ function ow.Player:update(delta)
         self._body:set_velocity(0, 0)
     end
 
-    -- update mesh
-    local player_x, player_y = self._body:get_position()
-    local to_polygonize = {}
-    for i, body in ipairs(self._spring_bodies) do
-        local cx, cy = body:get_position()
-        self._outer_body_centers_x[i] = cx
-        self._outer_body_centers_y[i] = cy
-        local dx, dy = cx - player_x, cy - player_y
-        self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
-
-        local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
-        self._outer_body_scales[i] = math.max(scale / 2, 0)
-
-        table.insert(to_polygonize, cx)
-        table.insert(to_polygonize, cy)
-    end
-
-    do
-        -- triangulate body for see-through part
-        -- try love, if fails, try slick (because slick is slower), if it fails, do not change body
-        local success, new_tris
-        success, new_tris = pcall(love.math.triangulate, to_polygonize)
-        if not success then
-            success, new_tris = pcall(slick.triangulate, {to_polygonize})
-        end
-
-        if success then
-            self._outer_body_tris = new_tris
-        end
-    end
+    self:_update_mesh()
 
     -- add blood splatter
     local function _add_blood_splatter(contact_x, contact_y, nx, ny)
@@ -729,6 +752,8 @@ function ow.Player:move_to_stage(stage, x, y)
     self._world = world
     self._world:set_gravity(0, 0)
 
+    self._last_respawn_x, self._last_respawn_y = x, y
+
     -- hard body
     self._body = b2.Body(
         self._world, b2.BodyType.DYNAMIC, x, y,
@@ -745,6 +770,11 @@ function ow.Player:move_to_stage(stage, x, y)
     self._body:set_use_manual_velocity(true)
 
     -- soft body
+    self._spring_bodies = {}
+    self._spring_joints = {}
+    self._spring_body_offsets_x = {}
+    self._spring_body_offsets_y = {}
+
     local outer_radius = self._radius - self._outer_body_radius
     local outer_body_shape = b2.Circle(0, 0, self._outer_body_radius)
     local step = (2 * math.pi) / _settings.n_outer_bodies
@@ -752,8 +782,10 @@ function ow.Player:move_to_stage(stage, x, y)
     local mask = bit.bnot(_settings.player_outer_body_collision_group)
 
     for angle = 0, 2 * math.pi, step do
-        local cx = x + math.cos(angle) * outer_radius
-        local cy = y + math.sin(angle) * outer_radius
+        local offset_x = math.cos(angle) * outer_radius
+        local offset_y = math.sin(angle) * outer_radius
+        local cx = x + offset_x
+        local cy = y + offset_y
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         body:set_mass(10e-4)
@@ -769,6 +801,8 @@ function ow.Player:move_to_stage(stage, x, y)
 
         table.insert(self._spring_bodies, body)
         table.insert(self._spring_joints, joint)
+        table.insert(self._spring_body_offsets_x, offset_x)
+        table.insert(self._spring_body_offsets_y, offset_y)
     end
 
 
@@ -853,7 +887,43 @@ function ow.Player:move_to_stage(stage, x, y)
     self._outer_body_centers_y = {}
     self._outer_body_scales = {}
     self._outer_body_angles = {}
+end
 
+function ow.Player:_update_mesh()
+    -- update mesh
+    local player_x, player_y = self._body:get_position()
+    local to_polygonize = {}
+    for i, body in ipairs(self._spring_bodies) do
+        local cx, cy = body:get_position()
+        self._outer_body_centers_x[i] = cx
+        self._outer_body_centers_y[i] = cy
+        local dx, dy = cx - player_x, cy - player_y
+        self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
+
+        if self._state == ow.PlayerState.RESPAWNING then
+            self._outer_body_scales[i] = 1
+        else
+            local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
+            self._outer_body_scales[i] = math.max(scale / 2, 0)
+        end
+
+        table.insert(to_polygonize, cx)
+        table.insert(to_polygonize, cy)
+    end
+
+    do
+        -- triangulate body for see-through part
+        -- try love, if fails, try slick (because slick is slower), if it fails, do not change body
+        local success, new_tris
+        success, new_tris = pcall(love.math.triangulate, to_polygonize)
+        if not success then
+            success, new_tris = pcall(slick.triangulate, {to_polygonize})
+        end
+
+        if success then
+            self._outer_body_tris = new_tris
+        end
+    end
 end
 
 --- @brief
@@ -976,14 +1046,21 @@ function ow.Player:remove_interact_target(target)
     self._interact_targets[target] = nil
 end
 
+local _before = nil
+
 --- @brief
-function ow.Player:set_is_disabled(b)
-    self._is_disabled = b
+function ow.Player:disable()
+    _before = self._state
+    self._state = ow.PlayerState.INACTIVE
 end
 
 --- @brief
-function ow.Player:get_is_disabled()
-    return self._is_disabled
+function ow.Player:enable()
+    if _before == nil then
+        self._state = ow.PlayerState.ACTIVE
+    else
+        self._state = _before
+    end
 end
 
 --- @brief
@@ -991,6 +1068,7 @@ function ow.Player:get_is_ragdoll()
     return self._is_ragdoll
 end
 
+--- @brief
 function ow.Player:bounce(nx, ny, force)
     if self._bounce_locked then return end
 
@@ -999,6 +1077,33 @@ function ow.Player:bounce(nx, ny, force)
     self._bounce_direction_y = ny
     self._bounce_elapsed = 0
     self._bounce_locked = true
+end
+
+--- @brief
+function ow.Player:kill(respawn_x, respawn_y)
+    meta.assert(respawn_x, "Number", respawn_y, "Number")
+    self._state = ow.PlayerState.RESPAWNING
+    self._lasat_respawn_x = respawn_x
+    self._last_respawn_y = respawn_y
+    self._respawn_elapsed = 0
+
+    for joint in values(self._spring_joints) do
+        joint:set_enabled(false)
+    end
+
+    local magnitude = 100
+    self._body:set_is_sensor(true)
+    self._body:set_velocity(0, 0)
+
+    local x, y = self._body:get_position()
+    local step = (2 * math.pi)  / _settings.n_outer_bodies
+    local angle = 0
+    for body in values(self._spring_bodies) do
+        local m = rt.random.number(0.4, 1) * magnitude
+        body:set_is_sensor(true)
+        body:set_velocity(math.cos(angle) * m, math.sin(angle) * m)
+        angle = angle + step
+    end
 end
 
 
