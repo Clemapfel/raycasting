@@ -69,8 +69,7 @@ love.keypressed = function(key, scancode)
         sub:signal_emit(rt.InputCallbackID.KEYBOARD_KEY_PRESSED, key)
     end
 
-    local mapped = rt.InputMapping:map(key, true)
-    if mapped ~= nil then
+    for mapped in values(rt.InputMapping:map(key, true)) do
         for sub in values(rt.InputManager._subscribers) do
             sub:signal_emit("pressed", mapped, -1)
         end
@@ -84,8 +83,7 @@ love.keyreleased = function(key, scancode)
         sub:signal_emit(rt.InputCallbackID.KEYBOARD_KEY_RELEASED, key)
     end
 
-    local mapped = rt.InputMapping:map(key, true)
-    if mapped ~= nil then
+    for mapped in values(rt.InputMapping:map(key, true)) do
         for sub in values(rt.InputManager._subscribers) do
             sub:signal_emit("released", mapped, -1)
         end
@@ -173,8 +171,7 @@ love.gamepadpressed = function(joystick, button)
         sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_PRESSED, button, joystick:getID())
     end
 
-    local mapped = rt.InputMapping:map(button, false)
-    if mapped ~= nil then
+    for mapped in values(rt.InputMapping:map(button, false)) do
         for sub in values(rt.InputManager._subscribers) do
             sub:signal_emit("pressed", mapped, joystick:getID())
         end
@@ -189,8 +186,7 @@ love.gamepadreleased = function(joystick, button)
         sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_RELEASED, button, joystick:getID())
     end
 
-    local mapped = rt.InputMapping:map(button, false)
-    if mapped ~= nil then
+    for mapped in values(rt.InputMapping:map(button, false)) do
         for sub in values(rt.InputManager._subscribers) do
             sub:signal_emit("released", mapped, joystick:getID())
         end

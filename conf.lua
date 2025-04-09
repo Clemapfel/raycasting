@@ -35,12 +35,12 @@ _G.SETTINGS = {
         },
 
         ["A"] = {
-            keyboard = {"x"},
+            keyboard = {"a"},
             controller = GAMEPAD_BUTTON_RIGHT
         },
 
         ["B"] = {
-            keyboard = {"space"},
+            keyboard = {"b"},
             controller = GAMEPAD_BUTTON_BOTTOM
         },
 
@@ -50,7 +50,7 @@ _G.SETTINGS = {
         },
 
         ["Y"] = {
-            keyboard = "b",
+            keyboard = "y",
             controller = GAMEPAD_BUTTON_LEFT
         },
 
@@ -72,7 +72,28 @@ _G.SETTINGS = {
         ["SELECT"] = {
             keyboard = "#",
             controller = "back"
+        },
+
+        ["INTERACT"] = {
+            keyboard = "x",
+            controller = GAMEPAD_BUTTON_RIGHT
+        },
+
+        ["SPRINT"] = {
+            keyboard = "b",
+            controller = GAMEPAD_BUTTON_LEFT
+        },
+
+        ["JUMP"] = {
+            keyboard = "space",
+            controller = GAMEPAD_BUTTON_BOTTOM
+        },
+
+        ["RESPAWN"] = {
+            keyboard = "y",
+            controller = "back"
         }
+
     },
 }
 
