@@ -15,7 +15,6 @@ end
 
 rt.settings.overworld.stage = {
     physics_world_buffer_length = 0,
-    player_spawn_class_name = "PlayerSpawn",
     camera_bounds_class_name = "CameraBounds",
     wall_class_name = "Wall",
     floor_class_name = "Floor",
@@ -54,7 +53,6 @@ function ow.Stage:instantiate(scene, id)
     local w, h = self._config:get_size()
     self._world = b2.World(w + 2 * buffer, h + 2 * buffer)
 
-    local player_spawn_class_name = rt.settings.overworld.stage.player_spawn_class_name
     local camera_bounds_class_name = rt.settings.overworld.stage.camera_bounds_class_name
     local floor_class_name = rt.settings.overworld.stage.floor_class_name
     local wall_class_name = rt.settings.overworld.stage.wall_class_name
@@ -92,11 +90,7 @@ function ow.Stage:instantiate(scene, id)
                 end
 
                 local object
-                if wrapper.class == player_spawn_class_name then
-                    assert(wrapper.type == ow.ObjectType.POINT, "In ow.Stage: object of class `" .. player_spawn_class_name .. "` is not a point")
-                    assert(self._player_spawn_x == nil and self._player_spawn_y == nil, "In ow.Stage: more than one object of type `" .. player_spawn_class_name .. "`")
-                    self._player_spawn_x, self._player_spawn_y = wrapper.x, wrapper.y
-                elseif wrapper.class == camera_bounds_class_name then
+                if wrapper.class == camera_bounds_class_name then
                     assert(wrapper.type == ow.ObjectType.RECTANGLE and wrapper.rotation == 0, "In ow.Stage: object of class `" .. camera_bounds_class_name .. "` is not an axis-aligned rectangle")
                     assert(camera_bounds_seen == false, "In ow.Stage: more than one object of type `" .. camera_bounds_class_name .. "`")
                     self._camera_bounds = rt.AABB(
@@ -134,12 +128,13 @@ function ow.Stage:instantiate(scene, id)
     end
 
     local w, h = self._config:get_size()
-    if self._player_spawn_x == nil then self._player_spawn_x = 0.5 * w end
-    if self._player_spawn_y == nil then self._player_spawn_y = 0.5 * h end
 
     self._bounds = rt.AABB(0, 0, w, h)
     self._is_initialized = true
     self:signal_emit("initialized")
+
+    if self._player_spawn_x == nil then self._player_spawn_x = 0.5 * w end
+    if self._player_spawn_y == nil then self._player_spawn_y = 0.5 * h end
 end
 
 --- @brief
@@ -232,4 +227,9 @@ end
 function ow.Stage:add_blood_splatter(x1, y1, x2, y2)
     meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number")
     self._blood_splatter:add(x1, y1, x2, y2)
+end
+
+--- @brief
+function ow.Stage:set_player_spawn(x, y)
+    self._player_spawn_x, self._player_spawn_y = x, y
 end

@@ -19,7 +19,7 @@ end)
 
 love.load = function(args)
     require "overworld.overworld_scene"
-    SceneManager:set_scene(ow.OverworldScene, "platformer_room")
+    SceneManager:set_scene(ow.OverworldScene, "tutorial")
     love.resize(love.graphics.getDimensions())
 end
 

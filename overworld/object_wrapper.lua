@@ -355,6 +355,10 @@ function ow.ObjectWrapper:create_mesh()
         self:_initialize_mesh_prototype()
     end
 
+    if self.type == ow.ObjectType.POINT then
+        rt.error("In ow.ObjectWrapper: trying to create a mesh from object `" .. self.id .. "`, but object has a volume of 0")
+    end
+
     return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles
 end
 
@@ -491,6 +495,11 @@ function ow.ObjectWrapper:get(id, assert_exists)
         end
     end
     return out
+end
+
+--- @brief
+function ow.ObjectWrapper:get_type()
+    return self.type
 end
 
 --- @brief
