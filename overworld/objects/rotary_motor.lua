@@ -23,8 +23,7 @@ function ow.RotaryMotor:instantiate(object, stage, scene)
     self._value = 0
 
     -- delay until other object is initialized
-    local signal_id
-    signal_id = stage:signal_connect("initialized", function(stage)
+    stage:signal_connect("initialized", function(stage)
         meta.install(self, {
             _anchor = object:create_physics_body(world, b2.BodyType.STATIC),
             _target = stage:get_object_instance(target):get_physics_body()
@@ -81,7 +80,7 @@ function ow.RotaryMotor:instantiate(object, stage, scene)
             end
         end)
 
-        stage:signal_disconnect("initialized", signal_id)
+        return meta.DISCONNECT_SIGNAL
     end)
 end
 

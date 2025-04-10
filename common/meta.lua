@@ -145,6 +145,8 @@ function meta.is_function(x)
     return _G.type(x) == "function"
 end
 
+meta.DISCONNECT_SIGNAL = "DISCONNECT"
+
 -- signals
 local _signal_connect = function(instance, id, callback)
     local component = instance[_object_signal_component_index]
@@ -155,9 +157,14 @@ local _signal_connect = function(instance, id, callback)
     end
 
     local callback_id = entry.current_callback_id
+    local wrapped = function(...)
+        local res = callback(...)
+        return callback_id, res
+    end
+
     entry.current_callback_id = entry.current_callback_id + 1
-    entry.callback_id_to_callback[callback_id] = callback
-    table.insert(entry.callbacks_in_order, callback)
+    entry.callback_id_to_callback[callback_id] = wrapped
+    table.insert(entry.callbacks_in_order, wrapped)
     return callback_id
 end
 
@@ -347,8 +354,12 @@ local _signal_emit = function(instance, id, ...)
 
     instance.signal_disconnect = _signal_disconnect_override
 
-    for callback in values(entry.callbacks_in_order) do
-        callback(instance, ...)
+    for i, callback in ipairs(entry.callbacks_in_order) do
+
+        local callback_id, res = callback(instance, ...)
+        if res == meta.DISCONNECT_SIGNAL then
+            instance:signal_disconnect(id, callback_id)
+        end
     end
 
     instance.signal_disconnect = _signal_disconnect

@@ -16,8 +16,7 @@ function ow.InteractTrigger:instantiate(object, stage, scene)
     })
 
     -- add receive once stage is initialized
-    local signal_id
-    signal_id = stage:signal_connect("initialized", function(stage)
+    stage:signal_connect("initialized", function(stage)
         self._receiver = stage:get_object_instance(self._target)
 
         if self._receiver == nil then
@@ -28,7 +27,7 @@ function ow.InteractTrigger:instantiate(object, stage, scene)
             rt.error("In ow.InteractTrigger: trigger `" .. object:get_id() .. "` is set to trigger signal `" .. self._signal .. "` in object `" .. meta.typeof(self._receiver) .. "`, but it does not have that signal")
         end
 
-        stage:signal_disconnect("initialized", signal_id)
+        return meta.DISCONNECT_SIGNAL
     end)
 
     -- if player overlaps, notify as interact target
