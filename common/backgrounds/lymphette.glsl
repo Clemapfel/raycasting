@@ -10,10 +10,25 @@ vec2 rotate(vec2 v, float angle) {
 
 uniform float elapsed;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
-    vec2 uv = vertex_position / love_ScreenSize.xy;
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
+
+vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
+    vec2 uv = to_uv(frag_position);
     float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
-    uv.x = uv.x * aspect_ratio + 0.5 * aspect_ratio;
+    uv.x += 0.5 * aspect_ratio;
+
     float time = elapsed / 16.0;
 
     uv += vec2(time / 2.0);

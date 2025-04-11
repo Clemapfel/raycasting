@@ -28,7 +28,7 @@ rt.settings.overworld.player = {
     air_acceleration_duration = 15 / 60, -- seconds
     air_deceleration_duration = 15 / 60,
 
-    coyote_time = 8 / 60,
+    coyote_time = 3 / 60,
 
     jump_duration = 10 / 60,
     jump_velocity = 445,
@@ -49,10 +49,10 @@ rt.settings.overworld.player = {
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
     downwards_force_factor = 2, -- times gravity
-    ground_regular_friction = 100,
-    ground_slippery_friction = -1000,
     wall_regular_friction = 0.8, -- times of gravity
     wall_slippery_friction = 0,
+    ground_regular_friction = 0,
+    ground_slippery_friction = -0.2,
 
     max_velocity_x = 8000, -- TODO
     max_velocity_y = 13000,
@@ -486,22 +486,32 @@ function ow.Player:update(delta)
 
         if self._bottom_wall then -- ground friction
             local friction_coefficient = _settings.ground_regular_friction
+            local surface_normal_x, surface_normal_y = bottom_nx, bottom_ny
+
             if bottom_wall_body:has_tag("slippery") then
                 friction_coefficient = _settings.ground_slippery_friction
 
-                local sign = math.sign(next_velocity_x)
-                local friction_force = next_velocity_x * 0.25
-                local nx, ny = bottom_nx, bottom_ny
-                if sign < 0 then -- going right
-                    nx, ny = math.turn_left(nx, y)
-                    next_velocity_x = next_velocity_x - friction_force * nx * delta
-                    next_velocity_y = next_velocity_y - friction_force * ny * delta
-                elseif sign > 0 then
-                    nx, ny = math.turn_right(nx, y)
-                    next_velocity_x = next_velocity_x - friction_force * nx * delta
-                    next_velocity_y = next_velocity_y - friction_force * ny * delta
+                -- if going upwards slippery slope
+                local angle = math.angle(surface_normal_x, surface_normal_y) + math.pi * 0.5
+                if (math.sign(next_velocity_x) > 0 and angle < 0 and self._right_button_is_down) or (math.sign(next_velocity_x) < 0 and angle > 0 and self._left_button_is_down) then
+                    next_velocity_x = 0
+                    next_velocity_y = 0
                 end
             end
+
+            local velocity_x, velocity_y = next_velocity_x, next_velocity_y
+            local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
+            local perpendicular_x = dot_product * surface_normal_x
+            local perpendicular_y = dot_product * surface_normal_y
+
+            local parallel_x = velocity_x - perpendicular_x
+            local parallel_y = velocity_y - perpendicular_y
+
+            local friction_x = parallel_x * friction_coefficient
+            local friction_y = parallel_y * friction_coefficient
+
+            next_velocity_x = parallel_x - friction_x
+            next_velocity_y = parallel_y - friction_y
         else
             -- magnetize to walls
             local magnet_force = _settings.wall_magnet_force
@@ -588,6 +598,7 @@ function ow.Player:update(delta)
         if self._jump_button_is_down then
             if can_jump and self._jump_elapsed < _settings.jump_duration then
                 -- regular jump: accelerate upwards wil jump button is down
+                self._coyote_elapsed = 0
                 next_velocity_y = -1 * _settings.jump_velocity * math.sqrt(self._jump_elapsed / _settings.jump_duration)
                 self._jump_elapsed = self._jump_elapsed + delta
             elseif can_wall_jump then
@@ -961,11 +972,11 @@ end
 
 function ow.Player:_update_mesh()
     -- update mesh
-    local player_x, player_y = self._body:get_position()
+    local player_x, player_y = self._body:get_predicted_position()
     local to_polygonize = {}
 
     for i, body in ipairs(self._spring_bodies) do
-        local cx, cy = body:get_position()
+        local cx, cy = body:get_predicted_position()
         self._outer_body_centers_x[i] = cx
         self._outer_body_centers_y[i] = cy
         local dx, dy = cx - player_x, cy - player_y
@@ -997,7 +1008,7 @@ function ow.Player:_update_mesh()
     self._death_body_centers_x = {}
     self._death_body_centers_y = {}
     for i, body in ipairs(self._death_outer_bodies) do
-        local x, y = body:get_position()
+        local x, y = body:get_predicted_position()
         self._death_body_centers_x[i] = x
         self._death_body_centers_y[i] = y
     end

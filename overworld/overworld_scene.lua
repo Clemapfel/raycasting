@@ -290,10 +290,10 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
 
         self._player:move_to_stage(self._stage, spawn_x, spawn_y)
 
-        if self._camera_mode ~= ow.CameraMode.MANUAL then
+        --if self._camera_mode ~= ow.CameraMode.MANUAL then
             self._camera:set_bounds(self._stage:get_camera_bounds())
             self._camera:set_position(self._player:get_position())
-        end
+        --end
 
         self._player_is_focused = true
     end
@@ -409,6 +409,8 @@ end
 
 --- @brief
 function ow.OverworldScene:update(delta)
+    self._background:_notify_camera_changed(self._camera)
+
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
@@ -433,7 +435,7 @@ function ow.OverworldScene:update(delta)
         local x, y = self._player:get_position()
         self._camera:move_to(x + self._camera_position_offset_x, y + self._camera_position_offset_y)
         if self._camera:get_bounds():contains(x, y) == false then
-            self._camera:set_apply_bounds(false)
+            --self._camera:set_apply_bounds(false)
         else
             self._camera:set_apply_bounds(true)
         end
@@ -466,6 +468,10 @@ function ow.OverworldScene:update(delta)
         self._camera_scale_velocity = 1 * max_velocity * 5
     elseif love.keyboard.isDown("n") then
         self._camera_scale_velocity = -1 * max_velocity * 5
+    else
+        if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
+            self._camera_scale_velocity = 0
+        end
     end
 
     if self._camera_mode ~= ow.CameraMode.MANUAL then

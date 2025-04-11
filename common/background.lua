@@ -45,9 +45,21 @@ function rt.Background:size_allocate(x, y, width, height)
     self._shape = rt.MeshRectangle(x, y, width, height)
 end
 
+local _offset_x, _offset_y = 0, 0
+local _scale = 1
+
 --- @brief
 function rt.Background:draw()
     self._shader:bind()
+
+    if self._shader:has_uniform("camera_offset") then
+        self._shader:send("camera_offset", { _offset_x, _offset_y})
+    end
+
+    if self._shader:has_uniform("camera_scale") then
+        self._shader:send("camera_scale", _scale)
+    end
+
     if self._shader:has_uniform(_elapsed_name) then
         self._shader:send(_elapsed_name, self._elapsed)
     end
@@ -71,4 +83,10 @@ end
 --- @brief
 function rt.Background:send(uniform_name, value)
     self._shader:send(uniform_name, value)
+end
+
+--- @brief
+function rt.Background:_notify_camera_changed(camera)
+    _offset_x, _offset_y = camera:get_offset()
+    _scale = camera:get_scale()
 end

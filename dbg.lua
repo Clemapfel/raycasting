@@ -1,3 +1,3 @@
 return {
-    slip = 700
+    slip = 1.3
 }
