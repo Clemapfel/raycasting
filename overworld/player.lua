@@ -3,12 +3,12 @@ require "physics.physics"
 require "common.timed_animation"
 require "common.random"
 
-
+local radius = 13.5
 rt.settings.overworld.player = {
-    radius = 13.5,
+    radius = radius,
     inner_body_radius = 8 / 2 - 0.5,
-    n_outer_bodies = 17,--31,
-    max_spring_length = 13.5 * 1.5,
+    n_outer_bodies = 23,
+    max_spring_length = radius * 3,
 
     bottom_wall_ray_length_factor = 1.5,
     side_wall_ray_length_factor = 1.05,
@@ -19,25 +19,28 @@ rt.settings.overworld.player = {
     player_collision_group = b2.CollisionGroup.GROUP_16,
     player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
 
-    target_velocity_x = 300,
+    ground_target_velocity_x = 280,
+    air_target_velocity_x = 350,
     sprint_multiplier = 2,
-    ground_acceleration_duration = 0.15, -- seconds
-    ground_deceleration_duration = 0.05,
+    ground_acceleration_duration = 20 / 60, -- seconds
+    ground_deceleration_duration = 5 / 60,
 
-    air_acceleration_duration = 0.1, -- seconds
-    air_deceleration_duration = 0.1,
+    air_acceleration_duration = 15 / 60, -- seconds
+    air_deceleration_duration = 15 / 60,
 
     coyote_time = 8 / 60,
 
     jump_duration = 10 / 60,
     jump_velocity = 445,
 
-    wall_jump_duration = 1,
-    wall_jump_initial_impulse = 200,
-    wall_jump_angle = 35, -- degrees
-    wall_jump_freeze_duration = 10 / 60,
     wall_magnet_force = 300,
-    wall_jump_buffer_delay = 10 / 60,
+    wall_jump_initial_impulse = 300,
+    wall_jump_sustained_impulse = 830, -- force per second
+    wall_jump_initial_angle = math.rad(10) - math.pi * 0.5,
+    wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
+    non_sprint_walljump_duration_multiplier = 1.4,
+    wall_jump_duration = 10 / 60,
+    wall_jump_freeze_duration = 7 / 60,
 
     bounce_min_force = 50,
     bounce_max_force = 220,
@@ -46,7 +49,7 @@ rt.settings.overworld.player = {
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
     downwards_force_factor = 2, -- times gravity
-    ground_regular_friction = 0,
+    ground_regular_friction = 100,
     ground_slippery_friction = -1000,
     wall_regular_friction = 0.8, -- times of gravity
     wall_slippery_friction = 0,
@@ -128,15 +131,14 @@ function ow.Player:instantiate(scene, stage)
         _right_wall_elapsed = 0,
 
         -- jump
-        _jump_elapsed = 0,
+        _jump_elapsed = math.huge,
         _coyote_elapsed = 0,
 
-        _wall_jump_elapsed = math.huge,
+        _wall_jump_elapsed = 0,
+        _left_wall_jump_blocked = false,
+        _right_wall_jump_blocked = false,
         _wall_jump_freeze_elapsed = math.huge,
         _wall_jump_freeze_sign = 0,
-        _wall_jump_left_blocked = false,
-        _wall_jump_right_blocked = false,
-        _wall_jump_button_locked = false,
 
         _bounce_direction_x = 0,
         _bounce_direction_y = 0,
@@ -224,7 +226,13 @@ function ow.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputButton.JUMP then
             self._jump_button_is_down = true
-            self._jump_elapsed = 0 -- jump
+            self._jump_elapsed = 0
+            if not self._bottom_wall then
+                if (self._left_wall and not self._left_wall_jump_blocked) or (self._right_wall and not self._right_wall_jump_blocked) then
+                    self._wall_jump_elapsed = 0
+                end
+            end
+
             self:signal_emit("jump")
         elseif which == rt.InputButton.SPRINT then
             self._sprint_button_is_down = true
@@ -254,7 +262,6 @@ function ow.Player:_connect_input()
     self._input:signal_connect("released", function(_, which)
         if which == rt.InputButton.JUMP then
             self._jump_button_is_down = false
-            self._wall_jump_button_locked = false
         elseif which == rt.InputButton.SPRINT then
             self._sprint_button_is_down = false
             self._next_sprint_multiplier = 1
@@ -379,7 +386,7 @@ function ow.Player:update(delta)
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
 
     -- update sprint once landed
-    if self._next_sprint_multiplier_update_when_grounded and (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) then
+    if self._next_sprint_multiplier_update_when_grounded and (self._bottom_wall or (self._left_wall or self._right_wall)) then
         self._sprint_multiplier = self._next_sprint_multiplier
     end
 
@@ -387,9 +394,7 @@ function ow.Player:update(delta)
 
     if self._ragdoll_button_is_down then --or ((self._top_wall == false and self._right_wall == false and self._bottom_wall == false and self._left_wall == false) and not (self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._sprint_button_is_down or self._jump_button_is_down) and self._joystick_position < 10e-4) then
         self._body:apply_linear_impulse(self._gravity_direction_x * gravity, self._gravity_direction_y * gravity)
-        self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
         self._jump_elapsed = self._jump_elapsed + delta
-        self._wall_jump_elapsed = self._wall_jump_elapsed + delta
         self._coyote_elapsed = self._coyote_elapsed + delta
         self._bounce_elapsed = self._bounce_elapsed + delta
         self._left_wall_elapsed = self._left_wall_elapsed + delta
@@ -423,10 +428,6 @@ function ow.Player:update(delta)
 
     -- update velocity
     do
-        -- do not allow for directional input after walljump
-        self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
-        local frozen = self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration
-
         -- horizontal movement
         local magnitude
         if self._left_button_is_down and not self._right_button_is_down then
@@ -437,32 +438,42 @@ function ow.Player:update(delta)
             magnitude = 0
         end
 
-        local target_velocity_x = magnitude * _settings.target_velocity_x * self._sprint_multiplier
-        if frozen and math.sign(target_velocity_x) ~= 0 and math.sign(target_velocity_x) == self._wall_jump_freeze_sign then
-            target_velocity_x = 0
+        local target
+        if not (self._bottom_left_wall or self._bottom_wall or self._left_wall) then
+            target = _settings.air_target_velocity_x
+        else
+            target = _settings.ground_target_velocity_x
         end
+
+        local target_velocity_x = magnitude * target * self._sprint_multiplier
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
         current_velocity_x = current_velocity_x / self._velocity_multiplier_x
         current_velocity_y = current_velocity_y / self._velocity_multiplier_y
 
+        local step = target_velocity_x - current_velocity_x
+
+        local is_accelerating = (target_velocity_x > 0 and current_velocity_x > 0 and target_velocity_x > current_velocity_x) or
+            (target_velocity_x < 0 and current_velocity_x < 0 and target_velocity_x < current_velocity_x) or
+            (target_velocity_x < 0 and current_velocity_x > 0 or target_velocity_x > 0 and current_velocity_y < 0)
+
         local duration
-        if (math.sign(target_velocity_x) == math.sign(current_velocity_x) and math.abs(target_velocity_x) > math.abs(current_velocity_x)) then
-            duration = self._bottom_wall and _settings.ground_acceleration_duration or _settings.air_deceleration_duration
+        if is_accelerating then
+            duration = self._bottom_wall and _settings.ground_acceleration_duration or _settings.air_acceleration_duration
         else
             duration = self._bottom_wall and _settings.ground_deceleration_duration or _settings.air_deceleration_duration
         end
 
-        -- only update x velocity while in the air and controller
-        if (self._left_button_is_down or self._right_button_is_down) or (math.abs(self._joystick_position) > 0) or
-            self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall or self._left_wall or self._right_wall
-        then
-            if duration == 0 then
-                next_velocity_x = target_velocity_x
-            else
-                local velocity_change = (target_velocity_x - current_velocity_x) / duration
-                next_velocity_x = current_velocity_x + velocity_change * delta
-            end
+        if duration == 0 then
+            next_velocity_x = target_velocity_x
+        else
+            local velocity_change = (target_velocity_x - current_velocity_x) / duration
+            next_velocity_x = current_velocity_x + velocity_change * delta
+        end
+
+        -- override acceleration with analog control
+        if self._use_controller_input then
+            next_velocity_x = self._joystick_x * next_velocity_x
         end
 
         if not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
@@ -479,13 +490,11 @@ function ow.Player:update(delta)
             next_velocity_x = next_velocity_x - friction_force * delta
         else
             -- magnetize to walls
-            if not frozen then
-                local magnet_force = _settings.wall_magnet_force
-                if self._left_wall and not self._right_wall and self._left_button_is_down then
-                    next_velocity_x = next_velocity_x - magnet_force * math.distance(x, y, left_x, left_y) / (self._radius * _settings.side_wall_ray_length_factor)
-                elseif self._right_wall and not self._left_wall and self._right_button_is_down then
-                    next_velocity_x = next_velocity_x + magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
-                end
+            local magnet_force = _settings.wall_magnet_force
+            if self._left_wall and not self._right_wall and self._left_button_is_down then
+                next_velocity_x = next_velocity_x - magnet_force * math.distance(x, y, left_x, left_y) / (self._radius * _settings.side_wall_ray_length_factor)
+            elseif self._right_wall and not self._left_wall and self._right_button_is_down then
+                next_velocity_x = next_velocity_x + magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
             end
         end
 
@@ -496,21 +505,22 @@ function ow.Player:update(delta)
         -- vertical movement
         next_velocity_y = current_velocity_y
 
-        if left_before == true and self._left_wall == false then self._left_wall_jump_blocked = false end
-        if right_before == true and self._right_wall == false then self._right_wall_jump_blocked = false end
+        local can_jump = (self._bottom_wall or (self._bottom_left_wall and not self._left_wall) or (self._bottom_right_wall and not self._right_wall))
 
-        local can_jump = (self._bottom_wall or self._bottom_left_wall or self._bottom_right_wall) and
-            not (self._left_wall or self._right_wall or self._top_wall)
+        -- if grounded or leaving wall area, unblock walljumps
+        if can_jump or (left_before == true and self._left_wall == false) then
+            self._left_wall_jump_blocked = false
+        end
 
-        local left_right_wall = self._left_wall and self._right_wall
-        local left_wall_jump_allowed = (self._left_wall and not self._left_wall_jump_blocked and (self._left_button_is_down or left_right_wall or self._left_wall_elapsed < _settings.wall_jump_buffer_delay))
-        local right_wall_jump_allowed = (self._right_wall and not self._right_wall_jump_blocked and (self._right_button_is_down or left_right_wall or self._right_wall_elapsed < _settings.wall_jump_buffer_delay))
-        local can_wall_jump = not can_jump and
-            not frozen and
-            not self._wall_jump_button_locked and (left_wall_jump_allowed or right_wall_jump_allowed)
+        if can_jump or (right_before == true and self._right_wall == false) then
+            self._right_wall_jump_blocked = false
+        end
 
-        if self._left_wall and can_wall_jump then self._left_wall_elapsed = 0 end
-        if self._right_wall and can_wall_jump then self._righ_wall_elapsed = 0 end
+        local can_wall_jump = not can_jump and (
+            self._wall_jump_elapsed < _settings.wall_jump_duration or (
+            (self._left_wall and not self._left_wall_jump_blocked) or
+            (self._right_wall and not self._right_wall_jump_blocked)
+        ))
 
         -- override wall conditions
         if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
@@ -520,26 +530,23 @@ function ow.Player:update(delta)
             can_jump = false
         end
 
-        if self._left_wall then
-            if left_wall_body:has_tag("slippery") or left_wall_body:has_tag("unjumpable") then
-                can_wall_jump = false
-            end
+        if (self._left_wall and (left_wall_body:has_tag("unjumpable") or left_wall_body:has_tag("slippery"))) or
+           (self._right_wall and (right_wall_body:has_tag("unjumpable") or right_wall_body:has_tag("slippery")))
+        then
+            can_wall_jump = false
         end
 
-        if self._right_wall then
-            if right_wall_body:has_tag("slippery") or right_wall_body:has_tag("unjumpable") then
-                can_wall_jump = false
-            end
-        end
 
         -- reset jump button when going from air to ground, to disallow buffering jumps while falling
-        local grounded_before = bottom_before -- only use bottom, not corner
-        local grounded_now = self._bottom_wall
-        if grounded_before == false and grounded_now == true then
+
+        if (bottom_before == false and self._bottom_wall == true) or
+            (left_before == false and self._left_wall == true) or
+            (right_before == false and self._right_wall == true)
+        then
             self._jump_button_is_down = false
         end
 
-        -- override jump logic
+        -- objects can overirde jump logic
         if self._jump_allowed_override ~= nil then
             if self._jump_allowed_override == true then
                 can_jump = true
@@ -548,6 +555,7 @@ function ow.Player:update(delta)
             end
         end
 
+        -- coyote time
         if can_jump then
             self._coyote_elapsed = 0
         else
@@ -557,37 +565,52 @@ function ow.Player:update(delta)
             self._coyote_elapsed = self._coyote_elapsed + delta
         end
 
+        -- prevent horizontal movement after walljump
+        if self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration and math.sign(target_velocity_x) == self._wall_jump_freeze_sign then
+            next_velocity_x = current_velocity_x
+        end
+        self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+
         if self._jump_button_is_down then
             if can_jump and self._jump_elapsed < _settings.jump_duration then
-                -- regular jump
+                -- regular jump: accelerate upwards wil jump button is down
                 next_velocity_y = -1 * _settings.jump_velocity * math.sqrt(self._jump_elapsed / _settings.jump_duration)
                 self._jump_elapsed = self._jump_elapsed + delta
-                self._wall_jump_button_locked = true
-            elseif can_wall_jump then -- start wall jump
-                local dx, dy = math.rotate(0, -1, -math.rad(_settings.wall_jump_angle))
-                if self._left_wall then dx = -1 * dx end
+            elseif can_wall_jump then
+                -- wall jump: initial burst, then small sustain
+                if self._wall_jump_elapsed == 0 then -- set by jump button
+                    -- initial burst
+                    local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
 
-                local force = _settings.wall_jump_initial_impulse
-                next_velocity_x, next_velocity_y = dx * force, dy * force
-                self._wall_jump_freeze_elapsed = 0
-                self._wall_jump_elapsed = 0
-                self._wall_jump_freeze_sign = -1 * math.sign(dx)
-                self._wall_jump_button_locked = true
+                    if self._left_wall then
+                        self._left_wall_jump_blocked = true
+                    elseif self._right_wall then
+                        self._right_wall_jump_blocked = true
+                    end
 
-                if self._left_wall then
-                    self._left_wall_jump_blocked = true
-                elseif self._right_wall then
-                    self._right_wall_jump_blocked = true
+                    if self._right_wall then dx = dx * -1 end
+                    local burst = _settings.wall_jump_initial_impulse + gravity
+                    next_velocity_x, next_velocity_y = dx * burst, dy * burst
+
+                    self._wall_jump_freeze_elapsed = 0
+
+                    if self._left_wall then
+                        self._wall_jump_freeze_sign = -1
+                    elseif self._right_wall then
+                        self._wall_jump_freeze_sign =  1
+                    end
+                elseif self._wall_jump_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
+                    -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
+                    local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
+
+                    if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
+                    local force = _settings.wall_jump_sustained_impulse * delta + gravity
+                    next_velocity_x = next_velocity_x + dx * force
+                    next_velocity_y = next_velocity_y + dy * force
                 end
-            elseif self._wall_jump_freeze_elapsed <= _settings.wall_jump_freeze_duration then
-                local dx, dy = math.rotate(0, -1, -math.rad(_settings.wall_jump_angle))
-                dx = dx * self._wall_jump_freeze_sign
-
-                local force = _settings.wall_jump_velocity * math.sqrt((self._wall_jump_freeze_elapsed * 1.3) / _settings.wall_jump_freeze_duration)
-                next_velocity_x = next_velocity_x + dx * force
-                next_velocity_y = next_velocity_y + dy * force
             end
         end
+
         self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
         if self._jump_elapsed >= _settings.jump_duration then
@@ -599,6 +622,7 @@ function ow.Player:update(delta)
         -- apply friction when wall_clinging
         local _apply_wall_friction = function(coefficient, tx, ty)
             local friction_force = coefficient * gravity * math.sign(current_velocity_y)
+            friction_force = (_settings.sprint_multiplier - self._sprint_multiplier + 1) * friction_force
             next_velocity_y = next_velocity_y - friction_force
         end
 
@@ -685,20 +709,22 @@ function ow.Player:update(delta)
         self._stage:add_blood_splatter(top_x, top_y, bottom_x, bottom_y)
     end
 
-    if self._top_wall then
-        _add_blood_splatter(top_x, top_y, top_nx, top_ny)
-    end
+    do
+        if self._top_wall and math.distance(top_x, top_y, x, y) <= self._radius then
+            _add_blood_splatter(top_x, top_y, top_nx, top_ny)
+        end
 
-    if self._right_wall then
-        _add_blood_splatter(right_x, right_y, right_nx, right_ny)
-    end
+        if self._right_wall and math.distance(right_x, right_y, x, y) <= self._radius then
+            _add_blood_splatter(right_x, right_y, right_nx, right_ny)
+        end
 
-    if self._bottom_wall then
-        _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
-    end
+        if self._bottom_wall and math.distance(bottom_x, bottom_y, x, y) <= self._radius then
+            _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
+        end
 
-    if self._left_wall then
-        _add_blood_splatter(left_x, left_y, left_nx, left_ny)
+        if self._left_wall and math.distance(left_x, left_y, x, y) <= self._radius then
+            _add_blood_splatter(left_x, left_y, left_nx, left_ny)
+        end
     end
 
     -- death bodies
@@ -944,7 +970,7 @@ function ow.Player:_update_mesh()
         local success, new_tris
         success, new_tris = pcall(love.math.triangulate, to_polygonize)
         if not success then
-            success, new_tris = pcall(slick.triangulate, {to_polygonize})
+            --success, new_tris = pcall(slick.triangulate, {to_polygonize})
         end
 
         if success then
@@ -1068,6 +1094,7 @@ end
 function ow.Player:set_jump_allowed(b)
     self._jump_allowed_override = b
     self._jump_elapsed = 0
+    self._wall_jump_elapsed = 0
 end
 
 --- @brief

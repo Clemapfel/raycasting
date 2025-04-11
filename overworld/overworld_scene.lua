@@ -466,8 +466,6 @@ function ow.OverworldScene:update(delta)
         self._camera_scale_velocity = 1 * max_velocity * 5
     elseif love.keyboard.isDown("n") then
         self._camera_scale_velocity = -1 * max_velocity * 5
-    else
-        self._camera_scale_velocity = 0
     end
 
     if self._camera_mode ~= ow.CameraMode.MANUAL then
@@ -480,7 +478,7 @@ end
 function ow.OverworldScene:_handle_joystick(x, y, left_or_right)
     if left_or_right == false then
         -- when moving, allow look-ahead but keep player on screen
-        local radius = 0.5 * math.min(love.graphics.getWidth(), love.graphics.getHeight())
+        local radius = 0.15 * math.min(love.graphics.getWidth(), love.graphics.getHeight())
         self._camera_position_offset_x = x * radius
         self._camera_position_offset_y = y * radius
     end
