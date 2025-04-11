@@ -67,8 +67,9 @@ function ow.Hitbox:instantiate(object, stage, scene)
 
     if self._body:has_tag("slippery") then
         self._body:set_friction(0)
+        stage:set_render_priority(self, 1)
     else
-        -- noop
+        stage:set_render_priority(self, 2)
     end
 end
 

@@ -34,9 +34,9 @@ rt.settings.overworld.player = {
     jump_velocity = 445,
 
     wall_magnet_force = 300,
-    wall_jump_initial_impulse = 300,
+    wall_jump_initial_impulse = 350,
     wall_jump_sustained_impulse = 830, -- force per second
-    wall_jump_initial_angle = math.rad(10) - math.pi * 0.5,
+    wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
     wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
     non_sprint_walljump_duration_multiplier = 1.4,
     wall_jump_duration = 10 / 60,
@@ -464,6 +464,10 @@ function ow.Player:update(delta)
             duration = self._bottom_wall and _settings.ground_deceleration_duration or _settings.air_deceleration_duration
         end
 
+        if self._bottom_wall == false and not (self._left_button_is_down or self._right_button_is_down or math.abs(self._joystick_position) > 10e-4) then
+            duration = 10e9 -- no air resistance
+        end
+
         if duration == 0 then
             next_velocity_x = target_velocity_x
         else
@@ -484,10 +488,20 @@ function ow.Player:update(delta)
             local friction_coefficient = _settings.ground_regular_friction
             if bottom_wall_body:has_tag("slippery") then
                 friction_coefficient = _settings.ground_slippery_friction
-            end
 
-            local friction_force = friction_coefficient * math.sign(current_velocity_x)
-            next_velocity_x = next_velocity_x - friction_force * delta
+                local sign = math.sign(next_velocity_x)
+                local friction_force = next_velocity_x * 0.25
+                local nx, ny = bottom_nx, bottom_ny
+                if sign < 0 then -- going right
+                    nx, ny = math.turn_left(nx, y)
+                    next_velocity_x = next_velocity_x - friction_force * nx * delta
+                    next_velocity_y = next_velocity_y - friction_force * ny * delta
+                elseif sign > 0 then
+                    nx, ny = math.turn_right(nx, y)
+                    next_velocity_x = next_velocity_x - friction_force * nx * delta
+                    next_velocity_y = next_velocity_y - friction_force * ny * delta
+                end
+            end
         else
             -- magnetize to walls
             local magnet_force = _settings.wall_magnet_force
@@ -971,6 +985,7 @@ function ow.Player:_update_mesh()
         success, new_tris = pcall(love.math.triangulate, to_polygonize)
         if not success then
             --success, new_tris = pcall(slick.triangulate, {to_polygonize})
+            self._outer_body_tris = {}
         end
 
         if success then
