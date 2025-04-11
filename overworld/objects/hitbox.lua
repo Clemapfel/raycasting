@@ -83,7 +83,11 @@ function ow.Hitbox:draw()
         self._shader:send("camera_offset", { _offset_x, _offset_y})
         self._shader:send("camera_scale", _scale)
     else
-        rt.Palette.GRAY:bind()
+        if self._body:has_tag("slippery") then
+            rt.Palette.GRAY_6:bind()
+        else
+            rt.Palette.GRAY_4:bind()
+        end
     end
 
     love.graphics.push()

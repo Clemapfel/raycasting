@@ -94,7 +94,7 @@ do -- load from image
 
     -- overworld
     rt.Palette.STICKY = rt.Palette.FOREGROUND
-    rt.Palette.SLIPPERY = rt.Palette.GRAY_4
+    rt.Palette.SLIPPERY = rt.Palette.BASE_OUTLINE
 end
 
 setmetatable(rt.Palette, {

@@ -60,7 +60,6 @@ rt.settings.overworld.player = {
     ragdoll_friction = 8,
 
     kill_animation_initial_impulse = 100,
-    kill_animation_gravity_factor = 0.5,
 
     --debug_drawing_enabled = true,
 }
@@ -83,8 +82,7 @@ meta.add_signals(ow.Player,
 
 ow.PlayerState = meta.enum("OverworldPlayerState", {
     ACTIVE = 1,
-    DISABLED = 2,
-    RESPAWNING = 4
+    DISABLED = 2
 })
 
 --- @brief
@@ -190,6 +188,11 @@ function ow.Player:instantiate(scene, stage)
 
         _outer_body_tris = {},
 
+        _death_outer_bodies = {},
+        _death_body = nil,
+        _death_body_centers_x = {},
+        _death_body_centers_y = {},
+
         -- hard body
         _body = nil,
         _world = nil,
@@ -199,8 +202,6 @@ function ow.Player:instantiate(scene, stage)
         _gravity_direction_y = 1,
         _gravity_multiplier = 1,
 
-        _last_respawn_x = 0,
-        _last_respawn_y = 0,
         _respawn_elapsed = 0,
 
         _bounce_sensor = nil, -- b2.Body
@@ -233,7 +234,7 @@ function ow.Player:_connect_input()
                 target:signal_emit("activate", self)
             end
         elseif which == rt.InputButton.RESPAWN then
-            self:kill(self._last_respawn_x, self._last_respawn_y)
+            self:kill()
         elseif which == rt.InputButton.X then
             self._ragdoll_button_is_down = true
         elseif which == rt.InputButton.Y then
@@ -315,83 +316,6 @@ function ow.Player:update(delta)
 
         self:_update_mesh()
         return
-    elseif self._state == ow.PlayerState.RESPAWNING then
-        self._respawn_elapsed = self._respawn_elapsed + delta
-
-        if self._respawn_elapsed > _settings.respawn_duration then
-            self._death_body:set_is_enabled(false)
-            for body in values(self._death_outer_bodies) do
-                body:set_is_enabled(false)
-            end
-
-            self._body:set_position(self._last_respawn_x, self._last_respawn_y)
-            self._body:set_velocity(0, 0)
-            self._body:set_is_enabled(true)
-
-            for i, body in ipairs(self._spring_bodies) do
-                body:set_position(
-                    self._last_respawn_x + self._spring_body_offsets_x[i],
-                    self._last_respawn_y + self._spring_body_offsets_y[i]
-                )
-                body:set_velocity(0, 0)
-                body:set_is_enabled(true)
-            end
-
-            self._body:set_collision_group(_settings.player_collision_group)
-            self._state = ow.Player.ACTIVE
-        else
-            -- simulate death proxies
-            local low_gravity = _settings.kill_animation_gravity_factor * gravity
-            local vx, vy = self._death_body:get_velocity()
-            self._death_body:set_velocity(vx + self._gravity_direction_x * low_gravity, vy + self._gravity_direction_y * low_gravity)
-            for body in values(self._death_outer_bodies) do
-                vx, vy = body:get_velocity()
-                body:set_velocity(vx + self._gravity_direction_x * low_gravity, vy + self._gravity_direction_y * low_gravity)
-            end
-
-            -- add blood splatter
-            for body in values(self._death_outer_bodies) do
-                local ray_length = self._death_body_radius * 2
-
-                local top_dx, top_dy = 0, -ray_length
-                local right_dx, right_dy = ray_length, 0
-                local bottom_dx, bottom_dy = 0, ray_length
-                local left_dx, left_dy = -ray_length, 0
-
-                local x, y = body:get_position()
-                local mask = bit.bnot(_settings.player_outer_body_collision_group)
-
-                local top_x, top_y, top_nx, top_ny, top_wall_body = self._world:query_ray_any(x, y, top_dx, top_dy, mask)
-                local right_x, right_y, right_nx, right_ny, right_wall_body = self._world:query_ray(x, y, right_dx, right_dy, mask)
-                local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray(x, y, bottom_dx, bottom_dy, mask)
-                local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
-
-                local left_wall = left_wall_body ~= nil and not left_wall_body:get_is_sensor()
-                local right_wall = right_wall_body ~= nil and not right_wall_body:get_is_sensor()
-                local top_wall = top_wall_body ~= nil and not top_wall_body:get_is_sensor()
-                local bottom_wall = bottom_wall_body ~= nil and not bottom_wall_body:get_is_sensor()
-
-                if top_wall then
-                    _add_blood_splatter(top_x, top_y, top_nx, top_ny)
-                end
-
-                if right_wall then
-                    _add_blood_splatter(right_x, right_y, right_nx, right_ny)
-                end
-
-                if bottom_wall then
-                    _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
-                end
-
-                if left_wall then
-                    _add_blood_splatter(left_x, left_y, left_nx, left_ny)
-                end
-            end
-
-            self:_update_mesh()
-            
-            return
-        end
     end
     -- else _state == ACTIVE
 
@@ -720,26 +644,6 @@ function ow.Player:update(delta)
 
     ::skip_velocity_update::
 
-    -- add force when squeezing through gaps
-    do
-        local needs_update = false
-        local multiplier = _settings.squeeze_multiplier
-        local vx, vy = self._body:get_velocity()
-        if (self._top_wall and self._bottom_wall) then
-            vx = vx * multiplier
-            needs_update = true
-        end
-
-        if (self._left_wall and self._right_wall) then
-            vy = vy * multiplier
-            needs_update = true
-        end
-
-        if needs_update then
-            self._body:set_velocity(vx, vy)
-        end
-    end
-
     -- safeguard against one of the springs catching
     for i, body in ipairs(self._spring_bodies) do
         local distance = math.distance(x, y, body:get_position())
@@ -786,6 +690,51 @@ function ow.Player:update(delta)
         _add_blood_splatter(left_x, left_y, left_nx, left_ny)
     end
 
+    -- death bodies
+    self._respawn_elapsed = self._respawn_elapsed + delta
+    for body in values(self._death_outer_bodies) do
+        local vx, vy = body:get_velocity()
+        body:set_velocity(vx + self._gravity_direction_x * gravity, vy + self._gravity_direction_y * gravity)
+
+        if self._respawn_elapsed < _settings.respawn_duration then
+            local ray_length = self._death_body_radius * 2
+
+            local top_dx, top_dy = 0, -ray_length
+            local right_dx, right_dy = ray_length, 0
+            local bottom_dx, bottom_dy = 0, ray_length
+            local left_dx, left_dy = -ray_length, 0
+
+            local x, y = body:get_position()
+            local mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
+
+            local top_x, top_y, top_nx, top_ny, top_wall_body = self._world:query_ray_any(x, y, top_dx, top_dy, mask)
+            local right_x, right_y, right_nx, right_ny, right_wall_body = self._world:query_ray(x, y, right_dx, right_dy, mask)
+            local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray(x, y, bottom_dx, bottom_dy, mask)
+            local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
+
+            local left_wall = left_wall_body ~= nil and not left_wall_body:get_is_sensor()
+            local right_wall = right_wall_body ~= nil and not right_wall_body:get_is_sensor()
+            local top_wall = top_wall_body ~= nil and not top_wall_body:get_is_sensor()
+            local bottom_wall = bottom_wall_body ~= nil and not bottom_wall_body:get_is_sensor()
+
+            if top_wall then
+                _add_blood_splatter(top_x, top_y, top_nx, top_ny)
+            end
+
+            if right_wall then
+                _add_blood_splatter(right_x, right_y, right_nx, right_ny)
+            end
+
+            if bottom_wall then
+                _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
+            end
+
+            if left_wall then
+                _add_blood_splatter(left_x, left_y, left_nx, left_ny)
+            end
+        end
+    end
+
     self._bounce_locked = false
 end
 
@@ -799,7 +748,7 @@ function ow.Player:move_to_stage(stage, x, y)
     self._world = world
     self._world:set_gravity(0, 0)
 
-    self._last_respawn_x, self._last_respawn_y = x, y
+    self.DISABLED, self._last_respawn_y = x, y
 
     -- hard body
     local inner_body_shape = b2.Circle(0, 0, self._inner_body_radius)
@@ -860,27 +809,23 @@ function ow.Player:move_to_stage(stage, x, y)
     end
 
     -- death animation proxies
+    self._death_body_angles = {}
     local death_body_shape = b2.Circle(0, 0, self._inner_body_radius)
     self._death_body_radius = self._inner_body_radius
     self._death_outer_bodies = {}
+    local death_mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
     for i = 1, _settings.n_outer_bodies do
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, 0, 0, death_body_shape)
         body:set_is_enabled(false)
         body:set_mass(1)
         body:set_restitution(0.5)
-        body:set_is_rotation_fixed(false)
-        body:set_collides_with(bit.bnot(_settings.player_outer_body_collision_group))
+        body:set_is_rotation_fixed(true)
+        body:set_collides_with(death_mask)
         body:set_collision_group(_settings.player_outer_body_collision_group)
         table.insert(self._death_outer_bodies, body)
+        table.insert(self._death_body_angles, math.angle(self._spring_body_offsets_x[i], self._spring_body_offsets_y[i]) + math.pi)
     end
 
-    self._death_body = b2.Body(self._world, b2.BodyType.DYNAMIC, 0, 0, death_body_shape)
-    self._death_body:set_is_enabled(false)
-    self._death_body:set_mass(1)
-    self._death_body:set_restitution(1)
-    self._death_body:set_is_rotation_fixed(false)
-    self._death_body:set_collides_with(bit.bnot(_settings.player_outer_body_collision_group))
-    self._death_body:set_collision_group(_settings.player_outer_body_collision_group)
 
     -- two tone colors for gradients
     local ar, ag, ab = 1, 1, 1
@@ -957,6 +902,10 @@ function ow.Player:move_to_stage(stage, x, y)
     self._outer_body_centers_y = {}
     self._outer_body_scales = {}
     self._outer_body_angles = {}
+
+    if self._state == ow.PlayerState.DISABLED then
+        self:disable()
+    end
 end
 
 function ow.Player:_update_mesh()
@@ -964,34 +913,18 @@ function ow.Player:_update_mesh()
     local player_x, player_y = self._body:get_position()
     local to_polygonize = {}
 
-    if self._state == ow.PlayerState.RESPAWNING then
-        for i, body in ipairs(self._death_outer_bodies) do
-            local cx, cy = body:get_position()
-            self._outer_body_centers_x[i] = cx
-            self._outer_body_centers_y[i] = cy
+    for i, body in ipairs(self._spring_bodies) do
+        local cx, cy = body:get_position()
+        self._outer_body_centers_x[i] = cx
+        self._outer_body_centers_y[i] = cy
+        local dx, dy = cx - player_x, cy - player_y
+        self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
 
-            local ox, oy = self._spring_bodies[i]:get_position()
-            self._outer_body_angles[i] = math.angle(ox - player_x, oy - player_y) + math.pi
+        local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
+        self._outer_body_scales[i] = math.max(scale / 2, 0)
 
-            self._outer_body_scales[i] = 1
-
-            table.insert(to_polygonize, cx)
-            table.insert(to_polygonize, cy)
-        end
-    else
-        for i, body in ipairs(self._spring_bodies) do
-            local cx, cy = body:get_position()
-            self._outer_body_centers_x[i] = cx
-            self._outer_body_centers_y[i] = cy
-            local dx, dy = cx - player_x, cy - player_y
-            self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
-
-            local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
-            self._outer_body_scales[i] = math.max(scale / 2, 0)
-
-            table.insert(to_polygonize, cx)
-            table.insert(to_polygonize, cy)
-        end
+        table.insert(to_polygonize, cx)
+        table.insert(to_polygonize, cy)
     end
 
     do
@@ -1007,70 +940,68 @@ function ow.Player:_update_mesh()
             self._outer_body_tris = new_tris
         end
     end
+
+    -- update death bodies
+    self._death_body_centers_x = {}
+    self._death_body_centers_y = {}
+    for i, body in ipairs(self._death_outer_bodies) do
+        local x, y = body:get_position()
+        self._death_body_centers_x[i] = x
+        self._death_body_centers_y[i] = y
+    end
 end
 
 --- @brief
 function ow.Player:draw()
-    if self._state ~= ow.PlayerState.RESPAWNING then
-        rt.Palette.MINT_1:bind()
-        love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
+    -- draw body
+    rt.Palette.MINT_1:bind()
+    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
 
-        local r, g, b, a = rt.Palette.MINT_2:unpack()
-        local rag_a, rag_g, rag_b = rt.Palette.GRAY_2:unpack()
+    local r, g, b, a = rt.Palette.MINT_2:unpack()
+    local rag_a, rag_g, rag_b = rt.Palette.GRAY_2:unpack()
 
-        if self._is_ragdoll then
-            love.graphics.setColor(rag_a, rag_g, rag_b, 0.3)
-        else
-            love.graphics.setColor(r, g, b, 0.3)
-        end
-
-        for tri in values(self._outer_body_tris) do
-            love.graphics.polygon("fill", tri)
-        end
-
-        love.graphics.setColor(r, g, b, 1)
-        for i, scale in ipairs(self._outer_body_scales) do
-            local x = self._outer_body_centers_x[i]
-            local y = self._outer_body_centers_y[i]
-
-            local origin_x = self._outer_body_mesh_origin_x
-            local origin_y = self._outer_body_mesh_origin_y
-
-            local angle = self._outer_body_angles[i]
-            love.graphics.draw(self._outer_body_mesh:get_native(),
-                x, y,
-                angle, -- rotation
-                scale, 1, -- scale
-                origin_x, origin_y -- origin
-            )
-        end
-
-        if self._is_ragdoll then
-            love.graphics.setColor(rag_a, rag_g, rag_b, 1)
-        else
-            love.graphics.setColor(r, g, b, 1)
-        end
+    if self._is_ragdoll then
+        love.graphics.setColor(rag_a, rag_g, rag_b, 0.3)
     else
-        rt.Palette.MINT_1:bind()
-        love.graphics.draw(self._outer_body_center_mesh:get_native(), self._death_body:get_position())
+        love.graphics.setColor(r, g, b, 0.3)
+    end
 
-        for i, scale in ipairs(self._outer_body_scales) do
-            local x = self._outer_body_centers_x[i]
-            local y = self._outer_body_centers_y[i]
+    for tri in values(self._outer_body_tris) do
+        love.graphics.polygon("fill", tri)
+    end
 
-            local origin_x = self._outer_body_mesh_origin_x
-            local origin_y = self._outer_body_mesh_origin_y
+    love.graphics.setColor(r, g, b, 1)
+    for i, scale in ipairs(self._outer_body_scales) do
+        local x = self._outer_body_centers_x[i]
+        local y = self._outer_body_centers_y[i]
 
-            local angle = self._outer_body_angles[i]
-            love.graphics.draw(self._outer_body_mesh:get_native(),
-                x, y,
-                angle, -- rotation
-                scale, 1, -- scale
-                origin_x, origin_y -- origin
-            )
-        end
+        local origin_x = self._outer_body_mesh_origin_x
+        local origin_y = self._outer_body_mesh_origin_y
 
+        local angle = self._outer_body_angles[i]
+        love.graphics.draw(self._outer_body_mesh:get_native(),
+            x, y,
+            angle, -- rotation
+            scale, 1, -- scale
+            origin_x, origin_y -- origin
+        )
+    end
 
+    if self._is_ragdoll then
+        love.graphics.setColor(rag_a, rag_g, rag_b, 1)
+    else
+        love.graphics.setColor(r, g, b, 1)
+    end
+
+    -- draw death bodies
+    rt.Palette.MINT_1:bind()
+    for i, body in ipairs(self._death_outer_bodies) do
+        local x = self._death_body_centers_x[i]
+        local y = self._death_body_centers_y[i]
+        love.graphics.draw(self._outer_body_center_mesh:get_native(),
+            x, y,
+            self._death_body_angles[i] + body:get_rotation()
+        )
     end
 
     if _settings.debug_drawing_enabled then
@@ -1147,13 +1078,11 @@ local _before = nil
 
 --- @brief
 function ow.Player:disable()
-    _before = self._state
-    self._state = ow.PlayerState.DISABLED
-
-    self._body:set_is_sensor(true)
-    for body in values(self._spring_bodies) do
-        body:set_is_sensor(true)
+    if self._state ~= ow.PlayerState.DISABLED then
+        _before = self._state
     end
+
+    self._state = ow.PlayerState.DISABLED
 end
 
 --- @brief
@@ -1163,16 +1092,13 @@ function ow.Player:enable()
     else
         self._state = _before
     end
-
-    self._body:set_is_sensor(false)
-    for body in values(self._spring_bodies) do
-        body:set_is_sensor(false)
-    end
 end
 
 --- @brief
 function ow.Player:set_velocity(x, y)
-    self._body:set_velocity(x, y)
+    if self._body ~= nil then
+        self._body:set_velocity(x, y)
+    end
     self._last_velocity_x, self._last_velocity_y = x, y
 end
 
@@ -1203,33 +1129,30 @@ function ow.Player:set_is_frozen(b)
 end
 
 --- @brief
-function ow.Player:kill(respawn_x, respawn_y)
-    meta.assert(respawn_x, "Number", respawn_y, "Number")
-    self._state = ow.PlayerState.RESPAWNING
-    self._last_respawn_x = respawn_x
-    self._last_respawn_y = respawn_y
+function ow.Player:kill()
     self._respawn_elapsed = 0
 
     local x, y = self._body:get_position()
     local vx, vy = self._body:get_velocity()
-
-    self._body:set_is_enabled(false)
-    for body in values(self._spring_bodies) do
-        body:set_is_enabled(false)
-    end
-
-    self._death_body:set_position(x, y)
-    self._death_body:set_velocity(vx, vy)
-    self._death_body:set_is_enabled(true)
 
     local speed = _settings.kill_animation_initial_impulse
     for i, body in ipairs(self._death_outer_bodies) do
         local offset_x, offset_y = self._spring_body_offsets_x[i], self._spring_body_offsets_y[i]
         body:set_position(x + offset_x, y + offset_y)
         local dx, dy = math.normalize(offset_x, offset_y)
-        body:set_velocity(vx + dx * speed, vy + dy * speed)
+        body:set_velocity(dx * speed, dy * speed)
         body:set_is_enabled(true)
     end
+
+    if self._last_spawn ~= nil then
+        self._last_spawn:spawn()
+    end
 end
+
+--- @brief
+function ow.Player:set_last_player_spawn(spawn)
+    self._last_spawn = spawn
+end
+
 
 

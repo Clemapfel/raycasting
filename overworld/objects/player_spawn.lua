@@ -8,7 +8,6 @@ ow.PlayerSpawn = meta.class("PlayerSpawn")
 --- @brief
 function ow.PlayerSpawn:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.PlayerSpawn: object hast to be a point")
-
     meta.install(self, {
         _scene = scene,
         _x = object.x,
@@ -22,13 +21,14 @@ function ow.PlayerSpawn:instantiate(object, stage, scene)
     stage:signal_connect("initialized", function()
         local world = stage:get_physics_world()
         local x, y, nx, ny, body = world:query_ray(self._x, self._y, 0, 10e9)
-        if x == nil then
-            rt.warning("In ow.PlayerSpawn: spawn position `" .. self._x .. " " .. self._y .. "` has no solid ground directly beneath it")
+        if x == nil then -- no ground
+            x, y = self._x, self._y
         end
 
-        self._target_x = x
-        self._target_y = y
+        self._target_x, self._target_y = x, y
+        scene:get_camera():set_position(self._target_x, self._target_y)
         self:spawn()
+        return meta.DISCONNECT_SIGNAL
     end)
 end
 
@@ -41,7 +41,7 @@ function ow.PlayerSpawn:update(delta)
 
         -- once player reached location, unfreeze, with timer as failsafe
         if player_y >= (self._target_y - player:get_radius()) or self._elapsed > rt.settings.overworld.player_spawn.max_spawn_duration then
-            player:set_is_frozen(false)
+            player:enable()
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
             self._waiting_for_player = false
         end
@@ -51,11 +51,14 @@ end
 --- @brief
 function ow.PlayerSpawn:spawn()
     local player = self._scene:get_player()
-    player:set_is_frozen(true)
+    player:disable()
+    player:set_velocity(0, 0)
     player:teleport_to(self._x, self._y)
     self._waiting_for_player = true
     self._elapsed = 0
 
     self._scene:set_camera_mode(ow.CameraMode.MANUAL)
-    self._scene:get_camera():set_position(self._target_x, self._target_y - player:get_radius()) -- jump cut at start of level
+    self._scene:get_camera():move_to(self._target_x, self._target_y - player:get_radius()) -- jump cut at start of level
+
+    player:set_last_player_spawn(self)
 end
