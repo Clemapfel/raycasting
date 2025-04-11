@@ -52,7 +52,7 @@ end
 function ow.PlayerSpawn:spawn()
     local player = self._scene:get_player()
     player:disable()
-    player:set_velocity(0, 0)
+    player:set_velocity(0, 1000)
     player:teleport_to(self._x, self._y)
     self._waiting_for_player = true
     self._elapsed = 0

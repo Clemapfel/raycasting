@@ -330,7 +330,6 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     self.mesh_prototype = {}
     self.mesh_triangles = {}
 
-
     local success, polygonized = pcall(slick.triangulate, {to_polygonize})
     if not success then -- slick failed to polygonize
         success, polygonized = pcall(love.math.triangulate, to_polygonize)

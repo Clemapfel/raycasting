@@ -32,7 +32,8 @@ rt.settings.overworld.player = {
     jump_duration = 10 / 60,
     jump_velocity = 445,
 
-    wall_jump_velocity = 800,
+    wall_jump_duration = 1,
+    wall_jump_initial_impulse = 200,
     wall_jump_angle = 35, -- degrees
     wall_jump_freeze_duration = 10 / 60,
     wall_magnet_force = 300,
@@ -130,6 +131,7 @@ function ow.Player:instantiate(scene, stage)
         _jump_elapsed = 0,
         _coyote_elapsed = 0,
 
+        _wall_jump_elapsed = math.huge,
         _wall_jump_freeze_elapsed = math.huge,
         _wall_jump_freeze_sign = 0,
         _wall_jump_left_blocked = false,
@@ -387,6 +389,7 @@ function ow.Player:update(delta)
         self._body:apply_linear_impulse(self._gravity_direction_x * gravity, self._gravity_direction_y * gravity)
         self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
         self._jump_elapsed = self._jump_elapsed + delta
+        self._wall_jump_elapsed = self._wall_jump_elapsed + delta
         self._coyote_elapsed = self._coyote_elapsed + delta
         self._bounce_elapsed = self._bounce_elapsed + delta
         self._left_wall_elapsed = self._left_wall_elapsed + delta
@@ -432,10 +435,6 @@ function ow.Player:update(delta)
             magnitude = 1
         else
             magnitude = 0
-        end
-
-        if self._use_controller_input then
-            magnitude = self._joystick_position -- analog control when using joystick overrides digital
         end
 
         local target_velocity_x = magnitude * _settings.target_velocity_x * self._sprint_multiplier
@@ -488,6 +487,10 @@ function ow.Player:update(delta)
                     next_velocity_x = next_velocity_x + magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
                 end
             end
+        end
+
+        if self._use_controller_input then
+            next_velocity_x = next_velocity_x * self._joystick_x
         end
 
         -- vertical movement
@@ -560,14 +563,14 @@ function ow.Player:update(delta)
                 next_velocity_y = -1 * _settings.jump_velocity * math.sqrt(self._jump_elapsed / _settings.jump_duration)
                 self._jump_elapsed = self._jump_elapsed + delta
                 self._wall_jump_button_locked = true
-            elseif can_wall_jump then
-
+            elseif can_wall_jump then -- start wall jump
                 local dx, dy = math.rotate(0, -1, -math.rad(_settings.wall_jump_angle))
                 if self._left_wall then dx = -1 * dx end
 
-                local force = _settings.wall_jump_velocity
+                local force = _settings.wall_jump_initial_impulse
                 next_velocity_x, next_velocity_y = dx * force, dy * force
                 self._wall_jump_freeze_elapsed = 0
+                self._wall_jump_elapsed = 0
                 self._wall_jump_freeze_sign = -1 * math.sign(dx)
                 self._wall_jump_button_locked = true
 
@@ -576,8 +579,16 @@ function ow.Player:update(delta)
                 elseif self._right_wall then
                     self._right_wall_jump_blocked = true
                 end
+            elseif self._wall_jump_freeze_elapsed <= _settings.wall_jump_freeze_duration then
+                local dx, dy = math.rotate(0, -1, -math.rad(_settings.wall_jump_angle))
+                dx = dx * self._wall_jump_freeze_sign
+
+                local force = _settings.wall_jump_velocity * math.sqrt((self._wall_jump_freeze_elapsed * 1.3) / _settings.wall_jump_freeze_duration)
+                next_velocity_x = next_velocity_x + dx * force
+                next_velocity_y = next_velocity_y + dy * force
             end
         end
+        self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
         if self._jump_elapsed >= _settings.jump_duration then
             self._jump_allowed_override = nil
