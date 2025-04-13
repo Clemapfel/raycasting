@@ -101,11 +101,21 @@ b2.Segment = meta.class("PhysicsSegment", b2.Shape,function(self, vertices, ...)
         vertices = {vertices, ...}
     end
     self._vertices = vertices
+    self._is_one_sided = false
 end)
 
 --- @brief
+function b2.Segment:set_is_one_sided(b)
+    self._is_one_sided = b
+end
+
+--- @brief
 function b2.Segment:_add_to_body(body)
-    return love.physics.newChainShape(body, false, self._vertices)
+    if self._is_one_sided then
+        return love.physics.newChainShape(body, false, self._vertices)
+    else
+        return love.physics.newEdgeShape(body, table.unpack(self._vertices))
+    end
 end
 
 --- @brief
