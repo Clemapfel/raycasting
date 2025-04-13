@@ -93,3 +93,22 @@ end
 function b2.Polygon:_add_to_body(body)
     return love.physics.newPolygonShape(body, self._native.arguments)
 end
+
+--- @class b2.Segment
+--- @param vertices Table<Number>
+b2.Segment = meta.class("PhysicsSegment", b2.Shape,function(self, vertices, ...)
+    if meta.is_number(vertices) then
+        vertices = {vertices, ...}
+    end
+    self._vertices = vertices
+end)
+
+--- @brief
+function b2.Segment:_add_to_body(body)
+    return love.physics.newChainShape(body, false, self._vertices)
+end
+
+--- @brief
+function b2.Segment:draw()
+    love.graphics.line(table.unpack(self._vertices))
+end

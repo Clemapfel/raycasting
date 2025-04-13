@@ -144,6 +144,9 @@ function ow.Stage:instantiate(scene, id)
     self._is_initialized = true
     self:signal_emit("initialized")
 
+    if self._player_spawn_x == nil or self._player_spawn_y == nil then
+        rt.warning("In ow.Stage.initialize: not player spawn set for stage `" .. self._id .. "`")
+    end
     if self._player_spawn_x == nil then self._player_spawn_x = 0.5 * w end
     if self._player_spawn_y == nil then self._player_spawn_y = 0.5 * h end
 end

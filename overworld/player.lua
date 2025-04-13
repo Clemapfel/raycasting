@@ -180,7 +180,6 @@ function ow.Player:instantiate(scene, stage)
         _spring_body_offsets_x = {},
         _spring_body_offsets_y = {},
 
-
         _outer_body_mesh = nil,
         _outer_body_mesh_origin_x = 0,
         _outer_body_mesh_origin_y = 0,
@@ -207,6 +206,8 @@ function ow.Player:instantiate(scene, stage)
         _gravity_multiplier = 1,
 
         _respawn_elapsed = 0,
+        _can_wall_jump = false,
+        _can_jump = false,
 
         _bounce_sensor = nil, -- b2.Body
         _bounce_sensor_pin = nil, -- b2.Pin
@@ -594,6 +595,9 @@ function ow.Player:update(delta)
             next_velocity_x = current_velocity_x
         end
         self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+
+        self._can_jump = can_jump
+        self._can_wall_jump = can_wall_jump
 
         if self._jump_button_is_down then
             if can_jump and self._jump_elapsed < _settings.jump_duration then
@@ -1016,19 +1020,12 @@ end
 
 --- @brief
 function ow.Player:draw()
+    local r, g, b, a = rt.Palette.MINT_2:unpack()
+
     -- draw body
-    rt.Palette.MINT_1:bind()
     love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
 
-    local r, g, b, a = rt.Palette.MINT_2:unpack()
-    local rag_a, rag_g, rag_b = rt.Palette.GRAY_2:unpack()
-
-    if self._is_ragdoll then
-        love.graphics.setColor(rag_a, rag_g, rag_b, 0.3)
-    else
-        love.graphics.setColor(r, g, b, 0.3)
-    end
-
+    love.graphics.setColor(r, g, b, 0.3)
     for tri in values(self._outer_body_tris) do
         love.graphics.polygon("fill", tri)
     end
@@ -1050,14 +1047,8 @@ function ow.Player:draw()
         )
     end
 
-    if self._is_ragdoll then
-        love.graphics.setColor(rag_a, rag_g, rag_b, 1)
-    else
-        love.graphics.setColor(r, g, b, 1)
-    end
-
     -- draw death bodies
-    rt.Palette.MINT_1:bind()
+    love.graphics.setColor(r, g, b, 1)
     for i, body in ipairs(self._death_outer_bodies) do
         local x = self._death_body_centers_x[i]
         local y = self._death_body_centers_y[i]
@@ -1216,6 +1207,11 @@ end
 --- @brief
 function ow.Player:set_last_player_spawn(spawn)
     self._last_spawn = spawn
+end
+
+--- @brief
+function ow.Player:get_last_player_spawn()
+    return self._last_spawn
 end
 
 

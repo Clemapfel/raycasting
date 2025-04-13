@@ -17,20 +17,6 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._state = _state_inactive
 
-    local target = object:get_object("target", true)
-    assert(target:get_type() == ow.ObjectType.POINT, "In ow.KillPlane: `target` object `" .. target.id .. "` is not a point")
-    self._x, self._y = target.x, target.y
-
-    stage:signal_connect("initialized", function()
-        local world = stage:get_physics_world()
-        local x, y, nx, ny, body = world:query_ray(self._x, self._y, 0, 10e9)
-        if x == nil then -- no ground
-            x, y = self._x, self._y
-        end
-
-        self._target_x, self._target_y = x, y
-        return meta.DISCONNECT_SIGNAL
-    end)
 
     self._body:signal_connect("collision_start", function(_, other_body)
         assert(other_body:has_tag("player"))
@@ -45,6 +31,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         player:set_velocity(0, vy)
         player:disable()
 
+        self._player = player
         self._state = _state_waiting_for_leave_bottom
     end)
 end
@@ -60,17 +47,7 @@ function ow.KillPlane:update()
         local camera_w, camera_h = camera:get_size()
 
         if player_y > camera_h then -- player left screen
-            player:teleport_to(self._x, self._y)
-            camera:move_to(self._target_x, self._target_y)
-            self._state = _state_waiting_for_enter_top
-        end
-    elseif self._state == _state_waiting_for_enter_top then
-        local player = self._scene:get_player()
-        local player_x, player_y = player:get_position()
-
-        if player_y >= self._target_y - player:get_radius() then
-            player:enable()
-            self._scene:set_camera_mode(ow.CameraMode.AUTO)
+            self._player:get_last_player_spawn():spawn()
             self._state = _state_inactive
         end
     end
@@ -80,5 +57,4 @@ end
 function ow.KillPlane:draw()
     rt.Palette.RED:bind()
     self._body:draw()
-    love.graphics.line(self._x, self._y, self._target_x, self._target_y)
 end
