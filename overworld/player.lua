@@ -35,7 +35,7 @@ rt.settings.overworld.player = {
 
     wall_magnet_force = 300,
     wall_jump_initial_impulse = 350,
-    wall_jump_sustained_impulse = 830, -- force per second
+    wall_jump_sustained_impulse = 900, -- force per second
     wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
     wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
     non_sprint_walljump_duration_multiplier = 1.4,
@@ -830,7 +830,7 @@ function ow.Player:move_to_stage(stage, x, y)
         body:set_is_enabled(false)
         body:set_mass(1)
         body:set_restitution(0.5)
-        body:set_is_rotation_fixed(true)
+            body:set_is_rotation_fixed(true)
         body:set_collides_with(death_mask)
         body:set_collision_group(_settings.player_outer_body_collision_group)
         table.insert(self._death_outer_bodies, body)
@@ -965,7 +965,7 @@ end
 
 --- @brief
 function ow.Player:draw()
-    local r, g, b, a = rt.Palette.MINT_2:unpack()
+    local r, g, b, a = rt.Palette.PLAYER:unpack()
 
     -- draw body
     love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
@@ -984,6 +984,7 @@ function ow.Player:draw()
         local origin_y = self._outer_body_mesh_origin_y
 
         local angle = self._outer_body_angles[i]
+
         love.graphics.draw(self._outer_body_mesh:get_native(),
             x, y,
             angle, -- rotation

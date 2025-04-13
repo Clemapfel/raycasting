@@ -57,6 +57,8 @@ function ow.OverworldScene:instantiate()
 
         _background = rt.Background("lymphette"),
 
+        _player = nil,
+        _player_trail = nil,
     })
 
     self._player = ow.Player(self)
@@ -364,8 +366,8 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
 --- @brief
 function ow.OverworldScene:draw()
-    self._background:draw()
-
+   -- self._background:draw()
+    love.graphics.clear(0.2, 0.2, 0.2, 1)
 
     self._camera:bind()
     --self._stage._world:draw()

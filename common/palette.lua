@@ -95,6 +95,9 @@ do -- load from image
     -- overworld
     rt.Palette.STICKY = rt.Palette.FOREGROUND
     rt.Palette.SLIPPERY = rt.Palette.GRAY_4
+    rt.Palette.PLAYER = rt.Palette.CINNABAR_3
+    rt.Palette.PLAYER_BLOOD = rt.Palette.CINNABAR_3
+    rt.Palette.PLAYER_TRAIL = rt.Palette.CINNABAR_4
 end
 
 setmetatable(rt.Palette, {

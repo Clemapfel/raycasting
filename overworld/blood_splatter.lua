@@ -26,7 +26,7 @@ end
 function ow.BloodSplatter:draw()
     local n = #self._segments
     if n == 0 then return end
-    rt.Palette.MINT_2:bind()
+    rt.Palette.PLAYER_BLOOD:bind()
     love.graphics.setLineWidth(2)
     for i = 1, n, 4 do
         love.graphics.line(

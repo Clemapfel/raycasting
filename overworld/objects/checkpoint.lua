@@ -100,14 +100,15 @@ function ow.Checkpoint:spawn()
     player:disable()
     player:set_velocity(0, 1000)
     player:teleport_to(self._x, self._y)
-    player:signal_emit("respawn")
     self._waiting_for_player = true
     self._elapsed = 0
 
     self._scene:get_camera():move_to(self._target_x, self._target_y - player:get_radius()) -- jump cut at start of level
     player:set_last_player_spawn(self)
+    player:signal_emit("respawn")
 end
 
+--[[
 --- @brief
 function ow.Checkpoint:draw()
     if self._scene:get_player():get_last_player_spawn() == self then
@@ -117,3 +118,4 @@ function ow.Checkpoint:draw()
     end
     self._body:draw()
 end
+]]--
