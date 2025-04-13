@@ -60,8 +60,6 @@ rt.settings.overworld.player = {
     respawn_duration = 2,
 
     squeeze_multiplier = 1.4,
-    ragdoll_trigger_jump_height = 7,
-    ragdoll_friction = 8,
 
     kill_animation_initial_impulse = 100,
 
@@ -81,7 +79,8 @@ local _settings = setmetatable({}, {
 --- @class ow.Player
 ow.Player = meta.class("OverworldPlayer")
 meta.add_signals(ow.Player,
-    "jump"
+    "jump",
+    "respawn"
 )
 
 ow.PlayerState = meta.enum("OverworldPlayerState", {
@@ -152,7 +151,6 @@ function ow.Player:instantiate(scene, stage)
         _velocity_multiplier_x = 1,
         _velocity_multiplier_y = 1,
 
-        _is_ragdoll = false,
         _is_frozen = false,
         _respawn_elapsed = 0,
 
@@ -166,7 +164,6 @@ function ow.Player:instantiate(scene, stage)
         _up_button_is_down = false,
         _jump_button_is_down = false,
         _sprint_button_is_down = false,
-        _ragdoll_button_is_down = false,
 
         _sprint_multiplier = 1,
         _next_sprint_multiplier = 1,
@@ -245,8 +242,6 @@ function ow.Player:_connect_input()
             end
         elseif which == rt.InputButton.RESPAWN then
             self:kill()
-        elseif which == rt.InputButton.X then
-            self._ragdoll_button_is_down = true
         elseif which == rt.InputButton.Y then
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = true
@@ -266,8 +261,6 @@ function ow.Player:_connect_input()
             self._sprint_button_is_down = false
             self._next_sprint_multiplier = 1
             self._next_sprint_multiplier_update_when_grounded = true
-        elseif which == rt.InputButton.X then
-            self._ragdoll_button_is_down = false
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = false
         elseif which == rt.InputButton.RIGHT then
@@ -380,40 +373,6 @@ function ow.Player:update(delta)
     end
 
     local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
-
-    if self._ragdoll_button_is_down then --or ((self._top_wall == false and self._right_wall == false and self._bottom_wall == false and self._left_wall == false) and not (self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._sprint_button_is_down or self._jump_button_is_down) and self._joystick_position < 10e-4) then
-        self._body:apply_linear_impulse(self._gravity_direction_x * gravity, self._gravity_direction_y * gravity)
-        self._jump_elapsed = self._jump_elapsed + delta
-        self._coyote_elapsed = self._coyote_elapsed + delta
-        self._bounce_elapsed = self._bounce_elapsed + delta
-        self._left_wall_elapsed = self._left_wall_elapsed + delta
-        self._right_wall_elapsed = self._right_wall_elapsed + delta
-
-        -- ragdolling
-        if self._is_ragdoll == false then
-            local do_jump = self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall -- resets box2d contact friction
-            for body in values(self._spring_bodies) do
-                body:set_friction(_settings.ragdoll_friction)
-                if do_jump then
-                    body:apply_linear_impulse(0, -_settings.ragdoll_trigger_jump_height)
-                end
-            end
-        end
-        self._is_ragdoll = true
-
-        goto skip_velocity_update
-    end
-
-    if self._is_ragdoll == true then
-        self._is_ragdoll = false
-        local do_jump = self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall
-        for body in values(self._spring_bodies) do
-            body:set_friction(0)
-            if do_jump then
-                body:apply_linear_impulse(0, -_settings.ragdoll_trigger_jump_height)
-            end
-        end
-    end
 
     -- update velocity
     do
@@ -549,7 +508,6 @@ function ow.Player:update(delta)
             can_wall_jump = false
         end
 
-
         -- reset jump button when going from air to ground, to disallow buffering jumps while falling
 
         if (bottom_before == false and self._bottom_wall == true) or
@@ -653,7 +611,6 @@ function ow.Player:update(delta)
             math.turn_right(right_nx, right_ny)
         ) end
 
-
         local fraction = self._bounce_elapsed / _settings.bounce_duration
         if fraction <= 1 then
             -- bounce
@@ -673,7 +630,7 @@ function ow.Player:update(delta)
         self._bounce_elapsed = self._bounce_elapsed + delta
 
         -- downwards force
-        if not frozen and self._down_button_is_down then
+        if self._down_button_is_down then
             local factor = _settings.downwards_force_factor
             if self._bottom_wall then factor = factor * 4 end
             next_velocity_y = next_velocity_y + factor * gravity
@@ -1150,10 +1107,6 @@ function ow.Player:get_velocity()
     return self._last_velocity_x, self._last_velocity_y
 end
 
---- @brief
-function ow.Player:get_is_ragdoll()
-    return self._is_ragdoll
-end
 
 --- @brief
 function ow.Player:bounce(nx, ny, force)
@@ -1189,6 +1142,7 @@ function ow.Player:kill()
 
     if self._last_spawn ~= nil then
         self._last_spawn:spawn()
+        -- signal emitted by ow.Checkpoint
     end
 end
 

@@ -1,9 +1,10 @@
 require "common.scene"
 require "common.mesh"
-require "common.blur"
 require "common.background"
 require "overworld.stage"
 require "overworld.camera"
+require "overworld.player"
+require "overworld.player_trail"
 require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
@@ -56,10 +57,13 @@ function ow.OverworldScene:instantiate()
 
         _background = rt.Background("lymphette"),
 
-        _blur = nil, -- rt.Blur
     })
 
     self._player = ow.Player(self)
+    self._player_trail = ow.PlayerTrail(self)
+    self._player:signal_connect("respawn", function()
+        self._player_trail:clear()
+    end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, true)
@@ -255,9 +259,6 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         { x + width - gradient_w, y + height, 0, 0, r, g, b, 0 }
     })
 
-    self._blur = rt.Blur(width, height)
-    self._blur:set_blur_strength(4)
-
     self._background:reformat(0, 0, width, height)
 end
 
@@ -289,6 +290,7 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
         self._stage = next_entry.stage
 
         self._player:move_to_stage(self._stage, spawn_x, spawn_y)
+        self._player_trail:clear()
 
         --if self._camera_mode ~= ow.CameraMode.MANUAL then
             self._camera:set_bounds(self._stage:get_camera_bounds())
@@ -364,12 +366,14 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 function ow.OverworldScene:draw()
     self._background:draw()
 
+
     self._camera:bind()
     --self._stage._world:draw()
     self._stage:draw_floors()
     self._stage:draw_objects()
     self._stage:get_pathfinding_graph():draw()
     self._stage:draw_blood_splatter()
+    self._player_trail:draw()
     self._player:draw()
     self._stage:draw_walls()
 
@@ -414,6 +418,7 @@ function ow.OverworldScene:update(delta)
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
+    self._player_trail:update(delta)
     self._player:update(delta)
 
     -- mouse-based scrolling

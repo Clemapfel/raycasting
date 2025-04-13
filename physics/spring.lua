@@ -41,7 +41,7 @@ function b2.Spring:_initialize()
             x1, y1,
             x2, y2,
             false
-        ),
+        )
     })
 
     self._prismatic_joint:setLimitsEnabled(true)
