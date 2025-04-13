@@ -221,7 +221,6 @@ function ow.Player:instantiate(scene, stage)
     end
 end
 
-
 --- @brief
 function ow.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
@@ -299,17 +298,6 @@ end
 --- @brief
 function ow.Player:update(delta)
     local gravity = _settings.gravity * delta * self._gravity_multiplier
-
-    local function _add_blood_splatter(contact_x, contact_y, nx, ny)
-        local nx_top, ny_top = math.turn_left(nx, ny)
-        local nx_bottom, ny_bottom = math.turn_right(nx, ny)
-
-        local r = math.sqrt(math.abs(select(1, self._body:get_velocity()))) / 2
-        local top_x, top_y = contact_x + nx_top * r, contact_y + ny_top * r
-        local bottom_x, bottom_y = contact_x + nx_bottom * r, contact_y + ny_bottom * r
-
-        self._stage:add_blood_splatter(top_x, top_y, bottom_x, bottom_y)
-    end
 
     if self._state == ow.PlayerState.DISABLED then
         local vx, vy = self._last_velocity_x, self._last_velocity_y
@@ -739,19 +727,19 @@ function ow.Player:update(delta)
     end
 
     do
-        if self._top_wall and math.distance(top_x, top_y, x, y) <= self._radius then
+        if self._top_wall and not top_wall_body:has_tag("slippery") and math.distance(top_x, top_y, x, y) <= self._radius then
             _add_blood_splatter(top_x, top_y, top_nx, top_ny)
         end
 
-        if self._right_wall and math.distance(right_x, right_y, x, y) <= self._radius then
+        if self._right_wall and not right_wall_body:has_tag("slippery") and math.distance(right_x, right_y, x, y) <= self._radius then
             _add_blood_splatter(right_x, right_y, right_nx, right_ny)
         end
 
-        if self._bottom_wall and math.distance(bottom_x, bottom_y, x, y) <= self._radius then
+        if self._bottom_wall and not bottom_wall_body:has_tag("slippery") and math.distance(bottom_x, bottom_y, x, y) <= self._radius then
             _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
         end
 
-        if self._left_wall and math.distance(left_x, left_y, x, y) <= self._radius then
+        if self._left_wall and not left_wall_body:has_tag("slippery") and math.distance(left_x, left_y, x, y) <= self._radius then
             _add_blood_splatter(left_x, left_y, left_nx, left_ny)
         end
     end
