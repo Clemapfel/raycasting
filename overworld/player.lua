@@ -19,8 +19,8 @@ rt.settings.overworld.player = {
     player_collision_group = b2.CollisionGroup.GROUP_16,
     player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
 
-    ground_target_velocity_x = 280,
-    air_target_velocity_x = 350,
+    ground_target_velocity_x = 300,
+    air_target_velocity_x = 300,
     sprint_multiplier = 2,
     ground_acceleration_duration = 20 / 60, -- seconds
     ground_deceleration_duration = 5 / 60,
@@ -31,10 +31,10 @@ rt.settings.overworld.player = {
     coyote_time = 3 / 60,
 
     jump_duration = 10 / 60,
-    jump_velocity = 445,
+    jump_impulse = 480, -- 4 * 32 neutral jump
 
     wall_magnet_force = 300,
-    wall_jump_initial_impulse = 350,
+    wall_jump_initial_impulse = 370,
     wall_jump_sustained_impulse = 900, -- force per second
     wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
     wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
@@ -549,7 +549,7 @@ function ow.Player:update(delta)
             if can_jump and self._jump_elapsed < _settings.jump_duration then
                 -- regular jump: accelerate upwards wil jump button is down
                 self._coyote_elapsed = 0
-                next_velocity_y = -1 * _settings.jump_velocity * math.sqrt(self._jump_elapsed / _settings.jump_duration)
+                next_velocity_y = -1 * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
                 self._jump_elapsed = self._jump_elapsed + delta
             elseif can_wall_jump then
                 -- wall jump: initial burst, then small sustain

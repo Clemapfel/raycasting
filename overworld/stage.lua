@@ -32,6 +32,7 @@ function ow.Stage:instantiate(scene, id)
     meta.assert(scene, "OverworldScene", id, "String")
     self._scene = scene
     self._is_initialized = false
+    self._id = id
 
     local config = ow.Stage._config_atlas[id]
     if config == nil then

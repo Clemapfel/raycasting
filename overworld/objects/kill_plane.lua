@@ -27,6 +27,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         camera:move_to(camera:get_position())
 
         local player = self._scene:get_player()
+        player.do_not_update_trail = true
         local vx, vy = player:get_velocity()
         player:set_velocity(0, vy)
         player:disable()

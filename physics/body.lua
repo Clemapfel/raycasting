@@ -357,6 +357,11 @@ function b2.Body:get_type()
 end
 
 --- @brief
+function b2.Body:set_type(type)
+    self._native:setType(type)
+end
+
+--- @brief
 function b2.Body:set_use_continuous_collision(b)
     self._native:setBullet(b)
 end

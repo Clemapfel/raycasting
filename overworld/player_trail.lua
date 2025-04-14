@@ -7,7 +7,7 @@ ow.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
 --- @brief
 function ow.PlayerTrail:instantiate(scene)
     self._scene = scene
-    self._width, self._height = 2 * love.graphics.getWidth(), 2 * love.graphics.getHeight()
+    self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
     self._canvas_a = rt.RenderTexture(self._width, self._height)
     self._canvas_b = rt.RenderTexture(self._width, self._height)
     self._a_or_b = true
