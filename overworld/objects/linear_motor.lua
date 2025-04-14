@@ -27,14 +27,11 @@ function ow.LinearMotor:instantiate(object, stage, scene)
             _target = stage:get_object_instance(target):get_physics_body()
         })
 
-        if self._target:get_type() == b2.BodyType.STATIC then
-            rt.warning("In ow.LinearMotor: instance of target object `" .. object.id .. "` of stage `" .. stage:get_id() .. "` is static, it cannot be moved")
-        end
-
+        self._target:set_type(b2.BodyType.DYNAMIC)
         self._anchor:set_is_sensor(true)
 
-        local anchor_x, anchor_y = object:get_centroid()
-        local target_x, target_y = target:get_centroid()
+        local anchor_x, anchor_y = self._anchor:get_center_of_mass()
+        local target_x, target_y = self._target:get_center_of_mass()
 
         self._joint = love.physics.newPrismaticJoint(
             self._anchor:get_native(),
@@ -45,14 +42,25 @@ function ow.LinearMotor:instantiate(object, stage, scene)
         )
 
         self._joint:setMotorEnabled(true)
-        self._joint:setMotorSpeed(0)
         self._joint:setMaxMotorForce(math.huge)
         self._joint:setLimitsEnabled(false)
+        self._joint:setMotorSpeed(0)
         self._joint:setUserData(self)
         self._length = math.distance(anchor_x, anchor_y, target_x, target_y)
 
         self._lower = object:get_number("lower") or -math.huge
-        self._upper = object:get_number("upper") or math.hue
+        self._upper = object:get_number("upper") or math.huge
+
+        local cycle = object:get_number("cycle")
+        if cycle ~= nil then
+            self._is_cycling = true
+            self._cycle_duration = cycle
+            self._cycle_elapsed = 0
+        else
+            self._is_cycling = false
+            self._cycle_duration = math.huge
+            self._cycle_elapsed = 0
+        end
 
         self._is_active = true
 
@@ -98,8 +106,14 @@ function ow.LinearMotor:update(delta)
     if self._is_active ~= true then return end
 
     local value = math.clamp(self._value, self._lower, self._upper)
+
+    if self._is_cycling then
+        self._cycle_elapsed = self._cycle_elapsed + delta
+        value = (math.sin(self._cycle_elapsed / self._cycle_duration) + 1) / 2
+    end
+
     local target_length = self._length * (value - 1)
-    local current_length = self._joint:getDistance()
+    local current_length = self._joint:getJointTranslation()
     self._joint:setMotorSpeed((target_length - current_length) * self._speed)
 end
 
