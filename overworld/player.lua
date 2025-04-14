@@ -684,19 +684,35 @@ function ow.Player:update(delta)
     end
 
     do
-        if self._top_wall and not top_wall_body:has_tag("slippery") and math.distance(top_x, top_y, x, y) <= self._radius then
+        if self._top_wall and
+            not top_wall_body:has_tag("slippery") and
+            not top_wall_body:has_tag("no_blood") and
+            math.distance(top_x, top_y, x, y) <= self._radius
+        then
             _add_blood_splatter(top_x, top_y, top_nx, top_ny)
         end
 
-        if self._right_wall and not right_wall_body:has_tag("slippery") and math.distance(right_x, right_y, x, y) <= self._radius then
+        if self._right_wall and
+            not right_wall_body:has_tag("slippery") and
+            not right_wall_body:has_tag("no_blood") and
+            math.distance(right_x, right_y, x, y) <= self._radius
+        then
             _add_blood_splatter(right_x, right_y, right_nx, right_ny)
         end
 
-        if self._bottom_wall and not bottom_wall_body:has_tag("slippery") and math.distance(bottom_x, bottom_y, x, y) <= self._radius then
+        if self._bottom_wall and
+            not bottom_wall_body:has_tag("slippery") and
+            not bottom_wall_body:has_tag("no_blood") and
+            math.distance(bottom_x, bottom_y, x, y) <= self._radius
+        then
             _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
         end
 
-        if self._left_wall and not left_wall_body:has_tag("slippery") and math.distance(left_x, left_y, x, y) <= self._radius then
+        if self._left_wall and
+            not left_wall_body:has_tag("slippery") and
+            not left_wall_body:has_tag("no_blood") and
+            math.distance(left_x, left_y, x, y) <= self._radius
+        then
             _add_blood_splatter(left_x, left_y, left_nx, left_ny)
         end
     end
