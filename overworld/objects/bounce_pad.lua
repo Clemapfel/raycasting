@@ -17,7 +17,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     meta.install(self, {
         _world = stage:get_physics_world(),
         _body = object:create_physics_body(stage:get_physics_world()),
-        _cooldown = -math.huge, -- prevent multiple impulses per step
+        _cooldown_timestamp = -math.huge, -- prevent multiple impulses per step
 
         _bounce_axis_x = 0,
         _bounce_axis_y = 1,
@@ -29,7 +29,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     })
 
     self._body:add_tag("no_blood")
-    self._body:set_collides_with(b2.CollisionGroup.GROUP_16)
+    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
 
     self._body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, x1, y1, x2, y2, contact)
         local player = other_body:get_user_data()
@@ -38,12 +38,12 @@ function ow.BouncePad:instantiate(object, stage, scene)
         if other_body:get_is_sensor() then return end
 
         contact:setRestitution(0)
-        local elapsed = love.timer.getTime() - self._cooldown
+        local elapsed = love.timer.getTime() - self._cooldown_timestamp
         if elapsed < rt.settings.overworld.bounce_pad.cooldown then
             return
         else
             player:bounce(normal_x, normal_y)
-            self._cooldown = love.timer.getTime()
+            self._cooldown_timestamp = love.timer.getTime()
         end
 
         if x2 ~= nil or y2 ~= nil then

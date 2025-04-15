@@ -26,36 +26,47 @@ function ow.Hook:instantiate(object, stage, scene)
         local player = player_body:get_user_data()
 
         if hook._joint == nil and not hook._deactivated then
-            local world_signal_id
-            world_signal_id = stage:get_physics_world():signal_connect("step", function()
-                local self_x, self_y = self:get_center_of_mass()
-                player:teleport_to(self_x, self_y)
-
-                hook._joint = love.physics.newDistanceJoint(
-                    self:get_native(),
-                    player:get_physics_body():get_native(),
-                    self_x, self_y,
-                    self_x, self_y
-                )
-                stage:get_physics_world():signal_disconnect("step", world_signal_id)
-
-            end)
-
-            local player_signal_id
-            player_signal_id = player:signal_connect("jump", function()
-                hook:_unhook()
-                player:signal_disconnect("jump", player_signal_id)
-            end)
 
             player:set_jump_allowed(true) -- mid-air jumpt to escape
+
+            local vx, vy = player:get_velocity() -- maintain upwards momentum
+            if vy > 0 then vy = 0 end
+            player:set_velocity(0, 0)
+
+            player:teleport_to(self:get_center_of_mass())
+            scene:get_camera():move_to(self:get_center_of_mass())
+
+            if player._jump_button_is_down ~= true then -- buffered jump: instantly jump again
+                stage:get_physics_world():signal_connect("step", function()
+                    if not self._deactivated then
+                        local self_x, self_y = self:get_center_of_mass()
+                        hook._joint = love.physics.newDistanceJoint(
+                            self:get_native(),
+                            player:get_physics_body():get_native(),
+                            self_x, self_y,
+                            self_x, self_y
+                        )
+                        return meta.DISCONNECT_SIGNAL
+                    end
+                end)
+
+                local player_signal_id
+                player_signal_id = player:signal_connect("jump", function()
+                    hook:_unhook()
+                    player:signal_disconnect("jump", player_signal_id)
+                end)
+            else
+                player:bounce(0, -1)
+            end
+
             hook._deactivated = true
         end
     end)
 
-    self._body:signal_connect("collision_end", function(self, player)
-        if player:has_tag("player") then
-            hook._deactivated = false
-        end
+    self._body:signal_connect("collision_end", function(self, player_body)
+        local player = player_body:get_user_data()
+        hook._deactivated = false
+        player:set_jump_allowed(nil)
     end)
 
     self._input:signal_connect("pressed", function(_, which)
@@ -63,7 +74,6 @@ function ow.Hook:instantiate(object, stage, scene)
             self:_unhook()
         end
     end)
-
 end
 
 --- @brief
@@ -76,5 +86,6 @@ end
 
 --- @brief
 function ow.Hook:draw()
+    rt.Palette.PURPLE:bind()
     self._body:draw()
 end

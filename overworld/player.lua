@@ -590,10 +590,6 @@ function ow.Player:update(delta)
 
         self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
-        if self._jump_elapsed >= _settings.jump_duration then
-            self._jump_allowed_override = nil
-        end
-
         local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
 
         -- apply friction when wall_clinging
@@ -1074,8 +1070,11 @@ end
 --- @brief
 function ow.Player:set_jump_allowed(b)
     self._jump_allowed_override = b
-    self._jump_elapsed = 0
-    self._wall_jump_elapsed = 0
+
+    if b == true then
+        self._jump_elapsed = 0
+        self._wall_jump_elapsed = 0
+    end
 end
 
 --- @brief

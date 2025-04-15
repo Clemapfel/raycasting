@@ -9,7 +9,10 @@ require "physics.physics"
 -- include all overworld classes
 for file in values(love.filesystem.getDirectoryItems("overworld/objects")) do
     if love.filesystem.getInfo("overworld/objects/" .. file).type == "file" then
-        require("overworld.objects." .. string.match(file, "^(.-)%.lua$"))
+        local match = string.match(file, "^(.-)%.lua$")
+        if match then
+            require("overworld.objects." .. match)
+        end
     end
 end
 
