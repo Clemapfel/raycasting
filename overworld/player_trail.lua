@@ -5,21 +5,18 @@ require "common.blend_mode"
 ow.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
 
 --- @brief
-function ow.PlayerTrail:instantiate(scene)
+function ow.PlayerTrail:instantiate(scene, radius)
+    meta.assert(scene, "OverworldScene")
     self._scene = scene
     self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
     self._canvas_a = rt.RenderTexture(self._width, self._height)
     self._canvas_b = rt.RenderTexture(self._width, self._height)
     self._a_or_b = true
 
-    self._mesh = rt.MeshCircle(0, 0, self._scene:get_player():get_radius())
+    self._mesh = rt.MeshCircle(0, 0, radius)
     for i = 2, self._mesh:get_n_vertices() do
         self._mesh:set_vertex_color(i, 1, 1, 1, 0)
     end
-
-    self._scene:get_player():signal_connect("respawn", function()
-        self:clear()
-    end)
 end
 
 --- @brief

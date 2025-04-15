@@ -4,7 +4,6 @@ require "common.background"
 require "overworld.stage"
 require "overworld.camera"
 require "overworld.player"
-require "overworld.player_trail"
 require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
@@ -19,8 +18,7 @@ ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
 
 ow.CameraMode = meta.enum("CameraMode", {
     AUTO = "AUTO",
-    MANUAL = "MANUAL",
-    FOCUS_PLAYER = "FOCUS_PLAYER"
+    MANUAL = "MANUAL"
 })
 
 --- @brief
@@ -58,14 +56,9 @@ function ow.OverworldScene:instantiate()
         _background = rt.Background("grid"),
 
         _player = nil,
-        _player_trail = nil,
     })
 
     self._player = ow.Player(self)
-    self._player_trail = ow.PlayerTrail(self)
-    self._player:signal_connect("respawn", function()
-        self._player_trail:clear()
-    end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, true)
@@ -292,7 +285,6 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
         self._stage = next_entry.stage
 
         self._player:move_to_stage(self._stage, spawn_x, spawn_y)
-        self._player_trail:clear()
 
         --if self._camera_mode ~= ow.CameraMode.MANUAL then
             self._camera:set_bounds(self._stage:get_camera_bounds())
@@ -374,7 +366,6 @@ function ow.OverworldScene:draw()
     self._stage:draw_objects()
     self._stage:get_pathfinding_graph():draw()
     self._stage:draw_blood_splatter()
-    self._player_trail:draw()
     self._player:draw()
     self._stage:draw_walls()
 
@@ -418,7 +409,6 @@ function ow.OverworldScene:update(delta)
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
-    self._player_trail:update(delta)
     self._player:update(delta)
 
     self._background:_notify_camera_changed(self._camera)
@@ -539,6 +529,6 @@ function ow.OverworldScene:reload()
     self._stage_mapping = {}
     ow.Stage._config_atlas = {}
 
-    self._player = ow.Player()
+    self._player = ow.Player(self)
     self:set_stage(before)
 end

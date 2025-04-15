@@ -1,6 +1,6 @@
 require "common.input_subscriber"
 require "physics.physics"
-require "common.timed_animation"
+require "overworld.player_trail"
 require "common.random"
 
 local radius = 13.5
@@ -198,6 +198,10 @@ function ow.Player:instantiate(scene, stage)
         _body = nil,
         _world = nil,
 
+        -- animation
+        _trail = ow.PlayerTrail(scene, _settings.radius),
+        _trail_visible = true,
+
         _mass = 1,
         _gravity_direction_x = 0,
         _gravity_direction_y = 1,
@@ -291,6 +295,10 @@ end
 
 --- @brief
 function ow.Player:update(delta)
+    if self._trail_visible then
+        self._trail:update(delta)
+    end
+
     local gravity = _settings.gravity * delta * self._gravity_multiplier
 
     if self._state == ow.PlayerState.DISABLED then
@@ -776,6 +784,9 @@ end
 --- @brief
 function ow.Player:move_to_stage(stage, x, y)
     meta.assert(stage, "Stage", x, "Number", y, "Number")
+
+    self._trail:clear()
+
     local world = stage:get_physics_world()
     if world == self._world then return end
 
@@ -989,6 +1000,11 @@ end
 
 --- @brief
 function ow.Player:draw()
+    if self._trail_visible then
+        love.graphics.setColor(1, 1, 1, 1)
+        self._trail:draw()
+    end
+
     local r, g, b, a = rt.Palette.PLAYER:unpack()
 
     -- draw body
@@ -1191,6 +1207,16 @@ end
 --- @brief
 function ow.Player:get_last_player_spawn()
     return self._last_spawn
+end
+
+--- @brief
+function ow.Player:set_trail_visible(b)
+    meta.assert(b, "Boolean")
+    if b ~= self._trail_visible then
+        self._trail:clear()
+    end
+
+    self._trail_visible = b
 end
 
 

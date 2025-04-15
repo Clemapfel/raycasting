@@ -86,6 +86,7 @@ function ow.Checkpoint:update(delta)
         -- once player reached location, unfreeze, with timer as failsafe
         if player_y >= (self._target_y - player:get_radius()) or self._elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             player:enable()
+            player:set_trail_visible(true)
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
             self._waiting_for_player = false
         end
@@ -99,6 +100,7 @@ function ow.Checkpoint:spawn()
     local player = self._scene:get_player()
     player:disable()
     player:set_velocity(0, 1000)
+    player:set_trail_visible(false)
     player:teleport_to(self._x, self._y)
     self._waiting_for_player = true
     self._elapsed = 0
