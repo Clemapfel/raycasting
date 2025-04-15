@@ -99,7 +99,8 @@ function ow.Checkpoint:spawn()
 
     local player = self._scene:get_player()
     player:disable()
-    player:set_velocity(0, 1000)
+    local vx, vy = player:get_velocity()
+    player:set_velocity(0, vy)
     player:set_trail_visible(false)
     player:teleport_to(self._x, self._y)
     self._waiting_for_player = true

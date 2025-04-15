@@ -1008,7 +1008,7 @@ function ow.Player:draw()
     local r, g, b, a = rt.Palette.PLAYER:unpack()
 
     -- draw body
-    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_position())
+    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
 
     love.graphics.setColor(r, g, b, 0.3)
     for tri in values(self._outer_body_tris) do
@@ -1217,6 +1217,11 @@ function ow.Player:set_trail_visible(b)
     end
 
     self._trail_visible = b
+end
+
+--- @brief
+function ow.Player:pulse(...)
+    self._trail:pulse(...)
 end
 
 

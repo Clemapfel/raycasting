@@ -12,6 +12,7 @@ function ow.PlayerTrail:instantiate(scene, radius)
     self._canvas_a = rt.RenderTexture(self._width, self._height)
     self._canvas_b = rt.RenderTexture(self._width, self._height)
     self._a_or_b = true
+    self._should_pulse = false
 
     self._mesh = rt.MeshCircle(0, 0, radius)
     for i = 2, self._mesh:get_n_vertices() do
@@ -125,6 +126,18 @@ function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     rt.graphics.set_blend_mode(nil)
 end
 
+local _pulse_mesh = nil
+
+function ow.PlayerTrail:_draw_pulse(x, y)
+    if _pulse_mesh == nil then
+        _pulse_mesh = rt.MeshCircle(0, 0, rt.settings.overworld.player.radius * 2)
+        _pulse_mesh:set_vertex_color(1, 0, 0, 0, 0)
+        _pulse_mesh = _pulse_mesh:get_native()
+    end
+
+    love.graphics.draw(_pulse_mesh, x, y)
+end
+
 local _previous_x, _previous_y = nil, nil
 local _previous_player_x, _previous_player_y = nil, nil
 
@@ -185,6 +198,12 @@ function ow.PlayerTrail:update(delta)
     love.graphics.translate(-x, -y)
     rt.Palette.PLAYER:bind()
     self:_draw_trail(_previous_player_x, _previous_player_y, player_x, player_y)
+
+    if self._should_pulse then
+        self:_draw_pulse(self._pulse_x or player_x, self._pulse_y or player_y)
+        self._should_pulse = false
+    end
+
     rt.graphics.set_blend_mode()
     b:unbind()
     love.graphics.pop()
@@ -192,7 +211,6 @@ function ow.PlayerTrail:update(delta)
     _previous_x, _previous_y = x, y
     _previous_player_x, _previous_player_y = player_x, player_y
 end
-
 
 --- @brief
 function ow.PlayerTrail:draw()
@@ -207,4 +225,11 @@ function ow.PlayerTrail:draw()
     else
         love.graphics.draw(self._canvas_a:get_native(), x, y)
     end
+end
+
+--- @brief
+function ow.PlayerTrail:pulse(x, y)
+    self._should_pulse = true
+    self._pulse_x = x -- may be nil
+    self._pulse_y = y
 end

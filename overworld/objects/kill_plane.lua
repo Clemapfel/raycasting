@@ -1,3 +1,7 @@
+rt.settings.overworld.kill_plane = {
+    max_respawn_duration = 2
+}
+
 --- @class ow.KillPlane
 ow.KillPlane = meta.class("KillPlane")
 
@@ -14,12 +18,14 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+    self._elapsed = math.huge
 
     self._state = _state_inactive
 
-
     self._body:signal_connect("collision_start", function(_, other_body)
         assert(other_body:has_tag("player"))
+
+        if self._state ~= _state_inactive then return end
 
         -- freeze camera and player
         local camera = self._scene:get_camera()
@@ -29,25 +35,28 @@ function ow.KillPlane:instantiate(object, stage, scene)
         local player = self._scene:get_player()
         player.do_not_update_trail = true
         local vx, vy = player:get_velocity()
-        player:set_velocity(0, vy)
+        player:set_velocity(0, 0)
         player:disable()
 
         self._player = player
         self._state = _state_waiting_for_leave_bottom
+        self._elapsed = 0
     end)
 end
 
 --- @brief
-function ow.KillPlane:update()
+function ow.KillPlane:update(delta)
     if self._state == _state_inactive then
         return
     elseif self._state == _state_waiting_for_leave_bottom then
+        self._elapsed = self._elapsed + delta
+
         local player = self._scene:get_player()
         local camera = self._scene:get_camera()
         local player_x, player_y = camera:world_xy_to_screen_xy(player:get_position())
         local camera_w, camera_h = camera:get_size()
 
-        if player_y > camera_h then -- player left screen
+        if player_y > camera_h or self._elapsed > rt.settings.overworld.kill_plane.max_respawn_duration then -- player left screen
             self._player:get_last_player_spawn():spawn()
             self._state = _state_inactive
         end
