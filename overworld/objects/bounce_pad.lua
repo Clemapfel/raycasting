@@ -1,4 +1,5 @@
 rt.settings.overworld.bounce_pad = {
+    cooldown = 1 / 60,
     -- bounce simulation parameters
     stiffness = 10,
     damping = 0.95,
@@ -16,7 +17,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     meta.install(self, {
         _world = stage:get_physics_world(),
         _body = object:create_physics_body(stage:get_physics_world()),
-        _cooldown = false, -- prevent multiple impulses per step
+        _cooldown = -math.huge, -- prevent multiple impulses per step
 
         _bounce_axis_x = 0,
         _bounce_axis_y = 1,
@@ -27,22 +28,22 @@ function ow.BouncePad:instantiate(object, stage, scene)
         _bounce_velocity = 1
     })
 
-    local blocking_body = nil
+    self._body:add_tag("no_blood")
+    self._body:set_collides_with(b2.CollisionGroup.GROUP_16)
+
     self._body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, x1, y1, x2, y2, contact)
         local player = other_body:get_user_data()
         if player == nil then return end
 
         if other_body:get_is_sensor() then return end
 
-        if player:get_is_ragdoll() then
-            contact:setRestitution(1)
+        contact:setRestitution(0)
+        local elapsed = love.timer.getTime() - self._cooldown
+        if elapsed < rt.settings.overworld.bounce_pad.cooldown then
             return
-        end
-
-        blocking_body = other_body
-        if self._cooldown == false then
+        else
             player:bounce(normal_x, normal_y)
-            self._cooldown = true
+            self._cooldown = love.timer.getTime()
         end
 
         if x2 ~= nil or y2 ~= nil then
@@ -81,9 +82,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._bounce_position = math.max(magnitude, rt.settings.overworld.bounce_pad.bounce_magnitude_min)
     end)
 
-    self._world:signal_connect("step", function()
-        self._cooldown = false
-    end)
 end
 
 -- simulate ball-on-a-spring for bouncing animation
@@ -107,11 +105,9 @@ function ow.BouncePad:draw()
 
     love.graphics.translate(-x, -y)
 
-    -- Draw the object
     self._body:draw()
     love.graphics.pop()
 
-    -- Draw the bounce axis line
     love.graphics.line(x, y, x + self._bounce_axis_x * scale, y + self._bounce_axis_y * scale)
 end
 
@@ -122,4 +118,9 @@ function ow.BouncePad:update(delta)
         self._bounce_velocity = self._bounce_velocity * damping
         self._bounce_position = self._bounce_position + self._bounce_velocity * delta
     end
+end
+
+--- @brief
+function ow.BouncePad:get_physics_body()
+    return self._body
 end

@@ -437,13 +437,15 @@ function ow.Player:update(delta)
             local surface_normal_x, surface_normal_y = bottom_nx, bottom_ny
 
             if bottom_wall_body:has_tag("slippery") then
-                friction_coefficient = _settings.ground_slippery_friction
 
                 -- if going upwards slippery slope
                 local angle = math.angle(surface_normal_x, surface_normal_y) + math.pi * 0.5
-                if (math.sign(next_velocity_x) > 0 and angle < 0 and self._right_button_is_down) or (math.sign(next_velocity_x) < 0 and angle > 0 and self._left_button_is_down) then
-                    next_velocity_x = 0
-                    next_velocity_y = 0
+                if math.abs(angle) > 0 then -- prevent acceleration on non-sloped surfaces
+                    friction_coefficient = _settings.ground_slippery_friction
+                    if (math.sign(next_velocity_x) > 0 and angle < 0 and self._right_button_is_down) or (math.sign(next_velocity_x) < 0 and angle > 0 and self._left_button_is_down) then
+                        next_velocity_x = 0
+                        next_velocity_y = 0
+                    end
                 end
             end
 
