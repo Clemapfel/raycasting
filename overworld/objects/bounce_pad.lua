@@ -78,7 +78,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._bounce_origin_x, self._bounce_origin_y = hit_x, hit_y
 
         local magnitude = math.min(math.magnitude(player:get_velocity()) / rt.settings.overworld.player.bounce_max_force, 1)
-        self._bounce_velocity = -1
+        self._bounce_velocity = magnitude
         self._bounce_position = math.max(magnitude, rt.settings.overworld.bounce_pad.bounce_magnitude_min)
     end)
 

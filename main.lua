@@ -14,6 +14,8 @@ _input:signal_connect("keyboard_key_pressed", function(_, which)
         SceneManager:get_current_scene():reload()
     elseif which == "^" then
         debugger.reload()
+    elseif which == "q" then
+        SceneManager:get_current_scene()._background:recompile()
     end
 end)
 

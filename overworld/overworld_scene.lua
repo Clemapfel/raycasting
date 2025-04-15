@@ -55,7 +55,7 @@ function ow.OverworldScene:instantiate()
         _cursor_visible = false,
         _cursor_active = false,
 
-        _background = rt.Background("lymphette"),
+        _background = rt.Background("grid"),
 
         _player = nil,
         _player_trail = nil,
@@ -366,8 +366,7 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
 --- @brief
 function ow.OverworldScene:draw()
-   -- self._background:draw()
-    love.graphics.clear(0.2, 0.2, 0.2, 1)
+    self._background:draw()
 
     self._camera:bind()
     --self._stage._world:draw()
@@ -415,13 +414,14 @@ end
 
 --- @brief
 function ow.OverworldScene:update(delta)
-    self._background:_notify_camera_changed(self._camera)
 
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
     self._player_trail:update(delta)
     self._player:update(delta)
+
+    self._background:_notify_camera_changed(self._camera)
 
     -- mouse-based scrolling
     if self._cursor_visible == true then

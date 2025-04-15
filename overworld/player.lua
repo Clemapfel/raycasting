@@ -153,6 +153,7 @@ function ow.Player:instantiate(scene, stage)
 
         _is_frozen = false,
         _respawn_elapsed = 0,
+        _use_friction = true,
 
         -- controls
         _joystick_position = 0, -- x axis
@@ -406,10 +407,15 @@ function ow.Player:update(delta)
             (target_velocity_x < 0 and current_velocity_x > 0 or target_velocity_x > 0 and current_velocity_y < 0)
 
         local duration
+        local ground_deceleration = _settings.ground_deceleration_duration
+        if not self._use_friction then
+            ground_deceleration = math.huge
+        end
+
         if is_accelerating then
             duration = self._bottom_wall and _settings.ground_acceleration_duration or _settings.air_acceleration_duration
         else
-            duration = self._bottom_wall and _settings.ground_deceleration_duration or _settings.air_deceleration_duration
+            duration = self._bottom_wall and ground_deceleration or _settings.air_deceleration_duration
         end
 
         if self._bottom_wall == false and not (self._left_button_is_down or self._right_button_is_down or math.abs(self._joystick_position) > 10e-4) then
@@ -436,8 +442,8 @@ function ow.Player:update(delta)
             local friction_coefficient = _settings.ground_regular_friction
             local surface_normal_x, surface_normal_y = bottom_nx, bottom_ny
 
-            if bottom_wall_body:has_tag("slippery") then
-
+            --[[
+            if bottom_wall_body:has_tag("slippery") and self._use_friction then
                 -- if going upwards slippery slope
                 local angle = math.angle(surface_normal_x, surface_normal_y) + math.pi * 0.5
                 if math.abs(angle) > 0 then -- prevent acceleration on non-sloped surfaces
@@ -448,20 +454,24 @@ function ow.Player:update(delta)
                     end
                 end
             end
+            ]]--
 
-            local velocity_x, velocity_y = next_velocity_x, next_velocity_y
-            local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
-            local perpendicular_x = dot_product * surface_normal_x
-            local perpendicular_y = dot_product * surface_normal_y
 
-            local parallel_x = velocity_x - perpendicular_x
-            local parallel_y = velocity_y - perpendicular_y
+            if self._use_friction then
+                local velocity_x, velocity_y = next_velocity_x, next_velocity_y
+                local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
+                local perpendicular_x = dot_product * surface_normal_x
+                local perpendicular_y = dot_product * surface_normal_y
 
-            local friction_x = parallel_x * friction_coefficient
-            local friction_y = parallel_y * friction_coefficient
+                local parallel_x = velocity_x - perpendicular_x
+                local parallel_y = velocity_y - perpendicular_y
 
-            next_velocity_x = parallel_x - friction_x
-            next_velocity_y = parallel_y - friction_y
+                local friction_x = parallel_x * friction_coefficient
+                local friction_y = parallel_y * friction_coefficient
+
+                next_velocity_x = parallel_x - friction_x
+                next_velocity_y = parallel_y - friction_y
+            end
         else
             -- magnetize to walls
             local magnet_force = _settings.wall_magnet_force
@@ -1125,6 +1135,15 @@ function ow.Player:get_velocity()
     return self._last_velocity_x, self._last_velocity_y
 end
 
+--- @brief
+function ow.Player:set_use_friction(b)
+    self._use_friction = b
+end
+
+--- @brief
+function ow.Player:get_use_friction()
+    return self._use_friction
+end
 
 --- @brief
 function ow.Player:bounce(nx, ny, force)

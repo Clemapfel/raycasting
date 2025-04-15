@@ -11,7 +11,6 @@ local _offset_x = 0
 local _offset_y = 0
 local _scale = 1
 local _elapsed = 0
-local _scene_connected = false
 
 local _id_to_shader = {}
 

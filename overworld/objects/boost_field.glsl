@@ -1,24 +1,50 @@
 uniform float elapsed;
 
-float smooth_abs(float x, float smoothness) {
-    return x * tanh(smoothness * x);
+float smooth_abs(float x) {
+    return abs(x);
 }
 
-// triangle wave with same period and amplitude as sine
-float triangle_wave(float x)
-{
-    float pi = 2 * (335 / 113); // 2 * pi
-    return 4 * abs((x / pi) + 0.25 - floor((x / pi) + 0.75)) - 1;
+#define PI 3.1415926535897932384626433832795
+vec2 rotate(vec2 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return v * mat2(c, -s, s, c);
 }
 
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+uniform vec2 origin_offset;
 
-vec2 axis = vec2(0, -1);
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_position) {
-    vec2 uv = texture_position;
-    uv += axis * elapsed / 10;
+uniform vec2 axis = vec2(0, -1);
 
-    const float eps = 0.1;
-    float value = smoothstep(0.5 -eps, 0.5 + eps, uv.y - (sin(30 * uv.x) + 1) / 2);
-    return vec4(vec3(value), 1);
+vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_position) {
+    vec2 uv = to_uv(frag_position) - origin_offset / love_ScreenSize.xy;
+
+    float angle = atan(axis.y, axis.x) + 0.5 * PI;
+    uv = rotate(uv, -angle);
+
+    uv *= 5;
+
+    const float width = 0.5; // width of line
+    const float eps = 0.1; // anti-aliasing
+
+    uv.y = fract(uv.y + elapsed);
+    uv.y /= width;
+    uv.y -= width;
+    uv.x = fract(uv.x);
+
+    float value = smoothstep(width - eps, width + eps, 1 - distance(uv.y, smooth_abs(uv.x * 2 - 1)));
+    return vec4(mix(0.25, 0.75, value)) * vertex_color;
 }
