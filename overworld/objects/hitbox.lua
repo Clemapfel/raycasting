@@ -13,6 +13,7 @@ local _scale = 1
 local _elapsed = 0
 
 local _id_to_shader = {}
+local _scene_connected = false
 
 --- @brief
 function ow.Hitbox:instantiate(object, stage, scene)
@@ -65,11 +66,12 @@ function ow.Hitbox:instantiate(object, stage, scene)
     end
 
     if self._body:has_tag("slippery") then
-        self._body:set_friction(0)
         stage:set_render_priority(self, 1)
     else
         stage:set_render_priority(self, 2)
     end
+
+    self._body:set_friction(object:get_number("friction") or 0)
 end
 
 --- @brief

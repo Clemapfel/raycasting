@@ -24,8 +24,7 @@ local _get = function(x, key)
     return out
 end
 
-local _tileset_atlas = {}
-local _dummy_hitbox_id = -1
+ow.StageConfig._tileset_atlas = {}
 
 --- @brief
 function ow.StageConfig:instantiate(stage_id)
@@ -58,10 +57,10 @@ function ow.StageConfig:instantiate(stage_id)
 
     for entry in values(_get(self._config, "tilesets")) do
         local name = _get(entry, "name")
-        local tileset = _tileset_atlas[name]
+        local tileset = ow.StageConfig._tileset_atlas[name]
         if tileset == nil then
             tileset = ow.Tileset(name)
-            _tileset_atlas[name] = tileset
+            ow.StageConfig._tileset_atlas[name] = tileset
         end
 
         local id_offset = _get(entry, "firstgid")

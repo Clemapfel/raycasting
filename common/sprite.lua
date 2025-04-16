@@ -7,7 +7,7 @@ rt.settings.sprite = {
 --- @class Sprite
 rt.Sprite = meta.class("Sprite", rt.Widget)
 
-local _path_to_spritsheet = {} -- spritsheet atlas
+rt.Sprite._path_to_spritesheet = {} -- spritsheet atlas
 
 --- @brief construct sprite from uniform grid
 --- @param path string path to spritesheet
@@ -30,11 +30,11 @@ function rt.Sprite:instantiate(path, n_columns, n_rows, border_x, border_y)
         border_y, "Number"
     )
 
-    local image = _path_to_spritsheet[path]
+    local image = rt.Sprite._path_to_spritesheet[path]
     if image == nil then
         image = love.graphics.newImage(path)
         image:setFilter("nearest", "nearest")
-        _path_to_spritsheet[path] = image
+        rt.Sprite._path_to_spritesheet[path] = image
     end
 
     local image_w, image_h = image:getDimensions()

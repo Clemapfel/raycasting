@@ -61,7 +61,9 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
 
         _use_manual_velocity = false,
         _manual_velocity_x = 0,
-        _manual_velocity_y = 0
+        _manual_velocity_y = 0,
+
+        _friction = 0
     })
 
     local shapes
@@ -188,13 +190,6 @@ end
 function b2.Body:set_restitution(value)
     for shape in values(self._native:getShapes()) do
         shape:setRestitution(value)
-    end
-end
-
---- @brief
-function b2.Body:set_friction(value)
-    for shape in values(self._native:getShapes()) do
-        shape:setFriction(value)
     end
 end
 
@@ -364,4 +359,14 @@ end
 --- @brief
 function b2.Body:set_use_continuous_collision(b)
     self._native:setBullet(b)
+end
+
+--- @brief
+function b2.Body:get_friction()
+    return self._friction
+end
+
+--- @brief
+function b2.Body:set_friction(f)
+    self._friction = f
 end

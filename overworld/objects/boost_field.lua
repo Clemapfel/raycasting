@@ -18,17 +18,17 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
 
-    local _before = true
+    --local _before = true
     self._body:signal_connect("collision_start", function(_, other)
         self._is_active = true
         self._player = other:get_user_data()
-        _before = self._player:get_use_friction()
-        self._player:set_use_friction(false)
+        --_before = self._player:get_use_friction()
+        --self._player:set_use_friction(false)
     end)
 
     self._body:signal_connect("collision_end", function()
         self._is_active = false
-        self._scene:get_player():set_use_friction(_before)
+        --self._scene:get_player():set_use_friction(_before)
         self._player = nil
     end)
 
@@ -36,8 +36,8 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._elapsed = 0
     self._scene = scene
 
-    self._target_velocity = object:get_number("velocity") or rt.settings.overworld.boost_field.max_velocity
-
+    local factor = object:get_number("velocity") or 1
+    self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
     local axis = object:get_object("axis")
     if axis == nil then
         local axis_x = object:get_number("axis_x")

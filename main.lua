@@ -21,7 +21,7 @@ end)
 
 love.load = function(args)
     require "overworld.overworld_scene"
-    SceneManager:set_scene(ow.OverworldScene, "calibration")
+    SceneManager:set_scene(ow.OverworldScene, "boost_tutorial")
     love.resize(love.graphics.getDimensions())
 end
 

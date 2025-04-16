@@ -4,13 +4,16 @@ require "common.blend_mode"
 --- @class ow.PlayerTrail
 ow.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
 
+local _canvas_a, _canvas_b = nil, nil
+
 --- @brief
 function ow.PlayerTrail:instantiate(scene, radius)
     meta.assert(scene, "OverworldScene")
     self._scene = scene
     self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
-    self._canvas_a = rt.RenderTexture(self._width, self._height)
-    self._canvas_b = rt.RenderTexture(self._width, self._height)
+    
+    _canvas_a = rt.RenderTexture(self._width, self._height)
+    _canvas_b = rt.RenderTexture(self._width, self._height)
     self._a_or_b = true
     self._should_pulse = false
 
@@ -21,22 +24,12 @@ function ow.PlayerTrail:instantiate(scene, radius)
 end
 
 --- @brief
-function ow.PlayerTrail:bind()
-    self._canvas:bind()
-end
-
---- @brief
-function ow.PlayerTrail:unbind()
-    self._canvas:unbind()
-end
-
---- @brief
 function ow.PlayerTrail:clear()
-    self._canvas_a:bind()
+    _canvas_a:bind()
     love.graphics.clear(0, 0, 0, 0)
-    self._canvas_b:bind()
+    _canvas_b:bind()
     love.graphics.clear(0, 0, 0, 0)
-    self._canvas_b:unbind()
+    _canvas_b:unbind()
 end
 
 --- @brief
@@ -156,11 +149,11 @@ function ow.PlayerTrail:update(delta)
 
     local a, b
     if self._a_or_b then
-        a = self._canvas_a
-        b = self._canvas_b
+        a = _canvas_a
+        b = _canvas_b
     else
-        a = self._canvas_b
-        b = self._canvas_a
+        a = _canvas_b
+        b = _canvas_a
     end
     self._a_or_b = not self._a_or_b
 
@@ -221,9 +214,9 @@ function ow.PlayerTrail:draw()
 
     rt.Palette.PLAYER_TRAIL:bind()
     if self._a_or_b then
-        love.graphics.draw(self._canvas_b:get_native(), x, y)
+        love.graphics.draw(_canvas_b:get_native(), x, y)
     else
-        love.graphics.draw(self._canvas_a:get_native(), x, y)
+        love.graphics.draw(_canvas_a:get_native(), x, y)
     end
 end
 

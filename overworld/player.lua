@@ -447,7 +447,6 @@ function ow.Player:update(delta)
         end
 
         if self._bottom_wall then -- ground friction
-            local friction_coefficient = _settings.ground_regular_friction
             local surface_normal_x, surface_normal_y = bottom_nx, bottom_ny
 
             --[[
@@ -464,22 +463,20 @@ function ow.Player:update(delta)
             end
             ]]--
 
+            local friction_coefficient = bottom_wall_body:get_friction() or 0
+            local velocity_x, velocity_y = next_velocity_x, next_velocity_y
+            local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
+            local perpendicular_x = dot_product * surface_normal_x
+            local perpendicular_y = dot_product * surface_normal_y
 
-            if self._use_friction then
-                local velocity_x, velocity_y = next_velocity_x, next_velocity_y
-                local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
-                local perpendicular_x = dot_product * surface_normal_x
-                local perpendicular_y = dot_product * surface_normal_y
+            local parallel_x = velocity_x - perpendicular_x
+            local parallel_y = velocity_y - perpendicular_y
 
-                local parallel_x = velocity_x - perpendicular_x
-                local parallel_y = velocity_y - perpendicular_y
+            local friction_x = parallel_x * friction_coefficient
+            local friction_y = parallel_y * friction_coefficient
 
-                local friction_x = parallel_x * friction_coefficient
-                local friction_y = parallel_y * friction_coefficient
-
-                next_velocity_x = parallel_x - friction_x
-                next_velocity_y = parallel_y - friction_y
-            end
+            next_velocity_x = parallel_x - friction_x
+            next_velocity_y = parallel_y - friction_y
         else
             -- magnetize to walls
             local magnet_force = _settings.wall_magnet_force
