@@ -6,7 +6,7 @@ rt.Scene = meta.abstract_class("Scene", rt.Widget)
 
 --- @brief
 function rt.Scene:instantiate()
-    self._is_active = false
+    self._is_active = false -- set by SceneManager
 end
 
 meta.add_signals(rt.Scene,

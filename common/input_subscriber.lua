@@ -74,12 +74,14 @@ rt.InputCallbackID = meta.enum("InputCallbackID", {
 rt.InputSubscriber = meta.class("InputSubscriber")
 
 --- @brief
-function rt.InputSubscriber:instantiate()
+function rt.InputSubscriber:instantiate(is_active)
+    if is_active == nil then is_active = true end
     table.insert(rt.InputManager._subscribers, self)
     meta.install(self, {
         _callback_id_to_callback = {},
         _callback_id_to_is_blocked = {},
-        _override_warning_printed = false
+        _override_warning_printed = false,
+        _is_active = is_active
     })
 end
 
@@ -106,6 +108,16 @@ end
 --- @brief
 function rt.InputSubscriber:get_input_method()
     return rt.InputManager._input_method
+end
+
+--- @brief
+function rt.InputSubscriber:deactivate()
+    self._is_active = false
+end
+
+--- @brief
+function rt.InputSubscriber:activate()
+    self._is_active = true
 end
 
 meta.add_signals(rt.InputSubscriber,

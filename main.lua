@@ -3,36 +3,35 @@ require "include"
 
 require "common.label"
 
-local SceneManager = require "common.scene_manager"
+require "common.scene_manager"
 
 require "common.mesh"
 require "common.input_subscriber"
 
 _input = rt.InputSubscriber()
 _input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "escape" then
-        SceneManager:get_current_scene():reload()
-    elseif which == "^" then
+    if which == "^" then
+        rt.SceneManager:get_current_scene():reload()
         debugger.reload()
     elseif which == "q" then
-        SceneManager:get_current_scene()._background:recompile()
+        rt.SceneManager:get_current_scene()._background:recompile()
     end
 end)
 
 love.load = function(args)
     require "overworld.overworld_scene"
-    SceneManager:set_scene(ow.OverworldScene, "boost_tutorial")
+    rt.SceneManager:set_scene(ow.OverworldScene, "boost_tutorial")
     love.resize(love.graphics.getDimensions())
 end
 
 love.update = function(delta)
-    SceneManager:update(delta)
+    rt.SceneManager:update(delta)
 end
 
 love.draw = function()
-    SceneManager:draw()
+    rt.SceneManager:draw()
 end
 
 love.resize = function(width, height)
-    SceneManager:resize(width, height)
+    rt.SceneManager:resize(width, height)
 end

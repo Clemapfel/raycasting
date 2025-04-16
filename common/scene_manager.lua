@@ -1,4 +1,10 @@
 require "common.scene"
+require "common.input_subscriber"
+require "menu.pause_menu_scene"
+
+rt.settings.scene_manager = {
+    pause_delay_duration = 5 / 60 -- seconds
+}
 
 --- @class SceneManager
 rt.SceneManager = meta.class("SceneManager")
@@ -13,8 +19,21 @@ function rt.SceneManager:instantiate()
         _previous_scene_type = nil,
         _show_performance_metrics = true,
         _width = love.graphics.getWidth(),
-        _height = love.graphics.getHeight()
+        _height = love.graphics.getHeight(),
+
+        _pause_menu = mn.PauseMenuScene(),
+        _pause_menu_active = false,
+        _pause_delay_elapsed = math.huge,
+
+        _input = rt.InputSubscriber()
     })
+
+    self._pause_menu:realize()
+    self._input:signal_connect("pressed", function(_, which)
+        if which == rt.InputButton.START then
+            self:pause()
+        end
+    end)
 end
 
 --- @brief
@@ -38,6 +57,7 @@ function rt.SceneManager:set_scene(scene_type, ...)
 
     if self._previous_scene ~= nil then
         self._previous_scene:exit()
+        self._previous_scene._is_active = false
     end
 
     local current_w, current_h = self._current_scene._scene_manager_current_size_x, self._current_scene._scene_manager_current_size_y
@@ -48,15 +68,23 @@ function rt.SceneManager:set_scene(scene_type, ...)
     end
 
     self._current_scene:enter(...) -- forward vararg
+    self._current_scene._is_active = true
 end
 
 --- @brief
 function rt.SceneManager:update(delta)
     assert(type(delta) == "number")
 
-    if self._current_scene ~= nil then
-        self._current_scene:update(delta)
-        self._current_scene:signal_emit("update", delta)
+    if self._pause_menu_active then
+        self._pause_menu:update(delta)
+        self._pause_menu:signal_emit("update", delta)
+    elseif self._current_scene ~= nil then
+        -- delay enter to avoid inputting on the same frame as pause menu exiting
+        if self._pause_delay_elapsed > rt.settings.scene_manager.pause_delay_duration then
+            self._current_scene:update(delta)
+            self._current_scene:signal_emit("update", delta)
+        end
+        self._pause_delay_elapsed = self._pause_delay_elapsed + delta
     end
 end
 
@@ -66,7 +94,11 @@ function rt.SceneManager:draw(...)
         self._current_scene:draw(...)
     end
 
-    rt.graphics._stencil_value = 1
+    if self._pause_menu_active then
+        self._pause_menu:draw()
+    end
+
+    rt.graphics._stencil_value = 1 -- reset running stencil value
 end
 
 --- @brief
@@ -79,6 +111,8 @@ function rt.SceneManager:resize(width, height)
     if self._current_scene ~= nil then
         self._current_scene:reformat(0, 0, self._width, self._height)
     end
+
+    self._pause_menu:reformat(0, 0, self._width, self._height)
 end
 
 --- @brief
@@ -132,6 +166,27 @@ function rt.SceneManager:_draw_performance_metrics()
     love.graphics.printf(str, love.graphics.getWidth() - str_width - 5, 5, math.huge)
 end
 
+--- @brief
+function rt.SceneManager:pause()
+    if self._current_scene ~= nil then
+        self._current_scene:exit()
+        self._current_scene._is_active = false
+    end
+
+    self._pause_menu_active = true
+    self._pause_menu:enter()
+    self._pause_menu._is_active = true
+end
+
+--- @brief
+function rt.SceneManager:unpause()
+    self._pause_menu_active = false
+    self._pause_menu:exit()
+    self._pause_menu._is_active = false
+    self._pause_delay_elapsed = 0
+end
+
+-- override love.run for metrics
 function love.run()
     io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
@@ -192,4 +247,4 @@ function love.run()
     end
 end
 
-return rt.SceneManager()
+rt.SceneManager = rt.SceneManager() -- static global singleton

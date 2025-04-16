@@ -517,6 +517,7 @@ function meta.add_signals(type, ...)
         table.insert(metatable.__signals, id)
     end
 end
+meta.add_signal = meta.add_signals
 
 local _enum_to_instances = {}
 

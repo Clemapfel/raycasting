@@ -50,6 +50,11 @@ local _scale = 1
 
 --- @brief
 function rt.Background:draw()
+    if not self:get_is_realized() then
+        rt.error("In rt.Background.draw: trying to draw background, but it is not yet realized")
+        return
+    end
+
     self._shader:bind()
 
     if self._shader:has_uniform("camera_offset") then

@@ -27,10 +27,12 @@ end
 function rt.InputManager:_set_input_method(method)
     if method ~= self._input_method then
         for subscriber in values(self._subscribers) do
-            if method == rt.InputManager.KEYBOARD then
-                subscriber:signal_emit(rt.InputCallbackID.INPUT_METHOD_CHANGED, nil)
-            elseif method == rt.InputMethod.CONTROLLER then
-                subscriber:signal_emit(rt.InputCallbackID.INPUT_METHOD_CHANGED, self._last_active_joystick:getID())
+            if subscriber._is_active then
+                if method == rt.InputManager.KEYBOARD then
+                    subscriber:signal_emit(rt.InputCallbackID.INPUT_METHOD_CHANGED, nil)
+                elseif method == rt.InputMethod.CONTROLLER then
+                    subscriber:signal_emit(rt.InputCallbackID.INPUT_METHOD_CHANGED, self._last_active_joystick:getID())
+                end
             end
         end
     end
@@ -66,12 +68,16 @@ love.keypressed = function(key, scancode)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
 
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.KEYBOARD_KEY_PRESSED, key)
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.KEYBOARD_KEY_PRESSED, key)
+        end
     end
 
     for mapped in values(rt.InputMapping:map(key, true)) do
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit("pressed", mapped, -1)
+            if sub._is_active then
+                sub:signal_emit("pressed", mapped, -1)
+            end
         end
     end
 end
@@ -80,12 +86,16 @@ love.keyreleased = function(key, scancode)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
 
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.KEYBOARD_KEY_RELEASED, key)
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.KEYBOARD_KEY_RELEASED, key)
+        end
     end
 
     for mapped in values(rt.InputMapping:map(key, true)) do
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit("released", mapped, -1)
+            if sub._is_active then
+                sub:signal_emit("released", mapped, -1)
+            end
         end
     end
 end
@@ -98,7 +108,9 @@ love.mousepressed = function(x, y, button_id)
     end
 
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.MOUSE_BUTTON_PRESSED, button_id, x, y)
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.MOUSE_BUTTON_PRESSED, button_id, x, y)
+        end
     end
 end
 
@@ -110,7 +122,9 @@ love.mousereleased = function(x, y, button_id)
     end
 
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.MOUSE_BUTTON_RELEASED, button_id, x, y)
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.MOUSE_BUTTON_RELEASED, button_id, x, y)
+        end
     end
 end
 
@@ -123,11 +137,15 @@ love.mousemoved = function(x, y, dx, dy)
         local current = rt.InputManager._upscaler:getIsCursorInBounds(x, y)
         if before == false and current == true then
             for sub in values(rt.InputManager._subscribers) do
-                sub:signal_emit(rt.InputCallbackID.MOUSE_ENTERED_SCREEN)
+                if sub._is_active then
+                    sub:signal_emit(rt.InputCallbackID.MOUSE_ENTERED_SCREEN)
+                end
             end
         elseif before == true and current == false then
             for sub in values(rt.InputManager._subscribers) do
-                sub:signal_emit(rt.InputCallbackID.MOUSE_LEFT_SCREEN)
+                if sub._is_active then
+                    sub:signal_emit(rt.InputCallbackID.MOUSE_LEFT_SCREEN)
+                end
             end
         end
 
@@ -140,18 +158,24 @@ love.mousemoved = function(x, y, dx, dy)
     end
 
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.MOUSE_MOVED, x, y, dx, dy)
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.MOUSE_MOVED, x, y, dx, dy)
+        end
     end
 end
 
 love.mousefocus = function(b)
     if b == false then
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit(rt.InputCallbackID.MOUSE_LEFT_SCREEN)
+            if sub._is_active then
+                sub:signal_emit(rt.InputCallbackID.MOUSE_LEFT_SCREEN)
+            end
         end
     else
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit(rt.InputCallbackID.MOUSE_ENTERED_SCREEN)
+            if sub._is_active then
+                sub:signal_emit(rt.InputCallbackID.MOUSE_ENTERED_SCREEN)
+            end
         end
     end
 end
@@ -159,7 +183,9 @@ end
 love.wheelmoved = function(x, y)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.MOUSE_WHEEL_MOVED, x, y)
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.MOUSE_WHEEL_MOVED, x, y)
+        end
     end
 end
 
@@ -168,12 +194,16 @@ love.gamepadpressed = function(joystick, button)
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
 
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_PRESSED, button, joystick:getID())
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_PRESSED, button, joystick:getID())
+        end
     end
 
     for mapped in values(rt.InputMapping:map(button, false)) do
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit("pressed", mapped, joystick:getID())
+            if sub._is_active then
+                sub:signal_emit("pressed", mapped, joystick:getID())
+            end
         end
     end
 end
@@ -183,12 +213,16 @@ love.gamepadreleased = function(joystick, button)
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
 
     for sub in values(rt.InputManager._subscribers) do
-        sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_RELEASED, button, joystick:getID())
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.CONTROLLER_BUTTON_RELEASED, button, joystick:getID())
+        end
     end
 
     for mapped in values(rt.InputMapping:map(button, false)) do
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit("released", mapped, joystick:getID())
+            if sub._is_active then
+                sub:signal_emit("released", mapped, joystick:getID())
+            end
         end
     end
 end
@@ -220,33 +254,41 @@ love.gamepadaxis = function(joystick, axis, value)
 
     if axis == "leftx" or axis == "lefty" then
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit(rt.InputCallbackID.LEFT_JOYSTICK_MOVED,
-                apply_joystick_deadzone(joystick:getGamepadAxis("leftx")),
-                apply_joystick_deadzone(joystick:getGamepadAxis("lefty")),
-                joystick:getID()
-            )
+            if sub._is_active then
+                sub:signal_emit(rt.InputCallbackID.LEFT_JOYSTICK_MOVED,
+                    apply_joystick_deadzone(joystick:getGamepadAxis("leftx")),
+                    apply_joystick_deadzone(joystick:getGamepadAxis("lefty")),
+                    joystick:getID()
+                )
+            end
         end
     elseif axis == "rightx" or axis == "righty" then
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit(rt.InputCallbackID.RIGHT_JOYSTICK_MOVED,
-                apply_joystick_deadzone(joystick:getGamepadAxis("rightx")),
-                apply_joystick_deadzone(joystick:getGamepadAxis("righty")),
-                joystick:getID()
-            )
+            if sub._is_active then
+                sub:signal_emit(rt.InputCallbackID.RIGHT_JOYSTICK_MOVED,
+                    apply_joystick_deadzone(joystick:getGamepadAxis("rightx")),
+                    apply_joystick_deadzone(joystick:getGamepadAxis("righty")),
+                    joystick:getID()
+                )
+            end
         end
     elseif axis == "triggerleft" then
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit(rt.InputCallbackID.LEFT_TRIGGER_MOVED,
-                apply_trigger_deadzone(joystick:getGamepadAxis("triggerleft")),
-                joystick:getID()
-            )
+            if sub._is_active then
+                sub:signal_emit(rt.InputCallbackID.LEFT_TRIGGER_MOVED,
+                    apply_trigger_deadzone(joystick:getGamepadAxis("triggerleft")),
+                    joystick:getID()
+                )
+            end
         end
     elseif axis == "triggerright" then
         for sub in values(rt.InputManager._subscribers) do
-            sub:signal_emit(rt.InputCallbackID.RIGHT_TRIGGER_MOVED,
-                apply_trigger_deadzone(joystick:getGamepadAxis("triggerright")),
-                joystick:getID()
-            )
+            if sub._is_active then
+                sub:signal_emit(rt.InputCallbackID.RIGHT_TRIGGER_MOVED,
+                    apply_trigger_deadzone(joystick:getGamepadAxis("triggerright")),
+                    joystick:getID()
+                )
+            end
         end
     else
         if _axis_warning_printed[axis] == nil then

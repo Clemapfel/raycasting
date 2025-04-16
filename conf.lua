@@ -9,6 +9,8 @@ local GAMEPAD_BUTTON_TOP = "y"
 local GAMEPAD_BUTTON_RIGHT = "b"
 local GAMEPAD_BUTTON_BOTTOM = "a"
 local GAMEPAD_BUTTON_LEFT = "x"
+local GAMEPAD_BUTTON_START = "start"
+local GAMEPAD_BUTTON_SELECT = "back"
 
 _G.SETTINGS = {
     -- for a list of valid keys and button, see:
@@ -36,7 +38,7 @@ _G.SETTINGS = {
         },
 
         ["A"] = {
-            keyboard = {"a"},
+            keyboard = {"space"},
             controller = GAMEPAD_BUTTON_RIGHT
         },
 
@@ -94,7 +96,6 @@ _G.SETTINGS = {
             keyboard = "y",
             controller = "back"
         }
-
     },
 }
 

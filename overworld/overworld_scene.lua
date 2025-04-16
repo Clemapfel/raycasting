@@ -28,7 +28,7 @@ function ow.OverworldScene:instantiate()
         _current_stage_id = nil,
         _stage = nil,
         _player = nil,
-        _input = rt.InputSubscriber(),
+        _input = rt.InputSubscriber(false),
 
         _camera_translation_velocity_x = 0,
         _camera_translation_velocity_y = 0,
@@ -210,12 +210,14 @@ function ow.OverworldScene:enter(stage_id)
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(_cursor)
+    self._input:activate()
 end
 
 --- @brief
 function ow.OverworldScene:exit()
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(nil)
+    self._input:deactivate()
 end
 
 --- @brief

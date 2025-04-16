@@ -135,17 +135,17 @@ function rt.Frame:size_allocate(x, y, w, h)
 end
 
 --- @brief
-function rt.Frame:set_color(color)
-    if meta.is_hsva(color) then
-        color = rt.rgba_to_hsva(color)
+function rt.Frame:set_color(color, g, b, a)
+    if meta.is_number(color) then
+        color = rt.RGBA(color, g, b, a)
     end
-
     self._frame_color = color
     self:_update_draw()
 end
 
 --- @brief
-function rt.Frame:set_base_color(color)
+function rt.Frame:set_base_color(color, g, b, a)
+    if meta.is_number(color) then color = rt.RGBA(color, g, b, a) end
     self._stencil_color_override = color
     self:_update_draw()
 end

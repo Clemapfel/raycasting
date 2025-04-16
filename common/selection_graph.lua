@@ -1,4 +1,5 @@
 require "common.drawable"
+require "common.input_manager"
 
 --- @class rt.SelectionGraph
 rt.SelectionGraph = meta.class("SelectionGraph", rt.Drawable)
@@ -86,7 +87,7 @@ for which in range("_up", "_right", "_down", "_left") do
         elseif meta.is_function(next) then
             self[which] = next
         else
-            meta.assert_isa(next, rt.SelectionGraphNode)
+            meta.assert(next, rt.SelectionGraphNode)
             self[which] = function(self)
                 return next
             end
@@ -168,7 +169,7 @@ end
 --- @brief
 function rt.SelectionGraph:add(...)
     for node in range(...) do
-        meta.assert_isa(node, rt.SelectionGraphNode)
+        meta.assert(node, rt.SelectionGraphNode)
         if self._nodes[node] == nil then
             self._nodes[node] = true
             if self._n_nodes == 0 then
