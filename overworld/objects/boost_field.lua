@@ -22,13 +22,10 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(_, other)
         self._is_active = true
         self._player = other:get_user_data()
-        --_before = self._player:get_use_friction()
-        --self._player:set_use_friction(false)
     end)
 
     self._body:signal_connect("collision_end", function()
         self._is_active = false
-        --self._scene:get_player():set_use_friction(_before)
         self._player = nil
     end)
 

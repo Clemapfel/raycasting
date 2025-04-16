@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="4" nextobjectid="76">
+ <editorsettings>
+  <export target="boost_tutorial.lua" format="lua"/>
+ </editorsettings>
+ <properties>
+  <property name="title" value="Boosting"/>
+ </properties>
+ <imagelayer id="2" name="Image Layer 1" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="3" name="Object Layer 1">
+  <object id="3" type="PlayerSpawn" x="-185.729" y="-107.834">
+   <point/>
+  </object>
+  <object id="5" type="Hitbox" x="-256" y="0">
+   <polygon points="0,0 224,0 240,16 224,32 0,32 -32,32 -32,0 -32,-336 -64,-336 -32,-304 -32,-352 -32,-368 16,-368 0,-352 -16,-352 -16,0"/>
+  </object>
+  <object id="6" type="Hitbox" x="-272" y="-256">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-96 16,-96 16,256 0,256"/>
+  </object>
+  <object id="7" type="Hitbox" x="224" y="0">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-256,0 -240,16 -256,32 336,32 352,16 336,0"/>
+  </object>
+  <object id="8" name="Boost" type="BoostField" x="256" y="-64">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="velocity" type="float" value="3"/>
+   </properties>
+   <polygon points="-208,0 -208,64 256,64 272,32 256,0"/>
+  </object>
+  <object id="10" type="Hitbox" x="256" y="-64">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="-224,0 -256,0 -256,-16 -240,-32 -240,-288 -256,-304 -288,-304 -304,-320 -256,-320 -224,-320 -224,-304 0,-304 0,-16 -224,-16"/>
+  </object>
+  <object id="12" type="Hitbox" x="560" y="0">
+   <polygon points="0,0 16,16 0,32 112,32 112,0"/>
+  </object>
+  <object id="13" type="Hitbox" x="752" y="0">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-176 -80,-384 -80,-384 -64,-368 -64,-160 -64,-144 -64,0 -80,0"/>
+  </object>
+  <object id="14" type="Hitbox" x="496.799" y="-208.745">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-208.799,-175.255 -208.799,-191.255 -192.799,-223.255 -192.799,-175.255 32,-175.255 31.2007,-158.509 -224,-160"/>
+  </object>
+  <object id="15" type="Coin" x="-304" y="-352">
+   <point/>
+  </object>
+  <object id="16" type="KillPlane" x="-752" y="48">
+   <polygon points="0,0 0,-224 272,-224 368,-16 1424,-16 1424,48 0,48"/>
+  </object>
+  <object id="17" type="BoostField" x="752" y="-80">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="-80,0 -144,0 -144,-96 -112,-112 -80,-96"/>
+  </object>
+  <object id="19" type="BoostField" x="16" y="-208">
+   <properties>
+    <property name="axis_x" type="float" value="-1"/>
+    <property name="axis_y" type="float" value="0"/>
+   </properties>
+   <polygon points="0,-176 -128,-176 -144,-192 -128,-208 0,-208"/>
+  </object>
+  <object id="20" type="BoostField" x="-464" y="-256">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="80,-176 144,-176 144,272 112,272 80,272"/>
+  </object>
+  <object id="21" type="Hitbox" x="0" y="-368">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,288 16,272 16,16 0,0"/>
+  </object>
+  <object id="22" type="Coin" x="-32" y="-240">
+   <point/>
+  </object>
+  <object id="23" type="Hitbox" x="560" y="-384">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,320 -16,304 -16,16"/>
+  </object>
+  <object id="25" type="Hitbox" x="-240" y="-368">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,16 -16,16"/>
+  </object>
+  <object id="28" type="Hitbox" x="256" y="-208">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-224,-176 -32,-176 -32,-224 -16,-192 -16,-176 0,-160 -224,-160"/>
+  </object>
+  <object id="29" type="Coin" x="263.59" y="-229.461">
+   <point/>
+  </object>
+  <object id="31" type="Hitbox" x="256" y="96">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-224,-176 0,-176 0,-160 -224,-160"/>
+  </object>
+  <object id="33" type="Hitbox" x="496" y="96">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-224,-176 32,-175.255 31.2007,-158.509 -224,-160"/>
+  </object>
+  <object id="35" type="Hitbox" x="256" y="-64">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="272,-304 272,-320 304,-320 288,-304.784 288,-18.4808 304,0 272,0 272,-16 16,-16 16,-304"/>
+  </object>
+  <object id="36" type="BoostField" x="240" y="-400">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="0,0 -16,-32 0,-48 48,-48 64,-32 48,0 48,336 0,336"/>
+  </object>
+  <object id="40" type="Hitbox" x="-320" y="-336">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,32 16,368 32,368 32,32"/>
+  </object>
+  <object id="41" type="BoostField" x="832" y="-384">
+   <properties>
+    <property name="axis_x" type="float" value="-1"/>
+    <property name="axis_y" type="float" value="0"/>
+   </properties>
+   <polygon points="0,240 0,-288 80,-288 80,240"/>
+  </object>
+  <object id="42" type="Coin" x="871.977" y="-423.022">
+   <point/>
+  </object>
+  <object id="43" type="BoostField" x="768" y="-416">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="0,0 0,256 32,272 64,256 64,0 32,16"/>
+  </object>
+  <object id="44" type="BoostField" x="912" y="-416">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,32 0,272 32,256 64,272 64,32 32,16"/>
+  </object>
+  <object id="46" x="672" y="-384">
+   <polygon points="0,0 96,0 96,240 80,240 80,320 320,320 320,240 304,240 304,0 368,0 400,0 400,240 384,240 384,320 624,320 624,240 608,240 608,16 640,16 640,320 640,336 16,336 16,16"/>
+  </object>
+  <object id="47" type="Hitbox" x="768" y="-128">
+   <properties>
+    <property name="friction" type="float" value="-1"/>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,48 224,64 0,64 -16,64 -16,-16 0,-16"/>
+  </object>
+  <object id="49" type="Hitbox" x="961.856" y="-553.115">
+   <properties>
+    <property name="friction" type="float" value="-1"/>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-13.3078,-21.079 -1.85637,-38.8848 14.5397,-60.3386 37.9235,-71.1938 66.6043,-77.3957 96.9157,-79.1346 115.907,-74.7913 136.522,-68.2805 154.14,-49.399 174.144,-6.88482 174.144,393.115 270.144,393.115 272,0 270.144,-102.885 318.144,-102.885 318.144,73.1152 334.144,89.1152 350.144,73.1152 350.144,-118.885 334.144,-118.885 270.144,-118.885 -49.8564,-118.885 -49.8564,121.115 -34.1365,121.115 -26.3405,121.115 -20.8326,117.808 -17.8564,112.97 -17.8564,41.1152 -17.8564,9.11518"/>
+  </object>
+  <object id="50" type="Hitbox" x="912" y="-416">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,224 16,192 32,144 32,8.19793 30.5251,1.47487 23.0688,0"/>
+  </object>
+  <object id="52" type="Coin" x="1255.9" y="-519.462">
+   <point/>
+  </object>
+  <object id="53" type="BoostField" x="1072" y="-480">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="0,0 0,256 32,272 64,256 64,0 32,16"/>
+  </object>
+  <object id="54" type="Hitbox" x="1072" y="-128">
+   <properties>
+    <property name="friction" type="float" value="-1"/>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,48 224,64 0,64 -16,64 -16,-16 0,-16"/>
+  </object>
+  <object id="56" type="BoostField" x="1232" y="-672">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="0,16 0,144 48,144 48,16"/>
+  </object>
+  <object id="58" type="Hitbox" x="1249.36" y="-366.31">
+   <polygon points="-1.36257,62.3097 -17.3626,94.3097 -17.3626,-1.69029 -1.36257,-33.6903"/>
+  </object>
+  <object id="59" type="Hitbox" x="1264" y="-384">
+   <polygon points="0,-16 0,80 16,112 16,16"/>
+  </object>
+  <object id="60" type="Hitbox" x="1264" y="-400">
+   <polygon points="0,0 64,16 384,16 384,64 960,64 960,96 384,96 64,96 48,96 48,32 16,32"/>
+  </object>
+  <object id="61" type="BoostField" x="1648" y="-416">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,32 0,80 576,80 576,32"/>
+  </object>
+  <object id="62" type="BoostField" x="1648" y="-672">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="0,224 0,272 576,272 576,224"/>
+  </object>
+  <object id="64" type="Hitbox" x="2224" y="-384">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -128,48 0,48 32,16 192,16 192,0 48,0"/>
+  </object>
+  <object id="65" type="Hitbox" x="2224" y="-400">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -128,-48 0,-48 32,-16 192,-16 192,0 48,0"/>
+  </object>
+  <object id="66" type="BoostField" x="1856" y="-624">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="velocity" type="float" value="10"/>
+   </properties>
+   <polygon points="272,224 272,240 576,240 576,224"/>
+  </object>
+  <object id="67" type="BoostField" x="4055.59" y="283.381">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="1.5"/>
+   </properties>
+   <polygon points="25.2085,-29.0867 161.57,-61.4644 288.647,-109.807 504.413,-187.381 655.215,-231.966 840.413,-267.381 959.368,-290.192 1064.41,-299.381 1138.27,-286.47 1192.41,-251.381 1224.41,-187.381 1192.41,-203.381 1128.41,-219.381 1032.41,-203.381 968.413,-139.381 955.764,-46.9816 1056,352 24.4127,356.619 -327.587,356.619 -875.492,356.619 -1472.65,356.619 -1847.59,356.619 -1847.59,-11.3809 -1467.91,-11.3809 -894.45,-11.3809 -327.587,-11.3809"/>
+  </object>
+  <object id="69" type="Hitbox" x="2192" y="-304">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,1280 -32,1280 -32,0"/>
+  </object>
+  <object id="70" type="Hitbox" x="2224" y="-480">
+   <polygon points="0,0 -416,-192 -912,-192 -912,-48 -368,-48 -288,-16 -288,0 -576,0 -576,32 0,32"/>
+  </object>
+  <object id="71" type="Coin" x="1912.64" y="-487.443">
+   <point/>
+  </object>
+  <object id="72" type="Hitbox" x="5104" y="976">
+   <polygon points="16,-336 -2896,-352 -3536,144 16,144"/>
+  </object>
+  <object id="75" type="Coin" x="5220.1" y="102.073">
+   <point/>
+  </object>
+ </objectgroup>
+</map>
