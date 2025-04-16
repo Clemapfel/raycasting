@@ -29,6 +29,8 @@ function ow.BoostField:instantiate(object, stage, scene)
         self._player = nil
     end)
 
+    self._body:set_use_continuous_collision(true)
+
     self._target = object
     self._elapsed = 0
     self._scene = scene

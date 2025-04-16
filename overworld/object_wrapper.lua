@@ -224,7 +224,7 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                 self
             )
 
-            local polygonization = slick.polygonize(8, { vertices })
+            local polygonization = love.triangulate(vertices) --slick.polygonize(8, { vertices })
             for shape in values(polygonization) do
                 table.insert(prototypes, {
                     type = ow.ObjectWrapperShapeType.POLYGON,
