@@ -51,6 +51,14 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     self._player = self._scene:get_player()
 
+    self._mesh, self._tris = object:create_mesh()
+
+    for tri in values(self._tris) do -- close for line loop
+        table.insert(tri, tri[1])
+        table.insert(tri, tri[2])
+    end
+    self._mesh = self._mesh:get_native()
+
     -- shader aux
     self._camera_offset_x = 0
     self._camera_offset_y = 0
@@ -98,20 +106,37 @@ function ow.BoostField:update(delta)
     local camera = self._scene:get_camera()
     self._camera_offset_x, self._camera_offset_y = camera:get_offset()
     self._camera_scale = camera:get_scale()
+
+    self._color_r, self._color_g, self._color_b = rt.Palette.AQUAMARINE:unpack()
 end
 
 --- @brief
 function ow.BoostField:draw()
     if _shader == nil then _shader = rt.Shader("overworld/objects/boost_field.glsl") end
-    rt.Palette.AQUAMARINE:bind()
 
-    self._body:draw()
+    love.graphics.setColor(self._color_r, self._color_g, self._color_b, 0.4)
+    love.graphics.draw(self._mesh)
+
+    love.graphics.setColor(self._color_r, self._color_g, self._color_b, 1)
     _shader:bind()
     _shader:send("elapsed", self._elapsed)
     _shader:send("origin_offset", { self._body:get_center_of_mass() })
     _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
     _shader:send("camera_scale", self._camera_scale)
     _shader:send("axis", { self._axis_x, self._axis_y })
-    self._body:draw()
+    love.graphics.draw(self._mesh)
     _shader:unbind()
+
+    -- outline
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.stencil(stencil_value, function()
+        love.graphics.draw(self._mesh)
+    end)
+    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineWidth(2)
+    for tri in values(self._tris) do
+        love.graphics.line(tri)
+    end
 end

@@ -73,8 +73,6 @@ end
 
 --- @brief
 function rt.SceneManager:update(delta)
-    assert(type(delta) == "number")
-
     if self._pause_menu_active then
         self._pause_menu:update(delta)
         self._pause_menu:signal_emit("update", delta)

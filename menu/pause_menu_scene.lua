@@ -41,7 +41,7 @@ function mn.PauseMenuScene:instantiate()
     self._confirm_exit_dialog:realize()
     self._confirm_exit_dialog:signal_connect("selection", function(self, which)
         if which == mn.MessageDialogOption.ACCEPT then
-            rt.warning("In mn.PauseMenuScene: exit game TODO")
+            exit(0)
         elseif which == mn.MessageDialogOption.CANCEL then
             self:close()
         end

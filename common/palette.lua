@@ -93,7 +93,7 @@ do -- load from image
     rt.Palette.COLOR_B = rt.Palette.GRAY_7
 
     -- overworld
-    rt.Palette.STICKY = rt.Palette.FOREGROUND
+    rt.Palette.STICKY = rt.Palette.GRAY_2
     rt.Palette.SLIPPERY = rt.Palette.GRAY_4
     rt.Palette.PLAYER = rt.Palette.WHITE
     rt.Palette.PLAYER_BLOOD = rt.Palette.WHITE

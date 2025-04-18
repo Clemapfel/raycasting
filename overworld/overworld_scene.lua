@@ -364,12 +364,15 @@ function ow.OverworldScene:draw()
 
     self._camera:bind()
     --self._stage._world:draw()
+    local before = love.timer.getTime()
     self._stage:draw_floors()
     self._stage:draw_objects()
     self._stage:get_pathfinding_graph():draw()
     self._stage:draw_blood_splatter()
     self._player:draw()
     self._stage:draw_walls()
+
+    --dbg((love.timer.getTime() - before) / (1 / 60))
 
     self._camera:unbind()
 
