@@ -11,6 +11,8 @@ ow.BoostField = meta.class("BoostField")
 ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
 local _shader = nil
+local _collision_event_start = 1
+local _collision_event_end = -1
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
@@ -18,15 +20,14 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
 
-    --local _before = true
-    self._body:signal_connect("collision_start", function(_, other)
-        self._is_active = true
-        self._player = other:get_user_data()
+    self._collision_events = {}
+
+    self._body:signal_connect("collision_start", function(_)
+        table.insert(self._collision_events, _collision_event_start)
     end)
 
     self._body:signal_connect("collision_end", function()
-        self._is_active = false
-        self._player = nil
+        table.insert(self._collision_events, _collision_event_end)
     end)
 
     self._body:set_use_continuous_collision(true)
@@ -60,6 +61,23 @@ end
 --- @brief
 function ow.BoostField:update(delta)
     self._elapsed = self._elapsed + delta
+
+    if #self._collision_events >= 0 then
+        local start_or_end = 0
+        for event in values(self._collision_events) do
+            start_or_end = start_or_end + event
+        end
+
+        if start_or_end >= _collision_event_start then
+            self._is_active = true
+            self._player = self._scene:get_player()
+        elseif start_or_end <= _collision_event_end then
+            self._is_active = false
+            self._player = nil
+        end
+
+        self._collision_events = {}
+    end
 
     if self._is_active then
         local vx, vy = self._player:get_physics_body():get_velocity() -- sic, use actual velocity
