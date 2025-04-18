@@ -83,24 +83,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
 
         self._mesh = rt.MeshCircle(top_x, top_y, radius)
         self._mesh:set_vertex_color(1, 0, 0, 0, 0)
-
-        local bottom_x, bottom_y = self._target_x, self._target_y
-        local w = 0.1 * radius
-        self._beam_mesh = rt.Mesh({
-            { top_x - w, top_y, 0, 0, 1, 1, 1, 1 },
-            { top_x, top_y, 0, 0, 1, 1, 1, 0 },
-            { top_x + w, top_y, 0, 0, 1, 1, 1, 1},
-            { bottom_x - w, bottom_y, 0, 0, 1, 1, 1, 1 },
-            { bottom_x, bottom_y, 0, 0, 1, 1, 1, 0 },
-            { bottom_x + w, bottom_y, 0, 0, 1, 1, 1, 1 }
-        }, rt.MeshDrawMode.TRIANGLES)
-        self._beam_mesh._native:setVertexMap(
-            1, 2, 4,
-            2, 4, 5,
-            2, 3, 6,
-            2, 5, 6
-        )
-
+        self._mesh = self._mesh:get_native()
+        self._line = { top_x, top_y + radius, self._target_x, self._target_y }
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -142,6 +126,12 @@ end
 
 --- @brief
 function ow.Checkpoint:draw()
-    self._mesh:draw()
-    self._beam_mesh:draw()
+    if self._scene:get_player():get_last_player_spawn() == self then
+        rt.Palette.SPAWN_ACTIVE:bind()
+    else
+        rt.Palette.SPAWN_INACTIVE:bind()
+    end
+
+    love.graphics.draw(self._mesh)
+    love.graphics.line(self._line)
 end
