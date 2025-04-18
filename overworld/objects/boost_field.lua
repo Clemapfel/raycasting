@@ -11,8 +11,6 @@ ow.BoostField = meta.class("BoostField")
 ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
 local _shader = nil
-local _collision_event_start = 1
-local _collision_event_end = -1
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
@@ -20,17 +18,17 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
 
-    self._collision_events = {}
+    self._use_exact_testing = table.sizeof(self._body:get_native():getShapes()) > 1
 
-    self._body:signal_connect("collision_start", function(_)
-        table.insert(self._collision_events, _collision_event_start)
-    end)
+    if not self._use_exact_testing then
+        self._body:signal_connect("collision_start", function()
+            self._is_active = true
+        end)
 
-    self._body:signal_connect("collision_end", function()
-        table.insert(self._collision_events, _collision_event_end)
-    end)
-
-    self._body:set_use_continuous_collision(true)
+        self._body:signal_connect("collision_end", function()
+            self._is_active = false
+        end)
+    end
 
     self._target = object
     self._elapsed = 0
@@ -51,6 +49,8 @@ function ow.BoostField:instantiate(object, stage, scene)
         self._axis_x, self._axis_y = math.normalize(end_x - start_x, end_y - start_y)
     end
 
+    self._player = self._scene:get_player()
+
     -- shader aux
     self._camera_offset_x = 0
     self._camera_offset_y = 0
@@ -62,24 +62,12 @@ end
 function ow.BoostField:update(delta)
     self._elapsed = self._elapsed + delta
 
-    if #self._collision_events >= 0 then
-        local start_or_end = 0
-        for event in values(self._collision_events) do
-            start_or_end = start_or_end + event
-        end
-
-        if start_or_end >= _collision_event_start then
-            self._is_active = true
-            self._player = self._scene:get_player()
-        elseif start_or_end <= _collision_event_end then
-            self._is_active = false
-            self._player = nil
-        end
-
-        self._collision_events = {}
+    local is_active = self._is_active
+    if self._use_exact_testing then
+        is_active = self._body:test_point(self._player:get_position())
     end
 
-    if self._is_active then
+    if is_active then
         local vx, vy = self._player:get_physics_body():get_velocity() -- sic, use actual velocity
 
         local target = self._target_velocity

@@ -25,6 +25,7 @@ local _get = function(x, key)
 end
 
 ow.StageConfig._tileset_atlas = {}
+local _dummy_hitbox_id = -1
 
 --- @brief
 function ow.StageConfig:instantiate(stage_id)

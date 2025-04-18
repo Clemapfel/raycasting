@@ -129,8 +129,6 @@ function b2.World:update(delta)
         end
         self._body_to_activate_queue = {}
 
-
-
         self:signal_emit("step", _step)
 
         _elapsed = _elapsed - _step

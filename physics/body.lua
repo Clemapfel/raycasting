@@ -370,3 +370,16 @@ end
 function b2.Body:set_friction(f)
     self._friction = f
 end
+
+--- @brief
+function b2.Body:test_point(x, y)
+    local tx, ty = self._native:getPosition()
+    local tr = self._native:getAngle()
+    for shape in values(self._native:getShapes()) do
+        if shape:testPoint(tx, ty, tr, x, y) == true then
+            return true
+        end
+    end
+
+    return false
+end
