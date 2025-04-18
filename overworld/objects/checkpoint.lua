@@ -72,6 +72,35 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
             scene:get_camera():set_position(self._target_x, self._target_y) -- smash cut on spawn
         end
         self:spawn()
+
+        local radius = rt.settings.overworld.player.radius
+
+        local top_x, top_y = self._x, self._y
+        local data = {
+            { top_x, top_y, 0, 0, 1, 1, 1, 0 }
+        }
+
+
+        self._mesh = rt.MeshCircle(top_x, top_y, radius)
+        self._mesh:set_vertex_color(1, 0, 0, 0, 0)
+
+        local bottom_x, bottom_y = self._target_x, self._target_y
+        local w = 0.1 * radius
+        self._beam_mesh = rt.Mesh({
+            { top_x - w, top_y, 0, 0, 1, 1, 1, 1 },
+            { top_x, top_y, 0, 0, 1, 1, 1, 0 },
+            { top_x + w, top_y, 0, 0, 1, 1, 1, 1},
+            { bottom_x - w, bottom_y, 0, 0, 1, 1, 1, 1 },
+            { bottom_x, bottom_y, 0, 0, 1, 1, 1, 0 },
+            { bottom_x + w, bottom_y, 0, 0, 1, 1, 1, 1 }
+        }, rt.MeshDrawMode.TRIANGLES)
+        self._beam_mesh._native:setVertexMap(
+            1, 2, 4,
+            2, 4, 5,
+            2, 3, 6,
+            2, 5, 6
+        )
+
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -100,7 +129,7 @@ function ow.Checkpoint:spawn()
     local player = self._scene:get_player()
     player:disable()
     local vx, vy = player:get_velocity()
-    player:set_velocity(0, vy)
+    player:set_velocity(0, rt.settings.overworld.player.air_target_velocity_x)
     player:set_trail_visible(false)
     player:teleport_to(self._x, self._y)
     self._waiting_for_player = true
@@ -111,14 +140,8 @@ function ow.Checkpoint:spawn()
     player:signal_emit("respawn")
 end
 
---[[
 --- @brief
 function ow.Checkpoint:draw()
-    if self._scene:get_player():get_last_player_spawn() == self then
-        rt.Palette.GREEN:bind()
-    else
-        rt.Palette.RED:bind()
-    end
-    self._body:draw()
+    self._mesh:draw()
+    self._beam_mesh:draw()
 end
-]]--
