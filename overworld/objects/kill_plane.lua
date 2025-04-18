@@ -57,7 +57,7 @@ function ow.KillPlane:update(delta)
         local camera_w, camera_h = camera:get_size()
 
         if player_y > camera_h or self._elapsed > rt.settings.overworld.kill_plane.max_respawn_duration then -- player left screen
-            self._player:get_last_player_spawn():spawn()
+            self._stage:get_active_checkpoint():spawn()
             self._state = _state_inactive
         end
     end

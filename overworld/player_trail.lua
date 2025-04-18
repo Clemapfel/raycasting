@@ -212,7 +212,6 @@ function ow.PlayerTrail:draw()
     x = x - 0.5 * w
     y = y - 0.5 * h
 
-    rt.Palette.PLAYER_TRAIL:bind()
     if self._a_or_b then
         love.graphics.draw(_canvas_b:get_native(), x, y)
     else

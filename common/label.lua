@@ -149,8 +149,8 @@ function rt.Label:draw(x, y)
     love.graphics.setBlendMode("alpha", "premultiplied")
     love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.draw(self._texture._native,
-        math.round(self._bounds.x + justify_offset + self._texture_offset_x + x),
-        math.round(self._bounds.y + self._texture_offset_y + y)
+        math.floor(self._bounds.x + justify_offset + self._texture_offset_x + x),
+        math.floor(self._bounds.y + self._texture_offset_y + y)
     )
 
     love.graphics.setBlendMode("alpha")

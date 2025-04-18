@@ -37,7 +37,9 @@ function ow.Stage:instantiate(scene, id)
     self._is_initialized = false
     self._id = id
 
-    self._coins = {} -- id to is_collected
+    self._coins = {} -- cf. add_coin
+    self._checkpoints = {} -- cf. add_checkpoint
+    self._active_checkpoint = nil
 
     local config = ow.Stage._config_atlas[id]
     if config == nil then
@@ -52,7 +54,6 @@ function ow.Stage:instantiate(scene, id)
     self._pathfinding_graph = ow.PathfindingGraph()
     self._blood_splatter = ow.BloodSplatter(self)
 
-    self._player_spawn_x, self._player_spawn_y = nil, nil
     self._camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge)
     local camera_bounds_seen = false
 
@@ -150,11 +151,9 @@ function ow.Stage:instantiate(scene, id)
     self._is_initialized = true
     self:signal_emit("initialized")
 
-    if self._player_spawn_x == nil or self._player_spawn_y == nil then
-        rt.warning("In ow.Stage.initialize: not player spawn set for stage `" .. self._id .. "`")
+    if self._active_checkpoint == nil then
+        rt.warning("In ow.Stage.initialize: not `PlayerSpawn` for stage `" .. self._id .. "`")
     end
-    if self._player_spawn_x == nil then self._player_spawn_x = 0.5 * w end
-    if self._player_spawn_y == nil then self._player_spawn_y = 0.5 * h end
 end
 
 --- @brief
@@ -256,8 +255,25 @@ function ow.Stage:add_blood_splatter(x1, y1, x2, y2)
 end
 
 --- @brief
-function ow.Stage:set_player_spawn(x, y)
-    self._player_spawn_x, self._player_spawn_y = x, y
+function ow.Stage:add_checkpoint(checkpoint, id, is_spawn)
+    meta.assert(checkpoint, ow.Checkpoint, id, "Number")
+    self._checkpoints[id] = {
+        checkpoint = checkpoint,
+        timestamp = nil
+    }
+    if is_spawn then
+        self._active_checkpoint = checkpoint
+    end
+end
+
+--- @brief
+function ow.Stage:set_active_checkpoint(checkpoint)
+    self._active_checkpoint = checkpoint
+end
+
+--- @brief
+function ow.Stage:get_active_checkpoint()
+    return self._active_checkpoint
 end
 
 --- @brief

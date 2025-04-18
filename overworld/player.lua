@@ -97,6 +97,7 @@ function ow.Player:instantiate(scene, stage)
 
         _state = ow.PlayerState.ACTIVE,
 
+        _color = rt.Palette.PLAYER,
         _radius = player_radius,
         _inner_body_radius = _settings.inner_body_radius,
         _outer_body_radius = (player_radius * 2 * math.pi) / _settings.n_outer_bodies / 2,
@@ -371,408 +372,409 @@ function ow.Player:update(delta)
 
     -- update sprint once landed
     if self._next_sprint_multiplier_update_when_grounded and (self._bottom_wall or (self._left_wall or self._right_wall)) then
-    self._sprint_multiplier = self._next_sprint_multiplier
+        self._sprint_multiplier = self._next_sprint_multiplier
     end
 
     local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
 
     -- update velocity
     do
-    -- horizontal movement
-    local magnitude
-    if self._left_button_is_down and not self._right_button_is_down then
-    magnitude = -1
-    elseif self._right_button_is_down and not self._left_button_is_down then
-    magnitude = 1
-    else
-    magnitude = 0
-    end
+        -- horizontal movement
+        local magnitude
+        if self._left_button_is_down and not self._right_button_is_down then
+            magnitude = -1
+        elseif self._right_button_is_down and not self._left_button_is_down then
+            magnitude = 1
+        else
+            magnitude = 0
+        end
 
-    local target
-    if not (self._bottom_left_wall or self._bottom_wall or self._left_wall) then
-    target = _settings.air_target_velocity_x
-    else
-    target = _settings.ground_target_velocity_x
-    end
+        local target
+        if not (self._bottom_left_wall or self._bottom_wall or self._left_wall) then
+            target = _settings.air_target_velocity_x
+        else
+            target = _settings.ground_target_velocity_x
+        end
 
-    local target_velocity_x = magnitude * target * self._sprint_multiplier
+        local target_velocity_x = magnitude * target * self._sprint_multiplier
 
-    local current_velocity_x, current_velocity_y = self._body:get_velocity()
-    current_velocity_x = current_velocity_x / self._velocity_multiplier_x
-    current_velocity_y = current_velocity_y / self._velocity_multiplier_y
+        local current_velocity_x, current_velocity_y = self._body:get_velocity()
+        current_velocity_x = current_velocity_x / self._velocity_multiplier_x
+        current_velocity_y = current_velocity_y / self._velocity_multiplier_y
 
-    local step = target_velocity_x - current_velocity_x
+        local step = target_velocity_x - current_velocity_x
 
-    local is_accelerating = (target_velocity_x > 0 and current_velocity_x > 0 and target_velocity_x > current_velocity_x) or
-    (target_velocity_x < 0 and current_velocity_x < 0 and target_velocity_x < current_velocity_x) or
-    (target_velocity_x < 0 and current_velocity_x > 0 or target_velocity_x > 0 and current_velocity_y < 0)
+        local is_accelerating = (target_velocity_x > 0 and current_velocity_x > 0 and target_velocity_x > current_velocity_x) or
+            (target_velocity_x < 0 and current_velocity_x < 0 and target_velocity_x < current_velocity_x) or
+            (target_velocity_x < 0 and current_velocity_x > 0 or target_velocity_x > 0 and current_velocity_y < 0)
 
-    local duration
-    local ground_deceleration = _settings.ground_deceleration_duration
-    if not self._use_friction then
-    ground_deceleration = math.huge
-    end
+        local duration
+        local ground_deceleration = _settings.ground_deceleration_duration
+        if not self._use_friction then
+            ground_deceleration = math.huge
+        end
 
-    if is_accelerating then
-    duration = self._bottom_wall and _settings.ground_acceleration_duration or _settings.air_acceleration_duration
-    else
-    duration = self._bottom_wall and ground_deceleration or _settings.air_deceleration_duration
-    end
+        if is_accelerating then
+            duration = self._bottom_wall and _settings.ground_acceleration_duration or _settings.air_acceleration_duration
+        else
+            duration = self._bottom_wall and ground_deceleration or _settings.air_deceleration_duration
+        end
 
-    if self._bottom_wall == false and not (self._left_button_is_down or self._right_button_is_down or math.abs(self._joystick_position) > 10e-4) then
-    duration = 10e9 -- no air resistance
-    end
+        if self._bottom_wall == false and not (self._left_button_is_down or self._right_button_is_down or math.abs(self._joystick_position) > 10e-4) then
+            duration = 10e9 -- no air resistance
+        end
 
-    if duration == 0 then
-    next_velocity_x = target_velocity_x
-    else
-    local velocity_change = (target_velocity_x - current_velocity_x) / duration
-    next_velocity_x = current_velocity_x + velocity_change * delta
-    end
+        if duration == 0 then
+            next_velocity_x = target_velocity_x
+        else
+            local velocity_change = (target_velocity_x - current_velocity_x) / duration
+            next_velocity_x = current_velocity_x + velocity_change * delta
+        end
 
-    -- override acceleration with analog control
-    if self._use_controller_input then
-    next_velocity_x = self._joystick_x * next_velocity_x
-    end
+        -- override acceleration with analog control
+        if self._use_controller_input then
+            next_velocity_x = self._joystick_x * next_velocity_x
+        end
 
-    if not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
-    next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
-    end
+        if not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
+            next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
+        end
 
-    if self._bottom_wall then -- ground friction
-    local surface_normal_x, surface_normal_y = bottom_nx, bottom_ny
+        if self._bottom_wall then -- ground friction
+            local surface_normal_x, surface_normal_y = bottom_nx, bottom_ny
 
-    --[[
-    if bottom_wall_body:has_tag("slippery") and self._use_friction then
-        -- if going upwards slippery slope
-        local angle = math.angle(surface_normal_x, surface_normal_y) + math.pi * 0.5
-        if math.abs(angle) > 0 then -- prevent acceleration on non-sloped surfaces
-            friction_coefficient = _settings.ground_slippery_friction
-            if (math.sign(next_velocity_x) > 0 and angle < 0 and self._right_button_is_down) or (math.sign(next_velocity_x) < 0 and angle > 0 and self._left_button_is_down) then
-                next_velocity_x = 0
-                next_velocity_y = 0
+            --[[
+            if bottom_wall_body:has_tag("slippery") and self._use_friction then
+                -- if going upwards slippery slope
+                local angle = math.angle(surface_normal_x, surface_normal_y) + math.pi * 0.5
+                if math.abs(angle) > 0 then -- prevent acceleration on non-sloped surfaces
+                    friction_coefficient = _settings.ground_slippery_friction
+                    if (math.sign(next_velocity_x) > 0 and angle < 0 and self._right_button_is_down) or (math.sign(next_velocity_x) < 0 and angle > 0 and self._left_button_is_down) then
+                        next_velocity_x = 0
+                        next_velocity_y = 0
+                    end
+                end
+            end
+            ]]--
+
+            local friction_coefficient = bottom_wall_body:get_friction() or 0
+            local velocity_x, velocity_y = next_velocity_x, next_velocity_y
+            local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
+            local perpendicular_x = dot_product * surface_normal_x
+            local perpendicular_y = dot_product * surface_normal_y
+
+            local parallel_x = velocity_x - perpendicular_x
+            local parallel_y = velocity_y - perpendicular_y
+
+            local friction_x = parallel_x * friction_coefficient
+            local friction_y = parallel_y * friction_coefficient
+
+            next_velocity_x = parallel_x - friction_x
+            next_velocity_y = parallel_y - friction_y
+        else
+            -- magnetize to walls
+            local magnet_force = _settings.wall_magnet_force
+            if self._left_wall and not self._right_wall and self._left_button_is_down then
+                next_velocity_x = next_velocity_x - magnet_force * math.distance(x, y, left_x, left_y) / (self._radius * _settings.side_wall_ray_length_factor)
+            elseif self._right_wall and not self._left_wall and self._right_button_is_down then
+                next_velocity_x = next_velocity_x + magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
             end
         end
-    end
-    ]]--
 
-    local friction_coefficient = bottom_wall_body:get_friction() or 0
-    local velocity_x, velocity_y = next_velocity_x, next_velocity_y
-    local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
-    local perpendicular_x = dot_product * surface_normal_x
-    local perpendicular_y = dot_product * surface_normal_y
+        if self._use_controller_input then
+            next_velocity_x = next_velocity_x * self._joystick_x
+        end
 
-    local parallel_x = velocity_x - perpendicular_x
-    local parallel_y = velocity_y - perpendicular_y
+        -- vertical movement
+        next_velocity_y = current_velocity_y
 
-    local friction_x = parallel_x * friction_coefficient
-    local friction_y = parallel_y * friction_coefficient
+        local can_jump = (self._bottom_wall or (self._bottom_left_wall and not self._left_wall) or (self._bottom_right_wall and not self._right_wall))
 
-    next_velocity_x = parallel_x - friction_x
-    next_velocity_y = parallel_y - friction_y
-    else
-    -- magnetize to walls
-    local magnet_force = _settings.wall_magnet_force
-    if self._left_wall and not self._right_wall and self._left_button_is_down then
-    next_velocity_x = next_velocity_x - magnet_force * math.distance(x, y, left_x, left_y) / (self._radius * _settings.side_wall_ray_length_factor)
-    elseif self._right_wall and not self._left_wall and self._right_button_is_down then
-    next_velocity_x = next_velocity_x + magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
-    end
-    end
+        -- if grounded or leaving wall area, unblock walljumps
+        if can_jump or (left_before == true and self._left_wall == false) then
+            self._left_wall_jump_blocked = false
+        end
 
-    if self._use_controller_input then
-    next_velocity_x = next_velocity_x * self._joystick_x
-    end
+        if can_jump or (right_before == true and self._right_wall == false) then
+            self._right_wall_jump_blocked = false
+        end
 
-    -- vertical movement
-    next_velocity_y = current_velocity_y
+        local can_wall_jump = not can_jump and (
+            self._wall_jump_elapsed < _settings.wall_jump_duration or (
+                (self._left_wall and not self._left_wall_jump_blocked) or
+                    (self._right_wall and not self._right_wall_jump_blocked)
+            ))
 
-    local can_jump = (self._bottom_wall or (self._bottom_left_wall and not self._left_wall) or (self._bottom_right_wall and not self._right_wall))
+        -- override wall conditions
+        if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
+            (self._bottom_left_wall and bottom_left_wall_body:has_tag("unjumpable")) or
+            (self._bottom_right_wall and bottom_right_wall_body:has_tag("unjumpable"))
+        then
+            can_jump = false
+        end
 
-    -- if grounded or leaving wall area, unblock walljumps
-    if can_jump or (left_before == true and self._left_wall == false) then
-    self._left_wall_jump_blocked = false
-    end
+        if (self._left_wall and (left_wall_body:has_tag("unjumpable") or left_wall_body:has_tag("slippery"))) or
+            (self._right_wall and (right_wall_body:has_tag("unjumpable") or right_wall_body:has_tag("slippery")))
+        then
+            can_wall_jump = false
+        end
 
-    if can_jump or (right_before == true and self._right_wall == false) then
-    self._right_wall_jump_blocked = false
-    end
+        -- reset jump button when going from air to ground, to disallow buffering jumps while falling
 
-    local can_wall_jump = not can_jump and (
-    self._wall_jump_elapsed < _settings.wall_jump_duration or (
-    (self._left_wall and not self._left_wall_jump_blocked) or
-    (self._right_wall and not self._right_wall_jump_blocked)
-    ))
+        if (bottom_before == false and self._bottom_wall == true) or
+            (left_before == false and self._left_wall == true) or
+            (right_before == false and self._right_wall == true)
+        then
+            self._jump_button_is_down = false
+        end
 
-    -- override wall conditions
-    if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
-    (self._bottom_left_wall and bottom_left_wall_body:has_tag("unjumpable")) or
-    (self._bottom_right_wall and bottom_right_wall_body:has_tag("unjumpable"))
-    then
-    can_jump = false
-    end
+        -- objects can overirde jump logic
+        if self._jump_allowed_override ~= nil then
+            if self._jump_allowed_override == true then
+                can_jump = true
+            else
+                can_jump = false
+            end
+        end
 
-    if (self._left_wall and (left_wall_body:has_tag("unjumpable") or left_wall_body:has_tag("slippery"))) or
-    (self._right_wall and (right_wall_body:has_tag("unjumpable") or right_wall_body:has_tag("slippery")))
-    then
-    can_wall_jump = false
-    end
+        -- coyote time
+        if can_jump then
+            self._coyote_elapsed = 0
+        else
+            if self._coyote_elapsed < _settings.coyote_time then
+                can_jump = true
+            end
+            self._coyote_elapsed = self._coyote_elapsed + delta
+        end
 
-    -- reset jump button when going from air to ground, to disallow buffering jumps while falling
+        -- prevent horizontal movement after walljump
+        if self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration and math.sign(target_velocity_x) == self._wall_jump_freeze_sign then
+            next_velocity_x = current_velocity_x
+        end
+        self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
 
-    if (bottom_before == false and self._bottom_wall == true) or
-    (left_before == false and self._left_wall == true) or
-    (right_before == false and self._right_wall == true)
-    then
-    self._jump_button_is_down = false
-    end
+        self._can_jump = can_jump
+        self._can_wall_jump = can_wall_jump
 
-    -- objects can overirde jump logic
-    if self._jump_allowed_override ~= nil then
-    if self._jump_allowed_override == true then
-    can_jump = true
-    else
-    can_jump = false
-    end
-    end
+        if self._jump_button_is_down then
+            if can_jump and self._jump_elapsed < _settings.jump_duration then
+                -- regular jump: accelerate upwards wil jump button is down
+                self._coyote_elapsed = 0
+                next_velocity_y = -1 * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
+                self._jump_elapsed = self._jump_elapsed + delta
+            elseif can_wall_jump then
+                -- wall jump: initial burst, then small sustain
+                if self._wall_jump_elapsed == 0 then -- set by jump button
+                    -- initial burst
+                    local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
 
-    -- coyote time
-    if can_jump then
-    self._coyote_elapsed = 0
-    else
-    if self._coyote_elapsed < _settings.coyote_time then
-    can_jump = true
-    end
-    self._coyote_elapsed = self._coyote_elapsed + delta
-    end
+                    if self._left_wall then
+                        self._left_wall_jump_blocked = true
+                    elseif self._right_wall then
+                        self._right_wall_jump_blocked = true
+                    end
 
-    -- prevent horizontal movement after walljump
-    if self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration and math.sign(target_velocity_x) == self._wall_jump_freeze_sign then
-    next_velocity_x = current_velocity_x
-    end
-    self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+                    if self._right_wall then dx = dx * -1 end
+                    local burst = _settings.wall_jump_initial_impulse + gravity
+                    next_velocity_x, next_velocity_y = dx * burst, dy * burst
 
-    self._can_jump = can_jump
-    self._can_wall_jump = can_wall_jump
+                    self._wall_jump_freeze_elapsed = 0
 
-    if self._jump_button_is_down then
-    if can_jump and self._jump_elapsed < _settings.jump_duration then
-    -- regular jump: accelerate upwards wil jump button is down
-    self._coyote_elapsed = 0
-    next_velocity_y = -1 * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
-    self._jump_elapsed = self._jump_elapsed + delta
-    elseif can_wall_jump then
-    -- wall jump: initial burst, then small sustain
-    if self._wall_jump_elapsed == 0 then -- set by jump button
-    -- initial burst
-    local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
+                    if self._left_wall then
+                        self._wall_jump_freeze_sign = -1
+                    elseif self._right_wall then
+                        self._wall_jump_freeze_sign =  1
+                    end
+                elseif self._wall_jump_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
+                    -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
+                    local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
 
-    if self._left_wall then
-    self._left_wall_jump_blocked = true
-    elseif self._right_wall then
-    self._right_wall_jump_blocked = true
-    end
+                    if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
+                    local force = _settings.wall_jump_sustained_impulse * delta + gravity
+                    next_velocity_x = next_velocity_x + dx * force
+                    next_velocity_y = next_velocity_y + dy * force
+                end
+            end
+        end
 
-    if self._right_wall then dx = dx * -1 end
-    local burst = _settings.wall_jump_initial_impulse + gravity
-    next_velocity_x, next_velocity_y = dx * burst, dy * burst
+        self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
-    self._wall_jump_freeze_elapsed = 0
+        local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
 
-    if self._left_wall then
-    self._wall_jump_freeze_sign = -1
-    elseif self._right_wall then
-    self._wall_jump_freeze_sign =  1
-    end
-    elseif self._wall_jump_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
-    -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
-    local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
+        -- apply friction when wall_clinging
+        local _apply_wall_friction = function(coefficient, tx, ty)
+            local friction_force = coefficient * gravity * math.sign(current_velocity_y)
+            friction_force = (_settings.sprint_multiplier - self._sprint_multiplier + 1) * friction_force
+            next_velocity_y = next_velocity_y - friction_force
+        end
 
-    if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
-    local force = _settings.wall_jump_sustained_impulse * delta + gravity
-    next_velocity_x = next_velocity_x + dx * force
-    next_velocity_y = next_velocity_y + dy * force
-    end
-    end
-    end
+        if wall_cling and self._left_wall then _apply_wall_friction(
+            left_wall_body:has_tag("slippery") and _settings.wall_slippery_friction or _settings.wall_regular_friction,
+            math.turn_left(left_nx, left_ny)
+        ) end
 
-    self._wall_jump_elapsed = self._wall_jump_elapsed + delta
+        if wall_cling and self._right_wall then _apply_wall_friction(
+            right_wall_body:has_tag("slippery") and _settings.wall_slippery_friction or _settings.wall_regular_friction,
+            math.turn_right(right_nx, right_ny)
+        ) end
 
-    local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
+        local fraction = self._bounce_elapsed / _settings.bounce_duration
+        if fraction <= 1 then
+            -- bounce
+            if _settings.bounce_duration == 0 then
+                next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force
+                next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force
+            else
+                local velocity_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
+                local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
+                local bounce_nx, bounce_ny = self._bounce_direction_x, self._bounce_direction_y
 
-    -- apply friction when wall_clinging
-    local _apply_wall_friction = function(coefficient, tx, ty)
-    local friction_force = coefficient * gravity * math.sign(current_velocity_y)
-    friction_force = (_settings.sprint_multiplier - self._sprint_multiplier + 1) * friction_force
-    next_velocity_y = next_velocity_y - friction_force
-    end
+                local bounce_force = (1 - fraction) * self._bounce_force * 2
+                next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
+                next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
+            end
+        end
+        self._bounce_elapsed = self._bounce_elapsed + delta
 
-    if wall_cling and self._left_wall then _apply_wall_friction(
-    left_wall_body:has_tag("slippery") and _settings.wall_slippery_friction or _settings.wall_regular_friction,
-    math.turn_left(left_nx, left_ny)
-    ) end
+        -- downwards force
+        if self._down_button_is_down then
+            local factor = _settings.downwards_force_factor
+            if self._bottom_wall then factor = factor * 4 end
+            next_velocity_y = next_velocity_y + factor * gravity
+                * math.clamp(fraction, 0, 1) -- disable during bounce
+        end
 
-    if wall_cling and self._right_wall then _apply_wall_friction(
-    right_wall_body:has_tag("slippery") and _settings.wall_slippery_friction or _settings.wall_regular_friction,
-    math.turn_right(right_nx, right_ny)
-    ) end
+        -- gravity
+        next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
+        next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
-    local fraction = self._bounce_elapsed / _settings.bounce_duration
-    if fraction <= 1 then
-    -- bounce
-    if _settings.bounce_duration == 0 then
-    next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force
-    next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force
-    else
-    local velocity_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
-    local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
-    local bounce_nx, bounce_ny = self._bounce_direction_x, self._bounce_direction_y
+        next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
+        next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
 
-    local bounce_force = (1 - fraction) * self._bounce_force * 2
-    next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
-    next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
-    end
-    end
-    self._bounce_elapsed = self._bounce_elapsed + delta
-
-    -- downwards force
-    if self._down_button_is_down then
-    local factor = _settings.downwards_force_factor
-    if self._bottom_wall then factor = factor * 4 end
-    next_velocity_y = next_velocity_y + factor * gravity
-    * math.clamp(fraction, 0, 1) -- disable during bounce
-    end
-
-    -- gravity
-    next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
-    next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
-
-    next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
-    next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
-
-    self._body:set_velocity(
-    next_velocity_x * self._velocity_multiplier_x,
-    next_velocity_y * self._velocity_multiplier_y
-    )
-    self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
+        self._body:set_velocity(
+            next_velocity_x * self._velocity_multiplier_x,
+            next_velocity_y * self._velocity_multiplier_y
+        )
+        self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
     end
 
     ::skip_velocity_update::
 
     -- safeguard against one of the springs catching
     for i, body in ipairs(self._spring_bodies) do
-    local distance = math.distance(x, y, body:get_position())
-    --body:set_is_sensor(distance > _settings.max_spring_length)
-    local should_be_disabled = distance > _settings.max_spring_length--self._spring_joints[i]._prismatic_joint:getJointSpeed() > 100
-    body:set_is_sensor(should_be_disabled)
+        local distance = math.distance(x, y, body:get_position())
+        --body:set_is_sensor(distance > _settings.max_spring_length)
+        local should_be_disabled = distance > _settings.max_spring_length--self._spring_joints[i]._prismatic_joint:getJointSpeed() > 100
+        body:set_is_sensor(should_be_disabled)
     end
 
     if self._is_frozen then
-    self._body:set_velocity(
-    next_velocity_x * self._velocity_multiplier_x,
-    next_velocity_y * self._velocity_multiplier_y
-    )
-    self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
+        self._body:set_velocity(
+            next_velocity_x * self._velocity_multiplier_x,
+            next_velocity_y * self._velocity_multiplier_y
+        )
+        self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
     end
 
     self:_update_mesh()
 
     -- add blood splatter
     local function _add_blood_splatter(contact_x, contact_y, nx, ny)
-    local nx_top, ny_top = math.turn_left(nx, ny)
-    local nx_bottom, ny_bottom = math.turn_right(nx, ny)
+        local nx_top, ny_top = math.turn_left(nx, ny)
+        local nx_bottom, ny_bottom = math.turn_right(nx, ny)
 
-    local r = math.sqrt(math.abs(select(1, self._body:get_velocity()))) / 2
-    local top_x, top_y = contact_x + nx_top * r, contact_y + ny_top * r
-    local bottom_x, bottom_y = contact_x + nx_bottom * r, contact_y + ny_bottom * r
+        local r = math.sqrt(math.abs(select(1, self._body:get_velocity()))) / 2
+        local top_x, top_y = contact_x + nx_top * r, contact_y + ny_top * r
+        local bottom_x, bottom_y = contact_x + nx_bottom * r, contact_y + ny_bottom * r
 
-    self._stage:add_blood_splatter(top_x, top_y, bottom_x, bottom_y)
+        self._stage:add_blood_splatter(top_x, top_y, bottom_x, bottom_y)
     end
 
     do
-    if self._top_wall and
-    not top_wall_body:has_tag("slippery") and
-    not top_wall_body:has_tag("no_blood") and
-    math.distance(top_x, top_y, x, y) <= self._radius
-    then
-    _add_blood_splatter(top_x, top_y, top_nx, top_ny)
-    end
+        if self._top_wall and
+            not top_wall_body:has_tag("slippery") and
+            not top_wall_body:has_tag("no_blood") and
+            math.distance(top_x, top_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(top_x, top_y, top_nx, top_ny)
+        end
 
-    if self._right_wall and
-    not right_wall_body:has_tag("slippery") and
-    not right_wall_body:has_tag("no_blood") and
-    math.distance(right_x, right_y, x, y) <= self._radius
-    then
-    _add_blood_splatter(right_x, right_y, right_nx, right_ny)
-    end
+        if self._right_wall and
+            not right_wall_body:has_tag("slippery") and
+            not right_wall_body:has_tag("no_blood") and
+            math.distance(right_x, right_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(right_x, right_y, right_nx, right_ny)
+        end
 
-    if self._bottom_wall and
-    not bottom_wall_body:has_tag("slippery") and
-    not bottom_wall_body:has_tag("no_blood") and
-    math.distance(bottom_x, bottom_y, x, y) <= self._radius
-    then
-    _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
-    end
+        if self._bottom_wall and
+            not bottom_wall_body:has_tag("slippery") and
+            not bottom_wall_body:has_tag("no_blood") and
+            math.distance(bottom_x, bottom_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
+        end
 
-    if self._left_wall and
-    not left_wall_body:has_tag("slippery") and
-    not left_wall_body:has_tag("no_blood") and
-    math.distance(left_x, left_y, x, y) <= self._radius
-    then
-    _add_blood_splatter(left_x, left_y, left_nx, left_ny)
-    end
+        if self._left_wall and
+            not left_wall_body:has_tag("slippery") and
+            not left_wall_body:has_tag("no_blood") and
+            math.distance(left_x, left_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(left_x, left_y, left_nx, left_ny)
+        end
     end
 
     -- death bodies
     self._respawn_elapsed = self._respawn_elapsed + delta
     for body in values(self._death_outer_bodies) do
-    local vx, vy = body:get_velocity()
-    body:set_velocity(vx + self._gravity_direction_x * gravity, vy + self._gravity_direction_y * gravity)
+        local vx, vy = body:get_velocity()
+        body:set_velocity(vx + self._gravity_direction_x * gravity, vy + self._gravity_direction_y * gravity)
 
-    if self._respawn_elapsed < _settings.respawn_duration then
-    local ray_length = self._death_body_radius * 2
+        if self._respawn_elapsed < _settings.respawn_duration then
+            local ray_length = self._death_body_radius * 2
 
-    local top_dx, top_dy = 0, -ray_length
-    local right_dx, right_dy = ray_length, 0
-    local bottom_dx, bottom_dy = 0, ray_length
-    local left_dx, left_dy = -ray_length, 0
+            local top_dx, top_dy = 0, -ray_length
+            local right_dx, right_dy = ray_length, 0
+            local bottom_dx, bottom_dy = 0, ray_length
+            local left_dx, left_dy = -ray_length, 0
 
-    local x, y = body:get_position()
-    local mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
+            local x, y = body:get_position()
+            local mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
 
-    local top_x, top_y, top_nx, top_ny, top_wall_body = self._world:query_ray_any(x, y, top_dx, top_dy, mask)
-    local right_x, right_y, right_nx, right_ny, right_wall_body = self._world:query_ray(x, y, right_dx, right_dy, mask)
-    local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray(x, y, bottom_dx, bottom_dy, mask)
-    local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
+            local top_x, top_y, top_nx, top_ny, top_wall_body = self._world:query_ray_any(x, y, top_dx, top_dy, mask)
+            local right_x, right_y, right_nx, right_ny, right_wall_body = self._world:query_ray(x, y, right_dx, right_dy, mask)
+            local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray(x, y, bottom_dx, bottom_dy, mask)
+            local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
 
-    local left_wall = left_wall_body ~= nil and not left_wall_body:get_is_sensor()
-    local right_wall = right_wall_body ~= nil and not right_wall_body:get_is_sensor()
-    local top_wall = top_wall_body ~= nil and not top_wall_body:get_is_sensor()
-    local bottom_wall = bottom_wall_body ~= nil and not bottom_wall_body:get_is_sensor()
+            local left_wall = left_wall_body ~= nil and not left_wall_body:get_is_sensor()
+            local right_wall = right_wall_body ~= nil and not right_wall_body:get_is_sensor()
+            local top_wall = top_wall_body ~= nil and not top_wall_body:get_is_sensor()
+            local bottom_wall = bottom_wall_body ~= nil and not bottom_wall_body:get_is_sensor()
 
-    if top_wall then
-    _add_blood_splatter(top_x, top_y, top_nx, top_ny)
-    end
+            if top_wall then
+                _add_blood_splatter(top_x, top_y, top_nx, top_ny)
+            end
 
-    if right_wall then
-    _add_blood_splatter(right_x, right_y, right_nx, right_ny)
-    end
+            if right_wall then
+                _add_blood_splatter(right_x, right_y, right_nx, right_ny)
+            end
 
-    if bottom_wall then
-    _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
-    end
+            if bottom_wall then
+                _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
+            end
 
-    if left_wall then
-    _add_blood_splatter(left_x, left_y, left_nx, left_ny)
-    end
-    end
+            if left_wall then
+                _add_blood_splatter(left_x, left_y, left_nx, left_ny)
+            end
+        end
     end
 
     self._bounce_locked = false
-    end
+end
 
 --- @brief
-function ow.Player:move_to_stage(stage, x, y)
+function ow.Player:move_to_stage(stage)
+    local x, y = 0, 0
     meta.assert(stage, "Stage", x, "Number", y, "Number")
 
     self._trail:clear()
@@ -942,11 +944,13 @@ function ow.Player:move_to_stage(stage, x, y)
     if self._state == ow.PlayerState.DISABLED then
         self:disable()
     end
+
+    self._stage:get_active_checkpoint():spawn()
 end
 
 function ow.Player:_update_mesh()
     -- update mesh
-    local player_x, player_y = self._body:get_predicted_position()
+    local player_x, player_y = self._body:get_position()
     local to_polygonize = {}
 
     for i, body in ipairs(self._spring_bodies) do
@@ -990,12 +994,12 @@ end
 
 --- @brief
 function ow.Player:draw()
+    local r, g, b, a = self._color:unpack()
+
     if self._trail_visible then
-        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setColor(r, g, b, a)
         self._trail:draw()
     end
-
-    local r, g, b, a = rt.Palette.PLAYER:unpack()
 
     -- draw body
     love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
@@ -1182,21 +1186,6 @@ function ow.Player:kill()
         body:set_velocity(dx * speed, dy * speed)
         body:set_is_enabled(true)
     end
-
-    if self._last_spawn ~= nil then
-        self._last_spawn:spawn()
-        -- signal emitted by ow.Checkpoint
-    end
-end
-
---- @brief
-function ow.Player:set_last_player_spawn(spawn)
-    self._last_spawn = spawn
-end
-
---- @brief
-function ow.Player:get_last_player_spawn()
-    return self._last_spawn
 end
 
 --- @brief
@@ -1214,5 +1203,10 @@ function ow.Player:pulse(...)
     self._trail:pulse(...)
 end
 
+--- @brief
+function ow.Player:set_color(color)
+    meta.assert(color, rt.RGBA)
+    self._color = color
+end
 
 

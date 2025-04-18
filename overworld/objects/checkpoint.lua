@@ -18,6 +18,8 @@ end
 function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
     meta.install(self, {
         _scene = scene,
+        _stage = stage,
+
         _x = object.x,
         _y = object.y,
 
@@ -25,11 +27,10 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _target_y = nil,
 
         _body = nil,
+        _is_active = false,
     })
 
-    if is_player_spawn == true then
-        stage:set_player_spawn(self._x, self._y)
-    end
+    stage:add_checkpoint(self, object.id, is_player_spawn)
 
     stage:signal_connect("initialized", function()
         local world = stage:get_physics_world()
@@ -65,7 +66,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
         self._body:signal_connect("collision_start", function(_, other_body)
             assert(other_body:has_tag("player"))
-            other_body:get_user_data():set_last_player_spawn(self)
+            self._stage:set_active_checkpoint(self)
         end)
 
         if is_player_spawn == true then
@@ -120,13 +121,13 @@ function ow.Checkpoint:spawn()
     self._elapsed = 0
 
     self._scene:get_camera():move_to(self._target_x, self._target_y - player:get_radius()) -- jump cut at start of level
-    player:set_last_player_spawn(self)
+    self._stage:set_active_checkpoint(self)
     player:signal_emit("respawn")
 end
 
 --- @brief
 function ow.Checkpoint:draw()
-    if self._scene:get_player():get_last_player_spawn() == self then
+    if self._stage:get_active_checkpoint() == self then
         rt.Palette.SPAWN_ACTIVE:bind()
     else
         rt.Palette.SPAWN_INACTIVE:bind()

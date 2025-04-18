@@ -1,18 +1,30 @@
 require "common.sound_manager"
+require "common.timed_animation"
 
 rt.settings.overworld.coin = {
     radius = 5,
+    pulse_animation_duration = 1,
     sound_id = "overworld_coin_collected"
 }
 
 --- @class ow.Coin
 ow.Coin = meta.class("Coin")
 
+local _pulse_mesh = nil
+local _color_i = 1
+
 --- @brief
 function ow.Coin:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Coin.instantiate: object is not a point")
 
-    stage:add_coin(self, object.id)
+    self._id = object.id -- TODO: global id
+
+    self._stage = stage
+    self._scene = scene
+    stage:add_coin(self, self._id)
+    stage:set_render_priority(self, math.huge)
+
+    self._color = rt.random.choose(rt.Palette.COIN_COLORS)
 
     self._body = b2.Body(
         stage:get_physics_world(),
@@ -20,6 +32,8 @@ function ow.Coin:instantiate(object, stage, scene)
         object.x, object.y,
         b2.Circle(0, 0, rt.settings.overworld.coin.radius)
     )
+
+    self._x, self._y, self._radius = object.x, object.y, rt.settings.overworld.coin.radius
 
     self._is_collected = false
 
@@ -32,11 +46,25 @@ function ow.Coin:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(self_body, player_body)
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
-        local x, y = self_body:get_position()
-        player_body:get_user_data():pulse(x, y)
         self._is_collected = true
+        self._stage:set_coin_is_collected(self._id, true)
+        self._pulse_opacity_animation:reset()
+        self._pulse_active = true
+        self._scene:get_player():set_color(self._color)
         --return meta.DISCONNECT_SIGNAL
     end)
+
+    if _pulse_mesh == nil then
+        _pulse_mesh = rt.MeshCircle(0, 0, rt.settings.overworld.player.radius * 2)
+        _pulse_mesh:set_vertex_color(1, 0, 0, 0, 0)
+        _pulse_mesh = _pulse_mesh:get_native()
+    end
+
+    self._pulse_opacity_animation = rt.TimedAnimation(
+        rt.settings.overworld.coin.pulse_animation_duration,
+        1, 0
+    )
+    self._pulse_active = false
 end
 
 --- @brief
@@ -51,13 +79,28 @@ end
 
 --- @brief
 function ow.Coin:update(delta)
-    if self._is_collected then return end
+    if self._is_collected then
+        if self._pulse_active then
+            self._pulse_active = not self._pulse_opacity_animation:update(delta)
+        end
+    end
 end
 
 --- @brief
 function ow.Coin:draw()
-    if self._is_collected then return end
-
-    rt.Palette.YELLOW:bind()
-    self._body:draw()
+    if self._is_collected then
+        if self._pulse_active then
+            local r, g, b = self._color:unpack()
+            love.graphics.setColor(r, g, b, self._pulse_opacity_animation:get_value())
+            love.graphics.draw(_pulse_mesh, self._x, self._y)
+        end
+    else
+        local r, g, b = self._color:unpack()
+        love.graphics.setLineWidth(1)
+        local d = 0.35
+        love.graphics.setColor(r - d, g - d, b - d, 1)
+        love.graphics.circle("fill", self._x, self._y, self._radius)
+        love.graphics.setColor(r, g, b, 1)
+        love.graphics.circle("line", self._x, self._y, self._radius)
+    end
 end

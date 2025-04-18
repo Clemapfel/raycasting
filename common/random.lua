@@ -47,8 +47,13 @@ local _sizeof = table.sizeof
 --- @brief pick random element from table
 --- @param set Table
 function rt.random.choose(...)
-    local n = select("#", ...)
-    return select(rt.random.integer(1, n), ...)
+    local t1 = select(1, ...)
+    if type(t1, "table") then
+        return t1[rt.random.integer(1, #t1)]
+    else
+        local n = select("#", ...)
+        return select(rt.random.integer(1, n), ...)
+    end
 end
 
 --- @brief pick random subset, no repeats

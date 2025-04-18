@@ -286,7 +286,7 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
         self._stage_id = stage_id
         self._stage = next_entry.stage
 
-        self._player:move_to_stage(self._stage, spawn_x, spawn_y)
+        self._player:move_to_stage(self._stage)
 
         --if self._camera_mode ~= ow.CameraMode.MANUAL then
             self._camera:set_bounds(self._stage:get_camera_bounds())
@@ -545,5 +545,6 @@ end
 --- @brief
 function ow.OverworldScene:respawn()
     self._player:kill()
+    self._stage:get_active_checkpoint():spawn()
     self._stage:reset_coins()
 end
