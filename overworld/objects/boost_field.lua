@@ -64,6 +64,19 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._camera_offset_y = 0
     self._camera_scale = 1
     self._elapsed = 0
+
+    self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.AQUAMARINE:unpack()
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "^" then
+            _shader:recompile()
+        end
+    end)
+
+    local aabb = self._body:compute_aabb()
+    self._aabb = aabb -- TODO
+    self._origin_offset_x, self._origin_offset_y = aabb.x, aabb.y
 end
 
 --- @brief
@@ -106,8 +119,6 @@ function ow.BoostField:update(delta)
     local camera = self._scene:get_camera()
     self._camera_offset_x, self._camera_offset_y = camera:get_offset()
     self._camera_scale = camera:get_scale()
-
-    self._color_r, self._color_g, self._color_b = rt.Palette.AQUAMARINE:unpack()
 end
 
 --- @brief
@@ -117,10 +128,10 @@ function ow.BoostField:draw()
     love.graphics.setColor(self._color_r, self._color_g, self._color_b, 0.4)
     love.graphics.draw(self._mesh)
 
-    love.graphics.setColor(self._color_r, self._color_g, self._color_b, 1)
+    love.graphics.setColor(self._color_r, self._color_g, self._color_b, self._color_a)
     _shader:bind()
     _shader:send("elapsed", self._elapsed)
-    _shader:send("origin_offset", { self._body:get_center_of_mass() })
+    _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
     _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
     _shader:send("camera_scale", self._camera_scale)
     _shader:send("axis", { self._axis_x, self._axis_y })
@@ -139,4 +150,6 @@ function ow.BoostField:draw()
     for tri in values(self._tris) do
         love.graphics.line(tri)
     end
+
+    rt.graphics.set_stencil_test(nil)
 end

@@ -49,6 +49,7 @@ rt.Translation = rt.initialize_translation({
     -- pause menu scene
     pause_menu_scene = {
         resume = "Resume",
+        retry = "Retry",
         controls = "Controls",
         settings = "Settings",
         exit = "Exit",

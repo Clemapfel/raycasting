@@ -37,6 +37,11 @@ function mn.PauseMenuScene:instantiate()
         end
     end)
 
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        -- debug reload
+        if which == "^" then rt.SceneManager:get_current_scene():reload() end
+    end)
+
     self._background:realize()
     self._confirm_exit_dialog:realize()
     self._confirm_exit_dialog:signal_connect("selection", function(self, which)
@@ -54,6 +59,7 @@ function mn.PauseMenuScene:instantiate()
     local prefix, postfix = rt.settings.menu.pause_menu_scene.label_prefix, rt.settings.menu.pause_menu_scene.label_postfix
     for name in range(
         "resume",
+        "retry",
         "controls",
         "settings",
         "exit"
@@ -190,6 +196,12 @@ end
 
 --- @brief
 function mn.PauseMenuScene:_on_resume()
+    rt.SceneManager:unpause()
+end
+
+--- @brief
+function mn.PauseMenuScene:_on_retry()
+    rt.SceneManager:get_current_scene():respawn()
     rt.SceneManager:unpause()
 end
 

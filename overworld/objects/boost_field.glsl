@@ -30,21 +30,22 @@ vec2 to_uv(vec2 frag_position) {
 uniform vec2 axis = vec2(0, -1);
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_position) {
-    vec2 uv = to_uv(frag_position) - origin_offset / love_ScreenSize.xy;
+    vec2 uv = to_uv(frag_position - origin_offset);
 
     float angle = atan(axis.y, axis.x) + 0.5 * PI;
     uv = rotate(uv, -angle);
 
-    uv *= 5;
+    uv *= 20;
 
-    const float width = 0.5; // width of line
-    const float eps = 0.1; // anti-aliasing
+    const float width = 0.5;
+    const float eps = 0.2; // anti-aliasing
+    const float flattness = 2;
 
     uv.y = fract(uv.y + elapsed);
     uv.y /= width;
     uv.y -= width;
     uv.x = fract(uv.x);
 
-    float value = smoothstep(width - eps, width + eps, 1 - distance(uv.y, smooth_abs(uv.x * 2 - 1)));
-    return vec4(mix(0.25, 0.75, value)) * vertex_color;
+    float value = smoothstep(width - eps, width + eps, 1 - distance(uv.y, (1 / flattness) * smooth_abs(uv.x * 2 - 1)));
+    return vec4(mix(0.58, 0.7, value)) * vertex_color;
 }

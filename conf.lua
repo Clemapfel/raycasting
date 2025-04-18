@@ -77,11 +77,6 @@ _G.SETTINGS = {
             controller = "back"
         },
 
-        ["INTERACT"] = {
-            keyboard = "x",
-            controller = GAMEPAD_BUTTON_RIGHT
-        },
-
         ["SPRINT"] = {
             keyboard = "b",
             controller = GAMEPAD_BUTTON_LEFT
@@ -91,11 +86,6 @@ _G.SETTINGS = {
             keyboard = "space",
             controller = GAMEPAD_BUTTON_BOTTOM
         },
-
-        ["RESPAWN"] = {
-            keyboard = "y",
-            controller = "back"
-        }
     },
 }
 

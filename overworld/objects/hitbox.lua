@@ -24,15 +24,13 @@ function ow.Hitbox:instantiate(object, stage, scene)
 
     if self._body:has_tag("slippery") then
         stage:set_render_priority(self, 1)
-        self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.GRAY_6:unpack()
-        self._color_a = 1
-        self._outline_color_r, self._outline_color_g, self._outline_color_b, self._outline_color_a = rt.Palette.SLIPPERY:unpack()
+        self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.SLIPPERY:unpack()
+        self._outline_color_r, self._outline_color_g, self._outline_color_b, self._outline_color_a = rt.Palette.SLIPPERY_OUTLINE:unpack()
         self._line_width = 4
     else
         stage:set_render_priority(self, 2)
-        self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.GRAY_5:unpack()
-        self._color_a = 1
-        self._outline_color_r, self._outline_color_g, self._outline_color_b, self._outline_color_a = rt.Palette.STICKY:unpack()
+        self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.STICKY:unpack()
+        self._outline_color_r, self._outline_color_g, self._outline_color_b, self._outline_color_a = rt.Palette.STICKY_OUTLINE:unpack()
         self._line_width = 2.5
     end
 
@@ -66,6 +64,8 @@ function ow.Hitbox:draw()
     for tri in values(self._tris) do
         love.graphics.line(tri)
     end
+
+    rt.graphics.set_stencil_test(nil)
 
     love.graphics.pop()
 end

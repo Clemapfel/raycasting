@@ -37,6 +37,8 @@ function ow.Stage:instantiate(scene, id)
     self._is_initialized = false
     self._id = id
 
+    self._coins = {} -- id to is_collected
+
     local config = ow.Stage._config_atlas[id]
     if config == nil then
         config = ow.StageConfig(id)
@@ -256,4 +258,61 @@ end
 --- @brief
 function ow.Stage:set_player_spawn(x, y)
     self._player_spawn_x, self._player_spawn_y = x, y
+end
+
+--- @brief
+function ow.Stage:add_coin(coin, id)
+    meta.assert(coin, ow.Coin, id, "Number")
+    self._coins[id] = {
+        coin = coin,
+        is_collected = coin:get_is_collected()
+    }
+end
+
+--- @brief
+function ow.Stage:set_coin_is_collected(id, is_collected)
+    local entry = self._coins[id]
+    if entry == nil then
+        rt.warning("In ow.Staget.set_coin_collected: no coin with id `" .. id .. "`")
+        return
+    end
+
+    entry.is_collected = is_collected
+end
+
+--- @brief
+function ow.Stage:get_coin_is_collected(id)
+    local entry = self._coins[id]
+    if entry == nil then
+        rt.warning("In ow.Staget.get_coin_is_collected: no coin with id `" .. id .. "`")
+        return false
+    end
+
+    return entry.is_collected
+end
+
+--- @brief
+function ow.Stage:get_n_coins()
+    return table.sizeof(self._coins)
+end
+
+--- @brief
+function ow.Stage:reset_coins()
+    for id, entry in pairs(self._coins) do
+        entry.is_collected = false
+        entry.coin:set_is_collected(false)
+    end
+end
+
+--- @brief
+function ow.Stage:get_n_coins_collected()
+    local n, n_collected = 0, 0
+    for entry in values(self._coins) do
+        n = n + 1
+        if entry.is_collected then
+            n_collected = n_collected + 1
+        end
+    end
+
+    return n_collected, n
 end

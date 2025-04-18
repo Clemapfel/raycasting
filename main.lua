@@ -10,12 +10,7 @@ require "common.input_subscriber"
 
 _input = rt.InputSubscriber()
 _input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "^" then
-        rt.SceneManager:get_current_scene():reload()
-        debugger.reload()
-    elseif which == "q" then
-        rt.SceneManager:get_current_scene()._background:recompile()
-    end
+
 end)
 
 love.load = function(args)

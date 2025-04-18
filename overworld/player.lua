@@ -240,13 +240,6 @@ function ow.Player:_connect_input()
             self._sprint_button_is_down = true
             self._next_sprint_multiplier = _settings.sprint_multiplier
             self._next_sprint_multiplier_update_when_grounded = true
-        elseif which == rt.InputButton.INTERACT then
-            -- interact
-            for target in keys(self._interact_targets) do
-                target:signal_emit("activate", self)
-            end
-        elseif which == rt.InputButton.RESPAWN then
-            self:kill()
         elseif which == rt.InputButton.Y then
         elseif which == rt.InputButton.LEFT then
             self._left_button_is_down = true
@@ -858,7 +851,7 @@ function ow.Player:move_to_stage(stage, x, y)
     self._death_outer_bodies = {}
     local death_mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
     for i = 1, _settings.n_outer_bodies do
-        local body = b2.Body(self._world, b2.BodyType.DYNAMIC, 0, 0, death_body_shape)
+        local body = b2.Body(self._world, b2.BodyType.DYNAMIC, -10e6, -10e6, death_body_shape)
         body:set_is_enabled(false)
         body:set_mass(1)
         body:set_restitution(0.5)
@@ -957,7 +950,7 @@ function ow.Player:_update_mesh()
     local to_polygonize = {}
 
     for i, body in ipairs(self._spring_bodies) do
-        local cx, cy = body:get_predicted_position()
+        local cx, cy = body:get_position()
         self._outer_body_centers_x[i] = cx
         self._outer_body_centers_y[i] = cy
         local dx, dy = cx - player_x, cy - player_y

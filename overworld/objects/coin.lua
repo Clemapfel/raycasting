@@ -11,6 +11,9 @@ ow.Coin = meta.class("Coin")
 --- @brief
 function ow.Coin:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Coin.instantiate: object is not a point")
+
+    stage:add_coin(self, object.id)
+
     self._body = b2.Body(
         stage:get_physics_world(),
         b2.BodyType.DYNAMIC,
@@ -19,7 +22,6 @@ function ow.Coin:instantiate(object, stage, scene)
     )
 
     self._is_collected = false
-    self._destroy_body = false
 
     self._body:set_is_sensor(true)
     self._body:set_collides_with(bit.bor(
@@ -33,18 +35,22 @@ function ow.Coin:instantiate(object, stage, scene)
         local x, y = self_body:get_position()
         player_body:get_user_data():pulse(x, y)
         self._is_collected = true
-        self._destroy_body = true
-        return meta.DISCONNECT_SIGNAL
+        --return meta.DISCONNECT_SIGNAL
     end)
 end
 
 --- @brief
-function ow.Coin:update(delta)
-    if self._destroy_body then
-        self._body:destroy()
-        self._destroy_body = false
-    end
+function ow.Coin:set_is_collected(b)
+    self._is_collected = b
+end
 
+--- @brief
+function ow.Coin:get_is_collected()
+    return self._is_collected
+end
+
+--- @brief
+function ow.Coin:update(delta)
     if self._is_collected then return end
 end
 

@@ -135,12 +135,16 @@ function rt.SceneManager:get_show_performance_metrics()
 end
 
 local _n_frames_captured = 120
-local _last_frame_usages = {}
-local _frame_usage_sum = 0
+
+local _last_update_times = {}
+local _update_sum = 0
+
+local _last_draw_times = {}
+local _draw_sum = 0
 
 for i = 1, _n_frames_captured do
-    table.insert(_last_frame_usages, 0)
-    _frame_usage_sum = _frame_usage_sum + 0
+    table.insert(_last_update_times, 0)
+    table.insert(_last_draw_times, 0)
 end
 
 --- @brief [internal]
@@ -149,11 +153,13 @@ function rt.SceneManager:_draw_performance_metrics()
     local n_draws = stats.drawcalls
     local fps = love.timer.getFPS()
     local gpu_side_memory = tostring(math.round(stats.texturememory / 1024 / 1024 * 10) / 10)
-    local total_percentage = tostring(math.floor(_frame_usage_sum / _n_frames_captured * 100))
+    local update_percentage = tostring(math.floor(_update_sum / _n_frames_captured * 100))
+    local draw_percentage = tostring(math.floor(_draw_sum / _n_frames_captured * 100))
 
     local str = table.concat({
         fps, " fps | ",             -- love-measure fps
-        total_percentage, "% | ",   -- frame usage, how much of a frame was taken up by the game
+        update_percentage, "% | ",   -- frame usage, how much of a frame was taken up by the game
+        draw_percentage, "% | ",
         n_draws, " draws | ",       -- total number of draws
         gpu_side_memory, " mb"       -- vram usage
     })
@@ -234,11 +240,18 @@ function love.run()
         local fps = love.timer.getFPS()
         if fps == 0 then fps = 60 end
 
-        local frame_usage = ((update_after - update_before) + (draw_after - draw_before)) / (1 / fps)
-        local start = _last_frame_usages[1]
-        table.remove(_last_frame_usages, 1)
-        table.insert(_last_frame_usages, frame_usage)
-        _frame_usage_sum = _frame_usage_sum - start + frame_usage
+        local update_time = (update_after - update_before) / (1 / fps)
+        local draw_time = (draw_after - draw_before) / (1 / fps)
+        
+        local update_start = _last_update_times[1]
+        table.remove(_last_update_times, 1)
+        table.insert(_last_update_times, update_time)
+        _update_sum = _update_sum - update_start + update_time
+
+        local draw_start = _last_draw_times[1]
+        table.remove(_last_draw_times, 1)
+        table.insert(_last_draw_times, draw_time)
+        _draw_sum = _draw_sum - draw_start + draw_time
 
         collectgarbage("collect") -- helps catch gc-related bugs
         if love.timer then love.timer.sleep(0.001) end -- prevent cpu running at max rate for empty projects

@@ -295,6 +295,8 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
 
         self._player_is_focused = true
     end
+
+    return self._stage
 end
 
 --- @brief
@@ -538,4 +540,10 @@ function ow.OverworldScene:reload()
 
     self._player = ow.Player(self)
     self:set_stage(before)
+end
+
+--- @brief
+function ow.OverworldScene:respawn()
+    self._player:kill()
+    self._stage:reset_coins()
 end

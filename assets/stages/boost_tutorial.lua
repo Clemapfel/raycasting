@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 4,
-  nextobjectid = 96,
+  nextobjectid = 97,
   properties = {
     ["title"] = "Boosting"
   },
@@ -305,8 +305,9 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -80, y = 0 },
-            { x = -144, y = 0 },
+            { x = -80, y = 48 },
+            { x = -112, y = 32 },
+            { x = -144, y = 48 },
             { x = -144, y = -96 },
             { x = -112, y = -112 },
             { x = -80, y = -96 }
@@ -678,7 +679,7 @@ return {
         {
           id = 46,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 672,
           y = -384,
@@ -996,7 +997,7 @@ return {
           polygon = {
             { x = 0, y = 32 },
             { x = 0, y = 80 },
-            { x = 576, y = 80 },
+            { x = 448, y = 80 },
             { x = 576, y = 32 }
           },
           properties = {
@@ -1019,7 +1020,7 @@ return {
             { x = 0, y = 224 },
             { x = 0, y = 272 },
             { x = 576, y = 272 },
-            { x = 576, y = 224 }
+            { x = 448, y = 224 }
           },
           properties = {
             ["axis_x"] = 0,
@@ -1198,8 +1199,8 @@ return {
           name = "",
           type = "Coin",
           shape = "point",
-          x = 2216.64,
-          y = -1783.44,
+          x = 2192,
+          y = -1792,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1467,7 +1468,7 @@ return {
         {
           id = 94,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 1280,
           y = -672,
@@ -1510,6 +1511,19 @@ return {
             ["axis_x"] = 1,
             ["axis_y"] = 0
           }
+        },
+        {
+          id = 96,
+          name = "",
+          type = "PlayerSpawn",
+          shape = "point",
+          x = -75.1823,
+          y = -141.252,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     }

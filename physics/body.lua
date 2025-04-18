@@ -383,3 +383,20 @@ function b2.Body:test_point(x, y)
 
     return false
 end
+
+--- @brief
+function b2.Body:compute_aabb()
+    local x, y = self._native:getPosition()
+    local r = self._native:getAngle()
+
+    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+    for shape in values(self._native:getShapes()) do
+        local tx, ty, bx, by = shape:computeAABB(x, y, r)
+        min_x = math.min(min_x, tx)
+        min_y = math.min(min_y, ty)
+        max_x = math.max(max_x, bx)
+        max_y = math.max(max_y, by)
+    end
+
+    return rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
+end

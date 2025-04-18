@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="1" nextlayerid="4" nextobjectid="84">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="1" nextlayerid="4" nextobjectid="85">
  <editorsettings>
   <export target="platformer_room.lua" format="lua"/>
  </editorsettings>
@@ -728,9 +728,6 @@
     <property name="shader" value="asbestos"/>
    </properties>
    <polygon points="0,0 -64,0 -64,32 -64,64 864,64 864,0 832,0 800,32 -32,32"/>
-  </object>
-  <object id="77" type="BouncePad" x="2257.55" y="-119.005">
-   <polygon points="55.2007,14.7707 92.7887,15.3317 124.733,55.3468 40.0838,58.9076"/>
   </object>
   <object id="78" type="KillPlane" x="2955.38" y="0.569195" width="735.377" height="407.4">
    <properties>

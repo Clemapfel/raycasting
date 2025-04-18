@@ -14,9 +14,7 @@ rt.InputButton = meta.enum("InputButton", {
     R = "R",
 
     JUMP = "JUMP",
-    SPRINT = "SPRINT",
-    INTERACT = "INTERACT",
-    RESPAWN = "RESPAWN"
+    SPRINT = "SPRINT"
 })
 
 --- @class rt.InputMapping
