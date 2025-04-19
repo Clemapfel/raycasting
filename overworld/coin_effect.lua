@@ -40,36 +40,30 @@ function ow.CoinEffect:update(delta)
 
 
     local coins = self._scene:get_current_stage():get_coins()
-    self._coin_positions = {}
-    self._coin_colors = {}
+
+    local max_n_coins = 10
+    self._coin_positions = table.rep({0, 0}, max_n_coins )
+    self._coin_colors = table.rep({0, 0, 0, 0}, max_n_coins)
     self._n_coins = 0
+
+    local i = 1
     for coin in values(coins) do
-        for v in range(coin:get_position()) do
-            table.insert(self._coin_positions, v)
-        end
-
-        for v in range(coin:get_color():unpack()) do
-            table.insert(self._coin_colors, v)
-        end
-
-        self._n_coins = self._n_coins + 1
+        self._coin_positions[i] = { coin:get_position() }
+        self._coin_colors[i] = { coin:get_color():unpack() }
+        i = i + 1
     end
+    self._n_coins = i
 end
 
 --- @override
 function ow.CoinEffect:draw()
     _shader:bind()
-    _shader:send("elapsed", self._elapsed)
+    --shader:send("elapsed", self._elapsed)
     _shader:send("camera_offset", self._camera_offset)
     _shader:send("camera_scale", self._camera_scale)
-    --_shader:send("coin_positions", self._coin_positions)
-    --_shader:send("coin_colors", self._coin_colors)
-
-    local coins = self._scene:get_current_stage():get_coins()
-    _shader:send("coin_position", { 0, 0 }) --coins[1]:get_position() })
-    _shader:send("coin_color", { coins[1]:get_color():unpack() })
+    _shader:send("coin_positions",table.unpack(self._coin_positions))
+    _shader:send("coin_colors", table.unpack(self._coin_colors))
     _shader:send("n_coins", self._n_coins)
-
 
     local x, y = self._scene:get_player():get_position()
     self._canvas:draw(self._x, self._y)

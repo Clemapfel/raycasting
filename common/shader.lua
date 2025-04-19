@@ -21,11 +21,11 @@ end
 --- @brief set uniform
 --- @param name String
 --- @param value
-function rt.Shader:send(name, value)
+function rt.Shader:send(name, value, ...)
     assert(value ~= nil, "In rt.Shader.send: uniform `" .. name .. "` is nil")
     if meta.typeof(value) == "GraphicsBuffer" or meta.typeof(value) == "Texture" or meta.typeof(value) == "RenderTexture" then value = value._native end
     if self._native:hasUniform(name) then
-        self._native:send(name, value)
+        self._native:send(name, value, ...)
     end
 end
 
