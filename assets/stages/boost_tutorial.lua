@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 4,
-  nextobjectid = 98,
+  nextobjectid = 123,
   properties = {
     ["title"] = "Boosting"
   },
@@ -51,8 +51,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = -168.288,
-          y = -140.808,
+          x = -175.923,
+          y = -105.3,
           width = 0,
           height = 0,
           rotation = 0,
@@ -108,7 +108,7 @@ return {
             { x = 0, y = 256 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = false
           }
         },
         {
@@ -136,7 +136,7 @@ return {
         },
         {
           id = 8,
-          name = "Boost",
+          name = "",
           type = "BoostField",
           shape = "polygon",
           x = 256,
@@ -384,19 +384,6 @@ return {
           properties = {
             ["slippery"] = true
           }
-        },
-        {
-          id = 22,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 20.3998,
-          y = -23.5662,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         },
         {
           id = 23,
@@ -816,19 +803,6 @@ return {
           properties = {
             ["slippery"] = true
           }
-        },
-        {
-          id = 52,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 1255.9,
-          y = -519.462,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         },
         {
           id = 53,
@@ -1457,8 +1431,8 @@ return {
           name = "",
           type = "Coin",
           shape = "point",
-          x = 1351.45,
-          y = -473.567,
+          x = 1360,
+          y = -496,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1513,12 +1487,12 @@ return {
           }
         },
         {
-          id = 96,
+          id = 97,
           name = "",
-          type = "PlayerSpawn",
+          type = "Coin",
           shape = "point",
-          x = -75.1823,
-          y = -141.252,
+          x = -34.9332,
+          y = -243.013,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1526,12 +1500,132 @@ return {
           properties = {}
         },
         {
-          id = 97,
+          id = 115,
           name = "",
-          type = "Coin",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 5424,
+          y = -656,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 352, y = 608 },
+            { x = 0, y = 608 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 116,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 6643.69,
+          y = -1693.19,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -1200, y = 2704 },
+            { x = 336, y = 1472 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 117,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 5680,
+          y = -752,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 96, y = 0 },
+            { x = 96, y = 16 },
+            { x = 0, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 118,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 4993.41,
+          y = 496.703,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -676.923, y = -720.879 },
+            { x = 1020.13, y = 1412.4 },
+            { x = 0, y = 608 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 119,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 7037.36,
+          y = -48.3516,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -1200, y = 2704 },
+            { x = 336, y = 1472 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 121,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 5440,
+          y = 1008,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 592, y = -1312 },
+            { x = 464, y = -1360 },
+            { x = -96, y = -64 }
+          },
+          properties = {
+            ["axis"] = { id = 122 }
+          }
+        },
+        {
+          id = 122,
+          name = "",
+          type = "BoostFieldAxis",
           shape = "point",
-          x = -34.9332,
-          y = -243.013,
+          x = 5380.22,
+          y = 1032.97,
           width = 0,
           height = 0,
           rotation = 0,

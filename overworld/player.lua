@@ -6,7 +6,7 @@ require "common.random"
 local radius = 13.5
 rt.settings.overworld.player = {
     radius = radius,
-    inner_body_radius = 8 / 2 - 0.5,
+    inner_body_radius = 10 / 2 - 0.5,
     n_outer_bodies = 23,
     max_spring_length = radius * 3,
 
@@ -50,7 +50,6 @@ rt.settings.overworld.player = {
     air_resistance = 0.03, -- [0, 1]
     downwards_force_factor = 2, -- times gravity
     wall_regular_friction = 0.8, -- times of gravity
-    wall_slippery_friction = 0,
     ground_regular_friction = 0,
     ground_slippery_friction = -0.2,
 
@@ -62,6 +61,9 @@ rt.settings.overworld.player = {
     squeeze_multiplier = 1.4,
 
     kill_animation_initial_impulse = 100,
+
+    color_a = 1.0,
+    color_b = 0.6,
 
     --debug_drawing_enabled = true,
 }
@@ -601,22 +603,14 @@ function ow.Player:update(delta)
 
         local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
 
-        -- apply friction when wall_clinging
-        local _apply_wall_friction = function(coefficient, tx, ty)
-            local friction_force = coefficient * gravity * math.sign(current_velocity_y)
-            friction_force = (_settings.sprint_multiplier - self._sprint_multiplier + 1) * friction_force
-            next_velocity_y = next_velocity_y - friction_force
+        -- apply wall friction
+        if self._left_wall or self._right_wall then
+            if (left_wall_body ~= nil and left_wall_body:has_tag("slippery")) or (right_wall_body and right_wall_body:has_tag("slippery")) then
+                next_velocity_y = next_velocity_y + gravity
+            else
+                next_velocity_y = next_velocity_y - gravity
+            end
         end
-
-        if wall_cling and self._left_wall then _apply_wall_friction(
-            left_wall_body:has_tag("slippery") and _settings.wall_slippery_friction or _settings.wall_regular_friction,
-            math.turn_left(left_nx, left_ny)
-        ) end
-
-        if wall_cling and self._right_wall then _apply_wall_friction(
-            right_wall_body:has_tag("slippery") and _settings.wall_slippery_friction or _settings.wall_regular_friction,
-            math.turn_right(right_nx, right_ny)
-        ) end
 
         local fraction = self._bounce_elapsed / _settings.bounce_duration
         if fraction <= 1 then
@@ -692,7 +686,7 @@ function ow.Player:update(delta)
 
     do
         if self._top_wall and
-            not top_wall_body:has_tag("slippery") and
+            --not top_wall_body:has_tag("slippery") and
             not top_wall_body:has_tag("no_blood") and
             math.distance(top_x, top_y, x, y) <= self._radius
         then
@@ -700,7 +694,7 @@ function ow.Player:update(delta)
         end
 
         if self._right_wall and
-            not right_wall_body:has_tag("slippery") and
+            --not right_wall_body:has_tag("slippery") and
             not right_wall_body:has_tag("no_blood") and
             math.distance(right_x, right_y, x, y) <= self._radius
         then
@@ -708,7 +702,7 @@ function ow.Player:update(delta)
         end
 
         if self._bottom_wall and
-            not bottom_wall_body:has_tag("slippery") and
+            --not bottom_wall_body:has_tag("slippery") and
             not bottom_wall_body:has_tag("no_blood") and
             math.distance(bottom_x, bottom_y, x, y) <= self._radius
         then
@@ -716,7 +710,7 @@ function ow.Player:update(delta)
         end
 
         if self._left_wall and
-            not left_wall_body:has_tag("slippery") and
+            --not left_wall_body:has_tag("slippery") and
             not left_wall_body:has_tag("no_blood") and
             math.distance(left_x, left_y, x, y) <= self._radius
         then
@@ -864,10 +858,10 @@ function ow.Player:move_to_stage(stage)
         table.insert(self._death_body_angles, math.angle(self._spring_body_offsets_x[i], self._spring_body_offsets_y[i]) + math.pi)
     end
 
-
     -- two tone colors for gradients
-    local ar, ag, ab = 1, 1, 1
-    local br, bg, bb = 0.3, 0.3, 0.3
+    local color_a, color_b = rt.settings.overworld.player.color_a, rt.settings.overworld.player.color_b
+    local ar, ag, ab = color_a, color_a, color_a
+    local br, bg, bb = color_b, color_b, color_b
 
     if self._outer_body_mesh == nil then
         local n_outer_vertices = 32

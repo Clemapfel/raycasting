@@ -65,7 +65,7 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._camera_scale = 1
     self._elapsed = 0
 
-    self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.AQUAMARINE:unpack()
+    self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.BOOST:unpack()
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)

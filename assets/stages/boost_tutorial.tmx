@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="4" nextobjectid="98">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="4" nextobjectid="123">
  <editorsettings>
   <export target="boost_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -10,7 +10,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="-168.288" y="-140.808">
+  <object id="3" type="PlayerSpawn" x="-175.923" y="-105.3">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -18,7 +18,7 @@
   </object>
   <object id="6" type="Hitbox" x="-272" y="-256">
    <properties>
-    <property name="slippery" type="bool" value="true"/>
+    <property name="slippery" type="bool" value="false"/>
    </properties>
    <polygon points="0,-96 16,-96 16,256 0,256"/>
   </object>
@@ -28,7 +28,7 @@
    </properties>
    <polygon points="-256,0 -240,16 -256,32 336,32 352,16 336,0"/>
   </object>
-  <object id="8" name="Boost" type="BoostField" x="256" y="-64">
+  <object id="8" type="BoostField" x="256" y="-64">
    <properties>
     <property name="axis_x" type="float" value="1"/>
     <property name="axis_y" type="float" value="0"/>
@@ -89,9 +89,6 @@
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,0 0,288 16,272 16,16 0,0"/>
-  </object>
-  <object id="22" type="Coin" x="20.3998" y="-23.5662">
-   <point/>
   </object>
   <object id="23" type="Hitbox" x="560" y="-384">
    <properties>
@@ -191,9 +188,6 @@
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,0 0,224 16,192 32,144 32,8.19793 30.5251,1.47487 23.0688,0"/>
-  </object>
-  <object id="52" type="Coin" x="1255.9" y="-519.462">
-   <point/>
   </object>
   <object id="53" type="BoostField" x="1072" y="-480">
    <properties>
@@ -341,7 +335,7 @@
   <object id="92" type="Hitbox" x="1600" y="-128">
    <polygon points="0,0 16,0 16,-1536 0,-1536"/>
   </object>
-  <object id="93" type="Coin" x="1351.45" y="-473.567">
+  <object id="93" type="Coin" x="1360" y="-496">
    <point/>
   </object>
   <object id="94" type="Hitbox" x="1280" y="-672">
@@ -354,10 +348,43 @@
    </properties>
    <polygon points="-38.0612,2.72707 -38.0612,66.7271 121.939,66.7271 137.939,34.7271 121.939,2.72707"/>
   </object>
-  <object id="96" type="PlayerSpawn" x="-75.1823" y="-141.252">
+  <object id="97" type="Coin" x="-34.9332" y="-243.013">
    <point/>
   </object>
-  <object id="97" type="Coin" x="-34.9332" y="-243.013">
+  <object id="115" type="Hitbox" x="5424" y="-656">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 352,608 0,608"/>
+  </object>
+  <object id="116" type="Hitbox" x="6643.69" y="-1693.19">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -1200,2704 336,1472"/>
+  </object>
+  <object id="117" type="Hitbox" x="5680" y="-752">
+   <polygon points="0,0 96,0 96,16 0,16"/>
+  </object>
+  <object id="118" type="Hitbox" x="4993.41" y="496.703">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-676.923,-720.879 1020.13,1412.4 0,608"/>
+  </object>
+  <object id="119" type="Hitbox" x="7037.36" y="-48.3516">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -1200,2704 336,1472"/>
+  </object>
+  <object id="121" type="BoostField" x="5440" y="1008">
+   <properties>
+    <property name="axis" type="object" value="122"/>
+   </properties>
+   <polygon points="0,0 592,-1312 464,-1360 -96,-64"/>
+  </object>
+  <object id="122" type="BoostFieldAxis" x="5380.22" y="1032.97">
    <point/>
   </object>
  </objectgroup>

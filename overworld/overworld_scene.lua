@@ -4,6 +4,7 @@ require "common.background"
 require "overworld.stage"
 require "overworld.camera"
 require "overworld.player"
+require "overworld.coin_effect"
 require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
@@ -55,10 +56,16 @@ function ow.OverworldScene:instantiate()
 
         _background = rt.Background("grid"),
 
-        _player = nil,
+        _coin_effect = ow.CoinEffect(self),
+        _player = ow.Player(self),
     })
 
-    self._player = ow.Player(self)
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        -- debug reload
+        if which == "^" then
+            self:reload()
+        end
+    end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, true)
@@ -257,6 +264,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     })
 
     self._background:reformat(0, 0, width, height)
+    self._coin_effect:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -371,6 +379,12 @@ function ow.OverworldScene:draw()
     self._stage:draw_objects()
     self._stage:get_pathfinding_graph():draw()
     self._stage:draw_blood_splatter()
+
+    self._camera:unbind()
+    self._coin_effect:draw()
+    self._camera:bind()
+
+
     self._player:draw()
     self._stage:draw_walls()
 
@@ -416,6 +430,7 @@ function ow.OverworldScene:update(delta)
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
+    self._coin_effect:update(delta)
     self._player:update(delta)
 
     self._background:_notify_camera_changed(self._camera)
@@ -547,4 +562,9 @@ function ow.OverworldScene:respawn()
     self._player:kill()
     self._stage:get_active_checkpoint():spawn()
     self._stage:reset_coins()
+end
+
+--- @brief
+function ow.OverworldScene:get_current_stage()
+    return self._stage
 end

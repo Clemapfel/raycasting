@@ -15,6 +15,8 @@ local _state_waiting_for_enter_top = 3
 --- @brief
 function ow.KillPlane:instantiate(object, stage, scene)
     self._scene = scene
+    self._stage = stage
+
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)

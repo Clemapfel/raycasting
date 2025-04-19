@@ -101,20 +101,20 @@ do -- load from image
 
     rt.Palette.SPAWN_ACTIVE = rt.Palette.MINT
     rt.Palette.SPAWN_INACTIVE = rt.Palette.RED
-    rt.Palette.COIN = rt.Palette.YELLOW
 
-    rt.Palette.PLAYER = rt.Palette.WHITE
+    rt.Palette.PLAYER = rt.RGBA(1, 1, 1, 1)
+    rt.Palette.BOOST = rt.RGBA(1, 1, 1, 1)
 end
 
 rt.Palette.COIN_COLORS = {
-    rt.Palette.CINNABAR_2,
-    rt.Palette.MINT,
-    rt.Palette.PURPLE_1,
-    rt.Palette.BLUE_1,
     rt.Palette.ORANGE_2,
-    rt.Palette.LILAC_2,
+    rt.Palette.MINT_2,
     rt.Palette.PINK_1,
-    rt.Palette.WHITE,
+    rt.Palette.YELLOW_3,
+    rt.Palette.RED_3,
+    rt.Palette.LILAC_3,
+    rt.Palette.BLUE_2,
+    rt.Palette.GREEN_2
 }
 
 setmetatable(rt.Palette, {
