@@ -87,6 +87,16 @@ function ow.Coin:update(delta)
 end
 
 --- @brief
+function ow.Coin:draw_coin(x, y, r, g, b, a)
+    love.graphics.setLineWidth(1)
+    local d = 0.35
+    love.graphics.setColor(r - d, g - d, b - d, 1)
+    love.graphics.circle("fill", x, y, rt.settings.overworld.coin.radius)
+    love.graphics.setColor(r, g, b, 1)
+    love.graphics.circle("line", x, y, rt.settings.overworld.coin.radius)
+end
+
+--- @brief
 function ow.Coin:draw()
     if self._is_collected then
         if self._pulse_active then
@@ -96,12 +106,7 @@ function ow.Coin:draw()
         end
     else
         local r, g, b = self._color:unpack()
-        love.graphics.setLineWidth(1)
-        local d = 0.35
-        love.graphics.setColor(r - d, g - d, b - d, 1)
-        love.graphics.circle("fill", self._x, self._y, self._radius)
-        love.graphics.setColor(r, g, b, 1)
-        love.graphics.circle("line", self._x, self._y, self._radius)
+        ow.Coin:draw_coin(self._x, self._y, r, g, b, 1)
     end
 end
 

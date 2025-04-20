@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 4,
-  nextobjectid = 157,
+  nextobjectid = 158,
   properties = {
     ["title"] = "Boosting"
   },
@@ -51,8 +51,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = -656,
-          y = 608,
+          x = -170.939,
+          y = -57.6327,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1671,7 +1671,15 @@ return {
             { x = 1328, y = -208 },
             { x = 1312, y = -224 },
             { x = 1568, y = -224 },
-            { x = 1552, y = -32 },
+            { x = 1648, y = -224 },
+            { x = 1648, y = 96 },
+            { x = 2080, y = 96 },
+            { x = 2080, y = -224 },
+            { x = 2192, y = -224 },
+            { x = 2192, y = 176 },
+            { x = 2000, y = 176 },
+            { x = 1840, y = 176 },
+            { x = 1680, y = 176 },
             { x = 1552, y = 176 },
             { x = 976, y = 176 },
             { x = 576, y = 176 },
@@ -2079,6 +2087,33 @@ return {
             { x = 32, y = 80 },
             { x = 16, y = 64 },
             { x = 16, y = 32 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 157,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1312,
+          y = 448,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -128 },
+            { x = -80, y = -128 },
+            { x = -78.4455, y = -15.3947 },
+            { x = -83.8935, y = -14.7893 },
+            { x = -78.4455, y = 0.343826 },
+            { x = -79.5666, y = 105.534 },
+            { x = -85.9982, y = 98.3273 },
+            { x = -80, y = 112 },
+            { x = -80, y = 192 },
+            { x = 0, y = 192 }
           },
           properties = {
             ["slippery"] = true

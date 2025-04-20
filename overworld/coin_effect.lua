@@ -57,7 +57,6 @@ end
 
 --- @override
 function ow.CoinEffect:draw()
-    --[[
     _shader:bind()
     --shader:send("elapsed", self._elapsed)
     _shader:send("camera_offset", self._camera_offset)
@@ -69,5 +68,4 @@ function ow.CoinEffect:draw()
     local x, y = self._scene:get_player():get_position()
     _canvas:draw(self._x, self._y)
     _shader:unbind()
-    ]]--
 end

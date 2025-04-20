@@ -51,6 +51,9 @@ function ow.Stage:instantiate(scene, id)
     self._to_update = {} -- Table<Any>
     self._objects = {}  -- Table<any>
     self._objects_to_render_priority = {} --  Table<Any, Number>, where 0: player, +n behind player, -n in front of player
+    self._render_priority_to_objects = {} --  Table<Number, Any>
+    self._render_priorities = {} -- Set<Number>
+
     self._pathfinding_graph = ow.PathfindingGraph()
     self._blood_splatter = ow.BloodSplatter(self)
 
@@ -174,19 +177,7 @@ function ow.Stage:instantiate(scene, id)
     end
 end
 
---- @brief
-function ow.Stage:draw_floors()
-    for f in values(self._floor_to_draw) do
-        f()
-    end
-end
-
---- @brief
-function ow.Stage:draw_objects()
-    for f in values(self._other_to_draw) do
-        f()
-    end
-end
+--
 
 --- @brief
 function ow.Stage:draw_blood_splatter()
@@ -194,25 +185,20 @@ function ow.Stage:draw_blood_splatter()
 end
 
 --- @brief
-function ow.Stage:draw_walls()
-    for f in values(self._walls_to_draw) do
-        f()
-    end
-end
-
---- @brief
 function ow.Stage:set_render_priority(object, number)
     if number ~= nil then meta.assert(number, "Number") end
     self._objects_to_render_priority[object] = number
+
+    local entry = self._render_priority_to_objects[number]
+    if entry == nil then
+        entry = {}
+        self._render_priority_to_objects[number] = entry
+    end
+
+    table.insert(entry, object)
+
 end
 
---- @brief
-function ow.Stage:draw()
-    self:draw_floors()
-    self:draw_objects()
-    self:draw_walls()
-    self._pathfinding_graph:draw()
-end
 
 --- @brief
 function ow.Stage:update(delta)

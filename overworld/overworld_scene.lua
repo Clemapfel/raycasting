@@ -5,6 +5,7 @@ require "overworld.stage"
 require "overworld.camera"
 require "overworld.player"
 require "overworld.coin_effect"
+require "overworld.stage_hud"
 require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
@@ -58,6 +59,8 @@ function ow.OverworldScene:instantiate()
 
         _coin_effect = ow.CoinEffect(self),
         _player = ow.Player(self),
+
+        _hud = ow.StageHUD()
     })
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -550,6 +553,7 @@ function ow.OverworldScene:reload()
     local before = self._stage_id
     self._stage_id = nil
     self._stage_mapping = {}
+    self._stage = nil
     ow.Stage._config_atlas = {}
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
