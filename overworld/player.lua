@@ -46,6 +46,7 @@ rt.settings.overworld.player = {
     bounce_max_force = 220,
     bounce_duration = 2 / 60,
 
+    spring_constant = 4.5,
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
     downwards_force_factor = 2, -- times gravity
@@ -135,6 +136,7 @@ function ow.Player:instantiate(scene, stage)
         -- jump
         _jump_elapsed = math.huge,
         _coyote_elapsed = 0,
+        _spring_multiplier = 1,
 
         _wall_jump_elapsed = 0,
         _left_wall_jump_blocked = false,
@@ -258,6 +260,7 @@ function ow.Player:_connect_input()
     self._input:signal_connect("released", function(_, which)
         if which == rt.InputButton.JUMP then
             self._jump_button_is_down = false
+            self._spring_multiplier = 1
         elseif which == rt.InputButton.SPRINT then
             self._sprint_button_is_down = false
             self._next_sprint_multiplier = 1
@@ -555,6 +558,30 @@ function ow.Player:update(delta)
         end
         self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
 
+        -- safeguard against one of the springs catching
+        local spring_length = self._radius
+        local total_force_x, total_force_y = 0, 0
+        local spring_constant = _settings.spring_constant
+
+        for i, body in ipairs(self._spring_bodies) do
+            local body_x, body_y = body:get_position()
+            local distance = math.distance(x, y, body_x, body_y)
+            local displacement = math.max(distance - spring_length, 0)
+
+            local force_magnitude = -spring_constant * displacement
+            total_force_x = total_force_x + force_magnitude * (body_x - x) / distance
+            total_force_y = total_force_y + force_magnitude * (body_y - y) / distance
+        end
+
+        local spring_impulse = math.magnitude(total_force_x, total_force_y)
+        next_velocity_y = next_velocity_y - spring_impulse
+
+        if spring_impulse > gravity then
+            can_jump = true
+            can_wall_jump = true
+            self._spring_multiplier = debugger.get("spring_multiplier") -- reset on end of jump or jump button released
+        end
+
         self._can_jump = can_jump
         self._can_wall_jump = can_wall_jump
 
@@ -562,7 +589,7 @@ function ow.Player:update(delta)
             if can_jump and self._jump_elapsed < _settings.jump_duration then
                 -- regular jump: accelerate upwards wil jump button is down
                 self._coyote_elapsed = 0
-                next_velocity_y = -1 * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
+                next_velocity_y = -1 * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration) * self._spring_multiplier
                 self._jump_elapsed = self._jump_elapsed + delta
             elseif can_wall_jump then
                 -- wall jump: initial burst, then small sustain
@@ -598,6 +625,8 @@ function ow.Player:update(delta)
                 end
             end
         end
+
+        if self._jump_elapsed >= _settings.jump_duration then self._spring_multiplier = 1 end
 
         self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
@@ -653,14 +682,6 @@ function ow.Player:update(delta)
     end
 
     ::skip_velocity_update::
-
-    -- safeguard against one of the springs catching
-    for i, body in ipairs(self._spring_bodies) do
-        local distance = math.distance(x, y, body:get_position())
-        --body:set_is_sensor(distance > _settings.max_spring_length)
-        local should_be_disabled = distance > _settings.max_spring_length--self._spring_joints[i]._prismatic_joint:getJointSpeed() > 100
-        body:set_is_sensor(should_be_disabled)
-    end
 
     if self._is_frozen then
         self._body:set_velocity(
@@ -798,7 +819,7 @@ function ow.Player:move_to_stage(stage)
     self._body:set_friction(0)
     self._body:set_use_manual_velocity(true)
 
-    -- soft body
+        -- soft body
     self._spring_bodies = {}
     self._spring_joints = {}
     self._spring_body_offsets_x = {}

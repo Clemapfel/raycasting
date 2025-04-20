@@ -64,6 +64,7 @@ function ow.OverworldScene:instantiate()
         -- debug reload
         if which == "^" then
             self:reload()
+            rt.SceneManager:unpause()
         end
     end)
 
@@ -381,7 +382,7 @@ function ow.OverworldScene:draw()
     self._stage:draw_blood_splatter()
 
     self._camera:unbind()
-    self._coin_effect:draw()
+    --self._coin_effect:draw()
     self._camera:bind()
 
 
@@ -430,7 +431,7 @@ function ow.OverworldScene:update(delta)
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
-    self._coin_effect:update(delta)
+    --self._coin_effect:update(delta)
     self._player:update(delta)
 
     self._background:_notify_camera_changed(self._camera)

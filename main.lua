@@ -10,7 +10,10 @@ require "common.input_subscriber"
 
 _input = rt.InputSubscriber()
 _input:signal_connect("keyboard_key_pressed", function(_, which)
-
+    if which == "p" then
+        debugger.reload()
+        dbg("dbg reload")
+    end
 end)
 
 love.load = function(args)

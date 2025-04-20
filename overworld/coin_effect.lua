@@ -4,6 +4,7 @@ require "common.render_texture"
 ow.CoinEffect = meta.class("CoinEffect", rt.Widget)
 
 local _shader = nil
+local _canvas = nil
 
 --- @brief
 function ow.CoinEffect:instantiate(scene)
@@ -29,7 +30,7 @@ end
 --- @override
 function ow.CoinEffect:size_allocate(x, y, width, height)
     self._x, self._y = x, y
-    self._canvas = rt.RenderTexture(width, height)
+    _canvas = rt.RenderTexture(width, height)
 end
 
 --- @override
@@ -37,7 +38,6 @@ function ow.CoinEffect:update(delta)
     self._elapsed = self._elapsed + delta
     self._camera_offset = { self._scene:get_camera():get_offset() }
     self._camera_scale = self._scene:get_camera():get_scale()
-
 
     local coins = self._scene:get_current_stage():get_coins()
 
@@ -57,6 +57,7 @@ end
 
 --- @override
 function ow.CoinEffect:draw()
+    --[[
     _shader:bind()
     --shader:send("elapsed", self._elapsed)
     _shader:send("camera_offset", self._camera_offset)
@@ -66,6 +67,7 @@ function ow.CoinEffect:draw()
     _shader:send("n_coins", self._n_coins)
 
     local x, y = self._scene:get_player():get_position()
-    self._canvas:draw(self._x, self._y)
+    _canvas:draw(self._x, self._y)
     _shader:unbind()
+    ]]--
 end

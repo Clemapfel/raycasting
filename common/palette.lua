@@ -94,7 +94,7 @@ do -- load from image
 
     -- overworld
     rt.Palette.STICKY_OUTLINE = rt.Palette.GRAY_2
-    rt.Palette.SLIPPERY_OUTLINE = rt.Palette.GRAY_4
+    rt.Palette.SLIPPERY_OUTLINE = rt.Palette.GRAY_6
     rt.Palette.STICKY = rt.Palette.GRAY_5
     local slip = 0.35
     rt.Palette.SLIPPERY = rt.RGBA(slip, slip, slip, 0.8)
