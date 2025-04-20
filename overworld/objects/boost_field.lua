@@ -122,6 +122,15 @@ function ow.BoostField:update(delta)
     self._camera_scale = camera:get_scale()
 end
 
+--- @brief
+function ow.BoostField:reinitialize()
+    _initialized = false
+    _instances = {}
+    _tris = {}
+    _lines = {}
+    _mesh = nil
+end
+
 --- @brief batched drawing
 function ow.BoostField.draw_all()
     if _initialized ~= true then

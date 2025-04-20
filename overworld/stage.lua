@@ -71,8 +71,9 @@ function ow.Stage:instantiate(scene, id)
         return -1
     end
 
-    -- hitbox handled separately
+    -- batched draws
     ow.Hitbox:reinitialize()
+    ow.BoostField:reinitialize()
 
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do

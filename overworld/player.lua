@@ -1111,4 +1111,9 @@ function ow.Player:set_color(color)
     self._color = color
 end
 
+--- @brief
+function ow.Player:get_color()
+    return self._color
+end
+
 
