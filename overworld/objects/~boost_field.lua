@@ -12,18 +12,12 @@ ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
 local _shader = nil
 
--- batched outlines
-local _initialized = false
-local _instances = {}
-local _tris = {}
-local _lines = {}
-local _mesh = nil
-
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+
     self._use_exact_testing = table.sizeof(self._body:get_native():getShapes()) > 1
 
     if not self._use_exact_testing then
@@ -36,12 +30,12 @@ function ow.BoostField:instantiate(object, stage, scene)
         end)
     end
 
+    self._target = object
+    self._elapsed = 0
     self._scene = scene
-    self._player = self._scene:get_player()
 
     local factor = object:get_number("velocity") or 1
     self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
-
     local axis = object:get_object("axis")
     if axis == nil then
         local axis_x = object:get_number("axis_x")
@@ -55,29 +49,34 @@ function ow.BoostField:instantiate(object, stage, scene)
         self._axis_x, self._axis_y = math.normalize(end_x - start_x, end_y - start_y)
     end
 
+    self._player = self._scene:get_player()
+
+    self._mesh, self._tris = object:create_mesh()
+
+    for tri in values(self._tris) do -- close for line loop
+        table.insert(tri, tri[1])
+        table.insert(tri, tri[2])
+    end
+    self._mesh = self._mesh:get_native()
+
     -- shader aux
     self._camera_offset_x = 0
     self._camera_offset_y = 0
     self._camera_scale = 1
     self._elapsed = 0
 
+    self._color_r, self._color_g, self._color_b, self._color_a = rt.Palette.BOOST:unpack()
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "^" then
+            _shader:recompile()
+        end
+    end)
+
     local aabb = self._body:compute_aabb()
+    self._aabb = aabb -- TODO
     self._origin_offset_x, self._origin_offset_y = aabb.x, aabb.y
-
-    local tris
-    self._mesh, tris = object:create_mesh()
-
-    -- batched drawing
-    table.insert(_instances, self)
-
-    for tri in values(tris) do
-        table.insert(_tris, tri)
-        table.insert(_lines, {
-            tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-        })
-    end
-
-    if _shader == nil then _shader = rt.Shader("overworld/objects/boost_field.glsl") end
 end
 
 --- @brief
@@ -90,7 +89,7 @@ function ow.BoostField:update(delta)
     end
 
     if is_active then
-        local vx, vy = self._player:get_physics_body():get_velocity() -- use actual velocity
+        local vx, vy = self._player:get_physics_body():get_velocity() -- sic, use actual velocity
 
         local target = self._target_velocity
         local target_vx, target_vy = self._axis_x * target, self._axis_y * target
@@ -122,56 +121,37 @@ function ow.BoostField:update(delta)
     self._camera_scale = camera:get_scale()
 end
 
---- @brief batched drawing
-function ow.BoostField.draw_all()
-    if _initialized ~= true then
-        local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
-        local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
+--- @brief
+function ow.BoostField:draw()
+    if _shader == nil then _shader = rt.Shader("overworld/objects/boost_field.glsl") end
 
-        local data = {}
-        for tri in values(_tris) do
-            table.insert(data, { tri[1], tri[2] })
-            table.insert(data, { tri[3], tri[4] })
-            table.insert(data, { tri[5], tri[6] })
-        end
-        _mesh = love.graphics.newMesh(format, data, mode, usage)
-        _initialized = true
-    end
+    love.graphics.setColor(self._color_r, self._color_g, self._color_b, 0.4)
+    love.graphics.draw(self._mesh)
 
-    -- draw shader surface per instance
-    rt.Palette.BOOST:bind()
-    for self in values(_instances) do
-        _shader:bind()
-        _shader:send("elapsed", self._elapsed)
-        _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
-        _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
-        _shader:send("camera_scale", self._camera_scale)
-        _shader:send("axis", { self._axis_x, self._axis_y })
-        love.graphics.draw(self._mesh:get_native())
-        _shader:unbind()
-    end
+    love.graphics.setColor(self._color_r, self._color_g, self._color_b, self._color_a)
+    _shader:bind()
+    _shader:send("elapsed", self._elapsed)
+    _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
+    _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
+    _shader:send("camera_scale", self._camera_scale)
+    _shader:send("axis", { self._axis_x, self._axis_y })
+    love.graphics.draw(self._mesh)
+    _shader:unbind()
 
-    -- draw outlines as giant batch
-    love.graphics.setLineJoin("bevel")
-    local line_width = 2
-
+    -- outline
+    --[[
     local stencil_value = rt.graphics.get_stencil_value()
     rt.graphics.stencil(stencil_value, function()
-        love.graphics.draw(_mesh)
+        love.graphics.draw(self._mesh)
     end)
     rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
-    rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(line_width + 2)
-    for lines in values(_lines) do
-        love.graphics.line(lines)
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineWidth(2)
+    for tri in values(self._tris) do
+        love.graphics.line(tri)
     end
-
-    rt.Palette.BOOST_OUTLINE:bind()
-    love.graphics.setLineWidth(line_width)
-    for lines in values(_lines) do
-        love.graphics.line(lines)
-    end
+    ]]--
 
     rt.graphics.set_stencil_test(nil)
 end

@@ -38,14 +38,14 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_
     uv *= 20;
 
     const float width = 0.5;
-    const float eps = 0.2; // anti-aliasing
-    const float flattness = 2;
+    const float eps = 0.2;
+    const float flatness = 2;
 
     uv.y = fract(uv.y + elapsed);
     uv.y /= width;
     uv.y -= width;
     uv.x = fract(uv.x);
 
-    float value = smoothstep(width - eps, width + eps, 1 - distance(uv.y, (1 / flattness) * smooth_abs(uv.x * 2 - 1)));
-    return vec4(mix(0.58, 0.7, value)) * vertex_color;
+    float value = smoothstep(width - eps, width + eps, 1 - distance(uv.y, (1 / flatness) * smooth_abs(uv.x * 2 - 1)));
+    return vec4(vec3(mix(0.7, 1, value)), 1) * vertex_color;
 }

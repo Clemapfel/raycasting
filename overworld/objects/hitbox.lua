@@ -56,7 +56,7 @@ end
 
 --- @brief
 function ow.Hitbox:draw_all()
-    if _initialized == false then
+    if _initialized ~= true then
         local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
         local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
 

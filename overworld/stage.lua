@@ -170,6 +170,7 @@ end
 
 --- @brief
 function ow.Stage:draw_below_player()
+    ow.BoostField:draw_all()
     ow.Hitbox:draw_all()
 
     for object in values(self._below_player) do

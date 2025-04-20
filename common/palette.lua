@@ -103,7 +103,8 @@ do -- load from image
     rt.Palette.SPAWN_INACTIVE = rt.Palette.RED
 
     rt.Palette.PLAYER = rt.RGBA(1, 1, 1, 1)
-    rt.Palette.BOOST = rt.RGBA(1, 1, 1, 1)
+    rt.Palette.BOOST = rt.Palette.GRAY_4
+    rt.Palette.BOOST_OUTLINE = rt.Palette.GRAY_3
 end
 
 rt.Palette.COIN_COLORS = {
