@@ -63,8 +63,12 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _manual_velocity_x = 0,
         _manual_velocity_y = 0,
 
+        _use_interpolation = false, -- false = extrapolation, cf. get_predicted_position
+
         _friction = 0
     })
+
+    self._last_x, self._last_y = self._native:getPosition()
 
     local shapes
     if meta.typeof(shape) == "Table" then
@@ -97,19 +101,26 @@ function b2.Body:get_rotation()
     return self._native:getAngle()
 end
 
---- @brief get framerate-independent position
+--- @brief get extrapolated position based on current velocity
 function b2.Body:get_predicted_position()
-    -- predict current position independent of the physics state
-    local last_x, last_y = self._native:getPosition()
-    local last_timestamp = self._world:get_timestamp()
-    local velocity_x, velocity_y = self._native:getLinearVelocity()
+    if self._use_interpolation then
+        local last_x, last_y = self._last_x, self._last_y
+        local current_x, current_y = self._native:getPosition()
+        return last_x + (current_x - last_x) * self._world._interpolation_factor,
+            last_y + (current_y - last_y) * self._world._interpolation_factor
+    else
+        local current_x, current_y = self._native:getPosition()
+        local velocity_x, velocity_y = self._native:getLinearVelocity()
+        local delta_time = love.timer.getTime() - self._world._timestamp
+        return current_x + velocity_x * delta_time,
+            current_y + velocity_y * delta_time
+    end
+end
 
-    local time_elapsed = love.timer.getTime() - last_timestamp
-
-    local predicted_x = last_x + velocity_x * time_elapsed
-    local predicted_y = last_y + velocity_y * time_elapsed
-
-    return predicted_x, predicted_y
+--- @brief
+function b2.Body:set_use_interpolation(b)
+    self._use_interpolation = b
+    self._world:_notify_is_interpolating(self, b)
 end
 
 --- @brief

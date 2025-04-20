@@ -764,6 +764,7 @@ function ow.Player:move_to_stage(stage)
     self._body:set_mass(1)
     self._body:set_friction(0)
     self._body:set_use_manual_velocity(true)
+    self._body:set_use_interpolation(true)
 
         -- soft body
     self._spring_bodies = {}
@@ -791,6 +792,7 @@ function ow.Player:move_to_stage(stage)
         body:set_is_rotation_fixed(false)
         body:set_use_continuous_collision(true)
         body:set_user_data(self)
+        body:set_use_interpolation(true)
         body:add_tag("player_outer_body")
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
@@ -893,11 +895,11 @@ end
 
 function ow.Player:_update_mesh()
     -- update mesh
-    local player_x, player_y = self._body:get_position()
+    local player_x, player_y = self._body:get_predicted_position()
     local to_polygonize = {}
 
     for i, body in ipairs(self._spring_bodies) do
-        local cx, cy = body:get_position()
+        local cx, cy = body:get_predicted_position()
         self._outer_body_centers_x[i] = cx
         self._outer_body_centers_y[i] = cy
         local dx, dy = cx - player_x, cy - player_y
@@ -964,7 +966,7 @@ function ow.Player:draw()
     if _settings.debug_drawing_enabled then
         self._body:draw()
         for body in values(self._spring_bodies) do
-            --body:draw()
+            body:draw()
         end
 
         love.graphics.setLineWidth(1)

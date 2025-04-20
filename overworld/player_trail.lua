@@ -176,7 +176,7 @@ function ow.PlayerTrail:update(delta)
     love.graphics.push()
     a:bind()
 
-    local player_x, player_y = self._scene:get_player():get_position()
+    local player_x, player_y = self._scene:get_player():get_physics_body():get_predicted_position()
     if _previous_player_x == nil or _previous_player_y == nil then
         _previous_player_x, _previous_player_y = player_x, player_y
     end

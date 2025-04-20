@@ -2,7 +2,7 @@ function love.conf(settings)
     settings.window.msaa = 4
     settings.window.resizable = true
     settings.window.vsync = -1
-    --settings.graphics.renderers = {"opengl"}
+    settings.graphics.renderers = {"opengl"}
 end
 
 local GAMEPAD_BUTTON_TOP = "y"

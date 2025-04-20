@@ -1,5 +1,9 @@
 require "common.render_texture"
 
+rt.settings.overworld.coin_effect = {
+    n_coin_buffer_size = 20
+}
+
 --- @class ow.CoinEffect
 ow.CoinEffect = meta.class("CoinEffect", rt.Widget)
 
@@ -19,7 +23,15 @@ function ow.CoinEffect:instantiate(scene)
         _y = 0,
         _elapsed = 0,
         _scene = scene,
+
+        _camera_offset = { 0, 0 },
+        _camera_scale = 1,
     })
+
+    local max_n_coins = rt.settings.overworld.coin_effect.n_coin_buffer_size
+    self._coin_positions = table.rep({0, 0}, max_n_coins )
+    self._coin_colors = table.rep({0, 0, 0, 0}, max_n_coins)
+    self._n_coins = 0
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -43,7 +55,7 @@ function ow.CoinEffect:update(delta)
 
     local coins = self._scene:get_current_stage():get_coins()
 
-    local max_n_coins = 10
+    local max_n_coins = rt.settings.overworld.coin_effect.n_coin_buffer_size
     self._coin_positions = table.rep({0, 0}, max_n_coins )
     self._coin_colors = table.rep({0, 0, 0, 0}, max_n_coins)
     self._n_coins = 0

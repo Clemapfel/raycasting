@@ -20,7 +20,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
     uv += origin;
     uv -= camera_offset;
 
-    vec4 value = vec4(0, 0, 0, 0.1);
+    vec4 value = vec4(0, 0, 0, 0);
     float eps = 0.005;
     float radius = 0.05;
 

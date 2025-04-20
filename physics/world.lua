@@ -39,7 +39,9 @@ function b2.World:instantiate()
         _body_to_move_queue = {},
         _body_to_rotate_queue = {},
         _body_to_activate_queue = {},
-        _timestamp = love.timer.getTime()
+        _timestamp = love.timer.getTime(),
+        _interpolation_factor = 0,
+        _interpolating_bodies = meta.make_weak({}), -- Set
     })
 
     self._native:setCallbacks(
@@ -88,6 +90,15 @@ function b2.World:_notify_active_changed(body, b)
 end
 
 --- @brief
+function b2.World:_notify_is_interpolating(body, b)
+    if b then
+        self._interpolating_bodies[body] = true
+    else
+        self._interpolating_bodies[body] = nil
+    end
+end
+
+--- @brief
 function b2.World:set_gravity(x, y)
     self._native:setGravity(x, y)
 end
@@ -100,6 +111,7 @@ end
 local _elapsed = 0
 local _step = 1 / 120
 local _max_n_steps_per_frame = 3
+local _n_velocity_iterations = 10
 
 --- @brief
 function b2.World:update(delta)
@@ -108,9 +120,14 @@ function b2.World:update(delta)
     local total_step = 0
     local n_steps = 0
     while _elapsed > _step and n_steps < _max_n_steps_per_frame do
+        for body in keys(self._interpolating_bodies) do
+            local x, y = body._native:getPosition()
+            body._last_x, body._last_y = x, y
+        end
+
         -- update
-        self._native:update(_step, 5, 2)
-        self._timestamp = love.timer.getTime()
+        self._native:update(_step, _n_velocity_iterations, 2)
+        self._timestamp = love.timer.getTime() -- for extrapolation
 
         -- work through queued updates
         for entry in values(self._body_to_move_queue) do
@@ -133,6 +150,8 @@ function b2.World:update(delta)
         _elapsed = _elapsed - _step
         n_steps = n_steps + 1
     end
+
+    self._interpolation_factor = _elapsed / _step -- for interpolation
 end
 
 --- @brief
