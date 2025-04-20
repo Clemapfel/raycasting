@@ -3,6 +3,7 @@ require "overworld.object_wrapper"
 require "overworld.player"
 require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
+require "overworld.stage_hud"
 
 require "physics.physics"
 
@@ -10,17 +11,14 @@ require "physics.physics"
 for file in values(love.filesystem.getDirectoryItems("overworld/objects")) do
     if love.filesystem.getInfo("overworld/objects/" .. file).type == "file" then
         local match = string.match(file, "^(.-)%.lua$")
-        if match then
+        if match and (string.match(file, "^~") == nil) then
             require("overworld.objects." .. match)
         end
     end
 end
 
 rt.settings.overworld.stage = {
-    physics_world_buffer_length = 0,
-    camera_bounds_class_name = "CameraBounds",
-    wall_class_name = "Wall",
-    floor_class_name = "Floor",
+    physics_world_buffer_length = 0
 }
 
 --- @class ow.Stage
@@ -33,13 +31,6 @@ ow.Stage._config_atlas = {}
 --- @brief
 function ow.Stage:instantiate(scene, id)
     meta.assert(scene, "OverworldScene", id, "String")
-    self._scene = scene
-    self._is_initialized = false
-    self._id = id
-
-    self._coins = {} -- cf. add_coin
-    self._checkpoints = {} -- cf. add_checkpoint
-    self._active_checkpoint = nil
 
     local config = ow.Stage._config_atlas[id]
     if config == nil then
@@ -47,52 +38,46 @@ function ow.Stage:instantiate(scene, id)
         ow.Stage._config_atlas[id] = config
     end
 
-    self._config = config
-    self._to_update = {} -- Table<Any>
-    self._objects = {}  -- Table<any>
-    self._objects_to_render_priority = {} --  Table<Any, Number>, where 0: player, +n behind player, -n in front of player
-    self._render_priority_to_objects = {} --  Table<Number, Any>
-    self._render_priorities = {} -- Set<Number>
+    meta.install(self, {
+        _scene = scene,
+        _id = id,
+        _config = config,
+        _is_initialized = false,
 
-    self._pathfinding_graph = ow.PathfindingGraph()
-    self._blood_splatter = ow.BloodSplatter(self)
+        _world = b2.World(),
+        _camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge),
 
-    self._camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge)
-    local camera_bounds_seen = false
+        _objects = {},
+        _wrapper_id_to_object = {}, -- Table<Number, Any>
 
-    local buffer = rt.settings.overworld.stage.physics_world_buffer_length
-    local w, h = self._config:get_size()
-    self._world = b2.World(w + 2 * buffer, h + 2 * buffer)
+        -- drawables
+        _below_player = meta.make_weak({}),
+        _above_player = meta.make_weak({}),
 
-    local camera_bounds_class_name = rt.settings.overworld.stage.camera_bounds_class_name
-    local floor_class_name = rt.settings.overworld.stage.floor_class_name
-    local wall_class_name = rt.settings.overworld.stage.wall_class_name
+        -- updatables
+        _to_update = meta.make_weak({}),
 
-    self._floor_to_draw = {}
-    self._other_to_draw = {}
-    self._walls_to_draw = {}
-    self._object_id_to_instance = meta.make_weak({})
+        -- stage objects
+        _coins = {}, -- cf. add_coin
+        _checkpoints = {}, -- cf. add_checkpoint
+        _blood_splatter = ow.BloodSplatter(),
 
+        _active_checkpoint = nil,
+    })
+
+    local render_priorities = {}
+    local render_priority_to_object = {}
+    local _get_default_render_priority = function()
+        return -1
+    end
+
+    -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
-        local to_draw = self._other_to_draw
-        local layer_class = self._config:get_layer_class(layer_i)
-        if layer_class == wall_class_name then
-            to_draw = self._walls_to_draw
-        elseif layer_class == floor_class_name then
-            to_draw = self._floor_to_draw
-        end
-
         local spritebatches = self._config:get_layer_sprite_batches(layer_i)
-        if table.sizeof(spritebatches) > 0 then
-            table.insert(to_draw, function()
-                for spritebatch in values(spritebatches) do
-                    spritebatch:draw()
-                end
-            end)
-        end
+        -- TODO: handle sprite batches
 
+        -- init object instances
         local object_wrappers = self._config:get_layer_object_wrappers(layer_i)
-        local drawables = {}
         if table.sizeof(object_wrappers) > 0 then
             for wrapper in values(object_wrappers) do
                 if wrapper.class == nil then
@@ -100,60 +85,63 @@ function ow.Stage:instantiate(scene, id)
                     wrapper.class = "Hitbox"
                 end
 
-                local object
-                if wrapper.class == camera_bounds_class_name then
-                    assert(wrapper.type == ow.ObjectType.RECTANGLE and wrapper.rotation == 0, "In ow.Stage: object of class `" .. camera_bounds_class_name .. "` is not an axis-aligned rectangle")
-                    assert(camera_bounds_seen == false, "In ow.Stage: more than one object of type `" .. camera_bounds_class_name .. "`")
-                    self._camera_bounds = rt.AABB(
-                        wrapper.x,
-                        wrapper.y,
-                        wrapper.width,
-                        wrapper.height
-                    )
-                    camera_bounds_seen = true
-                else
-                    local Type = ow[wrapper.class]
-                    if Type == nil then
-                        rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
-                    end
-                    object = Type(wrapper, self, self._scene)
-                    table.insert(self._objects, object)
-                    self._object_id_to_instance[wrapper.id] = object
+                local Type = ow[wrapper.class]
+                if Type == nil then
+                    rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
+                end
 
-                    if object.draw ~= nil then
-                        table.insert(drawables, object)
-                    end
+                local object = Type(wrapper, self, self._scene)
 
-                    if object.update ~= nil then
-                        table.insert(self._to_update, object)
+                table.insert(self._objects, object)
+                self._wrapper_id_to_object[wrapper.id] = object
+
+                if object.draw ~= nil then
+                    -- inject render priority
+                    local priority = -1
+                    if object.get_render_priority == nil then
+                        object.get_render_priority = _get_default_render_priority
                     end
+                    priority = object:get_render_priority()
+
+                    local priority_entry = render_priority_to_object[priority]
+                    if priority_entry == nil then
+                        priority_entry = {}
+                        render_priority_to_object[priority] = priority_entry
+                    end
+                    table.insert(priority_entry, object)
+                    render_priorities[priority] = true
+                end
+
+                if object.update ~= nil then
+                    table.insert(self._to_update, object)
                 end
             end
         end
-
-        table.sort(drawables, function(a, b)
-            local a_priority = self._objects_to_render_priority[a]
-            if a_priority == nil then a_priority = 0 end
-
-            local b_priority = self._objects_to_render_priority[b]
-            if b_priority == nil then b_priority = 0 end
-
-            return a_priority < b_priority
-        end)
-
-        table.insert(to_draw, function()
-            for drawable in values(drawables) do
-                drawable:draw()
-            end
-        end)
     end
 
-    local w, h = self._config:get_size()
+    local render_priorities_in_order = {}
+    for priority in keys(render_priorities) do
+        table.insert(render_priorities_in_order, priority)
+    end
+    table.sort(render_priorities_in_order)
 
-    self._bounds = rt.AABB(0, 0, w, h)
+    for priority in values(render_priorities_in_order) do
+        local entry = render_priority_to_object[priority]
+        if priority <= 0 then
+            for object in values(entry) do
+                table.insert(self._below_player, object)
+            end
+        else
+            for object in values(entry) do
+                table.insert(self._above_player, object)
+            end
+        end
+    end
+
     self._is_initialized = true
     self:signal_emit("initialized")
 
+    -- check for PlayerSpawn
     if self._active_checkpoint == nil then
         rt.warning("In ow.Stage.initialize: not `PlayerSpawn` for stage `" .. self._id .. "`")
     end
@@ -177,35 +165,27 @@ function ow.Stage:instantiate(scene, id)
     end
 end
 
---
+--- @brief
+function ow.Stage:draw_below_player()
+    for object in values(self._below_player) do
+        object:draw()
+    end
+end
 
 --- @brief
-function ow.Stage:draw_blood_splatter()
+function ow.Stage:draw_above_player()
+    for object in values(self._above_player) do
+        object:draw()
+    end
+
     self._blood_splatter:draw()
 end
 
 --- @brief
-function ow.Stage:set_render_priority(object, number)
-    if number ~= nil then meta.assert(number, "Number") end
-    self._objects_to_render_priority[object] = number
-
-    local entry = self._render_priority_to_objects[number]
-    if entry == nil then
-        entry = {}
-        self._render_priority_to_objects[number] = entry
-    end
-
-    table.insert(entry, object)
-
-end
-
-
---- @brief
 function ow.Stage:update(delta)
     self._world:update(delta)
-
-    for updatable in values(self._to_update) do
-        updatable:update(delta)
+    for object in values(self._to_update) do
+        object:update(delta)
     end
 end
 
@@ -215,25 +195,8 @@ function ow.Stage:get_physics_world()
 end
 
 --- @brief
-function ow.Stage:get_player_spawn()
-    return self._player_spawn_x, self._player_spawn_y
-end
-
---- @brief
-function ow.Stage:get_camera_bounds()
-    return self._camera_bounds
-end
-
---- @brief
-function ow.Stage:get_size()
-    local buffer = rt.settings.overworld.stage.physics_world_buffer_length
-    local w, h = self._config:get_size()
-    return w + 2 * buffer, h * 2 + buffer
-end
-
---- @brief
 function ow.Stage:get_id()
-    return self._config:get_id()
+    return self._id
 end
 
 --- @brief
@@ -244,12 +207,7 @@ function ow.Stage:get_object_instance(object)
         return
     end
 
-    return self._object_id_to_instance[object.id]
-end
-
---- @brief
-function ow.Stage:get_pathfinding_graph()
-    return self._pathfinding_graph
+    return self._wrapper_id_to_object[object.id]
 end
 
 --- @brief
@@ -265,6 +223,7 @@ function ow.Stage:add_checkpoint(checkpoint, id, is_spawn)
         checkpoint = checkpoint,
         timestamp = nil
     }
+
     if is_spawn then
         self._active_checkpoint = checkpoint
     end

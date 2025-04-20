@@ -2,9 +2,8 @@
 ow.BloodSplatter = meta.class("BloodSplatter")
 
 --- @brief
-function ow.BloodSplatter:instantiate(stage)
+function ow.BloodSplatter:instantiate()
     meta.install(self, {
-        _stage = stage,
         _segments = {},
         _segmentSet = {}
     })

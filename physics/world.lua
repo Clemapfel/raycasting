@@ -33,8 +33,7 @@ end
 
 
 --- @brief
-function b2.World:instantiate(width, height, ...)
-    meta.assert(width, "Number", height, "Number")
+function b2.World:instantiate()
     meta.install(self, {
         _native = love.physics.newWorld(0, 0),
         _body_to_move_queue = {},

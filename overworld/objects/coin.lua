@@ -23,7 +23,6 @@ function ow.Coin:instantiate(object, stage, scene)
     self._x, self._y = object.x, object.y
 
     stage:add_coin(self, self._id)
-    stage:set_render_priority(self, math.huge)
 
     self._color = rt.RGBA(0, 0, 0, 1)
 
@@ -65,6 +64,11 @@ function ow.Coin:instantiate(object, stage, scene)
         1, 0
     )
     self._pulse_active = false
+end
+
+--- @brief
+function ow.Coin:get_render_priority()
+    return math.huge
 end
 
 --- @brief

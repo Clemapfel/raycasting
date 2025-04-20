@@ -59,8 +59,6 @@ function ow.OverworldScene:instantiate()
 
         _coin_effect = ow.CoinEffect(self),
         _player = ow.Player(self),
-
-        _hud = ow.StageHUD()
     })
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -299,16 +297,16 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
         self._stage = next_entry.stage
 
         self._player:move_to_stage(self._stage)
-
-        --if self._camera_mode ~= ow.CameraMode.MANUAL then
-            self._camera:set_bounds(self._stage:get_camera_bounds())
-            self._camera:set_position(self._player:get_position())
-        --end
-
+        self._camera:set_position(self._player:get_position())
         self._player_is_focused = true
     end
 
     return self._stage
+end
+
+--- @brief
+function ow.OverworldScene:set_camera_bounds(bounds)
+    self._camera:set_bounds(bounds)
 end
 
 --- @brief
@@ -324,9 +322,7 @@ function ow.OverworldScene:_get_stage_entry(stage_id)
         self._stage_mapping[stage_id] = out
 
         local stage = ow.Stage(self, stage_id)
-        local x, y = stage:get_player_spawn()
         out.stage = stage
-        out.spawn_x, out.spawn_y = x, y
     end
     return out
 end
@@ -377,22 +373,15 @@ function ow.OverworldScene:draw()
     self._background:draw()
 
     self._camera:bind()
-    --self._stage._world:draw()
-    local before = love.timer.getTime()
-    self._stage:draw_floors()
-    self._stage:draw_objects()
-    self._stage:get_pathfinding_graph():draw()
-    self._stage:draw_blood_splatter()
+
+    self._stage:draw_below_player()
 
     self._camera:unbind()
     --self._coin_effect:draw()
     self._camera:bind()
 
-
     self._player:draw()
-    self._stage:draw_walls()
-
-    --dbg((love.timer.getTime() - before) / (1 / 60))
+    self._stage:draw_above_player()
 
     self._camera:unbind()
 

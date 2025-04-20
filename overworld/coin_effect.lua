@@ -8,6 +8,8 @@ local _canvas = nil
 
 --- @brief
 function ow.CoinEffect:instantiate(scene)
+    meta.assert(scene, ow.OverworldScene)
+
     if _shader == nil then
         _shader = rt.Shader("overworld/coin_effect.glsl")
     end
@@ -16,7 +18,7 @@ function ow.CoinEffect:instantiate(scene)
         _x = 0,
         _y = 0,
         _elapsed = 0,
-        _scene = scene
+        _scene = scene,
     })
 
     self._input = rt.InputSubscriber()
@@ -61,8 +63,8 @@ function ow.CoinEffect:draw()
     --shader:send("elapsed", self._elapsed)
     _shader:send("camera_offset", self._camera_offset)
     _shader:send("camera_scale", self._camera_scale)
-    _shader:send("coin_positions",table.unpack(self._coin_positions))
-    _shader:send("coin_colors", table.unpack(self._coin_colors))
+    _shader:send("coin_positions", table.unpack(self._coin_positions))
+    _shader:send("coin_colors",  table.unpack(self._coin_colors))
     _shader:send("n_coins", self._n_coins)
 
     local x, y = self._scene:get_player():get_position()
