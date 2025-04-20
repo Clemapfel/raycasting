@@ -156,6 +156,7 @@ function ow.Player:instantiate(scene, stage)
         _is_frozen = false,
         _respawn_elapsed = 0,
         _use_friction = true,
+        _use_wall_friction = true,
 
         -- controls
         _joystick_position = 0, -- x axis
@@ -625,7 +626,7 @@ function ow.Player:update(delta)
         local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
 
         -- apply wall friction
-        if self._left_wall or self._right_wall then
+        if self._use_wall_friction and (self._left_wall or self._right_wall) then
             if (left_wall_body ~= nil and left_wall_body:has_tag("slippery")) or (right_wall_body and right_wall_body:has_tag("slippery")) then
                 next_velocity_y = next_velocity_y + gravity
             else
@@ -1078,6 +1079,16 @@ function ow.Player:get_use_friction()
 end
 
 --- @brief
+function ow.Player:set_use_wall_friction(b)
+    self._use_wall_friction = b
+end
+
+--- @brief
+function ow.Player:get_use_wall_friction()
+    return self._use_wall_friction
+end
+
+--- @brief
 function ow.Player:bounce(nx, ny, force)
     self._bounce_force = math.clamp(math.magnitude(self._last_velocity_x, self._last_velocity_y), _settings.bounce_min_force, _settings.bounce_max_force)
     self._bounce_direction_x = nx
@@ -1115,5 +1126,8 @@ end
 function ow.Player:get_color()
     return self._color
 end
+
+-- @brief
+
 
 

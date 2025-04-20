@@ -26,18 +26,25 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
     self._use_exact_testing = table.sizeof(self._body:get_native():getShapes()) > 1
 
-    if not self._use_exact_testing then
-        self._body:signal_connect("collision_start", function()
+    self._body:signal_connect("collision_start", function()
+        if not self._use_exact_testing then
             self._is_active = true
-        end)
+        end
 
-        self._body:signal_connect("collision_end", function()
+        self._player:set_use_wall_friction(false)
+    end)
+
+    self._body:signal_connect("collision_end", function()
+        if not self._use_exact_testing then
             self._is_active = false
-        end)
-    end
+        end
+
+        self._player:set_use_wall_friction(true)
+    end)
 
     self._scene = scene
     self._player = self._scene:get_player()
+    self._color = rt.Palette.BOOST
 
     local factor = object:get_number("velocity") or 1
     self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
@@ -148,8 +155,8 @@ function ow.BoostField.draw_all()
     end
 
     -- draw shader surface per instance
-    rt.Palette.BOOST:bind()
     for self in values(_instances) do
+        self._color:bind()
         _shader:bind()
         _shader:send("elapsed", self._elapsed)
         _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
