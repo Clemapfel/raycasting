@@ -553,7 +553,6 @@ end
 
 --- @brief
 function ow.OverworldScene:respawn()
-    self._player:kill()
     self._stage:get_active_checkpoint():spawn()
     self._stage:reset_coins()
 end

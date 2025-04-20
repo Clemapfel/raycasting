@@ -123,6 +123,7 @@ end
 
 --- @brief
 function ow.BoostField:draw()
+    --[[
     if _shader == nil then _shader = rt.Shader("overworld/objects/boost_field.glsl") end
 
     love.graphics.setColor(self._color_r, self._color_g, self._color_b, 0.4)
@@ -152,4 +153,5 @@ function ow.BoostField:draw()
     end
 
     rt.graphics.set_stencil_test(nil)
+    ]]--
 end

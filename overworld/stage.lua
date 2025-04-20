@@ -71,6 +71,9 @@ function ow.Stage:instantiate(scene, id)
         return -1
     end
 
+    -- hitbox handled separately
+    ow.Hitbox:reinitialize()
+
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
         local spritebatches = self._config:get_layer_sprite_batches(layer_i)
@@ -167,6 +170,8 @@ end
 
 --- @brief
 function ow.Stage:draw_below_player()
+    ow.Hitbox:draw_all()
+
     for object in values(self._below_player) do
         object:draw()
     end
