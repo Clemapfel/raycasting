@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 199,
+  nextobjectid = 206,
   properties = {
     ["title"] = "Boosting"
   },
@@ -276,8 +276,8 @@ return {
           name = "",
           type = "Coin",
           shape = "point",
-          x = -304,
-          y = -352,
+          x = -208,
+          y = -384,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2807,6 +2807,97 @@ return {
           properties = {
             ["slippery"] = true
           }
+        },
+        {
+          id = 199,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -302.771,
+          y = -355.137,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 200,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -336,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 201,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -224,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 202,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -288,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 203,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208.952,
+          y = -159.628,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 204,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 205,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },

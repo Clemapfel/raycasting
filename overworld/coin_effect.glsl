@@ -29,12 +29,14 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     uv -= camera_offset;
 
     vec4 value = vec4(0);
+    float warp_value = 0;
+
     float eps = 0.1;
     float inner_radius = 0.05;
     float outer_radius_delta = 0.15;
 
-    const float duration = 3;
-    const float warp_strength = 1;
+    const float duration = 0.8;
+    const float warp_strength = 2.5;
 
     for (int i = 0; i < n_coins; ++i) {
         if (coin_is_active[i] != 1u) continue;
@@ -47,13 +49,18 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
         delta /= love_ScreenSize.xy;
 
         float dist = length(delta);
-        float time = coin_elapsed[i] / 2;
-        float outer_radius = inner_radius + mix(0.05, 0.7, coin_elapsed[i] / duration);
+
+        float time = pow(coin_elapsed[i], 2) * (1 / 1.5);
+        float outer_radius = inner_radius + mix(0.05, 0.4, coin_elapsed[i] / duration);
         float inner = smoothstep(inner_radius, inner_radius + eps, dist - time + outer_radius);
         float outer = smoothstep(outer_radius, outer_radius + eps, dist - time + outer_radius);
-        value += (inner - outer) * color * (1 - min(coin_elapsed[i] / duration, 1));
+
+        float time_factor = (1 - min(coin_elapsed[i] / duration, 1));
+
+        value += (inner - outer) * color * time_factor;
+        warp_value += gaussian(dist - time, 3) * time_factor;
     }
 
-    vec4 texel = texture(image, texture_coords + vec2(dFdx(value.a), dFdy(value.a)) * warp_strength);
+    vec4 texel = texture(image, texture_coords + vec2(dFdx(warp_value), dFdy(warp_value)) * warp_strength);
     return vec4(mix(texel.rgb, value.rgb, value.a), texel.a);
 }

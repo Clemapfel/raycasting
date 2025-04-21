@@ -47,8 +47,8 @@ function ow.Coin:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(self_body, player_body)
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
-        --self._is_collected = true
-        --self._stage:set_coin_is_collected(self._id, true)
+        self._is_collected = true
+        self._stage:set_coin_is_collected(self._id, true)
         self._timestamp = love.timer.getTime()
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
@@ -57,7 +57,11 @@ function ow.Coin:instantiate(object, stage, scene)
 
     if _pulse_mesh == nil then
         _pulse_mesh = rt.MeshCircle(0, 0, rt.settings.overworld.player.radius * 2)
-        _pulse_mesh:set_vertex_color(1, 0, 0, 0, 0)
+
+        _pulse_mesh:set_vertex_color(1, 1, 1, 1, 0)
+        for i = 2, _pulse_mesh:get_n_vertices() do
+            _pulse_mesh:set_vertex_color(i, 1, 1, 1, 1)
+        end
         _pulse_mesh = _pulse_mesh:get_native()
     end
 

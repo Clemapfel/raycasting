@@ -107,12 +107,6 @@ function ow.CoinEffect:draw()
     _shader:send("coin_is_active", table.unpack(self._coin_is_active))
     _shader:send("n_coins", self._n_coins)
 
-    for i = 1, self._n_coins do
-        if self._coin_is_active[i] == 1 then
-            dbg(i, self._coin_elapsed[i])
-        end
-    end
-
     local x, y = self._scene:get_player():get_position()
     _canvas:draw(self._x, self._y)
     _shader:unbind()
