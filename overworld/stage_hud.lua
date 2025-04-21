@@ -5,11 +5,8 @@ rt.settings.overworld.stage_hud = {
 ow.StageHUD = meta.class("StageHUD", rt.Widget)
 
 --- @brief
-function ow.StageHUD:instantiate(stage)
-    meta.assert(stage, ow.Stage)
+function ow.StageHUD:instantiate()
     meta.install(self, {
-        _stage = stage,
-
         _current_n_coins = 0,
         _max_n_coins = 0,
         _current_time = 0,
@@ -17,7 +14,7 @@ function ow.StageHUD:instantiate(stage)
         _x = 0,
         _y = 0,
 
-        _coins_label = rt.Label("0"),
+        _coins_label = rt.Label("0", rt.settings.font.default_small, rt.settings.font.default_mono_small),
         _coin_x = 0,
         _coin_y = 0,
     })
@@ -27,15 +24,18 @@ end
 
 --- @brief
 function ow.StageHUD:size_allocate(x, y, width, height)
-
+    local m = rt.settings.margin_unit
+    local label_w, label_h = self._coins_label:measure()
+    self._coins_label:reformat(x + m, y + m, math.huge)
 end
 
 --- @brief
 function ow.StageHUD:set_n_coins(current, max)
-    local prefix = "<b>"
-    local postfix = "</b>"
+    local prefix = "<b><o><mono>"
+    local postfix = "</mono></b></o>"
 
-    self._coins_label:set_text(prefix .. current .. " / " .. max .. postfix)
+    local formatted_time = "0.314:24"
+    self._coins_label:set_text(prefix .. formatted_time ..  postfix )
 end
 
 --- @brief

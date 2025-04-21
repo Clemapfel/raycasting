@@ -2848,19 +2848,6 @@ return {
           properties = {}
         },
         {
-          id = 202,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -208,
-          y = -288,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 203,
           name = "",
           type = "Coin",

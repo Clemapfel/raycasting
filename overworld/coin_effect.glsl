@@ -7,6 +7,20 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+vec2 rotate(vec2 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return v * mat2(c, -s, s, c);
+}
+
+vec2 turn(vec2 v, bool left_or_right) {
+    if (left_or_right) {
+        return vec2(v.y, -v.x);
+    } else {
+        return vec2(-v.y, v.x);
+    }
+}
+
 #ifndef MAX_N_COINS
 #error "In coin_effect.glsl: MAX_N_COINS is not defined"
 #endif
@@ -18,6 +32,9 @@ uniform uint coin_is_active[MAX_N_COINS];
 uniform int n_coins;
 
 uniform float elapsed;
+uniform vec2 player_position;
+uniform vec4 player_color;
+uniform float player_pulse_elapsed;
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
     vec2 origin = 0.5 * love_ScreenSize.xy;
@@ -29,14 +46,16 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     uv -= camera_offset;
 
     vec4 value = vec4(0);
+    vec4 static_value = vec4(0);
     float warp_value = 0;
 
     float eps = 0.1;
     float inner_radius = 0.05;
-    float outer_radius_delta = 0.15;
 
     const float duration = 0.8;
     const float warp_strength = 2.5;
+    float static_radius = 10 / love_ScreenSize.x;
+    float static_eps = 0.025;
 
     for (int i = 0; i < n_coins; ++i) {
         if (coin_is_active[i] != 1u) continue;
@@ -57,10 +76,39 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
 
         float time_factor = (1 - min(coin_elapsed[i] / duration, 1));
 
-        value += (inner - outer) * color * time_factor;
-        warp_value += gaussian(dist - time, 3) * time_factor;
+        //value += (inner - outer) * color * time_factor;
+        //static_value += (smoothstep(static_radius + static_eps, static_radius - static_eps, dist)) * time_factor;
+
+        //warp_value += gaussian(dist - time, 3) * time_factor;
     }
 
-    vec4 texel = texture(image, texture_coords + vec2(dFdx(warp_value), dFdy(warp_value)) * warp_strength);
-    return vec4(mix(texel.rgb, value.rgb, value.a), texel.a);
+    vec2 uv_offset = vec2(dFdx(warp_value), dFdy(warp_value));
+    vec4 texel = texture(image, texture_coords + uv_offset * warp_strength);
+    vec4 result = vec4(mix(texel.rgb, value.rgb, value.a), texel.a);
+
+    {
+        const float player_duration = 0.4;
+        float player_inner_radius = 10 / love_ScreenSize.x;
+        const float player_eps = 0.0;
+
+        vec4 color = player_color;
+        vec2 position = player_position;
+        vec2 delta = position - uv;
+        delta.x *= love_ScreenSize.x / love_ScreenSize.y;
+        delta /= love_ScreenSize.xy;
+
+        float dist = length(delta);
+
+        float time = player_pulse_elapsed * (1 / 5.);
+        float outer_radius = player_inner_radius + mix(0.01, 0.2, player_pulse_elapsed / player_duration);
+        float inner = smoothstep(player_inner_radius, player_inner_radius + player_eps, dist - time + outer_radius);
+        float outer = smoothstep(outer_radius, outer_radius + player_eps, dist - time + outer_radius);
+
+        float time_factor = (1 - min(player_pulse_elapsed / player_duration, 1));
+
+        result += (inner - outer) * color * time_factor;
+    }
+
+    result += static_value;
+    return result;
 }

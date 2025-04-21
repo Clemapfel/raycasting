@@ -57,8 +57,9 @@ function ow.OverworldScene:instantiate()
 
         _background = rt.Background("grid"),
 
-        _coin_effect = ow.CoinEffect(self),
+        _post_fx = ow.CoinEffect(self),
         _player = ow.Player(self),
+        _hud = ow.StageHUD(self),
     })
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -266,7 +267,8 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     })
 
     self._background:reformat(0, 0, width, height)
-    self._coin_effect:reformat(0, 0, width, height)
+    self._post_fx:reformat(0, 0, width, height)
+    self._hud:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -370,21 +372,21 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
 --- @brief
 function ow.OverworldScene:draw()
-    self._coin_effect:bind()
+    self._post_fx:bind()
 
     self._background:draw()
     self._camera:bind()
 
     self._stage:draw_below_player()
-
     self._player:draw()
     self._stage:draw_above_player()
 
     self._camera:unbind()
 
-    self._coin_effect:unbind()
-    self._coin_effect:draw()
+    self._post_fx:unbind()
+    self._post_fx:draw()
 
+    self._hud:draw()
 
     if self._cursor_visible and self._cursor_active and not self._player_is_focused then -- cursor in window
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
@@ -423,7 +425,7 @@ function ow.OverworldScene:update(delta)
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
-    self._coin_effect:update(delta)
+    self._post_fx:update(delta)
     self._player:update(delta)
 
     self._background:_notify_camera_changed(self._camera)

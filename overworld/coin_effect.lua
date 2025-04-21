@@ -38,6 +38,9 @@ function ow.CoinEffect:instantiate(scene)
 
         _camera_offset = { 0, 0 },
         _camera_scale = 1,
+        _player_position = { 0, 0 },
+        _player_color = {0, 0, 0, 0},
+        _pulse_elapsed = math.huge
     })
 
     self:_initialize_buffers()
@@ -61,6 +64,9 @@ function ow.CoinEffect:update(delta)
     self._elapsed = self._elapsed + delta
     self._camera_offset = { self._scene:get_camera():get_offset() }
     self._camera_scale = self._scene:get_camera():get_scale()
+    self._player_position = { self._scene:get_player():get_physics_body():get_predicted_position() }
+    self._player_color = { self._scene:get_player():get_color():unpack() }
+    self._pulse_elapsed = self._pulse_elapsed + delta
 
     self:_initialize_buffers()
     local coins = self._scene:get_current_stage():get_coins()
@@ -95,12 +101,21 @@ function ow.CoinEffect:unbind()
     _canvas:unbind()
 end
 
+--- @brief
+function ow.CoinEffect:pulse()
+    self._pulse_elapsed = 0
+end
+
 --- @override
 function ow.CoinEffect:draw()
     _shader:bind()
     _shader:send("elapsed", self._elapsed)
     _shader:send("camera_offset", self._camera_offset)
     _shader:send("camera_scale", self._camera_scale)
+    _shader:send("player_position", self._player_position)
+    _shader:send("player_color", self._player_color)
+    _shader:send("player_pulse_elapsed", self._pulse_elapsed)
+
     _shader:send("coin_positions", table.unpack(self._coin_positions))
     _shader:send("coin_colors",  table.unpack(self._coin_colors))
     _shader:send("coin_elapsed", table.unpack(self._coin_elapsed))

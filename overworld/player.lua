@@ -1096,7 +1096,7 @@ end
 
 --- @brief
 function ow.Player:pulse(...)
-    self._trail:pulse(...)
+    self._scene._post_fx:pulse()
 end
 
 --- @brief
