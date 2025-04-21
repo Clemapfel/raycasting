@@ -3,7 +3,7 @@ require "common.timed_animation"
 
 rt.settings.overworld.coin = {
     radius = 5,
-    pulse_animation_duration = 1,
+    pulse_animation_duration = 0.4,
     sound_id = "overworld_coin_collected"
 }
 
@@ -21,6 +21,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._stage = stage
     self._scene = scene
     self._x, self._y = object.x, object.y
+    self._pulse_x, self._pulse_y = 0, 0
 
     stage:add_coin(self, self._id)
 
@@ -92,6 +93,7 @@ function ow.Coin:update(delta)
     if self._is_collected then
         if self._pulse_active then
             self._pulse_active = not self._pulse_opacity_animation:update(delta)
+            self._pulse_x, self._pulse_y = self._scene:get_player():get_physics_body():get_predicted_position()
         end
     end
 end
@@ -111,8 +113,15 @@ function ow.Coin:draw()
     if self._is_collected then
         if self._pulse_active then
             local r, g, b = self._color:unpack()
-            love.graphics.setColor(r, g, b, self._pulse_opacity_animation:get_value())
-            love.graphics.draw(_pulse_mesh, self._x, self._y)
+            local x, y = self._pulse_x, self._pulse_y
+            local v = self._pulse_opacity_animation:get_value()
+            love.graphics.push()
+            love.graphics.translate(x, y)
+            love.graphics.scale(2 * (1 - v))
+            love.graphics.translate(-x, -y)
+            love.graphics.setColor(r, g, b, v)
+            love.graphics.draw(_pulse_mesh, x, y)
+            love.graphics.pop()
         end
     else
         local r, g, b = self._color:unpack()

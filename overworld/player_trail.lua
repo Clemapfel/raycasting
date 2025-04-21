@@ -1,5 +1,6 @@
 require "common.render_texture"
 require "common.blend_mode"
+require "common.smoothed_motion_1d"
 
 --- @class ow.PlayerTrail
 ow.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
@@ -21,6 +22,8 @@ function ow.PlayerTrail:instantiate(scene, radius)
     for i = 2, self._mesh:get_n_vertices() do
         self._mesh:set_vertex_color(i, 1, 1, 1, 0)
     end
+
+    self._boom_current_a = 0
 end
 
 --- @brief
@@ -44,7 +47,7 @@ local _circle_mesh = nil
 function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     local dx, dy = math.normalize(x2 - x1, y2 - y1)
 
-    local inner_width = 3
+    local inner_width = 1 * (1 + 3 * self._boom_current_a)
     local outer_width = 2
 
     local up_x, up_y = math.turn_left(dx, dy)
@@ -111,6 +114,8 @@ function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
         _circle_mesh = _circle_mesh:get_native()
     end
 
+    local centroid_x, centroid_y = x2, y2
+
     rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.MAX)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(_circle_mesh, x1, y1)
@@ -119,23 +124,56 @@ function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     rt.graphics.set_blend_mode(nil)
 end
 
-local _pulse_mesh = nil
+local _boom_mesh
 
-function ow.PlayerTrail:_draw_pulse(x, y)
-    if _pulse_mesh == nil then
-        _pulse_mesh = rt.MeshCircle(0, 0, rt.settings.overworld.player.radius * 2)
-        _pulse_mesh:set_vertex_color(1, 0, 0, 0, 0)
-        _pulse_mesh = _pulse_mesh:get_native()
+function ow.PlayerTrail:_draw_boom(x, y, angle)
+    local radius = 1.5 * rt.settings.overworld.player.radius
+    local y_offset = 2 * radius - rt.settings.overworld.player.radius
+    if _boom_mesh == nil then
+        local data = {{ 0, radius, 0, 0, 1, 1, 1, 0 }}
+
+        local i = 1
+        for v = -1, 1, 2 / 32 do
+            local a = 1
+            if i <= 16 then
+                a = (i - 1) / 16
+            elseif i >= 16 then
+                a = 1 - (i - 16 - 1) / 16
+            end
+
+            table.insert(data, {
+                v * radius,
+                -1 * ((1 - (v / 1.4)^2) * 2 * radius) + y_offset,
+                0, 0, 1, 1, 1, a
+            })
+
+            i = i + 1
+        end
+
+        _boom_mesh = rt.Mesh(data):get_native()
     end
 
-    love.graphics.draw(_pulse_mesh, x, y)
+    love.graphics.push()
+    love.graphics.translate(x, y)
+    love.graphics.rotate(angle + math.pi / 2)
+    love.graphics.translate(-x, -y)
+    love.graphics.draw(_boom_mesh, x, y)
+    love.graphics.pop()
 end
 
 local _previous_x, _previous_y = nil, nil
 local _previous_player_x, _previous_player_y = nil, nil
 
+local _particle_elapsed = 0
+
 --- @brief
 function ow.PlayerTrail:update(delta)
+    local vx, vy = self._scene:get_player():get_physics_body():get_linear_velocity()
+    local target = 3 * rt.settings.overworld.player.air_target_velocity_x
+    self._boom_current_a = math.min(math.magnitude(vx, vy) / target, 1)^4
+
+    _particle_elapsed = _particle_elapsed + delta
+
     local x, y = self._scene:get_camera():get_position()
     local w, h = self._width, self._height
     x = x - 0.5 * w
@@ -192,9 +230,20 @@ function ow.PlayerTrail:update(delta)
     rt.Palette.PLAYER:bind()
     self:_draw_trail(_previous_player_x, _previous_player_y, player_x, player_y)
 
-    if self._should_pulse then
-        self:_draw_pulse(self._pulse_x or player_x, self._pulse_y or player_y)
-        self._should_pulse = false
+    local step = 5 / 60 /  math.clamp(self._boom_current_a, 0, 1)
+    local particle_x, particle_y = player_x - dx, player_y - dy
+    if _particle_elapsed >= step then
+        love.graphics.push()
+        love.graphics.translate(player_x, player_y)
+        love.graphics.rotate(math.angle(vx, vy))
+        love.graphics.translate(-player_x, -player_y)
+        local factor = self._boom_current_a
+        love.graphics.setLineWidth(2)
+        love.graphics.ellipse("line", player_x, player_y, 12 * factor, 10 * factor)
+
+        love.graphics.pop()
+
+        _particle_elapsed = _particle_elapsed - step
     end
 
     rt.graphics.set_blend_mode()
@@ -217,6 +266,20 @@ function ow.PlayerTrail:draw()
     else
         love.graphics.draw(_canvas_a:get_native(), x, y)
     end
+
+
+    do
+        local r, g, b, a_before = love.graphics.getColor()
+        local a = self._boom_current_a
+
+        local x, y = self._scene:get_player():get_physics_body():get_predicted_position()
+        local vx, vy = self._scene:get_player():get_physics_body():get_linear_velocity()
+        local angle = math.angle(vx, vy)
+        love.graphics.setColor(r, g, b, a)
+        self:_draw_boom(x, y, angle)
+        love.graphics.setColor(r, g, b, a_before)
+    end
+
 end
 
 --- @brief

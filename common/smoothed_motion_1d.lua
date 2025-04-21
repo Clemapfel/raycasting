@@ -46,7 +46,6 @@ function rt.SmoothedMotion1D:update(delta)
 end
 --- @brief
 function rt.SmoothedMotion1D:set_value(x)
-    self._last_value = self._target_value
     self._current_value = x
 end
 

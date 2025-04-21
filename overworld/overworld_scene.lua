@@ -378,13 +378,16 @@ function ow.OverworldScene:draw()
     self._camera:bind()
 
     self._stage:draw_below_player()
-    self._player:draw()
-    self._stage:draw_above_player()
 
     self._camera:unbind()
 
     self._post_fx:unbind()
     self._post_fx:draw()
+
+    self._camera:bind()
+    self._player:draw()
+    self._stage:draw_above_player()
+    self._camera:unbind()
 
     self._hud:draw()
 

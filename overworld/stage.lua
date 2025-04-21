@@ -177,6 +177,8 @@ function ow.Stage:draw_below_player()
     for object in values(self._below_player) do
         object:draw()
     end
+
+    self._blood_splatter:draw()
 end
 
 --- @brief
@@ -185,7 +187,6 @@ function ow.Stage:draw_above_player()
         object:draw()
     end
 
-    self._blood_splatter:draw()
 end
 
 --- @brief

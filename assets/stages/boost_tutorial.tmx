@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="183.683" y="-403.786">
+  <object id="3" type="PlayerSpawn" x="1876.48" y="-1701.22">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
