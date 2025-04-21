@@ -168,7 +168,7 @@ function ow.StageConfig:instantiate(stage_id)
                 for y = 1, height do
                     for x = 1, width do
                         local gid = data[(y - 1) * width + x]
-                        if gid ~= 0 then -- empty tile
+                        if gid ~= 0 and gid ~= nil then -- empty tile
                             assert(gid_matrix:get(x + x_offset, y + y_offset) == nil)
                             gid_matrix:set(x + x_offset, y + y_offset, gid)
 

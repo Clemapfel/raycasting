@@ -36,6 +36,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._x, self._y, self._radius = object.x, object.y, rt.settings.overworld.coin.radius
 
     self._is_collected = false
+    self._timestamp = -math.huge -- timestamp of collection
 
     self._body:set_is_sensor(true)
     self._body:set_collides_with(bit.bor(
@@ -48,6 +49,7 @@ function ow.Coin:instantiate(object, stage, scene)
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
         self._is_collected = true
         self._stage:set_coin_is_collected(self._id, true)
+        self._timestamp = love.timer.getTime()
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
         self._scene:get_player():set_color(self._color)
@@ -127,4 +129,9 @@ end
 --- @brief
 function ow.Coin:get_position()
     return self._x, self._y
+end
+
+--- @brief
+function ow.Coin:get_time_since_collection()
+    return love.timer.getTime() - self._timestamp
 end

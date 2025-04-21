@@ -1,5 +1,5 @@
 require "include"
---debugger.connect()
+debugger.connect()
 
 require "common.label"
 

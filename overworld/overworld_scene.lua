@@ -419,7 +419,6 @@ end
 
 --- @brief
 function ow.OverworldScene:update(delta)
-
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)

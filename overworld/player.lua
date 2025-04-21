@@ -315,6 +315,7 @@ function ow.Player:update(delta)
 
     -- raycast to check for walls
     local x, y = self._body:get_position()
+
     local mask = bit.bnot(_settings.player_outer_body_collision_group)
 
     local top_ray_length = self._radius * _settings.top_wall_ray_length_factor
@@ -438,24 +439,7 @@ function ow.Player:update(delta)
             next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
         end
 
-        if self._bottom_wall then -- ground friction
-            local surface_normal_x, surface_normal_y = bottom_nx, bottom_ny
-
-            --[[
-            if bottom_wall_body:has_tag("slippery") and self._use_friction then
-                -- if going upwards slippery slope
-                local angle = math.angle(surface_normal_x, surface_normal_y) + math.pi * 0.5
-                if math.abs(angle) > 0 then -- prevent acceleration on non-sloped surfaces
-                    friction_coefficient = _settings.ground_slippery_friction
-                    if (math.sign(next_velocity_x) > 0 and angle < 0 and self._right_button_is_down) or (math.sign(next_velocity_x) < 0 and angle > 0 and self._left_button_is_down) then
-                        next_velocity_x = 0
-                        next_velocity_y = 0
-                    end
-                end
-            end
-            ]]--
-
-            local friction_coefficient = bottom_wall_body:get_friction() or 0
+        local _apply_friction = function(surface_normal_x, surface_normal_y, friction_coefficient)
             local velocity_x, velocity_y = next_velocity_x, next_velocity_y
             local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
             local perpendicular_x = dot_product * surface_normal_x
@@ -469,13 +453,21 @@ function ow.Player:update(delta)
 
             next_velocity_x = parallel_x - friction_x
             next_velocity_y = parallel_y - friction_y
-        else
-            -- magnetize to walls
+        end
+
+        if self._bottom_wall then -- ground friction
+            _apply_friction(bottom_nx, bottom_ny,  bottom_wall_body:get_friction() or 0)
+        elseif self._use_wall_friction then
+            -- magnetize to walls, decrease based on how far wall is from vertical
             local magnet_force = _settings.wall_magnet_force
-            if self._left_wall and not self._right_wall and self._left_button_is_down then
-                next_velocity_x = next_velocity_x - magnet_force * math.distance(x, y, left_x, left_y) / (self._radius * _settings.side_wall_ray_length_factor)
-            elseif self._right_wall and not self._left_wall and self._right_button_is_down then
-                next_velocity_x = next_velocity_x + magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
+            if self._left_wall and not self._right_wall and self._left_button_is_down and not left_wall_body:has_tag("slippery")then
+                local force = magnet_force * math.distance(x, y, left_x, left_y) / (self._radius * _settings.side_wall_ray_length_factor)
+                force = force * (1 - math.abs(math.dot(left_nx, left_ny, 0, 1)))
+                next_velocity_x = next_velocity_x - force
+            elseif self._right_wall and not self._left_wall and self._right_button_is_down and not right_wall_body:has_tag("slippery") then
+                local force = magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
+                force = force * (1 - math.abs(math.dot(right_nx, right_ny, 0, 1)))
+                next_velocity_x = next_velocity_x + force
             end
         end
 
@@ -569,7 +561,7 @@ function ow.Player:update(delta)
         local spring_impulse = math.magnitude(total_force_x, total_force_y)
         next_velocity_y = next_velocity_y - spring_impulse
 
-        if spring_impulse > gravity then
+        if spring_impulse >= gravity then
             can_jump = true
             can_wall_jump = true
             self._spring_multiplier = debugger.get("spring_multiplier") -- reset on end of jump or jump button released
@@ -584,7 +576,7 @@ function ow.Player:update(delta)
                 self._coyote_elapsed = 0
                 next_velocity_y = -1 * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration) * self._spring_multiplier
                 self._jump_elapsed = self._jump_elapsed + delta
-            elseif can_wall_jump then
+            elseif not can_jump and can_wall_jump then
                 -- wall jump: initial burst, then small sustain
                 if self._wall_jump_elapsed == 0 then -- set by jump button
                     -- initial burst
@@ -622,17 +614,6 @@ function ow.Player:update(delta)
         if self._jump_elapsed >= _settings.jump_duration then self._spring_multiplier = 1 end
 
         self._wall_jump_elapsed = self._wall_jump_elapsed + delta
-
-        local wall_cling = (self._left_wall and self._left_button_is_down) or (self._right_wall and self._right_button_is_down)
-
-        -- apply wall friction
-        if self._use_wall_friction and (self._left_wall or self._right_wall) then
-            if (left_wall_body ~= nil and left_wall_body:has_tag("slippery")) or (right_wall_body and right_wall_body:has_tag("slippery")) then
-                next_velocity_y = next_velocity_y + gravity
-            else
-                next_velocity_y = next_velocity_y - gravity
-            end
-        end
 
         local fraction = self._bounce_elapsed / _settings.bounce_duration
         if fraction <= 1 then

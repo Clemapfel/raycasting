@@ -111,7 +111,7 @@ end
 local _elapsed = 0
 local _step = 1 / 120
 local _max_n_steps_per_frame = 3
-local _n_velocity_iterations = 10
+local _n_velocity_iterations = 4
 
 --- @brief
 function b2.World:update(delta)
