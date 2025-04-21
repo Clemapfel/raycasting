@@ -13,6 +13,7 @@ function rt.Shader:instantiate(filename, defines)
 
     meta.install(self, {
         _native = shader,
+        _defines = defines,
         _filename = filename,
         _before = nil,
     })
@@ -52,7 +53,9 @@ end
 
 --- @brief
 function rt.Shader:recompile()
-    self._native = love.graphics.newShader(self._filename)
+    self._native = love.graphics.newShader(self._filename, {
+        defines = self._defines
+    })
 end
 
 --- @brief

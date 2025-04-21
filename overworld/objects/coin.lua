@@ -47,8 +47,8 @@ function ow.Coin:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(self_body, player_body)
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
-        self._is_collected = true
-        self._stage:set_coin_is_collected(self._id, true)
+        --self._is_collected = true
+        --self._stage:set_coin_is_collected(self._id, true)
         self._timestamp = love.timer.getTime()
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
