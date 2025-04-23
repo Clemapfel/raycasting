@@ -40,7 +40,7 @@ end
 
 --- @brief
 function ow.StageHUD:draw()
-    ow.Coin.draw_coin(self._coin_x, self._coin_y, 1, 1, 1, 1)
-    self._coins_label:draw()
+    --ow.Coin.draw_coin(self._coin_x, self._coin_y, 1, 1, 1, 1)
+    --self._coins_label:draw()
 end
 

@@ -1,6 +1,9 @@
 require "common.render_texture"
 require "common.blend_mode"
-require "common.smoothed_motion_1d"
+
+rt.settings.overworld.player_trail = {
+    decay_rate = 0.4
+}
 
 --- @class ow.PlayerTrail
 ow.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
@@ -11,19 +14,13 @@ local _canvas_a, _canvas_b = nil, nil
 function ow.PlayerTrail:instantiate(scene, radius)
     meta.assert(scene, "OverworldScene")
     self._scene = scene
+    self._player = self._scene:get_player()
     self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
-    
+
     _canvas_a = rt.RenderTexture(self._width, self._height)
     _canvas_b = rt.RenderTexture(self._width, self._height)
     self._a_or_b = true
-    self._should_pulse = false
-
-    self._mesh = rt.MeshCircle(0, 0, radius)
-    for i = 2, self._mesh:get_n_vertices() do
-        self._mesh:set_vertex_color(i, 1, 1, 1, 0)
-    end
-
-    self._boom_current_a = 0
+    self._r, self._g, self._b = 1, 0, 0
 end
 
 --- @brief
@@ -35,19 +32,159 @@ function ow.PlayerTrail:clear()
     _canvas_b:unbind()
 end
 
+local _boom_mesh, _shader
+
 --- @brief
-function ow.PlayerTrail:get_size()
-    return self._width, self._height
+function ow.PlayerTrail:draw()
+    if _shader == nil then
+        _shader = rt.Shader("overworld/player_trail.glsl")
+    end
+
+    if _boom_mesh == nil then
+        local player_radius = rt.settings.overworld.player.radius
+        local x_radius = 1.5 * player_radius
+        local y_radius = 2 * player_radius
+        local y_offset = y_radius - player_radius
+
+        local _boom_shape = function(x)
+            return math.sqrt(1 - x^2)
+        end
+
+        local data = {{ 0, x_radius, 0, 0, 1, 1, 1, 0 }}
+
+        local i = 1
+        for v = -1, 1, 2 / 32 do
+            local a = 1
+            if i <= 16 then
+                a = (i - 1) / 16
+            elseif i >= 16 then
+                a = 1 - (i - 16 - 1) / 16
+            end
+
+            table.insert(data, {
+                v * x_radius,
+                -1 * _boom_shape(v) * y_radius + y_offset,
+                0, 0, 1, 1, 1, a
+            })
+
+            i = i + 1
+        end
+
+        _boom_mesh = rt.Mesh(data):get_native()
+    end
+
+    -- draw canvas
+    do
+        local x, y = self._scene:get_camera():get_position()
+        local w, h = self._width, self._height
+        x = x - 0.5 * w
+        y = y - 0.5 * h
+
+        if self._a_or_b then
+            love.graphics.draw(_canvas_b:get_native(), x, y)
+        else
+            love.graphics.draw(_canvas_a:get_native(), x, y)
+        end
+    end
+
+    -- draw boom
+    do
+        local player = self._scene:get_player()
+        local x, y = player:get_physics_body():get_predicted_position()
+        local vx, vy = player:get_physics_body():get_linear_velocity()
+        local angle = math.angle(vx, vy)
+
+        local magnitude = math.magnitude(vx, vy)
+        if math.abs(vx) > 2 and math.abs(vy) > 2 and magnitude > 1 then
+
+            love.graphics.setColor(self._r, self._g, self._b, magnitude * player:get_flow())
+            love.graphics.push()
+            love.graphics.translate(x, y)
+            love.graphics.rotate(angle + math.pi / 2)
+            love.graphics.translate(-x, -y)
+            love.graphics.draw(_boom_mesh, x, y)
+            love.graphics.pop()
+        end
+    end
 end
 
-local _mesh = nil
-local _circle_mesh = nil
+local _previous_x, _previous_y = nil, nil
+local _previous_player_x, _previous_player_y = nil, nil
+
+local _dim = function(delta)
+    rt.graphics.set_blend_mode(rt.BlendMode.SUBTRACT, rt.BlendMode.SUBTRACT)
+    love.graphics.setColor(0, 0, 0, delta)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    rt.graphics.set_blend_mode(nil)
+end
+
+--- @brief
+function ow.PlayerTrail:update(delta)
+    local x, y = self._scene:get_camera():get_position()
+    local w, h = self._width, self._height
+    x = x - 0.5 * w
+    y = y - 0.5 * h
+
+    if _previous_x == nil and _previous_y == nil then
+        _previous_x, _previous_y = x, y
+    end
+
+    local dx, dy = _previous_x - x, _previous_y - y
+
+    local player_x, player_y = self._scene:get_player():get_physics_body():get_predicted_position()
+    if _previous_player_x == nil or _previous_player_y == nil then
+        _previous_player_x, _previous_player_y = player_x, player_y
+    end
+
+    local a, b
+    if self._a_or_b then
+        a = _canvas_a
+        b = _canvas_b
+    else
+        a = _canvas_b
+        b = _canvas_a
+    end
+    self._a_or_b = not self._a_or_b
+
+    local decay_rate = rt.settings.overworld.player_trail.decay_rate
+    local dalpha = (1 / decay_rate) * delta
+    b:bind()
+    love.graphics.origin()
+    _dim(dalpha)
+    b:unbind()
+
+    love.graphics.push()
+    a:bind()
+
+    love.graphics.clear()
+    love.graphics.origin()
+    love.graphics.translate(dx, dy)
+    love.graphics.setBlendMode("alpha", "premultiplied")
+    b:draw()
+
+    love.graphics.origin()
+    love.graphics.translate(-x, -y)
+
+    local hue = self._scene:get_player():get_hue()
+    self._r, self._g, self._b = rt.lcha_to_rgba(rt.LCHA(0.8, 1, hue, 1):unpack())
+
+    self:_draw_trail(_previous_player_x, _previous_player_y, player_x, player_y)
+
+    a:unbind()
+    love.graphics.pop()
+
+    _previous_x, _previous_y = x, y
+    _previous_player_x, _previous_player_y = player_x, player_y
+end
+
+
+local _mesh, _circle_mesh = nil
 
 --- @brief
 function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     local dx, dy = math.normalize(x2 - x1, y2 - y1)
 
-    local inner_width = 1 * (1 + 3 * self._boom_current_a)
+    local inner_width = self._scene:get_player():get_flow() * (1 + 3 * 1)
     local outer_width = 2
 
     local up_x, up_y = math.turn_left(dx, dy)
@@ -117,174 +254,12 @@ function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     local centroid_x, centroid_y = x2, y2
 
     rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.MAX)
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(self._r, self._g, self._b, 1)
     love.graphics.draw(_circle_mesh, x1, y1)
     love.graphics.draw(_mesh)
     love.graphics.draw(_circle_mesh, x2, y2)
     rt.graphics.set_blend_mode(nil)
 end
 
-local _boom_mesh
-
-function ow.PlayerTrail:_draw_boom(x, y, angle)
-    local radius = 1.5 * rt.settings.overworld.player.radius
-    local y_offset = 2 * radius - rt.settings.overworld.player.radius
-    if _boom_mesh == nil then
-        local data = {{ 0, radius, 0, 0, 1, 1, 1, 0 }}
-
-        local i = 1
-        for v = -1, 1, 2 / 32 do
-            local a = 1
-            if i <= 16 then
-                a = (i - 1) / 16
-            elseif i >= 16 then
-                a = 1 - (i - 16 - 1) / 16
-            end
-
-            table.insert(data, {
-                v * radius,
-                -1 * ((1 - (v / 1.4)^2) * 2 * radius) + y_offset,
-                0, 0, 1, 1, 1, a
-            })
-
-            i = i + 1
-        end
-
-        _boom_mesh = rt.Mesh(data):get_native()
-    end
-
-    love.graphics.push()
-    love.graphics.translate(x, y)
-    love.graphics.rotate(angle + math.pi / 2)
-    love.graphics.translate(-x, -y)
-    love.graphics.draw(_boom_mesh, x, y)
-    love.graphics.pop()
-end
-
-local _previous_x, _previous_y = nil, nil
-local _previous_player_x, _previous_player_y = nil, nil
-
-local _particle_elapsed = 0
-
---- @brief
-function ow.PlayerTrail:update(delta)
-    local vx, vy = self._scene:get_player():get_physics_body():get_linear_velocity()
-    local target = 3 * rt.settings.overworld.player.air_target_velocity_x
-    self._boom_current_a = math.min(math.magnitude(vx, vy) / target, 1)^4
-
-    _particle_elapsed = _particle_elapsed + delta
-
-    local x, y = self._scene:get_camera():get_position()
-    local w, h = self._width, self._height
-    x = x - 0.5 * w
-    y = y - 0.5 * h
-
-    if _previous_x == nil and _previous_y == nil then
-        _previous_x, _previous_y = x, y
-    end
-
-    local dx, dy = _previous_x - x, _previous_y - y
-
-    local a, b
-    if self._a_or_b then
-        a = _canvas_a
-        b = _canvas_b
-    else
-        a = _canvas_b
-        b = _canvas_a
-    end
-    self._a_or_b = not self._a_or_b
-
-    local _dim = function(delta)
-        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.SUBTRACT)
-        love.graphics.setColor(0, 0, 0, delta)
-        love.graphics.rectangle("fill", 0, 0, self._width, self._height)
-        rt.graphics.set_blend_mode(nil)
-    end
-
-    local decay_rate = 0.4 -- seconds until clear
-    local dalpha = (1 / decay_rate) * delta
-    for canvas in range(a, b) do
-        canvas:bind()
-        love.graphics.origin()
-        _dim(dalpha)
-        canvas:unbind()
-    end
-
-    love.graphics.push()
-    a:bind()
-
-    local player_x, player_y = self._scene:get_player():get_physics_body():get_predicted_position()
-    if _previous_player_x == nil or _previous_player_y == nil then
-        _previous_player_x, _previous_player_y = player_x, player_y
-    end
-
-    _dim(1)
-
-    love.graphics.origin()
-    love.graphics.translate(dx, dy)
-    rt.graphics.set_blend_mode(rt.BlendMode.MAX)
-    b:draw()
-    love.graphics.origin()
-    love.graphics.translate(-x, -y)
-    rt.Palette.PLAYER:bind()
-    self:_draw_trail(_previous_player_x, _previous_player_y, player_x, player_y)
-
-    local step = 5 / 60 /  math.clamp(self._boom_current_a, 0, 1)
-    local particle_x, particle_y = player_x - dx, player_y - dy
-    if _particle_elapsed >= step then
-        love.graphics.push()
-        love.graphics.translate(player_x, player_y)
-        love.graphics.rotate(math.angle(vx, vy))
-        love.graphics.translate(-player_x, -player_y)
-        local factor = self._boom_current_a
-        love.graphics.setLineWidth(2)
-        love.graphics.ellipse("line", player_x, player_y, 12 * factor, 10 * factor)
-
-        love.graphics.pop()
-
-        _particle_elapsed = _particle_elapsed - step
-    end
-
-    rt.graphics.set_blend_mode()
-    b:unbind()
-    love.graphics.pop()
-
-    _previous_x, _previous_y = x, y
-    _previous_player_x, _previous_player_y = player_x, player_y
-end
-
---- @brief
-function ow.PlayerTrail:draw()
-    local x, y = self._scene:get_camera():get_position()
-    local w, h = self._width, self._height
-    x = x - 0.5 * w
-    y = y - 0.5 * h
-
-    if self._a_or_b then
-        love.graphics.draw(_canvas_b:get_native(), x, y)
-    else
-        love.graphics.draw(_canvas_a:get_native(), x, y)
-    end
 
 
-    do
-        local r, g, b, a_before = love.graphics.getColor()
-        local a = self._boom_current_a
-
-        local x, y = self._scene:get_player():get_physics_body():get_predicted_position()
-        local vx, vy = self._scene:get_player():get_physics_body():get_linear_velocity()
-        local angle = math.angle(vx, vy)
-        love.graphics.setColor(r, g, b, a)
-        self:_draw_boom(x, y, angle)
-        love.graphics.setColor(r, g, b, a_before)
-    end
-
-end
-
---- @brief
-function ow.PlayerTrail:pulse(x, y)
-    self._should_pulse = true
-    self._pulse_x = x -- may be nil
-    self._pulse_y = y
-end

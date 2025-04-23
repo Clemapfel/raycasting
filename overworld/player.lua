@@ -188,6 +188,7 @@ function ow.Player:instantiate(scene, stage)
         _outer_body_centers_x = {},
         _outer_body_centers_y = {},
         _outer_body_angles = {},
+        _outer_body_colors = {},
         _outer_body_scales = {},
 
         _outer_body_tris = {},
@@ -199,6 +200,9 @@ function ow.Player:instantiate(scene, stage)
         -- animation
         _trail = ow.PlayerTrail(scene, _settings.radius),
         _trail_visible = true,
+
+        _hue = 0,
+        _hue_duration = 2,
 
         _mass = 1,
         _gravity_direction_x = 0,
@@ -287,6 +291,8 @@ end
 
 --- @brief
 function ow.Player:update(delta)
+    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta)
+
     if self._trail_visible then
         self._trail:update(delta)
     end
@@ -866,6 +872,7 @@ function ow.Player:move_to_stage(stage)
     self._outer_body_centers_y = {}
     self._outer_body_scales = {}
     self._outer_body_angles = {}
+    self._outer_body_colors = {}
 
     if self._state == ow.PlayerState.DISABLED then
         self:disable()
@@ -879,6 +886,7 @@ function ow.Player:_update_mesh()
     local player_x, player_y = self._body:get_predicted_position()
     local to_polygonize = {}
 
+    local hue_step = 1 / _settings.n_outer_bodies
     for i, body in ipairs(self._spring_bodies) do
         local cx, cy = body:get_predicted_position()
         self._outer_body_centers_x[i] = cx
@@ -888,6 +896,9 @@ function ow.Player:_update_mesh()
 
         local scale = 1 + self._spring_joints[i]:get_distance() / (self._radius - self._outer_body_radius)
         self._outer_body_scales[i] = math.max(scale / 2, 0)
+
+        local hue = self._hue + (i - 1) * hue_step
+        self._outer_body_colors[i] = {rt.lcha_to_rgba(0.8, 1, hue, 1)}
 
         table.insert(to_polygonize, cx)
         table.insert(to_polygonize, cy)
@@ -926,7 +937,7 @@ function ow.Player:draw()
         love.graphics.polygon("fill", tri)
     end
 
-    love.graphics.setColor(r, g, b, 1)
+    love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     for i, scale in ipairs(self._outer_body_scales) do
         local x = self._outer_body_centers_x[i]
         local y = self._outer_body_centers_y[i]
@@ -1100,17 +1111,13 @@ function ow.Player:pulse(...)
 end
 
 --- @brief
-function ow.Player:set_color(color)
-    meta.assert(color, rt.RGBA)
-    self._color = color
+function ow.Player:get_flow()
+    return math.min(math.magnitude(self._body:get_linear_velocity()) / 1000, 1)
 end
 
 --- @brief
-function ow.Player:get_color()
-    return self._color
+function ow.Player:get_hue()
+    return self._hue
 end
-
--- @brief
-
 
 

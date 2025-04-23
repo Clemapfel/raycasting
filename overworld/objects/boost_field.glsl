@@ -27,6 +27,33 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
+vec3 lch_to_rgb(vec3 lch) {
+    float L = lch.x * 100.0;
+    float C = lch.y * 100.0;
+    float H = lch.z * 360.0;
+
+    float a = cos(radians(H)) * C;
+    float b = sin(radians(H)) * C;
+
+    float Y = (L + 16.0) / 116.0;
+    float X = a / 500.0 + Y;
+    float Z = Y - b / 200.0;
+
+    X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
+    Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
+    Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
+
+    float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
+    float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
+    float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
+
+    R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
+    G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
+    B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
+
+    return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
+}
+
 uniform vec2 axis = vec2(0, -1);
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_position) {
@@ -46,6 +73,9 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_
     uv.y -= width;
     uv.x = fract(uv.x);
 
-    float value = smoothstep(width - eps, width + eps, 1 - distance(uv.y, (1 / flatness) * smooth_abs(uv.x * 2 - 1)));
-    return vec4(vec3(mix(0.7, 1, value)), 1) * vertex_color;
+
+    float v = distance(uv.y, (1 / flatness) * smooth_abs(uv.x * 2 - 1));
+    float value = smoothstep(width - eps, width + eps, 1 - v);
+    vec3 color = lch_to_rgb(vec3(0.8, 1, angle / (2 * PI)));
+    return vec4(vec3(color) *  mix(0.7, 1, value), 1) * vertex_color;
 }

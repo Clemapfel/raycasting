@@ -31,6 +31,7 @@ rt.BlendFactor = meta.enum("BlendFactor", {
     DESTINATION_ALPHA = "dstalpha",
     ONE_MINUS_DESTINATION_ALPHA = "oneminusdstalpha"
 })
+--usage: love.graphics.setBlendState(rgb_operation, alpha_operation, rgb_source_factor, alpha_source_factor, rgb_destination_factor, alpha_destination_factor)
 
 --- @brief set blend mode
 function rt.graphics.set_blend_mode(blend_mode_rgb, blend_mode_alpha)

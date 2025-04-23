@@ -65,7 +65,6 @@ function ow.CoinEffect:update(delta)
     self._camera_offset = { self._scene:get_camera():get_offset() }
     self._camera_scale = self._scene:get_camera():get_scale()
     self._player_position = { self._scene:get_player():get_physics_body():get_predicted_position() }
-    self._player_color = { self._scene:get_player():get_color():unpack() }
     self._pulse_elapsed = self._pulse_elapsed + delta
 
     self:_initialize_buffers()
@@ -113,7 +112,7 @@ function ow.CoinEffect:draw()
     _shader:send("camera_offset", self._camera_offset)
     _shader:send("camera_scale", self._camera_scale)
     _shader:send("player_position", self._player_position)
-    _shader:send("player_color", self._player_color)
+    _shader:send("player_color", {1, 1, 1, 1})
     _shader:send("player_pulse_elapsed", self._pulse_elapsed)
 
     _shader:send("coin_positions", table.unpack(self._coin_positions))
