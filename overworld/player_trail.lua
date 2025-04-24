@@ -94,17 +94,13 @@ function ow.PlayerTrail:draw()
         local vx, vy = player:get_physics_body():get_linear_velocity()
         local angle = math.angle(vx, vy)
 
-        local magnitude = math.magnitude(vx, vy)
-        if math.abs(vx) > 2 and math.abs(vy) > 2 and magnitude > 1 then
-
-            love.graphics.setColor(self._r, self._g, self._b, magnitude * player:get_flow())
-            love.graphics.push()
-            love.graphics.translate(x, y)
-            love.graphics.rotate(angle + math.pi / 2)
-            love.graphics.translate(-x, -y)
-            love.graphics.draw(_boom_mesh, x, y)
-            love.graphics.pop()
-        end
+        love.graphics.setColor(self._r, self._g, self._b, 8 *  player:get_flow())
+        love.graphics.push()
+        love.graphics.translate(x, y)
+        love.graphics.rotate(angle + math.pi / 2)
+        love.graphics.translate(-x, -y)
+        love.graphics.draw(_boom_mesh, x, y)
+        love.graphics.pop()
     end
 end
 
@@ -184,8 +180,10 @@ local _mesh, _circle_mesh = nil
 function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     local dx, dy = math.normalize(x2 - x1, y2 - y1)
 
-    local inner_width = self._scene:get_player():get_flow() * (1 + 3 * 1)
-    local outer_width = 2
+    local inner_width = math.min(300 * self._scene:get_player():get_flow()^1.8, 4)
+    local outer_width = self._scene:get_player():get_flow()
+
+    if inner_width + outer_width < 1 then return end
 
     local up_x, up_y = math.turn_left(dx, dy)
     local inner_up_x, inner_up_y = up_x * inner_width, up_y * inner_width

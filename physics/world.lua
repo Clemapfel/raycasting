@@ -152,6 +152,7 @@ function b2.World:update(delta)
     end
 
     self._interpolation_factor = _elapsed / _step -- for interpolation
+    dbg(self._native:getBodyCount(), self._native:getJointCount(), self._native:getContactCount())
 end
 
 --- @brief

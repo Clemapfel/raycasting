@@ -4,6 +4,11 @@ require "common.mesh"
 --- @class ow.Hitbox
 ow.Hitbox = meta.class("Hitbox")
 
+ow.SlipperyHitbox = function(object, stage, scene)
+    object.properties["slippery"] = true
+    return ow.Hitbox(object, stage, scene)
+end
+
 -- manually batched, cf. draw_all
 local _slippery_tris = {}
 local _slippery_lines = {}
@@ -39,6 +44,34 @@ function ow.Hitbox:instantiate(object, stage, scene)
         for tri in values(tris) do
             table.insert(_sticky_tris, tri)
         end
+    end
+
+    local id_to_group = {
+        [1] = b2.CollisionGroup.GROUP_01,
+        [2] = b2.CollisionGroup.GROUP_02,
+        [3] = b2.CollisionGroup.GROUP_03,
+        [4] = b2.CollisionGroup.GROUP_04,
+        [5] = b2.CollisionGroup.GROUP_05,
+        [6] = b2.CollisionGroup.GROUP_06,
+        [7] = b2.CollisionGroup.GROUP_07,
+        [8] = b2.CollisionGroup.GROUP_08,
+        [9] = b2.CollisionGroup.GROUP_09,
+        [10] = b2.CollisionGroup.GROUP_10,
+        [11] = b2.CollisionGroup.GROUP_11,
+        [12] = b2.CollisionGroup.GROUP_12,
+        [13] = b2.CollisionGroup.GROUP_13,
+        [14] = b2.CollisionGroup.GROUP_14,
+        [15] = b2.CollisionGroup.GROUP_15,
+        [16] = b2.CollisionGroup.GROUP_16
+    }
+
+    local filter = object:get_number("filter")
+    if filter ~= nil then
+        local group = id_to_group[filter]
+        if group == nil then
+            rt.error("In ow.Hitbox.instantiate: object `" .. object:get_id() .. "` in stage `" .. stage:get_id() .. "` property `filter` expects number between 1 and 16")
+        end
+        self._body:set_collides_with(bit.bnot(group))
     end
 end
 

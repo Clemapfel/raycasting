@@ -63,6 +63,7 @@ rt.settings.overworld.player = {
 
     color_a = 1.0,
     color_b = 0.6,
+    hue_cylce_duration = 1,
 
     --debug_drawing_enabled = true,
 }
@@ -202,7 +203,7 @@ function ow.Player:instantiate(scene, stage)
         _trail_visible = true,
 
         _hue = 0,
-        _hue_duration = 2,
+        _hue_duration = _settings.hue_cylce_duration,
 
         _mass = 1,
         _gravity_direction_x = 0,
@@ -1112,7 +1113,9 @@ end
 
 --- @brief
 function ow.Player:get_flow()
-    return math.min(math.magnitude(self._body:get_linear_velocity()) / 1000, 1)
+    local vx, vy = self._body:get_linear_velocity()
+    local out = math.min(math.max(math.abs(vx), math.abs(vy)) / (_settings.max_velocity_y), 1)
+    return out
 end
 
 --- @brief
