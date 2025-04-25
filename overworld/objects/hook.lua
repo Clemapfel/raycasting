@@ -86,6 +86,8 @@ end
 
 --- @brief
 function ow.Hook:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     rt.Palette.PURPLE:bind()
     self._body:draw()
 end

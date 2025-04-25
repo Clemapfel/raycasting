@@ -42,6 +42,8 @@ function ow.BoostField:instantiate(object, stage, scene)
         self._player:set_use_wall_friction(true)
     end)
 
+    self._body:set_user_data(self)
+
     self._scene = scene
     self._player = self._scene:get_player()
     self._color = rt.Palette.BOOST
@@ -156,15 +158,17 @@ function ow.BoostField.draw_all()
 
     -- draw shader surface per instance
     for self in values(_instances) do
-        self._color:bind()
-        _shader:bind()
-        _shader:send("elapsed", self._elapsed)
-        _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
-        _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
-        _shader:send("camera_scale", self._camera_scale)
-        _shader:send("axis", { self._axis_x, self._axis_y })
-        love.graphics.draw(self._mesh:get_native())
-        _shader:unbind()
+        if self._scene:get_is_body_visible(self._body) then
+            self._color:bind()
+            _shader:bind()
+            _shader:send("elapsed", self._elapsed)
+            _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
+            _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
+            _shader:send("camera_scale", self._camera_scale)
+            _shader:send("axis", { self._axis_x, self._axis_y })
+            love.graphics.draw(self._mesh:get_native())
+            _shader:unbind()
+        end
     end
 
     -- draw outlines as giant batch

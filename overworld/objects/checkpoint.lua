@@ -127,6 +127,8 @@ end
 
 --- @brief
 function ow.Checkpoint:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     if self._stage:get_active_checkpoint() == self then
         rt.Palette.SPAWN_ACTIVE:bind()
     else

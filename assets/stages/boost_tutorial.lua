@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 281,
+  nextobjectid = 282,
   properties = {
     ["title"] = "Boosting"
   },
@@ -64,8 +64,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1668.89,
-          y = -1760.15,
+          x = -115.961,
+          y = -83.8395,
           width = 0,
           height = 0,
           rotation = 0,
@@ -956,8 +956,8 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -32, y = 224 },
-            { x = -32, y = 272 },
+            { x = 0, y = 224 },
+            { x = 0, y = 272 },
             { x = 336, y = 272 },
             { x = 208, y = 224 }
           },
@@ -1026,10 +1026,16 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 112, y = 224 },
-            { x = 112, y = 240 },
+            { x = -80, y = 224 },
+            { x = -80, y = 240 },
+            { x = -80, y = 288 },
+            { x = -48, y = 288 },
+            { x = -48, y = 240 },
             { x = 576, y = 240 },
-            { x = 576, y = 224 }
+            { x = 576, y = 224 },
+            { x = -48, y = 224 },
+            { x = -48, y = 176 },
+            { x = -80, y = 176 }
           },
           properties = {
             ["axis_x"] = 1,
@@ -3445,10 +3451,7 @@ return {
             { x = 0, y = 64 },
             { x = 0, y = 432 },
             { x = -32, y = 432 },
-            { x = -32, y = 64 },
-            { x = -32, y = 16 },
-            { x = 336, y = 16 },
-            { x = 208, y = 64 }
+            { x = -32, y = 64 }
           },
           properties = {
             ["axis_x"] = 0,
@@ -3564,6 +3567,28 @@ return {
             { x = -192, y = 0 }
           },
           properties = {}
+        },
+        {
+          id = 281,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 2928,
+          y = -1760,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -48 },
+            { x = 336, y = -48 },
+            { x = 208, y = 0 }
+          },
+          properties = {
+            ["axis_x"] = 0,
+            ["axis_y"] = 1
+          }
         }
       }
     },

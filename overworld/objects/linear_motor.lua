@@ -51,8 +51,6 @@ function ow.LinearMotor:instantiate(object, stage, scene)
             self._speed = rt.settings.overworld.linear_motor.default_speed
         end
 
-        dbg(self._cycle_duration)
-
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -81,6 +79,8 @@ end
 
 --- @brief
 function ow.LinearMotor:draw()
+    if not self._scene:get_is_body_visible(self._target) then return end
+
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(1)
     love.graphics.line(self._lower_x, self._lower_y, self._upper_x, self._upper_y)

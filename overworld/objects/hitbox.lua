@@ -84,6 +84,7 @@ function ow.Hitbox:reinitialize()
     _sticky_tris = {}
     _sticky_lines = {}
     _sticky_mesh = nil
+
     _initialized = false
 end
 
@@ -151,4 +152,30 @@ function ow.Hitbox:draw_all()
 
         rt.graphics.set_stencil_test(nil)
     end
+end
+
+--- @brief
+function ow.Hitbox:get_all_segments()
+    local segments = {}
+    for tri in values(_sticky_tris) do
+        for segment in range(
+            {tri[1], tri[2], tri[3], tri[4]},
+            {tri[3], tri[4], tri[5], tri[6]},
+            {tri[1], tri[2], tri[5], tri[6]}
+        ) do
+            table.insert(segments, segment)
+        end
+    end
+
+    for tri in values(_slippery_tris) do
+        for segment in range(
+            {tri[1], tri[2], tri[3], tri[4]},
+            {tri[3], tri[4], tri[5], tri[6]},
+            {tri[1], tri[2], tri[5], tri[6]}
+        ) do
+            table.insert(segments, segment)
+        end
+    end
+
+    return segments
 end

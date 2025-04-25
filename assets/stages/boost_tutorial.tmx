@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="281">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="282">
  <editorsettings>
   <export target="boost_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="1668.89" y="-1760.15">
+  <object id="3" type="PlayerSpawn" x="-115.961" y="-83.8395">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -223,7 +223,7 @@
     <property name="axis_x" type="float" value="0"/>
     <property name="axis_y" type="float" value="1"/>
    </properties>
-   <polygon points="-32,224 -32,272 336,272 208,224"/>
+   <polygon points="0,224 0,272 336,272 208,224"/>
   </object>
   <object id="64" type="Hitbox" x="3504" y="-1808">
    <properties>
@@ -243,7 +243,7 @@
     <property name="axis_y" type="float" value="0"/>
     <property name="velocity" type="float" value="10"/>
    </properties>
-   <polygon points="112,224 112,240 576,240 576,224"/>
+   <polygon points="-80,224 -80,240 -80,288 -48,288 -48,240 576,240 576,224 -48,224 -48,176 -80,176"/>
   </object>
   <object id="67" type="BoostField" x="5127.59" y="-1140.62">
    <properties>
@@ -813,7 +813,7 @@
     <property name="axis_x" type="float" value="0"/>
     <property name="axis_y" type="float" value="-1"/>
    </properties>
-   <polygon points="0,64 0,432 -32,432 -32,64 -32,16 336,16 208,64"/>
+   <polygon points="0,64 0,432 -32,432 -32,64"/>
   </object>
   <object id="275" type="Hitbox" x="2896" y="-1696">
    <properties>
@@ -843,6 +843,13 @@
   </object>
   <object id="280" type="Hitbox" x="2896" y="-1808">
    <polygon points="0,0 0,48 -192,48 -192,0"/>
+  </object>
+  <object id="281" type="BoostField" x="2928" y="-1760">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="1"/>
+   </properties>
+   <polygon points="0,0 0,-48 336,-48 208,0"/>
   </object>
  </objectgroup>
  <layer id="4" name="Tile Layer 1" width="32" height="32">

@@ -67,6 +67,8 @@ end
 
 --- @brief
 function ow.KillPlane:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     rt.Palette.RED:bind()
     self._body:draw()
 end

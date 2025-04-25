@@ -92,6 +92,8 @@ local magnitude = rt.settings.overworld.bounce_pad.magnitude
 
 --- @brief
 function ow.BouncePad:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     rt.Palette.PINK:bind()
 
     local scale = self._bounce_position * 0.2

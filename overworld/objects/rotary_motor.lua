@@ -102,6 +102,11 @@ end
 
 --- @brief
 function ow.RotaryMotor:draw()
+    if not (
+        self._scene:get_is_body_visible(self._anchor) or
+        self._scene:get_is_body_visible(self._target)
+    ) then return end
+
     self._anchor:draw()
     self._target:draw()
 

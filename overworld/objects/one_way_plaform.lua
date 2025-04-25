@@ -33,6 +33,8 @@ end
 
 --- @brief
 function ow.OneWayPlatform:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
     love.graphics.line(self._vertices)

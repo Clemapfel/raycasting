@@ -167,6 +167,9 @@ function ow.Stage:instantiate(scene, id)
         coin:set_color(rt.Palette.COIN_COLORS[color_i])
         color_i = (color_i + 1) % color_n + 1
     end
+
+    -- create contour
+    self._blood_splatter:create_contour(ow.Hitbox:get_all_segments())
 end
 
 --- @brief
@@ -216,12 +219,6 @@ function ow.Stage:get_object_instance(object)
     end
 
     return self._wrapper_id_to_object[object.id]
-end
-
---- @brief
-function ow.Stage:add_blood_splatter(x1, y1, x2, y2)
-    meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number")
-    self._blood_splatter:add(x1, y1, x2, y2)
 end
 
 --- @brief
@@ -312,4 +309,9 @@ function ow.Stage:get_coins()
         table.insert(out, entry.coin)
     end
     return out
+end
+
+--- @brief
+function ow.Stage:get_blood_splatter()
+    return self._blood_splatter
 end

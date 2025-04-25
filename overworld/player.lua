@@ -683,7 +683,7 @@ function ow.Player:update(delta)
         local top_x, top_y = contact_x + nx_top * r, contact_y + ny_top * r
         local bottom_x, bottom_y = contact_x + nx_bottom * r, contact_y + ny_bottom * r
 
-        self._stage:add_blood_splatter(top_x, top_y, bottom_x, bottom_y)
+        self._stage:get_blood_splatter():add(contact_x, contact_y, self._hue)
     end
 
     do

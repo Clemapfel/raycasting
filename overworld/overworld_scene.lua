@@ -55,6 +55,7 @@ function ow.OverworldScene:instantiate()
         _cursor_visible = false,
         _cursor_active = false,
 
+        _visible_bodies = {}, -- Set<b2.Body>
         _background = rt.Background("grid"),
 
         _post_fx = ow.CoinEffect(self),
@@ -495,6 +496,16 @@ function ow.OverworldScene:update(delta)
         self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
     end
     --self._player:set_facing_angle(self._camera:get_rotation())
+    do
+        local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)
+        local bottom_left_x, bottom_left_y = self._camera:screen_xy_to_world_xy(love.graphics.getDimensions())
+        local visible = {}
+        self._stage:get_physics_world():get_native():queryShapesInArea(top_left_x, top_left_y, bottom_left_x, bottom_left_y, function(shape)
+            visible[shape:getBody():getUserData()] = true
+            return true
+        end)
+        self._visible_bodies = visible
+    end
 end
 
 --- @brief
@@ -565,4 +576,9 @@ end
 --- @brief
 function ow.OverworldScene:get_current_stage()
     return self._stage
+end
+
+--- @brief
+function ow.OverworldScene:get_is_body_visible(body)
+    return self._visible_bodies[body] == true
 end
