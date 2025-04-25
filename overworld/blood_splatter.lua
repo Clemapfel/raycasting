@@ -16,21 +16,64 @@ local _current_hue = 0
 
 local sensor_body, sensor_shape
 
+function _intersection(x1, y1, x2, y2, cx, cy, radius)
+    local dx, dy = x2 - x1, y2 - y1
+    local A = dx * dx + dy * dy
+    local B = 2 * (dx * (x1 - cx) + dy * (y1 - cy))
+    local C = (x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy) - radius * radius
+
+    local discriminant = B * B - 4 * A * C
+
+    if discriminant < 0 then
+        return false
+    end
+
+    local sqrtDiscriminant = math.sqrt(discriminant)
+    local t1 = (-B + sqrtDiscriminant) / (2 * A)
+    local t2 = (-B - sqrtDiscriminant) / (2 * A)
+
+    return true, x1 + t1 * dx, y1 + t1 * dy,
+        x1 + t2 * dx, y1 + t2 * dy
+end
+
+local to_draw = {}
+
 --- @brief
 function ow.BloodSplatter:add(x, y, hue)
     _current_hue = hue
 
-    --[[
-    self._world:queryShapesInArea(x - 1, y - 1, x + 1, y + 1, function(shape)
+    local r = 0.5
+    self._world:queryShapesInArea(x - r, y - r, x + r, y + r, function(shape)
         local data = shape:getUserData()
         if data ~= nil then
-            data.color = { rt.lcha_to_rgba(rt.LCHA(0.8, 1, _current_hue, 1):unpack()) }
-            self._active_edges[shape] = true
+            local x1, y1, x2, y2 = table.unpack(data.line)
+            local cx, cy, radius = x, y, rt.settings.overworld.blood_splatter.sensor_radius
+            local success, ix1, iy1, ix2, iy2 = _intersection(x1, y1, x2, y2, cx, cy, radius)
+
+            if success then
+                if ix1 and iy1 and ix2 and iy2 then
+                    ix1 = math.max(math.min(ix1, x2), x1)
+                    iy1 = math.max(math.min(iy1, y2), y1)
+                    ix2 = math.max(math.min(ix2, x2), x1)
+                    iy2 = math.max(math.min(iy2, y2), y1)
+                end
+
+                if ix1 ~= nil then
+                    table.insert(to_draw, {
+                        { rt.lcha_to_rgba(rt.LCHA(0.8, 1, _current_hue, 1):unpack()) },
+                        { ix1, iy1, ix2, iy2 }
+                    })
+                end
+            end
+
+            --data.color = { rt.lcha_to_rgba(rt.LCHA(0.8, 1, _current_hue, 1):unpack()) }
+            --data.lines = { ix1, iy1, ix2, iy2 }
+            --self._active_edges[shape] = true
         end
         return true
     end)
-    ]]--
 
+    --[[
     if sensor_body == nil then
         sensor_body = love.physics.newBody(self._world, x, y, b2.BodyType.KINEMATIC)
         sensor_shape = love.physics.newCircleShape(sensor_body, rt.settings.overworld.blood_splatter.sensor_radius)
@@ -39,16 +82,25 @@ function ow.BloodSplatter:add(x, y, hue)
         sensor_body:setPosition(x, y)
     end
 
-
     self._world:update(0)
+    ]]--
 end
 
 --- @brief
 function ow.BloodSplatter:draw()
-    for edge in values(self._edges) do
+    --[[
+    love.graphics.setLineWidth(2)
+    for edge in keys(self._active_edges) do
         local data = edge:getUserData()
         love.graphics.setColor(table.unpack(data.color))
         love.graphics.line(data.line)
+    end
+    ]]--
+
+    love.graphics.setLineWidth(2)
+    for entry in values(to_draw) do
+        love.graphics.setColor(table.unpack(entry[1]))
+        love.graphics.line(entry[2])
     end
 end
 
@@ -86,7 +138,7 @@ function ow.BloodSplatter:create_contour(segments)
 
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
 
-    local max_length = 5
+    local max_length = math.huge
     for hash, count in pairs(tuples) do
         if count == 1 then
             local x1, y1, x2, y2 = _unhash(hash)
@@ -123,6 +175,9 @@ function ow.BloodSplatter:create_contour(segments)
         end
     end
 
+    dbg(table.sizeof(self._edges))
+
+    --[[
     self._world:setCallbacks(function(shape_a, shape_b, contact)
         for shape in range(shape_a, shape_b) do
             local data = shape:getUserData()
@@ -132,4 +187,5 @@ function ow.BloodSplatter:create_contour(segments)
             end
         end
     end)
+    ]]--
 end
