@@ -25,7 +25,7 @@ function rt.SceneManager:instantiate()
         _pause_menu_active = false,
         _pause_delay_elapsed = math.huge,
 
-        _input = rt.InputSubscriber()
+        _input = rt.InputSubscriber(),
     })
 
     self._pause_menu:realize()

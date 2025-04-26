@@ -110,7 +110,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     }
 
     vec3 rainbow = lch_to_rgb(vec3(0.8, 1, noise_value));
-    return vec4(vec3(mix(rainbow * 0.6, vec3(0.1), value)), 1);
+    return vec4(vec3(mix(rainbow * 0.3, vec3(0.1), value)), 1);
 }
 
 #endif

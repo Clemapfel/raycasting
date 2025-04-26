@@ -175,8 +175,6 @@ function ow.BloodSplatter:create_contour(segments)
         end
     end
 
-    dbg(table.sizeof(self._edges))
-
     --[[
     self._world:setCallbacks(function(shape_a, shape_b, contact)
         for shape in range(shape_a, shape_b) do

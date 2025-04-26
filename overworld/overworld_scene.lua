@@ -563,8 +563,7 @@ function ow.OverworldScene:reload()
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
 
-    self._player = ow.Player(self)
-    self:set_stage(before)
+    rt.SceneManager:reload_scene(ow.OverworldScene)
 end
 
 --- @brief
