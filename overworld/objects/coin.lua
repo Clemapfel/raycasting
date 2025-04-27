@@ -53,6 +53,8 @@ function ow.Coin:instantiate(object, stage, scene)
         self._timestamp = love.timer.getTime()
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
+
+        self._scene:get_player():set_flow(1) -- override flow
     end)
 
     if _pulse_mesh == nil then

@@ -118,7 +118,7 @@ rt.random.CHAR_LIST = {
 --- @param set Table<String> (or nil)
 function rt.random.string(length, ...)
     local set
-    if _G._select("#", ...) == 0 then
+    if select("#", ...) == 0 then
         set = rt.random.CHAR_LIST
     else
         set = {table.unpack(rt.random.CHAR_LIST)}

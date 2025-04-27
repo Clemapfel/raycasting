@@ -950,8 +950,20 @@ function ow.Player:draw()
     end
 
     -- draw body
+
+    love.graphics.setBlendState(
+        rt.BlendOperation.ADD,         -- rgb_operation
+        rt.BlendOperation.ADD,         -- alpha_operation
+        rt.BlendFactor.SOURCE_ALPHA,            -- rgb_source_factor (premultiplied alpha)
+        rt.BlendFactor.ZERO,           -- alpha_source_factor (commonly ONE or ZERO)
+        rt.BlendFactor.ONE,            -- rgb_destination_factor
+        rt.BlendFactor.ZERO             -- alpha_destination_factor (commonly ONE or ZERO)
+    )
+
+    love.graphics.setColor(r, g, b, 0.7 + self:get_flow())
     love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
 
+    rt.graphics.set_blend_mode(nil)
     love.graphics.setColor(r, g, b, 0.3)
     for tri in values(self._outer_body_tris) do
         love.graphics.polygon("fill", tri)
@@ -1150,6 +1162,11 @@ function ow.Player:get_flow()
     local vx, vy = self._body:get_linear_velocity()
     local out = math.min(math.max(math.abs(vx), math.abs(vy)) / (_settings.max_velocity_y), 1)
     return out
+end
+
+--- @brief
+function ow.Player:set_flow(x)
+    rt.error8
 end
 
 --- @brief

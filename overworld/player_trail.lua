@@ -33,15 +33,11 @@ function ow.PlayerTrail:clear()
     _canvas_b:unbind()
 end
 
-local _boom_mesh, _shader
+local _boom_mesh
 
 --- @brief
 function ow.PlayerTrail:draw()
     if self._scene:get_player():get_physics_body() == nil then return end
-
-    if _shader == nil then
-        _shader = rt.Shader("overworld/player_trail.glsl")
-    end
 
     if _boom_mesh == nil then
         local player_radius = rt.settings.overworld.player.radius
@@ -83,28 +79,41 @@ function ow.PlayerTrail:draw()
         x = x - 0.5 * w
         y = y - 0.5 * h
 
+        love.graphics.setBlendState(
+            rt.BlendOperation.ADD,         -- rgb_operation
+            rt.BlendOperation.ADD,         -- alpha_operation
+            rt.BlendFactor.SOURCE_ALPHA,            -- rgb_source_factor (premultiplied alpha)
+            rt.BlendFactor.ZERO,           -- alpha_source_factor (commonly ONE or ZERO)
+            rt.BlendFactor.ONE,            -- rgb_destination_factor
+            rt.BlendFactor.ZERO             -- alpha_destination_factor (commonly ONE or ZERO)
+        )
+
         if self._a_or_b then
             love.graphics.draw(_canvas_b:get_native(), x, y)
         else
             love.graphics.draw(_canvas_a:get_native(), x, y)
         end
+
+        rt.graphics.set_blend_mode(nil)
     end
+
+    local player = self._scene:get_player()
+    local x, y = player:get_physics_body():get_predicted_position()
+
+    -- draw glow
+    self:_draw_glow(x, y, player:get_flow())
 
     -- draw boom
-    do
-        local player = self._scene:get_player()
-        local x, y = player:get_physics_body():get_predicted_position()
-        local vx, vy = player:get_physics_body():get_linear_velocity()
-        local angle = math.angle(vx, vy)
+    local vx, vy = player:get_physics_body():get_linear_velocity()
+    local angle = math.angle(vx, vy)
 
-        love.graphics.setColor(self._r, self._g, self._b, 10 * player:get_flow())
-        love.graphics.push()
-        love.graphics.translate(x, y)
-        love.graphics.rotate(angle + math.pi / 2)
-        love.graphics.translate(-x, -y)
-        love.graphics.draw(_boom_mesh, x, y)
-        love.graphics.pop()
-    end
+    love.graphics.setColor(self._r, self._g, self._b, 10 * player:get_flow())
+    love.graphics.push()
+    love.graphics.translate(x, y)
+    love.graphics.rotate(angle + math.pi / 2)
+    love.graphics.translate(-x, -y)
+    love.graphics.draw(_boom_mesh, x, y)
+    love.graphics.pop()
 end
 
 local _previous_x, _previous_y = nil, nil
@@ -260,5 +269,46 @@ function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     rt.graphics.set_blend_mode(nil)
 end
 
+local _glow_texture, _glow_shader, _glow_offset_x, _glow_offset_y
+
+function ow.PlayerTrail:_draw_glow(x, y, intensity)
+    if _glow_shader == nil then
+        _glow_shader = rt.Shader("overworld/player_trail_glow.glsl")
+    end
+
+    if _glow_texture == nil then
+        local radius = rt.settings.overworld.player.radius * 10
+        local padding = 10
+
+        local width = 2 * radius + 2 * padding
+        local height = width
+        _glow_texture = rt.RenderTexture(width, height)
+        _glow_texture:bind()
+        love.graphics.push()
+        love.graphics.origin()
+        _glow_shader:bind()
+        love.graphics.rectangle("fill", 0, 0, width, height)
+        _glow_shader:unbind()
+        love.graphics.pop()
+        _glow_texture:unbind()
+
+        _glow_texture = _glow_texture:get_native()
+        _glow_offset_x = -0.5 * width
+        _glow_offset_y = _glow_offset_x
+    end
+
+    love.graphics.setBlendState(
+        rt.BlendOperation.ADD,         -- rgb_operation
+        rt.BlendOperation.ADD,         -- alpha_operation
+        rt.BlendFactor.SOURCE_ALPHA,            -- rgb_source_factor (premultiplied alpha)
+        rt.BlendFactor.ZERO,           -- alpha_source_factor (commonly ONE or ZERO)
+        rt.BlendFactor.ONE,            -- rgb_destination_factor
+        rt.BlendFactor.ZERO             -- alpha_destination_factor (commonly ONE or ZERO)
+    )
+
+    love.graphics.setColor(self._r, self._g, self._b, intensity)
+    love.graphics.draw(_glow_texture, x + _glow_offset_x, y + _glow_offset_y)
+    rt.graphics.set_blend_mode(nil)
+end
 
 

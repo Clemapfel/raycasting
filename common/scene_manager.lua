@@ -216,7 +216,7 @@ function love.run()
         local update_before, update_after, draw_before, draw_after
 
         update_before = love.timer.getTime()
-        if love.update then love.update(delta) end
+        love.update(delta)
         update_after = love.timer.getTime()
 
         if love.graphics and love.graphics.isActive() then
@@ -224,10 +224,10 @@ function love.run()
             love.graphics.clear(true, true, true)
 
             draw_before = love.timer.getTime()
-            if love.draw then love.draw() end
+            love.draw()
             draw_after = love.timer.getTime()
 
-            if true then --rt.SceneManager._show_performance_metrics then
+            if rt.SceneManager._show_performance_metrics then
                 love.graphics.push()
                 love.graphics.origin()
                 rt.SceneManager:_draw_performance_metrics()
@@ -242,7 +242,7 @@ function love.run()
 
         local update_time = (update_after - update_before) / (1 / fps)
         local draw_time = (draw_after - draw_before) / (1 / fps)
-        
+
         local update_start = _last_update_times[1]
         table.remove(_last_update_times, 1)
         table.insert(_last_update_times, update_time)
@@ -254,7 +254,7 @@ function love.run()
         _draw_sum = _draw_sum - draw_start + draw_time
 
         meta._benchmark = {}
-        collectgarbage("collect") -- helps catch gc-related bugs
+        collectgarbage("step") -- helps catch gc-related bugs
 
         if love.timer then love.timer.sleep(0.001) end -- prevent cpu running at max rate for empty projects
     end
