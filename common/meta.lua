@@ -19,6 +19,7 @@ local _type_to_super = {}
 local _type_to_instance_metatable = {}
 local _typename_to_type = {}
 local _type_to_typename = {}
+meta._benchmark = {}
 
 --- @brief
 function meta.get_typename(type)
@@ -222,16 +223,26 @@ local _signal_disconnect_all = function(instance, id)
         return
     end
 
-    local entry = component[id]
-    if entry == nil then
-        rt.error("In " .. meta.typeof(instance) .. ".signal_disconnect_all: no signal with id `" .. id .. "`")
-        return
-    end
+    if id == nil then
+        -- clear all
+        for entry in values(component) do
+            entry.callback_id_to_callback = {}
+            entry.callbacks_in_order = setmetatable({}, {
+                __mode = "kv"
+            })
+        end
+    else
+        local entry = component[id]
+        if entry == nil then
+            rt.error("In " .. meta.typeof(instance) .. ".signal_disconnect_all: no signal with id `" .. id .. "`")
+            return
+        end
 
-    entry.callback_id_to_callback = {}
-    entry.callbacks_in_order = setmetatable({}, {
-        __mode = "kv"
-    })
+        entry.callback_id_to_callback = {}
+        entry.callbacks_in_order = setmetatable({}, {
+            __mode = "kv"
+        })
+    end
 end
 
 local _signal_set_is_blocked = function(instance, id, b)
@@ -330,8 +341,6 @@ local _signal_list_signals = function(instance)
     end
     return out
 end
-
-
 
 local _signal_emit = function(instance, id, ...)
     local component = instance[_object_signal_component_index]
@@ -448,6 +457,9 @@ function meta.class(typename, super, instantiate_maybe)
     -- create instance
     local type_metatable = {
         __call = function(self, ...)
+            local current = meta._benchmark[typename]
+            if current == nil then meta._benchmark[typename] = 1 else meta._benchmark[typename] = current + 1 end
+
             local instance = setmetatable({}, instance_metatable)
             rawset(instance, _object_hash_index, _current_hash)
             _current_hash = _current_hash + 1
