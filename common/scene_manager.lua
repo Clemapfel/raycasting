@@ -253,7 +253,9 @@ function love.run()
         table.insert(_last_draw_times, draw_time)
         _draw_sum = _draw_sum - draw_start + draw_time
 
+        meta._benchmark = {}
         collectgarbage("collect") -- helps catch gc-related bugs
+
         if love.timer then love.timer.sleep(0.001) end -- prevent cpu running at max rate for empty projects
     end
 end

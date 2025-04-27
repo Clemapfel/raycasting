@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 302,
+  nextobjectid = 309,
   properties = {
     ["title"] = "Boosting"
   },
@@ -121,7 +121,7 @@ return {
             { x = 0, y = 256 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = false
           }
         },
         {
@@ -273,8 +273,8 @@ return {
           name = "",
           type = "Coin",
           shape = "point",
-          x = -208,
-          y = -384,
+          x = -111.693,
+          y = -82.9247,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1469,8 +1469,8 @@ return {
           name = "",
           type = "Coin",
           shape = "point",
-          x = -34.9332,
-          y = -243.013,
+          x = -48.9584,
+          y = -66.2949,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2674,7 +2674,7 @@ return {
           type = "Coin",
           shape = "point",
           x = -208,
-          y = -336,
+          y = -112,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3897,6 +3897,97 @@ return {
           properties = {
             ["slippery"] = true
           }
+        },
+        {
+          id = 302,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -304,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 303,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -240,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 304,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -272,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 305,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -208,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 306,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 307,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -144,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 308,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -208,
+          y = -80,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },

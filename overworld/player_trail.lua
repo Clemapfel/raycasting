@@ -17,8 +17,8 @@ function ow.PlayerTrail:instantiate(scene, radius)
     self._player = self._scene:get_player()
     self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
 
-    _canvas_a = rt.RenderTexture(self._width, self._height, 4)
-    _canvas_b = rt.RenderTexture(self._width, self._height, 4)
+    _canvas_a = rt.RenderTexture(self._width, self._height, 0)
+    _canvas_b = rt.RenderTexture(self._width, self._height, 0)
 
     self._a_or_b = true
     self._r, self._g, self._b = 1, 0, 0

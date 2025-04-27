@@ -96,42 +96,30 @@ function ow.Stage:instantiate(scene, id)
                     rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
                 end
 
-                local allowed = {
-                    ["BoostField"] = true,
-                    ["PlayerSpawn"] = true,
-                    ["Hook"] = true,
-                    ["Hitbox"] = true,
-                    ["KillPlane"] = true,
-                    ["Coin"] = false
-                }
+                local object = Type(wrapper, self, self._scene)
 
-                if allowed[wrapper.class] == true then
+                table.insert(self._objects, object)
+                self._wrapper_id_to_object[wrapper.id] = object
 
-                    local object = Type(wrapper, self, self._scene)
-
-                    table.insert(self._objects, object)
-                    self._wrapper_id_to_object[wrapper.id] = object
-
-                    if object.draw ~= nil then
-                        -- inject render priority
-                        local priority = -1
-                        if object.get_render_priority == nil then
-                            object.get_render_priority = _get_default_render_priority
-                        end
-                        priority = object:get_render_priority()
-
-                        local priority_entry = render_priority_to_object[priority]
-                        if priority_entry == nil then
-                            priority_entry = {}
-                            render_priority_to_object[priority] = priority_entry
-                        end
-                        table.insert(priority_entry, object)
-                        render_priorities[priority] = true
+                if object.draw ~= nil then
+                    -- inject render priority
+                    local priority = -1
+                    if object.get_render_priority == nil then
+                        object.get_render_priority = _get_default_render_priority
                     end
+                    priority = object:get_render_priority()
 
-                    if object.update ~= nil then
-                        table.insert(self._to_update, object)
+                    local priority_entry = render_priority_to_object[priority]
+                    if priority_entry == nil then
+                        priority_entry = {}
+                        render_priority_to_object[priority] = priority_entry
                     end
+                    table.insert(priority_entry, object)
+                    render_priorities[priority] = true
+                end
+
+                if object.update ~= nil then
+                    table.insert(self._to_update, object)
                 end
             end
         end

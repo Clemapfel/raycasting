@@ -103,3 +103,14 @@ function rt.Background:_notify_camera_changed(camera)
     _offset_x, _offset_y = camera:get_offset()
     _scale = camera:get_scale()
 end
+
+--- @brief
+function rt.Background:update_player_position(position_x, position_y, flow)
+    if self._shader:has_uniform("player_position") then
+        self._shader:send("player_position", {position_x, position_y})
+    end
+
+    if self._shader:has_uniform("flow") then
+        self._shader:send("flow", flow)
+    end
+end

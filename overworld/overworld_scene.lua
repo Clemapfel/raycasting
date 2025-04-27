@@ -378,8 +378,6 @@ function ow.OverworldScene:draw()
     self._stage:draw_above_player()
     self._camera:unbind()
 
-    self._hud:draw()
-
     if self._cursor_visible and self._cursor_active then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
@@ -417,6 +415,9 @@ function ow.OverworldScene:update(delta)
     _blocked = _blocked - 1
     if _blocked >= 0 then return end
     if self._stage == nil then return end
+
+    local x, y = self._camera:world_xy_to_screen_xy(self._player:get_physics_body():get_predicted_position())
+    self._background:update_player_position(x, y, self._player:get_flow())
 
     self._background:update(delta)
     self._camera:update(delta)

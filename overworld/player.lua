@@ -292,7 +292,7 @@ end
 
 --- @brief
 function ow.Player:update(delta)
-    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta)
+    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta * math.min(self:get_flow()^0.7, 1))
 
     if self._trail_visible then
         self._trail:update(delta)

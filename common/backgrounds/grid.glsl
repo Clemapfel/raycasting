@@ -107,8 +107,29 @@ float box_sdf(vec2 position, vec2 halfSize, float cornerRadius) {
     return length(max(position, 0.0)) + min(max(position.x, position.y), 0.0) - cornerRadius;
 }
 
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
+
+uniform vec2 player_position;
+uniform float flow;
+
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
+
+
+    float weight = distance(
+    texture_position * vec2(love_ScreenSize.x / love_ScreenSize.y, 1),
+    (player_position / love_ScreenSize.xy) * vec2(love_ScreenSize.x / love_ScreenSize.y, 1)
+    );
+
+    float player_weight = gaussian(weight, 2) * mix(0, 3, flow);
+
+    uv += vec2(dFdx(weight), dFdy(weight)) * 40 * flow;
+
     float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
     vec2 pixel_size = 1 / love_ScreenSize.xy;
 
@@ -135,8 +156,8 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     float line_width = mix(0, eps, tile_noise);
     float box = 1 - smoothstep(0, eps, box_sdf(
         uv - vec2(0.5),
-        vec2(0.5, 0.5) - line_width,
-        0 * tile_noise
+        vec2(0.5, 0.5) - line_width - player_weight * 0.2,
+        tile_noise * 0.05 + player_weight
     ));
 
     vec2 noise_uv = to_uv(frag_position) * 1 / 3;
