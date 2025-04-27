@@ -28,6 +28,8 @@ meta.add_signals(ow.Stage, "initialized")
 
 ow.Stage._config_atlas = {}
 
+local all_types = {}
+
 --- @brief
 function ow.Stage:instantiate(scene, id)
     meta.assert(scene, "OverworldScene", id, "String")
@@ -77,7 +79,7 @@ function ow.Stage:instantiate(scene, id)
 
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
-        local spritebatches = self._config:get_layer_sprite_batches(layer_i)
+        --local spritebatches = self._config:get_layer_sprite_batches(layer_i)
         -- TODO: handle sprite batches
 
         -- init object instances
@@ -94,30 +96,42 @@ function ow.Stage:instantiate(scene, id)
                     rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
                 end
 
-                local object = Type(wrapper, self, self._scene)
+                local allowed = {
+                    ["BoostField"] = true,
+                    ["PlayerSpawn"] = true,
+                    ["Hook"] = true,
+                    ["Hitbox"] = true,
+                    ["KillPlane"] = true,
+                    ["Coin"] = false
+                }
 
-                table.insert(self._objects, object)
-                self._wrapper_id_to_object[wrapper.id] = object
+                if allowed[wrapper.class] == true then
 
-                if object.draw ~= nil then
-                    -- inject render priority
-                    local priority = -1
-                    if object.get_render_priority == nil then
-                        object.get_render_priority = _get_default_render_priority
+                    local object = Type(wrapper, self, self._scene)
+
+                    table.insert(self._objects, object)
+                    self._wrapper_id_to_object[wrapper.id] = object
+
+                    if object.draw ~= nil then
+                        -- inject render priority
+                        local priority = -1
+                        if object.get_render_priority == nil then
+                            object.get_render_priority = _get_default_render_priority
+                        end
+                        priority = object:get_render_priority()
+
+                        local priority_entry = render_priority_to_object[priority]
+                        if priority_entry == nil then
+                            priority_entry = {}
+                            render_priority_to_object[priority] = priority_entry
+                        end
+                        table.insert(priority_entry, object)
+                        render_priorities[priority] = true
                     end
-                    priority = object:get_render_priority()
 
-                    local priority_entry = render_priority_to_object[priority]
-                    if priority_entry == nil then
-                        priority_entry = {}
-                        render_priority_to_object[priority] = priority_entry
+                    if object.update ~= nil then
+                        table.insert(self._to_update, object)
                     end
-                    table.insert(priority_entry, object)
-                    render_priorities[priority] = true
-                end
-
-                if object.update ~= nil then
-                    table.insert(self._to_update, object)
                 end
             end
         end
@@ -314,4 +328,18 @@ end
 --- @brief
 function ow.Stage:get_blood_splatter()
     return self._blood_splatter
+end
+
+--- @brief
+function ow.Stage:destroy()
+    local native = self._world:get_native()
+    for body in values(native:getBodies()) do
+        local instance = body:getUserData()
+        instance:signal_disconnect_all()
+        body:destroy()
+    end
+    native:destroy()
+    native:release()
+
+    self._blood_splatter:destroy()
 end
