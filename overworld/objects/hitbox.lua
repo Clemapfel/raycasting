@@ -23,6 +23,7 @@ local _initialized = false
 --- @brief
 function ow.Hitbox:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
+
     for property in range(
         "slippery",
         "sticky"
@@ -79,10 +80,18 @@ end
 function ow.Hitbox:reinitialize()
     _slippery_tris = {}
     _slippery_lines = {}
+
+    if _slippery_mesh ~= nil then
+        _slippery_mesh:release()
+    end
     _slippery_mesh = nil
 
     _sticky_tris = {}
     _sticky_lines = {}
+
+    if _sticky_mesh ~= nil then
+        _sticky_mesh:release()
+    end
     _sticky_mesh = nil
 
     _initialized = false
@@ -94,39 +103,49 @@ function ow.Hitbox:draw_all()
         local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
         local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
 
-        local sticky_data = {}
-        for tri in values(_sticky_tris) do
-            table.insert(sticky_data, { tri[1], tri[2] })
-            table.insert(sticky_data, { tri[3], tri[4] })
-            table.insert(sticky_data, { tri[5], tri[6] })
+        if table.sizeof(_sticky_tris) > 0 then
+            local sticky_data = {}
+            for tri in values(_sticky_tris) do
+                table.insert(sticky_data, { tri[1], tri[2] })
+                table.insert(sticky_data, { tri[3], tri[4] })
+                table.insert(sticky_data, { tri[5], tri[6] })
 
-            table.insert(_sticky_lines, {
-                tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-            })
+                table.insert(_sticky_lines, {
+                    tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
+                })
+            end
+            _sticky_mesh = love.graphics.newMesh(format, sticky_data, mode, usage)
         end
-        _sticky_mesh = love.graphics.newMesh(format, sticky_data, mode, usage)
 
-        local slippery_data = {}
-        for tri in values(_slippery_tris) do
-            table.insert(slippery_data, { tri[1], tri[2] })
-            table.insert(slippery_data, { tri[3], tri[4] })
-            table.insert(slippery_data, { tri[5], tri[6] })
+        if table.sizeof(_slippery_tris) > 0 then
+            local slippery_data = {}
+            for tri in values(_slippery_tris) do
+                table.insert(slippery_data, { tri[1], tri[2] })
+                table.insert(slippery_data, { tri[3], tri[4] })
+                table.insert(slippery_data, { tri[5], tri[6] })
 
-            table.insert(_slippery_lines, {
-                tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-            })
+                table.insert(_slippery_lines, {
+                    tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
+                })
+            end
+            _slippery_mesh = love.graphics.newMesh(format, slippery_data, mode, usage)
         end
-        _slippery_mesh = love.graphics.newMesh(format, slippery_data, mode, usage)
 
         _initialized = true
     end
 
     love.graphics.setLineJoin("bevel")
 
-    for params in range(
-        {_slippery_mesh, _slippery_lines, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4},
-        {_sticky_mesh, _sticky_lines, rt.Palette.STICKY, rt.Palette.STICKY_OUTLINE, 2.5}
-    ) do
+    local slippery, sticky
+    if _slippery_mesh ~= nil then
+        slippery = {_slippery_mesh, _slippery_lines, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
+    end
+
+    if _sticky_mesh ~= nil then
+        sticky = {_sticky_mesh, _sticky_lines, rt.Palette.STICKY, rt.Palette.STICKY_OUTLINE, 2.5}
+    end
+
+    for params in range(slippery, sticky) do
         local mesh, outlines, mesh_color, outline_color, line_width = table.unpack(params)
 
         mesh_color:bind()

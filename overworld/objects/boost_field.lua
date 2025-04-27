@@ -137,12 +137,16 @@ function ow.BoostField:reinitialize()
     _instances = {}
     _tris = {}
     _lines = {}
+
+    if _mesh ~= nil then
+        _mesh:release()
+    end
     _mesh = nil
 end
 
 --- @brief batched drawing
 function ow.BoostField.draw_all()
-    if _initialized ~= true then
+    if _initialized ~= true and table.sizeof(_tris) > 0 then
         local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
         local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
 
@@ -155,6 +159,7 @@ function ow.BoostField.draw_all()
         _mesh = love.graphics.newMesh(format, data, mode, usage)
         _initialized = true
     end
+    if _mesh == nil then return end
 
     -- draw shader surface per instance
     for self in values(_instances) do
