@@ -12,7 +12,8 @@ rt.settings.overworld.overworld_scene = {
     camera_translation_velocity = 400, -- px / s,
     camera_scale_velocity = 0.1, -- % / s
     camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
-    camera_pan_width_factor = 0.15
+    camera_pan_width_factor = 0.15,
+    camera_freeze_duration = 1
 }
 
 --- @class
@@ -25,6 +26,10 @@ ow.CameraMode = meta.enum("CameraMode", {
 
 --- @brief
 function ow.OverworldScene:instantiate()
+    ow.Stage._config_atlas = {}
+    ow.StageConfig._tileset_atlas = {}
+    rt.Sprite._path_to_spritesheet = {}
+
     meta.install(self, {
         _camera = ow.Camera(),
         _current_stage_id = nil,
@@ -54,6 +59,7 @@ function ow.OverworldScene:instantiate()
 
         _cursor_visible = false,
         _cursor_active = false,
+        _camera_freeze_elapsed = 0, -- sic, freeze at initialization
 
         _visible_bodies = {}, -- Set<b2.Body>
         _background = rt.Background("grid"),
@@ -176,7 +182,7 @@ function ow.OverworldScene:instantiate()
 
     self._input:signal_connect("mouse_moved", function(_, x, y)
         self._cursor_active = true
-        if self._input:get_input_method() == rt.InputMethod.KEYBOARD and self._cursor_active then
+        if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
             local w = self._camera_pan_area_width
             self._camera_pan_up_speed = math.max((w - y) / w, 0)
             self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
@@ -202,7 +208,7 @@ function ow.OverworldScene:instantiate()
     end)
 
     self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
-        if self._camera_mode ~= ow.CameraMode.MANUAL then
+        if self._camera_mode ~= ow.CameraMode.MANUAL and love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl") then
             local current = self._camera:get_scale()
             current = current + dy * rt.settings.overworld.overworld_scene.camera_scale_velocity
             self._camera:set_scale(math.clamp(current, 1 / 3, 3))
@@ -211,6 +217,8 @@ function ow.OverworldScene:instantiate()
 
     self._background:realize()
 end
+
+local _blocked = 0
 
 local _cursor = nil
 
@@ -274,35 +282,12 @@ end
 
 --- @brief
 function ow.OverworldScene:set_stage(stage_id, entrance_i)
-    if entrance_i == nil then entrance_i = 1 end
+    self._stage_id = stage_id
+    self._stage = ow.Stage(self, stage_id)
 
-    if stage_id ~= self._stage_id then
-        local next_entry = self:_get_stage_entry(stage_id)
-        local spawn_x, spawn_y = next_entry.spawn_x, next_entry.spawn_y
-        if self._stage_id ~= nil then -- leaving current room
-            local current_entry = self:_get_stage_entry(self._stage_id)
-            local exit = current_entry.exits[stage_id]
-            if exit ~= nil then
-                local entrance = exit[entrance_i]
-                if entrance == nil then
-                    rt.warning("In ow.OverworldScene.set_stage: stage `" .. stage_id .. "` has no entrance with id `" .. entrance_i .. "`")
-                    debugger.break_here()
-                    entrance = exit[1]
-                else
-                    spawn_x, spawn_y = entrance.x, entrance.y
-                    entrance.object:set_is_disabled(true)
-                end
-            end
-            -- else use default spawn
-        end
-
-        self._stage_id = stage_id
-        self._stage = next_entry.stage
-
-        self._player:move_to_stage(self._stage)
-        self._camera:set_position(self._player:get_position())
-        self._player_is_focused = true
-    end
+    self._player:move_to_stage(self._stage)
+    self._camera:set_position(self._player:get_position())
+    self._player_is_focused = true
 
     return self._stage
 end
@@ -373,6 +358,9 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
 --- @brief
 function ow.OverworldScene:draw()
+    if _blocked > 0 then return end
+    if self._stage == nil then return end
+
     self._post_fx:bind()
 
     self._background:draw()
@@ -392,7 +380,7 @@ function ow.OverworldScene:draw()
 
     self._hud:draw()
 
-    if self._cursor_visible and self._cursor_active and not self._player_is_focused then -- cursor in window
+    if self._cursor_visible and self._cursor_active then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
 
@@ -404,9 +392,7 @@ function ow.OverworldScene:draw()
 
         love.graphics.setColor(1, 1, 1, self._camera_pan_left_speed)
         love.graphics.draw(self._pan_gradient_left._native)
-    end
 
-    if self._cursor_visible and self._cursor_active then
         local x, y = love.mouse.getPosition()
         local scale = love.window.getDPIScale()
         love.graphics.setLineStyle("smooth")
@@ -424,8 +410,14 @@ function ow.OverworldScene:draw()
     end
 end
 
+local _last_x, _last_y
+
 --- @brief
 function ow.OverworldScene:update(delta)
+    _blocked = _blocked - 1
+    if _blocked >= 0 then return end
+    if self._stage == nil then return end
+
     self._background:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
@@ -442,18 +434,28 @@ function ow.OverworldScene:update(delta)
 
         if math.magnitude(self._camera_translation_velocity_x, self._camera_translation_velocity_y) > 0 then
             self._player_is_focused = false
+            self._camera_freeze_elapsed = self._camera_freeze_elapsed + delta
         end
     end
 
-    if self._player_is_focused == false and math.magnitude(self._player:get_velocity()) > 0 then
-        self._player_is_focused = true
+    -- measure actual player velocity, if moving, disable manual camera
+    local px, py = self._player:get_position()
+    if _last_x == nil then
+        _last_x, _last_y = px, py
     end
+
+    local player_velocity = math.magnitude(px - _last_x, py - _last_y)
+    if player_velocity > 1 then
+        self._player_is_focused = true
+        self._camera_freeze_elapsed = 0
+    end
+    _last_x, _last_y = px, py
 
     if self._player_is_focused and self._camera_mode ~= ow.CameraMode.MANUAL then
         local x, y = self._player:get_position()
         self._camera:move_to(x + self._camera_position_offset_x, y + self._camera_position_offset_y)
         if self._camera:get_bounds():contains(x, y) == false then
-            --self._camera:set_apply_bounds(false)
+            self._camera:set_apply_bounds(false) -- unhook from bounds if player leaves them
         else
             self._camera:set_apply_bounds(true)
         end
@@ -472,13 +474,11 @@ function ow.OverworldScene:update(delta)
 
             local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
         end
-    else
-        if self._cursor_visible and self._camera_mode ~= ow.CameraMode.MANUAL then
-            local cx, cy = self._camera:get_position()
-            cx = cx + self._camera_translation_velocity_x * delta
-            cy = cy + self._camera_translation_velocity_y * delta
-            self._camera:set_position(cx, cy)
-        end
+    elseif self._camera_freeze_elapsed > rt.settings.overworld.overworld_scene.camera_freeze_duration then
+        local cx, cy = self._camera:get_position()
+        cx = cx + self._camera_translation_velocity_x * delta
+        cy = cy + self._camera_translation_velocity_y * delta
+        self._camera:set_position(cx, cy)
     end
 
     local max_velocity = rt.settings.overworld.overworld_scene.camera_scale_velocity
@@ -555,15 +555,18 @@ end
 
 --- @brief
 function ow.OverworldScene:reload()
+    if self._stage ~= nil then self._stage:destroy() end
     local before = self._stage_id
     self._stage_id = nil
-    self._stage_mapping = {}
     self._stage = nil
+    self._stage_mapping = {}
+
     ow.Stage._config_atlas = {}
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
 
-    rt.SceneManager:reload_scene(ow.OverworldScene)
+    self._player:move_to_stage(nil)
+    self:set_stage(before)
 end
 
 --- @brief
