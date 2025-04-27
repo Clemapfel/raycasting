@@ -7,6 +7,14 @@ rt.settings.overworld.hook = {
 ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
 --- @brief
+function ow.Hook:_unhook()
+    if self._joint ~= nil then
+        self._joint:destroy()
+        self._joint = nil
+    end
+end
+
+--- @brief
 function ow.Hook:instantiate(object, stage, scene)
     local radius = rt.settings.overworld.player.radius * rt.settings.overworld.hook.radius_factor
 
@@ -21,7 +29,7 @@ function ow.Hook:instantiate(object, stage, scene)
             b2.Circle(0, 0, radius)
         ),
 
-        _joint = nil,
+        _hooked = false,
         _deactivated = false,
         _elapsed = 0,
         _input = rt.InputSubscriber()
@@ -30,16 +38,12 @@ function ow.Hook:instantiate(object, stage, scene)
     local hook = self
     self._body:set_is_sensor(true)
     self._body:add_tag("slippery")
-    self._body:set_collides_with(bit.bor(
-        rt.settings.overworld.player.player_collision_group,
-        rt.settings.overworld.player.player_outer_body_collision_group
-    ))
+    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
 
-    self._body:signal_connect("collision_start", function(self, player_body)
-        local player = player_body:get_user_data()
+    self._body:signal_connect("collision_start", function(_)
+        local player = self._scene:get_player()
 
         if hook._joint == nil and not hook._deactivated then
-
             player:set_jump_allowed(true) -- mid-air jumpt to escape
 
             local vx, vy = player:get_velocity() -- maintain upwards momentum
@@ -53,6 +57,7 @@ function ow.Hook:instantiate(object, stage, scene)
                 stage:get_physics_world():signal_connect("step", function()
                     if not self._deactivated then
                         local self_x, self_y = self:get_center_of_mass()
+
                         hook._joint = love.physics.newDistanceJoint(
                             self:get_native(),
                             player:get_physics_body():get_native(),
@@ -89,14 +94,6 @@ function ow.Hook:instantiate(object, stage, scene)
     end)
 end
 
---- @brief
-function ow.Hook:_unhook()
-    if self._joint ~= nil then
-        self._joint:destroy()
-        self._joint = nil
-    end
-end
-
 local _inner_vertices = nil
 local _inner_mesh_origin_x, _inner_mesh_origin_y = 0, 0
 
@@ -111,6 +108,9 @@ local _colors = 0
 
 function ow.Hook:update(delta)
     self._elapsed = self._elapsed + delta
+    if self._hooked == true then
+        self._scene:get_player():teleport_to(self._x, self._y)
+    end
 end
 
 --- @brief
@@ -125,26 +125,20 @@ function ow.Hook:draw()
 
         local m = 2
         local n = 0
+        local darken = 0.1
         local step = 2 * math.pi / 32
         for angle = 0, 2 * math.pi + step, step do
             local x = cx + math.cos(angle) * x_radius
             local y = cy + (math.sin(angle) * math.sin(0.5 * angle)^m) * y_radius
-            local r, g, b, a = rt.lcha_to_rgba(rt.LCHA(0.8, 1, angle / (2 * math.pi), 1, 1):unpack())
+            local r, g, b, a = rt.lcha_to_rgba(rt.LCHA(0.8, 1, n / _n_parts, 1):unpack())
             table.insert(_outer_vertices, x)
             table.insert(_outer_vertices, y)
-            table.insert(_colors, { r, g, b, a })
+            table.insert(_colors, { r - darken, g - darken, b - darken, a })
 
             n = n + 1
         end
 
         _outer_mesh_origin_x, _outer_mesh_origin_y = -x_radius, 0
-        _colors = {}
-
-        local hue = 0
-        for i = 1, _n_parts do
-            table.insert(_colors, { rt.lcha_to_rgba(rt.LCHA(0.8, 1, hue, 1, 1):unpack()) })
-            hue = hue + 1 / _n_parts
-        end
     end
 
     if _inner_vertices == nil then
@@ -162,7 +156,7 @@ function ow.Hook:draw()
     if _center_vertices == nil then
         _center_vertices = {}
         local cx, cy = 0, 0
-        local radius = self._radius - self._radius / 4
+        local radius = rt.settings.overworld.player.radius - self._radius / 8
         for angle = 0, (2 * math.pi), (2 * math.pi) / 16 do
             table.insert(_center_vertices, cx + math.cos(angle) * radius)
             table.insert(_center_vertices, cy + math.sin(angle) * radius)
