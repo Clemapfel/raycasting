@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="301">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="302">
  <editorsettings>
   <export target="boost_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="-680.751" y="1474.54">
+  <object id="3" type="PlayerSpawn" x="-142.075" y="-43.7905">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -20,7 +20,7 @@
   </object>
   <object id="6" type="Hitbox" x="-272" y="-256">
    <properties>
-    <property name="slippery" type="bool" value="false"/>
+    <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,-96 16,-96 16,256 0,256"/>
   </object>
@@ -51,7 +51,7 @@
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
-   <polygon points="-80,-176 -80,-384 -80,-384 -64,-368 -64,-160 -64,-144 -64,0 -80,0"/>
+   <polygon points="-80,-176 -80,-384 -64,-368 -64,0 -80,0"/>
   </object>
   <object id="14" type="Hitbox" x="496.799" y="-208.745">
    <properties>
@@ -176,7 +176,7 @@
     <property name="friction" type="float" value="-1"/>
     <property name="slippery" type="bool" value="true"/>
    </properties>
-   <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,48 224,64 0,64 -16,64 -16,-16 0,-16"/>
+   <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,64 0,64 -16,64 -16,-16 0,-16"/>
   </object>
   <object id="49" type="Hitbox" x="961.856" y="-553.115">
    <properties>
@@ -203,7 +203,7 @@
     <property name="friction" type="float" value="-1"/>
     <property name="slippery" type="bool" value="true"/>
    </properties>
-   <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,48 224,64 0,64 -16,64 -16,-16 0,-16"/>
+   <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,64 -16,64 -16,-16 0,-16"/>
   </object>
   <object id="56" type="BoostField" x="1232" y="-672">
    <properties>
@@ -213,7 +213,7 @@
    <polygon points="0,16 0,144 48,144 48,16"/>
   </object>
   <object id="58" type="Hitbox" x="1249.36" y="-366.31">
-   <polygon points="-1.36257,62.3097 -17.3626,94.3097 -17.3626,-1.69029 -1.36257,-33.6903"/>
+   <polygon points="-1.36,62.31 -17.3626,94.3097 -17.3626,-1.69029 -1.36257,-33.6903"/>
   </object>
   <object id="59" type="Hitbox" x="1264" y="-384">
    <polygon points="0,-16 0,80 16,112 48,112 48,64 144,64 144,32 224,32 224,16 80,16 16,16"/>
@@ -557,7 +557,7 @@
    </properties>
    <polygon points="48,-16 224,-16 224,0 224,240 208,256 192,240 192,16 48,16"/>
   </object>
-  <object id="185" x="3392" y="-2656">
+  <object id="185" type="Hitbox" x="3392" y="-2656">
    <polygon points="80,0 80,32 64,32 64,0"/>
   </object>
   <object id="186" type="Hitbox" x="3392" y="-2656">
@@ -566,10 +566,10 @@
    </properties>
    <polygon points="80,0 48,-32 48,64 80,32 64,32 64,0"/>
   </object>
-  <object id="187" x="3520" y="-2768">
+  <object id="187" type="Hitbox" x="3520" y="-2768">
    <polygon points="80,0 80,32 64,32 64,0"/>
   </object>
-  <object id="190" x="3520" y="-2544">
+  <object id="190" type="Hitbox" x="3520" y="-2544">
    <polygon points="80,0 80,32 64,32 64,0"/>
   </object>
   <object id="191" type="Hitbox" x="3504" y="-2544">
@@ -593,7 +593,7 @@
   <object id="194" type="Hitbox" x="3296" y="-2864">
    <polygon points="80,0 80,32 112,32 112,48 128,48 128,16 96,16"/>
   </object>
-  <object id="196" x="3584" y="-2896">
+  <object id="196" type="Hitbox" x="3584" y="-2896">
    <polygon points="144,480 225.06,479.321 224,416 224,288.442 240,288.442 240,224 224,224.442 224,48 240,48 240,-16 224,-16 224,-80 240,-80 240,-96 240,-112 112,-112 96,-96 96,-48 112,-32 144,-32"/>
   </object>
   <object id="197" type="Hitbox" x="3584" y="-2928">
@@ -848,7 +848,7 @@
    </properties>
    <polygon points="0,0 0,-48 336,-48 208,0"/>
   </object>
-  <object id="282" x="3872" y="-2896">
+  <object id="282" type="Hitbox" x="3872" y="-2896">
    <polygon points="160,480 240,480 240,-112 144,-112 144,-96 160,-96 160,-80 144,-80 144,-16 160,-16 160,112 144,112 144,176 160,176 160,320 144,320 144,384 160,384"/>
   </object>
   <object id="283" type="Hitbox" x="3952" y="-2992">
@@ -906,7 +906,7 @@
    <polygon points="0,112 -16,112 -16,240 0,240"/>
   </object>
   <object id="296" type="Hitbox" x="-449.9" y="1283.81">
-   <polygon points="0,0 0,208 -366.1,204.186 -366.1,268.186 64,272 64,0"/>
+   <polygon points="1.89976,-19.8138 1.89976,204.186 -366.1,204.186 -366.1,268.186 64,272 65.8998,-19.8138"/>
   </object>
   <object id="297" type="Hitbox" x="-720" y="1488">
    <properties>
@@ -914,8 +914,14 @@
    </properties>
    <polygon points="0,0 -96,-256 -96,0"/>
   </object>
-  <object id="300" type="Hook" x="-496" y="1424">
+  <object id="300" type="Hook" x="-548.192" y="1473.4">
    <point/>
+  </object>
+  <object id="301" type="Hitbox" x="-464" y="1264">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-16 0,224 16,224 16,0 80,0 96,-16"/>
   </object>
  </objectgroup>
  <layer id="4" name="Tile Layer 1" width="32" height="32">

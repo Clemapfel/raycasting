@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 301,
+  nextobjectid = 302,
   properties = {
     ["title"] = "Boosting"
   },
@@ -64,8 +64,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = -680.751,
-          y = 1474.54,
+          x = -142.075,
+          y = -43.7905,
           width = 0,
           height = 0,
           rotation = 0,
@@ -121,7 +121,7 @@ return {
             { x = 0, y = 256 }
           },
           properties = {
-            ["slippery"] = false
+            ["slippery"] = true
           }
         },
         {
@@ -236,10 +236,7 @@ return {
           polygon = {
             { x = -80, y = -176 },
             { x = -80, y = -384 },
-            { x = -80, y = -384 },
             { x = -64, y = -368 },
-            { x = -64, y = -160 },
-            { x = -64, y = -144 },
             { x = -64, y = 0 },
             { x = -80, y = 0 }
           },
@@ -738,7 +735,6 @@ return {
             { x = 208, y = 0 },
             { x = 208, y = -16 },
             { x = 224, y = -16 },
-            { x = 224, y = 48 },
             { x = 224, y = 64 },
             { x = 0, y = 64 },
             { x = -16, y = 64 },
@@ -865,9 +861,7 @@ return {
             { x = 208, y = 0 },
             { x = 208, y = -16 },
             { x = 224, y = -16 },
-            { x = 224, y = 48 },
             { x = 224, y = 64 },
-            { x = 0, y = 64 },
             { x = -16, y = 64 },
             { x = -16, y = -16 },
             { x = 0, y = -16 }
@@ -911,7 +905,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -1.36257, y = 62.3097 },
+            { x = -1.36, y = 62.31 },
             { x = -17.3626, y = 94.3097 },
             { x = -17.3626, y = -1.69029 },
             { x = -1.36257, y = -33.6903 }
@@ -2412,7 +2406,7 @@ return {
         {
           id = 185,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 3392,
           y = -2656,
@@ -2454,7 +2448,7 @@ return {
         {
           id = 187,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 3520,
           y = -2768,
@@ -2473,7 +2467,7 @@ return {
         {
           id = 190,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 3520,
           y = -2544,
@@ -2583,7 +2577,7 @@ return {
         {
           id = 196,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 3584,
           y = -2896,
@@ -3595,7 +3589,7 @@ return {
         {
           id = 282,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 3872,
           y = -2896,
@@ -3839,12 +3833,12 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 208 },
+            { x = 1.89976, y = -19.8138 },
+            { x = 1.89976, y = 204.186 },
             { x = -366.1, y = 204.186 },
             { x = -366.1, y = 268.186 },
             { x = 64, y = 272 },
-            { x = 64, y = 0 }
+            { x = 65.8998, y = -19.8138 }
           },
           properties = {}
         },
@@ -3873,13 +3867,36 @@ return {
           name = "",
           type = "Hook",
           shape = "point",
-          x = -496,
-          y = 1424,
+          x = -548.192,
+          y = 1473.4,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 301,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -464,
+          y = 1264,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -16 },
+            { x = 0, y = 224 },
+            { x = 16, y = 224 },
+            { x = 16, y = 0 },
+            { x = 80, y = 0 },
+            { x = 96, y = -16 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
         }
       }
     },
