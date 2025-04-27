@@ -62,7 +62,7 @@ function ow.BloodSplatter:add(x, y, radius, hue)
             local right_fraction = distance_2 / length
             assert(left_fraction <= right_fraction)
 
-            local color = { rt.lcha_to_rgba(rt.LCHA(0.8, 1, hue, 1):unpack()) }
+            local color = { rt.lcha_to_rgba(rt.LCHA(0.9, 1, hue, 1):unpack()) }
 
             for division in values(data.subdivisions) do
                 -- check if segment overlaps interval
@@ -84,10 +84,13 @@ end
 --- @brief
 function ow.BloodSplatter:draw()
     love.graphics.setLineWidth(2)
+
     for division in keys(self._active_divisions) do
         love.graphics.setColor(table.unpack(division.color))
         love.graphics.line(division.line)
     end
+
+    rt.graphics.set_blend_mode(nil)
 end
 
 local _round = function(x)

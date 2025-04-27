@@ -46,7 +46,6 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     self._scene = scene
     self._player = self._scene:get_player()
-    self._color = rt.Palette.BOOST
 
     local factor = object:get_number("velocity") or 1
     self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
@@ -63,6 +62,8 @@ function ow.BoostField:instantiate(object, stage, scene)
         local end_x, end_y = axis.x, axis.y
         self._axis_x, self._axis_y = math.normalize(end_x - start_x, end_y - start_y)
     end
+
+    self._color = { rt.lcha_to_rgba(0.8, 1, math.angle(self._axis_x, self._axis_y) / (2 * math.pi), 0.8) }
 
     -- shader aux
     self._camera_offset_x = 0
@@ -161,10 +162,12 @@ function ow.BoostField.draw_all()
     end
     if _mesh == nil then return end
 
+    love.graphics.setBlendMode("alpha")
+
     -- draw shader surface per instance
     for self in values(_instances) do
         if self._scene:get_is_body_visible(self._body) then
-            self._color:bind()
+            love.graphics.setColor(table.unpack(self._color))
             _shader:bind()
             _shader:send("elapsed", self._elapsed)
             _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
@@ -175,6 +178,7 @@ function ow.BoostField.draw_all()
             _shader:unbind()
         end
     end
+
 
     -- draw outlines as giant batch
     love.graphics.setLineJoin("bevel")

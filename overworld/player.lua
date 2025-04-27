@@ -1166,7 +1166,7 @@ end
 
 --- @brief
 function ow.Player:set_flow(x)
-    rt.error8
+    rt.error("TODO")
 end
 
 --- @brief

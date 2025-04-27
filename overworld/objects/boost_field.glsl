@@ -73,9 +73,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_
     uv.y -= width;
     uv.x = fract(uv.x);
 
-
     float v = distance(uv.y, (1 / flatness) * smooth_abs(uv.x * 2 - 1));
     float value = smoothstep(width - eps, width + eps, 1 - v);
-    vec3 color = lch_to_rgb(vec3(0.8, 1, angle / (2 * PI)));
-    return vec4(vec3(color) *  mix(0.7, 1, value), 1) * vertex_color;
+    return vec4(vec3(mix(0.7, 1, value)), 1) * vertex_color;
 }

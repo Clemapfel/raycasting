@@ -157,7 +157,7 @@ function rt.hsva_to_rgba(h, s, v, a)
 end
 
 --- @brief
-function rt.lcha_to_rgba(l, c, h, a)
+function rt.lcha_to_rgba(l, c, h, alpha)
     local L, C, H = l, c, h
 
     L = L * 100
@@ -212,10 +212,10 @@ function rt.lcha_to_rgba(l, c, h, a)
     end
 
     return
-    math.clamp(R, 0.0, 1.0),
-    math.clamp(G, 0.0, 1.0),
-    math.clamp(B, 0.0, 1.0),
-    alpha
+        math.clamp(R, 0.0, 1.0),
+        math.clamp(G, 0.0, 1.0),
+        math.clamp(B, 0.0, 1.0),
+        alpha
 end
 
 --- @brief
