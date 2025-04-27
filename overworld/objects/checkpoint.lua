@@ -23,8 +23,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _x = object.x,
         _y = object.y,
 
-        _target_x = nil,
-        _target_y = nil,
+        _target_x = 0,
+        _target_y = 0,
 
         _body = nil,
         _is_active = false,
@@ -36,7 +36,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         local world = stage:get_physics_world()
         local ground_x, ground_y, nx, ny, body = world:query_ray(self._x, self._y, 0, 10e9)
         if ground_x == nil then -- no ground
-            rt.error("In ow.Checkpoint: checkpoint `" .. object:get_id() .. "` is not above solid ground")
+            rt.warning("In ow.Checkpoint: checkpoint `" .. object.id .. "` is not above solid ground")
+            return
         end
 
         self._target_x, self._target_y = ground_x, ground_y
@@ -81,11 +82,13 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
             { top_x, top_y, 0, 0, 1, 1, 1, 0 }
         }
 
+        self._radius = radius
+        self._line = { top_x, top_y + radius, self._target_x, self._target_y }
+
 
         self._mesh = rt.MeshCircle(top_x, top_y, radius)
         self._mesh:set_vertex_color(1, 0, 0, 0, 0)
         self._mesh = self._mesh:get_native()
-        self._line = { top_x, top_y + radius, self._target_x, self._target_y }
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -136,5 +139,7 @@ function ow.Checkpoint:draw()
     end
 
     love.graphics.draw(self._mesh)
+    love.graphics.setLineWidth(1)
+    love.graphics.circle("line", self._x, self._y, self._radius)
     love.graphics.line(self._line)
 end
