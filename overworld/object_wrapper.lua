@@ -224,7 +224,7 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                 self
             )
 
-            local polygonization = love.triangulate(vertices) --slick.polygonize(8, { vertices })
+            local polygonization = love.math.triangulate(vertices) --slick.polygonize(8, { vertices })
             for shape in values(polygonization) do
                 table.insert(prototypes, {
                     type = ow.ObjectWrapperShapeType.POLYGON,
@@ -330,9 +330,9 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     self.mesh_prototype = {}
     self.mesh_triangles = {}
 
-    local success, polygonized = pcall(slick.triangulate, {to_polygonize})
-    if not success then -- slick failed to polygonize
-        success, polygonized = pcall(love.math.triangulate, to_polygonize)
+    local success, polygonized = pcall(love.math.triangulate, to_polygonize)
+    if not success then
+        success, polygonized = pcall(slick.triangulate, {to_polygonize})
         if not success then
             return
         end
