@@ -17,8 +17,9 @@ function ow.PlayerTrail:instantiate(scene, radius)
     self._player = self._scene:get_player()
     self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
 
-    _canvas_a = rt.RenderTexture(self._width, self._height)
-    _canvas_b = rt.RenderTexture(self._width, self._height)
+    _canvas_a = rt.RenderTexture(self._width, self._height, 4)
+    _canvas_b = rt.RenderTexture(self._width, self._height, 4)
+
     self._a_or_b = true
     self._r, self._g, self._b = 1, 0, 0
 end
@@ -36,6 +37,8 @@ local _boom_mesh, _shader
 
 --- @brief
 function ow.PlayerTrail:draw()
+    if self._scene:get_player():get_physics_body() == nil then return end
+
     if _shader == nil then
         _shader = rt.Shader("overworld/player_trail.glsl")
     end
@@ -94,7 +97,7 @@ function ow.PlayerTrail:draw()
         local vx, vy = player:get_physics_body():get_linear_velocity()
         local angle = math.angle(vx, vy)
 
-        love.graphics.setColor(self._r, self._g, self._b, 8 *  player:get_flow())
+        love.graphics.setColor(self._r, self._g, self._b, 10 * player:get_flow())
         love.graphics.push()
         love.graphics.translate(x, y)
         love.graphics.rotate(angle + math.pi / 2)
@@ -106,13 +109,6 @@ end
 
 local _previous_x, _previous_y = nil, nil
 local _previous_player_x, _previous_player_y = nil, nil
-
-local _dim = function(delta)
-    rt.graphics.set_blend_mode(rt.BlendMode.SUBTRACT, rt.BlendMode.SUBTRACT)
-    love.graphics.setColor(0, 0, 0, delta)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-    rt.graphics.set_blend_mode(nil)
-end
 
 --- @brief
 function ow.PlayerTrail:update(delta)
@@ -145,8 +141,13 @@ function ow.PlayerTrail:update(delta)
     local decay_rate = rt.settings.overworld.player_trail.decay_rate
     local dalpha = (1 / decay_rate) * delta
     b:bind()
+
     love.graphics.origin()
-    _dim(dalpha)
+    rt.graphics.set_blend_mode(rt.BlendMode.SUBTRACT, rt.BlendMode.SUBTRACT)
+    love.graphics.setColor(0, 0, 0, dalpha)
+    love.graphics.rectangle("fill", 0, 0, self._width, self._height)
+    rt.graphics.set_blend_mode(nil)
+
     b:unbind()
 
     love.graphics.push()
