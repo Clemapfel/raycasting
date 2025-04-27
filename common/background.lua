@@ -24,8 +24,16 @@ function rt.Background:instantiate(id, override_path)
         _path = path,
         _shape = nil,
         _shader = nil,
-        _elapsed = 0
+        _elapsed = 0,
+        _input = rt.InputSubscriber()
     })
+
+    -- TODO
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "q" then
+            self:recompile()
+        end
+    end)
 end
 
 --- @brief

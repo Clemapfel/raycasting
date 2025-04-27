@@ -24,6 +24,31 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 }
 
+float worley_noise(vec3 p) {
+    vec3 n = floor(p);
+    vec3 f = fract(p);
+
+    float dist = 1.0;
+    for (int k = -1; k <= 1; k++) {
+        for (int j = -1; j <= 1; j++) {
+            for (int i = -1; i <= 1; i++) {
+                vec3 g = vec3(i, j, k);
+
+                vec3 p = n + g;
+                p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+                p += dot(p, p.yxz + 19.19);
+                vec3 o = fract((p.xxy + p.yzz) * p.zyx);
+
+                vec3 delta = g + o - f;
+                float d = length(delta);
+                dist = min(dist, d);
+            }
+        }
+    }
+
+    return 1 - dist;
+}
+
 vec3 lch_to_rgb(vec3 lch) {
     float L = lch.x * 100.0;
     float C = lch.y * 100.0;
@@ -74,7 +99,12 @@ float smooth_max(float a, float b, float k) {
 
 float merge(float x, float y) {
     return x - y;
-    //eturn max(x, y);
+}
+
+float box_sdf(vec2 position, vec2 halfSize, float cornerRadius) {
+    // src: https://www.shadertoy.com/view/Nlc3zf
+    position = abs(position) - halfSize + cornerRadius;
+    return length(max(position, 0.0)) + min(max(position.x, position.y), 0.0) - cornerRadius;
 }
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_position) {
@@ -82,19 +112,32 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
     vec2 pixel_size = 1 / love_ScreenSize.xy;
 
-    vec2 line_thickness = pixel_size * 30;
-
     float tile_size = 32.0;
     float scale = love_ScreenSize.x / tile_size;
     uv = uv * scale;
-    uv -= line_thickness;
     uv = fract(uv);
 
-    float edge_x = smoothstep(line_thickness.x, line_thickness.x + pixel_size.x, uv.x) *
-    smoothstep(1.0 - line_thickness.x, 1.0 - line_thickness.x - pixel_size.x, uv.x);
-    float edge_y = smoothstep(line_thickness.y, line_thickness.y + pixel_size.y, uv.y) *
-    smoothstep(1.0 - line_thickness.y, 1.0 - line_thickness.y - pixel_size.y, uv.y);
-    float value = edge_x * edge_y;
+    float tile_noise_frequency = 1. / 60 * tile_size;
+
+    float tile_noise_b = (worley_noise(vec3(
+        floor(to_uv(frag_position.xy) * love_ScreenSize.x / tile_size).xy * tile_noise_frequency,
+        elapsed) / 10
+    ));
+
+    float tile_noise_a = (gradient_noise(vec3(
+    floor(to_uv(frag_position.xy) * love_ScreenSize.x / tile_size).xy * tile_noise_frequency,
+    elapsed) / 10
+    ) + 1) / 2;
+
+    float tile_noise = mix(tile_noise_a, tile_noise_b, smoothstep(0.4, 1, tile_noise_b));
+
+    float eps = 0.125;
+    float line_width = mix(0, eps, tile_noise);
+    float box = 1 - smoothstep(0, eps, box_sdf(
+        uv - vec2(0.5),
+        vec2(0.5, 0.5) - line_width,
+        0 * tile_noise
+    ));
 
     vec2 noise_uv = to_uv(frag_position) * 1 / 3;
     const int n_octaves = 1;
@@ -109,8 +152,9 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
         amplitude *= persistence;
     }
 
+    float intensity = 0.8;
     vec3 rainbow = lch_to_rgb(vec3(0.8, 1, noise_value));
-    return vec4(vec3(mix(rainbow * 0.3, vec3(0.1), value)), 1);
+    return vec4(vec3(mix(rainbow * intensity, vec3(0.1), box)), 1);
 }
 
 #endif
