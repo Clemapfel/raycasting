@@ -197,6 +197,8 @@ function ow.Player:instantiate(scene, stage)
         -- hard body
         _body = nil,
         _world = nil,
+        _last_position_x = 0,
+        _last_position_y = 0,
 
         -- animation
         _trail = ow.PlayerTrail(scene, _settings.radius),
@@ -214,8 +216,6 @@ function ow.Player:instantiate(scene, stage)
         _can_wall_jump = false,
         _can_jump = false,
 
-        _bounce_sensor = nil, -- b2.Body
-        _bounce_sensor_pin = nil, -- b2.Pin
         _input = rt.InputSubscriber()
     })
 
@@ -675,15 +675,16 @@ function ow.Player:update(delta)
     self:_update_mesh()
 
     -- add blood splatter
-    local function _add_blood_splatter(contact_x, contact_y, nx, ny)
-        local nx_top, ny_top = math.turn_left(nx, ny)
-        local nx_bottom, ny_bottom = math.turn_right(nx, ny)
+    local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
+        local r = self._radius / 2
+        local cx, cy = contact_x, contact_y
 
-        local r = math.sqrt(math.abs(select(1, self._body:get_velocity()))) / 2
-        local top_x, top_y = contact_x + nx_top * r, contact_y + ny_top * r
-        local bottom_x, bottom_y = contact_x + nx_bottom * r, contact_y + ny_bottom * r
+        if last_contact_x ~= nil then
+            local dx, dy = contact_x - last_contact_x, contact_y - last_contact_y
+            r = math.magnitude(dx, dy) / 2
+        end
 
-        self._stage:get_blood_splatter():add(contact_x, contact_y, self._hue)
+        self._stage:get_blood_splatter():add(cx, cy, r, self._hue)
     end
 
     do
@@ -692,7 +693,7 @@ function ow.Player:update(delta)
             not top_wall_body:has_tag("no_blood") and
             math.distance(top_x, top_y, x, y) <= self._radius
         then
-            _add_blood_splatter(top_x, top_y, top_nx, top_ny)
+            _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
         end
 
         if self._right_wall and
@@ -700,7 +701,7 @@ function ow.Player:update(delta)
             not right_wall_body:has_tag("no_blood") and
             math.distance(right_x, right_y, x, y) <= self._radius
         then
-            _add_blood_splatter(right_x, right_y, right_nx, right_ny)
+            _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
         end
 
         if self._bottom_wall and
@@ -708,7 +709,7 @@ function ow.Player:update(delta)
             not bottom_wall_body:has_tag("no_blood") and
             math.distance(bottom_x, bottom_y, x, y) <= self._radius
         then
-            _add_blood_splatter(bottom_x, bottom_y, bottom_nx, bottom_ny)
+            _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
         end
 
         if self._left_wall and
@@ -716,13 +717,29 @@ function ow.Player:update(delta)
             not left_wall_body:has_tag("no_blood") and
             math.distance(left_x, left_y, x, y) <= self._radius
         then
-            _add_blood_splatter(left_x, left_y, left_nx, left_ny)
+            _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
         end
     end
+
+    self._last_position_x, self._last_position_y = self._body:get_position()
+    self._last_top_x, self._last_top_y = top_x, top_y
+    self._last_right_x, self._last_right_y = right_x, right_y
+    self._last_bottom_x, self._last_bottom_y = bottom_x, bottom_y
+    self._last_left_x, self._last_left_y = left_x, left_y
 end
 
 --- @brief
 function ow.Player:move_to_stage(stage)
+    if stage == nil then
+        self._stage = nil
+        self._body = nil
+        self._world = nil
+        self._spring_bodies = {}
+        self._spring_joints = {}
+        return
+    end
+
+    --dbg(meta.hash(stage))
     local x, y = 0, 0
     meta.assert(stage, "Stage", x, "Number", y, "Number")
 
@@ -735,7 +752,7 @@ function ow.Player:move_to_stage(stage)
     self._world = world
     self._world:set_gravity(0, 0)
 
-    self.DISABLED, self._last_respawn_y = x, y
+    self._last_position_x, self._last_position_y = x, y
 
     -- hard body
     local inner_body_shape = b2.Circle(0, 0, self._inner_body_radius)
@@ -879,6 +896,7 @@ function ow.Player:move_to_stage(stage)
         self:disable()
     end
 
+    if self._stage:get_active_checkpoint() == nil then return end
     self._stage:get_active_checkpoint():spawn()
 end
 
@@ -923,6 +941,7 @@ end
 
 --- @brief
 function ow.Player:draw()
+    if self._body == nil then return end
     local r, g, b, a = self._color:unpack()
 
     if self._trail_visible then
@@ -981,6 +1000,7 @@ end
 
 --- @brief
 function ow.Player:get_position()
+    if self._body == nil then return 0, 0 end
     return self._body:get_position()
 end
 
@@ -994,8 +1014,14 @@ function ow.Player:teleport_to(x, y)
     if self._body ~= nil then
         self._body:set_position(x, y)
 
+        local angle = 0
+        local n = table.sizeof(self._spring_bodies)
         for body in values(self._spring_bodies) do
-            body:set_position(x, y) -- springs will correct to normal after one step
+            body:set_position(
+                x + math.cos(angle) * self._radius,
+                y + math.sin(angle) * self._radius
+            ) -- springs will correct to normal after one step
+            angle = angle + (2 * math.pi)  / n
         end
     end
 end
@@ -1018,6 +1044,14 @@ end
 --- @brief
 function ow.Player:get_physics_body()
     return self._body
+end
+
+--- @brief
+function ow.Player:destroy_physics_body()
+    self._body:destroy()
+    for body in values(self._spring_bodies) do
+        body:destroy()
+    end
 end
 
 --- @brief
