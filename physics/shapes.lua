@@ -11,13 +11,16 @@ local _line_a = 1
 --- @param height Number
 b2.Rectangle = meta.class("PhysicsRectangle", b2.Shape, function(self, x, y, width, height)
     meta.install(self, {
-        _native = slick.newRectangleShape(x, y, width, height)
+        _x = x,
+        _y = y,
+        _width = width,
+        _height = height
     })
 end)
 
 --- @brief
 function b2.Rectangle:draw()
-    local x, y, w, h = table.unpack(self._native.arguments)
+    local x, y, w, h = self._x, self._y, self._width, self._height
     local r, g, b, a = love.graphics.getColor()
     love.graphics.setColor(r, g, b, _fill_a * a)
     love.graphics.rectangle("fill", x, y, w, h)
@@ -28,7 +31,7 @@ end
 
 --- @brief
 function b2.Rectangle:_add_to_body(body)
-    local x, y, w, h = table.unpack(self._native.arguments)
+    local x, y, w, h = self._x, self._y, self._width, self._height
     return love.physics.newPolygonShape(body, {
         x, y,
         x + w, y,
@@ -43,18 +46,20 @@ end
 --- @param radius Number
 b2.Circle = meta.class("PhysicsCircle", b2.Shape,function(self, x, y, radius)
     meta.install(self, {
-        _native = slick.newCircleShape(x, y, radius)
+        _x = x,
+        _y = y,
+        _radius = radius
     })
 end)
 
 --- @brief
 function b2.Circle:get_radius()
-    return self._native.arguments[3]
+    return self._radius
 end
 
 --- @brief
 function b2.Circle:draw()
-    local x, y, radius = table.unpack(self._native.arguments)
+    local x, y, radius = self._x, self._y, self._radius
     local r, g, b, a = love.graphics.getColor()
     love.graphics.setColor(r, g, b, _fill_a * a)
     love.graphics.circle("fill", x, y, radius)
@@ -65,7 +70,7 @@ end
 
 --- @brief
 function b2.Circle:_add_to_body(body)
-    return love.physics.newCircleShape(body, table.unpack(self._native.arguments))
+    return love.physics.newCircleShape(body, self._x, self._y, self._radius)
 end
 
 --- @class b2.Polygon
@@ -75,12 +80,12 @@ b2.Polygon = meta.class("PhysicsPolygon", b2.Shape,function(self, vertices, ...)
         vertices = {vertices, ...}
     end
 
-    self._native = slick.newPolygonShape(vertices)
+    self._vertices = vertices
 end)
 
 --- @brief
 function b2.Polygon:draw()
-    local vertices = self._native.arguments
+    local vertices = self._vertices
     local r, g, b, a = love.graphics.getColor()
     love.graphics.setColor(r, g, b, _fill_a * a)
     love.graphics.polygon("fill", vertices)
@@ -91,7 +96,7 @@ end
 
 --- @brief
 function b2.Polygon:_add_to_body(body)
-    return love.physics.newPolygonShape(body, self._native.arguments)
+    return love.physics.newPolygonShape(body, self._vertices)
 end
 
 --- @class b2.Segment
