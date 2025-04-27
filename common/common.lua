@@ -182,6 +182,11 @@ function math.mix(lower, upper, ratio)
 end
 
 --- @brief
+function math.mean(a, b)
+    return (a + b) / 2
+end
+
+--- @brief
 function math.normalize_angle(angle)
     return angle - (2 * math.pi) * math.floor(angle / (2 * math.pi))
 end
