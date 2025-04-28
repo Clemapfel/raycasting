@@ -43,11 +43,13 @@ rt.settings.overworld.player = {
     wall_jump_duration = 10 / 60,
     wall_jump_freeze_duration = 7 / 60,
 
-    bounce_min_force = 50,
-    bounce_max_force = 220,
+    bounce_min_force = 500,
+    bounce_max_force = 680,
     bounce_duration = 2 / 60,
 
-    spring_constant = 4.5,
+    spring_multiplier = 1.2,
+    spring_constant = 1.8,
+
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
     downwards_force_factor = 2, -- times gravity
@@ -430,8 +432,14 @@ function ow.Player:update(delta)
             duration = self._bottom_wall and ground_deceleration or _settings.air_deceleration_duration
         end
 
+        -- no air resistance
         if self._bottom_wall == false and not (self._left_button_is_down or self._right_button_is_down or math.abs(self._joystick_position) > 10e-4) then
-            duration = 10e9 -- no air resistance
+            duration = math.huge
+        end
+
+        -- if ducking, slide freely
+        if not is_accelerating and self._bottom_wall == true and (self._down_button_is_down and not (self._left_button_is_donw or self._right_button_is_down)) then
+            duration = math.huge
         end
 
         if duration == 0 then
@@ -473,10 +481,22 @@ function ow.Player:update(delta)
 
             if nx ~= nil then
                 local tangent_x, tangent_y = math.turn_right(nx, ny)
-                --next_velocity_x = next_velocity_x - tangent_x * (1 - friction) * next_velocity_x
-                next_velocity_y = next_velocity_y - tangent_y * (1 - friction) * next_velocity_y
+
+                -- slide down slopes
+                local down_slope_fraction = 0.07
+                if math.sign(nx) == math.sign(self._last_velocity_x) and self._last_velocity_y >= 0 then
+                    next_velocity_x = next_velocity_x + next_velocity_x * down_slope_fraction
+                    next_velocity_y = next_velocity_y + next_velocity_y * down_slope_fraction
+                end
+
+                if friction ~= 0 then
+                    next_velocity_x = next_velocity_x - next_velocity_x * friction
+                    next_velocity_y = next_velocity_y - next_velocity_y * friction
+                end
             end
         end
+
+
 
         if not ground_friction_applied and self._use_wall_friction then
             -- magnetize to walls, decrease based on how far wall is from vertical
@@ -585,7 +605,6 @@ function ow.Player:update(delta)
         if spring_impulse >= gravity then
             can_jump = true
             can_wall_jump = true
-            self._spring_multiplier = debugger.get("spring_multiplier") -- reset on end of jump or jump button released
         end
 
         self._can_jump = can_jump
@@ -643,7 +662,7 @@ function ow.Player:update(delta)
                 next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force
                 next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force
             else
-                local bounce_force = (1 - fraction) * self._bounce_force * 2
+                local bounce_force = (1 - fraction) * self._bounce_force
                 next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
                 next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
             end
@@ -655,7 +674,6 @@ function ow.Player:update(delta)
         -- downwards force
         if self._down_button_is_down then
             local factor = _settings.downwards_force_factor
-            if self._bottom_wall then factor = factor * 4 end
             next_velocity_y = next_velocity_y + factor * gravity
         end
 
@@ -788,7 +806,7 @@ function ow.Player:move_to_stage(stage)
     self._body:set_use_interpolation(true)
 
     -- add wrapping shape to body, for cleaner collision with bounce pads
-    local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius)
+    local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius * 0.8)
     local bounce_group = _settings.bounce_collision_group
     bounce_shape:setFilterData(bounce_group, bounce_group, 0)
 
@@ -1154,7 +1172,8 @@ end
 function ow.Player:bounce(nx, ny)
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
-    self._bounce_force = math.max(self._bounce_force, math.clamp(math.magnitude(self._last_velocity_x, self._last_velocity_y), _settings.bounce_min_force, _settings.bounce_max_force))
+    self._bounce_force = math.max(self._bounce_force, math.abs(math.dot(self._last_velocity_x, self._last_velocity_y, nx, ny)))
+    self._bounce_force = math.clamp(self._bounce_force, _settings.bounce_min_force, _settings.bounce_max_force)
     self._bounce_elapsed = 0
 
     return self._bounce_force / _settings.bounce_max_force

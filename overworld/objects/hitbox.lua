@@ -37,9 +37,9 @@ function ow.Hitbox:instantiate(object, stage, scene)
 
     if friction == nil then
         if self._body:has_tag("slippery") then
-            friction = -0.1
+            friction = 0
         else
-            friction = 1
+            friction = 0
         end
     end
     self._body:set_friction(friction or 1)

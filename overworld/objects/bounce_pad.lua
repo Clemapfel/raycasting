@@ -61,7 +61,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         local restitution = player:bounce(nx, ny)
 
         -- animation
-        self._color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
+        self._color = { rt.lcha_to_rgba(0.9, 1, player:get_hue(), 1) }
         self._color_elapsed = 0
 
         self._bounce_velocity = restitution
@@ -203,12 +203,15 @@ function ow.BouncePad:draw()
 
     local r, g, b = table.unpack(self._draw_color)
 
-    love.graphics.setColor(r, g, b, 0.8)
+    love.graphics.setColor(r, g, b, 0.9)
     love.graphics.rectangle("fill", self._draw_x, self._draw_y, self._draw_width, self._draw_height, 5)
+
+    rt.graphics.set_blend_mode(nil)
 
     love.graphics.setLineWidth(2)
     love.graphics.setColor(r, g, b, 1)
     love.graphics.rectangle("line", self._draw_x, self._draw_y, self._draw_width, self._draw_height, 5)
 
     love.graphics.pop()
+
 end
