@@ -33,7 +33,16 @@ function ow.Hitbox:instantiate(object, stage, scene)
         end
     end
 
-    self._body:set_friction(object:get_number("friction") or 1)
+    local friction = object:get_number("friction")
+
+    if friction == nil then
+        if self._body:has_tag("slippery") then
+            friction = -0.1
+        else
+            friction = 1
+        end
+    end
+    self._body:set_friction(friction or 1)
 
     local _, tris = object:create_mesh()
 

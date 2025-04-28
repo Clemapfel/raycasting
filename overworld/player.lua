@@ -450,50 +450,31 @@ function ow.Player:update(delta)
             next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
         end
 
-        local _apply_friction = function(surface_normal_x, surface_normal_y, friction_coefficient)
-            local tangent_x, tangent_y = -surface_normal_y, surface_normal_x
-            next_velocity_x = next_velocity_x + tangent_x * friction_coefficient * next_velocity_x
-            -- do not modify y, to avoid trouble going up slopes
-        end
-
         local ground_friction_applied = false
 
-        local default_friction, slippery_friction = 0, 0.1
-        if self._bottom_wall then -- ground friction
-            local nx, ny, friction
+        if bottom_wall_body ~= nil then -- ground friction
+            local nx, ny
+            local friction = 0
 
             -- use side friction for better detection on slopes
             if self._last_velocity_x > 0 then
-                if self._bottom_left_wall then
-                    nx, ny = bottom_left_nx, bottom_left_ny
-                    if bottom_left_wall_body:has_tag("slippery") then
-                        friction = slippery_friction
-                    else
-                        friction = default_friction
-                    end
+                if bottom_left_wall_body ~= nil then
+                    nx, ny, friction = bottom_left_nx, bottom_left_ny, bottom_left_wall_body:get_friction()
                 end
             else
-                if self._bottom_right_wall then
-                    nx, ny = bottom_right_nx, bottom_right_ny
-                    if bottom_right_wall_body:has_tag("slippery") then
-                        friction = slippery_friction
-                    else
-                        friction = default_friction
-                    end
+                if bottom_right_wall_body ~= nil then
+                    nx, ny, friction = bottom_right_nx, bottom_right_ny, bottom_right_wall_body:get_friction()
                 end
             end
 
             if nx == nil and self._bottom_wall then
-                nx, ny = self._bottom_nx, self._bottom_ny
-                if bottom_wall_body:has_tag("slippery") then
-                    friction = slippery_friction
-                else
-                    friction = default_friction
-                end
+                nx, ny = bottom_nx, bottom_ny, bottom_wall_body:get_friction()
             end
 
             if nx ~= nil then
-                _apply_friction(nx, ny,  friction)
+                local tangent_x, tangent_y = math.turn_right(nx, ny)
+                --next_velocity_x = next_velocity_x - tangent_x * (1 - friction) * next_velocity_x
+                next_velocity_y = next_velocity_y - tangent_y * (1 - friction) * next_velocity_y
             end
         end
 

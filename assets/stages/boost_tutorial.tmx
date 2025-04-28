@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="355.707" y="2313.54">
+  <object id="3" type="PlayerSpawn" x="-588.469" y="2263.03">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -963,7 +963,7 @@
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
-   <polygon points="0,80 1136,80 1136,16 720,-224 720,-144 704,-80 640,0 480,16 448,-16 384,-32 336,16 304,16 256,0 208,16 176,16 144,0 112,16 0,16"/>
+   <polygon points="0,80 1136,80 1136,16 784,-144 720,-144 704,-80 640,0 480,16 448,-16 384,-32 336,16 304,16 256,0 208,16 176,16 144,0 112,16 0,16"/>
   </object>
   <object id="326" type="KillPlane" x="-816" y="2224">
    <polygon points="0,0 0,208 2304,192 2304,-80 2400,-80 2400,304 -112,288 -96,-112"/>
