@@ -18,6 +18,7 @@ rt.settings.overworld.player = {
 
     player_collision_group = b2.CollisionGroup.GROUP_16,
     player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
+    bounce_collision_group = b2.CollisionGroup.GROUP_14,
 
     ground_target_velocity_x = 300,
     air_target_velocity_x = 300,
@@ -625,21 +626,19 @@ function ow.Player:update(delta)
 
         self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
+        -- bounce
         local fraction = self._bounce_elapsed / _settings.bounce_duration
         if fraction <= 1 then
-            -- bounce
             if _settings.bounce_duration == 0 then
                 next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force
                 next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force
             else
-                local velocity_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
-                local velocity_nx, velocity_ny = math.normalize(next_velocity_x, next_velocity_y)
-                local bounce_nx, bounce_ny = self._bounce_direction_x, self._bounce_direction_y
-
                 local bounce_force = (1 - fraction) * self._bounce_force * 2
                 next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
                 next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
             end
+        else
+            self._bounce_force = 0
         end
         self._bounce_elapsed = self._bounce_elapsed + delta
 
@@ -648,7 +647,6 @@ function ow.Player:update(delta)
             local factor = _settings.downwards_force_factor
             if self._bottom_wall then factor = factor * 4 end
             next_velocity_y = next_velocity_y + factor * gravity
-                * math.clamp(fraction, 0, 1) -- disable during bounce
         end
 
         -- gravity
@@ -779,7 +777,12 @@ function ow.Player:move_to_stage(stage)
     self._body:set_use_manual_velocity(true)
     self._body:set_use_interpolation(true)
 
-        -- soft body
+    -- add wrapping shape to body, for cleaner collision with bounce pads
+    local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius)
+    local bounce_group = _settings.bounce_collision_group
+    bounce_shape:setFilterData(bounce_group, bounce_group, 0)
+
+    -- soft body
     self._spring_bodies = {}
     self._spring_joints = {}
     self._spring_body_offsets_x = {}
@@ -1138,11 +1141,13 @@ function ow.Player:get_use_wall_friction()
 end
 
 --- @brief
-function ow.Player:bounce(nx, ny, force)
-    self._bounce_force = math.clamp(math.magnitude(self._last_velocity_x, self._last_velocity_y), _settings.bounce_min_force, _settings.bounce_max_force)
+function ow.Player:bounce(nx, ny)
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
+    self._bounce_force = math.max(self._bounce_force, math.clamp(math.magnitude(self._last_velocity_x, self._last_velocity_y), _settings.bounce_min_force, _settings.bounce_max_force))
     self._bounce_elapsed = 0
+
+    return self._bounce_force / _settings.bounce_max_force
 end
 
 --- @brief

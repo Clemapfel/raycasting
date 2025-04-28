@@ -6,7 +6,9 @@ function love.conf(settings)
     settings.window.msaa = 4
     settings.window.resizable = true
     settings.window.vsync = VSYNC_ON
-    settings.graphics.renderers = {"opengl"}
+   --settings.graphics.renderers = {"opengl"}
+    settings.highdpi = true
+    settings.window.usedpiscale = false
 end
 
 GAMEPAD_BUTTON_TOP = "y"

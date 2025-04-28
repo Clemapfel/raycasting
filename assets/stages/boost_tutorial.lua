@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 323,
+  nextobjectid = 324,
   properties = {
     ["title"] = "Boosting"
   },
@@ -4120,6 +4120,24 @@ return {
           height = 32,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 323,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = -320,
+          y = 1760,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 96, y = 32 },
+            { x = 80, y = -64 }
+          },
           properties = {}
         }
       }
