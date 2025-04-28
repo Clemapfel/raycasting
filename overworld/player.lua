@@ -451,24 +451,53 @@ function ow.Player:update(delta)
         end
 
         local _apply_friction = function(surface_normal_x, surface_normal_y, friction_coefficient)
-            local velocity_x, velocity_y = next_velocity_x, next_velocity_y
-            local dot_product = velocity_x * surface_normal_x + velocity_y * surface_normal_y
-            local perpendicular_x = dot_product * surface_normal_x
-            local perpendicular_y = dot_product * surface_normal_y
-
-            local parallel_x = velocity_x - perpendicular_x
-            local parallel_y = velocity_y - perpendicular_y
-
-            local friction_x = parallel_x * friction_coefficient
-            local friction_y = parallel_y * friction_coefficient
-
-            next_velocity_x = parallel_x - friction_x
-            next_velocity_y = parallel_y - friction_y
+            local tangent_x, tangent_y = -surface_normal_y, surface_normal_x
+            next_velocity_x = next_velocity_x + tangent_x * friction_coefficient * next_velocity_x
+            -- do not modify y, to avoid trouble going up slopes
         end
 
+        local ground_friction_applied = false
+
+        local default_friction, slippery_friction = 0, 0.1
         if self._bottom_wall then -- ground friction
-            _apply_friction(bottom_nx, bottom_ny,  bottom_wall_body:get_friction() or 0)
-        elseif self._use_wall_friction then
+            local nx, ny, friction
+
+            -- use side friction for better detection on slopes
+            if self._last_velocity_x > 0 then
+                if self._bottom_left_wall then
+                    nx, ny = bottom_left_nx, bottom_left_ny
+                    if bottom_left_wall_body:has_tag("slippery") then
+                        friction = slippery_friction
+                    else
+                        friction = default_friction
+                    end
+                end
+            else
+                if self._bottom_right_wall then
+                    nx, ny = bottom_right_nx, bottom_right_ny
+                    if bottom_right_wall_body:has_tag("slippery") then
+                        friction = slippery_friction
+                    else
+                        friction = default_friction
+                    end
+                end
+            end
+
+            if nx == nil and self._bottom_wall then
+                nx, ny = self._bottom_nx, self._bottom_ny
+                if bottom_wall_body:has_tag("slippery") then
+                    friction = slippery_friction
+                else
+                    friction = default_friction
+                end
+            end
+
+            if nx ~= nil then
+                _apply_friction(nx, ny,  friction)
+            end
+        end
+
+        if not ground_friction_applied and self._use_wall_friction then
             -- magnetize to walls, decrease based on how far wall is from vertical
             local magnet_force = _settings.wall_magnet_force
             if self._left_wall and not self._right_wall and self._left_button_is_down and not left_wall_body:has_tag("slippery")then

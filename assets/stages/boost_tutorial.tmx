@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="324">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="327">
  <editorsettings>
   <export target="boost_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="-592" y="1840">
+  <object id="3" type="PlayerSpawn" x="355.707" y="2313.54">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -956,8 +956,17 @@
   <object id="320" type="BouncePad" x="-103.336" y="1767.37" width="22.9256" height="102.621" rotation="45"/>
   <object id="321" type="BouncePad" x="-656" y="1792" width="32" height="32"/>
   <object id="322" type="BouncePad" x="-592" y="1728" width="32" height="32"/>
-  <object id="323" type="BouncePad" x="-320" y="1760">
-   <polygon points="0,0 96,32 80,-64"/>
+  <object id="324" type="Hitbox" x="-800" y="2320">
+   <polygon points="0,80 1136,80 1136,16 720,-224 720,-144 704,-80 640,0 480,16 448,-16 384,-32 336,16 304,16 256,0 208,16 176,16 144,0 112,16 0,16"/>
+  </object>
+  <object id="325" type="Hitbox" x="336" y="2320">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,80 1136,80 1136,16 720,-224 720,-144 704,-80 640,0 480,16 448,-16 384,-32 336,16 304,16 256,0 208,16 176,16 144,0 112,16 0,16"/>
+  </object>
+  <object id="326" type="KillPlane" x="-816" y="2224">
+   <polygon points="0,0 0,208 2304,192 2304,-80 2400,-80 2400,304 -112,288 -96,-112"/>
   </object>
  </objectgroup>
  <layer id="4" name="Tile Layer 1" width="32" height="32">
