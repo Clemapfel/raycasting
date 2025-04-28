@@ -216,6 +216,9 @@ function ow.Player:instantiate(scene, stage)
         _can_wall_jump = false,
         _can_jump = false,
 
+        -- flow
+        _flow = 0,
+
         _input = rt.InputSubscriber()
     })
 
@@ -672,6 +675,11 @@ function ow.Player:update(delta)
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
     end
 
+    -- flow
+    local vx, vy = self._body:get_linear_velocity()
+    self._flow = math.min(math.max(math.abs(vx), math.abs(vy)) / (_settings.max_velocity_y), 1)
+
+    -- graphics
     self:_update_mesh()
 
     -- add blood splatter
@@ -1159,14 +1167,12 @@ end
 
 --- @brief
 function ow.Player:get_flow()
-    local vx, vy = self._body:get_linear_velocity()
-    local out = math.min(math.max(math.abs(vx), math.abs(vy)) / (_settings.max_velocity_y), 1)
-    return out
+    return self._flow
 end
 
 --- @brief
 function ow.Player:set_flow(x)
-    rt.error("TODO")
+    self._flow = math.clamp(x, 0, 1)
 end
 
 --- @brief

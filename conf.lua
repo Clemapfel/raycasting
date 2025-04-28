@@ -5,7 +5,7 @@ VSYNC_ON = 1
 function love.conf(settings)
     settings.window.msaa = 4
     settings.window.resizable = true
-    settings.window.vsync = VSYNC_OFF
+    settings.window.vsync = VSYNC_ON
     settings.graphics.renderers = {"opengl"}
 end
 

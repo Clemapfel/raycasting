@@ -105,6 +105,7 @@ do -- load from image
     rt.Palette.PLAYER = rt.RGBA(1, 1, 1, 1)
     rt.Palette.BOOST = rt.Palette.GRAY_4
     rt.Palette.BOOST_OUTLINE = rt.Palette.GRAY_3
+    rt.Palette.BOUNCE_PAD = rt.Palette.GRAY_4
 end
 
 rt.Palette.COIN_COLORS = {

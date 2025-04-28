@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="309">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="323">
  <editorsettings>
   <export target="boost_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="-142.075" y="-43.7905">
+  <object id="3" type="PlayerSpawn" x="-592" y="1840">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -844,7 +844,7 @@
   <object id="281" type="BoostField" x="2928" y="-1760">
    <properties>
     <property name="axis_x" type="float" value="0"/>
-    <property name="axis_y" type="float" value="1"/>
+    <property name="axis_y" type="float" value="-1"/>
    </properties>
    <polygon points="0,0 0,-48 336,-48 208,0"/>
   </object>
@@ -944,6 +944,18 @@
   <object id="308" type="Coin" x="-208" y="-80">
    <point/>
   </object>
+  <object id="309" type="Hitbox" x="-800" y="1680">
+   <polygon points="0,0 0,240 800,240 800,16 736,80 695.848,87.043 712.402,103.598 640,176 624,160 608,176 336,176 336,192 240,192 239.71,176 64,176 64,0"/>
+  </object>
+  <object id="315" type="KillPlane" x="-816" y="1648">
+   <polygon points="0,0 0,288 832,288 832,-96 880,-96 880,336 -48,336 -48,-16 0,-16"/>
+  </object>
+  <object id="317" type="BouncePad" x="-736" y="1680" width="16" height="176"/>
+  <object id="318" type="BouncePad" x="-560" y="1856" width="96" height="16"/>
+  <object id="319" type="BouncePad" x="-512" y="1776" width="144" height="32"/>
+  <object id="320" type="BouncePad" x="-103.336" y="1767.37" width="22.9256" height="102.621" rotation="45"/>
+  <object id="321" type="BouncePad" x="-656" y="1792" width="32" height="32"/>
+  <object id="322" type="BouncePad" x="-592" y="1728" width="32" height="32"/>
  </objectgroup>
  <layer id="4" name="Tile Layer 1" width="32" height="32">
   <data encoding="base64" compression="zlib">
@@ -952,6 +964,9 @@
   </chunk>
    <chunk x="-32" y="-96" width="16" height="16">
    eJxjYBgF+IDbQDtgFIwCGgIAzUAARw==
+  </chunk>
+   <chunk x="-32" y="96" width="16" height="16">
+   eJxjYBgFo2AUYANuA+0AOgAAQlgARw==
   </chunk>
   </data>
  </layer>

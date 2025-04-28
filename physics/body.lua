@@ -252,8 +252,12 @@ function b2.Body:get_is_sensor()
 end
 
 --- @brief
-function b2.Body:add_tag(tag)
+function b2.Body:add_tag(tag, ...)
     self._tags[tag] = true
+
+    for i = 1, select("#", ...) do
+        self._tags[select(i, ...)] = true
+    end
 end
 
 --- @brief

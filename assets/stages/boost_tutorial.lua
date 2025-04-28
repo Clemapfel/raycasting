@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 309,
+  nextobjectid = 323,
   properties = {
     ["title"] = "Boosting"
   },
@@ -64,8 +64,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = -142.075,
-          y = -43.7905,
+          x = -592,
+          y = 1840,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3583,7 +3583,7 @@ return {
           },
           properties = {
             ["axis_x"] = 0,
-            ["axis_y"] = 1
+            ["axis_y"] = -1
           }
         },
         {
@@ -3988,6 +3988,139 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 309,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -800,
+          y = 1680,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 240 },
+            { x = 800, y = 240 },
+            { x = 800, y = 16 },
+            { x = 736, y = 80 },
+            { x = 695.848, y = 87.043 },
+            { x = 712.402, y = 103.598 },
+            { x = 640, y = 176 },
+            { x = 624, y = 160 },
+            { x = 608, y = 176 },
+            { x = 336, y = 176 },
+            { x = 336, y = 192 },
+            { x = 240, y = 192 },
+            { x = 239.71, y = 176 },
+            { x = 64, y = 176 },
+            { x = 64, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 315,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -816,
+          y = 1648,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 288 },
+            { x = 832, y = 288 },
+            { x = 832, y = -96 },
+            { x = 880, y = -96 },
+            { x = 880, y = 336 },
+            { x = -48, y = 336 },
+            { x = -48, y = -16 },
+            { x = 0, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 317,
+          name = "",
+          type = "BouncePad",
+          shape = "rectangle",
+          x = -736,
+          y = 1680,
+          width = 16,
+          height = 176,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 318,
+          name = "",
+          type = "BouncePad",
+          shape = "rectangle",
+          x = -560,
+          y = 1856,
+          width = 96,
+          height = 16,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 319,
+          name = "",
+          type = "BouncePad",
+          shape = "rectangle",
+          x = -512,
+          y = 1776,
+          width = 144,
+          height = 32,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 320,
+          name = "",
+          type = "BouncePad",
+          shape = "rectangle",
+          x = -103.336,
+          y = 1767.37,
+          width = 22.9256,
+          height = 102.621,
+          rotation = 45,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 321,
+          name = "",
+          type = "BouncePad",
+          shape = "rectangle",
+          x = -656,
+          y = 1792,
+          width = 32,
+          height = 32,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 322,
+          name = "",
+          type = "BouncePad",
+          shape = "rectangle",
+          x = -592,
+          y = 1728,
+          width = 32,
+          height = 32,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },
@@ -4017,6 +4150,10 @@ return {
         {
           x = -32, y = -96, width = 16, height = 16,
           data = "eJxjYBgF+IDbQDtgFIwCGgIAzUAARw=="
+        },
+        {
+          x = -32, y = 96, width = 16, height = 16,
+          data = "eJxjYBgFo2AUYANuA+0AOgAAQlgARw=="
         }
       }
     }
