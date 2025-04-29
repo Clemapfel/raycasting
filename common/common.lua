@@ -338,6 +338,29 @@ function math.magnitude(x, y)
     return math.sqrt(x * x + y * y)
 end
 
+--- @brief normalize a 3D vector
+--- @param x number x component of the vector
+--- @param y number y component of the vector
+--- @param z number z component of the vector
+--- @return number, number, number normalized x, y, z components
+function math.normalize3(x, y, z)
+    local magnitude = math.sqrt(x * x + y * y + z * z)
+    if magnitude == 0 then
+        return 0, 0, 0
+    else
+        return x / magnitude, y / magnitude, z / magnitude
+    end
+end
+
+--- @brief calculate the magnitude of a 3D vector
+--- @param x number x component of the vector
+--- @param y number y component of the vector
+--- @param z number z component of the vector
+--- @return number magnitude of the vector
+function math.magnitude3(x, y, z)
+    return math.sqrt(x * x + y * y + z * z)
+end
+
 --- @brief
 function math.rotate(x, y, angle, origin_x, origin_y)
     if origin_x == nil then origin_x = 0 end
@@ -401,11 +424,14 @@ function math.dot(x1, y1, x2, y2)
     return x1 * x2 + y1 * y2
 end
 
+function math.dot3(x1, y1, z1, x2, y2, z2)
+    return x1 * x2 + y1 * y2 + z1 * z2
+end
+
 --- @brief
 function math.cross(x1, y1, x2, y2)
     return x1 * y2 - y1 * x2
 end
-
 
 --- @brief create a table with n copies of object
 --- @param x any

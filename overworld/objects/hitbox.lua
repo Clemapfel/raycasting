@@ -207,3 +207,12 @@ function ow.Hitbox:get_all_segments()
 
     return segments
 end
+
+--- @brief
+function ow.Hitbox:get_render_priority()
+    if self._body:has_tag("slippery") then
+        return -1
+    else
+        return -2
+    end
+end

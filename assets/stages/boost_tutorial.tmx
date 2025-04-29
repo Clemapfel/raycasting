@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="369">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="372">
  <editorsettings>
   <export target="boost_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="2433.33" y="1381.33">
+  <object id="3" type="PlayerSpawn" x="-678.632" y="1821.09">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -905,19 +905,19 @@
    </properties>
    <polygon points="0,112 -16,112 -16,240 0,240"/>
   </object>
-  <object id="296" type="Hitbox" x="-449.9" y="1283.81">
+  <object id="296" type="Hitbox" x="-673.9" y="2291.81">
    <polygon points="1.89976,-19.8138 1.89976,204.186 -366.1,204.186 -366.1,268.186 64,272 65.8998,-19.8138"/>
   </object>
-  <object id="297" type="Hitbox" x="-720" y="1488">
+  <object id="297" type="Hitbox" x="-944" y="2496">
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,0 -96,-256 -96,0"/>
   </object>
-  <object id="300" type="Hook" x="-548.192" y="1473.4">
+  <object id="300" type="Hook" x="-772.192" y="2481.4">
    <point/>
   </object>
-  <object id="301" type="Hitbox" x="-464" y="1264">
+  <object id="301" type="Hitbox" x="-688" y="2272">
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
@@ -951,7 +951,7 @@
    <polygon points="-448,0 -448,240 -304,240"/>
   </object>
   <object id="328" x="-816" y="1920">
-   <polygon points="-480,0 -448,48 624,48 1728,48 3856,48 3856,16 3440,16 3440,-512 3232,-512 3200,-512 3216,-496 3232,-496 3232,-192 3216,-192 3216,-176 2928,-176 2928,-192 2912,-192 2912,-496 2928,-496 2944,-512 2912,-512 2784,-512 2784,-368 2672,-368 2672,-352 2704,-352 2720,-336 2720,16 2704,16 1840,16 1840,-176 1856,-192 1744,-192 1760,-176 1760,16 1376,16 1360,0 1344,0 1328,16 1024.77,16 1008,16 1008,32 896,32 896,16 880,0 800,0 784,0 672,0 640,-32 624,-32 624,0 -32,0 -32,-32 -48,-32 -80,0"/>
+   <polygon points="-480,0 -448,48 624,48 1728,48 3856,48 3856,16 3440,16 3440,-496 3232,-496 3232,-192 3216,-192 3216,-176 2928,-176 2928,-192 2912,-192 2912,-496 2928,-496 2944,-512 2912,-512 2784,-512 2784,-368 2672,-368 2672,-352 2704,-352 2720,-336 2720,16 2704,16 1840,16 1840,-176 1856,-192 1744,-192 1760,-176 1760,16 1376,16 1360,0 1344,0 1328,16 1024.77,16 1008,16 1008,32 896,32 896,16 880,0 800,0 784,0 672,0 640,-32 624,-32 624,0 -32,0 -32,-32 -48,-32 -80,0"/>
   </object>
   <object id="331" type="BouncePad" x="-848" y="1904" width="656" height="16"/>
   <object id="332" type="BouncePad" x="864" y="1856" width="34.2157" height="32"/>
@@ -1002,7 +1002,7 @@
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
-   <polygon points="0,0 -16,0 -32,-16 -32,0 -32,192 -16,208 -16,192 0,192 0,192"/>
+   <polygon points="0,0 224,0 224,-16 -32,-16 -32,0 -32,192 -16,208 -16,192 0,192 0,192"/>
   </object>
   <object id="355" x="48" y="1728">
    <polygon points="0,112 16,96 16,112 144,112 128,128 32,128 32,144 0,128"/>
@@ -1030,13 +1030,19 @@
   <object id="363" x="96" y="1728">
    <polygon points="0,0 80,0 64,16 -16,16 -32,0"/>
   </object>
-  <object id="366" type="BouncePad" x="2704" y="1408" width="16" height="480"/>
-  <object id="367" type="BouncePad" x="2624" y="1408" width="16" height="528"/>
+  <object id="366" type="BouncePad" x="2704" y="1424" width="16" height="464"/>
+  <object id="367" type="BouncePad" x="2624" y="1424" width="16" height="512"/>
   <object id="368" type="Hitbox" x="2704" y="1408">
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
-   <polygon points="0,0 0,-16 16,-32 16,-288 48,-288 48,320 32,320 16,336 16,0"/>
+   <polygon points="0,16 0,0 16,-16 16,-288 48,-288 48,320 32,320 16,336 16,16"/>
+  </object>
+  <object id="369" type="Checkpoint" x="-400" y="1824">
+   <point/>
+  </object>
+  <object id="371" type="Checkpoint" x="-544" y="1824">
+   <point/>
   </object>
  </objectgroup>
  <layer id="4" name="Tile Layer 1" width="32" height="32">
