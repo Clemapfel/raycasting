@@ -1,8 +1,10 @@
+require "overworld.fireworks"
+require "common.smoothed_motion_1d"
+
 rt.settings.overworld.checkpoint = {
     max_spawn_duration = 5,
-    celebration_duration = 2,
+
     celebration_particles_n = 500,
-    celebration_particles_radius_factor = 1, -- time player radius
 }
 
 --- @class ow.Checkpoint 
@@ -34,16 +36,16 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _bottom_y = math.huge,
 
         _mesh_position_y = math.huge,
+        _mesh_motion = rt.SmoothedMotion1D(0, rt.settings.overworld.player.target_velocity_y),
         _mesh_visible = false,
         _passed = false,
 
         _color = { rt.Palette.CHECKPOINT:unpack() },
-
-        _celebration_elapsed = math.huge,
-        _celebration_active = false,
-        _celebration_n_particles = 0,
-        _celebration_particles = {}
+        _fireworks = ow.Fireworks(scene)
     })
+
+    local player_x, player_y = self._scene:get_player():get_position()
+    self._mesh_motion:set_value(player_y)
 
     if _mesh == nil then
         _mesh_h = rt.settings.overworld.player.radius - 2
@@ -117,65 +119,20 @@ function ow.Checkpoint:pass()
     local hue = player:get_hue()
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
 
-    self._celebration_active = true
-    self._celebration_elapsed = 0
-    self._celebration_particles = {}
-    self._celebration_n_particles = rt.settings.overworld.checkpoint.celebration_particles_n
+    self._mesh_motion:set_value(player_y)
 
-    local goal_x = player_x + 30
-    local goal_y = player_y - 100
-    local n_particles_per_group = self._celebration_n_particles
-    local perturbation = 0.5
     local hue_offset = 0.2
-    local _rng = rt.random.number
-    local golden_ratio = (1 + math.sqrt(5)) / 2
+    local hue_min, hue_max = hue - hue_offset, hue + hue_offset
+    local n_particles = rt.settings.overworld.checkpoint.celebration_particles_n-- * (1 + player:get_flow())
+    local x, y = player_x, player_y
+    local vx, vy = player:get_velocity()
+    local velocity = player:get_radius()
+    self._fireworks:spawn(n_particles, velocity, x, y, vx, vy, hue_min, hue_max)
 
-    local radius = rt.settings.overworld.checkpoint.celebration_particles_radius_factor * player:get_radius()
-
-    for i = 1, n_particles_per_group do
-        -- fibonacci lattice to generate random points on sphere
-        local idx = i - 0.5 - 1
-        local z = 1 - 2 * idx / n_particles_per_group
-        local theta = 2 * math.pi * idx / golden_ratio
-
-        local r = math.sqrt(1 - z * z)
-        local x = r * math.cos(theta)
-        local y = r * math.sin(theta)
-
-        if perturbation > 0 then
-            local angle = _rng(0, 2 * math.pi)
-            local offset = _rng(0, perturbation)
-            x = x + offset * math.cos(angle)
-            y = y + offset * math.sin(angle)
-            z = z + offset * math.sin(angle)
-            local norm = math.sqrt(x * x + y * y + z * z)
-            x, y, z = x / norm, y / norm, z / norm
-        end
-
-        local fraction = 0.7
-        x, y, z = math.normalize3(x, y, z)
-
-        local bias_x, bias_y = math.normalize(player:get_velocity())
-        local bias_strength = 0.4
-
-        local to_push = {
-            position_x = player_x,
-            position_y = player_y,
-            position_z = 0,
-            color = { rt.lcha_to_rgba(0.8, 1, _rng(hue - hue_offset, hue + hue_offset), 1) },
-            velocity_x = 0,
-            velocity_y = 0,
-            velocity_z = 0,
-            direction_x = math.mix(x, bias_x, bias_strength),
-            direction_y = math.mix(y, bias_y, bias_strength),
-            direction_z = z,
-            direction_magnitude = radius,
-            mass = _rng(0, 1),
-            radius = _rng(2, 6),
-        }
-
-        table.insert(self._celebration_particles, to_push)
-    end
+    if ow.PlayerTrail.dbg == nil then ow.PlayerTrail.dbg = {} end
+    table.insert(ow.PlayerTrail.dbg, function()
+        self._fireworks:draw()
+    end)
 
     self._passed = true
 end
@@ -185,43 +142,15 @@ function ow.Checkpoint:update(delta)
     if not self._passed then
         local player = self._scene:get_player()
         local player_x, player_y = player:get_position()
-        self._mesh_position_y = player_y
+
+        self._mesh_motion:set_target_value(player_y)
+        self._mesh_motion:update(delta)
         self._mesh_out_of_bounds = player_y < self._top_y + _mesh_h or player_y > self._bottom_y - _mesh_h
     end
 
-    if self._celebration_active then
-        local duration = rt.settings.overworld.checkpoint.celebration_duration
-        local fraction = self._celebration_elapsed / duration
-        local fade_out_duration = 0.1
-        local gravity_per_second = 1000
-        local gravity_x = 0
-        local gravity_y = gravity_per_second * duration
-        local gravity_z = -1 * gravity_per_second * duration
-
-        for particle in values(self._celebration_particles) do
-            local dx, dy, dz = particle.direction_x, particle.direction_y, particle.direction_z -- already normalized
-            local vx, vy, vz = math.normalize3(particle.velocity_x, particle.velocity_y, particle.velocity_z)
-            local alignment = math.abs(math.dot3(dx, dy, dz, vx, vy, vz))
-
-            particle.velocity_x = particle.velocity_x + particle.direction_x * particle.direction_magnitude * particle.mass + delta * gravity_x * alignment * particle.mass * fraction
-            particle.velocity_y = particle.velocity_y + particle.direction_y * particle.direction_magnitude * particle.mass + delta * gravity_y * alignment * particle.mass * fraction
-            particle.velocity_z = particle.velocity_z + particle.direction_z * particle.direction_magnitude * particle.mass + delta * gravity_z * alignment * particle.mass * fraction
-
-            particle.position_x = particle.position_x + particle.velocity_x * delta
-            particle.position_y = particle.position_y + particle.velocity_y * delta
-            particle.position_z = particle.position_z + particle.velocity_z * delta
-
-            if fraction > 1 - fade_out_duration then
-                particle.color[4] = 1 - (fraction - (1 - fade_out_duration)) / fade_out_duration
-            end
-        end
-
-        self._celebration_elapsed = self._celebration_elapsed + delta
-        if self._celebration_elapsed >  rt.settings.overworld.checkpoint.celebration_duration then
-            self._celebration_active = false
-            self._passed = false -- TODO
-        end
-    end
+    self._mesh_position_y = self._mesh_motion:get_value()
+    self._fireworks:update(delta)
+    if self._fireworks:get_is_done() then self._passed = false end -- TODO
 
     if self._waiting_for_player then
         self._spawn_duration_elapsed = self._spawn_duration_elapsed + delta
@@ -292,14 +221,7 @@ function ow.Checkpoint:draw()
         love.graphics.pop()
     end
 
-    if self._celebration_active then
-        local particle_opacity = 1
-        for particle in values(self._celebration_particles) do
-            local r, g, b, a = table.unpack(particle.color)
-            love.graphics.setColor(r, g, b, a * particle_opacity)
-            love.graphics.circle("fill", particle.position_x, particle.position_y, particle.radius)
-        end
-    end
+    self._fireworks:draw()
 end
 
 --- @brief

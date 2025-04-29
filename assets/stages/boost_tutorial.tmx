@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="-678.632" y="1821.09">
+  <object id="3" type="PlayerSpawn" x="-528" y="1792">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -953,7 +953,7 @@
   <object id="328" x="-816" y="1920">
    <polygon points="-480,0 -448,48 624,48 1728,48 3856,48 3856,16 3440,16 3440,-496 3232,-496 3232,-192 3216,-192 3216,-176 2928,-176 2928,-192 2912,-192 2912,-496 2928,-496 2944,-512 2912,-512 2784,-512 2784,-368 2672,-368 2672,-352 2704,-352 2720,-336 2720,16 2704,16 1840,16 1840,-176 1856,-192 1744,-192 1760,-176 1760,16 1376,16 1360,0 1344,0 1328,16 1024.77,16 1008,16 1008,32 896,32 896,16 880,0 800,0 784,0 672,0 640,-32 624,-32 624,0 -32,0 -32,-32 -48,-32 -80,0"/>
   </object>
-  <object id="331" type="BouncePad" x="-848" y="1904" width="656" height="16"/>
+  <object id="331" type="BouncePad" x="-855.895" y="1979" width="656" height="16"/>
   <object id="332" type="BouncePad" x="864" y="1856" width="34.2157" height="32"/>
   <object id="333" type="Hitbox" x="544" y="1920">
    <properties>
@@ -1037,12 +1037,6 @@
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,16 0,0 16,-16 16,-288 48,-288 48,320 32,320 16,336 16,16"/>
-  </object>
-  <object id="369" type="Checkpoint" x="-400" y="1824">
-   <point/>
-  </object>
-  <object id="371" type="Checkpoint" x="-544" y="1824">
-   <point/>
   </object>
  </objectgroup>
  <layer id="4" name="Tile Layer 1" width="32" height="32">

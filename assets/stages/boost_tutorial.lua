@@ -64,8 +64,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = -678.632,
-          y = 1821.09,
+          x = -528,
+          y = 1792,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4082,8 +4082,8 @@ return {
           name = "",
           type = "BouncePad",
           shape = "rectangle",
-          x = -848,
-          y = 1904,
+          x = -855.895,
+          y = 1979,
           width = 656,
           height = 16,
           rotation = 0,
@@ -4580,32 +4580,6 @@ return {
           properties = {
             ["slippery"] = true
           }
-        },
-        {
-          id = 369,
-          name = "",
-          type = "Checkpoint",
-          shape = "point",
-          x = -400,
-          y = 1824,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 371,
-          name = "",
-          type = "Checkpoint",
-          shape = "point",
-          x = -544,
-          y = 1824,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         }
       }
     },

@@ -31,7 +31,6 @@ end
 --- @brief
 function rt.SmoothedMotion1D:update(delta)
     local distance = self._target_value - self._current_value
-    if distance < 1 then return end
 
     local step = 2 * math.ceil(distance) * self._speed * delta * delta
 
