@@ -107,6 +107,8 @@ do -- load from image
     rt.Palette.BOOST_OUTLINE = rt.Palette.GRAY_3
     rt.Palette.BOUNCE_PAD = rt.Palette.GRAY_2
     rt.Palette.CHECKPOINT = rt.Palette.MINT
+    rt.Palette.HOOK_BASE = rt.Palette.GRAY_8
+    rt.Palette.HOOK_OUTLINE = rt.Palette.GRAY_2
 end
 
 rt.Palette.COIN_COLORS = {

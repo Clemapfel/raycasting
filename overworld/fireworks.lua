@@ -45,6 +45,7 @@ function ow.Fireworks:spawn(n_particles, velocity, position_x, position_y, bias_
     if hue_min == nil then hue_min = 0 end
     if hue_max == nil then hue_max = 1 end
 
+    self._velocity = velocity
     self._origin_x, self._origin_y = position_x, position_y
     meta.assert(n_particles, "Number", velocity, "Number", position_x, "Number", position_y, "Number", bias_x, "Number", bias_y, "Number", hue_min, "Number", hue_max, "Number")
 
@@ -107,67 +108,47 @@ local _step = 1 / 120
 function ow.Fireworks:update(delta)
     if not self._active then return end
 
-    _elapsed = _elapsed + delta
-    while _elapsed > _step do
+    local duration = rt.settings.overworld.fireworks.duration
+    local fraction = self._elapsed / duration
+    local fade_out_duration = 0.1
+    local gravity_per_second = 2 * self._velocity
 
-        local duration = rt.settings.overworld.fireworks.duration
-        local fraction = self._elapsed / duration
-        local fade_out_duration = 0.1
-        local gravity_per_second = 1000
-        local gravity_x = 0
-        local gravity_y = gravity_per_second * duration
-        local gravity_z = -1 * gravity_per_second * duration
+    local gravity_x = 0
+    local gravity_y = gravity_per_second * duration
+    local gravity_z = -1 * gravity_per_second * duration
 
-        for particle in values(self._particles) do
-            local dx, dy, dz = particle.direction_x, particle.direction_y, particle.direction_z -- already normalized
-            local vx, vy, vz = math.normalize3(particle.velocity_x, particle.velocity_y, particle.velocity_z)
-            local alignment = math.abs(math.dot3(dx, dy, dz, vx, vy, vz))
+    for particle in values(self._particles) do
+        local dx, dy, dz = particle.direction_x, particle.direction_y, particle.direction_z -- already normalized
+        local vx, vy, vz = math.normalize3(particle.velocity_x, particle.velocity_y, particle.velocity_z)
+        local alignment = math.abs(math.dot3(dx, dy, dz, vx, vy, vz))
 
-            particle.velocity_x = particle.velocity_x + particle.direction_x * particle.direction_magnitude * particle.mass + delta * gravity_x * alignment * particle.mass * fraction
-            particle.velocity_y = particle.velocity_y + particle.direction_y * particle.direction_magnitude * particle.mass + delta * gravity_y * alignment * particle.mass * fraction
-            particle.velocity_z = particle.velocity_z + particle.direction_z * particle.direction_magnitude * particle.mass + delta * gravity_z * alignment * particle.mass * fraction
+        particle.velocity_x = particle.velocity_x + particle.direction_x * particle.direction_magnitude * particle.mass + delta * gravity_x * alignment * particle.mass * fraction
+        particle.velocity_y = particle.velocity_y + particle.direction_y * particle.direction_magnitude * particle.mass + delta * gravity_y * alignment * particle.mass * fraction
+        particle.velocity_z = particle.velocity_z + particle.direction_z * particle.direction_magnitude * particle.mass + delta * gravity_z * alignment * particle.mass * fraction
 
-            particle.position_x = particle.position_x + particle.velocity_x * delta
-            particle.position_y = particle.position_y + particle.velocity_y * delta
-            particle.position_z = particle.position_z + particle.velocity_z * delta
+        particle.position_x = particle.position_x + particle.velocity_x * delta
+        particle.position_y = particle.position_y + particle.velocity_y * delta
+        particle.position_z = particle.position_z + particle.velocity_z * delta
 
-            if fraction > 1 - fade_out_duration then
-                particle.color[4] = 1 - (fraction - (1 - fade_out_duration)) / fade_out_duration
-            end
+        if fraction > 1 - fade_out_duration then
+            particle.color[4] = 1 - (fraction - (1 - fade_out_duration)) / fade_out_duration
         end
+    end
 
-        self._elapsed = self._elapsed + delta
-        if self._elapsed > duration then
-            self._particles = {}
-            self._active = false
-            break
-        end
-
-        _canvas:bind()
-        love.graphics.push()
-        local w, h = _canvas:get_size()
-        local camera_x, camera_y = self._scene:get_camera()
-        love.graphics.translate(self._spawn_offset_x, self._spawn_offset_y)
-        for particle in values(self._particles) do
-            love.graphics.setColor(table.unpack(particle.color))
-            love.graphics.circle("fill", particle.position_x, particle.position_y, particle.radius)
-        end
-        love.graphics.pop()
-        _canvas:unbind()
-
-        _elapsed = _elapsed - _step
+    self._elapsed = self._elapsed + delta
+    if self._elapsed > duration then
+        self._particles = {}
+        self._active = false
     end
 end
 
 --- @brief
 function ow.Fireworks:draw()
     if not self._active then return end
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.push()
-    love.graphics.origin()
-    local w, h = _canvas:get_size()
-    _canvas:draw()
-    love.graphics.pop()
+    for particle in values(self._particles) do
+        love.graphics.setColor(table.unpack(particle.color))
+        love.graphics.circle("fill", particle.position_x, particle.position_y, particle.radius)
+    end
 end
 
 --- @brief

@@ -347,3 +347,4 @@ function rt.color_to_html_code(rgba, use_alpha)
     end
     return out
 end
+

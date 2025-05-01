@@ -123,10 +123,10 @@ function ow.Checkpoint:pass()
 
     local hue_offset = 0.2
     local hue_min, hue_max = hue - hue_offset, hue + hue_offset
-    local n_particles = rt.settings.overworld.checkpoint.celebration_particles_n-- * (1 + player:get_flow())
+    local n_particles = 200 --0.5 * rt.settings.overworld.checkpoint.celebration_particles_n-- * (1 + player:get_flow())
     local x, y = player_x, player_y
     local vx, vy = player:get_velocity()
-    local velocity = player:get_radius()
+    local velocity = 0.5 * player:get_radius()
     self._fireworks:spawn(n_particles, velocity, x, y, vx, vy, hue_min, hue_max)
 
     if ow.PlayerTrail.dbg == nil then ow.PlayerTrail.dbg = {} end
@@ -221,7 +221,7 @@ function ow.Checkpoint:draw()
         love.graphics.pop()
     end
 
-    self._fireworks:draw()
+    --self._fireworks:draw()
 end
 
 --- @brief

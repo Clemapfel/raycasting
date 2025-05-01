@@ -345,6 +345,7 @@ end
 --- @brief
 function b2.Body:destroy()
     self._native:destroy()
+    self:signal_disconnect_all()
 end
 
 --- @brief

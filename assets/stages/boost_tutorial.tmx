@@ -914,7 +914,7 @@
    </properties>
    <polygon points="0,0 -96,-256 -96,0"/>
   </object>
-  <object id="300" type="Hook" x="-772.192" y="2481.4">
+  <object id="300" type="Hook" x="-387.472" y="1839.3">
    <point/>
   </object>
   <object id="301" type="Hitbox" x="-688" y="2272">

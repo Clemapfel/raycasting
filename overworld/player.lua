@@ -566,6 +566,7 @@ function ow.Player:update(delta)
             else
                 can_jump = false
             end
+            self._jump_allowed_override = nil
         end
 
         -- coyote time
@@ -773,7 +774,6 @@ function ow.Player:move_to_stage(stage)
         return
     end
 
-    --dbg(meta.hash(stage))
     local x, y = 0, 0
     meta.assert(stage, "Stage", x, "Number", y, "Number")
 

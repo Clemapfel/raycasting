@@ -309,6 +309,11 @@ function ow.PlayerTrail:_draw_glow(x, y, intensity)
     love.graphics.setColor(self._r, self._g, self._b, intensity)
     love.graphics.draw(_glow_texture, x + _glow_offset_x, y + _glow_offset_y)
     rt.graphics.set_blend_mode(nil)
+
+
+    for f in values(ow.PlayerTrail.dbg) do
+        f()
+    end
 end
 
 
