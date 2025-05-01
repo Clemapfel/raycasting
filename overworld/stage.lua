@@ -63,6 +63,9 @@ function ow.Stage:instantiate(scene, id)
         _coins = {}, -- cf. add_coin
         _checkpoints = {}, -- cf. add_checkpoint
         _blood_splatter = ow.BloodSplatter(),
+        _flow_graph_nodes = {},
+        _flow_graph = nil, -- ow.FlowGraph
+        _flow_fraction = 0,
 
         _active_checkpoint = nil,
     })
@@ -172,6 +175,14 @@ function ow.Stage:instantiate(scene, id)
 
     -- create contour
     self._blood_splatter:create_contour(ow.Hitbox:get_all_segments())
+
+    -- create flow graph
+    if table.sizeof(self._flow_graph_nodes) < 2 then
+        self._flow_graph = nil
+    else
+        self._flow_graph = ow.FlowGraph(self._flow_graph_nodes)
+    end
+    self._flow_fraction = 0
 end
 
 --- @brief
@@ -192,6 +203,9 @@ function ow.Stage:draw_above_player()
         object:draw()
     end
 
+    if self._flow_graph ~= nil then
+        self._flow_graph:draw()
+    end
 end
 
 --- @brief
@@ -200,6 +214,13 @@ function ow.Stage:update(delta)
     for object in values(self._to_update) do
         object:update(delta)
     end
+
+    self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
+end
+
+--- @brief
+function ow.Stage:get_flow_fraction()
+    return self._flow_fraction
 end
 
 --- @brief
@@ -330,4 +351,9 @@ function ow.Stage:destroy()
     native:release()
 
     self._blood_splatter:destroy()
+end
+
+--- @brief
+function ow.Stage:_notify_flow_graph_node_added(node)
+    table.insert(self._flow_graph_nodes, node)
 end

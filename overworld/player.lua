@@ -26,9 +26,8 @@ rt.settings.overworld.player = {
 
     flow_threshold_velocity_x = 300 * 0.5,
     flow_threshold_velocity_y = 70,
-    flow_increase_velocity = 1 / 300, -- percent per second
-    flow_decrease_velocity = 75,
-    flow_inertia = 1,
+    flow_increase_velocity = 1 / 200, -- percent per second
+    flow_decrease_velocity = 40,
     flow_max_velocity = 1, -- percent per second
     flow_velocity_history_n = 100, -- n samples
     flow_velocity_history_sample_frequency = 60, -- n samples per second
@@ -237,6 +236,7 @@ function ow.Player:instantiate(scene, stage)
         _velocity_history_y = table.rep(0, _settings.flow_velocity_history_n),
         _velocity_history_y_sum = 0,
         _velocity_history_elapsed = 0,
+        _last_flow_fraction = 0,
         _skip_next_flow_update = true, -- skip when spawning
 
         _flow_is_frozen = false,
@@ -731,7 +731,7 @@ function ow.Player:update(delta)
         local step = 1 / _settings.flow_velocity_history_sample_frequency
         while self._velocity_history_elapsed > step do
             local first_x = self._velocity_history_x[1]
-            local new_x = (current_position_x - self._last_position_x) / delta
+            local new_x = math.abs(current_position_x - self._last_position_x) / delta
             if new_x < self._radius then new_x = 0 end
             table.remove(self._velocity_history_x, 1)
             table.insert(self._velocity_history_x, new_x)
@@ -739,7 +739,7 @@ function ow.Player:update(delta)
             self._velocity_history_x_sum = self._velocity_history_x_sum - first_x + new_x
 
             local first_y = self._velocity_history_y[1]
-            local new_y = (current_position_y - self._last_position_y) / delta
+            local new_y = math.abs(current_position_y - self._last_position_y) / delta
             if new_y < self._radius then new_y = 0 end
             table.remove(self._velocity_history_y, 1)
             table.insert(self._velocity_history_y, new_y)
@@ -752,7 +752,7 @@ function ow.Player:update(delta)
         local x_average, y_average = self._velocity_history_x_sum / n, self._velocity_history_y_sum / n
         local current_velocity, target_velocity = math.max(math.abs(x_average), math.abs(y_average)), nil
 
-        -- if velocity meets either threshold, boost
+        -- if velocity meets either threshold, check if progress was made along flow graph
         local weight, should_increase = 1, false
         if x_average >= _settings.flow_threshold_velocity_x and math.sign(next_velocity_x) then
             weight = math.min(math.abs(current_velocity - _settings.flow_threshold_velocity_x) / _settings.flow_threshold_velocity_x, 1)
@@ -764,14 +764,23 @@ function ow.Player:update(delta)
             should_increase = false
         end
 
+        local next_flow_fraction = self._stage:get_flow_fraction()
+
+        if next_flow_fraction <= self._last_flow_fraction then
+            should_increase = false
+        else
+            should_increase = true
+        end
+        self._last_flow_fraction = next_flow_fraction
+
+
         if should_increase then
             target_velocity = _settings.flow_increase_velocity * weight
         else
             target_velocity = -1 * _settings.flow_decrease_velocity * weight
         end
-        local acceleration = (target_velocity - self._flow_velocity) * _settings.flow_inertia
 
-
+        local acceleration = (target_velocity - self._flow_velocity)
         self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
         self._flow = self._flow + self._flow_velocity * delta
         self._flow = math.clamp(self._flow, 0, 1)
@@ -854,6 +863,7 @@ function ow.Player:move_to_stage(stage)
 
     self._trail:clear()
     self:reset_flow()
+    self._last_flow_fraction = 0
 
     local world = stage:get_physics_world()
     if world == self._world then return end

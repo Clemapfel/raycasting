@@ -136,6 +136,11 @@ function ow.ObjectWrapper:clone()
     return out
 end
 
+--- @brief
+function ow.ObjectWrapper:get_id()
+    return self.id
+end
+
 ow.ObjectWrapperShapeType = meta.enum("ObjectWrapperShapeType", {
     CIRCLE = true,
     POLYGON = false

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="374">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="401">
  <editorsettings>
   <export target="boost_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="-718.872" y="-2509.29">
+  <object id="3" name="Spawn" type="PlayerSpawn" x="-718.872" y="-2509.29">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -1045,6 +1045,98 @@
    <point/>
   </object>
   <object id="373" type="Checkpoint" x="-560" y="1824">
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="5" name="flow">
+  <object id="386" name="Flow" type="FlowGraphNode" x="1680" y="-2448">
+   <properties>
+    <property name="next" type="object" value="388"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="387" name="Flow" type="FlowGraphNode" x="-816" y="-2672">
+   <properties>
+    <property name="next" type="object" value="386"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="388" name="Flow" type="FlowGraphNode" x="1776" y="-2672">
+   <properties>
+    <property name="next" type="object" value="397"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="389" name="Flow" type="FlowGraphNode" x="2905.62" y="-2448">
+   <properties>
+    <property name="next" type="object" value="390"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="390" name="Flow" type="FlowGraphNode" x="2917.07" y="-2746.72">
+   <properties>
+    <property name="next" type="object" value="395"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="391" name="Flow" type="FlowGraphNode" x="3225.62" y="-2448">
+   <properties>
+    <property name="next" type="object" value="392"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="392" name="Flow" type="FlowGraphNode" x="3545.62" y="-2448">
+   <properties>
+    <property name="next" type="object" value="393"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="393" name="Flow" type="FlowGraphNode" x="3545.62" y="-3056">
+   <properties>
+    <property name="next" type="object" value="394"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="394" name="Flow" type="FlowGraphNode" x="4233.62" y="-3056">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="395" name="Flow" type="FlowGraphNode" x="3200" y="-2752">
+   <properties>
+    <property name="next" type="object" value="391"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="396" name="Flow" type="FlowGraphNode" x="2608" y="-2448">
+   <properties>
+    <property name="next" type="object" value="389"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="397" name="Flow" type="FlowGraphNode" x="2112" y="-2672">
+   <properties>
+    <property name="next" type="object" value="399"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="398" name="Flow" type="FlowGraphNode" x="2610.92" y="-2704.23">
+   <properties>
+    <property name="next" type="object" value="396"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="399" name="Flow" type="FlowGraphNode" x="2320" y="-2432">
+   <properties>
+    <property name="next" type="object" value="400"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="400" name="Flow" type="FlowGraphNode" x="2352" y="-2688">
+   <properties>
+    <property name="next" type="object" value="398"/>
+   </properties>
    <point/>
   </object>
  </objectgroup>
