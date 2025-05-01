@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" type="PlayerSpawn" x="-1045.47" y="1689.05">
+  <object id="3" type="PlayerSpawn" x="-718.872" y="-2509.29">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -563,6 +563,7 @@
   <object id="186" type="Hitbox" x="3392" y="-2656">
    <properties>
     <property name="slippery" type="bool" value="true"/>
+    <property name="unjumpable" type="bool" value="true"/>
    </properties>
    <polygon points="80,0 48,-32 48,64 80,32 64,32 64,0"/>
   </object>
@@ -575,12 +576,14 @@
   <object id="191" type="Hitbox" x="3504" y="-2544">
    <properties>
     <property name="slippery" type="bool" value="true"/>
+    <property name="unjumpable" type="bool" value="true"/>
    </properties>
    <polygon points="80,0 112,-32 112,64 80,32 96,32 96,0"/>
   </object>
   <object id="192" type="Hitbox" x="3504" y="-2768">
    <properties>
     <property name="slippery" type="bool" value="true"/>
+    <property name="unjumpable" type="bool" value="true"/>
    </properties>
    <polygon points="80,0 112,-32 112,64 80,32 96,32 96,0"/>
   </object>

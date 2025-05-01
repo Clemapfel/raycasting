@@ -4,7 +4,8 @@ require "common.timed_animation"
 rt.settings.overworld.coin = {
     radius = 5,
     pulse_animation_duration = 0.4,
-    sound_id = "overworld_coin_collected"
+    sound_id = "overworld_coin_collected",
+    flow_increase = 0.1
 }
 
 --- @class ow.Coin
@@ -54,7 +55,10 @@ function ow.Coin:instantiate(object, stage, scene)
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
 
-        self._scene:get_player():set_flow(1) -- override flow
+        local player = self._scene:get_player()
+        local current = player:get_flow()
+        player:set_flow(player:get_flow() + rt.settings.overworld.coin.flow_increase)
+        player:set_flow_velocity(0)
     end)
 
     if _pulse_mesh == nil then

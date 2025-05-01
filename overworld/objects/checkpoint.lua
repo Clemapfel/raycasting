@@ -215,7 +215,7 @@ function ow.Checkpoint:spawn()
     player:set_velocity(0, rt.settings.overworld.player.air_target_velocity_x)
     player:set_trail_visible(false)
     player:teleport_to(self._x, self._y)
-    player:set_flow(0)
+    player:set_flow_velocity(0)
     self._waiting_for_player = true
     self._spawn_duration_elapsed = 0
 

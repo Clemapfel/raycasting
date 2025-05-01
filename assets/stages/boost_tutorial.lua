@@ -64,8 +64,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1045.47,
-          y = 1689.05,
+          x = -718.872,
+          y = -2509.29,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2442,7 +2442,8 @@ return {
             { x = 64, y = 0 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = true,
+            ["unjumpable"] = true
           }
         },
         {
@@ -2503,7 +2504,8 @@ return {
             { x = 96, y = 0 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = true,
+            ["unjumpable"] = true
           }
         },
         {
@@ -2526,7 +2528,8 @@ return {
             { x = 96, y = 0 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = true,
+            ["unjumpable"] = true
           }
         },
         {
