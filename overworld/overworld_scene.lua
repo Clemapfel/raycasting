@@ -37,6 +37,8 @@ function ow.OverworldScene:instantiate()
         _player = nil,
         _input = rt.InputSubscriber(false),
 
+        _stage_duration_start_time = math.huge,
+
         _camera_translation_velocity_x = 0,
         _camera_translation_velocity_y = 0,
         _camera_scale_velocity = 0,
@@ -288,8 +290,19 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
     self._player:move_to_stage(self._stage)
     self._camera:set_position(self._player:get_position())
     self._player_is_focused = true
+    self._stage_duration_start_time = love.timer.getTime()
 
     return self._stage
+end
+
+--- @brief
+function ow.OverworldScene:get_run_duration()
+    -- round to nearest multiple of physics time step, frame-rate independent timing
+    local current = self._stage:get_physics_world():get_timestamp()
+    local min_step = self._stage:get_physics_world():get_timestep()
+    local duration = (current - self._stage_duration_start_time)
+    local rounded_duration = math.floor((duration / min_step) + 0.5) * min_step
+    return duration
 end
 
 --- @brief

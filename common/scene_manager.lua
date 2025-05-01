@@ -141,6 +141,7 @@ local _update_sum = 0
 
 local _last_draw_times = {}
 local _draw_sum = 0
+local _default_font = love.graphics.getFont()
 
 for i = 1, _n_frames_captured do
     table.insert(_last_update_times, 0)
@@ -164,7 +165,8 @@ function rt.SceneManager:_draw_performance_metrics()
         gpu_side_memory, " mb"       -- vram usage
     })
 
-    local str_width = love.graphics.getFont():getWidth(str)
+    love.graphics.setFont(_default_font)
+    local str_width = _default_font:getWidth(str)
 
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.printf(str, love.graphics.getWidth() - str_width - 5, 5, math.huge)

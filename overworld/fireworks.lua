@@ -75,8 +75,6 @@ function ow.Fireworks:spawn(n_particles, velocity, position_x, position_y, bias_
         local fraction = 0.7
         x, y, z = math.normalize3(x, y, z)
 
-        bias_x, bias_y = math.normalize(bias_x, bias_y)
-
         local to_push = {
             position_x = position_x,
             position_y = position_y,
@@ -88,9 +86,9 @@ function ow.Fireworks:spawn(n_particles, velocity, position_x, position_y, bias_
             direction_x = math.mix(x, bias_x, _velocity_bias),
             direction_y = math.mix(y, bias_y, _velocity_bias),
             direction_z = z,
-            direction_magnitude = velocity,
+            direction_magnitude = 20,
             mass = _rng(0, 1),
-            radius = _rng(2, 6),
+            radius = _rng(2, 4.5),
         }
 
         table.insert(self._particles, to_push)
@@ -111,24 +109,36 @@ function ow.Fireworks:update(delta)
     local duration = rt.settings.overworld.fireworks.duration
     local fraction = self._elapsed / duration
     local fade_out_duration = 0.1
-    local gravity_per_second = 2 * self._velocity
+    local gravity_per_second = 1000
 
     local gravity_x = 0
     local gravity_y = gravity_per_second * duration
     local gravity_z = -1 * gravity_per_second * duration
+
+    local player_x, player_y = self._scene:get_player():get_position()
+    local player_r = self._scene:get_player():get_radius()
 
     for particle in values(self._particles) do
         local dx, dy, dz = particle.direction_x, particle.direction_y, particle.direction_z -- already normalized
         local vx, vy, vz = math.normalize3(particle.velocity_x, particle.velocity_y, particle.velocity_z)
         local alignment = math.abs(math.dot3(dx, dy, dz, vx, vy, vz))
 
-        particle.velocity_x = particle.velocity_x + particle.direction_x * particle.direction_magnitude * particle.mass + delta * gravity_x * alignment * particle.mass * fraction
-        particle.velocity_y = particle.velocity_y + particle.direction_y * particle.direction_magnitude * particle.mass + delta * gravity_y * alignment * particle.mass * fraction
-        particle.velocity_z = particle.velocity_z + particle.direction_z * particle.direction_magnitude * particle.mass + delta * gravity_z * alignment * particle.mass * fraction
+        particle.velocity_x = particle.velocity_x + particle.direction_x * particle.direction_magnitude * particle.mass * (1 - fraction) + delta * gravity_x * particle.mass * fraction^2
+        particle.velocity_y = particle.velocity_y + particle.direction_y * particle.direction_magnitude * particle.mass * (1 - fraction) + delta * gravity_y * particle.mass * fraction^2
+        particle.velocity_z = particle.velocity_z + particle.direction_z * particle.direction_magnitude * particle.mass * (1 - fraction) + delta * gravity_z * particle.mass * fraction^2
 
         particle.position_x = particle.position_x + particle.velocity_x * delta
         particle.position_y = particle.position_y + particle.velocity_y * delta
         particle.position_z = particle.position_z + particle.velocity_z * delta
+
+        -- player collision
+        local particle_r = particle.radius
+        if fraction > 0.05 and math.distance(particle.position_x, particle.position_y, player_x, player_y) < (player_r + particle_r) then
+            local delta_x, delta_y = math.normalize(particle.position_x - player_x, particle.position_y - player_y)
+            particle.position_x = player_x + delta_x * (player_r + particle_r)
+            particle.position_y = player_y + delta_y * (player_r + particle_r)
+        end
+
 
         if fraction > 1 - fade_out_duration then
             particle.color[4] = 1 - (fraction - (1 - fade_out_duration)) / fade_out_duration

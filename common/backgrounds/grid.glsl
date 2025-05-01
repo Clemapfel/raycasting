@@ -126,9 +126,9 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     (player_position / love_ScreenSize.xy) * vec2(love_ScreenSize.x / love_ScreenSize.y, 1)
     );
 
-    float player_weight = gaussian(weight, 2) * mix(0, 3, flow);
+    float player_weight = gaussian(weight, 2) * flow;
 
-    uv += vec2(dFdx(weight), dFdy(weight)) * 40 * flow;
+    uv += vec2(dFdx(weight), dFdy(weight)) * 10 * flow;
 
     float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
     vec2 pixel_size = 1 / love_ScreenSize.xy;
@@ -156,7 +156,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     float line_width = mix(0, eps, tile_noise);
     float box = 1 - smoothstep(0, eps, box_sdf(
         uv - vec2(0.5),
-        vec2(0.5, 0.5) - line_width - player_weight * 0.2,
+        vec2(0.5, 0.5) - line_width - player_weight * 0.25,
         tile_noise * 0.05 + player_weight
     ));
 

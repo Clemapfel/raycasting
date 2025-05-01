@@ -87,12 +87,15 @@ function ow.Hook:instantiate(object, stage, scene)
                 rt.SoundManager:play(rt.settings.overworld.hook.hook_sound_id)
             end
         end
+
+        player:set_flow_is_frozen(true)
     end)
 
     self._body:signal_connect("collision_end", function(_)
         self._color_elapsed = 0
         self._deactivated = false
         self._hook_animation_blocked = false
+        self._scene:get_player():set_flow_is_frozen(false)
     end)
 
     self._input:signal_connect("pressed", function(_, which)

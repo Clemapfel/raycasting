@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 372,
+  nextobjectid = 374,
   properties = {
     ["title"] = "Boosting"
   },
@@ -64,8 +64,8 @@ return {
           name = "",
           type = "PlayerSpawn",
           shape = "point",
-          x = -528,
-          y = 1792,
+          x = -1045.47,
+          y = 1689.05,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3867,8 +3867,8 @@ return {
           name = "",
           type = "Hook",
           shape = "point",
-          x = -387.472,
-          y = 1839.3,
+          x = -376.635,
+          y = 1863.68,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4082,8 +4082,8 @@ return {
           name = "",
           type = "BouncePad",
           shape = "rectangle",
-          x = -855.895,
-          y = 1979,
+          x = -848,
+          y = 1904,
           width = 656,
           height = 16,
           rotation = 0,
@@ -4157,7 +4157,7 @@ return {
           name = "",
           type = "BouncePad",
           shape = "rectangle",
-          x = 1376,
+          x = 1392,
           y = 1712,
           width = 34.2157,
           height = 32,
@@ -4580,6 +4580,32 @@ return {
           properties = {
             ["slippery"] = true
           }
+        },
+        {
+          id = 372,
+          name = "",
+          type = "Checkpoint",
+          shape = "point",
+          x = -655.649,
+          y = 1820.64,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 373,
+          name = "",
+          type = "Checkpoint",
+          shape = "point",
+          x = -560,
+          y = 1824,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },

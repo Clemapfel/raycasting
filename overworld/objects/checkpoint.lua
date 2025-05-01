@@ -1,10 +1,11 @@
 require "overworld.fireworks"
 require "common.smoothed_motion_1d"
+require "common.sound_manager"
 
 rt.settings.overworld.checkpoint = {
     max_spawn_duration = 5,
-
     celebration_particles_n = 500,
+    passed_sound_id = "checkpoint_passed",
 }
 
 --- @class ow.Checkpoint 
@@ -19,6 +20,11 @@ ow.PlayerSpawn = function(object, stage, scene) -- alias for first checkpoint
 end
 
 local _mesh, _mesh_fill, _mesh_h = nil, nil, nil
+
+local _outline_shader = love.graphics.newShader("overworld/objects/checkpoint_text.glsl", { defines = { MODE = 0 }})
+_outline_shader:send("outline_color", { rt.Palette.BLACK:unpack() })
+
+local _text_shader = love.graphics.newShader("overworld/objects/checkpoint_text.glsl", { defines = { MODE = 1 }})
 
 --- @brief
 function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
@@ -41,7 +47,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _passed = false,
 
         _color = { rt.Palette.CHECKPOINT:unpack() },
-        _fireworks = ow.Fireworks(scene)
+        _fireworks = ow.Fireworks(scene),
+
+        _elapsed_text = "",
+        _elapsed_text_height = 0,
+        _elapsed_font_non_sdf = rt.settings.font.default_small:get_native(rt.FontStyle.REGULAR, false),
+        _elapsed_font_sdf = rt.settings.font.default_small:get_native(rt.FontStyle.REGULAR, true)
     })
 
     local player_x, player_y = self._scene:get_player():get_position()
@@ -113,6 +124,8 @@ local _MODE_EXPLODE = 1
 
 --- @brief
 function ow.Checkpoint:pass()
+    if self._is_player_spawn or self._passed == true then return end
+
     local player = self._scene:get_player()
     local player_x, player_y = player:get_position()
 
@@ -127,31 +140,16 @@ function ow.Checkpoint:pass()
     local x, y = player_x, player_y
     local vx, vy = player:get_velocity()
     local velocity = 0.5 * player:get_radius()
-    self._fireworks:spawn(n_particles, velocity, x, y, vx, vy, hue_min, hue_max)
+    self._fireworks:spawn(n_particles, velocity, x, y, 0, -1.5, hue_min, hue_max) -- spew upwards
 
-    if ow.PlayerTrail.dbg == nil then ow.PlayerTrail.dbg = {} end
-    table.insert(ow.PlayerTrail.dbg, function()
-        self._fireworks:draw()
-    end)
-
+    player:set_flow(1)
     self._passed = true
+
+    rt.SoundManager:play(rt.settings.overworld.checkpoint.passed_sound_id)
 end
 
 --- @brief
 function ow.Checkpoint:update(delta)
-    if not self._passed then
-        local player = self._scene:get_player()
-        local player_x, player_y = player:get_position()
-
-        self._mesh_motion:set_target_value(player_y)
-        self._mesh_motion:update(delta)
-        self._mesh_out_of_bounds = player_y < self._top_y + _mesh_h or player_y > self._bottom_y - _mesh_h
-    end
-
-    self._mesh_position_y = self._mesh_motion:get_value()
-    self._fireworks:update(delta)
-    if self._fireworks:get_is_done() then self._passed = false end -- TODO
-
     if self._waiting_for_player then
         self._spawn_duration_elapsed = self._spawn_duration_elapsed + delta
 
@@ -165,6 +163,41 @@ function ow.Checkpoint:update(delta)
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
             self._waiting_for_player = false
         end
+    end
+
+    if self._is_player_spawn then return end
+
+    -- update graphics
+    if not self._passed then
+        local player = self._scene:get_player()
+        local player_x, player_y = player:get_position()
+
+        self._mesh_motion:set_target_value(player_y)
+        self._mesh_motion:update(delta)
+        self._mesh_out_of_bounds = player_y < self._top_y + _mesh_h or player_y > self._bottom_y - _mesh_h
+    end
+
+    self._mesh_position_y = self._mesh_motion:get_value()
+    self._fireworks:update(delta)
+    if self._fireworks:get_is_done() then self._passed = false end -- TODO
+
+    if self._scene:get_is_body_visible(self._body) and self._passed == false then
+        local duration = self._scene:get_run_duration()
+        local hours = math.floor(duration / 3600)
+        local minutes = math.floor((duration % 3600) / 60)
+        local seconds = math.floor(duration % 60)
+        local milliseconds = math.floor((duration * 1000) % 1000)
+
+        if hours >= 1 then
+            self._elapsed_text = string.format("%2d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
+        elseif minutes >= 1 then
+            self._elapsed_text = string.format("%2d:%02d.%03d", minutes, seconds, milliseconds)
+        else
+            self._elapsed_text = string.format("%2d.%03d", seconds, milliseconds)
+        end
+
+        self._elapsed_text_height = self._elapsed_font_non_sdf:getHeight(self._elapsed_text)
+        self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
     end
 end
 
@@ -182,6 +215,7 @@ function ow.Checkpoint:spawn()
     player:set_velocity(0, rt.settings.overworld.player.air_target_velocity_x)
     player:set_trail_visible(false)
     player:teleport_to(self._x, self._y)
+    player:set_flow(0)
     self._waiting_for_player = true
     self._spawn_duration_elapsed = 0
 
@@ -192,39 +226,47 @@ end
 
 --- @brief
 function ow.Checkpoint:draw()
-    if self._scene:get_is_body_visible(self._body) then
-        local mesh_x = self._top_x
-        local mesh_y = self._mesh_position_y
-        local stencil = rt.graphics.get_stencil_value()
+    self._fireworks:draw()
 
-        if self._mesh_out_of_bounds then
-            rt.graphics.stencil(stencil, function()
-                local inf = love.graphics.getWidth()
+    if not self._scene:get_is_body_visible(self._body) then return end
+    local mesh_x = self._top_x
+    local mesh_y = self._mesh_position_y
+    local stencil = rt.graphics.get_stencil_value()
 
-                love.graphics.rectangle("fill", self._bottom_x - inf, self._bottom_y, 2 * inf, inf)
-                love.graphics.rectangle("fill", self._top_x - inf, self._top_y - inf, 2 * inf, inf)
-            end)
-            rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil)
-        end
+    if self._mesh_out_of_bounds then
+        rt.graphics.stencil(stencil, function()
+            local inf = love.graphics.getWidth()
 
-        love.graphics.setColor(table.unpack(self._color))
-        love.graphics.setLineWidth(2)
-        love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
-
-        love.graphics.push()
-        love.graphics.translate(mesh_x, mesh_y)
-
-        love.graphics.draw(_mesh_fill)
-        love.graphics.polygon("line", _mesh)
-
-        rt.graphics.set_stencil_test(nil)
-        love.graphics.pop()
+            love.graphics.rectangle("fill", self._bottom_x - inf, self._bottom_y, 2 * inf, inf)
+            love.graphics.rectangle("fill", self._top_x - inf, self._top_y - inf, 2 * inf, inf)
+        end)
+        rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil)
     end
 
-    --self._fireworks:draw()
+    love.graphics.setColor(table.unpack(self._color))
+    love.graphics.setLineWidth(2)
+    love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
+
+    love.graphics.push()
+    love.graphics.translate(mesh_x, mesh_y)
+
+    love.graphics.draw(_mesh_fill)
+    love.graphics.polygon("line", _mesh)
+
+    love.graphics.setShader(_outline_shader)
+    love.graphics.setFont(self._elapsed_font_sdf)
+    local text_x, text_y = math.round(_mesh_h + rt.settings.margin_unit * 0.5), math.round(-0.5 * self._elapsed_text_height)
+    love.graphics.printf(self._elapsed_text, text_x, text_y, math.huge)
+    love.graphics.setShader(_text_shader)
+    love.graphics.setFont(self._elapsed_font_non_sdf)
+    love.graphics.printf(self._elapsed_text, text_x, text_y, math.huge)
+    love.graphics.setShader(nil)
+
+    rt.graphics.set_stencil_test(nil)
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.Checkpoint:get_render_priority()
-    return -math.huge
+    return math.huge
 end

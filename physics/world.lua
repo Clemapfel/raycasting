@@ -313,3 +313,8 @@ end
 function b2.World:get_timestamp()
     return self._timestamp
 end
+
+--- @brief
+function b2.World:get_timestep()
+    return _step
+end

@@ -43,7 +43,7 @@ rt.settings.overworld.player = {
     wall_jump_duration = 10 / 60,
     wall_jump_freeze_duration = 7 / 60,
 
-    bounce_min_force = 500,
+    bounce_min_force = 470,
     bounce_max_force = 680,
     bounce_duration = 2 / 60,
 
@@ -221,6 +221,7 @@ function ow.Player:instantiate(scene, stage)
 
         -- flow
         _flow = 0,
+        _flow_is_frozen = false,
 
         _input = rt.InputSubscriber()
     })
@@ -702,9 +703,11 @@ function ow.Player:update(delta)
         self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
     end
 
-    -- flow
-    local vx, vy = self._body:get_linear_velocity()
-    self._flow = math.min(math.max(math.abs(vx), math.abs(vy)) / (_settings.max_velocity_y), 1)
+    -- update flow
+    if not self._flow_frozen then
+        local vx, vy = self._body:get_linear_velocity()
+        self._flow = math.min(10 * math.max(math.abs(vx), math.abs(vy)) / (_settings.max_velocity_x), 1)
+    end
 
     -- graphics
     self:_update_mesh()
@@ -1008,7 +1011,8 @@ function ow.Player:draw()
         love.graphics.polygon("fill", tri)
     end
 
-    love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+    r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+    love.graphics.setColor(r, g, b, 1)
     for i, scale in ipairs(self._outer_body_scales) do
         local x = self._outer_body_centers_x[i]
         local y = self._outer_body_centers_y[i]
@@ -1047,6 +1051,29 @@ function ow.Player:draw()
             love.graphics.line(ray)
         end
     end
+
+    love.graphics.push()
+    love.graphics.origin()
+    do
+        local w, h = 10, 100
+        local x, y = 50, 50
+        local padding = 1
+        local y_pos = self._flow * (h - 2 * padding)
+        love.graphics.setLineWidth(1)
+
+        love.graphics.setColor(r, g, b, 1)
+        love.graphics.rectangle("fill", x, y, w, h, 5)
+
+        love.graphics.setColor(0, 0, 0, 1)
+        love.graphics.rectangle("line", x, y, w, h, 5)
+
+        love.graphics.setColor(r, g, b, 1)
+        love.graphics.rectangle("fill", x - 0.25 * w, y + h - y_pos, w * 1.5, 3)
+
+        love.graphics.setColor(0, 0, 0, 1)
+        love.graphics.rectangle("line", x - 0.25 * w, y + h - y_pos, w * 1.5, 3)
+    end
+    love.graphics.pop()
 end
 
 --- @brief
@@ -1207,6 +1234,11 @@ end
 --- @brief
 function ow.Player:set_flow(x)
     self._flow = math.clamp(x, 0, 1)
+end
+
+--- @brief
+function ow.Player:set_flow_is_frozen(b)
+    self._flow_frozen = b
 end
 
 --- @brief
