@@ -156,7 +156,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     float line_width = mix(0, eps, tile_noise);
     float box = 1 - smoothstep(0, eps, box_sdf(
         uv - vec2(0.5),
-        vec2(0.5, 0.5) - line_width - player_weight * 0.25,
+        vec2(0.5, 0.5) - line_width - player_weight * 0.4,
         tile_noise * 0.05 + player_weight
     ));
 
@@ -173,7 +173,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
         amplitude *= persistence;
     }
 
-    float intensity = 0.8;
+    float intensity = 1 - mix(0.2, 1, gaussian(weight, 2.5) * flow);
     vec3 rainbow = lch_to_rgb(vec3(0.8, 1, noise_value));
     return vec4(vec3(mix(rainbow * intensity, vec3(0.1), box)), 1);
 }

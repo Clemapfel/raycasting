@@ -202,10 +202,6 @@ function ow.Stage:draw_above_player()
     for object in values(self._above_player) do
         object:draw()
     end
-
-    if self._flow_graph ~= nil then
-        self._flow_graph:draw()
-    end
 end
 
 --- @brief

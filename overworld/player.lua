@@ -23,14 +23,12 @@ rt.settings.overworld.player = {
     ground_target_velocity_x = 300,
     air_target_velocity_x = 300,
     sprint_multiplier = 2,
-
-    flow_threshold_velocity_x = 300 * 0.5,
-    flow_threshold_velocity_y = 70,
+    
     flow_increase_velocity = 1 / 200, -- percent per second
     flow_decrease_velocity = 1,
     flow_max_velocity = 1, -- percent per second
-    flow_velocity_history_n = 100, -- n samples
-    flow_velocity_history_sample_frequency = 60, -- n samples per second
+    flow_fraction_history_n = 100, -- n samples
+    flow_fraction_sample_frequency = 60, -- n samples per second
 
     ground_acceleration_duration = 20 / 60, -- seconds
     ground_deceleration_duration = 5 / 60,
@@ -231,15 +229,15 @@ function ow.Player:instantiate(scene, stage)
         -- flow
         _flow = 0,
         _flow_velocity = 0,
-        _velocity_history_x = table.rep(0, _settings.flow_velocity_history_n),
+        _velocity_history_x = table.rep(0, _settings.flow_fraction_history_n),
         _velocity_history_x_sum = 0,
-        _velocity_history_y = table.rep(0, _settings.flow_velocity_history_n),
+        _velocity_history_y = table.rep(0, _settings.flow_fraction_history_n),
         _velocity_history_y_sum = 0,
 
-        _flow_fraction_history = table.rep(0, _settings.flow_velocity_history_n),
+        _flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n),
         _flow_fraction_history_sum = 0,
 
-        _velocity_history_elapsed = 0,
+        _flow_fraction_history_elapsed = 0,
         _last_flow_fraction = 0,
         _skip_next_flow_update = true, -- skip when spawning
 
@@ -727,75 +725,38 @@ function ow.Player:update(delta)
 
     -- update flow
     if not self._flow_frozen and not (self._skip_next_flow_update == true) and self._state ~= ow.PlayerState.DISABLED then
-        self._velocity_history_elapsed = self._velocity_history_elapsed + delta
+        self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed + delta
 
-        -- compute average velocity over last n steps
-        local current_position_x, current_position_y = self._body:get_position()
+        -- compute whether the player was making progress over the last n samples
         local next_flow_fraction = self._stage:get_flow_fraction()
-
-        local n = _settings.flow_velocity_history_n
-        local step = 1 / _settings.flow_velocity_history_sample_frequency
-        while self._velocity_history_elapsed > step do
-            local first_x = self._velocity_history_x[1]
-            local new_x = math.abs(current_position_x - self._last_position_x) / delta
-            if new_x < self._radius then new_x = 0 end
-            table.remove(self._velocity_history_x, 1)
-            table.insert(self._velocity_history_x, new_x)
-            self._velocity_history_x_sum = self._velocity_history_x_sum - first_x + new_x
-
-            local first_y = self._velocity_history_y[1]
-            local new_y = math.abs(current_position_y - self._last_position_y) / delta
-            if new_y < self._radius then new_y = 0 end
-            table.remove(self._velocity_history_y, 1)
-            table.insert(self._velocity_history_y, new_y)
-            self._velocity_history_y_sum = self._velocity_history_y_sum - first_y + new_y
-
+        local n = _settings.flow_fraction_history_n
+        local step = 1 / _settings.flow_fraction_sample_frequency
+        while self._flow_fraction_history_elapsed > step do
             local first_fraction = self._flow_fraction_history[1]
             local new_fraction = (next_flow_fraction - self._last_flow_fraction) > 0 and 1 or -1
-
             table.remove(self._flow_fraction_history, 1)
             table.insert(self._flow_fraction_history, new_fraction)
-
             self._flow_fraction_history_sum = self._flow_fraction_history_sum - first_fraction + new_fraction
 
-            self._velocity_history_elapsed = self._velocity_history_elapsed - step
+            self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed - step
         end
 
-        local x_average, y_average = self._velocity_history_x_sum / n, self._velocity_history_y_sum / n
-        local fraction_average = self._flow_fraction_history_sum / n
-
-        local current_velocity, target_velocity = math.max(math.abs(x_average), math.abs(y_average)), nil
-
-        -- if velocity meets either threshold, check if progress was made along flow graph
-        local weight, should_increase = 1, false
-        if x_average >= _settings.flow_threshold_velocity_x and math.sign(next_velocity_x) then
-            weight = math.min(math.abs(current_velocity - _settings.flow_threshold_velocity_x) / _settings.flow_threshold_velocity_x, 1)
-            should_increase = true
-        elseif y_average >= _settings.flow_threshold_velocity_y and math.sign(next_velocity_y) then
-            weight = math.min(math.abs(current_velocity - _settings.flow_threshold_velocity_y) / _settings.flow_threshold_velocity_y, 1)
-            should_increase = true
-        else
-            should_increase = false
-        end
-
-
-        should_increase = fraction_average > 0
-        dbg(fraction_average)
         self._last_flow_fraction = next_flow_fraction
 
+        local fraction_average = self._flow_fraction_history_sum / n
+        local should_increase = fraction_average > 0
 
+        local target_velocity
         if should_increase then
             target_velocity = _settings.flow_increase_velocity
         else
             target_velocity = -1 * _settings.flow_decrease_velocity
         end
 
-        _flow_active = should_increase
-
         local acceleration = (target_velocity - self._flow_velocity)
         self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
         self._flow = self._flow + self._flow_velocity * delta
-        self._flow = math.clamp(self._flow, 0, 1)
+        self._flow = 1 --math.clamp(self._flow, 0, 1)
     end
 
     if self._skip_next_flow_update == true then
@@ -1099,6 +1060,7 @@ function ow.Player:draw()
     )
 
     love.graphics.setColor(r, g, b, 0.7 + self:get_flow())
+
     love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
 
     rt.graphics.set_blend_mode(nil)
@@ -1150,7 +1112,7 @@ function ow.Player:draw()
 
     love.graphics.push()
     love.graphics.origin()
-    if _flow_active == true then
+    do
         local w, h = 10, 100
         local x, y = 50, 50
         local padding = 1
@@ -1337,11 +1299,8 @@ end
 --- @brief
 function ow.Player:reset_flow()
     self._flow = 0
-    self._velocity_history_x_sum = 0
-    self._velocity_history_x = table.rep(0, _settings.flow_velocity_history_n)
-    self._velocity_history_y_sum = 0
-    self._velocity_history_y = table.rep(0, _settings.flow_velocity_history_n)
-    self._velocity_history_elapsed = 0
+    self._flow_fraction_history_sum = 0
+    self._flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n)
 end
 
 --- @brief

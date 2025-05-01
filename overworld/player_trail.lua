@@ -101,7 +101,7 @@ function ow.PlayerTrail:draw()
     local x, y = player:get_physics_body():get_predicted_position()
 
     -- draw glow
-    self:_draw_glow(x, y, player:get_flow())
+    self:_draw_glow(x, y, player:get_flow() * 0.5)
 
     -- draw boom
     local vx, vy = player:get_physics_body():get_linear_velocity()
