@@ -27,7 +27,7 @@ rt.settings.overworld.player = {
     flow_threshold_velocity_x = 300 * 0.5,
     flow_threshold_velocity_y = 70,
     flow_increase_velocity = 1 / 200, -- percent per second
-    flow_decrease_velocity = 40,
+    flow_decrease_velocity = 1,
     flow_max_velocity = 1, -- percent per second
     flow_velocity_history_n = 100, -- n samples
     flow_velocity_history_sample_frequency = 60, -- n samples per second
@@ -235,6 +235,10 @@ function ow.Player:instantiate(scene, stage)
         _velocity_history_x_sum = 0,
         _velocity_history_y = table.rep(0, _settings.flow_velocity_history_n),
         _velocity_history_y_sum = 0,
+
+        _flow_fraction_history = table.rep(0, _settings.flow_velocity_history_n),
+        _flow_fraction_history_sum = 0,
+
         _velocity_history_elapsed = 0,
         _last_flow_fraction = 0,
         _skip_next_flow_update = true, -- skip when spawning
@@ -727,6 +731,8 @@ function ow.Player:update(delta)
 
         -- compute average velocity over last n steps
         local current_position_x, current_position_y = self._body:get_position()
+        local next_flow_fraction = self._stage:get_flow_fraction()
+
         local n = _settings.flow_velocity_history_n
         local step = 1 / _settings.flow_velocity_history_sample_frequency
         while self._velocity_history_elapsed > step do
@@ -735,7 +741,6 @@ function ow.Player:update(delta)
             if new_x < self._radius then new_x = 0 end
             table.remove(self._velocity_history_x, 1)
             table.insert(self._velocity_history_x, new_x)
-
             self._velocity_history_x_sum = self._velocity_history_x_sum - first_x + new_x
 
             local first_y = self._velocity_history_y[1]
@@ -743,13 +748,22 @@ function ow.Player:update(delta)
             if new_y < self._radius then new_y = 0 end
             table.remove(self._velocity_history_y, 1)
             table.insert(self._velocity_history_y, new_y)
-
             self._velocity_history_y_sum = self._velocity_history_y_sum - first_y + new_y
+
+            local first_fraction = self._flow_fraction_history[1]
+            local new_fraction = (next_flow_fraction - self._last_flow_fraction) > 0 and 1 or -1
+
+            table.remove(self._flow_fraction_history, 1)
+            table.insert(self._flow_fraction_history, new_fraction)
+
+            self._flow_fraction_history_sum = self._flow_fraction_history_sum - first_fraction + new_fraction
 
             self._velocity_history_elapsed = self._velocity_history_elapsed - step
         end
 
         local x_average, y_average = self._velocity_history_x_sum / n, self._velocity_history_y_sum / n
+        local fraction_average = self._flow_fraction_history_sum / n
+
         local current_velocity, target_velocity = math.max(math.abs(x_average), math.abs(y_average)), nil
 
         -- if velocity meets either threshold, check if progress was made along flow graph
@@ -764,21 +778,19 @@ function ow.Player:update(delta)
             should_increase = false
         end
 
-        local next_flow_fraction = self._stage:get_flow_fraction()
 
-        if next_flow_fraction <= self._last_flow_fraction then
-            should_increase = false
-        else
-            should_increase = true
-        end
+        should_increase = fraction_average > 0
+        dbg(fraction_average)
         self._last_flow_fraction = next_flow_fraction
 
 
         if should_increase then
-            target_velocity = _settings.flow_increase_velocity * weight
+            target_velocity = _settings.flow_increase_velocity
         else
-            target_velocity = -1 * _settings.flow_decrease_velocity * weight
+            target_velocity = -1 * _settings.flow_decrease_velocity
         end
+
+        _flow_active = should_increase
 
         local acceleration = (target_velocity - self._flow_velocity)
         self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
@@ -1138,7 +1150,7 @@ function ow.Player:draw()
 
     love.graphics.push()
     love.graphics.origin()
-    do
+    if _flow_active == true then
         local w, h = 10, 100
         local x, y = 50, 50
         local padding = 1
