@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 6,
-  nextobjectid = 401,
+  nextobjectid = 402,
   properties = {
     ["title"] = "Boosting"
   },
@@ -4606,6 +4606,19 @@ return {
           y = 1824,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 401,
+          name = "Goal",
+          type = "Goal",
+          shape = "rectangle",
+          x = -747.051,
+          y = -2864,
+          width = 248.136,
+          height = 416,
           rotation = 0,
           visible = true,
           properties = {}

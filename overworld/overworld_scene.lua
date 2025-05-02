@@ -598,3 +598,8 @@ end
 function ow.OverworldScene:get_is_body_visible(body)
     return self._visible_bodies[body] == true
 end
+
+--- @brief
+function ow.OverworldScene:finish_stage()
+    rt.warning("In ow.Stage.finish_stage: TODO")
+end

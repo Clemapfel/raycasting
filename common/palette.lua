@@ -109,6 +109,7 @@ do -- load from image
     rt.Palette.CHECKPOINT = rt.Palette.MINT
     rt.Palette.HOOK_BASE = rt.Palette.GRAY_8
     rt.Palette.HOOK_OUTLINE = rt.Palette.GRAY_2
+    rt.Palette.GOAL = rt.Palette.WHITE
 end
 
 rt.Palette.COIN_COLORS = {

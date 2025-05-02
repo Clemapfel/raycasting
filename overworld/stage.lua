@@ -67,6 +67,8 @@ function ow.Stage:instantiate(scene, id)
         _flow_graph = nil, -- ow.FlowGraph
         _flow_fraction = 0,
 
+        _goals = {}, -- Set
+
         _active_checkpoint = nil,
     })
 
@@ -183,6 +185,17 @@ function ow.Stage:instantiate(scene, id)
         self._flow_graph = ow.FlowGraph(self._flow_graph_nodes)
     end
     self._flow_fraction = 0
+
+    local n_goals = 0
+    for goal in keys(self._goals) do
+        n_goals = n_goals + 1
+    end
+
+    if n_goals == 0 then
+        rt.warning("In ow.Stage.initialize: no `Goal` object present in stage `" .. self._id .. "`")
+    else
+        rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `" .. self._id .. "`")
+    end
 end
 
 --- @brief
@@ -352,4 +365,9 @@ end
 --- @brief
 function ow.Stage:_notify_flow_graph_node_added(node)
     table.insert(self._flow_graph_nodes, node)
+end
+
+--- @brief
+function ow.Stage:_notify_goal_added(goal)
+    self._goals[goal] = true
 end

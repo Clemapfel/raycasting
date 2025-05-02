@@ -110,7 +110,7 @@ end
 
 local _elapsed = 0
 local _step = 1 / 120
-local _max_n_steps_per_frame = 3
+local _max_n_steps_per_frame = math.huge
 local _n_velocity_iterations = 4
 
 --- @brief
@@ -149,6 +149,8 @@ function b2.World:update(delta)
 
         _elapsed = _elapsed - _step
         n_steps = n_steps + 1
+
+        if n_steps >= _max_n_steps_per_frame then break end
     end
 
     self._interpolation_factor = _elapsed / _step -- for interpolation
