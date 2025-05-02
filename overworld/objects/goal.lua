@@ -26,6 +26,9 @@ function ow.Goal:instantiate(object, stage, scene)
     self._elapsed = 0
     self._camera_offset = { 0, 0 }
     self._camera_scale = 1
+    self._player_position = { 0, 0 }
+    self._player_radius = 0
+    self._size = { self._width, self._height }
     self._color = { rt.Palette.GOAL:unpack() }
 
     self._body:set_is_sensor(true)
@@ -57,6 +60,14 @@ function ow.Goal:update(delta)
     local camera = self._scene:get_camera()
     self._camera_offset = { camera:get_offset() }
     self._camera_scale = camera:get_scale()
+
+    local player = self._scene:get_player()
+    local px, py = player:get_position()
+    px = (px - self._x) / self._width
+    py = (py - self._y) / self._height
+    self._player_position = { px, py }
+    self._player_radius = player:get_radius()
+
     self._elapsed = self._elapsed + delta
 end
 
@@ -71,6 +82,10 @@ function ow.Goal:draw()
     _shader:send("camera_scale", self._camera_scale)
     _shader:send("elapsed", self._elapsed)
     _shader:send("color", self._color)
+    _shader:send("player_position", self._player_position)
+    _shader:send("player_radius", self._player_radius)
+    _shader:send("size", self._size)
+
     love.graphics.rectangle("fill", self._x, self._y, self._width, self._height)
     _shader:unbind()
 
