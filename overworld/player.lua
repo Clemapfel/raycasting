@@ -56,10 +56,16 @@ rt.settings.overworld.player = {
 
     spring_multiplier = 1.2,
     spring_constant = 1.8,
+    joint_force_threshold = 1000,
+    joint_length_threshold = 100,
+
+    bubble_radius_factor = 1.5,
+    bubble_gravity = -0.005,
+    bubble_inner_radius_scale = 1.7,
 
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
-    downwards_force_factor = 2, -- times gravity
+    downwards_force = 3000,
     wall_regular_friction = 0.8, -- times of gravity
     ground_regular_friction = 0,
     ground_slippery_friction = -0.2,
@@ -97,7 +103,7 @@ meta.add_signals(ow.Player,
 
 ow.PlayerState = meta.enum("OverworldPlayerState", {
     ACTIVE = 1,
-    DISABLED = 2
+    DISABLED = 2,
 })
 
 --- @brief
@@ -169,6 +175,8 @@ function ow.Player:instantiate(scene, stage)
         _use_friction = true,
         _use_wall_friction = true,
 
+        _gravity = 1, -- [-1, 1]
+
         -- controls
         _joystick_position = 0, -- x axis
         _use_controller_input = rt.InputManager:get_input_method() == rt.InputMethod.CONTROLLER,
@@ -196,6 +204,7 @@ function ow.Player:instantiate(scene, stage)
         _outer_body_mesh_origin_x = 0,
         _outer_body_mesh_origin_y = 0,
         _outer_body_center_mesh = nil,
+        _outer_body_center_mesh_scaled = nil,
         _outer_body_centers_x = {},
         _outer_body_centers_y = {},
         _outer_body_angles = {},
@@ -242,6 +251,9 @@ function ow.Player:instantiate(scene, stage)
         _skip_next_flow_update = true, -- skip when spawning
 
         _flow_is_frozen = false,
+
+        -- bubble
+        _is_bubble = false,
 
         _input = rt.InputSubscriber()
     })
@@ -314,6 +326,12 @@ function ow.Player:_connect_input()
         self._down_button_is_down = y > eps
         self._right_button_is_down = x > eps
         self._left_button_is_down = x < -eps
+    end)
+
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "g" then
+            self:set_is_bubble(not self:get_is_bubble())
+        end
     end)
 end
 
@@ -435,8 +453,6 @@ function ow.Player:update(delta)
         current_velocity_x = current_velocity_x / self._velocity_multiplier_x
         current_velocity_y = current_velocity_y / self._velocity_multiplier_y
 
-        local step = target_velocity_x - current_velocity_x
-
         local is_accelerating = (target_velocity_x > 0 and current_velocity_x > 0 and target_velocity_x > current_velocity_x) or
             (target_velocity_x < 0 and current_velocity_x < 0 and target_velocity_x < current_velocity_x) or
             (target_velocity_x < 0 and current_velocity_x > 0 or target_velocity_x > 0 and current_velocity_y < 0)
@@ -475,13 +491,13 @@ function ow.Player:update(delta)
             next_velocity_x = self._joystick_x * next_velocity_x
         end
 
-        if not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
+        if not self._is_bubble and not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
             next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
         end
 
         local ground_friction_applied = false
 
-        if bottom_wall_body ~= nil then -- ground friction
+        if bottom_wall_body ~= nil and not self._is_bubble then -- ground friction
             local nx, ny
             local friction = 0
 
@@ -518,8 +534,7 @@ function ow.Player:update(delta)
         end
 
 
-
-        if not ground_friction_applied and self._use_wall_friction then
+        if not ground_friction_applied and self._use_wall_friction and not self._is_bubble then
             -- magnetize to walls, decrease based on how far wall is from vertical
             local magnet_force = _settings.wall_magnet_force
             if self._left_wall and not self._right_wall and self._left_button_is_down and not left_wall_body:has_tag("slippery")then
@@ -606,33 +621,44 @@ function ow.Player:update(delta)
         end
         self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
 
-        -- safeguard against one of the springs catching
+        -- manual spring simulation
         local spring_length = self._radius
         local total_force_x, total_force_y = 0, 0
         local spring_constant = _settings.spring_constant
 
-        for i, body in ipairs(self._spring_bodies) do
-            local body_x, body_y = body:get_position()
-            local distance = math.distance(x, y, body_x, body_y)
-            local displacement = math.max(distance - spring_length, 0)
+        if not self._is_bubble then
+            for i, body in ipairs(self._spring_bodies) do
+                local joint = self._spring_joints[i]
+                local force_too_high = joint:get_force() > _settings.joint_force_threshold
+                local distance_too_long = joint:get_distance() > _settings.joint_length_threshold
 
-            local force_magnitude = -spring_constant * displacement
-            total_force_x = total_force_x + force_magnitude * (body_x - x) / distance
-            total_force_y = total_force_y + force_magnitude * (body_y - y) / distance
-        end
+                local body_x, body_y = body:get_position()
+                if not (force_too_high or distance_too_long) and not body:get_is_sensor() then
+                    local distance = math.distance(x, y, body_x, body_y)
+                    local displacement = math.max(distance - spring_length, 0)
 
-        local spring_impulse = math.magnitude(total_force_x, total_force_y)
-        next_velocity_y = next_velocity_y - spring_impulse
+                    local force_magnitude = -spring_constant * displacement
+                    total_force_x = total_force_x + force_magnitude * (body_x - x) / distance
+                    total_force_y = total_force_y + force_magnitude * (body_y - y) / distance
+                end
 
-        if spring_impulse >= gravity then
-            can_jump = true
-            can_wall_jump = true
+                -- disable collision if stuck
+                self._spring_bodies[i]:set_is_sensor(force_too_high or distance_too_long)
+            end
+
+            local spring_impulse = math.magnitude(total_force_x, total_force_y)
+            next_velocity_y = next_velocity_y - spring_impulse
+
+            if spring_impulse >= gravity then
+                can_jump = true
+                can_wall_jump = true
+            end
         end
 
         self._can_jump = can_jump
         self._can_wall_jump = can_wall_jump
 
-        if self._jump_button_is_down then
+        if self._jump_button_is_down and not self._is_bubble then
             if can_jump and self._jump_elapsed < _settings.jump_duration then
                 -- regular jump: accelerate upwards wil jump button is down
                 self._coyote_elapsed = 0
@@ -694,12 +720,31 @@ function ow.Player:update(delta)
         self._bounce_elapsed = self._bounce_elapsed + delta
 
         -- downwards force
-        if self._down_button_is_down then
-            local factor = _settings.downwards_force_factor
-            next_velocity_y = next_velocity_y + factor * gravity
+        if self._down_button_is_down and not self._is_bubble then
+            next_velocity_y = next_velocity_y + _settings.downwards_force * delta
         end
 
-        -- gravity
+        -- bubble vertical movement
+        if self._is_bubble then
+            -- use same physics as horizontal air movement
+            if self._down_button_is_down then
+                local target = _settings.air_target_velocity_x
+                local current = current_velocity_y
+                if current <= target then -- no deceleration
+                    local velocity_change = (target - current) / _settings.air_acceleration_duration
+                    next_velocity_y = next_velocity_y + velocity_change * delta
+                end
+            elseif self._up_button_is_down then
+                local target = -1 * _settings.air_target_velocity_x
+                local current = current_velocity_y
+                if current >= target then
+                    local velocity_change = (target - current) / _settings.air_acceleration_duration
+                    next_velocity_y = next_velocity_y + velocity_change * delta
+                end
+            end
+        end
+
+        -- gravity, don't apply when bubble
         next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
         next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
@@ -837,6 +882,7 @@ function ow.Player:move_to_stage(stage)
     self._trail:clear()
     self:reset_flow()
     self._last_flow_fraction = 0
+    self._gravity_multiplier = 1
 
     local world = stage:get_physics_world()
     if world == self._world then return end
@@ -907,8 +953,31 @@ function ow.Player:move_to_stage(stage)
         table.insert(self._spring_body_offsets_y, offset_y)
     end
 
+    local dangle = 0.5
+    self._center_body = b2.Body(self._world, b2.BodyType.DYNAMIC, x, y + dangle, inner_body_shape)
+    self._center_body:set_collides_with(0x0)
+    self._center_body:set_is_sensor(true)
+    self._center_body:set_mass(10e-5)
+
+    self._center_rope = love.physics.newRopeJoint(
+        self._body:get_native(),
+        self._center_body:get_native(),
+        x, y,
+        x, y + dangle,
+        dangle,
+        false
+    )
+
+    self._center_friction = love.physics.newFrictionJoint(
+        self._body:get_native(),
+        self._center_body:get_native(),
+        x, y
+    )
+
+    self._center_friction:setMaxForce(0.1)
+
     -- true mass
-    self._mass = self._body:get_mass()
+    self._mass = self._body:get_mass() + self._center_body:get_mass()
     for body in values(self._spring_bodies) do
         self._mass = self._mass + body:get_mass()
     end
@@ -976,11 +1045,15 @@ function ow.Player:move_to_stage(stage)
         self._outer_body_mesh_origin_x, self._outer_body_mesh_origin_y = -x_radius, 0 -- top of left bulb
 
         self._outer_body_center_mesh = rt.MeshCircle(0, 0, _settings.inner_body_radius)
-        for i = 1, self._outer_body_center_mesh:get_n_vertices() do
-            if i == 1 then
-                self._outer_body_center_mesh:set_vertex_color(i, ar, ag, ab, 1)
-            else
-                self._outer_body_center_mesh:set_vertex_color(i, br, bg, bb, 1)
+        self._outer_body_center_mesh_scaled = rt.MeshCircle(0, 0, _settings.inner_body_radius * _settings.bubble_inner_radius_scale)
+
+        for mesh in range(self._outer_body_center_mesh, self._outer_body_center_mesh_scaled) do
+            for i = 1, mesh:get_n_vertices() do
+                if i == 1 then
+                    mesh:set_vertex_color(i, ar, ag, ab, 1)
+                else
+                    mesh:set_vertex_color(i, br, bg, bb, 1)
+                end
             end
         end
     end
@@ -1061,8 +1134,11 @@ function ow.Player:draw()
 
     love.graphics.setColor(r, g, b, 0.7 + self:get_flow())
 
-    love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
-
+    if self._is_bubble then
+        love.graphics.draw(self._outer_body_center_mesh_scaled:get_native(), self._center_body:get_predicted_position())
+    else
+        love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
+    end
     rt.graphics.set_blend_mode(nil)
     love.graphics.setColor(r, g, b, 0.3)
     for tri in values(self._outer_body_tris) do
@@ -1323,4 +1399,41 @@ function ow.Player:get_hue()
     return self._hue
 end
 
+--- @brief
+function ow.Player:set_gravity(x)
+    self._gravity_multiplier = x
+end
 
+--- @brief
+function ow.Player:get_gravity()
+    return self._gravity_multiplier
+end
+
+--- @brief
+function ow.Player:set_is_bubble(b)
+    local factor = _settings.bubble_radius_factor
+    if b then
+        for joint in values(self._spring_joints) do
+            joint._prismatic_joint:setLimits(radius, factor * radius)
+            joint._distance_joint:setLength(radius)
+        end
+        self._gravity_multiplier = _settings.bubble_gravity
+        self._center_rope:setMaxLength(5)
+        local vx, vy = self._body:get_linear_velocity()
+        self._body:set_linear_velocity(vx, math.min(vy, 0))
+    else
+        for joint in values(self._spring_joints) do
+            joint._prismatic_joint:setLimits(radius, radius)
+            joint._distance_joint:setLength(radius)
+        end
+        self._gravity_multiplier = 1
+        self._center_rope:setMaxLength(0.5)
+    end
+
+    self._is_bubble = b
+end
+
+--- @brief
+function ow.Player:get_is_bubble()
+    return self._is_bubble
+end

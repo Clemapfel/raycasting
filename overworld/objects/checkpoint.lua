@@ -98,6 +98,15 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         self._bottom_x, self._bottom_y = bottom_x, bottom_y
         self._top_x, self._top_y = top_x, top_y
 
+        local player = self._scene:get_player()
+        if math.distance(self._bottom_x, self._bottom_y, self._x, self._y) < player:get_radius() * 2 then
+            rt.warning("In CheckPoint.initialize: checkpoint `" .. object.id .. "` does not have sufficient space below it")
+        end
+
+        if math.distance(self._top_x, self._top_y, self._x, self._y) < player:get_radius() * 2 then
+            rt.warning("In CheckPoint.initialize: checkpoint `" .. object.id .. "` does not have sufficient space above it")
+        end
+
         self._body = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
             self._x, self._y,
             b2.Segment(
@@ -215,6 +224,7 @@ function ow.Checkpoint:spawn()
     player:set_velocity(0, rt.settings.overworld.player.air_target_velocity_x)
     player:set_trail_visible(false)
     player:teleport_to(self._x, self._y)
+    player:set_gravity(1)
     player:set_flow_velocity(0)
     self._waiting_for_player = true
     self._spawn_duration_elapsed = 0

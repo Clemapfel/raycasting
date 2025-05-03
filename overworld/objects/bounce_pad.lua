@@ -57,6 +57,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:set_collision_group(bounce_group)
 
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
+        if cx == nil then return end -- player is sensor
+
         local player = self._scene:get_player()
         local restitution = player:bounce(nx, ny)
 

@@ -42,6 +42,7 @@ function b2.Spring:_initialize()
             x2, y2,
             false
         )
+
     })
 
     self._prismatic_joint:setLimitsEnabled(true)
@@ -53,4 +54,9 @@ end
 function b2.Spring:get_distance()
     if self._is_disabled then return 0 end
     return math.abs(self._prismatic_joint:getJointTranslation())
+end
+
+--- @brief
+function b2.Spring:get_force()
+    return self._prismatic_joint:getJointSpeed()
 end

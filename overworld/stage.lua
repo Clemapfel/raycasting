@@ -224,7 +224,9 @@ function ow.Stage:update(delta)
         object:update(delta)
     end
 
-    self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
+    if self._flow_graph ~= nil then
+        self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
+    end
 end
 
 --- @brief

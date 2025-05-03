@@ -85,14 +85,14 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     ));
     vec2 player_offset = vec2(dFdx(player_weight), dFdy(player_weight)) * 10;
 
-    uv.x -= elapsed / 20;
+    uv.x -= elapsed / 50;
 
     float distortion_ramp = 2;
 
     float fade_out = gaussian(texture_position.x, 1);
     float boost = gaussian(texture_position.x, 8) * 0.5;
 
-    float distortion_strength = 0.1;
+    float distortion_strength = 0.14;
     float distortion_scale = 20;
     float distortion_speed = 1 / 2.0;
     vec2 distortion = vec2(
