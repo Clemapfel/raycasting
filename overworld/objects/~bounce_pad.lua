@@ -1,11 +1,13 @@
 rt.settings.overworld.bounce_pad = {
-    cooldown = 1 / 60,
-    -- bounce simulation parameters
+    -- bounce animation
+    bounce_max_offset = rt.settings.overworld.player.radius * 0.5, -- in px
+    color_decay_duration = 1,
+
+    -- bounce animation simulation parameters
     stiffness = 10,
     damping = 0.95,
-    center = 0,
+    origin = 0,
     magnitude = 100,
-    bounce_magnitude_min = 0.3
 }
 
 --- @class ow.BouncePad
@@ -13,125 +15,203 @@ ow.BouncePad = meta.class("BouncePad", rt.Drawable)
 
 --- @brief
 function ow.BouncePad:instantiate(object, stage, scene)
-    local angle = object.rotation
+
     meta.install(self, {
         _scene = scene,
-        _world = stage:get_physics_world(),
         _body = object:create_physics_body(stage:get_physics_world()),
-        _cooldown_timestamp = -math.huge, -- prevent multiple impulses per step
 
-        _bounce_axis_x = 0,
-        _bounce_axis_y = 1,
-        _bounce_origin_x = 0,
-        _bounce_origin_y = 0,
+        -- animation
+        _vertices = {},
+        _angle = object.rotation,
+        _x = object.x,
+        _y = object.y,
+        _width = object.width,
+        _height = object.height,
+        _rotation_origin_x = object.origin_x,
+        _rotation_origin_y = object.origin_y,
+        _bounce_contact_x = 0,
+        _bounce_contact_y = 0,
 
-        _bounce_position = 1, -- in [0, 1]
-        _bounce_velocity = 1,
+        _draw_x = object.x,
+        _draw_y = object.y,
+        _draw_width = object.width,
+        _draw_height = object.height,
 
-        _color = rt.Palette.BOUNCE_PAD
+        _bounce_position = rt.settings.overworld.bounce_pad.origin, -- in [0, 1]
+        _bounce_velocity = 0,
+        _is_bouncing = true,
+        _color_elapsed = math.huge,
+
+        _default_color = { rt.Palette.BOUNCE_PAD:unpack() }
     })
+    self._color = self._default_color
+    self._draw_color = self._color
 
-    self._body:add_tag("no_blood")
-    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+    self:_update_vertices()
 
-    self._body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, x1, y1, x2, y2, contact)
-        local player = other_body:get_user_data()
-        if player == nil then return end
+    self._body:add_tag("slippery", "no_blood", "unjumpable")
 
-        self._color = player:get_color()
+    local bounce_group = rt.settings.overworld.player.bounce_collision_group
+    self._body:set_collides_with(bounce_group)
+    self._body:set_collision_group(bounce_group)
 
-        if other_body:get_is_sensor() then return end
+    self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
+        if cx == nil then return end -- player is sensor
 
-        contact:setRestitution(0)
-        local elapsed = love.timer.getTime() - self._cooldown_timestamp
-        if elapsed < rt.settings.overworld.bounce_pad.cooldown then
-            return
-        else
-            player:bounce(normal_x, normal_y)
-            self._cooldown_timestamp = love.timer.getTime()
-        end
+        local player = self._scene:get_player()
+        local restitution = player:bounce(nx, ny)
 
-        if x2 ~= nil or y2 ~= nil then
-            x1 = (x1 + x2) / 2
-            y1 = (y1 + y2) / 2
-        end
+        -- animation
+        self._color = { rt.lcha_to_rgba(0.9, 1, player:get_hue(), 1) }
+        self._color_elapsed = 0
 
-        -- get opposite side of shape
-        local px, py = player:get_position()
-        local dx, dy = px - x1, py - y1
-        dx, dy = -dx, -dy
+        self._bounce_velocity = restitution
+        self._bounce_position = restitution
+        self._bounce_contact_x, self._bounce_contact_y = cx, cy
+        self._is_bouncing = true
+    end)
+end
 
-        local ray_origin_x, ray_origin_y = px + dx * 10e6, py + dy * 10e6
-        local ray_destination_x, ray_destination_y = px, py
+local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
 
-        local shape = table.first(self._body:get_native():getShapes())
-        local tx, ty = self._body:get_position()
-        local angle = self._body:get_rotation()
+-- get distance between point and segment
+function _point_to_segment_distance(px, py, x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local length_sq = dx * dx + dy * dy
 
-        local cx, cy = x1, y1
-        if x2 ~= nil or y2 ~= nil then -- if two points, use mean
-            cx = (x1 + x2) / 2
-            cy = (y1 + y2) / 2
-        end
+    local t = ((px - x1) * dx + (py - y1) * dy) / length_sq
+    t = math.max(0, math.min(1, t))
 
-        local success, nx, ny, fraction = pcall(shape.rayCast, shape, ray_origin_x, ray_origin_y, ray_destination_x, ray_destination_y, 2, tx, ty, angle)
-        if not success or nx == nil or ny == nil then return end
+    local nearest_x = x1 + t * dx
+    local nearest_y = y1 + t * dy
 
-        local hit_x = ray_origin_x + (ray_destination_x - ray_origin_x) * fraction
-        local hit_y = ray_origin_y + (ray_destination_y - ray_origin_y) * fraction
-        self._bounce_axis_x, self._bounce_axis_y = math.normalize(px - x1, py - y1)
-        self._bounce_origin_x, self._bounce_origin_y = hit_x, hit_y
+    local dist_x = px - nearest_x
+    local dist_y = py - nearest_y
+    return math.sqrt(dist_x * dist_x + dist_y * dist_y) --, nearest_x, nearest_y
+end
 
-        local magnitude = math.min(math.magnitude(player:get_velocity()) / rt.settings.overworld.player.bounce_max_force, 1)
-        self._bounce_velocity = magnitude
-        self._bounce_position = math.max(magnitude, rt.settings.overworld.bounce_pad.bounce_magnitude_min)
+--- @brief
+function ow.BouncePad:_update_vertices()
+    local x, y, w, h = self._x, self._y, self._width, self._height
+    local angle = self._angle
+    local ox, oy = self._rotation_origin_x, self._rotation_origin_y
+    local contact_x, contact_y = self._bounce_contact_x, self._bounce_contact_y
+
+    local vertices = {
+        [1] = { math.rotate(x,     y,     angle, ox, oy) }, -- top left
+        [2] = { math.rotate(x + w, y,     angle, ox, oy) }, -- top right
+        [3] = { math.rotate(x + w, y + h, angle, ox, oy) }, -- bottom right
+        [4] = { math.rotate(x,     y + h, angle, ox, oy) }, -- bottom left
+    }
+
+    -- find closest side to contact point
+    local segments = {
+        {1, 2},
+        {2, 3},
+        {3, 4},
+        {4, 1}
+    }
+
+    -- sort segments by distance to contact point
+    for segment in values(segments) do
+        local x1, y1 = table.unpack(vertices[segment[1]])
+        local x2, y2 = table.unpack(vertices[segment[2]])
+        segment[3] = _point_to_segment_distance(contact_x, contact_y, x1, y1, x2, y2)
+    end
+
+    table.sort(segments, function(a, b)
+        return a[3] < b[3]
     end)
 
-    self._body:signal_connect("collision_end", function()
-        self._color = rt.Palette.BOUNCE_PAD
-    end)
+    local closest_i1, closest_i2 = segments[1][1], segments[1][2]
 
+    -- get axis of scaling, orthogonal two line between two closest
+
+    local side_x, side_y = math.turn_left(
+        vertices[closest_i2][1] - vertices[closest_i1][1],
+        vertices[closest_i2][2] - vertices[closest_i1][2]
+    )
+
+    local axis_x, axis_y = math.normalize(side_x, side_y)
+    local magnitude = offset
+    local scale = self._bounce_position
+
+    axis_x = axis_x * scale * magnitude
+    axis_y = axis_y * scale * magnitude
+
+    -- scale only two closest vertices for bounce animation
+    vertices[closest_i1][1] = vertices[closest_i1][1] + axis_x
+    vertices[closest_i1][2] = vertices[closest_i1][2] + axis_y
+    vertices[closest_i2][1] = vertices[closest_i2][1] + axis_x
+    vertices[closest_i2][2] = vertices[closest_i2][2] + axis_y
+
+    local top_left_x, top_left_y = math.rotate(vertices[1][1], vertices[1][2], -angle, ox, oy)
+    local bottom_right_x, bottom_right_y = math.rotate(vertices[3][1], vertices[3][2], -angle, ox, oy)
+
+    self._draw_x = top_left_x
+    self._draw_y = top_left_y
+    self._draw_width = math.abs(bottom_right_x - top_left_x)
+    self._draw_height = math.abs(bottom_right_y - top_left_y)
 end
 
 -- simulate ball-on-a-spring for bouncing animation
 local stiffness = rt.settings.overworld.bounce_pad.stiffness
-local center = rt.settings.overworld.bounce_pad.center
+local origin = rt.settings.overworld.bounce_pad.origin
 local damping = rt.settings.overworld.bounce_pad.damping
 local magnitude = rt.settings.overworld.bounce_pad.magnitude
-
---- @brief
-function ow.BouncePad:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
-
-    self._color:bind()
-
-    local scale = self._bounce_position * 0.2
-    local x, y = self._bounce_origin_x, self._bounce_origin_y
-    local axis_x, axis_y = self._bounce_axis_x, self._bounce_axis_y
-
-    love.graphics.push()
-    love.graphics.translate(x, y)
-    love.graphics.scale(1, 1 + scale)
-    love.graphics.rotate(self._body:get_rotation())
-
-    love.graphics.translate(-x, -y)
-
-    self._body:draw()
-    love.graphics.pop()
-
-    love.graphics.line(x, y, x + self._bounce_axis_x * scale, y + self._bounce_axis_y * scale)
-end
+local color_duration = rt.settings.overworld.bounce_pad.color_decay_duration
 
 --- @brief
 function ow.BouncePad:update(delta)
-    if math.abs(self._bounce_velocity) > 1 / magnitude then
-        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - center) * stiffness
+    if self._color_elapsed <= color_duration then
+        self._color_elapsed = self._color_elapsed + delta
+
+        local default_r, default_g, default_b = table.unpack(self._default_color)
+        local target_r, target_g, target_b = table.unpack(self._color)
+        local weight = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / color_duration, 1))
+
+        self._draw_color = {
+            math.mix(default_r, target_r, weight),
+            math.mix(default_g, target_g, weight),
+            math.mix(default_b, target_b, weight),
+            1
+        }
+    end
+
+    if self._is_bouncing then
+        local before = self._bounce_position
+        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
         self._bounce_velocity = self._bounce_velocity * damping
         self._bounce_position = self._bounce_position + self._bounce_velocity * delta
+
+        if math.abs(self._bounce_position - before) * offset < 10e-3 then -- more than 1 px change
+            self._bounce_position = 0
+            self._bounce_velocity = 0
+            self._is_bouncing = false
+        end
+        self:_update_vertices()
     end
 end
 
 --- @brief
-function ow.BouncePad:get_physics_body()
-    return self._body
+function ow.BouncePad:draw()
+    love.graphics.push()
+    love.graphics.translate(self._rotation_origin_x, self._rotation_origin_y)
+    love.graphics.rotate(self._angle)
+    love.graphics.translate(-self._rotation_origin_x, -self._rotation_origin_y)
+
+    local r, g, b = table.unpack(self._draw_color)
+
+    love.graphics.setColor(r, g, b, 0.9)
+    love.graphics.rectangle("fill", self._draw_x, self._draw_y, self._draw_width, self._draw_height, 5)
+
+    rt.graphics.set_blend_mode(nil)
+
+    love.graphics.setLineWidth(2)
+    love.graphics.setColor(r, g, b, 1)
+    love.graphics.rectangle("line", self._draw_x, self._draw_y, self._draw_width, self._draw_height, 5)
+
+    love.graphics.pop()
+
 end
