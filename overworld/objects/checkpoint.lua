@@ -41,6 +41,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _top_y = math.huge,
         _bottom_x = math.huge,
         _bottom_y = math.huge,
+        _player_spawn_x = 0,
+        _player_spawn_y = 0,
 
         _mesh_position_y = math.huge,
         _mesh_motion = rt.SmoothedMotion1D(0, rt.settings.overworld.player.target_velocity_y),
@@ -55,8 +57,22 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _elapsed_font_non_sdf = rt.settings.font.default_small:get_native(rt.FontStyle.REGULAR, false),
         _elapsed_font_sdf = rt.settings.font.default_small:get_native(rt.FontStyle.REGULAR, true),
 
+        _shader_elapsed = 0,
+        _shader_player_position = {0, 0},
+        _shader_player_radius = 0,
+        _shader_size = {1, 1},
+        _shader_camera_scale = 1,
+        _shader_camera_offset = {0, 0},
+        _shader_spawn_fraction = math.huge,
+
         _is_first_spawn = is_player_spawn
     })
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "5" then _ray_shader:recompile() end
+    end)
 
     local player_x, player_y = self._scene:get_player():get_position()
     self._mesh_motion:set_value(player_y)
@@ -100,7 +116,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
 
         self._bottom_x, self._bottom_y = bottom_x, bottom_y
         self._top_x, self._top_y = top_x, top_y
-        self._radius = self._scene:get_player():get_radius()
+        self._radius = self._scene:get_player():get_radius() * 4
 
         local player = self._scene:get_player()
         if math.distance(self._bottom_x, self._bottom_y, self._x, self._y) < player:get_radius() * 2 then
@@ -156,21 +172,43 @@ function ow.Checkpoint:pass()
     self._fireworks:spawn(n_particles, velocity, x, y, 0, -1.5, hue_min, hue_max) -- spew upwards
 
     player:set_flow(1)
-    self._passed = true
+    --self._passed = true
 
     rt.SoundManager:play(rt.settings.overworld.checkpoint.passed_sound_id)
 end
 
 --- @brief
 function ow.Checkpoint:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
+    local player = self._scene:get_player()
+    local camera = self._scene:get_camera()
+    self._shader_elapsed = self._shader_elapsed + delta
+
+    do
+        -- normalize player to local coordinates
+        local player_x, player_y = player:get_physics_body():get_predicted_position()
+        local w = 2 * self._radius
+        local h = self._bottom_y - self._top_y
+        player_x = (player_x - (self._x - self._radius)) / w
+        player_y = (player_y - self._top_y) / h
+        self._shader_player_position = { player_x, player_y }
+        self._shader_size = {w, h}
+    end
+
+    self._shader_radius = player:get_radius()
+    self._shader_camera_offset = { camera:get_offset() }
+    self._shader_camera_scale = camera:get_scale()
+
     if self._waiting_for_player then
         self._spawn_duration_elapsed = self._spawn_duration_elapsed + delta
 
-        local player = self._scene:get_player()
         local player_x, player_y = player:get_position()
+        local threshold = self._bottom_y - player:get_radius() * 2 * 2
+        self._shader_spawn_fraction = (player_y - self._player_spawn_y) / (threshold - self._player_spawn_y)
 
         -- spawn animation: once player reached location, unfreeze, with timer as failsafe
-        if player_y >= (self._bottom_y - player:get_radius()) or self._spawn_duration_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
+        if player_y >= threshold or self._spawn_duration_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             player:enable()
             player:set_trail_visible(true)
             self._waiting_for_player = false
@@ -226,10 +264,12 @@ function ow.Checkpoint:spawn()
     local player_y = math.max(self._top_y + player:get_radius(), self._bottom_y - screen_h - 2 * player:get_radius())
 
     player:teleport_to(self._top_x, player_y)
+    self._player_spawn_x, self._player_spawn_y = self._top_x, player_y
     player:set_gravity(1)
     player:set_flow_velocity(0)
     self._waiting_for_player = true
     self._spawn_duration_elapsed = 0
+    self._shader_spawn_fraction = 0
 
     self._scene:set_camera_mode(ow.CameraMode.MANUAL)
     if self._is_first_spawn then
@@ -242,7 +282,7 @@ function ow.Checkpoint:spawn()
     self._stage:set_active_checkpoint(self)
     player:signal_emit("respawn")
 
-    self._passed = true
+    --self._passed = true
     self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
 end
 
@@ -285,10 +325,19 @@ function ow.Checkpoint:draw()
         love.graphics.pop()
     end
 
+    _ray_shader:bind()
+    _ray_shader:send("elapsed", self._shader_elapsed)
+    _ray_shader:send("player_position", self._shader_player_position)
+    _ray_shader:send("player_radius", self._shader_player_radius)
+    _ray_shader:send("spawn_fraction", self._shader_spawn_fraction)
+    _ray_shader:send("size", self._shader_size)
+    _ray_shader:send("camera_offset", self._shader_camera_offset)
+    _ray_shader:send("camera_scale", self._shader_camera_scale)
     love.graphics.setColor(table.unpack(self._color))
     love.graphics.setLineWidth(2)
     love.graphics.rectangle("fill", self._top_x - self._radius, self._top_y, 2 * self._radius, self._bottom_y - self._top_y)
-    --love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
+    _ray_shader:unbind()
+    love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 end
 
 --- @brief
