@@ -117,6 +117,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         self._bottom_x, self._bottom_y = bottom_x, bottom_y
         self._top_x, self._top_y = top_x, top_y
         self._radius = self._scene:get_player():get_radius() * 4
+        self._shader_player_radius = self._scene:get_player():get_radius()
 
         local player = self._scene:get_player()
         if math.distance(self._bottom_x, self._bottom_y, self._x, self._y) < player:get_radius() * 2 then
@@ -172,7 +173,7 @@ function ow.Checkpoint:pass()
     self._fireworks:spawn(n_particles, velocity, x, y, 0, -1.5, hue_min, hue_max) -- spew upwards
 
     player:set_flow(1)
-    --self._passed = true
+    self._passed = true
 
     rt.SoundManager:play(rt.settings.overworld.checkpoint.passed_sound_id)
 end
@@ -184,6 +185,7 @@ function ow.Checkpoint:update(delta)
     local player = self._scene:get_player()
     local camera = self._scene:get_camera()
     self._shader_elapsed = self._shader_elapsed + delta
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
 
     do
         -- normalize player to local coordinates
@@ -210,10 +212,13 @@ function ow.Checkpoint:update(delta)
         -- spawn animation: once player reached location, unfreeze, with timer as failsafe
         if player_y >= threshold or self._spawn_duration_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             player:enable()
+            player:set_flow(0)
             player:set_trail_visible(true)
             self._waiting_for_player = false
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
         end
+    else
+        self._shader_spawn_fraction = self._shader_spawn_fraction + delta -- extends for use in shader animation
     end
 
     -- update graphics
@@ -244,7 +249,6 @@ function ow.Checkpoint:update(delta)
             end
 
             self._elapsed_text_height = self._elapsed_font_non_sdf:getHeight(self._elapsed_text)
-            self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
         end
     end
 end
@@ -282,8 +286,7 @@ function ow.Checkpoint:spawn()
     self._stage:set_active_checkpoint(self)
     player:signal_emit("respawn")
 
-    --self._passed = true
-    self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
+    self._passed = true
 end
 
 --- @brief
@@ -325,19 +328,22 @@ function ow.Checkpoint:draw()
         love.graphics.pop()
     end
 
-    _ray_shader:bind()
-    _ray_shader:send("elapsed", self._shader_elapsed)
-    _ray_shader:send("player_position", self._shader_player_position)
-    _ray_shader:send("player_radius", self._shader_player_radius)
-    _ray_shader:send("spawn_fraction", self._shader_spawn_fraction)
-    _ray_shader:send("size", self._shader_size)
-    _ray_shader:send("camera_offset", self._shader_camera_offset)
-    _ray_shader:send("camera_scale", self._shader_camera_scale)
-    love.graphics.setColor(table.unpack(self._color))
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("fill", self._top_x - self._radius, self._top_y, 2 * self._radius, self._bottom_y - self._top_y)
-    _ray_shader:unbind()
-    love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
+    if self._shader_spawn_fraction > 0 then
+        _ray_shader:bind()
+        _ray_shader:send("elapsed", self._shader_elapsed)
+        _ray_shader:send("player_position", self._shader_player_position)
+        _ray_shader:send("player_radius", self._shader_player_radius)
+        _ray_shader:send("spawn_fraction", self._shader_spawn_fraction)
+        _ray_shader:send("size", self._shader_size)
+        _ray_shader:send("camera_offset", self._shader_camera_offset)
+        _ray_shader:send("camera_scale", self._shader_camera_scale)
+        love.graphics.setColor(table.unpack(self._color))
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("fill", self._top_x - self._radius, self._top_y, 2 * self._radius, self._bottom_y - self._top_y)
+        _ray_shader:unbind()
+    end
+
+    --love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 end
 
 --- @brief
