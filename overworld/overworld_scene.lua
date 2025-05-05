@@ -76,6 +76,8 @@ function ow.OverworldScene:instantiate()
         if which == "^" then
             self:reload()
             rt.SceneManager:unpause()
+        else
+
         end
     end)
 
@@ -288,7 +290,6 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
     self._stage = ow.Stage(self, stage_id)
 
     self._player:move_to_stage(self._stage)
-    self._camera:set_position(self._player:get_position())
     self._player_is_focused = true
     self._stage_duration_start_time = love.timer.getTime()
 

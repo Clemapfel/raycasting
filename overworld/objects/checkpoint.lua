@@ -169,8 +169,8 @@ function ow.Checkpoint:update(delta)
         if player_y >= (self._bottom_y - player:get_radius()) or self._spawn_duration_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             player:enable()
             player:set_trail_visible(true)
-            self._scene:set_camera_mode(ow.CameraMode.AUTO)
             self._waiting_for_player = false
+            self._scene:set_camera_mode(ow.CameraMode.AUTO)
         end
     end
 
@@ -212,24 +212,27 @@ end
 
 --- @brief
 function ow.Checkpoint:spawn()
-    self._scene:set_camera_mode(ow.CameraMode.MANUAL)
-
-    if self._is_player_spawn == true then
-        self._scene:get_camera():set_position(self._bottom_y, self._bottom_y) -- smash cut on spawn
-    end
-
     local player = self._scene:get_player()
     player:disable()
     local vx, vy = player:get_velocity()
     player:set_velocity(0, rt.settings.overworld.player.air_target_velocity_x)
     player:set_trail_visible(false)
-    player:teleport_to(self._x, self._y)
+
+    local camera = self._scene:get_camera()
+
+    -- place player just above screen, or as high as possible
+    local _, screen_h = camera:world_xy_to_screen_xy(self._bottom_x, self._bottom_y)
+    local player_y = math.max(self._top_y + player:get_radius(), self._bottom_y - screen_h - 2 * player:get_radius())
+
+    player:teleport_to(self._top_x, player_y)
     player:set_gravity(1)
     player:set_flow_velocity(0)
     self._waiting_for_player = true
     self._spawn_duration_elapsed = 0
 
-    self._scene:get_camera():move_to(self._bottom_y, self._bottom_y - player:get_radius()) -- jump cut at start of level
+
+    self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+    camera:set_position(self._bottom_x, self._bottom_y)
     self._stage:set_active_checkpoint(self)
     player:signal_emit("respawn")
 end

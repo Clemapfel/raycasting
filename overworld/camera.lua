@@ -145,8 +145,11 @@ function ow.Camera:get_size()
 end
 
 --- @brief
-function ow.Camera:set_position(x, y)
-    x, y = self:_constrain(x, y)
+function ow.Camera:set_position(x, y, override_bounds)
+    if override_bounds ~= true then
+        x, y = self:_constrain(x, y)
+    end
+
     self._target_x = x
     self._target_y = y
     self._current_x = x
@@ -154,9 +157,12 @@ function ow.Camera:set_position(x, y)
 end
 
 --- @brief
-function ow.Camera:move_to(x, y)
-    local before_x, before_y = x, y
-    self._target_x, self._target_y = self:_constrain(x, y)
+function ow.Camera:move_to(x, y, override_bounds)
+    if override_bounds ~= true then
+        self._target_x, self._target_y = self:_constrain(x, y)
+    else
+        self._target_x, self._target_y = x, y
+    end
 end
 
 --- @brief
@@ -165,9 +171,12 @@ function ow.Camera:get_scale()
 end
 
 --- @brief
-function ow.Camera:set_scale(s)
+function ow.Camera:set_scale(s, override_bounds)
     self._current_scale = s
-    self._target_x, self._target_x = self:_constrain(self._target_x, self._target_y)
+
+    if override_bounds ~= true then
+        self._target_x, self._target_x = self:_constrain(self._target_x, self._target_y)
+    end
 end
 
 --- @brief

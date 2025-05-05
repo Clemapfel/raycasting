@@ -104,6 +104,7 @@ meta.add_signals(ow.Player,
 ow.PlayerState = meta.enum("OverworldPlayerState", {
     ACTIVE = 1,
     DISABLED = 2,
+    RESPAWNING = 3
 })
 
 --- @brief
