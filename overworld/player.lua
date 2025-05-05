@@ -1288,6 +1288,11 @@ function ow.Player:disable()
     end
 
     self._state = ow.PlayerState.DISABLED
+    self._body:set_is_sensor(true)
+    for body in values(self._spring_bodies) do
+        body:set_is_sensor(true)
+    end
+    self._center_body:set_is_sensor(true)
 end
 
 --- @brief
@@ -1297,6 +1302,13 @@ function ow.Player:enable()
     else
         self._state = _before
     end
+
+    self._state = ow.PlayerState.ACTIVE
+    self._body:set_is_sensor(false)
+    for body in values(self._spring_bodies) do
+        body:set_is_sensor(false)
+    end
+    self._center_body:set_is_sensor(false)
 end
 
 --- @brief

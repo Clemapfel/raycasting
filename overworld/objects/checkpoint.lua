@@ -25,6 +25,7 @@ local _outline_shader = love.graphics.newShader("overworld/objects/checkpoint_te
 _outline_shader:send("outline_color", { rt.Palette.BLACK:unpack() })
 
 local _text_shader = love.graphics.newShader("overworld/objects/checkpoint_text.glsl", { defines = { MODE = 1 }})
+local _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
 
 --- @brief
 function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
@@ -52,7 +53,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _elapsed_text = "",
         _elapsed_text_height = 0,
         _elapsed_font_non_sdf = rt.settings.font.default_small:get_native(rt.FontStyle.REGULAR, false),
-        _elapsed_font_sdf = rt.settings.font.default_small:get_native(rt.FontStyle.REGULAR, true)
+        _elapsed_font_sdf = rt.settings.font.default_small:get_native(rt.FontStyle.REGULAR, true),
+
+        _is_first_spawn = is_player_spawn
     })
 
     local player_x, player_y = self._scene:get_player():get_position()
@@ -97,6 +100,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
 
         self._bottom_x, self._bottom_y = bottom_x, bottom_y
         self._top_x, self._top_y = top_x, top_y
+        self._radius = self._scene:get_player():get_radius()
 
         local player = self._scene:get_player()
         if math.distance(self._bottom_x, self._bottom_y, self._x, self._y) < player:get_radius() * 2 then
@@ -141,7 +145,7 @@ function ow.Checkpoint:pass()
     local hue = player:get_hue()
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
 
-    self._mesh_motion:set_value(player_y)
+    self._mesh_motion:set_value(math.max(player_y, self._top_y))
 
     local hue_offset = 0.2
     local hue_min, hue_max = hue - hue_offset, hue + hue_offset
@@ -174,8 +178,6 @@ function ow.Checkpoint:update(delta)
         end
     end
 
-    if self._is_player_spawn then return end
-
     -- update graphics
     if not self._passed then
         local player = self._scene:get_player()
@@ -184,29 +186,28 @@ function ow.Checkpoint:update(delta)
         self._mesh_motion:set_target_value(player_y)
         self._mesh_motion:update(delta)
         self._mesh_out_of_bounds = player_y < self._top_y + _mesh_h or player_y > self._bottom_y - _mesh_h
-    end
 
-    self._mesh_position_y = self._mesh_motion:get_value()
-    self._fireworks:update(delta)
-    if self._fireworks:get_is_done() then self._passed = false end -- TODO
+        self._mesh_position_y = self._mesh_motion:get_value()
+        self._fireworks:update(delta)
 
-    if self._scene:get_is_body_visible(self._body) and self._passed == false then
-        local duration = self._scene:get_run_duration()
-        local hours = math.floor(duration / 3600)
-        local minutes = math.floor((duration % 3600) / 60)
-        local seconds = math.floor(duration % 60)
-        local milliseconds = math.floor((duration * 1000) % 1000)
+        if self._scene:get_is_body_visible(self._body) then
+            local duration = self._scene:get_run_duration()
+            local hours = math.floor(duration / 3600)
+            local minutes = math.floor((duration % 3600) / 60)
+            local seconds = math.floor(duration % 60)
+            local milliseconds = math.floor((duration * 1000) % 1000)
 
-        if hours >= 1 then
-            self._elapsed_text = string.format("%2d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
-        elseif minutes >= 1 then
-            self._elapsed_text = string.format("%2d:%02d.%03d", minutes, seconds, milliseconds)
-        else
-            self._elapsed_text = string.format("%2d.%03d", seconds, milliseconds)
+            if hours >= 1 then
+                self._elapsed_text = string.format("%2d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
+            elseif minutes >= 1 then
+                self._elapsed_text = string.format("%2d:%02d.%03d", minutes, seconds, milliseconds)
+            else
+                self._elapsed_text = string.format("%2d.%03d", seconds, milliseconds)
+            end
+
+            self._elapsed_text_height = self._elapsed_font_non_sdf:getHeight(self._elapsed_text)
+            self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
         end
-
-        self._elapsed_text_height = self._elapsed_font_non_sdf:getHeight(self._elapsed_text)
-        self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
     end
 end
 
@@ -230,11 +231,19 @@ function ow.Checkpoint:spawn()
     self._waiting_for_player = true
     self._spawn_duration_elapsed = 0
 
-
     self._scene:set_camera_mode(ow.CameraMode.MANUAL)
-    camera:set_position(self._bottom_x, self._bottom_y)
+    if self._is_first_spawn then
+        -- smash cut at start of level
+        camera:set_position(self._bottom_x, self._bottom_y)
+        self._is_first_spawn = false
+    else
+        camera:move_to(self._bottom_x, self._bottom_y)
+    end
     self._stage:set_active_checkpoint(self)
     player:signal_emit("respawn")
+
+    self._passed = true
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
 end
 
 --- @brief
@@ -246,40 +255,43 @@ function ow.Checkpoint:draw()
     local mesh_y = self._mesh_position_y
     local stencil = rt.graphics.get_stencil_value()
 
-    if self._mesh_out_of_bounds then
-        rt.graphics.stencil(stencil, function()
-            local inf = love.graphics.getWidth()
+    if not self._passed then
+        if self._mesh_out_of_bounds then
+            rt.graphics.stencil(stencil, function()
+                local inf = love.graphics.getWidth()
 
-            love.graphics.rectangle("fill", self._bottom_x - inf, self._bottom_y, 2 * inf, inf)
-            love.graphics.rectangle("fill", self._top_x - inf, self._top_y - inf, 2 * inf, inf)
-        end)
-        rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil)
+                love.graphics.rectangle("fill", self._bottom_x - inf, self._bottom_y, 2 * inf, inf)
+                love.graphics.rectangle("fill", self._top_x - inf, self._top_y - inf, 2 * inf, inf)
+            end)
+            rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil)
+        end
+
+        love.graphics.push()
+        love.graphics.translate(mesh_x, mesh_y)
+
+        love.graphics.draw(_mesh_fill)
+        love.graphics.polygon("line", _mesh)
+
+        love.graphics.setShader(_outline_shader)
+        love.graphics.setFont(self._elapsed_font_sdf)
+        local text_x, text_y = math.round(_mesh_h + rt.settings.margin_unit * 0.5), math.round(-0.5 * self._elapsed_text_height)
+        love.graphics.printf(self._elapsed_text, text_x, text_y, math.huge)
+        love.graphics.setShader(_text_shader)
+        love.graphics.setFont(self._elapsed_font_non_sdf)
+        love.graphics.printf(self._elapsed_text, text_x, text_y, math.huge)
+        love.graphics.setShader(nil)
+
+        rt.graphics.set_stencil_test(nil)
+        love.graphics.pop()
     end
 
     love.graphics.setColor(table.unpack(self._color))
     love.graphics.setLineWidth(2)
-    love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
-
-    love.graphics.push()
-    love.graphics.translate(mesh_x, mesh_y)
-
-    love.graphics.draw(_mesh_fill)
-    love.graphics.polygon("line", _mesh)
-
-    love.graphics.setShader(_outline_shader)
-    love.graphics.setFont(self._elapsed_font_sdf)
-    local text_x, text_y = math.round(_mesh_h + rt.settings.margin_unit * 0.5), math.round(-0.5 * self._elapsed_text_height)
-    love.graphics.printf(self._elapsed_text, text_x, text_y, math.huge)
-    love.graphics.setShader(_text_shader)
-    love.graphics.setFont(self._elapsed_font_non_sdf)
-    love.graphics.printf(self._elapsed_text, text_x, text_y, math.huge)
-    love.graphics.setShader(nil)
-
-    rt.graphics.set_stencil_test(nil)
-    love.graphics.pop()
+    love.graphics.rectangle("fill", self._top_x - self._radius, self._top_y, 2 * self._radius, self._bottom_y - self._top_y)
+    --love.graphics.line(self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 end
 
 --- @brief
 function ow.Checkpoint:get_render_priority()
-    return math.huge
+    return 0
 end

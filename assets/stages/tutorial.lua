@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 4,
-  nextobjectid = 202,
+  nextobjectid = 205,
   properties = {},
   tilesets = {
     {
@@ -2150,9 +2150,9 @@ return {
             { x = -16, y = -160 },
             { x = -16, y = -192 },
             { x = -16, y = -208 },
-            { x = 0, y = -208 },
             { x = 0, y = -192 },
-            { x = 32, y = -192 },
+            { x = 16, y = -192 },
+            { x = 32, y = -208 },
             { x = 80, y = -112 },
             { x = 80, y = -96 },
             { x = 64, y = -96 },
@@ -2161,27 +2161,6 @@ return {
           },
           properties = {
             ["slippery"] = true,
-            ["unjumpable"] = true
-          }
-        },
-        {
-          id = 190,
-          name = "",
-          type = "Hitbox",
-          shape = "polygon",
-          x = 2416,
-          y = 880,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 32 },
-            { x = 32, y = 32 },
-            { x = 32, y = 16 },
-            { x = 0, y = 16 }
-          },
-          properties = {
             ["unjumpable"] = true
           }
         },
@@ -2250,25 +2229,6 @@ return {
           }
         },
         {
-          id = 194,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = 2688,
-          y = 1168,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 32 },
-            { x = 0, y = 48 },
-            { x = 48, y = 48 },
-            { x = 48, y = 32 }
-          },
-          properties = {}
-        },
-        {
           id = 196,
           name = "",
           type = "Hitbox",
@@ -2299,10 +2259,12 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 32 },
+            { x = 0, y = 16 },
             { x = 0, y = 160 },
             { x = 48, y = 160 },
-            { x = 48, y = 32 }
+            { x = 48, y = 16 },
+            { x = 32, y = 32 },
+            { x = 16, y = 32 }
           },
           properties = {
             ["slippery"] = true
@@ -2389,6 +2351,63 @@ return {
           properties = {
             ["slippery"] = true
           }
+        },
+        {
+          id = 202,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 2688,
+          y = 1200,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 48, y = 0 },
+            { x = 32, y = 16 },
+            { x = 16, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 203,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 2400,
+          y = 896,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 48, y = 0 },
+            { x = 32, y = 16 },
+            { x = 16, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 204,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 1840,
+          y = 1408,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 1840, y = 0 },
+            { x = 1840, y = 16 },
+            { x = 0, y = 16 }
+          },
+          properties = {}
         }
       }
     }

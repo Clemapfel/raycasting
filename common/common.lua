@@ -716,6 +716,8 @@ end
 --- @param comment_out_unserializable Boolean false by default
 --- @return string
 function serialize(object, comment_out_unserializable)
+    if object == nil then return "nil" end
+
     if comment_out_unserializable == nil then
         comment_out_unserializable = false
     end

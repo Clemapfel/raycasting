@@ -37,7 +37,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         local player = self._scene:get_player()
         player.do_not_update_trail = true
         local vx, vy = player:get_velocity()
-        player:set_gravity(1)
+        player:set_gravity(2)
         player:set_velocity(0, 0)
         player:reset_flow(0)
         player:disable()
@@ -60,7 +60,7 @@ function ow.KillPlane:update(delta)
         local player_x, player_y = camera:world_xy_to_screen_xy(player:get_position())
         local camera_w, camera_h = camera:get_size()
 
-        if player_y > camera_h or self._elapsed > rt.settings.overworld.kill_plane.max_respawn_duration then -- player left screen
+        if player_y - player:get_radius() * 4 > camera_h or self._elapsed > rt.settings.overworld.kill_plane.max_respawn_duration then -- player left screen
             self._stage:get_active_checkpoint():spawn()
             self._state = _state_inactive
         end
