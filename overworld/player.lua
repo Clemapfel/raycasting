@@ -97,8 +97,7 @@ local _settings = setmetatable({}, {
 --- @class ow.Player
 ow.Player = meta.class("OverworldPlayer")
 meta.add_signals(ow.Player,
-    "jump",
-    "respawn"
+    "jump"
 )
 
 ow.PlayerState = meta.enum("OverworldPlayerState", {
@@ -117,6 +116,8 @@ function ow.Player:instantiate(scene, stage)
         _state = ow.PlayerState.ACTIVE,
 
         _color = rt.Palette.PLAYER,
+        _opacity = 1,
+
         _radius = player_radius,
         _inner_body_radius = _settings.inner_body_radius,
         _outer_body_radius = (player_radius * 2 * math.pi) / _settings.n_outer_bodies / 2,
@@ -1070,7 +1071,7 @@ function ow.Player:move_to_stage(stage)
     end
 
     if self._stage:get_active_checkpoint() == nil then return end
-    self._stage:get_active_checkpoint():spawn()
+    self._stage:get_active_checkpoint():spawn(false)
 end
 
 function ow.Player:_update_mesh()
@@ -1118,7 +1119,7 @@ function ow.Player:draw()
     local r, g, b, a = self._color:unpack()
 
     if self._trail_visible then
-        love.graphics.setColor(r, g, b, a)
+        love.graphics.setColor(r, g, b, self._opacity)
         self._trail:draw()
     end
 
@@ -1133,7 +1134,7 @@ function ow.Player:draw()
         rt.BlendFactor.ZERO             -- alpha_destination_factor (commonly ONE or ZERO)
     )
 
-    love.graphics.setColor(r, g, b, 0.7 + self:get_flow())
+    love.graphics.setColor(r, g, b, (0.7 + self:get_flow()) * self._opacity)
 
     if self._is_bubble then
         love.graphics.draw(self._outer_body_center_mesh_scaled:get_native(), self._center_body:get_predicted_position())
@@ -1141,13 +1142,13 @@ function ow.Player:draw()
         love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
     end
     rt.graphics.set_blend_mode(nil)
-    love.graphics.setColor(r, g, b, 0.3)
+    love.graphics.setColor(r, g, b, 0.3 * self._opacity)
     for tri in values(self._outer_body_tris) do
         love.graphics.polygon("fill", tri)
     end
 
     r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
-    love.graphics.setColor(r, g, b, 1)
+    love.graphics.setColor(r, g, b, self._opacity)
     for i, scale in ipairs(self._outer_body_scales) do
         local x = self._outer_body_centers_x[i]
         local y = self._outer_body_centers_y[i]
@@ -1189,7 +1190,7 @@ function ow.Player:draw()
 
     love.graphics.push()
     love.graphics.origin()
-    do
+    do -- draw flow meter
         local w, h = 10, 100
         local x, y = 50, 50
         local padding = 1
@@ -1449,4 +1450,14 @@ end
 --- @brief
 function ow.Player:get_is_bubble()
     return self._is_bubble
+end
+
+--- @brief
+function ow.Player:set_opacity(alpha)
+    self._opacity = alpha
+end
+
+--- @brief
+function ow.Player:get_opacity()
+    return self._opacity
 end
