@@ -154,6 +154,7 @@ function ow.Checkpoint:spawn(also_kill)
 
     local player = self._scene:get_player()
     player:reset_flow()
+    player:disable()
 
     if also_kill then
         self:_set_state(_STATE_EXPLODING)
@@ -207,6 +208,9 @@ function ow.Checkpoint:_set_state(state)
         player:set_velocity(0, (self._current_player_spawn_y - self._top_y) / rt.settings.overworld.checkpoint.ray_duration)
         player:set_gravity(0)
         player:set_opacity(0)
+        player:set_flow(0.5) -- purely for visuals
+        player:set_flow_velocity(-1)
+        player:set_trail_visible(false)
 
         local camera = self._scene:get_camera()
         if self._is_first_spawn then -- smash cut at start of level
@@ -225,6 +229,7 @@ function ow.Checkpoint:_set_state(state)
         player:enable()
         player:set_gravity(1)
         player:set_opacity(1)
+        player:set_trail_visible(true)
     end
 end
 
@@ -257,8 +262,12 @@ function ow.Checkpoint:update(delta)
 
         -- once player reaches ground
         if player_y >= threshold then
-            player:set_gravity(1)
-            player:enable()
+            if player:get_state() == ow.PlayerState.DISABLED then
+                player:set_gravity(1)
+                player:enable()
+                player:bounce(0, -0.3)
+                dbg("bounce")
+            end
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
             if self._ray_fade_out_elapsed > fade_out_duration then
                 self:_set_state(_STATE_DEFAULT)

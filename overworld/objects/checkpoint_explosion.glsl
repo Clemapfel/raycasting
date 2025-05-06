@@ -94,6 +94,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     inner *= (1 - fraction) * (1 - fraction);
 
     float ball = gaussian(distance(pxy, uv), sigma * 4) * (1 - fraction);
+    ball += gaussian(distance(texture_coords, vec2(0.5)), 2.5) * 0.4;
 
     const float eps = 0.5;
     float value = smoothstep(0.5 - eps, 0.5 + eps, (outer + inner + ball));
@@ -106,6 +107,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     float hue = mix(hue, hue + 0.1, fraction);
     vec3 outer_rgb = lch_to_rgb(vec3(mix(0.8, 0.9, inner), 1, hue));
     vec3 inner_rgb = color.rgb;
+
     return vec4(value) * vec4(mix(outer_rgb, inner_rgb, ball), 1);
 }
 

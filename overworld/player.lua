@@ -339,7 +339,7 @@ end
 
 --- @brief
 function ow.Player:update(delta)
-    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4) -- * math.min(self:get_flow()^0.7, 1))
+    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7, 1))
 
     if self._trail_visible then
         self._trail:update(delta)
@@ -1466,4 +1466,9 @@ end
 --- @brief
 function ow.Player:get_opacity()
     return self._opacity
+end
+
+--- @brief
+function ow.Player:get_state()
+    return self._state
 end
