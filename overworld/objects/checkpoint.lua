@@ -6,7 +6,7 @@ rt.settings.overworld.checkpoint = {
     explosion_duration = 1,
     explosion_radius_factor = 15, -- times playe radius
 
-    ray_duration = 1,
+    ray_duration = 0.5,
     ray_width_radius_factor = 4,
     ray_fade_out_duration = 0.5,
 }
@@ -258,6 +258,7 @@ function ow.Checkpoint:update(delta)
         -- once player reaches ground
         if player_y >= threshold then
             player:set_gravity(1)
+            player:enable()
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
             if self._ray_fade_out_elapsed > fade_out_duration then
                 self:_set_state(_STATE_DEFAULT)
