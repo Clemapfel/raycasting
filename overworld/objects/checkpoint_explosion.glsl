@@ -59,6 +59,7 @@ vec3 lch_to_rgb(vec3 lch) {
 
 uniform float fraction;
 uniform vec2 size;
+uniform float hue;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
 
@@ -101,7 +102,8 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     float angle = (atan(delta.y, delta.x) + PI) / (2.0 * PI);
     float dist = distance(pxy, uv);
 
-    float hue = angle + (1 - inner_fraction) * dist * inner + outer_fraction * dist * outer;
+
+    float hue = mix(hue, hue + 0.1, fraction);
     vec3 outer_rgb = lch_to_rgb(vec3(mix(0.8, 0.9, inner), 1, hue));
     vec3 inner_rgb = color.rgb;
     return vec4(value) * vec4(mix(outer_rgb, inner_rgb, ball), 1);

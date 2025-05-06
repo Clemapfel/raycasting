@@ -108,29 +108,60 @@ uniform float elapsed;
 uniform vec2 size;
 uniform float fraction;
 uniform float fade_out_fraction;
+uniform float hue;
+
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
-    float distortion_strength = (1 - distance(texture_coords.x, 0.5) * 2) * 2;
-    float distortion_scale = 2.5;
-    float distortion_speed = 1 / 2.0;
+    vec2 uv = to_uv(vertex_position);
+
+    float distortion_strength = (1 - distance(texture_coords.x, 0.5) * 2) ;
+    vec2 distortion_scale = vec2(1.8, 10);
+    float ground_weight = 1 - gaussian(1 - texture_coords.y, 12); // so ray touches bottom at center
+
+    vec2 norm = size / max(size.x, size.y);
+    const float ball_eps = 0.5;
+    float ball = gaussian(distance(texture_coords * norm, vec2(0.5, fraction - 26 / size.y) * norm), 3);
+    //ball = smoothstep(0.5 - ball_eps, 0.5 + ball_eps, ball);
+    float ball_attenuation = texture_coords.y > fraction ? gaussian(texture_coords.y - fraction, 10.0) : 1.0;
+    ball *= ball_attenuation;
 
     vec2 distortion = vec2(
-        gradient_noise(vec3(texture_coords * distortion_scale, elapsed)),
-        gradient_noise(vec3(texture_coords * distortion_scale, elapsed))
-    );
+        gradient_noise(vec3(uv * distortion_scale, elapsed)),
+        gradient_noise(vec3(uv * distortion_scale, elapsed))
+    ) * distortion_strength;
 
-    float fade = 1 - gaussian(texture_coords.y - fraction, 15);
+    float overlap_factor = fade_out_fraction > 0 ? 1.05 : 1;
+    float fade = 1 - gaussian(texture_coords.y - fraction * overlap_factor, 15); // multiply so fade out is below ground
     if (texture_coords.y > fraction) fade = 0;
-    fade *= 1 - fade_out_fraction;
 
-    texture_coords.x += distortion.x;
+    float fade2 = gaussian(texture_coords.y * norm.y - fade_out_fraction * 2, 0.5);
+    if (texture_coords.y > fade_out_fraction * 2) fade2 = 1;
+    fade *= fade2;
+
+    texture_coords.x += distortion.x * ground_weight;
 
     float ray_width = 4;
     float ray_outer = gaussian(abs(texture_coords.x - 0.5), ray_width);
     float ray_inner = gaussian(abs(texture_coords.x - 0.5), ray_width * 10);
 
-    float ray = ray_outer + ray_inner;
-    return fade * ray * color;
+    float ray = (ray_outer * (1 + ball) + ray_inner) / (1 + ball) * fade;
+    ray *= 1 + ball * (fade_out_fraction > 0 ? 0.4 : 0);
+    float hue = fract(hue + texture_coords.y * norm.y);
+    return vec4(ray) * vec4(lch_to_rgb(vec3(0.8, 1, hue)), 1);
 
 }
 

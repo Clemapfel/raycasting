@@ -177,13 +177,13 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
 
     const float ray_width = 2.5;
     float ray = gaussian(abs(texture_coords.x - 0.5), ray_width);
-    float ray_inner = gaussian(abs(texture_coords.x - 0.5), ray_width * 10);
-    ray += ray_inner;
+float ray_inner = gaussian(abs(texture_coords.x - 0.5), ray_width * 10);
+ray += ray_inner;
 
-    vec3 player_lch = rgb_to_lch(color.rgb);
-    vec3 ray_lch = vec3(0.8, 1, fract(player_lch.z - player_weight));
+vec3 player_lch = rgb_to_lch(color.rgb);
+vec3 ray_lch = vec3(0.8, 1, fract(player_lch.z - player_weight));
 
-    return fade * vec4(smooth_max(ray, player_ball, 0.05)) * vec4(lch_to_rgb(ray_lch), 1);
+return fade * vec4(smooth_max(ray, player_ball, 0.05)) * vec4(lch_to_rgb(ray_lch), 1);
 }
 
 #endif
