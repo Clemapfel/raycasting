@@ -236,9 +236,7 @@ function love.run()
                 love.graphics.pop()
             end
 
-            local before = love.timer.getTime()
             love.graphics.present()
-            dbg((love.timer.getTime() - before) / (1 / 60))
         end
 
         local fps = love.timer.getFPS()

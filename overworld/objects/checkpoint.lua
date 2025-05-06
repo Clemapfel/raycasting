@@ -5,6 +5,9 @@ rt.settings.overworld.checkpoint = {
 
     explosion_duration = 1.5,
     explosion_radius_factor = 15, -- times playe radius
+
+    ray_width_radius_factor = 4,
+    ray_fade_out_duration = 0.5,
 }
 
 --- @class ow.Checkpoint
@@ -34,7 +37,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
     end
 
     if _ray_shader == nil then
-        _ray_shader = love.graphics.newShader("overworld/objects/checkpoint_ray.glsl")
+        _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
     end
 
     if _explosion_shader == nil then
@@ -69,12 +72,17 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _color = { rt.Palette.CHECKPOINT:unpack() },
 
         _ray_fraction = math.huge,
+        _ray_fade_out_fraction = math.huge,
+        _ray_size = {0, 0},
+        _ray_fade_out_elapsed = math.huge,
 
         _explosion_elapsed = math.huge,
         _explosion_fraction = math.huge,
         _explosion_player_position = { 0, 0 },
         _explosion_player_radius = 0,
         _explosion_size = {0, 0},
+
+        _elapsed = 0,
 
         -- uniform
         _camera_offset = { 0, 0 },
@@ -127,8 +135,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "6" then
-            local before = love.timer.getTime()
-            _explosion_shader = love.graphics.newShader("overworld/objects/checkpoint_explosion.glsl")
+            _ray_shader:recompile()
         end
     end)
 end
@@ -181,7 +188,7 @@ function ow.Checkpoint:_set_state(state)
         player:set_gravity(0)
         player:set_opacity(0)
 
-        self._explosion_player_position = { self._scene:get_player():get_position()ref }
+        self._explosion_player_position = { self._scene:get_player():get_position() }
         local player_radius = player:get_radius()
         self._explosion_player_radius = player_radius
         local factor = rt.settings.overworld.checkpoint.explosion_radius_factor
@@ -189,8 +196,9 @@ function ow.Checkpoint:_set_state(state)
 
     elseif state == _STATE_RAY then
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
-        self._ray_elapsed = 0
+        self._ray_fade_out_elapsed = 0
         self._ray_fraction = 0
+        self._ray_fade_out_fraction = 0
 
         player:disable()
         player:set_velocity(0, 0)
@@ -204,6 +212,9 @@ function ow.Checkpoint:_set_state(state)
         else
             camera:move_to(self._bottom_x, self._bottom_y)
         end
+
+        local factor = rt.settings.overworld.checkpoint.ray_width_radius_factor
+        self._ray_size = { 2 * factor * player:get_radius(), self._bottom_y - self._top_y }
 
     elseif state == _STATE_DEFAULT then
         self._scene:set_camera_mode(ow.CameraMode.AUTO)
@@ -221,10 +232,6 @@ function ow.Checkpoint:update(delta)
         self._explosion_fraction = self._explosion_elapsed / duration
         self._explosion_elapsed = self._explosion_elapsed + delta
 
-        local camera = self._scene:get_camera()
-        self._camera_offset = { camera:get_offset() }
-        self._camera_scale = camera:get_scale()
-
         if self._explosion_elapsed > duration then
             self:_set_state(_STATE_RAY)
         end
@@ -236,16 +243,23 @@ function ow.Checkpoint:update(delta)
         self._camera_offset = { camera:get_offset() }
         self._camera_scale = camera:get_scale()
 
-        local threshold = self._bottom_y - player:get_radius() * 2 * 2
-        self._ray_fraction = (player_y - self._current_player_spawn_y) / (threshold - self._current_player_spawn_y)
+        local threshold = self._bottom_y - player:get_radius() * 2
+        self._ray_fraction = (player_y - self._top_y) / (threshold - self._top_y)
         player:set_opacity(self._ray_fraction)
+
+        local fade_out_duration = rt.settings.overworld.checkpoint.ray_fade_out_duration
+        self._ray_fade_out_fraction = self._ray_fade_out_elapsed / fade_out_duration
 
         -- once player reaches ground
         if player_y >= threshold then
-            self:_set_state(_STATE_DEFAULT)
+            player:enable()
+            if self._ray_fade_out_elapsed > fade_out_duration then
+                self:_set_state(_STATE_DEFAULT)
+            end
+            self._ray_fade_out_elapsed = self._ray_fade_out_elapsed + delta
         end
     elseif self._state == _STATE_DEFAULT and self._scene:get_is_body_visible(self._body) then
-
+        self._elapsed = self._elapsed + delta
     end
 
     self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
@@ -254,8 +268,8 @@ end
 --- @brief
 function ow.Checkpoint:draw()
     love.graphics.setColor(1, 1, 1, 1)
-    self._body:draw()
-    love.graphics.circle("fill", self._current_player_spawn_x, self._current_player_spawn_y, 5)
+    --self._body:draw()
+    --love.graphics.circle("fill", self._current_player_spawn_x, self._current_player_spawn_y, 5)
 
     if self._state == _STATE_EXPLODING then
         love.graphics.setShader(_explosion_shader)
@@ -267,7 +281,16 @@ function ow.Checkpoint:draw()
         love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
         love.graphics.setShader(nil)
     elseif self._state == _STATE_RAY then
-
+        love.graphics.setShader(_ray_shader:get_native())
+        _ray_shader:send("fraction", self._ray_fraction)
+        _ray_shader:send("fade_out_fraction", self._ray_fade_out_fraction)
+        _ray_shader:send("size", self._ray_size)
+        _ray_shader:send("elapsed", self._elapsed)
+        dbg(self._elapsed)
+        local w, h = table.unpack(self._ray_size)
+        local x, y = self._top_x - 0.5 * w, self._top_y
+        love.graphics.rectangle("fill", x, y, w, h)
+        love.graphics.setShader()
     end
 end
 
