@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 4,
-  nextobjectid = 205,
+  nextobjectid = 209,
   properties = {},
   tilesets = {
     {
@@ -1578,13 +1578,15 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 2038.3,
-          y = 1272.68,
+          x = 1166.07,
+          y = 2918.13,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["value"] = 12321312.123
+          }
         },
         {
           id = 155,
@@ -1905,64 +1907,6 @@ return {
           properties = {}
         },
         {
-          id = 173,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1322.39,
-          y = 2784.24,
-          width = 0,
-          height = 0,
-          rotation = 139,
-          visible = true,
-          polygon = {
-            { x = -60.0346, y = 11.7379 },
-            { x = 75.3992, y = 2.26747 },
-            { x = 70.3041, y = -113.812 },
-            { x = -57.4297, y = -113.199 }
-          },
-          properties = {}
-        },
-        {
-          id = 174,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1520,
-          y = 2800,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 48, y = 64 },
-            { x = 144, y = 48 },
-            { x = 32, y = -160 },
-            { x = 48, y = 0 }
-          },
-          properties = {}
-        },
-        {
-          id = 175,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1328,
-          y = 2688,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 160, y = -32 },
-            { x = 96, y = -96 },
-            { x = 0, y = -80 }
-          },
-          properties = {}
-        },
-        {
           id = 178,
           name = "",
           type = "BouncePad",
@@ -1986,24 +1930,6 @@ return {
           height = 576,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 181,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1184,
-          y = 2724.86,
-          width = 0,
-          height = 0,
-          rotation = 90,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 109.107, y = -12.123 },
-            { x = 36.3691, y = -84.8611 }
-          },
           properties = {}
         },
         {
@@ -2393,7 +2319,7 @@ return {
         {
           id = 204,
           name = "",
-          type = "BouncePad",
+          type = "KillPlane",
           shape = "polygon",
           x = 1840,
           y = 1408,
@@ -2406,6 +2332,66 @@ return {
             { x = 1840, y = 0 },
             { x = 1840, y = 16 },
             { x = 0, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 205,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 1088,
+          y = 2784,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -144 },
+            { x = 256, y = -144 },
+            { x = 256, y = 0 }
+          },
+          properties = {
+            ["axis_x"] = 1,
+            ["axis_y"] = 0
+          }
+        },
+        {
+          id = 206,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1088,
+          y = 2400,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 384 },
+            { x = 1184, y = 384 },
+            { x = 1184, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 208,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 1072,
+          y = 2864,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 80, y = 80 },
+            { x = -16, y = 80 },
+            { x = -16, y = 0 }
           },
           properties = {}
         }

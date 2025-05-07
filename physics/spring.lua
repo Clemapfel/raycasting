@@ -19,6 +19,8 @@ function b2.Spring:instantiate(body_a, body_b, x1, y1, x2, y2)
     self:_initialize()
 end
 
+local eps = 10e-4
+
 --- @brief
 function b2.Spring:_initialize()
     local ax, ay = self._body_a:get_position()
@@ -26,6 +28,8 @@ function b2.Spring:_initialize()
 
     local x1, y1 = self._x1 + ax, self._y1 + ay
     local x2, y2 = self._x2 + bx, self._y2 + by
+    local distance = math.distance(x1, y1, x2, y2)
+
     meta.install(self, {
         _prismatic_joint = love.physics.newPrismaticJoint(
             self._body_a:get_native(),
@@ -35,25 +39,39 @@ function b2.Spring:_initialize()
             false
         ),
 
-        _distance_joint = love.physics.newDistanceJoint(
+        _distance_joint = love.physics.newRopeJoint(
             self._body_a:get_native(),
             self._body_b:get_native(),
             x1, y1,
             x2, y2,
+            distance,
             false
         )
 
     })
 
     self._prismatic_joint:setLimitsEnabled(true)
-    local distance = math.distance(x1, y1, x2, y2)
-    self._prismatic_joint:setLimits(distance, distance)
+    self._max_distance = distance
+    self._prismatic_joint:setLimits(distance - eps, distance)
+    self._prismatic_joint:setMotorEnabled(true)
 end
 
 --- @brief
 function b2.Spring:get_distance()
     if self._is_disabled then return 0 end
     return math.abs(self._prismatic_joint:getJointTranslation())
+end
+
+--- @brief
+function b2.Spring:get_max_distance()
+    return self._max_distance
+end
+
+--- @brief
+function b2.Spring:set_max_distance(distance)
+    self._max_distance = distance
+    self._prismatic_joint:setLimits(distance - eps, distance)
+    self._distance_joint:setMaxLength(distance)
 end
 
 --- @brief

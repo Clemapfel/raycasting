@@ -6,7 +6,7 @@ rt.settings.overworld.checkpoint = {
     explosion_duration = 1,
     explosion_radius_factor = 15, -- times playe radius
 
-    ray_duration = 0.5,
+    ray_duration = 0.1,
     ray_width_radius_factor = 4,
     ray_fade_out_duration = 0.5,
 }
@@ -154,6 +154,7 @@ function ow.Checkpoint:spawn(also_kill)
 
     local player = self._scene:get_player()
     player:reset_flow()
+    player:set_is_bubble(false)
     player:disable()
 
     if also_kill then
