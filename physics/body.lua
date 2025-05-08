@@ -91,9 +91,26 @@ function b2.Body:get_position()
     return self._native:getPosition()
 end
 
+local _position_callback = function(body, x, y)
+    body:setPosition(body, x, y)
+end
+
 --- @brief
 function b2.Body:set_position(x, y)
-    self._world:_notify_position_changed(self, x, y)
+    if not pcall(_position_callback, self._native, x, y) then
+        self._world:_notify_position_changed(self, x, y)
+    end
+end
+
+local _angle_callback = function(body, angle)
+    body:setAngle(body, angle)
+end
+
+--- @brief
+function b2.Body:set_rotation(angle)
+    if not pcall(_angle_callback(), self._native, angle) then
+        self._world:_notify_rotation_changed(self, angle)
+    end
 end
 
 --- @brief
@@ -135,11 +152,6 @@ function b2.Body:get_center_of_mass()
         n = n + 1
     end
     return mean_x / n + tx, mean_y / n + ty
-end
-
---- @brief
-function b2.Body:set_rotation(angle)
-    self._world:_notify_rotation_changed(self, angle)
 end
 
 --- @brief
@@ -226,9 +238,17 @@ function b2.Body:draw()
     love.graphics.pop()
 end
 
+local _enabled_callback = function(body, b)
+    body:setActive(b)
+end
+
 --- @brief
 function b2.Body:set_is_enabled(b)
-    self._world:_notify_active_changed(self, b)
+    local success = pcall(_enabled_callback, self._native, b)
+
+    if not success then
+        self._world:_notify_active_changed(self, b)
+    end
 end
 
 --- @brief

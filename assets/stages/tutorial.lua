@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 4,
-  nextobjectid = 209,
+  nextobjectid = 210,
   properties = {},
   tilesets = {
     {
@@ -2340,8 +2340,8 @@ return {
           name = "",
           type = "BoostField",
           shape = "polygon",
-          x = 1088,
-          y = 2784,
+          x = 1090.36,
+          y = 2831.15,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2356,25 +2356,6 @@ return {
             ["axis_x"] = 1,
             ["axis_y"] = 0
           }
-        },
-        {
-          id = 206,
-          name = "",
-          type = "BubbleField",
-          shape = "polygon",
-          x = 1088,
-          y = 2400,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 384 },
-            { x = 1184, y = 384 },
-            { x = 1184, y = 0 }
-          },
-          properties = {}
         },
         {
           id = 208,
@@ -2393,6 +2374,21 @@ return {
             { x = -16, y = 80 },
             { x = -16, y = 0 }
           },
+          properties = {
+            ["single_use"] = true
+          }
+        },
+        {
+          id = 209,
+          name = "",
+          type = "BubbleField",
+          shape = "ellipse",
+          x = 1192.83,
+          y = 2512.97,
+          width = 879.302,
+          height = 346.535,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

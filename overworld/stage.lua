@@ -24,7 +24,7 @@ rt.settings.overworld.stage = {
 --- @class ow.Stage
 --- @signal initialized (self) -> nil
 ow.Stage = meta.class("Stage", rt.Drawable)
-meta.add_signals(ow.Stage, "initialized")
+meta.add_signals(ow.Stage, "initialized", "respawn")
 
 ow.Stage._config_atlas = {}
 

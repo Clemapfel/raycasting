@@ -18,6 +18,7 @@ ow.BouncePad = meta.class("BouncePad", rt.Drawable)
 function ow.BouncePad:instantiate(object, stage, scene)
     meta.install(self, {
         _scene = scene,
+        _stage = stage,
         _body = object:create_physics_body(stage:get_physics_world()),
 
         -- spring simulation
@@ -33,7 +34,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         _rotation_origin_x = object.origin_x,
         _rotation_origin_y = object.origin_y,
-        _angle = object.rotation
+        _angle = object.rotation,
+
+        _is_single_use = object:get_string("single_use") or false,
+        _is_destroyed = false
     })
     self._color = self._default_color
     self._draw_color = self._color
@@ -44,6 +48,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:set_collision_group(bounce_group)
 
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
+        if self._is_destroyed then return end
+
         if cx == nil then return end -- player is sensor
 
         local player = self._scene:get_player()
@@ -58,6 +64,16 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._bounce_contact_x, self._bounce_contact_y = cx, cy
         self._bounce_magnitude = rt.settings.overworld.bounce_pad.bounce_max_offset * restitution
         self._is_bouncing = true
+
+        if self._is_single_use then
+            self._is_destroyed = true
+            self._body:set_is_enabled(false)
+        end
+    end)
+
+    self._stage:signal_connect("respawn", function()
+        self._is_destroyed = false
+        self._body:set_is_enabled(true)
     end)
 
     -- mesh
@@ -75,6 +91,8 @@ local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
 
 --- @brief
 function ow.BouncePad:update(delta)
+    if self._is_destroyed then return end
+
     if not self._scene:get_is_body_visible(self._body) then return end
 
     if self._color_elapsed <= color_duration then
@@ -109,6 +127,8 @@ end
 
 --- @brief
 function ow.BouncePad:draw()
+    if self._is_destroyed then return end
+
     if not self._scene:get_is_body_visible(self._body) then return end
 
     local r, g, b = table.unpack(self._draw_color)

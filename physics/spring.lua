@@ -13,13 +13,13 @@ function b2.Spring:instantiate(body_a, body_b, x1, y1, x2, y2)
         _x2 = x2 - bx,
         _y2 = y2 - by,
 
+        _lower_limit = 0,
+        _upper_limit = 0,
         _is_disabled = false
     })
 
     self:_initialize()
 end
-
-local eps = 10e-4
 
 --- @brief
 function b2.Spring:_initialize()
@@ -30,15 +30,18 @@ function b2.Spring:_initialize()
     local x2, y2 = self._x2 + bx, self._y2 + by
     local distance = math.distance(x1, y1, x2, y2)
 
+    local axis_x, axis_y = math.normalize(x2 - x1, y2 - y1)
+
     meta.install(self, {
         _prismatic_joint = love.physics.newPrismaticJoint(
             self._body_a:get_native(),
             self._body_b:get_native(),
             x1, y1,
-            x2 - x1, y2 - y1,
+            axis_x, axis_y,
             false
         ),
 
+        --[[
         _distance_joint = love.physics.newRopeJoint(
             self._body_a:get_native(),
             self._body_b:get_native(),
@@ -46,14 +49,14 @@ function b2.Spring:_initialize()
             x2, y2,
             distance,
             false
-        )
-
+        ),
+        ]]--
     })
 
     self._prismatic_joint:setLimitsEnabled(true)
+    self._prismatic_joint:setMotorEnabled(false)
+    self._prismatic_joint:setLimits(-self._lower_limit, self._upper_limit)
     self._max_distance = distance
-    self._prismatic_joint:setLimits(distance - eps, distance)
-    self._prismatic_joint:setMotorEnabled(true)
 end
 
 --- @brief
@@ -63,16 +66,15 @@ function b2.Spring:get_distance()
 end
 
 --- @brief
-function b2.Spring:get_max_distance()
-    return self._max_distance
+function b2.Spring:set_tolerance(lower, upper)
+    if upper == nil then upper = lower end
+    self._lower_limit = lower
+    self._upper_limit = upper
+    self._prismatic_joint:setLimits(self._lower_limit, self._upper_limit)
+    --self._distance_joint:setMaxLength(self._upper_limit)
 end
 
 --- @brief
-function b2.Spring:set_max_distance(distance)
-    self._max_distance = distance
-    self._prismatic_joint:setLimits(distance - eps, distance)
-    self._distance_joint:setMaxLength(distance)
-end
 
 --- @brief
 function b2.Spring:get_force()

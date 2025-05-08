@@ -152,6 +152,7 @@ end
 function ow.Checkpoint:spawn(also_kill)
     if also_kill == nil then also_kill = true end
 
+    self._stage:signal_emit("respawn")
     local player = self._scene:get_player()
     player:reset_flow()
     player:set_is_bubble(false)
