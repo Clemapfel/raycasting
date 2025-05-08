@@ -2,36 +2,6 @@
 b2.World = meta.class("PhysicsWorld")
 meta.add_signals(b2.World, "step")
 
-local _begin_contact_callback = function(shape_a, shape_b, contact)
-    local body_a = shape_a:getBody():getUserData()
-    local body_b = shape_b:getBody():getUserData()
-    local normal_x, normal_y = contact:getNormal()
-    local x1, y1, x2, y2 = contact:getPositions() -- may be nil
-
-    --if shape_a:isSensor() then
-        body_a:signal_emit("collision_start", body_b, normal_x, normal_y, x1, y1, x2, y2, contact)
-    --end
-
-    --if shape_b:isSensor() then
-        body_b:signal_emit("collision_start", body_a, normal_x, normal_y, x1, y1, x2, y2, contact)
-    --end
-end
-
-local _end_contact_callback = function(shape_a, shape_b, contact)
-    local body_a = shape_a:getBody():getUserData()
-    local body_b = shape_b:getBody():getUserData()
-    local normal_x, normal_y = contact:getNormal()
-
-    --if shape_a:isSensor() then
-        body_a:signal_emit("collision_end", body_b, normal_x, normal_y, contact)
-    --end
-
-    --if shape_b:isSensor() then
-        body_b:signal_emit("collision_end", body_a, normal_x, normal_y, contact)
-    --end
-end
-
-
 --- @brief
 function b2.World:instantiate()
     meta.install(self, {
@@ -42,7 +12,104 @@ function b2.World:instantiate()
         _timestamp = love.timer.getTime(),
         _interpolation_factor = 0,
         _interpolating_bodies = meta.make_weak({}), -- Set
+
+        _body_to_collision_sign = {}
     })
+
+    local _add_collision_start = function(a, b, nx, ny, x1, y1, x2, y2, contact)
+        if a._emission_blocked == true or b._emission_blocked == true then return end
+
+        local current = self._body_to_collision_sign[a]
+        if current == nil then
+            current = {}
+            self._body_to_collision_sign[a] = current
+        end
+
+        local entry = current[b]
+        if entry == nil then
+            entry = {
+                sign = 0
+            }
+            current[b] = entry
+        end
+
+        entry.sign = entry.sign + 1
+        entry.nx = nx
+        entry.ny = ny
+        entry.x1 = x1
+        entry.y1 = y1
+        entry.x2 = x2
+        entry.y2 = y2
+        entry.contact = contact
+    end
+
+    local _add_collision_end = function(a, b, nx, ny, x1, y1, x2, y2, contact)
+        if a._emission_blocked == true or b._emission_blocked == true then return end
+
+        local current = self._body_to_collision_sign[a]
+        if current == nil then
+            current = {}
+            self._body_to_collision_sign[a] = current
+        end
+
+        local entry = current[b]
+        if entry == nil then
+            entry = {
+                sign = 0
+            }
+            current[b] = entry
+        end
+
+        entry.sign = entry.sign - 1
+        entry.nx = nx
+        entry.ny = ny
+        entry.x1 = x1
+        entry.y1 = y1
+        entry.x2 = x2
+        entry.y2 = y2
+        entry.contact = contact
+    end
+
+    local _begin_contact_callback = function(shape_a, shape_b, contact)
+        local body_a = shape_a:getBody():getUserData()
+        local body_b = shape_b:getBody():getUserData()
+        local normal_x, normal_y = contact:getNormal()
+        local x1, y1, x2, y2 = contact:getPositions() -- may be nil
+
+        _add_collision_start(body_a, body_b, normal_x, normal_y, x1, y1, x2, y2, contact)
+        _add_collision_start(body_b, body_a, normal_x, normal_y, x1, y1, x2, y2, contact)
+    end
+
+    local _end_contact_callback = function(shape_a, shape_b, contact)
+        local body_a = shape_a:getBody():getUserData()
+        local body_b = shape_b:getBody():getUserData()
+        local normal_x, normal_y = contact:getNormal()
+        local x1, y1, x2, y2 = contact:getPositions()
+
+        _add_collision_end(body_a, body_b, normal_x, normal_y, x1, y1, x2, y2, contact)
+        _add_collision_end(body_b, body_a, normal_x, normal_y, x1, y1, x2, y2, contact)
+    end
+
+    self._start_collision_resolution = function(self)
+        self._body_to_collision_sign = {}
+    end
+
+    self._end_collision_resolution = function(self)
+        -- consolidate collisions and ensure proper ordering within the same frame
+        for a, outer in pairs(self._body_to_collision_sign) do
+            for b, entry in pairs(outer) do
+                if entry.sign >= 1 or entry.sign == 0 then
+                    a:signal_emit("collision_start", b, entry.nx, entry.ny, entry.x1, entry.y1, entry.x2, entry.y2, entry.contact)
+                end
+            end
+
+            for b, entry in pairs(outer) do
+                if entry.sign <= -1 or entry.sign == 0 then
+                    a:signal_emit("collision_end", b, entry.nx, entry.ny, entry.x1, entry.y1, entry.x2, entry.y2, entry.contact)
+                end
+            end
+        end
+    end
 
     self._native:setCallbacks(
         _begin_contact_callback,
@@ -125,8 +192,13 @@ function b2.World:update(delta)
             body._last_x, body._last_y = x, y
         end
 
+        self:_start_collision_resolution()
+
         -- update
         self._native:update(_step, _n_velocity_iterations, 2)
+
+        self:_end_collision_resolution()
+
         self._timestamp = love.timer.getTime() -- for extrapolation
 
         -- work through queued updates
@@ -145,6 +217,7 @@ function b2.World:update(delta)
         end
         self._body_to_activate_queue = {}
 
+        -- world signal
         self:signal_emit("step", _step)
 
         _elapsed = _elapsed - _step

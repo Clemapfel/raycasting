@@ -432,10 +432,11 @@ function ow.OverworldScene:update(delta)
 
     local x, y = self._camera:world_xy_to_screen_xy(self._player:get_physics_body():get_predicted_position())
     self._background:update_player_position(x, y, self._player:get_flow())
-
     self._background:update(delta)
-    self._camera:update(delta)
+
     self._stage:update(delta)
+
+    self._camera:update(delta)
     self._post_fx:update(delta)
     self._player:update(delta)
 

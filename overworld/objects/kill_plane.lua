@@ -16,12 +16,22 @@ local _state_waiting_for_enter_top = 3
 function ow.KillPlane:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
-
-    self._body = object:create_physics_body(stage:get_physics_world())
+    self._world = stage:get_physics_world()
+    self._body = object:create_physics_body(self._world)
     self._body:set_is_sensor(true)
-    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
 
+    local bounce_group = rt.settings.overworld.player.bounce_collision_group
+    self._body:set_collides_with(bounce_group)
+    self._body:set_collision_group(bounce_group)
+
+    self._blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
+        dbg("called")
+        self._body:signal_set_is_blocked("collision_start", true)
+        self._world:signal_connect("step", function()
+            self._body:signal_set_is_blocked("collision_start", false)
+            return meta.DISCONNECT_SIGNAL
+        end)
         self._stage:get_active_checkpoint():spawn()
     end)
 end

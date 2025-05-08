@@ -350,6 +350,8 @@ local _signal_emit = function(instance, id, ...)
         return
     end
 
+    if entry.is_blocked then return end
+
     -- delay disconnection to after emission is done, otherwise
     -- table.remove will mess up iteration of entry.callbacks_in_order during
     local _delayed_emit_buffer = {}
@@ -364,7 +366,6 @@ local _signal_emit = function(instance, id, ...)
     instance.signal_disconnect = _signal_disconnect_override
 
     for i, callback in ipairs(entry.callbacks_in_order) do
-
         local callback_id, res = callback(instance, ...)
         if res == meta.DISCONNECT_SIGNAL then
             instance:signal_disconnect(id, callback_id)

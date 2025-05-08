@@ -9,6 +9,8 @@ rt.settings.scene_manager = {
 --- @class SceneManager
 rt.SceneManager = meta.class("SceneManager")
 
+local _frame_i = 0
+
 --- @brief
 function rt.SceneManager:instantiate()
     meta.install(self, {
@@ -192,6 +194,11 @@ function rt.SceneManager:unpause()
     self._pause_delay_elapsed = 0
 end
 
+--- @brief
+function rt.SceneManager:get_frame_index()
+    return _frame_i
+end
+
 -- override love.run for metrics
 function love.run()
     io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
@@ -237,6 +244,7 @@ function love.run()
             end
 
             love.graphics.present()
+            _frame_i = _frame_i + 1
         end
 
         local fps = love.timer.getFPS()

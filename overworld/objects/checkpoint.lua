@@ -4,7 +4,7 @@ rt.settings.overworld.checkpoint = {
     celebration_particles_n = 500,
 
     explosion_duration = 1,
-    explosion_radius_factor = 15, -- times playe radius
+    explosion_radius_factor = 9, -- times playe radius
 
     ray_duration = 0.1,
     ray_width_radius_factor = 4,
@@ -81,7 +81,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _explosion_elapsed = math.huge,
         _explosion_fraction = math.huge,
         _explosion_player_position = { 0, 0 },
-        _explosion_player_radius = 0,
         _explosion_size = {0, 0},
 
         _elapsed = 0,
@@ -155,7 +154,6 @@ function ow.Checkpoint:spawn(also_kill)
     self._stage:signal_emit("respawn")
     local player = self._scene:get_player()
     player:reset_flow()
-    player:set_is_bubble(false)
     player:disable()
 
     if also_kill then
@@ -195,10 +193,10 @@ function ow.Checkpoint:_set_state(state)
         player:set_opacity(0)
 
         self._explosion_player_position = { self._scene:get_player():get_position() }
-        local player_radius = player:get_radius()
-        self._explosion_player_radius = player_radius
+        local player_radius = self._scene:get_player():get_radius()
         local factor = rt.settings.overworld.checkpoint.explosion_radius_factor
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
+        player:set_is_bubble(false) -- delay after radius query
 
     elseif state == _STATE_RAY then
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
@@ -263,12 +261,11 @@ function ow.Checkpoint:update(delta)
         self._ray_fade_out_fraction = self._ray_fade_out_elapsed / fade_out_duration
 
         -- once player reaches ground
-        if player_y >= threshold then
+        if player_y >= threshold or player:get_is_bubble() then
             if player:get_state() == ow.PlayerState.DISABLED then
                 player:set_gravity(1)
                 player:enable()
                 player:bounce(0, -0.3)
-                dbg("bounce")
             end
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
             if self._ray_fade_out_elapsed > fade_out_duration then

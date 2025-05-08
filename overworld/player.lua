@@ -63,7 +63,8 @@ rt.settings.overworld.player = {
     bubble_inner_radius_scale = 1.7,
     bubble_target_velocity = 400,
     bubble_acceleration = 2.5,
-    bubble_air_resistance = 0.8, -- px per second
+    bubble_air_resistance = 0.5, -- px / s
+    bubble_gravity_factor = 0.05,
 
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
@@ -72,7 +73,7 @@ rt.settings.overworld.player = {
     ground_regular_friction = 0,
     ground_slippery_friction = -0.2,
 
-    max_velocity_x = 8000, -- TODO
+    max_velocity_x = 8000,
     max_velocity_y = 13000,
 
     respawn_duration = 2,
@@ -264,6 +265,11 @@ function ow.Player:instantiate(scene, stage)
         _skip_next_flow_update = true, -- skip when spawning
 
         _flow_is_frozen = false,
+
+        -- bubble
+        _is_bubble = false,
+        _use_bubble_mesh = false, -- cf. draw
+        _use_bubble_mesh_delay_n_steps = 0,
 
         _input = rt.InputSubscriber()
     })
@@ -764,6 +770,7 @@ function ow.Player:update(delta)
     elseif self._is_bubble then
         -- bubble movement
         local mass_multiplier = self._bubble_mass / self._mass
+        local bubble_gravity = gravity * (mass_multiplier / delta) * _settings.bubble_gravity_factor
         local max_velocity = _settings.bubble_target_velocity
         local target_x, target_y = 0, 0
         local current_x, current_y = self._bubble_body:get_velocity()
@@ -794,20 +801,12 @@ function ow.Player:update(delta)
             )
         else
             self._bubble_body:apply_force(
-                -current_x * _settings.bubble_air_resistance,
-                -current_y * _settings.bubble_air_resistance
+                -current_x * _settings.bubble_air_resistance * delta,
+                -current_y * _settings.bubble_air_resistance * delta
             )
         end
 
         if self._bounce_elapsed <= _settings.bounce_duration then
-            -- reflect velocity
-            --[[
-            local vx, vy = self._last_velocity_x, self._last_velocity_y
-            local nx, ny = self._bounce_direction_x, self._bounce_direction_y
-            local dot = math.dot(vx, vy, nx, ny)
-            self._bubble_body:set_velocity(vx - 2 * dot * nx, vy - 2 * dot * ny)
-            ]]--
-
             -- single impulse in bubble mode
             self._bubble_body:apply_linear_impulse(
                 self._bounce_direction_x * self._bounce_force * mass_multiplier,
@@ -818,7 +817,7 @@ function ow.Player:update(delta)
             self._bounce_force = 0
         end
 
-        --self._bubble_body:apply_force(0, gravity * mass_multiplier)
+        self._bubble_body:apply_force(0, bubble_gravity)
     end
 
     -- update flow
@@ -984,6 +983,7 @@ function ow.Player:move_to_stage(stage)
     local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius * 0.8)
     local bounce_group = _settings.bounce_collision_group
     bounce_shape:setFilterData(bounce_group, bounce_group, 0)
+    self._bounce_shape = b2.Circle(0, 0, self._radius * 0.8)
 
     -- soft body
     self._spring_bodies = {}
@@ -1017,10 +1017,10 @@ function ow.Player:move_to_stage(stage)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         initialize_outer_body(body, false)
-        body:set_mass(10e-4)
+        body:set_mass(10e-4) -- experimentally determined to give the best feel for box2d spring forces
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
-        joint:set_tolerance(0, 1)
+        joint:set_tolerance(0, 1) -- for animation only
 
         table.insert(self._spring_bodies, body)
         table.insert(self._spring_joints, joint)
@@ -1044,6 +1044,7 @@ function ow.Player:move_to_stage(stage)
 
     local bubble_bounce_shape = love.physics.newCircleShape(self._bubble_body:get_native(), x, y, self._radius * _settings.bubble_radius_factor * 0.8)
     bubble_bounce_shape:setFilterData(bounce_group, bounce_group, 0)
+    self._bubble_bounce_shape = b2.Circle(0, 0, self._radius * _settings.bubble_radius_factor)
 
     self._bubble_spring_bodies = {}
     self._bubble_spring_joints = {}
@@ -1061,10 +1062,10 @@ function ow.Player:move_to_stage(stage)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, bubble_outer_body_shape)
         initialize_outer_body(body, true)
-        body:set_mass(0.003)
+        body:set_mass(0.02) -- experimentally determined for best bubble deformation
 
         local joint = b2.Spring(self._bubble_body, body, x, y, cx, cy)
-        joint:set_tolerance(-0.25, 0.25)
+        joint:set_tolerance(-0.5, 0.5) -- animation only
 
         table.insert(self._bubble_spring_bodies, body)
         table.insert(self._bubble_spring_joints, joint)
@@ -1166,14 +1167,16 @@ function ow.Player:move_to_stage(stage)
     if self._stage:get_active_checkpoint() == nil then return end
     self._stage:get_active_checkpoint():spawn(false)
 
-    self:set_is_bubble(self._is_bubble)
+    local is_bubble = self._is_bubble
+    self._is_bubble = nil
+    self:set_is_bubble(is_bubble)
 end
 
 function ow.Player:_update_mesh()
     -- update mesh
     local player_x, player_y
 
-    if not self._is_bubble then
+    if not self._use_bubble_mesh then
         player_x, player_y = self._body:get_predicted_position()
     else
         player_x, player_y = self._bubble_body:get_predicted_position()
@@ -1181,15 +1184,14 @@ function ow.Player:_update_mesh()
 
     local to_polygonize = {}
     local hue_step = 1 / _settings.n_outer_bodies
-    local joints, bodies, radius, outer_radius, offset_x, offset_y, scale_offset
-    if not self._is_bubble then
+    local joints, bodies, radius, outer_radius, offset_x, offset_y
+    if not self._use_bubble_mesh then
         joints = self._spring_joints
         bodies = self._spring_bodies
         radius = self._radius
         outer_radius = self._outer_body_radius
         offset_x = self._spring_body_offsets_x
         offset_y = self._spring_body_offsets_y
-        scale_offset = 0
     else
         joints = self._bubble_spring_joints
         bodies = self._bubble_spring_bodies
@@ -1197,15 +1199,13 @@ function ow.Player:_update_mesh()
         outer_radius = self._bubble_outer_body_radius
         offset_x = self._bubble_spring_body_offsets_x
         offset_y = self._bubble_spring_body_offsets_y
-        scale_offset = 1 / _settings.bubble_radius_factor
     end
 
     for i, body in ipairs(bodies) do
         local cx, cy = body:get_predicted_position()
 
-        if self._is_bubble then
-            -- translate center of circle to outside of circle
-            -- TODO: why is this necessary
+        if self._use_bubble_mesh then
+            -- translate center of circle to outside of circle for correct bubble outer hull alignment
             local nx, ny = math.normalize(offset_x[i], offset_y[i])
             cx = cx + nx * outer_radius
             cy = cy + ny * outer_radius
@@ -1216,11 +1216,11 @@ function ow.Player:_update_mesh()
         local dx, dy = cx - player_x, cy - player_y
         self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
 
-        local scale = 1 + joints[i]:get_distance() / (radius - outer_radius) + scale_offset
+        local scale = 1 + joints[i]:get_distance() / (radius - outer_radius)
         self._outer_body_scales[i] = math.max(scale / 2, 0)
 
         local hue = self._hue + (i - 1) * hue_step
-        self._outer_body_colors[i] = {rt.lcha_to_rgba(0.8, 1, hue, 1)}
+        self._outer_body_colors[i] = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
 
         table.insert(to_polygonize, cx)
         table.insert(to_polygonize, cy)
@@ -1264,7 +1264,7 @@ function ow.Player:draw()
 
     love.graphics.setColor(r, g, b, (0.7 + self:get_flow()) * self._opacity)
 
-    if self._is_bubble then
+    if self._use_bubble_mesh then
         love.graphics.draw(self._outer_body_center_mesh_scaled:get_native(), self._bubble_body:get_predicted_position())
     else
         love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
@@ -1278,6 +1278,8 @@ function ow.Player:draw()
 
     r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
     love.graphics.setColor(r, g, b, self._opacity)
+
+    local scale_offset = self._is_bubble and 1 / _settings.bubble_radius_factor or 0
     for i, scale in ipairs(self._outer_body_scales) do
         local x = self._outer_body_centers_x[i]
         local y = self._outer_body_centers_y[i]
@@ -1290,22 +1292,34 @@ function ow.Player:draw()
         love.graphics.draw(self._outer_body_mesh:get_native(),
             x, y,
             angle, -- rotation
-            scale, 1, -- scale
+            scale, 1 + scale_offset, -- scale
             origin_x, origin_y -- origin
         )
     end
 
     if _settings.debug_drawing_enabled then
-        if not self._is_bubble then
+        if not self._use_bubble_mesh then
             self._body:draw()
             for body in values(self._spring_bodies) do
                 body:draw()
             end
+
+            love.graphics.push()
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.translate(self._body:get_predicted_position())
+            self._bounce_shape:draw()
+            love.graphics.pop()
         else
             self._bubble_body:draw()
             for body in values(self._bubble_spring_bodies) do
                 body:draw()
             end
+
+            love.graphics.push()
+            love.graphics.translate(self._bubble_body:get_predicted_position())
+            love.graphics.setColor(1, 1, 1, 1)
+            self._bubble_bounce_shape:draw()
+            love.graphics.pop()
         end
 
         love.graphics.setLineWidth(1)
@@ -1372,7 +1386,6 @@ end
 function ow.Player:teleport_to(x, y)
     if self._body ~= nil then
         self._body:set_position(x, y)
-
         for i, body in ipairs(self._spring_bodies) do
             body:set_position(
                 x + self._spring_body_offsets_x[i],
@@ -1380,10 +1393,7 @@ function ow.Player:teleport_to(x, y)
             )
         end
 
-        if self._bubble_body then -- TODO
-            self._bubble_body:set_position(x, y)
-        end
-
+        self._bubble_body:set_position(x, y)
         for i, body in ipairs(self._bubble_spring_bodies) do
             body:set_position(
                 x + self._bubble_spring_body_offsets_x[i],
@@ -1572,9 +1582,11 @@ end
 
 --- @brief
 function ow.Player:set_is_bubble(b)
+    if b == self._is_bubble then return end
+
     local before = self._is_bubble
     self._is_bubble = b
-    dbg("bubble ", b)
+    -- do not update self._use_bubble_mesh until solver properly updated positions
 
     -- disable both to avoid interaction
     self._body:set_is_enabled(false)
@@ -1582,21 +1594,19 @@ function ow.Player:set_is_bubble(b)
         body:set_is_enabled(false)
     end
 
-    if self._bubble_body then -- TODO
-        self._bubble_body:set_is_enabled(false)
-        for body in values(self._bubble_spring_bodies) do
-            body:set_is_enabled(false)
-        end
+    self._bubble_body:set_is_enabled(false)
+    for body in values(self._bubble_spring_bodies) do
+        body:set_is_enabled(false)
     end
 
-    if before == false then -- not bubble to bubble
+    if self._is_bubble == true then
         local x, y = self._body:get_position()
-        self._bubble_body:set_position(self._body:get_position())
+        self._bubble_body:set_position(x, y)
         self._bubble_body:set_velocity(self._body:get_velocity())
         for i, body in ipairs(self._bubble_spring_bodies) do
             body:set_position(
-                x + self._spring_body_offsets_x[i], -- use other offsets and let physics handle interpolation
-                y + self._spring_body_offsets_y[i]
+                x + self._bubble_spring_body_offsets_x[i],
+                y + self._bubble_spring_body_offsets_y[i]
             )
             body:set_velocity(self._spring_bodies[i]:get_velocity())
         end
@@ -1606,8 +1616,8 @@ function ow.Player:set_is_bubble(b)
         self._body:set_velocity(self._bubble_body:get_velocity())
         for i, body in ipairs(self._spring_bodies) do
             body:set_position(
-                x + self._bubble_spring_body_offsets_x[i],
-                y + self._bubble_spring_body_offsets_y[i]
+                x + self._spring_body_offsets_x[i],
+                y + self._spring_body_offsets_y[i]
             )
             body:set_velocity(self._bubble_spring_bodies[i]:get_velocity())
         end
@@ -1622,13 +1632,11 @@ function ow.Player:set_is_bubble(b)
             body:set_is_sensor(false)
         end
     else
-        if self._bubble_body then -- TODO
-            self._bubble_body:set_is_enabled(true)
-            self._bubble_body:set_is_sensor(false)
-            for body in values(self._bubble_spring_bodies) do
-                body:set_is_enabled(true)
-                body:set_is_sensor(false)
-            end
+        self._bubble_body:set_is_enabled(true)
+        self._bubble_body:set_is_sensor(false)
+        for body in values(self._bubble_spring_bodies) do
+            body:set_is_enabled(true)
+            body:set_is_sensor(false)
         end
     end
 
@@ -1636,6 +1644,17 @@ function ow.Player:set_is_bubble(b)
         self._jump_elapsed = math.huge
         self._bounce_elapsed = math.huge
     end
+
+    -- delay to after next physics update, because solver needs time to resolve spring after synch teleport
+    self._use_bubble_mesh_delay_n_steps = 2
+    self._world:signal_connect("step", function()
+        if self._use_bubble_mesh_delay_n_steps <= 0 then
+            self._use_bubble_mesh = self._is_bubble
+            return meta.DISCONNECT_SIGNAL
+        else
+            self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
+        end
+    end)
 end
 
 --- @brief

@@ -5,7 +5,8 @@
 b2.Body = meta.class("PhysicsBody")
 meta.add_signals(b2.Body,
     "collision_start",
-    "collision_end"
+    "collision_end",
+    "destroy"
 )
 
 --- @class b2.BodyType
@@ -365,6 +366,7 @@ end
 --- @brief
 function b2.Body:destroy()
     self._native:destroy()
+    self:signal_emit("destroy")
     self:signal_disconnect_all()
 end
 
