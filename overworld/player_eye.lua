@@ -8,7 +8,7 @@ function ow.PlayerEye:instantiate(radius)
     self._radius = radius
 
     self._pupil_x, self._pupil_y = 0, 0
-    self._pupil_radius = 0.4 * radius
+    self._pupil_radius = 0.5 * radius
     self._pupil_color = rt.Palette.BLACK
 
     self._iris_x, self._iris_y = 0, 0
@@ -65,6 +65,7 @@ local function draw_rotated_ellipse(mode, cx, cy, rx, ry, angle)
 end
 
 function ow.PlayerEye:draw(x, y, scale)
+
     local r, g, b, a = love.graphics.getColor()
     love.graphics.push()
     love.graphics.translate(x, y)

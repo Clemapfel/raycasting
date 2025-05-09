@@ -377,11 +377,11 @@ function ow.OverworldScene:draw()
 
     self._post_fx:bind()
 
-    --self._background:draw()
+    self._background:draw()
     love.graphics.clear()
     self._camera:bind()
 
-    --self._stage:draw_below_player()
+    self._stage:draw_below_player()
 
     self._camera:unbind()
 
@@ -390,7 +390,7 @@ function ow.OverworldScene:draw()
 
     self._camera:bind()
     self._player:draw()
-    --self._stage:draw_above_player()
+    self._stage:draw_above_player()
     self._camera:unbind()
 
     if self._cursor_visible and self._cursor_active then
