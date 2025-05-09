@@ -21,6 +21,11 @@ function rt.RGBA:unpack()
     return self.r, self.g, self.b, self.a
 end
 
+--- @brief
+function rt.RGBA:clone()
+    return rt.RGBA(self.r, self.g, self.b, self.a)
+end
+
 --- @class HSVA
 rt.HSVA = meta.class("HSVA")
 

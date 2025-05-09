@@ -1,6 +1,7 @@
 require "common.input_subscriber"
 require "physics.physics"
 require "overworld.player_trail"
+require "overworld.player_eye"
 require "common.random"
 
 local radius = 13.5
@@ -232,6 +233,8 @@ function ow.Player:instantiate(scene, stage)
         _world = nil,
         _last_position_x = 0,
         _last_position_y = 0,
+
+        _eye = ow.PlayerEye(_settings.inner_body_radius),
 
         -- animation
         _trail = ow.PlayerTrail(scene, _settings.radius),
@@ -1154,6 +1157,7 @@ function ow.Player:move_to_stage(stage)
         end
     end
 
+
     self._outer_body_centers_x = {}
     self._outer_body_centers_y = {}
     self._outer_body_scales = {}
@@ -1240,6 +1244,22 @@ function ow.Player:_update_mesh()
             self._outer_body_tris = new_tris
         end
     end
+
+    -- update eye
+    do
+        if not self._scene:get_is_cursor_visible() then
+            local dx, dy = self._last_velocity_x, self._last_velocity_y
+            if math.magnitude(dx, dy) < 1 then
+                self._eye:set_offset(0, 0)
+            else
+                self._eye:set_offset(dx, dy)
+            end
+        else
+            local x, y = love.mouse.getPosition()
+            local px, py = self._scene:get_camera():world_xy_to_screen_xy(self._body:get_position())
+            self._eye:set_offset(x - px, y - py)
+        end
+    end
 end
 
 --- @brief
@@ -1253,27 +1273,30 @@ function ow.Player:draw()
 
     -- draw body
 
-    love.graphics.setBlendState(
-        rt.BlendOperation.ADD,         -- rgb_operation
-        rt.BlendOperation.ADD,         -- alpha_operation
-        rt.BlendFactor.SOURCE_ALPHA,            -- rgb_source_factor (premultiplied alpha)
-        rt.BlendFactor.ZERO,           -- alpha_source_factor (commonly ONE or ZERO)
-        rt.BlendFactor.ONE,            -- rgb_destination_factor
-        rt.BlendFactor.ZERO             -- alpha_destination_factor (commonly ONE or ZERO)
-    )
-
-    love.graphics.setColor(r, g, b, (0.7 + self:get_flow()) * self._opacity)
+    love.graphics.setColor(r, g, b, 1)
 
     if self._use_bubble_mesh then
-        love.graphics.draw(self._outer_body_center_mesh_scaled:get_native(), self._bubble_body:get_predicted_position())
+        local x, y = self._bubble_body:get_predicted_position()
+        love.graphics.draw(self._outer_body_center_mesh_scaled:get_native(), x, y)
     else
-        love.graphics.draw(self._outer_body_center_mesh:get_native(), self._body:get_predicted_position())
+        local x, y = self._body:get_predicted_position()
+        love.graphics.draw(self._outer_body_center_mesh:get_native(), x, y)
     end
 
-    rt.graphics.set_blend_mode(nil)
     love.graphics.setColor(r, g, b, 0.3 * self._opacity)
     for tri in values(self._outer_body_tris) do
         love.graphics.polygon("fill", tri)
+    end
+
+    r, g, b, a = rt.lcha_to_rgba(0.6, 1, math.fract(self._hue - 0.1), 1)
+    love.graphics.setColor(r, g, b, self._opacity)
+
+    if self._use_bubble_mesh then
+        local x, y = self._bubble_body:get_predicted_position()
+        self._eye:draw(x, y, _settings.bubble_radius_factor)
+    else
+        local x, y = self._body:get_predicted_position()
+        self._eye:draw(x, y, 1)
     end
 
     r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
