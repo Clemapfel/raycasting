@@ -373,3 +373,8 @@ end
 function ow.Stage:_notify_goal_added(goal)
     self._goals[goal] = true
 end
+
+--- @brief
+function ow.Stage:finish_stage()
+    rt.warning("In ow.Stage.finish_stage: TODO")
+end

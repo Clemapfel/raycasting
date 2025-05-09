@@ -12,12 +12,13 @@ function b2.World:instantiate()
         _timestamp = love.timer.getTime(),
         _interpolation_factor = 0,
         _interpolating_bodies = meta.make_weak({}), -- Set
+        _time_dilation = 1,
 
         _body_to_collision_sign = {}
     })
 
     local _add_collision_start = function(a, b, nx, ny, x1, y1, x2, y2, contact)
-        if a._emission_blocked == true or b._emission_blocked == true then return end
+        if a:get_collision_disabled() == true or b:get_collision_disabled() == true then return end
 
         local current = self._body_to_collision_sign[a]
         if current == nil then
@@ -44,7 +45,7 @@ function b2.World:instantiate()
     end
 
     local _add_collision_end = function(a, b, nx, ny, x1, y1, x2, y2, contact)
-        if a._emission_blocked == true or b._emission_blocked == true then return end
+        if a:get_collision_disabled() == true or b:get_collision_disabled() == true then return end
 
         local current = self._body_to_collision_sign[a]
         if current == nil then
@@ -177,12 +178,12 @@ end
 
 local _elapsed = 0
 local _step = 1 / 120
-local _max_n_steps_per_frame = math.huge
+local _max_n_steps_per_frame = 4
 local _n_velocity_iterations = 4
 
 --- @brief
 function b2.World:update(delta)
-    _elapsed = _elapsed + delta
+    _elapsed = _elapsed + delta * self._time_dilation
 
     local total_step = 0
     local n_steps = 0
@@ -392,4 +393,14 @@ end
 --- @brief
 function b2.World:get_timestep()
     return _step
+end
+
+--- @brief
+function b2.World:set_time_dilation(x)
+    self._time_dilation = x
+end
+
+--- @brief
+function b2.World:get_time_dilation()
+    return self._time_dilation
 end

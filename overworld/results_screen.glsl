@@ -80,8 +80,8 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
 
     vec2 normalization = vec2(size.x / size.y, 1);
     float player_weight = (distance(
-        player_position * normalization,
-        texture_position * normalization
+    player_position * normalization,
+    texture_position * normalization
     ));
     vec2 player_offset = vec2(dFdx(player_weight), dFdy(player_weight)) * 10;
 
@@ -96,8 +96,8 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_pos
     float distortion_scale = 20;
     float distortion_speed = 1 / 2.0;
     vec2 distortion = vec2(
-        gradient_noise(vec3(uv * distortion_scale, elapsed * distortion_speed)),
-        gradient_noise(vec3(uv * distortion_scale, elapsed * distortion_speed))
+    gradient_noise(vec3(uv * distortion_scale, elapsed * distortion_speed)),
+    gradient_noise(vec3(uv * distortion_scale, elapsed * distortion_speed))
     ) * distortion_strength;
 
     uv += distortion;

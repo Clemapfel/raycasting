@@ -14,6 +14,12 @@ ow.ObjectType = meta.enum("ObjectType", {
     POINT = "point"
 })
 
+local _calculate_n_outer_vertices = function(x_radius, y_radius)
+    local out = math.max(math.floor(math.sqrt(((x_radius + y_radius) / 2.0))) * 2, 8) -- cf https://github.com/love2d/love/blob/4e49a8db762bd51d8ad6f698e2c9ac462a9e8e35/src/modules/graphics/Graphics.cpp#L2419
+    if out % 2 == 1 then out = out + 1 end
+    return out
+end
+
 --- @brief
 function ow.ObjectWrapper:instantiate(type, id)
     meta.assert(type, "String", id, "Number")
@@ -217,7 +223,8 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
 
             local center_x, center_y = self.center_x, self.center_y
             local x_radius, y_radius = self.x_radius, self.y_radius
-            local n_outer_vertices = 16
+            local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
+
             local angle_step = (2 * math.pi) / n_outer_vertices
             for angle = 0, 2 * math.pi, angle_step do
                 table.insert(vertices, center_x + x_radius * math.cos(angle))
@@ -229,7 +236,11 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                 self
             )
 
-            local polygonization = love.math.triangulate(vertices) --slick.polygonize(8, { vertices })
+            local success, polygonization = pcall(slick.polygonize, 8, { vertices })
+            if not success then
+                polygonization = love.math.triangulate(vertices)
+            end
+
             for shape in values(polygonization) do
                 table.insert(prototypes, {
                     type = ow.ObjectWrapperShapeType.POLYGON,
@@ -319,7 +330,9 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
         local x, y = self.center_x, self.center_y
         local x_radius, y_radius = self.x_radius, self.y_radius
         local points = { x, y }
-        for angle = 0, 2 * math.pi, (2 * math.pi) / 15 do
+        local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
+        local step = (2 * math.pi) / n_outer_vertices
+        for angle = 0, 2 * math.pi + step, step do -- TODO: why + step?
             table.insert(points, x + math.cos(angle) * x_radius)
             table.insert(points, y + math.sin(angle) * y_radius)
         end

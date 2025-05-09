@@ -125,5 +125,5 @@ end
 
 --- @brief
 function b2.Segment:draw()
-    love.graphics.line(table.unpack(self._vertices))
+    love.graphics.line(self._vertices)
 end

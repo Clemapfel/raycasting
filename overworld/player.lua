@@ -1062,7 +1062,7 @@ function ow.Player:move_to_stage(stage)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, bubble_outer_body_shape)
         initialize_outer_body(body, true)
-        body:set_mass(0.02) -- experimentally determined for best bubble deformation
+        body:set_mass(0.001) -- experimentally determined for best bubble deformation
 
         local joint = b2.Spring(self._bubble_body, body, x, y, cx, cy)
         joint:set_tolerance(-0.5, 0.5) -- animation only
@@ -1456,6 +1456,15 @@ function ow.Player:disable()
 
     self._state = ow.PlayerState.DISABLED
 
+    self._body:set_collision_disabled(true)
+    for body in values(self._spring_bodies) do
+        body:set_collision_disabled(true)
+    end
+
+    self._bubble_body:set_collision_disabled(true)
+    for body in values(self._bubble_spring_bodies) do
+        body:set_collision_disabled(true)
+    end
 end
 
 --- @brief
@@ -1467,6 +1476,16 @@ function ow.Player:enable()
     end
 
     self._state = ow.PlayerState.ACTIVE
+
+    self._body:set_collision_disabled(false)
+    for body in values(self._spring_bodies) do
+        body:set_collision_disabled(false)
+    end
+
+    self._bubble_body:set_collision_disabled(false)
+    for body in values(self._bubble_spring_bodies) do
+        body:set_collision_disabled(false)
+    end
 end
 
 --- @brief

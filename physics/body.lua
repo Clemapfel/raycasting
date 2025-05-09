@@ -66,7 +66,8 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
 
         _use_interpolation = false, -- false = extrapolation, cf. get_predicted_position
 
-        _friction = 0
+        _friction = 0,
+        _collision_disabled = false
     })
 
     self._last_x, self._last_y = self._native:getPosition()
@@ -365,9 +366,12 @@ end
 
 --- @brief
 function b2.Body:destroy()
-    self._native:destroy()
     self:signal_emit("destroy")
     self:signal_disconnect_all()
+
+    if not self._native:isDestroyed() then
+        self._native:destroy()
+    end
 end
 
 --- @brief
@@ -437,4 +441,14 @@ function b2.Body:compute_aabb()
     end
 
     return rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
+end
+
+--- @brief
+function b2.Body:set_collision_disabled(b)
+    self._collision_disabled = b
+end
+
+--- @brief
+function b2.Body:get_collision_disabled()
+    return self._collision_disabled
 end
