@@ -21,7 +21,7 @@ function noba.RoarFX()
     function self._envelope(fraction)
         if fraction > 1 then return 0 end
 
-        local ramp_fraction = self._ramp_fraction / 2a
+        local ramp_fraction = self._ramp_fraction / 2
         local lower, upper = ramp_fraction, 1 - ramp_fraction
         if fraction < lower then -- attack
             return gaussian(fraction / ramp_fraction, 1)

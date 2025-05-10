@@ -1,5 +1,6 @@
 require "common.input_subscriber"
 require "physics.physics"
+require "overworld.player_body"
 require "overworld.player_trail"
 require "common.random"
 
@@ -214,19 +215,6 @@ function ow.Player:instantiate(scene, stage)
         _bubble_spring_body_offsets_x = {},
         _bubble_spring_body_offsets_y = {},
 
-        _outer_body_mesh = nil,
-        _outer_body_mesh_origin_x = 0,
-        _outer_body_mesh_origin_y = 0,
-        _outer_body_center_mesh = nil,
-        _outer_body_center_mesh_scaled = nil,
-        _outer_body_centers_x = {},
-        _outer_body_centers_y = {},
-        _outer_body_angles = {},
-        _outer_body_colors = {},
-        _outer_body_scales = {},
-
-        _outer_body_tris = {},
-
         -- hard body
         _body = nil,
         _world = nil,
@@ -236,6 +224,7 @@ function ow.Player:instantiate(scene, stage)
         -- animation
         _trail = ow.PlayerTrail(scene, _settings.radius),
         _trail_visible = true,
+        _graphics_body = ow.PlayerBody(self),
 
         _hue = 0,
         _hue_duration = _settings.hue_cylce_duration,
@@ -1078,100 +1067,6 @@ function ow.Player:move_to_stage(stage)
         self._bubble_mass = self._bubble_mass + body:get_mass()
     end
 
-    -- two tone colors for gradients
-    local color_a, color_b = rt.settings.overworld.player.color_a, rt.settings.overworld.player.color_b
-    local ar, ag, ab = color_a, color_a, color_a
-    local br, bg, bb = color_b, color_b, color_b
-
-    if self._outer_body_mesh == nil then
-        local n_outer_vertices = 32
-
-        -- generate vertices for outer body mesh
-        local radius = self._radius
-        local x_radius = radius / 2 * 0.8
-
-        local n_bodies = rt.settings.overworld.player.n_outer_bodies
-        local circumference = 2 * math.pi * radius
-        local y_radius = (circumference / n_bodies)
-
-        local small_radius = self._outer_body_radius
-        local cx, cy = 0, 0
-        local vertices = {
-            {cx, cy}
-        }
-
-        local m = 4 -- Lower exponent for softer tail
-        local soften_tail_strength = 0.4 -- 0 = no softening, 1 = maximum softening
-
-        local n = 0
-        local step = 2 * math.pi / n_outer_vertices
-        for angle = 0, 2 * math.pi + step, step do
-            local x = cx + math.cos(angle) * x_radius
-
-            -- Original y calculation
-            local y_base = cy + (math.sin(angle) * math.sin(0.5 * angle)^m) * y_radius
-
-            -- Soften the tail: blend y near angle=pi with a less extreme value
-            local tail_blend = 1 - math.exp(-((angle - math.pi) ^ 2) / 0.3) -- peak at angle=pi
-            local y_soft = cy + math.sin(angle) * y_radius * 0.5 -- less extreme shape
-
-            local y = y_base * (1 - soften_tail_strength * tail_blend) + y_soft * (soften_tail_strength * tail_blend)
-
-            table.insert(vertices, {x, y})
-            n = n + 1
-        end
-
-        -- generate mesh data
-        local data = {}
-        local indices = {}
-        for i = 1, n do
-            local x, y = vertices[i][1], vertices[i][2]
-
-            local r, g, b, a
-            if i == 1 then
-                r, g, b, a = ar, ag, ab, 1
-            else
-                r, g, b, a = br, bg, bb, 1
-            end
-
-            table.insert(data, {x, y,  0, 0,  r, g, b, a})
-
-            if i < n then
-                for index in range(i, i + 1, 1) do
-                    table.insert(indices, index)
-                end
-            end
-        end
-
-        for index in range(n, 1, 2) do
-            table.insert(indices, index)
-        end
-
-        self._outer_body_mesh = rt.Mesh(data, rt.MeshDrawMode.TRIANGLES)
-        self._outer_body_mesh:set_vertex_map(indices)
-        self._outer_body_mesh_origin_x, self._outer_body_mesh_origin_y = -x_radius, 0 -- top of left bulb
-
-        self._outer_body_center_mesh = rt.MeshCircle(0, 0, _settings.inner_body_radius)
-        self._outer_body_center_mesh_scaled = rt.MeshCircle(0, 0, _settings.inner_body_radius * _settings.bubble_inner_radius_scale)
-
-        for mesh in range(self._outer_body_center_mesh, self._outer_body_center_mesh_scaled) do
-            for i = 1, mesh:get_n_vertices() do
-                if i == 1 then
-                    mesh:set_vertex_color(i, ar, ag, ab, 1)
-                else
-                    mesh:set_vertex_color(i, br, bg, bb, 1)
-                end
-            end
-        end
-    end
-
-
-    self._outer_body_centers_x = {}
-    self._outer_body_centers_y = {}
-    self._outer_body_scales = {}
-    self._outer_body_angles = {}
-    self._outer_body_colors = {}
-
     if self._state == ow.PlayerState.DISABLED then
         self:disable()
     end
@@ -1185,73 +1080,29 @@ function ow.Player:move_to_stage(stage)
 end
 
 function ow.Player:_update_mesh()
-    -- update mesh
-    local player_x, player_y
-
-    if not self._use_bubble_mesh then
-        player_x, player_y = self._body:get_predicted_position()
+    local positions
+    if self._is_bubble then
+        positions = {
+            self._bubble_body:get_predicted_position()
+        }
+        for body in values(self._bubble_spring_bodies) do
+            local x, y = body:get_predicted_position()
+            table.insert(positions, x)
+            table.insert(positions, y)
+        end
     else
-        player_x, player_y = self._bubble_body:get_predicted_position()
-    end
+        positions = {
+            self._body:get_predicted_position()
+        }
 
-    local to_polygonize = {}
-    local hue_step = 1 / _settings.n_outer_bodies
-    local joints, bodies, radius, outer_radius, offset_x, offset_y
-    if not self._use_bubble_mesh then
-        joints = self._spring_joints
-        bodies = self._spring_bodies
-        radius = self._radius
-        outer_radius = self._outer_body_radius
-        offset_x = self._spring_body_offsets_x
-        offset_y = self._spring_body_offsets_y
-    else
-        joints = self._bubble_spring_joints
-        bodies = self._bubble_spring_bodies
-        radius = self._bubble_radius
-        outer_radius = self._bubble_outer_body_radius
-        offset_x = self._bubble_spring_body_offsets_x
-        offset_y = self._bubble_spring_body_offsets_y
-    end
-
-    for i, body in ipairs(bodies) do
-        local cx, cy = body:get_predicted_position()
-
-        if self._use_bubble_mesh then
-            -- translate center of circle to outside of circle for correct bubble outer hull alignment
-            local nx, ny = math.normalize(offset_x[i], offset_y[i])
-            cx = cx + nx * outer_radius
-            cy = cy + ny * outer_radius
-        end
-
-        self._outer_body_centers_x[i] = cx
-        self._outer_body_centers_y[i] = cy
-        local dx, dy = cx - player_x, cy - player_y
-        self._outer_body_angles[i] = math.angle(dx, dy) + math.pi
-
-        local scale = 1 + joints[i]:get_distance() / (radius - outer_radius)
-        self._outer_body_scales[i] = math.max(scale / 2, 0)
-
-        local hue = self._hue + (i - 1) * hue_step
-        self._outer_body_colors[i] = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
-
-        table.insert(to_polygonize, cx)
-        table.insert(to_polygonize, cy)
-    end
-
-    do
-        -- triangulate body for see-through part
-        -- try love, if fails, try slick (because slick is slower), if it fails, do not change body
-        local success, new_tris
-        success, new_tris = pcall(love.math.triangulate, to_polygonize)
-        if not success then
-            --success, new_tris = pcall(slick.triangulate, {to_polygonize})
-            self._outer_body_tris = {}
-        end
-
-        if success then
-            self._outer_body_tris = new_tris
+        for body in values(self._spring_bodies) do
+            local x, y = body:get_predicted_position()
+            table.insert(positions, x)
+            table.insert(positions, y)
         end
     end
+
+    self._graphics_body:update(positions)
 end
 
 --- @brief
@@ -1263,56 +1114,7 @@ function ow.Player:draw()
         self._trail:draw()
     end
 
-    -- draw body
-
-    love.graphics.setColor(r, g, b, 0.7)
-
-
-    love.graphics.setBlendState(
-        rt.BlendOperation.ADD,         -- rgb_operation
-        rt.BlendOperation.ADD,         -- alpha_operation
-        rt.BlendFactor.SOURCE_ALPHA,            -- rgb_source_factor (premultiplied alpha)
-        rt.BlendFactor.ZERO,           -- alpha_source_factor (commonly ONE or ZERO)
-        rt.BlendFactor.ONE,            -- rgb_destination_factor
-        rt.BlendFactor.ZERO             -- alpha_destination_factor (commonly ONE or ZERO)
-    )
-
-    if self._use_bubble_mesh then
-        local x, y = self._bubble_body:get_predicted_position()
-        love.graphics.draw(self._outer_body_center_mesh_scaled:get_native(), x, y)
-    else
-        local x, y = self._body:get_predicted_position()
-        love.graphics.draw(self._outer_body_center_mesh:get_native(), x, y)
-    end
-
-    rt.graphics.set_blend_mode(nil)
-
-    rt.Palette.BLACK:bind()
-    --love.graphics.setColor(r, g, b, 0.3 * self._opacity)
-    for tri in values(self._outer_body_tris) do
-        love.graphics.polygon("fill", tri)
-    end
-
-    r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
-    love.graphics.setColor(r, g, b, self._opacity)
-
-    local scale_offset = self._is_bubble and 1 / _settings.bubble_radius_factor or 0
-    for i, scale in ipairs(self._outer_body_scales) do
-        local x = self._outer_body_centers_x[i]
-        local y = self._outer_body_centers_y[i]
-
-        local origin_x = self._outer_body_mesh_origin_x
-        local origin_y = self._outer_body_mesh_origin_y
-
-        local angle = self._outer_body_angles[i]
-
-        love.graphics.draw(self._outer_body_mesh:get_native(),
-            x, y,
-            angle, -- rotation
-            scale, 1 + scale_offset, -- scale
-            origin_x, origin_y -- origin
-        )
-    end
+    self._graphics_body:draw()
 
     if _settings.debug_drawing_enabled then
         if not self._use_bubble_mesh then

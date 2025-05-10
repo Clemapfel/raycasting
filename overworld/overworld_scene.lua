@@ -378,7 +378,7 @@ function ow.OverworldScene:draw()
     self._post_fx:bind()
 
     self._background:draw()
-    love.graphics.clear(rt.Palette.RED_9:unpack())
+    love.graphics.clear(rt.Palette.GRAY:unpack())
     self._camera:bind()
 
     self._stage:draw_below_player()
@@ -389,7 +389,7 @@ function ow.OverworldScene:draw()
     self._post_fx:draw()
 
     self._camera:bind()
-    --self._player:draw()
+    self._player:draw()
     self._stage:draw_above_player()
     self._camera:unbind()
 

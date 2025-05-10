@@ -121,10 +121,6 @@ function ow.Eye:draw()
 
     local r, g, b, a = table.unpack(self._color)
 
-    love.graphics.translate(self._origin_x, self._origin_y)
-    love.graphics.rotate(self._angle)
-    love.graphics.translate(-self._origin_x, -self._origin_y)
-
     love.graphics.push()
     love.graphics.translate(self._x, self._y)
     self._sclera_color:bind()
