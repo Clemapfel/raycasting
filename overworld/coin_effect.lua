@@ -56,7 +56,7 @@ end
 --- @override
 function ow.CoinEffect:size_allocate(x, y, width, height)
     self._x, self._y = x, y
-    _canvas = rt.RenderTexture(width, height)
+    _canvas = rt.RenderTexture(width, height, 8)
 end
 
 --- @override

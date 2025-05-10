@@ -378,7 +378,7 @@ function ow.OverworldScene:draw()
     self._post_fx:bind()
 
     self._background:draw()
-    love.graphics.clear()
+    love.graphics.clear(rt.Palette.RED_9:unpack())
     self._camera:bind()
 
     self._stage:draw_below_player()
@@ -389,7 +389,7 @@ function ow.OverworldScene:draw()
     self._post_fx:draw()
 
     self._camera:bind()
-    self._player:draw()
+    --self._player:draw()
     self._stage:draw_above_player()
     self._camera:unbind()
 
@@ -408,7 +408,6 @@ function ow.OverworldScene:draw()
 
         local x, y = love.mouse.getPosition()
         local scale = love.window.getDPIScale()
-        scale = 1 / 4
         love.graphics.setLineStyle("smooth")
 
         love.graphics.setColor(_white_r, _white_g, _white_b, 0.7)
