@@ -20,6 +20,7 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
 
     self._tris = new_tris
     self._center_x, self._center_y = positions[1], positions[2]
+    self._is_bubble = self._player:get_is_bubble()
 
     self._use_ground = floor_ax ~= nil
     self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by = floor_ax, floor_ay, floor_bx, floor_by
@@ -54,7 +55,10 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
                     distances = {},
                     anchor_x = center_x,
                     anchor_y = center_y,
+                    hue = 1 - (ring - 1) / n_rings
                 }
+
+                rope.axis_x, rope.axis_y = math.normalize(center_x, center_y)
 
                 center_x = center_x + self._center_x
                 center_y = center_y + self._center_y
@@ -103,12 +107,12 @@ end
 
 local _step = 1 / 120
 local _gravity = 100
-local _axis_stiffness = 0.5
+local _axis_stiffness = 1
 local _bending_stiffness = 1
 local _velocity_damping = 0.9
 local _n_velocity_iterations = 1
 local _n_distance_iterations = 8
-local _n_axis_iterations = 0
+local _n_axis_iterations = 2
 local _n_bending_iterations = 0
 
 local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
@@ -206,13 +210,16 @@ function ow.PlayerBody:update(delta)
             local distances = rope.distances
             local gravity_x, gravity_y = axis_x * _gravity, axis_y * _gravity
 
+            if self._is_bubble then
+                gravity_x, gravity_y = 0, 0
+            end
+
             local n_axis_iterations = 0
             local n_distance_iterations = 0
             local n_velocity_iterations = 0
             local n_bending_iterations = 0
 
-            while n_axis_iterations < _n_axis_iterations or n_distance_iterations <_n_distance_iterations or n_velocity_iterations < _n_velocity_iterations do
-
+            while (self._is_bubble and n_axis_iterations < _n_axis_iterations) or n_distance_iterations <_n_distance_iterations or n_velocity_iterations < _n_velocity_iterations do
                 -- velocity
                 if n_velocity_iterations < _n_velocity_iterations then
                     for i = 1, #positions, 2 do
@@ -232,14 +239,14 @@ function ow.PlayerBody:update(delta)
                 end
 
                 -- axis
-                if n_axis_iterations < _n_axis_iterations then
+                if self._is_bubble and n_axis_iterations < _n_axis_iterations then
                     for i = 1, #positions - 2, 2 do
                         local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i, i+1, i+2, i+3
                         local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
                         local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
 
                         local new_x1, new_y1, new_x2, new_y2 = _solve_axis_constraint(
-                            node_1_x, node_1_y, node_2_x, node_2_y, axis_x, axis_y,
+                            node_1_x, node_1_y, node_2_x, node_2_y, rope.axis_x, rope.axis_y,
                             _axis_stiffness
                         )
 
@@ -309,7 +316,7 @@ function ow.PlayerBody:update(delta)
         end
     end
 
-    if self._use_ground then
+    if not self._is_bubble and self._use_ground then
         -- move all bodies above ground line
         local ax, ay = self._floor_ax, self._floor_ay
         local bx, by = self._floor_bx, self._floor_by
@@ -356,6 +363,7 @@ function ow.PlayerBody:draw(is_bubble)
     local rope_i, n_ropes = 0, table.sizeof(self._ropes)
     for rope in values(self._ropes) do
         for i = 1, self._n_segments, 2 do
+            love.graphics.setColor(rope.hue, rope.hue, rope.hue, 1)
             local node_1_x, node_1_y = rope.current_positions[i + 0], rope.current_positions[i + 1]
             local node_2_x, node_2_y = rope.current_positions[i + 2], rope.current_positions[i + 3]
 
