@@ -4,7 +4,7 @@ require "overworld.player_body"
 require "overworld.player_trail"
 require "common.random"
 
-local radius = 20 --13.5
+local radius = 13.5
 rt.settings.overworld.player = {
     radius = radius,
     inner_body_radius = 10 / 2 - 0.5,
@@ -224,7 +224,7 @@ function ow.Player:instantiate(scene, stage)
         -- animation
         _trail = ow.PlayerTrail(scene, _settings.radius),
         _trail_visible = true,
-        _graphics_body = ow.PlayerBody(self),
+        _graphics_body = nil,
 
         _hue = 0,
         _hue_duration = _settings.hue_cylce_duration,
@@ -262,6 +262,8 @@ function ow.Player:instantiate(scene, stage)
 
         _input = rt.InputSubscriber()
     })
+
+    self._graphics_body = ow.PlayerBody(self)
 
     self:_connect_input()
 
@@ -348,6 +350,7 @@ function ow.Player:update(delta)
         self._trail:update(delta)
     end
 
+    self._graphics_body:update(delta)
     local gravity = _settings.gravity * delta * self._gravity_multiplier
 
     if self._state == ow.PlayerState.DISABLED then
@@ -1077,6 +1080,8 @@ function ow.Player:move_to_stage(stage)
     local is_bubble = self._is_bubble
     self._is_bubble = nil
     self:set_is_bubble(is_bubble)
+
+    self._graphics_body:initialize(self._body:get_position())
 end
 
 function ow.Player:_update_mesh()
@@ -1102,7 +1107,50 @@ function ow.Player:_update_mesh()
         end
     end
 
-    self._graphics_body:update(positions)
+    local success, new_tris
+    success, new_tris = pcall(love.math.triangulate, positions)
+    if not success then
+        success, new_tris = pcall(slick.triangulate, { positions })
+        self._hull_tris = {}
+    end
+
+    if success then
+        self._hull_tris = new_tris
+    end
+
+    local origin_x, origin_y = positions[1], positions[2]
+    table.remove(positions, 1)
+    table.remove(positions, 1)
+
+    local center_x, center_y = self._body:get_predicted_position()
+    local mesh_data = {}
+
+    for tri in values(self._hull_tris) do
+        for i = 1, 6, 2 do
+            local x = tri[i+0]
+            local y = tri[i+1]
+            local dx = x - center_x
+            local dy = y - center_y
+
+            local angle = math.angle(dx, dy)
+
+            local alpha = 0
+            if math.distance(x, y, origin_x, origin_y) >= 1 then
+                table.insert(mesh_data, {
+                    x, y, 0.5, 0.5, 1, 1, 1, 1
+                })
+            else
+                table.insert(mesh_data, {
+                    x, y,
+                    0.5 + math.cos(angle) * 0.5,
+                    0.5 + math.sin(angle) * 0.5,
+                    1, 1, 1, 1
+                })
+            end
+        end
+    end
+
+    self._mesh = rt.Mesh(mesh_data)
 end
 
 --- @brief
@@ -1112,6 +1160,10 @@ function ow.Player:draw()
     if self._trail_visible then
         love.graphics.setColor(r, g, b, self._opacity)
         self._trail:draw()
+    end
+
+    if self._mesh ~= nil then
+        self._mesh:draw()
     end
 
     self._graphics_body:draw()
@@ -1219,6 +1271,8 @@ function ow.Player:teleport_to(x, y)
                 y + self._bubble_spring_body_offsets_y[i]
             )
         end
+
+        self._graphics_body:initialize(x, y)
 
         self._skip_next_flow_update = true
     end
