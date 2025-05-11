@@ -26,17 +26,43 @@ vec3 lch_to_rgb(vec3 lch) {
 }
 
 #define PI 3.1415926535897932384626433832795
-#define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
 {
-    // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
-    //float hue = atan(texture_coordinates.y - 0.5, texture_coordinates.x - 0.5) / (2 * PI);
-    //float value = distance(texture_coordinates.xy, vec2(0.5, 0.5)) * 2;
+mat3 sobel_x = mat3(
+-1, 0, 1,
+-2, 0, 2,
+-1, 0, 1
+);
 
-    float value = 1 - gaussian(length(texture_coordinates) * 2, 1 / 4.5);
-    return vec4(value) * color; //vec4(lch_to_rgb(vec3(0.8, 1, hue)), 1);
+mat3 sobel_y = mat3(
+-1, -2, -1,
+0, 0, 0,
+1, 2, 1
+);
+
+vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
+
+    vec2 pixel_size = 1 / love_ScreenSize.xy;
+    float gradient_x = 0.0;
+    float gradient_y = 0.0;
+    float eps = 0.4;
+
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size;
+            float value = texture(image, neighbor_uv).a;
+            value = smoothstep(0.5 - eps, 0.5 + eps, value);
+
+            gradient_x += value * sobel_x[i + 1][j + 1];
+            gradient_y += value * sobel_y[i + 1][j + 1];
+        }
+    }
+
+    float magnitude = length(vec2(gradient_x, gradient_y));
+    float alpha = magnitude * 2;
+    float hue = (1 - magnitude) * 2;
+    return vec4(vec3(1), alpha) * color;
 }

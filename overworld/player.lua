@@ -60,7 +60,7 @@ rt.settings.overworld.player = {
     joint_force_threshold = 1000,
     joint_length_threshold = 100,
 
-    bubble_radius_factor = 1.5,
+    bubble_radius_factor = 1.75,
     bubble_inner_radius_scale = 1.7,
     bubble_target_velocity = 400,
     bubble_acceleration = 2.5,
@@ -439,7 +439,8 @@ function ow.Player:update(delta)
     if self._bottom_left_wall then n = n + 1 end
     if self._bottom_wall then n = n + 1 end
     if self._bottom_right_wall then n = n + 1 end
-    if n >= 2 then
+    self._floor_active = n >= 2
+    if self._floor_active then
         if self._bottom_left_wall then
             self._floor_ax, self._floor_ay = bottom_left_x, bottom_left_y
         else
@@ -1127,7 +1128,7 @@ function ow.Player:_update_mesh()
 
     -- compute ground
     local floor_ax, floor_ay, floor_bx, floor_by
-    if self._bottom_wall then
+    if self._floor_active then
         floor_ax, floor_ay, floor_bx, floor_by = self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by
     end
     self._graphics_body:initialize(positions, floor_ax, floor_ay, floor_bx, floor_by)
