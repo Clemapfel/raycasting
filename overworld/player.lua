@@ -1107,50 +1107,13 @@ function ow.Player:_update_mesh()
         end
     end
 
-    local success, new_tris
+    local success, new_tris = false, self._hull_tris
     success, new_tris = pcall(love.math.triangulate, positions)
     if not success then
         success, new_tris = pcall(slick.triangulate, { positions })
-        self._hull_tris = {}
     end
 
-    if success then
-        self._hull_tris = new_tris
-    end
-
-    local origin_x, origin_y = positions[1], positions[2]
-    table.remove(positions, 1)
-    table.remove(positions, 1)
-
-    local center_x, center_y = self._body:get_predicted_position()
-    local mesh_data = {}
-
-    for tri in values(self._hull_tris) do
-        for i = 1, 6, 2 do
-            local x = tri[i+0]
-            local y = tri[i+1]
-            local dx = x - center_x
-            local dy = y - center_y
-
-            local angle = math.angle(dx, dy)
-
-            local alpha = 0
-            if math.distance(x, y, origin_x, origin_y) >= 1 then
-                table.insert(mesh_data, {
-                    x, y, 0.5, 0.5, 1, 1, 1, 1
-                })
-            else
-                table.insert(mesh_data, {
-                    x, y,
-                    0.5 + math.cos(angle) * 0.5,
-                    0.5 + math.sin(angle) * 0.5,
-                    1, 1, 1, 1
-                })
-            end
-        end
-    end
-
-    self._mesh = rt.Mesh(mesh_data)
+    self._hull_tris = new_tris
 end
 
 --- @brief
@@ -1162,8 +1125,9 @@ function ow.Player:draw()
         self._trail:draw()
     end
 
-    if self._mesh ~= nil then
-        self._mesh:draw()
+    love.graphics.setColor(r, g, b, 0.5)
+    for tri in values(self._hull_tris) do
+        love.graphics.polygon("fill", tri)
     end
 
     self._graphics_body:draw()

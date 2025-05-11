@@ -444,6 +444,11 @@ function math.cross(x1, y1, x2, y2)
     return x1 * y2 - y1 * x2
 end
 
+function math.gaussian(x, ramp)
+    -- e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
+    return math.exp(((-4 * math.pi) / 3) * (ramp * x) * (ramp * x))
+end
+
 --- @brief create a table with n copies of object
 --- @param x any
 --- @param n Number
