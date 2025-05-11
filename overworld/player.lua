@@ -351,6 +351,7 @@ function ow.Player:update(delta)
     end
 
     self._graphics_body:update(delta)
+
     local gravity = _settings.gravity * delta * self._gravity_multiplier
 
     if self._state == ow.PlayerState.DISABLED then
@@ -432,6 +433,25 @@ function ow.Player:update(delta)
     self._bottom_right_wall = bottom_right_wall_body ~= nil and not bottom_right_wall_body:get_is_sensor()
     self._bottom_right_wall_body = bottom_right_wall_body
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
+
+    -- compute ground line for graphics body
+    local n = 0
+    if self._bottom_left_wall then n = n + 1 end
+    if self._bottom_wall then n = n + 1 end
+    if self._bottom_right_wall then n = n + 1 end
+    if n >= 2 then
+        if self._bottom_left_wall then
+            self._floor_ax, self._floor_ay = bottom_left_x, bottom_left_y
+        else
+            self._floor_ax, self._floor_ay = bottom_x, bottom_y
+        end
+
+        if self._bottom_right_wall then
+            self._floor_bx, self._floor_by = bottom_right_x, bottom_right_y
+        else
+            self._floor_bx, self._floor_by = bottom_x, bottom_y
+        end
+    end
 
     if not self._is_bubble then
 
@@ -1080,8 +1100,6 @@ function ow.Player:move_to_stage(stage)
     local is_bubble = self._is_bubble
     self._is_bubble = nil
     self:set_is_bubble(is_bubble)
-
-    self._graphics_body:initialize(self._body:get_position())
 end
 
 function ow.Player:_update_mesh()
@@ -1107,13 +1125,12 @@ function ow.Player:_update_mesh()
         end
     end
 
-    local success, new_tris = false, self._hull_tris
-    success, new_tris = pcall(love.math.triangulate, positions)
-    if not success then
-        success, new_tris = pcall(slick.triangulate, { positions })
+    -- compute ground
+    local floor_ax, floor_ay, floor_bx, floor_by
+    if self._bottom_wall then
+        floor_ax, floor_ay, floor_bx, floor_by = self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by
     end
-
-    self._hull_tris = new_tris
+    self._graphics_body:initialize(positions, floor_ax, floor_ay, floor_bx, floor_by)
 end
 
 --- @brief
@@ -1123,11 +1140,6 @@ function ow.Player:draw()
     if self._trail_visible then
         love.graphics.setColor(r, g, b, self._opacity)
         self._trail:draw()
-    end
-
-    love.graphics.setColor(r, g, b, 0.5)
-    for tri in values(self._hull_tris) do
-        love.graphics.polygon("fill", tri)
     end
 
     self._graphics_body:draw()
@@ -1235,8 +1247,6 @@ function ow.Player:teleport_to(x, y)
                 y + self._bubble_spring_body_offsets_y[i]
             )
         end
-
-        self._graphics_body:initialize(x, y)
 
         self._skip_next_flow_update = true
     end

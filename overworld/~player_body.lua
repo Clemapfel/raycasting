@@ -6,98 +6,77 @@ function ow.PlayerBody:instantiate(player)
     meta.assert(player, ow.Player)
 
     self._player = player
-    self._ropes = {}
     self._elapsed = 0
+    self._hull_tris = {}
+    self._hull_color = rt.Palette.BLACK:clone()
+    self._hull_color.a = 0.2
+
+    self._center_tris = {}
+    self._outline = {}
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "c" then
+            self._shader:recompile()
+            dbg("recompile")
+        end
+    end)
 end
 
 --- @brief
-function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor_by)
-    local success, new_tris = false, self._tris
-    success, new_tris = pcall(love.math.triangulate, positions)
-    if not success then
-        success, new_tris = pcall(slick.triangulate, { positions })
-    end
+function ow.PlayerBody:initialize(x, y)
+    local _settings = rt.settings.overworld.player
+    local radius = rt.settings.overworld.player.radius
+    local max_rope_length = radius * 10
 
-    self._tris = new_tris
-    self._center_x, self._center_y = positions[1], positions[2]
+    self._n_segments = radius
+    self._n_ropes = 256
 
-    self._use_ground = floor_ax ~= nil
-    self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by = floor_ax, floor_ay, floor_bx, floor_by
+    self._ropes = {}
 
-    for tri in values(self._tris) do
-        local center_x = (tri[1] + tri[3] + tri[5]) / 3
-        local center_y = (tri[2] + tri[4] + tri[6]) / 3
-        table.insert(positions, center_x)
-        table.insert(positions, center_y)
-    end
+    local _golden_ratio = (1 + math.sqrt(5)) / 2
 
-    local radius = self._player:get_radius()
-    local n_rings = 10
-    local n_ropes_per_ring = #positions / 2
-    local max_rope_length = radius * 5
+    for rope_i = 1, self._n_ropes do
+        local idx = rope_i - 0.5
+        local z = 1 - 2 * idx / self._n_ropes
+        local theta = 2 * math.pi * idx / _golden_ratio
 
-    if table.sizeof(self._ropes) < table.sizeof(self._tris) then
-        self._n_segments = 16
-        self._n_ropes = table.sizeof(self._tris)
-        self._ropes = {}
+        local r = math.sqrt(1 - z * z)
+        local offset_x = r * math.cos(theta)
+        local offset_y = r * math.sin(theta)
 
-        for ring = 1, n_rings do
-            local ring_radius = ((ring - 1) / n_rings) * radius
-            for i = 1, n_ropes_per_ring do
-                local angle = (i - 1) / n_ropes_per_ring * 2 * math.pi
-                local center_x = math.cos(angle) * ring_radius
-                local center_y = math.sin(angle) * ring_radius
+        local centered = (1 - math.gaussian(math.magnitude(offset_x, offset_y), 1))
+        offset_x = offset_x * centered
+        offset_y = offset_y * centered
 
-                local rope = {
-                    current_positions = {},
-                    last_positions = {},
-                    distances = {},
-                    anchor_x = center_x,
-                    anchor_y = center_y,
-                }
+        local dx = offset_x
+        local dy = offset_y
+        local rope = {
+            current_positions = {},
+            last_positions = {},
+            distances = {},
+            anchor_offset_x = offset_x * radius,
+            anchor_offset_y = offset_y * radius
+        }
+        rope.axis_x, rope.axis_y = math.normalize(-dx, -dy)
 
-                center_x = center_x + self._center_x
-                center_y = center_y + self._center_y
+        local rope_length = (1 - math.magnitude(offset_x, offset_y)) * radius * 5
 
-                local rope_length = (1 - math.distance(center_x, center_y, self._center_x, self._center_y) / radius) * max_rope_length
-                rope.length = rope_length
-                local dx, dy = math.normalize(rope.anchor_x - self._center_x, rope.anchor_y - self._center_y)
-                for j = 1, self._n_segments do
-                    local delta = (j - 1) / self._n_segments * rope_length
-                    local px = center_x + dx * delta
-                    local py = center_y + dy * delta
-                    table.insert(rope.current_positions, px)
-                    table.insert(rope.current_positions, py)
-                    table.insert(rope.last_positions, px)
-                    table.insert(rope.last_positions, py)
-                    table.insert(rope.distances, rope_length / self._n_segments)
-                end
-
-                table.insert(self._ropes, rope)
-            end
+        local last_x, last_y = x, y
+        for i = 1, self._n_segments do
+            local delta = (i - 1) / self._n_segments * radius
+            local px = x + dx * delta * radius
+            local py = y + dy * delta * radius
+            table.insert(rope.current_positions, px)
+            table.insert(rope.current_positions, py)
+            table.insert(rope.last_positions, px)
+            table.insert(rope.last_positions, py)
+            table.insert(rope.distances, rope_length / self._n_segments)
+            last_x = px
+            last_y = py
         end
-    else
-        local rope_i = 1
-        for ring = 1, n_rings do
-            local ring_radius = ((ring - 1) / n_rings) * radius
-            for i = 1, n_ropes_per_ring do
-                if self._ropes[rope_i] ~= nil then -- catch corrupted mesh
-                    local contour_index = (i - 1) * 2 + 1
-                    local contour_x = positions[contour_index]
-                    local contour_y = positions[contour_index + 1]
-                    local dx = contour_x - self._center_x
-                    local dy = contour_y - self._center_y
 
-                    dx = dx / radius
-                    dy = dy / radius
-
-                    local rope = self._ropes[rope_i]
-                    rope.anchor_x = dx * ring_radius
-                    rope.anchor_y = dy * ring_radius
-                    rope_i = rope_i + 1
-                end
-            end
-        end
+        table.insert(self._ropes, rope)
     end
 end
 
@@ -106,10 +85,10 @@ local _gravity = 100
 local _axis_stiffness = 0.5
 local _bending_stiffness = 1
 local _velocity_damping = 0.9
-local _n_velocity_iterations = 1
+local _n_velocity_iterations = 3
 local _n_distance_iterations = 8
-local _n_axis_iterations = 0
-local _n_bending_iterations = 0
+local _n_axis_iterations = 1
+local _n_bending_iterations = 1
 
 local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
     local current_distance = math.distance(a_x, a_y, b_x, b_y)
@@ -189,27 +168,37 @@ end
 function ow.PlayerBody:update(delta)
     self._elapsed = self._elapsed + delta
 
-    local player_x, player_y = self._player:get_physics_body():get_predicted_position()
     local axis_x, axis_y = self._player:get_velocity()
-    axis_x = 0
-    axis_y = 1
+    axis_x = -1 * axis_x
+    axis_y = -1 * axis_y
+    local is_stationary = false --math.magnitude(axis_x, axis_y) < 100
+    axis_x, axis_y = math.normalize(axis_x, axis_y)
 
     while self._elapsed > _step do
         self._elapsed = self._elapsed - _step
 
         local delta_squared = _step * _step
+        local player_x, player_y = self._player:get_physics_body():get_predicted_position()
 
         local mass = 1
         for rope in values(self._ropes) do
             local positions = rope.current_positions
             local old_positions = rope.last_positions
             local distances = rope.distances
-            local gravity_x, gravity_y = axis_x * _gravity, axis_y * _gravity
+            local gravity_x, gravity_y = 0 * _gravity, 1 * _gravity
 
             local n_axis_iterations = 0
             local n_distance_iterations = 0
             local n_velocity_iterations = 0
             local n_bending_iterations = 0
+
+            local rope_axis_x = axis_x
+            local rope_axis_y = axis_y
+
+            if is_stationary then
+                rope_axis_x = rope.axis_x
+                rope_axis_y = rope.axis_y
+            end
 
             while n_axis_iterations < _n_axis_iterations or n_distance_iterations <_n_distance_iterations or n_velocity_iterations < _n_velocity_iterations do
 
@@ -232,14 +221,14 @@ function ow.PlayerBody:update(delta)
                 end
 
                 -- axis
-                if n_axis_iterations < _n_axis_iterations then
+                if n_axis_iterations < _n_axis_iterations and not is_stationary then
                     for i = 1, #positions - 2, 2 do
                         local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i, i+1, i+2, i+3
                         local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
                         local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
 
                         local new_x1, new_y1, new_x2, new_y2 = _solve_axis_constraint(
-                            node_1_x, node_1_y, node_2_x, node_2_y, axis_x, axis_y,
+                            node_1_x, node_1_y, node_2_x, node_2_y, rope_axis_x, rope_axis_y,
                             _axis_stiffness
                         )
 
@@ -286,11 +275,12 @@ function ow.PlayerBody:update(delta)
                         local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
 
                         if i == 1 then
-                            node_1_x = player_x + rope.anchor_x
-                            node_1_y = player_y + rope.anchor_y
+                            node_1_x = player_x + rope.anchor_offset_x
+                            node_1_y = player_y + rope.anchor_offset_y
                         end
 
                         local rest_length = distances[distance_i]
+                        if is_stationary then rest_length = 0 end
 
                         local new_x1, new_y1, new_x2, new_y2 = _solve_distance_constraint(
                             node_1_x, node_1_y, node_2_x, node_2_y,
@@ -308,59 +298,25 @@ function ow.PlayerBody:update(delta)
             end
         end
     end
-
-    if self._use_ground then
-        -- move all bodies above ground line
-        local ax, ay = self._floor_ax, self._floor_ay
-        local bx, by = self._floor_bx, self._floor_by
-
-        for rope in values(self._ropes) do
-            local positions = rope.current_positions
-
-            for i = 1, #positions, 2 do
-                local px, py = positions[i], positions[i + 1]
-
-                -- Calculate the perpendicular projection of (px, py) onto the line (ax, ay) -> (bx, by)
-                local ab_x, ab_y = bx - ax, by - ay
-                local ap_x, ap_y = px - ax, py - ay
-                local ab_length_squared = ab_x * ab_x + ab_y * ab_y
-                local dot_product = (ap_x * ab_x + ap_y * ab_y) / ab_length_squared
-
-                -- Find the closest point on the line
-                local closest_x = ax + dot_product * ab_x
-                local closest_y = ay + dot_product * ab_y
-
-                -- Check if the point is below the line
-                local normal_x, normal_y = -ab_y, ab_x -- Perpendicular vector
-                local to_point_x, to_point_y = px - closest_x, py - closest_y
-                local side = to_point_x * normal_x + to_point_y * normal_y
-
-                if side > 0 then
-                    -- Move the point to the closest point on the line
-                    positions[i] = closest_x
-                    positions[i + 1] = closest_y
-                end
-            end
-        end
-    end
 end
 
 --- @brief
 function ow.PlayerBody:draw(is_bubble)
-    love.graphics.setColor(0.3, 0.3, 0.3, 0.8)
-    for tri in values(self._tris) do
-        love.graphics.polygon("fill", tri)
-    end
+    love.graphics.setColor(1, 1, 1, 1)
 
-    love.graphics.setLineWidth(1)
-    local rope_i, n_ropes = 0, table.sizeof(self._ropes)
+    local hue = 0
+    local rope_i = 0
+    love.graphics.setLineWidth(2)
     for rope in values(self._ropes) do
+        love.graphics.setColor(hue, hue, hue, 1)
         for i = 1, self._n_segments, 2 do
             local node_1_x, node_1_y = rope.current_positions[i + 0], rope.current_positions[i + 1]
             local node_2_x, node_2_y = rope.current_positions[i + 2], rope.current_positions[i + 3]
 
             love.graphics.line(node_1_x, node_1_y, node_2_x, node_2_y)
-            rope_i = rope_i + 1
         end
+
+        hue = rope_i / self._n_ropes
+        rope_i = rope_i + 1
     end
 end
