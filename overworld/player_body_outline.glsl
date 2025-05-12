@@ -50,7 +50,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_positio
     float gradient_y = 0.0;
     float threshold = 0.6; // Metaball threshold
     float smoothness = 0.05; // Smoothness factor for blending
-    float outline_thickness = 4.0; // Increase this value to thicken the outline
+    float outline_thickness = 2; // Increase this value to thicken the outline
 
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {

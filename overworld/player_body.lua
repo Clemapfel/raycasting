@@ -53,7 +53,7 @@ function ow.PlayerBody:instantiate(player)
     self._canvas_scale = 3
 
     if self._outline_canvas == nil then
-        local padding = 50
+        local padding = 100
         local radius = rt.settings.overworld.player.radius * rt.settings.overworld.player.bubble_radius_factor
         self._outline_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 4)
         self._outline_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
@@ -72,6 +72,9 @@ function ow.PlayerBody:instantiate(player)
             _core_shader:recompile()
         end
     end)
+
+    self._is_bubble = self._player:get_is_bubble()
+    self._was_bubble_last_frame = self._player:get_is_bubble()
 end
 
 --- @brief
@@ -86,6 +89,7 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
     self._tris = tris or self._tris
     self._center_x, self._center_y = positions[1], positions[2]
 
+    self._was_bubble_last_frame = self._is_bubble
     self._is_bubble = self._player:get_is_bubble()
 
     self._use_ground = self._player._bottom_wall
@@ -148,7 +152,7 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
                     table.insert(rope.last_positions, px)
                     table.insert(rope.last_positions, py)
                     table.insert(rope.distances, rope_length / self._n_segments)
-                    table.insert(rope.bubble_distances, 0)
+                    table.insert(rope.bubble_distances, 2.5 * rope_length / self._n_segments)
                 end
 
                 table.insert(self._ropes, rope)
@@ -180,13 +184,13 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
 end
 
 local _step = 1 / 120
-local _gravity = 0
+local _gravity = 10
 local _axis_stiffness = 1
 local _bending_stiffness = 1
 local _velocity_damping = 0.9
 local _n_velocity_iterations = 4
 local _n_distance_iterations = 8
-local _n_axis_iterations = 2
+local _n_axis_iterations = 0
 local _n_bending_iterations = 0
 
 local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
@@ -268,10 +272,16 @@ function ow.PlayerBody:update(delta)
     self._elapsed = self._elapsed + delta
     self._shader_elapsed = self._shader_elapsed + delta
 
+    local bodies = self._player:get_walls()
+    self._stencil_bodies = {}
+    for body in values(bodies) do
+        if body:has_tag("hitbox") then
+            table.insert(self._stencil_bodies, body)
+        end
+    end
+
     local player_x, player_y = self._player:get_physics_body():get_predicted_position()
     local axis_x, axis_y = self._player:get_velocity()
-    axis_x = 0
-    axis_y = 1
 
     while self._elapsed > _step do
         self._elapsed = self._elapsed - _step
@@ -283,7 +293,7 @@ function ow.PlayerBody:update(delta)
             local positions = rope.current_positions
             local old_positions = rope.last_positions
             local distances = self._is_bubble and rope.bubble_distances or rope.distances
-            local gravity_x, gravity_y = axis_x * _gravity, axis_y * _gravity
+            local gravity_x, gravity_y = 0 * _gravity, 1 * _gravity
 
             if self._is_bubble then
                 gravity_x, gravity_y = 0, 0
@@ -425,39 +435,54 @@ function ow.PlayerBody:draw()
 
     local stencil_value = rt.graphics.get_stencil_value()
     rt.graphics.stencil(stencil_value, function()
-        for body in values(self._player:get_walls()) do
+        for body in values(self._stencil_bodies) do
             body:draw()
         end
     end)
     rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
-    love.graphics.setColor(1, 1, 1, 1)
-    local rope_i, n_ropes = 0, table.sizeof(self._ropes)
-    local texture = self._is_bubble and self._bubble_node_mesh_texture:get_native() or self._node_mesh_texture:get_native()
-    for rope in values(self._ropes) do
-        local tw, th = texture:getDimensions()
-        for i = 1, #rope.current_positions, 2 do
-            local scale = math.min(rope.scale + 0.5, 1)
-            local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]
-            local current_x, current_y = rope.current_positions[i+0], rope.current_positions[i+1]
-            local x, y = last_x + (current_x - last_x) * self._interpolation_factor,
-            last_y + (current_y - last_y) * self._interpolation_factor
+    if not self._is_bubble then
+        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+        love.graphics.setColor(1, 1, 1, 1)
+        local rope_i, n_ropes = 0, table.sizeof(self._ropes)
+        local texture = self._is_bubble and self._bubble_node_mesh_texture:get_native() or self._node_mesh_texture:get_native()
+        for rope in values(self._ropes) do
+            local tw, th = texture:getDimensions()
+            for i = 1, #rope.current_positions, 2 do
+                local scale = math.min(rope.scale + 0.5, 1)
+                local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]
+                local current_x, current_y = rope.current_positions[i+0], rope.current_positions[i+1]
+                local x, y = last_x + (current_x - last_x) * self._interpolation_factor,
+                last_y + (current_y - last_y) * self._interpolation_factor
 
+                love.graphics.draw(texture, x - 0.5 * tw, y - 0.5 * th, 0, scale, scale)
+            end
+        end
 
-            love.graphics.draw(texture, x - 0.5 * tw, y - 0.5 * th, 0, scale, scale)
+        rt.graphics.set_blend_mode(nil)
+    else
+        love.graphics.setColor(1, 1, 1, 1)
+        for rope in values(self._ropes) do
+            love.graphics.line(rope.current_positions)
+        end
+
+        for rope in values(self._ropes) do
+            for i = 1, #rope.current_positions, 2 do
+                local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
+                love.graphics.circle("fill", x, y, 2)
+            end
         end
     end
 
     love.graphics.setColor(1, 1, 1, 1)
-    rt.graphics.set_blend_mode(nil)
-
     love.graphics.translate(self._center_x, self._center_y)
     love.graphics.scale(1.0)
     love.graphics.translate(-self._center_x, -self._center_y)
     love.graphics.polygon("fill", self._positions)
 
     self._outline_canvas:unbind()
+
+    rt.graphics.set_stencil_test(nil)
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
 
@@ -473,6 +498,7 @@ function ow.PlayerBody:draw()
 
     local outline_width = 1.5
 
+    --[[
     if self._is_bubble then
         local radius = rt.settings.overworld.player.radius
         local offset = 0.5
@@ -486,6 +512,7 @@ function ow.PlayerBody:draw()
         love.graphics.circle("fill", self._center_x, self._center_y, radius - outline_width)
         _core_shader:unbind()
     else
+    ]]--
         local outline_offset = outline_width / self._player:get_radius()
         local outline_scale = 1
         local inside_scale = outline_scale - outline_offset
@@ -495,33 +522,61 @@ function ow.PlayerBody:draw()
         love.graphics.translate(-self._center_x, -self._center_y)
         local offset = 0.3
         love.graphics.setColor(r - offset, g - offset, b - offset, a)
+
+    if self._is_bubble then
+        love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.overworld.player.radius)
+    else
         love.graphics.polygon("fill", self._positions)
-
-        self._core_canvas:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        love.graphics.setColor(1, 1, 1, 1)
-
-        love.graphics.push()
-        love.graphics.origin()
-
-        w, h = self._core_canvas:get_size()
-        love.graphics.translate(0.5 * w, 0.5 * h)
-        love.graphics.scale(inside_scale * self._canvas_scale)
-        love.graphics.translate(-0.5 * w, -0.5 * h)
-        love.graphics.setColor(r, g, b, a)
-
-        love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
-        _core_shader:bind()
-        _core_shader:send("hue", self._player:get_hue())
-        _core_shader:send("elapsed", self._shader_elapsed)
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.polygon("fill", self._positions)
-        _core_shader:unbind()
-
-        love.graphics.pop()
-        self._core_canvas:unbind()
-
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(self._core_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     end
+
+    self._core_canvas:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setColor(1, 1, 1, 1)
+
+    love.graphics.push()
+    love.graphics.origin()
+
+    w, h = self._core_canvas:get_size()
+    love.graphics.translate(0.5 * w, 0.5 * h)
+    love.graphics.scale(inside_scale * self._canvas_scale)
+    love.graphics.translate(-0.5 * w, -0.5 * h)
+    love.graphics.setColor(r, g, b, a)
+
+    love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
+    _core_shader:bind()
+    _core_shader:send("hue", self._player:get_hue())
+    _core_shader:send("elapsed", self._shader_elapsed)
+    love.graphics.setColor(1, 1, 1, 1)
+
+    if self._is_bubble then
+        love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.overworld.player.radius)
+    else
+        love.graphics.polygon("fill", self._positions)
+    end
+    _core_shader:unbind()
+
+    love.graphics.pop()
+    self._core_canvas:unbind()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._core_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+
+    -- highlight
+    local boost = 0.2
+    love.graphics.push()
+    love.graphics.setColor(boost, boost, boost, 1)
+    rt.graphics.set_blend_mode(rt.BlendMode.ADD)
+    local scale = 0.5
+    local r = 4
+    local offset = self._player:get_radius() * scale / 2
+    love.graphics.translate(-offset, -offset)
+    love.graphics.ellipse("fill", self._center_x, self._center_y, r, r)
+
+
+    love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1)
+    love.graphics.translate(-r / 4, -r / 4)
+    love.graphics.ellipse("fill", self._center_x, self._center_y, r / 2, r / 2)
+
+    rt.graphics.set_blend_mode(nil)
+    love.graphics.pop()
 end

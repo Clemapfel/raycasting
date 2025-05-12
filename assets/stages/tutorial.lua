@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 550,
+  nextobjectid = 551,
   properties = {},
   tilesets = {
     {
@@ -4121,6 +4121,25 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 550,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1296,
+          y = 848,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 336, y = 0 },
+            { x = 336, y = -464 },
+            { x = -48, y = -448 }
+          },
           properties = {}
         }
       }

@@ -60,7 +60,7 @@ rt.settings.overworld.player = {
     joint_force_threshold = 1000,
     joint_length_threshold = 100,
 
-    bubble_radius_factor = 1.75,
+    bubble_radius_factor = 2,
     bubble_inner_radius_scale = 1.7,
     bubble_target_velocity = 400,
     bubble_acceleration = 2.5,
@@ -656,21 +656,6 @@ function ow.Player:update(delta)
             end
             self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
 
-            for i, body in ipairs(self._spring_bodies) do
-                local joint = self._spring_joints[i]
-
-                -- safeguard against springs catching
-                local over_threshold = joint:get_distance() > self._radius
-                body:set_is_sensor(over_threshold)
-                joint:set_enabled(not over_threshold)
-                if over_threshold then
-                    local px, py = self._body:get_position()
-                    body:set_velocity(0, 0)
-                    body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
-                end
-
-            end
-
             self._can_jump = can_jump
             self._can_wall_jump = can_wall_jump
 
@@ -814,6 +799,31 @@ function ow.Player:update(delta)
         end
 
         self._bubble_body:apply_force(0, bubble_gravity)
+    end
+
+    do
+        -- safeguard against springs catching
+        local bodies, joints, offset_x, offset_y
+        if self._is_bubble then
+            bodies, joints = self._bubble_spring_bodies, self._bubble_spring_joints
+            offset_x, offset_y = self._bubble_spring_body_offsets_x, self._bubble_spring_body_offsets_y
+        else
+            bodies, joints = self._spring_bodies, self._spring_joints
+            offset_x, offset_y = self._spring_body_offsets_x, self._spring_body_offsets_y
+        end
+
+        for i, body in ipairs(bodies) do
+            local joint = joints[i]
+            local over_threshold = joint:get_distance() > self:get_radius()
+            body:set_is_sensor(over_threshold)
+            joint:set_enabled(not over_threshold)
+            if over_threshold then
+                local px, py = self._body:get_position()
+                body:set_velocity(0, 0)
+                body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
+            end
+
+        end
     end
 
     -- update flow
@@ -1434,6 +1444,7 @@ end
 --- @brief
 function ow.Player:set_is_bubble(b)
     if b == self._is_bubble then return end
+    dbg(rt.SceneManager:get_frame_index(), "called")
 
     local before = self._is_bubble
     self._is_bubble = b
@@ -1456,8 +1467,8 @@ function ow.Player:set_is_bubble(b)
         self._bubble_body:set_velocity(self._body:get_velocity())
         for i, body in ipairs(self._bubble_spring_bodies) do
             body:set_position(
-                x + self._bubble_spring_body_offsets_x[i],
-                y + self._bubble_spring_body_offsets_y[i]
+                x,-- + self._bubble_spring_body_offsets_x[i],
+                y -- + self._bubble_spring_body_offsets_y[i]
             )
             body:set_velocity(self._spring_bodies[i]:get_velocity())
         end
@@ -1467,8 +1478,8 @@ function ow.Player:set_is_bubble(b)
         self._body:set_velocity(self._bubble_body:get_velocity())
         for i, body in ipairs(self._spring_bodies) do
             body:set_position(
-                x + self._spring_body_offsets_x[i],
-                y + self._spring_body_offsets_y[i]
+                x,-- + self._spring_body_offsets_x[i],
+                y -- + self._spring_body_offsets_y[i]
             )
             body:set_velocity(self._bubble_spring_bodies[i]:get_velocity())
         end
@@ -1506,12 +1517,6 @@ function ow.Player:set_is_bubble(b)
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
         end
     end)
-
-    local joints = self._is_bubble and self._bubble_spring_joints or self._spring_joints
-    local bodies = self._is_bubble and self._bubble_spring_bodies or self._bubble_spring_bodies
-    for i, body in ipairs(joints) do
-
-    end
 end
 
 --- @brief
