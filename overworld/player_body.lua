@@ -65,6 +65,13 @@ function ow.PlayerBody:instantiate(player)
         self._core_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 8)
         self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "z" then
+            _core_shader:recompile()
+        end
+    end)
 end
 
 --- @brief
@@ -538,14 +545,27 @@ function ow.PlayerBody:draw(is_bubble)
 
 
         love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
+        _core_shader:bind()
+        _core_shader:send("hue", self._player:get_hue())
+        _core_shader:send("elapsed", self._shader_elapsed)
         love.graphics.setColor(1, 1, 1, 1)
         for tri in values(self._tris) do
             love.graphics.polygon("fill", tri)
         end
+        _core_shader:unbind()
 
         love.graphics.pop()
         self._core_canvas:unbind()
 
+        love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(self._core_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+
+        love.graphics.push()
+        love.graphics.origin()
+        _core_shader:bind()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+        _core_shader:unbind()
+        love.graphics.pop()
     end
 end

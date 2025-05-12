@@ -55,28 +55,31 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+vec2 rotate(vec2 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return v * mat2(c, -s, s, c);
+}
+
 uniform float elapsed;
 uniform float hue;
 
-uniform vec2 camera_offset;
-uniform float camera_scale = 1;
-
-vec2 to_uv(vec2 frag_position) {
-    vec2 uv = frag_position;
-    vec2 origin = vec2(love_ScreenSize.xy / 2);
-    uv -= origin;
-    uv /= camera_scale;
-    uv += origin;
-    uv -= camera_offset;
-    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
-    uv /= love_ScreenSize.xy;
-    return uv;
-}
-
 vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
+    vec4 texel = texture(image, texture_coordinates);
+    vec2 uv = frag_position / love_ScreenSize.xy;
 
-    vec2 uv = to_uv(frag_position);
-    const float scale = 100;
-    float noise = gradient_noise(vec3(uv * scale, elapsed));
-    return vec4(noise);
+    float time = elapsed / 20;
+    float n_octaves = 4;
+    vec2 step = vec2(0, 1);
+    float scale = 1;
+    for (int i = 0; i < n_octaves; ++i) {
+        uv = uv + step *  gradient_noise(vec3(uv * scale * 10, time));
+        step = rotate(step, (n_octaves - i) * 2 * PI);
+        scale *= distance(uv, texture_coordinates) ;
+    }
+
+
+    float hue_eps = 0.5;
+    float noise = gradient_noise(vec3(uv * distance(uv, texture_coordinates) , 0));
+    return vec4(lch_to_rgb(vec3(0.8, 1, mix(hue - hue_eps, hue + hue_eps, noise))), texel.a);
 }
