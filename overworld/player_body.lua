@@ -78,13 +78,14 @@ end
 function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor_by)
     local success, tris = pcall(love.math.triangulate, positions)
     if not success then
-        --success, tris = pcall(slick.triangulate, { positions })
-        return
+        success, tris = pcall(slick.triangulate, { positions })
+        if not success then return end
     end
 
     self._positions = positions
     self._tris = tris or self._tris
-    self._center_x, self._center_y = self._player:get_physics_body():get_predicted_position()
+    self._center_x, self._center_y = positions[1], positions[2]
+
     self._is_bubble = self._player:get_is_bubble()
 
     self._use_ground = self._player._bottom_wall
@@ -183,7 +184,7 @@ local _gravity = 0
 local _axis_stiffness = 1
 local _bending_stiffness = 1
 local _velocity_damping = 0.9
-local _n_velocity_iterations = 1
+local _n_velocity_iterations = 4
 local _n_distance_iterations = 8
 local _n_axis_iterations = 2
 local _n_bending_iterations = 0
@@ -389,46 +390,6 @@ function ow.PlayerBody:update(delta)
             end
 
             rope.timestamp = love.timer.getTime()
-        end
-    end
-
-    if false then --not self._is_bubble and self._use_ground then
-        local ax, ay = self._floor_ax, self._floor_ay
-        local bx, by = self._floor_bx, self._floor_by
-
-        local cx, cy = self._player:get_physics_body():get_predicted_position()
-        local radius = self._player:get_radius() * 1.5
-
-        for rope in values(self._ropes) do
-            local positions = rope.current_positions
-
-            for i = 1, #positions, 2 do
-                local px, py = positions[i], positions[i + 1]
-
-                local ab_x, ab_y = bx - ax, by - ay
-                local ap_x, ap_y = px - ax, py - ay
-                local ab_length_squared = ab_x * ab_x + ab_y * ab_y
-                local dot_product = (ap_x * ab_x + ap_y * ab_y) / ab_length_squared
-
-                local closest_x = ax + dot_product * ab_x
-                local closest_y = ay + dot_product * ab_y
-
-                local normal_x, normal_y = -ab_y, ab_x -- Perpendicular vector
-                local to_point_x, to_point_y = px - closest_x, py - closest_y
-                local side = to_point_x * normal_x + to_point_y * normal_y
-
-                if side > 0 then
-                    positions[i] = closest_x
-                    positions[i + 1] = closest_y
-                end
-
-                local dx, dy = px - cx, py - cy
-                if math.magnitude(dx, dy) > radius then
-                    dx, dy = math.normalize(dx, dy)
-                    positions[i] = cx + dx * radius
-                    positions[i+1] = cy + dy * radius
-                end
-            end
         end
     end
 

@@ -1506,6 +1506,12 @@ function ow.Player:set_is_bubble(b)
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
         end
     end)
+
+    local joints = self._is_bubble and self._bubble_spring_joints or self._spring_joints
+    local bodies = self._is_bubble and self._bubble_spring_bodies or self._bubble_spring_bodies
+    for i, body in ipairs(joints) do
+
+    end
 end
 
 --- @brief
