@@ -344,7 +344,7 @@ end
 
 --- @brief
 function ow.Player:update(delta)
-    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7, 1))
+    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
 
     if self._trail_visible then
         self._trail:update(delta)
@@ -1542,4 +1542,16 @@ end
 --- @brief
 function ow.Player:get_state()
     return self._state
+end
+
+--- @brief
+function ow.Player:get_walls()
+    local out = {}
+    if self._top_wall_body ~= nil then table.insert(out, self._top_wall_body) end
+    if self._right_wall_body ~= nil then table.insert(out, self._right_wall_body) end
+    if self._bottom_right_wall_body ~= nil then table.insert(out, self._bottom_right_wall_body) end
+    if self._bottom_wall_body ~= nil then table.insert(out, self._bottom_wall_body) end
+    if self._bottom_left_wall_body ~= nil then table.insert(out, self._bottom_left_wall_body) end
+    if self._left_wall_body ~= nil then table.insert(out, self._left_wall_body) end
+    return out
 end

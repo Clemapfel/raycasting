@@ -267,6 +267,7 @@ function ow.Checkpoint:update(delta)
             if player:get_state() == ow.PlayerState.DISABLED then
                 player:set_gravity(1)
                 player:enable()
+                self._ray_fraction = 1
                 player:bounce(0, -0.3)
             end
             self._scene:set_camera_mode(ow.CameraMode.AUTO)

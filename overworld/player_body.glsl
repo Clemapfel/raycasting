@@ -48,13 +48,15 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_positio
     vec2 pixel_size = 1 / love_ScreenSize.xy;
     float gradient_x = 0.0;
     float gradient_y = 0.0;
-    float eps = 0.4;
+    float threshold = 0.6; // Metaball threshold
+    float smoothness = 0.05; // Smoothness factor for blending
+    float outline_thickness = 4.0; // Increase this value to thicken the outline
 
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
-            vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size;
+            vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size * outline_thickness;
             float value = texture(image, neighbor_uv).a;
-            value = smoothstep(0.5 - eps, 0.5 + eps, value);
+            value = smoothstep(threshold - smoothness, threshold + smoothness, value);
 
             gradient_x += value * sobel_x[i + 1][j + 1];
             gradient_y += value * sobel_y[i + 1][j + 1];
@@ -62,7 +64,8 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_positio
     }
 
     float magnitude = length(vec2(gradient_x, gradient_y));
-    float alpha = magnitude * 2;
-    float hue = (1 - magnitude) * 2;
-    return vec4(vec3(1), alpha) * color;
+    float alpha = smoothstep(0.0, 1.0, magnitude); // Adjust alpha blending
+    float hue = (1.0 - magnitude) * 2.0;
+
+    return vec4(vec3(1.0), alpha) * color;
 }

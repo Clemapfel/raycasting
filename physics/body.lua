@@ -225,11 +225,12 @@ end
 
 --- @brief
 function b2.Body:draw()
+    if self._native:isDestroyed() then return end
+
     love.graphics.push()
     love.graphics.translate(self:get_position())
     love.graphics.rotate(self._native:getAngle())
 
-    love.graphics.setLineWidth(1)
     for shape in values(self._native:getShapes()) do
         local userdata = shape:getUserData()
         if userdata ~= nil then
@@ -289,6 +290,7 @@ end
 
 --- @brief
 function b2.Body:has_tag(tag)
+
     return self._tags[tag] == true
 end
 

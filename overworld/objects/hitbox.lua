@@ -33,6 +33,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
         end
     end
 
+    self._body:add_tag("hitbox")
+
     local friction = object:get_number("friction")
 
     if friction == nil then

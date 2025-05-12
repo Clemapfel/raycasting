@@ -11,16 +11,39 @@ function ow.PlayerBody:instantiate(player)
     self._ropes = {}
     self._elapsed = 0
 
-    self._node_mesh = rt.MeshCircle(0, 0, 5)
-    self._node_mesh:set_vertex_color(1, 1, 1, 1, 0.05)
-    for i = 2, self._node_mesh:get_n_vertices() do
-        self._node_mesh:set_vertex_color(i, 1, 1, 1, 0)
-    end
+    local alpha = 0.05
+    local padding = 4
 
-    self._bubble_node_mesh = rt.MeshCircle(0, 0, 6 * rt.settings.overworld.player.bubble_radius_factor)
-    self._bubble_node_mesh:set_vertex_color(1, 1, 1, 1, 0.1)
-    for i = 2, self._bubble_node_mesh:get_n_vertices() do
-        self._bubble_node_mesh:set_vertex_color(i, 1, 1, 1, 0)
+    local node_mesh_radius = 10
+    local node_mesh = rt.MeshCircle(0, 0, node_mesh_radius)
+    node_mesh:set_vertex_color(1, 1, 1, 1, alpha)
+    for i = 2, node_mesh:get_n_vertices() do
+        node_mesh:set_vertex_color(i, 1, 1, 1, 0.0)
+    end
+    self._node_mesh = node_mesh
+
+    self._node_mesh_texture = rt.RenderTexture(2 * node_mesh_radius + 2 * padding, 2 * node_mesh_radius + 2 * padding, 8)
+    self._node_mesh_texture:bind()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(node_mesh:get_native(), 0.5 * self._node_mesh_texture:get_width(), 0.5 * self._node_mesh_texture:get_height())
+    self._node_mesh_texture:unbind()
+
+    local bubble_node_mesh_radius = 1
+    local bubble_node_mesh = rt.MeshCircle(0, 0, bubble_node_mesh_radius)
+    bubble_node_mesh:set_vertex_color(1, 1, 1, alpha)
+    for i = 2, bubble_node_mesh:get_n_vertices() do
+        bubble_node_mesh:set_vertex_color(i, 1, 1, 1, 0)
+    end
+    self._bubble_node_mesh = bubble_node_mesh
+
+    self._bubble_node_mesh_texture = rt.RenderTexture(2 * bubble_node_mesh_radius + 2 * padding, 2 * bubble_node_mesh_radius + 2 * padding, 8)
+    self._bubble_node_mesh_texture:bind()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(bubble_node_mesh:get_native(), 0.5 * self._bubble_node_mesh_texture:get_width(), 0.5 * self._bubble_node_mesh_texture:get_height())
+    self._bubble_node_mesh_texture:unbind()
+
+    for texture in range(self._node_mesh_texture, self._bubble_node_mesh_texture) do
+        texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 
     if _shader == nil then _shader = rt.Shader("overworld/player_body.glsl") end
@@ -28,7 +51,7 @@ function ow.PlayerBody:instantiate(player)
         local padding = 50
         local radius = rt.settings.overworld.player.radius * rt.settings.overworld.player.bubble_radius_factor
         self._canvas_scale = 2
-        self._canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding))
+        self._canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 4)
         self._canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 end
@@ -37,8 +60,10 @@ end
 function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor_by)
     local success, tris = pcall(love.math.triangulate, positions)
     if not success then
-        success, tris = pcall(slick.triangulate, { positions })
+        --success, tris = pcall(slick.triangulate, { positions })
+        return
     end
+
 
     self._tris = tris or self._tris
     self._center_x, self._center_y = positions[1], positions[2]
@@ -50,8 +75,6 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
         self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by = floor_ax, floor_ay, floor_bx, floor_by
     end
 
-    if tris == nil then return end
-
     for tri in values(tris) do
         local center_x = (tri[1] + tri[3] + tri[5]) / 3
         local center_y = (tri[2] + tri[4] + tri[6]) / 3
@@ -60,9 +83,9 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
     end
 
     local radius = self._player:get_radius()
-    local n_rings = 5
+    local n_rings = 7
     local n_ropes_per_ring = #positions / 2
-    local max_rope_length = radius * 3.5
+    local max_rope_length = radius * 4
 
     if table.sizeof(self._ropes) < table.sizeof(tris) then
         self._n_segments = 8
@@ -84,15 +107,17 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
                     bubble_distances = {},
                     anchor_x = center_x,
                     anchor_y = center_y,
+                    scale = (ring - 1) / n_rings,
                     hue = 1 - (ring - 1) / n_rings
                 }
+
 
                 rope.axis_x, rope.axis_y = math.normalize(center_x, center_y)
 
                 center_x = center_x + self._center_x
                 center_y = center_y + self._center_y
 
-                local rope_length = (1 - math.distance(center_x, center_y, self._center_x, self._center_y) / radius) * max_rope_length
+                local rope_length = (1 - rope.scale) * max_rope_length
                 rope.length = rope_length
                 local dx, dy = math.normalize(rope.anchor_x - self._center_x, rope.anchor_y - self._center_y)
                 for j = 1, self._n_segments do
@@ -136,7 +161,7 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
 end
 
 local _step = 1 / 120
-local _gravity = 100
+local _gravity = 0
 local _axis_stiffness = 1
 local _bending_stiffness = 1
 local _velocity_damping = 0.9
@@ -346,7 +371,7 @@ function ow.PlayerBody:update(delta)
         end
     end
 
-    if not self._is_bubble and self._use_ground then
+    if false then --not self._is_bubble and self._use_ground then
         local ax, ay = self._floor_ax, self._floor_ay
         local bx, by = self._floor_bx, self._floor_by
 
@@ -409,44 +434,42 @@ function ow.PlayerBody:draw(is_bubble)
     love.graphics.translate(-0.5 * w, -0.5 * h)
     love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
 
+
+    love.graphics.push()
+    love.graphics.origin()
+    love.graphics.draw(self._node_mesh_texture:get_native())
+    love.graphics.pop()
+
     self._canvas:bind()
     love.graphics.clear()
 
-    if false then ---self._use_ground and not self._is_bubble then
-        local value = rt.graphics.get_stencil_value()
-        rt.graphics.stencil(value, function()
-            local ax, ay, bx, by = self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by
-            local vx, vy = bx - ax, by - ay
-            local dx, dy = math.turn_right(vx, vy)
-
-            ax = ax - vx * h
-            ay = ay - vy * h
-            bx = bx + vx * h
-            by = by + vy * h
-            love.graphics.polygon("fill",
-                ax, ay,
-                bx, by,
-                bx + dx * h, by + dy * h,
-                ax + dx * h, ay + dy * h
-            )
-        end)
-        rt.graphics.set_stencil_test(rt.StencilCompareMode.EQUAL)
-    end
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.stencil(stencil_value, function()
+        for body in values(self._player:get_walls()) do
+            body:draw()
+        end
+    end)
+    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
     rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
     love.graphics.setColor(1, 1, 1, 1)
     local rope_i, n_ropes = 0, table.sizeof(self._ropes)
+    local texture = self._is_bubble and self._bubble_node_mesh_texture:get_native() or self._node_mesh_texture:get_native()
     for rope in values(self._ropes) do
+        local tw, th = texture:getDimensions()
         for i = 1, #rope.current_positions, 2 do
-            love.graphics.draw(mesh, rope.current_positions[i+0], rope.current_positions[i+1])
+            local scale = math.min(rope.scale + 0.5, 1)
+            love.graphics.draw(texture, rope.current_positions[i+0] - 0.5 * tw, rope.current_positions[i+1] - 0.5 * th, 0, scale, scale)
+            --love.graphics.draw(mesh, rope.current_positions[i+0], rope.current_positions[i+1], scale, scale)
         end
     end
 
-    if self._use_ground and not self._is_bubble  then
-        rt.graphics.set_stencil_test(nil)
-    end
-
     love.graphics.setColor(1, 1, 1, 1)
+    rt.graphics.set_blend_mode(nil)
+
+    love.graphics.translate(self._center_x, self._center_y)
+    love.graphics.scale(1.2)
+    love.graphics.translate(-self._center_x, -self._center_y)
     for tri in values(self._tris) do
         love.graphics.polygon("fill", tri)
     end
@@ -455,24 +478,46 @@ function ow.PlayerBody:draw(is_bubble)
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
 
-    if self._use_ground then
-        rt.graphics.set_stencil_test(nil)
-    end
-
-    --love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1))
-
-
-    local r, g, b, a = rt.Palette.WHITE:unpack()
-
-    love.graphics.setColor(r, g, b, 0.8)
-    for tri in values(self._tris) do
-        love.graphics.polygon("fill", tri)
-    end
+    local r, g, b, a = rt.Palette.BLACK:unpack()
+    love.graphics.setColor(r, g, b, 1)
+    love.graphics.draw(self._canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
 
     _shader:bind()
-
-    love.graphics.setColor(r, g, b, 1)
+    local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)
+    love.graphics.setColor(r, g, b, a)
     love.graphics.draw(self._canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _shader:unbind()
 
+    local outline_width = 2
+
+    if self._is_bubble then
+        local radius = rt.settings.overworld.player.radius
+        local offset = 0.5
+        love.graphics.setColor(r - offset, g - offset, b - offset, a)
+        love.graphics.circle("fill", self._center_x, self._center_y, radius)
+
+        love.graphics.setColor(r, g, b, a)
+        love.graphics.circle("fill", self._center_x, self._center_y, radius - outline_width)
+    else
+        local outline_offset = outline_width / self._player:get_radius()
+        local outline_scale = 1
+        local inside_scale = outline_scale - outline_offset
+
+        love.graphics.translate(self._center_x, self._center_y)
+        love.graphics.scale(outline_scale) -- actual hitbox
+        love.graphics.translate(-self._center_x, -self._center_y)
+        local offset = 0.3
+        love.graphics.setColor(r - offset, g - offset, b - offset, a)
+        for tri in values(self._tris) do
+            love.graphics.polygon("fill", tri)
+        end
+
+        love.graphics.translate(self._center_x, self._center_y)
+        love.graphics.scale(inside_scale)
+        love.graphics.translate(-self._center_x, -self._center_y)
+        love.graphics.setColor(r, g, b, a)
+        for tri in values(self._tris) do
+            love.graphics.polygon("fill", tri)
+        end
+    end
 end
