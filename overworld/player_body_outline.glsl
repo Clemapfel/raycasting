@@ -32,15 +32,15 @@ float gaussian(float x, float ramp)
 }
 
 mat3 sobel_x = mat3(
--1, 0, 1,
--2, 0, 2,
--1, 0, 1
+    -1, 0, 1,
+    -2, 0, 2,
+    -1, 0, 1
 );
 
 mat3 sobel_y = mat3(
--1, -2, -1,
-0, 0, 0,
-1, 2, 1
+    -1, -2, -1,
+    0, 0, 0,
+    1, 2, 1
 );
 
 vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {

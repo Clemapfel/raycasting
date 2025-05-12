@@ -1,7 +1,7 @@
 --- @class ow.PlayerBody
 ow.PlayerBody = meta.class("PlayerBody")
 
-local _shader, _canvas = nil, nil
+local _outline_shader, _core_shader, _canvas = nil, nil, nil
 
 --- @brief
 function ow.PlayerBody:instantiate(player)
@@ -10,6 +10,7 @@ function ow.PlayerBody:instantiate(player)
     self._player = player
     self._ropes = {}
     self._elapsed = 0
+    self._shader_elapsed = 0
 
     local alpha = 0.05
     local padding = 4
@@ -46,13 +47,23 @@ function ow.PlayerBody:instantiate(player)
         texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 
-    if _shader == nil then _shader = rt.Shader("overworld/player_body.glsl") end
-    if self._canvas == nil then
+    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/player_body_outline.glsl") end
+    if _core_shader == nil then _core_shader = rt.Shader("overworld/player_body_core.glsl") end
+
+    self._canvas_scale = 3
+
+    if self._outline_canvas == nil then
         local padding = 50
         local radius = rt.settings.overworld.player.radius * rt.settings.overworld.player.bubble_radius_factor
-        self._canvas_scale = 2
-        self._canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 4)
-        self._canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
+        self._outline_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 4)
+        self._outline_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    end
+
+    if self._core_canvas == nil then
+        local padding = 10
+        local radius = rt.settings.overworld.player.radius
+        self._core_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 8)
+        self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 end
 
@@ -247,6 +258,7 @@ end
 --- @brief
 function ow.PlayerBody:update(delta)
     self._elapsed = self._elapsed + delta
+    self._shader_elapsed = self._shader_elapsed + delta
 
     local player_x, player_y = self._player:get_physics_body():get_predicted_position()
     local axis_x, axis_y = self._player:get_velocity()
@@ -423,24 +435,22 @@ end
 
 --- @brief
 function ow.PlayerBody:draw(is_bubble)
-
     local mesh = self._is_bubble and self._bubble_node_mesh:get_native() or self._node_mesh:get_native()
 
     love.graphics.push()
     love.graphics.origin()
-    local w, h = self._canvas:get_size()
+    local w, h = self._outline_canvas:get_size()
     love.graphics.translate(0.5 * w, 0.5 * h)
     love.graphics.scale(self._canvas_scale, self._canvas_scale)
     love.graphics.translate(-0.5 * w, -0.5 * h)
     love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
-
 
     love.graphics.push()
     love.graphics.origin()
     love.graphics.draw(self._node_mesh_texture:get_native())
     love.graphics.pop()
 
-    self._canvas:bind()
+    self._outline_canvas:bind()
     love.graphics.clear()
 
     local stencil_value = rt.graphics.get_stencil_value()
@@ -474,19 +484,19 @@ function ow.PlayerBody:draw(is_bubble)
         love.graphics.polygon("fill", tri)
     end
 
-    self._canvas:unbind()
+    self._outline_canvas:unbind()
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
 
     local r, g, b, a = rt.Palette.BLACK:unpack()
     love.graphics.setColor(r, g, b, 1)
-    love.graphics.draw(self._canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
 
-    _shader:bind()
+    _outline_shader:bind()
     local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)
     love.graphics.setColor(r, g, b, a)
-    love.graphics.draw(self._canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
-    _shader:unbind()
+    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+    _outline_shader:unbind()
 
     local outline_width = 2
 
@@ -512,12 +522,30 @@ function ow.PlayerBody:draw(is_bubble)
             love.graphics.polygon("fill", tri)
         end
 
-        love.graphics.translate(self._center_x, self._center_y)
-        love.graphics.scale(inside_scale)
-        love.graphics.translate(-self._center_x, -self._center_y)
+
+        self._core_canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.setColor(1, 1, 1, 1)
+
+        love.graphics.push()
+        love.graphics.origin()
+
+        w, h = self._core_canvas:get_size()
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(inside_scale * self._canvas_scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
         love.graphics.setColor(r, g, b, a)
+
+
+        love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
+        love.graphics.setColor(1, 1, 1, 1)
         for tri in values(self._tris) do
             love.graphics.polygon("fill", tri)
         end
+
+        love.graphics.pop()
+        self._core_canvas:unbind()
+
+        love.graphics.draw(self._core_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     end
 end
