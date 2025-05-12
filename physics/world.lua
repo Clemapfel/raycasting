@@ -13,6 +13,7 @@ function b2.World:instantiate()
         _interpolation_factor = 0,
         _interpolating_bodies = meta.make_weak({}), -- Set
         _time_dilation = 1,
+        _elapsed = 0,
 
         _body_to_collision_sign = {}
     })
@@ -176,18 +177,17 @@ function b2.World:get_gravity()
     return self._native:getGravity()
 end
 
-local _elapsed = 0
 local _step = 1 / 120
 local _max_n_steps_per_frame = 4
 local _n_velocity_iterations = 4
 
 --- @brief
 function b2.World:update(delta)
-    _elapsed = _elapsed + delta * self._time_dilation
+    self._elapsed = self._elapsed + delta * self._time_dilation
 
     local total_step = 0
     local n_steps = 0
-    while _elapsed > _step and n_steps < _max_n_steps_per_frame do
+    while self._elapsed > _step and n_steps < _max_n_steps_per_frame do
         for body in keys(self._interpolating_bodies) do
             local x, y = body._native:getPosition()
             body._last_x, body._last_y = x, y
@@ -221,13 +221,13 @@ function b2.World:update(delta)
         -- world signal
         self:signal_emit("step", _step)
 
-        _elapsed = _elapsed - _step
+        self._elapsed = self._elapsed - _step
         n_steps = n_steps + 1
 
         if n_steps >= _max_n_steps_per_frame then break end
     end
 
-    self._interpolation_factor = _elapsed / _step -- for interpolation
+    self._interpolation_factor = self._elapsed / _step -- for interpolation
 end
 
 --- @brief

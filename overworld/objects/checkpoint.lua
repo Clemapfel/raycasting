@@ -254,7 +254,7 @@ function ow.Checkpoint:update(delta)
         self._camera_scale = camera:get_scale()
 
         local threshold = self._bottom_y - player:get_radius() * 2
-        if self._ray_fade_out_elapsed <= 0 then
+        if self._ray_fade_out_elapsed <= 0 and self._ray_fraction < 1 then
             self._ray_fraction = (player_y - self._top_y) / (threshold - self._top_y)
             player:set_opacity(self._ray_fraction)
         end
@@ -263,11 +263,10 @@ function ow.Checkpoint:update(delta)
         self._ray_fade_out_fraction = self._ray_fade_out_elapsed / fade_out_duration
 
         -- once player reaches ground
-        if player_y >= threshold or player:get_is_bubble() then
+        if player_y >= threshold or player:get_state() ~= ow.PlayerState.DISABLED then
             if player:get_state() == ow.PlayerState.DISABLED then
                 player:set_gravity(1)
                 player:enable()
-                self._ray_fraction = 1
                 player:bounce(0, -0.3)
             end
             self._scene:set_camera_mode(ow.CameraMode.AUTO)

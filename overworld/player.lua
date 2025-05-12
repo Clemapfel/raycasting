@@ -8,7 +8,7 @@ local radius = 13.5
 rt.settings.overworld.player = {
     radius = radius,
     inner_body_radius = 10 / 2 - 0.5,
-    n_outer_bodies = 31, --23,
+    n_outer_bodies = 23,
     max_spring_length = radius * 3,
 
     bottom_wall_ray_length_factor = 1.5,
@@ -42,7 +42,7 @@ rt.settings.overworld.player = {
     jump_duration = 10 / 60,
     jump_impulse = 500, -- 4 * 32 neutral jump
 
-    wall_magnet_force = 300,
+    wall_magnet_force = 200,
     wall_jump_initial_impulse = 340,
     wall_jump_sustained_impulse = 850, -- force per second
     wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
@@ -656,36 +656,19 @@ function ow.Player:update(delta)
             end
             self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
 
-            -- manual spring simulation
-            local spring_length = self._radius
-            local total_force_x, total_force_y = 0, 0
-            local spring_constant = _settings.spring_constant
-
             for i, body in ipairs(self._spring_bodies) do
                 local joint = self._spring_joints[i]
-                local force_too_high = joint:get_force() > _settings.joint_force_threshold
-                local distance_too_long = joint:get_distance() > _settings.joint_length_threshold
 
-                local body_x, body_y = body:get_position()
-                if not (force_too_high or distance_too_long) and not body:get_is_sensor() then
-                    local distance = math.distance(x, y, body_x, body_y)
-                    local displacement = math.max(distance - spring_length, 0)
-
-                    local force_magnitude = -spring_constant * displacement
-                    total_force_x = total_force_x + force_magnitude * (body_x - x) / distance
-                    total_force_y = total_force_y + force_magnitude * (body_y - y) / distance
+                -- safeguard against springs catching
+                local over_threshold = joint:get_distance() > self._radius
+                body:set_is_sensor(over_threshold)
+                joint:set_enabled(not over_threshold)
+                if over_threshold then
+                    local px, py = self._body:get_position()
+                    body:set_velocity(0, 0)
+                    body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
                 end
 
-                -- disable collision if stuck
-                self._spring_bodies[i]:set_is_sensor(force_too_high or distance_too_long)
-
-                local spring_impulse = math.magnitude(total_force_x, total_force_y)
-                next_velocity_y = next_velocity_y - spring_impulse
-
-                if spring_impulse >= gravity then
-                    can_jump = true
-                    can_wall_jump = true
-                end
             end
 
             self._can_jump = can_jump
@@ -1030,7 +1013,7 @@ function ow.Player:move_to_stage(stage)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         initialize_outer_body(body, false)
-        body:set_mass(10e-4) -- experimentally determined to give the best feel for box2d spring forces
+        body:set_mass(10e-4 * 0.75) -- experimentally determined to give the best feel for box2d spring forces
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only
@@ -1144,6 +1127,7 @@ function ow.Player:draw()
     end
 
     self._graphics_body:draw()
+    if true then return end
 
     if _settings.debug_drawing_enabled then
         if not self._use_bubble_mesh then

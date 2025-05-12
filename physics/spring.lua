@@ -42,7 +42,8 @@ function b2.Spring:_initialize()
             false
         ),
 
-        _distance_joint = love.physics.newRopeJoint(
+        --[[
+        _distance_joint = love.physics.newDistanceJoint(
             self._body_a:get_native(),
             self._body_b:get_native(),
             x1, y1,
@@ -50,6 +51,7 @@ function b2.Spring:_initialize()
             self._target_distance,
             false
         )
+        ]]--
     })
 
     self._prismatic_joint:setLimitsEnabled(true)
@@ -78,4 +80,9 @@ end
 --- @brief
 function b2.Spring:get_force()
     return self._prismatic_joint:getJointSpeed()
+end
+
+--- @brief
+function b2.Spring:set_enabled(b)
+    self._prismatic_joint:setLimitsEnabled(b)
 end

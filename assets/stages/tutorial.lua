@@ -2179,16 +2179,16 @@ return {
           type = "Hitbox",
           shape = "polygon",
           x = 3072,
-          y = 976,
+          y = 960,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 32 },
-            { x = 0, y = 160 },
-            { x = 32, y = 160 },
-            { x = 32, y = 32 }
+            { x = 0, y = 48 },
+            { x = 0, y = 240 },
+            { x = 32, y = 240 },
+            { x = 32, y = 48 }
           },
           properties = {}
         },
@@ -2221,16 +2221,16 @@ return {
           type = "Hitbox",
           shape = "polygon",
           x = 3072,
-          y = 1104,
+          y = 1177.85,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 32 },
-            { x = 0, y = 240 },
-            { x = 32, y = 240 },
-            { x = 32, y = 32 }
+            { x = 0, y = 22.1538 },
+            { x = 0, y = 166.154 },
+            { x = 32, y = 166.154 },
+            { x = 32, y = 22.1538 }
           },
           properties = {
             ["slippery"] = true

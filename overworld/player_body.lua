@@ -82,9 +82,9 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
         return
     end
 
-
+    self._positions = positions
     self._tris = tris or self._tris
-    self._center_x, self._center_y = positions[1], positions[2]
+    self._center_x, self._center_y = self._player:get_physics_body():get_predicted_position()
     self._is_bubble = self._player:get_is_bubble()
 
     self._use_ground = self._player._bottom_wall
@@ -126,9 +126,9 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
                     anchor_x = center_x,
                     anchor_y = center_y,
                     scale = (ring - 1) / n_rings,
-                    hue = 1 - (ring - 1) / n_rings
+                    hue = 1 - (ring - 1) / n_rings,
+                    timestamp = love.timer.getTime(),
                 }
-
 
                 rope.axis_x, rope.axis_y = math.normalize(center_x, center_y)
 
@@ -387,6 +387,8 @@ function ow.PlayerBody:update(delta)
                     n_distance_iterations = n_distance_iterations + 1
                 end
             end
+
+            rope.timestamp = love.timer.getTime()
         end
     end
 
@@ -428,8 +430,6 @@ function ow.PlayerBody:update(delta)
                 end
             end
         end
-
-
     end
 
     local points = {}
@@ -438,10 +438,12 @@ function ow.PlayerBody:update(delta)
         table.insert(points, rope.current_positions[#rope.current_positions])
     end
     self._points = points
+
+    self._interpolation_factor = self._elapsed / _step
 end
 
 --- @brief
-function ow.PlayerBody:draw(is_bubble)
+function ow.PlayerBody:draw()
     local mesh = self._is_bubble and self._bubble_node_mesh:get_native() or self._node_mesh:get_native()
 
     love.graphics.push()
@@ -476,8 +478,13 @@ function ow.PlayerBody:draw(is_bubble)
         local tw, th = texture:getDimensions()
         for i = 1, #rope.current_positions, 2 do
             local scale = math.min(rope.scale + 0.5, 1)
-            love.graphics.draw(texture, rope.current_positions[i+0] - 0.5 * tw, rope.current_positions[i+1] - 0.5 * th, 0, scale, scale)
-            --love.graphics.draw(mesh, rope.current_positions[i+0], rope.current_positions[i+1], scale, scale)
+            local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]
+            local current_x, current_y = rope.current_positions[i+0], rope.current_positions[i+1]
+            local x, y = last_x + (current_x - last_x) * self._interpolation_factor,
+            last_y + (current_y - last_y) * self._interpolation_factor
+
+
+            love.graphics.draw(texture, x - 0.5 * tw, y - 0.5 * th, 0, scale, scale)
         end
     end
 
@@ -485,11 +492,9 @@ function ow.PlayerBody:draw(is_bubble)
     rt.graphics.set_blend_mode(nil)
 
     love.graphics.translate(self._center_x, self._center_y)
-    love.graphics.scale(1.2)
+    love.graphics.scale(1.0)
     love.graphics.translate(-self._center_x, -self._center_y)
-    for tri in values(self._tris) do
-        love.graphics.polygon("fill", tri)
-    end
+    love.graphics.polygon("fill", self._positions)
 
     self._outline_canvas:unbind()
     rt.graphics.set_blend_mode(nil)
@@ -505,7 +510,7 @@ function ow.PlayerBody:draw(is_bubble)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _outline_shader:unbind()
 
-    local outline_width = 2
+    local outline_width = 1.5
 
     if self._is_bubble then
         local radius = rt.settings.overworld.player.radius
@@ -513,8 +518,12 @@ function ow.PlayerBody:draw(is_bubble)
         love.graphics.setColor(r - offset, g - offset, b - offset, a)
         love.graphics.circle("fill", self._center_x, self._center_y, radius)
 
-        love.graphics.setColor(r, g, b, a)
+        _core_shader:bind()
+        _core_shader:send("hue", self._player:get_hue())
+        _core_shader:send("elapsed", self._shader_elapsed)
+        love.graphics.setColor(1, 1, 1, 1)
         love.graphics.circle("fill", self._center_x, self._center_y, radius - outline_width)
+        _core_shader:unbind()
     else
         local outline_offset = outline_width / self._player:get_radius()
         local outline_scale = 1
@@ -525,10 +534,7 @@ function ow.PlayerBody:draw(is_bubble)
         love.graphics.translate(-self._center_x, -self._center_y)
         local offset = 0.3
         love.graphics.setColor(r - offset, g - offset, b - offset, a)
-        for tri in values(self._tris) do
-            love.graphics.polygon("fill", tri)
-        end
-
+        love.graphics.polygon("fill", self._positions)
 
         self._core_canvas:bind()
         love.graphics.clear(0, 0, 0, 0)
@@ -543,15 +549,12 @@ function ow.PlayerBody:draw(is_bubble)
         love.graphics.translate(-0.5 * w, -0.5 * h)
         love.graphics.setColor(r, g, b, a)
 
-
         love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
         _core_shader:bind()
         _core_shader:send("hue", self._player:get_hue())
         _core_shader:send("elapsed", self._shader_elapsed)
         love.graphics.setColor(1, 1, 1, 1)
-        for tri in values(self._tris) do
-            love.graphics.polygon("fill", tri)
-        end
+        love.graphics.polygon("fill", self._positions)
         _core_shader:unbind()
 
         love.graphics.pop()
@@ -559,13 +562,5 @@ function ow.PlayerBody:draw(is_bubble)
 
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(self._core_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
-
-        love.graphics.push()
-        love.graphics.origin()
-        _core_shader:bind()
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-        _core_shader:unbind()
-        love.graphics.pop()
     end
 end

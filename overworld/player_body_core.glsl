@@ -64,22 +64,28 @@ vec2 rotate(vec2 v, float angle) {
 uniform float elapsed;
 uniform float hue;
 
-vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
-    vec4 texel = texture(image, texture_coordinates);
-    vec2 uv = frag_position / love_ScreenSize.xy;
+vec4 effect(vec4 color, Image image, vec2 true_uv, vec2 frag_position) {
+    vec2 texture_coordinates = frag_position / love_ScreenSize.xy;
+    vec4 texel = texture(image, true_uv);
+    vec2 uv = frag_position / love_ScreenSize.xy - vec2(1);
 
-    float time = elapsed / 20;
-    float n_octaves = 4;
+    float time = elapsed / 2;
+    float scale = 3;
+    float n_octaves = 2;
     vec2 step = vec2(0, 1);
-    float scale = 1;
+    float persistence = 1;
     for (int i = 0; i < n_octaves; ++i) {
-        uv = uv + step *  gradient_noise(vec3(uv * scale * 10, time));
+        uv = uv + step * gradient_noise(vec3(uv * persistence * scale, time));
         step = rotate(step, (n_octaves - i) * 2 * PI);
-        scale *= distance(uv, texture_coordinates) ;
+        persistence *= distance(uv, texture_coordinates) * 0.4;
     }
 
 
-    float hue_eps = 0.5;
+    float hue_eps = 0.05;
     float noise = gradient_noise(vec3(uv * distance(uv, texture_coordinates) , 0));
-    return vec4(lch_to_rgb(vec3(0.8, 1, mix(hue - hue_eps, hue + hue_eps, noise))), texel.a);
+
+    float chroma = 1;
+    float lightness = mix(0.7, 1, noise);
+    float hue = mix(hue - hue_eps, hue + hue_eps, noise);
+    return vec4(lch_to_rgb(vec3(lightness, chroma, hue)), texel.a);
 }
