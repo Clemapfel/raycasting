@@ -133,12 +133,10 @@ function ow.BouncePad:draw()
 
     local r, g, b = table.unpack(self._draw_color)
 
-    love.graphics.setColor(r, g, b, 0.7)
-    for tri in values(self._draw_tris) do
-        love.graphics.polygon("fill", tri)
-    end
-
     if self._draw_contour ~= nil then
+        love.graphics.setColor(r, g, b, 0.7)
+        love.graphics.polygon("fill", self._draw_contour)
+
         love.graphics.setColor(r, g, b, 1.0)
         love.graphics.setLineWidth(1)
         love.graphics.setLineStyle("smooth")
@@ -451,11 +449,4 @@ function ow.BouncePad:_update_vertices()
     end
 
     self._draw_contour = contour
-
-    local success
-    self._draw_tris = {}
-    success, self._draw_tris = pcall(love.graphics.triangulate, contour)
-    if not success then
-        success, self._draw_tris = pcall(slick.triangulate, { contour })
-    end
 end

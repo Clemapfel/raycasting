@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 554,
+  nextobjectid = 556,
   properties = {},
   tilesets = {
     {
@@ -1904,11 +1904,11 @@ return {
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 0, y = -592 },
-            { x = 1904, y = -592 },
-            { x = 1904, y = -624 },
-            { x = 0, y = -624 },
-            { x = -80, y = -624 },
+            { x = 0, y = -816 },
+            { x = 1904, y = -816 },
+            { x = 1904, y = -848 },
+            { x = 0, y = -848 },
+            { x = -80, y = -848 },
             { x = -80, y = 112 },
             { x = 1920, y = 112 },
             { x = 1920, y = 0 }
@@ -4045,13 +4045,48 @@ return {
           name = "",
           type = "Goal",
           shape = "point",
-          x = 2098.17,
-          y = 2796.11,
+          x = 2507.04,
+          y = 2806.84,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 554,
+          name = "",
+          type = "Checkpoint",
+          shape = "point",
+          x = 2080,
+          y = 2800,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 555,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 1568,
+          y = 2608,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 464 },
+            { x = 352, y = 464 },
+            { x = 352, y = -16 }
+          },
+          properties = {
+            ["axis_x"] = 2,
+            ["axis_y"] = 0
+          }
         }
       }
     },

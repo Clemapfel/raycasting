@@ -20,6 +20,7 @@ rt.settings.overworld.player = {
     player_collision_group = b2.CollisionGroup.GROUP_16,
     player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
     bounce_collision_group = b2.CollisionGroup.GROUP_14,
+    exempt_collision_group = b2.CollisionGroup.GROUP_13,
 
     ground_target_velocity_x = 300,
     air_target_velocity_x = 300,
@@ -376,7 +377,7 @@ function ow.Player:update(delta)
     -- raycast to check for walls
     local x, y = self._body:get_position()
 
-    local mask = bit.bnot(_settings.player_outer_body_collision_group)
+    local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
 
     local bubble_factor = 1
     if self._is_bubble then

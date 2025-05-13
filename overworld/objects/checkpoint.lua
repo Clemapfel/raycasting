@@ -1,4 +1,5 @@
 require "common.sound_manager"
+require "overworld.fireworks"
 
 rt.settings.overworld.checkpoint = {
     celebration_particles_n = 500,
@@ -9,6 +10,9 @@ rt.settings.overworld.checkpoint = {
     ray_duration = 0.1,
     ray_width_radius_factor = 4,
     ray_fade_out_duration = 0.5,
+
+    segment_length = 7,
+    gravity = 10000
 }
 
 --- @class ow.Checkpoint
@@ -100,6 +104,11 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         -- shader uniform
         _camera_offset = { 0, 0 },
         _camera_scale = 1,
+
+        _segment_bodies = {},
+        _segment_joints = {},
+        _is_broken = false,
+        _should_despawn = false,
     })
 
     stage:add_checkpoint(self, object.id, self._type)
@@ -132,15 +141,83 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 bottom_x - self._x, bottom_y - self._y
             )
         )
-        self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+        self._body:set_collides_with(bit.bor(
+            rt.settings.overworld.player.player_collision_group,
+            rt.settings.overworld.player.player_outer_body_collision_group
+        ))
+
+        self._body:set_collides_with(rt.settings.overworld.player.bounce_collision_group)
+        self._body:set_collision_group(rt.settings.overworld.player.bounce_collision_group)
+
         self._body:set_use_continuous_collision(true)
         self._body:set_is_sensor(true)
         self._body:signal_connect("collision_start", function(_)
             if self._passed == false then
                 self:pass()
+
+                if self._type == ow.CheckpointType.CHECKPOINT then
+                    self:_break()
+                end
                 --TODO return meta.DISCONNECT_SIGNAL
             end
         end)
+
+        if self._type == ow.CheckpointType.CHECKPOINT then
+            local height = self._bottom_y - self._top_y
+            local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint.segment_length), 2)
+            local segment_length = height / (n_segments - 1)
+            local radius = segment_length / 2
+
+            self._n_segments = n_segments
+
+            local collision_group = b2.CollisionGroup.GROUP_13
+
+            local current_x, current_y = self._top_x, self._top_y
+            for i = 1, n_segments do
+                local body
+                if i == 1 or i == n_segments then
+                    local anchor_width = 10
+                    body = b2.Body(self._world, b2.BodyType.STATIC, current_x, current_y, b2.Rectangle(-0.5 * anchor_width, -1 * radius, anchor_width, 2 * radius))
+                    body:set_mass(1)
+                else
+                    body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Circle(0, 0, radius))
+                    body:set_mass(height / n_segments * 0.025)
+                end
+
+                body:set_collides_with(bit.bnot(rt.settings.overworld.player.exempt_collision_group))
+                body:set_collision_group(rt.settings.overworld.player.exempt_collision_group)
+                body:set_is_rotation_fixed(false)
+
+                self._segment_bodies[i] = body
+                current_y = current_y + segment_length
+            end
+
+            for i = 1, n_segments - 1 do
+                local a, b = self._segment_bodies[i], self._segment_bodies[i+1]
+                local a_x, a_y = a:get_position()
+                local b_x, b_y = b:get_position()
+
+                if i ~= 1 and i ~= n_segments then
+                    a_y = a_y + radius
+                    b_y = b_y - radius
+                end
+
+                local anchor_x, anchor_y = math.mix2(a_x, a_y, b_x, b_y, 0.5)
+                local axis_x, axis_y = math.normalize(b_x - a_x, b_y - a_y)
+                local joint = love.physics.newPrismaticJoint(
+                    a:get_native(), b:get_native(),
+                    anchor_x, anchor_y,
+                    axis_x, axis_y,
+                    false
+                )
+                joint:setLimitsEnabled(true)
+                joint:setLimits(0, 0)
+
+                self._segment_joints[i] = joint
+            end
+
+            self._fireworks = ow.Fireworks(self._scene)
+        end
 
         return meta.DISCONNECT_SIGNAL
     end)
@@ -249,6 +326,36 @@ end
 
 --- @brief
 function ow.Checkpoint:update(delta)
+    if self._should_despawn then
+        local seen = false
+        for body in values(self._segment_bodies) do
+            if self._scene:get_is_body_visible(body) then
+                seen = true
+                break
+            end
+        end
+
+        if seen == false then
+            self:_despawn()
+        end
+    end
+
+    if self._is_broken then
+        self._fireworks:update(delta)
+
+        local gravity = rt.settings.overworld.checkpoint.gravity * delta
+        for body in values(self._segment_bodies) do
+            body:apply_force(0, gravity)
+        end
+
+        for joint in values(self._segment_joints) do
+            if not joint:isDestroyed() and joint:getJointSpeed() > 1000 then
+                self:_despawn()
+                break
+            end -- safeguard against solver freaking out
+        end
+    end
+
     if self._state == _STATE_EXPLODING then
         local duration = rt.settings.overworld.checkpoint.explosion_duration
         self._explosion_fraction = self._explosion_elapsed / duration
@@ -298,6 +405,77 @@ function ow.Checkpoint:update(delta)
 end
 
 --- @brief
+function ow.Checkpoint:_break()
+    if self._is_broken then return end
+
+    local player = self._scene:get_player()
+    local player_x, player_y = player:get_position()
+    local impulse = 0.05
+
+    local joint_broken = false
+    for i, joint in ipairs(self._segment_joints) do
+        if i > self._n_segments - 1 then break end
+
+        local a_x, a_y = self._segment_bodies[i]:get_position()
+        local b_x, b_y = self._segment_bodies[i+1]:get_position()
+        if player_y >= a_y and player_y <= b_y then
+            joint_broken = true
+            joint:destroy()
+
+            local hue_offset = 0.2
+            local hue_min, hue_max = player:get_hue() - hue_offset, player:get_hue() + hue_offset
+            local n_particles = 200 --0.5 * rt.settings.overworld.checkpoint.celebration_particles_n-- * (1 + player:get_flow())
+            local vx, vy = player:get_velocity()
+            local velocity = 0.5 * player:get_radius()
+            self._fireworks:spawn(n_particles, velocity, player_x, player_y, 0, -1.5, hue_min, hue_max) -- spew upwards
+
+            break
+        end
+    end
+
+    if joint_broken then
+        self._stage:finish_stage(self._timestamp)
+        self._segment_bodies[1]:set_type(b2.BodyType.DYNAMIC)
+        self._segment_bodies[self._n_segments]:set_type(b2.BodyType.DYNAMIC)
+
+        local offset = player:get_radius()
+        local vx, vy = player:get_velocity()
+        if vx > 0 then offset = -offset end
+        impulse = impulse * math.magnitude(vx, vy)
+
+        for body in values(self._segment_bodies) do
+            body:set_collides_with(bit.bnot(bit.bor(
+                rt.settings.overworld.player.player_collision_group,
+                rt.settings.overworld.player.player_outer_body_collision_group
+            )))
+
+            local body_x, body_y = body:get_position()
+            local dx, dy = math.normalize(body_x - (player_x + offset), body_y - player_y)
+            body:apply_linear_impulse(dx * impulse, dy * impulse)
+        end
+        self._is_broken = true
+        self._should_despawn = true
+    end
+end
+
+--- @brief
+function ow.Checkpoint:_despawn()
+    for joint in values(self._segment_joints) do
+        if not joint:isDestroyed() then
+            joint:destroy()
+        end
+    end
+
+    for body in values(self._segment_bodies) do
+        body:destroy()
+    end
+
+    self._segment_bodies = {}
+    self._segment_joints = {}
+    self._should_despawn = false
+end
+
+--- @brief
 function ow.Checkpoint:draw()
     love.graphics.setColor(1, 1, 1, 1)
     self._body:draw()
@@ -326,6 +504,14 @@ function ow.Checkpoint:draw()
         local x, y = self._top_x - 0.5 * w, self._top_y
         love.graphics.rectangle("fill", x, y, w, h)
         love.graphics.setShader()
+    else
+        if self._type == ow.CheckpointType.CHECKPOINT then
+            for body in values(self._segment_bodies) do
+                body:draw()
+            end
+
+            self._fireworks:draw()
+        end
     end
 end
 
