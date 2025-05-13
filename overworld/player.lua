@@ -1433,6 +1433,11 @@ function ow.Player:get_hue()
 end
 
 --- @brief
+function ow.Player:set_hue(value)
+    self._hue = math.fract(value)
+end
+
+--- @brief
 function ow.Player:set_gravity(x)
     self._gravity_multiplier = x
 end
@@ -1445,7 +1450,6 @@ end
 --- @brief
 function ow.Player:set_is_bubble(b)
     if b == self._is_bubble then return end
-    dbg(rt.SceneManager:get_frame_index(), "called")
 
     local before = self._is_bubble
     self._is_bubble = b

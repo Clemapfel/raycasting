@@ -152,7 +152,7 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
                     table.insert(rope.last_positions, px)
                     table.insert(rope.last_positions, py)
                     table.insert(rope.distances, rope_length / self._n_segments)
-                    table.insert(rope.bubble_distances, 2.5 * rope_length / self._n_segments)
+                    table.insert(rope.bubble_distances, 0 * rope_length / self._n_segments)
                 end
 
                 table.insert(self._ropes, rope)
@@ -417,6 +417,7 @@ end
 --- @brief
 function ow.PlayerBody:draw()
     local mesh = self._is_bubble and self._bubble_node_mesh:get_native() or self._node_mesh:get_native()
+    local opacity = self._player:get_opacity()
 
     love.graphics.push()
     love.graphics.origin()
@@ -480,7 +481,7 @@ function ow.PlayerBody:draw()
         end
     end
 
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, opacity)
     love.graphics.translate(self._center_x, self._center_y)
     love.graphics.scale(1.0)
     love.graphics.translate(-self._center_x, -self._center_y)
@@ -493,32 +494,17 @@ function ow.PlayerBody:draw()
     love.graphics.pop()
 
     local r, g, b, a = rt.Palette.BLACK:unpack()
-    love.graphics.setColor(r, g, b, 1)
+    love.graphics.setColor(r, g, b, opacity)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
 
     _outline_shader:bind()
     local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)
-    love.graphics.setColor(r, g, b, a)
+    love.graphics.setColor(r, g, b, a * opacity)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _outline_shader:unbind()
 
     local outline_width = 1.5
 
-    --[[
-    if self._is_bubble then
-        local radius = rt.settings.overworld.player.radius
-        local offset = 0.5
-        love.graphics.setColor(r - offset, g - offset, b - offset, a)
-        love.graphics.circle("fill", self._center_x, self._center_y, radius)
-
-        _core_shader:bind()
-        _core_shader:send("hue", self._player:get_hue())
-        _core_shader:send("elapsed", self._shader_elapsed)
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.circle("fill", self._center_x, self._center_y, radius - outline_width)
-        _core_shader:unbind()
-    else
-    ]]--
     local outline_offset = outline_width / self._player:get_radius()
     local outline_scale = 1
     local inside_scale = outline_scale - outline_offset
@@ -527,7 +513,7 @@ function ow.PlayerBody:draw()
     love.graphics.scale(outline_scale) -- actual hitbox
     love.graphics.translate(-self._center_x, -self._center_y)
     local offset = 0.3
-    love.graphics.setColor(r - offset, g - offset, b - offset, a)
+    love.graphics.setColor(r - offset, g - offset, b - offset, a * opacity)
 
     if self._is_bubble then
         love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.overworld.player.radius)
@@ -537,7 +523,7 @@ function ow.PlayerBody:draw()
 
     self._core_canvas:bind()
     love.graphics.clear(0, 0, 0, 0)
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, opacity)
 
     love.graphics.push()
     love.graphics.origin()
@@ -546,13 +532,13 @@ function ow.PlayerBody:draw()
     love.graphics.translate(0.5 * w, 0.5 * h)
     love.graphics.scale(inside_scale * self._canvas_scale)
     love.graphics.translate(-0.5 * w, -0.5 * h)
-    love.graphics.setColor(r, g, b, a)
+    love.graphics.setColor(r, g, b, a * opacity)
 
     love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
     _core_shader:bind()
     _core_shader:send("hue", self._player:get_hue())
     _core_shader:send("elapsed", self._shader_elapsed)
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, 1 * opacity)
 
     if self._is_bubble then
         love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.overworld.player.radius)
@@ -564,7 +550,7 @@ function ow.PlayerBody:draw()
     love.graphics.pop()
     self._core_canvas:unbind()
 
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, 1 * opacity)
     love.graphics.draw(self._core_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
 
     -- highlight
@@ -584,4 +570,6 @@ function ow.PlayerBody:draw()
 
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
+
+    love.graphics.setColor(1, 1, 1, 1)
 end

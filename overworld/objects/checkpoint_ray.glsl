@@ -160,7 +160,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
 
     float ray = (ray_outer * (1 + ball) + ray_inner) / (1 + ball) * fade;
     ray *= 1 + ball * (fade_out_fraction > 0 ? 0.4 : 0);
-    float hue = fract(hue + texture_coords.y * norm.y);
+    float hue = fract(mix(hue - 0.25, hue, texture_coords.y * norm.y));
     return vec4(ray) * vec4(lch_to_rgb(vec3(0.8, 1, hue)), 1);
 
 }

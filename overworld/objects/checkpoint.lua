@@ -11,6 +11,7 @@ rt.settings.overworld.checkpoint = {
     ray_width_radius_factor = 4,
     ray_fade_out_duration = 0.5,
 
+    hue_speed = 2,
     segment_length = 7,
     gravity = 10000
 }
@@ -87,7 +88,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _current_player_spawn_y = object.y,
 
         _color = { rt.Palette.CHECKPOINT:unpack() },
-        _hue = 0,
+        _hue = rt.random.number(0, 1),
 
         _ray_fraction = math.huge,
         _ray_fade_out_fraction = math.huge,
@@ -100,6 +101,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _explosion_size = {0, 0},
 
         _elapsed = 0,
+        _color = {0, 0, 0, 0},
 
         -- shader uniform
         _camera_offset = { 0, 0 },
@@ -120,7 +122,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         if bottom_x == nil then
             bottom_x = self._x
             bottom_y = self._y
-            rt.error("In ow.Checkpoint.initialize: checkpoint `" .. self._object.id .. "` is not above solid ground")
         end
 
         local top_x, top_y, _, _, _ = self._world:query_ray(self._x, self._y, 0, -inf)
@@ -181,7 +182,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                     body:set_mass(1)
                 else
                     body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Circle(0, 0, radius))
-                    body:set_mass(height / n_segments * 0.025)
+                    body:set_mass(height / n_segments * 0.015)
                 end
 
                 body:set_collides_with(bit.bnot(rt.settings.overworld.player.exempt_collision_group))
@@ -296,7 +297,8 @@ function ow.Checkpoint:_set_state(state)
         self._ray_fade_out_fraction = 0
 
         player:disable()
-        player:set_velocity(0, (self._current_player_spawn_y - self._top_y) / rt.settings.overworld.checkpoint.ray_duration)
+        player:set_hue(rt.random.number(0, 1))
+        player:set_velocity(0, 1000)
         player:set_gravity(0)
         player:set_opacity(0)
         player:set_flow(0.5) -- purely for visuals
@@ -356,6 +358,10 @@ function ow.Checkpoint:update(delta)
         end
     end
 
+    if not self._is_broken then
+        self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
+    end
+
     if self._state == _STATE_EXPLODING then
         local duration = rt.settings.overworld.checkpoint.explosion_duration
         self._explosion_fraction = self._explosion_elapsed / duration
@@ -400,8 +406,10 @@ function ow.Checkpoint:update(delta)
         end
     end
 
-    self._hue = self._scene:get_player():get_hue()
-    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+    if not self._is_broken then
+        self._hue = math.fract(self._hue + delta / rt.settings.overworld.checkpoint.hue_speed)
+        self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+    end
 end
 
 --- @brief
@@ -422,13 +430,13 @@ function ow.Checkpoint:_break()
             joint_broken = true
             joint:destroy()
 
+            self._hue = math.fract(self._hue + i / self._n_segments)
             local hue_offset = 0.2
-            local hue_min, hue_max = player:get_hue() - hue_offset, player:get_hue() + hue_offset
+            local hue_min, hue_max = self._hue - hue_offset, self._hue + hue_offset
             local n_particles = 200 --0.5 * rt.settings.overworld.checkpoint.celebration_particles_n-- * (1 + player:get_flow())
             local vx, vy = player:get_velocity()
             local velocity = 0.5 * player:get_radius()
-            self._fireworks:spawn(n_particles, velocity, player_x, player_y, 0, -1.5, hue_min, hue_max) -- spew upwards
-
+            self._fireworks:spawn(n_particles, velocity, player_x, player_y + 2 * player:get_radius(), 0, -1.5, hue_min, hue_max) -- spew upwards
             break
         end
     end
@@ -455,6 +463,8 @@ function ow.Checkpoint:_break()
         end
         self._is_broken = true
         self._should_despawn = true
+
+        self._scene:get_player():set_hue(self._hue)
     end
 end
 
@@ -478,14 +488,15 @@ end
 --- @brief
 function ow.Checkpoint:draw()
     love.graphics.setColor(1, 1, 1, 1)
-    self._body:draw()
+    --self._body:draw()
     --love.graphics.circle("fill", self._current_player_spawn_x, self._current_player_spawn_y, 5)
 
+    local hue = self._scene:get_player():get_hue()
     if self._state == _STATE_EXPLODING then
         love.graphics.setShader(_explosion_shader)
         _explosion_shader:send("fraction", self._explosion_fraction)
         _explosion_shader:send("size", self._explosion_size)
-        _explosion_shader:send("hue", self._hue)
+        _explosion_shader:send("hue", hue)
 
         local x, y = table.unpack(self._explosion_player_position)
         local w, h = table.unpack(self._explosion_size)
@@ -497,7 +508,7 @@ function ow.Checkpoint:draw()
         _ray_shader:send("fade_out_fraction", self._ray_fade_out_fraction)
         _ray_shader:send("size", self._ray_size)
         _ray_shader:send("elapsed", self._elapsed)
-        _ray_shader:send("hue", self._hue)
+        _ray_shader:send("hue", hue)
         _ray_shader:send("camera_offset", self._camera_offset)
         _ray_shader:send("camera_scale", self._camera_scale)
         local w, h = table.unpack(self._ray_size)
@@ -506,8 +517,58 @@ function ow.Checkpoint:draw()
         love.graphics.setShader()
     else
         if self._type == ow.CheckpointType.CHECKPOINT then
-            for body in values(self._segment_bodies) do
-                body:draw()
+
+            local line_width = 6
+            love.graphics.setLineWidth(line_width + 4)
+            rt.Palette.BLACK:bind()
+            for i, joint in ipairs(self._segment_joints) do
+                if not joint:isDestroyed() then
+                    local a_x, a_y = self._segment_bodies[i+0]:get_position()
+                    local b_x, b_y = self._segment_bodies[i+1]:get_position()
+
+                    love.graphics.line(a_x, a_y, b_x, b_y)
+
+                    if i == 1 then
+                        love.graphics.circle("fill", a_x, a_y, line_width / 2)
+                    elseif i == self._n_segments then
+                        love.graphics.circle("fill", b_x, b_y, line_width / 2)
+                    end
+                end
+            end
+
+            love.graphics.setLineWidth(6)
+
+            if self._is_broken then
+                love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1))
+
+                for i, joint in ipairs(self._segment_joints) do
+                    if not joint:isDestroyed() then
+                        local a_x, a_y = self._segment_bodies[i+0]:get_position()
+                        local b_x, b_y = self._segment_bodies[i+1]:get_position()
+                        love.graphics.line(a_x, a_y, b_x, b_y)
+
+                        if i == 1 then
+                            love.graphics.circle("fill", a_x, a_y, line_width / 2)
+                        elseif i == self._n_segments then
+                            love.graphics.circle("fill", b_x, b_y, line_width / 2)
+                        end
+                    end
+                end
+            else
+                for i, joint in ipairs(self._segment_joints) do
+                    if not joint:isDestroyed() then
+                        local a_x, a_y = self._segment_bodies[i+0]:get_position()
+                        local b_x, b_y = self._segment_bodies[i+1]:get_position()
+                        love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, math.fract(self._hue + i / self._n_segments), 1))
+                        love.graphics.line(a_x, a_y, b_x, b_y)
+
+                        if i == 1 then
+                            love.graphics.circle("fill", a_x, a_y, line_width / 2)
+                        elseif i == self._n_segments then
+                            love.graphics.circle("fill", b_x, b_y, line_width / 2)
+                        end
+                    end
+                end
             end
 
             self._fireworks:draw()
