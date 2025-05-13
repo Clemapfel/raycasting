@@ -283,10 +283,11 @@ function ow.PlayerBody:update(delta)
     local player_x, player_y = self._player:get_physics_body():get_predicted_position()
     local axis_x, axis_y = self._player:get_velocity()
 
-    while self._elapsed > _step do
-        self._elapsed = self._elapsed - _step
+    local step = delta
+    --while self._elapsed > _step do
+        self._elapsed = self._elapsed - step
 
-        local delta_squared = _step * _step
+        local delta_squared = step * step
 
         local mass = 1
         for rope in values(self._ropes) do
@@ -401,7 +402,7 @@ function ow.PlayerBody:update(delta)
 
             rope.timestamp = love.timer.getTime()
         end
-    end
+    --end
 
     local points = {}
     for rope in values(self._ropes) do
@@ -450,10 +451,15 @@ function ow.PlayerBody:draw()
             local tw, th = texture:getDimensions()
             for i = 1, #rope.current_positions, 2 do
                 local scale = math.min(rope.scale + 0.5, 1)
-                local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]
-                local current_x, current_y = rope.current_positions[i+0], rope.current_positions[i+1]
-                local x, y = last_x + (current_x - last_x) * self._interpolation_factor,
-                last_y + (current_y - last_y) * self._interpolation_factor
+                local x, y
+                if false then
+                    local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]
+                    local current_x, current_y = rope.current_positions[i+0], rope.current_positions[i+1]
+                    x, y = last_x + (current_x - last_x) * self._interpolation_factor,
+                    last_y + (current_y - last_y) * self._interpolation_factor
+                else
+                    x, y = rope.last_positions[i+0], rope.last_positions[i+1]
+                end
 
                 love.graphics.draw(texture, x - 0.5 * tw, y - 0.5 * th, 0, scale, scale)
             end
@@ -513,15 +519,15 @@ function ow.PlayerBody:draw()
         _core_shader:unbind()
     else
     ]]--
-        local outline_offset = outline_width / self._player:get_radius()
-        local outline_scale = 1
-        local inside_scale = outline_scale - outline_offset
+    local outline_offset = outline_width / self._player:get_radius()
+    local outline_scale = 1
+    local inside_scale = outline_scale - outline_offset
 
-        love.graphics.translate(self._center_x, self._center_y)
-        love.graphics.scale(outline_scale) -- actual hitbox
-        love.graphics.translate(-self._center_x, -self._center_y)
-        local offset = 0.3
-        love.graphics.setColor(r - offset, g - offset, b - offset, a)
+    love.graphics.translate(self._center_x, self._center_y)
+    love.graphics.scale(outline_scale) -- actual hitbox
+    love.graphics.translate(-self._center_x, -self._center_y)
+    local offset = 0.3
+    love.graphics.setColor(r - offset, g - offset, b - offset, a)
 
     if self._is_bubble then
         love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.overworld.player.radius)
@@ -568,10 +574,9 @@ function ow.PlayerBody:draw()
     rt.graphics.set_blend_mode(rt.BlendMode.ADD)
     local scale = 0.5
     local r = 4
-    local offset = self._player:get_radius() * scale / 2
+    local offset = rt.settings.overworld.player.radius * scale / 2
     love.graphics.translate(-offset, -offset)
     love.graphics.ellipse("fill", self._center_x, self._center_y, r, r)
-
 
     love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1)
     love.graphics.translate(-r / 4, -r / 4)
