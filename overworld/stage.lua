@@ -256,15 +256,17 @@ function ow.Stage:get_object_instance(object)
 end
 
 --- @brief
-function ow.Stage:add_checkpoint(checkpoint, id, is_spawn)
+function ow.Stage:add_checkpoint(checkpoint, id, type)
     meta.assert(checkpoint, ow.Checkpoint, id, "Number")
     self._checkpoints[id] = {
         checkpoint = checkpoint,
         timestamp = nil
     }
 
-    if is_spawn then
+    if type == ow.CheckpointType.PLAYER_SPAWN then
         self._active_checkpoint = checkpoint
+    elseif type == ow.CheckpointType.GOAL then
+        self._goals[checkpoint] = true
     end
 end
 
@@ -367,11 +369,6 @@ end
 --- @brief
 function ow.Stage:_notify_flow_graph_node_added(node)
     table.insert(self._flow_graph_nodes, node)
-end
-
---- @brief
-function ow.Stage:_notify_goal_added(goal)
-    self._goals[goal] = true
 end
 
 --- @brief

@@ -153,6 +153,7 @@ function rt.Label:draw(x, y)
         math.floor(self._bounds.y + self._texture_offset_y + y)
     )
 
+    love.graphics.setColor(1, 0, 1, 1)
     love.graphics.setBlendMode("alpha")
 end
 

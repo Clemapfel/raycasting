@@ -32,9 +32,10 @@ end
 function rt.SmoothedMotion1D:update(delta)
     local distance = self._target_value - self._current_value
 
-    local step = 2 * math.ceil(distance) * self._speed * delta * delta
+    local step = 4 * distance * self._speed * delta
 
     self._current_value = self._current_value + step
+
     if  (distance > 0 and self._current_value > self._target_value) or
         (distance < 0 and self._current_value < self._target_value)
     then

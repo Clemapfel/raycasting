@@ -6,6 +6,7 @@ require "overworld.camera"
 require "overworld.player"
 require "overworld.coin_effect"
 require "overworld.stage_hud"
+require "overworld.results_screen"
 require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
@@ -13,7 +14,8 @@ rt.settings.overworld.overworld_scene = {
     camera_scale_velocity = 0.1, -- % / s
     camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
     camera_pan_width_factor = 0.15,
-    camera_freeze_duration = 1
+    camera_freeze_duration = 1,
+    results_screen_fraction = 0.5,
 }
 
 --- @class
@@ -66,6 +68,8 @@ function ow.OverworldScene:instantiate()
         _visible_bodies = {}, -- Set<b2.Body>
         _background = rt.Background("grid"),
 
+        _results_screen = ow.ResultsScreen(),
+
         _post_fx = ow.CoinEffect(self),
         _player = ow.Player(self),
         _hud = ow.StageHUD(self),
@@ -76,8 +80,12 @@ function ow.OverworldScene:instantiate()
         if which == "^" then
             self:reload()
             rt.SceneManager:unpause()
-        else
-
+        elseif which == "h" then
+            if not self._results_screen:get_is_active() then
+                self._results_screen:present(0, 0)
+            else
+                self._results_screen:close()
+            end
         end
     end)
 
@@ -220,6 +228,7 @@ function ow.OverworldScene:instantiate()
     end)
 
     self._background:realize()
+    self._results_screen:realize()
 end
 
 local _blocked = 0
@@ -282,6 +291,9 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._background:reformat(0, 0, width, height)
     self._post_fx:reformat(0, 0, width, height)
     self._hud:reformat(0, 0, width, height)
+
+    local results_screen_fraction = rt.settings.overworld.overworld_scene.results_screen_fraction
+    self._results_screen:reformat((1 - results_screen_fraction) * width, 0, results_screen_fraction * width, height)
 end
 
 --- @brief
@@ -393,6 +405,8 @@ function ow.OverworldScene:draw()
     self._stage:draw_above_player()
     self._camera:unbind()
 
+    self._results_screen:draw()
+
     if self._cursor_visible and self._cursor_active then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
@@ -442,6 +456,8 @@ function ow.OverworldScene:update(delta)
     self._player:update(delta)
 
     self._background:_notify_camera_changed(self._camera)
+
+    self._results_screen:update(delta)
 
     -- mouse-based scrolling
     if self._cursor_visible == true then

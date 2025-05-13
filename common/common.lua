@@ -503,6 +503,22 @@ function string.concat(delimiter, ...)
 end
 
 --- @brief
+function string.format_time(duration)
+    local hours = math.floor(duration / 3600)
+    local minutes = math.floor((duration % 3600) / 60)
+    local seconds = math.floor(duration % 60)
+    local milliseconds = math.floor((duration * 1000) % 1000)
+
+    if hours >= 1 then
+        return string.format("%2d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
+    elseif minutes >= 1 then
+        return string.format("%2d:%02d.%03d", minutes, seconds, milliseconds)
+    else
+        return string.format("%2d.%03d", seconds, milliseconds)
+    end
+end
+
+--- @brief
 function utf8.sub(s,i,j)
     -- src: http://lua-users.org/lists/lua-l/2014-04/msg00590.html
     i = i or 1

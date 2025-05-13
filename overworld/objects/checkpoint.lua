@@ -14,9 +14,20 @@ rt.settings.overworld.checkpoint = {
 --- @class ow.Checkpoint
 ow.Checkpoint = meta.class("Checkpoint")
 
+ow.CheckpointType = meta.enum("CheckpointTime", {
+    PLAYER_SPAWN = 0,
+    CHECKPOINT = 1,
+    GOAL = 2
+})
+
 --- @class ow.PlayerSpawn
 ow.PlayerSpawn = function(object, stage, scene) -- alias for first checkpoint
-    return ow.Checkpoint(object, stage, scene, true)
+    return ow.Checkpoint(object, stage, scene, ow.CheckpointType.PLAYER_SPAWN)
+end
+
+--- @class ow.Goal
+ow.Goal = function(object, stage, scene)
+    return ow.Checkpoint(object, stage, scene, ow.CheckpointType.GOAL)
 end
 
 local _text_outline_shader, _text_shader
@@ -27,7 +38,9 @@ local _STATE_RAY = "RAY"
 local _STATE_EXPLODING = "EXPLODING"
 
 --- @brief
-function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
+function ow.Checkpoint:instantiate(object, stage, scene, type)
+    if type == nil then type = ow.CheckpointType.CHECKPOINT end
+
     if _text_outline_shader == nil then
         _text_outline_shader = love.graphics.newShader("overworld/objects/checkpoint_text.glsl", { defines = { MODE = 0 }})
         _text_outline_shader:send("outline_color", { rt.Palette.BLACK:unpack() })
@@ -47,13 +60,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
 
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Checkpoint: object is not a point")
 
-    if is_player_spawn == nil then is_player_spawn = false end
     meta.install(self, {
         _scene = scene,
         _stage = stage,
         _world = stage:get_physics_world(),
-        _is_player_spawn = is_player_spawn,
-        _is_first_spawn = is_player_spawn,
+        _type = type,
+        _is_first_spawn = type == ow.CheckpointType.PLAYER_SPAWN,
 
         _state = _STATE_DEFAULT,
         _passed = false,
@@ -85,12 +97,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
 
         _elapsed = 0,
 
-        -- uniform
+        -- shader uniform
         _camera_offset = { 0, 0 },
         _camera_scale = 1,
     })
 
-    stage:add_checkpoint(self, object.id, is_player_spawn)
+    stage:add_checkpoint(self, object.id, self._type)
     stage:signal_connect("initialized", function()
         -- cast ray up an down to get local bounds
         local inf = 10e9
@@ -288,7 +300,7 @@ end
 --- @brief
 function ow.Checkpoint:draw()
     love.graphics.setColor(1, 1, 1, 1)
-    --self._body:draw()
+    self._body:draw()
     --love.graphics.circle("fill", self._current_player_spawn_x, self._current_player_spawn_y, 5)
 
     if self._state == _STATE_EXPLODING then

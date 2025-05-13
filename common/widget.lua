@@ -31,6 +31,11 @@ function rt.Widget:draw()
 end
 
 --- @brief
+function rt.Widget:draw_bounds()
+    love.graphics.rectangle("line", self._bounds:unpack())
+end
+
+--- @brief
 function rt.Widget:update(delta)
     -- noop
 end

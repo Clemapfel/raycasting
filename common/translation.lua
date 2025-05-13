@@ -56,5 +56,13 @@ rt.Translation = rt.initialize_translation({
 
         confirm_exit_message = "Quit the game?",
         confirm_exit_submessage = "All unsaved progress will be lost"
+    },
+
+    -- results screen
+    overworld_scene = {
+        results_screen = {
+            flow_percentage = "Flow",
+            time = "Time"
+        }
     }
 })

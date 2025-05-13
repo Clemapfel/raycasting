@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 551,
+  nextobjectid = 554,
   properties = {},
   tilesets = {
     {
@@ -859,19 +859,6 @@ return {
           properties = {}
         },
         {
-          id = 71,
-          name = "",
-          type = "Goal",
-          shape = "rectangle",
-          x = 7152,
-          y = -1280,
-          width = 32,
-          height = 1242.17,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 72,
           name = "",
           type = "BubbleField",
@@ -1599,8 +1586,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 767.799,
-          y = 1973.44,
+          x = 1152,
+          y = 2800,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1917,8 +1904,11 @@ return {
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 0, y = -384 },
-            { x = -80, y = -384 },
+            { x = 0, y = -592 },
+            { x = 1904, y = -592 },
+            { x = 1904, y = -624 },
+            { x = 0, y = -624 },
+            { x = -80, y = -624 },
             { x = -80, y = 112 },
             { x = 1920, y = 112 },
             { x = 1920, y = 0 }
@@ -2355,49 +2345,6 @@ return {
           properties = {}
         },
         {
-          id = 205,
-          name = "",
-          type = "BoostField",
-          shape = "polygon",
-          x = 1280,
-          y = 2880,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -144 },
-            { x = 256, y = -144 },
-            { x = 256, y = 0 }
-          },
-          properties = {
-            ["axis_x"] = 1,
-            ["axis_y"] = 0
-          }
-        },
-        {
-          id = 208,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1072,
-          y = 2864,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 80, y = 80 },
-            { x = -16, y = 80 },
-            { x = -16, y = 0 }
-          },
-          properties = {
-            ["single_use"] = true
-          }
-        },
-        {
           id = 209,
           name = "",
           type = "BubbleField",
@@ -2408,81 +2355,6 @@ return {
           height = 519.592,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 211,
-          name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = 2480,
-          y = 2940,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -176 },
-            { x = 96, y = -176 },
-            { x = 96, y = 0 }
-          },
-          properties = {}
-        },
-        {
-          id = 212,
-          name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = 2480,
-          y = 2700,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 16 },
-            { x = 96, y = 16 },
-            { x = 96, y = -128 },
-            { x = 0, y = -128 }
-          },
-          properties = {}
-        },
-        {
-          id = 214,
-          name = "",
-          type = "Goal",
-          shape = "rectangle",
-          x = 1616,
-          y = 2688,
-          width = 16,
-          height = 256,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 215,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 1807.66,
-          y = 2928,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 16 },
-            { x = 224, y = 16 },
-            { x = 224, y = -240 },
-            { x = 208, y = -240 },
-            { x = 0, y = -240 },
-            { x = 0, y = -224 },
-            { x = 208, y = -224 },
-            { x = 207.415, y = 0 }
-          },
           properties = {}
         },
         {
@@ -4140,6 +4012,45 @@ return {
             { x = 336, y = -464 },
             { x = -48, y = -448 }
           },
+          properties = {}
+        },
+        {
+          id = 551,
+          name = "",
+          type = "Checkpoint",
+          shape = "point",
+          x = 1440,
+          y = 2800,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 552,
+          name = "",
+          type = "Checkpoint",
+          shape = "point",
+          x = 1792,
+          y = 2800,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 553,
+          name = "",
+          type = "Goal",
+          shape = "point",
+          x = 2098.17,
+          y = 2796.11,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

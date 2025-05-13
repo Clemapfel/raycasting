@@ -89,8 +89,7 @@ function ow.Goal:_initialize()
 
         body._goal_is_marked = false
 
-        -- disable
-        body:set_collides_with(bit.bnot(rt.settings.overworld.player.player_outer_body_collision_group))
+        body:set_collides_with(rt.settings.overworld.player.bounce_collision_group)
         body:set_collision_group(rt.settings.overworld.player.bounce_collision_group)
         body:set_is_rotation_fixed(false)
         body:signal_connect("collision_start", function(self_body, other_body)
@@ -120,7 +119,7 @@ function ow.Goal:_initialize()
             a:get_native(), b:get_native(),
             anchor_x, anchor_y,
             axis_x, axis_y,
-            true
+            false
         )
         joint:setLimitsEnabled(true)
         joint:setLimits(0, 0)
@@ -135,6 +134,8 @@ end
 
 --- @brief
 function ow.Goal:_break()
+    if self._is_broken then return end
+
     local player = self._scene:get_player()
     local player_x, player_y = player:get_position()
 
@@ -155,7 +156,7 @@ function ow.Goal:_break()
         self._stage:finish_stage(self._timestamp)
         self._segment_bodies[1]:set_type(b2.BodyType.DYNAMIC)
         self._segment_bodies[self._n_segments]:set_type(b2.BodyType.DYNAMIC)
-        self._world:set_time_dilation(1 / 4)
+
         self._is_broken = true
     end
 end

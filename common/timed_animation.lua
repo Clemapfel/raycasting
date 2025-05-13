@@ -255,6 +255,7 @@ function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpo
         _f = interpolation_function,
         _args = {...},
         _should_loop = false,
+        _is_reversed = false,
         _direction = ternary(start_value <= end_value, 1, -1),
         _elapsed = 0
     })
@@ -272,6 +273,11 @@ end
 --- @brief
 function rt.TimedAnimation:set_upper(upper)
     self._upper = upper
+end
+
+--- @brief
+function rt.TimedAnimation:set_direction(reversed)
+    self._is_reversed = reversed
 end
 
 --- @brief
@@ -301,7 +307,12 @@ function rt.TimedAnimation:get_value()
     if self._should_loop then x = math.fmod(x, 1) end
     local y = self._f(x, table.unpack(self._args))
 
-    return self._lower + y * self._direction * math.abs(self._upper - self._lower)
+    local lower, upper = self._lower, self._upper
+    if self._is_reversed then
+        lower, upper = self._upper, self._lower
+    end
+
+    return lower + y * self._direction * math.abs(upper - lower)
 end
 
 --- @brief
@@ -311,7 +322,12 @@ end
 
 --- @brief
 function rt.TimedAnimation:get_elapsed()
-    return self._elapsed
+    return math.clamp(self._elapsed, 0, self._duration)
+end
+
+--- @brief
+function rt.TimedAnimation:get_duration()
+    return self._duration
 end
 
 --- @brief
