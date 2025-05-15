@@ -104,13 +104,13 @@ vec4 position(mat4 transform, vec4 vertex_position) {
 
 flat varying int letter_index;
 
-vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
+vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     if (letter_index >= n_visible_characters)
         discard;
 
     #if MODE == MODE_DRAW_OUTLINE
         // outline uses sdf font texture
-        float dist = Texel(image, texture_coords).a;
+        float dist = Texel(img, texture_coords).a;
         float outline = smoothstep(0.0, 0.02, pow(dist, 5));
         return outline * outline_color * opacity;
 
@@ -122,7 +122,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
             rainbow.rgb = lch_to_rgb(vec3(0.8, 1.0, fract(vertex_position.x / rainbow_width - time)));
         }
 
-        return rainbow * color * Texel(image, texture_coords) * opacity;
+        return rainbow * color * Texel(img, texture_coords) * opacity;
     #endif
 }
 

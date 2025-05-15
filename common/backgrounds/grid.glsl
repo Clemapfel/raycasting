@@ -117,7 +117,7 @@ float gaussian(float x, float ramp)
 uniform vec2 player_position;
 uniform float flow;
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_position, vec2 frag_position) {
+vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
 
 
