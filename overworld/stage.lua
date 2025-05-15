@@ -55,6 +55,7 @@ function ow.Stage:instantiate(scene, id)
         -- drawables
         _below_player = meta.make_weak({}),
         _above_player = meta.make_weak({}),
+        _masks = meta.make_weak({}),
 
         -- updatables
         _to_update = meta.make_weak({}),
@@ -102,7 +103,6 @@ function ow.Stage:instantiate(scene, id)
                 end
 
                 local object = Type(wrapper, self, self._scene)
-
                 table.insert(self._objects, object)
                 self._wrapper_id_to_object[wrapper.id] = object
 
@@ -121,6 +121,10 @@ function ow.Stage:instantiate(scene, id)
                     end
                     table.insert(priority_entry, object)
                     render_priorities[priority] = true
+                end
+
+                if object.draw_mask ~= nil then
+                    table.insert(self._masks, object)
                 end
 
                 if object.update ~= nil then
@@ -214,6 +218,13 @@ end
 function ow.Stage:draw_above_player()
     for object in values(self._above_player) do
         object:draw()
+    end
+end
+
+--- @brief
+function ow.Stage:draw_masks()
+    for object in values(self._masks) do
+        object:draw_mask()
     end
 end
 

@@ -36,6 +36,8 @@ uniform vec2 player_position;
 uniform vec4 player_color;
 uniform float player_pulse_elapsed;
 
+uniform sampler2D bubble_mask;
+
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
     vec2 origin = 0.5 * love_ScreenSize.xy;
 
@@ -49,41 +51,48 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     vec4 static_value = vec4(0);
     float warp_value = 0;
 
-    float eps = 0.01;
-    float inner_radius = 0.05;
+    { // coin post fx
 
-    const float duration = 0.8;
-    const float warp_strength = 1.5;
-    float static_radius = 10 / love_ScreenSize.x;
-    float static_eps = 0.025;
+        float eps = 0.01;
+        float inner_radius = 0.05;
 
-    for (int i = 0; i < n_coins; ++i) {
-        if (coin_is_active[i] != 1u) continue;
+        const float duration = 0.8;
+        float static_radius = 10 / love_ScreenSize.x;
+        float static_eps = 0.025;
 
-        vec4 color = coin_colors[i];
+        for (int i = 0; i < n_coins; ++i) {
+            if (coin_is_active[i] != 1u) continue;
 
-        vec2 position = coin_positions[i];
-        vec2 delta = position - uv;
-        delta.x *= love_ScreenSize.x / love_ScreenSize.y;
-        delta /= love_ScreenSize.xy;
+            vec4 color = coin_colors[i];
 
-        float dist = length(delta);
+            vec2 position = coin_positions[i];
+            vec2 delta = position - uv;
+            delta.x *= love_ScreenSize.x / love_ScreenSize.y;
+            delta /= love_ScreenSize.xy;
 
-        float time = pow(coin_elapsed[i], 2) * (1 / 1.5);
-        float outer_radius = inner_radius + mix(0.05, 0.4, coin_elapsed[i] / duration);
-        float inner = smoothstep(inner_radius, inner_radius + eps, dist - time + outer_radius);
-        float outer = smoothstep(outer_radius, outer_radius + eps, dist - time + outer_radius);
+            float dist = length(delta);
 
-        float time_factor = (1 - min(coin_elapsed[i] / duration, 1));
+            float time = pow(coin_elapsed[i], 2) * (1 / 1.5);
+            float outer_radius = inner_radius + mix(0.05, 0.4, coin_elapsed[i] / duration);
+            float inner = smoothstep(inner_radius, inner_radius + eps, dist - time + outer_radius);
+            float outer = smoothstep(outer_radius, outer_radius + eps, dist - time + outer_radius);
 
-        value += (inner - outer) * color * time_factor;
-        static_value += (smoothstep(static_radius + static_eps, static_radius - static_eps, dist)) * time_factor;
+            float time_factor = (1 - min(coin_elapsed[i] / duration, 1));
 
-        warp_value += gaussian(dist - time, 3) * time_factor;
+            value += (inner - outer) * color * time_factor;
+            static_value += (smoothstep(static_radius + static_eps, static_radius - static_eps, dist)) * time_factor;
+
+            warp_value += gaussian(dist - time, 3) * time_factor;
+        }
+    }
+
+    { // bubble post fx
+
     }
 
     vec2 uv_offset = vec2(dFdx(warp_value), dFdy(warp_value));
-    vec4 texel = texture(image, texture_coords + uv_offset * warp_strength);
+    vec4 texel = texture(image, texture_coords + uv_offset);
     vec4 result = vec4(mix(texel.rgb, value.rgb, value.a), texel.a);
+
     return result;
 }

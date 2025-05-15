@@ -39,6 +39,7 @@ local _boom_mesh
 function ow.PlayerTrail:draw()
     if self._scene:get_player():get_physics_body() == nil then return end
 
+    --[[
     if _boom_mesh == nil then
         local player_radius = rt.settings.overworld.player.radius
         local x_radius = 1.5 * player_radius
@@ -114,6 +115,7 @@ function ow.PlayerTrail:draw()
     love.graphics.translate(-x, -y)
     love.graphics.draw(_boom_mesh, x, y)
     love.graphics.pop()
+    ]]--
 end
 
 local _previous_x, _previous_y = nil, nil
@@ -308,6 +310,7 @@ function ow.PlayerTrail:_draw_glow(x, y, intensity)
 
     love.graphics.setColor(self._r, self._g, self._b, intensity)
     love.graphics.draw(_glow_texture, x + _glow_offset_x, y + _glow_offset_y)
+
     rt.graphics.set_blend_mode(nil)
 end
 

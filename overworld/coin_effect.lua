@@ -9,6 +9,7 @@ ow.CoinEffect = meta.class("CoinEffect", rt.Widget)
 
 local _shader = nil
 local _canvas = nil
+local _mask = nil
 
 --- @brief
 function ow.CoinEffect:_initialize_buffers()
@@ -57,6 +58,7 @@ end
 function ow.CoinEffect:size_allocate(x, y, width, height)
     self._x, self._y = x, y
     _canvas = rt.RenderTexture(width, height, 8)
+    _mask = rt.RenderTexture(width, height, 4)
 end
 
 --- @override
@@ -101,6 +103,16 @@ function ow.CoinEffect:unbind()
 end
 
 --- @brief
+function ow.CoinEffect:bind_mask()
+    _mask:bind()
+end
+
+--- @brief
+function ow.CoinEffect:unbind_mask()
+    _mask:unbind()
+end
+
+--- @brief
 function ow.CoinEffect:pulse()
     self._pulse_elapsed = 0
 end
@@ -114,6 +126,7 @@ function ow.CoinEffect:draw()
     _shader:send("player_position", self._player_position)
     _shader:send("player_color", {1, 1, 1, 1})
     _shader:send("player_pulse_elapsed", self._pulse_elapsed)
+    _shader:send("bubble_mask", _mask:get_native())
 
     _shader:send("coin_positions", table.unpack(self._coin_positions))
     _shader:send("coin_colors",  table.unpack(self._coin_colors))

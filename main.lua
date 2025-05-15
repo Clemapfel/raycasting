@@ -9,6 +9,7 @@ require "common.scene_manager"
 require "common.mesh"
 require "common.input_subscriber"
 
+
 _input = rt.InputSubscriber()
 _input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "p" then

@@ -1133,12 +1133,12 @@ function ow.Player:draw()
     local r, g, b, a = self._color:unpack()
 
     if self._trail_visible then
-        love.graphics.setColor(r, g, b, self._opacity)
-        self._trail:draw()
+        --love.graphics.setColor(r, g, b, self._opacity)
+        --self._trail:draw()
     end
 
     self._graphics_body:draw()
-    if true then return end
+    love.graphics.setColor(1, 1, 1, 1)
 
     if _settings.debug_drawing_enabled then
         if not self._use_bubble_mesh then

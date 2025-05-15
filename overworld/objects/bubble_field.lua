@@ -2,13 +2,13 @@ rt.settings.overworld.bubble_field = {
     segment_length = 10,
     thickness = 2,
     n_smoothing_iterations = 5,
-    alpha = 1
+    alpha = 0.1
 }
 
 --- @class ow.BubbleField
 ow.BubbleField = meta.class("BubbleField")
 
-local _outline_shader, _body_shader
+local _shader
 
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
@@ -19,14 +19,13 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._camera_offset = {0, 0}
     self._camera_scale = 1
 
-    if _body_shader == nil then _body_shader = rt.Shader("overworld/objects/bubble_field.glsl", { APPLY_FRAGMENT_SHADER = true }) end
-    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", nil) end
+    if _shader == nil then _shader = rt.Shader("overworld/objects/bubble_field.glsl") end
 
     -- TODO
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
-            _body_shader:recompile()
+            _shader:recompile()
         end
     end)
 
@@ -294,27 +293,37 @@ function ow.BubbleField:update(delta)
 end
 
 --- @brief
+function ow.BubbleField:draw_mask()
+    if not self._scene:get_is_body_visible(self._body) then return end
+    love.graphics.setColor(1, 1, 1, 1)
+    _shader:bind()
+    _shader:send("n_vertices", self._n_vertices)
+    _shader:send("elapsed", self._elapsed)
+
+    if self._solid_mesh ~= nil then
+        love.graphics.draw(self._solid_mesh)
+    end
+
+    love.graphics.draw(self._mesh)
+    _shader:unbind()
+end
+
+--- @brief
 function ow.BubbleField:draw()
     if not self._scene:get_is_body_visible(self._body) then return end
     local r, g, b, a = rt.Palette.BUBBLE_FIELD:unpack()
+    _shader:bind()
+    _shader:send("n_vertices", self._n_vertices)
+    _shader:send("elapsed", self._elapsed)
 
     if self._solid_mesh ~= nil then
         love.graphics.setColor(r, g, b, a * rt.settings.overworld.bubble_field.alpha)
-        _body_shader:bind()
-        _body_shader:send("n_vertices", self._n_vertices)
-        _body_shader:send("elapsed", self._elapsed)
-        _body_shader:send("camera_offset", self._camera_offset)
-        _body_shader:send("camera_scale", self._camera_scale)
         love.graphics.draw(self._solid_mesh)
-        _body_shader:unbind()
     end
 
     love.graphics.setColor(r, g, b, a)
-    _outline_shader:bind()
-    _outline_shader:send("n_vertices", self._n_vertices)
-    _outline_shader:send("elapsed", self._elapsed)
     love.graphics.draw(self._mesh)
-    _outline_shader:unbind()
+    _shader:unbind()
 end
 
 --- @brief
