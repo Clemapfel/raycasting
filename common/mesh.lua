@@ -119,6 +119,37 @@ rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertice
     })
 end
 
+--- @class rt.MeshLine
+rt.MeshLine = function(x1, y1, x2, y2, thickness)
+    if thickness == nil then thickness = 1 end
+
+    local dx, dy = x2 - x1, y2 - y1
+    local length = math.sqrt(dx * dx + dy * dy)
+    local nx, ny = -dy / length, dx / length
+
+    local half_thickness = thickness / 2
+    local vertices = {
+        {x1 + nx * half_thickness, y1 + ny * half_thickness, 0, 0, 1, 1, 1, 1},
+        {x1 - nx * half_thickness, y1 - ny * half_thickness, 0, 1, 1, 1, 1, 1},
+        {x2 - nx * half_thickness, y2 - ny * half_thickness, 1, 1, 1, 1, 1, 1},
+        {x2 + nx * half_thickness, y2 + ny * half_thickness, 1, 0, 1, 1, 1, 1},
+    }
+
+    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
+    return meta.install(out, {
+        _native = love.graphics.newMesh(
+            rt.VertexFormat,
+            vertices,
+            rt.MeshDrawMode.TRIANGLE_FAN,
+            rt.GraphicsBufferUsage.STATIC
+        ),
+        _r = 1,
+        _g = 1,
+        _b = 1,
+        _opacity = 1
+    })
+end
+
 --- @override
 function rt.Mesh:draw(...)
     love.graphics.setColor(self._r, self._g, self._b, self._opacity)
