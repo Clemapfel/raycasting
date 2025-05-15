@@ -75,6 +75,7 @@ function ow.PlayerBody:instantiate(player)
 
     self._is_bubble = self._player:get_is_bubble()
     self._was_bubble_last_frame = self._player:get_is_bubble()
+    self._player_x, self._player_y = self._player:get_position()
 end
 
 --- @brief
@@ -88,9 +89,6 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
     self._positions = positions
     self._tris = tris or self._tris
     self._center_x, self._center_y = positions[1], positions[2]
-
-    self._was_bubble_last_frame = self._is_bubble
-    self._is_bubble = self._player:get_is_bubble()
 
     self._use_ground = self._player._bottom_wall
 
@@ -152,7 +150,7 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
                     table.insert(rope.last_positions, px)
                     table.insert(rope.last_positions, py)
                     table.insert(rope.distances, rope_length / self._n_segments)
-                    table.insert(rope.bubble_distances, 0 * rope_length / self._n_segments)
+                    table.insert(rope.bubble_distances, 10e-3) -- rope_length / self._n_segments)
                 end
 
                 table.insert(self._ropes, rope)
@@ -280,7 +278,17 @@ function ow.PlayerBody:update(delta)
         end
     end
 
-    local player_x, player_y = self._player:get_physics_body():get_predicted_position()
+    self._was_bubble_last_frame = self._is_bubble
+    self._is_bubble = self._player:get_is_bubble()
+
+    local player_x, player_y
+    if self._was_bubble_last_frame ~= self._is_bubble then
+        player_x, player_y = self._player:get_physics_body():get_position()
+    else
+        player_x, player_y = self._player:get_physics_body():get_predicted_position()
+    end
+
+    self._player_x, self._player_y = self._player:get_physics_body():get_predicted_position()
     local axis_x, axis_y = self._player:get_velocity()
 
     local step = delta
@@ -421,6 +429,7 @@ function ow.PlayerBody:draw()
 
     love.graphics.push()
     love.graphics.origin()
+
     local w, h = self._outline_canvas:get_size()
     love.graphics.translate(0.5 * w, 0.5 * h)
     love.graphics.scale(self._canvas_scale, self._canvas_scale)
@@ -551,7 +560,7 @@ function ow.PlayerBody:draw()
     self._core_canvas:unbind()
 
     love.graphics.setColor(1, 1, 1, 1 * opacity)
-    love.graphics.draw(self._core_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+    love.graphics.draw(self._core_canvas:get_native(), self._player_x, self._player_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
 
     -- highlight
     local boost = 0.2
@@ -562,11 +571,11 @@ function ow.PlayerBody:draw()
     local r = 4
     local offset = rt.settings.overworld.player.radius * scale / 2
     love.graphics.translate(-offset, -offset)
-    love.graphics.ellipse("fill", self._center_x, self._center_y, r, r)
+    love.graphics.ellipse("fill", self._player_x, self._player_y, r, r)
 
     love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1)
     love.graphics.translate(-r / 4, -r / 4)
-    love.graphics.ellipse("fill", self._center_x, self._center_y, r / 2, r / 2)
+    love.graphics.ellipse("fill", self._player_x, self._player_y, r / 2, r / 2)
 
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()

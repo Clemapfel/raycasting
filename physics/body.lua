@@ -102,6 +102,7 @@ function b2.Body:set_position(x, y)
     if not pcall(_position_callback, self._native, x, y) then
         self._world:_notify_position_changed(self, x, y)
     end
+    self._last_x, self._last_y = x, y
 end
 
 local _angle_callback = function(body, angle)

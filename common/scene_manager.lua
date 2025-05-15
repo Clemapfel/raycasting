@@ -350,7 +350,7 @@ function love.errorhandler(msg)
     local function draw()
         if not love.graphics.isActive() then return end
         local pos = 70
-        love.graphics.clear(rt.Palette.RED:unpack())
+        love.graphics.clear(rt.Palette.RED_6:unpack())
         love.graphics.printf(p, pos, pos, love.graphics.getWidth() - pos)
         love.graphics.present()
     end
