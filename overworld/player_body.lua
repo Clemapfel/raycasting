@@ -150,7 +150,7 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
                     table.insert(rope.last_positions, px)
                     table.insert(rope.last_positions, py)
                     table.insert(rope.distances, rope_length / self._n_segments)
-                    table.insert(rope.bubble_distances, 10e-3) -- rope_length / self._n_segments)
+                    table.insert(rope.bubble_distances, 1 / self._n_segments)
                 end
 
                 table.insert(self._ropes, rope)
@@ -312,6 +312,12 @@ function ow.PlayerBody:update(delta)
             local n_distance_iterations = 0
             local n_velocity_iterations = 0
             local n_bending_iterations = 0
+
+            if self._is_bubble then
+                _n_distance_iterations = 4
+            else
+                _n_distance_iterations = 8
+            end
 
             while (self._is_bubble and n_axis_iterations < _n_axis_iterations) or n_distance_iterations <_n_distance_iterations or n_velocity_iterations < _n_velocity_iterations do
                 -- velocity

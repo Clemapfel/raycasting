@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 556,
+  nextobjectid = 558,
   properties = {},
   tilesets = {
     {
@@ -1586,8 +1586,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1152,
-          y = 2800,
+          x = 1157.43,
+          y = 2890.51,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4079,7 +4079,12 @@ return {
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 0, y = 464 },
+            { x = 14.0261, y = 199.587 },
+            { x = -80, y = 80 },
+            { x = -100.736, y = 169.929 },
+            { x = -16, y = 224 },
+            { x = 267.279, y = 277.295 },
+            { x = -96, y = 416 },
             { x = 352, y = 464 },
             { x = 352, y = -16 }
           },
@@ -4087,6 +4092,44 @@ return {
             ["axis_x"] = 2,
             ["axis_y"] = 0
           }
+        },
+        {
+          id = 556,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = -320,
+          y = 2896,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 336, y = 0 },
+            { x = 336, y = 96 },
+            { x = 0, y = 96 }
+          },
+          properties = {}
+        },
+        {
+          id = 557,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = -320,
+          y = 3072,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 336, y = 0 },
+            { x = 336, y = 64 },
+            { x = 0, y = 64 }
+          },
+          properties = {}
         }
       }
     },
