@@ -114,6 +114,7 @@ do -- load from image
     rt.Palette.HOOK_BASE = rt.Palette.GRAY_8
     rt.Palette.HOOK_OUTLINE = rt.Palette.GRAY_2
     rt.Palette.GOAL = rt.Palette.WHITE
+    rt.Palette.BUBBLE_FIELD = rt.Palette.BLUE_1
 end
 
 rt.Palette.COIN_COLORS = {

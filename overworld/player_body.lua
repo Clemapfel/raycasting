@@ -267,6 +267,8 @@ end
 
 --- @brief
 function ow.PlayerBody:update(delta)
+    delta = math.min(delta, 1 / 30)
+
     self._elapsed = self._elapsed + delta
     self._shader_elapsed = self._shader_elapsed + delta
 

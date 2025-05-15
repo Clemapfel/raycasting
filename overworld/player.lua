@@ -66,7 +66,7 @@ rt.settings.overworld.player = {
     bubble_target_velocity = 400,
     bubble_acceleration = 2.5,
     bubble_air_resistance = 0.5, -- px / s
-    bubble_gravity_factor = 0.05,
+    bubble_gravity_factor = 0.015,
 
     gravity = 1500, -- px / s
     air_resistance = 0.03, -- [0, 1]
@@ -1227,6 +1227,7 @@ end
 
 --- @brief
 function ow.Player:teleport_to(x, y)
+    meta.assert(x, "Number", y, "Number")
     if self._body ~= nil then
         self._body:set_position(x, y)
         for i, body in ipairs(self._spring_bodies) do
@@ -1333,6 +1334,7 @@ end
 
 --- @brief
 function ow.Player:set_velocity(x, y)
+    meta.assert(x, "Number", y, "Number")
     if self._body ~= nil then
         self._body:set_velocity(x, y)
     end

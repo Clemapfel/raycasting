@@ -1586,8 +1586,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1157.43,
-          y = 2890.51,
+          x = 1854.39,
+          y = 2778.28,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4028,19 +4028,6 @@ return {
           properties = {}
         },
         {
-          id = 552,
-          name = "",
-          type = "Checkpoint",
-          shape = "point",
-          x = 1792,
-          y = 2800,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 553,
           name = "",
           type = "Goal",
@@ -4078,15 +4065,15 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 14.0261, y = 199.587 },
-            { x = -80, y = 80 },
-            { x = -100.736, y = 169.929 },
-            { x = -16, y = 224 },
-            { x = 267.279, y = 277.295 },
-            { x = -96, y = 416 },
-            { x = 352, y = 464 },
-            { x = 352, y = -16 }
+            { x = -96, y = 560 },
+            { x = 1456, y = 560 },
+            { x = 1456, y = -128 },
+            { x = -92.7685, y = -131.688 },
+            { x = 150.731, y = 63.9466 },
+            { x = -48.3076, y = 62.6159 },
+            { x = 146.722, y = 117.033 },
+            { x = -24.0931, y = 279.603 },
+            { x = 203.358, y = 159.178 }
           },
           properties = {
             ["axis_x"] = 2,

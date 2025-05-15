@@ -1,20 +1,34 @@
 rt.settings.overworld.bubble_field = {
     segment_length = 10,
-    thickness = 4,
-    n_smoothing_iterations = 5
+    thickness = 2,
+    n_smoothing_iterations = 5,
+    alpha = 1
 }
 
 --- @class ow.BubbleField
 ow.BubbleField = meta.class("BubbleField")
 
-local _shader
+local _outline_shader, _body_shader
 
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     self._scene = scene
     self._world = stage:get_physics_world()
+    self._elapsed = 0
 
-    if _shader == nil then _shader = rt.Shader("overworld/objects/bubble_field.glsl") end
+    self._camera_offset = {0, 0}
+    self._camera_scale = 1
+
+    if _body_shader == nil then _body_shader = rt.Shader("overworld/objects/bubble_field.glsl", { APPLY_FRAGMENT_SHADER = true }) end
+    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", nil) end
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            _body_shader:recompile()
+        end
+    end)
 
     -- collision
     self._body = object:create_physics_body(self._world)
@@ -47,7 +61,6 @@ function ow.BubbleField:instantiate(object, stage, scene)
     -- calculate contour
     local segments = {}
     local mesh, tris = object:create_mesh()
-    self._mesh = mesh
     for tri in values(tris) do
         for segment in range(
             {tri[1], tri[2], tri[3], tri[4]},
@@ -135,34 +148,67 @@ function ow.BubbleField:instantiate(object, stage, scene)
             local start_y = y1 + step_y * i
             local end_x = x1 + step_x * (i + 1)
             local end_y = y1 + step_y * (i + 1)
+
             table.insert(subdivided_contour, { start_x, start_y, end_x, end_y })
         end
     end
 
-    -- smooth
+    local first_segment = subdivided_contour[1]
+    local last_segment = subdivided_contour[#subdivided_contour]
+    table.insert(subdivided_contour, {
+        last_segment[3], last_segment[4], -- End of the last segment
+        first_segment[1], first_segment[2] -- Start of the first segment
+    })
+
+    -- laplacian smooth
     local smoothing_iterations = rt.settings.overworld.bubble_field.n_smoothing_iterations
-    for _ = 1, smoothing_iterations do
+    for smoothing_i = 1, smoothing_iterations do
         local smoothed = {}
         for i = 1, #subdivided_contour do
-            if i == 1 or i == #subdivided_contour then
-                table.insert(smoothed, subdivided_contour[i])
-            else
-                local prev = subdivided_contour[i - 1]
-                local curr = subdivided_contour[i]
-                local next = subdivided_contour[i + 1]
+            -- Wrap around indices for the loop
+            local prev = subdivided_contour[(i - 2) % #subdivided_contour + 1]
+            local curr = subdivided_contour[i]
+            local next = subdivided_contour[i % #subdivided_contour + 1]
 
-                local smoothed_x1 = (prev[1] + curr[1] + next[1]) / 3
-                local smoothed_y1 = (prev[2] + curr[2] + next[2]) / 3
-                local smoothed_x2 = (prev[3] + curr[3] + next[3]) / 3
-                local smoothed_y2 = (prev[4] + curr[4] + next[4]) / 3
+            local smoothed_x1 = (prev[1] + curr[1] + next[1]) / 3
+            local smoothed_y1 = (prev[2] + curr[2] + next[2]) / 3
+            local smoothed_x2 = (prev[3] + curr[3] + next[3]) / 3
+            local smoothed_y2 = (prev[4] + curr[4] + next[4]) / 3
 
-                table.insert(smoothed, { smoothed_x1, smoothed_y1, smoothed_x2, smoothed_y2 })
-            end
+            table.insert(smoothed, { smoothed_x1, smoothed_y1, smoothed_x2, smoothed_y2 })
         end
         subdivided_contour = smoothed
     end
 
-    -- construct mesh with bezels
+    local flat = {}
+    for segment in values(subdivided_contour) do
+        for x in values(segment) do
+            table.insert(flat, x)
+        end
+    end
+
+    -- construct filled mesh
+    local success, solid_tris = pcall(love.math.triangulate, flat)
+    if not success then
+        success, solid_tris = pcall(slick.triangulate, { flat })
+    end
+
+    if success then
+        local solid_data = {}
+        for tri in values(solid_tris) do
+            for i = 1, 6, 2 do
+                table.insert(solid_data, {
+                    tri[i+0], tri[i+1], 0, 0, 1, 1, 1, 1
+                })
+            end
+        end
+
+        self._solid_mesh = rt.Mesh(solid_data, rt.MeshDrawMode.TRIANGLES):get_native()
+    else
+        self._solid_mesh = nil
+    end
+
+    -- construct line mesh with bezels
     local mesh_data = {}
     local vertex_map = {}
     local half_thickness = rt.settings.overworld.bubble_field.thickness / 2
@@ -170,7 +216,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local vertex_index = 1
     for i = 1, #subdivided_contour do
         local segment1 = subdivided_contour[i]
-        local segment2 = subdivided_contour[i % #subdivided_contour + 1] -- wrap around for line loop
+        local segment2 = subdivided_contour[(i % #subdivided_contour) + 1]
 
         local x1, y1, x2, y2 = segment1[1], segment1[2], segment1[3], segment1[4]
         local x3, y3, x4, y4 = segment2[1], segment2[2], segment2[3], segment2[4]
@@ -226,7 +272,9 @@ function ow.BubbleField:instantiate(object, stage, scene)
     end
 
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+    self._n_vertices = table.sizeof(mesh_data)
     self._mesh:set_vertex_map(vertex_map)
+    self._mesh = self._mesh:get_native()
 
     self._contour = {}
     for segment in values(subdivided_contour) do
@@ -237,16 +285,36 @@ function ow.BubbleField:instantiate(object, stage, scene)
 end
 
 --- @brief
+function ow.BubbleField:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
+    self._elapsed = self._elapsed + delta
+    self._camera_offset = { self._scene:get_camera():get_offset() }
+    self._camera_scale = self._scene:get_camera():get_scale()
+end
+
+--- @brief
 function ow.BubbleField:draw()
-    rt.Palette.BLUE_1:bind()
+    if not self._scene:get_is_body_visible(self._body) then return end
+    local r, g, b, a = rt.Palette.BUBBLE_FIELD:unpack()
 
-    love.graphics.line(self._contour)
+    if self._solid_mesh ~= nil then
+        love.graphics.setColor(r, g, b, a * rt.settings.overworld.bubble_field.alpha)
+        _body_shader:bind()
+        _body_shader:send("n_vertices", self._n_vertices)
+        _body_shader:send("elapsed", self._elapsed)
+        _body_shader:send("camera_offset", self._camera_offset)
+        _body_shader:send("camera_scale", self._camera_scale)
+        love.graphics.draw(self._solid_mesh)
+        _body_shader:unbind()
+    end
 
-    love.graphics.setWireframe(true)
-    _shader:bind()
-    self._mesh:draw()
-    _shader:unbind()
-    love.graphics.setWireframe(false)
+    love.graphics.setColor(r, g, b, a)
+    _outline_shader:bind()
+    _outline_shader:send("n_vertices", self._n_vertices)
+    _outline_shader:send("elapsed", self._elapsed)
+    love.graphics.draw(self._mesh)
+    _outline_shader:unbind()
 end
 
 --- @brief
@@ -265,5 +333,5 @@ end
 
 --- @brief
 function ow.BubbleField:get_render_priority()
-    return -math.huge
+    return math.huge
 end

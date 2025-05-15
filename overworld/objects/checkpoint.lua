@@ -323,6 +323,7 @@ function ow.Checkpoint:_set_state(state)
         player:set_gravity(1)
         player:set_opacity(1)
         player:set_trail_visible(true)
+        player:set_velocity(0, 0)
     end
 end
 
