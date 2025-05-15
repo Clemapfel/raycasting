@@ -39,12 +39,15 @@ end
 
 --- @brief bind texture as render target, needs to be unbound manually later
 function rt.RenderTexture:bind()
+    self._before = love.graphics.getCanvas()
+    if self._before == self._native then self._before = nil end
     love.graphics.setCanvas({self._native, stencil = true})
 end
 
 --- @brief unbind texture
 function rt.RenderTexture:unbind()
-    love.graphics.setCanvas()
+    love.graphics.setCanvas(self._before)
+    self._before = nil
 end
 
 --- @brief

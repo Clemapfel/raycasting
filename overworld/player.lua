@@ -61,7 +61,7 @@ rt.settings.overworld.player = {
     joint_force_threshold = 1000,
     joint_length_threshold = 100,
 
-    bubble_radius_factor = 2,
+    bubble_radius_factor = 2.25,
     bubble_inner_radius_scale = 1.7,
     bubble_target_velocity = 400,
     bubble_acceleration = 2.5,
@@ -1129,15 +1129,15 @@ function ow.Player:_update_mesh()
 end
 
 --- @brief
-function ow.Player:draw()
+function ow.Player:draw_body()
     local r, g, b, a = self._color:unpack()
 
     if self._trail_visible then
         --love.graphics.setColor(r, g, b, self._opacity)
-        --self._trail:draw()
+        self._trail:draw()
     end
 
-    self._graphics_body:draw()
+    self._graphics_body:draw_body()
     love.graphics.setColor(1, 1, 1, 1)
 
     if _settings.debug_drawing_enabled then
@@ -1203,6 +1203,11 @@ function ow.Player:draw()
         love.graphics.rectangle("line", x - 0.25 * w, y + h - y_pos, w * 1.5, 3)
     end
     love.graphics.pop()
+end
+
+--- @brief
+function ow.Player:draw_core()
+    self._graphics_body:draw_core()
 end
 
 --- @brief

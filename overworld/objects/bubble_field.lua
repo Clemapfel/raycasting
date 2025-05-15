@@ -1,31 +1,34 @@
 rt.settings.overworld.bubble_field = {
     segment_length = 10,
-    thickness = 2,
+    thickness = 3,
     n_smoothing_iterations = 5,
-    alpha = 0.1
+    alpha = 1
 }
 
 --- @class ow.BubbleField
 ow.BubbleField = meta.class("BubbleField")
 
-local _shader
+local _outline_shader, _base_shader
 
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     self._scene = scene
     self._world = stage:get_physics_world()
     self._elapsed = 0
+    self._hue = 0
 
     self._camera_offset = {0, 0}
     self._camera_scale = 1
 
-    if _shader == nil then _shader = rt.Shader("overworld/objects/bubble_field.glsl") end
+    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 1 }) end
+    if _base_shader == nil then _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 }) end
 
     -- TODO
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
-            _shader:recompile()
+            _outline_shader:recompile()
+            _base_shader:recompile()
         end
     end)
 
@@ -285,6 +288,8 @@ end
 
 --- @brief
 function ow.BubbleField:update(delta)
+    self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
+
     if not self._scene:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
@@ -295,35 +300,33 @@ end
 --- @brief
 function ow.BubbleField:draw_mask()
     if not self._scene:get_is_body_visible(self._body) then return end
-    love.graphics.setColor(1, 1, 1, 1)
-    _shader:bind()
-    _shader:send("n_vertices", self._n_vertices)
-    _shader:send("elapsed", self._elapsed)
-
-    if self._solid_mesh ~= nil then
-        love.graphics.draw(self._solid_mesh)
-    end
-
-    love.graphics.draw(self._mesh)
-    _shader:unbind()
 end
 
 --- @brief
 function ow.BubbleField:draw()
     if not self._scene:get_is_body_visible(self._body) then return end
     local r, g, b, a = rt.Palette.BUBBLE_FIELD:unpack()
-    _shader:bind()
-    _shader:send("n_vertices", self._n_vertices)
-    _shader:send("elapsed", self._elapsed)
 
+    love.graphics.setColor(1, 1, 1, 1)
     if self._solid_mesh ~= nil then
-        love.graphics.setColor(r, g, b, a * rt.settings.overworld.bubble_field.alpha)
+        _base_shader:bind()
+        _base_shader:send("n_vertices", self._n_vertices)
+        _base_shader:send("elapsed", self._elapsed)
+        _base_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+        _base_shader:send("camera_scale", self._scene:get_camera():get_scale())
+        _base_shader:send("hue", self._hue)
         love.graphics.draw(self._solid_mesh)
+        _base_shader:unbind()
     end
 
-    love.graphics.setColor(r, g, b, a)
+    _outline_shader:bind()
+    _outline_shader:send("n_vertices", self._n_vertices)
+    _outline_shader:send("elapsed", self._elapsed)
+    _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _outline_shader:send("camera_scale", self._scene:get_camera():get_scale())
+    _outline_shader:send("hue", self._hue)
     love.graphics.draw(self._mesh)
-    _shader:unbind()
+    _outline_shader:unbind()
 end
 
 --- @brief
@@ -342,5 +345,5 @@ end
 
 --- @brief
 function ow.BubbleField:get_render_priority()
-    return math.huge
+    return -1
 end

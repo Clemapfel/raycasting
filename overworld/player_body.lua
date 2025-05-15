@@ -188,8 +188,8 @@ local _bending_stiffness = 1
 local _velocity_damping = 0.9
 local _n_velocity_iterations = 4
 local _n_distance_iterations = 8
-local _n_axis_iterations = 0
-local _n_bending_iterations = 0
+local _n_axis_iterations = 1
+local _n_bending_iterations = 3
 
 local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
     local current_distance = math.distance(a_x, a_y, b_x, b_y)
@@ -321,7 +321,14 @@ function ow.PlayerBody:update(delta)
                 _n_distance_iterations = 8
             end
 
-            while (self._is_bubble and n_axis_iterations < _n_axis_iterations) or n_distance_iterations <_n_distance_iterations or n_velocity_iterations < _n_velocity_iterations do
+            local apply_axis = self._is_bubble
+            local apply_bending = self._player._down_button_is_down
+            local gravity_factor = self._down_button_is_down and -10 or 1
+
+            while (apply_axis and n_axis_iterations < _n_axis_iterations) or
+                (apply_bending and n_bending_iterations < _n_bending_iterations) or
+                n_distance_iterations <_n_distance_iterations or
+                n_velocity_iterations < _n_velocity_iterations do
                 -- velocity
                 if n_velocity_iterations < _n_velocity_iterations then
                     for i = 1, #positions, 2 do
@@ -331,7 +338,7 @@ function ow.PlayerBody:update(delta)
                         local before_x, before_y = current_x, current_y
 
                         positions[i] = current_x + (current_x - old_x) * _velocity_damping + gravity_x * mass * delta_squared
-                        positions[i+1] = current_y + (current_y - old_y) * _velocity_damping + gravity_y * mass * delta_squared
+                        positions[i+1] = current_y + (current_y - old_y) * _velocity_damping + gravity_factor * gravity_y * mass * delta_squared
 
                         old_positions[i] = before_x
                         old_positions[i+1] = before_y
@@ -341,7 +348,7 @@ function ow.PlayerBody:update(delta)
                 end
 
                 -- axis
-                if self._is_bubble and n_axis_iterations < _n_axis_iterations then
+                if apply_axis and n_axis_iterations < _n_axis_iterations then
                     for i = 1, #positions - 2, 2 do
                         local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i, i+1, i+2, i+3
                         local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
@@ -362,7 +369,7 @@ function ow.PlayerBody:update(delta)
                 end
 
                 -- bending
-                if n_bending_iterations < _n_bending_iterations then
+                if apply_bending and n_bending_iterations < _n_bending_iterations then
                     local distance_i = 1
                     for i = 1, #positions - 4, 2 do
                         local node_1_xi, node_1_yi, node_2_xi, node_2_yi, node_3_xi, node_3_yi = i, i+1, i+2, i+3, i+4, i+5
@@ -383,7 +390,7 @@ function ow.PlayerBody:update(delta)
                         positions[node_3_yi] = new_y3
                     end
 
-                    n_axis_iterations = n_axis_iterations + 1
+                    n_bending_iterations = n_bending_iterations + 1
                 end
 
                 -- distance
@@ -431,7 +438,7 @@ function ow.PlayerBody:update(delta)
 end
 
 --- @brief
-function ow.PlayerBody:draw()
+function ow.PlayerBody:draw_body()
     local mesh = self._is_bubble and self._bubble_node_mesh:get_native() or self._node_mesh:get_native()
     local opacity = self._player:get_opacity()
 
@@ -486,6 +493,7 @@ function ow.PlayerBody:draw()
         rt.graphics.set_blend_mode(nil)
     else
         love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setLineJoin("none")
         for rope in values(self._ropes) do
             love.graphics.line(rope.current_positions)
         end
@@ -519,24 +527,21 @@ function ow.PlayerBody:draw()
     love.graphics.setColor(r, g, b, a * opacity)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _outline_shader:unbind()
+end
 
+--- @brief
+function ow.PlayerBody:draw_core()
+    local mesh = self._is_bubble and self._bubble_node_mesh:get_native() or self._node_mesh:get_native()
+    local opacity = self._player:get_opacity()
+
+    local w, h = self._outline_canvas:get_size()
+
+    local r, g, b, a = rt.Palette.BLACK:unpack()
     local outline_width = 1.5
 
     local outline_offset = outline_width / self._player:get_radius()
     local outline_scale = 1
     local inside_scale = outline_scale - outline_offset
-
-    love.graphics.translate(self._center_x, self._center_y)
-    love.graphics.scale(outline_scale) -- actual hitbox
-    love.graphics.translate(-self._center_x, -self._center_y)
-    local offset = 0.3
-    love.graphics.setColor(r - offset, g - offset, b - offset, a * opacity)
-
-    if self._is_bubble then
-        love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.overworld.player.radius)
-    else
-        love.graphics.polygon("fill", self._positions)
-    end
 
     self._core_canvas:bind()
     love.graphics.clear(0, 0, 0, 0)

@@ -222,7 +222,7 @@ function ow.Stage:draw_above_player()
 end
 
 --- @brief
-function ow.Stage:draw_masks()
+function ow.Stage:draw_mask()
     for object in values(self._masks) do
         object:draw_mask()
     end

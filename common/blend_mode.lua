@@ -35,6 +35,11 @@ rt.BlendFactor = meta.enum("BlendFactor", {
 
 --- @brief set blend mode
 function rt.graphics.set_blend_mode(blend_mode_rgb, blend_mode_alpha)
+    if blend_mode_rgb == nil and blend_mode_alpha == nil then
+        love.graphics.setBlendMode("alpha")
+        return
+    end
+
     if blend_mode_rgb == nil then blend_mode_rgb = rt.BlendMode.NORMAL end
     if blend_mode_alpha == nil then blend_mode_alpha = rt.BlendMode.NORMAL end
     if love.getVersion() >= 12 then

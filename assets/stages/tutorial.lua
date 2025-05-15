@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 561,
+  nextobjectid = 565,
   properties = {},
   tilesets = {
     {
@@ -1586,8 +1586,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1854.39,
-          y = 2778.28,
+          x = 1235.72,
+          y = 2814.28,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4054,33 +4054,6 @@ return {
           properties = {}
         },
         {
-          id = 555,
-          name = "",
-          type = "BubbleField",
-          shape = "polygon",
-          x = 1568,
-          y = 2608,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -96, y = 560 },
-            { x = 1456, y = 560 },
-            { x = 1456, y = -128 },
-            { x = -92.7685, y = -131.688 },
-            { x = 150.731, y = 63.9466 },
-            { x = -48.3076, y = 62.6159 },
-            { x = 146.722, y = 117.033 },
-            { x = -24.0931, y = 279.603 },
-            { x = 203.358, y = 159.178 }
-          },
-          properties = {
-            ["axis_x"] = 2,
-            ["axis_y"] = 0
-          }
-        },
-        {
           id = 556,
           name = "",
           type = "BubbleField",
@@ -4155,6 +4128,86 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 561,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1584,
+          y = 2688,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 128 },
+            { x = 144, y = 128 },
+            { x = 144, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 562,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1584,
+          y = 2848,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 64 },
+            { x = 320, y = 64 },
+            { x = 272, y = -208 },
+            { x = 176, y = -208 },
+            { x = 176, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 563,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1520,
+          y = 2624,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 96 },
+            { x = 48, y = 96 },
+            { x = 48, y = 48 },
+            { x = 224, y = 48 },
+            { x = 224, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 564,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1872,
+          y = 2640,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 48, y = 272 },
+            { x = 528, y = 272 },
+            { x = 528, y = 0 }
+          },
           properties = {}
         }
       }

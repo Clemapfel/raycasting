@@ -95,6 +95,7 @@ end
 --- @brief
 function ow.CoinEffect:bind()
     _canvas:bind()
+    love.graphics.clear(0, 0, 0, 0)
 end
 
 --- @brief
@@ -105,6 +106,7 @@ end
 --- @brief
 function ow.CoinEffect:bind_mask()
     _mask:bind()
+    love.graphics.clear(0, 0, 0, 0)
 end
 
 --- @brief
@@ -134,7 +136,7 @@ function ow.CoinEffect:draw()
     _shader:send("coin_is_active", table.unpack(self._coin_is_active))
     _shader:send("n_coins", self._n_coins)
 
-    local x, y = self._scene:get_player():get_position()
-    _canvas:draw(self._x, self._y)
+    love.graphics.setColor(1, 1, 1, 1)
+    _canvas:draw()
     _shader:unbind()
 end
