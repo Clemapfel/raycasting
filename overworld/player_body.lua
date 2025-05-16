@@ -79,7 +79,7 @@ function ow.PlayerBody:instantiate(player)
 end
 
 --- @brief
-function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor_by)
+function ow.PlayerBody:initialize(positions)
     local success, tris = pcall(love.math.triangulate, positions)
     if not success then
         success, tris = pcall(slick.triangulate, { positions })
@@ -89,12 +89,6 @@ function ow.PlayerBody:initialize(positions, floor_ax, floor_ay, floor_bx, floor
     self._positions = positions
     self._tris = tris or self._tris
     self._center_x, self._center_y = positions[1], positions[2]
-
-    self._use_ground = self._player._bottom_wall
-
-    if floor_ax ~= nil then
-        self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by = floor_ax, floor_ay, floor_bx, floor_by
-    end
 
     for tri in values(tris) do
         local center_x = (tri[1] + tri[3] + tri[5]) / 3
@@ -189,7 +183,7 @@ local _velocity_damping = 0.9
 local _n_velocity_iterations = 4
 local _n_distance_iterations = 8
 local _n_axis_iterations = 1
-local _n_bending_iterations = 3
+local _n_bending_iterations = 0
 
 local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
     local current_distance = math.distance(a_x, a_y, b_x, b_y)
@@ -322,8 +316,8 @@ function ow.PlayerBody:update(delta)
             end
 
             local apply_axis = self._is_bubble
-            local apply_bending = self._player._down_button_is_down
-            local gravity_factor = self._down_button_is_down and -10 or 1
+
+            local apply_bending = self._player:get_is_idle() or self._player._down_button_is_down
 
             while (apply_axis and n_axis_iterations < _n_axis_iterations) or
                 (apply_bending and n_bending_iterations < _n_bending_iterations) or
@@ -338,7 +332,7 @@ function ow.PlayerBody:update(delta)
                         local before_x, before_y = current_x, current_y
 
                         positions[i] = current_x + (current_x - old_x) * _velocity_damping + gravity_x * mass * delta_squared
-                        positions[i+1] = current_y + (current_y - old_y) * _velocity_damping + gravity_factor * gravity_y * mass * delta_squared
+                        positions[i+1] = current_y + (current_y - old_y) * _velocity_damping + gravity_y * mass * delta_squared
 
                         old_positions[i] = before_x
                         old_positions[i+1] = before_y

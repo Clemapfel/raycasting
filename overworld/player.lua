@@ -79,6 +79,7 @@ rt.settings.overworld.player = {
     max_velocity_y = 13000,
 
     respawn_duration = 2,
+    idle_threshold_duration = 0.5,
 
     squeeze_multiplier = 1.4,
 
@@ -261,7 +262,8 @@ function ow.Player:instantiate(scene, stage)
         _use_bubble_mesh = false, -- cf. draw
         _use_bubble_mesh_delay_n_steps = 0,
 
-        _input = rt.InputSubscriber()
+        _input = rt.InputSubscriber(),
+        _idle_elapsed = 0,
     })
 
     self._graphics_body = ow.PlayerBody(self)
@@ -337,7 +339,7 @@ function ow.Player:_connect_input()
     end)
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "g" then
+        if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
         end
     end)
@@ -352,6 +354,12 @@ function ow.Player:update(delta)
     end
 
     self._graphics_body:update(delta)
+
+    if self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._jump_button_is_down or self._bottom_wall == false then
+        self._idle_elapsed = 0
+    else
+        self._idle_elapsed = self._idle_elapsed + delta
+    end
 
     local gravity = _settings.gravity * delta * self._gravity_multiplier
 
@@ -1561,4 +1569,9 @@ function ow.Player:get_walls()
     if self._bottom_left_wall_body ~= nil then table.insert(out, self._bottom_left_wall_body) end
     if self._left_wall_body ~= nil then table.insert(out, self._left_wall_body) end
     return out
+end
+
+--- @brief
+function ow.Player:get_is_idle()
+    return self._idle_elapsed > _settings.idle_threshold_duration
 end
