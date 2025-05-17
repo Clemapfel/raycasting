@@ -3,7 +3,7 @@ require "common.random"
 
 rt.settings.game_state = {
     save_file = "debug_save.lua",
-    grade_double_s_threshold = 0.99,
+    grade_double_s_threshold = 0.998,
     grade_s_threshold = 0.95,
     grade_a_threshold = 0.85,
 }
