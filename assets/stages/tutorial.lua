@@ -4881,29 +4881,6 @@ return {
           properties = {}
         },
         {
-          id = 601,
-          name = "",
-          type = "BoostField",
-          shape = "polygon",
-          x = 1328,
-          y = 5136,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -320 },
-            { x = 2224, y = -320 },
-            { x = 2224, y = 0 }
-          },
-          properties = {
-            ["axis_x"] = 1,
-            ["axis_y"] = 0,
-            ["velocity"] = 0.5
-          }
-        },
-        {
           id = 603,
           name = "",
           type = "BubbleField",
@@ -4913,7 +4890,7 @@ return {
           width = 0,
           height = 0,
           rotation = 0,
-          visible = false,
+          visible = true,
           polygon = {
             { x = 0, y = 0 },
             { x = 0, y = -320 },

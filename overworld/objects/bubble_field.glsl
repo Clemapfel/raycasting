@@ -68,7 +68,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
         gradient_noise(vec3(pos.yx * scale, elapsed))
     );
 
-    vertex_position.xy += offset * magnitude;
+    //vertex_position.xy += offset * magnitude;
     return transform_projection * vertex_position;
 }
 

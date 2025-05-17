@@ -64,5 +64,14 @@ rt.Translation = rt.initialize_translation({
             flow_percentage = "Flow",
             time = "Time"
         }
+    },
+
+    -- stage select
+    stage_select_scene = {
+        title_header = "Level",
+        difficulty_header = "Difficulty",
+        flow_header = "Best Flow %",
+        time_header = "Best Time",
+        grade_header = "Grade",
     }
 })
