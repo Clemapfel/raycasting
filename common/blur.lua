@@ -25,6 +25,8 @@ function rt.Blur:instantiate(width, height, ...)
         _texture_b = rt.RenderTexture(width, height, ...):get_native(),
         _a_or_b = true,
         _blur_applied = false,
+        _blur_horizontally = true,
+        _blur_vertically = true,
     })
 end
 
@@ -41,6 +43,16 @@ end
 --- @brief
 function rt.Blur:unbind()
     lg.setCanvas(nil)
+end
+
+--- @brief
+function rt.Blur:set_blur_vertically(b)
+    self._blur_vertically = b
+end
+
+--- @brief
+function rt.Blur:set_blur_horizontally(b)
+    self._blur_horizontally = b
 end
 
 --- @brief
@@ -67,12 +79,24 @@ function rt.Blur:_apply_blur()
         _blur_shader_horizontal:send("texture_size", { self._texture_w, self._texture_h })
         _blur_shader_vertical:send("texture_size", { self._texture_w, self._texture_h })
         local a, b = self._texture_a, self._texture_b
-        for i = 1, math.ceil(self._blur_strength) do
-            lg.setShader(_blur_shader_horizontal)
+
+        local shader_a, shader_b, strength
+        if self._blur_vertically == true and self._blur_horizontally == false then
+            shader_a, shader_b = _blur_shader_horizontal, _blur_shader_horizontal -- sic
+            strength = 2
+        elseif self._blur_horizontally == true and self._blur_vertically == false then
+            shader_a, shader_b = _blur_shader_vertical, _blur_shader_vertical
+            strength = 2
+        else
+            shader_a, shader_b = _blur_shader_horizontal, _blur_shader_vertical
+            strength = 1
+        end
+        for i = 1, math.ceil(self._blur_strength) * strength do
+            lg.setShader(shader_a)
             lg.setCanvas(a)
             lg.draw(b)
 
-            lg.setShader(_blur_shader_vertical)
+            lg.setShader(shader_b)
             lg.setCanvas(b)
             lg.draw(a)
         end

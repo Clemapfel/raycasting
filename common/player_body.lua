@@ -484,7 +484,7 @@ function rt.PlayerBody:draw_body()
         for rope in values(self._ropes) do
             local tw, th = texture:getDimensions()
             for i = 1, #rope.current_positions, 2 do
-                local scale = math.min(rope.scale + 0.5, 1)
+                local scale = math.min(rope.scale + 6 / self._player:get_radius(), 1)
                 local x, y
                 if false then
                     local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]
@@ -495,7 +495,7 @@ function rt.PlayerBody:draw_body()
                     x, y = rope.last_positions[i+0], rope.last_positions[i+1]
                 end
 
-                love.graphics.draw(texture, x - 0.5 * tw, y - 0.5 * th, 0, scale, scale)
+                love.graphics.draw(texture, x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
             end
         end
 

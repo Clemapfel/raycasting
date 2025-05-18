@@ -310,7 +310,7 @@ function love.errorhandler(msg)
     if love.audio then love.audio.stop() end
 
     love.graphics.reset()
-    local font = love.graphics.setNewFont(14)
+    love.graphics.setFont(love.graphics.newFont(15))
 
     love.graphics.setColor(1, 1, 1)
 
@@ -350,7 +350,7 @@ function love.errorhandler(msg)
     local function draw()
         if not love.graphics.isActive() then return end
         local pos = 70
-        love.graphics.clear(rt.Palette.RED_6:unpack())
+        love.graphics.clear(rt.Palette.RED_5:unpack())
         love.graphics.printf(p, pos, pos, love.graphics.getWidth() - pos)
         love.graphics.present()
     end
@@ -367,7 +367,7 @@ function love.errorhandler(msg)
     end
 
     return function()
-        love.event.pump()
+        love.event.pump(0.1)
 
         for e, a, b, c in love.event.poll() do
             if e == "quit" then
@@ -395,9 +395,10 @@ function love.errorhandler(msg)
         draw()
 
         if love.timer then
-            love.timer.sleep(0.1)
+            love.timer.sleep(0.001)
         end
     end
+
 end
 
 rt.SceneManager = rt.SceneManager() -- static global singleton

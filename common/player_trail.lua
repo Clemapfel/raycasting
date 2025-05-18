@@ -20,8 +20,8 @@ function rt.PlayerTrail:instantiate(player)
     -- init sonic boom
     if _boom_mesh == nil then
         local player_radius = rt.settings.player.radius
-        local x_radius = 1.5 * player_radius
-        local y_radius = 2 * player_radius
+        local x_radius = 1.75 * player_radius -- width
+        local y_radius = 2 * player_radius -- stretch
         local y_offset = y_radius - player_radius
 
         local _boom_shape = function(x)
@@ -55,7 +55,7 @@ function rt.PlayerTrail:instantiate(player)
     -- init glow
     if _glow_shader == nil then _glow_shader = rt.Shader("common/player_trail_glow.glsl") end
     if _glow_texture == nil then
-        local radius = rt.settings.player.radius * 2
+        local radius = rt.settings.player.radius * 4
         local padding = 10
         local width = 2 * radius + 2 * padding
         local height = width
@@ -184,8 +184,7 @@ function rt.PlayerTrail:update(delta)
     self._boom_intensity = 10 * flow
 
     self._trail_elapsed = self._trail_elapsed + delta
-    do --while self._trail_elapsed > _step do
-        --self._trail_elapsed = self._trail_elapsed - _step
+    do
         local scene = rt.SceneManager:get_current_scene()
         if scene == nil then return end
 
