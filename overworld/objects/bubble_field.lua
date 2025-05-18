@@ -2,7 +2,8 @@ rt.settings.overworld.bubble_field = {
     segment_length = 10,
     thickness = 3,
     n_smoothing_iterations = 5,
-    alpha = 1
+    alpha = 1,
+    wave_deactivation_threshold = 1 / 500
 }
 
 --- @class ow.BubbleField
@@ -10,27 +11,23 @@ ow.BubbleField = meta.class("BubbleField")
 
 local _outline_shader, _base_shader
 
+local _vertex_format = {
+    { location = 0, name = "VertexPosition", format = "floatvec2" }
+}
+
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     self._scene = scene
     self._world = stage:get_physics_world()
     self._elapsed = 0
     self._hue = 0
+    self._is_active = false
 
     self._camera_offset = {0, 0}
     self._camera_scale = 1
 
     if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 1 }) end
     if _base_shader == nil then _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 }) end
-
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            _outline_shader:recompile()
-            _base_shader:recompile()
-        end
-    end)
 
     -- collision
     self._body = object:create_physics_body(self._world)
@@ -41,8 +38,11 @@ function ow.BubbleField:instantiate(object, stage, scene)
         local player = scene:get_player()
         if player:get_is_bubble() == false and not self._blocked then
             self:_block_signals()
-
             player:set_is_bubble(true)
+
+            local x, y = player:get_position()
+            self:_excite_wave(x, y, -1) -- inwards
+            self._is_active = true
         end
     end)
 
@@ -57,6 +57,9 @@ function ow.BubbleField:instantiate(object, stage, scene)
             end
 
             player:set_is_bubble(false)
+            local x, y = player:get_position()
+            self:_excite_wave(x, y, 1) -- outwards
+            self._is_active = true
         end
     end)
 
@@ -135,7 +138,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     end
 
     -- subdivide
-    local segment_length = rt.settings.overworld.bubble_field.segment_length
+    local segment_length = 10 --rt.settings.overworld.bubble_field.segment_length
     local subdivided_contour = {}
     for segment in values(linked_contour) do
         local x1, y1, x2, y2 = segment[1], segment[2], segment[3], segment[4]
@@ -182,6 +185,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         subdivided_contour = smoothed
     end
 
+    -- construct filled mesh
     local flat = {}
     for segment in values(subdivided_contour) do
         for x in values(segment) do
@@ -189,117 +193,170 @@ function ow.BubbleField:instantiate(object, stage, scene)
         end
     end
 
-    -- construct filled mesh
     local success, solid_tris = pcall(love.math.triangulate, flat)
     if not success then
         success, solid_tris = pcall(slick.triangulate, { flat })
+        assert(success, "In ow.BubbleField.instantiate: failed to polygonize object `" .. object.id .. "`")
     end
 
-    if success then
+    if success and #solid_tris > 0 then
         local solid_data = {}
         for tri in values(solid_tris) do
             for i = 1, 6, 2 do
                 table.insert(solid_data, {
-                    tri[i+0], tri[i+1], 0, 0, 1, 1, 1, 1
+                    tri[i+0], tri[i+1]
                 })
             end
         end
 
-        self._solid_mesh = rt.Mesh(solid_data, rt.MeshDrawMode.TRIANGLES):get_native()
-    else
-        self._solid_mesh = nil
+        self._solid_mesh = rt.Mesh(solid_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
+        self._solid_backup_mesh = self._solid_mesh
     end
-
-    -- construct line mesh with bezels
-    local mesh_data = {}
-    local vertex_map = {}
-    local half_thickness = rt.settings.overworld.bubble_field.thickness / 2
-
-    local vertex_index = 1
-    for i = 1, #subdivided_contour do
-        local segment1 = subdivided_contour[i]
-        local segment2 = subdivided_contour[(i % #subdivided_contour) + 1]
-
-        local x1, y1, x2, y2 = segment1[1], segment1[2], segment1[3], segment1[4]
-        local x3, y3, x4, y4 = segment2[1], segment2[2], segment2[3], segment2[4]
-
-        if not is_equal(x2, x3) or not is_equal(y2, y3) then
-            goto continue
-        end
-
-        local dx1, dy1 = x2 - x1, y2 - y1
-        local length1 = math.sqrt(dx1 * dx1 + dy1 * dy1)
-        local nx1, ny1 = -dy1 / length1, dx1 / length1
-
-        local dx2, dy2 = x4 - x3, y4 - y3
-        local length2 = math.sqrt(dx2 * dx2 + dy2 * dy2)
-        local nx2, ny2 = -dy2 / length2, dx2 / length2
-
-        -- line quads
-        table.insert(mesh_data, { x1 + nx1 * half_thickness, y1 + ny1 * half_thickness, 0, 0, 1, 1, 1, 1 })
-        table.insert(mesh_data, { x1 - nx1 * half_thickness, y1 - ny1 * half_thickness, 0, 1, 1, 1, 1, 1 })
-        table.insert(mesh_data, { x2 + nx1 * half_thickness, y2 + ny1 * half_thickness, 1, 0, 1, 1, 1, 1 })
-        table.insert(mesh_data, { x2 - nx1 * half_thickness, y2 - ny1 * half_thickness, 1, 1, 1, 1, 1, 1 })
-
-        table.insert(vertex_map, vertex_index + 0)
-        table.insert(vertex_map, vertex_index + 1)
-        table.insert(vertex_map, vertex_index + 2)
-
-        table.insert(vertex_map, vertex_index + 2)
-        table.insert(vertex_map, vertex_index + 1)
-        table.insert(vertex_map, vertex_index + 3)
-
-        vertex_index = vertex_index + 4
-
-        -- bezels
-        table.insert(mesh_data, { x2 + nx1 * half_thickness, y2 + ny1 * half_thickness, 0, 0, 1, 1, 1, 1 })
-        table.insert(mesh_data, { x2 - nx1 * half_thickness, y2 - ny1 * half_thickness, 0, 1, 1, 1, 1, 1 })
-        table.insert(mesh_data, { x3 + nx2 * half_thickness, y3 + ny2 * half_thickness, 1, 0, 1, 1, 1, 1 })
-
-        table.insert(mesh_data, { x2 + nx1 * half_thickness, y2 + ny1 * half_thickness, 0, 0, 1, 1, 1, 1 })
-        table.insert(mesh_data, { x2 - nx1 * half_thickness, y2 - ny1 * half_thickness, 0, 1, 1, 1, 1, 1 })
-        table.insert(mesh_data, { x3 - nx2 * half_thickness, y3 - ny2 * half_thickness, 1, 1, 1, 1, 1, 1 })
-
-        table.insert(vertex_map, vertex_index + 0)
-        table.insert(vertex_map, vertex_index + 1)
-        table.insert(vertex_map, vertex_index + 2)
-
-        table.insert(vertex_map, vertex_index + 3)
-        table.insert(vertex_map, vertex_index + 4)
-        table.insert(vertex_map, vertex_index + 5)
-
-        vertex_index = vertex_index + 6
-
-        ::continue::
-    end
-
-    self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
-    self._n_vertices = table.sizeof(mesh_data)
-    self._mesh:set_vertex_map(vertex_map)
-    self._mesh = self._mesh:get_native()
 
     self._contour = {}
+    local center_x, center_y, n = 0, 0, 0
     for segment in values(subdivided_contour) do
         for x in values(segment) do
             table.insert(self._contour, x)
         end
+
+        center_x = center_x + segment[1] + segment[3]
+        center_y = center_y + segment[2] + segment[4]
+        n = n + 2
     end
+
+    center_x = center_x / n
+    center_y = center_y / n
+
+    self._contour_vectors = {}
+    for i = 1, #self._contour, 2 do
+        local dx = self._contour[i+0] - center_x
+        local dy = self._contour[i+1] - center_y
+        local magnitude = math.magnitude(dx, dy)
+        dx, dy = math.normalize(dx, dy)
+
+        table.insert(self._contour_vectors, {
+            dx = dx,
+            dy = dy,
+            magnitude = magnitude
+        })
+    end
+
+    self._contour_center_x, self._contour_center_y = center_x, center_y
+    self._polygon_positions = self._contour
+    self._outline_positions = self._contour
+
+    self._n_points = #self._contour / 2
+    self._wave = {
+        previous = table.rep(0, self._n_points),
+        current = table.rep(0, self._n_points),
+        next = {}
+    }
 end
+
+-- simulation parameters
+local _dx = 0.1
+local _dt = 0.05
+local _damping = 0.99
+local _courant = _dt / _dx
+local _amplitude = 0.017
 
 --- @brief
 function ow.BubbleField:update(delta)
     self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
-
     if not self._scene:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
     self._camera_offset = { self._scene:get_camera():get_offset() }
     self._camera_scale = self._scene:get_camera():get_scale()
+
+    if not self._is_active then return end
+
+    -- wave equation solver
+    local polygon_positions = {}
+    local outline_positions = {}
+    local wave = self._wave
+    local offset_sum = 0
+    local n_points = self._n_points
+    for i = 1, n_points do
+        local left = (i == 1) and n_points or (i - 1)
+        local right = (i == n_points) and 1 or (i + 1)
+        local new = 2 * wave.current[i] - wave.previous[i] + _courant^2 * (wave.current[left] - 2 * wave.current[i] + wave.current[right])
+        new = new * _damping
+        wave.next[i] = new
+
+        offset_sum = offset_sum + math.abs(new)
+
+        local entry = self._contour_vectors[i]
+        local x = self._contour_center_x + entry.dx * (1 + new) * entry.magnitude
+        local y = self._contour_center_y + entry.dy * (1 + new) * entry.magnitude
+        table.insert(polygon_positions, x)
+        table.insert(polygon_positions, y)
+    end
+    wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
+
+    if offset_sum / self._n_points < rt.settings.overworld.bubble_field.wave_deactivation_threshold then
+        self._is_active = false
+    end
+
+    -- lerp to avoid step pattern artifacting
+    for i = 1, #polygon_positions - 2, 2 do
+        local x1, y1 = polygon_positions[i+0], polygon_positions[i+1]
+        local x2, y2 = polygon_positions[i+2], polygon_positions[i+3]
+
+        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
+        table.insert(outline_positions, x)
+        table.insert(outline_positions, y)
+    end
+
+    do
+        local x1, y1 = polygon_positions[1], polygon_positions[2]
+        local x2, y2 = polygon_positions[#polygon_positions-1], polygon_positions[#polygon_positions]
+        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
+        table.insert(outline_positions, x)
+        table.insert(outline_positions, y)
+    end
+
+    local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
+    if success and #solid_tris > 0 then
+        local solid_data = {}
+        for tri in values(solid_tris) do
+            for i = 1, 6, 2 do
+                table.insert(solid_data, {
+                    tri[i+0], tri[i+1]
+                })
+            end
+        end
+
+        self._solid_mesh = rt.Mesh(solid_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
+    else
+        self._solid_mesh = nil
+    end
+
+    self._polygon_positions = polygon_positions
+    self._outline_positions = outline_positions
 end
 
 --- @brief
-function ow.BubbleField:draw_mask()
-    if not self._scene:get_is_body_visible(self._body) then return end
+function ow.BubbleField:_excite_wave(player_x, player_y, sign)
+    local min_distance, min_i = math.huge, nil
+    for i = 1, self._n_points do
+        local vector = self._contour_vectors[i]
+        local vx = self._contour_center_x + vector.dx * vector.magnitude
+        local vy = self._contour_center_y + vector.dy * vector.magnitude
+        local distance = math.distance(player_x, player_y, vx, vy)
+        if distance < min_distance then
+            min_distance = distance
+            min_i = i
+        end
+    end
+
+    local center_index, amplitude, width = min_i, sign * _amplitude, 5
+    for i = 1, self._n_points do
+        local distance = math.abs(i - center_index)
+        distance = math.min(distance, self._n_points - distance)
+        self._wave.current[i] = self._wave.current[i] + amplitude * math.exp(-((distance / width) ^ 2))
+    end
 end
 
 --- @brief
@@ -307,25 +364,30 @@ function ow.BubbleField:draw()
     if not self._scene:get_is_body_visible(self._body) then return end
     local r, g, b, a = rt.Palette.BUBBLE_FIELD:unpack()
 
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(r, g, b, 0.8)
+    _base_shader:bind()
+    _base_shader:send("n_vertices", self._n_points)
+    _base_shader:send("elapsed", self._elapsed)
+    _base_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _base_shader:send("camera_scale", self._scene:get_camera():get_scale())
+    _base_shader:send("hue", self._hue)
     if self._solid_mesh ~= nil then
-        _base_shader:bind()
-        _base_shader:send("n_vertices", self._n_vertices)
-        _base_shader:send("elapsed", self._elapsed)
-        _base_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
-        _base_shader:send("camera_scale", self._scene:get_camera():get_scale())
-        _base_shader:send("hue", self._hue)
         love.graphics.draw(self._solid_mesh)
-        _base_shader:unbind()
+    elseif self._solid_backup_mesh ~= nil then -- use backup if love.math fails to triangulate
+        love.graphics.draw(self._solid_backup_mesh)
     end
+    _base_shader:unbind()
 
+    love.graphics.setColor(r, g, b, 1)
+    love.graphics.setLineWidth(3)
+    love.graphics.setLineJoin("none")
     _outline_shader:bind()
-    _outline_shader:send("n_vertices", self._n_vertices)
+    _outline_shader:send("n_vertices", self._n_points)
     _outline_shader:send("elapsed", self._elapsed)
     _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
     _outline_shader:send("camera_scale", self._scene:get_camera():get_scale())
     _outline_shader:send("hue", self._hue)
-    love.graphics.draw(self._mesh)
+    love.graphics.line(self._outline_positions)
     _outline_shader:unbind()
 end
 

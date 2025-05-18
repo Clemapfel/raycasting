@@ -58,7 +58,7 @@ uniform float n_vertices;
 
 vec4 position(mat4 transform_projection, vec4 vertex_position)
 {
-    const float magnitude = 5.0;
+    const float magnitude = 2.0;
     vec2 scale = 1.0 / love_ScreenSize.xy * 10.0;
     float fraction = float(gl_VertexID) / n_vertices;
 
@@ -68,7 +68,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
         gradient_noise(vec3(pos.yx * scale, elapsed))
     );
 
-    //vertex_position.xy += offset * magnitude;
+    vertex_position.xy += offset * magnitude;
     return transform_projection * vertex_position;
 }
 
@@ -147,3 +147,4 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
 }
 
 #endif
+

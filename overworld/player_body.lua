@@ -82,7 +82,7 @@ end
 function ow.PlayerBody:initialize(positions)
     local success, tris = pcall(love.math.triangulate, positions)
     if not success then
-        success, tris = pcall(slick.triangulate, { positions })
+        --success, tris = pcall(slick.triangulate, { positions })
         if not success then return end
     end
 

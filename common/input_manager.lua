@@ -103,10 +103,6 @@ end
 love.mousepressed = function(x, y, button_id)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
 
-    if rt.InputManager._upscaler ~= nil and rt.InputManager._convert_to_native_resolution == true then
-        x, y = rt.InputManager._upscaler:convertWindowToNativePosition(x, y)
-    end
-
     for sub in values(rt.InputManager._subscribers) do
         if sub._is_active then
             sub:signal_emit(rt.InputCallbackID.MOUSE_BUTTON_PRESSED, button_id, x, y)
@@ -116,10 +112,6 @@ end
 
 love.mousereleased = function(x, y, button_id)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
-
-    if rt.InputManager._upscaler ~= nil and rt.InputManager._convert_to_native_resolution == true then
-        x, y = rt.InputManager._upscaler:convertWindowToNativePosition(x, y)
-    end
 
     for sub in values(rt.InputManager._subscribers) do
         if sub._is_active then
