@@ -142,6 +142,24 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
         scale *= 1.05;
     }
 
+    vec2 nuv = uv * 10;
+    time = elapsed / 6;
+    for (int i = 1; i <= 4; ++i) {
+        if (mod(i, 2) == 0) {
+            nuv.x += gradient_noise(vec3(nuv , time * i)) * 2 - 1;
+            nuv.y += worley_noise(vec3(nuv, time * i)) * 2 - 1;
+        }
+        else {
+            nuv.x += gradient_noise(vec3(nuv, time * i)) * 2 - 1;
+            nuv.y += worley_noise(vec3(nuv, time * i)) * 2 - 1;
+        }
+
+        nuv.xy = nuv.yx;
+    }
+
+
+    return vec4(mix(0, 1, 1 - distance(nuv, uv)));
+
     float eps = 0.05;
     float threhsold = 0.98;
     float value = smoothstep(threhsold, threhsold + eps, noise);
