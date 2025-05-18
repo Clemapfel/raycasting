@@ -44,7 +44,7 @@ function rt.SceneManager:set_scene(scene_type, ...)
 
     local scene = self._scene_type_to_scene[scene_type]
     if scene == nil then
-        scene = scene_type()
+        scene = scene_type(rt.GameState)
         scene:realize()
         self._scene_type_to_scene[scene_type] = scene
 

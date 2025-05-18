@@ -1,16 +1,17 @@
---- @class ow.PlayerBody
-ow.PlayerBody = meta.class("PlayerBody")
+--- @class rt.PlayerBody
+rt.PlayerBody = meta.class("PlayerBody")
 
 local _outline_shader, _core_shader, _canvas = nil, nil, nil
 
 --- @brief
-function ow.PlayerBody:instantiate(player)
-    meta.assert(player, ow.Player)
+function rt.PlayerBody:instantiate(player)
+    meta.assert(player, rt.Player)
 
     self._player = player
     self._ropes = {}
     self._elapsed = 0
     self._shader_elapsed = 0
+    self._is_initialized = false
 
     local alpha = 0.05
     local padding = 4
@@ -47,21 +48,21 @@ function ow.PlayerBody:instantiate(player)
         texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 
-    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/player_body_outline.glsl") end
-    if _core_shader == nil then _core_shader = rt.Shader("overworld/player_body_core.glsl") end
+    if _outline_shader == nil then _outline_shader = rt.Shader("common/player_body_outline.glsl") end
+    if _core_shader == nil then _core_shader = rt.Shader("common/player_body_core.glsl") end
 
     self._canvas_scale = 3
 
     if self._outline_canvas == nil then
         local padding = 100
-        local radius = rt.settings.overworld.player.radius * rt.settings.overworld.player.bubble_radius_factor
+        local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
         self._outline_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 4)
         self._outline_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 
     if self._core_canvas == nil then
         local padding = 10
-        local radius = rt.settings.overworld.player.radius
+        local radius = rt.settings.player.radius
         self._core_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 8)
         self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
@@ -79,13 +80,14 @@ function ow.PlayerBody:instantiate(player)
 end
 
 --- @brief
-function ow.PlayerBody:initialize(positions)
+function rt.PlayerBody:initialize(positions)
     local success, tris = pcall(love.math.triangulate, positions)
     if not success then
         --success, tris = pcall(slick.triangulate, { positions })
         if not success then return end
     end
 
+    self._is_initialized = true
     self._positions = positions
     self._tris = tris or self._tris
     self._center_x, self._center_y = positions[1], positions[2]
@@ -260,7 +262,10 @@ local function _solve_bending_constraint(a_x, a_y, b_x, b_y, c_x, c_y, rest_leng
 end
 
 --- @brief
-function ow.PlayerBody:update(delta)
+function rt.PlayerBody:update(delta)
+    local body = self._player:get_physics_body()
+    if body == nil then return end
+
     delta = math.min(delta, 1 / 30)
 
     self._elapsed = self._elapsed + delta
@@ -279,9 +284,9 @@ function ow.PlayerBody:update(delta)
 
     local player_x, player_y
     if self._was_bubble_last_frame ~= self._is_bubble then
-        player_x, player_y = self._player:get_physics_body():get_position()
+        player_x, player_y = body:get_position()
     else
-        player_x, player_y = self._player:get_physics_body():get_predicted_position()
+        player_x, player_y = body:get_predicted_position()
     end
 
     self._player_x, self._player_y = self._player:get_physics_body():get_predicted_position()
@@ -309,10 +314,18 @@ function ow.PlayerBody:update(delta)
             local n_velocity_iterations = 0
             local n_bending_iterations = 0
 
+            local extra_iterations = 0 --math.floor(math.magnitude(self._player:get_velocity()) / 2000)
+
             if self._is_bubble then
                 _n_distance_iterations = 4
             else
-                _n_distance_iterations = 8
+                _n_distance_iterations = 8 + extra_iterations
+            end
+
+            if self._is_bubble then
+                _n_velocity_iterations = 4
+            else
+                _n_velocity_iterations = 4 + extra_iterations
             end
 
             local apply_axis = self._is_bubble
@@ -432,7 +445,9 @@ function ow.PlayerBody:update(delta)
 end
 
 --- @brief
-function ow.PlayerBody:draw_body()
+function rt.PlayerBody:draw_body()
+    if self._is_initialized ~= true then return end
+
     local mesh = self._is_bubble and self._bubble_node_mesh:get_native() or self._node_mesh:get_native()
     local opacity = self._player:get_opacity()
 
@@ -524,7 +539,9 @@ function ow.PlayerBody:draw_body()
 end
 
 --- @brief
-function ow.PlayerBody:draw_core()
+function rt.PlayerBody:draw_core()
+    if self._is_initialized ~= true then return end
+
     local mesh = self._is_bubble and self._bubble_node_mesh:get_native() or self._node_mesh:get_native()
     local opacity = self._player:get_opacity()
 
@@ -557,7 +574,7 @@ function ow.PlayerBody:draw_core()
     love.graphics.setColor(1, 1, 1, 1 * opacity)
 
     if self._is_bubble then
-        love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.overworld.player.radius)
+        love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.player.radius)
     else
         love.graphics.polygon("fill", self._positions)
     end
@@ -576,7 +593,7 @@ function ow.PlayerBody:draw_core()
     rt.graphics.set_blend_mode(rt.BlendMode.ADD)
     local scale = 0.5
     local r = 4
-    local offset = rt.settings.overworld.player.radius * scale / 2
+    local offset = rt.settings.player.radius * scale / 2
     love.graphics.translate(-offset, -offset)
     love.graphics.ellipse("fill", self._player_x, self._player_y, r, r)
 

@@ -16,7 +16,7 @@ end
 
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
-    local radius = rt.settings.overworld.player.radius * rt.settings.overworld.hook.radius_factor
+    local radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
 
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Hook: object is not a point")
     self._scene = scene
@@ -38,7 +38,7 @@ function ow.Hook:instantiate(object, stage, scene)
     local hook = self
     self._body:set_is_sensor(true)
     self._body:add_tag("slippery")
-    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+    self._body:set_collides_with(rt.settings.player.player_collision_group)
 
     self._body:signal_connect("collision_start", function(_)
         local player = self._scene:get_player()
@@ -156,7 +156,7 @@ function ow.Hook:draw()
     if _center_vertices == nil then
         _center_vertices = {}
         local cx, cy = 0, 0
-        local radius = rt.settings.overworld.player.radius - self._radius / 8
+        local radius = rt.settings.player.radius - self._radius / 8
         for angle = 0, (2 * math.pi), (2 * math.pi) / 16 do
             table.insert(_center_vertices, cx + math.cos(angle) * radius)
             table.insert(_center_vertices, cy + math.sin(angle) * radius)

@@ -52,8 +52,9 @@ local function _create_grade_label(grade)
 end
 
 --- @brief
-function mn.StageSelectScene:instantiate()
+function mn.StageSelectScene:instantiate(state)
     meta.install(self, {
+        _state = state,
         _elements = {},
     })
 
@@ -71,19 +72,19 @@ function mn.StageSelectScene:instantiate()
 
     local grade_font, grade_font_mono = rt.settings.font.default_large, rt.settings.font.default_mono_large
 
-    local stage_ids = rt.GameState:list_stage_ids()
+    local stage_ids = self._state:list_stage_ids()
     table.sort(stage_ids, function(a, b)
-        return rt.GameState:get_stage_difficulty(a) < rt.GameState:get_stage_difficulty(b)
+        return self._state:get_stage_difficulty(a) < self._state:get_stage_difficulty(b)
     end)
 
     local title_i = 1
     for id in values(stage_ids) do
-        local was_beaten = rt.GameState:get_stage_was_beaten(id)
+        local was_beaten = self._state:get_stage_was_beaten(id)
 
-        local title = rt.GameState:get_stage_title(id)
-        local best_time = not was_beaten and _long_dash or string.format_time(rt.GameState:get_stage_best_time(id))
-        local best_flow = not was_beaten and _long_dash or _create_flow_percentage_label(rt.GameState:get_stage_best_flow_percentage(id))
-        local grade = not was_beaten and _long_dash or _create_grade_label(rt.GameState:get_stage_grade(id))
+        local title = self._state:get_stage_title(id)
+        local best_time = not was_beaten and _long_dash or string.format_time(self._state:get_stage_best_time(id))
+        local best_flow = not was_beaten and _long_dash or _create_flow_percentage_label(self._state:get_stage_best_flow_percentage(id))
+        local grade = not was_beaten and _long_dash or _create_grade_label(self._state:get_stage_grade(id))
 
         table.insert(self._elements, {
             id = id,

@@ -34,7 +34,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     -- collision
     self._body = object:create_physics_body(self._world)
     self._body:set_is_sensor(true)
-    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+    self._body:set_collides_with(rt.settings.player.player_collision_group)
 
     self._body:signal_connect("collision_start", function()
         local player = scene:get_player()

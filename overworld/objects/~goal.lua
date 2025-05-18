@@ -34,8 +34,8 @@ function ow.Goal:instantiate(object, stage, scene)
     self._body:set_use_continuous_collision(true)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(bit.bor(
-        rt.settings.overworld.player.player_outer_body_collision_group,
-        rt.settings.overworld.player.player_collision_group
+        rt.settings.player.player_outer_body_collision_group,
+        rt.settings.player.player_collision_group
     ))
 
     self._body:signal_connect("collision_start", function()
@@ -89,8 +89,8 @@ function ow.Goal:_initialize()
 
         body._goal_is_marked = false
 
-        body:set_collides_with(rt.settings.overworld.player.bounce_collision_group)
-        body:set_collision_group(rt.settings.overworld.player.bounce_collision_group)
+        body:set_collides_with(rt.settings.player.bounce_collision_group)
+        body:set_collision_group(rt.settings.player.bounce_collision_group)
         body:set_is_rotation_fixed(false)
         body:signal_connect("collision_start", function(self_body, other_body)
             if other_body:has_tag("player") then

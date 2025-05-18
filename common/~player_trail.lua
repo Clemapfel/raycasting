@@ -1,48 +1,47 @@
 require "common.render_texture"
 require "common.blend_mode"
 
-rt.settings.overworld.player_trail = {
+rt.settings.player_trail = {
     decay_rate = 0.4
 }
 
---- @class ow.PlayerTrail
-ow.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
+--- @class rt.PlayerTrail
+rt.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
 
-local _canvas_a, _canvas_b = nil, nil
+local _trail_canvas_a, _trail_canvas_b, _trail_canvas_c = nil, nil, nil
 
 --- @brief
-function ow.PlayerTrail:instantiate(scene, radius)
-    meta.assert(scene, "OverworldScene")
-    self._scene = scene
-    self._player = self._scene:get_player()
+function rt.PlayerTrail:instantiate(player)
+    meta.assert(player, rt.Player)
+    self._player = player
     self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
 
-    _canvas_a = rt.RenderTexture(self._width, self._height, 0)
-    _canvas_b = rt.RenderTexture(self._width, self._height, 0)
+    _trail_canvas_a = rt.RenderTexture(self._width, self._height, 0)
+    _trail_canvas_b = rt.RenderTexture(self._width, self._height, 0)
 
     self._a_or_b = true
     self._r, self._g, self._b = 1, 0, 0
 end
 
 --- @brief
-function ow.PlayerTrail:clear()
-    _canvas_a:bind()
+function rt.PlayerTrail:clear()
+    _trail_canvas_a:bind()
     love.graphics.clear(0, 0, 0, 0)
-    _canvas_a:unbind()
+    _trail_canvas_a:unbind()
 
-    _canvas_b:bind()
+    _trail_canvas_b:bind()
     love.graphics.clear(0, 0, 0, 0)
-    _canvas_b:unbind()
+    _trail_canvas_b:unbind()
 end
 
 local _boom_mesh
 
 --- @brief
-function ow.PlayerTrail:draw()
-    if self._scene:get_player():get_physics_body() == nil then return end
+function rt.PlayerTrail:draw()
+    if self._player:get_physics_body() == nil then return end
 
     if _boom_mesh == nil then
-        local player_radius = rt.settings.overworld.player.radius
+        local player_radius = rt.settings.player.radius
         local x_radius = 1.5 * player_radius
         local y_radius = 2 * player_radius
         local y_offset = y_radius - player_radius
@@ -76,12 +75,15 @@ function ow.PlayerTrail:draw()
 
     -- draw canvas
     do
-        local x, y = self._scene:get_camera():get_position()
+        local scene = rt.SceneManager:get_current_scene()
+        local x, y = 0, 0
+        if scene.get_camera ~= nil then
+            x, y = scene:get_camera():get_position()
+        end
         local w, h = self._width, self._height
         x = x - 0.5 * w
         y = y - 0.5 * h
 
-        --[[
         love.graphics.setBlendState(
             rt.BlendOperation.ADD,         -- rgb_operation
             rt.BlendOperation.ADD,         -- alpha_operation
@@ -90,25 +92,22 @@ function ow.PlayerTrail:draw()
             rt.BlendFactor.ONE,            -- rgb_destination_factor
             rt.BlendFactor.ZERO             -- alpha_destination_factor (commonly ONE or ZERO)
         )
-        ]]--
 
         love.graphics.setColor(1, 1, 1, 1)
         if self._a_or_b then
-            love.graphics.draw(_canvas_b:get_native(), x, y)
+            love.graphics.draw(_trail_canvas_b:get_native(), x, y)
         else
-            love.graphics.draw(_canvas_a:get_native(), x, y)
+            love.graphics.draw(_trail_canvas_a:get_native(), x, y)
         end
 
         rt.graphics.set_blend_mode(nil)
     end
 
-    --[[
-
-    local player = self._scene:get_player()
+    local player = self._player
     local x, y = player:get_physics_body():get_predicted_position()
 
     -- draw glow
-    self:_draw_glow(x, y, player:get_flow() * 0.5)
+    self:_draw_glow(x, y, player:get_flow() * 0.25)
 
     -- draw boom
     local vx, vy = player:get_physics_body():get_linear_velocity()
@@ -123,15 +122,21 @@ function ow.PlayerTrail:draw()
     love.graphics.pop()
 
     rt.graphics.set_blend_mode(nil)
-    ]]--
 end
 
 local _previous_x, _previous_y = nil, nil
 local _previous_player_x, _previous_player_y = nil, nil
 
 --- @brief
-function ow.PlayerTrail:update(delta)
-    local x, y = self._scene:get_camera():get_position()
+function rt.PlayerTrail:update(delta)
+    if self._player:get_physics_body() == nil then return end
+
+    local scene = rt.SceneManager:get_current_scene()
+    local x, y = 0, 0
+    if scene.get_camera ~= nil then
+        x, y = scene:get_camera():get_position()
+    end
+
     local w, h = self._width, self._height
     x = x - 0.5 * w
     y = y - 0.5 * h
@@ -142,23 +147,23 @@ function ow.PlayerTrail:update(delta)
 
     local dx, dy = _previous_x - x, _previous_y - y
 
-    local player_x, player_y = self._scene:get_player():get_physics_body():get_predicted_position()
+    local player_x, player_y = self._player:get_physics_body():get_predicted_position()
     if _previous_player_x == nil or _previous_player_y == nil then
         _previous_player_x, _previous_player_y = player_x, player_y
     end
 
     local a, b
     if self._a_or_b then
-        a = _canvas_a
-        b = _canvas_b
+        a = _trail_canvas_a
+        b = _trail_canvas_b
     else
-        a = _canvas_b
-        b = _canvas_a
+        a = _trail_canvas_b
+        b = _trail_canvas_a
     end
     self._a_or_b = not self._a_or_b
 
-    local decay_rate = rt.settings.overworld.player_trail.decay_rate
-    local dalpha = (1 / decay_rate) * delta
+    local decay_rate = rt.settings.player_trail.decay_rate
+    local dalpha = (1 / rt.settings.player_trail.decay_rate) * delta
     b:bind()
 
     love.graphics.origin()
@@ -181,7 +186,7 @@ function ow.PlayerTrail:update(delta)
     love.graphics.origin()
     love.graphics.translate(-x, -y)
 
-    local hue = self._scene:get_player():get_hue()
+    local hue = self._player:get_hue()
     self._r, self._g, self._b = rt.lcha_to_rgba(rt.LCHA(0.8, 1, hue, 1):unpack())
 
     self:_draw_trail(_previous_player_x, _previous_player_y, player_x, player_y)
@@ -197,11 +202,11 @@ end
 local _mesh, _circle_mesh = nil
 
 --- @brief
-function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
+function rt.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     local dx, dy = math.normalize(x2 - x1, y2 - y1)
 
-    local inner_width = math.min(300 * self._scene:get_player():get_flow()^1.8, 4)
-    local outer_width = self._scene:get_player():get_flow()
+    local inner_width = math.min(300 * self._player:get_flow()^1.8, 4)
+    local outer_width = self._player:get_flow()
 
     if inner_width + outer_width < 1 then return end
 
@@ -282,13 +287,13 @@ end
 
 local _glow_texture, _glow_shader, _glow_offset_x, _glow_offset_y
 
-function ow.PlayerTrail:_draw_glow(x, y, intensity)
+function rt.PlayerTrail:_draw_glow(x, y, intensity)
     if _glow_shader == nil then
-        _glow_shader = rt.Shader("overworld/player_trail_glow.glsl")
+        _glow_shader = rt.Shader("common/player_trail_glow.glsl")
     end
 
     if _glow_texture == nil then
-        local radius = rt.settings.overworld.player.radius * 10
+        local radius = rt.settings.player.radius * 10
         local padding = 10
 
         local width = 2 * radius + 2 * padding

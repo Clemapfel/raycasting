@@ -173,7 +173,7 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_posit
         amplitude *= persistence;
     }
 
-    float intensity = 1; // - mix(0.2, 1, gaussian(weight, 2.5) * flow);
+    float intensity = 0.5; // - mix(0.2, 1, gaussian(weight, 2.5) * flow);
     vec3 rainbow = lch_to_rgb(vec3(0.8, 1, noise_value));
     return vec4(vec3(mix(rainbow * intensity, vec3(0.1), box)), 1);
 }

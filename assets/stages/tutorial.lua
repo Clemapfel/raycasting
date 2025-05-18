@@ -568,7 +568,7 @@ return {
         {
           id = 44,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 622.985,
           y = 2304,
@@ -720,7 +720,7 @@ return {
         {
           id = 60,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = -80,
           y = -432,
@@ -743,7 +743,7 @@ return {
         {
           id = 61,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 400,
           y = -480,
@@ -2053,7 +2053,7 @@ return {
         {
           id = 187,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 2176,
           y = 1200,
@@ -2072,7 +2072,7 @@ return {
         {
           id = 188,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 2416,
           y = 1008,
@@ -2273,7 +2273,7 @@ return {
         {
           id = 200,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 3328,
           y = 1168,
@@ -4388,7 +4388,7 @@ return {
         {
           id = 574,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 1504,
           y = 4384,
@@ -4415,7 +4415,7 @@ return {
         {
           id = 575,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = 1552,
           y = 4496,

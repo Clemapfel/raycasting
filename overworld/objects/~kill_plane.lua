@@ -19,7 +19,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
-    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+    self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._elapsed = math.huge
 
     self._state = _state_inactive

@@ -19,7 +19,7 @@ function ow.Eye:instantiate(object, stage, scene)
     self._x = object.x
     self._y = object.y
 
-    local radius = rt.settings.overworld.player.radius * rt.random.number(0.7, 1)
+    local radius = rt.settings.player.radius * rt.random.number(0.7, 1)
     self._offset_x, self._offset_y = 0, 0
     self._radius = radius
 

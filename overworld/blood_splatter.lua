@@ -132,7 +132,7 @@ function ow.BloodSplatter:create_contour(segments)
 
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
 
-    local max_length = rt.settings.overworld.player.radius / 2
+    local max_length = rt.settings.player.radius / 2
     for hash, count in pairs(tuples) do
         if count == 1 then
             local x1, y1, x2, y2 = _unhash(hash)

@@ -2,8 +2,8 @@ require "common.scene"
 require "common.mesh"
 require "common.background"
 require "overworld.stage"
-require "overworld.camera"
-require "overworld.player"
+require "common.camera"
+require "common.player"
 require "overworld.coin_effect"
 require "overworld.stage_hud"
 require "overworld.results_screen"
@@ -27,16 +27,17 @@ ow.CameraMode = meta.enum("CameraMode", {
 })
 
 --- @brief
-function ow.OverworldScene:instantiate()
+function ow.OverworldScene:instantiate(state)
     ow.Stage._config_atlas = {}
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
 
     meta.install(self, {
-        _camera = ow.Camera(),
+        _state = state,
+        _camera = rt.Camera(),
         _current_stage_id = nil,
         _stage = nil,
-        _player = nil,
+        _player = state:get_player(),
         _input = rt.InputSubscriber(false),
 
         _stage_duration_start_time = math.huge,
@@ -71,7 +72,6 @@ function ow.OverworldScene:instantiate()
         _results_screen = ow.ResultsScreen(),
 
         _post_fx = ow.CoinEffect(self),
-        _player = ow.Player(self),
         _hud = ow.StageHUD(self),
     })
 

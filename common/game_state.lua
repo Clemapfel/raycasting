@@ -1,5 +1,7 @@
 require "overworld.stage_config"
 require "common.random"
+require "common.scene_manager"
+require "common.player"
 
 rt.settings.game_state = {
     save_file = "debug_save.lua",
@@ -73,6 +75,8 @@ function rt.GameState:instantiate()
             -- TODO: load from safe file
         end
     end
+
+    self._player = rt.Player()
 end
 
 --- @brief
@@ -165,6 +169,11 @@ function rt.GameState:list_stage_ids()
         table.insert(out, id)
     end
     return out
+end
+
+--- @brief
+function rt.GameState:get_player()
+    return self._player
 end
 
 rt.GameState = rt.GameState()

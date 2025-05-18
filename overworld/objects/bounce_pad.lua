@@ -1,6 +1,6 @@
 rt.settings.overworld.bounce_pad = {
     -- bounce animation
-    bounce_max_offset = rt.settings.overworld.player.radius * 0.7, -- in px
+    bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
     color_decay_duration = 1,
     corner_radius = 10,
 
@@ -43,7 +43,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._draw_color = self._color
 
     self._body:add_tag("slippery", "no_blood", "unjumpable")
-    local bounce_group = rt.settings.overworld.player.bounce_collision_group
+    local bounce_group = rt.settings.player.bounce_collision_group
     self._body:set_collides_with(bounce_group)
     self._body:set_collision_group(bounce_group)
 

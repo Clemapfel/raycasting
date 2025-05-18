@@ -42,8 +42,8 @@ function ow.Coin:instantiate(object, stage, scene)
 
     self._body:set_is_sensor(true)
     self._body:set_collides_with(bit.bor(
-        rt.settings.overworld.player.player_collision_group,
-        rt.settings.overworld.player.player_outer_body_collision_group
+        rt.settings.player.player_collision_group,
+        rt.settings.player.player_outer_body_collision_group
     ))
 
     self._body:signal_connect("collision_start", function(self_body, player_body)
@@ -62,7 +62,7 @@ function ow.Coin:instantiate(object, stage, scene)
     end)
 
     if _pulse_mesh == nil then
-        _pulse_mesh = rt.MeshCircle(0, 0, rt.settings.overworld.player.radius * 2)
+        _pulse_mesh = rt.MeshCircle(0, 0, rt.settings.player.radius * 2)
 
         _pulse_mesh:set_vertex_color(1, 1, 1, 1, 0)
         for i = 2, _pulse_mesh:get_n_vertices() do

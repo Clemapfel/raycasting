@@ -47,7 +47,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
         _player_spawn_y = 0,
 
         _mesh_position_y = math.huge,
-        _mesh_motion = rt.SmoothedMotion1D(0, rt.settings.overworld.player.target_velocity_y),
+        _mesh_motion = rt.SmoothedMotion1D(0, rt.settings.player.target_velocity_y),
         _mesh_visible = false,
         _passed = false,
 
@@ -94,7 +94,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
     self._mesh_motion:set_value(player_y)
 
     if _mesh == nil then
-        _mesh_h = rt.settings.overworld.player.radius - 2
+        _mesh_h = rt.settings.player.radius - 2
         _mesh = {}
         for angle = 0, 2 * math.pi, 2 * math.pi / 32 do
             table.insert(_mesh, 0 + math.cos(angle) * _mesh_h)
@@ -153,7 +153,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, is_player_spawn)
             )
         )
 
-        self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+        self._body:set_collides_with(rt.settings.player.player_collision_group)
         self._body:set_use_continuous_collision(true)
         self._body:set_is_sensor(true)
         self._body:signal_connect("collision_start", function()
@@ -283,7 +283,7 @@ function ow.Checkpoint:spawn(should_kill)
     local player = self._scene:get_player()
     player:disable()
     local vx, vy = player:get_velocity()
-    player:set_velocity(0, rt.settings.overworld.player.air_target_velocity_x)
+    player:set_velocity(0, rt.settings.player.air_target_velocity_x)
     player:set_trail_visible(false)
 
     self._explosion_position = { player:get_position() }

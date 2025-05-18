@@ -1,6 +1,6 @@
 require "overworld.stage_config"
 require "overworld.object_wrapper"
-require "overworld.player"
+require "common.player"
 require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
 

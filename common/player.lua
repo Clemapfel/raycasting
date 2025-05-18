@@ -1,11 +1,12 @@
 require "common.input_subscriber"
 require "physics.physics"
-require "overworld.player_body"
-require "overworld.player_trail"
+require "common.player_body"
+require "common.player_trail"
 require "common.random"
+require "common.palette"
 
 local radius = 13.5
-rt.settings.overworld.player = {
+rt.settings.player = {
     radius = radius,
     inner_body_radius = 10 / 2 - 0.5,
     n_outer_bodies = 23,
@@ -75,8 +76,8 @@ rt.settings.overworld.player = {
     ground_regular_friction = 0,
     ground_slippery_friction = -0.2,
 
-    max_velocity_x = 8000,
-    max_velocity_y = 13000,
+    max_velocity_x = 2500,
+    max_velocity_y = 2500,
 
     respawn_duration = 2,
     idle_threshold_duration = 0.5,
@@ -94,32 +95,30 @@ local _settings = setmetatable({}, {
     __index = function(self, key)
         local res = debugger.get(key)
         if res == nil then
-            res = rt.settings.overworld.player[key]
+            res = rt.settings.player[key]
         end
         return res
     end
 })
 
---- @class ow.Player
-ow.Player = meta.class("OverworldPlayer")
-meta.add_signals(ow.Player,
+--- @class rt.Player
+rt.Player = meta.class("Player")
+meta.add_signals(rt.Player,
     "jump"
 )
 
-ow.PlayerState = meta.enum("OverworldPlayerState", {
+rt.PlayerState = meta.enum("PlayerState", {
     ACTIVE = 1,
     DISABLED = 2,
     RESPAWNING = 3
 })
 
 --- @brief
-function ow.Player:instantiate(scene, stage)
+function rt.Player:instantiate()
     local player_radius = _settings.radius
     meta.install(self, {
-        _scene = scene,
-        _stage = stage,
-
-        _state = ow.PlayerState.ACTIVE,
+        _stage = nil,
+        _state = rt.PlayerState.ACTIVE,
 
         _color = rt.Palette.PLAYER,
         _opacity = 1,
@@ -224,7 +223,7 @@ function ow.Player:instantiate(scene, stage)
         _last_position_y = 0,
 
         -- animation
-        _trail = ow.PlayerTrail(scene, _settings.radius),
+        _trail = nil, -- rt.PlayerTrail
         _trail_visible = true,
         _graphics_body = nil,
 
@@ -266,17 +265,14 @@ function ow.Player:instantiate(scene, stage)
         _idle_elapsed = 0,
     })
 
-    self._graphics_body = ow.PlayerBody(self)
+    self._trail = rt.PlayerTrail(self)
+    self._graphics_body = rt.PlayerBody(self)
 
     self:_connect_input()
-
-    if self._stage ~= nil then
-        self:move_to_stage(self._stage)
-    end
 end
 
 --- @brief
-function ow.Player:_connect_input()
+function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputButton.JUMP then
             self._jump_button_is_down = true
@@ -346,7 +342,9 @@ function ow.Player:_connect_input()
 end
 
 --- @brief
-function ow.Player:update(delta)
+function rt.Player:update(delta)
+    if self._body == nil then return end
+
     self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
 
     if self._trail_visible then
@@ -363,7 +361,7 @@ function ow.Player:update(delta)
 
     local gravity = _settings.gravity * delta * self._gravity_multiplier
 
-    if self._state == ow.PlayerState.DISABLED then
+    if self._state == rt.PlayerState.DISABLED then
         local vx, vy = self._last_velocity_x, self._last_velocity_y
         vx = 0
         vy = vy + gravity
@@ -836,7 +834,7 @@ function ow.Player:update(delta)
     end
 
     -- update flow
-    if not self._flow_frozen and not (self._skip_next_flow_update == true) and self._state ~= ow.PlayerState.DISABLED then
+    if self._stage ~= nil and not self._flow_frozen and not (self._skip_next_flow_update == true) and self._state ~= rt.PlayerState.DISABLED then
         self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed + delta
 
         -- compute whether the player was making progress over the last n samples
@@ -868,7 +866,7 @@ function ow.Player:update(delta)
         local acceleration = (target_velocity - self._flow_velocity)
         self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
         self._flow = self._flow + self._flow_velocity * delta
-        self._flow = math.clamp(self._flow, 0, 1)
+        self._flow = 1 -- TODO math.clamp(self._flow, 0, 1)
     end
 
     if self._skip_next_flow_update == true then
@@ -879,49 +877,51 @@ function ow.Player:update(delta)
     self:_update_mesh()
 
     -- add blood splatter
-    local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-        local r = self._radius / 2
-        local cx, cy = contact_x, contact_y
+    if self._stage ~= nil then
+        local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
+            local r = self._radius / 2
+            local cx, cy = contact_x, contact_y
 
-        if last_contact_x ~= nil then
-            local dx, dy = contact_x - last_contact_x, contact_y - last_contact_y
-            r = math.magnitude(dx, dy) / 2
+            if last_contact_x ~= nil then
+                local dx, dy = contact_x - last_contact_x, contact_y - last_contact_y
+                r = math.magnitude(dx, dy) / 2
+            end
+
+            self._stage:get_blood_splatter():add(cx, cy, r, self._hue)
         end
 
-        self._stage:get_blood_splatter():add(cx, cy, r, self._hue)
-    end
+        do
+            if self._top_wall and
+                --not top_wall_body:has_tag("slippery") and
+                not top_wall_body:has_tag("no_blood") and
+                math.distance(top_x, top_y, x, y) <= self._radius
+            then
+                _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
+            end
 
-    do
-        if self._top_wall and
-            --not top_wall_body:has_tag("slippery") and
-            not top_wall_body:has_tag("no_blood") and
-            math.distance(top_x, top_y, x, y) <= self._radius
-        then
-            _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
-        end
+            if self._right_wall and
+                --not right_wall_body:has_tag("slippery") and
+                not right_wall_body:has_tag("no_blood") and
+                math.distance(right_x, right_y, x, y) <= self._radius
+            then
+                _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
+            end
 
-        if self._right_wall and
-            --not right_wall_body:has_tag("slippery") and
-            not right_wall_body:has_tag("no_blood") and
-            math.distance(right_x, right_y, x, y) <= self._radius
-        then
-            _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
-        end
+            if self._bottom_wall and
+                --not bottom_wall_body:has_tag("slippery") and
+                not bottom_wall_body:has_tag("no_blood") and
+                math.distance(bottom_x, bottom_y, x, y) <= self._radius
+            then
+                _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
+            end
 
-        if self._bottom_wall and
-            --not bottom_wall_body:has_tag("slippery") and
-            not bottom_wall_body:has_tag("no_blood") and
-            math.distance(bottom_x, bottom_y, x, y) <= self._radius
-        then
-            _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
-        end
-
-        if self._left_wall and
-            --not left_wall_body:has_tag("slippery") and
-            not left_wall_body:has_tag("no_blood") and
-            math.distance(left_x, left_y, x, y) <= self._radius
-        then
-            _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
+            if self._left_wall and
+                --not left_wall_body:has_tag("slippery") and
+                not left_wall_body:has_tag("no_blood") and
+                math.distance(left_x, left_y, x, y) <= self._radius
+            then
+                _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
+            end
         end
     end
 
@@ -938,8 +938,27 @@ function ow.Player:update(delta)
 end
 
 --- @brief
-function ow.Player:move_to_stage(stage)
-    if stage == nil then
+function rt.Player:move_to_stage(stage)
+    self._stage = stage
+
+    local world = nil
+    if stage ~= nil then
+        world = stage:get_physics_world()
+    end
+
+    self:move_to_world(world)
+
+    if stage ~= nil and stage:get_active_checkpoint() ~= nil then
+        stage:get_active_checkpoint():spawn(false)
+    end
+end
+
+function rt.Player:move_to_world(world)
+    if world ~= nil then
+        meta.assert(world, b2.World)
+    end
+
+    if world == nil then
         self._stage = nil
         self._world = nil
         self._body = nil
@@ -952,17 +971,14 @@ function ow.Player:move_to_stage(stage)
     end
 
     local x, y = 0, 0
-    meta.assert(stage, "Stage", x, "Number", y, "Number")
 
     self._trail:clear()
     self:reset_flow()
     self._last_flow_fraction = 0
     self._gravity_multiplier = 1
 
-    local world = stage:get_physics_world()
     if world == self._world then return end
 
-    self._stage = stage
     self._world = world
     self._world:set_gravity(0, 0)
 
@@ -1093,19 +1109,16 @@ function ow.Player:move_to_stage(stage)
         self._bubble_mass = self._bubble_mass + body:get_mass()
     end
 
-    if self._state == ow.PlayerState.DISABLED then
+    if self._state == rt.PlayerState.DISABLED then
         self:disable()
     end
-
-    if self._stage:get_active_checkpoint() == nil then return end
-    self._stage:get_active_checkpoint():spawn(false)
 
     local is_bubble = self._is_bubble
     self._is_bubble = nil
     self:set_is_bubble(is_bubble)
 end
 
-function ow.Player:_update_mesh()
+function rt.Player:_update_mesh()
     local positions
     if self._is_bubble then
         positions = {
@@ -1137,15 +1150,18 @@ function ow.Player:_update_mesh()
 end
 
 --- @brief
-function ow.Player:draw_body()
+function rt.Player:draw_body()
     local r, g, b, a = self._color:unpack()
 
     if self._trail_visible then
-        --love.graphics.setColor(r, g, b, self._opacity)
-        self._trail:draw()
+        self._trail:draw_below()
     end
 
     self._graphics_body:draw_body()
+
+    if self._trail_visible then
+        self._trail:draw_above()
+    end
 
     if _settings.debug_drawing_enabled then
         if not self._use_bubble_mesh then
@@ -1213,12 +1229,18 @@ function ow.Player:draw_body()
 end
 
 --- @brief
-function ow.Player:draw_core()
+function rt.Player:draw_core()
     self._graphics_body:draw_core()
 end
 
 --- @brief
-function ow.Player:get_position()
+function rt.Player:draw()
+    self:draw_body()
+    self:draw_core()
+end
+
+--- @brief
+function rt.Player:get_position()
     if self._body == nil then return 0, 0 end
 
     if not self._is_bubble then
@@ -1229,7 +1251,18 @@ function ow.Player:get_position()
 end
 
 --- @brief
-function ow.Player:get_velocity()
+function rt.Player:get_predicted_position()
+    if self._body == nil then return 0, 0 end
+
+    if not self._is_bubble then
+        return self._body:get_predicted_position()
+    else
+        return self._bubble_body:get_predicted_position()
+    end
+end
+
+--- @brief
+function rt.Player:get_velocity()
     if not self._is_bubble then
         return self._body:get_velocity()
     else
@@ -1238,7 +1271,7 @@ function ow.Player:get_velocity()
 end
 
 --- @brief
-function ow.Player:teleport_to(x, y)
+function rt.Player:teleport_to(x, y)
     meta.assert(x, "Number", y, "Number")
     if self._body ~= nil then
         self._body:set_position(x, y)
@@ -1262,7 +1295,7 @@ function ow.Player:teleport_to(x, y)
 end
 
 --- @brief
-function ow.Player:get_radius()
+function rt.Player:get_radius()
     if not self._is_bubble then
         return self._radius
     else
@@ -1271,7 +1304,7 @@ function ow.Player:get_radius()
 end
 
 --- @brief
-function ow.Player:set_jump_allowed(b)
+function rt.Player:set_jump_allowed(b)
     self._jump_allowed_override = b
 
     if b == true then
@@ -1281,7 +1314,7 @@ function ow.Player:set_jump_allowed(b)
 end
 
 --- @brief
-function ow.Player:get_physics_body()
+function rt.Player:get_physics_body()
     if not self._is_bubble then
         return self._body
     else
@@ -1290,7 +1323,7 @@ function ow.Player:get_physics_body()
 end
 
 --- @brief
-function ow.Player:destroy_physics_body()
+function rt.Player:destroy_physics_body()
     self._body:destroy()
     for body in values(self._spring_bodies) do
         body:destroy()
@@ -1305,12 +1338,12 @@ end
 local _before = nil
 
 --- @brief
-function ow.Player:disable()
-    if self._state ~= ow.PlayerState.DISABLED then
+function rt.Player:disable()
+    if self._state ~= rt.PlayerState.DISABLED then
         _before = self._state
     end
 
-    self._state = ow.PlayerState.DISABLED
+    self._state = rt.PlayerState.DISABLED
 
     self._body:set_collision_disabled(true)
     for body in values(self._spring_bodies) do
@@ -1324,14 +1357,14 @@ function ow.Player:disable()
 end
 
 --- @brief
-function ow.Player:enable()
+function rt.Player:enable()
     if _before == nil then
-        self._state = ow.PlayerState.ACTIVE
+        self._state = rt.PlayerState.ACTIVE
     else
         self._state = _before
     end
 
-    self._state = ow.PlayerState.ACTIVE
+    self._state = rt.PlayerState.ACTIVE
 
     self._body:set_collision_disabled(false)
     for body in values(self._spring_bodies) do
@@ -1345,7 +1378,7 @@ function ow.Player:enable()
 end
 
 --- @brief
-function ow.Player:set_velocity(x, y)
+function rt.Player:set_velocity(x, y)
     meta.assert(x, "Number", y, "Number")
     if self._body ~= nil then
         self._body:set_velocity(x, y)
@@ -1354,32 +1387,32 @@ function ow.Player:set_velocity(x, y)
 end
 
 --- @brief
-function ow.Player:get_velocity()
+function rt.Player:get_velocity()
     return self._last_velocity_x, self._last_velocity_y
 end
 
 --- @brief
-function ow.Player:set_use_friction(b)
+function rt.Player:set_use_friction(b)
     self._use_friction = b
 end
 
 --- @brief
-function ow.Player:get_use_friction()
+function rt.Player:get_use_friction()
     return self._use_friction
 end
 
 --- @brief
-function ow.Player:set_use_wall_friction(b)
+function rt.Player:set_use_wall_friction(b)
     self._use_wall_friction = b
 end
 
 --- @brief
-function ow.Player:get_use_wall_friction()
+function rt.Player:get_use_wall_friction()
     return self._use_wall_friction
 end
 
 --- @brief
-function ow.Player:bounce(nx, ny)
+function rt.Player:bounce(nx, ny)
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
     self._bounce_force = math.max(self._bounce_force, math.abs(math.dot(self._last_velocity_x, self._last_velocity_y, nx, ny)))
@@ -1390,12 +1423,12 @@ function ow.Player:bounce(nx, ny)
 end
 
 --- @brief
-function ow.Player:set_is_frozen(b)
+function rt.Player:set_is_frozen(b)
     self._is_frozen = b
 end
 
 --- @brief
-function ow.Player:set_trail_visible(b)
+function rt.Player:set_trail_visible(b)
     meta.assert(b, "Boolean")
     if b ~= self._trail_visible then
         self._trail:clear()
@@ -1405,64 +1438,59 @@ function ow.Player:set_trail_visible(b)
 end
 
 --- @brief
-function ow.Player:pulse(...)
-    self._scene._post_fx:pulse()
-end
-
---- @brief
-function ow.Player:get_flow()
+function rt.Player:get_flow()
     return self._flow
 end
 
 --- @brief
-function ow.Player:set_flow(x)
+function rt.Player:set_flow(x)
     self._flow = math.clamp(x, 0, 1)
 end
 
 --- @brief
-function ow.Player:reset_flow()
+function rt.Player:reset_flow()
     self._flow = 0
     self._flow_fraction_history_sum = 0
     self._flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n)
 end
 
 --- @brief
-function ow.Player:get_flow()
+function rt.Player:get_flow()
     return self._flow
 end
 
 --- @brief
-function ow.Player:set_flow_velocity(x)
+function rt.Player:set_flow_velocity(x)
     self._flow_velocity = math.clamp(x, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
 end
 
 --- @brief
-function ow.Player:set_flow_is_frozen(b)
+function rt.Player:set_flow_is_frozen(b)
     self._flow_frozen = b
 end
 
 --- @brief
-function ow.Player:get_hue()
+function rt.Player:get_hue()
     return self._hue
 end
 
 --- @brief
-function ow.Player:set_hue(value)
+function rt.Player:set_hue(value)
     self._hue = math.fract(value)
 end
 
 --- @brief
-function ow.Player:set_gravity(x)
+function rt.Player:set_gravity(x)
     self._gravity_multiplier = x
 end
 
 --- @brief
-function ow.Player:get_gravity()
+function rt.Player:get_gravity()
     return self._gravity_multiplier
 end
 
 --- @brief
-function ow.Player:set_is_bubble(b)
+function rt.Player:set_is_bubble(b)
     if b == self._is_bubble then return end
 
     local before = self._is_bubble
@@ -1539,27 +1567,27 @@ function ow.Player:set_is_bubble(b)
 end
 
 --- @brief
-function ow.Player:get_is_bubble()
+function rt.Player:get_is_bubble()
     return self._is_bubble
 end
 
 --- @brief
-function ow.Player:set_opacity(alpha)
+function rt.Player:set_opacity(alpha)
     self._opacity = alpha
 end
 
 --- @brief
-function ow.Player:get_opacity()
+function rt.Player:get_opacity()
     return self._opacity
 end
 
 --- @brief
-function ow.Player:get_state()
+function rt.Player:get_state()
     return self._state
 end
 
 --- @brief
-function ow.Player:get_walls()
+function rt.Player:get_walls()
     local out = {}
     if self._top_wall_body ~= nil then table.insert(out, self._top_wall_body) end
     if self._right_wall_body ~= nil then table.insert(out, self._right_wall_body) end
@@ -1571,6 +1599,6 @@ function ow.Player:get_walls()
 end
 
 --- @brief
-function ow.Player:get_is_idle()
+function rt.Player:get_is_idle()
     return self._idle_elapsed > _settings.idle_threshold_duration
 end

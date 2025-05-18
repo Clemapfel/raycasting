@@ -2,7 +2,7 @@
 --- @field signal String
 --- @field target ow.ObjectWrapper
 --- @field value any?
---- @signal activate (self, ow.Player) -> nil
+--- @signal activate (self, rt.Player) -> nil
 ow.OverlapTrigger = meta.class("OverlapTrigger", rt.Drawable) -- TODO
 meta.add_signals(ow.OverlapTrigger, "activate")
 

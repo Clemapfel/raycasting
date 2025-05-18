@@ -13,7 +13,7 @@ ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
-    local radius = rt.settings.overworld.player.radius * rt.settings.overworld.hook.radius_factor
+    local radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
 
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Hook: object is not a point")
     self._scene = scene
@@ -45,7 +45,7 @@ function ow.Hook:instantiate(object, stage, scene)
     local hook = self
     self._body:set_is_sensor(true)
     self._body:add_tag("slippery")
-    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+    self._body:set_collides_with(rt.settings.player.player_collision_group)
 
     local player_signal_id = nil
 

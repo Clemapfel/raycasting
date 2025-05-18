@@ -2,7 +2,7 @@ require "common.input_subscriber"
 require "physics.physics"
 
 
-rt.settings.overworld.player = {
+rt.settings.player = {
     radius = 13.5,
     inner_body_radius = 8 / 2 - 0.5,
     n_outer_bodies = 31,
@@ -49,16 +49,16 @@ forces:
 ]]--
 
 
-local _settings = rt.settings.overworld.player
+local _settings = rt.settings.player
 
---- @class ow.Player
-ow.Player = meta.class("OverworldPlayer")
-meta.add_signals(ow.Player,
+--- @class rt.Player
+rt.Player = meta.class("Player")
+meta.add_signals(rt.Player,
     "jump"
 )
 
 --- @brief
-function ow.Player:instantiate(scene, stage)
+function rt.Player:instantiate(scene, stage)
     local player_radius = _settings.radius
     meta.install(self, {
         _scene = scene,
@@ -162,17 +162,17 @@ local _SPRINT_BUTTON = {
 }
 
 --- @brief
-function ow.Player:get_is_jump_button(which)
+function rt.Player:get_is_jump_button(which)
     return _JUMP_BUTTONS[which] == true
 end
 
 --- @brief
-function ow.Player:get_is_sprint_button(which)
+function rt.Player:get_is_sprint_button(which)
     return _SPRINT_BUTTON[which] == true
 end
 
 --- @brief
-function ow.Player:_get_is_midair()
+function rt.Player:_get_is_midair()
     if self._body == nil then return false end
     local current_y = select(2, self._body:get_position())
     if current_y >= self._last_known_grounded_y and self._is_midair_timer < _settings.coyote_time then
@@ -184,7 +184,7 @@ function ow.Player:_get_is_midair()
 end
 
 --- @brief
-function ow.Player:_get_can_jump()
+function rt.Player:_get_can_jump()
     if self._jump_allowed_override ~= nil then
         local out = self._jump_allowed_override
         self._jump_allowed_override = nil
@@ -209,7 +209,7 @@ function ow.Player:_get_can_jump()
 end
 
 --- @brief
-function ow.Player:_connect_input()
+function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
         if self:get_is_jump_button(which) then
             -- jump
@@ -304,7 +304,7 @@ function ow.Player:_connect_input()
 end
 
 --- @brief
-function ow.Player:update(delta)
+function rt.Player:update(delta)
     local midair_before = not self._bottom_wall
 
     -- raycast to check for walls
@@ -552,7 +552,7 @@ function ow.Player:update(delta)
 end
 
 --- @brief
-function ow.Player:move_to_stage(stage, x, y)
+function rt.Player:move_to_stage(stage, x, y)
     meta.assert(stage, "Stage", x, "Number", y, "Number")
     local world = stage:get_physics_world()
     if world == self._world then return end
@@ -621,7 +621,7 @@ function ow.Player:move_to_stage(stage, x, y)
         local radius = self._radius
         local x_radius = radius / 2
 
-        local n_bodies = rt.settings.overworld.player.n_outer_bodies
+        local n_bodies = rt.settings.player.n_outer_bodies
         local circumference = 2 * math.pi * radius
         local y_radius = (circumference / n_bodies)
 
@@ -701,7 +701,7 @@ function ow.Player:move_to_stage(stage, x, y)
 end
 
 --- @brief
-function ow.Player:draw()
+function rt.Player:draw()
     -- draw mesh
 
     love.graphics.push()
@@ -749,18 +749,18 @@ function ow.Player:draw()
 end
 
 --- @brief
-function ow.Player:get_position()
+function rt.Player:get_position()
     return self._body:get_position()
 end
 
 --- @brief
-function ow.Player:get_velocity()
+function rt.Player:get_velocity()
     local _, vy = self._body:get_velocity()
     return self._velocity_sign * self._velocity_magnitude * self._velocity_multiplier, vy
 end
 
 --- @brief
-function ow.Player:teleport_to(x, y)
+function rt.Player:teleport_to(x, y)
     if self._body ~= nil then
         self._body:set_position(x, y)
 
@@ -771,17 +771,17 @@ function ow.Player:teleport_to(x, y)
 end
 
 --- @brief
-function ow.Player:get_radius()
+function rt.Player:get_radius()
     return self._radius
 end
 
 --- @brief
-function ow.Player:set_jump_allowed(b)
+function rt.Player:set_jump_allowed(b)
     self._jump_allowed_override = b
 end
 
 --- @brief
-function ow.Player:get_physics_body()
+function rt.Player:get_physics_body()
     return self._body
 end
 

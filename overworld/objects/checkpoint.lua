@@ -143,12 +143,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             )
         )
         self._body:set_collides_with(bit.bor(
-            rt.settings.overworld.player.player_collision_group,
-            rt.settings.overworld.player.player_outer_body_collision_group
+            rt.settings.player.player_collision_group,
+            rt.settings.player.player_outer_body_collision_group
         ))
 
-        self._body:set_collides_with(rt.settings.overworld.player.bounce_collision_group)
-        self._body:set_collision_group(rt.settings.overworld.player.bounce_collision_group)
+        self._body:set_collides_with(rt.settings.player.bounce_collision_group)
+        self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
         self._body:set_use_continuous_collision(true)
         self._body:set_is_sensor(true)
@@ -185,8 +185,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                     body:set_mass(height / n_segments * 0.015)
                 end
 
-                body:set_collides_with(bit.bnot(rt.settings.overworld.player.exempt_collision_group))
-                body:set_collision_group(rt.settings.overworld.player.exempt_collision_group)
+                body:set_collides_with(bit.bnot(rt.settings.player.exempt_collision_group))
+                body:set_collision_group(rt.settings.player.exempt_collision_group)
                 body:set_is_rotation_fixed(false)
 
                 self._segment_bodies[i] = body
@@ -388,8 +388,8 @@ function ow.Checkpoint:update(delta)
         self._ray_fade_out_fraction = self._ray_fade_out_elapsed / fade_out_duration
 
         -- once player reaches ground
-        if player_y >= threshold or player:get_state() ~= ow.PlayerState.DISABLED then
-            if player:get_state() == ow.PlayerState.DISABLED then
+        if player_y >= threshold or player:get_state() ~= rt.PlayerState.DISABLED then
+            if player:get_state() == rt.PlayerState.DISABLED then
                 player:set_gravity(1)
                 player:enable()
                 player:bounce(0, -0.3)
@@ -453,8 +453,8 @@ function ow.Checkpoint:_break()
 
         for body in values(self._segment_bodies) do
             body:set_collides_with(bit.bnot(bit.bor(
-                rt.settings.overworld.player.player_collision_group,
-                rt.settings.overworld.player.player_outer_body_collision_group
+                rt.settings.player.player_collision_group,
+                rt.settings.player.player_outer_body_collision_group
             )))
 
             local body_x, body_y = body:get_position()

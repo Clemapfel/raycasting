@@ -2,13 +2,13 @@ require "common.render_texture"
 require "common.blend_mode"
 require "common.smoothed_motion_1d"
 
---- @class ow.PlayerTrail
-ow.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
+--- @class rt.PlayerTrail
+rt.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
 
 local _canvas_a, _canvas_b = nil, nil
 
 --- @brief
-function ow.PlayerTrail:instantiate(scene, radius)
+function rt.PlayerTrail:instantiate(scene, radius)
     meta.assert(scene, "OverworldScene")
     self._scene = scene
     self._width, self._height = love.graphics.getWidth(), love.graphics.getHeight()
@@ -27,7 +27,7 @@ function ow.PlayerTrail:instantiate(scene, radius)
 end
 
 --- @brief
-function ow.PlayerTrail:clear()
+function rt.PlayerTrail:clear()
     _canvas_a:bind()
     love.graphics.clear(0, 0, 0, 0)
     _canvas_b:bind()
@@ -36,7 +36,7 @@ function ow.PlayerTrail:clear()
 end
 
 --- @brief
-function ow.PlayerTrail:get_size()
+function rt.PlayerTrail:get_size()
     return self._width, self._height
 end
 
@@ -44,7 +44,7 @@ local _mesh = nil
 local _circle_mesh = nil
 
 --- @brief
-function ow.PlayerTrail:_draw_trail(x1, y1, x2, y2)
+function rt.PlayerTrail:_draw_trail(x1, y1, x2, y2)
     local dx, dy = math.normalize(x2 - x1, y2 - y1)
 
     local inner_width = 1 * (1 + 3 * self._boom_current_a)
@@ -126,8 +126,8 @@ end
 
 local _boom_mesh
 
-function ow.PlayerTrail:_draw_boom(x, y, angle)
-    local player_radius = rt.settings.overworld.player.radius
+function rt.PlayerTrail:_draw_boom(x, y, angle)
+    local player_radius = rt.settings.player.radius
     local x_radius = 1.5 * player_radius
     local y_radius = 2 * player_radius
     local y_offset = y_radius - player_radius
@@ -177,9 +177,9 @@ local _circle_elapsed = 0
 local _hue = 0
 
 --- @brief
-function ow.PlayerTrail:update(delta)
+function rt.PlayerTrail:update(delta)
     local vx, vy = self._scene:get_player():get_physics_body():get_linear_velocity()
-    local target = 3 * rt.settings.overworld.player.air_target_velocity_x
+    local target = 3 * rt.settings.player.air_target_velocity_x
     self._boom_current_a = math.min(math.magnitude(vx, vy) / target, 1)^4
     self._trail_a = math.max(math.magnitude(vx, vy) / target, 0.3)
 
@@ -299,7 +299,7 @@ end
 
 
 --- @brief
-function ow.PlayerTrail:draw()
+function rt.PlayerTrail:draw()
     local x, y = self._scene:get_camera():get_position()
     local w, h = self._width, self._height
     x = x - 0.5 * w
@@ -325,7 +325,7 @@ function ow.PlayerTrail:draw()
 end
 
 --- @brief
-function ow.PlayerTrail:pulse(x, y)
+function rt.PlayerTrail:pulse(x, y)
     self._should_pulse = true
     self._pulse_x = x -- may be nil
     self._pulse_y = y

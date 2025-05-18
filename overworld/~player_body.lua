@@ -1,9 +1,9 @@
---- @class ow.PlayerBody
-ow.PlayerBody = meta.class("PlayerBody")
+--- @class rt.PlayerBody
+rt.PlayerBody = meta.class("PlayerBody")
 
 --- @brief
-function ow.PlayerBody:instantiate(player)
-    meta.assert(player, ow.Player)
+function rt.PlayerBody:instantiate(player)
+    meta.assert(player, rt.Player)
 
     self._player = player
     self._elapsed = 0
@@ -24,9 +24,9 @@ function ow.PlayerBody:instantiate(player)
 end
 
 --- @brief
-function ow.PlayerBody:initialize(x, y)
-    local _settings = rt.settings.overworld.player
-    local radius = rt.settings.overworld.player.radius
+function rt.PlayerBody:initialize(x, y)
+    local _settings = rt.settings.player
+    local radius = rt.settings.player.radius
     local max_rope_length = radius * 10
 
     self._n_segments = radius
@@ -165,7 +165,7 @@ local function _solve_bending_constraint(a_x, a_y, b_x, b_y, c_x, c_y, rest_leng
 end
 
 --- @brief
-function ow.PlayerBody:update(delta)
+function rt.PlayerBody:update(delta)
     self._elapsed = self._elapsed + delta
 
     local axis_x, axis_y = self._player:get_velocity()
@@ -301,7 +301,7 @@ function ow.PlayerBody:update(delta)
 end
 
 --- @brief
-function ow.PlayerBody:draw(is_bubble)
+function rt.PlayerBody:draw(is_bubble)
     love.graphics.setColor(1, 1, 1, 1)
 
     local hue = 0

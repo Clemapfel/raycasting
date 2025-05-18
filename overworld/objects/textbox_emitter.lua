@@ -6,7 +6,7 @@ rt.settings.overworld.text_box_emitter = {
 }
 
 --- @class ow.TextboxEmitter
---- @signal activate (self, ow.Player) -> nil
+--- @signal activate (self, rt.Player) -> nil
 ow.TextBoxEmitter = meta.class("TextboxEmitter", rt.Drawable)
 meta.add_signals(ow.TextBoxEmitter, "activate")
 

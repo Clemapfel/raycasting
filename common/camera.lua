@@ -1,16 +1,15 @@
 require "common.sprite_batch"
 
-rt.settings.overworld.camera = {
+rt.settings.common.camera = {
     speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
     max_velocity = 2000
 }
 
-
---- @class ow.Camera
-ow.Camera = meta.class("Camera")
+--- @class rt.Camera
+rt.Camera = meta.class("Camera")
 
 --- @brief
-function ow.Camera:instantiate()
+function rt.Camera:instantiate()
     meta.install(self, {
         _current_x = 0,
         _current_y = 0,
@@ -43,7 +42,7 @@ else
 end
 
 --- @brief
-function ow.Camera:bind()
+function rt.Camera:bind()
     local w, h = love.graphics.getDimensions()
     love.graphics.push()
     love.graphics.origin()
@@ -57,13 +56,13 @@ function ow.Camera:bind()
 end
 
 --- @brief
-function ow.Camera:unbind()
+function rt.Camera:unbind()
     --love.graphics.rectangle("line", self._bounds_x, self._bounds_y, self._bounds_width, self._bounds_height)
     love.graphics.pop()
 end
 
 --- @brief [internal]
-function ow.Camera:_constrain(x, y)
+function rt.Camera:_constrain(x, y)
     if self._apply_bounds == true then
         local screen_w, screen_h = love.graphics.getDimensions()
         local w, h = screen_w / self._current_scale, screen_h / self._current_scale
@@ -81,11 +80,11 @@ function ow.Camera:_constrain(x, y)
 end
 
 local _distance_f = function(x)
-    local speed = rt.settings.overworld.camera.speed
+    local speed = rt.settings.common.camera.speed
     return math.sqrt(math.abs(x)) * math.abs(x)^(1 - (1 - speed)) * math.sign(x)
 end
 
-function ow.Camera:update(delta)
+function rt.Camera:update(delta)
     local screen_w, screen_h = love.graphics.getDimensions()
 
     local dx = _distance_f(self._target_x - self._current_x)
@@ -93,8 +92,8 @@ function ow.Camera:update(delta)
     dx = dx / screen_w
     dy = dy / screen_h
 
-    self._velocity_x = dx * rt.settings.overworld.camera.max_velocity
-    self._velocity_y = dy * rt.settings.overworld.camera.max_velocity
+    self._velocity_x = dx * rt.settings.common.camera.max_velocity
+    self._velocity_y = dy * rt.settings.common.camera.max_velocity
 
     local final_delta_x = self._velocity_x * delta
     local final_delta_y = self._velocity_y * delta
@@ -105,7 +104,7 @@ function ow.Camera:update(delta)
 end
 
 --- @brief
-function ow.Camera:reset()
+function rt.Camera:reset()
     self._current_x = self._target_x
     self._current_y = self._target_y
     self._velocity_x = 0
@@ -115,22 +114,22 @@ function ow.Camera:reset()
 end
 
 --- @brief
-function ow.Camera:get_rotation()
+function rt.Camera:get_rotation()
     return self._current_angle
 end
 
 --- @brief
-function ow.Camera:set_rotation(r)
+function rt.Camera:set_rotation(r)
     self._current_angle = r
 end
 
 --- @brief
-function ow.Camera:get_position()
+function rt.Camera:get_position()
     return self._current_x, self._current_y
 end
 
 --- @brief
-function ow.Camera:get_velocity()
+function rt.Camera:get_velocity()
     local now = love.timer.getTime()
     local dt = now - self._timestamp
     local dx = self._current_x - self._last_x
@@ -139,13 +138,13 @@ function ow.Camera:get_velocity()
 end
 
 --- @brief
-function ow.Camera:get_size()
+function rt.Camera:get_size()
     local w, h = love.graphics.getDimensions()
     return w * self._current_scale, h * self._current_scale
 end
 
 --- @brief
-function ow.Camera:set_position(x, y, override_bounds)
+function rt.Camera:set_position(x, y, override_bounds)
     if override_bounds ~= true then
         x, y = self:_constrain(x, y)
     end
@@ -157,7 +156,7 @@ function ow.Camera:set_position(x, y, override_bounds)
 end
 
 --- @brief
-function ow.Camera:move_to(x, y, override_bounds)
+function rt.Camera:move_to(x, y, override_bounds)
     if override_bounds ~= true then
         self._target_x, self._target_y = self:_constrain(x, y)
     else
@@ -166,12 +165,12 @@ function ow.Camera:move_to(x, y, override_bounds)
 end
 
 --- @brief
-function ow.Camera:get_scale()
+function rt.Camera:get_scale()
     return self._current_scale
 end
 
 --- @brief
-function ow.Camera:set_scale(s, override_bounds)
+function rt.Camera:set_scale(s, override_bounds)
     self._current_scale = s
 
     if override_bounds ~= true then
@@ -180,7 +179,7 @@ function ow.Camera:set_scale(s, override_bounds)
 end
 
 --- @brief
-function ow.Camera:set_bounds(bounds)
+function rt.Camera:set_bounds(bounds)
     if bounds ~= nil then
         meta.assert(bounds, "AABB")
         self._bounds_x = bounds.x
@@ -196,22 +195,22 @@ function ow.Camera:set_bounds(bounds)
 end
 
 --- @brief
-function ow.Camera:get_bounds()
+function rt.Camera:get_bounds()
     return rt.AABB(self._bounds_x, self._bounds_y, self._bounds_width, self._bounds_height)
 end
 
 --- @brief
-function ow.Camera:set_apply_bounds(b)
+function rt.Camera:set_apply_bounds(b)
     self._apply_bounds = b
 end
 
 --- @brief
-function ow.Camera:get_apply_bounds()
+function rt.Camera:get_apply_bounds()
     return self._apply_bounds
 end
 
 --- @brief
-function ow.Camera:screen_xy_to_world_xy(screen_x, screen_y)
+function rt.Camera:screen_xy_to_world_xy(screen_x, screen_y)
     local screen_w, screen_h = love.graphics.getDimensions()
     local origin_x, origin_y = 0.5 * screen_w, 0.5 * screen_h
 
@@ -233,7 +232,7 @@ function ow.Camera:screen_xy_to_world_xy(screen_x, screen_y)
 end
 
 --- @brief
-function ow.Camera:world_xy_to_screen_xy(world_x, world_y)
+function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
     local screen_w, screen_h = love.graphics.getDimensions()
     local origin_x, origin_y = 0.5 * screen_w, 0.5 * screen_h
 
@@ -255,7 +254,7 @@ function ow.Camera:world_xy_to_screen_xy(world_x, world_y)
 end
 
 --- @brief
-function ow.Camera:get_offset()
+function rt.Camera:get_offset()
     local w, h = love.graphics.getDimensions()
     return -_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h
 end

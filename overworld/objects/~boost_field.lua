@@ -16,7 +16,7 @@ local _shader = nil
 function ow.BoostField:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
-    self._body:set_collides_with(rt.settings.overworld.player.player_collision_group)
+    self._body:set_collides_with(rt.settings.player.player_collision_group)
 
     self._use_exact_testing = table.sizeof(self._body:get_native():getShapes()) > 1
 
@@ -94,7 +94,7 @@ function ow.BoostField:update(delta)
         local target = self._target_velocity
         local target_vx, target_vy = self._axis_x * target, self._axis_y * target
 
-        target_vy = target_vy - rt.settings.overworld.player.gravity * delta
+        target_vy = target_vy - rt.settings.player.gravity * delta
 
         local duration = rt.settings.overworld.boost_field.acceleration_duration
 
