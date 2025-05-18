@@ -1146,7 +1146,6 @@ function ow.Player:draw_body()
     end
 
     self._graphics_body:draw_body()
-    love.graphics.setColor(1, 1, 1, 1)
 
     if _settings.debug_drawing_enabled then
         if not self._use_bubble_mesh then

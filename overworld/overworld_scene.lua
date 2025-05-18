@@ -395,13 +395,8 @@ function ow.OverworldScene:draw()
     self._player:draw_body()
     self._post_fx:unbind()
 
-    self._post_fx:bind_mask()
-    self._stage:draw_mask()
-    self._post_fx:unbind_mask()
     self._camera:unbind()
-
     self._post_fx:draw()
-
 
     self._camera:bind()
     self._player:draw_core()
@@ -455,7 +450,7 @@ function ow.OverworldScene:update(delta)
     self._stage:update(delta)
 
     self._camera:update(delta)
-    self._post_fx:update(delta)
+    --self._post_fx:update(delta)
     self._player:update(delta)
 
     self._background:_notify_camera_changed(self._camera)

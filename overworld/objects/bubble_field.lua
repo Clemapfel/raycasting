@@ -3,7 +3,7 @@ rt.settings.overworld.bubble_field = {
     thickness = 3,
     n_smoothing_iterations = 5,
     alpha = 1,
-    wave_deactivation_threshold = 1 / 500
+    wave_deactivation_threshold = 1 / 1000
 }
 
 --- @class ow.BubbleField
@@ -22,6 +22,8 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._elapsed = 0
     self._hue = 0
     self._is_active = false
+    self._is_visible = false
+    self._is_initialized = false
 
     self._camera_offset = {0, 0}
     self._camera_scale = 1
@@ -259,12 +261,26 @@ local _dx = 0.1
 local _dt = 0.05
 local _damping = 0.99
 local _courant = _dt / _dx
-local _amplitude = 0.017
+local _amplitude = 0.01
 
 --- @brief
 function ow.BubbleField:update(delta)
     self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
-    if not self._scene:get_is_body_visible(self._body) then return end
+
+    local is_visible =  self._scene:get_is_body_visible(self._body)
+    if not self._is_initialized then
+        self._is_initialized = true
+    elseif self._is_visible == true and is_visible == false then
+        local wave = self._wave
+        for i = 1, self._n_points do
+            wave.current[i] = 0
+            wave.previous[i] = 0
+            wave.next[i] = 0
+        end
+        self._is_visible = is_visible
+    end
+
+    if not is_visible then return end
 
     self._elapsed = self._elapsed + delta
     self._camera_offset = { self._scene:get_camera():get_offset() }

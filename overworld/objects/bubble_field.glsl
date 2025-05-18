@@ -51,6 +51,7 @@ float symmetric(float value) {
     return abs(fract(value) * 2.0 - 1.0);
 }
 
+/*
 #ifdef VERTEX
 
 uniform float elapsed;
@@ -73,6 +74,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 }
 
 #endif
+*/
 
 #ifdef PIXEL
 
