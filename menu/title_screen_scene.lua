@@ -41,6 +41,7 @@ function mn.TitleScreenScene:instantiate(state)
             self._shader:recompile()
             self._player:teleport_to(0, 0)
             self._player:set_velocity(0, 0)
+            self._shader_elapsed = 0
         end
     end)
 
@@ -81,7 +82,7 @@ function mn.TitleScreenScene:update(delta)
     self._camera:update(delta)
     self._player:update(delta)
 
-    if love.keyboard.isDown("space") then
+    if true then --love.keyboard.isDown("space") then
         self._shader_elapsed = self._shader_elapsed + delta
         self._shader_camera_offset = { self._camera:get_offset() }
         self._shader_camera_scale = self._camera:get_scale()
@@ -95,7 +96,7 @@ end
 --- @brief
 function mn.TitleScreenScene:draw()
 
-    self._blur:bind()
+    --self._blur:bind()
     love.graphics.clear()
     love.graphics.push()
     love.graphics.origin()
@@ -108,10 +109,10 @@ function mn.TitleScreenScene:draw()
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     self._shader:unbind()
     love.graphics.pop()
-    self._blur:unbind()
+    --self._blur:unbind()
     
-    self._blur:set_blur_strength(self._fallspeed * 20)
-    self._blur:draw()
+    --self._blur:set_blur_strength(self._fallspeed * 20)
+    --self._blur:draw()
 
     self._camera:bind()
     --self._player:draw()

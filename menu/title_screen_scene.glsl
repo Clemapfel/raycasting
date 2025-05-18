@@ -121,27 +121,32 @@ vec3 smooth_fract(vec3 v) {
     return vec3(smooth_fract(v.x), smooth_fract(v.y), smooth_fract(v.z));
 }
 
+float smooth_max(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(a, b, h) + k * h * (1.0 - h);
+}
+
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
 
-    float time = elapsed / 8;
-    float scale = 1 * time;
-    const float n_octaves = 2;
-    for (int i = 1; i <= n_octaves; ++i) {
-        if (mod(i, 2) == 0) {
-            uv.x += (worley_noise(vec3(uv * scale, time / i)) * 2) - 1;
-            uv.y += (worley_noise(vec3(uv * scale, time / i)) * 2) -1;
-        } else {
-            uv.x -= (gradient_noise(vec3(uv * scale, time / i)) * 2) - 1;
-            uv.y -= (gradient_noise(vec3(uv * scale, time / i)) * 2) - 1;
-        }
+    float time = elapsed / 200;
+    vec2 center = to_uv(0.5 * love_ScreenSize.xy);
 
-        uv.xy = smooth_fract(uv.yx * PI * i * 0.2);
-        scale = scale;
+    float scale = 10;
+    float noise = 0;
+    int n_octaves = 30;
+    float hue = 0;
+    for (int i = 1; i <= n_octaves; ++i) {
+        noise = smooth_max(noise, worley_noise(vec3(uv * scale - vec2(0, -elapsed), i)), 0.3);
+        hue += noise * 0.25;
+        scale *= 1.05;
     }
 
-    float noise = smoothstep(0, 0.8, gradient_noise(vec3(uv, length(uv - texture_coords))));
-    return vec4(noise);
+    float eps = 0.05;
+    float threhsold = 0.98;
+    float value = smoothstep(threhsold, threhsold + eps, noise);
+    float hue_offset = gradient_noise(vec3(uv * scale * value, elapsed));
+    return vec4(lch_to_rgb(vec3(mix(0.6, 0.9, hue_offset), 0.9, smooth_fract(hue))), value);
 }
 
 #endif
