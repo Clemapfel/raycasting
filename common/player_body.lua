@@ -141,10 +141,10 @@ function rt.PlayerBody:initialize(positions)
                     local delta = (j - 1) / self._n_segments * rope_length
                     local px = center_x + dx * delta
                     local py = center_y + dy * delta
-                    table.insert(rope.current_positions, px)
-                    table.insert(rope.current_positions, py)
-                    table.insert(rope.last_positions, px)
-                    table.insert(rope.last_positions, py)
+                    table.insert(rope.current_positions, center_x)
+                    table.insert(rope.current_positions, center_x)
+                    table.insert(rope.last_positions, center_x)
+                    table.insert(rope.last_positions, center_x)
                     table.insert(rope.distances, rope_length / self._n_segments)
                     table.insert(rope.bubble_distances, 1 / self._n_segments)
                 end
