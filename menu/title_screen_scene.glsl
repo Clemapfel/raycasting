@@ -129,7 +129,7 @@ float symmetric(float value) {
     return abs(fract(value) * 2.0 - 1.0);
 }
 
-uniform float y_offset;
+uniform float fraction = 1;
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
@@ -142,7 +142,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     int n_octaves = 30;
     float hue = 0;
     for (int i = 1; i <= n_octaves; ++i) {
-        noise = smooth_max(noise, worley_noise(vec3(uv * scale - vec2(0, -elapsed), i)), 0.3);
+        noise = smooth_max(noise, worley_noise(vec3(uv * scale - vec2(0, -elapsed), i)), mix(0.3, 0.7, fraction));
         hue += noise * 0.25;
         scale *= 1.05;
     }
@@ -159,7 +159,7 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     vec3 gradient_color = lch_to_rgb(vec3(0.8, 0.9, mix(0.7, 1.0, bg_y))) * (1 - gradient_noise(vec3(uv * 2, time)));
     vec4 bg = vec4(gradient_color, gradient_alpha) * smoothstep(0, 0.8, gradient_noise(vec3(uv * 2, time)));
 
-    return mix(stars, 0.6 * bg, 1 - value);
+    return mix(stars, 0.6 * bg, min(1 - value + fraction, 1));
 }
 
 #endif

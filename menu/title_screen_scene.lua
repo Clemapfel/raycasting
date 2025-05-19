@@ -90,7 +90,7 @@ function mn.TitleScreenScene:update(delta)
 
     local px, py = self._player:get_predicted_position()
     self._fallspeed = math.min(py / 2000, 1)
-    self._y_offset = py
+    self._fraction = py / 12000
     self._player:set_flow(self._fallspeed)
 end
 
@@ -104,7 +104,7 @@ function mn.TitleScreenScene:draw()
     self._shader:send("elapsed", self._shader_elapsed)
     self._shader:send("camera_offset", self._shader_camera_offset)
     self._shader:send("camera_scale", self._shader_camera_scale)
-    self._shader:send("y_offset", self._y_offset)
+    self._shader:send("fraction", self._fraction)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     self._shader:unbind()
