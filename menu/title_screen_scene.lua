@@ -1,16 +1,17 @@
 require "physics.physics"
 require "common.camera"
 require "common.input_subscriber"
-require "common.blur"
-require "common.sdf"
+require "common.translation"
 
 rt.settings.menu.title_screen_scene = {
     player_max_velocity = 1000,
-    font_path = "assets/fonts/NotoSans/NotoSans-Bold.ttf"
+    font_path = "assets/fonts/RubikBrokenFax/RubikBrokenFax-Regular.ttf"
 }
 
 --- @class mn.TitleScreenScene
 mn.TitleScreenScene = meta.class("TitleScreenScene", rt.Scene)
+
+local _title_shader_sdf, _title_shader_no_sdf, _background_shader = nil
 
 --- @brief
 function mn.TitleScreenScene:instantiate(state)
@@ -21,7 +22,10 @@ function mn.TitleScreenScene:instantiate(state)
     self._camera = rt.Camera()
     self._input = rt.InputSubscriber()
 
-    self._shader = rt.Shader("menu/title_screen_scene.glsl")
+    if _background_shader == nil then
+        _background_shader = rt.Shader("menu/title_screen_scene_background.glsl")
+    end
+
     self._shader_elapsed = 0
     self._shader_camera_offset = { 0, 0 }
     self._shader_camera_scale = 1
@@ -29,7 +33,7 @@ function mn.TitleScreenScene:instantiate(state)
 
     -- setup dummy platform
     self._world = b2.World()
-    local platform_x, platform_y, platform_w, platform_h = 0, self._player:get_radius(), 100, 50
+    local platform_x, platform_y, platform_w, platform_h = 0, self._player:get_radius(), 100, 2
     self._platform = b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Rectangle(
         platform_x - platform_w / 2, platform_y,
         platform_w, platform_h
@@ -37,17 +41,22 @@ function mn.TitleScreenScene:instantiate(state)
 
     self._player:move_to_world(self._world)
 
-    -- title
-    self._font = rt.Font(0.15 * love.graphics.getHeight(), rt.settings.menu.title_screen_scene.font_path)
-    self._title_label = rt.Label("<b><o><rainbow>CHROMA DRIFT</rainbow></o></b>", self._font)
-    self._title_label_raw = rt.Label("CHROMA DRIFT", self._font)
+    if _title_shader_no_sdf == nil then
+        _title_shader_no_sdf = rt.Shader("menu/title_screen_scene_label.glsl", { MODE = 0 })
+    end
+
+    if _title_shader_sdf == nil then
+        _title_shader_sdf = rt.Shader("menu/title_screen_scene_label.glsl", { MODE = 1 })
+    end
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "^" then
-            self._shader:recompile()
+            _background_shader:recompile()
             self._player:teleport_to(0, 0)
             self._player:set_velocity(0, 0)
+            _title_shader_no_sdf:recompile()
+            _title_shader_sdf:recompile()
             self._shader_elapsed = 0
         end
     end)
@@ -64,38 +73,24 @@ end
 
 --- @brief
 function mn.TitleScreenScene:realize()
-    self._title_label:realize()
-    self._title_label_raw:realize()
 end
 
 --- @brief
 function mn.TitleScreenScene:size_allocate(x, y, width, height)
-    self._blur = rt.Blur(width, height)
+    --self._camera:set_bounds(rt.AABB(0 - 0.5 * width, 0 - 0.5 * height, width, height))
 
-
-    local title_w, title_h = self._title_label:measure()
-    self._title_label:reformat(0, 0, width)
-    self._title_label_raw:reformat(0, 0, width)
-    local x_padding = math.min(100, (width - title_w) / 2)
-    local y_padding = math.min(100, (height - title_h) / 2)
-    local padding = math.min(x_padding, y_padding)
-    self._sdf = rt.SDF(title_w + 2 * padding, title_h + 2 * padding)
-
-    self._sdf:bind()
-    love.graphics.clear()
-    love.graphics.push()
-    love.graphics.origin()
-    love.graphics.translate(padding, padding)
-    self._title_label_raw:draw()
-    --love.graphics.rectangle("fill", 50, 50, 600, 200)
-    love.graphics.pop()
-    self._sdf:unbind()
-    self._sdf:compute(true)
+    local font_size = 0.15 * love.graphics.getHeight()
+    self._font = rt.Font(font_size, rt.settings.menu.title_screen_scene.font_path)
+    self._font_scale = font_size / (0.15 * 600)
+    local title = rt.Translation.title_screen_scene.title
+    self._title_label_no_sdf = love.graphics.newTextBatch(self._font:get_native(rt.FontStyle.REGULAR, false), title)
+    self._title_label_sdf = love.graphics.newTextBatch(self._font:get_native(rt.FontStyle.REGULAR, true), title)
+    self._title_w, self._title_h = self._font:measure_glyph(title)
 
     local m = rt.settings.margin_unit
     local outer_margin = 3 * m
-    self._title_x = 0 - 0.5 * title_w
-    self._title_y = 0 - title_h - outer_margin
+    self._title_x = 0 - 0.5 * self._title_w
+    self._title_y = 0 - self._title_h - outer_margin
 
     self._title_x, self._title_y = math.round(self._title_x), math.round(self._title_y)
 end
@@ -129,37 +124,53 @@ function mn.TitleScreenScene:update(delta)
     self._player:set_flow(self._fallspeed)
 end
 
+local _black =  { rt.Palette.BLACK:unpack() }
+
 --- @brief
 function mn.TitleScreenScene:draw()
     love.graphics.clear()
     love.graphics.push()
     love.graphics.origin()
-    --self._shader:bind()
-    self._shader:send("elapsed", self._shader_elapsed)
-    self._shader:send("camera_offset", self._shader_camera_offset)
-    self._shader:send("camera_scale", self._shader_camera_scale)
-    self._shader:send("fraction", self._fraction)
+    _background_shader:bind()
+    _background_shader:send("black", _black)
+    _background_shader:send("elapsed", self._shader_elapsed)
+    _background_shader:send("camera_offset", self._shader_camera_offset)
+    _background_shader:send("camera_scale", self._shader_camera_scale)
+    _background_shader:send("fraction", self._fraction)
+    _background_shader:send("hue", self._player:get_hue())
+
     love.graphics.setColor(0.5, 0.5, 0.5, 1)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-    self._shader:unbind()
+    _background_shader:unbind()
+    love.graphics.pop()
+
+    love.graphics.push()
+    local scale = self._camera:get_final_scale() / self._font_scale
+    local offset_x, offset_y = self._camera:get_offset()
+    local w, h = self._bounds.width, self._bounds.height
+    love.graphics.translate(0.5 * w, 0.5 * h)
+    love.graphics.scale(scale, scale)
+    love.graphics.translate(offset_x, offset_y)
+    love.graphics.translate(-0.5 * w, -0.5 * h)
+    _title_shader_sdf:bind()
+    _title_shader_sdf:send("elapsed", self._shader_elapsed)
+    _title_shader_sdf:send("black", _black)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._title_label_sdf, self._title_x, self._title_y)
+    _title_shader_sdf:unbind()
+
+    _title_shader_no_sdf:bind()
+    _title_shader_no_sdf:send("elapsed", self._shader_elapsed)
+    _title_shader_no_sdf:send("hue", self._player:get_hue())
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._title_label_no_sdf, self._title_x, self._title_y)
+    _title_shader_no_sdf:unbind()
     love.graphics.pop()
 
     self._camera:bind()
-
-    love.graphics.push()
-    love.graphics.translate(self._title_x, self._title_y)
-    self._title_label:draw()
-    love.graphics.pop()
-
-
     self._player:draw()
     self._platform:draw()
     self._camera:unbind()
-
-    self._sdf:draw()
-
-
-
 end
 
 --- @brief

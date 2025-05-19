@@ -178,7 +178,7 @@ function b2.World:get_gravity()
 end
 
 local _step = 1 / 120
-local _max_n_steps_per_frame = 4
+local _max_n_steps_per_frame = math.huge
 local _n_velocity_iterations = 4
 
 --- @brief

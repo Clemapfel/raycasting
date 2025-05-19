@@ -66,6 +66,11 @@ rt.Translation = rt.initialize_translation({
         }
     },
 
+    -- title screen
+    title_screen_scene = {
+        title = "CHROMA DRIFT"
+    },
+
     -- stage select
     stage_select_scene = {
         title_header = "Level",

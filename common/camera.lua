@@ -49,7 +49,8 @@ function rt.Camera:bind()
 
     local origin_x, origin_y = _floor(0.5 * w), _floor(0.5 * h)
     love.graphics.translate(origin_x, origin_y)
-    love.graphics.scale(self._current_scale, self._current_scale)
+    local scale = self:get_final_scale()
+    love.graphics.scale(scale, scale)
     love.graphics.rotate(self._current_angle)
     love.graphics.translate(-origin_x, -origin_y)
     love.graphics.translate(-_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h)
@@ -167,6 +168,11 @@ end
 --- @brief
 function rt.Camera:get_scale()
     return self._current_scale
+end
+
+--- @brief
+function rt.Camera:get_final_scale()
+    return self._current_scale * (love.graphics.getHeight() / 600)
 end
 
 --- @brief

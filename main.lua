@@ -151,7 +151,7 @@ love.load = function(args)
     --require "overworld.overworld_scene"
     --rt.SceneManager:set_scene(ow.OverworldScene, "tutorial")
 
-    love.resize(love.graphics.getDimensions())
+    --love.resize(love.graphics.getDimensions())
 end
 
 love.update = function(delta)

@@ -173,6 +173,15 @@ end
 
 --- @brief
 function rt.PlayerTrail:update(delta)
+
+    local new_w, new_h = love.graphics.getDimensions()
+
+    if new_w ~= self._width or new_h ~= self._height then
+        self._width, self._height = new_w, new_h
+        _trail_canvas_a = rt.RenderTexture(self._width, self._height, 0)
+        _trail_canvas_b = rt.RenderTexture(self._width, self._height, 0)
+    end
+
     self._player_x, self._player_y = self._player:get_predicted_position()
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)
     self._opacity = self._player:get_opacity()

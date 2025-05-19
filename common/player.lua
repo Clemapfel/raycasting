@@ -9,7 +9,7 @@ local radius = 13.5
 rt.settings.player = {
     radius = radius,
     inner_body_radius = 10 / 2 - 0.5,
-    n_outer_bodies = 23,
+    n_outer_bodies = 31,
     max_spring_length = radius * 3,
 
     bottom_wall_ray_length_factor = 1.5,
@@ -1206,7 +1206,7 @@ function rt.Player:draw_body()
 
     love.graphics.push()
     love.graphics.origin()
-    do -- draw flow meter
+    if false then -- draw flow meter
         local w, h = 10, 100
         local x, y = 50, 50
         local padding = 1
