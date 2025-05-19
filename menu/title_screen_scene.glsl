@@ -125,6 +125,11 @@ float smooth_max(float a, float b, float k) {
     float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
     return mix(a, b, h) + k * h * (1.0 - h);
 }
+float symmetric(float value) {
+    return abs(fract(value) * 2.0 - 1.0);
+}
+
+uniform float y_offset;
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
@@ -142,29 +147,19 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
         scale *= 1.05;
     }
 
-    vec2 nuv = uv * 10;
-    time = elapsed / 6;
-    for (int i = 1; i <= 4; ++i) {
-        if (mod(i, 2) == 0) {
-            nuv.x += gradient_noise(vec3(nuv , time * i)) * 2 - 1;
-            nuv.y += worley_noise(vec3(nuv, time * i)) * 2 - 1;
-        }
-        else {
-            nuv.x += gradient_noise(vec3(nuv, time * i)) * 2 - 1;
-            nuv.y += worley_noise(vec3(nuv, time * i)) * 2 - 1;
-        }
-
-        nuv.xy = nuv.yx;
-    }
-
-
-    return vec4(mix(0, 1, 1 - distance(nuv, uv)));
-
     float eps = 0.05;
     float threhsold = 0.98;
     float value = smoothstep(threhsold, threhsold + eps, noise);
     float hue_offset = gradient_noise(vec3(uv * scale * value, elapsed));
-    return vec4(lch_to_rgb(vec3(mix(0.6, 0.9, hue_offset), 0.9, smooth_fract(hue))), value);
+    vec4 stars = vec4(lch_to_rgb(vec3(mix(0.6, 0.9, hue_offset), 0.9, smooth_fract(hue))), value);
+
+    // LCH-based gradient
+    float bg_y = uv.y + elapsed / 4;
+    float gradient_alpha = symmetric(bg_y); // Invisible at the top, visible at the bottom
+    vec3 gradient_color = lch_to_rgb(vec3(0.8, 0.9, mix(0.7, 1.0, bg_y))) * (1 - gradient_noise(vec3(uv * 2, time)));
+    vec4 bg = vec4(gradient_color, gradient_alpha) * smoothstep(0, 0.8, gradient_noise(vec3(uv * 2, time)));
+
+    return mix(stars, 0.6 * bg, 1 - value);
 }
 
 #endif

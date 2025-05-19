@@ -90,13 +90,13 @@ function mn.TitleScreenScene:update(delta)
 
     local px, py = self._player:get_predicted_position()
     self._fallspeed = math.min(py / 2000, 1)
+    self._y_offset = py
     self._player:set_flow(self._fallspeed)
 end
 
 --- @brief
 function mn.TitleScreenScene:draw()
-
-    --self._blur:bind()
+    self._blur:bind()
     love.graphics.clear()
     love.graphics.push()
     love.graphics.origin()
@@ -104,19 +104,19 @@ function mn.TitleScreenScene:draw()
     self._shader:send("elapsed", self._shader_elapsed)
     self._shader:send("camera_offset", self._shader_camera_offset)
     self._shader:send("camera_scale", self._shader_camera_scale)
-    self._shader:send("fallspeed", math.clamp(self._fallspeed, 0, 1))
+    self._shader:send("y_offset", self._y_offset)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     self._shader:unbind()
     love.graphics.pop()
-    --self._blur:unbind()
+    self._blur:unbind()
     
-    --self._blur:set_blur_strength(self._fallspeed * 20)
-    --self._blur:draw()
+    self._blur:set_blur_strength(self._fallspeed * 5)
+    self._blur:draw()
 
     self._camera:bind()
-    --self._player:draw()
-    --self._platform:draw()
+    self._player:draw()
+    self._platform:draw()
     self._camera:unbind()
 end
 
