@@ -128,9 +128,18 @@ rt.Palette.COIN_COLORS = {
     rt.Palette.GREEN_2
 }
 
+local _backup = rt.Palette
+rt.Palette = {}
 setmetatable(rt.Palette, {
     __index = function(self, key)
-        rt.error("In rt.Palette. trying to access color `" .. key .. "`, but it does not exist")
-        return nil
+        local out = _backup[key]
+        if out == nil then
+            rt.error("In rt.Palette. trying to access color `" .. key .. "`, but it does not exist")
+        end
+        return out
+    end,
+
+    __newindex = function(self, key)
+        rt.error("In rt.Palette. trying to modify palette, but is immutable")
     end
 })

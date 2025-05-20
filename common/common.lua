@@ -192,6 +192,13 @@ function math.mix3(x1, y1, z1, x2, y2, z2, ratio)
         z1 * (1 - ratio) + z2 * ratio
 end
 
+function math.mix4(x1, y1, z1, w1, x2, y2, z2, w2, ratio)
+    return x1 * (1 - ratio) + x2 * ratio,
+    y1 * (1 - ratio) + y2 * ratio,
+    z1 * (1 - ratio) + z2 * ratio,
+    w1 * (1 - ratio) + w2 * ratio
+end
+
 --- @brief
 function math.mean(a, b)
     return (a + b) / 2

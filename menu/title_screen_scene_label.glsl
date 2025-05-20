@@ -52,9 +52,9 @@ vec3 lch_to_rgb(vec3 lch) {
 }
 
 uniform float elapsed;
+#define PI 3.1415926535897932384626433832795
 
 #ifdef VERTEX
-#define PI 3.1415926535897932384626433832795
 
 vec4 position(mat4 transform, vec4 vertex_position) {
     int letter_index = gl_VertexID / 4;
@@ -62,7 +62,7 @@ vec4 position(mat4 transform, vec4 vertex_position) {
         gradient_noise(vec3(vec2(vertex_position), elapsed)),
         gradient_noise(vec3(vec2(-vertex_position), elapsed))
     );
-    vertex_position.xy += 4 * offset;
+    vertex_position.xy += 3 * offset;
 
     return transform * vertex_position;
 }
@@ -73,13 +73,13 @@ vec4 position(mat4 transform, vec4 vertex_position) {
 #define MODE_NO_SDF 0
 #define MODE_SDF 1
 
-#if MODE == MODE_SDF
-
 uniform vec4 black;
+
+#if MODE == MODE_SDF
 
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
-    const float thickness = 0.6;
+    const float thickness = 1 - 0.1;
     return vec4(smoothstep(0.0, 1 - thickness, dist)) * black;
 }
 
@@ -90,8 +90,39 @@ vec2 clamped_coords(vec2 base_coords, vec2 offset, vec2 texel_size) {
 }
 
 uniform float hue;
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
+
+vec2 rotate(vec2 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return v * mat2(c, -s, s, c);
+}
+
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
 
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
+    vec2 seed = (vertex_position / love_ScreenSize.xy) * 140;
+    vec2 seed_magnitude = 3.5 * 1 / love_ScreenSize.xy;
+    texture_coords += vec2(
+        gradient_noise(vec3(seed, elapsed)) * seed_magnitude.x,
+        gradient_noise(vec3(-seed.yx, elapsed)) * seed_magnitude.y
+    );
+
     // Sobel kernels
     const mat3 sobel_x = mat3(
         -1.0,  0.0,  1.0,
@@ -127,12 +158,23 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     sobel_y[1][0] * s10 + sobel_y[1][1] * s11 + sobel_y[1][2] * s12 +
     sobel_y[2][0] * s20 + sobel_y[2][1] * s21 + sobel_y[2][2] * s22;
 
-    // Compute gradient magnitude
-    float magnitude = length(vec2(gx, gy));
+    float edge_threshold_low = 0;  // Lower threshold for smoothstep
+    float edge_threshold_high = 1.5; // Higher threshold for smoothstep
 
-    // Combine Sobel and box filter results
-    float value = mix(magnitude, s11, 0.68);
-    return vec4(lch_to_rgb(vec3(0.8, 1, fract(value + hue))), s11);
+    float magnitude = length(vec2(gx, gy));
+    magnitude = smoothstep(edge_threshold_low, edge_threshold_high, magnitude);
+
+    vec2 uv = to_uv(vertex_position);
+    uv += vec2(elapsed / 20);
+    uv = rotate(uv, 0.33 * PI);
+    uv.x /= 2;
+    uv.y *= 1;
+    uv = rotate(uv, -0.33 * PI);
+
+    float noise = gradient_noise(vec3(uv * 15, elapsed / 2));
+
+    vec3 hue = lch_to_rgb(vec3(0.8, 1, hue + noise));
+    return vec4(hue, magnitude);
 }
 
 #endif

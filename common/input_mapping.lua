@@ -17,6 +17,27 @@ rt.InputButton = meta.enum("InputButton", {
     SPRINT = "SPRINT"
 })
 
+--- @class rt.GamepadButton
+rt.GamepadButton = meta.enum("GamepadButton", {
+    TOP = "y",
+    RIGHT = "b",
+    BOTTOM = "a",
+    LEFT = "x",
+    DPAD_UP = "dpup",
+    DPAD_DOWN = "dpdown",
+    DPAD_LEFT = "dpleft",
+    DPAD_RIGHT = "dpright",
+    START = "start",
+    SELECT = "back",
+    HOME = "guide",
+    LEFT_STICK = "leftstick",
+    RIGHT_STICK = "rightstick",
+    LEFT_SHOULDER = "leftshoulder",
+    RIGHT_SHOULDER = "rightshoulder",
+    LEFT_TRIGGER = "triggerleft",
+    RIGHT_TRIGGER = "triggerright"
+})
+
 --- @class rt.InputMapping
 rt.InputMapping = meta.class("InputMapping")
 
@@ -102,7 +123,7 @@ function rt.InputMapping:map(native, keyboard_or_controller)
 end
 
 --- @brief
-function rt.InputMapping:get_mapping(input_action)
+function rt.InputMapping:get_mapping(input_action, keyboard_or_controller)
     local mapped = _G.SETTINGS.INPUT_MAPPING[input_action]
     if mapped == nil then
         log.error("In rt.InputMapping.get_mapping: no mapping for input action `" .. input_action .. "`")
@@ -111,7 +132,13 @@ function rt.InputMapping:get_mapping(input_action)
 
     local keyboard = { table.unpack(_G.SETTINGS.INPUT_MAPPING[input_action].keyboard) }
     local controller = { table.unpack(_G.SETTINGS.INPUT_MAPPING[input_action].controller) }
-    return keyboard, controller
+    if keyboard_or_controller == nil then
+        return keyboard, controller
+    elseif keyboard_or_controller == rt.InputMethod.KEYBOARD then
+        return keyboard
+    elseif keyboard_or_controller == rt.InputMethod.CONTROLLER then
+        return controller
+    end
 end
 
 --- @brief update current mapping
@@ -130,6 +157,22 @@ function rt.InputMapping:set_mapping(input_action, keyboard, controller)
     mapped.keyboard = keyboard
     mapped.controller = controller
     self:update_reverse_mapping()
+end
+
+--- @brief
+function rt.InputMapping:get_keyboard_indicator(input_action)
+    local out = rt.KeybindingIndicator()
+    local mapping = self:get_mapping(input_action, rt.InputMethod.KEYBOARD)
+    out:create_from_keyboard_key(mapping[1])
+    return out
+end
+
+--- @brief
+function rt.InputMapping:get_controller_indicator(input_action)
+    local out = rt.KeybindingIndicator()
+    local mapping = self:get_mapping(input_action, rt.InputMethod.CONTROLLER)
+    out:create_from_gamepad_button(mapping[1])
+    return out
 end
 
 rt.InputMapping = rt.InputMapping() -- static instance

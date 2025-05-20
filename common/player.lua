@@ -334,9 +334,33 @@ function rt.Player:_connect_input()
         self._left_button_is_down = x < -eps
     end)
 
+    local is_sleeping = false
+
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
+        elseif which == "h" then
+            is_sleeping = not is_sleeping
+
+            if is_sleeping then
+                for i, spring in ipairs(self._spring_joints) do
+                    local x = self._spring_body_offsets_x[i]
+                    local y = self._spring_body_offsets_y[i]
+                    local angle = math.angle(x, y)
+                    if angle > 0 then
+                        spring:set_tolerance(-0.5 * self._radius, 0)
+                    end
+                end
+            else
+                for i, spring in ipairs(self._spring_joints) do
+                    local x = self._spring_body_offsets_x[i]
+                    local y = self._spring_body_offsets_y[i]
+                    local angle = math.angle(x, y)
+                    if angle > 0 then
+                        spring:set_tolerance(0, 0)
+                    end
+                end
+            end
         end
     end)
 end
@@ -363,15 +387,24 @@ function rt.Player:update(delta)
 
     if self._state == rt.PlayerState.DISABLED then
         local vx, vy = self._last_velocity_x, self._last_velocity_y
-        vx = 0
         vy = vy + gravity
 
-        if self._is_frozen then
-            self._body:set_linear_velocity(0, 0)
-            self._last_velocity_x, self._last_velocity_y = 0, 0
+        if self._is_bubble then
+            if self._is_frozen then
+                self._bubble_body:set_linear_velocity(0, 0)
+                self._last_velocity_x, self._last_velocity_y = 0, 0
+            else
+                self._bubble_body:set_linear_velocity(vx, vy)
+                self._last_velocity_x, self._last_velocity_y = vx, vy
+            end
         else
-            self._body:set_linear_velocity(vx, vy)
-            self._last_velocity_x, self._last_velocity_y = vx, vy
+            if self._is_frozen then
+                self._body:set_linear_velocity(0, 0)
+                self._last_velocity_x, self._last_velocity_y = 0, 0
+            else
+                self._body:set_linear_velocity(vx, vy)
+                self._last_velocity_x, self._last_velocity_y = vx, vy
+            end
         end
 
         self:_update_mesh()
@@ -637,16 +670,6 @@ function rt.Player:update(delta)
                 self._jump_button_is_down = false
             end
 
-            -- objects can overirde jump logic
-            if self._jump_allowed_override ~= nil then
-                if self._jump_allowed_override == true then
-                    can_jump = true
-                else
-                    can_jump = false
-                end
-                self._jump_allowed_override = nil
-            end
-
             -- coyote time
             if can_jump then
                 self._coyote_elapsed = 0
@@ -667,6 +690,15 @@ function rt.Player:update(delta)
             self._can_wall_jump = can_wall_jump
 
             if self._jump_button_is_down then
+                if self._jump_allowed_override ~= nil then
+                    if self._jump_allowed_override == true then
+                        can_jump = true
+                    else
+                        goto skip_jump
+                    end
+                    self._jump_allowed_override = nil
+                end
+
                 if can_jump and self._jump_elapsed < _settings.jump_duration then
                     -- regular jump: accelerate upwards wil jump button is down
                     self._coyote_elapsed = 0
@@ -705,6 +737,8 @@ function rt.Player:update(delta)
                         next_velocity_y = next_velocity_y + dy * force
                     end
                 end
+
+                ::skip_jump::
             end
 
             if self._jump_elapsed >= _settings.jump_duration then self._spring_multiplier = 1 end
@@ -788,10 +822,12 @@ function rt.Player:update(delta)
                 (target_y - current_y) * acceleration
             )
         else
-            self._bubble_body:apply_force(
-                -current_x * _settings.bubble_air_resistance * delta,
-                -current_y * _settings.bubble_air_resistance * delta
-            )
+            if gravity > 0 then
+                self._bubble_body:apply_force(
+                    -current_x * _settings.bubble_air_resistance * delta,
+                    -current_y * _settings.bubble_air_resistance * delta
+                )
+            end
         end
 
         if self._bounce_elapsed <= _settings.bounce_duration then
@@ -1344,16 +1380,6 @@ function rt.Player:disable()
     end
 
     self._state = rt.PlayerState.DISABLED
-
-    self._body:set_collision_disabled(true)
-    for body in values(self._spring_bodies) do
-        body:set_collision_disabled(true)
-    end
-
-    self._bubble_body:set_collision_disabled(true)
-    for body in values(self._bubble_spring_bodies) do
-        body:set_collision_disabled(true)
-    end
 end
 
 --- @brief
@@ -1365,16 +1391,6 @@ function rt.Player:enable()
     end
 
     self._state = rt.PlayerState.ACTIVE
-
-    self._body:set_collision_disabled(false)
-    for body in values(self._spring_bodies) do
-        body:set_collision_disabled(false)
-    end
-
-    self._bubble_body:set_collision_disabled(false)
-    for body in values(self._bubble_spring_bodies) do
-        body:set_collision_disabled(false)
-    end
 end
 
 --- @brief

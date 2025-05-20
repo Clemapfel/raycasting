@@ -7,7 +7,7 @@ rt.settings.keybinding_indicator = {
 rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
 
 function rt.KeybindingIndicator:instantiate()
-    return meta.new(rt.KeybindingIndicator, {
+    meta.install(self, {
         _font = nil, -- rt.Font
         _draw = function() end,
         _final_width = 0,
@@ -15,6 +15,148 @@ function rt.KeybindingIndicator:instantiate()
     })
 end
 
+local _Rectangle = function(x, y, width, height)  
+    return {
+        x = x,
+        y = y,
+        width = width,
+        height = height,
+        is_outline = false,
+        line_width = 2,
+        corner_radius = 0,
+        color = rt.Palette.WHITE,
+        
+        draw = function(self)
+            if self.is_outline then
+                love.graphics.setLineWidth(self.line_width)
+            end
+            
+            self.color:bind()
+            love.graphics.rectangle(
+                self.is_outline and "line" or "fill",
+                self.x, self.y, self.width, self.height,
+                self.corner_radius
+            )
+        end
+    }
+end
+
+local _Ellipse = function(x, y, x_radius, y_radius)
+    return {
+        x = x,
+        y = y,
+        x_radius = x_radius,
+        y_radius = y_radius or x_radius,
+        is_outline = false,
+        line_width = 2,
+        color = rt.Palette.WHITE,
+
+        draw = function(self)
+            if self.is_outline then
+                love.graphics.setLineWidth(self.line_width)
+            end
+
+            self.color:bind()
+            love.graphics.ellipse(
+                self.is_outline and "line" or "fill",
+                self.x, self.y, self.x_radius, self.y_radius
+            )
+        end
+    }
+end
+
+local _Polygon = function(first, ...)
+
+    return {
+        vertices = meta.is_table(first) and first or {first, ...},
+        is_outline = false,
+        line_width = 2,
+        color = rt.Palette.WHITE,
+
+        draw = function(self)
+            if self.is_outline then
+                love.graphics.setLineWidth(self.line_width)
+            end
+
+            self.color:bind()
+            love.graphics.polygon(
+                self.is_outline and "line" or "fill",
+                self.vertices
+            )
+        end
+    }
+end
+
+local _Line = function(first, ...)
+    return {
+        vertices = meta.is_table(first) and first or {first, ...},
+        line_width = 2,
+        color = rt.Palette.WHITE,
+
+        draw = function(self)
+            love.graphics.setLineWidth(self.line_width)
+            self.color:bind()
+            love.graphics.line(self.vertices)
+        end
+    }
+end
+
+local _color_highlight = rt.Palette.WHITE
+
+--- @brief
+local _gamepad_button_to_string = {
+    ["y"] = "TOP",
+    ["b"] = "RIGHT",
+    ["a"] = "BOTTOM",
+    ["x"] = "LEFT",
+    ["dpup"] = "UP",
+    ["dpdown"] = "DOWN",
+    ["dpleft"] = "LEFT",
+    ["dpright"] = "RIGHT",
+    ["leftshoulder"] = "L",
+    ["rightshoulder"] = "R",
+    ["start"] = "START",
+    ["back"] = "SELECT",
+    ["home"] = "CENTER",
+    ["lstick"] = "RIGHT STICK",
+    ["rstick"] = "LEFT STRICK",
+    ["paddle1"] = "PADDLE #1",
+    ["paddle2"] = "PADDLE #2",
+    ["paddle3"] = "PADDLE #3",
+    ["paddle4"] = "PADDLE #4"
+}
+
+function rt.gamepad_button_to_string(gamepad_button)
+    local raw = string.sub(gamepad_button, #rt.GamepadButtonPrefix + 1, #gamepad_button)
+    local out = _gamepad_button_to_string[raw]
+    if out == nil then return "UNKNOWN" else return out end
+end
+
+function rt.keyboard_key_to_string(keyboard_key)
+    local res = keyboard_key
+    
+    local up_arrow = "\u{2191}"
+    local down_arrow = "\u{2193}"
+    local left_arrow = "\u{2190}"
+    local right_arrow = "\u{2192}"
+    local space_bar = "\u{2423}"
+    local enter = "\u{21B5}"
+    local backspace = "\u{232B}"
+
+    if res == "ä" then return "Ä"
+    elseif res == "ö" then return "Ö"
+    elseif res == "ü" then return "Ü"
+    elseif res == "up" then return up_arrow
+    elseif res == "right" then return right_arrow
+    elseif res == "down" then return down_arrow
+    elseif res == "left" then return left_arrow
+    elseif res == "space" then return space_bar
+    elseif res == "return" then return enter
+    elseif res == "backspace" then return backspace
+    else
+        return string.upper(res)
+    end
+end
 
 --- @override
 function rt.KeybindingIndicator:realize()
@@ -64,55 +206,54 @@ function rt.KeybindingIndicator:create_as_button(top_selected, right_selected, b
 
         local n_outer_vertices = 32
 
-        local top_base, top_outline = rt.Circle(top_x, top_y, button_r), rt.Circle(top_x, top_y, button_r)
-        local right_base, right_outline = rt.Circle(right_x, right_y, button_r), rt.Circle(right_x, right_y, button_r)
-        local bottom_base, bottom_outline = rt.Circle(bottom_x, bottom_y, button_r), rt.Circle(bottom_x, bottom_y, button_r)
-        local left_base, left_outline = rt.Circle(left_x, left_y, button_r), rt.Circle(left_x, left_y, button_r)
+        local top_base, top_outline = _Ellipse(top_x, top_y, button_r), _Ellipse(top_x, top_y, button_r)
+        local right_base, right_outline = _Ellipse(right_x, right_y, button_r), _Ellipse(right_x, right_y, button_r)
+        local bottom_base, bottom_outline = _Ellipse(bottom_x, bottom_y, button_r), _Ellipse(bottom_x, bottom_y, button_r)
+        local left_base, left_outline = _Ellipse(left_x, left_y, button_r), _Ellipse(left_x, left_y, button_r)
 
         local back_x_offset, back_y_offset = 3, 3
-        local top_back, top_back_outline = rt.Circle(top_x + back_x_offset, top_y + back_y_offset, button_r), rt.Circle(top_x + back_x_offset, top_y + back_y_offset, button_r)
-        local right_back, right_back_outline = rt.Circle(right_x + back_x_offset, right_y + back_y_offset, button_r), rt.Circle(right_x + back_x_offset, right_y + back_y_offset, button_r)
-        local bottom_back, bottom_back_outline = rt.Circle(bottom_x + back_x_offset, bottom_y + back_y_offset, button_r), rt.Circle(bottom_x + back_x_offset, bottom_y + back_y_offset, button_r)
-        local left_back, left_back_outline = rt.Circle(left_x + back_x_offset, left_y + back_y_offset, button_r), rt.Circle(left_x + back_x_offset, left_y + back_y_offset, button_r)
+        local top_back, top_back_outline = _Ellipse(top_x + back_x_offset, top_y + back_y_offset, button_r), _Ellipse(top_x + back_x_offset, top_y + back_y_offset, button_r)
+        local right_back, right_back_outline = _Ellipse(right_x + back_x_offset, right_y + back_y_offset, button_r), _Ellipse(right_x + back_x_offset, right_y + back_y_offset, button_r)
+        local bottom_back, bottom_back_outline = _Ellipse(bottom_x + back_x_offset, bottom_y + back_y_offset, button_r), _Ellipse(bottom_x + back_x_offset, bottom_y + back_y_offset, button_r)
+        local left_back, left_back_outline = _Ellipse(left_x + back_x_offset, left_y + back_y_offset, button_r), _Ellipse(left_x + back_x_offset, left_y + back_y_offset, button_r)
 
-        local top_outline_outline = rt.Circle(top_x, top_y, button_r + outline_outline_width)
-        local right_outline_outline = rt.Circle(right_x, right_y, button_r + outline_outline_width)
-        local bottom_outline_outline = rt.Circle(bottom_x, bottom_y, button_r + outline_outline_width)
-        local left_outline_outline = rt.Circle(left_x, left_y, button_r + outline_outline_width)
+        local top_outline_outline = _Ellipse(top_x, top_y, button_r + outline_outline_width)
+        local right_outline_outline = _Ellipse(right_x, right_y, button_r + outline_outline_width)
+        local bottom_outline_outline = _Ellipse(bottom_x, bottom_y, button_r + outline_outline_width)
+        local left_outline_outline = _Ellipse(left_x, left_y, button_r + outline_outline_width)
 
-        local top_back_outline_outline = rt.Circle(top_x + back_x_offset, top_y + back_y_offset, button_r + outline_outline_width)
-        local right_back_outline_outline = rt.Circle(right_x + back_x_offset, right_y + back_y_offset, button_r + outline_outline_width)
-        local bottom_back_outline_outline = rt.Circle(bottom_x + back_x_offset, bottom_y + back_y_offset, button_r + outline_outline_width)
-        local left_back_outline_outline = rt.Circle(left_x + back_x_offset, left_y + back_y_offset, button_r + outline_outline_width)
+        local top_back_outline_outline = _Ellipse(top_x + back_x_offset, top_y + back_y_offset, button_r + outline_outline_width)
+        local right_back_outline_outline = _Ellipse(right_x + back_x_offset, right_y + back_y_offset, button_r + outline_outline_width)
+        local bottom_back_outline_outline = _Ellipse(bottom_x + back_x_offset, bottom_y + back_y_offset, button_r + outline_outline_width)
+        local left_back_outline_outline = _Ellipse(left_x + back_x_offset, left_y + back_y_offset, button_r + outline_outline_width)
 
         local outline_width = 2
         local selection_inlay_radius = button_r --(button_r - outline_width) * 0.85
-        local top_selection = rt.Circle(top_x, top_y, selection_inlay_radius)
-        local right_selection = rt.Circle(right_x, right_y, selection_inlay_radius)
-        local bottom_selection = rt.Circle(bottom_x, bottom_y, selection_inlay_radius)
-        local left_selection = rt.Circle(left_x, left_y, selection_inlay_radius)
+        local top_selection = _Ellipse(top_x, top_y, selection_inlay_radius)
+        local right_selection = _Ellipse(right_x, right_y, selection_inlay_radius)
+        local bottom_selection = _Ellipse(bottom_x, bottom_y, selection_inlay_radius)
+        local left_selection = _Ellipse(left_x, left_y, selection_inlay_radius)
 
         for base in range(top_base, right_base, bottom_base, left_base) do
-            base:set_color(rt.Palette.GRAY_3)
+            base.color = rt.Palette.GRAY_3
         end
 
         for back in range(top_back, right_back, bottom_back, left_back) do
-            back:set_color(rt.Palette.GRAY_5)
+            back.color = rt.Palette.GRAY_5
         end
 
         for outline_outline in range(top_outline_outline, right_outline_outline, bottom_outline_outline, left_outline_outline, top_back_outline_outline, right_back_outline_outline, bottom_back_outline_outline, left_back_outline_outline) do
-            outline_outline:set_color(rt.Palette.TRUE_WHITE)
+            outline_outline.color = rt.Palette.TRUE_WHITE
         end
 
         for selection in range(top_selection, right_selection, bottom_selection, left_selection) do
-            selection:set_color(rt.Palette.WHITE)
+            selection.color = rt.Palette.WHITE
         end
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline, top_back_outline, right_back_outline, bottom_back_outline, left_back_outline) do
-            outline:set_color(rt.Palette.GRAY_7)
-            outline:set_is_outline(true)
-            outline:set_line_width(outline_width)
-            outline:set_n_outer_vertices(n_outer_vertices)
+            outline.color = rt.Palette.GRAY_7
+            outline.is_outline = true
+            outline.line_width = outline_width
         end
 
         local selection_inlay
@@ -157,6 +298,7 @@ function rt.KeybindingIndicator:create_as_button(top_selected, right_selected, b
     end
 
     if self._is_realized then self:reformat() end
+    return self
 end
 
 --- @brief
@@ -220,34 +362,34 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
             left_top_x + frame_offset, left_top_y + frame_offset
         }
 
-        local top_base, top_outline = rt.Polygon(top), rt.Polygon(top)
-        local right_base, right_outline = rt.Polygon(right), rt.Polygon(right)
-        local bottom_base, bottom_outline = rt.Polygon(bottom), rt.Polygon(bottom)
-        local left_base, left_outline = rt.Polygon(left), rt.Polygon(left)
+        local top_base, top_outline = _Polygon(top), _Polygon(top)
+        local right_base, right_outline = _Polygon(right), _Polygon(right)
+        local bottom_base, bottom_outline = _Polygon(bottom), _Polygon(bottom)
+        local left_base, left_outline = _Polygon(left), _Polygon(left)
 
         for base in range(top_base, right_base, bottom_base, left_base) do
-            base:set_color(rt.Palette.GRAY_3)
+            base.color = rt.Palette.GRAY_3
         end
 
         local selected_color = rt.Palette.WHITE
-        if up_selected then top_base:set_color(selected_color) end
-        if right_selected then right_base:set_color(selected_color) end
-        if down_selected then bottom_base:set_color(selected_color) end
-        if left_selected then left_base:set_color(selected_color) end
+        if up_selected then top_base.color = selected_color end
+        if right_selected then right_base.color = selected_color end
+        if down_selected then bottom_base.color = selected_color end
+        if left_selected then left_base.color = selected_color end
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline) do
-            outline:set_color(rt.Palette.GRAY_7)
-            outline:set_is_outline(true)
+            outline.color = rt.Palette.GRAY_7
+            outline.is_outline = true
         end
 
         local corner_radius = 5
 
-        local backlay_vertical = rt.Rectangle(top_left_x, top_left_y, m, 2 * r)
-        local backlay_horizontal = rt.Rectangle(left_top_x, left_top_y, 2 * r, m)
+        local backlay_vertical = _Rectangle(top_left_x, top_left_y, m, 2 * r)
+        local backlay_horizontal = _Rectangle(left_top_x, left_top_y, 2 * r, m)
 
         for backlay in range(backlay_horizontal, backlay_vertical) do
-            backlay:set_color(rt.Palette.GRAY_5)
-            backlay:set_corner_radius(corner_radius)
+            backlay.color = rt.Palette.GRAY_5
+            backlay.corner_radius = corner_radius
         end
 
         local whole = {
@@ -266,24 +408,24 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
             top_left_x, top_left_y
         }
 
-        local backlay_outline_vertical = rt.Rectangle(top_left_x, top_left_y, m, 2 * r)
-        local backlay_outline_horizontal = rt.Rectangle(left_top_x, left_top_y, 2 * r, m)
+        local backlay_outline_vertical = _Rectangle(top_left_x, top_left_y, m, 2 * r)
+        local backlay_outline_horizontal = _Rectangle(left_top_x, left_top_y, 2 * r, m)
 
-        local backlay_outline_outline_vertical = rt.Rectangle(top_left_x, top_left_y, m, 2 * r)
-        local backlay_outline_outline_horizontal = rt.Rectangle(left_top_x, left_top_y, 2 * r, m)
+        local backlay_outline_outline_vertical = _Rectangle(top_left_x, top_left_y, m, 2 * r)
+        local backlay_outline_outline_horizontal = _Rectangle(left_top_x, left_top_y, 2 * r, m)
 
         for backlay_outline in range(backlay_outline_vertical, backlay_outline_horizontal) do
-            backlay_outline:set_color(rt.Palette.GRAY_7)
-            backlay_outline:set_is_outline(true)
-            backlay_outline:set_line_width(5)
-            backlay_outline:set_corner_radius(corner_radius)
+            backlay_outline.color = rt.Palette.GRAY_7
+            backlay_outline.is_outline = true
+            backlay_outline.line_width = 5
+            backlay_outline.corner_radius = corner_radius
         end
 
         for outline_outline in range(backlay_outline_outline_vertical, backlay_outline_outline_horizontal) do
-            outline_outline:set_color(rt.Palette.TRUE_WHITE)
-            outline_outline:set_line_width(8)
-            outline_outline:set_corner_radius(corner_radius)
-            outline_outline:set_is_outline(true)
+            outline_outline.color = rt.Palette.TRUE_WHITE
+            outline_outline.line_width = 8
+            outline_outline.corner_radius = corner_radius
+            outline_outline.is_outline = true
         end
 
         self._content = {
@@ -298,6 +440,7 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
             right_base,
             bottom_base,
             left_base,
+
 
             --[[
             top_outline,
@@ -315,6 +458,7 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
     end
 
     if self._is_realized then self:reformat() end
+    return self
 end
 
 --- @brief
@@ -327,22 +471,22 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
         local h = 0.4 * height / 1.2
 
         local center_x, center_y = x + 0.5 * width, y + 0.5 * height
-        local base = rt.Rectangle(center_x - 0.5 * w, center_y - 0.5 * h, w, h)
-        local base_outline = rt.Rectangle(center_x - 0.5 * w, center_y - 0.5 * h, w, h)
-        local base_outline_outline = rt.Rectangle(center_x - 0.5 * w, center_y - 0.5 * h, w, h)
+        local base = _Rectangle(center_x - 0.5 * w, center_y - 0.5 * h, w, h)
+        local base_outline = _Rectangle(center_x - 0.5 * w, center_y - 0.5 * h, w, h)
+        local base_outline_outline = _Rectangle(center_x - 0.5 * w, center_y - 0.5 * h, w, h)
 
         for rectangle in range(base, base_outline, base_outline_outline) do
-            rectangle:set_corner_radius(h / 2)
+            rectangle.corner_radius = h / 2
         end
 
-        base:set_color(rt.Palette.GRAY_3)
-        base_outline:set_color(rt.Palette.GRAY_7)
-        base_outline:set_is_outline(true)
-        base_outline:set_line_width(2)
+        base.color = rt.Palette.GRAY_3
+        base_outline.color = rt.Palette.GRAY_7
+        base_outline.is_outline = true
+        base_outline.line_width = 2
 
-        base_outline_outline:set_color(rt.Palette.TRUE_WHITE)
-        base_outline_outline:set_is_outline(true)
-        base_outline_outline:set_line_width(5)
+        base_outline_outline.color = rt.Palette.TRUE_WHITE
+        base_outline_outline.is_outline = true
+        base_outline_outline.line_width = 5
 
         local r = 0.5 * h * 0.8
         local right_triangle, right_triangle_outline
@@ -358,8 +502,8 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
                 center_x + r * math.cos(angle3), center_y + r * math.sin(angle3)
             }
 
-            right_triangle = rt.Polygon(vertices)
-            right_triangle_outline = rt.Polygon(vertices)
+            right_triangle = _Polygon(vertices)
+            right_triangle_outline = _Polygon(vertices)
         end
 
         local left_triangle, left_triangle_outline
@@ -374,17 +518,17 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
                 center_x + r * math.cos(angle3), center_y + r * math.sin(angle3)
             }
 
-            left_triangle = rt.Polygon(vertices)
-            left_triangle_outline = rt.Polygon(vertices)
+            left_triangle = _Polygon(vertices)
+            left_triangle_outline = _Polygon(vertices)
         end
 
         for triangle in range(left_triangle, right_triangle) do
-            triangle:set_color(rt.Palette.TRUE_WHITE)
+            triangle.color = rt.Palette.TRUE_WHITE
         end
 
         for triangle_outline in range(left_triangle_outline, right_triangle_outline) do
-            triangle_outline:set_color(rt.Palette.GRAY_7)
-            triangle_outline:set_is_outline(true)
+            triangle_outline.color = rt.Palette.GRAY_7
+            triangle_outline.is_outline = true
         end
 
         local triangle, triangle_outline
@@ -412,6 +556,7 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
     end
 
     if self._is_realized then self:reformat() end
+    return self
 end
 
 --- @brief
@@ -428,29 +573,29 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
         label:realize()
         label:set_justify_mode(rt.JustifyMode.CENTER)
         local label_w, label_h = label:measure()
-        label:fit_into(0, y + 0.5 * height - 0.5 * label_h, width, height)
+        label:reformat(0, y + 0.5 * height - 0.5 * label_h, width, height)
 
         local center_x, center_y = x + 0.55 * width , y + 0.5 * height
         local rect_w, rect_h = 0.75 * width, 0.45 * width
         local rect_base_x, rect_base_y = center_x - 0.5 * rect_w, center_y - 0.5 * rect_h
-        local rectangle_base = rt.Rectangle(rect_base_x, rect_base_y, rect_w, rect_h)
-        local rectangle_base_outline = rt.Rectangle(rect_base_x, rect_base_y, rect_w, rect_h)
-        local rectangle_base_outline_outline = rt.Rectangle(rect_base_x, rect_base_y, rect_w, rect_h)
+        local rectangle_base = _Rectangle(rect_base_x, rect_base_y, rect_w, rect_h)
+        local rectangle_base_outline = _Rectangle(rect_base_x, rect_base_y, rect_w, rect_h)
+        local rectangle_base_outline_outline = _Rectangle(rect_base_x, rect_base_y, rect_w, rect_h)
 
         local outline_width = 2
-        rectangle_base:set_color(rt.Palette.GRAY_4)
-        rectangle_base_outline:set_color(rt.Palette.GRAY_7)
-        rectangle_base_outline:set_line_width(outline_width)
-        rectangle_base_outline_outline:set_color(rt.Palette.TRUE_WHITE)
-        rectangle_base_outline_outline:set_line_width(outline_width + 4)
+        rectangle_base.color = rt.Palette.GRAY_4
+        rectangle_base_outline.color = rt.Palette.GRAY_7
+        rectangle_base_outline.line_width = outline_width
+        rectangle_base_outline_outline.color = rt.Palette.TRUE_WHITE
+        rectangle_base_outline_outline.line_width = outline_width + 4
 
         for outline in range(rectangle_base_outline, rectangle_base_outline_outline) do
-            outline:set_is_outline(true)
+            outline.is_outline = true
         end
 
         local corner_radius = 0.2 * rect_h
         for rect in range(rectangle_base, rectangle_base_outline, rectangle_base_outline_outline) do
-            rect:set_corner_radius(corner_radius)
+            rect.corner_radius = corner_radius
         end
 
         local polygon_last_y_offset = 0.02 * height
@@ -458,14 +603,6 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
             rect_base_x + corner_radius + polygon_last_y_offset, rect_base_y,
             rect_base_x + rect_w, rect_base_y,
             rect_base_x + rect_w, rect_base_y + rect_h - corner_radius
-        )
-
-
-        local stencil_padding = corner_radius + outline_width
-        local stencil = rt.Triangle(
-            rect_base_x + corner_radius - stencil_padding, rect_base_y - stencil_padding,
-            rect_base_x + rect_w + stencil_padding, rect_base_y - stencil_padding,
-            rect_base_x + rect_w + stencil_padding, rect_base_y + rect_h - corner_radius
         )
 
         local polygon_points = {}
@@ -484,54 +621,79 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
         table.insert(polygon_points, last_x)
         table.insert(polygon_points, last_y)
 
+        local curve_outline = _Line(polygon_points)
+        local curve_outline_outline = _Line(polygon_points)
 
-        local curve_outline = rt.Line(polygon_points)
-        local curve_outline_outline = rt.Line(polygon_points)
+        curve_outline.line_width = outline_width
+        curve_outline_outline.line_width = outline_width + 4
+        curve_outline.color = rt.Palette.GRAY_7
+        curve_outline_outline.color = rt.Palette.TRUE_WHITE
 
-        curve_outline:set_line_width(outline_width)
-        curve_outline_outline:set_line_width(outline_width + 4)
-        curve_outline:set_color(rt.Palette.GRAY_7)
-        curve_outline_outline:set_color(rt.Palette.TRUE_WHITE)
-
-        local polygon = rt.Polygon({
+        local polygon = _Polygon({
             rect_base_x + corner_radius - 2 * polygon_last_y_offset, rect_base_y + rect_h - corner_radius + polygon_last_y_offset,
             table.unpack(polygon_points)
         })
-        polygon:set_color(rt.Palette.GRAY_4)
+        polygon.color = rt.Palette.GRAY_4
+
+        local stencil_padding = corner_radius + outline_width
+        local stencil_points = { table.unpack(polygon_points) }
+
+        for p in range(rect_base_y - 2 * outline_width, polygon_points[1] + 2 * outline_width) do
+            table.insert(stencil_points, 1, p)
+        end
+
+        stencil_points[#stencil_points - 1] = stencil_points[#stencil_points - 1] + 4 * outline_width
+        for p in range(
+            polygon_points[#polygon_points - 1] + 4 * outline_width, rect_base_y - 2 * outline_width,
+            rect_base_x + 4 * outline_width, rect_base_y - 2 * outline_width
+        ) do
+            table.insert(stencil_points, p)
+        end
+
+
+        local stencil = slick.triangulate({ stencil_points })
 
         local flip_x = 0.5 * width
         self._draw = function()
             if l_or_r == true then
-                rt.graphics.push()
-                rt.graphics.translate(flip_x, 0)
-                rt.graphics.scale(-1, 1)
-                rt.graphics.translate(-flip_x, 0)
+                love.graphics.push()
+                love.graphics.translate(flip_x, 0)
+                love.graphics.scale(-1, 1)
+                love.graphics.translate(-flip_x, 0)
             end
 
-            curve_outline_outline:draw()
             polygon:draw()
+            curve_outline_outline:draw()
 
-            rt.graphics.stencil(123, stencil)
-            rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, 123)
+            local value = rt.graphics.get_stencil_value()
+            rt.graphics.stencil(value, function()
+            love.graphics.setColor(1, 1, 1, 1)
+                for tri in values(stencil) do
+                    love.graphics.polygon("fill", tri)
+                end
+            end)
+            rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, value)
             rectangle_base_outline_outline:draw()
             rectangle_base:draw()
             rectangle_base_outline:draw()
-            rt.graphics.set_stencil_test()
-
+            rt.graphics.set_stencil_test(nil)
 
             curve_outline:draw()
 
             if l_or_r == true then
-                rt.graphics.pop()
+                love.graphics.pop()
             end
 
             label:draw()
 
-            --stencil:draw()
+            for tri in values(stencil) do
+                --love.graphics.polygon("fill", tri)
+            end
         end
     end
 
     if self._is_realized then self:reformat() end
+    return self
 end
 
 --- @brief
@@ -541,37 +703,37 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
     local center_x, center_y = x + 0.5 * width, y + 0.5 * height
 
     local base_x, base_y, base_radius = center_x, center_y, radius * 0.7
-    local base = rt.Circle(base_x, base_y, base_radius)
-    local base_outline = rt.Circle(base_x, base_y, base_radius)
-    local base_outline_outline = rt.Circle(base_x, base_y, base_radius)
+    local base = _Ellipse(base_x, base_y, base_radius)
+    local base_outline = _Ellipse(base_x, base_y, base_radius)
+    local base_outline_outline = _Ellipse(base_x, base_y, base_radius)
 
-    base_outline:set_is_outline(true)
-    base_outline_outline:set_is_outline(true)
+    base_outline.is_outline = true
+    base_outline_outline.is_outline = true
 
     local outline_width = 2
 
-    base:set_color(rt.Palette.GRAY_5)
-    base_outline:set_color(rt.Palette.GRAY_7)
-    base_outline:set_line_width(outline_width)
-    base_outline_outline:set_color(rt.Palette.TRUE_WHITE)
-    base_outline_outline:set_line_width(outline_width + 3)
+    base.color = rt.Palette.GRAY_5
+    base_outline.color = rt.Palette.GRAY_7
+    base_outline.line_width = outline_width
+    base_outline_outline.color = rt.Palette.TRUE_WHITE
+    base_outline_outline.line_width = outline_width + 3
 
     local neck_center_x, neck_center_y, neck_width, neck_height = center_x, center_y, 0.25 * width, 0.25 * height
-    local neck_base = rt.Rectangle(neck_center_x - 0.5 * neck_width, neck_center_y - neck_height, neck_width, neck_height)
-    local neck_outline_left = rt.Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
-    local neck_outline_right = rt.Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
-    local neck_outline_outline_left = rt.Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
-    local neck_outline_outline_right = rt.Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
-    local neck_foot = rt.Circle(neck_center_x, neck_center_y, neck_width * 0.5)
-    local neck_foot_outline = rt.Circle(neck_center_x, neck_center_y, neck_width * 0.5)
+    local neck_base = _Rectangle(neck_center_x - 0.5 * neck_width, neck_center_y - neck_height, neck_width, neck_height)
+    local neck_outline_left = _Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
+    local neck_outline_right = _Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
+    local neck_outline_outline_left = _Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
+    local neck_outline_outline_right = _Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
+    local neck_foot = _Ellipse(neck_center_x, neck_center_y, neck_width * 0.5)
+    local neck_foot_outline = _Ellipse(neck_center_x, neck_center_y, neck_width * 0.5)
 
     local head_x, head_y, head_x_radius, head_y_radius = center_x, center_y - neck_height, base_radius * 1.15, base_radius * 1.15 * 0.75
-    local head_base = rt.Ellipse(head_x, head_y, head_x_radius, head_y_radius)
-    local head_outline = rt.Ellipse(head_x, head_y, head_x_radius, head_y_radius)
-    local head_outline_outline = rt.Ellipse(head_x, head_y, head_x_radius, head_y_radius)
+    local head_base = _Ellipse(head_x, head_y, head_x_radius, head_y_radius)
+    local head_outline = _Ellipse(head_x, head_y, head_x_radius, head_y_radius)
+    local head_outline_outline = _Ellipse(head_x, head_y, head_x_radius, head_y_radius)
 
     local inlay_ratio = 0.7
-    local head_inlay = rt.Ellipse(head_x, head_y - 0.075 * head_y_radius, head_x_radius * inlay_ratio, head_y_radius * inlay_ratio)
+    local head_inlay = _Ellipse(head_x, head_y - 0.075 * head_y_radius, head_x_radius * inlay_ratio, head_y_radius * inlay_ratio)
 
     local label
     if left_or_right == true then
@@ -583,7 +745,7 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
     label:realize()
     label:set_justify_mode(rt.JustifyMode.CENTER)
     local label_w, label_h = label:measure()
-    label:fit_into(0, y + 0.5 * height - 0.5 * label_h - head_y, width, height)
+    label:reformat(0, y + 0.5 * height - 0.5 * label_h - head_y, width, height)
 
     local indicator_w = 0.175 * width
     local indicator_y = y + 0.5 * height - 0.5 * label_h - head_y + label_h
@@ -596,32 +758,36 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
         x + 0.5 * width,
         indicator_y + 0.5 * indicator_w
     }
-    local down_indicator = rt.Polygon(indicator_vertices)
-    local down_indicator_outline = rt.Polygon(indicator_vertices)
-    down_indicator_outline:set_is_outline(true)
+    local down_indicator = _Polygon(indicator_vertices)
+    local down_indicator_outline = _Polygon(indicator_vertices)
+    down_indicator_outline.is_outline = true
 
-    head_base:set_color(rt.Palette.GRAY_3)
-    head_outline:set_color(rt.Palette.GRAY_7)
-    head_outline:set_is_outline(true)
-    head_outline_outline:set_is_outline(true)
-    head_outline:set_line_width(outline_width)
-    head_outline_outline:set_line_width(outline_width + 3)
-    head_inlay:set_color(rt.Palette.GRAY_5)
+    head_base.color = rt.Palette.GRAY_3
+    head_outline.color = rt.Palette.GRAY_7
+    head_outline.is_outline = true
+    head_outline_outline.is_outline = true
+    head_outline.line_width = outline_width
+    head_outline_outline.line_width = outline_width + 3
+    head_inlay.color = rt.Palette.GRAY_5
 
     for neck in range(neck_base, neck_foot) do
-        neck:set_color(rt.color_darken(rt.Palette.GRAY_5, 0.1))
+        neck.color = rt.Palette.GRAY_5:clone()
+        local darken = -0.1
+        neck.color.r = neck.color.r - darken
+        neck.color.g = neck.color.g - darken
+        neck.color.b = neck.color.b - darken
     end
 
     for outline in range(neck_outline_left, neck_outline_right, neck_foot_outline, down_indicator_outline) do
-        outline:set_color(rt.Palette.GRAY_7)
-        outline:set_line_width(outline_width)
+        outline.color = rt.Palette.GRAY_7
+        outline.line_width = outline_width
     end
 
-    neck_foot_outline:set_is_outline(true)
+    neck_foot_outline.is_outline = true
 
     for outline in range(neck_outline_outline_left, neck_outline_outline_right, head_outline_outline) do
-        outline:set_color(rt.Palette.TRUE_WHITE)
-        outline:set_line_width(outline_width + 3)
+        outline.color = rt.Palette.TRUE_WHITE
+        outline.line_width = outline_width + 3
     end
 
     self._content = {
@@ -663,37 +829,37 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
         local center_x, center_y = x + 0.5 * width, y + 0.5 * height + y_offset
 
         local base_x, base_y, base_radius = center_x, center_y, radius * 0.7
-        local base = rt.Circle(base_x, base_y, base_radius)
-        local base_outline = rt.Circle(base_x, base_y, base_radius)
-        local base_outline_outline = rt.Circle(base_x, base_y, base_radius)
+        local base = _Ellipse(base_x, base_y, base_radius)
+        local base_outline = _Ellipse(base_x, base_y, base_radius)
+        local base_outline_outline = _Ellipse(base_x, base_y, base_radius)
 
-        base_outline:set_is_outline(true)
-        base_outline_outline:set_is_outline(true)
+        base_outline.is_outline = true
+        base_outline_outline.is_outline = true
 
         local outline_width = 2
 
-        base:set_color(rt.Palette.GRAY_4)
-        base_outline:set_color(rt.Palette.GRAY_7)
-        base_outline:set_line_width(outline_width)
-        base_outline_outline:set_color(rt.Palette.TRUE_WHITE)
-        base_outline_outline:set_line_width(outline_width + 3)
+        base.color = rt.Palette.GRAY_4
+        base_outline.color = rt.Palette.GRAY_7
+        base_outline.line_width = outline_width
+        base_outline_outline.color = rt.Palette.TRUE_WHITE
+        base_outline_outline.line_width = outline_width + 3
 
         local neck_center_x, neck_center_y, neck_width, neck_height = center_x, center_y, 0.25 * width, 0.25 * height
-        local neck_base = rt.Rectangle(neck_center_x - 0.5 * neck_width, neck_center_y - neck_height, neck_width, neck_height)
-        local neck_outline_left = rt.Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
-        local neck_outline_right = rt.Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
-        local neck_outline_outline_left = rt.Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
-        local neck_outline_outline_right = rt.Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
-        local neck_foot = rt.Circle(neck_center_x, neck_center_y, neck_width * 0.5)
-        local neck_foot_outline = rt.Circle(neck_center_x, neck_center_y, neck_width * 0.5)
+        local neck_base = _Rectangle(neck_center_x - 0.5 * neck_width, neck_center_y - neck_height, neck_width, neck_height)
+        local neck_outline_left = _Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
+        local neck_outline_right = _Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
+        local neck_outline_outline_left = _Line(neck_center_x - 0.5 * neck_width, neck_center_y, neck_center_x - 0.5 * neck_width, neck_center_y - neck_height)
+        local neck_outline_outline_right = _Line(neck_center_x + 0.5 * neck_width, neck_center_y, neck_center_x + 0.5 * neck_width, neck_center_y - neck_height)
+        local neck_foot = _Ellipse(neck_center_x, neck_center_y, neck_width * 0.5)
+        local neck_foot_outline = _Ellipse(neck_center_x, neck_center_y, neck_width * 0.5)
 
         local head_x, head_y, head_x_radius, head_y_radius = center_x, center_y - neck_height, base_radius * 1.15, base_radius * 1.15 * 0.75
-        local head_base = rt.Ellipse(head_x, head_y, head_x_radius, head_y_radius)
-        local head_outline = rt.Ellipse(head_x, head_y, head_x_radius, head_y_radius)
-        local head_outline_outline = rt.Ellipse(head_x, head_y, head_x_radius, head_y_radius)
+        local head_base = _Ellipse(head_x, head_y, head_x_radius, head_y_radius)
+        local head_outline = _Ellipse(head_x, head_y, head_x_radius, head_y_radius)
+        local head_outline_outline = _Ellipse(head_x, head_y, head_x_radius, head_y_radius)
 
         local inlay_ratio = 0.7
-        local head_inlay = rt.Ellipse(head_x, head_y - 0.075 * head_y_radius, head_x_radius * inlay_ratio, head_y_radius * inlay_ratio)
+        local head_inlay = _Ellipse(head_x, head_y - 0.075 * head_y_radius, head_x_radius * inlay_ratio, head_y_radius * inlay_ratio)
 
         local label
         if left_or_right == true then
@@ -705,7 +871,7 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
         label:realize()
         label:set_justify_mode(rt.JustifyMode.CENTER)
         local label_w, label_h = label:measure()
-        label:fit_into(0, y + 0.5 * height - 0.5 * label_h - head_y + y_offset, width, height)
+        label:reformat(0, y + 0.5 * height - 0.5 * label_h - head_y + y_offset, width, height)
 
         local indicator_w = 0.175 * width
         local indicator_y = y + 0.5 * height - 0.5 * label_h - head_y + label_h + y_offset
@@ -718,32 +884,36 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
             x + 0.5 * width,
             indicator_y + 0.5 * indicator_w
         }
-        local down_indicator = rt.Polygon(indicator_vertices)
-        local down_indicator_outline = rt.Polygon(indicator_vertices)
-        down_indicator_outline:set_is_outline(true)
+        local down_indicator = _Polygon(indicator_vertices)
+        local down_indicator_outline = _Polygon(indicator_vertices)
+        down_indicator_outline.is_outline = true
 
-        head_base:set_color(rt.Palette.GRAY_3)
-        head_outline:set_color(rt.Palette.GRAY_7)
-        head_outline:set_is_outline(true)
-        head_outline_outline:set_is_outline(true)
-        head_outline:set_line_width(outline_width)
-        head_outline_outline:set_line_width(outline_width + 3)
-        head_inlay:set_color(rt.Palette.GRAY_4)
+        head_base.color = rt.Palette.GRAY_3
+        head_outline.color = rt.Palette.GRAY_7
+        head_outline.is_outline = true
+        head_outline_outline.is_outline = true
+        head_outline.line_width = outline_width
+        head_outline_outline.line_width = outline_width + 3
+        head_inlay.color = rt.Palette.GRAY_4
 
         for neck in range(neck_base, neck_foot) do
-            neck:set_color(rt.color_darken(rt.Palette.GRAY_5, 0.1))
+            neck.color = neck.color:clone()
+            local darken = 0.1
+            neck.color.r = neck.color.r - darken
+            neck.color.g = neck.color.g - darken
+            neck.color.b = neck.color.b - darken
         end
 
         for outline in range(neck_outline_left, neck_outline_right, neck_foot_outline, down_indicator_outline) do
-            outline:set_color(rt.Palette.GRAY_7)
-            outline:set_line_width(outline_width)
+            outline.color = rt.Palette.GRAY_7
+            outline.line_width = outline_width
         end
 
-        neck_foot_outline:set_is_outline(true)
+        neck_foot_outline.is_outline = true
 
         for outline in range(neck_outline_outline_left, neck_outline_outline_right, head_outline_outline) do
-            outline:set_color(rt.Palette.TRUE_WHITE)
-            outline:set_line_width(outline_width + 3)
+            outline.color = rt.Palette.TRUE_WHITE
+            outline.line_width = outline_width + 3
         end
 
         self._content = {
@@ -777,6 +947,7 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
     end
 
     if self._is_realized then self:reformat() end
+    return self
 end
 
 --- @brief
@@ -812,95 +983,97 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
         local x, y, height = 0, 0, width
         local outer_x, outer_y = x + 0.5 * width - 0.5 * outer_w, y + 0.5 * height - 0.5 * outer_h
 
-        local outer = rt.Rectangle(outer_x, outer_y, outer_w, outer_h)
-        local outer_outline = rt.Rectangle(outer_x - 1, outer_y - 1, outer_w + 2, outer_h + 2)
+        local outer = _Rectangle(outer_x, outer_y, outer_w, outer_h)
+        local outer_outline = _Rectangle(outer_x - 1, outer_y - 1, outer_w + 2, outer_h + 2)
 
         local inner_x, inner_y = outer_x + left_trapezoid_w, outer_y + top_trapezoid_h
         local inner_padding = 0.005 * outer_w
-        local inner = rt.Rectangle(inner_x - inner_padding, inner_y - inner_padding, inner_w + 2 * inner_padding, inner_h + 2 * inner_padding)
-        local inner_outline = rt.Rectangle(inner_x - inner_padding, inner_y - inner_padding, inner_w + 2 * inner_padding, inner_h + 2 * inner_padding)
+        local inner = _Rectangle(inner_x - inner_padding, inner_y - inner_padding, inner_w + 2 * inner_padding, inner_h + 2 * inner_padding)
+        local inner_outline = _Rectangle(inner_x - inner_padding, inner_y - inner_padding, inner_w + 2 * inner_padding, inner_h + 2 * inner_padding)
 
         for rectangle in range(outer, inner, outer_outline, inner_outline) do
-            rectangle:set_corner_radius(4)
+            rectangle.corner_radius = 4
         end
 
-        outer:set_color(rt.Palette.GRAY_5)
-        inner:set_color(rt.Palette.GRAY_3)
+        outer.color = rt.Palette.GRAY_5
+        inner.color = rt.Palette.GRAY_3
 
-        local top_trapezoid = rt.Polygon(
+        local top_trapezoid = _Polygon(
             outer_x, outer_y,
             outer_x + outer_w, outer_y,
             inner_x + inner_w, inner_y,
             inner_x, inner_y
         )
 
-        local top_outline = rt.Polygon(
+        local top_outline = _Polygon(
             outer_x, outer_y,
             outer_x + outer_w, outer_y,
             inner_x + inner_w, inner_y,
             inner_x, inner_y
         )
 
-        local right_trapezoid = rt.Polygon(
+        local right_trapezoid = _Polygon(
             outer_x + outer_w, outer_y,
             outer_x + outer_w, outer_y + outer_h,
             inner_x + inner_w, inner_y + inner_h,
             inner_x + inner_w, inner_y
         )
 
-        local right_outline = rt.Polygon(
+        local right_outline = _Polygon(
             outer_x + outer_w, outer_y,
             outer_x + outer_w, outer_y + outer_h,
             inner_x + inner_w, inner_y + inner_h,
             inner_x + inner_w, inner_y
         )
 
-        local bottom_trapezoid = rt.Polygon(
+        local bottom_trapezoid = _Polygon(
             inner_x, inner_y + inner_h,
             inner_x + inner_w, inner_y + inner_h,
             outer_x + outer_w, outer_y + outer_h,
             outer_x, outer_y + outer_h
         )
 
-        local bottom_outline = rt.Polygon(
+        local bottom_outline = _Polygon(
             inner_x, inner_y + inner_h,
             inner_x + inner_w, inner_y + inner_h,
             outer_x + outer_w, outer_y + outer_h,
             outer_x, outer_y + outer_h
         )
 
-        local left_trapezoid = rt.Polygon(
+        local left_trapezoid = _Polygon(
             outer_x, outer_y,
             inner_x, inner_y,
             inner_x, inner_y + inner_h,
             outer_x, outer_y + outer_h
         )
 
-        local left_outline = rt.Polygon(
+        local left_outline = _Polygon(
             outer_x, outer_y,
             inner_x, inner_y,
             inner_x, inner_y + inner_h,
             outer_x, outer_y + outer_h
         )
 
-        outer_outline:set_is_outline(true)
-        outer_outline:set_line_width(1)
-        outer_outline:set_color(rt.Palette.TRUE_WHITE)
+        outer_outline.is_outline = true
+        outer_outline.line_width = 1
+        outer_outline.color = rt.Palette.TRUE_WHITE
 
-        inner_outline:set_is_outline(true)
-        inner_outline:set_line_width(2)
-        inner_outline:set_is_outline(true)
-        inner_outline:set_color(rt.Palette.GRAY_6)
+        inner_outline.is_outline = true
+        inner_outline.line_width = 2
+        inner_outline.is_outline = true
+        inner_outline.color = rt.Palette.GRAY_6
 
-        top_trapezoid:set_color(rt.Palette.GRAY_4)
-        bottom_trapezoid:set_color(rt.color_mix(rt.Palette.GRAY_5, rt.Palette.GRAY_6, 0.5))
-        left_trapezoid:set_color(rt.Palette.GRAY_5)
-        right_trapezoid:set_color(rt.Palette.GRAY_5)
+        top_trapezoid.color = rt.Palette.GRAY_4
+        local r1, g1, b1, a1 = rt.Palette.GRAY_5:unpack()
+        local r2, g2, b2, a2 = rt.Palette.GRAY_6:unpack()
+        bottom_trapezoid.color = rt.RGBA(math.mix4(r1, g1, b1, a1, r2, g2, b2, a2, 0.5))
+        left_trapezoid.color = rt.Palette.GRAY_5
+        right_trapezoid.color = rt.Palette.GRAY_5
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline) do
-            outline:set_color(rt.Palette.GRAY_7)
-            outline:set_is_outline(true)
-            outline:set_line_width(1)
+            outline.color = rt.Palette.GRAY_7
+            outline.is_outline = true
+            outline.line_width = 1
         end
 
         local font = nil
@@ -909,7 +1082,7 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
         label:set_justify_mode(rt.JustifyMode.CENTER)
         label:realize()
         local label_w, label_h = label:measure()
-        label:fit_into(0, y + 0.5 * height - 0.5 * label_h - y_offset, width, label_h)
+        label:reformat(0, y + 0.5 * height - 0.5 * label_h - y_offset, width, label_h)
 
         self._content = {
             outer,
@@ -936,6 +1109,7 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
         self._final_width = math.max(width, label_w)
     end
     if self._is_realized then self:reformat() end
+    return self
 end
 
 --- @brief
@@ -960,40 +1134,40 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
         local right_center_x, right_center_y = center_x + rect_r + spacer, center_y
         local left_center_x, left_center_y = center_x - rect_r - spacer, center_y
 
-        local right_base = rt.Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local right_outline = rt.Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local right_outline_outline = rt.Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local right_base = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local right_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local right_outline_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_label_w, right_label_h = right_label:measure()
-        right_label:fit_into(right_center_x - rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
+        right_label:reformat(right_center_x - rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
 
-        local left_base = rt.Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local left_outline = rt.Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local left_outline_outline = rt.Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local left_base = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local left_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local left_outline_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_label_w, left_label_h = left_label:measure()
-        left_label:fit_into(left_center_x - rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
+        left_label:reformat(left_center_x - rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
 
         local corner_radius = 0.05 * width
         for base in range(right_base, left_base) do
-            base:set_color(rt.Palette.GRAY_3)
-            base:set_corner_radius(corner_radius)
+            base.color = rt.Palette.GRAY_3
+            base.corner_radius = corner_radius
         end
 
         for outline in range(right_outline, left_outline) do
-            outline:set_is_outline(true)
-            outline:set_color(rt.Palette.GRAY_7)
-            outline:set_corner_radius(corner_radius)
-            outline:set_line_width(line_width)
+            outline.is_outline = true
+            outline.color = rt.Palette.GRAY_7
+            outline.corner_radius = corner_radius
+            outline.line_width = line_width
         end
 
         for outline_outline in range(right_outline_outline, left_outline_outline) do
-            outline_outline:set_is_outline(true)
-            outline_outline:set_color(rt.Palette.TRUE_WHITE)
-            outline_outline:set_line_width(line_width + 3)
-            outline_outline:set_corner_radius(corner_radius)
+            outline_outline.is_outline = true
+            outline_outline.color = rt.Palette.TRUE_WHITE
+            outline_outline.line_width = line_width + 3
+            outline_outline.corner_radius = corner_radius
         end
 
-        local outline_outline = rt.Rectangle(0, 0, width, width)
-        outline_outline:set_color(rt.Palette.TRUE_WHITE)
+        local outline_outline = _Rectangle(0, 0, width, width)
+        outline_outline.color = rt.Palette.TRUE_WHITE
 
         self._content = {
             right_outline_outline,
@@ -1046,52 +1220,52 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
         local bottom_center_x, bottom_center_y = center_x, center_y
         local left_center_x, left_center_y = center_x - 2 * rect_r, center_y
 
-        local top_base = rt.Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local top_outline = rt.Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local top_outline_outline = rt.Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local top_base = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local top_outline = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local top_outline_outline = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local top_label_w, top_label_h = top_label:measure()
-        top_label:fit_into(top_center_x - rect_r, top_center_y - 0.5 * top_label_h, 2 * rect_r, 2 * rect_r)
+        top_label:reformat(top_center_x - rect_r, top_center_y - 0.5 * top_label_h, 2 * rect_r, 2 * rect_r)
 
-        local right_base = rt.Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local right_outline = rt.Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local right_outline_outline = rt.Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local right_base = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local right_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local right_outline_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_label_w, right_label_h = right_label:measure()
-        right_label:fit_into(right_center_x - rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
+        right_label:reformat(right_center_x - rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
 
-        local bottom_base = rt.Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local bottom_outline = rt.Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local bottom_outline_outline = rt.Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local bottom_base = _Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local bottom_outline = _Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local bottom_outline_outline = _Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local bottom_label_w, bottom_label_h = bottom_label:measure()
-        bottom_label:fit_into(bottom_center_x - rect_r, bottom_center_y - 0.5 * bottom_label_h, 2 * rect_r, 2 * rect_r)
+        bottom_label:reformat(bottom_center_x - rect_r, bottom_center_y - 0.5 * bottom_label_h, 2 * rect_r, 2 * rect_r)
 
-        local left_base = rt.Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local left_outline = rt.Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
-        local left_outline_outline = rt.Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local left_base = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local left_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
+        local left_outline_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_label_w, left_label_h = left_label:measure()
-        left_label:fit_into(left_center_x - rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
+        left_label:reformat(left_center_x - rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
 
         local corner_radius = 0.05 * width
         for base in range(top_base, right_base, bottom_base, left_base) do
-            base:set_color(rt.Palette.GRAY_3)
-            base:set_corner_radius(corner_radius)
+            base.color = rt.Palette.GRAY_3
+            base.corner_radius = corner_radius
         end
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline) do
-            outline:set_is_outline(true)
-            outline:set_color(rt.Palette.GRAY_7)
-            outline:set_corner_radius(corner_radius)
-            outline:set_line_width(line_width)
+            outline.is_outline = true
+            outline.color = rt.Palette.GRAY_7
+            outline.corner_radius = corner_radius
+            outline.line_width = line_width
         end
 
         for outline_outline in range(top_outline_outline, right_outline_outline, bottom_outline_outline, left_outline_outline) do
-            outline_outline:set_is_outline(true)
-            outline_outline:set_color(rt.Palette.TRUE_WHITE)
-            outline_outline:set_line_width(line_width + 3)
-            outline_outline:set_corner_radius(corner_radius)
+            outline_outline.is_outline = true
+            outline_outline.color = rt.Palette.TRUE_WHITE
+            outline_outline.line_width = line_width + 3
+            outline_outline.corner_radius = corner_radius
         end
 
-        local outline_outline = rt.Rectangle(0, 0, width, width)
-        outline_outline:set_color(rt.Palette.TRUE_WHITE)
+        local outline_outline = _Rectangle(0, 0, width, width)
+        outline_outline.color = rt.Palette.TRUE_WHITE
 
         self._content = {
             top_outline_outline,
@@ -1127,43 +1301,40 @@ end
 
 --- @brief
 function rt.KeybindingIndicator:create_from_keyboard_key(keyboard_key)
-    meta.assert_enum_value(keyboard_key, rt.KeyboardKey)
-    self:create_as_key(rt.keyboard_key_to_string(keyboard_key), keyboard_key == rt.KeyboardKey.SPACE)
+    return self:create_as_key(rt.keyboard_key_to_string(keyboard_key), keyboard_key == "space")
 end
 
 --- @brief
 function rt.KeybindingIndicator:create_from_gamepad_button(button)
-    meta.assert_enum_value(button, rt.GamepadButton)
     if button == rt.GamepadButton.TOP then
-        self:create_as_button(true, false, false, false)
+        return self:create_as_button(true, false, false, false)
     elseif button == rt.GamepadButton.RIGHT then
-        self:create_as_button(false, true, false, false)
+        return self:create_as_button(false, true, false, false)
     elseif button == rt.GamepadButton.BOTTOM then
-        self:create_as_button(false, false, true, false)
+        return self:create_as_button(false, false, true, false)
     elseif button == rt.GamepadButton.LEFT then
-        self:create_as_button(false, false, false, true)
+        return self:create_as_button(false, false, false, true)
     elseif button == rt.GamepadButton.DPAD_UP then
-        self:create_as_dpad(true, false, false, false)
+        return self:create_as_dpad(true, false, false, false)
     elseif button == rt.GamepadButton.DPAD_RIGHT then
-        self:create_as_dpad(false, true, false, false)
+        return self:create_as_dpad(false, true, false, false)
     elseif button == rt.GamepadButton.DPAD_DOWN then
-        self:create_as_dpad(false, false, true, false)
+        return self:create_as_dpad(false, false, true, false)
     elseif button == rt.GamepadButton.DPAD_LEFT then
-        self:create_as_dpad(false, false, false, true)
+        return self:create_as_dpad(false, false, false, true)
     elseif button == rt.GamepadButton.LEFT_SHOULDER then
-        self:create_as_l_or_r(true)
+        return self:create_as_l_or_r(true)
     elseif button == rt.GamepadButton.RIGHT_SHOULDER then
-        self:create_as_l_or_r(false)
+        return self:create_as_l_or_r(false)
     elseif button == rt.GamepadButton.START then
-        self:create_as_start_or_select(true)
+        return self:create_as_start_or_select(true)
     elseif button == rt.GamepadButton.SELECT then
-        self:create_as_start_or_select(false)
+        return self:create_as_start_or_select(false)
     elseif button == rt.GamepadButton.LEFT_STICK then
-        self:create_as_joystick(true)
+        return self:create_as_joystick(true)
     elseif button == rt.GamepadButton.RIGHT_STICK then
-        self:create_as_joystick(false)
+        return self:create_as_joystick(false)
     else
-        rt.warning("In rt.KeybindingIndicator:create_from_gamepad_button: Unhandled button `" .. button .. "`")
-        self:create_as_button(false, false, false, false)
+        return self:create_as_button(false, false, false, false)
     end
 end

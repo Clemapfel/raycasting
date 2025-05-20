@@ -303,7 +303,9 @@ function rt.PlayerBody:update(delta)
             local positions = rope.current_positions
             local old_positions = rope.last_positions
             local distances = self._is_bubble and rope.bubble_distances or rope.distances
-            local gravity_x, gravity_y = 0 * _gravity, 1 * _gravity
+
+            local multiplier = self._player:get_gravity()
+            local gravity_x, gravity_y = 0 * _gravity * multiplier, 1 * _gravity * multiplier
 
             if self._is_bubble then
                 gravity_x, gravity_y = 0, 0
