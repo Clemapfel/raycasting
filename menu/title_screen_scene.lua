@@ -179,7 +179,7 @@ function mn.TitleScreenScene:size_allocate(x, y, width, height)
 
     local start_y = 10
     local current_x, current_y = 10, start_y
-    local w, h = 50, 50
+    local w, h = 100, 100
     for indicator in values(self._dbg) do
         indicator:realize()
         indicator:reformat(current_x, current_y, w, h)

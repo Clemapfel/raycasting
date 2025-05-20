@@ -6,6 +6,14 @@ rt.settings.keybinding_indicator = {
 --- @class rt.KeybindingIndicator
 rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
 
+local _GRAY_3 = rt.Palette.GRAY_4
+local _GRAY_4 = rt.Palette.GRAY_5
+local _GRAY_5 = rt.Palette.GRAY_6
+local _GRAY_6 = rt.Palette.GRAY_7
+local _GRAY_7 = rt.Palette.GRAY_8
+local _TRUE_WHITE = rt.Palette.TRUE_WHITE
+local _WHITE = rt.Palette.WHITE
+
 function rt.KeybindingIndicator:instantiate()
     meta.install(self, {
         _font = nil, -- rt.Font
@@ -24,7 +32,7 @@ local _Rectangle = function(x, y, width, height)
         is_outline = false,
         line_width = 2,
         corner_radius = 0,
-        color = rt.Palette.WHITE,
+        color = _WHITE,
         
         draw = function(self)
             if self.is_outline then
@@ -49,7 +57,7 @@ local _Ellipse = function(x, y, x_radius, y_radius)
         y_radius = y_radius or x_radius,
         is_outline = false,
         line_width = 2,
-        color = rt.Palette.WHITE,
+        color = _WHITE,
 
         draw = function(self)
             if self.is_outline then
@@ -71,7 +79,7 @@ local _Polygon = function(first, ...)
         vertices = meta.is_table(first) and first or {first, ...},
         is_outline = false,
         line_width = 2,
-        color = rt.Palette.WHITE,
+        color = _WHITE,
 
         draw = function(self)
             if self.is_outline then
@@ -91,7 +99,7 @@ local _Line = function(first, ...)
     return {
         vertices = meta.is_table(first) and first or {first, ...},
         line_width = 2,
-        color = rt.Palette.WHITE,
+        color = _WHITE,
 
         draw = function(self)
             love.graphics.setLineWidth(self.line_width)
@@ -101,7 +109,7 @@ local _Line = function(first, ...)
     }
 end
 
-local _color_highlight = rt.Palette.WHITE
+local _color_highlight = _WHITE
 
 --- @brief
 local _gamepad_button_to_string = {
@@ -235,23 +243,23 @@ function rt.KeybindingIndicator:create_as_button(top_selected, right_selected, b
         local left_selection = _Ellipse(left_x, left_y, selection_inlay_radius)
 
         for base in range(top_base, right_base, bottom_base, left_base) do
-            base.color = rt.Palette.GRAY_3
+            base.color = _GRAY_3
         end
 
         for back in range(top_back, right_back, bottom_back, left_back) do
-            back.color = rt.Palette.GRAY_5
+            back.color = _GRAY_5
         end
 
         for outline_outline in range(top_outline_outline, right_outline_outline, bottom_outline_outline, left_outline_outline, top_back_outline_outline, right_back_outline_outline, bottom_back_outline_outline, left_back_outline_outline) do
-            outline_outline.color = rt.Palette.TRUE_WHITE
+            outline_outline.color = _TRUE_WHITE
         end
 
         for selection in range(top_selection, right_selection, bottom_selection, left_selection) do
-            selection.color = rt.Palette.WHITE
+            selection.color = _WHITE
         end
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline, top_back_outline, right_back_outline, bottom_back_outline, left_back_outline) do
-            outline.color = rt.Palette.GRAY_7
+            outline.color = _GRAY_7
             outline.is_outline = true
             outline.line_width = outline_width
         end
@@ -368,17 +376,17 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
         local left_base, left_outline = _Polygon(left), _Polygon(left)
 
         for base in range(top_base, right_base, bottom_base, left_base) do
-            base.color = rt.Palette.GRAY_3
+            base.color = _GRAY_3
         end
 
-        local selected_color = rt.Palette.WHITE
+        local selected_color = _WHITE
         if up_selected then top_base.color = selected_color end
         if right_selected then right_base.color = selected_color end
         if down_selected then bottom_base.color = selected_color end
         if left_selected then left_base.color = selected_color end
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline) do
-            outline.color = rt.Palette.GRAY_7
+            outline.color = _GRAY_7
             outline.is_outline = true
         end
 
@@ -388,7 +396,7 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
         local backlay_horizontal = _Rectangle(left_top_x, left_top_y, 2 * r, m)
 
         for backlay in range(backlay_horizontal, backlay_vertical) do
-            backlay.color = rt.Palette.GRAY_5
+            backlay.color = _GRAY_5
             backlay.corner_radius = corner_radius
         end
 
@@ -415,14 +423,14 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
         local backlay_outline_outline_horizontal = _Rectangle(left_top_x, left_top_y, 2 * r, m)
 
         for backlay_outline in range(backlay_outline_vertical, backlay_outline_horizontal) do
-            backlay_outline.color = rt.Palette.GRAY_7
+            backlay_outline.color = _GRAY_7
             backlay_outline.is_outline = true
             backlay_outline.line_width = 5
             backlay_outline.corner_radius = corner_radius
         end
 
         for outline_outline in range(backlay_outline_outline_vertical, backlay_outline_outline_horizontal) do
-            outline_outline.color = rt.Palette.TRUE_WHITE
+            outline_outline.color = _TRUE_WHITE
             outline_outline.line_width = 8
             outline_outline.corner_radius = corner_radius
             outline_outline.is_outline = true
@@ -479,12 +487,12 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
             rectangle.corner_radius = h / 2
         end
 
-        base.color = rt.Palette.GRAY_3
-        base_outline.color = rt.Palette.GRAY_7
+        base.color = _GRAY_3
+        base_outline.color = _GRAY_7
         base_outline.is_outline = true
         base_outline.line_width = 2
 
-        base_outline_outline.color = rt.Palette.TRUE_WHITE
+        base_outline_outline.color = _TRUE_WHITE
         base_outline_outline.is_outline = true
         base_outline_outline.line_width = 5
 
@@ -523,11 +531,11 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
         end
 
         for triangle in range(left_triangle, right_triangle) do
-            triangle.color = rt.Palette.TRUE_WHITE
+            triangle.color = _TRUE_WHITE
         end
 
         for triangle_outline in range(left_triangle_outline, right_triangle_outline) do
-            triangle_outline.color = rt.Palette.GRAY_7
+            triangle_outline.color = _GRAY_7
             triangle_outline.is_outline = true
         end
 
@@ -583,10 +591,10 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
         local rectangle_base_outline_outline = _Rectangle(rect_base_x, rect_base_y, rect_w, rect_h)
 
         local outline_width = 2
-        rectangle_base.color = rt.Palette.GRAY_4
-        rectangle_base_outline.color = rt.Palette.GRAY_7
+        rectangle_base.color = _GRAY_4
+        rectangle_base_outline.color = _GRAY_7
         rectangle_base_outline.line_width = outline_width
-        rectangle_base_outline_outline.color = rt.Palette.TRUE_WHITE
+        rectangle_base_outline_outline.color = _TRUE_WHITE
         rectangle_base_outline_outline.line_width = outline_width + 4
 
         for outline in range(rectangle_base_outline, rectangle_base_outline_outline) do
@@ -626,14 +634,14 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
 
         curve_outline.line_width = outline_width
         curve_outline_outline.line_width = outline_width + 4
-        curve_outline.color = rt.Palette.GRAY_7
-        curve_outline_outline.color = rt.Palette.TRUE_WHITE
+        curve_outline.color = _GRAY_7
+        curve_outline_outline.color = _TRUE_WHITE
 
         local polygon = _Polygon({
             rect_base_x + corner_radius - 2 * polygon_last_y_offset, rect_base_y + rect_h - corner_radius + polygon_last_y_offset,
             table.unpack(polygon_points)
         })
-        polygon.color = rt.Palette.GRAY_4
+        polygon.color = _GRAY_4
 
         local stencil_padding = corner_radius + outline_width
         local stencil_points = { table.unpack(polygon_points) }
@@ -712,10 +720,10 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
 
     local outline_width = 2
 
-    base.color = rt.Palette.GRAY_5
-    base_outline.color = rt.Palette.GRAY_7
+    base.color = _GRAY_5
+    base_outline.color = _GRAY_7
     base_outline.line_width = outline_width
-    base_outline_outline.color = rt.Palette.TRUE_WHITE
+    base_outline_outline.color = _TRUE_WHITE
     base_outline_outline.line_width = outline_width + 3
 
     local neck_center_x, neck_center_y, neck_width, neck_height = center_x, center_y, 0.25 * width, 0.25 * height
@@ -762,16 +770,16 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
     local down_indicator_outline = _Polygon(indicator_vertices)
     down_indicator_outline.is_outline = true
 
-    head_base.color = rt.Palette.GRAY_3
-    head_outline.color = rt.Palette.GRAY_7
+    head_base.color = _GRAY_3
+    head_outline.color = _GRAY_7
     head_outline.is_outline = true
     head_outline_outline.is_outline = true
     head_outline.line_width = outline_width
     head_outline_outline.line_width = outline_width + 3
-    head_inlay.color = rt.Palette.GRAY_5
+    head_inlay.color = _GRAY_5
 
     for neck in range(neck_base, neck_foot) do
-        neck.color = rt.Palette.GRAY_5:clone()
+        neck.color = _GRAY_5:clone()
         local darken = -0.1
         neck.color.r = neck.color.r - darken
         neck.color.g = neck.color.g - darken
@@ -779,14 +787,14 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
     end
 
     for outline in range(neck_outline_left, neck_outline_right, neck_foot_outline, down_indicator_outline) do
-        outline.color = rt.Palette.GRAY_7
+        outline.color = _GRAY_7
         outline.line_width = outline_width
     end
 
     neck_foot_outline.is_outline = true
 
     for outline in range(neck_outline_outline_left, neck_outline_outline_right, head_outline_outline) do
-        outline.color = rt.Palette.TRUE_WHITE
+        outline.color = _TRUE_WHITE
         outline.line_width = outline_width + 3
     end
 
@@ -838,10 +846,10 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
 
         local outline_width = 2
 
-        base.color = rt.Palette.GRAY_4
-        base_outline.color = rt.Palette.GRAY_7
+        base.color = _GRAY_4
+        base_outline.color = _GRAY_7
         base_outline.line_width = outline_width
-        base_outline_outline.color = rt.Palette.TRUE_WHITE
+        base_outline_outline.color = _TRUE_WHITE
         base_outline_outline.line_width = outline_width + 3
 
         local neck_center_x, neck_center_y, neck_width, neck_height = center_x, center_y, 0.25 * width, 0.25 * height
@@ -888,13 +896,13 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
         local down_indicator_outline = _Polygon(indicator_vertices)
         down_indicator_outline.is_outline = true
 
-        head_base.color = rt.Palette.GRAY_3
-        head_outline.color = rt.Palette.GRAY_7
+        head_base.color = _GRAY_3
+        head_outline.color = _GRAY_7
         head_outline.is_outline = true
         head_outline_outline.is_outline = true
         head_outline.line_width = outline_width
         head_outline_outline.line_width = outline_width + 3
-        head_inlay.color = rt.Palette.GRAY_4
+        head_inlay.color = _GRAY_4
 
         for neck in range(neck_base, neck_foot) do
             neck.color = neck.color:clone()
@@ -905,14 +913,14 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
         end
 
         for outline in range(neck_outline_left, neck_outline_right, neck_foot_outline, down_indicator_outline) do
-            outline.color = rt.Palette.GRAY_7
+            outline.color = _GRAY_7
             outline.line_width = outline_width
         end
 
         neck_foot_outline.is_outline = true
 
         for outline in range(neck_outline_outline_left, neck_outline_outline_right, head_outline_outline) do
-            outline.color = rt.Palette.TRUE_WHITE
+            outline.color = _TRUE_WHITE
             outline.line_width = outline_width + 3
         end
 
@@ -995,8 +1003,8 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
             rectangle.corner_radius = 4
         end
 
-        outer.color = rt.Palette.GRAY_5
-        inner.color = rt.Palette.GRAY_3
+        outer.color = _GRAY_5
+        inner.color = _GRAY_3
 
         local top_trapezoid = _Polygon(
             outer_x, outer_y,
@@ -1056,24 +1064,24 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
 
         outer_outline.is_outline = true
         outer_outline.line_width = 1
-        outer_outline.color = rt.Palette.TRUE_WHITE
+        outer_outline.color = _TRUE_WHITE
 
         inner_outline.is_outline = true
         inner_outline.line_width = 2
         inner_outline.is_outline = true
-        inner_outline.color = rt.Palette.GRAY_6
+        inner_outline.color = _GRAY_6
 
-        top_trapezoid.color = rt.Palette.GRAY_4
-        local r1, g1, b1, a1 = rt.Palette.GRAY_5:unpack()
-        local r2, g2, b2, a2 = rt.Palette.GRAY_6:unpack()
+        top_trapezoid.color = _GRAY_5
+        local r1, g1, b1, a1 = _GRAY_5:unpack()
+        local r2, g2, b2, a2 = _GRAY_6:unpack()
         bottom_trapezoid.color = rt.RGBA(math.mix4(r1, g1, b1, a1, r2, g2, b2, a2, 0.5))
-        left_trapezoid.color = rt.Palette.GRAY_5
-        right_trapezoid.color = rt.Palette.GRAY_5
+        left_trapezoid.color = _GRAY_5
+        right_trapezoid.color = _GRAY_5
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline) do
-            outline.color = rt.Palette.GRAY_7
+            outline.color = _GRAY_7
             outline.is_outline = true
-            outline.line_width = 1
+            outline.line_width = 2
         end
 
         local font = nil
@@ -1148,26 +1156,26 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
 
         local corner_radius = 0.05 * width
         for base in range(right_base, left_base) do
-            base.color = rt.Palette.GRAY_3
+            base.color = _GRAY_3
             base.corner_radius = corner_radius
         end
 
         for outline in range(right_outline, left_outline) do
             outline.is_outline = true
-            outline.color = rt.Palette.GRAY_7
+            outline.color = _GRAY_7
             outline.corner_radius = corner_radius
             outline.line_width = line_width
         end
 
         for outline_outline in range(right_outline_outline, left_outline_outline) do
             outline_outline.is_outline = true
-            outline_outline.color = rt.Palette.TRUE_WHITE
+            outline_outline.color = _TRUE_WHITE
             outline_outline.line_width = line_width + 3
             outline_outline.corner_radius = corner_radius
         end
 
         local outline_outline = _Rectangle(0, 0, width, width)
-        outline_outline.color = rt.Palette.TRUE_WHITE
+        outline_outline.color = _TRUE_WHITE
 
         self._content = {
             right_outline_outline,
@@ -1246,26 +1254,26 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
 
         local corner_radius = 0.05 * width
         for base in range(top_base, right_base, bottom_base, left_base) do
-            base.color = rt.Palette.GRAY_3
+            base.color = _GRAY_3
             base.corner_radius = corner_radius
         end
 
         for outline in range(top_outline, right_outline, bottom_outline, left_outline) do
             outline.is_outline = true
-            outline.color = rt.Palette.GRAY_7
+            outline.color = _GRAY_7
             outline.corner_radius = corner_radius
             outline.line_width = line_width
         end
 
         for outline_outline in range(top_outline_outline, right_outline_outline, bottom_outline_outline, left_outline_outline) do
             outline_outline.is_outline = true
-            outline_outline.color = rt.Palette.TRUE_WHITE
+            outline_outline.color = _TRUE_WHITE
             outline_outline.line_width = line_width + 3
             outline_outline.corner_radius = corner_radius
         end
 
         local outline_outline = _Rectangle(0, 0, width, width)
-        outline_outline.color = rt.Palette.TRUE_WHITE
+        outline_outline.color = _TRUE_WHITE
 
         self._content = {
             top_outline_outline,
