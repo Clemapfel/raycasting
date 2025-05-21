@@ -126,18 +126,19 @@ end
 function rt.InputMapping:get_mapping(input_action, keyboard_or_controller)
     local mapped = _G.SETTINGS.INPUT_MAPPING[input_action]
     if mapped == nil then
-        log.error("In rt.InputMapping.get_mapping: no mapping for input action `" .. input_action .. "`")
+        rt.error("In rt.InputMapping.get_mapping: no mapping for input action `" .. input_action .. "`")
         return nil, nil
     end
 
     local keyboard = { table.unpack(_G.SETTINGS.INPUT_MAPPING[input_action].keyboard) }
     local controller = { table.unpack(_G.SETTINGS.INPUT_MAPPING[input_action].controller) }
+
     if keyboard_or_controller == nil then
-        return keyboard, controller
+        return keyboard[1], controller[1]
     elseif keyboard_or_controller == rt.InputMethod.KEYBOARD then
-        return keyboard
+        return keyboard[1]
     elseif keyboard_or_controller == rt.InputMethod.CONTROLLER then
-        return controller
+        return controller[1]
     end
 end
 

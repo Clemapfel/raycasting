@@ -4,6 +4,7 @@ require "common.input_subscriber"
 require "common.translation"
 require "common.keybinding_indicator"
 require "common.input_mapping"
+require "common.control_indicator"
 
 rt.settings.menu.title_screen_scene = {
     player_max_velocity = 1000,
@@ -18,11 +19,17 @@ rt.settings.menu.title_screen_scene = {
 --- @class mn.TitleScreenScene
 mn.TitleScreenScene = meta.class("TitleScreenScene", rt.Scene)
 
+mn.TitleScreenSceneState = meta.enum("TitleScreenSceneState", {
+    IDLE = "IDLE",
+    FALLING = "FALLING"
+})
+
 local _title_shader_sdf, _title_shader_no_sdf, _background_shader = nil
 
 --- @brief
 function mn.TitleScreenScene:instantiate(state)
-    self._state = state
+
+    self._state = mn.TitleScreenSceneState.IDLE
     self._player = state:get_player()
     self._player:set_is_bubble(false)
 
@@ -46,14 +53,6 @@ function mn.TitleScreenScene:instantiate(state)
     self._boundaries = {}
     self._reset_position = true
 
-    --[[
-    local platform_x, platform_y, platform_w, platform_h = 0, self._player:get_radius(), 100, 2
-    self._platform = b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Rectangle(
-        platform_x - platform_w / 2, platform_y,
-        platform_w, platform_h
-    ))
-    ]]--
-
     self._player:move_to_world(self._world)
     self._player:set_gravity(0)
     self._player:set_velocity(self._player_velocity_x, self._player_velocity_y)
@@ -69,12 +68,11 @@ function mn.TitleScreenScene:instantiate(state)
         _title_shader_sdf = rt.Shader("menu/title_screen_scene_label.glsl", { MODE = 1 })
     end
 
-    self._jump_indicator_keyboard = rt.InputMapping:get_keyboard_indicator(rt.InputButton.JUMP)
-    self._jump_indicator_controller = rt.InputMapping:get_controller_indicator(rt.InputButton.JUMP)
-
-    for indicator in range(self._jump_indicator_keyboard, self._jump_indicator_controller) do
-        indicator:realize()
-    end
+    local translation = rt.Translation.title_screen_scene
+    self._control_indicator = rt.ControlIndicator({
+        [rt.ControlIndicatorButton.JUMP] = translation.menu_select,
+        [rt.ControlIndicatorButton.UP_DOWN] = translation.menu_move
+    })
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -107,12 +105,11 @@ end
 
 --- @brief
 function mn.TitleScreenScene:realize()
+    self._control_indicator:realize()
 end
 
 --- @brief
 function mn.TitleScreenScene:size_allocate(x, y, width, height)
-    self._camera:set_bounds(rt.AABB(0 - 0.5 * width, 0 - 0.5 * height, width, height))
-
     local font_size = 0.15 * love.graphics.getHeight()
     self._title_font_scale = rt.Font(font_size, rt.settings.menu.title_screen_scene.font_path)
     self._title_font_scale_scale = font_size / (0.15 * 600)
@@ -131,28 +128,31 @@ function mn.TitleScreenScene:size_allocate(x, y, width, height)
     end
 
     do
-        local w, h = width, height
+        local scale = self._camera:get_scale_delta()
+        local w, h = width / scale, height / scale
+        local x, y = 0 - 0.5 * w, 0 - 0.5 * h
         self._boundaries = {
-            b2.Body(self._world, b2.BodyType.STATIC, -0.5 * w, -0.5 * h, b2.Segment(
-                x, y, x + width, y
+            b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
+                x, y, x + w, y
             )),
 
-            b2.Body(self._world, b2.BodyType.STATIC, -0.5 * w, -0.5 * h, b2.Segment(
-                x + width, y, x + width, y + height
+            b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
+                x + w, y, x + w, y + h
             )),
 
-            b2.Body(self._world, b2.BodyType.STATIC, -0.5 * w, -0.5 * h, b2.Segment(
-                x + width, y + height, x, y + height
+            b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
+                x + w, y + h, x, y + h
             )),
 
-            b2.Body(self._world, b2.BodyType.STATIC, -0.5 * w, -0.5 * h, b2.Segment(
-                x, y + height, x, y
+            b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
+                x, y + h, x, y
             )),
         }
 
         for body in values(self._boundaries) do
             body:set_collides_with(rt.settings.player.bounce_collision_group)
             body:set_collision_group(rt.settings.player.bounce_collision_group)
+            body:set_use_continuous_collision(true)
             body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
                 local current_vx, current_vy = self._player_velocity_x, self._player_velocity_y
                 local dot_product = current_vx * normal_x + current_vy * normal_y
@@ -162,24 +162,20 @@ function mn.TitleScreenScene:size_allocate(x, y, width, height)
         end
     end
 
+    self._player:teleport_to(0, 0)
+
     self._title_x, self._title_y = math.round(self._title_x), math.round(self._title_y)
 
-    self._jump_indicator_keyboard:reformat(50, 50, 100, 100)
-    self._jump_indicator_keyboard:reformat(50, 150, 100, 100)
-
-    self._dbg = {
-        rt.KeybindingIndicator():create_from_keyboard_key("space"),
-        rt.KeybindingIndicator():create_from_keyboard_key("a"),
-        rt.KeybindingIndicator():create_from_keyboard_key("backspace"),
-    }
-
-    for button in values(meta.instances(rt.GamepadButton)) do
-        table.insert(self._dbg, rt.KeybindingIndicator():create_from_gamepad_button(button))
-    end
+    local control_w, control_h = self._control_indicator:measure()
+    self._control_indicator:reformat(
+        x + width - 2 * m - control_w,
+        y + height - 2 * m - control_h,
+        control_w, control_h
+    )
 
     local start_y = 10
     local current_x, current_y = 10, start_y
-    local w, h = 100, 100
+    local w, h = 100, 10
     for indicator in values(self._dbg) do
         indicator:realize()
         indicator:reformat(current_x, current_y, w, h)
@@ -207,7 +203,13 @@ end
 --- @brief
 function mn.TitleScreenScene:update(delta)
     self._world:update(delta)
-    self._camera:move_to(self._player:get_position())
+
+    if self._state == mn.TitleScreenSceneState.IDLE then
+        self._camera:set_position(0, 0)
+    elseif self._state == mn.TitleScreenSceneState.FALLING then
+        self._camera:move_to(self._player:get_position())
+    end
+
     self._camera:update(delta)
     self._player:update(delta)
 
@@ -226,6 +228,7 @@ function mn.TitleScreenScene:update(delta)
         self._fraction = py / 12000
         self._player:set_flow(self._fallspeed)
     end
+
 end
 
 local _black =  { rt.Palette.BLACK:unpack() }
@@ -274,18 +277,21 @@ function mn.TitleScreenScene:draw()
     _title_shader_no_sdf:unbind()
     love.graphics.pop()
 
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
     for b in values(self._dbg) do
         b:draw()
     end
 
-    --self._jump_indicator_keyboard:draw()
-    --self._jump_indicator_controller:draw()
+    self._control_indicator:draw()
 
     self._camera:bind()
     self._player:draw()
     --self._platform:draw()
+
+    for x in values(self._boundaries) do
+        x:draw()
+    end
     self._camera:unbind()
+
 end
 
 --- @brief

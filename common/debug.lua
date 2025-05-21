@@ -14,6 +14,11 @@ function debugger.break_here()
 end
 
 --- @brief
+function debugger.get_is_active()
+    return _debugger_active
+end
+
+--- @brief
 function debugger.connect()
     pcall(function()
         -- connect debugger only when required

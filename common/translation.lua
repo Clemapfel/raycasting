@@ -72,6 +72,8 @@ rt.Translation = rt.initialize_translation({
         level_select = "Start",
         settings = "Settings",
 
+        menu_select = "Select",
+        menu_move = "Move"
     },
 
     -- stage select

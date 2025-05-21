@@ -67,11 +67,20 @@ rt.InputCallbackID = meta.enum("InputCallbackID", {
 
     -- input
     -- callback: (method, ControllerID?) -> nil
-    INPUT_METHOD_CHANGED = "input_method_changed"
+    INPUT_METHOD_CHANGED = "input_method_changed",
+
+    -- callback () -> nil
+    INPUT_MAPPING_CHANGED = "input_mapping_changed"
 })
 
 --- @class rt.InputSubscriber
 rt.InputSubscriber = meta.class("InputSubscriber")
+
+local to_add = { "pressed", "released" }
+for name in values(meta.instances(rt.InputCallbackID)) do
+    table.insert(to_add, name)
+end
+meta.add_signals(rt.InputSubscriber, table.unpack(to_add))
 
 --- @brief
 function rt.InputSubscriber:instantiate(is_active)
@@ -107,7 +116,7 @@ end
 
 --- @brief
 function rt.InputSubscriber:get_input_method()
-    return rt.InputManager._input_method
+    return rt.InputManager:get_input_method()
 end
 
 --- @brief
@@ -120,24 +129,5 @@ function rt.InputSubscriber:activate()
     self._is_active = true
 end
 
-meta.add_signals(rt.InputSubscriber,
-    "pressed",
-    "released",
-    rt.InputCallbackID.MOUSE_MOVED,
-    rt.InputCallbackID.MOUSE_BUTTON_PRESSED,
-    rt.InputCallbackID.MOUSE_BUTTON_RELEASED,
-    rt.InputCallbackID.MOUSE_LEFT_SCREEN,
-    rt.InputCallbackID.MOUSE_ENTERED_SCREEN,
-    rt.InputCallbackID.MOUSE_WHEEL_MOVED,
-    rt.InputCallbackID.KEYBOARD_KEY_PRESSED,
-    rt.InputCallbackID.KEYBOARD_KEY_RELEASED,
-    rt.InputCallbackID.CONTROLLER_BUTTON_PRESSED,
-    rt.InputCallbackID.CONTROLLER_BUTTON_RELEASED,
-    rt.InputCallbackID.LEFT_JOYSTICK_MOVED,
-    rt.InputCallbackID.RIGHT_JOYSTICK_MOVED,
-    rt.InputCallbackID.LEFT_TRIGGER_MOVED,
-    rt.InputCallbackID.RIGHT_TRIGGER_MOVED,
-    rt.InputCallbackID.INPUT_METHOD_CHANGED
-)
 
 

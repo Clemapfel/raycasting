@@ -23,9 +23,19 @@ function rt.InputManager:instantiate()
     })
 end
 
+--- @brief
+function rt.InputManager:_notify_input_mapping_changed()
+    for sub in values(rt.InputManager._subscribers) do
+        if sub._is_active then
+            sub:signal_emit(rt.InputCallbackID.INPUT_MAPPING_CHANGED)
+        end
+    end
+end
+
 --- @brief [internal]
 function rt.InputManager:_set_input_method(method)
     if method ~= self._input_method then
+        self._input_method = method
         for subscriber in values(self._subscribers) do
             if subscriber._is_active then
                 if method == rt.InputManager.KEYBOARD then
@@ -36,7 +46,6 @@ function rt.InputManager:_set_input_method(method)
             end
         end
     end
-    self._input_method = method
 end
 
 --- @brief

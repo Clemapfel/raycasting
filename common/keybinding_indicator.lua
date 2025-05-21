@@ -198,7 +198,7 @@ function rt.KeybindingIndicator:create_as_button(top_selected, right_selected, b
         local total_w = width
         local button_outer_m = 0.23 * width
         local button_inner_m = button_outer_m
-        local button_r = (width - 2 * button_outer_m - button_inner_m) / 2.1
+        local button_r = (width - 2 * button_outer_m - button_inner_m) / 2.6
 
         local x, y = 0, 0
         local height = width
@@ -313,12 +313,12 @@ end
 function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down_selected, left_selected)
     self._initializer = function(self, width)
         local x, y = 0, 0
-        local height = width
+        local height = width * 0.85
         local translate = rt.translate_point_by_angle
-        local center_x, center_y = x + 0.5 * width, y + 0.5 * height
+        local center_x, center_y = x + 0.5 * width, y + 0.5 * width
 
-        local r = 0.5 * width - 5
-        local m = 0.3 * width
+        local r = 0.5 * height - 5
+        local m = 0.3 * height
         local bottom_left_x, bottom_left_y = center_x - m / 2, center_y + r
         local bottom_right_x, bottom_right_y = center_x + m / 2, center_y + r
         local center_bottom_right_x, center_bottom_right_y = center_x + m / 2, center_y + m / 2

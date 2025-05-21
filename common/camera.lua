@@ -172,7 +172,12 @@ end
 
 --- @brief
 function rt.Camera:get_final_scale()
-    return self._current_scale * (love.graphics.getHeight() / 600)
+    return self._current_scale * self:get_scale_delta()
+end
+
+--- @brief
+function rt.Camera:get_scale_delta()
+    return (love.graphics.getHeight() / 600)
 end
 
 --- @brief

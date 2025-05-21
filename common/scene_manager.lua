@@ -369,6 +369,10 @@ function love.errorhandler(msg)
         p = p .. "\n\nPress Ctrl+C or tap to copy this error"
     end
 
+    if debugger.get_is_active() then
+        debugger.break_here()
+    end
+
     return function()
         love.event.pump(0.1)
 

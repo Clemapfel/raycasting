@@ -127,8 +127,6 @@ end
 
 ]]--
 
---debugger.connect()
-
 
 require "common.scene_manager"
 require "common.game_state"
