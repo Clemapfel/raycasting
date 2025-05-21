@@ -70,7 +70,10 @@ rt.InputCallbackID = meta.enum("InputCallbackID", {
     INPUT_METHOD_CHANGED = "input_method_changed",
 
     -- callback () -> nil
-    INPUT_MAPPING_CHANGED = "input_mapping_changed"
+    INPUT_MAPPING_CHANGED = "input_mapping_changed",
+
+    -- callback () -> nil
+    WINDOW_RESIZED = "window_resized",
 })
 
 --- @class rt.InputSubscriber

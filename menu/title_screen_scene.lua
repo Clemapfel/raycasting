@@ -28,7 +28,6 @@ local _title_shader_sdf, _title_shader_no_sdf, _background_shader = nil
 
 --- @brief
 function mn.TitleScreenScene:instantiate(state)
-
     self._state = mn.TitleScreenSceneState.IDLE
     self._player = state:get_player()
     self._player:set_is_bubble(false)
@@ -70,9 +69,27 @@ function mn.TitleScreenScene:instantiate(state)
 
     local translation = rt.Translation.title_screen_scene
     self._control_indicator = rt.ControlIndicator({
-        [rt.ControlIndicatorButton.JUMP] = translation.menu_select,
-        [rt.ControlIndicatorButton.UP_DOWN] = translation.menu_move
+        [rt.ControlIndicatorButton.JUMP] = translation.control_indicator_select,
+        [rt.ControlIndicatorButton.UP_DOWN] = translation.control_indicator_move
     })
+    self._control_indicator:set_use_frame(false)
+
+    local font, font_mono = rt.settings.font.default_large, rt.settings.font.default_mono_large
+    self._menu_items = {}
+    self._selected_item_i = 1
+    for text in range(
+        translation.level_select,
+        translation.settings,
+        translation.credits,
+        translation.quit
+    ) do
+        local item = {
+            unselected_label = rt.Label("<o>" .. text .. "</o>", font, font_mono),
+            selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", font, font_mono),
+        }
+
+        table.insert(self._menu_items, item)
+    end
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -106,6 +123,10 @@ end
 --- @brief
 function mn.TitleScreenScene:realize()
     self._control_indicator:realize()
+    for item in values(self._menu_items) do
+        item.unselected_label:realize()
+        item.selected_label:realize()
+    end
 end
 
 --- @brief
@@ -166,28 +187,33 @@ function mn.TitleScreenScene:size_allocate(x, y, width, height)
 
     self._title_x, self._title_y = math.round(self._title_x), math.round(self._title_y)
 
-    local control_w, control_h = self._control_indicator:measure()
-    self._control_indicator:reformat(
-        x + width - 2 * m - control_w,
-        y + height - 2 * m - control_h,
-        control_w, control_h
-    )
+    do
+        local total_h = 0
+        for item in values(self._menu_items) do
+            local selected_w, selected_h = item.selected_label:measure()
+            local unselected_w, unselected_h = item.unselected_label:measure()
+            total_h = total_h + math.max(selected_h, unselected_h)
+        end
 
-    local start_y = 10
-    local current_x, current_y = 10, start_y
-    local w, h = 100, 10
-    for indicator in values(self._dbg) do
-        indicator:realize()
-        indicator:reformat(current_x, current_y, w, h)
-        local cw, ch = indicator:measure()
+        local current_y = 2 * m
 
-        if current_y + ch > height - start_y then
-            current_y = start_y
-            current_x = current_x + cw
-        else
-            current_y = current_y + ch
+        local menu_center_x = 0
+        for item in values(self._menu_items) do
+            local selected_w, selected_h = item.selected_label:measure()
+            local unselected_w, unselected_h = item.unselected_label:measure()
+
+            item.selected_label:reformat(menu_center_x - 0.5 * selected_w, current_y, math.huge)
+            item.unselected_label:reformat(menu_center_x - 0.5 * unselected_w, current_y, math.huge)
+            current_y = current_y + math.max(selected_h, unselected_h)
         end
     end
+
+    local control_w, control_h = self._control_indicator:measure()
+    self._control_indicator:reformat(
+        0 - 0.5 * width + width - m - control_w,
+        0 - 0.5 * height + height - m - control_h,
+        control_w, control_h
+    )
 end
 
 --- @brief
@@ -252,6 +278,7 @@ function mn.TitleScreenScene:draw()
     love.graphics.pop()
 
     love.graphics.push()
+    love.graphics.origin()
     local scale = self._camera:get_final_scale() / self._title_font_scale_scale
     local offset_x, offset_y = self._camera:get_offset()
     local w, h = self._bounds.width, self._bounds.height
@@ -281,15 +308,19 @@ function mn.TitleScreenScene:draw()
         b:draw()
     end
 
-    self._control_indicator:draw()
-
     self._camera:bind()
     self._player:draw()
-    --self._platform:draw()
 
-    for x in values(self._boundaries) do
-        x:draw()
+    for i, item in ipairs(self._menu_items) do
+        if i == self._selected_item_i then
+            item.selected_label:draw()
+        else
+            item.unselected_label:draw()
+        end
     end
+
+    self._control_indicator:draw()
+
     self._camera:unbind()
 
 end

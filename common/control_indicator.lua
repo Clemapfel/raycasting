@@ -20,8 +20,9 @@ do -- generate enum for all input buttons
 end
 
 --- @brief
-function rt.ControlIndicator:instantiate(layout)
+function rt.ControlIndicator:instantiate(layout, use_frame)
     meta.install(self, {
+        _use_frame = use_frame or true,
         _layout = layout or {},
         _keyboard_indicators = {},  -- Table<rt.KeybindingsIndicator>
         _gamepad_indicators = {},   -- Table<rt.KeybindingsIndicator>
@@ -29,6 +30,7 @@ function rt.ControlIndicator:instantiate(layout)
         _frame = rt.Frame(),
 
         _opacity = 1,
+        _is_allocated = false,
         _final_width = 1,
         _final_height = 1,
 
@@ -119,7 +121,13 @@ function rt.ControlIndicator:create_from(layout)
         table.insert(self._keyboard_indicators, keyboard_indicator)
         table.insert(self._gamepad_indicators, gamepad_indicator)
 
-        local label = rt.Label(text, rt.settings.font.default_small, rt.settings.font.default_mono_small)
+        local prefix, postfix = "<o>", "</o>"
+        local label
+        if string.find(text, "<o>|</o>|<outline>|</outline>") then
+            label = rt.Label(text, rt.settings.font.default, rt.settings.font.default_mono)
+        else
+            label = rt.Label(prefix .. text .. postfix, rt.settings.font.default, rt.settings.font.default_mono)
+        end
         label:realize()
         table.insert(self._labels, label)
 
@@ -131,50 +139,87 @@ function rt.ControlIndicator:create_from(layout)
     self:reformat()
 end
 
+--- @brief
+function rt.ControlIndicator:_get_margin()
+    local m = rt.settings.margin_unit
+    local outer_xm = self._use_frame and 2 * m or 2 * m
+    local outer_ym = self._use_frame and m or m
+    local inner_m = 2 * m
+
+    return outer_xm, outer_ym, inner_m
+end
+
 --- @override
 function rt.ControlIndicator:size_allocate(x, y, width, height)
-    self._bounds.x, self._bounds.y = x, y
-    x, y = 0, 0
+    local outer_xm , outer_ym, inner_m = self:_get_margin()
 
-    local m = rt.settings.margin_unit * 0.5
-    local indicator_width = 12 * m
-
-    local xm = 2 * m
-    local ym = 0.0 * m
-    height = indicator_width + 2 * ym
-
-    local current_x, current_y = x + 4 * m, y + ym
-    for i = 1, #self._labels do
+    local indicator_size = height
+    local use_keyboard = self._input:get_input_method() == rt.InputMethod.KEYBOARD
+    local current_x = x + outer_xm
+    for i, label in ipairs(self._labels) do
         local indicator
-        if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
+        if use_keyboard then
             indicator = self._keyboard_indicators[i]
         else
             indicator = self._gamepad_indicators[i]
         end
 
-        local label = self._labels[i]
-        indicator:reformat(current_x, 0 + 0.5 * height - 0.5 * indicator_width , indicator_width, indicator_width)
+        indicator:reformat(
+            current_x, y + 0.5 * height - 0.5 * indicator_size,
+            indicator_size, indicator_size
+        )
+        current_x = current_x + indicator_size + inner_m
 
-        current_x = current_x + select(1, indicator:measure()) + 2 * m
         local label_w, label_h = label:measure()
-        label:reformat(current_x, 0 + 0.5 * height - 0.5 * label_h, math.huge)
+        label:reformat(current_x, y + 0.5 * height - 0.5 * label_h, math.huge)
 
-        current_x = current_x + label_w + 4 * m
+        if i == #self._labels then
+            current_x = current_x + label_w + outer_xm
+        else
+            current_x = current_x + label_w + inner_m
+        end
     end
 
-    local thickness = self._frame:get_thickness()
     self._final_height = height
     self._final_width = current_x - x
-    self._frame:reformat(0, 0, self._final_width, self._final_height)
+    self._is_allocated = true
+    self._frame:reformat(x, y, self._final_width, self._final_height)
+end
+
+--- @override
+function rt.ControlIndicator:measure()
+    local outer_xm , outer_ym, inner_m = self:_get_margin()
+
+    local max_h = -math.huge
+    local n_indicators = 0
+    local width_sum = outer_xm
+    for i, label in ipairs(self._labels) do
+        n_indicators = n_indicators + 1
+
+        local label_w, label_h = label:measure()
+        max_h = math.max(label_h, max_h)
+
+        if i == #self._labels then
+            width_sum = width_sum + label_w + 1 * inner_m + outer_xm
+        else
+            width_sum = width_sum + label_w + 2 * inner_m
+        end
+    end
+
+    local indicator_size = max_h + 2 * outer_ym
+    local width = width_sum + n_indicators * indicator_size
+    local height = max_h + 2 * outer_ym
+    return width, height
 end
 
 --- @override
 function rt.ControlIndicator:draw()
-    local x_offset, y_offset = self._bounds.x, self._bounds.y
-    love.graphics.translate(x_offset, y_offset)
-
     local use_keyboard = self._input:get_input_method() == rt.InputMethod.KEYBOARD
-    self._frame:draw()
+
+    if self._use_frame then
+        self._frame:draw()
+    end
+
     for i = 1, #self._labels do
         local keyboard_indicator, gamepad_indicator, label = self._keyboard_indicators[i], self._gamepad_indicators[i], self._labels[i]
         if use_keyboard then
@@ -185,9 +230,7 @@ function rt.ControlIndicator:draw()
 
         label:draw()
     end
-    love.graphics.translate(-x_offset, -y_offset)
 end
-
 
 --- @override
 function rt.ControlIndicator:set_opacity(alpha)
@@ -199,11 +242,6 @@ function rt.ControlIndicator:set_opacity(alpha)
     end
 end
 
---- @override
-function rt.ControlIndicator:measure()
-    return self._final_width, self._final_height
-end
-
 --- @brief
 function rt.ControlIndicator:set_selection_state(state)
     local current = self._frame:get_selection_state()
@@ -212,6 +250,13 @@ function rt.ControlIndicator:set_selection_state(state)
     end
 end
 
+--- @brief
+function rt.ControlIndicator:set_use_frame(b)
+    self._use_frame = b
+    if self:get_is_realized() then
+        self:reformat()
+    end
+end
 
 
 

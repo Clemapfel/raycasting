@@ -177,7 +177,7 @@ end
 
 --- @brief
 function rt.Camera:get_scale_delta()
-    return (love.graphics.getHeight() / 600)
+    return 1 --(love.graphics.getHeight() / 600)
 end
 
 --- @brief
