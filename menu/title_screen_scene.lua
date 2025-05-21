@@ -84,8 +84,8 @@ function mn.TitleScreenScene:instantiate(state)
         translation.quit
     ) do
         local item = {
-            unselected_label = rt.Label("<o>" .. text .. "</o>", font, font_mono),
-            selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", font, font_mono),
+            unselected_label = rt.Label("<o>" .. text .. "</o>", font, rt.FontSize.LARGE),
+            selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", font, rt.FontSize.LARGE),
         }
 
         table.insert(self._menu_items, item)
@@ -107,6 +107,11 @@ function mn.TitleScreenScene:instantiate(state)
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputButton.JUMP then
             self._player:set_gravity(1)
+            self._player:set_is_bubble(false)
+            self._state = mn.TitleScreenSceneState.FALLING
+            for boundary in values(self._boundaries) do
+                boundary:set_is_sensor(true)
+            end
         end
     end)
 
@@ -131,13 +136,15 @@ end
 
 --- @brief
 function mn.TitleScreenScene:size_allocate(x, y, width, height)
-    local font_size = 0.15 * love.graphics.getHeight()
-    self._title_font_scale = rt.Font(font_size, rt.settings.menu.title_screen_scene.font_path)
-    self._title_font_scale_scale = font_size / (0.15 * 600)
+    local font_size = rt.FontSize.GIGANTIC
+    self._title_font_scale = rt.Font(rt.settings.menu.title_screen_scene.font_path)
+    self._title_font_scale_scale = rt.Font:get_actual_size(font_size) / (rt.FontSize.GIGANTIC * 600)
     local title = rt.Translation.title_screen_scene.title
-    self._title_label_no_sdf = love.graphics.newTextBatch(self._title_font_scale:get_native(rt.FontStyle.REGULAR, false), title)
-    self._title_label_sdf = love.graphics.newTextBatch(self._title_font_scale:get_native(rt.FontStyle.REGULAR, true), title)
-    self._title_w, self._title_h = self._title_font_scale:measure_glyph(title)
+    self._title_label_no_sdf = love.graphics.newTextBatch(self._title_font_scale:get_native(font_size, rt.FontStyle.REGULAR, false), title)
+    self._title_label_sdf = love.graphics.newTextBatch(self._title_font_scale:get_native(font_size, rt.FontStyle.REGULAR, true), title)
+
+    local native = self._title_font_scale:get_native(font_size)
+    self._title_w, self._title_h = native:getWidth(title), native:getHeight()
 
     local m = rt.settings.margin_unit
     local outer_margin = 3 * m
@@ -232,15 +239,14 @@ function mn.TitleScreenScene:update(delta)
 
     if self._state == mn.TitleScreenSceneState.IDLE then
         self._camera:set_position(0, 0)
+        local magnitude = 200
+        self._player:set_velocity(self._player_velocity_x * magnitude, self._player_velocity_y * magnitude)
     elseif self._state == mn.TitleScreenSceneState.FALLING then
         self._camera:move_to(self._player:get_position())
     end
 
     self._camera:update(delta)
     self._player:update(delta)
-
-    local magnitude = 200
-    self._player:set_velocity(self._player_velocity_x * magnitude, self._player_velocity_y * magnitude)
 
     if true then --love.keyboard.isDown("space") then
         self._shader_elapsed = self._shader_elapsed + delta
@@ -262,6 +268,8 @@ local _black =  { rt.Palette.BLACK:unpack() }
 --- @brief
 function mn.TitleScreenScene:draw()
     love.graphics.clear()
+
+    -- draw background
     love.graphics.push()
     love.graphics.origin()
     _background_shader:bind()
@@ -277,15 +285,10 @@ function mn.TitleScreenScene:draw()
     _background_shader:unbind()
     love.graphics.pop()
 
+    -- draw text, affected by camera translation but not scale
+
     love.graphics.push()
-    love.graphics.origin()
-    local scale = self._camera:get_final_scale() / self._title_font_scale_scale
-    local offset_x, offset_y = self._camera:get_offset()
-    local w, h = self._bounds.width, self._bounds.height
-    love.graphics.translate(0.5 * w, 0.5 * h)
-    love.graphics.scale(scale, scale)
-    love.graphics.translate(offset_x, offset_y)
-    love.graphics.translate(-0.5 * w, -0.5 * h)
+    love.graphics.translate(self._camera:get_offset())
     _title_shader_sdf:bind()
     _title_shader_sdf:send("elapsed", self._shader_elapsed)
     _title_shader_sdf:send("black", _black)
@@ -302,14 +305,6 @@ function mn.TitleScreenScene:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(self._title_label_no_sdf, self._title_x, self._title_y)
     _title_shader_no_sdf:unbind()
-    love.graphics.pop()
-
-    for b in values(self._dbg) do
-        b:draw()
-    end
-
-    self._camera:bind()
-    self._player:draw()
 
     for i, item in ipairs(self._menu_items) do
         if i == self._selected_item_i then
@@ -320,9 +315,11 @@ function mn.TitleScreenScene:draw()
     end
 
     self._control_indicator:draw()
+    love.graphics.pop()
 
+    self._camera:bind()
+    self._player:draw()
     self._camera:unbind()
-
 end
 
 --- @brief

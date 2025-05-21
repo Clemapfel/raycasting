@@ -1,10 +1,14 @@
 rt.settings.keybinding_indicator = {
-    font = rt.settings.font.default_small,
-    font_small = rt.settings.font.default_tiny,
+    font = rt.settings.font.default,
+    font_size = rt.FontSize.SMALL
 }
 
 --- @class rt.KeybindingIndicator
 rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
+
+local _Label = function(text, font_size)
+    return rt.Label(text, rt.settings.keybinding_indicator.font, font_size or rt.settings.keybinding_indicator.font_size)
+end
 
 local _GRAY_3 = rt.Palette.GRAY_4
 local _GRAY_4 = rt.Palette.GRAY_5
@@ -573,9 +577,9 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
         local x, y, height = 0, 0, width
         local label
         if l_or_r == true then
-            label = rt.Label("<o>L</o>", rt.settings.keybinding_indicator.font)
+            label = _Label("<o>L</o>")
         else
-            label = rt.Label("<o>R</o>", rt.settings.keybinding_indicator.font)
+            label = _Label("<o>R</o>")
         end
 
         label:realize()
@@ -745,9 +749,9 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
 
     local label
     if left_or_right == true then
-        label = rt.Label("<o>L</o>", rt.settings.keybinding_indicator.font)
+        label = _Label("<o>L</o>")
     else
-        label = rt.Label("<o>R</o>", rt.settings.keybinding_indicator.font)
+        label = _Label("<o>R</o>")
     end
 
     label:realize()
@@ -871,9 +875,9 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
 
         local label
         if left_or_right == true then
-            label = rt.Label("<o>L</o>", rt.settings.keybinding_indicator.font)
+            label = _Label("<o>L</o>")
         else
-            label = rt.Label("<o>R</o>", rt.settings.keybinding_indicator.font)
+            label = _Label("<o>R</o>")
         end
 
         label:realize()
@@ -1085,8 +1089,7 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
         end
 
         local font = nil
-        if is_space then font = rt.settings.keybinding_indicator.font_small end
-        local label = rt.Label("<o>" .. text .. "</o>", font)
+        local label = _Label("<o>" .. text .. "</o>")
         label:set_justify_mode(rt.JustifyMode.CENTER)
         label:realize()
         local label_w, label_h = label:measure()
@@ -1126,8 +1129,8 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
         local x, y, height = 0, 0, width
         local radius = 0.5 * width / 2
 
-        local right_label = rt.Label("<o>" .. right_text .. "</o>", rt.settings.keybinding_indicator.font_small)
-        local left_label = rt.Label("<o>" .. left_text .. "</o>", rt.settings.keybinding_indicator.font_small)
+        local right_label = _Label("<o>" .. right_text .. "</o>", rt.FontSize.SMALL)
+        local left_label = _Label("<o>" .. left_text .. "</o>", rt.FontSize.SMALL)
 
         for label in range(right_label, left_label) do
             label:realize()
@@ -1210,10 +1213,10 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
         local x, y, height = 0, 0, width
         local radius = 0.5 * width / 2
 
-        local top_label = rt.Label("<o>" .. up_text .. "</o>", rt.settings.keybinding_indicator.font_small)
-        local right_label = rt.Label("<o>" .. right_text .. "</o>", rt.settings.keybinding_indicator.font_small)
-        local bottom_label = rt.Label("<o>" .. bottom_text .. "</o>", rt.settings.keybinding_indicator.font_small)
-        local left_label = rt.Label("<o>" .. left_text .. "</o>", rt.settings.keybinding_indicator.font_small)
+        local top_label = _Label("<o>" .. up_text .. "</o>", rt.FontSize.SMALL)
+        local right_label = _Label("<o>" .. right_text .. "</o>", rt.FontSize.SMALL)
+        local bottom_label = _Label("<o>" .. bottom_text .. "</o>", rt.FontSize.SMALL)
+        local left_label = _Label("<o>" .. left_text .. "</o>", rt.FontSize.SMALL)
 
         for label in range(top_label, right_label, bottom_label, left_label) do
             label:realize()

@@ -27,15 +27,18 @@ rt.JustifyMode = meta.enum("JustifyMode", {
 --- @class rt.Label
 rt.Label = meta.class("Label", rt.Widget)
 
-function rt.Label:instantiate(text, font, monospace_font)
-    meta.assert(text, "String")
+function rt.Label:instantiate(text, font, font_size)
     if font == nil then font = rt.settings.font.default end
-    if monospace_font == nil then monospace_font = rt.settings.font.default_mono end
-    local black = rt.Palette.BLACK
+    if font_size == nil then font_size = rt.FontSize.DEFAULT end
+
+    meta.assert_typeof(text, "String", 1)
+    meta.assert_typeof(font, rt.Font, 2)
+    meta.assert_enum_value(font_size, rt.FontSize, 3)
+
     meta.install(self, {
         _raw = text,
         _font = font,
-        _monospace_font = monospace_font,
+        _font_size = font_size,
         _justify_mode = rt.JustifyMode.LEFT,
 
         _n_visible_characters = -1,
@@ -65,6 +68,7 @@ function rt.Label:instantiate(text, font, monospace_font)
         _width = 0,
         _height = 0,
         _first_wrap = true,
+        _last_window_height = love.graphics.getDimensions(),
 
         _total_beats = 0,
     })
@@ -87,10 +91,10 @@ function rt.Label:_glyph_new(
     is_effect_wave,
     is_effect_rainbow
 )
-    local font_native = font:get_native(style, false)
-    local glyph, outline_glyph = love.graphics.newTextBatch(font_native, text), nil
+    local glyph, outline_glyph = love.graphics.newTextBatch(font:get_native(self._font_size, style, false), text), nil
+
     if is_outlined then
-        outline_glyph = love.graphics.newTextBatch(font:get_native(style, true), text)
+        outline_glyph = love.graphics.newTextBatch(font:get_native(self._font_size, style, true), text)
     end
 
     local out = {
@@ -162,14 +166,33 @@ function rt.Label:get_snapshot()
     return self._texture
 end
 
+--- @brief
+function rt.Label:set_font_size(font_size)
+    meta.assert_enum_value(font_size, rt.FontSize)
+    self._font_size = font_size
+    if self:get_is_realized() then
+        self:reformat()
+    end
+end
+
 --- @override
 function rt.Label:realize()
     if self:already_realized() then return end
     self:_parse()
 end
 
+--- @brief
+function rt.Label:_check_for_rescale()
+    local current_window_height = love.graphics.getHeight()
+    if self._last_window_height ~= current_window_height then
+        self._last_window_height = current_window_height
+        self:_parse()
+    end
+end
+
 --- @override
 function rt.Label:size_allocate(x, y, width, height)
+    self:_check_for_rescale()
     x = math.floor(x)
     y = math.floor(y)
     self:_apply_wrapping(width)
@@ -181,6 +204,7 @@ end
 --- @override
 function rt.Label:measure()
     if self._is_realized == false then self:realize() end
+    self:_check_for_rescale()
     return self._width, self._height
 end
 
@@ -358,6 +382,20 @@ local _floor = math.floor
 local _ceil = math.ceil
 local _rt_palette = rt.Palette
 local _rt_color_unpack = rt.color_unpack
+
+--- @brief
+function rt.Label:_measure_glyph(glyph, is_mono)
+    if is_mono == nil then is_mono = false end
+
+    local font
+    if not is_mono then
+        font = self._font:get_native(self._font_size, rt.FontStyle.BOLD_ITALIC)
+    else
+        font = self._font:get_native(self._font_size, rt.FontStyle.MONO_BOLD_ITALIC)
+    end
+
+    return font:getWidth(glyph)
+end
 
 --- @brief [internal]
 function rt.Label:_parse()
@@ -629,11 +667,11 @@ function rt.Label:_parse()
     local width = 0
     local n_rows = 1
 
-    local space_w = self._font:measure_glyph(_syntax.SPACE)
-    local mono_space_w = self._monospace_font:measure_glyph(_syntax.SPACE)
+    local space_w = self:_measure_glyph(_syntax.SPACE, false)
+    local mono_space_w = self:_measure_glyph(_syntax.SPACE, true)
 
-    local tab_w = self._font:measure_glyph(_syntax.TAB)
-    local mono_tab_w = self._monospace_font:measure_glyph(_syntax.TAB)
+    local tab_w = self:_measure_glyph(_syntax.TAB, false)
+    local mono_tab_w = self:_measure_glyph(_syntax.TAB, true)
 
     local last_glyph_was_mono = false
     for glyph in values(self._glyphs) do
@@ -657,7 +695,7 @@ function rt.Label:_parse()
     end
 
     self._width = _max(max_width, width)
-    self._height = n_rows * self._font:get_native(rt.FontStyle.BOLD_ITALIC):getHeight()
+    self._height = n_rows * self._font:get_native(self._font_size, rt.FontStyle.BOLD_ITALIC):getHeight()
     if self._n_visible_characters == -1 then
         self._n_visible_characters = n_characters
     end
@@ -684,11 +722,11 @@ function rt.Label:_apply_wrapping()
     local current_line_width = 0
     local max_line_w = 0
 
-    local bold_italic = self._font:get_native(rt.FontStyle.BOLD_ITALIC)
-    local space_w = self._font:measure_glyph(_syntax.SPACE)
-    local mono_space_w = self._monospace_font:measure_glyph(_syntax.SPACE)
-    local tab_w = self._font:measure_glyph(_syntax.TAB)
-    local mono_tab_w = self._monospace_font:measure_glyph(_syntax.TAB)
+    local bold_italic = self._font:get_native(self._font_size, rt.FontStyle.BOLD_ITALIC)
+    local space_w = self:_measure_glyph(_syntax.SPACE, false)
+    local mono_space_w = self:_measure_glyph(_syntax.SPACE, true)
+    local tab_w = self:_measure_glyph(_syntax.TAB, true)
+    local mono_tab_w = self:_measure_glyph(_syntax.TAB, false)
     local line_height = bold_italic:getHeight()
 
     local glyph_x, glyph_y = 0, 0
@@ -940,7 +978,7 @@ function rt.Label:_update_texture()
     love.graphics.clear(0, 0, 0, 0)
     love.graphics.setShader(_draw_outline_shader)
     _draw_outline_shader:send("elapsed", self._elapsed)
-    _draw_outline_shader:send("font_size", self._font:get_size())
+    _draw_outline_shader:send("font_size", self._font:get_actual_size(self._font_size))
     _draw_outline_shader:send("opacity", 1) -- opacity set during :draw
 
     local justify_mode = self._justify_mode
@@ -980,7 +1018,7 @@ function rt.Label:_update_texture()
     -- draw glyphs
     love.graphics.setShader(_draw_text_shader)
     _draw_text_shader:send("elapsed", self._elapsed)
-    _draw_text_shader:send("font_size", self._font:get_size())
+    _draw_text_shader:send("font_size", self._font:get_actual_size(self._font_size))
     _draw_text_shader:send("opacity", 1)
 
     love.graphics.setLineWidth(2)

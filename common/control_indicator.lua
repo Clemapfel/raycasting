@@ -124,9 +124,9 @@ function rt.ControlIndicator:create_from(layout)
         local prefix, postfix = "<o>", "</o>"
         local label
         if string.find(text, "<o>|</o>|<outline>|</outline>") then
-            label = rt.Label(text, rt.settings.font.default, rt.settings.font.default_mono)
+            label = rt.Label(text)
         else
-            label = rt.Label(prefix .. text .. postfix, rt.settings.font.default, rt.settings.font.default_mono)
+            label = rt.Label(prefix .. text .. postfix)
         end
         label:realize()
         table.insert(self._labels, label)
@@ -148,6 +148,8 @@ function rt.ControlIndicator:_get_margin()
 
     return outer_xm, outer_ym, inner_m
 end
+
+local _indicator_factor = 1.5
 
 --- @override
 function rt.ControlIndicator:size_allocate(x, y, width, height)
@@ -206,10 +208,9 @@ function rt.ControlIndicator:measure()
         end
     end
 
-    local indicator_size = max_h + 2 * outer_ym
+    local indicator_size = _indicator_factor * max_h + 2 * outer_ym
     local width = width_sum + n_indicators * indicator_size
-    local height = max_h + 2 * outer_ym
-    return width, height
+    return width, indicator_size
 end
 
 --- @override

@@ -105,7 +105,9 @@ function meta.assert_typeof(x, type, argument_i)
     if argument_i ~= nil then
         prefix = "For argument #" .. argument_i .. ": "
     end
-    assert(instance_type == type, prefix .. "expected `" .. type .. "`, got `" .. meta.typeof(x) .. "`")
+
+    if _G.type(type) ~= "string" then type = tostring(type) end
+    assert(instance_type == type, prefix .. "expected `" .. tostring(type) .. "`, got `" .. meta.typeof(x) .. "`")
 end
 
 --- @brief
@@ -487,6 +489,9 @@ function meta.class(typename, super, instantiate_maybe)
             return instance
         end,
 
+        __tostring = function()
+            return typename
+        end,
         __index = super,
         __typename = "Type",
         __signals = {}
@@ -552,6 +557,7 @@ function meta.enum(typename, fields)
         end,
 
         __typename = "Enum",
+        __tostring = function() return typename end,
         __value_to_is_present = {}
     }
 

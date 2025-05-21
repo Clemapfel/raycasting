@@ -34,12 +34,7 @@ function rt.Camera:instantiate()
     })
 end
 
-local _floor
-if rt.settings.sprite_batch.use_subpixel_filtering then
-    _floor = function(x) return x end
-else
-    _floor = math.floor
-end
+local _floor = math.floor
 
 --- @brief
 function rt.Camera:bind()
@@ -177,7 +172,7 @@ end
 
 --- @brief
 function rt.Camera:get_scale_delta()
-    return 1 --(love.graphics.getHeight() / 600)
+    return (love.graphics.getHeight() / rt.settings.native_height)
 end
 
 --- @brief

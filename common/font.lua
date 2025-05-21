@@ -1,73 +1,73 @@
 rt.settings.font = {
-    default_size = 23,
-    default_size_tiny = 14,
-    default_size_small = 20,
-    default_size_large = 40,
-    default_size_huge = 60,
-    min_font_size = 12,
-    default = {},       -- rt.Font
-    default_huge = {},
-    default_large = {},
-    default_small = {},
-    default_tiny = {},
-    default_mono = {},  -- rt.Font
-    default_mono_large = {},
-    default_mono_small = {},
-    default_mono_tiny = {},
-    regular_fallbacks = {},     -- Table<love.Font>
-    italic_fallbacks = {},      -- Table<love.Font>
-    bold_italic_fallbacks = {}, -- Table<love.Font>
-    bold_fallbacks = {},        -- Table<love.Font>
+    default = nil,
 }
 
 --- @class rt.Font
 rt.Font = meta.class("Font")
 
---- @param regular_path String
---- @param bold_path String (or nil)
---- @param italic_path String (or nil)
---- @param bold_italic_path String (or nil)
-function rt.Font:instantiate(size, regular_path, bold_path, italic_path, bold_italic_path)
+--- @class rt.FontSize
+rt.FontSize = meta.enum("FontSize", {
+    GIGANTIC = 0.15,
+    HUGE = 60 / rt.settings.native_height,
+    LARGE = 40 / rt.settings.native_height,
+    DEFAULT = 20 / rt.settings.native_height,
+    SMALL = 14 / rt.settings.native_height,
+    TINY = 23 / rt.settings.native_height
+})
 
+--- @class rt.FontStyle
+rt.FontStyle = meta.enum("FontStyle", {
+    REGULAR = "REGULAR",
+    ITALIC = "ITALIC",
+    BOLD = "BOLD",
+    BOLD_ITALIC = "BOLD_ITALIC",
+    MONO_REGULAR = "MONO_REGULAR",
+    MONO_ITALIC = "MONO_ITALIC",
+    MONO_BOLD = "MONO_BOLD",
+    MONO_BOLD_ITALIC = "MONO_BOLD_ITALIC",
+})
+
+--- @brief
+function rt.Font:instantiate(
+    regular_path,
+    bold_path,
+    italic_path,
+    bold_italic_path,
+    mono_regular_path,
+    mono_bold_path,
+    mono_italic_path,
+    mono_bold_italic_path
+)
     if bold_path == nil then bold_path = regular_path end
     if italic_path == nil then italic_path = regular_path end
     if bold_italic_path == nil then bold_italic_path = italic_path end
 
+    if mono_regular_path == nil then mono_regular_path = regular_path end
+    if mono_bold_path == nil then mono_bold_path = mono_regular_path end
+    if mono_italic_path == nil then mono_italic_path = mono_regular_path end
+    if mono_bold_italic_path == nil then mono_bold_italic_path = mono_italic_path end
+
     meta.assert(
-        size, "Number",
         regular_path, "String",
         bold_path, "String",
         italic_path, "String",
         bold_italic_path, "String"
     )
 
-    local out = meta.install(self,{
-        _regular_path = regular_path,
-        _italic_path = italic_path,
-        _bold_path = bold_path,
-        _bold_italic_path = bold_italic_path,
-        _size = size,
-        _is_initialized = false,
+    self._font_style_to_path = {
+        [rt.FontStyle.REGULAR] = regular_path,
+        [rt.FontStyle.ITALIC] = italic_path,
+        [rt.FontStyle.BOLD] = bold_path,
+        [rt.FontStyle.BOLD_ITALIC] = bold_italic_path,
+        [rt.FontStyle.MONO_REGULAR] = mono_regular_path,
+        [rt.FontStyle.MONO_ITALIC] = mono_italic_path,
+        [rt.FontStyle.MONO_BOLD] = mono_bold_path,
+        [rt.FontStyle.MONO_BOLD_ITALIC] = mono_bold_italic_path,
+    }
 
-        _regular = nil, -- love.Font
-        _bold = nil,
-        _italic = nil,
-        _bold_italic = nil,
-
-        _regular_sdf = nil, -- love.Font
-        _bold_sdf = nil,
-        _italic_sdf = nil,
-        _bold_italic_sdf = nil
-    })
+    self._size_to_cache = {}
+    self._size_to_fallbacks = {}
 end
-
---- @class rt.FontStyle
-rt.FontStyle = meta.enum("FontStyle", {
-    REGULAR = 0,
-    ITALIC = 1,
-    BOLD = 2,
-    BOLD_ITALIC = 3
-})
 
 local _new_font = function(path, size, sdf)
     return love.graphics.newFont(path, size, {
@@ -75,167 +75,85 @@ local _new_font = function(path, size, sdf)
     })
 end
 
---- @brief update held fonts, delayed until font is used for the first time
-function rt.Font:initialize()
-    if self._is_initialized == true then return end
-    self._is_initialized = true
+local _sdf = true
+local _no_sdf = false
 
-    local config = {}
-    self._regular = _new_font(self._regular_path, self._size, false)
-    self._bold = _new_font(self._bold_path, self._size, false)
-    self._italic = _new_font(self._italic_path, self._size, false)
-    self._bold_italic = _new_font(self._bold_italic_path, self._size, false)
+--- @brief
+function rt.Font:get_native(size, style, sdf)
+    meta.assert_enum_value(size, rt.FontSize, 1)
 
-    self._regular_sdf = _new_font(self._regular_path, self._size, true)
-    self._bold_sdf = _new_font(self._bold_path, self._size, true)
-    self._italic_sdf = _new_font(self._italic_path, self._size, true)
-    self._bold_italic_sdf = _new_font(self._bold_italic_path, self._size, true)
+    if style == nil then style = rt.FontStyle.REGULAR end
+    meta.assert_enum_value(style, rt.FontStyle, 2)
 
-    -- fallback fonts to support more symbols
-    local noto_math = _new_font("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", self._size, false)
-    local noto_math_sdf = _new_font("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", self._size, true)
+    if sdf == nil then sdf = false end
+    meta.assert_typeof(sdf, "Boolean", 3)
 
-    for font in range(
-        self._regular,
-        self._bold,
-        self._italic,
-        self._bold_italic
-    ) do
-        font:setFallbacks(noto_math)
+    local actual_size = self:get_actual_size(size)
+    local path = self._font_style_to_path[style]
+
+    local entry = self._size_to_cache[actual_size]
+    if entry == nil then
+        entry = {}
+        self._size_to_cache[actual_size] = entry
     end
 
-    for font in range(
-        self._regular_sdf,
-        self._bold_sdf,
-        self._italic_sdf,
-        self._bold_italic_sdf
-    ) do
-        font:setFallbacks(noto_math_sdf)
+    local native_entry = entry[style]
+    local needs_fallbacks = false
+    if native_entry == nil then
+        native_entry = {
+            sdf = _new_font(path, actual_size, _sdf),
+            no_sdf = _new_font(path, actual_size, _no_sdf)
+        }
+
+        entry[style] = native_entry
+        needs_fallbacks = true
     end
-end
 
---- @brief set font size, in px
---- @param px Number
-function rt.Font:set_size(px)
-    self._size = px
-    self._is_initialized = false
-    self:initialize()
-end
+    local sdf_out = native_entry.sdf
+    local no_sdf_out = native_entry.no_sdf
 
---- @brief get font size, in px
---- @return Number
-function rt.Font:get_size()
-    return self._size
-end
+    local fallback_entry = self._size_to_fallbacks[actual_size]
+    if fallback_entry == nil then
+        fallback_entry = {
+            sdf = {
+                _new_font("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", actual_size, _sdf),
+            },
 
-do
-    local _font_style_to_field = {
-        [rt.FontStyle.REGULAR] = "_regular",
-        [rt.FontStyle.BOLD] = "_bold",
-        [rt.FontStyle.ITALIC] = "_italic",
-        [rt.FontStyle.BOLD_ITALIC] = "_bold_italic"
-    }
-    --- @brief
-    function rt.Font:get_native(style, sdf)
-        self:initialize()
-        if sdf == nil then sdf = false end
-        if sdf == false then
-            if style == rt.FontStyle.REGULAR then
-                return self._regular
-            elseif style == rt.FontStyle.BOLD then
-                return self._bold
-            elseif style == rt.FontStyle.ITALIC then
-                return self._italic
-            elseif style == rt.FontStyle.BOLD_ITALIC then
-                return self._bold_italic
-            end
-        else
-            if style == rt.FontStyle.REGULAR then
-                return self._regular_sdf
-            elseif style == rt.FontStyle.BOLD then
-                return self._bold_sdf
-            elseif style == rt.FontStyle.ITALIC then
-                return self._italic_sdf
-            elseif style == rt.FontStyle.BOLD_ITALIC then
-                return self._bold_italic_sdf
-            end
-        end
+            no_sdf = {
+                _new_font("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", actual_size, _no_sdf),
+            }
+        }
+        self._size_to_fallbacks = fallback_entry
+    end
+
+    if needs_fallbacks then
+        sdf_out:setFallbacks(table.unpack(fallback_entry.sdf))
+        no_sdf_out:setFallbacks(table.unpack(fallback_entry.no_sdf))
+    end
+
+    if sdf == nil then
+        return sdf_out, no_sdf_out
+    elseif sdf == true then
+        return sdf_out
+    elseif sdf == false then
+        return no_sdf_out
     end
 end
 
 --- @brief
-function rt.Font:measure_glyph(label)
-    self:initialize()
-    return self._bold_italic:getWidth(label), self._bold_italic:getHeight(label)
+function rt.Font:get_actual_size(size)
+    meta.assert_enum_value(size, rt.FontSize, 1)
+    return math.ceil(size * love.graphics.getHeight())
 end
 
---- @brief [internal] load default fonts and fallbacks
-function rt.load_default_fonts()
-    rt.settings.font.default = rt.Font(rt.settings.font.default_size,
-        "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Bold.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Italic.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-BoldItalic.ttf"
-    )
-    rt.settings.font.default_mono = rt.Font(rt.settings.font.default_size,
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Regular.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
-    )
-
-    rt.settings.font.default_small = rt.Font(rt.settings.font.default_size_small,
-        "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Bold.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Italic.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-BoldItalic.ttf"
-    )
-    rt.settings.font.default_mono_small = rt.Font(rt.settings.font.default_size_small,
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Regular.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
-    )
-
-    rt.settings.font.default_tiny = rt.Font(rt.settings.font.default_size_tiny,
-        "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Bold.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Italic.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-BoldItalic.ttf"
-    )
-    rt.settings.font.default_mono_tiny = rt.Font(rt.settings.font.default_size_tiny,
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Regular.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
-    )
-
-    rt.settings.font.default_large = rt.Font(rt.settings.font.default_size_large,
-        "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Bold.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Italic.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-BoldItalic.ttf"
-    )
-
-    rt.settings.font.default_mono_large = rt.Font(rt.settings.font.default_size_large,
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Regular.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
-    )
-
-    rt.settings.font.default_huge = rt.Font(rt.settings.font.default_size_huge,
-        "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Bold.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-Italic.ttf",
-        "assets/fonts/DejaVuSans/DejaVuSans-BoldItalic.ttf"
-    )
-
-    rt.settings.font.default_mono_huge = rt.Font(rt.settings.font.default_size_huge,
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Regular.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
-        "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
-    )
-end
-rt.load_default_fonts()
+-- load default font
+rt.settings.font.default = rt.Font(
+    "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
+    "assets/fonts/DejaVuSans/DejaVuSans-Bold.ttf",
+    "assets/fonts/DejaVuSans/DejaVuSans-Italic.ttf",
+    "assets/fonts/DejaVuSans/DejaVuSans-BoldItalic.ttf",
+    "assets/fonts/DejaVuSansMono/DejaVuSansMono-Regular.ttf",
+    "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
+    "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
+    "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
+)
