@@ -83,7 +83,7 @@ end
 function rt.PlayerBody:initialize(positions)
     local success, tris = pcall(love.math.triangulate, positions)
     if not success then
-        --success, tris = pcall(slick.triangulate, { positions })
+        success, tris = pcall(slick.polygonize, 3, { positions })
         if not success then return end
     end
 
@@ -263,6 +263,8 @@ end
 
 --- @brief
 function rt.PlayerBody:update(delta)
+    local before = love.timer.getTime()
+
     local body = self._player:get_physics_body()
     if body == nil then return end
 
@@ -316,7 +318,7 @@ function rt.PlayerBody:update(delta)
             local n_velocity_iterations = 0
             local n_bending_iterations = 0
 
-            local extra_iterations = 0 --math.floor(math.magnitude(self._player:get_velocity()) / 2000)
+            local extra_iterations = 0 --math.floor(math.magnitude(self._player:get_velocity()) / 500)
 
             if self._is_bubble then
                 _n_distance_iterations = 4
@@ -444,6 +446,8 @@ function rt.PlayerBody:update(delta)
     self._points = points
 
     self._interpolation_factor = self._elapsed / _step
+
+    local after = love.timer.getTime()
 end
 
 --- @brief
@@ -486,7 +490,7 @@ function rt.PlayerBody:draw_body()
         for rope in values(self._ropes) do
             local tw, th = texture:getDimensions()
             for i = 1, #rope.current_positions, 2 do
-                local scale = math.min(rope.scale + 6 / self._player:get_radius(), 1)
+                local scale = rope.scale + 6 / self._player:get_radius()
                 local x, y
                 if false then
                     local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]

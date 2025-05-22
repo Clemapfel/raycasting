@@ -197,7 +197,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     local success, solid_tris = pcall(love.math.triangulate, flat)
     if not success then
-        success, solid_tris = pcall(slick.triangulate, { flat })
+        success, solid_tris = pcall(slick.polygonize, 3, { flat })
         assert(success, "In ow.BubbleField.instantiate: failed to polygonize object `" .. object.id .. "`")
     end
 
