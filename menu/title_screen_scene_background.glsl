@@ -139,21 +139,25 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     float time = elapsed / 200;
     vec2 center = to_uv(0.5 * love_ScreenSize.xy);
 
-    float scale = 15;
-    float noise = 0;
-    int n_octaves = 4;
-    float current_hue = 0;
-    for (int i = 1; i <= n_octaves; ++i) {
-        noise = smooth_max(noise, worley_noise(vec3(uv * scale - vec2(0, -elapsed * (1 + fraction)), i)), mix(0.3, 0.7, fraction));
-        current_hue += noise * 0.75;
-        scale *= pow(1.3, i);
-    }
+    vec4 stars = vec4(0);
+    float value = 0;
+    if (fraction < 1) {
+        float scale = 15;
+        float noise = 0;
+        int n_octaves = 4;
+        float current_hue = 0;
+        for (int i = 1; i <= n_octaves; ++i) {
+            noise = smooth_max(noise, worley_noise(vec3(uv * scale - vec2(0, -elapsed * (1 + fraction)), i)), mix(0.3, 0.7, fraction));
+            current_hue += noise * 0.75;
+            scale *= pow(1.3, i);
+        }
 
-    float eps = 0.05;
-    float threhsold = 0.83;
-    float value = smoothstep(threhsold, threhsold + eps, noise);
-    float hue_offset = gradient_noise(vec3(uv * scale * value, elapsed));
-    vec4 stars = vec4(lch_to_rgb(vec3(mix(0.6, 0.9, hue_offset), 0.9, fract((1 - hue) + current_hue))), value);
+        float eps = 0.05;
+        float threhsold = 0.83;
+        value = smoothstep(threhsold, threhsold + eps, noise);
+        float hue_offset = gradient_noise(vec3(uv * scale * value, elapsed));
+        stars = vec4(lch_to_rgb(vec3(mix(0.6, 0.9, hue_offset), 0.9, fract((1 - hue) + current_hue))), value);
+    }
 
     // LCH-based gradient
     float bg_y = uv.y + elapsed / 4;

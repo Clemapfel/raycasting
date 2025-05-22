@@ -67,17 +67,17 @@ rt.Translation = rt.initialize_translation({
     },
 
     -- title screen
-    title_screen_scene = {
-        title = "Chroma Drift",
+    menu_scene = {
+        title_screen = {
+            title = "Chroma Drift",
+            control_indicator_select = "Select",
+            control_indicator_move = "Move",
 
-        control_indicator_select = "Select",
-        control_indicator_move = "Move",
-
-        level_select = "Select Level",
-        settings = "Settings",
-        credits = "Credits",
-        quit = "Quit"
-
+            level_select = "Select Level",
+            settings = "Settings",
+            credits = "Credits",
+            quit = "Quit"
+        }
     },
 
     -- stage select

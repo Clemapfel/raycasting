@@ -5,9 +5,11 @@ require "common.translation"
 require "common.keybinding_indicator"
 require "common.input_mapping"
 require "common.control_indicator"
+require "common.timed_animation"
 
 rt.settings.menu.title_screen_scene = {
-    player_max_velocity = 1000,
+    max_velocity = 1500,
+    x_damping = 0.98,
     --font_path = "assets/fonts/RubikBrokenFax/RubikBrokenFax-Regular.ttf",
     --font_path = "assets/fonts/RubikDoodleTriangles/RubikDoodleTriangles-Regular.ttf",
     --font_path = "assets/fonts/RubikScribble/RubikScribble-Regular.ttf",
@@ -20,21 +22,21 @@ rt.settings.menu.title_screen_scene = {
 mn.TitleScreenScene = meta.class("TitleScreenScene", rt.Scene)
 
 mn.TitleScreenSceneState = meta.enum("TitleScreenSceneState", {
-    IDLE = "IDLE",
-    FALLING = "FALLING"
+    TITLE_SCREEN = "TITLE_SCREEN",
+    FALLING = "FALLING",
+    LEVEL_SELECT = "LEVEL_SELECT"
 })
 
 local _title_shader_sdf, _title_shader_no_sdf, _background_shader = nil
 
 --- @brief
 function mn.TitleScreenScene:instantiate(state)
-    self._state = mn.TitleScreenSceneState.IDLE
+    self._state = mn.TitleScreenSceneState.TITLE_SCREEN
     self._player = state:get_player()
-    self._player:set_is_bubble(false)
+    self._player_velocity_x, self._player_velocity_y = -1, -1
 
     self._camera = rt.Camera()
     self._input = rt.InputSubscriber()
-    self._player_unlocked = false
 
     if _background_shader == nil then
         _background_shader = rt.Shader("menu/title_screen_scene_background.glsl")
@@ -44,20 +46,13 @@ function mn.TitleScreenScene:instantiate(state)
     self._shader_camera_offset = { 0, 0 }
     self._shader_camera_scale = 1
     self._fallspeed = 0
-    self._fraction = 0
-    self._player_velocity_x, self._player_velocity_y = -1, -1
+    self._shader_fraction = 0
 
     -- setup dummy platform
     self._world = b2.World()
+    self._world:set_use_fixed_timestep(false)
     self._boundaries = {}
     self._reset_position = true
-
-    self._player:move_to_world(self._world)
-    self._player:set_gravity(0)
-    self._player:set_velocity(self._player_velocity_x, self._player_velocity_y)
-    self._player:set_is_bubble(true)
-    self._player:set_jump_allowed(true)
-    self._player:disable()
 
     if _title_shader_no_sdf == nil then
         _title_shader_no_sdf = rt.Shader("menu/title_screen_scene_label.glsl", { MODE = 0 })
@@ -77,6 +72,7 @@ function mn.TitleScreenScene:instantiate(state)
     local font, font_mono = rt.settings.font.default_large, rt.settings.font.default_mono_large
     self._menu_items = {}
     self._selected_item_i = 1
+    self._n_menu_items = 0
     for text in range(
         translation.level_select,
         translation.settings,
@@ -89,38 +85,21 @@ function mn.TitleScreenScene:instantiate(state)
         }
 
         table.insert(self._menu_items, item)
+        self._n_menu_items = self._n_menu_items + 1
     end
 
     self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "^" then
-            _background_shader:recompile()
-            self._player:teleport_to(0, 0)
-            self._player:set_velocity(0, 0)
-            _title_shader_no_sdf:recompile()
-            _title_shader_sdf:recompile()
-            self._shader_elapsed = 0
-            self._player:set_jump_allowed(true)
-        end
-    end)
-
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputButton.JUMP then
-            self._player:set_gravity(1)
-            self._player:set_is_bubble(false)
-            self._state = mn.TitleScreenSceneState.FALLING
-            for boundary in values(self._boundaries) do
-                boundary:set_is_sensor(true)
+            self:_select()
+        elseif which == rt.InputButton.UP then
+            if self._selected_item_i > 1 then
+                self._selected_item_i = self._selected_item_i - 1
             end
-        end
-    end)
-
-    self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
-        if love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl") then
-            local current = self._camera:get_scale()
-            require("overworld.overworld_scene")
-            current = current + dy * rt.settings.overworld.overworld_scene.camera_scale_velocity
-            self._camera:set_scale(math.clamp(current, 1 / 3, 3))
+        elseif which == rt.InputButton.DOWN then
+            if self._selected_item_i < self._n_menu_items then
+                self._selected_item_i = self._selected_item_i + 1
+            end
         end
     end)
 end
@@ -226,6 +205,20 @@ end
 --- @brief
 function mn.TitleScreenScene:enter()
     self._input:activate()
+
+    if self._state == mn.TitleScreenSceneState.TITLE_SCREEN then
+        if self._player:get_world() ~= self._world then
+            self._player:move_to_world(self._world)
+        end
+
+        self._player:disable()
+        self._player:teleport_to(0, 0)
+        self._player:set_velocity(0, 0)
+        self._player:set_gravity(0)
+        self._player:set_is_bubble(true)
+        self._player:set_jump_allowed(true)
+        self._player_velocity_x, self._player_velocity_y = -1, -1
+    end
 end
 
 --- @brief
@@ -234,33 +227,47 @@ function mn.TitleScreenScene:exit()
 end
 
 --- @brief
+function mn.TitleScreenScene:_select()
+    if self._selected_item_i == 1 then -- level select
+        self._player:set_gravity(1)
+        self._player:set_is_bubble(false)
+
+        self:set_state(mn.TitleScreenSceneState.FALLING)
+    end
+end
+
+--- @brief
 function mn.TitleScreenScene:update(delta)
     self._world:update(delta)
 
-    if self._state == mn.TitleScreenSceneState.IDLE then
+    if self._state == mn.TitleScreenSceneState.TITLE_SCREEN then
         self._camera:set_position(0, 0)
         local magnitude = 200
         self._player:set_velocity(self._player_velocity_x * magnitude, self._player_velocity_y * magnitude)
     elseif self._state == mn.TitleScreenSceneState.FALLING then
-        self._camera:move_to(self._player:get_position())
+        local px, py = self._player:get_predicted_position()
+        self._fallspeed = math.min(py / 2000, 1)
+        self._shader_fraction = py / 2000
+        self._player:set_flow(self._fallspeed)
+
+        local vx, vy = self._player:get_velocity()
+        local max_velocity = rt.settings.menu.title_screen_scene.max_velocity
+        vx = math.min(vx * rt.settings.menu.title_screen_scene.x_damping, max_velocity)
+        vy = math.min(vy, max_velocity)
+        self._player:set_velocity(vx, vy)
+
+        local x_offset = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction) * 1 / 3 * love.graphics.getWidth()
+        self._shader_fraction = math.clamp(self._shader_fraction, 0, 1)
+
+        self._camera:move_to(px + x_offset, py)
     end
 
     self._camera:update(delta)
     self._player:update(delta)
 
-    if true then --love.keyboard.isDown("space") then
-        self._shader_elapsed = self._shader_elapsed + delta
-        self._shader_camera_offset = { self._camera:get_offset() }
-        self._shader_camera_scale = self._camera:get_scale()
-    end
-
-    if self._player_unlocked then
-        local px, py = self._player:get_predicted_position()
-        self._fallspeed = math.min(py / 2000, 1)
-        self._fraction = py / 12000
-        self._player:set_flow(self._fallspeed)
-    end
-
+    self._shader_elapsed = self._shader_elapsed + delta
+    self._shader_camera_offset = { self._camera:get_offset() }
+    self._shader_camera_scale = self._camera:get_scale()
 end
 
 local _black =  { rt.Palette.BLACK:unpack() }
@@ -277,7 +284,7 @@ function mn.TitleScreenScene:draw()
     _background_shader:send("elapsed", self._shader_elapsed)
     _background_shader:send("camera_offset", self._shader_camera_offset)
     _background_shader:send("camera_scale", self._shader_camera_scale)
-    _background_shader:send("fraction", self._fraction)
+    _background_shader:send("fraction", self._shader_fraction)
     _background_shader:send("hue", self._player:get_hue())
 
     love.graphics.setColor(0.5, 0.5, 0.5, 1)
@@ -325,4 +332,16 @@ end
 --- @brief
 function mn.TitleScreenScene:get_camera()
     return self._camera
+end
+
+--- @brief
+function mn.TitleScreenScene:set_state(next)
+    local before = self._state
+    self._state = next
+
+    if next == mn.TitleScreenSceneState.FALLING then
+        for boundary in values(self._boundaries) do
+            boundary:set_is_sensor(true)
+        end
+    end
 end
