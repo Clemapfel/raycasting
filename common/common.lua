@@ -246,8 +246,8 @@ end
 --- @brief round to nearest integer
 --- @param i number
 --- @return number
-function math.round(i)
-    return math.floor(i + 0.5)
+function math.round(x)
+    return x + 0.5 - (x + 0.5) % 1
 end
 
 --- @brief
