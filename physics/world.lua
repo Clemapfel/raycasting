@@ -14,6 +14,7 @@ function b2.World:instantiate()
         _interpolating_bodies = meta.make_weak({}), -- Set
         _time_dilation = 1,
         _elapsed = 0,
+        _use_fixed_timestep = true,
 
         _body_to_collision_sign = {}
     })
@@ -183,11 +184,16 @@ local _n_velocity_iterations = 4
 
 --- @brief
 function b2.World:update(delta)
-    self._elapsed = self._elapsed + delta * self._time_dilation
+    if self._use_fixed_timestep then
+        self._elapsed = self._elapsed + delta * self._time_dilation
+    else
+        self._elapsed = delta * self._time_dilation
+    end
 
+    local step = self._use_fixed_timestep and _step or delta * self._time_dilation
     local total_step = 0
     local n_steps = 0
-    while self._elapsed > _step and n_steps < _max_n_steps_per_frame do
+    while self._elapsed >= step and n_steps < _max_n_steps_per_frame do
         for body in keys(self._interpolating_bodies) do
             local x, y = body._native:getPosition()
             body._last_x, body._last_y = x, y
@@ -196,7 +202,7 @@ function b2.World:update(delta)
         self:_start_collision_resolution()
 
         -- update
-        self._native:update(_step, _n_velocity_iterations, 2)
+        self._native:update(step, _n_velocity_iterations, 2)
 
         self:_end_collision_resolution()
 
@@ -219,15 +225,19 @@ function b2.World:update(delta)
         self._body_to_activate_queue = {}
 
         -- world signal
-        self:signal_emit("step", _step)
+        self:signal_emit("step", step)
 
-        self._elapsed = self._elapsed - _step
+        self._elapsed = self._elapsed - step
         n_steps = n_steps + 1
 
         if n_steps >= _max_n_steps_per_frame then break end
     end
 
-    self._interpolation_factor = self._elapsed / _step -- for interpolation
+    if self._use_fixed_timestep then
+        self._interpolation_factor = self._elapsed / step -- for interpolation
+    else
+        self._interpolation_factor = 0
+    end
 end
 
 --- @brief
@@ -403,4 +413,14 @@ end
 --- @brief
 function b2.World:get_time_dilation()
     return self._time_dilation
+end
+
+--- @brief
+function b2.World:set_use_fixed_timestep(b)
+    self._use_fixed_timestep = b
+end
+
+--- @brief
+function b2.World:get_use_fixed_timestep()
+    return self._use_fixed_timestep
 end

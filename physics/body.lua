@@ -123,17 +123,21 @@ end
 
 --- @brief get extrapolated position based on current velocity
 function b2.Body:get_predicted_position()
-    if self._use_interpolation then
-        local last_x, last_y = self._last_x, self._last_y
-        local current_x, current_y = self._native:getPosition()
-        return last_x + (current_x - last_x) * self._world._interpolation_factor,
+    if self._world:get_use_fixed_timestep() then
+        if self._use_interpolation then
+            local last_x, last_y = self._last_x, self._last_y
+            local current_x, current_y = self._native:getPosition()
+            return last_x + (current_x - last_x) * self._world._interpolation_factor,
             last_y + (current_y - last_y) * self._world._interpolation_factor
-    else
-        local current_x, current_y = self._native:getPosition()
-        local velocity_x, velocity_y = self._native:getLinearVelocity()
-        local delta_time = love.timer.getTime() - self._world._timestamp
-        return current_x + velocity_x * delta_time,
+        else
+            local current_x, current_y = self._native:getPosition()
+            local velocity_x, velocity_y = self._native:getLinearVelocity()
+            local delta_time = love.timer.getTime() - self._world._timestamp
+            return current_x + velocity_x * delta_time,
             current_y + velocity_y * delta_time
+        end
+    else
+        return self._native:getPosition()
     end
 end
 
