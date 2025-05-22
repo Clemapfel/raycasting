@@ -91,7 +91,8 @@ function rt.Label:_glyph_new(
     is_effect_wave,
     is_effect_rainbow
 )
-    local glyph, outline_glyph = love.graphics.newTextBatch(font:get_native(self._font_size, style, false), text), nil
+    local font_native = font:get_native(self._font_size, style, false)
+    local glyph, outline_glyph = love.graphics.newTextBatch(font_native, text), nil
 
     if is_outlined then
         outline_glyph = love.graphics.newTextBatch(font:get_native(self._font_size, style, true), text)
@@ -150,6 +151,7 @@ function rt.Label:draw(x, y)
         justify_offset = self._justify_right_offset
     end
 
+    love.graphics.push()
     love.graphics.setBlendMode("alpha", "premultiplied")
     love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.draw(self._texture._native,
@@ -157,7 +159,7 @@ function rt.Label:draw(x, y)
         math.floor(self._bounds.y + self._texture_offset_y + y)
     )
 
-    love.graphics.setColor(1, 0, 1, 1)
+    love.graphics.pop()
     love.graphics.setBlendMode("alpha")
 end
 
@@ -187,6 +189,9 @@ function rt.Label:_check_for_rescale()
     if self._last_window_height ~= current_window_height then
         self._last_window_height = current_window_height
         self:_parse()
+        self:_apply_wrapping()
+        self:_update_texture()
+        self:_update_n_visible_characters()
     end
 end
 

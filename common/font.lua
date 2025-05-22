@@ -135,7 +135,7 @@ function rt.Font:get_native(size, style, sdf)
         return sdf_out, no_sdf_out
     elseif sdf == true then
         return sdf_out
-    elseif sdf == false then
+    else
         return no_sdf_out
     end
 end
@@ -143,7 +143,7 @@ end
 --- @brief
 function rt.Font:get_actual_size(size)
     meta.assert_enum_value(size, rt.FontSize, 1)
-    return math.ceil(size * love.graphics.getHeight())
+    return math.max(math.ceil(size * love.graphics.getHeight(), 14))
 end
 
 -- load default font
