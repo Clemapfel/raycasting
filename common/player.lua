@@ -1177,12 +1177,7 @@ function rt.Player:_update_mesh()
         end
     end
 
-    -- compute ground
-    local floor_ax, floor_ay, floor_bx, floor_by
-    if self._floor_active then
-        floor_ax, floor_ay, floor_bx, floor_by = self._floor_ax, self._floor_ay, self._floor_bx, self._floor_by
-    end
-    self._graphics_body:initialize(positions, floor_ax, floor_ay, floor_bx, floor_by)
+    self._graphics_body:initialize(positions)
 end
 
 --- @brief
@@ -1617,4 +1612,9 @@ end
 --- @brief
 function rt.Player:get_is_idle()
     return self._idle_elapsed > _settings.idle_threshold_duration
+end
+
+--- @brief
+function rt.Player:get_world()
+    return self._world
 end
