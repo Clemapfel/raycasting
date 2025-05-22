@@ -262,5 +262,5 @@ end
 --- @brief
 function rt.Camera:get_offset()
     local w, h = love.graphics.getDimensions()
-    return -_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h
+    return -_floor(self._current_x) + _floor(0.5 * w), -_floor(self._current_y) + _floor(0.5 * h)
 end
