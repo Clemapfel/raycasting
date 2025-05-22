@@ -151,7 +151,7 @@ function rt.keyboard_key_to_string(keyboard_key)
     local down_arrow = "\u{2193}"
     local left_arrow = "\u{2190}"
     local right_arrow = "\u{2192}"
-    local space_bar = "\u{2423}"
+    local space_bar = "\u{2500}"
     local enter = "\u{21B5}"
     local backspace = "\u{232B}"
 
@@ -186,9 +186,10 @@ end
 
 --- @override
 function rt.KeybindingIndicator:draw()
-    love.graphics.translate(self._bounds.x, self._bounds.y)
+    local x, y = math.floor(self._bounds.x), math.floor(self._bounds.y)
+    love.graphics.translate(x, y)
     self._draw()
-    love.graphics.translate(-self._bounds.x, -self._bounds.y)
+    love.graphics.translate(-x, -y)
 end
 
 --- @brief
@@ -662,10 +663,9 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
             table.insert(stencil_points, p)
         end
 
+        local stencil = slick.polygonize(3, { stencil_points })
 
-        local stencil = slick.triangulate({ stencil_points })
-
-        local flip_x = 0.5 * width
+        local flip_x = math.floor(0.5 * width)
         self._draw = function()
             if l_or_r == true then
                 love.graphics.push()
