@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 4,
-  nextobjectid = 84,
+  nextobjectid = 85,
   properties = {},
   tilesets = {
     {
@@ -741,36 +741,6 @@ return {
           properties = {}
         },
         {
-          id = 5,
-          name = "",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = -352,
-          y = 64,
-          width = 32,
-          height = 32,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["shader"] = "red_blood_cells"
-          }
-        },
-        {
-          id = 6,
-          name = "",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = -160,
-          y = 64,
-          width = 32,
-          height = 32,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["shader"] = "red_blood_cells"
-          }
-        },
-        {
           id = 10,
           name = "",
           type = "Hitbox",
@@ -856,21 +826,6 @@ return {
             { x = -384, y = -160 },
             { x = -288, y = -160 }
           },
-          properties = {
-            ["shader"] = "red_blood_cells"
-          }
-        },
-        {
-          id = 14,
-          name = "",
-          type = "Hitbox",
-          shape = "rectangle",
-          x = 32,
-          y = 64,
-          width = 32,
-          height = 32,
-          rotation = 0,
-          visible = true,
           properties = {
             ["shader"] = "red_blood_cells"
           }
@@ -1001,45 +956,6 @@ return {
             ["shader"] = "asbestos",
             ["slippery"] = true
           }
-        },
-        {
-          id = 31,
-          name = "",
-          type = "Hook",
-          shape = "ellipse",
-          x = 229.613,
-          y = 72.1979,
-          width = 18.3454,
-          height = 18.3454,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 32,
-          name = "",
-          type = "Hook",
-          shape = "ellipse",
-          x = 102.675,
-          y = 136.407,
-          width = 18.3454,
-          height = 18.3454,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 33,
-          name = "",
-          type = "Hook",
-          shape = "ellipse",
-          x = 422.423,
-          y = 70.5096,
-          width = 18.3454,
-          height = 18.3454,
-          rotation = 0,
-          visible = true,
-          properties = {}
         },
         {
           id = 35,
@@ -1332,25 +1248,6 @@ return {
           properties = {
             ["shader"] = "asbestos"
           }
-        },
-        {
-          id = 77,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 2257.55,
-          y = -119.005,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 55.2007, y = 14.7707 },
-            { x = 92.7887, y = 15.3317 },
-            { x = 124.733, y = 55.3468 },
-            { x = 40.0838, y = 58.9076 }
-          },
-          properties = {}
         },
         {
           id = 78,

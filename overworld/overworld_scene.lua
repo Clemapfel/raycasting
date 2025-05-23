@@ -386,10 +386,9 @@ function ow.OverworldScene:draw()
 
     self._post_fx:bind()
     self._background:draw()
-    --love.graphics.clear(0.5, 0.5, 0.5)
     self._camera:bind()
     self._stage:draw_below_player()
-    self._player:draw_body()
+        self._player:draw_body()
     self._post_fx:unbind()
 
     self._camera:unbind()
@@ -441,17 +440,12 @@ function ow.OverworldScene:update(delta)
     if self._stage == nil then return end
 
     local x, y = self._camera:world_xy_to_screen_xy(self._player:get_physics_body():get_predicted_position())
-    self._background:update_player_position(x, y, self._player:get_flow())
-    self._background:update(delta)
-
-    self._stage:update(delta)
-
-    self._camera:update(delta)
-    --self._post_fx:update(delta)
     self._player:update(delta)
-
+    self._stage:update(delta)
+    self._camera:update(delta)
+    self._background:update_player_position(x, y, self._player:get_flow())
     self._background:_notify_camera_changed(self._camera)
-
+    self._background:update(delta)
     self._results_screen:update(delta)
 
     -- mouse-based scrolling
@@ -467,7 +461,7 @@ function ow.OverworldScene:update(delta)
     end
 
     -- measure actual player velocity, if moving, disable manual camera
-    local px, py = self._player:get_position()
+    local px, py = self._player:get_predicted_position()
     if _last_x == nil then
         _last_x, _last_y = px, py
     end

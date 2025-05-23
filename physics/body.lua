@@ -71,6 +71,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     })
 
     self._last_x, self._last_y = self._native:getPosition()
+    self._last_vx, self._last_vy = self._native:getLinearVelocity()
 
     local shapes
     if meta.typeof(shape) == "Table" then
@@ -121,25 +122,40 @@ function b2.Body:get_rotation()
     return self._native:getAngle()
 end
 
---- @brief get extrapolated position based on current velocity
+function _hermite(t, a, b, tangent_a, tangent_b)
+    local t2 = t * t
+    local t3 = t2 * t
+    return (2 * t3 - 3 * t2 + 1) * a +
+        (t3 - 2 * t2 + t) * tangent_a +
+        (-2 * t3 + 3 * t2) * b +
+        (t3 - t2) * tangent_b
+end
+
 function b2.Body:get_predicted_position()
-    if self._world:get_use_fixed_timestep() then
-        if self._use_interpolation then
-            local last_x, last_y = self._last_x, self._last_y
-            local current_x, current_y = self._native:getPosition()
-            return last_x + (current_x - last_x) * self._world._interpolation_factor,
-            last_y + (current_y - last_y) * self._world._interpolation_factor
-        else
-            local current_x, current_y = self._native:getPosition()
-            local velocity_x, velocity_y = self._native:getLinearVelocity()
-            local delta_time = love.timer.getTime() - self._world._timestamp
-            return current_x + velocity_x * delta_time,
-            current_y + velocity_y * delta_time
-        end
+    if false then
+        -- linear interpolation
+        local current_x, current_y = self._native:getPosition()
+        local last_x, last_y = self._last_x, self._last_y
+        return math.mix2(last_x, last_y, current_x, current_y, self._world._elapsed / self._world:get_timestep())
     else
-        return self._native:getPosition()
+        -- hermite interpolation
+        local current_x, current_y = self._native:getPosition()
+        local last_x, last_y = self._last_x, self._last_y
+        local timestep = self._world:get_timestep()
+
+        local last_vx, last_vy = self._last_vx, self._last_vy
+        local current_vx, current_vy = (current_x - self._last_x), (current_y - self._last_y)
+        local tangent_ax, tangent_ay = last_vx, last_vy
+        local tangent_bx, tangent_by = current_vx, current_vy
+
+        local t = math.clamp(self._world._elapsed / timestep, 0, 1)
+        local interpolated_x = _hermite(t, last_x, current_x, tangent_ax, tangent_bx)
+        local interpolated_y = _hermite(t, last_y, current_y, tangent_ay, tangent_by)
+
+        return interpolated_x, interpolated_y
     end
 end
+
 
 --- @brief
 function b2.Body:set_use_interpolation(b)

@@ -10,11 +10,12 @@ function b2.World:instantiate()
         _body_to_rotate_queue = {},
         _body_to_activate_queue = {},
         _timestamp = love.timer.getTime(),
-        _interpolation_factor = 0,
         _interpolating_bodies = meta.make_weak({}), -- Set
         _time_dilation = 1,
         _elapsed = 0,
         _use_fixed_timestep = true,
+        _current_timestamp = love.timer.getTime(),
+        _last_timestamp = love.timer.getTime(),
 
         _body_to_collision_sign = {}
     })
@@ -194,19 +195,20 @@ function b2.World:update(delta)
     local total_step = 0
     local n_steps = 0
     while self._elapsed >= step and n_steps < _max_n_steps_per_frame do
-        for body in keys(self._interpolating_bodies) do
-            local x, y = body._native:getPosition()
-            body._last_x, body._last_y = x, y
-        end
 
         self:_start_collision_resolution()
+
+        for body in keys(self._interpolating_bodies) do
+            local x, y = body._native:getPosition()
+            local vx, vy = (x - body._last_x), (y - body._last_y)
+            body._last_x, body._last_y = body._native:getPosition()
+            body._last_vx, body._last_vy = vx, vy
+        end
 
         -- update
         self._native:update(step, _n_velocity_iterations, 2)
 
         self:_end_collision_resolution()
-
-        self._timestamp = love.timer.getTime() -- for extrapolation
 
         -- work through queued updates
         for entry in values(self._body_to_move_queue) do
@@ -231,12 +233,6 @@ function b2.World:update(delta)
         n_steps = n_steps + 1
 
         if n_steps >= _max_n_steps_per_frame then break end
-    end
-
-    if self._use_fixed_timestep then
-        self._interpolation_factor = self._elapsed / step -- for interpolation
-    else
-        self._interpolation_factor = 0
     end
 end
 

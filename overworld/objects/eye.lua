@@ -2,7 +2,7 @@ require "common.random"
 require "common.smoothed_motion_2d"
 
 rt.settings.overworld.eye = {
-    detection_radius = 500
+    detection_radius = 200
 }
 
 --- @class ow.Eye
@@ -57,7 +57,7 @@ function ow.Eye:instantiate(object, stage, scene)
     self._highlight_draw_x = self._iris_x + self._highlight_directionx * self._highlight_dist
     self._highlight_draw_y = self._iris_y + self._highlight_directiony * self._highlight_dist
 
-    self._motion = rt.SmoothedMotion2D(0, 0, 100 * rt.random.number(0.8, 1))
+    self._motion = rt.SmoothedMotion2D(0, 0, 400 * rt.random.number(0.8, 1))
 
     self._hue_offset = rt.random.number(0, 1)
     self._color = { 1, 1, 1, 1 }
@@ -97,16 +97,11 @@ function ow.Eye:update(delta)
 
     local player = self._scene:get_player()
 
-    local px, py
-    if true then --self._scene:get_is_cursor_active() then
-        px, py = self._scene:get_camera():screen_xy_to_world_xy(love.mouse.getPosition())
-    else
-        px, py = player:get_position()
-    end
+    local px, py = player:get_position()
     local sx, sy = self._x, self._y
 
     self._origin_x, self._origin_y = sx, sy
-    self._angle = self._angle + delta * 0.2
+    self._angle = self._angle + delta
 
     self._motion:set_target_position(px - sx, py - sy)
     self._motion:update(delta)
@@ -121,16 +116,18 @@ function ow.Eye:draw()
 
     local r, g, b, a = table.unpack(self._color)
 
+    local value = rt.graphics.get_stencil_value()
+    rt.graphics.stencil(value, function()
+        love.graphics.push()
+        love.graphics.draw(self._sclera_mesh:get_native(), self._sclera_x + self._x, self._sclera_y + self._y)
+        love.graphics.pop()
+    end)
+    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL)
+
     love.graphics.push()
     love.graphics.translate(self._x, self._y)
     self._sclera_color:bind()
     love.graphics.draw(self._sclera_mesh:get_native(), self._sclera_x, self._sclera_y)
-
-    local value = rt.graphics.get_stencil_value()
-    rt.graphics.stencil(value, function()
-        love.graphics.draw(self._sclera_mesh:get_native(), self._sclera_x + self._x, self._sclera_y + self._y)
-    end)
-    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL)
 
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)

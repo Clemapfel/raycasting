@@ -62,14 +62,14 @@ function mn.PauseMenuScene:instantiate()
         local element = {
             unselected_label = rt.Label(
                 prefix .. rt.Translation.pause_menu_scene[name] .. postfix,
-                rt.settings.font.default_large,
-                rt.settings.font.default_mono_large
+                rt.settings.font.default,
+                rt.FontSize.LARGE
             ),
 
             selected_label = rt.Label(
                 prefix .. "<color=SELECTION>" .. rt.Translation.pause_menu_scene[name] .. "</color>" .. postfix,
-                rt.settings.font.default_large,
-                rt.settings.font.default_mono_large
+                rt.settings.font.default,
+                rt.FontSize.LARGE
             ),
 
             node = rt.SelectionGraphNode(),

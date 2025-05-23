@@ -588,16 +588,6 @@
   <object id="4" type="PlayerSpawn" x="2286.46" y="-19.234">
    <point/>
   </object>
-  <object id="5" type="Hitbox" x="-352" y="64" width="32" height="32">
-   <properties>
-    <property name="shader" value="red_blood_cells"/>
-   </properties>
-  </object>
-  <object id="6" type="Hitbox" x="-160" y="64" width="32" height="32">
-   <properties>
-    <property name="shader" value="red_blood_cells"/>
-   </properties>
-  </object>
   <object id="10" type="Hitbox" x="1280" y="192">
    <properties>
     <property name="shader" value="red_blood_cells"/>
@@ -622,11 +612,6 @@
    </properties>
    <polygon points="-288,17.4552 -384,32 -480,32 -384.558,24.5405 -384,-160 -288,-160"/>
   </object>
-  <object id="14" type="Hitbox" x="32" y="64" width="32" height="32">
-   <properties>
-    <property name="shader" value="red_blood_cells"/>
-   </properties>
-  </object>
   <object id="3" type="Hitbox" x="-512" y="0">
    <properties>
     <property name="shader" value="red_blood_cells"/>
@@ -648,15 +633,6 @@
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="452.494,-140.218 15.086,-0.0408222 15.086,31.7916 590.538,31.7916 590.247,0.0122796"/>
-  </object>
-  <object id="31" type="Hook" x="229.613" y="72.1979" width="18.3454" height="18.3454">
-   <ellipse/>
-  </object>
-  <object id="32" type="Hook" x="102.675" y="136.407" width="18.3454" height="18.3454">
-   <ellipse/>
-  </object>
-  <object id="33" type="Hook" x="422.423" y="70.5096" width="18.3454" height="18.3454">
-   <ellipse/>
   </object>
   <object id="35" type="Hitbox" x="96" y="160">
    <properties>

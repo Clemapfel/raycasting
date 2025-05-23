@@ -77,6 +77,7 @@ function rt.PlayerBody:instantiate(player)
     self._is_bubble = self._player:get_is_bubble()
     self._was_bubble_last_frame = self._player:get_is_bubble()
     self._player_x, self._player_y = self._player:get_position()
+    self._interpolation_factor = 0
 end
 
 --- @brief
@@ -312,18 +313,16 @@ function rt.PlayerBody:update(delta)
             local n_velocity_iterations = 0
             local n_bending_iterations = 0
 
-            local extra_iterations = 0 --math.floor(math.magnitude(self._player:get_velocity()) / 2000)
-
             if self._is_bubble then
-                _n_distance_iterations = 4
+                _n_distance_iterations = 8
             else
-                _n_distance_iterations = 8 + extra_iterations
+                _n_distance_iterations = 4
             end
 
             if self._is_bubble then
                 _n_velocity_iterations = 4
             else
-                _n_velocity_iterations = 4 + extra_iterations
+                _n_velocity_iterations = 4
             end
 
             local apply_axis = self._is_bubble

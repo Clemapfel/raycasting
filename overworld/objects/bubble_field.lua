@@ -3,7 +3,8 @@ rt.settings.overworld.bubble_field = {
     thickness = 3,
     n_smoothing_iterations = 5,
     alpha = 1,
-    wave_deactivation_threshold = 1 / 1000
+    wave_deactivation_threshold = 1 / 1000,
+    simulate_waves = true
 }
 
 --- @class ow.BubbleField
@@ -288,69 +289,71 @@ function ow.BubbleField:update(delta)
 
     if not self._is_active then return end
 
-    -- wave equation solver
-    local polygon_positions = {}
-    local outline_positions = {}
-    local wave = self._wave
-    local offset_sum = 0
-    local n_points = self._n_points
-    for i = 1, n_points do
-        local left = (i == 1) and n_points or (i - 1)
-        local right = (i == n_points) and 1 or (i + 1)
-        local new = 2 * wave.current[i] - wave.previous[i] + _courant^2 * (wave.current[left] - 2 * wave.current[i] + wave.current[right])
-        new = new * _damping
-        wave.next[i] = new
+    if rt.settings.overworld.bubble_field.simulate_waves then
+        -- wave equation solver
+        local polygon_positions = {}
+        local outline_positions = {}
+        local wave = self._wave
+        local offset_sum = 0
+        local n_points = self._n_points
+        for i = 1, n_points do
+            local left = (i == 1) and n_points or (i - 1)
+            local right = (i == n_points) and 1 or (i + 1)
+            local new = 2 * wave.current[i] - wave.previous[i] + _courant^2 * (wave.current[left] - 2 * wave.current[i] + wave.current[right])
+            new = new * _damping
+            wave.next[i] = new
 
-        offset_sum = offset_sum + math.abs(new)
+            offset_sum = offset_sum + math.abs(new)
 
-        local entry = self._contour_vectors[i]
-        local x = self._contour_center_x + entry.dx * (1 + new) * entry.magnitude
-        local y = self._contour_center_y + entry.dy * (1 + new) * entry.magnitude
-        table.insert(polygon_positions, x)
-        table.insert(polygon_positions, y)
-    end
-    wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
+            local entry = self._contour_vectors[i]
+            local x = self._contour_center_x + entry.dx * (1 + new) * entry.magnitude
+            local y = self._contour_center_y + entry.dy * (1 + new) * entry.magnitude
+            table.insert(polygon_positions, x)
+            table.insert(polygon_positions, y)
+        end
+        wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
 
-    if offset_sum / self._n_points < rt.settings.overworld.bubble_field.wave_deactivation_threshold then
-        self._is_active = false
-    end
-
-    -- lerp to avoid step pattern artifacting
-    for i = 1, #polygon_positions - 2, 2 do
-        local x1, y1 = polygon_positions[i+0], polygon_positions[i+1]
-        local x2, y2 = polygon_positions[i+2], polygon_positions[i+3]
-
-        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
-        table.insert(outline_positions, x)
-        table.insert(outline_positions, y)
-    end
-
-    do
-        local x1, y1 = polygon_positions[1], polygon_positions[2]
-        local x2, y2 = polygon_positions[#polygon_positions-1], polygon_positions[#polygon_positions]
-        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
-        table.insert(outline_positions, x)
-        table.insert(outline_positions, y)
-    end
-
-    local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
-    if success and #solid_tris > 0 then
-        local solid_data = {}
-        for tri in values(solid_tris) do
-            for i = 1, 6, 2 do
-                table.insert(solid_data, {
-                    tri[i+0], tri[i+1]
-                })
-            end
+        if offset_sum / self._n_points < rt.settings.overworld.bubble_field.wave_deactivation_threshold then
+            self._is_active = false
         end
 
-        self._solid_mesh = rt.Mesh(solid_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
-    else
-        self._solid_mesh = nil
-    end
+        -- lerp to avoid step pattern artifacting
+        for i = 1, #polygon_positions - 2, 2 do
+            local x1, y1 = polygon_positions[i+0], polygon_positions[i+1]
+            local x2, y2 = polygon_positions[i+2], polygon_positions[i+3]
 
-    self._polygon_positions = polygon_positions
-    self._outline_positions = outline_positions
+            local x, y = math.mix2(x1, y1, x2, y2, 0.5)
+            table.insert(outline_positions, x)
+            table.insert(outline_positions, y)
+        end
+
+        do
+            local x1, y1 = polygon_positions[1], polygon_positions[2]
+            local x2, y2 = polygon_positions[#polygon_positions-1], polygon_positions[#polygon_positions]
+            local x, y = math.mix2(x1, y1, x2, y2, 0.5)
+            table.insert(outline_positions, x)
+            table.insert(outline_positions, y)
+        end
+
+        local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
+        if success and #solid_tris > 0 then
+            local solid_data = {}
+            for tri in values(solid_tris) do
+                for i = 1, 6, 2 do
+                    table.insert(solid_data, {
+                        tri[i+0], tri[i+1]
+                    })
+                end
+            end
+
+            self._solid_mesh = rt.Mesh(solid_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
+        else
+            self._solid_mesh = nil
+        end
+
+        self._polygon_positions = polygon_positions
+        self._outline_positions = outline_positions
+        end
 end
 
 --- @brief

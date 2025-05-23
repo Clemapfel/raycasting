@@ -17,8 +17,8 @@ love.load = function(args)
     --require "menu.stage_select_scene"
     --rt.SceneManager:set_scene(mn.StageSelectScene)
 
-    require "menu.menu_scene"
-    --t.SceneManager:set_scene(mn.MenuScene)
+    --require "menu.menu_scene"
+    --rt.SceneManager:set_scene(mn.MenuScene)
 
     require "overworld.overworld_scene"
     rt.SceneManager:set_scene(ow.OverworldScene, "tutorial")

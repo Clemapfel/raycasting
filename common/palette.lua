@@ -101,7 +101,7 @@ do -- load from image
     local slip = 0.35
     rt.Palette.SLIPPERY = rt.Palette.GRAY_8--rt.RGBA(slip, slip, slip, 0.8)
     rt.Palette.SLIPPERY.a = 0.8
-    rt.Palette.SLIPPERY_OUTLINE = rt.Palette.GRAY_8
+    rt.Palette.SLIPPERY_OUTLINE = rt.Palette.GRAY_6
 
     rt.Palette.SPAWN_ACTIVE = rt.Palette.MINT
     rt.Palette.SPAWN_INACTIVE = rt.Palette.RED

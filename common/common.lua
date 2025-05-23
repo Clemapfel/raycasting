@@ -227,7 +227,7 @@ end
 
 --- @brief
 function math.smoothstep(lower, upper, ratio)
-    local t = clamp((ratio - lower) / (upper - lower), 0.0, 1.0);
+    local t = math.clamp((ratio - lower) / (upper - lower), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);
 end
 
@@ -423,6 +423,11 @@ end
 --- @brief
 function math.turn_right(x, y)
     return math.turn(x, y, false)
+end
+
+--- @brief
+function math.flip(x, y)
+    return -x, -y
 end
 
 --- @brief get distance between two points

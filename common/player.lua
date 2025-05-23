@@ -9,7 +9,7 @@ local radius = 13.5
 rt.settings.player = {
     radius = radius,
     inner_body_radius = 10 / 2 - 0.5,
-    n_outer_bodies = 31,
+    n_outer_bodies = 17,
     max_spring_length = radius * 3,
 
     bottom_wall_ray_length_factor = 1.5,
@@ -26,6 +26,7 @@ rt.settings.player = {
     ground_target_velocity_x = 300,
     air_target_velocity_x = 300,
     sprint_multiplier = 2,
+    friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
 
     flow_increase_velocity = 1 / 200, -- percent per second
     flow_decrease_velocity = 1,
@@ -183,7 +184,6 @@ function rt.Player:instantiate()
 
         _is_frozen = false,
         _respawn_elapsed = 0,
-        _use_friction = true,
         _use_wall_friction = true,
 
         _gravity = 1, -- [-1, 1]
@@ -369,13 +369,12 @@ end
 function rt.Player:update(delta)
     if self._body == nil then return end
 
-    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
-
+    self:_update_mesh(delta)
     if self._trail_visible then
         self._trail:update(delta)
     end
 
-    self._graphics_body:update(delta)
+    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
 
     if self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._jump_button_is_down or self._bottom_wall == false then
         self._idle_elapsed = 0
@@ -407,7 +406,6 @@ function rt.Player:update(delta)
             end
         end
 
-        self:_update_mesh()
         return
     end
 
@@ -534,9 +532,6 @@ function rt.Player:update(delta)
 
             local duration
             local ground_deceleration = _settings.ground_deceleration_duration
-            if not self._use_friction then
-                ground_deceleration = math.huge
-            end
 
             if is_accelerating then
                 duration = self._bottom_wall and _settings.ground_acceleration_duration or _settings.air_acceleration_duration
@@ -570,46 +565,7 @@ function rt.Player:update(delta)
                 next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
             end
 
-            local ground_friction_applied = false
-
-            if bottom_wall_body ~= nil then -- ground friction
-                local nx, ny
-                local friction = 0
-
-                -- use side friction for better detection on slopes
-                if self._last_velocity_x > 0 then
-                    if bottom_left_wall_body ~= nil then
-                        nx, ny, friction = bottom_left_nx, bottom_left_ny, bottom_left_wall_body:get_friction()
-                    end
-                else
-                    if bottom_right_wall_body ~= nil then
-                        nx, ny, friction = bottom_right_nx, bottom_right_ny, bottom_right_wall_body:get_friction()
-                    end
-                end
-
-                if nx == nil and self._bottom_wall then
-                    nx, ny = bottom_nx, bottom_ny, bottom_wall_body:get_friction()
-                end
-
-                if nx ~= nil then
-                    local tangent_x, tangent_y = math.turn_right(nx, ny)
-
-                    -- slide down slopes
-                    local down_slope_fraction = 0.07
-                    if math.sign(nx) == math.sign(self._last_velocity_x) and self._last_velocity_y >= 0 then
-                        next_velocity_x = next_velocity_x + next_velocity_x * down_slope_fraction
-                        next_velocity_y = next_velocity_y + next_velocity_y * down_slope_fraction
-                    end
-
-                    if friction ~= 0 then
-                        next_velocity_x = next_velocity_x - next_velocity_x * friction
-                        next_velocity_y = next_velocity_y - next_velocity_y * friction
-                    end
-                end
-            end
-
-
-            if not ground_friction_applied and self._use_wall_friction then
+            if self._use_wall_friction then
                 -- magnetize to walls, decrease based on how far wall is from vertical
                 local magnet_force = _settings.wall_magnet_force
                 if self._left_wall and not self._right_wall and self._left_button_is_down and not left_wall_body:has_tag("slippery")then
@@ -662,7 +618,6 @@ function rt.Player:update(delta)
             end
 
             -- reset jump button when going from air to ground, to disallow buffering jumps while falling
-
             if (bottom_before == false and self._bottom_wall == true) or
                 (left_before == false and self._left_wall == true) or
                 (right_before == false and self._right_wall == true)
@@ -764,6 +719,40 @@ function rt.Player:update(delta)
             -- downwards force
             if self._down_button_is_down then
                 next_velocity_y = next_velocity_y + _settings.downwards_force * delta
+            end
+
+            -- accelerators
+            for surface in range(
+                { left_wall_body, left_nx, left_ny },
+                { top_wall_body, top_nx, top_ny },
+                { right_wall_body, right_nx, right_ny },
+                { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
+                { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
+                { bottom_wall_body, bottom_nx, bottom_ny }
+            ) do
+                local body, nx, ny = table.unpack(surface)
+                if body ~= nil and body:has_tag("use_friction") then
+                    local friction = body:get_friction()
+
+                    local tx, ty = -ny, nx
+                    local vx, vy = next_velocity_x, next_velocity_y
+                    local dot_product = vx * tx + vy * ty
+
+                    local tangent_velocity_x = dot_product * tx
+                    local tangent_velocity_y = dot_product * ty
+
+                    local friction_force_x = -tangent_velocity_x * friction * _settings.friction_coefficient
+                    local friction_force_y = -tangent_velocity_y * friction * _settings.friction_coefficient
+
+                    -- apply tangential force
+                    next_velocity_x = next_velocity_x + friction_force_x * delta
+                    next_velocity_y = next_velocity_y + friction_force_y * delta
+
+                    -- magnetize to surface
+                    local flipped_x, flipped_y = math.flip(nx, ny)
+                    next_velocity_x = next_velocity_x + flipped_x * delta * _settings.wall_magnet_force
+                    next_velocity_y = next_velocity_y + flipped_y * delta * _settings.wall_magnet_force
+                end
             end
 
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
@@ -909,9 +898,6 @@ function rt.Player:update(delta)
         self._skip_next_flow_update = false
     end
 
-    -- graphics
-    self:_update_mesh()
-
     -- add blood splatter
     if self._stage ~= nil then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
@@ -973,9 +959,16 @@ function rt.Player:update(delta)
     self._last_left_x, self._last_left_y = left_x, left_y
 end
 
+local _signal_id
+
 --- @brief
 function rt.Player:move_to_stage(stage)
     self._stage = stage
+
+    if self._world ~= nil then
+        self._world:signal_disconnect("step", _signal_id)
+        _signal_id = nil
+    end
 
     local world = nil
     if stage ~= nil then
@@ -1154,7 +1147,7 @@ function rt.Player:move_to_world(world)
     self:set_is_bubble(is_bubble)
 end
 
-function rt.Player:_update_mesh()
+function rt.Player:_update_mesh(delta)
     local positions
     if self._is_bubble then
         positions = {
@@ -1178,6 +1171,7 @@ function rt.Player:_update_mesh()
     end
 
     self._graphics_body:initialize(positions)
+    self._graphics_body:update(delta)
 end
 
 --- @brief
@@ -1400,16 +1394,6 @@ end
 --- @brief
 function rt.Player:get_velocity()
     return self._last_velocity_x, self._last_velocity_y
-end
-
---- @brief
-function rt.Player:set_use_friction(b)
-    self._use_friction = b
-end
-
---- @brief
-function rt.Player:get_use_friction()
-    return self._use_friction
 end
 
 --- @brief
