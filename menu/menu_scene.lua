@@ -128,6 +128,21 @@ function mn.MenuScene:instantiate(state)
         title_screen.title_label_sdf = nil
         title_screen.title_x, title_screen.title_y = 0, 0
         title_screen.boundaries = {}
+
+        local duration = 2 * self._player:get_radius() / rt.settings.menu_scene.title_screen_player_velocity
+        title_screen.opacity_fade_animation = rt.TimedAnimation(4 * duration)
+    end
+
+    do -- level select
+        local level_select = {}
+        self._level_select = level_select
+
+        level_select.input = rt.InputSubscriber()
+        level_select.input:signal_connect("pressed", function(_, which)
+            if which == rt.InputButton.B then
+                self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
+            end
+        end)
     end
 end
 
@@ -168,6 +183,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             local scale = self._camera:get_scale_delta()
             local w, h = width / scale, height / scale
             local cx, cw = 0 - 0.5 * w, 0 - 0.5 * h
+            title_screen.enable_boundary_on_enter = true
             title_screen.boundaries = {
                 b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
                     cx, cw, cx + w, cw
@@ -197,6 +213,8 @@ function mn.MenuScene:size_allocate(x, y, width, height)
                     self._player_velocity_x = current_vx - 2 * dot_product * normal_x
                     self._player_velocity_y = current_vy - 2 * dot_product * normal_y
                 end)
+                body:set_is_sensor(true)
+                body:signal_set_is_blocked("collision_start", true)
             end
         end
 
@@ -242,24 +260,43 @@ end
 
 --- @brief
 function mn.MenuScene:_set_state(next)
+    self._title_screen.input:deactivate()
+    self._level_select.input:deactivate()
+
     if next == mn.MenuSceneState.TITLE_SCREEN then
         self._title_screen.input:activate()
-        self._player:teleport_to(0, 0)
+
+        local w, h = love.graphics.getDimensions()
+        local r = self._player:get_radius()
+        local x, y = self._player:get_position()
+        local new_x =  math.clamp(x, -0.5 * w + 2 * r, 0.5 * w - 2 * r)
+        self._player:teleport_to(
+           new_x,
+            0 + 0.5 * h + r * 10
+        )
+
+        self._player_velocity_x, self._player_velocity_y = new_x > 0 and -1 or 1, -1
+
+        self._title_screen.enable_boundary_on_enter = true -- delay boundary until player is on screen
+        for boundary in values(self._title_screen.boundaries) do
+            boundary:set_is_sensor(true)
+            boundary:signal_set_is_blocked("collision_start", true)
+        end
+
         self._player:set_velocity(0, 0)
         self._player:set_gravity(0)
         self._player:set_is_bubble(true)
         self._player:set_flow(0)
-
-        for boundary in values(self._title_screen.boundaries) do
-            boundary:set_is_sensor(false)
-        end
+        self._player:set_opacity(0)
+        self._title_screen.opacity_fade_animation:reset()
     elseif next == mn.MenuSceneState.FALLING then
-        self._title_screen.input:activate()
+        self._level_select.input:activate()
         self._player:set_gravity(1)
         self._player:set_is_bubble(false)
 
         for boundary in values(self._title_screen.boundaries) do
             boundary:set_is_sensor(true)
+            boundary:signal_set_is_blocked("collision_start", true)
         end
     end
 
@@ -285,6 +322,29 @@ function mn.MenuScene:update(delta)
             self._player_velocity_x * magnitude,
             self._player_velocity_y * magnitude
         )
+
+        local title_screen = self._title_screen
+
+        -- wait for player to enter, then lock
+        if title_screen.enable_boundary_on_enter == true then
+            local r = self._player:get_radius()
+            local w = love.graphics.getWidth() - 2 * r
+            local h = love.graphics.getHeight() - 2 * r
+            local bounds = rt.AABB(
+                0 - 0.5 * w, 0 - 0.5 * h, w, h
+            )
+
+            if bounds:contains(self._player:get_position()) then
+                for boundary in values(self._title_screen.boundaries) do
+                    boundary:set_is_sensor(false)
+                    boundary:signal_set_is_blocked("collision_start", false)
+                end
+                self._title_screen.enable_boundary_on_enter = false
+            end
+        end
+
+        self._player:set_opacity(title_screen.opacity_fade_animation:get_value())
+        title_screen.opacity_fade_animation:update(delta)
     elseif self._state == mn.MenuSceneState.FALLING then
         local px, py = self._player:get_predicted_position()
         self._shader_fraction = math.clamp(py / rt.settings.menu_scene.falling_fraction_threshold, 0, 1)
@@ -363,6 +423,10 @@ function mn.MenuScene:draw()
 
     self._camera:bind()
     self._player:draw()
+
+    if self._dbg ~= nil then
+        love.graphics.rectangle("line", self._dbg:unpack())
+    end
     self._camera:unbind()
 end
 

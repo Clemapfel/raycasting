@@ -17,6 +17,11 @@ function rt.AABB:unpack()
 end
 
 --- @brief
+function rt.AABB:clone()
+    return rt.AABB(self.x, self.y, self.width, self.height)
+end
+
+--- @brief
 function rt.AABB:contains(x, y)
     return x >= self.x and x <= self.x + self.width and y >= self.y and y <= self.y + self.height
 end

@@ -902,7 +902,7 @@ function rt.Player:update(delta)
         local acceleration = (target_velocity - self._flow_velocity)
         self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
         self._flow = self._flow + self._flow_velocity * delta
-        self._flow = 1 -- TODO math.clamp(self._flow, 0, 1)
+        self._flow = math.clamp(self._flow, 0, 1)
     end
 
     if self._skip_next_flow_update == true then

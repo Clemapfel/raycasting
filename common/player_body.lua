@@ -83,7 +83,7 @@ end
 function rt.PlayerBody:initialize(positions)
     local success, tris = pcall(love.math.triangulate, positions)
     if not success then
-        success, tris = pcall(slick.polygonize, 3, { positions })
+        success, tris = pcall(slick.triangulate, { positions })
         if not success then return end
     end
 
@@ -263,12 +263,8 @@ end
 
 --- @brief
 function rt.PlayerBody:update(delta)
-    local before = love.timer.getTime()
-
     local body = self._player:get_physics_body()
     if body == nil then return end
-
-    delta = math.min(delta, 1 / 30)
 
     self._elapsed = self._elapsed + delta
     self._shader_elapsed = self._shader_elapsed + delta
@@ -294,8 +290,8 @@ function rt.PlayerBody:update(delta)
     self._player_x, self._player_y = self._player:get_physics_body():get_predicted_position()
     local axis_x, axis_y = self._player:get_velocity()
 
-    local step = delta
-    --while self._elapsed > _step do
+    local step = _step
+    while self._elapsed > _step do
         self._elapsed = self._elapsed - step
 
         local delta_squared = step * step
@@ -305,9 +301,7 @@ function rt.PlayerBody:update(delta)
             local positions = rope.current_positions
             local old_positions = rope.last_positions
             local distances = self._is_bubble and rope.bubble_distances or rope.distances
-
-            local multiplier = self._player:get_gravity()
-            local gravity_x, gravity_y = 0 * _gravity * multiplier, 1 * _gravity * multiplier
+            local gravity_x, gravity_y = 0 * _gravity, 1 * _gravity
 
             if self._is_bubble then
                 gravity_x, gravity_y = 0, 0
@@ -318,7 +312,7 @@ function rt.PlayerBody:update(delta)
             local n_velocity_iterations = 0
             local n_bending_iterations = 0
 
-            local extra_iterations = 0 --math.floor(math.magnitude(self._player:get_velocity()) / 500)
+            local extra_iterations = 0 --math.floor(math.magnitude(self._player:get_velocity()) / 2000)
 
             if self._is_bubble then
                 _n_distance_iterations = 4
@@ -436,7 +430,7 @@ function rt.PlayerBody:update(delta)
 
             rope.timestamp = love.timer.getTime()
         end
-    --end
+    end
 
     local points = {}
     for rope in values(self._ropes) do
@@ -445,9 +439,7 @@ function rt.PlayerBody:update(delta)
     end
     self._points = points
 
-    self._interpolation_factor = self._elapsed / _step
-
-    local after = love.timer.getTime()
+    self._interpolation_factor = self._elapsed / step
 end
 
 --- @brief
@@ -490,9 +482,9 @@ function rt.PlayerBody:draw_body()
         for rope in values(self._ropes) do
             local tw, th = texture:getDimensions()
             for i = 1, #rope.current_positions, 2 do
-                local scale = rope.scale + 6 / self._player:get_radius()
+                local scale = math.min(rope.scale + 6 / self._player:get_radius(), 1)
                 local x, y
-                if false then
+                if true then
                     local last_x, last_y = rope.last_positions[i+0], rope.last_positions[i+1]
                     local current_x, current_y = rope.current_positions[i+0], rope.current_positions[i+1]
                     x, y = last_x + (current_x - last_x) * self._interpolation_factor,
@@ -588,6 +580,14 @@ function rt.PlayerBody:draw_core()
 
     love.graphics.pop()
     self._core_canvas:unbind()
+
+    -- body
+
+    local darken = 0.5
+    local outline_width = 0.5
+    local outline_scale_x, outline_scale_y = outline_width / self._player:get_radius(), outline_width / self._player:get_radius()
+    love.graphics.setColor(1 - darken, 1 - darken, 1 - darken, opacity)
+    love.graphics.draw(self._core_canvas:get_native(), self._player_x, self._player_y, 0, 1 / self._canvas_scale + outline_scale_x, 1 / self._canvas_scale + outline_scale_y, 0.5 * w, 0.5 * h)
 
     love.graphics.setColor(1, 1, 1, 1 * opacity)
     love.graphics.draw(self._core_canvas:get_native(), self._player_x, self._player_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)

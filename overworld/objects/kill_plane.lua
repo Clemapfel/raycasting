@@ -26,7 +26,6 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
-        dbg("called")
         self._body:signal_set_is_blocked("collision_start", true)
         self._world:signal_connect("step", function()
             self._body:signal_set_is_blocked("collision_start", false)

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 605,
+  nextobjectid = 610,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -31,7 +31,7 @@ return {
   layers = {
     {
       type = "imagelayer",
-      image = "../sprites/why.png",
+      image = "../tilesets/debug_tileset_16x16/tile.png",
       id = 3,
       name = "bg",
       class = "",
@@ -41,8 +41,8 @@ return {
       offsety = 0,
       parallaxx = 1,
       parallaxy = 1,
-      repeatx = false,
-      repeaty = false,
+      repeatx = true,
+      repeaty = true,
       properties = {}
     },
     {
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1505.04,
-          y = 2895.91,
+          x = 1081.47,
+          y = 5380.18,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4546,8 +4546,8 @@ return {
           name = "Bubble",
           type = "Hitbox",
           shape = "polygon",
-          x = 832,
-          y = 5136,
+          x = 848,
+          y = 5472,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4565,8 +4565,8 @@ return {
           name = "",
           type = "KillPlane",
           shape = "polygon",
-          x = 832,
-          y = 5216,
+          x = 848,
+          y = 5552,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4603,8 +4603,8 @@ return {
           name = "Bubble",
           type = "Hitbox",
           shape = "polygon",
-          x = 3616,
-          y = 5120,
+          x = 3632,
+          y = 5456,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4883,25 +4883,6 @@ return {
           properties = {}
         },
         {
-          id = 603,
-          name = "",
-          type = "BubbleField",
-          shape = "polygon",
-          x = 1328,
-          y = 5136,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -320 },
-            { x = 2224, y = -320 },
-            { x = 2224, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 604,
           name = "",
           type = "BubbleField",
@@ -4961,6 +4942,88 @@ return {
           },
           properties = {
             ["print"] = "\"yes\"ss"
+          }
+        },
+        {
+          id = 605,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1360,
+          y = 5280,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 160 },
+            { x = 304, y = 160 },
+            { x = 304, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 607,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 1616,
+          y = 5264,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -64, y = 64 },
+            { x = -16, y = 112 },
+            { x = 48, y = 48 }
+          },
+          properties = {
+            ["axis_x"] = 1,
+            ["axis_y"] = -1
+          }
+        },
+        {
+          id = 608,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = 1952,
+          y = 5280,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 160 },
+            { x = 304, y = 160 },
+            { x = 304, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 609,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 2208,
+          y = 5264,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -64, y = 64 },
+            { x = -16, y = 112 },
+            { x = 48, y = 48 }
+          },
+          properties = {
+            ["axis_x"] = 1,
+            ["axis_y"] = -1
           }
         }
       }

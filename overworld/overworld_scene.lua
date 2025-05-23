@@ -5,7 +5,6 @@ require "overworld.stage"
 require "common.camera"
 require "common.player"
 require "overworld.coin_effect"
-require "overworld.stage_hud"
 require "overworld.results_screen"
 require "physics.physics"
 
@@ -72,7 +71,6 @@ function ow.OverworldScene:instantiate(state)
         _results_screen = ow.ResultsScreen(),
 
         _post_fx = ow.CoinEffect(self),
-        _hud = ow.StageHUD(self),
     })
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -290,7 +288,6 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
 
     self._background:reformat(0, 0, width, height)
     self._post_fx:reformat(0, 0, width, height)
-    self._hud:reformat(0, 0, width, height)
 
     local results_screen_fraction = rt.settings.overworld.overworld_scene.results_screen_fraction
     self._results_screen:reformat((1 - results_screen_fraction) * width, 0, results_screen_fraction * width, height)

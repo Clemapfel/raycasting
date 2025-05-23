@@ -3,7 +3,6 @@ require "overworld.object_wrapper"
 require "common.player"
 require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
-require "overworld.stage_hud"
 
 require "physics.physics"
 
