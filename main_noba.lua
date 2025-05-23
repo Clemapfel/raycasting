@@ -1,18 +1,24 @@
-require "include"
-require "common.shader"
+--
+-- Copyright (c) Noba Games
+-- Author: C. Cords (github.com/clemapfel)
+--
 
 local noba = noba or {}
+
+--- @class RoarFX
 function noba.RoarFX()
     local self = {}
+
+    -- private properties
+    self._shader = love.graphics.newShader("noba_roar.glsl") -- change this path
     self._canvas = nil
-    self._elapsed = 10e6
-    self._shader = rt.Shader("noba_roar.glsl")
+    self._elapsed = math.huge
+    self._duration = 5
+    self._ramp_fraction = 0.8
+    self._max_saturation_loss = 1.0
+    self._max_vignette = 0.75
 
-    self._duration = 5 -- seconds
-    self._ramp_fraction = 0.8 -- [0, 1] how much of the duration is spend during fade-in/out, where 1 = no plateau, 0 = all plateau
-    self._max_saturation_loss = 1.0 -- how much saturation is reduced by, where 1 fully monochrome, 0 no change
-    self._max_vignette = 0.75 -- [0, 1] how much of the screen is covered up by the vignette, with 1 all black, 0 no vignette
-
+    --- @brief [internal] gaussian bandpass normalized in [0, 1]
     local function gaussian(x, center)
         return math.exp(-4.4 * math.pi / 3 * ((x - center)^2))
     end
@@ -32,36 +38,40 @@ function noba.RoarFX()
         end
     end
 
-    --- @brief
+    --- @brief set which canvas the postfx is applied to
     function self:set_canvas(canvas)
         self._canvas = canvas
     end
 
-    --- @brief
+    --- @field duration Number in seconds
     function self:set_duration(seconds)
         self._duration = seconds
     end
 
-    --- @brief
-    function self:set_vignette_strength(fraction)
+    --- @field ramp_fraction Number [0, 1] how much of the duration is spend during fade-in/out, where 1 = no plateau, 0 = all plateau
+    function self:set_ramp_fraction(fraction)
+        self._ramp_fraction = fraction
+    end
+
+    --- @field max_vignette Number [0, 1] how much of the screen is covered up by the vignette, with 1 all black, 0 no vignette
+    function self:set_max_vignette(fraction)
         self._max_vignette = math.max(0, math.min(fraction, 1))
     end
 
-    --- @brief
-    function self:set_saturation_loss_strength(fraction)
+    --- @field max_saturation_loss Number how much saturation is reduced by, where 1 fully monochrome, 0 no change
+    function self:set_max_saturation_loss(fraction)
         self._max_saturation_loss = math.max(0, math.min(fraction, 1))
     end
 
-    --- @brief
+    --- @brief step the simulation
     function self:update(delta)
         self._elapsed = self._elapsed + delta
         self._fraction = self._envelope(self._elapsed / self._duration)
     end
 
-    --- @brief
+    --- @brief draw the canvas with post fx applied to it
     function self:draw(...)
-        local shader = self._shader:get_native()
-        love.graphics.setShader(shader)
+        love.graphics.setShader(self._shader)
         self._shader:send("saturation_fraction", self._fraction * self._max_saturation_loss)
         self._shader:send("vignette_fraction", self._fraction * self._max_vignette)
         self._shader:send("ripple_fraction", self._fraction)
@@ -77,45 +87,53 @@ function noba.RoarFX()
         self._elapsed = 0
     end
 
+    --- @brief interrupt the roar animation, this is usually not necessary
+    function self:stop()
+        self._elapsed = math.huge
+    end
+
     return self
 end
 
--- ### main
+-- ### USAGE
 
 local roar, canvas
-
-love.keypressed = function(key)
-    if key == "space" then
-        roar._shader:recompile()
-        roar:roar()
-    end
-end
-
 love.load = function()
+    -- initialize the post fx and set the canvas
     roar = noba.RoarFX()
     canvas = love.graphics.newCanvas(love.graphics.getDimensions())
     roar:set_canvas(canvas)
 
+    -- ignore this
     _initialize_debug_drawing()
 end
 
-love.update = function(delta)
-    roar:update(delta)
+love.keypressed = function(key)
+    if key == "space" then
+        roar:roar() -- start the roar animation
+    end
+end
 
+love.update = function(delta)
+    roar:update(delta) -- update the post fx
+
+    -- ignore this
     _update_debug_drawing(delta)
 end
 
 love.draw = function()
+    -- draw to the canvas
     love.graphics.setCanvas(canvas)
     love.graphics.clear()
 
     _debug_draw()
 
+    -- unbind the canvas, then draw roar
     love.graphics.setCanvas(nil)
     roar:draw()
 end
 
---- ### debug drawing
+--- ### DEBUG DRAWING (anything below can be ignored)
 
 local circles, n_circles = {}, 128
 local center_x, center_y, x_radius, y_radius
@@ -154,7 +172,7 @@ _initialize_debug_drawing = function()
         return r, g, b, a
     end
 
-    local radius, padding = 60, 20
+    local radius, padding = love.graphics.getHeight() / 10, 0.1 * love.graphics.getHeight()
 
     x_radius, y_radius = love.graphics.getDimensions()
     center_x, center_y = x_radius / 2, y_radius / 2
@@ -241,4 +259,10 @@ _debug_draw = function()
     for i = 1, n, 2 do
         draw_circle(i)
     end
+end
+
+love.resize = function()
+    canvas = love.graphics.newCanvas(love.graphics.getDimensions())
+    roar:set_canvas(canvas)
+    _initialize_debug_drawing()
 end
