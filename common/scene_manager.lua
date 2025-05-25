@@ -26,6 +26,7 @@ function rt.SceneManager:instantiate()
         _pause_menu = mn.PauseMenuScene(),
         _pause_menu_active = false,
         _pause_delay_elapsed = math.huge,
+        _use_fixed_timestep = false,
 
         _input = rt.InputSubscriber(),
     })
@@ -202,6 +203,25 @@ function rt.SceneManager:get_frame_index()
     return _frame_i
 end
 
+--- @brief
+function rt.SceneManager:set_use_fixed_timestep(b)
+    self._use_fixed_timestep = b
+end
+
+--- @brief
+function rt.SceneManager:get_use_fixed_timestep()
+    return self._use_fixed_timestep
+end
+
+rt.SceneManager = rt.SceneManager() -- static global singleton
+local _update_elapsed = 0
+local _update_step = 1 / 120
+local _focused = true
+
+love.focus = function(b)
+    _focused = b
+end
+
 -- override love.run for metrics
 function love.run()
     io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
@@ -228,7 +248,18 @@ function love.run()
         local update_before, update_after, draw_before, draw_after
 
         update_before = love.timer.getTime()
-        love.update(delta)
+
+        _update_elapsed = _update_elapsed + delta
+        if _focused then
+            if rt.SceneManager._use_fixed_timestep == true then
+                while _update_elapsed >= _update_step do
+                    love.update(_update_step)
+                    _update_elapsed = _update_elapsed - _update_step
+                end
+            else
+                love.update(delta)
+            end
+        end
         update_after = love.timer.getTime()
 
         if love.graphics and love.graphics.isActive() then
@@ -405,7 +436,6 @@ function love.errorhandler(msg)
             love.timer.sleep(0.001)
         end
     end
-
 end
 
-rt.SceneManager = rt.SceneManager() -- static global singleton
+return rt.SceneManager

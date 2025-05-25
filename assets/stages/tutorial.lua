@@ -4884,7 +4884,7 @@ return {
         },
         {
           id = 604,
-          name = "",
+          name = "Toast",
           type = "BubbleField",
           shape = "polygon",
           x = 27.8677,

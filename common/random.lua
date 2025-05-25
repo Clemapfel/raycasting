@@ -136,5 +136,5 @@ end
 
 --- @brief
 function rt.random.noise(x, ...)
-    return love.math.simplexNoise(x, ...)
+    return love.math.simplexNoise(x * math.pi / 3, ...)
 end

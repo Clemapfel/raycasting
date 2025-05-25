@@ -68,9 +68,9 @@ function ow.Stage:instantiate(scene, id)
         _flow_fraction = 0,
 
         _goals = {}, -- Set
-
         _active_checkpoint = nil,
     })
+    self._world:set_use_fixed_timestep(false)
 
     local render_priorities = {}
     local render_priority_to_object = {}

@@ -8,6 +8,7 @@ require "common.timed_animation"
 rt.settings.menu_scene = {
     player_max_falling_velocity = 1500,
     player_falling_x_damping = 0.98,
+    player_falling_x_perturbation = 3,
     title_screen_player_velocity = 200, -- when reflecting
     falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
     title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
@@ -451,6 +452,7 @@ function mn.MenuScene:enter()
     end
 
     self._player:disable()
+    rt.SceneManager:set_use_fixed_timestep(true)
 
     if self._state == nil then
         self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
@@ -463,6 +465,7 @@ end
 function mn.MenuScene:exit()
     self._title_screen.input:deactivate()
     self._player:enable()
+    self._camera:set_is_shaking(false)
 end
 
 --- @brief
@@ -473,6 +476,13 @@ function mn.MenuScene:_set_state(next)
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
 
+    local should_shake = next ~= mn.MenuSceneState
+    self._camera:set_is_shaking(should_shake)
+    if should_shake then
+        self._camera:set_shake_intensity_in_pixels(1)
+        self._camera:set_shake_frequency(0) -- modified in update
+    end
+
     if next == mn.MenuSceneState.TITLE_SCREEN then
         self._title_screen.input:activate()
 
@@ -482,7 +492,7 @@ function mn.MenuScene:_set_state(next)
         local new_x =  math.clamp(x, -0.5 * w + 2 * r, 0.5 * w - 2 * r)
         self._player:teleport_to(
            new_x,
-            0 + 0.5 * h + r * 10
+            0
         )
 
         self._player_velocity_x, self._player_velocity_y = new_x > 0 and -1 or 1, -1
@@ -565,15 +575,21 @@ function mn.MenuScene:update(delta)
     self._shader_fraction = math.clamp(py / rt.settings.menu_scene.falling_fraction_threshold, 0, 1)
     self._player:set_flow(self._shader_fraction)
 
+    self._camera:set_shake_frequency(rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(self._shader_fraction))
+
     -- clamp velocity
     local vx, vy = self._player:get_velocity()
     local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
     vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
     vy = math.min(vy, max_velocity)
+    vx = vx + (rt.random.noise(self._shader_elapsed * 10, 0) * 2 - 1) * (rt.settings.menu_scene.player_falling_x_perturbation * (love.graphics.getHeight() / rt.settings.native_height)) * self._shader_fraction
     self._player:set_velocity(vx, vy)
 
+    self._camera:set_shake_frequency(vy / max_velocity)
+
     -- transition player to left side of screen
-    local x_offset = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction) * rt.settings.menu_scene.stage_select_player_alignment * self._bounds.width
+    local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
+    local x_offset = offset_fraction * rt.settings.menu_scene.stage_select_player_alignment * self._bounds.width
     self._camera:move_to(px + x_offset, py)
 
     if self._state == mn.MenuSceneState.FALLING then

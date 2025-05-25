@@ -1,8 +1,12 @@
-require "common.sprite_batch"
+require "common.random"
+require "common.smoothed_motion_2d"
 
-rt.settings.common.camera = {
+rt.settings.camera = {
     speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
-    max_velocity = 2000
+    max_velocity = 2000,
+    shake_max_frequency = 30,
+    shake_max_offset = 6,
+    shake_speed = 100,
 }
 
 --- @class rt.Camera
@@ -30,8 +34,24 @@ function rt.Camera:instantiate()
         _bounds_y = -math.huge,
         _bounds_width = math.huge,
         _bounds_height = math.huge,
-        _apply_bounds = true
+        _apply_bounds = true,
+
+        _is_shaking = false,
+        _shake_intensity = 0,
+        _shake_frequency = 1,
+        _shake_offset_x = 0,
+        _shake_offset_y = 0,
+
+        _shake_elapsed = 0,
+        _shake_from_x = 0,
+        _shake_from_y = 0,
+        _shake_to_x = 0,
+        _shake_to_y = 1,
+        _shake_current_x = 0,
+        _shake_current_y = 0,
     })
+
+    self:set_shake_frequency(1)
 end
 
 local _floor = math.floor
@@ -50,6 +70,8 @@ function rt.Camera:bind()
     love.graphics.rotate(self._current_angle)
     love.graphics.translate(-origin_x, -origin_y)
     love.graphics.translate(-_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h)
+
+    love.graphics.translate(self._shake_offset_x, self._shake_offset_y)
 end
 
 --- @brief
@@ -77,7 +99,7 @@ function rt.Camera:_constrain(x, y)
 end
 
 local _distance_f = function(x)
-    local speed = rt.settings.common.camera.speed
+    local speed = rt.settings.camera.speed
     return math.sqrt(math.abs(x)) * math.abs(x)^(1 - (1 - speed)) * math.sign(x)
 end
 
@@ -89,8 +111,8 @@ function rt.Camera:update(delta)
     dx = dx / screen_w
     dy = dy / screen_h
 
-    self._velocity_x = dx * rt.settings.common.camera.max_velocity
-    self._velocity_y = dy * rt.settings.common.camera.max_velocity
+    self._velocity_x = dx * rt.settings.camera.max_velocity
+    self._velocity_y = dy * rt.settings.camera.max_velocity
 
     local final_delta_x = self._velocity_x * delta
     local final_delta_y = self._velocity_y * delta
@@ -98,6 +120,33 @@ function rt.Camera:update(delta)
     self._last_x, self._last_y = self._current_x, self._current_y
     self._current_x = math.round(self._current_x + final_delta_x)
     self._current_y = math.round(self._current_y + final_delta_y)
+
+    if self._is_shaking then
+        local max_frequency = rt.settings.camera.shake_max_frequency
+        local offset = rt.settings.camera.shake_max_offset * self._shake_intensity
+
+        local speed = self._shake_frequency * max_frequency
+        local distance_traveled = speed * delta
+        while distance_traveled > 0 do
+            local dist = math.distance(self._shake_current_x, self._shake_current_y, self._shake_to_x, self._shake_to_y)
+            if distance_traveled >= dist then
+                self._shake_current_x = self._shake_to_x
+                self._shake_current_y = self._shake_to_y
+                self._shake_from_x = self._shake_to_x
+                self._shake_from_y = self._shake_to_y
+                self._shake_to_x = math.cos(rt.random.number(0, 2 * math.pi))
+                self._shake_to_y = math.sin(rt.random.number(0, 2 * math.pi))
+                distance_traveled = distance_traveled - dist
+            else
+                local sdx, sdy = math.normalize(self._shake_to_x - self._shake_from_x, self._shake_to_y - self._shake_from_y)
+                self._shake_current_x = self._shake_current_x + sdx * distance_traveled
+                self._shake_current_y = self._shake_current_y + sdy * distance_traveled
+                self._shake_offset_x, self._shake_offset_y = self._shake_current_x * offset, self._shake_current_y * offset
+                distance_traveled = 0
+                break
+            end
+        end
+    end
 end
 
 --- @brief
@@ -261,7 +310,34 @@ function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
 end
 
 --- @brief
+--- @param intensity Number in [0, 1]
+function rt.Camera:set_is_shaking(b)
+    self._is_shaking = b
+    if b == false then
+        self._shake_offset_x = 0
+        self._shake_offset_y = 0
+    end
+end
+
+--- @brief
+function rt.Camera:set_shake_intensity(i)
+    self._shake_intensity = math.clamp(i, 0, 1)
+end
+
+--- @brief
+function rt.Camera:set_shake_intensity_in_pixels(n)
+    self:set_shake_intensity(n / rt.settings.camera.shake_max_offset)
+end
+
+--- @brief
+function rt.Camera:set_shake_frequency(i)
+    self._shake_frequency = math.clamp(i, 0, 1)
+end
+
+--- @brief
 function rt.Camera:get_offset()
     local w, h = love.graphics.getDimensions()
-    return -_floor(self._current_x) + _floor(0.5 * w), -_floor(self._current_y) + _floor(0.5 * h)
+    local x_offset = -_floor(self._current_x) + _floor(0.5 * w) + self._shake_offset_x
+    local y_offset = -_floor(self._current_y) + _floor(0.5 * h) + self._shake_offset_y
+    return x_offset, y_offset
 end
