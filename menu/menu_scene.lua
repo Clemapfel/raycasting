@@ -9,8 +9,10 @@ rt.settings.menu_scene = {
     player_max_falling_velocity = 1500,
     player_falling_x_damping = 0.98,
     title_screen_player_velocity = 200, -- when reflecting
-    falling_fraction_threshold = 2000, -- how long it takes to transition to level select
+    falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
     title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+
+    stage_select_player_alignment = 1 / 3,
 }
 
 --- @class mn.MenuScene
@@ -19,11 +21,55 @@ mn.MenuScene = meta.class("MenuScene", rt.Scene)
 mn.MenuSceneState = meta.enum("MenuSceneState", {
     TITLE_SCREEN = "TITLE_SCREEN",
     FALLING = "FALLING",
-    LEVEL_SELECT = "LEVEL_SELECT",
+    STAGE_SELECT = "STAGE_SELECT",
     CREDITS = "CREDITS"
 })
 
 local _title_shader_sdf, _title_shader_no_sdf, _background_shader = nil, nil, nil
+
+local _long_dash = "\u{2014}"
+local function _create_flow_percentage_label(fraction)
+    local percentage = math.floor(fraction * 1000) / 10
+    if math.fmod(percentage, 1) == 0 then
+        return percentage .. ".0%"
+    else
+        return percentage .. "%"
+    end
+end
+
+
+local _filled_star = "\u{2605}"
+local _outlined_star = "\u{2606}"
+local function _create_difficulty_label(score)
+    local n_filled = 0
+    local out = {}
+    for i = 1, 5 do
+        if n_filled < score then
+            table.insert(out, _filled_star)
+            n_filled = n_filled + 1
+        else
+            table.insert(out, _outlined_star)
+        end
+    end
+
+    return table.concat(out)
+end
+
+local function _create_grade_label(grade)
+    if grade == rt.StageGrade.DOUBLE_S then
+        return "<wave><rainbow>SS</rainbow></wave>"
+    elseif grade == rt.StageGrade.S then
+        return "<color=GREEN>S</color>"
+    elseif grade == rt.StageGrade.A then
+        return "<color=YELLOW>A</color>"
+    elseif grade == rt.StageGrade.B then
+        return "<color=ORANGE>B</color>"
+    elseif grade == rt.StageGrade.F then
+        return "<outline_color=WHITE><color=BLACK>F</color></outline_color>"
+    elseif grade == rt.StageGrade.NONE then
+        return _long_dash -- long dash
+    end
+end
 
 -- @brief
 function mn.MenuScene:instantiate(state)
@@ -62,29 +108,28 @@ function mn.MenuScene:instantiate(state)
             })
         title_screen.control_indicator:set_use_frame(false)
 
-        local font, font_mono = rt.settings.font.default_large, rt.settings.font.default_mono_large
         title_screen.menu_items = {}
         title_screen.n_menu_items = 0
         title_screen.selected_item_i = 1
 
         for text in range(
-            translation.level_select,
+            translation.stage_select,
             translation.settings,
             translation.credits,
             translation.quit
         ) do
             local item = {
-                unselected_label = rt.Label("<o>" .. text .. "</o>", font, rt.FontSize.LARGE),
-                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", font, rt.FontSize.LARGE),
+                unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE),
+                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE),
             }
 
             table.insert(title_screen.menu_items, item)
             title_screen.n_menu_items =  title_screen.n_menu_items + 1
         end
 
-        -- menu item: level select
-        local level_select_item = title_screen.menu_items[1]
-        level_select_item.activate = function()
+        -- menu item: stage select
+        local stage_select_item = title_screen.menu_items[1]
+        stage_select_item.activate = function()
             self:_set_state(mn.MenuSceneState.FALLING)
         end
 
@@ -133,16 +178,80 @@ function mn.MenuScene:instantiate(state)
         title_screen.opacity_fade_animation = rt.TimedAnimation(4 * duration)
     end
 
-    do -- level select
-        local level_select = {}
-        self._level_select = level_select
+    do -- stage select
+        local stage_select = {}
+        self._stage_select = stage_select
 
-        level_select.input = rt.InputSubscriber()
-        level_select.input:signal_connect("pressed", function(_, which)
+        stage_select.input = rt.InputSubscriber()
+        stage_select.input:signal_connect("pressed", function(_, which)
             if which == rt.InputButton.B then
                 self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
             end
         end)
+
+        stage_select.item_reveal_animation = rt.TimedAnimation(0.2, 0, 1, rt.InterpolationFunctions.SIGMOID)
+        stage_select.items = {}
+        stage_select.selected_item_i = 1
+        stage_select.n_items = 0
+        stage_select.menu_x = 0
+        stage_select.menu_y = 0
+        stage_select.menu_height = 1
+        stage_select.menu_width = 1
+
+        local stage_ids = rt.GameState:list_stage_ids()
+        table.sort(stage_ids, function(a, b)
+            return rt.GameState:get_stage_difficulty(a) < rt.GameState:get_stage_difficulty(b)
+        end)
+
+        local translation = rt.Translation.menu_scene.stage_select
+        local title_prefix, title_postfix = "<b><u>", "</u></b>"
+        local flow_prefix, flow_postfix = "", ""
+        local time_prefix, time_postfix = "", ""
+        local grade_prefix, grade_postfix = "<b><o>", "</b></o>"
+        local difficulty_prefix, difficulty_postfix = "", ""
+        local prefix_prefix, prefix_postfix = "", ""
+        local description_prefix, description_postfix = "<color=GRAY>", "</color>"
+        local colon = "<color=GRAY>:</color>"
+
+        local game_state = rt.GameState
+        for id in values(stage_ids) do
+            local title = game_state:get_stage_title(id)
+            local was_beaten = game_state:get_stage_was_beaten(id)
+
+            local time = not was_beaten and _long_dash or string.format_time(game_state:get_stage_best_time(id))
+            local flow = not was_beaten and _long_dash or _create_flow_percentage_label(game_state:get_stage_best_flow_percentage(id))
+            local grade = not was_beaten and _long_dash or _create_grade_label(game_state:get_stage_grade(id))
+            local difficulty = _create_difficulty_label(game_state:get_stage_difficulty(id))
+            local description = game_state:get_stage_description(id)
+
+            local item = {
+                id = id,
+                title_label = rt.Label(title_prefix .. title .. title_postfix, rt.FontSize.LARGE),
+
+                flow_prefix_label = rt.Label(prefix_prefix .. translation.flow_prefix .. prefix_postfix),
+                flow_colon_label = rt.Label(colon),
+                flow_value_label = rt.Label(flow_prefix .. flow .. flow_postfix),
+
+                time_prefix_label = rt.Label(prefix_prefix ..translation.time_prefix .. prefix_postfix),
+                time_colon_label = rt.Label(colon),
+                time_value_label = rt.Label(time_prefix .. time .. time_postfix),
+
+                difficulty_prefix_label = rt.Label(prefix_prefix ..translation.difficulty_prefix .. prefix_postfix),
+                difficulty_colon_label = rt.Label(colon),
+                difficulty_value_label = rt.Label(difficulty_prefix .. difficulty .. difficulty_postfix),
+
+                hrule_x = 0,
+                hrule_y = 0,
+                hrule_width = 1,
+                hrule_height = 2 * love.graphics.getHeight() / rt.settings.native_height,
+                frame = rt.Frame(),
+
+                description_label = rt.Label(description_prefix .. description .. description_postfix, rt.FontSize.SMALL)
+            }
+
+            table.insert(stage_select.items, item)
+            stage_select.n_items = stage_select.n_items + 1
+        end
     end
 end
 
@@ -152,6 +261,25 @@ function mn.MenuScene:realize()
     for item in values(self._title_screen.menu_items) do
         item.unselected_label:realize()
         item.selected_label:realize()
+    end
+
+    for item in values(self._stage_select.items) do
+        for widget in range(
+            item.frame,
+            item.title_label,
+            item.difficulty_prefix_label,
+            item.difficulty_colon_label,
+            item.difficulty_value_label,
+            item.flow_prefix_label,
+            item.flow_colon_label,
+            item.flow_value_label,
+            item.time_prefix_label,
+            item.time_colon_label,
+            item.time_value_label,
+            item.description_label
+        ) do
+            widget:realize()
+        end
     end
 end
 
@@ -238,6 +366,83 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             control_w, control_h
         )
     end
+
+    do -- stage select
+        local stage_select = self._stage_select
+        local menu_x = rt.settings.menu_scene.stage_select_player_alignment * width
+        local menu_y = outer_margin
+        local menu_w = rt.settings.menu_scene.stage_select_player_alignment * width - outer_margin
+        local menu_h = height - 2 * outer_margin
+        local menu_m = m
+
+        stage_select.menu_x = menu_x
+        stage_select.menu_y = menu_y
+        stage_select.menu_height = menu_h
+        stage_select.menu_width = menu_w
+
+        --[[
+        local max_prefix_w, max_value_w, max_colon_w = -math.huge, -math.huge, -math.huge
+        for item in values(stage_select.items) do
+            for label in range(
+                item.flow_prefix_label,
+                item.time_prefix_label,
+                item.difficulty_prefix_label
+            ) do
+                max_prefix_w = math.max(max_prefix_w, select(1, label:measure()))
+            end
+
+            for label in range(
+                item.flow_value_label,
+                item.time_value_label,
+                item.difficulty_value_label
+            ) do
+                max_value_w = math.max(max_value_w, select(1, label:measure()))
+            end
+
+            for label in range(
+                item.flow_colon_label,
+                item.time_colon_label,
+                item.difficulty_colon_label
+            ) do
+                max_colon_w = math.max(max_colon_w, select(1, label:measure()))
+            end
+        end
+        ]]--
+
+        for item in values(stage_select.items) do
+            local current_x, current_y = m, m
+            item.title_label:reformat(current_x, current_y, menu_w)
+            current_y = current_y + select(2, item.title_label:measure())
+
+            for prefix_colon_value in range(
+                { item.difficulty_prefix_label, item.difficulty_colon_label, item.difficulty_value_label },
+                { item.flow_prefix_label, item.flow_colon_label, item.flow_value_label },
+                { item.time_prefix_label, item.time_colon_label, item.time_value_label }
+            ) do
+                local prefix, colon, value = table.unpack(prefix_colon_value)
+
+                local prefix_w, prefix_h = prefix:measure()
+                prefix:reformat(current_x, current_y, math.huge)
+
+                local value_w, value_h = value:measure()
+                value:reformat(current_x + menu_w - menu_m - value_w, current_y, math.huge)
+
+                local colon_w, colon_h = colon:measure()
+                colon:reformat(current_x + 0.5 * menu_w - 0.5 * colon_w, math.huge)
+
+                current_y = current_y + math.max(prefix_h, value_h, colon_h)
+            end
+
+            item.hrule_x, item.hrule_y = current_x, current_y
+            item.hrule_width = menu_w - 2 * menu_m
+
+            item.description_label:set_justify_mode(rt.JustifyMode.CENTER)
+            item.description_label:reformat(current_x, current_y, menu_w - 2 * menu_m, math.huge)
+
+            current_y = current_y + select(2, item.description_label:measure())
+            item.frame:reformat(menu_x, menu_y, menu_w, menu_h)
+        end
+    end
 end
 --- @brief
 function mn.MenuScene:enter()
@@ -249,6 +454,8 @@ function mn.MenuScene:enter()
 
     if self._state == nil then
         self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
+    else
+        self:_set_state(self._state)
     end
 end
 
@@ -260,13 +467,16 @@ end
 
 --- @brief
 function mn.MenuScene:_set_state(next)
+    assert(next ~= nil)
+
+    self._state = next
     self._title_screen.input:deactivate()
-    self._level_select.input:deactivate()
+    self._stage_select.input:deactivate()
 
     if next == mn.MenuSceneState.TITLE_SCREEN then
         self._title_screen.input:activate()
 
-        local w, h = love.graphics.getDimensions()
+        local w, h = self._bounds.width, self._bounds.height
         local r = self._player:get_radius()
         local x, y = self._player:get_position()
         local new_x =  math.clamp(x, -0.5 * w + 2 * r, 0.5 * w - 2 * r)
@@ -289,8 +499,12 @@ function mn.MenuScene:_set_state(next)
         self._player:set_flow(0)
         self._player:set_opacity(0)
         self._title_screen.opacity_fade_animation:reset()
-    elseif next == mn.MenuSceneState.FALLING then
-        self._level_select.input:activate()
+
+        return
+    end
+
+    if next == mn.MenuSceneState.FALLING or next == mn.MenuSceneState.STAGE_SELECT then
+        self._stage_select.input:activate()
         self._player:set_gravity(1)
         self._player:set_is_bubble(false)
 
@@ -299,8 +513,6 @@ function mn.MenuScene:_set_state(next)
             boundary:signal_set_is_blocked("collision_start", true)
         end
     end
-
-    self._state = next
 end
 
 --- @brief
@@ -345,21 +557,32 @@ function mn.MenuScene:update(delta)
 
         self._player:set_opacity(title_screen.opacity_fade_animation:get_value())
         title_screen.opacity_fade_animation:update(delta)
-    elseif self._state == mn.MenuSceneState.FALLING then
-        local px, py = self._player:get_predicted_position()
-        self._shader_fraction = math.clamp(py / rt.settings.menu_scene.falling_fraction_threshold, 0, 1)
-        self._player:set_flow(self._shader_fraction)
+        return
+    end
 
-        -- clamp velocity
-        local vx, vy = self._player:get_velocity()
-        local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
-        vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
-        vy = math.min(vy, max_velocity)
-        self._player:set_velocity(vx, vy)
+    -- falling or level select
+    local px, py = self._player:get_predicted_position()
+    self._shader_fraction = math.clamp(py / rt.settings.menu_scene.falling_fraction_threshold, 0, 1)
+    self._player:set_flow(self._shader_fraction)
 
-        -- transition player to left side of screen
-        local x_offset = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction) * 1 / 3 * love.graphics.getWidth()
-        self._camera:move_to(px + x_offset, py)
+    -- clamp velocity
+    local vx, vy = self._player:get_velocity()
+    local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
+    vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
+    vy = math.min(vy, max_velocity)
+    self._player:set_velocity(vx, vy)
+
+    -- transition player to left side of screen
+    local x_offset = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction) * rt.settings.menu_scene.stage_select_player_alignment * self._bounds.width
+    self._camera:move_to(px + x_offset, py)
+
+    if self._state == mn.MenuSceneState.FALLING then
+        -- transition to stage screen once player is in position
+        if self._shader_fraction >= 1 then
+            self:_set_state(mn.MenuSceneState.STAGE_SELECT)
+        end
+    elseif self._state == mn.MenuSceneState.STAGE_SELECT then
+
     end
 
 end
@@ -418,6 +641,33 @@ function mn.MenuScene:draw()
         end
 
         title_screen.control_indicator:draw()
+        love.graphics.pop()
+    elseif self._state == mn.MenuSceneState.STAGE_SELECT then
+        local stage_select = self._stage_select
+        local item = stage_select.items[stage_select.selected_item_i]
+
+        love.graphics.push()
+        love.graphics.translate(stage_select.menu_x, stage_select.menu_y)
+
+        for widget in range(
+            item.frame,
+            item.title_label,
+            item.difficulty_prefix_label,
+            item.difficulty_colon_label,
+            item.difficulty_value_label,
+            item.flow_prefix_label,
+            item.flow_colon_label,
+            item.flow_value_label,
+            item.time_prefix_label,
+            item.time_colon_label,
+            item.time_value_label,
+            item.description_label
+        ) do
+            widget:draw()
+        end
+
+        rt.Palette.FOREGROUND:bind()
+        love.graphics.rectangle("fill", item.hrule_x, item.hrule_y, item.hrule_width, item.hrule_height)
         love.graphics.pop()
     end
 
