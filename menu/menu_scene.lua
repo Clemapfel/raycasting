@@ -4,6 +4,7 @@ require "common.input_subscriber"
 require "common.translation"
 require "common.control_indicator"
 require "common.timed_animation"
+require "common.fade"
 
 rt.settings.menu_scene = {
     player_max_falling_velocity = 1500,
@@ -94,6 +95,11 @@ function mn.MenuScene:instantiate(state)
 
     self._camera = rt.Camera()
 
+    -- fade in when starting
+    self._fade = rt.Fade(0.8)
+    self._fade:start()
+    self._initialized = false
+
     self._shader_camera_offset = { 0, 0 }
     self._shader_elapsed = 0
     self._shader_fraction = 0
@@ -156,6 +162,8 @@ function mn.MenuScene:instantiate(state)
 
         title_screen.input = rt.InputSubscriber()
         title_screen.input:signal_connect("pressed", function(_, which)
+            if self._initialized == false then return end
+
             if which == rt.InputButton.JUMP then
                 local item = title_screen.menu_items[title_screen.selected_item_i]
                 item.activate()
@@ -185,8 +193,14 @@ function mn.MenuScene:instantiate(state)
 
         stage_select.input = rt.InputSubscriber()
         stage_select.input:signal_connect("pressed", function(_, which)
+            if self._initialized == false then return end
+
             if which == rt.InputButton.B then
-                self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
+                self._fade:start()
+                self._fade:signal_connect("hidden", function()
+                    self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
+                    return meta.DISCONNECT_SIGNAL
+                end)
             end
         end)
 
@@ -311,23 +325,24 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         do -- physics walls
             local scale = self._camera:get_scale_delta()
             local w, h = width / scale, height / scale
+            local r = self._player:get_radius() * 0.5
             local cx, cw = 0 - 0.5 * w, 0 - 0.5 * h
             title_screen.enable_boundary_on_enter = true
             title_screen.boundaries = {
                 b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx, cw, cx + w, cw
+                    cx - r, cw - r, cx + w + r, cw - r
                 )),
 
                 b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx + w, cw, cx + w, cw + h
+                    cx + w + r, cw - r, cx + w + r, cw + h + r
                 )),
 
                 b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx + w, cw + h, cx, cw + h
+                    cx + w + r, cw + h + r, cx - r, cw + h + r
                 )),
 
                 b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx, cw + h, cx, cw
+                    cx - r, cw + h + r, cx - r, cw - r
                 )),
             }
 
@@ -514,6 +529,7 @@ function mn.MenuScene:_set_state(next)
     end
 
     if next == mn.MenuSceneState.FALLING or next == mn.MenuSceneState.STAGE_SELECT then
+        self._player:set_opacity(1)
         self._stage_select.input:activate()
         self._player:set_gravity(1)
         self._player:set_is_bubble(false)
@@ -527,6 +543,19 @@ end
 
 --- @brief
 function mn.MenuScene:update(delta)
+    if self._initialized == false then
+        if self._fade:get_is_active() == false then
+            self._fade:start(false)
+            self._fade:signal_connect("hidden", function()
+                self._initialized = true
+                return meta.DISCONNECT_SIGNAL
+            end)
+        end
+    end
+
+    self._fade:update(delta)
+    if not self._initialized then return end
+
     self._world:update(delta)
     self._camera:update(delta)
     self._player:update(delta)
@@ -600,13 +629,17 @@ function mn.MenuScene:update(delta)
     elseif self._state == mn.MenuSceneState.STAGE_SELECT then
 
     end
-
 end
 
 local _black = { rt.Palette.BLACK:unpack() }
 
 --- @brief
 function mn.MenuScene:draw()
+    if not self._initialized then
+        self._fade:draw()
+        return
+    end
+
     -- draw background
     love.graphics.push()
     love.graphics.origin()
@@ -694,6 +727,8 @@ function mn.MenuScene:draw()
         love.graphics.rectangle("line", self._dbg:unpack())
     end
     self._camera:unbind()
+
+    self._fade:draw()
 end
 
 --- @brief
