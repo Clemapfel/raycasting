@@ -7,7 +7,7 @@ rt.settings.keybinding_indicator = {
 rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
 
 local _Label = function(text, font_size)
-    return rt.Label(text, rt.settings.keybinding_indicator.font, font_size or rt.settings.keybinding_indicator.font_size)
+    return rt.Label(text, font_size or rt.settings.keybinding_indicator.font_size, rt.settings.keybinding_indicator.font)
 end
 
 local _GRAY_3 = rt.Palette.GRAY_4

@@ -19,10 +19,8 @@ local _REVEALED, _HIDDEN = 0, 1
 --- @brief
 function ow.ResultsScreen:instantiate()
 
-    local font, font_mono = rt.settings.font.default_large, rt.settings.font.default_mono_large
-
     local Label = function(text)
-        return rt.Label(_prefix .. text .. _postfix, font, font_mono)
+        return rt.Label(_prefix .. text .. _postfix, rt.FontSize.LARGE)
     end
 
     self._flow_percentage = 0
