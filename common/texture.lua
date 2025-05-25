@@ -74,10 +74,9 @@ function rt.Texture:instantiate(...)
     if select("#", ...) > 0 then
         -- called directly, instead of as parent
         self._native = love.graphics.newImage(...)
+        self:set_scale_mode(rt.TextureScaleMode.NEAREST)
+        self:set_wrap_mode(rt.TextureWrapMode.CLAMP)
     end
-
-    self:set_scale_mode(rt.TextureScaleMode.NEAREST)
-    self:set_wrap_mode(rt.TextureWrapMode.CLAMP)
 end
 
 --- @brief set scale mode

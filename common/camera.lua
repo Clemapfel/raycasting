@@ -35,6 +35,7 @@ function rt.Camera:instantiate()
 end
 
 local _floor = math.floor
+_floor = function(x) return x  end
 
 --- @brief
 function rt.Camera:bind()

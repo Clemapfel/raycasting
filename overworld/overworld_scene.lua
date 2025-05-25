@@ -386,9 +386,10 @@ function ow.OverworldScene:draw()
 
     self._post_fx:bind()
     self._background:draw()
+    --love.graphics.clear(0.5, 0.5, 0.5, 1)
     self._camera:bind()
     self._stage:draw_below_player()
-        self._player:draw_body()
+    self._player:draw_body()
     self._post_fx:unbind()
 
     self._camera:unbind()
@@ -396,6 +397,8 @@ function ow.OverworldScene:draw()
 
     self._camera:bind()
     self._player:draw_core()
+    local x, y = self._player:get_predicted_position()
+    --love.graphics.circle("fill", x, y, self._player:get_radius())
     self._stage:draw_above_player()
     self._camera:unbind()
 
@@ -595,6 +598,7 @@ end
 function ow.OverworldScene:respawn()
     self._stage:get_active_checkpoint():spawn()
     self._stage:reset_coins()
+    self._camera:set_position(self._player:get_position())
 end
 
 --- @brief

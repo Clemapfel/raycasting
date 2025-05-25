@@ -199,10 +199,8 @@ function b2.World:update(delta)
         self:_start_collision_resolution()
 
         for body in keys(self._interpolating_bodies) do
-            local x, y = body._native:getPosition()
-            local vx, vy = (x - body._last_x), (y - body._last_y)
-            body._last_x, body._last_y = body._native:getPosition()
-            body._last_vx, body._last_vy = vx, vy
+            body._last_last_x, body._last_last_y = body._last_x, body._last_y
+            body._last_x, body._last_y = body:get_position()
         end
 
         -- update

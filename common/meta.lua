@@ -475,15 +475,15 @@ function meta.class(typename, super, instantiate_maybe)
 
             _install_signals(instance, type)
 
-            -- instantiate in order
-            if type.instantiate ~= nil then
-                type.instantiate(instance, ...)
-            end
-
             for current_super in values(supers) do
                 if current_super.instantiate ~= nil then
                     current_super.instantiate(instance) -- no varargs
                 end
+            end
+
+            -- instantiate in order
+            if type.instantiate ~= nil then
+                type.instantiate(instance, ...)
             end
 
             return instance

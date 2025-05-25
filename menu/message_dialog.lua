@@ -69,8 +69,8 @@ function mn.MessageDialog:realize()
 
     self._frame:realize()
 
-    self._message_label = rt.Label("<b>" .. self._message .. "</b>", rt.settings.font.default, rt.settings.font.default_mono)
-    self._submessage_label = rt.Label(self._submessage, rt.settings.font.default_small, rt.settings.font.default_mono_small)
+    self._message_label = rt.Label("<b>" .. self._message .. "</b>")
+    self._submessage_label = rt.Label(self._submessage, rt.FontSize.SMALL)
 
     for label in range(self._message_label, self._submessage_label) do
         label:set_justify_mode(rt.JustifyMode.CENTER)
@@ -80,7 +80,7 @@ function mn.MessageDialog:realize()
     self._buttons = {}
     for option in values(self._options) do
         local to_insert = {
-            label = rt.Label(option, rt.settings.font.default_small, rt.settings.font.default_mono_small),
+            label = rt.Label(option, rt.FontSize.SMALL),
             frame = rt.Frame()
         }
 

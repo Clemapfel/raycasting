@@ -14,6 +14,7 @@ rt.StageGrade = meta.enum("StageGrade", {
     DOUBLE_S = "SS",
     S = "S",
     A = "A",
+    B = "B",
     F = "F",
     NONE = "NONE",
 })
@@ -49,17 +50,25 @@ function rt.GameState:instantiate()
                 return
             end
 
+            local _warning = function()  end -- TODO rt.warning
+
             local config = config_or_error
             local title = config["title"]
             if title == nil then
                 title = id
-                rt.warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `title` property")
+                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `title` property")
             end
 
             local difficulty = config["difficulty"]
             if difficulty == nil then
                 difficulty = 0
-                rt.warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `difficulty` property")
+                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `difficulty` property")
+            end
+
+            local description = config["description"]
+            if description == nil then
+                description = "(no description)"
+                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `description` property")
             end
 
             self._stages[id] = {
@@ -67,6 +76,7 @@ function rt.GameState:instantiate()
                 path = path,
                 title = title,
                 difficulty = difficulty,
+                description = description,
                 was_beaten = true,
                 best_time = rt.random.number(0, 1000), -- seconds
                 best_flow_percentage = rt.random.number(0.99, 1) -- fraction
@@ -140,6 +150,12 @@ end
 function rt.GameState:get_stage_was_beaten(id)
     local stage = self:_get_stage(id, "get_stage_was_beaten")
     return stage.was_beaten
+end
+
+--- @brief
+function rt.GameState:get_stage_description(id)
+    local stage = self:_get_stage(id, "get_stage_description")
+    return stage.description
 end
 
 --- @brief

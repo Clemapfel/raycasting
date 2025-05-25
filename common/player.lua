@@ -1492,6 +1492,8 @@ function rt.Player:set_is_bubble(b)
     self._is_bubble = b
     -- do not update self._use_bubble_mesh until solver properly updated positions
 
+    if self._body == nil then return end
+
     -- disable both to avoid interaction
     self._body:set_is_enabled(false)
     for body in values(self._spring_bodies) do

@@ -67,11 +67,13 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _use_interpolation = false, -- false = extrapolation, cf. get_predicted_position
 
         _friction = 0,
-        _collision_disabled = false
-    })
+        _collision_disabled = false,
 
-    self._last_x, self._last_y = self._native:getPosition()
-    self._last_vx, self._last_vy = self._native:getLinearVelocity()
+        _last_x = x,
+        _last_last_x = x,
+        _last_y = y,
+        _last_last_y = y
+    })
 
     local shapes
     if meta.typeof(shape) == "Table" then
@@ -131,11 +133,41 @@ function _hermite(t, a, b, tangent_a, tangent_b)
         (t3 - t2) * tangent_b
 end
 
+function math.slerp2(x0, y0, x1, y1, t)
+
+    x0, y0 = math.normalize(x0, y0)
+    x1, y1 = math.normalize(x1, y1)
+
+    -- Compute the dot product
+    local dot = x0 * x1 + y0 * y1
+
+    -- Clamp the dot product to avoid numerical errors
+    dot = math.max(-1, math.min(1, dot))
+
+    -- Compute the angle between the vectors
+    local theta = math.acos(dot)
+
+    -- If the angle is very small, linearly interpolate
+    if math.abs(theta) < 1e-5 then
+        return x0 * (1 - t) + x1 * t, y0 * (1 - t) + y1 * t
+    end
+
+    -- Compute the SLERP
+    local sin_theta = math.sin(theta)
+    local a = math.sin((1 - t) * theta) / sin_theta
+    local b = math.sin(t * theta) / sin_theta
+
+    return a * x0 + b * x1, a * y0 + b * y1
+end
+
 function b2.Body:get_predicted_position()
-    if false then
+    if true then
         -- linear interpolation
+        local x, y = self._native:getPosition()
+        local vx, vy = self._native:getLinearVelocity()
+        local last_last_x, last_last_y = self._last_x, self._last_y
+        local last_x, last_y = self._last_last_x, self._last_last_y
         local current_x, current_y = self._native:getPosition()
-        local last_x, last_y = self._last_x, self._last_y
         return math.mix2(last_x, last_y, current_x, current_y, self._world._elapsed / self._world:get_timestep())
     else
         -- hermite interpolation

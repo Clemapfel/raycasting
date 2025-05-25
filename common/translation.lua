@@ -73,19 +73,17 @@ rt.Translation = rt.initialize_translation({
             control_indicator_select = "Select",
             control_indicator_move = "Move",
 
-            level_select = "Select Level",
+            stage_select = "Select Level",
             settings = "Settings",
             credits = "Credits",
             quit = "Quit"
+        },
+
+        stage_select = {
+            flow_prefix = "Flow",
+            time_prefix = "Best Time",
+            difficulty_prefix = "Difficulty"
         }
     },
 
-    -- stage select
-    stage_select_scene = {
-        title_header = "Level",
-        difficulty_header = "Difficulty",
-        flow_header = "Best Flow %",
-        time_header = "Best Time",
-        grade_header = "Grade",
-    }
 })
