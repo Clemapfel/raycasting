@@ -10,7 +10,8 @@ rt.settings.menu_scene = {
     player_max_falling_velocity = 1500,
     player_falling_x_damping = 0.98,
     player_falling_x_perturbation = 3,
-    title_screen_player_velocity = 200, -- when reflecting
+    title_screen_player_velocity = 100, -- when reflecting
+    title_screen_player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
     falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
     title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
 
@@ -24,6 +25,7 @@ mn.MenuSceneState = meta.enum("MenuSceneState", {
     TITLE_SCREEN = "TITLE_SCREEN",
     FALLING = "FALLING",
     STAGE_SELECT = "STAGE_SELECT",
+    EXITING = "EXITING",
     CREDITS = "CREDITS"
 })
 
@@ -99,6 +101,8 @@ function mn.MenuScene:instantiate(state)
     self._fade = rt.Fade(0.8)
     self._fade:start()
     self._initialized = false
+
+    self._exit_x, self._exit_y = 0, 0
 
     self._shader_camera_offset = { 0, 0 }
     self._shader_elapsed = 0
@@ -466,7 +470,6 @@ function mn.MenuScene:enter()
         self._player:move_to_world(self._world)
     end
 
-    self._player:disable()
     rt.SceneManager:set_use_fixed_timestep(true)
 
     if self._state == nil then
@@ -509,6 +512,7 @@ function mn.MenuScene:_set_state(next)
            new_x,
             0
         )
+        self._player:disable()
 
         self._player_velocity_x, self._player_velocity_y = new_x > 0 and -1 or 1, -1
 
@@ -533,11 +537,14 @@ function mn.MenuScene:_set_state(next)
         self._stage_select.input:activate()
         self._player:set_gravity(1)
         self._player:set_is_bubble(false)
+        self._player:enable()
 
         for boundary in values(self._title_screen.boundaries) do
             boundary:set_is_sensor(true)
             boundary:signal_set_is_blocked("collision_start", true)
         end
+    elseif next == mn.MenuSceneState.EXITING then
+        self._exit_x, self._exit_y = self._camera:get_position()
     end
 end
 
@@ -566,15 +573,27 @@ function mn.MenuScene:update(delta)
     self._shader_fraction = 0
 
     if self._state == mn.MenuSceneState.TITLE_SCREEN then
+        local title_screen = self._title_screen
+        local velocity_offset = 0
+        if title_screen.input:is_down(rt.InputButton.LEFT) then
+            velocity_offset = 1
+        elseif title_screen.input:is_down(rt.InputButton.RIGHT) then
+            velocity_offset = -1
+        end
+
         -- stay centered, reflect player around walls
         self._camera:set_position(0, 0)
         local magnitude = rt.settings.menu_scene.title_screen_player_velocity
+        local offset_magnitude = rt.settings.menu_scene.title_screen_player_offset_magnitude
+
+        local vx, vy = self._player_velocity_x, self._player_velocity_y
+        vx, vy = math.rotate(vx, vy, velocity_offset * offset_magnitude)
+
         self._player:set_velocity(
-            self._player_velocity_x * magnitude,
-            self._player_velocity_y * magnitude
+            vx * magnitude,
+            vy * magnitude
         )
 
-        local title_screen = self._title_screen
 
         -- wait for player to enter, then lock
         if title_screen.enable_boundary_on_enter == true then

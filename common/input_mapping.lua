@@ -134,11 +134,11 @@ function rt.InputMapping:get_mapping(input_action, keyboard_or_controller)
     local controller = { table.unpack(_G.SETTINGS.INPUT_MAPPING[input_action].controller) }
 
     if keyboard_or_controller == nil then
-        return keyboard[1], controller[1]
+        return keyboard, controller
     elseif keyboard_or_controller == rt.InputMethod.KEYBOARD then
-        return keyboard[1]
+        return keyboard
     elseif keyboard_or_controller == rt.InputMethod.CONTROLLER then
-        return controller[1]
+        return controller
     end
 end
 
