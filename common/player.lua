@@ -5,7 +5,7 @@ require "common.player_trail"
 require "common.random"
 require "common.palette"
 
-local radius = 13.5
+local radius = 14
 rt.settings.player = {
     radius = radius,
     inner_body_radius = 10 / 2 - 0.5,
@@ -1170,8 +1170,10 @@ function rt.Player:_update_mesh(delta)
         end
     end
 
-    self._graphics_body:initialize(positions)
-    self._graphics_body:update(delta)
+    if self._use_bubble_mesh_delay_n_steps <= 0 then
+        self._graphics_body:initialize(positions)
+        self._graphics_body:update(delta)
+    end
 end
 
 --- @brief

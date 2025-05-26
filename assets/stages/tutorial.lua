@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 618,
+  nextobjectid = 619,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5066,6 +5066,28 @@ return {
             { x = 0, y = 64 }
           },
           properties = {}
+        },
+        {
+          id = 618,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 1488,
+          y = 2720,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 1280, y = 16 },
+            { x = 1280, y = 80 },
+            { x = 0, y = 64 }
+          },
+          properties = {
+            ["axis_x"] = 1,
+            ["axis_y"] = 0
+          }
         }
       }
     },

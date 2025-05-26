@@ -2,7 +2,7 @@ rt.settings.player_body = {
     -- rope params
     n_rings = 7,
     n_segments_per_rope = 8,
-    max_rope_length_factor = 4.5, -- * player radius
+    max_rope_length_factor = 5, -- * player radius
 
     -- graphics
     node_mesh_alpha = 0.05,
@@ -17,25 +17,26 @@ rt.settings.player_body = {
 
     highlight_brightness = 0.2,
     outline_value_offset = 0.5,
-    outline_width = 2,
+    outline_width = 0.5,
 
     -- constraint solver params
     non_bubble = {
         n_velocity_iterations = 4,
-        n_distance_iterations = 8,
+        n_distance_iterations = 4,
         n_axis_iterations = 0,
-        n_bending_iterations = 0
+        n_bending_iterations = 0,
+        velocity_damping = 0.1,
     },
 
     bubble = {
-        n_velocity_iterations = 1,
-        n_distance_iterations = 3, -- just enough to not run away
+        n_velocity_iterations = 2,
+        n_distance_iterations = 0, -- copies n_bending
         n_axis_iterations = 1,
-        n_bending_iterations = 0
+        n_bending_iterations = 13,
+        velocity_damping = 0.1
     },
 
-    velocity_damping = 0.1,
-    gravity = 10,
+    gravity = 0.5,
 }
 
 --- @class rt.PlayerBody
@@ -66,7 +67,7 @@ function rt.PlayerBody:instantiate(player)
     -- init metaball ball mesh
 
     self._node_mesh = rt.MeshCircle(0, 0, _settings.node_mesh_radius)
-    self._node_mesh:set_vertex_color(1, 1, 1, 1, _settings.node_mesh_alpha)
+    self._node_mesh:set_vertex_color(1, 1, 1, 1, 1)
     for i = 2, self._node_mesh:get_n_vertices() do
         self._node_mesh:set_vertex_color(i, 1, 1, 1, 0.0)
     end
@@ -99,18 +100,13 @@ end
 
 --- @brief
 function rt.PlayerBody:initialize(positions)
-    local success, tris = pcall(love.math.triangulate, positions)
-    if not success then
-        success, tris = pcall(slick.triangulate, { positions })
-        if not success then return end
-    end
-
     self._positions = positions
     self._center_x, self._center_y = positions[1], positions[2]
 
     local n_rings = _settings.n_rings
-    local n_ropes_per_ring = #positions / 2 -- TODO
+    local n_ropes_per_ring = #positions / 2
     local n_segments = _settings.n_segments_per_rope
+    local bubble_rope_length = (self._player_radius * rt.settings.player.bubble_radius_factor) - 2.5 * _settings.node_mesh_radius
 
     local ring_to_ring_radius = function(ring_i)
         return ((ring_i - 1) / n_rings) * self._player_radius
@@ -123,6 +119,7 @@ function rt.PlayerBody:initialize(positions)
             local current_n_ropes = ring_radius == 0 and 1 or n_ropes_per_ring
             for i = 1, current_n_ropes do
                 local angle = (i - 1) / n_ropes_per_ring * 2 * math.pi
+                if ring % 2 == 1 then angle = angle + (2 * math.pi / n_ropes_per_ring) * 0.5 end
                 local axis_x, axis_y = math.cos(angle), math.sin(angle)
                 local center_x = axis_x * ring_radius
                 local center_y = axis_y * ring_radius
@@ -133,6 +130,7 @@ function rt.PlayerBody:initialize(positions)
                     current_positions = {},
                     last_positions = {},
                     distances = {}, -- segment distances
+                    bubble_distances = {},
                     anchor_x = center_x, -- anchor of first node
                     anchor_y = center_y,
                     axis_x = axis_x, -- axis constraint
@@ -154,6 +152,7 @@ function rt.PlayerBody:initialize(positions)
                     table.insert(rope.last_positions, center_x)
                     table.insert(rope.last_positions, center_x)
                     table.insert(rope.distances, rope_length / n_segments)
+                    table.insert(rope.bubble_distances, bubble_rope_length / n_segments)
                 end
 
                 table.insert(self._ropes, rope)
@@ -174,14 +173,17 @@ function rt.PlayerBody:initialize(positions)
                 local contour_y = positions[contour_index + 1]
                 local dx = contour_x - self._center_x
                 local dy = contour_y - self._center_y
-                dx = dx / self._player_radius
-                dy = dy / self._player_radius
+                dx, dy = math.normalize(dx, dy)
 
                 local rope = self._ropes[rope_i]
                 rope.anchor_x = dx * ring_radius
                 rope.anchor_y = dy * ring_radius
                 rope_i = rope_i + 1
             end
+        end
+
+        if self._is_bubble ~= self._player:get_is_bubble() then
+            self._is_bubble = self._player:get_is_bubble()
         end
     end
 end
@@ -214,29 +216,31 @@ function rt.PlayerBody:draw_body()
     rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
     -- draw rope nodes
-    if true then --not self._is_bubble then
-        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+
+    if self._is_bubble then
         love.graphics.setColor(1, 1, 1, 1)
-
-        local scale_offset = self._is_bubble and _settings.bubble_scale_offset or _settings.non_bubble_scale_offset
-
-        local rope_i, n_ropes = 0, self._n_ropes
-        local texture = self._node_mesh_texture:get_native()
-        local tw, th = self._node_mesh_texture:get_size()
-        for rope in values(self._ropes) do
-            for i = 1, #rope.current_positions, 2 do
-                local scale = math.min(rope.scale + scale_offset / self._player:get_radius(), 1)
-                local x, y  = rope.last_positions[i+0], rope.last_positions[i+1]
-                love.graphics.draw(texture, x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
-            end
-        end
-
-        rt.graphics.set_blend_mode(nil)
+    else
+        love.graphics.setColor(1, 1, 1, _settings.node_mesh_alpha)
     end
 
-    -- draw mesh
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.polygon("fill", self._positions)
+    local rope_i, n_ropes = 0, self._n_ropes
+    local texture = self._node_mesh_texture:get_native()
+    local tw, th = self._node_mesh_texture:get_size()
+    for rope in values(self._ropes) do
+        for i = 1, #rope.current_positions, 2 do
+            local scale = math.min(rope.scale + _settings.non_bubble_scale_offset / self._player:get_radius(), 1)
+            local x, y = rope.last_positions[i+0], rope.last_positions[i+1]
+            love.graphics.draw(texture, x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
+        end
+    end
+
+    rt.graphics.set_blend_mode(nil)
+
+    if not self._is_bubble then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.polygon("fill", self._positions)
+    end
 
     self._outline_canvas:unbind()
     rt.graphics.set_stencil_test(nil)
@@ -257,21 +261,9 @@ end
 function rt.PlayerBody:draw_core()
     if self._is_initialized ~= true then return end
 
-    --[[
-    for rope in values(self._ropes) do
-        love.graphics.setColor(rope.scale, rope.scale, rope.scale, 1)
-        for i = 1, #rope.current_positions, 2 do
-            love.graphics.line(
-                rope.last_positions[i+0], rope.last_positions[i+1],
-                rope.current_positions[i+0], rope.current_positions[i+1]
-            )
-        end
-    end
-    ]]--
-
-    local outline_width = _settings.outline_width / self._player:get_radius()
-    local inside_scale = 1 - outline_width
+    local outline_width = _settings.outline_width
     local outline_scale = outline_width / self._player:get_radius()
+    local inside_scale = 1 - outline_scale
 
     -- core canvas for shader inlay
     self._core_canvas:bind()
@@ -413,7 +405,6 @@ function rt.PlayerBody:update(delta)
     -- non rope sim updates
     self._shader_elapsed = self._shader_elapsed + delta
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), self._player:get_opacity())
-    self._is_bubble = self._player:get_is_bubble()
     self._player_x, self._player_y = self._player:get_predicted_position()
 
     local bodies = self._player:get_walls()
@@ -425,11 +416,13 @@ function rt.PlayerBody:update(delta)
     end
 
     -- rope sim
-    local delta_squared = delta * delta
-    local gravity_x, gravity_y = 0, 1 * _settings.gravity
-    local velocity_damping = 1 - _settings.velocity_damping
+    local gravity_x, gravity_y, velocity_damping
     if self._is_bubble then
-        gravity_y = 0
+        gravity_x, gravity_y = 0, 0
+        velocity_damping = 1 - _settings.bubble.velocity_damping
+    else
+        gravity_x, gravity_y = 0, 1 * _settings.gravity
+        velocity_damping = 1 - _settings.non_bubble.velocity_damping
     end
 
     local todo = self._is_bubble and _settings.bubble or _settings.non_bubble
@@ -437,7 +430,7 @@ function rt.PlayerBody:update(delta)
     for rope in values(self._ropes) do
         local positions = rope.current_positions
         local old_positions = rope.last_positions
-        local distances = rope.distances
+        local distances = self._is_bubble and rope.bubble_distances or rope.distances
 
         local n_axis_iterations_done = 0
         local n_distance_iterations_done = 0
@@ -446,7 +439,7 @@ function rt.PlayerBody:update(delta)
 
         while
             (n_velocity_iterations_done < todo.n_velocity_iterations) or
-            (n_distance_iterations_done < todo.n_distance_iterations) or
+            (n_distance_iterations_done < todo.n_distance_iterations + todo.n_bending_iterations) or
             (n_axis_iterations_done < todo.n_axis_iterations) or
             (n_bending_iterations_done < todo.n_bending_iterations)
         do
@@ -458,8 +451,8 @@ function rt.PlayerBody:update(delta)
 
                     local before_x, before_y = current_x, current_y
 
-                    positions[i+0] = current_x + (current_x - old_x) * velocity_damping + gravity_x * delta_squared
-                    positions[i+1] = current_y + (current_y - old_y) * velocity_damping + gravity_y * delta_squared
+                    positions[i+0] = current_x + (current_x - old_x) * velocity_damping + gravity_x * delta
+                    positions[i+1] = current_y + (current_y - old_y) * velocity_damping + gravity_y * delta
 
                     old_positions[i+0] = before_x
                     old_positions[i+1] = before_y
@@ -518,7 +511,7 @@ function rt.PlayerBody:update(delta)
             end
 
             -- distance
-            if n_distance_iterations_done < todo.n_distance_iterations then
+            if n_distance_iterations_done < todo.n_distance_iterations + todo.n_bending_iterations then
                 local distance_i = 1
                 for i = 1, #positions - 2, 2 do
                     local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
