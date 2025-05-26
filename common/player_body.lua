@@ -112,11 +112,19 @@ function rt.PlayerBody:initialize(positions)
         return ((ring_i - 1) / n_rings) * self._player_radius
     end
 
+    local ring_to_n_ropes = function(ring_i)
+        if ring_i == 1 then
+            return 1
+        else
+            return #positions / 2
+        end
+    end
+
     if self._is_initialized == false then
         -- init ropes
         for ring = 1, n_rings do
             local ring_radius = ring_to_ring_radius(ring)
-            local current_n_ropes = ring_radius == 0 and 1 or n_ropes_per_ring
+            local current_n_ropes = ring_to_n_ropes(ring)
             for i = 1, current_n_ropes do
                 local angle = (i - 1) / n_ropes_per_ring * 2 * math.pi
                 if ring % 2 == 1 then angle = angle + (2 * math.pi / n_ropes_per_ring) * 0.5 end
@@ -166,7 +174,7 @@ function rt.PlayerBody:initialize(positions)
         local rope_i = 1
         for ring = 1, n_rings do
             local ring_radius = ring_to_ring_radius(ring)
-            local current_n_ropes = ring_radius == 0 and 1 or n_ropes_per_ring
+            local current_n_ropes = ring_to_n_ropes(ring)
             for i = 1, current_n_ropes do
                 local contour_index = (i - 1) * 2 + 1
                 local contour_x = positions[contour_index]
@@ -181,11 +189,9 @@ function rt.PlayerBody:initialize(positions)
                 rope_i = rope_i + 1
             end
         end
-
-        if self._is_bubble ~= self._player:get_is_bubble() then
-            self._is_bubble = self._player:get_is_bubble()
-        end
     end
+
+    self._is_bubble = self._player:get_is_bubble()
 end
 
 local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()

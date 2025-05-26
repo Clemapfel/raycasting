@@ -412,13 +412,18 @@ function rt.Player:update(delta)
     local midair_before = not self._bottom_wall
 
     -- raycast to check for walls
-    local x, y = self._body:get_position()
+    local x, y
+    if self._is_bubble then
+        x, y = self._bubble_body:get_position()
+    else
+        x, y = self._body:get_position()
+    end
 
     local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
 
     local bubble_factor = 1
     if self._is_bubble then
-        bubble_factor = _settings.bubble_inner_radius_scale
+        bubble_factor = _settings.bubble_radius_factor
     end
 
     local top_ray_length = self._radius * _settings.top_wall_ray_length_factor * bubble_factor
