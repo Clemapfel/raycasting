@@ -98,8 +98,10 @@ function rt.PlayerBody:instantiate(player)
     end
 
     -- expressions
-    self._top_eye_lid_position = 0
     self._bottom_eye_lid_position = 0
+    self._bottom_eye_lid = {}
+    self._top_eye_lid_position = 0
+    self._top_eye_lid = {}
 end
 
 --- @brief
@@ -196,6 +198,121 @@ function rt.PlayerBody:initialize(positions)
     end
 
     self._is_bubble = self._player:get_is_bubble()
+
+    self._top_eye_lid_position = (math.sin(self._shader_elapsed ) + 1) / 2
+    self._bottom_eye_lid_position = (math.sin(self._shader_elapsed ) + 1) / 2
+    self:_update_eyelids()
+end
+
+local function _generate_eyelid_mesh(t, eye_x, eye_y, eye_r, points)
+    local out = {}
+
+    local direction = t >= 0
+    t = math.abs(t)
+
+    local y
+    if direction == true then
+        y = eye_y + t * eye_r
+    else
+        y = eye_y - t * eye_r
+    end
+
+    local dx = math.sqrt(eye_r^2 - (t * eye_r)^2)
+    local left_x = eye_x - dx
+    local right_x = eye_x + dx
+
+    --[[
+    if direction == true then
+        table.insert(out, right_x)
+        table.insert(out, y)
+    else
+        table.insert(out, left_x)
+        table.insert(out, y)
+    end
+    ]]--
+
+    local x_width = right_x - left_x
+
+    local left_angle = (math.angle(left_x - eye_x, y - eye_y))
+    local right_angle = (math.angle(right_x - eye_x, y - eye_y))
+
+    local min_angle = math.min(left_angle, right_angle)
+    local max_angle = math.max(left_angle, right_angle)
+
+
+    for i = 1, #points, 2 do
+        local px = points[i+0]
+        local py = points[i+1]
+        local angle = math.angle(px - eye_x, py - eye_y)
+
+        if angle >= min_angle and angle <= max_angle then
+            table.insert(out, px)
+            table.insert(out, py)
+        end
+    end
+
+    --[[
+    local n_steps = 32
+    local step = math.abs(left_angle - right_angle) / n_steps
+    for angle = math.min(left_angle, right_angle), math.max(left_angle, right_angle), step do
+        table.insert(out, eye_x + math.cos(angle) * eye_r)
+        table.insert(out, eye_y + math.sin(angle) * eye_r)
+    end
+    ]]
+
+    --[[
+    if direction == true then
+        table.insert(out, left_x)
+        table.insert(out, y)
+    else
+        table.insert(out, right_x)
+        table.insert(out, y)
+    end
+    ]]--
+
+    local offset
+    if direction == true then
+        offset = -0.5 * math.pi
+    else
+        offset =  0.5 * math.pi
+    end
+
+    local n_steps = 32
+    local y_radius = math.sqrt(eye_r * t)
+    local step = math.pi / n_steps
+    for angle = -0.5 * math.pi + offset, 0.5 * math.pi + offset + step, step do
+        table.insert(out, eye_x + math.cos(angle) * x_width / 2)
+        table.insert(out, y + math.sin(angle) * y_radius)
+    end
+
+    return out
+end
+
+--- @brief
+function rt.PlayerBody:_update_eyelids()
+    if self._bottom_eye_lid == 0 then
+        self._bottom_eye_lid = {}
+    else
+        self._bottom_eye_lid = _generate_eyelid_mesh(
+            self._bottom_eye_lid_position,
+            self._center_x,
+            self._center_y,
+            self._player:get_radius(),
+            self._positions
+        )
+    end
+
+    if self._top_eye_lid == 0 then
+        self._top_eye_lid = {}
+    else
+        self._top_eye_lid = _generate_eyelid_mesh(
+            -1 * self._top_eye_lid_position,
+            self._center_x,
+            self._center_y,
+            self._player:get_radius(),
+            self._positions
+        )
+    end
 end
 
 local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
@@ -314,6 +431,19 @@ function rt.PlayerBody:draw_core()
         0.5 * w, 0.5 * h
     )
 
+    -- eyelid
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.stencil(stencil_value, function()
+        if self._top_eye_lid_position > 0 then
+            love.graphics.polygon("fill", self._top_eye_lid)
+        end
+
+        if self._bottom_eye_lid_position > 0 then
+            love.graphics.polygon("fill", self._bottom_eye_lid)
+        end
+    end)
+    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+
     -- draw inside
     love.graphics.setColor(1, 1, 1, self._a)
     love.graphics.draw(
@@ -324,6 +454,8 @@ function rt.PlayerBody:draw_core()
         1 / self._canvas_scale * inside_scale,
         0.5 * w, 0.5 * h
     )
+
+    rt.graphics.set_stencil_test(nil)
 
     love.graphics.push()
     love.graphics.translate(self._center_x, self._center_y)
@@ -349,6 +481,7 @@ function rt.PlayerBody:draw_core()
 
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
+
 end
 
 -- update
