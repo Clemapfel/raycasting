@@ -10,7 +10,7 @@ return {
   tilewidth = 32,
   tileheight = 32,
   nextlayerid = 4,
-  nextobjectid = 85,
+  nextobjectid = 87,
   properties = {},
   tilesets = {
     {
@@ -728,19 +728,6 @@ return {
       properties = {},
       objects = {
         {
-          id = 4,
-          name = "",
-          type = "PlayerSpawn",
-          shape = "point",
-          x = 2286.46,
-          y = -19.234,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 10,
           name = "",
           type = "Hitbox",
@@ -1130,37 +1117,6 @@ return {
           properties = {}
         },
         {
-          id = 65,
-          name = "",
-          type = "TextBoxEmitter",
-          shape = "point",
-          x = 2446.34,
-          y = -16.592,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["id"] = "debug_dialog"
-          }
-        },
-        {
-          id = 67,
-          name = "",
-          type = "InteractTrigger",
-          shape = "rectangle",
-          x = 2150.13,
-          y = -38.143,
-          width = 61.9104,
-          height = 22.6022,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["signal"] = "activate",
-            ["target"] = { id = 65 }
-          }
-        },
-        {
           id = 72,
           name = "",
           type = "BouncePad",
@@ -1365,6 +1321,19 @@ return {
             { x = 0, y = -32 },
             { x = 0, y = 0 }
           },
+          properties = {}
+        },
+        {
+          id = 86,
+          name = "",
+          type = "PlayerSpawn",
+          shape = "point",
+          x = 480.432,
+          y = 421.053,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

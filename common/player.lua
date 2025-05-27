@@ -5,11 +5,11 @@ require "common.player_trail"
 require "common.random"
 require "common.palette"
 
-local radius = 14
+local radius = 13.5
 rt.settings.player = {
     radius = radius,
     inner_body_radius = 10 / 2 - 0.5,
-    n_outer_bodies = 17,
+    n_outer_bodies = 27,
     max_spring_length = radius * 3,
 
     bottom_wall_ray_length_factor = 1.5,
@@ -42,20 +42,20 @@ rt.settings.player = {
 
     coyote_time = 3 / 60,
 
-    jump_duration = 10 / 60,
-    jump_impulse = 500, -- 4 * 32 neutral jump
+    jump_duration = 11 / 60,
+    jump_impulse = 520, -- 4 * 32 neutral jump
 
     wall_magnet_force = 200,
-    wall_jump_initial_impulse = 340,
-    wall_jump_sustained_impulse = 850, -- force per second
+    wall_jump_initial_impulse = 360,
+    wall_jump_sustained_impulse = 1200, -- force per second
     wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
     wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
     non_sprint_walljump_duration_multiplier = 1.4,
-    wall_jump_duration = 10 / 60,
+    wall_jump_duration = 12 / 60,
     wall_jump_freeze_duration = 7 / 60,
 
-    bounce_min_force = 470,
-    bounce_max_force = 680,
+    bounce_min_force = 200,
+    bounce_max_force = 520,
     bounce_duration = 2 / 60,
 
     spring_multiplier = 1.2,
@@ -1082,7 +1082,7 @@ function rt.Player:move_to_world(world)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         initialize_outer_body(body, false)
-        body:set_mass(10e-4 * 0.75) -- experimentally determined to give the best feel for box2d spring forces
+        body:set_mass(10e-4 * 1) -- experimentally determined to give the best feel for box2d spring forces
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only
@@ -1343,6 +1343,11 @@ function rt.Player:set_jump_allowed(b)
         self._jump_elapsed = 0
         self._wall_jump_elapsed = 0
     end
+end
+
+--- @brief
+function rt.Player:get_physics_world()
+    return self._world
 end
 
 --- @brief

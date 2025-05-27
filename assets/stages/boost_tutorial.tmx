@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" name="Spawn" type="PlayerSpawn" x="-621.857" y="622.976">
+  <object id="3" name="Spawn" type="PlayerSpawn" x="1001.88" y="-401.733">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -171,7 +171,7 @@
   <object id="46" type="Hitbox" x="672" y="-384">
    <polygon points="0,0 96,0 96,240 80,240 80,320 320,320 320,240 304,240 304,0 368,0 400,0 400,240 384,240 384,320 624,320 624,240 608,240 608,112 640,112 640,320 640,336 16,336 16,16"/>
   </object>
-  <object id="47" type="Hitbox" x="768" y="-128">
+  <object id="47" type="AcceleratorSurface" x="768" y="-128">
    <properties>
     <property name="friction" type="float" value="-1"/>
     <property name="slippery" type="bool" value="true"/>
@@ -198,7 +198,7 @@
    </properties>
    <polygon points="0,0 0,256 32,272 64,256 64,0 32,16"/>
   </object>
-  <object id="54" type="Hitbox" x="1072" y="-128">
+  <object id="54" type="AcceleratorSurface" x="1072" y="-128">
    <properties>
     <property name="friction" type="float" value="-1"/>
     <property name="slippery" type="bool" value="true"/>
@@ -993,7 +993,6 @@
   <object id="373" type="Checkpoint" x="-560" y="1824">
    <point/>
   </object>
-  <object id="401" name="Goal" type="Goal" x="-747.051" y="-2864" width="248.136" height="416"/>
   <object id="402" type="Hitbox" x="4944" y="-2896">
    <polygon points="160,480 240,480 240,-96 160,-96 160,144 144,144 144,304 160,304 160,464"/>
   </object>

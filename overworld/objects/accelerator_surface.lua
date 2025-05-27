@@ -8,7 +8,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._scene = scene
 
     self._body = object:create_physics_body(stage:get_physics_world())
-    self._body:add_tag("use_friction")
+    self._body:add_tag("use_friction", "hitbox")
     self._body:set_friction(-1)
     self._body:set_user_data(self)
 

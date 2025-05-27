@@ -3,7 +3,7 @@ rt.settings.overworld.bubble_field = {
     thickness = 3,
     n_smoothing_iterations = 5,
     alpha = 1,
-    wave_deactivation_threshold = 1 / 1000,
+    wave_deactivation_threshold = 1 / 100,
     simulate_waves = true
 }
 
@@ -294,7 +294,7 @@ function ow.BubbleField:update(delta)
         local polygon_positions = {}
         local outline_positions = {}
         local wave = self._wave
-        local offset_sum = 0
+        local offset_sum, offset_max = 0, -math.huge
         local n_points = self._n_points
         for i = 1, n_points do
             local left = (i == 1) and n_points or (i - 1)
@@ -304,6 +304,7 @@ function ow.BubbleField:update(delta)
             wave.next[i] = new
 
             offset_sum = offset_sum + math.abs(new)
+            offset_max = math.max(offset_sum, math.abs(new))
 
             local entry = self._contour_vectors[i]
             local x = self._contour_center_x + entry.dx * (1 + new) * entry.magnitude
@@ -313,7 +314,7 @@ function ow.BubbleField:update(delta)
         end
         wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
 
-        if offset_sum / self._n_points < rt.settings.overworld.bubble_field.wave_deactivation_threshold then
+        if offset_max < rt.settings.overworld.bubble_field.wave_deactivation_threshold then
             self._is_active = false
         end
 

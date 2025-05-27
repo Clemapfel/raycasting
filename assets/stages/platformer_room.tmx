@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="1" nextlayerid="4" nextobjectid="85">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="1" nextlayerid="4" nextobjectid="87">
  <editorsettings>
   <export target="platformer_room.lua" format="lua"/>
  </editorsettings>
@@ -585,9 +585,6 @@
   </data>
  </layer>
  <objectgroup id="3" name="Object Layer 1" class="Walls">
-  <object id="4" type="PlayerSpawn" x="2286.46" y="-19.234">
-   <point/>
-  </object>
   <object id="10" type="Hitbox" x="1280" y="192">
    <properties>
     <property name="shader" value="red_blood_cells"/>
@@ -675,18 +672,6 @@
   </object>
   <object id="59" type="BouncePad" x="1856.36" y="-431.51" width="64" height="224" rotation="-50"/>
   <object id="60" type="BouncePad" x="1978.88" y="-662.228" width="64" height="152.433" rotation="-65"/>
-  <object id="65" type="TextBoxEmitter" x="2446.34" y="-16.592">
-   <properties>
-    <property name="id" value="debug_dialog"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="67" type="InteractTrigger" x="2150.13" y="-38.143" width="61.9104" height="22.6022">
-   <properties>
-    <property name="signal" value="activate"/>
-    <property name="target" type="object" value="65"/>
-   </properties>
-  </object>
   <object id="72" type="BouncePad" x="2016" y="160">
    <polygon points="0,0 736,0 768,32 32,32"/>
   </object>
@@ -735,6 +720,9 @@
   </object>
   <object id="83" type="Hitbox" x="3200" y="-32">
    <polygon points="0,0 -96,0 -96,-32 0,-32 0,0"/>
+  </object>
+  <object id="86" type="PlayerSpawn" x="480.432" y="421.053">
+   <point/>
   </object>
  </objectgroup>
 </map>

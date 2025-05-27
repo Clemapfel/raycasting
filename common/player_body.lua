@@ -17,7 +17,7 @@ rt.settings.player_body = {
 
     highlight_brightness = 0.2,
     outline_value_offset = 0.5,
-    outline_width = 0.5,
+    outline_width = 1.5,
 
     -- constraint solver params
     non_bubble = {
@@ -25,7 +25,7 @@ rt.settings.player_body = {
         n_distance_iterations = 4,
         n_axis_iterations = 0,
         n_bending_iterations = 0,
-        velocity_damping = 0.1,
+        velocity_damping = 0.04,
     },
 
     bubble = {
@@ -36,7 +36,7 @@ rt.settings.player_body = {
         velocity_damping = 0.1
     },
 
-    gravity = 0.5,
+    gravity = (1 + 0.5)^2,
 }
 
 --- @class rt.PlayerBody
@@ -96,6 +96,10 @@ function rt.PlayerBody:instantiate(player)
         self._core_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 8)
         self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
+
+    -- expressions
+    self._top_eye_lid_position = 0
+    self._bottom_eye_lid_position = 0
 end
 
 --- @brief
@@ -268,8 +272,8 @@ function rt.PlayerBody:draw_core()
     if self._is_initialized ~= true then return end
 
     local outline_width = _settings.outline_width
-    local outline_scale = outline_width / self._player:get_radius()
-    local inside_scale = 1 - outline_scale
+    local outside_scale = 1 + outline_width / self._player:get_radius()
+    local inside_scale = 1
 
     -- core canvas for shader inlay
     self._core_canvas:bind()
@@ -305,8 +309,8 @@ function rt.PlayerBody:draw_core()
         self._core_canvas:get_native(),
         self._player_x, self._player_y,
         0,
-        1 / self._canvas_scale + outline_scale,
-        1 / self._canvas_scale + outline_scale,
+        1 / self._canvas_scale * outside_scale,
+        1 / self._canvas_scale * outside_scale,
         0.5 * w, 0.5 * h
     )
 
@@ -316,10 +320,18 @@ function rt.PlayerBody:draw_core()
         self._core_canvas:get_native(),
         self._player_x, self._player_y,
         0,
-        1 / self._canvas_scale,
-        1 / self._canvas_scale,
+        1 / self._canvas_scale * inside_scale,
+        1 / self._canvas_scale * inside_scale,
         0.5 * w, 0.5 * h
     )
+
+    love.graphics.push()
+    love.graphics.translate(self._center_x, self._center_y)
+    rt.Palette.WHITE:bind()
+    for tri in values(self._tris) do
+        love.graphics.polygon("fill", tri)
+    end
+    love.graphics.pop()
 
     -- highlight
     local boost = _settings.highlight_brightness
@@ -413,7 +425,11 @@ function rt.PlayerBody:update(delta)
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), self._player:get_opacity())
     self._player_x, self._player_y = self._player:get_predicted_position()
 
-    local bodies = self._player:get_walls()
+    local w, h = self._outline_canvas:get_size()
+    local bodies = self._player:get_physics_world():query_aabb(
+        self._player_x - 0.5 * w, self._player_y - 0.5 * h, w, h
+    )
+
     self._stencil_bodies = {}
     for body in values(bodies) do
         if body:has_tag("hitbox") then
@@ -457,8 +473,8 @@ function rt.PlayerBody:update(delta)
 
                     local before_x, before_y = current_x, current_y
 
-                    positions[i+0] = current_x + (current_x - old_x) * velocity_damping + gravity_x * delta
-                    positions[i+1] = current_y + (current_y - old_y) * velocity_damping + gravity_y * delta
+                    positions[i+0] = current_x + (current_x - old_x) * velocity_damping + gravity_x * delta * delta
+                    positions[i+1] = current_y + (current_y - old_y) * velocity_damping + gravity_y * delta * delta
 
                     old_positions[i+0] = before_x
                     old_positions[i+1] = before_y

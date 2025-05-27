@@ -64,8 +64,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -621.857,
-          y = 622.976,
+          x = 1001.88,
+          y = -401.733,
           width = 0,
           height = 0,
           rotation = 0,
@@ -714,7 +714,7 @@ return {
         {
           id = 47,
           name = "",
-          type = "Hitbox",
+          type = "AcceleratorSurface",
           shape = "polygon",
           x = 768,
           y = -128,
@@ -840,7 +840,7 @@ return {
         {
           id = 54,
           name = "",
-          type = "Hitbox",
+          type = "AcceleratorSurface",
           shape = "polygon",
           x = 1072,
           y = -128,
@@ -4348,19 +4348,6 @@ return {
           y = 1824,
           width = 0,
           height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 401,
-          name = "Goal",
-          type = "Goal",
-          shape = "rectangle",
-          x = -747.051,
-          y = -2864,
-          width = 248.136,
-          height = 416,
           rotation = 0,
           visible = true,
           properties = {}
