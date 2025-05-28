@@ -16,7 +16,8 @@ function rt.Fade:instantiate(duration, r, g, b, a)
         _duration = duration,
         _elapsed = 0,
         _value = 0, -- opacity of overlay
-        _should_ramp = true,
+        _has_attack = true,
+        _has_decay = true,
         _signal_emitted = true,
 
         _r = r,
@@ -29,11 +30,14 @@ end
 meta.add_signal(rt.Fade, "hidden")
 
 --- @brief
---- @param should_ramp Boolean if false, skips starting ramp
-function rt.Fade:start(should_ramp)
-    if should_ramp == nil then should_ramp = true end
+--- @param has_attack Boolean if false, skips starting ramp
+function rt.Fade:start(has_attack, has_decay)
+    if has_attack == nil then has_attack = true end
+    if has_decay == nil then has_decay = true end
+
     self._elapsed = 0
-    self._should_ramp = should_ramp
+    self._has_attack = has_attack
+    self._has_decay = has_decay
     self._signal_emitted = false
 end
 
@@ -46,23 +50,28 @@ local function gaussian(x, center)
     return math.exp(-4.4 * math.pi / 3 * ((x - center)^2))
 end
 
-local function _envelope(fraction, should_ramp)
-    if fraction > 1 then return 0 end
+local function _envelope(fraction, has_attack, has_decay)
+    if fraction < 0 or fraction > 1 then return 0 end
+
     if fraction < 0.5 then -- attack
-        if should_ramp then
+        if has_attack then
             return gaussian(fraction / 0.5, 1)
         else
             return 1
         end
     else
-        return gaussian((fraction - 0.5) / 0.5, 0)
+        if has_decay then
+            return gaussian((fraction - 0.5) / 0.5, 0)
+        else
+            return 1
+        end
     end
 end
 
 --- @brief
 function rt.Fade:update(delta)
     local fraction = self._elapsed / self._duration
-    self._value = _envelope(fraction, self._should_ramp)
+    self._value = _envelope(fraction, self._has_attack, self._has_decay)
 
     if self._signal_emitted == false and fraction >= 0.5 then
         self:signal_emit("hidden")

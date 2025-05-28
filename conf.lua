@@ -23,22 +23,22 @@ _G.SETTINGS = {
     --  https://love2d.org/wiki/KeyConstant
     INPUT_MAPPING = {
         ["UP"] = {
-            keyboard = {"up", "w"},
+            keyboard = {"w", "up"},
             controller = "dpup",
         },
 
         ["DOWN"] = {
-            keyboard = {"down", "s"},
+            keyboard = {"s", "down"},
             controller = "dpdown"
         },
 
         ["LEFT"] = {
-            keyboard = {"left", "a"},
+            keyboard = {"a", "left"},
             controller = "dpleft"
         },
 
         ["RIGHT"] = {
-            keyboard = {"right", "d"},
+            keyboard = {"d", "right"},
             controller = "dpright"
         },
 

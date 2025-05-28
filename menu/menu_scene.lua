@@ -213,7 +213,10 @@ function mn.MenuScene:instantiate(state)
                 return
             end
 
-            if which == rt.InputButton.B then
+            if which == rt.InputButton.A then
+                self:_set_state(mn.MenuSceneState.EXITING)
+                stage_select.waiting_for_exit = true
+            elseif which == rt.InputButton.B then
                 self._fade:start()
                 self._fade:signal_connect("hidden", function()
                     self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
@@ -611,6 +614,11 @@ function mn.MenuScene:update(delta)
 
     self._shader_elapsed = self._shader_elapsed + delta
     self._shader_camera_offset = { self._camera:get_offset() }
+    if self._state == mn.MenuSceneState.EXITING then
+        local px, py = self._player:get_position()
+        self._shader_camera_offset[1] = self._shader_camera_offset[1] + (px - self._exit_x)
+        self._shader_camera_offset[2] = self._shader_camera_offset[2] + (py - self._exit_y)
+    end
     self._shader_camera_scale = self._camera:get_scale()
     self._shader_fraction = 0
 
@@ -665,22 +673,29 @@ function mn.MenuScene:update(delta)
     self._shader_fraction = math.clamp(py / rt.settings.menu_scene.title_screen.falling_fraction_threshold, 0, 1)
     self._player:set_flow(self._shader_fraction)
 
-    self._camera:set_shake_frequency(rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(self._shader_fraction))
-
     -- clamp velocity
     local vx, vy = self._player:get_velocity()
     local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
+
     vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
     vy = math.min(vy, max_velocity)
     vx = vx + (rt.random.noise(self._shader_elapsed * 10, 0) * 2 - 1) * (rt.settings.menu_scene.player_falling_x_perturbation * (love.graphics.getHeight() / rt.settings.native_height)) * self._shader_fraction
-    self._player:set_velocity(vx, vy)
 
+    if self._state == mn.MenuSceneState.EXITING then
+        vy = vy * 10 -- exponential acceleration
+    end
+    self._player:set_velocity(vx, vy)
     self._camera:set_shake_frequency(vy / max_velocity)
 
     -- transition player to left side of screen
     local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
     local x_offset = offset_fraction * rt.settings.menu_scene.stage_select.player_alignment * self._bounds.width
-    self._camera:move_to(px + x_offset, py)
+
+    if self._state == mn.MenuSceneState.EXITING then
+        self._camera:move_to(self._exit_x, self._exit_y)
+    else
+        self._camera:move_to(px + x_offset / self._camera:get_final_scale(), py)
+    end
 
     local stage_select = self._stage_select
     if offset_fraction > 0.5 then
@@ -695,6 +710,18 @@ function mn.MenuScene:update(delta)
         end
     elseif self._state == mn.MenuSceneState.STAGE_SELECT then
 
+    elseif self._state == mn.MenuSceneState.EXITING then
+        if stage_select.waiting_for_exit then
+            -- wait for player to exit screen, then fade out
+            if select(2, self._camera:world_xy_to_screen_xy(self._player:get_position())) > 5 * love.graphics.getHeight() then
+                self._fade:start(true, false)
+                self._fade:signal_connect("hidden", function()
+                    self:_set_state(mn.MenuSceneState.STAGE_SELECT)
+                    rt.warning("In menu_scene.stage_select.input: TODO move to level")
+                end)
+                stage_select.waiting_for_exit = false
+            end
+        end
     end
 end
 
@@ -791,11 +818,11 @@ function mn.MenuScene:draw()
             item.time_value_label,
             item.description_label
         ) do
-            widget:draw()
+            --widget:draw()
         end
 
-        rt.Palette.FOREGROUND:bind()
-        love.graphics.rectangle("fill", item.hrule_x, item.hrule_y, item.hrule_width, item.hrule_height)
+        --rt.Palette.FOREGROUND:bind()
+        --love.graphics.rectangle("fill", item.hrule_x, item.hrule_y, item.hrule_width, item.hrule_height)
         love.graphics.pop()
 
         stage_select.page_indicator:draw()
