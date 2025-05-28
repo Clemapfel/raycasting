@@ -208,7 +208,7 @@ function mn.MenuScene:instantiate(state)
             end
         end)
 
-        stage_select.item_reveal_animation = rt.TimedAnimation(0.2, 0, 1, rt.InterpolationFunctions.SIGMOID)
+        stage_select.item_reveal_animation = rt.TimedAnimation(0.2, 1, 0, rt.InterpolationFunctions.SIGMOID)
         stage_select.items = {}
         stage_select.selected_item_i = 1
         stage_select.n_items = 0
@@ -542,6 +542,10 @@ function mn.MenuScene:_set_state(next)
             boundary:set_is_sensor(true)
             boundary:signal_set_is_blocked("collision_start", true)
         end
+        if next == mn.MenuSceneState.STAGE_SELECT then
+            self._stage_select.item_reveal_animation:reset()
+        end
+
     elseif next == mn.MenuSceneState.EXITING then
         self._exit_x, self._exit_y = self._camera:get_position()
     end
@@ -570,6 +574,8 @@ function mn.MenuScene:update(delta)
     self._shader_camera_offset = { self._camera:get_offset() }
     self._shader_camera_scale = self._camera:get_scale()
     self._shader_fraction = 0
+
+    self._stage_select.item_reveal_offset = 0
 
     if self._state == mn.MenuSceneState.TITLE_SCREEN then
         local title_screen = self._title_screen
@@ -643,7 +649,8 @@ function mn.MenuScene:update(delta)
             self:_set_state(mn.MenuSceneState.STAGE_SELECT)
         end
     elseif self._state == mn.MenuSceneState.STAGE_SELECT then
-
+        local stage_select = self._stage_select
+        stage_select.item_reveal_animation:update(delta)
     end
 end
 
@@ -713,6 +720,7 @@ function mn.MenuScene:draw()
 
         love.graphics.push()
         love.graphics.translate(stage_select.menu_x, stage_select.menu_y)
+        love.graphics.translate(stage_select.item_reveal_animation:get_value() * self._bounds.width * (2  / 3), 0)
 
         for widget in range(
             item.frame,

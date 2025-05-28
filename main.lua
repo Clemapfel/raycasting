@@ -17,8 +17,8 @@ love.load = function(args)
     require "menu.menu_scene"
     rt.SceneManager:set_scene(mn.MenuScene)
 
-    require "overworld.overworld_scene"
-    rt.SceneManager:set_scene(ow.OverworldScene, "tutorial")
+    --require "overworld.overworld_scene"
+    --rt.SceneManager:set_scene(ow.OverworldScene, "tutorial")
 end
 
 love.update = function(delta)
