@@ -471,6 +471,7 @@ function mn.MenuScene:enter()
     end
 
     rt.SceneManager:set_use_fixed_timestep(true)
+    self._player:set_opacity(1)
 
     if self._state == nil then
         self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
@@ -526,14 +527,12 @@ function mn.MenuScene:_set_state(next)
         self._player:set_gravity(0)
         self._player:set_is_bubble(true)
         self._player:set_flow(0)
-        self._player:set_opacity(0)
         self._title_screen.opacity_fade_animation:reset()
 
         return
     end
 
     if next == mn.MenuSceneState.FALLING or next == mn.MenuSceneState.STAGE_SELECT then
-        self._player:set_opacity(1)
         self._stage_select.input:activate()
         self._player:set_gravity(1)
         self._player:set_is_bubble(false)
@@ -613,8 +612,6 @@ function mn.MenuScene:update(delta)
             end
         end
 
-        self._player:set_opacity(title_screen.opacity_fade_animation:get_value())
-        title_screen.opacity_fade_animation:update(delta)
         return
     end
 

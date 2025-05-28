@@ -11,6 +11,7 @@ rt.settings.player = {
     inner_body_radius = 10 / 2 - 0.5,
     n_outer_bodies = 27,
     max_spring_length = radius * 3,
+    outer_body_spring_strength = 2,
 
     bottom_wall_ray_length_factor = 1.5,
     side_wall_ray_length_factor = 1.05,
@@ -1082,7 +1083,7 @@ function rt.Player:move_to_world(world)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         initialize_outer_body(body, false)
-        body:set_mass(10e-4 * 1) -- experimentally determined to give the best feel for box2d spring forces
+        body:set_mass(10e-4 * _settings.outer_body_spring_strength)
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only
@@ -1615,4 +1616,9 @@ end
 --- @brief
 function rt.Player:get_world()
     return self._world
+end
+
+--- @brief
+function rt.Player:get_is_grounded()
+    return self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall
 end
