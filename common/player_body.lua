@@ -302,7 +302,7 @@ function rt.PlayerBody:_update_eyelids()
         self._bottom_eye_lid = {}
     else
         self._bottom_eye_lid = _generate_eyelid_mesh(
-            self._bottom_eye_lid_position,
+            1 - self._bottom_eye_lid_position,
             self._center_x,
             self._center_y,
             self._player:get_radius(),
@@ -314,7 +314,7 @@ function rt.PlayerBody:_update_eyelids()
         self._top_eye_lid = {}
     else
         self._top_eye_lid = _generate_eyelid_mesh(
-            -1 * self._top_eye_lid_position,
+            -1 * (1 - self._top_eye_lid_position),
             self._center_x,
             self._center_y,
             self._player:get_radius(),

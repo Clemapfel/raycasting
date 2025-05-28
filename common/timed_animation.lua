@@ -339,3 +339,8 @@ end
 function rt.TimedAnimation:set_elapsed(elapsed)
     self._elapsed = elapsed
 end
+
+--- @brief
+function rt.TimedAnimation:set_fraction(f)
+    self._elapsed = f * self._duration
+end

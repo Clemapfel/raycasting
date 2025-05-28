@@ -5,17 +5,24 @@ require "common.translation"
 require "common.control_indicator"
 require "common.timed_animation"
 require "common.fade"
+require "menu.stage_select_page_indicator"
 
 rt.settings.menu_scene = {
     player_max_falling_velocity = 1500,
     player_falling_x_damping = 0.98,
     player_falling_x_perturbation = 3,
-    title_screen_player_velocity = 100, -- when reflecting
-    title_screen_player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
-    falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
-    title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
 
-    stage_select_player_alignment = 1 / 3,
+    title_screen = {
+        title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+        player_velocity = 100, -- when reflecting
+        player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
+        falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
+    },
+
+    stage_select = {
+        player_alignment = 1 / 3,
+        reveal_animation_duration = 1
+    },
 }
 
 --- @class mn.MenuScene
@@ -78,16 +85,18 @@ end
 -- @brief
 function mn.MenuScene:instantiate(state)
     if _background_shader == nil then
-        _background_shader = rt.Shader("menu/title_screen_scene_background.glsl")
+        _background_shader = rt.Shader("menu/menu_scene_background.glsl")
     end
 
     if _title_shader_no_sdf == nil then
-        _title_shader_no_sdf = rt.Shader("menu/title_screen_scene_label.glsl", { MODE = 0 })
+        _title_shader_no_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 0 })
     end
 
     if _title_shader_sdf == nil then
-        _title_shader_sdf = rt.Shader("menu/title_screen_scene_label.glsl", { MODE = 1 })
+        _title_shader_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 1 })
     end
+
+    self._input_blocked = true
 
     self._world = b2.World()
     self._world:set_use_fixed_timestep(false)
@@ -166,7 +175,7 @@ function mn.MenuScene:instantiate(state)
 
         title_screen.input = rt.InputSubscriber()
         title_screen.input:signal_connect("pressed", function(_, which)
-            if self._initialized == false then return end
+            if self._initialized == false or self._input_blocked == true then return end
 
             if which == rt.InputButton.JUMP then
                 local item = title_screen.menu_items[title_screen.selected_item_i]
@@ -187,7 +196,7 @@ function mn.MenuScene:instantiate(state)
         title_screen.title_x, title_screen.title_y = 0, 0
         title_screen.boundaries = {}
 
-        local duration = 2 * self._player:get_radius() / rt.settings.menu_scene.title_screen_player_velocity
+        local duration = 2 * self._player:get_radius() / rt.settings.menu_scene.title_screen.player_velocity
         title_screen.opacity_fade_animation = rt.TimedAnimation(4 * duration)
     end
 
@@ -197,7 +206,12 @@ function mn.MenuScene:instantiate(state)
 
         stage_select.input = rt.InputSubscriber()
         stage_select.input:signal_connect("pressed", function(_, which)
-            if self._initialized == false then return end
+            if self._initialized == false or self._input_blocked == true then return end
+            if self._state == mn.MenuSceneState.FALLING then
+                -- skip falling animation
+                stage_select.item_reveal_animation:set_fraction(1)
+                return
+            end
 
             if which == rt.InputButton.B then
                 self._fade:start()
@@ -205,10 +219,26 @@ function mn.MenuScene:instantiate(state)
                     self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
                     return meta.DISCONNECT_SIGNAL
                 end)
+            elseif which == rt.InputButton.UP then
+                if stage_select.selected_item_i > 1 then
+                    stage_select.selected_item_i = stage_select.selected_item_i - 1
+                    stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
+                end
+            elseif which == rt.InputButton.DOWN then
+                if stage_select.selected_item_i < stage_select.n_items then
+                    stage_select.selected_item_i = stage_select.selected_item_i + 1
+                    stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
+                end
             end
         end)
 
-        stage_select.item_reveal_animation = rt.TimedAnimation(0.2, 1, 0, rt.InterpolationFunctions.SIGMOID)
+        stage_select.item_reveal_animation = rt.TimedAnimation(
+            rt.settings.menu_scene.stage_select.reveal_animation_duration,
+            1, 0,
+            rt.InterpolationFunctions.SIGMOID
+        )
+        stage_select.reveal_width = 1
+
         stage_select.items = {}
         stage_select.selected_item_i = 1
         stage_select.n_items = 0
@@ -271,6 +301,14 @@ function mn.MenuScene:instantiate(state)
             table.insert(stage_select.items, item)
             stage_select.n_items = stage_select.n_items + 1
         end
+
+        stage_select.page_indicator = mn.StageSelectPageIndicator(stage_select.n_items)
+        translation = rt.Translation.menu_scene.stage_select
+        stage_select.control_indicator = rt.ControlIndicator({
+            [rt.ControlIndicatorButton.JUMP] = translation.control_indicator_confirm,
+            [rt.ControlIndicatorButton.UP_DOWN] = translation.control_indicator_select,
+            [rt.ControlIndicatorButton.B] = translation.control_indicator_back,
+        })
     end
 end
 
@@ -300,6 +338,10 @@ function mn.MenuScene:realize()
             widget:realize()
         end
     end
+
+    self._stage_select.page_indicator:realize()
+    self._stage_select.control_indicator:realize()
+    self._stage_select.control_indicator:set_use_frame(false)
 end
 
 --- @brief
@@ -311,7 +353,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         local title_screen = self._title_screen
         local font_size = rt.FontSize.GIGANTIC
         local title = rt.Translation.menu_scene.title_screen.title
-        local font = rt.Font(rt.settings.menu_scene.title_font_path)
+        local font = rt.Font(rt.settings.menu_scene.title_screen.title_font_path)
         title_screen.title_label_no_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, false), title)
         title_screen.title_label_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, true), title)
 
@@ -389,45 +431,39 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
     do -- stage select
         local stage_select = self._stage_select
-        local menu_x = rt.settings.menu_scene.stage_select_player_alignment * width
-        local menu_y = outer_margin
-        local menu_w = rt.settings.menu_scene.stage_select_player_alignment * width - outer_margin
-        local menu_h = height - 2 * outer_margin
+
+        -- control indicator
+        local control_w, control_h = stage_select.control_indicator:measure()
+        stage_select.control_indicator:reformat(
+            x + width - m - control_w,
+            y + height - m - control_h,
+            control_w, control_h
+        )
+
+        local current_x = x + width - outer_margin
+        local page_indicator_w = 20 * rt.get_pixel_scale()
+        stage_select.page_indicator:reformat(
+            current_x - 0.5 * page_indicator_w,
+            outer_margin,
+            page_indicator_w,
+            height - 2 * outer_margin
+        )
+
+
+        current_x = current_x - page_indicator_w - outer_margin
+
+        -- level tiles
+        local w = (1 - rt.settings.menu_scene.stage_select.player_alignment) * width - 2 * outer_margin - page_indicator_w - 2 * m
+        local menu_x = math.round(current_x - w)
+        local menu_y = math.round(outer_margin + control_h) -- for symmetry
+        local menu_w = w
+        local menu_h = height - 2 * outer_margin - 2 * control_h
         local menu_m = m
 
         stage_select.menu_x = menu_x
         stage_select.menu_y = menu_y
         stage_select.menu_height = menu_h
         stage_select.menu_width = menu_w
-
-        --[[
-        local max_prefix_w, max_value_w, max_colon_w = -math.huge, -math.huge, -math.huge
-        for item in values(stage_select.items) do
-            for label in range(
-                item.flow_prefix_label,
-                item.time_prefix_label,
-                item.difficulty_prefix_label
-            ) do
-                max_prefix_w = math.max(max_prefix_w, select(1, label:measure()))
-            end
-
-            for label in range(
-                item.flow_value_label,
-                item.time_value_label,
-                item.difficulty_value_label
-            ) do
-                max_value_w = math.max(max_value_w, select(1, label:measure()))
-            end
-
-            for label in range(
-                item.flow_colon_label,
-                item.time_colon_label,
-                item.difficulty_colon_label
-            ) do
-                max_colon_w = math.max(max_colon_w, select(1, label:measure()))
-            end
-        end
-        ]]--
 
         for item in values(stage_select.items) do
             local current_x, current_y = m, m
@@ -460,8 +496,10 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             item.description_label:reformat(current_x, current_y, menu_w - 2 * menu_m, math.huge)
 
             current_y = current_y + select(2, item.description_label:measure())
-            item.frame:reformat(menu_x, menu_y, menu_w, menu_h)
+            item.frame:reformat(0, 0, menu_w, menu_h)
         end
+
+        stage_select.reveal_width = math.max(control_w, menu_w) + 2 * outer_margin
     end
 end
 --- @brief
@@ -494,6 +532,7 @@ function mn.MenuScene:_set_state(next)
     self._state = next
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
+    self._input_blocked = true
 
     local should_shake = next ~= mn.MenuSceneState
     self._camera:set_is_shaking(should_shake)
@@ -528,7 +567,7 @@ function mn.MenuScene:_set_state(next)
         self._player:set_is_bubble(true)
         self._player:set_flow(0)
         self._title_screen.opacity_fade_animation:reset()
-
+        self._stage_select.item_reveal_animation:reset()
         return
     end
 
@@ -541,9 +580,6 @@ function mn.MenuScene:_set_state(next)
         for boundary in values(self._title_screen.boundaries) do
             boundary:set_is_sensor(true)
             boundary:signal_set_is_blocked("collision_start", true)
-        end
-        if next == mn.MenuSceneState.STAGE_SELECT then
-            self._stage_select.item_reveal_animation:reset()
         end
 
     elseif next == mn.MenuSceneState.EXITING then
@@ -562,6 +598,9 @@ function mn.MenuScene:update(delta)
             end)
         end
     end
+
+    if self._input_blocked then self._input_blocked = false end
+    -- keep input subscribers from firing on the same frame they are activated
 
     self._fade:update(delta)
     if not self._initialized then return end
@@ -588,8 +627,8 @@ function mn.MenuScene:update(delta)
 
         -- stay centered, reflect player around walls
         self._camera:set_position(0, 0)
-        local magnitude = rt.settings.menu_scene.title_screen_player_velocity
-        local offset_magnitude = rt.settings.menu_scene.title_screen_player_offset_magnitude
+        local magnitude = rt.settings.menu_scene.title_screen.player_velocity
+        local offset_magnitude = rt.settings.menu_scene.title_screen.player_offset_magnitude
 
         local vx, vy = self._player_velocity_x, self._player_velocity_y
         vx, vy = math.rotate(vx, vy, velocity_offset * offset_magnitude)
@@ -623,7 +662,7 @@ function mn.MenuScene:update(delta)
 
     -- falling or level select
     local px, py = self._player:get_predicted_position()
-    self._shader_fraction = math.clamp(py / rt.settings.menu_scene.falling_fraction_threshold, 0, 1)
+    self._shader_fraction = math.clamp(py / rt.settings.menu_scene.title_screen.falling_fraction_threshold, 0, 1)
     self._player:set_flow(self._shader_fraction)
 
     self._camera:set_shake_frequency(rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(self._shader_fraction))
@@ -640,8 +679,14 @@ function mn.MenuScene:update(delta)
 
     -- transition player to left side of screen
     local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
-    local x_offset = offset_fraction * rt.settings.menu_scene.stage_select_player_alignment * self._bounds.width
+    local x_offset = offset_fraction * rt.settings.menu_scene.stage_select.player_alignment * self._bounds.width
     self._camera:move_to(px + x_offset, py)
+
+    local stage_select = self._stage_select
+    if offset_fraction > 0.5 then
+        stage_select.item_reveal_animation:update(delta)
+        stage_select.page_indicator:update(delta)
+    end
 
     if self._state == mn.MenuSceneState.FALLING then
         -- transition to stage screen once player is in position
@@ -649,8 +694,7 @@ function mn.MenuScene:update(delta)
             self:_set_state(mn.MenuSceneState.STAGE_SELECT)
         end
     elseif self._state == mn.MenuSceneState.STAGE_SELECT then
-        local stage_select = self._stage_select
-        stage_select.item_reveal_animation:update(delta)
+
     end
 end
 
@@ -689,6 +733,8 @@ function mn.MenuScene:draw()
         _title_shader_sdf:bind()
         _title_shader_sdf:send("elapsed", self._shader_elapsed)
         _title_shader_sdf:send("black", _black)
+        _title_shader_sdf:send("camera_offset", self._shader_camera_offset)
+        _title_shader_sdf:send("camera_scale", self._shader_camera_scale)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(title_screen.title_label_sdf, title_screen.title_x, title_screen.title_y)
         _title_shader_sdf:unbind()
@@ -714,13 +760,22 @@ function mn.MenuScene:draw()
 
         title_screen.control_indicator:draw()
         love.graphics.pop()
-    elseif self._state == mn.MenuSceneState.STAGE_SELECT then
+    end
+
+    if self._state == mn.MenuSceneState.FALLING or self._state == mn.MenuSceneState.STAGE_SELECT then
         local stage_select = self._stage_select
         local item = stage_select.items[stage_select.selected_item_i]
 
         love.graphics.push()
+        local offset_x = stage_select.item_reveal_animation:get_value()
+        if math.fract(offset_x) == 0 then
+            love.graphics.translate(math.round(offset_x * stage_select.reveal_width), 0)
+        else
+            love.graphics.translate(offset_x * stage_select.reveal_width, 0)
+        end
+
+        love.graphics.push()
         love.graphics.translate(stage_select.menu_x, stage_select.menu_y)
-        love.graphics.translate(stage_select.item_reveal_animation:get_value() * self._bounds.width * (2  / 3), 0)
 
         for widget in range(
             item.frame,
@@ -741,6 +796,11 @@ function mn.MenuScene:draw()
 
         rt.Palette.FOREGROUND:bind()
         love.graphics.rectangle("fill", item.hrule_x, item.hrule_y, item.hrule_width, item.hrule_height)
+        love.graphics.pop()
+
+        stage_select.page_indicator:draw()
+        self._stage_select.control_indicator:draw()
+
         love.graphics.pop()
     end
 

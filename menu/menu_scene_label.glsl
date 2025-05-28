@@ -116,7 +116,7 @@ float gaussian(float x, float ramp)
 }
 
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
-    vec2 seed = (vertex_position / love_ScreenSize.xy) * 140;
+    vec2 seed = to_uv(vertex_position) * 140;
     vec2 seed_magnitude = 3.5 * 1 / love_ScreenSize.xy;
     texture_coords += vec2(
         gradient_noise(vec3(seed, elapsed)) * seed_magnitude.x,

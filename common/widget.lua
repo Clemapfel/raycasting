@@ -18,6 +18,7 @@ end
 
 --- @brief
 function rt.Widget:realize()
+    self._is_realized = true
 end
 
 --- @brief
