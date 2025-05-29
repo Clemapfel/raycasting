@@ -28,6 +28,7 @@ rt.JustifyMode = meta.enum("JustifyMode", {
 rt.Label = meta.class("Label", rt.Widget)
 
 function rt.Label:instantiate(text, font_size, font)
+    if text == nil then text = "" end
     if font == nil then font = rt.settings.font.default end
     if font_size == nil then font_size = rt.FontSize.DEFAULT end
 

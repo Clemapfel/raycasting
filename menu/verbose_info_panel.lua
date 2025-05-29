@@ -10,6 +10,7 @@ rt.settings.menu.verbose_info_panel = {
 
 mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     VSYNC = "vsync",
+    VSYNC_WIDGET = "vsync_widget",
     FULLSCREEN = "fullscreen",
     MSAA = "msaa",
     MSAA_WIDGET = "msaa_visualization_widget",
@@ -46,9 +47,16 @@ end
 
 --- @brief
 function mn.VerboseInfoPanel:show(...)
+    local to_iterate
+    if meta.is_table(select(1, ...)) then
+        to_iterate = select(1, ...)
+    else
+        to_iterate = { ... }
+    end
+
     self._items = {}
 
-    for object in range(...) do
+    for object in values(to_iterate) do
         local item = mn.VerboseInfoPanel.Item()
         item:create_from(object)
         if self._frame_visible then

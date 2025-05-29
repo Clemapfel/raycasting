@@ -16,7 +16,7 @@ end
 function rt.graphics.stencil(new_value, stencil, mode)
     if mode == nil then mode = rt.StencilMode.REPLACE end
     local mask_r, mask_g, mask_b, mask_a = love.graphics.getColorMask()
-    love.graphics.setStencilState(mode, "always", new_value, 255)
+    love.graphics.setStencilState(mode, "always", new_value)
     love.graphics.setColorMask(false, false, false, false)
     if type(stencil) == "function" then stencil() else stencil:draw() end
     love.graphics.setColorMask(mask_r, mask_g, mask_b, mask_a)

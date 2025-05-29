@@ -1093,7 +1093,8 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
         label:set_justify_mode(rt.JustifyMode.CENTER)
         label:realize()
         local label_w, label_h = label:measure()
-        label:reformat(0, y + 0.5 * height - 0.5 * label_h - y_offset, width, label_h)
+        local label_offset = 1 * rt.get_pixel_scale() -- why is this necessary?
+        label:reformat(0 + label_offset, y + 0.5 * height - 0.5 * label_h - y_offset, width, label_h)
 
         self._content = {
             outer,
@@ -1142,6 +1143,8 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
         local rect_r = (0.6 * width - 4 * line_width) / 2
         local spacer = 0
 
+        local label_offset = 0.5 * line_width * rt.get_pixel_scale()
+
         local right_center_x, right_center_y = center_x + rect_r + spacer, center_y
         local left_center_x, left_center_y = center_x - rect_r - spacer, center_y
 
@@ -1149,13 +1152,13 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
         local right_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_outline_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_label_w, right_label_h = right_label:measure()
-        right_label:reformat(right_center_x - rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
+        right_label:reformat(right_center_x - rect_r + label_offset, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
 
         local left_base = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_outline_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_label_w, left_label_h = left_label:measure()
-        left_label:reformat(left_center_x - rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
+        left_label:reformat(left_center_x - rect_r + label_offset, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
 
         local corner_radius = 0.05 * width
         for base in range(right_base, left_base) do
@@ -1220,7 +1223,7 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
 
         for label in range(top_label, right_label, bottom_label, left_label) do
             label:realize()
-            label:set_justify_mode(rt.JustifyMode.CENTER)
+            label:set_justify_mode(rt.JustifyMode.LEFT)
         end
 
         local line_width = 2
@@ -1231,29 +1234,31 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
         local bottom_center_x, bottom_center_y = center_x, center_y
         local left_center_x, left_center_y = center_x - 2 * rect_r, center_y
 
+        local label_offset = 0.5 * line_width * rt.get_pixel_scale() -- why is this necessary?
+
         local top_base = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local top_outline = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local top_outline_outline = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local top_label_w, top_label_h = top_label:measure()
-        top_label:reformat(top_center_x - rect_r, top_center_y - 0.5 * top_label_h, 2 * rect_r, 2 * rect_r)
+        top_label:reformat(top_center_x - 0.5 * top_label_w + label_offset, top_center_y - 0.5 * top_label_h, 2 * rect_r, 2 * rect_r)
 
         local right_base = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_outline_outline = _Rectangle(right_center_x - rect_r, right_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local right_label_w, right_label_h = right_label:measure()
-        right_label:reformat(right_center_x - rect_r, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
+        right_label:reformat(right_center_x - 0.5 * right_label_w + label_offset, right_center_y - 0.5 * right_label_h, 2 * rect_r, 2 * rect_r)
 
         local bottom_base = _Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local bottom_outline = _Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local bottom_outline_outline = _Rectangle(bottom_center_x - rect_r, bottom_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local bottom_label_w, bottom_label_h = bottom_label:measure()
-        bottom_label:reformat(bottom_center_x - rect_r, bottom_center_y - 0.5 * bottom_label_h, 2 * rect_r, 2 * rect_r)
+        bottom_label:reformat(bottom_center_x - 0.5 * bottom_label_w + label_offset, bottom_center_y - 0.5 * bottom_label_h, 2 * rect_r, 2 * rect_r)
 
         local left_base = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_outline_outline = _Rectangle(left_center_x - rect_r, left_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local left_label_w, left_label_h = left_label:measure()
-        left_label:reformat(left_center_x - rect_r, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
+        left_label:reformat(left_center_x - 0.5 * left_label_w + label_offset, left_center_y - 0.5 * left_label_h, 2 * rect_r, 2 * rect_r)
 
         local corner_radius = 0.05 * width
         for base in range(top_base, right_base, bottom_base, left_base) do

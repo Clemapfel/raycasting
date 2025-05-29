@@ -20,10 +20,29 @@ do -- generate enum for all input buttons
 end
 
 --- @brief
-function rt.ControlIndicator:instantiate(layout, use_frame)
+function rt.ControlIndicator:instantiate(...)
+    local layout = {}
+    local n = select("#", ...)
+    if n > 0 then
+        if meta.is_table(select(1, ...)) then
+            layout = select(1, ...)
+        else
+            for i = 1, n, 2 do
+                table.insert(layout, { select(i + 0, ...), select(i + 1, ...) })
+            end
+        end
+    end
+
+    local i = 1
+    for button_text in values(layout) do
+        meta.assert_enum_value(button_text[1], rt.ControlIndicatorButton, i)
+        meta.assert_typeof(button_text[2], "String", i)
+        i = i + 1
+    end
+
     meta.install(self, {
-        _use_frame = use_frame or true,
-        _layout = layout or {},
+        _use_frame = true,
+        _layout = layout,
         _keyboard_indicators = {},  -- Table<rt.KeybindingsIndicator>
         _gamepad_indicators = {},   -- Table<rt.KeybindingsIndicator>
         _labels = {},               -- Table<rt.Label>
@@ -107,7 +126,8 @@ function rt.ControlIndicator:create_from(layout)
     self._keyboard_indicators = {}
     self._gamepad_indicators = {}
 
-    for button, text in pairs(self._layout) do
+    for button_text in values(self._layout) do
+        local button, text = table.unpack(button_text)
         local keyboard_indicator = rt.KeybindingIndicator()
         local gamepad_indicator = rt.KeybindingIndicator()
 

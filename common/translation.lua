@@ -94,6 +94,9 @@ rt.Translation = rt.initialize_translation({
     verbose_info = {
         vsync_title = "VSYNC",
         vsync_description = "TODO",
+        vsync_widget = function(fps)
+            return "Current FPS: " .. fps
+        end,
 
         fullscreen_title = "Fullscreen",
         fullscreen_description = "TODO",
