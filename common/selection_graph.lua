@@ -26,6 +26,8 @@ local _noop_function = function() return nil end
 --- @signal rt.InputButton.X (rt.SelectionGraphNode) -> nil
 --- @signal rt.InputButton.Y (rt.SelectionGraphNode) -> nil
 rt.SelectionGraphNode = meta.class("SelectionGraphNode", rt.Drawable)
+
+--- @brief
 function rt.SelectionGraphNode:instantiate(aabb)
     meta.install(self, {
         _aabb = rt.AABB(0, 0, 1, 1),

@@ -119,6 +119,11 @@ rt.Translation = rt.initialize_translation({
     }
 
     -- settings screen
-
+    settings_scene = {
+        vsync_prefix = "VSync",
+        vsync_adaptive = "Adaptive",
+        vsync_off = "Off",
+        vsync_on = "On"
+    }
 
 })
