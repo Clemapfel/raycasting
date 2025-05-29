@@ -90,4 +90,35 @@ rt.Translation = rt.initialize_translation({
         }
     },
 
+    -- verbose info
+    verbose_info = {
+        vsync_title = "VSYNC",
+        vsync_description = "TODO",
+
+        fullscreen_title = "Fullscreen",
+        fullscreen_description = "TODO",
+
+        msaa_title = "MSAA",
+        msaa_description = "TODO",
+
+        sound_effect_level_title = "Sound Effects",
+        sound_effect_level_description = "TODO",
+
+        music_level_title = "Music",
+        music_level_description = "TODO",
+
+        shake_enabled = "Screen Shake",
+        shake_enabled_description = "TODO",
+
+        joystick_deadzone_title = "Deadzone",
+        joystick_deadzone_description = "TODO",
+
+        text_speed_title = "Text Speed",
+        text_speed_description = "TODO",
+        text_speed_visualization_text = "asbdl aiudbalisda idbasd baslidbalis dba"
+    }
+
+    -- settings screen
+
+
 })

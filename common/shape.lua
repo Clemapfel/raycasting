@@ -1,6 +1,7 @@
 require "common.color"
 
 local _unpack = table.unpack
+local _lg = love.graphics
 
 --- @class rt.Shape
 rt.Shape = meta.abstract_class("Shape")
@@ -10,8 +11,25 @@ function rt.Shape:set_color(color_or_r, g, b, a)
     if meta.isa(color_or_r, rt.Color) then
         self._color = { color_or_r:unpack() }
     else
-        self._color = { color_or_r, g, b, a }
+        meta.assert(color_or_r, "Number", g, "Number", b, "Number")
+        self._color = { color_or_r, g, b, a or 1 }
     end
+end
+
+--- @brief
+function rt.Shape:set_opacity(v)
+    self._opacity = v
+end
+
+local _set_color = function(self)
+    if self._color == nil then return end
+    local r, g, b, a = _unpack(self._color)
+
+    if self._opacity ~= nil then
+        a = a * self._opacity
+    end
+
+    _lg.setColor(r, g, b, a)
 end
 
 --- @brief
@@ -59,15 +77,13 @@ end
 
 --- @brief
 function rt.Rectangle:draw()
-    if self._color ~= nil then
-        love.graphics.setColor(_unpack(self._color))
-    end
+    _set_color(self)
 
     if self._line_width ~= nil and self._mode == "line" then
-        love.graphics.setLineWidth(self._line_width)
+        _lg.setLineWidth(self._line_width)
     end
 
-    love.graphics.rectangle(self._mode or "fill", _unpack(self._data))
+    _lg.rectangle(self._mode or "fill", _unpack(self._data))
 end
 
 --- ### ELLIPSE ###
@@ -109,15 +125,13 @@ end
 
 --- @brief
 function rt.Ellipse:draw()
-    if self._color ~= nil then
-        love.graphics.setColor(_unpack(self._color))
-    end
+    _set_color(self)
 
     if self._line_width ~= nil and self._mode == "line" then
-        love.graphics.setLineWidth(self._line_width)
+        _lg.setLineWidth(self._line_width)
     end
 
-    love.graphics.ellipse(self._mode or "fill", _unpack(self._data))
+    _lg.ellipse(self._mode or "fill", _unpack(self._data))
 end
 
 --- ### POLYGON ###
@@ -158,15 +172,13 @@ end
 
 --- @brief
 function rt.Polygon:draw()
-    if self._color ~= nil then
-        love.graphics.setColor(_unpack(self._color))
-    end
+    _set_color(self)
 
     if self._line_width ~= nil and self._mode == "line" then
-        love.graphics.setLineWidth(self._line_width)
+        _lg.setLineWidth(self._line_width)
     end
 
-    love.graphics.polygon(self._mode or "fill", self._data)
+    _lg.polygon(self._mode or "fill", self._data)
 end
 
 --- ### LINE ###
@@ -181,6 +193,12 @@ rt.LineJoin = meta.enum("LineJoin", {
 --- @class rt.Line
 rt.Line = meta.class("Line", rt.Shape)
 
+function rt.LineLoop(...)
+    local out = rt.Line(...)
+    out:set_is_loop(true)
+    return out
+end
+
 --- @brief
 function rt.Line:instantiate(...)
     local n = select("#", ...)
@@ -191,6 +209,16 @@ function rt.Line:instantiate(...)
     else
         self._data = { ... }
     end
+
+    if self._is_loop == true then
+        table.insert(self._data, self._data[1])
+        table.insert(self._data, self._data[2])
+    end
+end
+
+--- @brief
+function rt.Line:set_is_loop(b)
+    self._is_loop = b
 end
 
 --- @brief
@@ -199,6 +227,11 @@ function rt.Line:reformat(...)
         self._data = ...
     else
         self._data = { ... }
+    end
+
+    if self._is_loop then
+        table.insert(self._data, self._data[1])
+        table.insert(self._data, self._data[2])
     end
 end
 
@@ -209,17 +242,15 @@ end
 
 --- @brief
 function rt.Line:draw()
-    if self._color ~= nil then
-        love.graphics.setColor(_unpack(self._color))
-    end
+    _set_color(self)
 
     if self._line_width ~= nil then
-        love.graphics.setLineWidth(self._line_width)
+        _lg.setLineWidth(self._line_width)
     end
 
     if self._line_join ~= nil then
-        love.graphics.setLineJoin(self._line_join)
+        _lg.setLineJoin(self._line_join)
     end
 
-    love.graphics.line(self._data)
+    _lg.line(self._data)
 end

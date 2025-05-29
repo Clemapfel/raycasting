@@ -514,6 +514,17 @@ function string.concat(delimiter, ...)
     return out
 end
 
+--- @brief concatenate vararg into string
+function string.paste(...)
+    local values = {...}
+    local out = {}
+    for _, v in pairs(values) do
+        table.insert(out, tostring(v))
+    end
+    return table.concat(out)
+end
+
+
 --- @brief
 function string.format_time(duration)
     local hours = math.floor(duration / 3600)

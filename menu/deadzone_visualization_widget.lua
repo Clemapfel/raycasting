@@ -4,15 +4,13 @@ require "common.shape"
 --- @class mn.DeadzoneVisualizationWidget
 mn.DeadzoneVisualizationWidget = meta.class("DeadzoneVisualizationWidget", rt.Widget)
 
-function mn.DeadzoneVisualizationWidget:instantiate(scene)
-    meta.assert(scene, "SettingsScene")
+function mn.DeadzoneVisualizationWidget:instantiate()
     meta.install(self, {
-        _scene = scene,
         _inner_shape = rt.Circle(),
         _inner_shape_outline = rt.Circle(),
         _outer_shape = rt.Circle(),
         _outer_shape_outline = rt.Circle(),
-        _last_deadzone = rt.settings.input_manager.joystick_deadzone
+        _last_deadzone = rt.GameState:get_joystick_deadzone()
     })
 end
 
@@ -51,10 +49,8 @@ end
 
 --- @override
 function mn.DeadzoneVisualizationWidget:update(delta)
-    if self._scene:get_is_active() ~= true then return end
-
-    if rt.settings.input_manager.deadzone ~= self._last_deadzone then
-        self._last_deadzone = rt.InputControllerState.deadzone
+    if rt.GameState:get_joystick_deadzone() ~= self._last_deadzone then
+        self._last_deadzone = rt.GameState:get_joystick_deadzone()
         self:reformat()
     end
 end

@@ -68,7 +68,7 @@ function rt.Label:instantiate(text, font_size, font)
         _width = 0,
         _height = 0,
         _first_wrap = true,
-        _last_window_height = love.graphics.getDimensions(),
+        _last_window_height = love.graphics.getHeight(),
 
         _total_beats = 0,
     })
@@ -924,10 +924,7 @@ end
 function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end
 
-    if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed end
-
-    self._font:initialize()
-    self._monospace_font:initialize()
+    if n_characters_per_second == nil then n_characters_per_second = rt.settings.label.scroll_speed * rt.GameState:get_text_speed() end
 
     local so_far = elapsed
     local step = 1 / n_characters_per_second

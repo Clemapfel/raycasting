@@ -10,13 +10,20 @@ rt.settings.game_state = {
     grade_a_threshold = 0.85,
 }
 
-rt.StageGrade = meta.enum("StageGrade", {
-    DOUBLE_S = "SS",
-    S = "S",
-    A = "A",
-    B = "B",
-    F = "F",
-    NONE = "NONE",
+--- @class rt.VSyncMode
+rt.VSyncMode = meta.enum("VSyncMode", {
+    ADAPTIVE = -1,
+    OFF = 0,
+    ON = 1
+})
+
+--- @class rt.MSAAQuality
+rt.MSAAQuality = meta.enum("MSAAQuality", {
+    OFF = 0,
+    GOOD = 2,
+    BETTER = 4,
+    BEST = 8,
+    MAX = 16
 })
 
 --- @brief rt.GameState
@@ -24,172 +31,118 @@ rt.GameState = meta.class("GameState")
 
 --- @brief
 function rt.GameState:instantiate()
-    self._stages = {}
-    self._stage_id_to_best_time = {}
-    self._stage_id_to_best_flow = {}
+    local width, height, mode = love.window.getMode()
 
-    local prefix = rt.settings.overworld.stage_config.config_path
-    for file in values(love.filesystem.getDirectoryItems(prefix)) do
-        local id = string.match(file, "^([^~].*)%.lua$") -- .lua not starting with +
-        if id ~= nil then
-            local path = prefix .. "/" .. id .. ".lua"
-            local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
-            if not load_success then
-                rt.error("In mn.StageSelectScene: error when parsing file at `" .. path .. "`: " .. chunk_or_error)
-                return
-            end
+    -- common
+    self._state = {
+       is_fullscreen = mode.is_fullscreen,
+       vsync = mode.vsync,
+       msaa = mode.msaa,
+       resolution_x = width,
+       resolution_y = height,
+       sound_effect_level = 1.0,
+       music_level = 1.0,
+       text_speed = 1.0,
+       joystick_deadzone = 0.15,
+       trigger_deadzone = 0.05
+    }
 
-            if love_error ~= nil then
-                rt.error("In mn.StageSelectScene: error when loading file at `" .. path .. "`: " .. love_error)
-                return
-            end
-
-            local chunk_success, config_or_error = pcall(chunk_or_error)
-            if not chunk_success then
-                rt.error("In mn.StageSelectScene: error when running file at `" .. path .. "`: " .. config_or_error)
-                return
-            end
-
-            local _warning = function()  end -- TODO rt.warning
-
-            local config = config_or_error
-            local title = config["title"]
-            if title == nil then
-                title = id
-                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `title` property")
-            end
-
-            local difficulty = config["difficulty"]
-            if difficulty == nil then
-                difficulty = 0
-                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `difficulty` property")
-            end
-
-            local description = config["description"]
-            if description == nil then
-                description = "(no description)"
-                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `description` property")
-            end
-
-            self._stages[id] = {
-                id = id,
-                path = path,
-                title = title,
-                difficulty = difficulty,
-                description = description,
-                was_beaten = true,
-                best_time = rt.random.number(0, 1000), -- seconds
-                best_flow_percentage = rt.random.number(0.99, 1) -- fraction
-            }
-
-            -- TODO: load from safe file
-        end
+    -- read settings from conf.lua
+    for setter_setting in range(
+        { self.set_music_level, _G.SETTINGS.music_level },
+        { self.set_sound_effect_level, _G.SETTINGS.sound_effect_level },
+        { self.set_text_speed, _G.SETTINGS.text_speed },
+        { self.set_joystick_deadzone, _G.SETTINGS.joystick_deadzone },
+        { self.set_trigger_deadzone, _G.SETTINGS.trigger_deadzone }
+    ) do
+        local setter, setting = table.unpack(setter_setting)
+        if setting ~= nil then setter(self, setting) end
     end
+
+    self:_initialize_stage()
 
     self._player = rt.Player()
 end
 
 --- @brief
-function rt.GameState:_get_stage(id, scope)
-    local stage = self._stages[id]
-    if stage == nil then
-        rt.error("In rt.GameState." .. scope .. "`: no stage with id `" .. id .. "`")
-    end
-    return stage
-end
-
---- @brie
-function rt.GameState:save()
-    -- TODO
+function rt.GameState:set_vsync_mode(mode)
+    meta.assert_enum_value(mode, rt.VSyncMode, 1)
+    self._state.vsync = mode
+    love.window.setVSync(mode)
 end
 
 --- @brief
-function rt.GameState:get_stage_best_time(id)
-    meta.assert(id, "String")
-    local stage = self:_get_stage(id, "get_stage_best_time")
-    return stage.best_time
+function rt.GameState:get_vsync_mode(mode)
+    return love.window.getVSync()
 end
 
 --- @brief
-function rt.GameState:set_stage_best_time(id, seconds)
-    meta.assert(id, "String", seconds, "Number")
-    local stage = self:_get_stage(id, "set_stage_best_time")
-    stage.best_time = seconds
-    self:save()
+function rt.GameState:set_is_fullscreen(b)
+    meta.assert(b, "Boolean")
+    self._state.is_fullscreen = b
+    love.window.setFullscreen(b)
 end
 
 --- @brief
-function rt.GameState:get_stage_best_flow_percentage(id)
-    meta.assert(id, "String")
-    local stage = self:_get_stage(id, "get_stage_best_flow_percentage")
-    return stage.best_flow_percentage
+function rt.GameState:get_is_fullscreen()
+    return love.window.getFullscreen()
 end
 
 --- @brief
-function rt.GameState:set_stage_best_flow_percentage(id, fraction)
-    meta.assert(id, "String", fraction, "Number")
-    assert(fraction >= 0 and fraction <= 1, "In rt.GameState.set_stage_best_flow_percentage: fraction is not in [0, 1]")
-    local stage = self:_get_stage(id, "set_stage_best_flow_percentage")
-    stage.best_flow_percentage = fraction
-    self:save()
+function rt.GameState:set_sound_effect_level(level)
+    meta.assert(level, "Number")
+    self._state.sound_effect_level = math.clamp(level, 0, 1)
 end
 
 --- @brief
-function rt.GameState:get_stage_title(id)
-    local stage = self:_get_stage(id, "get_stage_name")
-    return stage.title
+function rt.GameState:get_sound_effect_leve()
+    return self._state.sound_effect_level
 end
 
 --- @brief
-function rt.GameState:get_stage_difficulty(id)
-    local stage = self:_get_stage(id, "get_stage_difficulty")
-    return stage.difficulty
+function rt.GameState:set_music_level(level)
+    meta.assert(level, "Number")
+    self._state.music_level = math.clamp(level, 0, 1)
 end
 
 --- @brief
-function rt.GameState:get_stage_was_beaten(id)
-    local stage = self:_get_stage(id, "get_stage_was_beaten")
-    return stage.was_beaten
+function rt.GameState:get_music_level()
+    return self._state.music_level
 end
 
 --- @brief
-function rt.GameState:get_stage_description(id)
-    local stage = self:_get_stage(id, "get_stage_description")
-    return stage.description
+function rt.GameState:set_text_speed(fraction)
+    meta.assert(fraction, "Number")
+    self._state.text_speed = fraction -- no clamp
 end
 
 --- @brief
-function rt.GameState:get_stage_grade(id)
-    -- TODO time
-    local stage = self:_get_stage(id, "get_stage_grade")
-    if stage.was_beaten == false then
-        return rt.StageGrade.NONE
-    end
-
-    local flow = stage.best_flow_percentage
-    if flow >= rt.settings.game_state.grade_double_s_threshold then
-        return rt.StageGrade.DOUBLE_S
-    elseif flow >= rt.settings.game_state.grade_s_threshold then
-        return rt.StageGrade.S
-    elseif flow >= rt.settings.game_state.grade_a_threshold then
-        return rt.StageGrade.A
-    else
-        return rt.StageGrade.F
-    end
+function rt.GameState:get_text_speed()
+    return self._state.text_speed
 end
 
 --- @brief
-function rt.GameState:list_stage_ids()
-    local out = {}
-    for id in keys(self._stages) do
-        table.insert(out, id)
-    end
-    return out
+function rt.GameState:set_joystick_deadzone(fraction)
+    meta.assert(fraction, "Number")
+    self._state.joystick_deadzone = math.clamp(fraction, 0, 0.9) -- not 1, or controller would deadlock
 end
 
 --- @brief
-function rt.GameState:get_player()
-    return self._player
+function rt.GameState:get_joystick_deadzone()
+    return self._state.joystick_deadzone
 end
+
+--- @brief
+function rt.GameState:set_trigger_deadzone(fraction)
+    meta.assert(fraction, "Number")
+    self._state.trigger_deadzone = math.clamp(fraction, 0, 0.9)
+end
+
+--- @brief
+function rt.GameState:get_trigger_deadzone()
+    return self._state.trigger_deadzone
+end
+
+require "common.game_state_stage"
 
 rt.GameState = rt.GameState()

@@ -1,10 +1,13 @@
+require "common.shape"
+require "common.blend_mode"
+
 rt.settings.direction_indicator = {
     min_line_width = rt.settings.margin_unit,
     arrow_offset = 0 -- thickness factor
 }
 
 --- @class rt.Direction
-rt.Direction = meta.new_enum("Direction", {
+rt.Direction = meta.enum("Direction", {
     UP = "up",
     RIGHT = "right",
     DOWN = "down",
@@ -14,35 +17,36 @@ rt.Direction = meta.new_enum("Direction", {
 
 --- @class rt.DirectionIndicator
 rt.DirectionIndicator = meta.class("DirectionIndicator", rt.Widget)
+
+--- @brief
 function rt.DirectionIndicator:instantiate(direction)
     if direction == nil then
         direction = rt.Direction.NONE
     end
 
-    local out = meta.new(rt.DirectionIndicator, {
+    meta.install(self, {
         _direction = direction,
         _color = {},
-        _ring = { 0, 0, 1 },
-        _ring_outline_outer = rt.Circle(0, 0, 1),
-        _ring_outline_inner = rt.Circle(0, 0, 1),
-        _arrow = rt.Polygon(0, 0, 1, 1, 2, 2, 3, 3),
-        _arrow_outline = rt.LineLoop(0, 0, 1, 1)
+        _ring = rt.Circle(),
+        _ring_outline_outer = rt.Circle(),
+        _ring_outline_inner = rt.Circle(),
+        _arrow = rt.Polygon(),
+        _arrow_outline = rt.LineLoop()
     })
 
-    out:set_color(rt.Palette.FOREGROUND)
+    self:set_color(rt.Palette.FOREGROUND)
 
-    out._ring:set_is_outline(true)
-    out._ring_outline_inner:set_is_outline(true)
-    out._ring_outline_outer:set_is_outline(true)
+    self._ring:set_is_outline(true)
+    self._ring_outline_inner:set_is_outline(true)
+    self._ring_outline_outer:set_is_outline(true)
 
-    out._ring:set_color(out._color)
-    out._ring_outline_inner:set_color(rt.Palette.BASE_OUTLINE)
-    out._ring_outline_outer:set_color(rt.Palette.BASE_OUTLINE)
+    self._ring:set_color(self._color)
+    self._ring_outline_inner:set_color(rt.Palette.BASE_OUTLINE)
+    self._ring_outline_outer:set_color(rt.Palette.BASE_OUTLINE)
 
-    out._arrow:set_color(out._color)
-    out._arrow_outline:set_color(rt.Palette.BASE_OUTLINE)
-    out._arrow_outline:set_is_outline(true)
-    return out
+    self._arrow:set_color(self._color)
+    self._arrow_outline:set_color(rt.Palette.BASE_OUTLINE)
+    return self
 end
 
 --- @overload rt.Drawable.draw
@@ -134,12 +138,8 @@ function rt.DirectionIndicator:size_allocate(x, y, width, height)
             vertices[i] = math.round(vertices[i])
         end
 
-        self._arrow:resize(splat(vertices))
-
-        -- duplicate last vertex for loop
-        table.insert(vertices, vertices[1])
-        table.insert(vertices, vertices[2])
-        self._arrow_outline:resize(splat(vertices))
+        self._arrow:reformat(vertices)
+        self._arrow_outline:reformat(vertices)
     end
 end
 
@@ -158,10 +158,7 @@ end
 
 --- @brief
 function rt.DirectionIndicator:set_color(color)
-    if meta.is_hsva(color) then
-        color = rt.hsva_to_rgba(color)
-    end
-
+    meta.assert(color, rt.RGBA)
     self._color = color
     self._arrow:set_color(self._color)
     self._ring:set_color(self._color)

@@ -5,10 +5,8 @@ require "common.shape"
 mn.MSAAVisualizationWidget = meta.class("MSAAVisualizationWidget", rt.Widget)
 
 --- @brief
-function mn.MSAAVisualizationWidget:instantiate(scene)
-    meta.assert(scene, "SettingsScene")
+function mn.MSAAVisualizationWidget:instantiate()
     return meta.install(self, {
-        _scene = scene,
         _line = rt.Line(),
         _line_radius_x = 1,
         _line_radius_y = 1,

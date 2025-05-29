@@ -1,10 +1,5 @@
 require "common.input_mapping"
 
-rt.settings.input_manager = {
-    joystick_deadzone = 0.15,
-    trigger_deadzone = 0.05
-}
-
 --- @class rt.InputManager
 rt.InputManager = meta.class("rt.InputManager")
 
@@ -233,7 +228,7 @@ local _axis_warning_printed = {}
 love.gamepadaxis = function(joystick, axis, value)
     rt.InputManager._last_active_joystick = joystick
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
-    local joystick_deadzone = rt.settings.input_manager.joystick_deadzone
+    local joystick_deadzone = rt.GameState:get_joystick_deadzone()
     local apply_joystick_deadzone = function(x)
         if x > joystick_deadzone then
             return (x - joystick_deadzone) / (1 - joystick_deadzone)
@@ -244,7 +239,7 @@ love.gamepadaxis = function(joystick, axis, value)
         end
     end
 
-    local trigger_deadzone = rt.settings.input_manager.trigger_deadzone
+    local trigger_deadzone = rt.GameState:get_trigger_deadzone()
     local apply_trigger_deadzone = function(x)
         if x < trigger_deadzone then
             return 0

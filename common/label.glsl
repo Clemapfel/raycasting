@@ -77,6 +77,7 @@ uniform float opacity = 1;
 
 #define PI 3.1415926535897932384626433832795
 
+
 flat varying int letter_index;
 
 vec4 position(mat4 transform, vec4 vertex_position) {
