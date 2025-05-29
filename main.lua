@@ -13,6 +13,14 @@ _input:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+require "menu.settings_scene"
+local temp_scene = mn.SettingsScene()
+
+require "menu.deadzone_visualization_widget"
+local temp = mn.DeadzoneVisualizationWidget(temp_scene)
+temp:realize()
+temp:reformat(50, 50, 100, 100)
+
 love.load = function(args)
     require "menu.menu_scene"
     rt.SceneManager:set_scene(mn.MenuScene)
@@ -23,10 +31,14 @@ end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
+
+    temp:update(delta)
 end
 
 love.draw = function()
     rt.SceneManager:draw()
+
+    temp:draw()
 end
 
 love.resize = function(width, height)

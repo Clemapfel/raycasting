@@ -1,5 +1,7 @@
+rt.Color = meta.abstract_class("Color")
+
 --- @class RGBA
-rt.RGBA = meta.class("RGBA")
+rt.RGBA = meta.class("RGBA", rt.Color)
 
 --- @brief
 function rt.RGBA:instantiate(r, g, b, a)
@@ -27,7 +29,7 @@ function rt.RGBA:clone()
 end
 
 --- @class HSVA
-rt.HSVA = meta.class("HSVA")
+rt.HSVA = meta.class("HSVA", rt.Color)
 
 --- @brief
 function rt.HSVA:instantiate(h, s, v, a)
@@ -51,7 +53,7 @@ function rt.HSVA:bind()
 end
 
 --- @class LCHA
-rt.LCHA = meta.class("LCHA")
+rt.LCHA = meta.class("LCHA", rt.Color)
 
 --- @brief
 function rt.LCHA:instantiate(l, c, h, a)
