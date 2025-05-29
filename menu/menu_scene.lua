@@ -804,6 +804,11 @@ function mn.MenuScene:draw()
         love.graphics.push()
         love.graphics.translate(stage_select.menu_x, stage_select.menu_y)
 
+        if _outline_shader == nil then
+            _outline_shader = rt.Shader("common/player_body_outline.glsl")
+            _outline_canvas = rt.RenderTexture(love.graphics.getDimensions())
+        end
+
         for widget in range(
             item.frame,
             item.title_label,
