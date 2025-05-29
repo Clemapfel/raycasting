@@ -70,7 +70,9 @@ function rt.Camera:bind()
     love.graphics.translate(-origin_x, -origin_y)
     love.graphics.translate(-_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h)
 
-    love.graphics.translate(self._shake_offset_x, self._shake_offset_y)
+    if rt.GameState:get_is_screen_shake_enabled() then
+        love.graphics.translate(self._shake_offset_x, self._shake_offset_y)
+    end
 end
 
 --- @brief
@@ -336,7 +338,13 @@ end
 --- @brief
 function rt.Camera:get_offset()
     local w, h = love.graphics.getDimensions()
-    local x_offset = -_floor(self._current_x) + _floor(0.5 * w) + self._shake_offset_x
-    local y_offset = -_floor(self._current_y) + _floor(0.5 * h) + self._shake_offset_y
+    local x_offset = -_floor(self._current_x) + _floor(0.5 * w)
+    local y_offset = -_floor(self._current_y) + _floor(0.5 * h)
+
+    if rt.GameState:get_is_screen_shake_enabled() then
+        x_offset = x_offset + self._shake_offset_x
+        y_offset = y_offset + self._shake_offset_y
+    end
+
     return x_offset, y_offset
 end

@@ -151,13 +151,13 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
     self.object = nil
     self._is_realized = false
 
-    if which == rt.VerboseInfoObject.MSAA_WIDGET then
+    if which == mn.VerboseInfoObject.MSAA_WIDGET then
         self:create_as_msaa_widget()
         return
-    elseif which == rt.VerboseInfoObject.DEADZONE_WIDGET then
+    elseif which == mn.VerboseInfoObject.JOYSTICK_DEADZONE_WIDGET then
         self:create_as_deadzone_widget()
         return
-    elseif which == rt.VerboseInfoObject.TEXT_SPEED_WIDGET then
+    elseif which == mn.VerboseInfoObject.TEXT_SPEED_WIDGET then
         self:create_as_text_speed_widget()
         return
     end
@@ -173,27 +173,27 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
     local translation = rt.Translation.verbose_info
     if _titles == nil then
         _titles = {
-            [rt.VerboseInfoObject.VSYNC] = format_title(translation.vsync_title),
-            [rt.VerboseInfoObject.FULLSCREEN] = format_title(translation.fullscreen_title),
-            [rt.VerboseInfoObject.MSAA] = format_title(translation.msaa_title),
-            [rt.VerboseInfoObject.SOUND_EFFECT_LEVEL] = format_title(translation.sound_effect_level_title),
-            [rt.VerboseInfoObject.MUSIC_LEVEL] = format_title(translation.music_level_title),
-            [rt.VerboseInfoObject.SHAKE_ENABLED] = format_title(translation.shake_enabled),
-            [rt.VerboseInfoObject.DEADZONE] = format_title(translation.joystick_deadzone_title),
-            [rt.VerboseInfoObject.TEXT_SPEED] = format_title(translation.text_speed_title)
+            [mn.VerboseInfoObject.VSYNC] = format_title(translation.vsync_title),
+            [mn.VerboseInfoObject.FULLSCREEN] = format_title(translation.fullscreen_title),
+            [mn.VerboseInfoObject.MSAA] = format_title(translation.msaa_title),
+            [mn.VerboseInfoObject.SOUND_EFFECT_LEVEL] = format_title(translation.sound_effect_level_title),
+            [mn.VerboseInfoObject.MUSIC_LEVEL] = format_title(translation.music_level_title),
+            [mn.VerboseInfoObject.SHAKE_ENABLED] = format_title(translation.shake_enabled),
+            [mn.VerboseInfoObject.JOYSTICK_DEADZONE] = format_title(translation.joystick_deadzone_title),
+            [mn.VerboseInfoObject.TEXT_SPEED] = format_title(translation.text_speed_title)
         }
     end
 
     if _descriptions == nil then
         _descriptions = {
-            [rt.VerboseInfoObject.VSYNC] = format_description(translation.vsync_description),
-            [rt.VerboseInfoObject.FULLSCREEN] = format_description(translation.fullscreen_description),
-            [rt.VerboseInfoObject.MSAA] = format_description(translation.msaa_description),
-            [rt.VerboseInfoObject.SOUND_EFFECT_LEVEL] = format_description(translation.sound_effect_level_description),
-            [rt.VerboseInfoObject.MUSIC_LEVEL] = format_description(translation.music_level_description),
-            [rt.VerboseInfoObject.SHAKE_ENABLED] = format_description(translation.shake_enabled_description),
-            [rt.VerboseInfoObject.DEADZONE] = format_description(translation.joystick_deadzone_description),
-            [rt.VerboseInfoObject.TEXT_SPEED] = format_description(translation.text_speed_description)
+            [mn.VerboseInfoObject.VSYNC] = format_description(translation.vsync_description),
+            [mn.VerboseInfoObject.FULLSCREEN] = format_description(translation.fullscreen_description),
+            [mn.VerboseInfoObject.MSAA] = format_description(translation.msaa_description),
+            [mn.VerboseInfoObject.SOUND_EFFECT_LEVEL] = format_description(translation.sound_effect_level_description),
+            [mn.VerboseInfoObject.MUSIC_LEVEL] = format_description(translation.music_level_description),
+            [mn.VerboseInfoObject.SHAKE_ENABLED] = format_description(translation.shake_enabled_description),
+            [mn.VerboseInfoObject.JOYSTICK_DEADZONE] = format_description(translation.joystick_deadzone_description),
+            [mn.VerboseInfoObject.TEXT_SPEED] = format_description(translation.text_speed_description)
         }
     end
 

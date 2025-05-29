@@ -116,14 +116,42 @@ rt.Translation = rt.initialize_translation({
         text_speed_title = "Text Speed",
         text_speed_description = "TODO",
         text_speed_visualization_text = "asbdl aiudbalisda idbasd baslidbalis dba"
-    }
+    },
 
     -- settings screen
     settings_scene = {
+        heading = "Settings",
+
+        control_indicator_move = "Select",
+        control_indicator_back = "Back",
+        control_indicator_restore_default = "Reset",
+        control_indicator_option_button = "Select Option",
+        control_indicator_scale = "Change Value",
+
         vsync_prefix = "VSync",
         vsync_adaptive = "Adaptive",
         vsync_off = "Off",
-        vsync_on = "On"
+        vsync_on = "On",
+
+        fullscreen_prefix = "Fullscreen",
+        fullscreen_on = "On",
+        fullscreen_off = "Off",
+
+        msaa_prefix = "Anti Aliasing",
+        msaa_off = "0x",
+        msaa_good = "2x",
+        msaa_better = "4x",
+        msaa_best = "8x",
+        msaa_max = "16x",
+
+        shake_prefix = "Screen Shake",
+        shake_on = "On",
+        shake_off = "Off",
+
+        music_level_prefix = "Music",
+        sound_effect_level_prefix = "Sound Effects",
+        joystick_deadzone_prefix = "Deadzone",
+        text_speed_prefix = "Text Speed"
     }
 
 })

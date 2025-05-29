@@ -65,7 +65,10 @@ end
 function mn.Scale:size_allocate(x, y, width, height)
     local slider_r = height / 2
     self._slider_radius = slider_r
-    local rail_r = slider_r / 1.5
+    local rail_r = slider_r / 1.75
+
+    x = x + slider_r * 0.5
+    width = width - 2 * slider_r * 0.5
 
     for left in range(self._rail_left, self._rail_left_outline) do
         left:reformat(x + rail_r, y + 0.5 * height, rail_r)
@@ -92,6 +95,8 @@ end
 
 --- @override
 function mn.Scale:draw()
+    love.graphics.setLineWidth(1)
+
     self._rail_left:draw()
     self._rail_left_outline:draw()
     self._rail_right:draw()

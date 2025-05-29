@@ -38,6 +38,7 @@ function rt.GameState:instantiate()
        is_fullscreen = mode.is_fullscreen,
        vsync = mode.vsync,
        msaa = mode.msaa,
+       screen_shake_enabled = true,
        resolution_x = width,
        resolution_y = height,
        sound_effect_level = 1.0,
@@ -53,7 +54,8 @@ function rt.GameState:instantiate()
         { self.set_sound_effect_level, _G.SETTINGS.sound_effect_level },
         { self.set_text_speed, _G.SETTINGS.text_speed },
         { self.set_joystick_deadzone, _G.SETTINGS.joystick_deadzone },
-        { self.set_trigger_deadzone, _G.SETTINGS.trigger_deadzone }
+        { self.set_trigger_deadzone, _G.SETTINGS.trigger_deadzone },
+        { self.set_is_screen_shake_enabled, _G.SETTINGS.screen_shake_enabled }
     ) do
         local setter, setting = table.unpack(setter_setting)
         if setting ~= nil then setter(self, setting) end
@@ -74,6 +76,21 @@ end
 --- @brief
 function rt.GameState:get_vsync_mode(mode)
     return love.window.getVSync()
+end
+
+--- @brief
+function rt.GameState:set_msaa_quality(msaa)
+    meta.assert_enum_value(msaa, rt.MSAAQuality, 1)
+    self._state.msaa = msaa
+    local w, h, mode = love.window.getMode()
+    mode.msaa = self._state.msaa
+    love.window.setMode(w, h, mode)
+end
+
+--- @brief
+function rt.GameState:get_msaa_quality()
+    local _, _, mode = love.window.getMode()
+    return mode.msaa
 end
 
 --- @brief
@@ -141,6 +158,16 @@ end
 --- @brief
 function rt.GameState:get_trigger_deadzone()
     return self._state.trigger_deadzone
+end
+
+--- @brief
+function rt.GameState:set_is_screen_shake_enabled(b)
+    self._state.screen_shake_enabled = b
+end
+
+--- @brief
+function rt.GameState:get_is_screen_shake_enabled()
+    return self._state.screen_shake_enabled
 end
 
 require "common.game_state_stage"

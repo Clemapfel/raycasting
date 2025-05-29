@@ -8,7 +8,7 @@ rt.settings.menu.verbose_info_panel = {
     indicator_base_color = rt.Palette.FOREGROUND
 }
 
-rt.VerboseInfoObject = meta.enum("VerboseInfoObject", {
+mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     VSYNC = "vsync",
     FULLSCREEN = "fullscreen",
     MSAA = "msaa",
@@ -16,8 +16,8 @@ rt.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     SOUND_EFFECT_LEVEL = "sound_effect_level",
     MUSIC_LEVEL = "music_level",
     SHAKE_ENABLED = "shake_enabled",
-    DEADZONE = "joystick_deadzone",
-    DEADZONE_WIDGET = "deadzone_visualization_widget",
+    JOYSTICK_DEADZONE = "joystick_deadzone",
+    JOYSTICK_DEADZONE_WIDGET = "deadzone_visualization_widget",
     TEXT_SPEED = "text_speed",
     TEXT_SPEED_WIDGET = "text_speed_visualization_widget"
 })

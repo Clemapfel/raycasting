@@ -16,8 +16,20 @@ mn.OptionButton = meta.class("OptionButton", rt.Widget)
 --- @brief
 function mn.OptionButton:instantiate(...)
     assert(select("#", ...) > 0)
-    local out = meta.install(self, {
-        _options = { ... },
+
+    local options
+    if meta.is_table(select(1, ...)) then
+        options = select(1, ...)
+    else
+        options = { ... }
+    end
+
+    for i, value in ipairs(options) do
+        meta.assert_typeof(value, "String", i)
+    end
+
+    meta.install(self, {
+        _options = options,
         _left_indicator = rt.DirectionIndicator(rt.Direction.LEFT),
         _right_indicator = rt.DirectionIndicator(rt.Direction.RIGHT),
 
@@ -37,18 +49,16 @@ function mn.OptionButton:instantiate(...)
         _final_h = 1
     })
 
-    for i, option in ipairs(out._options) do
-        out._item_label_to_item_i[option] = i
+    for i, option in ipairs(self._options) do
+        self._item_label_to_item_i[option] = i
     end
-
-    return out
 end
 
 meta.add_signal(mn.OptionButton, "selection")
 
 --- @brief
 function mn.OptionButton:_emit_selection()
-    self:signal_emit("selection", self._items[self._current_item_i].text)
+    self:signal_emit("selection", self._options[self._current_item_i])
 end
 
 --- @override
@@ -92,7 +102,7 @@ function mn.OptionButton:size_allocate(x, y, width, height)
     )
 
     self._right_indicator:reformat(
-        y + width - indicator_r, y + 0.5 * height - 0.5 * max_h, indicator_r, indicator_r
+        x + width - indicator_r, y + 0.5 * height - 0.5 * max_h, indicator_r, indicator_r
     )
 
     self._final_w = width
@@ -141,8 +151,6 @@ function mn.OptionButton:draw()
 
     love.graphics.translate(offset, 0)
     rt.graphics.set_stencil_test()
-
-    self:draw_bounds()
 end
 
 local _color_mix = function(color_a, color_b, fraction) 
