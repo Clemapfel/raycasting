@@ -171,7 +171,7 @@ function ow.Hitbox:draw_all()
         rt.graphics.stencil(stencil_value, function()
             love.graphics.draw(mesh)
         end)
-        rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
         rt.Palette.BLACK:bind()
         love.graphics.setLineWidth(line_width + 2)
@@ -185,7 +185,7 @@ function ow.Hitbox:draw_all()
             love.graphics.line(lines)
         end
 
-        rt.graphics.set_stencil_test(nil)
+        rt.graphics.set_stencil_compare_mode(nil)
     end
 end
 

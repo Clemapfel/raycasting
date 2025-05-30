@@ -144,7 +144,7 @@ function ow.BoostField:draw()
     rt.graphics.stencil(stencil_value, function()
         love.graphics.draw(self._mesh)
     end)
-    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
     love.graphics.setLineJoin("bevel")
     love.graphics.setLineWidth(2)
@@ -153,5 +153,5 @@ function ow.BoostField:draw()
     end
     ]]--
 
-    rt.graphics.set_stencil_test(nil)
+    rt.graphics.set_stencil_compare_mode(nil)
 end

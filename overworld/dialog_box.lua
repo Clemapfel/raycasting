@@ -580,13 +580,13 @@ function ow.DialogBox:draw()
         rt.graphics.stencil(stencil_value, function()
             love.graphics.rectangle("fill", self._text_stencil:unpack())
         end)
-        rt.graphics.set_stencil_test(rt.StencilCompareMode.EQUAL, stencil_value)
+        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.EQUAL, stencil_value)
 
         love.graphics.translate(self._node_offset_x + self._frame_x, self._node_offset_y + self._frame_y)
         for label in values(self._active_node.labels) do
             label:draw()
         end
-        rt.graphics.set_stencil_test()
+        rt.graphics.set_stencil_compare_mode()
         love.graphics.pop()
     end
 

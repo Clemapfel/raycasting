@@ -23,7 +23,7 @@ function mn.TextSpeedVisualizationWidget:size_allocate(x, y, width, height)
     local m = 2 * rt.settings.margin_unit
     self._label:reformat(0, 0, width, height)
     local w, h = self._label:measure()
-    self._label:reformat(x + width - 0.5 * w, y + 0.5 * height - 0.5 * h, w, h)
+    self._label:reformat(x, y, width, height)
     self._elapsed = 0
     self._label:update_n_visible_characters_from_elapsed(self._elapsed)
 end
@@ -44,4 +44,9 @@ end
 --- @brief
 function mn.TextSpeedVisualizationWidget:draw()
     self._label:draw()
+end
+
+--- @brief
+function mn.TextSpeedVisualizationWidget:measure()
+    return self._label:measure()
 end

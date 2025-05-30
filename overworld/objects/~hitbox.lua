@@ -65,7 +65,7 @@ function ow.Hitbox:draw_all()
             love.graphics.pop()
         end
 
-        rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
         --love.graphics.setLineWidth(line_width + 1)
         love.graphics.setColor(0, 0, 0, 1)
@@ -96,7 +96,7 @@ function ow.Hitbox:draw_all()
             love.graphics.pop()
         end
 
-        rt.graphics.set_stencil_test(nil)
+        rt.graphics.set_stencil_compare_mode(nil)
     end
 end
 
@@ -112,7 +112,7 @@ function ow.Hitbox:_draw()
     local stencil_value = rt.graphics.get_stencil_value()
     love.graphics.setColor(1, 1, 1, 1)
     rt.graphics.stencil(stencil_value, self._mesh)
-    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
     love.graphics.setLineJoin("bevel")
     love.graphics.setLineWidth(self._line_width + 1)
@@ -127,7 +127,7 @@ function ow.Hitbox:_draw()
         love.graphics.line(tri)
     end
 
-    rt.graphics.set_stencil_test(nil)
+    rt.graphics.set_stencil_compare_mode(nil)
 
     love.graphics.pop()
 end

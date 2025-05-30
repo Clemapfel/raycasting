@@ -684,11 +684,11 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
                     love.graphics.polygon("fill", tri)
                 end
             end)
-            rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, value)
+            rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, value)
             rectangle_base_outline_outline:draw()
             rectangle_base:draw()
             rectangle_base_outline:draw()
-            rt.graphics.set_stencil_test(nil)
+            rt.graphics.set_stencil_compare_mode(nil)
 
             curve_outline:draw()
 

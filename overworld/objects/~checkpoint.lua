@@ -336,7 +336,7 @@ function ow.Checkpoint:draw()
                 love.graphics.rectangle("fill", self._bottom_x - inf, self._bottom_y, 2 * inf, inf)
                 love.graphics.rectangle("fill", self._top_x - inf, self._top_y - inf, 2 * inf, inf)
             end)
-            rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil)
+            rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil)
         end
 
         love.graphics.push()
@@ -354,7 +354,7 @@ function ow.Checkpoint:draw()
         love.graphics.printf(self._elapsed_text, text_x, text_y, math.huge)
         love.graphics.setShader(nil)
 
-        rt.graphics.set_stencil_test(nil)
+        rt.graphics.set_stencil_compare_mode(nil)
         love.graphics.pop()
     end
 

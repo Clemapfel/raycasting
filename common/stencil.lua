@@ -33,13 +33,31 @@ rt.StencilCompareMode = meta.enum("StencilCompareMode", {
     ALWAYS = "always"
 })
 
---- @brief
-function rt.graphics.set_stencil_test(mode, value)
+local _stencil_stack = {}
+local _stencil_stack_depth = 0
+
+local function _bind_mode(mode, value)
     love.graphics.setStencilState("keep", (mode or "always"), (value or 0))
-    rt.graphics._current_stencil_test_mode = mode
-    rt.graphics._current_stencil_test_value = value
 end
 
-function rt.graphics.get_stencil_test()
-    return rt.graphics._current_stencil_test_mode, rt.graphics._current_stencil_test_value
+--- @brief
+function rt.graphics.set_stencil_compare_mode(mode, value)
+    if mode == nil and _stencil_stack_depth > 0 then
+        table.remove(_stencil_stack, _stencil_stack_depth)
+        _stencil_stack_depth = _stencil_stack_depth - 1
+
+        if _stencil_stack_depth == 0 then
+            _bind_mode(nil, nil)
+        else
+            _bind_mode(table.unpack(_stencil_stack[_stencil_stack_depth]))
+        end
+    else
+        table.insert(_stencil_stack, { mode, value })
+        _stencil_stack_depth = _stencil_stack_depth + 1
+        _bind_mode(mode, value)
+    end
+end
+
+function rt.graphics.get_stencil()
+    return rt.graphics._current_stencil_mode, rt.graphics._current_stencil_value
 end

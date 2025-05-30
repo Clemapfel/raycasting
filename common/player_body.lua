@@ -581,7 +581,7 @@ function rt.PlayerBody:draw_body()
             body:draw()
         end
     end)
-    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
     -- draw rope nodes
     rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
@@ -611,7 +611,7 @@ function rt.PlayerBody:draw_body()
     end
 
     self._outline_canvas:unbind()
-    rt.graphics.set_stencil_test(nil)
+    rt.graphics.set_stencil_compare_mode(nil)
     love.graphics.pop()
 
     -- black fill
@@ -683,7 +683,7 @@ function rt.PlayerBody:draw_core()
             love.graphics.polygon("fill", self._bottom_eye_lid)
         end
     end)
-    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
     -- draw inside
     love.graphics.setColor(1, 1, 1, self._a)
@@ -696,7 +696,7 @@ function rt.PlayerBody:draw_core()
         0.5 * w, 0.5 * h
     )
 
-    rt.graphics.set_stencil_test(nil)
+    rt.graphics.set_stencil_compare_mode(nil)
 
     love.graphics.push()
     love.graphics.translate(self._center_x, self._center_y)

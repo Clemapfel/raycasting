@@ -602,7 +602,7 @@ function rt.PlayerBody:draw_body()
             body:draw()
         end
     end)
-    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
     -- draw rope nodes
     if not self._is_bubble then
@@ -628,7 +628,7 @@ function rt.PlayerBody:draw_body()
     love.graphics.polygon("fill", self._positions)
 
     self._outline_canvas:unbind()
-    rt.graphics.set_stencil_test(nil)
+    rt.graphics.set_stencil_compare_mode(nil)
     love.graphics.pop()
 
     -- black fill

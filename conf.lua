@@ -80,17 +80,7 @@ _G.SETTINGS = {
         ["SELECT"] = {
             keyboard = "#",
             controller = "back"
-        },
-
-        ["SPRINT"] = {
-            keyboard = "b",
-            controller = GAMEPAD_BUTTON_LEFT
-        },
-
-        ["JUMP"] = {
-            keyboard = "space",
-            controller = GAMEPAD_BUTTON_BOTTOM
-        },
+        }
     },
 }
 

@@ -122,7 +122,7 @@ function ow.Eye:draw()
         love.graphics.draw(self._sclera_mesh:get_native(), self._sclera_x + self._x, self._sclera_y + self._y)
         love.graphics.pop()
     end)
-    rt.graphics.set_stencil_test(rt.StencilCompareMode.NOT_EQUAL)
+    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL)
 
     love.graphics.push()
     love.graphics.translate(self._x, self._y)
@@ -161,7 +161,7 @@ function ow.Eye:draw()
 
     love.graphics.pop()
 
-    rt.graphics.set_stencil_test(nil)
+    rt.graphics.set_stencil_compare_mode(nil)
     love.graphics.pop()
 
     love.graphics.setColor(r, g, b, a)

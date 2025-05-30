@@ -1,21 +1,28 @@
---- @class rt.InputButton
-rt.InputButton = meta.enum("InputButton", {
-    UP = "UP",
-    RIGHT = "RIGHT",
-    DOWN = "DOWN",
-    LEFT = "LEFT",
-    A = "A",
-    B = "B",
-    X = "X",
-    Y = "Y",
-    START = "START",
-    SELECT = "SELECT",
-    L = "L",
-    R = "R",
+do
+    local _input_buttons = {
+        UP = "UP",
+        RIGHT = "RIGHT",
+        DOWN = "DOWN",
+        LEFT = "LEFT",
+        A = "A",
+        B = "B",
+        X = "X",
+        Y = "Y",
+        START = "START",
+        SELECT = "SELECT",
+        L = "L",
+        R = "R",
+    }
 
-    JUMP = "JUMP",
-    SPRINT = "SPRINT"
-})
+    -- aliases
+    _input_buttons["JUMP"] = _input_buttons.A
+    _input_buttons["SPRINT"] = _input_buttons.B
+    _input_buttons["CONFIRM"] = _input_buttons.A
+    _input_buttons["BACK"] = _input_buttons.B
+
+    --- @class rt.InputButton
+    rt.InputButton = meta.enum("InputButton", _input_buttons)
+end
 
 --- @class rt.GamepadButton
 rt.GamepadButton = meta.enum("GamepadButton", {
