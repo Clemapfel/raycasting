@@ -14,7 +14,6 @@ function mn.VerboseInfoPanel.Item:instantiate()
     meta.install(self, {
         aabb = rt.AABB(0, 0, 1, 1),
         height_above = 0,
-        height_below = 0,
         frame = rt.Frame(),
         divider = rt.Line(0, 0, 1, 1),
         object = nil,
@@ -162,6 +161,12 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
         return
     elseif which == mn.VerboseInfoObject.VSYNC_WIDGET then
         self:create_as_vsync_widget()
+        return
+    elseif which == mn.VerboseInfoObject.MUSIC_LEVEL_WIDGET then
+        self:create_as_music_level_widget()
+        return
+    elseif which == mn.VerboseInfoObject.SOUND_EFFECT_LEVEL_WIDGET then
+        self:create_as_sound_effect_level_widget()
         return
     end
 
@@ -334,18 +339,17 @@ function mn.VerboseInfoPanel.Item:create_as_text_speed_widget()
     end
 
     self.size_allocate = function(self, x, y, width, height)
+        height = width
         local m, xm, ym = self._get_margin()
-        ym = 2 * ym
-        local w = 0.75 * (width - 2 * xm)
-        self.widget:reformat(
-            x + 0.5 * width - 0.5 * w,
-            y + 0.5 * height - 0.5 * w,
-            w, height - 2 * ym
-        )
 
-        self.frame:reformat(x, y, width, height)
-        self.divider:reformat(x, y + height, x + width, y + height)
-        self.final_height = height - 2 * ym
+        self.widget:reformat(x + xm, y + ym, width - 2 * xm, height)
+        local w, h = self.widget:measure()
+        self.widget:reformat(x + xm, y + ym, width - 2 * xm, h)
+
+        h = h + 2 * ym
+        self.frame:reformat(x, y, width, h)
+        self.divider:reformat(x, y + h, x + width, y + h)
+        self.final_height = h - 2 * ym
     end
 
     self.update = function(self, delta)
@@ -386,6 +390,78 @@ function mn.VerboseInfoPanel.Item:create_as_vsync_widget()
 
     self.update = function(self, delta)
         self.label:set_text(rt.Translation.verbose_info.vsync_widget(love.timer.getFPS()))
+    end
+end
+
+function mn.VerboseInfoPanel.Item:create_as_music_level_widget()
+    self.object = nil
+    self._is_realized = false
+
+    self.realize = function()
+        self._is_realized = true
+        self.frame:realize()
+
+        self.label = rt.Label(rt.Translation.verbose_info.music_level_widget(math.round(rt.GameState:get_music_level() * 100)))
+        self.label:realize()
+        self.label:set_justify_mode(rt.JustifyMode.LEFT)
+
+        self.content = {
+            self.label
+        }
+    end
+
+    self.size_allocate = function(self, x, y, width, height)
+        local m, xm, ym = self._get_margin()
+        ym = 2 * ym
+        local w = 0.75 * (width - 2 * xm)
+        self.label:reformat(
+            x + xm, y + ym, width - 2 * xm, height - 2 * ym
+        )
+
+        local label_w, label_h = self.label:measure()
+        self.frame:reformat(x, y + ym, width, label_h + 2 * ym)
+        self.divider:reformat(x, y + label_h + 2 * ym, x + width, y + label_h + 2 * ym)
+        self.final_height = height - 2 * ym
+    end
+
+    self.update = function(self, delta)
+        self.label:set_text(rt.Translation.verbose_info.music_level_widget(math.round(rt.GameState:get_music_level() * 100)))
+    end
+end
+
+function mn.VerboseInfoPanel.Item:create_as_sound_effect_level_widget()
+    self.object = nil
+    self._is_realized = false
+
+    self.realize = function()
+        self._is_realized = true
+        self.frame:realize()
+
+        self.label = rt.Label(rt.Translation.verbose_info.sound_effect_level_widget(math.round(rt.GameState:get_music_level() * 100)))
+        self.label:realize()
+        self.label:set_justify_mode(rt.JustifyMode.LEFT)
+
+        self.content = {
+            self.label
+        }
+    end
+
+    self.size_allocate = function(self, x, y, width, height)
+        local m, xm, ym = self._get_margin()
+        ym = 2 * ym
+        local w = 0.75 * (width - 2 * xm)
+        self.label:reformat(
+            x + xm, y + ym, width - 2 * xm, height - 2 * ym
+        )
+
+        local label_w, label_h = self.label:measure()
+        self.frame:reformat(x, y + ym, width, label_h + 2 * ym)
+        self.divider:reformat(x, y + label_h + 2 * ym, x + width, y + label_h + 2 * ym)
+        self.final_height = height - 2 * ym
+    end
+
+    self.update = function(self, delta)
+        self.label:set_text(rt.Translation.verbose_info.sound_effect_level_widget(math.round(rt.GameState:get_music_level() * 100)))
     end
 end
 

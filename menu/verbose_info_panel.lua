@@ -15,7 +15,9 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     MSAA = "msaa",
     MSAA_WIDGET = "msaa_visualization_widget",
     SOUND_EFFECT_LEVEL = "sound_effect_level",
+    SOUND_EFFECT_LEVEL_WIDGET = "sound_effect_level_widget",
     MUSIC_LEVEL = "music_level",
+    MUSIC_LEVEL_WIDGET = "music_level_widget",
     SHAKE_ENABLED = "shake_enabled",
     JOYSTICK_DEADZONE = "joystick_deadzone",
     JOYSTICK_DEADZONE_WIDGET = "deadzone_visualization_widget",
@@ -118,13 +120,6 @@ function mn.VerboseInfoPanel:size_allocate(x, y, width, height)
         height_above = height_above + h
         current_y = current_y + h + item_m
         self._total_height = self._total_height + h + item_m
-    end
-
-    local reverse_height = 0
-    for i = self._n_items, 1, -1 do
-        local item = self._items[i]
-        reverse_height = reverse_height + item.aabb.height
-        item.height_below = reverse_height
     end
 
     self._y_offset = 0

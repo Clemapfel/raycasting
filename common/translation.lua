@@ -98,6 +98,14 @@ rt.Translation = rt.initialize_translation({
             return "Current FPS: " .. fps
         end,
 
+        music_level_widget = function(percentage)
+            return "Music Level: " .. percentage .. "%"
+        end,
+
+        sound_effect_level_widget = function(percentage)
+            return "Sound Effect Level:  " .. percentage .. "%"
+        end,
+
         fullscreen_title = "Fullscreen",
         fullscreen_description = "TODO",
 
