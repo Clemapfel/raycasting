@@ -1,10 +1,12 @@
 require "common.scene"
 require "common.input_subscriber"
+require "common.fade"
 require "menu.pause_menu_scene"
 
 rt.settings.scene_manager = {
     pause_delay_duration = 5 / 60, -- seconds
-    max_n_steps_per_frame = 8
+    max_n_steps_per_frame = 8,
+    fade_duration = 0.2,
 }
 
 --- @class SceneManager
@@ -23,6 +25,7 @@ function rt.SceneManager:instantiate()
         _show_performance_metrics = true,
         _width = love.graphics.getWidth(),
         _height = love.graphics.getHeight(),
+        _fade = rt.Fade(),
 
         _pause_menu = mn.PauseMenuScene(),
         _pause_menu_active = false,
@@ -32,6 +35,7 @@ function rt.SceneManager:instantiate()
         _input = rt.InputSubscriber(),
     })
 
+    self._fade:set_duration(rt.settings.scene_manager.fade_duration)
     self._pause_menu:realize()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputButton.START then
@@ -44,39 +48,54 @@ end
 function rt.SceneManager:set_scene(scene_type, ...)
     assert(meta.typeof(scene_type) == "Type", "In SceneManager.setScene: expected a type inheriting from `Scene`, got `" .. meta.typeof(scene_type) .. "`")
 
-    local scene = self._scene_type_to_scene[scene_type]
-    if scene == nil then
-        scene = scene_type(rt.GameState)
-        scene:realize()
-        self._scene_type_to_scene[scene_type] = scene
+    local varargs = { ... }
+    local on_scene_changed = function()
+        local scene = self._scene_type_to_scene[scene_type]
+        if scene == nil then
+            scene = scene_type(rt.GameState)
+            scene:realize()
+            self._scene_type_to_scene[scene_type] = scene
 
-        scene._scene_manager_current_size_x = 0
-        scene._scene_manager_current_size_y = 0
+            scene._scene_manager_current_size_x = 0
+            scene._scene_manager_current_size_y = 0
+        end
+
+        self._previous_scene = self._current_scene
+        self._previous_scene_type = self._current_scene_type
+        self._current_scene = scene
+        self._current_scene_type = scene_type
+
+        if self._previous_scene ~= nil then
+            self._previous_scene:exit()
+            self._previous_scene._is_active = false
+        end
+
+        local current_w, current_h = self._current_scene._scene_manager_current_size_x, self._current_scene._scene_manager_current_size_y
+        if current_w ~= self._width or current_w ~= self._height then
+            self._current_scene:reformat(0, 0, self._width, self._height)
+            self._current_scene._scene_manager_current_size_x = self._width
+            self._current_scene._scene_manager_current_size_y = self._height
+        end
+
+        self._current_scene:enter(table.unpack(varargs))
+        self._current_scene._is_active = true
     end
 
-    self._previous_scene = self._current_scene
-    self._previous_scene_type = self._current_scene_type
-    self._current_scene = scene
-    self._current_scene_type = scene_type
-
-    if self._previous_scene ~= nil then
-        self._previous_scene:exit()
-        self._previous_scene._is_active = false
+    if self._current_scene == nil then
+        on_scene_changed()
+    else
+        self._fade:signal_connect("hidden", function()
+            on_scene_changed()
+            return meta.DISCONNECT_SIGNAL
+        end)
+        self._fade:start()
     end
-
-    local current_w, current_h = self._current_scene._scene_manager_current_size_x, self._current_scene._scene_manager_current_size_y
-    if current_w ~= self._width or current_w ~= self._height then
-        self._current_scene:reformat(0, 0, self._width, self._height)
-        self._current_scene._scene_manager_current_size_x = self._width
-        self._current_scene._scene_manager_current_size_y = self._height
-    end
-
-    self._current_scene:enter(...) -- forward vararg
-    self._current_scene._is_active = true
 end
 
 --- @brief
 function rt.SceneManager:update(delta)
+    self._fade:update(delta)
+
     if self._pause_menu_active then
         self._pause_menu:update(delta)
         self._pause_menu:signal_emit("update", delta)
@@ -101,6 +120,7 @@ function rt.SceneManager:draw(...)
     end
 
     rt.graphics._stencil_value = 1 -- reset running stencil value
+    self._fade:draw()
 end
 
 --- @brief

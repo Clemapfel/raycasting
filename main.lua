@@ -14,33 +14,32 @@ _input:signal_connect("keyboard_key_pressed", function(_, which)
         debugger.reload()
     elseif which == "r" then
         background:recompile()
-    elseif which == "backspace" then
-    elseif which == "space" then
+    elseif which == "1" then
+        require "menu.settings_scene"
+        rt.SceneManager:set_scene(mn.SettingsScene)
+    elseif which == "2" then
+        require "overworld.overworld_scene"
+        rt.SceneManager:set_scene(ow.OverworldScene, "tutorial")
+    elseif which == "3" then
+        require "menu.keybinding_scene"
+        rt.SceneManager:set_scene(mn.KeybindingScene)
     end
 end)
 
 love.load = function(args)
-    require "menu.settings_scene"
-    rt.SceneManager:set_scene(mn.SettingsScene)
-
-    --require "overworld.overworld_scene"
-    --rt.SceneManager:set_scene(ow.OverworldScene, "tutorial")
+    require "menu.keybinding_scene"
+    rt.SceneManager:set_scene(mn.KeybindingScene)
 end
 
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
-
-    background:update(delta)
 end
 
 love.draw = function()
     rt.SceneManager:draw()
-
-    background:draw()
 end
 
 love.resize = function(width, height)
     rt.SceneManager:resize(width, height)
-    background:reformat(0, 0, width, height)
 end
