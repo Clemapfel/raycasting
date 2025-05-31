@@ -29,6 +29,9 @@ end)
 love.load = function(args)
     require "menu.keybinding_scene"
     rt.SceneManager:set_scene(mn.KeybindingScene)
+
+    --require "menu.settings_scene"
+    --rt.SceneManager:set_scene(mn.SettingsScene)
 end
 
 

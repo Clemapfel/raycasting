@@ -6,7 +6,7 @@ require "common.control_indicator"
 require "menu.verbose_info_panel"
 require "menu.scale"
 require "menu.option_button"
-require "menu.scrollbar"
+require "menu.scrollable_list"
 
 rt.settings.settings_scene = {
     fullscreen_default = true,
@@ -32,12 +32,24 @@ rt.settings.settings_scene = {
 mn.SettingsScene = meta.class("MenuSettingsScene", rt.Scene)
 
 --- @class mn.SettingsScene.Item
-mn.SettingsScene.Item = meta.class("SettinsSceneItem")
+mn.SettingsScene.Item = meta.class("SettinsSceneItem", rt.Widget)
 meta.add_signal(mn.SettingsScene.Item, "reset")
 
 --- @brief [internal]
 function mn.SettingsScene.Item:instantiate(t)
     meta.install(self, t)
+end
+
+--- @brief [internal]
+function mn.SettingsScene.Item:realize()
+    self.prefix:realize()
+    self.widget:realize()
+end
+
+--- @brief [internal]
+function mn.SettingsScene.Item:draw()
+    self.prefix:draw()
+    self.widget:draw()
 end
 
 --- @brief
@@ -57,20 +69,12 @@ function mn.SettingsScene:instantiate()
     )
 
     self._verbose_info = mn.VerboseInfoPanel()
-    self._scrollbar = mn.Scrollbar()
-    self._item_frame = rt.Frame()
     self._item_stencil = rt.AABB()
     
     self._heading_label = rt.Label("<b><o>" .. translation.heading .. "</o></b>")
     self._heading_label_frame = rt.Frame()
 
-    -- list items
-
-    self._items = {}
-    self._item_y_offset = 0
-    self._max_item_y_offset = 0
-    self._selected_item_i = 1
-    self._n_items = 0
+    self._list = mn.ScrollableList()
 
     local prefix_prefix = "<b>"
     local prefix_postfix = "</b>"
@@ -94,18 +98,18 @@ function mn.SettingsScene:instantiate()
     local function add_item(prefix, widget, ...)
         local item = mn.SettingsScene.Item({
             prefix = rt.Label(prefix_prefix .. prefix .. prefix_postfix),
-            frame = rt.Frame(),
-            selected_frame = rt.Frame(),
             widget = widget,
             info = { ... },
-            is_scale = meta.isa(widget, mn.Scale),
-            height_above = 0,
-            height = 0
+            is_scale = meta.isa(widget, mn.Scale)
         })
-        
-        item.selected_frame:set_selection_state(rt.SelectionState.ACTIVE)
-        table.insert(self._items, item)
-        self._n_items = self._n_items + 1
+
+        item.set_selection_state = function(_, state)
+            if state == rt.SelectionState.ACTIVE then
+                self._verbose_info:show(item.info)
+            end
+        end
+
+        self._list:add_item(item)
         return item
     end
    
@@ -263,7 +267,6 @@ function mn.SettingsScene:instantiate()
     end
 
     do -- dead zone
-
         local deadzone_scale = new_scale(rt.GameState:get_joystick_deadzone())
         deadzone_scale:signal_connect("value_changed", function(_, value)
             rt.GameState:set_joystick_deadzone(value)
@@ -297,8 +300,6 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    self._scrollbar:set_n_pages(self._n_items)
-
     -- input
 
     self._scale_elapsed = 0
@@ -314,29 +315,24 @@ function mn.SettingsScene:instantiate()
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         self._scale_active = false
-
         if which == rt.InputButton.UP then
-            if self._selected_item_i == 1 then
-                self:_set_selected_item(self._n_items)
-            elseif self:_can_scroll_up() then
-                self:_set_selected_item(self._selected_item_i - 1)
+            if self._list:can_scroll_up() then
+                self._list:scroll_up()
                 self._scroll_active = true
                 self._scroll_delay_elapsed = 0
                 self._scroll_elapsed = 0
                 self._scroll_direction = rt.Direction.UP
             end
         elseif which == rt.InputButton.DOWN then
-            if self._selected_item_i == self._n_items then
-                self:_set_selected_item(1)
-            elseif self:_can_scroll_down() then
-                self:_set_selected_item(self._selected_item_i + 1)
+            if self._list:can_scroll_down() then
+                self._list:scroll_down()
                 self._scroll_active = true
                 self._scroll_delay_elapsed = 0
                 self._scroll_elapsed = 0
                 self._scroll_direction = rt.Direction.DOWN
             end
         elseif which == rt.InputButton.LEFT then
-            local item = self._items[self._selected_item_i]
+            local item = self._list:get_selected_item()
             if item.is_scale then
                 self._scale_elapsed = 0
                 self._scale_delay_elapsed = 0
@@ -347,7 +343,7 @@ function mn.SettingsScene:instantiate()
                 item.widget:move_left()
             end
         elseif which == rt.InputButton.RIGHT then
-            local item = self._items[self._selected_item_i]
+            local item = self._list:get_selected_item()
             if item.is_scale then
                 self._scale_elapsed = 0
                 self._scale_delay_elapsed = 0
@@ -358,7 +354,7 @@ function mn.SettingsScene:instantiate()
                 item.widget:move_right()
             end
         elseif which == rt.InputButton.Y then
-            local item = self._items[self._selected_item_i]
+            local item = self._list:get_selected_item()
             item:signal_emit("reset")
         elseif which == rt.InputButton.B then
             rt.SceneManager:set_scene(rt.SceneManager:get_previous_scene())
@@ -383,20 +379,10 @@ function mn.SettingsScene:realize()
         self._option_button_control_indicator,
         self._verbose_info,
         self._scrollbar,
-        self._item_frame
+        self._item_frame,
+        self._list
     ) do
         widget:realize()
-    end
-
-    for item in values(self._items) do
-        for widget in range(
-            item.frame,
-            item.selected_frame,
-            item.prefix,
-            item.widget
-        ) do
-            widget:realize()
-        end
     end
 end
 
@@ -405,16 +391,8 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
-    local item_y_padding = m
-    local item_y_margin = m
     local item_inner_margin = 4 * m
-
-    local max_prefix_w, max_prefix_h = -math.huge, -math.huge
-    for item in values(self._items) do
-        local prefix_w, prefix_h = item.prefix:measure()
-        max_prefix_w = math.max(max_prefix_w, prefix_w)
-        max_prefix_h = math.max(max_prefix_h, prefix_h)
-    end
+    local item_y_padding = m
 
     local option_control_w, option_control_h = self._option_button_control_indicator:measure()
     local scale_control_w, scale_control_h = self._scale_control_indicator:measure()
@@ -426,7 +404,7 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
     self._heading_label_frame:reformat(left_x, top_y, heading_w + 2 * item_outer_margin, heading_frame_h)
     self._heading_label:reformat(left_x + item_outer_margin, top_y + 0.5 * heading_frame_h - 0.5 * heading_h, math.huge)
 
-    local current_x, current_y = left_x, top_y + heading_frame_h + item_y_margin
+    local current_x, current_y = left_x, top_y + heading_frame_h + m
     self._option_button_control_indicator:reformat(
         x + width - outer_margin - option_control_w,
         top_y,--y + height - outer_margin - option_control_h,
@@ -440,87 +418,50 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
     )
 
     local verbose_info_w = (width - 2 * outer_margin) * rt.settings.settings_scene.verbose_info_width_fraction
-    local verbose_info_h = height - 2 * outer_margin - heading_frame_h - item_y_margin
+    local verbose_info_h = height - 2 * outer_margin - heading_frame_h - m
     self._verbose_info:reformat(
         x + width - outer_margin - verbose_info_w, current_y, verbose_info_w, verbose_info_h
     )
 
-    local scrollbar_w = rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit
-    self._scrollbar:reformat(
-        x + width - outer_margin - verbose_info_w - item_y_margin - scrollbar_w,
-        current_y,
-        scrollbar_w,
-        verbose_info_h
-    )
-
-    local frame_thickness = rt.settings.frame.thickness
-
-    self._item_frame:reformat(
-        current_x, current_y, width - 2 * outer_margin - verbose_info_w - item_y_margin, verbose_info_h
-    )
-
-    self._item_stencil:reformat(
-        current_x,
-        current_y,
-        width - 2 * outer_margin - verbose_info_w - item_y_margin,
-        verbose_info_h
-    )
-
-    local item_h = math.max(
-        max_prefix_h,
-        control_h,
-        verbose_info_h / self._n_items
-    )
-
-    item_h = verbose_info_h / math.ceil(verbose_info_h / item_h)
-    item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
-
-    local item_w = width - 2 * outer_margin - verbose_info_w - item_outer_margin - scrollbar_w
-    local widget_w = item_w - 2 * item_outer_margin - item_inner_margin - max_prefix_w
-
-    local height_above = 0
-    local max_item_h = -math.huge
-    local total_height = 0
-    for item in values(self._items) do
-        for frame in range(
-            item.frame,
-            item.selected_frame
-        ) do
-            frame:reformat(left_x + frame_thickness, current_y + frame_thickness, item_w - 2 * frame_thickness, item_h - 2 * frame_thickness)
-        end
-
+    local max_prefix_w = -math.huge
+    for i = 1, self._list:get_n_items() do
+        local item = self._list:get_item(i)
         local prefix_w, prefix_h = item.prefix:measure()
-        item.prefix:reformat(
-            left_x + item_outer_margin,
-            current_y + 0.5 * item_h - 0.5 * prefix_h,
-            math.huge, math.huge
-        )
-
-        local widget_h
-        if item.is_scale then
-            widget_h = max_prefix_h
-        else
-            widget_h = item_h - 2 * item_y_padding
-        end
-
-        item.widget:reformat(
-            left_x + item_w - item_outer_margin - widget_w,
-            current_y + 0.5 * item_h - 0.5 * widget_h,
-            widget_w, widget_h
-        )
-
-        local current_height = item_h + item_y_margin
-        item.height_above = height_above
-        item.height = current_height
-        max_item_h = math.max(max_item_h, current_height)
-        height_above = height_above + current_height
-        current_y = current_y + current_height
-        total_height = total_height + current_height
+        max_prefix_w = math.max(max_prefix_w, prefix_w)
     end
 
-    total_height = total_height - item_y_margin
-    self._max_item_y_offset = total_height - verbose_info_h
-    self:_set_selected_item(self._selected_item_i)
+    for i = 1, self._list:get_n_items() do
+        local item = self._list:get_item(i)
+        item.size_allocate = function(self, x, y, width, height)
+            local prefix_w, prefix_h = self.prefix:measure()
+
+            self.prefix:reformat(
+                x + item_outer_margin,
+                y + 0.5 * height - 0.5 * prefix_h,
+                math.huge, math.huge
+            )
+
+            local widget_h
+            if item.is_scale then
+                widget_h = prefix_h
+            else
+                widget_h = height - 2 * item_y_padding
+            end
+
+            local widget_w = width - 2 * item_outer_margin - item_inner_margin - max_prefix_w
+            item.widget:reformat(
+                x + width - item_outer_margin - widget_w,
+                y + 0.5 * height - 0.5 * widget_h,
+                widget_w, widget_h
+            )
+        end
+    end
+
+    self._list:reformat(
+        current_x, current_y,
+        width - 2 * outer_margin - verbose_info_w - m,
+        verbose_info_h
+    )
 end
 
 --- @brief
@@ -589,56 +530,12 @@ function mn.SettingsScene:draw()
     self._heading_label:draw()
     
     self._verbose_info:draw()
-    --self._item_frame:draw()
 
-    love.graphics.setScissor(self._item_stencil:unpack())
-    love.graphics.push()
-    love.graphics.translate(0, self._item_y_offset)
-
-    local is_scale = false
-    for i, item in ipairs(self._items) do
-        if i == self._selected_item_i then
-            item.selected_frame:draw()
-            is_scale = item.is_scale
-        else
-            item.frame:draw()
-        end
-
-        item.prefix:draw()
-        item.widget:draw()
-    end
-
-    love.graphics.pop()
-    love.graphics.setScissor()
-
-    if is_scale then
+    self._list:draw()
+    local item = self._list:get_selected_item()
+    if item.is_scale then
         self._scale_control_indicator:draw()
     else
         self._option_button_control_indicator:draw()
     end
-end
-
---- @brief
-function mn.SettingsScene:_set_selected_item(i)
-    self._selected_item_i = i
-
-    local item = self._items[self._selected_item_i]
-    if item.y > self._item_stencil.y + self._item_stencil.height then
-        self._item_y_offset = -1 * math.min(item.height_above, self._max_item_y_offset)
-    else
-        self._item_y_offset = 0
-    end
-
-    self._verbose_info:show(item.info)
-    self._scrollbar:set_page_index(self._selected_item_i)
-end
-
---- @brief
-function mn.SettingsScene:_can_scroll_up()
-    return self._selected_item_i > 1
-end
-
---- @brief
-function mn.SettingsScene:_can_scroll_down()
-    return self._selected_item_i < self._n_items
 end

@@ -22,6 +22,25 @@ mn.InputAction = meta.enum("InputAction", {
     R = "r"
 })
 
+mn.KeybindingScene.Item = meta.class("KeybindingsSceneItem", rt.Widget)
+
+--- @brief [internal]
+function mn.KeybindingScene.Item:instantiate(t)
+    meta.install(self, t)
+end
+
+--- @brief [internal]
+function mn.KeybindingScene.Item:realize()
+    self.prefix:realize()
+    self.indicator:realize()
+end
+
+--- @brief [internal]
+function mn.KeybindingScene.Item:draw()
+    self.prefix:draw()
+    self.indicator:draw()
+end
+
 --- @brief
 function mn.KeybindingScene:instantiate()
     local translation = rt.Translation.keybinding_scene
@@ -55,7 +74,7 @@ function mn.KeybindingScene:instantiate()
     )
 
     self._verbose_info = mn.VerboseInfoPanel()
-    self._scrollbar = mn.Scrollbar()
+    self._list = mn.ScrollableList()
 
     -- items
 
@@ -106,8 +125,6 @@ function mn.KeybindingScene:instantiate()
 
     local prefix_prefix, prefix_postfix = "<b>", "</b>"
 
-    self._items = {}
-    self._n_items = 0
     for input_button, input_action in pairs(input_button_to_input_action) do
         local prefix = input_action_to_translation[input_action]
         local to_assign = input_action_to_input_button[input_action]
@@ -116,30 +133,23 @@ function mn.KeybindingScene:instantiate()
         assert(prefix ~= nil, input_action)
         assert(info ~= nil, input_action)
 
-        local item = {
+        local item = mn.KeybindingScene.Item({
             prefix = rt.Label(prefix_prefix .. prefix .. prefix_postfix),
             to_assign = to_assign,
             indicator = rt.KeybindingIndicator(),
-            frame = rt.Frame(),
-            selected_frame = rt.Frame(),
             info = info,
-            height_above = 0
-        }
+        })
 
-        item.selected_frame:set_selection_state(rt.SelectionState.ACTIVE)
-        table.insert(self._items, item)
-        self._n_items = self._n_items + 1
+        item.set_selection_state = function(_, state)
+            if state == rt.SelectionState.ACTIVE then
+                self._verbose_info:show(item.info)
+            end
+        end
+
+        self._list:add_item(item)
     end
 
-    self._scrollbar:set_n_pages(self._n_items)
-    self._item_stencil = rt.AABB()
-
     -- input
-
-    self._selected_item_i = 1
-    self._item_y_offset = 0
-    self._max_item_y_offset = math.huge
-
     self._scroll_elapsed = 0
     self._scroll_delay_elapsed = 0
     self._scroll_active = false
@@ -148,22 +158,17 @@ function mn.KeybindingScene:instantiate()
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         self._scale_active = false
-
         if which == rt.InputButton.UP then
-            if self._selected_item_i == 1 then
-                self:_set_selected_item(self._n_items)
-            elseif self:_can_scroll_up() then
-                self:_set_selected_item(self._selected_item_i - 1)
+            if self._list:can_scroll_up() then
+                self._list:scroll_up()
                 self._scroll_active = true
                 self._scroll_delay_elapsed = 0
                 self._scroll_elapsed = 0
                 self._scroll_direction = rt.Direction.UP
             end
         elseif which == rt.InputButton.DOWN then
-            if self._selected_item_i == self._n_items then
-                self:_set_selected_item(1)
-            elseif self:_can_scroll_down() then
-                self:_set_selected_item(self._selected_item_i + 1)
+            if self._list:can_scroll_down() then
+                self._list:scroll_down()
                 self._scroll_active = true
                 self._scroll_delay_elapsed = 0
                 self._scroll_elapsed = 0
@@ -197,20 +202,10 @@ function mn.KeybindingScene:realize()
         self._confirm_reset_to_default_dialog,
         self._keybinding_invalid_dialog,
         self._verbose_info,
-        self._scrollbar
+        self._scrollbar,
+        self._list
     ) do
         widget:realize()
-    end
-
-    for item in values(self._items) do
-        for widget in range(
-            item.prefix,
-            item.indicator,
-            item.frame,
-            item.selected_frame
-        ) do
-            widget:realize()
-        end
     end
 end
 
@@ -219,93 +214,57 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
-    local item_y_padding = m
-    local item_y_margin = m
-    local item_inner_margin = 4 * m
-
-    local max_prefix_w, max_prefix_h = -math.huge, -math.huge
-    for item in values(self._items) do
-        local prefix_w, prefix_h = item.prefix:measure()
-        max_prefix_h = math.max(max_prefix_h, prefix_h)
-    end
 
     local control_w, control_h = self._control_indicator:measure()
-    local heading_w, heading_h = self._heading_label:measure()
 
+    local heading_w, heading_h = self._heading_label:measure()
     local left_x, top_y = x + outer_margin, y + outer_margin
-    local heading_frame_h = math.max(heading_h + 2 * item_y_padding, control_h)
+    local heading_frame_h = math.max(heading_h + 2 * m, control_h)
     self._heading_label_frame:reformat(left_x, top_y, heading_w + 2 * item_outer_margin, heading_frame_h)
     self._heading_label:reformat(left_x + item_outer_margin, top_y + 0.5 * heading_frame_h - 0.5 * heading_h, math.huge)
 
-    self._control_indicator:reformat(x + width - outer_margin - control_w, top_y, control_w, control_h)
-
-    local current_x, current_y = left_x, top_y + heading_frame_h + item_y_margin
+    local current_x, current_y = left_x, top_y + heading_frame_h + m
+    self._control_indicator:reformat(
+        x + width - outer_margin - control_w, top_y,
+        control_w, control_h
+    )
 
     local verbose_info_w = (width - 2 * outer_margin) * rt.settings.settings_scene.verbose_info_width_fraction
-    local verbose_info_h = height - 2 * outer_margin - heading_frame_h - item_y_margin
+    local verbose_info_h = height - 2 * outer_margin - heading_frame_h - m
     self._verbose_info:reformat(
-        x + width - outer_margin - verbose_info_w, current_y,
-        verbose_info_w, verbose_info_h
+        x + width - outer_margin - verbose_info_w, current_y, verbose_info_w, verbose_info_h
     )
 
-    local scrollbar_w = rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit
-    self._scrollbar:reformat(
-        x + width - outer_margin - verbose_info_w - item_y_margin - scrollbar_w,
-        current_y,
-        scrollbar_w,
-        verbose_info_h
-    )
-
-    local frame_thickness = rt.settings.frame.thickness
-
-    self._item_stencil:reformat(
-        current_x,
-        current_y,
-        width - 2 * outer_margin - verbose_info_w - item_y_margin,
-        verbose_info_h
-    )
-
-    local item_h = math.max(
-        max_prefix_h,
-        control_h,
-        verbose_info_h / self._n_items
-    )
-
-    item_h = verbose_info_h / math.ceil(verbose_info_h / item_h)
-    item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
-
-    local item_w = width - 2 * outer_margin - verbose_info_w - item_outer_margin - scrollbar_w
-    local widget_w = item_w - 2 * item_outer_margin - item_inner_margin - max_prefix_w
-
-    local height_above = 0
-    local total_height = 0
-    for item in values(self._items) do
-        for frame in range(
-            item.frame,
-            item.selected_frame
-        ) do
-            frame:reformat(left_x + frame_thickness, current_y + frame_thickness, item_w - 2 * frame_thickness, item_h - 2 * frame_thickness)
-        end
-
+    local max_prefix_w = -math.huge
+    for i = 1, self._list:get_n_items() do
+        local item = self._list:get_item(i)
         local prefix_w, prefix_h = item.prefix:measure()
-        item.prefix:reformat(
-            left_x + item_outer_margin,
-            current_y + 0.5 * item_h - 0.5 * prefix_h,
-            math.huge, math.huge
-        )
-
-        local current_height = item_h + item_y_margin
-        item.y = current_y
-        item.height_above = height_above
-        item.height = current_height
-        height_above = height_above + current_height
-        current_y = current_y + current_height
-        total_height = total_height + current_height
+        max_prefix_w = math.max(max_prefix_w, prefix_w)
     end
 
-    total_height = total_height - item_y_margin
-    self._max_item_y_offset = total_height - verbose_info_h
-    self:_set_selected_item(self._selected_item_i)
+    for i = 1, self._list:get_n_items() do
+        local item = self._list:get_item(i)
+        item.size_allocate = function(self, x, y, width, height)
+            local prefix_w, prefix_h = self.prefix:measure()
+
+            self.prefix:reformat(
+                x + item_outer_margin,
+                y + 0.5 * height - 0.5 * prefix_h,
+                math.huge, math.huge
+            )
+        end
+
+        item.measure = function(self)
+            local prefix_w, prefix_h = self.prefix:measure()
+            return prefix_w + 2 * outer_margin, 2 * prefix_h + 2 * m
+        end
+    end
+
+    self._list:reformat(
+        current_x, current_y,
+        width - 2 * outer_margin - verbose_info_w - m,
+        verbose_info_h
+    )
 end
 
 --- @brief
@@ -318,26 +277,7 @@ function mn.KeybindingScene:draw()
     self._heading_label_frame:draw()
     self._heading_label:draw()
     self._verbose_info:draw()
-
-    love.graphics.setScissor(self._item_stencil:unpack())
-    love.graphics.push()
-    love.graphics.translate(0, self._item_y_offset)
-
-    for i, item in ipairs(self._items) do
-        if i == self._selected_item_i then
-            item.selected_frame:draw()
-        else
-            item.frame:draw()
-        end
-
-        item.prefix:draw()
-        item.indicator:draw()
-    end
-
-    love.graphics.pop()
-    love.graphics.setScissor()
-
-    self._scrollbar:draw()
+    self._list:draw()
     self._control_indicator:draw()
 end
 
@@ -350,28 +290,3 @@ end
 function mn.KeybindingScene:exit()
 
 end
---- @brief
-function mn.KeybindingScene:_set_selected_item(i)
-    self._selected_item_i = i
-
-    local item = self._items[self._selected_item_i]
-    if item.y > self._item_stencil.y + self._item_stencil.height then
-        self._item_y_offset = -1 * math.min(item.height_above, self._max_item_y_offset)
-    else
-        self._item_y_offset = 0
-    end
-
-    self._verbose_info:show(item.info)
-    self._scrollbar:set_page_index(self._selected_item_i)
-end
-
---- @brief
-function mn.KeybindingScene:_can_scroll_up()
-    return self._selected_item_i > 1
-end
-
---- @brief
-function mn.KeybindingScene:_can_scroll_down()
-    return self._selected_item_i < self._n_items
-end
-

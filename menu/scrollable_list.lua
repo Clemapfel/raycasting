@@ -1,4 +1,6 @@
 require "common.widget"
+require "common.frame"
+require "menu.scrollbar"
 
 rt.settings.menu.scrollable_list = {
     scroll_ticks_per_second = 4,
@@ -16,7 +18,7 @@ function mn.ScrollableList:instantiate()
     self._item_stencil = rt.AABB()
     self._item_y_offset = 0
     self._max_item_y_offset = 0
-    self._scrollbar = rt.Scrollbar()
+    self._scrollbar = mn.Scrollbar()
 end
 
 --- @brief
@@ -48,7 +50,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
         max_widget_h = math.max(max_widget_h, item_h)
     end
 
-    local current_x, current_y = x, y + item_y_margin
+    local current_x, current_y = x, y
 
     local scrollbar_w = rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit
     self._scrollbar:reformat(
@@ -69,7 +71,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
     item_h = height / math.ceil(height / item_h)
     item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
 
-    local item_w = width - 2 * outer_margin - scrollbar_w
+    local item_w = width - scrollbar_w - m
 
     local height_above = 0
     local total_height = 0
@@ -86,11 +88,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
             )
         end
 
-        local prefix_w, prefix_h = item.prefix:measure()
-        item.widget:reformat(
-            x, current_y + 0.5 * item_h - 0.5 * prefix_h,
-            item_w, item_h
-        )
+        item.widget:reformat(current_x, current_y, item_w, item_h)
 
         local current_height = item_h + item_y_margin
         item.y = current_y
@@ -101,9 +99,16 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
         total_height = total_height + current_height
     end
 
+    local height_below = 0
+    for i = self._n_items, 1, -1 do
+        local item = self._items[i]
+        item.height_below = height_below
+        height_below = height_below + item.height
+    end
+
     total_height = total_height - item_y_margin
     self._max_item_y_offset = total_height - height
-    self:_set_selected_item(self._selected_item_i)
+    self:set_selected_item(self._selected_item_i)
 end
 
 --- @brief
@@ -136,15 +141,17 @@ function mn.ScrollableList:add_item(widget, skip_reformat)
 
     if skip_reformat == nil then skip_reformat = false end
 
-    self._n_items = self._n_items + 1
     local item = {
         widget = widget,
         frame = rt.Frame(),
         selected_frame = rt.Frame(),
         y = 0,
         height = 0,
-        height_above = 0
+        height_above = 0,
+        height_below = 0
     }
+
+    item.selected_frame:set_selection_state(rt.SelectionState.ACTIVE)
 
     if self:get_is_realized() then
         item.widget:realize()
@@ -157,39 +164,70 @@ function mn.ScrollableList:add_item(widget, skip_reformat)
     end
 
     table.insert(self._items, item)
+    self._n_items = self._n_items + 1
+    self._scrollbar:set_n_pages(self._n_items)
 end
 
 --- @brief
 function mn.ScrollableList:scroll_up()
     if self:can_scroll_up() then
-        self:_set_selected_item(self._selected_item_i - 1)
+        self:set_selected_item(self._selected_item_i - 1)
     end
 end
 
 --- @brief
 function mn.ScrollableList:scroll_down()
     if self:can_scroll_down() then
-        self._set_selected_item(self._selected_item_i + 1)
+        self:set_selected_item(self._selected_item_i + 1)
     end
 end
 
 --- @brief
-function mn.ScrollableList:get_current_item()
-    return self._items[self._selected_item_i]
+function mn.ScrollableList:get_selected_item()
+    return self._items[self._selected_item_i].widget
+end
+
+--- @brief
+function mn.ScrollableList:get_item(i)
+    return self._items[i].widget
+end
+
+--- @brief
+function mn.ScrollableList:get_selected_item_i()
+    return self._selected_item_i
+end
+
+--- @brief
+function mn.ScrollableList:get_n_items()
+    return self._n_items
+end
+
+--- @brief
+function mn.ScrollableList:set_should_wrap(b)
+    self._should_wrap = b
 end
 
 --- @brief
 function mn.ScrollableList:can_scroll_up()
-    return self._selected_item_i > 1
+    if self._should_wrap and self._selected_item_i == 1 then
+        return true
+    else
+        return self._selected_item_i > 1
+    end
 end
 
 --- @brief
 function mn.ScrollableList:can_scroll_down()
-    return self._selected_item_i < self._n_items
+    if self._should_wrap and self._selected_item_i == self._n_items then
+        return true
+    else
+        return self._selected_item_i < self._n_items
+    end
 end
 
 --- @brief
 function mn.ScrollableList:set_selected_item(i)
+    meta.assert(i, "Number")
     if self._selected_item_i > self._n_items then return end
 
     local before = self._items[self._selected_item_i]
@@ -197,18 +235,21 @@ function mn.ScrollableList:set_selected_item(i)
     local after = self._items[self._selected_item_i]
 
     local item = self._items[self._selected_item_i]
-    if item.y > self._item_stencil.y + self._item_stencil.height then
-        self._item_y_offset = -1 * math.min(item.height_above, self._max_item_y_offset)
-    else
-        self._item_y_offset = 0
+    local y = item.y + self._item_y_offset
+    local bounds = self:get_bounds()
+
+    if y <= bounds.y then
+        self._item_y_offset = -1 * math.abs(item.y - bounds.y)
+    elseif y + item.height >= bounds.y + bounds.height then
+        self._item_y_offset = -1 * math.abs((item.y + item.height) - (bounds.y + bounds.height))
     end
 
     if before ~= nil then
-        before:set_selection_state(rt.SelectionState.INACTIVE)
+        before.widget:set_selection_state(rt.SelectionState.INACTIVE)
     end
 
     if after ~= nil then
-        after:set_selection_state(rt.SelectionState.ACTIVE)
+        after.widget:set_selection_state(rt.SelectionState.ACTIVE)
     end
 
     self._scrollbar:set_page_index(self._selected_item_i)
