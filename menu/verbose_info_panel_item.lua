@@ -188,7 +188,18 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
             [mn.VerboseInfoObject.MUSIC_LEVEL] = format_title(translation.music_level_title),
             [mn.VerboseInfoObject.SHAKE_ENABLED] = format_title(translation.shake_enabled),
             [mn.VerboseInfoObject.JOYSTICK_DEADZONE] = format_title(translation.joystick_deadzone_title),
-            [mn.VerboseInfoObject.TEXT_SPEED] = format_title(translation.text_speed_title)
+            [mn.VerboseInfoObject.TEXT_SPEED] = format_title(translation.text_speed_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_A] = format_title(translation.input_action_a_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_B] = format_title(translation.input_action_b_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_X] = format_title(translation.input_action_x_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_Y] = format_title(translation.input_action_y_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_UP] = format_title(translation.input_action_up_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_RIGHT] = format_title(translation.input_action_right_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_DOWN] = format_title(translation.input_action_down_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_LEFT] = format_title(translation.input_action_left_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_START] = format_title(translation.input_action_start_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_L] = format_title(translation.input_action_l_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_R] = format_title(translation.input_action_r_title)
         }
     end
 
@@ -201,7 +212,18 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
             [mn.VerboseInfoObject.MUSIC_LEVEL] = format_description(translation.music_level_description),
             [mn.VerboseInfoObject.SHAKE_ENABLED] = format_description(translation.shake_enabled_description),
             [mn.VerboseInfoObject.JOYSTICK_DEADZONE] = format_description(translation.joystick_deadzone_description),
-            [mn.VerboseInfoObject.TEXT_SPEED] = format_description(translation.text_speed_description)
+            [mn.VerboseInfoObject.TEXT_SPEED] = format_description(translation.text_speed_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_A] = format_description(translation.input_action_a_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_B] = format_description(translation.input_action_b_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_X] = format_description(translation.input_action_x_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_Y] = format_description(translation.input_action_y_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_UP] = format_description(translation.input_action_up_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_RIGHT] = format_description(translation.input_action_right_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_DOWN] = format_description(translation.input_action_down_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_LEFT] = format_description(translation.input_action_left_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_START] = format_description(translation.input_action_start_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_L] = format_description(translation.input_action_l_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_R] = format_description(translation.input_action_r_description)
         }
     end
 

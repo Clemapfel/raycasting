@@ -126,7 +126,31 @@ rt.Translation = rt.initialize_translation({
 
         text_speed_title = "Text Speed",
         text_speed_description = "TODO",
-        text_speed_visualization_text = "asbdl aiudbalisda idbasd baslidbalis dba"
+        text_speed_visualization_text = "asbdl aiudbalisda idbasd baslidbalis dba",
+
+        input_action_a_title = "A TODO",
+        input_action_b_title = "B TODO",
+        input_action_x_title = "X TODO",
+        input_action_y_title = "Y TODO",
+        input_action_up_title = "UP TODO",
+        input_action_right_title = "RIGHT TODO",
+        input_action_down_title = "DOWN TODO",
+        input_action_left_title = "LEFT TODO",
+        input_action_start_title = "START TODO",
+        input_action_l_title = "L TODO",
+        input_action_r_title = "R TODO",
+
+        input_action_a_description = "A DESCRIPTION TODO",
+        input_action_b_description = "B DESCRIPTION TODO",
+        input_action_x_description = "X DESCRIPTION TODO",
+        input_action_y_description = "Y  DESCRIPTION TODO",
+        input_action_up_description = "UP  DESCRIPTION TODO",
+        input_action_right_description = "RIGHT DESCRIPTION TODO",
+        input_action_down_description = "DOWN DESCRIPTION TODO",
+        input_action_left_description = "LEFT DESCRIPTION TODO",
+        input_action_start_description = "START DESCRIPTION TODO",
+        input_action_l_description = "L DESCRIPTION TODO",
+        input_action_r_description = "R DESCRIPTION TODO"
     },
 
     -- settings screen
@@ -163,6 +187,36 @@ rt.Translation = rt.initialize_translation({
         sound_effect_level_prefix = "Sound Effects",
         joystick_deadzone_prefix = "Deadzone",
         text_speed_prefix = "Text Speed"
-    }
+    },
 
+    -- keybinding scene
+    keybinding_scene = {
+        heading = "Controls",
+
+        confirm_exit_message = "Are you sure you want to exit?",
+        confirm_exit_submessage = "TODO TODO",
+
+        confirm_reset_to_default_message = "Are you sure you want to reset to default?",
+        confirm_reset_to_default_submessage = "TODO TODO",
+
+        keybinding_invalid_message = "Keybinding Invalid",
+
+
+        control_indicator_move = "Move",
+        control_indicator_select = "Select",
+        control_indicator_back = "Back",
+        control_indicator_reset_to_default = "Reset to Default",
+
+        a_prefix = "Jump / Confirm",
+        b_prefix = "Sprint / Go Back",
+        y_prefix = "Reset",
+        x_prefix = "UNUSED",
+        start_prefix = "Pause / Unpause",
+        up_prefix = "Move Up",
+        right_prefix = "Move Right",
+        down_prefix = "Move Down",
+        left_prefix = "Move Left",
+        l_prefix = "Zoom In",
+        r_prefix = "Zoom Out",
+    }
 })

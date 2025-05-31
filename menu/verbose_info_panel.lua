@@ -22,7 +22,18 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     JOYSTICK_DEADZONE = "joystick_deadzone",
     JOYSTICK_DEADZONE_WIDGET = "deadzone_visualization_widget",
     TEXT_SPEED = "text_speed",
-    TEXT_SPEED_WIDGET = "text_speed_visualization_widget"
+    TEXT_SPEED_WIDGET = "text_speed_visualization_widget",
+    INPUT_ACTION_A = "input_action_a",
+    INPUT_ACTION_B = "input_action_b",
+    INPUT_ACTION_X = "input_action_x",
+    INPUT_ACTION_Y = "input_action_y",
+    INPUT_ACTION_UP = "input_action_up",
+    INPUT_ACTION_RIGHT = "input_action_right",
+    INPUT_ACTION_DOWN = "input_action_down",
+    INPUT_ACTION_LEFT = "input_action_left",
+    INPUT_ACTION_START = "input_action_start",
+    INPUT_ACTION_L = "input_action_l",
+    INPUT_ACTION_R = "input_action_r"
 })
 
 --- @class mn.VerboseInfoPanel

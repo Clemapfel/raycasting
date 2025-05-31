@@ -22,40 +22,14 @@ rt.settings.settings_scene = {
     scale_movement_delay = 20 / 60,
 
     scroll_ticks_per_second = 4,
-    scroll_delay = 20 / 60
+    scroll_delay = 20 / 60,
+
+    verbose_info_width_fraction = 1 / 3,
+    scrollbar_width_factor = 1.5, -- times margin
 }
 
 --- @class mn.SettingsScene
 mn.SettingsScene = meta.class("MenuSettingsScene", rt.Scene)
-
---[[
-full screen: on off
-    description
-
-vsync: adaptive, off, on
-    description
-f
-msaa: off, good, better, best
-    description
-   widget
-
-shake: off, on
-    description
-
-music level: scale
-    description
-
-sound effect leve: scale
-    description
-
-dead zone: scale
-    description
-    widget
-
-textspeed: scale
-    description
-    widget
-]]
 
 --- @class mn.SettingsScene.Item
 mn.SettingsScene.Item = meta.class("SettinsSceneItem")
@@ -324,7 +298,6 @@ function mn.SettingsScene:instantiate()
     end
 
     self._scrollbar:set_n_pages(self._n_items)
-    self._scrollbar:set_page_index(1)
 
     -- input
 
@@ -453,13 +426,12 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
     local control_h = math.max(option_control_h, scale_control_h)
 
     local heading_w, heading_h = self._heading_label:measure()
-    local left_x, top_y = x + 2 * m, y + 2 * m
+    local left_x, top_y = x + outer_margin, y + outer_margin
     local heading_frame_h = math.max(heading_h + 2 * item_y_padding, control_h)
     self._heading_label_frame:reformat(left_x, top_y, heading_w + 2 * item_outer_margin, heading_frame_h)
     self._heading_label:reformat(left_x + item_outer_margin, top_y + 0.5 * heading_frame_h - 0.5 * heading_h, math.huge)
 
     local current_x, current_y = left_x, top_y + heading_frame_h + item_y_margin
-
     self._option_button_control_indicator:reformat(
         x + width - outer_margin - option_control_w,
         top_y,--y + height - outer_margin - option_control_h,
@@ -472,13 +444,13 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
         scale_control_w, scale_control_h
     )
 
-    local verbose_info_w = (width - 2 * outer_margin) * 1 / 3
+    local verbose_info_w = (width - 2 * outer_margin) * rt.settings.settings_scene.verbose_info_width_fraction
     local verbose_info_h = height - 2 * outer_margin - heading_frame_h - item_y_margin
     self._verbose_info:reformat(
         x + width - outer_margin - verbose_info_w, current_y, verbose_info_w, verbose_info_h
     )
 
-    local scrollbar_w = 1.5 * rt.settings.margin_unit
+    local scrollbar_w = rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit
     self._scrollbar:reformat(
         x + width - outer_margin - verbose_info_w - item_y_margin - scrollbar_w,
         current_y,
@@ -643,7 +615,6 @@ function mn.SettingsScene:draw()
         item.prefix:draw()
         item.widget:draw()
     end
-
 
     love.graphics.pop()
     love.graphics.setScissor()

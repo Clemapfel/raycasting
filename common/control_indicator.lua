@@ -279,5 +279,10 @@ function rt.ControlIndicator:set_use_frame(b)
     end
 end
 
+--- @brief
+function rt.ControlIndicator:refresh()
+    self:create_from(self._layout)
+end
+
 
 
