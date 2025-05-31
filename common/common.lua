@@ -204,7 +204,7 @@ function math.mean(a, b)
     return (a + b) / 2
 end
 
---- @brief
+--- @brief project any angle into [0, 2 * math.pi]
 function math.normalize_angle(angle)
     return angle - (2 * math.pi) * math.floor(angle / (2 * math.pi))
 end

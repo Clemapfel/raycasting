@@ -22,7 +22,7 @@ rt.settings.player_body = {
     -- constraint solver params
     non_bubble = {
         n_velocity_iterations = 4,
-        n_distance_iterations = 4,
+        n_distance_iterations = 8,
         n_axis_iterations = 0,
         n_bending_iterations = 0,
         velocity_damping = 0.15,

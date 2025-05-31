@@ -127,7 +127,7 @@ function rt.Player:instantiate()
 
         _radius = player_radius,
         _inner_body_radius = _settings.inner_body_radius,
-        _outer_body_radius = (player_radius * 2 * math.pi) / _settings.n_outer_bodies / 2,
+        _outer_body_radius = (player_radius * 2 * math.pi) / _settings.n_outer_bodies / 1.5,
 
         _bubble_radius = player_radius * _settings.bubble_radius_factor,
         _bubble_inner_body_radius = _settings.inner_body_radius * _settings.bubble_inner_radius_scale,
@@ -860,7 +860,6 @@ function rt.Player:update(delta)
                 body:set_velocity(0, 0)
                 body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
             end
-
         end
     end
 

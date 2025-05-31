@@ -3,7 +3,8 @@ require "common.input_subscriber"
 require "menu.pause_menu_scene"
 
 rt.settings.scene_manager = {
-    pause_delay_duration = 5 / 60 -- seconds
+    pause_delay_duration = 5 / 60, -- seconds
+    max_n_steps_per_frame = 8
 }
 
 --- @class SceneManager
@@ -108,6 +109,7 @@ function rt.SceneManager:resize(width, height)
 
     self._width = width
     self._height = height
+    rt.settings.margin_unit = 10 * rt.get_pixel_scale()
 
     for scene in range(self._pause_menu, self._current_scene) do
         local current_w, current_h = scene._scene_manager_current_size_x, scene._scene_manager_current_size_y
@@ -252,9 +254,16 @@ function love.run()
         _update_elapsed = _update_elapsed + delta
         if _focused then
             if rt.SceneManager._use_fixed_timestep == true then
+                local n_steps = 0
                 while _update_elapsed >= _update_step do
                     love.update(_update_step)
                     _update_elapsed = _update_elapsed - _update_step
+
+                    n_steps = n_steps + 1
+                    if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
+                        _update_elapsed = 0
+                        break
+                    end
                 end
             else
                 love.update(delta)

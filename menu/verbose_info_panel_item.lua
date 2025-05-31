@@ -321,7 +321,6 @@ function mn.VerboseInfoPanel.Item:create_as_deadzone_widget()
     end
 end
 
-
 function mn.VerboseInfoPanel.Item:create_as_text_speed_widget()
     self.object = nil
     self._is_realized = false
@@ -461,7 +460,7 @@ function mn.VerboseInfoPanel.Item:create_as_sound_effect_level_widget()
     end
 
     self.update = function(self, delta)
-        self.label:set_text(rt.Translation.verbose_info.sound_effect_level_widget(math.round(rt.GameState:get_music_level() * 100)))
+        self.label:set_text(rt.Translation.verbose_info.sound_effect_level_widget(math.round(rt.GameState:get_sound_effect_level() * 100)))
     end
 end
 

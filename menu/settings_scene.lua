@@ -77,7 +77,7 @@ function mn.SettingsScene:instantiate()
     )
 
     self._scale_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_move,
+        rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
         rt.ControlIndicatorButton.Y, translation.control_indicator_restore_default,
         rt.ControlIndicatorButton.B, translation.control_indicator_back
     )
@@ -126,7 +126,6 @@ function mn.SettingsScene:instantiate()
             info = { ... },
             is_scale = meta.isa(widget, mn.Scale),
             height_above = 0,
-            height_below = 0,
             height = 0
         })
         
@@ -273,7 +272,7 @@ function mn.SettingsScene:instantiate()
     end
 
     do -- sound effect
-        local sound_effect_level_scale = new_scale(rt.GameState:get_sound_effect_leve())
+        local sound_effect_level_scale = new_scale(rt.GameState:get_sound_effect_level())
         sound_effect_level_scale:signal_connect("value_changed", function(_, value)
             rt.GameState:set_sound_effect_level(value)
         end)
@@ -493,34 +492,36 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
         current_x, current_y, width - 2 * outer_margin - verbose_info_w - item_y_margin, verbose_info_h
     )
 
-    local padding = 2 * rt.get_pixel_scale()
+    local padding = item_y_margin
     self._item_stencil:reformat(
-        current_x - frame_thickness - padding,
-        current_y - frame_thickness - padding,
-        width - 2 * outer_margin - verbose_info_w - item_y_margin + 2 * frame_thickness + 2 * padding,
-        verbose_info_h + 2 * frame_thickness + 0 * padding -- sic
+        current_x,
+        current_y,
+        width - 2 * outer_margin - verbose_info_w - item_y_margin,
+        verbose_info_h
     )
 
-    local item_h_sum = verbose_info_h - ((self._n_items - 1) * item_y_margin + self._n_items * 2 * frame_thickness)
+    local item_h_sum = verbose_info_h
     item_h = math.max(
         item_h,
         control_h,
         item_h_sum / self._n_items
     )
 
-    item_h = math.round(item_h_sum / math.ceil(item_h_sum / item_h))
+    item_h = item_h_sum / math.ceil(item_h_sum / item_h)
+    item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
 
     local item_w = width - 2 * outer_margin - verbose_info_w - item_outer_margin - scrollbar_w
     local widget_w = item_w - 2 * item_outer_margin - item_inner_margin - max_prefix_w
 
     local height_above = 0
     local max_item_h = -math.huge
+    local total_height = 0
     for item in values(self._items) do
         for frame in range(
             item.frame,
             item.selected_frame
         ) do
-            frame:reformat(left_x, current_y, item_w, item_h)
+            frame:reformat(left_x + frame_thickness, current_y + frame_thickness, item_w - 2 * frame_thickness, item_h - 2 * frame_thickness)
         end
 
         local prefix_w, prefix_h = item.prefix:measure()
@@ -543,24 +544,18 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
             widget_w, widget_h
         )
 
-        local current_height = item_h + item_y_margin + 2 * frame_thickness
+        local current_height = item_h + item_y_margin
         item.height_above = height_above
         item.height = current_height
         max_item_h = math.max(max_item_h, current_height)
         height_above = height_above + current_height
         current_y = current_y + current_height
+        total_height = total_height + current_height
     end
 
-    local height_below = 0
-    for i = self._n_items, 1, -1 do
-        local item = self._items[i]
-        height_below = height_below + item.height
-        item.height_below = height_below
-    end
+    total_height = total_height - item_y_margin
 
-    local total_item_height = self._n_items * (item_h + 2 * frame_thickness) + (self._n_items - 1) * item_y_margin
-    self._max_item_y_offset = math.huge --total_item_height - self._item_stencil.height
-
+    self._max_item_y_offset = total_height - verbose_info_h
     self:_set_selected_item(self._selected_item_i)
 end
 
@@ -647,8 +642,6 @@ function mn.SettingsScene:draw()
 
         item.prefix:draw()
         item.widget:draw()
-
-        item.selected_frame:draw_bounds()
     end
 
 
@@ -661,8 +654,6 @@ function mn.SettingsScene:draw()
     else
         self._option_button_control_indicator:draw()
     end
-
-    self._verbose_info:draw_bounds()
 end
 
 --- @brief

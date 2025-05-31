@@ -112,7 +112,7 @@ function rt.GameState:set_sound_effect_level(level)
 end
 
 --- @brief
-function rt.GameState:get_sound_effect_leve()
+function rt.GameState:get_sound_effect_level()
     return self._state.sound_effect_level
 end
 

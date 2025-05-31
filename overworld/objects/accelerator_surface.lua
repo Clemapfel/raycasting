@@ -1,3 +1,7 @@
+rt.settings.overworld.accelerator_surface = {
+
+}
+
 --- @class ow.AcceleratorSurface
 ow.AcceleratorSurface = meta.class("AcceleratorSurface")
 
@@ -19,10 +23,18 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._camera_offset = { 0, 0 }
     self._elapsed = 0
 
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("pressed", function(_, which)
-        if which == "z" then _shader:recompile(); self._elapsed = 0 end
+    self._is_emitting = false
+    self._emission_origin_x, self._emission_origin_y = 0, 0
+    self._particles = {}
+
+    self._body:set_collides_with(bit.bor(rt.settings.player.player_collision_group, rt.settings.player.player_outer_body_collision_group))
+    self._body:signal_connect("collision_start", function(_, other_body, nx, ny, x1, y1, x2, y2)
+        self._is_emitting = true
+        self._emission_origin_x, self._emission_origin_y = x1, y1
+    end)
+
+    self._body:signal_connect("collision_end", function()
+        self._is_emitting = false
     end)
 end
 
@@ -33,6 +45,7 @@ function ow.AcceleratorSurface:draw()
     _shader:send("camera_offset", self._camera_offset)
     _shader:send("camera_scale", self._camera_scale)
     _shader:send("elapsed", self._elapsed)
+    _shader:send("player_direction", { math.normalize(self._scene:get_player():get_velocity()) })
     self._mesh:draw()
     _shader:unbind()
 end
@@ -45,4 +58,6 @@ function ow.AcceleratorSurface:update(delta)
     local camera = self._scene:get_camera()
     self._camera_offset = { camera:get_offset() }
     self._camera_scale = camera:get_scale()
+
+    -- particle sim
 end
