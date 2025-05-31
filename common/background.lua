@@ -17,7 +17,8 @@ function rt.Background:instantiate(id, override_path)
     if override_path == true then
         path = id
     else
-        path = rt.settings.background.config_path .. id .. ".glsl"
+        local suffix = string.match(id, "%.glsl$") and "" or ".glsl"
+        path = rt.settings.background.config_path .. id .. suffix
     end
 
     meta.install(self, {
