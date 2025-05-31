@@ -41,12 +41,14 @@ function rt.Widget:update(delta)
     -- noop
 end
 
+local _round = math.round
+
 --- @brief
 function rt.Widget:reformat(x, y, width, height)
-    if x ~= nil then self._bounds.x = x end
-    if y ~= nil then self._bounds.y = y end
-    if width ~= nil then self._bounds.width = width end
-    if height ~= nil then self._bounds.height = height end
+    if x ~= nil then self._bounds.x = _round(x) end
+    if y ~= nil then self._bounds.y = _round(y) end
+    if width ~= nil then self._bounds.width = _round(width) end
+    if height ~= nil then self._bounds.height = _round(height) end
 
     self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
 end

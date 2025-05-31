@@ -19,6 +19,9 @@ function mn.ScrollableList:instantiate()
     self._item_y_offset = 0
     self._max_item_y_offset = 0
     self._scrollbar = mn.Scrollbar()
+
+    self._item_top_y = 0
+    self._item_bottom_y = 0
 end
 
 --- @brief
@@ -60,7 +63,6 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
         height
     )
 
-    local frame_thickness = rt.settings.frame.thickness
     self._item_stencil:reformat(current_x, current_y, width, height)
 
     local item_h = math.max(
@@ -70,44 +72,28 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
 
     item_h = height / math.ceil(height / item_h)
     item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
-
+    item_h = item_h
     local item_w = width - scrollbar_w - m
 
-    local height_above = 0
-    local total_height = 0
+    self._item_top_y = y
+    local frame_thickness = rt.settings.frame.thickness
     for item in values(self._items) do
         for frame in range(
             item.frame,
             item.selected_frame
         ) do
-            frame:reformat(
-                x + frame_thickness,
-                current_y + frame_thickness,
-                item_w - 2 * frame_thickness,
-                item_h - 2 * frame_thickness
-            )
+            frame:reformat(x + frame_thickness, current_y + frame_thickness, item_w - 2 * frame_thickness, item_h - 2 * frame_thickness)
         end
 
         item.widget:reformat(current_x, current_y, item_w, item_h)
 
         local current_height = item_h + item_y_margin
         item.y = current_y
-        item.height_above = height_above
-        item.height = current_height
-        height_above = height_above + current_height
+        item.height = item_h
         current_y = current_y + current_height
-        total_height = total_height + current_height
     end
 
-    local height_below = 0
-    for i = self._n_items, 1, -1 do
-        local item = self._items[i]
-        item.height_below = height_below
-        height_below = height_below + item.height
-    end
-
-    total_height = total_height - item_y_margin
-    self._max_item_y_offset = total_height - height
+    self._item_bottom_y = y + height
     self:set_selected_item(self._selected_item_i)
 end
 
@@ -115,6 +101,7 @@ end
 function mn.ScrollableList:draw()
     love.graphics.setScissor(self._item_stencil:unpack())
     love.graphics.push()
+    love.graphics.origin()
     love.graphics.translate(0, self._item_y_offset)
 
     for i, item in ipairs(self._items) do
@@ -131,6 +118,11 @@ function mn.ScrollableList:draw()
     love.graphics.setScissor()
 
     self._scrollbar:draw()
+
+    love.graphics.setColor(1, 0, 1, 1)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(0, self._item_top_y, love.graphics.getWidth(), self._item_top_y)
+    love.graphics.line(0, self._item_bottom_y, love.graphics.getWidth(), self._item_bottom_y)
 end
 
 --- @brief
@@ -146,9 +138,7 @@ function mn.ScrollableList:add_item(widget, skip_reformat)
         frame = rt.Frame(),
         selected_frame = rt.Frame(),
         y = 0,
-        height = 0,
-        height_above = 0,
-        height_below = 0
+        height = 0
     }
 
     item.selected_frame:set_selection_state(rt.SelectionState.ACTIVE)
@@ -225,7 +215,6 @@ function mn.ScrollableList:can_scroll_down()
     end
 end
 
---- @brief
 function mn.ScrollableList:set_selected_item(i)
     meta.assert(i, "Number")
     if self._selected_item_i > self._n_items then return end
@@ -235,13 +224,15 @@ function mn.ScrollableList:set_selected_item(i)
     local after = self._items[self._selected_item_i]
 
     local item = self._items[self._selected_item_i]
-    local y = item.y + self._item_y_offset
-    local bounds = self:get_bounds()
+    local item_top_y = math.round(item.y)
+    local item_bottom_y = item_top_y + math.round(item.height)
 
-    if y <= bounds.y then
-        self._item_y_offset = -1 * math.abs(item.y - bounds.y)
-    elseif y + item.height >= bounds.y + bounds.height then
-        self._item_y_offset = -1 * math.abs((item.y + item.height) - (bounds.y + bounds.height))
+    if item_top_y < self._item_top_y then
+        self._item_y_offset = self._item_top_y - item_top_y
+    elseif item_bottom_y > self._item_bottom_y then
+        self._item_y_offset = self._item_bottom_y - item_bottom_y
+    else
+        self._item_y_offset = 0
     end
 
     if before ~= nil then
