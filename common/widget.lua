@@ -41,7 +41,7 @@ function rt.Widget:update(delta)
     -- noop
 end
 
-local _round = math.round
+local _round = function(x) return x end
 
 --- @brief
 function rt.Widget:reformat(x, y, width, height)

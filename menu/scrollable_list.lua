@@ -53,31 +53,33 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
         max_widget_h = math.max(max_widget_h, item_h)
     end
 
-    local current_x, current_y = x, y
-
     local scrollbar_w = rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit
     self._scrollbar:reformat(
         x + width - scrollbar_w,
-        current_y,
+        y,
         scrollbar_w,
         height
     )
 
-    self._item_stencil:reformat(current_x, current_y, width, height)
+    self._item_stencil:reformat(x, y, width, height)
 
     local item_h = math.max(
         max_widget_h,
         height / self._n_items
     )
 
-    item_h = height / math.ceil(height / item_h)
+    local frame_thickness = rt.settings.frame.thickness
+
+    --item_h = height / math.ceil(height / item_h)
     item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
-    item_h = item_h
     local item_w = width - scrollbar_w - m
 
     self._item_top_y = y
-    local frame_thickness = rt.settings.frame.thickness
-    for item in values(self._items) do
+    local item_total_height = item_h + item_y_margin
+
+    for i, item in ipairs(self._items) do
+        local current_y = y + (i - 1) * item_total_height
+
         for frame in range(
             item.frame,
             item.selected_frame
@@ -85,15 +87,13 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
             frame:reformat(x + frame_thickness, current_y + frame_thickness, item_w - 2 * frame_thickness, item_h - 2 * frame_thickness)
         end
 
-        item.widget:reformat(current_x, current_y, item_w, item_h)
+        item.widget:reformat(x, current_y, item_w, item_h)
 
-        local current_height = item_h + item_y_margin
         item.y = current_y
         item.height = item_h
-        current_y = current_y + current_height
     end
 
-    self._item_bottom_y = y + height
+    self._item_bottom_y = self._item_top_y + height
     self:set_selected_item(self._selected_item_i)
 end
 
@@ -224,13 +224,13 @@ function mn.ScrollableList:set_selected_item(i)
     local after = self._items[self._selected_item_i]
 
     local item = self._items[self._selected_item_i]
-    local item_top_y = math.round(item.y)
-    local item_bottom_y = item_top_y + math.round(item.height)
+    local item_top_y = item.y
+    local item_bottom_y = item_top_y + item.height
 
-    if item_top_y < self._item_top_y then
-        self._item_y_offset = self._item_top_y - item_top_y
-    elseif item_bottom_y > self._item_bottom_y then
+    if item_bottom_y > self._item_bottom_y then
         self._item_y_offset = self._item_bottom_y - item_bottom_y
+    elseif item_top_y < self._item_top_y then
+        self._item_y_offset = self._item_top_y - item_top_y
     else
         self._item_y_offset = 0
     end
