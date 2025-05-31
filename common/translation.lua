@@ -205,7 +205,8 @@ rt.Translation = rt.initialize_translation({
         control_indicator_move = "Move",
         control_indicator_select = "Select",
         control_indicator_back = "Back",
-        control_indicator_reset_to_default = "Reset to Default",
+        control_indicator_reset_to_default = "Reset",
+        control_indicator_start_sequence = "Set All",
 
         a_prefix = "Jump / Confirm",
         b_prefix = "Sprint / Go Back",

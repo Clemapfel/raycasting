@@ -29,6 +29,7 @@ function mn.KeybindingScene:instantiate()
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
         rt.ControlIndicatorButton.A, translation.control_indicator_select,
         rt.ControlIndicatorButton.B, translation.control_indicator_back,
+        rt.ControlIndicatorButton.X, translation.control_indicator_start_sequence,
         rt.ControlIndicatorButton.Y, translation.control_indicator_reset_to_default
     )
 
@@ -122,8 +123,7 @@ function mn.KeybindingScene:instantiate()
             frame = rt.Frame(),
             selected_frame = rt.Frame(),
             info = info,
-            height_above = 0,
-            height_below = 0
+            height_above = 0
         }
 
         item.selected_frame:set_selection_state(rt.SelectionState.ACTIVE)
@@ -132,18 +132,58 @@ function mn.KeybindingScene:instantiate()
     end
 
     self._scrollbar:set_n_pages(self._n_items)
+    self._item_stencil = rt.AABB()
 
     -- input
 
     self._selected_item_i = 1
+    self._item_y_offset = 0
+    self._max_item_y_offset = math.huge
+
+    self._scroll_elapsed = 0
+    self._scroll_delay_elapsed = 0
+    self._scroll_active = false
+    self._scroll_direction = nil
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
+        self._scale_active = false
 
+        if which == rt.InputButton.UP then
+            if self._selected_item_i == 1 then
+                self:_set_selected_item(self._n_items)
+            elseif self:_can_scroll_up() then
+                self:_set_selected_item(self._selected_item_i - 1)
+                self._scroll_active = true
+                self._scroll_delay_elapsed = 0
+                self._scroll_elapsed = 0
+                self._scroll_direction = rt.Direction.UP
+            end
+        elseif which == rt.InputButton.DOWN then
+            if self._selected_item_i == self._n_items then
+                self:_set_selected_item(1)
+            elseif self:_can_scroll_down() then
+                self:_set_selected_item(self._selected_item_i + 1)
+                self._scroll_active = true
+                self._scroll_delay_elapsed = 0
+                self._scroll_elapsed = 0
+                self._scroll_direction = rt.Direction.DOWN
+            end
+        elseif which == rt.InputButton.A then
+            -- TODO: start keybinding
+        elseif which == rt.InputButton.Y then
+            -- TODO: show dialog, restore default
+        elseif which == rt.InputButton.X then
+            -- TODO: do serial keybind
+        elseif which == rt.InputButton.B then
+            -- TODO: ask for confirm, then change scene
+        end
     end)
 
     self._input:signal_connect("released", function(_, which)
-
+        if which == rt.InputButton.UP or which == rt.InputButton.DOWN then
+            self._scroll_active = false
+        end
     end)
 end
 
@@ -215,6 +255,57 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
         scrollbar_w,
         verbose_info_h
     )
+
+    local frame_thickness = rt.settings.frame.thickness
+
+    self._item_stencil:reformat(
+        current_x,
+        current_y,
+        width - 2 * outer_margin - verbose_info_w - item_y_margin,
+        verbose_info_h
+    )
+
+    local item_h = math.max(
+        max_prefix_h,
+        control_h,
+        verbose_info_h / self._n_items
+    )
+
+    item_h = verbose_info_h / math.ceil(verbose_info_h / item_h)
+    item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
+
+    local item_w = width - 2 * outer_margin - verbose_info_w - item_outer_margin - scrollbar_w
+    local widget_w = item_w - 2 * item_outer_margin - item_inner_margin - max_prefix_w
+
+    local height_above = 0
+    local total_height = 0
+    for item in values(self._items) do
+        for frame in range(
+            item.frame,
+            item.selected_frame
+        ) do
+            frame:reformat(left_x + frame_thickness, current_y + frame_thickness, item_w - 2 * frame_thickness, item_h - 2 * frame_thickness)
+        end
+
+        local prefix_w, prefix_h = item.prefix:measure()
+        item.prefix:reformat(
+            left_x + item_outer_margin,
+            current_y + 0.5 * item_h - 0.5 * prefix_h,
+            math.huge, math.huge
+        )
+
+        local current_height = item_h + item_y_margin
+        item.y = current_y
+        item.height_above = height_above
+        item.height = current_height
+        height_above = height_above + current_height
+        current_y = current_y + current_height
+        total_height = total_height + current_height
+    end
+
+    total_height = total_height - item_y_margin
+    self._max_item_y_offset = total_height - verbose_info_h
+    self:_set_selected_item(self._selected_item_i)
 end
 
 --- @brief
@@ -228,10 +319,13 @@ function mn.KeybindingScene:draw()
     self._heading_label:draw()
     self._verbose_info:draw()
 
+    love.graphics.setScissor(self._item_stencil:unpack())
+    love.graphics.push()
+    love.graphics.translate(0, self._item_y_offset)
+
     for i, item in ipairs(self._items) do
         if i == self._selected_item_i then
             item.selected_frame:draw()
-            is_scale = item.is_scale
         else
             item.frame:draw()
         end
@@ -239,6 +333,9 @@ function mn.KeybindingScene:draw()
         item.prefix:draw()
         item.indicator:draw()
     end
+
+    love.graphics.pop()
+    love.graphics.setScissor()
 
     self._scrollbar:draw()
     self._control_indicator:draw()
@@ -254,23 +351,27 @@ function mn.KeybindingScene:exit()
 
 end
 --- @brief
-function mn.SettingsScene:_set_selected_item(i)
+function mn.KeybindingScene:_set_selected_item(i)
     self._selected_item_i = i
 
     local item = self._items[self._selected_item_i]
-    self._item_y_offset = -1 * math.min(item.height_above, self._max_item_y_offset)
+    if item.y > self._item_stencil.y + self._item_stencil.height then
+        self._item_y_offset = -1 * math.min(item.height_above, self._max_item_y_offset)
+    else
+        self._item_y_offset = 0
+    end
 
     self._verbose_info:show(item.info)
     self._scrollbar:set_page_index(self._selected_item_i)
 end
 
 --- @brief
-function mn.SettingsScene:_can_scroll_up()
+function mn.KeybindingScene:_can_scroll_up()
     return self._selected_item_i > 1
 end
 
 --- @brief
-function mn.SettingsScene:_can_scroll_down()
+function mn.KeybindingScene:_can_scroll_down()
     return self._selected_item_i < self._n_items
 end
 

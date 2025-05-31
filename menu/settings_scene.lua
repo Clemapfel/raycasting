@@ -409,14 +409,9 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
     local item_y_margin = m
     local item_inner_margin = 4 * m
 
-    local item_h, max_prefix_w, max_prefix_h = -math.huge, -math.huge, -math.huge
+    local max_prefix_w, max_prefix_h = -math.huge, -math.huge
     for item in values(self._items) do
         local prefix_w, prefix_h = item.prefix:measure()
-        item_h = math.max(item_h,
-            prefix_h,
-            select(2, item.widget:measure())
-        )
-
         max_prefix_w = math.max(max_prefix_w, prefix_w)
         max_prefix_h = math.max(max_prefix_h, prefix_h)
     end
@@ -464,7 +459,6 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
         current_x, current_y, width - 2 * outer_margin - verbose_info_w - item_y_margin, verbose_info_h
     )
 
-    local padding = item_y_margin
     self._item_stencil:reformat(
         current_x,
         current_y,
@@ -472,14 +466,13 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
         verbose_info_h
     )
 
-    local item_h_sum = verbose_info_h
-    item_h = math.max(
-        item_h,
+    local item_h = math.max(
+        max_prefix_h,
         control_h,
-        item_h_sum / self._n_items
+        verbose_info_h / self._n_items
     )
 
-    item_h = item_h_sum / math.ceil(item_h_sum / item_h)
+    item_h = verbose_info_h / math.ceil(verbose_info_h / item_h)
     item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
 
     local item_w = width - 2 * outer_margin - verbose_info_w - item_outer_margin - scrollbar_w
@@ -526,7 +519,6 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
     end
 
     total_height = total_height - item_y_margin
-
     self._max_item_y_offset = total_height - verbose_info_h
     self:_set_selected_item(self._selected_item_i)
 end
@@ -618,7 +610,6 @@ function mn.SettingsScene:draw()
 
     love.graphics.pop()
     love.graphics.setScissor()
-    self._scrollbar:draw()
 
     if is_scale then
         self._scale_control_indicator:draw()
@@ -632,7 +623,11 @@ function mn.SettingsScene:_set_selected_item(i)
     self._selected_item_i = i
 
     local item = self._items[self._selected_item_i]
-    self._item_y_offset = -1 * math.min(item.height_above, self._max_item_y_offset)
+    if item.y > self._item_stencil.y + self._item_stencil.height then
+        self._item_y_offset = -1 * math.min(item.height_above, self._max_item_y_offset)
+    else
+        self._item_y_offset = 0
+    end
 
     self._verbose_info:show(item.info)
     self._scrollbar:set_page_index(self._selected_item_i)
