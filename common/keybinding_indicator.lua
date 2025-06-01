@@ -139,7 +139,7 @@ local _gamepad_button_to_string = {
 }
 
 function rt.gamepad_button_to_string(gamepad_button)
-    local raw = string.sub(gamepad_button, #rt.GamepadButtonPrefix + 1, #gamepad_button)
+    local raw = string.sub(gamepad_button, #rt.ControllerButtonPrefix + 1, #gamepad_button)
     local out = _gamepad_button_to_string[raw]
     if out == nil then return "UNKNOWN" else return out end
 end
@@ -1322,33 +1322,33 @@ end
 
 --- @brief
 function rt.KeybindingIndicator:create_from_gamepad_button(button)
-    if button == rt.GamepadButton.TOP then
+    if button == rt.ControllerButton.TOP then
         return self:create_as_button(true, false, false, false)
-    elseif button == rt.GamepadButton.RIGHT then
+    elseif button == rt.ControllerButton.RIGHT then
         return self:create_as_button(false, true, false, false)
-    elseif button == rt.GamepadButton.BOTTOM then
+    elseif button == rt.ControllerButton.BOTTOM then
         return self:create_as_button(false, false, true, false)
-    elseif button == rt.GamepadButton.LEFT then
+    elseif button == rt.ControllerButton.LEFT then
         return self:create_as_button(false, false, false, true)
-    elseif button == rt.GamepadButton.DPAD_UP then
+    elseif button == rt.ControllerButton.DPAD_UP then
         return self:create_as_dpad(true, false, false, false)
-    elseif button == rt.GamepadButton.DPAD_RIGHT then
+    elseif button == rt.ControllerButton.DPAD_RIGHT then
         return self:create_as_dpad(false, true, false, false)
-    elseif button == rt.GamepadButton.DPAD_DOWN then
+    elseif button == rt.ControllerButton.DPAD_DOWN then
         return self:create_as_dpad(false, false, true, false)
-    elseif button == rt.GamepadButton.DPAD_LEFT then
+    elseif button == rt.ControllerButton.DPAD_LEFT then
         return self:create_as_dpad(false, false, false, true)
-    elseif button == rt.GamepadButton.LEFT_SHOULDER then
+    elseif button == rt.ControllerButton.LEFT_SHOULDER then
         return self:create_as_l_or_r(true)
-    elseif button == rt.GamepadButton.RIGHT_SHOULDER then
+    elseif button == rt.ControllerButton.RIGHT_SHOULDER then
         return self:create_as_l_or_r(false)
-    elseif button == rt.GamepadButton.START then
+    elseif button == rt.ControllerButton.START then
         return self:create_as_start_or_select(true)
-    elseif button == rt.GamepadButton.SELECT then
+    elseif button == rt.ControllerButton.SELECT then
         return self:create_as_start_or_select(false)
-    elseif button == rt.GamepadButton.LEFT_STICK then
+    elseif button == rt.ControllerButton.LEFT_STICK then
         return self:create_as_joystick(true)
-    elseif button == rt.GamepadButton.RIGHT_STICK then
+    elseif button == rt.ControllerButton.RIGHT_STICK then
         return self:create_as_joystick(false)
     else
         return self:create_as_button(false, false, false, false)

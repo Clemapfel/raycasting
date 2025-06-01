@@ -91,9 +91,13 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+float symmetric(float value) {
+    return abs(fract(value) * 2.0 - 1.0);
+}
+
 vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_position) {
     vec2 uv = texture_position;
-    float time = elapsed / 4;
+    float time = elapsed / 20;
 
     vec2 size = love_ScreenSize.xy;
     vec2 normalization = size / max(size.x, size.y); // account for aspect ratio
@@ -107,22 +111,29 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_posit
 
     float noise = 1;
     vec2 scale = vec2(2, 1);
+    float gradient_hue = 0;
+    float worley_hue = 0;
     for (int i = 1; i < 4; ++i) {
         if (i % 2 == 0) {
             noise = (gradient_noise(vec3(time, texture_position * 6)) + 1) / 2;
             uv.xy += noise * scale.xy;
+            gradient_hue = gradient_hue + noise;
         }
         else {
             noise = smoothstep(0.7, 1, worley_noise(vec3(time, texture_position * 4 )));
-            uv.xy += noise;
+            uv.xy += noise / 2;
+            worley_hue = worley_hue + noise;
         }
 
         scale.x = scale.x * 3;
     }
 
-    float final = worley_noise(vec3(uv.xy, time));
+    worley_hue = fract(worley_hue);
+    gradient_hue = fract(gradient_hue + time);
 
-    return vec4(vec3(final), 1);
+    float final = worley_noise(vec3(uv.xy - time, time));
+
+    return vec4(vec3(lch_to_rgb(vec3(gaussian(dist, 0.5) * final, min(gaussian(dist, 1) * 0.8, 1), gradient_hue))), 1);
 }
 
 #endif

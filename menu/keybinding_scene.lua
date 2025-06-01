@@ -32,13 +32,15 @@ end
 --- @brief [internal]
 function mn.KeybindingScene.Item:realize()
     self.prefix:realize()
-    self.indicator:realize()
+    self.controller_indicator:realize()
+    self.keyboard_indicator:realize()
 end
 
 --- @brief [internal]
 function mn.KeybindingScene.Item:draw()
     self.prefix:draw()
-    self.indicator:draw()
+    self.controller_indicator:draw()
+    self.keyboard_indicator:draw()
 end
 
 --- @brief
@@ -125,6 +127,7 @@ function mn.KeybindingScene:instantiate()
 
     local prefix_prefix, prefix_postfix = "<b>", "</b>"
 
+    local scene = self
     for input_button, input_action in pairs(input_button_to_input_action) do
         local prefix = input_action_to_translation[input_action]
         local to_assign = input_action_to_input_button[input_action]
@@ -136,20 +139,34 @@ function mn.KeybindingScene:instantiate()
         local item = mn.KeybindingScene.Item({
             prefix = rt.Label(prefix_prefix .. prefix .. prefix_postfix),
             to_assign = to_assign,
-            indicator = rt.KeybindingIndicator(),
+            keyboard_indicator = rt.KeybindingIndicator(),
+            controller_indicator = rt.KeybindingIndicator(),
             info = info,
         })
 
-        item.set_selection_state = function(_, state)
+        item.set_selection_state = function(self, state)
             if state == rt.SelectionState.ACTIVE then
-                self._verbose_info:show(item.info)
+                scene._verbose_info:show(item.info)
             end
+        end
+
+        item.set_keyboard_indicator = function(self, key)
+            self.keyboard_indicator:create_from_keyboard_key(key)
+        end
+
+        item.set_controller_indicator = function(self, button)
+            self.control_indicator:create_from_gamepad_button(button)
         end
 
         self._list:add_item(item)
     end
 
+    self:_update_all_indicators()
+
     -- input
+    self._listening_active = false
+    self._listening_item = nil
+
     self._scroll_elapsed = 0
     self._scroll_delay_elapsed = 0
     self._scroll_active = false
@@ -157,7 +174,8 @@ function mn.KeybindingScene:instantiate()
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        self._scale_active = false
+        if self._listening_active then return end
+
         if which == rt.InputButton.UP then
             if self._list:can_scroll_up() then
                 self._list:scroll_up()
@@ -175,7 +193,10 @@ function mn.KeybindingScene:instantiate()
                 self._scroll_direction = rt.Direction.DOWN
             end
         elseif which == rt.InputButton.A then
-            -- TODO: start keybinding
+            if not self._listening_active then
+                self._listening_active = true
+                self._listening_item = self._list:get_selected_item()
+            end
         elseif which == rt.InputButton.Y then
             -- TODO: show dialog, restore default
         elseif which == rt.InputButton.X then
@@ -189,6 +210,16 @@ function mn.KeybindingScene:instantiate()
         if which == rt.InputButton.UP or which == rt.InputButton.DOWN then
             self._scroll_active = false
         end
+    end)
+
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if not self._listening_active then return end
+        self._listening_item:set_keyboard_indicator(which)
+    end)
+
+    self._input:signal_connect("controller_button_pressed", function(_, which)
+        if not self._listening_active then return end
+        self._listening_item:set_controller_indicator(which)
     end)
 end
 
@@ -242,6 +273,10 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
         max_prefix_w = math.max(max_prefix_w, prefix_w)
     end
 
+    local list_w = width - 2 * outer_margin - verbose_info_w - m
+    local widget_w = list_w - 2 * item_outer_margin - max_prefix_w
+    widget_w = widget_w / 2
+
     for i = 1, self._list:get_n_items() do
         local item = self._list:get_item(i)
         item.size_allocate = function(self, x, y, width, height)
@@ -252,6 +287,21 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
                 y + 0.5 * height - 0.5 * prefix_h,
                 math.huge, math.huge
             )
+
+            self.keyboard_indicator:reformat(
+                x + item_outer_margin + prefix_w,
+                y,
+                widget_w,
+                prefix_h
+            )
+
+            self.controller_indicator:reformat(
+                x + item_outer_margin + prefix_w + widget_w,
+                y,
+                widget_w,
+                prefix_h
+            )
+
         end
 
         item.measure = function(self)
@@ -262,7 +312,7 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
 
     self._list:reformat(
         current_x, current_y,
-        width - 2 * outer_margin - verbose_info_w - m,
+        list_w,
         verbose_info_h
     )
 end
@@ -270,6 +320,13 @@ end
 --- @brief
 function mn.KeybindingScene:update(delta)
 
+end
+
+--- @brief
+function mn.KeybindingScene:_update_all_indicators()
+    for item in values(self._items) do
+        item:set_keyboard_indicator(rt.InputMapping:get_reverse_mapping())
+    end
 end
 
 --- @brief
@@ -283,10 +340,12 @@ end
 
 --- @brief
 function mn.KeybindingScene:enter()
-
+    self._listening_active = false
+    self._input:activate()
 end
 
 --- @brief
 function mn.KeybindingScene:exit()
-
+    self._listening_active = false
+    self._input:activate()
 end

@@ -45,8 +45,14 @@ function rt.GameState:instantiate()
        music_level = 1.0,
        text_speed = 1.0,
        joystick_deadzone = 0.15,
-       trigger_deadzone = 0.05
+       trigger_deadzone = 0.05,
+
+       input_mapping = {}
     }
+
+    self._keyboard_key_to_input_button = {}
+    self._controller_button_to_input_button = {}
+    self:_load_default_input_mapping()
 
     -- read settings from conf.lua
     for setter_setting in range(
@@ -62,7 +68,6 @@ function rt.GameState:instantiate()
     end
 
     self:_initialize_stage()
-
     self._player = rt.Player()
 end
 
@@ -169,6 +174,118 @@ end
 function rt.GameState:get_is_screen_shake_enabled()
     return self._state.screen_shake_enabled
 end
+
+--- @brief
+function rt.GameState:_load_default_input_mapping()
+    self._state.input_mapping =
+    {
+        [rt.InputButton.UP] = {
+            keyboard = {"w", "up"},
+            controller = rt.GamepadButton.DPAD_UP
+        },
+
+        [rt.InputButton.DOWN] = {
+            keyboard = {"s", "down"},
+            controller = rt.GamepadButton.DPAD_DOWN
+        },
+
+        [rt.InputButton.LEFT] = {
+            keyboard = {"a", "left"},
+            controller = rt.GamepadButton.DPAD_LEFT
+        },
+
+        [rt.InputButton.RIGHT] = {
+            keyboard = {"d", "right"},
+            controller = rt.GamepadButton.DPAD_RIGHT
+        },
+
+        [rt.InputButton.A] = {
+            keyboard = {"space"},
+            controller = rt.GamepadButton.RIGHT
+        },
+
+        [rt.InputButton.B] = {
+            keyboard = {"b"},
+            controller = rt.GamepadButton.BOTTOM
+        },
+
+        [rt.InputButton.X] = {
+            keyboard = {"x"},
+            controller = rt.GamepadButton.TOP
+        },
+
+        [rt.InputButton.Y] = {
+            keyboard = {"y"},
+            controller = rt.GamepadButton.LEFT
+        },
+
+        [rt.InputButton.L] = {
+            keyboard = {"n", "l"},
+            controller = rt.GamepadButton.LEFT_SHOULDER
+        },
+
+        [rt.InputButton.R] = {
+            keyboard = {"m", "r"},
+            controller = rt.GamepadButton.RIGHT_SHOULDER
+        },
+
+        [rt.InputButton.START] = {
+            keyboard = {"escape"},
+            controller = rt.GamepadButton.START
+        },
+
+        [rt.InputButton.SELECT] = {
+            keyboard = {"#"},
+            controller = rt.Gamepadbutton.SELECT
+        }
+    }
+
+    local valid, error = self:_validate_input_mapping()
+
+    if valid then
+        self:_update_reverse_mapping()
+    else
+        rt.error(error)
+    end
+end
+
+--- @brief
+function rt.GameState:_validate_input_mapping()
+    return true, nil -- TODO
+end
+
+--- @brief
+function rt.GameState:_update_reverse_mapping()
+    self._keyboard_key_to_input_button = {}
+    self._controller_button_to_input_button = {}
+
+    for action in values(meta.instances(rt.InputAction)) do
+        local mapping = self._state.input_mapping[action]
+
+        if not meta.is_table(mapping.keyboard) then mapping.keyboard = { mapping.keyboard } end
+        if not meta.is_table(mapping.controller) then mapping.controller = { mapping.controller } end
+
+        for key in values(mapping.keyboard) do
+            local actions = self._keyboard_key_to_input_action[key]
+            if actions == nil then
+                actions = {}
+                self._keyboard_key_to_input_action[key] = actions
+            end
+            table.insert(actions, action)
+        end
+
+        for button in values(mapping.controller) do
+            local actions = self._controller_button_to_input_action[button]
+            if actions == nil then
+                actions = {}
+                self._controller_button_to_input_action[button] = actions
+            end
+            table.insert(actions, button)
+        end
+    end
+end
+
+
 
 require "common.game_state_stage"
 

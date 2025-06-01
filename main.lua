@@ -4,10 +4,6 @@ require "common.game_state"
 require "common.input_subscriber"
 require "common.profiler"
 
-local background = rt.Background("menu/settings_scene.glsl", true)
-background:realize()
-background:reformat(0, 0, love.graphics.getDimensions())
-
 _input = rt.InputSubscriber()
 _input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "p" then
@@ -33,7 +29,6 @@ love.load = function(args)
     --require "menu.settings_scene"
     --rt.SceneManager:set_scene(mn.SettingsScene)
 end
-
 
 love.update = function(delta)
     rt.SceneManager:update(delta)

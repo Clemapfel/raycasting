@@ -61,24 +61,24 @@ end
 function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button(indicator, button, is_keyboard)
     if is_keyboard then
         if button == rt.ControlIndicatorButton.UP_DOWN then
-            local up = rt.InputMapping:get_mapping(rt.InputButton.UP, true)[1]
-            local down = rt.InputMapping:get_mapping(rt.InputButton.DOWN, true)[1]
+            local up = rt.InputMapping:get_mapping(rt.InputButton.UP, rt.InputMethod.KEYBOARD)[1]
+            local down = rt.InputMapping:get_mapping(rt.InputButton.DOWN, rt.InputMethod.KEYBOARD)[1]
             indicator:create_as_two_vertical_keys(
                 rt.keyboard_key_to_string(up),
                 rt.keyboard_key_to_string(down)
             )
         elseif button == rt.ControlIndicatorButton.LEFT_RIGHT then
-            local left = rt.InputMapping:get_mapping(rt.InputButton.LEFT, true)[1]
-            local right = rt.InputMapping:get_mapping(rt.InputButton.RIGHT, true)[1]
+            local left = rt.InputMapping:get_mapping(rt.InputButton.LEFT, rt.InputMethod.KEYBOARD)[1]
+            local right = rt.InputMapping:get_mapping(rt.InputButton.RIGHT, rt.InputMethod.KEYBOARD)[1]
             indicator:create_as_two_horizontal_keys(
                 rt.keyboard_key_to_string(left),
                 rt.keyboard_key_to_string(right)
             )
         elseif button == rt.ControlIndicatorButton.ALL_DIRECTIONS then
-            local up = rt.InputMapping:get_mapping(rt.InputButton.UP, true)[1]
-            local down = rt.InputMapping:get_mapping(rt.InputButton.DOWN, true)[1]
-            local left = rt.InputMapping:get_mapping(rt.InputButton.LEFT, true)[1]
-            local right = rt.InputMapping:get_mapping(rt.InputButton.RIGHT, true)[1]
+            local up = rt.InputMapping:get_mapping(rt.InputButton.UP, rt.InputMethod.KEYBOARD)[1]
+            local down = rt.InputMapping:get_mapping(rt.InputButton.DOWN, rt.InputMethod.KEYBOARD)[1]
+            local left = rt.InputMapping:get_mapping(rt.InputButton.LEFT, rt.InputMethod.KEYBOARD)[1]
+            local right = rt.InputMapping:get_mapping(rt.InputButton.RIGHT, rt.InputMethod.KEYBOARD)[1]
             indicator:create_as_four_keys(
                 rt.keyboard_key_to_string(up),
                 rt.keyboard_key_to_string(right),
@@ -86,7 +86,7 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
                 rt.keyboard_key_to_string(left)
             )
         else
-            local binding = rt.InputMapping:get_mapping(button, true)[1]
+            local binding = rt.InputMapping:get_mapping(button, rt.InputMethod.KEYBOARD)[1]
             indicator:create_from_keyboard_key(binding)
         end
     else
@@ -97,7 +97,7 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
         elseif button == rt.ControlIndicatorButton.ALL_DIRECTIONS then
             indicator:create_as_dpad(false, false, false, false)
         else
-            local binding = rt.InputMapping:get_mapping(button, false)[1]
+            local binding = rt.InputMapping:get_mapping(button, rt.InputMethod.CONTROLLER)[1]
             indicator:create_from_gamepad_button(binding)
         end
     end
@@ -164,7 +164,7 @@ function rt.ControlIndicator:_get_margin()
     local m = rt.settings.margin_unit
     local outer_xm = self._use_frame and 2 * m or 2 * m
     local outer_ym = self._use_frame and m or m
-    local inner_m = 2 * m
+    local inner_m = 0.5 * m
 
     return outer_xm, outer_ym, inner_m
 end

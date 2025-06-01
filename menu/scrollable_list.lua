@@ -70,7 +70,6 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
 
     local frame_thickness = rt.settings.frame.thickness
 
-    --item_h = height / math.ceil(height / item_h)
     item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
     local item_w = width - scrollbar_w - m
 
@@ -118,11 +117,6 @@ function mn.ScrollableList:draw()
     love.graphics.setScissor()
 
     self._scrollbar:draw()
-
-    love.graphics.setColor(1, 0, 1, 1)
-    love.graphics.setLineWidth(2)
-    love.graphics.line(0, self._item_top_y, love.graphics.getWidth(), self._item_top_y)
-    love.graphics.line(0, self._item_bottom_y, love.graphics.getWidth(), self._item_bottom_y)
 end
 
 --- @brief
@@ -227,12 +221,10 @@ function mn.ScrollableList:set_selected_item(i)
     local item_top_y = item.y
     local item_bottom_y = item_top_y + item.height
 
-    if item_bottom_y > self._item_bottom_y then
-        self._item_y_offset = self._item_bottom_y - item_bottom_y
-    elseif item_top_y < self._item_top_y then
+    if item_top_y <= self._item_top_y then
         self._item_y_offset = self._item_top_y - item_top_y
-    else
-        self._item_y_offset = 0
+    elseif item_bottom_y >= self._item_bottom_y then
+        self._item_y_offset = self._item_bottom_y - item_bottom_y
     end
 
     if before ~= nil then

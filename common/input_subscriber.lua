@@ -42,11 +42,11 @@ rt.InputCallbackID = meta.enum("InputCallbackID", {
     KEYBOARD_KEY_RELEASED = "keyboard_key_released",
 
     -- controller button (excluding triggers) was pressed
-    -- callback: (love.JoystickButton, ControllerID) -> nil -- cf. https://love2d.org/wiki/GamepadButton
+    -- callback: (love.JoystickButton, ControllerID) -> nil -- cf. https://love2d.org/wiki/ControllerButton
     CONTROLLER_BUTTON_PRESSED = "controller_button_pressed",
 
     -- controller button (excluding triggers) was released
-    -- callback: (love.JoystickButton, ControllerID) -> nil -- cf. https://love2d.org/wiki/GamepadButton
+    -- callback: (love.JoystickButton, ControllerID) -> nil -- cf. https://love2d.org/wiki/ControllerButton
     CONTROLLER_BUTTON_RELEASED = "controller_button_released",
 
     -- left joystick (not dpad) changes position
