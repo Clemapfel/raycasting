@@ -96,7 +96,7 @@ function ow.Hook:instantiate(object, stage, scene)
     end)
 
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputButton.DOWN and self._hook ~= nil then
+        if which == rt.InputAction.DOWN and self._hook ~= nil then
             self._hook:destroy()
             self._hook = nil
             self._scene:get_player():signal_disconnect("jump", player_signal_id)

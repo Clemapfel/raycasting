@@ -8,20 +8,7 @@ require "menu.settings_scene"
 --- @class mn.KeybindingScene
 mn.KeybindingScene = meta.class("KeybindingsScene", rt.Scene)
 
-mn.InputAction = meta.enum("InputAction", {
-    A = "a",
-    B = "b",
-    X = "x",
-    Y = "y",
-    UP = "up",
-    RIGHT = "right",
-    DOWN = "down",
-    LEFT = "left",
-    START = "start",
-    L = "l",
-    R = "r"
-})
-
+--- @class mn.KeybindingScene.Item
 mn.KeybindingScene.Item = meta.class("KeybindingsSceneItem", rt.Widget)
 
 --- @brief [internal]
@@ -80,65 +67,63 @@ function mn.KeybindingScene:instantiate()
 
     -- items
 
-    local input_button_to_input_action = {
-        [rt.InputButton.A] = mn.InputAction.A,
-        [rt.InputButton.B] = mn.InputAction.B,
-        [rt.InputButton.X] = mn.InputAction.X,
-        [rt.InputButton.Y] = mn.InputAction.Y,
-        [rt.InputButton.L] = mn.InputAction.L,
-        [rt.InputButton.R] = mn.InputAction.R,
-        [rt.InputButton.START] = mn.InputAction.START,
-        [rt.InputButton.UP] = mn.InputAction.UP,
-        [rt.InputButton.RIGHT] = mn.InputAction.RIGHT,
-        [rt.InputButton.DOWN] = mn.InputAction.DOWN,
-        [rt.InputButton.LEFT] = mn.InputAction.LEFT,
+    local input_action_order = {
+        rt.InputAction.A,
+        rt.InputAction.B,
+        --rt.InputAction.X,
+        rt.InputAction.Y,
+        rt.InputAction.UP,
+        rt.InputAction.RIGHT,
+        rt.InputAction.DOWN,
+        rt.InputAction.LEFT,
+        rt.InputAction.L,
+        rt.InputAction.R,
+        rt.InputAction.START,
+        --rt.InputAction.SELECT
     }
 
-    local input_action_to_input_button = {}
-    for key, value in pairs(input_button_to_input_action) do input_action_to_input_button[value] = key end
-
     local input_action_to_verbose_info = {
-        [mn.InputAction.A] = mn.VerboseInfoObject.INPUT_ACTION_A,
-        [mn.InputAction.B] = mn.VerboseInfoObject.INPUT_ACTION_B,
-        [mn.InputAction.X] = mn.VerboseInfoObject.INPUT_ACTION_X,
-        [mn.InputAction.Y] = mn.VerboseInfoObject.INPUT_ACTION_Y,
-        [mn.InputAction.L] = mn.VerboseInfoObject.INPUT_ACTION_L,
-        [mn.InputAction.R] = mn.VerboseInfoObject.INPUT_ACTION_R,
-        [mn.InputAction.START] = mn.VerboseInfoObject.INPUT_ACTION_START,
-        [mn.InputAction.UP] = mn.VerboseInfoObject.INPUT_ACTION_UP,
-        [mn.InputAction.RIGHT] = mn.VerboseInfoObject.INPUT_ACTION_RIGHT,
-        [mn.InputAction.DOWN] = mn.VerboseInfoObject.INPUT_ACTION_DOWN,
-        [mn.InputAction.LEFT] = mn.VerboseInfoObject.INPUT_ACTION_LEFT,
+        [rt.InputAction.A] = mn.VerboseInfoObject.INPUT_ACTION_A,
+        [rt.InputAction.B] = mn.VerboseInfoObject.INPUT_ACTION_B,
+        [rt.InputAction.X] = mn.VerboseInfoObject.INPUT_ACTION_X,
+        [rt.InputAction.Y] = mn.VerboseInfoObject.INPUT_ACTION_Y,
+        [rt.InputAction.L] = mn.VerboseInfoObject.INPUT_ACTION_L,
+        [rt.InputAction.R] = mn.VerboseInfoObject.INPUT_ACTION_R,
+        [rt.InputAction.START] = mn.VerboseInfoObject.INPUT_ACTION_START,
+        [rt.InputAction.SELECT] = mn.VerboseInfoObject.INPUT_ACTION_SELECT,
+        [rt.InputAction.UP] = mn.VerboseInfoObject.INPUT_ACTION_UP,
+        [rt.InputAction.RIGHT] = mn.VerboseInfoObject.INPUT_ACTION_RIGHT,
+        [rt.InputAction.DOWN] = mn.VerboseInfoObject.INPUT_ACTION_DOWN,
+        [rt.InputAction.LEFT] = mn.VerboseInfoObject.INPUT_ACTION_LEFT,
     }
 
     local input_action_to_translation = {
-        [mn.InputAction.A] = translation.a_prefix,
-        [mn.InputAction.B] = translation.b_prefix,
-        [mn.InputAction.X] = translation.x_prefix,
-        [mn.InputAction.Y] = translation.y_prefix,
-        [mn.InputAction.L] = translation.l_prefix,
-        [mn.InputAction.R] = translation.r_prefix,
-        [mn.InputAction.START] = translation.start_prefix,
-        [mn.InputAction.UP] = translation.up_prefix,
-        [mn.InputAction.RIGHT] = translation.right_prefix,
-        [mn.InputAction.DOWN] = translation.down_prefix,
-        [mn.InputAction.LEFT] = translation.left_prefix,
+        [rt.InputAction.A] = translation.a_prefix,
+        [rt.InputAction.B] = translation.b_prefix,
+        [rt.InputAction.X] = translation.x_prefix,
+        [rt.InputAction.Y] = translation.y_prefix,
+        [rt.InputAction.L] = translation.l_prefix,
+        [rt.InputAction.R] = translation.r_prefix,
+        [rt.InputAction.START] = translation.start_prefix,
+        [rt.InputAction.SELECT] = translation.select_prefix,
+        [rt.InputAction.UP] = translation.up_prefix,
+        [rt.InputAction.RIGHT] = translation.right_prefix,
+        [rt.InputAction.DOWN] = translation.down_prefix,
+        [rt.InputAction.LEFT] = translation.left_prefix,
     }
 
     local prefix_prefix, prefix_postfix = "<b>", "</b>"
 
     local scene = self
-    for input_button, input_action in pairs(input_button_to_input_action) do
+    for input_action in values(input_action_order) do
         local prefix = input_action_to_translation[input_action]
-        local to_assign = input_action_to_input_button[input_action]
         local info = input_action_to_verbose_info[input_action]
-        assert(to_assign ~= nil, input_action)
         assert(prefix ~= nil, input_action)
         assert(info ~= nil, input_action)
 
         local item = mn.KeybindingScene.Item({
             prefix = rt.Label(prefix_prefix .. prefix .. prefix_postfix),
-            to_assign = to_assign,
+            input_action = input_action,
             keyboard_indicator = rt.KeybindingIndicator(),
             controller_indicator = rt.KeybindingIndicator(),
             info = info,
@@ -176,7 +161,7 @@ function mn.KeybindingScene:instantiate()
     self._input:signal_connect("pressed", function(_, which)
         if self._listening_active then return end
 
-        if which == rt.InputButton.UP then
+        if which == rt.InputAction.UP then
             if self._list:can_scroll_up() then
                 self._list:scroll_up()
                 self._scroll_active = true
@@ -184,7 +169,7 @@ function mn.KeybindingScene:instantiate()
                 self._scroll_elapsed = 0
                 self._scroll_direction = rt.Direction.UP
             end
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             if self._list:can_scroll_down() then
                 self._list:scroll_down()
                 self._scroll_active = true
@@ -192,22 +177,22 @@ function mn.KeybindingScene:instantiate()
                 self._scroll_elapsed = 0
                 self._scroll_direction = rt.Direction.DOWN
             end
-        elseif which == rt.InputButton.A then
+        elseif which == rt.InputAction.A then
             if not self._listening_active then
                 self._listening_active = true
                 self._listening_item = self._list:get_selected_item()
             end
-        elseif which == rt.InputButton.Y then
+        elseif which == rt.InputAction.Y then
             -- TODO: show dialog, restore default
-        elseif which == rt.InputButton.X then
+        elseif which == rt.InputAction.X then
             -- TODO: do serial keybind
-        elseif which == rt.InputButton.B then
+        elseif which == rt.InputAction.B then
             -- TODO: ask for confirm, then change scene
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if which == rt.InputButton.UP or which == rt.InputButton.DOWN then
+        if which == rt.InputAction.UP or which == rt.InputAction.DOWN then
             self._scroll_active = false
         end
     end)
@@ -325,7 +310,7 @@ end
 --- @brief
 function mn.KeybindingScene:_update_all_indicators()
     for item in values(self._items) do
-        item:set_keyboard_indicator(rt.InputMapping:get_reverse_mapping())
+        item:set_keyboard_indicator(rt.GameState:get_reverse_mapping(item.to))
     end
 end
 

@@ -315,7 +315,7 @@ function mn.SettingsScene:instantiate()
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         self._scale_active = false
-        if which == rt.InputButton.UP then
+        if which == rt.InputAction.UP then
             if self._list:can_scroll_up() then
                 self._list:scroll_up()
                 self._scroll_active = true
@@ -323,7 +323,7 @@ function mn.SettingsScene:instantiate()
                 self._scroll_elapsed = 0
                 self._scroll_direction = rt.Direction.UP
             end
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             if self._list:can_scroll_down() then
                 self._list:scroll_down()
                 self._scroll_active = true
@@ -331,7 +331,7 @@ function mn.SettingsScene:instantiate()
                 self._scroll_elapsed = 0
                 self._scroll_direction = rt.Direction.DOWN
             end
-        elseif which == rt.InputButton.LEFT then
+        elseif which == rt.InputAction.LEFT then
             local item = self._list:get_selected_item()
             if item.is_scale then
                 self._scale_elapsed = 0
@@ -342,7 +342,7 @@ function mn.SettingsScene:instantiate()
             else
                 item.widget:move_left()
             end
-        elseif which == rt.InputButton.RIGHT then
+        elseif which == rt.InputAction.RIGHT then
             local item = self._list:get_selected_item()
             if item.is_scale then
                 self._scale_elapsed = 0
@@ -353,18 +353,18 @@ function mn.SettingsScene:instantiate()
             else
                 item.widget:move_right()
             end
-        elseif which == rt.InputButton.Y then
+        elseif which == rt.InputAction.Y then
             local item = self._list:get_selected_item()
             item:signal_emit("reset")
-        elseif which == rt.InputButton.B then
+        elseif which == rt.InputAction.B then
             rt.SceneManager:set_scene(rt.SceneManager:get_previous_scene())
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if which == rt.InputButton.LEFT or which == rt.InputButton.RIGHT then
+        if which == rt.InputAction.LEFT or which == rt.InputAction.RIGHT then
             self._scale_active = false
-        elseif which == rt.InputButton.UP or which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.UP or which == rt.InputAction.DOWN then
             self._scroll_active = false
         end
     end)

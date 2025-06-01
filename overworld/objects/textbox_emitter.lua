@@ -49,9 +49,9 @@ function ow.TextBoxEmitter:instantiate(object, stage, scene)
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         if self._is_active and self._interact_delay_elapsed > rt.settings.overworld.text_box_emitter.interact_delay_duration then
             if y < 0 then
-                self._dialog_box:handle_button(rt.InputButton.UP)
+                self._dialog_box:handle_button(rt.InputAction.UP)
             elseif y > 0 then
-                self._dialog_box:handle_button(rt.InputButton.DOWN)
+                self._dialog_box:handle_button(rt.InputAction.DOWN)
             end
         end
     end)

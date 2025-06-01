@@ -152,13 +152,13 @@ end
 
 
 local _JUMP_BUTTONS = {
-    [rt.InputButton.A] = true
+    [rt.InputAction.A] = true
 }
 
 local _SPRINT_BUTTON = {
-    [rt.InputButton.B] = true,
-    [rt.InputButton.L] = true,
-    [rt.InputButton.R] = true
+    [rt.InputAction.B] = true,
+    [rt.InputAction.L] = true,
+    [rt.InputAction.R] = true
 }
 
 --- @brief
@@ -254,16 +254,16 @@ function rt.Player:_connect_input()
             self._next_velocity_multiplier = _settings.sprint_multiplier
             self._next_velocity_mutiplier_apply_when_grounded = true
 
-        elseif which == rt.InputButton.LEFT then
+        elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = true
 
-        elseif which == rt.InputButton.RIGHT then
+        elseif which == rt.InputAction.RIGHT then
             self._right_button_is_down = true
 
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             self._down_button_is_down = true
 
-        elseif which == rt.InputButton.UP then
+        elseif which == rt.InputAction.UP then
             self._up_button_is_down = true
         end
     end)
@@ -277,16 +277,16 @@ function rt.Player:_connect_input()
             self._next_velocity_multiplier = 1
             self._next_velocity_multiplier_apply_when_grounded = true
 
-        elseif which == rt.InputButton.LEFT then
+        elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = false
 
-        elseif which == rt.InputButton.RIGHT then
+        elseif which == rt.InputAction.RIGHT then
             self._right_button_is_down = false
 
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             self._down_button_is_down = false
 
-        elseif which == rt.InputButton.UP then
+        elseif which == rt.InputAction.UP then
             self._up_button_is_down = false
         end
     end)

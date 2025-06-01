@@ -137,6 +137,7 @@ rt.Translation = rt.initialize_translation({
         input_action_down_title = "DOWN TODO",
         input_action_left_title = "LEFT TODO",
         input_action_start_title = "START TODO",
+        input_action_select_title = "SElECT TODO",
         input_action_l_title = "L TODO",
         input_action_r_title = "R TODO",
 
@@ -149,6 +150,7 @@ rt.Translation = rt.initialize_translation({
         input_action_down_description = "DOWN DESCRIPTION TODO",
         input_action_left_description = "LEFT DESCRIPTION TODO",
         input_action_start_description = "START DESCRIPTION TODO",
+        input_action_select_description = "SELECT DESCRIPTION TODO",
         input_action_l_description = "L DESCRIPTION TODO",
         input_action_r_description = "R DESCRIPTION TODO"
     },
@@ -211,8 +213,9 @@ rt.Translation = rt.initialize_translation({
         a_prefix = "Jump / Confirm",
         b_prefix = "Sprint / Go Back",
         y_prefix = "Reset",
-        x_prefix = "UNUSED",
+        x_prefix = "X UNUSED",
         start_prefix = "Pause / Unpause",
+        select_prefix = "Select UNUSED",
         up_prefix = "Move Up",
         right_prefix = "Move Right",
         down_prefix = "Move Down",

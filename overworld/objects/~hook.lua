@@ -88,7 +88,7 @@ function ow.Hook:instantiate(object, stage, scene)
     end)
 
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputButton.DOWN then
+        if which == rt.InputAction.DOWN then
             self:_unhook()
         end
     end)

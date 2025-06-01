@@ -275,7 +275,7 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputButton.JUMP then
+        if which == rt.InputAction.JUMP then
             self._jump_button_is_down = true
             self._jump_elapsed = 0
             if not self._bottom_wall then
@@ -285,37 +285,37 @@ function rt.Player:_connect_input()
             end
 
             self:signal_emit("jump")
-        elseif which == rt.InputButton.SPRINT then
+        elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = true
             self._next_sprint_multiplier = _settings.sprint_multiplier
             self._next_sprint_multiplier_update_when_grounded = true
-        elseif which == rt.InputButton.Y then
-        elseif which == rt.InputButton.LEFT then
+        elseif which == rt.InputAction.Y then
+        elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = true
-        elseif which == rt.InputButton.RIGHT then
+        elseif which == rt.InputAction.RIGHT then
             self._right_button_is_down = true
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             self._down_button_is_down = true
-        elseif which == rt.InputButton.UP then
+        elseif which == rt.InputAction.UP then
             self._up_button_is_down = true
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
-        if which == rt.InputButton.JUMP then
+        if which == rt.InputAction.JUMP then
             self._jump_button_is_down = false
             self._spring_multiplier = 1
-        elseif which == rt.InputButton.SPRINT then
+        elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = false
             self._next_sprint_multiplier = 1
             self._next_sprint_multiplier_update_when_grounded = true
-        elseif which == rt.InputButton.LEFT then
+        elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = false
-        elseif which == rt.InputButton.RIGHT then
+        elseif which == rt.InputAction.RIGHT then
             self._right_button_is_down = false
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             self._down_button_is_down = false
-        elseif which == rt.InputButton.UP then
+        elseif which == rt.InputAction.UP then
             self._up_button_is_down = false
         end
     end)

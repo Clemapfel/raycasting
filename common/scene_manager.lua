@@ -38,7 +38,7 @@ function rt.SceneManager:instantiate()
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
     self._pause_menu:realize()
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputButton.START then
+        if which == rt.InputAction.START then
             self:pause()
         end
     end)

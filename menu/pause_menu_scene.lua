@@ -86,7 +86,7 @@ function mn.PauseMenuScene:instantiate()
         element.frame:set_selection_state(rt.SelectionState.ACTIVE)
         element.frame:realize()
 
-        element.node:signal_connect(rt.InputButton.A, function(_)
+        element.node:signal_connect(rt.InputAction.A, function(_)
             self["_on_" .. name](self) -- _on_resume, _on_settings, etc
         end)
 

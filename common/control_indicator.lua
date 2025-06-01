@@ -7,12 +7,12 @@ rt.ControlIndicator = meta.class("ControlIndicator", rt.Widget)
 
 do -- generate enum for all input buttons
     local enum_values = {
-        UP_DOWN = rt.InputButton.UP .. "_" .. rt.InputButton.DOWN,
-        LEFT_RIGHT = rt.InputButton.LEFT .. "_" .. rt.InputButton.RIGHT,
+        UP_DOWN = rt.InputAction.UP .. "_" .. rt.InputAction.DOWN,
+        LEFT_RIGHT = rt.InputAction.LEFT .. "_" .. rt.InputAction.RIGHT,
         ALL_DIRECTIONS = "ALL_DIRECTIONS"
     }
 
-    for key, button in pairs(meta.instances(rt.InputButton)) do
+    for key, button in pairs(meta.instances(rt.InputAction)) do
         enum_values[key] = button
     end
 
@@ -61,24 +61,24 @@ end
 function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button(indicator, button, is_keyboard)
     if is_keyboard then
         if button == rt.ControlIndicatorButton.UP_DOWN then
-            local up = rt.InputMapping:get_mapping(rt.InputButton.UP, rt.InputMethod.KEYBOARD)[1]
-            local down = rt.InputMapping:get_mapping(rt.InputButton.DOWN, rt.InputMethod.KEYBOARD)[1]
+            local up = rt.GameState:get_input_mapping(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
+            local down = rt.GameState:get_input_mapping(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
             indicator:create_as_two_vertical_keys(
                 rt.keyboard_key_to_string(up),
                 rt.keyboard_key_to_string(down)
             )
         elseif button == rt.ControlIndicatorButton.LEFT_RIGHT then
-            local left = rt.InputMapping:get_mapping(rt.InputButton.LEFT, rt.InputMethod.KEYBOARD)[1]
-            local right = rt.InputMapping:get_mapping(rt.InputButton.RIGHT, rt.InputMethod.KEYBOARD)[1]
+            local left = rt.GameState:get_input_mapping(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
+            local right = rt.GameState:get_input_mapping(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
             indicator:create_as_two_horizontal_keys(
                 rt.keyboard_key_to_string(left),
                 rt.keyboard_key_to_string(right)
             )
         elseif button == rt.ControlIndicatorButton.ALL_DIRECTIONS then
-            local up = rt.InputMapping:get_mapping(rt.InputButton.UP, rt.InputMethod.KEYBOARD)[1]
-            local down = rt.InputMapping:get_mapping(rt.InputButton.DOWN, rt.InputMethod.KEYBOARD)[1]
-            local left = rt.InputMapping:get_mapping(rt.InputButton.LEFT, rt.InputMethod.KEYBOARD)[1]
-            local right = rt.InputMapping:get_mapping(rt.InputButton.RIGHT, rt.InputMethod.KEYBOARD)[1]
+            local up = rt.GameState:get_input_mapping(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
+            local down = rt.GameState:get_input_mapping(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
+            local left = rt.GameState:get_input_mapping(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
+            local right = rt.GameState:get_input_mapping(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
             indicator:create_as_four_keys(
                 rt.keyboard_key_to_string(up),
                 rt.keyboard_key_to_string(right),
@@ -86,7 +86,7 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
                 rt.keyboard_key_to_string(left)
             )
         else
-            local binding = rt.InputMapping:get_mapping(button, rt.InputMethod.KEYBOARD)[1]
+            local binding = rt.GameState:get_input_mapping(button, rt.InputMethod.KEYBOARD)[1]
             indicator:create_from_keyboard_key(binding)
         end
     else
@@ -97,7 +97,7 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
         elseif button == rt.ControlIndicatorButton.ALL_DIRECTIONS then
             indicator:create_as_dpad(false, false, false, false)
         else
-            local binding = rt.InputMapping:get_mapping(button, rt.InputMethod.CONTROLLER)[1]
+            local binding = rt.GameState:get_input_mapping(button, rt.InputMethod.CONTROLLER)[1]
             indicator:create_from_gamepad_button(binding)
         end
     end

@@ -198,6 +198,7 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
             [mn.VerboseInfoObject.INPUT_ACTION_DOWN] = format_title(translation.input_action_down_title),
             [mn.VerboseInfoObject.INPUT_ACTION_LEFT] = format_title(translation.input_action_left_title),
             [mn.VerboseInfoObject.INPUT_ACTION_START] = format_title(translation.input_action_start_title),
+            [mn.VerboseInfoObject.INPUT_ACTION_SELECT] = format_title(translation.input_action_select_title),
             [mn.VerboseInfoObject.INPUT_ACTION_L] = format_title(translation.input_action_l_title),
             [mn.VerboseInfoObject.INPUT_ACTION_R] = format_title(translation.input_action_r_title)
         }
@@ -222,6 +223,7 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
             [mn.VerboseInfoObject.INPUT_ACTION_DOWN] = format_description(translation.input_action_down_description),
             [mn.VerboseInfoObject.INPUT_ACTION_LEFT] = format_description(translation.input_action_left_description),
             [mn.VerboseInfoObject.INPUT_ACTION_START] = format_description(translation.input_action_start_description),
+            [mn.VerboseInfoObject.INPUT_ACTION_SELECT] = format_description(translation.input_action_select_description),
             [mn.VerboseInfoObject.INPUT_ACTION_L] = format_description(translation.input_action_l_description),
             [mn.VerboseInfoObject.INPUT_ACTION_R] = format_description(translation.input_action_r_description)
         }

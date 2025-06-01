@@ -1,3 +1,5 @@
+require "common.input_action"
+
 rt.settings.keybinding_indicator = {
     font = rt.settings.font.default,
     font_size = rt.FontSize.SMALL

@@ -1,5 +1,5 @@
 do
-    local _input_buttons = {
+    local _input_actions = {
         UP = "UP",
         RIGHT = "RIGHT",
         DOWN = "DOWN",
@@ -15,17 +15,17 @@ do
     }
 
     -- aliases
-    _input_buttons["JUMP"] = _input_buttons.A
-    _input_buttons["SPRINT"] = _input_buttons.B
-    _input_buttons["CONFIRM"] = _input_buttons.A
-    _input_buttons["BACK"] = _input_buttons.B
+    _input_actions["JUMP"] = _input_actions.A
+    _input_actions["SPRINT"] = _input_actions.B
+    _input_actions["CONFIRM"] = _input_actions.A
+    _input_actions["BACK"] = _input_actions.B
 
-    --- @class rt.InputButton
-    rt.InputButton = meta.enum("InputButton", _input_buttons)
+    --- @class rt.InputAction
+    rt.InputAction = meta.enum("InputAction", _input_actions)
 end
 
---- @class rt.GamepadButton
-rt.GamepadButton = meta.enum("GamepadButton", {
+--- @class rt.ControllerButton
+rt.ControllerButton = meta.enum("ControllerButton", {
     TOP = "y",
     RIGHT = "b",
     BOTTOM = "a",
@@ -51,20 +51,20 @@ rt.InputMapping = meta.class("InputMapping")
 --- @brief [internal]
 function rt.InputMapping:instantiate()
     -- sanitize INPUT_MAPPING
-    for input_button in values(meta.instances(rt.InputButton)) do
-        local mapped = _G.SETTINGS.INPUT_MAPPING[input_button]
+    for input_action in values(meta.instances(rt.InputAction)) do
+        local mapped = _G.SETTINGS.INPUT_MAPPING[input_action]
         if mapped == nil then
-            rt.error("In rt.InputMapping: mapping in conf.lua does not map input action `" .. input_button .. "`")
+            rt.error("In rt.InputMapping: mapping in conf.lua does not map input action `" .. input_action .. "`")
         end
 
         if not meta.is_table(mapped.keyboard) then mapped.keyboard = { mapped.keyboard } end
         if not meta.is_table(mapped.controller) then mapped.controller = { mapped.controller } end
         if table.sizeof(mapped.keyboard) == 0 then
-            rt.error("In rt.InputMapping: mapping in conf.lua does not assign a keyboard key to input action `" .. input_button .. "`")
+            rt.error("In rt.InputMapping: mapping in conf.lua does not assign a keyboard key to input action `" .. input_action .. "`")
         end
 
         if table.sizeof(mapped.controller) == 0 then
-            rt.error("In rt.InputMapping: mapping in conf.lua does not assign a controller button to input action `" .. input_button .. "`")
+            rt.error("In rt.InputMapping: mapping in conf.lua does not assign a controller button to input action `" .. input_action .. "`")
         end
     end
 
@@ -76,7 +76,7 @@ function rt.InputMapping:update_reverse_mapping()
     self._keyboard_key_to_input_action = {}
     self._controller_button_to_input_action = {}
 
-    for action in values(meta.instances(rt.InputButton)) do
+    for action in values(meta.instances(rt.InputAction)) do
         local mapping = _G.SETTINGS.INPUT_MAPPING[action]
 
         if mapping == nil then
@@ -117,7 +117,7 @@ function rt.InputMapping:update_reverse_mapping()
 end
 
 --- @brief
---- @return Table<rt.InputButton>
+--- @return Table<rt.InputAction>
 function rt.InputMapping:map(native, keyboard_or_controller)
     if keyboard_or_controller == nil then keyboard_or_controller = true end
     meta.assert(native, "String", keyboard_or_controller, "Boolean")
@@ -130,7 +130,7 @@ function rt.InputMapping:map(native, keyboard_or_controller)
 end
 
 --- @brief
-function rt.InputMapping:get_mapping(input_action, keyboard_or_controller)
+function rt.GameState:get_input_mapping(input_action, keyboard_or_controller)
     local mapped = _G.SETTINGS.INPUT_MAPPING[input_action]
     if mapped == nil then
         rt.error("In rt.InputMapping.get_mapping: no mapping for input action `" .. input_action .. "`")
@@ -150,9 +150,9 @@ function rt.InputMapping:get_mapping(input_action, keyboard_or_controller)
 end
 
 --- @brief update current mapping
---- @param input_action rt.InputButton
+--- @param input_action rt.InputAction
 --- @param keyboard Table<love.KeyConstant>
---- @param controller Table<love.GamepadButton>
+--- @param controller Table<love.ControllerButton>
 function rt.InputMapping:set_mapping(input_action, keyboard, controller)
     assert(meta.is_enum_value(input_action), type(keyboard) == "table" and type(controller) == "table")
 

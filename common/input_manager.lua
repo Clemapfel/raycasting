@@ -1,4 +1,4 @@
-require "common.input_mapping"
+require "common.input_action"
 
 --- @class rt.InputManager
 rt.InputManager = meta.class("rt.InputManager")
@@ -77,7 +77,7 @@ love.keypressed = function(key, scancode)
         end
     end
 
-    for mapped in values(rt.InputMapping:map(key, true)) do
+    for mapped in values(rt.GameState:get_reverse_input_mapping(key, rt.InputMethod.KEYBOARD)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub._is_active then
                 sub:signal_emit("pressed", mapped, -1)
@@ -95,7 +95,7 @@ love.keyreleased = function(key, scancode)
         end
     end
 
-    for mapped in values(rt.InputMapping:map(key, true)) do
+    for mapped in values(rt.GameState:get_reverse_input_mapping(key, rt.InputMethod.KEYBOARD)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub._is_active then
                 sub:signal_emit("released", mapped, -1)
@@ -195,7 +195,7 @@ love.gamepadpressed = function(joystick, button)
         end
     end
 
-    for mapped in values(rt.InputMapping:map(button, false)) do
+    for mapped in values(rt.GameState:get_reverse_input_mapping(button, rt.InputMethod.CONTROLLER)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub._is_active then
                 sub:signal_emit("pressed", mapped, joystick:getID())
@@ -214,7 +214,7 @@ love.gamepadreleased = function(joystick, button)
         end
     end
 
-    for mapped in values(rt.InputMapping:map(button, false)) do
+    for mapped in values(rt.GameState:get_reverse_input_mapping(button, rt.InputMethod.CONTROLLER)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub._is_active then
                 sub:signal_emit("released", mapped, joystick:getID())

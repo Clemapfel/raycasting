@@ -32,6 +32,7 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     INPUT_ACTION_DOWN = "input_action_down",
     INPUT_ACTION_LEFT = "input_action_left",
     INPUT_ACTION_START = "input_action_start",
+    INPUT_ACTION_SELECT = "input_action_select",
     INPUT_ACTION_L = "input_action_l",
     INPUT_ACTION_R = "input_action_r"
 })

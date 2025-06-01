@@ -1,4 +1,5 @@
 require "overworld.stage_config"
+require "common.input_action"
 require "common.random"
 require "common.scene_manager"
 require "common.player"
@@ -50,8 +51,8 @@ function rt.GameState:instantiate()
        input_mapping = {}
     }
 
-    self._keyboard_key_to_input_button = {}
-    self._controller_button_to_input_button = {}
+    self._keyboard_key_to_input_action = {}
+    self._controller_button_to_input_action = {}
     self:_load_default_input_mapping()
 
     -- read settings from conf.lua
@@ -179,64 +180,64 @@ end
 function rt.GameState:_load_default_input_mapping()
     self._state.input_mapping =
     {
-        [rt.InputButton.UP] = {
+        [rt.InputAction.UP] = {
             keyboard = {"w", "up"},
-            controller = rt.GamepadButton.DPAD_UP
+            controller = rt.ControllerButton.DPAD_UP
         },
 
-        [rt.InputButton.DOWN] = {
+        [rt.InputAction.DOWN] = {
             keyboard = {"s", "down"},
-            controller = rt.GamepadButton.DPAD_DOWN
+            controller = rt.ControllerButton.DPAD_DOWN
         },
 
-        [rt.InputButton.LEFT] = {
+        [rt.InputAction.LEFT] = {
             keyboard = {"a", "left"},
-            controller = rt.GamepadButton.DPAD_LEFT
+            controller = rt.ControllerButton.DPAD_LEFT
         },
 
-        [rt.InputButton.RIGHT] = {
+        [rt.InputAction.RIGHT] = {
             keyboard = {"d", "right"},
-            controller = rt.GamepadButton.DPAD_RIGHT
+            controller = rt.ControllerButton.DPAD_RIGHT
         },
 
-        [rt.InputButton.A] = {
+        [rt.InputAction.A] = {
             keyboard = {"space"},
-            controller = rt.GamepadButton.RIGHT
+            controller = rt.ControllerButton.RIGHT
         },
 
-        [rt.InputButton.B] = {
+        [rt.InputAction.B] = {
             keyboard = {"b"},
-            controller = rt.GamepadButton.BOTTOM
+            controller = rt.ControllerButton.BOTTOM
         },
 
-        [rt.InputButton.X] = {
+        [rt.InputAction.X] = {
             keyboard = {"x"},
-            controller = rt.GamepadButton.TOP
+            controller = rt.ControllerButton.TOP
         },
 
-        [rt.InputButton.Y] = {
+        [rt.InputAction.Y] = {
             keyboard = {"y"},
-            controller = rt.GamepadButton.LEFT
+            controller = rt.ControllerButton.LEFT
         },
 
-        [rt.InputButton.L] = {
+        [rt.InputAction.L] = {
             keyboard = {"n", "l"},
-            controller = rt.GamepadButton.LEFT_SHOULDER
+            controller = rt.ControllerButton.LEFT_SHOULDER
         },
 
-        [rt.InputButton.R] = {
+        [rt.InputAction.R] = {
             keyboard = {"m", "r"},
-            controller = rt.GamepadButton.RIGHT_SHOULDER
+            controller = rt.ControllerButton.RIGHT_SHOULDER
         },
 
-        [rt.InputButton.START] = {
+        [rt.InputAction.START] = {
             keyboard = {"escape"},
-            controller = rt.GamepadButton.START
+            controller = rt.ControllerButton.START
         },
 
-        [rt.InputButton.SELECT] = {
+        [rt.InputAction.SELECT] = {
             keyboard = {"#"},
-            controller = rt.Gamepadbutton.SELECT
+            controller = rt.ControllerButton.SELECT
         }
     }
 
@@ -251,14 +252,13 @@ end
 
 --- @brief
 function rt.GameState:_validate_input_mapping()
-    return true, nil -- TODO
+    return true
 end
 
 --- @brief
 function rt.GameState:_update_reverse_mapping()
-    self._keyboard_key_to_input_button = {}
-    self._controller_button_to_input_button = {}
-
+    self._keyboard_key_to_input_action = {}
+    self._controller_button_to_input_action = {}
     for action in values(meta.instances(rt.InputAction)) do
         local mapping = self._state.input_mapping[action]
 
@@ -285,7 +285,60 @@ function rt.GameState:_update_reverse_mapping()
     end
 end
 
+--- @brief
+function rt.GameState:get_input_mapping(input_action, method)
+    meta.assert_enum_value(input_action, rt.InputAction, 1)
+    if method == rt.InputMethod.KEYBOARD then
+        return table.deepcopy(self._state.input_mapping[input_action].keyboard)
+    elseif method == rt.InputMethod.CONTROLLER then
+        return table.deepcopy(self._state.input_mapping[input_action].controller)
+    elseif method == nil then
+        return table.deepcopy(self._state.input_mapping[input_action].keyboard),
+        table.deepcopy(self._state.input_mapping[input_action].controller)
+    else
+        meta.assert_enum_value(method, rt.InputMethod, 2) -- always throws
+    end
+end
 
+--- @brief
+function rt.GameState:get_reverse_input_mapping(native, method)
+    meta.assert_enum_value(method, rt.InputMethod)
+    if method == rt.InputMethod.KEYBOARD then
+        return self._keyboard_key_to_input_action[native]
+    elseif method == rt.InputMethod.CONTROLLER then
+        return self._controller_button_to_input_action[native]
+    end
+end
+
+--- @brief
+--- @param ... Union<rt.KeyboardKey, rt.ControllerButton>
+function rt.GameState:set_input_mapping(input_action, method, ...)
+    meta.assert_enum_value(input_action, rt.InputAction, 1)
+    meta.assert_typeof(method, rt.InputMethod, 2)
+    if method == rt.InputMethod.KEYBOARD then
+        local before = table.deepcopy(self._state.input_mapping[input_action].keyboard)
+        self._state.input_mapping[input_action].keyboard = { ... }
+        local valid, error = self:_validate_input_mapping()
+        if not valid then
+            self._state.input_mapping[input_action.keyboard] = before
+            return false, error
+        else
+            self:_update_reverse_mapping()
+            return true
+        end
+    elseif method == rt.InputMethod.CONTROLLER then
+        local before = table.deepcopy(self._state.input_mapping[input_action].controller)
+        self._state.input_mapping[input_action].controller = { ... }
+        local valid, error = self:_validate_input_mapping()
+        if not valid then
+            self._state.input_mapping[input_action.controller] = before
+            return false, error
+        else
+            self:_update_reverse_mapping()
+            return true
+        end
+    end
+end
 
 require "common.game_state_stage"
 

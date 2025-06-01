@@ -177,14 +177,14 @@ function mn.MenuScene:instantiate(state)
         title_screen.input:signal_connect("pressed", function(_, which)
             if self._initialized == false or self._input_blocked == true then return end
 
-            if which == rt.InputButton.JUMP then
+            if which == rt.InputAction.JUMP then
                 local item = title_screen.menu_items[title_screen.selected_item_i]
                 item.activate()
-            elseif which == rt.InputButton.UP then
+            elseif which == rt.InputAction.UP then
                 if title_screen.selected_item_i > 1 then
                     title_screen.selected_item_i = title_screen.selected_item_i - 1
                 end
-            elseif which == rt.InputButton.DOWN then
+            elseif which == rt.InputAction.DOWN then
                 if title_screen.selected_item_i < title_screen.n_menu_items then
                     title_screen.selected_item_i = title_screen.selected_item_i + 1
                 end
@@ -213,21 +213,21 @@ function mn.MenuScene:instantiate(state)
                 return
             end
 
-            if which == rt.InputButton.A then
+            if which == rt.InputAction.A then
                 self:_set_state(mn.MenuSceneState.EXITING)
                 stage_select.waiting_for_exit = true
-            elseif which == rt.InputButton.B then
+            elseif which == rt.InputAction.B then
                 self._fade:start()
                 self._fade:signal_connect("hidden", function()
                     self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
                     return meta.DISCONNECT_SIGNAL
                 end)
-            elseif which == rt.InputButton.UP then
+            elseif which == rt.InputAction.UP then
                 if stage_select.selected_item_i > 1 then
                     stage_select.selected_item_i = stage_select.selected_item_i - 1
                     stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
                 end
-            elseif which == rt.InputButton.DOWN then
+            elseif which == rt.InputAction.DOWN then
                 if stage_select.selected_item_i < stage_select.n_items then
                     stage_select.selected_item_i = stage_select.selected_item_i + 1
                     stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
@@ -627,9 +627,9 @@ function mn.MenuScene:update(delta)
     if self._state == mn.MenuSceneState.TITLE_SCREEN then
         local title_screen = self._title_screen
         local velocity_offset = 0
-        if title_screen.input:is_down(rt.InputButton.LEFT) then
+        if title_screen.input:is_down(rt.InputAction.LEFT) then
             velocity_offset = 1
-        elseif title_screen.input:is_down(rt.InputButton.RIGHT) then
+        elseif title_screen.input:is_down(rt.InputAction.RIGHT) then
             velocity_offset = -1
         end
 

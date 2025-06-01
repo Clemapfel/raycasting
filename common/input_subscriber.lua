@@ -1,5 +1,4 @@
 require "common.input_manager"
-require "common.input_mapping"
 
 --- @class InputCallbackID
 --- @brief list of available input event callbacks, see input_subscriber.lua on how to connect to these
@@ -103,8 +102,8 @@ function rt.InputSubscriber:get_mouse_position()
 end
 
 --- @brief
-function rt.InputSubscriber:is_down(input_button)
-    local keyboard_keys, controller_buttons = rt.InputMapping:get_mapping(input_button)
+function rt.InputSubscriber:is_down(input_action)
+    local keyboard_keys, controller_buttons = rt.GameState:get_input_mapping(input_action)
 
     for key in values(keyboard_keys) do
         if rt.InputManager:is_keyboard_key_down(key) then return true end

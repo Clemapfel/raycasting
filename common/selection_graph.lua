@@ -17,14 +17,14 @@ local _noop_function = function() return nil end
 --- @class rt.SelectionGraphNode
 --- @signal enter (rt.SelectionGraphNode) -> nil
 --- @signal exit (rt.SelectionGraphNode) -> nil
---- @signal rt.InputButton.UP (rt.SelectionGraphNode) -> rt.SelectionGraphNode
---- @signal rt.InputButton.RIGHT (rt.SelectionGraphNode) -> rt.SelectionGraphNode
---- @signal rt.InputButton.DOWN (rt.SelectionGraphNode) -> rt.SelectionGraphNode
---- @signal rt.InputButton.LEFT (rt.SelectionGraphNode) -> rt.SelectionGraphNode
---- @signal rt.InputButton.A (rt.SelectionGraphNode) -> nil
---- @signal rt.InputButton.B (rt.SelectionGraphNode) -> nil
---- @signal rt.InputButton.X (rt.SelectionGraphNode) -> nil
---- @signal rt.InputButton.Y (rt.SelectionGraphNode) -> nil
+--- @signal rt.InputAction.UP (rt.SelectionGraphNode) -> rt.SelectionGraphNode
+--- @signal rt.InputAction.RIGHT (rt.SelectionGraphNode) -> rt.SelectionGraphNode
+--- @signal rt.InputAction.DOWN (rt.SelectionGraphNode) -> rt.SelectionGraphNode
+--- @signal rt.InputAction.LEFT (rt.SelectionGraphNode) -> rt.SelectionGraphNode
+--- @signal rt.InputAction.A (rt.SelectionGraphNode) -> nil
+--- @signal rt.InputAction.B (rt.SelectionGraphNode) -> nil
+--- @signal rt.InputAction.X (rt.SelectionGraphNode) -> nil
+--- @signal rt.InputAction.Y (rt.SelectionGraphNode) -> nil
 rt.SelectionGraphNode = meta.class("SelectionGraphNode", rt.Drawable)
 
 --- @brief
@@ -50,10 +50,10 @@ end
 meta.add_signals(rt.SelectionGraphNode,
     "enter",
     "exit",
-    rt.InputButton.A,
-    rt.InputButton.B,
-    rt.InputButton.X,
-    rt.InputButton.Y,
+    rt.InputAction.A,
+    rt.InputAction.B,
+    rt.InputAction.X,
+    rt.InputAction.Y,
     "leave_up",
     "leave_down",
     "leave_left",
@@ -121,24 +121,24 @@ end
 
 do
     local _button_to_function_member = {
-        [rt.InputButton.UP] = "_up",
-        [rt.InputButton.RIGHT] = "_right",
-        [rt.InputButton.DOWN] = "_down",
-        [rt.InputButton.LEFT] = "_left"
+        [rt.InputAction.UP] = "_up",
+        [rt.InputAction.RIGHT] = "_right",
+        [rt.InputAction.DOWN] = "_down",
+        [rt.InputAction.LEFT] = "_left"
     }
 
     local _button_to_leave_directional_signal = {
-        [rt.InputButton.UP] = "leave_up",
-        [rt.InputButton.RIGHT] = "leave_right",
-        [rt.InputButton.DOWN] = "leave_down",
-        [rt.InputButton.LEFT] = "leave_left"
+        [rt.InputAction.UP] = "leave_up",
+        [rt.InputAction.RIGHT] = "leave_right",
+        [rt.InputAction.DOWN] = "leave_down",
+        [rt.InputAction.LEFT] = "leave_left"
     }
 
     local _button_to_enter_directional_signal = {
-        [rt.InputButton.UP] = "enter_down",
-        [rt.InputButton.RIGHT] = "enter_left",
-        [rt.InputButton.DOWN] = "enter_up",
-        [rt.InputButton.LEFT] = "enter_right"
+        [rt.InputAction.UP] = "enter_down",
+        [rt.InputAction.RIGHT] = "enter_left",
+        [rt.InputAction.DOWN] = "enter_up",
+        [rt.InputAction.LEFT] = "enter_right"
     }
 
     --- @brief
@@ -146,7 +146,7 @@ do
         local current = self._current_node
         if current == nil then return end
 
-        if button == rt.InputButton.A or button == rt.InputButton.B or button == rt.InputButton.X or button == rt.InputButton.Y then
+        if button == rt.InputAction.A or button == rt.InputAction.B or button == rt.InputAction.X or button == rt.InputAction.Y then
             current:signal_emit(button)
         else
             local f = _button_to_function_member[button]

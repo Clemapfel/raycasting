@@ -495,21 +495,21 @@ function ow.DialogBox:handle_button(which)
         local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
         local confirm_sound_id = rt.settings.overwold.dialog_box.menu_confirm_sound_id
         local node = self._active_choice_node
-        if which == rt.InputButton.UP then
+        if which == rt.InputAction.UP then
             if node.highlighted_answer_i > 1 then
                 node.highlighted_answer_i = node.highlighted_answer_i - 1
                 rt.SoundManager:play(move_sound_id)
             end
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             if node.highlighted_answer_i < node.n_answers then
                 node.highlighted_answer_i = node.highlighted_answer_i + 1
                 rt.SoundManager:play(move_sound_id)
             end
-        elseif which == rt.InputButton.A then
+        elseif which == rt.InputAction.A then
             self:_set_active_node(node.answer_i_to_next_node[node.highlighted_answer_i])
         end
     elseif self._active_node ~= nil then
-        if which == rt.InputButton.A then
+        if which == rt.InputAction.A then
             self:_advance()
         end
     end

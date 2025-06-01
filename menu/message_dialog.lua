@@ -194,17 +194,17 @@ function mn.MessageDialog:_handle_button_pressed(which)
         return
     end
 
-    if which == rt.InputButton.LEFT then
+    if which == rt.InputAction.LEFT then
         if self._selected_item_i > 1 then
             self._selected_item_i = self._selected_item_i - 1
             self:_update_selected_item()
         end
-    elseif which == rt.InputButton.RIGHT then
+    elseif which == rt.InputAction.RIGHT then
         if self._selected_item_i < table.sizeof(self._buttons) then
             self._selected_item_i = self._selected_item_i + 1
             self:_update_selected_item()
         end
-    elseif which == rt.InputButton.A then
+    elseif which == rt.InputAction.A then
         self:signal_emit("selection", self._options[self._selected_item_i])
     end
 end

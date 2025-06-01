@@ -90,13 +90,13 @@ function mn.TitleScreenScene:instantiate(state)
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputButton.JUMP then
+        if which == rt.InputAction.JUMP then
             self:_select()
-        elseif which == rt.InputButton.UP then
+        elseif which == rt.InputAction.UP then
             if self._selected_item_i > 1 then
                 self._selected_item_i = self._selected_item_i - 1
             end
-        elseif which == rt.InputButton.DOWN then
+        elseif which == rt.InputAction.DOWN then
             if self._selected_item_i < self._n_menu_items then
                 self._selected_item_i = self._selected_item_i + 1
             end
