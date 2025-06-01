@@ -70,7 +70,7 @@ function mn.KeybindingScene:instantiate()
     local input_action_order = {
         rt.InputAction.A,
         rt.InputAction.B,
-        --rt.InputAction.X,
+        rt.InputAction.X,
         rt.InputAction.Y,
         rt.InputAction.UP,
         rt.InputAction.RIGHT,
@@ -79,7 +79,7 @@ function mn.KeybindingScene:instantiate()
         rt.InputAction.L,
         rt.InputAction.R,
         rt.InputAction.START,
-        --rt.InputAction.SELECT
+        rt.InputAction.SELECT
     }
 
     local input_action_to_verbose_info = {
@@ -97,26 +97,11 @@ function mn.KeybindingScene:instantiate()
         [rt.InputAction.LEFT] = mn.VerboseInfoObject.INPUT_ACTION_LEFT,
     }
 
-    local input_action_to_translation = {
-        [rt.InputAction.A] = translation.a_prefix,
-        [rt.InputAction.B] = translation.b_prefix,
-        [rt.InputAction.X] = translation.x_prefix,
-        [rt.InputAction.Y] = translation.y_prefix,
-        [rt.InputAction.L] = translation.l_prefix,
-        [rt.InputAction.R] = translation.r_prefix,
-        [rt.InputAction.START] = translation.start_prefix,
-        [rt.InputAction.SELECT] = translation.select_prefix,
-        [rt.InputAction.UP] = translation.up_prefix,
-        [rt.InputAction.RIGHT] = translation.right_prefix,
-        [rt.InputAction.DOWN] = translation.down_prefix,
-        [rt.InputAction.LEFT] = translation.left_prefix,
-    }
-
     local prefix_prefix, prefix_postfix = "<b>", "</b>"
 
     local scene = self
     for input_action in values(input_action_order) do
-        local prefix = input_action_to_translation[input_action]
+        local prefix = rt.Translation.input_action_to_string(input_action)
         local info = input_action_to_verbose_info[input_action]
         assert(prefix ~= nil, input_action)
         assert(info ~= nil, input_action)
@@ -140,7 +125,7 @@ function mn.KeybindingScene:instantiate()
         end
 
         item.set_controller_indicator = function(self, button)
-            self.control_indicator:create_from_gamepad_button(button)
+            self.controller_indicator:create_from_gamepad_button(button)
         end
 
         self._list:add_item(item)
@@ -309,8 +294,10 @@ end
 
 --- @brief
 function mn.KeybindingScene:_update_all_indicators()
-    for item in values(self._items) do
-        item:set_keyboard_indicator(rt.GameState:get_reverse_mapping(item.to))
+    for i = 1, self._list:get_n_items() do
+        local item = self._list:get_item(i)
+        item:set_keyboard_indicator(rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.KEYBOARD)[1])
+        item:set_controller_indicator(rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.CONTROLLER)[1])
     end
 end
 

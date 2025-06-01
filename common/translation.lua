@@ -1,3 +1,5 @@
+require "common.input_action"
+
 --- @class rt.Translation
 rt.Translation = {}
 
@@ -54,8 +56,27 @@ rt.Translation = rt.initialize_translation({
             unassigned_controller_message = "The following actions od not have an assigned gamepad button:",
             double_assigned_keyboard_message = "The following keyboard keys are assigned to more than one action:",
             double_assigned_controller_message = "The following gamepad buttons are assigned to more than one action:"
-        }
+        },
     },
+
+    input_action_to_string = function(action)
+        local to_string = {
+            [rt.InputAction.A] = "Jump / Confirm",
+            [rt.InputAction.B] = "Sprint / Go Back",
+            [rt.InputAction.X] = "Reset",
+            [rt.InputAction.Y] = "X UNUSED",
+            [rt.InputAction.L] = "Zoom In",
+            [rt.InputAction.R] = "Zoom Out",
+            [rt.InputAction.START] = "Pause / Unpause",
+            [rt.InputAction.SELECT] =  "Select UNUSED",
+            [rt.InputAction.UP] = "Move Up",
+            [rt.InputAction.RIGHT] = "Move Right",
+            [rt.InputAction.DOWN] = "Move Down",
+            [rt.InputAction.LEFT] = "Move Left"
+        }
+
+        return to_string[action]
+    end,
 
     -- pause menu scene
     pause_menu_scene = {
@@ -220,18 +241,5 @@ rt.Translation = rt.initialize_translation({
         control_indicator_back = "Back",
         control_indicator_reset_to_default = "Reset",
         control_indicator_start_sequence = "Set All",
-
-        a_prefix = "Jump / Confirm",
-        b_prefix = "Sprint / Go Back",
-        y_prefix = "Reset",
-        x_prefix = "X UNUSED",
-        start_prefix = "Pause / Unpause",
-        select_prefix = "Select UNUSED",
-        up_prefix = "Move Up",
-        right_prefix = "Move Right",
-        down_prefix = "Move Down",
-        left_prefix = "Move Left",
-        l_prefix = "Zoom In",
-        r_prefix = "Zoom Out",
     }
 })
