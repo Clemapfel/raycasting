@@ -28,6 +28,8 @@ function mn.KeybindingScene.Item:draw()
     self.prefix:draw()
     self.controller_indicator:draw()
     self.keyboard_indicator:draw()
+    self.spacer_outline:draw()
+    self.spacer:draw()
 end
 
 --- @brief
@@ -111,8 +113,16 @@ function mn.KeybindingScene:instantiate()
             input_action = input_action,
             keyboard_indicator = rt.KeybindingIndicator(),
             controller_indicator = rt.KeybindingIndicator(),
+            spacer = rt.Line(),
+            spacer_outline = rt.Line(),
             info = info,
         })
+
+        item.spacer_outline:set_color(rt.Palette.BLACK)
+        item.spacer_outline:set_line_width(2 * rt.get_pixel_scale() + 2)
+
+        item.spacer:set_color(rt.Palette.FOREGROUND)
+        item.spacer:set_line_width(2 * rt.get_pixel_scale())
 
         item.set_selection_state = function(self, state)
             if state == rt.SelectionState.ACTIVE then
@@ -244,8 +254,6 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
     end
 
     local list_w = width - 2 * outer_margin - verbose_info_w - m
-    local widget_w = list_w - 2 * item_outer_margin - max_prefix_w
-    widget_w = widget_w / 2
 
     for i = 1, self._list:get_n_items() do
         local item = self._list:get_item(i)
@@ -258,20 +266,36 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
                 math.huge, math.huge
             )
 
+            local widget_w, widget_h = height, height
+
+            local widget_left_x = x + item_outer_margin + max_prefix_w + m
+            local widget_right_x = x + width - item_outer_margin
+            local widget_area_w = widget_right_x - widget_left_x
+            local widget_margin = (widget_area_w - 2 * widget_w) / (2 + 1)
+
             self.keyboard_indicator:reformat(
-                x + item_outer_margin + prefix_w,
-                y,
+                widget_left_x + widget_margin,
+                y + 0.5 * height - 0.5 * widget_h,
                 widget_w,
-                prefix_h
+                widget_h
             )
 
             self.controller_indicator:reformat(
-                x + item_outer_margin + prefix_w + widget_w,
-                y,
+                widget_right_x - widget_margin - widget_w,
+                y + 0.5 * height - 0.5 * widget_h,
                 widget_w,
-                prefix_h
+                widget_h
             )
 
+            local line_m = m
+            for line in range(self.spacer, self.spacer_outline) do
+                line:reformat(
+                    widget_left_x + 0.5 * widget_area_w,
+                    y + m,
+                    widget_left_x + 0.5 * widget_area_w,
+                    y + height - m
+                )
+            end
         end
 
         item.measure = function(self)
@@ -299,6 +323,8 @@ function mn.KeybindingScene:_update_all_indicators()
         item:set_keyboard_indicator(rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.KEYBOARD)[1])
         item:set_controller_indicator(rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.CONTROLLER)[1])
     end
+
+    if self:get_is_realized() then self:reformat() end
 end
 
 --- @brief
