@@ -252,7 +252,133 @@ end
 
 --- @brief
 function rt.GameState:_validate_input_mapping()
-    return true
+    local unassigned_keyboard = {}
+    local unassigned_keyboard_active = false
+    
+    local unassigned_controller = {}
+    local unassigned_controller_active = false
+
+    local double_assigned_keyboard = {}
+    local double_assigned_keyboard_active = false
+
+    local double_assigned_controller = {}
+    local double_assigned_controller_active = false
+    
+    local native_keyboard_to_action = {}
+    local native_controller_to_action = {}
+
+    -- verify that all actions have an assignment
+    for action in values(meta.instances(rt.InputAction)) do
+        local keyboard = self._state.keyboard
+        if not #keyboard > 0 then
+            table.insert(unassigned_keyboard, action)
+            unassigned_keyboard_active = true
+        end
+
+        for key in values(keyboard) do
+            local entry = native_keyboard_to_action[action]
+            if entry == nil then
+                entry = {}
+                native_keyboard_to_action[action] = entry
+            end
+            
+            table.insert(entry, action)
+        end
+        
+        local controller = self._state.controller
+        if not #controller > 0 then
+            table.insert(unassigned_controller, action)
+            unassigned_controller_active = true
+        end
+
+        for key in values(controller) do
+            local entry = native_controller_to_action[action]
+            if entry == nil then
+                entry = {}
+                native_controller_to_action[action] = entry
+            end
+
+            table.insert(entry, action)
+        end
+    end
+    
+    -- verify that no button does two actions
+    for key, actions in pairs(native_keyboard_to_action) do
+        if #actions > 1 then
+            double_assigned_keyboard[key] = actions
+            double_assigned_keyboard_active = true
+        end
+    end
+
+    for button, actions in pairs(native_controller_to_action) do
+        if #actions > 1 then
+            double_assigned_controller[button] = actions
+            double_assigned_controller_active = true
+        end
+    end
+
+    local valid = not unassigned_keyboard_active and
+        not unassigned_controller_active and
+        not double_assigned_keyboard_active and
+        not double_assigned_controller_active
+
+    if not valid then
+        local translation = rt.Translation.game_state.validate_keybinding_error
+        local indent = "   "
+        local action_to_string = function(action)
+            return action
+        end
+
+        local error = {
+            translation.message
+        }
+
+        if unassigned_keyboard_active then
+            table.insert(error, translation.unassigned_keyboard_message)
+            for action in values(unassigned_keyboard) do
+                table.insert(error, indent ..  action_to_string(action))
+            end
+        end
+
+        if unassigned_controller_active then
+            table.insert(error, translation.unassigned_keyboard_message)
+            for action in values(unassigned_controller) do
+                table.insert(error, indent .. action_to_string(action))
+            end
+        end
+
+        if double_assigned_keyboard_active then
+            table.insert(error, translation.double_assigned_keyboard_message)
+            for key, actions in pairs(double_assigned_keyboard) do
+                local line = { indent .. key .. ": " }
+                for i, action in ipairs(actions) do
+                    table.insert(line, action_to_string(action))
+                    if i ~= #actions then
+                        table.insert(line, ", ")
+                    end
+                end
+                table.insert(error, table.concat(line, ""))
+            end
+        end
+
+        if double_assigned_controller_active then
+            table.insert(error, translation.double_assigned_controller_message)
+            for key, actions in pairs(double_assigned_controller) do
+                local line = { indent .. key .. ": "}
+                for i, action in ipairs(actions) do
+                    table.insert(line, action_to_string(action))
+                    if i ~= #actions then
+                        table.insert(line, ", ")
+                    end
+                end
+                table.insert(error, table.concat(line, ""))
+            end
+        end
+
+        return false, table.concat(error, "\n")
+    else
+        return valid, nil
+    end
 end
 
 --- @brief
