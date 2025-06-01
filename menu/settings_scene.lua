@@ -514,10 +514,10 @@ function mn.SettingsScene:update(delta)
             local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
             while self._scroll_elapsed > step do
                 self._scroll_elapsed = self._scroll_elapsed - step
-                if self._scroll_direction == rt.Direction.UP and self:_can_scroll_up() then
-                    self:_set_selected_item(self._selected_item_i - 1)
-                elseif self._scroll_direction == rt.Direction.DOWN and self:_can_scroll_down() then
-                    self:_set_selected_item(self._selected_item_i + 1)
+                if self._scroll_direction == rt.Direction.UP then
+                    self._list:scroll_up()
+                elseif self._scroll_direction == rt.Direction.DOWN then
+                    self._list:scroll_down()
                 end
             end
         end

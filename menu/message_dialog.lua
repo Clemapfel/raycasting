@@ -23,10 +23,13 @@ mn.MessageDialog = meta.class("MessageDialog", rt.Widget)
 function mn.MessageDialog:instantiate(message, submessage, option1, ...)
     message = message or " "
     submessage = submessage or " "
-    local out = meta.install(self, {
+    meta.assert(message, "String", submessage, "String")
+    meta.assert_enum_value(option1, mn.MessageDialogOption, 3)
+
+    meta.install(self, {
         _message = message,
         _submessage = submessage,
-        _options = {option1, ...},
+        _options = { option1, ... },
 
         _selected_item_i = 1,
 
@@ -50,18 +53,15 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
         _elapsed = 0
     })
 
-    meta.assert(out._message, "String", out._submessage, "String")
-    for i, option in ipairs(out._options) do
-        assert(meta.typeof(option) == "String", "In mn.MessageDialog: option `" .. option .. "` is not a string")
+    for i, option in ipairs(self._options) do
+        meta.assert_enum_value(option, mn.MessageDialogOption)
         if option == mn.MessageDialogOption.CANCEL then
-            out._selected_item_i = i
+            self._selected_item_i = i
         end
     end
-
-    return out
 end
 
-meta.add_signal(mn.MessageDialog, "selection")
+meta.add_signal(mn.MessageDialog, "selection", "presented", "closed")
 
 --- @override
 function mn.MessageDialog:realize()
@@ -167,7 +167,7 @@ function mn.MessageDialog:draw()
     self._message_label:draw()
     self._submessage_label:draw()
 
-    for item_i, item in ipairs(self._buttons) do
+    for item in values(self._buttons) do
         item.frame:draw()
         item.label:draw()
     end
@@ -254,10 +254,14 @@ function mn.MessageDialog:update(delta)
         self._elapsed = self._elapsed + delta
     end
 
+    local before = self._is_active
     if self._queue_activate > 0 then
         self._queue_activate = self._queue_activate - 1
         if self._queue_activate == 0 then
             self._is_active = true
+            if before == false then
+                self:signal_emit("presented")
+            end
         end
     end
 
@@ -265,6 +269,9 @@ function mn.MessageDialog:update(delta)
         self._queue_deactivate = self._queue_deactivate - 1
         if self._queue_deactivate == 0 then
             self._is_active = false
+            if before == true then
+                self:signal_emit("closed")
+            end
         end
     end
 end

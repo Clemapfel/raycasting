@@ -5,6 +5,10 @@ require "menu.message_dialog"
 require "menu.verbose_info_panel"
 require "menu.settings_scene"
 
+rt.settings.keybinding_scene = {
+    spacer_width = 3
+}
+
 --- @class mn.KeybindingScene
 mn.KeybindingScene = meta.class("KeybindingsScene", rt.Scene)
 
@@ -32,6 +36,8 @@ function mn.KeybindingScene.Item:draw()
     self.spacer:draw()
 end
 
+local _ellipses = "\u{2026}"
+
 --- @brief
 function mn.KeybindingScene:instantiate()
     local translation = rt.Translation.keybinding_scene
@@ -39,7 +45,6 @@ function mn.KeybindingScene:instantiate()
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
         rt.ControlIndicatorButton.A, translation.control_indicator_select,
         rt.ControlIndicatorButton.B, translation.control_indicator_back,
-        rt.ControlIndicatorButton.X, translation.control_indicator_start_sequence,
         rt.ControlIndicatorButton.Y, translation.control_indicator_reset_to_default
     )
 
@@ -49,19 +54,19 @@ function mn.KeybindingScene:instantiate()
     self._confirm_exit_dialog = mn.MessageDialog(
         translation.confirm_exit_message,
         translation.confirm_exit_submessage,
-        mn.MessageDialog.ACCEPT, mn.MessageDialog.CANCEL
+        mn.MessageDialogOption.ACCEPT, mn.MessageDialogOption.CANCEL
     )
 
     self._confirm_reset_to_default_dialog = mn.MessageDialog(
         translation.confirm_reset_to_default_message,
-        translation.confirm_rest_to_default_submessage,
-        mn.MessageDialog.ACCEPT, mn.MessageDialog.CANCEL
+        translation.confirm_reset_to_default_submessage,
+        mn.MessageDialogOption.ACCEPT, mn.MessageDialogOption.CANCEL
     )
 
     self._keybinding_invalid_dialog = mn.MessageDialog(
         translation.keybinding_invalid_message,
         "", -- set on check,
-        mn.MessageDialog.CANCEL
+        mn.MessageDialogOption.CANCEL
     )
 
     self._verbose_info = mn.VerboseInfoPanel()
@@ -112,17 +117,19 @@ function mn.KeybindingScene:instantiate()
             prefix = rt.Label(prefix_prefix .. prefix .. prefix_postfix),
             input_action = input_action,
             keyboard_indicator = rt.KeybindingIndicator(),
+            keyboard_key = nil,
             controller_indicator = rt.KeybindingIndicator(),
-            spacer = rt.Line(),
-            spacer_outline = rt.Line(),
+            controller_button = nil,
+            spacer = rt.Rectangle(),
+            spacer_outline = rt.Rectangle(),
             info = info,
         })
 
         item.spacer_outline:set_color(rt.Palette.BLACK)
-        item.spacer_outline:set_line_width(2 * rt.get_pixel_scale() + 2)
-
         item.spacer:set_color(rt.Palette.FOREGROUND)
-        item.spacer:set_line_width(2 * rt.get_pixel_scale())
+        for space in range(item.spacer, item.spacer_outline) do
+            item.spacer:set_corner_radius(2)
+        end
 
         item.set_selection_state = function(self, state)
             if state == rt.SelectionState.ACTIVE then
@@ -131,11 +138,21 @@ function mn.KeybindingScene:instantiate()
         end
 
         item.set_keyboard_indicator = function(self, key)
-            self.keyboard_indicator:create_from_keyboard_key(key)
+            if key == nil then
+                self.keyboard_indicator:create_as_label(_ellipses)
+            else
+                self.keyboard_indicator:create_from_keyboard_key(key)
+                self.keyboard_key = key
+            end
         end
 
         item.set_controller_indicator = function(self, button)
-            self.controller_indicator:create_from_gamepad_button(button)
+            if button == nil then
+                self.controller_indicator:create_as_label(_ellipses)
+            else
+                self.controller_indicator:create_from_gamepad_button(button)
+                self.controller_button = button
+            end
         end
 
         self._list:add_item(item)
@@ -146,15 +163,30 @@ function mn.KeybindingScene:instantiate()
     -- input
     self._listening_active = false
     self._listening_item = nil
+    self._skip_n_input_frames = 0
 
     self._scroll_elapsed = 0
     self._scroll_delay_elapsed = 0
     self._scroll_active = false
     self._scroll_direction = nil
 
+    for dialog in range(
+        self._confirm_exit_dialog,
+        self._confirm_reset_to_default_dialog
+    ) do
+        dialog:signal_connect("presented", function()
+            self._input:deactivate()
+            self:_abort_listening()
+        end)
+
+        dialog:signal_connect("closed", function()
+            self._input:activate()
+        end)
+    end
+
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        if self._listening_active then return end
+        if self._listening_active or self._skip_n_input_frames > 0 then return end
 
         if which == rt.InputAction.UP then
             if self._list:can_scroll_up() then
@@ -176,13 +208,47 @@ function mn.KeybindingScene:instantiate()
             if not self._listening_active then
                 self._listening_active = true
                 self._listening_item = self._list:get_selected_item()
+
+                if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
+                    self._listening_item:set_keyboard_indicator(nil)
+                elseif self._input:get_input_method() == rt.InputMethod.CONTROLLER then
+                    self._listening_item:set_controller_indicator(nil)
+                end
             end
         elseif which == rt.InputAction.Y then
-            -- TODO: show dialog, restore default
-        elseif which == rt.InputAction.X then
-            -- TODO: do serial keybind
+            self._confirm_reset_to_default_dialog:signal_connect("selection", function(dialog, option)
+                if option == mn.MessageDialogOption.ACCEPT then
+                    self:_update_all_indicators()
+                end
+                dialog:close()
+                return meta.DISCONNECT_SIGNAL
+            end)
+
+            self._confirm_reset_to_default_dialog:present()
         elseif which == rt.InputAction.B then
             -- TODO: ask for confirm, then change scene
+        end
+    end)
+
+    self._input:signal_connect("left_joystick_moved", function(_, x, y)
+        if y > 0 then
+            if self._scroll_active == false then
+                self._scroll_active = true
+                self._scroll_delay_elapsed = math.huge
+                self._scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+            end
+
+            self._scroll_direction = rt.Direction.DOWN
+        elseif y < 0 then
+            if self._scroll_active == false then
+                self._scroll_active = true
+                self._scroll_delay_elapsed = math.huge
+                self._scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+            end
+
+            self._scroll_direction = rt.Direction.UP
+        else
+            self._scroll_active = false
         end
     end)
 
@@ -192,14 +258,22 @@ function mn.KeybindingScene:instantiate()
         end
     end)
 
+    self._input:signal_connect("input_method_changed", function(_, new)
+        self:_abort_listening()
+    end)
+
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if not self._listening_active then return end
         self._listening_item:set_keyboard_indicator(which)
+        self._listening_active = false
+        self._skip_n_input_frames = 3
     end)
 
     self._input:signal_connect("controller_button_pressed", function(_, which)
         if not self._listening_active then return end
         self._listening_item:set_controller_indicator(which)
+        self._listening_active = false
+        self._skip_n_input_frames = 3
     end)
 end
 
@@ -225,6 +299,9 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
+
+    self._confirm_exit_dialog:reformat(0, 0, width, height)
+    self._confirm_reset_to_default_dialog:reformat(0, 0, width, height)
 
     local control_w, control_h = self._control_indicator:measure()
 
@@ -287,15 +364,19 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
                 widget_h
             )
 
-            local line_m = m
-            for line in range(self.spacer, self.spacer_outline) do
-                line:reformat(
-                    widget_left_x + 0.5 * widget_area_w,
-                    y + m,
-                    widget_left_x + 0.5 * widget_area_w,
-                    y + height - m
-                )
-            end
+            self.spacer:reformat(
+                widget_left_x + 0.5 * widget_area_w,
+                y + m,
+                rt.settings.keybinding_scene.spacer_width * rt.get_pixel_scale(),
+                height - 2 * m
+            )
+
+            self.spacer_outline:reformat(
+                widget_left_x + 0.5 * widget_area_w - 1,
+                y + m,
+                rt.settings.keybinding_scene.spacer_width * rt.get_pixel_scale() + 2,
+                height - 2 * m
+            )
         end
 
         item.measure = function(self)
@@ -313,7 +394,30 @@ end
 
 --- @brief
 function mn.KeybindingScene:update(delta)
+    if self._skip_n_input_frames > 0 then self._skip_n_input_frames = self._skip_n_input_frames - 1 end
 
+    for widget in range(
+        self._confirm_reset_to_default_dialog,
+        self._confirm_exit_dialog
+    ) do
+        widget:update(delta)
+    end
+
+    if self._scroll_active then
+        self._scroll_delay_elapsed = self._scroll_delay_elapsed + delta
+        if self._scroll_delay_elapsed > rt.settings.settings_scene.scroll_delay then
+            self._scroll_elapsed = self._scroll_elapsed + delta
+            local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+            while self._scroll_elapsed > step do
+                self._scroll_elapsed = self._scroll_elapsed - step
+                if self._scroll_direction == rt.Direction.UP then
+                    self._list:scroll_up()
+                elseif self._scroll_direction == rt.Direction.DOWN then
+                    self._list:scroll_down()
+                end
+            end
+        end
+    end
 end
 
 --- @brief
@@ -328,22 +432,33 @@ function mn.KeybindingScene:_update_all_indicators()
 end
 
 --- @brief
+function mn.KeybindingScene:_abort_listening()
+    if self._listening_active == false then return end
+    local item = self._listening_item
+    item:set_keyboard_indicator(item.keyboard_key)
+    item:set_controller_indicator(item.controller_button)
+    self._listening_active = false
+end
+
+--- @brief
 function mn.KeybindingScene:draw()
     self._heading_label_frame:draw()
     self._heading_label:draw()
     self._verbose_info:draw()
     self._list:draw()
     self._control_indicator:draw()
+
+    self._confirm_reset_to_default_dialog:draw()
+    self._confirm_exit_dialog:draw()
 end
 
 --- @brief
 function mn.KeybindingScene:enter()
-    self._listening_active = false
     self._input:activate()
 end
 
 --- @brief
 function mn.KeybindingScene:exit()
-    self._listening_active = false
     self._input:activate()
+    self:_abort_listening()
 end

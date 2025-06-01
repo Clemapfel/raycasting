@@ -5,6 +5,7 @@ require "common.input_subscriber"
 require "common.profiler"
 
 _input = rt.InputSubscriber()
+--[[
 _input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "p" then
         debugger.reload()
@@ -21,6 +22,7 @@ _input:signal_connect("keyboard_key_pressed", function(_, which)
         rt.SceneManager:set_scene(mn.KeybindingScene)
     end
 end)
+]]--
 
 love.load = function(args)
     require "menu.keybinding_scene"

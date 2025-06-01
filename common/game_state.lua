@@ -181,22 +181,22 @@ function rt.GameState:_load_default_input_mapping()
     self._state.input_mapping =
     {
         [rt.InputAction.UP] = {
-            keyboard = {"w", "up"},
+            keyboard = {"up", "w"},
             controller = rt.ControllerButton.DPAD_UP
         },
 
         [rt.InputAction.DOWN] = {
-            keyboard = {"s", "down"},
+            keyboard = {"down", "s"},
             controller = rt.ControllerButton.DPAD_DOWN
         },
 
         [rt.InputAction.LEFT] = {
-            keyboard = {"a", "left"},
+            keyboard = {"left", "a"},
             controller = rt.ControllerButton.DPAD_LEFT
         },
 
         [rt.InputAction.RIGHT] = {
-            keyboard = {"d", "right"},
+            keyboard = {"right", "d"},
             controller = rt.ControllerButton.DPAD_RIGHT
         },
 
@@ -206,7 +206,7 @@ function rt.GameState:_load_default_input_mapping()
         },
 
         [rt.InputAction.B] = {
-            keyboard = {"b"},
+            keyboard = {"b", "shift"},
             controller = rt.ControllerButton.BOTTOM
         },
 
@@ -403,7 +403,10 @@ end
 function rt.GameState:_update_reverse_mapping()
     self._keyboard_key_to_input_action = {}
     self._controller_button_to_input_action = {}
-    for action in values(meta.instances(rt.InputAction)) do
+
+    local unique = {}
+    for action in values(meta.instances(rt.InputAction)) do unique[action] = true end
+    for action in keys(unique) do
         local mapping = self._state.input_mapping[action]
 
         for key in values(mapping.keyboard) do
@@ -421,7 +424,7 @@ function rt.GameState:_update_reverse_mapping()
                 actions = {}
                 self._controller_button_to_input_action[button] = actions
             end
-            table.insert(actions, button)
+            table.insert(actions, action)
         end
     end
 end
@@ -448,6 +451,8 @@ function rt.GameState:get_reverse_input_mapping(native, method)
         return self._keyboard_key_to_input_action[native]
     elseif method == rt.InputMethod.CONTROLLER then
         return self._controller_button_to_input_action[native]
+    else
+        return self._keyboard_key_to_input_action[native], self._controller_button_to_input_action[native]
     end
 end
 

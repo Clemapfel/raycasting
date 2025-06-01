@@ -101,7 +101,7 @@ function mn.ScrollableList:draw()
     love.graphics.setScissor(self._item_stencil:unpack())
     love.graphics.push()
     love.graphics.origin()
-    love.graphics.translate(0, self._item_y_offset)
+    love.graphics.translate(0, math.floor(self._item_y_offset))
 
     for i, item in ipairs(self._items) do
         if i == self._selected_item_i then
