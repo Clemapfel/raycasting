@@ -522,9 +522,7 @@ function ow.OverworldScene:update(delta)
         end
     end
 
-    if self._camera_mode ~= ow.CameraMode.MANUAL then
-        self._camera:set_scale(self._camera:get_scale() + self._camera_scale_velocity * delta)
-    end
+
     --self._player:set_facing_angle(self._camera:get_rotation())
     do
         local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)

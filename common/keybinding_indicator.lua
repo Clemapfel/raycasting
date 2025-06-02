@@ -9,7 +9,7 @@ rt.settings.keybinding_indicator = {
 rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
 
 local _Label = function(text, font_size)
-    return rt.Label(text, font_size or rt.settings.keybinding_indicator.font_size, rt.settings.keybinding_indicator.font)
+    return rt.Label("<mono>" .. text .. "</mono>", font_size or rt.settings.keybinding_indicator.font_size, rt.settings.keybinding_indicator.font)
 end
 
 local _GRAY_3 = rt.Palette.GRAY_4
@@ -20,6 +20,7 @@ local _GRAY_7 = rt.Palette.GRAY_8
 local _TRUE_WHITE = rt.Palette.TRUE_WHITE
 local _WHITE = rt.Palette.WHITE
 
+--- @overload
 function rt.KeybindingIndicator:instantiate()
     meta.install(self, {
         _font = nil, -- rt.Font
@@ -29,7 +30,16 @@ function rt.KeybindingIndicator:instantiate()
     })
 end
 
-local _Rectangle = function(x, y, width, height)  
+--- @overload
+function rt.KeybindingIndicator:reformat(x, y, width, height)
+    if x ~= nil then self._bounds.x = math.floor(x) end
+    if y ~= nil then self._bounds.y = math.floor(y) end
+    if width ~= nil then self._bounds.width = math.floor(width) end
+    if height ~= nil then self._bounds.height = math.floor(height) end
+    self:size_allocate(self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
+end
+
+local _Rectangle = function(x, y, width, height)
     return {
         x = x,
         y = y,
@@ -197,6 +207,25 @@ end
 --- @brief
 function rt.KeybindingIndicator:set_opacity(opacity)
     self._opacity = opacity
+end
+
+--- @brief
+function rt.KeybindingIndicator:create_as_label(string)
+    self._initializer = function(self, width)
+        local x, y, height = 0, 0, width
+        local label = _Label("<o>" .. string .. "</o>")
+        label:realize()
+        label:set_justify_mode(rt.JustifyMode.CENTER)
+        local label_w, label_h = label:measure()
+        label:reformat(0, y + 0.5 * height - 0.5 * label_h, width, height)
+
+        self._draw = function()
+            label:draw()
+        end
+    end
+
+    if self._is_realized then self:reformat() end
+    return self
 end
 
 --- @brief
@@ -1095,8 +1124,7 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
         label:set_justify_mode(rt.JustifyMode.CENTER)
         label:realize()
         local label_w, label_h = label:measure()
-        local label_offset = 1 * rt.get_pixel_scale() -- why is this necessary?
-        label:reformat(0 + label_offset, y + 0.5 * height - 0.5 * label_h - y_offset, width, label_h)
+        label:reformat(0, y + 0.5 * height - 0.5 * label_h - y_offset, width, label_h)
 
         self._content = {
             outer,

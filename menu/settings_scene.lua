@@ -57,13 +57,15 @@ function mn.SettingsScene:instantiate()
     local translation = rt.Translation.settings_scene
     
     self._option_button_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
+        rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_select,
+        rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
         rt.ControlIndicatorButton.Y, translation.control_indicator_restore_default,
         rt.ControlIndicatorButton.B, translation.control_indicator_back
     )
 
     self._scale_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
+        rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_select,
+        rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
         rt.ControlIndicatorButton.Y, translation.control_indicator_restore_default,
         rt.ControlIndicatorButton.B, translation.control_indicator_back
     )
@@ -308,7 +310,6 @@ function mn.SettingsScene:instantiate()
     self._scale_direction = nil
 
     self._scroll_elapsed = 0
-    self._scroll_delay_elapsed = 0
     self._scroll_active = false
     self._scroll_direction = nil
 
@@ -316,21 +317,9 @@ function mn.SettingsScene:instantiate()
     self._input:signal_connect("pressed", function(_, which)
         self._scale_active = false
         if which == rt.InputAction.UP then
-            if self._list:can_scroll_up() then
-                self._list:scroll_up()
-                self._scroll_active = true
-                self._scroll_delay_elapsed = 0
-                self._scroll_elapsed = 0
-                self._scroll_direction = rt.Direction.UP
-            end
+            self:_start_scroll(rt.Direction.UP)
         elseif which == rt.InputAction.DOWN then
-            if self._list:can_scroll_down() then
-                self._list:scroll_down()
-                self._scroll_active = true
-                self._scroll_delay_elapsed = 0
-                self._scroll_elapsed = 0
-                self._scroll_direction = rt.Direction.DOWN
-            end
+            self:_start_scroll(rt.Direction.DOWN)
         elseif which == rt.InputAction.LEFT then
             local item = self._list:get_selected_item()
             if item.is_scale then
@@ -365,7 +354,17 @@ function mn.SettingsScene:instantiate()
         if which == rt.InputAction.LEFT or which == rt.InputAction.RIGHT then
             self._scale_active = false
         elseif which == rt.InputAction.UP or which == rt.InputAction.DOWN then
-            self._scroll_active = false
+            self:_stop_scroll()
+        end
+    end)
+
+    self._input:signal_connect("left_joystick_moved", function(_, x, y)
+        if y < 0 then
+            self:_start_scroll(rt.Direction.UP)
+        elseif y > 0 then
+            self:_start_scroll(rt.Direction.DOWN)
+        else
+            self:_stop_scroll()
         end
     end)
 end
@@ -508,19 +507,17 @@ function mn.SettingsScene:update(delta)
     end
 
     if self._scroll_active then
-        self._scroll_delay_elapsed = self._scroll_delay_elapsed + delta
-        if self._scroll_delay_elapsed > rt.settings.settings_scene.scroll_delay then
-            self._scroll_elapsed = self._scroll_elapsed + delta
-            local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
-            while self._scroll_elapsed > step do
-                self._scroll_elapsed = self._scroll_elapsed - step
-                if self._scroll_direction == rt.Direction.UP then
-                    self._list:scroll_up()
-                elseif self._scroll_direction == rt.Direction.DOWN then
-                    self._list:scroll_down()
-                end
+        local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+        while self._scroll_elapsed > step do
+            self._scroll_elapsed = self._scroll_elapsed - step
+            if self._scroll_direction == rt.Direction.UP then
+                self._list:scroll_up()
+            elseif self._scroll_direction == rt.Direction.DOWN then
+                self._list:scroll_down()
             end
         end
+
+        self._scroll_elapsed = self._scroll_elapsed + delta
     end
 end
 
@@ -538,4 +535,19 @@ function mn.SettingsScene:draw()
     else
         self._option_button_control_indicator:draw()
     end
+end
+
+--- @brief
+function mn.SettingsScene:_start_scroll(direction)
+    if self._scroll_active == false then
+        self._scroll_active = true
+        self._scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+    end
+
+    self._scroll_direction = direction
+end
+
+--- @brief
+function mn.SettingsScene:_stop_scroll()
+    self._scroll_active = false
 end

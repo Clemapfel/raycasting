@@ -403,6 +403,13 @@ function rt.Label:_measure_glyph(glyph, is_mono)
     return font:getWidth(glyph)
 end
 
+local _font_style_to_mono_font_style = {
+    [rt.FontStyle.REGULAR] = rt.FontStyle.MONO_REGULAR,
+    [rt.FontStyle.ITALIC] = rt.FontStyle.MONO_ITALIC,
+    [rt.FontStyle.BOLD] = rt.FontStyle.MONO_BOLD,
+    [rt.FontStyle.BOLD_ITALIC] = rt.FontStyle.MONO_BOLD_ITALIC,
+}
+
 --- @brief [internal]
 function rt.Label:_parse()
     self._glyphs = {}
@@ -468,7 +475,7 @@ function rt.Label:_parse()
 
         local font = self._font
         if settings.is_mono == true then
-            font = self._monospace_font
+            style = _font_style_to_mono_font_style[style]
         end
 
         local color_r, color_g, color_b = _rt_color_unpack(_rt_palette[settings.color])

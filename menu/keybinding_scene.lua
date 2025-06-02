@@ -166,13 +166,13 @@ function mn.KeybindingScene:instantiate()
     self._skip_n_input_frames = 0
 
     self._scroll_elapsed = 0
-    self._scroll_delay_elapsed = 0
     self._scroll_active = false
     self._scroll_direction = nil
 
     for dialog in range(
         self._confirm_exit_dialog,
-        self._confirm_reset_to_default_dialog
+        self._confirm_reset_to_default_dialog,
+        self._keybinding_invalid_dialog
     ) do
         dialog:signal_connect("presented", function()
             self._input:deactivate()
@@ -189,21 +189,9 @@ function mn.KeybindingScene:instantiate()
         if self._listening_active or self._skip_n_input_frames > 0 then return end
 
         if which == rt.InputAction.UP then
-            if self._list:can_scroll_up() then
-                self._list:scroll_up()
-                self._scroll_active = true
-                self._scroll_delay_elapsed = 0
-                self._scroll_elapsed = 0
-                self._scroll_direction = rt.Direction.UP
-            end
+            self:_start_scroll(rt.Direction.UP)
         elseif which == rt.InputAction.DOWN then
-            if self._list:can_scroll_down() then
-                self._list:scroll_down()
-                self._scroll_active = true
-                self._scroll_delay_elapsed = 0
-                self._scroll_elapsed = 0
-                self._scroll_direction = rt.Direction.DOWN
-            end
+            self:_start_scroll(rt.Direction.DOWN)
         elseif which == rt.InputAction.A then
             if not self._listening_active then
                 self._listening_active = true
@@ -216,45 +204,37 @@ function mn.KeybindingScene:instantiate()
                 end
             end
         elseif which == rt.InputAction.Y then
-            self._confirm_reset_to_default_dialog:signal_connect("selection", function(dialog, option)
-                if option == mn.MessageDialogOption.ACCEPT then
-                    self:_update_all_indicators()
-                end
-                dialog:close()
-                return meta.DISCONNECT_SIGNAL
-            end)
+            if self:_was_modified() then
+                self._confirm_reset_to_default_dialog:signal_connect("selection", function(dialog, option)
+                    if option == mn.MessageDialogOption.ACCEPT then
+                        self:_update_all_indicators()
+                    end
+                    dialog:close()
+                    return meta.DISCONNECT_SIGNAL
+                end)
 
-            self._confirm_reset_to_default_dialog:present()
+                self._confirm_reset_to_default_dialog:present()
+            else
+                -- noop
+            end
         elseif which == rt.InputAction.B then
-            -- TODO: ask for confirm, then change scene
-        end
-    end)
-
-    self._input:signal_connect("left_joystick_moved", function(_, x, y)
-        if y > 0 then
-            if self._scroll_active == false then
-                self._scroll_active = true
-                self._scroll_delay_elapsed = math.huge
-                self._scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
-            end
-
-            self._scroll_direction = rt.Direction.DOWN
-        elseif y < 0 then
-            if self._scroll_active == false then
-                self._scroll_active = true
-                self._scroll_delay_elapsed = math.huge
-                self._scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
-            end
-
-            self._scroll_direction = rt.Direction.UP
-        else
-            self._scroll_active = false
+            self:_exit()
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
         if which == rt.InputAction.UP or which == rt.InputAction.DOWN then
-            self._scroll_active = false
+            self:_stop_scroll()
+        end
+    end)
+
+    self._input:signal_connect("left_joystick_moved", function(_, x, y)
+        if y < 0 then
+            self:_start_scroll(rt.Direction.UP)
+        elseif y > 0 then
+            self:_start_scroll(rt.Direction.DOWN)
+        else
+            self:_stop_scroll()
         end
     end)
 
@@ -300,8 +280,14 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
 
-    self._confirm_exit_dialog:reformat(0, 0, width, height)
-    self._confirm_reset_to_default_dialog:reformat(0, 0, width, height)
+    for dialog in range(
+        self._confirm_exit_dialog,
+        self._confirm_reset_to_default_dialog,
+        self._keybinding_invalid_dialog
+    ) do
+        dialog:reformat(x, y, width, height)
+    end
+
 
     local control_w, control_h = self._control_indicator:measure()
 
@@ -398,25 +384,24 @@ function mn.KeybindingScene:update(delta)
 
     for widget in range(
         self._confirm_reset_to_default_dialog,
-        self._confirm_exit_dialog
+        self._confirm_exit_dialog,
+        self._keybinding_invalid_dialog
     ) do
         widget:update(delta)
     end
 
     if self._scroll_active then
-        self._scroll_delay_elapsed = self._scroll_delay_elapsed + delta
-        if self._scroll_delay_elapsed > rt.settings.settings_scene.scroll_delay then
-            self._scroll_elapsed = self._scroll_elapsed + delta
-            local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
-            while self._scroll_elapsed > step do
-                self._scroll_elapsed = self._scroll_elapsed - step
-                if self._scroll_direction == rt.Direction.UP then
-                    self._list:scroll_up()
-                elseif self._scroll_direction == rt.Direction.DOWN then
-                    self._list:scroll_down()
-                end
+        local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+        while self._scroll_elapsed > step do
+            self._scroll_elapsed = self._scroll_elapsed - step
+            if self._scroll_direction == rt.Direction.UP then
+                self._list:scroll_up()
+            elseif self._scroll_direction == rt.Direction.DOWN then
+                self._list:scroll_down()
             end
         end
+
+        self._scroll_elapsed = self._scroll_elapsed + delta
     end
 end
 
@@ -432,12 +417,80 @@ function mn.KeybindingScene:_update_all_indicators()
 end
 
 --- @brief
+function mn.KeybindingScene:_was_modified()
+    for i = 1, self._list:get_n_items() do
+        local item = self._list:get_item(i)
+        local expected = rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.KEYBOARD)[1]
+        if item.keyboard_key ~= nil and item.keyboard_key ~= expected then return true end
+
+        expected = rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.CONTROLLER)[1]
+        if item.controller_button ~= nil and item.controller_button ~= expected then return true end
+    end
+
+    return false
+end
+
+--- @brief
 function mn.KeybindingScene:_abort_listening()
     if self._listening_active == false then return end
     local item = self._listening_item
     item:set_keyboard_indicator(item.keyboard_key)
     item:set_controller_indicator(item.controller_button)
     self._listening_active = false
+end
+
+--- @brief
+function mn.KeybindingScene:_start_scroll(direction)
+    if self._scroll_active == false then
+        self._scroll_active = true
+        self._scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+    end
+
+    self._scroll_direction = direction
+end
+
+--- @brief
+function mn.KeybindingScene:_stop_scroll()
+    self._scroll_active = false
+end
+
+--- @brief
+function mn.KeybindingScene:_exit()
+    if self:_was_modified() then
+        self._confirm_exit_dialog:signal_connect("selection", function(dialog, which)
+            if which == mn.MessageDialogOption.CANCEL then
+                return
+            elseif which == mn.MessageDialogOption.ACCEPT then
+                local n = self._list:get_n_items()
+                local valid, error_maybe
+                for i = 1, n do
+                    local item = self._list:get_item(i)
+                    valid, error_maybe = rt.GameState:set_input_mapping(
+                        item.input_action,
+                        item.keyboard_key,
+                        item.controller_button,
+                        i == n -- should validate
+                    )
+                end
+
+                if not valid then
+                    self._keybinding_invalid_dialog:set_submessage(error_maybe)
+                    self._keybinding_invalid_dialog:signal_connect("selection", function(dialog, which)
+                        dialog:close()
+                    end)
+                    self._keybinding_invalid_dialog:present()
+                else
+                    rt.SceneManager:set_scene(rt.SceneManager:get_previous_scene())
+                end
+            end
+
+            dialog:close()
+            return meta.DISCONNECT_SIGNAL
+        end)
+        self._confirm_exit_dialog:present()
+    else
+        rt.SceneManager:set_scene(rt.SceneManager:get_previous_scene())
+    end
 end
 
 --- @brief
@@ -450,6 +503,7 @@ function mn.KeybindingScene:draw()
 
     self._confirm_reset_to_default_dialog:draw()
     self._confirm_exit_dialog:draw()
+    self._keybinding_invalid_dialog:draw()
 end
 
 --- @brief

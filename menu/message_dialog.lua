@@ -226,11 +226,11 @@ end
 
 --- @brief
 function mn.MessageDialog:set_message(message, submessage)
-    meta.assert_string(message)
+    if submessage == nil then submessage = self._submessage end
+    meta.assert(message, "String", submessage, "String")
     self._message_label:set_text(message)
 
-    if submessage ~= nil then
-        meta.assert_string(submessage)
+    if self._submessage ~= submessage then
         self._submessage_label:set_text(submessage)
     end
 
@@ -241,7 +241,7 @@ end
 
 --- @brief
 function mn.MessageDialog:set_submessage(submessage)
-    meta.assert_string(submessage)
+    meta.assert(submessage, "String")
     self._submessage_label:set_text(submessage)
     if self._is_realized then
         self:reformat()

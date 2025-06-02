@@ -191,7 +191,8 @@ rt.Translation = rt.initialize_translation({
     settings_scene = {
         heading = "Settings",
 
-        control_indicator_move = "Select",
+        control_indicator_move = "Move",
+        control_indicator_select = "Select",
         control_indicator_back = "Back",
         control_indicator_restore_default = "Reset",
         control_indicator_option_button = "Select Option",

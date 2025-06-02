@@ -458,31 +458,39 @@ end
 
 --- @brief
 --- @param ... Union<rt.KeyboardKey, rt.ControllerButton>
-function rt.GameState:set_input_mapping(input_action, method, ...)
+function rt.GameState:set_input_mapping(input_action, keyboard, controller, should_validate)
     meta.assert_enum_value(input_action, rt.InputAction, 1)
-    meta.assert_typeof(method, rt.InputMethod, 2)
-    if method == rt.InputMethod.KEYBOARD then
-        local before = table.deepcopy(self._state.input_mapping[input_action].keyboard)
-        self._state.input_mapping[input_action].keyboard = { ... }
+    if keyboard ~= nil then
+        meta.assert_typeof(keyboard, "String", 2)
+    end
+
+    if controller ~= nil then
+        meta.assert_typeof(controller, "String", 3)
+    end
+
+    if should_validate == nil then should_validate = true end
+    meta.assert_typeof(should_validate, "Boolean", 4)
+
+    local before = table.deepcopy(self._state.input_mapping[input_action])
+    if keyboard ~= nil then
+        self._state.input_mapping[input_action].keyboard[1] = keyboard
+    end
+
+    if controller ~= nil then
+        self._state.input_mapping[input_action].controller[2] = controller
+    end
+
+    if should_validate then
         local valid, error = self:_validate_input_mapping()
         if not valid then
-            self._state.input_mapping[input_action.keyboard] = before
+            self._state.input_mapping[input_action] = before
             return false, error
         else
             self:_update_reverse_mapping()
             return true
         end
-    elseif method == rt.InputMethod.CONTROLLER then
-        local before = table.deepcopy(self._state.input_mapping[input_action].controller)
-        self._state.input_mapping[input_action].controller = { ... }
-        local valid, error = self:_validate_input_mapping()
-        if not valid then
-            self._state.input_mapping[input_action.controller] = before
-            return false, error
-        else
-            self:_update_reverse_mapping()
-            return true
-        end
+    else
+        return true
     end
 end
 
