@@ -1,6 +1,7 @@
 require "common.scene"
 require "common.input_subscriber"
 require "common.fade"
+require "common.thread_pool"
 require "menu.pause_menu_scene"
 
 rt.settings.scene_manager = {
@@ -94,8 +95,9 @@ end
 
 --- @brief
 function rt.SceneManager:update(delta)
-    self._fade:update(delta)
+    rt.ThreadPool:update(delta)
 
+    self._fade:update(delta)
     if self._pause_menu_active then
         self._pause_menu:update(delta)
         self._pause_menu:signal_emit("update", delta)

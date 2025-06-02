@@ -4,7 +4,6 @@ require "common.game_state"
 require "common.input_subscriber"
 require "common.profiler"
 
-local flip = false
 _input = rt.InputSubscriber()
 _input:signal_connect("keyboard_key_pressed", function(_, which)
     --[[
@@ -23,7 +22,6 @@ _input:signal_connect("keyboard_key_pressed", function(_, which)
         rt.SceneManager:set_scene(mn.KeybindingScene)
     end
     ]]--
-
 end)
 
 love.load = function(args)
