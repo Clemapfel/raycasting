@@ -10,7 +10,7 @@ require "physics.physics"
 
 rt.settings.overworld.overworld_scene = {
     camera_translation_velocity = 400, -- px / s,
-    camera_scale_velocity = 0.1, -- % / s
+    camera_scale_velocity = 0.05, -- % / s
     camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
     camera_pan_width_factor = 0.15,
     camera_freeze_duration = 1,
@@ -523,7 +523,6 @@ function ow.OverworldScene:update(delta)
     end
 
 
-    --self._player:set_facing_angle(self._camera:get_rotation())
     do
         local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)
         local bottom_left_x, bottom_left_y = self._camera:screen_xy_to_world_xy(love.graphics.getDimensions())
