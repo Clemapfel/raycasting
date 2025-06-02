@@ -9,7 +9,6 @@ do
 end
 
 -- splash screen
-
 do
     local screen_w, screen_h = love.graphics.getWidth(), love.graphics.getHeight()
     love.graphics.setColor(0, 0, 0, 1)

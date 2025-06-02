@@ -42,10 +42,13 @@ function rt.ThreadPool:instantiate()
     self._hash_to_instance = meta.make_weak({})
     self._hash_to_messages = {}
 
+    local success, error = pcall(love.thread.newThread, "common/thread_pool_worker.lua")
+    println(success, error)
+
     for i = 1, self._n_threads do
         local entry = {
             _id = i,
-            _thread = love.thread.newThread("common/thread_pool_worker.lua"),
+            _thread = error,
             _worker_to_main = love.thread.newChannel()
         }
 
