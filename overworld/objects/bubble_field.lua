@@ -1,3 +1,5 @@
+require "common.thread"
+
 rt.settings.overworld.bubble_field = {
     segment_length = 10,
     thickness = 3,
@@ -16,6 +18,8 @@ local _vertex_format = {
     { location = 0, name = "VertexPosition", format = "floatvec2" }
 }
 
+local _threads, _n_threads, _current_thread_id
+
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     self._scene = scene
@@ -31,6 +35,18 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 1 }) end
     if _base_shader == nil then _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 }) end
+
+    if _threads == nil then
+        _threads = {}
+        _n_threads =  love.system.getProcessorCount() - 1
+        _current_thread_id = 1
+        for i = 1, _n_threads do
+            table.insert(_threads, rt.Thread("overworld/objects/bubble_field_worker.lua"))
+        end
+    end
+
+    self._thread_id = _current_thread_id
+    _current_thread_id = _current_thread_id % _n_threads + 1
 
     -- collision
     self._body = object:create_physics_body(self._world)
@@ -272,6 +288,7 @@ function ow.BubbleField:update(delta)
     if not self._is_initialized then
         self._is_initialized = true
     elseif self._is_visible == true and is_visible == false then
+        -- reset geometry when leaving screen
         local wave = self._wave
         for i = 1, self._n_points do
             wave.current[i] = 0
@@ -354,7 +371,7 @@ function ow.BubbleField:update(delta)
 
         self._polygon_positions = polygon_positions
         self._outline_positions = outline_positions
-        end
+    end
 end
 
 --- @brief

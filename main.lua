@@ -24,14 +24,6 @@ _input:signal_connect("keyboard_key_pressed", function(_, which)
     end
     ]]--
 
-    if which == "g" then
-        if flip == true then
-            rt.SceneManager:get_current_scene()._camera:scale_to(10)
-        else
-            rt.SceneManager:get_current_scene()._camera:scale_to(1 / 10)
-        end
-        flip = not flip
-    end
 end)
 
 love.load = function(args)

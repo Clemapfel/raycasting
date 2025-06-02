@@ -1,0 +1,3 @@
+require "love.math"
+
+main_to_worker, worker_to_main = ...
