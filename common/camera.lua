@@ -4,6 +4,7 @@ require "common.smoothed_motion_2d"
 rt.settings.camera = {
     speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
     max_velocity = 2000,
+    max_scale_velocity = 5, -- per second
     shake_max_frequency = 30,
     shake_max_offset = 6,
     shake_speed = 100,
@@ -25,6 +26,7 @@ function rt.Camera:instantiate()
 
         _current_angle = 0,
         _current_scale = 1,
+        _target_scale = 1,
 
         _timestamp = love.timer.getTime(),
         _last_x = 0,
@@ -104,23 +106,33 @@ local _distance_f = function(x)
     return math.sqrt(math.abs(x)) * math.abs(x)^(1 - (1 - speed)) * math.sign(x)
 end
 
+--- @brief
 function rt.Camera:update(delta)
     local screen_w, screen_h = love.graphics.getDimensions()
 
-    local dx = _distance_f(self._target_x - self._current_x)
-    local dy = _distance_f(self._target_y - self._current_y)
-    dx = dx / screen_w
-    dy = dy / screen_h
+    do -- scale
+        local ds = math.log(self._target_scale) - math.log(self._current_scale)
+        local scale_velocity = math.sign(ds) * math.min(math.abs(ds), rt.settings.camera.max_scale_velocity)
 
-    self._velocity_x = dx * rt.settings.camera.max_velocity
-    self._velocity_y = dy * rt.settings.camera.max_velocity
+        self._current_scale = self._current_scale * math.exp(scale_velocity * delta)
+    end
 
-    local final_delta_x = self._velocity_x * delta
-    local final_delta_y = self._velocity_y * delta
+    do -- movement
+        local dx = _distance_f(self._target_x - self._current_x)
+        local dy = _distance_f(self._target_y - self._current_y)
+        dx = dx / screen_w
+        dy = dy / screen_h
 
-    self._last_x, self._last_y = self._current_x, self._current_y
-    self._current_x = math.round(self._current_x + final_delta_x)
-    self._current_y = math.round(self._current_y + final_delta_y)
+        self._velocity_x = dx * rt.settings.camera.max_velocity
+        self._velocity_y = dy * rt.settings.camera.max_velocity
+
+        local final_delta_x = self._velocity_x * delta
+        local final_delta_y = self._velocity_y * delta
+
+        self._last_x, self._last_y = self._current_x, self._current_y
+        self._current_x = math.round(self._current_x + final_delta_x)
+        self._current_y = math.round(self._current_y + final_delta_y)
+    end
 
     if self._is_shaking then
         local max_frequency = rt.settings.camera.shake_max_frequency
@@ -229,10 +241,16 @@ end
 --- @brief
 function rt.Camera:set_scale(s, override_bounds)
     self._current_scale = s
+    self._target_scale = s
 
     if override_bounds ~= true then
         self._target_x, self._target_x = self:_constrain(self._target_x, self._target_y)
     end
+end
+
+--- @brief
+function rt.Camera:scale_to(s)
+    self._target_scale = s
 end
 
 --- @brief
