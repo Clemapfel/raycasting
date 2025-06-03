@@ -275,6 +275,8 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
+        if self._state == rt.PlayerState.DISABLED then return end
+
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = true
             self._jump_elapsed = 0
@@ -302,6 +304,8 @@ function rt.Player:_connect_input()
     end)
 
     self._input:signal_connect("released", function(_, which)
+        if self._state == rt.PlayerState.DISABLED then return end
+
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = false
             self._spring_multiplier = 1
@@ -325,6 +329,8 @@ function rt.Player:_connect_input()
     end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
+        if self._state == rt.PlayerState.DISABLED then return end
+
         self._joystick_position = x
 
         -- convert joystick inputs to digital

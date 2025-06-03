@@ -272,7 +272,7 @@ function rt.ControlIndicator:set_selection_state(state)
 end
 
 --- @brief
-function rt.ControlIndicator:set_use_frame(b)
+function rt.ControlIndicator:set_has_frame(b)
     self._use_frame = b
     if self:get_is_realized() then
         self:reformat()

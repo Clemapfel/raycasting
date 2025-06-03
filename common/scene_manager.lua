@@ -2,10 +2,8 @@ require "common.scene"
 require "common.input_subscriber"
 require "common.fade"
 require "common.thread_pool"
-require "menu.pause_menu_scene"
 
 rt.settings.scene_manager = {
-    pause_delay_duration = 5 / 60, -- seconds
     max_n_steps_per_frame = 8,
     fade_duration = 0.2,
 }
@@ -22,33 +20,23 @@ function rt.SceneManager:instantiate()
         _current_scene = nil,
         _current_scene_type = nil,
         _current_scene_varargs = {},
+        _schedule_enter = false,
         
         _scene_stack = {}, -- Stack<SceneType>
         _show_performance_metrics = true,
         _width = love.graphics.getWidth(),
         _height = love.graphics.getHeight(),
         _fade = rt.Fade(),
-
-        _pause_menu = mn.PauseMenuScene(),
-        _pause_menu_active = false,
-        _pause_delay_elapsed = math.huge,
         _use_fixed_timestep = false,
 
         _input = rt.InputSubscriber(),
     })
 
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
-    self._pause_menu:realize()
-    self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputAction.START then
-            self:pause()
-        end
-    end)
 end
 
 --- @brief
 function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
-
     local varargs = { ... }
     local on_scene_changed = function()
         local scene = self._scene_type_to_scene[scene_type]
@@ -64,7 +52,7 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
         if add_to_stack == true and self._current_scene ~= nil then
             table.insert(self._scene_stack, 1, {
                 self._current_scene_type,
-                table.unpack(self._current_scene_vargs)
+                table.unpack(self._current_scene_varargs)
             })
         end
 
@@ -72,11 +60,12 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
 
         self._current_scene = scene
         self._current_scene_type = scene_type
-        self._current_scene_vargs = varargs
+        self._current_scene_varargs = varargs
 
         if previous_scene ~= nil then
             previous_scene:exit()
             previous_scene._is_active = false
+            previous_scene:signal_emit("exit")
         end
 
         -- resize if necessary
@@ -87,12 +76,7 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
             self._current_scene._scene_manager_current_height = self._height
         end
 
-        self._current_scene:enter(table.unpack(varargs))
-        self._current_scene._is_active = true
-
-        if self._pause_menu_active and self._current_scene:get_can_pause() == false then
-            self:unpause()
-        end
+        self._schedule_enter = true -- delay enter until next frame to avoid same-frame inputs
     end
 
     if self._current_scene == nil then -- don't fade at start of game
@@ -108,7 +92,12 @@ end
 
 --- @brief
 function rt.SceneManager:push(scene_type, ...)
-    self:_set_scene(true, scene_type, ...)
+    assert(scene_type ~= nil, "In rt.SceneManager: scene type cannot be nil")
+    if self._current_scene_type ~= scene_type then
+        self:_set_scene(true, scene_type, ...)
+    else
+        self:_set_scene(false, scene_type, ...)
+    end
 end
 
 --- @brief
@@ -123,18 +112,16 @@ end
 --- @brief
 function rt.SceneManager:update(delta)
     rt.ThreadPool:update(delta)
-
     self._fade:update(delta)
-    if self._pause_menu_active then
-        self._pause_menu:update(delta)
-        self._pause_menu:signal_emit("update", delta)
-    elseif self._current_scene ~= nil then
-        -- delay enter to avoid inputting on the same frame as pause menu exiting
-        if self._pause_delay_elapsed > rt.settings.scene_manager.pause_delay_duration then
-            self._current_scene:update(delta)
-            self._current_scene:signal_emit("update", delta)
+    if self._current_scene ~= nil then
+        if self._schedule_enter then
+            self._schedule_enter = false
+            self._current_scene:enter(table.unpack(self._current_scene_varargs))
+            self._current_scene._is_active = true
+            self._current_scene:signal_emit("enter")
         end
-        self._pause_delay_elapsed = self._pause_delay_elapsed + delta
+        self._current_scene:update(delta)
+        self._current_scene:signal_emit("update", delta)
     end
 end
 
@@ -142,10 +129,6 @@ end
 function rt.SceneManager:draw(...)
     if self._current_scene ~= nil then
         self._current_scene:draw(...)
-    end
-
-    if self._pause_menu_active then
-        self._pause_menu:draw()
     end
 
     rt.graphics._stencil_value = 1 -- reset running stencil value
@@ -160,13 +143,12 @@ function rt.SceneManager:resize(width, height)
     self._height = height
     rt.settings.margin_unit = 10 * rt.get_pixel_scale()
 
-    for scene in range(self._pause_menu, self._current_scene) do
-        local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
-        if current_w ~= self._width or current_w ~= self._height then
-            scene:reformat(0, 0, self._width, self._height)
-            scene._scene_manager_current_width = self._width
-            scene._scene_manager_current_height = self._height
-        end
+    local scene = self._current_scene
+    local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
+    if current_w ~= self._width or current_w ~= self._height then
+        scene:reformat(0, 0, self._width, self._height)
+        scene._scene_manager_current_width = self._width
+        scene._scene_manager_current_height = self._height
     end
 end
 
@@ -227,32 +209,6 @@ function rt.SceneManager:_draw_performance_metrics()
 
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.printf(str, love.graphics.getWidth() - str_width - 5, 5, math.huge)
-end
-
---- @brief
-function rt.SceneManager:pause()
-    if self._current_scene == nil then return end
-    if not self._current_scene:get_can_pause() then
-        rt.warning("In rt.SceneManager.pause: trying to pause current scene `" .. tostring(self._current_scene_type) .. "`, but it cannot be paused")
-        return
-    end
-
-    if self._current_scene ~= nil then
-        self._current_scene:exit()
-        self._current_scene._is_active = false
-    end
-
-    self._pause_menu_active = true
-    self._pause_menu:enter()
-    self._pause_menu._is_active = true
-end
-
---- @brief
-function rt.SceneManager:unpause()
-    self._pause_menu_active = false
-    self._pause_menu:exit()
-    self._pause_menu._is_active = false
-    self._pause_delay_elapsed = 0
 end
 
 --- @brief

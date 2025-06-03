@@ -10,7 +10,9 @@ function rt.Scene:instantiate()
 end
 
 meta.add_signals(rt.Scene,
-    "update"
+    "update",
+    "enter",
+    "exit"
 )
 
 --- @brief
@@ -26,11 +28,6 @@ end
 --- @brief
 function rt.Scene:get_is_active()
     return self._is_active
-end
-
---- @brief
-function rt.Scene:get_can_pause()
-    return false
 end
 
 --- @override

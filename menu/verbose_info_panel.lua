@@ -270,7 +270,7 @@ function mn.VerboseInfoPanel:can_scroll_down()
 end
 
 --- @brief
-function mn.VerboseInfoPanel:set_frame_visible(b)
+function mn.VerboseInfoPanel:set_has_frame(b)
     self._frame_visible = b
 end
 

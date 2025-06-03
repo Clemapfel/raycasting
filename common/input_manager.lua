@@ -29,15 +29,13 @@ end
 
 --- @brief [internal]
 function rt.InputManager:_set_input_method(method)
-    if method ~= self._input_method then
-        self._input_method = method
+    local before = self._input_method
+    self._input_method = method
+
+    if before ~= self._input_method then
         for subscriber in values(self._subscribers) do
             if subscriber._is_active then
-                if method == rt.InputManager.KEYBOARD then
-                    subscriber:signal_emit(rt.InputCallbackID.INPUT_METHOD_CHANGED, nil)
-                elseif method == rt.InputMethod.CONTROLLER then
-                    subscriber:signal_emit(rt.InputCallbackID.INPUT_METHOD_CHANGED, self._last_active_joystick:getID())
-                end
+                subscriber:signal_emit(rt.InputCallbackID.INPUT_METHOD_CHANGED)
             end
         end
     end

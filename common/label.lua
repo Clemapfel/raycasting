@@ -5,7 +5,7 @@ require "common.font"
 require "common.render_texture"
 
 rt.settings.label = {
-    outline_offset_padding = 7,
+    outline_offset_padding = 8,
     scroll_speed = 40, -- beats per second
 }
 
@@ -893,7 +893,7 @@ function rt.Label:_apply_wrapping()
     self._height = line_height * row_i
     self._n_lines = row_i
 
-    self._texture_offset_x = -_padding - 1 -- TODO: why is -1 necessary?
+    self._texture_offset_x = -_padding
     self._texture_offset_y = -_padding
     local outline_texture_w = self._width + 2 * _padding
     local outline_texture_h = self._height + 2 * _padding

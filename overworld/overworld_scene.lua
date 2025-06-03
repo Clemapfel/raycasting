@@ -7,6 +7,7 @@ require "common.player"
 require "overworld.coin_effect"
 require "overworld.results_screen"
 require "physics.physics"
+require "menu.pause_menu"
 
 rt.settings.overworld.overworld_scene = {
     camera_translation_velocity = 400, -- px / s,
@@ -69,15 +70,27 @@ function ow.OverworldScene:instantiate(state)
         _background = rt.Background("grid"),
 
         _results_screen = ow.ResultsScreen(),
-
         _post_fx = ow.CoinEffect(self),
+
+        _pause_menu = mn.PauseMenu(self),
+        _pause_menu_active = false,
     })
+
+    self._input:signal_connect("pressed", function(_, which)
+        if which == rt.InputAction.PAUSE then
+            if not self._pause_menu_active then
+                self:pause()
+            else
+                self:unpause()
+            end
+        end
+    end)
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         -- debug reload
         if which == "^" then
             self:reload()
-            rt.SceneManager:unpause()
+            self:unpause()
         elseif which == "h" then
             if not self._results_screen:get_is_active() then
                 self._results_screen:present(0, 0)
@@ -227,6 +240,7 @@ function ow.OverworldScene:instantiate(state)
 
     self._background:realize()
     self._results_screen:realize()
+    self._pause_menu:realize()
 end
 
 local _blocked = 0
@@ -244,6 +258,11 @@ function ow.OverworldScene:enter(stage_id)
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(_cursor)
+
+    if self._pause_menu_active then
+        self._pause_menu:present()
+    end
+
     self._input:activate()
 end
 
@@ -251,6 +270,11 @@ end
 function ow.OverworldScene:exit()
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(nil)
+
+    if self._pause_menu_active then
+        self._pause_menu:close()
+    end
+
     self._input:deactivate()
 end
 
@@ -292,6 +316,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
 
     self._background:reformat(0, 0, width, height)
     self._post_fx:reformat(0, 0, width, height)
+    self._pause_menu:reformat(0, 0, width, height)
 
     local results_screen_fraction = rt.settings.overworld.overworld_scene.results_screen_fraction
     self._results_screen:reformat((1 - results_screen_fraction) * width, 0, results_screen_fraction * width, height)
@@ -408,7 +433,7 @@ function ow.OverworldScene:draw()
 
     self._results_screen:draw()
 
-    if self._cursor_visible and self._cursor_active then
+    if not self._pause_menu_active and self._cursor_visible and self._cursor_active then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
 
@@ -436,12 +461,21 @@ function ow.OverworldScene:draw()
         love.graphics.setColor(_black_r, _black_g, _black_b, 1)
         love.graphics.circle("line", x, y, 6 * scale)
     end
+
+    if self._pause_menu_active then
+        self._pause_menu:draw()
+    end
 end
 
 local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
+    if self._pause_menu_active then
+        self._pause_menu:update(delta)
+        return
+    end
+
     _blocked = _blocked - 1
     if _blocked >= 0 then return end
     if self._stage == nil then return end
@@ -520,7 +554,6 @@ function ow.OverworldScene:update(delta)
             self._camera_scale_velocity = 0
         end
     end
-
 
     do
         local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)
@@ -617,7 +650,17 @@ function ow.OverworldScene:get_is_cursor_visible()
     return (self._cursor_visible and self._cursor_active)
 end
 
+
 --- @brief
-function ow.OverworldScene:get_can_pause()
-    return true
+function ow.OverworldScene:pause()
+    self._player:disable()
+    self._pause_menu:present()
+    self._pause_menu_active = true
+end
+
+--- @brief
+function ow.OverworldScene:unpause()
+    self._pause_menu_active = false
+    self._pause_menu:close()
+    self._player:enable()
 end

@@ -467,6 +467,7 @@ end
 function mn.SettingsScene:enter()
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(false)
+    self._list:set_selected_item(1)
 end
 
 --- @brief
@@ -519,7 +520,6 @@ end
 function mn.SettingsScene:draw()
     self._heading_label_frame:draw()
     self._heading_label:draw()
-    
     self._verbose_info:draw()
 
     self._list:draw()

@@ -4,46 +4,76 @@ require "common.selection_graph"
 require "common.translation"
 require "common.font"
 require "common.input_subscriber"
+require "common.control_indicator"
 require "menu.message_dialog"
 
-rt.settings.menu.pause_menu_scene = {
+rt.settings.menu.pause_menu = {
     label_prefix = "<b><o>",
     label_postfix = "</b></o>",
     selection_frame_thickness = 2
 }
 
---- @class mn.PauseMenuScene
-mn.PauseMenuScene = meta.class("PauseMenuScene", rt.Scene)
+--- @class mn.PauseMenu
+mn.PauseMenu = meta.class("PauseMenu", rt.Widget)
 
 --- @brief
-function mn.PauseMenuScene:instantiate()
+function mn.PauseMenu:instantiate(scene)
+    if not meta.isa(scene, rt.Scene) then
+        rt.error("In mn.PauseMenu.enter: expected `Scene`, got `" .. meta.typeof(underlying_scene) .. "`")
+    end
+
     meta.install(self, {
         _elements = {},
-        _background = rt.Background("menu/pause_menu_scene.glsl", true),
+        _background = rt.Background("menu/pause_menu.glsl", true),
+        _underlying_scene = scene, -- scene below menu
         _input = rt.InputSubscriber(false),
+        _schedule_activate = true,
+        _is_active = false,
 
         _selection_graph = rt.SelectionGraph(),
         _confirm_exit_dialog = mn.MessageDialog(
-            rt.Translation.pause_menu_scene.confirm_exit_message,
-            rt.Translation.pause_menu_scene.confirm_exit_submessage,
+            rt.Translation.pause_menu.confirm_exit_message,
+            rt.Translation.pause_menu.confirm_exit_submessage,
             mn.MessageDialogOption.ACCEPT,
             mn.MessageDialogOption.CANCEL
         )
     })
 
+    local translation = rt.Translation.pause_menu
+    self._control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.A, translation.control_indicator_select,
+        rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
+        --rt.ControlIndicatorButton.START, translation.control_indicator_unpause
+    )
+    self._control_indicator:set_has_frame(false)
+
     self._input:signal_connect("pressed", function(_, which)
-        if self._is_active then
+        if not self._underlying_scene:get_is_active() or self._confirm_exit_dialog:get_is_active() then return end
+
+        if which == rt.InputAction.PAUSE then
+            self._underlying_scene:unpause()
+        else
             self._selection_graph:handle_button(which)
         end
     end)
 
     self._background:realize()
+    self._control_indicator:realize()
+
     self._confirm_exit_dialog:realize()
-    self._confirm_exit_dialog:signal_connect("selection", function(self, which)
+    self._confirm_exit_dialog:signal_connect("selection", function(_, which)
+        self._underlying_scene:signal_connect("exit", function()
+            -- delay close to after scene manager fade out
+            self._confirm_exit_dialog:close()
+            self._underlying_scene:unpause()
+            return meta.DISCONNECT_SIGNAL
+        end)
+
         if which == mn.MessageDialogOption.ACCEPT then
-            exit(0)
+            require "menu.menu_scene"
+            rt.SceneManager:push(mn.MenuScene)
         elseif which == mn.MessageDialogOption.CANCEL then
-            self:close()
+            -- noop
         end
     end)
 
@@ -51,7 +81,7 @@ function mn.PauseMenuScene:instantiate()
     self._first_node = nil
 
     local n_elements = 0
-    local prefix, postfix = rt.settings.menu.pause_menu_scene.label_prefix, rt.settings.menu.pause_menu_scene.label_postfix
+    local prefix, postfix = rt.settings.menu.pause_menu.label_prefix, rt.settings.menu.pause_menu.label_postfix
     for name in range(
         "resume",
         "retry",
@@ -61,12 +91,12 @@ function mn.PauseMenuScene:instantiate()
     ) do
         local element = {
             unselected_label = rt.Label(
-                prefix .. rt.Translation.pause_menu_scene[name] .. postfix,
+                prefix .. rt.Translation.pause_menu[name] .. postfix,
                 rt.FontSize.LARGE
             ),
 
             selected_label = rt.Label(
-                prefix .. "<color=SELECTION>" .. rt.Translation.pause_menu_scene[name] .. "</color>" .. postfix,
+                prefix .. "<color=SELECTION>" .. rt.Translation.pause_menu[name] .. "</color>" .. postfix,
                 rt.FontSize.LARGE
             ),
 
@@ -82,7 +112,7 @@ function mn.PauseMenuScene:instantiate()
         element.selected_label:realize()
 
         element.frame:set_base_color(1, 1, 1, 0)
-        element.frame:set_thickness(rt.settings.menu.pause_menu_scene.selection_frame_thickness)
+        element.frame:set_thickness(rt.settings.menu.pause_menu.selection_frame_thickness)
         element.frame:set_selection_state(rt.SelectionState.ACTIVE)
         element.frame:realize()
 
@@ -108,8 +138,16 @@ function mn.PauseMenuScene:instantiate()
 end
 
 --- @brief
-function mn.PauseMenuScene:size_allocate(x, y, width, height)
+function mn.PauseMenu:size_allocate(x, y, width, height)
     self._background:reformat(x, y, width, height)
+
+    local outer_margin = 0 --rt.settings.margin_unit
+    local control_w, control_h = self._control_indicator:measure()
+    self._control_indicator:reformat(
+        x + width - outer_margin - control_w,
+        y + height - outer_margin - control_h,
+        control_w, control_h
+    )
 
     local m = rt.settings.margin_unit
     local max_w, max_h, height_sum = -math.huge, -math.huge, 0
@@ -145,8 +183,13 @@ function mn.PauseMenuScene:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function mn.PauseMenuScene:update(delta)
+function mn.PauseMenu:update(delta)
     if not self._is_active then return end
+
+    if self._schedule_activate == true then
+        self._input:activate()
+        self._schedule_activate = false
+    end
 
     local current_node = self._selection_graph:get_current_node()
     self._background:update(delta)
@@ -164,7 +207,7 @@ function mn.PauseMenuScene:update(delta)
 end
 
 --- @brief
-function mn.PauseMenuScene:draw()
+function mn.PauseMenu:draw()
     if not self._is_active then return end
 
     local current_node = self._selection_graph:get_current_node()
@@ -184,45 +227,53 @@ function mn.PauseMenuScene:draw()
 
     if self._confirm_exit_dialog:get_is_active() then
         self._confirm_exit_dialog:draw()
+    else
+        self._control_indicator:draw()
     end
 end
 
 --- @brief
-function mn.PauseMenuScene:_on_resume()
-    rt.SceneManager:unpause()
+function mn.PauseMenu:_on_resume()
+    self._underlying_scene:unpause()
 end
 
 --- @brief
-function mn.PauseMenuScene:_on_retry()
+function mn.PauseMenu:_on_retry()
     rt.SceneManager:get_current_scene():respawn()
-    rt.SceneManager:unpause()
+    self._underlying_scene:unpause()
 end
 
 --- @brief
-function mn.PauseMenuScene:_on_settings()
+function mn.PauseMenu:_on_settings()
     require "menu.settings_scene"
     rt.SceneManager:push(mn.SettingsScene) -- unpauses automatically
 end
 
 --- @brief
-function mn.PauseMenuScene:_on_controls()
+function mn.PauseMenu:_on_controls()
     require "menu.keybinding_scene"
     rt.SceneManager:push(mn.KeybindingScene) -- unpauses automatically
 end
 
 --- @brief
-function mn.PauseMenuScene:_on_exit()
+function mn.PauseMenu:_on_exit()
     self._confirm_exit_dialog:present()
 end
 
 --- @brief
-function mn.PauseMenuScene:enter()
-    self._selection_graph:set_current_node(self._first_node)
-    self._input:activate()
+function mn.PauseMenu:present()
+    if self._selection_graph:get_current_node() == nil then
+        self._selection_graph:set_current_node(self._first_node)
+    end
+
+    self._is_active = true
+    self._schedule_activate = true
+    -- delay input:activate to next frame
 end
 
 --- @brief
-function mn.PauseMenuScene:exit()
+function mn.PauseMenu:close()
+    self._is_active = false
     self._input:deactivate()
 end
 

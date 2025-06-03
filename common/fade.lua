@@ -1,3 +1,6 @@
+require "common.color"
+require "common.palette"
+
 rt.settings.fade = {
     default_duration = 120 / 60
 }
@@ -9,7 +12,7 @@ rt.Fade = meta.class("Fade")
 function rt.Fade:instantiate(duration, r, g, b, a)
     duration = duration or rt.settings.fade.default_duration
     if r == nil then
-        r, g, b, a = rt.Palette.BLACK:unpack()
+        r, g, b, a = rt.Palette.TRUE_BLACK:unpack()
     end
 
     meta.install(self, {
@@ -74,6 +77,13 @@ function rt.Fade:update(delta)
     self._value = _envelope(fraction, self._has_attack, self._has_decay)
 
     if self._signal_emitted == false and fraction >= 0.5 then
+        self._value = 1
+
+        -- make sure screen is fully black for lag frames during emit
+        love.graphics.clear()
+        self:draw()
+        love.graphics.present()
+
         self:signal_emit("hidden")
         self._signal_emitted = true
     end

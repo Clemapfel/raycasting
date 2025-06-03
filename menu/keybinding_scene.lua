@@ -45,7 +45,8 @@ function mn.KeybindingScene:instantiate()
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
         rt.ControlIndicatorButton.A, translation.control_indicator_select,
         rt.ControlIndicatorButton.B, translation.control_indicator_back,
-        rt.ControlIndicatorButton.Y, translation.control_indicator_reset_to_default
+        rt.ControlIndicatorButton.Y, translation.control_indicator_reset_to_default,
+        rt.ControlIndicatorButton.START, translation.control_indicator_abort
     )
 
     self._heading_label = rt.Label("<b>" .. translation.heading .. "</b>")
@@ -218,7 +219,9 @@ function mn.KeybindingScene:instantiate()
                 -- noop
             end
         elseif which == rt.InputAction.B then
-            self:_exit()
+            self:_exit(true) -- save bindings
+        elseif which == rt.InputAction.PAUSE then
+            self:_exit(false) -- reset bindings
         end
     end)
 
@@ -455,28 +458,39 @@ function mn.KeybindingScene:_stop_scroll()
 end
 
 --- @brief
-function mn.KeybindingScene:_exit()
+function mn.KeybindingScene:_exit(save)
+    if not self:_was_modified() then
+        rt.SceneManager:pop()
+        return
+    end
+
     if self:_was_modified() then
-        local new_mapping = {}
-        for i = 1, self._list:get_n_items() do
-            local item = self._list:get_item(i)
-            new_mapping[item.input_action] = {
-                keyboard = item.keyboard_key,
-                controller = item.controller_button
-            }
+        local can_exit = false
+        if save then
+            local new_mapping = {}
+            for i = 1, self._list:get_n_items() do
+                local item = self._list:get_item(i)
+                new_mapping[item.input_action] = {
+                    keyboard = item.keyboard_key,
+                    controller = item.controller_button
+                }
+            end
+
+            local valid, error_maybe = rt.GameState:set_input_mapping(new_mapping)
+            if not valid then
+                self._keybinding_invalid_dialog:set_submessage(error_maybe, rt.JustifyMode.LEFT)
+                self._keybinding_invalid_dialog:present()
+            else
+                can_exit = true
+            end
         end
 
-        local valid, error_maybe = rt.GameState:set_input_mapping(new_mapping)
-        if not valid then
-            self._keybinding_invalid_dialog:set_submessage(error_maybe, rt.JustifyMode.LEFT)
-            self._keybinding_invalid_dialog:present()
-        else
-            -- else confirm exit and confirm
+        if not save or can_exit then
             self._confirm_exit_dialog:signal_connect("selection", function(dialog, which)
                 if which == mn.MessageDialogOption.CANCEL then
                     -- noop
                 elseif which == mn.MessageDialogOption.ACCEPT then
-                    rt.SceneManager:pop_scene()
+                    rt.SceneManager:pop()
                 end
 
                 dialog:close()
@@ -484,8 +498,6 @@ function mn.KeybindingScene:_exit()
             end)
             self._confirm_exit_dialog:present()
         end
-    else
-        rt.SceneManager:pop()
     end
 end
 
@@ -506,6 +518,9 @@ end
 function mn.KeybindingScene:enter()
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(false)
+    self._list:set_selected_item(1)
+    self:_abort_listening()
+    self:_update_all_indicators()
 end
 
 --- @brief

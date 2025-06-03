@@ -67,7 +67,7 @@ function mn.TitleScreenScene:instantiate(state)
         [rt.ControlIndicatorButton.JUMP] = translation.control_indicator_select,
         [rt.ControlIndicatorButton.UP_DOWN] = translation.control_indicator_move
     })
-    self._control_indicator:set_use_frame(false)
+    self._control_indicator:set_has_frame(false)
 
     local font, font_mono = rt.settings.font.default_large, rt.settings.font.default_mono_large
     self._menu_items = {}

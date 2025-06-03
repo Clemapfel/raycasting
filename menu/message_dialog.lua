@@ -42,7 +42,6 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
         _render_y_offset = 0,
 
         _is_active = false,
-        _queue_deactivate = 0,
         _queue_activate = 0,
 
         _input = rt.InputSubscriber(),
@@ -232,7 +231,11 @@ end
 
 --- @brief
 function mn.MessageDialog:close()
-    self._queue_deactivate = 2
+    local before = self._is_active
+    self._is_active = false
+    if before == true then
+        self:signal_emit("closed")
+    end
 end
 
 --- @brief
@@ -280,16 +283,6 @@ function mn.MessageDialog:update(delta)
             self._is_active = true
             if before == false then
                 self:signal_emit("presented")
-            end
-        end
-    end
-
-    if self._queue_deactivate > 0 then
-        self._queue_deactivate = self._queue_deactivate - 1
-        if self._queue_deactivate == 0 then
-            self._is_active = false
-            if before == true then
-                self:signal_emit("closed")
             end
         end
     end

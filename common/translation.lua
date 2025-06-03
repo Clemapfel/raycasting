@@ -77,16 +77,20 @@ rt.Translation = rt.initialize_translation({
         return to_string[action]
     end,
 
-    -- pause menu scene
-    pause_menu_scene = {
+    -- pause menu
+    pause_menu = {
         resume = "Resume",
         retry = "Retry",
         controls = "Controls",
         settings = "Settings",
         exit = "Exit",
 
-        confirm_exit_message = "Quit the game?",
-        confirm_exit_submessage = "All unsaved progress will be lost"
+        confirm_exit_message = "Return to Main Menu?",
+        confirm_exit_submessage = "All unsaved progress will be lost",
+
+        control_indicator_select = "Select",
+        control_indicator_move = "Move",
+        control_indicator_unpause = "Unpause"
     },
 
     -- results screen
@@ -106,7 +110,7 @@ rt.Translation = rt.initialize_translation({
 
             stage_select = "Select Level",
             settings = "Settings",
-            credits = "Credits",
+            controls = "Controls",
             quit = "Quit"
         },
 
@@ -238,7 +242,8 @@ rt.Translation = rt.initialize_translation({
 
         control_indicator_move = "Move",
         control_indicator_select = "Select",
-        control_indicator_back = "Exit",
+        control_indicator_back = "Save",
         control_indicator_reset_to_default = "Reset",
+        control_indicator_abort = "Exit"
     }
 })

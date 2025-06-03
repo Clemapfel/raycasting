@@ -32,8 +32,7 @@ mn.MenuSceneState = meta.enum("MenuSceneState", {
     TITLE_SCREEN = "TITLE_SCREEN",
     FALLING = "FALLING",
     STAGE_SELECT = "STAGE_SELECT",
-    EXITING = "EXITING",
-    CREDITS = "CREDITS"
+    EXITING = "EXITING"
 })
 
 local _title_shader_sdf, _title_shader_no_sdf, _background_shader = nil, nil, nil
@@ -122,11 +121,11 @@ function mn.MenuScene:instantiate(state)
         local title_screen = {}
         self._title_screen = title_screen
 
-        title_screen.control_indicator = rt.ControlIndicator({
-                [rt.ControlIndicatorButton.JUMP] = translation.control_indicator_select,
-                [rt.ControlIndicatorButton.UP_DOWN] = translation.control_indicator_move
-            })
-        title_screen.control_indicator:set_use_frame(false)
+        title_screen.control_indicator = rt.ControlIndicator(
+            rt.ControlIndicatorButton.A, translation.control_indicator_select,
+            rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
+        )
+        title_screen.control_indicator:set_has_frame(false)
 
         title_screen.menu_items = {}
         title_screen.n_menu_items = 0
@@ -135,7 +134,7 @@ function mn.MenuScene:instantiate(state)
         for text in range(
             translation.stage_select,
             translation.settings,
-            translation.credits,
+            translation.controls,
             translation.quit
         ) do
             local item = {
@@ -156,15 +155,15 @@ function mn.MenuScene:instantiate(state)
         -- menu item: settings
         local settings_item = title_screen.menu_items[2]
         settings_item.activate = function()
-            rt.error("TODO")
-            rt.SceneManager:set_scene(mn.SettingsScene)
+            require "menu.settings_scene"
+            rt.SceneManager:push(mn.SettingsScene)
         end
 
-        -- menu item: credits
-        local credits_item = title_screen.menu_items[3]
-        credits_item.activate = function()
-            rt.error("TODO: credits")
-            self:_set_state(mn.MenuSceneState.CREDITS)
+        -- menu item: controls
+        local controls_item = title_screen.menu_items[3]
+        controls_item.activate = function()
+            require "menu.keybinding_scene"
+            rt.SceneManager:push(mn.KeybindingScene)
         end
 
         -- menu item: quit
@@ -307,11 +306,11 @@ function mn.MenuScene:instantiate(state)
 
         stage_select.page_indicator = mn.StageSelectPageIndicator(stage_select.n_items)
         translation = rt.Translation.menu_scene.stage_select
-        stage_select.control_indicator = rt.ControlIndicator({
-            [rt.ControlIndicatorButton.JUMP] = translation.control_indicator_confirm,
-            [rt.ControlIndicatorButton.UP_DOWN] = translation.control_indicator_select,
-            [rt.ControlIndicatorButton.B] = translation.control_indicator_back,
-        })
+        stage_select.control_indicator = rt.ControlIndicator(
+            rt.ControlIndicatorButton.A, translation.control_indicator_confirm,
+            rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_select,
+            rt.ControlIndicatorButton.B, translation.control_indicator_back
+        )
     end
 end
 
@@ -344,7 +343,7 @@ function mn.MenuScene:realize()
 
     self._stage_select.page_indicator:realize()
     self._stage_select.control_indicator:realize()
-    self._stage_select.control_indicator:set_use_frame(false)
+    self._stage_select.control_indicator:set_has_frame(false)
 end
 
 --- @brief
@@ -514,6 +513,7 @@ function mn.MenuScene:enter()
     rt.SceneManager:set_use_fixed_timestep(true)
     self._player:set_opacity(1)
 
+    -- inputs activate in _set_state
     if self._state == nil then
         self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
     else
@@ -523,9 +523,10 @@ end
 
 --- @brief
 function mn.MenuScene:exit()
-    self._title_screen.input:deactivate()
     self._player:enable()
     self._camera:set_is_shaking(false)
+    self._title_screen.input:deactivate()
+    self._stage_select.input:deactivate()
 end
 
 --- @brief
