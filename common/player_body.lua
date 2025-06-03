@@ -523,7 +523,7 @@ local _rope_handler = function(data)
         end
     end
 
-    return rope
+    return data
 end
 
 rt.ThreadPool:register_handler("player_body", _rope_handler)
@@ -561,8 +561,11 @@ function rt.PlayerBody:update(delta)
     end
 
     local todo = self._is_bubble and _settings.bubble or _settings.non_bubble
+
+    if self._rope_message == nil then self._rope_message = {} end
+
     for i, rope in ipairs(self._ropes) do
-        self._ropes[i] = _rope_handler({
+        rt.ThreadPool:send_message(self, "player_body", {
             rope = rope,
             rope_i = i,
             is_bubble = self._is_bubble,
@@ -578,6 +581,12 @@ function rt.PlayerBody:update(delta)
             player_x = self._player_x,
             player_y = self._player_y
         })
+    end
+
+    -- wait for all message to arrive
+
+    for message in values(rt.ThreadPool:get_messages(self)) do
+        self._ropes[message.rope_i] = message.rope
     end
 end
 
