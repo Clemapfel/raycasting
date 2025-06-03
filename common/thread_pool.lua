@@ -5,10 +5,10 @@ rt.settings.thread_pool = {
 --[[
 Usage:
 
-Add handler "example_handler" to common/thread_pool_worker.lua
-    _G["example_handler] = function(data)
-        -- do stuff with data
-        return data
+Add handler "example_handler" using `register_handler`
+    rt.ThreadPool:register_handler("example_handler", function(data)
+        -- this function cannot have upvalues
+        data[1] = data[1] + 1
     end
 
 Then, in main:
@@ -27,9 +27,10 @@ rt.ThreadPool = meta.class("ThreadPool")
 
 --- @enum MessageTypes
 local MessageType = { -- native enum so it can be send via channel
-    SUCCESS = 1,
-    ERROR = 2,
-    EXIT = 3
+    SUCCESS = 1,    -- task successfully done
+    ERROR = 2,      -- thread wants to promote error
+    EXIT = 3,       -- cause thread to safely exit
+    ADD_HANDLER = 4
 }
 
 --- @brief
@@ -38,7 +39,7 @@ function rt.ThreadPool:instantiate()
     self._n_threads = math.min(love.system.getProcessorCount() - 1, rt.settings.thread_pool.max_n_threads)
     if self._n_threads <= 0 then self._n_threads = 1 end
 
-    self._main_to_worker = love.thread.newChannel()
+    self._main_to_worker_global = love.thread.newChannel()
     self._hash_to_instance = meta.make_weak({})
     self._hash_to_messages = {}
 
@@ -46,6 +47,7 @@ function rt.ThreadPool:instantiate()
         local entry = {
             _id = i,
             _thread = love.thread.newThread("common/thread_pool_worker.lua"),
+            _main_to_worker_local = love.thread.newChannel(),
             _worker_to_main = love.thread.newChannel()
         }
 
@@ -55,10 +57,30 @@ function rt.ThreadPool:instantiate()
     for i = 1, self._n_threads do
         local entry = self._entries[i]
         entry._thread:start(
-            self._main_to_worker,
+            i,
+            self._main_to_worker_global,
+            entry._main_to_worker_local,
             entry._worker_to_main,
             MessageType
         )
+    end
+end
+
+--- @brief
+function rt.ThreadPool:register_handler(handler_id, handler)
+    meta.assert(handler_id, "String", handler, "Function")
+    assert(debug.getupvalue(handler, 1) == nil, "In rt.ThreadPool.register_handler: function for handler `" .. handler_id .. "` has an upvalue, only pure functions can be registered as handlers")
+
+    -- serialize pure function and deserialize thread-side with `load`
+    local message = {
+        type = MessageType.ADD_HANDLER,
+        handler_id = handler_id,
+        handler = string.dump(handler)
+    }
+
+    for i = 1, self._n_threads do
+        local entry = self._entries[i]
+        entry._main_to_worker_local:push(message)
     end
 end
 
@@ -69,7 +91,7 @@ function rt.ThreadPool:send_message(instance, handler_id, data)
 
     local hash = meta.hash(instance)
     self._hash_to_instance[hash] = instance
-    self._main_to_worker:push({
+    self._main_to_worker_global:push({
         hash = hash,
         handler_id = handler_id,
         data = data
@@ -118,19 +140,10 @@ function rt.ThreadPool:update(_)
                 table.insert(message_entry, message.data)
             elseif message.type == MessageType.ERROR then
                 rt.error("In rt.ThreadPool: " .. message.reason)
-            elseif message.type == MessageType.EXIT then
-                to_kill[i] = true -- don't immediately kill, wait for queue to be emptied
             end
 
             message = entry._worker_to_main:pop()
         end
-    end
-
-    for index in keys(to_kill) do
-        local entry = self._entries[index]
-        entry._thread:kill()
-        self._entries[index] = nil
-        self._n_threads = self._n_threads - 1
     end
 end
 

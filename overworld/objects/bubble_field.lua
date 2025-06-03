@@ -264,8 +264,9 @@ local _damping = 0.99
 local _courant = _dt / _dx
 local _amplitude = 0.01
 
+local _handler_id = "overworld.bubble_field"
 local _send_message = function(self)
-    rt.ThreadPool:send_message(self, "overworld.bubble_field", {
+    rt.ThreadPool:send_message(self, _handler_id, {
         wave = self._wave,
         n_points = self._n_points,
         contour_vectors = self._contour_vectors,
@@ -282,10 +283,80 @@ local _send_message = function(self)
     })
 end
 
+
+rt.ThreadPool:register_handler(_handler_id, function(data)
+    -- wave equation solver
+    local polygon_positions = data.polygon_positions
+    local outline_positions = data.outline_positions
+    local wave = data.wave
+    local offset_sum, offset_max = 0, -math.huge
+    local n_points = data.n_points
+    for i = 1, n_points do
+        local left = (i == 1) and n_points or (i - 1)
+        local right = (i == n_points) and 1 or (i + 1)
+        local new = 2 * wave.current[i] - wave.previous[i] + data.courant^2 * (wave.current[left] - 2 * wave.current[i] + wave.current[right])
+        new = new * data.damping
+        wave.next[i] = new
+
+        offset_sum = offset_sum + math.abs(new)
+        offset_max = math.max(offset_sum, math.abs(new))
+
+        local entry = data.contour_vectors[i]
+        local x = data.contour_center_x + entry.dx * (1 + new) * entry.magnitude
+        local y = data.contour_center_y + entry.dy * (1 + new) * entry.magnitude
+        table.insert(polygon_positions, x)
+        table.insert(polygon_positions, y)
+    end
+    wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
+
+    if offset_max < data.wave_deactivation_threshold then
+        data.is_active = false
+    end
+
+    -- lerp to avoid step pattern artifacting
+    for i = 1, #polygon_positions - 2, 2 do
+        local x1, y1 = polygon_positions[i+0], polygon_positions[i+1]
+        local x2, y2 = polygon_positions[i+2], polygon_positions[i+3]
+
+        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
+        table.insert(outline_positions, x)
+        table.insert(outline_positions, y)
+    end
+
+    do
+        local x1, y1 = polygon_positions[1], polygon_positions[2]
+        local x2, y2 = polygon_positions[#polygon_positions-1], polygon_positions[#polygon_positions]
+        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
+        table.insert(outline_positions, x)
+        table.insert(outline_positions, y)
+    end
+
+    local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
+    if not success then
+        success, solid_tris = pcall(slick.triangulate, polygon_positions)
+    end
+
+    if success and #solid_tris > 0 then
+        local solid_data = {}
+        for tri in values(solid_tris) do
+            for i = 1, 6, 2 do
+                table.insert(solid_data, {
+                    tri[i+0], tri[i+1]
+                })
+            end
+        end
+
+        data.mesh_data = solid_data
+    else
+        data.mesh_data = nil
+    end
+
+    return data
+end)
+
 --- @brief
 function ow.BubbleField:update(delta)
     self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
-
     if not self._scene:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta

@@ -4,7 +4,6 @@ require "common.game_state"
 require "common.input_subscriber"
 require "common.profiler"
 
-
 _input = rt.InputSubscriber()
 _input:signal_connect("keyboard_key_pressed", function(_, which)
     --[[
