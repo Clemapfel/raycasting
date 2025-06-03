@@ -100,7 +100,7 @@ function rt.PlayerBody:instantiate(player)
     end
 
     -- expressions
-    self._bottom_eye_lid_position = 0.
+    self._bottom_eye_lid_position = 0
     self._bottom_eye_lid = {}
     self._top_eye_lid_position = 0
     self._top_eye_lid = {}
@@ -324,70 +324,209 @@ function rt.PlayerBody:_update_eyelids()
 end
 
 
--- keep nodes at fixed distance
-local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
-    local current_distance = math.distance(a_x, a_y, b_x, b_y)
+local _rope_handler = function(data)
+    -- keep nodes at fixed distance
+    local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
+        local current_distance = math.distance(a_x, a_y, b_x, b_y)
 
-    local delta_x = b_x - a_x
-    local delta_y = b_y - a_y
-    local distance_correction = (current_distance - rest_length) / current_distance
-    local correction_x = delta_x * distance_correction
-    local correction_y = delta_y * distance_correction
+        local delta_x = b_x - a_x
+        local delta_y = b_y - a_y
+        local distance_correction = (current_distance - rest_length) / current_distance
+        local correction_x = delta_x * distance_correction
+        local correction_y = delta_y * distance_correction
 
-    local blend = 0.5
-    a_x = a_x + correction_x * blend
-    a_y = a_y + correction_y * blend
-    b_x = b_x - correction_x * blend
-    b_y = b_y - correction_y * blend
+        local blend = 0.5
+        a_x = a_x + correction_x * blend
+        a_y = a_y + correction_y * blend
+        b_x = b_x - correction_x * blend
+        b_y = b_y - correction_y * blend
 
-    return a_x, a_y, b_x, b_y
+        return a_x, a_y, b_x, b_y
+    end
+
+    -- align nodes with axis
+    local function _solve_axis_constraint(a_x, a_y, b_x, b_y, axis_x, axis_y)
+        local delta_x = b_x - a_x
+        local delta_y = b_y - a_y
+
+        local dot_product = math.abs(delta_x * axis_x + delta_y * axis_y)
+        local projection_x = dot_product * axis_x
+        local projection_y = dot_product * axis_y
+
+        local correction_x = (projection_x - delta_x)
+        local correction_y = (projection_y - delta_y)
+
+        local blend = 0.5
+        a_x = a_x - correction_x * blend
+        a_y = a_y - correction_y * blend
+        b_x = b_x + correction_x * blend
+        b_y = b_y + correction_y * blend
+
+        return a_x, a_y, b_x, b_y
+    end
+
+    -- align sequence of 3 nodes towards straight line
+    local function _solve_bending_constraint(a_x, a_y, b_x, b_y, c_x, c_y, stiffness)
+        local ab_x = b_x - a_x
+        local ab_y = b_y - a_y
+        local bc_x = c_x - b_x
+        local bc_y = c_y - b_y
+
+        ab_x, ab_y = math.normalize(ab_x, ab_y)
+        bc_x, bc_y = math.normalize(bc_x, bc_y)
+
+        local target_x = ab_x + bc_x
+        local target_y = ab_y + bc_y
+
+        local correction_x = target_x
+        local correction_y = target_y
+
+        local blend = 0.5 * stiffness
+        a_x = a_x - correction_x * blend
+        a_y = a_y - correction_y * blend
+        c_x = c_x + correction_x * blend
+        c_y = c_y + correction_y * blend
+
+        return a_x, a_y, c_x, c_y
+    end
+
+    local rope = data.rope
+    local positions = rope.current_positions
+    local old_positions = rope.last_positions
+    local old_velocities = rope.last_velocities
+    local distances = data.is_bubble and rope.bubble_distances or rope.distances
+    local masses = rope.masses
+
+    local n_axis_iterations_done = 0
+    local n_distance_iterations_done = 0
+    local n_velocity_iterations_done = 0
+    local n_bending_iterations_done = 0
+
+    data.n_distance_iterations = data.n_distance_iterations + data.n_bending_iterations
+
+    while
+        (n_velocity_iterations_done < data.n_velocity_iterations) or
+        (n_distance_iterations_done < data.n_distance_iterations) or
+        (n_axis_iterations_done < data.n_axis_iterations) or
+        (n_bending_iterations_done < data.n_bending_iterations)
+    do
+        -- verlet integration
+        if n_velocity_iterations_done < data.n_velocity_iterations then
+            local mass_i = 1
+            for i = 1, #positions, 2 do
+                local current_x, current_y = positions[i+0], positions[i+1]
+                local old_x, old_y = old_positions[i+0], old_positions[i+1]
+                local mass = masses[mass_i]
+                local before_x, before_y = current_x, current_y
+
+                local velocity_x = (current_x - old_x) * data.velocity_damping
+                local velocity_y = (current_y - old_y) * data.velocity_damping
+
+                -- inertia
+                velocity_x = math.mix(velocity_x, old_velocities[i+0], data.inertia)
+                velocity_y = math.mix(velocity_y, old_velocities[i+1], data.inertia)
+
+                positions[i+0] = current_x + velocity_x + mass * data.gravity_x * data.delta * data.delta
+                positions[i+1] = current_y + velocity_y + mass * data.gravity_y * data.delta * data.delta
+
+                old_positions[i+0] = before_x
+                old_positions[i+1] = before_y
+
+                old_velocities[i+0] = velocity_x
+                old_velocities[i+1] = velocity_y
+
+                mass_i = mass_i + 1
+            end
+
+            n_velocity_iterations_done = n_velocity_iterations_done + 1
+        end
+
+        -- axis
+        if n_axis_iterations_done < data.n_axis_iterations then
+            for i = 1, #positions - 2, 2 do
+                local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
+                local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
+                local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
+
+                local new_x1, new_y1, new_x2, new_y2 = _solve_axis_constraint(
+                    node_1_x, node_1_y,
+                    node_2_x, node_2_y,
+                    rope.axis_x, rope.axis_y
+                )
+
+                positions[node_1_xi] = new_x1
+                positions[node_1_yi] = new_y1
+                positions[node_2_xi] = new_x2
+                positions[node_2_yi] = new_y2
+            end
+
+            n_axis_iterations_done = n_axis_iterations_done + 1
+        end
+
+        -- bending
+        if n_bending_iterations_done < data.n_bending_iterations then
+            local distance_i = 1
+            for i = 1, #positions - 4, 2 do
+                local node_1_xi, node_1_yi, node_2_xi, node_2_yi, node_3_xi, node_3_yi = i+0, i+1, i+2, i+3, i+4, i+5
+                local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
+                local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
+                local node_3_x, node_3_y = positions[node_3_xi], positions[node_3_yi]
+
+                local new_x1, new_y1, new_x3, new_y3 = _solve_bending_constraint(
+                    node_1_x, node_1_y,
+                    node_2_x, node_2_y,
+                    node_3_x, node_3_y,
+                    (1 - i / #positions) -- more bendy the farther away from base
+                )
+
+                positions[node_1_xi] = new_x1
+                positions[node_1_yi] = new_y1
+                positions[node_3_xi] = new_x3
+                positions[node_3_yi] = new_y3
+
+                distance_i = distance_i + 1
+            end
+
+            n_bending_iterations_done = n_bending_iterations_done + 1
+        end
+
+        -- distance
+        if n_distance_iterations_done < data.n_distance_iterations then
+            local distance_i = 1
+            for i = 1, #positions - 2, 2 do
+                local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
+                local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
+                local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
+
+                if i == 1 then
+                    node_1_x = data.player_x + rope.anchor_x
+                    node_1_y = data.player_y + rope.anchor_y
+                end
+
+                local rest_length = distances[distance_i]
+
+                local new_x1, new_y1, new_x2, new_y2 = _solve_distance_constraint(
+                    node_1_x, node_1_y,
+                    node_2_x, node_2_y,
+                    rest_length
+                )
+
+                positions[node_1_xi] = new_x1
+                positions[node_1_yi] = new_y1
+                positions[node_2_xi] = new_x2
+                positions[node_2_yi] = new_y2
+
+                distance_i = distance_i + 1
+            end
+
+            n_distance_iterations_done = n_distance_iterations_done + 1
+        end
+    end
+
+    return rope
 end
 
--- align nodes with axis
-local function _solve_axis_constraint(a_x, a_y, b_x, b_y, axis_x, axis_y)
-    local delta_x = b_x - a_x
-    local delta_y = b_y - a_y
-
-    local dot_product = math.abs(delta_x * axis_x + delta_y * axis_y)
-    local projection_x = dot_product * axis_x
-    local projection_y = dot_product * axis_y
-
-    local correction_x = (projection_x - delta_x)
-    local correction_y = (projection_y - delta_y)
-
-    local blend = 0.5
-    a_x = a_x - correction_x * blend
-    a_y = a_y - correction_y * blend
-    b_x = b_x + correction_x * blend
-    b_y = b_y + correction_y * blend
-
-    return a_x, a_y, b_x, b_y
-end
-
--- align sequence of 3 nodes towards straight line
-local function _solve_bending_constraint(a_x, a_y, b_x, b_y, c_x, c_y, stiffness)
-    local ab_x = b_x - a_x
-    local ab_y = b_y - a_y
-    local bc_x = c_x - b_x
-    local bc_y = c_y - b_y
-
-    ab_x, ab_y = math.normalize(ab_x, ab_y)
-    bc_x, bc_y = math.normalize(bc_x, bc_y)
-
-    local target_x = ab_x + bc_x
-    local target_y = ab_y + bc_y
-
-    local correction_x = target_x
-    local correction_y = target_y
-
-    local blend = 0.5 * stiffness
-    a_x = a_x - correction_x * blend
-    a_y = a_y - correction_y * blend
-    c_x = c_x + correction_x * blend
-    c_y = c_y + correction_y * blend
-
-    return a_x, a_y, c_x, c_y
-end
+rt.ThreadPool:register_handler("player_body", _rope_handler)
 
 --- @brief
 function rt.PlayerBody:update(delta)
@@ -422,136 +561,23 @@ function rt.PlayerBody:update(delta)
     end
 
     local todo = self._is_bubble and _settings.bubble or _settings.non_bubble
-    for rope in values(self._ropes) do
-        local positions = rope.current_positions
-        local old_positions = rope.last_positions
-        local old_velocities = rope.last_velocities
-        local distances = self._is_bubble and rope.bubble_distances or rope.distances
-        local masses = rope.masses
-
-        local n_axis_iterations_done = 0
-        local n_distance_iterations_done = 0
-        local n_velocity_iterations_done = 0
-        local n_bending_iterations_done = 0
-
-        while
-            (n_velocity_iterations_done < todo.n_velocity_iterations) or
-            (n_distance_iterations_done < todo.n_distance_iterations + todo.n_bending_iterations) or
-            (n_axis_iterations_done < todo.n_axis_iterations) or
-            (n_bending_iterations_done < todo.n_bending_iterations)
-        do
-            -- verlet integration
-            if n_velocity_iterations_done < todo.n_velocity_iterations then
-                local mass_i = 1
-                for i = 1, #positions, 2 do
-                    local current_x, current_y = positions[i+0], positions[i+1]
-                    local old_x, old_y = old_positions[i+0], old_positions[i+1]
-                    local mass = masses[mass_i]
-                    local before_x, before_y = current_x, current_y
-
-                    local velocity_x = (current_x - old_x) * velocity_damping
-                    local velocity_y = (current_y - old_y) * velocity_damping
-
-                    -- inertia
-                    velocity_x = math.mix(velocity_x, old_velocities[i+0], todo.inertia)
-                    velocity_y = math.mix(velocity_y, old_velocities[i+1], todo.inertia)
-
-                    positions[i+0] = current_x + velocity_x + mass * gravity_x * delta * delta
-                    positions[i+1] = current_y + velocity_y + mass * gravity_y * delta * delta
-
-                    old_positions[i+0] = before_x
-                    old_positions[i+1] = before_y
-
-                    old_velocities[i+0] = velocity_x
-                    old_velocities[i+1] = velocity_y
-
-                    mass_i = mass_i + 1
-                end
-
-                n_velocity_iterations_done = n_velocity_iterations_done + 1
-            end
-
-            -- axis
-            if n_axis_iterations_done < todo.n_axis_iterations then
-                for i = 1, #positions - 2, 2 do
-                    local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
-                    local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
-                    local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
-
-                    local new_x1, new_y1, new_x2, new_y2 = _solve_axis_constraint(
-                        node_1_x, node_1_y,
-                        node_2_x, node_2_y,
-                        rope.axis_x, rope.axis_y
-                    )
-
-                    positions[node_1_xi] = new_x1
-                    positions[node_1_yi] = new_y1
-                    positions[node_2_xi] = new_x2
-                    positions[node_2_yi] = new_y2
-                end
-
-                n_axis_iterations_done = n_axis_iterations_done + 1
-            end
-
-            -- bending
-            if n_bending_iterations_done < todo.n_bending_iterations then
-                local distance_i = 1
-                for i = 1, #positions - 4, 2 do
-                    local node_1_xi, node_1_yi, node_2_xi, node_2_yi, node_3_xi, node_3_yi = i+0, i+1, i+2, i+3, i+4, i+5
-                    local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
-                    local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
-                    local node_3_x, node_3_y = positions[node_3_xi], positions[node_3_yi]
-
-                    local new_x1, new_y1, new_x3, new_y3 = _solve_bending_constraint(
-                        node_1_x, node_1_y,
-                        node_2_x, node_2_y,
-                        node_3_x, node_3_y,
-                        (1 - i / #positions) -- more bendy the farther away from base
-                    )
-
-                    positions[node_1_xi] = new_x1
-                    positions[node_1_yi] = new_y1
-                    positions[node_3_xi] = new_x3
-                    positions[node_3_yi] = new_y3
-
-                    distance_i = distance_i + 1
-                end
-
-                n_bending_iterations_done = n_bending_iterations_done + 1
-            end
-
-            -- distance
-            if n_distance_iterations_done < todo.n_distance_iterations + todo.n_bending_iterations then
-                local distance_i = 1
-                for i = 1, #positions - 2, 2 do
-                    local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
-                    local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
-                    local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
-
-                    if i == 1 then
-                        node_1_x = self._player_x + rope.anchor_x
-                        node_1_y = self._player_y + rope.anchor_y
-                    end
-
-                    local rest_length = distances[distance_i]
-
-                    local new_x1, new_y1, new_x2, new_y2 = _solve_distance_constraint(
-                        node_1_x, node_1_y,
-                        node_2_x, node_2_y,
-                        rest_length
-                    )
-
-                    positions[node_1_xi] = new_x1
-                    positions[node_1_yi] = new_y1
-                    positions[node_2_xi] = new_x2
-                    positions[node_2_yi] = new_y2
-
-                    distance_i = distance_i + 1
-                end
-
-                n_distance_iterations_done = n_distance_iterations_done + 1
-            end
-        end
+    for i, rope in ipairs(self._ropes) do
+        self._ropes[i] = _rope_handler({
+            rope = rope,
+            rope_i = i,
+            is_bubble = self._is_bubble,
+            n_velocity_iterations = todo.n_velocity_iterations,
+            n_distance_iterations = todo.n_distance_iterations,
+            n_axis_iterations = todo.n_axis_iterations,
+            n_bending_iterations = todo.n_bending_iterations,
+            inertia = todo.inertia,
+            gravity_x = gravity_x,
+            gravity_y = gravity_y,
+            delta = delta,
+            velocity_damping = velocity_damping,
+            player_x = self._player_x,
+            player_y = self._player_y
+        })
     end
 end
 
