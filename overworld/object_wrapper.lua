@@ -1,3 +1,5 @@
+require "common.triangulate"
+
 rt.settings.overworld.object_wrapper = {
     point_radius = 2
 }
@@ -236,10 +238,7 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
                 self
             )
 
-            local success, polygonization = pcall(slick.polygonize, 8, { vertices })
-            if not success then
-                polygonization = love.math.triangulate(vertices)
-            end
+            local polygonization = rt.math.polygonize(8, vertices)
 
             for shape in values(polygonization) do
                 table.insert(prototypes, {
@@ -594,7 +593,7 @@ end
 
 -- decompose polygon into 8-gons
 local function _decompose_polygon(vertices)
-    return slick.polygonize(8, { vertices })
+    return rt.math.polygonize(8, vertices)
 end
 
 -- tiled uses first 4 bits for flipping (3, 4 for non-square tilings)

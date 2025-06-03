@@ -190,29 +190,17 @@ function ow.Hitbox:draw_all()
 end
 
 --- @brief
-function ow.Hitbox:get_all_segments()
-    local segments = {}
+function ow.Hitbox:get_all_tris()
+    local tris = {}
     for tri in values(_sticky_tris) do
-        for segment in range(
-            {tri[1], tri[2], tri[3], tri[4]},
-            {tri[3], tri[4], tri[5], tri[6]},
-            {tri[1], tri[2], tri[5], tri[6]}
-        ) do
-            table.insert(segments, segment)
-        end
+        table.insert(tris, tri)
     end
 
     for tri in values(_slippery_tris) do
-        for segment in range(
-            {tri[1], tri[2], tri[3], tri[4]},
-            {tri[3], tri[4], tri[5], tri[6]},
-            {tri[1], tri[2], tri[5], tri[6]}
-        ) do
-            table.insert(segments, segment)
-        end
+        table.insert(tris, tri)
     end
 
-    return segments
+    return tris
 end
 
 --- @brief

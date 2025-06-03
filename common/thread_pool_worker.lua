@@ -1,6 +1,6 @@
-slick = require "dependencies.slick.slick"
-
+rt = {}
 require "common.common"
+require "common.triangulate"
 require "love.timer"
 require "love.math"
 

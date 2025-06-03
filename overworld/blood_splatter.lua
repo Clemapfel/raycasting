@@ -110,8 +110,18 @@ local _unhash = function(hash)
 end
 
 --- @brief
-function ow.BloodSplatter:create_contour(segments)
-    -- get all tuples of connected points, then filter unique to only get outer contours
+function ow.BloodSplatter:create_contour()
+    local tris = ow.Hitbox:get_all_tris()
+    local segments = {}
+    for tri in values(tris) do
+        for segment in range(
+            {tri[1], tri[2], tri[3], tri[4]},
+            {tri[3], tri[4], tri[5], tri[6]},
+            {tri[1], tri[2], tri[5], tri[6]}
+        ) do
+            table.insert(segments, segment)
+        end
+    end
 
     local tuples = {}
     local n_total = 0

@@ -179,7 +179,7 @@ function ow.Stage:instantiate(scene, id)
     end
 
     -- create contour
-    self._blood_splatter:create_contour(ow.Hitbox:get_all_segments())
+    self._blood_splatter:create_contour()
 
     -- create flow graph
     if table.sizeof(self._flow_graph_nodes) < 2 then

@@ -70,79 +70,10 @@ function ow.BubbleField:instantiate(object, stage, scene)
     -- calculate contour
     local segments = {}
     local mesh, tris = object:create_mesh()
-    for tri in values(tris) do
-        for segment in range(
-            {tri[1], tri[2], tri[3], tri[4]},
-            {tri[3], tri[4], tri[5], tri[6]},
-            {tri[1], tri[2], tri[5], tri[6]}
-        ) do
-            table.insert(segments, segment)
-        end
-    end
-
-    local _hashed = {}
-    local _hash = function(points)
-        local x1, y1, x2, y2 = math.floor(points[1]), math.floor(points[2]), math.floor(points[3]), math.floor(points[4])
-        if x1 < x2 or (x1 == x2 and y1 < y2) then -- swap so point order does not matter
-            x1, y1, x2, y2 = x2, y2, x1, y1
-        end
-        local hash = tostring(x1) .. "," .. tostring(y1) .. "," .. tostring(x2) .. "," .. tostring(y2)
-        _hashed[hash] = { x1, y1, x2, y2 }
-        return hash
-    end
-
-    local _unhash = function(hash)
-        return _hashed[hash]
-    end
-
-    local tuples = {}
-    local n_total = 0
-    for segment in values(segments) do
-        local hash = _hash(segment)
-        local current = tuples[hash]
-        if current == nil then
-            tuples[hash] = 1
-        else
-            tuples[hash] = current + 1
-        end
-        n_total = n_total + 1
-    end
-
-    local contour = {}
-    for hash, count in pairs(tuples) do
-        if count == 1 then
-            local segment = _unhash(hash)
-            table.insert(contour, segment)
-        end
-    end
-
-    -- form continuous path
-    local linked_contour = {}
-    local current_segment = table.remove(contour, 1)
-    table.insert(linked_contour, current_segment)
-
-    local is_equal = function(a, b)
-        return math.abs(a - b) == 0
-    end
-
-    -- link into connect line
-    while #contour > 0 do
-        for i, segment in ipairs(contour) do
-            if is_equal(current_segment[3], segment[1]) and is_equal(current_segment[4], segment[2]) then
-                current_segment = table.remove(contour, i)
-                table.insert(linked_contour, current_segment)
-                break
-            elseif is_equal(current_segment[3], segment[3]) and is_equal(current_segment[4], segment[4]) then
-                current_segment = {segment[3], segment[4], segment[1], segment[2]}
-                table.remove(contour, i)
-                table.insert(linked_contour, current_segment)
-                break
-            end
-        end
-    end
+    local linked_contour = rt.math.contour_from_tris(tris, true)
 
     -- subdivide
-    local segment_length = 10 --rt.settings.overworld.bubble_field.segment_length
+    local segment_length = rt.settings.overworld.bubble_field.segment_length * rt.get_pixel_scale()
     local subdivided_contour = {}
     for segment in values(linked_contour) do
         local x1, y1, x2, y2 = segment[1], segment[2], segment[3], segment[4]
@@ -165,8 +96,8 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local first_segment = subdivided_contour[1]
     local last_segment = subdivided_contour[#subdivided_contour]
     table.insert(subdivided_contour, {
-        last_segment[3], last_segment[4], -- End of the last segment
-        first_segment[1], first_segment[2] -- Start of the first segment
+        last_segment[3], last_segment[4],
+        first_segment[1], first_segment[2]
     })
 
     -- laplacian smooth
@@ -197,13 +128,9 @@ function ow.BubbleField:instantiate(object, stage, scene)
         end
     end
 
-    local success, solid_tris = pcall(love.math.triangulate, flat)
-    if not success then
-        success, solid_tris = pcall(slick.polygonize, 3, { flat })
-        assert(success, "In ow.BubbleField.instantiate: failed to polygonize object `" .. object.id .. "`")
-    end
+    local solid_tris = rt.math.triangulate(flat)
 
-    if success and #solid_tris > 0 then
+    if #solid_tris > 0 then
         local solid_data = {}
         for tri in values(solid_tris) do
             for i = 1, 6, 2 do
@@ -330,12 +257,9 @@ rt.ThreadPool:register_handler(_handler_id, function(data)
         table.insert(outline_positions, y)
     end
 
-    local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
-    if not success then
-        success, solid_tris = pcall(slick.triangulate, polygon_positions)
-    end
+    local solid_tris = rt.math.triangulate(polygon_positions)
 
-    if success and #solid_tris > 0 then
+    if #solid_tris > 0 then
         local solid_data = {}
         for tri in values(solid_tris) do
             for i = 1, 6, 2 do
