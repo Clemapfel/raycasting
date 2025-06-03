@@ -457,39 +457,35 @@ end
 --- @brief
 function mn.KeybindingScene:_exit()
     if self:_was_modified() then
-        self._confirm_exit_dialog:signal_connect("selection", function(dialog, which)
-            if which == mn.MessageDialogOption.CANCEL then
-                return
-            elseif which == mn.MessageDialogOption.ACCEPT then
-                local n = self._list:get_n_items()
-                local valid, error_maybe
-                for i = 1, n do
-                    local item = self._list:get_item(i)
-                    valid, error_maybe = rt.GameState:set_input_mapping(
-                        item.input_action,
-                        item.keyboard_key,
-                        item.controller_button,
-                        i == n -- should validate
-                    )
+        local new_mapping = {}
+        for i = 1, self._list:get_n_items() do
+            local item = self._list:get_item(i)
+            new_mapping[item.input_action] = {
+                keyboard = item.keyboard_key,
+                controller = item.controller_button
+            }
+        end
+
+        local valid, error_maybe = rt.GameState:set_input_mapping(new_mapping)
+        if not valid then
+            self._keybinding_invalid_dialog:set_submessage(error_maybe, rt.JustifyMode.LEFT)
+            self._keybinding_invalid_dialog:present()
+        else
+            -- else confirm exit and confirm
+            self._confirm_exit_dialog:signal_connect("selection", function(dialog, which)
+                if which == mn.MessageDialogOption.CANCEL then
+                    -- noop
+                elseif which == mn.MessageDialogOption.ACCEPT then
+                    rt.SceneManager:pop_scene()
                 end
 
-                if not valid then
-                    self._keybinding_invalid_dialog:set_submessage(error_maybe)
-                    self._keybinding_invalid_dialog:signal_connect("selection", function(dialog, which)
-                        dialog:close()
-                    end)
-                    self._keybinding_invalid_dialog:present()
-                else
-                    rt.SceneManager:set_scene(rt.SceneManager:get_previous_scene())
-                end
-            end
-
-            dialog:close()
-            return meta.DISCONNECT_SIGNAL
-        end)
-        self._confirm_exit_dialog:present()
+                dialog:close()
+                return meta.DISCONNECT_SIGNAL
+            end)
+            self._confirm_exit_dialog:present()
+        end
     else
-        rt.SceneManager:set_scene(rt.SceneManager:get_previous_scene())
+        rt.SceneManager:pop()
     end
 end
 
@@ -509,6 +505,7 @@ end
 --- @brief
 function mn.KeybindingScene:enter()
     self._input:activate()
+    rt.SceneManager:set_use_fixed_timestep(false)
 end
 
 --- @brief

@@ -53,11 +53,13 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
         _elapsed = 0
     })
 
+    self._n_buttons = 0
     for i, option in ipairs(self._options) do
         meta.assert_enum_value(option, mn.MessageDialogOption)
         if option == mn.MessageDialogOption.CANCEL then
             self._selected_item_i = i
         end
+        self._n_buttons = self._n_buttons + 1
     end
 end
 
@@ -100,53 +102,63 @@ end
 --- @override
 function mn.MessageDialog:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
+    local outer_xm = 4 * m
+    local outer_ym = 2 * m
+    local button_margin = m
+    local button_label_margin = m
 
-    local max_w = -math.huge
-    local max_h = -math.huge
-    for item in values(self._buttons) do
-        local label_w, label_h = item.label:measure()
-        max_w = math.max(max_w, label_w)
-        max_h = math.max(max_h, label_h)
+    self._message_label:reformat(0, 0, math.huge, math.huge)
+    local message_w, message_h = self._message_label:measure()
+
+    self._submessage_label:reformat(0, 0, math.huge, math.huge)
+    local submessage_w, submessage_h = self._submessage_label:measure()
+
+    local button_w = 0
+    local max_button_w, max_button_h = -math.huge, -math.huge
+    for button in values(self._buttons) do
+        local label_w, label_h = button.label:measure()
+        button_w = button_w + label_w
+        max_button_w = math.max(max_button_w, label_w)
+        max_button_h = math.max(max_button_h, label_h)
     end
 
-    local n_buttons = table.sizeof(self._buttons)
-    local title_label_w, title_label_h = self._message_label:measure()
-    max_w = math.max(max_w, title_label_w / n_buttons)
-    max_w = math.max(max_w, width / 4 / n_buttons)
+    button_w = button_w + 2 * button_label_margin * self._n_buttons + m * (self._n_buttons - 1)
+    button_w = math.max(button_w, message_w, submessage_w)
+    button_w = math.min(button_w, width * 2 / 3)
 
-    local item_w = max_w + 4 * m
-    local item_h = max_h + 1.5 * m
-
-    local button_w = n_buttons * item_w + (n_buttons - 1) * m
-
-    self._message_label:reformat(0, 0, button_w)
-    self._submessage_label:reformat(0, 0, button_w)
-
-    local sub_label_w, sub_label_h = self._submessage_label:measure()
-
-    local xm, ym = 4 * m, 2 * m
-    local start_x, start_y = xm, ym
+    local start_x, start_y = outer_xm, outer_ym
     local current_x, current_y = start_x, start_y
-    self._message_label:reformat(current_x, current_y, button_w, title_label_h)
-    current_y = current_y + title_label_h + m
-    self._submessage_label:reformat(current_x, current_y, button_w, sub_label_h)
-    current_y = current_y + sub_label_h + 2 * m
 
+    self._message_label:reformat(current_x, current_y, button_w, math.huge)
+    current_y = current_y + select(2, self._message_label:measure())
+    current_y = current_y + m
+
+    self._submessage_label:reformat(current_x, current_y, button_w, math.huge)
+    current_y = current_y + select(2, self._submessage_label:measure())
+    current_y = current_y + 2 * m
+
+    local frame_thickness = self._frame:get_thickness()
+    local item_w = (button_w - (self._n_buttons + 1) * button_margin - (self._n_buttons) * 2 * frame_thickness) / self._n_buttons
+    item_w = math.min(item_w, 2 / 3 * button_w)
+    local item_m = (button_w - self._n_buttons * item_w) / (self._n_buttons + 1)
+
+    local item_h = max_button_h + 2 * m
+
+    local item_x = outer_xm + item_m
     for item in values(self._buttons) do
         local label_h = select(2, item.label:measure())
-        item.label:reformat(current_x, current_y + 0.5 * item_h - 0.5 * label_h, item_w, item_h)
-        item.frame:reformat(current_x, current_y, item_w, item_h)
-        current_x = current_x + item_w + m
+        item.label:reformat(item_x, current_y + 0.5 * item_h - 0.5 * label_h, item_w, item_h)
+        item.frame:reformat(item_x, current_y, item_w, item_h)
+        item_x = item_x + item_w + item_m
     end
 
     current_y = current_y + item_h
 
-    local frame_w, frame_h = button_w + 2 * xm, current_y - start_y + 2 * ym
-    self._frame:reformat(start_x - xm, start_y - ym, frame_w, frame_h)
+    local frame_w, frame_h = button_w + 2 * outer_xm, (current_y - start_y) + 2 * outer_ym
+    self._frame:reformat(start_x - outer_xm, start_y - outer_ym, frame_w, frame_h)
 
-    self._render_x_offset = math.floor(x + 0.5 * width - 0.5 * frame_w)
-    self._render_y_offset = math.floor(y + 0.5 * height - 0.5 * frame_h)
-
+    self._render_x_offset = (x + 0.5 * width - 0.5 * frame_w)
+    self._render_y_offset = (y + 0.5 * height - 0.5 * frame_h)
     self._shadow = rt.AABB(x, y, width, height)
 
     self:_update_selected_item()
@@ -156,12 +168,15 @@ end
 function mn.MessageDialog:draw()
     if self._is_active == false then return end
 
+    love.graphics.push()
+    love.graphics.origin()
+
     rt.graphics.set_blend_mode(rt.BlendMode.MULTIPLY, rt.BlendMode.ADD)
     love.graphics.setColor(self._shadow_color, self._shadow_color, self._shadow_color, 1)
     love.graphics.rectangle("fill", self._shadow:unpack())
     rt.graphics.set_blend_mode()
 
-    love.graphics.translate(self._render_x_offset, self._render_y_offset)
+    love.graphics.translate(math.floor(self._render_x_offset), math.floor(self._render_y_offset))
 
     self._frame:draw()
     self._message_label:draw()
@@ -172,7 +187,7 @@ function mn.MessageDialog:draw()
         item.label:draw()
     end
 
-    love.graphics.translate(-1 * self._render_x_offset, -1 * self._render_y_offset)
+    love.graphics.pop()
 end
 
 --- @brief
@@ -205,7 +220,8 @@ function mn.MessageDialog:_handle_button_pressed(which)
             self:_update_selected_item()
         end
     elseif which == rt.InputAction.A then
-        self:signal_emit("selection", self._options[self._selected_item_i])
+        local success = self:signal_try_emit("selection", self._options[self._selected_item_i])
+        if not success then self:close() end -- default button behavior
     end
 end
 
@@ -225,12 +241,14 @@ function mn.MessageDialog:present()
 end
 
 --- @brief
-function mn.MessageDialog:set_message(message, submessage)
+function mn.MessageDialog:set_message(message, submessage, justify)
     if submessage == nil then submessage = self._submessage end
     meta.assert(message, "String", submessage, "String")
+    if justify ~= nil then self._message_label:set_justify_mode(justify) end
     self._message_label:set_text(message)
 
     if self._submessage ~= submessage then
+        if justify ~= nil then self._submessage_label:set_justify_mode(justify) end
         self._submessage_label:set_text(submessage)
     end
 
@@ -240,8 +258,9 @@ function mn.MessageDialog:set_message(message, submessage)
 end
 
 --- @brief
-function mn.MessageDialog:set_submessage(submessage)
+function mn.MessageDialog:set_submessage(submessage, justify)
     meta.assert(submessage, "String")
+    if justify ~= nil then self._submessage_label:set_justify_mode(justify) end
     self._submessage_label:set_text(submessage)
     if self._is_realized then
         self:reformat()

@@ -53,7 +53,7 @@ function rt.Frame:_update_draw()
     local outline_r, outline_g, outline_b, outline_a = rt.color_unpack(self._outline_color)
 
     local opacity = self._opacity
-    local thickness = self._thickness + ternary(self._selection_state == rt.SelectionState.ACTIVE, 2, 0)
+    local thickness = self._thickness * rt.get_pixel_scale() + ternary(self._selection_state == rt.SelectionState.ACTIVE, 2, 0)
     local corner_radius = self._corner_radius
 
     self.draw = function(self)
@@ -106,7 +106,7 @@ function rt.Frame:bind_stencil()
     love.graphics.setStencilMode("draw", stencil_value)
     local x, y, w, h = self._bounds:unpack()
     local corner_radius = self._corner_radius
-    local thickness = self._thickness
+    local thickness = self._thickness * rt.get_pixel_scale()
     love.graphics.rectangle(
         "fill",
         x + thickness, y + thickness, w - 2 * thickness, h - 2 * thickness,
@@ -190,7 +190,8 @@ function rt.Frame:measure()
         local w, h = self._child:measure()
         w = math.max(w, select(1, self:get_minimum_size()))
         h = math.max(h, select(2, self:get_minimum_size()))
-        return w + self._thickness * 2, h + self._thickness * 2
+        return w + self._thickness * rt.graphics.get_pixel_scale() * 2,
+            h + self._thickness * rt.graphics.get_pixel_scale() * 2
     else
         return rt.Widget.measure(self)
     end

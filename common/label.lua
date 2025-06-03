@@ -910,7 +910,7 @@ function rt.Label:_apply_wrapping()
 
     self._texture_width = outline_texture_w
     self._texture_height = outline_texture_h
-    self._texture = rt.RenderTexture(outline_texture_w, outline_texture_h, 4, _texture_format)
+    self._texture = rt.RenderTexture(outline_texture_w, outline_texture_h, rt.GameState:get_msaa_quality(), _texture_format)
     self:_update_n_visible_characters()
 end
 
@@ -1014,7 +1014,10 @@ function rt.Label:_update_texture()
         end
 
         love.graphics.setColor(table.unpack(glyph.outline_color))
-        love.graphics.draw(glyph.outline_glyph, glyph.x + _padding + justify_offset, glyph.y + _padding)
+        love.graphics.draw(glyph.outline_glyph,
+            _floor(glyph.x + _padding + justify_offset),
+            _floor(glyph.y + _padding)
+        )
 
         if glyph.is_underlined then
             love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)
@@ -1046,7 +1049,10 @@ function rt.Label:_update_texture()
         end
 
         love.graphics.setColor(table.unpack(glyph.color))
-        love.graphics.draw(glyph.glyph, glyph.x + _padding + justify_offset, glyph.y + _padding)
+        love.graphics.draw(glyph.glyph,
+            _floor(glyph.x + _padding + justify_offset),
+            _floor(glyph.y + _padding)
+        )
 
         if glyph.is_underlined then
             love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)

@@ -21,8 +21,9 @@ function rt.SceneManager:instantiate()
         _scene_type_to_scene = {},
         _current_scene = nil,
         _current_scene_type = nil,
-        _previous_scene = nil,
-        _previous_scene_type = nil,
+        _current_scene_varargs = {},
+        
+        _scene_stack = {}, -- Stack<SceneType>
         _show_performance_metrics = true,
         _width = love.graphics.getWidth(),
         _height = love.graphics.getHeight(),
@@ -46,8 +47,7 @@ function rt.SceneManager:instantiate()
 end
 
 --- @brief
-function rt.SceneManager:set_scene(scene_type, ...)
-    assert(meta.typeof(scene_type) == "Type", "In SceneManager.setScene: expected a type inheriting from `Scene`, got `" .. meta.typeof(scene_type) .. "`")
+function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
 
     local varargs = { ... }
     local on_scene_changed = function()
@@ -57,32 +57,45 @@ function rt.SceneManager:set_scene(scene_type, ...)
             scene:realize()
             self._scene_type_to_scene[scene_type] = scene
 
-            scene._scene_manager_current_size_x = 0
-            scene._scene_manager_current_size_y = 0
+            scene._scene_manager_current_width = 0
+            scene._scene_manager_current_height = 0
         end
 
-        self._previous_scene = self._current_scene
-        self._previous_scene_type = self._current_scene_type
+        if add_to_stack == true and self._current_scene ~= nil then
+            table.insert(self._scene_stack, 1, {
+                self._current_scene_type,
+                table.unpack(self._current_scene_vargs)
+            })
+        end
+
+        local previous_scene = self._current_scene
+
         self._current_scene = scene
         self._current_scene_type = scene_type
+        self._current_scene_vargs = varargs
 
-        if self._previous_scene ~= nil then
-            self._previous_scene:exit()
-            self._previous_scene._is_active = false
+        if previous_scene ~= nil then
+            previous_scene:exit()
+            previous_scene._is_active = false
         end
 
-        local current_w, current_h = self._current_scene._scene_manager_current_size_x, self._current_scene._scene_manager_current_size_y
-        if current_w ~= self._width or current_w ~= self._height then
+        -- resize if necessary
+        local current_w, current_h = self._current_scene._scene_manager_current_width, self._current_scene._scene_manager_current_height
+        if current_w ~= self._width or current_h ~= self._height then
             self._current_scene:reformat(0, 0, self._width, self._height)
-            self._current_scene._scene_manager_current_size_x = self._width
-            self._current_scene._scene_manager_current_size_y = self._height
+            self._current_scene._scene_manager_current_width = self._width
+            self._current_scene._scene_manager_current_height = self._height
         end
 
         self._current_scene:enter(table.unpack(varargs))
         self._current_scene._is_active = true
+
+        if self._pause_menu_active and self._current_scene:get_can_pause() == false then
+            self:unpause()
+        end
     end
 
-    if self._current_scene == nil then
+    if self._current_scene == nil then -- don't fade at start of game
         on_scene_changed()
     else
         self._fade:signal_connect("hidden", function()
@@ -90,6 +103,20 @@ function rt.SceneManager:set_scene(scene_type, ...)
             return meta.DISCONNECT_SIGNAL
         end)
         self._fade:start()
+    end
+end
+
+--- @brief
+function rt.SceneManager:push(scene_type, ...)
+    self:_set_scene(true, scene_type, ...)
+end
+
+--- @brief
+function rt.SceneManager:pop()
+    local last = self._scene_stack[1]
+    if last ~= nil then
+        table.remove(self._scene_stack, 1)
+        self:_set_scene(false, table.unpack(last))
     end
 end
 
@@ -134,11 +161,11 @@ function rt.SceneManager:resize(width, height)
     rt.settings.margin_unit = 10 * rt.get_pixel_scale()
 
     for scene in range(self._pause_menu, self._current_scene) do
-        local current_w, current_h = scene._scene_manager_current_size_x, scene._scene_manager_current_size_y
+        local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
         if current_w ~= self._width or current_w ~= self._height then
             scene:reformat(0, 0, self._width, self._height)
-            scene._scene_manager_current_size_x = self._width
-            scene._scene_manager_current_size_y = self._height
+            scene._scene_manager_current_width = self._width
+            scene._scene_manager_current_height = self._height
         end
     end
 end
@@ -204,6 +231,12 @@ end
 
 --- @brief
 function rt.SceneManager:pause()
+    if self._current_scene == nil then return end
+    if not self._current_scene:get_can_pause() then
+        rt.warning("In rt.SceneManager.pause: trying to pause current scene `" .. tostring(self._current_scene_type) .. "`, but it cannot be paused")
+        return
+    end
+
     if self._current_scene ~= nil then
         self._current_scene:exit()
         self._current_scene._is_active = false

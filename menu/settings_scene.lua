@@ -346,7 +346,7 @@ function mn.SettingsScene:instantiate()
             local item = self._list:get_selected_item()
             item:signal_emit("reset")
         elseif which == rt.InputAction.B then
-            rt.SceneManager:set_scene(rt.SceneManager:get_previous_scene())
+            rt.SceneManager:pop()
         end
     end)
 
@@ -461,12 +461,6 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
         width - 2 * outer_margin - verbose_info_w - m,
         verbose_info_h
     )
-end
-
---- @brief
-function mn.SettingsScene:enter()
-    self._input:activate()
-    rt.SceneManager:set_use_fixed_timestep(false)
 end
 
 --- @brief

@@ -96,7 +96,8 @@ end
 
 --- @override
 function mn.VerboseInfoPanel:size_allocate(x, y, width, height)
-    self._frame:reformat(x, y, width, height)
+    local frame_thickness = self._frame:get_thickness()
+    self._frame:reformat(x + frame_thickness, y + frame_thickness, width - 2 * frame_thickness, height - 2 * frame_thickness)
 
     local m = rt.settings.margin_unit
 

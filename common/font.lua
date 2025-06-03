@@ -11,8 +11,8 @@ rt.FontSize = meta.enum("FontSize", {
     HUGE = 60 / rt.settings.native_height,
     LARGE = 40 / rt.settings.native_height,
     DEFAULT = 20 / rt.settings.native_height,
-    SMALL = 14 / rt.settings.native_height,
-    TINY = 23 / rt.settings.native_height
+    SMALL = 16 / rt.settings.native_height,
+    TINY = 12 / rt.settings.native_height
 })
 
 --- @class rt.FontStyle
@@ -71,6 +71,7 @@ end
 
 local _new_font = function(path, size, sdf)
     return love.graphics.newFont(path, size, {
+        hinting = "normal",
         sdf = sdf
     })
 end

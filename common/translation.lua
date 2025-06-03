@@ -51,7 +51,6 @@ rt.Translation = rt.initialize_translation({
     -- game state
     game_state = {
         validate_keybinding_error = {
-            message = "Error when validating Keybinding:",
             unassigned_keyboard_message = "The following actions do not have an assigned keyboard key:",
             unassigned_controller_message = "The following actions od not have an assigned gamepad button:",
             double_assigned_keyboard_message = "The following keyboard keys are assigned to more than one action:",

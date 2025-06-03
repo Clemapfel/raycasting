@@ -25,14 +25,14 @@ _input:signal_connect("keyboard_key_pressed", function(_, which)
 end)
 
 love.load = function(args)
-    --require "menu.keybinding_scene"
-    --rt.SceneManager:set_scene(mn.KeybindingScene)
+    require "menu.keybinding_scene"
+    --rt.SceneManager:push(mn.KeybindingScene)
 
     --require "menu.settings_scene"
-    --rt.SceneManager:set_scene(mn.SettingsScene)
+    --rt.SceneManager:push(mn.SettingsScene)
 
     require "overworld.overworld_scene"
-    rt.SceneManager:set_scene(ow.OverworldScene, "tutorial")
+    rt.SceneManager:push(ow.OverworldScene, "tutorial")
 end
 
 love.update = function(delta)

@@ -28,6 +28,11 @@ function rt.Scene:get_is_active()
     return self._is_active
 end
 
+--- @brief
+function rt.Scene:get_can_pause()
+    return false
+end
+
 --- @override
 function rt.Scene:realize()
     -- noop

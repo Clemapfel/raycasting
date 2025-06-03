@@ -179,3 +179,53 @@ rt.KeyboardKey = meta.enum("KeyboardKey", {
     KEYPAD_ENTER = "kpenter",
     KEYPAD_EQUALS = "kp=",
 })
+
+local _gamepad_button_to_string = {
+    [rt.ControllerButton.BOTTOM] = "BOTTOM",
+    [rt.ControllerButton.RIGHT] = "RIGHT",
+    [rt.ControllerButton.LEFT] = "LEFT",
+    [rt.ControllerButton.TOP] = "TOP",
+    [rt.ControllerButton.DPAD_UP] = "UP",
+    [rt.ControllerButton.DPAD_DOWN] = "DOWN",
+    [rt.ControllerButton.DPAD_LEFT] = "LEFT",
+    [rt.ControllerButton.DPAD_RIGHT] = "RIGHT",
+    [rt.ControllerButton.LEFT_SHOULDER] = "L",
+    [rt.ControllerButton.RIGHT_SHOULDER] = "R",
+    [rt.ControllerButton.START] = "START",
+    [rt.ControllerButton.SELECT] = "SELECT",
+    [rt.ControllerButton.HOME] = "CENTER",
+    [rt.ControllerButton.LEFT_STICK] = "RIGHT STICK",
+    [rt.ControllerButton.RIGHT_STICK] = "LEFT STICK",
+    ["paddle1"] = "PADDLE #1",
+    ["paddle2"] = "PADDLE #2",
+    ["paddle3"] = "PADDLE #3",
+    ["paddle4"] = "PADDLE #4"
+}
+
+function rt.gamepad_button_to_string(gamepad_button)
+    local raw = string.sub(gamepad_button, #rt.ControllerButtonPrefix + 1, #gamepad_button)
+    local out = _gamepad_button_to_string[raw]
+    if out == nil then return "UNKNOWN" else return out end
+end
+
+local _keyboard_key_to_string = {
+    ["ä"] = "Ä",
+    ["ö"] = "Ö",
+    ["ü"] = "Ü",
+    ["escape"] = "ESC",
+    ["up"] = "\u{2191}",       -- up arrow
+    ["right"] = "\u{2192}",    -- right arrow
+    ["down"] = "\u{2193}",     -- down arrow
+    ["left"] = "\u{2190}",     -- left arrow
+    ["space"] = "\u{2500}",    -- space bar
+    ["return"] = "\u{21B5}",   -- enter
+    ["backspace"] = "\u{232B}" -- backspace
+}
+
+function rt.keyboard_key_to_string(keyboard_key)
+    local result = _keyboard_key_to_string[keyboard_key]
+    if result then
+        return result
+    end
+    return string.upper(keyboard_key)
+end

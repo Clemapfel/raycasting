@@ -232,13 +232,14 @@ end
 local _blocked = 0
 
 local _cursor = nil
-local _timestep_before = nil
 
 --- @brief
 function ow.OverworldScene:enter(stage_id)
-    _timestep_before = rt.SceneManager:get_use_fixed_timestep()
+    meta.assert(stage_id, "String")
     rt.SceneManager:set_use_fixed_timestep(true)
-    self:set_stage(stage_id)
+    if self._stage_id ~= stage_id then
+        self:set_stage(stage_id)
+    end
 
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
@@ -248,8 +249,6 @@ end
 
 --- @brief
 function ow.OverworldScene:exit()
-    rt.SceneManager:set_use_fixed_timestep(_timestep_before or false)
-
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(nil)
     self._input:deactivate()
@@ -616,4 +615,9 @@ end
 --- @brief
 function ow.OverworldScene:get_is_cursor_visible()
     return (self._cursor_visible and self._cursor_active)
+end
+
+--- @brief
+function ow.OverworldScene:get_can_pause()
+    return true
 end

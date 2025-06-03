@@ -127,61 +127,6 @@ end
 
 local _color_highlight = _WHITE
 
---- @brief
-local _gamepad_button_to_string = {
-    ["y"] = "TOP",
-    ["b"] = "RIGHT",
-    ["a"] = "BOTTOM",
-    ["x"] = "LEFT",
-    ["dpup"] = "UP",
-    ["dpdown"] = "DOWN",
-    ["dpleft"] = "LEFT",
-    ["dpright"] = "RIGHT",
-    ["leftshoulder"] = "L",
-    ["rightshoulder"] = "R",
-    ["start"] = "START",
-    ["back"] = "SELECT",
-    ["home"] = "CENTER",
-    ["lstick"] = "RIGHT STICK",
-    ["rstick"] = "LEFT STRICK",
-    ["paddle1"] = "PADDLE #1",
-    ["paddle2"] = "PADDLE #2",
-    ["paddle3"] = "PADDLE #3",
-    ["paddle4"] = "PADDLE #4"
-}
-
-function rt.gamepad_button_to_string(gamepad_button)
-    local raw = string.sub(gamepad_button, #rt.ControllerButtonPrefix + 1, #gamepad_button)
-    local out = _gamepad_button_to_string[raw]
-    if out == nil then return "UNKNOWN" else return out end
-end
-
-function rt.keyboard_key_to_string(keyboard_key)
-    local res = keyboard_key
-    
-    local up_arrow = "\u{2191}"
-    local down_arrow = "\u{2193}"
-    local left_arrow = "\u{2190}"
-    local right_arrow = "\u{2192}"
-    local space_bar = "\u{2500}"
-    local enter = "\u{21B5}"
-    local backspace = "\u{232B}"
-
-    if res == "ä" then return "Ä"
-    elseif res == "ö" then return "Ö"
-    elseif res == "ü" then return "Ü"
-    elseif res == "up" then return up_arrow
-    elseif res == "right" then return right_arrow
-    elseif res == "down" then return down_arrow
-    elseif res == "left" then return left_arrow
-    elseif res == "space" then return space_bar
-    elseif res == "return" then return enter
-    elseif res == "backspace" then return backspace
-    else
-        return string.upper(res)
-    end
-end
-
 --- @override
 function rt.KeybindingIndicator:realize()
     if self:already_realized() then return end
@@ -242,11 +187,12 @@ function rt.KeybindingIndicator:create_as_button(top_selected, right_selected, b
         local outline_outline_width = 3
         local center_offset_x = 0.35 * button_inner_m + button_r
         local center_offset_y = center_offset_x
-        local center_x, center_y = x + 0.5 * width, y + 0.5 * height - outline_outline_width
+        local center_x, center_y = x + 0.5 * width, y + 0.5 * height
         local top_x, top_y = center_x, center_y - center_offset_y
         local right_x, right_y = center_x + center_offset_x, center_y
         local bottom_x, bottom_y = center_x, center_y + center_offset_y
         local left_x, left_y = center_x - center_offset_x, center_y
+
 
         local n_outer_vertices = 32
 
@@ -1121,10 +1067,10 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
 
         local font = nil
         local label = _Label("<o>" .. text .. "</o>")
-        label:set_justify_mode(rt.JustifyMode.CENTER)
+        label:set_justify_mode(rt.JustifyMode.LEFT)
         label:realize()
         local label_w, label_h = label:measure()
-        label:reformat(0, y + 0.5 * height - 0.5 * label_h - y_offset, width, label_h)
+        label:reformat(0 + 0.5 * width - 0.5 * label_w, y + 0.5 * height - 0.5 * label_h - y_offset, math.huge, label_h)
 
         self._content = {
             outer,

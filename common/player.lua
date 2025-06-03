@@ -25,7 +25,7 @@ rt.settings.player = {
     exempt_collision_group = b2.CollisionGroup.GROUP_13,
 
     ground_target_velocity_x = 300,
-    air_target_velocity_x = 300,
+    air_target_velocity_x = 320,
     sprint_multiplier = 2,
     friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
 

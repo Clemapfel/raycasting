@@ -100,9 +100,9 @@ function rt.PlayerBody:instantiate(player)
     end
 
     -- expressions
-    self._bottom_eye_lid_position = 0
+    self._bottom_eye_lid_position = 0.
     self._bottom_eye_lid = {}
-    self._top_eye_lid_position = 0.5
+    self._top_eye_lid_position = 0
     self._top_eye_lid = {}
 end
 

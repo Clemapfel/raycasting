@@ -251,7 +251,7 @@ function rt.GameState:_load_default_input_mapping()
     if valid then
         self:_update_reverse_mapping()
     else
-        rt.error(error)
+        rt.error("In rt.GameState.validate_input_mapping: " .. error)
     end
 end
 
@@ -334,12 +334,10 @@ function rt.GameState:_validate_input_mapping()
 
     if not valid then
         local translation = rt.Translation.game_state.validate_keybinding_error
-        local indent = "   "
+        local indent = "\t"
         local input_action_to_string = rt.Translation.input_action_to_string
 
-        local error = {
-            translation.message
-        }
+        local error = {}
 
         if unassigned_keyboard_active then
             table.insert(error, translation.unassigned_keyboard_message)
@@ -368,7 +366,7 @@ function rt.GameState:_validate_input_mapping()
         if double_assigned_keyboard_active then
             table.insert(error, translation.double_assigned_keyboard_message)
             for key, actions in pairs(double_assigned_keyboard) do
-                local line = { indent .. key .. ": " }
+                local line = { indent .. "<b>" .. rt.keyboard_key_to_string(key) .. "</b>: " }
                 for i, action in ipairs(actions) do
                     table.insert(line, input_action_to_string(action))
                     if i ~= #actions then
@@ -381,8 +379,8 @@ function rt.GameState:_validate_input_mapping()
 
         if double_assigned_controller_active then
             table.insert(error, translation.double_assigned_controller_message)
-            for key, actions in pairs(double_assigned_controller) do
-                local line = { indent .. key .. ": "}
+            for button, actions in pairs(double_assigned_controller) do
+                local line = { indent .. rt.controller_button_to_string(button) .. ": "}
                 for i, action in ipairs(actions) do
                     table.insert(line, input_action_to_string(action))
                     if i ~= #actions then
@@ -458,38 +456,31 @@ end
 
 --- @brief
 --- @param ... Union<rt.KeyboardKey, rt.ControllerButton>
-function rt.GameState:set_input_mapping(input_action, keyboard, controller, should_validate)
-    meta.assert_enum_value(input_action, rt.InputAction, 1)
-    if keyboard ~= nil then
-        meta.assert_typeof(keyboard, "String", 2)
-    end
+function rt.GameState:set_input_mapping(input_action_to_keyboard_controller)
+    meta.assert(input_action_to_keyboard_controller, "Table")
 
-    if controller ~= nil then
-        meta.assert_typeof(controller, "String", 3)
-    end
+    local before = table.deepcopy(self._state.input_mapping)
 
-    if should_validate == nil then should_validate = true end
-    meta.assert_typeof(should_validate, "Boolean", 4)
+    for action, entry in pairs(input_action_to_keyboard_controller) do
+        meta.assert_enum_value(action, rt.InputAction)
+        assert(entry.keyboard ~= nil or entry.controller ~= nil, "In rt.GameState.set_input_mapping: new mapping for action `" .. action .. "` does not have `keyboard` or `controller` entry")
 
-    local before = table.deepcopy(self._state.input_mapping[input_action])
-    if keyboard ~= nil then
-        self._state.input_mapping[input_action].keyboard[1] = keyboard
-    end
-
-    if controller ~= nil then
-        self._state.input_mapping[input_action].controller[2] = controller
-    end
-
-    if should_validate then
-        local valid, error = self:_validate_input_mapping()
-        if not valid then
-            self._state.input_mapping[input_action] = before
-            return false, error
-        else
-            self:_update_reverse_mapping()
-            return true
+        if entry.keyboard ~= nil then
+            meta.assert_typeof(entry.keyboard, "String")
+            self._state.input_mapping[action].keyboard[1] = entry.keyboard
         end
+        if entry.controller ~= nil then
+            meta.assert_typeof(entry.controller, "String")
+            self._state.input_mapping[action].controller[1] = entry.controller
+        end
+    end
+
+    local valid, error = self:_validate_input_mapping()
+    if not valid then
+        self._state.input_mapping = before -- restore backup
+        return false, error
     else
+        self:_update_reverse_mapping()
         return true
     end
 end

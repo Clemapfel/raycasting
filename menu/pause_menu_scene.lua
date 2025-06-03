@@ -201,13 +201,13 @@ end
 --- @brief
 function mn.PauseMenuScene:_on_settings()
     require "menu.settings_scene"
-    rt.SceneManager:set_scene(mn.SettingsScene)
-    rt.SceneManager:unpause()
+    rt.SceneManager:push(mn.SettingsScene) -- unpauses automatically
 end
 
 --- @brief
 function mn.PauseMenuScene:_on_controls()
-
+    require "menu.keybinding_scene"
+    rt.SceneManager:push(mn.KeybindingScene) -- unpauses automatically
 end
 
 --- @brief
