@@ -283,7 +283,6 @@ local _send_message = function(self)
     })
 end
 
-
 rt.ThreadPool:register_handler(_handler_id, function(data)
     -- wave equation solver
     local polygon_positions = data.polygon_positions

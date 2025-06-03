@@ -102,7 +102,7 @@ function rt.PlayerBody:instantiate(player)
     -- expressions
     self._bottom_eye_lid_position = 0
     self._bottom_eye_lid = {}
-    self._top_eye_lid_position = 0
+    self._top_eye_lid_position = 0.5
     self._top_eye_lid = {}
 end
 
@@ -305,7 +305,7 @@ function rt.PlayerBody:_update_eyelids()
             1 - self._bottom_eye_lid_position,
             self._center_x,
             self._center_y,
-            self._player:get_radius(),
+            rt.settings.player.radius,
             self._positions
         )
     end
@@ -317,7 +317,7 @@ function rt.PlayerBody:_update_eyelids()
             -1 * (1 - self._top_eye_lid_position),
             self._center_x,
             self._center_y,
-            self._player:get_radius(),
+            rt.settings.player.radius,
             self._positions
         )
     end
@@ -435,7 +435,7 @@ function rt.PlayerBody:update(delta)
         local n_bending_iterations_done = 0
 
         while
-        (n_velocity_iterations_done < todo.n_velocity_iterations) or
+            (n_velocity_iterations_done < todo.n_velocity_iterations) or
             (n_distance_iterations_done < todo.n_distance_iterations + todo.n_bending_iterations) or
             (n_axis_iterations_done < todo.n_axis_iterations) or
             (n_bending_iterations_done < todo.n_bending_iterations)
