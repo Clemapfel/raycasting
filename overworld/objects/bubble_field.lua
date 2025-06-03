@@ -25,8 +25,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._elapsed = 0
     self._hue = 0
     self._is_active = false
-    self._is_visible = false
-    self._is_initialized = false
+    self._force_send_message = false
 
     self._camera_offset = {0, 0}
     self._camera_scale = 1
@@ -252,7 +251,6 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._outline_positions = self._contour
 
     self._n_points = #self._contour / 2
-    self._sim_started = false
     self._wave = {
         previous = table.rep(0, self._n_points),
         current = table.rep(0, self._n_points),
@@ -260,79 +258,67 @@ function ow.BubbleField:instantiate(object, stage, scene)
     }
 end
 
-
 local _dx = 0.1
 local _dt = 0.05
 local _damping = 0.99
 local _courant = _dt / _dx
 local _amplitude = 0.01
 
+local _send_message = function(self)
+    rt.ThreadPool:send_message(self, "overworld.bubble_field", {
+        wave = self._wave,
+        n_points = self._n_points,
+        contour_vectors = self._contour_vectors,
+        contour_center_x = self._contour_center_x,
+        contour_center_y = self._contour_center_y,
+        polygon_positions = {},
+        outline_positions = {},
+        mesh_data = nil,
+        wave_deactivation_threshold = rt.settings.overworld.bubble_field.wave_deactivation_threshold,
+        is_active = true,
+        damping = _damping,
+        courant = _courant,
+        amplitude = _amplitude
+    })
+end
+
 --- @brief
 function ow.BubbleField:update(delta)
     self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
 
-    local is_visible =  self._scene:get_is_body_visible(self._body)
-    if not self._is_initialized then
-        self._is_initialized = true
-    elseif self._is_visible == true and is_visible == false then
-        -- reset geometry when leaving screen
-        local wave = self._wave
-        for i = 1, self._n_points do
-            wave.current[i] = 0
-            wave.previous[i] = 0
-            wave.next[i] = 0
-        end
-        self._is_visible = is_visible
-    end
-
-    if not is_visible then return end
+    if not self._scene:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
     self._camera_offset = { self._scene:get_camera():get_offset() }
     self._camera_scale = self._scene:get_camera():get_scale()
 
-    if not self._is_active then return end
+    if rt.settings.overworld.bubble_field.simulate_waves and self._is_active then
+        if self._force_send_message then
+            -- send message before so excite data gets pushed
+            _send_message(self)
+        end
 
-    if rt.settings.overworld.bubble_field.simulate_waves then
-        local message_received = false
-        if self._sim_started then
-            local messages = rt.ThreadPool:get_messages(self)
-            local n_messages = table.sizeof(messages)
+        local messages = rt.ThreadPool:get_messages(self)
+        local n_messages = table.sizeof(messages)
 
-            if n_messages > 0 then
-                message_received = true
-                local data = messages[n_messages] -- only use last message
-                self._wave = data.wave
-                if data.mesh_data ~= nil then
-                    self._solid_mesh = rt.Mesh(data.mesh_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
-                end
-
-                self._is_active = data.is_active
-                self._polygon_positions = data.polygon_positions
-                self._outline_positions = data.outline_positions
+        if n_messages > 0 then
+            local data = messages[n_messages] -- only use last message
+            self._wave = data.wave
+            if data.mesh_data ~= nil then
+                self._solid_mesh = rt.Mesh(data.mesh_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
             end
+
+            self._is_active = data.is_active
+            self._polygon_positions = data.polygon_positions
+            self._outline_positions = data.outline_positions
         end
 
-        -- always send message to start out with, but wait for response before sending new one
-        if self._sim_started == false or message_received == true then
-            rt.ThreadPool:send_message(self, "overworld.bubble_field", {
-                wave = self._wave,
-                n_points = self._n_points,
-                contour_vectors = self._contour_vectors,
-                contour_center_x = self._contour_center_x,
-                contour_center_y = self._contour_center_y,
-                polygon_positions = {},
-                outline_positions = {},
-                mesh_data = nil,
-                wave_deactivation_threshold = rt.settings.overworld.bubble_field.wave_deactivation_threshold,
-                is_active = true,
-                damping = _damping,
-                courant = _courant,
-                amplitude = _amplitude
-            })
+        if not self._force_send_message and n_messages > 0 then
+            -- otherwise only send new message when old one is done
+            _send_message(self)
         end
 
-        self._sim_started = true
+        self._force_send_message = false
     end
 end
 
@@ -356,6 +342,9 @@ function ow.BubbleField:_excite_wave(player_x, player_y, sign)
         distance = math.min(distance, self._n_points - distance)
         self._wave.current[i] = self._wave.current[i] + amplitude * math.exp(-((distance / width) ^ 2))
     end
+
+    self._is_active = true
+    self._force_send_message = true
 end
 
 --- @brief

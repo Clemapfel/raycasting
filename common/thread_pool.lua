@@ -1,5 +1,5 @@
 rt.settings.thread_pool = {
-    max_n_threads = math.huge
+    max_n_threads = 1
 }
 
 --[[
@@ -42,13 +42,10 @@ function rt.ThreadPool:instantiate()
     self._hash_to_instance = meta.make_weak({})
     self._hash_to_messages = {}
 
-    local success, error = pcall(love.thread.newThread, "common/thread_pool_worker.lua")
-    println(success, error)
-
     for i = 1, self._n_threads do
         local entry = {
             _id = i,
-            _thread = error,
+            _thread = love.thread.newThread("common/thread_pool_worker.lua"),
             _worker_to_main = love.thread.newChannel()
         }
 

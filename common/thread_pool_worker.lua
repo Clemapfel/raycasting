@@ -1,26 +1,8 @@
+local slick = require "dependencies.slick.slick"
 
-
-
-
-
-
-
-
-
-
-
-require("physics.slick.slick.init")
-
-
-
-
---[[
-
-
+require "common.common"
 require "love.timer"
 require "love.math"
-require "love.filesystem"
-require("physics.slick.slick.init")
 
 -- ### MESSAGE HANDLERS (add new handlers here) ### --
 
@@ -162,4 +144,3 @@ worker_to_main:push({
 })
 
 return
-]]--

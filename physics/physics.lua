@@ -1,4 +1,4 @@
-slick = require "physics.slick.slick"
+slick = require "dependencies.slick.slick"
 b2 = {}
 
 --- @param self b2.Body

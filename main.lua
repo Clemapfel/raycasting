@@ -1,6 +1,3 @@
-
-require("physics.slick.slick.init")
-
 require "include"
 require "common.scene_manager"
 require "common.game_state"
