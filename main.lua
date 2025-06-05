@@ -19,38 +19,37 @@ local function quicksort(ids, dists, left, right)
                 ids[j + 1] = ids[j]
                 j = j - 1
             end
-
-            ids[j + 1] = temp;
+            ids[j + 1] = temp
         end
     else
-        local median = bit.rshift(left + right, 1);
-        local i = left + 1;
-        local j = right;
-        swap(ids, median, i);
+        local median = bit.rshift(left + right, 1)
+        local i = left + 1
+        local j = right
 
+        swap(ids, median, i)
         if dists[ids[left]] > dists[ids[right]] then swap(ids, left, right) end
         if dists[ids[i]] > dists[ids[right]] then swap(ids, i, right) end
         if dists[ids[left]] > dists[ids[i]] then swap(ids, left, i) end
 
-        local temp = ids[i];
-        local tempDist = dists[temp];
+        local temp = ids[i]
+        local tempDist = dists[temp]
 
         while true do
-            repeat i = i + 1 until not (dists[ids[i]] < tempDist)
-            repeat j = j - 1 until not (dists[ids[j]] > tempDist)
-            if (j < i) then break end
+            repeat i = i + 1 until dists[ids[i]] >= tempDist
+            repeat j = j - 1 until dists[ids[j]] <= tempDist
+            if j < i then break end
             swap(ids, i, j)
         end
 
         ids[left + 1] = ids[j]
         ids[j] = temp
 
-        if (right - i + 1 >= j - left) then
-            quicksort(ids, dists, i, right);
-            quicksort(ids, dists, left, j - 1);
+        if right - i + 1 >= j - left then
+            quicksort(ids, dists, i, right)
+            quicksort(ids, dists, left, j - 1)
         else
-            quicksort(ids, dists, left, j - 1);
-            quicksort(ids, dists, i, right);
+            quicksort(ids, dists, left, j - 1)
+            quicksort(ids, dists, i, right)
         end
     end
 end
@@ -112,7 +111,7 @@ end
 
 local function pseudoAngle(dx, dy)
     local p = dx / (math.abs(dx) + math.abs(dy))
-    if dy > 0 then
+    if dy < 0 then
         return (3 - p) / 4
     else
         return (1 + p) / 4
@@ -120,15 +119,16 @@ local function pseudoAngle(dx, dy)
 end
 
 local function orient2d(ax, ay, bx, by, cx, cy)
-    return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+    return -((bx - ax) * (cy - ay) - (by - ay) * (cx - ax))
 end
 
 local function new_array(n) -- 0-based array
+    assert(type(n) == "number")
     local out = {}
     for i = 0, n - 1 do
         out[i] = 0
     end
-    
+
     return out
 end
 
@@ -158,13 +158,19 @@ end
 
 rt.Delaunator = meta.class("Delaunator")
 
-function rt.Delaunator:instantiate(data)
-    local coords = new_array(sizeof(data))
 
-    for i = 1, sizeof(data) do
-        coords[i - 1] = data[i]
+function rt.Delaunator:instantiate(points)
+    -- translation of from
+    local n = sizeof(points)
+    local coords = new_array(n * 2)
+
+    for i = 0, n - 1 do
+        local p = points[i + 1] -- input is regular 1-based array, but delaunator uses 0-based
+        coords[2 * i] = p[1]
+        coords[2 * i + 1] = p[2]
     end
 
+    -- translation of constructor
     self.coords = coords
     local n = sizeof(coords)
 
@@ -185,32 +191,6 @@ function rt.Delaunator:instantiate(data)
     self._dists = new_array(n)
 
     self:update()
-end
-
-function rt.Delaunator:get_triangles()
-    local out = {}
-    local n_triangles = math.floor(sizeof(self._triangles) / 3)
-
-    for i = 0, n_triangles - 1 do
-        local i1 = self._triangles[3 * i + 0]
-        local i2 = self._triangles[3 * i + 1]
-        local i3 = self._triangles[3 * i + 2]
-
-        local x1 = self.coords[2 * i1 + 0]
-        local y1 = self.coords[2 * i1 + 1]
-        local x2 = self.coords[2 * i2 + 0]
-        local y2 = self.coords[2 * i2 + 1]
-        local x3 = self.coords[2 * i3 + 0]
-        local y3 = self.coords[2 * i3 + 1]
-
-        local tri = {
-            x1, y1, x2, y2, x3, y3
-        }
-
-        table.insert(out, tri)
-    end
-
-    return out
 end
 
 function rt.Delaunator:_link(a, b)
@@ -235,7 +215,7 @@ function rt.Delaunator:_addTriangle(i0, i1, i2, a, b, c)
 end
 
 function rt.Delaunator:_hashKey(x, y) 
-    return math.floor(pseudoAngle(x - self._cx, y - self._cy) * self._hashSize) % self._hashSize;
+    return math.floor(pseudoAngle(x - self._cx, y - self._cy) * self._hashSize) % self._hashSize
 end
 
 function rt.Delaunator:_legalize(a)
@@ -244,43 +224,43 @@ function rt.Delaunator:_legalize(a)
     local halfedges = self._halfedges
     local coords = self.coords
 
-    local i = 0;
-    local ar = 0;
+    local i = 0
+    local ar = 0
 
     while (true) do
-        local b = halfedges[a];
+        local b = halfedges[a]
 
-        local a0 = a - a % 3;
-        ar = a0 + (a + 2) % 3;
+        local a0 = a - a % 3
+        ar = a0 + (a + 2) % 3
 
         if b == -1 then -- convex hull edge
-            if (i == 0) then break end;
-            a = EDGE_STACK[i];
+            if (i == 0) then break end
+            a = EDGE_STACK[i]
             i = i - 1
             goto continue
         end
 
-        local b0 = b - b % 3;
-        local al = a0 + (a + 1) % 3;
-        local bl = b0 + (b + 2) % 3;
+        local b0 = b - b % 3
+        local al = a0 + (a + 1) % 3
+        local bl = b0 + (b + 2) % 3
 
-        local p0 = triangles[ar];
-        local pr = triangles[a];
-        local pl = triangles[al];
-        local p1 = triangles[bl];
+        local p0 = triangles[ar]
+        local pr = triangles[a]
+        local pl = triangles[al]
+        local p1 = triangles[bl]
 
         local illegal = inCircle(
             coords[2 * p0], coords[2 * p0 + 1],
             coords[2 * pr], coords[2 * pr + 1],
             coords[2 * pl], coords[2 * pl + 1],
             coords[2 * p1], coords[2 * p1 + 1]
-        );
+        )
 
         if illegal then
-            triangles[a] = p1;
-            triangles[b] = p0;
+            triangles[a] = p1
+            triangles[b] = p0
 
-            local hbl = halfedges[bl];
+            local hbl = halfedges[bl]
 
             if hbl == -1 then
                 local e = self._hullStart
@@ -298,10 +278,10 @@ function rt.Delaunator:_legalize(a)
             self:_link(b, halfedges[ar])
             self:_link(ar, bl)
 
-            local br = b0 + (b + 1) % 3;
+            local br = b0 + (b + 1) % 3
 
             if i < sizeof(EDGE_STACK) then
-                EDGE_STACK[i] = br;
+                EDGE_STACK[i] = br
                 i = i + 1
             end
         else
@@ -325,45 +305,45 @@ function rt.Delaunator:update()
 
     local n = bit.rshift(sizeof(coords), 1)
 
-    local minX = math.huge;
-    local minY = math.huge;
-    local maxX = -math.huge;
-    local maxY = -math.huge;
+    local minX = math.huge
+    local minY = math.huge
+    local maxX = -math.huge
+    local maxY = -math.huge
 
     for i = 0, n - 1 do
-        local x = coords[2 * i];
-        local y = coords[2 * i + 1];
+        local x = coords[2 * i]
+        local y = coords[2 * i + 1]
         if x < minX then minX = x end
         if y < minY then minY = y end
         if x > maxX then maxX = x end
         if y > maxY then maxY = y end
-        self._ids[i] = i;
+        self._ids[i] = i
     end
 
-    local cx = (minX + maxX) / 2;
-    local cy = (minY + maxY) / 2;
+    local cx = (minX + maxX) / 2
+    local cy = (minY + maxY) / 2
 
-    local i0, i1, i2;
+    local i0, i1, i2
 
     do -- pick a seed point close to the center
         local minDist = math.huge
         for i = 0, n - 1 do
-            local d = dist(cx, cy, coords[2 * i], coords[2 * i + 1]);
+            local d = dist(cx, cy, coords[2 * i], coords[2 * i + 1])
             if d < minDist then
-                i0 = i;
-                minDist = d;
+                i0 = i
+                minDist = d
             end
         end
     end
 
-    local i0x = coords[2 * i0];
-    local i0y = coords[2 * i0 + 1];
+    local i0x = coords[2 * i0]
+    local i0y = coords[2 * i0 + 1]
 
     do -- find the point closest to the seed
         local minDist = math.huge
         for i = 0, n - 1 do
             if i ~= i0 then
-                local d = dist(i0x, i0y, coords[2 * i], coords[2 * i + 1]);
+                local d = dist(i0x, i0y, coords[2 * i], coords[2 * i + 1])
                 if d < minDist and d > 0 then
                     i1 = i
                     minDist = d
@@ -372,33 +352,35 @@ function rt.Delaunator:update()
         end
     end
 
-    local i1x = coords[2 * i1];
-    local i1y = coords[2 * i1 + 1];
+    local i1x = coords[2 * i1]
+    local i1y = coords[2 * i1 + 1]
 
-    local minRadius = math.huge;
+    local minRadius = math.huge
 
     -- find the third point which forms the smallest circumcircle with the first two
     for i = 0, n - 1 do
         if not (i == i0 or i == i1) then
-            local r = circumradius(i0x, i0y, i1x, i1y, coords[2 * i], coords[2 * i + 1]);
+            local r = circumradius(i0x, i0y, i1x, i1y, coords[2 * i], coords[2 * i + 1])
             if r < minRadius then
-                i2 = i;
-                minRadius = r;
+                i2 = i
+                minRadius = r
             end
         end
     end
 
-    local i2x = coords[2 * i2];
-    local i2y = coords[2 * i2 + 1];
+    local i2x = coords[2 * i2]
+    local i2y = coords[2 * i2 + 1]
 
     if minRadius == math.huge then
         -- order collinear points by dx (or dy if all x are identical)
         -- and return the list as a hull
 
         for i = 0, n - 1 do
-            self._dists[i] = coords[2 * i] - coords[0]
-            if self._dists[i] == 0 then
+            local x_diff = coords[2 * i] - coords[0]
+            if x_diff == 0 then
                 self._dists[i] = coords[2 * i + 1] - coords[1]
+            else
+                self._dists[i] = x_diff
             end
         end
 
@@ -408,7 +390,7 @@ function rt.Delaunator:update()
         do
             local d0 = -math.huge
             for i = 0, n - 1 do
-                local id = self._ids
+                local id = self._ids[i]
                 local d = self._dists[id]
                 if d > d0 then
                     hull[j] = id
@@ -419,69 +401,71 @@ function rt.Delaunator:update()
         end
 
         self.hull = subarray(hull, 0, j)
-        self.triangles = new_array(0)
+        self.triangles = new_array()
         self.halfedges = new_array(0)
         return
     end
 
     if orient2d(i0x, i0y, i1x, i1y, i2x, i2y) < 0 then
-        local i = i1;
-        local x = i1x;
-        local y = i1y;
-        i1 = i2;
-        i1x = i2x;
-        i1y = i2y;
-        i2 = i;
-        i2x = x;
-        i2y = y;
+        local i = i1
+        local x = i1x
+        local y = i1y
+        i1 = i2
+        i1x = i2x
+        i1y = i2y
+        i2 = i
+        i2x = x
+        i2y = y
     end
 
-    local center = circumcenter(i0x, i0y, i1x, i1y, i2x, i2y);
-    self._cx = center.x;
-    self._cy = center.y;
+    local center = circumcenter(i0x, i0y, i1x, i1y, i2x, i2y)
+    self._cx = center.x
+    self._cy = center.y
 
     for i = 0, n - 1 do
-        self._dists[i] = dist(coords[2 * i], coords[2 * i + 1], center.x, center.y);
+        self._dists[i] = dist(coords[2 * i], coords[2 * i + 1], center.x, center.y)
     end
 
     -- sort the points by distance from the seed triangle circumcenter
-    quicksort(self._ids, self._dists, 0, n - 1);
+    quicksort(self._ids, self._dists, 0, n - 1)
 
     -- set up the seed triangle as the starting hull
-    self._hullStart = i0;
-    local hullSize = 3;
+    self._hullStart = i0
+    local hullSize = 3
 
-    hullNext[i0] = i1
     hullPrev[i2] = i1
-    hullNext[i1] = i2
-    hullPrev[i0] = i2
-    hullNext[i2] = i0
-    hullPrev[i1] = i0
+    hullNext[i0] = i1
 
-    hullTri[i0] = 0;
-    hullTri[i1] = 1;
-    hullTri[i2] = 2;
+    hullPrev[i0] = i2
+    hullNext[i1] = i2
+
+    hullPrev[i1] = i0
+    hullNext[i2] = i0
+
+    hullTri[i0] = 0
+    hullTri[i1] = 1
+    hullTri[i2] = 2
 
     fill(hullHash, -1)
-    hullHash[self:_hashKey(i0x, i0y)] = i0;
-    hullHash[self:_hashKey(i1x, i1y)] = i1;
-    hullHash[self:_hashKey(i2x, i2y)] = i2;
+    hullHash[self:_hashKey(i0x, i0y)] = i0
+    hullHash[self:_hashKey(i1x, i1y)] = i1
+    hullHash[self:_hashKey(i2x, i2y)] = i2
 
-    self.trianglesLen = 0;
-    self:_addTriangle(i0, i1, i2, -1, -1, -1);
+    self.trianglesLen = 0
+    self:_addTriangle(i0, i1, i2, -1, -1, -1)
 
     do
         local xp, yp
         for k = 0, sizeof(self._ids) - 1 do
-            local i = self._ids[k];
-            local x = coords[2 * i];
-            local y = coords[2 * i + 1];
+            local i = self._ids[k]
+            local x = coords[2 * i]
+            local y = coords[2 * i + 1]
 
             -- skip near-duplicate points
             if k > 0 and math.abs(x - xp) <= EPSILON and math.abs(y - yp) <= EPSILON then goto continue end
 
-            xp = x;
-            yp = y;
+            xp = x
+            yp = y
 
             -- skip seed triangle points
             if (i == i0 or i == i1 or i == i2) then goto continue end
@@ -491,14 +475,13 @@ function rt.Delaunator:update()
             do
                 local key = self:_hashKey(x, y)
                 for j = 0, self._hashSize - 1 do
-                    start = hullHash[(key + j) % self._hashSize];
+                    start = hullHash[(key + j) % self._hashSize]
                     if (start ~= -1 and start ~= hullNext[start]) then break end
                 end
             end
 
             start = hullPrev[start]
-            local e = start
-            local q
+            local e, q = start, nil
             while true do
                 q = hullNext[e]
                 if orient2d(
@@ -516,15 +499,15 @@ function rt.Delaunator:update()
                 end
             end
 
-            if e == -1 then goto continue end -- likely a near-duplicate point; skip it
+            if e == -1 then goto continue end -- likely a near-duplicate point skip it
 
             -- add the first triangle from the point
-            local t = self:_addTriangle(e, i, hullNext[e], -1, -1, hullTri[e]);
+            local t = self:_addTriangle(e, i, hullNext[e], -1, -1, hullTri[e])
 
             -- recursively flip triangles from the point until they satisfy the Delaunay condition
-            hullTri[i] = self:_legalize(t + 2);
-            hullTri[e] = t; -- keep track of boundary triangles on the hull
-            hullSize = hullSize + 1;
+            hullTri[i] = self:_legalize(t + 2)
+            hullTri[e] = t -- keep track of boundary triangles on the hull
+            hullSize = hullSize + 1
 
             -- walk forward through the hull, adding more triangles and flipping recursively
             local n = hullNext[e]
@@ -533,7 +516,7 @@ function rt.Delaunator:update()
                 if orient2d(x, y, coords[2 * n], coords[2 * n + 1], coords[2 * q], coords[2 * q + 1]) < 0 then
                     t = self:_addTriangle(n, i, q, hullTri[i], -1, hullTri[n])
                     hullTri[i] = self:_legalize(t + 2)
-                    hullNext[n] = n
+                    hullNext[n] = n -- mark as removed
                     hullSize = hullSize - 1
                     n = q
                 else
@@ -543,31 +526,33 @@ function rt.Delaunator:update()
 
             -- walk backward from the other side, adding more triangles and flipping
             if e == start then
-                repeat
+                while true do
                     q = hullPrev[e]
                     if orient2d(x, y, coords[2 * q], coords[2 * q + 1], coords[2 * e], coords[2 * e + 1]) < 0 then
                         t = self:_addTriangle(q, i, e, -1, hullTri[e], hullTri[q])
                         self:_legalize(t + 2)
                         hullTri[q] = t
-                        hullNext[e] = e
+                        hullNext[e] = e -- mark as removed
                         hullSize = hullSize - 1
                         e = q
                     else
                         break
                     end
-                until false
+                end
             end
 
             -- update the hull indices
             hullPrev[i] = e
-            self._hullStart = hullPrev[i]
+            self._hullStart = e
+
             hullPrev[n] = i
-            hullNext[e] = hullPrev[n]
+            hullNext[e] = i
+
             hullNext[i] = n
 
             -- save the two new edges in the hash table
-            hullHash[self:_hashKey(x, y)] = i;
-            hullHash[self:_hashKey(coords[2 * e], coords[2 * e + 1])] = e;
+            hullHash[self:_hashKey(x, y)] = i
+            hullHash[self:_hashKey(coords[2 * e], coords[2 * e + 1])] = e
 
             ::continue::
         end
@@ -582,70 +567,76 @@ function rt.Delaunator:update()
         end
 
         -- trim typed triangle mesh arrays
-        self.triangles = subarray(self._triangles, 0, self.trianglesLen);
-        self.halfedges = subarray(self._halfedges, 0, self.trianglesLen);
+        self.triangles = subarray(self._triangles, 0, self.trianglesLen)
+        self.halfedges = subarray(self._halfedges, 0, self.trianglesLen)
     end
 end
 
 require "common.random"
 
-local tris = {}
 local points = {}
 local n_points = 200
 local instance
 do
     local border = 50
-    local data = {}
+
+    --[[
     for i = 1, n_points do
         local point ={
             rt.random.number(border, love.graphics.getWidth() - border),
             rt.random.number(border, love.graphics.getHeight() - border)
         }
 
-        table.insert(data, point[1])
-        table.insert(data, point[2])
         table.insert(points, point)
     end
+    ]]--
 
-    instance = rt.Delaunator(data)
-    tris = instance:get_triangles()
+
+    table.insert(points, {
+        0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight()
+    })
+
+    for angle = 0, 2 * math.pi, (2 * math.pi) / 32 do
+        table.insert(points, {
+            0.5 * love.graphics.getWidth() + math.cos(angle) * 100,
+            0.5 * love.graphics.getHeight() + math.sin(angle) * 100,
+        })
+    end
+
+    instance = rt.Delaunator(points)
 end
 
 function love.draw()
     love.graphics.setLineWidth(1)
-    for tri in values(tris) do
-        --love.graphics.polygon("line", tri)
+
+    local gray = 0.7
+    love.graphics.setColor(gray, gray, gray, 1)
+    local n = 0
+    for i = 0, sizeof(instance.triangles) - 1, 3 do
+        local i1, i2, i3 = instance.triangles[i+0], instance.triangles[i+1], instance.triangles[i+2]
+        local p1 = points[i1 + 1]
+        local p2 = points[i2 + 1]
+        local p3 = points[i3 + 1]
+
+        love.graphics.line(p1[1], p1[2], p2[1], p2[2])
+        love.graphics.line(p2[1], p2[2], p3[1], p3[2])
+        love.graphics.line(p3[1], p3[2], p1[1], p1[2])
+        n = n + 1
     end
 
-    love.graphics.setColor(0, 1, 1, 1)
-    for i = 1, sizeof(instance.triangles), 3 do
-        local i1, i2, i3 = instance.triangles[i + 0 - 1], instance.triangles[i + 1 - 1], instance.triangles[i + 2 - 1]
-        local p1, p2, p3 = points[i1+1], points[i2+1], points[i3+1]
-        love.graphics.line(p1[1], p1[2], p2[1], p2[2], p3[1], p3[2], p1[1], p1[2])
-    end
-
-    love.graphics.setPointSize(2)
-    love.graphics.setColor(1, 0, 1, 1)
-    for i = 0, sizeof(instance.coords) - 1, 2 do
-        love.graphics.points(instance.coords[i], instance.coords[i+1])
-    end
-
-    love.graphics.setColor(0, 1, 0, 1)
-    for i = 1, n_points, 1 do
-        local point = points[i]
-        love.graphics.points(point[1], point[2])
-    end
-
-    local hull = {}
+    local bounds = {}
     for i = 0, sizeof(instance.hull) - 1 do
-        local point = points[instance.hull[i]]
-        table.insert(hull, point[1])
-        table.insert(hull, point[2])
+        local p = points[instance.hull[i] + 1]
+        table.insert(bounds, p[1])
+        table.insert(bounds, p[2])
     end
-
     love.graphics.setColor(1, 0, 0, 1)
-    love.graphics.line(hull)
+    love.graphics.line(bounds)
 
+    love.graphics.setColor(1, 1, 1, 1)
+    for point in values(points) do
+        love.graphics.circle("fill", point[1], point[2], 3)
+    end
 end
 
 --[[

@@ -181,6 +181,7 @@ export default class Delaunator {
 
             // skip near-duplicate points
             if (k > 0 && Math.abs(x - xp) <= EPSILON && Math.abs(y - yp) <= EPSILON) continue;
+
             xp = x;
             yp = y;
 
