@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 629,
+  nextobjectid = 630,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 431.033,
-          y = 196.912,
+          x = -307.11,
+          y = 1315.48,
           width = 0,
           height = 0,
           rotation = 0,

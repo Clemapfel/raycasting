@@ -12,7 +12,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="3" name="Object Layer 1">
-  <object id="3" name="Spawn" type="PlayerSpawn" x="1001.88" y="-401.733">
+  <object id="3" name="Spawn" type="PlayerSpawn" x="738.337" y="-423.695">
    <point/>
   </object>
   <object id="5" type="Hitbox" x="-256" y="0">
@@ -173,7 +173,7 @@
   </object>
   <object id="47" type="AcceleratorSurface" x="768" y="-128">
    <properties>
-    <property name="friction" type="float" value="-1"/>
+    <property name="friction" type="float" value="-4"/>
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,64 0,64 -16,64 -16,-16 0,-16"/>
@@ -200,7 +200,7 @@
   </object>
   <object id="54" type="AcceleratorSurface" x="1072" y="-128">
    <properties>
-    <property name="friction" type="float" value="-1"/>
+    <property name="friction" type="float" value="-4"/>
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,0 16,16 48,32 70.4546,39.1494 96.2568,43.6351 112.257,43.6351 136.236,39.388 160,32 192,16 208,0 208,-16 224,-16 224,64 -16,64 -16,-16 0,-16"/>

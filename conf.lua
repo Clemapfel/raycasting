@@ -8,8 +8,6 @@ function love.conf(settings)
     settings.window.resizable = true
     settings.window.vsync = VSYNC_ON
     settings.window.usedpiscale = false
-
-    _G.SETTINGS = settings
 end
 
 

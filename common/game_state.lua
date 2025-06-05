@@ -5,10 +5,6 @@ require "common.scene_manager"
 require "common.player"
 
 rt.settings.game_state = {
-    save_file = "debug_save.lua",
-    grade_double_s_threshold = 0.998,
-    grade_s_threshold = 0.95,
-    grade_a_threshold = 0.85,
 }
 
 --- @class rt.VSyncMode
@@ -34,42 +30,41 @@ rt.GameState = meta.class("GameState")
 function rt.GameState:instantiate()
     local width, height, mode = love.window.getMode()
 
-    -- common
     self._state = {
-       is_fullscreen = mode.is_fullscreen,
-       vsync = mode.vsync,
-       msaa = mode.msaa,
-       screen_shake_enabled = true,
-       resolution_x = width,
-       resolution_y = height,
-       sound_effect_level = 1.0,
-       music_level = 1.0,
-       text_speed = 1.0,
-       joystick_deadzone = 0.15,
-       trigger_deadzone = 0.05,
+        -- settings
+        is_fullscreen = mode.is_fullscreen,
+        vsync = mode.vsync,
+        msaa = mode.msaa,
+        screen_shake_enabled = true,
+        resolution_x = width,
+        resolution_y = height,
+        sound_effect_level = 1.0,
+        music_level = 1.0,
+        text_speed = 1.0,
+        joystick_deadzone = 0.15,
+        trigger_deadzone = 0.05,
 
-       input_mapping = {}
+        input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
+
+        -- stage results
+        stage_results = {}, --[[ Table<StageID, {
+            was_beaten,
+            best_time,
+            best_flow_percentage
+        }]]--
     }
 
     self._keyboard_key_to_input_action = {}
     self._controller_button_to_input_action = {}
-    self:_load_default_input_mapping()
-
-    -- read settings from conf.lua
-    for setter_setting in range(
-        { self.set_music_level, _G.SETTINGS.music_level },
-        { self.set_sound_effect_level, _G.SETTINGS.sound_effect_level },
-        { self.set_text_speed, _G.SETTINGS.text_speed },
-        { self.set_joystick_deadzone, _G.SETTINGS.joystick_deadzone },
-        { self.set_trigger_deadzone, _G.SETTINGS.trigger_deadzone },
-        { self.set_is_screen_shake_enabled, _G.SETTINGS.screen_shake_enabled }
-    ) do
-        local setter, setting = table.unpack(setter_setting)
-        if setting ~= nil then setter(self, setting) end
-    end
-
+    self:load_default_input_mapping()
     self:_initialize_stage()
+    self:_initialize_save()
     self._player = rt.Player()
+end
+
+--- @brief
+function rt.GameState:update(delta)
+    self:_update_save_worker()
 end
 
 --- @brief
@@ -177,7 +172,7 @@ function rt.GameState:get_is_screen_shake_enabled()
 end
 
 --- @brief
-function rt.GameState:_load_default_input_mapping()
+function rt.GameState:load_default_input_mapping()
     self._state.input_mapping =
     {
         [rt.InputAction.UP] = {
@@ -485,6 +480,12 @@ function rt.GameState:set_input_mapping(input_action_to_keyboard_controller)
     end
 end
 
+--- @brief
+function rt.GameState:get_player()
+    return self._player
+end
+
 require "common.game_state_stage"
+require "common.game_state_save"
 
 rt.GameState = rt.GameState()

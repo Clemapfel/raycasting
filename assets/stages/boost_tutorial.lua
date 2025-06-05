@@ -64,8 +64,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1001.88,
-          y = -401.733,
+          x = 738.337,
+          y = -423.695,
           width = 0,
           height = 0,
           rotation = 0,
@@ -742,7 +742,7 @@ return {
             { x = 0, y = -16 }
           },
           properties = {
-            ["friction"] = -1,
+            ["friction"] = -4,
             ["slippery"] = true
           }
         },
@@ -867,7 +867,7 @@ return {
             { x = 0, y = -16 }
           },
           properties = {
-            ["friction"] = -1,
+            ["friction"] = -4,
             ["slippery"] = true
           }
         },

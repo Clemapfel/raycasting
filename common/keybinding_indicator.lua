@@ -640,7 +640,7 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
             table.insert(stencil_points, p)
         end
 
-        local stencil = slick.polygonize(3, { stencil_points })
+        local stencil = rt.math.triangulate(stencil_points)
 
         local flip_x = math.floor(0.5 * width)
         self._draw = function()

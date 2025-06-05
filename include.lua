@@ -76,7 +76,9 @@ require "common.debug"
 
 rt.settings = meta.make_auto_extend({
     margin_unit = 10,
-    native_height = 600
+    native_height = 600,
+    identity = "chroma_drift",
+    window_title = "Chroma Drift"
 }, true)
 
 function rt.get_pixel_scale()

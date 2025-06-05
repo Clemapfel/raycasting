@@ -562,10 +562,9 @@ function rt.PlayerBody:update(delta)
 
     local todo = self._is_bubble and _settings.bubble or _settings.non_bubble
 
-    if self._rope_message == nil then self._rope_message = {} end
-
+    local to_send = {}
     for i, rope in ipairs(self._ropes) do
-        rt.ThreadPool:send_message(self, "player_body", {
+        table.insert(to_send, {
             rope = rope,
             rope_i = i,
             is_bubble = self._is_bubble,
@@ -583,9 +582,10 @@ function rt.PlayerBody:update(delta)
         })
     end
 
-    -- wait for all message to arrive
+    -- dispatch but wait for all messages to arrive
+    local messages = rt.ThreadPool:send_message_sync(self, "player_body", table.unpack(to_send))
 
-    for message in values(rt.ThreadPool:get_messages(self)) do
+    for message in values(messages) do
         self._ropes[message.rope_i] = message.rope
     end
 end

@@ -42,6 +42,13 @@ function rt.ThreadPool:instantiate()
     self._main_to_worker_global = love.thread.newChannel()
     self._hash_to_instance = meta.make_weak({})
     self._hash_to_messages = {}
+    self._hash_to_sync_channel = {}
+
+    -- channel pool
+    self._check_channel_ticks = 0
+    self._check_channel_tick_threshold = 120
+    self._channel_pool = {}
+    self._channel_to_instance_watchdog = {} -- Table<Channel, weak({ Object })>
 
     for i = 1, self._n_threads do
         local entry = {
@@ -85,17 +92,70 @@ function rt.ThreadPool:register_handler(handler_id, handler)
 end
 
 --- @brief
-function rt.ThreadPool:send_message(instance, handler_id, data)
-    meta.assert_typeof(handler_id, "String")
-    meta.assert_typeof(data, "Table")
+function rt.ThreadPool:send_message(instance, handler_id, ...)
+    meta.assert_typeof(handler_id, "String", 2)
 
+    local n = select("#", ...)
     local hash = meta.hash(instance)
     self._hash_to_instance[hash] = instance
-    self._main_to_worker_global:push({
-        hash = hash,
-        handler_id = handler_id,
-        data = data
-    })
+
+    for i = 1, n do
+        local data = select(i, ...)
+        meta.assert_typeof(data, "Table", 2 + i)
+        self._main_to_worker_global:push({
+            hash = hash,
+            handler_id = handler_id,
+            data = data,
+            channel = nil
+        })
+    end
+end
+
+--- @brief
+function rt.ThreadPool:send_message_sync(instance, handler_id, ...)
+    meta.assert_typeof(handler_id, "String", 2)
+
+    local n = select("#", ...)
+    local hash = meta.hash(instance)
+    local channel = self._hash_to_sync_channel[hash]
+    if channel == nil then
+        if self._channel_pool[1] == nil then
+            channel = love.thread.newChannel()
+            table.insert(self._channel_to_instance_watchdog, meta.make_weak({ instance }))
+        else
+            channel = self._channel_pool[1]
+            table.remove(self._channel_pool, 1)
+        end
+
+        self._hash_to_sync_channel[hash] = channel
+    end
+
+    for i = 1, n do
+        local data = select(i, ...)
+        meta.assert_typeof(data, "Table", 2 + i)
+        self._main_to_worker_global:push({
+            hash = hash,
+            handler_id = handler_id,
+            data = data,
+            channel = channel
+        })
+    end
+
+    -- wait for all tasks to be completed before exiting
+    local n_received = 0
+    local received_messages = {}
+    while n_received < n do
+        local message = channel:demand()
+        if message.type == MessageType.SUCCESS then
+            table.insert(received_messages, message.data)
+        elseif message.type == MessageType.ERROR then
+            rt.error("In rt.ThreadPool: " .. message.reason)
+        end
+
+        n_received = n_received + 1
+    end
+
+    return received_messages
 end
 
 --- @brief
@@ -123,7 +183,7 @@ function rt.ThreadPool:get_messages(instance)
 end
 
 --- @brief
-function rt.ThreadPool:update(_)
+function rt.ThreadPool:update(delta)
     local to_kill = {}
     for i, entry in ipairs(self._entries) do
         local message = entry._worker_to_main:pop()
@@ -143,6 +203,23 @@ function rt.ThreadPool:update(_)
             end
 
             message = entry._worker_to_main:pop()
+        end
+    end
+
+    -- check if old channels have become free
+    self._check_channel_ticks = self._check_channel_ticks + delta
+    if self._check_channel_ticks >= self._check_channel_tick_threshold then
+
+        local to_remove = {}
+        for channel, entry in pairs(self._channel_to_instance_watchdog) do
+            if #entry == 0 then
+                table.insert(self._channel_pool, channel)
+                table.insert(to_remove, channel)
+            end
+        end
+
+        for channel in values(to_remove) do
+            self._channel_to_instance_watchdog[channel] = nil
         end
     end
 end

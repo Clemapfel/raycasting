@@ -461,12 +461,13 @@ function math.gaussian(x, ramp)
     return math.exp(((-4 * math.pi) / 3) * (ramp * x) * (ramp * x))
 end
 
+
 --- @brief create a table with n copies of object
 --- @param x any
 --- @param n Number
 --- @return table
 function table.rep(x, n)
-    local out = {}
+    local out = { }
     for i = 1, n do
         table.insert(out, x)
     end
@@ -664,14 +665,14 @@ function string.at(str, i)
 end
 
 --- @brief hash string
-function string.sha256(string)
-    local hash
+function string.sha256(data)
     if love.getVersion() >= 12 then
-        hash = love.data.hash("string", "sha256", string)
+        local hash = love.data.hash("data", "sha256", data)
+        return love.data.encode("string", "hex", data)
     else
-        hash = love.data.hash("sha256", string)
+        local hash = love.data.hash("sha256", data)
+        return love.data.encode("string", "hex", hash)
     end
-    return hash
 end
 
 --- @brief

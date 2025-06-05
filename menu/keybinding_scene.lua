@@ -208,6 +208,7 @@ function mn.KeybindingScene:instantiate()
             if self:_was_modified() then
                 self._confirm_reset_to_default_dialog:signal_connect("selection", function(dialog, option)
                     if option == mn.MessageDialogOption.ACCEPT then
+                        rt.GameState:load_default_input_mapping()
                         self:_update_all_indicators()
                     end
                     dialog:close()

@@ -112,6 +112,8 @@ end
 --- @brief
 function rt.SceneManager:update(delta)
     rt.ThreadPool:update(delta)
+    rt.GameState:update(delta)
+
     self._fade:update(delta)
     if self._current_scene ~= nil then
         if self._schedule_enter then

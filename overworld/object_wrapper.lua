@@ -347,13 +347,7 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     self.mesh_prototype = {}
     self.mesh_triangles = {}
 
-    local success, polygonized = pcall(love.math.triangulate, to_polygonize)
-    if not success then
-        success, polygonized = pcall(slick.polygonize, 3, {to_polygonize})
-        if not success then
-            return
-        end
-    end
+    local polygonized = rt.math.triangulate(to_polygonize)
 
     for tri in values(polygonized) do
         for i = 1, #tri, 2 do

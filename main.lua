@@ -565,11 +565,12 @@ end
 require "common.random"
 
 local points = {}
-local n_points = 200
+local n_points = 10
 local border = 50
 
 local instance
 do
+
     --[[
     for i = 1, n_points do
         local point ={
@@ -590,36 +591,43 @@ do
             0.5 * love.graphics.getWidth() + math.cos(angle) * 100,
             0.5 * love.graphics.getHeight() + math.sin(angle) * 100,
         })
-    end
 
+        table.insert(points, {
+            0.5 * love.graphics.getWidth() + math.cos(angle) * 200,
+            0.5 * love.graphics.getHeight() + math.sin(angle) * 200,
+        })
+    end
 
     instance = rt.Delaunator(points)
 end
 
-local speed, scale = 100, 10
+local speed, scale = 40, 4
 local elapsed = 0
 function love.update(delta)
+    if not love.keyboard.isDown("space") then return end
+
     elapsed = elapsed + delta
 
-    --[[
-    for point in values(points) do
+    for i, point in ipairs(points) do
+        if point.x_direction == nil then point.x_direction = 1 end
+        if point.y_direction == nil then point.y_direction = 1 end
+
         local offset = rt.random.noise(
-            point[1] / love.graphics.getWidth() * scale,
-            point[2] / love.graphics.getHeight() * scale
+            (i / n_points) * scale,
+            (i / n_points) * scale
         ) * 2 * math.pi
 
-        local x_offset = math.cos(offset) * speed * delta
-        local y_offset = math.sin(offset) * speed * delta
+        local x_offset = math.cos(offset) * speed * delta * point.x_direction
+        local y_offset = math.sin(offset) * speed * delta * point.y_direction
 
-        if point[1] + x_offset < border or point[1] + x_offset > love.graphics.getWidth() - border then x_offset = -x_offset end
-        if point[1] + y_offset < border or point[1] + y_offset > love.graphics.getHeight() - border then y_offset = -y_offset end
+        if point[1] + x_offset < border or point[1] + x_offset > love.graphics.getWidth() - border then point.x_direction = -point.x_direction end
+        if point[2] + y_offset < border or point[2] + y_offset > love.graphics.getHeight() - border then point.y_direction = -point.y_direction end
 
         point[1] = point[1] + x_offset
         point[2] = point[2] + y_offset
     end
 
     instance = rt.Delaunator(points)
-    ]]--
 end
 
 function love.draw()

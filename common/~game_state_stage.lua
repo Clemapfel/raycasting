@@ -1,13 +1,12 @@
 --- @class rt.StageGrade
 rt.StageGrade = meta.enum("StageGrade", {
-    SS = 1,
+    DOUBLE_S = 1,
     S = 2,
     A = 3,
     B = 4,
     F = 5,
     NONE = math.huge,
 })
-
 
 rt.settings.game_state.stage = {
     grade_flow_threshold = {
@@ -276,4 +275,9 @@ function rt.GameState:list_stage_ids()
         table.insert(out, id)
     end
     return out
+end
+
+--- @brief
+function rt.GameState:get_player()
+    return self._player
 end

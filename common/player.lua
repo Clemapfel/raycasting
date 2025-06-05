@@ -1081,8 +1081,9 @@ function rt.Player:move_to_world(world)
     end
 
     for angle = 0, 2 * math.pi, step do
-        local offset_x = math.cos(angle) * outer_radius
-        local offset_y = math.sin(angle) * outer_radius
+        local current_radius = outer_radius
+        local offset_x = math.cos(angle) * current_radius
+        local offset_y = math.sin(angle) * current_radius
         local cx = x + offset_x
         local cy = y + offset_y
 

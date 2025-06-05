@@ -1,6 +1,5 @@
 rt = {}
 require "common.common"
-require "common.triangulate"
 require "love.timer"
 require "love.math"
 
@@ -10,6 +9,10 @@ local thread_id,
       worker_to_main,           -- channel for delivering tasks, local to this thread
       MessageType               -- message type enum
   = ...
+
+main_to_worker_global:performAtomic(function()
+    require "common.triangulate"
+end)
 
 local _error_prefix = "[" .. thread_id .. "]"
 
@@ -45,6 +48,7 @@ while true do
     end
 
     local handler = _G[task_message.handler_id]
+    local channel = task_message.channel or worker_to_main
 
     if handler == nil then
         -- if handler is nil, it might be in main_to_worker_local
@@ -55,7 +59,7 @@ while true do
         end
 
         -- if handler unknown, promote error to main
-        worker_to_main:push({
+        channel:push({
             type = MessageType.ERROR,
             hash = task_message.hash,
             reason = _error_prefix .. "In thread_pool_worker: for message from object `" .. task_message.hash .. "`: handler_id `" .. task_message.handler_id .. "` does not refer to a function in common/thread_pool_worker.lua"
@@ -65,7 +69,7 @@ while true do
     -- invoke handler, promote error if one occurrs
     local success, data_or_error, _ = pcall(handler, task_message.data)
     if not success then
-        worker_to_main:push({
+        channel:push({
             type = MessageType.ERROR,
             hash = task_message.hash,
             reason = _error_prefix .. "In thread_pool_worker: for object `" .. task_message.hash .. "`, handler `" .. task_message.handler_id .. "`: " .. data_or_error
@@ -75,20 +79,20 @@ while true do
 
         -- check if handler correctly only returns one table
         if _ ~= nil then
-            worker_to_main:push({
+            channel:push({
                 type = MessageType.ERROR,
                 hash = task_message.hash,
                 reason = _error_prefix .. "In thread_pool_worker: for object `" .. task_message.hash .. "`, handler `" .. task_message.handler_id .. "`: " .. "returns more than one object"
             })
         elseif type(data) ~= "table" then
-            worker_to_main:push({
+            channel:push({
                 type = MessageType.ERROR,
                 hash = task_message.hash,
                 reason = _error_prefix .. "In thread_pool_worker: for object `" .. task_message.hash .. "`, handler `" .. task_message.handler_id .. "`: " .. "handler does not return a singular table"
             })
         else
             -- send back result
-            worker_to_main:push({
+            channel:push({
                 type = MessageType.SUCCESS,
                 hash = task_message.hash,
                 data = data
