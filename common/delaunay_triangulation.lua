@@ -4,13 +4,13 @@ require "common.meta"
 rt.DelaunayTriangulation = meta.class("DelaunayTriangulation")
 
 --- @brief
-function rt.DelaunayTriangulation:instantiate(points)
+function rt.DelaunayTriangulation:instantiate(points, contour)
     self._triangles = {}
     self._hull = {}
     self._half_edges = {}
 
     if points ~= nil then
-        self:triangulate(points)
+        self:triangulate(points, contour)
     end
 end
 
@@ -28,9 +28,9 @@ local function _quicksort(ids, _distances, left, right)
     if right - left <= 20 then
         for i = left + 1, right do
             local temp = ids[i]
-            local temp__distanceance = _distances[temp]
+            local temp_distance = _distances[temp]
             local j = i - 1
-            while j >= left and _distances[ids[j]] > temp__distanceance do
+            while j >= left and _distances[ids[j]] > temp_distance do
                 ids[j + 1] = ids[j]
                 j = j - 1
             end
@@ -46,10 +46,10 @@ local function _quicksort(ids, _distances, left, right)
         if _distances[ids[left]] > _distances[ids[i]] then _swap(ids, left, i) end
 
         local temp = ids[i]
-        local temp__distanceance = _distances[temp]
+        local temp_distance = _distances[temp]
         while true do
-            repeat i = i + 1 until not (_distances[ids[i]] < temp__distanceance)
-            repeat j = j - 1 until not (_distances[ids[j]] > temp__distanceance)
+            repeat i = i + 1 until not (_distances[ids[i]] < temp_distance)
+            repeat j = j - 1 until not (_distances[ids[j]] > temp_distance)
             if j < i then break end
             _swap(ids, i, j)
         end
@@ -163,6 +163,28 @@ local function _sizeof(t)
     return n
 end
 
+local function _is_triangle_in_aabb(ax, ay, bx, by, cx, cy, min_x, min_y, max_x, max_y)
+    return ax >= min_x and ax <= max_x and ay >= min_y and ay <= max_y and
+        bx >= min_x and bx <= max_x and by >= min_y and by <= max_y and
+        cx >= min_x and cx <= max_x and cy >= min_y and cy <= max_y
+end
+
+local function _is_point_in_polygon(x, y, contour)
+    local inside = false
+    local n = math.floor(#contour / 2)
+    local j = n
+    for i = 1, n do
+        local xi, yi = contour[2*i-1], contour[2*i]
+        local xj, yj = contour[2*j-1], contour[2*j]
+        if ((yi > y) ~= (yj > y)) and
+            (x < (xj - xi) * (y - yi) / ((yj - yi) + 1e-12) + xi) then
+            inside = not inside
+        end
+        j = i
+    end
+    return inside
+end
+
 function rt.DelaunayTriangulation:triangulate(points, contour)
     self._constraints = contour or {}
 
@@ -206,28 +228,26 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
 
     if contour == nil then return end
 
-    local function point_in_polygon(x, y, contour)
-        local inside = false
-        local n = math.floor(#contour / 2)
-        local j = n
-        for i = 1, n do
-            local xi, yi = contour[2*i-1], contour[2*i]
-            local xj, yj = contour[2*j-1], contour[2*j]
-            if ((yi > y) ~= (yj > y)) and
-                (x < (xj - xi) * (y - yi) / ((yj - yi) + 1e-12) + xi) then
-                inside = not inside
-            end
-            j = i
-        end
-        return inside
+    -- compute aabb
+    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+    for i = 0, _sizeof(self._hull) - 1 do
+        local j = self._hull[i]
+        local x = self._coords[j * 2]
+        local y = self._coords[j * 2 + 1]
+
+        if x < min_x then min_x = x end
+        if y < min_y then min_y = y end
+        if x > max_x then max_x = x end
+        if y > max_y then max_y = y end
     end
 
+    -- preprocess contour
     local constrained = _new_array(0)
     local constrained_i = 0
-    for i = 0, _sizeof(self._triangles) - 1, 3 do
-        local i1 = self._triangles[i + 0]
-        local i2 = self._triangles[i + 1]
-        local i3 = self._triangles[i + 2]
+    for triangle_i = 0, _sizeof(self._triangles) - 1, 3 do
+        local i1 = self._triangles[triangle_i + 0]
+        local i2 = self._triangles[triangle_i + 1]
+        local i3 = self._triangles[triangle_i + 2]
         local x1 = self._coords[i1 * 2]
         local y1 = self._coords[i1 * 2 + 1]
         local x2 = self._coords[i2 * 2]
@@ -238,11 +258,25 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
         local cx = (x1 + x2 + x3) / 3
         local cy = (y1 + y2 + y3) / 3
 
-        if point_in_polygon(cx, cy, contour) then
-            constrained[constrained_i+0] = i1
-            constrained[constrained_i+1] = i2
-            constrained[constrained_i+2] = i3
-            constrained_i = constrained_i + 3
+        if _is_triangle_in_aabb(x1, y1, x2, y2, x3, y3, min_x, min_y, max_x, max_y) then
+            local inside = false
+            local n = math.floor(#contour / 2)
+            local j = n
+            for contour_i = 1, n do
+                local xi, yi = contour[2 * contour_i - 1], contour[2 * contour_i]
+                local xj, yj = contour[2 * j - 1], contour[2 * j]
+                if ((yi > cy) ~= (yj > cy)) and (cx < (xj - xi) * (cy - yi) / ((yj - yi) + EPSILON) + xi) then
+                    inside = not inside
+                end
+                j = contour_i
+            end
+
+            if inside then
+                constrained[constrained_i+0] = i1
+                constrained[constrained_i+1] = i2
+                constrained[constrained_i+2] = i3
+                constrained_i = constrained_i + 3
+            end
         end
     end
 
@@ -250,8 +284,9 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
 
     local c = love.timer.getTime()
 
-    dbg("triangulate: ", (b - a) / (1 / 60))
-    dbg("filter: ", (c - b) / (1 / 60))
+    --dbg((c - b) / (c - a))
+    --dbg("triangulate: ", (b - a) / (1 / 60))
+    --dbg("filter: ", (c - b) / (1 / 60))
 end
 
 --- @brief

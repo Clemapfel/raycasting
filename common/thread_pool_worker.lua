@@ -1,22 +1,11 @@
 rt = {}
 rt.math = {}
-
 require "common.common"
+meta = require "common.meta"
+
 require "love.timer"
 require "love.math"
-
-local slick = require "dependencies.slick.slick"
-rt.math.triangulate = function(points)
-    local success, out = pcall(slick.triangulate, { points })
-    if not success then dbg(points) end
-    return out
-end
-
-rt.math.polygonize = function(n, points)
-    local success, out = pcall(slick.polygonize, n, { points })
-    if not success then dbg(points) end
-    return out
-end
+require "common.delaunay_triangulation"
 
 local thread_id,
       main_to_worker_global,    -- channel for receiving tasks, shared between all threads

@@ -81,7 +81,6 @@ rt.settings.player = {
     max_velocity_x = 2500,
     max_velocity_y = 2500,
 
-    respawn_duration = 2,
     idle_threshold_duration = 0.5,
 
     squeeze_multiplier = 1.4,
@@ -1388,6 +1387,7 @@ function rt.Player:disable()
     end
 
     self._state = rt.PlayerState.DISABLED
+    self._up_button_is_down, self._right_button_is_down, self._down_button_is_down, self._left_button_is_down, self._jump_button_is_down = false, false, false, false, false
 end
 
 --- @brief

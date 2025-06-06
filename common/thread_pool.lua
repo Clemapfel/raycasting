@@ -1,5 +1,5 @@
 rt.settings.thread_pool = {
-    max_n_threads = 1
+    max_n_threads = 8
 }
 
 --[[
@@ -36,7 +36,7 @@ local MessageType = { -- native enum so it can be send via channel
 --- @brief
 function rt.ThreadPool:instantiate()
     self._entries = {}
-    self._n_threads = math.min(love.system.getProcessorCount() - 1, rt.settings.thread_pool.max_n_threads)
+    self._n_threads = math.min(math.sqrt(love.system.getProcessorCount()), rt.settings.thread_pool.max_n_threads)
     if self._n_threads <= 0 then self._n_threads = 1 end
 
     self._main_to_worker_global = love.thread.newChannel()
