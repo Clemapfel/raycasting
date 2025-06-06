@@ -262,6 +262,9 @@ local _damping = 0.99
 local _courant = _dt / _dx
 local _amplitude = 0.01
 
+require "common.delaunay_triangulation"
+local _triangulator = rt.DelaunayTriangulation()
+
 --- @brief
 function ow.BubbleField:update(delta)
     self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
@@ -335,7 +338,10 @@ function ow.BubbleField:update(delta)
             table.insert(outline_positions, y)
         end
 
-        local solid_tris = rt.math.triangulate(polygon_positions)
+
+        _triangulator:triangulate(polygon_positions, polygon_positions)
+        local solid_tris = _triangulator:get_triangles()
+
         if #solid_tris > 0 then
             local solid_data = {}
             for tri in values(solid_tris) do
