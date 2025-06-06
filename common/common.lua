@@ -240,7 +240,7 @@ end
 
 --- @brief
 function math.fract(x)
-    return math.fmod(x, 1.0)
+    return x - math.floor(x)
 end
 
 --- @brief round to nearest integer
@@ -487,6 +487,13 @@ end
 function table.first(t)
     for _, y in pairs(t) do
         return y
+    end
+end
+
+--- @brief
+function table.push(t, ...)
+    for i = 1, select("#", ...) do
+        table.insert(t, select(i, ...))
     end
 end
 
