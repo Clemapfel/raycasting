@@ -15,7 +15,7 @@ local function _swap(arr, i, j)
     arr[j] = tmp
 end
 
--- Quicksort for ids based on _distances, 0-based arrays
+-- quicksort for ids based on _distances, 0-based arrays
 local function _quicksort(ids, _distances, left, right)
     if right - left <= 20 then
         for i = left + 1, right do
@@ -118,9 +118,9 @@ local function _angle(dx, dy)
     -- return (math.atan(dy, dx) + math.pi) / (2 * math.pi)
     local p = dx / (math.abs(dx) + math.abs(dy))
     if dy < 0 then
-        return math.fract(0.5 - (3 - p) / 4)
+        return(3 - p) / 4
     else
-        return math.fract(0.5 - (1 + p) / 4)
+        return (1 + p) / 4
     end
 end
 
