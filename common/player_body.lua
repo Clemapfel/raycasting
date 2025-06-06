@@ -526,8 +526,6 @@ local _rope_handler = function(data)
     return data
 end
 
-rt.ThreadPool:register_handler("player_body", _rope_handler)
-
 --- @brief
 function rt.PlayerBody:update(delta)
     -- non rope sim updates
@@ -564,7 +562,7 @@ function rt.PlayerBody:update(delta)
 
     local to_send = {}
     for i, rope in ipairs(self._ropes) do
-        table.insert(to_send, {
+        _rope_handler({
             rope = rope,
             rope_i = i,
             is_bubble = self._is_bubble,
@@ -580,13 +578,6 @@ function rt.PlayerBody:update(delta)
             player_x = self._player_x,
             player_y = self._player_y
         })
-    end
-
-    -- dispatch but wait for all messages to arrive
-    local messages = rt.ThreadPool:send_message_sync(self, "player_body", table.unpack(to_send))
-
-    for message in values(messages) do
-        self._ropes[message.rope_i] = message.rope
     end
 end
 

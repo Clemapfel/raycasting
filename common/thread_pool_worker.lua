@@ -1,7 +1,22 @@
 rt = {}
+rt.math = {}
+
 require "common.common"
 require "love.timer"
 require "love.math"
+
+local slick = require "dependencies.slick.slick"
+rt.math.triangulate = function(points)
+    local success, out = pcall(slick.triangulate, { points })
+    if not success then dbg(points) end
+    return out
+end
+
+rt.math.polygonize = function(n, points)
+    local success, out = pcall(slick.polygonize, n, { points })
+    if not success then dbg(points) end
+    return out
+end
 
 local thread_id,
       main_to_worker_global,    -- channel for receiving tasks, shared between all threads
@@ -9,10 +24,6 @@ local thread_id,
       worker_to_main,           -- channel for delivering tasks, local to this thread
       MessageType               -- message type enum
   = ...
-
-main_to_worker_global:performAtomic(function()
-    require "common.triangulate"
-end)
 
 local _error_prefix = "[" .. thread_id .. "]"
 

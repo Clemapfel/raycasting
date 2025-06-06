@@ -53,7 +53,6 @@ function ow.AcceleratorSurface:draw()
 
     if self._is_emitting then
         love.graphics.setColor(1, 0, 1, 1)
-        dbg(self._emission_origin_x, self._emission_origin_y, self._scene:get_player():get_position())
         love.graphics.circle("fill", self._emission_origin_x, self._emission_origin_y, 10)
     end
 end
