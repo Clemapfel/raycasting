@@ -338,10 +338,7 @@ function math.gamma(x)
     return math.sqrt(2 * math.pi) * math.pow(t, x + 0.5) * math.exp(-t) * a
 end
 
---- @brief normalize a vector
---- @param x number x component of the vector
---- @param y number y component of the vector
---- @return number, number normalized x and y components
+--- @brief
 function math.normalize(x, y)
     local magnitude = math.sqrt(x * x + y * y)
     if magnitude == 0 then
@@ -356,11 +353,7 @@ function math.magnitude(x, y)
     return math.sqrt(x * x + y * y)
 end
 
---- @brief normalize a 3D vector
---- @param x number x component of the vector
---- @param y number y component of the vector
---- @param z number z component of the vector
---- @return number, number, number normalized x, y, z components
+--- @brief
 function math.normalize3(x, y, z)
     local magnitude = math.sqrt(x * x + y * y + z * z)
     if magnitude == 0 then
@@ -370,11 +363,7 @@ function math.normalize3(x, y, z)
     end
 end
 
---- @brief calculate the magnitude of a 3D vector
---- @param x number x component of the vector
---- @param y number y component of the vector
---- @param z number z component of the vector
---- @return number magnitude of the vector
+--- @brief
 function math.magnitude3(x, y, z)
     return math.sqrt(x * x + y * y + z * z)
 end
@@ -436,12 +425,7 @@ function math.flip(x, y)
     return -x, -y
 end
 
---- @brief get distance between two points
---- @param x1 number x component of the first point
---- @param y1 number y component of the first point
---- @param x2 number x component of the second point
---- @param y2 number y component of the second point
---- @return number the distance between the two points
+--- @brief
 function math.distance(x1, y1, x2, y2)
     local dx = x2 - x1
     local dy = y2 - y1
@@ -556,25 +540,30 @@ function string.format_time(duration)
 end
 
 --- @brief
-function utf8.sub(s,i,j)
+function utf8.sub(s, i, j)
     -- src: http://lua-users.org/lists/lua-l/2014-04/msg00590.html
     i = i or 1
     j = j or -1
-    if i<1 or j<1 then
+    if i < 1 or j < 1 then
         local n = utf8.len(s)
         if not n then return nil end
-        if i<0 then i = n+1+i end
-        if j<0 then j = n+1+j end
-        if i<0 then i = 1 elseif i>n then i = n end
-        if j<0 then j = 1 elseif j>n then j = n end
+        if i < 0 then i = n + 1 + i end
+        if j < 0 then j = n + 1 + j end
+        if i < 0 then i = 1 elseif i > n then i = n end
+        if j < 0 then j = 1 elseif j > n then j = n end
     end
-    if j<i then return "" end
-    i = utf8.offset(s,i)
-    j = utf8.offset(s,j+1)
-    if i and j then return string.sub(s, i,j-1)
+    if j < i then return "" end
+    i = utf8.offset(s, i)
+    j = utf8.offset(s, j+1)
+    if i and j then return string.sub(s, i,j - 1)
     elseif i then return string.sub(s, i)
     else return ""
     end
+end
+
+--- @brief
+function utf8.at(s, i)
+    return utf8.sub(s, i, i)
 end
 
 --- @brief
@@ -680,8 +669,7 @@ end
 --- @brief hash string
 function string.sha256(data)
     if love.getVersion() >= 12 then
-        local hash = love.data.hash("data", "sha256", data)
-        return love.data.encode("string", "hex", data)
+        return love.data.encode("string", "hex", love.data.hash("string", "sha256", data))
     else
         local hash = love.data.hash("sha256", data)
         return love.data.encode("string", "hex", hash)

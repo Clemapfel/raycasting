@@ -4,6 +4,8 @@ function love.conf(settings)
     settings.window.resizable = true
     settings.window.vsync = -1 -- adaptive
     settings.window.usedpiscale = false
+
+    love.filesystem.setIdentity("Chroma Drift")
 end
 
 

@@ -1,7 +1,7 @@
 rt.settings.overworld.bubble_field = {
     segment_length = 10,
     thickness = 3,
-    n_smoothing_iterations = 5,
+    n_smoothing_iterations = 4,
     alpha = 1,
     wave_deactivation_threshold = 1 / 100,
     simulate_waves = true,
@@ -43,7 +43,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     self._body:signal_connect("collision_start", function()
         local player = scene:get_player()
-        if player:get_is_bubble() == false and not self._blocked then
+        if player:get_is_bubble() == false then
             self:_block_signals()
             player:set_is_bubble(true)
 
@@ -55,7 +55,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     self._body:signal_connect("collision_end", function()
         local player = scene:get_player()
-        if player:get_is_bubble() == true and not self._blocked then
+        if player:get_is_bubble() == true then
             self:_block_signals()
 
             -- check if player is actually outside body, in case of exiting one shape of self but entering another
@@ -265,6 +265,12 @@ local _amplitude = 0.01
 
 local _handler_id = "overworld.bubble_field"
 local _pack_message = function(self)
+    if self._waiting_for_excite then
+        return {
+            is_excite_sentinel = true
+        }
+    end
+
     return {
         wave = self._wave,
         n_points = self._n_points,
@@ -278,11 +284,18 @@ local _pack_message = function(self)
         is_active = true,
         damping = _damping,
         courant = _courant,
-        amplitude = _amplitude
+        amplitude = _amplitude,
+        is_excite_sentinel = false
     }
 end
 
 local _handler = function(data)
+    if data.is_excite_sentinel == true then
+        return {
+            is_excite_sentinel = true
+        }
+    end
+
     -- wave equation solver
     local polygon_positions = data.polygon_positions
     local outline_positions = data.outline_positions
@@ -332,8 +345,13 @@ local _handler = function(data)
     if _bubble_field_triangulator == nil then
         _bubble_field_triangulator = rt.DelaunayTriangulation()
     end
-    local triangulator = _bubble_field_triangulator:triangulate(polygon_positions, polygon_positions)
-    local solid_tris = _bubble_field_triangulator:get_triangles()
+
+    local solid_tris
+    local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
+    if not success then
+        _bubble_field_triangulator:triangulate(polygon_positions, polygon_positions)
+        solid_tris = _bubble_field_triangulator:get_triangles()
+    end
 
     if #solid_tris > 0 then
         local solid_data = {}
@@ -372,33 +390,38 @@ function ow.BubbleField:update(delta)
 
     if rt.settings.overworld.bubble_field.simulate_waves and self._is_active then
         if self._use_threading then
-            if self._force_send_message then
-                -- send message before so excite data gets pushed
-                rt.ThreadPool:send_message(self, _handler_id, _pack_message(self))
-            end
-
             local messages = rt.ThreadPool:get_messages(self)
             local n_messages = table.sizeof(messages)
 
             if n_messages > 0 then
-                local data = messages[n_messages] -- only use last message
-                self._wave = data.wave
-                if data.mesh_data ~= nil then
-                    self._solid_mesh = rt.Mesh(data.mesh_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
+                if self._waiting_for_excite then
+                    for message in values(messages) do
+                        if message.is_excite_sentinel then
+                            self._waiting_for_excite = false
+                        end
+                    end
                 end
 
-                self._is_active = data.is_active
-                self._outline_positions = data.outline_positions
+                if not self._waiting_for_excite then
+                    local data = messages[n_messages] -- only use last message
+                    if not data.is_excite_sentinel then
+                        self._wave = data.wave
+                        if data.mesh_data ~= nil then
+                            self._solid_mesh = rt.Mesh(data.mesh_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
+                        end
+
+                        self._is_active = data.is_active
+                        self._outline_positions = data.outline_positions
+                    end
+                end
             end
 
-            if not self._force_send_message and n_messages > 0 and self._message_elapsed > rt.settings.overworld.bubble_field.message_tick then
+            if not self._waiting_for_excite and n_messages > 0 and self._message_elapsed > rt.settings.overworld.bubble_field.message_tick then
                 -- otherwise only send new message when old one is done
                 rt.ThreadPool:send_message(self, _handler_id, _pack_message(self))
             end
-
-            self._force_send_message = false
         else
-            if self._elapsed > rt.settings.overworld.bubble_field.message_tick then
+            if self._waiting_for_excite or self._elapsed > rt.settings.overworld.bubble_field.message_tick then
                 local data = _handler(_pack_message(self))
                 self._wave = data.wave
                 if data.mesh_data ~= nil then
@@ -409,6 +432,7 @@ function ow.BubbleField:update(delta)
                 self._outline_positions = data.outline_positions
 
                 self._message_elapsed = 0
+                self._waiting_for_excite = false
             end
         end
     end
@@ -437,6 +461,11 @@ function ow.BubbleField:_excite_wave(player_x, player_y, sign)
 
     self._is_active = true
     self._force_send_message = true
+
+    rt.ThreadPool:send_message(self, _handler_id, {
+        is_excite_sentinel = true -- ignore all messages until thread sends back confirmation, this doesn't guarantee that an excite is swallowed, but it makes it very unlikely
+    })
+    self._waiting_for_excite = false
 end
 
 --- @brief

@@ -1388,6 +1388,7 @@ function rt.Player:disable()
 
     self._state = rt.PlayerState.DISABLED
     self._up_button_is_down, self._right_button_is_down, self._down_button_is_down, self._left_button_is_down, self._jump_button_is_down = false, false, false, false, false
+    -- sic, don't reset sprint
 end
 
 --- @brief

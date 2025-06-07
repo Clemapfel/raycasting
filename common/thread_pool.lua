@@ -1,5 +1,5 @@
 rt.settings.thread_pool = {
-    max_n_threads = 8
+    max_n_threads = 4
 }
 
 --[[
@@ -76,7 +76,8 @@ end
 --- @brief
 function rt.ThreadPool:register_handler(handler_id, handler)
     meta.assert(handler_id, "String", handler, "Function")
-    assert(debug.getupvalue(handler, 1) == nil, "In rt.ThreadPool.register_handler: function for handler `" .. handler_id .. "` has an upvalue, only pure functions can be registered as handlers")
+    local key, value = debug.getupvalue(handler, 1)
+    --assert(key == nil, "In rt.ThreadPool.register_handler: function for handler `" .. handler_id .. "` has upvalue `" .. key .. "`, only pure functions can be registered as handlers")
 
     -- serialize pure function and deserialize thread-side with `load`
     local message = {
