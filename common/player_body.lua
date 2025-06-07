@@ -523,7 +523,7 @@ local _rope_handler = function(data)
         end
     end
 
-    return data
+    return rope
 end
 
 --- @brief
@@ -562,7 +562,7 @@ function rt.PlayerBody:update(delta)
 
     local to_send = {}
     for i, rope in ipairs(self._ropes) do
-        _rope_handler({
+        self._ropes[i] = _rope_handler({
             rope = rope,
             rope_i = i,
             is_bubble = self._is_bubble,

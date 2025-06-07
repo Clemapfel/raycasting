@@ -111,7 +111,6 @@ end
 
 --- @brief
 function rt.SceneManager:update(delta)
-    rt.ThreadPool:update(delta)
     rt.GameState:update(delta)
 
     self._fade:update(delta)
@@ -125,6 +124,8 @@ function rt.SceneManager:update(delta)
         self._current_scene:update(delta)
         self._current_scene:signal_emit("update", delta)
     end
+
+    rt.ThreadPool:update(delta)
 end
 
 --- @brief

@@ -67,6 +67,7 @@ end
 
 --- @brief
 function rt.GameState:_update_save_worker()
+    self:_init_save_worker()
     local worker = self._save_worker
     while worker.worker_to_main:getCount() > 0 do
         local message = worker.worker_to_main:pop()
@@ -75,11 +76,11 @@ function rt.GameState:_update_save_worker()
             rt.log("Successfully saved to `" .. message.path .. "`")
         elseif message.type == MessageType.LOAD_SAVE_SUCCESS then
             -- { type, path, state }
-            rt.log("Succesfully loaded save from `" .. message.path .. "`")
+            rt.log("Successfully loaded save from `" .. message.path .. "`")
             self._state = message.state
         elseif message.type == MessageType.ERROR then
             -- { type, reason }
-            rt.warning("In rt.GameState:_update_save_worker: Thread error: " .. message.reason)
+            rt.error("In rt.GameState:_update_save_worker: Thread error: " .. message.reason)
         end
     end
 end

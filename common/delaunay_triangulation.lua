@@ -66,7 +66,6 @@ local function _quicksort(ids, _distances, left, right)
     end
 end
 
-
 local function _get_circumcenter(ax, ay, bx, by, cx, cy)
     local dx = bx - ax;
     local dy = by - ay;
@@ -183,6 +182,38 @@ local function _is_point_in_polygon(x, y, contour)
         j = i
     end
     return inside
+end
+
+function _is_polygon_convex(contour)
+    local n = math.floor(#contour / 2)
+    if n < 3 then return false end
+
+    local sign = 0
+    for i = 1, n do
+        local i1 = ((i - 1) * 2) + 1
+        local i2 = ((i % n) * 2) + 1
+        local i3 = (((i + 1) % n) * 2) + 1
+
+        local x1, y1 = contour[i1], contour[i1 + 1]
+        local x2, y2 = contour[i2], contour[i2 + 1]
+        local x3, y3 = contour[i3], contour[i3 + 1]
+
+        -- vectors: (x2-x1, y2-y1) and (x3-x2, y3-y2)
+        local dx1, dy1 = x2 - x1, y2 - y1
+        local dx2, dy2 = x3 - x2, y3 - y2
+
+        -- cross product (z-component)
+        local cross = dx1 * dy2 - dy1 * dx2
+
+        if cross ~= 0 then
+            if sign == 0 then
+                sign = (cross > 0) and 1 or -1
+            elseif (cross > 0 and sign < 0) or (cross < 0 and sign > 0) then
+                return false
+            end
+        end
+    end
+    return true
 end
 
 function rt.DelaunayTriangulation:triangulate(points, contour)

@@ -1,9 +1,9 @@
 rt.settings.overworld.bubble_field = {
-    segment_length = 10,
+    segment_length = 13,
     thickness = 3,
-    n_smoothing_iterations = 4,
+    n_smoothing_iterations = 2,
     alpha = 1,
-    wave_deactivation_threshold = 1 / 100,
+    wave_deactivation_threshold = 1 / 1000,
     simulate_waves = true,
     message_tick = 1 / 30,
 }
@@ -28,7 +28,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._is_active = false
     self._force_send_message = false
     self._message_elapsed = 0
-    self._use_threading = true
+    self._use_threading = false
 
     self._camera_offset = {0, 0}
     self._camera_scale = 1
@@ -296,73 +296,94 @@ local _handler = function(data)
         }
     end
 
-    -- wave equation solver
+    -- Localize math functions for speed
+    local abs, max, mix2 = math.abs, math.max, math.mix2
+
+    -- Unpack data fields for faster access
+    local n_points = data.n_points
+    local courant2 = data.courant^2
+    local damping = data.damping
+    local wave = data.wave
+    local contour_vectors = data.contour_vectors
+    local center_x, center_y = data.contour_center_x, data.contour_center_y
+
+    -- Reuse or clear polygon_positions and outline_positions arrays
     local polygon_positions = data.polygon_positions
     local outline_positions = data.outline_positions
-    local wave = data.wave
+    for i = 1, #polygon_positions do polygon_positions[i] = nil end
+    for i = 1, #outline_positions do outline_positions[i] = nil end
+
+    -- Wave equation solver
     local offset_sum, offset_max = 0, -math.huge
-    local n_points = data.n_points
+    local prev, curr, nextw = wave.previous, wave.current, wave.next
+
     for i = 1, n_points do
         local left = (i == 1) and n_points or (i - 1)
         local right = (i == n_points) and 1 or (i + 1)
-        local new = 2 * wave.current[i] - wave.previous[i] + data.courant^2 * (wave.current[left] - 2 * wave.current[i] + wave.current[right])
-        new = new * data.damping
-        wave.next[i] = new
+        local new = 2 * curr[i] - prev[i] + courant2 * (curr[left] - 2 * curr[i] + curr[right])
+        new = new * damping
+        nextw[i] = new
 
-        offset_sum = offset_sum + math.abs(new)
-        offset_max = math.max(offset_sum, math.abs(new))
+        local abs_new = abs(new)
+        offset_sum = offset_sum + abs_new
+        offset_max = max(offset_max, abs_new)
 
-        local entry = data.contour_vectors[i]
-        local x = data.contour_center_x + entry.dx * (1 + new) * entry.magnitude
-        local y = data.contour_center_y + entry.dy * (1 + new) * entry.magnitude
-        table.insert(polygon_positions, x)
-        table.insert(polygon_positions, y)
+        local entry = contour_vectors[i]
+        -- Directly assign to preallocated array
+        local idx = (i - 1) * 2
+        polygon_positions[idx + 1] = center_x + entry.dx * (1 + new) * entry.magnitude
+        polygon_positions[idx + 2] = center_y + entry.dy * (1 + new) * entry.magnitude
     end
+
+    -- Rotate wave buffers
     wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
 
     if offset_max < data.wave_deactivation_threshold then
         data.is_active = false
     end
 
-    -- lerp to avoid step pattern artifacting
-    for i = 1, #polygon_positions - 2, 2 do
-        local x1, y1 = polygon_positions[i+0], polygon_positions[i+1]
+    -- Outline positions: lerp between polygon points
+    local poly_len = #polygon_positions
+    for i = 1, poly_len - 2, 2 do
+        local x1, y1 = polygon_positions[i], polygon_positions[i+1]
         local x2, y2 = polygon_positions[i+2], polygon_positions[i+3]
-
-        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
-        table.insert(outline_positions, x)
-        table.insert(outline_positions, y)
+        local x, y = mix2(x1, y1, x2, y2, 0.5)
+        outline_positions[#outline_positions+1] = x
+        outline_positions[#outline_positions+1] = y
     end
 
+    -- close the outline loop
     do
         local x1, y1 = polygon_positions[1], polygon_positions[2]
-        local x2, y2 = polygon_positions[#polygon_positions-1], polygon_positions[#polygon_positions]
-        local x, y = math.mix2(x1, y1, x2, y2, 0.5)
-        table.insert(outline_positions, x)
-        table.insert(outline_positions, y)
+        local x2, y2 = polygon_positions[poly_len-1], polygon_positions[poly_len]
+        local x, y = mix2(x1, y1, x2, y2, 0.5)
+        outline_positions[#outline_positions+1] = x
+        outline_positions[#outline_positions+1] = y
     end
 
+    -- triangulation
     if _bubble_field_triangulator == nil then
         _bubble_field_triangulator = rt.DelaunayTriangulation()
     end
 
-    local solid_tris
     local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
     if not success then
         _bubble_field_triangulator:triangulate(polygon_positions, polygon_positions)
         solid_tris = _bubble_field_triangulator:get_triangles()
     end
 
+    -- Build mesh data
     if #solid_tris > 0 then
-        local solid_data = {}
+        local solid_data = data.mesh_data or {}
+        for i = 1, #solid_data do solid_data[i] = nil end -- clear previous mesh_data
+
+        local idx = 1
         for tri in values(solid_tris) do
-            for i = 1, 6, 2 do
-                table.insert(solid_data, {
-                    tri[i+0], tri[i+1]
-                })
+            for j = 1, 6, 2 do
+                solid_data[idx] = { tri[j], tri[j+1] }
+                idx = idx + 1
             end
         end
-
         data.mesh_data = solid_data
     else
         data.mesh_data = nil
@@ -381,12 +402,15 @@ rt.ThreadPool:register_handler(_handler_id, _handler)
 --- @brief
 function ow.BubbleField:update(delta)
     self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
-    if not self._scene:get_is_body_visible(self._body) then return end
 
-    self._elapsed = self._elapsed + delta
-    self._camera_offset = { self._scene:get_camera():get_offset() }
-    self._camera_scale = self._scene:get_camera():get_scale()
-    self._message_elapsed = self._message_elapsed + delta
+    if  self._scene:get_is_body_visible(self._body) then
+        self._elapsed = self._elapsed + delta
+        self._camera_offset = { self._scene:get_camera():get_offset() }
+        self._camera_scale = self._scene:get_camera():get_scale()
+        self._message_elapsed = self._message_elapsed + delta
+    else
+        self._is_active = false
+    end
 
     if rt.settings.overworld.bubble_field.simulate_waves and self._is_active then
         if self._use_threading then
