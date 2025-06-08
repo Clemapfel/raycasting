@@ -263,6 +263,9 @@ function rt.Player:instantiate()
 
         _input = rt.InputSubscriber(),
         _idle_elapsed = 0,
+
+        -- particles
+        _body_to_collision_normal = {}
     })
 
     self._trail = rt.PlayerTrail(self)
@@ -345,7 +348,7 @@ function rt.Player:_connect_input()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
-        elseif which == "h" then
+        elseif false then --which == "h" then
             is_sleeping = not is_sleeping
 
             if is_sleeping then
@@ -483,28 +486,64 @@ function rt.Player:update(delta)
     self._bottom_right_wall_body = bottom_right_wall_body
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
 
-    -- compute ground line for graphics body
-    local n = 0
-    if self._bottom_left_wall then n = n + 1 end
-    if self._bottom_wall then n = n + 1 end
-    if self._bottom_right_wall then n = n + 1 end
-    self._floor_active = n >= 2
-    if self._floor_active then
-        if self._bottom_left_wall then
-            self._floor_ax, self._floor_ay = bottom_left_x, bottom_left_y
-        else
-            self._floor_ax, self._floor_ay = bottom_x, bottom_y
+    do -- compute current normal for all colliding walls
+        local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.player_collision_group))
+        local body = self._is_bubble and self._bubble_body or self._body
+        local outer_bodies = self._is_bubble and self._bubble_spring_bodies or self._spring_bodies
+        local offset_x = self._is_bubble and self._bubble_spring_body_offsets_x or self._spring_body_offsets_x
+        local offset_y = self._is_bubble and self._bubble_spring_body_offsets_y or self._spring_body_offsets_y
+
+        local self_x, self_y = body:get_position()
+        local ray_length = self:get_radius() + 2 * self._outer_body_radius
+
+        local body_to_ray_data = {}
+        for i, outer in pairs(outer_bodies) do
+            local cx, cy = outer:get_position()
+            local dx, dy = math.normalize(offset_x[i], offset_y[i])
+
+            local ray_x, ray_y, ray_nx, ray_ny, ray_wall_body = self._world:query_ray(self_x, self_y, dx * ray_length, dy * ray_length, mask)
+
+            if ray_wall_body ~= nil then
+                local hash = ray_wall_body
+                local entry = body_to_ray_data[hash]
+                if entry == nil then
+                    entry = {}
+                    body_to_ray_data[hash] = entry
+                end
+
+                table.insert(entry, {
+                    contact_x = ray_x,
+                    contact_y = ray_y,
+                    normal_x = ray_nx,
+                    normal_y = ray_ny,
+                    penetration = 1 - math.distance(self_x, self_y, ray_x, ray_y) / ray_length
+                })
+            end
         end
 
-        if self._bottom_right_wall then
-            self._floor_bx, self._floor_by = bottom_right_x, bottom_right_y
-        else
-            self._floor_bx, self._floor_by = bottom_x, bottom_y
+        -- compute true contact normal for bodies
+        self._body_to_collision_normal = {}
+        for wall_body, hits in pairs(body_to_ray_data) do
+            local nx_sum, ny_sum, n = 0, 0, 0
+            local x_sum, y_sum = 0, 0
+            for entry in values(hits) do
+                nx_sum = nx_sum + entry.normal_x
+                ny_sum = ny_sum + entry.normal_y
+                x_sum = x_sum + entry.contact_x
+                y_sum = y_sum + entry.contact_y
+                n = n + 1
+            end
+
+            self._body_to_collision_normal[wall_body] = {
+                normal_x = x_sum / n,
+                normal_y = y_sum / n,
+                contact_x = x_sum / n,
+                contact_y = y_sum / n
+            }
         end
     end
 
     if not self._is_bubble then
-
         -- update sprint once landed
         if self._next_sprint_multiplier_update_when_grounded and (self._bottom_wall or (self._left_wall or self._right_wall)) then
             self._sprint_multiplier = self._next_sprint_multiplier
@@ -1628,4 +1667,18 @@ end
 --- @brief
 function rt.Player:get_is_grounded()
     return self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall
+end
+
+--- @brief
+function rt.Player:get_collision_normal(body)
+    local entry = self._body_to_collision_normal[body]
+    if entry == nil then return nil end
+    return entry.normal_x, entry.normal_y, entry.contact_x, entry.contact_y
+end
+
+--- @brief
+function rt.Player:get_contact_point(body)
+    local entry = self._body_to_collision_normal[body]
+    if entry == nil then return nil end
+    return entry.contact_x, entry.contact_y, entry.normal_x, entry.normal_y
 end

@@ -343,8 +343,16 @@ end
 
 --- @brief
 function b2.Body:has_tag(tag)
-
     return self._tags[tag] == true
+end
+
+--- @brief
+function b2.Body:get_tags()
+    local out = {}
+    for tag in keys(self._tags) do
+        table.insert(out, tag)
+    end
+    return out
 end
 
 --- @brief

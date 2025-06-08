@@ -368,20 +368,11 @@ function math.magnitude3(x, y, z)
     return math.sqrt(x * x + y * y + z * z)
 end
 
---- @brief
-function math.rotate(x, y, angle, origin_x, origin_y)
-    if origin_x == nil then origin_x = 0 end
-    if origin_y == nil then origin_y = 0 end
-
-    local cos_theta = math.cos(angle)
-    local sin_theta = math.sin(angle)
-    local dx = x - origin_x
-    local dy = y - origin_y
-
-    local rotated_x = cos_theta * dx - sin_theta * dy + origin_x
-    local rotated_y = sin_theta * dx + cos_theta * dy + origin_y
-
-    return rotated_x, rotated_y
+function math.rotate(x, y, angle)
+    local cos_angle = math.cos(angle)
+    local sin_angle = math.sin(angle)
+    return x * cos_angle - y * sin_angle,
+        x * sin_angle + y * cos_angle
 end
 
 --- @brief

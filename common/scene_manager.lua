@@ -301,7 +301,13 @@ function love.run()
                 love.graphics.pop()
             end
 
+
+            local before = love.timer.getTime()
             love.graphics.present()
+            local d = love.timer.getTime() - before
+            if d > 1 / 60 then
+                dbg(d)
+            end
             _frame_i = _frame_i + 1
         end
 

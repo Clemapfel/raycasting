@@ -102,7 +102,7 @@ end
 --- @brief
 function rt.Background:_notify_camera_changed(camera)
     _offset_x, _offset_y = camera:get_offset()
-    _scale = camera:get_scale()
+    _scale = camera:get_final_scale()
 end
 
 --- @brief
