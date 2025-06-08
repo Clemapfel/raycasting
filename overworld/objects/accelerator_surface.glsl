@@ -4,30 +4,29 @@
 
 #ifdef PIXEL
 
-vec3 random_3d(in vec3 p) {
-    return fract(sin(vec3(
-    dot(p, vec3(127.1, 311.7, 74.7)),
-    dot(p, vec3(269.5, 183.3, 246.1)),
-    dot(p, vec3(113.5, 271.9, 124.6)))
-    ) * 43758.5453123);
-}
-
 float gradient_noise(vec3 p) {
-    vec3 i = floor(p);
-    vec3 v = fract(p);
+    vec3 n = floor(p);
+    vec3 f = fract(p);
 
-    vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
+    float dist = 1.0;
+    for (int k = -1; k <= 1; k++) {
+        for (int j = -1; j <= 1; j++) {
+            for (int i = -1; i <= 1; i++) {
+                vec3 g = vec3(i, j, k);
 
-    float result = mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
-    mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,1.0)), v - vec3(0.0,0.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
-    mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
-    dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+                vec3 p = n + g;
+                p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+                p += dot(p, p.yxz + 19.19);
+                vec3 o = fract((p.xxy + p.yzz) * p.zyx);
 
-    return 2 * (result + 1) / 2;
+                vec3 delta = g + o - f;
+                float d = length(delta);
+                dist = min(dist, d);
+            }
+        }
+    }
+
+    return 1 - dist;
 }
 
 
@@ -137,7 +136,7 @@ uniform float elapsed;
 
 vec4 effect(vec4 color, Image density_image, vec2 texture_coords, vec2 screen_coords) {
     // Compute world position of this fragment in the same space as player_position
-    vec2 uv = to_uv(screen_coords) * 40.0;
+    vec2 uv = to_uv(screen_coords) * 22.0;
     vec2 pixel_size = 1.0 / love_ScreenSize.xy * 10.0; // scale pixel size to match uv scaling
 
     float n00 = gradient_noise(vec3(uv + pixel_size * vec2(-1.0, -1.0), elapsed));
@@ -181,15 +180,15 @@ vec4 effect(vec4 color, Image density_image, vec2 texture_coords, vec2 screen_co
     float iridescence_angle = clamp(dot(normal, light_dir), 0.0, 1.0);
 
     // Animate the rainbow pattern with elapsed time and some spatial variation
-    float rainbow_shift = elapsed * 0.15 + uv.x * 0.05 + uv.y * 0.05;
+    float rainbow_shift = min(distance(player_position / love_ScreenSize.xy, screen_coords / love_ScreenSize.xy), 0.5) * 2 / camera_scale;
 
     // L: Lightness, C: Chroma, H: Hue
     // We'll modulate H (hue) for rainbow, C for vividness, L for brightness
     float lch_L = 0.7 + 0.3 * iridescence_angle; // Brighter at facing angles
     float lch_C = 0.1 * pow(1.0 - iridescence_angle, 0.5); // More chroma at grazing
     float lch_H = mod(0.6 + 0.5 * sin(8.0 * acos(iridescence_angle) + rainbow_shift), 1.0);
-    lch_H += 0.08 * sin(32.0 * acos(iridescence_angle) + rainbow_shift); // Thin film effect
-    lch_H = mod(lch_H, 1.0);
+    lch_H = mod(lch_H + player_hue, 1.0);
+
 
     vec3 iridescence_rgb = lch_to_rgb(vec3(lch_L, lch_C, lch_H));
     float iridescence_strength = 1.0 * pow(1.0 - iridescence_angle, 1.5);
@@ -199,7 +198,7 @@ vec4 effect(vec4 color, Image density_image, vec2 texture_coords, vec2 screen_co
     // For specular, use the same light direction
     float shininess = 128.0;
     float specular_intensity = 2.0;
-    float specular = pow(max(dot(normal, light_dir), 0.0), shininess);
+    float specular = pow(max(dot(normal, light_dir), 0.9), shininess);
     specular = specular * specular_intensity * density;
 
     // Subsurface scattering effect (reacts to light angle)
@@ -213,7 +212,7 @@ vec4 effect(vec4 color, Image density_image, vec2 texture_coords, vec2 screen_co
     vec3 base_color = mix(iridescence_rgb, vec3(1), specular);
 
     vec4 soap = vec4(base_color, smoothstep(0.1, 0.1 + water_surface_eps, min(density_falloff(density), 1.0)));
-    return soap;
+    return vec4(base_color, 1);
 }
 
 #endif
