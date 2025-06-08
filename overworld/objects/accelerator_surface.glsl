@@ -80,6 +80,7 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+
 uniform vec3 red;
 
 // Function to create a rotation matrix for the x-axis
@@ -176,6 +177,25 @@ vec4 effect(vec4 color, Image density_image, vec2 texture_coords, vec2 screen_co
     vec3 normal = normalize(vec3(-dx, -dy, 1.0));
     float diffuse = dot(normal, light_dir);
 
+    // ---- LCH IRIDESCENCE EFFECT ----
+    float iridescence_angle = clamp(dot(normal, light_dir), 0.0, 1.0);
+
+    // Animate the rainbow pattern with elapsed time and some spatial variation
+    float rainbow_shift = elapsed * 0.15 + uv.x * 0.05 + uv.y * 0.05;
+
+    // L: Lightness, C: Chroma, H: Hue
+    // We'll modulate H (hue) for rainbow, C for vividness, L for brightness
+    float lch_L = 0.7 + 0.3 * iridescence_angle; // Brighter at facing angles
+    float lch_C = 0.1 * pow(1.0 - iridescence_angle, 0.5); // More chroma at grazing
+    float lch_H = mod(0.6 + 0.5 * sin(8.0 * acos(iridescence_angle) + rainbow_shift), 1.0);
+    lch_H += 0.08 * sin(32.0 * acos(iridescence_angle) + rainbow_shift); // Thin film effect
+    lch_H = mod(lch_H, 1.0);
+
+    vec3 iridescence_rgb = lch_to_rgb(vec3(lch_L, lch_C, lch_H));
+    float iridescence_strength = 1.0 * pow(1.0 - iridescence_angle, 1.5);
+
+    // ---- END LCH IRIDESCENCE ----
+
     // For specular, use the same light direction
     float shininess = 128.0;
     float specular_intensity = 2.0;
@@ -189,10 +209,11 @@ vec4 effect(vec4 color, Image density_image, vec2 texture_coords, vec2 screen_co
     float value = (ambient + diffuse + subsurface_scattering) - light_falloff(density);
 
     const float water_surface_eps = 0.15;
-    vec3 base_color = mix(lch_to_rgb(vec3(value * 0.8, value, player_hue)), vec3(1), specular);
+    // Blend iridescence with white for specular
+    vec3 base_color = mix(iridescence_rgb, vec3(1), specular);
 
-    vec4 blood = vec4(base_color, smoothstep(0.1, 0.1 + water_surface_eps, min(density_falloff(density), 1.0)));
-    return blood;
+    vec4 soap = vec4(base_color, smoothstep(0.1, 0.1 + water_surface_eps, min(density_falloff(density), 1.0)));
+    return soap;
 }
 
 #endif
