@@ -8,6 +8,7 @@ function rt.DelaunayTriangulation:instantiate(points, contour)
     self._triangles = {}
     self._hull = {}
     self._half_edges = {}
+    self._current_n_points = -1
 
     if points ~= nil then
         self:triangulate(points, contour)
@@ -23,7 +24,6 @@ local function _swap(arr, i, j)
     arr[j] = tmp
 end
 
--- quicksort for ids based on _distances, 0-based arrays
 local function _quicksort(ids, _distances, left, right)
     if right - left <= 20 then
         for i = left + 1, right do
@@ -137,29 +137,21 @@ local function _get_signed_area(ax, ay, bx, by, cx, cy)
     return -1 * ((bx - ax) * (cy - ay) - (by - ay) * (cx - ax))
 end
 
-local function _new_array(n) -- 0-based array
-    local out = {}
-    for i = 0, n - 1 do
-        out[i] = 0
-    end
-
-    return out
+if table.new == nil then require("table.new") end
+local function _new_array(n)
+    return table.new(n, 0)
 end
 
 local function _subarray(array, start_index, end_index)
-    local result = {}
-    for i = start_index, end_index - 1 do
-        result[i - start_index] = array[i]
+    local result = _new_array(end_index - start_index + 1)
+    for i = start_index, end_index do
+        result[i - start_index + 1] = array[i]
     end
     return result
 end
 
 local function _sizeof(t)
-    local n = 0
-    for _ in pairs(t) do
-        n = n + 1
-    end
-    return n
+    return #t
 end
 
 local function _is_triangle_in_aabb(ax, ay, bx, by, cx, cy, min_x, min_y, max_x, max_y)
@@ -168,103 +160,49 @@ local function _is_triangle_in_aabb(ax, ay, bx, by, cx, cy, min_x, min_y, max_x,
         cx >= min_x and cx <= max_x and cy >= min_y and cy <= max_y
 end
 
-local function _is_point_in_polygon(x, y, contour)
-    local inside = false
-    local n = math.floor(#contour / 2)
-    local j = n
-    for i = 1, n do
-        local xi, yi = contour[2*i-1], contour[2*i]
-        local xj, yj = contour[2*j-1], contour[2*j]
-        if ((yi > y) ~= (yj > y)) and
-            (x < (xj - xi) * (y - yi) / ((yj - yi) + 1e-12) + xi) then
-            inside = not inside
-        end
-        j = i
-    end
-    return inside
-end
-
-function _is_polygon_convex(contour)
-    local n = math.floor(#contour / 2)
-    if n < 3 then return false end
-
-    local sign = 0
-    for i = 1, n do
-        local i1 = ((i - 1) * 2) + 1
-        local i2 = ((i % n) * 2) + 1
-        local i3 = (((i + 1) % n) * 2) + 1
-
-        local x1, y1 = contour[i1], contour[i1 + 1]
-        local x2, y2 = contour[i2], contour[i2 + 1]
-        local x3, y3 = contour[i3], contour[i3 + 1]
-
-        -- vectors: (x2-x1, y2-y1) and (x3-x2, y3-y2)
-        local dx1, dy1 = x2 - x1, y2 - y1
-        local dx2, dy2 = x3 - x2, y3 - y2
-
-        -- cross product (z-component)
-        local cross = dx1 * dy2 - dy1 * dx2
-
-        if cross ~= 0 then
-            if sign == 0 then
-                sign = (cross > 0) and 1 or -1
-            elseif (cross > 0 and sign < 0) or (cross < 0 and sign > 0) then
-                return false
-            end
-        end
-    end
-    return true
-end
-
 function rt.DelaunayTriangulation:triangulate(points, contour)
-    self._constraints = contour or {}
-
     local a = love.timer.getTime()
 
-    -- translation of `from`
-    local point_size = _sizeof(points)
-    local coords = _new_array(point_size)
-
-    for i = 1, point_size, 2 do
-        coords[i+0 - 1] = points[i+0]
-        coords[i+1 - 1] = points[i+1]
-    end
+    local coords = points
 
     -- translation of localructor
     self._coords = coords
     local coords_size = _sizeof(coords)
 
-    -- arrays that will store the triangulation graph
-    local max_n_triangles = math.max(2 * coords_size - 5, 0)
-    self._triangles = _new_array(max_n_triangles * 3)
-    self._half_edges = _new_array(max_n_triangles * 3)
-    self._edge_buffer = _new_array(EDGE_BUFFER_SIZE)
+    if self._current_n_points ~= coords_size then
+        self._current_n_points = coords_size
 
-    -- temporary arrays for tracking the edges of the advancing convex hull
-    self._hashSize = math.ceil(math.sqrt(coords_size))
-    self._hull_previous = _new_array(coords_size) -- edge to prev edge
-    self._hull_next = _new_array(coords_size) -- edge to next edge
-    self._hull_tri = _new_array(coords_size) -- edge to adjacent triangle
-    self._hullHash = _new_array(self._hashSize) -- angular edge hash
+        -- arrays that will store the triangulation graph
+        local max_n_triangles = math.max(2 * coords_size - 5, 0)
+        self._triangles = _new_array(max_n_triangles * 3)
+        self._half_edges = _new_array(max_n_triangles * 3)
+        self._edge_buffer = _new_array(EDGE_BUFFER_SIZE)
 
-    -- temporary arrays for sorting points
-    self._ids = _new_array(coords_size)
-    self._distances = _new_array(coords_size)
+        -- temporary arrays for tracking the edges of the advancing convex hull
+        self._hashSize = math.ceil(math.sqrt(coords_size))
+        self._hull_previous = _new_array(coords_size) -- edge to prev edge
+        self._hull_next = _new_array(coords_size) -- edge to next edge
+        self._hull_tri = _new_array(coords_size) -- edge to adjacent triangle
+        self._hullHash = _new_array(self._hashSize) -- angular edge hash
+
+        -- temporary arrays for sorting points
+        self._ids = _new_array(coords_size)
+        self._distances = _new_array(coords_size)
+    end
 
     self:update()
 
     local b = love.timer.getTime()
 
     -- constrain
-
     if contour == nil then return end
 
     -- compute aabb
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     for i = 0, _sizeof(self._hull) - 1 do
-        local j = self._hull[i]
-        local x = self._coords[j * 2]
-        local y = self._coords[j * 2 + 1]
+        local j = self._hull[i + 1]
+        local x = self._coords[j * 2 + 1]
+        local y = self._coords[j * 2 + 2]
 
         if x < min_x then min_x = x end
         if y < min_y then min_y = y end
@@ -272,24 +210,24 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
         if y > max_y then max_y = y end
     end
 
-    -- preprocess contour
     local constrained = _new_array(0)
     local constrained_i = 0
     for triangle_i = 0, _sizeof(self._triangles) - 1, 3 do
-        local i1 = self._triangles[triangle_i + 0]
-        local i2 = self._triangles[triangle_i + 1]
-        local i3 = self._triangles[triangle_i + 2]
-        local x1 = self._coords[i1 * 2]
-        local y1 = self._coords[i1 * 2 + 1]
-        local x2 = self._coords[i2 * 2]
-        local y2 = self._coords[i2 * 2 + 1]
-        local x3 = self._coords[i3 * 2]
-        local y3 = self._coords[i3 * 2 + 1]
+        local i1 = self._triangles[triangle_i + 1]
+        local i2 = self._triangles[triangle_i + 2]
+        local i3 = self._triangles[triangle_i + 3]
+        local x1 = self._coords[i1 * 2 + 1]
+        local y1 = self._coords[i1 * 2 + 2]
+        local x2 = self._coords[i2 * 2 + 1]
+        local y2 = self._coords[i2 * 2 + 2]
+        local x3 = self._coords[i3 * 2 + 1]
+        local y3 = self._coords[i3 * 2 + 2]
 
         local cx = (x1 + x2 + x3) / 3
         local cy = (y1 + y2 + y3) / 3
 
         if _is_triangle_in_aabb(x1, y1, x2, y2, x3, y3, min_x, min_y, max_x, max_y) then
+            -- if rough collision check passes, properly raycast against all segments
             local inside = false
             local n = math.floor(#contour / 2)
             local j = n
@@ -303,9 +241,9 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
             end
 
             if inside then
-                constrained[constrained_i+0] = i1
-                constrained[constrained_i+1] = i2
-                constrained[constrained_i+2] = i3
+                constrained[constrained_i + 1] = i1
+                constrained[constrained_i + 2] = i2
+                constrained[constrained_i + 3] = i3
                 constrained_i = constrained_i + 3
             end
         end
@@ -324,15 +262,15 @@ end
 function rt.DelaunayTriangulation:get_triangles()
     local triangles = {}
     for i = 0, _sizeof(self._triangles) - 1, 3 do
-        local i1 = self._triangles[i + 0]
-        local i2 = self._triangles[i + 1]
-        local i3 = self._triangles[i + 2]
-        local x1 = self._coords[i1 * 2]
-        local y1 = self._coords[i1 * 2 + 1]
-        local x2 = self._coords[i2 * 2]
-        local y2 = self._coords[i2 * 2 + 1]
-        local x3 = self._coords[i3 * 2]
-        local y3 = self._coords[i3 * 2 + 1]
+        local i1 = self._triangles[i + 1]
+        local i2 = self._triangles[i + 2]
+        local i3 = self._triangles[i + 3]
+        local x1 = self._coords[i1 * 2 + 1]
+        local y1 = self._coords[i1 * 2 + 2]
+        local x2 = self._coords[i2 * 2 + 1]
+        local y2 = self._coords[i2 * 2 + 2]
+        local x3 = self._coords[i3 * 2 + 1]
+        local y3 = self._coords[i3 * 2 + 2]
         table.insert(triangles, { x1, y1, x2, y2, x3, y3 })
     end
     return triangles
@@ -342,9 +280,9 @@ end
 function rt.DelaunayTriangulation:get_hull()
     local hull = {}
     for i = 0, _sizeof(self._hull) - 1 do
-        local j = self._hull[i]
-        table.insert(hull, self._coords[j * 2])
+        local j = self._hull[i + 1]
         table.insert(hull, self._coords[j * 2 + 1])
+        table.insert(hull, self._coords[j * 2 + 2])
     end
 
     return hull
@@ -358,13 +296,13 @@ end
 function rt.DelaunayTriangulation:_add_triangle(i0, i1, i2, a, b, c)
     local t = self._n_triangles
 
-    self._triangles[t] = i0
-    self._triangles[t + 1] = i1
-    self._triangles[t + 2] = i2
+    self._triangles[t + 1] = i0
+    self._triangles[t + 2] = i1
+    self._triangles[t + 3] = i2
 
-    self:_link(t, a)
-    self:_link(t + 1, b)
-    self:_link(t + 2, c)
+    self:_link(t + 1, a + 1)
+    self:_link(t + 2, b + 2)
+    self:_link(t + 3, c + 3)
 
     self._n_triangles = self._n_triangles + 3
 
@@ -391,7 +329,7 @@ function rt.DelaunayTriangulation:_legalize(a)
         if b == -1 then
             if i == 0 then break end
             i = i - 1
-            a = self._edge_buffer[i]
+            a = self._edge_buffer[i + 1]
             goto continue
         end
 
@@ -399,44 +337,44 @@ function rt.DelaunayTriangulation:_legalize(a)
         local al = a0 + ((a + 1) % 3);
         local bl = b0 + ((b + 2) % 3);
 
-        local p0 = triangles[ar];
-        local pr = triangles[a];
-        local pl = triangles[al];
-        local p1 = triangles[bl];
+        local p0 = triangles[ar + 1];
+        local pr = triangles[a + 1];
+        local pl = triangles[al + 1];
+        local p1 = triangles[bl + 1];
 
         local illegal = _is_point_in_circumcircle(
-            coords[2 * p0], coords[2 * p0 + 1],
-            coords[2 * pr], coords[2 * pr + 1],
-            coords[2 * pl], coords[2 * pl + 1],
-            coords[2 * p1], coords[2 * p1 + 1]
+            coords[2 * p0 + 1], coords[2 * p0 + 2],
+            coords[2 * pr + 1], coords[2 * pr + 2],
+            coords[2 * pl + 1], coords[2 * pl + 2],
+            coords[2 * p1 + 1], coords[2 * p1 + 2]
         );
 
         if illegal then
-            triangles[a] = p1;
-            triangles[b] = p0;
+            triangles[a + 1] = p1;
+            triangles[b + 1] = p0;
 
-            local hbl = half_edges[bl];
+            local hbl = half_edges[bl + 1];
 
             -- edge _swapped on the other side of the hull (rare); fix the halfedge reference
             if hbl == -1 then
                 local e = self._hull_start
                 repeat
-                    if self._hull_tri[e] == bl then
-                        self._hull_tri[e] = a
+                    if self._hull_tri[e + 1] == bl then
+                        self._hull_tri[e + 1] = a
                         break
                     end
-                    e = self._hull_previous[e]
+                    e = self._hull_previous[e + 1]
                 until e == self._hull_start
             end
 
-            self:_link(a, hbl);
-            self:_link(b, half_edges[ar]);
-            self:_link(ar, bl);
+            self:_link(a + 1, hbl + 1);
+            self:_link(b + 1, half_edges[ar + 1] + 1);
+            self:_link(ar + 1, bl + 1);
 
             local br = b0 + ((b + 1) % 3);
 
             if (i < _sizeof(self._edge_buffer)) then
-                self._edge_buffer[i] = br;
+                self._edge_buffer[i + 1] = br;
                 i = i + 1
             else
                 -- edge cap hit
@@ -445,7 +383,7 @@ function rt.DelaunayTriangulation:_legalize(a)
         else
             if i == 0 then break end
             i = i - 1
-            a = self._edge_buffer[i];
+            a = self._edge_buffer[i + 1];
         end
 
         ::continue::
@@ -454,6 +392,7 @@ function rt.DelaunayTriangulation:_legalize(a)
     return ar
 end
 
+--- @brief
 function rt.DelaunayTriangulation:update()
     local coords = self._coords
     local hull_previous = self._hull_previous
@@ -469,13 +408,13 @@ function rt.DelaunayTriangulation:update()
     local max_y = -math.huge
 
     for i = 0, n - 1 do
-        local x = coords[2 * i]
-        local y = coords[2 * i + 1]
+        local x = coords[2 * i + 1]
+        local y = coords[2 * i + 2]
         if x < min_x then min_x = x end
         if y < min_y then min_y = y end
         if x > max_x then max_x = x end
         if y > max_y then max_y = y end
-        self._ids[i] = i
+        self._ids[i + 1] = i
     end
 
     local cx = (min_x + max_x) / 2
@@ -486,7 +425,7 @@ function rt.DelaunayTriangulation:update()
     do -- pick a seed point close to the center
         local min_distance = math.huge
         for i = 0, n - 1 do
-            local d = _distance(cx, cy, coords[2 * i], coords[2 * i + 1])
+            local d = _distance(cx, cy, coords[2 * i + 1], coords[2 * i + 2])
             if d < min_distance then
                 i0 = i
                 min_distance = d
@@ -494,14 +433,18 @@ function rt.DelaunayTriangulation:update()
         end
     end
 
-    local i0x = coords[2 * i0]
-    local i0y = coords[2 * i0 + 1]
+    local i0x = coords[2 * i0 + 1]
+    local i0y = coords[2 * i0 + 2]
 
     do -- find the point closest to the seed
         local min_distance = math.huge
         for i = 0, n - 1 do
             if i ~= i0 then
-                local d = _distance(i0x, i0y, coords[2 * i], coords[2 * i + 1])
+                local d = _distance(
+                    i0x, i0y,
+                    coords[2 * i + 1], coords[2 * i + 2]
+                )
+
                 if d < min_distance and d > 0 then
                     i1 = i
                     min_distance = d
@@ -510,15 +453,15 @@ function rt.DelaunayTriangulation:update()
         end
     end
 
-    local i1x = coords[2 * i1]
-    local i1y = coords[2 * i1 + 1]
+    local i1x = coords[2 * i1 + 1]
+    local i1y = coords[2 * i1 + 2]
 
     local min_radius = math.huge
 
     -- find the third point which forms the smallest circumcircle with the first two
     for i = 0, n - 1 do
         if not (i == i0 or i == i1) then
-            local r = _get_circumradius(i0x, i0y, i1x, i1y, coords[2 * i], coords[2 * i + 1])
+            local r = _get_circumradius(i0x, i0y, i1x, i1y, coords[2 * i + 1], coords[2 * i + 2])
             if r < min_radius then
                 i2 = i
                 min_radius = r
@@ -526,39 +469,39 @@ function rt.DelaunayTriangulation:update()
         end
     end
 
-    local i2x = coords[2 * i2]
-    local i2y = coords[2 * i2 + 1]
+    local i2x = coords[2 * i2 + 1]
+    local i2y = coords[2 * i2 + 2]
 
     if min_radius == math.huge then
         -- order collinear points by dx (or dy if all x are identical)
         -- and return the list as a hull
 
         for i = 0, n - 1 do
-            local x_diff = coords[2 * i] - coords[0]
+            local x_diff = coords[2 * i + 1] - coords[1]
             if x_diff == 0 then
-                self._distances[i] = coords[2 * i + 1] - coords[1]
+                self._distances[i + 1] = coords[2 * i + 2] - coords[2]
             else
-                self._distances[i] = x_diff
+                self._distances[i + 1] = x_diff
             end
         end
 
-        _quicksort(self._ids, self._distances, 0, n - 1)
+        _quicksort(self._ids, self._distances, 1, n)
         local hull = _new_array(n)
         local j = 0
         do
             local d0 = -math.huge
             for i = 0, n - 1 do
-                local id = self._ids[i]
-                local d = self._distances[id]
+                local id = self._ids[i + 1]
+                local d = self._distances[id + 1]
                 if d > d0 then
-                    hull[j] = id
+                    hull[j + 1] = id
                     j = j + 1
                     d0 = d
                 end
             end
         end
 
-        self._hull = _subarray(hull, 0, j)
+        self._hull = _subarray(hull, 1, j + 1)
         self._triangles = _new_array(0)
         self._half_edges = _new_array(0)
         return
@@ -579,34 +522,34 @@ function rt.DelaunayTriangulation:update()
     self._center_x, self._center_y = _get_circumcenter(i0x, i0y, i1x, i1y, i2x, i2y)
 
     for i = 0, n - 1 do
-        self._distances[i] = _distance(coords[2 * i], coords[2 * i + 1], self._center_x, self._center_y)
+        self._distances[i + 1] = _distance(coords[2 * i + 1], coords[2 * i + 2], self._center_x, self._center_y)
     end
 
     -- sort the points by _distanceance from the seed triangle circumcenter
-    _quicksort(self._ids, self._distances, 0, n - 1)
+    _quicksort(self._ids, self._distances, 1, n)
 
     -- set up the seed triangle as the starting hull
     self._hull_start = i0
     local hull_size = 3
 
-    hull_next[i0] = i1
-    hull_next[i1] = i2
-    hull_next[i2] = i0
-    hull_previous[i0] = i2
-    hull_previous[i1] = i0
-    hull_previous[i2] = i1
+    hull_next[i0 + 1] = i1
+    hull_next[i1 + 1] = i2
+    hull_next[i2 + 1] = i0
+    hull_previous[i0 + 1] = i2
+    hull_previous[i1 + 1] = i0
+    hull_previous[i2 + 1] = i1
 
-    hull_triangles[i0] = 0
-    hull_triangles[i1] = 1
-    hull_triangles[i2] = 2
+    hull_triangles[i0 + 1] = 0
+    hull_triangles[i1 + 1] = 1
+    hull_triangles[i2 + 1] = 2
 
     for i = 0, _sizeof(hull_hash) - 1 do
-        hull_hash[i] = -1
+        hull_hash[i + 1] = -1
     end
 
-    hull_hash[self:_hash(i0x, i0y)] = i0
-    hull_hash[self:_hash(i1x, i1y)] = i1
-    hull_hash[self:_hash(i2x, i2y)] = i2
+    hull_hash[self:_hash(i0x, i0y) + 1] = i0
+    hull_hash[self:_hash(i1x, i1y) + 1] = i1
+    hull_hash[self:_hash(i2x, i2y) + 1] = i2
 
     self._n_triangles = 0
     self:_add_triangle(i0, i1, i2, -1, -1, -1)
@@ -614,9 +557,9 @@ function rt.DelaunayTriangulation:update()
     do
         local xp, yp
         for k = 0, _sizeof(self._ids) - 1 do
-            local i = self._ids[k]
-            local x = coords[2 * i]
-            local y = coords[2 * i + 1]
+            local i = self._ids[k + 1]
+            local x = coords[2 * i + 1]
+            local y = coords[2 * i + 2]
 
             -- skip near-duplicate points
             if k > 0 and math.abs(x - xp) <= EPSILON and math.abs(y - yp) <= EPSILON then goto continue end
@@ -631,15 +574,20 @@ function rt.DelaunayTriangulation:update()
             local start = 0
             local key = self:_hash(x, y)
             for j = 0, self._hashSize - 1 do
-                start = hull_hash[(key + j) % self._hashSize]
-                if start ~= -1 and start ~= hull_next[start] then break end
+                start = hull_hash[((key + j) % self._hashSize) + 1]
+                if start ~= -1 and start ~= hull_next[start + 1] then break end
             end
 
-            start = hull_previous[start]
+            start = hull_previous[start + 1]
             local e, q = start, nil
             while true do
-                q = hull_next[e]
-                if not (_get_signed_area(x, y, coords[2 * e], coords[2 * e + 1], coords[2 * q], coords[2 * q + 1]) >= 0) then
+                q = hull_next[e + 1]
+                if not (_get_signed_area(x, y,
+                    coords[2 * e + 1],
+                    coords[2 * e + 2],
+                    coords[2 * q + 1],
+                    coords[2 * q + 2]
+                ) >= 0) then
                     break
                 end
                 e = q
@@ -652,23 +600,29 @@ function rt.DelaunayTriangulation:update()
             if e == -1 then goto continue end -- likely a near-duplicate point, skip it
 
             -- add the first triangle from the point
-            local t = self:_add_triangle(e, i, hull_next[e], -1, -1, hull_triangles[e])
+            local t = self:_add_triangle(e, i, hull_next[e + 1], -1, -1, hull_triangles[e + 1])
 
             -- recursively flip triangles from the point until they satisfy the Delaunay condition
-            hull_triangles[i] = self:_legalize(t + 2)
-            hull_triangles[e] = t -- keep track of boundary triangles on the hull
+            hull_triangles[i + 1] = self:_legalize(t + 2)
+            hull_triangles[e + 1] = t -- keep track of boundary triangles on the hull
             hull_size = hull_size + 1
 
             -- walk forward through the hull, adding more triangles and flipping recursively
-            local vertex_i = hull_next[e]
+            local vertex_i = hull_next[e + 1]
             while true do
-                q = hull_next[vertex_i]
-                if not (_get_signed_area(x, y, coords[2 * vertex_i], coords[2 * vertex_i + 1], coords[2 * q], coords[2 * q + 1]) < 0) then
+                q = hull_next[vertex_i + 1]
+                if not (_get_signed_area(
+                    x, y,
+                    coords[2 * vertex_i + 1],
+                    coords[2 * vertex_i + 2],
+                    coords[2 * q + 1],
+                    coords[2 * q + 2]
+                ) < 0) then
                     break
                 end
-                t = self:_add_triangle(vertex_i, i, q, hull_triangles[i], -1, hull_triangles[vertex_i])
-                hull_triangles[i] = self:_legalize(t + 2)
-                hull_next[vertex_i] = vertex_i -- mark as removed
+                t = self:_add_triangle(vertex_i, i, q, hull_triangles[i + 1], -1, hull_triangles[vertex_i + 1])
+                hull_triangles[i + 1] = self:_legalize(t + 2)
+                hull_next[vertex_i + 1] = vertex_i -- mark as removed
                 hull_size = hull_size - 1
                 vertex_i = q
             end
@@ -676,29 +630,37 @@ function rt.DelaunayTriangulation:update()
             -- walk backward from the other side, adding more triangles and flipping
             if e == start then
                 while true do
-                    q = hull_previous[e]
-                    if not (_get_signed_area(x, y, coords[2 * q], coords[2 * q + 1], coords[2 * e], coords[2 * e + 1]) < 0) then
+                    q = hull_previous[e + 1]
+                    if not (_get_signed_area(x, y,
+                        coords[2 * q + 1],
+                        coords[2 * q + 2],
+                        coords[2 * e + 1],
+                        coords[2 * e + 2]
+                    ) < 0) then
                         break
                     end
-                    t = self:_add_triangle(q, i, e, -1, hull_triangles[e], hull_triangles[q])
+                    t = self:_add_triangle(q, i, e, -1, hull_triangles[e + 1], hull_triangles[q + 1])
                     self:_legalize(t + 2)
-                    hull_triangles[q] = t
-                    hull_next[e] = e -- mark as removed
+                    hull_triangles[q + 1] = t
+                    hull_next[e + 1] = e -- mark as removed
                     hull_size = hull_size - 1
                     e = q
                 end
             end
 
             -- update the hull indices
-            hull_previous[i] = e
+            hull_previous[i + 1] = e
             self._hull_start = e
-            hull_previous[vertex_i] = i
-            hull_next[e] = i
-            hull_next[i] = vertex_i
+            hull_previous[vertex_i + 1] = i
+            hull_next[e + 1] = i
+            hull_next[i + 1] = vertex_i
 
             -- save the two new edges in the hash table
-            hull_hash[self:_hash(x, y)] = i
-            hull_hash[self:_hash(coords[2 * e], coords[2 * e + 1])] = e
+            hull_hash[self:_hash(x, y) + 1] = i
+            hull_hash[self:_hash(
+                coords[2 * e + 1],
+                coords[2 * e + 2]
+            ) + 1] = e
 
             ::continue::
         end
@@ -707,14 +669,14 @@ function rt.DelaunayTriangulation:update()
         do
             local e = self._hull_start
             for i = 0, hull_size - 1 do
-                self._hull[i] = e
-                e = hull_next[e]
+                self._hull[i + 1] = e
+                e = hull_next[e + 1]
             end
         end
 
         -- trim typed triangle mesh arrays
-        self._hull = _subarray(self._hull, 0, hull_size)
-        self._triangles = _subarray(self._triangles, 0, self._n_triangles)
-        self._half_edges = _subarray(self._half_edges, 0, self._n_triangles)
+        self._hull = _subarray(self._hull, 1, hull_size + 1)
+        self._triangles = _subarray(self._triangles, 1, self._n_triangles + 1)
+        self._half_edges = _subarray(self._half_edges, 1, self._n_triangles + 1)
     end
 end
