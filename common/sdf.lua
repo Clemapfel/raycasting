@@ -14,6 +14,12 @@ local _hitbox_texture_config = {
     msaa = 4
 } -- r: is wall
 
+rt.SDFWallMode = meta.enum("SDFMode", {
+    BOTH = 0,   -- computed everywhere
+    INSIDE = 1, -- only computed inside hitbox
+    OUTSIDE = 2 -- only computed outside hitbox
+})
+
 --- @brief
 function rt.SDF:instantiate(width, height)
     meta.assert(width, "Number", height, "Number")
@@ -38,6 +44,8 @@ function rt.SDF:instantiate(width, height)
     end
     self._sdf_init_shader:send("hitbox_texture", self._hitbox_texture)
     self._is_gradient = false
+
+    self:set_wall_mode(rt.SDFWallMode.BOTH)
 end
 
 local _before = nil
@@ -51,6 +59,19 @@ end
 --- @brief
 function rt.SDF:unbind()
     love.graphics.setCanvas(_before)
+end
+
+--- @brief
+function rt.SDF:set_wall_mode(mode)
+    self._wall_mode = mode
+    for shader in range(
+        self._sdf_draw_shader,
+        self._sdf_init_shader,
+        self._sdf_step_shader,
+        self._sdf_compute_gradient_shader
+    ) do
+        shader:send("wall_mode", self._wall_mode)
+    end
 end
 
 --- @brief
@@ -102,11 +123,14 @@ function rt.SDF:get_texture()
 end
 
 --- @brief
+function rt.SDF:get_sdf_texture()
+    return self._draw_texture
+end
+
+--- @brief
 function rt.SDF:draw(...)
     self._sdf_draw_shader:bind()
     self._sdf_draw_shader:send("is_gradient", self._is_gradient)
     love.graphics.draw(self._draw_texture, ...)
     self._sdf_draw_shader:unbind()
-
-    --love.graphics.draw(self._hitbox_texture, ...)
 end

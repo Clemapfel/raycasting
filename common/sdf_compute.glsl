@@ -20,9 +20,15 @@ layout(rgba32f) uniform writeonly image2D output_texture;
 #elif MODE == MODE_COMPUTE_GRADIENT
 layout(rgba32f) uniform readonly image2D input_texture;
 layout(rgba32f) uniform writeonly image2D output_texture;
+uniform bool should_blur = false;
 #endif
 
 uniform int jump_distance; // k / 2, k / 2 / 2, ..., 1, where k = max(size(input_texture))
+
+#define WALL_MODE_BOTH 0
+#define WALL_MODE_INSIDE 1
+#define WALL_MODE_OUTSIDE 2
+uniform int wall_mode = 0;
 
 const float infinity = 1 / 0.f;
 uniform float threshold = 0;
@@ -51,10 +57,7 @@ void computemain() {
     const vec4 non_wall = vec4(-1, -1, infinity, 1);         // free space
 
     vec4 pixel = imageLoad(hitbox_texture, position);
-    bool is_wall = false;
-    if (pixel.r > threshold) {
-        is_wall = true;
-
+    if (pixel.a > threshold) {
         uint n_others = 0;
         for (uint i = 0; i < 8; ++i) {
             ivec2 neighbor_position = position + directions[i];
@@ -62,7 +65,7 @@ void computemain() {
                 continue;
 
             vec4 other = imageLoad(hitbox_texture, neighbor_position);
-            if (other.r > threshold)
+            if (other.a > threshold)
                 n_others += 1;
             else
                 break;
@@ -85,15 +88,26 @@ void computemain() {
     if (self.z == 0) // is outer wall
         return;
 
+    if ((wall_mode == WALL_MODE_INSIDE && self.w > 0) ||
+    (wall_mode == WALL_MODE_OUTSIDE && self.w < 0)) {
+        imageStore(output_texture, position, vec4(0));
+        return;
+    }
+
     vec4 best = self;
     for (int i = 0; i < 8; ++i) {
         ivec2 neighbor_position = position + directions[i] * jump_distance;
 
+        // if outside, skip
         if (neighbor_position.x < 0 || neighbor_position.x >= image_size.x || neighbor_position.y < 0 || neighbor_position.y >= image_size.y)
             continue;
 
         vec4 neighbor = imageLoad(input_texture, neighbor_position);
         if (neighbor.x < 0 || neighbor.y < 0) // is uninitialized
+            continue;
+
+        if ((wall_mode == WALL_MODE_INSIDE && neighbor.w > 0) ||
+            (wall_mode == WALL_MODE_OUTSIDE && neighbor.w < 0))
             continue;
 
         float dist = distance(vec2(position), vec2(neighbor.xy));
@@ -122,7 +136,7 @@ void computemain() {
         for (int j = -1; j <= 1; j++) {
             ivec2 current_position = position + ivec2(i, j);
             if (current_position.x < 0 || current_position.x >= image_size.x || current_position.y < 0 || current_position.y >= image_size.y)
-            continue;
+                continue;
 
             float value = imageLoad(input_texture, current_position).z;
             x_gradient += value * sobel_x[j + 1][i + 1];

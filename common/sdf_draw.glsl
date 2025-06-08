@@ -37,6 +37,11 @@ vec3 lch_to_rgb(vec3 lch) {
 
 uniform bool is_gradient;
 
+#define WALL_MODE_BOTH 0
+#define WALL_MODE_INSIDE 1
+#define WALL_MODE_OUTSIDE 2
+uniform int wall_mode = 0;
+
 vec4 effect(vec4 color, Image sdf_texture, vec2 texture_coords, vec2 screen_coords) {
     vec4 pixel = texture(sdf_texture, texture_coords);
     vec2 size = textureSize(sdf_texture, 0);
@@ -46,6 +51,11 @@ vec4 effect(vec4 color, Image sdf_texture, vec2 texture_coords, vec2 screen_coor
         return vec4(lch_to_rgb(vec3(0.8, pixel.z, angle)), 1);
     } else {
         float dist = pixel.z / (max(size.x, size.y) / 2);
+
+        if ((wall_mode == WALL_MODE_INSIDE && pixel.w > 0) ||
+            (wall_mode == WALL_MODE_OUTSIDE && pixel.w < 0))
+            discard;
+
         return vec4(vec3(dist), 1);
     }
 }
