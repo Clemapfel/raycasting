@@ -4,7 +4,6 @@ rt.settings.overworld.bubble_field = {
     n_smoothing_iterations = 2,
     alpha = 1,
     wave_deactivation_threshold = 1 / 1000,
-    simulate_waves = true,
     message_tick = 1 / 30,
 }
 
@@ -17,7 +16,7 @@ local _vertex_format = {
     { location = 0, name = "VertexPosition", format = "floatvec2" }
 }
 
-local _threads, _n_threads, _current_thread_id
+local _bubblefield_worker_code
 
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
@@ -26,10 +25,9 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._elapsed = 0
     self._hue = 0
     self._is_active = false
-    self._force_send_message = false
+    self._should_excite = false
+    self._excite_x, self._excite_y, self._excite_sign = 0, 0, 0
     self._message_elapsed = 0
-    self._use_threading = false
-
     self._camera_offset = {0, 0}
     self._camera_scale = 1
 
@@ -40,6 +38,10 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._body = object:create_physics_body(self._world)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
+
+    self._thread = love.thread.newThread(_bubblefield_worker_code)
+    self._main_to_worker = love.thread.newChannel()
+    self._worker_to_main = love.thread.newChannel()
 
     self._body:signal_connect("collision_start", function()
         local player = scene:get_player()
@@ -165,13 +167,6 @@ function ow.BubbleField:instantiate(object, stage, scene)
         end
     end
 
-    local first_segment = subdivided_contour[1]
-    local last_segment = subdivided_contour[#subdivided_contour]
-    table.insert(subdivided_contour, {
-        last_segment[3], last_segment[4],
-        first_segment[1], first_segment[2]
-    })
-
     -- laplacian smooth
     local smoothing_iterations = rt.settings.overworld.bubble_field.n_smoothing_iterations
     for smoothing_i = 1, smoothing_iterations do
@@ -200,7 +195,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         end
     end
 
-    local solid_tris = rt.math.triangulate(flat)
+    local solid_tris = rt.DelaunayTriangulation(flat, flat):get_triangles()
 
     if #solid_tris > 0 then
         local solid_data = {}
@@ -231,6 +226,11 @@ function ow.BubbleField:instantiate(object, stage, scene)
     center_x = center_x / n
     center_y = center_y / n
 
+    -- close loop
+    for i in range(1, 2) do
+        table.insert(self._contour, self._contour[i])
+    end
+
     self._contour_vectors = {}
     for i = 1, #self._contour, 2 do
         local dx = self._contour[i+0] - center_x
@@ -249,7 +249,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._polygon_positions = self._contour
     self._outline_positions = self._contour
 
-    self._n_points = #self._contour / 2
+    self._n_points = math.floor(#self._contour / 2)
     self._wave = {
         previous = table.rep(0, self._n_points),
         current = table.rep(0, self._n_points),
@@ -265,13 +265,7 @@ local _amplitude = 0.01
 
 local _handler_id = "overworld.bubble_field"
 local _pack_message = function(self)
-    if self._waiting_for_excite then
-        return {
-            is_excite_sentinel = true
-        }
-    end
-
-    return {
+    local out = {
         wave = self._wave,
         n_points = self._n_points,
         contour_vectors = self._contour_vectors,
@@ -285,211 +279,75 @@ local _pack_message = function(self)
         damping = _damping,
         courant = _courant,
         amplitude = _amplitude,
-        is_excite_sentinel = false
+        should_excite = self._should_excite,
+        excite_x = self._excite_x,
+        excite_y = self._excite_y,
+        excite_sign = self._excite_sign
     }
+
+    self._should_excite = false
+    return out
 end
-
-local _handler = function(data)
-    if data.is_excite_sentinel == true then
-        return {
-            is_excite_sentinel = true
-        }
-    end
-
-    -- Localize math functions for speed
-    local abs, max, mix2 = math.abs, math.max, math.mix2
-
-    -- Unpack data fields for faster access
-    local n_points = data.n_points
-    local courant2 = data.courant^2
-    local damping = data.damping
-    local wave = data.wave
-    local contour_vectors = data.contour_vectors
-    local center_x, center_y = data.contour_center_x, data.contour_center_y
-
-    -- Reuse or clear polygon_positions and outline_positions arrays
-    local polygon_positions = data.polygon_positions
-    local outline_positions = data.outline_positions
-    for i = 1, #polygon_positions do polygon_positions[i] = nil end
-    for i = 1, #outline_positions do outline_positions[i] = nil end
-
-    -- Wave equation solver
-    local offset_sum, offset_max = 0, -math.huge
-    local prev, curr, nextw = wave.previous, wave.current, wave.next
-
-    for i = 1, n_points do
-        local left = (i == 1) and n_points or (i - 1)
-        local right = (i == n_points) and 1 or (i + 1)
-        local new = 2 * curr[i] - prev[i] + courant2 * (curr[left] - 2 * curr[i] + curr[right])
-        new = new * damping
-        nextw[i] = new
-
-        local abs_new = abs(new)
-        offset_sum = offset_sum + abs_new
-        offset_max = max(offset_max, abs_new)
-
-        local entry = contour_vectors[i]
-        -- Directly assign to preallocated array
-        local idx = (i - 1) * 2
-        polygon_positions[idx + 1] = center_x + entry.dx * (1 + new) * entry.magnitude
-        polygon_positions[idx + 2] = center_y + entry.dy * (1 + new) * entry.magnitude
-    end
-
-    -- Rotate wave buffers
-    wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
-
-    if offset_max < data.wave_deactivation_threshold then
-        data.is_active = false
-    end
-
-    -- Outline positions: lerp between polygon points
-    local poly_len = #polygon_positions
-    for i = 1, poly_len - 2, 2 do
-        local x1, y1 = polygon_positions[i], polygon_positions[i+1]
-        local x2, y2 = polygon_positions[i+2], polygon_positions[i+3]
-        local x, y = mix2(x1, y1, x2, y2, 0.5)
-        outline_positions[#outline_positions+1] = x
-        outline_positions[#outline_positions+1] = y
-    end
-
-    -- close the outline loop
-    do
-        local x1, y1 = polygon_positions[1], polygon_positions[2]
-        local x2, y2 = polygon_positions[poly_len-1], polygon_positions[poly_len]
-        local x, y = mix2(x1, y1, x2, y2, 0.5)
-        outline_positions[#outline_positions+1] = x
-        outline_positions[#outline_positions+1] = y
-    end
-
-    -- triangulation
-    if _bubble_field_triangulator == nil then
-        _bubble_field_triangulator = rt.DelaunayTriangulation()
-    end
-
-    local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
-    if not success then
-        _bubble_field_triangulator:triangulate(polygon_positions, polygon_positions)
-        solid_tris = _bubble_field_triangulator:get_triangles()
-    end
-
-    -- Build mesh data
-    if #solid_tris > 0 then
-        local solid_data = data.mesh_data or {}
-        for i = 1, #solid_data do solid_data[i] = nil end -- clear previous mesh_data
-
-        local idx = 1
-        for tri in values(solid_tris) do
-            for j = 1, 6, 2 do
-                solid_data[idx] = { tri[j], tri[j+1] }
-                idx = idx + 1
-            end
-        end
-        data.mesh_data = solid_data
-    else
-        data.mesh_data = nil
-    end
-
-    return {
-        wave = data.wave,
-        mesh_data = data.mesh_data,
-        is_active = data.is_active,
-        outline_positions = data.outline_positions
-    }
-end
-
-rt.ThreadPool:register_handler(_handler_id, _handler)
 
 --- @brief
 function ow.BubbleField:update(delta)
     self._hue = self._hue + delta / 20 -- always update so color stays synched across stage
 
-    if  self._scene:get_is_body_visible(self._body) then
-        self._elapsed = self._elapsed + delta
-        self._camera_offset = { self._scene:get_camera():get_offset() }
-        self._camera_scale = self._scene:get_camera():get_scale()
-        self._message_elapsed = self._message_elapsed + delta
-    else
-        self._is_active = false
-    end
+    if not self._scene:get_is_body_visible(self._body) then return end
+    self._elapsed = self._elapsed + delta
+    self._camera_offset = { self._scene:get_camera():get_offset() }
+    self._camera_scale = self._scene:get_camera():get_scale()
+    self._message_elapsed = self._message_elapsed + delta
 
-    if rt.settings.overworld.bubble_field.simulate_waves and self._is_active then
-        if self._use_threading then
-            local messages = rt.ThreadPool:get_messages(self)
-            local n_messages = table.sizeof(messages)
+    if self._is_active then
+        local messages, n_messages = {}, 0
+        while self._worker_to_main:getCount() > 0 do
+            table.insert(messages, self._worker_to_main:pop())
+            n_messages = n_messages + 1
+        end
 
-            if n_messages > 0 then
-                if self._waiting_for_excite then
-                    for message in values(messages) do
-                        if message.is_excite_sentinel then
-                            self._waiting_for_excite = false
-                        end
+        -- prioritze excitation
+        local to_handle = {}
+        for message in values(messages) do
+            if message.is_excitation then
+                table.insert(to_handle, message)
+            end
+        end
+
+        if #to_handle == 0 then to_handle = { messages[n_messages] } end
+
+        if n_messages > 0 then
+            for data in values(to_handle) do
+                if not data.is_excite_sentinel then
+                    self._wave = data.wave
+                    if data.mesh_data ~= nil then
+                        self._solid_mesh = rt.Mesh(data.mesh_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
                     end
-                end
 
-                if not self._waiting_for_excite then
-                    local data = messages[n_messages] -- only use last message
-                    if not data.is_excite_sentinel then
-                        self._wave = data.wave
-                        if data.mesh_data ~= nil then
-                            self._solid_mesh = rt.Mesh(data.mesh_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
-                        end
-
-                        self._is_active = data.is_active
-                        self._outline_positions = data.outline_positions
-                    end
+                    self._is_active = data.is_active
+                    self._outline_positions = data.outline_positions
                 end
             end
+        end
 
-            if not self._waiting_for_excite and n_messages > 0 and self._message_elapsed > rt.settings.overworld.bubble_field.message_tick then
-                -- otherwise only send new message when old one is done
-                rt.ThreadPool:send_message(self, _handler_id, _pack_message(self))
-            end
-        else
-            if self._waiting_for_excite or self._elapsed > rt.settings.overworld.bubble_field.message_tick then
-                local data = _handler(_pack_message(self))
-                self._wave = data.wave
-                if data.mesh_data ~= nil then
-                    self._solid_mesh = rt.Mesh(data.mesh_data, rt.MeshDrawMode.TRIANGLES, _vertex_format):get_native()
-                end
-
-                self._is_active = data.is_active
-                self._outline_positions = data.outline_positions
-
-                self._message_elapsed = 0
-                self._waiting_for_excite = false
-            end
+        if not rt.GameState:get_is_performance_mode_enabled() and (self._should_excite or n_messages > 0) then
+            self._main_to_worker:push(_pack_message(self))
         end
     end
 end
 
 --- @brief
 function ow.BubbleField:_excite_wave(player_x, player_y, sign)
-    local min_distance, min_i = math.huge, nil
-    for i = 1, self._n_points do
-        local vector = self._contour_vectors[i]
-        local vx = self._contour_center_x + vector.dx * vector.magnitude
-        local vy = self._contour_center_y + vector.dy * vector.magnitude
-        local distance = math.distance(player_x, player_y, vx, vy)
-        if distance < min_distance then
-            min_distance = distance
-            min_i = i
-        end
-    end
-
-    local center_index, amplitude, width = min_i, sign * _amplitude, 5
-    for i = 1, self._n_points do
-        local distance = math.abs(i - center_index)
-        distance = math.min(distance, self._n_points - distance)
-        self._wave.current[i] = self._wave.current[i] + amplitude * math.exp(-((distance / width) ^ 2))
-    end
-
+    if rt.GameState:get_is_performance_mode_enabled() then return end
+    
     self._is_active = true
-    self._force_send_message = true
+    self._should_excite = true
+    self._excite_x, self._excite_y = player_x, player_y
+    self._excite_sign = sign
 
-    rt.ThreadPool:send_message(self, _handler_id, {
-        is_excite_sentinel = true -- ignore all messages until thread sends back confirmation, this doesn't guarantee that an excite is swallowed, but it makes it very unlikely
-    })
-    self._waiting_for_excite = false
+    if self._thread:isRunning() == false then
+        self._thread:start(self._main_to_worker, self._worker_to_main)
+    end
 end
 
 --- @brief
@@ -542,3 +400,140 @@ end
 function ow.BubbleField:get_render_priority()
     return -1
 end
+
+_bubblefield_worker_code = [[
+rt = {}
+
+require "common.common"
+meta = require "common.meta"
+require "love.timer"
+require "love.math"
+require "common.delaunay_triangulation"
+
+local main_to_worker, worker_to_main = ...
+
+local _handler = function(data)
+    -- Localize math functions for speed
+    local abs, max, mix2 = math.abs, math.max, math.mix2
+
+    -- Unpack data fields for faster access
+    local n_points = data.n_points
+    local courant2 = data.courant^2
+    local damping = data.damping
+    local wave = data.wave
+    local contour_vectors = data.contour_vectors
+    local center_x, center_y = data.contour_center_x, data.contour_center_y
+
+    -- Reuse or clear polygon_positions and outline_positions arrays
+    local polygon_positions = data.polygon_positions
+    local outline_positions = data.outline_positions
+    for i = 1, #polygon_positions do polygon_positions[i] = nil end
+    for i = 1, #outline_positions do outline_positions[i] = nil end
+
+    -- excitation
+    if data.should_excite then
+        local min_distance, min_i = math.huge, nil
+        for i = 1, data.n_points do
+            local vector = data.contour_vectors[i]
+            local vx = data.contour_center_x + vector.dx * vector.magnitude
+            local vy = data.contour_center_y + vector.dy * vector.magnitude
+            local distance = math.distance(data.excite_x, data.excite_y, vx, vy)
+            if distance < min_distance then
+                min_distance = distance
+                min_i = i
+            end
+        end
+
+        local center_index, amplitude, width = min_i, data.excite_sign * data.amplitude, 5
+        for i = 1, data.n_points do
+            local distance = math.abs(i - center_index)
+            distance = math.min(distance, data.n_points - distance)
+            data.wave.current[i] = data.wave.current[i] + amplitude * math.exp(-((distance / width) ^ 2))
+        end
+    end
+
+    -- Wave equation solver
+    local offset_sum, offset_max = 0, -math.huge
+    local prev, curr, nextw = wave.previous, wave.current, wave.next
+
+    for i = 1, n_points do
+        local left = (i == 1) and n_points or (i - 1)
+        local right = (i == n_points) and 1 or (i + 1)
+
+        local new = 2 * curr[i] - prev[i] + courant2 * (curr[left] - 2 * curr[i] + curr[right])
+        new = new * damping
+        nextw[i] = new
+
+        local abs_new = abs(new)
+        offset_sum = offset_sum + abs_new
+        offset_max = max(offset_max, abs_new)
+
+        local entry = contour_vectors[i]
+
+        local idx = (i - 1) * 2
+        polygon_positions[idx + 1] = center_x + entry.dx * (1 + new) * entry.magnitude
+        polygon_positions[idx + 2] = center_y + entry.dy * (1 + new) * entry.magnitude
+    end
+
+    -- Rotate wave buffers
+    wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
+
+    if offset_max < data.wave_deactivation_threshold then
+        data.is_active = false
+    end
+
+    -- Outline positions: lerp between polygon points
+    local poly_len = #polygon_positions
+    for i = 1, poly_len - 2, 2 do
+        local x1, y1 = polygon_positions[i], polygon_positions[i+1]
+        local x2, y2 = polygon_positions[i+2], polygon_positions[i+3]
+        local x, y = mix2(x1, y1, x2, y2, 0.5)
+        outline_positions[i+0] = x
+        outline_positions[i+1] = y
+    end
+
+    outline_positions[1] = polygon_positions[#polygon_positions-1]
+    outline_positions[2] = polygon_positions[#polygon_positions-0]
+
+    -- triangulation
+    if _bubble_field_triangulator == nil then
+        _bubble_field_triangulator = rt.DelaunayTriangulation()
+    end
+
+    local success, solid_tris = pcall(love.math.triangulate, polygon_positions)
+    if not success then
+        _bubble_field_triangulator:triangulate(polygon_positions, polygon_positions)
+        solid_tris = _bubble_field_triangulator:get_triangles()
+    end
+
+    -- Build mesh data
+    if #solid_tris > 0 then
+        local solid_data = data.mesh_data or {}
+        for i = 1, #solid_data do solid_data[i] = nil end -- clear previous mesh_data
+
+        local idx = 1
+        for tri in values(solid_tris) do
+            for j = 1, 6, 2 do
+                solid_data[idx] = { tri[j], tri[j+1] }
+                idx = idx + 1
+            end
+        end
+        data.mesh_data = solid_data
+    else
+        data.mesh_data = nil
+    end
+
+    return {
+        wave = data.wave,
+        mesh_data = data.mesh_data,
+        is_active = data.is_active,
+        is_excitation = data.should_excite,
+        outline_positions = data.outline_positions,
+    }
+end
+
+while true do
+    local message = main_to_worker:demand()
+    worker_to_main:push(_handler(message))
+end
+]]
