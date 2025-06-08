@@ -76,10 +76,10 @@ function ow.AcceleratorSurface:_update_particles(delta)
     local min_size, max_size = 2, 7
     local hue_offset = 0.2
     local lifetime_offset = 0.2 -- fraction
-    local lifetime = 1
+    local lifetime = 2
     local angle_offset = 1 -- fraction
     local gravity = 30
-    local min_speed, max_speed = 10, 30
+    local min_speed, max_speed = 20, 50
 
     local normal_x, normal_y = self._emission_nx, self._emission_ny
     local tangent_x, tangent_y = math.turn_left(self._emission_nx, self._emission_ny)
@@ -87,7 +87,7 @@ function ow.AcceleratorSurface:_update_particles(delta)
     -- spawn
     if self._is_active then
         self._particle_emission_elapsed = self._particle_emission_elapsed + delta
-        local step = 1 / emission_rate
+        local step = 1 / (emission_rate * (1 + self._scene:get_player():get_flow()))
         local player_hue = self._scene:get_player():get_hue()
         while self._particle_emission_elapsed >= step do
             local vx, vy = math.normalize(math.mix2(tangent_x, tangent_y, -normal_x, -normal_y, rt.random.number(0, 1) * angle_offset))
@@ -135,13 +135,14 @@ end
 --- @brief
 function ow.AcceleratorSurface:draw()
     if not self._scene:get_is_body_visible(self._body) then return end
-    _shader:bind()
+    --_shader:bind()
     _shader:send("camera_offset", self._camera_offset)
     _shader:send("camera_scale", self._camera_scale)
     _shader:send("elapsed", self._elapsed)
     _shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_physics_body():get_position()) })
     _shader:send("player_hue", self._scene:get_player():get_hue())
-    self._mesh:draw()
+    rt.Palette.GRAY_7:bind()
+    love.graphics.draw(self._mesh:get_native())
     _shader:unbind()
 
     love.graphics.setLineWidth(0.5)
