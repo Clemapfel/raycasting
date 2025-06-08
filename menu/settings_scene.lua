@@ -17,6 +17,7 @@ rt.settings.settings_scene = {
     sound_effect_level_default = 1,
     deadzone_default = 0.15,
     textspeed_default = 1,
+    performance_mode_default = false,
 
     scale_movement_ticks_per_second = 100,
     scale_movement_delay = 20 / 60,
@@ -50,6 +51,11 @@ end
 function mn.SettingsScene.Item:draw()
     self.prefix:draw()
     self.widget:draw()
+end
+
+function mn.SettingsScene.Item:measure()
+    local w, h = self.prefix:measure()
+    return w, h + 1.5 * rt.settings.margin_unit
 end
 
 --- @brief
@@ -208,14 +214,15 @@ function mn.SettingsScene:instantiate()
 
     do -- shake
         local shake_to_label = {
-            [true] = translation.shake_on,
-            [false] = translation.shake_off
+            [false] = translation.shake_off,
+            [true] = translation.shake_on
         }
+
         local label_to_shake = reverse(shake_to_label)
 
         local shake_button = mn.OptionButton({
-            shake_to_label[true],
-            shake_to_label[false]
+            shake_to_label[false],
+            shake_to_label[true]
         })
 
         shake_button:set_option(shake_to_label[rt.GameState:get_is_screen_shake_enabled()])
@@ -301,6 +308,34 @@ function mn.SettingsScene:instantiate()
             text_speed_scale:set_value(rt.settings.settings_scene.text_speed_default)
         end)
     end
+
+    do -- performance mode
+        local performance_mode_to_label = {
+            [false] = translation.performance_mode_off,
+            [true] = translation.performance_mode_on
+        }
+        local label_to_performance_mode = reverse(performance_mode_to_label)
+
+        local performance_mode_button = mn.OptionButton({
+            performance_mode_to_label[false],
+            performance_mode_to_label[true]
+        })
+
+        performance_mode_button:set_option(performance_mode_to_label[rt.GameState:get_is_performance_mode_enabled()])
+        performance_mode_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_performance_mode_enabled(label_to_performance_mode[label])
+        end)
+
+        local item = add_item(
+            translation.performance_mode_prefix, performance_mode_button,
+            mn.VerboseInfoObject.PERFORMANCE_MODE_ENABLED
+        )
+
+        item:signal_connect("reset", function(_)
+            performance_mode_button:set_option(performance_mode_to_label[rt.settings.settings_scene.performance_mode_default])
+        end)
+    end
+
 
     -- input
 
@@ -480,7 +515,8 @@ function mn.SettingsScene:update(delta)
     self._heading_label:update(delta)
     self._verbose_info:update(delta)
 
-    for item in values(self._items) do
+    for i = 1, self._list:get_n_items() do
+        local item = self._list:get_item(i)
         item.widget:update(delta)
     end
 

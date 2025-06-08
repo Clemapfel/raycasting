@@ -113,8 +113,7 @@ function ow.Hitbox:reinitialize()
     _initialized = false
 end
 
---- @brief
-function ow.Hitbox:draw_all()
+local _initialize = function()
     if _initialized ~= true then
         local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
         local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
@@ -149,6 +148,11 @@ function ow.Hitbox:draw_all()
 
         _initialized = true
     end
+end
+
+--- @brief
+function ow.Hitbox:draw_all()
+    _initialize()
 
     love.graphics.setLineJoin("bevel")
 
@@ -186,6 +190,21 @@ function ow.Hitbox:draw_all()
         end
 
         rt.graphics.set_stencil_compare_mode(nil)
+    end
+end
+
+--- @brief
+function ow.Hitbox:draw_mask(sticky_or_slippery)
+    _initialize()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    if sticky_or_slippery == false then
+        love.graphics.draw(_slippery_mesh)
+    elseif sticky_or_slippery == true then
+        love.graphics.draw(_sticky_mesh)
+    else
+        love.graphics.draw(_sticky_mesh)
+        love.graphics.draw(_slippery_mesh)
     end
 end
 

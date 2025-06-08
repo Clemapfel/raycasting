@@ -43,6 +43,7 @@ function rt.GameState:instantiate()
         text_speed = 1.0,
         joystick_deadzone = 0.15,
         trigger_deadzone = 0.05,
+        performance_mode_enabled = false,
 
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
 
@@ -168,6 +169,17 @@ end
 --- @brief
 function rt.GameState:get_is_screen_shake_enabled()
     return self._state.screen_shake_enabled
+end
+
+--- @brief
+function rt.GameState:get_is_performance_mode_enabled()
+    return self._state.performance_mode_enabled
+end
+
+--- @brief
+function rt.GameState:set_is_performance_mode_enabled(b)
+    meta.assert(b, "Boolean")
+    self._state.performance_mode_enabled = b
 end
 
 --- @brief

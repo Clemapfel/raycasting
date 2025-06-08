@@ -47,7 +47,6 @@ local function _create_flow_percentage_label(fraction)
     end
 end
 
-
 local _filled_star = "\u{2605}"
 local _outlined_star = "\u{2606}"
 local function _create_difficulty_label(score)

@@ -2,7 +2,6 @@ require "include"
 require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
-require "common.profiler"
 
 love.load = function(args)
     -- intialize all scenes

@@ -2,6 +2,7 @@ require "common.scene"
 require "common.input_subscriber"
 require "common.fade"
 require "common.thread_pool"
+require "common.palette"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,

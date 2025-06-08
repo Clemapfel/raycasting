@@ -70,7 +70,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
 
     local frame_thickness = rt.settings.frame.thickness
     item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
-    item_h = math.ceil(height / math.floor(height / item_h)) -- increase item_h such that it evenly divides height
+    --item_h = math.ceil(height / math.floor(height / item_h)) -- increase item_h such that it evenly divides height
     local item_w = width - scrollbar_w - m
 
     self._item_top_y = y

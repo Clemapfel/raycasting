@@ -19,6 +19,7 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     MUSIC_LEVEL = "music_level",
     MUSIC_LEVEL_WIDGET = "music_level_widget",
     SHAKE_ENABLED = "shake_enabled",
+    PERFORMANCE_MODE_ENABLED = "performance_mode_enabled",
     JOYSTICK_DEADZONE = "joystick_deadzone",
     JOYSTICK_DEADZONE_WIDGET = "deadzone_visualization_widget",
     TEXT_SPEED = "text_speed",

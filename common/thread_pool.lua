@@ -1,5 +1,5 @@
 rt.settings.thread_pool = {
-    max_n_threads = 4
+    max_n_threads = 2
 }
 
 --[[

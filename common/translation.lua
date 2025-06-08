@@ -153,11 +153,14 @@ rt.Translation = rt.initialize_translation({
         music_level_title = "Music",
         music_level_description = "TODO",
 
-        shake_enabled = "Screen Shake",
+        shake_enabled_title = "Screen Shake",
         shake_enabled_description = "TODO",
 
         joystick_deadzone_title = "Deadzone",
         joystick_deadzone_description = "TODO",
+
+        performance_mode_enabled_title = "Performance Mode",
+        performance_mode_enabled_description = "Reduces visual effects to achieve better performance on low-end machines, does not affect gameplay",
 
         text_speed_title = "Text Speed",
         text_speed_description = "TODO",
@@ -220,6 +223,10 @@ rt.Translation = rt.initialize_translation({
         shake_prefix = "Screen Shake",
         shake_on = "On",
         shake_off = "Off",
+
+        performance_mode_prefix = "Performance Mode",
+        performance_mode_on = "On",
+        performance_mode_off = "Off",
 
         music_level_prefix = "Music",
         sound_effect_level_prefix = "Sound Effects",

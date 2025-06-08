@@ -77,7 +77,10 @@ function rt.GameState:_update_save_worker()
         elseif message.type == MessageType.LOAD_SAVE_SUCCESS then
             -- { type, path, state }
             rt.log("Successfully loaded save from `" .. message.path .. "`")
-            self._state = message.state
+
+            for key, value in message.state do
+                self._state[key] = value
+            end
         elseif message.type == MessageType.ERROR then
             -- { type, reason }
             rt.error("In rt.GameState:_update_save_worker: Thread error: " .. message.reason)
