@@ -108,7 +108,7 @@ rt.Translation = rt.initialize_translation({
             control_indicator_select = "Select",
             control_indicator_move = "Move",
 
-            stage_select = "Select Level",
+            stage_select = "Stage Select",
             settings = "Settings",
             controls = "Controls",
             quit = "Quit"
