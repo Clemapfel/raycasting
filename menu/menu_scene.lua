@@ -242,7 +242,7 @@ function mn.MenuScene:instantiate(state)
 
         stage_select.items = {}
         stage_select.selected_item_i = 1
-        stage_select.n_items = 0
+        stage_select.n_items = 30 -- TODO
         stage_select.menu_x = 0
         stage_select.menu_y = 0
         stage_select.menu_height = 1
@@ -343,6 +343,32 @@ function mn.MenuScene:realize()
     self._stage_select.page_indicator:realize()
     self._stage_select.control_indicator:realize()
     self._stage_select.control_indicator:set_has_frame(false)
+
+    self:_create_from_state()
+end
+
+function mn.MenuScene:_create_from_state()
+    local stage_select = self._stage_select
+
+    local from = {
+        rt.StageGrade.SS,
+        rt.StageGrade.S,
+        rt.StageGrade.A,
+        rt.StageGrade.B,
+        rt.StageGrade.F,
+        rt.StageGrade.NONE
+    }
+
+    local from_i = 1
+    for i = 1, stage_select.n_items do
+        -- TODO: from state
+        stage_select.page_indicator:set_stage_grade(i, from[from_i])
+        from_i = from_i + 1
+        if from_i > #from then
+            from_i = 1
+        end
+    end
+
 end
 
 --- @brief
@@ -442,14 +468,13 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         )
 
         local current_x = x + width - outer_margin
-        local page_indicator_w = 20 * rt.get_pixel_scale()
+        local page_indicator_w = 30 * rt.get_pixel_scale()
         stage_select.page_indicator:reformat(
-            current_x - 0.5 * page_indicator_w,
+            current_x - page_indicator_w,
             outer_margin,
             page_indicator_w,
-            height - 2 * outer_margin
+            y + height - m - control_h - outer_margin
         )
-
 
         current_x = current_x - page_indicator_w - outer_margin
 
@@ -576,6 +601,9 @@ function mn.MenuScene:_set_state(next)
 
     if next == mn.MenuSceneState.FALLING or next == mn.MenuSceneState.STAGE_SELECT then
         self._stage_select.input:activate()
+        self._stage_select.page_indicator:set_selected_page(1)
+        self._stage_select.page_indicator:skip()
+
         self._player:set_gravity(1)
         self._player:set_is_bubble(false)
         self._player:enable()

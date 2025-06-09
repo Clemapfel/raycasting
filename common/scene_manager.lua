@@ -196,7 +196,7 @@ function rt.SceneManager:_draw_performance_metrics()
     local stats = love.graphics.getStats()
     local n_draws = stats.drawcalls
     local fps = love.timer.getFPS()
-    local gpu_side_memory = tostring(math.round(stats.texturememory / 1024 / 1024 * 10) / 10)
+    local gpu_side_memory = tostring(math.round(stats.texturememory / 1024 / 1024))
     local update_percentage = tostring(math.floor(_update_sum / _n_frames_captured * 100))
     local draw_percentage = tostring(math.floor(_draw_sum / _n_frames_captured * 100))
 
@@ -301,13 +301,7 @@ function love.run()
                 love.graphics.pop()
             end
 
-
-            local before = love.timer.getTime()
             love.graphics.present()
-            local d = love.timer.getTime() - before
-            if d > 1 / 60 then
-                dbg(d)
-            end
             _frame_i = _frame_i + 1
         end
 

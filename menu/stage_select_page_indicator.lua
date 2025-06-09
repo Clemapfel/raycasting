@@ -1,16 +1,25 @@
 require "common.player_body"
 require "common.smoothed_motion_1d"
+require "common.stage_grade"
+require "common.random" -- TODO
 
 --- @class mn.StageSelectPageIndicator
 mn.StageSelectPageIndicator = meta.class("StageSelectPageIndicator", rt.Widget)
 
+local _shader = nil
+
 --- @brief
 function mn.StageSelectPageIndicator:instantiate(n_pages)
     meta.assert(n_pages, "Number")
+
+    if _shader == nil then _shader = rt.Shader("menu/stage_select_page_indicator.glsl") end
+
     self._top_tri = {}
     self._bottom_tri = {}
     self._circles = {}
     self._n_pages = n_pages
+    self._page_i_to_grade = {}
+    self._elapsed = 0
 
     self._selection_x = 0
     self._selection_y = 0
@@ -18,14 +27,13 @@ function mn.StageSelectPageIndicator:instantiate(n_pages)
     self._selected_page_i = 1
 
     self._motion = rt.SmoothedMotion1D(0, 2 * rt.get_pixel_scale())
-
-    self._r = 1
-    self._g = 1
-    self._b = 1
-    self._a = 1
-    self._darken = rt.settings.player_body.outline_value_offset
     self._y_offset = 0
+end
 
+--- @brief
+function mn.StageSelectPageIndicator:set_stage_grade(i, grade)
+    meta.assert_enum_value(grade, rt.StageGrade, 2)
+    self._page_i_to_grade[i] = grade
 end
 
 --- @brief
@@ -46,6 +54,13 @@ end
 --- @brief
 function mn.StageSelectPageIndicator:update(delta)
     self._selection_y = self._motion:update(delta)
+    self._elapsed = self._elapsed + delta
+end
+
+--- @brief
+function mn.StageSelectPageIndicator:skip()
+    self._motion:set_value(self._motion:get_target_value())
+    self:update(0)
 end
 
 --- @brief
@@ -56,7 +71,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     self._selection_x = x + 0.5 * radius
     self._selection_radius = radius
 
-    local current_x, current_y = x + 0.5 * radius, y + 0.5 * radius
+    local current_x, current_y = x + 0.5 * width, y + 0.5 * radius
     self._top_tri = {
         current_x, current_y - radius,
         current_x - radius * math.sqrt(3) / 2, current_y + radius / 2,
@@ -86,31 +101,44 @@ end
 
 --- @brief
 function mn.StageSelectPageIndicator:draw()
-    local dark_r, dark_g, dark_b = self._r - self._darken, self._g - self._darken, self._b - self._darken
-    local r, g, b = self._r, self._g, self._b
-
     love.graphics.push()
     love.graphics.translate(0, self._y_offset)
 
     -- tris
     if self._selected_page_i > 1 then
-        love.graphics.setColor(r, g, b)
+        rt.Palette.GRAY_6:bind()
     else
-        love.graphics.setColor(dark_r, dark_g, dark_b)
+        rt.Palette.FOREGROUND:bind()
     end
     love.graphics.polygon("fill", self._top_tri)
 
     if self._selected_page_i < self._n_pages then
-        love.graphics.setColor(r, g, b)
+        rt.Palette.GRAY_6:bind()
     else
-        love.graphics.setColor(dark_r, dark_g, dark_b)
+        rt.Palette.FOREGROUND:bind()
     end
     love.graphics.polygon("fill", self._bottom_tri)
 
+    _shader:send("elapsed", self._elapsed)
+
     -- circle base
-    love.graphics.setColor(dark_r, dark_g, dark_b)
-    for circle in values(self._circles) do
+    love.graphics.setLineWidth(2)
+    for i, circle in ipairs(self._circles) do
+        local grade = self._page_i_to_grade[i]
+        if grade == rt.StageGrade.SS then
+            _shader:send("state", 1) -- perfect
+        elseif grade == rt.StageGrade.F or grade == rt.StageGrade.NONE then
+            _shader:send("state", -1) -- shadow
+            _shader:send("color", { rt.Palette.STAGE_GRADE_TO_COLOR[grade]:unpack() })
+        else
+            _shader:send("state", 0) -- shadow + highlight
+            _shader:send("color", { rt.Palette.STAGE_GRADE_TO_COLOR[grade]:unpack() })
+        end
+
+        _shader:bind()
+        love.graphics.setColor(1, 1, 1, 1)
         love.graphics.circle("fill", table.unpack(circle))
+        _shader:unbind()
     end
 
     -- outlines
@@ -129,10 +157,12 @@ function mn.StageSelectPageIndicator:draw()
     love.graphics.setLineWidth((3 + 2) * rt.get_pixel_scale())
     love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius)
 
-    love.graphics.setColor(self._r, self._g, self._b, self._a)
+    rt.Palette.FOREGROUND:bind()
     love.graphics.setLineWidth(3 * rt.get_pixel_scale())
     love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius)
 
     love.graphics.pop()
+
+    self:draw_bounds()
 end
 

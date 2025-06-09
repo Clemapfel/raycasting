@@ -74,11 +74,15 @@ end
 
 local padding = 5
 local particle_which = 0
+local _total_n_particles = 0
+local _max_n_particles = 1000
 
 --- @brief
 function ow.AcceleratorSurface:_update_particles(delta)
-    local player_vx, player_vy = self._scene:get_player():get_velocity()
-    local emission_rate = math.magnitude(player_vx, player_vy) / 10
+    local min_emission_factor = 0.5
+    local player = self._scene:get_player()
+    local player_vx, player_vy = player:get_velocity()
+    local emission_rate = math.mix(0, 10, math.min(player:get_flow() + (math.magnitude(player_vx, player_vy) / 10), 1))
     local min_size, max_size = 2, 7
     local hue_offset = 0.2
     local lifetime_offset = 0.2 -- fraction
@@ -141,9 +145,19 @@ function ow.AcceleratorSurface:_update_particles(delta)
             end
 
             table.insert(self._particles, particle)
+            _total_n_particles = _total_n_particles + 1
             self._particle_emission_elapsed = self._particle_emission_elapsed - step
         end
     end
+
+    local camera = self._scene:get_camera()
+    local top_x, top_y = camera:screen_xy_to_world_xy(0, 0)
+    local bottom_x, bottom_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
+
+    top_x = top_x - 2 * max_size
+    top_y = top_y - 2 * max_size
+    bottom_x = bottom_x + 2 * max_size
+    bottom_y = bottom_y + 2 * max_size
 
     -- simulate
     local to_remove = {}
@@ -153,12 +167,18 @@ function ow.AcceleratorSurface:_update_particles(delta)
         particle.lifetime_elapsed = particle.lifetime_elapsed + delta
 
         particle.opacity = 1 - particle.lifetime_elapsed / (particle.lifetime_multiplier * lifetime)
-        if particle.opacity <= 0 then
+
+        local x, y = particle.position_x, particle.position_y
+        if particle.lifetime_elapsed > (particle.lifetime_multiplier * lifetime) or -- scheduled end of lifetime
+            x < top_x or y < top_y or x > bottom_x or y > bottom_y or -- despawn off-screen
+            _total_n_particles > _max_n_particles -- prevent lag
+        then
             table.insert(to_remove, i)
+            _total_n_particles = _total_n_particles - 1
         end
     end
 
-    to_remove = table.sort(to_remove, function(a, b)
+    table.sort(to_remove, function(a, b)
         return a > b
     end)
 
@@ -168,6 +188,9 @@ function ow.AcceleratorSurface:_update_particles(delta)
         self._shape_particles[particle] = nil
         self._texture_particles[particle] = nil
     end
+
+    dbg(_total_n_particles, _max_n_particles)
+
 end
 
 --- @brief
@@ -187,11 +210,11 @@ function ow.AcceleratorSurface:draw()
 
     love.graphics.setLineWidth(0.5)
     local w, h = self._particle_mesh_texture:get_size()
-    local damp = 0.8
 
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD)
+    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.NORMAL)
     for particle in keys(self._texture_particles) do
-        love.graphics.setColor(damp * particle.r, damp * particle.g, damp * particle.b, particle.opacity * 0.5)
+        local damp = particle.opacity
+        love.graphics.setColor(damp * particle.r, damp * particle.g, damp * particle.b, 1)
         love.graphics.draw(self._particle_mesh_texture:get_native(), particle.position_x, particle.position_y, 0, particle.scale, particle.scale, 0.5 * w, 0.5 * h)
     end
 
