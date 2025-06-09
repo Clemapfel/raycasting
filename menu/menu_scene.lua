@@ -837,21 +837,23 @@ function mn.MenuScene:draw()
             _outline_canvas = rt.RenderTexture(love.graphics.getDimensions())
         end
 
-        for widget in range(
-            item.frame,
-            item.title_label,
-            item.difficulty_prefix_label,
-            item.difficulty_colon_label,
-            item.difficulty_value_label,
-            item.flow_prefix_label,
-            item.flow_colon_label,
-            item.flow_value_label,
-            item.time_prefix_label,
-            item.time_colon_label,
-            item.time_value_label,
-            item.description_label
-        ) do
-            --widget:draw()
+        if item ~= nil then
+            for widget in range(
+                item.frame,
+                item.title_label,
+                item.difficulty_prefix_label,
+                item.difficulty_colon_label,
+                item.difficulty_value_label,
+                item.flow_prefix_label,
+                item.flow_colon_label,
+                item.flow_value_label,
+                item.time_prefix_label,
+                item.time_colon_label,
+                item.time_value_label,
+                item.description_label
+            ) do
+                --widget:draw()
+            end
         end
 
         --rt.Palette.FOREGROUND:bind()
