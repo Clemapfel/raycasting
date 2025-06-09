@@ -44,6 +44,7 @@ function rt.GameState:instantiate()
         joystick_deadzone = 0.15,
         trigger_deadzone = 0.05,
         performance_mode_enabled = false,
+        draw_debug_information = true,
 
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
 
@@ -180,6 +181,17 @@ end
 function rt.GameState:set_is_performance_mode_enabled(b)
     meta.assert(b, "Boolean")
     self._state.performance_mode_enabled = b
+end
+
+--- @brief
+function rt.GameState:set_draw_debug_information(b)
+    meta.assert(b, "Boolean")
+    self._state.draw_debug_information = b
+end
+
+--- @brief
+function rt.GameState:get_draw_debug_information()
+    return self._state.draw_debug_information
 end
 
 --- @brief

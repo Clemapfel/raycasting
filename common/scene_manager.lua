@@ -24,7 +24,6 @@ function rt.SceneManager:instantiate()
         _schedule_enter = false,
         
         _scene_stack = {}, -- Stack<SceneType>
-        _show_performance_metrics = true,
         _width = love.graphics.getWidth(),
         _height = love.graphics.getHeight(),
         _fade = rt.Fade(),
@@ -166,17 +165,6 @@ function rt.SceneManager:get_current_scene()
     return self._current_scene
 end
 
---- @brief
-function rt.SceneManager:set_show_performance_metrics(b)
-    assert(type(b) == "boolean")
-    self._show_performance_metrics = b
-end
-
---- @brief
-function rt.SceneManager:get_show_performance_metrics()
-    return self._show_performance_metrics
-end
-
 local _n_frames_captured = 120
 
 local _last_update_times = {}
@@ -184,28 +172,52 @@ local _update_sum = 0
 
 local _last_draw_times = {}
 local _draw_sum = 0
+
+local _last_fps = {}
+local _fps_sum = _n_frames_captured * 60
+
+local _last_fps_variance = {}
+local _last_fps_variance_sum = 0
+
 local _default_font = love.graphics.getFont()
 
 for i = 1, _n_frames_captured do
     table.insert(_last_update_times, 0)
     table.insert(_last_draw_times, 0)
+    table.insert(_last_fps, 60)
+    table.insert(_last_fps_variance, 0)
 end
 
 --- @brief [internal]
 function rt.SceneManager:_draw_performance_metrics()
+    -- compute mean, variance, max
     local stats = love.graphics.getStats()
     local n_draws = stats.drawcalls
-    local fps = love.timer.getFPS()
-    local gpu_side_memory = tostring(math.round(stats.texturememory / 1024 / 1024))
-    local update_percentage = tostring(math.floor(_update_sum / _n_frames_captured * 100))
-    local draw_percentage = tostring(math.floor(_draw_sum / _n_frames_captured * 100))
+
+    local fps_mean = tostring(math.ceil(_fps_sum / _n_frames_captured))
+    local fps_variance = tostring(math.ceil(_last_fps_variance_sum / _n_frames_captured))
+    local gpu_side_memory = tostring(math.ceil(stats.texturememory / 1024 / 1024))
+    local update_percentage = tostring(math.ceil(_update_sum / _n_frames_captured * 100))
+    local draw_percentage = tostring(math.ceil(_draw_sum / _n_frames_captured * 100))
+
+    while #fps_mean < 3 do
+        fps_mean = "0" .. fps_mean
+    end
+
+    while #update_percentage < 3 do
+        update_percentage = "0" .. update_percentage
+    end
+
+    while #draw_percentage < 3 do
+        draw_percentage = "0" .. draw_percentage
+    end
 
     local str = table.concat({
-        fps, " fps | ",             -- love-measure fps
+        fps_mean, " \u{00B1} " .. fps_variance .. " fps | ",             -- max frame duration
         update_percentage, "% | ",   -- frame usage, how much of a frame was taken up by the game
         draw_percentage, "% | ",
         n_draws, " draws | ",       -- total number of draws
-        gpu_side_memory, " mb"       -- vram usage
+        gpu_side_memory, " mb ",       -- vram usage
     })
 
     love.graphics.setFont(_default_font)
@@ -294,7 +306,7 @@ function love.run()
             love.draw()
             draw_after = love.timer.getTime()
 
-            if rt.SceneManager._show_performance_metrics then
+            if rt.GameState:get_draw_debug_information() then
                 love.graphics.push()
                 love.graphics.origin()
                 rt.SceneManager:_draw_performance_metrics()
@@ -305,7 +317,7 @@ function love.run()
             _frame_i = _frame_i + 1
         end
 
-        local fps = love.timer.getFPS()
+        local fps = 1 / math.max(love.timer.getDelta(), 1 / 500)
         if fps == 0 then fps = 60 end
 
         local update_time = (update_after - update_before) / (1 / fps)
@@ -320,6 +332,27 @@ function love.run()
         table.remove(_last_draw_times, 1)
         table.insert(_last_draw_times, draw_time)
         _draw_sum = _draw_sum - draw_start + draw_time
+
+        local fps_start = _last_fps[1]
+        table.remove(_last_fps, 1)
+        table.insert(_last_fps, 1 / love.timer.getDelta())
+        _fps_sum = _fps_sum - fps_start + fps
+
+        local variance
+        do
+            local fps_min, fps_max = math.huge, -math.huge
+            for x in values(_last_fps) do
+                fps_min = math.max(x, fps_max)
+                fps_max = math.min(x, fps_min)
+            end
+            local mean = _fps_sum / _n_frames_captured
+            variance = math.max(math.abs(mean - fps_min), math.abs(mean - fps_max))
+        end
+
+        local variance_start = _last_fps_variance[1]
+        table.remove(_last_fps_variance, 1)
+        table.insert(_last_fps_variance, variance)
+        _last_fps_variance_sum = _last_fps_variance_sum - variance_start + variance
 
         meta._benchmark = {}
         collectgarbage("step") -- helps catch gc-related bugs
