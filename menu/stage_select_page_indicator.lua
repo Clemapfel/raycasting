@@ -81,6 +81,8 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     local current_x, current_y = x + 0.5 * width, y + 0.5 * radius
 
     local top_y = y + 0.5 * radius
+    local tri_x = current_x
+    local tri_y = 0
     self._top_tri = {
         current_x, top_y - radius,
         current_x - radius * math.sqrt(3) / 2, top_y + radius / 2,
