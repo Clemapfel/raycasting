@@ -30,6 +30,7 @@ function mn.StageSelectPageIndicator:instantiate(n_pages)
     self._motion = rt.SmoothedMotion1D(0, 2 * rt.get_pixel_scale())
     self._y_offset = 0 -- for centering widget overall
     self._scroll_offset = 0 -- for scrolling
+    self._total_item_height = 0
     self._radius = 1
 end
 
@@ -59,8 +60,18 @@ function mn.StageSelectPageIndicator:update(delta)
     self._selection_y = self._motion:update(delta)
     self._elapsed = self._elapsed + delta
 
-    local center = self._bounds.y + 0.5 * self._bounds.height
-    self._scroll_offset = center - self._selection_y
+    local current = self._selection_y
+    local center = self._bounds.y + 0.5 * self._bounds.height - self._y_offset
+    local max_offset = self._total_item_height - self._stencil.height
+
+    if current >= center then
+        local new_offset = current - center
+        new_offset = math.min(new_offset, max_offset)
+
+        self._scroll_offset = -1 * new_offset
+    else
+        self._scroll_offset = 0
+    end
 end
 
 --- @brief
@@ -92,7 +103,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     local tri_h = 2 * radius
     current_y = current_y + tri_h
 
-    local padding = 7 * rt.get_pixel_scale()
+    local padding = 12 * rt.get_pixel_scale()
     self._stencil:reformat(
         x - padding, y + radius + 0.5 * padding,
         width + 2 * padding, height - 2 * radius - 2 * 0.5 * padding
@@ -101,10 +112,14 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     self._circles = {}
     local circle_height = height - 2 * radius
     local circle_m = 0.5 * m
+    local total_circle_height = 0
     for i = 1, self._n_pages do
         table.insert(self._circles, { current_x, current_y, radius })
         current_y = current_y + 2 * radius + circle_m
+        total_circle_height = total_circle_height + 2 * radius + circle_m
     end
+
+    self._total_item_height = total_circle_height
 
     local bottom_y = math.min(y + height - 0.5 * radius, current_y)
     self._bottom_tri = {

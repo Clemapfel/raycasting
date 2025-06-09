@@ -242,7 +242,7 @@ function mn.MenuScene:instantiate(state)
 
         stage_select.items = {}
         stage_select.selected_item_i = 1
-        stage_select.n_items = 30 -- TODO
+        stage_select.n_items = 20
         stage_select.menu_x = 0
         stage_select.menu_y = 0
         stage_select.menu_height = 1
