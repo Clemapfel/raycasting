@@ -820,7 +820,7 @@ function rt.Label:_apply_wrapping()
 
             if glyph.is_underlined or glyph.is_strikethrough then
                 local font = glyph.font
-                local underline_y = font:getBaseline() + 0.5 * font:getHeight() + font:getDescent() + 2
+                local underline_y = font:getBaseline() + 0.5 * font:getHeight() + font:getDescent() + 4 -- experimentally determined
                 local strikethrough_y = font:getBaseline()
 
                 if glyph.is_underlined then
@@ -869,7 +869,7 @@ function rt.Label:_apply_wrapping()
                 last_glyph_strikethrough_bx = -math.huge
             end
 
-            last_r, last_g, last_b, _ = table.unpack(glyph.color)
+            last_r, last_g, last_b = table.unpack(glyph.color)
         end
 
         min_x = math.min(min_x, glyph_x) -- consider non-glyphs for size
