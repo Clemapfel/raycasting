@@ -70,7 +70,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
 
     local frame_thickness = rt.settings.frame.thickness
     item_h = item_h - ((self._n_items - 1) * item_y_margin) / self._n_items
-    --item_h = math.ceil(height / math.floor(height / item_h)) -- increase item_h such that it evenly divides height
+    item_h = math.ceil(height / math.floor(height / item_h))
     local item_w = width - scrollbar_w - m
 
     self._item_top_y = y
@@ -79,11 +79,13 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
     for i, item in ipairs(self._items) do
         local current_y = y + (i - 1) * item_total_height
 
-        for frame in range(
-            item.frame,
-            item.selected_frame
-        ) do
-            frame:reformat(x + frame_thickness, current_y + frame_thickness, item_w - 2 * frame_thickness, item_h - 2 * frame_thickness)
+        for frame in range(item.frame, item.selected_frame) do
+            frame:reformat(
+                x + frame_thickness,
+                current_y + frame_thickness,
+                item_w - 2 * frame_thickness,
+                item_h - 2 * frame_thickness
+            )
         end
 
         item.widget:reformat(x, current_y, item_w, item_h)

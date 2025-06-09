@@ -1,5 +1,6 @@
 rt.settings.font = {
     default = nil,
+    love_default = love.graphics.getFont()
 }
 
 --- @class rt.Font

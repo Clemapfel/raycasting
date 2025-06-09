@@ -1519,6 +1519,11 @@ function rt.Player:set_flow_velocity(x)
 end
 
 --- @brief
+function rt.Player:get_flow_velocity()
+    return self._flow_velocity
+end
+
+--- @brief
 function rt.Player:set_flow_is_frozen(b)
     self._flow_frozen = b
 end

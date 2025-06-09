@@ -44,7 +44,6 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         if which == "h" then
             local before = love.timer.getTime()
             _shader:recompile()
-            dbg(love.timer.getTime() - before)
         end
     end)
 end
@@ -188,9 +187,6 @@ function ow.AcceleratorSurface:_update_particles(delta)
         self._shape_particles[particle] = nil
         self._texture_particles[particle] = nil
     end
-
-    dbg(_total_n_particles, _max_n_particles)
-
 end
 
 --- @brief

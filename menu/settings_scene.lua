@@ -18,6 +18,7 @@ rt.settings.settings_scene = {
     deadzone_default = 0.15,
     textspeed_default = 1,
     performance_mode_default = false,
+    draw_debug_info_default = false,
 
     scale_movement_ticks_per_second = 100,
     scale_movement_delay = 20 / 60,
@@ -333,6 +334,33 @@ function mn.SettingsScene:instantiate()
 
         item:signal_connect("reset", function(_)
             performance_mode_button:set_option(performance_mode_to_label[rt.settings.settings_scene.performance_mode_default])
+        end)
+    end
+
+    do -- debug print
+        local draw_debug_info_to_label = {
+            [false] = translation.draw_debug_info_off,
+            [true] = translation.draw_debug_info_on
+        }
+        local label_to_draw_debug_info = reverse(draw_debug_info_to_label)
+
+        local draw_debug_info_button = mn.OptionButton({
+            draw_debug_info_to_label[false],
+            draw_debug_info_to_label[true]
+        })
+
+        draw_debug_info_button:set_option(draw_debug_info_to_label[rt.GameState:get_draw_debug_information()])
+        draw_debug_info_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_draw_debug_information(label_to_draw_debug_info[label])
+        end)
+
+        local item = add_item(
+            translation.draw_debug_info_prefix, draw_debug_info_button,
+            mn.VerboseInfoObject.DRAW_DEBUG_INFO_ENABLED
+        )
+
+        item:signal_connect("reset", function(_)
+            draw_debug_info_button:set_option(draw_debug_info_to_label[rt.settings.settings_scene.draw_debug_info_default])
         end)
     end
 

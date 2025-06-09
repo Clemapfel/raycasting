@@ -16,7 +16,7 @@ function b2.World:instantiate()
         _use_fixed_timestep = true,
         _current_timestamp = love.timer.getTime(),
         _last_timestamp = love.timer.getTime(),
-
+        _n_updates = 0,
         _body_to_collision_sign = {}
     })
 
@@ -205,6 +205,7 @@ function b2.World:update(delta)
 
         -- update
         self._native:update(step, _n_velocity_iterations, 2)
+        self._n_updates = self._n_updates + 1
 
         self:_end_collision_resolution()
 
@@ -417,4 +418,9 @@ end
 --- @brief
 function b2.World:get_use_fixed_timestep()
     return self._use_fixed_timestep
+end
+
+--- @brief
+function b2.World:get_n_updates()
+    return self._n_updates
 end

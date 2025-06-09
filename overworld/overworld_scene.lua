@@ -337,11 +337,11 @@ end
 --- @brief
 function ow.OverworldScene:get_run_duration()
     -- round to nearest multiple of physics time step, frame-rate independent timing
-    local current = self._stage:get_physics_world():get_timestamp()
+    local current = love.timer.getTime()
     local min_step = self._stage:get_physics_world():get_timestep()
     local duration = (current - self._stage_duration_start_time)
     local rounded_duration = math.floor((duration / min_step) + 0.5) * min_step
-    return duration
+    return duration, self._stage:get_physics_world():get_n_updates()
 end
 
 --- @brief
@@ -464,6 +464,58 @@ function ow.OverworldScene:draw()
 
     if self._pause_menu_active then
         self._pause_menu:draw()
+    end
+
+    if rt.GameState:get_draw_debug_information() then
+        local player = self._player
+        local flow_percentage = player:get_flow()
+        local flow_velocity = player:get_flow_velocity()
+
+        local velocity_fraction
+
+        if player:get_is_bubble() then
+            local bubble_target = rt.settings.player.bubble_target_velocity
+            local current = math.magnitude(player:get_velocity())
+            velocity_fraction = current / bubble_target
+        else
+            local x_velocity = select(1, player:get_velocity())
+            if player:get_is_grounded() then
+                velocity_fraction = x_velocity / rt.settings.player.ground_target_velocity_x
+            else
+                velocity_fraction = x_velocity / rt.settings.player.air_target_velocity_x
+            end
+        end
+
+        flow_percentage = tostring(math.round(flow_percentage * 100) / 100)
+        flow_velocity = ternary(flow_velocity >= 0, "+", "-")
+        velocity_fraction = tostring(math.round(velocity_fraction * 10) / 10 * 100)
+
+        while #velocity_fraction < 3 do
+            velocity_fraction = "0" .. velocity_fraction
+        end
+
+        local pressed, unpressed = "1", "0"
+        local up = ternary(self._player._up_button_is_down, pressed, unpressed)
+        local right = ternary(self._player._right_button_is_down, pressed, unpressed)
+        local down = ternary(self._player._down_button_is_down, pressed, unpressed)
+        local left = ternary(self._player._left_button_is_down, pressed, unpressed)
+        local a = ternary(self._player._jump_button_is_down, pressed, unpressed)
+        local b = ternary(self._player._sprint_button_is_down, pressed, unpressed)
+
+
+        local duration, n_steps = self:get_run_duration()
+        local time = string.format_time(duration) .. " (" .. n_steps .. ")"
+
+        local to_concat = {
+            up .. right .. down .. left .. " " .. a .. b,
+            "flow : " .. flow_percentage .. "% (" .. flow_velocity .. ")",
+            time,
+            --"speed : " .. velocity_fraction .. "%",
+        }
+
+        love.graphics.setFont(rt.settings.font.love_default)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.printf(table.concat(to_concat, " | "), 5, 5, math.huge)
     end
 end
 

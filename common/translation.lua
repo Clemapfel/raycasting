@@ -162,6 +162,9 @@ rt.Translation = rt.initialize_translation({
         performance_mode_enabled_title = "Performance Mode",
         performance_mode_enabled_description = "Reduces visual effects to achieve better performance on low-end machines, does not affect gameplay",
 
+        draw_debug_info_enabled_title = "Draw Debug Information",
+        draw_debug_info_enabled_description = "TODO",
+
         text_speed_title = "Text Speed",
         text_speed_description = "TODO",
         text_speed_visualization_text = "asbdl aiudbalisda idbasd baslidbalis dba",
@@ -227,6 +230,10 @@ rt.Translation = rt.initialize_translation({
         performance_mode_prefix = "Performance Mode",
         performance_mode_on = "On",
         performance_mode_off = "Off",
+
+        draw_debug_info_prefix = "Draw Debug Info",
+        draw_debug_info_on = "Yes",
+        draw_debug_info_off = "No",
 
         music_level_prefix = "Music",
         sound_effect_level_prefix = "Sound Effects",

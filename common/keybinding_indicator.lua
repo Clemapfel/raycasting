@@ -977,8 +977,18 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
 
         local inner_x, inner_y = outer_x + left_trapezoid_w, outer_y + top_trapezoid_h
         local inner_padding = 0.005 * outer_w
-        local inner = _Rectangle(inner_x - inner_padding, inner_y - inner_padding, inner_w + 2 * inner_padding, inner_h + 2 * inner_padding)
-        local inner_outline = _Rectangle(inner_x - inner_padding, inner_y - inner_padding, inner_w + 2 * inner_padding, inner_h + 2 * inner_padding)
+        local inner = _Rectangle(
+            inner_x - inner_padding,
+            inner_y - inner_padding,
+            inner_w + 2 * inner_padding,
+            inner_h + 2 * inner_padding
+        )
+        local inner_outline = _Rectangle(
+            inner_x - inner_padding,
+            inner_y - inner_padding,
+            inner_w + 2 * inner_padding,
+            inner_h + 2 * inner_padding
+        )
 
         for rectangle in range(outer, inner, outer_outline, inner_outline) do
             rectangle.corner_radius = 4
@@ -1207,7 +1217,7 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
         local bottom_center_x, bottom_center_y = center_x, center_y
         local left_center_x, left_center_y = center_x - 2 * rect_r, center_y
 
-        local label_offset = 0.5 * line_width * rt.get_pixel_scale() -- why is this necessary?
+        local label_offset = 0.5 * line_width * rt.get_pixel_scale()
 
         local top_base = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)
         local top_outline = _Rectangle(top_center_x - rect_r, top_center_y - rect_r, 2 * rect_r, 2 * rect_r)

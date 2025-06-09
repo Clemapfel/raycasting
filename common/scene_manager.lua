@@ -194,8 +194,8 @@ function rt.SceneManager:_draw_performance_metrics()
     local stats = love.graphics.getStats()
     local n_draws = stats.drawcalls
 
-    local fps_mean = tostring(math.ceil(_fps_sum / _n_frames_captured))
-    local fps_variance = tostring(math.ceil(_last_fps_variance_sum / _n_frames_captured))
+    local fps_mean = tostring(love.timer.getFPS()) --math.ceil(_fps_sum / _n_frames_captured))
+    local fps_variance = tostring(math.ceil((_fps_sum / _n_frames_captured) / (_last_fps_variance_sum / _n_frames_captured)))
     local gpu_side_memory = tostring(math.ceil(stats.texturememory / 1024 / 1024))
     local update_percentage = tostring(math.ceil(_update_sum / _n_frames_captured * 100))
     local draw_percentage = tostring(math.ceil(_draw_sum / _n_frames_captured * 100))
@@ -213,7 +213,7 @@ function rt.SceneManager:_draw_performance_metrics()
     end
 
     local str = table.concat({
-        fps_mean, " \u{00B1} " .. fps_variance .. " fps | ",             -- max frame duration
+        fps_mean, " fps \u{00B1} " .. fps_variance .. "% | ",             -- max frame duration
         update_percentage, "% | ",   -- frame usage, how much of a frame was taken up by the game
         draw_percentage, "% | ",
         n_draws, " draws | ",       -- total number of draws
@@ -338,7 +338,7 @@ function love.run()
         table.insert(_last_fps, 1 / love.timer.getDelta())
         _fps_sum = _fps_sum - fps_start + fps
 
-        local variance
+        local variance = 0
         do
             local fps_min, fps_max = math.huge, -math.huge
             for x in values(_last_fps) do
