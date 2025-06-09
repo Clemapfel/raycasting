@@ -31,12 +31,15 @@ function mn.StageSelectPageIndicator:instantiate(n_pages)
     self._scroll_offset = 0 -- for scrolling
     self._total_item_height = 0
     self._radius = 1
+
+    self._circle_mapping_upgrade_needed = true
 end
 
 --- @brief
 function mn.StageSelectPageIndicator:set_stage_grade(i, grade)
     meta.assert_enum_value(grade, rt.StageGrade, 2)
     self._page_i_to_grade[i] = grade
+    self._circle_mapping_upgrade_needed = true
 end
 
 --- @brief
@@ -59,17 +62,21 @@ function mn.StageSelectPageIndicator:update(delta)
     self._selection_y = self._motion:update(delta)
     self._elapsed = self._elapsed + delta
 
-    local current = self._selection_y
-    local center = self._bounds.y + 0.5 * self._bounds.height
-    local max_offset = self._total_item_height - (self._stencil.height - (self._stencil.y - self._bounds.y))
-
-    if current >= center then
-        local new_offset = current - center
-        new_offset = math.min(new_offset, max_offset)
-
-        self._scroll_offset = -1 * new_offset
-    else
+    if self._total_item_height <= self._stencil.height then
         self._scroll_offset = 0
+    else
+        local current = self._selection_y
+        local center = self._bounds.y + 0.5 * self._bounds.height
+        local max_offset = self._total_item_height - (self._stencil.height - (self._stencil.y - self._bounds.y))
+
+        if current >= center then
+            local new_offset = current - center
+            new_offset = math.min(new_offset, max_offset)
+
+            self._scroll_offset = -1 * new_offset
+        else
+            self._scroll_offset = 0
+        end
     end
 end
 
@@ -93,10 +100,11 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     local top_y = y + 0.5 * radius
     local tri_x = current_x
     local tri_y = 0
+    local tri_r = radius
     self._top_tri = {
-        current_x, top_y - radius,
-        current_x - radius * math.sqrt(3) / 2, top_y + radius / 2,
-        current_x + radius * math.sqrt(3) / 2, top_y + radius / 2
+        current_x, top_y - tri_r,
+        current_x - tri_r * math.sqrt(3) / 2, top_y + tri_r / 2,
+        current_x + tri_r * math.sqrt(3) / 2, top_y + tri_r / 2
     }
 
     local tri_h = 2 * radius
@@ -122,9 +130,9 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
 
     local bottom_y = math.min(y + height - 0.5 * radius, current_y)
     self._bottom_tri = {
-        current_x, bottom_y + radius,
-        current_x - radius * math.sqrt(3) / 2, bottom_y - radius / 2,
-        current_x + radius * math.sqrt(3) / 2, bottom_y - radius / 2
+        current_x, bottom_y + tri_r,
+        current_x - tri_r * math.sqrt(3) / 2, bottom_y - tri_r / 2,
+        current_x + tri_r * math.sqrt(3) / 2, bottom_y - tri_r / 2
     }
 
     self:set_selected_page(self._selected_page_i)
@@ -133,6 +141,19 @@ end
 
 --- @brief
 function mn.StageSelectPageIndicator:draw()
+    if self._circle_mapping_upgrade_needed == true then
+        self._grade_to_circles = meta.make_weak({})
+        for grade in values(meta.instances(rt.StageGrade)) do
+            self._grade_to_circles[grade] = {}
+        end
+
+        for i, grade in pairs(self._page_i_to_grade) do
+            table.insert(self._grade_to_circles[grade], self._circles[i])
+        end
+
+        self._circle_mapping_upgrade_needed = false
+    end
+
     love.graphics.push()
 
     -- tris
@@ -155,11 +176,10 @@ function mn.StageSelectPageIndicator:draw()
 
     love.graphics.push()
     love.graphics.translate(0, self._scroll_offset)
-
-    -- circle base
     love.graphics.setLineWidth(2)
-    for i, circle in ipairs(self._circles) do
-        local grade = self._page_i_to_grade[i]
+
+    -- circle base, sorted by grade for better batching
+    for grade, circles in pairs(self._grade_to_circles) do
         if grade == rt.StageGrade.SS then
             _shader:send("state", 1) -- perfect
         elseif grade == rt.StageGrade.F or grade == rt.StageGrade.NONE then
@@ -172,7 +192,9 @@ function mn.StageSelectPageIndicator:draw()
 
         _shader:bind()
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.circle("fill", table.unpack(circle))
+        for circle in values(circles) do
+            love.graphics.circle("fill", table.unpack(circle))
+        end
         _shader:unbind()
     end
 
