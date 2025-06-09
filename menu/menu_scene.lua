@@ -11,6 +11,7 @@ rt.settings.menu_scene = {
     player_max_falling_velocity = 1500,
     player_falling_x_damping = 0.98,
     player_falling_x_perturbation = 3,
+    exit_acceleration = 60, -- per second
 
     title_screen = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
@@ -110,6 +111,8 @@ function mn.MenuScene:instantiate(state)
     self._initialized = false
 
     self._exit_x, self._exit_y = 0, 0
+    self._exit_velocity = 0
+    self._exit_elapsed = 0
 
     self._shader_camera_offset = { 0, 0 }
     self._shader_elapsed = 0
@@ -206,8 +209,6 @@ function mn.MenuScene:instantiate(state)
         stage_select.input:signal_connect("pressed", function(_, which)
             if self._initialized == false or self._input_blocked == true then return end
             if self._state == mn.MenuSceneState.FALLING then
-                -- skip falling animation
-                stage_select.item_reveal_animation:set_fraction(1)
                 return
             end
 
@@ -221,15 +222,17 @@ function mn.MenuScene:instantiate(state)
                     return meta.DISCONNECT_SIGNAL
                 end)
             elseif which == rt.InputAction.UP then
-                if stage_select.selected_item_i > 1 then
-                    stage_select.selected_item_i = stage_select.selected_item_i - 1
-                    stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
-                end
+                stage_select.scroll_direction = -1
+                stage_select.scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
             elseif which == rt.InputAction.DOWN then
-                if stage_select.selected_item_i < stage_select.n_items then
-                    stage_select.selected_item_i = stage_select.selected_item_i + 1
-                    stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
-                end
+                stage_select.scroll_direction = 1
+                stage_select.scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+            end
+        end)
+
+        stage_select.input:signal_connect("released", function(_, which)
+            if which == rt.InputAction.UP or which == rt.InputAction.DOWN then
+                stage_select.scroll_direction = 0
             end
         end)
 
@@ -247,6 +250,9 @@ function mn.MenuScene:instantiate(state)
         stage_select.menu_y = 0
         stage_select.menu_height = 1
         stage_select.menu_width = 1
+
+        stage_select.scroll_elapsed = 0
+        stage_select.scroll_direction = 0 -- -1 up, 1 down, 0 no scroll
 
         local stage_ids = rt.GameState:list_stage_ids()
         table.sort(stage_ids, function(a, b)
@@ -307,8 +313,8 @@ function mn.MenuScene:instantiate(state)
         translation = rt.Translation.menu_scene.stage_select
         stage_select.control_indicator = rt.ControlIndicator(
             rt.ControlIndicatorButton.A, translation.control_indicator_confirm,
-            rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_select,
-            rt.ControlIndicatorButton.B, translation.control_indicator_back
+            rt.ControlIndicatorButton.B, translation.control_indicator_back,
+            rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_select
         )
     end
 end
@@ -462,18 +468,19 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         -- control indicator
         local control_w, control_h = stage_select.control_indicator:measure()
         stage_select.control_indicator:reformat(
-            x + width - m - control_w,
-            y + height - m - control_h,
+            x + width - control_w,
+            y + height - control_h,
             control_w, control_h
         )
 
         local current_x = x + width - outer_margin
         local page_indicator_w = 30 * rt.get_pixel_scale()
+        local page_indicator_m = math.max(3 * outer_margin, outer_margin + control_h + m)
         stage_select.page_indicator:reformat(
             current_x - page_indicator_w,
-            outer_margin,
+            outer_margin + page_indicator_m,
             page_indicator_w,
-            y + height - m - control_h - outer_margin
+            y + height - 2 * outer_margin - 2 * page_indicator_m
         )
 
         current_x = current_x - page_indicator_w - outer_margin
@@ -615,6 +622,8 @@ function mn.MenuScene:_set_state(next)
 
     elseif next == mn.MenuSceneState.EXITING then
         self._exit_x, self._exit_y = self._camera:get_position()
+        self._exit_velocity = select(2, self._player:get_velocity())
+        self._exit_elapsed = 0
     end
 end
 
@@ -644,8 +653,9 @@ function mn.MenuScene:update(delta)
     self._shader_camera_offset = { self._camera:get_offset() }
     if self._state == mn.MenuSceneState.EXITING then
         local px, py = self._player:get_position()
-        self._shader_camera_offset[1] = self._shader_camera_offset[1] + (px - self._exit_x)
-        self._shader_camera_offset[2] = self._shader_camera_offset[2] + (py - self._exit_y)
+        self._exit_elapsed = self._exit_elapsed + delta
+        self._shader_camera_offset[1] = self._exit_x
+        self._shader_camera_offset[2] = self._exit_y - self._exit_elapsed * self._exit_velocity -- continue scrolling as player accelerates
     end
     self._shader_camera_scale = self._camera:get_scale()
     self._shader_fraction = 0
@@ -710,7 +720,7 @@ function mn.MenuScene:update(delta)
     vx = vx + (rt.random.noise(self._shader_elapsed * 10, 0) * 2 - 1) * (rt.settings.menu_scene.player_falling_x_perturbation * (love.graphics.getHeight() / rt.settings.native_height)) * self._shader_fraction
 
     if self._state == mn.MenuSceneState.EXITING then
-        vy = vy * 10 -- exponential acceleration
+        vy = vy + rt.settings.menu_scene.exit_acceleration * delta -- exponential acceleration
     end
     self._player:set_velocity(vx, vy)
     self._camera:set_shake_frequency(vy / max_velocity)
@@ -737,7 +747,22 @@ function mn.MenuScene:update(delta)
             self:_set_state(mn.MenuSceneState.STAGE_SELECT)
         end
     elseif self._state == mn.MenuSceneState.STAGE_SELECT then
+        if stage_select.scroll_direction ~= 0 then
+            local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+            while stage_select.scroll_elapsed >= step do
+                if stage_select.scroll_direction == -1 and stage_select.selected_item_i > 1 then
+                    stage_select.selected_item_i = stage_select.selected_item_i - 1
+                    stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
+                elseif stage_select.scroll_direction == 1 and stage_select.selected_item_i < stage_select.n_items then
+                    stage_select.selected_item_i = stage_select.selected_item_i + 1
+                    stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
+                end
 
+                stage_select.scroll_elapsed = stage_select.scroll_elapsed - step
+            end
+
+            stage_select.scroll_elapsed = stage_select.scroll_elapsed + delta
+        end
     elseif self._state == mn.MenuSceneState.EXITING then
         if stage_select.waiting_for_exit then
             -- wait for player to exit screen, then fade out

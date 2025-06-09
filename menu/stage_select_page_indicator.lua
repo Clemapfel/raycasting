@@ -28,7 +28,6 @@ function mn.StageSelectPageIndicator:instantiate(n_pages)
     self._stencil = rt.AABB()
 
     self._motion = rt.SmoothedMotion1D(0, 2 * rt.get_pixel_scale())
-    self._y_offset = 0 -- for centering widget overall
     self._scroll_offset = 0 -- for scrolling
     self._total_item_height = 0
     self._radius = 1
@@ -61,8 +60,8 @@ function mn.StageSelectPageIndicator:update(delta)
     self._elapsed = self._elapsed + delta
 
     local current = self._selection_y
-    local center = self._bounds.y + 0.5 * self._bounds.height - self._y_offset
-    local max_offset = self._total_item_height - self._stencil.height
+    local center = self._bounds.y + 0.5 * self._bounds.height
+    local max_offset = self._total_item_height - (self._stencil.height - (self._stencil.y - self._bounds.y))
 
     if current >= center then
         local new_offset = current - center
@@ -87,7 +86,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
 
     self._radius = radius
     self._selection_x = x + 0.5 * width
-    self._selection_radius = radius
+    self._selection_radius = radius + 2 * rt.get_pixel_scale()
 
     local current_x, current_y = x + 0.5 * width, y + 0.5 * radius
 
@@ -103,10 +102,10 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     local tri_h = 2 * radius
     current_y = current_y + tri_h
 
-    local padding = 12 * rt.get_pixel_scale()
+    local padding = self._selection_radius - self._radius + 2.5 * rt.get_pixel_scale()
     self._stencil:reformat(
-        x - padding, y + radius + 0.5 * padding,
-        width + 2 * padding, height - 2 * radius - 2 * 0.5 * padding
+        x - padding, y + 1 * radius,
+        width + 2 * padding, height - 2 * radius
     )
 
     self._circles = {}
@@ -119,7 +118,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
         total_circle_height = total_circle_height + 2 * radius + circle_m
     end
 
-    self._total_item_height = total_circle_height
+    self._total_item_height = total_circle_height - circle_m
 
     local bottom_y = math.min(y + height - 0.5 * radius, current_y)
     self._bottom_tri = {
@@ -128,9 +127,6 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
         current_x + radius * math.sqrt(3) / 2, bottom_y - radius / 2
     }
 
-    local total_h = (2 + self._n_pages) * 2 * radius + (2 + self._n_pages - 1) * m
-    self._y_offset = math.max((height - total_h) / 2, 0)
-
     self:set_selected_page(self._selected_page_i)
     self._motion:skip()
 end
@@ -138,7 +134,6 @@ end
 --- @brief
 function mn.StageSelectPageIndicator:draw()
     love.graphics.push()
-    love.graphics.translate(0, self._y_offset)
 
     -- tris
     if self._selected_page_i > 1 then

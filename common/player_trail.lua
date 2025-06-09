@@ -20,7 +20,7 @@ function rt.PlayerTrail:instantiate(player)
     -- init sonic boom
     if _boom_mesh == nil then
         local player_radius = rt.settings.player.radius
-        local x_radius = 1.75 * player_radius -- width
+        local x_radius = 1.9 * player_radius -- width
         local y_radius = 2 * player_radius -- stretch
         local y_offset = y_radius - player_radius
 
