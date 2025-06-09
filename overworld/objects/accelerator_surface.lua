@@ -33,6 +33,8 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     -- particles
     self._particles = {}
+    self._texture_particles = meta.make_weak({})
+    self._shape_particles = meta.make_weak({})
     self._particle_emission_elapsed = 0
     self._emission_x, self._emission_y = 0, 0
     self._emission_nx, self._emission_ny = 0, 0
@@ -70,9 +72,13 @@ function ow.AcceleratorSurface:update(delta)
     end
 end
 
+local padding = 5
+local particle_which = 0
+
 --- @brief
 function ow.AcceleratorSurface:_update_particles(delta)
-    local emission_rate = math.magnitude(self._scene:get_player():get_velocity()) / 10
+    local player_vx, player_vy = self._scene:get_player():get_velocity()
+    local emission_rate = math.magnitude(player_vx, player_vy) / 10
     local min_size, max_size = 2, 7
     local hue_offset = 0.2
     local lifetime_offset = 0.2 -- fraction
@@ -82,7 +88,20 @@ function ow.AcceleratorSurface:_update_particles(delta)
     local min_speed, max_speed = 20, 50
 
     local normal_x, normal_y = self._emission_nx, self._emission_ny
-    local tangent_x, tangent_y = math.turn_left(self._emission_nx, self._emission_ny)
+    local angle = math.normalize_angle(math.angle(player_vx, player_vy) - math.pi)
+
+    self._particle_mesh = rt.MeshCircle(0, 0, max_size)
+    self._particle_mesh:set_vertex_color(1, 1, 1, 1, 1)
+    for i = 2, self._particle_mesh:get_n_vertices() do
+        self._particle_mesh:set_vertex_color(i, 1, 1, 1, 0.0)
+    end
+
+    local canvas_w = 2 * max_size + padding
+    self._particle_mesh_texture = rt.RenderTexture(canvas_w, canvas_w, 4)
+    self._particle_mesh_texture:bind()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._particle_mesh:get_native(), 0.5 * canvas_w, 0.5 * canvas_w)
+    self._particle_mesh_texture:unbind()
 
     -- spawn
     if self._is_active then
@@ -90,14 +109,17 @@ function ow.AcceleratorSurface:_update_particles(delta)
         local step = 1 / (emission_rate * (1 + self._scene:get_player():get_flow()))
         local player_hue = self._scene:get_player():get_hue()
         while self._particle_emission_elapsed >= step do
-            local vx, vy = math.normalize(math.mix2(tangent_x, tangent_y, -normal_x, -normal_y, rt.random.number(0, 1) * angle_offset))
+            local current_angle = angle + rt.random.number(-1, 1) * angle_offset
+            local vx, vy = math.cos(current_angle), math.sin(current_angle)
 
             local hue = rt.random.number(-hue_offset, hue_offset) + player_hue
+            local radius = rt.random.number(min_size, max_size)
             local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue)
             local particle = {
                 mass = 1,
                 speed = rt.random.number(min_speed, max_speed),
-                radius = rt.random.number(min_size, max_size),
+                scale = radius / max_size,
+                radius = radius,
                 position_x = self._emission_x,
                 position_y = self._emission_y,
                 velocity_x = vx,
@@ -107,8 +129,17 @@ function ow.AcceleratorSurface:_update_particles(delta)
                 b = b,
                 opacity = 1,
                 lifetime_multiplier = 1 + rt.random.number(-lifetime_offset, lifetime_offset),
-                lifetime_elapsed = 0
+                lifetime_elapsed = 0,
+                which = particle_which % 2 == 0
             }
+            particle_which = particle_which + 1
+
+            if particle.which == true then
+                self._texture_particles[particle] = true
+            else
+                self._shape_particles[particle] = true
+            end
+
             table.insert(self._particles, particle)
             self._particle_emission_elapsed = self._particle_emission_elapsed - step
         end
@@ -127,8 +158,15 @@ function ow.AcceleratorSurface:_update_particles(delta)
         end
     end
 
+    to_remove = table.sort(to_remove, function(a, b)
+        return a > b
+    end)
+
     for i in values(to_remove) do
+        local particle = self._particles[i]
         table.remove(self._particles, i)
+        self._shape_particles[particle] = nil
+        self._texture_particles[particle] = nil
     end
 end
 
@@ -145,8 +183,20 @@ function ow.AcceleratorSurface:draw()
     love.graphics.draw(self._mesh:get_native())
     _shader:unbind()
 
+    if self._particle_mesh_texture == nil then return end -- uninitialized
+
     love.graphics.setLineWidth(0.5)
-    for particle in values(self._particles) do
+    local w, h = self._particle_mesh_texture:get_size()
+    local damp = 0.8
+
+    rt.graphics.set_blend_mode(rt.BlendMode.ADD)
+    for particle in keys(self._texture_particles) do
+        love.graphics.setColor(damp * particle.r, damp * particle.g, damp * particle.b, particle.opacity * 0.5)
+        love.graphics.draw(self._particle_mesh_texture:get_native(), particle.position_x, particle.position_y, 0, particle.scale, particle.scale, 0.5 * w, 0.5 * h)
+    end
+
+    rt.graphics.set_blend_mode(nil)
+    for particle in keys(self._shape_particles) do
         love.graphics.setColor(particle.r, particle.g, particle.b, particle.opacity * 0.5)
         love.graphics.circle("fill", particle.position_x, particle.position_y, particle.radius)
         love.graphics.setColor(particle.r, particle.g, particle.b, particle.opacity)
