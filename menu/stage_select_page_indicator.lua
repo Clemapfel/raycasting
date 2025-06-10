@@ -184,10 +184,10 @@ function mn.StageSelectPageIndicator:draw()
             _shader:send("state", 1) -- perfect
         elseif grade == rt.StageGrade.F or grade == rt.StageGrade.NONE then
             _shader:send("state", -1) -- shadow
-            _shader:send("color", { rt.Palette.STAGE_GRADE_TO_COLOR[grade]:unpack() })
+            _shader:send("color", { rt.Palette[grade]:unpack() })
         else
             _shader:send("state", 0) -- shadow + highlight
-            _shader:send("color", { rt.Palette.STAGE_GRADE_TO_COLOR[grade]:unpack() })
+            _shader:send("color", { rt.Palette[grade]:unpack() })
         end
 
         _shader:bind()

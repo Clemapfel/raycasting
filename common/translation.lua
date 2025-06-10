@@ -59,7 +59,7 @@ rt.Translation = rt.initialize_translation({
     },
 
     input_action_to_string = function(action)
-        local to_string = {
+        return ({
             [rt.InputAction.A] = "Jump / Confirm",
             [rt.InputAction.B] = "Sprint / Go Back",
             [rt.InputAction.X] = "Reset",
@@ -72,9 +72,18 @@ rt.Translation = rt.initialize_translation({
             [rt.InputAction.RIGHT] = "Move Right",
             [rt.InputAction.DOWN] = "Move Down",
             [rt.InputAction.LEFT] = "Move Left"
-        }
+        })[action]
+    end,
 
-        return to_string[action]
+    stage_grade_to_string = function(grade)
+        return ({
+            [rt.StageGrade.SS] = "S",
+            [rt.StageGrade.S] = "A",
+            [rt.StageGrade.A] = "B",
+            [rt.StageGrade.B] = "C",
+            [rt.StageGrade.F] = "Idk what this\none even is",
+            [rt.StageGrade.NONE] = "\u{2014}" -- long dash
+        })[grade]
     end,
 
     -- pause menu
@@ -252,7 +261,6 @@ rt.Translation = rt.initialize_translation({
         confirm_reset_to_default_submessage = "TODO TODO",
 
         keybinding_invalid_message = "Keybinding Invalid",
-
 
         control_indicator_move = "Move",
         control_indicator_select = "Select",

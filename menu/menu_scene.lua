@@ -390,8 +390,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         title_screen.title_label_no_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, false), title)
         title_screen.title_label_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, true), title)
 
-        local font_native = font:get_native(font_size)
-        local title_w, title_h = font_native:getWidth(title), font_native:getHeight()
+        local title_w, title_h = font:measure(font_size, title)
 
         title_screen.title_x = math.floor(0 - 0.5 * title_w)
         title_screen.title_y = math.floor(0 - title_h - outer_margin)

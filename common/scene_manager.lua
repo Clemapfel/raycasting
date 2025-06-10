@@ -147,11 +147,13 @@ function rt.SceneManager:resize(width, height)
     rt.settings.margin_unit = 10 * rt.get_pixel_scale()
 
     local scene = self._current_scene
-    local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
-    if current_w ~= self._width or current_w ~= self._height then
-        scene:reformat(0, 0, self._width, self._height)
-        scene._scene_manager_current_width = self._width
-        scene._scene_manager_current_height = self._height
+    if scene ~= nil then
+        local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
+        if current_w ~= self._width or current_w ~= self._height then
+            scene:reformat(0, 0, self._width, self._height)
+            scene._scene_manager_current_width = self._width
+            scene._scene_manager_current_height = self._height
+        end
     end
 end
 

@@ -117,14 +117,12 @@ do -- load from image
     rt.Palette.GOAL = rt.Palette.WHITE
     rt.Palette.BUBBLE_FIELD = rt.Palette.BLUE_1
 
-    rt.Palette.STAGE_GRADE_TO_COLOR = {
-        [rt.StageGrade.SS] = rt.Palette.WHITE, -- rainbow shader
-        [rt.StageGrade.S] = rt.Palette.YELLOW_5, -- gold
-        [rt.StageGrade.A] = rt.Palette.GRAY_4, -- silver
-        [rt.StageGrade.B] = rt.Palette.ORANGE_6,
-        [rt.StageGrade.F] = rt.Palette.GRAY_5,
-        [rt.StageGrade.NONE] = rt.Palette.GRAY_5,
-    }
+    rt.Palette[rt.StageGrade.SS] = rt.Palette.WHITE -- rainbow shader
+    rt.Palette[rt.StageGrade.S] = rt.Palette.YELLOW_5 -- gold
+    rt.Palette[rt.StageGrade.A] = rt.Palette.GRAY_4 -- silver
+    rt.Palette[rt.StageGrade.B] = rt.Palette.ORANGE_6
+    rt.Palette[rt.StageGrade.F] = rt.Palette.GRAY_5
+    rt.Palette[rt.StageGrade.NONE] = rt.Palette.GRAY_5
 end
 
 rt.Palette.COIN_COLORS = {

@@ -33,15 +33,15 @@ function ow.OverlapTrigger:instantiate(object, stage, scene)
 
     -- if player overlaps, activate
     self._body:set_is_sensor(true)
+    self._body:set_collides_with(rt.settings.player.bounce_collision_group)
+    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
     self._body:signal_connect("collision_start", function(self_body, other_body, x, y, nx, ny)
-        if other_body:has_tag("player") or other_body:has_tag("agent") then
-            self:signal_emit("activate")
-        end
+        self:signal_emit("activate")
     end)
 
     -- if activated, emit receiver
     self:signal_connect("activate", function()
-        self._receiver:signal_emit(self._signal, self._value)
+        self._receiver:signal_try_emit(self._signal, self._value)
     end)
 end
 

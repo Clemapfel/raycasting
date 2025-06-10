@@ -148,6 +148,14 @@ function rt.Font:get_actual_size(size)
     return math.max(math.ceil(size * love.graphics.getHeight(), 14))
 end
 
+--- @brief
+function rt.Font:measure(font_size, str)
+    meta.assert_enum_value(font_size, rt.FontSize, 1)
+    meta.assert_typeof(str, "String", 2)
+    local native = self:get_native(font_size)
+    return native:getWidth(str), native:getHeight()
+end
+
 -- load default font
 rt.settings.font.default = rt.Font(
     "assets/fonts/DejaVuSans/DejaVuSans-Regular.ttf",
