@@ -81,7 +81,7 @@ rt.Translation = rt.initialize_translation({
             [rt.StageGrade.S] = "A",
             [rt.StageGrade.A] = "B",
             [rt.StageGrade.B] = "C",
-            [rt.StageGrade.F] = "Idk what this\none even is",
+            [rt.StageGrade.F] = "D",
             [rt.StageGrade.NONE] = "\u{2014}" -- long dash
         })[grade]
     end,
