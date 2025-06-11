@@ -1,15 +1,16 @@
-rt.settings.overworld.accelerator_surface = {
-
-}
+require "common.contour"
 
 --- @class ow.AcceleratorSurface
 ow.AcceleratorSurface = meta.class("AcceleratorSurface")
 
-local _shader
+local _post_fx_canvas, _post_fx_shader
+
+local _instances = {}
 
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._scene = scene
+    table.insert(_instances, self) -- for post fx
 
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:add_tag("use_friction", "hitbox")
@@ -17,7 +18,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._body:set_user_data(self)
 
     self._mesh, self._tris = object:create_mesh()
-    if _shader == nil then _shader = rt.Shader("overworld/objects/accelerator_surface.glsl") end
+    self._contour = rt.contour_from_tris(self._tris)
 
     self._camera_scale = 1
     self._camera_offset = { 0, 0 }
@@ -192,15 +193,11 @@ end
 --- @brief
 function ow.AcceleratorSurface:draw()
     if not self._scene:get_is_body_visible(self._body) then return end
-    --_shader:bind()
-    _shader:send("camera_offset", self._camera_offset)
-    _shader:send("camera_scale", self._camera_scale)
-    _shader:send("elapsed", self._elapsed)
-    _shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_physics_body():get_position()) })
-    _shader:send("player_hue", self._scene:get_player():get_hue())
-    rt.Palette.GRAY_7:bind()
-    love.graphics.draw(self._mesh:get_native())
-    _shader:unbind()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setLineWidth(2)
+    love.graphics.setLineJoin("bevel")
+    love.graphics.line(self._contour)
 
     if self._particle_mesh_texture == nil then return end -- uninitialized
 
@@ -221,6 +218,54 @@ function ow.AcceleratorSurface:draw()
         love.graphics.setColor(particle.r, particle.g, particle.b, particle.opacity)
         love.graphics.circle("line", particle.position_x, particle.position_y, particle.radius)
     end
+end
+
+function ow.AcceleratorSurface:reinitialize()
+    _instances = {}
+end
+
+function ow.AcceleratorSurface:_draw_mask()
+    if not self._scene:get_is_body_visible(self._body) then return end
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._mesh:get_native())
+end
+
+function ow.AcceleratorSurface:_bind_post_fx()
+    local w, h = love.graphics.getDimensions()
+    if _post_fx_canvas == nil or _post_fx_canvas:get_width() ~= w or _post_fx_canvas:get_height() ~= h then
+        _post_fx_canvas = rt.RenderTexture(w, h, 2)
+    end
+
+    _post_fx_canvas:bind()
+end
+
+function ow.AcceleratorSurface:_unbind_post_fx()
+    _post_fx_canvas:unbind()
+end
+
+function ow.AcceleratorSurface:draw_all()
+    if _post_fx_shader == nil then _post_fx_shader = rt.Shader("overworld/objects/accelerator_surface.glsl") end
+    local w, h = love.graphics.getDimensions()
+    if _post_fx_canvas == nil or _post_fx_canvas:get_width() ~= w or _post_fx_canvas:get_height() ~= h then
+        _post_fx_canvas = rt.RenderTexture(w, h, 2)
+    end
+
+    _post_fx_canvas:bind()
+    love.graphics.clear()
+    for instance in values(_instances) do
+        if instance._scene:get_is_body_visible(instance._body) then
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.draw(instance._mesh:get_native())
+        end
+    end
+    _post_fx_canvas:unbind()
+
+    love.graphics.push()
+    love.graphics.origin()
+    _post_fx_shader:bind()
+    _post_fx_canvas:draw()
+    _post_fx_shader:unbind()
+    love.graphics.pop()
 end
 
 --- @brief

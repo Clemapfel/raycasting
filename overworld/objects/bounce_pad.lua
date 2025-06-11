@@ -1,6 +1,10 @@
+require "common.contour"
+require "common.delaunay_triangulation"
+
 rt.settings.overworld.bounce_pad = {
     -- bounce animation
     bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
+    bounce_min_magnitude = 10,
     color_decay_duration = 1,
     corner_radius = 10,
 
@@ -62,7 +66,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._bounce_velocity = restitution
         self._bounce_position = restitution
         self._bounce_contact_x, self._bounce_contact_y = cx, cy
-        self._bounce_magnitude = rt.settings.overworld.bounce_pad.bounce_max_offset * restitution
+        self._bounce_magnitude = math.max(rt.settings.overworld.bounce_pad.bounce_max_offset * restitution, rt.settings.overworld.bounce_pad.bounce_min_magnitude)
         self._is_bouncing = true
 
         if self._is_single_use then
@@ -121,7 +125,7 @@ function ow.BouncePad:update(delta)
             self._bounce_velocity = 0
             self._is_bouncing = false
         end
-        self:_update_vertices()
+        self:_update_vertices(true)
     end
 end
 
@@ -135,7 +139,9 @@ function ow.BouncePad:draw()
 
     if self._draw_contour ~= nil then
         love.graphics.setColor(r, g, b, 0.7)
-        love.graphics.polygon("fill", self._draw_contour)
+        for tri in values(self._draw_tris) do
+            love.graphics.polygon("fill", tri)
+        end
 
         love.graphics.setColor(r, g, b, 1.0)
         love.graphics.setLineWidth(1)
@@ -147,58 +153,6 @@ end
 
 local _round = function(x)
     return math.floor(x)
-end
-
-local _hash_to_points = {}
-local _hash = function(points)
-    local x1, y1, x2, y2 = _round(points[1]), _round(points[2]), _round(points[3]), _round(points[4])
-    if x1 < x2 or (x1 == x2 and y1 < y2) then -- swap so point order does not matter
-        x1, y1, x2, y2 = x2, y2, x1, y1
-    end
-    local hash = tostring(x1) .. "," .. tostring(y1) .. "," .. tostring(x2) .. "," .. tostring(y2)
-    _hash_to_points[hash] = points
-    return hash
-end
-
-local _unhash = function(hash)
-    return _hash_to_points[hash]
-end
-
-local _link_segments = function(segments)
-    local function points_equal(x1, y1, x2, y2)
-        return math.abs(x1 - x2) < 1e-6 and math.abs(y1 - y2) < 1e-6
-    end
-
-    local ordered = {segments[1]}
-    table.remove(segments, 1)
-
-    while #segments > 0 do
-        local last = ordered[#ordered]
-        local x2, y2 = last[3], last[4]
-        local found = false
-
-        for i, segment in ipairs(segments) do
-            local sx1, sy1, sx2, sy2 = segment[1], segment[2], segment[3], segment[4]
-            if points_equal(x2, y2, sx1, sy1) then
-                table.insert(ordered, segment)
-                table.remove(segments, i)
-                found = true
-                break
-            elseif points_equal(x2, y2, sx2, sy2) then
-                -- Reverse the segment
-                table.insert(ordered, {sx2, sy2, sx1, sy1})
-                table.remove(segments, i)
-                found = true
-                break
-            end
-        end
-
-        if not found then
-            break -- no match found
-        end
-    end
-
-    return ordered
 end
 
 --- @param points Table<Number>
@@ -257,81 +211,10 @@ local function _round_contour(points, radius, samples_per_corner)
 end
 
 function ow.BouncePad:_create_contour()
-    local segments = {}
-    for tri in values(self._tris) do
-        for segment in range(
-            {tri[1], tri[2], tri[3], tri[4]},
-            {tri[3], tri[4], tri[5], tri[6]},
-            {tri[1], tri[2], tri[5], tri[6]}
-        ) do
-            table.insert(segments, segment)
-        end
-    end
-
-    -- filter so only outer segments remain
-    _hash_to_points = {}
-    local tuples = {}
-    local n_total = 0
-    for segment in values(segments) do
-        local hash = _hash(segment)
-        local current = tuples[hash]
-        if current == nil then
-            tuples[hash] = 1
-        else
-            tuples[hash] = current + 1
-        end
-        n_total = n_total + 1
-    end
-
-    local outline = {}
-    for hash, count in pairs(tuples) do
-        if count == 1 then
-            table.insert(outline, _unhash(hash))
-        end
-    end
-
-    -- link segments so they are ordered
-    local function points_equal(x1, y1, x2, y2)
-        return math.abs(x1 - x2) < 1e-6 and math.abs(y1 - y2) < 1e-6
-    end
-
-    local ordered = {outline[1]}
-    table.remove(outline, 1)
-
-    while #outline > 0 do
-        local last = ordered[#ordered]
-        local x2, y2 = last[3], last[4]
-        local found = false
-
-        for i, segment in ipairs(outline) do
-            local sx1, sy1, sx2, sy2 = segment[1], segment[2], segment[3], segment[4]
-            if points_equal(x2, y2, sx1, sy1) then
-                table.insert(ordered, segment)
-                table.remove(outline, i)
-                found = true
-                break
-            elseif points_equal(x2, y2, sx2, sy2) then
-                -- Reverse the segment
-                table.insert(ordered, {sx2, sy2, sx1, sy1})
-                table.remove(outline, i)
-                found = true
-                break
-            end
-        end
-    end
-
-    outline = ordered
-
-    -- construct contour and apply rounded corners
-    local contour = {}
-    for segment in values(outline) do
-        table.insert(contour, segment[1])
-        table.insert(contour, segment[2])
-    end
+    local contour = rt.contour_from_tris(self._tris)
 
     contour = _round_contour(contour, rt.settings.overworld.bounce_pad.corner_radius, 16)
 
-    -- convert flat contour table of segments
     self._segments = {}
     for i = 1, #contour - 2, 2 do
         local x1, y1 = contour[i], contour[i+1]
@@ -356,7 +239,9 @@ local function _point_to_segment_distance(px, py, x1, y1, x2, y2)
     return math.sqrt(dist_x * dist_x + dist_y * dist_y) --, nearest_x, nearest_y
 end
 
-function ow.BouncePad:_update_vertices()
+function ow.BouncePad:_update_vertices(first)
+    if not first and rt.GameState:get_is_performance_mode_enabled() then return end
+    
     local px, py = self._bounce_contact_x, self._bounce_contact_y
 
     -- apply rotation
@@ -448,5 +333,10 @@ function ow.BouncePad:_update_vertices()
         table.insert(contour, p)
     end
 
+
     self._draw_contour = contour
+
+    if self._triangulator == nil then self._triangulator = rt.DelaunayTriangulation() end
+    self._triangulator:triangulate(contour, contour)
+    self._draw_tris = self._triangulator:get_triangles()
 end

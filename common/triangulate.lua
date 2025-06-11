@@ -11,8 +11,7 @@ rt.math.triangulate = function(points)
     if not success then
         success, out = pcall(slick.triangulate, { points })
         if not success then
-            dbg(points)
-            rt.error("out")
+            rt.error(out)
         end
     end
 
