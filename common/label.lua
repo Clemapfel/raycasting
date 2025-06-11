@@ -1048,9 +1048,12 @@ function rt.Label:_update_texture()
             justify_offset = glyph.justify_right_offset
         end
 
+        love.graphics.push()
+        love.graphics.translate(justify_offset, 0)
+
         love.graphics.setColor(table.unpack(glyph.color))
         love.graphics.draw(glyph.glyph,
-            _floor(glyph.x + _padding + justify_offset),
+            _floor(glyph.x + _padding ),
             _floor(glyph.y + _padding)
         )
 
@@ -1061,6 +1064,7 @@ function rt.Label:_update_texture()
         if glyph.is_strikethrough then
             love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
         end
+        love.graphics.pop()
     end
 
     love.graphics.setShader(nil)

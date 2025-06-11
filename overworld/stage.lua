@@ -81,6 +81,7 @@ function ow.Stage:instantiate(scene, id)
     -- batched draws
     ow.Hitbox:reinitialize()
     ow.BoostField:reinitialize()
+    ow.AcceleratorSurface:reinitialize()
 
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
@@ -215,6 +216,8 @@ end
 
 --- @brief
 function ow.Stage:draw_above_player()
+    ow.AcceleratorSurface:draw_all()
+
     for object in values(self._above_player) do
         object:draw()
     end

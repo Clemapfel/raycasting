@@ -67,7 +67,7 @@ function mn.StageSelectPageIndicator:update(delta)
     else
         local current = self._selection_y
         local center = self._bounds.y + 0.5 * self._bounds.height
-        local max_offset = self._total_item_height - (self._stencil.height - (self._stencil.y - self._bounds.y))
+        local max_offset = self._total_item_height - (self._stencil.height - (self._stencil.y - self._bounds.y)) - 2 * self._radius
 
         if current >= center then
             local new_offset = current - center
@@ -97,7 +97,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
 
     local current_x, current_y = x + 0.5 * width, y + 0.5 * radius
 
-    local top_y = y + 0.5 * radius
+    local top_y = y + radius
     local tri_x = current_x
     local tri_y = 0
     local tri_r = radius
@@ -108,12 +108,12 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     }
 
     local tri_h = 2 * radius
-    current_y = current_y + tri_h
+    current_y = current_y + tri_h + m
 
     local padding = self._selection_radius - self._radius + 2.5 * rt.get_pixel_scale()
     self._stencil:reformat(
-        x - padding, y + 1 * radius,
-        width + 2 * padding, height - 2 * radius
+        x - padding, y + 2 * radius,
+        width + 2 * padding, height - 4 * radius
     )
 
     self._circles = {}
@@ -128,7 +128,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
 
     self._total_item_height = total_circle_height - circle_m
 
-    local bottom_y = math.min(y + height - 0.5 * radius, current_y)
+    local bottom_y = math.min(y + height - radius, current_y)
     self._bottom_tri = {
         current_x, bottom_y + tri_r,
         current_x - tri_r * math.sqrt(3) / 2, bottom_y - tri_r / 2,
@@ -156,22 +156,9 @@ function mn.StageSelectPageIndicator:draw()
 
     love.graphics.push()
 
-    -- tris
-    if self._selected_page_i > 1 then
-        rt.Palette.FOREGROUND:bind()
-    else
-        rt.Palette.GRAY_6:bind()
-    end
-    love.graphics.polygon("fill", self._top_tri)
-
-    if self._selected_page_i < self._n_pages then
-        rt.Palette.FOREGROUND:bind()
-    else
-        rt.Palette.GRAY_6:bind()
-    end
-    love.graphics.polygon("fill", self._bottom_tri)
-
     _shader:send("elapsed", self._elapsed)
+
+    love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setScissor(self._stencil:unpack())
 
     love.graphics.push()
@@ -207,6 +194,8 @@ function mn.StageSelectPageIndicator:draw()
         love.graphics.circle("line", table.unpack(circle))
     end
 
+    love.graphics.setScissor()
+
     -- selection
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth((3 + 2) * rt.get_pixel_scale())
@@ -217,11 +206,26 @@ function mn.StageSelectPageIndicator:draw()
     love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius)
 
     love.graphics.pop()
+
+    -- tris
+    if self._selected_page_i > 1 then
+        rt.Palette.FOREGROUND:bind()
+    else
+        rt.Palette.GRAY_6:bind()
+    end
+    love.graphics.polygon("fill", self._top_tri)
+
+    if self._selected_page_i < self._n_pages then
+        rt.Palette.FOREGROUND:bind()
+    else
+        rt.Palette.GRAY_6:bind()
+    end
+    love.graphics.polygon("fill", self._bottom_tri)
+
     love.graphics.setColor(black_r, black_g, black_b, self._a)
     love.graphics.polygon("line", self._top_tri)
     love.graphics.polygon("line", self._bottom_tri)
 
     love.graphics.pop()
-    love.graphics.setScissor()
 end
 

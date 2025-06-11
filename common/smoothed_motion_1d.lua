@@ -31,7 +31,7 @@ end
 --- @brief
 function rt.SmoothedMotion1D:update(delta)
     local distance = self._target_value - self._current_value
-    local step = 4 * distance * self._speed * delta
+    local step = 6 * distance * self._speed * delta
 
     self._current_value = self._current_value + step
 

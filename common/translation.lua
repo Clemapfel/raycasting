@@ -130,7 +130,10 @@ rt.Translation = rt.initialize_translation({
 
             control_indicator_select = "Select Stage",
             control_indicator_confirm = "Confirm",
-            control_indicator_back = "Go Back"
+            control_indicator_back = "Go Back",
+
+            personal_best_header = "Personal Best",
+            grade_header = "Grade"
         }
     },
 

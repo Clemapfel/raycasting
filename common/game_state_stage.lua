@@ -22,8 +22,6 @@ rt.settings.game_state.stage = {
 function rt.GameState:_initialize_stage()
     -- non state stage data, cf. common/game_state for persistent data
     self._stages = {}
-    self._stage_id_to_best_time = {}
-    self._stage_id_to_best_flow = {}
 
     local prefix = rt.settings.overworld.stage_config.config_path
     for file in values(love.filesystem.getDirectoryItems(prefix)) do
@@ -98,7 +96,7 @@ end
 --- @brief
 function rt.GameState:get_stage_best_time(id)
     meta.assert(id, "String")
-    local entry = self._state.stages[id]
+    local entry = self._state.stage_results[id]
     if entry == nil or entry.best_time == nil then
         return nil
     else
@@ -152,7 +150,6 @@ function rt.GameState:set_stage_best_flow_percentage(id, fraction)
     end
     entry.best_flow_percentage = fraction
 end
-
 
 --- @brief
 function rt.GameState:get_stage_was_beaten(id)
@@ -210,12 +207,12 @@ function rt.GameState:get_stage_grades(id)
     local stage = self:_get_stage(id, "get_stage_grades")
 
     if stage.was_beaten == false then
-        return rt.StageGrade.NONE
+        return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE
     end
 
-    local time, flow = self:get_stage_best_time(id), self:get_stage_best_flow(id)
+    local time, flow = self:get_stage_best_time(id), self:get_stage_best_flow_percentage(id)
     if time == nil or flow == nil then
-        return rt.StageGrade.NONE
+        return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE
     end
 
     local time_fraction = self:get_stage_target_time(id) / time
@@ -230,7 +227,7 @@ function rt.GameState:get_stage_grades(id)
         rt.StageGrade.B,
         rt.StageGrade.F
     ) do
-        if time_grade > time_threshold[grade] then
+        if time_fraction > time_threshold[grade] then
             time_grade = grade
             break
         end
@@ -245,7 +242,7 @@ function rt.GameState:get_stage_grades(id)
         rt.StageGrade.B,
         rt.StageGrade.F
     ) do
-        if flow_grade < flow_thresholds[grade] then
+        if flow_fraction < flow_thresholds[grade] then
             flow_grade = grade
             break
         end

@@ -57,8 +57,8 @@ uniform vec4 white;
 
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
-    const float thickness = 1 - 0.5;
-    return vec4(smoothstep(0, 1 - thickness, dist)) * white;
+    const float thickness = 1 - 0.6;
+    return vec4(smoothstep(0, 1, smoothstep(0, 1, smoothstep(0, 1 - thickness, dist)))) * white;
 }
 
 #elif MODE == MODE_NO_SDF

@@ -98,6 +98,37 @@ function mn.StageGradeLabel:update(delta)
 end
 
 --- @brief
+function mn.StageGradeLabel:set_grade(grade)
+    meta.assert_enum_value(grade, rt.StageGrade, 1)
+
+    if self._grade ~= grade then
+        self._grade = grade
+        self:_update_labels()
+    end
+end
+
+--- @brief
+function mn.StageGradeLabel:get_grade()
+    return self._grade
+end
+
+--- @brief
+function mn.StageGradeLabel:set_font_size(size)
+    meta.assert_enum_value(size, rt.FontSize, 1)
+
+    if self._font_size ~= size then
+        self._font_size = size
+        self:_update_labels()
+    end
+end
+
+--- @brief
+function mn.StageGradeLabel:get_font_size()
+    return self._font_size
+end
+
+
+--- @brief
 function mn.StageGradeLabel:_update_labels()
     local text = rt.Translation.stage_grade_to_string(self._grade)
     self._label_text = text
