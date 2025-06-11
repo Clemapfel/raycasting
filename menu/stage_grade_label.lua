@@ -4,7 +4,11 @@ require "common.palette"
 require "common.translation"
 
 rt.settings.menu.stage_grade_label = {
-    font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+    --font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+    --font_path = "assets/fonts/Bowlby_One_SC/Bowlby_One",
+    font_id = "RubikMonoOne",
+    --font_id = "RubikSprayPaint"
+
 }
 
 --- @class mn.StageGradeLabel
@@ -26,7 +30,11 @@ function mn.StageGradeLabel:instantiate(grade, size)
     self._color = rt.Palette.WHITE
     self._elapsed = 0
 
-    if _font == nil then _font = rt.Font(rt.settings.menu.stage_grade_label.font_path) end
+    if _font == nil then
+        local id = rt.settings.menu.stage_grade_label.font_id
+        _font = rt.Font("assets/fonts/" .. id .. "/" .. id .. "-Regular.ttf")
+        --_font = rt.Font(rt.settings.menu.stage_grade_label.font_path)
+    end
     if _shader_no_sdf == nil then _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0 }) end
     if _shader_sdf == nil then
         _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
