@@ -4,6 +4,8 @@ require "common.game_state"
 require "common.input_subscriber"
 require "menu.stage_grade_label"
 
+ParticleTexture = meta.class("ParticleTexture")
+
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"

@@ -102,11 +102,11 @@ function ow.AcceleratorSurface:_update_particles(delta)
     end
 
     local canvas_w = 2 * max_size + padding
-    self._particle_mesh_texture = rt.RenderTexture(canvas_w, canvas_w, 4)
-    self._particle_mesh_texture:bind()
+    self._particle_texture_gaussian = rt.RenderTexture(canvas_w, canvas_w, 4)
+    self._particle_texture_gaussian:bind()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(self._particle_mesh:get_native(), 0.5 * canvas_w, 0.5 * canvas_w)
-    self._particle_mesh_texture:unbind()
+    self._particle_texture_gaussian:unbind()
 
     -- spawn
     if self._is_active then
@@ -200,16 +200,16 @@ function ow.AcceleratorSurface:draw()
     love.graphics.setLineJoin("bevel")
     love.graphics.line(self._contour)
 
-    if self._particle_mesh_texture == nil then return end -- uninitialized
+    if self._particle_texture_gaussian == nil then return end -- uninitialized
 
     love.graphics.setLineWidth(0.5)
-    local w, h = self._particle_mesh_texture:get_size()
+    local w, h = self._particle_texture_gaussian:get_size()
 
     rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.NORMAL)
     for particle in keys(self._texture_particles) do
         local damp = particle.opacity
         love.graphics.setColor(damp * particle.r, damp * particle.g, damp * particle.b, 1)
-        love.graphics.draw(self._particle_mesh_texture:get_native(), particle.position_x, particle.position_y, 0, particle.scale, particle.scale, 0.5 * w, 0.5 * h)
+        love.graphics.draw(self._particle_texture_gaussian:get_native(), particle.position_x, particle.position_y, 0, particle.scale, particle.scale, 0.5 * w, 0.5 * h)
     end
 
     rt.graphics.set_blend_mode(nil)
