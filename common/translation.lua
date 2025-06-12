@@ -7,9 +7,9 @@ rt.Translation = {}
 function rt.initialize_translation(x)
     -- recursively replace all tables with proxy tables, such that when they are accessed, only the metatables are invoked
     local _as_immutable = function(t)
-        return setmetatable({}, {
-            __index = function(_, key)
-                local value = t[key]
+        return setmetatable(t, {
+            __index = function(self, key)
+                local value = self[key]
                 if value == nil then
                     rt.warning("In rt.Translation: key `" .. key .. "` does not point to valid text")
                     return "(#" .. key .. ")"
@@ -32,8 +32,6 @@ function rt.initialize_translation(x)
                 t[k] = _as_immutable(v)
                 table.insert(to_process, v)
                 n_to_process = n_to_process + 1
-            else
-                assert(meta.is_string(v) or meta.is_function(v), "In rt.initialize_translation: unrecognized type: `" .. meta.typeof(v) .. "`")
             end
         end
 
@@ -270,5 +268,32 @@ rt.Translation = rt.initialize_translation({
         control_indicator_back = "Save",
         control_indicator_reset_to_default = "Reset",
         control_indicator_abort = "Exit"
+    },
+
+    -- stages
+    stages = {
+        [1] = {
+            id = "tutorial",
+            title = "Not a Tutorial",
+            description = "tutorial description TODO",
+            difficulty = 0,
+            target_time = math.huge,
+        },
+
+        [2] = {
+            id = "boost_tutorial",
+            title = "Boost Tutorial",
+            description = "boost tutorial description TODO",
+            difficulty = 1,
+            target_time = math.huge
+        },
+
+        [3] = {
+            id = "debug_stage",
+            title = "Debug Stage",
+            description = "debug stage description TODO",
+            difficulty = 1,
+            target_time = math.huge
+        }
     }
 })

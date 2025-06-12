@@ -157,6 +157,7 @@ function rt.PlayerBody:initialize(positions)
                     axis_y = axis_y,
                     scale = scale, -- metaball scale
                     length = rope_length, -- total rope length
+                    n_segments = n_segments
                 }
 
                 center_x = center_x + self._center_x
@@ -181,28 +182,6 @@ function rt.PlayerBody:initialize(positions)
         end
 
         self._is_initialized = true
-    else
-        --[[
-        -- update rope anchors
-        local rope_i = 1
-        for ring = 1, n_rings do
-            local ring_radius = ring_to_ring_radius(ring)
-            local current_n_ropes = ring_to_n_ropes(ring)
-            for i = 1, current_n_ropes do
-                local contour_index = (i - 1) * 2 + 1
-                local contour_x = positions[contour_index]
-                local contour_y = positions[contour_index + 1]
-                local dx = contour_x - self._center_x
-                local dy = contour_y - self._center_y
-                dx, dy = math.normalize(dx, dy)
-
-                local rope = self._ropes[rope_i]
-                --rope.anchor_x = dx * ring_radius
-                --rope.anchor_y = dy * ring_radius
-                rope_i = rope_i + 1
-            end
-        end
-        ]]--
     end
 
     table.insert(self._positions, self._positions[3])
@@ -210,6 +189,29 @@ function rt.PlayerBody:initialize(positions)
 
     self._is_bubble = self._player:get_is_bubble()
     self:_update_eyelids()
+end
+
+function rt.PlayerBody:relax()
+    -- release all rope forces
+    local px, py = self._player:get_position()
+    for rope in values(self._ropes) do
+        local dx, dy = rope.axis_x, rope.axis_y
+        local x, y = px + rope.anchor_x, py + rope.anchor_y
+
+        for i = 0, rope.n_segments - 1 do
+            local step = ternary(player:get_is_bubble(), rope.distances[i+1], rope.bubble_distances[i+1])
+            rope.current_positions[i * 2 + 1] = x + dx * step * i
+            rope.current_positions[i * 2 + 2] = y + dy * step * i
+        end
+
+        for i = 1, #rope.last_positions do
+            rope.last_positions[i] = rope.current_positions[i]
+        end
+
+        for i = 1, #rope.last_velocities do
+            rope.last_velocities[i] = 0
+        end
+    end
 end
 
 local function _generate_eyelid_mesh(t, eye_x, eye_y, eye_r, points)
@@ -392,8 +394,8 @@ local _rope_handler = function(data)
 
     local rope = data.rope
     local positions = rope.current_positions
-    local old_positions = rope.last_positions
-    local old_velocities = rope.last_velocities
+    local last_positions = rope.last_positions
+    local last_velocities = rope.last_velocities
     local distances = data.is_bubble and rope.bubble_distances or rope.distances
     local masses = rope.masses
 
@@ -415,7 +417,7 @@ local _rope_handler = function(data)
             local mass_i = 1
             for i = 1, #positions, 2 do
                 local current_x, current_y = positions[i+0], positions[i+1]
-                local old_x, old_y = old_positions[i+0], old_positions[i+1]
+                local old_x, old_y = last_positions[i+0], last_positions[i+1]
                 local mass = masses[mass_i]
                 local before_x, before_y = current_x, current_y
 
@@ -423,17 +425,17 @@ local _rope_handler = function(data)
                 local velocity_y = (current_y - old_y) * data.velocity_damping
 
                 -- inertia
-                velocity_x = math.mix(velocity_x, old_velocities[i+0], data.inertia)
-                velocity_y = math.mix(velocity_y, old_velocities[i+1], data.inertia)
+                velocity_x = math.mix(velocity_x, last_velocities[i+0], data.inertia)
+                velocity_y = math.mix(velocity_y, last_velocities[i+1], data.inertia)
 
                 positions[i+0] = current_x + velocity_x + mass * data.gravity_x * data.delta * data.delta
                 positions[i+1] = current_y + velocity_y + mass * data.gravity_y * data.delta * data.delta
 
-                old_positions[i+0] = before_x
-                old_positions[i+1] = before_y
+                last_positions[i+0] = before_x
+                last_positions[i+1] = before_y
 
-                old_velocities[i+0] = velocity_x
-                old_velocities[i+1] = velocity_y
+                last_velocities[i+0] = velocity_x
+                last_velocities[i+1] = velocity_y
 
                 mass_i = mass_i + 1
             end

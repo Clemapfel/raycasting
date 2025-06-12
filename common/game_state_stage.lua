@@ -1,4 +1,5 @@
 require "common.stage_grade"
+require "common.translation"
 
 rt.settings.game_state.stage = {
     grade_flow_threshold = {
@@ -22,71 +23,61 @@ rt.settings.game_state.stage = {
 function rt.GameState:_initialize_stage()
     -- non state stage data, cf. common/game_state for persistent data
     self._stages = {}
+    self._stage_id_to_i = {}
 
-    local prefix = rt.settings.overworld.stage_config.config_path
-    for file in values(love.filesystem.getDirectoryItems(prefix)) do
-        local id = string.match(file, "^([^~].*)%.lua$") -- .lua not starting with ~
-        if id ~= nil then
-            local path = prefix .. "/" .. id .. ".lua"
-            local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
-            if not load_success then
-                rt.error("In mn.StageSelectScene: error when parsing file at `" .. path .. "`: " .. chunk_or_error)
-                return
-            end
+    local path_prefix = rt.settings.overworld.stage_config.config_path
 
-            if love_error ~= nil then
-                rt.error("In mn.StageSelectScene: error when loading file at `" .. path .. "`: " .. love_error)
-                return
-            end
+    local warn = function(i, name)
+        rt.warning("In rt.Translation: stage entry `" .. i .. "` does not have `" .. name .. "` property")
+    end
 
-            local chunk_success, config_or_error = pcall(chunk_or_error)
-            if not chunk_success then
-                rt.error("In mn.StageSelectScene: error when running file at `" .. path .. "`: " .. config_or_error)
-                return
-            end
-
-            local _warning = function()  end -- TODO rt.warning
-
-            local config = config_or_error
-            local title = config["title"]
-            if title == nil then
-                title = id
-                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `title` property")
-            end
-
-            local difficulty = config["difficulty"]
-            if difficulty == nil then
-                difficulty = 0
-                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `difficulty` property")
-            end
-
-            local description = config["description"]
-            if description == nil then
-                description = "(no description)"
-                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `description` property")
-            end
-
-            local target_time = config["target_time"]
-            if target_time == nil then
-                target_time = 0
-                _warning("In mn.StageSelectScene: stage at `" .. path .. "` does not have `target_time` property")
-            end
-
-            self._stages[id] = {
-                id = id,
-                path = path,
-                title = title,
-                difficulty = difficulty,
-                description = description,
-                target_time = target_time
-            }
+    for i, entry in pairs(rt.Translation.stages) do
+        local id = entry.id
+        if id == nil then
+            rt.error("In rt.Translation: stage entry `" .. i .. "` does not have an id")
         end
+
+        local title = entry.title
+        if title == nil then
+            warn(i, "title")
+            title = id
+        end
+
+        local description = entry.description
+        if description == nil then
+            warn(i, "description")
+            description = "(no description)"
+        end
+
+        local difficulty = entry.difficulty
+        if difficulty == nil then
+            warn(i, "difficulty")
+            difficulty = 0
+        end
+
+        local target_time = entry.target_time
+        if target_time == nil then
+            warn(i, "target_time")
+            target_time = math.huge
+        end
+
+        local stage = {
+            id = id,
+            path = path_prefix .. "/" .. id .. ".lua",
+            title = title,
+            difficulty = difficulty,
+            description = description,
+            target_time = target_time
+        }
+
+        self._stages[i] = stage
+        self._stage_id_to_i[id] = i
     end
 end
 
 --- @brief
 function rt.GameState:_get_stage(id, scope)
-    local stage = self._stages[id]
+    local stage = self._stages[self._stage_id_to_i[id]]
     if stage == nil then
         rt.error("In rt.GameState." .. scope .. "`: no stage with id `" .. id .. "`")
     end
@@ -260,8 +251,8 @@ end
 --- @brief
 function rt.GameState:list_stage_ids()
     local out = {}
-    for id in keys(self._stages) do
-        table.insert(out, id)
+    for _, entry in ipairs(self._stages) do
+        table.insert(out, entry.id)
     end
     return out
 end

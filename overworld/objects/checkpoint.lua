@@ -41,6 +41,7 @@ local _ray_shader, _explosion_shader
 local _STATE_DEFAULT = "DEFAULT"
 local _STATE_RAY = "RAY"
 local _STATE_EXPLODING = "EXPLODING"
+local _STATE_FIRST_ENTRY = "FIRST_ENTRY"
 
 --- @brief
 function ow.Checkpoint:instantiate(object, stage, scene, type)
@@ -249,7 +250,9 @@ function ow.Checkpoint:spawn(also_kill)
     player:set_is_bubble(false)
     player:disable()
 
-    if also_kill then
+    if self._is_first_spawn then -- skip ray animation
+        self:_set_state(_STATE_FIRST_ENTRY)
+    elseif also_kill then
         self:_set_state(_STATE_EXPLODING)
     else
         self:_set_state(_STATE_RAY)
@@ -263,9 +266,11 @@ function ow.Checkpoint:spawn(also_kill)
     local _, screen_h = camera:world_xy_to_screen_xy(0, self._bottom_y)
     camera:set_position(previous_x, previous_y)
 
-    local player_y = math.max(self._top_y + 2 * player:get_radius(), self._bottom_y - screen_h - 2 * player:get_radius())
-    self._current_player_spawn_x, self._current_player_spawn_y = self._top_x, player_y
-    player:teleport_to(self._current_player_spawn_x, self._current_player_spawn_y)
+    if not self._is_first_spawn then
+        local player_y = math.max(self._top_y + 2 * player:get_radius(), self._bottom_y - screen_h - 2 * player:get_radius())
+        self._current_player_spawn_x, self._current_player_spawn_y = self._top_x, player_y
+        player:teleport_to(self._current_player_spawn_x, self._current_player_spawn_y)
+    end
 
     self._stage:set_active_checkpoint(self)
     self._passed = true
@@ -307,12 +312,7 @@ function ow.Checkpoint:_set_state(state)
         player:set_trail_visible(false)
 
         local camera = self._scene:get_camera()
-        if self._is_first_spawn then -- smash cut at start of level
-            camera:set_position(self._bottom_x, self._bottom_y)
-            self._is_first_spawn = false
-        else
-            camera:move_to(self._bottom_x, self._bottom_y)
-        end
+        camera:move_to(self._bottom_x, self._bottom_y)
 
         local factor = rt.settings.overworld.checkpoint.ray_width_radius_factor
         self._ray_size = { 2 * factor * player:get_radius(), self._bottom_y - self._top_y }
@@ -320,10 +320,29 @@ function ow.Checkpoint:_set_state(state)
     elseif state == _STATE_DEFAULT then
         self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
-        player:enable()
         player:set_gravity(1)
         player:set_opacity(1)
+        player:set_is_bubble(false)
         player:set_trail_visible(true)
+        player:enable()
+    elseif state == _STATE_FIRST_ENTRY then
+        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+
+        -- skip ray animation
+        player:disable()
+        player:set_is_bubble(true)
+        player:set_velocity(0, 0)
+        player:set_gravity(0)
+        player:set_opacity(0)
+        player:set_flow(0)
+        player:set_flow_velocity(0)
+        player:set_trail_visible(false)
+        player:teleport_to(self._bottom_x, self._bottom_y)
+
+        local camera = self._scene:get_camera()
+        camera:set_position(self._bottom_x, self._bottom_y)
+
+        self:_set_state(_STATE_DEFAULT)
     end
 end
 
@@ -405,6 +424,8 @@ function ow.Checkpoint:update(delta)
         if self._ray_fade_out_fraction > 1 then
             self._elapsed = self._elapsed + delta
         end
+    elseif self._state == _STATE_FIRST_ENTRY then
+
     end
 
     if not self._is_broken then

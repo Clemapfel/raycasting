@@ -238,6 +238,7 @@ function rt.Player:instantiate()
         _respawn_elapsed = 0,
         _can_wall_jump = false,
         _can_jump = false,
+        _is_ghost = false,
 
         -- flow
         _flow = 0,
@@ -1195,9 +1196,10 @@ function rt.Player:move_to_world(world)
     local is_bubble = self._is_bubble
     self._is_bubble = nil
     self:set_is_bubble(is_bubble)
+    self:set_is_ghost(self._is_ghost)
 end
 
-function rt.Player:_update_mesh(delta)
+function rt.Player:_update_mesh(delta, force_initialize)
     local positions
     if self._is_bubble then
         positions = {
@@ -1221,7 +1223,7 @@ function rt.Player:_update_mesh(delta)
     end
 
     if self._use_bubble_mesh_delay_n_steps <= 0 then
-        self._graphics_body:initialize(positions)
+        self._graphics_body:initialize(positions, force_initialize)
         self._graphics_body:update(delta)
     end
 end
@@ -1368,6 +1370,7 @@ function rt.Player:teleport_to(x, y)
         end
 
         self._skip_next_flow_update = true
+        self._graphics_body:relax()
     end
 end
 
@@ -1686,4 +1689,19 @@ function rt.Player:get_contact_point(body)
     local entry = self._body_to_collision_normal[body]
     if entry == nil then return nil end
     return entry.contact_x, entry.contact_y, entry.normal_x, entry.normal_y
+end
+
+--- @brief
+function rt.Player:set_is_ghost(b)
+    self._is_ghost = b
+
+    self._body:set_is_sensor(b)
+    for body in values(self._spring_bodies) do
+        body:set_is_sensor(true)
+    end
+
+    self._bubble_body:set_is_sensor(b)
+    for body in values(self._bubble_spring_bodies) do
+        body:set_is_sensor(true)
+    end
 end

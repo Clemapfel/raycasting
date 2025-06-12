@@ -24,7 +24,8 @@ rt.settings.menu_scene = {
     stage_select = {
         player_alignment = 1 / 3,
         reveal_animation_duration = 0, --1,
-        scroll_speed = 1
+        scroll_speed = 1,
+        exititing_fraction = 2, -- number of screen heights until fade out starts
     },
 }
 
@@ -311,7 +312,8 @@ function mn.MenuScene:instantiate(state)
                 grade_header = rt.Label(header_prefix .. translation.grade_header .. header_postfix),
 
                 hrules = {},
-                target_y = 0
+                target_y = 0,
+                bounds = rt.AABB(),
             }
 
             table.insert(stage_select.items, item)
@@ -548,6 +550,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         for i, item in ipairs(stage_select.items) do
             local ix, iy = menu_x, item_y + menu_y
             item.frame:reformat(ix, iy, menu_w, menu_h)
+            item.bounds:reformat(ix, iy, menu_w, menu_h)
             item.hrules = {}
 
             ix = ix + 2 * m
@@ -875,11 +878,14 @@ function mn.MenuScene:update(delta)
     elseif self._state == mn.MenuSceneState.EXITING then
         if stage_select.waiting_for_exit then
             -- wait for player to exit screen, then fade out
-            if select(2, self._camera:world_xy_to_screen_xy(self._player:get_position())) > 5 * love.graphics.getHeight() then
+            if select(2, self._camera:world_xy_to_screen_xy(self._player:get_position())) > rt.settings.menu_scene.stage_select.exititing_fraction * love.graphics.getHeight() then
                 self._fade:start(true, false)
                 self._fade:signal_connect("hidden", function()
-                    self:_set_state(mn.MenuSceneState.STAGE_SELECT)
-                    rt.warning("In menu_scene.stage_select.input: TODO move to level")
+                    require "overworld.overworld_scene"
+                    local item = stage_select.items[stage_select.selected_item_i]
+                    if item ~= nil then
+                        rt.SceneManager:push(ow.OverworldScene, item.id)
+                    end
                 end)
                 stage_select.waiting_for_exit = false
             end
@@ -951,7 +957,7 @@ function mn.MenuScene:draw()
         love.graphics.pop()
     end
 
-    if self._state == mn.MenuSceneState.FALLING or self._state == mn.MenuSceneState.STAGE_SELECT then
+    if self._state == mn.MenuSceneState.FALLING or self._state == mn.MenuSceneState.STAGE_SELECT or self._state == mn.MenuSceneState.EXITING then
         local stage_select = self._stage_select
 
         love.graphics.push()
@@ -966,39 +972,46 @@ function mn.MenuScene:draw()
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.rectangle("line", stage_select.menu_stencil:unpack())
 
-        love.graphics.translate(0, stage_select.motion:get_value())
+        local y_offset = stage_select.motion:get_value()
+        love.graphics.translate(0, y_offset)
 
         rt.Palette.FOREGROUND:bind() -- hrule color
         love.graphics.setLineWidth(stage_select.hrule_height)
+
         for item_i = 1, stage_select.n_items do
             local item = stage_select.items[item_i]
 
-            for widget in range(
-                item.frame,
-                item.title_label,
-                item.personal_best_header,
-                item.grade_header,
-                item.difficulty_prefix_label,
-                item.difficulty_colon_label,
-                item.difficulty_value_label,
-                item.flow_prefix_label,
-                item.flow_colon_label,
-                item.flow_value_label,
-                item.flow_grade,
-                item.time_prefix_label,
-                item.time_colon_label,
-                item.time_value_label,
-                item.time_grade,
-                item.description_label,
-                item.personal_best_header,
-                item.grade_header,
-                item.total_grade
-            ) do
-                widget:draw()
-            end
+            if item.bounds.y + item.bounds.height + y_offset > 0 and -- only draw if item overlaps screen
+                item.bounds.y + y_offset < love.graphics.getHeight()
+            then
+                for widget in range(
+                    item.frame,
+                    item.title_label,
+                    item.personal_best_header,
+                    item.grade_header,
+                    item.difficulty_prefix_label,
+                    item.difficulty_colon_label,
+                    item.difficulty_value_label,
+                    item.flow_prefix_label,
+                    item.flow_colon_label,
+                    item.flow_value_label,
+                    item.flow_grade,
+                    item.time_prefix_label,
+                    item.time_colon_label,
+                    item.time_value_label,
+                    item.time_grade,
+                    item.description_label,
+                    item.personal_best_header,
+                    item.grade_header,
+                    item.total_grade
+                ) do
+                    widget:draw()
+                end
 
-            for hrule in values(item.hrules) do
-                hrule:draw()
+                rt.Palette.FOREGROUND:bind()
+                for hrule in values(item.hrules) do
+                    hrule:draw()
+                end
             end
         end
 

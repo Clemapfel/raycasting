@@ -4,6 +4,7 @@ require "common.game_state"
 require "common.input_subscriber"
 require "menu.stage_grade_label"
 
+--[[
 ParticleTexture = meta.class("ParticleTexture")
 
 local padding = 5
@@ -109,11 +110,12 @@ end
 
 local texture = ParticleTexture()
 texture:initialize()
+]]--
 
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial")
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial")
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -122,18 +124,18 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene)
+    rt.SceneManager:push(mn.MenuScene)
 end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
-    texture:update(delta)
+    --texture:update(delta)
 end
 
 love.draw = function()
-    --rt.SceneManager:draw()
-    love.graphics.origin()
-    texture:draw()
+    rt.SceneManager:draw()
+    --love.graphics.origin()
+    --texture:draw()
 end
 
 love.resize = function(width, height)

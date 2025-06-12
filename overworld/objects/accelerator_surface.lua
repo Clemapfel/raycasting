@@ -98,7 +98,7 @@ function ow.AcceleratorSurface:_update_particles(delta)
     local min_emission_factor = 0.5
     local player = self._scene:get_player()
     local player_vx, player_vy = player:get_velocity()
-    local emission_rate = 1000--math.mix(0, 10, math.min(player:get_flow() + (math.magnitude(player_vx, player_vy) / 10), 1))
+    local emission_rate = math.mix(0, 10, math.min(player:get_flow() + (math.magnitude(player_vx, player_vy) / 10), 1))
     local min_size, max_size = 2, 7
     local hue_offset = 0.2
     local lifetime_offset = 0.2 -- fraction
@@ -135,23 +135,6 @@ function ow.AcceleratorSurface:_update_particles(delta)
             local hue = rt.random.number(-hue_offset, hue_offset) + player_hue
             local radius = rt.random.number(min_size, max_size)
             local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue)
-            local particle = {
-                speed = rt.random.number(min_speed, max_speed),
-                scale = radius / max_size,
-                radius = radius,
-                position_x = self._emission_x,
-                position_y = self._emission_y,
-                velocity_x = vx,
-                velocity_y = vy,
-                r = r,
-                g = g,
-                b = b,
-                opacity = 1,
-                lifetime_multiplier = 1 + rt.random.number(-lifetime_offset, lifetime_offset),
-                lifetime_elapsed = 0,
-                which = particle_which % 2 == 0
-            }
-
             local particle = {
                 [_speed] = rt.random.number(min_speed, max_speed),
                 [_scale] = radius / max_size,
