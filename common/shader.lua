@@ -19,6 +19,7 @@ function rt.Shader:instantiate(filename, defines)
     })
 end
 
+
 --- @brief set uniform
 --- @param name String
 --- @param value
@@ -27,6 +28,12 @@ function rt.Shader:send(name, value, ...)
     if meta.typeof(value) == "GraphicsBuffer" or meta.typeof(value) == "Texture" or meta.typeof(value) == "RenderTexture" then value = value._native end
     if self._native:hasUniform(name) then
         self._native:send(name, value, ...)
+    else
+        if self._uniform_to_warning_printed == nil then self._uniform_to_warning_printed = {} end
+        if self._uniform_to_warning_printed[name] == true then return end
+
+        rt.warning("In rt.Shader: shader at `" .. self._filename .. "` does not have uniform `" .. name .. "`")
+        self._uniform_to_warning_printed[name] = true
     end
 end
 

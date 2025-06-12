@@ -21,7 +21,6 @@ end
 --- @brief construct contour from list of triangles
 rt.contour_from_tris = function(tris, close_loop)
     if close_loop == nil then close_loop = true end
-
     local segments = {}
     for tri in values(tris) do
         for segment in range(
@@ -83,6 +82,11 @@ rt.contour_from_tris = function(tris, close_loop)
                 break
             end
         end
+
+        if not found then
+            rt.warning("In rt.contour_from_tris: contour has duplicate edges")
+            break
+        end -- degenerate contour with duplicate segments
     end
 
     local contour = {}

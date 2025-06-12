@@ -504,7 +504,7 @@ function ow.OverworldScene:draw()
 
 
         local duration, n_steps = self:get_run_duration()
-        local time = string.format_time(duration) .. " (" .. n_steps .. ")"
+        local time = string.format_time(duration) .. " (" .. n_steps .. " frames)"
 
         local to_concat = {
             up .. right .. down .. left .. " " .. a .. b,

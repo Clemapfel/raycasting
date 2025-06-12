@@ -42,9 +42,10 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "h" then
+        if which == "k" and _instances[1] == self then
             local before = love.timer.getTime()
-            _shader:recompile()
+            _post_fx_shader:recompile()
+            dbg("called")
         end
     end)
 end
@@ -224,26 +225,9 @@ function ow.AcceleratorSurface:reinitialize()
     _instances = {}
 end
 
-function ow.AcceleratorSurface:_draw_mask()
-    if not self._scene:get_is_body_visible(self._body) then return end
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(self._mesh:get_native())
-end
-
-function ow.AcceleratorSurface:_bind_post_fx()
-    local w, h = love.graphics.getDimensions()
-    if _post_fx_canvas == nil or _post_fx_canvas:get_width() ~= w or _post_fx_canvas:get_height() ~= h then
-        _post_fx_canvas = rt.RenderTexture(w, h, 2)
-    end
-
-    _post_fx_canvas:bind()
-end
-
-function ow.AcceleratorSurface:_unbind_post_fx()
-    _post_fx_canvas:unbind()
-end
-
 function ow.AcceleratorSurface:draw_all()
+    if #_instances == 0 then return end
+
     if _post_fx_shader == nil then _post_fx_shader = rt.Shader("overworld/objects/accelerator_surface.glsl") end
     local w, h = love.graphics.getDimensions()
     if _post_fx_canvas == nil or _post_fx_canvas:get_width() ~= w or _post_fx_canvas:get_height() ~= h then
@@ -260,9 +244,20 @@ function ow.AcceleratorSurface:draw_all()
     end
     _post_fx_canvas:unbind()
 
+    local scene = _instances[1]._scene
+    local camera = scene:get_camera()
+    local player = scene:get_player()
+    local px, py = player:get_physics_body():get_position()
+    px, py = camera:world_xy_to_screen_xy(px, py)
+
     love.graphics.push()
     love.graphics.origin()
     _post_fx_shader:bind()
+    _post_fx_shader:send("player_position", { px, py })
+    _post_fx_shader:send("color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
+    _post_fx_shader:send("camera_scale", camera:get_scale())
+    _post_fx_shader:send("camera_offset", { camera:get_offset() })
+
     _post_fx_canvas:draw()
     _post_fx_shader:unbind()
     love.graphics.pop()

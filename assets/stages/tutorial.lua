@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 636,
+  nextobjectid = 637,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 98.1691,
-          y = 1196.53,
+          x = 128,
+          y = 864,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3635,6 +3635,35 @@ return {
             { x = 137.002, y = 77.8133 },
             { x = 89.0015, y = 13.8133 },
             { x = 29.8133, y = -8.30877 }
+          },
+          properties = {}
+        },
+        {
+          id = 636,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = 96,
+          y = 832,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 48 },
+            { x = 64, y = 48 },
+            { x = 64, y = 0 },
+            { x = 64, y = -16 },
+            { x = 32, y = -16 },
+            { x = 32, y = -144 },
+            { x = 224, y = -144 },
+            { x = 224, y = 176 },
+            { x = -160, y = 176 },
+            { x = -160, y = -144 },
+            { x = 32, y = -144 },
+            { x = 32, y = -16 },
+            { x = 0, y = -16 }
           },
           properties = {}
         }
