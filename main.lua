@@ -16,13 +16,14 @@ local _r = 5
 local _g = 6
 local _b = 7
 local _velocity_magnitude = 8
+local _scale = 9
 
 local _draw_shader
 
 function ParticleTexture:initialize()
     if _draw_shader == nil then _draw_shader = rt.Shader("overworld/objects/accelerator_surface_draw_particles.glsl") end
 
-    local max_size = rt.get_pixel_scale() * 20
+    local max_size = rt.get_pixel_scale() * 30
     local particle_mesh = rt.MeshCircle(0, 0, 0.5 * max_size)
     particle_mesh:set_vertex_color(1, 1, 1, 1, 1)
     for i = 2, particle_mesh:get_n_vertices() do
@@ -37,11 +38,12 @@ function ParticleTexture:initialize()
     self._particle_texture:unbind()
     self._particle_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
-    self._n_particles = 20000
+    self._n_particles = 1000
     self._mesh_data = {}
     self._mesh_format = {
         {location = 3, name = "position_velocity", format = "floatvec4"},
-        {location = 4, name = "color_magnitude", format = "floatvec4"},
+        {location = 4, name = "color", format = "floatvec3"},
+        {location = 5, name = "magnitude_scale", format = "floatvec2"}
     }
 
     for i = 1, self._n_particles do
@@ -57,6 +59,7 @@ function ParticleTexture:initialize()
             g,
             b,
             velocity, -- velocity magnitude
+            rt.random.number(0.1, 1) -- scale
         })
     end
 
@@ -70,7 +73,9 @@ function ParticleTexture:initialize()
     self._particle_mesh = rt.MeshRectangle(-canvas_w, -canvas_w, 2 * canvas_w, 2 * canvas_w)
     self._particle_mesh:set_texture(self._particle_texture)
     self._particle_mesh:get_native():attachAttribute("position_velocity", self._data_mesh:get_native(), "perinstance")
-    self._particle_mesh:get_native():attachAttribute("color_magnitude", self._data_mesh:get_native(), "perinstance")
+    self._particle_mesh:get_native():attachAttribute("color", self._data_mesh:get_native(), "perinstance")
+    self._particle_mesh:get_native():attachAttribute("magnitude_scale", self._data_mesh:get_native(), "perinstance")
+
 end
 
 function ParticleTexture:update(delta)
@@ -92,10 +97,10 @@ function ParticleTexture:update(delta)
 end
 
 function ParticleTexture:draw()
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD)
-    love.graphics.setBlendMode("add", "premultiplied")
+    --rt.graphics.set_blend_mode(rt.BlendMode.ADD)
+    --love.graphics.setBlendMode("add", "premultiplied")
     _draw_shader:bind()
-    local t = 0.05
+    local t = 1--0.05
     love.graphics.setColor(t, t, t, 1)
     love.graphics.drawInstanced(self._particle_mesh:get_native(), self._n_particles)
     _draw_shader:unbind()
