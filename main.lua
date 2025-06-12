@@ -112,6 +112,12 @@ local texture = ParticleTexture()
 texture:initialize()
 ]]--
 
+
+io.write(tostring())
+io.flush()
+
+println(1 / 0)
+
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
@@ -124,7 +130,10 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    rt.SceneManager:push(mn.MenuScene)
+    --rt.SceneManager:push(mn.MenuScene)
+
+    require "overworld.stage_title_card_scene"
+    rt.SceneManager:push(ow.StageTitleCardScene, "tutorial")
 end
 
 love.update = function(delta)

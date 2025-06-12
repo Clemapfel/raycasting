@@ -278,7 +278,8 @@ function ow.Stage:add_checkpoint(checkpoint, id, type)
     }
 
     if type == ow.CheckpointType.PLAYER_SPAWN then
-        self._active_checkpoint = checkpoint
+        self._player_spawn = checkpoint
+        self._active_checkpoint = self._player_spawn
     elseif type == ow.CheckpointType.GOAL then
         self._goals[checkpoint] = true
     end

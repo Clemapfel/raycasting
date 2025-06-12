@@ -36,7 +36,7 @@ function rt.SceneManager:instantiate()
 end
 
 --- @brief
-function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
+function rt.SceneManager:_set_scene(add_to_stack, use_fade, scene_type, ...)
     local varargs = { ... }
     local on_scene_changed = function()
         local scene = self._scene_type_to_scene[scene_type]
@@ -79,7 +79,7 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
         self._schedule_enter = true -- delay enter until next frame to avoid same-frame inputs
     end
 
-    if self._current_scene == nil then -- don't fade at start of game
+    if self._current_scene == nil or use_fade == false then -- don't fade at start of game
         on_scene_changed()
     else
         self._fade:signal_connect("hidden", function()
@@ -90,23 +90,33 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
     end
 end
 
+local _use_fade = true
+local _push_to_stack = true
+
 --- @brief
 function rt.SceneManager:push(scene_type, ...)
     assert(scene_type ~= nil, "In rt.SceneManager: scene type cannot be nil")
     if self._current_scene_type ~= scene_type then
-        self:_set_scene(true, scene_type, ...)
+        self:_set_scene(_push_to_stack, _use_fade, scene_type, ...)
     else
-        self:_set_scene(false, scene_type, ...)
+        self:_set_scene(not _push_to_stack, _use_fade, scene_type, ...)
     end
 end
 
 --- @brief
 function rt.SceneManager:pop()
+    local use_fade = true
+    local push_to_stack = false
     local last = self._scene_stack[1]
     if last ~= nil then
         table.remove(self._scene_stack, 1)
-        self:_set_scene(false, table.unpack(last))
+        self:_set_scene(not _push_to_stack, _use_fade, table.unpack(last))
     end
+end
+
+--- @brief
+function rt.SceneManager:set_scene(scene_type, ...)
+    self:_set_scene(_push_to_stack, not _use_fade, scene_type, ...)
 end
 
 --- @brief
@@ -364,11 +374,11 @@ function love.run()
 end
 
 local utf8 = require("utf8")
-
 local function error_printer(msg, layer)
     print((debug.traceback("Error: " .. tostring(msg), 1+(layer or 1)):gsub("\n[^\n]+$", "")))
 end
 
+local _log_prefix = "/log"
 function love.errorhandler(msg)
     msg = tostring(msg)
 
@@ -462,6 +472,14 @@ function love.errorhandler(msg)
     if debugger.get_is_active() then
         debugger.break_here()
     end
+
+    -- write to log folder
+    if love.filesystem.getDirectory(_log_prefix) then
+        pcall(love.filesystem.createDirectory, _log_prefix)
+    end
+
+
+    love.filesystem.write("")
 
     return function()
         love.event.pump(0.1)

@@ -69,23 +69,29 @@ function print(...)
     end
 end
 
---- @brief print, arguments are concatenade with a newline in between each
+--- @brief print, arguments are concatenated with a newline in between each
 --- @param vararg any
 --- @return nil
 function println(...)
-    local values = {...}
-    if #values == 0 then
+    local n = select("#", ...)
+    if n == 0 then
         io.write("nil\n")
         return
     end
 
-    for _, v in pairs(values) do
-        io.write(tostring(v))
+    for i = 1, n do
+        local value = select(i, ...)
+        if value == nil then
+            io.write("nil")
+        else
+            io.write(tostring(value))
+        end
     end
 
     io.write("\n")
     io.flush()
 end
+
 
 --- @brief get number of elements in arbitrary object
 --- @param x any
@@ -673,20 +679,14 @@ function exit(status)
     love.event.push("quit", status)
 end
 
+local _tabspace = "    "
 local _serialize_get_indent = function(n_indent_tabs)
-    local tabspace = "    "
-    local buffer = {""}
-
-    for i = 1, n_indent_tabs do
-        table.insert(buffer, tabspace)
-    end
-
-    return table.concat(buffer)
+    return string.rep(_tabspace, n_indent_tabs)
 end
 
 local _serialize_insert = function(buffer, ...)
-    for i, value in pairs({...}) do
-        table.insert(buffer, value)
+    for i = 1, select("#", ...) do
+        table.insert(buffer, select(i, ...))
     end
 end
 
@@ -705,7 +705,7 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
         _serialize_insert(buffer, "nil")
     elseif type(object) == "table" then
         if seen[object] then
-            _serialize_insert(buffer, "-- [[ ... ]]")
+            _serialize_insert(buffer, "-- [[ ... ]]") -- catch infinite loop
             return
         end
 
