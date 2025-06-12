@@ -112,11 +112,9 @@ local texture = ParticleTexture()
 texture:initialize()
 ]]--
 
-
-io.write(tostring())
-io.flush()
-
-println(1 / 0)
+local pathological = {}
+pathological[pathological] = 1
+println(serialize(rt.GameState))
 
 love.load = function(args)
     -- intialize all scenes

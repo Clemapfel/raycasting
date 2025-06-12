@@ -685,8 +685,10 @@ local _serialize_get_indent = function(n_indent_tabs)
 end
 
 local _serialize_insert = function(buffer, ...)
+    if buffer == nil then return end
     for i = 1, select("#", ...) do
-        table.insert(buffer, select(i, ...))
+        local value = select(i, ...)
+        table.insert(buffer, value)
     end
 end
 
@@ -705,12 +707,15 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
         _serialize_insert(buffer, "nil")
     elseif type(object) == "table" then
         if seen[object] then
-            _serialize_insert(buffer, "-- [[ ... ]]") -- catch infinite loop
+            _serialize_insert(buffer, "nil --[[ (cyclic table ]]") -- cyclic table
             return
         end
 
         seen[object] = true
-        local n_entries = table.sizeof(object)
+        local n_entries = 0
+        for _ in pairs(object) do
+            n_entries = n_entries + 1
+        end
 
         if n_entries > 0 then
             _serialize_insert(buffer, "{\n")
@@ -718,25 +723,31 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
 
             local index = 0
             for key, value in pairs(object) do
-                if comment_out and (type(value) == "function" or type(value) == "userdata") then
-                    _serialize_insert(buffer, "--[[ ", key, " = ", tostring(value), ", ]]\n")
+                if seen[key] then
+                    _serialize_insert(buffer, "--[[ (cyclic key) ]]\n") -- cyclic key
                 else
-                    if type(key) == "string" then
-                        _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[\"", tostring(key), "\"]", " = ")
-                    elseif type(key) == "number" then
-                        _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", tostring(key), "] = ")
+                    seen[key] = true
+                    if comment_out and (type(value) == "function" or type(value) == "userdata") then
+                        _serialize_insert(buffer, "--[[ ", key, " = ", tostring(value), ", ]]\n") -- userdata
                     else
-                        _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", serialize(key), "] = ")
-                    end
+                        if type(key) == "string" then
+                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[\"", tostring(key), "\"]", " = ")
+                        elseif type(key) == "number" then
+                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", tostring(key), "] = ")
+                        else
+                            _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs), "[", serialize(key), "] = ")
+                        end
 
-                    _serialize_inner(buffer, value, n_indent_tabs, seen, comment_out)
-
-                    index = index + 1
-                    if index < n_entries then
-                        _serialize_insert(buffer, ",\n")
-                    else
-                        _serialize_insert(buffer, "\n")
+                        _serialize_inner(buffer, value, n_indent_tabs, seen, comment_out)
                     end
+                    seen[key] = nil
+                end
+
+                index = index + 1
+                if index < n_entries then
+                    _serialize_insert(buffer, ",\n")
+                else
+                    _serialize_insert(buffer, "\n")
                 end
             end
             _serialize_insert(buffer, _serialize_get_indent(n_indent_tabs-1), "}")
@@ -752,12 +763,8 @@ end
 --- @param object any
 --- @param comment_out_unserializable Boolean false by default
 --- @return string
-function serialize(object, comment_out_unserializable)
+function serialize(object)
     if object == nil then return "nil" end
-
-    if comment_out_unserializable == nil then
-        comment_out_unserializable = false
-    end
 
     if object == nil then
         return nil
