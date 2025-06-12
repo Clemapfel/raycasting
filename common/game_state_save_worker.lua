@@ -44,7 +44,7 @@ local base64_encode = function(str)
     return love.data.encode("string", "base64", str)
 end
 
--- convert string to base64
+-- convert base64 to string
 local base64_decode = function(str)
     return love.data.decode("string", "base64", str)
 end
@@ -57,11 +57,12 @@ local push_error = function(reason)
     })
 end
 
-local safe_call = pcall--function(f, ...) return true, f(...)  end
+local safe_call = pcall
 
 while true do
     ::next_message::
 
+    -- { type::MessageType, state::Table }
     local message = main_to_worker:demand()
 
     -- create save
