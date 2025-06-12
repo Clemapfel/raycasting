@@ -25,13 +25,13 @@ rt.VertexFormat = {
 rt.Mesh = meta.class("Mesh", rt.Drawable)
 
 --- @brief
-function rt.Mesh:instantiate(data, draw_mode, format)
+function rt.Mesh:instantiate(data, draw_mode, format, usage)
     meta.install(self, {
         _native = love.graphics.newMesh(
             format or rt.VertexFormat,
             data,
             draw_mode or rt.MeshDrawMode.TRIANGLE_FAN,
-            rt.GraphicsBufferUsage.STATIC
+            usage or rt.GraphicsBufferUsage.STATIC
         ),
         _r = 1,
         _g = 1,
