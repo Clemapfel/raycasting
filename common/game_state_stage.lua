@@ -67,7 +67,8 @@ function rt.GameState:_initialize_stage()
             title = title,
             difficulty = difficulty,
             description = description,
-            target_time = target_time
+            target_time = target_time,
+            index = i
         }
 
         self._stages[i] = stage
@@ -190,6 +191,12 @@ end
 function rt.GameState:get_stage_description(id)
     local stage = self:_get_stage(id, "get_stage_description")
     return stage.description
+end
+
+--- @brief
+function rt.GameState:get_stage_index(id)
+    local stage = self:_get_stage(id, "get_stage_index")
+    return stage.index
 end
 
 --- @brief

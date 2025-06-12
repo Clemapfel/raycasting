@@ -112,10 +112,6 @@ local texture = ParticleTexture()
 texture:initialize()
 ]]--
 
-local pathological = {}
-pathological[pathological] = 1
-println(serialize(rt.GameState))
-
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"

@@ -270,6 +270,16 @@ rt.Translation = rt.initialize_translation({
         control_indicator_abort = "Exit"
     },
 
+    -- stage title card scene
+    stage_title_card_scene = {
+        stage_index_to_title_prefix = function(i)
+            return "Level " .. i
+        end,
+
+        best_time_prefix = "Current Best Time",
+        target_time_prefix = "Time to Beat"
+    },
+
     -- stages
     stages = {
         [1] = {
