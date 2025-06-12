@@ -78,12 +78,27 @@ local particle_which = 0
 local _total_n_particles = 0
 local _max_n_particles = 1000
 
+local _position_x = 1
+local _position_y = 2
+local _velocity_x = 3
+local _velocity_y = 4
+local _speed = 5
+local _scale = 6
+local _radius = 7
+local _r = 8
+local _g = 9
+local _b = 10
+local _opacity = 11
+local _lifetime_multiplier = 12
+local _lifetime_elapsed = 13
+local _which = 14
+
 --- @brief
 function ow.AcceleratorSurface:_update_particles(delta)
     local min_emission_factor = 0.5
     local player = self._scene:get_player()
     local player_vx, player_vy = player:get_velocity()
-    local emission_rate = math.mix(0, 10, math.min(player:get_flow() + (math.magnitude(player_vx, player_vy) / 10), 1))
+    local emission_rate = 1000--math.mix(0, 10, math.min(player:get_flow() + (math.magnitude(player_vx, player_vy) / 10), 1))
     local min_size, max_size = 2, 7
     local hue_offset = 0.2
     local lifetime_offset = 0.2 -- fraction
@@ -121,7 +136,6 @@ function ow.AcceleratorSurface:_update_particles(delta)
             local radius = rt.random.number(min_size, max_size)
             local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue)
             local particle = {
-                mass = 1,
                 speed = rt.random.number(min_speed, max_speed),
                 scale = radius / max_size,
                 radius = radius,
@@ -137,9 +151,27 @@ function ow.AcceleratorSurface:_update_particles(delta)
                 lifetime_elapsed = 0,
                 which = particle_which % 2 == 0
             }
+
+            local particle = {
+                [_speed] = rt.random.number(min_speed, max_speed),
+                [_scale] = radius / max_size,
+                [_radius] = radius,
+                [_position_x] = self._emission_x,
+                [_position_y] = self._emission_y,
+                [_velocity_x] = vx,
+                [_velocity_y] = vy,
+                [_r] = r,
+                [_g] = g,
+                [_b] = b,
+                [_opacity] = 1,
+                [_lifetime_multiplier] = 1 + rt.random.number(-lifetime_offset, lifetime_offset),
+                [_lifetime_elapsed] = 0,
+                [_which] = particle_which % 2 == 0
+            }
+
             particle_which = particle_which + 1
 
-            if particle.which == true then
+            if particle[_which] == true then
                 self._texture_particles[particle] = true
             else
                 self._shape_particles[particle] = true
@@ -163,14 +195,14 @@ function ow.AcceleratorSurface:_update_particles(delta)
     -- simulate
     local to_remove = {}
     for i, particle in ipairs(self._particles) do
-        particle.position_x = particle.position_x + particle.velocity_x * particle.speed * delta
-        particle.position_y = particle.position_y + particle.velocity_y * particle.speed * delta
-        particle.lifetime_elapsed = particle.lifetime_elapsed + delta
+        particle[_position_x] = particle[_position_x] + particle[_velocity_x] * particle[_speed] * delta
+        particle[_position_y] = particle[_position_y] + particle[_velocity_y] * particle[_speed] * delta
+        particle[_lifetime_elapsed] = particle[_lifetime_elapsed] + delta
 
-        particle.opacity = 1 - particle.lifetime_elapsed / (particle.lifetime_multiplier * lifetime)
+        particle[_opacity] = 1 - particle[_lifetime_elapsed] / (particle[_lifetime_multiplier] * lifetime)
 
-        local x, y = particle.position_x, particle.position_y
-        if particle.lifetime_elapsed > (particle.lifetime_multiplier * lifetime) or -- scheduled end of lifetime
+        local x, y = particle[_position_x], particle[_position_y]
+        if particle[_lifetime_elapsed] > (particle[_lifetime_multiplier] * lifetime) or -- scheduled end of lifetime
             x < top_x or y < top_y or x > bottom_x or y > bottom_y or -- despawn off-screen
             _total_n_particles > _max_n_particles -- prevent lag
         then
@@ -207,17 +239,17 @@ function ow.AcceleratorSurface:draw()
 
     rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.NORMAL)
     for particle in keys(self._texture_particles) do
-        local damp = particle.opacity
-        love.graphics.setColor(damp * particle.r, damp * particle.g, damp * particle.b, 1)
-        love.graphics.draw(self._particle_texture_gaussian:get_native(), particle.position_x, particle.position_y, 0, particle.scale, particle.scale, 0.5 * w, 0.5 * h)
+        local damp = particle[_opacity]
+        love.graphics.setColor(damp * particle[_r], damp * particle[_g], damp * particle[_b], 1)
+        love.graphics.draw(self._particle_texture_gaussian:get_native(), particle[_position_x], particle[_position_y], 0, particle[_scale], particle[_scale], 0.5 * w, 0.5 * h)
     end
 
     rt.graphics.set_blend_mode(nil)
     for particle in keys(self._shape_particles) do
-        love.graphics.setColor(particle.r, particle.g, particle.b, particle.opacity * 0.5)
-        love.graphics.circle("fill", particle.position_x, particle.position_y, particle.radius)
-        love.graphics.setColor(particle.r, particle.g, particle.b, particle.opacity)
-        love.graphics.circle("line", particle.position_x, particle.position_y, particle.radius)
+        love.graphics.setColor(particle[_r], particle[_g], particle[_b], particle[_opacity] * 0.5)
+        love.graphics.circle("fill", particle[_position_x], particle[_position_y], particle[_radius])
+        love.graphics.setColor(particle[_r], particle[_g], particle[_b], particle[_opacity])
+        love.graphics.circle("line", particle[_position_x], particle[_position_y], particle[_radius])
     end
 end
 
@@ -226,7 +258,7 @@ function ow.AcceleratorSurface:reinitialize()
 end
 
 function ow.AcceleratorSurface:draw_all()
-    if #_instances == 0 then return end
+    if true then return end --#_instances == 0 then return end
 
     if _post_fx_shader == nil then _post_fx_shader = rt.Shader("overworld/objects/accelerator_surface.glsl") end
     local w, h = love.graphics.getDimensions()
