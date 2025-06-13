@@ -723,7 +723,7 @@ local function _serialize_inner(buffer, object, n_indent_tabs, seen, comment_out
 
             local index = 0
             for key, value in pairs(object) do
-                if seen[key] then
+                if type(key) == "table" and seen[key] then
                     _serialize_insert(buffer, "--[[ (cyclic key) ]]\n") -- cyclic key
                 else
                     seen[key] = true

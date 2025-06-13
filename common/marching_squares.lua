@@ -1,11 +1,75 @@
 require "common.common"
 
---- @brief
--- Extracts all contours from a binary image using the marching squares algorithm.
--- Returns a flat list of 2D points (all contours concatenated).
--- @param canvas love.graphics.Canvas
--- @return table of {x, y} points (flat list)
-require "common.common"
+--- Remove collinear points from a flat array of coordinates {x1, y1, x2, y2, ...}
+--- Multiple contours are separated by `nil` values.
+--- @param flat_points table (flat array)
+--- @param closed boolean (true if the contours are closed, false if open)
+--- @return table (flat array with collinear points removed)
+function dissolve_colinear_points(flat_points, closed)
+    local function is_colinear(ax, ay, bx, by, cx, cy)
+        local cross_product = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+        return math.abs(cross_product) < 1e-6
+    end
+
+    local result = {}
+    local contour = {}
+
+    for i = 1, #flat_points, 2 do
+        local x, y = flat_points[i], flat_points[i + 1]
+        if x == nil or y == nil then
+            -- Process the current contour
+            if #contour > 0 then
+                local n = math.floor(#contour / 2)
+                local processed_contour = {}
+
+                for j = 1, n do
+                    local ax, ay = contour[(j - 1) * 2 + 1], contour[(j - 1) * 2 + 2]
+                    local bx, by = contour[(j % n) * 2 + 1], contour[(j % n) * 2 + 2]
+                    local cx, cy = contour[(j + 1) % n * 2 + 1], contour[(j + 1) % n * 2 + 2]
+
+                    if not is_colinear(ax, ay, bx, by, cx, cy) then
+                        table.insert(processed_contour, bx)
+                        table.insert(processed_contour, by)
+                    end
+                end
+
+                for _, v in ipairs(processed_contour) do
+                    table.insert(result, v)
+                end
+                table.insert(result, nil) -- Add delimiter for the next contour
+            end
+
+            -- Reset contour for the next segment
+            contour = {}
+        else
+            table.insert(contour, x)
+            table.insert(contour, y)
+        end
+    end
+
+    -- Process the last contour if it exists
+    if #contour > 0 then
+        local n = math.floor(#contour / 2)
+        local processed_contour = {}
+
+        for j = 1, n do
+            local ax, ay = contour[(j - 1) * 2 + 1], contour[(j - 1) * 2 + 2]
+            local bx, by = contour[(j % n) * 2 + 1], contour[(j % n) * 2 + 2]
+            local cx, cy = contour[(j + 1) % n * 2 + 1], contour[(j + 1) % n * 2 + 2]
+
+            if not is_colinear(ax, ay, bx, by, cx, cy) then
+                table.insert(processed_contour, bx)
+                table.insert(processed_contour, by)
+            end
+        end
+
+        for _, v in ipairs(processed_contour) do
+            table.insert(result, v)
+        end
+    end
+
+    return result
+end
 
 --- @brief
 -- Extracts all contours from a binary image using the marching squares algorithm.
@@ -67,12 +131,10 @@ function rt.contour_from_canvas(canvas)
     end
 
     local flat_points = {}
-
     local function trace_contour(sx, sy, sdir)
         local x, y, dir = sx, sy, sdir
         local first = true
         while true do
-            -- Use +1 for table indices
             visited[x+1][y+1][dir+1] = true
 
             local px, py
@@ -85,7 +147,8 @@ function rt.contour_from_canvas(canvas)
             elseif dir == 3 then
                 px, py = x + 0.5, y + 1
             end
-            table.insert(flat_points, {px, py})
+            table.insert(flat_points, px)
+            table.insert(flat_points, py)
 
             local case = get_case(x, y)
             if case == 0 or case == 15 then
@@ -106,7 +169,6 @@ function rt.contour_from_canvas(canvas)
                 break
             end
 
-            -- Use +1 for table indices
             if visited[nx+1] and visited[nx+1][ny+1] and visited[nx+1][ny+1][ndir+1] then
                 break
             end
@@ -121,7 +183,6 @@ function rt.contour_from_canvas(canvas)
             local case = get_case(x, y)
             if case ~= 0 and case ~= 15 then
                 for dir = 0, 3 do
-                    -- Use +1 for table indices
                     if not visited[x+1][y+1][dir+1] then
                         trace_contour(x, y, dir)
                     end
@@ -130,5 +191,8 @@ function rt.contour_from_canvas(canvas)
         end
     end
 
-    return flat_points
+    flat_points = dissolve_colinear_points(flat_points, true)
+
+    require "common.delaunay_triangulation"
+    return rt.DelaunayTriangulation(flat_points, flat_points):get_triangles()
 end

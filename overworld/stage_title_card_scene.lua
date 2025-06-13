@@ -92,6 +92,11 @@ function ow.StageTitleCardScene:draw()
     love.graphics.pop()
 
     self._title_canvas:draw()
+    love.graphics.setColor(1, 0, 1, 1)
+    for tri in values(self._tris) do
+        love.graphics.polygon("fill", tri)
+    end
+    love.graphics.points(self._tris)
     self._target_time_prefix_label:draw()
     self._target_time_colon_label:draw()
     self._target_time_value_label:draw()
