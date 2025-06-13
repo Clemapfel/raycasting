@@ -204,7 +204,7 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
 
     self:update()
 
-    if not contour then return end
+    if not contour then return self end
 
     -- Compute AABB for the contour
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
@@ -251,6 +251,7 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
     end
 
     self._triangles = _trim(constrained, constrained_i)
+    return self
 end
 
 --- @brief

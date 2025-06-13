@@ -6,12 +6,16 @@ require "common.delaunay_triangulation"
 
 local _instance = rt.DelaunayTriangulation()
 
-rt.math.triangulate = function(points)
+rt.math.triangulate = function(points, use_speedup)
     local success, out = pcall(love.math.triangulate, points)
     if not success then
-        success, out = pcall(slick.triangulate, { points })
-        if not success then
-            rt.error(out)
+        if use_speedup then
+            return _instance:triangulate(points, points):get_triangles()
+        else
+            success, out = pcall(slick.triangulate, { points })
+            if not success then
+                rt.error(out)
+            end
         end
     end
 

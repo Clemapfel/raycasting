@@ -607,6 +607,8 @@ function ow._parse_object_group(object_group, scope)
     local object_id_to_wrapper = {}
 
     for object in values(object_group.objects) do
+        if _get(object, "shape") == "text" then goto continue end -- skip "text" objects
+
         local wrapper = ow.ObjectWrapper(_get(object, "type"), _get(object, "id"))
         wrapper.name = _get(object, "name")
 
@@ -705,6 +707,8 @@ function ow._parse_object_group(object_group, scope)
 
         table.insert(objects, wrapper)
         object_id_to_wrapper[wrapper.id] = wrapper
+
+        ::continue::
     end
 
     -- second pass, set "object" tiled property

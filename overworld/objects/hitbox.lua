@@ -37,7 +37,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
         self._body:add_tag("no_blood")
     end
 
-    self._body:add_tag("hitbox")
+    self._body:add_tag("hitbox", "stencil")
 
     local friction = object:get_number("friction")
 

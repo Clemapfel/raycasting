@@ -630,7 +630,7 @@ function mn.MenuScene:enter()
 
     -- inputs activate in _set_state
     if self._state == nil then
-        self:_set_state(mn.MenuSceneState.STAGE_SELECT)
+        self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
     else
         self:_set_state(self._state)
     end

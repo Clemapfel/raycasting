@@ -199,7 +199,7 @@ function rt.PlayerBody:relax()
         local x, y = px + rope.anchor_x, py + rope.anchor_y
 
         for i = 0, rope.n_segments - 1 do
-            local step = ternary(player:get_is_bubble(), rope.distances[i+1], rope.bubble_distances[i+1])
+            local step = ternary(self._player:get_is_bubble(), rope.distances[i+1], rope.bubble_distances[i+1])
             rope.current_positions[i * 2 + 1] = x + dx * step * i
             rope.current_positions[i * 2 + 2] = y + dy * step * i
         end
@@ -542,7 +542,7 @@ function rt.PlayerBody:update(delta)
 
     self._stencil_bodies = {}
     for body in values(bodies) do
-        if body:has_tag("hitbox") then
+        if body:has_tag("stencil") then
             table.insert(self._stencil_bodies, body)
         end
     end
