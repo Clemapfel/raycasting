@@ -51,6 +51,8 @@ function ow.StageTitleCardScene:_initialize()
 
     self._world = b2.World()
     self._bodies = {}
+    self._contours = {}
+    local tris = {}
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     for object in values(self._objects) do
         local body = object:create_physics_body(self._world, b2.BodyType.STATIC)
@@ -61,18 +63,47 @@ function ow.StageTitleCardScene:_initialize()
         max_x = math.max(max_x, aabb.x + aabb.width)
         max_y = math.max(max_y, aabb.y + aabb.height)
         table.insert(self._bodies, body)
+
+        local object_tris = object:triangulate()
+        for tri in values(object_tris) do
+            table.insert(tris, tri)
+        end
+
+        table.insert(self._contours, rt.contour_from_tris(tris))
     end
+
+    local mesh_data = {}
+    local _push_vertex = function(x, y)
+        meta.assert(x, "Number", y, "Number")
+        table.insert(mesh_data, {
+            x, y, 0, 0, 1, 1, 1, 1
+        })
+    end
+
+    for tri in values(tris) do
+        _push_vertex(tri[1], tri[2])
+        _push_vertex(tri[3], tri[4])
+        _push_vertex(tri[5], tri[6])
+    end
+
+    self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 
     self._camera_bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
     self._camera_anchor_x, self._camera_anchor_y = math.mix2(min_x, min_y, max_x, max_y, 0.5)
     self._camera:set_position(self._camera_anchor_x, self._camera_anchor_y)
+
+    local screen_w, screen_h = love.graphics.getDimensions()
+    local outer_margin = 10 * rt.settings.margin_unit
+    self._camera:set_scale(math.min(
+        screen_w / (self._camera_bounds.width + 2 * outer_margin),
+        screen_h / (self._camera_bounds.height + 2 * outer_margin)
+    )) -- scale such that camera_bounds fits into
 
     self._player:move_to_world(self._world)
     self._player:set_is_bubble(true)
     self._player:set_opacity(1)
     self._player:enable()
 
-    local screen_h = self._camera:screen_xy_to_world_xy(0, love.graphics.getHeight())
     self._player:teleport_to(self._camera_anchor_x, self._camera_anchor_y - 100)
 end
 
@@ -108,9 +139,7 @@ function ow.StageTitleCardScene:draw()
     self._camera:bind()
 
     rt.Palette.WHITE:bind()
-    for body in values(self._bodies) do
-        body:draw()
-    end
+    self._mesh:draw()
 
     self._player:draw()
     local x, y = self._player:get_position()

@@ -302,7 +302,10 @@ function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
         is_sensor = self:get_boolean("is_sensor") or false
     end
 
-    local out = b2.Body(world, type, 0, 0, self:get_physics_shapes())
+    local success, out = pcall(b2.Body, world, type, 0, 0, self:get_physics_shapes())
+    if not success then
+        rt.error("In ow.ObjectWrapper:create_physics_body: for object `" .. self.id .. "`: " .. out)
+    end
     if type == b2.BodyType.DYNAMIC then
         out._native:setLinearDamping(30)
         out._native:setAngularDamping(30)
@@ -370,6 +373,19 @@ function ow.ObjectWrapper:create_mesh()
     end
 
     return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles
+end
+
+--- @brief
+function ow.ObjectWrapper:triangulate()
+    if self.mesh_prototype_initialized ~= true then
+        self:_initialize_mesh_prototype()
+    end
+
+    if self.type == ow.ObjectType.POINT then
+        rt.error("In ow.ObjectWrapper: trying to triangulate `" .. self.id .. "`, but object has a volume of 0")
+    end
+
+    return self.mesh_triangles
 end
 
 --- @brief

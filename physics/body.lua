@@ -84,8 +84,10 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
 
     for non_native in values(shapes) do
         local native = non_native:_add_to_body(self._native)
-        native:setUserData(non_native)
-        self:_update_filter_data(native)
+        if native ~= nil then
+            native:setUserData(non_native)
+            self:_update_filter_data(native)
+        end
     end
 
     self._native:setUserData(self)

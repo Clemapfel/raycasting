@@ -96,7 +96,13 @@ end
 
 --- @brief
 function b2.Polygon:_add_to_body(body)
-    return love.physics.newPolygonShape(body, self._vertices)
+    local success, out = pcall(love.physics.newPolygonShape, body, self._vertices)
+    if success == true then
+        return out
+    else
+        rt.warning("In b2.Polygon: polygon has a volume of 0")
+        return nil
+    end
 end
 
 --- @class b2.Segment
