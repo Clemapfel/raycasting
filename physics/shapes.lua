@@ -100,8 +100,7 @@ function b2.Polygon:_add_to_body(body)
     if success == true then
         return out
     else
-        rt.warning("In b2.Polygon: polygon has a volume of 0")
-        return nil
+        return nil -- shape has volume of 0
     end
 end
 

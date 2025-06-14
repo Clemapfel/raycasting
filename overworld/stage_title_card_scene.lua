@@ -13,21 +13,29 @@ rt.settings.overworld.stage_title_card_scene = {
 --- @class ow.StageTitleCardScene
 ow.StageTitleCardScene = meta.class("StageTitleCardScene", rt.Scene)
 
-local _shader
+local _canvas = nil
+local _post_fx_shader = nil
 
 --- @brief
 function ow.StageTitleCardScene:instantiate(state)
-    if _shader == nil then _shader = rt.Shader("overworld/stage_title_card_scene.glsl") end
+    if _post_fx_shader == nil then
+        _post_fx_shader = rt.Shader("overworld/stage_title_card_scene_post_fx.glsl")
+    end
+
     self._state = state
     self._player = state:get_player()
     self._camera = rt.Camera()
     self._camera_position_x, self._camera_position_y = 0, 0
     self._elapsed = 0
+    self._initialized = false
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "^" then
             self:_initialize()
+        elseif which == "k" then
+            _post_fx_shader:recompile()
+            dbg("called")
         end
     end)
 end
@@ -51,7 +59,6 @@ function ow.StageTitleCardScene:_initialize()
 
     self._world = b2.World()
     self._bodies = {}
-    self._contours = {}
     local tris = {}
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     for object in values(self._objects) do
@@ -68,8 +75,6 @@ function ow.StageTitleCardScene:_initialize()
         for tri in values(object_tris) do
             table.insert(tris, tri)
         end
-
-        table.insert(self._contours, rt.contour_from_tris(tris))
     end
 
     local mesh_data = {}
@@ -87,6 +92,7 @@ function ow.StageTitleCardScene:_initialize()
     end
 
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+    self._tris = tris
 
     self._camera_bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
     self._camera_anchor_x, self._camera_anchor_y = math.mix2(min_x, min_y, max_x, max_y, 0.5)
@@ -105,6 +111,7 @@ function ow.StageTitleCardScene:_initialize()
     self._player:enable()
 
     self._player:teleport_to(self._camera_anchor_x, self._camera_anchor_y - 100)
+    self._initialized = false
 end
 
 --- @brief
@@ -114,9 +121,18 @@ end
 
 --- @brief
 function ow.StageTitleCardScene:size_allocate(x, y, width, height)
+    if _canvas == nil or _canvas:get_width() ~= width or _canvas:get_height() ~= height then
+        _canvas = rt.RenderTexture(width, height, 4)
+        _canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    end
+
     self._bounds:reformat(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_m = 2 * m
+
+    if self._is_initialized then
+        self:_initialize()
+    end
 end
 
 --- @brief
@@ -131,20 +147,38 @@ end
 
 --- @brief
 function ow.StageTitleCardScene:draw()
+    local w, h = _canvas:get_size()
+
     love.graphics.push()
     love.graphics.origin()
-    rt.Palette.BLACK:bind()
+    rt.Palette.TRUE_MAGENTA:bind()
     love.graphics.rectangle("fill", self._bounds:unpack())
 
+    _canvas:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    local offset_x, offset_y = self._camera_anchor_x + 0.5 * w, self._camera_anchor_x + 0.5 * h
     self._camera:bind()
-
-    rt.Palette.WHITE:bind()
     self._mesh:draw()
+    _canvas:unbind()
 
-    self._player:draw()
-    local x, y = self._player:get_position()
 
+    rt.Palette.BLACK:bind()
+    love.graphics.draw(self._mesh:get_native())
     self._camera:unbind()
+
+    _post_fx_shader:bind()
+    _post_fx_shader:send("elapsed", self._elapsed)
+    _post_fx_shader:send("camera_scale", self._camera:get_final_scale())
+    love.graphics.origin()
+    love.graphics.setBlendMode("alpha", "premultiplied")
+    _canvas:draw()
+    love.graphics.setBlendMode("alpha")
+    _post_fx_shader:unbind()
+
+    self._camera:bind()
+    self._player:draw()
+    self._camera:unbind()
+
     love.graphics.pop()
 end
 

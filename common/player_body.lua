@@ -688,6 +688,16 @@ function rt.PlayerBody:draw_core()
     love.graphics.pop()
     self._core_canvas:unbind()
 
+    if self._is_bubble then
+        local stencil_value = rt.graphics.get_stencil_value()
+        rt.graphics.stencil(stencil_value, function()
+            for body in values(self._stencil_bodies) do
+                body:draw()
+            end
+        end)
+        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+    end
+
     -- draw outline
     local darken = _settings.outline_value_offset
     love.graphics.setColor(1 - darken, 1 - darken, 1 - darken, self._a)
@@ -700,19 +710,6 @@ function rt.PlayerBody:draw_core()
         0.5 * w, 0.5 * h
     )
 
-    -- eyelid
-    local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.stencil(stencil_value, function()
-        if self._top_eye_lid_position > 0 then
-            love.graphics.polygon("fill", self._top_eye_lid)
-        end
-
-        if self._bottom_eye_lid_position > 0 then
-            love.graphics.polygon("fill", self._bottom_eye_lid)
-        end
-    end)
-    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
-
     -- draw inside
     love.graphics.setColor(1, 1, 1, self._a)
     love.graphics.draw(
@@ -723,8 +720,6 @@ function rt.PlayerBody:draw_core()
         1 / self._canvas_scale * inside_scale,
         0.5 * w, 0.5 * h
     )
-
-    rt.graphics.set_stencil_compare_mode(nil)
 
     love.graphics.push()
     love.graphics.translate(self._center_x, self._center_y)
@@ -750,6 +745,8 @@ function rt.PlayerBody:draw_core()
 
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
+
+    rt.graphics.set_stencil_compare_mode(nil)
 
     --[[
     --love.graphics.circle("fill", self._center_x, self._center_y, 100)
