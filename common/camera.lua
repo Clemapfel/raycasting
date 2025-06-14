@@ -329,6 +329,15 @@ function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
 end
 
 --- @brief
+function rt.Camera:get_world_bounds()
+    local w, h = love.graphics.getDimensions()
+    local scale = self:get_final_scale()
+    w = w / scale
+    h = h / scale
+    return self._current_x - 0.5 * w, self._current_y - 0.5 * h, w, h
+end
+
+--- @brief
 --- @param intensity Number in [0, 1]
 function rt.Camera:set_is_shaking(b)
     self._is_shaking = b

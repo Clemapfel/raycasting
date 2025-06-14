@@ -194,17 +194,15 @@ function ow.AcceleratorSurface:_update_particles(delta)
         end
     end
 
-    --[[
     table.sort(to_remove, function(a, b)
         return a > b
     end)
-    ]]
 
     for i in values(to_remove) do
         local particle = self._particles[i]
-        table.remove(self._particles, i)
         self._shape_particles[particle] = nil
         self._texture_particles[particle] = nil
+        table.remove(self._particles, i)
     end
 end
 

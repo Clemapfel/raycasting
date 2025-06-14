@@ -9,7 +9,12 @@ rt.settings.keybinding_indicator = {
 rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
 
 local _Label = function(text, font_size)
-    return rt.Label("<mono>" .. text .. "</mono>", font_size or rt.settings.keybinding_indicator.font_size, rt.settings.keybinding_indicator.font)
+    local out = rt.Label("<mono>" .. text .. "</mono>", font_size or rt.settings.keybinding_indicator.font_size, rt.settings.keybinding_indicator.font)
+    out.draw = function(self, opacity)
+        self:set_opacity(opacity)
+        rt.Label.draw(self)
+    end
+    return out
 end
 
 local _GRAY_3 = rt.Palette.GRAY_4
@@ -50,12 +55,13 @@ local _Rectangle = function(x, y, width, height)
         corner_radius = 0,
         color = _WHITE,
         
-        draw = function(self)
+        draw = function(self, opacity)
             if self.is_outline then
                 love.graphics.setLineWidth(self.line_width)
             end
             
-            self.color:bind()
+            local r, g, b, a = self.color:unpack()
+            love.graphics.setColor(r, g, b, a * opacity)
             love.graphics.rectangle(
                 self.is_outline and "line" or "fill",
                 self.x, self.y, self.width, self.height,
@@ -75,12 +81,13 @@ local _Ellipse = function(x, y, x_radius, y_radius)
         line_width = 2,
         color = _WHITE,
 
-        draw = function(self)
+        draw = function(self, opacity)
             if self.is_outline then
                 love.graphics.setLineWidth(self.line_width)
             end
 
-            self.color:bind()
+            local r, g, b, a = self.color:unpack()
+            love.graphics.setColor(r, g, b, a * opacity)
             love.graphics.ellipse(
                 self.is_outline and "line" or "fill",
                 self.x, self.y, self.x_radius, self.y_radius
@@ -97,12 +104,13 @@ local _Polygon = function(first, ...)
         line_width = 2,
         color = _WHITE,
 
-        draw = function(self)
+        draw = function(self, opacity)
             if self.is_outline then
                 love.graphics.setLineWidth(self.line_width)
             end
 
-            self.color:bind()
+            local r, g, b, a = self.color:unpack()
+            love.graphics.setColor(r, g, b, a * opacity)
             love.graphics.polygon(
                 self.is_outline and "line" or "fill",
                 self.vertices
@@ -117,9 +125,10 @@ local _Line = function(first, ...)
         line_width = 2,
         color = _WHITE,
 
-        draw = function(self)
+        draw = function(self, opacity)
             love.graphics.setLineWidth(self.line_width)
-            self.color:bind()
+            local r, g, b, a = self.color:unpack()
+            love.graphics.setColor(r, g, b, a * opacity)
             love.graphics.line(self.vertices)
         end
     }
@@ -282,7 +291,7 @@ function rt.KeybindingIndicator:create_as_button(top_selected, right_selected, b
 
         self._draw = function()
             for drawable in values(self._content) do
-                drawable:draw()
+                drawable:draw(self._opacity)
             end
         end
     end
@@ -442,7 +451,7 @@ function rt.KeybindingIndicator:create_as_dpad(up_selected, right_selected, down
 
         self._draw = function()
             for drawable in values(self._content) do
-                drawable:draw()
+                drawable:draw(self._opacity)
             end
         end
     end
@@ -540,7 +549,7 @@ function rt.KeybindingIndicator:create_as_start_or_select(start_or_select)
 
         self._draw = function()
             for drawable in values(self._content) do
-                drawable:draw()
+                drawable:draw(self._opacity)
             end
         end
     end
@@ -651,23 +660,23 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
                 love.graphics.translate(-flip_x, 0)
             end
 
-            polygon:draw()
-            curve_outline_outline:draw()
+            polygon:draw(self._opacity)
+            curve_outline_outline:draw(self._opacity)
 
             local value = rt.graphics.get_stencil_value()
             rt.graphics.stencil(value, function()
-            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.setColor(1, 1, 1, self._opacity)
                 for tri in values(stencil) do
                     love.graphics.polygon("fill", tri)
                 end
             end)
             rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, value)
-            rectangle_base_outline_outline:draw()
-            rectangle_base:draw()
-            rectangle_base_outline:draw()
+            rectangle_base_outline_outline:draw(self._opacity)
+            rectangle_base:draw(self._opacity)
+            rectangle_base_outline:draw(self._opacity)
             rt.graphics.set_stencil_compare_mode(nil)
 
-            curve_outline:draw()
+            curve_outline:draw(self._opacity)
 
             if l_or_r == true then
                 love.graphics.pop()
@@ -804,7 +813,7 @@ function rt.KeybindingIndicator:_as_joystick(left_or_right, width)
 
     self._draw = function()
         for drawable in values(self._content) do
-            drawable:draw()
+            drawable:draw(self._opacity)
         end
     end
 end
@@ -930,7 +939,7 @@ function rt.KeybindingIndicator:create_as_joystick(left_or_right)
 
         self._draw = function()
             for drawable in values(self._content) do
-                drawable:draw()
+                drawable:draw(self._opacity)
             end
         end
     end
@@ -1099,7 +1108,7 @@ function rt.KeybindingIndicator:create_as_key(text, is_space)
 
         self._draw = function()
             for drawable in values(self._content) do
-                drawable:draw()
+                drawable:draw(self._opacity)
             end
         end
 
@@ -1182,7 +1191,7 @@ function rt.KeybindingIndicator:create_as_two_horizontal_keys(left_text, right_t
 
         self._draw = function()
             for drawable in values(self._content) do
-                drawable:draw()
+                drawable:draw(self._opacity)
             end
         end
     end
@@ -1292,7 +1301,7 @@ function rt.KeybindingIndicator:create_as_four_keys(up_text, right_text, bottom_
 
         self._draw = function()
             for drawable in values(self._content) do
-                drawable:draw()
+                drawable:draw(self._opacity)
             end
         end
     end

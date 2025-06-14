@@ -153,8 +153,10 @@ function rt.Label:draw(x, y)
     end
 
     love.graphics.push()
+
     love.graphics.setBlendMode("alpha", "premultiplied")
-    love.graphics.setColor(1, 1, 1, self._opacity)
+    love.graphics.setColor(self._opacity, self._opacity, self._opacity, self._opacity)
+
     love.graphics.draw(self._texture._native,
         math.floor(self._bounds.x + justify_offset + self._texture_offset_x + x),
         math.floor(self._bounds.y + self._texture_offset_y + y)
@@ -989,7 +991,6 @@ function rt.Label:_update_texture()
     love.graphics.setShader(_draw_outline_shader)
     _draw_outline_shader:send("elapsed", self._elapsed)
     _draw_outline_shader:send("font_size", self._font:get_actual_size(self._font_size))
-    _draw_outline_shader:send("opacity", 1) -- opacity set during :draw
 
     local justify_mode = self._justify_mode
     if justify_mode == rt.JustifyMode.CENTER then
@@ -1013,7 +1014,8 @@ function rt.Label:_update_texture()
             justify_offset = glyph.justify_right_offset
         end
 
-        love.graphics.setColor(table.unpack(glyph.outline_color))
+        local r, g, b, a = table.unpack(glyph.outline_color)
+        love.graphics.setColor(r, g, b, a)
         love.graphics.draw(glyph.outline_glyph,
             _floor(glyph.x + _padding + justify_offset),
             _floor(glyph.y + _padding)
@@ -1051,7 +1053,8 @@ function rt.Label:_update_texture()
         love.graphics.push()
         love.graphics.translate(justify_offset, 0)
 
-        love.graphics.setColor(table.unpack(glyph.color))
+        local r, g, b, a = table.unpack(glyph.color)
+        love.graphics.setColor(r, g, b, a)
         love.graphics.draw(glyph.glyph,
             _floor(glyph.x + _padding ),
             _floor(glyph.y + _padding)

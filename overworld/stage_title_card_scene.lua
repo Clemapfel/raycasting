@@ -2,12 +2,16 @@ require "common.translation"
 require "common.game_state"
 require "overworld.stage_config"
 require "common.camera"
+require "common.control_indicator"
 require "physics.physics"
 
 rt.settings.overworld.stage_title_card_scene = {
     font_path = "assets/fonts/DejaVuSans/DejaVuSansCondensed-Bold.ttf",
     stage_id = "stage_title_cards", -- tile map used for text geometry
     layer_i = 2, -- layer i in that tile map
+
+    control_indicator_reveal_duration = 0.25,
+    control_indicator_reveal_delay = 3.5, -- seconds
 }
 
 --- @class ow.StageTitleCardScene
@@ -29,13 +33,33 @@ function ow.StageTitleCardScene:instantiate(state)
     self._elapsed = 0
     self._initialized = false
 
+    local translation = rt.Translation.stage_title_card_scene
+    local prefix = "<o>"
+    local postfix = "</o>"
+    self._control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_move,
+        rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump
+    )
+
+    self._control_indicator_reveal_animation = rt.TimedAnimation(
+        rt.settings.overworld.stage_title_card_scene.control_indicator_reveal_duration,
+        0, 1, rt.InterpolationFunctions.LINEAR
+    )
+    self._control_indicator_reveal_active = false
+    self._control_indicator_delay_elapsed = 0
+
     self._input = rt.InputSubscriber()
+    self._input:signal_connect("pressed", function(_, which)
+        if which == rt.InputAction.JUMP then
+            self._player:set_is_bubble(false)
+        end
+    end)
+
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "^" then
             self:_initialize()
         elseif which == "k" then
-            _post_fx_shader:recompile()
-            dbg("called")
+
         end
     end)
 end
@@ -105,18 +129,64 @@ function ow.StageTitleCardScene:_initialize()
         screen_h / (self._camera_bounds.height + 2 * outer_margin)
     )) -- scale such that camera_bounds fits into
 
+    -- screen bounds
+    do
+        local x, y, w, h = self._camera:get_world_bounds()
+        local padding = 0
+        local top_left_x, top_left_y = x - padding, y - padding
+        local top_right_x, top_right_y = x + w + 2 * padding, y - padding
+        local bottom_right_x, bottom_right_y = x + w + 2 * padding, y + h + 2 * padding
+        local bottom_left_x, bottom_left_y = x - padding, y + h + 2 * padding
+
+        local top_segment_body = b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
+            b2.Segment(top_left_x, top_left_y, top_right_x, top_right_y)
+        )
+
+        local offset = 4 * rt.settings.player.radius
+
+        local side_segment_body = b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
+            b2.Segment(top_right_x, top_right_y, bottom_right_x, bottom_right_y + offset),
+            b2.Segment(top_left_x, top_left_y, bottom_left_x, bottom_left_y + offset)
+        )
+
+        local bottom_segment_body = b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
+            b2.Segment(bottom_left_x, bottom_left_y + offset, bottom_right_x, bottom_right_y + offset)
+        )
+
+        self._top_segment_body = top_segment_body
+        self._bottom_segment_body = bottom_segment_body
+        table.insert(self._bodies, side_segment_body)
+
+        -- top waits for player to pass, then locks in
+        self._top_segment_body:set_is_sensor(true) -- enabled once player is on screen in update
+        self._top_segment_body_threshold_y = top_left_y + offset
+
+        -- bottom is trigger to exit scene
+        self._bottom_segment_body:signal_connect("collision_end", function(_)
+            self:_move_to_stage()
+        end)
+    end
+
     self._player:move_to_world(self._world)
     self._player:set_is_bubble(true)
     self._player:set_opacity(1)
     self._player:enable()
 
-    self._player:teleport_to(self._camera_anchor_x, self._camera_anchor_y - 100)
+    self._player:teleport_to(
+        self._camera_anchor_x,
+        self._camera_anchor_y - 0.5 * select(4, self._camera:get_world_bounds()) - 2 * self._player:get_radius()
+    )
+    self._player:set_velocity(0, 100)
     self._initialized = false
 end
 
 --- @brief
 function ow.StageTitleCardScene:realize()
     if self:already_realized() then return end
+
+    self._control_indicator:set_has_frame(false)
+    self._control_indicator:set_opacity(0)
+    self._control_indicator:realize()
 end
 
 --- @brief
@@ -130,6 +200,9 @@ function ow.StageTitleCardScene:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_m = 2 * m
 
+    local control_w, control_h = self._control_indicator:measure()
+    self._control_indicator:reformat(x + width - control_w, y + height - control_h, control_w, control_h)
+
     if self._is_initialized then
         self:_initialize()
     end
@@ -140,9 +213,25 @@ function ow.StageTitleCardScene:update(delta)
     self._elapsed = self._elapsed + delta
     self._fraction = (math.sin(self._elapsed) + 1) / 2
 
+    if self._control_indicator_delay_elapsed > rt.settings.overworld.stage_title_card_scene.control_indicator_reveal_delay then
+        self._control_indicator_reveal_active = true
+    end
+
+    if self._control_indicator_reveal_active then
+        self._control_indicator_reveal_animation:update(delta)
+        self._control_indicator:set_opacity(self._control_indicator_reveal_animation:get_value())
+    else
+        self._control_indicator_delay_elapsed = self._control_indicator_delay_elapsed + delta
+    end
+
     self._world:update(delta)
     self._player:update(delta)
     self._camera:update(delta)
+
+    local px, py = self._player:get_position()
+    if py > self._top_segment_body_threshold_y then
+        self._top_segment_body:set_is_sensor(false)
+    end
 end
 
 --- @brief
@@ -161,7 +250,6 @@ function ow.StageTitleCardScene:draw()
     self._mesh:draw()
     _canvas:unbind()
 
-
     rt.Palette.BLACK:bind()
     love.graphics.draw(self._mesh:get_native())
     self._camera:unbind()
@@ -179,6 +267,8 @@ function ow.StageTitleCardScene:draw()
     self._player:draw()
     self._camera:unbind()
 
+    self._control_indicator:draw()
+
     love.graphics.pop()
 end
 
@@ -187,10 +277,23 @@ function ow.StageTitleCardScene:enter(stage_id)
     meta.assert(stage_id, "String")
     self._stage_id = stage_id
     self._stage_index = rt.GameState:get_stage_index(stage_id)
+    self._input:activate()
+    rt.SceneManager:set_use_fixed_timestep(true)
     self:_initialize()
+
+    self._control_indicator:set_opacity(0)
+    self._control_indicator_reveal_animation:set_elapsed(0)
+    self._control_indicator_reveal_active = false
+    self._control_indicator_delay_elapsed = 0
 end
 
 --- @brief
 function ow.StageTitleCardScene:exit()
+    self._input:deactivate()
+end
 
+--- @brief
+function ow.StageTitleCardScene:_move_to_stage()
+    require "overworld.overworld_scene"
+    rt.SceneManager:push(ow.OverworldScene, self._stage_id)
 end

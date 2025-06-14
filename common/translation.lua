@@ -9,7 +9,7 @@ function rt.initialize_translation(x)
     local _as_immutable = function(t)
         return setmetatable(t, {
             __index = function(self, key)
-                local value = self[key]
+                local value = rawget(self, key)
                 if value == nil then
                     rt.warning("In rt.Translation: key `" .. key .. "` does not point to valid text")
                     return "(#" .. key .. ")"
@@ -277,7 +277,11 @@ rt.Translation = rt.initialize_translation({
         end,
 
         best_time_prefix = "Current Best Time",
-        target_time_prefix = "Time to Beat"
+        target_time_prefix = "Time to Beat",
+
+        control_indicator_move = "Move",
+        control_indicator_jump = "Jump",
+        control_indicator_skip = "Skip"
     },
 
     -- stages

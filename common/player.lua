@@ -1447,9 +1447,13 @@ end
 --- @brief
 function rt.Player:set_velocity(x, y)
     meta.assert(x, "Number", y, "Number")
-    if self._body ~= nil then
+
+    if self._is_bubble and self._bubble_body ~= nil then
+        self._bubble_body:set_velocity(x, y)
+    elseif self._body ~= nil then
         self._body:set_velocity(x, y)
     end
+
     self._last_velocity_x, self._last_velocity_y = x, y
 end
 

@@ -117,6 +117,8 @@ function rt.ControlIndicator:realize()
     self._input:signal_connect("input_method_changed", function(_)
         self:reformat()
     end)
+
+    self:set_opacity(self._opacity)
 end
 
 --- @brief
@@ -206,6 +208,8 @@ function rt.ControlIndicator:size_allocate(x, y, width, height)
     self._final_width = current_x - x
     self._is_allocated = true
     self._frame:reformat(x, y, self._final_width, self._final_height)
+
+    self:set_opacity(self._opacity)
 end
 
 --- @override

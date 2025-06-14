@@ -62,6 +62,7 @@ function rt.PlayerBody:instantiate(player)
     self._stencil_bodies = {}
     self._shader_elapsed = 0
     self._is_initialized = false
+    self._queue_relax = false
 
     if _outline_shader == nil then _outline_shader = rt.Shader("common/player_body_outline.glsl") end
     if _core_shader == nil then _core_shader = rt.Shader("common/player_body_core.glsl") end
@@ -136,7 +137,7 @@ function rt.PlayerBody:initialize(positions)
                 local axis_x, axis_y = math.cos(angle), math.sin(angle)
                 local center_x = axis_x * ring_radius
                 local center_y = axis_y * ring_radius
-                local scale = (ring - 1) / n_rings
+                local scale = ring / n_rings
                 local rope_length = (1 - scale) * max_rope_length
 
                 local rope = {
@@ -177,6 +178,9 @@ function rt.PlayerBody:initialize(positions)
         end
 
         self._is_initialized = true
+        if self._queue_relax == true then
+            self:relax()
+        end
     end
 
     table.insert(self._positions, self._positions[3])
@@ -186,6 +190,11 @@ function rt.PlayerBody:initialize(positions)
 end
 
 function rt.PlayerBody:relax()
+    if not self._is_initialized then
+        self._queue_relax = true
+        return
+    end
+
     -- release all rope forces
     local px, py = self._player:get_position()
     for rope in values(self._ropes) do
