@@ -44,7 +44,7 @@ rt.settings.player_body = {
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
 
-local _outline_shader, _core_shader, _canvas = nil, nil, nil
+local _outline_shader, _core_shader, _fill_shader, _canvas = nil, nil, nil, nil
 local _settings = rt.settings.player_body
 
 --- @brief
@@ -65,6 +65,7 @@ function rt.PlayerBody:instantiate(player)
 
     if _outline_shader == nil then _outline_shader = rt.Shader("common/player_body_outline.glsl") end
     if _core_shader == nil then _core_shader = rt.Shader("common/player_body_core.glsl") end
+    if _fill_shader == nil then _fill_shader = rt.Shader("common/player_body_fill.glsl") end
 
     -- init metaball ball mesh
 
@@ -98,12 +99,6 @@ function rt.PlayerBody:instantiate(player)
         self._core_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 8)
         self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
-
-    -- expressions
-    self._bottom_eye_lid_position = 0
-    self._bottom_eye_lid = {}
-    self._top_eye_lid_position = 0
-    self._top_eye_lid = {}
 end
 
 --- @brief
@@ -188,7 +183,6 @@ function rt.PlayerBody:initialize(positions)
     table.insert(self._positions, self._positions[4])
 
     self._is_bubble = self._player:get_is_bubble()
-    self:_update_eyelids()
 end
 
 function rt.PlayerBody:relax()
@@ -213,118 +207,6 @@ function rt.PlayerBody:relax()
         end
     end
 end
-
-local function _generate_eyelid_mesh(t, eye_x, eye_y, eye_r, points)
-    local out = {}
-
-    local direction = t >= 0
-    t = math.abs(t)
-
-    local y
-    if direction == true then
-        y = eye_y + t * eye_r
-    else
-        y = eye_y - t * eye_r
-    end
-
-    local dx = math.sqrt(eye_r^2 - (t * eye_r)^2)
-    local left_x = eye_x - dx
-    local right_x = eye_x + dx
-
-    --[[
-    if direction == true then
-        table.insert(out, right_x)
-        table.insert(out, y)
-    else
-        table.insert(out, left_x)
-        table.insert(out, y)
-    end
-    ]]--
-
-    local x_width = right_x - left_x
-
-    local left_angle = (math.angle(left_x - eye_x, y - eye_y))
-    local right_angle = (math.angle(right_x - eye_x, y - eye_y))
-
-    local min_angle = math.min(left_angle, right_angle)
-    local max_angle = math.max(left_angle, right_angle)
-
-
-    for i = 1, #points, 2 do
-        local px = points[i+0]
-        local py = points[i+1]
-        local angle = math.angle(px - eye_x, py - eye_y)
-
-        if angle >= min_angle and angle <= max_angle then
-            table.insert(out, px)
-            table.insert(out, py)
-        end
-    end
-
-    --[[
-    local n_steps = 32
-    local step = math.abs(left_angle - right_angle) / n_steps
-    for angle = math.min(left_angle, right_angle), math.max(left_angle, right_angle), step do
-        table.insert(out, eye_x + math.cos(angle) * eye_r)
-        table.insert(out, eye_y + math.sin(angle) * eye_r)
-    end
-    ]]
-
-    --[[
-    if direction == true then
-        table.insert(out, left_x)
-        table.insert(out, y)
-    else
-        table.insert(out, right_x)
-        table.insert(out, y)
-    end
-    ]]--
-
-    local offset
-    if direction == true then
-        offset = -0.5 * math.pi
-    else
-        offset =  0.5 * math.pi
-    end
-
-    local n_steps = 32
-    local y_radius = math.sqrt(eye_r * t)
-    local step = math.pi / n_steps
-    for angle = -0.5 * math.pi + offset, 0.5 * math.pi + offset + step, step do
-        table.insert(out, eye_x + math.cos(angle) * x_width / 2)
-        table.insert(out, y + math.sin(angle) * y_radius)
-    end
-
-    return out
-end
-
---- @brief
-function rt.PlayerBody:_update_eyelids()
-    if self._bottom_eye_lid == 0 then
-        self._bottom_eye_lid = {}
-    else
-        self._bottom_eye_lid = _generate_eyelid_mesh(
-            1 - self._bottom_eye_lid_position,
-            self._center_x,
-            self._center_y,
-            rt.settings.player.radius,
-            self._positions
-        )
-    end
-
-    if self._top_eye_lid == 0 then
-        self._top_eye_lid = {}
-    else
-        self._top_eye_lid = _generate_eyelid_mesh(
-            -1 * (1 - self._top_eye_lid_position),
-            self._center_x,
-            self._center_y,
-            rt.settings.player.radius,
-            self._positions
-        )
-    end
-end
-
 
 local _rope_handler = function(data)
     -- keep nodes at fixed distance
@@ -644,7 +526,9 @@ function rt.PlayerBody:draw_body()
 
     -- black fill
     love.graphics.setColor(_black_r, _black_g, _black_b, self._a)
+    _fill_shader:bind()
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+    _fill_shader:unbind()
 
     -- outlines
     _outline_shader:bind()
@@ -762,5 +646,4 @@ function rt.PlayerBody:draw_core()
         end
     end
     ]]--
-
 end
