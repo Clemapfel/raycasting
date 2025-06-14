@@ -1,17 +1,17 @@
 require "common.translation"
 require "common.game_state"
+require "overworld.stage_config"
 require "common.camera"
 require "common.control_indicator"
 require "physics.physics"
-require "overworld.stage_config"
 
 rt.settings.overworld.stage_title_card_scene = {
+    font_path = "assets/fonts/DejaVuSans/DejaVuSansCondensed-Bold.ttf",
     stage_id = "stage_title_cards", -- tile map used for text geometry
     layer_i = 2, -- layer i in that tile map
 
     control_indicator_reveal_duration = 0.25,
     control_indicator_reveal_delay = 3.5, -- seconds
-    entry_velocity = 200
 }
 
 --- @class ow.StageTitleCardScene
@@ -19,7 +19,6 @@ ow.StageTitleCardScene = meta.class("StageTitleCardScene", rt.Scene)
 
 local _canvas = nil
 local _post_fx_shader = nil
-local _background_shader = nil
 
 --- @brief
 function ow.StageTitleCardScene:instantiate(state)
@@ -27,15 +26,16 @@ function ow.StageTitleCardScene:instantiate(state)
         _post_fx_shader = rt.Shader("overworld/stage_title_card_scene_post_fx.glsl")
     end
 
+    self._state = state
     self._player = state:get_player()
     self._camera = rt.Camera()
-    self._camera_anchor_x, self._camera_anchor_y = 0, 0
-
+    self._camera_position_x, self._camera_position_y = 0, 0
     self._elapsed = 0
     self._initialized = false
-    self._exited = false
 
     local translation = rt.Translation.stage_title_card_scene
+    local prefix = "<o>"
+    local postfix = "</o>"
     self._control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_move,
         rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump
@@ -45,19 +45,9 @@ function ow.StageTitleCardScene:instantiate(state)
         rt.settings.overworld.stage_title_card_scene.control_indicator_reveal_duration,
         0, 1, rt.InterpolationFunctions.LINEAR
     )
-
     self._control_indicator_reveal_active = false
     self._control_indicator_delay_elapsed = 0
 
-    -- physics
-    self._objects = {} -- Table<ow.ObjectWrapper>
-    self._world = nil  -- b2.World
-    self._bodies = {}  -- Table<ow.ObjectWrapper>
-
-    -- letters
-    self._mesh = nil   -- rt.Mesh
-
-    -- input
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.JUMP then
@@ -65,7 +55,6 @@ function ow.StageTitleCardScene:instantiate(state)
         end
     end)
 
-    -- TODO
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "^" then
             self:_initialize()
@@ -81,14 +70,14 @@ local _config
 function ow.StageTitleCardScene:_initialize()
     -- use tiled map to get layer geometry
     local settings = rt.settings.overworld.stage_title_card_scene
-    if _config == nil then
-        _config = ow.StageConfig(settings.stage_id)
-    end
+    --if _config == nil then
+    _config = ow.StageConfig(settings.stage_id)
+    --end
 
-    local objects = {}
+    self._objects = {}
     for object in values(_config:get_layer_object_wrappers(settings.layer_i)) do
         if object.class == self._stage_id then
-            table.insert(objects, object)
+            table.insert(self._objects, object)
         end
     end
 
@@ -96,10 +85,9 @@ function ow.StageTitleCardScene:_initialize()
     self._bodies = {}
     local tris = {}
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
-    for object in values(objects) do
+    for object in values(self._objects) do
         local body = object:create_physics_body(self._world, b2.BodyType.STATIC)
         body:add_tag("stencil")
-
         local aabb = body:compute_aabb()
         min_x = math.min(min_x, aabb.x)
         min_y = math.min(min_y, aabb.y)
@@ -138,7 +126,7 @@ function ow.StageTitleCardScene:_initialize()
     self._camera:set_scale(math.min(
         screen_w / (camera_bounds.width + 2 * outer_margin),
         screen_h / (camera_bounds.height + 2 * outer_margin)
-    )) -- scale such that lettering fits into screen
+    )) -- scale such that camera_bounds fits into
 
     -- screen bounds
     do
@@ -154,6 +142,7 @@ function ow.StageTitleCardScene:_initialize()
         )
 
         local offset = 4 * rt.settings.player.radius
+
         local side_segment_body = b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
             b2.Segment(top_right_x, top_right_y, bottom_right_x, bottom_right_y + offset),
             b2.Segment(top_left_x, top_left_y, bottom_left_x, bottom_left_y + offset)
@@ -163,23 +152,18 @@ function ow.StageTitleCardScene:_initialize()
             b2.Segment(bottom_left_x, bottom_left_y + offset, bottom_right_x, bottom_right_y + offset)
         )
 
-        -- top waits for player to pass, then locks in
         self._top_segment_body = top_segment_body
+        self._bottom_segment_body = bottom_segment_body
+        table.insert(self._bodies, side_segment_body)
+
+        -- top waits for player to pass, then locks in
         self._top_segment_body:set_is_sensor(true) -- enabled once player is on screen in update
         self._top_segment_body_threshold_y = top_left_y + offset
 
         -- bottom is trigger to exit scene
-        bottom_segment_body:signal_connect("collision_end", function(_)
-            if self._exited == false then
-                require "overworld.overworld_scene"
-                rt.SceneManager:push(ow.OverworldScene, self._stage_id)
-                self._exited = true
-            end
+        self._bottom_segment_body:signal_connect("collision_end", function(_)
+            self:_move_to_stage()
         end)
-
-        for body in range(top_segment_body, side_segment_body, bottom_segment_body) do
-            table.insert(self._bodies, body)
-        end
     end
 
     self._player:move_to_world(self._world)
@@ -191,9 +175,8 @@ function ow.StageTitleCardScene:_initialize()
         self._camera_anchor_x,
         self._camera_anchor_y - 0.5 * select(4, self._camera:get_world_bounds()) - 2 * self._player:get_radius()
     )
-
-    self._player:set_velocity(0, rt.settings.overworld.stage_title_card_scene.entry_velocity)
-    self._initialized = true
+    self._player:set_velocity(0, 100)
+    self._initialized = false
 end
 
 --- @brief
@@ -212,6 +195,10 @@ function ow.StageTitleCardScene:size_allocate(x, y, width, height)
         _canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 
+    self._bounds:reformat(x, y, width, height)
+    local m = rt.settings.margin_unit
+    local outer_m = 2 * m
+
     local control_w, control_h = self._control_indicator:measure()
     self._control_indicator:reformat(x + width - control_w, y + height - control_h, control_w, control_h)
 
@@ -223,8 +210,8 @@ end
 --- @brief
 function ow.StageTitleCardScene:update(delta)
     self._elapsed = self._elapsed + delta
+    self._fraction = (math.sin(self._elapsed) + 1) / 2
 
-    -- reveal indicator
     if self._control_indicator_delay_elapsed > rt.settings.overworld.stage_title_card_scene.control_indicator_reveal_delay then
         self._control_indicator_reveal_active = true
     end
@@ -240,7 +227,6 @@ function ow.StageTitleCardScene:update(delta)
     self._player:update(delta)
     self._camera:update(delta)
 
-    -- toggle top screen lock
     local px, py = self._player:get_position()
     if py > self._top_segment_body_threshold_y then
         self._top_segment_body:set_is_sensor(false)
@@ -258,7 +244,7 @@ function ow.StageTitleCardScene:draw()
 
     _canvas:bind()
     love.graphics.clear(0, 0, 0, 0)
-
+    local offset_x, offset_y = self._camera_anchor_x + 0.5 * w, self._camera_anchor_x + 0.5 * h
     self._camera:bind()
     self._mesh:draw()
     _canvas:unbind()
@@ -281,6 +267,7 @@ function ow.StageTitleCardScene:draw()
     self._camera:unbind()
 
     self._control_indicator:draw()
+
     love.graphics.pop()
 end
 
@@ -290,8 +277,6 @@ function ow.StageTitleCardScene:enter(stage_id)
     self._stage_id = stage_id
     self._stage_index = rt.GameState:get_stage_index(stage_id)
     self._input:activate()
-    self._exited = false
-
     rt.SceneManager:set_use_fixed_timestep(true)
     self:_initialize()
 
@@ -306,3 +291,8 @@ function ow.StageTitleCardScene:exit()
     self._input:deactivate()
 end
 
+--- @brief
+function ow.StageTitleCardScene:_move_to_stage()
+    require "overworld.overworld_scene"
+    rt.SceneManager:push(ow.OverworldScene, self._stage_id)
+end

@@ -413,16 +413,16 @@ function ow.OverworldScene:draw()
     if _blocked > 0 then return end
     if self._stage == nil then return end
 
-    self._post_fx:bind()
+    --self._post_fx:bind()
     self._background:draw()
     --love.graphics.clear(0.5, 0.5, 0.5, 1)
     self._camera:bind()
     self._stage:draw_below_player()
     self._player:draw_body()
-    self._post_fx:unbind()
-
     self._camera:unbind()
-    self._post_fx:draw()
+    --self._post_fx:unbind()
+
+    --self._post_fx:draw()
 
     self._camera:bind()
     self._player:draw_core()
