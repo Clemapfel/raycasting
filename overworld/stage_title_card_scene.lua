@@ -73,7 +73,9 @@ function ow.StageTitleCardScene:instantiate(state)
         if which == "^" then
             self:_initialize()
         elseif which == "k" then
-
+            self._background = ow.StageTitleCardSceneBackground()
+            self._background:realize()
+            self._background:size_allocate(self._bounds:unpack())
         end
     end)
 end

@@ -138,3 +138,4 @@ end
 function rt.random.noise(x, ...)
     return love.math.simplexNoise(x * math.pi / 3, ...)
 end
+

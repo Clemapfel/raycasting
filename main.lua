@@ -4,6 +4,13 @@ require "common.game_state"
 require "common.input_subscriber"
 require "menu.stage_grade_label"
 
+input = rt.InputSubscriber()
+input:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "p" then
+        debugger.reload()
+    end
+end)
+
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
