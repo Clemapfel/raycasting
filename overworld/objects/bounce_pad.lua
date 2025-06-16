@@ -83,6 +83,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     -- mesh
     self._mesh, self._tris = object:create_mesh()
     self:_create_contour()
+    self:_update_vertices(false)
 end
 
 -- simulate ball-on-a-spring for bouncing animation
@@ -114,7 +115,7 @@ function ow.BouncePad:update(delta)
         }
     end
 
-    if self._is_bouncing then
+    if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
         local before = self._bounce_position
         self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
         self._bounce_velocity = self._bounce_velocity * damping
@@ -240,8 +241,6 @@ local function _point_to_segment_distance(px, py, x1, y1, x2, y2)
 end
 
 function ow.BouncePad:_update_vertices(first)
-    if not first and rt.GameState:get_is_performance_mode_enabled() then return end
-    
     local px, py = self._bounce_contact_x, self._bounce_contact_y
 
     -- apply rotation

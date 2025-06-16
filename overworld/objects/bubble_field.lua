@@ -4,7 +4,8 @@ rt.settings.overworld.bubble_field = {
     segment_length = 10,
     n_smoothing_iterations = 2,
     wave_deactivation_threshold = 1 / 1000,
-    excitation_amplitude = 0.03
+    excitation_amplitude = 0.03,
+    opacity = 0.4
 }
 
 --- @class ow.BubbleField
@@ -198,7 +199,7 @@ function ow.BubbleField:draw()
     local camera_scale = self._scene:get_camera():get_scale()
     local hue = self._scene:get_player():get_hue()
 
-    love.graphics.setColor(1, 1, 1, 0.5)
+    love.graphics.setColor(1, 1, 1, rt.settings.overworld.bubble_field.opacity)
     _base_shader:bind()
     _base_shader:send("elapsed", self._elapsed)
     _base_shader:send("camera_offset", camera_offset)
@@ -279,7 +280,6 @@ function ow.BubbleField:update(delta)
         local offset_max = 0
         local prev, curr, nextw = wave.previous, wave.current, wave.next
 
-        local before = love.timer.getTime()
         for i = 1, n_points do
             local left = (i == 1) and n_points or (i - 1)
             local right = (i == n_points) and 1 or (i + 1)
@@ -300,7 +300,6 @@ function ow.BubbleField:update(delta)
             self._contour[idx + 2] = origin_y + scale * dy * magnitude
             self._data_mesh_data[i][_scale_index] = scale
         end
-        dbg(n_points, (love.timer.getTime() - before) / (1 / 60))
 
         wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
         self._data_mesh:replace_data(self._data_mesh_data)

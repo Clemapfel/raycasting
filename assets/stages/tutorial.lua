@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 640,
+  nextobjectid = 641,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -668.673,
-          y = 2507.04,
+          x = -997.031,
+          y = 2968.37,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2427,6 +2427,13 @@ return {
           visible = true,
           polygon = {
             { x = -1040, y = 0 },
+            { x = -922.877, y = -115.332 },
+            { x = -872.41, y = -40.121 },
+            { x = -738.042, y = 5.42734 },
+            { x = -538.514, y = 8.00006 },
+            { x = -451.948, y = -260.088 },
+            { x = -432.902, y = -146.256 },
+            { x = -348.051, y = -35.0778 },
             { x = 336, y = 0 },
             { x = 336, y = 64 },
             { x = -1040, y = 64 }
@@ -3661,31 +3668,6 @@ return {
           visible = true,
           text = "Hello World",
           wrap = true,
-          properties = {}
-        },
-        {
-          id = 639,
-          name = "",
-          type = "BubbleField",
-          shape = "polygon",
-          x = -1424,
-          y = 2560,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 284.597, y = 254.63 },
-            { x = 249.864, y = 142.041 },
-            { x = 337.683, y = 182.918 },
-            { x = 362.546, y = 130.446 },
-            { x = 180.971, y = 65.7027 },
-            { x = 413.892, y = 8.79014 },
-            { x = 1520, y = 0 },
-            { x = 1520, y = 480 },
-            { x = 0, y = 480 }
-          },
           properties = {}
         }
       }
