@@ -9,19 +9,17 @@
 
 #if MODE == MODE_BASE
 
-layout (location = 0) in vec2 vertex_position;
-layout (location = 1) in vec3 contour_vector;
-layout (location = 2) in float scale;
+layout (location = 0) in vec2 position; // start of vector
+layout (location = 1) in vec3 contour_vector; // xy normalized, z magnitude
+layout (location = 2) in float scale; // magnitude scale
 
 out vec4 VaryingTexCoord;
 out vec4 VaryingColor;
 
-uniform vec2 center;
-
 void vertexmain() {
     vec2 dxdy = contour_vector.xy;
     float magnitude = contour_vector.z;
-    vec2 position = center + dxdy * magnitude * scale;
+    vec2 position = position + dxdy * magnitude * scale;
 
     VaryingTexCoord = vec4(0);
     VaryingColor = gammaCorrectColor(ConstantColor);

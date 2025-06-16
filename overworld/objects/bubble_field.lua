@@ -1,18 +1,18 @@
 require "common.contour"
 
 rt.settings.overworld.bubble_field = {
-    segment_length = 13,
+    segment_length = 10,
     n_smoothing_iterations = 2,
     wave_deactivation_threshold = 1 / 1000,
-    message_tick = 4 / 60,
+    excitation_amplitude = 0.03
 }
 
 --- @class ow.BubbleField
 ow.BubbleField = meta.class("BubbleField")
 
 -- shape mesh data members
-local _x_index = 1
-local _y_index = 2
+local _origin_x_index = 1
+local _origin_y_index = 2
 local _dx_index = 3
 local _dy_index = 4
 local _magnitude_index = 5
@@ -122,7 +122,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local triangulation = rt.DelaunayTriangulation(points, points):get_triangle_vertex_map()
 
     local shape_mesh_format = {
-        { location = 0, name = "vertex_position", format = "floatvec2" }, -- absolute xy
+        { location = 0, name = "origin", format = "floatvec2" }, -- absolute xy
         { location = 1, name = "contour_vector", format = "floatvec3" } -- normalized xy, magnitude
     }
 
@@ -131,23 +131,30 @@ function ow.BubbleField:instantiate(object, stage, scene)
     }
 
     -- construct contour vectors
+    local target_magnitude = 100
     for i = 1, #self._contour, 2 do
         local x, y = self._contour[i+0], self._contour[i+1]
-        local dx = x - center_x
-        local dy = y - center_y
-        local magnitude = math.magnitude(dx, dy)
+        local origin_x, origin_y = center_x, center_y
+        local dx = x - origin_x
+        local dy = y - origin_y
+
+        -- rescale origin such that each point has same magnitude, while
+        -- mainting end point x, y
         dx, dy = math.normalize(dx, dy)
+        local magnitude = target_magnitude
+        origin_x = x - dx * magnitude
+        origin_y = y - dy * magnitude
 
         table.insert(self._shape_mesh_data, {
-            [_x_index] = x,
-            [_y_index] = y,
+            [_origin_x_index] = origin_x,
+            [_origin_y_index] = origin_y,
             [_dx_index] = dx,
             [_dy_index] = dy,
             [_magnitude_index] = magnitude
         })
 
         table.insert(self._data_mesh_data, {
-            1
+            [_scale_index] = 1
         })
     end
     
@@ -170,9 +177,8 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     self._shape_mesh:get_native():attachAttribute("scale", self._data_mesh:get_native(), "pervertex")
 
-    -- wave equation
+    -- wave equation solver
     self._elapsed = 0
-    self._excite_x, self._excite_y, self._excite_sign = 0, 0, 0
     self._n_points = math.floor(#self._contour / 2)
     self._wave = {
         previous = table.rep(0, self._n_points),
@@ -198,7 +204,6 @@ function ow.BubbleField:draw()
     _base_shader:send("camera_offset", camera_offset)
     _base_shader:send("camera_scale", camera_scale)
     _base_shader:send("hue", hue)
-    _base_shader:send("center", { self._contour_center_x, self._contour_center_y })
     love.graphics.draw(self._shape_mesh:get_native())
     _base_shader:unbind()
 
@@ -232,7 +237,6 @@ local _dx = 0.2
 local _dt = 0.05
 local _damping = 0.99
 local _courant = _dt / _dx
-local _amplitude = 0.01
 
 --- @brief
 function ow.BubbleField:_excite_wave(x, y, sign)
@@ -249,7 +253,7 @@ function ow.BubbleField:_excite_wave(x, y, sign)
         end
     end
 
-    local center_index, amplitude, width = min_i, sign * _amplitude, 5
+    local center_index, amplitude, width = min_i, sign * rt.settings.overworld.bubble_field.excitation_amplitude, 5
     for i = 1, self._n_points do
         local distance = math.abs(i - center_index)
         distance = math.min(distance, self._n_points - distance)
@@ -263,7 +267,7 @@ end
 function ow.BubbleField:update(delta)
     self._elapsed = self._elapsed + delta
 
-    if self._is_active then
+    if self._is_active and not rt.GameState:get_is_performance_mode_enabled() then
         local abs, max, mix2 = math.abs, math.max, math.mix2
         local n_points = self._n_points
         local courant2 = _courant^2
@@ -275,6 +279,7 @@ function ow.BubbleField:update(delta)
         local offset_max = 0
         local prev, curr, nextw = wave.previous, wave.current, wave.next
 
+        local before = love.timer.getTime()
         for i = 1, n_points do
             local left = (i == 1) and n_points or (i - 1)
             local right = (i == n_points) and 1 or (i + 1)
@@ -288,13 +293,14 @@ function ow.BubbleField:update(delta)
 
             local data = shape_data[i]
             local dx, dy, magnitude = data[_dx_index], data[_dy_index], data[_magnitude_index]
-
+            local origin_x, origin_y = data[_origin_x_index], data[_origin_y_index]
             local idx = (i - 1) * 2
             local scale = 1 + new
-            self._contour[idx + 1] = center_x + scale * dx * magnitude
-            self._contour[idx + 2] = center_y + scale * dy * magnitude
+            self._contour[idx + 1] = origin_x + scale * dx * magnitude
+            self._contour[idx + 2] = origin_y + scale * dy * magnitude
             self._data_mesh_data[i][_scale_index] = scale
         end
+        dbg(n_points, (love.timer.getTime() - before) / (1 / 60))
 
         wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
         self._data_mesh:replace_data(self._data_mesh_data)
