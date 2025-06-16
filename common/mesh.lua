@@ -22,6 +22,12 @@ rt.VertexAttributeLocation = meta.enum("VertexAttribute", {
     COLOR = 2
 })
 
+--- @class rt.MeshAttributeAttachmentMode
+rt.MeshAttributeAttachmentMode = meta.enum("MeshAttributeAttachmentMode", {
+    PER_VERTEX = "pervertex",
+    PER_INSTANCE = "perinstance"
+})
+
 rt.VertexFormat = {
     {location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
     {location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2"},
@@ -239,4 +245,9 @@ end
 --- @brief
 function rt.Mesh:get_native()
     return self._native
+end
+
+--- @brief
+function rt.Mesh:attach_attribute(mesh, attribute_name, mode)
+    self._native:attachAttribute(attribute_name, mesh:get_native(), mode or "pervertex")
 end

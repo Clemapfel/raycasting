@@ -176,7 +176,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         rt.GraphicsBufferUsage.DYNAMIC
     )
 
-    self._shape_mesh:get_native():attachAttribute("scale", self._data_mesh:get_native(), "pervertex")
+    self._shape_mesh:attach_attribute(self._data_mesh, "scale", "pervertex")
 
     -- wave equation solver
     self._elapsed = 0

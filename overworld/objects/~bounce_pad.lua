@@ -1,6 +1,10 @@
+require "common.contour"
+require "common.delaunay_triangulation"
+
 rt.settings.overworld.bounce_pad = {
     -- bounce animation
     bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
+    bounce_min_magnitude = 10,
     color_decay_duration = 1,
     corner_radius = 10,
 
@@ -18,6 +22,7 @@ ow.BouncePad = meta.class("BouncePad", rt.Drawable)
 function ow.BouncePad:instantiate(object, stage, scene)
     meta.install(self, {
         _scene = scene,
+        _stage = stage,
         _body = object:create_physics_body(stage:get_physics_world()),
 
         -- spring simulation
@@ -33,7 +38,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         _rotation_origin_x = object.origin_x,
         _rotation_origin_y = object.origin_y,
-        _angle = object.rotation
+        _angle = object.rotation,
+
+        _is_single_use = object:get_string("single_use") or false,
+        _is_destroyed = false
     })
     self._color = self._default_color
     self._draw_color = self._color
@@ -44,6 +52,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:set_collision_group(bounce_group)
 
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
+        if self._is_destroyed then return end
+
         if cx == nil then return end -- player is sensor
 
         local player = self._scene:get_player()
@@ -56,74 +66,98 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._bounce_velocity = restitution
         self._bounce_position = restitution
         self._bounce_contact_x, self._bounce_contact_y = cx, cy
-        self._bounce_magnitude = rt.settings.overworld.bounce_pad.bounce_max_offset * restitution
+        self._bounce_magnitude = math.max(rt.settings.overworld.bounce_pad.bounce_max_offset * restitution, rt.settings.overworld.bounce_pad.bounce_min_magnitude)
         self._is_bouncing = true
+
+        if self._is_single_use then
+            self._is_destroyed = true
+            self._body:set_is_enabled(false)
+        end
+    end)
+
+    self._stage:signal_connect("respawn", function()
+        self._is_destroyed = false
+        self._body:set_is_enabled(true)
     end)
 
     -- mesh
     self._mesh, self._tris = object:create_mesh()
     self:_create_contour()
+    self:_update_vertices(false)
+end
+
+-- simulate ball-on-a-spring for bouncing animation
+local stiffness = rt.settings.overworld.bounce_pad.stiffness
+local origin = rt.settings.overworld.bounce_pad.origin
+local damping = rt.settings.overworld.bounce_pad.damping
+local magnitude = rt.settings.overworld.bounce_pad.magnitude
+local color_duration = rt.settings.overworld.bounce_pad.color_decay_duration
+local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
+
+--- @brief
+function ow.BouncePad:update(delta)
+    if self._is_destroyed then return end
+
+    if not self._scene:get_is_body_visible(self._body) then return end
+
+    if self._color_elapsed <= color_duration then
+        self._color_elapsed = self._color_elapsed + delta
+
+        local default_r, default_g, default_b = table.unpack(self._default_color)
+        local target_r, target_g, target_b = table.unpack(self._color)
+        local weight = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / color_duration, 1))
+
+        self._draw_color = {
+            math.mix(default_r, target_r, weight),
+            math.mix(default_g, target_g, weight),
+            math.mix(default_b, target_b, weight),
+            1
+        }
+    end
+
+    if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
+        local before = self._bounce_position
+        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
+        self._bounce_velocity = self._bounce_velocity * damping
+        self._bounce_position = self._bounce_position + self._bounce_velocity * delta
+
+        if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
+            self._bounce_position = 0
+            self._bounce_velocity = 0
+            self._is_bouncing = false
+        end
+        self:_update_vertices(true)
+    end
+end
+
+--- @brief
+function ow.BouncePad:draw()
+    if self._is_destroyed then return end
+
+    if not self._scene:get_is_body_visible(self._body) then return end
+
+    local r, g, b = table.unpack(self._draw_color)
+
+    if self._draw_contour ~= nil then
+        love.graphics.setColor(r, g, b, 0.7)
+        for tri in values(self._draw_tris) do
+            love.graphics.polygon("fill", tri)
+        end
+
+        love.graphics.setColor(r, g, b, 1.0)
+        love.graphics.setLineWidth(1)
+        love.graphics.setLineStyle("smooth")
+        love.graphics.setLineJoin("bevel")
+        love.graphics.line(self._draw_contour)
+    end
 end
 
 local _round = function(x)
     return math.floor(x)
 end
 
-local _hash_to_points = {}
-
-local _hash = function(points)
-    local x1, y1, x2, y2 = _round(points[1]), _round(points[2]), _round(points[3]), _round(points[4])
-    if x1 < x2 or (x1 == x2 and y1 < y2) then -- swap so point order does not matter
-        x1, y1, x2, y2 = x2, y2, x1, y1
-    end
-    local hash = tostring(x1) .. "," .. tostring(y1) .. "," .. tostring(x2) .. "," .. tostring(y2)
-    _hash_to_points[hash] = points
-    return hash
-end
-
-local _unhash = function(hash)
-    return _hash_to_points[hash]
-end
-
-local _link_segments = function(segments)
-    local function points_equal(x1, y1, x2, y2)
-        return math.abs(x1 - x2) < 1e-6 and math.abs(y1 - y2) < 1e-6
-    end
-
-    local ordered = {segments[1]}
-    table.remove(segments, 1)
-
-    while #segments > 0 do
-        local last = ordered[#ordered]
-        local x2, y2 = last[3], last[4]
-        local found = false
-
-        for i, segment in ipairs(segments) do
-            local sx1, sy1, sx2, sy2 = segment[1], segment[2], segment[3], segment[4]
-            if points_equal(x2, y2, sx1, sy1) then
-                table.insert(ordered, segment)
-                table.remove(segments, i)
-                found = true
-                break
-            elseif points_equal(x2, y2, sx2, sy2) then
-                -- Reverse the segment
-                table.insert(ordered, {sx2, sy2, sx1, sy1})
-                table.remove(segments, i)
-                found = true
-                break
-            end
-        end
-
-        if not found then
-            break -- no match found
-        end
-    end
-
-    return ordered
-end
-
 --- @param points Table<Number>
-local function round_contour(points, radius, samples_per_corner)
+local function _round_contour(points, radius, samples_per_corner)
     local n = math.floor(#points / 2)
     radius = radius or 10
     samples_per_corner = samples_per_corner or 5
@@ -178,104 +212,19 @@ local function round_contour(points, radius, samples_per_corner)
 end
 
 function ow.BouncePad:_create_contour()
-    local segments = {}
-    for tri in values(self._tris) do
-        for segment in range(
-            {tri[1], tri[2], tri[3], tri[4]},
-            {tri[3], tri[4], tri[5], tri[6]},
-            {tri[1], tri[2], tri[5], tri[6]}
-        ) do
-            table.insert(segments, segment)
-        end
-    end
+    local contour = rt.contour_from_tris(self._tris)
 
-    -- filter so only outer segments remain
-    local tuples = {}
-    local n_total = 0
-    for segment in values(segments) do
-        local hash = _hash(segment)
-        local current = tuples[hash]
-        if current == nil then
-            tuples[hash] = 1
-        else
-            tuples[hash] = current + 1
-        end
-        n_total = n_total + 1
-    end
+    contour = _round_contour(contour, rt.settings.overworld.bounce_pad.corner_radius, 16)
 
-    local outline = {}
-    for hash, count in pairs(tuples) do
-        if count == 1 then
-            table.insert(outline, _unhash(hash))
-        end
-    end
-
-    -- link segments so they are ordered
-    local function points_equal(x1, y1, x2, y2)
-        return math.abs(x1 - x2) < 1e-6 and math.abs(y1 - y2) < 1e-6
-    end
-
-    -- link segments
-    local ordered = {outline[1]}
-    table.remove(outline, 1)
-
-    while #outline > 0 do
-        local last = ordered[#ordered]
-        local x2, y2 = last[3], last[4]
-        local found = false
-
-        for i, segment in ipairs(outline) do
-            local sx1, sy1, sx2, sy2 = segment[1], segment[2], segment[3], segment[4]
-            if points_equal(x2, y2, sx1, sy1) then
-                table.insert(ordered, segment)
-                table.remove(outline, i)
-                found = true
-                break
-            elseif points_equal(x2, y2, sx2, sy2) then
-                -- Reverse the segment
-                table.insert(ordered, {sx2, sy2, sx1, sy1})
-                table.remove(outline, i)
-                found = true
-                break
-            end
-        end
-    end
-
-    outline = ordered
-
-    -- construct contour
-    local contour = {}
-    for segment in values(outline) do
-        table.insert(contour, segment[1])
-        table.insert(contour, segment[2])
-    end
-
-    contour = round_contour(contour, rt.settings.overworld.bounce_pad.corner_radius, 16)
-
-    -- Convert flat contour array to table of segments
     self._segments = {}
-
-    do
-        local n = #contour
-        for i = 1, n - 2, 2 do
-            local x1, y1 = contour[i], contour[i+1]
-            local x2, y2 = contour[i+2], contour[i+3]
-            table.insert(self._segments, {x1, y1, x2, y2})
-        end
-
-        -- Optionally close the loop if the contour is closed and not already closed
-        if n >= 4 then
-            local x_last, y_last = contour[n-1], contour[n]
-            local x_first, y_first = contour[1], contour[2]
-            -- Only add if not already closed
-            if x_last ~= x_first or y_last ~= y_first then
-                table.insert(self._segments, {x_last, y_last, x_first, y_first})
-            end
-        end
+    for i = 1, #contour - 2, 2 do
+        local x1, y1 = contour[i], contour[i+1]
+        local x2, y2 = contour[i+2], contour[i+3]
+        table.insert(self._segments, { x1, y1, x2, y2 })
     end
 end
 
-function _point_to_segment_distance(px, py, x1, y1, x2, y2)
+local function _point_to_segment_distance(px, py, x1, y1, x2, y2)
     local dx = x2 - x1
     local dy = y2 - y1
     local length_sq = dx * dx + dy * dy
@@ -291,10 +240,10 @@ function _point_to_segment_distance(px, py, x1, y1, x2, y2)
     return math.sqrt(dist_x * dist_x + dist_y * dist_y) --, nearest_x, nearest_y
 end
 
-function ow.BouncePad:_update_vertices()
+function ow.BouncePad:_update_vertices(first)
     local px, py = self._bounce_contact_x, self._bounce_contact_y
 
-    -- rotation precomputed
+    -- apply rotation
     local offset_x, offset_y = self._body:get_position()
     local origin_x, origin_y, angle = self._rotation_origin_x + offset_x, self._rotation_origin_y + offset_y, self._angle + self._body:get_rotation()
 
@@ -359,7 +308,6 @@ function ow.BouncePad:_update_vertices()
     axis_x = axis_x * scale * magnitude
     axis_y = axis_y * scale * magnitude
 
-    -- deep copy transformed vertices
     local contour = {}
     for segment in values(segments) do
         local x1, y1, x2, y2 = table.unpack(segment)
@@ -386,12 +334,7 @@ function ow.BouncePad:_update_vertices()
 
     self._draw_contour = contour
 
-    local success
-    success, self._draw_tris = pcall(love.graphics.triangulate, contour)
-    if not success then
-        success, self._draw_tris = pcall(slick.triangulate, { contour })
-    end
+    if self._triangulator == nil then self._triangulator = rt.DelaunayTriangulation() end
+    self._triangulator:triangulate(contour, contour)
+    self._draw_tris = self._triangulator:get_triangles()
 end
-
-
-

@@ -1,6 +1,3 @@
-require "common.contour"
-require "common.delaunay_triangulation"
-
 rt.settings.overworld.bounce_pad = {
     -- bounce animation
     bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
@@ -18,6 +15,12 @@ rt.settings.overworld.bounce_pad = {
 --- @class ow.BouncePad
 ow.BouncePad = meta.class("BouncePad", rt.Drawable)
 
+local _x_index = 1
+local _y_index = 2
+local _axis_x_index = 1
+local _axis_y_index = 2
+local _offset_index = 3
+
 --- @brief
 function ow.BouncePad:instantiate(object, stage, scene)
     meta.install(self, {
@@ -30,36 +33,33 @@ function ow.BouncePad:instantiate(object, stage, scene)
         _bounce_velocity = 0,
         _bounce_contact_x = 0,
         _bounce_contact_y = 0,
-
         _is_bouncing = true,
         _color_elapsed = math.huge,
         _default_color = { rt.Palette.BOUNCE_PAD:unpack() },
         _bounce_magnitude = 0,
 
-        _rotation_origin_x = object.origin_x,
-        _rotation_origin_y = object.origin_y,
-        _angle = object.rotation,
-
+        -- popping bubbles
         _is_single_use = object:get_string("single_use") or false,
         _is_destroyed = false
     })
+
     self._color = self._default_color
     self._draw_color = self._color
 
-    self._body:add_tag("slippery", "no_blood", "unjumpable")
+    -- collision
+    self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil")
+
     local bounce_group = rt.settings.player.bounce_collision_group
     self._body:set_collides_with(bounce_group)
     self._body:set_collision_group(bounce_group)
 
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
-        if self._is_destroyed then return end
-
-        if cx == nil then return end -- player is sensor
+        if self._is_destroyed or cx == nil then return end -- popped, or player is sensor
 
         local player = self._scene:get_player()
         local restitution = player:bounce(nx, ny)
 
-        -- animation
+        -- color animation
         self._color = { rt.lcha_to_rgba(0.9, 1, player:get_hue(), 1) }
         self._color_elapsed = 0
 
@@ -80,84 +80,59 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._body:set_is_enabled(true)
     end)
 
-    -- mesh
-    self._mesh, self._tris = object:create_mesh()
-    self:_create_contour()
-    self:_update_vertices(false)
-end
+    -- contour
+    self._contour = self:_round_contour(
+        object:create_contour(),
+        rt.settings.overworld.bounce_pad.corner_radius,
+        16
+    )
 
--- simulate ball-on-a-spring for bouncing animation
-local stiffness = rt.settings.overworld.bounce_pad.stiffness
-local origin = rt.settings.overworld.bounce_pad.origin
-local damping = rt.settings.overworld.bounce_pad.damping
-local magnitude = rt.settings.overworld.bounce_pad.magnitude
-local color_duration = rt.settings.overworld.bounce_pad.color_decay_duration
-local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
+    local shape_mesh_format = {
+        {location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
+    }
 
---- @brief
-function ow.BouncePad:update(delta)
-    if self._is_destroyed then return end
+    local offset_mesh_format = {
+        {location = 3, name = "axis_offset", format = "floatvec3"}, -- xy axis, z offset (absolute)
+    }
 
-    if not self._scene:get_is_body_visible(self._body) then return end
+    local shape_mesh_data = {}
+    local offset_mesh_data = {}
+    for i = 1, #self._contour, 2 do
+        local x, y = self._contour[i+0], self._contour[i+1]
+        table.insert(shape_mesh_data, {
+            [_x_index] = x,
+            [_y_index] = y
+        })
 
-    if self._color_elapsed <= color_duration then
-        self._color_elapsed = self._color_elapsed + delta
-
-        local default_r, default_g, default_b = table.unpack(self._default_color)
-        local target_r, target_g, target_b = table.unpack(self._color)
-        local weight = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / color_duration, 1))
-
-        self._draw_color = {
-            math.mix(default_r, target_r, weight),
-            math.mix(default_g, target_g, weight),
-            math.mix(default_b, target_b, weight),
-            1
-        }
+        table.insert(offset_mesh_data, {
+            [_axis_x_index] = 0,
+            [_axis_y_index] = 0,
+            [_offset_index] = 0
+        })
     end
 
-    if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
-        local before = self._bounce_position
-        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
-        self._bounce_velocity = self._bounce_velocity * damping
-        self._bounce_position = self._bounce_position + self._bounce_velocity * delta
+    self._shape_mesh = rt.Mesh(
+        shape_mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        shape_mesh_format,
+        rt.GraphicsBufferUsage.STATIC
+    )
 
-        if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
-            self._bounce_position = 0
-            self._bounce_velocity = 0
-            self._is_bouncing = false
-        end
-        self:_update_vertices(true)
-    end
+    local triangulation = rt.DelaunayTriangulation(self._contour, self._contour):get_triangle_vertex_map()
+    self._shape_mesh:set_vertex_map(triangulation)
+
+    self._offset_mesh = rt.Mesh(
+        offset_mesh_data,
+        rt.MeshDrawMode.POINTS,
+        offset_mesh_format,
+        rt.GraphicsBufferUsage.DYNAMIC
+    )
+    self._shape_mesh:attach_attribute(self._offset_mesh, "axis_offset", "pervertex")
+
+    self._draw_contour = table.deepcopy(self._contour)
 end
 
---- @brief
-function ow.BouncePad:draw()
-    if self._is_destroyed then return end
-
-    if not self._scene:get_is_body_visible(self._body) then return end
-
-    local r, g, b = table.unpack(self._draw_color)
-
-    if self._draw_contour ~= nil then
-        love.graphics.setColor(r, g, b, 0.7)
-        for tri in values(self._draw_tris) do
-            love.graphics.polygon("fill", tri)
-        end
-
-        love.graphics.setColor(r, g, b, 1.0)
-        love.graphics.setLineWidth(1)
-        love.graphics.setLineStyle("smooth")
-        love.graphics.setLineJoin("bevel")
-        love.graphics.line(self._draw_contour)
-    end
-end
-
-local _round = function(x)
-    return math.floor(x)
-end
-
---- @param points Table<Number>
-local function _round_contour(points, radius, samples_per_corner)
+function ow.BouncePad:_round_contour(points, radius, samples_per_corner)
     local n = math.floor(#points / 2)
     radius = radius or 10
     samples_per_corner = samples_per_corner or 5
@@ -211,131 +186,45 @@ local function _round_contour(points, radius, samples_per_corner)
     return new_points
 end
 
-function ow.BouncePad:_create_contour()
-    local contour = rt.contour_from_tris(self._tris)
+local stiffness = rt.settings.overworld.bounce_pad.stiffness
+local origin = rt.settings.overworld.bounce_pad.origin
+local damping = rt.settings.overworld.bounce_pad.damping
+local magnitude = rt.settings.overworld.bounce_pad.magnitude
+local color_duration = rt.settings.overworld.bounce_pad.color_decay_duration
+local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
 
-    contour = _round_contour(contour, rt.settings.overworld.bounce_pad.corner_radius, 16)
+--- @brief
+function ow.BouncePad:update(delta)
+    if self._is_destroyed or not self._scene:get_is_body_visible(self._body) then return end
 
-    self._segments = {}
-    for i = 1, #contour - 2, 2 do
-        local x1, y1 = contour[i], contour[i+1]
-        local x2, y2 = contour[i+2], contour[i+3]
-        table.insert(self._segments, { x1, y1, x2, y2 })
+    -- color animation
+    if self._color_elapsed <= color_duration then
+        self._color_elapsed = self._color_elapsed + delta
+
+        local default_r, default_g, default_b = table.unpack(self._default_color)
+        local target_r, target_g, target_b = table.unpack(self._color)
+        local weight = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / color_duration, 1))
+
+        self._draw_color = {
+            math.mix(default_r, target_r, weight),
+            math.mix(default_g, target_g, weight),
+            math.mix(default_b, target_b, weight),
+            1
+        }
     end
 end
 
-local function _point_to_segment_distance(px, py, x1, y1, x2, y2)
-    local dx = x2 - x1
-    local dy = y2 - y1
-    local length_sq = dx * dx + dy * dy
+--- @brief
+function ow.BouncePad:draw()
+    if self._is_destroyed or not self._scene:get_is_body_visible(self._body) then return end
+    local r, g, b = table.unpack(self._draw_color)
 
-    local t = ((px - x1) * dx + (py - y1) * dy) / length_sq
-    t = math.max(0, math.min(1, t))
+    love.graphics.setColor(r, g, b, 0.7)
+    love.graphics.draw(self._shape_mesh:get_native())
 
-    local nearest_x = x1 + t * dx
-    local nearest_y = y1 + t * dy
-
-    local dist_x = px - nearest_x
-    local dist_y = py - nearest_y
-    return math.sqrt(dist_x * dist_x + dist_y * dist_y) --, nearest_x, nearest_y
-end
-
-function ow.BouncePad:_update_vertices(first)
-    local px, py = self._bounce_contact_x, self._bounce_contact_y
-
-    -- apply rotation
-    local offset_x, offset_y = self._body:get_position()
-    local origin_x, origin_y, angle = self._rotation_origin_x + offset_x, self._rotation_origin_y + offset_y, self._angle + self._body:get_rotation()
-
-    local center_x, center_y, n = 0, 0, 0
-    local segments = {}
-    for segment in values(self._segments) do
-        local x1, y1, x2, y2 = table.unpack(segment)
-        x1, y1 = math.rotate(x1, y1, angle, origin_x, origin_y)
-        x2, y2 = math.rotate(x2, y2, angle, origin_x, origin_y)
-        table.insert(segments, {x1, y1, x2, y2})
-
-        center_x = center_x + (x1 + x2) / 2
-        center_y = center_y + (y1 + y2) / 2
-        n = n + 1
-    end
-
-    center_x, center_y = center_x / n, center_y / n
-
-    local tris = {}
-    for tri in values(self._tris) do
-        local to_push = {}
-        for i = 1, #tri, 2 do
-            local x, y = tri[i], tri[i+1]
-            for p in range(math.rotate(x, y, angle, origin_x, origin_y)) do
-                table.insert(to_push, p)
-            end
-        end
-        table.insert(tris, to_push)
-    end
-
-    -- find closest segment to bounce contact
-    local segment_is_to_distance = {}
-    local sorted_is = {}
-    for i, segment in ipairs(segments) do
-        segment_is_to_distance[i] = _point_to_segment_distance(px, py, table.unpack(segment))
-        sorted_is[i] = i
-    end
-
-    table.sort(sorted_is, function(a, b)
-        return segment_is_to_distance[a] < segment_is_to_distance[b]
-    end)
-
-    local cx1, cy1, cx2, cy2 = table.unpack(segments[sorted_is[1]])
-
-    -- direction vector of the closest segment
-    local dx, dy = cx2 - cx1, cy2 - cy1
-    dx, dy = math.normalize(dx, dy)
-
-    -- ensure direction is consistent: (dx, dy) should point such that the centroid is always on the same side
-    local to_centroid_x, to_centroid_y = center_x - cx1, center_y - cy1
-    if math.cross(dx, dy, to_centroid_x, to_centroid_y) < 0 then
-        cx1, cy1, cx2, cy2 = cx2, cy2, cx1, cy1
-        dx, dy = -dx, -dy
-    end
-
-    -- axis perpendicular to the segment direction
-    local axis_x, axis_y = math.turn_right(dx, dy)
-
-    -- get axis of scaling
-    local magnitude = self._bounce_magnitude
-    local scale = self._bounce_position
-    axis_x = axis_x * scale * magnitude
-    axis_y = axis_y * scale * magnitude
-
-    local contour = {}
-    for segment in values(segments) do
-        local x1, y1, x2, y2 = table.unpack(segment)
-
-        -- check if point is on side of player or opposite side of center line
-        if math.cross(dx, dy, x1 - center_x, y1 - center_y) < 0 then
-            x1 = x1 + axis_x
-            y1 = y1 + axis_y
-        end
-
-        if math.cross(dx, dy, x2 - center_x, y2 - center_y) < 0 then
-            x2 = x2 + axis_x
-            y2 = y2 + axis_y
-        end
-
-        for p in range(x1, y1) do
-            table.insert(contour, p)
-        end
-    end
-
-    for p in range(contour[1], contour[2]) do
-        table.insert(contour, p)
-    end
-
-
-    self._draw_contour = contour
-
-    if self._triangulator == nil then self._triangulator = rt.DelaunayTriangulation() end
-    self._triangulator:triangulate(contour, contour)
-    self._draw_tris = self._triangulator:get_triangles()
+    love.graphics.setColor(r, g, b, 1.0)
+    love.graphics.setLineWidth(2)
+    love.graphics.setLineStyle("smooth")
+    love.graphics.setLineJoin("bevel")
+    love.graphics.line(self._draw_contour)
 end
