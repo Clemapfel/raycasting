@@ -21,8 +21,12 @@ local _axis_x_index = 1
 local _axis_y_index = 2
 local _offset_index = 3
 
+local _shape_shader
+
 --- @brief
 function ow.BouncePad:instantiate(object, stage, scene)
+    if _shape_shader == nil then _shape_shader = rt.Shader("overworld/objects/bounce_pad.glsl") end
+
     meta.install(self, {
         _scene = scene,
         _stage = stage,
@@ -106,11 +110,12 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         table.insert(offset_mesh_data, {
             [_axis_x_index] = 0,
-            [_axis_y_index] = 0,
+            [_axis_y_index] = 1,
             [_offset_index] = 0
         })
     end
 
+    self._shape_mesh_data = shape_mesh_data
     self._shape_mesh = rt.Mesh(
         shape_mesh_data,
         rt.MeshDrawMode.TRIANGLES,
@@ -121,15 +126,32 @@ function ow.BouncePad:instantiate(object, stage, scene)
     local triangulation = rt.DelaunayTriangulation(self._contour, self._contour):get_triangle_vertex_map()
     self._shape_mesh:set_vertex_map(triangulation)
 
+    self._offset_mesh_data = offset_mesh_data
     self._offset_mesh = rt.Mesh(
         offset_mesh_data,
         rt.MeshDrawMode.POINTS,
         offset_mesh_format,
         rt.GraphicsBufferUsage.DYNAMIC
     )
+
     self._shape_mesh:attach_attribute(self._offset_mesh, "axis_offset", "pervertex")
 
-    self._draw_contour = table.deepcopy(self._contour)
+    self._center_x, self._center_y = 0, 0
+    local n = 0
+
+    self._draw_contour = {}
+    for i = 1, #self._contour, 2 do
+        local x, y = self._contour[i+0], self._contour[i+1]
+        table.insert(self._draw_contour, x)
+        table.insert(self._draw_contour, y)
+        self._center_y = self._center_y + y
+        n = n + 1
+    end
+
+    self._center_x = self._center_x / n
+    self._center_y = self._center_y / n
+    self._rotation_origin_x = object.rotation_origin_x
+    self._rotation_origin_y = object.rotation_origin_y
 end
 
 function ow.BouncePad:_round_contour(points, radius, samples_per_corner)
@@ -212,6 +234,122 @@ function ow.BouncePad:update(delta)
             1
         }
     end
+
+    -- bounce
+    if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
+        local before = self._bounce_position
+        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
+        self._bounce_velocity = self._bounce_velocity * damping
+        self._bounce_position = self._bounce_position + self._bounce_velocity * delta
+
+        if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
+            self._bounce_position = 0
+            self._bounce_velocity = 0
+            self._is_bouncing = false
+        end
+        self:_update_vertices()
+    end
+end
+
+local function _point_to_segment_distance(px, py, x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local length_sq = dx * dx + dy * dy
+
+    local t = ((px - x1) * dx + (py - y1) * dy) / length_sq
+    t = math.max(0, math.min(1, t))
+
+    local nearest_x = x1 + t * dx
+    local nearest_y = y1 + t * dy
+
+    local dist_x = px - nearest_x
+    local dist_y = py - nearest_y
+    return math.sqrt(dist_x * dist_x + dist_y * dist_y) --, nearest_x, nearest_y
+end
+
+--- @brief
+function ow.BouncePad:_update_vertices()
+    local px, py = self._bounce_contact_x, self._bounce_contact_y
+
+    local center_x, center_y = self._center_x, self._center_y
+    local contour = self._contour
+    if self._body:get_rotation() ~= 0 then
+        contour = {}
+        local angle = self._body:get_rotation()
+        for i = 1, #self._contour, 2 do
+            local x, y = self._contour[i+0], self._contour[i+1]
+            x, y = math.rotate(x, y, angle, self._rotation_origin_x, self._rotation_origin_y)
+            contour[i+0] = x
+            contour[i+1] = y
+        end
+    end
+
+    local offset_x, offset_y = self._body:get_position()
+    px = px - offset_x -- TODO: is this correct?
+    py = py - offset_y
+
+    -- find closest segment to contact
+    local min_distance, min_distance_i = math.huge, 1
+    for i = 1, #contour - 2, 2 do
+        local distance = _point_to_segment_distance(
+            px, py,
+            contour[i+0], contour[i+1],
+            contour[i+2], contour[i+3]
+        )
+
+        if distance < min_distance then
+            min_distance = distance
+            min_distance_i = i
+        end
+    end
+
+    local cx1, cy1, cx2, cy2 =
+        contour[min_distance_i+0],
+        contour[min_distance_i+1],
+        contour[min_distance_i+2],
+        contour[min_distance_i+3]
+
+    -- direction vector of the closest segment
+    local dx, dy = cx2 - cx1, cy2 - cy1
+    dx, dy = math.normalize(dx, dy)
+
+    -- ensure direction is consistent: (dx, dy) should point such that the centroid is always on the same side
+    local to_centroid_x, to_centroid_y = px - cx1, py - cy1
+    if math.cross(dx, dy, to_centroid_x, to_centroid_y) < 0 then
+        cx1, cy1, cx2, cy2 = cx2, cy2, cx1, cy1
+        dx, dy = -dx, -dy
+    end
+
+    -- axis of scaling
+    local scale_axis_x, scale_axis_y = math.turn_right(dx, dy)
+
+    -- offset
+    local scale_offset = self._bounce_position * self._bounce_magnitude
+
+    local data_i = 1
+    for i = 1, #contour, 2 do
+        local x1, y1 = contour[i+0], contour[i+1]
+
+        local data = self._offset_mesh_data[data_i]
+        data[_axis_x_index] = scale_axis_x
+        data[_axis_y_index] = scale_axis_y
+
+        -- check if point is on side of player or opposite side of center line
+        if math.cross(dx, dy, x1 - px, y1 - py) < 0 then
+            data[_offset_index] = scale_offset
+
+            self._draw_contour[i+0] = contour[i+0] + scale_axis_x * scale_offset
+            self._draw_contour[i+1] = contour[i+1] + scale_axis_y * scale_offset
+        else
+            data[_offset_index] = 0
+            self._draw_contour[i+0] = contour[i+0]
+            self._draw_contour[i+1] = contour[i+1]
+        end
+
+        data_i = data_i + 1
+    end
+
+    self._offset_mesh:replace_data(self._offset_mesh_data)
 end
 
 --- @brief
@@ -220,7 +358,9 @@ function ow.BouncePad:draw()
     local r, g, b = table.unpack(self._draw_color)
 
     love.graphics.setColor(r, g, b, 0.7)
+    _shape_shader:bind()
     love.graphics.draw(self._shape_mesh:get_native())
+    _shape_shader:unbind()
 
     love.graphics.setColor(r, g, b, 1.0)
     love.graphics.setLineWidth(2)

@@ -391,7 +391,7 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
         rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `" .. tostring(self.type) .. "`")
     end
 
-    self.contour = contour
+    self.contour = _process_polygon(contour, self)
     self.contour_prototype_initialized = true
 end
 

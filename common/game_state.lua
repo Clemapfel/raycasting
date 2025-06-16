@@ -43,7 +43,7 @@ function rt.GameState:instantiate()
         text_speed = 1.0,
         joystick_deadzone = 0.15,
         trigger_deadzone = 0.05,
-        performance_mode_enabled = true,
+        performance_mode_enabled = false,
         draw_debug_information = true,
 
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
