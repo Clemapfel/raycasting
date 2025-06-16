@@ -67,6 +67,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     -- contour
     local contour = object:create_contour() -- flat array: {x1, y1, x2, y2, ..., xn, yn}
+
     local segment_length = rt.settings.overworld.bubble_field.segment_length * rt.get_pixel_scale()
 
     -- subdivide contour
@@ -102,6 +103,10 @@ function ow.BubbleField:instantiate(object, stage, scene)
         end
         points = smoothed
     end
+
+    -- connect loops that retracted after smoothing
+    points[1] = points[#points - 1]
+    points[2] = points[#points - 0]
 
     -- compute center and mesh data
     self._contour = points

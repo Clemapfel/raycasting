@@ -56,7 +56,7 @@ rt.settings.player = {
     wall_jump_freeze_duration = 7 / 60,
 
     bounce_min_force = 200,
-    bounce_max_force = 520,
+    bounce_max_force = 400,
     bounce_duration = 2 / 60,
 
     spring_multiplier = 1.2,

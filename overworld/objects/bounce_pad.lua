@@ -2,7 +2,9 @@ rt.settings.overworld.bounce_pad = {
     -- bounce animation
     bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
     bounce_min_magnitude = 10,
-    color_decay_duration = 1,
+
+    outer_color_decay_duration = 1,
+    inner_color_decay_duration = 2.5,
     corner_radius = 20,
     bounce_penetration_fraction = 1, -- times radius, the larger, the more of the shape will wiggle
 
@@ -47,11 +49,13 @@ function ow.BouncePad:instantiate(object, stage, scene)
         _is_single_use = object:get_string("single_use") or false,
         _is_destroyed = false,
 
-        _elapsed = 0
+        _elapsed = 0,
+        _signal = 0
     })
 
-    self._color = self._default_color
-    self._draw_color = self._color
+    self._draw_inner_color = { rt.Palette.BOUNCE_PAD:unpack() }
+    self._draw_outer_color = { rt.Palette.BOUNCE_PAD:unpack() }
+    self._hue = self._scene:get_player():get_hue()
 
     -- TODO
     self._input = rt.InputSubscriber()
@@ -76,7 +80,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
         local restitution = player:bounce(nx, ny)
 
         -- color animation
-        self._color = { rt.lcha_to_rgba(0.9, 1, player:get_hue(), 1) }
+        self._hue = player:get_hue()
+
         self._color_elapsed = 0
 
         self._bounce_velocity = restitution
@@ -224,21 +229,30 @@ local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
 function ow.BouncePad:update(delta)
     if self._is_destroyed or not self._scene:get_is_body_visible(self._body) then return end
 
+    self._elapsed = self._elapsed + delta
+    self._elapsed = self._elapsed + self._signal
+
     -- color animation
-    if self._color_elapsed <= color_duration then
-        self._color_elapsed = self._color_elapsed + delta
+    self._color_elapsed = self._color_elapsed + delta
+    self._signal = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / rt.settings.overworld.bounce_pad.outer_color_decay_duration, 1))
+    local player = self._scene:get_player()
 
-        local default_r, default_g, default_b = table.unpack(self._default_color)
-        local target_r, target_g, target_b = table.unpack(self._color)
-        local weight = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / color_duration, 1))
+    local base_r, base_g, base_b = rt.Palette.BOUNCE_PAD:unpack()
+    local target_r, target_g, target_b = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+    local fraction = self._signal
+    self._draw_outer_color = { math.mix3(
+        target_r, target_g, target_b,
+        base_r, base_g, base_b,
+        1 - math.clamp(fraction, 0, 1)
+    )}
 
-        self._draw_color = {
-            math.mix(default_r, target_r, weight),
-            math.mix(default_g, target_g, weight),
-            math.mix(default_b, target_b, weight),
-            1
-        }
-    end
+    local fraction = self._color_elapsed / rt.settings.overworld.bounce_pad.inner_color_decay_duration
+    target_r, target_g, target_b = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+    self._draw_inner_color = { math.mix3(
+        target_r, target_g, target_b,
+        base_r, base_g, base_b,
+        math.clamp(fraction, 0, 1)
+    )}
 
     -- bounce
     if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
@@ -253,9 +267,6 @@ function ow.BouncePad:update(delta)
             self._is_bouncing = false
         end
         self:_update_vertices()
-
-        -- shader only moves when bouncing
-        self._elapsed = self._elapsed + delta * math.abs(self._bounce_velocity / stiffness)
     end
 end
 
@@ -374,19 +385,25 @@ end
 --- @brief
 function ow.BouncePad:draw()
     if self._is_destroyed or not self._scene:get_is_body_visible(self._body) then return end
-    local r, g, b = table.unpack(self._draw_color)
 
-    love.graphics.setColor(r, g, b, 0.7)
+    local r, g, b = table.unpack(self._draw_inner_color)
+    love.graphics.setColor(r, g, b, 0.9)
     _shape_shader:bind()
     _shape_shader:send("elapsed", self._elapsed)
+    _shape_shader:send("signal", self._signal)
     _shape_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
     _shape_shader:send("camera_scale", self._scene:get_camera():get_scale())
     love.graphics.draw(self._shape_mesh:get_native())
     _shape_shader:unbind()
 
-    love.graphics.setColor(r, g, b, 1.0)
-    love.graphics.setLineWidth(2)
+    love.graphics.setLineWidth(7)
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
+    rt.Palette.BLACK:bind()
     love.graphics.line(self._draw_contour)
+    local r, g, b = table.unpack(self._draw_outer_color)
+    love.graphics.setColor(r, g, b, 1)
+    love.graphics.setLineWidth(7-2)
+    love.graphics.line(self._draw_contour)
+
 end

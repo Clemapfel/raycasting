@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 641,
+  nextobjectid = 644,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -961.753,
-          y = 2809.62,
+          x = -1291.42,
+          y = 2394.19,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3668,6 +3668,66 @@ return {
           visible = true,
           text = "Hello World",
           wrap = true,
+          properties = {}
+        },
+        {
+          id = 641,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = -994.573,
+          y = 2967.44,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 130.573, y = 8.56445 },
+            { x = 130.573, y = -39.4355 },
+            { x = -29.4274, y = -39.4355 }
+          },
+          properties = {}
+        },
+        {
+          id = 642,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = -1210.31,
+          y = 2944.37,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 99.0502, y = -35.2782 },
+            { x = -2.7137, y = -119.403 }
+          },
+          properties = {}
+        },
+        {
+          id = 643,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = -848.033,
+          y = 2766.62,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 274.084, y = 55.6309 },
+            { x = 363.636, y = 180.461 },
+            { x = 576.662, y = 151.967 },
+            { x = 466.757, y = -177.748 },
+            { x = 135.685, y = -255.088 },
+            { x = -124.83, y = -225.237 },
+            { x = -135.685, y = -97.6934 }
+          },
           properties = {}
         }
       }

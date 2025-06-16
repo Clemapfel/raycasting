@@ -43,34 +43,28 @@ vec4 worley_noise_with_offset(vec3 p) {
     return vec4(minOffset, minDist);
 }
 
-vec3 lch_to_rgb(vec3 lch) {
-    float L = lch.x * 100.0;
-    float C = lch.y * 100.0;
-    float H = lch.z * 360.0;
+// --- Worley noise octaves ---
+float worley_octaves(vec3 p, int octaves, float lacunarity, float gain) {
+    float amplitude = 1.0;
+    float frequency = 1.0;
+    float sum = 0.0;
+    float norm = 0.0;
 
-    float a = cos(radians(H)) * C;
-    float b = sin(radians(H)) * C;
-
-    float Y = (L + 16.0) / 116.0;
-    float X = a / 500.0 + Y;
-    float Z = Y - b / 200.0;
-
-    X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
-    Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
-    Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
-
-    float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
-    float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
-    float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
-
-    R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
-    G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
-    B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
-
-    return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
+    for (int i = 0; i < 8; i++) { // hardcoded max octaves = 8
+        if (i >= octaves) break;
+        float d = worley_noise_with_offset(p * frequency).w;
+        // Use 1-d for "bubbles" (invert so cell centers are bright)
+        sum += (1.0 - d) * amplitude;
+        norm += amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    return sum / norm;
 }
 
 uniform float elapsed;
+uniform float signal;
+
 uniform vec2 camera_offset;
 uniform float camera_scale = 1;
 vec2 to_uv(vec2 frag_position) {
@@ -91,48 +85,31 @@ float gaussianize(float x) {
     return 0.5 + 0.5 * tanh(y);
 }
 
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
+
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
 
-    const int OCTAVES = 1;
-    float base_scale = 10.0;
-    float scale = base_scale;
-    float amplitude = 1.0;
-    float total_amplitude = 0.0;
+    // Animate the noise field for bounciness
+    float t = elapsed * 0.8;
+    vec3 noise_p = vec3(uv * 4, signal * 0.5);
 
-    vec3 accum_rgb = vec3(0.0);
-    float accum_alpha = 0.0;
+    // Use 3 octaves of Worley noise for richer bubbles
+    float bubble = worley_octaves(noise_p, 4, 1.5, 1);
 
-    for (int octave = 0; octave < 4; ++octave) {
-        // Offset time per octave for more variety
-        float t = elapsed + float(octave) * 13.37;
-        vec4 noise = worley_noise_with_offset(vec3(uv.xy * scale, t));
+    // Apply toon shading by quantizing the bubble value
+    int steps = 10; // Number of discrete levels
+    float step_size = 1.0 / float(steps);
+    bubble = floor(bubble / step_size) * step_size;
 
-        // Unique hue per bubble per octave
-        float hue = fract(noise.x + noise.y + noise.z + float(octave) * 0.21);
+    // Final grayscale value, clamp for safety
+    float value = smoothstep(-0.5, 0.5, bubble);
 
-        // Bubble intensity (optionally gaussianized for non-linear steps)
-        float bubble = 1.0 - smoothstep(0.4, 1, noise.w);
-
-        // Color for this octave's bubbles
-        vec3 rgb = lch_to_rgb(vec3(0.8, 0.9, hue));
-
-        // Accumulate, weighted by amplitude
-        accum_rgb += rgb * bubble * amplitude;
-        accum_alpha += bubble * amplitude;
-        total_amplitude += amplitude;
-
-        scale *= 2.0;
-        amplitude *= 0.6;
-    }
-
-    // Normalize accumulated color and alpha
-    if (total_amplitude > 0.0) {
-        accum_rgb /= total_amplitude;
-        accum_alpha /= total_amplitude;
-    }
-
-    return color * vec4(accum_alpha);
+    return color * vec4(vec3(value), 1);
 }
 
 #endif
