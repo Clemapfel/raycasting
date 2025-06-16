@@ -2,16 +2,16 @@
 
 layout(location = 3) in vec4 position_velocity_buffer;
 layout(location = 4) in vec3 color_buffer;
-layout(location = 5) in vec2 magnitude_scale_buffer;
+layout(location = 5) in vec2 magnitude_radius_buffer;
 
 varying vec4 color;
+uniform vec2 center;
 
 vec4 position(mat4 transform_projection, vec4 vertex_position)
 {
     color = vec4(color_buffer.rgb, 1);
-    const vec2 center = vec2(0);
-    float scale = magnitude_scale_buffer.y;
-    vertex_position.xy += center + (vertex_position.xy - center) * scale;
+    float radius = magnitude_radius_buffer.y;
+    vertex_position.xy = center + normalize(vertex_position.xy - center) * radius;
     vertex_position.xy += position_velocity_buffer.xy;
     return transform_projection * vertex_position;
 }

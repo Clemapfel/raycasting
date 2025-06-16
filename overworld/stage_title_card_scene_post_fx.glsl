@@ -73,6 +73,22 @@ vec2 derivative(sampler2D img, vec2 position) {
     return vec2(dx, dy);
 }
 
+float circular_dilation(sampler2D img, vec2 position, float radius) {
+    vec2 texel_size = vec2(1.0) / textureSize(img, 0);
+    float max_value = 0.0;
+
+    for (float y = -radius; y <= radius; y++) {
+        for (float x = -radius; x <= radius; x++) {
+            vec2 offset = vec2(x, y) * texel_size;
+            if (length(offset) <= radius * texel_size.x) { // Check if within circle
+                max_value = max(max_value, texture(img, position + offset).a);
+            }
+        }
+    }
+
+    return max_value;
+}
+
 #ifdef PIXEL
 
 uniform float elapsed;
@@ -83,9 +99,12 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
         gradient_noise(vec3(+texture_coordinates * scale, elapsed)),
         gradient_noise(vec3(-texture_coordinates * scale, elapsed))
     );
+
     vec2 dxdy = derivative(img, texture_coordinates + offset * 0.004);
-    float outline = smoothstep(0, 2, length(dxdy));
-    return vec4(outline);
+    float width_offset = (gradient_noise(vec3((texture_coordinates) * 50 - elapsed, 0)) + 1) / 2;
+    float edge = smoothstep(0, width_offset * 4, length(dxdy));
+
+    return vec4(edge);
 }
 
 #endif

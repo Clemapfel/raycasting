@@ -4,6 +4,7 @@ require "common.camera"
 require "common.control_indicator"
 require "physics.physics"
 require "overworld.stage_config"
+require "overworld.stage_title_card_scene_background"
 
 rt.settings.overworld.stage_title_card_scene = {
     stage_id = "stage_title_cards", -- tile map used for text geometry
@@ -48,6 +49,8 @@ function ow.StageTitleCardScene:instantiate(state)
 
     self._control_indicator_reveal_active = false
     self._control_indicator_delay_elapsed = 0
+
+    self._background = ow.StageTitleCardSceneBackground()
 
     -- physics
     self._objects = {} -- Table<ow.ObjectWrapper>
@@ -200,6 +203,7 @@ end
 function ow.StageTitleCardScene:realize()
     if self:already_realized() then return end
 
+    self._background:realize()
     self._control_indicator:set_has_frame(false)
     self._control_indicator:set_opacity(0)
     self._control_indicator:realize()
@@ -215,6 +219,7 @@ function ow.StageTitleCardScene:size_allocate(x, y, width, height)
     local control_w, control_h = self._control_indicator:measure()
     self._control_indicator:reformat(x + width - control_w, y + height - control_h, control_w, control_h)
 
+    self._background:reformat(x, y, width, height)
     if self._is_initialized then
         self:_initialize()
     end
@@ -239,6 +244,7 @@ function ow.StageTitleCardScene:update(delta)
     self._world:update(delta)
     self._player:update(delta)
     self._camera:update(delta)
+    self._background:update(delta)
 
     -- toggle top screen lock
     local px, py = self._player:get_position()
@@ -253,8 +259,9 @@ function ow.StageTitleCardScene:draw()
 
     love.graphics.push()
     love.graphics.origin()
-    rt.Palette.TRUE_MAGENTA:bind()
-    love.graphics.rectangle("fill", self._bounds:unpack())
+    self._background:draw()
+
+    --[[
 
     _canvas:bind()
     love.graphics.clear(0, 0, 0, 0)
@@ -281,6 +288,7 @@ function ow.StageTitleCardScene:draw()
     self._camera:unbind()
 
     self._control_indicator:draw()
+    ]]--
     love.graphics.pop()
 end
 
