@@ -363,6 +363,39 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
 end
 
 --- @brief
+function ow.ObjectWrapper:_initialize_contour_prototype()
+    local contour = {}
+    if self.type == ow.ObjectType.RECTANGLE then
+        local x, y = self.x, self.y
+        local w, h = self.width, self.height
+        contour = {
+            x, y,
+            x + w, y,
+            x + w, y + h,
+            x, y + h
+        }
+    elseif self.type == ow.ObjectType.ELLIPSE then
+        local x, y = self.center_x, self.center_y
+        local x_radius, y_radius = self.x_radius, self.y_radius
+        local n_outer_vertices = _calculate_n_outer_vertices(x_radius, y_radius)
+        local step = (2 * math.pi) / n_outer_vertices
+        for angle = 0, 2 * math.pi + step, step do
+            table.insert(contour, x + math.cos(angle) * x_radius)
+            table.insert(contour, y + math.sin(angle) * y_radius)
+        end
+    elseif self.type == ow.ObjectType.POLYGON then
+        contour = table.deepcopy(self.vertices)
+    elseif self.type == ow.ObjectType.POINT then
+        -- noop
+    else
+        rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `" .. tostring(self.type) .. "`")
+    end
+
+    self.contour = contour
+    self.contour_prototype_initialized = true
+end
+
+--- @brief
 function ow.ObjectWrapper:create_mesh()
     if self.mesh_prototype_initialized ~= true then
         self:_initialize_mesh_prototype()
@@ -386,6 +419,15 @@ function ow.ObjectWrapper:triangulate()
     end
 
     return self.mesh_triangles
+end
+
+--- qbrief
+function ow.ObjectWrapper:create_contour()
+    if self.contour_prototype_initialized ~= true then
+        self:_initialize_contour_prototype()
+    end
+
+    return self.contour
 end
 
 --- @brief

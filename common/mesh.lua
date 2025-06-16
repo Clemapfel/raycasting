@@ -15,10 +15,17 @@ rt.VertexAttribute = meta.enum("VertexAttribute", {
     COLOR = "VertexColor"
 })
 
+--- @class rt.VertexAttributeLocation
+rt.VertexAttributeLocation = meta.enum("VertexAttribute", {
+    POSITION = 0,
+    TEXTURE_COORDINATES = 1,
+    COLOR = 2
+})
+
 rt.VertexFormat = {
-    {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
-    {location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2"},
-    {location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4"},
+    {location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
+    {location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2"},
+    {location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4"},
 }
 
 --- @class rt.Mesh
@@ -223,7 +230,6 @@ end
 function rt.Mesh:replace_data(data)
     self._native:setVertices(data)
 end
-
 
 --- @brief
 function rt.Mesh:set_vertex_map(map)

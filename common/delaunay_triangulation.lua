@@ -255,6 +255,19 @@ function rt.DelaunayTriangulation:triangulate(points, contour)
 end
 
 --- @brief
+function rt.DelaunayTriangulation:get_triangle_vertex_map()
+    local indices = {}
+    local tris = self._triangles
+    for i = 0, _sizeof(tris) - 1, 3 do
+        table.insert(indices, tris[i + 0] + 1)
+        table.insert(indices, tris[i + 1] + 1)
+        table.insert(indices, tris[i + 2] + 1)
+    end
+
+    return indices
+end
+
+--- @brief
 function rt.DelaunayTriangulation:get_triangles()
     local triangles = {}
     local coords = self._coords
