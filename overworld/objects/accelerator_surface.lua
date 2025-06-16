@@ -59,7 +59,7 @@ function ow.AcceleratorSurface:update(delta)
     self._camera_offset = { camera:get_offset() }
     self._camera_scale = camera:get_scale()
 
-    self:_update_particles(delta)
+    --self:_update_particles(delta)
 
     if self._is_active then
         local nx, ny, x, y = self._scene:get_player():get_collision_normal(self._body)

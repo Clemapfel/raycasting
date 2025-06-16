@@ -204,7 +204,7 @@ end
 function rt.SceneManager:_draw_performance_metrics()
     -- compute mean, variance, max
     local stats = love.graphics.getStats()
-    local n_draws = stats.drawcalls
+    local n_draws = tostring(stats.drawcalls)
 
     local fps_mean = tostring(love.timer.getFPS()) --math.ceil(_fps_sum / _n_frames_captured))
     local fps_variance = tostring(math.ceil((_fps_sum / _n_frames_captured) / (_last_fps_variance_sum / _n_frames_captured)))
@@ -214,6 +214,10 @@ function rt.SceneManager:_draw_performance_metrics()
 
     while #fps_mean < 3 do
         fps_mean = "0" .. fps_mean
+    end
+
+    while #n_draws < 2 do
+        n_draws = "0" .. n_draws
     end
 
     while #update_percentage < 3 do

@@ -339,7 +339,7 @@ end
 --- @brief
 function ow.BubbleField:_excite_wave(player_x, player_y, sign)
     if rt.GameState:get_is_performance_mode_enabled() then return end
-    
+
     self._is_active = true
     self._should_excite = true
     self._excite_x, self._excite_y = player_x, player_y

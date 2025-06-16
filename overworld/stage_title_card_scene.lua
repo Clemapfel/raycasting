@@ -69,11 +69,13 @@ function ow.StageTitleCardScene:instantiate(state)
     end)
 
     -- TODO
+    local n = 100
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "^" then
             self:_initialize()
         elseif which == "k" then
-            self._background = ow.StageTitleCardSceneBackground()
+            n = n + 100
+            self._background = ow.StageTitleCardSceneBackground(n)
             self._background:realize()
             self._background:size_allocate(self._bounds:unpack())
         end
@@ -257,17 +259,14 @@ end
 
 --- @brief
 function ow.StageTitleCardScene:draw()
+    if not self._initialized then return end
     local w, h = _canvas:get_size()
 
     love.graphics.push()
     love.graphics.origin()
     self._background:draw()
 
-    --[[
-
     _canvas:bind()
-    love.graphics.clear(0, 0, 0, 0)
-
     self._camera:bind()
     self._mesh:draw()
     _canvas:unbind()
@@ -290,7 +289,6 @@ function ow.StageTitleCardScene:draw()
     self._camera:unbind()
 
     self._control_indicator:draw()
-    ]]--
     love.graphics.pop()
 end
 
