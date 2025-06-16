@@ -2420,7 +2420,7 @@ return {
           type = "BouncePad",
           shape = "polygon",
           x = -320,
-          y = 3072,
+          y = 3136.3,
           width = 0,
           height = 0,
           rotation = 0,

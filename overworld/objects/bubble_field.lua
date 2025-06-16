@@ -1,3 +1,5 @@
+require "common.contour"
+
 rt.settings.overworld.bubble_field = {
     segment_length = 13,
     n_smoothing_iterations = 2,
