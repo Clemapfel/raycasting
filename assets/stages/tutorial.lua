@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 637,
+  nextobjectid = 640,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 128.652,
-          y = 1149.02,
+          x = -668.673,
+          y = 2507.04,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2415,25 +2415,6 @@ return {
           properties = {}
         },
         {
-          id = 556,
-          name = "",
-          type = "BubbleField",
-          shape = "polygon",
-          x = -320,
-          y = 2896,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 336, y = 0 },
-            { x = 336, y = 96 },
-            { x = 0, y = 96 }
-          },
-          properties = {}
-        },
-        {
           id = 557,
           name = "",
           type = "BouncePad",
@@ -2445,10 +2426,10 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = -1040, y = 0 },
             { x = 336, y = 0 },
             { x = 336, y = 64 },
-            { x = 0, y = 64 }
+            { x = -1040, y = 64 }
           },
           properties = {}
         },
@@ -3664,6 +3645,40 @@ return {
             { x = 32, y = -144 },
             { x = 32, y = -16 },
             { x = 0, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 637,
+          name = "",
+          type = "",
+          shape = "text",
+          x = -825.378,
+          y = 1869.27,
+          width = 83,
+          height = 19,
+          rotation = 0,
+          visible = true,
+          text = "Hello World",
+          wrap = true,
+          properties = {}
+        },
+        {
+          id = 639,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = -1424,
+          y = 2560,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 1520, y = 0 },
+            { x = 1520, y = 480 },
+            { x = 0, y = 480 }
           },
           properties = {}
         }
