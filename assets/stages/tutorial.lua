@@ -2423,7 +2423,7 @@ return {
           y = 3136.3,
           width = 0,
           height = 0,
-          rotation = 15,
+          rotation = 0,
           visible = true,
           polygon = {
             { x = -1040, y = 0 },

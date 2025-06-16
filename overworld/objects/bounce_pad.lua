@@ -3,7 +3,8 @@ rt.settings.overworld.bounce_pad = {
     bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
     bounce_min_magnitude = 10,
     color_decay_duration = 1,
-    corner_radius = 10,
+    corner_radius = 20,
+    bounce_penetration_fraction = 1, -- times radius, the larger, the more of the shape will wiggle
 
     -- bounce animation simulation parameters
     stiffness = 10,
@@ -44,11 +45,22 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
         -- popping bubbles
         _is_single_use = object:get_string("single_use") or false,
-        _is_destroyed = false
+        _is_destroyed = false,
+
+        _elapsed = 0
     })
 
     self._color = self._default_color
     self._draw_color = self._color
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "l" then
+            _shape_shader:recompile()
+            dbg("called")
+        end
+    end)
 
     -- collision
     self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil")
@@ -136,20 +148,13 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
     self._shape_mesh:attach_attribute(self._offset_mesh, "axis_offset", "pervertex")
 
-    self._center_x, self._center_y = 0, 0
-    local n = 0
-
     self._draw_contour = {}
     for i = 1, #self._contour, 2 do
         local x, y = self._contour[i+0], self._contour[i+1]
         table.insert(self._draw_contour, x)
         table.insert(self._draw_contour, y)
-        self._center_y = self._center_y + y
-        n = n + 1
     end
 
-    self._center_x = self._center_x / n
-    self._center_y = self._center_y / n
     self._rotation_origin_x = object.rotation_origin_x
     self._rotation_origin_y = object.rotation_origin_y
 end
@@ -248,6 +253,9 @@ function ow.BouncePad:update(delta)
             self._is_bouncing = false
         end
         self:_update_vertices()
+
+        -- shader only moves when bouncing
+        self._elapsed = self._elapsed + delta * math.abs(self._bounce_velocity / stiffness)
     end
 end
 
@@ -264,14 +272,14 @@ local function _point_to_segment_distance(px, py, x1, y1, x2, y2)
 
     local dist_x = px - nearest_x
     local dist_y = py - nearest_y
-    return math.sqrt(dist_x * dist_x + dist_y * dist_y) --, nearest_x, nearest_y
+    return math.sqrt(dist_x * dist_x + dist_y * dist_y), nearest_x, nearest_y
 end
 
+--- @brief
 --- @brief
 function ow.BouncePad:_update_vertices()
     local px, py = self._bounce_contact_x, self._bounce_contact_y
 
-    local center_x, center_y = self._center_x, self._center_y
     local contour = self._contour
     if self._body:get_rotation() ~= 0 then
         contour = {}
@@ -289,9 +297,9 @@ function ow.BouncePad:_update_vertices()
     py = py - offset_y
 
     -- find closest segment to contact
-    local min_distance, min_distance_i = math.huge, 1
+    local min_distance, min_distance_i, min_contact_x, min_contact_y = math.huge, 1, 0, 0
     for i = 1, #contour - 2, 2 do
-        local distance = _point_to_segment_distance(
+        local distance, mx, my = _point_to_segment_distance(
             px, py,
             contour[i+0], contour[i+1],
             contour[i+2], contour[i+3]
@@ -300,32 +308,43 @@ function ow.BouncePad:_update_vertices()
         if distance < min_distance then
             min_distance = distance
             min_distance_i = i
+            min_contact_x = mx
+            min_contact_y = my
         end
     end
 
     local cx1, cy1, cx2, cy2 =
-        contour[min_distance_i+0],
-        contour[min_distance_i+1],
-        contour[min_distance_i+2],
-        contour[min_distance_i+3]
+    contour[min_distance_i+0],
+    contour[min_distance_i+1],
+    contour[min_distance_i+2],
+    contour[min_distance_i+3]
 
-    -- direction vector of the closest segment
-    local dx, dy = cx2 - cx1, cy2 - cy1
-    dx, dy = math.normalize(dx, dy)
+    -- vector from contact point on segment to player contact point
+    local vx, vy = px - min_contact_x, py - min_contact_y
+    vx, vy = math.normalize(vx, vy)
 
-    -- ensure direction is consistent: (dx, dy) should point such that the centroid is always on the same side
-    local to_centroid_x, to_centroid_y = px - cx1, py - cy1
-    if math.cross(dx, dy, to_centroid_x, to_centroid_y) < 0 then
-        cx1, cy1, cx2, cy2 = cx2, cy2, cx1, cy1
-        dx, dy = -dx, -dy
+    -- segment direction and normal
+    local dx, dy = math.normalize(cx2 - cx1, cy2 - cy1)
+    -- normal to the segment (right-hand normal)
+    local nx, ny = math.turn_right(dx, dy)
+
+    -- Ensure (vx, vy) points into the segment (same direction as normal)
+    local dot = vx * nx + vy * ny
+    if dot < 0 then
+        vx, vy = -vx, -vy
     end
+
+    -- extend 1 radius further into the shape, use that as threshold
+    local radius = self._scene:get_player():get_radius() * rt.settings.overworld.bounce_pad.bounce_penetration_fraction
+    local center_x, center_y = min_contact_x + vx * (min_distance + radius), min_contact_y + vy * (min_distance + radius)
+
+    -- what side of that line is the contact on?
+    local player_sign = math.sign(math.cross(dx, dy, px - center_x, py - center_y))
 
     -- axis of scaling
     local scale_axis_x, scale_axis_y = math.turn_right(dx, dy)
 
-    -- offset
     local scale_offset = self._bounce_position * self._bounce_magnitude
-
     local data_i = 1
     for i = 1, #contour, 2 do
         local x1, y1 = contour[i+0], contour[i+1]
@@ -334,8 +353,8 @@ function ow.BouncePad:_update_vertices()
         data[_axis_x_index] = scale_axis_x
         data[_axis_y_index] = scale_axis_y
 
-        -- check if point is on side of player or opposite side of center line
-        if math.cross(dx, dy, x1 - px, y1 - py) < 0 then
+        -- check if point is on side of player, if yes, should bounce, otherwise static
+        if math.sign(math.cross(dx, dy, x1 - center_x, y1 - center_y)) == player_sign then
             data[_offset_index] = scale_offset
 
             self._draw_contour[i+0] = contour[i+0] + scale_axis_x * scale_offset
@@ -359,6 +378,9 @@ function ow.BouncePad:draw()
 
     love.graphics.setColor(r, g, b, 0.7)
     _shape_shader:bind()
+    _shape_shader:send("elapsed", self._elapsed)
+    _shape_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _shape_shader:send("camera_scale", self._scene:get_camera():get_scale())
     love.graphics.draw(self._shape_mesh:get_native())
     _shape_shader:unbind()
 
