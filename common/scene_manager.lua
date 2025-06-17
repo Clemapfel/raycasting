@@ -28,6 +28,7 @@ function rt.SceneManager:instantiate()
         _height = love.graphics.getHeight(),
         _fade = rt.Fade(),
         _use_fixed_timestep = false,
+        _elapsed = 0,
 
         _input = rt.InputSubscriber(),
     })
@@ -249,6 +250,11 @@ function rt.SceneManager:get_frame_index()
 end
 
 --- @brief
+function rt.SceneManager:get_elapsed()
+    return self._elapsed
+end
+
+--- @brief
 function rt.SceneManager:set_use_fixed_timestep(b)
     self._use_fixed_timestep = b
 end
@@ -302,6 +308,8 @@ function love.run()
                     love.update(_update_step)
                     _update_elapsed = _update_elapsed - _update_step
 
+                    rt.SceneManager._elapsed = rt.SceneManager._elapsed + _update_step
+
                     n_steps = n_steps + 1
                     if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
                         _update_elapsed = 0
@@ -310,6 +318,7 @@ function love.run()
                 end
             else
                 love.update(delta)
+                rt.SceneManager._elapsed = rt.SceneManager._elapsed + delta
             end
         end
         update_after = love.timer.getTime()

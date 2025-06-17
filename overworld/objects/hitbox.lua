@@ -17,11 +17,27 @@ local _slippery_mesh = nil
 local _sticky_tris = {}
 local _sticky_lines = {}
 local _sticky_mesh = nil
+local _sticky_shader
 
 local _initialized = false
 
+local first = true
+
 --- @brief
 function ow.Hitbox:instantiate(object, stage, scene)
+    if _sticky_shader == nil then _sticky_shader = rt.Shader("overworld/objects/hitbox.glsl") end
+
+    -- tODO
+    if first then
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "f" then
+                _sticky_shader:recompile()
+            end
+        end)
+        first = false
+    end
+
     self._body = object:create_physics_body(stage:get_physics_world())
 
     for property in range(
@@ -158,18 +174,40 @@ function ow.Hitbox:draw_all()
 
     local slippery, sticky
     if _slippery_mesh ~= nil then
-        slippery = {_slippery_mesh, _slippery_lines, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
+        slippery = {_slippery_mesh, _slippery_lines, nil, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
     end
 
     if _sticky_mesh ~= nil then
-        sticky = {_sticky_mesh, _sticky_lines, rt.Palette.STICKY, rt.Palette.STICKY_OUTLINE, 2.5}
+        sticky = {_sticky_mesh, _sticky_lines, _sticky_shader, rt.Palette.STICKY, rt.Palette.STICKY_OUTLINE, 4}
     end
 
     for params in range(slippery, sticky) do
-        local mesh, outlines, mesh_color, outline_color, line_width = table.unpack(params)
+        local mesh, outlines, shader, mesh_color, outline_color, line_width = table.unpack(params)
 
         mesh_color:bind()
+
+        if shader ~= nil then
+            shader:bind()
+            shader:send("elapsed", rt.SceneManager:get_elapsed())
+
+            local scene = rt.SceneManager:get_current_scene()
+            if meta.isa(scene, ow.OverworldScene) then
+                local camera = scene:get_camera()
+                local player = scene:get_player()
+                shader:send("camera_offset", { scene:get_camera():get_offset() })
+                shader:send("camera_scale", scene:get_camera():get_scale())
+                shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_physics_body():get_position()) })
+                shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
+                shader:send("player_flow", player:get_flow())
+
+            end
+        end
+
         love.graphics.draw(mesh)
+
+        if shader ~= nil then
+            shader:unbind()
+        end
 
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.stencil(stencil_value, function()
@@ -178,7 +216,7 @@ function ow.Hitbox:draw_all()
         rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
         rt.Palette.BLACK:bind()
-        love.graphics.setLineWidth(line_width + 2)
+        love.graphics.setLineWidth(line_width + 2.5)
         for lines in values(outlines) do
             love.graphics.line(lines)
         end

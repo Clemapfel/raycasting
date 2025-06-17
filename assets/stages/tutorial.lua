@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 644,
+  nextobjectid = 645,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -3727,6 +3727,26 @@ return {
             { x = 135.685, y = -255.088 },
             { x = -124.83, y = -225.237 },
             { x = -135.685, y = -97.6934 }
+          },
+          properties = {}
+        },
+        {
+          id = 644,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -1731.34,
+          y = 2229.31,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 51.5604, y = 1019 },
+            { x = 658.073, y = 287.653 },
+            { x = 312.076, y = 244.233 },
+            { x = 303.935, y = 55.6309 }
           },
           properties = {}
         }
