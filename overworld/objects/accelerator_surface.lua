@@ -2,17 +2,19 @@ require "common.contour"
 
 rt.settings.overworld.accelerator_surface = {
     -- particles
-    canvas_w = 10,
-    max_angle_offset = 0.5 * math.pi,
+    canvas_w = 15,
+    max_angle_offset = 0.1 * math.pi,
     max_hue_offset = 0.4,
     min_lifetime = 1,
     max_lifetime = 3,
-    max_n_particles = 1000, -- global limite
-    min_scale = 1,
-    max_scale = 1.5,
-    n_particles_per_second = 100,
+    max_n_particles = 1000, -- global limit
+    min_scale = 0.4,
+    max_scale = 1,
+    min_n_particles_per_second = 40,
+    max_n_particles_per_second = 80,
     min_speed = 10,
-    max_speed = 30
+    max_speed = 30,
+    min_velocity_threshold = 50
 }
 
 --- @class ow.AcceleratorSurface
@@ -65,6 +67,9 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         rt.settings.player.player_outer_body_collision_group
     ))
 
+    self._should_emit = object:get_boolean("should_emit")
+    if self._should_emit == nil then self._should_emit = true end
+
     self._is_active = false
     self._body:signal_connect("collision_start", function()
         self._is_active = true
@@ -83,8 +88,9 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._mesh = object:create_mesh()
 
     -- setup particle texture
+    -- all particles use same texture, for batched draws
     if _particle_texture == nil then
-            local padding = 5
+        local padding = 5
         local canvas_w = rt.settings.overworld.accelerator_surface.canvas_w * rt.get_pixel_scale()
         _particle_texture = rt.RenderTexture(2 * (canvas_w + 2 * padding), canvas_w + 2 * padding)
         _particle_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
@@ -97,7 +103,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         -- left_particle
         local mesh = rt.MeshCircle(0, 0, 0.5 * canvas_w)
         for i = 2, mesh:get_n_vertices() do
-            mesh:set_vertex_color(i, 1, 1, 1, 0.0)
+            mesh:set_vertex_color(i, 1, 1, 1, 0.5)
         end
 
         love.graphics.setColor(1, 1, 1, 1)
@@ -108,11 +114,11 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         )
 
         -- right particle
-        love.graphics.setLineWidth(2 * rt.get_pixel_scale())
+        love.graphics.setLineWidth(canvas_w / 5)
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.circle("line", right_x, y, 0.5 * canvas_w)
-        love.graphics.setColor(1, 1, 1, 0.8)
-        love.graphics.circle("fill", right_x, y, 0.5 * canvas_w)
+        love.graphics.circle("line", right_x, y, 0.4 * canvas_w) -- sic
+        love.graphics.setColor(1, 1, 1, 0.4)
+        love.graphics.circle("fill", right_x, y, 0.4 * canvas_w)
 
         _particle_which_to_quad[_particle_right] = love.graphics.newQuad(
             padding + canvas_w + padding, 0, canvas_w + 2 * padding, canvas_w + 2 * padding, _particle_texture:get_size()
@@ -129,69 +135,72 @@ local _particle_i = 0
 local _total_n_particles = 0
 
 --- @brief
-function ow.AcceleratorSurface:_add_particle()
-    local player = self._scene:get_player()
-    local player_vx, player_vy = player:get_velocity()
-    local vx, vy = math.normalize(math.rotate(
-        -player_vx, -player_vy,
-        -0 * (math.pi + rt.random.number(0, 1) * _settings.max_angle_offset)
-    ))
-
-    local speed = rt.random.number(_settings.min_speed, _settings.max_speed)
-    local r, g, b = rt.lcha_to_rgba(0.8, 1, player:get_hue() + rt.random.number(-1, 1) * _settings.max_hue_offset)
-    local quad = _particle_i % 2 == 0 and _particle_left or _particle_right
-    _particle_i = _particle_i + 1
-
-    local particle = {
-        [_position_x] = self._emission_x,
-        [_position_y] = self._emission_y,
-        [_velocity_x] = vx * speed,
-        [_velocity_y] = vy * speed,
-        [_r] = r,
-        [_g] = g,
-        [_b] = b,
-        [_elapsed] = 0,
-        [_lifetime] = rt.random.number(_settings.min_lifetime, _settings.max_lifetime),
-        [_quad] = quad,
-        [_scale] = rt.random.number(_settings.min_scale, _settings.max_scale)
-    }
-
-    table.insert(self._particles, particle)
-    _total_n_particles = _total_n_particles + 1
-end
-
---- @brief
 function ow.AcceleratorSurface:update(delta)
     if not self._scene:get_is_body_visible(self._body) then return end
 
     -- update particle location
-    if self._is_active then
-        local nx, ny, x, y = self._scene:get_player():get_collision_normal(self._body)
-        if nx == nil then
-            self._is_active = false
-        else
-            self._is_active = true
-            self._emission_x, self._emission_y = x, y
-            self._emission_nx, self._emission_ny = math.normalize(nx, ny)
-        end
+    local nx, ny, x, y = self._scene:get_player():get_collision_normal(self._body)
+    if nx == nil then
+        self._is_active = false
+    else
+        self._is_active = true
+        self._emission_x, self._emission_y = x, y
+        self._emission_nx, self._emission_ny = math.normalize(nx, ny)
     end
+
+    if not self._should_emit then return end
 
     -- add particles
     if self._is_active then
         self._particle_emission_elapsed = self._particle_emission_elapsed + delta
-        local step = 1 / _settings.n_particles_per_second
-        while self._particle_emission_elapsed >= step do
-            self:_add_particle()
-            self._particle_emission_elapsed = self._particle_emission_elapsed - step
+
+        local player = self._scene:get_player()
+        local player_vx, player_vy = player:get_velocity()
+        if math.magnitude(player_vx, player_vy) > _settings.min_velocity_threshold then
+            local step = 1 / math.mix(_settings.min_n_particles_per_second, _settings.max_n_particles_per_second, player:get_flow())
+            while self._particle_emission_elapsed >= step do
+                self._particle_emission_elapsed = self._particle_emission_elapsed - step
+
+                if _total_n_particles > _settings.max_n_particles then break end
+
+                local vx, vy = math.normalize(math.rotate(
+                    self._emission_nx, self._emission_ny,
+                    rt.random.number(-1, 1) * _settings.max_angle_offset
+                ))
+
+                local speed = rt.random.number(_settings.min_speed, _settings.max_speed)
+                local r, g, b = rt.lcha_to_rgba(0.8, 1, player:get_hue() + rt.random.number(-1, 1) * _settings.max_hue_offset)
+                local quad = _particle_i % 2 == 0 and _particle_left or _particle_right
+                _particle_i = _particle_i + 1
+
+                local particle = {
+                    [_position_x] = self._emission_x,
+                    [_position_y] = self._emission_y,
+                    [_velocity_x] = vx * speed,
+                    [_velocity_y] = vy * speed,
+                    [_r] = r,
+                    [_g] = g,
+                    [_b] = b,
+                    [_elapsed] = 0,
+                    [_lifetime] = rt.random.number(_settings.min_lifetime, _settings.max_lifetime),
+                    [_quad] = quad,
+                    [_scale] = rt.random.number(_settings.min_scale, _settings.max_scale)
+                }
+
+                table.insert(self._particles, particle)
+                _total_n_particles = _total_n_particles + 1
+            end
         end
     end
 
     -- update particles
+    local bounds = rt.AABB(self._scene:get_camera():get_world_bounds())
+
     local to_remove = {}
     for i, particle in ipairs(self._particles) do
         particle[_elapsed] = particle[_elapsed] + delta
         local fraction = particle[_elapsed] / particle[_lifetime]
-        if fraction > 1 then
+        if fraction > 1 or (not bounds:contains(particle[_position_x], particle[_position_y])) then
             table.insert(to_remove, i)
         else
             particle[_position_x] = particle[_position_x] + particle[_velocity_x] * delta
@@ -205,6 +214,7 @@ function ow.AcceleratorSurface:update(delta)
 
     for i in values(to_remove) do
         table.remove(self._particles, i)
+        _total_n_particles = _total_n_particles - 1
     end
 end
 
@@ -236,7 +246,6 @@ function ow.AcceleratorSurface:draw()
     local texture = _particle_texture:get_native()
     local h = _particle_texture:get_height()
     love.graphics.push()
-    love.graphics.translate(-0.5 * h, -0.5 * h)
     love.graphics.setBlendMode("alpha", "premultiplied")
     for particle in values(self._particles) do
         local quad = _particle_which_to_quad[particle[_quad]]
@@ -254,3 +263,4 @@ function ow.AcceleratorSurface:draw()
     love.graphics.setBlendMode("alpha")
     love.graphics.pop()
 end
+

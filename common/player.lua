@@ -528,8 +528,8 @@ function rt.Player:update(delta)
             end
 
             self._body_to_collision_normal[wall_body] = {
-                normal_x = x_sum / n,
-                normal_y = y_sum / n,
+                normal_x = nx_sum / n,
+                normal_y = ny_sum / n,
                 contact_x = x_sum / n,
                 contact_y = y_sum / n
             }
