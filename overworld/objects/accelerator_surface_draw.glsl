@@ -1,8 +1,4 @@
 #define PI 3.1415926535897932384626433832795
-float gaussian(float x, float ramp)
-{
-    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
-}
 
 vec3 random_3d(in vec3 p) {
     return fract(sin(vec3(
@@ -28,17 +24,21 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 }
 
-// Aspect-ratio corrected normalization function
-vec2 normalize_aspect(vec2 coord, vec2 screen_size) {
-    vec2 uv = coord / screen_size;
-    uv *= screen_size / max(screen_size.x, screen_size.y);
-    return uv;
+vec2 rotate(vec2 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return v * mat2(c, -s, s, c);
 }
 
-//#ifdef PIXEL
+#ifdef PIXEL
 
+uniform float elapsed;
 uniform vec2 camera_offset;
 uniform float camera_scale = 1;
+uniform vec2 player_position; // normalized screen pos
+uniform vec4 player_color;
+uniform float player_flow;
+
 vec2 to_uv(vec2 frag_position) {
     vec2 uv = frag_position;
     vec2 origin = vec2(love_ScreenSize.xy / 2);
@@ -51,21 +51,21 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
 
-uniform vec2 player_position; // normalized screen pos
-uniform vec4 color;
-
-vec4 effect(vec4 vertex_color, Image img, vec2 texture_coordinates, vec2 frag_position) {
-
-    vec4 mask = texture(img, texture_coordinates);
-
-    vec2 size = love_ScreenSize.xy;
-
-    vec2 norm_player = to_uv(player_position);
+vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 uv = to_uv(frag_position);
 
-    float dist = distance(norm_player, uv);
-    dist = gaussian(dist, 4);
+    vec2 size = love_ScreenSize.xy;
+    vec2 norm_player = to_uv(player_position);
+    float dist = gaussian(distance(norm_player, uv), 9 - mix(0, 3, player_flow));
+    float highlight = dist + smoothstep(1 - 0.5, 1.5, dist);
 
-    return vec4(vec3(dist) * color.rgb, mask.a);
+    return mix(color, player_color, clamp(0, 1, highlight));
 }
+
+#endif
