@@ -247,7 +247,7 @@ function ow.BouncePad:update(delta)
     )}
 
     local fraction = self._color_elapsed / rt.settings.overworld.bounce_pad.inner_color_decay_duration
-    target_r, target_g, target_b = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+    target_r, target_g, target_b = rt.lcha_to_rgba(0.9, 0.9, self._hue, 1)
     self._draw_inner_color = { math.mix3(
         target_r, target_g, target_b,
         base_r, base_g, base_b,
