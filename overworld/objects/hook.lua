@@ -9,6 +9,8 @@ ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
 local _shader
 
+local first = true
+
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
@@ -26,6 +28,17 @@ function ow.Hook:instantiate(object, stage, scene)
     )
 
     self._x, self._y = object.x, object.y
+
+    -- TODO
+    if first then
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "p" then
+                _shader:recompile()
+            end
+        end)
+        first = false
+    end
 
     -- collision
     self._is_hooked = false
@@ -160,5 +173,9 @@ function ow.Hook:draw()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     local r = 2 * self._radius
     love.graphics.rectangle("fill", self._x - r, self._y - r, 2 * r, 2 * r)
+
+    love.graphics.origin()
+    love.graphics.rectangle("fill", 0,0, love.graphics.getHeight(), love.graphics.getHeight())
+
     _shader:unbind()
 end
