@@ -238,6 +238,7 @@ end
 
 --- @brief
 function ow.BubbleField:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
     self._elapsed = self._elapsed + delta
 
     if self._is_active and not rt.GameState:get_is_performance_mode_enabled() then

@@ -1,6 +1,8 @@
+require "common.smoothed_motion_1d"
+
 rt.settings.overworld.hook = {
     radius_factor = 1.8,
-    hook_animation_duration = 1,
+    hook_animation_duration = 2,
     hook_sound_id = "hook"
 }
 
@@ -18,6 +20,7 @@ function ow.Hook:instantiate(object, stage, scene)
 
     self._scene = scene
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
+    self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.hook.hook_animation_duration)
 
     self._world = stage:get_physics_world()
     self._body = b2.Body(
@@ -53,6 +56,9 @@ function ow.Hook:instantiate(object, stage, scene)
     end)
 
     self._body:signal_connect("collision_end", function(_)
+        if self._is_blocked == true then
+            self._motion:set_target_value(1)
+        end
         self._is_blocked = false
     end)
 
@@ -142,6 +148,9 @@ function ow.Hook:_hook()
             return meta.DISCONNECT_SIGNAL
         end)
     end
+
+    self._motion:set_target_value(0)
+    self._motion:set_value(0)
 end
 
 --- @brief
@@ -163,19 +172,52 @@ function ow.Hook:_unhook()
 
         return meta.DISCONNECT_SIGNAL
     end)
+
+    self._motion:set_target_value(0)
+    self._motion:set_value(0)
+end
+
+--- @brief
+function ow.Hook:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
+    self._motion:update(delta)
 end
 
 --- @brief
 function ow.Hook:draw()
-    love.graphics.setColor(1, 1, 1, 1)
+    local r = self._radius
+
+    if self._outline == nil then
+        self._outline = {}
+        for angle = 0, 2 * math.pi, (2 + math.pi) / 32 do
+            table.insert(self._outline, math.cos(angle) * r)
+            table.insert(self._outline, math.sin(angle) * r)
+        end
+    end
+
+    table.insert(self._outline, self._outline[1])
+    table.insert(self._outline, self._outline[2])
+
+    rt.Palette.WHITE:bind()
+    local line_width = 2
+    love.graphics.setLineWidth(2)
+    love.graphics.push()
+    love.graphics.translate(self._x, self._y)
+    love.graphics.line(self._outline)
+
+    local value = self._motion:get_value()
 
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    local r = 2 * self._radius
-    love.graphics.rectangle("fill", self._x - r, self._y - r, 2 * r, 2 * r)
+    _shader:send("fraction", value)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
 
     love.graphics.origin()
-    love.graphics.rectangle("fill", 0,0, love.graphics.getHeight(), love.graphics.getHeight())
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
 
     _shader:unbind()
+
+    love.graphics.pop()
 end

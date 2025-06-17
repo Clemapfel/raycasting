@@ -124,33 +124,6 @@ end
 
 love.mousemoved = function(x, y, dx, dy)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
-
-    if rt.InputManager._upscaler ~= nil then
-        -- check if cursor left upscaler area and emit as if it left window
-        local before = rt.InputManager._cursor_in_bounds
-        local current = rt.InputManager._upscaler:getIsCursorInBounds(x, y)
-        if before == false and current == true then
-            for sub in values(rt.InputManager._subscribers) do
-                if sub._is_active then
-                    sub:signal_emit(rt.InputCallbackID.MOUSE_ENTERED_SCREEN)
-                end
-            end
-        elseif before == true and current == false then
-            for sub in values(rt.InputManager._subscribers) do
-                if sub._is_active then
-                    sub:signal_emit(rt.InputCallbackID.MOUSE_LEFT_SCREEN)
-                end
-            end
-        end
-
-        rt.InputManager._cursor_in_bounds = current
-    end
-
-    if rt.InputManager._upscaler ~= nil and rt.InputManager._convert_to_native_resolution == true then
-        x, y = rt.InputManager._upscaler:convertWindowToNativePosition(x, y)
-        dx, dy = rt.InputManager._upscaler:convertWindowToNativePosition(dx, dy) -- sic
-    end
-
     for sub in values(rt.InputManager._subscribers) do
         if sub._is_active then
             sub:signal_emit(rt.InputCallbackID.MOUSE_MOVED, x, y, dx, dy)
