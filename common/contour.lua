@@ -101,3 +101,46 @@ rt.contour_from_tris = function(tris, close_loop)
 end
 
 -- ###
+
+function rt.subdivide_contour(contour, segment_length)
+    local subdivided = {}
+    for i = 1, #contour, 2 do
+        local x1, y1 = contour[i], contour[i+1]
+        local next_i = (i + 2 > #contour) and 1 or i + 2
+        local x2, y2 = contour[next_i], contour[next_i+1]
+        local dx, dy = x2 - x1, y2 - y1
+        local length = math.sqrt(dx * dx + dy * dy)
+        local n_segments = math.ceil(length / segment_length)
+        for s = 0, n_segments - 1 do
+            local t = s / n_segments
+            local sx = x1 + t * dx
+            local sy = y1 + t * dy
+            table.insert(subdivided, sx)
+            table.insert(subdivided, sy)
+        end
+    end
+    return subdivided
+end
+
+--- ###
+
+function rt.smooth_contour(contour, n_iterations)
+    local points = contour
+    for smoothing_i = 1, n_iterations do
+        local smoothed = {}
+        for j = 1, #points, 2 do
+            local prev_j = (j - 2 < 1) and (#points - 1) or (j - 2)
+            local next_j = (j + 2 > #points) and 1 or (j + 2)
+            local x = (points[prev_j] + points[j] + points[next_j]) / 3
+            local y = (points[prev_j+1] + points[j+1] + points[next_j+1]) / 3
+            table.insert(smoothed, x)
+            table.insert(smoothed, y)
+        end
+        points = smoothed
+    end
+
+    -- connect loops that retracted after smoothing
+    points[1] = points[#points - 1]
+    points[2] = points[#points - 0]
+    return points
+end
