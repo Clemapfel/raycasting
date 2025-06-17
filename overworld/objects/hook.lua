@@ -1,9 +1,5 @@
-require "common.sound_manager"
-
 rt.settings.overworld.hook = {
-    radius_factor = 1.1,
-    color_rotation_speed = 0.8, -- n revolutions per second
-    color_cooldown_duration = 2,
+    radius_factor = 1.8,
     hook_animation_duration = 1,
     hook_sound_id = "hook"
 }
@@ -11,192 +7,158 @@ rt.settings.overworld.hook = {
 --- @class ow.Hook
 ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
+local _shader
+
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
-    local radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
+    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
+    if _shader == nil then _shader = rt.Shader("overworld/objects/hook.glsl") end
 
-    assert(object:get_type() == ow.ObjectType.POINT, "In ow.Hook: object is not a point")
     self._scene = scene
-    self._radius = radius
-    meta.install(self, {
-        _body = b2.Body(
-            stage:get_physics_world(),
-            b2.BodyType.STATIC,
-            object.x, object.y,
-            b2.Circle(0, 0, radius)
-        ),
-        _world = stage:get_physics_world(),
+    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
 
-        _x = object.x,
-        _y = object.y,
-        _radius = radius,
+    self._world = stage:get_physics_world()
+    self._body = b2.Body(
+        self._world,
+        b2.BodyType.STATIC,
+        object.x, object.y,
+        b2.Circle(0, 0, self._radius)
+    )
 
-        _hook = nil,
-        _deactivated = false,
-        _color_elapsed = math.huge,
-        _hook_animation_elapsed = math.huge,
-        _hook_animation_blocked = false,
+    self._x, self._y = object.x, object.y
 
-        _elapsed = 0,
+    -- collision
+    self._is_hooked = false
+    self._is_blocked = false -- prevent rehook until player left sensor
+    self._jump_callback_id = nil
 
-        _input = rt.InputSubscriber()
-    })
-
-    local hook = self
     self._body:set_is_sensor(true)
-    self._body:add_tag("slippery")
     self._body:set_collides_with(rt.settings.player.player_collision_group)
 
-    local player_signal_id = nil
-
     self._body:signal_connect("collision_start", function(_)
+        self:_hook()
+    end)
+
+    self._body:signal_connect("collision_end", function(_)
+        self._is_blocked = false
+    end)
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("pressed", function(_, which)
+        if self._is_hooked == false then return end
+
         local player = self._scene:get_player()
+        if player:get_is_bubble() == true then
+            -- when bubble, any direction unhooks
+            if which == rt.InputAction.UP or which == rt.InputAction.RIGHT or which == rt.InputAction.DOWN or which == rt.InputAction.LEFT then
+                self:_unhook()
+            end
+        elseif player:get_is_bubble() == false then
+            -- when not bubble, down unhooks, or jump unhooks (connect in _hook)
+            if which == rt.InputAction.DOWN then
+                self:_unhook()
+            end
+        end
+    end)
+end
 
-        player:teleport_to(self._x, self._y)
+--- @brief
+function ow.Hook:_hook()
+    if self._is_hooked == true or self._is_blocked then return end
+    local player = self._scene:get_player()
+
+    if player:get_is_bubble() and (
+        self._input:get_is_down(rt.InputAction.UP) or
+        self._input:get_is_down(rt.InputAction.RIGHT) or
+        self._input:get_is_down(rt.InputAction.DOWN) or
+        self._input:get_is_down(rt.InputAction.LEFT)
+    ) then
+        -- if bubble and direction is held, only teleport
+        local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
+        bubble:set_position(self._x, self._y)
+        non_bubble:set_position(self._x, self._y)
+        self._is_blocked = true
+    elseif player:get_is_bubble() == false and self._input:get_is_down(rt.InputAction.DOWN) then
+        -- if holding down, teleport but keep momentum
+        local vx, vy = player:get_velocity()
+        local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
+        bubble:set_position(self._x, self._y)
+        non_bubble:set_position(self._x, self._y)
+        player:set_velocity(vx, vy)
+        self._is_blocked = true
+    elseif player:get_is_bubble() == false and self._input:get_is_down(rt.InputAction.JUMP) then
+        -- if holding jump, jump again
+        local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
+        bubble:set_position(self._x, self._y)
+        non_bubble:set_position(self._x, self._y)
+        player:set_velocity(0, 0)
         player:set_jump_allowed(true)
-        if self._hook == nil and not self._deactivated then
-            self._color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
-            self._color_elapsed = 0
+        player:jump()
+        self._is_blocked = true
+    else
+        -- hook properly
+        self._world:signal_connect("step", function(_) -- delay to after box2d update because world is locked
+            local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
+            bubble:set_position(self._x, self._y)
+            non_bubble:set_position(self._x, self._y)
 
-            if not player._jump_button_is_down then -- buffered jump: jump instantly
-                self._world:signal_connect("step", function()
-                    -- delay hook to after world step
-                    self._hook = love.physics.newDistanceJoint(
-                        self._body:get_native(),
-                        player:get_physics_body():get_native(),
-                        self._x, self._y,
-                        self._x, self._y
-                    )
+            self._bubble_hook = love.physics.newDistanceJoint(
+                self._body:get_native(),
+                bubble:get_native(),
+                self._x, self._y,
+                self._x, self._y
+            )
 
-                    player_signal_id = player:signal_connect("jump", function()
-                        if self._hook ~= nil then
-                            self._hook:destroy()
-                            self._hook = nil
-                        end
-                        player_signal_id = nil
-                        self._hook_animation_blocked = true
-                        return meta.DISCONNECT_SIGNAL
-                    end)
+            self._non_bubble_hook = love.physics.newDistanceJoint(
+                self._body:get_native(),
+                non_bubble:get_native(),
+                self._x, self._y,
+                self._x, self._y
+            )
 
+            if player:get_is_bubble() == false then
+                player:set_jump_allowed(true)
+                self._jump_callback_id = player:signal_connect("jump", function()
+                    self:_unhook()
+                    self._jump_callback_id = nil
                     return meta.DISCONNECT_SIGNAL
                 end)
             end
 
-            if not self._hook_animation_blocked then
-                self._hook_animation_elapsed = 0
-                rt.SoundManager:play(rt.settings.overworld.hook.hook_sound_id)
-            end
-        end
-    end)
-
-    self._body:signal_connect("collision_end", function(_)
-        self._color_elapsed = 0
-        self._deactivated = false
-        self._hook_animation_blocked = false
-    end)
-
-    self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputAction.DOWN and self._hook ~= nil then
-            self._hook:destroy()
-            self._hook = nil
-            self._scene:get_player():signal_disconnect("jump", player_signal_id)
-            self._deactivated = true
-        end
-    end)
-end
-
-function ow.Hook:update(delta)
-    self._elapsed = self._elapsed + delta
-    self._color_elapsed = self._color_elapsed + delta
-    self._hook_animation_elapsed = self._hook_animation_elapsed + delta
-
-    if self._hooked == true then
-        self._scene:get_player():teleport_to(self._x, self._y)
+            self._is_hooked = true
+            return meta.DISCONNECT_SIGNAL
+        end)
     end
 end
 
-local _segments = nil
-local _colors = nil
-local _lock_mesh = nil
+--- @brief
+function ow.Hook:_unhook()
+    if self._is_hooked == false then return end
+
+    -- hook has to be delay to after box2d collision step
+    self._world:signal_connect("step", function(_)
+        self._bubble_hook:destroy()
+        self._bubble_hook = nil
+        self._non_bubble_hook:destroy()
+        self._non_bubble_hook = nil
+        self._is_hooked = false
+        self._is_blocked = true
+
+        if self._jump_callback_id ~= nil then
+            self._scene:get_player():signal_disconnect("jump", self._jump_callback_id)
+        end
+
+        return meta.DISCONNECT_SIGNAL
+    end)
+end
 
 --- @brief
 function ow.Hook:draw()
-    local n_segments = 48
-    if _segments == nil then
-        _segments = {}
-        _colors = {}
+    love.graphics.setColor(1, 1, 1, 1)
 
-        local x_radius = self._radius
-        local y_radius = self._radius
-
-        local cx, cy = 0, 0
-        local step = 2 * math.pi / n_segments
-        for angle = 0, 2 * math.pi, step  do
-            local hue = angle / (2 * math.pi)
-            table.insert(_segments, {
-                cx + math.cos(angle) * x_radius,
-                cy + math.sin(angle) * y_radius,
-                cx + math.cos(angle + step) * x_radius,
-                cy + math.sin(angle + step) * y_radius
-            })
-
-            table.insert(_colors, { rt.lcha_to_rgba(0.8, 1, hue, 1) })
-        end
-    end
-
-    if _lock_mesh == nil then
-        _lock_mesh = rt.MeshCircle(0, 0, 0, 0, n_segments):get_native()
-    end
-
-    if not self._scene:get_is_body_visible(self._body) then return end
-
-    love.graphics.push()
-    love.graphics.translate(self._body:get_position())
-    rt.Palette.HOOK_BASE:bind()
-    love.graphics.circle("fill", 0, 0, self._radius)
-    love.graphics.setLineWidth(2)
-
-    local speed = rt.settings.overworld.hook.color_rotation_speed
-
-    local fraction = math.min(self._color_elapsed / rt.settings.overworld.hook.color_cooldown_duration, 1)
-    if self._hook ~= nil then fraction = 0 end
-
-    for i, color in ipairs(_segments) do
-        local segment_color = _colors[math.floor(i - speed * self._elapsed * n_segments) % n_segments + 1]
-        if fraction < 1 then
-            local r, g, b = math.mix3(
-                self._color[1], self._color[2], self._color[3],
-                segment_color[1], segment_color[2], segment_color[3],
-                fraction
-            )
-            love.graphics.setColor(r, g, b, 1)
-        else
-            love.graphics.setColor(table.unpack(segment_color))
-        end
-
-        love.graphics.line(table.unpack(_segments[i]))
-    end
-
-    love.graphics.pop()
-
-    local lock_fraction = self._hook_animation_elapsed / rt.settings.overworld.hook.hook_animation_duration
-    if lock_fraction <= 1 then
-        local radius = (self._radius + 20) * lock_fraction
-
-        local data = {
-            { 0, 0, 0, 0, 1, 1, 1, 0 }
-        }
-        for angle = 0, 2 * math.pi, 2 * math.pi / n_segments do
-            table.insert(data, {
-                math.cos(angle) * radius,
-                math.sin(angle) * radius,
-                0, 0,
-                1, 1, 1, rt.InterpolationFunctions.SQUARE_ROOT_INFLECTION(1 - lock_fraction)
-            })
-        end
-        _lock_mesh:setVertices(data)
-
-        love.graphics.setColor(table.unpack(self._color))
-        love.graphics.draw(_lock_mesh, self._body:get_position())
-    end
+    _shader:bind()
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    local r = 2 * self._radius
+    love.graphics.rectangle("fill", self._x - r, self._y - r, 2 * r, 2 * r)
+    _shader:unbind()
 end

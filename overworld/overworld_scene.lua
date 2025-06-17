@@ -251,9 +251,7 @@ local _cursor = nil
 function ow.OverworldScene:enter(stage_id)
     meta.assert(stage_id, "String")
     rt.SceneManager:set_use_fixed_timestep(true)
-    if self._stage_id ~= stage_id then
-        self:set_stage(stage_id)
-    end
+    self:set_stage(stage_id)
 
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)

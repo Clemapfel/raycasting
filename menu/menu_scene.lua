@@ -26,6 +26,7 @@ rt.settings.menu_scene = {
         reveal_animation_duration = 0, --1,
         scroll_speed = 1,
         exititing_fraction = 2, -- number of screen heights until fade out starts
+        scroll_ticks_per_second = 2
     },
 }
 
@@ -226,10 +227,10 @@ function mn.MenuScene:instantiate(state)
                 end)
             elseif which == rt.InputAction.UP then
                 stage_select.scroll_direction = -1
-                stage_select.scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+                stage_select.scroll_elapsed = 1 / rt.settings.menu_scene.stage_select.scroll_ticks_per_second
             elseif which == rt.InputAction.DOWN then
                 stage_select.scroll_direction = 1
-                stage_select.scroll_elapsed = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+                stage_select.scroll_elapsed = 1 / rt.settings.menu_scene.stage_select.scroll_ticks_per_second
             end
         end)
 
@@ -628,12 +629,7 @@ function mn.MenuScene:enter()
     rt.SceneManager:set_use_fixed_timestep(true)
     self._player:set_opacity(1)
 
-    -- inputs activate in _set_state
-    if self._state == nil then
-        self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
-    else
-        self:_set_state(self._state)
-    end
+    self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
 end
 
 --- @brief
@@ -749,9 +745,9 @@ function mn.MenuScene:update(delta)
     if self._state == mn.MenuSceneState.TITLE_SCREEN then
         local title_screen = self._title_screen
         local velocity_offset = 0
-        if title_screen.input:is_down(rt.InputAction.LEFT) then
+        if title_screen.input:get_is_down(rt.InputAction.LEFT) then
             velocity_offset = 1
-        elseif title_screen.input:is_down(rt.InputAction.RIGHT) then
+        elseif title_screen.input:get_is_down(rt.InputAction.RIGHT) then
             velocity_offset = -1
         end
 
@@ -767,7 +763,6 @@ function mn.MenuScene:update(delta)
             vx * magnitude,
             vy * magnitude
         )
-
 
         -- wait for player to enter, then lock
         if title_screen.enable_boundary_on_enter == true then
@@ -832,7 +827,7 @@ function mn.MenuScene:update(delta)
         end
     elseif self._state == mn.MenuSceneState.STAGE_SELECT then
         if stage_select.scroll_direction ~= 0 then
-            local step = 1 / rt.settings.settings_scene.scroll_ticks_per_second
+            local step = 1 / rt.settings.menu_scene.stage_select.scroll_ticks_per_second
             local updated = false
             while stage_select.scroll_elapsed >= step do
                 if stage_select.scroll_direction == -1 and stage_select.selected_item_i > 1 then
@@ -884,7 +879,7 @@ function mn.MenuScene:update(delta)
                     require "overworld.overworld_scene"
                     local item = stage_select.items[stage_select.selected_item_i]
                     if item ~= nil then
-                        rt.SceneManager:push(ow.OverworldScene, item.id)
+                        rt.SceneManager:push(ow.StageTitleCardScene, item.id)
                     end
                 end)
                 stage_select.waiting_for_exit = false
@@ -1019,7 +1014,6 @@ function mn.MenuScene:draw()
 
         stage_select.page_indicator:draw()
         love.graphics.setColor(1, 1, 1, 1)
-        stage_select.page_indicator:draw_bounds()
         self._stage_select.control_indicator:draw()
 
         love.graphics.pop()
@@ -1027,10 +1021,6 @@ function mn.MenuScene:draw()
 
     self._camera:bind()
     self._player:draw()
-
-    if self._dbg ~= nil then
-        love.graphics.rectangle("line", self._dbg:unpack())
-    end
     self._camera:unbind()
 
     self._fade:draw()

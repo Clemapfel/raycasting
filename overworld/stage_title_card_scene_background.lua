@@ -20,7 +20,7 @@ local _max_size = rt.get_pixel_scale() * 30
 local _min_scale, _max_scale = 0.5, 4
 local _max_scale_speed = 0.5 -- fraction per second
 local _n_particles = 800
-local _gravity = 0.8 -- normalize y velocity
+local _gravity = 0.5 -- normalize y velocity
 
 function ow.StageTitleCardSceneBackground:instantiate(n_particles)
     self._n_particles = n_particles or _n_particles

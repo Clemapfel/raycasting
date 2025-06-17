@@ -65,6 +65,7 @@ function rt.Label:instantiate(text, font_size, font)
         _texture_width = 1,
         _texture_heigth = 1,
         _texture = nil, -- rt.RenderTexture
+        _opacity = 1,
 
         _width = 0,
         _height = 0,
@@ -273,6 +274,7 @@ end
 
 --- @brief
 function rt.Label:set_opacity(alpha)
+    meta.assert(alpha, "Number")
     self._opacity = alpha
 end
 

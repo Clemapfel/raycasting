@@ -682,7 +682,7 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
                 love.graphics.pop()
             end
 
-            label:draw()
+            label:draw(self._opacity)
 
             for tri in values(stencil) do
                 --love.graphics.polygon("fill", tri)

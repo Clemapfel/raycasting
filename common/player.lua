@@ -281,15 +281,7 @@ function rt.Player:_connect_input()
         if self._state == rt.PlayerState.DISABLED then return end
 
         if which == rt.InputAction.JUMP then
-            self._jump_button_is_down = true
-            self._jump_elapsed = 0
-            if not self._bottom_wall then
-                if (self._left_wall and not self._left_wall_jump_blocked) or (self._right_wall and not self._right_wall_jump_blocked) then
-                    self._wall_jump_elapsed = 0
-                end
-            end
-
-            self:signal_emit("jump")
+            self:jump()
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = true
             self._next_sprint_multiplier = _settings.sprint_multiplier
@@ -1350,7 +1342,9 @@ function rt.Player:get_velocity()
 end
 
 --- @brief
-function rt.Player:teleport_to(x, y)
+function rt.Player:teleport_to(x, y, relax_body)
+    if relax_body == nil then relax_body = true end
+
     meta.assert(x, "Number", y, "Number")
     if self._body ~= nil then
         self._body:set_position(x, y)
@@ -1370,7 +1364,10 @@ function rt.Player:teleport_to(x, y)
         end
 
         self._skip_next_flow_update = true
-        self._graphics_body:relax()
+
+        if relax_body then
+            self._graphics_body:relax()
+        end
     end
 end
 
@@ -1399,11 +1396,19 @@ function rt.Player:get_physics_world()
 end
 
 --- @brief
-function rt.Player:get_physics_body()
-    if not self._is_bubble then
+function rt.Player:get_physics_body(is_bubble)
+    if is_bubble == nil then
+        if not self._is_bubble then
+            return self._body
+        else
+            return self._bubble_body
+        end
+    elseif is_bubble == true then
+        return self._bubble_body
+    elseif is_bubble == false then
         return self._body
     else
-        return self._bubble_body
+        meta.assert(is_bubble, "Boolean")
     end
 end
 
@@ -1582,8 +1587,8 @@ function rt.Player:set_is_bubble(b)
         self._bubble_body:set_velocity(self._body:get_velocity())
         for i, body in ipairs(self._bubble_spring_bodies) do
             body:set_position(
-                x,-- + self._bubble_spring_body_offsets_x[i],
-                y -- + self._bubble_spring_body_offsets_y[i]
+                x + self._bubble_spring_body_offsets_x[i],
+                y + self._bubble_spring_body_offsets_y[i]
             )
             body:set_velocity(self._spring_bodies[i]:get_velocity())
         end
@@ -1593,8 +1598,8 @@ function rt.Player:set_is_bubble(b)
         self._body:set_velocity(self._bubble_body:get_velocity())
         for i, body in ipairs(self._spring_bodies) do
             body:set_position(
-                x,-- + self._spring_body_offsets_x[i],
-                y -- + self._spring_body_offsets_y[i]
+                x + self._spring_body_offsets_x[i],
+                y + self._spring_body_offsets_y[i]
             )
             body:set_velocity(self._bubble_spring_bodies[i]:get_velocity())
         end
@@ -1623,10 +1628,10 @@ function rt.Player:set_is_bubble(b)
     end
 
     -- delay to after next physics update, because solver needs time to resolve spring after synch teleport
-    self._use_bubble_mesh_delay_n_steps = 2
+    self._use_bubble_mesh_delay_n_steps = 4
     self._world:signal_connect("step", function()
         if self._use_bubble_mesh_delay_n_steps <= 0 then
-            self._use_bubble_mesh = self._is_bubble
+            self._use_bubble_mesh = self._is_bubblen
             return meta.DISCONNECT_SIGNAL
         else
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
@@ -1708,4 +1713,18 @@ function rt.Player:set_is_ghost(b)
     for body in values(self._bubble_spring_bodies) do
         body:set_is_sensor(true)
     end
+end
+
+--- @brief
+function rt.Player:jump()
+    self._jump_button_is_down = true
+    self._jump_elapsed = 0
+
+    if not self._bottom_wall then
+        if (self._left_wall and not self._left_wall_jump_blocked) or (self._right_wall and not self._right_wall_jump_blocked) then
+            self._wall_jump_elapsed = 0
+        end
+    end
+
+    self:signal_emit("jump")
 end

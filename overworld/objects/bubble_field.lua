@@ -41,10 +41,10 @@ function ow.BubbleField:instantiate(object, stage, scene)
         if player:get_is_bubble() == false then
             self:_block_signals()
             player:set_is_bubble(true)
+            self._is_active = true
 
             local x, y = player:get_position()
-            self:_excite_wave(x, y, -1) -- inwards
-            self._is_active = true
+            self:_excite_wave(x, y, -1) -- inward
         end
     end)
 

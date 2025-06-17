@@ -102,7 +102,7 @@ function rt.InputSubscriber:get_mouse_position()
 end
 
 --- @brief
-function rt.InputSubscriber:is_down(input_action)
+function rt.InputSubscriber:get_is_down(input_action)
     local keyboard_keys, controller_buttons = rt.GameState:get_input_mapping(input_action)
 
     for key in values(keyboard_keys) do
