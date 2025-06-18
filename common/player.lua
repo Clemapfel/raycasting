@@ -271,7 +271,7 @@ function rt.Player:instantiate()
         _idle_elapsed = 0,
 
         -- double jump
-        _n_double_jumps = 0,
+        _double_jump_sources = {},
         _double_jump_locked = true,
 
         -- particles
@@ -293,12 +293,12 @@ function rt.Player:_connect_input()
 
             -- unlock double jump by re-pressing mid-air
             local is_midair = self._bottom_left_wall == false and self._bottom_wall == false and self._bottom_right_wall == false
-            if self._n_double_jumps > 0 and is_midair then
+            if #self._double_jump_sources > 0 and is_midair then
                 self._double_jump_locked = false
             end
 
             -- allow buffered double jumps
-            if self._n_double_jumps == 0 and is_midair then
+            if #self._double_jump_sources == 0 and is_midair then
                 self._double_jump_buffer_elapsed = 0
             end
         elseif which == rt.InputAction.SPRINT then
@@ -509,7 +509,7 @@ function rt.Player:update(delta)
         local is_grounded = self._bottom_left_wall or self._bottom_left_wall or self._bottom_wall
         local is_touching_wall = self._left_wall or self._right_wall
         if is_grounded or (not is_grounded and is_touching_wall) then
-            self._n_double_jumps = 0
+            self._double_jump_sources = {}
         end
     end
 
@@ -733,11 +733,11 @@ function rt.Player:update(delta)
                         goto skip_jump
                     end
                     self._jump_allowed_override = nil
-                elseif not self._double_jump_locked and self._n_double_jumps > 0 then
+                elseif not self._double_jump_locked and #self._double_jump_sources > 0 then
                     -- double jump
                     can_jump = true
                     self._jump_elapsed = 0
-                    self._n_double_jumps = self._n_double_jumps - 1
+                    assert(table.pop(self._double_jump_sources) ~= nil)
                     self._double_jump_locked = true
                 end
 
@@ -1774,22 +1774,23 @@ function rt.Player:jump()
 end
 
 --- @brief
-function rt.Player:set_double_jump_allowed(n)
-    if n == true then
-        self._n_double_jumps = 1
-    elseif n == false then
-        self._n_double_jumps = 0
-    else
-        meta.assert(n, "Number")
-        self._n_double_jumps = math.max(n, 0)
-    end
-
-    if self._n_double_jumps > 0 then
-        self._double_jump_locked = true
-    end
+function rt.Player:add_double_jump_source(instance)
+    table.insert(self._double_jump_sources, instance)
 
     -- override lock for buffered jumps
     if self._double_jump_buffer_elapsed < _settings.double_jump_buffer_duration then
         self._double_jump_locked = false
     end
+end
+
+--- @brief
+function rt.Player:get_is_double_jump_source(instance)
+    if table.is_empty(self._double_jump_sources) then return false end
+
+    for other in values(self._double_jump_sources) do
+        if meta.hash(other) == meta.hash(instance) then
+            return true
+        end
+    end
+    return false
 end

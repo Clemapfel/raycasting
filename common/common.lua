@@ -477,11 +477,21 @@ function table.first(t)
     end
 end
 
---- @brief
 function table.push(t, ...)
     for i = 1, select("#", ...) do
         table.insert(t, select(i, ...))
     end
+end
+
+function table.is_empty(t)
+    return next(t) == nil
+end
+
+function table.pop(t)
+    if next(t) == nil then -- empty
+        return nil
+    end
+    return table.remove(t)
 end
 
 if utf8 == nil then utf8 = require "utf8" end

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 657,
+  nextobjectid = 659,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -3882,6 +3882,32 @@ return {
           shape = "point",
           x = 960,
           y = 160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 657,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 655.018,
+          y = 110.476,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 658,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 687.926,
+          y = 66.5988,
           width = 0,
           height = 0,
           rotation = 0,
