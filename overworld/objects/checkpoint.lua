@@ -274,6 +274,7 @@ function ow.Checkpoint:spawn(also_kill)
 
     self._stage:set_active_checkpoint(self)
     self._passed = true
+    self._is_first_spawn = false
 end
 
 --- @brief

@@ -497,9 +497,8 @@ function ow.OverworldScene:draw()
         local right = ternary(self._player._right_button_is_down, pressed, unpressed)
         local down = ternary(self._player._down_button_is_down, pressed, unpressed)
         local left = ternary(self._player._left_button_is_down, pressed, unpressed)
-        local a = ternary(self._player._jump_button_is_down, pressed, unpressed)
-        local b = ternary(self._player._sprint_button_is_down, pressed, unpressed)
-
+        local a = ternary(self._player._sprint_button_is_down, pressed, unpressed)
+        local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
 
         local duration, n_steps = self:get_run_duration()
         local time = string.format_time(duration) .. " (" .. n_steps .. " frames)"

@@ -59,6 +59,8 @@ rt.settings.player = {
     bounce_max_force = 400,
     bounce_duration = 2 / 60,
 
+    double_jump_buffer_duration = 15 / 60,
+
     spring_multiplier = 1.2,
     spring_constant = 1.8,
     joint_force_threshold = 1000,
@@ -105,7 +107,8 @@ local _settings = setmetatable({}, {
 --- @class rt.Player
 rt.Player = meta.class("Player")
 meta.add_signals(rt.Player,
-    "jump"
+    "jump",      -- when jumping
+    "grounded"   -- touching ground after being airborne
 )
 
 rt.PlayerState = meta.enum("PlayerState", {
@@ -175,6 +178,8 @@ function rt.Player:instantiate()
         _bounce_direction_y = 0,
         _bounce_force = 0,
         _bounce_elapsed = math.huge,
+
+        _double_jump_buffer_elapsed = math.huge,
 
         _last_velocity_x = 0,
         _last_velocity_y = 0,
@@ -265,13 +270,16 @@ function rt.Player:instantiate()
         _input = rt.InputSubscriber(),
         _idle_elapsed = 0,
 
+        -- double jump
+        _n_double_jumps = 0,
+        _double_jump_locked = true,
+
         -- particles
         _body_to_collision_normal = {}
     })
 
     self._trail = rt.PlayerTrail(self)
     self._graphics_body = rt.PlayerBody(self)
-
     self:_connect_input()
 end
 
@@ -282,6 +290,17 @@ function rt.Player:_connect_input()
 
         if which == rt.InputAction.JUMP then
             self:jump()
+
+            -- unlock double jump by re-pressing mid-air
+            local is_midair = self._bottom_left_wall == false and self._bottom_wall == false and self._bottom_right_wall == false
+            if self._n_double_jumps > 0 and is_midair then
+                self._double_jump_locked = false
+            end
+
+            -- allow buffered double jumps
+            if self._n_double_jumps == 0 and is_midair then
+                self._double_jump_buffer_elapsed = 0
+            end
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = true
             self._next_sprint_multiplier = _settings.sprint_multiplier
@@ -337,7 +356,6 @@ function rt.Player:_connect_input()
     end)
 
     local is_sleeping = false
-
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
@@ -478,6 +496,22 @@ function rt.Player:update(delta)
     self._bottom_right_wall = bottom_right_wall_body ~= nil and not bottom_right_wall_body:get_is_sensor()
     self._bottom_right_wall_body = bottom_right_wall_body
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
+
+    -- when going from air to ground, signal emission and re-lock double jump
+    if (bottom_left_before == false and bottom_before == false and bottom_right_before == false) and
+        (self._bottom_left_wall == true or self._bottom_wall == true or self._bottom_right_wall == true)
+    then
+        self:signal_emit("grounded")
+        self._double_jump_locked = true
+    end
+
+    do -- reset double jump counter when touching wall or ground
+        local is_grounded = self._bottom_left_wall or self._bottom_left_wall or self._bottom_wall
+        local is_touching_wall = self._left_wall or self._right_wall
+        if is_grounded or (not is_grounded and is_touching_wall) then
+            self._n_double_jumps = 0
+        end
+    end
 
     do -- compute current normal for all colliding walls
         local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.player_collision_group))
@@ -684,17 +718,27 @@ function rt.Player:update(delta)
             end
             self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
 
+            -- double jump buffer input
+            self._double_jump_buffer_elapsed = self._double_jump_buffer_elapsed + delta
+
             self._can_jump = can_jump
             self._can_wall_jump = can_wall_jump
 
             if self._jump_button_is_down then
                 if self._jump_allowed_override ~= nil then
+                    -- jump override
                     if self._jump_allowed_override == true then
                         can_jump = true
                     else
                         goto skip_jump
                     end
                     self._jump_allowed_override = nil
+                elseif not self._double_jump_locked and self._n_double_jumps > 0 then
+                    -- double jump
+                    can_jump = true
+                    self._jump_elapsed = 0
+                    self._n_double_jumps = self._n_double_jumps - 1
+                    self._double_jump_locked = true
                 end
 
                 if can_jump and self._jump_elapsed < _settings.jump_duration then
@@ -1727,4 +1771,25 @@ function rt.Player:jump()
     end
 
     self:signal_emit("jump")
+end
+
+--- @brief
+function rt.Player:set_double_jump_allowed(n)
+    if n == true then
+        self._n_double_jumps = 1
+    elseif n == false then
+        self._n_double_jumps = 0
+    else
+        meta.assert(n, "Number")
+        self._n_double_jumps = math.max(n, 0)
+    end
+
+    if self._n_double_jumps > 0 then
+        self._double_jump_locked = true
+    end
+
+    -- override lock for buffered jumps
+    if self._double_jump_buffer_elapsed < _settings.double_jump_buffer_duration then
+        self._double_jump_locked = false
+    end
 end

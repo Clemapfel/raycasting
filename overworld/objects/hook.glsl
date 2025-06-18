@@ -78,22 +78,23 @@ vec3 lch_to_rgb(vec3 lch) {
 }
 
 uniform float elapsed;
-//uniform float fraction;
+uniform vec4 player_color;
+uniform float fraction;
 
 vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
 
-    float fraction = (sin(elapsed) + 1) / 2;
+    //float fraction = (sin(elapsed) + 1) / 2;
 
     const float threshold = 1.0 - 0.9;
     const float eps = 0.01;
     float circle = smoothstep(threshold - eps, threshold + eps, (1.0 - distance(uv, vec2(0.5)) * 2.0));
 
-    float open = gaussian(distance(uv, vec2(0.5)), 1.5);
-    int n = 8;
+    float open = gaussian(fraction * distance(uv, vec2(0.5)) * 2, 1.5);
+    int n = 4;
 
 
     uv -= vec2(0.5);
-    uv = rotate(uv, 1.0 - distance(uv, vec2(0.0)) * 2.0 * PI - elapsed);
+    uv = rotate(uv, (1 - fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) -  elapsed);
     uv += vec2(0.5);
 
     // Calculate normalized angle in [0, 1)
@@ -130,13 +131,18 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
     vec3 col;
     if (blend_factor < blend_start) {
         col = current_rgb;
-    } else if (blend_factor > blend_end) {
+    } else //if (blend_factor > blend_end) {
         col = next_rgb;
+    /*
     } else {
         float local_blend = (blend_factor - blend_start) / blend_width;
         local_blend = smoothstep(0.0, 1.0, local_blend); // Apply smoothstep for even smoother transition
         col = mix(current_rgb, next_rgb, local_blend);
     }
+    */
+
+    float vignette = 1 - smoothstep(0, 1 - 0.8, gaussian(fraction * distance(uv, vec2(0.5)) * 2, 1));
+    col = mix(col, player_color.rgb - vignette, fraction);
 
     return color * vec4(col, circle);
 }

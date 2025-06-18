@@ -2,7 +2,7 @@ require "common.smoothed_motion_1d"
 
 rt.settings.overworld.hook = {
     radius_factor = 1.8,
-    hook_animation_duration = 2,
+    hook_animation_duration = 3,
     hook_sound_id = "hook"
 }
 
@@ -210,13 +210,10 @@ function ow.Hook:draw()
 
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("fraction", value)
+    _shader:send("fraction", rt.InterpolationFunctions.SIGMOID(1 - value))
+    _shader:send("player_color", {rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
-
-    love.graphics.origin()
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-
     _shader:unbind()
 
     love.graphics.pop()
