@@ -5,7 +5,7 @@ rt.settings.overworld.double_jump_tether = {
 --- @class DoubleJumpTether
 ow.DoubleJumpTether = meta.class("DoubleJumpThether")
 
-local _current_thether = nil
+local _shader
 
 --- @brief
 function ow.DoubleJumpTether:instantiate(object, stage, scene)
