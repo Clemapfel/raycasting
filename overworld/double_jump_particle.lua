@@ -6,12 +6,11 @@ local _sqrt3 = math.sqrt(3)
 local _sqrt6 = math.sqrt(6)
 local _padding = 10
 
-local _outline_shader, _bloom_shader
+local _outline_shader
 
 --- @brief
 function ow.DoubleJumpParticle:instantiate(radius)
     if _outline_shader == nil then _outline_shader = rt.Shader("overworld/double_jump_particle.glsl", { MODE = 0 }) end
-    if _bloom_shader == nil then _bloom_shader = rt.Shader("overworld/double_jump_particle.glsl", { MODE = 1 }) end
 
     self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
     self._radius = radius
@@ -19,17 +18,14 @@ function ow.DoubleJumpParticle:instantiate(radius)
     self._canvas = rt.RenderTexture(2 * (radius + _padding), 2 * (radius + _padding))
     self._canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     self:_update_vertices()
-
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "p" then
-            _outline_shader:recompile()
-            _bloom_shader:recompile()
-            dbg("called")
-        end
-    end)
 end
+
+
+local _edges = {
+    {1, 2}, {1, 3}, {1, 4},
+    {2, 3}, {2, 4},
+    {3, 4}
+}
 
 --- @brief
 function ow.DoubleJumpParticle:_update_vertices()
@@ -58,8 +54,8 @@ function ow.DoubleJumpParticle:_update_vertices()
     local theta, phi = self._theta, self._phi
     for v in values(vertices) do
         local cos_phi, sin_phi = math.cos(phi), math.sin(phi)
-        local x1 = v[1] * cos_phi + v[3] * sin_phi
-        local y1 = v[2]
+        local x1 =  v[1] * cos_phi + v[3] * sin_phi
+        local y1 =  v[2]
         local z1 = -v[1] * sin_phi + v[3] * cos_phi
 
         local cos_theta, sin_theta = math.cos(theta), math.sin(theta)
@@ -72,7 +68,6 @@ function ow.DoubleJumpParticle:_update_vertices()
         v[3] = z2
     end
 
-    -- Translate to center
     for v in values(vertices) do
         v[1] = v[1] + self._x
         v[2] = v[2] + self._y
@@ -80,6 +75,15 @@ function ow.DoubleJumpParticle:_update_vertices()
     end
 
     self._vertices = vertices
+
+    self._draw_line = {}
+    for edge in values(_edges) do
+        local v1 = self._vertices[edge[1]]
+        local v2 = self._vertices[edge[2]]
+        for x in range(v1[1], v1[2], v2[1], v2[2]) do
+            table.insert(self._draw_line, x)
+        end
+    end
 end
 
 --- @brief
@@ -90,62 +94,54 @@ function ow.DoubleJumpParticle:update(delta)
     self:_update_vertices()
 end
 
-local _edges = {
-    {1, 2}, {1, 3}, {1, 4},
-    {2, 3}, {2, 4},
-    {3, 4}
-}
-
-function ow.DoubleJumpParticle:draw(x, y, draw_core, draw_shape)
+function ow.DoubleJumpParticle:draw(x, y, draw_shape)
+    if draw_shape == nil then draw_shape = true end
     local line_width = self._canvas:get_width() / 40
     love.graphics.setLineWidth(line_width)
+    love.graphics.setLineJoin("bevel")
 
     local w, h = self._canvas:get_size()
+    local r, g, b, a = love.graphics.getColor()
 
-    love.graphics.push()
-    love.graphics.origin()
-    self._canvas:bind()
-    love.graphics.clear(0, 0, 0, 0)
-    love.graphics.translate(0.5 * w, 0.5 *h)
+    if draw_shape then
+        love.graphics.push()
+        love.graphics.origin()
+        self._canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.translate(0.5 * w, 0.5 *h)
 
-    if draw_shape == true then
-        for edge in values(_edges) do
-            local v1 = self._vertices[edge[1]]
-            local v2 = self._vertices[edge[2]]
-            love.graphics.line(v1[1], v1[2], v2[1], v2[2])
+        if draw_shape == true then
+            love.graphics.setColor(r, g, b, a)
+            love.graphics.line(self._draw_line)
         end
 
-        for v in values(self._vertices) do
-            love.graphics.circle("fill", v[1], v[2], line_width / 2)
-        end
+        self._canvas:unbind()
+        love.graphics.pop()
     end
-
-    self._canvas:unbind()
-    love.graphics.pop()
 
     love.graphics.setBlendMode("alpha", "premultiplied")
 
-    love.graphics.push()
-    love.graphics.translate(x, y)
-    love.graphics.translate(-0.5 * w, -0.5 * h)
-
     _outline_shader:bind()
     _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
-    _outline_shader:send("draw_core", draw_core)
-    love.graphics.draw(self._canvas:get_native())
+    love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
     _outline_shader:unbind()
 
+    love.graphics.setBlendMode("lighten", "premultiplied")
+    if draw_shape == true then
+        love.graphics.push()
+        love.graphics.translate(x, y)
+        love.graphics.setColor(r * a, g * a, b * a, a)
+        love.graphics.line(self._draw_line)
 
-    -- lines
-    --love.graphics.draw(self._canvas:get_native())
+        local bloom = 1.2
+        love.graphics.setBlendMode("alpha")
+        love.graphics.setColor(r * bloom * a, g * bloom * a, b * bloom * a, a)
+        love.graphics.setLineWidth(0.25 * line_width)
+        love.graphics.line(self._draw_line)
 
-
-    -- bloom
-    _bloom_shader:bind()
-    love.graphics.draw(self._canvas:get_native())
-    _bloom_shader:unbind()
-
-    love.graphics.pop()
-
-    love.graphics.setBlendMode("alpha")
+        for v in values(self._vertices) do
+            love.graphics.circle("fill", v[1], v[2], 0.5 * line_width)
+        end
+        love.graphics.pop()
+    end
 end

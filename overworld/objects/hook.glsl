@@ -91,10 +91,10 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
     float circle = smoothstep(threshold - eps, threshold + eps, (1.0 - distance(uv, vec2(0.5)) * 2.0));
 
     float open = gaussian(fraction * distance(uv, vec2(0.5)) * 2, 1.5);
-    int n = 3;
+    const int n = 3;
 
     uv -= vec2(0.5);
-    uv = rotate(uv, (1 - fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) + elapsed + hue);
+    uv = rotate(uv, 0.75 * (1 - fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) + elapsed);
     uv += vec2(0.5);
 
     // Calculate normalized angle in [0, 1)
@@ -109,9 +109,6 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
     // Calculate blend factor (how far we are between current and next slice)
     float blend_factor = fract(slice_f);
 
-    // --- Assign three hues, cycling per slice ---
-    float l = 0.8;
-    float c = 1.0;
     // Define three hues (as offsets in [0,1)), spaced evenly on the color wheel
     float offset = 1 / 3.;
     float hue_a = fract(hue + 0 * offset);
@@ -140,13 +137,19 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
         next_hue = hue_c;
     }
 
-    vec3 current_rgb = lch_to_rgb(vec3(l, c, current_hue));
-    vec3 next_rgb    = lch_to_rgb(vec3(l, c, next_hue));
-
     // Smooth blending between slices
-    float blend_width = 0.1; // Controls the width of the blend region (0.0 to 0.5)
-    float blend_start = 0.5 - blend_width * 0.5;
-    float blend_end = 0.5 + blend_width * 0.5;
+    float blend_width = 0.06; // Controls the width of the blend region (0.0 to 0.5)
+    float blend_start = 0.5 - blend_width;
+    float blend_end = 0.5 + blend_width;
+    float local_blend = (blend_factor - blend_start) / blend_width;
+
+    // --- Assign three hues, cycling per slice ---
+    float shine = (sin(distance(uv, vec2(0.5)) * 20 + elapsed + current_hue * 2 * n) + 1) / 2;
+    float l = 0.8;
+    float c = 1.0;
+
+    vec3 current_rgb = lch_to_rgb(vec3(l, c, hue));
+    vec3 next_rgb    = lch_to_rgb(vec3(l - 0.2, c - 0.07, fract(hue)));
 
     vec3 col;
     if (blend_factor < blend_start) {
@@ -154,8 +157,6 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
     } else if (blend_factor > blend_end) {
         col = next_rgb;
     } else {
-        float local_blend = (blend_factor - blend_start) / blend_width;
-        local_blend = smoothstep(0.0, 1.0, local_blend); // Apply smoothstep for even smoother transition
         col = mix(current_rgb, next_rgb, local_blend);
     }
 

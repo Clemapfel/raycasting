@@ -1,25 +1,16 @@
-#define MODE_OUTLINE 0
-#define MODE_BLOOM 1
-
-#ifndef MODE
-#error "MODE undefined, should be 0 or 1"
-#endif
-
 #ifdef PIXEL
-
-#if MODE == MODE_OUTLINE
 
 vec2 derivative(sampler2D img, vec2 position) {
     const mat3 sobel_x = mat3(
-    -1.0,  0.0,  1.0,
-    -2.0,  0.0,  2.0,
-    -1.0,  0.0,  1.0
+        -1.0,  0.0,  1.0,
+        -2.0,  0.0,  2.0,
+        -1.0,  0.0,  1.0
     );
 
     const mat3 sobel_y = mat3(
-    -1.0, -2.0, -1.0,
-    0.0,  0.0,  0.0,
-    1.0,  2.0,  1.0
+        -1.0, -2.0, -1.0,
+        0.0,  0.0,  0.0,
+        1.0,  2.0,  1.0
     );
 
     vec2 texel_size = vec2(1.0) / textureSize(img, 0);
@@ -52,7 +43,7 @@ float gaussian(float x, float ramp)
 }
 
 uniform vec4 black;
-uniform bool draw_core;
+uniform bool draw_core = true;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 dxdy = derivative(img, texture_coordinates);
@@ -61,61 +52,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     float eps = 0.01;
     float outline = smoothstep(threshold - eps, threshold + eps, length(dxdy));
 
-    float center = smoothstep(0, 1 - 0.1, gaussian(distance(texture_coordinates, vec2(0.5)), 4)) * 1.3;
-    return float(draw_core) * center * color + outline * black;
+    float center = smoothstep(0, 1 - 0.1, gaussian(distance(texture_coordinates, vec2(0.5)), 4.5)) * 1.3;
+    return float(draw_core) * center * color + outline * vec4(black.rgb, color.a);
 }
-
-#elif MODE == MODE_BLOOM
-
-vec4 bloom_blur(sampler2D img, vec2 uv, vec2 texel_size) {
-    float kernel[5];
-    kernel[0] = 0.204164; // center
-    kernel[1] = 0.180384;
-    kernel[2] = 0.123317;
-    kernel[3] = 0.066927;
-    kernel[4] = 0.027834;
-
-    vec4 sum = texture(img, uv) * kernel[0];
-
-    for (int i = 1; i < 5; ++i) {
-        sum += texture(img, uv + vec2(texel_size.x * float(i), 0.0)) * kernel[i];
-        sum += texture(img, uv - vec2(texel_size.x * float(i), 0.0)) * kernel[i];
-    }
-
-    vec4 sum_v = sum * kernel[0];
-    for (int i = 1; i < 5; ++i) {
-        sum_v += texture(img, uv + vec2(0.0, texel_size.y * float(i))) * kernel[i];
-        sum_v += texture(img, uv - vec2(0.0, texel_size.y * float(i))) * kernel[i];
-    }
-
-    return sum_v / 2.0;
-}
-
-float blur(sampler2D img, vec2 pos, vec2 texel_size) {
-    return (
-        texture(img, pos + texel_size * vec2(-1.0, -1.0)).a +
-        texture(img, pos + texel_size * vec2( 0.0, -1.0)).a +
-        texture(img, pos + texel_size * vec2( 1.0, -1.0)).a +
-        texture(img, pos + texel_size * vec2(-1.0,  0.0)).a +
-        texture(img, pos).a +
-        texture(img, pos + texel_size * vec2( 1.0,  0.0)).a +
-        texture(img, pos + texel_size * vec2(-1.0,  1.0)).a +
-        texture(img, pos + texel_size * vec2( 0.0,  1.0)).a +
-        texture(img, pos + texel_size * vec2( 1.0,  1.0)).a
-    ) / 9.0;
-}
-
-
-vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
-    vec2 texel_size = vec2(1.0) / textureSize(img, 0);
-
-    float blurred = blur(img, texture_coordinates, texel_size);
-    vec4 orig = texture(img, texture_coordinates);
-    float result = orig.a + blurred * 0.6;
-
-    return result * color;
-}
-
-#endif
 
 #endif

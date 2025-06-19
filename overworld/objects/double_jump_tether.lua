@@ -63,6 +63,8 @@ end
 
 --- @brief
 function ow.DoubleJumpTether:update(delta)
+    if not self._is_consumed and not self._scene:get_is_body_visible(self._body) then return end
+
     self._particle:update(delta)
     self._line_opacity_motion:update(delta)
     self._shape_opacity_motion:update(delta)
@@ -89,7 +91,7 @@ function ow.DoubleJumpTether:update(delta)
 
         local dx, dy = math.normalize(x2 - x1, y2 - y1)
         local inner_width = 1
-        local outer_width = 2
+        local outer_width = 3
 
         local up_x, up_y = math.turn_left(dx, dy)
         local inner_up_x, inner_up_y = up_x * inner_width, up_y * inner_width
@@ -157,6 +159,7 @@ end
 
 --- @brief
 function ow.DoubleJumpTether:draw()
+    local is_visible = self._scene:get_is_body_visible(self._body)
     local player = self._scene:get_player()
 
     local r, g, b = table.unpack(self._color)
@@ -166,12 +169,14 @@ function ow.DoubleJumpTether:draw()
         love.graphics.draw(self._line_mesh)
     end
 
-    local opacity = self._shape_opacity_motion:get_value()
-    if opacity == 0 then
-        love.graphics.setColor(r, g, b, 1)
-        self._particle:draw(self._x, self._y, true, false) -- core only
-    else
-        love.graphics.setColor(r, g, b, opacity)
-        self._particle:draw(self._x, self._y, true, true) -- both
+    if is_visible then
+        local opacity = self._shape_opacity_motion:get_value()
+        if opacity == 0 then
+            love.graphics.setColor(r, g, b, 1)
+            self._particle:draw(self._x, self._y, true, false) -- core only
+        else
+            love.graphics.setColor(r, g, b, opacity)
+            self._particle:draw(self._x, self._y, true, true) -- both
+        end
     end
 end

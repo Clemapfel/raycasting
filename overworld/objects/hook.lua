@@ -80,6 +80,13 @@ function ow.Hook:instantiate(object, stage, scene)
             end
         end
     end)
+
+    -- TODO
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "p" then
+            _shader:recompile()
+        end
+    end)
 end
 
 --- @brief
@@ -196,6 +203,8 @@ end
 
 --- @brief
 function ow.Hook:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     local r = self._radius
 
     if self._outline == nil then
