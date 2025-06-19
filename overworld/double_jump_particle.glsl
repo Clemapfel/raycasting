@@ -91,13 +91,27 @@ vec4 bloom_blur(sampler2D img, vec2 uv, vec2 texel_size) {
     return sum_v / 2.0;
 }
 
+float blur(sampler2D img, vec2 pos, vec2 texel_size) {
+    return (
+        texture(img, pos + texel_size * vec2(-1.0, -1.0)).a +
+        texture(img, pos + texel_size * vec2( 0.0, -1.0)).a +
+        texture(img, pos + texel_size * vec2( 1.0, -1.0)).a +
+        texture(img, pos + texel_size * vec2(-1.0,  0.0)).a +
+        texture(img, pos).a +
+        texture(img, pos + texel_size * vec2( 1.0,  0.0)).a +
+        texture(img, pos + texel_size * vec2(-1.0,  1.0)).a +
+        texture(img, pos + texel_size * vec2( 0.0,  1.0)).a +
+        texture(img, pos + texel_size * vec2( 1.0,  1.0)).a
+    ) / 9.0;
+}
+
+
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 texel_size = vec2(1.0) / textureSize(img, 0);
 
-    vec4 blurred = bloom_blur(img, texture_coordinates, texel_size);
-
+    float blurred = blur(img, texture_coordinates, texel_size);
     vec4 orig = texture(img, texture_coordinates);
-    float result = orig.a + blurred.a * 1;
+    float result = orig.a + blurred * 0.6;
 
     return result * color;
 }

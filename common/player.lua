@@ -1775,7 +1775,7 @@ end
 
 --- @brief
 function rt.Player:add_double_jump_source(instance)
-    table.insert(self._double_jump_sources, instance)
+    table.insert(self._double_jump_sources, 1, instance)
 
     -- override lock for buffered jumps
     if self._double_jump_buffer_elapsed < _settings.double_jump_buffer_duration then

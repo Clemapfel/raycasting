@@ -55,14 +55,17 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
     self._particle = ow.DoubleJumpParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
+    self._shape_opacity_motion = rt.SmoothedMotion1D(1, 1.2)
 
     self._was_tethered = false
+    self._was_consumed = false
 end
 
 --- @brief
 function ow.DoubleJumpTether:update(delta)
     self._particle:update(delta)
     self._line_opacity_motion:update(delta)
+    self._shape_opacity_motion:update(delta)
 
     local player = self._scene:get_player()
     local is_tethered = player:get_is_double_jump_source(self)
@@ -73,13 +76,20 @@ function ow.DoubleJumpTether:update(delta)
     end
     self._was_tethered = is_tethered
 
-    if true then --self._is_consumed then
+    if self._was_consumed == false and self._is_consumed == true then
+        self._shape_opacity_motion:set_target_value(0)
+    elseif self._was_consumed == true and self._is_consumed == false then
+        self._shape_opacity_motion:set_target_value(1)
+    end
+    self._was_consumed = self._is_consumed
+
+    if self._is_consumed then
         local x1, y1 = self._x, self._y
         local x2, y2 = player:get_position()
 
         local dx, dy = math.normalize(x2 - x1, y2 - y1)
-        local inner_width = 1 * rt.get_pixel_scale()
-        local outer_width = 2 * rt.get_pixel_scale()
+        local inner_width = 1
+        local outer_width = 2
 
         local up_x, up_y = math.turn_left(dx, dy)
         local inner_up_x, inner_up_y = up_x * inner_width, up_y * inner_width
@@ -156,11 +166,12 @@ function ow.DoubleJumpTether:draw()
         love.graphics.draw(self._line_mesh)
     end
 
-    if self._is_consumed then
+    local opacity = self._shape_opacity_motion:get_value()
+    if opacity == 0 then
         love.graphics.setColor(r, g, b, 1)
         self._particle:draw(self._x, self._y, true, false) -- core only
     else
-        love.graphics.setColor(r, g, b, 1)
+        love.graphics.setColor(r, g, b, opacity)
         self._particle:draw(self._x, self._y, true, true) -- both
     end
 end

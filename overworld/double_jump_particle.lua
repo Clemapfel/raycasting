@@ -126,19 +126,23 @@ function ow.DoubleJumpParticle:draw(x, y, draw_core, draw_shape)
     love.graphics.setBlendMode("alpha", "premultiplied")
 
     love.graphics.push()
+    love.graphics.translate(x, y)
     love.graphics.translate(-0.5 * w, -0.5 * h)
+
     _outline_shader:bind()
     _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
     _outline_shader:send("draw_core", draw_core)
-    love.graphics.draw(self._canvas:get_native(), x, y)
+    love.graphics.draw(self._canvas:get_native())
     _outline_shader:unbind()
 
+
     -- lines
-    love.graphics.draw(self._canvas:get_native(), x, y)
+    --love.graphics.draw(self._canvas:get_native())
+
 
     -- bloom
     _bloom_shader:bind()
-    love.graphics.draw(self._canvas:get_native(), x, y)
+    love.graphics.draw(self._canvas:get_native())
     _bloom_shader:unbind()
 
     love.graphics.pop()
