@@ -349,6 +349,8 @@ end
 
 --- @brief
 function ow.Checkpoint:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     if self._should_despawn then
         local seen = false
         for body in values(self._segment_bodies) do
@@ -510,6 +512,8 @@ end
 
 --- @brief
 function ow.Checkpoint:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     love.graphics.setColor(1, 1, 1, 1)
     --self._body:draw()
     --love.graphics.circle("fill", self._current_player_spawn_x, self._current_player_spawn_y, 5)

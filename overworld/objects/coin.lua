@@ -115,8 +115,6 @@ end
 
 --- @brief
 function ow.Coin:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
-
     if self._is_collected then
         if self._pulse_active then
             local r, g, b = self._color:unpack()

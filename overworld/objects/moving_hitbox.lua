@@ -7,6 +7,8 @@ ow.MovingHitboxTarget = meta.class("MovingHitboxTarget")
 
 --- @brief
 function ow.MovingHitbox:instantiate(object, stage, scene)
+    self._scene = scene
+
     self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
     self._body:add_tag("stencil")
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
@@ -27,6 +29,8 @@ end
 
 --- @brief
 function ow.MovingHitbox:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     self._elapsed = self._elapsed + delta
     self._value = rt.InterpolationFunctions.TRIANGLE_WAVE(self._elapsed * (self._speed / self._length))
 
@@ -48,6 +52,8 @@ end
 
 --- @brief
 function ow.MovingHitbox:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     love.graphics.setColor(1, 1, 1, 1)
     self._body:draw()
     local x1 = self._x + self._lower * self._dx

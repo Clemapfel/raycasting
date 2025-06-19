@@ -71,6 +71,8 @@ end
 
 --- @brief
 function ow.Agent:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     self._body:draw()
 
     local goal_x, goal_y = self:_get_goal()

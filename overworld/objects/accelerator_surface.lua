@@ -136,8 +136,6 @@ local _total_n_particles = 0
 
 --- @brief
 function ow.AcceleratorSurface:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then return end
-
     -- update particle location
     local nx, ny, x, y = self._scene:get_player():get_collision_normal(self._body)
     if nx == nil then
@@ -220,6 +218,8 @@ end
 
 --- @brief
 function ow.AcceleratorSurface:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     love.graphics.setColor(1, 1, 1, 0.5)
     
     _draw_shader:bind()

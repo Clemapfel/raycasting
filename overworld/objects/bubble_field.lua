@@ -162,6 +162,8 @@ end
 
 --- @brief
 function ow.BubbleField:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(3)
     love.graphics.setLineJoin("none")

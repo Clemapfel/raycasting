@@ -7,6 +7,8 @@ ow.RotatingHitboxTarget = meta.class("RotatingHitboxTarget")
 
 --- @brief
 function ow.RotatingHitbox:instantiate(object, stage, scene)
+    self._scene = scene
+
     local cx, cy = object:get_centroid()
     local shapes = object:get_physics_shapes()
     for shape in values(shapes) do
@@ -30,6 +32,8 @@ function ow.RotatingHitbox:instantiate(object, stage, scene)
 end
 
 function ow.RotatingHitbox:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     self._elapsed = self._elapsed + delta
     self._value = math.fract(self._elapsed * self._speed)
 
@@ -46,6 +50,8 @@ end
 
 --- @brief
 function ow.RotatingHitbox:draw(x, y)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     love.graphics.setColor(1, 1, 1, 1)
     self._body:draw()
     love.graphics.circle("fill", self._x, self._y, 5 * rt.get_pixel_scale())
