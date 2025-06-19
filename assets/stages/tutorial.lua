@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 700,
+  nextobjectid = 705,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 5.81743,
-          y = 670.845,
+          x = 546.97,
+          y = 137.924,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3880,8 +3880,8 @@ return {
           name = "",
           type = "DoubleJumpTether",
           shape = "point",
-          x = 655.018,
-          y = 110.476,
+          x = 649.571,
+          y = 104.25,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3941,58 +3941,6 @@ return {
             { x = 16, y = -64 },
             { x = 4.75562, y = -16.7416 }
           },
-          properties = {}
-        },
-        {
-          id = 666,
-          name = "",
-          type = "Hook",
-          shape = "point",
-          x = 937.547,
-          y = 103.012,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 667,
-          name = "",
-          type = "Hook",
-          shape = "point",
-          x = 848,
-          y = 48,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 668,
-          name = "",
-          type = "Hook",
-          shape = "point",
-          x = 848,
-          y = -48,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 669,
-          name = "",
-          type = "Hook",
-          shape = "point",
-          x = 848,
-          y = -128,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
           properties = {}
         },
         {
@@ -4339,6 +4287,71 @@ return {
             { x = 0, y = 112 },
             { x = 144, y = 64 }
           },
+          properties = {}
+        },
+        {
+          id = 700,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 750.195,
+          y = 49.8054,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 701,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 827.237,
+          y = 77.821,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 702,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 866.148,
+          y = 119.844,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 703,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 880.934,
+          y = 183.658,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 704,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 846.693,
+          y = 238.911,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

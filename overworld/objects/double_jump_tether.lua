@@ -1,3 +1,5 @@
+require "overworld.double_jump_particle"
+
 rt.settings.overworld.double_jump_tether = {
     radius_factor = 1.5
 }
@@ -6,6 +8,14 @@ rt.settings.overworld.double_jump_tether = {
 ow.DoubleJumpTether = meta.class("DoubleJumpThether")
 
 local _shader
+
+local _current_hue_step = 1
+local _hue_steps, _n_hue_steps = {}, 16
+do
+    for i = 0, _n_hue_steps - 1 do
+        table.insert(_hue_steps, i / _n_hue_steps)
+    end
+end
 
 --- @brief
 function ow.DoubleJumpTether:instantiate(object, stage, scene)
@@ -31,17 +41,103 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
         if not self._is_consumed and not player:get_is_double_jump_source(self) then
             player:add_double_jump_source(self)
             self._is_consumed = true
+            self:update(0)
+
             player:signal_connect("grounded", function()
                 self._is_consumed = false
                 return meta.DISCONNECT_SIGNAL
             end)
         end
     end)
+
+    -- graphics
+    self._color = { rt.lcha_to_rgba(0.8, 1, _hue_steps[_current_hue_step], 1) }
+    _current_hue_step = _current_hue_step % _n_hue_steps + 1
+    self._particle = ow.DoubleJumpParticle(self._radius)
+    self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
+
+    self._was_tethered = false
 end
 
 --- @brief
 function ow.DoubleJumpTether:update(delta)
+    self._particle:update(delta)
+    self._line_opacity_motion:update(delta)
 
+    local player = self._scene:get_player()
+    local is_tethered = player:get_is_double_jump_source(self)
+    if self._was_tethered == false and is_tethered == true then
+        self._line_opacity_motion:set_target_value(1)
+    elseif self._was_tethered == true and is_tethered == false then
+        self._line_opacity_motion:set_target_value(0)
+    end
+    self._was_tethered = is_tethered
+
+    if true then --self._is_consumed then
+        local x1, y1 = self._x, self._y
+        local x2, y2 = player:get_position()
+
+        local dx, dy = math.normalize(x2 - x1, y2 - y1)
+        local inner_width = 1 * rt.get_pixel_scale()
+        local outer_width = 2 * rt.get_pixel_scale()
+
+        local up_x, up_y = math.turn_left(dx, dy)
+        local inner_up_x, inner_up_y = up_x * inner_width, up_y * inner_width
+        local outer_up_x, outer_up_y = up_x * (inner_width + outer_width), up_y * (inner_width + outer_width)
+
+        local down_x, down_y = math.turn_right(dx, dy)
+        local inner_down_x, inner_down_y = down_x * inner_width, down_y * inner_width
+        local outer_down_x, outer_down_y = down_x * (inner_width + outer_width), down_y * (inner_width + outer_width)
+
+        local inner_up_x1, inner_up_y1 = x1 + inner_up_x, y1 + inner_up_y
+        local outer_up_x1, outer_up_y1 = x1 + outer_up_x, y1 + outer_up_y
+        local inner_down_x1, inner_down_y1 = x1 + inner_down_x, y1 + inner_down_y
+        local outer_down_x1, outer_down_y1 = x1 + outer_down_x, y1 + outer_down_y
+
+        local inner_up_x2, inner_up_y2 = x2 + inner_up_x, y2 + inner_up_y
+        local outer_up_x2, outer_up_y2 = x2 + outer_up_x, y2 + outer_up_y
+        local inner_down_x2, inner_down_y2 = x2 + inner_down_x, y2 + inner_down_y
+        local outer_down_x2, outer_down_y2 = x2 + outer_down_x, y2 + outer_down_y
+
+        local r1, r2 = 1, 1
+        local a1, a2 = 1, 0
+        local data = {
+            { outer_down_x1, outer_down_y1, r2, r2, r2, a2 },
+            { inner_down_x1, inner_down_y1, r1, r1, r1, a1 },
+            { x1, y1, r1, r1, r1, a1 },
+            { inner_up_x1, inner_up_y1, r1, r1, r1, a1 },
+            { outer_up_x1, outer_up_y1, r2, r2, r2, a2 },
+
+            { outer_down_x2, outer_down_y2, r2, r2, r2, a2 },
+            { inner_down_x2, inner_down_y2, r1, r1, r1, a1 },
+            { x2, y2, r1, r1, r1, 2 },
+            { inner_up_x2, inner_up_y2, r1, r1, r1, a1 },
+            { outer_up_x2, outer_up_y2, r2, r2, r2, a2 },
+        }
+
+        if self._line_mesh == nil then
+            self._line_mesh = love.graphics.newMesh({
+                {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
+                {location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4"},
+            }, data,
+                rt.MeshDrawMode.TRIANGLES,
+                rt.GraphicsBufferUsage.DYNAMIC
+            )
+
+            self._line_mesh:setVertexMap(
+                1, 6, 7,
+                1, 2, 7,
+                2, 7, 8,
+                2, 3, 8,
+                3, 8, 9,
+                3, 4, 9,
+                4, 9, 10,
+                4, 5, 10
+            )
+        else
+            self._line_mesh:setVertices(data)
+        end
+    end
 end
 
 --- @brief
@@ -52,30 +148,19 @@ end
 --- @brief
 function ow.DoubleJumpTether:draw()
     local player = self._scene:get_player()
+
+    local r, g, b = table.unpack(self._color)
+
+    if self._line_mesh ~= nil then
+        love.graphics.setColor(r, g, b, self._line_opacity_motion:get_value())
+        love.graphics.draw(self._line_mesh)
+    end
+
     if self._is_consumed then
-        love.graphics.setColor(1, 1, 1, 0.25)
-        love.graphics.circle("fill", self._x, self._y, self._radius * 0.25)
-
-        love.graphics.setColor(1, 1, 1, 0.5)
-        love.graphics.circle("line", self._x, self._y, self._radius * 0.25)
-
-        if player:get_is_double_jump_source(self) then
-            local line_width = 1
-            rt.Palette.BLACK:bind()
-            love.graphics.setLineWidth(line_width + 2)
-            love.graphics.line(
-                self._x, self._y,
-                player:get_position()
-            )
-            rt.Palette.WHITE:bind()
-            love.graphics.setLineWidth(line_width + 2)
-            love.graphics.line(
-                self._x, self._y,
-                player:get_position()
-            )
-        end
+        love.graphics.setColor(r, g, b, 1)
+        self._particle:draw(self._x, self._y, true, false) -- core only
     else
-        love.graphics.setColor(1, 1, 1, 1)
-        self._body:draw()
+        love.graphics.setColor(r, g, b, 1)
+        self._particle:draw(self._x, self._y, true, true) -- both
     end
 end
