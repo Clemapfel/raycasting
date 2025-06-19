@@ -23,7 +23,7 @@ float gradient_noise(vec3 p) {
 
     vec3 u = v * v * v * (v *(v * 6.0 - 15.0) + 10.0);
 
-    return mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
+    float result = mix( mix( mix( dot( -1 + 2 * random_3d(i + vec3(0.0,0.0,0.0)), v - vec3(0.0,0.0,0.0)),
     dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,0.0)), v - vec3(1.0,0.0,0.0)), u.x),
     mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,0.0)), v - vec3(0.0,1.0,0.0)),
     dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,0.0)), v - vec3(1.0,1.0,0.0)), u.x), u.y),
@@ -31,6 +31,8 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0,0.0,1.0)), v - vec3(1.0,0.0,1.0)), u.x),
     mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
     dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
+
+    return (result + 1) / 2;
 }
 
 #define PI 3.1415926535897932384626433832795
@@ -79,22 +81,20 @@ vec3 lch_to_rgb(vec3 lch) {
 
 uniform float elapsed;
 uniform vec4 player_color;
+uniform float hue;
 uniform float fraction;
 
 vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
-
-    //float fraction = (sin(elapsed) + 1) / 2;
 
     const float threshold = 1.0 - 0.9;
     const float eps = 0.01;
     float circle = smoothstep(threshold - eps, threshold + eps, (1.0 - distance(uv, vec2(0.5)) * 2.0));
 
     float open = gaussian(fraction * distance(uv, vec2(0.5)) * 2, 1.5);
-    int n = 4;
-
+    int n = 3;
 
     uv -= vec2(0.5);
-    uv = rotate(uv, (1 - fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) -  elapsed);
+    uv = rotate(uv, (1 - fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) + elapsed + hue);
     uv += vec2(0.5);
 
     // Calculate normalized angle in [0, 1)
@@ -109,37 +109,55 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
     // Calculate blend factor (how far we are between current and next slice)
     float blend_factor = fract(slice_f);
 
-    // Calculate stripe values for current and next slices
-    float current_stripe = mod(current_slice, 2.0);
-    float next_stripe = mod(next_slice, 2.0);
-
-    // --- Assign LCH color to each slice ---
-    // Constant lightness and chroma, hue per slice
+    // --- Assign three hues, cycling per slice ---
     float l = 0.8;
     float c = 1.0;
-    float current_h = current_slice / float(n); // 0..1
-    float next_h = next_slice / float(n);       // 0..1
+    // Define three hues (as offsets in [0,1)), spaced evenly on the color wheel
+    float offset = 1 / 3.;
+    float hue_a = fract(hue + 0 * offset);
+    float hue_b = fract(hue + 1 * offset);
+    float hue_c = fract(hue + 2 * offset);
 
-    vec3 current_rgb = lch_to_rgb(vec3(l, c, current_h));
-    vec3 next_rgb = lch_to_rgb(vec3(l, c, next_h));
+    // Cycle hues based on slice index
+    float current_hue;
+    float next_hue;
+    float current_mod = mod(current_slice, 3.0);
+    float next_mod = mod(next_slice, 3.0);
+
+    if (current_mod < 0.5) {
+        current_hue = hue_a;
+    } else if (current_mod < 1.5) {
+        current_hue = hue_b;
+    } else {
+        current_hue = hue_c;
+    }
+
+    if (next_mod < 0.5) {
+        next_hue = hue_a;
+    } else if (next_mod < 1.5) {
+        next_hue = hue_b;
+    } else {
+        next_hue = hue_c;
+    }
+
+    vec3 current_rgb = lch_to_rgb(vec3(l, c, current_hue));
+    vec3 next_rgb    = lch_to_rgb(vec3(l, c, next_hue));
 
     // Smooth blending between slices
-    float blend_width = 0.15; // Controls the width of the blend region (0.0 to 0.5)
+    float blend_width = 0.1; // Controls the width of the blend region (0.0 to 0.5)
     float blend_start = 0.5 - blend_width * 0.5;
     float blend_end = 0.5 + blend_width * 0.5;
 
     vec3 col;
     if (blend_factor < blend_start) {
         col = current_rgb;
-    } else //if (blend_factor > blend_end) {
+    } else if (blend_factor > blend_end) {
         col = next_rgb;
-    /*
     } else {
         float local_blend = (blend_factor - blend_start) / blend_width;
         local_blend = smoothstep(0.0, 1.0, local_blend); // Apply smoothstep for even smoother transition
         col = mix(current_rgb, next_rgb, local_blend);
     }
-    */
 
     float vignette = 1 - smoothstep(0, 1 - 0.8, gaussian(fraction * distance(uv, vec2(0.5)) * 2, 1));
     col = mix(col, player_color.rgb - vignette, fraction);

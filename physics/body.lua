@@ -116,7 +116,7 @@ end
 
 --- @brief
 function b2.Body:set_rotation(angle)
-    if not pcall(_angle_callback(), self._native, angle) then
+    if not pcall(_angle_callback, self._native, angle) then
         self._world:_notify_rotation_changed(self, angle)
     end
 end

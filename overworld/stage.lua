@@ -152,9 +152,6 @@ function ow.Stage:instantiate(scene, id)
         end
     end
 
-    self._is_initialized = true
-    self:signal_emit("initialized")
-
     -- check for PlayerSpawn
     if self._active_checkpoint == nil then
         rt.warning("In ow.Stage.initialize: not `PlayerSpawn` for stage `" .. self._id .. "`")
@@ -199,6 +196,9 @@ function ow.Stage:instantiate(scene, id)
     else
         rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `" .. self._id .. "`")
     end
+
+    self._is_initialized = true
+    self:signal_emit("initialized")
 end
 
 --- @brief

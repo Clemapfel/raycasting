@@ -274,6 +274,12 @@ function ow.BubbleField:update(delta)
             self._data_mesh_data[i][_scale_index] = scale
         end
 
+        -- close loop
+        local x1, y1, x2, y2 = self._contour[1], self._contour[2], self._contour[#self._contour-1], self._contour[#self._contour]
+        local mean_x, mean_y = math.mix(x1, x2, 0.5), math.mix(y1, y2, 0.5)
+        self._contour[1], self._contour[2] = mean_x, mean_y
+        self._contour[#self._contour-1], self._contour[#self._contour] = mean_x, mean_y
+
         wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
         self._data_mesh:replace_data(self._data_mesh_data)
 

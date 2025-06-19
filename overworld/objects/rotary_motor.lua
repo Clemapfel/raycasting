@@ -16,6 +16,7 @@ meta.add_signals(ow.RotaryMotor,
 
 --- @brief
 function ow.RotaryMotor:instantiate(object, stage, scene)
+    self._scene = scene
     local world = stage:get_physics_world()
     local target = object:get_object("target", true)
 
@@ -26,7 +27,7 @@ function ow.RotaryMotor:instantiate(object, stage, scene)
     stage:signal_connect("initialized", function(stage)
         meta.install(self, {
             _anchor = object:create_physics_body(world, b2.BodyType.STATIC),
-            _target = stage:get_object_instance(target):get_physics_body()
+            _target = stage:get_object_instance(target)._body
         })
 
         if self._target:get_type() == b2.BodyType.STATIC then

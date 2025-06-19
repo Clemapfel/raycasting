@@ -11,10 +11,13 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+require "overworld.double_jump_particle"
+local particle = ow.DoubleJumpParticle(100)
+
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial")
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial")
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -32,12 +35,17 @@ end
 love.update = function(delta)
     rt.SceneManager:update(delta)
     --texture:update(delta)
+
+    particle:update(delta)
 end
 
 love.draw = function()
     rt.SceneManager:draw()
     --love.graphics.origin()
     --texture:draw()
+
+    rt.Palette.RED_2:bind()
+    particle:draw(100, 100)
 end
 
 love.resize = function(width, height)

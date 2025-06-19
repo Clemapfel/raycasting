@@ -1,5 +1,5 @@
 rt.settings.overworld.linear_motor = {
-    speed = 10 -- px / s
+    default_speed = 30 -- px / s
 }
 
 --- @class ow.LinearMotor
@@ -14,23 +14,34 @@ ow.LinearMotorTarget = meta.class("LinearMotorTarget") -- dummy
 
 --- @brief
 function ow.LinearMotor:instantiate(object, stage, scene)
+    self._scene = scene
+
     local world = stage:get_physics_world()
     local target = object:get_object("target", true)
-    local lower = object:get_object("lower", true)
-    local upper = object:get_object("upper", true)
+    local lower = object:get_object("lower")
+    local upper = object:get_object("upper")
 
     stage:signal_connect("initialized", function(stage)
-        self._target = stage:get_object_instance(target):get_physics_body()
+        self._target = stage:get_object_instance(target)._body
         self._target:set_type(b2.BodyType.KINEMATIC)
         self._target:set_mass(1)
         self._target:add_tag("no_blood")
 
-        assert(lower:get_type() == ow.ObjectType.POINT and upper:get_type() == ow.ObjectType.POINT, "In ow.LinearMotor.instantiate: `lower` or `upper` property is not a point")
+        if lower ~= nil then
+            assert(lower:get_type() == ow.ObjectType.POINT)
+            self._lower_x, self._lower_y = lower.x, lower.y
+        else
+            self._lower_x, self._lower_y = object.x, object.y
+        end
 
-        self._lower_x, self._lower_y = lower.x, lower.y
-        self._upper_x, self._upper_y = upper.x, upper.y
-        self._length = math.distance(lower.x, lower.y, upper.x, upper.y)
+        if upper ~= nil then
+            assert(upper:get_type() == ow.ObjectType.POINT)
+            self._upper_x, self._upper_y = upper.x, upper.y
+        else
+            self._upper_x, self._upper_y = self._target:get_center_of_mass()
+        end
 
+        self._length = math.distance(self._upper_x, self._upper_y, self._lower_x, self._lower_y)
         self._target_x, self._target_y = self._target:get_center_of_mass()
 
         self._dx = self._upper_x - self._lower_x

@@ -232,6 +232,15 @@ function math.mix_angles(angle_a, angle_b, ratio)
 end
 
 --- @brief
+function math.angle_distance(a, b)
+    local delta = (b - a) % (2 * math.pi)
+    if delta > math.pi then
+        delta = delta - 2 * math.pi
+    end
+    return delta
+end
+
+--- @brief
 function math.smoothstep(lower, upper, ratio)
     local t = math.clamp((ratio - lower) / (upper - lower), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);
@@ -243,6 +252,8 @@ while (1.0 + math.eps / 2.0) > 1.0 do
     math.eps = math.eps / 2.0
     n = n + 1
 end
+
+math.pi2 = 2 * math.pi
 
 --- @brief
 function math.fract(x)

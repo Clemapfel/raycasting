@@ -417,19 +417,9 @@ function ow.OverworldScene:draw()
     self._camera:bind()
     self._stage:draw_below_player()
     self._player:draw_body()
-    self._camera:unbind()
-    --self._post_fx:unbind()
-
-    --self._post_fx:draw()
-
-    self._camera:bind()
-    self._player:draw_core()
-    local x, y = self._player:get_predicted_position()
-    --love.graphics.circle("fill", x, y, self._player:get_radius())
     self._stage:draw_above_player()
+    self._player:draw_core()
     self._camera:unbind()
-
-    self._results_screen:draw()
 
     if not self._pause_menu_active and self._cursor_visible and self._cursor_active then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)

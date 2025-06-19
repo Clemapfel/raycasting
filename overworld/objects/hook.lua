@@ -11,7 +11,15 @@ ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
 local _shader
 
-local first = true
+-- global hue queue such that two elements don't have the same hue
+local _current_hue_step = 1
+local _hue_steps, _n_hue_steps = {}, 8
+do
+    for i = 0, _n_hue_steps - 1 do
+        table.insert(_hue_steps, i / _n_hue_steps)
+    end
+    rt.random.shuffle(_hue_steps)
+end
 
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
@@ -32,16 +40,9 @@ function ow.Hook:instantiate(object, stage, scene)
 
     self._x, self._y = object.x, object.y
 
-    -- TODO
-    if first then
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "p" then
-                _shader:recompile()
-            end
-        end)
-        first = false
-    end
+    self._hue_step = _current_hue_step
+    _current_hue_step = (_current_hue_step % _n_hue_steps) + 1
+    self:_update_hue()
 
     -- collision
     self._is_hooked = false
@@ -151,6 +152,9 @@ function ow.Hook:_hook()
 
     self._motion:set_target_value(0)
     self._motion:set_value(0)
+
+    self:_update_hue()
+    player:set_hue(self._hue)
 end
 
 --- @brief
@@ -184,6 +188,12 @@ function ow.Hook:update(delta)
     self._motion:update(delta)
 end
 
+function ow.Hook:_update_hue()
+    self._hue = _hue_steps[self._hue_step]
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+    self._hue_step = self._hue_step % _n_hue_steps + 1
+end
+
 --- @brief
 function ow.Hook:draw()
     local r = self._radius
@@ -211,7 +221,8 @@ function ow.Hook:draw()
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("fraction", rt.InterpolationFunctions.SIGMOID(1 - value))
-    _shader:send("player_color", {rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
+    _shader:send("player_color", self._color)
+    _shader:send("hue", self._hue)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
     _shader:unbind()

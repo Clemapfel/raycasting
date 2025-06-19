@@ -23,7 +23,7 @@ rt.settings.menu_scene = {
 
     stage_select = {
         player_alignment = 1 / 3,
-        reveal_animation_duration = 0, --1,
+        reveal_animation_duration = 1,
         scroll_speed = 1,
         exititing_fraction = 2, -- number of screen heights until fade out starts
         scroll_ticks_per_second = 2

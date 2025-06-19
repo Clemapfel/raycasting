@@ -440,8 +440,8 @@ function ow.ObjectWrapper:get_centroid()
     elseif self.type == ow.ObjectType.POLYGON then
         local x_sum, y_sum, n = 0, 0, 0
         for i = 1, #self.vertices, 2 do
-            x_sum = x_sum * self.vertices[i + 0]
-            y_sum = y_sum * self.vertices[i + 1]
+            x_sum = x_sum + self.vertices[i + 0]
+            y_sum = y_sum + self.vertices[i + 1]
             n = n + 1
         end
         xy = { x_sum / n, y_sum / n }

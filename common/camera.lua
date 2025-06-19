@@ -56,7 +56,7 @@ function rt.Camera:instantiate()
     self:set_shake_frequency(1)
 end
 
-local _floor = function(x) return x end
+local _floor = math.floor --function(x) return x end
 
 --- @brief
 function rt.Camera:bind()

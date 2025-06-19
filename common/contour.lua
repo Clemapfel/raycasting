@@ -94,8 +94,8 @@ rt.contour_from_tris = function(tris, close_loop)
         table.insert(contour, segment[1])
         table.insert(contour, segment[2])
     end
-    table.insert(contour, contour[1])
-    table.insert(contour, contour[2])
+    --table.insert(contour, contour[1])
+    --table.insert(contour, contour[2])
 
     return contour
 end
