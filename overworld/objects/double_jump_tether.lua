@@ -10,11 +10,12 @@ ow.DoubleJumpTether = meta.class("DoubleJumpThether")
 local _shader
 
 local _current_hue_step = 1
-local _hue_steps, _n_hue_steps = {}, 16
+local _hue_steps, _n_hue_steps = {}, 8
 do
     for i = 0, _n_hue_steps - 1 do
         table.insert(_hue_steps, i / _n_hue_steps)
     end
+    rt.random.shuffle(_hue_steps)
 end
 
 --- @brief
