@@ -261,6 +261,16 @@ function ow.Hitbox:get_all_tris()
 end
 
 --- @brief
+function ow.Hitbox:get_sticky_tris()
+    return table.deepcopy(_sticky_tris)
+end
+
+--- @brief
+function ow.Hitbox:get_slippery_tris()
+    return table.deepcopy(_slippery_tris)
+end
+
+--- @brief
 function ow.Hitbox:get_render_priority()
     if self._body:has_tag("slippery") then
         return -1
