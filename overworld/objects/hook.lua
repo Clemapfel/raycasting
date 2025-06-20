@@ -213,10 +213,10 @@ function ow.Hook:draw()
             table.insert(self._outline, math.cos(angle) * r)
             table.insert(self._outline, math.sin(angle) * r)
         end
-    end
 
-    table.insert(self._outline, self._outline[1])
-    table.insert(self._outline, self._outline[2])
+        table.insert(self._outline, self._outline[1])
+        table.insert(self._outline, self._outline[2])
+    end
 
     rt.Palette.WHITE:bind()
     local line_width = 2
