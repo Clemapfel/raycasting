@@ -1,3 +1,5 @@
+require "common.contour"
+
 rt.settings.overworld.blood_splatter = {
     sensor_radius = 5
 }

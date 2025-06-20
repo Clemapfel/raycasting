@@ -3,6 +3,7 @@ require "overworld.object_wrapper"
 require "common.player"
 require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
+require "overworld.mirror"
 
 require "physics.physics"
 
@@ -63,6 +64,8 @@ function ow.Stage:instantiate(scene, id)
         _coins = {}, -- cf. add_coin
         _checkpoints = {}, -- cf. add_checkpoint
         _blood_splatter = ow.BloodSplatter(),
+        _mirror = ow.Mirror(scene),
+
         _flow_graph_nodes = {},
         _flow_graph = nil, -- ow.FlowGraph
         _flow_fraction = 0,
@@ -175,8 +178,9 @@ function ow.Stage:instantiate(scene, id)
         color_i = (color_i + 1) % color_n + 1
     end
 
-    -- create contour
+    -- contour effects
     self._blood_splatter:create_contour()
+    self._mirror:create_contour()
 
     -- create flow graph
     if table.sizeof(self._flow_graph_nodes) < 2 then
@@ -210,6 +214,7 @@ function ow.Stage:draw_below_player()
         object:draw()
     end
 
+    self._mirror:draw()
     self._blood_splatter:draw()
 end
 
@@ -237,6 +242,7 @@ function ow.Stage:update(delta)
         self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
 
+    self._mirror:update(delta)
     self._world:update(delta)
 end
 
@@ -376,6 +382,7 @@ function ow.Stage:destroy()
     native:release()
 
     self._blood_splatter:destroy()
+    self._mirror:destroy()
 end
 
 --- @brief
