@@ -9,7 +9,8 @@ ow.BloodSplatter = meta.class("BloodSplatter")
 function ow.BloodSplatter:instantiate()
     meta.install(self, {
         _edges = {},
-        _active_divisions = {}
+        _active_divisions = {},
+        _world = nil
     })
 end
 
@@ -83,34 +84,38 @@ end
 
 --- @brief
 function ow.BloodSplatter:draw()
-    love.graphics.setLineWidth(2)
+    love.graphics.setLineWidth(4)
 
     for division in keys(self._active_divisions) do
         love.graphics.setColor(table.unpack(division.color))
         love.graphics.line(division.line)
     end
-
-    rt.graphics.set_blend_mode(nil)
 end
 
 local _round = function(x)
     return math.floor(x)
 end
 
+local _hash_to_segment = {}
+
 local _hash = function(points)
     local x1, y1, x2, y2 = _round(points[1]), _round(points[2]), _round(points[3]), _round(points[4])
     if x1 < x2 or (x1 == x2 and y1 < y2) then -- swap so point order does not matter
         x1, y1, x2, y2 = x2, y2, x1, y1
     end
-    return tostring(x1) .. "," .. tostring(y1) .. "," .. tostring(x2) .. "," .. tostring(y2)
+    local hash = tostring(x1) .. "," .. tostring(y1) .. "," .. tostring(x2) .. "," .. tostring(y2)
+    _hash_to_segment[hash] = points
+    return hash
 end
 
 local _unhash = function(hash)
-    return hash:match("([^,]+),([^,]+),([^,]+),([^,]+)")
+    return table.unpack(_hash_to_segment[hash])
 end
 
 --- @brief
 function ow.BloodSplatter:create_contour()
+    _hash_to_segment = {}
+
     local tris = ow.Hitbox:get_all_tris()
     local segments = {}
     for tri in values(tris) do
