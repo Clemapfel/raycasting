@@ -350,7 +350,7 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     self.mesh_prototype = {}
     self.mesh_triangles = {}
 
-    local polygonized = rt.math.triangulate(to_polygonize)
+    local polygonized = rt.math.triangulate(_process_polygon(to_polygonize, self))
 
     for tri in values(polygonized) do
         for i = 1, #tri, 2 do
