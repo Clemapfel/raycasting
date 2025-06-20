@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 705,
+  nextobjectid = 711,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 546.97,
-          y = 137.924,
+          x = 1899.51,
+          y = 19.909,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4073,6 +4073,127 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 705,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1968,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 32, y = 80 },
+            { x = 96, y = 16 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 706,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1645.22,
+          y = -19.2485,
+          width = 0,
+          height = 0,
+          rotation = 327.865,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 32, y = 80 },
+            { x = 96, y = 16 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 707,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1731.09,
+          y = -123.361,
+          width = 0,
+          height = 0,
+          rotation = 45.587,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 32, y = 80 },
+            { x = 96, y = 16 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 708,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1752.82,
+          y = 58.8662,
+          width = 0,
+          height = 0,
+          rotation = 14.6684,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 32, y = 80 },
+            { x = 96, y = 16 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 709,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1870.88,
+          y = 54.3793,
+          width = 0,
+          height = 0,
+          rotation = 14.6684,
+          visible = true,
+          polygon = {
+            { x = 3.52147, y = 9.02309 },
+            { x = -5.86497, y = 99.6108 },
+            { x = 128.875, y = 34.3106 },
+            { x = 112.181, y = -18.135 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 710,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 2007.4,
+          y = -24.2971,
+          width = 0,
+          height = 0,
+          rotation = 14.6684,
+          visible = true,
+          polygon = {
+            { x = 85.7862, y = 12.6055 },
+            { x = -221.603, y = 207.509 },
+            { x = 127.568, y = 43.0246 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
         }
       }
     }
