@@ -68,6 +68,8 @@ function ow.Mirror:draw()
     _shader:send("player_color", player_color)
     _shader:send("player_position", player_position)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("camera_offset", { camera:get_offset() })
+    _shader:send("camera_scale", camera:get_final_scale())
 
     for image in values(self._mirror_images) do
         local flip_x, flip_y

@@ -12,7 +12,7 @@ float gaussian(float x, float sigma)
 // Alternative falloff functions for different visual effects
 float exponential_falloff(float x, float decay)
 {
-    return exp(-decay * pow(x, 1.2));
+    return exp(-decay * pow(x, 1.8));
 }
 
 // Returns the perpendicular distance from point pt to the infinite line through line.xy and line.zw
@@ -32,6 +32,54 @@ float distance_to_line(vec2 pt, vec4 line)
     return cross / ab_len;
 }
 
+vec2 closest_point_on_line(vec2 pt, vec4 line)
+{
+    vec2 a = line.xy;
+    vec2 b = line.zw;
+    vec2 ab = b - a;
+    float ab_len2 = dot(ab, ab);
+    if (ab_len2 < 1e-8) {
+        // Degenerate line: return the only point available
+        return a;
+    }
+    float t = dot(pt - a, ab) / ab_len2;
+    return a + t * ab;
+}
+
+// Reflect a point across a line defined by two points
+vec2 reflect_point_across_line(vec2 point, vec4 line)
+{
+    vec2 a = line.xy;
+    vec2 b = line.zw;
+    vec2 line_dir = normalize(b - a);
+    vec2 line_normal = vec2(-line_dir.y, line_dir.x);
+
+    // Vector from line point to the point we want to reflect
+    vec2 to_point = point - a;
+
+    // Project onto the normal to get the perpendicular distance
+    float dist_along_normal = dot(to_point, line_normal);
+
+    // Reflect by moving twice the distance in the opposite direction
+    vec2 reflected = point - 2.0 * dist_along_normal * line_normal;
+
+    return reflected;
+}
+
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
+
 uniform vec4 axis_of_reflection;
 uniform float radius;
 uniform vec2 player_position;
@@ -41,14 +89,32 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords)
 {
     vec4 texel = texture(img, texture_coords);
 
-    const float mirror_range = 50.0;
-    float dist = distance_to_line(screen_coords, axis_of_reflection);
+    vec2 pxy = to_uv(player_position);
+    vec2 uv = to_uv(screen_coords);
 
-    float normalized_dist = dist / mirror_range;
-    float falloff = exponential_falloff(normalized_dist, 2);
+    vec4 axis = vec4(to_uv(axis_of_reflection.xy), to_uv(axis_of_reflection.zw));
 
-    falloff = clamp(falloff, 0.0, 1.0);
-    return texel * falloff;
+    // mirror falloff
+    const float mirror_range = 10.0;
+    float dist_to_mirror = distance_to_line(uv, axis);
+    float normalized_dist = dist_to_mirror * mirror_range;
+    float mirror_falloff = exponential_falloff(normalized_dist, 3.5);
+    mirror_falloff = clamp(mirror_falloff, 0.0, 1.0);
+
+    // player glow
+    vec2 reflected_player_pos = to_uv(reflect_point_across_line(player_position, axis_of_reflection));
+    float glow = mirror_falloff * gaussian(distance(uv, reflected_player_pos), 1. / 50);
+
+    // diffuse reflection
+    vec2 diffuse_center = closest_point_on_line(reflected_player_pos, axis);
+    float diffuse = gaussian(distance(uv, diffuse_center), 1. / 40) * gaussian(normalized_dist, 1 / 5.);
+    float diffuse_weight = gaussian(distance(pxy, diffuse_center), 1. / 20);
+    diffuse *= diffuse_weight;
+
+    const float glow_intensity = 0.3;
+    const float mirror_opacity = 1;
+    const float diffuse_inensity = 0.6;
+    return vec4(mirror_opacity * texel * mirror_falloff + glow * player_color * glow_intensity + diffuse * player_color * diffuse_inensity);
 }
 
 #endif
