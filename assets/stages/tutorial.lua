@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 711,
+  nextobjectid = 712,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1899.51,
-          y = 19.909,
+          x = 1861.33,
+          y = 24.5371,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4193,6 +4193,21 @@ return {
           },
           properties = {
             ["slippery"] = true
+          }
+        },
+        {
+          id = 711,
+          name = "",
+          type = "NPC",
+          shape = "point",
+          x = 1515.68,
+          y = 111.073,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["dialog_id"] = "debug"
           }
         }
       }

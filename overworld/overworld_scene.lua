@@ -74,6 +74,8 @@ function ow.OverworldScene:instantiate(state)
 
         _pause_menu = mn.PauseMenu(self),
         _pause_menu_active = false,
+
+        _player_canvas = nil
     })
 
     self._input:signal_connect("pressed", function(_, which)
@@ -241,6 +243,12 @@ function ow.OverworldScene:instantiate(state)
     self._background:realize()
     self._results_screen:realize()
     self._pause_menu:realize()
+
+    self._player_canvas_scale = 2
+    local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 2
+    self._player_canvas_scale = rt.settings.player_body.canvas_scale
+    self._player_canvas = rt.RenderTexture(2 * radius * self._player_canvas_scale, 2 * radius * self._player_canvas_scale)
+    self._player_canvas_needs_update = true
 end
 
 local _blocked = 0
@@ -411,6 +419,9 @@ function ow.OverworldScene:draw()
     if _blocked > 0 then return end
     if self._stage == nil then return end
 
+    love.graphics.push()
+    love.graphics.origin()
+
     --self._post_fx:bind()
     self._background:draw()
     --love.graphics.clear(0.5, 0.5, 0.5, 1)
@@ -420,6 +431,8 @@ function ow.OverworldScene:draw()
     self._stage:draw_above_player()
     self._player:draw_core()
     self._camera:unbind()
+
+    love.graphics.pop()
 
     if not self._pause_menu_active and self._cursor_visible and self._cursor_active then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
@@ -527,6 +540,26 @@ function ow.OverworldScene:update(delta)
     self._background:_notify_camera_changed(self._camera)
     self._background:update(delta)
     self._results_screen:update(delta)
+
+    -- player canvas
+    do
+        love.graphics.push()
+        love.graphics.origin()
+        local x, y = self._player:get_position()
+        local w, h = self._player_canvas:get_size()
+
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(self._player_canvas_scale, self._player_canvas_scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
+
+        love.graphics.translate(-x + 0.5 * w, -y + 0.5 * h)
+        self._player_canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        self._player:draw_body()
+        self._player:draw_core()
+        self._player_canvas:unbind()
+        love.graphics.pop()
+    end
 
     -- mouse-based scrolling
     if self._cursor_visible == true then
@@ -702,4 +735,23 @@ function ow.OverworldScene:unpause()
     self._pause_menu_active = false
     self._pause_menu:close()
     self._player:enable()
+end
+
+--- @brief
+function ow.OverworldScene:draw_player_mirror(x, y, angle, flip_x, flip_y)
+    if flip_x == true then flip_x = -1 else flip_x = 1 end
+    if flip_y == true then flip_y = -1 else flip_y = 1 end
+
+    local w, h = self._player_canvas:get_size()
+    love.graphics.setColor(1, 1, 1, 1)
+
+    love.graphics.push()
+    love.graphics.draw(
+        self._player_canvas:get_native(),
+        x, y, angle,
+        flip_x / self._player_canvas_scale,
+        flip_y / self._player_canvas_scale,
+        0.5 * w, 0.5 * h
+    )
+    love.graphics.pop()
 end

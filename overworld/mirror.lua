@@ -19,21 +19,37 @@ end
 
 --- @brief
 function ow.Mirror:draw()
-    love.graphics.setLineWidth(2)
-
-    love.graphics.setColor(1, 1, 1, 1)
-
-    for edge in values(self._edges) do
-        local data = edge:getUserData()
-        --love.graphics.line(table.unpack(data))
-    end
-
-
     if self._visible ~= nil then
+        love.graphics.setLineWidth(2)
+        love.graphics.setColor(1, 1, 1, 1)
         for segment in values(self._visible) do
             love.graphics.line(segment)
         end
     end
+
+    local stencil_value = 255
+    love.graphics.setStencilState("replace", "always", stencil_value)
+    love.graphics.setColorMask(false)
+
+    -- mask
+    ow.Hitbox:draw_mask(false)
+
+    love.graphics.setStencilState("keep", "equal", stencil_value)
+    love.graphics.setColorMask(true)
+
+    for image in values(self._mirror_images) do
+        love.graphics.circle("fill", image.x, image.y, 2)
+
+        self._scene:draw_player_mirror(
+            image.x,
+            image.y,
+            image.angle,
+            image.flip_x,
+            image.flip_y
+        )
+    end
+
+    love.graphics.setStencilMode(nil)
 end
 
 
@@ -287,6 +303,47 @@ function _get_visible_subsegments(segments, px, py)
     return visible_segments
 end
 
+local function _reflect(px, py, angle, x1, y1, x2, y2)
+    -- Direction vector of the segment
+    local dx, dy = x2 - x1, y2 - y1
+    local seg_len2 = dx * dx + dy * dy
+
+    local t = ((px - x1) * dx + (py - y1) * dy) / seg_len2
+    if t < 0 or t > 1 then return nil end -- reject early
+
+    local closestX = x1 + t * dx
+    local closestY = y1 + t * dy
+
+    local distance = math.distance(closestX, closestY, px, py)
+
+    -- Normal vector (perpendicular to the segment)
+    local seg_len = math.sqrt(seg_len2)
+    local ndx, ndy = dx / seg_len, dy / seg_len
+    local nx, ny = -ndy, ndx -- normal (right-hand, y-down)
+
+    -- Vector from closest point to original point
+    local vx, vy = px - closestX, py - closestY
+    local dist = vx * nx + vy * ny
+
+    -- Reflected position: move twice the distance along the normal
+    local rx = px - 2 * dist * nx
+    local ry = py - 2 * dist * ny
+
+    -- Segment angle
+    local line_angle = math.atan2(dy, dx)
+
+    -- Reflect the angle: theta' = 2*line_angle - theta
+    local reflected_angle = 2 * line_angle - angle
+
+    -- For Love2D, flip_x should always be true for a mirror reflection
+    -- flip_y is false unless you want to mirror vertically as well
+    local flip_x = false
+    local flip_y = true
+
+    return rx, ry, reflected_angle, flip_x, flip_y, distance
+end
+
+
 --- @brief
 function ow.Mirror:update(delta)
     local x, y, w, h = self._scene:get_camera():get_world_bounds()
@@ -301,6 +358,23 @@ function ow.Mirror:update(delta)
 
     local px, py = self._scene:get_player():get_position()
     self._visible = _get_visible_subsegments(segments, px, py)
+
+    self._mirror_images = {}
+    for segment in values(self._visible) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+
+        local rx, ry, angle, flip_x, flip_y, distance = _reflect(px, py, 0, x1, y1, x2, y2)
+
+        if rx ~= nil then
+            table.insert(self._mirror_images, {
+                x = rx,
+                y = ry,
+                angle = angle,
+                flip_x = flip_x,
+                flip_y = flip_y
+            })
+        end
+    end
 end
 
 --- @brief

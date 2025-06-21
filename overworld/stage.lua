@@ -214,7 +214,6 @@ function ow.Stage:draw_below_player()
         object:draw()
     end
 
-    self._mirror:draw()
     self._blood_splatter:draw()
 end
 
@@ -223,6 +222,8 @@ function ow.Stage:draw_above_player()
     for object in values(self._above_player) do
         object:draw()
     end
+
+    self._mirror:draw()
 end
 
 --- @brief

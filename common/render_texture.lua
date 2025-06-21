@@ -33,7 +33,7 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute)
         _height = height,
         _is_valid = true
     })
-    self:set_scale_mode(rt.TextureScaleMode.NEAREST)
+    self:set_scale_mode(rt.TextureScaleMode.LINEAR)
     self:set_wrap_mode(rt.TextureWrapMode.CLAMP)
 end
 

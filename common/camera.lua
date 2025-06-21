@@ -62,7 +62,6 @@ local _floor = math.floor --function(x) return x end
 function rt.Camera:bind()
     local w, h = love.graphics.getDimensions()
     love.graphics.push()
-    love.graphics.origin()
 
     local origin_x, origin_y = _floor(0.5 * w), _floor(0.5 * h)
     love.graphics.translate(origin_x, origin_y)

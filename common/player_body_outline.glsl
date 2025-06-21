@@ -45,7 +45,7 @@ mat3 sobel_y = mat3(
 
 vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
 
-    vec2 pixel_size = 1 / love_ScreenSize.xy;
+    vec2 pixel_size = vec2(1 / 400.0);
     float gradient_x = 0.0;
     float gradient_y = 0.0;
     float threshold = 0.6; // Metaball threshold

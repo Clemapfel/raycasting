@@ -12,7 +12,7 @@ rt.settings.player_body = {
     bubble_scale_offset = 10,
     non_bubble_scale_offset = 6,
 
-    canvas_padding = 100,
+    canvas_padding = 50,
     canvas_scale = 3,
 
     highlight_brightness = 0.2,
@@ -472,6 +472,90 @@ function rt.PlayerBody:update(delta)
             player_y = self._player_y
         })
     end
+
+    -- update canvases
+    do
+        love.graphics.push()
+        love.graphics.origin()
+
+        local w, h = self._outline_canvas:get_size()
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(self._canvas_scale, self._canvas_scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
+        love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
+
+        self._outline_canvas:bind()
+        love.graphics.clear()
+
+        -- stencil bordering geometry
+        local stencil_value = rt.graphics.get_stencil_value()
+        rt.graphics.stencil(stencil_value, function()
+            for body in values(self._stencil_bodies) do
+                body:draw()
+            end
+        end)
+        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+
+        -- draw rope nodes
+        rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+
+        if self._is_bubble then
+            love.graphics.setColor(1, 1, 1, 1)
+        else
+            love.graphics.setColor(1, 1, 1, _settings.node_mesh_alpha)
+        end
+
+        local rope_i, n_ropes = 0, self._n_ropes
+        local texture = self._node_mesh_texture:get_native()
+        local tw, th = self._node_mesh_texture:get_size()
+        for rope in values(self._ropes) do
+            for i = 1, #rope.current_positions, 2 do
+                local scale = math.min(rope.scale + _settings.non_bubble_scale_offset / self._player:get_radius(), 1)
+                local x, y = rope.last_positions[i+0], rope.last_positions[i+1]
+                love.graphics.draw(texture, x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
+            end
+        end
+
+        rt.graphics.set_blend_mode(nil)
+
+        if not self._is_bubble then
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.polygon("fill", self._positions)
+        end
+
+        self._outline_canvas:unbind()
+        rt.graphics.set_stencil_compare_mode(nil)
+        love.graphics.pop()
+    end
+
+    do
+        -- core canvas for shader inlay
+        self._core_canvas:bind()
+        love.graphics.clear()
+
+        love.graphics.push()
+        love.graphics.origin()
+
+        local w, h = self._core_canvas:get_size()
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(self._canvas_scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
+        love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
+
+        love.graphics.setColor(1, 1, 1, self._a)
+        _core_shader:bind()
+        _core_shader:send("hue", self._player:get_hue())
+        _core_shader:send("elapsed", self._shader_elapsed)
+        if self._is_bubble then
+            love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.player.radius)
+        else
+            love.graphics.polygon("fill", self._positions)
+        end
+        _core_shader:unbind()
+
+        love.graphics.pop()
+        self._core_canvas:unbind()
+    end
 end
 
 
@@ -480,70 +564,20 @@ local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
 --- @brief
 function rt.PlayerBody:draw_body()
     if self._is_initialized ~= true then return end
-
-    love.graphics.push()
-    love.graphics.origin()
-
     local w, h = self._outline_canvas:get_size()
-    love.graphics.translate(0.5 * w, 0.5 * h)
-    love.graphics.scale(self._canvas_scale, self._canvas_scale)
-    love.graphics.translate(-0.5 * w, -0.5 * h)
-    love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
-
-    self._outline_canvas:bind()
-    love.graphics.clear()
-
-    -- stencil bordering geometry
-    local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.stencil(stencil_value, function()
-        for body in values(self._stencil_bodies) do
-            body:draw()
-        end
-    end)
-    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
-
-    -- draw rope nodes
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
-
-    if self._is_bubble then
-        love.graphics.setColor(1, 1, 1, 1)
-    else
-        love.graphics.setColor(1, 1, 1, _settings.node_mesh_alpha)
-    end
-
-    local rope_i, n_ropes = 0, self._n_ropes
-    local texture = self._node_mesh_texture:get_native()
-    local tw, th = self._node_mesh_texture:get_size()
-    for rope in values(self._ropes) do
-        for i = 1, #rope.current_positions, 2 do
-            local scale = math.min(rope.scale + _settings.non_bubble_scale_offset / self._player:get_radius(), 1)
-            local x, y = rope.last_positions[i+0], rope.last_positions[i+1]
-            love.graphics.draw(texture, x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
-        end
-    end
-
-    rt.graphics.set_blend_mode(nil)
-
-    if not self._is_bubble then
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.polygon("fill", self._positions)
-    end
-
-    self._outline_canvas:unbind()
-    rt.graphics.set_stencil_compare_mode(nil)
-    love.graphics.pop()
-
-    -- black fill
-    love.graphics.setColor(_black_r, _black_g, _black_b, self._a)
-    _fill_shader:bind()
-    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
-    _fill_shader:unbind()
 
     -- outlines
     _outline_shader:bind()
-    love.graphics.setColor(self._r, self._g,self._b, self._a)
+    love.graphics.setColor(self._r, self._g, self._b, self._a)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _outline_shader:unbind()
+
+
+    -- black fill
+    _fill_shader:bind()
+    love.graphics.setColor(_black_r, _black_g, _black_b, self._a)
+    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+    _fill_shader:unbind()
 end
 
 --- @brief
@@ -553,33 +587,7 @@ function rt.PlayerBody:draw_core()
     local outline_width = _settings.outline_width
     local outside_scale = 1 + outline_width / self._player:get_radius()
     local inside_scale = 1
-
-    -- core canvas for shader inlay
-    self._core_canvas:bind()
-    love.graphics.clear()
-
-    love.graphics.push()
-    love.graphics.origin()
-
     local w, h = self._core_canvas:get_size()
-    love.graphics.translate(0.5 * w, 0.5 * h)
-    love.graphics.scale(inside_scale * self._canvas_scale)
-    love.graphics.translate(-0.5 * w, -0.5 * h)
-    love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
-
-    love.graphics.setColor(1, 1, 1, self._a)
-    _core_shader:bind()
-    _core_shader:send("hue", self._player:get_hue())
-    _core_shader:send("elapsed", self._shader_elapsed)
-    if self._is_bubble then
-        love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.player.radius)
-    else
-        love.graphics.polygon("fill", self._positions)
-    end
-    _core_shader:unbind()
-
-    love.graphics.pop()
-    self._core_canvas:unbind()
 
     if self._is_bubble then
         local stencil_value = rt.graphics.get_stencil_value()
