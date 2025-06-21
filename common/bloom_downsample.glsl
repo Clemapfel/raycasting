@@ -1,4 +1,4 @@
-uniform vec2 image_size;
+uniform vec2 texel_size;
 uniform float bloom_strength;
 
 const float kernel[9] = float[](
@@ -14,12 +14,9 @@ const vec2 offsets[9] = vec2[](
 );
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
-    vec2 texel_size = 1.0 / image_size;
     vec4 color = vec4(0.0);
-    for (int i = 0; i < 9; ++i) {
-        vec2 offset = offsets[i] * texel_size;
-        color += Texel(image, texture_coords + offset) * kernel[i];
-    }
+    for (int i = 0; i < 9; ++i)
+        color += Texel(image, texture_coords + offsets[i] * texel_size) * kernel[i];
 
     return color * bloom_strength;
 }
