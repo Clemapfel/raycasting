@@ -1,0 +1,26 @@
+uniform vec2 image_size;
+uniform float bloom_strength;
+
+vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
+    // Gaussian weights for 3x3 kernel (sum to 1.0)
+    const float kernel[9] = float[](
+        1.0/16.0, 2.0/16.0, 1.0/16.0,
+        2.0/16.0, 4.0/16.0, 2.0/16.0,
+        1.0/16.0, 2.0/16.0, 1.0/16.0
+    );
+
+    const vec2 offsets[9] = vec2[](
+        vec2(-1, -1), vec2(0, -1), vec2(1, -1),
+        vec2(-1,  0), vec2(0,  0), vec2(1,  0),
+        vec2(-1,  1), vec2(0,  1), vec2(1,  1)
+    );
+
+    vec2 texel_size = 1.0 / image_size;
+    vec4 color = vec4(0.0);
+    for (int i = 0; i < 9; ++i) {
+        vec2 offset = offsets[i] * texel_size;
+        color += Texel(image, texture_coords + offset) * kernel[i];
+    }
+
+    return color * bloom_strength;
+}

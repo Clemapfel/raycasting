@@ -8,7 +8,7 @@ require "overworld.coin_effect"
 require "overworld.results_screen"
 require "physics.physics"
 require "menu.pause_menu"
-require "common.blur"
+require "common.bloom"
 
 rt.settings.overworld.overworld_scene = {
     camera_translation_velocity = 400, -- px / s,
@@ -17,9 +17,6 @@ rt.settings.overworld.overworld_scene = {
     camera_pan_width_factor = 0.15,
     camera_freeze_duration = 1,
     results_screen_fraction = 0.5,
-
-    bloom_strength = 0.2,
-    blur_strength = 4
 }
 
 --- @class
@@ -30,7 +27,7 @@ ow.CameraMode = meta.enum("CameraMode", {
     MANUAL = "MANUAL"
 })
 
-local _blur_shader = nil
+local _bloom_shader = nil
 
 --- @brief
 function ow.OverworldScene:instantiate(state)
@@ -79,7 +76,7 @@ function ow.OverworldScene:instantiate(state)
         _pause_menu = mn.PauseMenu(self),
         _pause_menu_active = false,
 
-        _blur = nil, -- rt.Blur
+        _bloom = nil, -- rt.Blur
 
         _player_canvas = nil
     })
@@ -101,9 +98,9 @@ function ow.OverworldScene:instantiate(state)
             self:unpause()
         elseif which == "h" then
         elseif which == "j" then
-            self._blur:set_blur_strength(self._blur:get_blur_strength() - 1)
+            self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
         elseif which == "k" then
-            self._blur:set_blur_strength(self._blur:get_blur_strength() + 1)
+            self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() + 1 / 10)
         end
     end)
 
@@ -296,8 +293,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     local r, g, b, a = 1, 1, 1, 0.2
     self._camera_pan_area_width = gradient_w
 
-    self._blur = rt.Blur(width, height)
-    self._blur:set_blur_strength(rt.settings.overworld.overworld_scene.blur_strength)
+    self._bloom = rt.Bloom(width, height)
 
     self._pan_gradient_top = rt.Mesh({
         { x, y,                       0, 0, r, g, b, a },
@@ -424,13 +420,13 @@ function ow.OverworldScene:draw()
 
     -- bloom
     love.graphics.push()
-    self._blur:bind()
+    self._bloom:bind()
     love.graphics.clear(0, 0, 0, 0)
     self._camera:bind()
     self._player:draw_core()
     self._stage:draw_bloom_mask()
     self._camera:unbind()
-    self._blur:unbind()
+    self._bloom:unbind()
     love.graphics.pop()
 
     love.graphics.push()
@@ -446,9 +442,8 @@ function ow.OverworldScene:draw()
 
     love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.origin()
-    local bloom_strength = rt.settings.overworld.overworld_scene.bloom_strength
-    love.graphics.setColor(bloom_strength, bloom_strength, bloom_strength, bloom_strength)
-    self._blur:draw()
+    love.graphics.setColor(1, 1, 1, 1)
+    self._bloom:draw()
     love.graphics.setBlendMode("alpha")
 
     love.graphics.pop()
