@@ -19,5 +19,5 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     for (int i = 0; i < 9; ++i)
         upsampled += Texel(image, texture_coords + offsets[i] * texel_size) * kernel[i];
 
-    return upsampled * bloom_strength;
+    return Texel(current_mip, texture_coords) + upsampled * bloom_strength;
 }
