@@ -1,12 +1,14 @@
 require "common.contour"
 local slick = require "dependencies.slick.slick"
 
-rt.settings.overworld.blood_splatter = {
-    sensor_radius = 5
+rt.settings.overworld.mirror = {
+    fade_radius = 30
 }
 
 -- @class ow.Mirror
 ow.Mirror = meta.class("Mirror")
+
+local _shader
 
 --- @brief
 function ow.Mirror:instantiate(scene)
@@ -15,6 +17,15 @@ function ow.Mirror:instantiate(scene)
         _edges = {},
         _world = nil
     })
+
+    if _shader == nil then _shader = rt.Shader("overworld/mirror.glsl") end
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "p" then
+            _shader:recompile()
+        end
+    end)
 end
 
 --- @brief
@@ -43,17 +54,40 @@ function ow.Mirror:draw()
     love.graphics.setStencilState("keep", "equal", stencil_value)
     love.graphics.setColorMask(true)
 
-    for image in values(self._mirror_images) do
-        love.graphics.circle("fill", image.x, image.y, 2)
+    -- draw canvases
+    local canvas, scale_x, scale_y = self._scene:get_player_canvas()
+    local canvas_w, canvas_h = canvas:get_size()
 
-        self._scene:draw_player_mirror(
-            image.x,
-            image.y,
-            image.angle,
-            image.flip_x,
-            image.flip_y
+    local camera = self._scene:get_camera()
+
+    local player = self._scene:get_player()
+    local player_position = { self._scene:get_camera():world_xy_to_screen_xy(player:get_position()) }
+    local player_color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
+
+    _shader:bind()
+    _shader:send("player_color", player_color)
+    _shader:send("player_position", player_position)
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+
+    for image in values(self._mirror_images) do
+        local flip_x, flip_y
+        if image.flip_x == true then flip_x = -1 else flip_x = 1 end
+        if image.flip_y == true then flip_y = -1 else flip_y = 1 end
+
+        local lx1, ly1 = camera:world_xy_to_screen_xy(image.segment[1], image.segment[2])
+        local lx2, ly2 = camera:world_xy_to_screen_xy(image.segment[3], image.segment[4])
+
+        _shader:send("axis_of_reflection", { lx1, ly1, lx2, ly2 })
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(
+            canvas:get_native(),
+            image.x, image.y, image.angle,
+            flip_x / scale_x,
+            flip_y / scale_y,
+            0.5 * canvas_w, 0.5 * canvas_h
         )
     end
+    _shader:unbind()
 
     love.graphics.setStencilMode(nil)
 end
@@ -321,9 +355,9 @@ function ow.Mirror:update(delta)
         local x1, y1, x2, y2 = table.unpack(segment)
 
         local rx, ry, angle, flip_x, flip_y, distance = _reflect(px, py, 0, x1, y1, x2, y2)
-
         if rx ~= nil then
             table.insert(self._mirror_images, {
+                segment = segment,
                 x = rx,
                 y = ry,
                 angle = angle,

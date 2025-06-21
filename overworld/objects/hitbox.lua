@@ -174,7 +174,7 @@ function ow.Hitbox:draw_all()
 
     local slippery, sticky
     if _slippery_mesh ~= nil then
-        slippery = {_slippery_mesh, _slippery_lines, _sticky_shader, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
+        slippery = {_slippery_mesh, _slippery_lines, nil, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
     end
 
     if _sticky_mesh ~= nil then
@@ -199,7 +199,6 @@ function ow.Hitbox:draw_all()
                 shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_physics_body():get_position()) })
                 shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
                 shader:send("player_flow", player:get_flow())
-
             end
         end
 

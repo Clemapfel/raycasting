@@ -738,20 +738,6 @@ function ow.OverworldScene:unpause()
 end
 
 --- @brief
-function ow.OverworldScene:draw_player_mirror(x, y, angle, flip_x, flip_y)
-    if flip_x == true then flip_x = -1 else flip_x = 1 end
-    if flip_y == true then flip_y = -1 else flip_y = 1 end
-
-    local w, h = self._player_canvas:get_size()
-    love.graphics.setColor(1, 1, 1, 1)
-
-    love.graphics.push()
-    love.graphics.draw(
-        self._player_canvas:get_native(),
-        x, y, angle,
-        flip_x / self._player_canvas_scale,
-        flip_y / self._player_canvas_scale,
-        0.5 * w, 0.5 * h
-    )
-    love.graphics.pop()
+function ow.OverworldScene:get_player_canvas()
+    return self._player_canvas, self._player_canvas_scale, self._player_canvas_scale
 end

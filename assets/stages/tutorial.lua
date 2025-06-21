@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 713,
+  nextobjectid = 714,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4208,6 +4208,27 @@ return {
             { x = 9.69126, y = 5.99935 }
           },
           properties = {}
+        },
+        {
+          id = 713,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1840,
+          y = -80,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 80, y = 0 },
+            { x = 80, y = -80 },
+            { x = 0, y = -80 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
         }
       }
     }
