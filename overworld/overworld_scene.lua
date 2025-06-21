@@ -442,7 +442,8 @@ function ow.OverworldScene:draw()
 
     love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.origin()
-    love.graphics.setColor(1, 1, 1, 1)
+    local v = self._bloom:get_bloom_strength()
+    love.graphics.setColor(v, v, v, v)
     self._bloom:draw()
     love.graphics.setBlendMode("alpha")
 

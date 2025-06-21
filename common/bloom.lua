@@ -50,7 +50,6 @@ end
 function rt.Bloom:set_bloom_strength(strength)
     self._bloom_strength = math.clamp(strength, 0, 1)
     self._update_needed = true
-    dbg(strength)
 end
 
 --- @brief
@@ -72,9 +71,8 @@ function rt.Bloom:_apply_bloom()
         local mesh = self._meshes[level]
 
         _downsample_shader:bind()
-        local w, h = source:get_width(), source:get_height()
-        _downsample_shader:send("texel_size", {1 / w, 1 / h})
-        _upsample_shader:send("bloom_strength", self._bloom_strength or 1.0)
+        _downsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
+        _downsample_shader:send("bloom_strength", self._bloom_strength)
 
         destination:bind()
         lg.clear(0, 0, 0, 0)
@@ -94,8 +92,8 @@ function rt.Bloom:_apply_bloom()
         _upsample_shader:bind()
 
         local w, h = destination:get_width(), destination:get_height()
-        _upsample_shader:send("texel_size", { source:get_width(), source:get_height()})
-        _upsample_shader:send("bloom_strength", self._bloom_strength or 1.0)
+        _upsample_shader:send("texel_size", { 1 / source:get_width(), 1 / source:get_height()})
+        _upsample_shader:send("bloom_strength", self._bloom_strength)
         _upsample_shader:send("current_mip", destination:get_native())
 
         destination:bind()
