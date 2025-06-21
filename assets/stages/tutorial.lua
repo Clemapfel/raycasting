@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 712,
+  nextobjectid = 713,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4155,27 +4155,6 @@ return {
           }
         },
         {
-          id = 709,
-          name = "",
-          type = "Hitbox",
-          shape = "polygon",
-          x = 1870.88,
-          y = 54.3793,
-          width = 0,
-          height = 0,
-          rotation = 14.6684,
-          visible = true,
-          polygon = {
-            { x = 3.52147, y = 9.02309 },
-            { x = -5.86497, y = 99.6108 },
-            { x = 128.875, y = 34.3106 },
-            { x = 112.181, y = -18.135 }
-          },
-          properties = {
-            ["slippery"] = true
-          }
-        },
-        {
           id = 710,
           name = "",
           type = "Hitbox",
@@ -4188,8 +4167,9 @@ return {
           visible = true,
           polygon = {
             { x = 85.7862, y = 12.6055 },
-            { x = -221.603, y = 207.509 },
-            { x = 127.568, y = 43.0246 }
+            { x = -135.265, y = 160.104 },
+            { x = -17.5477, y = 128.418 },
+            { x = 101.048, y = 43.765 }
           },
           properties = {
             ["slippery"] = true
@@ -4209,6 +4189,25 @@ return {
           properties = {
             ["dialog_id"] = "debug"
           }
+        },
+        {
+          id = 712,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 1792.42,
+          y = -64.6084,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -31.3812, y = 49.3793 },
+            { x = -22.6129, y = 53.5327 },
+            { x = 9.69126, y = 5.99935 }
+          },
+          properties = {}
         }
       }
     }

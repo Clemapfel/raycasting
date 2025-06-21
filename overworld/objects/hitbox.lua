@@ -174,7 +174,7 @@ function ow.Hitbox:draw_all()
 
     local slippery, sticky
     if _slippery_mesh ~= nil then
-        slippery = {_slippery_mesh, _slippery_lines, nil, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
+        slippery = {_slippery_mesh, _slippery_lines, _sticky_shader, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
     end
 
     if _sticky_mesh ~= nil then

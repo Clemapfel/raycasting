@@ -27,12 +27,18 @@ function ow.Mirror:draw()
         end
     end
 
-    local stencil_value = 255
+    local stencil_value = 253
     love.graphics.setStencilState("replace", "always", stencil_value)
     love.graphics.setColorMask(false)
 
-    -- mask
+    -- only draw where slippery is
     ow.Hitbox:draw_mask(false)
+
+    love.graphics.setStencilState("replace", "always", 0)
+    love.graphics.setColorMask(false)
+
+    -- exclude sticky
+    ow.Hitbox:draw_mask(true)
 
     love.graphics.setStencilState("keep", "equal", stencil_value)
     love.graphics.setColorMask(true)
@@ -80,222 +86,166 @@ end
 
 --- @brief
 function ow.Mirror:create_contour()
-    _hash_to_segment = {}
-    local tris = ow.Hitbox:get_slippery_tris()
+    local mirror_segments, occluding_segments = {}, {}
 
-    local segments = {}
-    for tri in values(tris) do
-        for segment in range(
-            {tri[1], tri[2], tri[3], tri[4]},
-            {tri[3], tri[4], tri[5], tri[6]},
-            {tri[1], tri[2], tri[5], tri[6]}
-        ) do
-            table.insert(segments, segment)
-        end
-    end
+    for segments_tris in range(
+        { mirror_segments, ow.Hitbox:get_slippery_tris() },
+        { occluding_segments, ow.Hitbox:get_sticky_tris() }
+    ) do
+        _hash_to_segment = {}
 
-    local tuples = {}
-    local n_total = 0
-    for segment in values(segments) do
-        local hash = _hash(segment)
-        local current = tuples[hash]
-        if current == nil then
-            tuples[hash] = 1
-        else
-            tuples[hash] = current + 1
+        local segments, tris = table.unpack(segments_tris)
+        for tri in values(tris) do
+            for segment in range(
+                {tri[1], tri[2], tri[3], tri[4]},
+                {tri[3], tri[4], tri[5], tri[6]},
+                {tri[1], tri[2], tri[5], tri[6]}
+            ) do
+                table.insert(segments, segment)
+            end
         end
-        n_total = n_total + 1
+
+        local tuples = {}
+        local n_total = 0
+        for segment in values(segments) do
+            local hash = _hash(segment)
+            local current = tuples[hash]
+            if current == nil then
+                tuples[hash] = 1
+            else
+                tuples[hash] = current + 1
+            end
+            n_total = n_total + 1
+        end
+
+        for hash, count in pairs(tuples) do
+            if count == 1 then
+                table.insert(segments, { _unhash(hash) })
+            end
+        end
     end
 
     self._world = love.physics.newWorld(0, 0)
     self._edges = {}
-    self._segments = {}
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
 
-    for hash, count in pairs(tuples) do
-        if count == 1 then
-            local x1, y1, x2, y2 = _unhash(hash)
-            local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
-            local segment = { x1, y1, x2, y2 }
-            edge:setUserData(segment)
+    for segment in values(mirror_segments) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+        local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
+        edge:setUserData({
+            is_mirror = true,
+            segment = segment
+        })
 
-            table.insert(self._edges, edge)
-            table.insert(self._segments, segment)
-        end
+        table.insert(self._edges, edge)
+    end
+
+    for segment in values(occluding_segments) do
+        local x1, y1, x2, y2 = table.unpack(segment)
+        local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
+        edge:setUserData({
+            is_mirror = false,
+            segment = segment
+        })
+
+        table.insert(self._edges, edge)
     end
 end
 
 local eps = 1
 
-function _get_visible_subsegments(segments, px, py)
+-- Returns all visible subsegments of non-occluding segments, even if partially occluded by occluding segments.
+function _get_visible_subsegments(segments, px, py, occluding_segments)
     local visible_segments = {}
 
-    -- Helper function to check if two line segments intersect and return intersection point
+    -- Helper: intersection between two segments, returns (bool, ix, iy, t1, t2)
     local function segments_intersect_with_point(seg1, seg2)
         local x1, y1, x2, y2 = seg1[1], seg1[2], seg1[3], seg1[4]
         local x3, y3, x4, y4 = seg2[1], seg2[2], seg2[3], seg2[4]
-
         local denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-        if math.abs(denom) < eps then
-            return false, nil, nil -- Lines are parallel
-        end
-
+        if math.abs(denom) < 1e-8 then return false end
         local t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
         local u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
-
         if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
             local ix = x1 + t * (x2 - x1)
             local iy = y1 + t * (y2 - y1)
-            return true, ix, iy
+            return true, ix, iy, t, u
         end
-
-        return false, nil, nil
+        return false
     end
 
-    -- Helper function to get distance between two points
+    -- Helper: distance
     local function distance(x1, y1, x2, y2)
-        return math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+        return math.sqrt((x2 - x1)^2 + (y2 - y1)^2)
     end
 
-    -- Helper function to check if point is on line segment
-    local function point_on_segment(px, py, seg)
-        local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
-
-        -- Check if point is collinear with segment
-        local cross_product = (py - y1) * (x2 - x1) - (px - x1) * (y2 - y1)
-        if math.abs(cross_product) > eps then
-            return false
-        end
-
-        -- Check if point is within segment bounds
-        local dot_product = (px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)
-        local squared_length = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
-
-        return dot_product >= 0 and dot_product <= squared_length
-    end
-
-    -- Helper function to parametrize a point on a segment (0 = start, 1 = end)
-    local function parametrize_point_on_segment(px, py, seg)
-        local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
-        local dx, dy = x2 - x1, y2 - y1
-        local length_squared = dx * dx + dy * dy
-
-        if length_squared == 0 then
-            return 0
-        end
-
-        return ((px - x1) * dx + (py - y1) * dy) / length_squared
-    end
-
-    -- Helper function to get point at parameter t on segment
+    -- Helper: point at t on segment
     local function point_at_parameter(seg, t)
         local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
         return x1 + t * (x2 - x1), y1 + t * (y2 - y1)
     end
 
-    -- Process each segment to find visible subsegments
-    for i, current_segment in ipairs(segments) do
-        local x1, y1, x2, y2 = current_segment[1], current_segment[2], current_segment[3], current_segment[4]
+    -- For each segment, split it at all intersections with other segments and occluders
+    for i, seg in ipairs(segments) do
+        local split_points = { {t=0}, {t=1} }
 
-        -- Collect all intersection points along this segment from blocking segments
-        local intersections = {}
-
-        -- Add segment endpoints
-        table.insert(intersections, {t = 0, x = x1, y = y1, is_endpoint = true})
-        table.insert(intersections, {t = 1, x = x2, y = y2, is_endpoint = true})
-
-        -- Find intersections with rays from observer to segment points
-        for j, blocking_segment in ipairs(segments) do
+        -- Intersections with other segments (not itself)
+        for j, other in ipairs(segments) do
             if i ~= j then
-                -- Check intersection with ray to start point
-                local ray_to_start = {px, py, x1, y1}
-                local intersects, ix, iy = segments_intersect_with_point(ray_to_start, blocking_segment)
-                if intersects then
-                    local dist_to_intersection = distance(px, py, ix, iy)
-                    local dist_to_segment_start = distance(px, py, x1, y1)
-
-                    -- Only consider if blocking segment is closer
-                    if dist_to_intersection < dist_to_segment_start then
-                        if point_on_segment(ix, iy, current_segment) then
-                            local t = parametrize_point_on_segment(ix, iy, current_segment)
-                            table.insert(intersections, {t = t, x = ix, y = iy, is_blocking = true})
-                        end
-                    end
+                local ok, _, _, t, _ = segments_intersect_with_point(seg, other)
+                if ok and t > 1e-8 and t < 1-1e-8 then
+                    table.insert(split_points, {t=t})
                 end
-
-                -- Check intersection with ray to end point
-                local ray_to_end = {px, py, x2, y2}
-                intersects, ix, iy = segments_intersect_with_point(ray_to_end, blocking_segment)
-                if intersects then
-                    local dist_to_intersection = distance(px, py, ix, iy)
-                    local dist_to_segment_end = distance(px, py, x2, y2)
-
-                    -- Only consider if blocking segment is closer
-                    if dist_to_intersection < dist_to_segment_end then
-                        if point_on_segment(ix, iy, current_segment) then
-                            local t = parametrize_point_on_segment(ix, iy, current_segment)
-                            table.insert(intersections, {t = t, x = ix, y = iy, is_blocking = true})
-                        end
-                    end
-                end
-
-                -- Also check if the blocking segment itself intersects the current segment
-                intersects, ix, iy = segments_intersect_with_point(current_segment, blocking_segment)
-                if intersects then
-                    local t = parametrize_point_on_segment(ix, iy, current_segment)
-                    table.insert(intersections, {t = t, x = ix, y = iy, is_intersection = true})
+            end
+        end
+        -- Intersections with occluding segments
+        if occluding_segments then
+            for _, occ in ipairs(occluding_segments) do
+                local ok, _, _, t, _ = segments_intersect_with_point(seg, occ)
+                if ok and t > 1e-8 and t < 1-1e-8 then
+                    table.insert(split_points, {t=t})
                 end
             end
         end
 
-        -- Sort intersections by parameter t
-        table.sort(intersections, function(a, b) return a.t < b.t end)
+        -- Sort split points by t
+        table.sort(split_points, function(a, b) return a.t < b.t end)
 
-        -- Remove duplicates (points very close to each other)
-        local filtered_intersections = {}
-        for k, intersection in ipairs(intersections) do
-            local is_duplicate = false
-            for l, existing in ipairs(filtered_intersections) do
-                if math.abs(intersection.t - existing.t) < 1e-6 then
-                    is_duplicate = true
-                    break
-                end
-            end
-            if not is_duplicate then
-                table.insert(filtered_intersections, intersection)
-            end
-        end
-
-        -- Create subsegments between consecutive intersection points
-        for k = 1, #filtered_intersections - 1 do
-            local start_point = filtered_intersections[k]
-            local end_point = filtered_intersections[k + 1]
-
-            -- Get midpoint of this subsegment to test visibility
-            local mid_t = (start_point.t + end_point.t) / 2
-            local mid_x, mid_y = point_at_parameter(current_segment, mid_t)
-
-            -- Check if this subsegment is visible
-            local is_visible = true
-            local ray_to_mid = {px, py, mid_x, mid_y}
-            local dist_to_mid = distance(px, py, mid_x, mid_y)
-
-            for j, blocking_segment in ipairs(segments) do
-                if i ~= j then
-                    local intersects, ix, iy = segments_intersect_with_point(ray_to_mid, blocking_segment)
-                    if intersects then
-                        local dist_to_intersection = distance(px, py, ix, iy)
-                        if dist_to_intersection < dist_to_mid - 1e-6 then -- Small epsilon for floating point comparison
-                            is_visible = false
+        -- For each subsegment, check if visible (not occluded)
+        for k = 1, #split_points-1 do
+            local t1 = split_points[k].t
+            local t2 = split_points[k+1].t
+            if t2 - t1 > 1e-8 then
+                local x1, y1 = point_at_parameter(seg, t1)
+                local x2, y2 = point_at_parameter(seg, t2)
+                -- Test midpoint for visibility
+                local mx, my = (x1 + x2)/2, (y1 + y2)/2
+                local ray = {px, py, mx, my}
+                local dist_to_mid = distance(px, py, mx, my)
+                local blocked = false
+                -- Check occlusion by any segment (except itself)
+                for j, other in ipairs(segments) do
+                    if i ~= j then
+                        local ok, ix, iy = segments_intersect_with_point(ray, other)
+                        if ok and distance(px, py, ix, iy) < dist_to_mid - 1e-6 then
+                            blocked = true
                             break
                         end
                     end
                 end
-            end
-
-            -- If visible, add this subsegment
-            if is_visible and distance(start_point.x, start_point.y, end_point.x, end_point.y) > 1e-6 then
-                table.insert(visible_segments, {start_point.x, start_point.y, end_point.x, end_point.y})
+                -- Check occlusion by occluding segments
+                if not blocked and occluding_segments then
+                    for _, occ in ipairs(occluding_segments) do
+                        local ok, ix, iy = segments_intersect_with_point(ray, occ)
+                        if ok and distance(px, py, ix, iy) < dist_to_mid - 1e-6 then
+                            blocked = true
+                            break
+                        end
+                    end
+                end
+                if not blocked then
+                    table.insert(visible_segments, {x1, y1, x2, y2})
+                end
             end
         end
     end
@@ -348,16 +298,23 @@ end
 function ow.Mirror:update(delta)
     local x, y, w, h = self._scene:get_camera():get_world_bounds()
 
-    local segments = {}
+    local mirror_segments = {}
+    local occluding_segments = {}
 
     self._world:update(delta)
     self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
-        table.insert(segments, shape:getUserData())
+        local data = shape:getUserData()
+        if data.is_mirror == true then
+            table.insert(mirror_segments, data.segment)
+        else
+            table.insert(occluding_segments, data.segment)
+        end
+
         return true
     end)
 
     local px, py = self._scene:get_player():get_position()
-    self._visible = _get_visible_subsegments(segments, px, py)
+    self._visible = _get_visible_subsegments(mirror_segments, px, py, occluding_segments)
 
     self._mirror_images = {}
     for segment in values(self._visible) do
