@@ -55,6 +55,7 @@ function ow.Stage:instantiate(scene, id)
         -- drawables
         _below_player = meta.make_weak({}),
         _above_player = meta.make_weak({}),
+        _bloom_objects = meta.make_weak({}),
         _masks = meta.make_weak({}),
 
         -- updatables
@@ -123,6 +124,10 @@ function ow.Stage:instantiate(scene, id)
                     end
                     table.insert(priority_entry, object)
                     render_priorities[priority] = true
+                end
+
+                if object.get_should_bloom ~= nil and object:get_should_bloom() == true then
+                    table.insert(self._bloom_objects, object)
                 end
 
                 if object.draw_mask ~= nil then
@@ -231,6 +236,16 @@ function ow.Stage:draw_mask()
     for object in values(self._masks) do
         object:draw_mask()
     end
+end
+
+--- @brief
+function ow.Stage:draw_bloom_mask()
+    for object in values(self._bloom_objects) do
+        object:draw()
+    end
+
+    self._blood_splatter:draw()
+    self._mirror:draw()
 end
 
 --- @brief

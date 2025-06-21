@@ -111,9 +111,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords)
     float diffuse_weight = gaussian(distance(pxy, diffuse_center), 1. / 20);
     diffuse *= diffuse_weight;
 
-    const float glow_intensity = 0.3;
-    const float mirror_opacity = 1;
-    const float diffuse_inensity = 0.6;
+    const float glow_intensity = 0.2;
+    const float mirror_opacity = 0.25;
+    const float diffuse_inensity = 0.5;
     return vec4(mirror_opacity * texel * mirror_falloff + glow * player_color * glow_intensity + diffuse * player_color * diffuse_inensity);
 }
 

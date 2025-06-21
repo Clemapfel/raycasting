@@ -112,7 +112,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     #if MODE == MODE_DRAW_OUTLINE
         // outline uses sdf font texture
         float dist = texture(img, texture_coords).a;
-        float outline = smoothstep(0.0, 0.02, pow(dist, 5));
+        float outline = smoothstep(0.0, 0.01, pow(dist, 5));
         return outline * outline_color * opacity;
 
     #elif MODE == MODE_DRAW_TEXT

@@ -8,6 +8,7 @@ require "overworld.coin_effect"
 require "overworld.results_screen"
 require "physics.physics"
 require "menu.pause_menu"
+require "common.blur"
 
 rt.settings.overworld.overworld_scene = {
     camera_translation_velocity = 400, -- px / s,
@@ -16,6 +17,9 @@ rt.settings.overworld.overworld_scene = {
     camera_pan_width_factor = 0.15,
     camera_freeze_duration = 1,
     results_screen_fraction = 0.5,
+
+    bloom_strength = 0.2,
+    blur_strength = 4
 }
 
 --- @class
@@ -26,8 +30,11 @@ ow.CameraMode = meta.enum("CameraMode", {
     MANUAL = "MANUAL"
 })
 
+local _blur_shader = nil
+
 --- @brief
 function ow.OverworldScene:instantiate(state)
+
     ow.Stage._config_atlas = {}
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
@@ -69,11 +76,10 @@ function ow.OverworldScene:instantiate(state)
         _visible_bodies = {}, -- Set<b2.Body>
         _background = rt.Background("grid"),
 
-        _results_screen = ow.ResultsScreen(),
-        _post_fx = ow.CoinEffect(self),
-
         _pause_menu = mn.PauseMenu(self),
         _pause_menu_active = false,
+
+        _blur = nil, -- rt.Blur
 
         _player_canvas = nil
     })
@@ -94,11 +100,10 @@ function ow.OverworldScene:instantiate(state)
             self:reload()
             self:unpause()
         elseif which == "h" then
-            if not self._results_screen:get_is_active() then
-                self._results_screen:present(0, 0)
-            else
-                self._results_screen:close()
-            end
+        elseif which == "j" then
+            self._blur:set_blur_strength(self._blur:get_blur_strength() - 1)
+        elseif which == "k" then
+            self._blur:set_blur_strength(self._blur:get_blur_strength() + 1)
         end
     end)
 
@@ -241,7 +246,6 @@ function ow.OverworldScene:instantiate(state)
     end)
 
     self._background:realize()
-    self._results_screen:realize()
     self._pause_menu:realize()
 
     self._player_canvas_scale = 2
@@ -292,6 +296,9 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     local r, g, b, a = 1, 1, 1, 0.2
     self._camera_pan_area_width = gradient_w
 
+    self._blur = rt.Blur(width, height)
+    self._blur:set_blur_strength(rt.settings.overworld.overworld_scene.blur_strength)
+
     self._pan_gradient_top = rt.Mesh({
         { x, y,                       0, 0, r, g, b, a },
         { x + width, y,               0, 0, r, g, b, a },
@@ -321,11 +328,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     })
 
     self._background:reformat(0, 0, width, height)
-    self._post_fx:reformat(0, 0, width, height)
     self._pause_menu:reformat(0, 0, width, height)
-
-    local results_screen_fraction = rt.settings.overworld.overworld_scene.results_screen_fraction
-    self._results_screen:reformat((1 - results_screen_fraction) * width, 0, results_screen_fraction * width, height)
 end
 
 --- @brief
@@ -419,18 +422,34 @@ function ow.OverworldScene:draw()
     if _blocked > 0 then return end
     if self._stage == nil then return end
 
+    -- bloom
+    love.graphics.push()
+    self._blur:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    self._camera:bind()
+    self._player:draw_core()
+    self._stage:draw_bloom_mask()
+    self._camera:unbind()
+    self._blur:unbind()
+    love.graphics.pop()
+
     love.graphics.push()
     love.graphics.origin()
 
-    --self._post_fx:bind()
     self._background:draw()
-    --love.graphics.clear(0.5, 0.5, 0.5, 1)
     self._camera:bind()
     self._stage:draw_below_player()
     self._player:draw_body()
     self._stage:draw_above_player()
     self._player:draw_core()
     self._camera:unbind()
+
+    love.graphics.setBlendMode("add", "premultiplied")
+    love.graphics.origin()
+    local bloom_strength = rt.settings.overworld.overworld_scene.bloom_strength
+    love.graphics.setColor(bloom_strength, bloom_strength, bloom_strength, bloom_strength)
+    self._blur:draw()
+    love.graphics.setBlendMode("alpha")
 
     love.graphics.pop()
 
@@ -534,12 +553,11 @@ function ow.OverworldScene:update(delta)
 
     local x, y = self._camera:world_xy_to_screen_xy(self._player:get_physics_body():get_predicted_position())
     self._player:update(delta)
-    self._stage:update(delta)
     self._camera:update(delta)
+    self._stage:update(delta)
     self._background:update_player_position(x, y, self._player:get_flow())
     self._background:_notify_camera_changed(self._camera)
     self._background:update(delta)
-    self._results_screen:update(delta)
 
     -- player canvas
     do

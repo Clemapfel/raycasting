@@ -29,6 +29,11 @@ love.load = function(args)
     --rt.SceneManager:push(ow.StageTitleCardScene, "tutorial")
 end
 
+require "common.label"
+local label = rt.Label("<wave><rainbow><b><o>LÖVE</o></b></rainbow></wave>", rt.FontSize.GIGANTIC)
+label:realize()
+label:reformat(50, 50, math.huge)
+
 love.update = function(delta)
     rt.SceneManager:update(delta)
 end

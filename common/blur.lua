@@ -36,7 +36,7 @@ local lg = love.graphics
 --- @brief
 function rt.Blur:bind()
     _before = love.graphics.getCanvas()
-    lg.setCanvas(self._texture_a)
+    lg.setCanvas({ self._texture_a, stencil = true })
     self._blur_applied = false
 end
 
@@ -66,12 +66,17 @@ function rt.Blur:set_blur_strength(strength)
 end
 
 --- @brief
+function rt.Blur:get_blur_strength(strength)
+    return self._blur_strength
+end
+
+--- @brief
 function rt.Blur:_apply_blur()
     if self._blur_strength > 0 then
         lg.push()
         lg.origin()
 
-        lg.setCanvas(self._texture_b)
+        lg.setCanvas({ self._texture_b, stencil = true })
         lg.origin()
         lg.clear(0, 0, 0, 0)
         lg.setCanvas(nil)
@@ -110,6 +115,7 @@ end
 --- @brief
 function rt.Blur:draw(...)
     local before = lg.getShader()
+
     if self._blur_applied == false then
         self:_apply_blur()
         self._blur_applied = true
@@ -117,5 +123,15 @@ function rt.Blur:draw(...)
 
     lg.setShader(before)
     lg.draw(self._texture_a, ...)
+end
+
+--- @brief
+function rt.Blur:get_texture()
+    if self._blur_applied == false then
+        self:_apply_blur()
+        self._blur_applied = true
+    end
+
+    return self._texture_a
 end
 

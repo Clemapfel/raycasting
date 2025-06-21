@@ -2,7 +2,7 @@ require "common.contour"
 local slick = require "dependencies.slick.slick"
 
 rt.settings.overworld.mirror = {
-    fade_radius = 30
+    distance_threshold = math.huge
 }
 
 -- @class ow.Mirror
@@ -34,7 +34,7 @@ function ow.Mirror:draw()
         love.graphics.setLineWidth(2)
         love.graphics.setColor(1, 1, 1, 1)
         for segment in values(self._visible) do
-            love.graphics.line(segment)
+            --love.graphics.line(segment)
         end
     end
 
@@ -301,6 +301,7 @@ local function _reflect(px, py, angle, x1, y1, x2, y2)
     local closestY = y1 + t * dy
 
     local distance = math.distance(closestX, closestY, px, py)
+    if distance > rt.settings.overworld.mirror.distance_threshold then return nil end
 
     -- Normal vector (perpendicular to the segment)
     local seg_len = math.sqrt(seg_len2)
@@ -349,7 +350,7 @@ function ow.Mirror:update(delta)
         return true
     end)
 
-    local px, py = self._scene:get_player():get_position()
+    local px, py = self._scene:get_player():get_physics_body():get_position()
     self._visible = _get_visible_subsegments(mirror_segments, px, py, occluding_segments)
 
     self._mirror_images = {}
