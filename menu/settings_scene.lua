@@ -12,6 +12,7 @@ rt.settings.settings_scene = {
     fullscreen_default = true,
     vsync_default = rt.VSyncMode.ADAPTIVE,
     msaa_default = rt.MSAAQuality.BEST,
+    bloom_default = true,
     shake_default = true,
     music_level_default = 1,
     sound_effect_level_default = 1,
@@ -210,6 +211,33 @@ function mn.SettingsScene:instantiate()
         )
         item:signal_connect("reset", function(_)
             msaa_button:set_option(msaa_to_label[rt.settings.settings_scene.msaa_default])
+        end)
+    end
+
+    do -- bloom
+        local bloom_to_label = {
+            [true] = translation.bloom_on,
+            [false] = translation.bloom_off
+        }
+        local label_to_bloom = reverse(bloom_to_label)
+
+        local bloom_button = mn.OptionButton({
+            bloom_to_label[false],
+            bloom_to_label[true],
+        })
+
+        bloom_button:set_option(bloom_to_label[rt.GameState:get_is_bloom_enabled()])
+        bloom_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_bloom_enabled(label_to_bloom[label])
+        end)
+
+        local item = add_item(
+            translation.bloom_prefix, bloom_button,
+            mn.VerboseInfoObject.BLOOM
+        )
+
+        item:signal_connect("reset", function(_)
+            bloom_button:set_option(bloom_to_label[rt.settings.settings_scene.bloom_default])
         end)
     end
 

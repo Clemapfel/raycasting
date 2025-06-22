@@ -157,6 +157,9 @@ rt.Translation = rt.initialize_translation({
         msaa_title = "MSAA",
         msaa_description = "TODO",
 
+        bloom_title = "Bloom",
+        bloom_description = "TODO",
+
         sound_effect_level_title = "Sound Effects",
         sound_effect_level_description = "TODO",
 
@@ -232,6 +235,10 @@ rt.Translation = rt.initialize_translation({
         msaa_better = "4x",
         msaa_best = "8x",
         msaa_max = "16x",
+
+        bloom_prefix = "Bloom",
+        bloom_on = "On",
+        bloom_off = "Off",
 
         shake_prefix = "Screen Shake",
         shake_on = "On",

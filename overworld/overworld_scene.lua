@@ -18,8 +18,8 @@ rt.settings.overworld.overworld_scene = {
     camera_freeze_duration = 1,
     results_screen_fraction = 0.5,
 
-    bloom_blur_strength = 1, -- > 0
-    bloom_composite_strength = 0.3, -- [0, 1]
+    bloom_blur_strength = 2, -- > 0
+    bloom_composite_strength = 0.1, -- [0, 1]
 }
 
 --- @class
@@ -102,8 +102,10 @@ function ow.OverworldScene:instantiate(state)
         elseif which == "h" then
         elseif which == "j" then
             self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
+            rt.settings.overworld.overworld_scene.bloom_composite_strength = rt.settings.overworld.overworld_scene.bloom_composite_strength - 0.05
         elseif which == "k" then
             self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() + 1 / 10)
+            rt.settings.overworld.overworld_scene.bloom_composite_strength =  rt.settings.overworld.overworld_scene.bloom_composite_strength + 0.05
         end
     end)
 
@@ -296,8 +298,9 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     local r, g, b, a = 1, 1, 1, 0.2
     self._camera_pan_area_width = gradient_w
 
-    self._bloom = rt.Bloom(width, height, 0, rt.TextureFormat.RG11B10F)
-    self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
+    if rt.GameState:get_is_bloom_enabled() then
+        self._bloom = rt.Bloom(width, height, 0, rt.TextureFormat.RG11B10F)
+    end
 
     self._pan_gradient_top = rt.Mesh({
         { x, y,                       0, 0, r, g, b, a },
@@ -423,7 +426,12 @@ function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
     -- bloom
-    if rt.GameState:get_is_performance_mode_enabled() ~= true then
+    if rt.GameState:get_is_bloom_enabled() == true then
+        if self._bloom == nil then
+            local _, _, width, height = self:get_bounds():unpack()
+            self._bloom = rt.Bloom(width, height, 0, rt.TextureFormat.RG11B10F)
+        end
+
         love.graphics.push()
         self._bloom:bind()
         love.graphics.clear(0, 0, 0, 0)
@@ -446,7 +454,7 @@ function ow.OverworldScene:draw()
     self._player:draw_core()
     self._camera:unbind()
 
-    if rt.GameState:get_is_performance_mode_enabled() ~= true then
+    if rt.GameState:get_is_bloom_enabled() == true then
         love.graphics.setBlendMode("add", "premultiplied")
         love.graphics.origin()
         local v = rt.settings.overworld.overworld_scene.bloom_composite_strength

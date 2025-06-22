@@ -35,7 +35,8 @@ function rt.GameState:instantiate()
         is_fullscreen = mode.is_fullscreen,
         vsync = mode.vsync,
         msaa = mode.msaa,
-        screen_shake_enabled = true,
+        is_bloom_enabled = true,
+        is_screen_shake_enabled = true,
         resolution_x = width,
         resolution_y = height,
         sound_effect_level = 1.0,
@@ -93,6 +94,17 @@ end
 function rt.GameState:get_msaa_quality()
     local _, _, mode = love.window.getMode()
     return mode.msaa
+end
+
+--- @brief
+function rt.GameState:get_is_bloom_enabled()
+    return self._state.is_bloom_enabled
+end
+
+--- @brief
+function rt.GameState:set_is_bloom_enabled(b)
+    meta.assert(b, "Boolean")
+    self._state.is_bloom_enabled = b
 end
 
 --- @brief
@@ -164,12 +176,12 @@ end
 
 --- @brief
 function rt.GameState:set_is_screen_shake_enabled(b)
-    self._state.screen_shake_enabled = b
+    self._state.is_screen_shake_enabled = b
 end
 
 --- @brief
 function rt.GameState:get_is_screen_shake_enabled()
-    return self._state.screen_shake_enabled
+    return self._state.is_screen_shake_enabled
 end
 
 --- @brief
