@@ -167,7 +167,6 @@ function ow.BubbleField:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(3)
     love.graphics.setLineJoin("none")
-    love.graphics.line(self._contour)
 
     local camera_offset = { self._scene:get_camera():get_offset() }
     local camera_scale = self._scene:get_camera():get_scale()
@@ -291,3 +290,27 @@ function ow.BubbleField:update(delta)
     end
 end
 
+--- @brief
+function ow.BubbleField:get_should_bloom()
+    return true
+end
+
+--- @brief
+function ow.BubbleField:draw_bloom()
+    if not self._scene:get_is_body_visible(self._body) then return end
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setLineWidth(3)
+    love.graphics.setLineJoin("none")
+
+    love.graphics.setColor(1, 1, 1, rt.settings.overworld.bubble_field.opacity * 0.5)
+    _base_shader:bind()
+    love.graphics.draw(self._shape_mesh:get_native())
+    _base_shader:unbind()
+
+    love.graphics.setColor(1, 1, 1, 0.5)
+    love.graphics.setLineWidth(3)
+    love.graphics.setLineJoin("none")
+    _outline_shader:bind()
+    love.graphics.line(self._contour)
+    _outline_shader:unbind()
+end

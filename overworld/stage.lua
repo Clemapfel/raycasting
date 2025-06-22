@@ -241,7 +241,11 @@ end
 --- @brief
 function ow.Stage:draw_bloom_mask()
     for object in values(self._bloom_objects) do
-        object:draw()
+        if object.draw_bloom ~= nil then
+            object:draw_bloom()
+        else
+            object:draw()
+        end
     end
 
     self._blood_splatter:draw()

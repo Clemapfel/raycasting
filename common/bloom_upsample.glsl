@@ -15,9 +15,12 @@ const vec2 offsets[9] = vec2[](
 );
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
-    vec4 upsampled = vec4(0.0);
-    for (int i = 0; i < 9; ++i)
-        upsampled += Texel(image, texture_coords + offsets[i] * texel_size) * kernel[i];
+    vec2 uv = texture_coords;
 
-    return Texel(current_mip, texture_coords) + upsampled * bloom_strength;
+    vec4 upsampled = vec4(0.0);
+    for (int i = 0; i < 9; ++i) {
+        upsampled += Texel(image, uv + offsets[i] * texel_size) * kernel[i];
+    }
+
+    return Texel(current_mip, uv) + upsampled * bloom_strength;
 }

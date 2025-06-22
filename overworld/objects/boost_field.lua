@@ -1,6 +1,7 @@
 rt.settings.overworld.boost_field = {
     acceleration_duration = 0.2, -- seconds to accelerate player from 0 to max
-    max_velocity = 1500
+    max_velocity = 1500,
+    bloom = 0.4
 }
 
 --- @class ow.BoostField
@@ -203,4 +204,19 @@ function ow.BoostField.draw_all()
     end
 
     rt.graphics.set_stencil_compare_mode(nil)
+end
+
+--- @brief
+function ow.BoostField:get_should_bloom()
+    return true
+end
+
+--- @brief
+function ow.BoostField:draw_bloom()
+    if self._scene:get_is_body_visible(self._body) then
+        local r, g, b, a = table.unpack(self._color)
+        local bloom = rt.settings.overworld.boost_field.bloom
+        love.graphics.setColor(bloom * r, bloom * g, bloom * b, bloom * a)
+        love.graphics.draw(self._mesh:get_native())
+    end
 end

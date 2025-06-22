@@ -9,17 +9,18 @@ function rt.Bloom:instantiate(width, height, ...)
     if _upsample_shader == nil then _upsample_shader = rt.Shader("common/bloom_upsample.glsl") end
 
     self._bloom_strength = 1
+
     self._textures = {}
     self._meshes = {}
     do -- init textures
         local w, h = width, height
         local level = 1
-        local max_levels = 6
-        while (w > 1 or h > 1) and level <= max_levels do
+        while (w > 8 or h > 8) do
             local mesh = rt.MeshRectangle(0, 0, w, h)
             local texture = rt.RenderTexture(w, h, ...)
             mesh:set_texture(texture)
             texture:set_wrap_mode(rt.TextureWrapMode.CLAMP)
+            texture:set_scale_mode(rt.TextureScaleMode.NEAREST, rt.TextureScaleMode.LINEAR)
             table.insert(self._textures, texture)
             table.insert(self._meshes, mesh)
 
@@ -48,7 +49,7 @@ end
 
 --- @brief
 function rt.Bloom:set_bloom_strength(strength)
-    self._bloom_strength = math.clamp(strength, 0, 1)
+    self._bloom_strength = math.max(strength, 0)
     self._update_needed = true
 end
 
@@ -59,20 +60,19 @@ end
 
 function rt.Bloom:_apply_bloom()
     local lg = love.graphics
-    local num_levels = #self._textures
+    local n_levels = #self._textures
 
     lg.push()
     lg.origin()
 
     -- downsample
-    for level = 2, num_levels do
+    for level = 2, n_levels do
         local source = self._textures[level - 1]
         local destination = self._textures[level]
         local mesh = self._meshes[level]
 
         _downsample_shader:bind()
         _downsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
-        _downsample_shader:send("bloom_strength", self._bloom_strength)
 
         destination:bind()
         lg.clear(0, 0, 0, 0)
@@ -84,15 +84,14 @@ function rt.Bloom:_apply_bloom()
     end
 
     -- upsample
-    for level = num_levels, 2, -1 do
+    for level = n_levels, 2, -1 do
         local source = self._textures[level]
         local destination = self._textures[level - 1]
         local mesh = self._meshes[level - 1]
 
         _upsample_shader:bind()
 
-        local w, h = destination:get_width(), destination:get_height()
-        _upsample_shader:send("texel_size", { 1 / source:get_width(), 1 / source:get_height()})
+        _upsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
         _upsample_shader:send("bloom_strength", self._bloom_strength)
         _upsample_shader:send("current_mip", destination:get_native())
 
@@ -116,8 +115,11 @@ end
 
 --- @brief
 function rt.Bloom:draw(...)
+    local r, g, b, a = love.graphics.getColor()
     if self._update_needed then
         self:_apply_bloom()
     end
-    self._textures[1]:draw()
+
+    love.graphics.setColor(r, g, b, a)
+    love.graphics.draw(self._textures[1]:get_native(), ...)
 end

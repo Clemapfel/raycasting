@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 715,
+  nextobjectid = 716,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1861.33,
-          y = 24.5371,
+          x = 1108,
+          y = -510.722,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3944,19 +3944,6 @@ return {
           properties = {}
         },
         {
-          id = 670,
-          name = "",
-          type = "Hook",
-          shape = "point",
-          x = 739.829,
-          y = 160.872,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 693,
           name = "",
           type = "MovingHitbox",
@@ -4180,8 +4167,8 @@ return {
           name = "",
           type = "NPC",
           shape = "point",
-          x = 1515.68,
-          y = 111.073,
+          x = 1201.32,
+          y = -483.66,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4245,6 +4232,27 @@ return {
             { x = 0, y = 0 },
             { x = 32, y = 80 },
             { x = 96, y = 16 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
+        },
+        {
+          id = 715,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 704,
+          y = 256,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 32 },
+            { x = 80, y = 32 },
+            { x = 80, y = 0 }
           },
           properties = {
             ["slippery"] = true

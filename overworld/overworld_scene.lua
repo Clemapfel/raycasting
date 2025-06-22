@@ -17,6 +17,9 @@ rt.settings.overworld.overworld_scene = {
     camera_pan_width_factor = 0.15,
     camera_freeze_duration = 1,
     results_screen_fraction = 0.5,
+
+    bloom_blur_strength = 1, -- > 0
+    bloom_composite_strength = 0.3, -- [0, 1]
 }
 
 --- @class
@@ -293,7 +296,8 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     local r, g, b, a = 1, 1, 1, 0.2
     self._camera_pan_area_width = gradient_w
 
-    self._bloom = rt.Bloom(width, height)
+    self._bloom = rt.Bloom(width, height, 0, rt.TextureFormat.RG11B10F)
+    self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
 
     self._pan_gradient_top = rt.Mesh({
         { x, y,                       0, 0, r, g, b, a },
@@ -419,15 +423,17 @@ function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
     -- bloom
-    love.graphics.push()
-    self._bloom:bind()
-    love.graphics.clear(0, 0, 0, 0)
-    self._camera:bind()
-    self._player:draw_core()
-    self._stage:draw_bloom_mask()
-    self._camera:unbind()
-    self._bloom:unbind()
-    love.graphics.pop()
+    if rt.GameState:get_is_performance_mode_enabled() ~= true then
+        love.graphics.push()
+        self._bloom:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        self._camera:bind()
+        self._player:draw_core()
+        self._stage:draw_bloom_mask()
+        self._camera:unbind()
+        self._bloom:unbind()
+        love.graphics.pop()
+    end
 
     love.graphics.push()
     love.graphics.origin()
@@ -440,12 +446,14 @@ function ow.OverworldScene:draw()
     self._player:draw_core()
     self._camera:unbind()
 
-    love.graphics.setBlendMode("add", "premultiplied")
-    love.graphics.origin()
-    local v = self._bloom:get_bloom_strength()
-    love.graphics.setColor(v, v, v, v)
-    self._bloom:draw()
-    love.graphics.setBlendMode("alpha")
+    if rt.GameState:get_is_performance_mode_enabled() ~= true then
+        love.graphics.setBlendMode("add", "premultiplied")
+        love.graphics.origin()
+        local v = rt.settings.overworld.overworld_scene.bloom_composite_strength
+        love.graphics.setColor(v, v, v, v)
+        self._bloom:draw()
+        love.graphics.setBlendMode("alpha")
+    end
 
     love.graphics.pop()
 
@@ -735,7 +743,6 @@ end
 function ow.OverworldScene:get_is_cursor_visible()
     return (self._cursor_visible and self._cursor_active)
 end
-
 
 --- @brief
 function ow.OverworldScene:pause()

@@ -182,7 +182,6 @@ function ow.DoubleJumpTether:draw()
     end
 end
 
-
 --- @brief
 function ow.DoubleJumpTether:get_should_bloom()
     return true

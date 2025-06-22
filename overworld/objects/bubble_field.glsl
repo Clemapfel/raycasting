@@ -135,10 +135,10 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
 
     #if MODE == MODE_BASE
     const float hue_offset = 0.1;
-    return vec4(lch_to_rgb(vec3(0.8, 1, fract(mix(hue - hue_offset, hue + hue_offset, (noise + 1) / 2)))), 0.4 * (noise + 1) / 2);
+    return color * vec4(lch_to_rgb(vec3(0.8, 1, fract(mix(hue - hue_offset, hue + hue_offset, (noise + 1) / 2)))), 0.4 * (noise + 1) / 2);
     #elif MODE == MODE_OUTLINE
     const float hue_offset = 0.4;
-    return vec4(lch_to_rgb(vec3(0.8, 1, fract(mix(hue - hue_offset, hue + hue_offset, (noise + 1) / 2)))), 1);
+    return color * vec4(lch_to_rgb(vec3(0.8, 1, fract(mix(hue - hue_offset, hue + hue_offset, (noise + 1) / 2)))), 1);
     #endif
 }
 
