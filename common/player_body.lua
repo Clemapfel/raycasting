@@ -472,8 +472,15 @@ function rt.PlayerBody:update(delta)
             player_y = self._player_y
         })
     end
+end
 
-    -- update canvases
+
+local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
+
+--- @brief
+function rt.PlayerBody:draw_body()
+    if self._is_initialized ~= true then return end
+
     do
         love.graphics.push()
         love.graphics.origin()
@@ -528,6 +535,26 @@ function rt.PlayerBody:update(delta)
         love.graphics.pop()
     end
 
+    local w, h = self._outline_canvas:get_size()
+
+    -- outlines
+    _outline_shader:bind()
+    love.graphics.setColor(self._r, self._g, self._b, self._a)
+    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+    _outline_shader:unbind()
+
+
+    -- black fill
+    _fill_shader:bind()
+    love.graphics.setColor(_black_r, _black_g, _black_b, self._a)
+    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
+    _fill_shader:unbind()
+end
+
+--- @brief
+function rt.PlayerBody:draw_core()
+    if self._is_initialized ~= true then return end
+
     do
         -- core canvas for shader inlay
         self._core_canvas:bind()
@@ -556,33 +583,6 @@ function rt.PlayerBody:update(delta)
         love.graphics.pop()
         self._core_canvas:unbind()
     end
-end
-
-
-local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
-
---- @brief
-function rt.PlayerBody:draw_body()
-    if self._is_initialized ~= true then return end
-    local w, h = self._outline_canvas:get_size()
-
-    -- outlines
-    _outline_shader:bind()
-    love.graphics.setColor(self._r, self._g, self._b, self._a)
-    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
-    _outline_shader:unbind()
-
-
-    -- black fill
-    _fill_shader:bind()
-    love.graphics.setColor(_black_r, _black_g, _black_b, self._a)
-    love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
-    _fill_shader:unbind()
-end
-
---- @brief
-function rt.PlayerBody:draw_core()
-    if self._is_initialized ~= true then return end
 
     local outline_width = _settings.outline_width
     local outside_scale = 1 + outline_width / self._player:get_radius()

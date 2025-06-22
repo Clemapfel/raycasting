@@ -1,14 +1,29 @@
+rt.settings.bloom = {
+    n_preprocessing_passes = 0,
+    default_blur_strength = 1
+}
+
 --- @class rt.Bloom
 rt.Bloom = meta.class("Bloom")
 
-local _downsample_shader, _upsample_shader
+local _downsample_shader, _upsample_shader, _tonemap_shader
+local _blur_shader_horizontal, _blur_shader_vertical
 
 --- @brief
 function rt.Bloom:instantiate(width, height, ...)
     if _downsample_shader == nil then _downsample_shader = rt.Shader("common/bloom_downsample.glsl") end
     if _upsample_shader == nil then _upsample_shader = rt.Shader("common/bloom_upsample.glsl") end
+    if _tonemap_shader == nil then _tonemap_shader = rt.Shader("common/bloom_tone_map.glsl") end
 
-    self._bloom_strength = 1
+    if _blur_shader_horizontal == nil then
+        _blur_shader_horizontal = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 1 })
+    end
+
+    if _blur_shader_vertical == nil then
+        _blur_shader_vertical = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 0 })
+    end
+
+    self._bloom_strength = rt.settings.bloom.default_blur_strength
 
     self._textures = {}
     self._meshes = {}
@@ -20,13 +35,18 @@ function rt.Bloom:instantiate(width, height, ...)
             local texture = rt.RenderTexture(w, h, ...)
             mesh:set_texture(texture)
             texture:set_wrap_mode(rt.TextureWrapMode.CLAMP)
-            texture:set_scale_mode(rt.TextureScaleMode.NEAREST, rt.TextureScaleMode.LINEAR)
+            texture:set_scale_mode(rt.TextureScaleMode.LINEAR, rt.TextureScaleMode.LINEAR)
             table.insert(self._textures, texture)
             table.insert(self._meshes, mesh)
 
             level = level + 1
             w = math.max(1, math.floor(w / 2))
             h = math.max(1, math.floor(h / 2))
+        end
+
+        if rt.settings.bloom.n_preprocessing_passes > 0 then
+            w, h = self._textures[1]:get_size()
+            self._blur_swap_texture = rt.RenderTexture(w, h, ...)
         end
     end
 
@@ -65,6 +85,30 @@ function rt.Bloom:_apply_bloom()
     lg.push()
     lg.origin()
 
+    if rt.settings.bloom.n_preprocessing_passes > 0 then
+        local texture_size = { self._blur_swap_texture:get_size() }
+        _blur_shader_horizontal:send("texture_size", texture_size)
+        _blur_shader_vertical:send("texture_size", texture_size)
+
+        local shader_a, shader_b = _blur_shader_horizontal, _blur_shader_vertical
+        local canvas_a, canvas_b = self._blur_swap_texture, self._textures[1]
+
+        for i = 1, rt.settings.bloom.n_preprocessing_passes do
+            shader_a:bind()
+            canvas_a:bind()
+            lg.clear(0, 0, 0, 0)
+            canvas_b:draw()
+            canvas_a:unbind()
+            shader_a:unbind()
+
+            shader_b:bind()
+            canvas_b:bind()
+            canvas_a:draw()
+            canvas_b:unbind()
+            shader_b:unbind()
+        end
+    end
+
     -- downsample
     for level = 2, n_levels do
         local source = self._textures[level - 1]
@@ -81,6 +125,8 @@ function rt.Bloom:_apply_bloom()
         mesh:draw()
 
         destination:unbind()
+
+        _downsample_shader:unbind()
     end
 
     -- upsample
@@ -105,11 +151,10 @@ function rt.Bloom:_apply_bloom()
         mesh:draw()
 
         destination:unbind()
+
+        _upsample_shader:unbind()
     end
 
-
-    lg.setShader(nil)
-    lg.setCanvas(nil)
     lg.pop()
 end
 
@@ -120,6 +165,8 @@ function rt.Bloom:draw(...)
         self:_apply_bloom()
     end
 
+    _tonemap_shader:bind()
     love.graphics.setColor(r, g, b, a)
     love.graphics.draw(self._textures[1]:get_native(), ...)
+    _tonemap_shader:unbind()
 end

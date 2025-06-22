@@ -38,7 +38,7 @@ function ow.Mirror:draw()
         end
     end
 
-    local stencil_value = 253
+    local stencil_value = rt.graphics.get_stencil_value()
     love.graphics.setStencilState("replace", "always", stencil_value)
     love.graphics.setColorMask(false)
 

@@ -18,8 +18,10 @@ rt.settings.overworld.overworld_scene = {
     camera_freeze_duration = 1,
     results_screen_fraction = 0.5,
 
-    bloom_blur_strength = 2, -- > 0
-    bloom_composite_strength = 0.1, -- [0, 1]
+    bloom_blur_strength = 1, -- > 0
+    bloom_composite_strength = 0.17, -- [0, 1]
+    bloom_msaa = 4,
+    bloom_texture_format = rt.TextureFormat.RG11B10F
 }
 
 --- @class
@@ -251,7 +253,7 @@ function ow.OverworldScene:instantiate(state)
     self._pause_menu:realize()
 
     self._player_canvas_scale = 2
-    local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 2
+    local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 2.5
     self._player_canvas_scale = rt.settings.player_body.canvas_scale
     self._player_canvas = rt.RenderTexture(2 * radius * self._player_canvas_scale, 2 * radius * self._player_canvas_scale)
     self._player_canvas_needs_update = true
@@ -299,7 +301,11 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._camera_pan_area_width = gradient_w
 
     if rt.GameState:get_is_bloom_enabled() then
-        self._bloom = rt.Bloom(width, height, 0, rt.TextureFormat.RG11B10F)
+        self._bloom = rt.Bloom(width, height,
+            rt.settings.overworld.overworld_scene.bloom_msaa,
+            rt.settings.overworld.overworld_scene.bloom_texture_format
+        )
+        self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
     end
 
     self._pan_gradient_top = rt.Mesh({
@@ -429,14 +435,18 @@ function ow.OverworldScene:draw()
     if rt.GameState:get_is_bloom_enabled() == true then
         if self._bloom == nil then
             local _, _, width, height = self:get_bounds():unpack()
-            self._bloom = rt.Bloom(width, height, 0, rt.TextureFormat.RG11B10F)
+            self._bloom = rt.Bloom(width, height,
+                rt.settings.overworld.overworld_scene.bloom_msaa,
+                rt.settings.overworld.overworld_scene.bloom_texture_format
+            )
+            self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
         end
 
         love.graphics.push()
         self._bloom:bind()
-        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.clear()
         self._camera:bind()
-        self._player:draw_core()
+        self._player:draw_body()
         self._stage:draw_bloom_mask()
         self._camera:unbind()
         self._bloom:unbind()

@@ -56,7 +56,6 @@ function ow.Stage:instantiate(scene, id)
         _below_player = meta.make_weak({}),
         _above_player = meta.make_weak({}),
         _bloom_objects = meta.make_weak({}),
-        _masks = meta.make_weak({}),
 
         -- updatables
         _to_update = meta.make_weak({}),
@@ -128,10 +127,6 @@ function ow.Stage:instantiate(scene, id)
 
                 if object.get_should_bloom ~= nil and object:get_should_bloom() == true then
                     table.insert(self._bloom_objects, object)
-                end
-
-                if object.draw_mask ~= nil then
-                    table.insert(self._masks, object)
                 end
 
                 if object.update ~= nil then
@@ -232,13 +227,6 @@ function ow.Stage:draw_above_player()
 end
 
 --- @brief
-function ow.Stage:draw_mask()
-    for object in values(self._masks) do
-        object:draw_mask()
-    end
-end
-
---- @brief
 function ow.Stage:draw_bloom_mask()
     for object in values(self._bloom_objects) do
         if object.draw_bloom ~= nil then
@@ -249,21 +237,64 @@ function ow.Stage:draw_bloom_mask()
     end
 
     self._blood_splatter:draw()
-    self._mirror:draw()
+
+    if rt.GameState:get_is_performance_mode_enabled() ~= true then
+        self._mirror:draw()
+    end
+end
+
+local _data = {}
+
+local _add_entry = function(type, t)
+    local entry = _data[type]
+    if entry == nil then
+        entry = {
+            n = 0,
+            sum = 0
+        }
+        _data[type] = entry
+    end
+
+    entry.n = entry.n + 1
+    entry.sum = entry.sum + t
 end
 
 --- @brief
 function ow.Stage:update(delta)
     for object in values(self._to_update) do
+
+        local a = love.timer.getTime()
         object:update(delta)
+        local b = love.timer.getTime()
+
+        _add_entry(meta.typeof(object), b - a)
     end
 
     if self._flow_graph ~= nil then
         self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
 
-    self._mirror:update(delta)
-    self._world:update(delta)
+    if rt.GameState:get_is_performance_mode_enabled() ~= true then
+        local a = love.timer.getTime()
+        self._mirror:update(delta)
+        local b = love.timer.getTime()
+        _add_entry("mirror", b - a)
+    end
+
+    do
+        local a = love.timer.getTime()
+        self._world:update(delta)
+        local b = love.timer.getTime()
+        _add_entry("world", b - a)
+    end
+
+    local times = {}
+    for type, entry in pairs(_data) do
+        table.insert(times, { type, (entry.sum / entry.n) / (1 / 60) })
+    end
+    table.sort(times, function(a, b)
+        return a[2] > b[2]
+    end)
 end
 
 --- @brief

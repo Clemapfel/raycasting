@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 1108,
-          y = -510.722,
+          x = 733.669,
+          y = 220.116,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3940,59 +3940,6 @@ return {
             { x = 32, y = -64 },
             { x = 16, y = -64 },
             { x = 4.75562, y = -16.7416 }
-          },
-          properties = {}
-        },
-        {
-          id = 693,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -162.987,
-          y = 759.819,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -96, y = 0 },
-            { x = -96, y = 16 },
-            { x = 0, y = 16 }
-          },
-          properties = {
-            ["axis"] = { id = 697 }
-          }
-        },
-        {
-          id = 697,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -210.987,
-          y = 615.819,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 699,
-          name = "",
-          type = "RotatingHitbox",
-          shape = "polygon",
-          x = -48,
-          y = 512,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -48, y = 80 },
-            { x = 0, y = 112 },
-            { x = 144, y = 64 }
           },
           properties = {}
         },

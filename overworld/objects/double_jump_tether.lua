@@ -58,24 +58,27 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
     self._shape_opacity_motion = rt.SmoothedMotion1D(1, 1.2)
 
+    self._is_tethered = false
     self._was_tethered = false
     self._was_consumed = false
+    self._animation_active = false
 end
 
 --- @brief
 function ow.DoubleJumpTether:update(delta)
-    if not self._is_consumed and not self._scene:get_is_body_visible(self._body) then return end
-
-    self._particle:update(delta)
     self._line_opacity_motion:update(delta)
     self._shape_opacity_motion:update(delta)
 
     local player = self._scene:get_player()
     local is_tethered = player:get_is_double_jump_source(self)
+    self._is_tethered = is_tethered
+
     if self._was_tethered == false and is_tethered == true then
         self._line_opacity_motion:set_target_value(1)
+        self._animation_active = true
     elseif self._was_tethered == true and is_tethered == false then
         self._line_opacity_motion:set_target_value(0)
+        self._animation_active = true
     end
     self._was_tethered = is_tethered
 
@@ -85,6 +88,9 @@ function ow.DoubleJumpTether:update(delta)
         self._shape_opacity_motion:set_target_value(1)
     end
     self._was_consumed = self._is_consumed
+
+    if not self._is_consumed and not self._scene:get_is_body_visible(self._body) then return end
+    self._particle:update(delta)
 
     if self._is_consumed then
         local x1, y1 = self._x, self._y
@@ -153,6 +159,7 @@ function ow.DoubleJumpTether:update(delta)
     end
 end
 
+
 --- @brief
 function ow.DoubleJumpTether:get_render_priority()
     return math.huge -- in front of player
@@ -166,8 +173,11 @@ function ow.DoubleJumpTether:draw()
     local r, g, b = table.unpack(self._color)
 
     if self._line_mesh ~= nil then
-        love.graphics.setColor(r, g, b, self._line_opacity_motion:get_value())
-        love.graphics.draw(self._line_mesh)
+        local a = self._line_opacity_motion:get_value()
+        if a > 0 then
+            love.graphics.setColor(r, g, b, a)
+            love.graphics.draw(self._line_mesh)
+        end
     end
 
     if is_visible then
@@ -185,4 +195,10 @@ end
 --- @brief
 function ow.DoubleJumpTether:get_should_bloom()
     return true
+end
+
+--- @brief
+function ow.DoubleJumpTether:draw_bloom()
+    love.graphics.setColor(table.unpack(self._color))
+    self._particle:draw(self._x, self._y, false, true) -- line only
 end

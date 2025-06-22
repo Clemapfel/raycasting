@@ -94,7 +94,7 @@ function ow.DoubleJumpParticle:update(delta)
     self:_update_vertices()
 end
 
-function ow.DoubleJumpParticle:draw(x, y, draw_shape)
+function ow.DoubleJumpParticle:draw(x, y, draw_shape, draw_core)
     if draw_shape == nil then draw_shape = true end
     local line_width = self._canvas:get_width() / 40
     love.graphics.setLineWidth(line_width)
@@ -121,10 +121,12 @@ function ow.DoubleJumpParticle:draw(x, y, draw_shape)
 
     love.graphics.setBlendMode("alpha", "premultiplied")
 
-    _outline_shader:bind()
-    _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
-    love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
-    _outline_shader:unbind()
+    if draw_core then
+        _outline_shader:bind()
+        _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
+        love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
+        _outline_shader:unbind()
+    end
 
     love.graphics.setBlendMode("lighten", "premultiplied")
     if draw_shape == true then

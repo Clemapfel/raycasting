@@ -203,7 +203,6 @@ end
 
 --- @brief [internal]
 function rt.SceneManager:_draw_performance_metrics()
-    -- compute mean, variance, max
     local stats = love.graphics.getStats()
     local n_draws = tostring(stats.drawcalls)
 

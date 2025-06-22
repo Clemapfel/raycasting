@@ -136,57 +136,60 @@ local _total_n_particles = 0
 
 --- @brief
 function ow.AcceleratorSurface:update(delta)
-    -- update particle location
-    local nx, ny, x, y = self._scene:get_player():get_collision_normal(self._body)
-    if nx == nil then
-        self._is_active = false
-    else
-        self._is_active = true
-        self._emission_x, self._emission_y = x, y
-        self._emission_nx, self._emission_ny = math.normalize(nx, ny)
-    end
+    if self._scene:get_is_body_visible(self._body) == true then
 
-    if not self._should_emit then return end
+        -- update particle location
+        local nx, ny, x, y = self._scene:get_player():get_collision_normal(self._body)
+        if nx == nil then
+            self._is_active = false
+        else
+            self._is_active = true
+            self._emission_x, self._emission_y = x, y
+            self._emission_nx, self._emission_ny = math.normalize(nx, ny)
+        end
 
-    -- add particles
-    if self._is_active then
-        self._particle_emission_elapsed = self._particle_emission_elapsed + delta
+        if not self._should_emit then return end
 
-        local player = self._scene:get_player()
-        local player_vx, player_vy = player:get_velocity()
-        if math.magnitude(player_vx, player_vy) > _settings.min_velocity_threshold then
-            local step = 1 / math.mix(_settings.min_n_particles_per_second, _settings.max_n_particles_per_second, player:get_flow())
-            while self._particle_emission_elapsed >= step do
-                self._particle_emission_elapsed = self._particle_emission_elapsed - step
+        -- add particles
+        if self._is_active then
+            self._particle_emission_elapsed = self._particle_emission_elapsed + delta
 
-                if _total_n_particles > _settings.max_n_particles then break end
+            local player = self._scene:get_player()
+            local player_vx, player_vy = player:get_velocity()
+            if math.magnitude(player_vx, player_vy) > _settings.min_velocity_threshold then
+                local step = 1 / math.mix(_settings.min_n_particles_per_second, _settings.max_n_particles_per_second, player:get_flow())
+                while self._particle_emission_elapsed >= step do
+                    self._particle_emission_elapsed = self._particle_emission_elapsed - step
 
-                local vx, vy = math.normalize(math.rotate(
-                    self._emission_nx, self._emission_ny,
-                    rt.random.number(-1, 1) * _settings.max_angle_offset
-                ))
+                    if _total_n_particles > _settings.max_n_particles then break end
 
-                local speed = rt.random.number(_settings.min_speed, _settings.max_speed)
-                local r, g, b = rt.lcha_to_rgba(0.8, 1, player:get_hue() + rt.random.number(-1, 1) * _settings.max_hue_offset)
-                local quad = _particle_i % 2 == 0 and _particle_left or _particle_right
-                _particle_i = _particle_i + 1
+                    local vx, vy = math.normalize(math.rotate(
+                        self._emission_nx, self._emission_ny,
+                        rt.random.number(-1, 1) * _settings.max_angle_offset
+                    ))
 
-                local particle = {
-                    [_position_x] = self._emission_x,
-                    [_position_y] = self._emission_y,
-                    [_velocity_x] = vx * speed,
-                    [_velocity_y] = vy * speed,
-                    [_r] = r,
-                    [_g] = g,
-                    [_b] = b,
-                    [_elapsed] = 0,
-                    [_lifetime] = rt.random.number(_settings.min_lifetime, _settings.max_lifetime),
-                    [_quad] = quad,
-                    [_scale] = rt.random.number(_settings.min_scale, _settings.max_scale)
-                }
+                    local speed = rt.random.number(_settings.min_speed, _settings.max_speed)
+                    local r, g, b = rt.lcha_to_rgba(0.8, 1, player:get_hue() + rt.random.number(-1, 1) * _settings.max_hue_offset)
+                    local quad = _particle_i % 2 == 0 and _particle_left or _particle_right
+                    _particle_i = _particle_i + 1
 
-                table.insert(self._particles, particle)
-                _total_n_particles = _total_n_particles + 1
+                    local particle = {
+                        [_position_x] = self._emission_x,
+                        [_position_y] = self._emission_y,
+                        [_velocity_x] = vx * speed,
+                        [_velocity_y] = vy * speed,
+                        [_r] = r,
+                        [_g] = g,
+                        [_b] = b,
+                        [_elapsed] = 0,
+                        [_lifetime] = rt.random.number(_settings.min_lifetime, _settings.max_lifetime),
+                        [_quad] = quad,
+                        [_scale] = rt.random.number(_settings.min_scale, _settings.max_scale)
+                    }
+
+                    table.insert(self._particles, particle)
+                    _total_n_particles = _total_n_particles + 1
+                end
             end
         end
     end
