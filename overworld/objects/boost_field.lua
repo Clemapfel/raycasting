@@ -180,7 +180,6 @@ function ow.BoostField.draw_all()
         end
     end
 
-
     -- draw outlines as giant batch
     love.graphics.setLineJoin("bevel")
     local line_width = 2

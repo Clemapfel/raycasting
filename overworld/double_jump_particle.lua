@@ -92,53 +92,46 @@ function ow.DoubleJumpParticle:update(delta)
     self._theta = math.normalize_angle(self._theta + delta * 2 * math.pi * speed)
     self._phi = math.normalize_angle(self._phi + delta * 2 * math.pi * speed)
     self:_update_vertices()
+    self._canvas_needs_update = true
 end
 
 function ow.DoubleJumpParticle:draw(x, y, draw_shape, draw_core)
-    if draw_shape == nil then draw_shape = true end
-    local line_width = self._canvas:get_width() / 40
-    love.graphics.setLineWidth(line_width)
-    love.graphics.setLineJoin("bevel")
-
+    local line_width = self._canvas:get_width() / 35
     local w, h = self._canvas:get_size()
     local r, g, b, a = love.graphics.getColor()
 
-    if draw_shape then
+    if self._canvas_needs_update then
         love.graphics.push()
         love.graphics.origin()
         self._canvas:bind()
         love.graphics.clear(0, 0, 0, 0)
         love.graphics.translate(0.5 * w, 0.5 *h)
 
-        if draw_shape == true then
+        if self._draw_shape then
+            love.graphics.setLineWidth(line_width)
+            love.graphics.setLineJoin("none")
             love.graphics.setColor(r, g, b, a)
             love.graphics.line(self._draw_line)
         end
 
         self._canvas:unbind()
         love.graphics.pop()
+
+        self._canvas_needs_update = false
     end
 
-    love.graphics.setBlendMode("alpha", "premultiplied")
+    _outline_shader:bind()
+    _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
+    love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
+    _outline_shader:unbind()
 
-    if draw_core then
-        _outline_shader:bind()
-        _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
-        love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
-        _outline_shader:unbind()
-    end
-
-    love.graphics.setBlendMode("lighten", "premultiplied")
     if draw_shape == true then
         love.graphics.push()
-        love.graphics.translate(x, y)
-        love.graphics.setColor(r * a, g * a, b * a, a)
-        love.graphics.line(self._draw_line)
+        love.graphics.setLineWidth(line_width)
+        love.graphics.setLineJoin("none")
 
-        local bloom = 1.2
-        love.graphics.setBlendMode("alpha")
-        love.graphics.setColor(r * bloom * a, g * bloom * a, b * bloom * a, a)
-        love.graphics.setLineWidth(0.25 * line_width)
+        love.graphics.translate(x, y)
+        love.graphics.setColor(r, g, b, a)
         love.graphics.line(self._draw_line)
 
         for v in values(self._vertices) do

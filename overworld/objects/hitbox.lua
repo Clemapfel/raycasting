@@ -235,13 +235,18 @@ function ow.Hitbox:draw_mask(sticky_or_slippery)
     _initialize()
 
     love.graphics.setColor(1, 1, 1, 1)
-    if sticky_or_slippery == false then
+    if sticky_or_slippery == false and _slippery_mesh ~= nil then
         love.graphics.draw(_slippery_mesh)
-    elseif sticky_or_slippery == true then
+    elseif sticky_or_slippery == true and _sticky_mesh ~= nil then
         love.graphics.draw(_sticky_mesh)
     else
-        love.graphics.draw(_sticky_mesh)
-        love.graphics.draw(_slippery_mesh)
+        if _sticky_mesh ~= nil then
+            love.graphics.draw(_sticky_mesh)
+        end
+
+        if _slippery_mesh ~= nil then
+            love.graphics.draw(_slippery_mesh)
+        end
     end
 end
 

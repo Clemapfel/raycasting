@@ -64,6 +64,9 @@ function rt.PlayerBody:instantiate(player)
     self._is_initialized = false
     self._queue_relax = false
 
+    self._core_canvas_needs_update = true
+    self._body_canvas_needs_update = true
+
     if _outline_shader == nil then _outline_shader = rt.Shader("common/player_body_outline.glsl") end
     if _core_shader == nil then _core_shader = rt.Shader("common/player_body_core.glsl") end
     if _fill_shader == nil then _fill_shader = rt.Shader("common/player_body_fill.glsl") end
@@ -472,8 +475,10 @@ function rt.PlayerBody:update(delta)
             player_y = self._player_y
         })
     end
-end
 
+    self._core_canvas_needs_update = true
+    self._body_canvas_needs_update = true
+end
 
 local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
 
@@ -481,7 +486,8 @@ local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
 function rt.PlayerBody:draw_body()
     if self._is_initialized ~= true then return end
 
-    do
+    if self._body_canvas_needs_update then
+        self._body_canvas_needs_update = false
         love.graphics.push()
         love.graphics.origin()
 
@@ -543,7 +549,6 @@ function rt.PlayerBody:draw_body()
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _outline_shader:unbind()
 
-
     -- black fill
     _fill_shader:bind()
     love.graphics.setColor(_black_r, _black_g, _black_b, self._a)
@@ -555,7 +560,8 @@ end
 function rt.PlayerBody:draw_core()
     if self._is_initialized ~= true then return end
 
-    do
+    if self._core_canvas_needs_update then
+        self._core_canvas_needs_update = false
         -- core canvas for shader inlay
         self._core_canvas:bind()
         love.graphics.clear()

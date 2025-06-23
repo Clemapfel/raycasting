@@ -505,7 +505,7 @@ function rt.Player:update(delta)
         self._double_jump_locked = true
     end
 
-    do -- reset double jump counter when touching wall or ground
+    if not self._is_bubble then -- reset double jump counter when touching wall or ground
         local is_grounded = self._bottom_left_wall or self._bottom_left_wall or self._bottom_wall
         local is_touching_wall = self._left_wall or self._right_wall
         if is_grounded or (not is_grounded and is_touching_wall) then
