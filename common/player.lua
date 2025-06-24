@@ -28,6 +28,7 @@ rt.settings.player = {
     air_target_velocity_x = 320,
     sprint_multiplier = 2,
     friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
+    bubble_friction_coefficient = 1.5,
 
     flow_increase_velocity = 1 / 200, -- percent per second
     flow_decrease_velocity = 1,
@@ -186,6 +187,9 @@ function rt.Player:instantiate()
 
         _velocity_multiplier_x = 1,
         _velocity_multiplier_y = 1,
+
+        _last_bubble_force_x = 0,
+        _last_bubble_force_y = 0,
 
         _is_frozen = false,
         _respawn_elapsed = 0,
@@ -865,7 +869,7 @@ function rt.Player:update(delta)
             self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
         end
 
-    elseif self._is_bubble then
+    else -- self._is_bubble == true
         -- bubble movement
         local mass_multiplier = self._bubble_mass / self._mass
         local bubble_gravity = gravity * (mass_multiplier / delta) * _settings.bubble_gravity_factor
@@ -889,22 +893,57 @@ function rt.Player:update(delta)
             target_y = 1
         end
 
+        local next_force_x, next_force_y
         if not (target_x == 0 and target_y == 0) then
             target_x = target_x * max_velocity * mass_multiplier
             target_y = target_y * max_velocity * mass_multiplier
             local acceleration = _settings.bubble_acceleration
-            self._bubble_body:apply_force(
-                (target_x - current_x) * acceleration,
-                (target_y - current_y) * acceleration
-            )
+
+            next_force_x = (target_x - current_x) * acceleration
+            next_force_y = (target_y - current_y) * acceleration
         else
             if gravity > 0 then
-                self._bubble_body:apply_force(
-                    -current_x * _settings.bubble_air_resistance * delta,
-                    -current_y * _settings.bubble_air_resistance * delta
-                )
+                next_force_x = -current_x * _settings.bubble_air_resistance * delta
+                next_force_y = -current_y * _settings.bubble_air_resistance * delta
             end
         end
+
+        -- accelerators
+        local current_velocity_x, current_velocity_y = self._bubble_body:get_velocity()
+        for surface in range(
+            { left_wall_body, left_nx, left_ny },
+            { top_wall_body, top_nx, top_ny },
+            { right_wall_body, right_nx, right_ny },
+            { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
+            { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
+            { bottom_wall_body, bottom_nx, bottom_ny }
+        ) do
+            local body, nx, ny = table.unpack(surface)
+            if body ~= nil and body:has_tag("use_friction") then
+                local friction = body:get_friction()
+
+                local tx, ty = -ny, nx
+                local vx, vy = self._bubble_body:get_velocity()
+                local dot_product = vx * tx + vy * ty
+
+                local tangent_velocity_x = dot_product * tx
+                local tangent_velocity_y = dot_product * ty
+
+                local friction_force_x = -tangent_velocity_x * friction * _settings.bubble_friction_coefficient
+                local friction_force_y = -tangent_velocity_y * friction * _settings.bubble_friction_coefficient
+
+                -- apply tangential force
+                next_force_x = next_force_x + friction_force_x
+                next_force_y = next_force_y + friction_force_y
+
+                local flipped_x, flipped_y = math.flip(nx, ny)
+                next_force_x = next_force_x + flipped_x * delta * _settings.wall_magnet_force
+                next_force_y = next_force_y + flipped_y * delta * _settings.wall_magnet_force
+            end
+        end
+
+        self._bubble_body:apply_force(next_force_x, next_force_y)
+        self._last_bubble_force_x, self._last_bubble_force_y = next_force_x, next_force_y
 
         if self._bounce_elapsed <= _settings.bounce_duration then
             -- single impulse in bubble mode
@@ -1000,7 +1039,7 @@ function rt.Player:update(delta)
 
         do
             if self._top_wall and
-                --not top_wall_body:has_tag("slippery") and
+                not top_wall_body:has_tag("slippery") and
                 not top_wall_body:has_tag("no_blood") and
                 math.distance(top_x, top_y, x, y) <= self._radius
             then
@@ -1008,7 +1047,7 @@ function rt.Player:update(delta)
             end
 
             if self._right_wall and
-                --not right_wall_body:has_tag("slippery") and
+                not right_wall_body:has_tag("slippery") and
                 not right_wall_body:has_tag("no_blood") and
                 math.distance(right_x, right_y, x, y) <= self._radius
             then
@@ -1016,7 +1055,7 @@ function rt.Player:update(delta)
             end
 
             if self._bottom_wall and
-                --not bottom_wall_body:has_tag("slippery") and
+                not bottom_wall_body:has_tag("slippery") and
                 not bottom_wall_body:has_tag("no_blood") and
                 math.distance(bottom_x, bottom_y, x, y) <= self._radius
             then
@@ -1024,7 +1063,7 @@ function rt.Player:update(delta)
             end
 
             if self._left_wall and
-                --not left_wall_body:has_tag("slippery") and
+                not left_wall_body:has_tag("slippery") and
                 not left_wall_body:has_tag("no_blood") and
                 math.distance(left_x, left_y, x, y) <= self._radius
             then
@@ -1605,7 +1644,13 @@ end
 
 --- @brief
 function rt.Player:set_is_bubble(b)
-    if b == self._is_bubble then return end
+    if b == self._is_bubble then
+        return
+    else
+        self._last_bubble_force_x = 0
+        self._last_bubble_force_y = 0
+        self._body_to_collision_normal = {}
+    end
 
     local before = self._is_bubble
     self._is_bubble = b

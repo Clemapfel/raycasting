@@ -177,6 +177,9 @@ function math.project(x, target_range_lower, target_range_upper, original_range_
     return ((x - original_range_lower) / (original_range_upper - original_range_lower)) * (target_range_upper - target_range_lower) + target_range_lower
 end
 
+math.radians_to_degrees = math.deg
+math.degrees_to_radians = math.rad
+
 --- @brief linear interpolate between two values
 --- @param lower number
 --- @param upper number

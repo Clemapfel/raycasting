@@ -8,12 +8,18 @@ rt.settings.overworld.blood_splatter = {
 ow.BloodSplatter = meta.class("BloodSplatter")
 
 --- @brief
-function ow.BloodSplatter:instantiate()
+function ow.BloodSplatter:instantiate(scene)
     meta.install(self, {
+        _scene = scene,
         _edges = {},
         _active_divisions = {},
-        _world = nil
+        _world = nil,
+        _bloom_factor = 0
     })
+end
+
+function ow.BloodSplatter:set_bloom_factor(f)
+    self._bloom_factor = f
 end
 
 function _overlap(x1, y1, x2, y2, cx, cy, radius)
@@ -86,11 +92,28 @@ end
 
 --- @brief
 function ow.BloodSplatter:draw()
-    love.graphics.setLineWidth(4)
+    love.graphics.setLineWidth(4.5)
 
+    local x, y, w, h = self._scene:get_camera():get_world_bounds()
+    local visible = {}
+    self._world:update(0)
+    self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
+        visible[shape] = true
+        return true
+    end)
+
+    local t = 1 - self._bloom_factor
     for division in keys(self._active_divisions) do
-        love.graphics.setColor(table.unpack(division.color))
-        love.graphics.line(division.line)
+        if visible[division.shape] == true then
+            local r, g, b, a = table.unpack(division.color)
+            love.graphics.setColor(
+                t * r,
+                t * g,
+                t * b,
+                a
+            )
+            love.graphics.line(division.line)
+        end
     end
 end
 
@@ -184,6 +207,7 @@ function ow.BloodSplatter:create_contour()
                     right_fraction = right_fraction / length
 
                     table.insert(subdivisions, {
+                        shape = edge,
                         line = {sx1, sy1, sx2, sy2},
                         left_fraction = left_fration,
                         right_fraction = right_fraction,
@@ -193,6 +217,7 @@ function ow.BloodSplatter:create_contour()
                 end
             else
                 table.insert(subdivisions, {
+                    shape = edge,
                     line = {x1, y1, x2, y2},
                     left_fraction = 0,
                     right_fraction = 1,

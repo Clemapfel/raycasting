@@ -10,19 +10,24 @@ require "physics.physics"
 require "menu.pause_menu"
 require "common.bloom"
 
-rt.settings.overworld.overworld_scene = {
-    camera_translation_velocity = 400, -- px / s,
-    camera_scale_velocity = 0.05, -- % / s
-    camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
-    camera_pan_width_factor = 0.15,
-    camera_freeze_duration = 1,
-    results_screen_fraction = 0.5,
+do
+    local bloom = 0.2
+    rt.settings.overworld.overworld_scene = {
+        camera_translation_velocity = 400, -- px / s,
+        camera_scale_velocity = 0.05, -- % / s
+        camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
+        camera_pan_width_factor = 0.15,
+        camera_freeze_duration = 1,
+        results_screen_fraction = 0.5,
 
-    bloom_blur_strength = 1, -- > 0
-    bloom_composite_strength = 0.17, -- [0, 1]
-    bloom_msaa = 4,
-    bloom_texture_format = rt.TextureFormat.RG11B10F
-}
+        bloom_blur_strength = 1.2, -- > 0
+        bloom_composite_strength = bloom, -- [0, 1]
+        bloom_reflection_composite_strength = 0.4 * (1 - bloom),
+        bloom_msaa = 4,
+        bloom_texture_format = rt.TextureFormat.RG11B10F
+    }
+end
+
 
 --- @class
 ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
@@ -269,6 +274,8 @@ function ow.OverworldScene:enter(stage_id)
     rt.SceneManager:set_use_fixed_timestep(true)
     self:set_stage(stage_id)
 
+    self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength)
+
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(_cursor)
@@ -306,6 +313,9 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
             rt.settings.overworld.overworld_scene.bloom_texture_format
         )
         self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
+        if self._stage ~= nil then
+            self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength)
+        end
     end
 
     self._pan_gradient_top = rt.Mesh({
@@ -440,6 +450,9 @@ function ow.OverworldScene:draw()
                 rt.settings.overworld.overworld_scene.bloom_texture_format
             )
             self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
+            if self._stage ~= nil then
+                self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength)
+            end
         end
 
         love.graphics.push()
@@ -465,12 +478,35 @@ function ow.OverworldScene:draw()
     self._camera:unbind()
 
     if rt.GameState:get_is_bloom_enabled() == true then
-        love.graphics.setBlendMode("add", "premultiplied")
-        love.graphics.origin()
-        local v = rt.settings.overworld.overworld_scene.bloom_composite_strength
-        love.graphics.setColor(v, v, v, v)
-        self._bloom:draw()
-        love.graphics.setBlendMode("alpha")
+        local stencil_value = rt.graphics.get_stencil_value()
+
+        do -- bloom global bloom
+            love.graphics.setBlendMode("add", "premultiplied")
+            love.graphics.origin()
+            local v = rt.settings.overworld.overworld_scene.bloom_composite_strength
+            love.graphics.setColor(v, v, v, v)
+            self._bloom:draw()
+            love.graphics.setBlendMode("alpha")
+        end
+
+        love.graphics.setStencilMode("draw", stencil_value)
+        self._camera:bind()
+        ow.Hitbox:draw_mask(true, true)
+        self._stage:get_blood_splatter():draw() -- because hitbox mask doesn't fully cover it
+        self._camera:unbind()
+
+        do -- bloom reflecting on hitboxes
+            love.graphics.setStencilState("keep", "equal", stencil_value)
+            love.graphics.setColorMask(true)
+
+            love.graphics.setBlendMode("add", "premultiplied")
+            local v = rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength
+            love.graphics.setColor(v, v, v, v)
+            self._bloom:draw()
+            love.graphics.setBlendMode("alpha")
+        end
+
+        love.graphics.setStencilMode()
     end
 
     love.graphics.pop()

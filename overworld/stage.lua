@@ -63,7 +63,7 @@ function ow.Stage:instantiate(scene, id)
         -- stage objects
         _coins = {}, -- cf. add_coin
         _checkpoints = {}, -- cf. add_checkpoint
-        _blood_splatter = ow.BloodSplatter(),
+        _blood_splatter = ow.BloodSplatter(scene),
         _mirror = ow.Mirror(scene),
 
         _flow_graph_nodes = {},

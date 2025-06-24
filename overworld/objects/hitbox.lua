@@ -178,7 +178,7 @@ function ow.Hitbox:draw_all()
     end
 
     if _sticky_mesh ~= nil then
-        sticky = {_sticky_mesh, _sticky_lines, _sticky_shader, rt.Palette.STICKY, rt.Palette.STICKY_OUTLINE, 4}
+        sticky = {_sticky_mesh, _sticky_lines, nil, rt.Palette.STICKY, rt.Palette.STICKY_OUTLINE, 4}
     end
 
     for params in range(slippery, sticky) do
@@ -217,7 +217,7 @@ function ow.Hitbox:draw_all()
         rt.Palette.BLACK:bind()
         love.graphics.setLineWidth(line_width + 2.5)
         for lines in values(outlines) do
-            love.graphics.line(lines)
+            --love.graphics.line(lines)
         end
 
         outline_color:bind()

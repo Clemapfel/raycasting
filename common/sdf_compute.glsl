@@ -99,15 +99,15 @@ void computemain() {
         ivec2 neighbor_position = position + directions[i] * jump_distance;
 
         // if outside, skip
-        if (neighbor_position.x < 0 || neighbor_position.x >= image_size.x || neighbor_position.y < 0 || neighbor_position.y >= image_size.y)
+        if (neighbor_position.x < 0 ||
+            neighbor_position.x >= image_size.x ||
+            neighbor_position.y < 0 ||
+            neighbor_position.y >= image_size.y
+        )
             continue;
 
         vec4 neighbor = imageLoad(input_texture, neighbor_position);
         if (neighbor.x < 0 || neighbor.y < 0) // is uninitialized
-            continue;
-
-        if ((wall_mode == WALL_MODE_INSIDE && neighbor.w > 0) ||
-            (wall_mode == WALL_MODE_OUTSIDE && neighbor.w < 0))
             continue;
 
         float dist = distance(vec2(position), vec2(neighbor.xy));

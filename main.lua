@@ -11,6 +11,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"

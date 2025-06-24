@@ -1,6 +1,9 @@
 require "common.contour"
 
 rt.settings.overworld.accelerator_surface = {
+    -- base
+    angle_smoothing_threshold = math.degrees_to_radians(70),
+
     -- particles
     canvas_w = 15,
     max_angle_offset = 0.1 * math.pi,
@@ -40,6 +43,18 @@ local _scale = 9
 local _lifetime = 10
 local _quad = 11
 
+function _inner_angle(x1, y1, x2, y2, x3, y3)
+    local bax, bay = x1 - x2, y1 - y2
+    local bcx, bcy = x3 - x2, y3 - y2
+
+    local dot = bax * bcx + bay * bcy
+    local mag_ba = math.magnitude(bax, bay)
+    local mag_bc = math.magnitude(bcx, bcy)
+
+    local cos_theta = math.clamp(dot / (mag_ba * mag_bc), -1, 1)
+    return math.acos(cos_theta)
+end
+
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
     if _draw_shader == nil then _draw_shader = rt.Shader("overworld/objects/accelerator_surface_draw.glsl") end
@@ -53,8 +68,23 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         end
     end)
 
+    -- construct mesh
+    self._contour = object:create_contour()
+
+    do
+        local threshold = rt.settings.overworld.accelerator_surface.angle_smoothing_threshold
+
+    end
+
     -- collision
-    self._body = object:create_physics_body(stage:get_physics_world())
+    local shapes = {}
+    local slick = require "dependencies.slick.slick"
+    for shape in values(slick.polygonize(6, { self._contour })) do
+        table.insert(shapes, b2.Polygon(shape))
+    end
+
+    self._body = b2.Body(stage:get_physics_world(), b2.BodyType.STATIC, 0, 0, shapes)
+
     self._body:add_tag(
         "use_friction",
         "stencil",
