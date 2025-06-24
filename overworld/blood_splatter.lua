@@ -92,7 +92,7 @@ end
 
 --- @brief
 function ow.BloodSplatter:draw()
-    love.graphics.setLineWidth(4.5)
+    love.graphics.setLineWidth(3.5)
 
     local x, y, w, h = self._scene:get_camera():get_world_bounds()
     local visible = {}

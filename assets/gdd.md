@@ -57,8 +57,10 @@ low horizontal tunnel, to and bottom are bounce pads, leadings into corner to th
   3. long gap and bubble field, player jumps into boost, which sends them into long horizontal bubble field, velocity carries them against slippery wall with up boost field, which sends them up outside of the bubble field
   4. long horizontal boost field boosting up, player has to ride at the top, add certain down boostfields that will kill the player if not avoided. down boost fields do not reach all the way ot the top
 
-+ DOUBLE JUMP TETHER:
++ DOUBLE JUMP TETHER: 
   1. slippery wall, player can only get high enough with double jump
   2. slippery wall, again, but at the top player has to jump, double jump, into walljump
-  3. 
+  3. tether followed by bubble field, player has to drift out of bubble field, then double jump
+  4. bubble field with multiple tehters, player has to attach them all then quadruple jump up slippery vertical tunnel, coin at the top to signpost
   
++ ACCELERATOR SURFACE:  

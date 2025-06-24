@@ -1,3 +1,5 @@
+require "common.contour"
+
 rt.settings.overworld.bounce_pad = {
     -- bounce animation
     bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
@@ -102,7 +104,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     end)
 
     -- contour
-    self._contour = self:_round_contour(
+    self._contour = rt.round_contour(
         object:create_contour(),
         rt.settings.overworld.bounce_pad.corner_radius,
         16
@@ -162,60 +164,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
 
     self._rotation_origin_x = object.rotation_origin_x
     self._rotation_origin_y = object.rotation_origin_y
-end
-
-function ow.BouncePad:_round_contour(points, radius, samples_per_corner)
-    local n = math.floor(#points / 2)
-    radius = radius or 10
-    samples_per_corner = samples_per_corner or 5
-
-    local new_points = {}
-
-    for i = 1, n do
-        local previous_idx = ((i - 2 + n) % n) + 1
-        local current_idx = i
-        local next_idx = (i % n) + 1
-
-        local previous_x, previous_y = points[ 2 * previous_idx - 1], points[2 *previous_idx]
-        local current_x, current_y = points[2 * current_idx - 1], points[2 * current_idx]
-        local next_x, next_y = points[2 * next_idx-1], points[2 * next_idx]
-
-        local v1x = current_x - previous_x
-        local v1y = current_y - previous_y
-        local v2x = next_x - current_x
-        local v2y = next_y - current_y
-
-        -- shorten current segment by corner radius
-        local v1nx, v1ny = math.normalize(v1x, v1y)
-        local v2nx, v2ny = math.normalize(v2x, v2y)
-        local len1 = math.min(radius, math.magnitude(v1x, v1y) / 2)
-        local len2 = math.min(radius, math.magnitude(v2x, v2y) / 2)
-
-        local p1x = current_x + v1nx * -len1
-        local p1y = current_y + v1ny * -len1
-        local p2x = current_x + v2nx * len2
-        local p2y = current_y + v2ny * len2
-
-        -- resample bezier curve to replace missing vertices
-        local curve = love.math.newBezierCurve({
-            p1x, p1y,
-            current_x, current_y,
-            p2x, p2y
-        })
-
-        for s = 1, samples_per_corner do
-            local t = s / samples_per_corner
-            local x, y = curve:evaluate(t)
-            table.insert(new_points, x)
-            table.insert(new_points, y)
-        end
-    end
-
-    -- close loop
-    table.insert(new_points, new_points[1])
-    table.insert(new_points, new_points[2])
-
-    return new_points
 end
 
 local stiffness = rt.settings.overworld.bounce_pad.stiffness

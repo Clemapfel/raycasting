@@ -4,6 +4,7 @@ require "common.player"
 require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
 require "overworld.mirror"
+require "overworld.normal_map"
 
 require "physics.physics"
 
@@ -70,6 +71,8 @@ function ow.Stage:instantiate(scene, id)
         _flow_graph = nil, -- ow.FlowGraph
         _flow_fraction = 0,
 
+        _normal_map = ow.NormalMap(self),
+
         _goals = {}, -- Set
         _active_checkpoint = nil,
     })
@@ -84,6 +87,7 @@ function ow.Stage:instantiate(scene, id)
     -- batched draws
     ow.Hitbox:reinitialize()
     ow.BoostField:reinitialize()
+    ow.AcceleratorSurface:reinitialize()
 
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
@@ -219,6 +223,8 @@ end
 
 --- @brief
 function ow.Stage:draw_above_player()
+    ow.AcceleratorSurface:draw_all()
+
     for object in values(self._above_player) do
         object:draw()
     end
@@ -262,7 +268,6 @@ end
 --- @brief
 function ow.Stage:update(delta)
     for object in values(self._to_update) do
-
         local a = love.timer.getTime()
         object:update(delta)
         local b = love.timer.getTime()
@@ -295,6 +300,8 @@ function ow.Stage:update(delta)
     table.sort(times, function(a, b)
         return a[2] > b[2]
     end)
+
+    self._normal_map:update(delta) -- update last for yielding
 end
 
 --- @brief
@@ -444,4 +451,9 @@ end
 --- @brief
 function ow.Stage:finish_stage()
     rt.warning("In ow.Stage.finish_stage: TODO")
+end
+
+--- @brief
+function ow.Stage:get_scene()
+    return self._scene
 end

@@ -29,6 +29,7 @@ function rt.SceneManager:instantiate()
         _fade = rt.Fade(),
         _use_fixed_timestep = false,
         _elapsed = 0,
+        _frame_timestamp = love.timer.getTime(),
 
         _input = rt.InputSubscriber(),
     })
@@ -249,6 +250,11 @@ function rt.SceneManager:get_frame_index()
 end
 
 --- @brief
+function rt.SceneManager:get_frame_duration()
+    return love.timer.getTime() - self._frame_timestamp
+end
+
+--- @brief
 function rt.SceneManager:get_elapsed()
     return self._elapsed
 end
@@ -339,6 +345,7 @@ function love.run()
 
             love.graphics.present()
             _frame_i = _frame_i + 1
+            rt.SceneManager._frame_timestamp = love.timer.getTime()
         end
 
         local fps = 1 / math.max(love.timer.getDelta(), 1 / 500)

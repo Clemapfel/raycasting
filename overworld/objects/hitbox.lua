@@ -13,11 +13,16 @@ end
 local _slippery_tris = {}
 local _slippery_lines = {}
 local _slippery_mesh = nil
+local _slippery_min_x, _slippery_min_y = math.huge, math.huge
+local _slippery_max_x, _slippery_max_y = -math.huge, -math.huge
 
 local _sticky_tris = {}
 local _sticky_lines = {}
 local _sticky_mesh = nil
 local _sticky_shader
+local _sticky_min_x, _sticky_min_y = math.huge, math.huge
+local _sticky_max_x, _sticky_max_y = -math.huge, -math.huge
+
 
 local _initialized = false
 
@@ -72,10 +77,26 @@ function ow.Hitbox:instantiate(object, stage, scene)
     if self._body:has_tag("slippery") then
         for tri in values(tris) do
             table.insert(_slippery_tris, tri)
+
+            for i = 1, 6, 2 do
+                local x, y = tri[i+0], tri[i+1]
+                _slippery_min_x = math.min(_slippery_min_x, x)
+                _slippery_max_x = math.max(_slippery_max_x, x)
+                _slippery_min_y = math.min(_slippery_min_y, y)
+                _slippery_max_y = math.max(_slippery_max_y, y)
+            end
         end
     else
         for tri in values(tris) do
             table.insert(_sticky_tris, tri)
+
+            for i = 1, 6, 2 do
+                local x, y = tri[i+0], tri[i+1]
+                _sticky_min_x = math.min(_sticky_min_x, x)
+                _sticky_max_x = math.max(_sticky_max_x, x)
+                _sticky_min_y = math.min(_sticky_min_y, y)
+                _sticky_max_y = math.max(_sticky_max_y, y)
+            end
         end
     end
 
@@ -125,6 +146,11 @@ function ow.Hitbox:reinitialize()
         _sticky_mesh:release()
     end
     _sticky_mesh = nil
+
+    _slippery_min_x, _slippery_min_y = math.huge, math.huge
+    _slippery_max_x, _slippery_max_y = -math.huge, -math.huge
+    _sticky_min_x, _sticky_min_y = math.huge, math.huge
+    _sticky_max_x, _sticky_max_y = -math.huge, -math.huge
 
     _initialized = false
 end
@@ -282,3 +308,18 @@ function ow.Hitbox:get_render_priority()
         return -2
     end
 end
+
+--- @brief
+function ow.Hitbox:get_global_bounds(sticky_or_slippery)
+    if sticky_or_slippery == true then
+        return _sticky_min_x, _sticky_min_y, _sticky_max_x, _sticky_max_y
+    elseif sticky_or_slippery == false then
+        return _slippery_min_x, _slippery_min_y, _slippery_max_x, _slippery_max_y
+    else
+        return math.min(_sticky_min_x, _slippery_min_x),
+            math.min(_sticky_min_y, _slippery_min_y),
+            math.max(_sticky_max_x, _slippery_max_x),
+            math.max(_sticky_max_y, _slippery_max_y)
+    end
+end
+

@@ -16,6 +16,7 @@ rt.settings.menu_scene = {
 
     title_screen = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+        menu_font_path_prefix = "assets/fonts/RubikBubbles/RubikBubbles",
         player_velocity = 100, -- when reflecting
         player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
@@ -137,6 +138,10 @@ function mn.MenuScene:instantiate(state)
         title_screen.n_menu_items = 0
         title_screen.selected_item_i = 1
 
+        local title_menu_font = rt.Font(
+            rt.settings.menu_scene.title_screen.menu_font_path_prefix .. "-Regular.ttf",
+            rt.settings.menu_scene.title_screen.menu_font_path_prefix .. "-Regular.ttf"
+        )
         for text in range(
             translation.stage_select,
             translation.settings,
@@ -144,8 +149,8 @@ function mn.MenuScene:instantiate(state)
             translation.quit
         ) do
             local item = {
-                unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE),
-                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE),
+                unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE, title_menu_font),
+                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE, title_menu_font),
             }
 
             table.insert(title_screen.menu_items, item)

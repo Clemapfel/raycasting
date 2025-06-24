@@ -12,8 +12,10 @@ vec3 aces_approx(vec3 v) {
 }
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
-    vec3 hdr = texture(img, texture_coords).rgb;
-    return color * vec4(aces_approx(hdr), 1.0);
+    vec4 hdr = texture(img, texture_coords);
+    if (hdr.a == 0) discard;
+
+    return color * vec4(aces_approx(hdr.rgb), 1.0);
 }
 
 #endif
