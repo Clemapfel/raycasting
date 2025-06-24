@@ -295,7 +295,6 @@ function ow.Checkpoint:_set_state(state)
         local player_radius = self._scene:get_player():get_radius()
         local factor = rt.settings.overworld.checkpoint.explosion_radius_factor
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
-        player:set_is_bubble(false) -- delay after radius query
 
     elseif state == _STATE_RAY then
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
@@ -349,7 +348,7 @@ end
 
 --- @brief
 function ow.Checkpoint:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if self._state == _STATE_DEFAULT and not self._scene:get_is_body_visible(self._body) then return end
 
     if self._should_despawn then
         local seen = false
@@ -512,7 +511,7 @@ end
 
 --- @brief
 function ow.Checkpoint:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if self._state == _STATE_DEFAULT and not self._scene:get_is_body_visible(self._body) then return end
 
     love.graphics.setColor(1, 1, 1, 1)
     --self._body:draw()
