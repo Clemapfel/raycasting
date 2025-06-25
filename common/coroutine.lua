@@ -24,7 +24,8 @@ end
 
 --- @brief yield if frame duration is above threshold
 rt.savepoint_maybe = function(frame_percentage)
-    if rt.SceneManager:get_frame_duration() > 2 / 60 then
+    if frame_percentage == nil then frame_percentage = 0.2 end
+    if rt.SceneManager:get_frame_duration() > frame_percentage * (1 / 120) then
         coroutine.yield()
     end
 end

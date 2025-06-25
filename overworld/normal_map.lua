@@ -3,7 +3,7 @@ require "common.compute_shader"
 require "common.render_texture"
 
 rt.settings.overworld.normal_map = {
-    chunk_size = 128
+    chunk_size = 512
 }
 
 --- @class ow.NormalMap
@@ -14,7 +14,9 @@ local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of w
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RG8 -- final normal map texture
 
-local _init_shader, _step_shader, _post_process_shader, _convert_shader
+local _init_shader, _step_shader, _post_process_shader, _draw_shader
+
+local _frame_percentage = 0.6
 
 --- @brief
 function ow.NormalMap:instantiate(stage)
@@ -26,8 +28,19 @@ function ow.NormalMap:instantiate(stage)
     self._non_empty_chunks = meta.make_weak({})
 
     local chunk_size = rt.settings.overworld.normal_map.chunk_size
+    local chunk_padding = chunk_size / 2
 
     self._chunk_size = chunk_size
+    self._chunk_padding = chunk_padding
+    self._quad = love.graphics.newQuad(
+        chunk_padding,
+        chunk_padding,
+        chunk_size,
+        chunk_size,
+        chunk_size + 2 * chunk_padding,
+        chunk_size + 2 * chunk_padding
+    )
+
     self._is_started = false
     self._is_allocated = false
     self._is_done = false
@@ -184,7 +197,13 @@ function ow.NormalMap:instantiate(stage)
                                 is_initialized = false,
                                 x = x,
                                 y = y,
-                                texture = rt.RenderTexture(chunk_size, chunk_size, 0, _normal_map_texture_format, true),
+                                texture = rt.RenderTexture(
+                                    chunk_size + 2 * chunk_padding,
+                                    chunk_size + 2 * chunk_padding,
+                                    0,
+                                    _normal_map_texture_format,
+                                    true
+                                ),
                                 tris = {}
                             }
 
@@ -202,30 +221,43 @@ function ow.NormalMap:instantiate(stage)
     end)
 
     self._compute_sdf_callback = rt.Coroutine(function()
-        if not self._is_allocated then rt.savepoint() end
-
         if _init_shader == nil then _init_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 0 }) end
         if _step_shader == nil then _step_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 1 }) end
         if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2 }) end
+        if _draw_shader == nil then _draw_shader = rt.Shader("overworld/normal_map_draw.glsl") end
 
-        local mask = rt.RenderTexture(chunk_size, chunk_size, 8, _mask_texture_format, true):get_native()
-        local texture_a = rt.RenderTexture(chunk_size, chunk_size, 0, _jfa_texture_format, true):get_native()
-        local texture_b = rt.RenderTexture(chunk_size, chunk_size, 0, _jfa_texture_format, true):get_native()
-        local dispatch_size = chunk_size / 32
+        local padding = chunk_size / 2
+        self._chunk_padding = padding
+        self._chunk_size = chunk_size
+
+        local mask = rt.RenderTexture(
+            chunk_size + 2 * padding, chunk_size + 2 * padding,
+            8, _mask_texture_format, true
+        ):get_native()
+
+        local texture_a = rt.RenderTexture(
+            chunk_size + 2 * padding, chunk_size + 2 * padding,
+            0, _jfa_texture_format, true
+        ):get_native()
+
+        local texture_b = rt.RenderTexture(
+            chunk_size + 2 * padding, chunk_size + 2 * padding,
+            0, _jfa_texture_format, true
+        ):get_native()
+
+        local dispatch_size = (chunk_size + 2 * padding) / 32
         local lg = love.graphics
 
         local camera = self._stage:get_scene():get_camera()
 
         for chunk in values(self._non_empty_chunks) do
-            -- draw mask
+            -- fill mask
             lg.setCanvas({ mask, stencil = true })
             lg.clear(0, 0, 0, 0)
 
             lg.push()
-            lg.translate(-chunk.x, -chunk.y)
-            for tri in values(chunk.tris) do
-                lg.polygon("fill", tri)
-            end
+            lg.translate(-chunk.x + padding, -chunk.y + padding)
+            ow.Hitbox:draw_mask(nil)
             lg.pop()
             lg.setCanvas(nil)
 
@@ -293,13 +325,16 @@ function ow.NormalMap:update(delta)
 end
 
 function ow.NormalMap:draw()
-    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
+    local padding = self._chunk_padding
     local chunk_size = self._chunk_size
 
+    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
     local min_chunk_x = math.floor((x - self._bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - self._bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - self._bounds.y) / chunk_size)
     local max_chunk_y = math.floor(((y + h - 1) - self._bounds.y) / chunk_size)
+
+    local shader_bound = false -- for better batching
 
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
@@ -313,8 +348,10 @@ function ow.NormalMap:draw()
             local draw_y = self._bounds.y + chunk_y * chunk_size
 
             if chunk ~= nil and chunk.is_initialized then
-                love.graphics.draw(chunk.texture:get_native(), draw_x, draw_y)
+                love.graphics.setShader(_draw_shader:get_native())
+                love.graphics.draw(chunk.texture:get_native(), self._quad, draw_x, draw_y)
             else
+                love.graphics.setShader(nil)
                 if chunk == nil then
                     love.graphics.setColor(1, 1, 1, 1)
                     love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
@@ -326,5 +363,7 @@ function ow.NormalMap:draw()
                 end
             end
         end
+
+        love.graphics.setShader(nil)
     end
 end
