@@ -5,7 +5,6 @@
 #define MODE_INITIALIZE 0        // initialize jump flood fill
 #define MODE_JUMP 1              // step jump flood fill
 #define MODE_POST_PROCESS 2      // modify sdf
-#define MODE_CONVERT 3           // convert from jfa to final normal map
 
 #ifndef MODE
 #error "In normal_map_compute.glsl: MODE is undefined, must be 0, 1, or 2"
@@ -27,8 +26,6 @@ layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
 layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
 #elif MODE == MODE_POST_PROCESS
-
-#elif MODE == MODE_CONVERT
 
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
 layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
@@ -154,7 +151,7 @@ void computemain() {
     vec2 gradient = normalize(vec2(x_gradient, y_gradient));
 
     // convert rgba32f to rg8
-    imageStore(output_texture, vec4(gradient.xy, 1, 1));
+    imageStore(output_texture, position, vec4(gradient.xy, 1, 1));
 
     #endif
 }

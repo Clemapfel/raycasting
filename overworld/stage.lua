@@ -230,6 +230,8 @@ function ow.Stage:draw_above_player()
     end
 
     self._mirror:draw()
+
+    self._normal_map:draw()
 end
 
 --- @brief

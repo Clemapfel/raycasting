@@ -3,7 +3,7 @@ require "common.compute_shader"
 require "common.render_texture"
 
 rt.settings.overworld.normal_map = {
-    chunk_size = 512
+    chunk_size = 256
 }
 
 --- @class ow.NormalMap
@@ -23,7 +23,7 @@ function ow.NormalMap:instantiate(stage)
     self._stage = stage
 
     self._chunks = {}
-    self._chunks_in_order = meta.make_weak({})
+    self._non_empty_chunks = meta.make_weak({})
 
     local chunk_size = rt.settings.overworld.normal_map.chunk_size
 
@@ -52,6 +52,7 @@ function ow.NormalMap:instantiate(stage)
         if not self._is_started then rt.savepoint() end
 
         local world = stage:get_physics_world()
+        local padding = 50
 
         local min_x, max_x = self._top_left_x, self._bottom_right_x
         local min_y, max_y = self._top_left_y, self._bottom_right_y
@@ -66,7 +67,7 @@ function ow.NormalMap:instantiate(stage)
             for y = min_x, max_y - 1, chunk_size do
                 local chunk_y = math.floor(y / chunk_size)
 
-                local all_bodies = world:query_aabb(x, y, chunk_size, chunk_size)
+                local all_bodies = world:query_aabb(x - padding, y - padding, chunk_size + 2 * padding, chunk_size + 2 * padding)
                 local bodies = meta.make_weak({})
 
                 local is_empty = true
@@ -88,7 +89,7 @@ function ow.NormalMap:instantiate(stage)
                     chunk.bodies = bodies
                     chunk.texture = rt.RenderTexture(chunk_size, chunk_size, 0, _normal_map_texture_format, true)
                     chunk.initialized = false
-                    table.insert(self._chunks_in_order, chunk)
+                    table.insert(self._non_empty_chunks, chunk)
                 end
 
                 self._chunks[chunk_x][chunk_y] = chunk
@@ -119,7 +120,7 @@ function ow.NormalMap:instantiate(stage)
 
         local camera = self._stage:get_scene():get_camera()
 
-        for chunk in values(self._chunks_in_order) do
+        for chunk in values(self._non_empty_chunks) do
             -- draw mask
             lg.setCanvas({ mask_texture, stencil = true })
             lg.clear(0, 0, 0, 0)
@@ -167,9 +168,15 @@ function ow.NormalMap:instantiate(stage)
                 jump = jump / 2
             end
 
-            -- draw to final texture
-            chunk.texture:bind()
+            -- compute gradient and write to rg8
+            if a_or_b then
+                _post_process_shader:send("input_texture", texture_a)
+            else
+                _post_process_shader:send("input_texture", texture_b)
+            end
 
+            _post_process_shader:send("output_texture", chunk.texture:get_native())
+            _post_process_shader:dispatch(dispatch_size, dispatch_size)
 
             chunk.initialized = true
         end
@@ -204,11 +211,20 @@ function ow.NormalMap:draw()
         if column then
             for chunk_y = min_chunk_y, max_chunk_y do
                 local chunk = column[chunk_y]
-                if chunk and not chunk.is_empty and chunk.initialized then
+                if chunk ~= nil then
                     local draw_x = self._bounds.x + chunk_x * chunk_size
                     local draw_y = self._bounds.y + chunk_y * chunk_size
-                    chunk.texture:draw(draw_x, draw_y)
-                    love.graphics.rectangle(draw_x, draw_y, chunk_size, chunk_size)
+                    --chunk.texture:draw(draw_x, draw_y)
+
+                    if chunk.is_empty then
+                        love.graphics.setColor(1, 1, 1, 1)
+                        love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
+                    else
+                        love.graphics.setColor(1, 1, 1, 1)
+                        love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
+                        love.graphics.setColor(1, 1, 1, 0.2)
+                        love.graphics.rectangle("fill", draw_x, draw_y, chunk_size, chunk_size)
+                    end
                 end
             end
         end
