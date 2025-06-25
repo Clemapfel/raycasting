@@ -277,27 +277,22 @@ function ow.Hitbox:draw_mask(sticky_or_slippery)
 end
 
 --- @brief
-function ow.Hitbox:get_all_tris()
+function ow.Hitbox:get_tris(sticky_or_slippery)
     local tris = {}
-    for tri in values(_sticky_tris) do
-        table.insert(tris, tri)
+
+    if sticky_or_slippery == true or sticky_or_slippery == nil then
+        for tri in values(_sticky_tris) do
+            table.insert(tris, tri)
+        end
     end
 
-    for tri in values(_slippery_tris) do
-        table.insert(tris, tri)
+    if sticky_or_slippery == false or sticky_or_slippery == nil then
+        for tri in values(_slippery_tris) do
+            table.insert(tris, tri)
+        end
     end
 
     return tris
-end
-
---- @brief
-function ow.Hitbox:get_sticky_tris()
-    return table.deepcopy(_sticky_tris)
-end
-
---- @brief
-function ow.Hitbox:get_slippery_tris()
-    return table.deepcopy(_slippery_tris)
 end
 
 --- @brief

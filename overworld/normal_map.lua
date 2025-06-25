@@ -3,7 +3,7 @@ require "common.compute_shader"
 require "common.render_texture"
 
 rt.settings.overworld.normal_map = {
-    chunk_size = 256
+    chunk_size = 128
 }
 
 --- @class ow.NormalMap
@@ -34,71 +34,167 @@ function ow.NormalMap:instantiate(stage)
 
     stage:signal_connect("initialized", function()
         self._is_started = true
-
-        local top_left_x, top_left_y, bottom_right_x, bottom_right_y = ow.Hitbox:get_global_bounds(true) -- sticky
-        top_left_x = math.floor(top_left_x / chunk_size) * chunk_size
-        bottom_right_x = math.ceil(bottom_right_x / chunk_size) * chunk_size
-        top_left_y = math.floor(top_left_y / chunk_size) * chunk_size
-        bottom_right_y = math.ceil(bottom_right_y / chunk_size) * chunk_size
-
-        self._top_left_x, self._top_left_y, self._bottom_right_x, self._bottom_right_y = top_left_x, top_left_y, bottom_right_x, bottom_right_y
-        self._bounds = rt.AABB(top_left_x, top_left_y, bottom_right_x - top_left_x, bottom_right_y - top_left_y)
-
-        self._is_started = true
+        self._start_time = love.timer.getTime()
         return meta.DISCONNECT_SIGNAL
     end)
 
     self._allocate_callback = rt.Coroutine(function()
-        if not self._is_started then rt.savepoint() end
+        -- collect tris of shapes to be normal mapped
+        local tris = {}
+        for tri in values(ow.Hitbox:get_tris(true, true)) do
+            table.insert(tris, tri)
+        end
 
-        local world = stage:get_physics_world()
-        local padding = 50
+        -- get grid bounds
+        local min_x, max_x = math.huge, -math.huge
+        local min_y, max_y = math.huge, -math.huge
 
-        local min_x, max_x = self._top_left_x, self._bottom_right_x
-        local min_y, max_y = self._top_left_y, self._bottom_right_y
+        for tri in values(tris) do
+            min_x = math.min(min_x, tri[1], tri[3], tri[5])
+            min_y = math.min(min_y, tri[2], tri[4], tri[6])
+            max_x = math.max(max_x, tri[1], tri[3], tri[5])
+            max_y = math.max(max_y, tri[2], tri[4], tri[6])
+        end
 
-        local before = love.timer.getTime()
-        for x = min_x, max_x - 1, chunk_size do
-            local chunk_x = math.floor(x / chunk_size)
-            if self._chunks[chunk_x] == nil then
-                self._chunks[chunk_x] = {}
+        -- align to nearest tilesize
+        local tile_size = 16
+        min_x = math.floor(min_x / tile_size) * tile_size
+        min_x = math.floor(min_y / tile_size) * tile_size
+
+        self._bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
+        self._non_empty_chunks = {}
+
+        -- for each tri, find cells it overlaps
+        local function _triangle_overlaps_cell(x, y, w, h, x1, y1, x2, y2, x3, y3)
+            local function _point_in_aabb(px, py)
+                return px >= x and px <= (x + w) and py >= y and py <= (y + h)
             end
 
-            for y = min_x, max_y - 1, chunk_size do
-                local chunk_y = math.floor(y / chunk_size)
+            local function _segments_intersect(p1x, p1y, p2x, p2y, q1x, q1y, q2x, q2y)
+                local function orientation(ax, ay, bx, by, cx, cy)
+                    local val = (by - ay) * (cx - bx) - (bx - ax) * (cy - by)
+                    if val == 0 then return 0 end -- colinear
+                    return (val > 0) and 1 or 2 -- clock or counterclockwise
+                end
 
-                local all_bodies = world:query_aabb(x - padding, y - padding, chunk_size + 2 * padding, chunk_size + 2 * padding)
-                local bodies = meta.make_weak({})
+                local function on_segment(ax, ay, bx, by, rx, ry)
+                    return math.min(ax, bx) <= rx and rx <= math.max(ax, bx) and
+                        math.min(ay, by) <= ry and ry <= math.max(ay, by)
+                end
 
-                local is_empty = true
-                for body in values(all_bodies) do
-                    if body:has_tag("hitbox") then
-                        is_empty = false
-                        table.insert(bodies, body)
+                local o1 = orientation(p1x, p1y, p2x, p2y, q1x, q1y)
+                local o2 = orientation(p1x, p1y, p2x, p2y, q2x, q2y)
+                local o3 = orientation(q1x, q1y, q2x, q2y, p1x, p1y)
+                local o4 = orientation(q1x, q1y, q2x, q2y, p2x, p2y)
+
+                if o1 ~= o2 and o3 ~= o4 then
+                    return true
+                end
+
+                if o1 == 0 and on_segment(p1x, p1y, p2x, p2y, q1x, q1y) then return true end
+                if o2 == 0 and on_segment(p1x, p1y, p2x, p2y, q2x, q2y) then return true end
+                if o3 == 0 and on_segment(q1x, q1y, q2x, q2y, p1x, p1y) then return true end
+                if o4 == 0 and on_segment(q1x, q1y, q2x, q2y, p2x, p2y) then return true end
+
+                return false
+            end
+
+            local function _point_in_triangle(px, py, x1, y1, x2, y2, x3, y3)
+                local v0x, v0y = x3 - x1, y3 - y1
+                local v1x, v1y = x2 - x1, y2 - y1
+                local v2x, v2y = px - x1, py - y1
+
+                local dot00 = v0x * v0x + v0y * v0y
+                local dot01 = v0x * v1x + v0y * v1y
+                local dot02 = v0x * v2x + v0y * v2y
+                local dot11 = v1x * v1x + v1y * v1y
+                local dot12 = v1x * v2x + v1y * v2y
+
+                local denom = dot00 * dot11 - dot01 * dot01
+                if denom == 0 then
+                    return false -- degenerate
+                end
+
+                local u = (dot11 * dot02 - dot01 * dot12) * (1 / denom)
+                local v = (dot00 * dot12 - dot01 * dot02) * (1 / denom)
+
+                return (u >= 0) and (v >= 0) and (u + v <= 1)
+            end
+
+            if  _point_in_aabb(x1, y1) or
+                _point_in_aabb(x2, y2) or
+                _point_in_aabb(x3, y3) or
+
+                _segments_intersect(x1, y1, x2, y2, x + 0, y + 0, x + w, y + 0) or
+                _segments_intersect(x1, y1, x2, y2, x + w, y + 0, x + w, y + h) or
+                _segments_intersect(x1, y1, x2, y2, x + w, y + h, x + 0, y + h) or
+                _segments_intersect(x1, y1, x2, y2, x + 0, y + h, x + 0, y + 0) or
+
+                _segments_intersect(x2, y2, x3, y3, x + 0, y + 0, x + w, y + 0) or
+                _segments_intersect(x2, y2, x3, y3, x + w, y + 0, x + w, y + h) or
+                _segments_intersect(x2, y2, x3, y3, x + w, y + h, x + 0, y + h) or
+                _segments_intersect(x2, y2, x3, y3, x + 0, y + h, x + 0, y + 0) or
+
+                _segments_intersect(x3, y3, x1, y1, x + 0, y + 0, x + w, y + 0) or
+                _segments_intersect(x3, y3, x1, y1, x + w, y + 0, x + w, y + h) or
+                _segments_intersect(x3, y3, x1, y1, x + w, y + h, x + 0, y + h) or
+                _segments_intersect(x3, y3, x1, y1, x + 0, y + h, x + 0, y + 0) or
+
+                _point_in_triangle(x + 0, y + 0, x1, y1, x2, y2, x3, y3) or
+                _point_in_triangle(x + w, y + 0, x1, y1, x2, y2, x3, y3) or
+                _point_in_triangle(x + w, y + h, x1, y1, x2, y2, x3, y3) or
+                _point_in_triangle(x + 0, y + h, x1, y1, x2, y2, x3, y3)
+            then
+                return true
+            end
+
+            return false
+        end
+
+        for tri in values(tris) do
+            local x1, y1, x2, y2, x3, y3 = table.unpack(tri)
+
+            local tri_min_x = math.min(x1, x2, x3)
+            local tri_max_x = math.max(x1, x2, x3)
+            local tri_min_y = math.min(y1, y2, y3)
+            local tri_max_y = math.max(y1, y2, y3)
+
+            local start_xi = math.floor((tri_min_x - min_x) / chunk_size)
+            local end_xi = math.floor((tri_max_x - min_x) / chunk_size)
+            local start_yi = math.floor((tri_min_y - min_y) / chunk_size)
+            local end_yi = math.floor((tri_max_y - min_y) / chunk_size)
+
+            for xi = start_xi, end_xi do
+                for yi = start_yi, end_yi do
+                    local x = min_x + xi * chunk_size
+                    local y = min_y + yi * chunk_size
+
+                    if _triangle_overlaps_cell(
+                        x, y, chunk_size, chunk_size,
+                        x1, y1, x2, y2, x3, y3
+                    ) then
+                        if self._chunks[xi] == nil then
+                            self._chunks[xi] = {}
+                        end
+
+                        local chunk = self._chunks[xi][yi]
+                        if chunk == nil then -- chunk seen for the first time
+                            chunk = {
+                                is_empty = false,
+                                is_initialized = false,
+                                x = x,
+                                y = y,
+                                texture = rt.RenderTexture(chunk_size, chunk_size, 0, _normal_map_texture_format, true),
+                                tris = {}
+                            }
+
+                            self._chunks[xi][yi] = chunk
+                            table.insert(self._non_empty_chunks, chunk)
+                        end
+
+                        table.insert(chunk.tris, tri)
                     end
                 end
-
-                local chunk  = {
-                    x = chunk_x,
-                    y = chunk_y,
-                    is_empty = is_empty
-                }
-
-                if not is_empty then
-                    meta.make_weak(bodies)
-                    chunk.bodies = bodies
-                    chunk.texture = rt.RenderTexture(chunk_size, chunk_size, 0, _normal_map_texture_format, true)
-                    chunk.initialized = false
-                    table.insert(self._non_empty_chunks, chunk)
-                end
-
-                self._chunks[chunk_x][chunk_y] = chunk
-
-                local now = love.timer.getTime()
-                if now - before > 0.2 * (1 / 60) then
-                    rt.savepoint()
-                end
-                before = now
             end
         end
 
@@ -112,7 +208,7 @@ function ow.NormalMap:instantiate(stage)
         if _step_shader == nil then _step_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 1 }) end
         if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2 }) end
 
-        local mask_texture = rt.RenderTexture(chunk_size, chunk_size, 4, _mask_texture_format, true):get_native()
+        local mask = rt.RenderTexture(chunk_size, chunk_size, 8, _mask_texture_format, true):get_native()
         local texture_a = rt.RenderTexture(chunk_size, chunk_size, 0, _jfa_texture_format, true):get_native()
         local texture_b = rt.RenderTexture(chunk_size, chunk_size, 0, _jfa_texture_format, true):get_native()
         local dispatch_size = chunk_size / 32
@@ -122,19 +218,15 @@ function ow.NormalMap:instantiate(stage)
 
         for chunk in values(self._non_empty_chunks) do
             -- draw mask
-            lg.setCanvas({ mask_texture, stencil = true })
+            lg.setCanvas({ mask, stencil = true })
             lg.clear(0, 0, 0, 0)
 
-            camera:bind()
-            local drawn = false
-            for body in values(chunk.bodies) do
-                if body.draw_mask ~= nil then
-                    body:draw_mask()
-                else
-                    body:draw()
-                end
+            lg.push()
+            lg.translate(-chunk.x, -chunk.y)
+            for tri in values(chunk.tris) do
+                lg.polygon("fill", tri)
             end
-            camera:unbind()
+            lg.pop()
             lg.setCanvas(nil)
 
             for to_clear in range(texture_a, texture_b) do
@@ -144,7 +236,7 @@ function ow.NormalMap:instantiate(stage)
             end
 
             -- init
-            _init_shader:send("mask_texture", mask_texture)
+            _init_shader:send("mask_texture", mask)
             _init_shader:send("input_texture", texture_a)
             _init_shader:send("output_texture", texture_b)
             _init_shader:dispatch(dispatch_size, dispatch_size)
@@ -152,7 +244,7 @@ function ow.NormalMap:instantiate(stage)
             -- jfa
             local jump = 0.5 * chunk_size
             local a_or_b = true
-            while jump > 1 do
+            while jump > 0.5 do
                 if a_or_b then
                     _step_shader:send("input_texture", texture_a)
                     _step_shader:send("output_texture", texture_b)
@@ -175,13 +267,16 @@ function ow.NormalMap:instantiate(stage)
                 _post_process_shader:send("input_texture", texture_b)
             end
 
+            _post_process_shader:send("mask_texture", mask)
             _post_process_shader:send("output_texture", chunk.texture:get_native())
             _post_process_shader:dispatch(dispatch_size, dispatch_size)
 
-            chunk.initialized = true
+            chunk.is_initialized = true
         end
 
         self._is_done = true
+        self._finish_time = love.timer.getTime()
+        rt.log("finished normal mapping in " .. (self._finish_time - self._start_time) / (1 / 60), " frames")
     end)
 end
 
@@ -208,23 +303,26 @@ function ow.NormalMap:draw()
 
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
-        if column then
-            for chunk_y = min_chunk_y, max_chunk_y do
-                local chunk = column[chunk_y]
-                if chunk ~= nil then
-                    local draw_x = self._bounds.x + chunk_x * chunk_size
-                    local draw_y = self._bounds.y + chunk_y * chunk_size
-                    --chunk.texture:draw(draw_x, draw_y)
+        for chunk_y = min_chunk_y, max_chunk_y do
+            local chunk
+            if column ~= nil then
+                chunk = column[chunk_y]
+            end
 
-                    if chunk.is_empty then
-                        love.graphics.setColor(1, 1, 1, 1)
-                        love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
-                    else
-                        love.graphics.setColor(1, 1, 1, 1)
-                        love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
-                        love.graphics.setColor(1, 1, 1, 0.2)
-                        love.graphics.rectangle("fill", draw_x, draw_y, chunk_size, chunk_size)
-                    end
+            local draw_x = self._bounds.x + chunk_x * chunk_size
+            local draw_y = self._bounds.y + chunk_y * chunk_size
+
+            if chunk ~= nil and chunk.is_initialized then
+                love.graphics.draw(chunk.texture:get_native(), draw_x, draw_y)
+            else
+                if chunk == nil then
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
+                else
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
+                    love.graphics.setColor(1, 1, 1, 0.2)
+                    love.graphics.rectangle("fill", draw_x, draw_y, chunk_size, chunk_size)
                 end
             end
         end

@@ -27,6 +27,7 @@ layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
 #elif MODE == MODE_POST_PROCESS
 
+layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
 layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
@@ -100,9 +101,9 @@ void computemain() {
 
         // if outside, skip
         if (neighbor_position.x < 0 ||
-        neighbor_position.x >= image_size.x ||
-        neighbor_position.y < 0 ||
-        neighbor_position.y >= image_size.y
+            neighbor_position.x >= image_size.x ||
+            neighbor_position.y < 0 ||
+            neighbor_position.y >= image_size.y
         )
         continue;
 
@@ -150,8 +151,12 @@ void computemain() {
     vec4 current = imageLoad(input_texture, position);
     vec2 gradient = normalize(vec2(x_gradient, y_gradient));
 
-    // convert rgba32f to rg8
-    imageStore(output_texture, position, vec4(gradient.xy, 1, 1));
+    // apply mask and convert rgba32f to rg8
+    vec4 mask = imageLoad(mask_texture, position);
+    if (mask.a > threshold)
+        imageStore(output_texture, position, vec4(gradient.xy, 1, 1));
+    else
+        imageStore(output_texture, position, vec4(0));
 
     #endif
 }

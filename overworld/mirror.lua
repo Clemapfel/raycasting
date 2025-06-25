@@ -125,8 +125,8 @@ function ow.Mirror:create_contour()
     local mirror_segments, occluding_segments = {}, {}
 
     for segments_tris in range(
-        { mirror_segments, ow.Hitbox:get_slippery_tris() },
-        { occluding_segments, ow.Hitbox:get_sticky_tris() }
+        { mirror_segments, ow.Hitbox:get_tris(false) }, -- slippery
+        { occluding_segments, ow.Hitbox:get_tris(true) } -- sticky
     ) do
         _hash_to_segment = {}
 
