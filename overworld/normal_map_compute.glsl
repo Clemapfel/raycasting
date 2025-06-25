@@ -5,21 +5,33 @@
 #define MODE_INITIALIZE 0        // initialize jump flood fill
 #define MODE_JUMP 1              // step jump flood fill
 #define MODE_POST_PROCESS 2      // modify sdf
+#define MODE_CONVERT 3           // convert from jfa to final normal map
 
 #ifndef MODE
 #error "In normal_map_compute.glsl: MODE is undefined, must be 0, 1, or 2"
 #endif
 
+#define MASK_TEXTURE_FORMAT rgba8
+#define JFA_TEXTURE_FORMAT rgba32f
+#define NORMAL_MAP_TEXTURE_FORMAT rg8
+
 #if MODE == MODE_INITIALIZE
 
-layout(rgba8) uniform readonly image2D mask_texture;
-layout(rgba32f) uniform writeonly image2D input_texture;  // xy: nearest wall pixel coords, z: distance, w: sign of distance
-layout(rgba32f) uniform writeonly image2D output_texture;
+layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
+layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D input_texture;  // xy: nearest wall pixel coords, z: distance, w: sign of distance
+layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
 #elif MODE == MODE_JUMP
 
-layout(rgba32f) uniform readonly image2D input_texture;
-layout(rgba32f) uniform writeonly image2D output_texture;
+layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
+layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
+
+#elif MODE == MODE_POST_PROCESS
+
+#elif MODE == MODE_CONVERT
+
+layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
+layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
 #endif
 
@@ -107,6 +119,42 @@ void computemain() {
     }
 
     imageStore(output_texture, position, best);
+
+    #elif MODE == MODE_POST_PROCESS
+
+    // compute gradient
+
+    const mat3 sobel_x = mat3(
+        -1.0,  0.0,  1.0,
+        -2.0,  0.0,  2.0,
+        -1.0,  0.0,  1.0
+    );
+    const mat3 sobel_y = mat3(
+        -1.0, -2.0, -1.0,
+        0.0,  0.0,  0.0,
+        1.0,  2.0,  1.0
+    );
+
+    float x_gradient = 0.0;
+    float y_gradient = 0.0;
+
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            ivec2 current_position = position + ivec2(i, j);
+            if (current_position.x < 0 || current_position.x >= image_size.x || current_position.y < 0 || current_position.y >= image_size.y)
+            continue;
+
+            float value = imageLoad(input_texture, current_position).z;
+            x_gradient += value * sobel_x[j + 1][i + 1];
+            y_gradient += value * sobel_y[j + 1][i + 1];
+        }
+    }
+
+    vec4 current = imageLoad(input_texture, position);
+    vec2 gradient = normalize(vec2(x_gradient, y_gradient));
+
+    // convert rgba32f to rg8
+    imageStore(output_texture, vec4(gradient.xy, 1, 1));
 
     #endif
 }

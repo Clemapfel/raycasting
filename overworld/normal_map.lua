@@ -10,9 +10,11 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _texture_format = rt.TextureFormat.RG16 -- r: x gradient, g: y gradient
+local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
+local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
+local _normal_map_texture_format = rt.TextureFormat.RG8 -- final normal map texture
 
-local _init_shader, _step_shader, _post_process_shader
+local _init_shader, _step_shader, _post_process_shader, _convert_shader
 
 --- @brief
 function ow.NormalMap:instantiate(stage)
@@ -84,7 +86,7 @@ function ow.NormalMap:instantiate(stage)
                 if not is_empty then
                     meta.make_weak(bodies)
                     chunk.bodies = bodies
-                    chunk.texture = rt.RenderTexture(chunk_size, chunk_size, 0, _texture_format, true)
+                    chunk.texture = rt.RenderTexture(chunk_size, chunk_size, 0, _normal_map_texture_format, true)
                     chunk.initialized = false
                     table.insert(self._chunks_in_order, chunk)
                 end
@@ -107,10 +109,11 @@ function ow.NormalMap:instantiate(stage)
 
         if _init_shader == nil then _init_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 0 }) end
         if _step_shader == nil then _step_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 1 }) end
-        --if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2 }) end
+        if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2 }) end
 
-        local mask_texture = rt.RenderTexture(chunk_size, chunk_size, 4, rt.TextureFormat.RGBA8, true):get_native()
-        local swap_texture = rt.RenderTexture(chunk_size, chunk_size, 0, _texture_format, true):get_native()
+        local mask_texture = rt.RenderTexture(chunk_size, chunk_size, 4, _mask_texture_format, true):get_native()
+        local texture_a = rt.RenderTexture(chunk_size, chunk_size, 0, _jfa_texture_format, true):get_native()
+        local texture_b = rt.RenderTexture(chunk_size, chunk_size, 0, _jfa_texture_format, true):get_native()
         local dispatch_size = chunk_size / 32
         local lg = love.graphics
 
@@ -131,12 +134,16 @@ function ow.NormalMap:instantiate(stage)
                 end
             end
             camera:unbind()
-
             lg.setCanvas(nil)
 
-            local texture_a, texture_b = chunk.texture:get_native(), swap_texture
+            for to_clear in range(texture_a, texture_b) do
+                lg.setCanvas(to_clear)
+                lg.clear(0, 0, 0, 0)
+                lg.setCanvas(nil)
+            end
 
             -- init
+            _init_shader:send("mask_texture", mask_texture)
             _init_shader:send("input_texture", texture_a)
             _init_shader:send("output_texture", texture_b)
             _init_shader:dispatch(dispatch_size, dispatch_size)
@@ -153,14 +160,16 @@ function ow.NormalMap:instantiate(stage)
                     _step_shader:send("output_texture", texture_a)
                 end
 
-                self._sdf_step_shader:send("jump_distance", math.ceil(jump))
-                self._sdf_step_shader:dispatch(1024, 1024)
+                _step_shader:send("jump_distance", math.ceil(jump))
+                _step_shader:dispatch(dispatch_size, dispatch_size)
 
                 a_or_b = not a_or_b
                 jump = jump / 2
             end
 
-            -- TODO: post process
+            -- draw to final texture
+            chunk.texture:bind()
+
 
             chunk.initialized = true
         end

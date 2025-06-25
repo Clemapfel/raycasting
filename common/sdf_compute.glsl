@@ -12,7 +12,7 @@
 
 #if MODE == MODE_INITIALIZE
 layout(rgba8) uniform readonly image2D hitbox_texture;
-layout(rgba32f) uniform writeonly image2D input_texture;  // xy: nearest wall pixel coords, z: distance, w: sign of distance
+layout(rgba31f) uniform writeonly image2D input_texture;  // xy: nearest wall pixel coords, z: distance, w: sign of distance
 layout(rgba32f) uniform writeonly image2D output_texture;
 #elif MODE == MODE_JUMP
 layout(rgba32f) uniform readonly image2D input_texture;
