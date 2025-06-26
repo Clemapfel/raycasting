@@ -96,6 +96,7 @@ function rt.Blur:_apply_blur()
             shader_a, shader_b = _blur_shader_horizontal, _blur_shader_vertical
             strength = 1
         end
+
         for i = 1, math.ceil(self._blur_strength) * strength do
             lg.setShader(shader_a)
             lg.setCanvas(a)

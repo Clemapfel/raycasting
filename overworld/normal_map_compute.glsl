@@ -125,8 +125,57 @@ void computemain() {
 
     #elif MODE == MODE_POST_PROCESS
 
-    vec4 self = imageLoad(input_texture, position);
-    imageStore(output_texture, position, vec4(self.xy, self.z, self.w));
+    #define KERNEL_SIZE 49
+
+    const float kernel[KERNEL_SIZE] = float[KERNEL_SIZE](
+        0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067,
+        0.00002292, 0.00078634, 0.00655602, 0.01330373, 0.00655602, 0.00078634, 0.00002292,
+        0.00019117, 0.00655602, 0.05472157, 0.11131955, 0.05472157, 0.00655602, 0.00019117,
+        0.00038771, 0.01330373, 0.11131955, 0.22654297, 0.11131955, 0.01330373, 0.00038771,
+        0.00019117, 0.00655602, 0.05472157, 0.11131955, 0.05472157, 0.00655602, 0.00019117,
+        0.00002292, 0.00078634, 0.00655602, 0.01330373, 0.00655602, 0.00078634, 0.00002292,
+        0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067
+    );
+
+    const int mask[KERNEL_SIZE] = int[KERNEL_SIZE](
+        0, 0, 1, 1, 1, 0, 0,
+        0, 0, 1, 1, 1, 0, 0,
+        1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1,
+        0, 0, 1, 1, 1, 0, 0,
+        0, 0, 1, 1, 1, 0, 0
+    );
+
+    const ivec2 offsets[KERNEL_SIZE] = ivec2[KERNEL_SIZE](
+        ivec2(-3, -3), ivec2(-2, -3), ivec2(-1, -3), ivec2( 0, -3), ivec2( 1, -3), ivec2( 2, -3), ivec2( 3, -3),
+        ivec2(-3, -2), ivec2(-2, -2), ivec2(-1, -2), ivec2( 0, -2), ivec2( 1, -2), ivec2( 2, -2), ivec2( 3, -2),
+        ivec2(-3, -1), ivec2(-2, -1), ivec2(-1, -1), ivec2( 0, -1), ivec2( 1, -1), ivec2( 2, -1), ivec2( 3, -1),
+        ivec2(-3,  0), ivec2(-2,  0), ivec2(-1,  0), ivec2( 0,  0), ivec2( 1,  0), ivec2( 2,  0), ivec2( 3,  0),
+        ivec2(-3,  1), ivec2(-2,  1), ivec2(-1,  1), ivec2( 0,  1), ivec2( 1,  1), ivec2( 2,  1), ivec2( 3,  1),
+        ivec2(-3,  2), ivec2(-2,  2), ivec2(-1,  2), ivec2( 0,  2), ivec2( 1,  2), ivec2( 2,  2), ivec2( 3,  2),
+        ivec2(-3,  3), ivec2(-2,  3), ivec2(-1,  3), ivec2( 0,  3), ivec2( 1,  3), ivec2( 2,  3), ivec2( 3,  3)
+    );
+
+    float max_value = -infinity;
+    float sum = 0;
+    for (int i = 0; i < KERNEL_SIZE; ++i) {
+        ivec2 neighbor_position = position + offsets[i];
+
+        if (neighbor_position.x < 0 ||
+            neighbor_position.x >= image_size.x ||
+            neighbor_position.y < 0 ||
+            neighbor_position.y >= image_size.y
+        )
+            continue;
+
+        float neighbor = imageLoad(input_texture, neighbor_position).z * kernel[i];
+        max_value = max(max_value, neighbor);
+        sum = sum + neighbor;
+    }
+
+    vec4 current = imageLoad(input_texture, position);
+    imageStore(output_texture, position, vec4(current.xy, sum, current.w));
 
     #elif MODE == MODE_EXPORT
 

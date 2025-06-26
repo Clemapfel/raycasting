@@ -62,6 +62,10 @@ vec2 to_uv(vec2 frag_position) {
 uniform vec2 player_position; // in screen coords
 uniform vec4 player_color;
 
+#ifdef PIXEL
+
+// ... [existing utility functions: fast_angle, hsv_to_rgb, etc.] ...
+
 vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) // tex is RG8
 {
     vec4 data = texture(tex, texture_coords);
@@ -102,7 +106,24 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) // t
     // Final intensity
     float intensity = diff * attenuation;
 
-    // Output color modulated by light
-    return vec4(vec3(intensity) * player_color.rgb, 1.0);
+    // --- Opalescence effect ---
+    // Map the normal's direction to a hue
+    float angle = atan(normal.y, normal.x); // [-PI, PI]
+    float hue = (angle / (2.0 * PI)) + 0.5; // [0,1]
+    float sat = 0.5 + 0.5 * normal.z; // More face-on = more saturated
+    float val = 1.0;
+
+    vec3 opal_color = hsv_to_rgb(vec3(hue, sat, val));
+
+    // Optionally, add some sparkle/noise to the hue for more realism
+    //float sparkle = gradient_noise(vec3(uv * 50.0, 30.0));
+    opal_color = hsv_to_rgb(vec3(hue, sat, val));
+
+    // Blend opalescent color with lighting
+    float opal_strength = 0.7; // 0 = no opal, 1 = full opal
+    vec3 final_color = mix(vec3(intensity) * player_color.rgb, opal_color, opal_strength * diff);
+
+    return vec4(final_color, 1.0);
 }
+#endif
 #endif

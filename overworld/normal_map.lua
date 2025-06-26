@@ -17,6 +17,7 @@ local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RG8 -- final normal map texture
 
 local _init_shader, _step_shader, _post_process_shader, _export_shader, _draw_shader
+local _blur_shader_horizontal, _blur_shader_vertical
 
 local _frame_percentage = 0.6
 
@@ -230,6 +231,18 @@ function ow.NormalMap:instantiate(stage)
         if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _draw_shader == nil then _draw_shader = rt.Shader("overworld/normal_map_draw.glsl") end
 
+        if _blur_shader_horizontal == nil then
+            _blur_shader_horizontal = rt.Shader("common/blur.glsl", {
+                HORIZONTAL_OR_VERTICAL = 1
+            }):get_native()
+        end
+
+        if _blur_shader_vertical == nil then
+            _blur_shader_vertical = rt.Shader("common/blur.glsl", {
+                HORIZONTAL_OR_VERTICAL = 0
+            }):get_native()
+        end
+
         local padding = chunk_size / 2
         self._chunk_padding = padding
         self._chunk_size = chunk_size
@@ -249,6 +262,11 @@ function ow.NormalMap:instantiate(stage)
             0, _jfa_texture_format, true
         ):get_native()
 
+        local blur_texture = rt.RenderTexture(
+            chunk_size + 2 * padding, chunk_size + 2 * padding,
+            0, _normal_map_texture_format, true
+        )
+
         local dispatch_size_x, dispatch_size_y = (chunk_size + 2 * padding) / size_x, (chunk_size + 2 * padding) / size_y
         local lg = love.graphics
 
@@ -261,7 +279,7 @@ function ow.NormalMap:instantiate(stage)
 
             lg.push()
             lg.translate(-chunk.x + padding, -chunk.y + padding)
-            ow.Hitbox:draw_mask(true, false) -- sticky only
+            ow.Hitbox:draw_mask(true, true) -- sticky only
             lg.pop()
             lg.setCanvas(nil)
 
@@ -296,8 +314,7 @@ function ow.NormalMap:instantiate(stage)
                 jump = jump / 2
             end
 
-            for i = 1, 1 do
-                -- compute gradient and write to rg8
+            for i = 1, 5 do
                 if a_or_b then
                     _post_process_shader:send("input_texture", texture_a)
                     _post_process_shader:send("output_texture", texture_b)
