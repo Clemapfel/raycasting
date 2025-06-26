@@ -4,8 +4,9 @@
 
 #define MODE_INITIALIZE 0        // initialize jump flood fill
 #define MODE_JUMP 1              // step jump flood fill
-#define MODE_POST_PROCESS 2      // modify sdf
-#define MODE_EXPORT 3
+#define MODE_PRE_PROCESS 2       // modify maks
+#define MODE_POST_PROCESS 3      // modify sdf
+#define MODE_EXPORT 4            // compute gradient, convert rgba32f to rg8
 
 #ifndef MODE
 #error "In normal_map_compute.glsl: MODE is undefined, must be 0, 1, or 2"
@@ -32,6 +33,12 @@ layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
 layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
+
+#elif MODE == MODE_PRE_PROCESS
+
+layout(MASK_TEXTURE_FORMAT) uniform readonly image2D input_texture;
+layout(MASK_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
+uniform int mode;
 
 #elif MODE == MODE_EXPORT
 
@@ -126,8 +133,6 @@ void computemain() {
 
     #elif MODE == MODE_POST_PROCESS
 
-    #define PI 3.1415926535897932384626433832795
-
     vec4 current = imageLoad(input_texture, position);
 
     float dist = abs(current.z);
@@ -138,6 +143,54 @@ void computemain() {
     dist *= max_distance;
 
     imageStore(output_texture, position, vec4(current.xy, dist * dist_sign, current.w));
+
+    #elif MODE == MODE_PRE_PROCESS
+
+    #define MODE_DILATE 0
+    #define MODE_ERODE 1
+
+    const int morph_radius = 7;
+
+    if (mode == MODE_DILATE) {
+        // Morphological dilation: set A to max in radius
+        float max_alpha = 0.0;
+        int r = int(ceil(morph_radius));
+        for (int dy = -r; dy <= r; ++dy) {
+            for (int dx = -r; dx <= r; ++dx) {
+                float dist = sqrt(float(dx*dx + dy*dy));
+                if (dist <= morph_radius) {
+                    ivec2 npos = position + ivec2(dx, dy);
+                    if (npos.x < 0 || npos.x >= image_size.x || npos.y < 0 || npos.y >= image_size.y)
+                    continue;
+                    vec4 s = imageLoad(input_texture, npos);
+                    max_alpha = max(max_alpha, s.a);
+                }
+            }
+        }
+        // Copy RGB from self, set A to max in radius
+        vec4 self_pixel = imageLoad(input_texture, position);
+        imageStore(output_texture, position, vec4(self_pixel.rgb, max_alpha));
+    }
+    else if (mode == MODE_ERODE) {
+        // Morphological erosion: set A to min in radius
+        float min_alpha = 1.0;
+        int r = int(ceil(morph_radius));
+        for (int dy = -r; dy <= r; ++dy) {
+            for (int dx = -r; dx <= r; ++dx) {
+                float dist = sqrt(float(dx*dx + dy*dy));
+                if (dist <= morph_radius) {
+                    ivec2 npos = position + ivec2(dx, dy);
+                    if (npos.x < 0 || npos.x >= image_size.x || npos.y < 0 || npos.y >= image_size.y)
+                    continue;
+                    vec4 s = imageLoad(input_texture, npos);
+                    min_alpha = min(min_alpha, s.a);
+                }
+            }
+        }
+        // Copy RGB from self, set A to min in radius
+        vec4 self_pixel = imageLoad(input_texture, position);
+        imageStore(output_texture, position, vec4(self_pixel.rgb, min_alpha));
+    }
 
     #elif MODE == MODE_EXPORT
 

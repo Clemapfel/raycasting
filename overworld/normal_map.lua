@@ -9,7 +9,7 @@ rt.settings.overworld.normal_map = {
 
     mask_sticky = true,
     mask_slippery = true,
-    max_distance = 100
+    max_distance = 22, -- < 256
 }
 
 --- @class ow.NormalMap
@@ -20,8 +20,7 @@ local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of w
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 
-local _init_shader, _step_shader, _post_process_shader, _export_shader, _draw_light_shader, _draw_shadow_shader
-local _blur_shader_horizontal, _blur_shader_vertical
+local _init_shader, _step_shader, _pre_process_shader, _post_process_shader, _export_shader, _draw_light_shader, _draw_shadow_shader
 
 local _frame_percentage = 0.6
 
@@ -231,30 +230,24 @@ function ow.NormalMap:instantiate(stage)
         local size_x, size_y = rt.settings.overworld.normal_map.work_group_size_x, rt.settings.overworld.normal_map.work_group_size_y
         if _init_shader == nil then _init_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 0, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _step_shader == nil then _step_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 1, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
+        if _pre_process_shader == nil then _pre_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
+        if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
+        if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 4, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _draw_light_shader == nil then _draw_light_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 0 }) end
         if _draw_shadow_shader == nil then _draw_shadow_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 1 }) end
-
-        if _blur_shader_horizontal == nil then
-            _blur_shader_horizontal = rt.Shader("overworld/normal_map_blur.glsl", {
-                HORIZONTAL_OR_VERTICAL = 1
-            }):get_native()
-        end
-
-        if _blur_shader_vertical == nil then
-            _blur_shader_horizontal = rt.Shader("overworld/normal_map_blur.glsl", {
-                HORIZONTAL_OR_VERTICAL = 0
-            }):get_native()
-        end
 
         local padding = chunk_size / 2
         self._chunk_padding = padding
         self._chunk_size = chunk_size
 
-        local mask = rt.RenderTexture(
+        local pre_mask = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             8, _mask_texture_format, true
+        ):get_native()
+
+        local mask = rt.RenderTexture(
+            chunk_size + 2 * padding, chunk_size + 2 * padding,
+            0, _mask_texture_format, true
         ):get_native()
 
         local texture_a = rt.RenderTexture(
@@ -279,7 +272,7 @@ function ow.NormalMap:instantiate(stage)
 
         for chunk in values(self._non_empty_chunks) do
             -- fill mask
-            lg.setCanvas({ mask, stencil = true })
+            lg.setCanvas({ pre_mask, stencil = true })
             lg.clear(0, 0, 0, 0)
 
             lg.push()
@@ -290,6 +283,32 @@ function ow.NormalMap:instantiate(stage)
             )
             lg.pop()
             lg.setCanvas(nil)
+
+            -- pre process mask
+
+            do
+                local a_or_b = true
+                for i = 1, 3 do -- has to be odd
+                    local a, b
+                    if a_or_b then
+                        a, b = pre_mask, mask
+                    else
+                        a, b = mask, pre_mask
+                    end
+
+                    _pre_process_shader:send("input_texture", a)
+                    _pre_process_shader:send("output_texture", b)
+                    _pre_process_shader:send("mode", 1) -- erode
+                    _pre_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+                    _pre_process_shader:send("input_texture", b)
+                    _pre_process_shader:send("output_texture", a)
+                    _pre_process_shader:send("mode", 0) -- dilate
+                    _pre_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+                    a_or_b = not a_or_b
+                end
+            end
 
             for to_clear in range(texture_a, texture_b) do
                 lg.setCanvas(to_clear)
@@ -322,34 +341,6 @@ function ow.NormalMap:instantiate(stage)
                 jump = jump / 2
             end
 
-            do -- blur
-                local shader_a, shader_b = _blur_shader_horizontal, _blur_shader_vertical
-
-                local a, b
-                if a_or_b then
-                    a, b = texture_a, texture_b
-                else
-                    a, b = texture_b, texture_a
-                end
-
-                lg.push()
-                lg.origin()
-                for i = 1, 1 do
-                    lg.setShader(shader_a)
-                    lg.setCanvas(a)
-                    lg.draw(b)
-
-                    lg.setShader(shader_b)
-                    lg.setCanvas(b)
-                    lg.draw(a)
-                end
-
-                lg.setCanvas(nil)
-                lg.setShader(nil)
-                lg.pop()
-            end
-
-
             -- post process
             if a_or_b then
                 _post_process_shader:send("input_texture", texture_a)
@@ -361,6 +352,7 @@ function ow.NormalMap:instantiate(stage)
 
             _post_process_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _post_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
+            a_or_b = not a_or_b
 
             -- compute gradient, export to RG8
             if a_or_b then
