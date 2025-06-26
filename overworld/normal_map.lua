@@ -9,7 +9,7 @@ rt.settings.overworld.normal_map = {
 
     mask_sticky = true,
     mask_slippery = true,
-    max_distance = 22
+    max_distance = 100
 }
 
 --- @class ow.NormalMap
@@ -237,13 +237,13 @@ function ow.NormalMap:instantiate(stage)
         if _draw_shadow_shader == nil then _draw_shadow_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 1 }) end
 
         if _blur_shader_horizontal == nil then
-            _blur_shader_horizontal = rt.Shader("common/blur.glsl", {
+            _blur_shader_horizontal = rt.Shader("overworld/normal_map_blur.glsl", {
                 HORIZONTAL_OR_VERTICAL = 1
             }):get_native()
         end
 
         if _blur_shader_vertical == nil then
-            _blur_shader_vertical = rt.Shader("common/blur.glsl", {
+            _blur_shader_horizontal = rt.Shader("overworld/normal_map_blur.glsl", {
                 HORIZONTAL_OR_VERTICAL = 0
             }):get_native()
         end
@@ -322,21 +322,51 @@ function ow.NormalMap:instantiate(stage)
                 jump = jump / 2
             end
 
-            _post_process_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
+            do -- blur
+                local shader_a, shader_b = _blur_shader_horizontal, _blur_shader_vertical
 
-            for i = 1, 1 do
+                local a, b
                 if a_or_b then
-                    _post_process_shader:send("input_texture", texture_a)
-                    _post_process_shader:send("output_texture", texture_b)
-                    _export_shader:send("input_texture", texture_b)
+                    a, b = texture_a, texture_b
                 else
-                    _post_process_shader:send("input_texture", texture_b)
-                    _post_process_shader:send("output_texture", texture_a)
-                    _export_shader:send("input_texture", texture_a)
+                    a, b = texture_b, texture_a
                 end
 
-                a_or_b = not a_or_b
-                _post_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
+                lg.push()
+                lg.origin()
+                for i = 1, 1 do
+                    lg.setShader(shader_a)
+                    lg.setCanvas(a)
+                    lg.draw(b)
+
+                    lg.setShader(shader_b)
+                    lg.setCanvas(b)
+                    lg.draw(a)
+                end
+
+                lg.setCanvas(nil)
+                lg.setShader(nil)
+                lg.pop()
+            end
+
+
+            -- post process
+            if a_or_b then
+                _post_process_shader:send("input_texture", texture_a)
+                _post_process_shader:send("output_texture", texture_b)
+            else
+                _post_process_shader:send("input_texture", texture_b)
+                _post_process_shader:send("output_texture", texture_a)
+            end
+
+            _post_process_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
+            _post_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+            -- compute gradient, export to RG8
+            if a_or_b then
+                _export_shader:send("input_texture", texture_a)
+            else
+                _export_shader:send("input_texture", texture_b)
             end
 
             _export_shader:send("mask_texture", mask)
