@@ -257,36 +257,36 @@ function ow.Hitbox:draw_all()
 end
 
 --- @brief
-function ow.Hitbox:draw_mask(sticky_or_slippery)
+function ow.Hitbox:draw_mask(sticky, slippery)
+    if sticky == nil then sticky = true end
+    if slippery == nil then slippery = true end
+
     _initialize()
 
     love.graphics.setColor(1, 1, 1, 1)
-    if sticky_or_slippery == false and _slippery_mesh ~= nil then
+    if slippery == true and _slippery_mesh ~= nil then
         love.graphics.draw(_slippery_mesh)
-    elseif sticky_or_slippery == true and _sticky_mesh ~= nil then
-        love.graphics.draw(_sticky_mesh)
-    else
-        if _sticky_mesh ~= nil then
-            love.graphics.draw(_sticky_mesh)
-        end
+    end
 
-        if _slippery_mesh ~= nil then
-            love.graphics.draw(_slippery_mesh)
-        end
+    if sticky == true and _sticky_mesh ~= nil then
+        love.graphics.draw(_sticky_mesh)
     end
 end
 
 --- @brief
-function ow.Hitbox:get_tris(sticky_or_slippery)
+function ow.Hitbox:get_tris(sticky, slippery)
+    if sticky == nil then sticky = true end
+    if slippery == nil then slippery = true end
+
     local tris = {}
 
-    if sticky_or_slippery == true or sticky_or_slippery == nil then
+    if sticky == true then
         for tri in values(_sticky_tris) do
             table.insert(tris, tri)
         end
     end
 
-    if sticky_or_slippery == false or sticky_or_slippery == nil then
+    if slippery == true then
         for tri in values(_slippery_tris) do
             table.insert(tris, tri)
         end

@@ -43,13 +43,13 @@ function ow.Mirror:draw()
     love.graphics.setColorMask(false)
 
     -- only draw where slippery is
-    ow.Hitbox:draw_mask(false)
+    ow.Hitbox:draw_mask(false, true)
 
     love.graphics.setStencilState("replace", "always", 0)
     love.graphics.setColorMask(false)
 
     -- exclude sticky
-    ow.Hitbox:draw_mask(true)
+    ow.Hitbox:draw_mask(true, false)
 
     love.graphics.setStencilState("keep", "equal", stencil_value)
     love.graphics.setColorMask(true)
@@ -125,8 +125,8 @@ function ow.Mirror:create_contour()
     local mirror_segments, occluding_segments = {}, {}
 
     for segments_tris in range(
-        { mirror_segments, ow.Hitbox:get_tris(false) }, -- slippery
-        { occluding_segments, ow.Hitbox:get_tris(true) } -- sticky
+        { mirror_segments, ow.Hitbox:get_tris(false, true) }, -- slippery
+        { occluding_segments, ow.Hitbox:get_tris(true, false) } -- sticky
     ) do
         _hash_to_segment = {}
 
