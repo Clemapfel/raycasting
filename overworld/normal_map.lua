@@ -4,7 +4,7 @@ require "common.render_texture"
 
 rt.settings.overworld.normal_map = {
     chunk_size = 512,
-    work_group_size_x = 8,
+    work_group_size_x = 16,
     work_group_size_y = 8,
 }
 
@@ -201,11 +201,11 @@ function ow.NormalMap:instantiate(stage)
                                 x = x,
                                 y = y,
                                 texture = rt.RenderTexture(
-                                    chunk_size + 2 * chunk_padding,
-                                    chunk_size + 2 * chunk_padding,
+                                    chunk_size,
+                                    chunk_size, -- no padding, cropped during export
                                     0,
                                     _normal_map_texture_format,
-                                    true
+                                    true -- no compute write
                                 ),
                                 tris = {}
                             }
@@ -262,7 +262,7 @@ function ow.NormalMap:instantiate(stage)
             0, _jfa_texture_format, true
         ):get_native()
 
-        local blur_texture = rt.RenderTexture(
+        local export_texture = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             0, _normal_map_texture_format, true
         )
@@ -314,7 +314,7 @@ function ow.NormalMap:instantiate(stage)
                 jump = jump / 2
             end
 
-            for i = 1, 5 do
+            for i = 1, 10 do
                 if a_or_b then
                     _post_process_shader:send("input_texture", texture_a)
                     _post_process_shader:send("output_texture", texture_b)
@@ -330,11 +330,26 @@ function ow.NormalMap:instantiate(stage)
             end
 
             _export_shader:send("mask_texture", mask)
-            _export_shader:send("output_texture", chunk.texture:get_native())
+            _export_shader:send("output_texture", export_texture)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+            -- crop to save memory
+            local offset_x, offset_y = self._quad:getViewport()
+            lg.push()
+            lg.origin()
+            lg.setCanvas(chunk.texture:get_native())
+            lg.clear(0, 0, 0, 0)
+            lg.setColor(1, 1, 1, 1)
+            lg.draw(export_texture:get_native(), self._quad)
+            lg.pop()
 
             chunk.is_initialized = true
         end
+
+        texture_a:release()
+        texture_b:release()
+        mask:release()
+        export_texture:release()
 
         self._is_done = true
         self._queue_finish = true
@@ -393,20 +408,7 @@ function ow.NormalMap:draw()
             local draw_y = self._bounds.y + chunk_y * chunk_size
 
             if chunk ~= nil and chunk.is_initialized then
-                love.graphics.draw(chunk.texture:get_native(), self._quad, draw_x, draw_y)
-            else
-                --[[
-                love.graphics.setShader(nil)
-                if chunk == nil then
-                    love.graphics.setColor(1, 1, 1, 1)
-                    love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
-                else
-                    love.graphics.setColor(1, 1, 1, 1)
-                    love.graphics.rectangle("line", draw_x, draw_y, chunk_size, chunk_size)
-                    love.graphics.setColor(1, 1, 1, 0.2)
-                    love.graphics.rectangle("fill", draw_x, draw_y, chunk_size, chunk_size)
-                end
-                ]]--
+                love.graphics.draw(chunk.texture:get_native(), draw_x, draw_y)
             end
         end
     end

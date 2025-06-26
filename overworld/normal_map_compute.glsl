@@ -23,6 +23,8 @@ layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
 #elif MODE == MODE_JUMP
 
+uniform int jump_distance; // k / 2, k / 2 / 2, ..., 1, where k = max(size(input_texture))
+
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
 layout(JFA_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
@@ -37,23 +39,22 @@ layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
 layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
+uniform int padding;
+
 #endif
-
-uniform int jump_distance; // k / 2, k / 2 / 2, ..., 1, where k = max(size(input_texture))
-
 
 const float infinity = 1 / 0.f;
 uniform float threshold = 0;
 
 const ivec2 directions[8] = ivec2[](
-ivec2(0, -1),
-ivec2(1, 0),
-ivec2(0, 1),
-ivec2(-1, 0),
-ivec2(1, -1),
-ivec2(1, 1),
-ivec2(-1, 1),
-ivec2(-1, -1)
+    ivec2(0, -1),
+    ivec2(1, 0),
+    ivec2(0, 1),
+    ivec2(-1, 0),
+    ivec2(1, -1),
+    ivec2(1, 1),
+    ivec2(-1, 1),
+    ivec2(-1, -1)
 );
 
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = 1) in; // dispatch with area_w / 32, area_h / 32
@@ -98,7 +99,7 @@ void computemain() {
     vec4 self = imageLoad(input_texture, position);
 
     if (self.z == 0) // is outer wall
-    return;
+        return;
 
     vec4 best = self;
     for (int i = 0; i < 8; ++i) {
@@ -106,76 +107,27 @@ void computemain() {
 
         // if outside, skip
         if (neighbor_position.x < 0 ||
-        neighbor_position.x >= image_size.x ||
-        neighbor_position.y < 0 ||
-        neighbor_position.y >= image_size.y
-        )
-        continue;
-
-        vec4 neighbor = imageLoad(input_texture, neighbor_position);
-        if (neighbor.x < 0 || neighbor.y < 0) // is uninitialized
-        continue;
-
-        float dist = distance(vec2(position), vec2(neighbor.xy));
-        if (dist <= best.z)
-        best = vec4(neighbor.xy, dist, self.w);
-    }
-
-    imageStore(output_texture, position, best);
-
-    #elif MODE == MODE_POST_PROCESS
-
-    #define KERNEL_SIZE 49
-
-    const float kernel[KERNEL_SIZE] = float[KERNEL_SIZE](
-        0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067,
-        0.00002292, 0.00078634, 0.00655602, 0.01330373, 0.00655602, 0.00078634, 0.00002292,
-        0.00019117, 0.00655602, 0.05472157, 0.11131955, 0.05472157, 0.00655602, 0.00019117,
-        0.00038771, 0.01330373, 0.11131955, 0.22654297, 0.11131955, 0.01330373, 0.00038771,
-        0.00019117, 0.00655602, 0.05472157, 0.11131955, 0.05472157, 0.00655602, 0.00019117,
-        0.00002292, 0.00078634, 0.00655602, 0.01330373, 0.00655602, 0.00078634, 0.00002292,
-        0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067
-    );
-
-    const int mask[KERNEL_SIZE] = int[KERNEL_SIZE](
-        0, 0, 1, 1, 1, 0, 0,
-        0, 0, 1, 1, 1, 0, 0,
-        1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1,
-        0, 0, 1, 1, 1, 0, 0,
-        0, 0, 1, 1, 1, 0, 0
-    );
-
-    const ivec2 offsets[KERNEL_SIZE] = ivec2[KERNEL_SIZE](
-        ivec2(-3, -3), ivec2(-2, -3), ivec2(-1, -3), ivec2( 0, -3), ivec2( 1, -3), ivec2( 2, -3), ivec2( 3, -3),
-        ivec2(-3, -2), ivec2(-2, -2), ivec2(-1, -2), ivec2( 0, -2), ivec2( 1, -2), ivec2( 2, -2), ivec2( 3, -2),
-        ivec2(-3, -1), ivec2(-2, -1), ivec2(-1, -1), ivec2( 0, -1), ivec2( 1, -1), ivec2( 2, -1), ivec2( 3, -1),
-        ivec2(-3,  0), ivec2(-2,  0), ivec2(-1,  0), ivec2( 0,  0), ivec2( 1,  0), ivec2( 2,  0), ivec2( 3,  0),
-        ivec2(-3,  1), ivec2(-2,  1), ivec2(-1,  1), ivec2( 0,  1), ivec2( 1,  1), ivec2( 2,  1), ivec2( 3,  1),
-        ivec2(-3,  2), ivec2(-2,  2), ivec2(-1,  2), ivec2( 0,  2), ivec2( 1,  2), ivec2( 2,  2), ivec2( 3,  2),
-        ivec2(-3,  3), ivec2(-2,  3), ivec2(-1,  3), ivec2( 0,  3), ivec2( 1,  3), ivec2( 2,  3), ivec2( 3,  3)
-    );
-
-    float max_value = -infinity;
-    float sum = 0;
-    for (int i = 0; i < KERNEL_SIZE; ++i) {
-        ivec2 neighbor_position = position + offsets[i];
-
-        if (neighbor_position.x < 0 ||
             neighbor_position.x >= image_size.x ||
             neighbor_position.y < 0 ||
             neighbor_position.y >= image_size.y
         )
             continue;
 
-        float neighbor = imageLoad(input_texture, neighbor_position).z * kernel[i];
-        max_value = max(max_value, neighbor);
-        sum = sum + neighbor;
+        vec4 neighbor = imageLoad(input_texture, neighbor_position);
+        if (neighbor.x < 0 || neighbor.y < 0) // is uninitialized
+            continue;
+
+        float dist = distance(vec2(position), vec2(neighbor.xy));
+        if (dist <= best.z)
+            best = vec4(neighbor.xy, dist, self.w);
     }
 
+    imageStore(output_texture, position, best);
+
+    #elif MODE == MODE_POST_PROCESS
+
     vec4 current = imageLoad(input_texture, position);
-    imageStore(output_texture, position, vec4(current.xy, sum, current.w));
+    imageStore(output_texture, position, vec4(current.xy, current.z, current.w));
 
     #elif MODE == MODE_EXPORT
 
@@ -192,14 +144,14 @@ void computemain() {
     float v22 = imageLoad(input_texture, position + ivec2( 1,  1)).z;
 
     float x_gradient =
-    -1.0 * v00 + 0.0 * v01 + 1.0 * v02 +
-    -2.0 * v10 + 0.0 * v11 + 2.0 * v12 +
-    -1.0 * v20 + 0.0 * v21 + 1.0 * v22;
+        -1.0 * v00 + 0.0 * v01 + 1.0 * v02 +
+        -2.0 * v10 + 0.0 * v11 + 2.0 * v12 +
+        -1.0 * v20 + 0.0 * v21 + 1.0 * v22;
 
     float y_gradient =
-    -1.0 * v00 + -2.0 * v01 + -1.0 * v02 +
-    0.0 * v10 +  0.0 * v11 +  0.0 * v12 +
-    1.0 * v20 +  2.0 * v21 +  1.0 * v22;
+        -1.0 * v00 + -2.0 * v01 + -1.0 * v02 +
+        0.0 * v10 +  0.0 * v11 +  0.0 * v12 +
+        1.0 * v20 +  2.0 * v21 +  1.0 * v22;
 
     vec2 gradient = vec2(x_gradient, y_gradient);
 
@@ -211,8 +163,7 @@ void computemain() {
 
     // apply mask
     vec4 mask = imageLoad(mask_texture, position);
-    if (mask.a > threshold)
-    imageStore(output_texture, position, vec4(gradient.xy, 1, 1));
+    imageStore(output_texture, position, vec4(gradient.xy, 1, 1) * (1 - step(mask.a, threshold)));
 
     #endif
 }
