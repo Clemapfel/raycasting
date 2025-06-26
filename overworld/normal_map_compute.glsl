@@ -13,7 +13,7 @@
 
 #define MASK_TEXTURE_FORMAT rgba8
 #define JFA_TEXTURE_FORMAT rgba32f
-#define NORMAL_MAP_TEXTURE_FORMAT rg8
+#define NORMAL_MAP_TEXTURE_FORMAT rgb10_a2
 
 #if MODE == MODE_INITIALIZE
 
@@ -39,12 +39,12 @@ layout(MASK_TEXTURE_FORMAT) uniform readonly image2D mask_texture;
 layout(JFA_TEXTURE_FORMAT) uniform readonly image2D input_texture;
 layout(NORMAL_MAP_TEXTURE_FORMAT) uniform writeonly image2D output_texture;
 
-uniform int padding;
-
 #endif
 
 const float infinity = 1 / 0.f;
+
 uniform float threshold = 0;
+uniform float max_distance = 32;
 
 const ivec2 directions[8] = ivec2[](
     ivec2(0, -1),
@@ -126,8 +126,18 @@ void computemain() {
 
     #elif MODE == MODE_POST_PROCESS
 
+    #define PI 3.1415926535897932384626433832795
+
     vec4 current = imageLoad(input_texture, position);
-    imageStore(output_texture, position, vec4(current.xy, current.z, current.w));
+
+    float dist = abs(current.z);
+    float dist_sign = sign(current.z);
+
+    dist /= max_distance;
+    dist = clamp(dist * 1.1, 0, 1);
+    dist *= max_distance;
+
+    imageStore(output_texture, position, vec4(current.xy, dist * dist_sign, current.w));
 
     #elif MODE == MODE_EXPORT
 
@@ -158,12 +168,20 @@ void computemain() {
     gradient.x = -1 * sign(x_gradient) - x_gradient;
     gradient.y = -1 * sign(y_gradient) - y_gradient;
 
-    // map to rg8
-    gradient = (normalize(gradient) + 1.0) / 2.0;
+    // map to rg8, encode normalized distance in vector length
 
-    // apply mask
+    gradient = normalize(gradient);
+    gradient *= clamp(abs(v11) / max_distance, 0, 1);
+    gradient = (gradient + 1) / 2; // project into 0, 1
+
     vec4 mask = imageLoad(mask_texture, position);
-    imageStore(output_texture, position, vec4(gradient.xy, 1, 1) * (1 - step(mask.a, threshold)));
+    vec4 current = imageLoad(input_texture, position);
+
+    imageStore(output_texture, position, vec4(
+        current.z / max_distance,  // normalized distance
+        gradient.x, gradient.y,    // gradient in [0, 1]
+        mask.a                     // mask (2 bits of precision)
+    ));
 
     #endif
 }

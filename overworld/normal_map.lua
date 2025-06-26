@@ -6,6 +6,10 @@ rt.settings.overworld.normal_map = {
     chunk_size = 512,
     work_group_size_x = 16,
     work_group_size_y = 8,
+
+    mask_sticky = true,
+    mask_slippery = true,
+    max_distance = 22
 }
 
 --- @class ow.NormalMap
@@ -14,9 +18,9 @@ meta.add_signal(ow.NormalMap, "done")
 
 local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
-local _normal_map_texture_format = rt.TextureFormat.RG8 -- final normal map texture
+local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 
-local _init_shader, _step_shader, _post_process_shader, _export_shader, _draw_shader
+local _init_shader, _step_shader, _post_process_shader, _export_shader, _draw_light_shader, _draw_shadow_shader
 local _blur_shader_horizontal, _blur_shader_vertical
 
 local _frame_percentage = 0.6
@@ -229,7 +233,8 @@ function ow.NormalMap:instantiate(stage)
         if _step_shader == nil then _step_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 1, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _draw_shader == nil then _draw_shader = rt.Shader("overworld/normal_map_draw.glsl") end
+        if _draw_light_shader == nil then _draw_light_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 0 }) end
+        if _draw_shadow_shader == nil then _draw_shadow_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 1 }) end
 
         if _blur_shader_horizontal == nil then
             _blur_shader_horizontal = rt.Shader("common/blur.glsl", {
@@ -279,7 +284,10 @@ function ow.NormalMap:instantiate(stage)
 
             lg.push()
             lg.translate(-chunk.x + padding, -chunk.y + padding)
-            ow.Hitbox:draw_mask(true, true) -- sticky only
+            ow.Hitbox:draw_mask(
+                rt.settings.overworld.normal_map.mask_sticky,
+                rt.settings.overworld.normal_map.mask_slippery
+            )
             lg.pop()
             lg.setCanvas(nil)
 
@@ -314,7 +322,9 @@ function ow.NormalMap:instantiate(stage)
                 jump = jump / 2
             end
 
-            for i = 1, 10 do
+            _post_process_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
+
+            for i = 1, 1 do
                 if a_or_b then
                     _post_process_shader:send("input_texture", texture_a)
                     _post_process_shader:send("output_texture", texture_b)
@@ -331,6 +341,7 @@ function ow.NormalMap:instantiate(stage)
 
             _export_shader:send("mask_texture", mask)
             _export_shader:send("output_texture", export_texture)
+            _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
             -- crop to save memory
@@ -357,7 +368,8 @@ function ow.NormalMap:instantiate(stage)
         self._input = rt.InputSubscriber()
         self._input:signal_connect("keyboard_key_pressed", function(_, which)
             if which == "p" then
-                _draw_shader:recompile()
+                _draw_light_shader:recompile()
+                _draw_shadow_shader:recompile()
             end
         end)
     end)
@@ -375,7 +387,9 @@ function ow.NormalMap:update(delta)
     end
 end
 
-function ow.NormalMap:draw()
+function ow.NormalMap:_draw(light_or_shadow)
+    if not self._is_done then return end
+
     local padding = self._chunk_padding
     local chunk_size = self._chunk_size
 
@@ -385,15 +399,21 @@ function ow.NormalMap:draw()
     local min_chunk_y = math.floor((y - self._bounds.y) / chunk_size)
     local max_chunk_y = math.floor(((y + h - 1) - self._bounds.y) / chunk_size)
 
-    if self._is_done then
+    if light_or_shadow == true then
         local camera = self._stage:get_scene():get_camera()
         local player = self._stage:get_scene():get_player()
         local player_position = { camera:world_xy_to_screen_xy(player:get_position()) }
-        love.graphics.setShader(_draw_shader:get_native())
-        _draw_shader:send("player_position", player_position)
-        _draw_shader:send("camera_offset", {camera:get_offset()})
-        _draw_shader:send("camera_scale", camera:get_scale())
-        _draw_shader:send("player_color", {rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
+        _draw_light_shader:bind()
+        _draw_light_shader:send("player_position", player_position)
+        _draw_light_shader:send("player_color", {rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
+
+        love.graphics.setBlendMode("add", "premultiplied")
+        love.graphics.setColor(1, 1, 1, 1)
+    else
+        love.graphics.setBlendMode("subtract", "premultiplied")
+        local value = 0.2
+        love.graphics.setColor(value, value, value, value)
+        _draw_shadow_shader:bind()
     end
 
     for chunk_x = min_chunk_x, max_chunk_x do
@@ -413,5 +433,19 @@ function ow.NormalMap:draw()
         end
     end
 
-    love.graphics.setShader(nil)
+    if light_or_shadow == true then
+        _draw_light_shader:unbind()
+    else
+        _draw_shadow_shader:unbind()
+    end
+
+    love.graphics.setBlendMode("alpha")
+end
+
+function ow.NormalMap:draw_light()
+    self:_draw(true)
+end
+
+function ow.NormalMap:draw_shadow()
+    self:_draw(false)
 end

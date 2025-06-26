@@ -256,6 +256,44 @@ function ow.Hitbox:draw_all()
     end
 end
 
+
+--- @brief
+function ow.Hitbox:draw_base()
+    _initialize()
+
+    rt.Palette.SLIPPERY:bind()
+    love.graphics.draw(_slippery_mesh)
+
+    rt.Palette.STICKY:bind()
+    love.graphics.draw(_sticky_mesh)
+end
+
+--- @brief
+function ow.Hitbox:draw_outline()
+    _initialize()
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.stencil(stencil_value, function()
+        love.graphics.draw(_slippery_mesh)
+        love.graphics.draw(_sticky_mesh)
+    end)
+    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+
+    love.graphics.setLineWidth(3)
+
+    rt.Palette.SLIPPERY_OUTLINE:bind()
+    for lines in values(_slippery_lines) do
+        love.graphics.line(lines)
+    end
+
+    rt.Palette.STICKY_OUTLINE:bind()
+    for lines in values(_sticky_lines) do
+        love.graphics.line(lines)
+    end
+
+    rt.graphics.set_stencil_compare_mode(nil)
+end
+
 --- @brief
 function ow.Hitbox:draw_mask(sticky, slippery)
     if sticky == nil then sticky = true end

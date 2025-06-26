@@ -22,7 +22,7 @@ do
 
         bloom_blur_strength = 1.2, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
-        bloom_reflection_composite_strength = 0.4 * (1 - bloom),
+        bloom_reflection_composite_strength = 0.2 * (1 - bloom),
         bloom_msaa = 4,
         bloom_texture_format = rt.TextureFormat.RG11B10F
     }
