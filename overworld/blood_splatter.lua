@@ -238,3 +238,19 @@ end
 function ow.BloodSplatter:destroy()
     self._world:destroy()
 end
+
+--- @brief
+function ow.BloodSplatter:get_visible_segments(x, y, w, h)
+    local segments, colors = {}, {}
+    self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
+        local edge = shape:getUserData()
+        for division in values(edge.subdivisions) do
+           if division.color ~= nil then
+                table.insert(segments, table.deepcopy(division.line))
+                table.insert(colors, table.deepcopy(division.color))
+           end
+        end
+    end)
+
+    return segments, colors
+end

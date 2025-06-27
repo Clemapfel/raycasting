@@ -143,6 +143,8 @@ end
 
 --- @brief
 function ow.Coin:get_color()
+    if self._is_collected then return rt.RGBA(0, 0, 0, 0) end
+
     return self._color
 end
 

@@ -11,11 +11,14 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+require "overworld.coin_particle"
+local particle = ow.CoinParticle(200)
+
 
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial")
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial")
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -37,10 +40,14 @@ label:reformat(50, 50, math.huge)
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
+    particle:update(delta)
 end
 
 love.draw = function()
-    rt.SceneManager:draw()
+    --rt.SceneManager:draw()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    particle:draw(500, 400, false)
 end
 
 love.resize = function(width, height)

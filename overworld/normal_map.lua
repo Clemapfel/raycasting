@@ -395,10 +395,13 @@ function ow.NormalMap:instantiate(stage)
         self._queue_finish = true
 
         self._input = rt.InputSubscriber()
+        self._is_visible = true
         self._input:signal_connect("keyboard_key_pressed", function(_, which)
             if which == "p" then
                 _draw_light_shader:recompile()
                 _draw_shadow_shader:recompile()
+            elseif which == "q" then
+                self._is_visible = not self._is_visible
             end
         end)
     end)
@@ -432,27 +435,34 @@ function ow.NormalMap:_draw(light_or_shadow)
         local camera = self._stage:get_scene():get_camera()
         local player = self._stage:get_scene():get_player()
 
-        local positions, colors = self._stage:get_scene():get_light_sources()
-        table.insert(positions, { player:get_position() })
-        table.insert(colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+        -- collect point lights
+        local point_positions, point_colors = self._stage:get_scene():get_light_sources()
+        table.insert(point_positions, { player:get_position() })
+        table.insert(point_colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
 
         -- convert to screen coords
-        for position in values(positions) do
+        for position in values(point_positions) do
             local nx, ny = camera:world_xy_to_screen_xy(table.unpack(position))
             position[1] = nx
             position[2] = ny
         end
 
+        -- collect line lights
+        local line_positions, line_colors = self._stage:get_blood_splatter():get_visible_segments(camera:get_world_bounds())
+        dbg(table.sizeof(line_positions))
+
         _draw_light_shader:bind()
-        _draw_light_shader:send("positions", table.unpack(positions))
-        _draw_light_shader:send("colors", table.unpack(colors))
-        _draw_light_shader:send("n_lights", table.sizeof(positions))
+        _draw_light_shader:send("camera_offset", { camera:get_offset() })
+        _draw_light_shader:send("camera_scale", camera:get_final_scale())
+        _draw_light_shader:send("positions", table.unpack(point_positions))
+        _draw_light_shader:send("colors", table.unpack(point_colors))
+        _draw_light_shader:send("n_lights", table.sizeof(point_positions))
 
         love.graphics.setBlendMode("add", "premultiplied")
         love.graphics.setColor(1, 1, 1, 1)
     else
         love.graphics.setBlendMode("subtract", "premultiplied")
-        local value = 0.2
+        local value = 0.1
         love.graphics.setColor(value, value, value, value)
         _draw_shadow_shader:bind()
     end
@@ -484,9 +494,11 @@ function ow.NormalMap:_draw(light_or_shadow)
 end
 
 function ow.NormalMap:draw_light()
+    if self._is_visible == false then return end
     self:_draw(true)
 end
 
 function ow.NormalMap:draw_shadow()
+    if self._is_visible == false then return end
     self:_draw(false)
 end

@@ -15,7 +15,19 @@ uniform vec2 positions[MAX_N_LIGHTS]; // in screen coords
 uniform vec4 colors[MAX_N_LIGHTS];
 uniform int n_lights;
 
-uniform float range = 64;
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
 
 vec3 hsv_to_rgb(vec3 c)
 {
@@ -44,11 +56,12 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
     #if MODE == MODE_LIGHTING
     vec4 final_color = vec4(0);
 
+    vec2 screen_uv = to_uv(screen_coords);
     for (int i = 0; i < n_lights; ++i) {
-        vec2 position = positions[i];
+        vec2 position = to_uv(positions[i]);
         vec4 color = colors[i];
 
-        float attenuation = gaussian(min(distance(position, screen_coords) / range, 1), 0.75);
+        float attenuation = gaussian(distance(position, screen_uv) * 2, 3.7); // range
         vec2 light_direction = normalize(position - screen_coords);
         float alignment = max(dot(gradient, light_direction), 0.0);
         float light = alignment * attenuation;
@@ -59,7 +72,7 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
 
     #elif MODE == MODE_SHADOW
 
-    return mix(vec4(0), vertex_color, dist);
+    return vertex_color * mix(vec4(0), vec4(1), dist);
 
     #endif
 }
