@@ -64,3 +64,5 @@ low horizontal tunnel, to and bottom are bounce pads, leadings into corner to th
   4. bubble field with multiple tehters, player has to attach them all then quadruple jump up slippery vertical tunnel, coin at the top to signpost
   
 + ACCELERATOR SURFACE:  
+  1. flat surface that is too far to jump over, player naturall discovers
+  1. slope that is too steep normally, accelerates player and 

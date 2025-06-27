@@ -213,7 +213,7 @@ end
 function ow.Stage:draw_below_player()
     ow.BoostField:draw_all()
     ow.Hitbox:draw_base()
-    --self._normal_map:draw_shadow()
+    self._normal_map:draw_shadow()
     ow.Hitbox:draw_outline()
 
     for object in values(self._below_player) do
@@ -231,7 +231,7 @@ function ow.Stage:draw_above_player()
         object:draw()
     end
 
-    self._normal_map:draw_light()
+    --self._normal_map:draw_light()
     self._mirror:draw()
 end
 

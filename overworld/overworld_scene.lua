@@ -491,7 +491,7 @@ function ow.OverworldScene:draw()
 
         love.graphics.setStencilMode("draw", stencil_value)
         self._camera:bind()
-        ow.Hitbox:draw_mask(true, true)
+        ow.Hitbox:draw_mask(false, true)
         self._stage:get_blood_splatter():draw() -- because hitbox mask doesn't fully cover it
         self._camera:unbind()
 

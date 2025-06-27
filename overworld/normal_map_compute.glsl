@@ -153,7 +153,7 @@ void computemain() {
 
     if (mode == MODE_DILATE) {
         // Morphological dilation: set A to max in radius
-        float max_alpha = 0.0;
+        float max_alpha = -infinity;
         int r = int(ceil(morph_radius));
         for (int dy = -r; dy <= r; ++dy) {
             for (int dx = -r; dx <= r; ++dx) {
@@ -169,11 +169,11 @@ void computemain() {
         }
         // Copy RGB from self, set A to max in radius
         vec4 self_pixel = imageLoad(input_texture, position);
-        imageStore(output_texture, position, vec4(self_pixel.rgb, max_alpha));
+        imageStore(output_texture, position, vec4(self_pixel.xyz, max_alpha));
     }
     else if (mode == MODE_ERODE) {
         // Morphological erosion: set A to min in radius
-        float min_alpha = 1.0;
+        float min_alpha = infinity;
         int r = int(ceil(morph_radius));
         for (int dy = -r; dy <= r; ++dy) {
             for (int dx = -r; dx <= r; ++dx) {
@@ -189,7 +189,7 @@ void computemain() {
         }
         // Copy RGB from self, set A to min in radius
         vec4 self_pixel = imageLoad(input_texture, position);
-        imageStore(output_texture, position, vec4(self_pixel.rgb, min_alpha));
+        imageStore(output_texture, position, vec4(self_pixel.xyz, min_alpha));
     }
 
     #elif MODE == MODE_EXPORT
