@@ -94,15 +94,13 @@ float gaussian(float x, float ramp)
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
 
-    // Animate the noise field for bounciness
     float t = elapsed * 0.8;
-    vec3 noise_p = vec3(uv * 4, signal * 0.5);
+    const float noise_scale = 6;
+    vec3 noise_p = vec3(uv * noise_scale - vec2(t * 0.05), signal * 0.5);
 
-    // Use 3 octaves of Worley noise for richer bubbles
     float bubble = worley_octaves(noise_p, 4, 1.5, 1);
 
-    // Apply toon shading by quantizing the bubble value
-    int steps = 10; // Number of discrete levels
+    int steps = 10; // toon shading steps
     float step_size = 1.0 / float(steps);
     bubble = floor(bubble / step_size) * step_size;
 

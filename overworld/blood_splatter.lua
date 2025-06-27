@@ -102,14 +102,14 @@ function ow.BloodSplatter:draw()
         return true
     end)
 
-    local t = 1 - self._bloom_factor
+    local t = self._bloom_factor
     for division in keys(self._active_divisions) do
         if visible[division.shape] == true then
             local r, g, b, a = table.unpack(division.color)
             love.graphics.setColor(
-                t * r,
-                t * g,
-                t * b,
+                r - t,
+                g - t,
+                b - t,
                 a
             )
             love.graphics.line(division.line)

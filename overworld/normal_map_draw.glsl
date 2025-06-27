@@ -9,9 +9,13 @@
 
 #if MODE == MODE_LIGHTING
 
-uniform vec2 player_position; // in screen coords
-uniform vec4 player_color;
-uniform float range = 100;
+#define MAX_N_LIGHTS 16
+
+uniform vec2 positions[MAX_N_LIGHTS]; // in screen coords
+uniform vec4 colors[MAX_N_LIGHTS];
+uniform int n_lights;
+
+uniform float range = 64;
 
 vec3 hsv_to_rgb(vec3 c)
 {
@@ -20,9 +24,15 @@ vec3 hsv_to_rgb(vec3 c)
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
+
 #endif
 
-vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) // tex is RG8
+vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coords) // tex is RG8
 {
     vec4 data = texture(tex, texture_coords);
     float mask = data.a;
@@ -32,22 +42,24 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) // t
     float dist = data.x; // normalized distance;
 
     #if MODE == MODE_LIGHTING
+    vec4 final_color = vec4(0);
 
-    float attenuation = 1 - min(distance(player_position, screen_coords) / range, 1);
-    vec2 light_direction = normalize(player_position - screen_coords);
-    float alignment = max(dot(gradient, light_direction), 0.0); // 1 = perfectly aligned, 0 = perpendicular or away
-    float light = alignment * attenuation;
+    for (int i = 0; i < n_lights; ++i) {
+        vec2 position = positions[i];
+        vec4 color = colors[i];
 
-    //return vec4(hsv_to_rgb(vec3((atan(gradient.y, gradient.x) + 3.14159) / (2 * 3.14159), 1, 1)), 1);
-    return color * vec4(vec3(light * player_color.rgb), 1) * (1 - dist);
+        float attenuation = gaussian(min(distance(position, screen_coords) / range, 1), 0.75);
+        vec2 light_direction = normalize(position - screen_coords);
+        float alignment = max(dot(gradient, light_direction), 0.0);
+        float light = alignment * attenuation;
+        final_color += vec4(vec3(light * color.rgb), 1) * (1 - dist);
+    }
+
+    return vertex_color * final_color;
 
     #elif MODE == MODE_SHADOW
 
-    return mix(vec4(0), color, min(dist, 0.5));
-
-    #elif MODE == MODE_DEBUG
-
-    return vec4(hsv_to_rgb(vec3((atan(gradient.y, gradient.x) + 3.14159) / (2 * 3.14159), 1, 1)), 1);
+    return mix(vec4(0), vertex_color, dist);
 
     #endif
 }

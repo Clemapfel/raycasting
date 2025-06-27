@@ -335,7 +335,7 @@ function ow.BouncePad:draw()
     if self._is_destroyed or not self._scene:get_is_body_visible(self._body) then return end
 
     local r, g, b = table.unpack(self._draw_inner_color)
-    love.graphics.setColor(r, g, b, 0.9)
+    love.graphics.setColor(r, g, b, 1)
     _shape_shader:bind()
     _shape_shader:send("elapsed", self._elapsed)
     _shape_shader:send("signal", self._signal)

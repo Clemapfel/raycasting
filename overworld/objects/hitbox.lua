@@ -193,71 +193,6 @@ local _initialize = function()
 end
 
 --- @brief
-function ow.Hitbox:draw_all()
-    _initialize()
-
-    love.graphics.setLineJoin("bevel")
-
-    local slippery, sticky
-    if _slippery_mesh ~= nil then
-        slippery = {_slippery_mesh, _slippery_lines, nil, rt.Palette.SLIPPERY, rt.Palette.SLIPPERY_OUTLINE, 4}
-    end
-
-    if _sticky_mesh ~= nil then
-        sticky = {_sticky_mesh, _sticky_lines, nil, rt.Palette.STICKY, rt.Palette.STICKY_OUTLINE, 4}
-    end
-
-    for params in range(slippery, sticky) do
-        local mesh, outlines, shader, mesh_color, outline_color, line_width = table.unpack(params)
-
-        mesh_color:bind()
-
-        if shader ~= nil then
-            shader:bind()
-            shader:send("elapsed", rt.SceneManager:get_elapsed())
-
-            local scene = rt.SceneManager:get_current_scene()
-            if meta.isa(scene, ow.OverworldScene) then
-                local camera = scene:get_camera()
-                local player = scene:get_player()
-                shader:send("camera_offset", { scene:get_camera():get_offset() })
-                shader:send("camera_scale", scene:get_camera():get_scale())
-                shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_physics_body():get_position()) })
-                shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
-                shader:send("player_flow", player:get_flow())
-            end
-        end
-
-        love.graphics.draw(mesh)
-
-        if shader ~= nil then
-            shader:unbind()
-        end
-
-        local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.stencil(stencil_value, function()
-            love.graphics.draw(mesh)
-        end)
-        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
-
-        rt.Palette.BLACK:bind()
-        love.graphics.setLineWidth(line_width + 2.5)
-        for lines in values(outlines) do
-            --love.graphics.line(lines)
-        end
-
-        outline_color:bind()
-        love.graphics.setLineWidth(line_width)
-        for lines in values(outlines) do
-            love.graphics.line(lines)
-        end
-
-        rt.graphics.set_stencil_compare_mode(nil)
-    end
-end
-
-
---- @brief
 function ow.Hitbox:draw_base()
     _initialize()
 
@@ -272,26 +207,27 @@ end
 function ow.Hitbox:draw_outline()
     _initialize()
 
-    local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.stencil(stencil_value, function()
-        love.graphics.draw(_slippery_mesh)
-        love.graphics.draw(_sticky_mesh)
-    end)
-    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
-
     love.graphics.setLineWidth(3)
 
-    rt.Palette.SLIPPERY_OUTLINE:bind()
-    for lines in values(_slippery_lines) do
-        love.graphics.line(lines)
-    end
+    for lines_mesh_color in range(
+        {_slippery_lines, _slippery_mesh, rt.Palette.SLIPPERY_OUTLINE},
+        {_sticky_lines, _sticky_mesh, rt.Palette.STICKY_OUTLINE}
+    ) do
+        local lines, mesh, color = table.unpack(lines_mesh_color)
 
-    rt.Palette.STICKY_OUTLINE:bind()
-    for lines in values(_sticky_lines) do
-        love.graphics.line(lines)
-    end
+        local stencil_value = rt.graphics.get_stencil_value()
+        rt.graphics.stencil(stencil_value, function()
+            love.graphics.draw(mesh)
+        end)
+        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
 
-    rt.graphics.set_stencil_compare_mode(nil)
+        color:bind()
+        for line in values(lines) do
+            love.graphics.line(line)
+        end
+
+        rt.graphics.set_stencil_compare_mode(nil)
+    end
 end
 
 --- @brief

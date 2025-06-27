@@ -9,7 +9,7 @@ rt.settings.overworld.normal_map = {
 
     mask_sticky = true,
     mask_slippery = true,
-    max_distance = 48, -- < 256
+    max_distance = 32, -- < 256
 }
 
 --- @class ow.NormalMap
@@ -431,10 +431,22 @@ function ow.NormalMap:_draw(light_or_shadow)
     if light_or_shadow == true then
         local camera = self._stage:get_scene():get_camera()
         local player = self._stage:get_scene():get_player()
-        local player_position = { camera:world_xy_to_screen_xy(player:get_position()) }
+
+        local positions, colors = self._stage:get_scene():get_light_sources()
+        table.insert(positions, { player:get_position() })
+        table.insert(colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+
+        -- convert to screen coords
+        for position in values(positions) do
+            local nx, ny = camera:world_xy_to_screen_xy(table.unpack(position))
+            position[1] = nx
+            position[2] = ny
+        end
+
         _draw_light_shader:bind()
-        _draw_light_shader:send("player_position", player_position)
-        _draw_light_shader:send("player_color", {rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
+        _draw_light_shader:send("positions", table.unpack(positions))
+        _draw_light_shader:send("colors", table.unpack(colors))
+        _draw_light_shader:send("n_lights", table.sizeof(positions))
 
         love.graphics.setBlendMode("add", "premultiplied")
         love.graphics.setColor(1, 1, 1, 1)

@@ -22,7 +22,6 @@ do
 
         bloom_blur_strength = 1.2, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
-        bloom_reflection_composite_strength = 0.2 * (1 - bloom),
         bloom_msaa = 4,
         bloom_texture_format = rt.TextureFormat.RG11B10F
     }
@@ -274,8 +273,6 @@ function ow.OverworldScene:enter(stage_id)
     rt.SceneManager:set_use_fixed_timestep(true)
     self:set_stage(stage_id)
 
-    self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength)
-
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(_cursor)
@@ -313,9 +310,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
             rt.settings.overworld.overworld_scene.bloom_texture_format
         )
         self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
-        if self._stage ~= nil then
-            self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength)
-        end
+        if self._stage ~= nil then self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_composite_strength) end
     end
 
     self._pan_gradient_top = rt.Mesh({
@@ -441,31 +436,6 @@ function ow.OverworldScene:draw()
     if _blocked > 0 then return end
     if self._stage == nil then return end
 
-    -- bloom
-    if rt.GameState:get_is_bloom_enabled() == true then
-        if self._bloom == nil then
-            local _, _, width, height = self:get_bounds():unpack()
-            self._bloom = rt.Bloom(width, height,
-                rt.settings.overworld.overworld_scene.bloom_msaa,
-                rt.settings.overworld.overworld_scene.bloom_texture_format
-            )
-            self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
-            if self._stage ~= nil then
-                self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength)
-            end
-        end
-
-        love.graphics.push()
-        self._bloom:bind()
-        love.graphics.clear()
-        self._camera:bind()
-        self._player:draw_body()
-        self._stage:draw_bloom_mask()
-        self._camera:unbind()
-        self._bloom:unbind()
-        love.graphics.pop()
-    end
-
     love.graphics.push()
     love.graphics.origin()
 
@@ -478,35 +448,32 @@ function ow.OverworldScene:draw()
     self._camera:unbind()
 
     if rt.GameState:get_is_bloom_enabled() == true then
-        local stencil_value = rt.graphics.get_stencil_value()
-
-        do -- bloom global bloom
-            love.graphics.setBlendMode("add", "premultiplied")
-            love.graphics.origin()
-            local v = rt.settings.overworld.overworld_scene.bloom_composite_strength
-            love.graphics.setColor(v, v, v, v)
-            self._bloom:draw()
-            love.graphics.setBlendMode("alpha")
+        if self._bloom == nil then
+            local _, _, width, height = self:get_bounds():unpack()
+            self._bloom = rt.Bloom(width, height,
+                rt.settings.overworld.overworld_scene.bloom_msaa,
+                rt.settings.overworld.overworld_scene.bloom_texture_format
+            )
+            self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
+            if self._stage ~= nil then self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_composite_strength) end
         end
 
-        love.graphics.setStencilMode("draw", stencil_value)
+        love.graphics.push()
+        self._bloom:bind()
+        love.graphics.clear()
         self._camera:bind()
-        ow.Hitbox:draw_mask(false, true)
-        self._stage:get_blood_splatter():draw() -- because hitbox mask doesn't fully cover it
+        self._player:draw_body()
+        self._stage:draw_bloom_mask()
         self._camera:unbind()
+        self._bloom:unbind()
+        love.graphics.pop()
 
-        do -- bloom reflecting on hitboxes
-            love.graphics.setStencilState("keep", "equal", stencil_value)
-            love.graphics.setColorMask(true)
-
-            love.graphics.setBlendMode("add", "premultiplied")
-            local v = rt.settings.overworld.overworld_scene.bloom_reflection_composite_strength
-            love.graphics.setColor(v, v, v, v)
-            self._bloom:draw()
-            love.graphics.setBlendMode("alpha")
-        end
-
-        love.graphics.setStencilMode()
+        love.graphics.setBlendMode("add", "premultiplied")
+        love.graphics.origin()
+        local v = rt.settings.overworld.overworld_scene.bloom_composite_strength
+        love.graphics.setColor(v, v, v, v)
+        self._bloom:draw()
+        love.graphics.setBlendMode("alpha")
     end
 
     love.graphics.pop()
@@ -707,11 +674,18 @@ function ow.OverworldScene:update(delta)
         local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)
         local bottom_left_x, bottom_left_y = self._camera:screen_xy_to_world_xy(love.graphics.getDimensions())
         local visible = {}
+        local light_sources = {}
         self._stage:get_physics_world():get_native():queryShapesInArea(top_left_x, top_left_y, bottom_left_x, bottom_left_y, function(shape)
-            visible[shape:getBody():getUserData()] = true
+            local body = shape:getBody():getUserData()
+            visible[body] = true
+
+            if body ~= nil and body:has_tag("light_source") then
+                table.insert(light_sources, body)
+            end
             return true
         end)
         self._visible_bodies = visible
+        self._light_sources = light_sources
     end
 end
 
@@ -791,6 +765,27 @@ end
 --- @brief
 function ow.OverworldScene:get_is_body_visible(body)
     return self._visible_bodies[body] == true
+end
+
+--- @brief
+function ow.OverworldScene:get_light_sources()
+    local positions = {}
+    local colors = {}
+    for body in values(self._light_sources) do
+        local cx, cy = body:get_center_of_mass()
+        table.insert(positions, { cx, cy })
+
+        local class = body:get_user_data()
+        if class ~= nil and class.get_color then
+            local color = class:get_color()
+            if not meta.isa(color, rt.RGBA) then
+                rt.error("In ow.OverworldScene: object `" .. meta.typeof(class) .. "` has a get_color function that does not return an object of type `rt.RGBA`")
+            end
+            table.insert(colors, { class:get_color():unpack() })
+        end
+    end
+
+    return positions, colors
 end
 
 --- @brief

@@ -231,7 +231,7 @@ function ow.Stage:draw_above_player()
         object:draw()
     end
 
-    --self._normal_map:draw_light()
+    self._normal_map:draw_light()
     self._mirror:draw()
 end
 
