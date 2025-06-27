@@ -1,3 +1,5 @@
+require "common.timed_animation"
+
 --- @class ow.CoinParticle
 ow.CoinParticle = meta.class("CoinParticle")
 
@@ -7,7 +9,7 @@ function ow.CoinParticle:instantiate(radius)
     self._theta, self._phi = 0, 0
     self._elapsed = 0
 
-    self._contour = {}
+    self._contour = nil
     self:update(0) -- generate vertices
 end
 
@@ -15,51 +17,44 @@ end
 function ow.CoinParticle:_generate_contour(theta, phi, offset)
     local vertices = {}
 
-    -- Clamp offset to [-1, 1]
-    if offset > 1 then offset = 1 elseif offset < -1 then offset = -1 end
+    local n_points = 16
 
-    -- The plane is always parallel to the xy-plane, normal (0,0,1)
-    local nz = 1
-    local d = nz * offset
+    -- Compute normal vector n
+    local nx = math.sin(theta) * math.cos(phi)
+    local ny = math.sin(theta) * math.sin(phi)
+    local nz = math.cos(theta)
 
-    if math.abs(d) > 1 then
-        return vertices
+    -- Find two orthogonal vectors u, v perpendicular to n
+    -- Pick an arbitrary vector not parallel to n
+    local ax, ay, az = 0, 0, 1
+    if math.abs(nz) > 0.999 then
+        ax, ay, az = 1, 0, 0
     end
 
-    -- Circle center
-    local cx, cy, cz = 0, 0, d
+    -- u = n x a (cross product)
+    local ux = ny * az - nz * ay
+    local uy = nz * ax - nx * az
+    local uz = nx * ay - ny * ax
+    local u_length = math.sqrt(ux*ux + uy*uy + uz*uz)
+    ux, uy, uz = ux/u_length, uy/u_length, uz/u_length
 
-    -- Circle radius
-    local r = math.sqrt(1 - d * d)
+    -- v = n x u
+    local vx = ny * uz - nz * uy
+    local vy = nz * ux - nx * uz
+    local vz = nx * uy - ny * ux
+    local v_length = math.sqrt(vx*vx + vy*vy + vz*vz)
+    vx, vy, vz = vx/v_length, vy/v_length, vz/v_length
 
-    -- u = (1,0,0), v = (0,1,0) for xy-plane
-    local ux, uy, uz = 1, 0, 0
-    local vx, vy, vz = 0, 1, 0
-
-    -- Generate points along the circle
-    for i = 1, 64 do
-        local angle = 2 * math.pi * (i - 1) / 64
-        local x = cx + r * (math.cos(angle) * ux + math.sin(angle) * vx)
-        local y = cy + r * (math.cos(angle) * uy + math.sin(angle) * vy)
-        -- Optionally, apply rotation for globe effect
-        -- Rotate around z by self._theta, around x by self._phi
-        local z = cz + r * (math.cos(angle) * uz + math.sin(angle) * vz)
-
-        -- Rotate by theta (around z)
-        local xt = x * math.cos(theta) - y * math.sin(theta)
-        local yt = x * math.sin(theta) + y * math.cos(theta)
-        local zt = z
-
-        -- Rotate by phi (around x)
-        local yt2 = yt * math.cos(phi) - zt * math.sin(phi)
-        local zt2 = yt * math.sin(phi) + zt * math.cos(phi)
-        local xt2 = xt
-
-        table.insert(vertices, xt2 * self._radius)
-        table.insert(vertices, yt2 * self._radius)
+    -- Generate points along the great circle
+    for i = 1, n_points do
+        local angle = 2 * math.pi * (i-1) / n_points
+        local x = math.cos(angle) * ux + math.sin(angle) * vx
+        local y = math.cos(angle) * uy + math.sin(angle) * vy
+        local z = math.cos(angle) * uz + math.sin(angle) * vz
+        table.insert(vertices, x * self._radius)
+        table.insert(vertices, y * self._radius)
     end
 
-    -- Close the loop
     table.insert(vertices, vertices[1])
     table.insert(vertices, vertices[2])
 
@@ -68,28 +63,26 @@ end
 
 --- @brief
 function ow.CoinParticle:update(delta)
-    local speed = 0.5 -- radians per second
     self._elapsed = self._elapsed + delta
+    self._theta = self._elapsed * 0.05 * 2 * math.pi
+    self._phi = self._elapsed * 0.025 * 2 * math.pi
 
-    self._phi = self._phi + speed * delta
-    local n_latitudes = 14 -- number of latitude lines (including poles)
-    self._contours = {}
 
-    for i = 0, n_latitudes do
-        -- Evenly spaced offsets from -1 (south pole) to 1 (north pole)
-        local offset = -1 + 2 * (i / (n_latitudes - 1))
-        local contour =
-        table.insert(self._contours, self:_generate_contour(self._theta, self._phi, offset))
-        table.insert(self._contours, self:_generate_contour(self._theta + 0.25 * math.pi, self._phi + 0.5 * math.pi, offset))
-
-    end
+    self._contour = self:_generate_contour(
+        self._theta,
+        self._phi
+    )
 end
 
 function ow.CoinParticle:draw(x, y, is_collected)
+    local r, g, b, a = love.graphics.getColor()
     love.graphics.push()
     love.graphics.translate(x, y)
-    for contour in values(self._contours) do
-        love.graphics.line(contour)
-    end
+    love.graphics.setLineWidth(8)
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setColor(r, g, b, 1 * a)
+    love.graphics.line(self._contour)
+    love.graphics.setColor(r, g, b, 0.4 * a)
+    love.graphics.polygon("fill", self._contour)
     love.graphics.pop()
 end
