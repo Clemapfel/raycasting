@@ -128,8 +128,6 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_posit
 
     float player_weight = gaussian(weight, 2) * flow;
 
-    uv += vec2(dFdx(weight), dFdy(weight)) * 10 * flow;
-
     float aspect_ratio = love_ScreenSize.x / love_ScreenSize.y;
     vec2 pixel_size = 1 / love_ScreenSize.xy;
 
@@ -146,8 +144,8 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_posit
     ));
 
     float tile_noise_a = (gradient_noise(vec3(
-    floor(to_uv(frag_position.xy) * love_ScreenSize.x / tile_size).xy * tile_noise_frequency,
-    elapsed) / 10
+        floor(to_uv(frag_position.xy) * love_ScreenSize.x / tile_size).xy * tile_noise_frequency,
+        elapsed) / 10
     ) + 1) / 2;
 
     float tile_noise = mix(tile_noise_a, tile_noise_b, smoothstep(0.4, 1, tile_noise_b));
@@ -156,8 +154,8 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_posit
     float line_width = mix(0, eps, tile_noise);
     float box = 1 - smoothstep(0, eps, box_sdf(
         uv - vec2(0.5),
-        vec2(0.5, 0.5) - line_width - player_weight * 0.4,
-        tile_noise * 0.05 + player_weight
+        vec2(0.5, 0.5) - line_width, // - player_weight * 0.4,
+        tile_noise * 0.05 // + player_weight
     ));
 
     vec2 noise_uv = to_uv(frag_position) * 1 / 3;
@@ -173,7 +171,7 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_posit
         amplitude *= persistence;
     }
 
-    float intensity = 0.5; // - mix(0.2, 1, gaussian(weight, 2.5) * flow);
+    float intensity = 1; // - mix(0.2, 1, gaussian(weight, 2.5) * flow);
     vec3 rainbow = lch_to_rgb(vec3(0.8, 1, noise_value));
     return vec4(vec3(mix(rainbow * intensity, vec3(0.1), box)), 1);
 }

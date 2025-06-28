@@ -558,7 +558,6 @@ function ow.NormalMap:draw_light()
                     end
 
                     if n_point_lights + n_segment_lights > 0 then
-
                         if n_point_lights > 0 then
                             _draw_light_shader:send("point_lights", table.unpack(point_lights))
                             _draw_light_shader:send("point_colors", table.unpack(point_colors))
@@ -576,32 +575,18 @@ function ow.NormalMap:draw_light()
                             _draw_light_shader:send("camera_offset", { camera:get_offset() })
                             _draw_light_shader:send("camera_scale", camera:get_final_scale())
                             _draw_light_shader:bind()
+                            love.graphics.setBlendMode("add", "premultiplied")
+                            love.graphics.setColor(r * a, g * a, b * a, a)
                             shader_bound = true
                         end
 
-                        love.graphics.setBlendMode("add", "premultiplied")
-                        love.graphics.setColor(r, g, b, a)
                         love.graphics.draw(chunk.texture:get_native(), cell.x + padding, cell.y + padding)
-                        love.graphics.setColor(1, 1, 1, 1)
-
-                        -- TODO
-                        _draw_light_shader:unbind()
-                        love.graphics.push()
-                        love.graphics.origin()
-                        love.graphics.setBlendMode("alpha")
-                        love.graphics.setColor(1, 1, 1, 1)
-                        love.graphics.setLineWidth(4)
-                        for i, line in ipairs(segment_lights) do
-                            love.graphics.setColor(table.unpack(segment_colors[i]))
-                            love.graphics.line(line)
-                        end
-                        _draw_light_shader:bind()
-                        love.graphics.pop()
                     end
                 end
             end
         end
     end
+
 
     if shader_bound == true then
         _draw_light_shader:unbind()

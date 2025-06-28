@@ -397,12 +397,21 @@ end
 
 --- @brief
 function math.angle(x, y)
-    --return math.atan2(y, x)
-    local p = x / (math.abs(x) + math.abs(y))
-    if y < 0 then
-        return ((3 - p) / 4) * (2 * math.pi)
+    if x == 0 and y == 0 then return 0 end
+
+    local abs_y = math.abs(y) + 1e-10
+
+    local angle
+    if x >= 0 then
+        angle = math.pi / 4 - math.pi / 4 * ((x - abs_y) / (x + abs_y))
     else
-        return ((1 + p) / 4) * (2 * math.pi)
+        angle = 3 * math.pi / 4 - math.pi / 4 * ((x + abs_y) / (abs_y - x))
+    end
+
+    if y < 0 then
+        return -angle
+    else
+        return angle
     end
 end
 

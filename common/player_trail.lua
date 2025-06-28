@@ -22,7 +22,7 @@ function rt.PlayerTrail:instantiate(player)
         local player_radius = rt.settings.player.radius
         local x_radius = 1.9 * player_radius -- width
         local y_radius = 2 * player_radius -- stretch
-        local y_offset = y_radius - player_radius
+        local y_offset = y_radius - player_radius * 1.2 -- to account for body
 
         local _boom_shape = function(x)
             return math.sqrt(1 - x^2)
@@ -189,7 +189,8 @@ function rt.PlayerTrail:update(delta)
     local flow = self._player:get_flow()
     self._glow_intensity = 0.5 * flow
 
-    self._boom_angle = math.angle(self._player:get_velocity())
+    local vx, vy = self._player:get_velocity()
+    self._boom_angle = math.angle(vx, vy) + 0.5 * math.pi
     self._boom_intensity = 10 * flow
 
     self._trail_elapsed = self._trail_elapsed + delta
@@ -291,7 +292,7 @@ function rt.PlayerTrail:draw_above()
         love.graphics.setColor(self._r, self._g, self._b, self._boom_intensity * self._opacity)
         love.graphics.push()
         love.graphics.translate(self._player_x, self._player_y)
-        love.graphics.rotate(self._boom_angle + math.pi / 2)
+        love.graphics.rotate(self._boom_angle)
         love.graphics.translate(-self._player_x, -self._player_y)
         love.graphics.draw(_boom_mesh, self._player_x, self._player_y)
         love.graphics.pop()

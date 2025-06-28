@@ -78,6 +78,7 @@ function ow.BloodSplatter:add(x, y, radius, hue)
                 local left_f, right_f = division.left_fraction, division.right_fraction
                 if (left_f >= left_fraction and left_f <= right_fraction) or (right_f >= left_fraction and right_f <= right_fraction) then
                     division.color = color
+                    division.hue = hue
                     if not division.is_active then
                         self._active_divisions[division] = true
                         division.is_active = true
@@ -212,6 +213,7 @@ function ow.BloodSplatter:create_contour()
                         left_fraction = left_fration,
                         right_fraction = right_fraction,
                         is_active = false,
+                        hue = nil,
                         color = nil
                     })
                 end
@@ -239,11 +241,6 @@ function ow.BloodSplatter:destroy()
     self._world:destroy()
 end
 
-local _color_matches = function(a, b)
-    local eps = 0.05
-    return math.abs(a[1] - b[1]) < eps and math.abs(a[2] - b[2]) < eps and math.abs(a[3] - b[3]) < eps
-end
-
 --- @brief
 function ow.BloodSplatter:get_visible_segments(bounds)
     meta.assert(bounds, rt.AABB)
@@ -259,7 +256,6 @@ function ow.BloodSplatter:get_visible_segments(bounds)
     end
     ]]--
 
-    self._world:update(1 / 60)
     self._world:queryShapesInArea(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, function(shape)
         local edge = shape:getUserData()
 
@@ -267,7 +263,7 @@ function ow.BloodSplatter:get_visible_segments(bounds)
         for current in values(edge.subdivisions) do
             if self._active_divisions[current] == true then
                 local inserted = false
-                if before ~= nil and before.right_fraction == current.left_fraction and _color_matches(before.color, current.color) then
+                if before ~= nil and before.right_fraction == current.left_fraction and math.abs(before.hue - current.hue) < 0.05 then
                     -- extend last colinear segment
                     segments[n][3] = current.line[3]
                     segments[n][4] = current.line[4]
