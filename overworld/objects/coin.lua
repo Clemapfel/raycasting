@@ -11,6 +11,7 @@ rt.settings.overworld.coin = {
     translation_noise_frequency = 0.1,
     amplitude_noise_frequency = 1,
     amplitude_max_offset = 0.3, -- 1 +/- fraction
+    follow_offset = 40, -- px
 }
 
 --- @class ow.Coin
@@ -18,6 +19,15 @@ ow.Coin = meta.class("Coin")
 
 local _pulse_mesh = nil
 local _particle_texture, _particle_shader
+
+-- global hue queue such that two elements don't have the same hue
+local _current_hue_step = 1
+local _hue_steps, _n_hue_steps = {}, 8
+do
+    for i = 0, _n_hue_steps - 1 do
+        table.insert(_hue_steps, i / _n_hue_steps)
+    end
+end
 
 --- @brief
 function ow.Coin:instantiate(object, stage, scene)
@@ -43,12 +53,21 @@ function ow.Coin:instantiate(object, stage, scene)
     self._stage = stage
     self._scene = scene
     self._x, self._y = object.x, object.y
+    self._follow_motion = rt.SmoothedMotion2D(self._x, self._y, 1.1)
+    self._follow_x, self._follow_y = self._x, self._y
+    self._follow_offset = 0
+
     self._pulse_x, self._pulse_y = 0, 0
     self._particle = ow.CoinParticle(radius)
 
     stage:add_coin(self, self._id)
 
-    self._color = rt.RGBA(0, 0, 0, 1)
+    self._hue = _hue_steps[_current_hue_step]
+    _current_hue_step = (_current_hue_step % _n_hue_steps) + 1
+
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+    self._particle:set_hue(self._hue)
+
     self._body = b2.Body(
         stage:get_physics_world(),
         b2.BodyType.DYNAMIC,
@@ -77,15 +96,13 @@ function ow.Coin:instantiate(object, stage, scene)
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
         self._is_collected = true
+        self._follow_offset = rt.settings.overworld.coin.follow_offset * self._stage:get_n_coins_collected()
         self._stage:set_coin_is_collected(self._id, true)
         self._timestamp = love.timer.getTime()
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
 
-        local player = self._scene:get_player()
-        local current = player:get_flow()
-        player:set_flow(player:get_flow() + rt.settings.overworld.coin.flow_increase)
-        player:set_flow_velocity(0)
+        self._player:signal_connect("")
     end)
 
     if _pulse_mesh == nil then
@@ -112,6 +129,13 @@ end
 
 --- @brief
 function ow.Coin:set_is_collected(b)
+    if b ~= self._is_collected then
+        if b == false then
+            self._follow_x, self._follow_y = self._x, self._y
+            self._follow_motion:set_position(self._x, self._y)
+        end
+    end
+
     self._is_collected = b
 end
 
@@ -122,35 +146,50 @@ end
 
 --- @brief
 function ow.Coin:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then return end
-    self._particle:update(delta)
-
-    self._elapsed = self._elapsed + delta
-    local frequency = rt.settings.overworld.coin.translation_noise_frequency
-    local offset = self._radius
-    self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
-    self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
-
-    frequency = rt.settings.overworld.coin.amplitude_noise_frequency
-    self._noise_amplitude = rt.settings.overworld.coin.amplitude_max_offset * (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1)
-
     if self._is_collected then
         if self._pulse_active then
             self._pulse_active = not self._pulse_opacity_animation:update(delta)
             self._pulse_x, self._pulse_y = self._scene:get_player():get_physics_body():get_predicted_position()
         end
+
+        local player_radius = rt.settings.player.radius
+        self._follow_motion:set_target_position(self._scene:get_player():get_past_position(self._follow_offset))
+        self._follow_motion:update(delta)
+        self._follow_x, self._follow_y = self._follow_motion:get_position()
+    else
+        if not self._scene:get_is_body_visible(self._body) then return end
+
+        self._particle:update(delta)
+        self._elapsed = self._elapsed + delta
+        local frequency = rt.settings.overworld.coin.translation_noise_frequency
+        local offset = self._radius
+        self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+        self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+
+        frequency = rt.settings.overworld.coin.amplitude_noise_frequency
+        self._noise_amplitude = rt.settings.overworld.coin.amplitude_max_offset * (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1)
     end
 end
 
 --- @brief
 function ow.Coin:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._is_collected and not self._scene:get_is_body_visible(self._body) then return end
 
     if self._is_collected then
         if self._pulse_active then
             local r, g, b = self._color:unpack()
-            local x, y = self._pulse_x, self._pulse_y
             local v = self._pulse_opacity_animation:get_value()
+
+            local x, y = self._pulse_x, self._pulse_y
+            love.graphics.push()
+            love.graphics.translate(x, y)
+            love.graphics.scale(2 * (1 - v))
+            love.graphics.translate(-x, -y)
+            love.graphics.setColor(r, g, b, v)
+            love.graphics.draw(_pulse_mesh, x, y)
+            love.graphics.pop()
+
+            x, y = self._follow_x, self._follow_y
             love.graphics.push()
             love.graphics.translate(x, y)
             love.graphics.scale(2 * (1 - v))
@@ -159,17 +198,11 @@ function ow.Coin:draw()
             love.graphics.draw(_pulse_mesh, x, y)
             love.graphics.pop()
         end
+
+        self._particle:draw(self._follow_x, self._follow_y)
     else
         self._particle:draw(self._x + self._noise_x, self._y + self._noise_y)
     end
-end
-
---- @brief
-function ow.Coin:set_color(color)
-    self._color = color
-
-    local l, c, h, a = rt.rgba_to_lcha(self._color:unpack())
-    self._particle:set_hue(h)
 end
 
 --- @brief

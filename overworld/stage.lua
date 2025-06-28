@@ -175,13 +175,6 @@ function ow.Stage:instantiate(scene, id)
         return ax < bx
     end)
 
-    local color_i = 1
-    local color_n = table.sizeof(rt.Palette.COIN_COLORS)
-    for coin in values(in_order) do
-        coin:set_color(rt.Palette.COIN_COLORS[color_i])
-        color_i = (color_i + 1) % color_n + 1
-    end
-
     -- contour effects
     self._blood_splatter:create_contour()
     self._mirror:create_contour()
@@ -364,8 +357,7 @@ function ow.Stage:add_coin(coin, id)
     meta.assert(coin, ow.Coin, id, "Number")
     self._coins[id] = {
         coin = coin,
-        is_collected = coin:get_is_collected(),
-        color = nil
+        is_collected = coin:get_is_collected()
     }
 end
 

@@ -13,6 +13,7 @@ function ow.CoinParticle:instantiate(radius)
     self._radius = radius * (1 / rt.settings.player.bubble_radius_factor)
     self._body_radius = radius
     self._hue = 0
+    self._color = { 0, 0, 0, 0 }
     self._outline_color = { 0, 0, 0, 0 }
 
     self._core_outline = {}
@@ -86,6 +87,7 @@ end
 
 --- @brief
 function ow.CoinParticle:set_hue(hue)
+    meta.assert(hue, "Number")
     self._hue = hue
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
     self._outline_color = table.deepcopy(self._color)

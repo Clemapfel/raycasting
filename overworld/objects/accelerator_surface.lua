@@ -23,27 +23,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     -- mesh
     self._contour = rt.round_contour(object:create_contour(), 10)
-    do
-        local triangulation = rt.DelaunayTriangulation(self._contour, self._contour):get_triangle_vertex_map()
-        local mesh_data = {}
-        for i = 1, #self._contour, 2 do
-            table.insert(mesh_data, {
-                self._contour[i+0],
-                self._contour[i+1]
-            })
-        end
-        self._mesh = rt.Mesh(
-            mesh_data,
-            rt.MeshDrawMode.TRIANGLES,
-            {{
-                location = rt.VertexAttributeLocation.POSITION,
-                name = rt.VertexAttribute.POSITION,
-                format = "floatvec2"
-            }},
-            rt.GraphicsBufferUsage.STATIC
-        )
-        self._mesh:set_vertex_map(triangulation)
-    end
+    self._mesh = object:create_mesh()
 
     -- collision
     do
@@ -117,9 +97,9 @@ function ow.AcceleratorSurface:draw_all()
     love.graphics.origin()
     _swap:bind()
     love.graphics.clear(0, 0, 0, 0)
-    _derivative_shader:bind()
+    --_derivative_shader:bind()
     _canvas:draw()
-    _derivative_shader:unbind()
+    --_derivative_shader:unbind()
     _swap:unbind()
     love.graphics.pop()
 

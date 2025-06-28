@@ -36,6 +36,9 @@ rt.settings.player = {
     flow_fraction_history_n = 100, -- n samples
     flow_fraction_sample_frequency = 60, -- n samples per second
 
+    position_history_n = 1000, -- n samples
+    position_history_sample_frequency = 10, -- px
+
     ground_acceleration_duration = 20 / 60, -- seconds
     ground_deceleration_duration = 5 / 60,
 
@@ -266,6 +269,8 @@ function rt.Player:instantiate()
 
         _flow_is_frozen = false,
 
+        _position_history = {},
+
         -- bubble
         _is_bubble = false,
         _use_bubble_mesh = false, -- cf. draw
@@ -281,6 +286,11 @@ function rt.Player:instantiate()
         -- particles
         _body_to_collision_normal = {}
     })
+
+    for i = 1, 2 * _settings.position_history_n, 2 do
+        self._position_history[i+0] = 0
+        self._position_history[i+1] = 0
+    end
 
     self._trail = rt.PlayerTrail(self)
     self._graphics_body = rt.PlayerBody(self)
@@ -1072,6 +1082,26 @@ function rt.Player:update(delta)
         end
     end
 
+    -- update position history
+    do
+        local last_x, last_y = self._position_history[#self._position_history - 1], self._position_history[#self._position_history]
+        local current_x, current_y = self:get_position()
+        local distance = math.distance(current_x, current_y, last_x, last_y)
+        local dx, dy = math.normalize(current_x - last_x, current_y - last_y)
+        local step = _settings.position_history_sample_frequency
+        repeat
+            table.insert(self._position_history, current_x)
+            table.insert(self._position_history, current_y)
+            table.remove(self._position_history, 1)
+            table.remove(self._position_history, 1)
+
+            current_x = current_x + dx * step
+            current_y = current_y + dy * step
+
+            distance = distance - step
+        until distance < step;
+    end
+
     if not self._is_bubble then
         self._last_position_x, self._last_position_y = self._body:get_position()
     else
@@ -1271,6 +1301,16 @@ function rt.Player:move_to_world(world)
     self._is_bubble = nil
     self:set_is_bubble(is_bubble)
     self:set_is_ghost(self._is_ghost)
+
+    -- reset history
+    self._world:signal_connect("step", function()
+        local x, y = self:get_position()
+        for i = 1, 2 * _settings.position_history_n, 2 do
+            self._position_history[i+0] = x
+            self._position_history[i+1] = y
+        end
+        return meta.DISCONNECT_SIGNAL
+    end)
 end
 
 function rt.Player:_update_mesh(delta, force_initialize)
@@ -1847,4 +1887,22 @@ function rt.Player:get_is_double_jump_source(instance)
         end
     end
     return false
+end
+
+--- @brief
+function rt.Player:get_past_position(distance)
+    local n = #self._position_history
+    local i = n
+    local walked = 0
+    local current_x, current_y = self._position_history[n-1], self._position_history[n]
+    while walked < distance do
+        i = i - 2
+        if i < 1 then break end
+
+        local next_x, next_y = self._position_history[i-1], self._position_history[i-0]
+        walked = walked + math.distance(current_x, current_y, next_x, next_y)
+        current_x, current_y = next_x, next_y
+    end
+
+    return current_x, current_y
 end

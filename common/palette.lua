@@ -59,7 +59,7 @@ do -- load from image
     rt.Palette.PURPLE = rt.Palette.PURPLE_3
     rt.Palette.LILAC = rt.Palette.LILAC_3
     rt.Palette.PINK = rt.Palette.PINK_4
-    rt.Palette.RED = rt.Palette.RED_3
+    rt.Palette.RED = rt.Palette.RED_4
     rt.Palette.CINNABAR = rt.Palette.CINNABAR_4
     rt.Palette.YELLOW = rt.Palette.YELLOW_3
     rt.Palette.ORANGE = rt.Palette.ORANGE_3
@@ -116,6 +116,7 @@ do -- load from image
     rt.Palette.HOOK_OUTLINE = rt.Palette.GRAY_2
     rt.Palette.GOAL = rt.Palette.WHITE
     rt.Palette.BUBBLE_FIELD = rt.Palette.BLUE_1
+    rt.Palette.KILL_PLANE = rt.Palette.RED
 
     rt.Palette[rt.StageGrade.SS] = rt.Palette.WHITE -- rainbow shader
     rt.Palette[rt.StageGrade.S] = rt.Palette.YELLOW_5 -- gold
@@ -124,17 +125,6 @@ do -- load from image
     rt.Palette[rt.StageGrade.F] = rt.Palette.GRAY_5
     rt.Palette[rt.StageGrade.NONE] = rt.Palette.GRAY_5
 end
-
-rt.Palette.COIN_COLORS = {
-    rt.Palette.ORANGE_2,
-    rt.Palette.MINT_2,
-    rt.Palette.PINK_1,
-    rt.Palette.YELLOW_3,
-    rt.Palette.RED_3,
-    rt.Palette.LILAC_3,
-    rt.Palette.BLUE_2,
-    rt.Palette.GREEN_2
-}
 
 local _backup = rt.Palette
 rt.Palette = {}

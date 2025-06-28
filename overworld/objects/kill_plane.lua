@@ -17,6 +17,8 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
     self._world = stage:get_physics_world()
+
+    -- collision
     self._body = object:create_physics_body(self._world)
     self._body:set_is_sensor(true)
 
@@ -33,12 +35,27 @@ function ow.KillPlane:instantiate(object, stage, scene)
         end)
         self._stage:get_active_checkpoint():spawn()
     end)
+
+    -- visual
+    self._contour = object:create_contour()
+    table.insert(self._contour, self._contour[1])
+    table.insert(self._contour, self._contour[2])
+
+    self._mesh = object:create_mesh()
+
+    self._outline_color = rt.Palette.KILL_PLANE:clone()
+    self._base_color = rt.Palette.KILL_PLANE:darken(0.8)
 end
 
 --- @brief
 function ow.KillPlane:draw()
     if not self._scene:get_is_body_visible(self._body) then return end
 
-    rt.Palette.RED:bind()
-    self._body:draw()
+    self._base_color:bind()
+    love.graphics.draw(self._mesh:get_native())
+
+    self._outline_color:bind()
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineWidth(4)
+    love.graphics.line(self._contour)
 end

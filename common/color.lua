@@ -28,6 +28,26 @@ function rt.RGBA:clone()
     return rt.RGBA(self.r, self.g, self.b, self.a)
 end
 
+--- @brief
+function rt.RGBA:darken(offset)
+    return rt.RGBA(
+        math.clamp(self.r - offset, 0, 1),
+        math.clamp(self.g - offset, 0, 1),
+        math.clamp(self.b - offset, 0, 1),
+        self.a
+    )
+end
+
+--- @brief
+function rt.RGBA:lighten(offset)
+    return rt.RGBA(
+        math.clamp(self.r + offset, 0, 1),
+        math.clamp(self.g + offset, 0, 1),
+        math.clamp(self.b + offset, 0, 1),
+        self.a
+    )
+end
+
 --- @class HSVA
 rt.HSVA = meta.class("HSVA", rt.Color)
 
