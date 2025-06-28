@@ -1304,14 +1304,12 @@ function rt.Player:_update_mesh(delta, force_initialize)
 end
 
 --- @brief
-function rt.Player:draw_bloom_mask()
+function rt.Player:draw_bloom()
     local r, g, b, a = self._color:unpack()
 
     if self._trail_visible then
         self._trail:draw_below()
     end
-
-    self._graphics_body:draw_body()
 end
 
 --- @brief

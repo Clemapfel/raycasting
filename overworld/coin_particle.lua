@@ -3,87 +3,93 @@ require "common.timed_animation"
 --- @class ow.CoinParticle
 ow.CoinParticle = meta.class("CoinParticle")
 
+local _shader = nil
+
 --- @brief
 function ow.CoinParticle:instantiate(radius)
-    self._radius = radius
-    self._theta, self._phi = 0, 0--rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi)
-    self._elapsed = 0
+    if _shader == nil then _shader = rt.Shader("common/player_body_core.glsl") end
 
-    self._contour = nil
-    self:update(0) -- generate vertices
-end
+    self._elapsed_offset = rt.random.number(0, 100)
+    self._radius = radius * (1 / rt.settings.player.bubble_radius_factor)
+    self._body_radius = radius
+    self._hue = 0
+    self._outline_color = { 0, 0, 0, 0 }
 
---- @brief Generate the ring contour for a latitude circle at given z offset
-function ow.CoinParticle:_generate_contour(theta, phi, offset)
-    local vertices = {}
+    self._core_outline = {}
+    self._body_outline = {}
+    for angle = 0, 2 * math.pi, 2 * math.pi / 16 do
+        table.insert(self._core_outline, math.cos(angle) * self._radius)
+        table.insert(self._core_outline, math.sin(angle) * self._radius)
 
-    local n_points = 16
-
-    -- Compute normal vector n
-    local nx = math.sin(theta) * math.cos(phi)
-    local ny = math.sin(theta) * math.sin(phi)
-    local nz = math.cos(theta)
-
-    -- Find two orthogonal vectors u, v perpendicular to n
-    -- Pick an arbitrary vector not parallel to n
-    local ax, ay, az = 0, 0, 1
-    if math.abs(nz) > 0.999 then
-        ax, ay, az = 1, 0, 0
+        table.insert(self._body_outline, math.cos(angle) * self._body_radius)
+        table.insert(self._body_outline, math.sin(angle) * self._body_radius)
     end
 
-    -- u = n x a (cross product)
-    local ux = ny * az - nz * ay
-    local uy = nz * ax - nx * az
-    local uz = nx * ay - ny * ax
-    local u_length = math.sqrt(ux*ux + uy*uy + uz*uz)
-    ux, uy, uz = ux/u_length, uy/u_length, uz/u_length
-
-    -- v = n x u
-    local vx = ny * uz - nz * uy
-    local vy = nz * ux - nx * uz
-    local vz = nx * uy - ny * ux
-    local v_length = math.sqrt(vx*vx + vy*vy + vz*vz)
-    vx, vy, vz = vx/v_length, vy/v_length, vz/v_length
-
-    -- Generate points along the great circle
-    for i = 1, n_points do
-        local angle = 2 * math.pi * (i-1) / n_points
-        local x = math.cos(angle) * ux + math.sin(angle) * vx
-        local y = math.cos(angle) * uy + math.sin(angle) * vy
-        local z = math.cos(angle) * uz + math.sin(angle) * vz
-        table.insert(vertices, x * self._radius)
-        table.insert(vertices, y * self._radius)
+    for outline in range(self._core_outline, self._body_outline) do
+        table.insert(outline, outline[1])
+        table.insert(outline, outline[2])
     end
 
-    table.insert(vertices, vertices[1])
-    table.insert(vertices, vertices[2])
-
-    return vertices
 end
 
 --- @brief
 function ow.CoinParticle:update(delta)
-    self._theta = self._theta + delta * 0.05 * 2 * math.pi
-    self._phi = self._phi + delta * 0.5 * 2 * math.pi
+    -- noop
+end
 
-    self._contours = {
-        self:_generate_contour(self._theta, self._phi),
-        self:_generate_contour(self._theta + 0.5 * math.pi, self._phi)
-    }
+function ow.CoinParticle:_draw_core()
+    _shader:bind()
+    _shader:send("hue", self._hue)
+    _shader:send("elapsed", rt.SceneManager:get_elapsed() + self._elapsed_offset)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.circle("fill", 0, 0, self._radius)
+    _shader:unbind()
+
+    love.graphics.setColor(table.unpack(self._outline_color))
+    love.graphics.line(self._core_outline)
 end
 
 function ow.CoinParticle:draw(x, y)
     local r, g, b, a = love.graphics.getColor()
+
+    love.graphics.setLineWidth(0.5)
+
     love.graphics.push()
     love.graphics.translate(x, y)
-    love.graphics.setLineWidth(self._radius / 7.5)
-    love.graphics.setLineJoin("bevel")
 
-    for contour in values(self._contours) do
-        love.graphics.setColor(r, g, b, 1 * a)
-        love.graphics.line(contour)
-        love.graphics.setColor(r, g, b, 0.4 * a)
-        love.graphics.polygon("fill", contour)
-    end
+    rt.Palette.BLACK:bind()
+    love.graphics.circle("fill", 0, 0, self._body_radius)
+
+    love.graphics.setColor(table.unpack(self._color))
+    love.graphics.line(self._body_outline)
+
+    self:_draw_core()
+
     love.graphics.pop()
+end
+
+function ow.CoinParticle:draw_bloom(x, y)
+    local r, g, b, a = love.graphics.getColor()
+
+    love.graphics.setLineWidth(0.5)
+
+    love.graphics.push()
+    love.graphics.translate(x, y)
+
+    love.graphics.setColor(table.unpack(self._color))
+    love.graphics.line(self._body_outline)
+
+    self:_draw_core()
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.CoinParticle:set_hue(hue)
+    self._hue = hue
+    self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
+    self._outline_color = table.deepcopy(self._color)
+    for i = 1, 3 do
+        self._outline_color[i] = self._outline_color[i] - rt.settings.player_body.outline_value_offset
+    end
 end

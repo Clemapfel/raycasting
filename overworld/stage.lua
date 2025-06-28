@@ -236,7 +236,7 @@ function ow.Stage:draw_above_player()
 end
 
 --- @brief
-function ow.Stage:draw_bloom_mask()
+function ow.Stage:draw_bloom()
     for object in values(self._bloom_objects) do
         if object.draw_bloom ~= nil then
             object:draw_bloom()

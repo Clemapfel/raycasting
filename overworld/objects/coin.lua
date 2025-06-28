@@ -1,8 +1,9 @@
 require "common.sound_manager"
 require "common.timed_animation"
+require "overworld.coin_particle"
 
 rt.settings.overworld.coin = {
-    radius = 7,
+    radius = 10,
     pulse_animation_duration = 0.4,
     sound_id = "overworld_coin_collected",
     flow_increase = 0.1,
@@ -43,6 +44,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._scene = scene
     self._x, self._y = object.x, object.y
     self._pulse_x, self._pulse_y = 0, 0
+    self._particle = ow.CoinParticle(radius)
 
     stage:add_coin(self, self._id)
 
@@ -121,6 +123,7 @@ end
 --- @brief
 function ow.Coin:update(delta)
     if not self._scene:get_is_body_visible(self._body) then return end
+    self._particle:update(delta)
 
     self._elapsed = self._elapsed + delta
     local frequency = rt.settings.overworld.coin.translation_noise_frequency
@@ -157,19 +160,16 @@ function ow.Coin:draw()
             love.graphics.pop()
         end
     else
-        love.graphics.push()
-        local r, g, b = self._color:unpack()
-        love.graphics.setColor(r, g, b, 1)
-        local w, h = _particle_texture:get_size()
-        love.graphics.draw(_particle_texture:get_native(),
-            self._x - 0.5 * w + self._noise_x, self._y - 0.5 * h + self._noise_y)
-        love.graphics.pop()
+        self._particle:draw(self._x + self._noise_x, self._y + self._noise_y)
     end
 end
 
 --- @brief
 function ow.Coin:set_color(color)
     self._color = color
+
+    local l, c, h, a = rt.rgba_to_lcha(self._color:unpack())
+    self._particle:set_hue(h)
 end
 
 --- @brief
@@ -192,18 +192,6 @@ end
 --- @brief
 function ow.Coin:draw_bloom()
     if self._scene:get_is_body_visible(self._body) and self._is_collected ~= true then
-        local r, g, b = self._color:unpack()
-        local w, h = _particle_texture:get_size()
-        local amplitude = 1 + self._noise_amplitude
-        love.graphics.setBlendMode("add", "premultiplied")
-        love.graphics.setColor(amplitude * r, amplitude * g, amplitude * b, 1)
-        love.graphics.draw(
-            _particle_texture:get_native(),
-            self._x + self._noise_x, self._y + self._noise_y, 0,
-            1.75 * amplitude, 1.75 * amplitude,
-            0.5 * w, 0.5 * h
-        )
-
-        love.graphics.setBlendMode("alpha")
+        self._particle:draw_bloom(self._x + self._noise_x, self._y + self._noise_y)
     end
 end

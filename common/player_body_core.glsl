@@ -64,10 +64,9 @@ vec2 rotate(vec2 v, float angle) {
 uniform float elapsed;
 uniform float hue;
 
-vec4 effect(vec4 color, Image image, vec2 true_uv, vec2 frag_position) {
-    vec2 texture_coordinates = frag_position / love_ScreenSize.xy;
-    vec4 texel = texture(image, true_uv);
-    vec2 uv = frag_position / love_ScreenSize.xy - vec2(1);
+vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 _) {
+    vec4 texel = texture(image, texture_coordinates);
+    vec2 uv = texture_coordinates - vec2(1);
 
     float time = elapsed / 2;
     float scale = 3;
@@ -79,7 +78,6 @@ vec4 effect(vec4 color, Image image, vec2 true_uv, vec2 frag_position) {
         step = rotate(step, (n_octaves - i) * 2 * PI);
         persistence *= distance(uv, texture_coordinates) * 0.4;
     }
-
 
     float hue_eps = 0.05;
     float noise = gradient_noise(vec3(uv * distance(uv, texture_coordinates) , 0));
