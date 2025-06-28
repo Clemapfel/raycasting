@@ -73,6 +73,11 @@ end
 local _canvas, _swap
 
 --- @brief
+function ow.AcceleratorSurface:draw()
+    self._body:draw()
+end
+
+--- @brief
 function ow.AcceleratorSurface:draw_all()
     if _canvas == nil or _canvas:get_width() ~= love.graphics.getWidth() or _canvas:get_height() ~= love.graphics.getHeight() then
         local w, h = love.graphics.getDimensions()

@@ -19,7 +19,7 @@ mn.PauseMenu = meta.class("PauseMenu", rt.Widget)
 --- @brief
 function mn.PauseMenu:instantiate(scene)
     if not meta.isa(scene, rt.Scene) then
-        rt.error("In mn.PauseMenu.enter: expected `Scene`, got `" .. meta.typeof(underlying_scene) .. "`")
+        rt.error("In mn.PauseMenu.enter: expected `Scene`, got `" .. meta.typeof(scene) .. "`")
     end
 
     meta.install(self, {
@@ -73,7 +73,7 @@ function mn.PauseMenu:instantiate(scene)
             require "menu.menu_scene"
             rt.SceneManager:push(mn.MenuScene)
         elseif which == mn.MessageDialogOption.CANCEL then
-            -- noop
+            self._confirm_exit_dialog:close()
         end
     end)
 

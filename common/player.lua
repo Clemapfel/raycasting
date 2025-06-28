@@ -48,7 +48,7 @@ rt.settings.player = {
     jump_impulse = 520, -- 4 * 32 neutral jump
 
     wall_magnet_force = 200,
-    wall_jump_initial_impulse = 360,
+    wall_jump_initial_impulse = 340,
     wall_jump_sustained_impulse = 1200, -- force per second
     wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
     wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
@@ -1016,7 +1016,7 @@ function rt.Player:update(delta)
         local acceleration = (target_velocity - self._flow_velocity)
         self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
         self._flow = self._flow + self._flow_velocity * delta
-        self._flow = 1 --math.clamp(self._flow, 0, 1)
+        self._flow = math.clamp(self._flow, 0, 1)
     end
 
     if self._skip_next_flow_update == true then
@@ -1279,6 +1279,7 @@ function rt.Player:_update_mesh(delta, force_initialize)
         positions = {
             self._bubble_body:get_predicted_position()
         }
+
         for body in values(self._bubble_spring_bodies) do
             local x, y = body:get_predicted_position()
             table.insert(positions, x)
@@ -1300,6 +1301,17 @@ function rt.Player:_update_mesh(delta, force_initialize)
         self._graphics_body:initialize(positions, force_initialize)
         self._graphics_body:update(delta)
     end
+end
+
+--- @brief
+function rt.Player:draw_bloom_mask()
+    local r, g, b, a = self._color:unpack()
+
+    if self._trail_visible then
+        self._trail:draw_below()
+    end
+
+    self._graphics_body:draw_body()
 end
 
 --- @brief

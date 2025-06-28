@@ -1,4 +1,3 @@
-require "common.coroutine"
 require "common.compute_shader"
 require "common.render_texture"
 
@@ -50,6 +49,7 @@ function ow.NormalMap:instantiate(stage)
     self._is_started = false
     self._is_allocated = false
     self._is_done = false
+    self._yielded = false
 
     stage:signal_connect("initialized", function()
         self._is_started = true
@@ -57,7 +57,12 @@ function ow.NormalMap:instantiate(stage)
         return meta.DISCONNECT_SIGNAL
     end)
 
-    self._allocate_callback = rt.Coroutine(function()
+    local savepoint = function()
+        -- always yield, one step per frame
+        coroutine.yield()
+    end
+
+    self._allocate_callback = coroutine.create(function()
         -- collect tris of shapes to be normal mapped
         local tris = {}
         for tri in values(ow.Hitbox:get_tris(true, true)) do -- both
@@ -223,10 +228,12 @@ function ow.NormalMap:instantiate(stage)
             end
         end
 
+        savepoint()
+
         self._is_allocated = true
     end)
 
-    self._compute_sdf_callback = rt.Coroutine(function()
+    self._compute_sdf_callback = coroutine.create(function()
         self._computation_started = true
 
         local size_x, size_y = rt.settings.overworld.normal_map.work_group_size_x, rt.settings.overworld.normal_map.work_group_size_y
@@ -242,14 +249,9 @@ function ow.NormalMap:instantiate(stage)
         self._chunk_padding = padding
         self._chunk_size = chunk_size
 
-        local pre_mask = rt.RenderTexture(
-            chunk_size + 2 * padding, chunk_size + 2 * padding,
-            8, _mask_texture_format, true
-        ):get_native()
-
         local mask = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
-            0, _mask_texture_format, true
+            8, _mask_texture_format, true
         ):get_native()
 
         local texture_a = rt.RenderTexture(
@@ -276,7 +278,7 @@ function ow.NormalMap:instantiate(stage)
             local start_time = love.timer.getTime()
 
             -- fill mask
-            lg.setCanvas({ pre_mask, stencil = true })
+            lg.setCanvas({ mask, stencil = true })
             lg.clear(0, 0, 0, 0)
 
             lg.push()
@@ -287,35 +289,6 @@ function ow.NormalMap:instantiate(stage)
             )
             lg.pop()
             lg.setCanvas(nil)
-
-            -- pre process mask
-
-            --[[
-            do
-                local a_or_b = true
-                for i = 1, 5 do -- has to be odd
-                    local a, b
-                    if a_or_b then
-                        a, b = pre_mask, mask
-                    else
-                        a, b = mask, pre_mask
-                    end
-
-                    _pre_process_shader:send("input_texture", a)
-                    _pre_process_shader:send("output_texture", b)
-                    _pre_process_shader:send("mode", 0) -- dilate
-                    _pre_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
-
-                    _pre_process_shader:send("input_texture", b)
-                    _pre_process_shader:send("output_texture", a)
-                    _pre_process_shader:send("mode", 1) -- erode
-                    _pre_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
-
-                    a_or_b = not a_or_b
-                end
-            end
-            ]]--
-            mask = pre_mask
 
             for to_clear in range(texture_a, texture_b) do
                 lg.setCanvas(to_clear)
@@ -328,6 +301,8 @@ function ow.NormalMap:instantiate(stage)
             _init_shader:send("input_texture", texture_a)
             _init_shader:send("output_texture", texture_b)
             _init_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+            savepoint()
 
             -- jfa
             local jump = 0.5 * chunk_size
@@ -348,18 +323,7 @@ function ow.NormalMap:instantiate(stage)
                 jump = jump / 2
             end
 
-            -- post process
-            if a_or_b then
-                _post_process_shader:send("input_texture", texture_a)
-                _post_process_shader:send("output_texture", texture_b)
-            else
-                _post_process_shader:send("input_texture", texture_b)
-                _post_process_shader:send("output_texture", texture_a)
-            end
-
-            _post_process_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
-            --_post_process_shader:dispatch(dispatch_size_x, dispatch_size_y)
-            --a_or_b = not a_or_b
+            savepoint()
 
             -- compute gradient, export to RG8
             if a_or_b then
@@ -372,6 +336,8 @@ function ow.NormalMap:instantiate(stage)
             _export_shader:send("output_texture", export_texture)
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+            savepoint()
 
             -- crop to save memory
             local offset_x, offset_y = self._quad:getViewport()
@@ -409,13 +375,16 @@ end
 
 --- @brief
 function ow.NormalMap:update(delta)
-    if not self._is_started or self._is_done then return end
-
     -- distribute workload over multiple frames
-    if not self._allocate_callback:get_is_done() then
-        self._allocate_callback:resume()
-    elseif not self._compute_sdf_callback:get_is_done() then
-        self._compute_sdf_callback:resume()
+    if self._yielded then
+        self._yielded = false
+        return
+    end
+
+    if coroutine.status(self._allocate_callback) ~= "dead" then
+        coroutine.resume(self._allocate_callback)
+    elseif coroutine.status(self._compute_sdf_callback) ~= "dead" then
+        coroutine.resume(self._compute_sdf_callback)
     end
 end
 

@@ -16,6 +16,8 @@ local _trail_canvas_a, _trail_canvas_b, _trail_mesh, _trail_circle_mesh = nil, n
 function rt.PlayerTrail:instantiate(player)
     self._player = player
     self._player_x, self._player_y = player:get_position()
+    self._player_is_bubble = player:get_is_bubble()
+    self._bubble_cooldown = 0
 
     -- init sonic boom
     if _boom_mesh == nil then
@@ -85,9 +87,12 @@ function rt.PlayerTrail:instantiate(player)
     self:update(0)
 end
 
---- @brief
 function rt.PlayerTrail:clear()
-    self._previous_screen_x, self._previous_screen_y = nil, nil
+    for canvas in range(_trail_canvas_a, _trail_canvas_b) do
+        canvas:bind()
+        love.graphics.clear()
+        canvas:unbind()
+    end
 end
 
 --- @brief
@@ -173,7 +178,6 @@ end
 
 --- @brief
 function rt.PlayerTrail:update(delta)
-
     local new_w, new_h = love.graphics.getDimensions()
 
     if new_w ~= self._width or new_h ~= self._height then
@@ -183,6 +187,11 @@ function rt.PlayerTrail:update(delta)
     end
 
     self._player_x, self._player_y = self._player:get_predicted_position()
+    if self._player_is_bubble ~= self._player:get_is_bubble() then
+        self._player_is_bubble = self._player:get_is_bubble()
+        self._bubble_cooldown = 2
+    end
+
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)
     self._opacity = self._player:get_opacity()
 
@@ -212,7 +221,7 @@ function rt.PlayerTrail:update(delta)
         end
 
         local dx, dy = self._previous_camera_x - x, self._previous_camera_y - y
-        local player_x, player_y = self._player:get_predicted_position()
+        local player_x, player_y = self._player_x, self._player_y
         if self._previous_player_x == nil or self._previous_player_y == nil then
             self._previous_player_x, self._previous_player_y = player_x, player_y
         end
@@ -239,15 +248,19 @@ function rt.PlayerTrail:update(delta)
         rt.graphics.set_blend_mode(nil)
         b:unbind()
 
-        a:bind()
-        love.graphics.clear()
-        love.graphics.translate(dx, dy)
-        rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.NORMAL)
-        b:draw()
-        love.graphics.origin()
-        love.graphics.translate(-x, -y)
-        self:_draw_trail(player_x, player_y, self._previous_player_x, self._previous_player_y)
-        a:unbind()
+        if self._bubble_cooldown <= 0 then
+            a:bind()
+            love.graphics.clear()
+            love.graphics.translate(dx, dy)
+            rt.graphics.set_blend_mode(rt.BlendMode.NORMAL, rt.BlendMode.NORMAL)
+            b:draw()
+            love.graphics.origin()
+            love.graphics.translate(-x, -y)
+            self:_draw_trail(player_x, player_y, self._previous_player_x, self._previous_player_y)
+            a:unbind()
+        else
+            self._bubble_cooldown = self._bubble_cooldown - 1
+        end
 
         love.graphics.pop()
 
@@ -267,18 +280,20 @@ function rt.PlayerTrail:draw_below()
     x = x - 0.5 * w
     y = y - 0.5 * h
 
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
+    love.graphics.push("all")
+    love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.setColor(1, 1, 1, 1)
     if self._a_or_b then
         love.graphics.draw(_trail_canvas_b:get_native(), x, y)
     else
         love.graphics.draw(_trail_canvas_a:get_native(), x, y)
     end
-    love.graphics.setBlendMode("alpha")
+    love.graphics.pop()
 end
 
 --- @brief
 function rt.PlayerTrail:draw_above()
+    love.graphics.push("all")
     love.graphics.setBlendMode("add")
 
     do -- draw glow
@@ -298,5 +313,5 @@ function rt.PlayerTrail:draw_above()
         love.graphics.pop()
     end
 
-    love.graphics.setBlendMode("alpha")
+    love.graphics.pop()
 end

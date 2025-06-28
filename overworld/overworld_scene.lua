@@ -94,8 +94,6 @@ function ow.OverworldScene:instantiate(state)
         if which == rt.InputAction.PAUSE then
             if not self._pause_menu_active then
                 self:pause()
-            else
-                self:unpause()
             end
         end
     end)
@@ -462,7 +460,7 @@ function ow.OverworldScene:draw()
         self._bloom:bind()
         love.graphics.clear()
         self._camera:bind()
-        self._player:draw_body()
+        self._player:draw_bloom_mask()
         self._stage:draw_bloom_mask()
         self._camera:unbind()
         self._bloom:unbind()
