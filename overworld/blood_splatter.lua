@@ -239,18 +239,56 @@ function ow.BloodSplatter:destroy()
     self._world:destroy()
 end
 
+local _color_matches = function(a, b)
+    local eps = 0.05
+    return math.abs(a[1] - b[1]) < eps and math.abs(a[2] - b[2]) < eps and math.abs(a[3] - b[3]) < eps
+end
+
 --- @brief
-function ow.BloodSplatter:get_visible_segments(x, y, w, h)
-    local segments, colors = {}, {}
-    self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
-        local edge = shape:getUserData()
-        for division in values(edge.subdivisions) do
-           if division.color ~= nil then
-                table.insert(segments, table.deepcopy(division.line))
-                table.insert(colors, table.deepcopy(division.color))
-           end
+function ow.BloodSplatter:get_visible_segments(bounds)
+    meta.assert(bounds, rt.AABB)
+    local segments, colors, n = {}, {}, 0
+
+    --[[
+    for subdivision in keys(self._active_divisions) do
+        if bounds:intersects(table.unpack(subdivision.line)) then
+            table.insert(segments, table.deepcopy(subdivision.line))
+            table.insert(colors, table.deepcopy(subdivision.color))
+            n = n + 1
         end
+    end
+    ]]--
+
+    self._world:update(1 / 60)
+    self._world:queryShapesInArea(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, function(shape)
+        local edge = shape:getUserData()
+
+        local before = nil
+        for current in values(edge.subdivisions) do
+            if self._active_divisions[current] == true then
+                local inserted = false
+                if before ~= nil and before.right_fraction == current.left_fraction and _color_matches(before.color, current.color) then
+                    -- extend last colinear segment
+                    segments[n][3] = current.line[3]
+                    segments[n][4] = current.line[4]
+                    inserted = true
+                else
+                    table.insert(segments, table.deepcopy(current.line))
+                    table.insert(colors, table.deepcopy(current.color))
+                    n = n + 1
+                    inserted = true
+                end
+
+                if inserted then
+                    before = current
+                end
+            else
+                before = nil
+            end
+        end
+
+        return true
     end)
 
-    return segments, colors
+    return segments, colors, n
 end

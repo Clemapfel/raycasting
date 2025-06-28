@@ -3,7 +3,7 @@ require "common.common"
 local GAME_NAME = "Chroma Drift"
 
 function love.conf(settings)
-    settings.graphics.renderers = {"opengl"}
+    --settings.graphics.renderers = {"opengl"}
     settings.window.msaa = 4
     settings.window.resizable = true
     settings.window.vsync = -1

@@ -420,16 +420,13 @@ function ow.NormalMap:update(delta)
 end
 
 function ow.NormalMap:_draw(light_or_shadow)
-    if not self._computation_started then return end
-
-    local padding = self._chunk_padding
     local chunk_size = self._chunk_size
-
     local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
     local min_chunk_x = math.floor((x - self._bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - self._bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - self._bounds.y) / chunk_size)
     local max_chunk_y = math.floor(((y + h - 1) - self._bounds.y) / chunk_size)
+
 
     if light_or_shadow == true then
         local camera = self._stage:get_scene():get_camera()
@@ -448,7 +445,7 @@ function ow.NormalMap:_draw(light_or_shadow)
         end
 
         -- collect line lights
-        local line_positions, line_colors = self._stage:get_blood_splatter():get_visible_segments(camera:get_world_bounds())
+        local line_positions, line_colors = self._stage:get_blood_splatter():get_visible_segments()
 
         _draw_light_shader:bind()
         _draw_light_shader:send("camera_offset", { camera:get_offset() })
@@ -493,11 +490,162 @@ function ow.NormalMap:_draw(light_or_shadow)
 end
 
 function ow.NormalMap:draw_light()
-    if self._is_visible == false then return end
-    self:_draw(true)
+    if self._is_visible == false or not self._computation_started then return end
+
+    local chunk_size = self._chunk_size
+    local bounds = self._bounds
+    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
+    local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
+    local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
+    local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
+    local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
+
+    local scene, camera, player = self._stage:get_scene(), self._stage:get_scene():get_camera(), self._stage:get_scene():get_player()
+    local blood_splatter = self._stage:get_blood_splatter()
+
+    local shader_bound = false
+
+    -- collect all point lights
+    local all_point_positions, all_point_colors = self._stage:get_scene():get_light_sources()
+    table.insert(all_point_positions, { player:get_position() })
+    table.insert(all_point_colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+
+    -- convert to screen coords
+    local point_light_world_positions = {}
+    for position in values(all_point_positions) do
+        table.insert(point_light_world_positions, table.deepcopy(position))
+        position[1], position[2] = camera:world_xy_to_screen_xy(table.unpack(position))
+    end
+
+    local cell = rt.AABB()
+    local padding = 0.5 * chunk_size
+
+    local r, g, b, a = love.graphics.getColor()
+
+    for chunk_x = min_chunk_x, max_chunk_x do
+        local column = self._chunks[chunk_x]
+        if column ~= nil then
+            for chunk_y = min_chunk_y, max_chunk_y do
+                local chunk = column[chunk_y]
+                if chunk ~= nil and chunk.is_initialized then
+                    cell:reformat(
+                        bounds.x + chunk_x * chunk_size - padding,
+                        bounds.y + chunk_y * chunk_size - padding,
+                        chunk_size + 2 * padding,
+                        chunk_size + 2 * padding
+                    )
+
+                    -- filter point lights in cell
+                    local point_lights = {}
+                    local point_colors = {}
+                    local n_point_lights = 0
+                    for i, point in ipairs(all_point_positions) do
+                        local world_x, world_y = table.unpack(point_light_world_positions[i])
+                        if cell:contains(world_x, world_y) then
+                            table.insert(point_lights, point)
+                            table.insert(point_colors, all_point_colors[i])
+                            n_point_lights = n_point_lights + 1
+                        end
+                    end
+
+                    -- segment lights filtered by blood splatter
+                    local segment_lights, segment_colors, n_segment_lights = blood_splatter:get_visible_segments(cell)
+
+                    -- translate to screen coords
+                    for segment in values(segment_lights) do
+                        segment[1], segment[2] = camera:world_xy_to_screen_xy(segment[1], segment[2])
+                        segment[3], segment[4] = camera:world_xy_to_screen_xy(segment[3], segment[4])
+                    end
+
+                    if n_point_lights + n_segment_lights > 0 then
+
+                        if n_point_lights > 0 then
+                            _draw_light_shader:send("point_lights", table.unpack(point_lights))
+                            _draw_light_shader:send("point_colors", table.unpack(point_colors))
+                        end
+
+                        if n_segment_lights > 0 then
+                            _draw_light_shader:send("segment_lights", table.unpack(segment_lights))
+                            _draw_light_shader:send("segment_colors", table.unpack(segment_colors))
+                        end
+
+                        _draw_light_shader:send("n_point_lights", n_point_lights)
+                        _draw_light_shader:send("n_segment_lights", n_segment_lights)
+
+                        if shader_bound == false then
+                            _draw_light_shader:send("camera_offset", { camera:get_offset() })
+                            _draw_light_shader:send("camera_scale", camera:get_final_scale())
+                            _draw_light_shader:bind()
+                            shader_bound = true
+                        end
+
+                        love.graphics.setBlendMode("add", "premultiplied")
+                        love.graphics.setColor(r, g, b, a)
+                        love.graphics.draw(chunk.texture:get_native(), cell.x + padding, cell.y + padding)
+                        love.graphics.setColor(1, 1, 1, 1)
+
+                        -- TODO
+                        _draw_light_shader:unbind()
+                        love.graphics.push()
+                        love.graphics.origin()
+                        love.graphics.setBlendMode("alpha")
+                        love.graphics.setColor(1, 1, 1, 1)
+                        love.graphics.setLineWidth(4)
+                        for i, line in ipairs(segment_lights) do
+                            love.graphics.setColor(table.unpack(segment_colors[i]))
+                            love.graphics.line(line)
+                        end
+                        _draw_light_shader:bind()
+                        love.graphics.pop()
+                    end
+                end
+            end
+        end
+    end
+
+    if shader_bound == true then
+        _draw_light_shader:unbind()
+        love.graphics.setBlendMode("alpha")
+    end
 end
 
 function ow.NormalMap:draw_shadow()
-    if self._is_visible == false then return end
-    self:_draw(false)
+    if self._is_visible == false or not self._computation_started then return end
+
+    local chunk_size = self._chunk_size
+    local bounds = self._bounds
+    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
+    local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
+    local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
+    local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
+    local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
+
+    local shader_bound = false
+    for chunk_x = min_chunk_x, max_chunk_x do
+        local column = self._chunks[chunk_x]
+        if column ~= nil then
+            for chunk_y = min_chunk_y, max_chunk_y do
+                local chunk = column[chunk_y]
+                if chunk ~= nil and chunk.is_initialized then
+                    if shader_bound == false then
+                        love.graphics.setBlendMode("subtract", "premultiplied")
+                        local value = 0.1
+                        love.graphics.setColor(value, value, value, value)
+                        _draw_shadow_shader:bind()
+                        shader_bound = true
+                    end
+
+                    love.graphics.draw(chunk.texture:get_native(),
+                        bounds.x + chunk_x * chunk_size,
+                        bounds.y + chunk_y * chunk_size
+                    )
+                end
+            end
+        end
+    end
+
+    if shader_bound then
+        _draw_shadow_shader:unbind()
+        love.graphics.setBlendMode("alpha")
+    end
 end
