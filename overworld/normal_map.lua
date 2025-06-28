@@ -449,7 +449,6 @@ function ow.NormalMap:_draw(light_or_shadow)
 
         -- collect line lights
         local line_positions, line_colors = self._stage:get_blood_splatter():get_visible_segments(camera:get_world_bounds())
-        dbg(table.sizeof(line_positions))
 
         _draw_light_shader:bind()
         _draw_light_shader:send("camera_offset", { camera:get_offset() })

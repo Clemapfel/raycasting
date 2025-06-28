@@ -2,20 +2,40 @@ require "common.sound_manager"
 require "common.timed_animation"
 
 rt.settings.overworld.coin = {
-    radius = 5,
+    radius = 7,
     pulse_animation_duration = 0.4,
     sound_id = "overworld_coin_collected",
-    flow_increase = 0.1
+    flow_increase = 0.1,
+    particle_padding = 3,
+    translation_noise_frequency = 0.1,
+    amplitude_noise_frequency = 1,
+    amplitude_max_offset = 0.3, -- 1 +/- fraction
 }
 
 --- @class ow.Coin
 ow.Coin = meta.class("Coin")
 
 local _pulse_mesh = nil
+local _particle_texture, _particle_shader
 
 --- @brief
 function ow.Coin:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Coin.instantiate: object is not a point")
+
+    local radius = rt.settings.overworld.coin.radius
+    if _particle_shader == nil then
+        _particle_shader = rt.Shader("overworld/objects/coin.glsl")
+    end
+
+    if _particle_texture == nil then
+        local padding = rt.settings.overworld.coin.particle_padding
+        _particle_texture = rt.RenderTexture(2 * (radius + padding), 2 * (radius + padding))
+        _particle_texture:bind()
+        _particle_shader:bind()
+        love.graphics.rectangle("fill", padding, padding, 2 * radius, 2 * radius)
+        _particle_shader:unbind()
+        _particle_texture:unbind()
+    end
 
     self._id = object.id -- TODO: global id
 
@@ -27,7 +47,6 @@ function ow.Coin:instantiate(object, stage, scene)
     stage:add_coin(self, self._id)
 
     self._color = rt.RGBA(0, 0, 0, 1)
-
     self._body = b2.Body(
         stage:get_physics_world(),
         b2.BodyType.DYNAMIC,
@@ -35,10 +54,14 @@ function ow.Coin:instantiate(object, stage, scene)
         b2.Circle(0, 0, rt.settings.overworld.coin.radius)
     )
 
-    self._x, self._y, self._radius = object.x, object.y, rt.settings.overworld.coin.radius
+    self._x, self._y, self._radius = object.x, object.y, radius
 
     self._is_collected = false
     self._timestamp = -math.huge -- timestamp of collection
+    self._noise_x, self._noise_y = 0, 0
+    self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, 2 * math.pi)), math.sin(rt.random.number(0, 2 * math.pi))
+    self._noise_amplitude = 1
+    self._elapsed = 0
 
     self._body:set_user_data(self)
     self._body:set_is_sensor(true)
@@ -97,6 +120,17 @@ end
 
 --- @brief
 function ow.Coin:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
+    self._elapsed = self._elapsed + delta
+    local frequency = rt.settings.overworld.coin.translation_noise_frequency
+    local offset = self._radius
+    self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+    self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+
+    frequency = rt.settings.overworld.coin.amplitude_noise_frequency
+    self._noise_amplitude = rt.settings.overworld.coin.amplitude_max_offset * (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1)
+
     if self._is_collected then
         if self._pulse_active then
             self._pulse_active = not self._pulse_opacity_animation:update(delta)
@@ -106,17 +140,9 @@ function ow.Coin:update(delta)
 end
 
 --- @brief
-function ow.Coin:draw_coin(x, y, r, g, b, a)
-    love.graphics.setLineWidth(1)
-    local d = 0.35
-    love.graphics.setColor(r - d, g - d, b - d, 1)
-    love.graphics.circle("fill", x, y, rt.settings.overworld.coin.radius)
-    love.graphics.setColor(r, g, b, 1)
-    love.graphics.circle("line", x, y, rt.settings.overworld.coin.radius)
-end
-
---- @brief
 function ow.Coin:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     if self._is_collected then
         if self._pulse_active then
             local r, g, b = self._color:unpack()
@@ -131,8 +157,13 @@ function ow.Coin:draw()
             love.graphics.pop()
         end
     else
+        love.graphics.push()
         local r, g, b = self._color:unpack()
-        ow.Coin:draw_coin(self._x, self._y, r, g, b, 1)
+        love.graphics.setColor(r, g, b, 1)
+        local w, h = _particle_texture:get_size()
+        love.graphics.draw(_particle_texture:get_native(),
+            self._x - 0.5 * w + self._noise_x, self._y - 0.5 * h + self._noise_y)
+        love.graphics.pop()
     end
 end
 
@@ -144,7 +175,6 @@ end
 --- @brief
 function ow.Coin:get_color()
     if self._is_collected then return rt.RGBA(0, 0, 0, 0) end
-
     return self._color
 end
 
@@ -153,7 +183,27 @@ function ow.Coin:get_position()
     return self._x, self._y
 end
 
+
 --- @brief
-function ow.Coin:get_time_since_collection()
-    return love.timer.getTime() - self._timestamp
+function ow.Coin:get_should_bloom()
+    return true
+end
+
+--- @brief
+function ow.Coin:draw_bloom()
+    if self._scene:get_is_body_visible(self._body) and self._is_collected ~= true then
+        local r, g, b = self._color:unpack()
+        local w, h = _particle_texture:get_size()
+        local amplitude = 1 + self._noise_amplitude
+        love.graphics.setBlendMode("add", "premultiplied")
+        love.graphics.setColor(amplitude * r, amplitude * g, amplitude * b, 1)
+        love.graphics.draw(
+            _particle_texture:get_native(),
+            self._x + self._noise_x, self._y + self._noise_y, 0,
+            1.75 * amplitude, 1.75 * amplitude,
+            0.5 * w, 0.5 * h
+        )
+
+        love.graphics.setBlendMode("alpha")
+    end
 end

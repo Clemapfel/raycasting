@@ -6,7 +6,7 @@ ow.CoinParticle = meta.class("CoinParticle")
 --- @brief
 function ow.CoinParticle:instantiate(radius)
     self._radius = radius
-    self._theta, self._phi = 0, 0
+    self._theta, self._phi = 0, 0--rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi)
     self._elapsed = 0
 
     self._contour = nil
@@ -63,26 +63,27 @@ end
 
 --- @brief
 function ow.CoinParticle:update(delta)
-    self._elapsed = self._elapsed + delta
-    self._theta = self._elapsed * 0.05 * 2 * math.pi
-    self._phi = self._elapsed * 0.025 * 2 * math.pi
+    self._theta = self._theta + delta * 0.05 * 2 * math.pi
+    self._phi = self._phi + delta * 0.5 * 2 * math.pi
 
-
-    self._contour = self:_generate_contour(
-        self._theta,
-        self._phi
-    )
+    self._contours = {
+        self:_generate_contour(self._theta, self._phi),
+        self:_generate_contour(self._theta + 0.5 * math.pi, self._phi)
+    }
 end
 
-function ow.CoinParticle:draw(x, y, is_collected)
+function ow.CoinParticle:draw(x, y)
     local r, g, b, a = love.graphics.getColor()
     love.graphics.push()
     love.graphics.translate(x, y)
-    love.graphics.setLineWidth(8)
+    love.graphics.setLineWidth(self._radius / 7.5)
     love.graphics.setLineJoin("bevel")
-    love.graphics.setColor(r, g, b, 1 * a)
-    love.graphics.line(self._contour)
-    love.graphics.setColor(r, g, b, 0.4 * a)
-    love.graphics.polygon("fill", self._contour)
+
+    for contour in values(self._contours) do
+        love.graphics.setColor(r, g, b, 1 * a)
+        love.graphics.line(contour)
+        love.graphics.setColor(r, g, b, 0.4 * a)
+        love.graphics.polygon("fill", contour)
+    end
     love.graphics.pop()
 end
