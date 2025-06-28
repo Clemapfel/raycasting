@@ -8,12 +8,11 @@ ow.KillPlane = meta.class("KillPlane")
 --- @class ow.KillPlaneTarget
 ow.KillPlaneTarget = meta.class("KillPlaneTarget") -- dummy
 
-local _state_inactive = 1
-local _state_waiting_for_leave_bottom = 2
-local _state_waiting_for_enter_top = 3
+local _shader
 
 --- @brief
 function ow.KillPlane:instantiate(object, stage, scene)
+    if _shader == nil then _shader = rt.Shader("overworld/objects/kill_plane.glsl") end
     self._scene = scene
     self._stage = stage
     self._world = stage:get_physics_world()
@@ -44,7 +43,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._mesh = object:create_mesh()
 
     self._outline_color = rt.Palette.KILL_PLANE:clone()
-    self._base_color = rt.Palette.KILL_PLANE:darken(0.8)
+    self._base_color = rt.Palette.KILL_PLANE:darken(0.9)
 end
 
 --- @brief

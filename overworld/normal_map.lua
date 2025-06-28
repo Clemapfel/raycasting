@@ -8,7 +8,10 @@ rt.settings.overworld.normal_map = {
 
     mask_sticky = true,
     mask_slippery = true,
-    max_distance = 32, -- < 256
+    max_distance = 16, -- < 256
+
+    point_light_intensity = 1,
+    segment_light_intensity = 0.2
 }
 
 --- @class ow.NormalMap
@@ -417,6 +420,8 @@ function ow.NormalMap:_draw(light_or_shadow)
         local line_positions, line_colors = self._stage:get_blood_splatter():get_visible_segments()
 
         _draw_light_shader:bind()
+        _draw_light_shader:send("point_light_intensity", rt.settings.overworld.normal_map.point_light_intensity)
+        _draw_light_shader:send("segment_light_intensity", rt.settings.overworld.normal_map.segment_light_intensity)
         _draw_light_shader:send("camera_offset", { camera:get_offset() })
         _draw_light_shader:send("camera_scale", camera:get_final_scale())
         _draw_light_shader:send("positions", table.unpack(point_positions))

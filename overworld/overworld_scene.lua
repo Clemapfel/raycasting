@@ -308,7 +308,12 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
             rt.settings.overworld.overworld_scene.bloom_texture_format
         )
         self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
-        if self._stage ~= nil then self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_composite_strength) end
+        if self._stage ~= nil then
+            self._stage:get_blood_splatter():set_bloom_factor(
+                rt.settings.overworld.overworld_scene.bloom_composite_strength +
+                rt.settings.overworld.normal_map.segment_light_intensity
+            )
+        end
     end
 
     self._pan_gradient_top = rt.Mesh({
@@ -453,7 +458,12 @@ function ow.OverworldScene:draw()
                 rt.settings.overworld.overworld_scene.bloom_texture_format
             )
             self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
-            if self._stage ~= nil then self._stage:get_blood_splatter():set_bloom_factor(rt.settings.overworld.overworld_scene.bloom_composite_strength) end
+            if self._stage ~= nil then
+                self._stage:get_blood_splatter():set_bloom_factor(
+                    rt.settings.overworld.overworld_scene.bloom_composite_strength +
+                    rt.settings.overworld.normal_map.segment_light_intensity
+                )
+            end
         end
 
         love.graphics.push()
