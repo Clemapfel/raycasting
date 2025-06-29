@@ -220,12 +220,12 @@ end
 function ow.Stage:draw_above_player()
     ow.AcceleratorSurface:draw_all()
 
+    self._mirror:draw()
+    self._normal_map:draw_light()
+
     for object in values(self._above_player) do
         object:draw()
     end
-
-    self._normal_map:draw_light()
-    self._mirror:draw()
 end
 
 --- @brief

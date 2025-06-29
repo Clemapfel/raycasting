@@ -6,7 +6,7 @@ ow.CoinParticle = meta.class("CoinParticle")
 local _shader = nil
 
 --- @brief
-function ow.CoinParticle:instantiate(radius)
+function ow.CoinParticle:instantiate(radius, is_outline)
     if _shader == nil then _shader = rt.Shader("common/player_body_core.glsl") end
 
     self._elapsed_offset = rt.random.number(0, 100)
@@ -18,6 +18,9 @@ function ow.CoinParticle:instantiate(radius)
 
     self._core_outline = {}
     self._body_outline = {}
+    self._dotted_outlines = {}
+    self._is_outline = is_outline
+
     for angle = 0, 2 * math.pi, 2 * math.pi / 16 do
         table.insert(self._core_outline, math.cos(angle) * self._radius)
         table.insert(self._core_outline, math.sin(angle) * self._radius)
@@ -26,16 +29,25 @@ function ow.CoinParticle:instantiate(radius)
         table.insert(self._body_outline, math.sin(angle) * self._body_radius)
     end
 
+    local n_steps = 32
+    local step = (2 * math.pi) / n_steps
+    for i = 1, n_steps + 1, 2 do
+        table.insert(self._dotted_outlines, {
+            math.cos((i - 1) * step) * self._body_radius,
+            math.sin((i - 1) * step) * self._body_radius,
+            math.cos((i - 0) * step) * self._body_radius,
+            math.sin((i - 0) * step) * self._body_radius
+        })
+    end
+
     for outline in range(self._core_outline, self._body_outline) do
         table.insert(outline, outline[1])
         table.insert(outline, outline[2])
     end
-
 end
 
---- @brief
-function ow.CoinParticle:update(delta)
-    -- noop
+function ow.CoinParticle:set_is_outline(b)
+    self._is_outline = b
 end
 
 function ow.CoinParticle:_draw_core()
@@ -51,26 +63,38 @@ function ow.CoinParticle:_draw_core()
 end
 
 function ow.CoinParticle:draw(x, y)
-    local r, g, b, a = love.graphics.getColor()
-
-    love.graphics.setLineWidth(0.5)
 
     love.graphics.push()
     love.graphics.translate(x, y)
 
-    rt.Palette.BLACK:bind()
-    love.graphics.circle("fill", 0, 0, self._body_radius)
+    if self._is_outline then
+        love.graphics.setLineWidth(2)
+        rt.Palette.BLACK:bind()
+        for outline in values(self._dotted_outlines) do
+            love.graphics.line(outline)
+        end
 
-    love.graphics.setColor(table.unpack(self._color))
-    love.graphics.line(self._body_outline)
+        love.graphics.setLineWidth(1)
+        love.graphics.setColor(table.unpack(self._color))
+        for outline in values(self._dotted_outlines) do
+            love.graphics.line(outline)
+        end
+    else
+        love.graphics.setLineWidth(0.5)
+        rt.Palette.BLACK:bind()
+        love.graphics.circle("fill", 0, 0, self._body_radius)
 
-    self:_draw_core()
+        love.graphics.setColor(table.unpack(self._color))
+        love.graphics.line(self._body_outline)
+
+        self:_draw_core()
+    end
 
     love.graphics.pop()
 end
 
 function ow.CoinParticle:draw_bloom(x, y)
-    local r, g, b, a = love.graphics.getColor()
+    if self._is_outline then return end
 
     love.graphics.setLineWidth(0.5)
 

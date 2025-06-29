@@ -20,13 +20,15 @@ ow.Coin = meta.class("Coin")
 local _pulse_mesh = nil
 local _particle_texture, _particle_shader
 
--- global hue queue such that two elements don't have the same hue
-local _current_hue_step = 1
 local _hue_steps, _n_hue_steps = {}, 8
 do
     for i = 0, _n_hue_steps - 1 do
         table.insert(_hue_steps, i / _n_hue_steps)
     end
+end
+
+function ow.Coin.index_to_hue(i)
+    return _hue_steps[((i - 1) % _n_hue_steps) + 1]
 end
 
 --- @brief
@@ -62,8 +64,8 @@ function ow.Coin:instantiate(object, stage, scene)
 
     stage:add_coin(self, self._id)
 
-    self._hue = _hue_steps[_current_hue_step]
-    _current_hue_step = (_current_hue_step % _n_hue_steps) + 1
+    self._index = object:get_number("index") or stage:get_n_coins()
+    self._hue = ow.Coin.index_to_hue(self._index)
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     self._particle:set_hue(self._hue)
@@ -157,7 +159,6 @@ function ow.Coin:update(delta)
     else
         if not self._scene:get_is_body_visible(self._body) then return end
 
-        self._particle:update(delta)
         self._elapsed = self._elapsed + delta
         local frequency = rt.settings.overworld.coin.translation_noise_frequency
         local offset = self._radius

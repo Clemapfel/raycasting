@@ -61,6 +61,17 @@ function rt.GameState:_initialize_stage()
             target_time = math.huge
         end
 
+        -- extract number of coins from config file
+        local config = ow.StageConfig(id)
+        local n_coins = 0
+        for layer_i = 1, config:get_n_layers() do
+            for object in values(config:get_layer_object_wrappers(layer_i)) do
+                if object.class == "Coin" then
+                    n_coins = n_coins + 1
+                end
+            end
+        end
+
         local stage = {
             id = id,
             path = path_prefix .. "/" .. id .. ".lua",
@@ -68,6 +79,7 @@ function rt.GameState:_initialize_stage()
             difficulty = difficulty,
             description = description,
             target_time = target_time,
+            n_coins = n_coins,
             index = i
         }
 
@@ -141,6 +153,48 @@ function rt.GameState:set_stage_best_flow_percentage(id, fraction)
         self._state.stage_results[entry] = entry
     end
     entry.best_flow_percentage = fraction
+end
+
+--- @brief
+function rt.GameState:get_stage_was_coin_collected(stage_id, coin_i)
+    meta.assert(stage_id, "String", coin_i, "Number")
+    local stage = self:_get_stage(stage_id, "get_stage_was_coin_collected")
+    if coin_i > stage.n_coins then
+        rt.error("In rt.GameState.get_stage_was_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
+    end
+
+    local entry = self._state.stage_results[stage_id]
+    if entry == nil then return false end
+    return entry.collected_coins[coin_i] == true
+end
+
+--- @brief
+function rt.GameState:set_stage_was_coin_collected(stage_id, coin_i, collected)
+    if collected == nil then collected = true end
+    meta.assert(stage_id, "String", coin_i, "Number", collected, "Boolean")
+    local stage = self:_get_stage(stage_id, "set_stage_was_coin_collected")
+    if coin_i > stage.n_coins then
+        rt.error("In rt.GameState.set_stage_was_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
+    end
+
+    local entry = self._stage.stage_results[stage_id]
+    if entry == nil then
+        entry = {}
+        self._state.stage_results[entry] = entry
+    end
+
+    if collected == true then
+        entry.collected_coins[coin_i] = true
+    else
+        entry.collected_coins[coin_i] = nil
+    end
+end
+
+--- @brief
+function rt.GameState:get_stage_n_coins(id)
+    meta.assert(id, "String")
+    local stage = self:_get_stage(id, "set_stage_coin_collected")
+    return stage.n_coins
 end
 
 --- @brief

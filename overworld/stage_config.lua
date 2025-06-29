@@ -343,7 +343,7 @@ end
 function ow.StageConfig:get_layer_object_wrappers(layer_i)
     local layer = self._layer_i_to_layer[layer_i]
     if layer == nil then
-        rt.error("In ow.StageConfig.get_layeget_layer_object_wrappersr_sprite_batches: no layer with id `" .. tostring(layer_i) .. "`")
+        rt.error("In ow.StageConfig.get_layer_object_wrappers: no layer with id `" .. tostring(layer_i) .. "`")
     end
 
     local out = {}

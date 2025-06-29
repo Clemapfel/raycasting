@@ -122,8 +122,9 @@ rt.Translation = rt.initialize_translation({
         },
 
         stage_select = {
-            flow_prefix = "Flow",
+            flow_prefix = "Best Flow %",
             time_prefix = "Best Time",
+            coins_prefix = "Children Saved",
             difficulty_prefix = "Difficulty",
 
             control_indicator_select = "Select Stage",

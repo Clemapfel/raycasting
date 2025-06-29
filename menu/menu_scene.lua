@@ -7,6 +7,7 @@ require "common.timed_animation"
 require "common.fade"
 require "menu.stage_select_page_indicator"
 require "menu.stage_grade_label"
+require "overworld.coin_particle"
 
 rt.settings.menu_scene = {
     player_max_falling_velocity = 1500,
@@ -16,7 +17,6 @@ rt.settings.menu_scene = {
 
     title_screen = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
-        menu_font_path_prefix = "assets/fonts/RubikBubbles/RubikBubbles",
         player_velocity = 100, -- when reflecting
         player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
@@ -27,7 +27,8 @@ rt.settings.menu_scene = {
         reveal_animation_duration = 1,
         scroll_speed = 1,
         exititing_fraction = 2, -- number of screen heights until fade out starts
-        scroll_ticks_per_second = 2
+        scroll_ticks_per_second = 2,
+        coin_radius = 20
     },
 }
 
@@ -138,10 +139,6 @@ function mn.MenuScene:instantiate(state)
         title_screen.n_menu_items = 0
         title_screen.selected_item_i = 1
 
-        local title_menu_font = rt.Font(
-            rt.settings.menu_scene.title_screen.menu_font_path_prefix .. "-Regular.ttf",
-            rt.settings.menu_scene.title_screen.menu_font_path_prefix .. "-Regular.ttf"
-        )
         for text in range(
             translation.stage_select,
             translation.settings,
@@ -149,8 +146,8 @@ function mn.MenuScene:instantiate(state)
             translation.quit
         ) do
             local item = {
-                unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE, title_menu_font),
-                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE, title_menu_font),
+                unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE),
+                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE),
             }
 
             table.insert(title_screen.menu_items, item)
@@ -285,6 +282,7 @@ function mn.MenuScene:instantiate(state)
         for id in values(stage_ids) do
             local title = game_state:get_stage_title(id)
             local was_beaten = game_state:get_stage_was_beaten(id)
+            local n_coins = game_state:get_stage_n_coins(id)
 
             local time = not was_beaten and _long_dash or string.format_time(game_state:get_stage_best_time(id))
             local flow = not was_beaten and _long_dash or _create_flow_percentage_label(game_state:get_stage_best_flow_percentage(id))
@@ -306,6 +304,10 @@ function mn.MenuScene:instantiate(state)
                 time_value_label = rt.Label(time_prefix .. time .. time_postfix),
                 time_grade = mn.StageGradeLabel(time_grade, rt.FontSize.BIG),
 
+                coins_prefix_label = rt.Label(prefix_prefix .. translation.coins_prefix .. prefix_postfix),
+                coins_colon_label = rt.Label(colon),
+                coins = {},
+
                 difficulty_prefix_label = rt.Label(prefix_prefix ..translation.difficulty_prefix .. prefix_postfix),
                 difficulty_colon_label = rt.Label(colon),
                 difficulty_value_label = rt.Label(difficulty_prefix .. difficulty .. difficulty_postfix),
@@ -313,14 +315,18 @@ function mn.MenuScene:instantiate(state)
                 frame = rt.Frame(),
                 description_label = rt.Label(description_prefix .. description .. description_postfix, rt.FontSize.SMALL),
                 total_grade = mn.StageGradeLabel(total_grade, rt.FontSize.HUGE),
-                
-                personal_best_header = rt.Label(header_prefix .. translation.personal_best_header .. header_postfix, rt.FontSize.SMALL),
-                grade_header = rt.Label(header_prefix .. translation.grade_header .. header_postfix),
 
                 hrules = {},
                 target_y = 0,
                 bounds = rt.AABB(),
             }
+
+            for i = 1, n_coins do
+                table.insert(item.coins, ow.CoinParticle(
+                    rt.settings.menu_scene.stage_select.coin_radius,
+                    not rt.GameState:get_stage_was_coin_collected(id, i)
+                ))
+            end
 
             table.insert(stage_select.items, item)
             stage_select.n_items = stage_select.n_items + 1
@@ -346,21 +352,21 @@ function mn.MenuScene:realize()
 
     for item in values(self._stage_select.items) do
         for widget in range(
-            item.frame,
             item.title_label,
-            item.personal_best_header,
-            item.grade_header,
-            item.difficulty_prefix_label,
-            item.difficulty_colon_label,
-            item.difficulty_value_label,
             item.flow_prefix_label,
             item.flow_colon_label,
             item.flow_value_label,
             item.flow_grade,
             item.time_prefix_label,
-            item.time_colon_label,
+            item.time_colo_label,
             item.time_value_label,
             item.time_grade,
+            item.coins_prefix_label,
+            item.coins_colon_label,
+            item.difficulty_prefix_label,
+            item.difficulty_colon_label,
+            item.difficulty_value_label,
+            item.frame,
             item.description_label,
             item.total_grade
         ) do
@@ -378,7 +384,7 @@ end
 function mn.MenuScene:_create_from_state()
     local stage_select = self._stage_select
 
-    local from = {
+    local grades = {
         rt.StageGrade.SS,
         rt.StageGrade.S,
         rt.StageGrade.A,
@@ -389,21 +395,24 @@ function mn.MenuScene:_create_from_state()
 
     local from_i = 1
     for i = 1, stage_select.n_items do
-        -- TODO: from state
-        local grade = from[from_i]
-        stage_select.page_indicator:set_stage_grade(i, grade)
-
         local item = stage_select.items[i]
-        item.flow_grade:set_grade(grade)
-        item.time_grade:set_grade(grade)
-        item.total_grade:set_grade(grade)
 
-        from_i = from_i + 1
-        if from_i > #from then
-            from_i = 1
+        local time_grade, flow_grade, total_grade = rt.GameState:get_stage_grades(item.id)
+
+        -- TODO
+        time_grade, flow_grade, total_grade = rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades)
+
+        stage_select.page_indicator:set_stage_grade(i, total_grade)
+        item.time_grade:set_grade(time_grade)
+        item.flow_grade:set_grade(flow_grade)
+        item.total_grade:set_grade(total_grade)
+
+        for coin_i, coin in ipairs(item.coins) do
+            local is_collected = rt.GameState:get_stage_was_coin_collected(item.id, coin_i)
+            is_collected = rt.random.toss_coin() -- TODO
+            coin:set_is_outline(is_collected)
         end
     end
-
 end
 
 --- @brief
