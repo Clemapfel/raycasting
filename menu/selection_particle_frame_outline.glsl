@@ -39,8 +39,8 @@ mat3 sobel_x = mat3(
 
 mat3 sobel_y = mat3(
     -1, -2, -1,
-    0, 0, 0,
-    1, 2, 1
+     0, 0, 0,
+     1, 2, 1
 );
 
 vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {

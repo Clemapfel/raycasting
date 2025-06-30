@@ -4,6 +4,7 @@ rt.settings.menu.selection_particle_frame = {
     density = 1 / 50, -- particles per px
     max_scale_factor = 1.5,
     max_velocity = 100, -- px / s
+    hold_velocity = 10
 }
 
 --- @class mn.SelectionParticleFrame
@@ -28,19 +29,26 @@ local _mask_mesh_format = {
 
 -- particle and data mesh indices
 local _x = 1
-local _y = _x + 1
-local _radius = _y + 1
-local _origin_x = _radius + 1
-local _origin_y = _origin_x + 1
-local _velocity_x = _origin_y + 1
-local _velocity_y = _velocity_x + 1
-local _velocity_magnitude = _velocity_y + 1
-local _edge = _velocity_magnitude + 1
+local _y = 2
+local _radius = 3
+local _origin_x = 4
+local _origin_y = 5
+local _velocity_x = 6
+local _velocity_y = 7
+local _velocity_magnitude = 8
+local _swipe_flag = 9
+local _edge = 10
 
 -- sim modes
 local _MODE_COLLAPSE = 1
 local _MODE_EXPAND = 2
 local _MODE_HOLD = 3
+local _MODE_SWIPE = 4
+
+local _SWIPE_DIRECTION_UP = -1
+local _SWIPE_DIRECTION_DOWN = 1
+local _SWIPE_FLAG_EXITING = true
+local _SWIPE_FLAG_ENTERING = false
 
 --- @brief
 function mn.SelectionParticleFrame:instantiate()
@@ -52,14 +60,24 @@ function mn.SelectionParticleFrame:instantiate()
     self._is_initialized = false
     self._mode = _MODE_HOLD
 
+    self._swipe_direction = _SWIPE_DIRECTION_DOWN
+
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "space" then
-            if self._mode == _MODE_EXPAND then
+            if self._mode == _MODE_EXPAND or self._mode == _MODE_HOLD then
                 self._mode = _MODE_COLLAPSE
             elseif self._mode == _MODE_COLLAPSE then
                 self._mode = _MODE_EXPAND
             end
+        elseif which == "up" then
+            self._swipe_direction = _SWIPE_DIRECTION_UP
+            self:_set_mode(_MODE_SWIPE)
+        elseif which == "down" then
+            self._swipe_direction = _SWIPE_DIRECTION_DOWN
+            self:_set_mode(_MODE_SWIPE)
+        elseif which == "b" then
+            self:_set_mode(_MODE_EXPAND)
         end
     end)
 end
@@ -105,7 +123,6 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
         -- init particles
         local density = rt.settings.menu.selection_particle_frame.density
         local radius_factor = rt.settings.menu.selection_particle_frame.max_scale_factor
-        local max_velocity = rt.settings.menu.selection_particle_frame.max_velocity * rt.get_pixel_scale()
 
         self._particles = {}
         self._data_mesh_data = {}
@@ -114,7 +131,9 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
         local max_particle_r = -math.huge
         local center_x, center_y = x + 0.5 * width, y + 0.5 * height
         self._center_x, self._center_y = center_x, center_y
-        self._mode = _MODE_EXPAND -- reset to center
+        self._center_step = height
+        self._top_y = 0
+        self._bottom_y = self._top_y + height
 
         for edge in range(
             self._top, self._right, self._bottom, self._left
@@ -123,6 +142,7 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
             local length = math.distance(ax, ay, bx, by)
             local n_particles = math.ceil(density * length)
             local particle_radius = (length / n_particles)
+            n_particles = 2 * n_particles
             local dx, dy = math.normalize(bx - ax, by - ay)
 
             for i = 0, n_particles - 1 do
@@ -136,7 +156,8 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
                     [_origin_y] = py,
                     [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
                     [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
-                    [_velocity_magnitude] = rt.random.number(1, 2)
+                    [_velocity_magnitude] = rt.random.number(1, 2),
+                    [_swipe_flag] = false
                 }
 
                 if self._mode == _MODE_EXPAND then
@@ -231,10 +252,21 @@ function mn.SelectionParticleFrame:_update_mask(width, height)
 end
 
 --- @brief
+function mn.SelectionParticleFrame:_set_mode(mode)
+    self._mode = mode
+
+    if mode == _MODE_SWIPE then
+        for particle in values(self._particles) do
+            particle[_swipe_flag] = _SWIPE_FLAG_EXITING
+        end
+    end
+end
+
+--- @brief
 function mn.SelectionParticleFrame:update(delta)
     if not self._is_initialized then return end
 
-    self._elapsed = rt.SceneManager:get_elapsed()
+    local distance_threshold = 10
 
     if self._mode == _MODE_EXPAND then
         -- move towards outer frame
@@ -253,14 +285,13 @@ function mn.SelectionParticleFrame:update(delta)
             local data = self._data_mesh_data[i]
             data[_x] = x
             data[_y] = y
-            data[_radius] = particle[_radius]
 
             table.insert(self._mask, x)
             table.insert(self._mask, y)
             average_distance = average_distance + math.distance(target_x, target_y, x, y)
         end
         average_distance = average_distance / self._n_particles
-        if average_distance < 10 then self._mode = _MODE_HOLD end
+        if average_distance < distance_threshold then self._mode = _MODE_HOLD end
 
     elseif self._mode == _MODE_COLLAPSE then
         -- move towards center
@@ -279,39 +310,97 @@ function mn.SelectionParticleFrame:update(delta)
             local data = self._data_mesh_data[i]
             data[_x] = x
             data[_y] = y
-            data[_radius] = particle[_radius]
 
             table.insert(self._mask, x)
             table.insert(self._mask, y)
             average_distance = average_distance + math.distance(target_x, target_y, x, y)
         end
         average_distance = average_distance / self._n_particles
-        if average_distance < 10 then self._mode = _MODE_EXPAND end
+        if average_distance < distance_threshold then self._mode = _MODE_EXPAND end
 
     elseif self._mode == _MODE_HOLD then
-        local max_velocity = rt.settings.menu.selection_particle_frame.max_velocity * rt.get_pixel_scale()
-
+        local hold_velocity = rt.settings.menu.selection_particle_frame.hold_velocity * rt.get_pixel_scale()
+        local max_range = 20
         self._mask = {}
         for i, particle in ipairs(self._particles) do
-            local current_edge = particle[_edge]
-            local dx, dy = particle[_velocity_x], particle[_velocity_y]
+            local x, y = particle[_x], particle[_y]
+            local vx, vy = particle[_velocity_x], particle[_velocity_y]
+            local magnitude = particle[_velocity_magnitude]
 
-            local frequency = particle[_velocity_magnitude]
-            local offset = particle[_radius]
-            local offset_x = (rt.random.noise(dx * self._elapsed * frequency, dy * self._elapsed * frequency) * 2 - 1) * offset
-            local offset_y = (rt.random.noise(-dx * self._elapsed * frequency, -dy * self._elapsed * frequency) * 2 - 1) * offset
+            x = x + delta * vx * magnitude * hold_velocity
+            y = y + delta * vy * magnitude * hold_velocity
 
-            local x, y = particle[_origin_x] + offset_x, particle[_origin_y] + offset_y
+            local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
+            if math.distance(x, y, origin_x, origin_y) > max_range then
+                --x, y = origin_x + vx * max_range, origin_y + vy * max_range
+                particle[_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi))
+                particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
+            end
+
             particle[_x] = x
             particle[_y] = y
 
             local data = self._data_mesh_data[i]
             data[_x] = x
             data[_y] = y
-            data[_radius] = particle[_radius]
 
-            table.insert(self._mask, particle[_x])
-            table.insert(self._mask, particle[_y])
+            table.insert(self._mask, x)
+            table.insert(self._mask, y)
+        end
+    elseif self._mode == _MODE_SWIPE then
+        local max_velocity = rt.settings.menu.selection_particle_frame.max_velocity * rt.get_pixel_scale()
+        local top_y = self._top_y
+        local bottom_y = self._bottom_y
+
+        local average_distance = 0
+        for i, particle in ipairs(self._particles) do
+            local target_x, target_y = particle[_origin_x], nil
+
+            if particle[_swipe_flag] == _SWIPE_FLAG_EXITING then
+                if self._swipe_direction == _SWIPE_DIRECTION_UP then
+                    target_y = self._center_y - self._center_step
+                elseif self._swipe_direction == _SWIPE_DIRECTION_DOWN then
+                    target_y = self._center_y + self._center_step
+                end
+            else -- entering screen
+                target_y = self._center_y
+            end
+
+            local x, y = particle[_x], particle[_y]
+            local dx, dy = target_x - x, target_y - y
+            local magnitude = particle[_velocity_magnitude]
+
+            x = x + delta * dx * magnitude
+            y = y + delta * dy * magnitude
+
+            -- wrap screen
+            if particle[_swipe_flag] == _SWIPE_FLAG_EXITING then
+                if self._swipe_direction == _SWIPE_DIRECTION_UP  and y < top_y then
+                    particle[_swipe_flag] = _SWIPE_FLAG_ENTERING
+                    y = bottom_y
+                elseif self._swipe_direction == _SWIPE_DIRECTION_DOWN and y > bottom_y then
+                    particle[_swipe_flag] = _SWIPE_FLAG_ENTERING
+                    y = top_y
+                end
+            end
+
+            particle[_x] = x
+            particle[_y] = y
+
+            local data = self._data_mesh_data[i]
+            data[_x] = x
+            data[_y] = y
+
+            if particle[_swipe_flag] ~= _SWIPE_FLAG_ENTERING then
+                average_distance = math.huge
+            else
+                average_distance = average_distance + math.distance(x, y, particle[_origin_x], particle[_origin_y])
+            end
+        end
+
+        average_distance = average_distance / self._n_particles
+        if average_distance < distance_threshold then
+            self:_set_mode(_MODE_EXPAND)
         end
     end
 
@@ -328,8 +417,10 @@ function mn.SelectionParticleFrame:draw()
     love.graphics.push()
     love.graphics.translate(self._canvas_padding, self._canvas_padding)
 
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.polygon("fill", self._mask)
+    if self._mode ~= _MODE_SWIPE then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.polygon("fill", self._mask)
+    end
 
     _particle_shader:bind()
     love.graphics.setColor(1, 1, 1, 1)
@@ -342,6 +433,8 @@ function mn.SelectionParticleFrame:draw()
     love.graphics.push()
     _outline_shader:bind()
     love.graphics.translate(self._x - self._canvas_padding, self._y - self._canvas_padding)
+    love.graphics.setColor(1, 0, 1, 1)
+    love.graphics.rectangle("fill", 0, 0, self._canvas:get_size())
     self._canvas:draw()
     _outline_shader:unbind()
     love.graphics.pop()
