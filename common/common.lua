@@ -99,9 +99,7 @@ end
 function table.sizeof(x)
     if type(x) == "table" then
         local n = 0
-        for _ in pairs(x) do
-            n = n + 1
-        end
+        for _ in pairs(x) do n = n + 1 end
         return n
     elseif type(x) == "string" then
         return #x
