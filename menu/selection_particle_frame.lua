@@ -32,8 +32,9 @@ local _y = _x + 1
 local _radius = _y + 1
 local _origin_x = _radius + 1
 local _origin_y = _origin_x + 1
-local _velocity_sign = _origin_y + 1
-local _velocity_magnitude = _velocity_sign + 1
+local _velocity_x = _origin_y + 1
+local _velocity_y = _velocity_x + 1
+local _velocity_magnitude = _velocity_y + 1
 local _edge = _velocity_magnitude + 1
 
 -- sim modes
@@ -133,7 +134,8 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
                     [_radius] = radius,
                     [_origin_x] = px,
                     [_origin_y] = py,
-                    [_velocity_sign] = rt.random.toss_coin() and 1 or -1,
+                    [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
+                    [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
                     [_velocity_magnitude] = rt.random.number(1, 2)
                 }
 
@@ -232,6 +234,8 @@ end
 function mn.SelectionParticleFrame:update(delta)
     if not self._is_initialized then return end
 
+    self._elapsed = rt.SceneManager:get_elapsed()
+
     if self._mode == _MODE_EXPAND then
         -- move towards outer frame
         self._mask = {}
@@ -290,49 +294,20 @@ function mn.SelectionParticleFrame:update(delta)
         self._mask = {}
         for i, particle in ipairs(self._particles) do
             local current_edge = particle[_edge]
-            local direction = particle[_velocity_sign]
+            local dx, dy = particle[_velocity_x], particle[_velocity_y]
 
-            local next_edge
-            if direction == -1 then
-                next_edge = self._edge_map[current_edge][1]
-            else
-                next_edge = self._edge_map[current_edge][2]
-            end
+            local frequency = particle[_velocity_magnitude]
+            local offset = particle[_radius]
+            local offset_x = (rt.random.noise(dx * self._elapsed * frequency, dy * self._elapsed * frequency) * 2 - 1) * offset
+            local offset_y = (rt.random.noise(-dx * self._elapsed * frequency, -dy * self._elapsed * frequency) * 2 - 1) * offset
 
-            local ax, ay, bx, by = table.unpack(current_edge)
-            local dx, dy = math.normalize(direction * (bx - ax), direction * (by - ay))
-            local magnitude = particle[_velocity_magnitude]
-
-            local x, y = particle[_x], particle[_y]
-            x = x + dx * delta * magnitude * max_velocity
-            y = y + dy * delta * magnitude * max_velocity
-
-            local start_x, start_y, end_x, end_y
-            if direction == 1 then
-                start_x, start_y = ax, ay
-                end_x, end_y = bx, by
-            else
-                start_x, start_y = bx, by
-                end_x, end_y = ax, ay
-            end
-
-            -- check if particle has left line segment
-            local dot = math.dot(
-                x - start_x, y - start_y,
-                end_x - start_x, end_y - start_y
-            )
-            if dot >= math.distance(ax, ay, bx, by)^2 then
-                particle[_edge] = next_edge
-                particle[_x] = end_x
-                particle[_y] = end_y
-            else
-                particle[_x] = x
-                particle[_y] = y
-            end
+            local x, y = particle[_origin_x] + offset_x, particle[_origin_y] + offset_y
+            particle[_x] = x
+            particle[_y] = y
 
             local data = self._data_mesh_data[i]
-            data[_x] = particle[_x]
-            data[_y] = particle[_y]
+            data[_x] = x
+            data[_y] = y
             data[_radius] = particle[_radius]
 
             table.insert(self._mask, particle[_x])
