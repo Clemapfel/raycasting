@@ -57,9 +57,9 @@ function mn.StageSelectParticleFrame:instantiate(n_pages)
 
     self._selected_page_i = 1
     self._n_pages = n_pages
-
     self._hue = 0
-    self._motion = rt.SmoothedMotion1D(0, 1)
+
+    self._motion = rt.SmoothedMotion1D(0, 1) -- interpolates indices, not px
     self._scroll_offset = 0
     self._x, self._y = 0, 0
 end
@@ -264,7 +264,7 @@ end
 function mn.StageSelectParticleFrame:_get_active_pages()
     local out = {}
 
-    local eps = 0.25 * self._canvas:get_height()
+    local eps = 0.25
 
     local current, target = self._motion:get_value(), self._motion:get_target_value()
     if current - target < -eps and self._selected_page_i > 1 then
@@ -293,7 +293,14 @@ function mn.StageSelectParticleFrame:update(delta)
         self._motion:update(delta)
     end
 
-    self._scroll_offset = self._motion:get_value()
+    local t = self._motion:get_value() -- index
+    self._scroll_offset = t * self._canvas:get_height()
+
+    -- interpolate between hues of current page and next page
+    local lower_i = math.floor(t)
+    local higher_i = math.ceil(t)
+    if higher_i == lower_i then higher_i = lower_i + 1 end -- t is an integer
+    self._hue = math.mix((lower_i - 1) / self._n_pages, (higher_i - 1) / self._n_pages, math.fract(t))
 
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
@@ -323,7 +330,7 @@ function mn.StageSelectParticleFrame:update(delta)
                 data[_x] = x
                 data[_y] = y
             end
-        elseif not (self._is_transitioning and page_i == self._transitioning_page_i) and page.mode == _MODE_EXPAND or page.mode == _MODE_COLLAPSE then
+        elseif page.mode == _MODE_EXPAND or page.mode == _MODE_COLLAPSE then
             local mask_i = 1
             local mean_distance = 0
             local velocity_factor = rt.settings.menu.stage_select_particle_frame.expand_collapse_speed
@@ -381,7 +388,7 @@ function mn.StageSelectParticleFrame:draw()
 
     love.graphics.push()
     love.graphics.origin()
-    love.graphics.translate(self._canvas_padding, self._canvas_padding - self._motion:get_value())
+    love.graphics.translate(self._canvas_padding, self._canvas_padding - self._scroll_offset)
     
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
@@ -463,7 +470,7 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
 
     if self._selected_page_i ~= i then
         local current_i = self._selected_page_i
-        self._motion:set_target_value(self:_get_page_offset(i))
+        self._motion:set_target_value(i - 1)
         self._selected_page_i = i
 
         -- reset pages to start animation
@@ -481,11 +488,6 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
         self._is_transitioning = true
         self._transitioning_page_i = current_i
     end
-end
-
---- @brief
-function mn.StageSelectParticleFrame:set_hue(hue)
-    self._hue = hue
 end
 
 --- @brief
