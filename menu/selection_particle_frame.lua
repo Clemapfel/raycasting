@@ -13,7 +13,7 @@ rt.settings.menu.selection_particle_frame = {
 --- @class mn.SelectionParticleFrame
 mn.SelectionParticleFrame = meta.class("SelectionParticleFrame", rt.Widget)
 
-local _particle_shader, _outline_shader
+local _particle_shader, _outline_shader, _base_shader
 
 local _particle_mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
@@ -44,7 +44,8 @@ local _velocity_magnitude = 8
 function mn.SelectionParticleFrame:instantiate(n_pages)
     meta.assert(n_pages, "Number")
     if _particle_shader == nil then _particle_shader = rt.Shader("menu/selection_particle_frame_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/selection_particle_frame_outline.glsl") end
+    if _outline_shader == nil then _outline_shader = rt.Shader("menu/selection_particle_frame_outline.glsl", { MODE = 0 }) end
+    if _base_shader == nil then _base_shader = rt.Shader("menu/selection_particle_frame_outline.glsl", { MODE = 1 }) end
 
     self._canvas = nil -- rt.RenderTexture
     self._is_initialized = false
@@ -323,13 +324,22 @@ function mn.SelectionParticleFrame:draw()
     self._canvas:unbind()
 
     love.graphics.push()
-    _outline_shader:bind()
     love.graphics.translate(
         self._x - self._canvas_padding,
         self._y - self._canvas_padding
     )
-    self._canvas:draw()
+
+    local canvas = self._canvas:get_native()
+    _base_shader:bind()
+    rt.Palette.BACKGROUND:bind()
+    love.graphics.draw(canvas)
+    _base_shader:unbind()
+
+    _outline_shader:bind()
+    rt.Palette.FOREGROUND:bind()
+    love.graphics.draw(canvas)
     _outline_shader:unbind()
+
     love.graphics.pop()
 end
 

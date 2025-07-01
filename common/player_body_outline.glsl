@@ -43,7 +43,7 @@ mat3 sobel_y = mat3(
     1, 2, 1
 );
 
-vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
+vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position) {
 
     vec2 pixel_size = vec2(1 / 400.0);
     float gradient_x = 0.0;
@@ -55,7 +55,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_positio
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
             vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size * outline_thickness;
-            float value = texture(image, neighbor_uv).a;
+            float value = texture(img, neighbor_uv).a;
             value = smoothstep(threshold - smoothness, threshold + smoothness, value);
 
             gradient_x += value * sobel_x[i + 1][j + 1];
