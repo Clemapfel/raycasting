@@ -21,12 +21,9 @@ do
         results_screen_fraction = 0.5,
 
         bloom_blur_strength = 1.2, -- > 0
-        bloom_composite_strength = bloom, -- [0, 1]
-        bloom_msaa = 4,
-        bloom_texture_format = rt.TextureFormat.RG11B10F
+        bloom_composite_strength = bloom -- [0, 1]
     }
 end
-
 
 --- @class
 ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
@@ -106,10 +103,10 @@ function ow.OverworldScene:instantiate(state)
         elseif which == "h" then
         elseif which == "j" then
             self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
-            rt.settings.overworld.overworld_scene.bloom_composite_strength = rt.settings.overworld.overworld_scene.bloom_composite_strength - 0.05
+            rt.settings.overworld.overworld_scene.bloom_composite_strength = rt.settings.overworld.overworld_scene.bloom_composite_strength - 0.01
         elseif which == "k" then
             self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() + 1 / 10)
-            rt.settings.overworld.overworld_scene.bloom_composite_strength =  rt.settings.overworld.overworld_scene.bloom_composite_strength + 0.05
+            rt.settings.overworld.overworld_scene.bloom_composite_strength =  rt.settings.overworld.overworld_scene.bloom_composite_strength + 0.01
         end
     end)
 
@@ -303,10 +300,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._camera_pan_area_width = gradient_w
 
     if rt.GameState:get_is_bloom_enabled() then
-        self._bloom = rt.Bloom(width, height,
-            rt.settings.overworld.overworld_scene.bloom_msaa,
-            rt.settings.overworld.overworld_scene.bloom_texture_format
-        )
+        self._bloom = rt.Bloom(width, height)
         self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
         if self._stage ~= nil then
             self._stage:get_blood_splatter():set_bloom_factor(
@@ -476,12 +470,7 @@ function ow.OverworldScene:draw()
         self._bloom:unbind()
         love.graphics.pop()
 
-        love.graphics.setBlendMode("add", "premultiplied")
-        love.graphics.origin()
-        local v = rt.settings.overworld.overworld_scene.bloom_composite_strength
-        love.graphics.setColor(v, v, v, v)
-        self._bloom:draw()
-        love.graphics.setBlendMode("alpha")
+        self._bloom:composite(rt.settings.overworld.overworld_scene.bloom_composite_strength)
     end
 
     love.graphics.pop()

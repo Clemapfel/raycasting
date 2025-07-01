@@ -1,4 +1,5 @@
 require "common.timed_animation"
+require "common.player"
 
 --- @class ow.CoinParticle
 ow.CoinParticle = meta.class("CoinParticle")

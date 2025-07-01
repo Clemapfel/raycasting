@@ -1347,8 +1347,11 @@ end
 function rt.Player:draw_bloom()
     local r, g, b, a = self._color:unpack()
 
-    if self._trail_visible then
+    if self._flow == 0 then
+        self._graphics_body:draw_bloom()
+    elseif self._trail_visible then
         self._trail:draw_below()
+        self._trail:draw_above()
     end
 end
 

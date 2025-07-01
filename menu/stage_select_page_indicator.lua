@@ -141,6 +141,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
 
     self:set_selected_page(self._selected_page_i)
     self._motion:skip()
+    self._circle_mapping_upgrade_needed = true
 end
 
 --- @brief

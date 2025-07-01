@@ -1,17 +1,17 @@
 require "common.render_texture"
 require "common.smoothed_motion_1d"
 
-rt.settings.menu.selection_particle_frame = {
+rt.settings.menu.stage_select_particle_frame = {
     hold_velocity = 7,
-    hold_jitter_max_range = 15,
-    min_particle_radius = 50,
-    max_particle_radius = 70,
+    hold_jitter_max_range = 2,
+    min_particle_radius = 10,
+    max_particle_radius = 20,
     mode_transition_distance_threshold = 10,
     coverage = 3, -- factor
 }
 
---- @class mn.SelectionParticleFrame
-mn.SelectionParticleFrame = meta.class("SelectionParticleFrame", rt.Widget)
+--- @class mn.StageSelectParticleFrame
+mn.StageSelectParticleFrame = meta.class("StageSelectParticleFrame", rt.Widget)
 
 local _particle_shader, _outline_shader, _base_shader
 
@@ -45,11 +45,11 @@ local _MODE_EXPAND = 1
 local _MODE_COLLAPSE = 2
 
 --- @brief
-function mn.SelectionParticleFrame:instantiate(n_pages)
+function mn.StageSelectParticleFrame:instantiate(n_pages)
     meta.assert(n_pages, "Number")
-    if _particle_shader == nil then _particle_shader = rt.Shader("menu/selection_particle_frame_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/selection_particle_frame_outline.glsl", { MODE = 0 }) end
-    if _base_shader == nil then _base_shader = rt.Shader("menu/selection_particle_frame_outline.glsl", { MODE = 1 }) end
+    if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_particle_frame_particle.glsl") end
+    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 0 }) end
+    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 1 }) end
 
     self._canvas = nil -- rt.RenderTexture
     self._is_initialized = false
@@ -57,18 +57,15 @@ function mn.SelectionParticleFrame:instantiate(n_pages)
     self._selected_page_i = 1
     self._n_pages = n_pages
 
+    self._hue = 0
     self._motion = rt.SmoothedMotion1D(0, 1)
     self._scroll_offset = 0
     self._x, self._y = 0, 0
-
-    self._mode = _MODE_EXPAND
 end
 
 --- @brief
-function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
+function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     self._x, self._y = x, y
-
-    x, y = 0, 0
 
     self._pages = {} --[[
         particles
@@ -101,9 +98,9 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
     self._center_x, self._center_y = 0.5 * width, 0.5 * height
     self._page_size = height
 
-    local min_particle_r = rt.settings.menu.selection_particle_frame.min_particle_radius * rt.get_pixel_scale()
-    local max_particle_r = rt.settings.menu.selection_particle_frame.max_particle_radius * rt.get_pixel_scale()
-    local coverage = rt.settings.menu.selection_particle_frame.coverage
+    local min_particle_r = rt.settings.menu.stage_select_particle_frame.min_particle_radius * rt.get_pixel_scale()
+    local max_particle_r = rt.settings.menu.stage_select_particle_frame.max_particle_radius * rt.get_pixel_scale()
+    local coverage = rt.settings.menu.stage_select_particle_frame.coverage
 
     local padding = 20 + 2 * max_particle_r
     local canvas_w, canvas_h =  width + 2 * padding, math.max(height + 2 * padding, love.graphics.getHeight())
@@ -128,6 +125,14 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
         5, 6, 8,
         8, 6, 7
     }
+
+    local initial_mode = _MODE_HOLD
+
+    -- offset frame area to account for particle movement
+    local offset = (max_particle_r)
+    x, y = offset, offset
+    width = width - 2 * offset
+    height = height - 2 * offset
 
     for page_i = 1, self._n_pages do
         local particles = {}
@@ -174,7 +179,7 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
                 }
 
                 local particle_x, particle_y
-                if self._mode == _MODE_EXPAND then
+                if initial_mode == _MODE_EXPAND then
                     particle_x = center_x
                     particle_y = center_y
                 else
@@ -245,7 +250,8 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
             static_mask = mask_mesh,
             dynamic_mask = dynamic_mask,
             center_x = center_x,
-            center_y = center_y
+            center_y = center_y,
+            mode = initial_mode
         }
     end
 
@@ -254,7 +260,7 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function mn.SelectionParticleFrame:_get_active_pages()
+function mn.StageSelectParticleFrame:_get_active_pages()
     local out = {}
 
     local eps = 0.25 * self._canvas:get_height()
@@ -274,12 +280,12 @@ function mn.SelectionParticleFrame:_get_active_pages()
 end
 
 --- @brief
-function mn.SelectionParticleFrame:_get_page_offset(i)
+function mn.StageSelectParticleFrame:_get_page_offset(i)
     return (i - 1) * self._canvas:get_height()
 end
 
 --- @brief
-function mn.SelectionParticleFrame:update(delta)
+function mn.StageSelectParticleFrame:update(delta)
     if not self._is_initialized then return end
 
     self._motion:update(delta)
@@ -288,9 +294,9 @@ function mn.SelectionParticleFrame:update(delta)
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
 
-        if self._mode == _MODE_HOLD then
-            local hold_velocity = rt.settings.menu.selection_particle_frame.hold_velocity * rt.get_pixel_scale()
-            local max_range = rt.settings.menu.selection_particle_frame.hold_jitter_max_range
+        if page.mode == _MODE_HOLD then
+            local hold_velocity = rt.settings.menu.stage_select_particle_frame.hold_velocity * rt.get_pixel_scale()
+            local max_range = rt.settings.menu.stage_select_particle_frame.hold_jitter_max_range
             for i = 1, page.n_particles do
                 local particle = page.particles[i]
                 local x, y = particle[_x], particle[_y]
@@ -313,7 +319,7 @@ function mn.SelectionParticleFrame:update(delta)
                 data[_x] = x
                 data[_y] = y
             end
-        elseif self._mode == _MODE_EXPAND or self._mode == _MODE_COLLAPSE then
+        elseif page.mode == _MODE_EXPAND or page.mode == _MODE_COLLAPSE then
             local mask_i = 1
             local mean_distance = 0
             for i = 1, page.n_particles do
@@ -321,9 +327,9 @@ function mn.SelectionParticleFrame:update(delta)
                 local x, y = particle[_x], particle[_y]
                 local target_x, target_y
 
-                if self._mode == _MODE_EXPAND then
+                if page.mode == _MODE_EXPAND then
                     target_x, target_y = particle[_origin_x], particle[_origin_y]
-                elseif self._mode == _MODE_COLLAPSE then
+                elseif page.mode == _MODE_COLLAPSE then
                     target_x, target_y = page.center_x, page.center_y
                 end
 
@@ -345,9 +351,9 @@ function mn.SelectionParticleFrame:update(delta)
                 mean_distance = mean_distance + math.magnitude(dx, dy)
             end
 
-            if mean_distance / page.n_particles <= rt.settings.menu.selection_particle_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
-                if self._mode == _MODE_EXPAND then
-                    self._mode = _MODE_HOLD
+            if mean_distance / page.n_particles <= rt.settings.menu.stage_select_particle_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
+                if page.mode == _MODE_EXPAND then
+                    page.mode = _MODE_HOLD
                 end
             end
         else
@@ -359,7 +365,7 @@ function mn.SelectionParticleFrame:update(delta)
 end
 
 --- @brief
-function mn.SelectionParticleFrame:draw()
+function mn.StageSelectParticleFrame:draw()
     if not self._is_initialized then return end
 
     self._canvas:bind()
@@ -372,7 +378,7 @@ function mn.SelectionParticleFrame:draw()
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
 
-        if self._mode == _MODE_HOLD then
+        if page.mode == _MODE_HOLD then
             page.static_mask:draw()
         else
             love.graphics.setColor(1, 1, 1, 1)
@@ -401,7 +407,8 @@ function mn.SelectionParticleFrame:draw()
     _base_shader:unbind()
 
     _outline_shader:bind()
-    rt.Palette.FOREGROUND:bind()
+    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _outline_shader:send("hue", self._hue)
     love.graphics.draw(canvas)
     _outline_shader:unbind()
 
@@ -409,15 +416,39 @@ function mn.SelectionParticleFrame:draw()
 end
 
 --- @brief
-function mn.SelectionParticleFrame:draw_mask()
+function mn.StageSelectParticleFrame:draw_mask()
+    love.graphics.push()
+    love.graphics.translate(
+        self._x - self._canvas_padding,
+        self._y - self._canvas_padding
+    )
+
     _base_shader:bind()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(self._canvas:get_native())
     _base_shader:unbind()
+    love.graphics.pop()
 end
 
 --- @brief
-function mn.SelectionParticleFrame:set_selected_page(i)
+function mn.StageSelectParticleFrame:draw_bloom()
+    love.graphics.push()
+    love.graphics.translate(
+        self._x - self._canvas_padding,
+        self._y - self._canvas_padding
+    )
+
+    _outline_shader:bind()
+    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _outline_shader:send("hue", self._hue)
+    love.graphics.draw(self._canvas:get_native())
+    _outline_shader:unbind()
+
+    love.graphics.pop()
+end
+
+--- @brief
+function mn.StageSelectParticleFrame:set_selected_page(i)
     if not (i > 0 and i <= self._n_pages) then
         rt.error("In mn.StageSelectPageIndicator: page `" .. i .. "` is out of range")
     end
@@ -426,4 +457,9 @@ function mn.SelectionParticleFrame:set_selected_page(i)
         self._selected_page_i = i
         self._motion:set_target_value(self:_get_page_offset(self._selected_page_i))
     end
+end
+
+--- @brief
+function mn.StageSelectParticleFrame:set_hue(hue)
+    self._hue = hue
 end

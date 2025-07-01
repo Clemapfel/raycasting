@@ -1,6 +1,9 @@
 rt.settings.bloom = {
     n_preprocessing_passes = 0,
-    default_blur_strength = 1
+    default_blur_strength = 1.2,
+    default_msaa = 4,
+    default_texture_format = rt.TextureFormat.RG11B10F,
+    default_composite_strength = 0.1
 }
 
 --- @class rt.Bloom
@@ -10,7 +13,7 @@ local _downsample_shader, _upsample_shader, _tonemap_shader
 local _blur_shader_horizontal, _blur_shader_vertical
 
 --- @brief
-function rt.Bloom:instantiate(width, height, ...)
+function rt.Bloom:instantiate(width, height, msaa, texture_format, ...)
     if _downsample_shader == nil then _downsample_shader = rt.Shader("common/bloom_downsample.glsl") end
     if _upsample_shader == nil then _upsample_shader = rt.Shader("common/bloom_upsample.glsl") end
     if _tonemap_shader == nil then _tonemap_shader = rt.Shader("common/bloom_tone_map.glsl") end
@@ -23,6 +26,9 @@ function rt.Bloom:instantiate(width, height, ...)
         _blur_shader_vertical = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 0 })
     end
 
+    if msaa == nil then msaa = rt.settings.bloom.default_msaa end
+    if texture_format == nil then texture_format = rt.settings.bloom.default_texture_format end
+
     self._bloom_strength = rt.settings.bloom.default_blur_strength
 
     self._textures = {}
@@ -32,7 +38,7 @@ function rt.Bloom:instantiate(width, height, ...)
         local level = 1
         while (w > 8 or h > 8) do
             local mesh = rt.MeshRectangle(0, 0, w, h)
-            local texture = rt.RenderTexture(w, h, ...)
+            local texture = rt.RenderTexture(w, h, msaa, texture_format)
             mesh:set_texture(texture)
             texture:set_wrap_mode(rt.TextureWrapMode.CLAMP)
             texture:set_scale_mode(rt.TextureScaleMode.LINEAR, rt.TextureScaleMode.LINEAR)
@@ -46,7 +52,7 @@ function rt.Bloom:instantiate(width, height, ...)
 
         if rt.settings.bloom.n_preprocessing_passes > 0 then
             w, h = self._textures[1]:get_size()
-            self._blur_swap_texture = rt.RenderTexture(w, h, ...)
+            self._blur_swap_texture = rt.RenderTexture(w, h, msaa, texture_format)
         end
     end
 
@@ -159,14 +165,25 @@ function rt.Bloom:_apply_bloom()
 end
 
 --- @brief
-function rt.Bloom:draw(...)
+function rt.Bloom:composite(strength)
+    if strength == nil then strength = rt.settings.bloom.default_composite_strength end
+    love.graphics.setBlendMode("add", "premultiplied")
+    love.graphics.setColor(strength, strength, strength, strength)
+
+    self:draw()
+
+    love.graphics.setBlendMode("alpha")
+end
+
+--- @brief
+function rt.Bloom:draw()
     local r, g, b, a = love.graphics.getColor()
     if self._update_needed then
         self:_apply_bloom()
     end
 
-    _tonemap_shader:bind()
     love.graphics.setColor(r, g, b, a)
-    love.graphics.draw(self._textures[1]:get_native(), ...)
+    _tonemap_shader:bind()
+    love.graphics.draw(self._textures[1]:get_native())
     _tonemap_shader:unbind()
 end
