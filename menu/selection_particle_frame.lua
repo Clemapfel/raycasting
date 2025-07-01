@@ -1,10 +1,13 @@
 require "common.render_texture"
+require "common.smoothed_motion_1d"
 
 rt.settings.menu.selection_particle_frame = {
-    density = 1 / 50, -- particles per px
-    max_scale_factor = 1.5,
     max_velocity = 100, -- px / s
-    hold_velocity = 10
+    hold_velocity = 10,
+    hold_jitter_max_range = 20,
+    min_particle_radius = 30,
+    max_particle_radius = 40,
+    coverage = 6, -- factor
 }
 
 --- @class mn.SelectionParticleFrame
@@ -36,293 +39,240 @@ local _origin_y = 5
 local _velocity_x = 6
 local _velocity_y = 7
 local _velocity_magnitude = 8
-local _swipe_flag = 9
-local _edge = 10
-
--- sim modes
-local _MODE_COLLAPSE = 1
-local _MODE_EXPAND = 2
-local _MODE_HOLD = 3
-local _MODE_SWIPE = 4
-
-local _SWIPE_DIRECTION_UP = -1
-local _SWIPE_DIRECTION_DOWN = 1
-local _SWIPE_FLAG_EXITING = true
-local _SWIPE_FLAG_ENTERING = false
 
 --- @brief
-function mn.SelectionParticleFrame:instantiate()
+function mn.SelectionParticleFrame:instantiate(n_pages)
+    meta.assert(n_pages, "Number")
     if _particle_shader == nil then _particle_shader = rt.Shader("menu/selection_particle_frame_particle.glsl") end
     if _outline_shader == nil then _outline_shader = rt.Shader("menu/selection_particle_frame_outline.glsl") end
 
-    self._particles = {}
     self._canvas = nil -- rt.RenderTexture
     self._is_initialized = false
-    self._mode = _MODE_HOLD
 
-    self._swipe_direction = _SWIPE_DIRECTION_DOWN
+    self._selected_page_i = 1
+    self._n_pages = n_pages
 
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "space" then
-            if self._mode == _MODE_EXPAND or self._mode == _MODE_HOLD then
-                self._mode = _MODE_COLLAPSE
-            elseif self._mode == _MODE_COLLAPSE then
-                self._mode = _MODE_EXPAND
-            end
-        elseif which == "up" then
-            self._swipe_direction = _SWIPE_DIRECTION_UP
-            self:_set_mode(_MODE_SWIPE)
-        elseif which == "down" then
-            self._swipe_direction = _SWIPE_DIRECTION_DOWN
-            self:_set_mode(_MODE_SWIPE)
-        elseif which == "b" then
-            self:_set_mode(_MODE_EXPAND)
-        end
-    end)
+    self._motion = rt.SmoothedMotion1D(0, 1)
+    self._scroll_offset = 0
+    self._x, self._y = 0, 0
 end
 
 --- @brief
 function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
-    if self._particle_mesh == nil then
-        local data = {
+    self._x, self._y = x, y
+
+    x, y = 0, 0
+
+    self._pages = {} --[[
+        particles
+        n_particles
+        data_mesh_data
+        data_mesh
+        particle_mesh
+        mask,
+        center_x,
+        center_y
+    ]]--
+
+    local particle_mesh_data
+    do
+        particle_mesh_data = {
             { 0, 0, 1, 1, 1, 1 }
         }
 
         local step = (2 * math.pi) / 16
         for angle = 0, 2 * math.pi + step, step  do
-            table.insert(data, {
+            table.insert(particle_mesh_data, {
                 math.cos(angle),
                 math.sin(angle),
                 1, 1, 1, 0
             })
         end
-
-        self._particle_mesh = rt.Mesh(
-            data,
-            rt.MeshDrawMode.TRIANGLE_FAN,
-            _particle_mesh_format,
-            rt.GraphicsBufferUsage.STATIC
-        )
     end
 
-    if self._canvas == nil or self._canvas:get_width() ~= width or self._canvas.get_height() ~= height then
-        local x, y = 0, 0 -- sic
-        self._top = { x, y, x + width, y }
-        self._right = { x + width, y, x + width, y + height }
-        self._bottom = { x + width, y + height, x, y + height,  }
-        self._left = { x, y + height, x, y }
+    self._center_x, self._center_y = 0.5 * width, 0.5 * height
+    self._page_size = height
 
-        self._edge_map = {
-            [self._top] = { self._left, self._right },
-            [self._right] = { self._top, self._bottom },
-            [self._bottom] = { self._right, self._left },
-            [self._left] = { self._bottom, self._top }
-        }
+    local min_particle_r = rt.settings.menu.selection_particle_frame.min_particle_radius * rt.get_pixel_scale()
+    local max_particle_r = rt.settings.menu.selection_particle_frame.max_particle_radius * rt.get_pixel_scale()
+    local coverage = rt.settings.menu.selection_particle_frame.coverage
 
-        -- init particles
-        local density = rt.settings.menu.selection_particle_frame.density
-        local radius_factor = rt.settings.menu.selection_particle_frame.max_scale_factor
+    local padding = 20 + 2 * max_particle_r
+    local canvas_w, canvas_h =  width + 2 * padding, math.max(height + 2 * padding, love.graphics.getHeight())
 
-        self._particles = {}
-        self._data_mesh_data = {}
-        self._n_particles = 0
+    if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
+        self._canvas = rt.RenderTexture(canvas_w, canvas_h)
+    end
+    self._canvas_padding = padding
 
-        local max_particle_r = -math.huge
-        local center_x, center_y = x + 0.5 * width, y + 0.5 * height
-        self._center_x, self._center_y = center_x, center_y
-        self._center_step = height
-        self._top_y = 0
-        self._bottom_y = self._top_y + height
+    -- mask is rectangle with gradient edge
+    local mask_r, mask_g, mask_b, mask_a0, mask_a1 = 1, 1, 1, 0, 1
+    local mask_d = max_particle_r * 0.25
+    local mask_tris = {
+        1, 2, 5,
+        5, 2, 6,
+        1, 4, 5,
+        4, 8, 5,
+        2, 3, 6,
+        6, 3, 7,
+        4, 3, 8,
+        3, 8, 7,
+        5, 6, 8,
+        8, 6, 7
+    }
 
-        for edge in range(
-            self._top, self._right, self._bottom, self._left
-        ) do
-            local ax, ay, bx, by = table.unpack(edge)
-            local length = math.distance(ax, ay, bx, by)
-            local n_particles = math.ceil(density * length)
-            local particle_radius = (length / n_particles)
-            n_particles = 2 * n_particles
-            local dx, dy = math.normalize(bx - ax, by - ay)
+    for page_i = 1, self._n_pages do
+        local particles = {}
+        local page_n_particles = 0
+        local data_mesh_data = {}
 
-            for i = 0, n_particles - 1 do
-                local fraction = i / n_particles
-                local px, py = ax + dx * fraction * length, ay + dy * fraction * length
-                local radius = rt.random.number(particle_radius, radius_factor * particle_radius)
+        local page_offset = self:_get_page_offset(page_i)
+
+        local top = { x, y, x + width, y }
+        local right = { x + width, y, x + width, y + height }
+        local bottom = { x + width, y + height, x, y + height,  }
+        local left = { x, y + height, x, y }
+
+        local center_x, center_y = 0, 0
+        for segment in range(top, right, bottom, left) do
+            segment[2] = segment[2] + page_offset
+            segment[4] = segment[4] + page_offset
+
+            center_x = center_x + segment[1] + segment[3]
+            center_y = center_y + segment[2] + segment[4]
+        end
+
+        center_x = center_x / (4 * 2)
+        center_y = center_y / (4 * 2)
+
+        for segment in range(top, right, bottom, left) do
+            local ax, ay, bx, by = table.unpack(segment)
+            local length = math.distance(table.unpack(segment))
+            local dx, dy = bx - ax, by - ay
+            local n_particles = coverage * length / min_particle_r -- intentionally over-cover
+
+            for particle_i = 0, n_particles - 1 do
+                local fraction = particle_i / n_particles
+                local home_x, home_y = ax + dx * fraction, ay + dy * fraction
+                local radius = rt.random.number(min_particle_r, max_particle_r)
                 local particle = {
-                    [_edge] = edge,
                     [_radius] = radius,
-                    [_origin_x] = px,
-                    [_origin_y] = py,
+                    [_origin_x] = home_x,
+                    [_origin_y] = home_y,
                     [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
                     [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
-                    [_velocity_magnitude] = rt.random.number(1, 2),
-                    [_swipe_flag] = false
+                    [_velocity_magnitude] = rt.random.number(1, 2)
                 }
 
-                if self._mode == _MODE_EXPAND then
-                    particle[_x] = center_x
-                    particle[_y] = center_y
-                else
-                    particle[_x] = px
-                    particle[_y] = py
-                end
+                local particle_x = home_x
+                local particle_y = home_y
 
-                table.insert(self._data_mesh_data, {
-                    px, py, radius
+                particle[_x] = particle_x
+                particle[_y] = particle_y
+
+                table.insert(data_mesh_data, {
+                    particle_x, particle_y, radius
                 })
 
-                table.insert(self._particles, particle)
-                self._n_particles = self._n_particles + 1
-                max_particle_r = math.max(max_particle_r, radius)
+                table.insert(particles, particle)
+                page_n_particles = page_n_particles + 1
             end
         end
 
-        local padding = 20 + 2 * max_particle_r
-        self._canvas = rt.RenderTexture(width + 2 * padding, height + 2 * padding)
-        self._canvas_padding = padding
+        local mask_x, mask_y = top[1], top[2]
+        local mask_w, mask_h = top[3] - top[1], right[4] - right[2]
 
-        self._data_mesh = rt.Mesh(
-            self._data_mesh_data,
+        local mask_data = {
+            [1] = { mask_x + 0, mask_y + 0, mask_r, mask_g, mask_b, mask_a0 },
+            [2] = { mask_x + mask_w, mask_y + 0, mask_r, mask_g, mask_b, mask_a0 },
+            [3] = { mask_x + mask_w, mask_y + mask_h, mask_r, mask_g, mask_b, mask_a0 },
+            [4] = { mask_x + 0, mask_y + mask_h, mask_r, mask_g, mask_b, mask_a0 },
+            [5] = { mask_x + 0 + mask_d, mask_y + 0 + mask_d, mask_r, mask_g, mask_b, mask_a1 },
+            [6] = { mask_x + mask_w - mask_d, mask_y + 0 + mask_d, mask_r, mask_g, mask_b, mask_a1 },
+            [7] = { mask_x + mask_w - mask_d, mask_y + mask_h - mask_d, mask_r, mask_g, mask_b, mask_a1 },
+            [8] = { mask_x + 0 + mask_d, mask_y + mask_h - mask_d, mask_r, mask_g, mask_b, mask_a1 }
+        }
+
+        local mask_mesh = rt.Mesh(
+            mask_data,
+            rt.MeshDrawMode.TRIANGLES,
+            _mask_mesh_format,
+            rt.GraphicsBufferUsage.STATIC
+        )
+        mask_mesh:set_vertex_map(mask_tris)
+
+        local data_mesh = rt.Mesh(
+            data_mesh_data,
             rt.MeshDrawMode.POINTS,
             _data_mesh_format,
             rt.GraphicsBufferUsage.DYNAMIC
         )
 
-        self._particle_mesh:attach_attribute(self._data_mesh, _data_mesh_format[1].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
-        self._particle_mesh:attach_attribute(self._data_mesh, _data_mesh_format[2].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
+        local particle_mesh = rt.Mesh(
+            particle_mesh_data,
+            rt.MeshDrawMode.TRIANGLE_FAN,
+            _particle_mesh_format,
+            rt.GraphicsBufferUsage.STATIC
+        )
+
+        particle_mesh:attach_attribute(data_mesh, _data_mesh_format[1].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
+        particle_mesh:attach_attribute(data_mesh, _data_mesh_format[2].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
+
+        self._pages[page_i] = {
+            particles = particles,
+            n_particles = page_n_particles,
+            data_mesh_data = data_mesh_data,
+            particle_mesh = particle_mesh,
+            data_mesh = data_mesh,
+            mask = mask_mesh,
+            center_x = center_x,
+            center_y = center_y
+        }
     end
 
-    self._x, self._y = x, y
-    self:_update_mask()
+    self:set_selected_page(self._selected_page_i)
     self._is_initialized = true
 end
 
-function mn.SelectionParticleFrame:_update_mask(width, height)
-    local padding = self._canvas_padding
-    local r, g, b = 1, 1, 1
-    local a1, a0 = 1, 0
-    local x, y = padding, padding
-    local w, h = self._canvas:get_width() - 2 * padding, self._canvas:get_height() - 2 * padding
-    local d = 0.25 * padding
+--- @brief
+function mn.SelectionParticleFrame:_get_active_pages()
+    local out = {}
 
-    if self._mask_data == nil then
-        self._mask_data = {
-            [1] = { x + 0, y + 0, r, g, b, a0},
-            [2] = { x + w, y + 0, r, g, b, a0},
-            [3] = { x + w, y + h, r, g, b, a0},
-            [4] = { x + 0, y + h, r, g, b, a0},
-            [5] = { x + 0 + d, y + 0 + d, r, g, b, a1},
-            [6] = { x + w - d, y + 0 + d, r, g, b, a1},
-            [7] = { x + w - d, y + h - d, r, g, b, a1},
-            [8] = { x + 0 + d, y + h - d, r, g, b, a1}
-        }
+    local eps = 0.25 * self._canvas:get_height()
 
-        local tris = {
-            1, 2, 5,
-            5, 2, 6,
-            1, 4, 5,
-            4, 8, 5,
-            2, 3, 6,
-            6, 3, 7,
-            4, 3, 8,
-            3, 8, 7,
-            5, 6, 8,
-            8, 6, 7
-        }
-
-        self._mask_mesh = rt.Mesh(
-            self._mask_data,
-            rt.MeshDrawMode.TRIANGLES,
-            _mask_mesh_format,
-            rt.GraphicsBufferUsage.DYNAMIC
-        )
-        self._mask_mesh:set_vertex_map(tris)
-    else
-        self._mask_data[1][1], self._mask_data[1][2] = x + 0, y + 0
-        self._mask_data[2][1], self._mask_data[2][2] = x + w, y + 0
-        self._mask_data[3][1], self._mask_data[3][2] = x + w, y + h
-        self._mask_data[4][1], self._mask_data[4][2] = x + 0, y + h
-        self._mask_data[5][1], self._mask_data[5][2] = x + 0 + d, y + 0 + d
-        self._mask_data[6][1], self._mask_data[6][2] = x + w - d, y + 0 + d
-        self._mask_data[7][1], self._mask_data[7][2] = x + w - d, y + h - d
-        self._mask_data[8][1], self._mask_data[8][2] = x + 0 + d, y + h - d
-        self._mask_mesh:replace_data(self._mask_data)
+    local current, target = self._motion:get_value(), self._motion:get_target_value()
+    if current - target < -eps and self._selected_page_i > 1 then
+        table.insert(out, self._selected_page_i - 1)
     end
+
+    table.insert(out, self._selected_page_i)
+
+    if current - target > eps and self._selected_page_i < self._n_pages then
+        table.insert(out, self._selected_page_i + 1)
+    end
+
+    return out
 end
 
 --- @brief
-function mn.SelectionParticleFrame:_set_mode(mode)
-    self._mode = mode
-
-    if mode == _MODE_SWIPE then
-        for particle in values(self._particles) do
-            particle[_swipe_flag] = _SWIPE_FLAG_EXITING
-        end
-    end
+function mn.SelectionParticleFrame:_get_page_offset(i)
+    return (i - 1) * self._canvas:get_height()
 end
 
 --- @brief
 function mn.SelectionParticleFrame:update(delta)
     if not self._is_initialized then return end
 
-    local distance_threshold = 10
+    self._motion:update(delta)
+    self._scroll_offset = self._motion:get_value()
 
-    if self._mode == _MODE_EXPAND then
-        -- move towards outer frame
-        self._mask = {}
-        local average_distance = 0
-        for i, particle in ipairs(self._particles) do
-            local x, y = particle[_x], particle[_y]
-            local target_x, target_y = particle[_origin_x], particle[_origin_y]
-            local dx, dy = target_x - x, target_y - y
-            local magnitude = particle[_velocity_magnitude]
-            x = x + dx * delta * magnitude
-            y = y + dy * delta * magnitude
+    for page_i in values(self:_get_active_pages()) do
+        local page = self._pages[page_i]
 
-            particle[_x], particle[_y] = x, y
-
-            local data = self._data_mesh_data[i]
-            data[_x] = x
-            data[_y] = y
-
-            table.insert(self._mask, x)
-            table.insert(self._mask, y)
-            average_distance = average_distance + math.distance(target_x, target_y, x, y)
-        end
-        average_distance = average_distance / self._n_particles
-        if average_distance < distance_threshold then self._mode = _MODE_HOLD end
-
-    elseif self._mode == _MODE_COLLAPSE then
-        -- move towards center
-        self._mask = {}
-        local average_distance = 0
-        for i, particle in ipairs(self._particles) do
-            local x, y = particle[_x], particle[_y]
-            local target_x, target_y = self._center_x, self._center_y
-            local dx, dy = target_x - x, target_y - y
-            local magnitude = particle[_velocity_magnitude]
-            x = x + dx * delta * magnitude
-            y = y + dy * delta * magnitude
-
-            particle[_x], particle[_y] = x, y
-
-            local data = self._data_mesh_data[i]
-            data[_x] = x
-            data[_y] = y
-
-            table.insert(self._mask, x)
-            table.insert(self._mask, y)
-            average_distance = average_distance + math.distance(target_x, target_y, x, y)
-        end
-        average_distance = average_distance / self._n_particles
-        if average_distance < distance_threshold then self._mode = _MODE_EXPAND end
-
-    elseif self._mode == _MODE_HOLD then
         local hold_velocity = rt.settings.menu.selection_particle_frame.hold_velocity * rt.get_pixel_scale()
-        local max_range = 20
-        self._mask = {}
-        for i, particle in ipairs(self._particles) do
+        local max_range = rt.settings.menu.selection_particle_frame.hold_jitter_max_range
+        for i = 1, page.n_particles do
+            local particle = page.particles[i]
             local x, y = particle[_x], particle[_y]
             local vx, vy = particle[_velocity_x], particle[_velocity_y]
             local magnitude = particle[_velocity_magnitude]
@@ -332,7 +282,6 @@ function mn.SelectionParticleFrame:update(delta)
 
             local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
             if math.distance(x, y, origin_x, origin_y) > max_range then
-                --x, y = origin_x + vx * max_range, origin_y + vy * max_range
                 particle[_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi))
                 particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
             end
@@ -340,71 +289,13 @@ function mn.SelectionParticleFrame:update(delta)
             particle[_x] = x
             particle[_y] = y
 
-            local data = self._data_mesh_data[i]
+            local data = page.data_mesh_data[i]
             data[_x] = x
             data[_y] = y
-
-            table.insert(self._mask, x)
-            table.insert(self._mask, y)
-        end
-    elseif self._mode == _MODE_SWIPE then
-        local max_velocity = rt.settings.menu.selection_particle_frame.max_velocity * rt.get_pixel_scale()
-        local top_y = self._top_y
-        local bottom_y = self._bottom_y
-
-        local average_distance = 0
-        for i, particle in ipairs(self._particles) do
-            local target_x, target_y = particle[_origin_x], nil
-
-            if particle[_swipe_flag] == _SWIPE_FLAG_EXITING then
-                if self._swipe_direction == _SWIPE_DIRECTION_UP then
-                    target_y = self._center_y - self._center_step
-                elseif self._swipe_direction == _SWIPE_DIRECTION_DOWN then
-                    target_y = self._center_y + self._center_step
-                end
-            else -- entering screen
-                target_y = self._center_y
-            end
-
-            local x, y = particle[_x], particle[_y]
-            local dx, dy = target_x - x, target_y - y
-            local magnitude = particle[_velocity_magnitude]
-
-            x = x + delta * dx * magnitude
-            y = y + delta * dy * magnitude
-
-            -- wrap screen
-            if particle[_swipe_flag] == _SWIPE_FLAG_EXITING then
-                if self._swipe_direction == _SWIPE_DIRECTION_UP  and y < top_y then
-                    particle[_swipe_flag] = _SWIPE_FLAG_ENTERING
-                    y = bottom_y
-                elseif self._swipe_direction == _SWIPE_DIRECTION_DOWN and y > bottom_y then
-                    particle[_swipe_flag] = _SWIPE_FLAG_ENTERING
-                    y = top_y
-                end
-            end
-
-            particle[_x] = x
-            particle[_y] = y
-
-            local data = self._data_mesh_data[i]
-            data[_x] = x
-            data[_y] = y
-
-            if particle[_swipe_flag] ~= _SWIPE_FLAG_ENTERING then
-                average_distance = math.huge
-            else
-                average_distance = average_distance + math.distance(x, y, particle[_origin_x], particle[_origin_y])
-            end
         end
 
-        average_distance = average_distance / self._n_particles
-        if average_distance < distance_threshold then
-            self:_set_mode(_MODE_EXPAND)
-        end
+        page.data_mesh:replace_data(page.data_mesh_data)
     end
-
-    self._data_mesh:replace_data(self._data_mesh_data)
 end
 
 --- @brief
@@ -415,27 +306,41 @@ function mn.SelectionParticleFrame:draw()
     love.graphics.clear(0, 0, 0, 0)
 
     love.graphics.push()
-    love.graphics.translate(self._canvas_padding, self._canvas_padding)
+    love.graphics.origin()
+    love.graphics.translate(self._canvas_padding, self._canvas_padding - self._motion:get_value())
+    
+    for page_i in values(self:_get_active_pages()) do
+        local page = self._pages[page_i]
+        page.mask:draw()
 
-    if self._mode ~= _MODE_SWIPE then
+        _particle_shader:bind()
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.polygon("fill", self._mask)
+        page.particle_mesh:draw_instanced(page.n_particles)
+        _particle_shader:unbind()
     end
-
-    _particle_shader:bind()
-    love.graphics.setColor(1, 1, 1, 1)
-    self._particle_mesh:draw_instanced(self._n_particles)
-    _particle_shader:unbind()
+    
     love.graphics.pop()
-
     self._canvas:unbind()
 
     love.graphics.push()
     _outline_shader:bind()
-    love.graphics.translate(self._x - self._canvas_padding, self._y - self._canvas_padding)
-    love.graphics.setColor(1, 0, 1, 1)
-    love.graphics.rectangle("fill", 0, 0, self._canvas:get_size())
+    love.graphics.translate(
+        self._x - self._canvas_padding,
+        self._y - self._canvas_padding
+    )
     self._canvas:draw()
     _outline_shader:unbind()
     love.graphics.pop()
+end
+
+--- @brief
+function mn.SelectionParticleFrame:set_selected_page(i)
+    if not (i > 0 and i <= self._n_pages) then
+        rt.error("In mn.StageSelectPageIndicator: page `" .. i .. "` is out of range")
+    end
+
+    if self._selected_page_i ~= i then
+        self._selected_page_i = i
+        self._motion:set_target_value(self:_get_page_offset(self._selected_page_i))
+    end
 end

@@ -48,9 +48,9 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_positio
     vec2 pixel_size = vec2(1 / 400.0);
     float gradient_x = 0.0;
     float gradient_y = 0.0;
-    float threshold = 0.6; // Metaball threshold
-    float smoothness = 0.05; // Smoothness factor for blending
-    float outline_thickness = 2; // Increase this value to thicken the outline
+    float threshold = 0.5; // metaball threshold
+    float smoothness = 0.25; // smoothness factor for blending
+    float outline_thickness = 1.5; // Increase this value to thicken the outline
 
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {

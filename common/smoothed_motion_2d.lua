@@ -2,7 +2,7 @@
 rt.SmoothedMotion2D = meta.class("SmoothedMotion2D")
 
 function rt.SmoothedMotion2D:instantiate(position_x, position_y, speed)
-    if speed == nil then speed = 100 end
+    if speed == nil then speed = 1 end
     meta.assert(position_x, "Number", position_y,  "Number", speed, "Number")
     meta.install(self, {
         _speed = speed,
@@ -43,8 +43,8 @@ function rt.SmoothedMotion2D:update(delta)
     local distance_x = self._target_position_x - self._current_position_x
     local distance_y = self._target_position_y - self._current_position_y
 
-    local step_x = 4 * distance_x * self._speed * delta
-    local step_y = 4 * distance_y * self._speed * delta
+    local step_x = 6 * distance_x * self._speed * delta
+    local step_y = 6 * distance_y * self._speed * delta
 
     self._current_position_x = self._current_position_x + step_x
     self._current_position_y = self._current_position_y + step_y

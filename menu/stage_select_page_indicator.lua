@@ -53,6 +53,10 @@ end
 
 --- @brief
 function mn.StageSelectPageIndicator:set_selected_page(i)
+    if not (i > 0 and i <= self._n_pages) then
+        rt.error("In mn.StageSelectPageIndicator: page `" .. i .. "` is out of range")
+    end
+
     self._selected_page_i = i
     self._motion:set_target_value(self._circles[i][2])
 end

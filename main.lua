@@ -4,20 +4,26 @@ require "common.game_state"
 require "common.input_subscriber"
 require "menu.stage_grade_label"
 
+local frame
+local page_i, n_pages = 1, 10
+
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "p" then
-        debugger.reload()
+    if which == "up" then
+        if page_i > 1 then page_i = page_i - 1 end
+        frame:set_selected_page(page_i)
+    elseif which == "down" then
+        if page_i < n_pages then page_i = page_i + 1 end
+        frame:set_selected_page(page_i)
     end
 end)
 
-require "menu.selection_particle_frame"
-local frame
 love.load = function(args)
-    frame = mn.SelectionParticleFrame()
+    require "menu.selection_particle_frame"
+    frame = mn.SelectionParticleFrame(n_pages)
     frame:realize()
     local margin = 100
-    frame:reformat(margin, margin, love.graphics.getWidth() - 2 * margin, love.graphics.getHeight() - 2 * margin)
+    frame:reformat(100, 100, love.graphics.getWidth() - 200, love.graphics.getHeight() - 200)
 
     -- intialize all scenes
     require "overworld.overworld_scene"
@@ -50,5 +56,8 @@ end
 
 love.resize = function(width, height)
     rt.SceneManager:resize(width, height)
+
+    frame:reformat(100, 100, love.graphics.getWidth() - 200, love.graphics.getHeight() - 200)
+
 end
 
