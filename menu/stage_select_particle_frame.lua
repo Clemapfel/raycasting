@@ -3,12 +3,14 @@ require "common.smoothed_motion_1d"
 
 rt.settings.menu.stage_select_particle_frame = {
     hold_velocity = 7,
-    hold_jitter_max_range = 2,
+    hold_jitter_max_range = 10,
     min_particle_radius = 10,
     max_particle_radius = 20,
-    mode_transition_distance_threshold = 10,
+    mode_transition_distance_threshold = 2, -- px
     coverage = 3, -- factor
-    expand_collapse_speed = 17, -- factor of dxy
+    expand_collapse_speed = 15, -- factor of dxy
+    should_expand_during_transition = true,
+    expand_threshold = 0.2, -- fraction, the smaller, the larger the delay before expansion during transition
 }
 
 --- @class mn.StageSelectParticleFrame
@@ -40,6 +42,7 @@ local _origin_y = 5
 local _velocity_x = 6
 local _velocity_y = 7
 local _velocity_magnitude = 8
+local _segment = 9
 
 local _MODE_HOLD = 0
 local _MODE_EXPAND = 1
@@ -104,7 +107,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     local coverage = rt.settings.menu.stage_select_particle_frame.coverage
 
     local padding = 20 + 2 * max_particle_r
-    local canvas_w, canvas_h =  width + 2 * padding, math.max(height + 2 * padding, love.graphics.getHeight())
+    local canvas_w, canvas_h = width + 2 * padding, math.max(height + 2 * padding, love.graphics.getHeight())
 
     if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
         self._canvas = rt.RenderTexture(canvas_w, canvas_h, 4)
@@ -127,7 +130,9 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         8, 6, 7
     }
 
-    local initial_mode = _MODE_EXPAND
+    local transition = rt.settings.menu.stage_select_particle_frame.should_expand_during_transition
+    local initial_mode = transition and _MODE_EXPAND or _MODE_HOLD
+    self._is_transitioning = transition
 
     -- offset frame area to account for particle movement
     local offset = (max_particle_r)
@@ -176,7 +181,8 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
                     [_origin_y] = home_y,
                     [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
                     [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
-                    [_velocity_magnitude] = rt.random.number(1, 2)
+                    [_velocity_magnitude] = rt.random.number(1, 2),
+                    [_segment] = segment
                 }
 
                 local particle_x, particle_y
@@ -314,8 +320,20 @@ function mn.StageSelectParticleFrame:update(delta)
                 local vx, vy = particle[_velocity_x], particle[_velocity_y]
                 local magnitude = particle[_velocity_magnitude]
 
+                local ax, ay, bx, by = table.unpack(particle[_segment])
+                local dx, dy = bx - ax, by - ay
+
                 x = x + delta * vx * magnitude * hold_velocity
                 y = y + delta * vy * magnitude * hold_velocity
+
+                -- clamp to segment
+                local segment_length_squared = math.distance(ax, ay, bx, by)^2
+                if segment_length_squared > 0 then
+                    local px, py = x - ax, y - ay
+                    local fraction = math.clamp(math.dot(px, py, dx, dy) / segment_length_squared, 0, 1)
+                    x = ax + fraction * dx
+                    y = ay + fraction * dy
+                end
 
                 local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
                 if math.distance(x, y, origin_x, origin_y) > max_range then
@@ -330,7 +348,10 @@ function mn.StageSelectParticleFrame:update(delta)
                 data[_x] = x
                 data[_y] = y
             end
-        elseif page.mode == _MODE_EXPAND or page.mode == _MODE_COLLAPSE then
+        elseif page.mode == _MODE_COLLAPSE or (
+            page.mode == _MODE_EXPAND and
+            not (self._is_transitioning and math.abs((self._motion:get_value() + 1) - self._selected_page_i) > rt.settings.menu.stage_select_particle_frame.expand_threshold)
+        ) then
             local mask_i = 1
             local mean_distance = 0
             local velocity_factor = rt.settings.menu.stage_select_particle_frame.expand_collapse_speed
@@ -366,13 +387,11 @@ function mn.StageSelectParticleFrame:update(delta)
             if mean_distance / page.n_particles <= rt.settings.menu.stage_select_particle_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
                 if page.mode == _MODE_EXPAND then
                     page.mode = _MODE_HOLD
-                elseif page.mode == _MODE_COLLAPSE then
+                elseif page.mode == _MODE_COLLAPSE and page_i == self._transitioning_page_i then
                     self._is_transitioning = false
                     self._transitioning_page_i = nil
                 end
             end
-        else
-            assert(false, "invalid mode")
         end
 
         page.data_mesh:replace_data(page.data_mesh_data)
@@ -389,7 +408,7 @@ function mn.StageSelectParticleFrame:draw()
     love.graphics.push()
     love.graphics.origin()
     love.graphics.translate(self._canvas_padding, self._canvas_padding - self._scroll_offset)
-    
+
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
 
@@ -417,7 +436,7 @@ function mn.StageSelectParticleFrame:draw()
 
     local canvas = self._canvas:get_native()
     _base_shader:bind()
-    rt.Palette.BACKGROUND:bind()
+    rt.Palette.TRUE_BLACK:bind()
     love.graphics.draw(canvas)
     _base_shader:unbind()
 
@@ -474,19 +493,22 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
         self._selected_page_i = i
 
         -- reset pages to start animation
-        for page_i, page in ipairs(self._pages) do
-            if page_i ~= current_i then
-                page.mode = _MODE_EXPAND
-                for particle in values(page.particles) do
-                    particle[_x] = page.center_x
-                    particle[_y] = page.center_y
+        if rt.settings.menu.stage_select_particle_frame.should_expand_during_transition then
+            for page_i, page in ipairs(self._pages) do
+                if page_i ~= current_i then
+                    page.mode = _MODE_EXPAND
+                    for particle in values(page.particles) do
+                        particle[_x] = page.center_x
+                        particle[_y] = page.center_y
+                    end
+                else
+                    page.mode = _MODE_COLLAPSE
                 end
-            else
-                page.mode = _MODE_COLLAPSE
             end
+
+            self._is_transitioning = true
+            self._transitioning_page_i = current_i
         end
-        self._is_transitioning = true
-        self._transitioning_page_i = current_i
     end
 end
 

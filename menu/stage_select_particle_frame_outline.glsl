@@ -80,7 +80,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     vec2 pixel_size = vec2(4.0 / textureSize(img, 0));
 
     float threshold = 0.5; // metaball threshold
-    float smoothness = 0.2; // smoothness factor for blending
+    float smoothness = 0.5; // smoothness factor for blending
 
     #if MODE == MODE_OUTLINE
 
