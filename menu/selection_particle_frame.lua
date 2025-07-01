@@ -2,12 +2,12 @@ require "common.render_texture"
 require "common.smoothed_motion_1d"
 
 rt.settings.menu.selection_particle_frame = {
-    max_velocity = 100, -- px / s
-    hold_velocity = 10,
-    hold_jitter_max_range = 20,
-    min_particle_radius = 30,
-    max_particle_radius = 40,
-    coverage = 6, -- factor
+    hold_velocity = 7,
+    hold_jitter_max_range = 15,
+    min_particle_radius = 50,
+    max_particle_radius = 70,
+    mode_transition_distance_threshold = 10,
+    coverage = 3, -- factor
 }
 
 --- @class mn.SelectionParticleFrame
@@ -40,6 +40,10 @@ local _velocity_x = 6
 local _velocity_y = 7
 local _velocity_magnitude = 8
 
+local _MODE_HOLD = 0
+local _MODE_EXPAND = 1
+local _MODE_COLLAPSE = 2
+
 --- @brief
 function mn.SelectionParticleFrame:instantiate(n_pages)
     meta.assert(n_pages, "Number")
@@ -56,6 +60,8 @@ function mn.SelectionParticleFrame:instantiate(n_pages)
     self._motion = rt.SmoothedMotion1D(0, 1)
     self._scroll_offset = 0
     self._x, self._y = 0, 0
+
+    self._mode = _MODE_EXPAND
 end
 
 --- @brief
@@ -70,7 +76,8 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
         data_mesh_data
         data_mesh
         particle_mesh
-        mask,
+        static_mask,
+        dynamic_mask,
         center_x,
         center_y
     ]]--
@@ -102,7 +109,7 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
     local canvas_w, canvas_h =  width + 2 * padding, math.max(height + 2 * padding, love.graphics.getHeight())
 
     if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
-        self._canvas = rt.RenderTexture(canvas_w, canvas_h)
+        self._canvas = rt.RenderTexture(canvas_w, canvas_h, 4)
     end
     self._canvas_padding = padding
 
@@ -126,6 +133,7 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
         local particles = {}
         local page_n_particles = 0
         local data_mesh_data = {}
+        local dynamic_mask = {}
 
         local page_offset = self:_get_page_offset(page_i)
 
@@ -165,11 +173,20 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
                     [_velocity_magnitude] = rt.random.number(1, 2)
                 }
 
-                local particle_x = home_x
-                local particle_y = home_y
+                local particle_x, particle_y
+                if self._mode == _MODE_EXPAND then
+                    particle_x = center_x
+                    particle_y = center_y
+                else
+                    particle_x = home_x
+                    particle_y = home_y
+                end
 
                 particle[_x] = particle_x
                 particle[_y] = particle_y
+                
+                table.insert(dynamic_mask, particle_x)
+                table.insert(dynamic_mask, particle_y)
 
                 table.insert(data_mesh_data, {
                     particle_x, particle_y, radius
@@ -225,7 +242,8 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
             data_mesh_data = data_mesh_data,
             particle_mesh = particle_mesh,
             data_mesh = data_mesh,
-            mask = mask_mesh,
+            static_mask = mask_mesh,
+            dynamic_mask = dynamic_mask,
             center_x = center_x,
             center_y = center_y
         }
@@ -270,29 +288,70 @@ function mn.SelectionParticleFrame:update(delta)
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
 
-        local hold_velocity = rt.settings.menu.selection_particle_frame.hold_velocity * rt.get_pixel_scale()
-        local max_range = rt.settings.menu.selection_particle_frame.hold_jitter_max_range
-        for i = 1, page.n_particles do
-            local particle = page.particles[i]
-            local x, y = particle[_x], particle[_y]
-            local vx, vy = particle[_velocity_x], particle[_velocity_y]
-            local magnitude = particle[_velocity_magnitude]
+        if self._mode == _MODE_HOLD then
+            local hold_velocity = rt.settings.menu.selection_particle_frame.hold_velocity * rt.get_pixel_scale()
+            local max_range = rt.settings.menu.selection_particle_frame.hold_jitter_max_range
+            for i = 1, page.n_particles do
+                local particle = page.particles[i]
+                local x, y = particle[_x], particle[_y]
+                local vx, vy = particle[_velocity_x], particle[_velocity_y]
+                local magnitude = particle[_velocity_magnitude]
 
-            x = x + delta * vx * magnitude * hold_velocity
-            y = y + delta * vy * magnitude * hold_velocity
+                x = x + delta * vx * magnitude * hold_velocity
+                y = y + delta * vy * magnitude * hold_velocity
 
-            local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
-            if math.distance(x, y, origin_x, origin_y) > max_range then
-                particle[_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi))
-                particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
+                local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
+                if math.distance(x, y, origin_x, origin_y) > max_range then
+                    particle[_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi))
+                    particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
+                end
+
+                particle[_x] = x
+                particle[_y] = y
+
+                local data = page.data_mesh_data[i]
+                data[_x] = x
+                data[_y] = y
+            end
+        elseif self._mode == _MODE_EXPAND or self._mode == _MODE_COLLAPSE then
+            local mask_i = 1
+            local mean_distance = 0
+            for i = 1, page.n_particles do
+                local particle = page.particles[i]
+                local x, y = particle[_x], particle[_y]
+                local target_x, target_y
+
+                if self._mode == _MODE_EXPAND then
+                    target_x, target_y = particle[_origin_x], particle[_origin_y]
+                elseif self._mode == _MODE_COLLAPSE then
+                    target_x, target_y = page.center_x, page.center_y
+                end
+
+                local dx, dy = target_x - x, target_y - y
+                local magnitude = particle[_velocity_magnitude]
+                x = x + dx * delta * magnitude
+                y = y + dy * delta * magnitude
+
+                particle[_x], particle[_y] = x, y
+
+                local data = page.data_mesh_data[i]
+                data[_x] = x
+                data[_y] = y
+
+                page.dynamic_mask[mask_i+0] = x
+                page.dynamic_mask[mask_i+1] = y
+                mask_i = mask_i + 2
+
+                mean_distance = mean_distance + math.magnitude(dx, dy)
             end
 
-            particle[_x] = x
-            particle[_y] = y
-
-            local data = page.data_mesh_data[i]
-            data[_x] = x
-            data[_y] = y
+            if mean_distance / page.n_particles <= rt.settings.menu.selection_particle_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
+                if self._mode == _MODE_EXPAND then
+                    self._mode = _MODE_HOLD
+                end
+            end
+        else
+            assert(false, "invalid mode")
         end
 
         page.data_mesh:replace_data(page.data_mesh_data)
@@ -312,7 +371,13 @@ function mn.SelectionParticleFrame:draw()
     
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
-        page.mask:draw()
+
+        if self._mode == _MODE_HOLD then
+            page.static_mask:draw()
+        else
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.polygon("fill", page.dynamic_mask)
+        end
 
         _particle_shader:bind()
         love.graphics.setColor(1, 1, 1, 1)
