@@ -8,6 +8,7 @@ rt.settings.menu.stage_select_particle_frame = {
     max_particle_radius = 20,
     mode_transition_distance_threshold = 10,
     coverage = 3, -- factor
+    expand_collapse_speed = 17, -- factor of dxy
 }
 
 --- @class mn.StageSelectParticleFrame
@@ -126,7 +127,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         8, 6, 7
     }
 
-    local initial_mode = _MODE_HOLD
+    local initial_mode = _MODE_EXPAND
 
     -- offset frame area to account for particle movement
     local offset = (max_particle_r)
@@ -144,7 +145,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
 
         local top = { x, y, x + width, y }
         local right = { x + width, y, x + width, y + height }
-        local bottom = { x + width, y + height, x, y + height,  }
+        local bottom = { x + width, y + height, x, y + height }
         local left = { x, y + height, x, y }
 
         local center_x, center_y = 0, 0
@@ -288,7 +289,10 @@ end
 function mn.StageSelectParticleFrame:update(delta)
     if not self._is_initialized then return end
 
-    self._motion:update(delta)
+    if self._is_transitioning ~= true then
+        self._motion:update(delta)
+    end
+
     self._scroll_offset = self._motion:get_value()
 
     for page_i in values(self:_get_active_pages()) do
@@ -319,9 +323,10 @@ function mn.StageSelectParticleFrame:update(delta)
                 data[_x] = x
                 data[_y] = y
             end
-        elseif page.mode == _MODE_EXPAND or page.mode == _MODE_COLLAPSE then
+        elseif not (self._is_transitioning and page_i == self._transitioning_page_i) and page.mode == _MODE_EXPAND or page.mode == _MODE_COLLAPSE then
             local mask_i = 1
             local mean_distance = 0
+            local velocity_factor = rt.settings.menu.stage_select_particle_frame.expand_collapse_speed
             for i = 1, page.n_particles do
                 local particle = page.particles[i]
                 local x, y = particle[_x], particle[_y]
@@ -335,8 +340,8 @@ function mn.StageSelectParticleFrame:update(delta)
 
                 local dx, dy = target_x - x, target_y - y
                 local magnitude = particle[_velocity_magnitude]
-                x = x + dx * delta * magnitude
-                y = y + dy * delta * magnitude
+                x = x + dx * delta * magnitude * velocity_factor
+                y = y + dy * delta * magnitude * velocity_factor
 
                 particle[_x], particle[_y] = x, y
 
@@ -354,6 +359,9 @@ function mn.StageSelectParticleFrame:update(delta)
             if mean_distance / page.n_particles <= rt.settings.menu.stage_select_particle_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
                 if page.mode == _MODE_EXPAND then
                     page.mode = _MODE_HOLD
+                elseif page.mode == _MODE_COLLAPSE then
+                    self._is_transitioning = false
+                    self._transitioning_page_i = nil
                 end
             end
         else
@@ -454,12 +462,33 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
     end
 
     if self._selected_page_i ~= i then
+        local current_i = self._selected_page_i
+        self._motion:set_target_value(self:_get_page_offset(i))
         self._selected_page_i = i
-        self._motion:set_target_value(self:_get_page_offset(self._selected_page_i))
+
+        -- reset pages to start animation
+        for page_i, page in ipairs(self._pages) do
+            if page_i ~= current_i then
+                page.mode = _MODE_EXPAND
+                for particle in values(page.particles) do
+                    particle[_x] = page.center_x
+                    particle[_y] = page.center_y
+                end
+            else
+                page.mode = _MODE_COLLAPSE
+            end
+        end
+        self._is_transitioning = true
+        self._transitioning_page_i = current_i
     end
 end
 
 --- @brief
 function mn.StageSelectParticleFrame:set_hue(hue)
     self._hue = hue
+end
+
+--- @brief
+function mn.StageSelectParticleFrame:get_selected_page()
+    return self._selected_page_i
 end

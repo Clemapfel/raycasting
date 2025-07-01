@@ -613,7 +613,7 @@ function mn.MenuScene:update(delta)
         stage_select.item_reveal_animation:update(delta)
         stage_select.page_indicator:update(delta)
         stage_select.item_frame:update(delta)
-        stage_select.item_frame:set_hue(self._player:get_hue())
+        stage_select.item_frame:set_hue((stage_select.selected_item_i - 1) / stage_select.n_items)
     end
 
     if self._state == mn.MenuSceneState.FALLING then
