@@ -344,6 +344,14 @@ function mn.SelectionParticleFrame:draw()
 end
 
 --- @brief
+function mn.SelectionParticleFrame:draw_mask()
+    _base_shader:bind()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._canvas:get_native())
+    _base_shader:unbind()
+end
+
+--- @brief
 function mn.SelectionParticleFrame:set_selected_page(i)
     if not (i > 0 and i <= self._n_pages) then
         rt.error("In mn.StageSelectPageIndicator: page `" .. i .. "` is out of range")
