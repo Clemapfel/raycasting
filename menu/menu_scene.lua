@@ -8,6 +8,7 @@ require "common.fade"
 require "menu.stage_select_page_indicator"
 require "menu.stage_select_particle_frame"
 require "menu.stage_grade_label"
+require "menu.stage_select_debris_emitter"
 require "overworld.coin_particle"
 
 rt.settings.menu_scene = {
@@ -225,6 +226,7 @@ function mn.MenuScene:instantiate(state)
         stage_select.n_items = table.sizeof(stage_ids)
         stage_select.item_frame = mn.StageSelectParticleFrame(stage_select.n_items)
         stage_select.page_indicator = mn.StageSelectPageIndicator(stage_select.n_items)
+        stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
 
         for id in values(stage_ids) do
             table.insert(stage_select.items, mn.StageSelectItem(id))
@@ -273,6 +275,7 @@ function mn.MenuScene:realize()
 
     self._stage_select.page_indicator:realize()
     self._stage_select.item_frame:realize()
+    self._stage_select.debris_emitter:realize()
     self._stage_select.control_indicator:realize()
     self._stage_select.control_indicator:set_has_frame(false)
 
@@ -380,6 +383,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
     do -- stage select
         local stage_select = self._stage_select
+        stage_select.debris_emitter:reformat(self._bounds)
 
         -- control indicator
         local control_w, control_h = stage_select.control_indicator:measure()
@@ -613,6 +617,7 @@ function mn.MenuScene:update(delta)
         stage_select.item_reveal_animation:update(delta)
         stage_select.page_indicator:update(delta)
         stage_select.item_frame:update(delta)
+        stage_select.debris_emitter:update(delta)
     end
 
     if self._state == mn.MenuSceneState.FALLING then
@@ -754,6 +759,8 @@ function mn.MenuScene:draw()
     if self._state == mn.MenuSceneState.FALLING or self._state == mn.MenuSceneState.STAGE_SELECT or self._state == mn.MenuSceneState.EXITING then
         local stage_select = self._stage_select
 
+        stage_select.debris_emitter:draw()
+
         love.graphics.push()
         local offset_x = stage_select.item_reveal_animation:get_value()
         love.graphics.translate(offset_x * stage_select.reveal_width, 0)
@@ -767,6 +774,8 @@ function mn.MenuScene:draw()
         if not bloom_updated and rt.GameState:get_is_bloom_enabled() then
             self._bloom:bind()
             love.graphics.clear()
+
+            stage_select.debris_emitter:draw()
 
             love.graphics.push()
             love.graphics.translate(offset_x * stage_select.reveal_width, 0)

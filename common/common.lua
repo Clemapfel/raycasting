@@ -92,7 +92,6 @@ function println(...)
     io.flush()
 end
 
-
 --- @brief get number of elements in arbitrary object
 --- @param x any
 --- @return number

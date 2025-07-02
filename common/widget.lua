@@ -45,6 +45,10 @@ local _round = function(x) return x end
 
 --- @brief
 function rt.Widget:reformat(x, y, width, height)
+    if y == nil and meta.typeof(x) == "AABB" then
+        x, y, width, height = x:unpack()
+    end
+
     if x ~= nil then self._bounds.x = _round(x) end
     if y ~= nil then self._bounds.y = _round(y) end
     if width ~= nil then self._bounds.width = _round(width) end
