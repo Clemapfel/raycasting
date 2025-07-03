@@ -2,14 +2,12 @@ require "common.render_texture"
 require "common.smoothed_motion_1d"
 
 rt.settings.menu.stage_select_particle_frame = {
-    hold_velocity = 5,
-    hold_jitter_max_range = 4,
-    min_particle_radius = 15,
-    max_particle_radius = 15,
-    min_particle_velocity = 1, -- factor
-    max_particle_velocity = 1,
+    hold_velocity = 7,
+    hold_jitter_max_range = 30,
+    min_particle_radius = 10,
+    max_particle_radius = 30,
     mode_transition_distance_threshold = 2, -- px
-    coverage = 6, -- factor
+    coverage = 3, -- factor
     expand_collapse_speed = 15, -- factor of dxy
     should_expand_during_transition = true,
     expand_threshold = 0.2, -- fraction, the smaller, the larger the delay before expansion during transition
@@ -64,7 +62,7 @@ function mn.StageSelectParticleFrame:instantiate(n_pages)
     self._n_pages = n_pages
     self._hue = 0
 
-    self._motion = rt.SmoothedMotion1D(0, 1, 10) -- interpolates indices, not px
+    self._motion = rt.SmoothedMotion1D(0, 1) -- interpolates indices, not px
     self._scroll_offset = 0
     self._last_scroll_offset = 0
     self._x, self._y = 0, 0
@@ -97,7 +95,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
             table.insert(particle_mesh_data, {
                 math.cos(angle),
                 math.sin(angle),
-                0, 0, 0, 0
+                1, 1, 1, 0
             })
         end
     end
@@ -109,8 +107,8 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     local max_particle_r = rt.settings.menu.stage_select_particle_frame.max_particle_radius * rt.get_pixel_scale()
     local coverage = rt.settings.menu.stage_select_particle_frame.coverage
 
-    local padding = rt.get_pixel_scale() * 20 + 2 * max_particle_r
-    local canvas_w, canvas_h = width + 2 * padding, love.graphics.getHeight()
+    local padding = 20 + 2 * max_particle_r
+    local canvas_w, canvas_h = width + 2 * padding, math.max(height + 2 * padding, love.graphics.getHeight())
 
     if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
         self._canvas = rt.RenderTexture(canvas_w, canvas_h, 4)
@@ -142,8 +140,6 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     x, y = offset, offset
     width = width - 2 * offset
     height = height - 2 * offset
-    
-    local min_velocity, max_velocity = rt.settings.menu.stage_select_particle_frame.min_particle_velocity, rt.settings.menu.stage_select_particle_frame.max_particle_velocity
 
     for page_i = 1, self._n_pages do
         local particles = {}
@@ -174,7 +170,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
             local ax, ay, bx, by = table.unpack(segment)
             local length = math.distance(table.unpack(segment))
             local dx, dy = bx - ax, by - ay
-            local n_particles = coverage * math.ceil(length / min_particle_r) -- intentionally over-cover
+            local n_particles = coverage * length / min_particle_r -- intentionally over-cover
 
             for particle_i = 0, n_particles - 1 do
                 local fraction = particle_i / n_particles
@@ -186,7 +182,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
                     [_origin_y] = home_y,
                     [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
                     [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
-                    [_velocity_magnitude] = rt.random.number(min_velocity, max_velocity),
+                    [_velocity_magnitude] = rt.random.number(1, 2),
                     [_segment] = segment
                 }
 
@@ -319,33 +315,40 @@ function mn.StageSelectParticleFrame:update(delta)
 
         if page.mode == _MODE_HOLD then
             local hold_velocity = rt.settings.menu.stage_select_particle_frame.hold_velocity * rt.get_pixel_scale()
-            if hold_velocity ~= 0 then
-                local max_range = rt.settings.menu.stage_select_particle_frame.hold_jitter_max_range * rt.get_pixel_scale()
-                for i = 1, page.n_particles do
-                    local particle = page.particles[i]
-                    local x, y = particle[_x], particle[_y]
-                    local vx, vy = particle[_velocity_x], particle[_velocity_y]
-                    local magnitude = particle[_velocity_magnitude]
+            local max_range = rt.settings.menu.stage_select_particle_frame.hold_jitter_max_range
+            for i = 1, page.n_particles do
+                local particle = page.particles[i]
+                local x, y = particle[_x], particle[_y]
+                local vx, vy = particle[_velocity_x], particle[_velocity_y]
+                local magnitude = particle[_velocity_magnitude]
 
-                    local ax, ay, bx, by = table.unpack(particle[_segment])
-                    local dx, dy = bx - ax, by - ay
+                local ax, ay, bx, by = table.unpack(particle[_segment])
+                local dx, dy = bx - ax, by - ay
 
-                    x = x + delta * vx * magnitude * hold_velocity
-                    y = y + delta * vy * magnitude * hold_velocity
+                x = x + delta * vx * magnitude * hold_velocity
+                y = y + delta * vy * magnitude * hold_velocity
 
-                    local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
-                    if math.distance(x, y, origin_x, origin_y) > max_range then
-                        particle[_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi))
-                        particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
-                    end
-
-                    particle[_x] = x
-                    particle[_y] = y
-
-                    local data = page.data_mesh_data[i]
-                    data[_x] = x
-                    data[_y] = y
+                -- clamp to segment
+                local segment_length_squared = math.distance(ax, ay, bx, by)^2
+                if segment_length_squared > 0 then
+                    local px, py = x - ax, y - ay
+                    local fraction = math.clamp(math.dot(px, py, dx, dy) / segment_length_squared, 0, 1)
+                    x = ax + fraction * dx
+                    y = ay + fraction * dy
                 end
+
+                local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
+                if math.distance(x, y, origin_x, origin_y) > max_range then
+                    particle[_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi))
+                    particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
+                end
+
+                particle[_x] = x
+                particle[_y] = y
+
+                local data = page.data_mesh_data[i]
+                data[_x] = x
+                data[_y] = y
             end
         elseif page.mode == _MODE_COLLAPSE or (
             page.mode == _MODE_EXPAND and
@@ -471,7 +474,7 @@ function mn.StageSelectParticleFrame:draw_mask()
     love.graphics.push()
     love.graphics.translate(
         self._x - self._canvas_padding,
-        0 - self._canvas_padding
+        self._y - self._canvas_padding
     )
 
     _base_shader:bind()

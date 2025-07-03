@@ -47,12 +47,12 @@ local _sizeof = table.sizeof
 --- @brief pick random element from table
 --- @param set Table
 function rt.random.choose(...)
-    local t1 = select(1, ...)
-    if type(t1, "table") then
-        return t1[rt.random.integer(1, #t1)]
-    else
-        local n = select("#", ...)
+    local n = select("#", ...)
+    if n > 1 then
         return select(rt.random.integer(1, n), ...)
+    else
+        local t = select(1, ...)
+        return t[rt.random.integer(1, #t)]
     end
 end
 

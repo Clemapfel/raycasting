@@ -59,7 +59,7 @@ function ow.CoinParticle:_draw_core()
     love.graphics.circle("fill", 0, 0, self._radius)
     _shader:unbind()
 
-    love.graphics.setColor(table.unpack(self._outline_color))
+    love.graphics.setColor(self._outline_color)
     love.graphics.line(self._core_outline)
 end
 
@@ -76,7 +76,7 @@ function ow.CoinParticle:draw(x, y)
         end
 
         love.graphics.setLineWidth(1)
-        love.graphics.setColor(table.unpack(self._color))
+        love.graphics.setColor(self._color)
         for outline in values(self._dotted_outlines) do
             love.graphics.line(outline)
         end
@@ -85,7 +85,7 @@ function ow.CoinParticle:draw(x, y)
         rt.Palette.BLACK:bind()
         love.graphics.circle("fill", 0, 0, self._body_radius)
 
-        love.graphics.setColor(table.unpack(self._color))
+        love.graphics.setColor(self._color)
         love.graphics.line(self._body_outline)
 
         self:_draw_core()
@@ -102,7 +102,7 @@ function ow.CoinParticle:draw_bloom(x, y)
     love.graphics.push()
     love.graphics.translate(x, y)
 
-    love.graphics.setColor(table.unpack(self._color))
+    love.graphics.setColor(self._color)
     love.graphics.line(self._body_outline)
 
     self:_draw_core()

@@ -211,7 +211,7 @@ function ow.Hook:draw()
             )
             love.graphics.setColor(r, g, b, 1)
         else
-            love.graphics.setColor(table.unpack(segment_color))
+            love.graphics.setColor(segment_color)
         end
 
         love.graphics.line(table.unpack(_segments[i]))
@@ -236,7 +236,7 @@ function ow.Hook:draw()
         end
         _lock_mesh:setVertices(data)
 
-        love.graphics.setColor(table.unpack(self._color))
+        love.graphics.setColor(self._color)
         love.graphics.draw(_lock_mesh, self._body:get_position())
     end
 end

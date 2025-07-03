@@ -168,7 +168,7 @@ function ow.BoostField.draw_all()
     -- draw shader surface per instance
     for self in values(_instances) do
         if self._scene:get_is_body_visible(self._body) then
-            love.graphics.setColor(table.unpack(self._color))
+            love.graphics.setColor(self._color)
             _shader:bind()
             _shader:send("elapsed", self._elapsed)
             _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })

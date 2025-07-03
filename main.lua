@@ -13,10 +13,9 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
 
 end)
 
-require "menu.stage_select_debris_emitter"
-local emitter = mn.StageSelectDebrisEmitter()
-emitter:realize()
-emitter:reformat(0, 0, love.graphics.getDimensions())
+require "menu.stage_select_page_indicator_ring"
+local ring = mn.StageSelectParticleRing(300, 300, 150, 5)
+
 
 love.load = function(args)
     local w, h = item:measure()
@@ -42,18 +41,17 @@ end
 love.update = function(delta)
     rt.SceneManager:update(delta)
 
-    emitter:update(delta)
+    ring:update(delta)
 end
 
 love.draw = function()
     rt.SceneManager:draw()
 
-    emitter:draw()
+    love.graphics.clear(0.5, 0.5, 0.5, 1)
+    ring:draw()
 end
 
 love.resize = function(width, height)
     rt.SceneManager:resize(width, height)
-
-    emitter:reformat(0, 0, love.graphics.getDimensions())
 end
 

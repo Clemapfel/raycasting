@@ -156,7 +156,7 @@ end
 function ow.Fireworks:draw()
     if not self._active then return end
     for particle in values(self._particles) do
-        love.graphics.setColor(table.unpack(particle.color))
+        love.graphics.setColor(particle.color)
         love.graphics.circle("fill", particle.position_x, particle.position_y, particle.radius)
     end
 end

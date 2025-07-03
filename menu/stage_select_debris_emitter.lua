@@ -1,25 +1,52 @@
 require "common.random"
 
+local max_velocity = 1000
 rt.settings.menu.stage_select_debris_emitter = {
-    spawn_frequency = 1, -- particles per seconds
-    min_radius = 10,
-    max_radius = 20,
-    min_velocity = 40, -- px / s
-    max_velocity = 100,
+    spawn_frequency = 5, -- particles per seconds
+    min_radius = 5,
+    max_radius = 12,
+    min_velocity = 0.1 * max_velocity, -- px / s
+    max_velocity = 1 * max_velocity,
     min_angular_velocity = 0.2 * 2 * math.pi,
     max_angular_velocity = 0.4 * 2 * math.pi,
-    max_n_particles = 100,
+    max_n_particles = math.huge,
+    max_angle_perturbation = 0.01 * math.pi,
+    trail_max_scale = 3,
+    collision_duration = 0.2, -- seconds
+    draw_trails = true
 }
 
 --- @class mn.StageSelectDebrisEmitter
 mn.StageSelectDebrisEmitter = meta.class("StageSelectDebrisEmitter", rt.Widget)
 
+local _trail_texture = nil
+
 --- @brief
 function mn.StageSelectDebrisEmitter:instantiate()
-    self._elapsed = 0
+    if _trail_texture == nil then
+        _trail_texture = rt.RenderTexture(rt.settings.menu.stage_select_debris_emitter.max_radius * 2, 100)
+        local shader = rt.Shader("menu/stage_select_debris_emitter_trail.glsl")
+
+        love.graphics.push()
+        love.graphics.origin()
+        _trail_texture:bind()
+        shader:bind()
+        love.graphics.rectangle("fill", 0, 0, _trail_texture:get_size())
+        shader:unbind()
+        _trail_texture:unbind()
+        love.graphics.pop()
+    end
+
+    self._spawn_elapsed = 0
+    self._spawn_rate = 1
     self._next_spawn = 0
+    self._hitbox_x, self._hitbox_y, self._hitbox_radius = math.huge, math.huge, 0
     self._particles = {}
+    self._collision = {}
     self._bounds = rt.AABB(0, 0, love.graphics.getDimensions())
+    self._offset_x, self._offset_y = 0, 0
+
+    self._collision_bar = {}
 end
 
 --- @brief
@@ -61,14 +88,14 @@ local _shapes = {
 
     [8] = { -- cube
         vertices = {
-            { math.acos(1 / math.sqrt(3)), math.pi / 4 },        -- Vertex 1
-            { math.acos(1 / math.sqrt(3)), 3 * math.pi / 4 },    -- Vertex 2
-            { math.acos(1 / math.sqrt(3)), 5 * math.pi / 4 },    -- Vertex 3
-            { math.acos(1 / math.sqrt(3)), 7 * math.pi / 4 },    -- Vertex 4
-            { math.pi - math.acos(1 / math.sqrt(3)), math.pi / 4 },  -- Vertex 5
-            { math.pi - math.acos(1 / math.sqrt(3)), 3 * math.pi / 4 }, -- Vertex 6
-            { math.pi - math.acos(1 / math.sqrt(3)), 5 * math.pi / 4 }, -- Vertex 7
-            { math.pi - math.acos(1 / math.sqrt(3)), 7 * math.pi / 4 }  -- Vertex 8
+            { math.acos(1 / math.sqrt(3)), math.pi / 4 },
+            { math.acos(1 / math.sqrt(3)), 3 * math.pi / 4 },
+            { math.acos(1 / math.sqrt(3)), 5 * math.pi / 4 },
+            { math.acos(1 / math.sqrt(3)), 7 * math.pi / 4 },
+            { math.pi - math.acos(1 / math.sqrt(3)), math.pi / 4 },
+            { math.pi - math.acos(1 / math.sqrt(3)), 3 * math.pi / 4 },
+            { math.pi - math.acos(1 / math.sqrt(3)), 5 * math.pi / 4 },
+            { math.pi - math.acos(1 / math.sqrt(3)), 7 * math.pi / 4 }
         },
 
         edges = {
@@ -79,29 +106,40 @@ local _shapes = {
     }
 }
 
-local _new_particle = function(particle_x, particle_y)
-    local shape = _shapes[rt.random.choose({ 4, 6, 8 })]
+local _hue_step, _n_hue_steps = 0, 13
 
+local _new_particle = function(particle_x, particle_y)
+    local shape = _shapes[rt.random.choose(4, 6)]
+
+    local hue = (_hue_step % _n_hue_steps) / _n_hue_steps
+    _hue_step = _hue_step + 1
+
+    local radius = rt.random.number(0, 1)
     local particle = {
         x = particle_x,
         y = particle_y,
+        last_x = particle_x,
+        last_y = particle_y,
+
         velocity = rt.random.number(0, 1),
         angular_velocity = rt.random.number(0, 1) * (rt.random.toss_coin() and 1 or -1),
         rotation = 0,
-        radius = rt.random.number(0, 1),
+        radius = radius,
         angles = {},
         edges = shape.edges,
-        points = {},
-        to_draw = nil,
+        color = { rt.lcha_to_rgba(0.8, 1, hue, 1) },
 
         -- axis of rotation
         axis_x = rt.random.number(-1, 1),
         axis_y = rt.random.number(-1, 1),
-        axis_z = rt.random.number(-1, 1)
+        axis_z = rt.random.number(-1, 1),
+
+        trail_scale_x = 0,
+        trail_scale_y = 0
     }
 
     particle.axis_x, particle.axis_y, particle.axis_z = math.normalize3(particle.axis_x, particle.axis_y, particle.axis_z)
-    local perturbation = 0.0 * math.pi
+    local perturbation = rt.settings.menu.stage_select_debris_emitter.max_angle_perturbation
 
     for i = 1, #shape.vertices do
         local phi, theta = shape.vertices[i][1], shape.vertices[i][2]
@@ -118,7 +156,6 @@ local _new_particle = function(particle_x, particle_y)
 
     return particle
 end
-
 
 local function _rotate_around_axis_3d(x, y, z, angle, ux, uy, uz)
     local cos_angle = math.cos(angle)
@@ -139,41 +176,86 @@ local function _rotate_around_axis_3d(x, y, z, angle, ux, uy, uz)
     return new_x, new_y, new_z
 end
 
+function _rectangle_circle_overlap(rx, ry, rw, rh, cx, cy, crx)
+    local closest_x = math.max(rx - rw, math.min(cx, rx + rw))
+    local closest_y = math.max(ry - rh, math.min(cy, ry + rh))
+
+    local dx = (closest_x - cx) / crx
+    local dy = (closest_y - cy) / crx
+
+    return (dx * dx + dy * dy) <= 1
+end
+
 local _n_particles = 0
 
 function mn.StageSelectDebrisEmitter:update(delta)
+    self._update_needed = true
     local settings = rt.settings.menu.stage_select_debris_emitter
 
     local min_velocity, max_velocity = settings.min_velocity, settings.max_velocity
     local min_angular_velocity, max_angular_velocity = settings.min_angular_velocity, settings.max_angular_velocity
     local min_radius, max_radius = settings.min_radius, settings.max_radius
+    local trail_w, trail_h = _trail_texture:get_size()
+
+    -- collision animations
+    for collision in values(self._collision) do
+        collision.elapsed = collision.elapsed + delta
+    end
 
     -- spawn new particles
-    self._elapsed = self._elapsed + delta
-    if self._elapsed >= self._next_spawn and _n_particles < settings.max_n_particles then
+    self._spawn_elapsed = self._spawn_elapsed + delta
+    if self._spawn_elapsed >= self._next_spawn / self._spawn_rate and _n_particles < settings.max_n_particles then
         table.insert(self._particles, _new_particle(
-            rt.random.number(self._bounds.x + max_radius, self._bounds.x + self._bounds.width - max_radius),
-            self._bounds.y + self._bounds.height + 2 * max_radius
+            rt.random.number(
+                self._bounds.x + max_radius - self._offset_x,
+                self._bounds.x + self._bounds.width - max_radius - self._offset_x
+            ),
+            self._bounds.y + self._bounds.height + 2 * max_radius - self._offset_y
         ))
 
         _n_particles = _n_particles + 1
         self._next_spawn = rt.random.number(0, 1 / settings.spawn_frequency)
-        self._elapsed = 0
+        self._spawn_elapsed = 0
     end
 
     local to_despawn = {}
     for particle_i = 1, #self._particles do
         local particle = self._particles[particle_i]
+        particle.last_x, particle.last_y = particle.x, particle.y
 
-        particle.y = particle.y - delta * math.mix(min_velocity, max_velocity, particle.velocity)
+        local velocity = math.mix(min_velocity, max_velocity, particle.velocity)
+        particle.y = particle.y - delta * velocity
         particle.rotation = particle.rotation + delta * math.mix(
             min_angular_velocity,
             max_angular_velocity,
             math.abs(particle.angular_velocity)
         )
 
-        if particle.y < self._bounds.y - 2 * max_radius then
+        -- despawn if particle leaves screen
+        if particle.y < self._bounds.y - self._offset_y - 2 * max_radius - particle.trail_scale_y * trail_h or
+            particle.x < self._bounds.x - self._offset_x - 2 * max_radius or
+            particle.x > self._bounds.x + self._bounds.width - self._offset_x + 2 * max_radius
+        then
             table.insert(to_despawn, particle_i)
+        end
+
+        -- despawn when colliding with player
+        if _rectangle_circle_overlap(
+            self._hitbox_x - self._offset_x, self._hitbox_y - self._offset_y - 0.5 - self._hitbox_radius, 2 * self._hitbox_radius, 0.25 * self._hitbox_radius,
+            particle.x, particle.y, math.mix(min_radius, max_radius, particle.radius)
+        ) then
+            table.insert(to_despawn, particle_i)
+            table.insert(self._collision, {
+                x = particle.x,
+                y = particle.y,
+                elapsed = 0,
+                radius = math.mix(min_radius, max_radius, particle.radius) * 2,
+                color = table.deepcopy(particle.color) -- because particle will be free
+            })
+            table.insert(self._collision_bar, {
+                radius = particle.radius,
+                color = table.deepcopy(particle.color)
+            })
         end
 
         local points = {}
@@ -187,8 +269,7 @@ function mn.StageSelectDebrisEmitter:update(delta)
             local z = math.cos(phi)
 
             x, y, z = _rotate_around_axis_3d(x, y, z, particle.rotation, particle.axis_x, particle.axis_y, particle.axis_z)
-
-            table.insert(points, { x, y }) -- orthographic projection
+            table.insert(points, { x, y, z })
         end
 
         particle.to_draw = {}
@@ -203,6 +284,13 @@ function mn.StageSelectDebrisEmitter:update(delta)
             table.insert(particle.to_draw, particle.x + b[1] * radius)
             table.insert(particle.to_draw, particle.y + b[2] * radius)
         end
+
+        particle.trail_scale_x = radius / trail_w * 0.5
+
+        local scale_fraction = math.clamp(math.abs(velocity) / max_velocity, 0, 1)
+        scale_fraction = rt.InterpolationFunctions.SQUARE_ACCELERATION(scale_fraction)
+        if scale_fraction < 0.05 then scale_fraction = 0 end
+        particle.trail_scale_y = scale_fraction * settings.trail_max_scale
     end
 
     if #to_despawn > 0 then
@@ -215,10 +303,111 @@ function mn.StageSelectDebrisEmitter:update(delta)
 end
 
 function mn.StageSelectDebrisEmitter:draw()
+    local interpolation = rt.SceneManager:get_frame_interpolation()
+
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setLineWidth(2)
+    love.graphics.setLineWidth(1.5 * rt.get_pixel_scale())
     love.graphics.setLineJoin("none")
-    for _, particle in ipairs(self._particles) do
-        love.graphics.line(particle.to_draw)
+
+    love.graphics.setBlendMode("add", "premultiplied")
+
+    if rt.settings.menu.stage_select_debris_emitter.draw_trails then
+        local w, h = _trail_texture:get_size()
+        local trail_a = 0.5
+        for particle in values(self._particles) do
+            local r, g, b, a = table.unpack(particle.color)
+            love.graphics.setColor(
+                r * trail_a,
+                g * trail_a,
+                b * trail_a,
+                trail_a
+            )
+
+            -- Interpolated position
+            local interp_x = math.mix(particle.last_x, particle.x, interpolation)
+            local interp_y = math.mix(particle.last_y, particle.y, interpolation)
+
+            love.graphics.draw(
+                _trail_texture:get_native(),
+                interp_x - 0.5 * w * particle.trail_scale_x,
+                interp_y,
+                0,
+                particle.trail_scale_x,
+                particle.trail_scale_y
+            )
+        end
     end
+
+    love.graphics.setBlendMode("alpha")
+
+    for particle in values(self._particles) do
+        love.graphics.setColor(particle.color)
+        -- Interpolate all points in to_draw
+        local interp_points = {}
+        for i = 1, #particle.to_draw, 4 do
+            local ax = particle.to_draw[i]
+            local ay = particle.to_draw[i + 1]
+            local bx = particle.to_draw[i + 2]
+            local by = particle.to_draw[i + 3]
+
+            -- Offset relative to particle.x/y, so interpolate the center and add the offsets
+            local interp_cx = math.mix(particle.last_x, particle.x, interpolation)
+            local interp_cy = math.mix(particle.last_y, particle.y, interpolation)
+            local offset_ax = ax - particle.x
+            local offset_ay = ay - particle.y
+            local offset_bx = bx - particle.x
+            local offset_by = by - particle.y
+
+            table.insert(interp_points, interp_cx + offset_ax)
+            table.insert(interp_points, interp_cy + offset_ay)
+            table.insert(interp_points, interp_cx + offset_bx)
+            table.insert(interp_points, interp_cy + offset_by)
+        end
+        love.graphics.line(interp_points)
+    end
+
+    love.graphics.pop()
+end
+
+--- @brief
+function mn.StageSelectDebrisEmitter:draw_above()
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
+    local time = rt.settings.menu.stage_select_debris_emitter.collision_duration
+    for collision in values(self._collision) do
+        local t = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(math.min(collision.elapsed / time, 1))
+        local r, g, b, a = table.unpack(collision.color)
+        love.graphics.setColor(r, g, b, 1 - t)
+        love.graphics.circle("fill", collision.x, collision.y, collision.radius)
+    end
+    love.graphics.pop()
+end
+
+--- @brief
+function mn.StageSelectDebrisEmitter:set_player_position(x, y)
+    love.graphics.push()
+    self._hitbox_x, self._hitbox_y = x, y
+    self._hitbox_radius = rt.settings.player.radius * rt.get_pixel_scale()
+    love.graphics.pop()
+end
+
+--- @brief
+function mn.StageSelectDebrisEmitter:reset()
+    _n_particles = _n_particles - table.sizeof(self._particles)
+    self._particles = {}
+end
+
+--- @brief
+function mn.StageSelectDebrisEmitter:set_offset(x, y)
+    if math.distance(x, y, self._offset_x, self._offset_y) > 2 * rt.settings.menu.stage_select_debris_emitter.max_radius then
+        self._spawn_spawn_elapsed = 0
+    end
+    self._offset_x, self._offset_y = x, y
+end
+
+--- @brief
+function mn.StageSelectDebrisEmitter:set_spawn_rate(fraction)
+    self._spawn_fraction = fraction
 end

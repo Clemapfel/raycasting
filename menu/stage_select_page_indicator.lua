@@ -5,14 +5,15 @@ require "common.stage_grade"
 --- @class mn.StageSelectPageIndicator
 mn.StageSelectPageIndicator = meta.class("StageSelectPageIndicator", rt.Widget)
 
-local _shader = nil
+local _shader, _outline_shader = nil
 
 --- @brief
 function mn.StageSelectPageIndicator:instantiate(n_pages)
     meta.assert(n_pages, "Number")
 
     if _shader == nil then _shader = rt.Shader("menu/stage_select_page_indicator.glsl") end
-
+    self._hue = 0
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))
     self._top_tri = {}
     self._bottom_tri = {}
     self._circles = {}
@@ -204,24 +205,24 @@ function mn.StageSelectPageIndicator:draw()
     -- selection
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth((3 + 2) * rt.get_pixel_scale())
-    love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius)
+    love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius, 64)
 
-    rt.Palette.FOREGROUND:bind()
+    self._color:bind()
     love.graphics.setLineWidth(3 * rt.get_pixel_scale())
-    love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius)
+    love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius, 64)
 
     love.graphics.pop()
 
     -- tris
     if self._selected_page_i > 1 then
-        rt.Palette.FOREGROUND:bind()
+        self._color:bind()
     else
         rt.Palette.GRAY_6:bind()
     end
     love.graphics.polygon("fill", self._top_tri)
 
     if self._selected_page_i < self._n_pages then
-        rt.Palette.FOREGROUND:bind()
+        self._color:bind()
     else
         rt.Palette.GRAY_6:bind()
     end
@@ -234,3 +235,8 @@ function mn.StageSelectPageIndicator:draw()
     love.graphics.pop()
 end
 
+--- @brief
+function mn.StageSelectPageIndicator:set_hue(hue)
+    self._hue = hue
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, 1))
+end

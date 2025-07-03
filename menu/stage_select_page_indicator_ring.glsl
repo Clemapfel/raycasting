@@ -1,11 +1,5 @@
-#define MODE_OUTLINE 0
-#define MODE_BASE 1
+#ifdef PIXEL
 
-#ifndef MODE
-#error "MODE undefined, should be 0 or 1"
-#endif
-
-#if MODE == MODE_OUTLINE
 
 vec3 random_3d(in vec3 p) {
     return fract(sin(vec3(
@@ -59,57 +53,46 @@ vec3 lch_to_rgb(vec3 lch) {
 }
 
 mat3 sobel_x = mat3(
-    -1, 0, 1,
-    -2, 0, 2,
-    -1, 0, 1
+-1, 0, 1,
+-2, 0, 2,
+-1, 0, 1
 );
 
 mat3 sobel_y = mat3(
-    -1, -2, -1,
-     0, 0, 0,
-     1, 2, 1
+-1, -2, -1,
+0, 0, 0,
+1, 2, 1
 );
 
+uniform vec4 black;
+uniform float hue = 0.7;
 uniform float elapsed;
-uniform float hue;
-
-#endif
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
+    vec2 pixel_size = vec2(2. / textureSize(img, 0));
+    float threshold = 0.2;
+    float smoothness = 0.05;
+    vec4 data = texture(img, texture_coordinates);
 
-    vec2 pixel_size = vec2(4.0 / textureSize(img, 0));
+    float gradient_x = 0.0;
+    float gradient_y = 0.0;
 
-    float threshold = 0.5; // metaball threshold
-    float smoothness = 0.4; // smoothness factor for blending
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size;
+            float value = texture(img, neighbor_uv).r;
+            value = smoothstep(threshold - smoothness, threshold + smoothness, value);
 
-    #if MODE == MODE_OUTLINE
-
-        float outline_thickness = 0.25;
-        float gradient_x = 0.0;
-        float gradient_y = 0.0;
-
-        for (int i = -1; i <= 1; i++) {
-            for (int j = -1; j <= 1; j++) {
-                vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size * outline_thickness;
-                float value = texture(img, neighbor_uv).a;
-                value = smoothstep(threshold - smoothness, threshold + smoothness, value);
-
-                gradient_x += value * sobel_x[i + 1][j + 1];
-                gradient_y += value * sobel_y[i + 1][j + 1];
-            }
+            gradient_x += value * sobel_x[i + 1][j + 1];
+            gradient_y += value * sobel_y[i + 1][j + 1];
         }
+    }
 
-        float magnitude = length(vec2(gradient_x, gradient_y));
-        float alpha = smoothstep(0.0, 1.0, magnitude);
+    float noise = 0.1 * gradient_noise(vec3(texture_coordinates * 5, elapsed / 2));
+    vec3 final_color = lch_to_rgb(vec3(0.8, 1, hue + noise));
 
-        float noise = 0.25 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2));
-        vec3 hue = lch_to_rgb(vec3(0.8, 1, hue + noise));
-
-        return vec4(hue * alpha, alpha);
-
-    #elif MODE == MODE_BASE
-        float value = texture(img, texture_coordinates).a;
-        return vec4(smoothstep(threshold - smoothness, threshold + smoothness, value)) * color;
-
-    #endif
+    vec4 outline = length(vec2(gradient_x, gradient_y)) * black;
+    float alpha = smoothstep(threshold - smoothness, threshold + smoothness, data.r);
+    return vec4(outline.rgb + final_color * alpha, max(alpha, outline.a));
 }
+#endif

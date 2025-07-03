@@ -264,7 +264,7 @@ function ow.Agent:draw()
     if self._debug_drawing_enabled then
         love.graphics.setLineWidth(2)
         for i, ray in ipairs(self._rays) do
-            love.graphics.setColor(table.unpack(self._ray_colors[i]))
+            love.graphics.setColor(self._ray_colors[i])
             love.graphics.line(ray)
         end
 

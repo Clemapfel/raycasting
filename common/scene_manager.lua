@@ -269,9 +269,22 @@ function rt.SceneManager:get_use_fixed_timestep()
     return self._use_fixed_timestep
 end
 
-rt.SceneManager = rt.SceneManager() -- static global singleton
 local _update_elapsed = 0
 local _update_step = 1 / 120
+
+function rt.SceneManager:get_timestep()
+    if self._use_fixed_timestep then return 1 / 120 else return 1 / love.timer.getFPS() end
+end
+
+function rt.SceneManager:get_frame_interpolation()
+    if self._use_fixed_timestep then
+        return _update_elapsed / _update_step
+    else
+        return 1
+    end
+end
+
+rt.SceneManager = rt.SceneManager() -- static global singleton
 local _focused = true
 
 love.focus = function(b)

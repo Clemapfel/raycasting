@@ -182,6 +182,7 @@ function mn.MenuScene:instantiate(state)
             elseif which == rt.InputAction.B then
                 self._fade:start()
                 self._fade:signal_connect("hidden", function()
+                    stage_select.debris_emitter:reset()
                     self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
                     return meta.DISCONNECT_SIGNAL
                 end)
@@ -592,9 +593,12 @@ function mn.MenuScene:update(delta)
     local vx, vy = self._player:get_velocity()
     local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
 
+    if self._state == mn.MenuSceneState.STAGE_SELECT then
+        max_velocity = max_velocity * math.max(1, 20 * self._stage_select.n_items * self._stage_select.item_frame:get_hue())
+    end
+
     vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
     vy = math.min(vy, max_velocity)
-    vx = vx + (rt.random.noise(self._shader_elapsed * 10, 0) * 2 - 1) * (rt.settings.menu_scene.player_falling_x_perturbation * (love.graphics.getHeight() / rt.settings.native_height)) * self._shader_fraction
 
     if self._state == mn.MenuSceneState.EXITING then
         vy = vy + rt.settings.menu_scene.exit_acceleration * delta -- exponential acceleration
@@ -613,12 +617,23 @@ function mn.MenuScene:update(delta)
     end
 
     local stage_select = self._stage_select
+    if offset_fraction > 0.85 then
+        stage_select.debris_emitter:update(delta)
+        stage_select.debris_emitter:set_player_position(self._camera:world_xy_to_screen_xy(self._player:get_position()))
+
+        if stage_select.initial_offset == nil then
+            stage_select.initial_offset = self._camera:get_offset()
+        end
+        stage_select.debris_emitter:set_offset(select(1, self._camera:get_offset()) - stage_select.initial_offset, 0)
+    end
+
     if offset_fraction > 0.5 then
         stage_select.item_reveal_animation:update(delta)
         stage_select.page_indicator:update(delta)
         stage_select.item_frame:update(delta)
-        stage_select.debris_emitter:update(delta)
     end
+
+    stage_select.page_indicator:set_hue(stage_select.item_frame:get_hue())
 
     if self._state == mn.MenuSceneState.FALLING then
         -- transition to stage screen once player is in position
@@ -647,7 +662,6 @@ function mn.MenuScene:update(delta)
 
             stage_select.scroll_elapsed = stage_select.scroll_elapsed + delta
         end
-
     elseif self._state == mn.MenuSceneState.EXITING then
         if stage_select.waiting_for_exit then
             -- wait for player to exit screen, then fade out
@@ -775,7 +789,16 @@ function mn.MenuScene:draw()
             self._bloom:bind()
             love.graphics.clear()
 
+            local stencil_value = rt.graphics.get_stencil_value()
+            rt.graphics.stencil(stencil_value, function()
+                stage_select.item_frame:draw_mask()
+            end)
+
+            rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+
             stage_select.debris_emitter:draw()
+
+            rt.graphics.set_stencil_compare_mode(nil)
 
             love.graphics.push()
             love.graphics.translate(offset_x * stage_select.reveal_width, 0)
@@ -793,6 +816,8 @@ function mn.MenuScene:draw()
     self._camera:bind()
     self._player:draw()
     self._camera:unbind()
+
+    self._stage_select.debris_emitter:draw_above()
 
     if rt.GameState:get_is_bloom_enabled() then
         self._bloom:composite()
