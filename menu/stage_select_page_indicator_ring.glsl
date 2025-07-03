@@ -70,8 +70,8 @@ uniform float elapsed;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 pixel_size = vec2(2. / textureSize(img, 0));
-    float threshold = 0.2;
-    float smoothness = 0.05;
+    float threshold = 0.5;
+    float smoothness = 0.25;
     vec4 data = texture(img, texture_coordinates);
 
     float gradient_x = 0.0;
@@ -88,11 +88,13 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
         }
     }
 
-    float noise = 0.1 * gradient_noise(vec3(texture_coordinates * 5, elapsed / 2));
+    float noise = 0.1 * gradient_noise(vec3(texture_coordinates * 2, elapsed / 2));
     vec3 final_color = lch_to_rgb(vec3(0.8, 1, hue + noise));
 
-    vec4 outline = length(vec2(gradient_x, gradient_y)) * black;
+    final_color *= 1.5; // simulates masking step for particle frame, which increases overall luminocity
+
+    vec4 outline = smoothstep(0.0, 1.0, length(vec2(gradient_x, gradient_y))) * black;
     float alpha = smoothstep(threshold - smoothness, threshold + smoothness, data.r);
-    return vec4(outline.rgb + final_color * alpha, max(alpha, outline.a));
+    return vec4(outline.rgb + final_color * alpha, max(outline.a, float(data.r > 0.05))); // does not cause aliasing because alias region is covered by smoothed outline
 }
 #endif

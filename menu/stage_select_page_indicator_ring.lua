@@ -1,16 +1,16 @@
-rt.settings.menu.stage_select_particle_ring = {
-    min_radius = 0.8, -- factor of thickness
-    max_radius = 1.2,
+rt.settings.menu.stage_select_page_indicator_ring = {
+    min_radius = 0.7, -- factor of thickness
+    max_radius = 1,
     min_velocity = 0.2,
-    max_velocity = 1.5, -- factors of dxy
-    noise_velocity = 0.2, -- cycles per second
-    max_noise_offset = 40, -- px
-    coverage = 5,
-    max_hue_offset = 0.05
+    max_velocity = 1, -- factors of dxy
+    linear_velocity = 5, -- px / s
+    noise_velocity = 0.05, -- cycles per second
+    max_noise_offset = 0.25, -- factor of thickness
+    coverage = 4
 }
 
---- @class mn.StageSelectParticleRing
-mn.StageSelectParticleRing = meta.class("StageSelectParticleRing")
+--- @class mn.StageSelectPageIndicatorRing
+mn.StageSelectPageIndicatorRing = meta.class("StageSelectPageIndicatorRing")
 
 local _x = 1
 local _y = 2
@@ -18,9 +18,8 @@ local _radius = 3
 local _angle = 4
 local _velocity = 5
 local _direction = 6
-local _hue_offset = 7
-local _hold_velocity_x = 8
-local _hold_velocity_y = 9
+local _noise_dx = 7
+local _noise_dy = 8
 
 local _mesh_x = _x
 local _mesh_y = _y
@@ -37,28 +36,28 @@ local _particle_mesh_format = {
 local _data_mesh_format = {
     { location = 3, name = "offset", format = "floatvec2" },
     { location = 4, name = "radius", format = "float" },
-    { location = 5, name = "color", format = "floatvec3" }
 }
 
 local _particle_shader, _outline_shader
 
 --- @brief
-function mn.StageSelectParticleRing:instantiate(x, y, radius, thickness)
+function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
     if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_page_indicator_ring_particle.glsl") end
     if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_page_indicator_ring.glsl") end
 
-    meta.assert(x, "Number", y, "Number", radius, "Number", thickness, "Number")
+    meta.assert(radius, "Number", thickness, "Number")
 
-    self._x, self._y = x, y
+    thickness = math.max(thickness, 1)
+    self._thickness = thickness
+    self._x, self._y = 0, 0
     self._radius = radius
     self._hue = 0
 
-
-    local settings = rt.settings.menu.stage_select_particle_ring
-    local min_radius, max_radius = settings.min_radius * thickness * rt.get_pixel_scale(), settings.max_radius * thickness * rt.get_pixel_scale()
+    local settings = rt.settings.menu.stage_select_page_indicator_ring
+    local min_radius, max_radius = settings.min_radius * thickness, settings.max_radius * thickness
     local min_velocity, max_velocity = settings.min_velocity, settings.max_velocity
 
-    local max_offset = rt.settings.menu.stage_select_particle_ring.max_noise_offset * rt.get_pixel_scale()
+    local max_offset = rt.settings.menu.stage_select_page_indicator_ring.max_noise_offset * thickness
     local padding = (max_offset + 2 * max_radius) + rt.get_pixel_scale() * 20
     self._canvas = rt.RenderTexture(2 * radius + 2 * padding, 2 * radius + 2 * padding)
     self._canvas_padding = padding
@@ -80,21 +79,16 @@ function mn.StageSelectParticleRing:instantiate(x, y, radius, thickness)
             [_angle] = angle,
             [_velocity] = rt.random.choose(min_velocity, max_velocity), -- direction along ring
             [_direction] = rt.random.choose(-1, 1), -- direction along ring
-            [_hue_offset] = rt.random.number(-max_hue_offset, max_hue_offset),
-            [_hold_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
-            [_hold_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
+            [_noise_dx] = math.cos(rt.random.number(0, 2 * math.pi)),
+            [_noise_dy] = math.sin(rt.random.number(0, 2 * math.pi))
         }
 
         table.insert(self._particles, particle)
 
-        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue + particle[_hue_offset], 1)
         table.insert(self._data_mesh_data, {
             [_mesh_x] = particle_x * radius,
             [_mesh_y] = particle_y * radius,
-            [_mesh_radius] = math.mix(min_radius, max_radius, radius_fraction),
-            [_mesh_r] = r,
-            [_mesh_g] = g,
-            [_mesh_b] = b
+            [_mesh_radius] = math.mix(min_radius, max_radius, radius_fraction)
         })
 
         self._n_particles = self._n_particles + 1
@@ -133,18 +127,18 @@ function mn.StageSelectParticleRing:instantiate(x, y, radius, thickness)
 
     self._particle_mesh:attach_attribute(self._data_mesh, _data_mesh_format[1].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
     self._particle_mesh:attach_attribute(self._data_mesh, _data_mesh_format[2].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
-    self._particle_mesh:attach_attribute(self._data_mesh, _data_mesh_format[3].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
 end
 
 --- @brief
-function mn.StageSelectParticleRing:update(delta)
+function mn.StageSelectPageIndicatorRing:update(delta)
     local center_x, center_y, radius = 0, 0, self._radius
 
-    local noise_offset = rt.settings.menu.stage_select_particle_ring.max_noise_offset * rt.get_pixel_scale()
-    local noise_velocity = rt.settings.menu.stage_select_particle_ring.noise_velocity * rt.get_pixel_scale()
+    local noise_offset = rt.settings.menu.stage_select_page_indicator_ring.max_noise_offset * self._thickness
+    local noise_velocity = rt.settings.menu.stage_select_page_indicator_ring.noise_velocity
     local elapsed = rt.SceneManager:get_elapsed()
+    local max_radius = rt.settings.menu.stage_select_page_indicator_ring.max_radius * self._thickness
 
-    local linear_velocity = 20 * rt.get_pixel_scale()
+    local linear_velocity = rt.settings.menu.stage_select_page_indicator_ring.linear_velocity * rt.get_pixel_scale()
     local angular_velocity = linear_velocity / radius
     for i = 1, self._n_particles do
         local particle = self._particles[i]
@@ -158,13 +152,13 @@ function mn.StageSelectParticleRing:update(delta)
 
         -- offset based on onise
         local offset =  noise_offset * (rt.random.noise(
-            particle[_hold_velocity_x] * elapsed * noise_velocity,
-            particle[_hold_velocity_y] * elapsed * noise_velocity
-        ) + 1) / 2
+            particle[_noise_dx] * elapsed * noise_velocity,
+            particle[_noise_dy] * elapsed * noise_velocity
+        ) * 2) -- sic, not -1 so particles don't overlap center element
 
         local dx, dy = math.cos(current), math.sin(current)
-        local x = center_y + dx * (radius + offset)
-        local y = center_x + dy * (radius + offset)
+        local x = center_y + dx * (radius + offset + max_radius) -- max radius to also prevent overlap
+        local y = center_x + dy * (radius + offset + max_radius)
 
         particle[_angle] = current
         particle[_x] = x
@@ -179,12 +173,12 @@ function mn.StageSelectParticleRing:update(delta)
 end
 
 --- @brief
-function mn.StageSelectParticleRing:set_hue(hue)
+function mn.StageSelectPageIndicatorRing:set_hue(hue)
     self._hue = hue
 end
 
 --- @brief
-function mn.StageSelectParticleRing:draw()
+function mn.StageSelectPageIndicatorRing:draw()
 
     local w, h = self._canvas:get_size()
 
@@ -209,7 +203,7 @@ function mn.StageSelectParticleRing:draw()
     love.graphics.translate(self._x - 0.5 * w, self._y - 0.5 * h)
     local r, g, b, a = love.graphics.getColor()
     love.graphics.setBlendMode("alpha", "premultiplied")
-    love.graphics.setColor(1, 1, 1, 1) --r * a, g * a, b * a, a)
+    love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(self._canvas:get_native())
     love.graphics.setBlendMode("alpha")
     _outline_shader:unbind()

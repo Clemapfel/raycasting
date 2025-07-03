@@ -312,7 +312,8 @@ function mn.StageSelectParticleFrame:update(delta)
     local lower_i = math.floor(t)
     local higher_i = math.ceil(t)
     if higher_i == lower_i then higher_i = lower_i + 1 end -- t is an integer
-    self._hue = math.mix((lower_i - 1) / self._n_pages, (higher_i - 1) / self._n_pages, math.fract(t))
+    self._hue = math.mix(lower_i / self._n_pages, higher_i / self._n_pages, math.fract(t))
+    if self._hue < 0 then self._hue = 0 end
 
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]

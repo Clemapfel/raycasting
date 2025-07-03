@@ -12,7 +12,7 @@ require "menu.stage_select_debris_emitter"
 require "overworld.coin_particle"
 
 rt.settings.menu_scene = {
-    player_max_falling_velocity = 1500,
+    player_max_falling_velocity = 1000,
     player_falling_x_damping = 0.98,
     player_falling_x_perturbation = 3,
     exit_acceleration = 60, -- per second
@@ -30,6 +30,7 @@ rt.settings.menu_scene = {
         scroll_speed = 1,
         exititing_fraction = 2, -- number of screen heights until fade out starts
         scroll_ticks_per_second = 2,
+        max_debris_speedup = 4
     },
 }
 
@@ -58,6 +59,12 @@ function mn.MenuScene:instantiate(state)
     if _title_shader_sdf == nil then
         _title_shader_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 1 })
     end
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then _background_shader:recompile() end
+    end)
 
     self._input_blocked = true
 
@@ -183,6 +190,7 @@ function mn.MenuScene:instantiate(state)
                 self._fade:start()
                 self._fade:signal_connect("hidden", function()
                     stage_select.debris_emitter:reset()
+                    stage_select.debris_emitter_initialized = false
                     self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
                     return meta.DISCONNECT_SIGNAL
                 end)
@@ -228,6 +236,7 @@ function mn.MenuScene:instantiate(state)
         stage_select.item_frame = mn.StageSelectParticleFrame(stage_select.n_items)
         stage_select.page_indicator = mn.StageSelectPageIndicator(stage_select.n_items)
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
+        stage_select.debris_emitter_initialized = false
 
         for id in values(stage_ids) do
             table.insert(stage_select.items, mn.StageSelectItem(id))
@@ -291,6 +300,11 @@ function mn.MenuScene:_create_from_state()
 
         local time, flow, total = rt.GameState:get_stage_grades(item:get_stage_id())
         stage_select.page_indicator:set_stage_grade(i, total)
+        stage_select.page_indicator:set_stage_grade(i, ({
+            rt.StageGrade.A,
+            rt.StageGrade.S,
+            rt.StageGrade.SS
+        })[i]) -- TODO
     end
 end
 
@@ -525,11 +539,12 @@ function mn.MenuScene:update(delta)
     if not self._initialized then return end
 
     self._world:update(delta)
-    self._camera:update(delta)
     self._player:update(delta)
+    self._camera:update(delta)
 
     self._shader_elapsed = self._shader_elapsed + delta
     self._shader_camera_offset = { self._camera:get_offset() }
+
     if self._state == mn.MenuSceneState.EXITING then
         local px, py = self._player:get_position()
         self._exit_elapsed = self._exit_elapsed + delta
@@ -589,13 +604,12 @@ function mn.MenuScene:update(delta)
     self._shader_fraction = math.clamp(py / rt.settings.menu_scene.title_screen.falling_fraction_threshold, 0, 1)
     self._player:set_flow(self._shader_fraction)
 
+    local max_speedup = rt.settings.menu_scene.stage_select.max_debris_speedup
+    local speedup = math.max(0.1, self._stage_select.item_frame:get_hue() * max_speedup)
+
     -- clamp velocity
     local vx, vy = self._player:get_velocity()
     local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
-
-    if self._state == mn.MenuSceneState.STAGE_SELECT then
-        max_velocity = max_velocity * math.max(1, 20 * self._stage_select.n_items * self._stage_select.item_frame:get_hue())
-    end
 
     vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
     vy = math.min(vy, max_velocity)
@@ -617,7 +631,8 @@ function mn.MenuScene:update(delta)
     end
 
     local stage_select = self._stage_select
-    if offset_fraction > 0.85 then
+
+    if offset_fraction > 0.95 then
         stage_select.debris_emitter:update(delta)
         stage_select.debris_emitter:set_player_position(self._camera:world_xy_to_screen_xy(self._player:get_position()))
 
@@ -634,6 +649,7 @@ function mn.MenuScene:update(delta)
     end
 
     stage_select.page_indicator:set_hue(stage_select.item_frame:get_hue())
+    stage_select.debris_emitter:set_speedup(speedup)
 
     if self._state == mn.MenuSceneState.FALLING then
         -- transition to stage screen once player is in position
@@ -791,6 +807,7 @@ function mn.MenuScene:draw()
 
             local stencil_value = rt.graphics.get_stencil_value()
             rt.graphics.stencil(stencil_value, function()
+                stage_select.page_indicator:draw()
                 stage_select.item_frame:draw_mask()
             end)
 
@@ -803,6 +820,7 @@ function mn.MenuScene:draw()
             love.graphics.push()
             love.graphics.translate(offset_x * stage_select.reveal_width, 0)
             stage_select.item_frame:draw_bloom()
+            stage_select.page_indicator:draw_bloom()
             love.graphics.pop()
 
             self._camera:bind()

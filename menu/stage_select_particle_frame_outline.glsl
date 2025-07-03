@@ -84,7 +84,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
 
     #if MODE == MODE_OUTLINE
 
-        float outline_thickness = 0.25;
+        float outline_thickness = 0.5;
         float gradient_x = 0.0;
         float gradient_y = 0.0;
 
@@ -102,7 +102,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
         float magnitude = length(vec2(gradient_x, gradient_y));
         float alpha = smoothstep(0.0, 1.0, magnitude);
 
-        float noise = 0.25 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2));
+        float noise = 0.25 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
         vec3 hue = lch_to_rgb(vec3(0.8, 1, hue + noise));
 
         return vec4(hue * alpha, alpha);

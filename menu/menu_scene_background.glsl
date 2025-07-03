@@ -129,6 +129,7 @@ float symmetric(float value) {
     return abs(fract(value) * 2.0 - 1.0);
 }
 
+
 uniform float fraction = 1;
 uniform vec4 black = vec4(0, 0, 0, 1);
 uniform float hue;
@@ -160,10 +161,13 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_posit
     }
 
     // LCH-based gradient
-    float bg_y = uv.y + elapsed / 4;
+    float bg_y = uv.y / 1.4 + elapsed / 4;
     float gradient_alpha = symmetric(bg_y); // Invisible at the top, visible at the bottom
-    vec3 gradient_color = lch_to_rgb(vec3(0.8, 0.9, mix(0.7, 1.0, bg_y))) * (1 - gradient_noise(vec3(uv * 2, time)));
-    vec4 bg = vec4(gradient_color, gradient_alpha) * smoothstep(0, 0.8, gradient_noise(vec3(uv * 2, time)));
+    vec3 gradient_color = lch_to_rgb(vec3(0.8, 0.9, mix(0.7, 1.0, bg_y))) * (1 - gradient_noise(vec3(uv * 1.5, time)));
+    vec4 bg = vec4(gradient_color, gradient_alpha) * smoothstep(0, 0.8, gradient_noise(vec3(uv , time)));
+
+    // gradient at edge of screen
+    bg += vec4(fraction * 3 * smoothstep(0, 1.8, (1 - gaussian((texture_coords.y) + gradient_noise(vec3(uv.xx, elapsed) * 1), 1.0 / 5))));
 
     return mix(stars, mix(0.6, 0.8, fraction) * bg, min(1 - value + fraction, 1));
 }

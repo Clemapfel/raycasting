@@ -38,7 +38,7 @@ function mn.StageSelectDebrisEmitter:instantiate()
     end
 
     self._spawn_elapsed = 0
-    self._spawn_rate = 1
+    self._speedup = 1
     self._next_spawn = 0
     self._hitbox_x, self._hitbox_y, self._hitbox_radius = math.huge, math.huge, 0
     self._particles = {}
@@ -204,7 +204,8 @@ function mn.StageSelectDebrisEmitter:update(delta)
 
     -- spawn new particles
     self._spawn_elapsed = self._spawn_elapsed + delta
-    if self._spawn_elapsed >= self._next_spawn / self._spawn_rate and _n_particles < settings.max_n_particles then
+    local effective_speedup = math.max(self._speedup or 1, 0.0001) -- avoid division by zero
+    while self._spawn_elapsed >= self._next_spawn and _n_particles < settings.max_n_particles do
         table.insert(self._particles, _new_particle(
             rt.random.number(
                 self._bounds.x + max_radius - self._offset_x,
@@ -214,8 +215,9 @@ function mn.StageSelectDebrisEmitter:update(delta)
         ))
 
         _n_particles = _n_particles + 1
-        self._next_spawn = rt.random.number(0, 1 / settings.spawn_frequency)
-        self._spawn_elapsed = 0
+        self._spawn_elapsed = self._spawn_elapsed - self._next_spawn
+        -- Adjust spawn interval according to speedup: higher speedup = shorter interval
+        self._next_spawn = rt.random.number(0, 1 / (settings.spawn_frequency * effective_speedup))
     end
 
     local to_despawn = {}
@@ -223,13 +225,13 @@ function mn.StageSelectDebrisEmitter:update(delta)
         local particle = self._particles[particle_i]
         particle.last_x, particle.last_y = particle.x, particle.y
 
-        local velocity = math.mix(min_velocity, max_velocity, particle.velocity)
+        local velocity = math.mix(min_velocity, max_velocity, particle.velocity) * self._speedup
         particle.y = particle.y - delta * velocity
         particle.rotation = particle.rotation + delta * math.mix(
             min_angular_velocity,
             max_angular_velocity,
             math.abs(particle.angular_velocity)
-        )
+        ) * self._speedup
 
         -- despawn if particle leaves screen
         if particle.y < self._bounds.y - self._offset_y - 2 * max_radius - particle.trail_scale_y * trail_h or
@@ -397,6 +399,7 @@ end
 function mn.StageSelectDebrisEmitter:reset()
     _n_particles = _n_particles - table.sizeof(self._particles)
     self._particles = {}
+    self._collision = {}
 end
 
 --- @brief
@@ -408,6 +411,6 @@ function mn.StageSelectDebrisEmitter:set_offset(x, y)
 end
 
 --- @brief
-function mn.StageSelectDebrisEmitter:set_spawn_rate(fraction)
-    self._spawn_fraction = fraction
+function mn.StageSelectDebrisEmitter:set_speedup(fraction)
+    self._speedup = fraction
 end

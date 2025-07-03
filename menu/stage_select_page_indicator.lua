@@ -1,6 +1,7 @@
 require "common.player_body"
 require "common.smoothed_motion_1d"
 require "common.stage_grade"
+require "menu.stage_select_page_indicator_ring"
 
 --- @class mn.StageSelectPageIndicator
 mn.StageSelectPageIndicator = meta.class("StageSelectPageIndicator", rt.Widget)
@@ -29,6 +30,7 @@ function mn.StageSelectPageIndicator:instantiate(n_pages)
     self._stencil = rt.AABB()
 
     self._motion = rt.SmoothedMotion1D(0, 2 * rt.get_pixel_scale())
+    self._ring = nil -- mn.StageSelectPageIndicatorRing
     self._scroll_offset = 0 -- for scrolling
     self._total_item_height = 0
     self._radius = 1
@@ -66,6 +68,7 @@ end
 function mn.StageSelectPageIndicator:update(delta)
     self._selection_y = self._motion:update(delta)
     self._elapsed = self._elapsed + delta
+    self._ring:update(delta)
 
     if self._total_item_height <= self._stencil.height then
         self._scroll_offset = 0
@@ -143,6 +146,7 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     self:set_selected_page(self._selected_page_i)
     self._motion:skip()
     self._circle_mapping_upgrade_needed = true
+    self._ring = mn.StageSelectPageIndicatorRing(self._selection_radius, math.floor(2.5 * rt.get_pixel_scale()))
 end
 
 --- @brief
@@ -203,26 +207,21 @@ function mn.StageSelectPageIndicator:draw()
     love.graphics.setScissor()
 
     -- selection
-    rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth((3 + 2) * rt.get_pixel_scale())
-    love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius, 64)
-
-    self._color:bind()
-    love.graphics.setLineWidth(3 * rt.get_pixel_scale())
-    love.graphics.circle("line", self._selection_x, self._selection_y, self._selection_radius, 64)
-
+    love.graphics.translate(self._selection_x, self._selection_y)
+    love.graphics.setColor(1, 1, 1, 1)
+    self._ring:draw()
     love.graphics.pop()
 
     -- tris
     if self._selected_page_i > 1 then
-        self._color:bind()
+        rt.Palette.FOREGROUND:bind()
     else
         rt.Palette.GRAY_6:bind()
     end
     love.graphics.polygon("fill", self._top_tri)
 
     if self._selected_page_i < self._n_pages then
-        self._color:bind()
+        rt.Palette.FOREGROUND:bind()
     else
         rt.Palette.GRAY_6:bind()
     end
@@ -239,4 +238,34 @@ end
 function mn.StageSelectPageIndicator:set_hue(hue)
     self._hue = hue
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, 1))
+    self._ring:set_hue(hue)
+end
+
+--- @brief
+function mn.StageSelectPageIndicator:draw_bloom()
+    love.graphics.push()
+    love.graphics.translate(self._selection_x, self._selection_y)
+    self._ring:draw()
+    love.graphics.pop()
+
+
+    local shader_bound = false
+    for grade, circles in pairs(self._grade_to_circles) do
+        if grade == rt.StageGrade.SS then
+            if not shader_bound then
+                _shader:bind()
+                _shader:send("state", 1) -- perfect
+                shader_bound = true
+            end
+
+            love.graphics.setColor(1, 1, 1, 1)
+            for circle in values(circles) do
+                love.graphics.circle("fill", table.unpack(circle))
+            end
+        end
+    end
+
+    if shader_bound then
+        _shader:unbind()
+    end
 end
