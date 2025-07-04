@@ -60,8 +60,8 @@ local _floor = math.floor --function(x) return x end
 
 --- @brief
 function rt.Camera:bind()
-    local w, h = love.graphics.getDimensions()
     love.graphics.push()
+    local w, h = love.graphics.getDimensions()
 
     local origin_x, origin_y = _floor(0.5 * w), _floor(0.5 * h)
     love.graphics.translate(origin_x, origin_y)
@@ -335,6 +335,7 @@ function rt.Camera:get_world_bounds()
     h = h / scale
     return self._current_x - 0.5 * w, self._current_y - 0.5 * h, w, h
 end
+
 
 --- @brief
 --- @param intensity Number in [0, 1]

@@ -687,7 +687,7 @@ function mn.MenuScene:update(delta)
                     require "overworld.overworld_scene"
                     local item = stage_select.items[stage_select.selected_item_i]
                     if item ~= nil then
-                        rt.SceneManager:push(ow.StageTitleCardScene, item:get_stage_id())
+                        rt.SceneManager:push(ow.OverworldScene, item:get_stage_id(), true) -- with titlecard
                     end
                 end)
                 stage_select.waiting_for_exit = false

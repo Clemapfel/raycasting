@@ -10,10 +10,11 @@ require "physics.physics"
 require "menu.pause_menu"
 require "common.bloom"
 require "common.fade"
+require "overworld.stage_title_card"
 
 do
     local bloom = 0.2
-    rt.settings.overworld.overworld_scene = {
+    rt.settings.overworld_scene = {
         camera_translation_velocity = 400, -- px / s,
         camera_scale_velocity = 0.05, -- % / s
         camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
@@ -22,7 +23,8 @@ do
         results_screen_fraction = 0.5,
 
         bloom_blur_strength = 1.2, -- > 0
-        bloom_composite_strength = bloom -- [0, 1]
+        bloom_composite_strength = bloom, -- [0, 1]
+        title_card_min_duration = 10, -- seconds
     }
 end
 
@@ -84,8 +86,12 @@ function ow.OverworldScene:instantiate(state)
         _pause_menu_active = false,
 
         _bloom = nil, -- rt.Blur
-        _fade = rt.Fade(2),
+        _fade = rt.Fade(1),
         _fade_active = false,
+
+        _title_card = ow.StageTitleCard("TEST"),
+        _title_card_active = false,
+        _title_card_elapsed = 0,
 
         _player_canvas = nil
     })
@@ -106,10 +112,10 @@ function ow.OverworldScene:instantiate(state)
         elseif which == "h" then
         elseif which == "j" then
             self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
-            rt.settings.overworld.overworld_scene.bloom_composite_strength = rt.settings.overworld.overworld_scene.bloom_composite_strength - 0.01
+            rt.settings.overworld_scene.bloom_composite_strength = rt.settings.overworld_scene.bloom_composite_strength - 0.01
         elseif which == "k" then
             self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() + 1 / 10)
-            rt.settings.overworld.overworld_scene.bloom_composite_strength =  rt.settings.overworld.overworld_scene.bloom_composite_strength + 0.01
+            rt.settings.overworld_scene.bloom_composite_strength =  rt.settings.overworld_scene.bloom_composite_strength + 0.01
         end
     end)
 
@@ -149,7 +155,7 @@ function ow.OverworldScene:instantiate(state)
     local _left_pressed = false
 
     local function _update_velocity()
-        local max_velocity = rt.settings.overworld.overworld_scene.camera_translation_velocity
+        local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
         if _left_pressed == _right_pressed then
             self._camera_translation_velocity_x = 0
         elseif _left_pressed then
@@ -170,7 +176,7 @@ function ow.OverworldScene:instantiate(state)
             self._player_is_focused = false
         end
     end
-    
+
     function self:_set_cursor_visible(b)
         self._cursor_visible = b
         if b == false then
@@ -182,7 +188,7 @@ function ow.OverworldScene:instantiate(state)
     end
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        local max_velocity = rt.settings.overworld.overworld_scene.camera_translation_velocity
+        local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
         if which == "up" then
             _up_pressed = true
         elseif which == "right" then
@@ -246,13 +252,14 @@ function ow.OverworldScene:instantiate(state)
     self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
         if self._camera_mode ~= ow.CameraMode.MANUAL and love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl") then
             local current = self._camera:get_scale()
-            current = current + dy * rt.settings.overworld.overworld_scene.camera_scale_velocity
+            current = current + dy * rt.settings.overworld_scene.camera_scale_velocity
             self._camera:set_scale(math.clamp(current, 1 / 3, 3))
         end
     end)
 
     self._background:realize()
     self._pause_menu:realize()
+    self._title_card:realize()
 
     self._player_canvas_scale = 2
     local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 2.5
@@ -274,9 +281,13 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
     self._input:deactivate()
     self._fade_active = false
     self._fade:start(false, true)
+    self._title_card:fade_in()
+    self._title_card_elapsed = 0
+
+    self._player._input:deactivate()
     self._stage:signal_connect("done", function()
-        self._input:activate()
-        self._fade_active = true
+        self._queue_fade_out = true
+        return meta.DISCONNECT_SIGNAL
     end)
 
     love.mouse.setVisible(false)
@@ -286,8 +297,6 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
     if self._pause_menu_active then
         self._pause_menu:present()
     end
-
-    self._input:activate()
 end
 
 --- @brief
@@ -304,7 +313,7 @@ end
 
 --- @brief
 function ow.OverworldScene:size_allocate(x, y, width, height)
-    local factor = rt.settings.overworld.overworld_scene.camera_pan_width_factor
+    local factor = rt.settings.overworld_scene.camera_pan_width_factor
     local gradient_w = factor * math.min(width, height)
     local gradient_h = gradient_w
     local r, g, b, a = 1, 1, 1, 0.2
@@ -312,10 +321,10 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
 
     if rt.GameState:get_is_bloom_enabled() then
         self._bloom = rt.Bloom(width, height)
-        self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
+        self._bloom:set_bloom_strength(rt.settings.overworld_scene.bloom_blur_strength)
         if self._stage ~= nil then
             self._stage:get_blood_splatter():set_bloom_factor(
-                rt.settings.overworld.overworld_scene.bloom_composite_strength +
+                rt.settings.overworld_scene.bloom_composite_strength +
                 rt.settings.overworld.normal_map.segment_light_intensity
             )
         end
@@ -351,6 +360,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
 
     self._background:reformat(0, 0, width, height)
     self._pause_menu:reformat(0, 0, width, height)
+    self._title_card:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -443,13 +453,13 @@ function ow.OverworldScene:draw()
     if self._bloom == nil and rt.GameState:get_is_bloom_enabled() then
         local _, _, width, height = self:get_bounds():unpack()
         self._bloom = rt.Bloom(width, height,
-            rt.settings.overworld.overworld_scene.bloom_msaa,
-            rt.settings.overworld.overworld_scene.bloom_texture_format
+            rt.settings.overworld_scene.bloom_msaa,
+            rt.settings.overworld_scene.bloom_texture_format
         )
-        self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
+        self._bloom:set_bloom_strength(rt.settings.overworld_scene.bloom_blur_strength)
         if self._stage ~= nil then
             self._stage:get_blood_splatter():set_bloom_factor(
-                rt.settings.overworld.overworld_scene.bloom_composite_strength +
+                rt.settings.overworld_scene.bloom_composite_strength +
                 rt.settings.overworld.normal_map.segment_light_intensity
             )
         end
@@ -473,17 +483,20 @@ function ow.OverworldScene:draw()
         self._player:draw_core()
         self._camera:unbind()
 
+        self._title_card:draw()
+
         if rt.GameState:get_is_bloom_enabled() == true then
             love.graphics.push()
             self._bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
             self._camera:bind()
             self._player:draw_bloom()
+            self._title_card:draw()
             self._camera:unbind()
             self._bloom:unbind()
             love.graphics.pop()
 
-            self._bloom:composite(rt.settings.overworld.overworld_scene.bloom_composite_strength)
+            self._bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
         end
     else -- not fading
         self._background:draw()
@@ -506,9 +519,11 @@ function ow.OverworldScene:draw()
             self._bloom:unbind()
             love.graphics.pop()
 
-            self._bloom:composite(rt.settings.overworld.overworld_scene.bloom_composite_strength)
+            self._bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
         end
     end
+
+    self._title_card:draw()
 
     love.graphics.pop()
 
@@ -606,9 +621,21 @@ local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
+
+    if self._queue_fade_out and self._title_card_elapsed >= rt.settings.overworld_scene.title_card_min_duration then
+        self._input:activate()
+        self._player._input:activate()
+        self._fade_active = true
+        self._title_card:fade_out()
+        self._queue_fade_out = nil
+    end
+
     if self._fade_active then
         self._fade:update(delta)
     end
+
+    self._title_card:update(delta)
+    self._title_card_elapsed = self._title_card_elapsed + delta
 
     if self._pause_menu_active then
         self._pause_menu:update(delta)
@@ -649,7 +676,7 @@ function ow.OverworldScene:update(delta)
 
     -- mouse-based scrolling
     if self._cursor_visible == true then
-        local max_velocity = rt.settings.overworld.overworld_scene.camera_translation_velocity
+        local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
         self._camera_translation_velocity_x = (-1 * self._camera_pan_left_speed + 1 * self._camera_pan_right_speed) * max_velocity
         self._camera_translation_velocity_y = (-1 * self._camera_pan_up_speed + 1 * self._camera_pan_down_speed) * max_velocity
 
@@ -695,14 +722,14 @@ function ow.OverworldScene:update(delta)
 
             local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
         end
-    elseif self._camera_freeze_elapsed > rt.settings.overworld.overworld_scene.camera_freeze_duration and love.window.hasMouseFocus() then
+    elseif self._camera_freeze_elapsed > rt.settings.overworld_scene.camera_freeze_duration and love.window.hasMouseFocus() then
         local cx, cy = self._camera:get_position()
         cx = cx + self._camera_translation_velocity_x * delta
         cy = cy + self._camera_translation_velocity_y * delta
         self._camera:set_position(cx, cy)
     end
 
-    local max_velocity = rt.settings.overworld.overworld_scene.camera_scale_velocity
+    local max_velocity = rt.settings.overworld_scene.camera_scale_velocity
     if love.keyboard.isDown("m") then
         self._camera_scale_velocity = 1 * max_velocity * 5
     elseif love.keyboard.isDown("n") then
@@ -744,7 +771,7 @@ end
 
 --- @brief
 function ow.OverworldScene:_handle_trigger(value, left_or_right)
-    local max_velocity = rt.settings.overworld.overworld_scene.camera_scale_velocity
+    local max_velocity = rt.settings.overworld_scene.camera_scale_velocity
     if left_or_right == false then
         self._camera_scale_velocity = value * max_velocity * 5
     else

@@ -1,11 +1,10 @@
+require "common.player"
 require "overworld.stage_config"
 require "overworld.object_wrapper"
-require "common.player"
 require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
 require "overworld.mirror"
 require "overworld.normal_map"
-
 require "physics.physics"
 
 -- include all overworld classes
@@ -25,7 +24,7 @@ rt.settings.overworld.stage = {
 --- @class ow.Stage
 --- @signal initialized (self) -> nil
 ow.Stage = meta.class("Stage", rt.Drawable)
-meta.add_signals(ow.Stage, "initialized", "respawn")
+meta.add_signals(ow.Stage, "initialized", "respawn", "done")
 
 ow.Stage._config_atlas = {}
 
@@ -78,6 +77,13 @@ function ow.Stage:instantiate(scene, id)
     })
     self._world:set_use_fixed_timestep(false)
 
+    self._signal_done_emitted = false
+    self._normal_map_done = false
+    self._normal_map:signal_connect("done", function()
+        self._normal_map_done = true
+        return meta.DISCONNECT_SIGNAL
+    end)
+
     local render_priorities = {}
     local render_priority_to_object = {}
     local _get_default_render_priority = function()
@@ -93,7 +99,6 @@ function ow.Stage:instantiate(scene, id)
     for layer_i = 1, self._config:get_n_layers() do
         --local spritebatches = self._config:get_layer_sprite_batches(layer_i)
         -- TODO: handle sprite batches
-
         -- init object instances
         local object_wrappers = self._config:get_layer_object_wrappers(layer_i)
         if table.sizeof(object_wrappers) > 0 then
@@ -139,6 +144,7 @@ function ow.Stage:instantiate(scene, id)
             end
         end
     end
+
 
     local render_priorities_in_order = {}
     for priority in keys(render_priorities) do
@@ -263,6 +269,11 @@ end
 
 --- @brief
 function ow.Stage:update(delta)
+    if self._normal_map_done and self._is_initialized and self._signal_done_emitted == false then
+        self:signal_emit("done")
+        self._signal_done_emitted = true
+    end
+
     for object in values(self._to_update) do
         local a = love.timer.getTime()
         object:update(delta)

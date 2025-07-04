@@ -330,19 +330,17 @@ function ow.Checkpoint:_set_state(state)
 
         -- skip ray animation
         player:disable()
-        player:set_is_bubble(true)
+        player:set_is_bubble(false)
         player:set_velocity(0, 0)
         player:set_gravity(1)
-        player:set_opacity(0)
-        player:set_flow(0)
+        player:set_flow(1)
         player:set_flow_velocity(0)
-        player:set_trail_visible(false)
-        player:teleport_to(self._bottom_x, self._bottom_y)
+        player:set_trail_visible(true)
 
         local camera = self._scene:get_camera()
         camera:set_position(self._bottom_x, self._bottom_y)
-
-        self:_set_state(_STATE_DEFAULT)
+        local x, y, w, h = camera:get_world_bounds()
+        player:teleport_to(self._bottom_x, self._bottom_y - player:get_radius() * 2 - 0.5 * w)
     end
 end
 
@@ -427,7 +425,17 @@ function ow.Checkpoint:update(delta)
             self._elapsed = self._elapsed + delta
         end
     elseif self._state == _STATE_FIRST_ENTRY then
+        local player = self._scene:get_player()
+        local camera = self._scene:get_camera()
+        local x, y, w, h = camera:get_world_bounds()
+        local top_y = self._bottom_y - player:get_radius() * 2 - 0.5 * w
 
+        local px, py = player:get_position()
+        player:set_flow(1)
+        if math.abs(py - self._bottom_y) <  2 * player:get_radius() then
+            self:_set_state(_STATE_DEFAULT)
+            self._scene:get_player():reset_flow()
+        end
     end
 
     if not self._is_broken then

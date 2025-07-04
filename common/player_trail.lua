@@ -97,6 +97,14 @@ end
 
 --- @brief
 function rt.PlayerTrail:_draw_trail(x1, y1, x2, y2)
+    local player = self._player
+    local vx, vy = player:get_velocity()
+    local step = 1 / 60
+    if math.distance(x1, y1, x2, y2) > math.magnitude(vx * step, vy * step) then
+        -- discard to catch teleports, etc.
+        return
+    end
+
     local dx, dy = math.normalize(x2 - x1, y2 - y1)
     local inner_width = math.min(100 * self._player:get_flow()^1.8, self._player:get_radius() / 2.5)
     local outer_width = self._player:get_flow()
@@ -189,7 +197,7 @@ function rt.PlayerTrail:update(delta)
     self._player_x, self._player_y = self._player:get_predicted_position()
     if self._player_is_bubble ~= self._player:get_is_bubble() then
         self._player_is_bubble = self._player:get_is_bubble()
-        self._bubble_cooldown = 2
+        --self._bubble_cooldown = 2
     end
 
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)

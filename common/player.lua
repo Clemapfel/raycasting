@@ -915,6 +915,9 @@ function rt.Player:update(delta)
             if gravity > 0 then
                 next_force_x = -current_x * _settings.bubble_air_resistance * delta
                 next_force_y = -current_y * _settings.bubble_air_resistance * delta
+            else
+                next_force_x = 0
+                next_force_y = 0
             end
         end
 
@@ -1853,6 +1856,19 @@ function rt.Player:set_is_ghost(b)
     self._bubble_body:set_is_sensor(b)
     for body in values(self._bubble_spring_bodies) do
         body:set_is_sensor(true)
+    end
+end
+
+--- @brief
+function rt.Player:set_collision_disabled(b)
+    self._body:set_collision_disabled(b)
+    for body in values(self._spring_bodies) do
+        body:set_collision_disabled(true)
+    end
+
+    self._bubble_body:set_collision_disabled(b)
+    for body in values(self._bubble_spring_bodies) do
+        body:set_collision_disabled(true)
     end
 end
 

@@ -343,7 +343,7 @@ function love.run()
 
         if love.graphics and love.graphics.isActive() then
             love.graphics.reset()
-            love.graphics.clear(true, true, true)
+            love.graphics.clear(0, 0, 0, 0)
 
             draw_before = love.timer.getTime()
             love.draw()

@@ -1,5 +1,6 @@
 require "common.color"
 require "common.palette"
+require "common.shader"
 
 rt.settings.fade = {
     default_duration = 120 / 60
@@ -8,8 +9,12 @@ rt.settings.fade = {
 --- @class rt.Fade
 rt.Fade = meta.class("Fade")
 
+local _default_shader = nil
+
 --- @brief
 function rt.Fade:instantiate(duration, r, g, b, a)
+    if _default_shader == nil then _default_shader = rt.Shader("common/fade_default.glsl") end
+
     duration = duration or rt.settings.fade.default_duration
     if r == nil then
         r, g, b, a = rt.Palette.TRUE_BLACK:unpack()
@@ -22,7 +27,8 @@ function rt.Fade:instantiate(duration, r, g, b, a)
         _has_attack = true,
         _has_decay = true,
         _signal_emitted = true,
-
+        _started = false,
+        _shader = _default_shader,
         _r = r,
         _g = g,
         _b = b,
@@ -42,11 +48,14 @@ function rt.Fade:start(has_attack, has_decay)
     self._has_attack = has_attack
     self._has_decay = has_decay
     self._signal_emitted = false
+    self._started = true
+    self:update(0)
 end
 
 --- @brief
 function rt.Fade:skip()
     self._elapsed = math.huge
+    self._value = 0
 end
 
 local function gaussian(x, center)
@@ -78,25 +87,25 @@ function rt.Fade:update(delta)
 
     if self._signal_emitted == false and fraction >= 0.5 then
         self._value = 1
-
-        -- make sure screen is fully black for lag frames during emit
-        love.graphics.clear()
-        self:draw()
-        love.graphics.present()
-
         self:signal_emit("hidden")
         self._signal_emitted = true
     end
 
-    self._elapsed = self._elapsed + delta
+    if self._started then
+        self._elapsed = self._elapsed + delta
+    end
 end
 
 --- @brief
 function rt.Fade:draw()
+    if self._value == 0 then return end
     love.graphics.push()
     love.graphics.origin()
-    love.graphics.setColor(self._r, self._g, self._b, self._a * self._value)
+    self._shader:bind()
+    self._shader:send("value", self._value)
+    self._shader:send("color", { self._r, self._g, self._b, self._a })
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    self._shader:unbind()
     love.graphics.pop()
 end
 
@@ -106,6 +115,18 @@ function rt.Fade:get_is_active()
 end
 
 --- @brief
+function rt.Fade:get_is_visible()
+    return self._value > 0
+end
+
+--- @brief
 function rt.Fade:set_duration(duration)
     self._duration = duration
+end
+
+--- @brief
+function rt.Fade:set_shader(shader)
+    meta.assert(shader, rt.Shader)
+    assert(shader:get_native():hasUniform("value"))
+    self._shader = shader
 end

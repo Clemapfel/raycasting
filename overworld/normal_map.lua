@@ -361,10 +361,10 @@ function ow.NormalMap:instantiate(stage)
         export_texture:release()
 
         self._is_done = true
-        self._queue_finish = true
+        self._is_visible = true
+        self:signal_emit("done")
 
         self._input = rt.InputSubscriber()
-        self._is_visible = true
         self._input:signal_connect("keyboard_key_pressed", function(_, which)
             if which == "p" then
                 _draw_light_shader:recompile()
@@ -398,7 +398,6 @@ function ow.NormalMap:_draw(light_or_shadow)
     local max_chunk_x = math.floor(((x + w - 1) - self._bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - self._bounds.y) / chunk_size)
     local max_chunk_y = math.floor(((y + h - 1) - self._bounds.y) / chunk_size)
-
 
     if light_or_shadow == true then
         local camera = self._stage:get_scene():get_camera()
