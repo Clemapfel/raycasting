@@ -91,7 +91,8 @@ function rt.Label:_glyph_new(
     is_outlined,
     is_effect_shake,
     is_effect_wave,
-    is_effect_rainbow
+    is_effect_rainbow,
+    is_effect_noise
 )
     local font_native = font:get_native(self._font_size, style, false)
     local glyph, outline_glyph = love.graphics.newTextBatch(font_native, text), nil
@@ -112,6 +113,7 @@ function rt.Label:_glyph_new(
         is_effect_shake = is_effect_shake,
         is_effect_rainbow = is_effect_rainbow,
         is_effect_wave = is_effect_wave,
+        is_effect_noise = is_effect_noise,
         color = {color_r, color_g, color_b, 1},
         outline_color = {outline_color_r, outline_color_g, outline_color_b, 1},
         n_visible_characters = utf8.len(text),
@@ -338,6 +340,8 @@ local _syntax = {
     EFFECT_WAVE_TAG_END = _make_set("</wave>", "</fx_wave>"),
     EFFECT_RAINBOW_TAG_START = _make_set("<rainbow>", "<fx_rainbow>"),
     EFFECT_RAINBOW_TAG_END = _make_set("</rainbow>", "</fx_rainbow>"),
+    EFFECT_NOISE_TAG_START = _make_set("<noise>", "<fx_noise>"),
+    EFFECT_NOISE_TAG_END = _make_set("</noise>", "</fx_noise>"),
 
     MONOSPACE_TAG_START = _make_set("<tt>", "<mono>"),
     MONOSPACE_TAG_END = _make_set("</tt>", "</mono>")
@@ -372,6 +376,8 @@ for set_settings_key in range(
     {_syntax.EFFECT_WAVE_TAG_END, "is_effect_wave"},
     {_syntax.EFFECT_RAINBOW_TAG_START, "is_effect_rainbow"},
     {_syntax.EFFECT_RAINBOW_TAG_END, "is_effect_rainbow"},
+    {_syntax.EFFECT_NOISE_TAG_START, "is_effect_noise"},
+    {_syntax.EFFECT_NOISE_TAG_END, "is_effect_noise"},
 
     {_syntax.MONOSPACE_TAG_START, "is_mono"},
     {_syntax.MONOSPACE_TAG_END, "is_mono"}
@@ -452,6 +458,7 @@ function rt.Label:_parse()
 
         is_mono = false,
 
+        is_effect_noise = false,
         is_effect_rainbow = false,
         is_effect_shake = false,
         is_effect_wave = false
@@ -495,7 +502,8 @@ function rt.Label:_parse()
             settings.is_outlined or settings.outline_color_active,
             settings.is_effect_shake,
             settings.is_effect_wave,
-            settings.is_effect_rainbow
+            settings.is_effect_rainbow,
+            settings.is_effect_noise
         )
 
         _insert(glyphs, to_insert)
@@ -507,7 +515,7 @@ function rt.Label:_parse()
             _insert(self._non_outlined_glyphs, to_insert)
         end
 
-        if settings.is_effect_shake or settings.is_effect_wave or settings.is_effect_rainbow then
+        if settings.is_effect_shake or settings.is_effect_wave or settings.is_effect_rainbow or settings.is_effect_noise then
             self._use_animation = true
         end
 
@@ -675,6 +683,7 @@ function rt.Label:_parse()
     if settings.is_effect_shake then throw_parse_error("reached end of text, but effect shake region is still open") end
     if settings.is_effect_wave then throw_parse_error("reached end of text, but effect wave region is still open") end
     if settings.is_effect_rainbow then throw_parse_error("reached end of text, but effect rainbow region is still open") end
+    if settings.is_effect_noise then throw_parse_error("reached end of text, but effect noise region is still open") end
     if settings.is_underlined then throw_parse_error("reached end of text, but effect underlined region is still open") end
     if settings.is_strikethrough then throw_parse_error("reached end of text, but effect strikethrough region is still open") end
     if settings.is_outlined then throw_parse_error("reached end of text, but effect outline region is still open") end
@@ -1006,6 +1015,7 @@ function rt.Label:_update_texture()
     for glyph in values(self._outlined_glyphs) do
         _draw_outline_shader:send("n_visible_characters", glyph.n_visible_characters)
         _draw_outline_shader:send("is_effect_wave", glyph.is_effect_wave)
+        _draw_outline_shader:send("is_effect_noise", glyph.is_effect_noise)
         _draw_outline_shader:send("is_effect_shake", glyph.is_effect_shake)
         _draw_outline_shader:send("outline_color", glyph.outline_color)
 
@@ -1042,6 +1052,7 @@ function rt.Label:_update_texture()
     for glyph in values(self._glyphs_only) do
         _draw_text_shader:send("n_visible_characters", glyph.n_visible_characters)
         _draw_text_shader:send("is_effect_rainbow", glyph.is_effect_rainbow)
+        _draw_text_shader:send("is_effect_noise", glyph.is_effect_noise)
         _draw_text_shader:send("is_effect_wave", glyph.is_effect_wave)
         _draw_text_shader:send("is_effect_shake", glyph.is_effect_shake)
 

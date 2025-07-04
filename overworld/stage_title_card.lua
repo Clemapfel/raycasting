@@ -34,7 +34,7 @@ function ow.StageTitleCard:instantiate(title, duration)
         _title = title,
         _signal_emitted = true,
         _label = rt.Label(
-            "<b><outline_color=TRUE_BLACK>" .. title .. "</outline_color></b>",
+            "<b><outline_color=TRUE_BLACK><noise>" .. title .. "</noise></outline_color></b>",
             rt.FontSize.HUGE, font
         )
     })

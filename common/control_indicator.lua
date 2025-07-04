@@ -19,6 +19,11 @@ do -- generate enum for all input buttons
     rt.ControlIndicatorButton = meta.enum("ControlIndicatorButton", enum_values)
 end
 
+local font = rt.Font(
+"assets/fonts/Baloo2/Baloo2-SemiBold.ttf",
+"assets/fonts/Baloo2/Baloo2-Bold.ttf"
+)
+
 --- @brief
 function rt.ControlIndicator:instantiate(...)
     local layout = {}
@@ -146,9 +151,9 @@ function rt.ControlIndicator:create_from(layout)
         local prefix, postfix = "<o>", "</o>"
         local label
         if string.find(text, "<o>|</o>|<outline>|</outline>") then
-            label = rt.Label(text)
+            label = rt.Label(text, rt.FontSize.DEFAULT, font)
         else
-            label = rt.Label(prefix .. text .. postfix)
+            label = rt.Label(prefix .. text .. postfix, rt.FontSize.DEFAULT, font)
         end
         label:realize()
         table.insert(self._labels, label)
@@ -223,6 +228,7 @@ function rt.ControlIndicator:measure()
         n_indicators = n_indicators + 1
 
         local label_w, label_h = label:measure()
+        label_h = label_h * 0.75
         max_h = math.max(label_h, max_h)
 
         if i == #self._labels then
