@@ -105,7 +105,11 @@ rt.Translation = rt.initialize_translation({
         results_screen = {
             flow_percentage = "Flow",
             time = "Time"
-        }
+        },
+
+        control_indicator_move = "Move",
+        control_indicator_jump = "Jump",
+        control_indicator_sprint = "Sprint"
     },
 
     -- title screen

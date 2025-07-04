@@ -1,6 +1,7 @@
 require "common.scene"
 require "common.mesh"
 require "common.background"
+require "common.control_indicator"
 require "overworld.stage"
 require "common.camera"
 require "common.player"
@@ -24,7 +25,7 @@ do
 
         bloom_blur_strength = 1.2, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
-        title_card_min_duration = 10, -- seconds
+        title_card_min_duration = 3, -- seconds
     }
 end
 
@@ -89,12 +90,21 @@ function ow.OverworldScene:instantiate(state)
         _fade = rt.Fade(1),
         _fade_active = false,
 
-        _title_card = ow.StageTitleCard("TEST"),
+        _title_card = ow.StageTitleCard("1 - 3: Not a Tutorial"),
         _title_card_active = false,
         _title_card_elapsed = 0,
 
         _player_canvas = nil
     })
+
+    local translation = rt.Translation.overworld_scene
+    self._control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_move,
+        rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
+        rt.ControlIndicatorButton.SPRINT, translation.control_indicator_sprint
+    )
+    self._control_indicator:set_has_frame(true)
+    self._control_indicator_motion = rt.SmoothedMotion1D(0, 1) -- opacity
 
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.PAUSE then
@@ -260,6 +270,7 @@ function ow.OverworldScene:instantiate(state)
     self._background:realize()
     self._pause_menu:realize()
     self._title_card:realize()
+    self._control_indicator:realize()
 
     self._player_canvas_scale = 2
     local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 2.5
@@ -318,6 +329,14 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     local gradient_h = gradient_w
     local r, g, b, a = 1, 1, 1, 0.2
     self._camera_pan_area_width = gradient_w
+
+    local control_w, control_h = self._control_indicator:measure()
+    local m = rt.settings.margin_unit
+    self._control_indicator:reformat(
+        x + 0.5 * width - 0.5 * control_w - m,
+        y + height - control_h - m,
+        control_w, control_h
+    )
 
     if rt.GameState:get_is_bloom_enabled() then
         self._bloom = rt.Bloom(width, height)
@@ -560,6 +579,12 @@ function ow.OverworldScene:draw()
         self._pause_menu:draw()
     end
 
+    local opacity = self._control_indicator_motion:get_value()
+    if opacity > 0 then
+        self._control_indicator:set_opacity(opacity)
+        self._control_indicator:draw()
+    end
+
     if rt.GameState:get_draw_debug_information() then
         self:_draw_debug_information()
     end
@@ -621,7 +646,6 @@ local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
-
     if self._queue_fade_out and self._title_card_elapsed >= rt.settings.overworld_scene.title_card_min_duration then
         self._input:activate()
         self._player._input:activate()
@@ -636,6 +660,8 @@ function ow.OverworldScene:update(delta)
 
     self._title_card:update(delta)
     self._title_card_elapsed = self._title_card_elapsed + delta
+
+    self._control_indicator_motion:update(delta)
 
     if self._pause_menu_active then
         self._pause_menu:update(delta)

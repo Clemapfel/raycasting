@@ -121,7 +121,7 @@ function mn.MenuScene:instantiate(state)
         ) do
             local item = {
                 unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE, title_screen.menu_font),
-                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE, title_screen.menu_font),
+                selected_label = rt.Label("<o><rainbow><wave><b><color=SELECTION>" .. text .. "</color></b></o></wave></rainbow>", rt.FontSize.LARGE, title_screen.menu_font),
             }
 
             table.insert(title_screen.menu_items, item)
