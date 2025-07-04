@@ -19,6 +19,8 @@ rt.settings.menu_scene = {
 
     title_screen = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
+        menu_font_path_regular = "assets/fonts/Baloo2/Baloo2-Medium.ttf",
+        menu_font_path_bold = "assets/fonts/Baloo2/Baloo2-ExtraBold.ttf",
         player_velocity = 100, -- when reflecting
         player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
@@ -94,6 +96,13 @@ function mn.MenuScene:instantiate(state)
         local title_screen = {}
         self._title_screen = title_screen
 
+        title_screen.menu_font = rt.Font(
+            rt.settings.menu_scene.title_screen.menu_font_path_regular,
+            rt.settings.menu_scene.title_screen.menu_font_path_bold
+        )
+
+        title_screen.menu_font:set_line_spacing(0.75)
+
         title_screen.control_indicator = rt.ControlIndicator(
             rt.ControlIndicatorButton.A, translation.control_indicator_select,
             rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
@@ -111,8 +120,8 @@ function mn.MenuScene:instantiate(state)
             translation.quit
         ) do
             local item = {
-                unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE),
-                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE),
+                unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE, title_screen.menu_font),
+                selected_label = rt.Label("<o><b><color=SELECTION>" .. text .. "</color></b></o>", rt.FontSize.LARGE, title_screen.menu_font),
             }
 
             table.insert(title_screen.menu_items, item)
@@ -324,6 +333,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         local font = rt.Font(rt.settings.menu_scene.title_screen.title_font_path)
         title_screen.title_label_no_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, false), title)
         title_screen.title_label_sdf = love.graphics.newTextBatch(font:get_native(font_size, rt.FontStyle.REGULAR, true), title)
+
 
         local title_w, title_h = font:measure(font_size, title)
 
@@ -594,6 +604,11 @@ function mn.MenuScene:update(delta)
                 end
                 self._title_screen.enable_boundary_on_enter = false
             end
+        end
+
+        for menu_item in values(self._title_screen.menu_items) do
+            menu_item.unselected_label:update(delta)
+            menu_item.selected_label:update(delta)
         end
 
         return

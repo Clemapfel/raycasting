@@ -69,6 +69,7 @@ function rt.Font:instantiate(
 
     self._size_to_cache = {}
     self._size_to_fallbacks = {}
+    self._line_spacing = 1 -- fraction
 end
 
 local _new_font = function(path, size, sdf)
@@ -155,6 +156,16 @@ function rt.Font:measure(font_size, str)
     meta.assert_typeof(str, "String", 2)
     local native = self:get_native(font_size)
     return native:getWidth(str), native:getHeight()
+end
+
+--- @brief
+function rt.Font:set_line_spacing(fraction)
+    self._line_spacing = fraction
+end
+
+--- @brief
+function rt.Font:get_line_spacing()
+    return self._line_spacing
 end
 
 -- load default font

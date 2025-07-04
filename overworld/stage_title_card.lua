@@ -3,7 +3,7 @@ require "common.palette"
 require "common.shader"
 
 rt.settings.overworld.stage_title_card = {
-    font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf"
+    font_path = "assets/fonts/Baloo2/Baloo2-Bold.ttf"
 }
 
 --- @class ow.StageTitleCard
@@ -20,6 +20,8 @@ function ow.StageTitleCard:instantiate(title, duration)
     duration = duration or rt.settings.fade.default_duration
 
     local font = rt.Font(rt.settings.overworld.stage_title_card.font_path)
+    font:set_line_spacing(0.75)
+
     meta.install(self, {
         _elapsed = math.huge,
         _fade_in_duration = duration / 4,

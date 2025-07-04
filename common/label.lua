@@ -214,7 +214,7 @@ end
 function rt.Label:measure()
     if self._is_realized == false then self:realize() end
     self:_check_for_rescale()
-    return self._width, self._height
+    return self._width, self._height * self._font:get_line_spacing()
 end
 
 --- @override
