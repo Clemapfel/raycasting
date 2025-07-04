@@ -9,6 +9,7 @@ require "overworld.results_screen"
 require "physics.physics"
 require "menu.pause_menu"
 require "common.bloom"
+require "common.fade"
 
 do
     local bloom = 0.2
@@ -83,6 +84,8 @@ function ow.OverworldScene:instantiate(state)
         _pause_menu_active = false,
 
         _bloom = nil, -- rt.Blur
+        _fade = rt.Fade(2),
+        _fade_active = false,
 
         _player_canvas = nil
     })
@@ -263,10 +266,18 @@ local _blocked = 0
 local _cursor = nil
 
 --- @brief
-function ow.OverworldScene:enter(stage_id)
+function ow.OverworldScene:enter(stage_id, show_title_card)
     meta.assert(stage_id, "String")
     rt.SceneManager:set_use_fixed_timestep(true)
-    self:set_stage(stage_id)
+    self:set_stage(stage_id, show_title_card)
+
+    self._input:deactivate()
+    self._fade_active = false
+    self._fade:start(false, true)
+    self._stage:signal_connect("done", function()
+        self._input:activate()
+        self._fade_active = true
+    end)
 
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
@@ -428,49 +439,75 @@ end
 local _white_r, _white_g, _white_b = rt.color_unpack(rt.Palette.WHITE)
 local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
---- @brief
 function ow.OverworldScene:draw()
-    if _blocked > 0 then return end
-    if self._stage == nil then return end
+    if self._bloom == nil and rt.GameState:get_is_bloom_enabled() then
+        local _, _, width, height = self:get_bounds():unpack()
+        self._bloom = rt.Bloom(width, height,
+            rt.settings.overworld.overworld_scene.bloom_msaa,
+            rt.settings.overworld.overworld_scene.bloom_texture_format
+        )
+        self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
+        if self._stage ~= nil then
+            self._stage:get_blood_splatter():set_bloom_factor(
+                rt.settings.overworld.overworld_scene.bloom_composite_strength +
+                rt.settings.overworld.normal_map.segment_light_intensity
+            )
+        end
+    end
 
     love.graphics.push()
     love.graphics.origin()
+    love.graphics.clear(1, 0, 1, 1)
+    if self._fade:get_is_active() or self._fade:get_is_visible() then
+        self._background:draw()
 
-    self._background:draw()
-    self._camera:bind()
-    self._stage:draw_below_player()
-    self._player:draw_body()
-    self._stage:draw_above_player()
-    self._player:draw_core()
-    self._camera:unbind()
-
-    if rt.GameState:get_is_bloom_enabled() == true then
-        if self._bloom == nil then
-            local _, _, width, height = self:get_bounds():unpack()
-            self._bloom = rt.Bloom(width, height,
-                rt.settings.overworld.overworld_scene.bloom_msaa,
-                rt.settings.overworld.overworld_scene.bloom_texture_format
-            )
-            self._bloom:set_bloom_strength(rt.settings.overworld.overworld_scene.bloom_blur_strength)
-            if self._stage ~= nil then
-                self._stage:get_blood_splatter():set_bloom_factor(
-                    rt.settings.overworld.overworld_scene.bloom_composite_strength +
-                    rt.settings.overworld.normal_map.segment_light_intensity
-                )
-            end
-        end
-
-        love.graphics.push()
-        self._bloom:bind()
-        love.graphics.clear()
         self._camera:bind()
-        self._player:draw_bloom()
-        self._stage:draw_bloom()
+        self._stage:draw_below_player()
+        self._stage:draw_above_player()
         self._camera:unbind()
-        self._bloom:unbind()
-        love.graphics.pop()
 
-        self._bloom:composite(rt.settings.overworld.overworld_scene.bloom_composite_strength)
+        self._fade:draw()
+
+        self._camera:bind()
+        self._player:draw_body()
+        self._player:draw_core()
+        self._camera:unbind()
+
+        if rt.GameState:get_is_bloom_enabled() == true then
+            love.graphics.push()
+            self._bloom:bind()
+            love.graphics.clear(0, 0, 0, 0)
+            self._camera:bind()
+            self._player:draw_bloom()
+            self._camera:unbind()
+            self._bloom:unbind()
+            love.graphics.pop()
+
+            self._bloom:composite(rt.settings.overworld.overworld_scene.bloom_composite_strength)
+        end
+    else -- not fading
+        self._background:draw()
+
+        self._camera:bind()
+        self._stage:draw_below_player()
+        self._player:draw_body()
+        self._stage:draw_above_player()
+        self._player:draw_core()
+        self._camera:unbind()
+
+        if rt.GameState:get_is_bloom_enabled() == true then
+            love.graphics.push()
+            self._bloom:bind()
+            love.graphics.clear(0, 0, 0, 0)
+            self._camera:bind()
+            self._player:draw_bloom()
+            self._stage:draw_bloom()
+            self._camera:unbind()
+            self._bloom:unbind()
+            love.graphics.pop()
+
+            self._bloom:composite(rt.settings.overworld.overworld_scene.bloom_composite_strength)
+        end
     end
 
     love.graphics.pop()
@@ -509,61 +546,70 @@ function ow.OverworldScene:draw()
     end
 
     if rt.GameState:get_draw_debug_information() then
-        local player = self._player
-        local flow_percentage = player:get_flow()
-        local flow_velocity = player:get_flow_velocity()
-
-        local velocity_fraction
-
-        if player:get_is_bubble() then
-            local bubble_target = rt.settings.player.bubble_target_velocity
-            local current = math.magnitude(player:get_velocity())
-            velocity_fraction = current / bubble_target
-        else
-            local x_velocity = select(1, player:get_velocity())
-            if player:get_is_grounded() then
-                velocity_fraction = x_velocity / rt.settings.player.ground_target_velocity_x
-            else
-                velocity_fraction = x_velocity / rt.settings.player.air_target_velocity_x
-            end
-        end
-
-        flow_percentage = tostring(math.round(flow_percentage * 100) / 100)
-        flow_velocity = ternary(flow_velocity >= 0, "+", "-")
-        velocity_fraction = tostring(math.round(velocity_fraction * 10) / 10 * 100)
-
-        while #velocity_fraction < 3 do
-            velocity_fraction = "0" .. velocity_fraction
-        end
-
-        local pressed, unpressed = "1", "0"
-        local up = ternary(self._player._up_button_is_down, pressed, unpressed)
-        local right = ternary(self._player._right_button_is_down, pressed, unpressed)
-        local down = ternary(self._player._down_button_is_down, pressed, unpressed)
-        local left = ternary(self._player._left_button_is_down, pressed, unpressed)
-        local a = ternary(self._player._sprint_button_is_down, pressed, unpressed)
-        local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
-
-        local duration, n_steps = self:get_run_duration()
-        local time = string.format_time(duration) .. " (" .. n_steps .. " frames)"
-
-        local to_concat = {
-            up .. right .. down .. left .. " " .. a .. b,
-            "flow : " .. flow_percentage .. "% (" .. flow_velocity .. ")",
-            time,
-            --"speed : " .. velocity_fraction .. "%",
-        }
-
-        love.graphics.setFont(rt.settings.font.love_default)
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.printf(table.concat(to_concat, " | "), 5, 5, math.huge)
+        self:_draw_debug_information()
     end
 end
+
+function ow.OverworldScene:_draw_debug_information()
+    local player = self._player
+    local flow_percentage = player:get_flow()
+    local flow_velocity = player:get_flow_velocity()
+
+    local velocity_fraction
+
+    if player:get_is_bubble() then
+        local bubble_target = rt.settings.player.bubble_target_velocity
+        local current = math.magnitude(player:get_velocity())
+        velocity_fraction = current / bubble_target
+    else
+        local x_velocity = select(1, player:get_velocity())
+        if player:get_is_grounded() then
+            velocity_fraction = x_velocity / rt.settings.player.ground_target_velocity_x
+        else
+            velocity_fraction = x_velocity / rt.settings.player.air_target_velocity_x
+        end
+    end
+
+    flow_percentage = tostring(math.round(flow_percentage * 100) / 100)
+    flow_velocity = ternary(flow_velocity >= 0, "+", "-")
+    velocity_fraction = tostring(math.round(velocity_fraction * 10) / 10 * 100)
+
+    while #velocity_fraction < 3 do
+        velocity_fraction = "0" .. velocity_fraction
+    end
+
+    local pressed, unpressed = "1", "0"
+    local up = ternary(self._player._up_button_is_down, pressed, unpressed)
+    local right = ternary(self._player._right_button_is_down, pressed, unpressed)
+    local down = ternary(self._player._down_button_is_down, pressed, unpressed)
+    local left = ternary(self._player._left_button_is_down, pressed, unpressed)
+    local a = ternary(self._player._sprint_button_is_down, pressed, unpressed)
+    local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
+
+    local duration, n_steps = self:get_run_duration()
+    local time = string.format_time(duration) .. " (" .. n_steps .. " frames)"
+
+    local to_concat = {
+        up .. right .. down .. left .. " " .. a .. b,
+        "flow : " .. flow_percentage .. "% (" .. flow_velocity .. ")",
+        time,
+        --"speed : " .. velocity_fraction .. "%",
+    }
+
+    love.graphics.setFont(rt.settings.font.love_default)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.printf(table.concat(to_concat, " | "), 5, 5, math.huge)
+end
+
 
 local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
+    if self._fade_active then
+        self._fade:update(delta)
+    end
+
     if self._pause_menu_active then
         self._pause_menu:update(delta)
         return
