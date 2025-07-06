@@ -30,7 +30,7 @@ rt.Label = meta.class("Label", rt.Widget)
 function rt.Label:instantiate(text, font_size, font)
     if text == nil then text = "" end
     if font == nil then font = rt.settings.font.default end
-    if font_size == nil then font_size = rt.FontSize.DEFAULT end
+    if font_size == nil then font_size = rt.FontSize.REGULAR end
 
     meta.assert_typeof(text, "String", 1)
     meta.assert_typeof(font, rt.Font, 2)

@@ -36,6 +36,8 @@ end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
+
+    item:update()
 end
 
 love.draw = function()

@@ -410,7 +410,14 @@ function rt.Player:update(delta)
 
     self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
 
-    if self._up_button_is_down or self._right_button_is_down or self._down_button_is_down or self._left_button_is_down or self._jump_button_is_down or self._bottom_wall == false then
+    if self._state == rt.PlayerState.ACTIVE and
+        self._up_button_is_down or
+        self._right_button_is_down or
+        self._down_button_is_down or
+        self._left_button_is_down or
+        self._jump_button_is_down or
+        (not self._is_bubble and self._bottom_wall == false)
+    then
         self._idle_elapsed = 0
     else
         self._idle_elapsed = self._idle_elapsed + delta
@@ -1924,4 +1931,9 @@ function rt.Player:get_past_position(distance)
     end
 
     return current_x, current_y
+end
+
+--- @brief
+function rt.Player:get_idle_duration()
+    return self._idle_elapsed
 end

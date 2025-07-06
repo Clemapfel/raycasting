@@ -1,6 +1,8 @@
 --- @class rt.Shader
 rt.Shader = meta.class("Shader")
 
+local _stencil_active_uniform_name = "love_StencilActive";
+
 --- @brief
 function rt.Shader:instantiate(filename, defines)
     local success, shader = pcall(love.graphics.newShader, filename, {
@@ -50,6 +52,12 @@ end
 --- @brief make shader the current on
 function rt.Shader:bind()
     self._before = love.graphics.getShader()
+
+    if self._native:hasUniform("love_StencilActive") then
+        -- custom stencil behavior for canvases
+        self._native:send("love_StencilActive", rt.graphics._stencil_mode_active == true)
+    end
+
     love.graphics.setShader(self._native)
 end
 

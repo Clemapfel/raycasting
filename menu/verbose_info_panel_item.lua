@@ -43,7 +43,7 @@ function mn.VerboseInfoPanel.Item:create_from(object)
 end
 
 function mn.VerboseInfoPanel.Item._font()
-    return rt.FontSize.DEFAULT
+    return rt.FontSize.REGULAR
 end
 
 function mn.VerboseInfoPanel.Item._font_tiny()

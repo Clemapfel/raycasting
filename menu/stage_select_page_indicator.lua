@@ -248,7 +248,6 @@ function mn.StageSelectPageIndicator:draw_bloom()
     self._ring:draw()
     love.graphics.pop()
 
-
     local shader_bound = false
     for grade, circles in pairs(self._grade_to_circles) do
         if grade == rt.StageGrade.SS then

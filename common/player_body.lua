@@ -502,12 +502,11 @@ function rt.PlayerBody:draw_body()
 
         -- stencil bordering geometry
         local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.stencil(stencil_value, function()
-            for body in values(self._stencil_bodies) do
-                body:draw()
-            end
-        end)
-        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+        for body in values(self._stencil_bodies) do
+            body:draw()
+        end
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
         -- draw rope nodes
         rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
@@ -537,7 +536,7 @@ function rt.PlayerBody:draw_body()
         end
 
         self._outline_canvas:unbind()
-        rt.graphics.set_stencil_compare_mode(nil)
+        rt.graphics.set_stencil_mode(nil)
         love.graphics.pop()
     end
 
@@ -597,12 +596,11 @@ function rt.PlayerBody:draw_core()
 
     if self._is_bubble then
         local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.stencil(stencil_value, function()
-            for body in values(self._stencil_bodies) do
-                body:draw()
-            end
-        end)
-        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+        for body in values(self._stencil_bodies) do
+            body:draw()
+        end
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
     end
 
     -- draw outline
@@ -653,7 +651,7 @@ function rt.PlayerBody:draw_core()
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
 
-    rt.graphics.set_stencil_compare_mode(nil)
+    rt.graphics.set_stencil_mode(nil)
 
     --[[
     --love.graphics.circle("fill", self._center_x, self._center_y, 100)

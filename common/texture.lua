@@ -123,19 +123,26 @@ function rt.Texture:get_height()
     return self._native:getHeight()
 end
 
+local _default_shader = nil
+
 --- @overload rt.Drawable.draw
-function rt.Texture:draw(x, y, r, g, b, a)
-    if r == nil then
-        love.graphics.setColor(1, 1, 1, 1)
-    else
-        if r == nil then r = 1 end
-        if g == nil then g = 1 end
-        if b == nil then b = 1 end
-        if a == nil then a = 1 end
-        love.graphics.setColor(r, g, b, a)
+function rt.Texture:draw(...)
+    if _default_shader == nil then
+        require "common.shader"
+        _default_shader = rt.Shader("common/texture.glsl")
     end
 
-    love.graphics.draw(self._native, x, y)
+    local default_shader_bound = false
+    if love.graphics.getShader() == nil then
+        _default_shader:bind()
+        default_shader_bound = true
+    end
+
+    love.graphics.draw(self._native, ...)
+
+    if default_shader_bound == true then
+        _default_shader:unbind()
+    end
 end
 
 --- @brief

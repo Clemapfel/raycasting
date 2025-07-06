@@ -39,20 +39,21 @@ local _mask_mesh_format = {
 local _x = 1
 local _y = 2
 local _radius = 3
-local _origin_x = 4
-local _origin_y = 5
-local _velocity_x = 6
-local _velocity_y = 7
-local _velocity_magnitude = 8
-local _segment = 9
+local _last_x = 4
+local _last_y = 5
+local _origin_x = 6
+local _origin_y = 7
+local _velocity_x = 8
+local _velocity_y = 9
+local _velocity_magnitude = 10
+local _segment = 11
 
 local _MODE_HOLD = 0
 local _MODE_EXPAND = 1
 local _MODE_COLLAPSE = 2
 
 --- @brief
-function mn.StageSelectParticleFrame:instantiate(n_pages)
-    meta.assert(n_pages, "Number")
+function mn.StageSelectParticleFrame:instantiate(...)
     if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_particle_frame_particle.glsl") end
     if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 0 }) end
     if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 1 }) end
@@ -61,19 +62,24 @@ function mn.StageSelectParticleFrame:instantiate(n_pages)
     self._is_initialized = false
 
     self._selected_page_i = 1
-    self._n_pages = n_pages
+    self._n_pages = select("#", ...)
+    self._widgets = { ... }
     self._hue = 0
+
+    for i = 1, self._n_pages do
+        local item = select(i, ...)
+        assert(meta.isa(item, rt.Widget), "In mn.StageSelectParticleFrame: selected item is not a widget")
+    end
 
     self._motion = rt.SmoothedMotion1D(0, 1, 10) -- interpolates indices, not px
     self._scroll_offset = 0
     self._last_scroll_offset = 0
-    self._x, self._y = 0, 0
+    self._canvas_x,self._canvas_y = 0, 0
+    self._canvas_needs_update = true
 end
 
 --- @brief
 function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
-    self._x, self._y = x, y
-
     self._pages = {} --[[
         particles
         n_particles
@@ -84,6 +90,9 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         dynamic_mask,
         center_x,
         center_y
+        widget
+        widget
+        height
     ]]--
 
     local particle_mesh_data
@@ -109,14 +118,6 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     local max_particle_r = rt.settings.menu.stage_select_particle_frame.max_particle_radius * rt.get_pixel_scale()
     local coverage = rt.settings.menu.stage_select_particle_frame.coverage
 
-    local padding = rt.get_pixel_scale() * 20 + 2 * max_particle_r
-    local canvas_w, canvas_h = width + 2 * padding, love.graphics.getHeight()
-
-    if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
-        self._canvas = rt.RenderTexture(canvas_w, canvas_h, 4)
-    end
-    self._canvas_padding = padding
-
     -- mask is rectangle with gradient edge
     local mask_r, mask_g, mask_b, mask_a0, mask_a1 = 1, 1, 1, 0, 1
     local mask_d = max_particle_r * 0.25
@@ -137,38 +138,55 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     local initial_mode = transition and _MODE_EXPAND or _MODE_HOLD
     self._is_transitioning = transition
 
+    local max_w, max_h = -math.huge, -math.huge
+    for widget in values(self._widgets) do
+        local widget_w, widget_h = widget:measure()
+        max_w = math.max(max_w, widget_w)
+        max_h = math.max(max_h, widget_h)
+    end
+
+    local outer_offset, inner_offset = max_particle_r, math.max(max_particle_r, 4 * rt.settings.margin_unit)
+
+    local padding = 10 * rt.get_pixel_scale()
+    local canvas_w, canvas_h = max_w + 2 * inner_offset + 2 * outer_offset + 2 * padding, love.graphics.getHeight()
+
+    if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
+        self._canvas = rt.RenderTexture(canvas_w, canvas_h, 4)
+    end
+    self._canvas_x = x + 0.5 * width - 0.5 * canvas_w
+    self._canvas_y = 0
+
     -- offset frame area to account for particle movement
-    local offset = (max_particle_r)
-    x, y = offset, offset
-    width = width - 2 * offset
-    height = height - 2 * offset
-    
+    x = 0 + outer_offset + padding
+    y = 0 + outer_offset + padding
+    width = max_w + 2 * inner_offset + 2 * outer_offset
+    height = max_h + 2 * inner_offset + 2 * outer_offset
+
     local min_velocity, max_velocity = rt.settings.menu.stage_select_particle_frame.min_particle_velocity, rt.settings.menu.stage_select_particle_frame.max_particle_velocity
 
     for page_i = 1, self._n_pages do
+        local page_offset = self:_get_page_offset(page_i)
+
+        local widget = self._widgets[page_i]
+        local page_w, page_h = widget:measure() -- sic, shadowing intentional
+        page_w = page_w + 2 * inner_offset
+        page_h = page_h + 2 * inner_offset
+        local page_x, page_y = x, y -- x: canvas-local
+        local center_x, center_y = page_x + 0.5 * page_w, page_y + 0.5 * page_h
+
+        widget:reformat(page_x, page_y + page_offset, page_w, page_h)
+
         local particles = {}
         local page_n_particles = 0
         local data_mesh_data = {}
         local dynamic_mask = {}
 
-        local page_offset = self:_get_page_offset(page_i)
+        page_y = page_y + page_offset
 
-        local top = { x, y, x + width, y }
-        local right = { x + width, y, x + width, y + height }
-        local bottom = { x + width, y + height, x, y + height }
-        local left = { x, y + height, x, y }
-
-        local center_x, center_y = 0, 0
-        for segment in range(top, right, bottom, left) do
-            segment[2] = segment[2] + page_offset
-            segment[4] = segment[4] + page_offset
-
-            center_x = center_x + segment[1] + segment[3]
-            center_y = center_y + segment[2] + segment[4]
-        end
-
-        center_x = center_x / (4 * 2)
-        center_y = center_y / (4 * 2)
+        local top = { page_x, page_y, page_x + page_w, page_y }
+        local right = { page_x + page_w, page_y, page_x + page_w, page_y + page_h }
+        local bottom = { page_x + page_w, page_y + page_h, page_x, page_y + page_h }
+        local left = { page_x, page_y + page_h, page_x, page_y }
 
         for segment in range(top, right, bottom, left) do
             local ax, ay, bx, by = table.unpack(segment)
@@ -201,6 +219,8 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
 
                 particle[_x] = particle_x
                 particle[_y] = particle_y
+                particle[_last_x] = particle_x
+                particle[_last_y] = particle_y
 
                 table.insert(dynamic_mask, particle_x)
                 table.insert(dynamic_mask, particle_y)
@@ -254,6 +274,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         particle_mesh:attach_attribute(data_mesh, _data_mesh_format[2].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
 
         self._pages[page_i] = {
+            mode = initial_mode,
             particles = particles,
             n_particles = page_n_particles,
             data_mesh_data = data_mesh_data,
@@ -261,14 +282,17 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
             data_mesh = data_mesh,
             static_mask = mask_mesh,
             dynamic_mask = dynamic_mask,
-            center_x = center_x,
-            center_y = center_y,
-            mode = initial_mode
+            x = page_x,
+            y = page_y,
+            width = page_w,
+            height = page_h,
+            widget = widget
         }
     end
 
     self:set_selected_page(self._selected_page_i)
     self._is_initialized = true
+    self._canvas_needs_update = true
 end
 
 --- @brief
@@ -340,6 +364,8 @@ function mn.StageSelectParticleFrame:update(delta)
                         particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
                     end
 
+                    particle[_last_x] = particle[_x]
+                    particle[_last_y] = particle[_y]
                     particle[_x] = x
                     particle[_y] = y
 
@@ -363,7 +389,7 @@ function mn.StageSelectParticleFrame:update(delta)
                 if page.mode == _MODE_EXPAND then
                     target_x, target_y = particle[_origin_x], particle[_origin_y]
                 elseif page.mode == _MODE_COLLAPSE then
-                    target_x, target_y = page.center_x, page.center_y
+                    target_x, target_y = page.x + 0.5 * page.width, page.y + 0.5 * page.height
                 end
 
                 local dx, dy = target_x - x, target_y - y
@@ -371,6 +397,8 @@ function mn.StageSelectParticleFrame:update(delta)
                 x = x + dx * delta * magnitude * velocity_factor
                 y = y + dy * delta * magnitude * velocity_factor
 
+                particle[_last_x] = particle[_x]
+                particle[_last_y] = particle[_y]
                 particle[_x], particle[_y] = x, y
 
                 local data = page.data_mesh_data[i]
@@ -396,60 +424,51 @@ function mn.StageSelectParticleFrame:update(delta)
 
         page.data_mesh:replace_data(page.data_mesh_data)
     end
+
+    self._canvas_needs_update = true
 end
 
 --- @brief
 function mn.StageSelectParticleFrame:draw()
     if not self._is_initialized then return end
 
-    self._canvas:bind()
-    love.graphics.clear(0, 0, 0, 0)
-
-    love.graphics.push()
-    love.graphics.origin()
     local offset = math.mix(self._last_scroll_offset, self._scroll_offset, rt.SceneManager:get_frame_interpolation())
-    love.graphics.translate(self._canvas_padding, self._canvas_padding - offset)
 
-    local interpolation = rt.SceneManager:get_frame_interpolation()
+    if self._canvas_needs_update then
+        self._canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
 
-    for page_i in values(self:_get_active_pages()) do
-        local page = self._pages[page_i]
+        love.graphics.push()
+        love.graphics.origin()
+        love.graphics.translate(0, -1 * offset)
 
-        if page.mode == _MODE_HOLD then
-            page.static_mask:draw()
-        else
+        local interpolation = rt.SceneManager:get_frame_interpolation()
+
+        for page_i in values(self:_get_active_pages()) do
+            local page = self._pages[page_i]
+
+            if page.mode == _MODE_HOLD then
+                page.static_mask:draw()
+            else
+                love.graphics.setColor(1, 1, 1, 1)
+                love.graphics.polygon("fill", page.dynamic_mask)
+            end
+
+            _particle_shader:bind()
             love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.polygon("fill", page.dynamic_mask)
+            page.particle_mesh:draw_instanced(page.n_particles)
+            _particle_shader:unbind()
         end
 
-        _particle_shader:bind()
-        love.graphics.setColor(1, 1, 1, 1)
-
-        -- Interpolate particle positions
-        for i = 1, page.n_particles do
-            local particle = page.particles[i]
-            local last_x, last_y = particle._last_x or particle[_x], particle._last_y or particle[_y]
-            local current_x, current_y = particle[_x], particle[_y]
-
-            local interpolated_x = math.mix(last_x, current_x, interpolation)
-            local interpolated_y = math.mix(last_y, current_y, interpolation)
-
-            page.data_mesh_data[i][_x] = interpolated_x
-            page.data_mesh_data[i][_y] = interpolated_y
-        end
-
-        page.data_mesh:replace_data(page.data_mesh_data)
-        page.particle_mesh:draw_instanced(page.n_particles)
-        _particle_shader:unbind()
+        love.graphics.pop()
+        self._canvas:unbind()
+        self._canvas_needs_update = false
     end
-
-    love.graphics.pop()
-    self._canvas:unbind()
 
     love.graphics.push()
     love.graphics.translate(
-        self._x - self._canvas_padding,
-        self._y - self._canvas_padding
+        self._canvas_x,
+        self._canvas_y
     )
 
     local canvas = self._canvas:get_native()
@@ -465,14 +484,29 @@ function mn.StageSelectParticleFrame:draw()
     _outline_shader:unbind()
 
     love.graphics.pop()
+
+    local stencil = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
+
+    love.graphics.setColor(1, 1, 1, 1)
+    self._canvas:draw(self._canvas_x, self._canvas_y)
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+
+    love.graphics.push()
+    love.graphics.translate(self._canvas_x, self._canvas_y - offset)
+    for page_i in values(self:_get_active_pages()) do
+        self._pages[page_i].widget:draw()
+    end
+    love.graphics.pop()
+
+    rt.graphics.set_stencil_mode(nil)
 end
 
 --- @brief
 function mn.StageSelectParticleFrame:draw_mask()
     love.graphics.push()
     love.graphics.translate(
-        self._x - self._canvas_padding,
-        0 - self._canvas_padding
+        self._canvas_x, 0
     )
 
     _base_shader:bind()
@@ -486,8 +520,8 @@ end
 function mn.StageSelectParticleFrame:draw_bloom()
     love.graphics.push()
     love.graphics.translate(
-        self._x - self._canvas_padding,
-        self._y - self._canvas_padding
+        self._canvas_x,
+        self._canvas_y
     )
 
     _outline_shader:bind()
@@ -516,8 +550,8 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
                 if page_i ~= current_i then
                     page.mode = _MODE_EXPAND
                     for particle in values(page.particles) do
-                        particle[_x] = page.center_x
-                        particle[_y] = page.center_y
+                        particle[_x] = page.x + 0.5 * page.width
+                        particle[_y] = page.y + 0.5 * page.height
                     end
                 else
                     page.mode = _MODE_COLLAPSE

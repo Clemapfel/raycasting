@@ -664,17 +664,16 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
             curve_outline_outline:draw(self._opacity)
 
             local value = rt.graphics.get_stencil_value()
-            rt.graphics.stencil(value, function()
+            rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
             love.graphics.setColor(1, 1, 1, self._opacity)
-                for tri in values(stencil) do
-                    love.graphics.polygon("fill", tri)
-                end
-            end)
-            rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, value)
+            for tri in values(stencil) do
+                love.graphics.polygon("fill", tri)
+            end
+            rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
             rectangle_base_outline_outline:draw(self._opacity)
             rectangle_base:draw(self._opacity)
             rectangle_base_outline:draw(self._opacity)
-            rt.graphics.set_stencil_compare_mode(nil)
+            rt.graphics.set_stencil_mode(nil)
 
             curve_outline:draw(self._opacity)
 

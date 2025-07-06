@@ -151,9 +151,9 @@ function rt.ControlIndicator:create_from(layout)
         local prefix, postfix = "<o>", "</o>"
         local label
         if string.find(text, "<o>|</o>|<outline>|</outline>") then
-            label = rt.Label(text, rt.FontSize.DEFAULT, font)
+            label = rt.Label(text, rt.FontSize.REGULAR, font)
         else
-            label = rt.Label(prefix .. text .. postfix, rt.FontSize.DEFAULT, font)
+            label = rt.Label(prefix .. text .. postfix, rt.FontSize.REGULAR, font)
         end
         label:realize()
         table.insert(self._labels, label)
@@ -271,6 +271,7 @@ function rt.ControlIndicator:set_opacity(alpha)
             widget:set_opacity(alpha)
         end
     end
+    self._frame:set_opacity(alpha)
 end
 
 --- @brief

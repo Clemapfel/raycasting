@@ -136,8 +136,9 @@ function mn.OptionButton:draw()
     self._right_indicator:draw()
 
     local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.stencil(stencil_value, self._stencil)
-    rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.EQUAL, stencil_value)
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    self._stencil:draw()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
     local offset = self._current_offset
     love.graphics.translate(-offset, 0)
@@ -150,7 +151,7 @@ function mn.OptionButton:draw()
     end
 
     love.graphics.translate(offset, 0)
-    rt.graphics.set_stencil_compare_mode()
+    rt.graphics.set_stencil_mode(nil)
 end
 
 local _color_mix = function(color_a, color_b, fraction) 

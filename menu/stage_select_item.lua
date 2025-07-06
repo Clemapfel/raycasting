@@ -52,6 +52,10 @@ local function _create_grade_label(grade)
     end
 end
 
+local _regular = rt.Font("assets/fonts/Baloo2/Baloo2-SemiBold.ttf")
+local _bold = rt.Font("assets/fonts/Baloo2/Baloo2-Bold.ttf")
+local _extra_bold = rt.Font("assets/fonts/Baloo2/Baloo2-ExtraBold.ttf")
+
 --- @brief
 function mn.StageSelectItem:instantiate(stage_id)
     meta.assert(stage_id, "String")
@@ -80,21 +84,26 @@ function mn.StageSelectItem:instantiate(stage_id)
     local difficulty = _create_difficulty_label(game_state:get_stage_difficulty(id))
     local description = game_state:get_stage_description(id)
     local time_grade, flow_grade, total_grade = game_state:get_stage_grades(id)
-    meta.install(self, {
-        _title_label = rt.Label(title_prefix .. title .. title_postfix, rt.FontSize.BIG),
 
-        _flow_prefix_label = rt.Label(prefix_prefix .. translation.flow_prefix .. prefix_postfix),
-        _flow_colon_label = rt.Label(colon),
-        _flow_value_label = rt.Label(flow_prefix .. flow .. flow_postfix),
+    local function extra_bold(text) return rt.Label(text, rt.FontSize.BIG, _extra_bold) end
+    local function bold(text) return rt.Label(text, rt.FontSize.REGULAR, _bold) end
+    local function regular(text) return rt.Label(text, rt.FontSize.REGULAR, _regular) end
+
+    meta.install(self, {
+        _title_label = extra_bold(title_prefix .. title .. title_postfix),
+
+        _flow_prefix_label = bold(prefix_prefix .. translation.flow_prefix .. prefix_postfix),
+        _flow_colon_label = regular(colon),
+        _flow_value_label = bold(flow_prefix .. flow .. flow_postfix),
         _flow_grade = mn.StageGradeLabel(flow_grade, rt.FontSize.BIG),
 
-        _time_prefix_label = rt.Label(prefix_prefix ..translation.time_prefix .. prefix_postfix),
-        _time_colon_label = rt.Label(colon),
-        _time_value_label = rt.Label(time_prefix .. time .. time_postfix),
+        _time_prefix_label = bold(prefix_prefix ..translation.time_prefix .. prefix_postfix),
+        _time_colon_label = regular(colon),
+        _time_value_label = bold(time_prefix .. time .. time_postfix),
         _time_grade = mn.StageGradeLabel(time_grade, rt.FontSize.BIG),
 
-        _coins_prefix_label = rt.Label(prefix_prefix .. translation.coins_prefix .. prefix_postfix),
-        _coins_colon_label = rt.Label(colon),
+        _coins_prefix_label = bold(prefix_prefix .. translation.coins_prefix .. prefix_postfix),
+        _coins_colon_label = regular(colon),
         _coins = {},
 
         _difficulty_prefix_label = rt.Label(prefix_prefix ..translation.difficulty_prefix .. prefix_postfix),
@@ -121,7 +130,7 @@ end
 --- @brief
 function mn.StageSelectItem:measure()
     local title_w, title_h = self._title_label:measure()
-
+    return 250, 500
 end
 
 --- @brief
@@ -138,12 +147,14 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
         max_prefix_w = math.max(max_prefix_w, select(1, prefix:measure()))
     end
 
-    self._title_label:set_justify_mode(rt.JustifyMode.LEFT)
-    self._title_label:reformat(x, y, math.huge, math.huge)
+    self._title_label:set_justify_mode(rt.JustifyMode.CENTER)
+    self._title_label:reformat(x, y, width, math.huge)
+
 end
 
 --- @brief
 function mn.StageSelectItem:realize()
+    local x, y = 100, 50
     for widget in range(
         self._title_label,
         self._flow_prefix_label,

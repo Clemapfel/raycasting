@@ -577,16 +577,15 @@ function ow.DialogBox:draw()
     if self._active_node ~= nil then
         love.graphics.push()
         local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.stencil(stencil_value, function()
-            love.graphics.rectangle("fill", self._text_stencil:unpack())
-        end)
-        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.EQUAL, stencil_value)
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+        love.graphics.rectangle("fill", self._text_stencil:unpack())
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST)
 
         love.graphics.translate(self._node_offset_x + self._frame_x, self._node_offset_y + self._frame_y)
         for label in values(self._active_node.labels) do
             label:draw()
         end
-        rt.graphics.set_stencil_compare_mode()
+        rt.graphics.set_stencil_mode(nil)
         love.graphics.pop()
     end
 

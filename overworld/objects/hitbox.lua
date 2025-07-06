@@ -216,17 +216,16 @@ function ow.Hitbox:draw_outline()
         local lines, mesh, color = table.unpack(lines_mesh_color)
 
         local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.stencil(stencil_value, function()
-            love.graphics.draw(mesh)
-        end)
-        rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+        love.graphics.draw(mesh)
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
         color:bind()
         for line in values(lines) do
             love.graphics.line(line)
         end
 
-        rt.graphics.set_stencil_compare_mode(nil)
+        rt.graphics.set_stencil_mode(nil)
     end
 end
 

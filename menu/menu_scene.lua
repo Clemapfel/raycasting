@@ -121,7 +121,7 @@ function mn.MenuScene:instantiate(state)
         ) do
             local item = {
                 unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE, title_screen.menu_font),
-                selected_label = rt.Label("<o><rainbow><wave><b><color=SELECTION>" .. text .. "</color></b></o></wave></rainbow>", rt.FontSize.LARGE, title_screen.menu_font),
+                selected_label = rt.Label("<o><rainbow><b><color=SELECTION>" .. text .. "</color></b></o></rainbow>", rt.FontSize.LARGE, title_screen.menu_font),
             }
 
             table.insert(title_screen.menu_items, item)
@@ -185,6 +185,9 @@ function mn.MenuScene:instantiate(state)
         local stage_select = {}
         self._stage_select = stage_select
 
+        stage_select.scroll_elapsed = 0
+        stage_select.scroll_direction = 0 -- -1 up, 1 down, 0 no scroll
+
         stage_select.input = rt.InputSubscriber()
         stage_select.input:signal_connect("pressed", function(_, which)
             if self._initialized == false or self._input_blocked == true or not stage_select.item_reveal_animation:get_is_done() then return end
@@ -227,22 +230,22 @@ function mn.MenuScene:instantiate(state)
 
         stage_select.items = {}
         stage_select.selected_item_i = 1
-        stage_select.menu_x = 0
-        stage_select.menu_y = 0
-        stage_select.menu_height = 1
-        stage_select.menu_width = 1
-        stage_select.hrule_height = 2 * rt.get_pixel_scale()
-
-        stage_select.scroll_elapsed = 0
-        stage_select.scroll_direction = 0 -- -1 up, 1 down, 0 no scroll
 
         local stage_ids = rt.GameState:list_stage_ids()
         table.sort(stage_ids, function(a, b)
             return rt.GameState:get_stage_difficulty(a) < rt.GameState:get_stage_difficulty(b)
         end)
 
-        stage_select.n_items = table.sizeof(stage_ids)
-        stage_select.item_frame = mn.StageSelectParticleFrame(stage_select.n_items)
+        stage_select.n_items = 0
+
+
+        stage_select.items = {}
+        for id in values(stage_ids) do
+            table.insert(stage_select.items, mn.StageSelectItem(id))
+            stage_select.n_items = stage_select.n_items + 1
+        end
+
+        stage_select.item_frame = mn.StageSelectParticleFrame(table.unpack(stage_select.items))
         stage_select.page_indicator = mn.StageSelectPageIndicator(stage_select.n_items)
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
         stage_select.debris_emitter_initialized = false
@@ -269,27 +272,7 @@ function mn.MenuScene:realize()
     end
 
     for item in values(self._stage_select.items) do
-        for widget in range(
-            item.title_label,
-            item.flow_prefix_label,
-            item.flow_colon_label,
-            item.flow_value_label,
-            item.flow_grade,
-            item.time_prefix_label,
-            item.time_colo_label,
-            item.time_value_label,
-            item.time_grade,
-            item.coins_prefix_label,
-            item.coins_colon_label,
-            item.difficulty_prefix_label,
-            item.difficulty_colon_label,
-            item.difficulty_value_label,
-            item.frame,
-            item.description_label,
-            item.total_grade
-        ) do
-            widget:realize()
-        end
+        item:realize()
     end
 
     self._stage_select.page_indicator:realize()
@@ -821,16 +804,15 @@ function mn.MenuScene:draw()
             love.graphics.clear()
 
             local stencil_value = rt.graphics.get_stencil_value()
-            rt.graphics.stencil(stencil_value, function()
-                stage_select.page_indicator:draw()
-                stage_select.item_frame:draw_mask()
-            end)
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+            stage_select.page_indicator:draw()
+            stage_select.item_frame:draw_mask()
 
-            rt.graphics.set_stencil_compare_mode(rt.StencilCompareMode.NOT_EQUAL, stencil_value)
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
             stage_select.debris_emitter:draw()
 
-            rt.graphics.set_stencil_compare_mode(nil)
+            rt.graphics.set_stencil_mode(nil)
 
             love.graphics.push()
             love.graphics.translate(offset_x * stage_select.reveal_width, 0)

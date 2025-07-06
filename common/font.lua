@@ -12,7 +12,7 @@ rt.FontSize = meta.enum("FontSize", {
     HUGE = 60 / rt.settings.native_height,
     LARGE = 40 / rt.settings.native_height,
     BIG = 30 / rt.settings.native_height,
-    DEFAULT = 20 / rt.settings.native_height,
+    REGULAR = 20 / rt.settings.native_height,
     SMALL = 16 / rt.settings.native_height,
     TINY = 12 / rt.settings.native_height
 })

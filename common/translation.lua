@@ -108,8 +108,10 @@ rt.Translation = rt.initialize_translation({
         },
 
         control_indicator_move = "Move",
+        control_indicator_down = "Duck",
         control_indicator_jump = "Jump",
-        control_indicator_sprint = "Sprint"
+        control_indicator_sprint = "Sprint",
+        control_indicator_bubble_move = "Move Around"
     },
 
     -- title screen
@@ -126,9 +128,9 @@ rt.Translation = rt.initialize_translation({
         },
 
         stage_select = {
-            flow_prefix = "Best Flow %",
+            flow_prefix = "Best Flow",
             time_prefix = "Best Time",
-            coins_prefix = "Children Saved",
+            coins_prefix = "Best Count",
             difficulty_prefix = "Difficulty",
 
             control_indicator_select = "Select Stage",

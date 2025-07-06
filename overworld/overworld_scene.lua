@@ -26,6 +26,8 @@ do
         bloom_blur_strength = 1.2, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
         title_card_min_duration = 3, -- seconds
+
+        idle_control_indicator_popup_threshold = 5
     }
 end
 
@@ -98,13 +100,21 @@ function ow.OverworldScene:instantiate(state)
     })
 
     local translation = rt.Translation.overworld_scene
-    self._control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_move,
+    self._non_bubble_control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
         rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
-        rt.ControlIndicatorButton.SPRINT, translation.control_indicator_sprint
+        rt.ControlIndicatorButton.SPRINT, translation.control_indicator_sprint,
+        rt.ControlIndicatorButton.DOWN, translation.control_indicator_down
     )
-    self._control_indicator:set_has_frame(true)
+    self._non_bubble_control_indicator:set_has_frame(true)
+
+    self._bubble_control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_bubble_move
+    )
+    self._bubble_control_indicator:set_has_frame(true)
+
     self._control_indicator_motion = rt.SmoothedMotion1D(0, 1) -- opacity
+    self._control_indicator_visible = false
 
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.PAUSE then
@@ -270,7 +280,8 @@ function ow.OverworldScene:instantiate(state)
     self._background:realize()
     self._pause_menu:realize()
     self._title_card:realize()
-    self._control_indicator:realize()
+    self._non_bubble_control_indicator:realize()
+    self._bubble_control_indicator:realize()
 
     self._player_canvas_scale = 2
     local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 2.5
@@ -330,13 +341,15 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     local r, g, b, a = 1, 1, 1, 0.2
     self._camera_pan_area_width = gradient_w
 
-    local control_w, control_h = self._control_indicator:measure()
     local m = rt.settings.margin_unit
-    self._control_indicator:reformat(
-        x + 0.5 * width - 0.5 * control_w - m,
-        y + height - control_h - m,
-        control_w, control_h
-    )
+    for indicator in range(self._non_bubble_control_indicator, self._bubble_control_indicator) do
+        local control_w, control_h = indicator:measure()
+        indicator:reformat(
+            x + 0.5 * width - 0.5 * control_w - m,
+            y + height - control_h - m,
+            control_w, control_h
+        )
+    end
 
     if rt.GameState:get_is_bloom_enabled() then
         self._bloom = rt.Bloom(width, height)
@@ -581,8 +594,13 @@ function ow.OverworldScene:draw()
 
     local opacity = self._control_indicator_motion:get_value()
     if opacity > 0 then
-        self._control_indicator:set_opacity(opacity)
-        self._control_indicator:draw()
+        if self._player:get_is_bubble() then
+            self._bubble_control_indicator:set_opacity(opacity)
+            self._bubble_control_indicator:draw()
+        else
+            self._non_bubble_control_indicator:set_opacity(opacity)
+            self._non_bubble_control_indicator:draw()
+        end
     end
 
     if rt.GameState:get_draw_debug_information() then
@@ -660,6 +678,15 @@ function ow.OverworldScene:update(delta)
 
     self._title_card:update(delta)
     self._title_card_elapsed = self._title_card_elapsed + delta
+
+    local idle = self._player:get_idle_duration() > rt.settings.overworld_scene.idle_control_indicator_popup_threshold
+    if self._control_indicator_visible == true and idle == false then
+        self._control_indicator_visible = false
+        self._control_indicator_motion:set_target_value(0)
+    elseif self._control_indicator_visible == false and idle == true then
+        self._control_indicator_visible = true
+        self._control_indicator_motion:set_target_value(1)
+    end
 
     self._control_indicator_motion:update(delta)
 

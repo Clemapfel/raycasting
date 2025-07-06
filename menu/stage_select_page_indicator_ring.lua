@@ -61,6 +61,7 @@ function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
     local padding = (max_offset + 2 * max_radius) + rt.get_pixel_scale() * 20
     self._canvas = rt.RenderTexture(2 * radius + 2 * padding, 2 * radius + 2 * padding)
     self._canvas_padding = padding
+    self._canvas_needs_update = true
 
     local max_hue_offset = settings.max_hue_offset
     local n_particles = math.ceil(((2 * math.pi * radius) / max_radius)) * settings.coverage -- intentionally over-cover
@@ -170,6 +171,7 @@ function mn.StageSelectPageIndicatorRing:update(delta)
     end
 
     self._data_mesh:replace_data(self._data_mesh_data)
+    self._canvas_needs_update = true
 end
 
 --- @brief
@@ -182,18 +184,21 @@ function mn.StageSelectPageIndicatorRing:draw()
 
     local w, h = self._canvas:get_size()
 
-    love.graphics.push()
-    self._canvas:bind()
-    love.graphics.clear(0, 0, 0, 0)
-    love.graphics.origin()
-    love.graphics.translate(0.5 * w, 0.5 * h)
-    _particle_shader:bind()
-    love.graphics.setBlendMode("add", "premultiplied")
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.drawInstanced(self._particle_mesh:get_native(), self._n_particles)
-    _particle_shader:unbind()
-    self._canvas:unbind()
-    love.graphics.pop()
+    if self._canvas_needs_update then
+        love.graphics.push()
+        self._canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.origin()
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        _particle_shader:bind()
+        love.graphics.setBlendMode("add", "premultiplied")
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.drawInstanced(self._particle_mesh:get_native(), self._n_particles)
+        _particle_shader:unbind()
+        self._canvas:unbind()
+        love.graphics.pop()
+        self._canvas_needs_update = false
+    end
 
     love.graphics.push()
     _outline_shader:bind()
