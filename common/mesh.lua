@@ -155,23 +155,17 @@ rt.MeshLine = function(x1, y1, x2, y2, thickness)
             vertices,
             rt.MeshDrawMode.TRIANGLE_FAN,
             rt.GraphicsBufferUsage.STATIC
-        ),
-        _r = 1,
-        _g = 1,
-        _b = 1,
-        _opacity = 1
+        )
     })
 end
 
 --- @override
 function rt.Mesh:draw(...)
-    love.graphics.setColor(self._r, self._g, self._b, self._opacity)
     love.graphics.draw(self._native, ...)
 end
 
 --- @brief
 function rt.Mesh:draw_instanced(n_instances)
-    love.graphics.setColor(self._r, self._g, self._b, self._opacity)
     love.graphics.drawInstanced(self._native, n_instances)
 end
 
@@ -210,16 +204,6 @@ end
 --- @brief
 function rt.Mesh:set_vertex_color(i, r, g, b, a)
     self._native:setVertexAttribute(i, 3, r, g, b, a)
-end
-
---- @brief
-function rt.Mesh:set_opacity(alpha)
-    self._opacity = alpha
-end
-
---- @brief
-function rt.Mesh:set_color(r, g, b, a)
-    self._r, self._g, self._b, self._opacity = r, g, b, a
 end
 
 --- @brief

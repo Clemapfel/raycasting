@@ -9,6 +9,7 @@ require "menu.stage_select_page_indicator"
 require "menu.stage_select_particle_frame"
 require "menu.stage_grade_label"
 require "menu.stage_select_debris_emitter"
+require "menu.menu_scene_background"
 require "overworld.coin_particle"
 
 rt.settings.menu_scene = {
@@ -46,14 +47,10 @@ mn.MenuSceneState = meta.enum("MenuSceneState", {
     EXITING = "EXITING"
 })
 
-local _title_shader_sdf, _title_shader_no_sdf, _background_shader = nil, nil, nil
+local _title_shader_sdf, _title_shader_no_sdf = nil, nil
 
 -- @brief
 function mn.MenuScene:instantiate(state)
-    if _background_shader == nil then
-        _background_shader = rt.Shader("menu/menu_scene_background.glsl")
-    end
-
     if _title_shader_no_sdf == nil then
         _title_shader_no_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 0 })
     end
@@ -65,7 +62,6 @@ function mn.MenuScene:instantiate(state)
     -- TODO
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then _background_shader:recompile() end
     end)
 
     self._input_blocked = true
@@ -90,6 +86,7 @@ function mn.MenuScene:instantiate(state)
     self._shader_camera_offset = { 0, 0 }
     self._shader_elapsed = 0
     self._shader_fraction = 0
+    self._background = mn.MenuSceneBackground(self)
 
     do -- title screen
         local translation = rt.Translation.menu_scene.title_screen
@@ -204,6 +201,8 @@ function mn.MenuScene:instantiate(state)
                     stage_select.debris_emitter:reset()
                     stage_select.debris_emitter_initialized = false
                     self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
+                    self._shader_fraction = 0
+                    self._background:set_fraction(0)
                     return meta.DISCONNECT_SIGNAL
                 end)
             elseif which == rt.InputAction.UP then
@@ -265,6 +264,8 @@ end
 
 --- @brief
 function mn.MenuScene:realize()
+    self._background:realize()
+
     self._title_screen.control_indicator:realize()
     for item in values(self._title_screen.menu_items) do
         item.unselected_label:realize()
@@ -308,6 +309,8 @@ function mn.MenuScene:size_allocate(x, y, width, height)
     if rt.GameState:get_is_bloom_enabled() then
         self._bloom = rt.Bloom(width, height)
     end
+
+    self._background:reformat(x, y, width, height)
 
     do -- title screen
         local title_screen = self._title_screen
@@ -534,6 +537,7 @@ function mn.MenuScene:update(delta)
     self._world:update(delta)
     self._player:update(delta)
     self._camera:update(delta)
+    self._background:update(delta)
 
     self._shader_elapsed = self._shader_elapsed + delta
     self._shader_camera_offset = { self._camera:get_offset() }
@@ -692,6 +696,8 @@ function mn.MenuScene:update(delta)
             end
         end
     end
+
+    self._background:set_fraction(self._shader_fraction)
 end
 
 local _black = { rt.Palette.BLACK:unpack() }
@@ -708,20 +714,7 @@ function mn.MenuScene:draw()
     end
 
     -- draw background
-    love.graphics.push()
-    love.graphics.origin()
-    _background_shader:bind()
-    _background_shader:send("black", _black)
-    _background_shader:send("elapsed", self._shader_elapsed)
-    _background_shader:send("camera_offset", self._shader_camera_offset)
-    _background_shader:send("camera_scale", self._shader_camera_scale)
-    _background_shader:send("fraction", self._shader_fraction)
-    _background_shader:send("hue", self._player:get_hue())
-
-    love.graphics.setColor(0.5, 0.5, 0.5, 1)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-    _background_shader:unbind()
-    love.graphics.pop()
+    self._background:draw()
 
     local bloom_updated = false
 
@@ -786,7 +779,6 @@ function mn.MenuScene:draw()
 
     if self._state == mn.MenuSceneState.FALLING or self._state == mn.MenuSceneState.STAGE_SELECT or self._state == mn.MenuSceneState.EXITING then
         local stage_select = self._stage_select
-
         stage_select.debris_emitter:draw()
 
         love.graphics.push()
@@ -844,4 +836,9 @@ end
 --- @brief
 function mn.MenuScene:get_camera()
     return self._camera
+end
+
+--- @brief
+function mn.MenuScene:get_player()
+    return self._player
 end

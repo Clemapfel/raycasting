@@ -8,6 +8,11 @@ rt.StencilReplaceMode = meta.enum("StencilReplaceMode", {
 
 function rt.graphics.get_stencil_value()
     local out = rt.graphics._stencil_value
+    if out == nil then
+        out = 2
+        rt.graphics._stencil_value = 2
+    end
+
     rt.graphics._stencil_value = rt.graphics._stencil_value + 1
     return out
 end

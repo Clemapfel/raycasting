@@ -256,6 +256,7 @@ function rt.PlayerTrail:update(delta)
         rt.graphics.set_blend_mode(nil)
         b:unbind()
 
+        love.graphics.setColor(1, 1, 1, 1)
         if self._bubble_cooldown <= 0 then
             a:bind()
             love.graphics.clear()
@@ -288,14 +289,15 @@ function rt.PlayerTrail:draw_below()
     x = x - 0.5 * w
     y = y - 0.5 * h
 
-    love.graphics.push("all")
+    love.graphics.push()
     love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.setColor(1, 1, 1, 1)
     if self._a_or_b then
-        love.graphics.draw(_trail_canvas_b:get_native(), x, y)
+        _trail_canvas_b:draw(x, y)
     else
-        love.graphics.draw(_trail_canvas_a:get_native(), x, y)
+        _trail_canvas_a:draw(x, y)
     end
+    love.graphics.setBlendMode("alpha")
     love.graphics.pop()
 end
 
