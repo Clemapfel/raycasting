@@ -652,6 +652,7 @@ function mn.MenuScene:update(delta)
 
     stage_select.page_indicator:set_hue(stage_select.item_frame:get_hue())
     stage_select.debris_emitter:set_speedup(speedup)
+    self._background:set_speedup(speedup)
 
     if self._state == mn.MenuSceneState.FALLING then
         -- transition to stage screen once player is in position

@@ -27,7 +27,7 @@ float gradient_noise(vec3 p) {
     mix( dot( -1 + 2 * random_3d(i + vec3(0.0,1.0,1.0)), v - vec3(0.0,1.0,1.0)),
     dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 
-    return (result + 1) / 2.;
+    return result;
 }
 
 #define PI 3.1415926535897932384626433832795
@@ -69,34 +69,78 @@ uniform float camera_scale = 1;
 uniform float fraction = 1;
 uniform vec4 black = vec4(0, 0, 0, 1);
 uniform float elapsed;
+uniform float speedup = 1;
 
-vec2 to_uv(vec2 frag_position) {
+const float threshold = 0.37;
+const float eps = 0.025;
+
+float get(vec4 data) {
+    float v = max(max(data.x, data.y), data.z);
+    float smoothed = smoothstep(threshold - eps, threshold + eps, v);
+    return smoothed;
+}
+
+vec2 to_uv(vec2 frag_position, vec2 offset) {
     vec2 uv = frag_position;
     vec2 origin = vec2(love_ScreenSize.xy / 2);
     uv -= origin;
     uv /= camera_scale;
     uv += origin;
-    uv -= camera_offset;
+    uv -= camera_offset + offset;
     uv.x *= love_ScreenSize.x / love_ScreenSize.y;
     uv /= love_ScreenSize.xy;
     return uv;
 }
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 frag_position) {
-    vec2 uv = to_uv(frag_position);
+vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
+    vec2 offset= vec2(0, 100 * elapsed);
+    vec2 uv = to_uv(frag_position, offset);
     float time = elapsed / 200;
-    vec2 center = to_uv(0.5 * love_ScreenSize.xy);
+    vec2 center = to_uv(0.5 * love_ScreenSize.xy, offset);
 
     // LCH-based gradient
-    float bg_y = uv.y / 1.4 + elapsed / 4;
+    float bg_y = uv.y / 1.4;
     float gradient_alpha = symmetric(bg_y); // Invisible at the top, visible at the bottom
-    vec3 gradient_color = lch_to_rgb(vec3(0.8, 0.9, mix(0.7, 1.0, bg_y))) * (1 - gradient_noise(vec3(uv * 1.5, time)));
-    vec4 bg = vec4(gradient_color, gradient_alpha) * smoothstep(0, 0.8, gradient_noise(vec3(uv , time)));
+    vec3 gradient_color = lch_to_rgb(vec3(0.8, 0.9, mix(0.7, 1.0, bg_y))) * (1 - gradient_noise(vec3(uv * 1.5, elapsed)));
+    vec4 bg = vec4(gradient_color, gradient_alpha) * smoothstep(0, 0.8, gradient_noise(vec3(uv * vec2(5, 1), elapsed)));
 
     // gradient at edge of screen
-    bg += vec4(fraction * 3 * smoothstep(0, 1.8, (1 - gaussian((texture_coords.y) + gradient_noise(vec3(uv.xx, elapsed) * 1), 1.0 / 5))));
+    bg += vec4(fraction * 3 * smoothstep(0, 1.8, (1 - gaussian((texture_coordinates.y) + gradient_noise(vec3(uv.xx, 0) * 1), 1.0 / 5))));
+    bg = mix(vec4(0), mix(0.6, 0.8, fraction) * bg, fraction);
 
-    return mix(vec4(0), mix(0.6, 0.8, fraction) * bg, fraction);
+    // post fx
+    if (fraction < 1) {
+        vec2 texSize = textureSize(img, 0);
+        vec2 pixel = 1.0 / texSize;
+
+        float v00 = get(texture(img, texture_coordinates + pixel * vec2(-1.0, -1.0)));
+        float v01 = get(texture(img, texture_coordinates + pixel * vec2(0.0, -1.0)));
+        float v02 = get(texture(img, texture_coordinates + pixel * vec2(1.0, -1.0)));
+        float v10 = get(texture(img, texture_coordinates + pixel * vec2(-1.0, 0.0)));
+        float v12 = get(texture(img, texture_coordinates + pixel * vec2(1.0, 0.0)));
+        float v20 = get(texture(img, texture_coordinates + pixel * vec2(-1.0, 1.0)));
+        float v21 = get(texture(img, texture_coordinates + pixel * vec2(0.0, 1.0)));
+        float v22 = get(texture(img, texture_coordinates + pixel * vec2(1.0, 1.0)));
+
+        float gradient_x = -v00 - 2.0 * v10 - v20 + v02 + 2.0 * v12 + v22;
+        float gradient_y = -v00 - 2.0 * v01 - v02 + v20 + 2.0 * v21 + v22;
+
+
+        float gradient = length(vec2(gradient_x, gradient_y));
+
+        float value = smoothstep(threshold - eps, threshold + eps, texture(img, texture_coordinates).a);
+        vec4 data = texture(img, texture_coordinates);
+        vec3 color = value * data.rgb / data.a;
+        float smooth_gradient = smoothstep(0.0, threshold, max(abs(gradient_x), abs(gradient_y)));
+        float gradient_weight = 1 - distance(texture_coordinates.y, 0.5) * 2;
+
+        float weight = (gaussian(2 * distance(texture_coordinates.x, 0.5), 0.95));
+        vec4 balls = (1 - fraction) * vec4(color * smooth_gradient * gradient_weight, gradient * gradient_weight);
+        balls += weight * vec4(color, data.a);
+        bg += balls;
+    }
+
+    return bg;
 }
 
 #endif // PIXEL

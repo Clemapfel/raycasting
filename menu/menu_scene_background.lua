@@ -1,12 +1,16 @@
 rt.settings.menu.menu_scene_background = {
-    radius = 15,
-    min_scale = 0.1,
-    max_scale = 1,
-    max_scale_speed = 0.5, -- fraction per second
-    gravity = -0.5, -- normalize y velocity
-
+    radius = 40,
+    min_radius = 1,  -- factor of radius
+    max_radius = 1.5,
+    min_scale = 0.5,
+    max_scale = 1.5,
+    min_velocity = 1, -- px / s
+    max_velocity = 10,
+    min_angular_velocity = 0.0 * (2 * math.pi),
+    max_angular_velocity = 0.1 * (2 * math.pi),
+    scale_speed = 0.2,
     n_layers = 8,
-    n_particles_per_layer = 50
+    n_particles_per_layer = 100
 }
 
 --- @class mn.MenuSceneBackground
@@ -15,8 +19,8 @@ mn.MenuSceneBackground = meta.class("MenuSceneBackground", rt.Widget)
 local _shader
 
 -- indices for particle indexing
-local _position_x = 1
-local _position_y = 2
+local _x = 1
+local _y = 2
 local _r = 3
 local _g = 4
 local _b = 5
@@ -24,10 +28,21 @@ local _scale = 6
 local _velocity_x = 7
 local _velocity_y = 8
 local _velocity_magnitude = 9
-local _scale_direction = 10 -- radius change
-local _scale_speed = 11 -- radius change speed
+local _scale_x = 10
+local _scale_y = 11
+local _scale_velocity_x = 12
+local _scale_velocity_y = 13
+local _angle = 14
 
-local _mesh_radius = _scale
+local _mesh_x = 1
+local _mesh_y = 2
+local _mesh_r = 3
+local _mesh_g = 4
+local _mesh_b = 5
+local _mesh_radius = 6
+local _mesh_scale_x = 7
+local _mesh_scale_y = 8
+local _mesh_angle = 9
 
 -- indices for data mesh
 
@@ -36,7 +51,9 @@ local _particle_draw_shader, _particle_texture_shader, _canvas_draw_shader
 local _mesh_format = {
     { location = 3, name = "offset", format = "floatvec2" },
     { location = 4, name = "color", format = "floatvec3" },
-    { location = 5, name = "radius", format = "float" }
+    { location = 5, name = "radius", format = "float" },
+    { location = 6, name = "scale", format = "floatvec2" },
+    { location = 7, name = "rotation", format = "float" }
 }
 
 local _texture_format = rt.TextureFormat.RGBA16F
@@ -46,7 +63,7 @@ function mn.MenuSceneBackground:instantiate(scene)
     if _shader == nil then _shader = rt.Shader("menu/menu_scene_background.glsl") end
     if _particle_draw_shader == nil then _particle_draw_shader = rt.Shader("menu/menu_scene_background_particle_draw.glsl") end
     if _particle_texture_shader == nil then _particle_texture_shader = rt.Shader("menu/menu_scene_background_particle.glsl") end
-    if _canvas_draw_shader == nil then _canvas_draw_shader = rt.Shader("menu/menu_scene_background_canvas_draw.glsl") end
+    if _canvas_draw_shader == nil then _canvas_draw_shader = rt.Shader("menu/menu_scene_background.glsl") end
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -56,18 +73,20 @@ function mn.MenuSceneBackground:instantiate(scene)
 
             local canvas_w = rt.get_pixel_scale() * (rt.settings.menu.menu_scene_background.radius + 5) -- padding
             self._particle_texture:bind()
+            love.graphics.clear()
             love.graphics.setColor(1, 1, 1, 1)
             _particle_texture_shader:bind()
             love.graphics.rectangle("fill", 0, 0, canvas_w, canvas_w)
             self._particle_texture:unbind()
-
         end
     end)
 
     meta.assert(scene, mn.MenuScene)
     self._scene = scene
     self._fraction = 0
+    self._speedup = 1
     self._canvas_needs_update = false
+    self._elapsed = 0
 
     do -- particle texture
         local canvas_w = rt.get_pixel_scale() * (rt.settings.menu.menu_scene_background.radius + 5) -- padding
@@ -111,28 +130,36 @@ function mn.MenuSceneBackground:size_allocate(x, y, width, height)
     self._n_particles = n_layers * settings.n_particles_per_layer
 
     for layer_i = 1, n_layers do
-        local scale = 1 + ((layer_i - 1) / n_layers)
-        local r, g, b = rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1)
+        local scale = layer_i / n_layers
         for i = 1, settings.n_particles_per_layer do
+            local r, g, b = rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1)
             local particle = {
-                [_position_x] = rt.random.number(x, x + width),
-                [_position_y] = rt.random.number(top_y, bottom_y),
+                [_x] = rt.random.number(x, x + width),
+                [_y] = rt.random.number(top_y, bottom_y),
                 [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
                 [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
                 [_r] = r,
                 [_g] = g,
                 [_b] = b,
-                [_scale] = rt.random.number(settings.min_scale, settings.max_scale) * scale,
-                [_velocity_magnitude] = rt.random.number(0.5, 1) * rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(scale - 1) + 1
+                [_scale] = scale * rt.random.number(settings.min_radius, settings.max_radius),
+                [_velocity_magnitude] = scale * rt.random.number(-1, 1),
+                [_scale_x] = rt.random.number(settings.min_scale, settings.max_scale),
+                [_scale_y] = rt.random.number(settings.min_scale, settings.max_scale),
+                [_scale_velocity_x] = rt.random.number(-1, 1),
+                [_scale_velocity_y] = rt.random.number(-1, 1),
+                [_angle] = rt.random.number(0, 2 * math.pi)
             }
 
             local data = {
-                [_position_x] = particle[_position_x],
-                [_position_y] = particle[_position_y],
-                [_r] = particle[_r],
-                [_g] = particle[_g],
-                [_b] = particle[_b],
-                [_mesh_radius] = particle[_scale] * self._radius
+                [_mesh_x] = particle[_x],
+                [_mesh_y] = particle[_y],
+                [_mesh_r] = particle[_r],
+                [_mesh_g] = particle[_g],
+                [_mesh_b] = particle[_b],
+                [_mesh_radius] = particle[_scale] * self._radius,
+                [_mesh_scale_x] = particle[_scale_x],
+                [_mesh_scale_y] = particle[_scale_y],
+                [_mesh_angle] = particle[_angle],
             }
 
             self._particles[particle_i] = particle
@@ -164,23 +191,76 @@ function mn.MenuSceneBackground:set_fraction(fraction)
 end
 
 --- @brief
+function mn.MenuSceneBackground:set_speedup(v)
+    self._speedup = v
+end
+
+--- @brief
 function mn.MenuSceneBackground:update(delta)
+    self._elapsed = self._elapsed * self._speedup
     local top_y = self._bounds.y - 2 * self._radius
     local bottom_y = self._bounds.y + self._bounds.height + 2 * self._radius
+
+    local settings = rt.settings.menu.menu_scene_background
+    local min_velocity, max_velocity = settings.min_velocity, settings.max_velocity
+    local min_angular_velocity, max_angular_velocity = settings.min_angular_velocity, settings.max_angular_velocity
+    local min_scale, max_scale = settings.min_scale, settings.max_scale
+    local scale_speed = settings.scale_speed
+
     for i = 1, self._n_particles do
         local particle = self._particles[i]
 
-        local x, y = particle[_position_x], particle[_position_y]
-        y = y - delta * 100 * particle[_velocity_magnitude]
+        local x, y, magnitude = particle[_x], particle[_y], particle[_velocity_magnitude]
+        y = y - delta * math.mix(min_velocity, max_velocity, magnitude)
+
+        local velocity =  math.mix(min_velocity, max_velocity, magnitude)
+        x = x + delta * particle[_velocity_x] * velocity
+        y = y + delta * particle[_velocity_y] * velocity
 
         if y < top_y then y = bottom_y end
+        if y > bottom_y then y = top_y end
+        particle[_x] = x
+        particle[_y] = y
 
-        particle[_position_x] = x
-        particle[_position_y] = y
+        particle[_angle] = particle[_angle] + delta * math.mix(min_angular_velocity, max_angular_velocity, magnitude)
+
+        local scale_x, scale_y = particle[_scale_x], particle[_scale_y]
+        local scale_vx, scale_vy = particle[_scale_velocity_x], particle[_scale_velocity_y]
+
+        scale_x = scale_x + delta * scale_speed * particle[_scale_velocity_x]
+        scale_y = scale_y + delta * scale_speed * particle[_scale_velocity_y]
+
+        if scale_x > max_scale then
+            scale_x = max_scale
+            scale_vx = -scale_vx
+        end
+
+        if scale_x < min_scale then
+            scale_x = min_scale
+            scale_vx = - scale_vx
+        end
+
+        if scale_y > max_scale then
+            scale_y = max_scale
+            scale_vy = -scale_vy
+        end
+
+        if scale_y < min_scale then
+            scale_y = min_scale
+            scale_vy = - scale_vy
+        end
+
+        particle[_scale_x] = scale_x
+        particle[_scale_y] = scale_y
+        particle[_scale_velocity_x] = scale_vx
+        particle[_scale_velocity_y] = scale_vy
 
         local data = self._data_mesh_data[i]
-        data[_position_x] = particle[_position_x]
-        data[_position_y] = particle[_position_y]
+        data[_mesh_x] = particle[_x]
+        data[_mesh_y] = particle[_y]
+        data[_mesh_scale_x] = particle[_scale_x]
+        data[_mesh_scale_y] = particle[_scale_y]
+        data[_mesh_angle] = particle[_angle]
     end
 
     self._data_mesh:replace_data(self._data_mesh_data)
@@ -191,15 +271,6 @@ end
 function mn.MenuSceneBackground:draw()
     local player = self._scene:get_player()
     local camera = self._scene:get_camera()
-
-    _shader:bind()
-    _shader:send("black", { rt.Palette.BLACK:unpack() })
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("camera_offset", { camera:get_offset() })
-    _shader:send("camera_scale", camera:get_final_scale())
-    _shader:send("fraction", self._fraction)
-    love.graphics.rectangle("fill", self._bounds:unpack())
-    _shader:unbind()
 
     if self._fraction < 1 then
         if self._canvas_needs_update == true then
@@ -218,12 +289,17 @@ function mn.MenuSceneBackground:draw()
             love.graphics.pop()
             self._canvas_needs_update = false
         end
-
-        love.graphics.setBlendMode("alpha", "premultiplied")
-        _canvas_draw_shader:bind()
-        _canvas_draw_shader:send("opacity", 1 - self._fraction)
-        self._canvas:draw()
-        _canvas_draw_shader:unbind()
-        love.graphics.setBlendMode("alpha")
     end
+
+    love.graphics.setBlendMode("alpha", "premultiplied")
+    _canvas_draw_shader:bind()
+    _canvas_draw_shader:send("black", { rt.Palette.BLACK:unpack() })
+    _canvas_draw_shader:send("elapsed", self._elapsed)
+    _canvas_draw_shader:send("camera_offset", { camera:get_offset() })
+    _canvas_draw_shader:send("camera_scale", camera:get_final_scale())
+    _canvas_draw_shader:send("fraction", self._fraction)
+    love.graphics.setColor(1, 1, 1, 1)
+    self._canvas:draw()
+    _canvas_draw_shader:unbind()
+    love.graphics.setBlendMode("alpha")
 end
