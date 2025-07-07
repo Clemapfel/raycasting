@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 749,
+  nextobjectid = 751,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 153.106,
-          y = 979.501,
+          x = -1602.35,
+          y = 881.522,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4194,19 +4194,6 @@ return {
           properties = {}
         },
         {
-          id = 744,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 86.6667,
-          y = 994,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 745,
           name = "",
           type = "Coin",
@@ -4259,6 +4246,42 @@ return {
           x = 197.394,
           y = 448.448,
           width = 1.91644,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 749,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -1712,
+          y = 928,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -80, y = -432 },
+            { x = 0, y = -432 },
+            { x = 0, y = 0 },
+            { x = 608, y = 0 },
+            { x = 614.101, y = -432 },
+            { x = 688, y = -432 },
+            { x = 688, y = 80 },
+            { x = -80, y = 80 }
+          },
+          properties = {}
+        },
+        {
+          id = 750,
+          name = "",
+          type = "NPC",
+          shape = "point",
+          x = -1283.94,
+          y = 847.112,
+          width = 0,
           height = 0,
           rotation = 0,
           visible = true,

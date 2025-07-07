@@ -20,15 +20,8 @@ ow.Coin = meta.class("Coin")
 local _pulse_mesh = nil
 local _particle_texture, _particle_shader
 
-local _hue_steps, _n_hue_steps = {}, 8
-do
-    for i = 0, _n_hue_steps - 1 do
-        table.insert(_hue_steps, i / _n_hue_steps)
-    end
-end
-
-function ow.Coin.index_to_hue(i)
-    return _hue_steps[((i - 1) % _n_hue_steps) + 1]
+function ow.Coin.index_to_hue(i, n_coins)
+    return (i - 1) / (n_coins - 1)
 end
 
 --- @brief
@@ -65,7 +58,7 @@ function ow.Coin:instantiate(object, stage, scene)
     stage:add_coin(self, self._id)
 
     self._index = object:get_number("index") or stage:get_n_coins()
-    self._hue = ow.Coin.index_to_hue(self._index)
+    self._hue = ow.Coin.index_to_hue(self._index, self._stage:get_n_coins())
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     self._particle:set_hue(self._hue)

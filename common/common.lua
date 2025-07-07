@@ -562,7 +562,7 @@ function string.format_time(duration)
     elseif minutes >= 1 then
         return string.format("%2d:%02d.%03d", minutes, seconds, milliseconds)
     else
-        return string.format("%2d.%03ds", seconds, milliseconds)
+        return string.format("%2d.%03d s", seconds, milliseconds)
     end
 end
 

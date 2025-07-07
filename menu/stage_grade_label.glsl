@@ -57,8 +57,8 @@ uniform vec4 white;
 
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
-    const float thickness = 1 - 0.6;
-    return vec4(smoothstep(0, 1, smoothstep(0, 1, smoothstep(0, 1 - thickness, dist)))) * white;
+    const float thickness = 1 - 0.8;
+    return min(vec4(1.5 * smoothstep(0, 1, smoothstep(0, 1, smoothstep(0, 1 - thickness, dist)))) * white, vec4(1));
 }
 
 #elif MODE == MODE_NO_SDF
@@ -75,7 +75,6 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
 
     vec4 result;
     if (use_rainbow) {
-
         vec3 color = lch_to_rgb(vec3(0.8, 1.0, fract(10 * uv.x - time)));
         result = vec4(color, texel.a);
     }

@@ -198,6 +198,9 @@ end
 --- @brief
 function mn.MenuSceneBackground:update(delta)
     self._elapsed = self._elapsed * self._speedup
+
+    if self._fraction >= 1 then return end
+
     local top_y = self._bounds.y - 2 * self._radius
     local bottom_y = self._bounds.y + self._bounds.height + 2 * self._radius
 
@@ -271,6 +274,7 @@ end
 function mn.MenuSceneBackground:draw()
     local player = self._scene:get_player()
     local camera = self._scene:get_camera()
+    local offset_x, offset_y = camera:get_offset()
 
     if self._fraction < 1 then
         if self._canvas_needs_update == true then
@@ -282,6 +286,10 @@ function mn.MenuSceneBackground:draw()
             rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
             local value = 1
             love.graphics.setColor(value, value, value, value)
+
+            local w, h = self._canvas:get_size()
+            love.graphics.translate(offset_x - 0.5 * w, offset_y - 0.5 * h)
+
             self._particle_mesh:draw_instanced(self._n_particles)
             rt.graphics.set_blend_mode()
             _particle_draw_shader:unbind()
@@ -295,7 +303,7 @@ function mn.MenuSceneBackground:draw()
     _canvas_draw_shader:bind()
     _canvas_draw_shader:send("black", { rt.Palette.BLACK:unpack() })
     _canvas_draw_shader:send("elapsed", self._elapsed)
-    _canvas_draw_shader:send("camera_offset", { camera:get_offset() })
+    _canvas_draw_shader:send("camera_offset", { offset_x, offset_y })
     _canvas_draw_shader:send("camera_scale", camera:get_final_scale())
     _canvas_draw_shader:send("fraction", self._fraction)
     love.graphics.setColor(1, 1, 1, 1)

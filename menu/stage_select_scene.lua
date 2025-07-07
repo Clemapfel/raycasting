@@ -40,9 +40,9 @@ end
 local function _create_grade_label(grade)
     if grade == rt.StageGrade.DOUBLE_S then
         return "<wave><rainbow>SS</rainbow></wave>"
-    elseif grade == rt.StageGrade.S then
-        return "<color=YELLOW>S</color>"
     elseif grade == rt.StageGrade.A then
+        return "<color=YELLOW>S</color>"
+    elseif grade == rt.StageGrade.B then
         return "<color=GREEN>A</color>"
     elseif grade == rt.StageGrade.F then
         return "<outline_color=WHITE><color=BLACK>F</color></outline_color>"

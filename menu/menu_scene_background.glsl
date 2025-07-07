@@ -92,6 +92,11 @@ vec2 to_uv(vec2 frag_position, vec2 offset) {
     return uv;
 }
 
+float smooth_max(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(a, b, h) + k * h * (1.0 - h);
+}
+
 vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 offset= vec2(0, 100 * elapsed);
     vec2 uv = to_uv(frag_position, offset);
@@ -125,22 +130,24 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         float gradient_x = -v00 - 2.0 * v10 - v20 + v02 + 2.0 * v12 + v22;
         float gradient_y = -v00 - 2.0 * v01 - v02 + v20 + 2.0 * v21 + v22;
 
-
         float gradient = length(vec2(gradient_x, gradient_y));
 
         float value = smoothstep(threshold - eps, threshold + eps, texture(img, texture_coordinates).a);
         vec4 data = texture(img, texture_coordinates);
         vec3 color = value * data.rgb / data.a;
         float smooth_gradient = smoothstep(0.0, threshold, max(abs(gradient_x), abs(gradient_y)));
-        float gradient_weight = 1 - distance(texture_coordinates.y, 0.5) * 2;
 
-        float weight = (gaussian(2 * distance(texture_coordinates.x, 0.5), 0.95));
+        vec2 normalization = love_ScreenSize.xy / max(love_ScreenSize.x, love_ScreenSize.y);
+        float gradient_weight = max(0, 0); // TODO: mask edges of canvas
+
+        float weight = (gaussian(2 * distance(texture_coordinates.x, 0.5), 1));
         vec4 balls = (1 - fraction) * vec4(color * smooth_gradient * gradient_weight, gradient * gradient_weight);
-        balls += weight * vec4(color, data.a);
+        //balls += weight * vec4(color, data.a);
+        balls = max(balls, vec4(0));
         bg += balls;
     }
 
-    return bg;
+    return vertex_color * bg;
 }
 
 #endif // PIXEL

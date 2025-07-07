@@ -2,22 +2,32 @@ require "common.stage_grade"
 require "common.translation"
 
 rt.settings.game_state.stage = {
-    grade_flow_threshold = {
-        [rt.StageGrade.SS] = 0.995,
-        [rt.StageGrade.S] = 0.95,
-        [rt.StageGrade.A] = 0.85,
-        [rt.StageGrade.B] = 0.6,
+    grade_flow_thresholds = {
+        [rt.StageGrade.S] = 0.995, -- precentage
+        [rt.StageGrade.A] = 0.95,
+        [rt.StageGrade.B] = 0.85,
+        [rt.StageGrade.C] = 0.6,
         [rt.StageGrade.F] = 0
     },
 
-    grade_time_threshold  = {
-        [rt.StageGrade.SS] = 1,
-        [rt.StageGrade.S] = 1.05,
-        [rt.StageGrade.A] = 1.5,
-        [rt.StageGrade.B] = 2,
+    grade_time_thresholds  = {
+        [rt.StageGrade.S] = 1, -- fraction of target time
+        [rt.StageGrade.A] = 1.05,
+        [rt.StageGrade.B] = 1.5,
+        [rt.StageGrade.C] = 2,
         [rt.StageGrade.F] = math.huge
     },
+
+    coin_thresholds = {
+        [rt.StageGrade.S] = 0, -- number of coins missing
+        [rt.StageGrade.A] = 1,
+        [rt.StageGrade.B] = 2,
+        [rt.StageGrade.C] = 3,
+        [rt.StageGrade.F] = math.huge
+    }
 }
+
+local _debug_output = true
 
 --- @brief
 function rt.GameState:_initialize_stage()
@@ -100,6 +110,8 @@ end
 --- @brief
 function rt.GameState:get_stage_best_time(id)
     meta.assert(id, "String")
+    if _debug_output then return rt.random.number(1, 100) end
+
     local entry = self._state.stage_results[id]
     if entry == nil or entry.best_time == nil then
         return nil
@@ -128,6 +140,8 @@ end
 --- @brief
 function rt.GameState:get_stage_best_flow_percentage(id)
     meta.assert(id, "String")
+    if _debug_output then return rt.random.number(0, 1) end
+
     local _ = self:_get_stage(id, "get_stage_best_flow_percentage")
 
     local entry = self._state.stage_results[id]
@@ -158,6 +172,8 @@ end
 --- @brief
 function rt.GameState:get_stage_was_coin_collected(stage_id, coin_i)
     meta.assert(stage_id, "String", coin_i, "Number")
+    if _debug_output then return true end --rt.random.toss_coin(0.6) end
+
     local stage = self:_get_stage(stage_id, "get_stage_was_coin_collected")
     if coin_i > stage.n_coins then
         rt.error("In rt.GameState.get_stage_was_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
@@ -200,6 +216,8 @@ end
 --- @brief
 function rt.GameState:get_stage_was_beaten(id)
     meta.assert(id, "String")
+    if _debug_output then return true end
+
     local _ = self:_get_stage(id, "get_stage_was_beaten")
 
     local entry = self._state.stage_results[id]
@@ -258,6 +276,17 @@ end
 function rt.GameState:get_stage_grades(id)
     local stage = self:_get_stage(id, "get_stage_grades")
 
+    if _debug_output then
+        local grades = {
+            rt.StageGrade.S,
+            rt.StageGrade.A,
+            rt.StageGrade.B,
+            rt.StageGrade.C,
+            rt.StageGrade.F
+        }
+        return rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades)
+    end
+
     if stage.was_beaten == false then
         return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE
     end
@@ -270,13 +299,21 @@ function rt.GameState:get_stage_grades(id)
     local time_fraction = self:get_stage_target_time(id) / time
     local flow_fraction = flow
 
-    local time_threshold = rt.settings.game_state.stage.time_tresholds
+    local n_coins = self:get_stage_n_coins(id)
+    local n_collected = 0
+    for i = 1, n_coins do
+        if self:get_stage_was_coin_collected(id, i) == true then
+            n_collected = n_collected + 1
+        end
+    end
+
+    local time_threshold = rt.settings.game_state.stage.grade_time_thresholds
     local time_grade = rt.StageGrade.NONE
     for grade in range(
-        rt.StageGrade.SS,
         rt.StageGrade.S,
         rt.StageGrade.A,
         rt.StageGrade.B,
+        rt.StageGrade.C,
         rt.StageGrade.F
     ) do
         if time_fraction > time_threshold[grade] then
@@ -285,13 +322,13 @@ function rt.GameState:get_stage_grades(id)
         end
     end
 
-    local flow_thresholds = rt.settings.game_state.stage.flow_thresholds
+    local flow_thresholds = rt.settings.game_state.stage.grade_flow_thresholds
     local flow_grade = rt.StageGrade.NONE
     for grade in range(
-        rt.StageGrade.SS,
         rt.StageGrade.S,
         rt.StageGrade.A,
         rt.StageGrade.B,
+        rt.StageGrade.C,
         rt.StageGrade.F
     ) do
         if flow_fraction < flow_thresholds[grade] then
@@ -300,13 +337,28 @@ function rt.GameState:get_stage_grades(id)
         end
     end
 
-    -- max, but for SS both have to be
-    local total_grade = math.min(flow_grade, time_grade)
-    if total_grade == rt.StageGrade.SS and (flow_grade ~= rt.StageGrade.SS or time_grade ~= rt.StageGrade.SS) then
-        total_grade = rt.StageGrade.S
+    local coin_thresholds = rt.settings.game_state.stage.coin_thresholds
+    local coin_grade = rt.StageGrade.NONE
+    for grade in range(
+        rt.StageGrade.S,
+        rt.StageGrade.A,
+        rt.StageGrade.B,
+        rt.StageGrade.C,
+        rt.StageGrade.F
+    ) do
+        if n_coins - n_collected > coin_thresholds[grade] then
+            coin_grade = grade
+            break
+        end
     end
 
-    return time_grade, flow_grade, total_grade
+    -- max, but for SS both have to be
+    local total_grade = math.min(flow_grade, time_grade)
+    if total_grade == rt.StageGrade.S and (flow_grade ~= rt.StageGrade.S or time_grade ~= rt.StageGrade.S and coin_grade ~= rt.StageGrade.S) then
+        total_grade = rt.StageGrade.A
+    end
+
+    return time_grade, flow_grade, coin_grade, total_grade
 end
 
 --- @brief

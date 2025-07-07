@@ -75,10 +75,10 @@ rt.Translation = rt.initialize_translation({
 
     stage_grade_to_string = function(grade)
         return ({
-            [rt.StageGrade.SS] = "S",
-            [rt.StageGrade.S] = "A",
-            [rt.StageGrade.A] = "B",
-            [rt.StageGrade.B] = "C",
+            [rt.StageGrade.S] = "S",
+            [rt.StageGrade.A] = "A",
+            [rt.StageGrade.B] = "B",
+            [rt.StageGrade.C] = "C",
             [rt.StageGrade.F] = "D",
             [rt.StageGrade.NONE] = "\u{2014}" -- long dash
         })[grade]
@@ -129,8 +129,11 @@ rt.Translation = rt.initialize_translation({
 
         stage_select = {
             flow_prefix = "Best Flow",
+            flow_grade_prefix = "Flow",
             time_prefix = "Best Time",
-            coins_prefix = "Best Count",
+            time_grade_prefix = "Time",
+            coins_grade_prefix = "Collectibles",
+
             difficulty_prefix = "Difficulty",
 
             control_indicator_select = "Select Stage",

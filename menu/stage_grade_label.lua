@@ -28,7 +28,7 @@ function mn.StageGradeLabel:instantiate(grade, size)
     self._label_text = ""
     self._label_x, self._label_y = 0, 0
     self._color = rt.Palette.WHITE
-    self._elapsed = 0
+    self._elapsed = rt.random.number(0, 10) -- so multiple S aren't synched
 
     if _font == nil then
         local id = rt.settings.menu.stage_grade_label.font_id
@@ -74,13 +74,13 @@ function mn.StageGradeLabel:draw()
     _shader_no_sdf:bind()
     _shader_no_sdf:send("elapsed", self._elapsed)
     _shader_no_sdf:send("use_highlight",
-        self._grade == rt.StageGrade.S or
         self._grade == rt.StageGrade.A or
-        self._grade == rt.StageGrade.B
+        self._grade == rt.StageGrade.B or
+        self._grade == rt.StageGrade.C
     )
 
     _shader_no_sdf:send("use_rainbow",
-        self._grade == rt.StageGrade.SS
+        self._grade == rt.StageGrade.S
     )
     self._color:bind()
     love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)

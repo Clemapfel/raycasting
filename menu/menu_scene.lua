@@ -294,9 +294,9 @@ function mn.MenuScene:_create_from_state()
         local time, flow, total = rt.GameState:get_stage_grades(item:get_stage_id())
         stage_select.page_indicator:set_stage_grade(i, total)
         stage_select.page_indicator:set_stage_grade(i, ({
+            rt.StageGrade.B,
             rt.StageGrade.A,
-            rt.StageGrade.S,
-            rt.StageGrade.SS
+            rt.StageGrade.S
         })[i]) -- TODO
     end
 end

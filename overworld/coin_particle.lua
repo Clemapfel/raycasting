@@ -76,7 +76,7 @@ function ow.CoinParticle:draw(x, y)
         end
 
         love.graphics.setLineWidth(1)
-        love.graphics.setColor(self._color)
+        rt.Palette.FOREGROUND:bind()
         for outline in values(self._dotted_outlines) do
             love.graphics.line(outline)
         end

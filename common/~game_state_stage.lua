@@ -1,27 +1,27 @@
 --- @class rt.StageGrade
 rt.StageGrade = meta.enum("StageGrade", {
-    DOUBLE_S = 1,
-    S = 2,
-    A = 3,
-    B = 4,
+    S = 1,
+    A = 2,
+    B = 3,
+    C = 4,
     F = 5,
     NONE = math.huge,
 })
 
 rt.settings.game_state.stage = {
     grade_flow_threshold = {
-        [rt.StageGrade.SS] = 0.995,
-        [rt.StageGrade.S] = 0.95,
-        [rt.StageGrade.A] = 0.85,
-        [rt.StageGrade.B] = 0.6,
+        [rt.StageGrade.S] = 0.995,
+        [rt.StageGrade.A] = 0.95,
+        [rt.StageGrade.B] = 0.85,
+        [rt.StageGrade.C] = 0.6,
         [rt.StageGrade.F] = 0
     },
 
     grade_time_threshold  = {
-        [rt.StageGrade.SS] = 1,
-        [rt.StageGrade.S] = 1.05,
-        [rt.StageGrade.A] = 1.5,
-        [rt.StageGrade.B] = 2,
+        [rt.StageGrade.S] = 1,
+        [rt.StageGrade.A] = 1.05,
+        [rt.StageGrade.B] = 1.5,
+        [rt.StageGrade.C] = 2,
         [rt.StageGrade.F] = math.huge
     },
 }
@@ -232,10 +232,10 @@ function rt.GameState:get_stage_grades(id)
     local time_threshold = rt.settings.game_state.stage.time_tresholds
     local time_grade = rt.StageGrade.NONE
     for grade in range(
-        rt.StageGrade.SS,
         rt.StageGrade.S,
         rt.StageGrade.A,
         rt.StageGrade.B,
+        rt.StageGrade.C,
         rt.StageGrade.F
     ) do
         if time_grade > time_threshold[grade] then
@@ -247,10 +247,10 @@ function rt.GameState:get_stage_grades(id)
     local flow_thresholds = rt.settings.game_state.stage.flow_thresholds
     local flow_grade = rt.StageGrade.NONE
     for grade in range(
-        rt.StageGrade.SS,
         rt.StageGrade.S,
         rt.StageGrade.A,
         rt.StageGrade.B,
+        rt.StageGrade.C,
         rt.StageGrade.F
     ) do
         if flow_grade < flow_thresholds[grade] then
@@ -261,8 +261,8 @@ function rt.GameState:get_stage_grades(id)
 
     -- max, but for SS both have to be
     local total_grade = math.min(flow_grade, time_grade)
-    if total_grade == rt.StageGrade.SS and (flow_grade ~= rt.StageGrade.SS or time_grade ~= rt.StageGrade.SS) then
-        total_grade = rt.StageGrade.S
+    if total_grade == rt.StageGrade.S and (flow_grade ~= rt.StageGrade.S or time_grade ~= rt.StageGrade.S) then
+        total_grade = rt.StageGrade.A
     end
 
     return time_grade, flow_grade, total_grade

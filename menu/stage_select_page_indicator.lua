@@ -177,7 +177,7 @@ function mn.StageSelectPageIndicator:draw()
 
     -- circle base, sorted by grade for better batching
     for grade, circles in pairs(self._grade_to_circles) do
-        if grade == rt.StageGrade.SS then
+        if grade == rt.StageGrade.S then
             _shader:send("state", 1) -- perfect
         elseif grade == rt.StageGrade.F or grade == rt.StageGrade.NONE then
             _shader:send("state", -1) -- shadow
@@ -250,7 +250,7 @@ function mn.StageSelectPageIndicator:draw_bloom()
 
     local shader_bound = false
     for grade, circles in pairs(self._grade_to_circles) do
-        if grade == rt.StageGrade.SS then
+        if grade == rt.StageGrade.S then
             if not shader_bound then
                 _shader:bind()
                 _shader:send("state", 1) -- perfect
