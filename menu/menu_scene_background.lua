@@ -288,7 +288,7 @@ function mn.MenuSceneBackground:draw()
             love.graphics.setColor(value, value, value, value)
 
             local w, h = self._canvas:get_size()
-            love.graphics.translate(offset_x - 0.5 * w, offset_y - 0.5 * h)
+            --love.graphics.translate(offset_x - 0.5 * w, offset_y - 0.5 * h)
 
             self._particle_mesh:draw_instanced(self._n_particles)
             rt.graphics.set_blend_mode()

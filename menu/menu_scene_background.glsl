@@ -118,38 +118,42 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
     bg += vec4(fraction * 3 * smoothstep(0, 1.8, (1 - gaussian((texture_coordinates.y) + gradient_noise(vec3(uv.xx, 0) * 1), 1.0 / 5))));
     bg = mix(vec4(0), mix(0.6, 0.8, fraction) * bg, fraction);
 
+    vec2 normalization = love_ScreenSize.xy / max(love_ScreenSize.x, love_ScreenSize.y);
+
     // post fx
     if (fraction < 1) {
         vec2 texSize = textureSize(img, 0);
         vec2 pixel = 1.0 / texSize;
 
-        float v00 = get(texture(img, texture_coordinates + pixel * vec2(-1.0, -1.0)));
-        float v01 = get(texture(img, texture_coordinates + pixel * vec2(0.0, -1.0)));
-        float v02 = get(texture(img, texture_coordinates + pixel * vec2(1.0, -1.0)));
-        float v10 = get(texture(img, texture_coordinates + pixel * vec2(-1.0, 0.0)));
-        float v12 = get(texture(img, texture_coordinates + pixel * vec2(1.0, 0.0)));
-        float v20 = get(texture(img, texture_coordinates + pixel * vec2(-1.0, 1.0)));
-        float v21 = get(texture(img, texture_coordinates + pixel * vec2(0.0, 1.0)));
-        float v22 = get(texture(img, texture_coordinates + pixel * vec2(1.0, 1.0)));
+        vec2 uv = to_uv(frag_position, -love_ScreenSize.xy / normalization + camera_offset);
+        uv /= normalization;
+        uv = abs(fract(uv) + 1) - 1;
+
+        float v00 = get(texture(img, uv + pixel * vec2(-1.0, -1.0)));
+        float v01 = get(texture(img, uv + pixel * vec2(0.0, -1.0)));
+        float v02 = get(texture(img, uv + pixel * vec2(1.0, -1.0)));
+        float v10 = get(texture(img, uv + pixel * vec2(-1.0, 0.0)));
+        float v12 = get(texture(img, uv + pixel * vec2(1.0, 0.0)));
+        float v20 = get(texture(img, uv + pixel * vec2(-1.0, 1.0)));
+        float v21 = get(texture(img, uv + pixel * vec2(0.0, 1.0)));
+        float v22 = get(texture(img, uv + pixel * vec2(1.0, 1.0)));
 
         float gradient_x = -v00 - 2.0 * v10 - v20 + v02 + 2.0 * v12 + v22;
         float gradient_y = -v00 - 2.0 * v01 - v02 + v20 + 2.0 * v21 + v22;
 
         float gradient = length(vec2(gradient_x, gradient_y));
 
-        float value = smoothstep(threshold - eps, threshold + eps, texture(img, texture_coordinates).a);
-        vec4 data = texture(img, texture_coordinates);
+        float value = smoothstep(threshold - eps, threshold + eps, texture(img, uv).a);
+        vec4 data = texture(img, uv);
         vec3 color = value * data.rgb / data.a;
         float smooth_gradient = smoothstep(0.0, threshold, max(abs(gradient_x), abs(gradient_y)));
 
-        vec2 normalization = love_ScreenSize.xy / max(love_ScreenSize.x, love_ScreenSize.y);
-
         vec2 gradient_coords = to_uv(frag_position, camera_offset);
         vec2 gradient_center = to_uv(vec2(love_ScreenSize.xy / 2), camera_offset);
-        float gradient_weight = min(
+        float gradient_weight = 1; /*min(
             gaussian(2 * distance(gradient_coords.x, gradient_center.x), 0.25),
             gaussian(2 * distance(gradient_coords.y, gradient_center.y), 0.3)
-        );
+        );*/
 
         float weight = (gaussian(2 * distance(texture_coordinates.x, 0.5), 1));
         vec4 balls = (1 - fraction) * vec4(color * smooth_gradient * gradient_weight, gradient * gradient_weight);
