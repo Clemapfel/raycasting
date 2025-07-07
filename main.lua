@@ -16,7 +16,7 @@ end)
 
 love.load = function(args)
     local w, h = item:measure()
-    item:reformat(50, 50, 350, 1000)
+    --item:reformat(50, 50, 350, 1000)
 
     -- intialize all scenes
     require "overworld.overworld_scene"
@@ -29,7 +29,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene)
+    rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.stage_title_card_scene"
     --rt.SceneManager:push(ow.StageTitleCardScene, "tutorial")
@@ -38,14 +38,14 @@ end
 love.update = function(delta)
     rt.SceneManager:update(delta)
 
-    item:update(delta)
+    --item:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     rt.SceneManager:draw()
 
-    item:draw()
+    --item:draw()
 end
 
 love.resize = function(width, height)

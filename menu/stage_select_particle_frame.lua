@@ -138,28 +138,27 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     local initial_mode = transition and _MODE_EXPAND or _MODE_HOLD
     self._is_transitioning = transition
 
-    local max_w, max_h = -math.huge, -math.huge
-    for widget in values(self._widgets) do
-        local widget_w, widget_h = widget:measure()
-        max_w = math.max(max_w, widget_w)
-        max_h = math.max(max_h, widget_h)
-    end
-
     local outer_offset, inner_offset = max_particle_r, math.max(max_particle_r, 4 * rt.settings.margin_unit)
 
+    local max_h = -math.huge
+    for widget in values(self._widgets) do
+        max_h = math.max(max_h, select(2, widget:measure()))
+    end
+
     local padding = 10 * rt.get_pixel_scale()
-    local canvas_w, canvas_h = max_w + 2 * inner_offset + 2 * outer_offset + 2 * padding, love.graphics.getHeight()
+    local canvas_w, canvas_h = self._bounds.width + 2 * outer_offset + 2 * padding, love.graphics.getHeight()
 
     if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
         self._canvas = rt.RenderTexture(canvas_w, canvas_h, 4)
     end
+
     self._canvas_x = x + 0.5 * width - 0.5 * canvas_w
     self._canvas_y = 0
 
     -- offset frame area to account for particle movement
     x = 0 + outer_offset + padding
     y = 0 + outer_offset + padding
-    width = max_w + 2 * inner_offset + 2 * outer_offset
+    width = canvas_w
     height = max_h + 2 * inner_offset + 2 * outer_offset
 
     local min_velocity, max_velocity = rt.settings.menu.stage_select_particle_frame.min_particle_velocity, rt.settings.menu.stage_select_particle_frame.max_particle_velocity
@@ -192,7 +191,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
             local ax, ay, bx, by = table.unpack(segment)
             local length = math.distance(table.unpack(segment))
             local dx, dy = bx - ax, by - ay
-            local n_particles = coverage * math.ceil(length / min_particle_r) -- intentionally over-cover
+            local n_particles = math.min(coverage * math.ceil(length / min_particle_r), 100) -- intentionally over-cover
 
             for particle_i = 0, n_particles - 1 do
                 local fraction = particle_i / n_particles

@@ -29,6 +29,7 @@ function mn.StageGradeLabel:instantiate(grade, size)
     self._label_x, self._label_y = 0, 0
     self._color = rt.Palette.WHITE
     self._elapsed = rt.random.number(0, 10) -- so multiple S aren't synched
+    self._last_window_height = love.graphics.getHeight()
 
     if _font == nil then
         local id = rt.settings.menu.stage_grade_label.font_id
@@ -40,16 +41,6 @@ function mn.StageGradeLabel:instantiate(grade, size)
         _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
         _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
     end
-
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "h" then
-            _shader_no_sdf:recompile()
-            _shader_sdf:recompile()
-            _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
-        end
-    end)
 end
 
 --- @brief
@@ -63,6 +54,11 @@ function mn.StageGradeLabel:size_allocate(x, y, width, height)
     local label_w, label_h = _font:measure(self._font_size, self._label_text)
     self._label_x = x-- + 0.5 * width - 0.5 * label_w
     self._label_y = y-- + 0.5 * width - 0.5 * label_h
+
+    if self._last_window_height ~= love.graphics.getHeight() then
+        self:_update_labels()
+        self._last_window_height = love.graphics.getHeight()
+    end
 end
 
 --- @brief

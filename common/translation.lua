@@ -128,21 +128,21 @@ rt.Translation = rt.initialize_translation({
         },
 
         stage_select = {
-            flow_prefix = "Best Flow",
-            flow_grade_prefix = "Flow",
-            time_prefix = "Best Time",
-            time_grade_prefix = "Time",
-            coins_grade_prefix = "Collectibles",
-
-            difficulty_prefix = "Difficulty",
-
             control_indicator_select = "Select Stage",
             control_indicator_confirm = "Confirm",
             control_indicator_back = "Go Back",
-
-            personal_best_header = "Personal Best",
-            grade_header = "Grade"
         }
+    },
+
+    stage_select_item = {
+        flow_prefix = "Best Flow",
+        flow_grade_prefix = "Flow",
+        time_prefix = "Best Time",
+        time_grade_prefix = "Time",
+        coins_grade_prefix = "Collectibles",
+        total_grade_prefix = "Total",
+
+        difficulty_prefix = "Difficulty",
     },
 
     -- verbose info

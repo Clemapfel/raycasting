@@ -4,7 +4,8 @@ require "overworld.coin_particle"
 require "overworld.objects.coin"
 
 rt.settings.menu.stage_select_item = {
-    coin_radius = 20
+    coin_radius = 19,
+    coins_max_n_per_row = 5,
 }
 
 --- @class mn.StageSelectItem
@@ -61,8 +62,9 @@ local _extra_bold = rt.Font("assets/fonts/Baloo2/Baloo2-ExtraBold.ttf")
 function mn.StageSelectItem:instantiate(stage_id)
     meta.assert(stage_id, "String")
     self._id = stage_id
+    self._hrules = {}
     
-    local translation = rt.Translation.menu_scene.stage_select
+    local translation = rt.Translation.stage_select_item
     local title_prefix, title_postfix = "<b><u>", "</u></b>"
     local flow_prefix, flow_postfix = "", ""
     local time_prefix, time_postfix = "", ""
@@ -77,7 +79,6 @@ function mn.StageSelectItem:instantiate(stage_id)
     
     local title = game_state:get_stage_title(id)
     local was_beaten = game_state:get_stage_was_beaten(id)
-    local n_coins = game_state:get_stage_n_coins(id)
     local time_grade, flow_grade, coin_grade, total_grade = game_state:get_stage_grades(id)
     local time = not was_beaten and _long_dash or string.format_time(game_state:get_stage_best_time(id))
     local flow = not was_beaten and _long_dash or _create_flow_percentage_label(game_state:get_stage_best_flow_percentage(id))
@@ -87,6 +88,7 @@ function mn.StageSelectItem:instantiate(stage_id)
     local function extra_bold(text) return rt.Label(text, rt.FontSize.BIG, _extra_bold) end
     local function bold(text) return rt.Label(text, rt.FontSize.REGULAR, _bold) end
     local function regular(text) return rt.Label(text, rt.FontSize.REGULAR, _regular) end
+    local function small(text) return rt.Label(text, rt.FontSize.SMALL, _regular)  end
 
     meta.install(self, {
         _title_label = extra_bold(title_prefix .. title .. title_postfix),
@@ -107,8 +109,6 @@ function mn.StageSelectItem:instantiate(stage_id)
         _time_grade_colon = regular(colon),
         _time_grade = mn.StageGradeLabel(time_grade, rt.FontSize.BIG),
 
-        _coins_prefix_label = bold(prefix_prefix .. translation.coins_prefix .. prefix_postfix),
-        _coins_colon_label = regular(colon),
         _coins = {},
 
         _coins_grade_prefix = bold(prefix_prefix .. translation.coins_grade_prefix .. prefix_postfix),
@@ -120,37 +120,62 @@ function mn.StageSelectItem:instantiate(stage_id)
         _difficulty_value_label = rt.Label(difficulty_prefix .. difficulty .. difficulty_postfix),
 
         _description_label = rt.Label(description_prefix .. description .. description_postfix, rt.FontSize.SMALL),
+        _total_grade_prefix = regular(prefix_prefix .. translation.total_grade_prefix .. "<color=GRAY> <b>:</b></color>" .. prefix_postfix),
         _total_grade = mn.StageGradeLabel(total_grade, rt.FontSize.HUGE),
     })
 
+    self:_init_coins()
+    self._last_window_height = love.graphics.getHeight()
+end
+
+function mn.StageSelectItem:_init_coins()
+    local n_coins = rt.GameState:get_stage_n_coins(self._id)
 
     for i = 1, n_coins do
         local coin = ow.CoinParticle(
             rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale(),
-            not rt.GameState:get_stage_was_coin_collected(id, i)
+            not rt.GameState:get_stage_was_coin_collected(self._id, i)
         )
         coin:set_hue(ow.Coin.index_to_hue(i, n_coins))
-        table.insert(self._coins, {
+
+        self._coins[i] = {
             coin = coin,
             x = 0,
             y = 0,
-        })
+        }
     end
 end
 
+local _coin_xm = rt.settings.margin_unit
+
 --- @brief
 function mn.StageSelectItem:measure()
-    local title_w, title_h = self._title_label:measure()
-    return 250, 500
+    if self._final_height ~= nil then
+        return self._final_width, self._final_height
+    else
+        local outer_margin = 2 * rt.settings.margin_unit
+        local coin_r = rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale()
+        local n_coins = rt.settings.menu.stage_select_item.coins_max_n_per_row
+        local coin_m = _coin_xm
+
+        return 2 * coin_r * n_coins + coin_m * (n_coins - 1), 100
+    end
 end
 
 --- @brief
 function mn.StageSelectItem:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
 
+    if self._last_window_height ~= love.graphics.getHeight() then
+        self:_init_coins()
+        self._last_window_height = love.graphics.getHeight()
+    end
+
     local outer_margin = 2 * m
     local v_margin = 4 * m
     local current_x, current_y = x + outer_margin, y + outer_margin
+    self._hrules = {}
+    local hrule_h = 2 * rt.get_pixel_scale()
 
     local title_w, title_h = self._title_label:measure()
     self._title_label:set_justify_mode(rt.JustifyMode.CENTER)
@@ -158,10 +183,14 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     current_y = current_y + title_h + outer_margin
 
     local coin_left_x, coin_right_x, coin_height
-    do -- coins
+    do -- coins local alignment
         local coin_r = rt.settings.menu.stage_select_item.coin_radius
-        local n_coins_per_row = math.min(5, math.floor((width - 4 * m) / (2 * coin_r)))
-        local coin_xm = m
+        local n_coins_per_row = math.min(
+            rt.settings.menu.stage_select_item.coins_max_n_per_row,
+            math.floor((width - 4 * m) / (2 * coin_r))
+        )
+
+        local coin_xm = _coin_xm
         local coin_ym = 0
         local coin_row_w = n_coins_per_row * coin_r + (coin_xm * (n_coins_per_row - 1))
 
@@ -208,11 +237,6 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
         coin_height = n_rows * 2 * coin_r + (n_rows - 1) * coin_ym
     end
 
-    local max_grade_w = -math.huge
-    for grade in range(self._time_grade, self._flow_grade) do
-        max_grade_w = math.max(max_grade_w, select(1, grade:measure()))
-    end
-
     -- value labels
     local left_x, right_x = coin_left_x, coin_right_x
     for prefix_colon_value in range(
@@ -254,48 +278,105 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
 
     current_y = current_y + v_margin
 
+    -- coins y-alignment
     for coin in values(self._coins) do
         coin.y = coin.y + current_y
     end
 
     current_y = current_y + coin_height
 
+    local hrule_x = left_x - m
+    local hrule_width = (right_x - left_x) + 2 * m
+    table.insert(self._hrules, {
+        hrule_x, current_y, hrule_width, hrule_h
+    })
+
+    current_y = current_y + hrule_h + m
+
     -- grade summary
-
-    for prefix_colon_grade in range(
-        { self._time_grade_prefix, self._time_grade_colon, self._time_grade },
-        { self._flow_grade_prefix, self._flow_grade_colon, self._flow_grade },
-        { self._coins_grade_prefix, self._coins_grade_colon, self._coins_grade }
+    local max_grade_prefix_w = -math.huge
+    for label in range(
+        self._time_grade_prefix,
+        self._flow_grade_prefix,
+        self._coins_grade_prefix
     ) do
-        local prefix, colon, grade = table.unpack(prefix_colon_grade)
-
-        for label in range(prefix, colon) do
-            label:set_justify_mode(rt.JustifyMode.LEFT)
-        end
-
-        local prefix_w, prefix_h = prefix:measure()
-        local colon_w, colon_h = colon:measure()
-        local grade_w, grade_h = grade:measure()
-
-        local max_h = math.max(prefix_h, colon_h, grade_h)
-
-        prefix:reformat(
-            left_x, current_y + 0.5 * max_h - 0.5 * prefix_h,
-            math.huge, math.huge
-        )
-
-        colon:reformat(
-            x + 0.5 * width - 0.5 * colon_w, current_y + 0.5 * max_h - 0.5 * prefix_h,
-            math.huge, math.huge
-        )
-
-        grade:reformat(
-            right_x - grade_w, current_y + 0.5 * max_h - 0.5 * grade_h,
-            grade_w, grade_h
-        )
-
-        current_y = current_y + max_h
+        max_grade_prefix_w = math.max(max_grade_prefix_w, select(1, label:measure()))
     end
+
+    local max_grade_w = -math.huge
+    for grade in range(
+        self._time_grade,
+        self._flow_grade,
+        self._coins_grade
+    ) do
+        max_grade_w = math.max(max_grade_w, select(1, grade:measure()))
+    end
+
+    do
+        local grade_prefix_x = x + 0.5 * width - max_grade_prefix_w - m
+        local grade_x = x + 0.5 * width + m + 0.5 * (0.5 * width - max_grade_prefix_w )
+
+        for prefix_colon_grade in range(
+            { self._time_grade_prefix, self._time_grade_colon, self._time_grade },
+            { self._flow_grade_prefix, self._flow_grade_colon, self._flow_grade },
+            { self._coins_grade_prefix, self._coins_grade_colon, self._coins_grade }
+        ) do
+            local prefix, colon, grade = table.unpack(prefix_colon_grade)
+
+            for label in range(prefix, colon) do
+                label:set_justify_mode(rt.JustifyMode.LEFT)
+            end
+
+            local prefix_w, prefix_h = prefix:measure()
+            local colon_w, colon_h = colon:measure()
+            local grade_w, grade_h = grade:measure()
+
+            local max_h = math.max(prefix_h, colon_h, grade_h)
+
+            prefix:reformat(
+                grade_prefix_x, current_y + 0.5 * max_h - 0.5 * prefix_h,
+                math.huge, math.huge
+            )
+
+            colon:reformat(
+                x + 0.5 * width - 0.5 * colon_w, current_y + 0.5 * max_h - 0.5 * prefix_h,
+                math.huge, math.huge
+            )
+
+            grade:reformat(
+                grade_x, current_y + 0.5 * max_h - 0.5 * grade_h,
+                grade_w, grade_h
+            )
+
+            current_y = current_y + max_h
+        end
+    end
+
+    current_y = current_y + hrule_h + m
+
+    table.insert(self._hrules, {
+        hrule_x, current_y, hrule_width, hrule_h
+    })
+
+    -- total
+    do
+        current_y = current_y + m
+        local grade_w, grade_h = self._total_grade:measure()
+        local grade_x = x + 0.5 * width - 0.5 * grade_w
+        self._total_grade:reformat(grade_x, current_y)
+
+        local total_grade_prefix_w, total_grade_prefix_h = self._total_grade_prefix:measure()
+        self._total_grade_prefix:reformat(
+            grade_x - m - total_grade_prefix_w,
+            current_y + 0.5 * grade_h - total_grade_prefix_h,
+            math.huge
+        )
+
+        current_y = current_y + grade_h + outer_margin
+    end
+
+    self._final_height = current_y - y
+    self._final_width = hrule_width + 2 * outer_margin
 end
 
 --- @brief
@@ -315,8 +396,6 @@ function mn.StageSelectItem:realize()
         self._time_grade_prefix,
         self._time_grade_colon,
         self._time_grade,
-        self._coins_prefix_label,
-        self._coins_colon_label,
         self._coins_grade_prefix,
         self._coins_grade_colon,
         self._coins_grade,
@@ -324,6 +403,7 @@ function mn.StageSelectItem:realize()
         self._difficulty_colon_label,
         self._difficulty_value_label,
         self._description_label,
+        self._total_grade_prefix,
         self._total_grade
     ) do
         widget:realize()
@@ -338,26 +418,30 @@ function mn.StageSelectItem:draw()
         self._flow_colon_label,
         self._flow_value_label,
         self._flow_grade_prefix,
-        self._flow_grade_colon,
+        --self._flow_grade_colon,
         self._flow_grade,
         self._time_prefix_label,
         self._time_colon_label,
         self._time_value_label,
         self._time_grade_prefix,
-        self._time_grade_colon,
+        --self._time_grade_colon,
         self._time_grade,
-        self._coins_prefix_label,
-        self._coins_colon_label,
         self._coins_grade_prefix,
-        self._coins_grade_colon,
+        --self._coins_grade_colon,
         self._coins_grade,
         self._difficulty_prefix_label,
         self._difficulty_colon_label,
         self._difficulty_value_label,
         self._description_label,
+        self._total_grade_prefix,
         self._total_grade
     ) do
         widget:draw()
+    end
+
+    rt.Palette.FOREGROUND:bind()
+    for hrule in values(self._hrules) do
+        love.graphics.rectangle("fill", table.unpack(hrule))
     end
 
     for entry in values(self._coins) do

@@ -97,6 +97,11 @@ float smooth_max(float a, float b, float k) {
     return mix(a, b, h) + k * h * (1.0 - h);
 }
 
+float smooth_min(float a, float b, float k) {
+    float h = clamp(0.5 - 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+}
+
 vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 offset= vec2(0, 100 * elapsed);
     vec2 uv = to_uv(frag_position, offset);
@@ -138,7 +143,13 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         float smooth_gradient = smoothstep(0.0, threshold, max(abs(gradient_x), abs(gradient_y)));
 
         vec2 normalization = love_ScreenSize.xy / max(love_ScreenSize.x, love_ScreenSize.y);
-        float gradient_weight = max(0, 0); // TODO: mask edges of canvas
+
+        vec2 gradient_coords = to_uv(frag_position, camera_offset);
+        vec2 gradient_center = to_uv(vec2(love_ScreenSize.xy / 2), camera_offset);
+        float gradient_weight = min(
+            gaussian(2 * distance(gradient_coords.x, gradient_center.x), 0.25),
+            gaussian(2 * distance(gradient_coords.y, gradient_center.y), 0.3)
+        );
 
         float weight = (gaussian(2 * distance(texture_coordinates.x, 0.5), 1));
         vec4 balls = (1 - fraction) * vec4(color * smooth_gradient * gradient_weight, gradient * gradient_weight);
