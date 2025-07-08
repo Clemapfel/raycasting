@@ -33,10 +33,9 @@ rt.StencilMode = meta.enum("StencilMode", {
 })
 
 local _draw_to_backbuffer = true
-
 local _canvas_shader
 
-function rt.graphics.set_stencil_mode(value, mode, compare_mode)
+function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
     if value == nil then
         love.graphics.setStencilState("keep", "always", value)
         love.graphics.setColorMask(_draw_to_backbuffer)
@@ -45,16 +44,23 @@ function rt.graphics.set_stencil_mode(value, mode, compare_mode)
     end
 
     meta.assert(value, "Number")
+    if draw_or_compare_mode ~= nil then
+        if mode == rt.StencilMode.TEST then
+            meta.assert_enum_value(draw_or_compare_mode, rt.StencilCompareMode)
+        elseif mode == rt.StencilMode.DRAW then
+            meta.assert_enum_value(draw_or_compare_mode, rt.StencilReplaceMode)
+        end
+    end
 
     local replace_mode, test_mode, mask
     if mode == rt.StencilMode.TEST then
         replace_mode = rt.StencilReplaceMode.KEEP
-        test_mode = compare_mode or rt.StencilCompareMode.EQUAL
+        test_mode = draw_or_compare_mode or rt.StencilCompareMode.EQUAL
         mask = _draw_to_backbuffer
         rt.graphics._stencil_mode_active = false
     elseif mode == rt.StencilMode.DRAW then
-        replace_mode = rt.StencilReplaceMode.REPLACE
-        test_mode = compare_mode or rt.StencilCompareMode.ALWAYS
+        replace_mode = draw_or_compare_mode or rt.StencilReplaceMode.REPLACE
+        test_mode = rt.StencilCompareMode.ALWAYS
         mask = not _draw_to_backbuffer
         rt.graphics._stencil_mode_active = true
     end

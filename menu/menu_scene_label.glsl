@@ -79,7 +79,7 @@ uniform vec4 black;
 
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
-    const float thickness = 1 - 0.1;
+    const float thickness = 1 - 0.05;
     return vec4(smoothstep(0.0, 1 - thickness, dist)) * black;
 }
 

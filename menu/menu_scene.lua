@@ -17,6 +17,8 @@ rt.settings.menu_scene = {
     player_falling_x_damping = 0.98,
     player_falling_x_perturbation = 3,
     exit_acceleration = 60, -- per second
+    bloom_strength = 1,
+    bloom_composite = 0.1,
 
     title_screen = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
@@ -308,6 +310,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
     if rt.GameState:get_is_bloom_enabled() then
         self._bloom = rt.Bloom(width, height)
+        self._bloom:set_bloom_strength(rt.settings.menu_scene.bloom_strength)
     end
 
     self._background:reformat(x, y, width, height)
@@ -492,6 +495,7 @@ function mn.MenuScene:_set_state(next)
         self._player:set_flow(0)
         self._title_screen.opacity_fade_animation:reset()
         self._stage_select.item_reveal_animation:reset()
+
         return
     end
 
@@ -712,6 +716,7 @@ function mn.MenuScene:draw()
 
     if rt.GameState:get_is_bloom_enabled() and self._bloom == nil then
         self._bloom = rt.Bloom(self._bounds.width, self._bounds.height)
+        self._bloom:set_bloom_strength(rt.settings.menu_scene.bloom_strength)
     end
 
     -- draw background
@@ -760,6 +765,7 @@ function mn.MenuScene:draw()
         if rt.GameState:get_is_bloom_enabled() then
             self._bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
+            self._background:draw_bloom()
 
             self._camera:bind()
             self._player:draw_bloom()
@@ -828,7 +834,7 @@ function mn.MenuScene:draw()
     self._stage_select.debris_emitter:draw_above()
 
     if rt.GameState:get_is_bloom_enabled() then
-        self._bloom:composite()
+        self._bloom:composite(rt.settings.menu_scene.bloom_composite)
     end
 
     self._fade:draw()

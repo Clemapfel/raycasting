@@ -1,3 +1,5 @@
 return {
-    t = 0.3
+    inner = 4,
+    outer = 10e-3,
+    inner_radius = 10
 }

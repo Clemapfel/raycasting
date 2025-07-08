@@ -301,6 +301,7 @@ function mn.MenuSceneBackground:draw()
 
     love.graphics.setBlendMode("alpha", "premultiplied")
     _canvas_draw_shader:bind()
+    _canvas_draw_shader:send("bloom", false)
     _canvas_draw_shader:send("black", { rt.Palette.BLACK:unpack() })
     _canvas_draw_shader:send("elapsed", self._elapsed)
     _canvas_draw_shader:send("camera_offset", { offset_x, offset_y })
@@ -310,4 +311,16 @@ function mn.MenuSceneBackground:draw()
     self._canvas:draw()
     _canvas_draw_shader:unbind()
     love.graphics.setBlendMode("alpha")
+end
+
+--- @brief
+function mn.MenuSceneBackground:draw_bloom()
+    love.graphics.push()
+    love.graphics.origin()
+    _canvas_draw_shader:bind()
+    _canvas_draw_shader:send("bloom", true)
+    love.graphics.setColor(1, 1, 1, 1)
+    self._canvas:draw()
+    _canvas_draw_shader:unbind()
+    love.graphics.pop()
 end
