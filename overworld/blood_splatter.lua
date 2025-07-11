@@ -108,10 +108,10 @@ function ow.BloodSplatter:draw()
         if visible[division.shape] == true then
             local r, g, b, a = table.unpack(division.color)
             love.graphics.setColor(
-                r - t,
-                g - t,
-                b - t,
-                a
+                r,
+                g,
+                b,
+                a - t
             )
             love.graphics.line(division.line)
         end
