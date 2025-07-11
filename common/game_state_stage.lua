@@ -31,6 +31,8 @@ local _debug_output = true
 
 --- @brief
 function rt.GameState:_initialize_stage()
+    if self._stage_initialized == true then return end
+
     -- non state stage data, cf. common/game_state for persistent data
     self._stages = {}
     self._stage_id_to_i = {}
@@ -96,10 +98,13 @@ function rt.GameState:_initialize_stage()
         self._stages[i] = stage
         self._stage_id_to_i[id] = i
     end
+
+    self._stage_initialized = true
 end
 
 --- @brief
 function rt.GameState:_get_stage(id, scope)
+    self:_initialize_stage()
     local stage = self._stages[self._stage_id_to_i[id]]
     if stage == nil then
         rt.error("In rt.GameState." .. scope .. "`: no stage with id `" .. id .. "`")
@@ -111,6 +116,8 @@ end
 function rt.GameState:get_stage_best_time(id)
     meta.assert(id, "String")
     if _debug_output then return rt.random.number(1, 100) end
+
+    self:_initialize_stage()
 
     local entry = self._state.stage_results[id]
     if entry == nil or entry.best_time == nil then
@@ -141,7 +148,6 @@ end
 function rt.GameState:get_stage_best_flow_percentage(id)
     meta.assert(id, "String")
     if _debug_output then return rt.random.number(0, 1) end
-
     local _ = self:_get_stage(id, "get_stage_best_flow_percentage")
 
     local entry = self._state.stage_results[id]
@@ -173,7 +179,6 @@ end
 function rt.GameState:get_stage_was_coin_collected(stage_id, coin_i)
     meta.assert(stage_id, "String", coin_i, "Number")
     if _debug_output then return true end --rt.random.toss_coin(0.6) end
-
     local stage = self:_get_stage(stage_id, "get_stage_was_coin_collected")
     if coin_i > stage.n_coins then
         rt.error("In rt.GameState.get_stage_was_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
@@ -217,7 +222,6 @@ end
 function rt.GameState:get_stage_was_beaten(id)
     meta.assert(id, "String")
     if _debug_output then return true end
-
     local _ = self:_get_stage(id, "get_stage_was_beaten")
 
     local entry = self._state.stage_results[id]
@@ -363,6 +367,8 @@ end
 
 --- @brief
 function rt.GameState:list_stage_ids()
+    self:_initialize_stage()
+    
     local out = {}
     for _, entry in ipairs(self._stages) do
         table.insert(out, entry.id)

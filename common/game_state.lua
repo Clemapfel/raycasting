@@ -61,7 +61,6 @@ function rt.GameState:instantiate()
     self._keyboard_key_to_input_action = {}
     self._controller_button_to_input_action = {}
     self:load_default_input_mapping()
-    self:_initialize_stage()
     self._player = rt.Player()
 end
 
