@@ -45,6 +45,7 @@ function ow.Stage:instantiate(scene, id)
         _id = id,
         _config = config,
         _is_initialized = false,
+        _is_first_spawn = true,
 
         _world = b2.World(),
         _camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge),
@@ -206,6 +207,12 @@ function ow.Stage:instantiate(scene, id)
 
     self._is_initialized = true
     self:signal_emit("initialized")
+
+    self._is_first_spawn = true
+    self:signal_connect("respawn", function()
+        self._is_first_spawn = false
+        return meta.DISCONNECT_SIGNAL
+    end)
 end
 
 --- @brief
@@ -462,4 +469,9 @@ end
 --- @brief
 function ow.Stage:get_scene()
     return self._scene
+end
+
+--- @brief
+function ow.Stage:get_is_first_spawn()
+    return self._is_first_spawn
 end

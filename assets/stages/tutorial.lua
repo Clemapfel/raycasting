@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 752,
+  nextobjectid = 767,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1602.35,
-          y = 881.522,
+          x = -1584.76,
+          y = 58.9414,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4059,21 +4059,6 @@ return {
           }
         },
         {
-          id = 711,
-          name = "",
-          type = "NPC",
-          shape = "point",
-          x = 1201.32,
-          y = -483.66,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["dialog_id"] = "debug"
-          }
-        },
-        {
           id = 712,
           name = "",
           type = "",
@@ -4312,6 +4297,222 @@ return {
             { x = 171.329, y = 2.99527 },
             { x = 156.952, y = 7.18864 },
             { x = 22.382, y = 6.18864 }
+          },
+          properties = {}
+        },
+        {
+          id = 752,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1744,
+          y = -176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 352 },
+            { x = 816, y = 352 },
+            { x = 816, y = -16 },
+            { x = 751.459, y = -14.7345 },
+            { x = 752, y = 288 },
+            { x = 64, y = 288 },
+            { x = 64, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 753,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1680,
+          y = 0,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 754 },
+            ["target"] = { id = 755 }
+          }
+        },
+        {
+          id = 754,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1680,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 755,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -992,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 756 },
+            ["target"] = { id = 753 }
+          }
+        },
+        {
+          id = 756,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -992,
+          y = -160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 758,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1408,
+          y = 16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 759 },
+            ["target"] = { id = 760 }
+          }
+        },
+        {
+          id = 759,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1488,
+          y = 96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 760,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1205.25,
+          y = 95.3441,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 761 },
+            ["target"] = { id = 758 }
+          }
+        },
+        {
+          id = 761,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1241.18,
+          y = 12.0648,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 762,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1360,
+          y = 0,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 763 },
+            ["target"] = { id = 764 }
+          }
+        },
+        {
+          id = 763,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1296,
+          y = 0,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 764,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1296,
+          y = -176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 765 },
+            ["target"] = { id = 762 }
+          }
+        },
+        {
+          id = 765,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1360,
+          y = -176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 766,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1504,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 112, y = -112 },
+            { x = 256, y = -112 },
+            { x = 304, y = 0 }
           },
           properties = {}
         }

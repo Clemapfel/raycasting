@@ -193,6 +193,11 @@ local _initialize = function()
 end
 
 --- @brief
+function ow.Hitbox:draw_stencil()
+    self._body:draw()
+end
+
+--- @brief
 function ow.Hitbox:draw_base()
     _initialize()
 
@@ -290,4 +295,3 @@ function ow.Hitbox:get_global_bounds(sticky_or_slippery)
             math.max(_sticky_max_y, _slippery_max_y)
     end
 end
-

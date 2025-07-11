@@ -279,20 +279,27 @@ function b2.Body:get_mass()
 end
 
 --- @brief
-function b2.Body:draw()
+function b2.Body:draw(mask_only)
     if self._native:isDestroyed() then return end
+    if mask_only == nil then mask_only = false end
 
     love.graphics.push()
     love.graphics.translate(self:get_position())
     love.graphics.rotate(self._native:getAngle())
 
+    local r, g, b, a = love.graphics.getColor()
+    if mask_only then
+        love.graphics.setColor(1, 1, 1, 1)
+    end
+
     for shape in values(self._native:getShapes()) do
         local userdata = shape:getUserData()
         if userdata ~= nil then
-            userdata:draw()
+            userdata:draw(mask_only)
         end
     end
 
+    love.graphics.setColor(r, g, b, a)
     love.graphics.pop()
 end
 
@@ -413,6 +420,11 @@ function b2.Body:set_collides_with(...)
     for shape in values(self._native:getShapes()) do
         self:_update_filter_data(shape)
     end
+end
+
+--- qbrief
+function b2.Body:get_collides_with()
+    return self._collides_with
 end
 
 --- @brief

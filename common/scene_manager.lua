@@ -1,4 +1,5 @@
 require "common.scene"
+require "common.scene"
 require "common.input_subscriber"
 require "common.fade"
 require "common.thread_pool"

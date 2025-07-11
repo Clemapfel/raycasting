@@ -147,57 +147,57 @@ rt.Translation = rt.initialize_translation({
 
     -- verbose info
     verbose_info = {
-        vsync_title = "VSYNC",
-        vsync_description = "TODO",
+        vsync_title = "Vertical Synchronization (VSync)",
+        vsync_description = "If enabled, limits maximum FPS to the refresh rate of the monitor",
         vsync_widget = function(fps)
             return "Current FPS: " .. fps
         end,
 
         music_level_widget = function(percentage)
-            return "Music Level: " .. percentage .. "%"
+            return "Music Volume: " .. percentage .. "%"
         end,
 
         sound_effect_level_widget = function(percentage)
-            return "Sound Effect Level:  " .. percentage .. "%"
+            return "Sound Effect Volume:  " .. percentage .. "%"
         end,
 
         fullscreen_title = "Fullscreen",
-        fullscreen_description = "TODO",
+        fullscreen_description = "If enabled, automatically resizes the window to cover the entire monitor",
 
-        msaa_title = "MSAA",
-        msaa_description = "TODO",
+        msaa_title = "Multi-Sample Anti Aliasing (MSAA)",
+        msaa_description = "Reduces jagged lines and other artifacts, may impact performance",
 
         bloom_title = "Bloom",
         bloom_description = "TODO",
 
         sound_effect_level_title = "Sound Effects",
-        sound_effect_level_description = "TODO",
+        sound_effect_level_description = "Volume of non-music audio playback",
 
         music_level_title = "Music",
-        music_level_description = "TODO",
+        music_level_description = "Volume of music playback",
 
         shake_enabled_title = "Screen Shake",
         shake_enabled_description = "TODO",
 
         joystick_deadzone_title = "Deadzone",
-        joystick_deadzone_description = "TODO",
+        joystick_deadzone_description = "How far the controllers joystick has to be moved away from the center before an input is recognized",
 
         performance_mode_enabled_title = "Performance Mode",
-        performance_mode_enabled_description = "Reduces visual effects to achieve better performance on low-end machines, does not affect gameplay",
+        performance_mode_enabled_description = "Disables various visual-only effects to increase performance",
 
         draw_debug_info_enabled_title = "Draw Debug Information",
-        draw_debug_info_enabled_description = "TODO",
+        draw_debug_info_enabled_description = "Whether to show various information at the top of the screen",
 
         text_speed_title = "Text Speed",
-        text_speed_description = "TODO",
-        text_speed_visualization_text = "asbdl aiudbalisda idbasd baslidbalis dba",
+        text_speed_description = "How fast letters appear in dialog boxes",
+        text_speed_visualization_text = "this text is scrolling.\nthis text is scrolling.\nthis text is scrolling.",
 
-        input_action_a_title = "A TODO",
-        input_action_b_title = "B TODO",
-        input_action_x_title = "X TODO",
-        input_action_y_title = "Y TODO",
-        input_action_up_title = "UP TODO",
-        input_action_right_title = "RIGHT TODO",
+        input_action_a_title = "A: Jump / Confirm",
+        input_action_b_title = "B: Sprint / Go Back",
+        input_action_x_title = "X: Unused",
+        input_action_y_title = "Y: Unused",
+        input_action_up_title = "UP: Move Up",
+        input_action_right_title = "RIGHT: Move Right",
         input_action_down_title = "DOWN TODO",
         input_action_left_title = "LEFT TODO",
         input_action_start_title = "START TODO",

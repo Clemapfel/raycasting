@@ -23,6 +23,7 @@ rt.settings.player = {
     player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
     bounce_collision_group = b2.CollisionGroup.GROUP_14,
     exempt_collision_group = b2.CollisionGroup.GROUP_13,
+    ghost_collision_group = b2.CollisionGroup.GROUP_12,
 
     ground_target_velocity_x = 300,
     air_target_velocity_x = 320,
@@ -1220,12 +1221,9 @@ function rt.Player:move_to_world(world)
     local outer_body_shape = b2.Circle(0, 0, self._outer_body_radius)
     local step = (2 * math.pi) / _settings.n_outer_bodies
 
-    local mask = bit.bnot(_settings.player_outer_body_collision_group)
-
     function initialize_outer_body(body, is_bubble)
         body:set_is_enabled(false)
         body:set_collision_group(_settings.player_outer_body_collision_group)
-        body:set_collides_with(mask)
         body:set_friction(0)
         body:set_is_rotation_fixed(false)
         body:set_use_continuous_collision(true)
@@ -1788,6 +1786,8 @@ function rt.Player:set_is_bubble(b)
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
         end
     end)
+
+    self:set_is_ghost(self._is_ghost)
 end
 
 --- @brief
@@ -1854,15 +1854,37 @@ end
 --- @brief
 function rt.Player:set_is_ghost(b)
     self._is_ghost = b
+    dbg(b)
 
-    self._body:set_is_sensor(b)
-    for body in values(self._spring_bodies) do
-        body:set_is_sensor(true)
-    end
+    if self._is_ghost then
+        self._body:set_collides_with(_settings.ghost_collision_group)
+        self._bubble_body:set_collides_with(_settings.ghost_collision_group)
 
-    self._bubble_body:set_is_sensor(b)
-    for body in values(self._bubble_spring_bodies) do
-        body:set_is_sensor(true)
+        for body in values(self._spring_bodies) do
+            body:set_collides_with(_settings.ghost_collision_group)
+        end
+
+        for body in values(self._bubble_spring_bodies) do
+            body:set_collides_with(_settings.ghost_collision_group)
+        end
+    else
+        local outer_mask = bit.band(
+            bit.bnot(_settings.player_outer_body_collision_group),
+            bit.bnot(_settings.ghost_collision_group)
+        )
+
+        local center_mask = bit.bnot(_settings.ghost_collision_group)
+
+        self._body:set_collides_with(center_mask)
+        self._bubble_body:set_collides_with(center_mask)
+
+        for body in values(self._spring_bodies) do
+            body:set_collides_with(outer_mask)
+        end
+
+        for body in values(self._bubble_spring_bodies) do
+            body:set_collides_with(outer_mask)
+        end
     end
 end
 

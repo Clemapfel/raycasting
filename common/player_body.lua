@@ -504,7 +504,7 @@ function rt.PlayerBody:draw_body()
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
         for body in values(self._stencil_bodies) do
-            body:draw()
+            body:draw(true) -- mask only
         end
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
@@ -598,7 +598,7 @@ function rt.PlayerBody:draw_core()
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
         for body in values(self._stencil_bodies) do
-            body:draw()
+            body:draw(true)
         end
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
     end

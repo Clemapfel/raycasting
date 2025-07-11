@@ -71,7 +71,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _stage = stage,
         _world = stage:get_physics_world(),
         _type = type,
-        _is_first_spawn = type == ow.CheckpointType.PLAYER_SPAWN,
 
         _state = _STATE_DEFAULT,
         _passed = false,
@@ -248,9 +247,12 @@ function ow.Checkpoint:spawn(also_kill)
     player:set_velocity(0, 0)
     player:reset_flow()
     player:set_is_bubble(false)
+    player:set_is_ghost(false)
     player:disable()
 
-    if self._is_first_spawn then -- skip ray animation
+    local is_first_spawn = self._stage:get_is_first_spawn()
+
+    if is_first_spawn then -- skip ray animation
         self:_set_state(_STATE_FIRST_ENTRY)
     elseif also_kill then
         self:_set_state(_STATE_EXPLODING)
@@ -266,7 +268,7 @@ function ow.Checkpoint:spawn(also_kill)
     local _, screen_h = camera:world_xy_to_screen_xy(0, self._bottom_y)
     camera:set_position(previous_x, previous_y)
 
-    if not self._is_first_spawn then
+    if not is_first_spawn then
         local player_y = math.max(self._top_y + 2 * player:get_radius(), self._bottom_y - screen_h - 2 * player:get_radius())
         self._current_player_spawn_x, self._current_player_spawn_y = self._top_x, player_y
         player:teleport_to(self._current_player_spawn_x, self._current_player_spawn_y)
@@ -274,7 +276,6 @@ function ow.Checkpoint:spawn(also_kill)
 
     self._stage:set_active_checkpoint(self)
     self._passed = true
-    self._is_first_spawn = false
 end
 
 --- @brief

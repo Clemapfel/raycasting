@@ -1,6 +1,8 @@
-rt.settings.overworld.NPC = {
-    radius = 2 * rt.settings.player.radius,
-    n_outer_bodies = 16
+require "common.delaunay_triangulation"
+
+rt.settings.overworld.npc = {
+    segment_length = 10,
+    buffer_depth = rt.settings.player.radius
 }
 
 --- @class ow.NPC
@@ -8,79 +10,83 @@ ow.NPC = meta.class("NPC")
 
 local _collision_group = b2.CollisionGroup.GROUP_07
 
+local _data_mesh_format = {
+    { location = 4, name = "origin", format = "floatvec2" }, -- spring origin
+    { location = 5, name = "contour_vector", format = "floatvec3" } -- normalized xy, z is length
+}
+
+
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
-    assert(object:get_type() == ow.ObjectType.POINT)
-
     self._velocity_x = 0
     self._velocity_y = 0
 
     self._world = stage:get_physics_world()
 
-    local radius = rt.settings.overworld.NPC.radius
-    do -- move spawn point out of ground
-        local x, y = object.x, object.y
-        local top_x, top_y = self._world:query_ray(x, y, 0, -1 * 10e6)
-        local bottom_x, bottom_y = self._world:query_ray(x, y, 0, 1 * 10e6)
+    -- inner, hard-body shell
+    local contour = object:create_contour()
+    contour = rt.subdivide_contour(contour, rt.settings.overworld.npc.segment_length * rt.get_pixel_scale())
 
-        self._x = bottom_x
-        self._y = bottom_y - 5 * radius
-        if top_y ~= nil then
-            self._y = math.max(self._y, top_y)
-        end
+    local centroid_x, centroid_y = 0, 0
+    for i = 1, #contour, 2 do
+        local cx, cy = contour[i+0], contour[i+1]
+        centroid_x = centroid_x + cx
+        centroid_y = centroid_y + cy
     end
 
-    local n_outer_bodies = rt.settings.overworld.NPC.n_outer_bodies
-    self._radius = radius
-    self._inner_body_radius = debugger.get("inner_radius")
-    self._outer_body_radius = (2 * math.pi * self._radius) / n_outer_bodies / 2
-    self._body = b2.Body(
-        self._world, b2.BodyType.DYNAMIC,
-        self._x, self._y,
-        b2.Circle(0, 0, self._inner_body_radius)
-    )
-    self._body:set_mass(debugger.get("inner"))
-    self._body:set_is_rotation_fixed(true)
+    centroid_x = centroid_x / #contour
+    centroid_y = centroid_y / #contour
 
-    self._spring_bodies = {}
-    self._spring_joints = {}
-    self._spring_body_offsets_x = {}
-    self._spring_body_offsets_y = {}
-
-    local outer_body_shape =  b2.Circle(0, 0, self._outer_body_radius)
-
-    local step = 2 * math.pi / n_outer_bodies
-    for angle = 0, 2 * math.pi, step do
-        local offset_x = math.cos(angle) * self._radius
-        local offset_y = math.sin(angle) * self._radius
-        local cx = self._x + offset_x
-        local cy = self._y + offset_y
-
-        local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
-        --nitialize_outer_body(body, false)
-        body:set_mass(debugger.get("outer")) -- spring strength
-        body:set_is_rotation_fixed(true)
-        body:set_collision_group(_collision_group)
-        body:set_collides_with(bit.bnot(_collision_group))
-
-        local joint = b2.Spring(self._body, body, self._x, self._y, cx, cy)
-
-        table.insert(self._spring_bodies, body)
-        table.insert(self._spring_joints, joint)
-        table.insert(self._spring_body_offsets_x, offset_x)
-        table.insert(self._spring_body_offsets_y, offset_y)
+    -- translate to origin
+    for i = 1, #contour, 2 do
+        contour[i+0] = contour[i+0] - centroid_x
+        contour[i+1] = contour[i+1] - centroid_y
     end
+
+    local delaunay = rt.DelaunayTriangulation()
+
+    -- inner hard object
+    table.insert(contour, centroid_x)
+    table.insert(contour, centroid_y)
+    delaunay:triangulate(contour, contour)
+    local shapes = {}
+    for tri in values(delaunay:get_triangles()) do
+        table.insert(shapes, b2.Polygon(table.unpack(tri)))
+    end
+
+    self._body = b2.Body(stage:get_physics_world(), b2.BodyType.DYNAMIC, centroid_x, centroid_y, shapes)
+
+
+    -- outer, soft-body shell
+    self._data_mesh_data = {}
+    local depth = rt.settings.overworld.npc.buffer_depth
+    local outer_contour = {}
+    for i = 1, #contour, 2 do
+        local cx, cy = contour[i+0], contour[i+1]
+        local dx, dy = cx - centroid_x, cy - centroid_y
+        local length = math.magnitude(dx, dy)
+        dx, dy = math.normalize(dx, dy)
+        table.insert(outer_contour, cx + dx * (length + depth))
+        table.insert(outer_contour, cy + dy * (length + depth))
+
+        table.insert(self._data_mesh_data, {
+            cx + length * dx, -- vector origin
+            cy + length * dy,
+            dx, dy, depth -- normalized xy, magnitude
+        })
+    end
+
+    self._inner_contour = contour
+    self._outer_contour = outer_contour
 end
 
 --- @brief
 function ow.NPC:draw()
     self._body:draw()
-    for body in values(self._spring_bodies) do
-        body:draw()
-    end
+    love.graphics.line(self._inner_contour)
+    love.graphics.line(self._outer_contour)
 end
 
 --- @brief
 function ow.NPC:update(delta)
-    self._body:set_velocity(self._velocity_x, self._velocity_y)
 end

@@ -40,6 +40,7 @@ ow.CameraMode = meta.enum("CameraMode", {
 })
 
 local _bloom_shader = nil
+local _skip_fade = true
 
 --- @brief
 function ow.OverworldScene:instantiate(state)
@@ -300,17 +301,23 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
     rt.SceneManager:set_use_fixed_timestep(true)
     self:set_stage(stage_id, show_title_card)
 
-    self._input:deactivate()
-    self._fade_active = false
-    self._fade:start(false, true)
-    self._title_card:fade_in()
-    self._title_card_elapsed = 0
+    if _skip_fade ~= true then
+        self._input:deactivate()
+        self._fade_active = false
+        self._fade:start(false, true)
+        self._title_card:fade_in()
+        self._title_card_elapsed = 0
 
-    self._player._input:deactivate()
-    self._stage:signal_connect("done", function()
-        self._queue_fade_out = true
-        return meta.DISCONNECT_SIGNAL
-    end)
+        self._player._input:deactivate()
+        self._stage:signal_connect("done", function()
+            self._queue_fade_out = true
+            return meta.DISCONNECT_SIGNAL
+        end)
+    else
+        self._input:activate()
+        self._fade_active = false
+        self._title_card_elapsed = math.huge
+    end
 
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
@@ -482,6 +489,8 @@ local _white_r, _white_g, _white_b = rt.color_unpack(rt.Palette.WHITE)
 local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 
 function ow.OverworldScene:draw()
+    if self._stage == nil then return end
+
     if self._bloom == nil and rt.GameState:get_is_bloom_enabled() then
         local _, _, width, height = self:get_bounds():unpack()
         self._bloom = rt.Bloom(width, height,
@@ -500,7 +509,7 @@ function ow.OverworldScene:draw()
     love.graphics.push()
     love.graphics.origin()
     love.graphics.clear(1, 0, 1, 1)
-    if self._fade:get_is_active() or self._fade:get_is_visible() then
+    if not _skip_fade == true and self._fade:get_is_active() or self._fade:get_is_visible() then
         self._background:draw()
 
         self._camera:bind()
@@ -536,8 +545,8 @@ function ow.OverworldScene:draw()
         self._camera:bind()
         self._stage:draw_below_player()
         self._player:draw_body()
-        self._stage:draw_above_player()
         self._player:draw_core()
+        self._stage:draw_above_player()
         self._camera:unbind()
 
         if rt.GameState:get_is_bloom_enabled() == true then
@@ -555,7 +564,9 @@ function ow.OverworldScene:draw()
         end
     end
 
-    self._title_card:draw()
+    if _skip_fade ~= true then
+        self._title_card:draw()
+    end
 
     love.graphics.pop()
 
@@ -664,20 +675,22 @@ local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
-    if self._queue_fade_out and self._title_card_elapsed >= rt.settings.overworld_scene.title_card_min_duration then
-        self._input:activate()
-        self._player._input:activate()
-        self._fade_active = true
-        self._title_card:fade_out()
-        self._queue_fade_out = nil
-    end
+    if _skip_fade ~= true then
+        if self._queue_fade_out and self._title_card_elapsed >= rt.settings.overworld_scene.title_card_min_duration then
+            self._input:activate()
+            self._player._input:activate()
+            self._fade_active = true
+            self._title_card:fade_out()
+            self._queue_fade_out = nil
+        end
 
-    if self._fade_active then
-        self._fade:update(delta)
-    end
+        if self._fade_active then
+            self._fade:update(delta)
+        end
 
-    self._title_card:update(delta)
-    self._title_card_elapsed = self._title_card_elapsed + delta
+        self._title_card:update(delta)
+        self._title_card_elapsed = self._title_card_elapsed + delta
+    end
 
     local idle = self._player:get_idle_duration() > rt.settings.overworld_scene.idle_control_indicator_popup_threshold
     if self._control_indicator_visible == true and idle == false then
