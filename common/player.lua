@@ -1854,7 +1854,6 @@ end
 --- @brief
 function rt.Player:set_is_ghost(b)
     self._is_ghost = b
-    dbg(b)
 
     if self._is_ghost then
         self._body:set_collides_with(_settings.ghost_collision_group)
@@ -1886,6 +1885,11 @@ function rt.Player:set_is_ghost(b)
             body:set_collides_with(outer_mask)
         end
     end
+end
+
+--- @brief
+function rt.Player:get_is_ghost()
+    return self._is_ghost
 end
 
 --- @brief

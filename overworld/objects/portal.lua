@@ -39,28 +39,33 @@ function ow.Portal:instantiate(object, stage, scene)
         local left_x, left_y = math.normalize(math.turn_left(dx, dy))
         local right_x, right_y = math.normalize(math.turn_right(dx, dy))
         local center_x, center_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
-        self._sensor = b2.Body(stage:get_physics_world(), b2.BodyType.STATIC, center_x, center_y, b2.Polygon(
+
+        local sensor_shape = b2.Polygon(
             self._ax +  left_x * sensor_w - center_x, self._ay +  left_y * sensor_w - center_y,
             self._ax + right_x * sensor_w - center_x, self._ay + right_y * sensor_w - center_y,
             self._bx + right_x * sensor_w - center_x, self._by + right_y * sensor_w - center_y,
             self._bx +  left_x * sensor_w - center_x, self._by +  left_y * sensor_w - center_y
-        ))
-        self._sensor:set_is_sensor(true)
-        self._sensor:set_collides_with(rt.settings.player.player_collision_group)
+        )
 
-        self._active = false
-        self._sensor:signal_connect("collision_start", function(_)
-            self._scene:get_player():set_is_ghost(true)
-            self._active = true
+        self._ghost_sensor = b2.Body(stage:get_physics_world(), b2.BodyType.STATIC, center_x, center_y, sensor_shape)
+        self._non_ghost_sensor = b2.Body(stage:get_physics_world(), b2.BodyType.STATIC, center_x, center_y, sensor_shape)
 
-            -- can't use `collision_end`, because ghost triggers and start and end event
-            self._stage:get_physics_world():signal_connect("step", function()
-                if self._active and self._sensor:test_point(self._scene:get_player():get_position()) == false then
-                    self._active = false
-                    self._scene:get_player():set_is_ghost(false)
-                    return meta.DISCONNECT_SIGNALaaaaa
-                end
-            end)
+        for sensor in range(self._ghost_sensor, self._non_ghost_sensor) do
+            sensor:set_is_sensor(true)
+            sensor:set_collides_with(rt.settings.player.player_collision_group)
+        end
+
+        self._ghost_sensor:set_collision_group(rt.settings.player.ghost_collision_group)
+        self._non_ghost_sensor:set_collision_group(bit.bnot(rt.settings.player.ghost_collision_group))
+
+        -- manually collect events to assure order of operations
+        self._events = {}
+        self._non_ghost_sensor:signal_connect("collision_start", function()
+            table.insert(self._events, 0)
+        end)
+
+        self._ghost_sensor:signal_connect("collision_end", function()
+            table.insert(self._events, 1)
         end)
 
         -- ghost collision guards
@@ -104,6 +109,26 @@ function ow.Portal:draw()
     --self._sensor:draw()
     for segment in values(self._ghost_segments) do
         segment:draw()
+    end
+end
+
+--- @brief
+function ow.Portal:update(delta)
+    if #self._events ~= 0 then
+        local is_ghost = self._scene:get_player():get_is_ghost()
+        table.sort(self._events, function(a, b)
+            if is_ghost then return a > b else return a < b end
+        end)
+
+        for event in values(self._events) do
+            if event == 0 then
+                self._scene:get_player():set_is_ghost(true)
+            elseif event == 1 then
+                self._scene:get_player():set_is_ghost(true)
+            end
+        end
+
+        self._events = {}
     end
 end
 
