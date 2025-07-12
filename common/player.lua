@@ -1232,6 +1232,7 @@ function rt.Player:move_to_world(world)
         body:add_tag("player_outer_body")
     end
 
+    local mask = bit.bnot(rt.settings.player.player_outer_body_collision_group)
     for angle = 0, 2 * math.pi, step do
         local offset_x = math.cos(angle) * outer_radius
         local offset_y = math.sin(angle) * outer_radius
@@ -1241,6 +1242,7 @@ function rt.Player:move_to_world(world)
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         initialize_outer_body(body, false)
         body:set_mass(10e-4 * _settings.outer_body_spring_strength)
+        body:set_collides_with(mask)
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only
@@ -1855,35 +1857,15 @@ end
 function rt.Player:set_is_ghost(b)
     self._is_ghost = b
 
-    if self._is_ghost then
-        self._body:set_collides_with(_settings.ghost_collision_group)
-        self._bubble_body:set_collides_with(_settings.ghost_collision_group)
+    self._body:set_is_sensor(b)
+    self._bubble_body:set_is_sensor(b)
 
-        for body in values(self._spring_bodies) do
-            body:set_collides_with(_settings.ghost_collision_group)
-        end
+    for body in values(self._spring_bodies) do
+        body:set_is_sensor(b)
+    end
 
-        for body in values(self._bubble_spring_bodies) do
-            body:set_collides_with(_settings.ghost_collision_group)
-        end
-    else
-        local outer_mask = bit.band(
-            bit.bnot(_settings.player_outer_body_collision_group),
-            bit.bnot(_settings.ghost_collision_group)
-        )
-
-        local center_mask = bit.bnot(_settings.ghost_collision_group)
-
-        self._body:set_collides_with(center_mask)
-        self._bubble_body:set_collides_with(center_mask)
-
-        for body in values(self._spring_bodies) do
-            body:set_collides_with(outer_mask)
-        end
-
-        for body in values(self._bubble_spring_bodies) do
-            body:set_collides_with(outer_mask)
-        end
+    for body in values(self._bubble_spring_bodies) do
+        body:set_is_sensor(b)
     end
 end
 

@@ -97,12 +97,22 @@ local _get_sidedness = function(ax, ay, bx, by)
     return (ax * by - ay * bx) > 0
 end
 
-local _get_side = function(px, py, ax, ay, bx, by)
-    return math.cross(
-        bx - ax, by - ay,
-        px - ax, py - ay
-    ) > 0
+local _get_side = function(vx, vy, ax, ay, bx, by)
+    local abx = bx - ax
+    local aby = by - ay
+    local cross = abx * vy - aby * vx
+    return cross > 0
 end
+
+local _get_normal = function(ax, ay, bx, by, side)
+    local nx, ny = math.normalize(bx - ax, by - ay)
+    if side then
+        return math.turn_left(nx, ny)
+    else
+        return math.turn_right(nx, ny)
+    end
+end
+
 
 local function teleport_player(
     from_ax, from_ay, from_bx, from_by,
@@ -113,21 +123,44 @@ local function teleport_player(
     local ratio = _get_ratio(contact_x, contact_y, from_ax, from_ay, from_bx, from_by)
     local from_sidedness = _get_sidedness(from_ax, from_ay, from_bx, from_by)
     local to_sidedness = _get_sidedness(to_ax, to_ay, to_bx, to_by)
-    if from_sidedness ~= to_sidedness then
+    if from_sidedness == to_sidedness then
         ratio = 1 - ratio
     end
 
     local new_x, new_y = math.mix2(to_ax, to_ay, to_bx, to_by, ratio)
 
     -- new velocity
-    local from_angle = math.angle(from_bx - from_ax, from_by - from_ay)
-    local to_angle = math.angle(to_bx - to_ax, to_by - to_ay)
+    local from_dx = from_bx - from_ax
+    local from_dy = from_by - from_ay
+    local to_dx = to_bx - to_ax
+    local to_dy = to_by - to_ay
 
-    vx, vy = math.rotate(vx, vy, -from_angle)
-    vx, vy = math.rotate(vx, vy, to_angle)
-    vx, vy = math.flip(vx, vy)
+    local from_angle = math.atan2(from_dy, from_dx)
+    local to_angle = math.atan2(to_dy, to_dx)
+    local angle_diff = to_angle - from_angle
 
-    return new_x, new_y, vx, vy
+    local speed = math.sqrt(vx*vx + vy*vy)
+    local velocity_angle = math.atan2(vy, vx)
+    local new_velocity_angle = velocity_angle + angle_diff
+
+    local new_vx = speed * math.cos(new_velocity_angle)
+    local new_vy = speed * math.sin(new_velocity_angle)
+
+    local from_normal_angle = from_angle + math.pi / 2  -- perpendicular to portal
+    local to_normal_angle = to_angle + math.pi / 2
+
+    local from_normal_x, from_normal_y = math.cos(from_normal_angle), math.sin(from_normal_angle)
+    local to_normal_x, to_normal_y = math.cos(to_normal_angle), math.sin(to_normal_angle)
+
+    local from_dot = vx * from_normal_x + vy * from_normal_y
+    local new_to_dot = new_vx * to_normal_x + new_vy * to_normal_y
+
+    if not ((from_dot > 0 and new_to_dot < 0) or (from_dot < 0 and new_to_dot > 0)) then
+        new_vx = -new_vx
+        new_vy = -new_vy
+    end
+
+    return new_x, new_y, new_vx, new_vy
 end
 
 function ow.Portal:_teleport(normal_x, normal_y, contact_x, contact_y)
@@ -147,14 +180,23 @@ function ow.Portal:_teleport(normal_x, normal_y, contact_x, contact_y)
         contact_x, contact_y
     )
 
-    player:teleport_to(new_x, new_y)
+    local radius = player:get_radius()
+    local nvx, nvy = math.normalize(new_vx, new_vy)
+    player:teleport_to(new_x + radius * nvx, new_y + radius * nvy)
     player:set_velocity(new_vx, new_vy)
 
     new_vx, new_vy = math.normalize(new_vx, new_vy)
-    self._dbg = {
-        new_x, new_y,
-        new_x + new_vx * 10,
-        new_y + new_vy * 10
+    vx, vy = math.normalize(vx, vy)
+    _dbg = {
+        {
+            new_x, new_y,
+            new_x + new_vx * 10,
+            new_y + new_vy * 10
+        }, {
+            contact_x, contact_y,
+            contact_x + new_vx * 10,
+            contact_y + new_vy * 10
+        }
     }
 
     target._is_active = true
@@ -163,10 +205,14 @@ end
 
 --- @brief
 function ow.Portal:draw()
-    self._segment_sensor:draw()
+    love.graphics.setLineWidth(4)
+    love.graphics.line(self._ax, self._ay, self._bx, self._by)
 
-    if self._dbg ~= nil then
-        love.graphics.line(self._dbg)
+    love.graphics.setLineWidth(1)
+
+    love.graphics.setColor(1, 1, 1, 1)
+    if _dbg ~= nil then
+        for l in values(_dbg) do love.graphics.line(l) end
     end
 end
 

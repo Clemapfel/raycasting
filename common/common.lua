@@ -394,6 +394,8 @@ end
 
 --- @brief
 function math.angle(x, y)
+    return math.atan2(y, x)
+    --[[
     if x == 0 and y == 0 then return 0 end
 
     local abs_y = math.abs(y) + 1e-10
@@ -410,6 +412,7 @@ function math.angle(x, y)
     else
         return angle
     end
+    ]]--
 end
 
 --- @brief
