@@ -8,10 +8,20 @@ local _assert_point = function(object)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Portal: object `" .. object:get_id() .. " is not a point")
 end
 
+local _current_hue = 0
+local _get_hue = function()
+    local out = _current_hue
+    _current_hue = math.fract(_current_hue + 1 / 8)
+    return _current_hue
+end
+
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
     self._stage = stage
     self._scene = scene
+
+    self._hue = 0
+    self._hue_set = false
 
     stage:signal_connect("initialized", function()
         -- get portal pairs as ordered points
@@ -23,10 +33,24 @@ function ow.Portal:instantiate(object, stage, scene)
         _assert_point(self._b)
         self._bx, self._by = self._b.x, self._b.y
 
-
         self._target = stage:get_object_instance(object:get_object("target", true))
         assert(self._target ~= nil and meta.isa(self._target, ow.Portal), "In ow.Portal: `target` of object `" .. object:get_id() .. "` is not another portal")
 
+        -- synch hue
+        if self._hue_set == false and self._target._hue_set == true then
+            self._hue = self._target_hue
+        elseif self._hue_set == true and self._target._hue_set == false then
+            self._target._hue = self._hue
+        elseif self._hue_set == false and self._target._hue_set == false then
+            self._hue = _get_hue()
+            self._target._hue = self._hue
+
+        end
+
+        self._hue_set = true
+        self._target._hue_set = true
+
+        -- sensors
         local center_x, center_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
 
         self._segment_sensor = b2.Body(
@@ -70,6 +94,27 @@ function ow.Portal:instantiate(object, stage, scene)
         self._sidedness = math.cross(self._ax, self._ay, self._bx, self._by) > 0
         self._is_disabled = false
         self._disabled_cooldown = 0
+
+        -- graphics
+        local outer = function() return 0, 0, 0, 0, 0, 1 end -- uv rgba
+        local inner = function() return 1, 1, 1, 1, 1, 1 end
+
+        local left_mesh_data = {
+            { self._ax +  left_x * sensor_w, self._ay +  left_y * sensor_w, outer() },
+            { self._ax, self._ay, inner() },
+            { self._bx, self._by, inner() },
+            { self._bx +  left_x * sensor_w, self._by +  left_y * sensor_w, outer() }
+        }
+
+        local right_mesh_data = {
+            { self._ax, self._ay, inner() },
+            { self._ax + right_x * sensor_w, self._ay + right_y * sensor_w, outer() },
+            { self._bx + right_x * sensor_w, self._by + right_y * sensor_w, outer() },
+            { self._bx, self._by, inner() }
+        }
+
+        self._left_mesh = rt.Mesh(left_mesh_data)
+        self._right_mesh = rt.Mesh(right_mesh_data)
     end)
 end
 
@@ -94,7 +139,7 @@ local _get_ratio = function(px, py, ax, ay, bx, by)
 end
 
 local _get_sidedness = function(ax, ay, bx, by)
-    return (ax * by - ay * bx) > 0
+    return math.coss(ax, ay, bx, by) > 0
 end
 
 local _get_side = function(vx, vy, ax, ay, bx, by)
@@ -103,16 +148,6 @@ local _get_side = function(vx, vy, ax, ay, bx, by)
     local cross = abx * vy - aby * vx
     return cross > 0
 end
-
-local _get_normal = function(ax, ay, bx, by, side)
-    local nx, ny = math.normalize(bx - ax, by - ay)
-    if side then
-        return math.turn_left(nx, ny)
-    else
-        return math.turn_right(nx, ny)
-    end
-end
-
 
 local function teleport_player(
     from_ax, from_ay, from_bx, from_by,
@@ -135,12 +170,12 @@ local function teleport_player(
     local to_dx = to_bx - to_ax
     local to_dy = to_by - to_ay
 
-    local from_angle = math.atan2(from_dy, from_dx)
-    local to_angle = math.atan2(to_dy, to_dx)
+    local from_angle = math.angle(from_dx, from_dy)
+    local to_angle = math.angle(to_dx, to_dy)
     local angle_diff = to_angle - from_angle
 
-    local speed = math.sqrt(vx*vx + vy*vy)
-    local velocity_angle = math.atan2(vy, vx)
+    local speed = math.magnitude(vx, vy)
+    local velocity_angle = math.angle(vx, vy)
     local new_velocity_angle = velocity_angle + angle_diff
 
     local new_vx = speed * math.cos(new_velocity_angle)
@@ -202,13 +237,25 @@ function ow.Portal:_teleport(normal_x, normal_y, contact_x, contact_y)
     target._is_active = true
 end
 
-
 --- @brief
 function ow.Portal:draw()
+    local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+
+    rt.Palette.WHITE:bind()
+    love.graphics.draw(self._left_mesh:get_native())
+    love.graphics.draw(self._right_mesh:get_native())
+
+    rt.Palette.BLACK:bind()
+    love.graphics.setLineWidth(6)
+    love.graphics.line(self._ax, self._ay, self._bx, self._by)
+
+    love.graphics.setColor(r, g, b, a)
+
     love.graphics.setLineWidth(4)
     love.graphics.line(self._ax, self._ay, self._bx, self._by)
 
     love.graphics.setLineWidth(1)
+    self._area_sensor:draw()
 
     love.graphics.setColor(1, 1, 1, 1)
     if _dbg ~= nil then

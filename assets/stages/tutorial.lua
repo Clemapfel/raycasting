@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 783,
+  nextobjectid = 784,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4632,6 +4632,19 @@ return {
           y = 112,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 783,
+          name = "",
+          type = "CameraBounds",
+          shape = "rectangle",
+          x = -2032,
+          y = -656,
+          width = 1300.67,
+          height = 835.806,
           rotation = 0,
           visible = true,
           properties = {}
