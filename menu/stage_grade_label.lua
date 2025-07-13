@@ -54,6 +54,7 @@ function mn.StageGradeLabel:size_allocate(x, y, width, height)
     local label_w, label_h = _font:measure(self._font_size, self._label_text)
     self._label_x = x-- + 0.5 * width - 0.5 * label_w
     self._label_y = y-- + 0.5 * width - 0.5 * label_h
+    self._label_x, self._label_y = math.floor(self._label_x), math.floor(self._label_y)
 
     if self._last_window_height ~= love.graphics.getHeight() then
         self:_update_labels()

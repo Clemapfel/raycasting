@@ -171,16 +171,15 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         page_w = page_w + 2 * inner_offset
         page_h = page_h + 2 * inner_offset
         local page_x, page_y = x, y -- x: canvas-local
+        page_y = page_y + page_offset
         local center_x, center_y = page_x + 0.5 * page_w, page_y + 0.5 * page_h
 
-        widget:reformat(page_x, page_y + page_offset, page_w, page_h)
+        widget:reformat(page_x, page_y, page_w, page_h)
 
         local particles = {}
         local page_n_particles = 0
         local data_mesh_data = {}
         local dynamic_mask = {}
-
-        page_y = page_y + page_offset
 
         local top = { page_x, page_y, page_x + page_w, page_y }
         local right = { page_x + page_w, page_y, page_x + page_w, page_y + page_h }
@@ -285,7 +284,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
             y = page_y,
             width = page_w,
             height = page_h,
-            widget = widget
+            widget = widget,
         }
     end
 
@@ -323,7 +322,7 @@ end
 function mn.StageSelectParticleFrame:update(delta)
     if not self._is_initialized then return end
 
-    if self._is_transitioning ~= true then
+    if true then -- TODO self._is_transitioning ~= true then
         self._motion:update(delta)
     end
 
@@ -497,7 +496,6 @@ function mn.StageSelectParticleFrame:draw()
         self._pages[page_i].widget:draw()
     end
     love.graphics.pop()
-
     rt.graphics.set_stencil_mode(nil)
 end
 

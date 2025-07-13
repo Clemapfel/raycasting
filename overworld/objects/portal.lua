@@ -44,7 +44,6 @@ function ow.Portal:instantiate(object, stage, scene)
         elseif self._hue_set == false and self._target._hue_set == false then
             self._hue = _get_hue()
             self._target._hue = self._hue
-
         end
 
         self._hue_set = true
@@ -96,7 +95,7 @@ function ow.Portal:instantiate(object, stage, scene)
         self._disabled_cooldown = 0
 
         -- graphics
-        local outer = function() return 0, 0, 0, 0, 0, 1 end -- uv rgba
+        local outer = function() return 0, 0, 0, 0, 0, 0 end -- uv rgba
         local inner = function() return 1, 1, 1, 1, 1, 1 end
 
         local left_mesh_data = {
@@ -139,7 +138,7 @@ local _get_ratio = function(px, py, ax, ay, bx, by)
 end
 
 local _get_sidedness = function(ax, ay, bx, by)
-    return math.coss(ax, ay, bx, by) > 0
+    return math.cross(ax, ay, bx, by) > 0
 end
 
 local _get_side = function(vx, vy, ax, ay, bx, by)
@@ -241,7 +240,7 @@ end
 function ow.Portal:draw()
     local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
 
-    rt.Palette.WHITE:bind()
+    love.graphics.setColor(r, g, b, a)
     love.graphics.draw(self._left_mesh:get_native())
     love.graphics.draw(self._right_mesh:get_native())
 
@@ -253,9 +252,6 @@ function ow.Portal:draw()
 
     love.graphics.setLineWidth(4)
     love.graphics.line(self._ax, self._ay, self._bx, self._by)
-
-    love.graphics.setLineWidth(1)
-    self._area_sensor:draw()
 
     love.graphics.setColor(1, 1, 1, 1)
     if _dbg ~= nil then

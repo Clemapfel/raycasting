@@ -131,8 +131,7 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         vec2 texSize = textureSize(img, 0);
         vec2 pixel = 1.0 / texSize;
 
-        vec2 uv = texture_coordinates + camera_offset / love_ScreenSize.xy;
-        uv = abs(fract(uv - 0.5) + 1) - 1;
+        vec2 uv = texture_coordinates;
 
         float v00 = get(texture(img, uv + pixel * vec2(-1.0, -1.0)));
         float v01 = get(texture(img, uv + pixel * vec2(0.0, -1.0)));

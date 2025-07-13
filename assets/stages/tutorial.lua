@@ -4641,10 +4641,10 @@ return {
           name = "",
           type = "CameraBounds",
           shape = "rectangle",
-          x = -2032,
+          x = -2061.68,
           y = -656,
-          width = 1300.67,
-          height = 835.806,
+          width = 1332.83,
+          height = 919.902,
           rotation = 0,
           visible = true,
           properties = {}

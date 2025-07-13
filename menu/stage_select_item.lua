@@ -182,9 +182,9 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     self._title_label:reformat(x, current_y, width, math.huge)
     current_y = current_y + title_h + outer_margin
 
-    local coin_left_x, coin_right_x, coin_height
+    local coin_width, coin_height, coin_r
     do -- coins local alignment
-        local coin_r = rt.settings.menu.stage_select_item.coin_radius
+        coin_r = rt.settings.menu.stage_select_item.coin_radius
         local n_coins_per_row = math.min(
             rt.settings.menu.stage_select_item.coins_max_n_per_row,
             math.floor((width - 4 * m) / (2 * coin_r))
@@ -209,7 +209,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
             current_row_w = current_row_w + 2 * coin_r + coin_xm
 
             if n_in_row >= n_coins_per_row or i == #self._coins then
-                row_to_row_w[current_row] = current_row_w
+                row_to_row_w[current_row] = current_row_w - coin_xm
 
                 current_row = {}
                 current_row_w = 0
@@ -220,25 +220,24 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
         end
 
         -- center
-        coin_left_x, coin_right_x = math.huge, -math.huge
         local n_rows = 0
         for row, row_w in pairs(row_to_row_w) do
             local offset = x + 0.5 * width - 0.5 * row_w + coin_r
             for coin in values(row) do
                 coin.x = coin.x + offset
-                coin_left_x = math.min(coin_left_x, coin.x)
-                coin_right_x = math.max(coin_right_x, coin.x)
             end
             n_rows = n_rows + 1
         end
 
-        coin_left_x = coin_left_x - coin_r
-        coin_right_x = coin_right_x + coin_r
         coin_height = n_rows * 2 * coin_r + (n_rows - 1) * coin_ym
+        coin_width = 2 * coin_xm + 2 * coin_r + coin_row_w + 2 * coin_r
     end
 
     -- value labels
-    local left_x, right_x = coin_left_x, coin_right_x
+    local left_x = x + 0.5 * width - 0.5 * coin_width
+    local right_x = x + 0.5 * width + 0.5 * coin_width
+
+    self._dbg_left_x, self._dbg_right_x = left_x, right_x
     for prefix_colon_value in range(
         { self._time_prefix_label, self._time_colon_label, self._time_value_label },
         { self._flow_prefix_label, self._flow_colon_label, self._flow_value_label }
@@ -276,7 +275,10 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
         current_y = current_y + max_h
     end
 
-    current_y = current_y + v_margin
+    current_y = current_y + m
+    if #self._coins > 0 then
+        current_y = current_y + coin_r
+    end
 
     -- coins y-alignment
     for coin in values(self._coins) do
@@ -313,8 +315,9 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     end
 
     do
-        local grade_prefix_x = x + 0.5 * width - max_grade_prefix_w - m
-        local grade_x = x + 0.5 * width + m + 0.5 * (0.5 * width - max_grade_prefix_w )
+        local grade_prefix_x = left_x
+        local area_w = right_x - left_x
+        local grade_x = math.mix(left_x, right_x, 0.5) + 0.25 * area_w
 
         for prefix_colon_grade in range(
             { self._time_grade_prefix, self._time_grade_colon, self._time_grade },
@@ -344,7 +347,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
             )
 
             grade:reformat(
-                grade_x, current_y + 0.5 * max_h - 0.5 * grade_h,
+                grade_x - 0.5 * grade_w, current_y + 0.5 * max_h - 0.5 * grade_h,
                 grade_w, grade_h
             )
 
@@ -448,8 +451,29 @@ function mn.StageSelectItem:draw()
         entry.coin:draw(entry.x, entry.y)
     end
 
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, 0.2)
     self:draw_bounds()
+
+    love.graphics.line(
+        self._bounds.x + self._bounds.width * 0.5,
+        self._bounds.y,
+        self._bounds.x + self._bounds.width * 0.5,
+        self._bounds.y + self._bounds.height
+    )
+
+    love.graphics.line(
+        self._dbg_right_x,
+        self._bounds.y,
+        self._dbg_right_x,
+        self._bounds.y + self._bounds.height
+    )
+
+    love.graphics.line(
+        self._dbg_left_x,
+        self._bounds.y,
+        self._dbg_left_x,
+        self._bounds.y + self._bounds.height
+    )
 end
 
 --- @brief
