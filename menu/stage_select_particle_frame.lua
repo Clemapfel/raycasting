@@ -169,7 +169,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         local widget = self._widgets[page_i]
         widget:reformat()
         local page_w, page_h = widget:measure()
-        local page_x, page_y = x + 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
+        local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
         page_y = page_y + page_offset
         local center_x, center_y = page_x + 0.5 * page_w, page_y + 0.5 * page_h
 
@@ -321,7 +321,7 @@ end
 function mn.StageSelectParticleFrame:update(delta)
     if not self._is_initialized then return end
 
-    if true then -- TODO self._is_transitioning ~= true then
+    if self._is_transitioning ~= true then
         self._motion:update(delta)
     end
 

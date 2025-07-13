@@ -4,8 +4,8 @@ require "overworld.coin_particle"
 require "overworld.objects.coin"
 
 rt.settings.menu.stage_select_item = {
-    coin_radius = 19,
-    coins_max_n_per_row = 5,
+    coin_radius = 16,
+    coins_max_n_per_row = 7,
 }
 
 --- @class mn.StageSelectItem
@@ -137,6 +137,7 @@ function mn.StageSelectItem:_init_coins()
             not rt.GameState:get_stage_was_coin_collected(self._id, i)
         )
         coin:set_hue(ow.Coin.index_to_hue(i, n_coins))
+        coin:set_is_outline(not rt.GameState:get_stage_was_coin_collected(self._id, i))
 
         self._coins[i] = {
             coin = coin,
@@ -200,6 +201,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
         local coin_start_x = 0
         local coin_x, coin_y = coin_start_x, 0
         local n_in_row = 0
+        local row_i = 1
         local row_to_row_w = {}
         local current_row_w = 0
         local current_row = {}
@@ -211,7 +213,10 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
             n_in_row = n_in_row + 1
             current_row_w = current_row_w + 2 * coin_r + coin_xm
 
-            if n_in_row >= n_coins_per_row or i == #self._coins then
+            local current_n_coins = n_coins_per_row
+            if row_i % 2 == 0 then current_n_coins = current_n_coins - 1 end
+
+            if n_in_row >= current_n_coins or i == #self._coins then
                 row_to_row_w[current_row] = current_row_w - coin_xm
 
                 current_row = {}
@@ -219,6 +224,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
                 n_in_row = 0
                 coin_x = coin_start_x
                 coin_y = coin_y + 2 * coin_r + coin_ym
+                row_i = row_i + 1
             end
         end
 
@@ -457,33 +463,6 @@ function mn.StageSelectItem:draw()
     for entry in values(self._coins) do
         entry.coin:draw(entry.x, entry.y)
     end
-
-    love.graphics.setColor(1, 1, 1, 0.2)
-    self:draw_bounds()
-
-    love.graphics.line(
-        self._bounds.x + self._bounds.width * 0.5,
-        self._bounds.y,
-        self._bounds.x + self._bounds.width * 0.5,
-        self._bounds.y + self._bounds.height
-    )
-
-    love.graphics.line(
-        self._dbg_right_x,
-        self._bounds.y,
-        self._dbg_right_x,
-        self._bounds.y + self._bounds.height
-    )
-
-    love.graphics.line(
-        self._dbg_left_x,
-        self._bounds.y,
-        self._dbg_left_x,
-        self._bounds.y + self._bounds.height
-    )
-
-    love.graphics.setColor(1, 1, 1, 1)
-    self._total_grade:draw_bounds()
 end
 
 --- @brief
@@ -512,7 +491,7 @@ function mn.StageSelectItem:create_from_state()
     self._total_grade:set_grade(total_grade)
 
     for coin_i, entry in ipairs(self._coins) do
-        local is_collected = rt.GameState:get_stage_was_coin_collected(self._id, coin_i)
+        local is_collected = not rt.GameState:get_stage_was_coin_collected(self._id, coin_i)
         entry.coin:set_is_outline(is_collected)
     end
 end

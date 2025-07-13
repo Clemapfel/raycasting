@@ -65,7 +65,6 @@ function ow.CoinParticle:_draw_core()
 end
 
 function ow.CoinParticle:draw(x, y)
-
     love.graphics.push()
     love.graphics.translate(x, y)
 

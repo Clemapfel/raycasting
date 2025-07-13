@@ -30,7 +30,7 @@ rt.settings.menu_scene = {
     },
 
     stage_select = {
-        player_alignment = 1 / 3,
+        player_alignment = 0.5 * 1 / 3,
         reveal_animation_duration = 1,
         scroll_speed = 1,
         exititing_fraction = 2, -- number of screen heights until fade out starts
@@ -425,13 +425,17 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         current_x = current_x - page_indicator_w - outer_margin
 
         -- level tiles
-        local w = (1 - rt.settings.menu_scene.stage_select.player_alignment) * width - 2 * outer_margin - page_indicator_w - 2 * outer_margin
-        local menu_x = math.round(current_x - w)
-        local menu_w = w
-        stage_select.item_frame:reformat(menu_x, y + 0.5 * height - 0.5 * menu_h, menu_w, menu_h)
+        local menu_w = 2 / 3 * width - 2 * outer_margin - 2 * page_indicator_w
+        stage_select.item_frame:reformat(
+            x + 2 / 3 * width - 0.5 * menu_w,
+            y,
+            menu_w,
+            self._bounds.height
+        )
         stage_select.reveal_width = menu_w + page_indicator_w + 4 * outer_margin
     end
 end
+
 --- @brief
 function mn.MenuScene:enter()
     if self._player:get_world() ~= self._world then
@@ -538,11 +542,6 @@ function mn.MenuScene:update(delta)
     self._fade:update(delta)
     if not self._initialized then return end
 
-    self._world:update(delta)
-    self._player:update(delta)
-    self._camera:update(delta)
-    self._background:update(delta)
-
     self._shader_elapsed = self._shader_elapsed + delta
     self._shader_camera_offset = { self._camera:get_offset() }
 
@@ -601,108 +600,112 @@ function mn.MenuScene:update(delta)
             menu_item.unselected_label:update(delta)
             menu_item.selected_label:update(delta)
         end
-
-        return
-    end
-
-    -- falling or level select
-    local px, py = self._player:get_predicted_position()
-    self._shader_fraction = math.clamp(py / rt.settings.menu_scene.title_screen.falling_fraction_threshold, 0, 1)
-    self._player:set_flow(self._shader_fraction)
-
-    local max_speedup = rt.settings.menu_scene.stage_select.max_debris_speedup
-    local speedup = math.max(0.1, self._stage_select.item_frame:get_hue() * max_speedup)
-
-    -- clamp velocity
-    local vx, vy = self._player:get_velocity()
-    local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
-
-    vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
-    vy = math.min(vy, max_velocity)
-
-    if self._state == mn.MenuSceneState.EXITING then
-        vy = vy + rt.settings.menu_scene.exit_acceleration * delta -- exponential acceleration
-    end
-    self._player:set_velocity(vx, vy)
-    self._camera:set_shake_frequency(vy / max_velocity)
-
-    -- transition player to left side of screen
-    local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
-    local x_offset = offset_fraction * rt.settings.menu_scene.stage_select.player_alignment * self._bounds.width
-
-    if self._state == mn.MenuSceneState.EXITING then
-        self._camera:move_to(self._exit_x, self._exit_y)
     else
-        self._camera:move_to(px + x_offset / self._camera:get_final_scale(), py)
-    end
 
-    local stage_select = self._stage_select
+        -- falling or level select
+        local px, py = self._player:get_position()
+        self._shader_fraction = math.clamp(py / rt.settings.menu_scene.title_screen.falling_fraction_threshold, 0, 1)
+        self._player:set_flow(self._shader_fraction)
 
-    if offset_fraction > 0.95 then
-        stage_select.debris_emitter:update(delta)
-        stage_select.debris_emitter:set_player_position(self._camera:world_xy_to_screen_xy(self._player:get_position()))
+        local max_speedup = rt.settings.menu_scene.stage_select.max_debris_speedup
+        local speedup = math.max(0.1, self._stage_select.item_frame:get_hue() * max_speedup)
 
-        if stage_select.initial_offset == nil then
-            stage_select.initial_offset = self._camera:get_offset()
+        -- clamp velocity
+        local vx, vy = self._player:get_velocity()
+        local max_velocity = rt.settings.menu_scene.player_max_falling_velocity
+
+        vx = math.min(vx * rt.settings.menu_scene.player_falling_x_damping, max_velocity)
+        vy = math.min(vy, max_velocity)
+
+        if self._state == mn.MenuSceneState.EXITING then
+            vy = vy + rt.settings.menu_scene.exit_acceleration * delta -- exponential acceleration
         end
-        stage_select.debris_emitter:set_offset(select(1, self._camera:get_offset()) - stage_select.initial_offset, 0)
-    end
+        self._player:set_velocity(vx, vy)
+        self._camera:set_shake_frequency(vy / max_velocity)
 
-    if offset_fraction > 0.5 then
-        stage_select.item_reveal_animation:update(delta)
-        stage_select.page_indicator:update(delta)
-        stage_select.item_frame:update(delta)
-    end
+        -- transition player to left side of screen
+        local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
+        local x_offset = 2 * offset_fraction * rt.settings.menu_scene.stage_select.player_alignment * self._bounds.width
 
-    stage_select.page_indicator:set_hue(stage_select.item_frame:get_hue())
-    stage_select.debris_emitter:set_speedup(speedup)
-    self._background:set_speedup(speedup)
-
-    if self._state == mn.MenuSceneState.FALLING then
-        -- transition to stage screen once player is in position
-        if self._shader_fraction >= 1 then
-            self:_set_state(mn.MenuSceneState.STAGE_SELECT)
+        if self._state == mn.MenuSceneState.EXITING then
+            self._camera:move_to(self._exit_x, self._exit_y)
+        else
+            self._camera:move_to(px + x_offset / self._camera:get_final_scale(), py)
         end
-    elseif self._state == mn.MenuSceneState.STAGE_SELECT then
-        if stage_select.scroll_direction ~= 0 then
-            local step = 1 / rt.settings.menu_scene.stage_select.scroll_ticks_per_second
-            local updated = false
-            while stage_select.scroll_elapsed >= step do
-                if stage_select.scroll_direction == -1 and stage_select.selected_item_i > 1 then
-                    stage_select.selected_item_i = stage_select.selected_item_i - 1
-                elseif stage_select.scroll_direction == 1 and stage_select.selected_item_i < stage_select.n_items then
-                    stage_select.selected_item_i = stage_select.selected_item_i + 1
+
+        local stage_select = self._stage_select
+
+        if offset_fraction > 0.95 then
+            stage_select.debris_emitter:update(delta)
+            stage_select.debris_emitter:set_player_position(self._camera:world_xy_to_screen_xy(self._player:get_position()))
+
+            if stage_select.initial_offset == nil then
+                stage_select.initial_offset = self._camera:get_offset()
+            end
+            stage_select.debris_emitter:set_offset(select(1, self._camera:get_offset()) - stage_select.initial_offset, 0)
+        end
+
+        if offset_fraction > 0.5 then
+            stage_select.item_reveal_animation:update(delta)
+            stage_select.page_indicator:update(delta)
+            stage_select.item_frame:update(delta)
+        end
+
+        stage_select.page_indicator:set_hue(stage_select.item_frame:get_hue())
+        stage_select.debris_emitter:set_speedup(speedup)
+        self._background:set_speedup(speedup)
+
+        if self._state == mn.MenuSceneState.FALLING then
+            -- transition to stage screen once player is in position
+            if self._shader_fraction >= 1 then
+                self:_set_state(mn.MenuSceneState.STAGE_SELECT)
+            end
+        elseif self._state == mn.MenuSceneState.STAGE_SELECT then
+            if stage_select.scroll_direction ~= 0 then
+                local step = 1 / rt.settings.menu_scene.stage_select.scroll_ticks_per_second
+                local updated = false
+                while stage_select.scroll_elapsed >= step do
+                    if stage_select.scroll_direction == -1 and stage_select.selected_item_i > 1 then
+                        stage_select.selected_item_i = stage_select.selected_item_i - 1
+                    elseif stage_select.scroll_direction == 1 and stage_select.selected_item_i < stage_select.n_items then
+                        stage_select.selected_item_i = stage_select.selected_item_i + 1
+                    end
+
+                    stage_select.scroll_elapsed = stage_select.scroll_elapsed - step
+                    updated = true
                 end
 
-                stage_select.scroll_elapsed = stage_select.scroll_elapsed - step
-                updated = true
-            end
+                if updated then
+                    stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
+                    stage_select.item_frame:set_selected_page(stage_select.selected_item_i)
+                end
 
-            if updated then
-                stage_select.page_indicator:set_selected_page(stage_select.selected_item_i)
-                stage_select.item_frame:set_selected_page(stage_select.selected_item_i)
+                stage_select.scroll_elapsed = stage_select.scroll_elapsed + delta
             end
-
-            stage_select.scroll_elapsed = stage_select.scroll_elapsed + delta
-        end
-    elseif self._state == mn.MenuSceneState.EXITING then
-        if stage_select.waiting_for_exit then
-            -- wait for player to exit screen, then fade out
-            if select(2, self._camera:world_xy_to_screen_xy(self._player:get_position())) > rt.settings.menu_scene.stage_select.exititing_fraction * love.graphics.getHeight() then
-                self._fade:start(true, false)
-                self._fade:signal_connect("hidden", function()
-                    require "overworld.overworld_scene"
-                    local item = stage_select.items[stage_select.selected_item_i]
-                    if item ~= nil then
-                        rt.SceneManager:push(ow.OverworldScene, item:get_stage_id(), true) -- with titlecard
-                    end
-                end)
-                stage_select.waiting_for_exit = false
+        elseif self._state == mn.MenuSceneState.EXITING then
+            if stage_select.waiting_for_exit then
+                -- wait for player to exit screen, then fade out
+                if select(2, self._camera:world_xy_to_screen_xy(self._player:get_position())) > rt.settings.menu_scene.stage_select.exititing_fraction * love.graphics.getHeight() then
+                    self._fade:start(true, false)
+                    self._fade:signal_connect("hidden", function()
+                        require "overworld.overworld_scene"
+                        local item = stage_select.items[stage_select.selected_item_i]
+                        if item ~= nil then
+                            rt.SceneManager:push(ow.OverworldScene, item:get_stage_id(), true) -- with titlecard
+                        end
+                    end)
+                    stage_select.waiting_for_exit = false
+                end
             end
         end
     end
 
     self._background:set_fraction(self._shader_fraction)
+
+    self._player:update(delta)
+    self._world:update(delta)
+    self._camera:update(delta)
+    self._background:update(delta)
 end
 
 local _black = { rt.Palette.BLACK:unpack() }
@@ -838,6 +841,21 @@ function mn.MenuScene:draw()
     end
 
     self._fade:draw()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.line(
+        self._bounds.x + 1 / 3 * self._bounds.width,
+        self._bounds.y,
+        self._bounds.x + 1 / 3 * self._bounds.width,
+        self._bounds.y + self._bounds.height
+    )
+
+    love.graphics.line(
+        self._bounds.x + 2 / 3 * self._bounds.width,
+        self._bounds.y,
+        self._bounds.x + 2 / 3 * self._bounds.width,
+        self._bounds.y + self._bounds.height
+    )
 end
 
 --- @brief

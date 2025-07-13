@@ -178,7 +178,7 @@ end
 --- @brief
 function rt.GameState:get_stage_was_coin_collected(stage_id, coin_i)
     meta.assert(stage_id, "String", coin_i, "Number")
-    if _debug_output then return true end --rt.random.toss_coin(0.6) end
+    if _debug_output then return rt.random.toss_coin(0.6) end
     local stage = self:_get_stage(stage_id, "get_stage_was_coin_collected")
     if coin_i > stage.n_coins then
         rt.error("In rt.GameState.get_stage_was_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
