@@ -22,7 +22,8 @@ function ow.CoinParticle:instantiate(radius, is_outline)
     self._dotted_outlines = {}
     self._is_outline = is_outline
 
-    for angle = 0, 2 * math.pi, 2 * math.pi / 16 do
+    local n_points = 16 * rt.get_pixel_scale()
+    for angle = 0, 2 * math.pi, 2 * math.pi / n_points do
         table.insert(self._core_outline, math.cos(angle) * self._radius)
         table.insert(self._core_outline, math.sin(angle) * self._radius)
 

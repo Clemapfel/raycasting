@@ -414,12 +414,12 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         local current_x = x + width - outer_margin
         local page_indicator_w = 30 * rt.get_pixel_scale()
         local page_indicator_m = math.max(3 * outer_margin, outer_margin + control_h + m)
-        local page_indicator_h = math.min(menu_h, (7 + 2) * page_indicator_w) -- n balls + triangles
+        local page_indicator_h = height
         stage_select.page_indicator:reformat(
             current_x - page_indicator_w,
-            menu_y + 0.5 * menu_h - 0.5 * page_indicator_h,
+            y,
             page_indicator_w,
-            page_indicator_h
+            height
         )
 
         current_x = current_x - page_indicator_w - outer_margin

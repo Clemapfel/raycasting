@@ -34,6 +34,7 @@ function mn.StageSelectPageIndicator:instantiate(n_pages)
     self._scroll_offset = 0 -- for scrolling
     self._total_item_height = 0
     self._radius = 1
+    self._y_offset = 0
 
     self._circle_mapping_upgrade_needed = true
 end
@@ -147,6 +148,8 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
     self._motion:skip()
     self._circle_mapping_upgrade_needed = true
     self._ring = mn.StageSelectPageIndicatorRing(self._selection_radius, math.floor(2.5 * rt.get_pixel_scale()))
+
+    self._y_offset = 0.5 * height - 0.5 * (bottom_y - y)
 end
 
 --- @brief
@@ -165,7 +168,7 @@ function mn.StageSelectPageIndicator:draw()
     end
 
     love.graphics.push()
-
+    love.graphics.translate(0, self._y_offset)
     _shader:send("elapsed", self._elapsed)
 
     love.graphics.setColor(1, 1, 1, 1)
@@ -244,6 +247,9 @@ end
 --- @brief
 function mn.StageSelectPageIndicator:draw_bloom()
     love.graphics.push()
+    love.graphics.translate(0, self._y_offset)
+
+    love.graphics.push()
     love.graphics.translate(self._selection_x, self._selection_y)
     self._ring:draw()
     love.graphics.pop()
@@ -267,4 +273,6 @@ function mn.StageSelectPageIndicator:draw_bloom()
     if shader_bound then
         _shader:unbind()
     end
+
+    love.graphics.pop()
 end

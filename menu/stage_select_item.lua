@@ -150,16 +150,11 @@ local _coin_xm = rt.settings.margin_unit
 
 --- @brief
 function mn.StageSelectItem:measure()
-    if self._final_height ~= nil then
-        return self._final_width, self._final_height
-    else
-        local outer_margin = 2 * rt.settings.margin_unit
-        local coin_r = rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale()
-        local n_coins = rt.settings.menu.stage_select_item.coins_max_n_per_row
-        local coin_m = _coin_xm
-
-        return 2 * coin_r * n_coins + coin_m * (n_coins - 1), 100
+    if self._final_width == nil or self._last_window_height ~= love.graphics.getHeight() then
+        self:reformat()
     end
+
+    return self._final_width, self._final_height
 end
 
 --- @brief
@@ -168,29 +163,37 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
 
     if self._last_window_height ~= love.graphics.getHeight() then
         self:_init_coins()
-        self._last_window_height = love.graphics.getHeight()
     end
 
     local outer_margin = 2 * m
     local v_margin = 4 * m
-    local current_x, current_y = x + outer_margin, y + outer_margin
+    local current_x, current_y = x + outer_margin, y
     self._hrules = {}
     local hrule_h = 2 * rt.get_pixel_scale()
 
+    local origin_width = width
+    do -- precompute width
+        if not self:get_is_realized() then self:realize() end
+        local coin_r = rt.settings.menu.stage_select_item.coin_radius
+        local n_coins = rt.settings.menu.stage_select_item.coins_max_n_per_row
+        local coin_m = _coin_xm
+        width = 2 * coin_r * n_coins + coin_m * (n_coins - 1) + 2 * outer_margin
+        width = width * rt.get_pixel_scale()
+    end
+
     local title_w, title_h = self._title_label:measure()
-    self._title_label:set_justify_mode(rt.JustifyMode.CENTER)
-    self._title_label:reformat(x, current_y, width, math.huge)
-    current_y = current_y + title_h + outer_margin
+    self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y, width, math.huge)
+    current_y = current_y + title_h
 
     local coin_width, coin_height, coin_r
     do -- coins local alignment
-        coin_r = rt.settings.menu.stage_select_item.coin_radius
+        coin_r = rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale()
         local n_coins_per_row = math.min(
             rt.settings.menu.stage_select_item.coins_max_n_per_row,
             math.floor((width - 4 * m) / (2 * coin_r))
         )
 
-        local coin_xm = _coin_xm
+        local coin_xm = _coin_xm * rt.get_pixel_scale()
         local coin_ym = 0
         local coin_row_w = n_coins_per_row * coin_r + (coin_xm * (n_coins_per_row - 1))
 
@@ -366,7 +369,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
         current_y = current_y + m
         local grade_w, grade_h = self._total_grade:measure()
         local grade_x = x + 0.5 * width - 0.5 * grade_w
-        self._total_grade:reformat(grade_x, current_y)
+        self._total_grade:reformat(grade_x, current_y, grade_w, grade_h)
 
         local total_grade_prefix_w, total_grade_prefix_h = self._total_grade_prefix:measure()
         self._total_grade_prefix:reformat(
@@ -375,11 +378,15 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
             math.huge
         )
 
-        current_y = current_y + grade_h + outer_margin
+        current_y = current_y + grade_h
     end
 
     self._final_height = current_y - y
-    self._final_width = hrule_width + 2 * outer_margin
+    self._final_width = width
+
+    self._bounds.width, self._bounds.height = self._final_width, self._final_height
+
+    self._last_window_height = love.graphics.getHeight()
 end
 
 --- @brief
@@ -474,6 +481,9 @@ function mn.StageSelectItem:draw()
         self._dbg_left_x,
         self._bounds.y + self._bounds.height
     )
+
+    love.graphics.setColor(1, 1, 1, 1)
+    self._total_grade:draw_bounds()
 end
 
 --- @brief

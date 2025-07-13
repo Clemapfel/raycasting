@@ -145,7 +145,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         max_h = math.max(max_h, select(2, widget:measure()))
     end
 
-    local padding = 10 * rt.get_pixel_scale()
+    local padding = 10
     local canvas_w, canvas_h = self._bounds.width + 2 * outer_offset + 2 * padding, love.graphics.getHeight()
 
     if self._canvas == nil or self._canvas:get_width() ~= canvas_w or self._canvas:get_height() ~= canvas_h then
@@ -167,10 +167,9 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         local page_offset = self:_get_page_offset(page_i)
 
         local widget = self._widgets[page_i]
-        local page_w, page_h = widget:measure() -- sic, shadowing intentional
-        page_w = page_w + 2 * inner_offset
-        page_h = page_h + 2 * inner_offset
-        local page_x, page_y = x, y -- x: canvas-local
+        widget:reformat()
+        local page_w, page_h = widget:measure()
+        local page_x, page_y = x + 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
         page_y = page_y + page_offset
         local center_x, center_y = page_x + 0.5 * page_w, page_y + 0.5 * page_h
 
@@ -339,6 +338,7 @@ function mn.StageSelectParticleFrame:update(delta)
 
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
+        page.widget:update(delta)
 
         if page.mode == _MODE_HOLD then
             local hold_velocity = rt.settings.menu.stage_select_particle_frame.hold_velocity * rt.get_pixel_scale()
