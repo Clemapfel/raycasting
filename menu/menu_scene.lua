@@ -11,6 +11,7 @@ require "menu.stage_grade_label"
 require "menu.stage_select_debris_emitter"
 require "menu.menu_scene_background"
 require "overworld.coin_particle"
+require "menu.overall_completion_bar"
 
 rt.settings.menu_scene = {
     player_max_falling_velocity = 1000,
@@ -249,6 +250,7 @@ function mn.MenuScene:instantiate(state)
         stage_select.item_frame = mn.StageSelectParticleFrame(table.unpack(stage_select.items))
         stage_select.page_indicator = mn.StageSelectPageIndicator(stage_select.n_items)
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
+        stage_select.completion_bar = mn.OverallCompletionBar()
         stage_select.debris_emitter_initialized = false
 
         for id in values(stage_ids) do
@@ -280,6 +282,7 @@ function mn.MenuScene:realize()
 
     self._stage_select.page_indicator:realize()
     self._stage_select.item_frame:realize()
+    self._stage_select.completion_bar:realize()
     self._stage_select.debris_emitter:realize()
     self._stage_select.control_indicator:realize()
     self._stage_select.control_indicator:set_has_frame(false)
@@ -433,6 +436,15 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             self._bounds.height
         )
         stage_select.reveal_width = menu_w + page_indicator_w + 4 * outer_margin
+
+        local completion_w = width - 2 * outer_margin
+        local completion_h = nil
+        stage_select.completion_bar:reformat(
+            x + m,
+            y + outer_margin,
+            width - 2 * outer_margin,
+            50 * rt.get_pixel_scale()
+        )
     end
 end
 
@@ -649,6 +661,7 @@ function mn.MenuScene:update(delta)
             stage_select.item_reveal_animation:update(delta)
             stage_select.page_indicator:update(delta)
             stage_select.item_frame:update(delta)
+            stage_select.completion_bar:update(delta)
         end
 
         stage_select.page_indicator:set_hue(stage_select.item_frame:get_hue())
@@ -797,7 +810,8 @@ function mn.MenuScene:draw()
 
         stage_select.item_frame:draw()
         stage_select.page_indicator:draw()
-        self._stage_select.control_indicator:draw()
+        stage_select.completion_bar:draw()
+        stage_select.control_indicator:draw()
 
         love.graphics.pop()
 

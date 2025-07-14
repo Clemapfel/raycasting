@@ -1,3 +1,7 @@
+rt.settings.overworld.portal = {
+    shader_area_w = 100, -- px
+}
+
 --- @class ow.Portal
 ow.Portal = meta.class("Portal")
 
@@ -15,13 +19,51 @@ local _get_hue = function()
     return _current_hue
 end
 
+local _shader
+
+local _LEFT = false
+local _RIGHT = not _LEFT
+
+local _get_side = function(vx, vy, ax, ay, bx, by)
+    local abx = bx - ax
+    local aby = by - ay
+    local cross = abx * vy - aby * vx
+    return cross > 0
+end
+
+local first = true -- TODO
+
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
+    if _shader == nil then _shader = rt.Shader("overworld/objects/portal.glsl") end
+
+    if first then
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "k" then
+                _shader:recompile()
+            end
+        end)
+        first = false
+    end
+
     self._stage = stage
     self._scene = scene
+    self._world = self._stage:get_physics_world()
 
     self._hue = 0
     self._hue_set = false
+
+    -- whether the portal can be entered from the left, right, or both
+    self._left_active = object:get_boolean("left", false)
+    self._right_active = object:get_boolean("right", false)
+
+    if self._left_active == nil then self._left_active = true end
+    if self._right_active == nil then self._right_active = true end
+
+    if self._left_active == false and self._right_active == false then
+        rt.warning("In ow.Portal: object `" .. object:get_id() .. "` of stage `" .. stage:get_id() .. "` has both `left` and `right` set to false")
+    end
 
     stage:signal_connect("initialized", function()
         -- get portal pairs as ordered points
@@ -53,7 +95,7 @@ function ow.Portal:instantiate(object, stage, scene)
         local center_x, center_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
 
         self._segment_sensor = b2.Body(
-            stage:get_physics_world(),
+            self._world,
             b2.BodyType.STATIC,
             center_x, center_y,
             b2.Segment(self._ax - center_x, self._ay - center_y, self._bx - center_x, self._by - center_y)
@@ -63,7 +105,13 @@ function ow.Portal:instantiate(object, stage, scene)
         self._segment_sensor:set_collides_with(rt.settings.player.player_collision_group)
         self._segment_sensor:signal_connect("collision_start", function(self_body, other_body, nx, ny, contact_x, contact_y)
             if not self._is_disabled and self._disabled_cooldown <= 0 then
-                self:_teleport(nx, ny, contact_x, contact_y)
+
+                -- check if allowed to enter from that side
+                local vx, vy = self._scene:get_player():get_velocity()
+                local side = _get_side(vx, vy, self._ax, self._ay, self._bx, self._by)
+                if (side == _LEFT and self._left_active) or (side == _RIGHT and self._right_active) then
+                    self:_teleport(nx, ny, contact_x, contact_y)
+                end
             end
         end)
         
@@ -80,7 +128,7 @@ function ow.Portal:instantiate(object, stage, scene)
             self._bx +  left_x * sensor_w - center_x, self._by +  left_y * sensor_w - center_y
         )
 
-        self._area_sensor = b2.Body(stage:get_physics_world(), b2.BodyType.STATIC, center_x, center_y, sensor_shape)
+        self._area_sensor = b2.Body(self._world, b2.BodyType.STATIC, center_x, center_y, sensor_shape)
         self._area_sensor:set_is_sensor(true)
         self._area_sensor:signal_connect("collision_end", function()
             self._is_disabled = false
@@ -95,25 +143,38 @@ function ow.Portal:instantiate(object, stage, scene)
         self._disabled_cooldown = 0
 
         -- graphics
-        local outer = function() return 0, 0, 0, 0, 0, 0 end -- uv rgba
-        local inner = function() return 1, 1, 1, 1, 1, 1 end
+        local outer = function() return 0, 0, 0, 0 end -- rgba
+        local inner = function() return 1, 1, 1, 1 end
+
+        local w = rt.settings.overworld.portal.shader_area_w
 
         local left_mesh_data = {
-            { self._ax +  left_x * sensor_w, self._ay +  left_y * sensor_w, outer() },
-            { self._ax, self._ay, inner() },
-            { self._bx, self._by, inner() },
-            { self._bx +  left_x * sensor_w, self._by +  left_y * sensor_w, outer() }
+            { self._ax +  left_x * w, self._ay +  left_y * w, 0, 1, outer() },
+            { self._ax, self._ay, 0, 0, inner() },
+            { self._bx, self._by, 1, 0, inner() },
+            { self._bx +  left_x * w, self._by +  left_y * w, 1, 1, outer() }
         }
 
         local right_mesh_data = {
-            { self._ax, self._ay, inner() },
-            { self._ax + right_x * sensor_w, self._ay + right_y * sensor_w, outer() },
-            { self._bx + right_x * sensor_w, self._by + right_y * sensor_w, outer() },
-            { self._bx, self._by, inner() }
+            { self._ax, self._ay, 1, 0, inner() },
+            { self._ax + right_x * w, self._ay + right_y * w, 1, 1, outer() },
+            { self._bx + right_x * w, self._by + right_y * w, 0, 1, outer() },
+            { self._bx, self._by, 0, 0, inner() }
         }
 
         self._left_mesh = rt.Mesh(left_mesh_data)
         self._right_mesh = rt.Mesh(right_mesh_data)
+
+        -- test which side should have the shader effect
+        do
+            local ray_origin_x, ray_origin_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
+            local left_dx, left_dy = math.normalize(math.turn_right(dx, dy))
+            local right_dx, right_dy = math.normalize(math.turn_left(dx, dy))
+
+            local group = rt.settings.player.player_collision_group
+            self._segment_sensor:set_collision_group(group)
+            self._area_sensor:set_collision_group(group)
+        end
     end)
 end
 
@@ -139,13 +200,6 @@ end
 
 local _get_sidedness = function(ax, ay, bx, by)
     return math.cross(ax, ay, bx, by) > 0
-end
-
-local _get_side = function(vx, vy, ax, ay, bx, by)
-    local abx = bx - ax
-    local aby = by - ay
-    local cross = abx * vy - aby * vx
-    return cross > 0
 end
 
 local function teleport_player(
@@ -194,6 +248,9 @@ local function teleport_player(
         new_vy = -new_vy
     end
 
+    -- override actual position with center of exit
+    new_x, new_y = math.mix2(to_ax, to_ay, to_bx, to_by, 0.5)
+
     return new_x, new_y, new_vx, new_vy
 end
 
@@ -221,6 +278,7 @@ function ow.Portal:_teleport(normal_x, normal_y, contact_x, contact_y)
 
     new_vx, new_vy = math.normalize(new_vx, new_vy)
     vx, vy = math.normalize(vx, vy)
+
     _dbg = {
         {
             new_x, new_y,
@@ -241,8 +299,26 @@ function ow.Portal:draw()
     local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
 
     love.graphics.setColor(r, g, b, a)
-    love.graphics.draw(self._left_mesh:get_native())
-    love.graphics.draw(self._right_mesh:get_native())
+
+    local value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
+    ow.Hitbox:draw_mask(true, false) -- sticky, not slippery
+    rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+    _shader:bind()
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+
+    if self._left_active then
+        love.graphics.draw(self._left_mesh:get_native())
+    end
+
+    if self._right_active then
+        love.graphics.draw(self._right_mesh:get_native())
+    end
+
+    _shader:unbind()
+
+    rt.graphics.set_stencil_mode(nil)
 
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth(6)

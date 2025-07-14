@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 784,
+  nextobjectid = 788,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4319,10 +4319,15 @@ return {
             { x = -176, y = 288 },
             { x = -176, y = 0 },
             { x = -240, y = 0 },
+            { x = -240, y = -240 },
+            { x = -288, y = -240 },
+            { x = -288, y = 64 },
+            { x = -240, y = 66.6656 },
             { x = -240, y = 352 },
             { x = 1008, y = 352 },
             { x = 1008, y = 288 },
             { x = 64, y = 288 },
+            { x = 64, y = 22.4759 },
             { x = 64, y = 0 }
           },
           properties = {}
@@ -4637,14 +4642,63 @@ return {
           properties = {}
         },
         {
-          id = 783,
+          id = 784,
           name = "",
-          type = "CameraBounds",
-          shape = "rectangle",
-          x = -2061.68,
-          y = -656,
-          width = 1332.83,
-          height = 919.902,
+          type = "Portal",
+          shape = "point",
+          x = -1952,
+          y = -288,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left"] = false,
+            ["other"] = { id = 785 },
+            ["right"] = true,
+            ["target"] = { id = 786 }
+          }
+        },
+        {
+          id = 785,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1952,
+          y = -176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 786,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1728,
+          y = -288,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left"] = false,
+            ["other"] = { id = 787 },
+            ["right"] = true,
+            ["target"] = { id = 784 }
+          }
+        },
+        {
+          id = 787,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1728,
+          y = -176,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {}
