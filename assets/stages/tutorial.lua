@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 788,
+  nextobjectid = 804,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4333,180 +4333,6 @@ return {
           properties = {}
         },
         {
-          id = 753,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1680,
-          y = 0,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 754 },
-            ["target"] = { id = 755 }
-          }
-        },
-        {
-          id = 754,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1680,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 755,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1744,
-          y = 0,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 756 },
-            ["target"] = { id = 753 }
-          }
-        },
-        {
-          id = 756,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1744,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 758,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1408,
-          y = 16,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 759 },
-            ["target"] = { id = 760 }
-          }
-        },
-        {
-          id = 759,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1488,
-          y = 96,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 760,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1205.25,
-          y = 95.3441,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 761 },
-            ["target"] = { id = 758 }
-          }
-        },
-        {
-          id = 761,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1241.18,
-          y = 12.0648,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 762,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1360,
-          y = 0,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 763 },
-            ["target"] = { id = 764 }
-          }
-        },
-        {
-          id = 763,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1296,
-          y = 0,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 764,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1296,
-          y = -448,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 765 },
-            ["target"] = { id = 762 }
-          }
-        },
-        {
-          id = 765,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1360,
-          y = -448,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 766,
           name = "",
           type = "",
@@ -4526,122 +4352,6 @@ return {
           properties = {}
         },
         {
-          id = 771,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1808,
-          y = -176,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 772 },
-            ["target"] = { id = 773 }
-          }
-        },
-        {
-          id = 772,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1744,
-          y = -112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 773,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1920,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 774 },
-            ["target"] = { id = 771 }
-          }
-        },
-        {
-          id = 774,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1920,
-          y = 0,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 779,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -832,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 780 },
-            ["target"] = { id = 781 }
-          }
-        },
-        {
-          id = 780,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -928,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 781,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1008,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 782 },
-            ["target"] = { id = 779 }
-          }
-        },
-        {
-          id = 782,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1088,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 784,
           name = "",
           type = "Portal",
@@ -4653,9 +4363,8 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["left"] = false,
+            ["left_or_right"] = false,
             ["other"] = { id = 785 },
-            ["right"] = true,
             ["target"] = { id = 786 }
           }
         },
@@ -4684,9 +4393,8 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["left"] = false,
+            ["left_or_right"] = true,
             ["other"] = { id = 787 },
-            ["right"] = true,
             ["target"] = { id = 784 }
           }
         },
@@ -4697,6 +4405,246 @@ return {
           shape = "point",
           x = -1728,
           y = -176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 788,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1920,
+          y = 0,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 789 },
+            ["target"] = { id = 790 }
+          }
+        },
+        {
+          id = 789,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1920,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 790,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1680,
+          y = 0,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 791 },
+            ["target"] = { id = 788 }
+          }
+        },
+        {
+          id = 791,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1680,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 792,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1408,
+          y = 16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = true,
+            ["other"] = { id = 793 },
+            ["target"] = { id = 794 }
+          }
+        },
+        {
+          id = 793,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1488,
+          y = 96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 794,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1238.11,
+          y = 17.2024,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 795 },
+            ["target"] = { id = 792 }
+          }
+        },
+        {
+          id = 795,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1204.44,
+          y = 99.1434,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 796,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1376,
+          y = -368,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = true,
+            ["other"] = { id = 797 },
+            ["target"] = { id = 798 }
+          }
+        },
+        {
+          id = 797,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1296,
+          y = -368,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 798,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1376,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 799 },
+            ["target"] = { id = 796 }
+          }
+        },
+        {
+          id = 799,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1280,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 800,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -944,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 801 },
+            ["target"] = { id = 802 }
+          }
+        },
+        {
+          id = 801,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -864,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 802,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -1120,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 803 },
+            ["target"] = { id = 800 }
+          }
+        },
+        {
+          id = 803,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -1040,
+          y = 112,
           width = 0,
           height = 0,
           rotation = 0,
