@@ -202,43 +202,174 @@ function ow.Portal:_set_player_disabled(b)
     self._scene:set_camera_mode(ow.CameraMode.MANUAL)
 end
 
-function line_segment_intersection(line_x1, line_y1, line_x2, line_y2, seg_x1, seg_y1, seg_x2, seg_y2)
-    local line_dx = line_x2 - line_x1
-    local line_dy = line_y2 - line_y1
-    local seg_dx = seg_x2 - seg_x1
-    local seg_dy = seg_y2 - seg_y1
 
-    local denominator = math.cross(line_dx, line_dy, seg_dx, seg_dy)
-    if math.abs(denominator) < math.eps then
+function aabb_line_intersection(top_left_x, top_left_y, top_right_x, top_right_y, bottom_right_x, bottom_right_y, bottom_left_x, bottom_left_y, lx1, ly1, lx2, ly2)
+    -- AABB corners: (x1,y1) top-left, (x2,y2) top-right, (x3,y3) bottom-right, (x4,y4) bottom-left
+    -- Line: from (lx1,ly1) to (lx2,ly2)
+
+    local ix1, iy1, ix2, iy2 = nil, nil, nil, nil
+    local count = 0
+
+    -- Helper function to find intersection between two line segments
+    local function line_intersect(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2)
+        local denom = (ax1 - ax2) * (by1 - by2) - (ay1 - ay2) * (bx1 - bx2)
+        if math.abs(denom) < 1e-10 then
+            return nil -- Lines are parallel
+        end
+
+        local t = ((ax1 - bx1) * (by1 - by2) - (ay1 - by1) * (bx1 - bx2)) / denom
+        local u = -((ax1 - ax2) * (ay1 - by1) - (ay1 - ay2) * (ax1 - bx1)) / denom
+
+        -- Check if intersection is within the AABB edge (u between 0 and 1)
+        if u >= 0 and u <= 1 then
+            local ix = ax1 + t * (ax2 - ax1)
+            local iy = ay1 + t * (ay2 - ay1)
+            return ix, iy
+        end
+
         return nil
     end
 
-    local dx = line_x1 - seg_x1
-    local dy = line_y1 - seg_y1
-    local u = math.cross(dx, dy, line_dx, line_dy) / denominator
-
-    local intersection_x = seg_x1 + u * seg_dx
-    local intersection_y = seg_y1 + u * seg_dy
-    return intersection_x, intersection_y
-end
-
-function is_point_opposite_side(vx, vy, ax, ay, bx, by, px, py)
-    local line_dx = bx - ax
-    local line_dy = by - ay
-
-    local normal_x, normal_y = math.turn_right(line_dx, line_dy)
-
-    local to_point_x = px - ax
-    local to_point_y = py - ay
-
-    local vector_dot_normal = math.dot(vx, vy, normal_x, normal_y)
-    local point_dot_normal = math.dot(to_point_x, to_point_y, normal_x, normal_y)
-
-    if math.abs(vector_dot_normal) < 1e-10 or math.abs(point_dot_normal) < 1e-10 then
-        return false -- Vector or point is on the line
+    -- Check intersection with each side of the AABB
+    -- Top side: (x1,y1) to (x2,y2)
+    local ix, iy = line_intersect(lx1, ly1, lx2, ly2, top_left_x, top_left_y, top_right_x, top_right_y)
+    if ix then
+        count = count + 1
+        if count == 1 then
+            ix1, iy1 = ix, iy
+        elseif count == 2 then
+            ix2, iy2 = ix, iy
+        end
     end
 
-    return (vector_dot_normal > 0) ~= (point_dot_normal > 0)
+    -- Right side: (x2,y2) to (x3,y3)
+    if count < 2 then
+        ix, iy = line_intersect(lx1, ly1, lx2, ly2, top_right_x, top_right_y, bottom_right_x, bottom_right_y)
+        if ix then
+            count = count + 1
+            if count == 1 then
+                ix1, iy1 = ix, iy
+            elseif count == 2 then
+                ix2, iy2 = ix, iy
+            end
+        end
+    end
+
+    -- Bottom side: (x3,y3) to (x4,y4)
+    if count < 2 then
+        ix, iy = line_intersect(lx1, ly1, lx2, ly2, bottom_right_x, bottom_right_y, bottom_left_x, bottom_left_y)
+        if ix then
+            count = count + 1
+            if count == 1 then
+                ix1, iy1 = ix, iy
+            elseif count == 2 then
+                ix2, iy2 = ix, iy
+            end
+        end
+    end
+
+    -- Left side: (x4,y4) to (x1,y1)
+    if count < 2 then
+        ix, iy = line_intersect(lx1, ly1, lx2, ly2, bottom_left_x, bottom_left_y, top_left_x, top_left_y)
+        if ix then
+            count = count + 1
+            if count == 1 then
+                ix1, iy1 = ix, iy
+            elseif count == 2 then
+                ix2, iy2 = ix, iy
+            end
+        end
+    end
+
+    -- Return the two intersection points
+    if count >= 2 then
+        return ix1, iy1, ix2, iy2
+    else
+        return nil -- Should not happen if line always intersects exactly 2 sides
+    end
+end
+
+function point_on_opposite_side(lx1, ly1, lx2, ly2, px, py, vx, vy)
+    -- Line: from (lx1,ly1) to (lx2,ly2)
+    -- Point: (px, py)
+    -- Vector: (vx, vy)
+    -- Y-axis extends downwards
+
+    -- Calculate the line's normal vector (perpendicular to the line)
+    local line_dx = lx2 - lx1
+    local line_dy = ly2 - ly1
+
+    -- Normal vector pointing to the right of the line direction
+    local normal_x = -line_dy
+    local normal_y = line_dx
+
+    -- Determine which side of the line the vector points towards
+    -- by checking the dot product of the vector with the line's normal
+    local vector_dot_normal = vx * normal_x + vy * normal_y
+
+    -- Calculate which side of the line the point is on
+    -- using the cross product (point - line_start) × line_direction
+    local point_relative_x = px - lx1
+    local point_relative_y = py - ly1
+    local point_cross = point_relative_x * line_dy - point_relative_y * line_dx
+
+    -- If vector_dot_normal and point_cross have opposite signs,
+    -- then the point is on the opposite side of the line from where the vector points
+    if vector_dot_normal > 0 then
+        -- Vector points towards the right side of the line
+        return point_cross < 0  -- Point is on the left side (opposite)
+    elseif vector_dot_normal < 0 then
+        -- Vector points towards the left side of the line
+        return point_cross > 0  -- Point is on the right side (opposite)
+    else
+        -- Vector is parallel to the line
+        return false  -- Undefined case, return false
+    end
+end
+
+function sort_points_by_angle(points)
+    -- points is a table of flat numbers: {x1, y1, x2, y2, x3, y3, ...}
+    -- Returns the same table sorted by angle relative to centroid
+
+    local count = #points / 2
+    if count < 2 then return points end
+
+    -- Calculate centroid
+    local cx, cy = 0, 0
+    for i = 1, #points, 2 do
+        cx = cx + points[i]
+        cy = cy + points[i + 1]
+    end
+    cx = cx / count
+    cy = cy / count
+
+    -- Create array of {index, angle} pairs for sorting
+    local angle_data = {}
+    for i = 1, #points, 2 do
+        local dx = points[i] - cx
+        local dy = points[i + 1] - cy
+        -- Use atan2 for full circle angle (-π to π)
+        local angle = math.atan2(dy, dx)
+        angle_data[#angle_data + 1] = {i, angle}
+    end
+
+    -- Sort by angle using quicksort-style approach
+    table.sort(angle_data, function(a, b) return a[2] < b[2] end)
+
+    -- Rebuild points array in sorted order
+    local sorted_points = {}
+    for i = 1, #angle_data do
+        local idx = angle_data[i][1]
+        sorted_points[#sorted_points + 1] = points[idx]
+        sorted_points[#sorted_points + 1] = points[idx + 1]
+    end
+
+    -- Copy back to original array
+    for i = 1, #sorted_points do
+        points[i] = sorted_points[i]
+    end
+
+    return points
 end
 
 --- @brief
@@ -255,20 +386,18 @@ function ow.Portal:_update_transition_stencil()
     local bottom_right_x, bottom_right_y = width, height
     local bottom_left_x, bottom_left_y = 0, height
 
-    -- get screen intersections
-    local top_ix, top_iy = line_segment_intersection(ax, ay, bx, by, top_left_x, top_left_y, top_right_x, top_right_y)
-    local right_ix, right_iy = line_segment_intersection(ax, ay, bx, by, top_right_x, top_right_y, bottom_right_x, bottom_right_y)
-    local bottom_ix, bottom_iy = line_segment_intersection(ax, ay, bx, by, bottom_left_x, bottom_left_y, bottom_right_x, bottom_right_y)
-    local left_ix, left_iy = line_segment_intersection(ax, ay, bx, by, top_left_x, top_left_y, bottom_left_x, bottom_left_y)
-
-    local vertices = { -- may be nil
-        top_ix, top_iy,
-        right_ix, right_iy,
-        bottom_ix, bottom_iy,
-        left_ix, left_iy,
+    -- two intersection points are always part of shape
+    local vertices = {
+        aabb_line_intersection(
+            top_left_x, top_left_y,
+            top_right_x, top_right_y,
+            bottom_right_x, bottom_right_y,
+            bottom_left_x, bottom_left_y,
+            ax, ay, bx, by
+        )
     }
 
-    -- candidate points
+    -- corner candidates
     local points = {
         top_left_x, top_left_y,
         top_right_x, top_right_y,
@@ -278,39 +407,13 @@ function ow.Portal:_update_transition_stencil()
 
     for i = 1, #points, 2 do
         local x, y = points[i+0], points[i+1]
-        if is_point_opposite_side(vx, vy, ax, ay, bx, by, x, y) then
+        if point_on_opposite_side(ax, ay, bx, by, x, y, vx, vy) then
             table.insert(vertices, x)
             table.insert(vertices, y)
         end
     end
 
-    dbg(
-        top_ix, top_iy,
-        right_ix, right_iy,
-        bottom_ix, bottom_iy,
-        left_ix, left_iy
-    )
-
-    self._transition_stencil = {}
-    if top_ix ~= nil then
-        table.insert(self._transition_stencil, top_ix)
-        table.insert(self._transition_stencil, top_iy)
-    end
-
-    if right_ix ~= nil then
-        table.insert(self._transition_stencil, right_ix)
-        table.insert(self._transition_stencil, right_iy)
-    end
-
-    if bottom_ix ~= nil then
-        table.insert(self._transition_stencil, bottom_ix)
-        table.insert(self._transition_stencil, bottom_iy)
-    end
-
-    if left_ix ~= nil then
-        table.insert(self._transition_stencil, left_ix)
-        table.insert(self._transition_stencil, left_iy)
-    end
+    --self._transition_stencil = sort_points_by_angle(vertices)
 end
 
 --- @brief
@@ -330,8 +433,8 @@ function ow.Portal:update(delta)
         self:_update_transition_stencil()
 
         if t >= 1 then
-            self:_set_player_disabled(false)
             self:_teleport()
+            self:_set_player_disabled(false)
             self._transition_active = false
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
         end
@@ -460,24 +563,26 @@ function ow.Portal:draw()
     end
 
     if self._transition_active then
-        local value = rt.graphics.get_stencil_value()
-        --rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
+        local value = 254
+        rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
 
         love.graphics.push()
         love.graphics.origin()
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.setLineWidth(10)
-        love.graphics.line(self._transition_stencil)
+        love.graphics.polygon("fill", self._transition_stencil)
         love.graphics.pop()
 
-        --rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+        rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
         local player = self._scene:get_player()
         player:set_is_visible(true)
-        player:draw()
+        rt.graphics.push_stencil()
+        player:draw_body()
+        rt.graphics.pop_stencil()
+        player:draw_core()
         player:set_is_visible(false)
 
-        --rt.graphics.set_stencil_mode(nil)
+        rt.graphics.set_stencil_mode(nil)
     end
 end
 

@@ -35,6 +35,26 @@ rt.StencilMode = meta.enum("StencilMode", {
 local _draw_to_backbuffer = true
 local _canvas_shader
 
+local _stencil_stack = {}
+
+function rt.graphics.push_stencil()
+    table.insert(_stencil_stack, 1, {
+        stencil = { love.graphics.getStencilState() },
+        mask = { love.graphics.getColorMask() }
+    })
+end
+
+function rt.graphics.pop_stencil()
+    if #_stencil_stack == 0 then
+        rt.error("In rt.graphics.pop_stencil: trying to pop, but stack is empty")
+    end
+
+    local front = _stencil_stack[1]
+    table.remove(_stencil_stack, 1)
+    love.graphics.setStencilState(table.unpack(front.stencil))
+    love.graphics.setColorMask(table.unpack(front.mask))
+end
+
 function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
     if value == nil then
         love.graphics.setStencilState("keep", "always", value)
