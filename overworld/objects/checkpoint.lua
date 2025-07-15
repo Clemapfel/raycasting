@@ -248,6 +248,7 @@ function ow.Checkpoint:spawn(also_kill)
     player:reset_flow()
     player:set_is_bubble(false)
     player:set_is_ghost(false)
+    player:set_is_visible(true)
     player:disable()
 
     local is_first_spawn = self._stage:get_is_first_spawn()

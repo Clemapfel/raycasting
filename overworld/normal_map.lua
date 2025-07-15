@@ -405,7 +405,9 @@ function ow.NormalMap:_draw(light_or_shadow)
 
         -- collect point lights
         local point_positions, point_colors = self._stage:get_scene():get_light_sources()
-        table.insert(point_positions, { player:get_position() })
+        if player:get_is_visible() then
+            table.insert(point_positions, { player:get_position() })
+        end
         table.insert(point_colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
 
         -- convert to screen coords

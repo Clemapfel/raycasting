@@ -488,7 +488,8 @@ function rt.PlayerBody:draw_body()
 
     if self._body_canvas_needs_update then
         self._body_canvas_needs_update = false
-        love.graphics.push()
+        love.graphics.push("all")
+        love.graphics.setStencilMode(nil)
         love.graphics.origin()
 
         local w, h = self._outline_canvas:get_size()
@@ -565,7 +566,8 @@ function rt.PlayerBody:draw_core()
         self._core_canvas:bind()
         love.graphics.clear()
 
-        love.graphics.push()
+        love.graphics.push("all")
+        love.graphics.setStencilMode(nil)
         love.graphics.origin()
 
         local w, h = self._core_canvas:get_size()
@@ -651,7 +653,9 @@ function rt.PlayerBody:draw_core()
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
 
-    rt.graphics.set_stencil_mode(nil)
+    if self._is_bubble then
+        rt.graphics.set_stencil_mode(nil)
+    end
 
     --[[
     --love.graphics.circle("fill", self._center_x, self._center_y, 100)
