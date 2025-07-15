@@ -131,6 +131,8 @@ function rt.Player:instantiate()
 
         _color = rt.Palette.PLAYER,
         _opacity = 1,
+        _is_visible = true,
+        _should_update = true,
 
         _radius = player_radius,
         _inner_body_radius = _settings.inner_body_radius,
@@ -286,6 +288,8 @@ function rt.Player:instantiate()
 
         -- particles
         _body_to_collision_normal = {}
+
+
     })
 
     for i = 1, 2 * _settings.position_history_n, 2 do
@@ -403,6 +407,7 @@ end
 --- @brief
 function rt.Player:update(delta)
     if self._body == nil then return end
+    if self._should_update == false then return end
 
     self:_update_mesh(delta)
     if self._trail_visible then
@@ -518,6 +523,15 @@ function rt.Player:update(delta)
     self._bottom_right_wall = bottom_right_wall_body ~= nil and not bottom_right_wall_body:get_is_sensor()
     self._bottom_right_wall_body = bottom_right_wall_body
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
+
+    if self._is_ghost then
+        self._left_wall = false
+        self._right_wall = false
+        self._top_wall = false
+        self._bottom_wall = false
+        self._bottom_left_wall = false
+        self._bottom_right_wall = false
+    end
 
     -- when going from air to ground, signal emission and re-lock double jump
     if (bottom_left_before == false and bottom_before == false and bottom_right_before == false) and
@@ -991,15 +1005,17 @@ function rt.Player:update(delta)
             offset_x, offset_y = self._spring_body_offsets_x, self._spring_body_offsets_y
         end
 
-        for i, body in ipairs(bodies) do
-            local joint = joints[i]
-            local over_threshold = joint:get_distance() > self:get_radius()
-            body:set_is_sensor(over_threshold)
-            joint:set_enabled(not over_threshold)
-            if over_threshold then
-                local px, py = self._body:get_position()
-                body:set_velocity(0, 0)
-                body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
+        if not self._is_ghost then
+            for i, body in ipairs(bodies) do
+                local joint = joints[i]
+                local over_threshold = joint:get_distance() > self:get_radius()
+                body:set_is_sensor(over_threshold)
+                joint:set_enabled(not over_threshold)
+                if over_threshold then
+                    local px, py = self._body:get_position()
+                    body:set_velocity(0, 0)
+                    body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
+                end
             end
         end
     end
@@ -1045,7 +1061,7 @@ function rt.Player:update(delta)
     end
 
     -- add blood splatter
-    if self._stage ~= nil then
+    if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
             local r = self._radius / 2
             local cx, cy = contact_x, contact_y
@@ -1355,6 +1371,8 @@ end
 
 --- @brief
 function rt.Player:draw_bloom()
+    if self._is_visible == false then return end
+
     local r, g, b, a = self._color:unpack()
 
     if self._flow == 0 then
@@ -1367,6 +1385,8 @@ end
 
 --- @brief
 function rt.Player:draw_body()
+    if self._is_visible == false then return end
+
     local r, g, b, a = self._color:unpack()
 
     if self._trail_visible then
@@ -1446,6 +1466,8 @@ end
 
 --- @brief
 function rt.Player:draw_core()
+    if self._is_visible == false then return end
+
     self._graphics_body:draw_core()
 end
 
@@ -1945,3 +1967,24 @@ end
 function rt.Player:get_idle_duration()
     return self._idle_elapsed
 end
+
+--- @brief
+function rt.Player:get_is_visible()
+    return self._is_visible
+end
+
+--- @brief
+function rt.Player:set_is_visible(b)
+    self._is_visible = b
+end
+
+--- @brief
+function rt.Player:set_should_update(b)
+    self._should_update = b
+end
+
+--- @brief
+function rt.Player:get_should_update()
+    return self._should_update
+end
+

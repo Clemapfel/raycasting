@@ -1,6 +1,7 @@
 rt.settings.overworld.portal = {
     mesh_w = 30, -- px
     pulse_duration = 1, -- s
+    transition_speed = 500, -- px / s
 }
 
 --- @class ow.Portal
@@ -66,6 +67,10 @@ function ow.Portal:instantiate(object, stage, scene)
     self._hue = 0
 
     self._direction = object:get_boolean("left_or_right", true)
+    self._transition_active = false
+    self._transition_elapsed = math.huge
+    self._transition_contact_x, self._transition_contact_y = 0, 0
+    self._transition_velocity_x, self._transition_velocity_y = 0, 0
 
     stage:signal_connect("initialized", function()
         -- get portal pairs as ordered points
@@ -107,7 +112,7 @@ function ow.Portal:instantiate(object, stage, scene)
         self._is_disabled = false
 
         local center_x, center_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
-        local segment_w = 10
+        local segment_w = 5
         self._segment_sensor = b2.Body(
             self._world,
             b2.BodyType.STATIC,
@@ -130,7 +135,14 @@ function ow.Portal:instantiate(object, stage, scene)
                 local vx, vy = self._scene:get_player():get_velocity()
                 local side = _get_side(vx, vy, self._ax, self._ay, self._bx, self._by)
                 if (side == self._direction) then
-                    self:_teleport(nx, ny, contact_x, contact_y)
+                    -- start transition
+                    self._transition_active = true
+                    self._transition_elapsed = 0
+                    self._transition_contact_x, self._transition_contact_y = contact_x, contact_y
+                    self._transition_x, self._transition_y = contact_x, contact_y
+                    self._transition_velocity_x, self._transition_velocity_y = self._scene:get_player():get_velocity()
+                    self:_set_player_disabled(true)
+                    self:_update_transition_stencil()
                 end
             end
         end)
@@ -147,11 +159,6 @@ function ow.Portal:instantiate(object, stage, scene)
 
         self._area_sensor = b2.Body(self._world, b2.BodyType.STATIC, center_x, center_y, sensor_shape)
         self._area_sensor:set_is_sensor(true)
-        self._area_sensor:signal_connect("collision_end", function()
-            -- enable portal once exited to prevent loops
-            self._is_disabled = false
-        end)
-        self._area_sensor:set_collides_with(rt.settings.player.player_collision_group)
 
         -- graphics
         do
@@ -188,7 +195,155 @@ function ow.Portal:instantiate(object, stage, scene)
 end
 
 --- @brief
+function ow.Portal:_set_player_disabled(b)
+    local player = self._scene:get_player()
+    player:set_is_ghost(b)
+    player:set_is_visible(not b)
+    self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+end
+
+function line_segment_intersection(line_x1, line_y1, line_x2, line_y2, seg_x1, seg_y1, seg_x2, seg_y2)
+    local line_dx = line_x2 - line_x1
+    local line_dy = line_y2 - line_y1
+    local seg_dx = seg_x2 - seg_x1
+    local seg_dy = seg_y2 - seg_y1
+
+    local denominator = math.cross(line_dx, line_dy, seg_dx, seg_dy)
+    if math.abs(denominator) < math.eps then
+        return nil
+    end
+
+    local dx = line_x1 - seg_x1
+    local dy = line_y1 - seg_y1
+    local u = math.cross(dx, dy, line_dx, line_dy) / denominator
+
+    local intersection_x = seg_x1 + u * seg_dx
+    local intersection_y = seg_y1 + u * seg_dy
+    return intersection_x, intersection_y
+end
+
+function is_point_opposite_side(vx, vy, ax, ay, bx, by, px, py)
+    local line_dx = bx - ax
+    local line_dy = by - ay
+
+    local normal_x, normal_y = math.turn_right(line_dx, line_dy)
+
+    local to_point_x = px - ax
+    local to_point_y = py - ay
+
+    local vector_dot_normal = math.dot(vx, vy, normal_x, normal_y)
+    local point_dot_normal = math.dot(to_point_x, to_point_y, normal_x, normal_y)
+
+    if math.abs(vector_dot_normal) < 1e-10 or math.abs(point_dot_normal) < 1e-10 then
+        return false -- Vector or point is on the line
+    end
+
+    return (vector_dot_normal > 0) ~= (point_dot_normal > 0)
+end
+
+--- @brief
+function ow.Portal:_update_transition_stencil()
+    -- generate mesh that is half plane of screen on opposite side of line
+    local camera = self._scene:get_camera()
+    local ax, ay = camera:world_xy_to_screen_xy(self._ax, self._ay)
+    local bx, by = camera:world_xy_to_screen_xy(self._bx, self._by)
+    local vx, vy = self._transition_velocity_x, self._transition_velocity_y
+
+    local width, height = love.graphics.getDimensions()
+    local top_left_x, top_left_y = 0, 0
+    local top_right_x, top_right_y = width, 0
+    local bottom_right_x, bottom_right_y = width, height
+    local bottom_left_x, bottom_left_y = 0, height
+
+    -- get screen intersections
+    local top_ix, top_iy = line_segment_intersection(ax, ay, bx, by, top_left_x, top_left_y, top_right_x, top_right_y)
+    local right_ix, right_iy = line_segment_intersection(ax, ay, bx, by, top_right_x, top_right_y, bottom_right_x, bottom_right_y)
+    local bottom_ix, bottom_iy = line_segment_intersection(ax, ay, bx, by, bottom_left_x, bottom_left_y, bottom_right_x, bottom_right_y)
+    local left_ix, left_iy = line_segment_intersection(ax, ay, bx, by, top_left_x, top_left_y, bottom_left_x, bottom_left_y)
+
+    local vertices = { -- may be nil
+        top_ix, top_iy,
+        right_ix, right_iy,
+        bottom_ix, bottom_iy,
+        left_ix, left_iy,
+    }
+
+    -- candidate points
+    local points = {
+        top_left_x, top_left_y,
+        top_right_x, top_right_y,
+        bottom_right_x, bottom_right_y,
+        bottom_left_x, bottom_left_y
+    }
+
+    for i = 1, #points, 2 do
+        local x, y = points[i+0], points[i+1]
+        if is_point_opposite_side(vx, vy, ax, ay, bx, by, x, y) then
+            table.insert(vertices, x)
+            table.insert(vertices, y)
+        end
+    end
+
+    dbg(
+        top_ix, top_iy,
+        right_ix, right_iy,
+        bottom_ix, bottom_iy,
+        left_ix, left_iy
+    )
+
+    self._transition_stencil = {}
+    if top_ix ~= nil then
+        table.insert(self._transition_stencil, top_ix)
+        table.insert(self._transition_stencil, top_iy)
+    end
+
+    if right_ix ~= nil then
+        table.insert(self._transition_stencil, right_ix)
+        table.insert(self._transition_stencil, right_iy)
+    end
+
+    if bottom_ix ~= nil then
+        table.insert(self._transition_stencil, bottom_ix)
+        table.insert(self._transition_stencil, bottom_iy)
+    end
+
+    if left_ix ~= nil then
+        table.insert(self._transition_stencil, left_ix)
+        table.insert(self._transition_stencil, left_iy)
+    end
+end
+
+--- @brief
 function ow.Portal:update(delta)
+    if self._transition_active then
+        self._transition_elapsed = self._transition_elapsed + delta
+        local traveled = self._transition_elapsed * rt.settings.overworld.portal.transition_speed
+
+        local target = self._target
+        local from_x, from_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
+        local to_x, to_y = math.mix2(target._ax, target._ay, target._bx, target._by, 0.5)
+        local distance = math.distance(from_x, from_y, to_x, to_y)
+        local t = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(traveled / distance)
+
+        self._transition_x, self._transition_y = math.mix2(from_x, from_y, to_x, to_y, t)
+        self._scene:get_camera():move_to(self._transition_x, self._transition_y)
+        self:_update_transition_stencil()
+
+        if t >= 1 then
+            self:_set_player_disabled(false)
+            self:_teleport()
+            self._transition_active = false
+            self._scene:set_camera_mode(ow.CameraMode.AUTO)
+        end
+    end
+
+    -- test manually, more reliable at high velocities
+    if self._is_disabled then
+        if self._area_sensor:test_point(self._scene:get_player():get_position()) == false then
+            self._is_disabled = false
+        end
+    end
+
     if self._scene:get_is_body_visible(self._area_sensor) == false then return end
 
     self._pulse_elapsed = self._pulse_elapsed + delta
@@ -226,7 +381,7 @@ local function teleport_player(
         ratio = 1 - ratio
     end
 
-    local new_x, new_y = math.mix2(to_ax, to_ay, to_bx, to_by, ratio)
+    local new_x, new_y = math.mix2(to_ax, to_ay, to_bx, to_by, 0.5) --ratio)
 
     -- new velocity
     local magnitude = math.magnitude(vx, vy)
@@ -235,7 +390,7 @@ local function teleport_player(
     return new_x, new_y, new_vx, new_vy
 end
 
-function ow.Portal:_teleport(normal_x, normal_y, contact_x, contact_y)
+function ow.Portal:_teleport()
     local player = self._scene:get_player()
     local px, py = player:get_position()
     local target = self._target
@@ -247,13 +402,12 @@ function ow.Portal:_teleport(normal_x, normal_y, contact_x, contact_y)
     self._pulse_elapsed = 0
     target._pulse_elapsed = 0
 
-    local vx, vy = player:get_velocity()
     local new_x, new_y, new_vx, new_vy = teleport_player(
         self._ax, self._ay,  self._bx, self._by,
         target._ax, target._ay, target._bx, target._by,
         self._normal_x, self._normal_y, target._normal_x, target._normal_y,
-        vx, vy,
-        contact_x, contact_y
+        self._transition_velocity_x, self._transition_velocity_y,
+        self._transition_contact_x, self._transition_contact_y
     )
 
     local radius = player:get_radius()
@@ -261,20 +415,22 @@ function ow.Portal:_teleport(normal_x, normal_y, contact_x, contact_y)
     player:teleport_to(new_x + radius * nvx, new_y + radius * nvy)
     player:set_velocity(new_vx, new_vy)
 
-    new_vx, new_vy = math.normalize(new_vx, new_vy)
-    vx, vy = math.normalize(vx, vy)
+    do
+        local contact_x, contact_y = self._transition_contact_x, self._transition_contact_y
+        new_vx, new_vy = math.normalize(new_vx, new_vy)
 
-    _dbg = {
-        {
-            new_x, new_y,
-            new_x + new_vx * 10,
-            new_y + new_vy * 10
-        }, {
-            contact_x, contact_y,
-            contact_x + new_vx * 10,
-            contact_y + new_vy * 10
+        _dbg = {
+            {
+                new_x, new_y,
+                new_x + new_vx * 10,
+                new_y + new_vy * 10
+            }, {
+                contact_x, contact_y,
+                contact_x + new_vx * 10,
+                contact_y + new_vy * 10
+            }
         }
-    }
+    end
 end
 
 --- @brief
@@ -291,11 +447,37 @@ function ow.Portal:draw()
         self._right_mesh:draw()
     end
 
+    if self._transition_active then
+        love.graphics.circle("fill", self._transition_x, self._transition_y, 5)
+    end
+
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(1)
     self._segment_sensor:draw()
+
     if _dbg ~= nil then
         for l in values(_dbg) do love.graphics.line(l) end
+    end
+
+    if self._transition_active then
+        local value = rt.graphics.get_stencil_value()
+        --rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
+
+        love.graphics.push()
+        love.graphics.origin()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setLineWidth(10)
+        love.graphics.line(self._transition_stencil)
+        love.graphics.pop()
+
+        --rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+        local player = self._scene:get_player()
+        player:set_is_visible(true)
+        player:draw()
+        player:set_is_visible(false)
+
+        --rt.graphics.set_stencil_mode(nil)
     end
 end
 
