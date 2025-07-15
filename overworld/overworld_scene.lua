@@ -132,11 +132,11 @@ function ow.OverworldScene:instantiate(state)
             self:unpause()
         elseif which == "h" then
         elseif which == "j" then
-            self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
-            rt.settings.overworld_scene.bloom_composite_strength = rt.settings.overworld_scene.bloom_composite_strength - 0.01
+            --self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
+            --rt.settings.overworld_scene.bloom_composite_strength = rt.settings.overworld_scene.bloom_composite_strength - 0.01
         elseif which == "k" then
-            self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() + 1 / 10)
-            rt.settings.overworld_scene.bloom_composite_strength =  rt.settings.overworld_scene.bloom_composite_strength + 0.01
+            --self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() + 1 / 10)
+            --rt.settings.overworld_scene.bloom_composite_strength =  rt.settings.overworld_scene.bloom_composite_strength + 0.01
         end
     end)
 

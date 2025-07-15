@@ -232,6 +232,22 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         -- 1-\left(2\left(x-0.5\right)\right)^{2}
         if x < 0 then return 0 elseif x > 1 then return 0 end
         return 1 - (2 * (x - 0.5))^2
+    end,
+
+    ENVELOPE = function(x, attack_fraction)
+        -- piecewise gaussian, peak at 1
+        if attack_fraction == nil then attack_fraction = 0.5 end
+        if x < 0 or x > 1 then return 0 end
+
+        local function gaussian(x, center)
+            return math.exp(-4.4 * math.pi / 3 * ((x - center)^2))
+        end
+
+        if x < attack_fraction then -- attack
+            return gaussian(x / attack_fraction, 1)
+        else -- decay
+            return gaussian((x - attack_fraction) / (1 - attack_fraction), 0)
+        end
     end
 })
 

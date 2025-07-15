@@ -206,11 +206,6 @@ function ow.BoostField.draw_all()
 end
 
 --- @brief
-function ow.BoostField:get_should_bloom()
-    return true
-end
-
---- @brief
 function ow.BoostField:draw_bloom()
     if self._scene:get_is_body_visible(self._body) then
         local r, g, b, a = table.unpack(self._color)

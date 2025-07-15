@@ -291,11 +291,6 @@ function ow.BubbleField:update(delta)
 end
 
 --- @brief
-function ow.BubbleField:get_should_bloom()
-    return true
-end
-
---- @brief
 function ow.BubbleField:draw_bloom()
     if not self._scene:get_is_body_visible(self._body) then return end
     love.graphics.setColor(1, 1, 1, 1)

@@ -190,11 +190,6 @@ function ow.DoubleJumpTether:draw()
 end
 
 --- @brief
-function ow.DoubleJumpTether:get_should_bloom()
-    return true
-end
-
---- @brief
 function ow.DoubleJumpTether:draw_bloom()
     if self._scene:get_is_body_visible(self._body) == false then return end
     local r, g, b = table.unpack(self._color)

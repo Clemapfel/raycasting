@@ -135,7 +135,7 @@ function ow.Stage:instantiate(scene, id)
                     render_priorities[priority] = true
                 end
 
-                if object.get_should_bloom ~= nil and object:get_should_bloom() == true then
+                if object.draw_bloom ~= nil then
                     table.insert(self._bloom_objects, object)
                 end
 
@@ -244,11 +244,7 @@ end
 --- @brief
 function ow.Stage:draw_bloom()
     for object in values(self._bloom_objects) do
-        if object.draw_bloom ~= nil then
-            object:draw_bloom()
-        else
-            object:draw()
-        end
+        object:draw_bloom()
     end
 
     self._blood_splatter:draw()

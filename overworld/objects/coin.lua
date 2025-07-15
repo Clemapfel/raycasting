@@ -208,12 +208,6 @@ function ow.Coin:get_position()
     return self._x, self._y
 end
 
-
---- @brief
-function ow.Coin:get_should_bloom()
-    return true
-end
-
 --- @brief
 function ow.Coin:draw_bloom()
     if self._scene:get_is_body_visible(self._body) and self._is_collected ~= true then
