@@ -1,7 +1,7 @@
 rt.settings.overworld.portal = {
     mesh_w = 30, -- px
     pulse_duration = 1, -- s
-    transition_speed = 500, -- px / s
+    transition_speed_factor = 1.5
 }
 
 --- @class ow.Portal
@@ -72,6 +72,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._transition_elapsed = math.huge
     self._transition_contact_x, self._transition_contact_y = 0, 0
     self._transition_velocity_x, self._transition_velocity_y = 0, 0
+    self._transition_speed = 0
 
     self._stage:signal_connect("respawn", function()
         self._transition_active = false
@@ -141,11 +142,13 @@ function ow.Portal:instantiate(object, stage, scene)
                 local side = _get_side(vx, vy, self._ax, self._ay, self._bx, self._by)
                 if (side == self._direction) then
                     -- start transition
+                    local player = self._scene:get_player()
                     self._transition_active = true
                     self._transition_elapsed = 0
+                    self._transition_speed = rt.settings.overworld.portal.transition_speed_factor * math.magnitude(player:get_velocity())
                     self._transition_contact_x, self._transition_contact_y = contact_x, contact_y
                     self._transition_x, self._transition_y = contact_x, contact_y
-                    self._transition_velocity_x, self._transition_velocity_y = self._scene:get_player():get_velocity()
+                    self._transition_velocity_x, self._transition_velocity_y = player:get_velocity()
                     self:_set_player_disabled(true)
                 end
             end
@@ -248,7 +251,7 @@ end
 function ow.Portal:update(delta)
     if self._transition_active then
         self._transition_elapsed = self._transition_elapsed + delta
-        local traveled = self._transition_elapsed * rt.settings.overworld.portal.transition_speed
+        local traveled = self._transition_elapsed * self._transition_speed
 
         local target = self._target
         local from_x, from_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
