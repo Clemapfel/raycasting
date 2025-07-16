@@ -218,10 +218,10 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     float hue_noise = (gradient_noise(vec3(screen_uv.xyx * noise_scale)) + 1) / 2;
     vec3 iridescent_color = lch_to_rgb(vec3(0.8 - shadow, 1, fract(hue_noise + angle * 2.5)));
 
-    gradient = rotate(gradient, elapsed / 5);
+    //gradient = rotate(gradient, elapsed / 5);
 
     // Lighting - Modified to use 3D vectors with z = 0
-    vec3 dxy = vec3(camera_offset * 10, 0);
+    vec3 dxy = vec3(camera_offset / 10, 0);
     vec3 gradient_3d = normalize(vec3(gradient, 0));
 
     float attenuation = 1.0 - gaussian(distance(player_uv, screen_uv), 1.7);
@@ -231,7 +231,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     // Light direction (from surface to light)
     vec3 light_pos = vec3(player_uv, 0); // Light at player position, slightly elevated
     vec3 surface_pos = vec3(screen_uv, 0); // Surface position
-    vec3 view_pos = vec3(camera_offset, 0); // Camera/view position
+    vec3 view_pos = vec3(-player_uv, 0); // Camera/view position
 
     // Calculate surface normal from gradient
     vec3 surface_normal = normalize(vec3(gradient, 0));
@@ -250,8 +250,8 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     //return vec4(specular);
     // Return outline visualization (replace with iridescent for full effect)
     return vec4(mix(
-        iridescent_color,
-        vec3(1), min(reflection, 0.7)
+        mix(iridescent_color, vec3(1), specular * (1 - attenuation)),
+        vec3(0), 1 - reflection
     )
     , 1.0);
     // return vec4(vec3(iridescent_color * reflection), 1.0);
