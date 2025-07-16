@@ -95,7 +95,7 @@ function ow.Coin:instantiate(object, stage, scene)
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
         self._is_collected = true
-        self._follow_offset = rt.settings.overworld.coin.follow_offset * (self._stage:get_n_coins_collected() + 1)
+        self._follow_offset = rt.settings.overworld.coin.follow_offset * self._stage:get_n_coins_collected()
         self._stage:set_coin_is_collected(self._id, true)
         self._timestamp = love.timer.getTime()
         self._pulse_opacity_animation:reset()
@@ -150,9 +150,24 @@ function ow.Coin:update(delta)
         end
 
         local player_radius = rt.settings.player.radius
-        self._follow_motion:set_target_position(self._scene:get_player():get_past_position(self._follow_offset))
+        local target_x, target_y = self._scene:get_player():get_past_position(self._follow_offset)
+
+        do -- prevent coin from overlapping player core
+            local px, py = self._scene:get_player():get_position()
+            local n_steps = 0
+            local radius
+            while math.distance(target_x, target_y, px, py) < rt.settings.player.radius * 2 do
+                n_steps = n_steps + 1
+                target_x, target_y = self._scene:get_player():get_past_position(self._follow_offset + n_steps * 2)
+            end
+        end
+
+        self._follow_motion:set_target_position(target_x, target_y)
+
         self._follow_motion:update(delta)
+        local before_x, before_y = self._follow_x, self._follow_y
         self._follow_x, self._follow_y = self._follow_motion:get_position()
+
     else
         if not self._scene:get_is_body_visible(self._body) then return end
 
