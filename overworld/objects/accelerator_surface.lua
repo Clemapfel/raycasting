@@ -57,8 +57,11 @@ end
 function ow.AcceleratorSurface:draw()
     _shader:bind()
     _shader:send("camera_offset", { self._scene:get_camera():get_offset() })
-    _shader:send("camera_scale", { self._scene:get_camera():get_scale() })
+    _shader:send("camera_scale", self._scene:get_camera():get_scale())
+    _shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+    love.graphics.push("all")
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
+    love.graphics.pop("all")
     _shader:unbind()
 end
