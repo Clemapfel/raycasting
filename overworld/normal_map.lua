@@ -50,9 +50,7 @@ function ow.NormalMap:instantiate(stage)
     )
 
     self._is_started = false
-    self._is_allocated = false
     self._is_done = false
-    self._yielded = false
 
     stage:signal_connect("initialized", function()
         self._is_started = true
@@ -62,10 +60,12 @@ function ow.NormalMap:instantiate(stage)
 
     local savepoint = function()
         -- always yield, one step per frame
+        love.graphics.push("all")
         coroutine.yield()
+        love.graphics.pop()
     end
 
-    self._allocate_callback = coroutine.create(function()
+    self._callback = coroutine.create(function()
         -- collect tris of shapes to be normal mapped
         local tris = {}
         for tri in values(ow.Hitbox:get_tris(true, true)) do -- both
@@ -233,10 +233,6 @@ function ow.NormalMap:instantiate(stage)
 
         savepoint()
 
-        self._is_allocated = true
-    end)
-
-    self._compute_sdf_callback = coroutine.create(function()
         self._computation_started = true
 
         local size_x, size_y = rt.settings.overworld.normal_map.work_group_size_x, rt.settings.overworld.normal_map.work_group_size_y
@@ -340,11 +336,9 @@ function ow.NormalMap:instantiate(stage)
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
-            savepoint()
-
             -- crop to save memory
             local offset_x, offset_y = self._quad:getViewport()
-            lg.push()
+            lg.push("all")
             lg.origin()
             lg.setCanvas(chunk.texture:get_native())
             lg.clear(0, 0, 0, 0)
@@ -353,6 +347,8 @@ function ow.NormalMap:instantiate(stage)
             lg.pop()
 
             chunk.is_initialized = true
+
+            savepoint()
         end
 
         texture_a:release()
@@ -363,31 +359,14 @@ function ow.NormalMap:instantiate(stage)
         self._is_done = true
         self._is_visible = true
         self:signal_emit("done")
-
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "p" then
-                _draw_light_shader:recompile()
-                _draw_shadow_shader:recompile()
-            elseif which == "q" then
-                self._is_visible = not self._is_visible
-            end
-        end)
     end)
 end
 
 --- @brief
 function ow.NormalMap:update(delta)
     -- distribute workload over multiple frames
-    if self._yielded then
-        self._yielded = false
-        return
-    end
-
-    if coroutine.status(self._allocate_callback) ~= "dead" then
-        coroutine.resume(self._allocate_callback)
-    elseif coroutine.status(self._compute_sdf_callback) ~= "dead" then
-        coroutine.resume(self._compute_sdf_callback)
+    if coroutine.status(self._callback) ~= "dead" then
+        coroutine.resume(self._callback)
     end
 end
 

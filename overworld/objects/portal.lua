@@ -1,6 +1,7 @@
 rt.settings.overworld.portal = {
     mesh_w = 30, -- px
     pulse_duration = 1, -- s
+    transition_min_speed = 400,
     transition_speed_factor = 1.5
 }
 
@@ -143,9 +144,13 @@ function ow.Portal:instantiate(object, stage, scene)
                 if (side == self._direction) then
                     -- start transition
                     local player = self._scene:get_player()
+                    self._pulse_elapsed = 0
                     self._transition_active = true
                     self._transition_elapsed = 0
-                    self._transition_speed = rt.settings.overworld.portal.transition_speed_factor * math.magnitude(player:get_velocity())
+                    self._transition_speed = math.max(
+                        rt.settings.overworld.portal.transition_speed_factor * math.magnitude(player:get_velocity()),
+                        rt.settings.overworld.portal.transition_min_speed
+                    )
                     self._transition_contact_x, self._transition_contact_y = contact_x, contact_y
                     self._transition_x, self._transition_y = contact_x, contact_y
                     self._transition_velocity_x, self._transition_velocity_y = player:get_velocity()
@@ -264,6 +269,7 @@ function ow.Portal:update(delta)
 
         if t >= 1 then
             self:_teleport()
+            self._target._pulse_elapsed = 0
             self:_set_player_disabled(false)
             self._transition_active = false
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
@@ -332,9 +338,6 @@ function ow.Portal:_teleport()
     target._is_disabled = true
     self._is_disabled = true
 
-    self._pulse_elapsed = 0
-    target._pulse_elapsed = 0
-
     local new_x, new_y, new_vx, new_vy = teleport_player(
         self._ax, self._ay,  self._bx, self._by,
         target._ax, target._ay, target._bx, target._by,
@@ -373,6 +376,7 @@ function ow.Portal:draw()
     love.graphics.setLineWidth(4)
     love.graphics.line(self._ax, self._ay, self._bx, self._by)
 
+    love.graphics.setColor(r, g, b, self._pulse_value)
     if self._direction == _LEFT then
         self._left_mesh:draw()
     else
@@ -383,6 +387,7 @@ function ow.Portal:draw()
         --love.graphics.circle("fill", self._transition_x, self._transition_y, 5)
     end
 
+    --[[
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(1)
     self._segment_sensor:draw()
@@ -390,6 +395,7 @@ function ow.Portal:draw()
     if _dbg ~= nil then
         for l in values(_dbg) do love.graphics.line(l) end
     end
+    ]]--
 
     if self._transition_active then
         love.graphics.push("all")

@@ -486,6 +486,8 @@ local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
 function rt.PlayerBody:draw_body()
     if self._is_initialized ~= true then return end
 
+    local opacity = self._player:get_opacity()
+
     if self._body_canvas_needs_update then
         self._body_canvas_needs_update = false
         love.graphics.push("all")
@@ -545,13 +547,13 @@ function rt.PlayerBody:draw_body()
 
     -- outlines
     _outline_shader:bind()
-    love.graphics.setColor(self._r, self._g, self._b, self._a)
+    love.graphics.setColor(self._r, self._g, self._b, self._a * opacity)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _outline_shader:unbind()
 
     -- black fill
     _fill_shader:bind()
-    love.graphics.setColor(_black_r, _black_g, _black_b, self._a)
+    love.graphics.setColor(_black_r, _black_g, _black_b, self._a * opacity)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _fill_shader:unbind()
 end
@@ -559,6 +561,8 @@ end
 --- @brief
 function rt.PlayerBody:draw_core()
     if self._is_initialized ~= true then return end
+
+    local opacity = self._player:get_opacity()
 
     if self._core_canvas_needs_update then
         self._core_canvas_needs_update = false
@@ -597,6 +601,7 @@ function rt.PlayerBody:draw_core()
     local w, h = self._core_canvas:get_size()
 
     if self._is_bubble then
+        rt.graphics.push_stencil()
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
         for body in values(self._stencil_bodies) do
@@ -607,7 +612,7 @@ function rt.PlayerBody:draw_core()
 
     -- draw outline
     local darken = _settings.outline_value_offset
-    love.graphics.setColor(1 - darken, 1 - darken, 1 - darken, self._a)
+    love.graphics.setColor(1 - darken, 1 - darken, 1 - darken, self._a * opacity)
     love.graphics.draw(
         self._core_canvas:get_native(),
         self._player_x, self._player_y,
@@ -618,7 +623,7 @@ function rt.PlayerBody:draw_core()
     )
 
     -- draw inside
-    love.graphics.setColor(1, 1, 1, self._a)
+    love.graphics.setColor(1, 1, 1, self._a * opacity)
     love.graphics.draw(
         self._core_canvas:get_native(),
         self._player_x, self._player_y,
@@ -639,14 +644,14 @@ function rt.PlayerBody:draw_core()
     -- highlight
     local boost = _settings.highlight_brightness
     love.graphics.push()
-    love.graphics.setColor(boost, boost, boost, 1)
+    love.graphics.setColor(boost, boost, boost, 1 * opacity)
     rt.graphics.set_blend_mode(rt.BlendMode.ADD)
     local highlight_r = 4
     local offset = self._player_radius * 1 / 4
     love.graphics.translate(-offset, -offset)
     love.graphics.ellipse("fill", self._player_x, self._player_y, highlight_r, highlight_r)
 
-    love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1)
+    love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1 * opacity)
     love.graphics.translate(-highlight_r / 4, -highlight_r / 4)
     love.graphics.ellipse("fill", self._player_x, self._player_y, highlight_r / 2, highlight_r / 2)
 
@@ -655,6 +660,7 @@ function rt.PlayerBody:draw_core()
 
     if self._is_bubble then
         rt.graphics.set_stencil_mode(nil)
+        rt.graphics.pop_stencil()
     end
 
     --[[

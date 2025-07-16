@@ -58,10 +58,14 @@ function ow.Coin:instantiate(object, stage, scene)
     stage:add_coin(self, self._id)
 
     self._index = object:get_number("index") or stage:get_n_coins()
-    self._hue = ow.Coin.index_to_hue(self._index, self._stage:get_n_coins())
 
-    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
-    self._particle:set_hue(self._hue)
+    self._stage:signal_connect("initialized", function()
+        self._hue = ow.Coin.index_to_hue(self._index, self._stage:get_n_coins())
+        self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+        self._particle:set_hue(self._hue)
+        return meta.DISCONNECT_SIGNAL
+    end)
+
 
     self._body = b2.Body(
         stage:get_physics_world(),
@@ -91,7 +95,7 @@ function ow.Coin:instantiate(object, stage, scene)
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
         self._is_collected = true
-        self._follow_offset = rt.settings.overworld.coin.follow_offset * self._stage:get_n_coins_collected()
+        self._follow_offset = rt.settings.overworld.coin.follow_offset * (self._stage:get_n_coins_collected() + 1)
         self._stage:set_coin_is_collected(self._id, true)
         self._timestamp = love.timer.getTime()
         self._pulse_opacity_animation:reset()

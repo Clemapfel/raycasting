@@ -116,7 +116,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
     stage:add_checkpoint(self, object.id, self._type)
     stage:signal_connect("initialized", function()
         -- cast ray up an down to get local bounds
-        local inf = 10e9
+        local inf = love.graphics.getHeight() * 2
 
         local bottom_x, bottom_y, _, _, _ = self._world:query_ray(self._x, self._y, 0, inf)
         if bottom_x == nil then
@@ -291,7 +291,7 @@ function ow.Checkpoint:_set_state(state)
         player:disable()
         player:set_velocity(0, 0)
         player:set_gravity(0)
-        player:set_opacity(0)
+        player:set_is_visible(false)
 
         self._explosion_player_position = { self._scene:get_player():get_position() }
         local player_radius = self._scene:get_player():get_radius()
@@ -308,24 +308,24 @@ function ow.Checkpoint:_set_state(state)
         player:set_hue(rt.random.number(0, 1))
         player:set_velocity(0, 1000)
         player:set_gravity(0)
-        player:set_opacity(0)
+        player:set_is_visible(true)
         player:set_flow(0.5) -- purely for visuals
         player:set_flow_velocity(-1)
         player:set_trail_visible(false)
+        player:set_opacity(1)
 
         local camera = self._scene:get_camera()
         camera:move_to(self._bottom_x, self._bottom_y)
 
         local factor = rt.settings.overworld.checkpoint.ray_width_radius_factor
         self._ray_size = { 2 * factor * player:get_radius(), self._bottom_y - self._top_y }
-
     elseif state == _STATE_DEFAULT then
         self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
         player:set_gravity(1)
-        player:set_opacity(1)
         player:set_is_bubble(false)
         player:set_trail_visible(true)
+        player:set_is_visible(true)
         player:enable()
     elseif state == _STATE_FIRST_ENTRY then
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
@@ -403,7 +403,6 @@ function ow.Checkpoint:update(delta)
         local threshold = self._bottom_y - player:get_radius() * 2
         if self._ray_fade_out_elapsed <= 0 and self._ray_fraction < 1 then
             self._ray_fraction = (player_y - self._top_y) / (threshold - self._top_y)
-            player:set_opacity(self._ray_fraction)
         end
 
         local fade_out_duration = rt.settings.overworld.checkpoint.ray_fade_out_duration

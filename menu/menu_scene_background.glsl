@@ -162,7 +162,7 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         if (bloom) gradient_weight = 1;
 
         vec4 balls = (1 - fraction) * vec4(color * smooth_gradient * gradient_weight, gradient * gradient_weight);
-        //balls += gradient_weight * vec4(color, data.a);
+        balls += gradient_weight * vec4(color, data.a);
         balls = max(balls, vec4(0));
         bg += balls;
     }
