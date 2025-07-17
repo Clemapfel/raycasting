@@ -10,6 +10,7 @@
 uniform vec2 camera_offset;
 uniform float camera_scale = 1;
 uniform float elapsed;
+uniform vec2 shape_centroid; // world coords
 
 
 uniform vec2 player_position;
@@ -200,8 +201,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     vec2 screen_uv = to_uv(screen_coords);
     vec2 player_uv = to_uv(player_position);
 
-    const float noise_scale = 10.0;
-
+    const float noise_scale = 31;
     // Get Worley data using new functions
     float sdf_value;
     vec2 gradient, closest_point, second_closest_point;
@@ -215,46 +215,55 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     // Texture - iridescent color based on gradient direction
     vec2 direction = normalize(gradient - camera_offset / love_ScreenSize.x);
     float angle = (atan(direction.y, direction.x) + PI) / (2.0 * PI);
-    float hue_noise = (gradient_noise(vec3(screen_uv.xyx * noise_scale)) + 1) / 2;
-    vec3 iridescent_color = lch_to_rgb(vec3(0.8 - shadow, 1, fract(hue_noise + angle * 2.5)));
+    float hue_noise = gradient_noise(vec3(screen_uv.xyx * noise_scale / 2));
+    vec3 iridescent_color = lch_to_rgb(vec3(0.8 - shadow, 1, fract(hue_noise + elapsed / 5)));
 
-    //gradient = rotate(gradient, elapsed / 5);
+    gradient = rotate(gradient, elapsed);
 
-    // Lighting - Modified to use 3D vectors with z = 0
-    vec3 dxy = vec3(camera_offset / 10, 0);
-    vec3 gradient_3d = normalize(vec3(gradient, 0));
+    // Lighting - Camera-relative lighting setup
+    // The light source moves with the camera to simulate viewing angle changes
+    vec2 camera_center = to_uv(10 * camera_offset + 0.5 * love_ScreenSize.xy);
 
-    float attenuation = 1.0 - gaussian(distance(player_uv, screen_uv), 1.7);
-    float alignment = abs(dot(normalize(gradient_3d), normalize(dxy)));
-    float reflection = pow(alignment, 10.0);
+    // Light position relative to camera (simulates light source moving with viewer)
+    vec3 light_pos = vec3(camera_center, 1); // Slightly offset and elevated
+
+    // Surface position in world space
+    vec3 surface_pos = vec3(screen_uv, 0.0);
+
+    // View position (camera position elevated above the 2D plane)
+    vec3 view_pos = vec3(camera_center, 1.0); // Camera elevated above the surface
+
+    // Calculate surface normal from gradient (pointing up from the 2D surface)
+    vec3 surface_normal = normalize(vec3(gradient * 0.1, 1.0)); // Small gradient influence, mostly pointing up
 
     // Light direction (from surface to light)
-    vec3 light_pos = vec3(player_uv, 0); // Light at player position, slightly elevated
-    vec3 surface_pos = vec3(screen_uv, 0); // Surface position
-    vec3 view_pos = vec3(-player_uv, 0); // Camera/view position
-
-    // Calculate surface normal from gradient
-    vec3 surface_normal = normalize(vec3(gradient, 0));
-
     vec3 light_dir = normalize(light_pos - surface_pos);
 
     // View direction (from surface to camera)
-    vec3 view_dir = normalize(surface_pos - view_pos);
+    vec3 view_dir = normalize(view_pos - surface_pos);
 
     // Reflection vector
     vec3 reflect_dir = reflect(-light_dir, surface_normal);
 
-    // Specular lighting (Phong model);
-    float specular = pow(max(dot(normalize(view_dir), normalize(reflect_dir)), 0.0), 2);
+    // Specular lighting (Phong model)
+    float specular = pow(max(dot(view_dir, reflect_dir), 0.0), 8.0);
 
-    //return vec4(specular);
-    // Return outline visualization (replace with iridescent for full effect)
-    return vec4(mix(
-        mix(iridescent_color, vec3(1), specular * (1 - attenuation)),
-        vec3(0), 1 - reflection
-    )
-    , 1.0);
-    // return vec4(vec3(iridescent_color * reflection), 1.0);
+    // Distance-based attenuation from player (for gameplay lighting)
+    float player_distance = distance(player_uv, screen_uv);
+    float attenuation = 1.0 - gaussian(player_distance, 1.7);
+
+    // Camera-based lighting alignment (how well the surface reflects toward the camera)
+    vec3 camera_to_surface = normalize(surface_pos - vec3(camera_center, 0));
+    float camera_alignment = abs(dot(normalize(vec3(gradient, 0)), camera_to_surface));
+    float camera_reflection = pow(camera_alignment, 5.0);
+
+    // Combine lighting effects
+    vec3 final_color = mix(
+    mix(iridescent_color, vec3(1), specular * 0.8),
+    vec3(0.1), 1.0 - camera_reflection
+    );
+
+    return vec4(final_color, 1.0);
 }
 
 #elif MODE == MODE_OUTLINE

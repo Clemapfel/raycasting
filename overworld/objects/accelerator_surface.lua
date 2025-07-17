@@ -24,6 +24,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 1 }) end
 
     self._scene = scene
+    self._elapsed = 0
 
     -- mesh
     self._contour = rt.round_contour(object:create_contour(), 10)
@@ -61,19 +62,34 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 end
 
 --- @brief
+function ow.AcceleratorSurface:update(delta)
+    if not self._scene:get_is_body_visible(self._body) then return end
+
+    local player = self._scene:get_player()
+    if player:get_collision_normal(self._body) ~= nil then
+        local factor = 1 / 1000
+        self._elapsed = self._elapsed + delta * math.magnitude(player:get_velocity()) * factor
+    end
+end
+
+--- @brief
 function ow.AcceleratorSurface:draw()
     local outline_width = 2
     local outline_color = rt.Palette.GRAY_3;
     love.graphics.setColor(1, 1, 1, 1)
 
+
+    local offset_x, offset_y = self._scene:get_camera():get_offset()
+
     _body_shader:bind()
-    _body_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _body_shader:send("camera_offset", { offset_x, offset_y })
     _body_shader:send("camera_scale", self._scene:get_camera():get_scale())
     _body_shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-    _body_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self) * 100)
+    _body_shader:send("elapsed", self._elapsed + meta.hash(self) * 100)
     _body_shader:send("outline_width", outline_width)
     _body_shader:send("outline_color", { outline_color:unpack() })
     _body_shader:send("player_hue", self._scene:get_player():get_hue())
+    _body_shader:send("shape_centroid", { self._scene:get_camera():world_xy_to_screen_xy(self._body:get_center_of_mass())})
     love.graphics.push("all")
     self._mesh:draw()
     love.graphics.pop("all")
@@ -84,7 +100,7 @@ function ow.AcceleratorSurface:draw()
     _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
     _outline_shader:send("camera_scale", self._scene:get_camera():get_scale())
     _outline_shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self) * 100)
+    _outline_shader:send("elapsed", self._elapsed + meta.hash(self) * 100)
     love.graphics.setLineWidth(outline_width)
     love.graphics.line(self._outline)
     _outline_shader:unbind()

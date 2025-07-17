@@ -971,9 +971,11 @@ function rt.Player:update(delta)
                 next_force_x = next_force_x + friction_force_x
                 next_force_y = next_force_y + friction_force_y
 
+                --[[
                 local flipped_x, flipped_y = math.flip(nx, ny)
                 next_force_x = next_force_x + flipped_x * delta * _settings.wall_magnet_force
                 next_force_y = next_force_y + flipped_y * delta * _settings.wall_magnet_force
+                ]]--
             end
         end
 
