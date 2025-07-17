@@ -257,6 +257,7 @@ function rt.Player:instantiate()
 
         -- flow
         _flow = 0,
+        _override_flow = nil,
         _flow_velocity = 0,
         _velocity_history_x = table.rep(0, _settings.flow_fraction_history_n),
         _velocity_history_x_sum = 0,
@@ -1377,7 +1378,7 @@ function rt.Player:draw_bloom()
 
     local r, g, b, a = self._color:unpack()
 
-    if self._flow == 0 then
+    if self:get_flow() == 0 then
         self._graphics_body:draw_bloom()
     elseif self._trail_visible then
         self._trail:draw_below()
@@ -1674,7 +1675,7 @@ end
 
 --- @brief
 function rt.Player:get_flow()
-    return self._flow
+    return self._override_flow or self._flow
 end
 
 --- @brief
@@ -1687,6 +1688,11 @@ function rt.Player:reset_flow()
     self._flow = 0
     self._flow_fraction_history_sum = 0
     self._flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n)
+end
+
+--- @brief
+function rt.Player:set_override_flow(flow_or_nil)
+    self._override_flow = flow_or_nil
 end
 
 --- @brief
@@ -1861,6 +1867,11 @@ end
 --- @brief
 function rt.Player:get_is_grounded()
     return self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall
+end
+
+--- @brief
+function rt.Player:get_is_colliding_with(body)
+    return self._body_to_collision_normal[body] ~= nil
 end
 
 --- @brief

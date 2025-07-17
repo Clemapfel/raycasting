@@ -70,6 +70,14 @@ function debugger.reload()
 end
 debugger.reload()
 
+require "common.input_subscriber"
+debugger._input = rt.InputSubscriber()
+debugger._input:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then
+        debugger.reload()
+    end
+end)
+
 --- @brief
 function debugger.get(key)
     return DBG[key]

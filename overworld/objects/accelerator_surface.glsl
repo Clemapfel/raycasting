@@ -201,6 +201,10 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     vec2 screen_uv = to_uv(screen_coords);
     vec2 player_uv = to_uv(player_position);
 
+    // Distance-based attenuation from player (for gameplay lighting)
+    float player_distance = distance(player_uv, screen_uv);
+    float attenuation = gaussian(player_distance, 6);
+
     const float noise_scale = 31;
     // Get Worley data using new functions
     float sdf_value;
@@ -215,8 +219,12 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     // Texture - iridescent color based on gradient direction
     vec2 direction = normalize(gradient - camera_offset / love_ScreenSize.x);
     float angle = (atan(direction.y, direction.x) + PI) / (2.0 * PI);
-    float hue_noise = gradient_noise(vec3(screen_uv.xyx * noise_scale / 2));
-    vec3 iridescent_color = lch_to_rgb(vec3(0.8 - shadow, 1, fract(hue_noise + elapsed / 5)));
+    float hue_noise = gradient_noise(vec3(vec3(screen_uv.xy, attenuation * elapsed / 1000000) * (noise_scale / 2 )));
+    vec3 iridescent_color = lch_to_rgb(vec3(0.8 - shadow, 1,
+        fract(hue_noise + elapsed / 5)
+    ));
+
+    iridescent_color = mix(iridescent_color, lch_to_rgb(vec3(0.8, 1, player_hue)), attenuation);
 
     gradient = rotate(gradient, elapsed);
 
@@ -246,11 +254,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     vec3 reflect_dir = reflect(-light_dir, surface_normal);
 
     // Specular lighting (Phong model)
-    float specular = pow(max(dot(view_dir, reflect_dir), 0.0), 8.0);
-
-    // Distance-based attenuation from player (for gameplay lighting)
-    float player_distance = distance(player_uv, screen_uv);
-    float attenuation = 1.0 - gaussian(player_distance, 1.7);
+    float specular = pow(max(dot(view_dir, reflect_dir), 0.0) + attenuation, 8.0);
 
     // Camera-based lighting alignment (how well the surface reflects toward the camera)
     vec3 camera_to_surface = normalize(surface_pos - vec3(camera_center, 0));
@@ -259,8 +263,8 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
     // Combine lighting effects
     vec3 final_color = mix(
-    mix(iridescent_color, vec3(1), specular * 0.8),
-    vec3(0.1), 1.0 - camera_reflection
+        mix(iridescent_color, vec3(1), specular * 0.8),
+        vec3(0.1), 1.0 - camera_reflection - attenuation
     );
 
     return vec4(final_color, 1.0);
@@ -268,9 +272,11 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
 #elif MODE == MODE_OUTLINE
 
+uniform float noise_scale = 5;
+
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     vec2 screen_uv = to_uv(screen_coords);
-    return vec4(lch_to_rgb(vec3(0.8, 1, gradient_noise(vec3(screen_uv * 5, elapsed / 2)))), 1);
+    return texture(tex, texture_coords) * vec4(lch_to_rgb(vec3(0.8, 1, gradient_noise(vec3(screen_uv * noise_scale, elapsed / 2)))), 1);
 }
 
 #endif
