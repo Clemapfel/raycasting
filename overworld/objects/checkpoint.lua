@@ -341,7 +341,7 @@ function ow.Checkpoint:_set_state(state)
 
         local camera = self._scene:get_camera()
         camera:set_position(self._bottom_x, self._bottom_y)
-        local x, y, w, h = camera:get_world_bounds()
+        local x, y, w, h = camera:get_world_bounds():unpack()
         player:teleport_to(self._bottom_x, self._bottom_y - player:get_radius() * 2 - 0.5 * w)
     end
 end
@@ -428,7 +428,7 @@ function ow.Checkpoint:update(delta)
     elseif self._state == _STATE_FIRST_ENTRY then
         local player = self._scene:get_player()
         local camera = self._scene:get_camera()
-        local x, y, w, h = camera:get_world_bounds()
+        local x, y, w, h = camera:get_world_bounds():unpack()
         local top_y = self._bottom_y - player:get_radius() * 2 - 0.5 * w
 
         local px, py = player:get_position()

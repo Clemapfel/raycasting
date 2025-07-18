@@ -333,7 +333,7 @@ function rt.Camera:get_world_bounds()
     local scale = self:get_final_scale()
     w = w / scale
     h = h / scale
-    return self._current_x - 0.5 * w, self._current_y - 0.5 * h, w, h
+    return rt.AABB(self._current_x - 0.5 * w, self._current_y - 0.5 * h, w, h)
 end
 
 

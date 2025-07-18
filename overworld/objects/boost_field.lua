@@ -188,7 +188,7 @@ function ow.BoostField.draw_all()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
     love.graphics.draw(_mesh)
 
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST)
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth(line_width + 2)

@@ -288,7 +288,7 @@ function ow.AcceleratorSurface:update(delta)
     end
 
     -- update particles
-    local bounds = rt.AABB(self._scene:get_camera():get_world_bounds())
+    local bounds = self._scene:get_camera():get_world_bounds()
 
     local to_remove = {}
     for i, particle in ipairs(self._particles) do

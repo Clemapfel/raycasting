@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 804,
+  nextobjectid = 805,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 564.503,
-          y = 538.607,
+          x = -1585.94,
+          y = 65.1561,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4637,6 +4637,25 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 804,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -1606.06,
+          y = -318.182,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -9.93939, y = 190.182 },
+            { x = 102.061, y = 206.182 },
+            { x = 118.061, y = -1.81818 }
+          },
           properties = {}
         }
       }

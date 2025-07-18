@@ -196,7 +196,7 @@ function ow.AcceleratorSurface:update(delta)
         end
     end
 
-    local aabb = rt.AABB(self._scene:get_camera():get_world_bounds())
+    local aabb = self._scene:get_camera():get_world_bounds()
 
     local to_remove = {}
     for i, particle in ipairs(self._particles) do

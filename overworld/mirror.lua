@@ -333,7 +333,7 @@ end
 
 --- @brief
 function ow.Mirror:update(delta)
-    local x, y, w, h = self._scene:get_camera():get_world_bounds()
+    local x, y, w, h = self._scene:get_camera():get_world_bounds():unpack()
 
     local mirror_segments = {}
     local occluding_segments = {}

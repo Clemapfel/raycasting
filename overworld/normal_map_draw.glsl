@@ -20,7 +20,7 @@ uniform float point_light_intensity = 1;
 uniform vec4 segment_lights[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
 uniform vec4 segment_colors[MAX_N_SEGMENT_LIGHTS];
 uniform int n_segment_lights;
-uniform float segment_light_intensity = 0.2;
+uniform float segment_light_intensity = 0.35;
 
 uniform vec2 camera_offset;
 uniform float camera_scale = 1;

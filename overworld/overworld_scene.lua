@@ -904,7 +904,7 @@ function ow.OverworldScene:get_is_body_visible(body)
 end
 
 --- @brief
-function ow.OverworldScene:get_light_sources()
+function ow.OverworldScene:get_point_light_sources()
     local positions = {}
     local colors = {}
     for body in values(self._light_sources) do
@@ -922,6 +922,31 @@ function ow.OverworldScene:get_light_sources()
     end
 
     return positions, colors
+end
+
+--- @brief
+function ow.OverworldScene:get_segment_light_sources()
+    if self._stage == nil then return {} end
+    local segments, colors = self._stage:get_blood_splatter():get_visible_segments(self._camera:get_world_bounds())
+
+    for body in keys(self._visible_bodies) do
+        if body:has_tag("segment_light_source") then
+            local instance = body:get_user_data()
+            assert(instance ~= nil, "In ow.OverworldScene:get_segment_light_sources: body has `segment_light_source` tag but userdata instance is not set")
+            assert(instance.get_segment_light_sources, "In ow.OverworldScene:get_segment_light_sources: body has `segment_light_source` tag, but instance `" .. meta.typeof(instance) .. "` does not have `get_segment_light_sources` defined")
+            local current_segments, current_colors = instance:get_segment_light_sources()
+
+            for segment in values(current_segments) do
+                table.insert(segments, segment)
+            end
+
+            for color in values(current_colors) do
+                table.insert(colors, color)
+            end
+        end
+    end
+
+    return segments, colors
 end
 
 --- @brief

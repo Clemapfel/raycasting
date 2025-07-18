@@ -149,7 +149,7 @@ function ow.StageTitleCardScene:_initialize()
 
     -- screen bounds
     do
-        local x, y, w, h = self._camera:get_world_bounds()
+        local x, y, w, h = self._camera:get_world_bounds():unpack()
         local padding = 0
         local top_left_x, top_left_y = x - padding, y - padding
         local top_right_x, top_right_y = x + w + 2 * padding, y - padding
@@ -196,7 +196,7 @@ function ow.StageTitleCardScene:_initialize()
 
     self._player:teleport_to(
         self._camera_anchor_x,
-        self._camera_anchor_y - 0.5 * select(4, self._camera:get_world_bounds()) - 2 * self._player:get_radius()
+        self._camera_anchor_y - 0.5 * self._camera:get_world_bounds().height - 2 * self._player:get_radius()
     )
 
     self._player:set_velocity(0, rt.settings.overworld.stage_title_card_scene.entry_velocity)

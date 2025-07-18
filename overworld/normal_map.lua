@@ -370,85 +370,12 @@ function ow.NormalMap:update(delta)
     end
 end
 
-function ow.NormalMap:_draw(light_or_shadow)
-    local chunk_size = self._chunk_size
-    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
-    local min_chunk_x = math.floor((x - self._bounds.x) / chunk_size)
-    local max_chunk_x = math.floor(((x + w - 1) - self._bounds.x) / chunk_size)
-    local min_chunk_y = math.floor((y - self._bounds.y) / chunk_size)
-    local max_chunk_y = math.floor(((y + h - 1) - self._bounds.y) / chunk_size)
-
-    if light_or_shadow == true then
-        local camera = self._stage:get_scene():get_camera()
-        local player = self._stage:get_scene():get_player()
-
-        -- collect point lights
-        local point_positions, point_colors = self._stage:get_scene():get_light_sources()
-        if player:get_is_visible() then
-            table.insert(point_positions, { player:get_position() })
-        end
-        table.insert(point_colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
-
-        -- convert to screen coords
-        for position in values(point_positions) do
-            local nx, ny = camera:world_xy_to_screen_xy(table.unpack(position))
-            position[1] = nx
-            position[2] = ny
-        end
-
-        -- collect line lights
-        local line_positions, line_colors = self._stage:get_blood_splatter():get_visible_segments()
-
-        _draw_light_shader:bind()
-        _draw_light_shader:send("point_light_intensity", rt.settings.overworld.normal_map.point_light_intensity)
-        _draw_light_shader:send("segment_light_intensity", rt.settings.overworld.normal_map.segment_light_intensity)
-        _draw_light_shader:send("camera_offset", { camera:get_offset() })
-        _draw_light_shader:send("camera_scale", camera:get_final_scale())
-        _draw_light_shader:send("positions", table.unpack(point_positions))
-        _draw_light_shader:send("colors", table.unpack(point_colors))
-        _draw_light_shader:send("n_lights", table.sizeof(point_positions))
-
-        love.graphics.setBlendMode("add", "premultiplied")
-        love.graphics.setColor(1, 1, 1, 1)
-    else
-        love.graphics.setBlendMode("subtract", "premultiplied")
-        local value = 0.1
-        love.graphics.setColor(value, value, value, value)
-        _draw_shadow_shader:bind()
-    end
-
-    for chunk_x = min_chunk_x, max_chunk_x do
-        local column = self._chunks[chunk_x]
-        for chunk_y = min_chunk_y, max_chunk_y do
-            local chunk
-            if column ~= nil then
-                chunk = column[chunk_y]
-            end
-
-            local draw_x = self._bounds.x + chunk_x * chunk_size
-            local draw_y = self._bounds.y + chunk_y * chunk_size
-
-            if chunk ~= nil and chunk.is_initialized then
-                love.graphics.draw(chunk.texture:get_native(), draw_x, draw_y)
-            end
-        end
-    end
-
-    if light_or_shadow == true then
-        _draw_light_shader:unbind()
-    else
-        _draw_shadow_shader:unbind()
-    end
-
-    love.graphics.setBlendMode("alpha")
-end
-
 function ow.NormalMap:draw_light()
     if self._is_visible == false or not self._computation_started then return end
 
     local chunk_size = self._chunk_size
     local bounds = self._bounds
-    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
+    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds():unpack()
     local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
@@ -460,7 +387,7 @@ function ow.NormalMap:draw_light()
     local shader_bound = false
 
     -- collect all point lights
-    local all_point_positions, all_point_colors = self._stage:get_scene():get_light_sources()
+    local all_point_positions, all_point_colors = self._stage:get_scene():get_point_light_sources()
     table.insert(all_point_positions, { player:get_position() })
     table.insert(all_point_colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
 
@@ -469,6 +396,15 @@ function ow.NormalMap:draw_light()
     for position in values(all_point_positions) do
         table.insert(point_light_world_positions, table.deepcopy(position))
         position[1], position[2] = camera:world_xy_to_screen_xy(table.unpack(position))
+    end
+
+    local segment_lights, segment_colors = self._stage:get_scene():get_segment_light_sources()
+    local n_segment_lights = #segment_lights
+
+    -- translate to screen coords
+    for segment in values(segment_lights) do
+        segment[1], segment[2] = camera:world_xy_to_screen_xy(segment[1], segment[2])
+        segment[3], segment[4] = camera:world_xy_to_screen_xy(segment[3], segment[4])
     end
 
     local cell = rt.AABB()
@@ -500,15 +436,6 @@ function ow.NormalMap:draw_light()
                             table.insert(point_colors, all_point_colors[i])
                             n_point_lights = n_point_lights + 1
                         end
-                    end
-
-                    -- segment lights filtered by blood splatter
-                    local segment_lights, segment_colors, n_segment_lights = blood_splatter:get_visible_segments(cell)
-
-                    -- translate to screen coords
-                    for segment in values(segment_lights) do
-                        segment[1], segment[2] = camera:world_xy_to_screen_xy(segment[1], segment[2])
-                        segment[3], segment[4] = camera:world_xy_to_screen_xy(segment[3], segment[4])
                     end
 
                     if n_point_lights + n_segment_lights > 0 then
@@ -553,7 +480,7 @@ function ow.NormalMap:draw_shadow()
 
     local chunk_size = self._chunk_size
     local bounds = self._bounds
-    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds()
+    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds():unpack()
     local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - bounds.y) / chunk_size)

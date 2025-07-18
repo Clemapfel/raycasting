@@ -95,7 +95,7 @@ end
 function ow.BloodSplatter:draw()
     love.graphics.setLineWidth(3.5)
 
-    local x, y, w, h = self._scene:get_camera():get_world_bounds()
+    local x, y, w, h = self._scene:get_camera():get_world_bounds():unpack()
     local visible = {}
     self._world:update(0)
     self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)

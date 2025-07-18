@@ -433,7 +433,6 @@ end
 function ow.Stage:get_blood_splatter()
     return self._blood_splatter
 end
-
 --- @brief
 function ow.Stage:destroy()
     local native = self._world:get_native()
