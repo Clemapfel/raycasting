@@ -31,7 +31,6 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-uniform vec4 color;
 uniform float pulse;
 uniform float elapsed;
 
@@ -39,12 +38,16 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_coords, vec2 frag_positio
 
     float dip = (gradient_noise(vec3(texture_coords.xx * 7, 0.5 * elapsed)) + 1) / 2;
     float y = gaussian(distance(texture_coords.y * dip, 0), 4);
-    float x = gaussian(distance(texture_coords.x, 0.5), 1.6);
+    float x = gaussian(distance(texture_coords.x, 0.5), 2);
 
     float flicker = (gradient_noise(vec3(texture_coords.yy, 0.5 * elapsed)) + 1) / 2;
     x *= flicker;
 
-    return mix(color, vec4(1), x * y * (pulse + 0.4)) * vec4(1, 1, 1, (1 + 0.2 * pulse) * x * y);
+    return mix(
+        vertex_color,
+        vec4(1),
+        x * y * (pulse + 0.4))
+    * vec4(1, 1, 1, 2 * max(pulse, 0.5) * x * y);
 }
 
 #endif // PIXEL
