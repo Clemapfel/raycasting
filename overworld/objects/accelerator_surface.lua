@@ -1,10 +1,22 @@
+rt.settings.overworld.accelerator_surface = {
+    particle = {
+        max_n_particles_per_second = 120,
+        min_speed = 100,
+        max_speed = 200,
+        min_lifetime = 0.5,
+        max_lifetime = 1.5,
+        attack = 0.05,
+        sustain = 0.4,
+        min_scale = 0.1,
+        max_scale = 0.4,
+        deceleration = 0.985
+    }
+}
 
 --- @class ow.AcceleratorSurface
 ow.AcceleratorSurface = meta.class("AcceleratorSurface")
 
-local _body_shader, _outline_shader
-
-local _first = true -- TODO
+local _body_shader, _outline_shader, _particle_shader
 
 local _particle_texture, _particle_quads = nil, {}
 local _vertex_counts = {}
@@ -66,6 +78,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
             _particle_texture:bind()
             love.graphics.translate(x + center_x - centroid_x, y + center_y - centroid_y)
             love.graphics.polygon("fill", vertices)
+            _particle_texture:unbind()
             love.graphics.pop()
 
             frame_i = frame_i + 1
@@ -74,19 +87,9 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         love.graphics.pop()
     end
 
-    if _first then
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "c" then
-                _body_shader:recompile()
-                _outline_shader:recompile()
-            end
-        end)
-        _first = false
-    end
-
     if _body_shader == nil then _body_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 0 }) end
     if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 1 }) end
+    if _particle_shader == nil then _particle_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 2 }) end
 
     self._scene = scene
     self._elapsed = 0
@@ -96,17 +99,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     -- mesh
     self._contour = rt.round_contour(object:create_contour(), 10)
     self._mesh = object:create_mesh()
-
-    -- collision
-    do
-        local shapes = {}
-        local slick = require "dependencies.slick.slick"
-        for shape in values(slick.polygonize(6, { self._contour })) do
-            table.insert(shapes, b2.Polygon(shape))
-        end
-
-        self._body = b2.Body(stage:get_physics_world(), b2.BodyType.STATIC, 0, 0, shapes)
-    end
+    self._body = object:create_physics_body(stage:get_physics_world())
 
     self._body:add_tag(
         "use_friction",
@@ -140,6 +133,20 @@ function _get_friction(nx, ny, vx, vy)
     return -tangent_vx, -tangent_vy
 end
 
+local _x = 1
+local _y = 2
+local _velocity_x = 3
+local _velocity_y = 4
+local _velocity_magnitude = 5
+local _elapsed = 6
+local _lifetime = 7
+local _scale = 8
+local _angle = 9
+local _quad = 10
+
+local _total_n_particles = 0
+local _max_n_particles = 1000
+
 --- @brief
 function ow.AcceleratorSurface:update(delta)
     if not self._scene:get_is_body_visible(self._body) then
@@ -147,66 +154,66 @@ function ow.AcceleratorSurface:update(delta)
         return
     end
 
+    local settings = rt.settings.overworld.accelerator_surface.particle
+
     local player = self._scene:get_player()
-    self._elapsed = self._elapsed + delta * math.magnitude(player:get_velocity()) / 1000
+    if player:get_is_colliding_with(self._body) == true then
+        self._particle_elapsed = self._particle_elapsed + delta
+        local normal_x, normal_y = player:get_collision_normal(self._body)
+        local velocity_x, velocity_y = player:get_physics_body():get_velocity()
+        local dx, dy = _get_friction(normal_x, normal_y, velocity_x, velocity_y)
+        local px, py = player:get_contact_point(self._body)
 
-    do
-        if player:get_is_colliding_with(self._body) == true then
-            self._particle_elapsed = self._particle_elapsed + delta
-            local normal_x, normal_y = player:get_collision_normal(self._body)
-            local velocity_x, velocity_y = math.normalize(player:get_velocity())
-            local dx, dy = _get_friction(normal_x, normal_y, velocity_x, velocity_y)
-            local px, py = player:get_contact_point(self._body)
+        require "common.debug"
+        local t = math.min(math.magnitude(dx, dy) / 800, 1)
+        local n_particle_per_second = math.mix(0, settings.max_n_particles_per_second, rt.InterpolationFunctions.SQUARE_ACCELERATION(t))
+        local step = 1 / n_particle_per_second
+        
+        dx, dy = math.normalize(dx, dy)
 
+        local player_radius = rt.settings.player.radius * 2
+        px, py = px + dx * player_radius, py + dy * player_radius
 
-            require "common.debug"
-            local n_particle_per_second = math.mix(
-                0,
-                debugger.get("max"),
-                rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(math.min(math.magnitude(dx, dy) * debugger.get("t"), 1))
-            )
-            local step = 1 / n_particle_per_second
-            local min_speed, max_speed = 100, 200
-            local min_lifetime, max_lifetime = 0.2, 0.5
-            local min_scale, max_scale = 0.1, 0.4
+        dx, dy = math.mix2(dx, dy, normal_x, normal_y, 0.5)
 
-            dx, dy = math.normalize(dx, dy)
-            dx, dy = math.mix2(dx, dy, normal_x, normal_y, 0.5)
+        while self._particle_elapsed > step do
+            local particle = {
+                [_x] = px,
+                [_y] = py,
+                [_velocity_x] = dx,
+                [_velocity_y] = dy,
+                [_velocity_magnitude] = rt.random.number(settings.min_speed, settings.max_speed),
+                [_elapsed] = 0,
+                [_lifetime] = rt.random.number(settings.min_lifetime, settings.max_lifetime),
+                [_scale] = rt.random.number(settings.min_scale, settings.max_scale * t),
+                [_angle] = rt.random.number(0, 2 * math.pi),
+                [_quad] = rt.random.choose(_particle_quads),
+            }
 
-            while self._particle_elapsed > step do
-                local speed = rt.random.number(min_speed, max_speed)
-                local particle = {
-                    x = px,
-                    y = py,
-                    velocity_x = dx * speed,
-                    velocity_y = dy * speed,
-                    elapsed = 0,
-                    scale = rt.random.number(min_scale, max_scale),
-                    lifetime = rt.random.number(min_lifetime, max_lifetime),
-                    angle = rt.random.number(0, 2 * math.pi),
-                    quad = rt.random.choose(_particle_quads),
-                }
-
-                table.insert(self._particles, particle)
-                self._particle_elapsed = self._particle_elapsed - step
-            end
+            table.insert(self._particles, particle)
+            self._particle_elapsed = self._particle_elapsed - step
+            _total_n_particles = _total_n_particles + 1
         end
+    end
 
-        local to_remove = {}
-        for i, particle in ipairs(self._particles) do
-            particle.x = particle.x + particle.velocity_x * delta
-            particle.y = particle.y + particle.velocity_y * delta
-            particle.elapsed = particle.elapsed + delta
-            if particle.elapsed > particle.lifetime then
-                table.insert(to_remove, i)
-            end
+    local aabb = rt.AABB(self._scene:get_camera():get_world_bounds())
+
+    local to_remove = {}
+    for i, particle in ipairs(self._particles) do
+        particle[_x] = particle[_x] + particle[_velocity_x] * particle[_velocity_magnitude] * delta
+        particle[_y] = particle[_y] + particle[_velocity_y] * particle[_velocity_magnitude] * delta
+        particle[_elapsed] = particle[_elapsed] + delta
+        particle[_velocity_magnitude] = particle[_velocity_magnitude] * settings.deceleration
+        if _total_n_particles > _max_n_particles or not aabb:contains(particle[_x], particle[_y]) or particle[_elapsed] > particle[_lifetime] then
+            table.insert(to_remove, i)
+            _total_n_particles = _total_n_particles - 1
         end
+    end
 
-        if #to_remove > 0 then
-            table.sort(to_remove, function(a, b) return a > b end)
-            for i in values(to_remove) do
-                table.remove(self._particles, i)
-            end
+    if #to_remove > 0 then
+        table.sort(to_remove, function(a, b) return a > b end)
+        for i in values(to_remove) do
+            table.remove(self._particles, i)
         end
     end
 end
@@ -225,14 +232,11 @@ function ow.AcceleratorSurface:draw()
     _body_shader:send("camera_offset", { offset_x, offset_y })
     _body_shader:send("camera_scale", self._scene:get_camera():get_scale())
     _body_shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-    _body_shader:send("elapsed", self._elapsed + meta.hash(self) * 100)
-    _body_shader:send("outline_width", outline_width)
-    _body_shader:send("outline_color", { outline_color:unpack() })
+    _body_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _body_shader:send("player_hue", self._scene:get_player():get_hue())
-    _body_shader:send("shape_centroid", { self._scene:get_camera():world_xy_to_screen_xy(self._body:get_center_of_mass())})
-    love.graphics.push("all")
+    love.graphics.push()
     self._mesh:draw()
-    love.graphics.pop("all")
+    love.graphics.pop()
     _body_shader:unbind()
 
     outline_color:bind()
@@ -240,21 +244,37 @@ function ow.AcceleratorSurface:draw()
     _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
     _outline_shader:send("camera_scale", self._scene:get_camera():get_scale())
     _outline_shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-    _outline_shader:send("elapsed", self._elapsed + meta.hash(self) * 100)
-    _outline_shader:send("noise_scale", 5)
+    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
     love.graphics.setLineWidth(outline_width)
     love.graphics.line(self._outline)
+    _outline_shader:unbind()
 
-    _outline_shader:send("noise_scale", 20)
+    _particle_shader:bind()
+    _particle_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _particle_shader:send("camera_scale", self._scene:get_camera():get_scale())
 
     local frame_h = _particle_texture:get_height()
     local texture = _particle_texture:get_native()
+
     love.graphics.push()
-    love.graphics.setColor(1, 1, 1, 1)
     for particle in values(self._particles) do
-        love.graphics.draw(texture, particle.quad, particle.x, particle.y, particle.angle, particle.scale, particle.scale, 0.5 * frame_h, 0.5 * frame_h)
+        love.graphics.setColor(
+            1, 1, 1,
+            rt.InterpolationFunctions.ENVELOPE(
+                particle[_elapsed] / particle[_lifetime],
+                rt.settings.overworld.accelerator_surface.particle.attack,
+                rt.settings.overworld.accelerator_surface.particle.sustain
+            )
+        )
+
+        love.graphics.draw(texture, particle[_quad],
+            particle[_x], particle[_y],
+            particle[_angle],
+            particle[_scale], particle[_scale],
+            0.5 * frame_h, 0.5 * frame_h
+        )
     end
     love.graphics.pop()
 
-    _outline_shader:unbind()
+    _particle_shader:unbind()
 end

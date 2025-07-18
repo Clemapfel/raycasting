@@ -60,6 +60,9 @@ rt.settings.player = {
     wall_jump_duration = 12 / 60,
     wall_jump_freeze_duration = 7 / 60,
 
+    accelerator_max_velocity = 2000, -- vxy magnitude
+    accelerator_magnet_force = 400,
+
     bounce_min_force = 200,
     bounce_max_force = 400,
     bounce_duration = 2 / 60,
@@ -379,6 +382,8 @@ function rt.Player:_connect_input()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
+        elseif which == "r" then
+            self:set_is_ghost(not self:get_is_ghost())
         elseif false then --which == "h" then
             is_sleeping = not is_sleeping
 
@@ -874,8 +879,14 @@ function rt.Player:update(delta)
 
                     -- magnetize to surface
                     local flipped_x, flipped_y = math.flip(nx, ny)
-                    next_velocity_x = next_velocity_x + flipped_x * delta * _settings.wall_magnet_force
-                    next_velocity_y = next_velocity_y + flipped_y * delta * _settings.wall_magnet_force
+                    next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
+                    next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
+                end
+
+                if math.magnitude(next_velocity_x, next_velocity_y) > _settings.accelerator_max_velocity then
+                    next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
+                    next_velocity_x = next_velocity_x * _settings.accelerator_max_velocity
+                    next_velocity_y = next_velocity_y * _settings.accelerator_max_velocity
                 end
             end
 

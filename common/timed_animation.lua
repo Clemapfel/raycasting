@@ -234,19 +234,32 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         return 1 - (2 * (x - 0.5))^2
     end,
 
-    ENVELOPE = function(x, attack_fraction)
-        -- piecewise gaussian, peak at 1
+    ENVELOPE = function(x, attack_fraction, sustain_fraction)
+        -- piecewise gaussian with optional sustain, peak at 1
         if attack_fraction == nil then attack_fraction = 0.5 end
+        if sustain_fraction == nil then sustain_fraction = 0 end
         if x < 0 or x > 1 then return 0 end
+
+        local total_non_decay = attack_fraction + sustain_fraction
+        if total_non_decay > 1 then
+            local scale = 1 / total_non_decay
+            attack_fraction = attack_fraction * scale
+            sustain_fraction = sustain_fraction * scale
+        end
 
         local function gaussian(x, center)
             return math.exp(-4.4 * math.pi / 3 * ((x - center)^2))
         end
 
+        local decay_start = attack_fraction + sustain_fraction
+
         if x < attack_fraction then -- attack
             return gaussian(x / attack_fraction, 1)
+        elseif x < decay_start then -- sustain
+            return 1
         else -- decay
-            return gaussian((x - attack_fraction) / (1 - attack_fraction), 0)
+            local decay_progress = (x - decay_start) / (1 - decay_start)
+            return gaussian(decay_progress, 0)
         end
     end
 })

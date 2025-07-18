@@ -38,6 +38,9 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
+    self._body:add_tag("light_source")
+    self._body:set_user_data(self)
+
     self._is_consumed = false
     self._was_consumed = false
     self._was_attached = false
@@ -198,4 +201,9 @@ function ow.DoubleJumpTether:draw_bloom()
         love.graphics.setColor(r, g, b, shape_a)
         self._particle:draw(self._x, self._y, false, true) -- line only
     end
+end
+
+--- @brief
+function ow.DoubleJumpTether:get_color()
+    return rt.RGBA(table.unpack(self._color))
 end

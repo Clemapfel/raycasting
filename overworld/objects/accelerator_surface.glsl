@@ -2,6 +2,7 @@
 
 #define MODE_BODY 0
 #define MODE_OUTLINE 1
+#define MODE_PARTICLE 2
 
 #ifndef MODE
 #error "Mode undefined"
@@ -10,7 +11,6 @@
 uniform vec2 camera_offset;
 uniform float camera_scale = 1;
 uniform float elapsed;
-uniform vec2 shape_centroid; // world coords
 
 
 uniform vec2 player_position;
@@ -79,11 +79,6 @@ vec3 lch_to_rgb(vec3 lch) {
 
     return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
 }
-
-#if MODE == MODE_BODY
-
-uniform float outline_width;
-uniform vec4 outline_color;
 
 // src: https://www.shadertoy.com/view/Xc23Wd
 
@@ -197,13 +192,15 @@ vec2 rotate(vec2 v, float angle) {
     return v * mat2(c, -s, s, c);
 }
 
+#if MODE == MODE_BODY
+
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     vec2 screen_uv = to_uv(screen_coords);
     vec2 player_uv = to_uv(player_position);
 
     // Distance-based attenuation from player (for gameplay lighting)
     float player_distance = distance(player_uv, screen_uv);
-    float attenuation = gaussian(player_distance, 6);
+    float attenuation = gaussian(player_distance, 8);
 
     const float noise_scale = 31;
     // Get Worley data using new functions
@@ -212,21 +209,21 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     worley_with_data(screen_uv * noise_scale , sdf_value, gradient, closest_point, second_closest_point);
 
     // Get outlines using new technique
-    float outline = worley_outlines_bisector(screen_uv * noise_scale, outline_width / 100);
+    float outline = worley_outlines_bisector(screen_uv * noise_scale, 2.0 / 100);
 
     float shadow = sdf_value * 0.3;
 
     // Texture - iridescent color based on gradient direction
     vec2 direction = normalize(gradient - camera_offset / love_ScreenSize.x);
     float angle = (atan(direction.y, direction.x) + PI) / (2.0 * PI);
-    float hue_noise = gradient_noise(vec3(vec3(screen_uv.xy, attenuation * elapsed / 1000000) * (noise_scale / 2 )));
+    float hue_noise = gradient_noise(vec3(vec3(screen_uv.xy, elapsed / 1000000) * (noise_scale / 2 )));
     vec3 iridescent_color = lch_to_rgb(vec3(0.8 - shadow, 1,
-        fract(hue_noise + elapsed / 5)
+        fract(hue_noise + elapsed / 30)
     ));
 
     iridescent_color = mix(iridescent_color, lch_to_rgb(vec3(0.8, 1, player_hue)), attenuation);
 
-    gradient = rotate(gradient, elapsed);
+    gradient = rotate(gradient, elapsed / 10);
 
     // Lighting - Camera-relative lighting setup
     // The light source moves with the camera to simulate viewing angle changes
@@ -272,11 +269,26 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
 #elif MODE == MODE_OUTLINE
 
-uniform float noise_scale = 5;
+vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
+    vec2 screen_uv = to_uv(screen_coords);
+    return texture(tex, texture_coords) * vec4(lch_to_rgb(vec3(0.8, 1, gradient_noise(vec3(screen_uv * 5, elapsed / 2)))), 1);
+}
+
+#elif MODE == MODE_PARTICLE
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     vec2 screen_uv = to_uv(screen_coords);
-    return texture(tex, texture_coords) * vec4(lch_to_rgb(vec3(0.8, 1, gradient_noise(vec3(screen_uv * noise_scale, elapsed / 2)))), 1);
+    vec2 player_uv = to_uv(player_position);
+
+    // Distance-based attenuation from player (for gameplay lighting)
+    float player_distance = distance(player_uv, screen_uv);
+    float attenuation = gaussian(player_distance, 10);
+
+    return texture(tex, texture_coords) * vec4(
+        mix(lch_to_rgb(vec3(0.8, 1, gradient_noise(vec3(screen_uv * 10, elapsed / 2)))),
+        vec3(1),
+        0
+    ), color.a);
 }
 
 #endif
