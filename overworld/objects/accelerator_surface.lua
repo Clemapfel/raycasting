@@ -164,7 +164,6 @@ function ow.AcceleratorSurface:update(delta)
         local dx, dy = _get_friction(normal_x, normal_y, velocity_x, velocity_y)
         local px, py = player:get_contact_point(self._body)
 
-        require "common.debug"
         local t = math.min(math.magnitude(dx, dy) / 800, 1)
         local n_particle_per_second = math.mix(0, settings.max_n_particles_per_second, rt.InterpolationFunctions.SQUARE_ACCELERATION(t))
         local step = 1 / n_particle_per_second

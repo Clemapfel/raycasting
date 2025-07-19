@@ -82,3 +82,10 @@ end)
 function debugger.get(key)
     return DBG[key]
 end
+
+--- @brief
+function debugger.traceback()
+    return debug.traceback()
+end
+
+return debugger

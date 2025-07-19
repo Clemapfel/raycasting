@@ -288,6 +288,8 @@ function ow.Checkpoint:_set_state(state)
         self._explosion_elapsed = 0
         self._explosion_fraction = 0
 
+        dbg(require("common.debugger").traceback())
+
         player:disable()
         player:set_velocity(0, 0)
         player:set_gravity(0)

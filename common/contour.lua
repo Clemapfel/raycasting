@@ -147,7 +147,6 @@ end
 
 --- ###
 
-
 function rt.round_contour(points, radius, samples_per_corner)
     local n = math.floor(#points / 2)
     radius = radius or 10
@@ -200,4 +199,42 @@ function rt.round_contour(points, radius, samples_per_corner)
     table.insert(new_points, new_points[2])
 
     return new_points
+end
+
+function rt.is_contour_convex(vertices)
+    local n = #vertices / 2
+    if n < 3 then
+        return false
+    end
+
+    local sign = nil
+
+    for i = 0, n - 1 do
+        local curr_idx = i * 2 + 1
+        local next_idx = ((i + 1) % n) * 2 + 1
+        local prev_idx = ((i - 1 + n) % n) * 2 + 1
+
+        local curr_x, curr_y = vertices[curr_idx], vertices[curr_idx + 1]
+        local next_x, next_y = vertices[next_idx], vertices[next_idx + 1]
+        local prev_x, prev_y = vertices[prev_idx], vertices[prev_idx + 1]
+
+        local edge1_x = curr_x - prev_x
+        local edge1_y = curr_y - prev_y
+        local edge2_x = next_x - curr_x
+        local edge2_y = next_y - curr_y
+
+        local cross_product = math.cross(edge1_x, edge1_y, edge2_x, edge2_y)
+
+        if math.abs(cross_product) > math.eps then
+            local current_sign = cross_product > 0 and 1 or -1
+
+            if sign == nil then
+                sign = current_sign
+            elseif sign ~= current_sign then
+                return false
+            end
+        end
+    end
+
+    return true
 end

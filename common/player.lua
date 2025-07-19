@@ -104,7 +104,7 @@ rt.settings.player = {
 
 local _settings = setmetatable({}, {
     __index = function(self, key)
-        local res = debugger.get(key)
+        local res = require("common.debugger").get(key)
         if res == nil then
             res = rt.settings.player[key]
         end
@@ -280,6 +280,7 @@ function rt.Player:instantiate()
 
         -- bubble
         _is_bubble = false,
+        _position_update_needed = true,
         _use_bubble_mesh = false, -- cf. draw
         _use_bubble_mesh_delay_n_steps = 0,
 
@@ -1495,10 +1496,13 @@ end
 function rt.Player:get_position()
     if self._body == nil then return 0, 0 end
 
-    if not self._is_bubble then
-        return self._body:get_position()
-    else
+    local use_bubble = self._is_bubble
+    if self._position_update_needed then use_bubble = not use_bubble end
+
+    if use_bubble then
         return self._bubble_body:get_position()
+    else
+        return self._body:get_position()
     end
 end
 
@@ -1821,9 +1825,11 @@ function rt.Player:set_is_bubble(b)
 
     -- delay to after next physics update, because solver needs time to resolve spring after synch teleport
     self._use_bubble_mesh_delay_n_steps = 4
+    self._position_update_needed = true
     self._world:signal_connect("step", function()
         if self._use_bubble_mesh_delay_n_steps <= 0 then
-            self._use_bubble_mesh = self._is_bubblen
+            self._use_bubble_mesh = self._is_bubble
+            self._position_update_needed = false
             return meta.DISCONNECT_SIGNAL
         else
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1

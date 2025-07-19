@@ -72,7 +72,6 @@ for _, t in pairs({
 end
 
 require "common.log"
-require "common.debug"
 
 rt.settings = meta.make_auto_extend({
     margin_unit = 10,

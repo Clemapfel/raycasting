@@ -215,6 +215,11 @@ function math.normalize_angle(angle)
     return angle - (2 * math.pi) * math.floor(angle / (2 * math.pi))
 end
 
+function math.equals(a, b, eps)
+    if eps == nil then eps = 0 end
+    return math.abs(a - b) <= eps
+end
+
 --- @brief
 function math.mix_angles(angle_a, angle_b, ratio)
     angle_a = math.normalize_angle(angle_a)
