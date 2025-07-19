@@ -7,31 +7,37 @@ rt.settings.overworld.kill_plane = {
 --- @class ow.KillPlane
 ow.KillPlane = meta.class("KillPlane")
 
-local _shader
+local _inner_shader, _outer_shader
 
 local _mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
     { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
 }
 
-local function _line_intersection(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
-    local det = dx1 * dy2 - dy1 * dx2
-    if math.abs(det) < 1e-10 then
-        return nil -- Lines are parallel
+local function _segment_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+    local denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+
+    if denom == 0 then
+        return nil
     end
 
-    local t = ((x2 - x1) * dy2 - (y2 - y1) * dx2) / det
-    return x1 + t * dx1, y1 + t * dy1
-end
+    local t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+    local u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
 
-local function _is_concave_corner(prev_dx, prev_dy, curr_dx, curr_dy)
-    local cross = prev_dx * curr_dy - prev_dy * curr_dx
-    return cross < 0
+    if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
+        local px = x1 + t * (x2 - x1)
+        local py = y1 + t * (y2 - y1)
+        return px, py
+    end
+
+    return nil
 end
 
 --- @brief
 function ow.KillPlane:instantiate(object, stage, scene)
-    if _shader == nil then _shader = rt.Shader("overworld/objects/kill_plane.glsl") end
+    if _inner_shader == nil then _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 }) end
+    if _outer_shader == nil then _outer_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 1 }) end
+
     self._scene = scene
     self._stage = stage
 
@@ -87,7 +93,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         local vertex_i = 1
         for i = 1, #self._contour, 2 do
             table.insert(inner_mesh_data, {
-                self._contour[i+0], self._contour[i+1], 0, 0, 0, 1
+                self._contour[i+0], self._contour[i+1], 1, 1, 1, 1
             })
         end
 
@@ -117,7 +123,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
                     }
                 else
                     data = {
-                        x, y, 0, 0, 0, 1
+                        x, y, 1, 1, 1, 1
                     }
                 end
 
@@ -138,38 +144,64 @@ function ow.KillPlane:instantiate(object, stage, scene)
     local vertex_map = {}
     local border_w = rt.settings.overworld.kill_plane.spike_width
 
-    local vertex_i = 1
+    local _contour_x1, _contour_y1, _contour_x2, _contour_y2 = 1, 2, 3, 4
+    local _outer_x1, _outer_y1, _outer_x2, _outer_y2 = 5, 6, 7, 8
+
+    local quads = {}
     for i = 1, #self._contour - 2, 2 do
         local contour_x1, contour_y1 = self._contour[i+0], self._contour[i+1]
         local contour_x2, contour_y2 = self._contour[i+2], self._contour[i+3]
 
-        -- get rect that extends the outer contour
-        local side = math.cross(contour_x1, contour_y1, contour_x2, contour_y2)
-
         local dx, dy = math.normalize(contour_x2 - contour_x1, contour_y2 - contour_y1)
         dx, dy = math.turn_right(dx, dy)
 
-        local x1, y1 = contour_x1 + dx * border_w, contour_y1 + dy * border_w
-        local x2, y2 = contour_x2 + dx * border_w, contour_y2 + dy * border_w
+        local outer_x1, outer_y1 = contour_x1 + dx * border_w, contour_y1 + dy * border_w
+        local outer_x2, outer_y2 = contour_x2 + dx * border_w, contour_y2 + dy * border_w
 
-        for x in range(x1, y1, x2, y2) do
-            table.insert(self._dbg, x)
+        table.insert(quads, {
+            [_contour_x1] = contour_x1,
+            [_contour_y1] = contour_y1,
+            [_contour_x2] = contour_x2,
+            [_contour_y2] = contour_y2,
+            [_outer_x1] = outer_x1,
+            [_outer_y1] = outer_y1,
+            [_outer_x2] = outer_x2,
+            [_outer_y2] = outer_y2,
+        })
+    end
+
+    self._dbg = {}
+
+    local vertex_i = 1
+    for quad_i = 1, #quads do
+        local current = quads[quad_i+0]
+        local next = quads[(quad_i % #quads) + 1]
+
+        local ix, iy = _segment_intersection(
+            current[_outer_x1], current[_outer_y1], current[_outer_x2], current[_outer_y2],
+            next[_outer_x1], next[_outer_y1], next[_outer_x2], next[_outer_y2]
+        )
+
+        if ix ~= nil then -- concave corner, quads would overlap
+            current[_outer_x2], current[_outer_y2] = ix, iy
+            next[_outer_x1], next[_outer_y1] = ix, iy
         end
 
+
         table.insert(outer_mesh_data, {
-            contour_x1, contour_y1, 1, 1, 1, 1
+            current[_contour_x1], current[_contour_y1], 1, 1, 1, 1
         })
 
         table.insert(outer_mesh_data, {
-            contour_x2, contour_y2, 1, 1, 1, 1
+            current[_contour_x2], current[_contour_y2], 1, 1, 1, 1
         })
 
         table.insert(outer_mesh_data, {
-            x1, y1, 0, 0, 0, 1
+            current[_outer_x1], current[_outer_y1], 0, 0, 0, 1
         })
 
         table.insert(outer_mesh_data, {
-            x2, y2, 0, 0, 0, 1
+            current[_outer_x2], current[_outer_y2], 0, 0, 0, 1
         })
 
         for j in range(
@@ -214,12 +246,14 @@ end
 function ow.KillPlane:draw()
     if not self._is_visible or not self._scene:get_is_body_visible(self._body) then return end
     love.graphics.setColor(1, 1, 1, 1)
-    self._inner_mesh:draw()
-    self._outer_mesh:draw()
 
-    --[[
-    love.graphics.line(self._contour)
-    love.graphics.setColor(0.5, 0.5, 0.5, 1)
-    love.graphics.line(self._dbg)
-    ]]--
+    _inner_shader:bind()
+    _inner_shader:send("elapsed", rt.SceneManager:get_elapsed()) -- synched along all kill planes
+    self._inner_mesh:draw()
+    _inner_shader:unbind()
+
+    _outer_shader:bind()
+    _outer_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    self._outer_mesh:draw()
+    _outer_shader:unbind()
 end

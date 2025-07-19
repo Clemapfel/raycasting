@@ -1,7 +1,9 @@
-#define MODE_BASE 0
-#define MODE_OUTLINE 1
+#define MODE_INNER 0
+#define MODE_OUTER 1
 
-#ifdef VERTEX
+#ifndef MODE
+#error "MODE not set, should be 0 or 1"
+#endif
 
 // Triangle wave function centered at zero
 float triangle(float x) {
@@ -26,39 +28,33 @@ float triangle_noise(float x, int octaves, float persistence) {
     return sum / maxAmp;
 }
 
+uniform vec2 camera_offset;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
+}
+
 uniform float elapsed;
 
-layout (location = 0) in vec2 position; // start of vector
-layout (location = 1) in vec3 contour_vector; // xy normalized, z magnitude
-layout (location = 2) in float scale; // magnitude scale
+#if MODE == MODE_INNER
 
-out vec4 VaryingTexCoord;
-out vec4 VaryingColor;
+vec4 effect(vec4 color, sampler2D img, vec2 _, vec2 frag_position) {
 
-void vertexmain() {
-    const float scale = 10;
-    const float magnitude = 0.4;
-    vec2 offset = vec2(
-        triangle_noise((position.x / love_ScreenSize.x) * scale + elapsed, 3, 1) * magnitude,
-        triangle_noise((position.y / love_ScreenSize.y) * scale + elapsed, 3, 1) * magnitude
-    );
-
-    vec2 position = position + contour_vector.xy *  contour_vector.z * vec2(1 + offset);
-
-
-    VaryingTexCoord = vec4(0);
-    VaryingColor = gammaCorrectColor(ConstantColor);
-
-    love_Position = TransformProjectionMatrix * vec4(position.xy, 0, 1);
+    return color;
 }
 
+#elif MODE == MODE_OUTER
 
-#endif
-
-#ifdef PIXEL
-
-vec4 effect(vec4 vertex_color, Image image, vec2 _, vec2 frag_position) {
-    return vertex_color;
+vec4 effect(vec4 color, sampler2D img, vec2 _, vec2 frag_position) {
+    return color;
 }
 
-#endif
+#endif // MODE
