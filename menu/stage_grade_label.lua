@@ -6,7 +6,7 @@ require "common.translation"
 rt.settings.menu.stage_grade_label = {
     --font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
     --font_path = "assets/fonts/Bowlby_One_SC/Bowlby_One",
-    font_id = "RubikMonoOne",
+    font_id = "RubikSprayPaint",
     --font_id = "RubikSprayPaint"
 
 }
