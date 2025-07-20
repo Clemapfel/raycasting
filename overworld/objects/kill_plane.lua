@@ -11,6 +11,7 @@ local _inner_shader, _outer_shader
 
 local _mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
+    { location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
     { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
 }
 
@@ -33,10 +34,23 @@ local function _segment_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
     return nil
 end
 
+local first = true -- TODO
+
 --- @brief
 function ow.KillPlane:instantiate(object, stage, scene)
     if _inner_shader == nil then _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 }) end
     if _outer_shader == nil then _outer_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 1 }) end
+
+    if first then
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "c" then
+                _inner_shader:recompile()
+                _outer_shader:recompile()
+            end
+        end)
+        first = false
+    end
 
     self._scene = scene
     self._stage = stage
@@ -87,13 +101,13 @@ function ow.KillPlane:instantiate(object, stage, scene)
     if rt.is_contour_convex(self._contour) then
         local vertex_map = {}
         inner_mesh_data = {
-            { self._contour_center_x, self._contour_center_y, 1, 1, 1, 1 }
+            { self._contour_center_x, self._contour_center_y, 0, 0, 1, 1, 1, 1 }
         }
 
         local vertex_i = 1
         for i = 1, #self._contour, 2 do
             table.insert(inner_mesh_data, {
-                self._contour[i+0], self._contour[i+1], 1, 1, 1, 1
+                self._contour[i+0], self._contour[i+1], 1, 1, 1, 1, 1, 1
             })
         end
 
@@ -119,11 +133,11 @@ function ow.KillPlane:instantiate(object, stage, scene)
                     math.equals(y, self._contour_center_y, math.eps)
                 then
                     data = {
-                        x, y, 1, 1, 1, 1
+                        x, y, 0, 0, 1, 1, 1, 1
                     }
                 else
                     data = {
-                        x, y, 1, 1, 1, 1
+                        x, y, 1, 1, 1, 1, 1, 1
                     }
                 end
 
@@ -189,19 +203,19 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
 
         table.insert(outer_mesh_data, {
-            current[_contour_x1], current[_contour_y1], 1, 1, 1, 1
+            current[_contour_x1], current[_contour_y1], 0, 0, 1, 1, 1, 1
         })
 
         table.insert(outer_mesh_data, {
-            current[_contour_x2], current[_contour_y2], 1, 1, 1, 1
+            current[_contour_x2], current[_contour_y2], 1, 0, 1, 1, 1, 1
         })
 
         table.insert(outer_mesh_data, {
-            current[_outer_x1], current[_outer_y1], 0, 0, 0, 1
+            current[_outer_x1], current[_outer_y1], 0, 1, 0, 0, 0, 1
         })
 
         table.insert(outer_mesh_data, {
-            current[_outer_x2], current[_outer_y2], 0, 0, 0, 1
+            current[_outer_x2], current[_outer_y2], 1, 1, 0, 0, 0, 1
         })
 
         for j in range(
@@ -249,11 +263,15 @@ function ow.KillPlane:draw()
 
     _inner_shader:bind()
     _inner_shader:send("elapsed", rt.SceneManager:get_elapsed()) -- synched along all kill planes
+    _inner_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _inner_shader:send("camera_scale", self._scene:get_camera():get_final_scale())
     self._inner_mesh:draw()
     _inner_shader:unbind()
 
     _outer_shader:bind()
     _outer_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _outer_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _outer_shader:send("camera_scale", self._scene:get_camera():get_final_scale())
     self._outer_mesh:draw()
     _outer_shader:unbind()
 end
