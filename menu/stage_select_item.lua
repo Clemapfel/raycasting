@@ -6,6 +6,7 @@ require "overworld.objects.coin"
 rt.settings.menu.stage_select_item = {
     coin_radius = 16,
     coins_max_n_per_row = 7,
+    coins_n_rows = 2
 }
 
 --- @class mn.StageSelectItem
@@ -38,22 +39,6 @@ local function _create_difficulty_label(score)
     return table.concat(out)
 end
 
-local function _create_grade_label(grade)
-    if grade == rt.StageGrade.DOUBLE_S then
-        return "<wave><rainbow>SS</rainbow></wave>"
-    elseif grade == rt.StageGrade.A then
-        return "<color=GREEN>S</color>"
-    elseif grade == rt.StageGrade.B then
-        return "<color=YELLOW>A</color>"
-    elseif grade == rt.StageGrade.C then
-        return "<color=ORANGE>B</color>"
-    elseif grade == rt.StageGrade.F then
-        return "<outline_color=WHITE><color=BLACK>F</color></outline_color>"
-    elseif grade == rt.StageGrade.NONE then
-        return _long_dash -- long dash
-    end
-end
-
 local _regular = rt.Font("assets/fonts/Baloo2/Baloo2-SemiBold.ttf")
 local _bold = rt.Font("assets/fonts/Baloo2/Baloo2-Bold.ttf")
 local _extra_bold = rt.Font("assets/fonts/Baloo2/Baloo2-ExtraBold.ttf")
@@ -76,10 +61,10 @@ function mn.StageSelectItem:instantiate(stage_id)
     local colon = "<color=GRAY>:</color>"
 
     local game_state, id = rt.GameState, self._id
-    
+    local time_grade, flow_grade, coin_grade, total_grade = game_state:get_stage_grades(id)
+
     local title = game_state:get_stage_title(id)
     local was_beaten = game_state:get_stage_was_beaten(id)
-    local time_grade, flow_grade, coin_grade, total_grade = game_state:get_stage_grades(id)
     local time = not was_beaten and _long_dash or string.format_time(game_state:get_stage_best_time(id))
     local flow = not was_beaten and _long_dash or _create_flow_percentage_label(game_state:get_stage_best_flow_percentage(id))
     local difficulty = _create_difficulty_label(game_state:get_stage_difficulty(id))
@@ -186,6 +171,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y, width, math.huge)
     current_y = current_y + title_h
 
+    --[[
     local coin_width, coin_height, coin_r
     do -- coins local alignment
         coin_r = rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale()
@@ -240,6 +226,72 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
 
         coin_height = n_rows * 2 * coin_r + (n_rows - 1) * coin_ym
         coin_width = 2 * coin_xm + 2 * coin_r + coin_row_w + 2 * coin_r
+    end
+    ]]--
+
+    local coin_width, coin_height, coin_r
+    do -- coins local alignment
+        coin_r = rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale()
+        local n_coins = #self._coins
+        local n_rows = rt.settings.menu.stage_select_item.coins_n_rows
+
+        -- round robin distribute coins
+        local row_i_to_n_coins = {}
+        local row_i_to_width = {}
+        local row_i_to_coins = {}
+
+        for i = 1, n_rows do
+            row_i_to_n_coins[i] = 0
+            row_i_to_width[i] = 0
+            row_i_to_coins[i] = {}
+        end
+
+        for i = 1, n_coins do
+            local row_index = ((i - 1) % n_rows) + 1
+            row_i_to_n_coins[row_index] = row_i_to_n_coins[row_index] + 1
+        end
+
+        local true_n_rows = 0
+        for row_i = 1, n_rows do
+            if row_i_to_n_coins[row_i] > 0 then true_n_rows = true_n_rows + 1 end
+        end
+
+        local coin_max_xm = _coin_xm * rt.get_pixel_scale()
+        local coin_ym = 0
+
+        coin_height = true_n_rows * 2 * coin_r + (true_n_rows - 1) * coin_ym
+        coin_width = width - 2 * outer_margin - 2 * coin_r
+
+        local coin_x, coin_y = 0, 0
+        local coin_i = 1
+        for row_i = 1, true_n_rows do
+            local n_coins_per_row = row_i_to_n_coins[row_i]
+            local coin_xm = math.min((coin_width - n_coins_per_row * 2 * coin_r) / (n_coins_per_row - 1), coin_max_xm)
+
+            for i = 1, n_coins_per_row do
+                local coin = self._coins[coin_i]
+                coin.x, coin.y = coin_x, coin_y
+
+                coin_x = coin_x + 2 * coin_r + coin_xm
+                row_i_to_width[row_i] = row_i_to_width[row_i] + 2 * coin_r + ternary(i == n_coins_per_row, 0, coin_xm)
+                table.insert(row_i_to_coins[row_i], coin)
+                coin_i = coin_i + 1
+            end
+
+            coin_y = coin_y + 2 * coin_r + coin_ym
+            coin_x = 0
+        end
+
+        -- center
+        for row_i = 1, n_rows do
+            local coins = row_i_to_coins[row_i]
+            local row_w = row_i_to_width[row_i]
+
+            local offset = x + 0.5 * width - 0.5 * row_w + coin_r
+            for coin in values(coins) do
+                coin.x = coin.x + offset
+            end
+        end
     end
 
     -- value labels
@@ -484,10 +536,11 @@ end
 
 --- @brief
 function mn.StageSelectItem:create_from_state()
-    local time_grade, flow_grade, total_grade = rt.GameState:get_stage_grades(self._id)
+    local time_grade, flow_grade, coin_grade, total_grade = rt.GameState:get_stage_grades(self._id)
 
     self._time_grade:set_grade(time_grade)
     self._flow_grade:set_grade(flow_grade)
+    self._coins_grade:set_grade(coin_grade)
     self._total_grade:set_grade(total_grade)
 
     for coin_i, entry in ipairs(self._coins) do

@@ -59,15 +59,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._draw_outer_color = { rt.Palette.BOUNCE_PAD:unpack() }
     self._hue = self._scene:get_player():get_hue()
 
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "l" then
-            _shape_shader:recompile()
-            dbg("called")
-        end
-    end)
-
     -- collision
     self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil")
 

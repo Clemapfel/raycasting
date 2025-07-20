@@ -27,7 +27,7 @@ rt.settings.game_state.stage = {
     }
 }
 
-local _debug_output = true
+local _debug_output = false
 
 --- @brief
 function rt.GameState:_initialize_stage()
@@ -291,13 +291,9 @@ function rt.GameState:get_stage_grades(id)
         return rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades)
     end
 
-    if stage.was_beaten == false then
-        return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE
-    end
-
     local time, flow = self:get_stage_best_time(id), self:get_stage_best_flow_percentage(id)
-    if time == nil or flow == nil then
-        return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE
+    if stage.was_beaten == false or time == nil or flow == nil then
+        return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.F
     end
 
     local time_fraction = self:get_stage_target_time(id) / time
@@ -362,6 +358,7 @@ function rt.GameState:get_stage_grades(id)
         total_grade = rt.StageGrade.A
     end
 
+    if total_grade == rt.StageGrade.NONE then total_grade = rt.StageGrade.F end
     return time_grade, flow_grade, coin_grade, total_grade
 end
 

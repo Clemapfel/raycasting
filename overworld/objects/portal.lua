@@ -57,22 +57,8 @@ local _t = 6
 local _FORWARD = true
 local _BACKWARDS = false
 
-first = true -- TODO
-
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
-    if first then
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "c" then
-                _particle_shader:recompile()
-                _pulse_shader:recompile()
-                dbg("called")
-            end
-        end)
-        first = false
-    end
-
     if _particle_texture == nil then
         local radius = rt.settings.overworld.portal.particle.radius
         local padding = 3
@@ -542,6 +528,8 @@ end
 
 --- @brief
 function ow.Portal:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     local r, g, b, a = table.unpack(self._color)
 
     -- particles
