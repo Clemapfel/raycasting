@@ -163,29 +163,29 @@ end
 
 
 --- @brief
-function rt.GameState:get_stage_was_beaten(id)
+function rt.GameState:get_stage_was_cleared(id)
     meta.assert(id, "String")
-    local _ = self:_get_stage(id, "get_stage_was_beaten")
+    local _ = self:_get_stage(id, "get_stage_was_cleared")
 
     local entry = self._state.stage_results[id]
-    if entry == nil or entry.was_beaten == nil then
+    if entry == nil or entry.was_cleared == nil then
         return false
     else
-        return entry.was_beaten
+        return entry.was_cleared
     end
 end
 
 --- @brief
-function rt.GameState:set_stage_was_beaten(id, b)
+function rt.GameState:set_stage_was_cleared(id, b)
     meta.assert(id, "String")
-    local _ = self:_get_stage(id, "set_stage_was_beaten")
+    local _ = self:_get_stage(id, "set_stage_was_cleared")
 
     local entry = self._state.stage_results[id]
     if entry == nil then
         entry = {}
         self._state.stage_results[id] = entry
     end
-    entry.was_beaten = b
+    entry.was_cleared = b
 end
 
 --- @brief
@@ -217,7 +217,7 @@ end
 function rt.GameState:get_stage_grades(id)
     local stage = self:_get_stage(id, "get_stage_grades")
 
-    if stage.was_beaten == false then
+    if stage.was_cleared == false then
         return rt.StageGrade.NONE
     end
 

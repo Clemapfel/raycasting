@@ -51,7 +51,7 @@ function rt.GameState:instantiate()
 
         -- stage results
         stage_results = {}, --[[ Table<StageID, {
-            was_beaten,
+            was_cleared,
             best_time,
             best_flow_percentage,
             collected_coins

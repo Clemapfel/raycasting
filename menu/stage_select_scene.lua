@@ -79,12 +79,12 @@ function mn.StageSelectScene:instantiate(state)
 
     local title_i = 1
     for id in values(stage_ids) do
-        local was_beaten = self._state:get_stage_was_beaten(id)
+        local was_cleared = self._state:get_stage_was_cleared(id)
 
         local title = self._state:get_stage_title(id)
-        local best_time = not was_beaten and _long_dash or string.format_time(self._state:get_stage_best_time(id))
-        local best_flow = not was_beaten and _long_dash or _create_flow_percentage_label(self._state:get_stage_best_flow_percentage(id))
-        local grade = not was_beaten and _long_dash or _create_grade_label(self._state:get_stage_grade(id))
+        local best_time = not was_cleared and _long_dash or string.format_time(self._state:get_stage_best_time(id))
+        local best_flow = not was_cleared and _long_dash or _create_flow_percentage_label(self._state:get_stage_best_flow_percentage(id))
+        local grade = not was_cleared and _long_dash or _create_grade_label(self._state:get_stage_grade(id))
 
         table.insert(self._elements, {
             id = id,

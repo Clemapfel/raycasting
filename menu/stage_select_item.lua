@@ -64,9 +64,9 @@ function mn.StageSelectItem:instantiate(stage_id)
     local time_grade, flow_grade, coin_grade, total_grade = game_state:get_stage_grades(id)
 
     local title = game_state:get_stage_title(id)
-    local was_beaten = game_state:get_stage_was_beaten(id)
-    local time = not was_beaten and _long_dash or string.format_time(game_state:get_stage_best_time(id))
-    local flow = not was_beaten and _long_dash or _create_flow_percentage_label(game_state:get_stage_best_flow_percentage(id))
+    local was_cleared = game_state:get_stage_was_cleared(id)
+    local time = not was_cleared and _long_dash or string.format_time(game_state:get_stage_best_time(id))
+    local flow = not was_cleared and _long_dash or _create_flow_percentage_label(game_state:get_stage_best_flow_percentage(id))
     local difficulty = _create_difficulty_label(game_state:get_stage_difficulty(id))
     local description = game_state:get_stage_description(id)
 
@@ -171,64 +171,6 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y, width, math.huge)
     current_y = current_y + title_h
 
-    --[[
-    local coin_width, coin_height, coin_r
-    do -- coins local alignment
-        coin_r = rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale()
-        local n_coins_per_row = math.min(
-            rt.settings.menu.stage_select_item.coins_max_n_per_row,
-            math.floor((width - 4 * m) / (2 * coin_r))
-        )
-
-        local coin_xm = _coin_xm * rt.get_pixel_scale()
-        local coin_ym = 0
-        local coin_row_w = n_coins_per_row * coin_r + (coin_xm * (n_coins_per_row - 1))
-
-        local coin_start_x = 0
-        local coin_x, coin_y = coin_start_x, 0
-        local n_in_row = 0
-        local row_i = 1
-        local row_to_row_w = {}
-        local current_row_w = 0
-        local current_row = {}
-        for i, coin in ipairs(self._coins) do
-            coin.x, coin.y = coin_x, coin_y
-            coin_x = coin_x + 2 * coin_r + coin_xm
-
-            table.insert(current_row, coin)
-            n_in_row = n_in_row + 1
-            current_row_w = current_row_w + 2 * coin_r + coin_xm
-
-            local current_n_coins = n_coins_per_row
-            if row_i % 2 == 0 then current_n_coins = current_n_coins - 1 end
-
-            if n_in_row >= current_n_coins or i == #self._coins then
-                row_to_row_w[current_row] = current_row_w - coin_xm
-
-                current_row = {}
-                current_row_w = 0
-                n_in_row = 0
-                coin_x = coin_start_x
-                coin_y = coin_y + 2 * coin_r + coin_ym
-                row_i = row_i + 1
-            end
-        end
-
-        -- center
-        local n_rows = 0
-        for row, row_w in pairs(row_to_row_w) do
-            local offset = x + 0.5 * width - 0.5 * row_w + coin_r
-            for coin in values(row) do
-                coin.x = coin.x + offset
-            end
-            n_rows = n_rows + 1
-        end
-
-        coin_height = n_rows * 2 * coin_r + (n_rows - 1) * coin_ym
-        coin_width = 2 * coin_xm + 2 * coin_r + coin_row_w + 2 * coin_r
-    end
-    ]]--
-
     local coin_width, coin_height, coin_r
     do -- coins local alignment
         coin_r = rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale()
@@ -298,7 +240,6 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     local left_x = x + 0.5 * width - 0.5 * coin_width
     local right_x = x + 0.5 * width + 0.5 * coin_width
 
-    self._dbg_left_x, self._dbg_right_x = left_x, right_x
     for prefix_colon_value in range(
         { self._time_prefix_label, self._time_colon_label, self._time_value_label },
         { self._flow_prefix_label, self._flow_colon_label, self._flow_value_label }
@@ -433,7 +374,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
         self._total_grade_prefix:reformat(
             grade_x - m - total_grade_prefix_w,
             current_y + 0.5 * grade_h - total_grade_prefix_h,
-            math.huge
+            math.huge, math.huge
         )
 
         current_y = current_y + grade_h

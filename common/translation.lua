@@ -114,7 +114,7 @@ rt.Translation = rt.initialize_translation({
         control_indicator_bubble_move = "Move Around"
     },
 
-    -- title screen
+    -- title screen / stage select
     menu_scene = {
         title_screen = {
             title = "Chroma Drift",
@@ -131,7 +131,10 @@ rt.Translation = rt.initialize_translation({
             control_indicator_select = "Select Stage",
             control_indicator_confirm = "Confirm",
             control_indicator_back = "Go Back",
-        }
+        },
+
+        cleared_label = "cleared!",
+        hundred_percent_label = "100%"
     },
 
     stage_select_item = {
@@ -141,7 +144,6 @@ rt.Translation = rt.initialize_translation({
         time_grade_prefix = "Time",
         coins_grade_prefix = "Collectibles",
         total_grade_prefix = "Total",
-
         difficulty_prefix = "Difficulty",
     },
 

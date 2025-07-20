@@ -27,7 +27,7 @@ rt.settings.game_state.stage = {
     }
 }
 
-local _debug_output = false
+local _debug_output = true
 
 --- @brief
 function rt.GameState:_initialize_stage()
@@ -219,30 +219,46 @@ function rt.GameState:get_stage_n_coins(id)
 end
 
 --- @brief
-function rt.GameState:get_stage_was_beaten(id)
+function rt.GameState:get_stage_was_cleared(id)
     meta.assert(id, "String")
     if _debug_output then return true end
-    local _ = self:_get_stage(id, "get_stage_was_beaten")
+    local _ = self:_get_stage(id, "get_stage_was_cleared")
 
     local entry = self._state.stage_results[id]
-    if entry == nil or entry.was_beaten == nil then
+    if entry == nil or entry.was_cleared == nil then
         return false
     else
-        return entry.was_beaten
+        return entry.was_cleared
     end
 end
 
 --- @brief
-function rt.GameState:set_stage_was_beaten(id, b)
+function rt.GameState:set_stage_was_cleared(id, b)
     meta.assert(id, "String")
-    local _ = self:_get_stage(id, "set_stage_was_beaten")
+    if _debug_output then return true end
+    local _ = self:_get_stage(id, "set_stage_was_cleared")
 
     local entry = self._state.stage_results[id]
     if entry == nil then
         entry = {}
         self._state.stage_results[id] = entry
     end
-    entry.was_beaten = b
+    entry.was_cleared = b
+end
+
+--- @brief
+function rt.GameState:get_stage_is_hundred_percented(id)
+    meta.assert(id, "String")
+    if _debug_output then return true end
+    local _ = self:_get_stage(id, "get_stage_is_hundred_percented")
+
+    -- all coins collected
+    for i = 1, self:get_stage_n_coins(id) do
+        if self:get_stage_was_coin_collected(id, i) == false then return false end
+    end
+
+    local time_grade, flow_grade, coin_grade, total_grade = rt.GameState:get_stage_grades(self._id)
+    return time_grade == rt.StageGrade.S
 end
 
 --- @brief
@@ -292,7 +308,7 @@ function rt.GameState:get_stage_grades(id)
     end
 
     local time, flow = self:get_stage_best_time(id), self:get_stage_best_flow_percentage(id)
-    if stage.was_beaten == false or time == nil or flow == nil then
+    if stage.was_cleared == false or time == nil or flow == nil then
         return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.F
     end
 
