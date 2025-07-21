@@ -13,8 +13,8 @@ rt.settings.menu.stage_select_particle_frame = {
     expand_threshold = 0.2, -- fraction, the smaller, the larger the delay before expansion during transition
 }
 
---- @class mn.StageSelectParticleFrame
-mn.StageSelectParticleFrame = meta.class("StageSelectParticleFrame", rt.Widget)
+--- @class mn.StageSelectItemframe
+mn.StageSelectItemframe = meta.class("StageSelectItemframe", rt.Widget)
 
 local _particle_shader, _outline_shader, _base_shader
 
@@ -49,7 +49,7 @@ local _MODE_EXPAND = 1
 local _MODE_COLLAPSE = 2
 
 --- @brief
-function mn.StageSelectParticleFrame:instantiate(n_pages)
+function mn.StageSelectItemframe:instantiate(n_pages)
     meta.assert(n_pages, "Number")
     if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_particle_frame_particle.glsl") end
     if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 0 }) end
@@ -69,7 +69,7 @@ function mn.StageSelectParticleFrame:instantiate(n_pages)
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
+function mn.StageSelectItemframe:size_allocate(x, y, width, height)
     self._x, self._y = x, y
 
     self._pages = {} --[[
@@ -268,7 +268,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:_get_active_pages()
+function mn.StageSelectItemframe:_get_active_pages()
     local out = {}
 
     local eps = 0.25
@@ -288,12 +288,12 @@ function mn.StageSelectParticleFrame:_get_active_pages()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:_get_page_offset(i)
+function mn.StageSelectItemframe:_get_page_offset(i)
     return (i - 1) * self._canvas:get_height()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:update(delta)
+function mn.StageSelectItemframe:update(delta)
     if not self._is_initialized then return end
 
     if self._is_transitioning ~= true then
@@ -401,7 +401,7 @@ function mn.StageSelectParticleFrame:update(delta)
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:draw()
+function mn.StageSelectItemframe:draw()
     if not self._is_initialized then return end
 
     self._canvas:bind()
@@ -470,7 +470,7 @@ function mn.StageSelectParticleFrame:draw()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:draw_mask()
+function mn.StageSelectItemframe:draw_mask()
     love.graphics.push()
     love.graphics.translate(
         self._x - self._canvas_padding,
@@ -485,7 +485,7 @@ function mn.StageSelectParticleFrame:draw_mask()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:draw_bloom()
+function mn.StageSelectItemframe:draw_bloom()
     love.graphics.push()
     love.graphics.translate(
         self._x - self._canvas_padding,
@@ -502,7 +502,7 @@ function mn.StageSelectParticleFrame:draw_bloom()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:set_selected_page(i)
+function mn.StageSelectItemframe:set_selected_page(i)
     if not (i > 0 and i <= self._n_pages) then
         rt.error("In mn.StageSelectPageIndicator: page `" .. i .. "` is out of range")
     end
@@ -533,11 +533,11 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:get_selected_page()
+function mn.StageSelectItemframe:get_selected_page()
     return self._selected_page_i
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:get_hue()
+function mn.StageSelectItemframe:get_hue()
     return self._hue
 end

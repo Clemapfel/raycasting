@@ -6,7 +6,7 @@ require "common.control_indicator"
 require "common.timed_animation"
 require "common.fade"
 require "menu.stage_select_page_indicator"
-require "menu.stage_select_particle_frame"
+require "menu.stage_select_item_frame"
 require "menu.stage_select_debris_emitter"
 require "menu.menu_scene_background"
 require "overworld.coin_particle"
@@ -237,7 +237,7 @@ function mn.MenuScene:instantiate(state)
             return rt.GameState:get_stage_difficulty(a) < rt.GameState:get_stage_difficulty(b)
         end)
 
-        stage_select.item_frame = mn.StageSelectParticleFrame()
+        stage_select.item_frame = mn.StageSelectItemframe()
         stage_select.page_indicator = mn.StageSelectPageIndicator()
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
         stage_select.completion_bar = mn.OverallCompletionBar()

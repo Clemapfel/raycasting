@@ -3,7 +3,7 @@ require "common.smoothed_motion_1d"
 require "menu.stage_select_item"
 require "menu.stage_cleared_label"
 
-rt.settings.menu.stage_select_particle_frame = {
+rt.settings.menu.stage_select_item_frame = {
     hold_velocity = 5,
     hold_jitter_max_range = 4,
     min_particle_radius = 15,
@@ -17,16 +17,16 @@ rt.settings.menu.stage_select_particle_frame = {
     expand_threshold = 0.2, -- fraction, the smaller, the larger the delay before expansion during transition
 }
 
---- @class mn.StageSelectParticleFrame
-mn.StageSelectParticleFrame = meta.class("StageSelectParticleFrame", rt.Widget)
+--- @class mn.StageSelectItemframe
+mn.StageSelectItemframe = meta.class("StageSelectItemframe", rt.Widget)
 
 local _particle_shader, _outline_shader, _base_shader
 
 --- @brief
-function mn.StageSelectParticleFrame:instantiate()
-    if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_particle_frame_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 0 }) end
-    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 1 }) end
+function mn.StageSelectItemframe:instantiate()
+    if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_item_frame_particle.glsl") end
+    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 }) end
+    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 }) end
 
     self._canvas = nil -- rt.RenderTexture
     self._is_initialized = false
@@ -47,7 +47,7 @@ function mn.StageSelectParticleFrame:instantiate()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:create_from_state()
+function mn.StageSelectItemframe:create_from_state()
     local stage_ids = rt.GameState:list_stage_ids()
     self._page_i_to_stage_id = {}
     self._n_pages = #stage_ids
@@ -109,7 +109,7 @@ local _MODE_EXPAND = 1
 local _MODE_COLLAPSE = 2
 
 --- @brief
-function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
+function mn.StageSelectItemframe:size_allocate(x, y, width, height)
     self._pages = {} --[[
         particles
         n_particles
@@ -144,9 +144,9 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     self._center_x, self._center_y = 0.5 * width, 0.5 * height
     self._page_size = height
 
-    local min_particle_r = rt.settings.menu.stage_select_particle_frame.min_particle_radius * rt.get_pixel_scale()
-    local max_particle_r = rt.settings.menu.stage_select_particle_frame.max_particle_radius * rt.get_pixel_scale()
-    local coverage = rt.settings.menu.stage_select_particle_frame.coverage
+    local min_particle_r = rt.settings.menu.stage_select_item_frame.min_particle_radius * rt.get_pixel_scale()
+    local max_particle_r = rt.settings.menu.stage_select_item_frame.max_particle_radius * rt.get_pixel_scale()
+    local coverage = rt.settings.menu.stage_select_item_frame.coverage
 
     -- mask is rectangle with gradient edge
     local mask_r, mask_g, mask_b, mask_a0, mask_a1 = 1, 1, 1, 0, 1
@@ -164,7 +164,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
         8, 6, 7
     }
 
-    local transition = rt.settings.menu.stage_select_particle_frame.should_expand_during_transition
+    local transition = rt.settings.menu.stage_select_item_frame.should_expand_during_transition
     local initial_mode = transition and _MODE_EXPAND or _MODE_HOLD
     self._is_transitioning = transition
 
@@ -191,7 +191,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     width = canvas_w
     height = max_h + 2 * inner_offset + 2 * outer_offset
 
-    local min_velocity, max_velocity = rt.settings.menu.stage_select_particle_frame.min_particle_velocity, rt.settings.menu.stage_select_particle_frame.max_particle_velocity
+    local min_velocity, max_velocity = rt.settings.menu.stage_select_item_frame.min_particle_velocity, rt.settings.menu.stage_select_item_frame.max_particle_velocity
 
     for page_i = 1, self._n_pages do
         local page_offset = self:_get_page_offset(page_i)
@@ -323,7 +323,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:_get_active_pages()
+function mn.StageSelectItemframe:_get_active_pages()
     local out = {}
 
     local eps = 0.25
@@ -343,12 +343,12 @@ function mn.StageSelectParticleFrame:_get_active_pages()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:_get_page_offset(i)
+function mn.StageSelectItemframe:_get_page_offset(i)
     return (i - 1) * self._canvas:get_height()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:update(delta)
+function mn.StageSelectItemframe:update(delta)
     if not self._is_initialized then return end
 
     if self._is_transitioning ~= true then
@@ -371,9 +371,9 @@ function mn.StageSelectParticleFrame:update(delta)
         page.widget:update(delta)
 
         if page.mode == _MODE_HOLD then
-            local hold_velocity = rt.settings.menu.stage_select_particle_frame.hold_velocity * rt.get_pixel_scale()
+            local hold_velocity = rt.settings.menu.stage_select_item_frame.hold_velocity * rt.get_pixel_scale()
             if hold_velocity ~= 0 then
-                local max_range = rt.settings.menu.stage_select_particle_frame.hold_jitter_max_range * rt.get_pixel_scale()
+                local max_range = rt.settings.menu.stage_select_item_frame.hold_jitter_max_range * rt.get_pixel_scale()
                 for i = 1, page.n_particles do
                     local particle = page.particles[i]
                     local x, y = particle[_x], particle[_y]
@@ -404,11 +404,11 @@ function mn.StageSelectParticleFrame:update(delta)
             end
         elseif page.mode == _MODE_COLLAPSE or (
             page.mode == _MODE_EXPAND and
-                not (self._is_transitioning and math.abs((self._motion:get_value() + 1) - self._selected_page_i) > rt.settings.menu.stage_select_particle_frame.expand_threshold)
+                not (self._is_transitioning and math.abs((self._motion:get_value() + 1) - self._selected_page_i) > rt.settings.menu.stage_select_item_frame.expand_threshold)
         ) then
             local mask_i = 1
             local mean_distance = 0
-            local velocity_factor = rt.settings.menu.stage_select_particle_frame.expand_collapse_speed
+            local velocity_factor = rt.settings.menu.stage_select_item_frame.expand_collapse_speed
             for i = 1, page.n_particles do
                 local particle = page.particles[i]
                 local x, y = particle[_x], particle[_y]
@@ -440,7 +440,7 @@ function mn.StageSelectParticleFrame:update(delta)
                 mean_distance = mean_distance + math.magnitude(dx, dy)
             end
 
-            if mean_distance / page.n_particles <= rt.settings.menu.stage_select_particle_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
+            if mean_distance / page.n_particles <= rt.settings.menu.stage_select_item_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
                 if page.mode == _MODE_EXPAND then
                     page.mode = _MODE_HOLD
                 elseif page.mode == _MODE_COLLAPSE and page_i == self._transitioning_page_i then
@@ -457,7 +457,7 @@ function mn.StageSelectParticleFrame:update(delta)
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:draw()
+function mn.StageSelectItemframe:draw()
     if not self._is_initialized then return end
 
     local offset = math.mix(self._last_scroll_offset, self._scroll_offset, rt.SceneManager:get_frame_interpolation())
@@ -530,7 +530,7 @@ function mn.StageSelectParticleFrame:draw()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:draw_mask()
+function mn.StageSelectItemframe:draw_mask()
     love.graphics.push()
     love.graphics.translate(
         self._canvas_x, 0
@@ -544,7 +544,7 @@ function mn.StageSelectParticleFrame:draw_mask()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:draw_bloom()
+function mn.StageSelectItemframe:draw_bloom()
     love.graphics.push()
     love.graphics.translate(
         self._canvas_x,
@@ -561,7 +561,7 @@ function mn.StageSelectParticleFrame:draw_bloom()
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:set_selected_page(i)
+function mn.StageSelectItemframe:set_selected_page(i)
     if not (i > 0 and i <= self._n_pages) then
         rt.error("In mn.StageSelectPageIndicator: page `" .. i .. "` is out of range")
     end
@@ -572,7 +572,7 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
         self._selected_page_i = i
 
         -- reset pages to start animation
-        if rt.settings.menu.stage_select_particle_frame.should_expand_during_transition then
+        if rt.settings.menu.stage_select_item_frame.should_expand_during_transition then
             for page_i, page in ipairs(self._pages) do
                 if page_i ~= current_i then
                     page.mode = _MODE_EXPAND
@@ -592,11 +592,11 @@ function mn.StageSelectParticleFrame:set_selected_page(i)
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:get_selected_page()
+function mn.StageSelectItemframe:get_selected_page()
     return self._selected_page_i
 end
 
 --- @brief
-function mn.StageSelectParticleFrame:get_hue()
+function mn.StageSelectItemframe:get_hue()
     return self._hue
 end
