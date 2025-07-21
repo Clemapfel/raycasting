@@ -2,6 +2,7 @@ require "common.player_body"
 require "common.smoothed_motion_1d"
 require "common.stage_grade"
 require "menu.stage_select_page_indicator_ring"
+require "common.game_state"
 
 --- @class mn.StageSelectPageIndicator
 mn.StageSelectPageIndicator = meta.class("StageSelectPageIndicator", rt.Widget)
@@ -9,16 +10,15 @@ mn.StageSelectPageIndicator = meta.class("StageSelectPageIndicator", rt.Widget)
 local _shader, _outline_shader = nil
 
 --- @brief
-function mn.StageSelectPageIndicator:instantiate(n_pages)
-    meta.assert(n_pages, "Number")
-
+function mn.StageSelectPageIndicator:instantiate()
     if _shader == nil then _shader = rt.Shader("menu/stage_select_page_indicator.glsl") end
+
     self._hue = 0
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))
     self._top_tri = {}
     self._bottom_tri = {}
     self._circles = {}
-    self._n_pages = n_pages
+    self._n_pages = 0
     self._page_i_to_grade = {}
     self._elapsed = 0
 
@@ -37,18 +37,21 @@ function mn.StageSelectPageIndicator:instantiate(n_pages)
     self._y_offset = 0
 
     self._circle_mapping_upgrade_needed = true
+
+    self:create_from_state()
 end
 
 --- @brief
-function mn.StageSelectPageIndicator:set_stage_grade(i, grade)
-    meta.assert_enum_value(grade, rt.StageGrade, 2)
-    self._page_i_to_grade[i] = grade
-    self._circle_mapping_upgrade_needed = true
-end
+function mn.StageSelectPageIndicator:create_from_state()
+    local ids = rt.GameState:list_stage_ids()
+    self._n_pages = #ids
 
---- @brief
-function mn.StageSelectPageIndicator:set_n_pages(n)
-    self._n_pages = n
+    local page_i = 1
+    for id in values(ids) do
+        self._page_i_to_grade[page_i] = select(4, rt.GameState:get_stage_grades(id))
+        self._circle_mapping_upgrade_needed = true
+        page_i = page_i + 1
+    end
 
     if self:get_is_realized() then
         self:reformat()

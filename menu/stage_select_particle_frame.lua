@@ -1,5 +1,7 @@
 require "common.render_texture"
 require "common.smoothed_motion_1d"
+require "menu.stage_select_item"
+require "menu.stage_cleared_label"
 
 rt.settings.menu.stage_select_particle_frame = {
     hold_velocity = 5,
@@ -19,6 +21,60 @@ rt.settings.menu.stage_select_particle_frame = {
 mn.StageSelectParticleFrame = meta.class("StageSelectParticleFrame", rt.Widget)
 
 local _particle_shader, _outline_shader, _base_shader
+
+--- @brief
+function mn.StageSelectParticleFrame:instantiate()
+    if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_particle_frame_particle.glsl") end
+    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 0 }) end
+    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 1 }) end
+
+    self._canvas = nil -- rt.RenderTexture
+    self._is_initialized = false
+
+    self._selected_page_i = 1
+    self._n_pages = 0
+    self._page_i_to_stage_id = {}
+    self._stage_id_to_widget = {}
+    self._stage_id_to_decoration = {}
+    self._hue = 0
+    self._motion = rt.SmoothedMotion1D(0, 1, 10) -- interpolates indices, not px
+    self._scroll_offset = 0
+    self._last_scroll_offset = 0
+    self._canvas_x,self._canvas_y = 0, 0
+    self._canvas_needs_update = true
+
+    self:create_from_state()
+end
+
+--- @brief
+function mn.StageSelectParticleFrame:create_from_state()
+    local stage_ids = rt.GameState:list_stage_ids()
+    self._page_i_to_stage_id = {}
+    self._n_pages = #stage_ids
+
+    local page_i = 1
+    for id in values(stage_ids) do
+        local item = self._stage_id_to_widget[id]
+        if item == nil then
+            item = mn.StageSelectItem(id)
+            self._stage_id_to_widget[id] = item
+        else
+            item:create_from_state()
+        end
+
+        local decoration = self._stage_id_to_decoration[id]
+        if decoration == nil then
+            decoration = mn.StageClearedLabel(id)
+            self._stage_id_to_decoration[id] = decoration
+        else
+            decoration:create_from_state()
+        end
+
+        self._page_i_to_stage_id[page_i] = id
+        page_i = page_i + 1
+    end
+end
+
 
 local _particle_mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
@@ -51,32 +107,6 @@ local _segment = 11
 local _MODE_HOLD = 0
 local _MODE_EXPAND = 1
 local _MODE_COLLAPSE = 2
-
---- @brief
-function mn.StageSelectParticleFrame:instantiate(...)
-    if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_particle_frame_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 0 }) end
-    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_particle_frame_outline.glsl", { MODE = 1 }) end
-
-    self._canvas = nil -- rt.RenderTexture
-    self._is_initialized = false
-
-    self._selected_page_i = 1
-    self._n_pages = select("#", ...)
-    self._widgets = { ... }
-    self._hue = 0
-
-    for i = 1, self._n_pages do
-        local item = select(i, ...)
-        assert(meta.isa(item, rt.Widget), "In mn.StageSelectParticleFrame: selected item is not a widget")
-    end
-
-    self._motion = rt.SmoothedMotion1D(0, 1, 10) -- interpolates indices, not px
-    self._scroll_offset = 0
-    self._last_scroll_offset = 0
-    self._canvas_x,self._canvas_y = 0, 0
-    self._canvas_needs_update = true
-end
 
 --- @brief
 function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
@@ -141,7 +171,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     local outer_offset, inner_offset = max_particle_r, math.max(max_particle_r, 4 * rt.settings.margin_unit)
 
     local max_h = -math.huge
-    for widget in values(self._widgets) do
+    for widget in values(self._stage_id_to_widget) do
         max_h = math.max(max_h, select(2, widget:measure()))
     end
 
@@ -166,7 +196,7 @@ function mn.StageSelectParticleFrame:size_allocate(x, y, width, height)
     for page_i = 1, self._n_pages do
         local page_offset = self:_get_page_offset(page_i)
 
-        local widget = self._widgets[page_i]
+        local widget = self._stage_id_to_widget[self._page_i_to_stage_id[page_i]]
         widget:reformat()
         local page_w, page_h = widget:measure()
         local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local

@@ -1,17 +1,17 @@
 --- @class mn.StageClearedLabel
 mn.StageClearedLabel = meta.class("StageClearedlabel", rt.Widget)
 
---- @class mn.StageClearedState
-mn.StageClearedState = meta.enum("StageClearedState", {
-    NOT_CLEARED = 0,
-    CLEARED = 1,
-    HUNDRED_PERCENTED = 2
-})
+local _STATE_HUNDRED_PERCENTED = 0
+local _STATE_CLEARED = 1
+local _STATE_NOT_CLEARED = 2
 
 local _font = rt.Font("assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf")
 
 --- @brief
-function mn.StageClearedLabel:instantiate()
+function mn.StageClearedLabel:instantiate(stage_id)
+    meta.assert(stage_id, "String")
+    self._stage_id = stage_id
+
     local cleared_prefix, cleared_postfix = "<o><color=GRAY_3>", "</color></o>"
     local hundred_prefix, hundred_postfix = "<b><o><wave><rainbow>", "</wave></rainbow></o></b>"
     local translation = rt.Translation.menu_scene
@@ -19,15 +19,27 @@ function mn.StageClearedLabel:instantiate()
     self._cleared_label = rt.Label(cleared_prefix .. translation.cleared_label .. cleared_postfix, rt.FontSize.HUGE, _font)
     self._hundred_percent_label = rt.Label(hundred_prefix .. translation.hundred_percent_label .. hundred_postfix, rt.FontSize.HUGE, _font)
 
-    self._state = mn.StageClearedState.NOT_CLEARED
+    if rt.GameState:get_stage_is_hundred_percented(stage_id) then
+        self._state = _STATE_HUNDRED_PERCENTED
+    elseif rt.GameState:get_stage_was_cleared(stage_id) then
+        self._state = _STATE_CLEARED
+    else
+        self._state = _STATE_NOT_CLEARED
+    end
+    
     self._cleared_x, self._cleared_y, self._cleared_angle = 0, 0, 0
     self._hundred_percent_x, self._hundred_percent_y, self._hundred_percent_angle = 0, 0, 0
 end
 
 --- @brief
-function mn.StageClearedLabel:set_state(stage_cleared_state)
-    meta.assert_enum_value(stage_cleared_state, mn.StageClearedState)
-    self._state = stage_cleared_state
+function mn.StageClearedLabel:create_from_state()
+    if rt.GameState:get_stage_is_hundred_percented(self._stage_id) then
+        self._state = _STATE_HUNDRED_PERCENTED
+    elseif rt.GameState:get_stage_was_cleared(self._stage_id) then
+        self._state = _STATE_CLEARED
+    else
+        self._state = _STATE_NOT_CLEARED
+    end
 end
 
 --- @brief
@@ -42,9 +54,9 @@ end
 
 --- @brief
 function mn.StageClearedLabel:update(delta)
-    if self._state == mn.StageClearedState.HUNDRED_PERCENTED then
+    if self._state == _STATE_HUNDRED_PERCENTED then
         self._hundred_percent_label:update(delta)
-    elseif self._state == mn.StageClearedState.CLEARED then
+    elseif self._state == _STATE_CLEARED then
         self._cleared_label:update(delta)
     end
 end
@@ -64,14 +76,14 @@ end
 
 --- @brief
 function mn.StageClearedLabel:draw()
-    if self._state == mn.StageClearedState.HUNDRED_PERCENTED then
+    if self._state == _STATE_HUNDRED_PERCENTED then
         love.graphics.push()
         love.graphics.translate(self._hundred_percent_x, self._hundred_percent_y)
         love.graphics.rotate(self._hundred_percent_angle)
         self._hundred_percent_label:draw()
         love.graphics.translate(-self._hundred_percent_x, -self._hundred_percent_y)
         love.graphics.pop()
-    elseif self._state == mn.StageClearedState.CLEARED then
+    elseif self._state == _STATE_CLEARED then
         love.graphics.push()
         love.graphics.translate(self._cleared_x, self._cleared_y)
         love.graphics.rotate(self._cleared_angle)

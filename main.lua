@@ -16,12 +16,6 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
-require "menu.stage_cleared_label"
-local label = mn.StageClearedLabel()
-label:realize()
-label:reformat(50, 50, 100, 100)
-label:set_state(mn.StageClearedState.CLEARED)
-
 love.load = function(args)
     local w, h = item:measure()
     --item:reformat(50, 50, 350, 1000)
@@ -45,16 +39,11 @@ end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
-
-    --item:update(delta)
-    label:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
-    --rt.SceneManager:draw()
-
-    label:draw()
+    rt.SceneManager:draw()
 end
 
 love.resize = function(width, height)

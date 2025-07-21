@@ -388,3 +388,8 @@ function rt.GameState:list_stage_ids()
     end
     return out
 end
+
+--- @brief
+function rt.GameState:get_n_stages()
+    return table.sizeof(self._stages)
+end

@@ -237,24 +237,11 @@ function mn.MenuScene:instantiate(state)
             return rt.GameState:get_stage_difficulty(a) < rt.GameState:get_stage_difficulty(b)
         end)
 
-        stage_select.n_items = 0
-
-
-        stage_select.items = {}
-        for id in values(stage_ids) do
-            table.insert(stage_select.items, mn.StageSelectItem(id))
-            stage_select.n_items = stage_select.n_items + 1
-        end
-
-        stage_select.item_frame = mn.StageSelectParticleFrame(table.unpack(stage_select.items))
-        stage_select.page_indicator = mn.StageSelectPageIndicator(stage_select.n_items)
+        stage_select.item_frame = mn.StageSelectParticleFrame()
+        stage_select.page_indicator = mn.StageSelectPageIndicator()
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
         stage_select.completion_bar = mn.OverallCompletionBar()
         stage_select.debris_emitter_initialized = false
-
-        for id in values(stage_ids) do
-            table.insert(stage_select.items, mn.StageSelectItem(id))
-        end
 
         local translation = rt.Translation.menu_scene.stage_select
         stage_select.control_indicator = rt.ControlIndicator(
@@ -275,10 +262,6 @@ function mn.MenuScene:realize()
         item.selected_label:realize()
     end
 
-    for item in values(self._stage_select.items) do
-        item:realize()
-    end
-
     self._stage_select.page_indicator:realize()
     self._stage_select.item_frame:realize()
     self._stage_select.completion_bar:realize()
@@ -291,13 +274,8 @@ end
 
 function mn.MenuScene:_create_from_state()
     local stage_select = self._stage_select
-    for i = 1, stage_select.n_items do
-        local item = stage_select.items[i]
-        item:create_from_state()
-
-        local time, flow, total = rt.GameState:get_stage_grades(item:get_stage_id())
-        stage_select.page_indicator:set_stage_grade(i, total)
-    end
+    stage_select.item_frame:create_from_state()
+    stage_select.page_indicator:create_from_state()
 end
 
 --- @brief
@@ -640,6 +618,7 @@ function mn.MenuScene:update(delta)
         end
 
         local stage_select = self._stage_select
+        stage_select.n_items = rt.GameState:get_n_stages()
 
         if offset_fraction > 0.95 then
             stage_select.debris_emitter:update(delta)
