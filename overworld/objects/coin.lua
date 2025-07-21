@@ -12,6 +12,7 @@ rt.settings.overworld.coin = {
     amplitude_noise_frequency = 1,
     amplitude_max_offset = 0.3, -- 1 +/- fraction
     follow_offset = 40, -- px
+    already_collected_opacity = 0.2
 }
 
 --- @class ow.Coin
@@ -52,12 +53,18 @@ function ow.Coin:instantiate(object, stage, scene)
     self._follow_x, self._follow_y = self._x, self._y
     self._follow_offset = 0
 
+    stage:add_coin(self, self._id)
+    self._index = object:get_number("index") or stage:get_n_coins()
+
     self._pulse_x, self._pulse_y = 0, 0
     self._particle = ow.CoinParticle(radius)
 
-    stage:add_coin(self, self._id)
-
-    self._index = object:get_number("index") or stage:get_n_coins()
+    self._already_collected = rt.GameState:get_stage_was_coin_collected(self._stage:get_id(), self._index)
+    if self._already_collected then
+        self._particle:set_opacity(rt.settings.overworld.coin.already_collected_opacity)
+    else
+        self._particle:set_opacity(1)
+    end
 
     self._stage:signal_connect("initialized", function()
         self._hue = ow.Coin.index_to_hue(self._index, self._stage:get_n_coins())
@@ -65,7 +72,6 @@ function ow.Coin:instantiate(object, stage, scene)
         self._particle:set_hue(self._hue)
         return meta.DISCONNECT_SIGNAL
     end)
-
 
     self._body = b2.Body(
         stage:get_physics_world(),

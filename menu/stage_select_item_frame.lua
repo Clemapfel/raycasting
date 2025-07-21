@@ -15,6 +15,7 @@ rt.settings.menu.stage_select_item_frame = {
     expand_collapse_speed = 15, -- factor of dxy
     should_expand_during_transition = true,
     expand_threshold = 0.2, -- fraction, the smaller, the larger the delay before expansion during transition
+    opacity_velocity = 2, -- fraction per second
 }
 
 --- @class mn.StageSelectItemframe
@@ -121,7 +122,9 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
         center_x,
         center_y
         widget
-        widget
+        decoration
+        decoration_opacity_motion
+        width
         height
     ]]--
 
@@ -195,15 +198,19 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
 
     for page_i = 1, self._n_pages do
         local page_offset = self:_get_page_offset(page_i)
+        local stage_id = self._page_i_to_stage_id[page_i]
 
-        local widget = self._stage_id_to_widget[self._page_i_to_stage_id[page_i]]
-        widget:reformat()
+        local widget = self._stage_id_to_widget[stage_id]
         local page_w, page_h = widget:measure()
         local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
         page_y = page_y + page_offset
-        local center_x, center_y = page_x + 0.5 * page_w, page_y + 0.5 * page_h
-
         widget:reformat(page_x, page_y, page_w, page_h)
+
+        local decoration = self._stage_id_to_decoration[stage_id]
+        local decoration_w, decoration_h = decoration:measure()
+        decoration:reformat(page_x + page_w - 0.5 * decoration_w, page_y - 0.5 * decoration_h, decoration_w, decoration_h)
+
+        local center_x, center_y = page_x + 0.5 * page_w, page_y + 0.5 * page_h
 
         local particles = {}
         local page_n_particles = 0
@@ -300,6 +307,12 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
         particle_mesh:attach_attribute(data_mesh, _data_mesh_format[1].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
         particle_mesh:attach_attribute(data_mesh, _data_mesh_format[2].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
 
+        local motion = rt.SmoothedMotion1D(0)
+        motion:set_speed(
+            rt.settings.menu.stage_select_item_frame.opacity_velocity, -- increasing
+            rt.settings.menu.stage_select_item_frame.opacity_velocity * 2 -- decreasing
+        )
+
         self._pages[page_i] = {
             mode = initial_mode,
             particles = particles,
@@ -314,6 +327,8 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
             width = page_w,
             height = page_h,
             widget = widget,
+            decoration = decoration,
+            decoration_opacity_motion = motion
         }
     end
 
@@ -369,6 +384,10 @@ function mn.StageSelectItemframe:update(delta)
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
         page.widget:update(delta)
+
+        local value = page.decoration_opacity_motion:update(delta)
+        page.decoration:update(delta)
+        page.decoration:set_opacity(value)
 
         if page.mode == _MODE_HOLD then
             local hold_velocity = rt.settings.menu.stage_select_item_frame.hold_velocity * rt.get_pixel_scale()
@@ -443,6 +462,7 @@ function mn.StageSelectItemframe:update(delta)
             if mean_distance / page.n_particles <= rt.settings.menu.stage_select_item_frame.mode_transition_distance_threshold * rt.get_pixel_scale() then
                 if page.mode == _MODE_EXPAND then
                     page.mode = _MODE_HOLD
+                    page.decoration_opacity_motion:set_target_value(1)
                 elseif page.mode == _MODE_COLLAPSE and page_i == self._transitioning_page_i then
                     self._is_transitioning = false
                     self._transitioning_page_i = nil
@@ -525,8 +545,14 @@ function mn.StageSelectItemframe:draw()
     for page_i in values(self:_get_active_pages()) do
         self._pages[page_i].widget:draw()
     end
-    love.graphics.pop()
+
     rt.graphics.set_stencil_mode(nil)
+
+    -- decoration not stenciled
+    for page_i in values(self:_get_active_pages()) do
+        self._pages[page_i].decoration:draw()
+    end
+    love.graphics.pop()
 end
 
 --- @brief
@@ -580,8 +606,11 @@ function mn.StageSelectItemframe:set_selected_page(i)
                         particle[_x] = page.x + 0.5 * page.width
                         particle[_y] = page.y + 0.5 * page.height
                     end
+                    page.decoration_opacity_motion:set_value(0)
+                    page.decoration:set_opacity(0)
                 else
                     page.mode = _MODE_COLLAPSE
+                    page.decoration_opacity_motion:set_target_value(0)
                 end
             end
 

@@ -40,7 +40,7 @@ ow.CameraMode = meta.enum("CameraMode", {
 })
 
 local _bloom_shader = nil
-local _skip_fade = true
+local _skip_fade = false
 
 --- @brief
 function ow.OverworldScene:instantiate(state)

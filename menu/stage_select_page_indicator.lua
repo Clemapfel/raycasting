@@ -18,6 +18,9 @@ function mn.StageSelectPageIndicator:instantiate()
     self._top_tri = {}
     self._bottom_tri = {}
     self._circles = {}
+    self._has_notification = {}
+    self._notification = nil -- rt.Mesh
+    self._notification_outline = {} -- love.Line
     self._n_pages = 0
     self._page_i_to_grade = {}
     self._elapsed = 0
@@ -45,13 +48,15 @@ end
 function mn.StageSelectPageIndicator:create_from_state()
     local ids = rt.GameState:list_stage_ids()
     self._n_pages = #ids
+    self._has_notification = {}
 
     local page_i = 1
     for id in values(ids) do
         self._page_i_to_grade[page_i] = select(4, rt.GameState:get_stage_grades(id))
-        self._circle_mapping_upgrade_needed = true
+        self._has_notification[page_i] = rt.GameState:get_stage_was_cleared(id)
         page_i = page_i + 1
     end
+    self._circle_mapping_upgrade_needed = true
 
     if self:get_is_realized() then
         self:reformat()
@@ -147,6 +152,28 @@ function mn.StageSelectPageIndicator:size_allocate(x, y, width, height)
         current_x + tri_r * math.sqrt(3) / 2, bottom_y - tri_r / 2
     }
 
+    local notification_radius = radius / 3
+    local notification_x = 0 -- local coords relative to ball center
+    local notification_y = 0
+
+    self._notification = rt.MeshCircle(notification_x, notification_y, notification_radius)
+    self._notification:set_vertex_color(1, rt.Palette.YELLOW:unpack())
+    for i = 2, self._notification:get_n_vertices() do
+        self._notification:set_vertex_color(i, rt.Palette.RED:unpack())
+    end
+
+    self._notification_outline = {}
+    do
+        local n_outer_vertices = 16
+        local step = (2 * math.pi) / n_outer_vertices
+        for i = 1, n_outer_vertices * rt.get_pixel_scale() do
+            table.insert(self._notification_outline, notification_x + math.cos((i - 1) * step) * notification_radius)
+            table.insert(self._notification_outline, notification_y + math.sin((i - 1) * step) * notification_radius)
+        end
+        table.insert(self._notification_outline, self._notification_outline[1])
+        table.insert(self._notification_outline, self._notification_outline[2])
+    end
+
     self:set_selected_page(self._selected_page_i)
     self._motion:skip()
     self._circle_mapping_upgrade_needed = true
@@ -175,6 +202,7 @@ function mn.StageSelectPageIndicator:draw()
     _shader:send("elapsed", self._elapsed)
 
     love.graphics.setColor(1, 1, 1, 1)
+
     love.graphics.setScissor(self._stencil:unpack())
 
     love.graphics.push()
@@ -237,6 +265,30 @@ function mn.StageSelectPageIndicator:draw()
     love.graphics.polygon("line", self._top_tri)
     love.graphics.polygon("line", self._bottom_tri)
 
+    -- notifications
+    love.graphics.push()
+    love.graphics.translate(0, self._scroll_offset)
+
+    -- notifications
+    rt.Palette.BLACK:bind()
+    for i = 1, self._n_pages do
+        local circle = self._circles[i]
+        love.graphics.push()
+        love.graphics.translate(circle[1], circle[2])
+        love.graphics.line(self._notification_outline)
+        love.graphics.pop()
+    end
+
+    love.graphics.setColor(1, 1, 1, 1)
+    for i = 1, self._n_pages do
+        local circle = self._circles[i]
+        love.graphics.push()
+        love.graphics.translate(circle[1], circle[2])
+        self._notification:draw()
+        love.graphics.pop()
+    end
+
+    love.graphics.pop()
     love.graphics.pop()
 end
 

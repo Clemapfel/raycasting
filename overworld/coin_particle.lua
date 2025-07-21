@@ -16,6 +16,7 @@ function ow.CoinParticle:instantiate(radius, is_outline)
     self._hue = 0
     self._color = { 0, 0, 0, 0 }
     self._outline_color = { 0, 0, 0, 0 }
+    self._opacity = 1
 
     self._core_outline = {}
     self._body_outline = {}
@@ -56,11 +57,12 @@ function ow.CoinParticle:_draw_core()
     _shader:bind()
     _shader:send("hue", self._hue)
     _shader:send("elapsed", rt.SceneManager:get_elapsed() + self._elapsed_offset)
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.circle("fill", 0, 0, self._radius)
     _shader:unbind()
 
-    love.graphics.setColor(self._outline_color)
+    local r, g, b, a = table.unpack(self._outline_color)
+    love.graphics.setColor(r, g, b, a * self._opacity)
     love.graphics.line(self._core_outline)
 end
 
@@ -68,24 +70,27 @@ function ow.CoinParticle:draw(x, y)
     love.graphics.push()
     love.graphics.translate(x, y)
 
+    local black_r, black_g, black_b, black_a = rt.Palette.BLACK:unpack()
+    local white_r, white_g, white_b, white_a = rt.Palette.FOREGROUND:unpack()
     if self._is_outline then
         love.graphics.setLineWidth(2)
-        rt.Palette.BLACK:bind()
+        love.graphics.setColor(black_r, black_g, black_b, self._opacity)
         for outline in values(self._dotted_outlines) do
             love.graphics.line(outline)
         end
 
         love.graphics.setLineWidth(1)
-        rt.Palette.FOREGROUND:bind()
+        love.graphics.setColor(white_r, white_g, white_b, self._opacity)
         for outline in values(self._dotted_outlines) do
             love.graphics.line(outline)
         end
     else
         love.graphics.setLineWidth(0.5)
-        rt.Palette.BLACK:bind()
+        love.graphics.setColor(black_r, black_g, black_b, self._opacity)
         love.graphics.circle("fill", 0, 0, self._body_radius)
 
-        love.graphics.setColor(self._color)
+        local r, g, b, a = table.unpack(self._color)
+        love.graphics.setColor(r, g, b, a * self._opacity)
         love.graphics.line(self._body_outline)
 
         self:_draw_core()
@@ -102,7 +107,8 @@ function ow.CoinParticle:draw_bloom(x, y)
     love.graphics.push()
     love.graphics.translate(x, y)
 
-    love.graphics.setColor(self._color)
+    local r, g, b, a = table.unpack(self._color)
+    love.graphics.setColor(r, g, b, a * self._opacity)
     love.graphics.line(self._body_outline)
 
     self:_draw_core()
@@ -119,4 +125,9 @@ function ow.CoinParticle:set_hue(hue)
     for i = 1, 3 do
         self._outline_color[i] = self._outline_color[i] - rt.settings.player_body.outline_value_offset
     end
+end
+
+--- @brief
+function ow.CoinParticle:set_opacity(opacity)
+    self._opacity = opacity
 end

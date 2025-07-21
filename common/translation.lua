@@ -133,7 +133,7 @@ rt.Translation = rt.initialize_translation({
             control_indicator_back = "Go Back",
         },
 
-        cleared_label = "cleared!",
+        cleared_label = "clear",
         hundred_percent_label = "100%"
     },
 

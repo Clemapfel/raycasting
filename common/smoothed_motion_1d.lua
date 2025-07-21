@@ -4,10 +4,11 @@ rt.SmoothedMotion1D = meta.class("SmoothedMotion1D")
 --- @brief
 function rt.SmoothedMotion1D:instantiate(value, speed, ramp)
     if ramp == nil then ramp = 6 end
-    if speed == nil then speed = 100 end
+    if speed == nil then speed = 1 end
     meta.assert(value, "Number", speed, "Number")
     meta.install(self, {
-        _speed = speed,
+        _attack_speed = speed,
+        _decay_speed = speed,
         _ramp = ramp,
         _current_value = value,
         _target_value = value,
@@ -31,9 +32,21 @@ function rt.SmoothedMotion1D:set_target_value(x)
 end
 
 --- @brief
+function rt.SmoothedMotion1D:set_speed(attack_speed, decay_speed)
+    if decay_speed == nil then decay_speed = attack_speed end
+    self._attack_speed = attack_speed
+    self._decay_speed = decay_speed
+end
+
+--- @brief
 function rt.SmoothedMotion1D:update(delta)
     local distance = self._target_value - self._current_value
-    local step = self._ramp * distance * self._speed * delta
+    local step
+    if distance > 0 then
+        step = self._ramp * distance * self._attack_speed * delta
+    else
+        step = self._ramp * distance * self._decay_speed * delta
+    end
 
     self._current_value = self._current_value + step
 

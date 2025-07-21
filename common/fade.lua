@@ -12,23 +12,30 @@ rt.Fade = meta.class("Fade")
 local _default_shader = nil
 
 --- @brief
-function rt.Fade:instantiate(duration, r, g, b, a)
+function rt.Fade:instantiate(duration, shader_path)
     if _default_shader == nil then _default_shader = rt.Shader("common/fade_default.glsl") end
 
     duration = duration or rt.settings.fade.default_duration
-    if r == nil then
-        r, g, b, a = rt.Palette.TRUE_BLACK:unpack()
+    meta.assert_typeof(duration, "Number", 1)
+
+    local r, g, b, a = rt.Palette.TRUE_BLACK:unpack()
+
+    local shader = _default_shader
+    if shader_path ~= nil then
+        meta.assert_typeof(shader_path, "String", 2)
+        shader = rt.Shader(shader_path)
     end
 
     meta.install(self, {
         _duration = duration,
         _elapsed = 0,
         _value = 0, -- opacity of overlay
+        _direction = 0,
         _has_attack = true,
         _has_decay = true,
         _signal_emitted = true,
         _started = false,
-        _shader = _default_shader,
+        _shader = shader,
         _r = r,
         _g = g,
         _b = b,
@@ -67,15 +74,15 @@ local function _envelope(fraction, has_attack, has_decay)
 
     if fraction < 0.5 then -- attack
         if has_attack then
-            return gaussian(fraction / 0.5, 1)
+            return gaussian(fraction / 0.5, 1), 1
         else
-            return 1
+            return 1, 0
         end
     else
         if has_decay then
-            return gaussian((fraction - 0.5) / 0.5, 0)
+            return gaussian((fraction - 0.5) / 0.5, 0), -1
         else
-            return 1
+            return 1, 0
         end
     end
 end
@@ -83,7 +90,7 @@ end
 --- @brief
 function rt.Fade:update(delta)
     local fraction = self._elapsed / self._duration
-    self._value = _envelope(fraction, self._has_attack, self._has_decay)
+    self._value, self._direction = _envelope(fraction, self._has_attack, self._has_decay)
 
     if self._signal_emitted == false and fraction >= 0.5 then
         self._value = 1
@@ -103,7 +110,10 @@ function rt.Fade:draw()
     love.graphics.origin()
     self._shader:bind()
     self._shader:send("value", self._value)
-    self._shader:send("color", { self._r, self._g, self._b, self._a })
+    if self._shader:has_uniform("direction") then
+        self._shader:send("direction", self._direction)
+    end
+    love.graphics.setColor(self._r, self._g, self._b, self._a)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     self._shader:unbind()
     love.graphics.pop()
