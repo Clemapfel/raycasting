@@ -45,7 +45,6 @@ void vertexmain() {
 
     vec2 position = position + contour_vector.xy *  contour_vector.z * vec2(1 + offset);
 
-
     VaryingTexCoord = vec4(0);
     VaryingColor = gammaCorrectColor(ConstantColor);
 

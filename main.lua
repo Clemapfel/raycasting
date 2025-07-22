@@ -17,6 +17,11 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+require "overworld.deformable_mesh"
+require "physics.physics"
+local world = b2.World()
+local mesh = ow.DeformableMesh(world)
+
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
@@ -29,7 +34,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    rt.SceneManager:push(mn.MenuScene)
+    --rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.stage_title_card_scene"
     --rt.SceneManager:push(ow.StageTitleCardScene, "tutorial")
@@ -38,16 +43,14 @@ end
 love.update = function(delta)
     rt.SceneManager:update(delta)
 
-    fade:update(delta)
+    mesh:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     rt.SceneManager:draw()
 
-    --love.graphics.clear(0.5, 0.5, 0.5, 1)
-
-    --fade:draw()
+    mesh:draw()
 end
 
 love.resize = function(width, height)

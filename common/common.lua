@@ -265,6 +265,11 @@ function math.fract(x)
     return x - math.floor(x)
 end
 
+--- @brief wrap an index to always be inside 1, n
+function math.wrap(index, n_elements)
+    return ((index - 1) % n_elements) + 1
+end
+
 --- @brief round to nearest integer
 --- @param i number
 --- @return number
