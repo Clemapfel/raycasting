@@ -257,7 +257,7 @@ function ow.Checkpoint:update(delta)
         self._fireworks:update(delta)
 
         if self._scene:get_is_body_visible(self._body) then
-            local duration = self._scene:get_run_duration()
+            local duration = self._scene:get_timer()
             local hours = math.floor(duration / 3600)
             local minutes = math.floor((duration % 3600) / 60)
             local seconds = math.floor(duration % 60)

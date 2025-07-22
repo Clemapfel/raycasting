@@ -40,7 +40,7 @@ function ow.Goal:instantiate(object, stage, scene)
 
     self._body:signal_connect("collision_start", function()
         self._activated = true
-        self._timestamp = self._scene:get_run_duration()
+        self._timestamp = self._scene:get_timer()
     end)
 
     self._stage:signal_connect("respawn", function()

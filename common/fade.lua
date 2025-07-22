@@ -110,9 +110,15 @@ function rt.Fade:draw()
     love.graphics.origin()
     self._shader:bind()
     self._shader:send("value", self._value)
+
     if self._shader:has_uniform("direction") then
         self._shader:send("direction", self._direction)
     end
+
+    if self._shader:has_uniform("elapsed") then
+        self._shader:send("elapsed", rt.SceneManager:get_elapsed())
+    end
+
     love.graphics.setColor(self._r, self._g, self._b, self._a)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     self._shader:unbind()

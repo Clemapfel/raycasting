@@ -241,6 +241,7 @@ function mn.MenuScene:instantiate(state)
         stage_select.page_indicator = mn.StageSelectPageIndicator()
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
         stage_select.completion_bar = mn.OverallCompletionBar()
+        stage_select.exit_fade = rt.Fade(3, "overworld/overworld_scene_fade.glsl")
         stage_select.debris_emitter_initialized = false
 
         local translation = rt.Translation.menu_scene.stage_select
@@ -672,17 +673,17 @@ function mn.MenuScene:update(delta)
             if stage_select.waiting_for_exit then
                 -- wait for player to exit screen, then fade out
                 if select(2, self._camera:world_xy_to_screen_xy(self._player:get_position())) > rt.settings.menu_scene.stage_select.exititing_fraction * love.graphics.getHeight() then
-                    self._fade:start(true, false)
-                    self._fade:signal_connect("hidden", function()
+                    stage_select.exit_fade:start(true, false)
+                    stage_select.exit_fade:signal_connect("hidden", function()
                         require "overworld.overworld_scene"
-                        local item = stage_select.items[stage_select.selected_item_i]
-                        if item ~= nil then
-                            rt.SceneManager:push(ow.OverworldScene, item:get_stage_id(), true) -- with titlecard
-                        end
+                        rt.SceneManager:push(ow.OverworldScene, rt.GameState:list_stage_ids()[stage_select.selected_item_i], true) -- with titlecard
                     end)
                     stage_select.waiting_for_exit = false
+                    dbg("called")
                 end
             end
+
+            stage_select.exit_fade:update(delta)
         end
     end
 
@@ -788,7 +789,7 @@ function mn.MenuScene:draw()
 
         love.graphics.pop()
 
-        if not bloom_updated and rt.GameState:get_is_bloom_enabled() then
+        if not stage_select.exit_fade:get_is_active() and not bloom_updated and rt.GameState:get_is_bloom_enabled() then
             self._bloom:bind()
             love.graphics.clear()
 
@@ -815,6 +816,8 @@ function mn.MenuScene:draw()
 
             self._bloom:unbind()
         end
+
+        stage_select.exit_fade:draw()
     end
 
     self._camera:bind()

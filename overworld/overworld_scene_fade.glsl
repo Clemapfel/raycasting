@@ -29,39 +29,108 @@ vec2 rotate(vec2 v, float angle) {
     return v * mat2(c, -s, s, c);
 }
 
+vec3 lch_to_rgb(vec3 lch) {
+    float L = lch.x * 100.0;
+    float C = lch.y * 100.0;
+    float H = lch.z * 360.0;
+
+    float a = cos(radians(H)) * C;
+    float b = sin(radians(H)) * C;
+
+    float Y = (L + 16.0) / 116.0;
+    float X = a / 500.0 + Y;
+    float Z = Y - b / 200.0;
+
+    X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
+    Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
+    Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
+
+    float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
+    float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
+    float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
+
+    R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
+    G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
+    B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
+
+    return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
+}
+
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
+
 #ifdef PIXEL
 
 uniform float value; // 1 fully opaque, 0 fully transparent
 uniform float direction; // +1 going from transparent to opaque, -1 otherwise
-vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
-    //if (direction > 0) return vec4(color.rgb, color.a * value); // trivial fade during attack phase
+uniform float elapsed;
 
-    vec2 screen_size = love_ScreenSize.xy;
+vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
+    // Aspect ratio normalization
+    float aspect = love_ScreenSize.x / love_ScreenSize.y;
+
+    // Center in normalized coordinates
+    vec2 center = vec2(0.5, 0.5);
+
+    // Aspect-corrected coordinates: scale x so that distances are isotropic
+    vec2 norm_coords = texture_coords;
+    norm_coords.x = (norm_coords.x - 0.5) * aspect + 0.5;
+    vec2 norm_center = center;
+    norm_center.x = (norm_center.x - 0.5) * aspect + 0.5;
+
+    // For noise, keep original texture_coords, but for all distance/circle ops use norm_coords
+    vec2 pos = norm_coords;
 
     const int n_octaves = 3;
-    float noise_scale = 10;
-    vec2 pos = texture_coords;
+    vec2 noise_scale = vec2(3, 2) * 4;
+
+    const float angle_width = 0.5 * 2 * PI;
+    const float angle_direction = 0; // upwards
 
     float step_size = 0.5;
+
+    float steps = 0;
     for (int i = 0; i < n_octaves; ++i) {
-        float dist = distance(pos.xy, texture_coords.xy);
+        float dist = distance(pos.xy, norm_coords.xy);
 
         vec2 seed = texture_coords.xy * noise_scale;
+
+        float angle = mix(angle_direction - angle_width / 2, angle_direction + angle_width / 2, (gradient_noise(vec3(seed.xy, elapsed)) + 1) / 2);
         vec2 offset = vec2(
-            gradient_noise(vec3(seed.x, dist, seed.y)),
-            gradient_noise(vec3(dist, seed.y, seed.x))
+        cos(angle),
+        sin(angle)
         );
 
-        pos.xy = pos.xy + offset * step_size;
-
+        pos.xy += offset * step_size;
         step_size = step_size * 0.5;
-        noise_scale = noise_scale * 1;
+        noise_scale = noise_scale * 0.5;
     }
 
-    float noise = distance(pos.x, texture_coords.x);
     float eps = 0.02;
-    float opacity = 1 - smoothstep(value - eps, value + eps, clamp(1 - (texture_coords.y / 1.6 + noise), 0, 1));
-    return vec4(color.rgb, color.a * opacity);
+
+    float noise = 0;
+    if (direction > 0) { // fade in: wipe upwards
+        // For vertical wipe, aspect ratio is not needed
+        noise = distance(pos.y, norm_coords.y);
+        noise = 1 - clamp(norm_coords.y / 2 + noise, 0, 1);
+    }
+    else if (direction < 0) { // fade out: circle wipe
+        // Use aspect-corrected coordinates for circular wipe
+        float dist = distance(norm_coords, norm_center) * (value + 1 + distance(pos.y, norm_coords.y));
+        noise = 1 - dist;
+    }
+
+    float opacity = 1 - smoothstep(value - eps, value + eps, noise);
+
+    float border_eps = 0.07;
+    float border_band = 1 - gaussian(
+    smoothstep(value - border_eps, value, noise) - smoothstep(value, value + border_eps, noise),
+    20 // border width
+    );
+    // Use pos.x from aspect-corrected pos for color
+    return vec4(lch_to_rgb(vec3(0.8, 1, pos.x)) * border_band, color.a * opacity);
 }
 
 #endif

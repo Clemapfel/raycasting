@@ -57,8 +57,6 @@ function ow.OverworldScene:instantiate(state)
         _player = state:get_player(),
         _input = rt.InputSubscriber(false),
 
-        _stage_duration_start_time = math.huge,
-
         _camera_translation_velocity_x = 0,
         _camera_translation_velocity_y = 0,
         _camera_scale_velocity = 0,
@@ -90,14 +88,18 @@ function ow.OverworldScene:instantiate(state)
         _pause_menu_active = false,
 
         _bloom = nil, -- rt.Blur
-        _fade = rt.Fade(1),
+        _fade = rt.Fade(2, "overworld/overworld_scene_fade.glsl"),
         _fade_active = false,
 
         _title_card = ow.StageTitleCard("1 - 3: Not a Tutorial"),
         _title_card_active = false,
         _title_card_elapsed = 0,
 
-        _player_canvas = nil
+        _player_canvas = nil,
+
+        _timer_started = false,
+        _timer_paused = false,
+        _timer = 0
     })
 
     local translation = rt.Translation.overworld_scene
@@ -409,19 +411,41 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
 
     self._player:move_to_stage(self._stage)
     self._player_is_focused = true
-    self._stage_duration_start_time = love.timer.getTime()
+
+    -- timer is quantized to physics world updates, since that
+    -- is the largest temporal resolution the player can move at
+    self._stage:get_physics_world():signal_connect("step", function(world, delta)
+        if self._timer_started == true and self._timer_paused ~= true then
+            self._timer = self._timer + delta
+        end
+    end)
 
     return self._stage
 end
 
 --- @brief
-function ow.OverworldScene:get_run_duration()
-    -- round to nearest multiple of physics time step, frame-rate independent timing
-    local current = love.timer.getTime()
-    local min_step = self._stage:get_physics_world():get_timestep()
-    local duration = (current - self._stage_duration_start_time)
-    local rounded_duration = math.floor((duration / min_step) + 0.5) * min_step
-    return duration, self._stage:get_physics_world():get_n_updates()
+function ow.OverworldScene:get_timer()
+    return self._timer
+end
+
+--- @brief
+function ow.OverworldScene:start_timer()
+    if self._timer_paused then
+        self._timer_pause = false
+    else
+        self._timer_started = true
+        self._timer = 0
+    end
+end
+
+--- @brief
+function ow.OverworldScene:pause_timer()
+    self._timer_paused = true
+end
+
+--- @brief
+function ow.OverworldScene:unpause_timer()
+    self._timer_paused = false
 end
 
 --- @brief
@@ -655,8 +679,12 @@ function ow.OverworldScene:_draw_debug_information()
     local a = ternary(self._player._sprint_button_is_down, pressed, unpressed)
     local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
 
-    local duration, n_steps = self:get_run_duration()
-    local time = string.format_time(duration) .. " (" .. n_steps .. " frames)"
+    local duration = self:get_timer()
+    local time = string.format_time(duration)
+
+    if self._timer_paused == true or self._timer_started == false then
+        time = time .. " (paused)"
+    end
 
     local to_concat = {
         up .. right .. down .. left .. " " .. a .. b,
