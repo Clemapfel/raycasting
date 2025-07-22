@@ -19,7 +19,7 @@ function ow.DeformableMesh:instantiate(world, contour)
     self._world = world
 
     local outer_r = 50
-    local deformable_max_depth = outer_r
+    local deformable_max_depth = 4 * outer_r
     self._thickness = deformable_max_depth
     local shape_r = 200
 
@@ -28,7 +28,7 @@ function ow.DeformableMesh:instantiate(world, contour)
         local dbg_radius = shape_r
         local dbg_x, dbg_y = 0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight()
         contour = {}
-        local n_points = 16
+        local n_points = 64
         for i = 1, n_points do
             local angle = (i - 1) * 2 * math.pi / n_points
             table.insert(contour, dbg_x + math.cos(angle) * shape_r)
@@ -75,8 +75,8 @@ function ow.DeformableMesh:instantiate(world, contour)
             local length = math.magnitude(dx, dy)
             dx, dy = math.normalize(dx, dy)
 
-            table.insert(inner_body_contour, dx * math.max(length - deformable_max_depth, 0))
-            table.insert(inner_body_contour, dy * math.max(length - deformable_max_depth, 0))
+            table.insert(inner_body_contour, dx * math.max(length - deformable_max_depth, 5))
+            table.insert(inner_body_contour, dy * math.max(length - deformable_max_depth, 5))
         end
 
         local shapes = {}
@@ -129,25 +129,7 @@ function ow.DeformableMesh:instantiate(world, contour)
     end
 end
 
---- @brief Check if line segment collides with circle and move it outside if needed
---- @param origin_x number Base x coordinate of the vector
---- @param origin_y number Base y coordinate of the vector
---- @param dx number Direction vector x component
---- @param dy number Direction vector y component
---- @param circle_x number Circle center x coordinate
---- @param circle_y number Circle center y coordinate
---- @param circle_r number Circle radius
---- @return number, number, number, number New dx, dy, and optionally new origin_x, origin_y
---- @brief Check if line segment collides with circle and adjust direction to move it outside
---- @param origin_x number Base x coordinate of the vector (fixed)
---- @param origin_y number Base y coordinate of the vector (fixed)
---- @param dx number Direction vector x component
---- @param dy number Direction vector y component
---- @param circle_x number Circle center x coordinate
---- @param circle_y number Circle center y coordinate
---- @param circle_r number Circle radius
---- @return number, number New dx, dy (origin remains unchanged)
-function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
+function _collide_push(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
     local tip_x, tip_y = origin_x + dx, origin_y + dy
 
     -- Vector from origin to tip
@@ -216,17 +198,81 @@ function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
     return new_dx, new_dy
 end
 
---- @brief
---- @brief
+--- @brief Check if line segment collides with circle and compress along axis to avoid overlap
+--- @param origin_x number Base x coordinate of the vector (fixed)
+--- @param origin_y number Base y coordinate of the vector (fixed)
+--- @param dx number Direction vector x component
+--- @param dy number Direction vector y component
+--- @param circle_x number Circle center x coordinate
+--- @param circle_y number Circle center y coordinate
+--- @param circle_r number Circle radius
+--- @return number, number New dx, dy (compressed along original axis)
+function _collide_axis(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
+    local tip_x, tip_y = origin_x + dx, origin_y + dy
+
+    -- Vector from origin to tip
+    local seg_length = math.magnitude(dx, dy)
+
+    -- If segment has zero length, no collision possible
+    if seg_length < 1e-12 then
+        return dx, dy
+    end
+
+    -- Normalized direction of the vector
+    local dir_x, dir_y = dx / seg_length, dy / seg_length
+
+    -- Vector from origin to circle center
+    local to_circle_x = circle_x - origin_x
+    local to_circle_y = circle_y - origin_y
+
+    -- Project circle center onto the infinite line through the vector
+    local proj_length = to_circle_x * dir_x + to_circle_y * dir_y
+    local proj_x = origin_x + proj_length * dir_x
+    local proj_y = origin_y + proj_length * dir_y
+
+    -- Distance from circle center to the line
+    local dist_to_line = math.magnitude(proj_x - circle_x, proj_y - circle_y)
+
+    -- No collision if line doesn't intersect circle
+    if dist_to_line >= circle_r then
+        return dx, dy
+    end
+
+    -- Calculate intersection points with circle
+    local chord_half_length = math.sqrt(circle_r * circle_r - dist_to_line * dist_to_line)
+    local intersection1_length = proj_length - chord_half_length
+    local intersection2_length = proj_length + chord_half_length
+
+    -- Find the intersection point that's closest to origin but still ahead of it
+    local max_safe_length = seg_length
+
+    if intersection1_length > 0 then
+        -- First intersection is ahead of origin
+        max_safe_length = math.min(max_safe_length, intersection1_length - 1) -- -1 for buffer
+    elseif intersection2_length > 0 then
+        -- Only second intersection is ahead, but we're inside the circle
+        -- Compress significantly
+        max_safe_length = math.max(0, intersection1_length - 1)
+    end
+
+    -- Ensure we don't extend beyond original length
+    max_safe_length = math.max(0, math.min(max_safe_length, seg_length))
+
+    -- Return compressed vector along original axis
+    local new_dx = dir_x * max_safe_length
+    local new_dy = dir_y * max_safe_length
+
+    return new_dx, new_dy
+end
+
 --- @brief
 function ow.DeformableMesh:update(delta)
     local outer_x, outer_y = self._outer_body:get_position()
     local outer_r = self._outer_body_radius
 
     -- Physics parameters
-    local spring_k_tip = 0.5      -- Spring constant for tip
-    local spring_k_base = 0.3     -- Spring constant for base (usually less than tip)
-    local damping = 1.0           -- Damping factor (memory foam effect)
+    local spring_k_tip = 0.8      -- Spring constant for tip (increased for more responsive compression)
+    local damping = 2.0           -- Damping factor (memory foam effect)
     local max_displacement = self._thickness
 
     for i = 2, #self._mesh_data do -- skip first data, which is always constant
@@ -236,50 +282,30 @@ function ow.DeformableMesh:update(delta)
         local dx, dy = data[3], data[4]
         local tip_x, tip_y = origin_x + dx, origin_y + dy
 
-        -- --- TIP COLLISION ---
+        -- --- AXIAL COMPRESSION COLLISION ---
+        -- First apply compression-based collision response
+        local axis_dx, axis_dy = _collide_axis(origin_x, origin_y, dx, dy, outer_x, outer_y, outer_r)
+        local push_dx, push_dy = _collide_push(origin_x, origin_y, dx, dy, outer_x, outer_y, outer_r)
+        dx, dy = math.mix2(axis_dx, axis_dy, push_dx, push_dy, 0.3)
+
+        -- --- TIP COLLISION (for additional spring force) ---
+        tip_x, tip_y = origin_x + dx, origin_y + dy
         local to_tip_x = tip_x - outer_x
         local to_tip_y = tip_y - outer_y
         local dist_tip = math.magnitude(to_tip_x, to_tip_y)
-        local force_tip_x, force_tip_y = 0, 0
 
         if dist_tip < outer_r then
             local penetration = outer_r - dist_tip
-            local nx, ny = 0, 0
-            if dist_tip > 1e-6 then
-                nx, ny = to_tip_x / dist_tip, to_tip_y / dist_tip
-            else
-                nx, ny = 1, 0
+
+            -- Apply compression force along the vector's own axis
+            local vector_length = math.magnitude(dx, dy)
+            if vector_length > 1e-6 then
+                local compression_factor = spring_k_tip * penetration / vector_length
+                -- Compress the vector (reduce its length)
+                dx = dx * (1 - compression_factor)
+                dy = dy * (1 - compression_factor)
             end
-            force_tip_x = nx * spring_k_tip * penetration
-            force_tip_y = ny * spring_k_tip * penetration
         end
-
-        -- --- BASE COLLISION ---
-        local to_base_x = origin_x - outer_x
-        local to_base_y = origin_y - outer_y
-        local dist_base = math.sqrt(to_base_x * to_base_x + to_base_y * to_base_y)
-        local force_base_x, force_base_y = 0, 0
-
-        if dist_base < outer_r then
-            local penetration = outer_r - dist_base
-            local nx, ny = 0, 0
-            if dist_base > 1e-6 then
-                nx, ny = to_base_x / dist_base, to_base_y / dist_base
-            else
-                nx, ny = 1, 0
-            end
-            force_base_x = nx * spring_k_base * penetration
-            force_base_y = ny * spring_k_base * penetration
-        end
-
-        -- --- APPLY FORCES ---
-        -- Move tip (direction)
-        dx = dx + force_tip_x
-        dy = dy + force_tip_y
-
-        -- Move base (origin)
-        origin_x = origin_x + force_base_x
-        origin_y = origin_y + force_base_y
 
         -- --- MEMORY FOAM (return to rest) ---
         local rest_dx, rest_dy = rest[3], rest[4]
@@ -291,17 +317,10 @@ function ow.DeformableMesh:update(delta)
 
         -- --- CLAMP TIP DISPLACEMENT ---
         local disp = math.sqrt(dx * dx + dy * dy)
-        local rest_disp = math.sqrt(rest_dx * rest_dx + rest_dy * rest_dy)
         if disp > max_displacement then
             dx = dx * (max_displacement / disp)
             dy = dy * (max_displacement / disp)
         end
-
-        -- --- LINE SEGMENT COLLISION: Move entire vector outside circle if any part overlaps ---
-        local new_dx, new_dy = _collide(origin_x, origin_y, dx, dy, outer_x, outer_y, outer_r)
-
-        -- Update direction vector
-        dx, dy = new_dx, new_dy
 
         data[1], data[2] = origin_x, origin_y
         data[3], data[4] = dx, dy
@@ -324,11 +343,6 @@ function ow.DeformableMesh:draw()
     self._mesh:draw()
     _shader:unbind()
 
-    --self._inner_body:draw()
-
-    self._outer_body:draw()
-
-    --[[
     local hue = 0
     local skip = true
     for data in values(self._mesh_data) do
@@ -357,5 +371,8 @@ function ow.DeformableMesh:draw()
 
         skip = false
     end
-    ]]--
+
+    love.graphics.setColor(1, 1, 1, 1)
+    self._outer_body:draw()
+    self._inner_body:draw()
 end
