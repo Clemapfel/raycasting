@@ -108,187 +108,130 @@ function ow.DeformableMesh:instantiate(world, contour)
     )
 end
 
-function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r, push_blend)
-    push_blend = push_blend or 0.3  -- Default blend used in original code
+function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_radius, push_blend)
+    push_blend = push_blend or 0.3
 
-    -- Early exit for zero-length vectors
-    local seg_length_sq = dx * dx + dy * dy
-    if seg_length_sq < 1e-12 then
+    local segment_length_squared = dx * dx + dy * dy
+    if segment_length_squared < 1e-12 then
         return dx, dy
     end
 
-    local seg_length = math.sqrt(seg_length_sq)
-    local seg_inv_length = 1.0 / seg_length
+    local segment_length = math.sqrt(segment_length_squared)
+    local direction_x, direction_y = dx / segment_length, dy / segment_length
 
-    -- Normalized direction (reused for both methods)
-    local dir_x, dir_y = dx * seg_inv_length, dy * seg_inv_length
-
-    -- Vector from origin to circle center (reused)
     local to_circle_x = circle_x - origin_x
     local to_circle_y = circle_y - origin_y
 
-    -- Project circle center onto line through vector
-    local proj_length = to_circle_x * dir_x + to_circle_y * dir_y
-    local proj_x = origin_x + proj_length * dir_x
-    local proj_y = origin_y + proj_length * dir_y
+    local projection_length = to_circle_x * direction_x + to_circle_y * direction_y
+    local projection_x = origin_x + projection_length * direction_x
+    local projection_y = origin_y + projection_length * direction_y
 
-    -- Distance from circle center to line
-    local dist_to_line_sq = (proj_x - circle_x) * (proj_x - circle_x) + (proj_y - circle_y) * (proj_y - circle_y)
-    local circle_r_sq = circle_r * circle_r
-
-    -- No collision if line doesn't intersect circle
-    if dist_to_line_sq >= circle_r_sq then
+    local distance_to_line_squared = (projection_x - circle_x) * (projection_x - circle_x) + (projection_y - circle_y) * (projection_y - circle_y)
+    if distance_to_line_squared >= circle_radius * circle_radius then
         return dx, dy
     end
 
-    local dist_to_line = math.sqrt(dist_to_line_sq)
+    local chord_half_length = math.sqrt(circle_radius * circle_radius - distance_to_line_squared)
+    local intersection1_length = projection_length - chord_half_length
+    local intersection2_length = projection_length + chord_half_length
 
-    -- === AXIS COMPRESSION METHOD ===
-    -- Calculate intersection points with circle
-    local chord_half_length = math.sqrt(circle_r_sq - dist_to_line_sq)
-    local intersection1_length = proj_length - chord_half_length
-    local intersection2_length = proj_length + chord_half_length
-
-    -- Find safe compression length
-    local max_safe_length = seg_length
+    local maximum_safe_length = segment_length
     if intersection1_length > 0 then
-        max_safe_length = math.min(max_safe_length, intersection1_length - 1)
+        maximum_safe_length = math.min(maximum_safe_length, intersection1_length - 1)
     elseif intersection2_length > 0 then
-        max_safe_length = math.max(0, intersection1_length - 1)
+        maximum_safe_length = math.max(0, intersection1_length - 1)
     end
 
-    max_safe_length = math.max(0, math.min(max_safe_length, seg_length))
-    local axis_dx = dir_x * max_safe_length
-    local axis_dy = dir_y * max_safe_length
+    maximum_safe_length = math.max(0, math.min(maximum_safe_length, segment_length))
 
-    -- === PUSH DISPLACEMENT METHOD ===
-    -- Find closest point on segment to circle center (clamped to segment)
-    local t = math.max(0, math.min(1, proj_length / seg_length))
+    local t = math.max(0, math.min(1, projection_length / segment_length))
     local closest_x = origin_x + t * dx
     local closest_y = origin_y + t * dy
 
-    -- Distance from circle center to closest point on segment
-    local closest_dist_sq = (closest_x - circle_x) * (closest_x - circle_x) + (closest_y - circle_y) * (closest_y - circle_y)
+    local closest_distance_squared = (closest_x - circle_x) * (closest_x - circle_x) + (closest_y - circle_y) * (closest_y - circle_y)
 
     local push_dx, push_dy = dx, dy
-    if closest_dist_sq < circle_r_sq then
-        local closest_dist = math.sqrt(closest_dist_sq)
-        local penetration = circle_r - closest_dist + 1 -- +1 for buffer
+    if closest_distance_squared < circle_radius * circle_radius then
+        local closest_distance = math.sqrt(closest_distance_squared)
+        local penetration = circle_radius - closest_distance + 1
 
-        -- Direction to push tip away from circle
-        local push_dir_x, push_dir_y
-        if closest_dist > 1e-6 then
-            local inv_closest_dist = 1.0 / closest_dist
-            push_dir_x = (closest_x - circle_x) * inv_closest_dist
-            push_dir_y = (closest_y - circle_y) * inv_closest_dist
+        local push_direction_x, push_direction_y
+        if closest_distance > 1e-6 then
+            push_direction_x = (closest_x - circle_x) / closest_distance
+            push_direction_y = (closest_y - circle_y) / closest_distance
         else
-            -- Fallback: perpendicular to segment
-            push_dir_x = -dir_y
-            push_dir_y = dir_x
+            push_direction_x = -direction_y
+            push_direction_y = direction_x
         end
 
-        -- Calculate extension needed
         local extension_needed = (t < 1e-6) and (penetration * 2) or (penetration / t)
 
-        push_dx = dx + push_dir_x * extension_needed
-        push_dy = dy + push_dir_y * extension_needed
+        push_dx = dx + push_direction_x * extension_needed
+        push_dy = dy + push_direction_y * extension_needed
     end
 
-    -- === BLEND RESULTS ===
-    local inv_blend = 1.0 - push_blend
-    return axis_dx * inv_blend + push_dx * push_blend,
-    axis_dy * inv_blend + push_dy * push_blend
+    return direction_x * maximum_safe_length * (1.0 - push_blend) + push_dx * push_blend,
+    direction_y * maximum_safe_length * (1.0 - push_blend) + push_dy * push_blend
 end
 
-function _spring_force(ox, oy, tip_x, tip_y, rest_x, rest_y, circle_x, circle_y, radius)
-    -- Calculate current spring vector and squared length
-    local current_dx = tip_x - ox
-    local current_dy = tip_y - oy
-    local current_length_sq = current_dx * current_dx + current_dy * current_dy
+function _spring_force(origin_x, origin_y, tip_x, tip_y, rest_x, rest_y, circle_x, circle_y, radius)
+    local current_dx = tip_x - origin_x
+    local current_dy = tip_y - origin_y
+    local current_length_squared = current_dx * current_dx + current_dy * current_dy
 
-    -- Early exit for zero-length springs
-    if current_length_sq < 1e-12 then
+    if current_length_squared < 1e-12 then
         return 0, 0
     end
 
-    local current_length = math.sqrt(current_length_sq)
-    local current_inv_length = 1.0 / current_length
+    local current_length = math.sqrt(current_length_squared)
+    local spring_unit_x = current_dx / current_length
+    local spring_unit_y = current_dy / current_length
 
-    -- Spring unit vector (direction from origin to tip)
-    local spring_unit_x = current_dx * current_inv_length
-    local spring_unit_y = current_dy * current_inv_length
+    local to_circle_x = circle_x - origin_x
+    local to_circle_y = circle_y - origin_y
 
-    -- Vector from origin to circle center
-    local to_circle_x = circle_x - ox
-    local to_circle_y = circle_y - oy
+    local projection = math.max(0, math.min(to_circle_x * spring_unit_x + to_circle_y * spring_unit_y, current_length))
 
-    -- Project circle center onto spring line
-    local projection = to_circle_x * spring_unit_x + to_circle_y * spring_unit_y
+    local closest_x = origin_x + projection * spring_unit_x
+    local closest_y = origin_y + projection * spring_unit_y
 
-    -- Clamp projection to spring segment [0, current_length]
-    projection = math.max(0, math.min(projection, current_length))
-
-    -- Closest point on spring to circle center
-    local closest_x = ox + projection * spring_unit_x
-    local closest_y = oy + projection * spring_unit_y
-
-    -- Vector from closest point to circle center
     local contact_dx = circle_x - closest_x
     local contact_dy = circle_y - closest_y
-    local contact_distance_sq = contact_dx * contact_dx + contact_dy * contact_dy
-    local radius_sq = radius * radius
+    local contact_distance_squared = contact_dx * contact_dx + contact_dy * contact_dy
 
-    -- Early exit if no collision
-    if contact_distance_sq >= radius_sq then
+    if contact_distance_squared >= radius * radius then
         return 0, 0
     end
 
-    local contact_distance = math.sqrt(contact_distance_sq)
+    local contact_distance = math.sqrt(contact_distance_squared)
     local penetration = radius - contact_distance
 
-    -- Contact normal (points away from spring toward circle center)
     local normal_x, normal_y
     if contact_distance > 1e-10 then
-        local contact_inv_distance = 1.0 / contact_distance
-        normal_x = contact_dx * contact_inv_distance
-        normal_y = contact_dy * contact_inv_distance
+        normal_x = contact_dx / contact_distance
+        normal_y = contact_dy / contact_distance
     else
-        -- Circle center is on spring line, use perpendicular to spring
         normal_x = -spring_unit_y
         normal_y = spring_unit_x
     end
 
-    -- Calculate rest length only when needed (after collision confirmed)
-    local rest_dx = rest_x - ox
-    local rest_dy = rest_y - oy
-    local rest_length_sq = rest_dx * rest_dx + rest_dy * rest_dy
-    local rest_length = math.sqrt(rest_length_sq)
+    local rest_dx = rest_x - origin_x
+    local rest_dy = rest_y - origin_y
+    local rest_length = math.sqrt(rest_dx * rest_dx + rest_dy * rest_dy)
 
-    -- PHYSICS: Two force components
-
-    -- 1. Spring restoring force (Hooke's Law: F = -k * displacement)
-    -- Spring displacement from equilibrium (k = 1)
     local spring_displacement = current_length - rest_length
 
-    -- Spring force acts along spring axis toward equilibrium
     local spring_force_x = -spring_displacement * spring_unit_x
     local spring_force_y = -spring_displacement * spring_unit_y
 
-    -- 2. Contact force (normal force due to collision)
-    -- Prevents interpenetration, acts along contact normal
     local contact_force_x = penetration * normal_x
     local contact_force_y = penetration * normal_y
 
-    -- Weight spring force by proximity to tip (quadratic falloff)
-    -- Only tip interactions should influence the circle significantly
-    local tip_proximity = projection * current_inv_length  -- projection / current_length
-    local spring_influence = tip_proximity * tip_proximity
+    local spring_influence = (projection / current_length)
+    spring_influence = spring_influence * spring_influence
 
-    -- Total force on circle (Newton's 3rd law - forces applied to circle)
-    local total_force_x = spring_influence * spring_force_x + contact_force_x
-    local total_force_y = spring_influence * spring_force_y + contact_force_y
-
-    return total_force_x, total_force_y
+    return spring_influence * spring_force_x + contact_force_x,
+    spring_influence * spring_force_y + contact_force_y
 end
 
 --- @return force_x, force_y

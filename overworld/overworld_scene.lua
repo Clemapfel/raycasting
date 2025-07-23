@@ -300,6 +300,8 @@ local _cursor = nil
 --- @brief
 function ow.OverworldScene:enter(stage_id, show_title_card)
     meta.assert(stage_id, "String")
+    if show_title_card ~= nil then _skip_fade = not show_title_card end
+
     rt.SceneManager:set_use_fixed_timestep(true)
     self:set_stage(stage_id, show_title_card)
 
