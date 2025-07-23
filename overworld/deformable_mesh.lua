@@ -1,6 +1,6 @@
 rt.settings.overworld.deformable_mesh = {
     spring_constant = 1,
-    damping = 0.9,
+    damping = 6,
     smoothing_strength = 0.1,
     smoothing_range = 3,
     subdivide_step = 5,
@@ -28,7 +28,7 @@ function ow.DeformableMesh:instantiate(world, contour)
     -- player data
     self._outer_x, self._outer_y, self._outer_radius = 0, 0, 0
 
-    local deformable_max_depth = 4 * rt.settings.player.radius
+    local deformable_max_depth = 2 * rt.settings.player.radius
     self._thickness = deformable_max_depth
     self._contour = contour
 
@@ -174,72 +174,114 @@ function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_radius,
     direction_y * maximum_safe_length * (1.0 - push_blend) + push_dy * push_blend
 end
 
-function _spring_force(origin_x, origin_y, tip_x, tip_y, rest_x, rest_y, circle_x, circle_y, radius)
-    local current_dx = tip_x - origin_x
-    local current_dy = tip_y - origin_y
-    local current_length_squared = current_dx * current_dx + current_dy * current_dy
+local function _find_closest_point_on_spring(origin_x, origin_y, end_x, end_y, circle_x, circle_y)
+    -- Vector from spring origin to end
+    local spring_dx = end_x - origin_x
+    local spring_dy = end_y - origin_y
 
-    if current_length_squared < 1e-12 then
-        return 0, 0
+    -- Vector from spring origin to circle center
+    local to_circle_dx = circle_x - origin_x
+    local to_circle_dy = circle_y - origin_y
+
+    -- Length squared of spring vector
+    local spring_length_sq = spring_dx * spring_dx + spring_dy * spring_dy
+
+    -- Handle degenerate case where spring has zero length
+    if spring_length_sq < 1e-12 then
+        local distance = math.sqrt(to_circle_dx * to_circle_dx + to_circle_dy * to_circle_dy)
+        return origin_x, origin_y, distance
     end
 
-    local current_length = math.sqrt(current_length_squared)
-    local spring_unit_x = current_dx / current_length
-    local spring_unit_y = current_dy / current_length
+    -- Project circle center onto spring line using dot product
+    -- t represents position along spring: 0 = origin, 1 = end
+    local t = (to_circle_dx * spring_dx + to_circle_dy * spring_dy) / spring_length_sq
 
-    local to_circle_x = circle_x - origin_x
-    local to_circle_y = circle_y - origin_y
+    -- Clamp t to [0, 1] to stay within line segment bounds
+    t = math.max(0, math.min(1, t))
 
-    local projection = math.max(0, math.min(to_circle_x * spring_unit_x + to_circle_y * spring_unit_y, current_length))
+    -- Calculate closest point on spring line segment
+    local closest_x = origin_x + t * spring_dx
+    local closest_y = origin_y + t * spring_dy
 
-    local closest_x = origin_x + projection * spring_unit_x
-    local closest_y = origin_y + projection * spring_unit_y
+    -- Calculate distance from closest point to circle center
+    local dist_x = circle_x - closest_x
+    local dist_y = circle_y - closest_y
+    local distance = math.sqrt(dist_x * dist_x + dist_y * dist_y)
 
-    local contact_dx = circle_x - closest_x
-    local contact_dy = circle_y - closest_y
-    local contact_distance_squared = contact_dx * contact_dx + contact_dy * contact_dy
+    return closest_x, closest_y, distance
+end
 
-    if contact_distance_squared >= radius * radius then
-        return 0, 0
+-- Returns contact_x, contact_y, normal_x, normal_y or nil if no collision
+local function _line_circle_collision(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_radius)
+    -- Vector from segment origin to circle center
+    local ox, oy = origin_x - circle_x, origin_y - circle_y
+
+    -- Quadratic coefficients for intersection
+    local a = dx * dx + dy * dy
+    local b = 2 * (ox * dx + oy * dy)
+    local c = ox * ox + oy * oy - circle_radius * circle_radius
+
+    local discriminant = b * b - 4 * a * c
+    if discriminant < 0 then
+        return nil -- No intersection
     end
 
-    local contact_distance = math.sqrt(contact_distance_squared)
-    local penetration = radius - contact_distance
+    local sqrt_disc = math.sqrt(discriminant)
+    local t1 = (-b - sqrt_disc) / (2 * a)
+    local t2 = (-b + sqrt_disc) / (2 * a)
 
-    local normal_x, normal_y
-    if contact_distance > 1e-10 then
-        normal_x = contact_dx / contact_distance
-        normal_y = contact_dy / contact_distance
+    -- We want the smallest t in [0,1]
+    local t = nil
+    if t1 >= 0 and t1 <= 1 then
+        t = t1
+    elseif t2 >= 0 and t2 <= 1 then
+        t = t2
     else
-        normal_x = -spring_unit_y
-        normal_y = spring_unit_x
+        return nil -- Intersection is outside the segment
     end
 
-    local rest_dx = rest_x - origin_x
-    local rest_dy = rest_y - origin_y
-    local rest_length = math.sqrt(rest_dx * rest_dx + rest_dy * rest_dy)
+    -- Contact point
+    local contact_x = origin_x + dx * t
+    local contact_y = origin_y + dy * t
 
-    local spring_displacement = current_length - rest_length
+    -- Collision normal (from circle center to contact point, normalized)
+    local nx = contact_x - circle_x
+    local ny = contact_y - circle_y
+    local len = math.sqrt(nx * nx + ny * ny)
+    if len == 0 then
+        return nil -- Degenerate case: contact at center
+    end
+    local normal_x = nx / len
+    local normal_y = ny / len
 
-    local spring_force_x = -spring_displacement * spring_unit_x
-    local spring_force_y = -spring_displacement * spring_unit_y
+    return contact_x, contact_y, normal_x, normal_y
+end
 
-    local contact_force_x = penetration * normal_x
-    local contact_force_y = penetration * normal_y
+local function _spring_force(origin_x, origin_y, dx, dy, rest_dx, rest_dy,
+                                          circle_x, circle_y, circle_radius,
+                                          spring_constant)
+    -- Check for collision first
+    local contact_x, contact_y, collision_normal_x, collision_normal_y = _line_circle_collision(origin_x, origin_y, dx, dy,
+        circle_x, circle_y, circle_radius)
 
-    local spring_influence = (projection / current_length)
-    spring_influence = spring_influence * spring_influence
+    if contact_x == nil then
+        return 0, 0 -- no colliding
+    end
 
-    return spring_influence * spring_force_x + contact_force_x,
-        spring_influence * spring_force_y + contact_force_y
+    local rest_length = math.magnitude(rest_dx, rest_dy)
+    local current_length = math.magnitude(dx, dy)
+    local compression = math.clamp(current_length / rest_length, 0, 1)
+    local magnitude = spring_constant * compression
+
+    return collision_normal_x * magnitude, collision_normal_y * magnitude
 end
 
 --- @return force_x, force_y
 function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
     meta.assert(delta, "Number", outer_x, "Number", outer_y, "Number", outer_r, "Number")
 
+    require "common.debugger"
     local settings = rt.settings.overworld.deformable_mesh
-    local spring_constant = settings.spring_constant
     local damping = settings.damping
     local smoothing_strength = settings.smoothing_strength
     local smoothing_range = settings.smoothing_range
@@ -265,7 +307,7 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
             local penetration = outer_r - distance
 
             if length > math.eps then
-                local compression_factor = spring_constant * penetration / length
+                local compression_factor = penetration / length
                 dx = dx * (1 - compression_factor)
                 dy = dy * (1 - compression_factor)
             end
@@ -326,6 +368,9 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
     end
 
     local force_x, force_y = 0, 0
+    local n_springs = 0
+
+    local linear_constant = debugger.get("linear_constant")
 
     -- move towards rest position (memory foam)
     for i = 2, #self._mesh_data do
@@ -350,19 +395,22 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
 
         -- calculate spring force
         local fx, fy = _spring_force(
-            origin_x, origin_y,
-            origin_x + dx, origin_y + dy,
-            rest_origin_x + rest_dx,
-            rest_origin_y + rest_dy,
-            outer_x, outer_y, outer_r
+           origin_x, origin_y, dx, dy,
+            rest_dx, rest_dy,
+            outer_x, outer_y, outer_r,
+            linear_constant
         )
 
         force_x = force_x + fx
         force_y = force_y + fy
+        n_springs = n_springs + 1
     end
 
+    if math.magnitude(force_x, force_y) < math.eps then return 0, 0 end
+    force_x, force_y = math.normalize(force_x, force_y)
+
     self._mesh:replace_data(self._mesh_data)
-    return force_x, force_y
+    return force_x * linear_constant, force_y * linear_constant
 end
 
 --- @brief
@@ -389,3 +437,4 @@ end
 function ow.DeformableMesh:get_center()
     return self._center_x, self._center_y
 end
+

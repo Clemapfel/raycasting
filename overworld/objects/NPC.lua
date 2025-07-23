@@ -45,9 +45,12 @@ function ow.NPC:instantiate(object, stage, scene)
 
     self._sensor:signal_connect("collision_end", function()
         self._is_active = false
+        self._last_force_x, self._last_force_y = 0, 0
     end)
 
     self._is_visible = self._scene:get_is_body_visible(self._sensor)
+
+    self._last_force_x, self._last_force_y = 0, 0
 end
 
 --- @brief
@@ -68,23 +71,24 @@ end
 
 --- @brief
 function ow.NPC:update(delta)
-    if not self._scene:get_is_body_visible(self._sensor) then return end
+    --if not self._scene:get_is_body_visible(self._sensor) then return end
 
     local player = self._scene:get_player()
     local x, y = player:get_position()
     local radius = player:get_radius()
     local force_x, force_y = self._mesh:step(delta, x, y, radius)
 
-    require "common.debugger"
-    local scale = debugger.get("scale")
     local player_body = player:get_physics_body()
     local vx, vy = player_body:get_velocity()
     local mesh_x, mesh_y = self._mesh:get_center()
     local dx, dy = math.normalize(x - mesh_x, y - mesh_y)
     local force = math.magnitude(force_x, force_y)
+
     player_body:set_velocity(
-        vx + dx * force * scale, vy + dy * force * scale
+        vx + force_x, vy + force_y
     )
+
+    self._last_force_x, self._last_force_y = dx * force, dy * force
 end
 
 --- @brief
