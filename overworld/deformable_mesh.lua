@@ -109,161 +109,128 @@ function ow.DeformableMesh:instantiate(world, contour)
     )
 end
 
-function _collide_push(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
-    local tip_x, tip_y = origin_x + dx, origin_y + dy
-
-    -- Vector from origin to tip
-    local seg_dx = tip_x - origin_x
-    local seg_dy = tip_y - origin_y
-    local seg_length_sq = seg_dx * seg_dx + seg_dy * seg_dy
-
-    -- If segment has zero length, no collision possible
+-- Optimized collision function that combines both push and axis approaches
+-- Returns adjusted direction vector to avoid collision with circle
+-- @param origin_x, origin_y: start point of the vector
+-- @param dx, dy: direction vector
+-- @param circle_x, circle_y, circle_r: circle position and radius
+-- @param push_blend: 0.0 = pure axis compression, 1.0 = pure push displacement (default 0.3)
+function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r, push_blend)
+    -- Early exit for zero-length vectors
+    local seg_length_sq = dx * dx + dy * dy
     if seg_length_sq < 1e-12 then
         return dx, dy
     end
 
-    -- Vector from origin to circle center
+    local seg_length = math.sqrt(seg_length_sq)
+    local seg_inv_length = 1.0 / seg_length
+
+    -- Normalized direction (reused for both methods)
+    local dir_x, dir_y = dx * seg_inv_length, dy * seg_inv_length
+
+    -- Vector from origin to circle center (reused)
     local to_circle_x = circle_x - origin_x
     local to_circle_y = circle_y - origin_y
 
-    -- Project circle center onto line segment (clamped to [0,1])
-    local t = (to_circle_x * seg_dx + to_circle_y * seg_dy) / seg_length_sq
-    t = math.max(0, math.min(1, t))
-
-    -- Closest point on segment to circle center
-    local closest_x = origin_x + t * seg_dx
-    local closest_y = origin_y + t * seg_dy
-
-    -- Distance from circle center to closest point
-    local dist_to_closest = math.magnitude(closest_x - circle_x, closest_y - circle_y)
-
-    -- No collision if distance > radius
-    if dist_to_closest >= circle_r then
-        return dx, dy -- no collision
-    end
-
-    -- Collision detected - adjust direction vector to clear circle
-    local penetration = circle_r - dist_to_closest + 1 -- +1 for small buffer
-
-    -- Direction to push the tip away from circle
-    local push_dir_x, push_dir_y
-
-    if dist_to_closest > 1e-6 then
-        -- Push in direction from circle center to closest point
-        push_dir_x = (closest_x - circle_x) / dist_to_closest
-        push_dir_y = (closest_y - circle_y) / dist_to_closest
-    else
-        -- Closest point is at circle center, push perpendicular to segment
-        local seg_length = math.sqrt(seg_length_sq)
-        if seg_length > 1e-6 then
-            push_dir_x = -seg_dy / seg_length  -- perpendicular to segment
-            push_dir_y = seg_dx / seg_length
-        else
-            push_dir_x, push_dir_y = 1, 0 -- arbitrary fallback
-        end
-    end
-
-    -- Calculate how much to extend the direction vector
-    -- We need to move the tip far enough so the entire segment clears the circle
-    local extension_needed = penetration / math.abs(t) -- scale by position along segment
-    if t < 1e-6 then
-        -- If collision is near origin, extend significantly
-        extension_needed = penetration * 2
-    end
-
-    -- Extend the direction vector
-    local new_dx = dx + push_dir_x * extension_needed
-    local new_dy = dy + push_dir_y * extension_needed
-
-    return new_dx, new_dy
-end
-
-function _collide_axis(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
-    local tip_x, tip_y = origin_x + dx, origin_y + dy
-
-    -- Vector from origin to tip
-    local seg_length = math.magnitude(dx, dy)
-
-    -- If segment has zero length, no collision possible
-    if seg_length < 1e-12 then
-        return dx, dy
-    end
-
-    -- Normalized direction of the vector
-    local dir_x, dir_y = dx / seg_length, dy / seg_length
-
-    -- Vector from origin to circle center
-    local to_circle_x = circle_x - origin_x
-    local to_circle_y = circle_y - origin_y
-
-    -- Project circle center onto the infinite line through the vector
+    -- Project circle center onto line through vector
     local proj_length = to_circle_x * dir_x + to_circle_y * dir_y
     local proj_x = origin_x + proj_length * dir_x
     local proj_y = origin_y + proj_length * dir_y
 
-    -- Distance from circle center to the line
-    local dist_to_line = math.magnitude(proj_x - circle_x, proj_y - circle_y)
+    -- Distance from circle center to line
+    local dist_to_line_sq = (proj_x - circle_x) * (proj_x - circle_x) + (proj_y - circle_y) * (proj_y - circle_y)
+    local circle_r_sq = circle_r * circle_r
 
     -- No collision if line doesn't intersect circle
-    if dist_to_line >= circle_r then
+    if dist_to_line_sq >= circle_r_sq then
         return dx, dy
     end
 
+    local dist_to_line = math.sqrt(dist_to_line_sq)
+
+    -- === AXIS COMPRESSION METHOD ===
     -- Calculate intersection points with circle
-    local chord_half_length = math.sqrt(circle_r * circle_r - dist_to_line * dist_to_line)
+    local chord_half_length = math.sqrt(circle_r_sq - dist_to_line_sq)
     local intersection1_length = proj_length - chord_half_length
     local intersection2_length = proj_length + chord_half_length
 
-    -- Find the intersection point that's closest to origin but still ahead of it
+    -- Find safe compression length
     local max_safe_length = seg_length
-
     if intersection1_length > 0 then
-        -- First intersection is ahead of origin
-        max_safe_length = math.min(max_safe_length, intersection1_length - 1) -- -1 for buffer
+        max_safe_length = math.min(max_safe_length, intersection1_length - 1)
     elseif intersection2_length > 0 then
-        -- Only second intersection is ahead, but we're inside the circle
-        -- Compress significantly
         max_safe_length = math.max(0, intersection1_length - 1)
     end
 
-    -- Ensure we don't extend beyond original length
     max_safe_length = math.max(0, math.min(max_safe_length, seg_length))
+    local axis_dx = dir_x * max_safe_length
+    local axis_dy = dir_y * max_safe_length
 
-    -- Return compressed vector along original axis
-    local new_dx = dir_x * max_safe_length
-    local new_dy = dir_y * max_safe_length
+    -- === PUSH DISPLACEMENT METHOD ===
+    -- Find closest point on segment to circle center (clamped to segment)
+    local t = math.max(0, math.min(1, proj_length / seg_length))
+    local closest_x = origin_x + t * dx
+    local closest_y = origin_y + t * dy
 
-    return new_dx, new_dy
+    -- Distance from circle center to closest point on segment
+    local closest_dist_sq = (closest_x - circle_x) * (closest_x - circle_x) + (closest_y - circle_y) * (closest_y - circle_y)
+
+    local push_dx, push_dy = dx, dy
+    if closest_dist_sq < circle_r_sq then
+        local closest_dist = math.sqrt(closest_dist_sq)
+        local penetration = circle_r - closest_dist + 1 -- +1 for buffer
+
+        -- Direction to push tip away from circle
+        local push_dir_x, push_dir_y
+        if closest_dist > 1e-6 then
+            local inv_closest_dist = 1.0 / closest_dist
+            push_dir_x = (closest_x - circle_x) * inv_closest_dist
+            push_dir_y = (closest_y - circle_y) * inv_closest_dist
+        else
+            -- Fallback: perpendicular to segment
+            push_dir_x = -dir_y
+            push_dir_y = dir_x
+        end
+
+        -- Calculate extension needed
+        local extension_needed = (t < 1e-6) and (penetration * 2) or (penetration / t)
+
+        push_dx = dx + push_dir_x * extension_needed
+        push_dy = dy + push_dir_y * extension_needed
+    end
+
+    -- === BLEND RESULTS ===
+    local inv_blend = 1.0 - push_blend
+    return axis_dx * inv_blend + push_dx * push_blend,
+    axis_dy * inv_blend + push_dy * push_blend
 end
 
 function _spring_force(ox, oy, tip_x, tip_y, rest_x, rest_y, circle_x, circle_y, radius)
-    -- Calculate current spring vector and length
+    -- Calculate current spring vector and squared length
     local current_dx = tip_x - ox
     local current_dy = tip_y - oy
-    local current_length = math.sqrt(current_dx * current_dx + current_dy * current_dy)
+    local current_length_sq = current_dx * current_dx + current_dy * current_dy
 
-    -- Calculate rest spring vector and length
-    local rest_dx = rest_x - ox
-    local rest_dy = rest_y - oy
-    local rest_length = math.sqrt(rest_dx * rest_dx + rest_dy * rest_dy)
-
-    -- Handle edge case where spring has zero current length
-    if current_length == 0 then
+    -- Early exit for zero-length springs
+    if current_length_sq < 1e-12 then
         return 0, 0
     end
 
-    -- Spring unit vector (direction from origin to tip)
-    local spring_unit_x = current_dx / current_length
-    local spring_unit_y = current_dy / current_length
+    local current_length = math.sqrt(current_length_sq)
+    local current_inv_length = 1.0 / current_length
 
-    -- Find closest point on spring line segment to circle center
+    -- Spring unit vector (direction from origin to tip)
+    local spring_unit_x = current_dx * current_inv_length
+    local spring_unit_y = current_dy * current_inv_length
+
+    -- Vector from origin to circle center
     local to_circle_x = circle_x - ox
     local to_circle_y = circle_y - oy
 
     -- Project circle center onto spring line
     local projection = to_circle_x * spring_unit_x + to_circle_y * spring_unit_y
 
-    -- Clamp to spring segment [0, current_length]
+    -- Clamp projection to spring segment [0, current_length]
     projection = math.max(0, math.min(projection, current_length))
 
     -- Closest point on spring to circle center
@@ -273,60 +240,60 @@ function _spring_force(ox, oy, tip_x, tip_y, rest_x, rest_y, circle_x, circle_y,
     -- Vector from closest point to circle center
     local contact_dx = circle_x - closest_x
     local contact_dy = circle_y - closest_y
-    local contact_distance = math.sqrt(contact_dx * contact_dx + contact_dy * contact_dy)
+    local contact_distance_sq = contact_dx * contact_dx + contact_dy * contact_dy
+    local radius_sq = radius * radius
 
-    -- Check for collision
-    if contact_distance >= radius then
-        return 0, 0  -- No contact
+    -- Early exit if no collision
+    if contact_distance_sq >= radius_sq then
+        return 0, 0
     end
 
-    -- Calculate penetration depth
+    local contact_distance = math.sqrt(contact_distance_sq)
     local penetration = radius - contact_distance
 
     -- Contact normal (points away from spring toward circle center)
     local normal_x, normal_y
     if contact_distance > 1e-10 then
-        normal_x = contact_dx / contact_distance
-        normal_y = contact_dy / contact_distance
+        local contact_inv_distance = 1.0 / contact_distance
+        normal_x = contact_dx * contact_inv_distance
+        normal_y = contact_dy * contact_inv_distance
     else
         -- Circle center is on spring line, use perpendicular to spring
         normal_x = -spring_unit_y
         normal_y = spring_unit_x
     end
 
+    -- Calculate rest length only when needed (after collision confirmed)
+    local rest_dx = rest_x - ox
+    local rest_dy = rest_y - oy
+    local rest_length_sq = rest_dx * rest_dx + rest_dy * rest_dy
+    local rest_length = math.sqrt(rest_length_sq)
+
     -- PHYSICS: Two force components
 
     -- 1. Spring restoring force (Hooke's Law: F = -k * displacement)
-    -- This acts along the spring direction, proportional to compression/extension
+    -- Spring displacement from equilibrium (k = 1)
     local spring_displacement = current_length - rest_length
-    local spring_force_magnitude = spring_displacement  -- k = 1
 
     -- Spring force acts along spring axis toward equilibrium
-    local spring_force_x = -spring_force_magnitude * spring_unit_x
-    local spring_force_y = -spring_force_magnitude * spring_unit_y
+    local spring_force_x = -spring_displacement * spring_unit_x
+    local spring_force_y = -spring_displacement * spring_unit_y
 
     -- 2. Contact force (normal force due to collision)
-    -- This prevents interpenetration, acts along contact normal
-    local contact_force_magnitude = penetration  -- Treating as spring constant = 1
-    local contact_force_x = contact_force_magnitude * normal_x
-    local contact_force_y = contact_force_magnitude * normal_y
+    -- Prevents interpenetration, acts along contact normal
+    local contact_force_x = penetration * normal_x
+    local contact_force_y = penetration * normal_y
 
-    -- The spring force should only affect the circle if the contact point
-    -- is near the tip (where the spring force is applied)
-    -- Weight by distance along spring (closer to tip = more influence)
-    local tip_proximity = projection / current_length
-    local spring_influence = tip_proximity * tip_proximity  -- Quadratic falloff
+    -- Weight spring force by proximity to tip (quadratic falloff)
+    -- Only tip interactions should influence the circle significantly
+    local tip_proximity = projection * current_inv_length  -- projection / current_length
+    local spring_influence = tip_proximity * tip_proximity
 
-    -- Total force on circle
+    -- Total force on circle (Newton's 3rd law - forces applied to circle)
     local total_force_x = spring_influence * spring_force_x + contact_force_x
     local total_force_y = spring_influence * spring_force_y + contact_force_y
 
     return total_force_x, total_force_y
-end
-
---- @brief
-function ow.DeformableMesh:update_depression_shape(x, y, radius)
-    self._outer_x, self._outer_y, self._outer_radius = x, y, radius
 end
 
 --- @return force_x, force_y
@@ -334,7 +301,6 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
     if mass == nil then mass = 1 end
     meta.assert(delta, "Number", outer_x, "Number", outer_y, "Number", outer_r, "Number", mass, "Number")
 
-    -- Physics parameters
     local settings = rt.settings.overworld.deformable_mesh
     local spring_constant = settings.spring_constant
     local damping = settings.damping
@@ -342,93 +308,56 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
     local smoothing_range = settings.smoothing_range
     local max_displacement = self._thickness
 
-    -- Initialize force accumulator
-    local total_force_x = 0
-    local total_force_y = 0
-
-    -- Store compression data for neighbor influence
-    local updated_mesh_data = {}
+    -- compression data for neighbor smoothing
     local compression_ratios = {}
 
-    -- First pass: collision detection and store compression data
-    for i = 2, #self._mesh_data do -- skip first data, which is always constant
+    -- first pass: collision detection and store compression data
+    for i = 2, #self._mesh_data do -- skip first, which is center
         local data = self._mesh_data[i]
         local rest = self._mesh_data_at_rest[i]
         local origin_x, origin_y = data[1], data[2]
         local dx, dy = data[3], data[4]
+
+        dx, dy = _collide(origin_x, origin_y, dx, dy, outer_x, outer_y, outer_r, 0.3)
+
         local tip_x, tip_y = origin_x + dx, origin_y + dy
+        local distance = math.distance(tip_x, tip_y, outer_x, outer_y)
 
-        -- --- AXIAL COMPRESSION COLLISION ---
-        -- First apply compression-based collision response
-        local axis_dx, axis_dy = _collide_axis(origin_x, origin_y, dx, dy, outer_x, outer_y, outer_r)
-        local push_dx, push_dy = _collide_push(origin_x, origin_y, dx, dy, outer_x, outer_y, outer_r)
-        dx, dy = math.mix2(axis_dx, axis_dy, push_dx, push_dy, 0.3)
+        local length = math.magnitude(dx, dy)
+        if distance < outer_r then
+            local penetration = outer_r - distance
 
-        -- --- TIP COLLISION (for additional spring force) ---
-        tip_x, tip_y = origin_x + dx, origin_y + dy
-        local to_tip_x = tip_x - outer_x
-        local to_tip_y = tip_y - outer_y
-        local dist_tip = math.magnitude(to_tip_x, to_tip_y)
-
-        if dist_tip < outer_r then
-            local penetration = outer_r - dist_tip
-
-            -- Apply compression force along the vector's own axis
-            local vector_length = math.magnitude(dx, dy)
-            if vector_length > 1e-6 then
-                local compression_factor = spring_constant * penetration / vector_length
-                -- Compress the vector (reduce its length)
+            if length > math.eps then
+                local compression_factor = spring_constant * penetration / length
                 dx = dx * (1 - compression_factor)
                 dy = dy * (1 - compression_factor)
-
-                -- Calculate force applied to circle from this spring
-                -- Force = spring constant * compression distance
-                local spring_force_magnitude = spring_constant * penetration
-
-                -- Force direction is from tip toward circle center (Newton's 3rd law)
-                if dist_tip > 1e-6 then
-                    local force_dir_x = to_tip_x / dist_tip
-                    local force_dir_y = to_tip_y / dist_tip
-
-                    total_force_x = total_force_x + spring_force_magnitude * force_dir_x
-                    total_force_y = total_force_y + spring_force_magnitude * force_dir_y
-                end
             end
         end
 
-        -- Store compression information for neighbor influence
         local rest_length = math.magnitude(rest[3], rest[4])
-        local current_length = math.magnitude(dx, dy)
-        local compression_ratio = math.max(0, (rest_length - current_length) / rest_length)
-        compression_ratios[i] = compression_ratio
-
-        -- Store the updated data temporarily
-        updated_mesh_data[i] = { origin_x, origin_y, dx, dy }
+        length = math.magnitude(dx, dy)
+        compression_ratios[i] = math.max(0, (rest_length - length) / rest_length)
+        data[1], data[2], data[3], data[4] = origin_x, origin_y, dx, dy
     end
 
-    -- Second pass: Apply compression smoothing
+    -- apply smoothing
     local smoothed_mesh_data = {}
     for i = 2, #self._mesh_data do
-        local data = updated_mesh_data[i]
+        local data = self._mesh_data[i]
         local rest = self._mesh_data_at_rest[i]
         local origin_x, origin_y = data[1], data[2]
         local dx, dy = data[3], data[4]
 
-        -- Calculate weighted average compression from neighbors
+        -- weighted compression of neighbors
         local total_compression_influence = 0
         local total_weight = 0
         local n_springs = #self._mesh_data - 1 -- Exclude center point
 
         for offset = -smoothing_range, smoothing_range do
             if offset ~= 0 then
-                -- Convert current spring index to 0-based, apply offset, wrap, then convert back
-                local current_spring_0based = i - 2  -- Convert to 0-based (springs are indexed 2 to N)
-                local neighbor_spring_0based = math.wrap(current_spring_0based + offset, n_springs)
-                local neighbor_idx = neighbor_spring_0based + 2  -- Convert back to 1-based spring index
-
+                local neighbor_idx = math.wrap(i - 2 + offset, n_springs) + 2
                 local neighbor_compression = compression_ratios[neighbor_idx]
-                if neighbor_compression then  -- Safety check
-                    -- Weight decreases with distance
+                if neighbor_compression ~= nil then
                     local weight = 1.0 / (math.abs(offset) + 1)
                     total_compression_influence = total_compression_influence + neighbor_compression * weight
                     total_weight = total_weight + weight
@@ -437,21 +366,18 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
         end
 
         if total_weight > 0 then
-            local avg_neighbor_compression = total_compression_influence / total_weight
+            local mean_neighbor_compression = total_compression_influence / total_weight
             local self_compression = compression_ratios[i]
 
-            -- If neighbors are more compressed, pull this spring inward
-            if avg_neighbor_compression > self_compression then
-                local compression_diff = avg_neighbor_compression - self_compression
-                local pull_strength = compression_diff * smoothing_strength
+            -- if neighbors are more compressed, pull this spring inward
+            if mean_neighbor_compression > self_compression then
+                local pull_strength = (mean_neighbor_compression - self_compression) * smoothing_strength
 
-                -- Reduce the spring length to match neighbor compression
                 local current_length = math.magnitude(dx, dy)
                 local rest_length = math.magnitude(rest[3], rest[4])
-                local target_compression = self_compression + pull_strength
-                local target_length = rest_length * (1 - target_compression)
+                local target_length = rest_length * (1 - (self_compression + pull_strength))
 
-                if current_length > 1e-6 and target_length < current_length then
+                if current_length > math.eps and target_length < current_length then
                     local scale = target_length / current_length
                     dx = dx * scale
                     dy = dy * scale
