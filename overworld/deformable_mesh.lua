@@ -1,3 +1,12 @@
+rt.settings.overworld.deformable_mesh = {
+    spring_constant = 1,
+    damping = 0.9,
+    smoothing_strength = 0.1,
+    smoothing_range = 3,
+    subdivide_step = 5,
+    force_scale = 4
+}
+
 require "common.contour"
 require "common.delaunay_triangulation"
 
@@ -8,10 +17,8 @@ local _shader
 
 local _mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
-    { location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
-    { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
-}
--- xy stores origin of vector, uv stores vector
+    { location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" }
+} -- xy stores origin of vector, uv stores vector
 
 function ow.DeformableMesh:instantiate(world, contour)
     if _shader == nil then _shader = rt.Shader("overworld/deformable_mesh.glsl") end
@@ -19,99 +26,11 @@ function ow.DeformableMesh:instantiate(world, contour)
     meta.assert(world, b2.World)
     self._world = world
 
-    local outer_r = 35
-    local deformable_max_depth = 4 * outer_r
+    -- player data
+    self._outer_x, self._outer_y, self._outer_radius = 0, 0, 0
+
+    local deformable_max_depth = 4 * rt.settings.player.radius
     self._thickness = deformable_max_depth
-    local shape_r = 200
-
-    do
-        require "physics.physics"
-        local dbg_radius = shape_r * 0.5
-        local dbg_x, dbg_y = 0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight()
-        contour = {}
-
-        if false then
-            local n_points = 64
-            for i = 1, n_points do
-                local angle = (i - 1) * 2 * math.pi / n_points
-                table.insert(contour, dbg_x + math.cos(angle) * dbg_radius * 1.25)
-                table.insert(contour, dbg_y + math.sin(angle) * dbg_radius)
-            end
-        else
-            contour = {}
-            local n_points = 128  -- More points for smoother spiral
-
-            -- Snail parameters
-            local spiral_turns = 2.5        -- Number of spiral turns
-            local shell_growth = 2        -- How much the spiral grows outward
-            local body_length = dbg_radius * 1.2  -- Length of the snail body
-            local shell_offset_x = dbg_radius * 0.3  -- Shell position relative to body
-            local shell_offset_y = 0
-
-            -- Generate the snail body (elongated teardrop shape)
-            local body_points = math.floor(n_points * 0.4)
-            for i = 1, body_points do
-                local t = (i - 1) / (body_points - 1)  -- 0 to 1
-                local angle = t * math.pi  -- Half circle for body outline
-
-                -- Teardrop shape: wider at back, pointed at front
-                local width_factor = math.sin(angle) * (1 - t * 0.3)
-                local length_factor = 1 - math.cos(angle)
-
-                local x = dbg_x - body_length * 0.5 + body_length * length_factor
-                local y = dbg_y + width_factor * dbg_radius * 0.6
-
-                table.insert(contour, x)
-                table.insert(contour, y)
-            end
-
-            -- Generate the spiral shell
-            local shell_points = n_points - body_points
-            for i = 1, shell_points do
-                local t = (i - 1) / (shell_points - 1)  -- 0 to 1
-                local spiral_angle = t * spiral_turns * 2 * math.pi
-
-                -- Spiral radius grows from center outward
-                local spiral_radius = shell_growth * dbg_radius * (1 - t)
-
-                -- Shell center position
-                local shell_center_x = dbg_x + shell_offset_x
-                local shell_center_y = dbg_y + shell_offset_y
-
-                local x = shell_center_x + spiral_radius * math.cos(spiral_angle)
-                local y = shell_center_y + spiral_radius * math.sin(spiral_angle)
-
-                table.insert(contour, x)
-                table.insert(contour, y)
-            end
-
-            -- Connect back to body (bottom half)
-            for i = body_points, 1, -1 do
-                local t = (i - 1) / (body_points - 1)  -- 1 to 0
-                local angle = t * math.pi + math.pi  -- Bottom half of circle
-
-                local width_factor = math.sin(angle - math.pi) * (1 - (1-t) * 0.3)
-                local length_factor = 1 - math.cos(angle - math.pi)
-
-                local x = dbg_x - body_length * 0.5 + body_length * length_factor
-                local y = dbg_y + width_factor * dbg_radius * 0.6
-
-                table.insert(contour, x)
-                table.insert(contour, y)
-            end
-        end
-
-        local x, y = love.mouse.getPosition()
-        self._outer_body_radius = outer_r
-        self._outer_body = b2.Body(world, b2.BodyType.DYNAMIC, x, y, b2.Circle(0, 0, self._outer_body_radius))
-        self._outer_body:set_mass(1)
-        self._input = rt.InputSubscriber()
-        self._outer_target_x, self._outer_target_y = x, y
-        self._input:signal_connect("mouse_moved", function(_, x, y)
-            self._outer_target_x, self._outer_target_y = x, y
-        end)
-    end
-
     self._contour = contour
 
     -- construct center vectors
@@ -127,12 +46,12 @@ function ow.DeformableMesh:instantiate(world, contour)
     center_y = center_y / n
     self._center_x, self._center_y = center_x, center_y
 
-    do
+    do -- hard inner shell
         local inner_body_contour = {
             0, 0 -- local coords
         }
+
         for i = 1, #contour + 2, 2 do
-            -- get vector from center to point
             local x1 = contour[math.wrap(i+0, #contour)]
             local y1 = contour[math.wrap(i+1, #contour)]
 
@@ -153,7 +72,7 @@ function ow.DeformableMesh:instantiate(world, contour)
     end
 
     -- subdivide, then get outer shape
-    contour = rt.subdivide_contour(contour, 5)
+    contour = rt.subdivide_contour(contour, rt.settings.overworld.deformable_mesh.subdivide_step)
 
     local mesh_data = {
         { center_x, center_y, 0, 0, 1, 1, 1, 1 }
@@ -175,24 +94,19 @@ function ow.DeformableMesh:instantiate(world, contour)
 
         table.insert(mesh_data, {
             ox, oy,     -- vertex position = origin of vector
-            dx, dy,     -- texture_coords = vector
-            rt.lcha_to_rgba(0.8, 1, i / #contour, 1)
+            dx, dy     -- texture_coords = vector
         })
     end
 
     self._mesh_data = mesh_data
+    self._mesh_data_at_rest = table.deepcopy(self._mesh_data)
+
     self._mesh = rt.Mesh(
         mesh_data,
         rt.MeshDrawMode.TRIANGLE_FAN,
         _mesh_format,
         rt.GraphicsBufferUsage.DYNAMIC
     )
-
-    self._rest_mesh_data = {}
-    for i, data in ipairs(self._mesh_data) do
-        -- Deep copy
-        self._rest_mesh_data[i] = { data[1], data[2], data[3], data[4] }
-    end
 end
 
 function _collide_push(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
@@ -264,15 +178,6 @@ function _collide_push(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
     return new_dx, new_dy
 end
 
---- @brief Check if line segment collides with circle and compress along axis to avoid overlap
---- @param origin_x number Base x coordinate of the vector (fixed)
---- @param origin_y number Base y coordinate of the vector (fixed)
---- @param dx number Direction vector x component
---- @param dy number Direction vector y component
---- @param circle_x number Circle center x coordinate
---- @param circle_y number Circle center y coordinate
---- @param circle_r number Circle radius
---- @return number, number New dx, dy (compressed along original axis)
 function _collide_axis(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r)
     local tip_x, tip_y = origin_x + dx, origin_y + dy
 
@@ -420,18 +325,22 @@ function _spring_force(ox, oy, tip_x, tip_y, rest_x, rest_y, circle_x, circle_y,
 end
 
 --- @brief
---- @brief
---- @brief
-function ow.DeformableMesh:update(delta)
-    local outer_x, outer_y = self._outer_body:get_position()
-    local outer_r = self._outer_body_radius
+function ow.DeformableMesh:update_depression_shape(x, y, radius)
+    self._outer_x, self._outer_y, self._outer_radius = x, y, radius
+end
+
+--- @return force_x, force_y
+function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
+    if mass == nil then mass = 1 end
+    meta.assert(delta, "Number", outer_x, "Number", outer_y, "Number", outer_r, "Number", mass, "Number")
 
     -- Physics parameters
-    local spring_k_tip = 1      -- Spring constant for tip (increased for more responsive compression)
-    local damping = 1 - 0.1          -- Damping factor (memory foam effect)
+    local settings = rt.settings.overworld.deformable_mesh
+    local spring_constant = settings.spring_constant
+    local damping = settings.damping
+    local smoothing_strength = settings.smoothing_strength
+    local smoothing_range = settings.smoothing_range
     local max_displacement = self._thickness
-    local smoothing_strength = 0.1
-    local smoothing_range = 3   -- How many neighbors on each side to consider
 
     -- Initialize force accumulator
     local total_force_x = 0
@@ -444,7 +353,7 @@ function ow.DeformableMesh:update(delta)
     -- First pass: collision detection and store compression data
     for i = 2, #self._mesh_data do -- skip first data, which is always constant
         local data = self._mesh_data[i]
-        local rest = self._rest_mesh_data[i]
+        local rest = self._mesh_data_at_rest[i]
         local origin_x, origin_y = data[1], data[2]
         local dx, dy = data[3], data[4]
         local tip_x, tip_y = origin_x + dx, origin_y + dy
@@ -467,14 +376,14 @@ function ow.DeformableMesh:update(delta)
             -- Apply compression force along the vector's own axis
             local vector_length = math.magnitude(dx, dy)
             if vector_length > 1e-6 then
-                local compression_factor = spring_k_tip * penetration / vector_length
+                local compression_factor = spring_constant * penetration / vector_length
                 -- Compress the vector (reduce its length)
                 dx = dx * (1 - compression_factor)
                 dy = dy * (1 - compression_factor)
 
                 -- Calculate force applied to circle from this spring
                 -- Force = spring constant * compression distance
-                local spring_force_magnitude = spring_k_tip * penetration
+                local spring_force_magnitude = spring_constant * penetration
 
                 -- Force direction is from tip toward circle center (Newton's 3rd law)
                 if dist_tip > 1e-6 then
@@ -501,7 +410,7 @@ function ow.DeformableMesh:update(delta)
     local smoothed_mesh_data = {}
     for i = 2, #self._mesh_data do
         local data = updated_mesh_data[i]
-        local rest = self._rest_mesh_data[i]
+        local rest = self._mesh_data_at_rest[i]
         local origin_x, origin_y = data[1], data[2]
         local dx, dy = data[3], data[4]
 
@@ -559,7 +468,7 @@ function ow.DeformableMesh:update(delta)
     for i = 2, #self._mesh_data do
         local data = self._mesh_data[i]
         local smoothed_data = smoothed_mesh_data[i]
-        local rest = self._rest_mesh_data[i]
+        local rest = self._mesh_data_at_rest[i]
 
         local origin_x, origin_y = smoothed_data[1], smoothed_data[2]
         local dx, dy = smoothed_data[3], smoothed_data[4]
@@ -582,7 +491,7 @@ function ow.DeformableMesh:update(delta)
         data[1], data[2] = origin_x, origin_y
         data[3], data[4] = dx, dy
 
-        local rest_data = self._rest_mesh_data[i]
+        local rest_data = self._mesh_data_at_rest[i]
         local rest_origin_x, rest_origin_y, rest_dx, rest_dy = table.unpack(rest_data)
         local fx, fy = _spring_force(
             origin_x, origin_y,
@@ -596,22 +505,11 @@ function ow.DeformableMesh:update(delta)
         force_y = force_y + fy
     end
 
-
-
     self._mesh:replace_data(self._mesh_data)
 
-    local force_scale = 3
-    self._outer_body:apply_force(force_x * force_scale, force_y * force_scale)
-
-    -- outer movement for debugging
-    local current_x, current_y = self._outer_body:get_position()
-    if not love.keyboard.isDown("space") then
-        self._outer_body:set_velocity(self._outer_target_x - current_x, self._outer_target_y - current_y)
-    end
-    self._world:update(delta)
+    local force_scale = settings.force_scale * mass
+    return force_x * force_scale, force_y * force_scale
 end
-
-local _tri_w, _tri_h  = 10, 10
 
 --- @brief
 function ow.DeformableMesh:draw()
@@ -619,37 +517,4 @@ function ow.DeformableMesh:draw()
     love.graphics.setColor(0.5, 0.5, 0.5, 1)
     self._mesh:draw()
     _shader:unbind()
-
-    local hue = 0
-    local skip = true
-    for data in values(self._mesh_data) do
-        if not skip then
-            local ox, oy, dx, dy = table.unpack(data)
-
-            -- Draw a triangle at the end of the line
-            local tip_x, tip_y = ox + dx, oy + dy
-            local angle = math.angle(dx, dy)
-            local cos_a = math.cos(angle)
-            local sin_a = math.sin(angle)
-
-            local x1 = tip_x
-            local y1 = tip_y
-            local x2 = tip_x - _tri_h * cos_a + (_tri_w / 2) * sin_a
-            local y2 = tip_y - _tri_h * sin_a - (_tri_w / 2) * cos_a
-            local x3 = tip_x - _tri_h * cos_a - (_tri_w / 2) * sin_a
-            local y3 = tip_y - _tri_h * sin_a + (_tri_w / 2) * cos_a
-
-            rt.LCHA(0.8, 1, hue, 1):bind()
-            --love.graphics.line(ox, oy, ox + dx, oy + dy)
-            --love.graphics.polygon("fill", x1, y1, x2, y2, x3, y3)
-
-            hue = hue + 1 / (#self._mesh_data - 1)
-        end
-
-        skip = false
-    end
-
-    love.graphics.setColor(1, 1, 1, 1)
-    self._outer_body:draw()
-    self._inner_body:draw()
 end
