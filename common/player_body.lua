@@ -683,9 +683,19 @@ end
 function rt.PlayerBody:draw_bloom()
     if self._is_initialized ~= true then return end
 
+    rt.graphics.push_stencil()
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._stencil_bodies) do
+        body:draw(true)
+    end
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
     local w, h = self._outline_canvas:get_size()
     _outline_shader:bind()
     love.graphics.setColor(self._r, self._g, self._b, self._a)
     love.graphics.draw(self._outline_canvas:get_native(), self._center_x, self._center_y, 0, 1 / self._canvas_scale, 1 / self._canvas_scale, 0.5 * w, 0.5 * h)
     _outline_shader:unbind()
+
+    rt.graphics.set_stencil_mode(nil)
 end

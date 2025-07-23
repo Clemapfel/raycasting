@@ -231,7 +231,7 @@ function _spring_force(origin_x, origin_y, tip_x, tip_y, rest_x, rest_y, circle_
     spring_influence = spring_influence * spring_influence
 
     return spring_influence * spring_force_x + contact_force_x,
-    spring_influence * spring_force_y + contact_force_y
+        spring_influence * spring_force_y + contact_force_y
 end
 
 --- @return force_x, force_y
@@ -371,4 +371,21 @@ function ow.DeformableMesh:draw()
     love.graphics.setColor(0.5, 0.5, 0.5, 1)
     self._mesh:draw()
     _shader:unbind()
+end
+
+--- @brief
+function ow.DeformableMesh:get_body()
+    return self._inner_body
+end
+
+--- @brief
+function ow.DeformableMesh:reset()
+    for i, data in ipairs(self._mesh_data) do
+        data[1], data[2], data[3], data[4] = table.unpack(self._mesh_data_at_rest[i])
+    end
+end
+
+--- @brief
+function ow.DeformableMesh:get_center()
+    return self._center_x, self._center_y
 end

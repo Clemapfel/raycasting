@@ -273,6 +273,7 @@ function ow.Checkpoint:spawn(also_kill)
         local player_y = math.max(self._top_y + 2 * player:get_radius(), self._bottom_y - screen_h - 2 * player:get_radius())
         self._current_player_spawn_x, self._current_player_spawn_y = self._top_x, player_y
         player:teleport_to(self._current_player_spawn_x, self._current_player_spawn_y)
+        self._scene:get_camera():set_position(self._bottom_x, self._bottom_y)
     end
 
     self._stage:set_active_checkpoint(self)
