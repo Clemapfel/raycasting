@@ -4,7 +4,6 @@ rt.settings.overworld.deformable_mesh = {
     smoothing_strength = 0.1,
     smoothing_range = 3,
     subdivide_step = 5,
-    force_scale = 4
 }
 
 require "common.contour"
@@ -109,13 +108,9 @@ function ow.DeformableMesh:instantiate(world, contour)
     )
 end
 
--- Optimized collision function that combines both push and axis approaches
--- Returns adjusted direction vector to avoid collision with circle
--- @param origin_x, origin_y: start point of the vector
--- @param dx, dy: direction vector
--- @param circle_x, circle_y, circle_r: circle position and radius
--- @param push_blend: 0.0 = pure axis compression, 1.0 = pure push displacement (default 0.3)
 function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_r, push_blend)
+    push_blend = push_blend or 0.3  -- Default blend used in original code
+
     -- Early exit for zero-length vectors
     local seg_length_sq = dx * dx + dy * dy
     if seg_length_sq < 1e-12 then
@@ -297,9 +292,8 @@ function _spring_force(ox, oy, tip_x, tip_y, rest_x, rest_y, circle_x, circle_y,
 end
 
 --- @return force_x, force_y
-function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
-    if mass == nil then mass = 1 end
-    meta.assert(delta, "Number", outer_x, "Number", outer_y, "Number", outer_r, "Number", mass, "Number")
+function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
+    meta.assert(delta, "Number", outer_x, "Number", outer_y, "Number", outer_r, "Number")
 
     local settings = rt.settings.overworld.deformable_mesh
     local spring_constant = settings.spring_constant
@@ -351,7 +345,7 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
         -- weighted compression of neighbors
         local total_compression_influence = 0
         local total_weight = 0
-        local n_springs = #self._mesh_data - 1 -- Exclude center point
+        local n_springs = #self._mesh_data - 1 -- exclude center point
 
         for offset = -smoothing_range, smoothing_range do
             if offset ~= 0 then
@@ -385,40 +379,33 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
             end
         end
 
-        smoothed_mesh_data[i] = { origin_x, origin_y, dx, dy }
+        data[1], data[2], data[3], data[4] = origin_x, origin_y, dx, dy
     end
 
     local force_x, force_y = 0, 0
 
-    -- Third pass: Apply memory foam and finalize
+    -- move towards rest position (memory foam)
     for i = 2, #self._mesh_data do
         local data = self._mesh_data[i]
-        local smoothed_data = smoothed_mesh_data[i]
         local rest = self._mesh_data_at_rest[i]
 
-        local origin_x, origin_y = smoothed_data[1], smoothed_data[2]
-        local dx, dy = smoothed_data[3], smoothed_data[4]
-
-        -- --- MEMORY FOAM (return to rest) ---
-        local rest_dx, rest_dy = rest[3], rest[4]
-        local rest_ox, rest_oy = rest[1], rest[2]
+        local origin_x, origin_y, dx, dy = table.unpack(data)
+        local rest_origin_x, rest_origin_y, rest_dx, rest_dy = table.unpack(rest)
         dx = dx + (rest_dx - dx) * damping * delta
         dy = dy + (rest_dy - dy) * damping * delta
-        origin_x = origin_x + (rest_ox - origin_x) * damping * delta
-        origin_y = origin_y + (rest_oy - origin_y) * damping * delta
+        origin_x = origin_x + (rest_origin_x - origin_x) * damping * delta
+        origin_y = origin_y + (rest_origin_y - origin_y) * damping * delta
 
-        -- --- CLAMP TIP DISPLACEMENT ---
-        local disp = math.sqrt(dx * dx + dy * dy)
-        if disp > max_displacement then
-            dx = dx * (max_displacement / disp)
-            dy = dy * (max_displacement / disp)
+        local length =  math.magnitude(dx, dy)
+        if length > max_displacement then
+            dx = dx * (max_displacement / length)
+            dy = dy * (max_displacement / length)
         end
 
         data[1], data[2] = origin_x, origin_y
         data[3], data[4] = dx, dy
 
-        local rest_data = self._mesh_data_at_rest[i]
-        local rest_origin_x, rest_origin_y, rest_dx, rest_dy = table.unpack(rest_data)
+        -- calculate spring force
         local fx, fy = _spring_force(
             origin_x, origin_y,
             origin_x + dx, origin_y + dy,
@@ -432,9 +419,7 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r, mass)
     end
 
     self._mesh:replace_data(self._mesh_data)
-
-    local force_scale = settings.force_scale * mass
-    return force_x * force_scale, force_y * force_scale
+    return force_x, force_y
 end
 
 --- @brief
