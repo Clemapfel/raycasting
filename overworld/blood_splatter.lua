@@ -50,6 +50,7 @@ end
 --- @brief
 function ow.BloodSplatter:add(x, y, radius, hue)
     local r = 0.5
+    local was_added = false
     self._world:queryShapesInArea(x - r, y - r, x + r, y + r, function(shape)
         local data = shape:getUserData()
         if data ~= nil then
@@ -83,12 +84,17 @@ function ow.BloodSplatter:add(x, y, radius, hue)
                         self._active_divisions[division] = true
                         division.is_active = true
                     end
+
+                    was_added = true
+                    return false -- only use first result
                 end
             end
         end
 
         return true
     end)
+
+    return was_added
 end
 
 --- @brief

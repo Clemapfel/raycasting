@@ -26,22 +26,9 @@ local _sticky_max_x, _sticky_max_y = -math.huge, -math.huge
 
 local _initialized = false
 
-local first = true
-
 --- @brief
 function ow.Hitbox:instantiate(object, stage, scene)
     if _sticky_shader == nil then _sticky_shader = rt.Shader("overworld/objects/hitbox.glsl") end
-
-    -- tODO
-    if first then
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "f" then
-                _sticky_shader:recompile()
-            end
-        end)
-        first = false
-    end
 
     self._body = object:create_physics_body(stage:get_physics_world())
 

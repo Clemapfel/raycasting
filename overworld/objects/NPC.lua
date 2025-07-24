@@ -1,9 +1,12 @@
 require "common.delaunay_triangulation"
 require "overworld.deformable_mesh"
+require "overworld.blood_drop"
 
 rt.settings.overworld.npc = {
     segment_length = 10,
-    buffer_depth = rt.settings.player.radius
+    buffer_depth = rt.settings.player.radius,
+    blood_drop_velocity = 300,
+    blood_drop_gravity = 300
 }
 
 --- @class ow.NPC
@@ -38,9 +41,42 @@ function ow.NPC:instantiate(object, stage, scene)
     self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
     self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
 
+    self._blood_drops = {}
+
     self._is_active = false
-    self._sensor:signal_connect("collision_start", function()
+    self._sensor:signal_connect("collision_start", function(_, normal_x, normal_y, x, y)
         self._is_active = true
+
+        local x, y = self._scene:get_player():get_position()
+        local up = 3 / 4 * 2 * math.pi
+        for i = 1, rt.random.integer(10, 30) do
+            local angle = rt.random.number(up - 0.5 * math.pi, up + 0.5 * math.pi)
+            local magnitude = rt.settings.overworld.npc.blood_drop_velocity
+            local vx, vy = math.cos(angle) * magnitude, math.sin(angle) * magnitude
+            local blood_drop = ow.BloodDrop(
+                self._stage,
+                x, y,
+                rt.random.number(1, 5), -- radius
+                vx, vy,
+                rt.random.number(0, 1) -- hue
+            )
+
+            blood_drop:signal_connect("collision", function()
+                local to_remove
+                for i, drop in values(self._blood_drops) do
+                    if drop == blood_drop then
+                        to_remove = i
+                    end
+                end
+
+                assert(i ~= nil)
+                table.remove(self._blood_drops, to_remove)
+                return meta.DISCONNECT_SIGNAL
+            end)
+
+            table.insert(self._blood_drops, blood_drop)
+            dbg("called")
+        end
     end)
 
     self._sensor:signal_connect("collision_end", function()
@@ -64,14 +100,23 @@ function ow.NPC:draw()
         return
     end
 
+    love.graphics.setColor(0.5, 0.5, 0.5, 1)
     self._mesh:draw()
-    self._mesh:get_body():draw()
-    self._sensor:draw()
+    --self._mesh:get_body():draw()
+    --self._sensor:draw()
+
+    for drop in values(self._blood_drops) do
+        drop:draw()
+    end
 end
 
 --- @brief
 function ow.NPC:update(delta)
     --if not self._scene:get_is_body_visible(self._sensor) then return end
+
+    for drop in values(self._blood_drops) do
+        drop:get_body():apply_force(0, rt.settings.overworld.npc.blood_drop_gravity)
+    end
 
     local player = self._scene:get_player()
     local x, y = player:get_position()

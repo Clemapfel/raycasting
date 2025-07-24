@@ -1,5 +1,5 @@
 --- @class b2.Body
---- @signal collision_start (b2.Body, b2.Body, normal_x, normal_y) -> nil
+--- @signal collision_start (b2.Body, b2.Body, normal_x, normal_y, x1?, y1?, x2?, y2?) -> nil
 --- @signal collision_end (b2.Body, b2.Body, normal_x, normal_y) -> nil
 --- @signal activate (b2.Body) -> nil
 b2.Body = meta.class("PhysicsBody")
@@ -199,6 +199,8 @@ end
 
 --- @brief
 function b2.Body:get_center_of_mass()
+    if self._native:isDestroyed() then return 0, 0 end
+
     local mean_x, mean_y, n = 0, 0, 0
     local tx, ty = self._native:getPosition()
     local angle = self._native:getAngle()
@@ -213,12 +215,14 @@ end
 
 --- @brief
 function b2.Body:get_linear_velocity()
+    if self._native:isDestroyed() then return 0 end
     return self._native:getLinearVelocity()
 end
 b2.Body.get_velocity = b2.Body.get_linear_velocity
 
 --- @brief
 function b2.Body:set_linear_velocity(dx, dy)
+    if self._native:isDestroyed() then return end
     if dy == nil then dy = dx end
     self._native:setLinearVelocity(dx, dy)
 
@@ -231,12 +235,14 @@ b2.Body.set_velocity = b2.Body.set_linear_velocity
 
 --- @brief
 function b2.Body:set_angular_velocity(value)
+    if self._native:isDestroyed() then return end
     self._native:setAngularVelocity(value)
 end
 
 --- @brief
 function b2.Body:get_angular_velocity(value)
-   return self._native:getAngularVelocity()
+    if self._native:isDestroyed() then return 0 end
+    return self._native:getAngularVelocity()
 end
 
 --- @brief
@@ -246,21 +252,25 @@ end
 
 --- @brief
 function b2.Body:apply_force(dx, dy)
+    if self._native:isDestroyed() then return end
     self._native:applyForce(dx, dy)
 end
 
 --- @brief
 function b2.Body:apply_linear_impulse(dx, dy)
+    if self._native:isDestroyed() then return end
     self._native:applyLinearImpulse(dx, dy)
 end
 
 --- @brief
 function b2.Body:set_mass(mass)
+    if self._native:isDestroyed() then return end
     self._native:setMass(mass)
 end
 
 --- @brief
 function b2.Body:set_friction(friction)
+    if self._native:isDestroyed() then return end
     for shape in values(self._native:getShapes()) do
         shape:setFriction(friction)
     end
@@ -268,6 +278,7 @@ end
 
 --- @brief
 function b2.Body:set_restitution(value)
+    if self._native:isDestroyed() then return end
     for shape in values(self._native:getShapes()) do
         shape:setRestitution(value)
     end
@@ -275,6 +286,7 @@ end
 
 --- @brief
 function b2.Body:get_mass()
+    if self._native:isDestroyed() then return 0 end
     return self._native:getMass()
 end
 

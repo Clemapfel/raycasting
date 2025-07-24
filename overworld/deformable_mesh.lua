@@ -406,17 +406,13 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
         n_springs = n_springs + 1
     end
 
-    if math.magnitude(force_x, force_y) < math.eps then return 0, 0 end
-    force_x, force_y = math.normalize(force_x, force_y)
-
     self._mesh:replace_data(self._mesh_data)
-    return force_x * linear_constant, force_y * linear_constant
+    return force_x, force_y
 end
 
 --- @brief
 function ow.DeformableMesh:draw()
     _shader:bind()
-    love.graphics.setColor(0.5, 0.5, 0.5, 1)
     self._mesh:draw()
     _shader:unbind()
 end

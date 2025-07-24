@@ -103,13 +103,13 @@ function b2.World:instantiate()
         for a, outer in pairs(self._body_to_collision_sign) do
             for b, entry in pairs(outer) do
                 if entry.sign >= 1 or entry.sign == 0 then
-                    a:signal_emit("collision_start", b, entry.nx, entry.ny, entry.x1, entry.y1, entry.x2, entry.y2, entry.contact)
+                    a:signal_try_emit("collision_start", b, entry.nx, entry.ny, entry.x1, entry.y1, entry.x2, entry.y2, entry.contact)
                 end
             end
 
             for b, entry in pairs(outer) do
                 if entry.sign <= -1 or entry.sign == 0 then
-                    a:signal_emit("collision_end", b, entry.nx, entry.ny, entry.x1, entry.y1, entry.x2, entry.y2, entry.contact)
+                    a:signal_try_emit("collision_end", b, entry.nx, entry.ny, entry.x1, entry.y1, entry.x2, entry.y2, entry.contact)
                 end
             end
         end
