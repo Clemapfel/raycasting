@@ -140,8 +140,8 @@ function rt.smooth_contour(contour, n_iterations)
     end
 
     -- connect loops that retracted after smoothing
-    points[1] = points[#points - 1]
-    points[2] = points[#points - 0]
+    --points[1] = points[#points - 1]
+    --points[2] = points[#points - 0]
     return points
 end
 
