@@ -1671,8 +1671,6 @@ function rt.Player:bounce(nx, ny)
     local nvx, nvy = self._last_velocity_x, self._last_velocity_y
 
     local magnitude = math.min(1, math.magnitude(nvx, nvy) / _settings.bounce_relative_velocity)
-    dbg(magnitude)
-
     self._bounce_force = math.mix(_settings.bounce_min_force, _settings.bounce_max_force, magnitude)
     self._bounce_elapsed = 0
 

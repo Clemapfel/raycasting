@@ -86,8 +86,10 @@ function ow.DeformableMesh:instantiate(world, contour)
             table.insert(shapes, b2.Polygon(tri))
         end
 
-        self._inner_body = b2.Body(world, b2.BodyType.STATIC, center_x, center_y, shapes)
+        self._inner_body = b2.Body(world, b2.BodyType.KINEMATIC, center_x, center_y, shapes)
     end
+
+    self._highlight = rt.generate_contour_highlight(self._contour, 1, 1, 250)
 
     -- subdivide, then get outer shape
     contour = rt.subdivide_contour(contour, rt.settings.overworld.deformable_mesh.subdivide_step)
@@ -429,6 +431,11 @@ function ow.DeformableMesh:draw_body()
     end
 
     love.graphics.pop()
+end
+
+function ow.DeformableMesh:draw_highlight()
+    love.graphics.setColor(1, 1, 1, 0.2)
+    love.graphics.polygon("fill", self._highlight)
 end
 
 --- @brief

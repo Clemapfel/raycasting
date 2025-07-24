@@ -238,3 +238,83 @@ function rt.is_contour_convex(vertices)
 
     return true
 end
+
+function rt.generate_contour_highlight(contour, light_nx, light_ny, n_iterations)
+    n_iterations = n_iterations or 250 -- default number of smoothing iterations
+
+    local center_x, center_y, n = 0, 0, 0
+    for i = 1, #contour, 2 do
+        local x, y = contour[i+0], contour[i+1]
+        center_x = center_x + x
+        center_y = center_y + y
+        n = n + 1
+    end
+
+    center_x = center_x / n
+    center_y = center_y / n
+
+    local light_dir_x, light_dir_y = math.normalize(light_nx, light_ny)
+
+    local scaled = {}
+    local normals = {}
+    for i = 1, #contour, 2 do
+        local x, y = contour[i+0], contour[i+1]
+        local dx, dy = x - center_x, y - center_y
+        local length = math.magnitude(dx, dy)
+        dx, dy = math.normalize(dx, dy)
+        table.insert(scaled, center_x + dx * (length))
+        table.insert(scaled, center_y + dy * (length))
+        table.insert(normals, dx)
+        table.insert(normals, dy)
+    end
+
+    -- Apply n iterations of Laplacian smoothing with light-based weighting
+    local num_vertices = #scaled / 2
+
+    for iteration = 1, n_iterations do
+        local smoothed = {}
+
+        for i = 1, num_vertices do
+            local curr_idx = (i - 1) * 2 + 1
+            local prev_idx = ((i - 2 + num_vertices) % num_vertices) * 2 + 1
+            local next_idx = (i % num_vertices) * 2 + 1
+
+            -- Current vertex position
+            local curr_x, curr_y = scaled[curr_idx], scaled[curr_idx + 1]
+
+            -- Neighbor positions
+            local prev_x, prev_y = scaled[prev_idx], scaled[prev_idx + 1]
+            local next_x, next_y = scaled[next_idx], scaled[next_idx + 1]
+
+            -- Calculate Laplacian (average of neighbors minus current)
+            local neighbor_avg_x = (prev_x + next_x) * 0.5
+            local neighbor_avg_y = (prev_y + next_y) * 0.5
+            local laplacian_x = neighbor_avg_x - curr_x
+            local laplacian_y = neighbor_avg_y - curr_y
+
+            -- Get normal for this vertex
+            local normal_idx = (i - 1) * 2 + 1
+            local normal_x, normal_y = normals[normal_idx], normals[normal_idx + 1]
+
+            -- Calculate alignment with light direction
+            -- Dot product: 1 = aligned with light, -1 = opposite to light
+            local alignment = math.dot(light_dir_x, light_dir_y, normal_x, normal_y)
+
+            -- Convert alignment to smoothing weight
+            -- Vertices aligned with light (alignment close to 1) get less smoothing
+            -- Vertices perpendicular or opposite to light get more smoothing
+            local smoothing_weight = math.mix(0.05, 1, math.max(alignment, 0))
+
+            -- Apply weighted Laplacian smoothing
+            local new_x = curr_x + laplacian_x * smoothing_weight
+            local new_y = curr_y + laplacian_y * smoothing_weight
+
+            table.insert(smoothed, new_x)
+            table.insert(smoothed, new_y)
+        end
+
+        scaled = smoothed
+    end
+
+    return scaled
+end

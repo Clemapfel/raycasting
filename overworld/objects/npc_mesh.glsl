@@ -13,7 +13,7 @@ void vertexmain() {
     vec2 rest_dxy = rest_origin_rest_dxy.zw;
 
     float fraction = length(dxy) / length(rest_dxy);
-    vec4 color = vec4(vec3(fraction), 1);
+    vec4 color = vec4(fraction);
 
     VaryingTexCoord = vec4(0);
     VaryingColor = gammaCorrectColor(color * ConstantColor);
@@ -39,7 +39,7 @@ vec4 effect(vec4 color, sampler2D _img, vec2 _uv, vec2 screen_coords)
     vec2 screen_uv = screen_coords / love_ScreenSize.xy;
 
     float attenuation = gaussian(distance(player_uv, screen_uv) * 2, 3);
-    return vec4(color.rgb * attenuation * player_color.rgb, color.a * player_color.a);
+    return vec4(color.rgb * attenuation * player_color.rgb, gaussian(color.a, 0.4) * player_color.a);
 }
 
 #endif

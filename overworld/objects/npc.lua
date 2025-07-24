@@ -175,6 +175,8 @@ function ow.NPC:draw()
 
     _outline_shader:unbind()
 
+    self._deformable_mesh:draw_highlight()
+
     rt.graphics.set_stencil_mode(nil)
 
     --[[
@@ -196,6 +198,7 @@ function ow.NPC:update(delta)
     local x, y = player:get_position()
     local radius = player:get_radius()
     local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
+
 end
 
 --- @brief
