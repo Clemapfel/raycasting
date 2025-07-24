@@ -64,7 +64,8 @@ rt.settings.player = {
     accelerator_magnet_force = 400,
 
     bounce_min_force = 200,
-    bounce_max_force = 400,
+    bounce_max_force = 600,
+    bounce_relative_velocity = 2000,
     bounce_duration = 2 / 60,
 
     double_jump_buffer_duration = 15 / 60,
@@ -1666,8 +1667,13 @@ end
 function rt.Player:bounce(nx, ny)
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
-    self._bounce_force = math.max(self._bounce_force, math.abs(math.dot(self._last_velocity_x, self._last_velocity_y, nx, ny)))
-    self._bounce_force = math.clamp(self._bounce_force, _settings.bounce_min_force, _settings.bounce_max_force)
+
+    local nvx, nvy = self._last_velocity_x, self._last_velocity_y
+
+    local magnitude = math.min(1, math.magnitude(nvx, nvy) / _settings.bounce_relative_velocity)
+    dbg(magnitude)
+
+    self._bounce_force = math.mix(_settings.bounce_min_force, _settings.bounce_max_force, magnitude)
     self._bounce_elapsed = 0
 
     return self._bounce_force / _settings.bounce_max_force
