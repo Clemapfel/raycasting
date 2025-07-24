@@ -320,111 +320,118 @@ function rt.generate_contour_highlight(contour, light_nx, light_ny, n_iterations
     return scaled
 end
 
--- Optimal Transport Contour Morphing - Single Function Implementation
--- Input: contour_a, contour_b as arrays of flat 2d coordinates [x1, y1, x2, y2, ...]
--- Parameter t: interpolation value between 0 (contour_a) and 1 (contour_b)
-
--- Optimal Transport Contour Morphing - Smooth Blending Implementation
--- Input: contour_a, contour_b as arrays of flat 2d coordinates [x1, y1, x2, y2, ...]
--- Parameter t: interpolation value between 0 (contour_a) and 1 (contour_b)
-
--- Helper: Compute signed area to determine orientation
-local function signed_area(contour)
-    local area = 0
-    local n = #contour / 2
-    for i = 1, n do
-        local x1, y1 = contour[2*i-1], contour[2*i]
-        local j = (i % n) + 1
-        local x2, y2 = contour[2*j-1], contour[2*j]
-        area = area + (x1 * y2 - x2 * y1)
-    end
-    return area / 2
-end
-
--- Helper: Ensure counter-clockwise orientation
-local function ensure_ccw(contour)
-    if signed_area(contour) < 0 then
-        local reversed = {}
-        for i = #contour, 1, -2 do
-            table.insert(reversed, contour[i-1])
-            table.insert(reversed, contour[i])
-        end
-        return reversed
-    else
-        return contour
-    end
-end
-
--- Helper: Align starting point of contour_b to best match contour_a
-local function align_starting_point(contour_a, contour_b)
-    local n = #contour_a / 2
-    local min_sum = math.huge
-    local best_offset = 0
-    for offset = 0, n-1 do
-        local sum = 0
-        for i = 1, n do
-            local idx_a = 2*i-1
-            local idx_b = 2*((i+offset-1)%n+1)-1
-            local dx = contour_a[idx_a] - contour_b[idx_b]
-            local dy = contour_a[idx_a+1] - contour_b[idx_b+1]
-            sum = sum + dx*dx + dy*dy
-        end
-        if sum < min_sum then
-            min_sum = sum
-            best_offset = offset
-        end
-    end
-    -- Rotate contour_b by best_offset
-    local aligned = {}
-    for i = 1, n do
-        local idx = 2*((i+best_offset-1)%n+1)-1
-        table.insert(aligned, contour_b[idx])
-        table.insert(aligned, contour_b[idx+1])
-    end
-    return aligned
-end
+-- Optimal Transport Contour Morphing with Arc-Length Resampling
 
 function rt.interpolate_contours(contour_a, contour_b, t)
-    -- Preprocessing: Ensure both contours have same orientation and aligned starting points
+    -- Helper: Compute signed area to determine orientation
+    local function signed_area(contour)
+        local area = 0
+        local n = #contour / 2
+        for i = 1, n do
+            local x1, y1 = contour[2*i-1], contour[2*i]
+            local j = (i % n) + 1
+            local x2, y2 = contour[2*j-1], contour[2*j]
+            area = area + (x1 * y2 - x2 * y1)
+        end
+        return area / 2
+    end
+
+    -- Helper: Ensure counter-clockwise orientation
+    local function ensure_ccw(contour)
+        if signed_area(contour) < 0 then
+            local reversed = {}
+            for i = #contour, 1, -2 do
+                table.insert(reversed, contour[i-1])
+                table.insert(reversed, contour[i])
+            end
+            return reversed
+        else
+            return contour
+        end
+    end
+
+    -- Helper: Arc-length parameterization and resampling
+    local function arc_length_table(contour)
+        local n = math.floor(#contour / 2)
+        local lengths = {0}
+        local total = 0
+        for i = 1, n do
+            local x1, y1 = contour[2*i-1], contour[2*i]
+            local j = (i % n) + 1
+            local x2, y2 = contour[2*j-1], contour[2*j]
+            local seg = math.sqrt((x2-x1)^2 + (y2-y1)^2)
+            total = total + seg
+            table.insert(lengths, total)
+        end
+        return lengths, total
+    end
+
+    local function resample_by_arclength(contour, n_samples)
+        local lengths, total = arc_length_table(contour)
+        local n = math.floor(#contour / 2)
+        local result = {}
+        for s = 0, n_samples-1 do
+            local target = s * total / n_samples
+            -- Find which segment this falls into
+            local seg = 1
+            while seg < #lengths and lengths[seg+1] < target do
+                seg = seg + 1
+            end
+            local t = (target - lengths[seg]) / (lengths[seg+1] - lengths[seg])
+            local x1, y1 = contour[2*seg-1], contour[2*seg]
+            local j = (seg % n) + 1
+            local x2, y2 = contour[2*j-1], contour[2*j]
+            local x = x1 + t * (x2 - x1)
+            local y = y1 + t * (y2 - y1)
+            table.insert(result, x)
+            table.insert(result, y)
+        end
+        return result
+    end
+
+    -- Helper: Align starting point of contour_b to best match contour_a
+    local function align_starting_point(contour_a, contour_b)
+        local n = #contour_a / 2
+        local min_sum = math.huge
+        local best_offset = 0
+        for offset = 0, n-1 do
+            local sum = 0
+            for i = 1, n do
+                local idx_a = 2*i-1
+                local idx_b = 2*((i+offset-1)%n+1)-1
+                local dx = contour_a[idx_a] - contour_b[idx_b]
+                local dy = contour_a[idx_a+1] - contour_b[idx_b+1]
+                sum = sum + dx*dx + dy*dy
+            end
+            if sum < min_sum then
+                min_sum = sum
+                best_offset = offset
+            end
+        end
+        -- Rotate contour_b by best_offset
+        local aligned = {}
+        for i = 1, n do
+            local idx = 2*((i+best_offset-1)%n+1)-1
+            table.insert(aligned, contour_b[idx])
+            table.insert(aligned, contour_b[idx+1])
+        end
+        return aligned
+    end
+
+    -- Preprocessing: Ensure both contours have same orientation
     contour_a = ensure_ccw(contour_a)
     contour_b = ensure_ccw(contour_b)
-    -- Resample both to same number of points for alignment
+
+    -- Resample both contours by arc-length to the same number of points
     local n_a = #contour_a / 2
     local n_b = #contour_b / 2
     local n_points = math.max(n_a, n_b)
-    -- Use your existing subdivision function (assumed to exist)
-    local segment_length_a = 0
-    local segment_length_b = 0
-    for i = 1, #contour_a, 2 do
-        local x1, y1 = contour_a[i], contour_a[i+1]
-        local next_i = (i + 2 > #contour_a) and 1 or i + 2
-        local x2, y2 = contour_a[next_i], contour_a[next_i+1]
-        segment_length_a = segment_length_a + math.sqrt((x2-x1)^2 + (y2-y1)^2)
-    end
-    segment_length_a = segment_length_a / n_a
-    for i = 1, #contour_b, 2 do
-        local x1, y1 = contour_b[i], contour_b[i+1]
-        local next_i = (i + 2 > #contour_b) and 1 or i + 2
-        local x2, y2 = contour_b[next_i], contour_b[next_i+1]
-        segment_length_b = segment_length_b + math.sqrt((x2-x1)^2 + (y2-y1)^2)
-    end
-    segment_length_b = segment_length_b / n_b
-    local target_segment_length = math.min(segment_length_a, segment_length_b)
-    local resampled_a = rt.subdivide_contour(contour_a, target_segment_length)
-    local resampled_b = rt.subdivide_contour(contour_b, target_segment_length)
-    local n = math.floor(math.min(#resampled_a, #resampled_b) / 2)
-    -- Truncate to same length
-    local function truncate_to_n_points(contour, n)
-        local truncated = {}
-        for i = 1, n*2 do
-            truncated[i] = contour[i]
-        end
-        return truncated
-    end
-    resampled_a = truncate_to_n_points(resampled_a, n)
-    resampled_b = truncate_to_n_points(resampled_b, n)
+    contour_a = resample_by_arclength(contour_a, n_points)
+    contour_b = resample_by_arclength(contour_b, n_points)
+
     -- Align starting points after resampling
-    resampled_b = align_starting_point(resampled_a, resampled_b)
+    contour_b = align_starting_point(contour_a, contour_b)
+    local n = n_points
 
     -- Helper function: squared Euclidean distance
     local function squared_distance(x1, y1, x2, y2)
@@ -437,11 +444,11 @@ function rt.interpolate_contours(contour_a, contour_b, t)
     local cost_matrix = {}
     for i = 1, n do
         cost_matrix[i] = {}
-        local x_a = resampled_a[2*i - 1]
-        local y_a = resampled_a[2*i]
+        local x_a = contour_a[2*i - 1]
+        local y_a = contour_a[2*i]
         for j = 1, n do
-            local x_b = resampled_b[2*j - 1]
-            local y_b = resampled_b[2*j]
+            local x_b = contour_b[2*j - 1]
+            local y_b = contour_b[2*j]
             cost_matrix[i][j] = squared_distance(x_a, y_a, x_b, y_b)
         end
     end
@@ -502,15 +509,15 @@ function rt.interpolate_contours(contour_a, contour_b, t)
     local function source_based()
         local result = {}
         for i = 1, n do
-            local x_a = resampled_a[2*i - 1]
-            local y_a = resampled_a[2*i]
+            local x_a = contour_a[2*i - 1]
+            local y_a = contour_a[2*i]
             local weighted_x, weighted_y = 0, 0
             local total_weight = 0
             for j = 1, n do
                 local weight = transport_matrix[i][j]
                 if weight > 1e-12 then
-                    local x_b = resampled_b[2*j - 1]
-                    local y_b = resampled_b[2*j]
+                    local x_b = contour_b[2*j - 1]
+                    local y_b = contour_b[2*j]
                     weighted_x = weighted_x + weight * x_b
                     weighted_y = weighted_y + weight * y_b
                     total_weight = total_weight + weight
@@ -522,8 +529,8 @@ function rt.interpolate_contours(contour_a, contour_b, t)
             else
                 local min_dist = math.huge
                 for j = 1, n do
-                    local x_b = resampled_b[2*j - 1]
-                    local y_b = resampled_b[2*j]
+                    local x_b = contour_b[2*j - 1]
+                    local y_b = contour_b[2*j]
                     local dist = squared_distance(x_a, y_a, x_b, y_b)
                     if dist < min_dist then
                         min_dist = dist
@@ -540,15 +547,15 @@ function rt.interpolate_contours(contour_a, contour_b, t)
     local function target_based()
         local result = {}
         for j = 1, n do
-            local x_b = resampled_b[2*j - 1]
-            local y_b = resampled_b[2*j]
+            local x_b = contour_b[2*j - 1]
+            local y_b = contour_b[2*j]
             local weighted_x, weighted_y = 0, 0
             local total_weight = 0
             for i = 1, n do
                 local weight = transport_matrix[i][j]
                 if weight > 1e-12 then
-                    local x_a = resampled_a[2*i - 1]
-                    local y_a = resampled_a[2*i]
+                    local x_a = contour_a[2*i - 1]
+                    local y_a = contour_a[2*i]
                     weighted_x = weighted_x + weight * x_a
                     weighted_y = weighted_y + weight * y_a
                     total_weight = total_weight + weight
@@ -560,8 +567,8 @@ function rt.interpolate_contours(contour_a, contour_b, t)
             else
                 local min_dist = math.huge
                 for i = 1, n do
-                    local x_a = resampled_a[2*i - 1]
-                    local y_a = resampled_a[2*i]
+                    local x_a = contour_a[2*i - 1]
+                    local y_a = contour_a[2*i]
                     local dist = squared_distance(x_b, y_b, x_a, y_a)
                     if dist < min_dist then
                         min_dist = dist
@@ -575,18 +582,20 @@ function rt.interpolate_contours(contour_a, contour_b, t)
         return result
     end
 
+    local interpolated
     if t == 0 then
-        return resampled_a
+        interpolated = contour_a
     elseif t == 1 then
-        return resampled_b
+        interpolated = contour_b
     else
         local s = source_based()
         local d = target_based()
         local alpha = 1 - t
-        local interpolated = {}
+        interpolated = {}
         for k = 1, #s do
             interpolated[k] = alpha * s[k] + (1 - alpha) * d[k]
         end
-        return interpolated
     end
+
+    return interpolated
 end

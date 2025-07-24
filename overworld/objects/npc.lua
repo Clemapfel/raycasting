@@ -123,21 +123,28 @@ function ow.NPC:instantiate(object, stage, scene)
     self._last_force_x, self._last_force_y = 0, 0
 
 
+    self._frames = { self._contour }
+    self._current_frame = 0
     local other = object:get_object("frame")
-    if other ~= nil then
-        self._target_contour = other:create_contour()
-    else
-        self._target_contour = contour
+    while other ~= nil do
+        table.insert(self._frames, other:create_contour())
+        other = other:get_object("frame")
     end
 
     self._elapsed = 0
     self._duration = 4
     self._morph_active = false
+    self._from_contour = nil
+    self._to_contour = nil
     self._draw_contour = contour
+
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "space" then
             self._elapsed = 0
             self._morph_active = true
+            self._current_frame = self._current_frame + 1
+            self._from_contour = self._frames[math.wrap(self._current_frame, #self._frames)]
+            self._to_contour = self._frames[math.wrap(self._current_frame + 1, #self._frames)]
         end
     end)
 end
@@ -225,7 +232,9 @@ function ow.NPC:update(delta)
     local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
 
     if self._morph_active then
-        self._draw_contour = rt.interpolate_contours(self._contour, self._target_contour, math.clamp(self._elapsed / self._duration, 0, 1))
+        self._draw_contour = rt.interpolate_contours(self._from_contour, self._to_contour, math.clamp(self._elapsed / self._duration, 0, 1))
+        table.insert(self._draw_contour, self._draw_contour[1])
+        table.insert(self._draw_contour, self._draw_contour[2])
         self._elapsed = self._elapsed + delta
     end
 end
