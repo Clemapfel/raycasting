@@ -12,6 +12,9 @@ rt.settings.overworld.npc = {
 --- @class ow.NPC
 ow.NPC = meta.class("NPC")
 
+--- @class ow.NPCFrame
+ow.NPCFrame = meta.class("NPCFrame") -- dummy
+
 local _collision_group = b2.CollisionGroup.GROUP_07
 
 local _data_mesh_format = {
@@ -118,10 +121,30 @@ function ow.NPC:instantiate(object, stage, scene)
 
     self._is_visible = self._scene:get_is_body_visible(self._sensor)
     self._last_force_x, self._last_force_y = 0, 0
+
+
+    local other = object:get_object("frame")
+    if other ~= nil then
+        self._target_contour = other:create_contour()
+    else
+        self._target_contour = contour
+    end
+
+    self._elapsed = 0
+    self._duration = 4
+    self._morph_active = false
+    self._draw_contour = contour
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "space" then
+            self._elapsed = 0
+            self._morph_active = true
+        end
+    end)
 end
 
 --- @brief
 function ow.NPC:draw()
+    --[[
     if not self._scene:get_is_body_visible(self._sensor) then
         if self._is_visible then
             self._is_visible = false
@@ -184,6 +207,8 @@ function ow.NPC:draw()
         drop:draw()
     end
     ]]--
+
+    love.graphics.line(self._draw_contour)
 end
 
 --- @brief
@@ -199,6 +224,10 @@ function ow.NPC:update(delta)
     local radius = player:get_radius()
     local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
 
+    if self._morph_active then
+        self._draw_contour = rt.interpolate_contours(self._contour, self._target_contour, math.clamp(self._elapsed / self._duration, 0, 1))
+        self._elapsed = self._elapsed + delta
+    end
 end
 
 --- @brief

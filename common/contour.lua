@@ -319,3 +319,274 @@ function rt.generate_contour_highlight(contour, light_nx, light_ny, n_iterations
 
     return scaled
 end
+
+-- Optimal Transport Contour Morphing - Single Function Implementation
+-- Input: contour_a, contour_b as arrays of flat 2d coordinates [x1, y1, x2, y2, ...]
+-- Parameter t: interpolation value between 0 (contour_a) and 1 (contour_b)
+
+-- Optimal Transport Contour Morphing - Smooth Blending Implementation
+-- Input: contour_a, contour_b as arrays of flat 2d coordinates [x1, y1, x2, y2, ...]
+-- Parameter t: interpolation value between 0 (contour_a) and 1 (contour_b)
+
+-- Helper: Compute signed area to determine orientation
+local function signed_area(contour)
+    local area = 0
+    local n = #contour / 2
+    for i = 1, n do
+        local x1, y1 = contour[2*i-1], contour[2*i]
+        local j = (i % n) + 1
+        local x2, y2 = contour[2*j-1], contour[2*j]
+        area = area + (x1 * y2 - x2 * y1)
+    end
+    return area / 2
+end
+
+-- Helper: Ensure counter-clockwise orientation
+local function ensure_ccw(contour)
+    if signed_area(contour) < 0 then
+        local reversed = {}
+        for i = #contour, 1, -2 do
+            table.insert(reversed, contour[i-1])
+            table.insert(reversed, contour[i])
+        end
+        return reversed
+    else
+        return contour
+    end
+end
+
+-- Helper: Align starting point of contour_b to best match contour_a
+local function align_starting_point(contour_a, contour_b)
+    local n = #contour_a / 2
+    local min_sum = math.huge
+    local best_offset = 0
+    for offset = 0, n-1 do
+        local sum = 0
+        for i = 1, n do
+            local idx_a = 2*i-1
+            local idx_b = 2*((i+offset-1)%n+1)-1
+            local dx = contour_a[idx_a] - contour_b[idx_b]
+            local dy = contour_a[idx_a+1] - contour_b[idx_b+1]
+            sum = sum + dx*dx + dy*dy
+        end
+        if sum < min_sum then
+            min_sum = sum
+            best_offset = offset
+        end
+    end
+    -- Rotate contour_b by best_offset
+    local aligned = {}
+    for i = 1, n do
+        local idx = 2*((i+best_offset-1)%n+1)-1
+        table.insert(aligned, contour_b[idx])
+        table.insert(aligned, contour_b[idx+1])
+    end
+    return aligned
+end
+
+function rt.interpolate_contours(contour_a, contour_b, t)
+    -- Preprocessing: Ensure both contours have same orientation and aligned starting points
+    contour_a = ensure_ccw(contour_a)
+    contour_b = ensure_ccw(contour_b)
+    -- Resample both to same number of points for alignment
+    local n_a = #contour_a / 2
+    local n_b = #contour_b / 2
+    local n_points = math.max(n_a, n_b)
+    -- Use your existing subdivision function (assumed to exist)
+    local segment_length_a = 0
+    local segment_length_b = 0
+    for i = 1, #contour_a, 2 do
+        local x1, y1 = contour_a[i], contour_a[i+1]
+        local next_i = (i + 2 > #contour_a) and 1 or i + 2
+        local x2, y2 = contour_a[next_i], contour_a[next_i+1]
+        segment_length_a = segment_length_a + math.sqrt((x2-x1)^2 + (y2-y1)^2)
+    end
+    segment_length_a = segment_length_a / n_a
+    for i = 1, #contour_b, 2 do
+        local x1, y1 = contour_b[i], contour_b[i+1]
+        local next_i = (i + 2 > #contour_b) and 1 or i + 2
+        local x2, y2 = contour_b[next_i], contour_b[next_i+1]
+        segment_length_b = segment_length_b + math.sqrt((x2-x1)^2 + (y2-y1)^2)
+    end
+    segment_length_b = segment_length_b / n_b
+    local target_segment_length = math.min(segment_length_a, segment_length_b)
+    local resampled_a = rt.subdivide_contour(contour_a, target_segment_length)
+    local resampled_b = rt.subdivide_contour(contour_b, target_segment_length)
+    local n = math.floor(math.min(#resampled_a, #resampled_b) / 2)
+    -- Truncate to same length
+    local function truncate_to_n_points(contour, n)
+        local truncated = {}
+        for i = 1, n*2 do
+            truncated[i] = contour[i]
+        end
+        return truncated
+    end
+    resampled_a = truncate_to_n_points(resampled_a, n)
+    resampled_b = truncate_to_n_points(resampled_b, n)
+    -- Align starting points after resampling
+    resampled_b = align_starting_point(resampled_a, resampled_b)
+
+    -- Helper function: squared Euclidean distance
+    local function squared_distance(x1, y1, x2, y2)
+        local dx = x1 - x2
+        local dy = y1 - y2
+        return dx * dx + dy * dy
+    end
+
+    -- Step 1: Create cost matrix
+    local cost_matrix = {}
+    for i = 1, n do
+        cost_matrix[i] = {}
+        local x_a = resampled_a[2*i - 1]
+        local y_a = resampled_a[2*i]
+        for j = 1, n do
+            local x_b = resampled_b[2*j - 1]
+            local y_b = resampled_b[2*j]
+            cost_matrix[i][j] = squared_distance(x_a, y_a, x_b, y_b)
+        end
+    end
+
+    -- Step 2: Sinkhorn algorithm for optimal transport
+    local reg_param = 0.05
+    local max_iter = 200
+    local tolerance = 1e-8
+    local mu = {}
+    local nu = {}
+    for i = 1, n do mu[i] = 1.0 / n end
+    for j = 1, n do nu[j] = 1.0 / n end
+    local K = {}
+    for i = 1, n do
+        K[i] = {}
+        for j = 1, n do
+            K[i][j] = math.exp(-cost_matrix[i][j] / reg_param)
+        end
+    end
+    local u = {}
+    local v = {}
+    for i = 1, n do u[i] = 1.0 / n end
+    for j = 1, n do v[j] = 1.0 / n end
+    for iter = 1, max_iter do
+        local u_prev = {}
+        for i = 1, n do u_prev[i] = u[i] end
+        for i = 1, n do
+            local sum = 0
+            for j = 1, n do
+                sum = sum + K[i][j] * v[j]
+            end
+            u[i] = mu[i] / sum
+        end
+        for j = 1, n do
+            local sum = 0
+            for i = 1, n do
+                sum = sum + K[i][j] * u[i]
+            end
+            v[j] = nu[j] / sum
+        end
+        local diff = 0
+        for i = 1, n do
+            diff = diff + math.abs(u[i] - u_prev[i])
+        end
+        if diff < tolerance then
+            break
+        end
+    end
+    local transport_matrix = {}
+    for i = 1, n do
+        transport_matrix[i] = {}
+        for j = 1, n do
+            transport_matrix[i][j] = u[i] * K[i][j] * v[j]
+        end
+    end
+
+    -- Step 3: Interpolate using transport plan
+    local function source_based()
+        local result = {}
+        for i = 1, n do
+            local x_a = resampled_a[2*i - 1]
+            local y_a = resampled_a[2*i]
+            local weighted_x, weighted_y = 0, 0
+            local total_weight = 0
+            for j = 1, n do
+                local weight = transport_matrix[i][j]
+                if weight > 1e-12 then
+                    local x_b = resampled_b[2*j - 1]
+                    local y_b = resampled_b[2*j]
+                    weighted_x = weighted_x + weight * x_b
+                    weighted_y = weighted_y + weight * y_b
+                    total_weight = total_weight + weight
+                end
+            end
+            if total_weight > 1e-12 then
+                weighted_x = weighted_x / total_weight
+                weighted_y = weighted_y / total_weight
+            else
+                local min_dist = math.huge
+                for j = 1, n do
+                    local x_b = resampled_b[2*j - 1]
+                    local y_b = resampled_b[2*j]
+                    local dist = squared_distance(x_a, y_a, x_b, y_b)
+                    if dist < min_dist then
+                        min_dist = dist
+                        weighted_x, weighted_y = x_b, y_b
+                    end
+                end
+            end
+            result[2*i - 1] = (1 - t) * x_a + t * weighted_x
+            result[2*i]     = (1 - t) * y_a + t * weighted_y
+        end
+        return result
+    end
+
+    local function target_based()
+        local result = {}
+        for j = 1, n do
+            local x_b = resampled_b[2*j - 1]
+            local y_b = resampled_b[2*j]
+            local weighted_x, weighted_y = 0, 0
+            local total_weight = 0
+            for i = 1, n do
+                local weight = transport_matrix[i][j]
+                if weight > 1e-12 then
+                    local x_a = resampled_a[2*i - 1]
+                    local y_a = resampled_a[2*i]
+                    weighted_x = weighted_x + weight * x_a
+                    weighted_y = weighted_y + weight * y_a
+                    total_weight = total_weight + weight
+                end
+            end
+            if total_weight > 1e-12 then
+                weighted_x = weighted_x / total_weight
+                weighted_y = weighted_y / total_weight
+            else
+                local min_dist = math.huge
+                for i = 1, n do
+                    local x_a = resampled_a[2*i - 1]
+                    local y_a = resampled_a[2*i]
+                    local dist = squared_distance(x_b, y_b, x_a, y_a)
+                    if dist < min_dist then
+                        min_dist = dist
+                        weighted_x, weighted_y = x_a, y_a
+                    end
+                end
+            end
+            result[2*j - 1] = (1 - t) * weighted_x + t * x_b
+            result[2*j]     = (1 - t) * weighted_y + t * y_b
+        end
+        return result
+    end
+
+    if t == 0 then
+        return resampled_a
+    elseif t == 1 then
+        return resampled_b
+    else
+        local s = source_based()
+        local d = target_based()
+        local alpha = 1 - t
+        local interpolated = {}
+        for k = 1, #s do
+            interpolated[k] = alpha * s[k] + (1 - alpha) * d[k]
+        end
+        return interpolated
+    end
+end
