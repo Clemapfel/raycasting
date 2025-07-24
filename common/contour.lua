@@ -239,8 +239,9 @@ function rt.is_contour_convex(vertices)
     return true
 end
 
-function rt.generate_contour_highlight(contour, light_nx, light_ny, n_iterations)
+function rt.generate_contour_highlight(contour, light_nx, light_ny, n_iterations, border)
     n_iterations = n_iterations or 250 -- default number of smoothing iterations
+    if border == nil then border = 0 end
 
     local center_x, center_y, n = 0, 0, 0
     for i = 1, #contour, 2 do
@@ -262,8 +263,8 @@ function rt.generate_contour_highlight(contour, light_nx, light_ny, n_iterations
         local dx, dy = x - center_x, y - center_y
         local length = math.magnitude(dx, dy)
         dx, dy = math.normalize(dx, dy)
-        table.insert(scaled, center_x + dx * (length))
-        table.insert(scaled, center_y + dy * (length))
+        table.insert(scaled, center_x + dx * (length - border))
+        table.insert(scaled, center_y + dy * (length - border))
         table.insert(normals, dx)
         table.insert(normals, dy)
     end

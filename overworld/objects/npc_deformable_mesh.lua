@@ -89,7 +89,7 @@ function ow.DeformableMesh:instantiate(world, contour)
         self._inner_body = b2.Body(world, b2.BodyType.KINEMATIC, center_x, center_y, shapes)
     end
 
-    self._highlight = rt.generate_contour_highlight(self._contour, 1, 1, 250)
+    self._highlight = rt.generate_contour_highlight(self._contour, 1, 1, 250, 0.5 * deformable_max_depth)
 
     -- subdivide, then get outer shape
     contour = rt.subdivide_contour(contour, rt.settings.overworld.deformable_mesh.subdivide_step)
