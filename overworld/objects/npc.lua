@@ -54,7 +54,7 @@ function ow.NPC:instantiate(object, stage, scene)
     local contour = object:create_contour()
 
     self._deformable_mesh = ow.DeformableMesh(self._world, contour) -- has inner hard shell
-    self._deformable_mesh:get_body():add_tag("stencil")
+    self._deformable_mesh:get_body():add_tag("stencil", "hitbox")
 
     self._mesh = object:create_mesh()
 

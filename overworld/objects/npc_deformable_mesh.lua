@@ -5,7 +5,7 @@ rt.settings.overworld.deformable_mesh = {
     smoothing_range = 3,
     subdivide_step = 5,
     gravity = 0, -- px / s
-    downwards_scale_factor = 0.15, -- scales part of mesh pointing downwards
+    downwards_scale_factor = 0, -- scales part of mesh pointing downwards
     outline_width = 5
 }
 
@@ -25,7 +25,7 @@ local _mesh_format = {
 
 
 function ow.DeformableMesh:instantiate(world, contour)
-    if _shader == nil then _shader = rt.Shader("overworld/deformable_mesh.glsl") end
+    if _shader == nil then _shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl") end
 
     meta.assert(world, b2.World)
     self._world = world
@@ -33,7 +33,7 @@ function ow.DeformableMesh:instantiate(world, contour)
     -- player data
     self._outer_x, self._outer_y, self._outer_radius = 0, 0, 0
 
-    local deformable_max_depth = 1.5 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+    local deformable_max_depth = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
     self._thickness = deformable_max_depth
     self._contour = contour
     self._draw_contour = table.deepcopy(contour)
@@ -72,10 +72,10 @@ function ow.DeformableMesh:instantiate(world, contour)
             local angle = math.angle(dx, dy)
             local diff = math.abs(math.normalize_angle(angle - downwards_angle))
             if diff > math.pi then diff = 2 * math.pi - diff end
-            local penalty = 1 + (diff / math.pi) * 0.2
+            local penalty = 1 + (diff / math.pi) * downwards_scale_factor
 
             -- rescale so there is at least 0.5 * player spaced
-            local final_length = math.max(penalty * length - deformable_max_depth, 0)
+            local final_length = math.clamp(penalty * length - deformable_max_depth, length - deformable_max_depth, length)
 
             table.insert(inner_body_contour, dx * final_length)
             table.insert(inner_body_contour, dy * final_length)
