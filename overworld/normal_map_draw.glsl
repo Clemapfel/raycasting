@@ -9,17 +9,22 @@
 
 #if MODE == MODE_LIGHTING
 
+#ifndef MAX_N_POINT_LIGHTS
 #define MAX_N_POINT_LIGHTS 32
-#define MAX_N_SEGMENT_LIGHTS 32
+#endif
 
-uniform vec2 point_lights[MAX_N_POINT_LIGHTS]; // in screen coords
+#ifndef MAX_N_SEGMENT_LIGHTS
+#define MAX_N_SEGMENT_LIGHTS 32
+#endif
+
+uniform vec2 point_lights[MAX_N_POINT_LIGHTS]; // in screen coords (px, py)
 uniform vec4 point_colors[MAX_N_POINT_LIGHTS];
-uniform int n_point_lights;
+uniform int n_point_lights; // clamped before being send to shader
 uniform float point_light_intensity = 1;
 
 uniform vec4 segment_lights[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
 uniform vec4 segment_colors[MAX_N_SEGMENT_LIGHTS];
-uniform int n_segment_lights;
+uniform int n_segment_lights; // see n_point_lights
 uniform float segment_light_intensity = 0.35;
 
 uniform vec2 camera_offset;

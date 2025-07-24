@@ -11,7 +11,10 @@ rt.settings.overworld.normal_map = {
     max_distance = 16, -- < 256
 
     point_light_intensity = 1,
-    segment_light_intensity = 0.2
+    segment_light_intensity = 0.2,
+
+    max_n_point_lights = 32,
+    max_n_segment_lights = 16
 }
 
 --- @class ow.NormalMap
@@ -241,7 +244,11 @@ function ow.NormalMap:instantiate(stage)
         if _pre_process_shader == nil then _pre_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 4, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _draw_light_shader == nil then _draw_light_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 0 }) end
+        if _draw_light_shader == nil then _draw_light_shader = rt.Shader("overworld/normal_map_draw.glsl", {
+            MODE = 0,
+            MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
+            MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights,
+        }) end
         if _draw_shadow_shader == nil then _draw_shadow_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 1 }) end
 
         local padding = chunk_size / 2
@@ -449,8 +456,8 @@ function ow.NormalMap:draw_light()
                             _draw_light_shader:send("segment_colors", table.unpack(segment_colors))
                         end
 
-                        _draw_light_shader:send("n_point_lights", n_point_lights)
-                        _draw_light_shader:send("n_segment_lights", n_segment_lights)
+                        _draw_light_shader:send("n_point_lights", math.min(n_point_lights, rt.settings.overworld.normal_map.max_n_point_lights))
+                        _draw_light_shader:send("n_segment_lights", math.min(n_segment_lights, rt.settings.overworld.normal_map.max_n_segment_lights))
 
                         if shader_bound == false then
                             _draw_light_shader:send("camera_offset", { camera:get_offset() })
