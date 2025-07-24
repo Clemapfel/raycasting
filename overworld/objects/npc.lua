@@ -1,5 +1,5 @@
 require "common.delaunay_triangulation"
-require "overworld.deformable_mesh"
+require "overworld.objects.npc_deformable_mesh"
 require "overworld.blood_drop"
 
 rt.settings.overworld.npc = {
@@ -19,8 +19,30 @@ local _data_mesh_format = {
     { location = 5, name = "contour_vector", format = "floatvec3" } -- normalized xy, z is length
 }
 
+local _mesh_shader, _outline_shader
+
+local first = true -- TODO
+
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
+    if _mesh_shader == nil then
+        _mesh_shader = rt.Shader("overworld/objects/npc_mesh.glsl")
+    end
+
+    if _outline_shader == nil then
+        _outline_shader = rt.Shader("overworld/objects/npc_outline.glsl")
+    end
+
+    if first then
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "z" then
+                _mesh_shader:recompile()
+            end
+        end)
+        first = false
+    end
+
     self._velocity_x = 0
     self._velocity_y = 0
 
@@ -48,6 +70,8 @@ function ow.NPC:instantiate(object, stage, scene)
     self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
 
     self._blood_drops = {}
+
+    self._color = { rt.Palette.TRUE_WHITE:unpack() }
 
     self._is_active = false
     self._sensor:signal_connect("collision_start", function(_, normal_x, normal_y, x, y)
@@ -107,28 +131,62 @@ function ow.NPC:draw()
         return
     end
 
-    love.graphics.setColor(0.5, 0.5, 0.5, 1)
-    self._deformable_mesh:draw_base()
+    local stencil = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
+
+    ow.Hitbox:draw_mask(true, true)
+
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+    local player = self._scene:get_player()
+    local player_x, player_y = self._scene:get_camera():world_xy_to_screen_xy(player:get_position())
+    local color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
+
+    _mesh_shader:bind()
+    _mesh_shader:send("player_color", color)
+    _mesh_shader:send("player_position", { player_x, player_y })
+
     self._deformable_mesh:draw_body()
+
+    -- outline
+
+    local contour = self._deformable_mesh:get_contour()
+
     love.graphics.setLineWidth(8)
+    love.graphics.setLineJoin("bevel")
+
     rt.Palette.BLACK:bind()
-    self._deformable_mesh:draw_outline()
+    for i = 1, #contour, 2 do
+        love.graphics.circle("fill", contour[i+0], contour[i+1], 0.5 * love.graphics.getLineWidth())
+    end
 
-    love.graphics.setLineWidth(5)
-    rt.Palette.WHITE:bind()
-    self._deformable_mesh:draw_outline()
+    love.graphics.line(contour)
 
-    --self._deformable_mesh:get_body():draw()
-    --self._sensor:draw()
+    _mesh_shader:unbind()
 
+    love.graphics.setLineWidth(4)
+    love.graphics.setColor(self._color)
+
+    _outline_shader:bind()
+    _outline_shader:send("player_color", color)
+    _outline_shader:send("player_position", { player_x, player_y })
+
+    love.graphics.line(contour)
+
+    _outline_shader:unbind()
+
+    rt.graphics.set_stencil_mode(nil)
+
+    --[[
     for drop in values(self._blood_drops) do
         drop:draw()
     end
+    ]]--
 end
 
 --- @brief
 function ow.NPC:update(delta)
-    --if not self._scene:get_is_body_visible(self._sensor) then return end
+    --if not self._scene:get_is_body_visible(self._sensor) then return
 
     for drop in values(self._blood_drops) do
         drop:get_body():apply_force(0, rt.settings.overworld.npc.blood_drop_gravity)
@@ -138,21 +196,15 @@ function ow.NPC:update(delta)
     local x, y = player:get_position()
     local radius = player:get_radius()
     local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
-
-    local player_body = player:get_physics_body()
-    local vx, vy = player_body:get_velocity()
-    local mesh_x, mesh_y = self._deformable_mesh:get_center()
-    local dx, dy = math.normalize(x - mesh_x, y - mesh_y)
-    local force = math.magnitude(force_x, force_y)
-
-    player_body:set_velocity(
-        vx + force_x, vy + force_y
-    )
-
-    self._last_force_x, self._last_force_y = dx * force, dy * force
 end
 
 --- @brief
 function ow.NPC:get_render_priority()
-    return 1
+    return math.huge
+end
+
+--- @brief
+function ow.NPC:draw_bloom()
+    love.graphics.setColor(self._color)
+    love.graphics.line(self._deformable_mesh:get_contour())
 end

@@ -2018,3 +2018,8 @@ function rt.Player:get_should_update()
     return self._should_update
 end
 
+--- @brief
+function rt.Player:get_is_ducking()
+    return self._down_button_is_down and self:get_is_grounded()
+end
+
