@@ -28,9 +28,10 @@ function ow.DeformableMesh:instantiate(world, contour)
     -- player data
     self._outer_x, self._outer_y, self._outer_radius = 0, 0, 0
 
-    local deformable_max_depth = 2 * rt.settings.player.radius
+    local deformable_max_depth = 4 * rt.settings.player.radius
     self._thickness = deformable_max_depth
     self._contour = contour
+    self._draw_contour = table.deepcopy(contour)
 
     -- construct center vectors
     local center_x, center_y = 0, 0
@@ -368,11 +369,10 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
     end
 
     local force_x, force_y = 0, 0
-    local n_springs = 0
-
     local linear_constant = debugger.get("linear_constant")
 
     -- move towards rest position (memory foam)
+    local contour_i = 1
     for i = 2, #self._mesh_data do
         local data = self._mesh_data[i]
         local rest = self._mesh_data_at_rest[i]
@@ -403,7 +403,10 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
 
         force_x = force_x + fx
         force_y = force_y + fy
-        n_springs = n_springs + 1
+
+        self._draw_contour[contour_i+0] = origin_x + dx
+        self._draw_contour[contour_i+1] = origin_y + dy
+        contour_i = contour_i + 2
     end
 
     self._mesh:replace_data(self._mesh_data)
@@ -411,10 +414,32 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
 end
 
 --- @brief
-function ow.DeformableMesh:draw()
-    _shader:bind()
+function ow.DeformableMesh:draw_body()
+    local shader_bound = false
+    if love.graphics.getShader() == nil then
+        _shader:bind()
+        shader_bound = true
+    end
+
     self._mesh:draw()
-    _shader:unbind()
+
+    if shader_bound then
+        _shader:unbind()
+    end
+end
+
+--- @brief
+function ow.DeformableMesh:draw_outline()
+    love.graphics.setLineJoin("none")
+    love.graphics.line(self._draw_contour)
+    for i = 1, #self._draw_contour, 2 do
+        love.graphics.circle("fill", self._draw_contour[i+0], self._draw_contour[i+1], love.graphics.getLineWidth() / 2)
+    end
+end
+
+--- @brief
+function ow.DeformableMesh:draw_base()
+    love.graphics.polygon("fill", self._contour)
 end
 
 --- @brief

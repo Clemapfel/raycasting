@@ -124,6 +124,8 @@ function ow.OverworldScene:instantiate(state)
             if not self._pause_menu_active then
                 self:pause()
             end
+        elseif self._pause_menu_active and which == rt.InputAction.BACK then
+            self:unpause()
         end
     end)
 
