@@ -13,15 +13,6 @@ rt.settings.menu.stage_select_item = {
 mn.StageSelectItem = meta.class("StageSelectItem", rt.Widget)
 
 local _long_dash = "\u{2014}"
-local function _create_flow_percentage_label(fraction)
-    local percentage = math.floor(fraction * 1000) / 10
-    if math.fmod(percentage, 1) == 0 then
-        return percentage .. ".0 %"
-    else
-        return percentage .. " %"
-    end
-end
-
 local _filled_star = "\u{2605}"
 local _outlined_star = "\u{2606}"
 local function _create_difficulty_label(score)
@@ -66,7 +57,7 @@ function mn.StageSelectItem:instantiate(stage_id)
     local title = game_state:get_stage_title(id)
     local was_cleared = game_state:get_stage_was_cleared(id)
     local time = not was_cleared and _long_dash or string.format_time(game_state:get_stage_best_time(id))
-    local flow = not was_cleared and _long_dash or _create_flow_percentage_label(game_state:get_stage_best_flow_percentage(id))
+    local flow = not was_cleared and _long_dash or string.format_percentage(game_state:get_stage_best_flow_percentage(id))
     local difficulty = _create_difficulty_label(game_state:get_stage_difficulty(id))
     local description = game_state:get_stage_description(id)
 

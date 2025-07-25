@@ -580,6 +580,16 @@ function string.format_time(duration)
 end
 
 --- @brief
+function string.format_percentage(fraction)
+    local percentage = math.floor(fraction * 1000) / 10
+    if math.fmod(percentage, 1) == 0 then
+        return percentage .. ".0 %"
+    else
+        return percentage .. " %"
+    end
+end
+
+--- @brief
 function utf8.sub(s, i, j)
     -- src: http://lua-users.org/lists/lua-l/2014-04/msg00590.html
     i = i or 1

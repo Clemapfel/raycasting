@@ -276,7 +276,7 @@ function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpo
     if interpolation_function == nil then interpolation_function = rt.InterpolationFunctions.LINEAR end
     meta.assert(duration, "Number", start_value, "Number", end_value, "Number", interpolation_function, "Function")
 
-    local out = meta.install(self, {
+    meta.install(self, {
         _lower = start_value,
         _upper = end_value,
         _duration = duration,
@@ -287,8 +287,6 @@ function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpo
         _direction = ternary(start_value <= end_value, 1, -1),
         _elapsed = 0
     })
-
-    return out
 end
 
 meta.add_signals(rt.TimedAnimation, "done")
@@ -361,6 +359,11 @@ end
 --- @brief
 function rt.TimedAnimation:reset()
     self._elapsed = 0
+end
+
+--- @brief
+function rt.TimedAnimation:skip()
+    self._elapsed = self._duration
 end
 
 --- @brief

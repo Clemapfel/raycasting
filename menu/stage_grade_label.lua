@@ -2,6 +2,7 @@ require "common.stage_grade"
 require "common.font"
 require "common.palette"
 require "common.translation"
+require "common.timed_animation"
 
 rt.settings.menu.stage_grade_label = {
     --font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
@@ -9,7 +10,8 @@ rt.settings.menu.stage_grade_label = {
     font_id = "RubikSprayPaint",
     --font_id = "RubikSprayPaint"
 
-    pulse_duration = 2,
+    pulse_duration = 2, -- seconds
+    pulse_shine_fraction = 0.25, -- how long letter stays scaled, fraction
     max_scale = 1.5
 }
 
@@ -43,9 +45,25 @@ function mn.StageGradeLabel:instantiate(grade, size)
         _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
     end
 
-    self._pulse_active = false
-    self._pulse_elapsed = 0
-    self._pulse_fraction = math.huge
+    -- animation: scale to max, then start shine, wait for shine to finish before scaling back
+
+    local total_duration = rt.settings.menu.stage_grade_label.pulse_duration
+    local scale_attack = 0.25
+    local scale_sustain = rt.settings.menu.stage_grade_label.pulse_shine_fraction
+    self._shine_animation = rt.TimedAnimation(
+        scale_sustain * total_duration,
+        0, 1,
+        rt.InterpolationFunctions.LINEAR
+    )
+
+    self._scale_animation = rt.TimedAnimation(
+        total_duration,
+        1, rt.settings.menu.stage_grade_label.max_scale,
+        rt.InterpolationFunctions.ENVELOPE, scale_attack, scale_sustain
+    )
+    
+    self._shine_delay = scale_attack
+    self._animation_active = false
 end
 
 --- @brief
@@ -72,15 +90,12 @@ end
 function mn.StageGradeLabel:draw()
     local label_cx = self._label_x + 0.5 * self._label_w
     local label_cy = self._label_y + 0.5 * self._label_h
-    local scale = math.mix(
-        1,
-        rt.settings.menu.stage_grade_label.max_scale,
-        rt.InterpolationFunctions.ENVELOPE(self._pulse_fraction, 0.2, 0.4)
-    )
 
     -- SDF shader
     _shader_sdf:bind()
-    if self._pulse_active then
+
+    if self._animation_active then
+        local scale = self._scale_animation:get_value()
         love.graphics.push()
         love.graphics.translate(label_cx, label_cy)
         love.graphics.scale(scale, scale)
@@ -103,11 +118,17 @@ function mn.StageGradeLabel:draw()
     _shader_no_sdf:send("use_rainbow",
         self._grade == rt.StageGrade.S
     )
-    _shader_no_sdf:send("fraction", self._pulse_fraction)
+
+    if self._animation_active then
+        _shader_no_sdf:send("fraction", self._shine_animation:get_value())
+    else
+        _shader_no_sdf:send("fraction", math.huge)
+    end
 
     self._color:bind()
 
-    if self._pulse_active then
+    if self._animation_active then
+        local scale = self._scale_animation:get_value()
         love.graphics.push()
         love.graphics.translate(label_cx, label_cy)
         love.graphics.scale(scale, scale)
@@ -128,11 +149,16 @@ end
 
 --- @brief
 function mn.StageGradeLabel:update(delta)
-    if self._pulse_active == true then
-        self._pulse_elapsed = self._pulse_elapsed + delta
-        self._pulse_fraction = math.min(self._pulse_elapsed / rt.settings.menu.stage_grade_label.pulse_duration, 1)
-        if self._pulse_fraction >= 1 then
-            self._pulse_active = false
+    if self._animation_active == true then
+        self._scale_animation:update(delta)
+
+        local fraction = self._scale_animation:get_elapsed() / self._scale_animation:get_duration()
+        if fraction > self._shine_delay then
+            self._shine_animation:update(delta)
+        end
+
+        if self._scale_animation:get_is_done() and self._shine_animation:get_is_done() then
+            self._animation_active = false
         end
     end
 end
@@ -178,14 +204,14 @@ end
 
 --- @brief
 function mn.StageGradeLabel:pulse()
-    self._pulse_elapsed = 0
-    self._pulse_fraction = 0
-    self._pulse_active = true
+    self._animation_active = true
+    self._shine_animation:reset()
+    self._scale_animation:reset()
 end
 
 --- @brief
 function mn.StageGradeLabel:skip()
-    self._pulse_elapsed = math.huge
-    self._pulse_fraction = 1
     self._pulse_active = false
+    self._shine_animation:skip()
+    self._scale_animation:skip()
 end

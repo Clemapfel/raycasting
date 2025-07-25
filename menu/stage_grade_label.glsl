@@ -90,7 +90,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     // pulse highlight
 
     const float line_width = 0.05;
-    float line_alpha = smoothstep(line_width, 0.0, abs(uv.y - fraction * 0.2));
+    float line_alpha = smoothstep(line_width, 0.0, abs(uv.y - mix(-0.5, 1.5, fraction) * 0.1));
     result.rgb = mix(result.rgb, vec3(1.0), line_alpha);
 
     // black inside outline
