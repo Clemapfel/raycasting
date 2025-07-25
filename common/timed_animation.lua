@@ -258,8 +258,7 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         elseif x < decay_start then -- sustain
             return 1
         else -- decay
-            local decay_progress = (x - decay_start) / (1 - decay_start)
-            return gaussian(decay_progress, 0)
+            return gaussian((x - decay_start) / (1 - decay_start), 0)
         end
     end
 })

@@ -1664,14 +1664,17 @@ function rt.Player:get_use_wall_friction()
 end
 
 --- @brief
-function rt.Player:bounce(nx, ny)
+function rt.Player:bounce(nx, ny, magnitude)
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
 
     local nvx, nvy = self._last_velocity_x, self._last_velocity_y
 
-    local magnitude = math.min(1, math.magnitude(nvx, nvy) / _settings.bounce_relative_velocity)
-    self._bounce_force = math.mix(_settings.bounce_min_force, _settings.bounce_max_force, magnitude)
+    if magnitude == nil then
+        magnitude = math.mix(_settings.bounce_min_force, _settings.bounce_max_force, math.min(1, math.magnitude(nvx, nvy) / _settings.bounce_relative_velocity))
+    end
+
+    self._bounce_force = magnitude
     self._bounce_elapsed = 0
 
     return self._bounce_force / _settings.bounce_max_force

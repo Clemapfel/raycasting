@@ -31,11 +31,9 @@ vec2 rotate(vec2 v, float angle) {
     return v * mat2(c, -s, s, c);
 }
 
-
 vec2 offset_uv(vec2 base_coords, vec2 offset, vec2 texel_size) {
     return clamp(base_coords + texel_size * offset, vec2(0.0 + 2 * texel_size), vec2(1.0 - 2 * texel_size));
 }
-
 
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
@@ -66,6 +64,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
 uniform bool use_rainbow;
 uniform bool use_highlight;
 uniform float elapsed;
+uniform float fraction;
 
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     vec4 texel = texture(img, texture_coords);
@@ -88,16 +87,22 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
         result.rgb += mix(sin1, sin2, 0.5) * 0.3;
     }
 
+    // pulse highlight
+
+    const float line_width = 0.05;
+    float line_alpha = smoothstep(line_width, 0.0, abs(uv.y - fraction * 0.2));
+    result.rgb = mix(result.rgb, vec3(1.0), line_alpha);
+
     // black inside outline
     const mat3 sobel_x = mat3(
-        -1.0,  0.0,  1.0,
-        -2.0,  0.0,  2.0,
-        -1.0,  0.0,  1.0
+    -1.0,  0.0,  1.0,
+    -2.0,  0.0,  2.0,
+    -1.0,  0.0,  1.0
     );
     const mat3 sobel_y = mat3(
-        -1.0, -2.0, -1.0,
-        0.0,  0.0,  0.0,
-        1.0,  2.0,  1.0
+    -1.0, -2.0, -1.0,
+    0.0,  0.0,  0.0,
+    1.0,  2.0,  1.0
     );
 
     vec2 texel_size = vec2(1.0) / textureSize(img, 0);

@@ -592,8 +592,18 @@ function rt.interpolate_contours(contour_a, contour_b, t)
         local d = target_based()
         local alpha = 1 - t
         interpolated = {}
-        for k = 1, #s do
-            interpolated[k] = alpha * s[k] + (1 - alpha) * d[k]
+        local max_distance = -math.huge
+        for i = 1, #s, 2 do
+            local from_x, from_y = s[i+0], s[i+1]
+            local to_x, to_y = d[i+0], d[i+1]
+            max_distance = math.max(max_distance, math.distance(from_x, from_y, to_x, to_y))
+        end
+
+        for i = 1, #s, 2 do
+            local from_x, from_y = s[i+0], s[i+1]
+            local to_x, to_y = d[i+0], d[i+1]
+            local distance = math.distance(from_x, from_y, to_x, to_y)
+            interpolated[i+0], interpolated[i+1] = math.mix2(from_x, from_y, to_x, to_y, math.clamp(t * (1 + distance / max_distance), 0, 1))
         end
     end
 

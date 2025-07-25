@@ -77,9 +77,8 @@ function ow.NPC:instantiate(object, stage, scene)
     self._color = { rt.Palette.TRUE_WHITE:unpack() }
 
     self._is_active = false
-    self._sensor:signal_connect("collision_start", function(_, normal_x, normal_y, x, y)
+    self._sensor:signal_connect("collision_start", function(_, _, normal_x, normal_y, x, y)
         self._is_active = true
-
         --[[
         -- spawn blood drops
         local x, y = self._scene:get_player():get_position()
@@ -119,6 +118,12 @@ function ow.NPC:instantiate(object, stage, scene)
         self._last_force_x, self._last_force_y = 0, 0
     end)
 
+    self._deformable_mesh:get_body():signal_connect("collision_start", function(_, _, nx, ny)
+        local px, py = self._scene:get_player():get_position()
+        local cx, cy = self._deformable_mesh:get_center()
+        --self._scene:get_player():bounce(nx, ny, 100) -- fixed
+    end)
+
     self._is_visible = self._scene:get_is_body_visible(self._sensor)
     self._last_force_x, self._last_force_y = 0, 0
 
@@ -132,7 +137,7 @@ function ow.NPC:instantiate(object, stage, scene)
     end
 
     self._elapsed = 0
-    self._duration = 4
+    self._duration = 1
     self._morph_active = false
     self._from_contour = nil
     self._to_contour = nil
@@ -151,7 +156,6 @@ end
 
 --- @brief
 function ow.NPC:draw()
-    --[[
     if not self._scene:get_is_body_visible(self._sensor) then
         if self._is_visible then
             self._is_visible = false
@@ -209,11 +213,9 @@ function ow.NPC:draw()
 
     rt.graphics.set_stencil_mode(nil)
 
-    --[[
     for drop in values(self._blood_drops) do
         drop:draw()
     end
-    ]]--
 
     love.graphics.line(self._draw_contour)
 end
@@ -232,7 +234,7 @@ function ow.NPC:update(delta)
     local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
 
     if self._morph_active then
-        self._draw_contour = rt.interpolate_contours(self._from_contour, self._to_contour, math.clamp(self._elapsed / self._duration, 0, 1))
+        self._draw_contour = rt.interpolate_contours(self._from_contour, self._to_contour, rt.InterpolationFunctions.SINUSOID_EASE_OUT(math.clamp(self._elapsed / self._duration, 0, 1)))
         table.insert(self._draw_contour, self._draw_contour[1])
         table.insert(self._draw_contour, self._draw_contour[2])
         self._elapsed = self._elapsed + delta

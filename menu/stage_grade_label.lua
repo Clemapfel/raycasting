@@ -9,6 +9,8 @@ rt.settings.menu.stage_grade_label = {
     font_id = "RubikSprayPaint",
     --font_id = "RubikSprayPaint"
 
+    pulse_duration = 2,
+    max_scale = 1.5
 }
 
 --- @class mn.StageGradeLabel
@@ -26,9 +28,8 @@ function mn.StageGradeLabel:instantiate(grade, size)
     self._label_no_sdf = nil
     self._label_sdf = nil
     self._label_text = ""
-    self._label_x, self._label_y = 0, 0
+    self._label_x, self._label_y, self._label_w, self._label_h = 0, 0, 0, 0
     self._color = rt.Palette.WHITE
-    self._elapsed = rt.random.number(0, 10) -- so multiple S aren't synched
     self._last_window_height = love.graphics.getHeight()
 
     if _font == nil then
@@ -41,6 +42,10 @@ function mn.StageGradeLabel:instantiate(grade, size)
         _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
         _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
     end
+
+    self._pulse_active = false
+    self._pulse_elapsed = 0
+    self._pulse_fraction = math.huge
 end
 
 --- @brief
@@ -55,7 +60,7 @@ function mn.StageGradeLabel:size_allocate(x, y, width, height)
     self._label_x = x-- + 0.5 * width - 0.5 * label_w
     self._label_y = y-- + 0.5 * width - 0.5 * label_h
     self._label_x, self._label_y = math.floor(self._label_x), math.floor(self._label_y)
-
+    self._label_w, self._label_h = label_w, label_h
     if self._last_window_height ~= love.graphics.getHeight() then
         self:_update_labels()
         self._last_window_height = love.graphics.getHeight()
@@ -63,24 +68,56 @@ function mn.StageGradeLabel:size_allocate(x, y, width, height)
 end
 
 --- @brief
+--- @brief
 function mn.StageGradeLabel:draw()
-    _shader_sdf:bind()
-    love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
-    _shader_sdf:unbind()
-
-    _shader_no_sdf:bind()
-    _shader_no_sdf:send("elapsed", self._elapsed)
-    _shader_no_sdf:send("use_highlight",
-        self._grade == rt.StageGrade.A or
-        self._grade == rt.StageGrade.B or
-        self._grade == rt.StageGrade.C
+    local label_cx = self._label_x + 0.5 * self._label_w
+    local label_cy = self._label_y + 0.5 * self._label_h
+    local scale = math.mix(
+        1,
+        rt.settings.menu.stage_grade_label.max_scale,
+        rt.InterpolationFunctions.ENVELOPE(self._pulse_fraction, 0.2, 0.4)
     )
 
+    -- SDF shader
+    _shader_sdf:bind()
+    if self._pulse_active then
+        love.graphics.push()
+        love.graphics.translate(label_cx, label_cy)
+        love.graphics.scale(scale, scale)
+        love.graphics.translate(-label_cx, -label_cy)
+        love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
+        love.graphics.pop()
+    else
+        love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
+    end
+    _shader_sdf:unbind()
+
+    -- Non-SDF shader
+    _shader_no_sdf:bind()
+    _shader_no_sdf:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self)) -- prevent synching of shader
+    _shader_no_sdf:send("use_highlight",
+        self._grade == rt.StageGrade.A or
+            self._grade == rt.StageGrade.B or
+            self._grade == rt.StageGrade.C
+    )
     _shader_no_sdf:send("use_rainbow",
         self._grade == rt.StageGrade.S
     )
+    _shader_no_sdf:send("fraction", self._pulse_fraction)
+
     self._color:bind()
-    love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
+
+    if self._pulse_active then
+        love.graphics.push()
+        love.graphics.translate(label_cx, label_cy)
+        love.graphics.scale(scale, scale)
+        love.graphics.translate(-label_cx, -label_cy)
+        love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
+        love.graphics.pop()
+    else
+        love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
+    end
+
     _shader_no_sdf:unbind()
 end
 
@@ -91,7 +128,13 @@ end
 
 --- @brief
 function mn.StageGradeLabel:update(delta)
-    self._elapsed = self._elapsed + delta
+    if self._pulse_active == true then
+        self._pulse_elapsed = self._pulse_elapsed + delta
+        self._pulse_fraction = math.min(self._pulse_elapsed / rt.settings.menu.stage_grade_label.pulse_duration, 1)
+        if self._pulse_fraction >= 1 then
+            self._pulse_active = false
+        end
+    end
 end
 
 --- @brief
@@ -124,7 +167,6 @@ function mn.StageGradeLabel:get_font_size()
     return self._font_size
 end
 
-
 --- @brief
 function mn.StageGradeLabel:_update_labels()
     local text = rt.Translation.stage_grade_to_string(self._grade)
@@ -132,4 +174,18 @@ function mn.StageGradeLabel:_update_labels()
     self._label_no_sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, false), text)
     self._label_sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, true), text)
     self._color = rt.Palette[self._grade]
+end
+
+--- @brief
+function mn.StageGradeLabel:pulse()
+    self._pulse_elapsed = 0
+    self._pulse_fraction = 0
+    self._pulse_active = true
+end
+
+--- @brief
+function mn.StageGradeLabel:skip()
+    self._pulse_elapsed = math.huge
+    self._pulse_fraction = 1
+    self._pulse_active = false
 end

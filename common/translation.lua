@@ -101,12 +101,14 @@ rt.Translation = rt.initialize_translation({
     },
 
     -- results screen
-    overworld_scene = {
-        results_screen = {
-            flow_percentage = "Flow",
-            time = "Time"
-        },
+    result_screen = {
+        flow = "Flow",
+        time = "Time",
+        coins = "Collectibles"
+    },
 
+    -- overworld gameplay
+    overworld_scene = {
         control_indicator_move = "Move",
         control_indicator_down = "Duck",
         control_indicator_jump = "Jump",
@@ -287,20 +289,6 @@ rt.Translation = rt.initialize_translation({
         control_indicator_back = "Save",
         control_indicator_reset_to_default = "Reset",
         control_indicator_abort = "Exit"
-    },
-
-    -- stage title card scene
-    stage_title_card_scene = {
-        stage_index_to_title_prefix = function(i)
-            return "Level " .. i
-        end,
-
-        best_time_prefix = "Current Best Time",
-        target_time_prefix = "Time to Beat",
-
-        control_indicator_move = "Move",
-        control_indicator_jump = "Jump",
-        control_indicator_skip = "Skip"
     },
 
     -- stages
