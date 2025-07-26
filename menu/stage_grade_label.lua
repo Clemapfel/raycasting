@@ -20,6 +20,28 @@ mn.StageGradeLabel = meta.class("StageGradeLabel", rt.Widget)
 
 local _font, _shader_sdf, _shader_no_sdf
 
+local _atlas = {}
+do -- caches love.TextBatches
+    for size in values(meta.instances(rt.FontSize)) do
+        local row = _atlas[size]
+        if row == nil then
+            row = {}
+            _atlas[size] = row
+        end
+
+        for grade in values(meta.instances(rt.StageGrade)) do
+            local entry = row[grade]
+            if entry == nil then
+                entry = {
+                    sdf = nil,
+                    no_sdf = nil
+                }
+                row[grade] = entry
+            end
+        end
+    end
+end
+
 --- @brief
 function mn.StageGradeLabel:instantiate(grade, size)
     meta.assert_enum_value(grade, rt.StageGrade, 1)
@@ -85,7 +107,6 @@ function mn.StageGradeLabel:size_allocate(x, y, width, height)
     end
 end
 
---- @brief
 --- @brief
 function mn.StageGradeLabel:draw()
     local label_cx = self._label_x + 0.5 * self._label_w
@@ -197,8 +218,22 @@ end
 function mn.StageGradeLabel:_update_labels()
     local text = rt.Translation.stage_grade_to_string(self._grade)
     self._label_text = text
-    self._label_no_sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, false), text)
-    self._label_sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, true), text)
+
+    local no_sdf = _atlas[self._font_size][self._grade].no_sdf
+    if no_sdf == nil then
+        no_sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, false), text)
+        _atlas[self._font_size][self._grade].no_sdf = no_sdf
+    end
+
+    local sdf = _atlas[self._font_size][self._grade].sdf
+    if sdf == nil then
+        sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, true), text)
+        _atlas[self._font_size][self._grade].sdf = sdf
+
+    end
+
+    self._label_no_sdf = no_sdf
+    self._label_sdf = sdf
     self._color = rt.Palette[self._grade]
 end
 

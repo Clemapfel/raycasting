@@ -7,19 +7,27 @@ rt.settings.overworld.result_screen = {
     fraction_motion_duration = 2, -- total duration of reveal / hide, seconds
     fraction_motion_ramp = 10, -- how fast motion approaches target
     slope = 0.3, -- how diagonal shape is
-    label_roll_speed = 1, -- fraction per second
+    label_roll_duration = 2, -- seconds
+
+    flow_step = 1 / 100, -- fraction
+    time_step = 0.2, -- seconds
+    coins_step = 1, -- count
+
+    flow_steps_per_second = 5,
+    time_steps_per_second = 20,
+    coins_steps_per_second = 1
 }
 
 --- @class ow.ResultScreen
 ow.ResultsScreen = meta.class("ResultScreen", rt.Widget)
 
 local _shader
-
 local _HIDDEN, _SHOWN = 1, 0
 
-local _value_prefix, _value_postfix = "<o>", "</o>"
-local _prefix_prefix, _prefix_postfix = "<b><o>", "</b></o>"
-local _title_prefix, _title_postfix = "<b><u><o>", "</o></u></b>"
+local _mix_step = function(lower, upper, fraction, step_size)
+    local interpolated = math.mix(lower, upper, fraction)
+    return math.ceil(interpolated / step_size) * step_size
+end
 
 local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, coins_grade, total_grade)
     local speed = rt.settings.overworld.result_screen.label_roll_speed
@@ -28,15 +36,17 @@ local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, 
 
         flow_target = flow, -- percentage in [0, 1]
         flow_current = 0,
-        flow_speed = 1 / speed * 100, -- percent per second
+        flow_start = 0,
 
         time_target = time, -- seconds
         time_current = 0,
-        time_speed = 1 / speed, -- seconds per second
+        time_start = 0,
 
         coins_target = n_coins, -- integer
         coins_current = 0,
-        coins_speed = 1 / speed * 20,
+        coins_start = 0,
+
+        elapsed = 0,
 
         flow_grade = flow_grade,
         time_grade = time_grade,
@@ -44,15 +54,15 @@ local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, 
         total_grade = total_grade,
 
         get_flow = function(self)
-            return _value_prefix .. string.format_percentage(self.flow_current) .. _value_postfix
+            return string.format_percentage(self.flow_current)
         end,
 
         get_time = function(self)
-            return _value_prefix .. string.format_time(self.time_current) .. _value_postfix
+            return string.format_time(self.time_current)
         end,
 
         get_coins = function(self)
-            return _value_prefix .. self.coins_current .. " / " .. self.coins_target .. _value_postfix
+            return self.coins_current .. " / " .. self.coins_target
         end,
 
         get_time_grade = function(self) return self.time_grade end,
@@ -64,21 +74,58 @@ local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, 
             return "<b><o><u>" .. self.title .. "</u></o></b>"
         end,
 
-        update = function(self,  delta)
-            local _step = function(current, target, speed)
-                local step = (target - current) * speed * delta
-                local new_current = current + step
-                if new_current > target then new_current = target end
-                return new_current, new_current ~= current
+        update = function(self, delta)
+            local settings = rt.settings.overworld.result_screen
+            self.elapsed = self.elapsed + delta
+
+            -- increase value but round to nearest step
+            local time_step = settings.time_step
+            local flow_step = settings.flow_step
+            local coins_step = settings.coins_step
+
+            local time_delta = math.abs(self.time_target - self.time_start)
+            local flow_delta = math.abs(self.flow_target - self.flow_start)
+            local coins_delta = math.abs(self.coins_target - self.coins_start)
+
+            local max_delta = math.max(time_delta, flow_delta, coins_delta)
+            local time_speed = max_delta / time_delta  * settings.label_roll_duration
+            local flow_speed = max_delta / flow_delta * settings.label_roll_duration
+            local coins_speed = max_delta / coins_delta * settings.label_roll_duration
+
+            local time_before = self.time_current
+            if self.time_current < self.time_target then
+                self.time_current = math.min(self.time_current + time_step, self.time_target)
+            elseif self.time_current > self.time_target then
+                self.time_current = math.max(self.time_current - time_step, self.time_target)
             end
+            self.time_current = math.clamp(
+                _mix_step(self.time_start, self.time_target, self.elapsed / time_speed, time_step),
+                self.time_start, self.time_target
+            )
 
-            local time_updated, flow_updated, coins_updated
+            local flow_before = self.flow_current
+            if self.flow_current < self.flow_target then
+                self.flow_current = math.min(self.flow_current + flow_step, self.flow_target)
+            elseif self.flow_current > self.flow_target then
+                self.flow_current = math.max(self.flow_current - flow_step, self.flow_target)
+            end
+            self.flow_current = math.clamp(
+                _mix_step(self.flow_start, self.flow_target, self.elapsed / flow_speed, flow_step),
+                self.flow_start, self.flow_current
+            )
 
-            self.time_current, time_updated = _step(self.time_current, self.time_target, self.time_speed)
-            self.flow_current, flow_updated = _step(self.flow_current, self.flow_target, self.flow_speed)
-            self.coins_current, coins_updated = _step(self.coins_current, self.coins_target, self.coins_speed)
+            local coins_before = self.coins_current
+            if self.coins_current < self.coins_target then
+                self.coins_current = math.min(self.coins_current + coins_step, self.coins_target)
+            elseif self.coins_current > self.coins_target then
+                self.coins_current = math.max(self.coins_current - coins_step, self.coins_target)
+            end
+            self.coins_current = math.clamp(
+                _mix_step(self.coins_start, self.coins_target, self.elapsed / coins_speed, coins_step),
+                self.coins_start, self.coins_target
+            )
 
-            return time_updated, flow_updated, coins_updated
+            return time_before ~= self.time_current, flow_before ~= self.flow_current, coins_before ~= self.coins_current
         end
     }
 end
@@ -112,13 +159,21 @@ function ow.ResultsScreen:instantiate()
 
     self._title_label = rt.Label(state:get_title())
 
-    self._flow_label = rt.Label(_prefix_prefix .. translation.flow .. _prefix_postfix)
-    self._time_label = rt.Label(_prefix_prefix .. translation.time .. _prefix_postfix)
-    self._coins_label = rt.Label(_prefix_prefix .. translation.coins .. _prefix_postfix)
+    local prefix, postfix = "<b><o>", "</b></o>"
+    self._flow_label = rt.Label(prefix .. translation.flow .. postfix)
+    self._time_label = rt.Label(prefix .. translation.time .. postfix)
+    self._coins_label = rt.Label(prefix .. translation.coins .. postfix)
 
-    self._flow_value_label = rt.Label(state:get_flow())
-    self._time_value_label = rt.Label(state:get_time())
-    self._coins_value_label = rt.Label(state:get_coins())
+    local glyph_properties = {
+        font_size = rt.FontSize.REGULAR,
+        justify_mode = rt.JustifyMode.CENTER,
+        style = rt.FontStyle.BOLD,
+        is_outlined = true
+    }
+
+    self._flow_value_label = rt.Glyph(state:get_flow(), glyph_properties)
+    self._time_value_label = rt.Glyph(state:get_time(), glyph_properties)
+    self._coins_value_label = rt.Glyph(state:get_coins(), glyph_properties)
 
     self._flow_grade = mn.StageGradeLabel(state:get_flow_grade(), rt.FontSize.HUGE)
     self._time_grade = mn.StageGradeLabel(state:get_time_grade(), rt.FontSize.HUGE)
@@ -131,6 +186,8 @@ end
 
 --- @brief
 function ow.ResultsScreen:realize()
+    if self:already_realized() then return end
+
     for widget in range(
         self._title_label,
         self._flow_label,
@@ -176,6 +233,8 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
         max_grade_w = math.max(max_grade_w, select(1, grade:measure()))
     end
 
+    local value_area_w = width - 2 * m - (max_grade_w + max_prefix_w)
+
     local _reformat = function(prefix, value, grade)
         local prefix_w, prefix_h = prefix:measure()
         local value_w, value_h = value:measure()
@@ -188,11 +247,10 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
             math.huge, math.huge
         )
 
-        value:set_justify_mode(rt.JustifyMode.CENTER)
         value:reformat(
             x + max_prefix_w,
             current_y + 0.5 * max_h - 0.5 * prefix_h,
-            width - 2 * m - (max_grade_w + max_prefix_w), math.huge
+            value_area_w, math.huge
         )
 
         grade:reformat(
@@ -224,7 +282,7 @@ function ow.ResultsScreen:_update_labels(time, flow, coins)
         if should_update == true then
             local x, y = label:get_position()
             local w, h = label:measure()
-            label:set_text(_value_prefix .. value .. _value_postfix)
+            label:set_text(value)
 
             if label:get_is_realized() then
                 local new_w, new_h = label:measure()
@@ -233,9 +291,9 @@ function ow.ResultsScreen:_update_labels(time, flow, coins)
         end
     end
 
-    _update(time, self._time_label, self._state:get_time())
-    _update(flow, self._flow_label, self._state:get_flow())
-    _update(coins, self._coins_label, self._state:get_coins())
+    _update(time, self._time_value_label, self._state:get_time())
+    _update(flow, self._flow_value_label, self._state:get_flow())
+    _update(coins, self._coins_value_label, self._state:get_coins())
 end
 
 --- @brief
@@ -294,12 +352,18 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
     end
 
     meta.install(state, {
+        elapsed = 0,
         title = title,
-        time_current = time,
+        time_target = time,
+        time_current = state.time_start,
         time_grade = time_grade,
-        flow_current = flow,
+
+        flow_target = flow,
+        flow_current = state.flow_start,
         flow_grade = flow_grade,
-        coins_current = n_coins,
+
+        coins_target = n_coins,
+        coins_current = state.coins_start,
         coins_grade = coins_grade
     })
 

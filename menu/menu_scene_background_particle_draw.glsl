@@ -17,7 +17,6 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 
     vec2 pos = center + offset + dxy * radius * scale;
 
-
     pos -= (center + offset);
     float cos_theta = cos(rotation);
     float sin_theta = sin(rotation);

@@ -27,14 +27,19 @@ rt.JustifyMode = meta.enum("JustifyMode", {
 --- @class rt.Label
 rt.Label = meta.class("Label", rt.Widget)
 
-function rt.Label:instantiate(text, font_size, font)
+--- @class rt.Glyph
+rt.Glyph = meta.class("Glyph", rt.Widget)
+
+function rt.Label:instantiate(text, font_size, font, use_caching)
     if text == nil then text = "" end
     if font == nil then font = rt.settings.font.default end
     if font_size == nil then font_size = rt.FontSize.REGULAR end
+    if use_caching == nil then use_caching = true end
 
     meta.assert_typeof(text, "String", 1)
     meta.assert_typeof(font, rt.Font, 2)
     meta.assert_enum_value(font_size, rt.FontSize, 3)
+    meta.assert_typeof(use_caching, "Boolean")
 
     meta.install(self, {
         _raw = text,
@@ -60,6 +65,7 @@ function rt.Label:instantiate(text, font_size, font)
         _justify_center_offset = 0,
         _justify_right_offset = 0,
 
+        _use_caching = use_caching,
         _texture_offset_x = 0,
         _texture_offset_y = 0,
         _texture_width = 1,
@@ -82,8 +88,8 @@ local _texture_format = rt.TextureFormat.RGBA16
 local _padding = rt.settings.label.outline_offset_padding
 
 --- @brief
-function rt.Label:_glyph_new(
-    text, font, style, is_mono,
+function rt.Label._glyph_new(
+    text, font, font_size, style, is_mono,
     color_r, color_g, color_b,
     outline_color_r, outline_color_g, outline_color_b,
     is_underlined,
@@ -94,11 +100,12 @@ function rt.Label:_glyph_new(
     is_effect_rainbow,
     is_effect_noise
 )
-    local font_native = font:get_native(self._font_size, style, false)
+    local font_native = font:get_native(font_size, style, false)
     local glyph, outline_glyph = love.graphics.newTextBatch(font_native, text), nil
 
+    local font_sdf_native = font:get_native(font_size, style, true)
     if is_outlined then
-        outline_glyph = love.graphics.newTextBatch(font:get_native(self._font_size, style, true), text)
+        outline_glyph = love.graphics.newTextBatch(font_sdf_native, text)
     end
 
     local out = {
@@ -106,6 +113,8 @@ function rt.Label:_glyph_new(
         glyph = glyph,
         outline_glyph = outline_glyph,
         font = font_native,
+        font_sdf = font_sdf_native,
+        font_size = font_size,
         is_mono = is_mono,
         is_underlined = is_underlined,
         is_strikethrough = is_strikethrough,
@@ -114,8 +123,8 @@ function rt.Label:_glyph_new(
         is_effect_rainbow = is_effect_rainbow,
         is_effect_wave = is_effect_wave,
         is_effect_noise = is_effect_noise,
-        color = {color_r, color_g, color_b, 1},
-        outline_color = {outline_color_r, outline_color_g, outline_color_b, 1},
+        color = { color_r, color_g, color_b, 1 },
+        outline_color = { outline_color_r, outline_color_g, outline_color_b, 1 },
         n_visible_characters = utf8.len(text),
         n_characters = utf8.len(text),
         justify_left_offset = 0,
@@ -144,7 +153,7 @@ end
 
 --- @override
 function rt.Label:draw(x, y)
-    if self._n_glyphs == 0 or self._is_visible ~= true or self._texture == nil then return end
+    if self._n_glyphs == 0 or self._is_visible ~= true or (self._use_caching and self._texture == nil) then return end
     if x == nil then x = 0 end
     if y == nil then y = 0 end
 
@@ -155,23 +164,122 @@ function rt.Label:draw(x, y)
         justify_offset = self._justify_right_offset
     end
 
-    love.graphics.push()
+    if self._use_caching then
+        love.graphics.push()
 
-    love.graphics.setBlendMode("alpha", "premultiplied")
-    love.graphics.setColor(self._opacity, self._opacity, self._opacity, self._opacity)
+        love.graphics.setBlendMode("alpha", "premultiplied")
+        love.graphics.setColor(self._opacity, self._opacity, self._opacity, self._opacity)
 
-    love.graphics.draw(self._texture._native,
-        math.floor(self._bounds.x + justify_offset + self._texture_offset_x + x),
-        math.floor(self._bounds.y + self._texture_offset_y + y)
-    )
+        love.graphics.draw(self._texture._native,
+            math.floor(self._bounds.x + justify_offset + self._texture_offset_x + x),
+            math.floor(self._bounds.y + self._texture_offset_y + y)
+        )
 
-    love.graphics.pop()
-    love.graphics.setBlendMode("alpha")
+        love.graphics.pop()
+        love.graphics.setBlendMode("alpha")
+    else
+        love.graphics.push()
+        love.graphics.translate(
+            math.floor(self._bounds.x + justify_offset + self._texture_offset_x + x),
+            math.floor(self._bounds.y + self._texture_offset_y + y)
+        )
+
+        love.graphics.setShader(_draw_outline_shader)
+        _draw_outline_shader:send("elapsed", self._elapsed)
+        _draw_outline_shader:send("font_size", self._font:get_actual_size(self._font_size))
+
+        local justify_mode = self._justify_mode
+        if justify_mode == rt.JustifyMode.CENTER then
+            love.graphics.translate(-1 * self._justify_center_offset, 0)
+        elseif justify_mode == rt.JustifyMode.RIGHT then
+            love.graphics.translate(-1 * self._justify_right_offset, 0)
+        end
+
+        -- draw outlines
+        love.graphics.setLineWidth(3) -- line outline
+        for glyph in values(self._outlined_glyphs) do
+            _draw_outline_shader:send("n_visible_characters", glyph.n_visible_characters)
+            _draw_outline_shader:send("is_effect_wave", glyph.is_effect_wave)
+            _draw_outline_shader:send("is_effect_noise", glyph.is_effect_noise)
+            _draw_outline_shader:send("is_effect_shake", glyph.is_effect_shake)
+            _draw_outline_shader:send("outline_color", glyph.outline_color)
+
+            local justify_offset = 0
+            if justify_mode == rt.JustifyMode.CENTER then
+                justify_offset = glyph.justify_center_offset
+            elseif justify_mode == rt.JustifyMode.RIGHT then
+                justify_offset = glyph.justify_right_offset
+            end
+
+            local r, g, b, a = table.unpack(glyph.outline_color)
+            love.graphics.setColor(r, g, b, a)
+            love.graphics.draw(glyph.outline_glyph,
+                math.floor(glyph.x + _padding + justify_offset),
+                math.floor(glyph.y + _padding)
+            )
+
+            if glyph.is_underlined then
+                love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)
+            end
+
+            if glyph.is_strikethrough then
+                love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
+            end
+        end
+
+        -- draw glyphs
+        love.graphics.setShader(_draw_text_shader)
+        _draw_text_shader:send("elapsed", self._elapsed)
+        _draw_text_shader:send("font_size", self._font:get_actual_size(self._font_size))
+        _draw_text_shader:send("opacity", 1)
+
+        love.graphics.setLineWidth(2)
+        for glyph in values(self._glyphs_only) do
+            _draw_text_shader:send("n_visible_characters", glyph.n_visible_characters)
+            _draw_text_shader:send("is_effect_rainbow", glyph.is_effect_rainbow)
+            _draw_text_shader:send("is_effect_noise", glyph.is_effect_noise)
+            _draw_text_shader:send("is_effect_wave", glyph.is_effect_wave)
+            _draw_text_shader:send("is_effect_shake", glyph.is_effect_shake)
+
+            local justify_offset = 0
+            if justify_mode == rt.JustifyMode.CENTER then
+                justify_offset = glyph.justify_center_offset
+            elseif justify_mode == rt.JustifyMode.RIGHT then
+                justify_offset = glyph.justify_right_offset
+            end
+
+            love.graphics.push()
+            love.graphics.translate(justify_offset, 0)
+
+            local r, g, b, a = table.unpack(glyph.color)
+            love.graphics.setColor(r, g, b, a)
+            love.graphics.draw(glyph.glyph,
+                math.floor(glyph.x + _padding ),
+                math.floor(glyph.y + _padding)
+            )
+
+            if glyph.is_underlined then
+                love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)
+            end
+
+            if glyph.is_strikethrough then
+                love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
+            end
+            love.graphics.pop()
+        end
+
+        love.graphics.setShader(nil)
+        love.graphics.pop()
+    end
 end
 
 --- @brief
 function rt.Label:get_snapshot()
-    return self._texture
+    if self._use_caching then
+        return nil
+    else
+        return self._texture
+    end
 end
 
 --- @brief
@@ -493,8 +601,8 @@ function rt.Label:_parse()
         local outline_color_r, outline_color_g, outline_color_b = _rt_color_unpack(_rt_palette[settings.outline_color])
 
         local word = _concat(current_word)
-        local to_insert = self:_glyph_new(
-           word, font, style, settings.is_mono,
+        local to_insert = rt.Label._glyph_new(
+           word, font, self._font_size, style, settings.is_mono,
             color_r, color_g, color_b,
             outline_color_r, outline_color_g, outline_color_b,
             settings.is_underlined,
@@ -923,7 +1031,13 @@ function rt.Label:_apply_wrapping()
 
     self._texture_width = outline_texture_w
     self._texture_height = outline_texture_h
-    self._texture = rt.RenderTexture(outline_texture_w, outline_texture_h, rt.GameState:get_msaa_quality(), _texture_format)
+
+    if self._use_caching then
+        self._texture = rt.RenderTexture(outline_texture_w, outline_texture_h, rt.GameState:get_msaa_quality(), _texture_format)
+    else
+        self._texture = nil
+    end
+
     self:_update_n_visible_characters()
 end
 
@@ -991,7 +1105,7 @@ end
 
 --- @brief [internal]
 function rt.Label:_update_texture()
-    if self._n_glyphs == 0 or self._texture == nil then return end
+    if self._n_glyphs == 0 or self._texture == nil or not self._use_caching then return end
 
     love.graphics.push("all")
     love.graphics.reset()
@@ -1088,3 +1202,240 @@ function rt.Label:_update_texture()
     love.graphics.pop()
 end
 
+--- ####
+
+--- @brief
+function rt.Glyph:instantiate(text, properties)
+    if properties == nil then properties = {} end
+
+    local font = rt.settings.font.default
+    local font_size = rt.FontSize.REGULAR
+    local is_underlined = false
+    local is_strikethrough = false
+    local is_outlined = false
+    local is_mono = false
+    local color_r, color_g, color_b, color_a = rt.Palette.FOREGROUND:unpack()
+    local outline_r, outline_g, outline_b, outline_a = rt.Palette.BLACK:unpack()
+    local style = rt.FontStyle.REGULAR
+    local is_effect_shake = false
+    local is_effect_wave = false
+    local is_effect_rainbow = false
+    local is_effect_noise = false
+
+    local outline_set = false
+    local outline_color_set = false
+
+    for name, value in pairs(properties) do
+        if name == "font" then
+            self._font = value
+        elseif name == "font_size" then
+            font_size = value
+        elseif name == "is_underlined" then
+            is_underlined = value
+        elseif name == "is_strikethrough" then
+            is_strikethrough = value
+        elseif name == "is_outlined" then
+            is_outlined = value
+            outline_set = true
+        elseif name == "color" then
+            color_r, color_g, color_b, color_a = value:unpack()
+        elseif name == "outline_color" then
+            outline_r, outline_g, outline_b, outline_a = value:unpack()
+            outline_color_set = true
+        elseif name == "style" then
+            style = value
+        elseif name == "is_mono" then
+            is_mono = value
+        elseif name == "is_effect_shake" then
+            is_effect_shake = value
+        elseif name == "is_effect_wave" then
+            is_effect_wave = value
+        elseif name == "is_effect_rainbow" then
+            is_effect_rainbow = value
+        elseif name == "is_effect_noise" then
+            is_effect_noise = value
+        elseif name == "justify_mode" then
+            self._justify_mode = value
+        else
+            rt.error("In rt.Glyph: unknown property `" .. tostring(name) .. "`")
+        end
+    end
+
+    if outline_color_set and not outline_set then is_outlined = true end
+    self._is_animated = is_effect_shake or is_effect_wave or is_effect_rainbow or is_effect_noise
+
+    self._elapsed = 0
+    self._font = font
+    self._use_caching = true -- use textbatch until first text change
+
+    self._native = rt.Label._glyph_new(
+        text, self._font, font_size, style, is_mono,
+        color_r, color_g, color_b,
+        outline_r, outline_g, outline_b,
+        is_underlined,
+        is_strikethrough,
+        is_outlined,
+        is_effect_shake,
+        is_effect_wave,
+        is_effect_rainbow,
+        is_effect_noise
+    )
+end
+
+--- @brief
+function rt.Glyph:set_justify_mode(justify_mode)
+    self._justify_mode = justify_mode
+end
+
+--- @brief
+function rt.Glyph:set_text(text)
+    local glyph = self._native
+    glyph.text = text
+    glyph.n_visible_characters = utf8.len(text)
+
+    -- switch to per frame
+    self._use_caching = false
+    glyph.glyph = nil
+    glyph.outline_glyph = nil
+
+    self:reformat()
+end
+
+--- @brief
+function rt.Glyph:size_allocate(x, y, width, height)
+    local glyph = self._native
+    glyph.x, glyph.y = _floor(x), _floor(y)
+
+    local font = glyph.font
+    local w = _ceil(glyph.font_sdf:getWidth(glyph.text))
+    local h = _ceil(glyph.font_sdf:getHeight())
+    glyph.width, glyph.height = w, h
+
+    local underline_y = font:getBaseline() + 4
+    local strikethrough_y = 0.5 * font:getHeight()
+
+    if glyph.is_underlined then
+        glyph.underline_ax = glyph.x
+        glyph.underline_ay = _ceil(glyph.y + underline_y)
+        glyph.underline_bx = glyph.x + glyph.width
+        glyph.underline_by = _ceil(glyph.y + underline_y)
+    end
+
+    if glyph.is_strikethrough then
+        glyph.strikethrough_ax = glyph.x
+        glyph.strikethrough_ay = _ceil(glyph.y + strikethrough_y)
+        glyph.strikethrough_bx = glyph.x + glyph.width
+        glyph.strikethrough_by = _ceil(glyph.y + strikethrough_y)
+    end
+
+    local rest_w = width - glyph.width
+    glyph.justify_left_offset = 0
+    glyph.justify_right_offset = width - glyph.width
+    glyph.justify_center_offset = 0.5 * width - 0.5 * glyph.width
+end
+
+--- @brief
+function rt.Glyph:measure()
+    return self._native.width, self._native.height
+end
+
+--- @brief
+function rt.Glyph:update(delta)
+    self._elapsed = self._elapsed + delta
+end
+
+--- @brief
+function rt.Glyph:draw()
+    local glyph = self._native
+    love.graphics.push("all")
+
+    local justify_offset = 0
+    if self._justify_mode == rt.JustifyMode.CENTER then
+        justify_offset = glyph.justify_center_offset
+    elseif self._justify_mode == rt.JustifyMode.RIGHT then
+        justify_offset = glyph.justify_right_offset
+    end
+
+    if glyph.is_outlined then
+        love.graphics.setShader(_draw_outline_shader)
+        _draw_outline_shader:send("elapsed", self._elapsed)
+        _draw_outline_shader:send("font_size", self._font:get_actual_size(glyph.font_size))
+        _draw_outline_shader:send("n_visible_characters", glyph.n_visible_characters)
+        _draw_outline_shader:send("is_effect_wave", glyph.is_effect_wave)
+        _draw_outline_shader:send("is_effect_noise", glyph.is_effect_noise)
+        _draw_outline_shader:send("is_effect_shake", glyph.is_effect_shake)
+        _draw_outline_shader:send("outline_color", glyph.outline_color)
+
+        love.graphics.push()
+        love.graphics.translate(justify_offset, 0)
+
+        local r, g, b, a = table.unpack(glyph.outline_color)
+        love.graphics.setColor(r, g, b, a)
+
+        if self._use_caching then
+            love.graphics.draw(glyph.outline_glyph, glyph.x, glyph.y)
+        else
+            love.graphics.setFont(glyph.font_sdf)
+            love.graphics.print(glyph.text, glyph.x, glyph.y)
+        end
+
+        love.graphics.setShader(nil)
+
+        if glyph.is_underlined or glyph.is_strikethrough then
+            love.graphics.setLineWidth(3)
+
+            if glyph.is_underlined then
+                love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)
+            end
+
+            if glyph.is_strikethrough then
+                love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
+            end
+        end
+
+        love.graphics.pop()
+    end
+
+    if self._is_animated then
+        love.graphics.setShader(_draw_text_shader)
+        _draw_text_shader:send("elapsed", self._elapsed)
+        _draw_text_shader:send("font_size", self._font:get_actual_size(glyph.font_size))
+        _draw_text_shader:send("opacity", 1)
+        _draw_text_shader:send("n_visible_characters", glyph.n_visible_characters)
+        _draw_text_shader:send("is_effect_rainbow", glyph.is_effect_rainbow)
+        _draw_text_shader:send("is_effect_noise", glyph.is_effect_noise)
+        _draw_text_shader:send("is_effect_wave", glyph.is_effect_wave)
+        _draw_text_shader:send("is_effect_shake", glyph.is_effect_shake)
+    end
+
+    love.graphics.push()
+    love.graphics.translate(justify_offset, 0)
+
+    local r, g, b, a = table.unpack(glyph.color)
+    love.graphics.setColor(r, g, b, a)
+
+    if self._use_caching then
+        love.graphics.draw(glyph.glyph, glyph.x, glyph.y)
+    else
+        love.graphics.setFont(glyph.font)
+        love.graphics.print(glyph.text, glyph.x, glyph.y)
+    end
+
+    love.graphics.setShader(nil)
+
+    if glyph.is_underlined or glyph.is_strikethrough then
+        love.graphics.setLineWidth(2)
+
+        if glyph.is_underlined then
+            love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)
+        end
+
+        if glyph.is_strikethrough then
+            love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
+        end
+    end
+
+    love.graphics.pop()
+
+    love.graphics.pop("all")
+end
