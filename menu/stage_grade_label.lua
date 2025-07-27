@@ -17,6 +17,7 @@ rt.settings.menu.stage_grade_label = {
 
 --- @class mn.StageGradeLabel
 mn.StageGradeLabel = meta.class("StageGradeLabel", rt.Widget)
+meta.add_signal(mn.StageGradeLabel, "pulse_done")
 
 local _font, _shader_sdf, _shader_no_sdf
 
@@ -55,6 +56,8 @@ function mn.StageGradeLabel:instantiate(grade, size)
     self._label_x, self._label_y, self._label_w, self._label_h = 0, 0, 0, 0
     self._color = rt.Palette.WHITE
     self._last_window_height = love.graphics.getHeight()
+
+    self._opacity = 1
 
     if _font == nil then
         local id = rt.settings.menu.stage_grade_label.font_id
@@ -109,11 +112,14 @@ end
 
 --- @brief
 function mn.StageGradeLabel:draw()
+    if self._opacity == 0 then return end
+
     local label_cx = self._label_x + 0.5 * self._label_w
     local label_cy = self._label_y + 0.5 * self._label_h
 
     -- SDF shader
     _shader_sdf:bind()
+    _shader_sdf:send("opacity", self._opacity)
 
     if self._animation_active then
         local scale = self._scale_animation:get_value()
@@ -126,10 +132,12 @@ function mn.StageGradeLabel:draw()
     else
         love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
     end
+
     _shader_sdf:unbind()
 
     -- Non-SDF shader
     _shader_no_sdf:bind()
+    _shader_no_sdf:send("opacity", self._opacity)
     _shader_no_sdf:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self)) -- prevent synching of shader
     _shader_no_sdf:send("use_highlight",
         self._grade == rt.StageGrade.A or
@@ -179,7 +187,10 @@ function mn.StageGradeLabel:update(delta)
         end
 
         if self._scale_animation:get_is_done() and self._shine_animation:get_is_done() then
-            self._animation_active = false
+            if self._animation_active then
+                self._animation_active = false
+                self:signal_emit("pulse_done")
+            end
         end
     end
 end
@@ -249,4 +260,9 @@ function mn.StageGradeLabel:skip()
     self._pulse_active = false
     self._shine_animation:skip()
     self._scale_animation:skip()
+end
+
+--- @brief
+function mn.StageGradeLabel:set_opacity(value)
+    self._opacity = value
 end

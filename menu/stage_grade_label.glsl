@@ -49,6 +49,8 @@ float gaussian(float x, float ramp)
 #error "MODE undefined, should be 0 or 1"
 #endif
 
+uniform float opacity = 1;
+
 #if MODE == MODE_SDF
 
 uniform vec4 white;
@@ -56,7 +58,8 @@ uniform vec4 white;
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     float dist = texture(img, texture_coords).a;
     const float thickness = 1 - 0.8;
-    return min(vec4(1.5 * smoothstep(0, 1, smoothstep(0, 1, smoothstep(0, 1 - thickness, dist)))) * white, vec4(1));
+    vec4 result = min(vec4(1.5 * smoothstep(0, 1, smoothstep(0, 1, smoothstep(0, 1 - thickness, dist)))) * white, vec4(1));
+    return vec4(result.rgb, result.a * opacity);
 }
 
 #elif MODE == MODE_NO_SDF
@@ -125,6 +128,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     sobel_y[2][0] * s20 + sobel_y[2][1] * s21 + sobel_y[2][2] * s22;
 
     result.rgb -= vec3(0.333 * length(vec2(gx, gy)));
+    result.a *= opacity;
     return result;
 }
 
