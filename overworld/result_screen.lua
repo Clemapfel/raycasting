@@ -94,9 +94,9 @@ function ow.ResultsScreen:instantiate()
     self._title_label = rt.Label("<b><o><u>" .. self._title .. "</b></o></u>", rt.FontSize.BIG)
 
     local prefix, postfix = "<b><o>", "</b></o>"
-    self._flow_label = rt.Label(prefix .. translation.flow .. postfix)
-    self._time_label = rt.Label(prefix .. translation.time .. postfix)
-    self._coins_label = rt.Label(prefix .. translation.coins .. postfix)
+    self._flow_prefix_label = rt.Label(prefix .. translation.flow .. postfix)
+    self._time_prefix_label = rt.Label(prefix .. translation.time .. postfix)
+    self._coins_prefix_label = rt.Label(prefix .. translation.coins .. postfix)
 
     local glyph_properties = {
         font_size = rt.FontSize.REGULAR,
@@ -109,10 +109,10 @@ function ow.ResultsScreen:instantiate()
     self._time_value_label = rt.Glyph(_format_time(0, 0, self._time_current), glyph_properties)
     self._coins_value_label = rt.Glyph(_format_coins(0, 0, self._coins_current, 0), glyph_properties)
 
-    self._flow_grade = mn.StageGradeLabel(self._flow_grade, rt.FontSize.HUGE)
-    self._time_grade = mn.StageGradeLabel(self._time_grade, rt.FontSize.HUGE)
-    self._coins_grade = mn.StageGradeLabel(self._coins_grade, rt.FontSize.HUGE)
-    self._total_grade = mn.StageGradeLabel(self._total_grade, rt.FontSize.GIGANTIC)
+    self._flow_grade_label = mn.StageGradeLabel(self._flow_grade, rt.FontSize.HUGE)
+    self._time_grade_label = mn.StageGradeLabel(self._time_grade, rt.FontSize.HUGE)
+    self._coins_grade_label = mn.StageGradeLabel(self._coins_grade, rt.FontSize.HUGE)
+    self._total_grade_label = mn.StageGradeLabel(self._total_grade, rt.FontSize.GIGANTIC)
 
     -- animation
 
@@ -133,6 +133,14 @@ function ow.ResultsScreen:instantiate()
         )
     end
 
+    local _new_opacity_animation = function()
+        return rt.TimedAnimation(
+            settings.scale_animation_duration, -- sic
+            0, 1,
+            rt.InterpolationFunctions.LINEAR
+        )
+    end
+
     local _new_roll_animation = function()
         return rt.TimedAnimation(
             settings.roll_animation_duration,
@@ -142,32 +150,42 @@ function ow.ResultsScreen:instantiate()
     end
 
     self._title_reveal_animation = _new_reveal_animation()
+    self._title_label_offset = 0
 
     self._time_prefix_reveal_animation = _new_reveal_animation()
     self._time_value_reveal_animation = _new_reveal_animation()
     self._time_value_roll_animation = _new_roll_animation()
     self._time_grade_scale_animation = _new_scale_animation()
-
+    self._time_grade_opacity_animation = _new_opacity_animation()
     self._time_prefix_offset = 0 -- max offsets
     self._time_value_offset = 0
+    self._time_grade_center_x = 0
+    self._time_grade_center_y = 0
 
     self._flow_prefix_reveal_animation = _new_reveal_animation()
     self._flow_value_reveal_animation = _new_reveal_animation()
     self._flow_value_roll_animation = _new_roll_animation()
-    self._flow_grade_animation = _new_scale_animation()
-
+    self._flow_grade_scale_animation = _new_scale_animation()
+    self._flow_grade_opacity_animation = _new_opacity_animation()
     self._flow_prefix_offset = 0
     self._flow_value_offset = 0
+    self._flow_grade_center_x = 0
+    self._flow_grade_center_y = 0
 
     self._coins_prefix_reveal_animation = _new_reveal_animation()
     self._coins_value_reveal_animation = _new_reveal_animation()
     self._coins_value_roll_animation = _new_roll_animation()
     self._coins_grade_scale_animation = _new_scale_animation()
-
+    self._coins_grade_opacity_animation = _new_opacity_animation()
     self._coins_prefix_offset = 0
     self._coins_value_offset = 0
+    self._coins_grade_center_x = 0
+    self._coins_grade_center_y = 0
 
     self._total_grade_scale_animation = _new_scale_animation()
+    self._total_grade_opacity_animation = _new_opacity_animation()
+    self._total_grade_center_x = 0
+    self._total_grade_center_y = 0
 
     self._shader_fraction = _HIDDEN
     self._shader_fraction_motion = rt.SmoothedMotion1D(
@@ -175,6 +193,11 @@ function ow.ResultsScreen:instantiate()
         1 / settings.fraction_motion_duration,
         settings.fraction_motion_ramp
     )
+
+    self._time_grade_label:set_opacity(self._time_grade_opacity_animation:get_value())
+    self._flow_grade_label:set_opacity(self._flow_grade_opacity_animation:get_value())
+    self._coins_grade_label:set_opacity(self._coins_grade_opacity_animation:get_value())
+    self._total_grade_label:set_opacity(self._total_grade_opacity_animation:get_value())
 end
 
 --- @brief
@@ -183,16 +206,16 @@ function ow.ResultsScreen:realize()
 
     for widget in range(
         self._title_label,
-        self._flow_label,
-        self._time_label,
-        self._coins_label,
+        self._flow_prefix_label,
+        self._time_prefix_label,
+        self._coins_prefix_label,
         self._flow_value_label,
         self._time_value_label,
         self._coins_value_label,
-        self._flow_grade,
-        self._time_grade,
-        self._coins_grade,
-        self._total_grade
+        self._flow_grade_label,
+        self._time_grade_label,
+        self._coins_grade_label,
+        self._total_grade_label
     ) do
         widget:realize()
     end
@@ -216,14 +239,15 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
 
     local title_w, title_h = self._title_label:measure()
     self._title_label:reformat(x + width - title_w, y)
+    self._title_label_offset = select(1, self._title_label:get_position())
     current_y = current_y + title_h + m
 
     local max_prefix_w, max_grade_w = -math.huge, -math.huge
-    for label in range(self._time_label, self._flow_label, self._coins_label) do
+    for label in range(self._time_prefix_label, self._flow_prefix_label, self._coins_prefix_label) do
         max_prefix_w = math.max(max_prefix_w, select(1, label:measure()))
     end
 
-    for grade in range(self._time_grade, self._flow_grade, self._coins_grade) do
+    for grade in range(self._time_grade_label, self._flow_grade_label, self._coins_grade_label) do
         max_grade_w = math.max(max_grade_w, select(1, grade:measure()))
     end
 
@@ -247,28 +271,25 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
             value_area_w, math.huge
         )
 
-        grade:reformat(
-            x + width - m - grade_w,
-            current_y + 0.5 * max_h - 0.5 * grade_h,
-            grade_w, grade_h
-        )
+        local grade_x, grade_y = x + width - m - grade_w, current_y + 0.5 * max_h - 0.5 * grade_h
+        grade:reformat(grade_x, grade_y, grade_w, grade_h)
 
         current_y = current_y + max_h
 
-        local prefix_offset = x + width - select(1, prefix:get_position())
-        local value_offset = x + width - select(1, value:get_position())
+        local prefix_offset = love.graphics.getWidth() - select(1, prefix:get_position())
+        local value_offset = love.graphics.getWidth() - select(1, value:get_position())
+
+        return prefix_offset, value_offset, grade_x + 0.5 * grade_w, grade_y + 0.5 * grade_h
     end
 
-    self._time_prefix_offset, self._time_value_offset = _reformat(self._time_label, self._time_value_label, self._time_grade)
-    self._flow_prefix_offset, self._flow_value_offset = _reformat(self._flow_label, self._flow_value_label, self._flow_grade)
-    self._coins_prefix_offset, self._coins_value_offset = _reformat(self._coins_label, self._coins_value_label, self._coins_grade)
+    self._time_prefix_offset, self._time_value_offset, self._time_grade_center_x, self._time_grade_center_y = _reformat(self._time_prefix_label, self._time_value_label, self._time_grade_label)
+    self._flow_prefix_offset, self._flow_value_offset, self._flow_grade_center_x, self._flow_grade_center_y = _reformat(self._flow_prefix_label, self._flow_value_label, self._flow_grade_label)
+    self._coins_prefix_offset, self._coins_value_offset, self._coins_grade_center_x, self._coins_grade_center_y = _reformat(self._coins_prefix_label, self._coins_value_label, self._coins_grade_label)
 
-    local total_w, total_h = self._total_grade:measure()
-    self._total_grade:reformat(
-        x + 0.5 * width - 0.5 * total_w,
-        current_y,
-        total_w, total_h
-    )
+    local total_w, total_h = self._total_grade_label:measure()
+    local total_x, total_y = x + 0.5 * width - 0.5 * total_w, current_y
+    self._total_grade_label:reformat(total_x, total_y, total_w, total_h)
+    self._total_grade_center_x, self._total_grade_center_y =  total_x + 0.5 * total_w, total_y + 0.5 * total_h
 end
 
 --- @brief
@@ -328,18 +349,18 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
     self._time_target = time
     self._time_start = 0
     self._time_current = self._time_start
-    self._time_grade = time_grade
+    self._time_grade_label:set_grade(time_grade)
 
     self._flow_target = flow
     self._flow_start = 0
     self._flow_current = self._flow_start
-    self._flow_grade = flow_grade
+    self._flow_grade_label:set_grade(flow_grade)
 
     self._coins_max = max_n_coins
     self._coins_target = n_coins
     self._coins_start = 0
     self._coins_current = self._coins_start
-    self._coins_grade = time_grade
+    self._coins_grade_label:set_grade(time_grade)
 
     for animation in range(
         self._title_reveal_animation,
@@ -348,19 +369,30 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
         self._time_value_reveal_animation,
         self._time_value_roll_animation,
         self._time_grade_scale_animation,
+        self._time_grade_opacity_animation,
 
         self._flow_prefix_reveal_animation,
         self._flow_value_reveal_animation,
         self._flow_value_roll_animation,
         self._flow_grade_scale_animation,
+        self._flow_grade_opacity_animation,
 
         self._coins_prefix_reveal_animation,
         self._coins_value_reveal_animation,
         self._coins_value_roll_animation,
-        self._coins_grade_scale_animation
+        self._coins_grade_scale_animation,
+        self._coins_grade_opacity_animation,
+
+        self._total_grade_scale_animation,
+        self._total_grade_opacity_animation
     ) do
         animation:reset()
     end
+
+    self._time_grade_label:set_opacity(self._time_grade_opacity_animation:get_value())
+    self._flow_grade_label:set_opacity(self._flow_grade_opacity_animation:get_value())
+    self._coins_grade_label:set_opacity(self._coins_grade_opacity_animation:get_value())
+    self._total_grade_label:set_opacity(self._total_grade_opacity_animation:get_value())
 
     self._shader_fraction = _HIDDEN
     self._shader_fraction_motion:set_value(_HIDDEN)
@@ -370,6 +402,15 @@ end
 --- @brief
 function ow.ResultsScreen:close()
     self._shader_fraction_motion:set_target_value(_HIDDEN)
+end
+
+local _draw_grade = function(grade, center_x, center_y, scale)
+    love.graphics.push()
+    love.graphics.translate(center_x, center_y)
+    love.graphics.scale(scale, scale)
+    love.graphics.translate(-center_x, -center_y)
+    grade:draw()
+    love.graphics.pop()
 end
 
 --- @brief
@@ -385,9 +426,39 @@ function ow.ResultsScreen:draw()
     _shader:unbind()
     love.graphics.pop()
 
+    self._title_label:draw(self._title_reveal_animation:get_value() * self._title_label_offset)
 
+    self._time_prefix_label:draw(self._time_prefix_reveal_animation:get_value() * self._time_prefix_offset)
+    self._time_value_label:draw(self._time_value_reveal_animation:get_value() * self._time_value_offset)
+    _draw_grade(
+        self._time_grade_label,
+        self._time_grade_center_x, self._time_grade_center_y,
+        1 + self._time_grade_scale_animation:get_value() * self._max_scale
+    )
+    
+    self._flow_prefix_label:draw(self._flow_prefix_reveal_animation:get_value() * self._flow_prefix_offset)
+    self._flow_value_label:draw(self._flow_value_reveal_animation:get_value() * self._flow_value_offset)
+    _draw_grade(
+        self._flow_grade_label,
+        self._flow_grade_center_x, self._flow_grade_center_y,
+        1 + self._flow_grade_scale_animation:get_value() * self._max_scale
+    )
 
-    love.graphics.pop()
+    self._coins_prefix_label:draw(self._coins_prefix_reveal_animation:get_value() * self._coins_prefix_offset)
+    self._coins_value_label:draw(self._coins_value_reveal_animation:get_value() * self._coins_value_offset)
+    _draw_grade(
+        self._coins_grade_label,
+        self._coins_grade_center_x, self._coins_grade_center_y,
+        1 + self._coins_grade_scale_animation:get_value() * self._max_scale
+    )
+
+    _draw_grade(
+        self._total_grade_label,
+        self._total_grade_center_x, self._total_grade_center_y,
+        1 + self._total_grade_scale_animation:get_value() * self._max_scale
+    )
+
+    love.graphics.pop() -- shader fraction
 end
 
 --- @brief
