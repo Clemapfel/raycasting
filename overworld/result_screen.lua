@@ -7,15 +7,15 @@ rt.settings.overworld.result_screen = {
     fraction_motion_duration = 2, -- total duration of reveal / hide, seconds
     fraction_motion_ramp = 10, -- how fast motion approaches target
     slope = 0.3, -- how diagonal shape is
-    label_roll_duration = 2, -- seconds
 
     flow_step = 1 / 100, -- fraction
     time_step = 0.2, -- seconds
     coins_step = 1, -- count
 
-    flow_steps_per_second = 5,
-    time_steps_per_second = 20,
-    coins_steps_per_second = 1
+    roll_animation_duration = 2, -- seconds
+    reveal_animation_duration = 0.5,
+    scale_animation_duration = 0.5,
+    max_scale = 3
 }
 
 --- @class ow.ResultScreen
@@ -29,9 +29,52 @@ local _mix_step = function(lower, upper, fraction, step_size)
     return math.ceil(interpolated / step_size) * step_size
 end
 
-local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, coins_grade, total_grade)
+-- FSM for animation order
+local _ResultScreenStates = {
+    IDLE = 1,
+    REVEAL = 2,
+    TIME_PREFIX = 3,
+    TIME_VALUE = 4,
+    TIME_GRADE = 5,
+    FLOW_PREFIX = 6,
+    FLOW_VALUE = 7,
+    FLOW_GRADE = 8,
+    COINS_PREFIX = 9,
+    COINS_VALUE = 10,
+    COINS_GRADE = 11,
+    TOTAL_GRADE = 12,
+    WAITING_FOR_EXIT = 13,
+    HIDE = 13
+}
+
+local _results_mapping
+do
+    local states = _ResultScreenStates
+    _results_mapping = {
+        [states.REVEAL] = states.TIME_PREFIX,
+        [states.TIME_PREFIX] = states.TIME_VALUE,
+        [states.TIME_VALUE] = states.TIME_GRADE,
+        [states.TIME_GRADE] = states.FLOW_PREFIX,
+        [states.FLOW_PREFIX] = states.FLOW_VALUE,
+        [states.FLOW_VALUE] = states.FLOW_GRADE,
+        [states.FLOW_GRADE] = states.COINS_PREFIX,
+        [states.COINS_PREFIX] = states.COINS_VALUE,
+        [states.COINS_VALUE] = states.COINS_GRADE,
+        [states.COINS_GRADE] = states.TOTAL_GRADE,
+        [states.TOTAL_GRADE] = states.WAITING_FOR_EXIT,
+        [states.WAITING_FOR_EXIT] = states.HIDE,
+        [states.HIDE] = states.REVEAL
+    }
+end
+
+local _new_config = function(title, time, time_grade, flow, flow_grade, n_coins, coins_grade, total_grade)
     local speed = rt.settings.overworld.result_screen.label_roll_speed
     return {
+
+
+        elapsed = 0,
+
+        state = _ResultScreenStates.IDLE,
         title = title,
 
         flow_target = flow, -- percentage in [0, 1]
@@ -45,16 +88,13 @@ local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, 
         coins_target = n_coins, -- integer
         coins_current = 0,
         coins_start = 0,
-
-        elapsed = 0,
-
         flow_grade = flow_grade,
         time_grade = time_grade,
         coins_grade = coins_grade,
         total_grade = total_grade,
 
         get_flow = function(self)
-            return string.format_percentage(self.flow_current)
+            return
         end,
 
         get_time = function(self)
@@ -62,7 +102,7 @@ local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, 
         end,
 
         get_coins = function(self)
-            return self.coins_current .. " / " .. self.coins_target
+            return
         end,
 
         get_time_grade = function(self) return self.time_grade end,
@@ -74,60 +114,82 @@ local _new_state = function(title, time, time_grade, flow, flow_grade, n_coins, 
             return "<b><o><u>" .. self.title .. "</u></o></b>"
         end,
 
-        update = function(self, delta)
+        update = function(self, delta, update_time, update_flow, update_coins)
             local settings = rt.settings.overworld.result_screen
             self.elapsed = self.elapsed + delta
 
-            -- increase value but round to nearest step
             local time_step = settings.time_step
             local flow_step = settings.flow_step
             local coins_step = settings.coins_step
 
-            local time_delta = math.abs(self.time_target - self.time_start)
-            local flow_delta = math.abs(self.flow_target - self.flow_start)
-            local coins_delta = math.abs(self.coins_target - self.coins_start)
-
-            local max_delta = math.max(time_delta, flow_delta, coins_delta)
-            local time_speed = max_delta / time_delta  * settings.label_roll_duration
-            local flow_speed = max_delta / flow_delta * settings.label_roll_duration
-            local coins_speed = max_delta / coins_delta * settings.label_roll_duration
+            local duration = settings.label_roll_duration
+            local fraction = math.clamp(self.elapsed / duration, 0, 1)
 
             local time_before = self.time_current
-            if self.time_current < self.time_target then
-                self.time_current = math.min(self.time_current + time_step, self.time_target)
-            elseif self.time_current > self.time_target then
-                self.time_current = math.max(self.time_current - time_step, self.time_target)
-            end
-            self.time_current = math.clamp(
-                _mix_step(self.time_start, self.time_target, self.elapsed / time_speed, time_step),
-                self.time_start, self.time_target
-            )
-
             local flow_before = self.flow_current
-            if self.flow_current < self.flow_target then
-                self.flow_current = math.min(self.flow_current + flow_step, self.flow_target)
-            elseif self.flow_current > self.flow_target then
-                self.flow_current = math.max(self.flow_current - flow_step, self.flow_target)
-            end
-            self.flow_current = math.clamp(
-                _mix_step(self.flow_start, self.flow_target, self.elapsed / flow_speed, flow_step),
-                self.flow_start, self.flow_current
-            )
-
             local coins_before = self.coins_current
-            if self.coins_current < self.coins_target then
-                self.coins_current = math.min(self.coins_current + coins_step, self.coins_target)
-            elseif self.coins_current > self.coins_target then
-                self.coins_current = math.max(self.coins_current - coins_step, self.coins_target)
-            end
-            self.coins_current = math.clamp(
-                _mix_step(self.coins_start, self.coins_target, self.elapsed / coins_speed, coins_step),
-                self.coins_start, self.coins_target
-            )
 
-            return time_before ~= self.time_current, flow_before ~= self.flow_current, coins_before ~= self.coins_current
+            if update_time then
+                self.time_current = math.clamp(
+                    _mix_step(self.time_start, self.time_target, fraction, time_step),
+                    math.min(self.time_start, self.time_target),
+                    math.max(self.time_start, self.time_target)
+                )
+            end
+
+            if update_flow then
+                self.flow_current = math.clamp(
+                    _mix_step(self.flow_start, self.flow_target, fraction, flow_step),
+                    math.min(self.flow_start, self.flow_target),
+                    math.max(self.flow_start, self.flow_target)
+                )
+            end
+
+            if update_coins then
+                self.coins_current = math.clamp(
+                    _mix_step(self.coins_start, self.coins_target, fraction, coins_step),
+                    math.min(self.coins_start, self.coins_target),
+                    math.max(self.coins_start, self.coins_target)
+                )
+            end
+
+            return update_time and time_before ~= self.time_current,
+                update_flow and flow_before ~= self.flow_current,
+                update_coins and coins_before ~= self.coins_current
         end
     }
+end
+
+local _format_flow = function(fraction, start, target)
+    local step = rt.settings.overworld.result_screen.flow_step
+    local value = math.clamp(
+        _mix_step(start, target, fraction, step),
+        math.min(start, target),
+        math.max(start, target)
+    )
+    return string.format_percentage(value)
+end
+
+local _format_time = function(fraction, start, target)
+    local step = rt.settings.overworld.result_screen.time_step
+    local value = math.clamp(
+        _mix_step(start, target, fraction, step),
+        math.min(start, target),
+        math.max(start, target)
+    )
+
+    return string.format_time(value)
+end
+
+local _format_coins = function(fraction, start, target, max)
+    local step = rt.settings.overworld.result_screen.coins_step
+    local value = math.clamp(
+        _mix_step(start, target, fraction, step),
+        math.min(start, target),
+        math.max(start, target)
+    )
+
+    return math.round(value) .. " / " .. math.round(max)
 end
 
 --- @brief
@@ -137,27 +199,30 @@ function ow.ResultsScreen:instantiate()
     self._last_window_height = love.graphics.getHeight()
     local translation, settings = rt.Translation.result_screen, rt.settings.overworld.result_screen
 
-    self._fraction = _HIDDEN
-    self._fraction_motion = rt.SmoothedMotion1D(
-        self._fraction,
-        1 / settings.fraction_motion_duration,
-        settings.fraction_motion_ramp
-    )
+    self._mesh = nil
+    self._mesh_width = 0
 
-    -- result screen state for easier access and tweening
-    local state = _new_state(
-        "TITLE",
-        0, -- time
-        rt.StageGrade.NONE,
-        0, -- flow,
-        rt.StageGrade.NONE,
-        0, -- coins
-        rt.StageGrade.NONE,
-        rt.StageGrade.NONE -- total
-    )
-    self._state = state
+    -- config
+    self._title = "NO TITLE"
+    self._flow_target = 0
+    self._flow_current = 0
+    self._flow_start = 0
 
-    self._title_label = rt.Label(state:get_title())
+    self._time_target = 0 -- seconds
+    self._time_current = 0
+    self._time_start = 0
+
+    self._coins_target = 0 -- integer
+    self._coins_current = 0
+    self._coins_start = 0
+    self._coins_max = 0
+
+    self._flow_grade = rt.StageGrade.NONE
+    self._time_grade = rt.StageGrade.NONE
+    self._coins_grade = rt.StageGrade.NONE
+    self._total_grade = rt.StageGrade.NONE
+
+    self._title_label = rt.Label("<b><o><u>" .. self._title .. "</b></o></u>", rt.FontSize.BIG)
 
     local prefix, postfix = "<b><o>", "</b></o>"
     self._flow_label = rt.Label(prefix .. translation.flow .. postfix)
@@ -171,17 +236,76 @@ function ow.ResultsScreen:instantiate()
         is_outlined = true
     }
 
-    self._flow_value_label = rt.Glyph(state:get_flow(), glyph_properties)
-    self._time_value_label = rt.Glyph(state:get_time(), glyph_properties)
-    self._coins_value_label = rt.Glyph(state:get_coins(), glyph_properties)
+    self._flow_value_label = rt.Glyph(_format_flow(self._flow_current), glyph_properties)
+    self._time_value_label = rt.Glyph(_format_time(self._time_current), glyph_properties)
+    self._coins_value_label = rt.Glyph(_format_coins(self._coins_current), glyph_properties)
 
-    self._flow_grade = mn.StageGradeLabel(state:get_flow_grade(), rt.FontSize.HUGE)
-    self._time_grade = mn.StageGradeLabel(state:get_time_grade(), rt.FontSize.HUGE)
-    self._coins_grade = mn.StageGradeLabel(state:get_coins_grade(), rt.FontSize.HUGE)
-    self._total_grade = mn.StageGradeLabel(state:get_total_grade(), rt.FontSize.GIGANTIC)
+    self._flow_grade = mn.StageGradeLabel(self._flow_grade, rt.FontSize.HUGE)
+    self._time_grade = mn.StageGradeLabel(self._time_grade, rt.FontSize.HUGE)
+    self._coins_grade = mn.StageGradeLabel(self._coins_grade, rt.FontSize.HUGE)
+    self._total_grade = mn.StageGradeLabel(self._total_grade, rt.FontSize.GIGANTIC)
 
-    self._mesh = nil
-    self._mesh_width = 0
+    -- animation
+
+    local _new_reveal_animation = function()
+        return rt.TimedAnimation(
+            settings.reveal_animation_duration,
+            _HIDDEN, _SHOWN,
+            rt.InterpolationFunctions.LINEAR
+        )
+    end
+
+    self._max_scale = settings.max_scale
+    local _new_scale_animation = function()
+        return rt.TimedAnimation(
+            settings.scale_animation_duration,
+            1, 0,
+            rt.InterpolationFunctions.LINEAR
+        )
+    end
+
+    local _new_roll_animation = function()
+        return rt.TimedAnimation(
+            settings.roll_animation_duration,
+            0, 1,
+            rt.InterpolationFunctions.LINEAR
+        )
+    end
+
+    self._title_reveal_animation = _new_reveal_animation()
+
+    self._time_prefix_reveal_animation = _new_reveal_animation()
+    self._time_value_reveal_animation = _new_reveal_animation()
+    self._time_value_roll_animation = _new_roll_animation()
+    self._time_grade_scale_animation = _new_scale_animation()
+
+    self._time_prefix_offset = 0 -- max offsets
+    self._time_value_offset = 0
+
+    self._flow_prefix_reveal_animation = _new_reveal_animation()
+    self._flow_value_reveal_animation = _new_reveal_animation()
+    self._flow_value_roll_animation = _new_roll_animation()
+    self._flow_grade_animation = _new_scale_animation()
+
+    self._flow_prefix_offset = 0
+    self._flow_value_offset = 0
+
+    self._coins_prefix_reveal_animation = _new_reveal_animation()
+    self._coins_value_reveal_animation = _new_reveal_animation()
+    self._coins_value_roll_animation = _new_roll_animation()
+    self._coins_grade_scale_animation = _new_scale_animation()
+
+    self._coins_prefix_offset = 0
+    self._coins_value_offset = 0
+
+    self._total_grade_scale_animation = _new_scale_animation()
+
+    self._shader_fraction = _HIDDEN
+    self._shader_fraction_motion = rt.SmoothedMotion1D(
+        self._shader_fraction,
+        1 / settings.fraction_motion_duration,
+        settings.fraction_motion_ramp
+    )
 end
 
 --- @brief
@@ -260,11 +384,14 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
         )
 
         current_y = current_y + max_h
+
+        local prefix_offset = x + width - select(1, prefix:get_position())
+        local value_offset = x + width - select(1, value:get_position())
     end
 
-    _reformat(self._time_label, self._time_value_label, self._time_grade)
-    _reformat(self._flow_label, self._flow_value_label, self._flow_grade)
-    _reformat(self._coins_label, self._coins_value_label, self._coins_grade)
+    self._time_prefix_offset, self._time_value_offset = _reformat(self._time_label, self._time_value_label, self._time_grade)
+    self._flow_prefix_offset, self._flow_value_offset = _reformat(self._flow_label, self._flow_value_label, self._flow_grade)
+    self._coins_prefix_offset, self._coins_value_offset = _reformat(self._coins_label, self._coins_value_label, self._coins_grade)
 
     local total_w, total_h = self._total_grade:measure()
     self._total_grade:reformat(
@@ -289,16 +416,57 @@ function ow.ResultsScreen:_update_labels(time, flow, coins)
                 label:reformat(x + w - new_w, y)
             end
         end
+
+        return select(1, label:get_position())
     end
 
-    _update(time, self._time_value_label, self._state:get_time())
-    _update(flow, self._flow_value_label, self._state:get_flow())
-    _update(coins, self._coins_value_label, self._state:get_coins())
+    self._time_value_offset = _update(time, self._time_value_label, self._config:get_time())
+    self._flow_value_offset = _update(flow, self._flow_value_label, self._config:get_flow())
+    self._coins_value_offset = _update(coins, self._coins_value_label, self._config:get_coins())
 end
 
 --- @brief
 function ow.ResultsScreen:update(delta)
-    self:_update_labels(self._state:update(delta))
+
+    local state = self._config.state
+    if state == _ResultScreenStates.IDLE then
+    elseif state == _ResultScreenStates.REVEAL then
+    elseif state == _ResultScreenStates.HIDE then
+    end
+
+    if state == _ResultScreenStates.TIME_PREFIX then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.TIME_VALUE then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.TIME_GRADE then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.FLOW_PREFIX then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.FLOW_VALUE then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.FLOW_GRADE then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.COINS_PREFIX then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.COINS_VALUE then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.COINS_GRADE then
+
+        self._config.state = _state_mapping[state]
+    elseif state == _ResultScreenStates.TOTAL_GRADE then
+
+        self._config.state = _state_mapping[state]
+    end
+
+    self:_update_labels(self._config:update(delta))
 
     for widget in range(
         self._title_label,
@@ -342,7 +510,7 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
         total_grade, "Number"
     )
 
-    local state = self._state
+    local state = self._config
     if state.time_grade ~= time_grade then self._time_grade:set_grade(time_grade) end
     if state.flow_grade ~= flow_grade then self._flow_grade:set_grade(flow_grade) end
     if state.coins_grade ~= time_grade then self._coins_grade:set_grade(coins_grade) end
@@ -351,24 +519,50 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
         local x, y = self._tite
     end
 
-    meta.install(state, {
-        elapsed = 0,
-        title = title,
-        time_target = time,
-        time_current = state.time_start,
-        time_grade = time_grade,
+    self._title = title
+    self._total_grade = total_grade
 
-        flow_target = flow,
-        flow_current = state.flow_start,
-        flow_grade = flow_grade,
+    self._time_target = time
+    self._time_start = 0
+    self._time_current = self._time_start
+    self._time_grade = time_grade
 
-        coins_target = n_coins,
-        coins_current = state.coins_start,
-        coins_grade = coins_grade
-    })
+    self._flow_target = flow
+    self._flow_start = 0
+    self._flow_current = self._flow_start
+    self._flow_grade = flow_grade
 
-    self:_update_labels(true, true, true)
-    self._fraction_motion:set_target_value(_SHOWN)
+    self._coins_max = max_n_coins
+    self._coins_target = n_coins
+    self._coins_start = 0
+    self._coins_current = self._coins_start
+    self._coins_grade = time_grade
+
+    for animation in range(
+        self._title_reveal_animation,
+
+        self._time_prefix_reveal_animation,
+        self._time_value_reveal_animation,
+        self._time_value_roll_animation,
+        self._time_grade_scale_animation,
+
+        self._flow_prefix_reveal_animation,
+        self._flow_value_reveal_animation,
+        self._flow_value_roll_animation,
+        self._flow_grade_scale_animation,
+
+        self._coins_prefix_reveal_animation,
+        self._coins_value_reveal_animation,
+        self._coins_value_roll_animation,
+        self._coins_grade_scale_animation
+    ) do
+        animation:reset()
+    end
+
+    self._shader_fraction = _HIDDEN
+    self._shader_fraction_motion:set_value(_HIDDEN)
+    self._shader_fraction:set_target_value(_SHOWN)
+
 end
 
 --- @brief
