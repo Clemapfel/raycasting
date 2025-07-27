@@ -12,9 +12,9 @@ rt.settings.overworld.result_screen = {
     time_step = 0.2, -- seconds
     coins_step = 1, -- count
 
-    roll_animation_duration = 2, -- seconds
-    reveal_animation_duration = 0.5,
-    scale_animation_duration = 0.5,
+    roll_animation_duration = 0.2, -- seconds
+    reveal_animation_duration = 0.1,
+    scale_animation_duration = 0.1,
     max_scale = 3
 }
 
@@ -23,6 +23,15 @@ ow.ResultsScreen = meta.class("ResultScreen", rt.Widget)
 
 local _shader
 local _HIDDEN, _SHOWN = 1, 0
+
+local _STATE_IDLE = -1
+local _STATE_REVEAL = 0
+local _STATE_TITLE = 1
+local _STATE_TIME = 1
+local _STATE_FLOW = 2
+local _STATE_COINS = 3
+local _STATE_TOTAL = 4
+local _STATE_WAIT_FOR_EXIT = 5
 
 local _mix_step = function(lower, upper, fraction, step_size)
     local interpolated = math.mix(lower, upper, fraction)
@@ -71,18 +80,17 @@ function ow.ResultsScreen:instantiate()
     self._mesh = nil
     self._mesh_offset = 0
 
+    self._state = _STATE_IDLE
+
     -- config
     self._title = "NO TITLE"
     self._flow_target = 0
-    self._flow_current = 0
     self._flow_start = 0
 
     self._time_target = 0 -- seconds
-    self._time_current = 0
     self._time_start = 0
 
     self._coins_target = 0 -- integer
-    self._coins_current = 0
     self._coins_start = 0
     self._coins_max = 0
 
@@ -105,9 +113,9 @@ function ow.ResultsScreen:instantiate()
         is_outlined = true
     }
 
-    self._flow_value_label = rt.Glyph(_format_flow(0, 0, self._flow_current), glyph_properties)
-    self._time_value_label = rt.Glyph(_format_time(0, 0, self._time_current), glyph_properties)
-    self._coins_value_label = rt.Glyph(_format_coins(0, 0, self._coins_current, 0), glyph_properties)
+    self._time_value_label = rt.Glyph(_format_time(0, 0, self._time_start), glyph_properties)
+    self._flow_value_label = rt.Glyph(_format_flow(0, 0, self._flow_start), glyph_properties)
+    self._coins_value_label = rt.Glyph(_format_coins(0, 0, self._coins_start, 0), glyph_properties)
 
     self._flow_grade_label = mn.StageGradeLabel(self._flow_grade, rt.FontSize.HUGE)
     self._time_grade_label = mn.StageGradeLabel(self._time_grade, rt.FontSize.HUGE)
@@ -161,6 +169,8 @@ function ow.ResultsScreen:instantiate()
     self._time_value_offset = 0
     self._time_grade_center_x = 0
     self._time_grade_center_y = 0
+    self._waiting_for_time_grade = false
+    self._time_grade_connected = false
 
     self._flow_prefix_reveal_animation = _new_reveal_animation()
     self._flow_value_reveal_animation = _new_reveal_animation()
@@ -171,6 +181,8 @@ function ow.ResultsScreen:instantiate()
     self._flow_value_offset = 0
     self._flow_grade_center_x = 0
     self._flow_grade_center_y = 0
+    self._waiting_for_flow_grade = false
+    self._flow_grade_connected = false
 
     self._coins_prefix_reveal_animation = _new_reveal_animation()
     self._coins_value_reveal_animation = _new_reveal_animation()
@@ -181,11 +193,15 @@ function ow.ResultsScreen:instantiate()
     self._coins_value_offset = 0
     self._coins_grade_center_x = 0
     self._coins_grade_center_y = 0
+    self._waiting_for_coins_grade = false
+    self._coins_grade_connected = false
 
     self._total_grade_scale_animation = _new_scale_animation()
     self._total_grade_opacity_animation = _new_opacity_animation()
     self._total_grade_center_x = 0
     self._total_grade_center_y = 0
+    self._waiting_for_total_grade = false
+    self._total_grade_connected = false
 
     self._shader_fraction = _HIDDEN
     self._shader_fraction_motion = rt.SmoothedMotion1D(
@@ -292,76 +308,167 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
     self._total_grade_center_x, self._total_grade_center_y =  total_x + 0.5 * total_w, total_y + 0.5 * total_h
 end
 
---- @brief
-function ow.ResultsScreen:_update_labels(time, flow, coins)
-    if self:get_is_realized() ~= true then return end
+-- update aux
 
-    local _update = function(should_update, label, value)
-        if should_update == true then
-            local x, y = label:get_position()
-            local w, h = label:measure()
-            label:set_text(value)
+local function _update_label(label, value)
+    local x, y = label:get_position()
+    local w, h = label:measure()
+    label:set_text(value)
 
-            if label:get_is_realized() then
-                local new_w, new_h = label:measure()
-                label:reformat(x + w - new_w, y)
-            end
-        end
-
-        return select(1, label:get_position())
+    if label:get_is_realized() then
+        local new_w, new_h = label:measure()
+        label:reformat(x + w - new_w, y)
     end
 
-    self._time_value_offset = _update(time, self._time_value_label, self._config:get_time())
-    self._flow_value_offset = _update(flow, self._flow_value_label, self._config:get_flow())
-    self._coins_value_offset = _update(coins, self._coins_value_label, self._config:get_coins())
+    return select(1, label:get_position())
 end
+
+local _eps = 0.01
+
 
 --- @brief
 function ow.ResultsScreen:update(delta)
+
+    for widget in range(
+        self._title_label,
+        self._flow_prefix_label,
+        self._time_prefix_label,
+        self._coins_prefix_label,
+        self._flow_value_label,
+        self._time_value_label,
+        self._coins_value_label,
+        self._flow_grade_label,
+        self._time_grade_label,
+        self._coins_grade_label,
+        self._total_grade_label
+    ) do
+        widget:update(delta)
+    end
+
+    -- sequencing of animations, jump early if that part of the queue is not yet done
+
     self._shader_fraction = self._shader_fraction_motion:update(delta)
+    if not math.equals(self._shader_fraction, _SHOWN, _eps) then goto skip end
+
+    if self._waiting_for_close then goto skip end
+
+    if not self._title_reveal_animation:update(delta) then goto skip end
+
+    -- time
+
+    if not self._time_prefix_reveal_animation:update(delta) then goto skip end
+    if not self._time_value_reveal_animation:update(delta) then goto skip end
+
+    local time_value_roll_is_done = self._time_value_roll_animation:update(delta)
+    _update_label(self._time_value_label, _format_time(self._time_value_roll_animation:get_value(), 0, self._time_target))
+
+    if not time_value_roll_is_done then goto skip end
+
+    local time_opacity_is_done = self._time_grade_opacity_animation:update(delta)
+    local time_scale_is_done = self._time_grade_scale_animation:update(delta)
+
+    self._time_grade_label:set_opacity(self._time_grade_opacity_animation:get_value())
+
+    if not (time_opacity_is_done and time_scale_is_done) then goto skip end
+
+    if self._time_grade_connected == false then
+        self._time_grade_label:pulse()
+        self._time_grade_label:signal_connect("pulse_done", function()
+            self._waiting_for_time_grade = false
+            return meta.DISCONNECT_SIGNAL
+        end)
+        self._time_grade_connected = true
+    end
+    if self._waiting_for_time_grade ~= false then goto skip end
+
+    -- flow
+
+    if not self._flow_prefix_reveal_animation:update(delta) then goto skip end
+    if not self._flow_value_reveal_animation:update(delta) then goto skip end
+
+    local flow_value_roll_is_done = self._flow_value_roll_animation:update(delta)
+    _update_label(self._flow_value_label, _format_flow(
+        self._flow_value_reveal_animation:get_value(),
+        0, self._flow_target
+    ))
+
+    if not flow_value_roll_is_done then goto skip end
+
+    local flow_opacity_is_done = self._flow_grade_opacity_animation:update(delta)
+    local flow_scale_is_done = self._flow_grade_scale_animation:update(delta)
+
+    self._flow_grade_label:set_opacity(self._flow_grade_opacity_animation:get_value())
+
+    if not (flow_opacity_is_done and flow_scale_is_done) then goto skip end
+
+    if self._flow_grade_connected == false then
+        self._flow_grade_label:pulse()
+        self._flow_grade_label:signal_connect("pulse_done", function()
+            self._waiting_for_flow_grade = false
+            return meta.DISCONNECT_SIGNAL
+        end)
+        self._flow_grade_connected = true
+    end
+    if self._waiting_for_flow_grade ~= false then goto skip end
+
+    -- coins
+
+    if not self._coins_prefix_reveal_animation:update(delta) then goto skip end
+    if not self._coins_value_reveal_animation:update(delta) then goto skip end
+
+    local coins_value_roll_is_done = self._coins_value_roll_animation:update(delta)
+    _update_label(self._coins_value_label, _format_coins(
+        self._coins_value_roll_animation:get_value(),
+        0, self._coins_target,
+        self._coins_max
+    ))
+
+    if not coins_value_roll_is_done then goto skip end
+
+    local coins_opacity_is_done = self._coins_grade_opacity_animation:update(delta)
+    local coins_scale_is_done = self._coins_grade_scale_animation:update(delta)
+
+    self._coins_grade_label:set_opacity(self._coins_grade_opacity_animation:get_value())
+
+    if not (coins_opacity_is_done and coins_scale_is_done) then goto skip end
+
+    if self._coins_grade_connected == false then
+        self._coins_grade_label:pulse()
+        self._coins_grade_label:signal_connect("pulse_done", function()
+            self._waiting_for_coins_grade = false
+            return meta.DISCONNECT_SIGNAL
+        end)
+        self._coins_grade_connected = true
+    end
+    if self._waiting_for_coins_grade ~= false then goto skip end
+
+    -- total
+
+    local total_opacity_is_done = self._total_grade_opacity_animation:update(delta)
+    local total_scale_is_done = self._total_grade_scale_animation:update(delta)
+
+    self._total_grade_label:set_opacity(self._total_grade_opacity_animation:get_value())
+
+    if not (total_opacity_is_done and total_scale_is_done) then goto skip end
+
+    if self._total_grade_connected == false then
+        self._total_grade_label:pulse()
+        self._total_grade_label:signal_connect("pulse_done", function()
+            self._waiting_for_total_grade = false
+            return meta.DISCONNECT_SIGNAL
+        end)
+        self._total_grade_connected = true
+    end
+    if self._waiting_for_total_grade ~= false then goto skip end
+
+    -- done, wait for user input
+
+    self._waiting_for_close = true
+    ::skip::
 end
 
 --- @brief
---- @param title String stage title
---- @param flow_percentage Number in [0, 100]
---- @param flow_grade rt.StageGrade
---- @param time Number seconds
---- @param time_grade rt.StageGrade
---- @param coins Number integer
---- @param coins_grade rt.StageGrade
---- @param total_grade rt.StageGrade
-function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_coins, max_n_coins, coins_grade, total_grade)
-    meta.assert(
-        title, "String",
-        time, "Number",
-        time_grade, "Number",
-        flow, "Number",
-        flow_grade, "Number",
-        n_coins, "Number",
-        max_n_coins, "Number",
-        coins_grade, "Number",
-        total_grade, "Number"
-    )
-
-    self._title = title
-    self._total_grade = total_grade
-
-    self._time_target = time
-    self._time_start = 0
-    self._time_current = self._time_start
-    self._time_grade_label:set_grade(time_grade)
-
-    self._flow_target = flow
-    self._flow_start = 0
-    self._flow_current = self._flow_start
-    self._flow_grade_label:set_grade(flow_grade)
-
-    self._coins_max = max_n_coins
-    self._coins_target = n_coins
-    self._coins_start = 0
-    self._coins_current = self._coins_start
-    self._coins_grade_label:set_grade(time_grade)
-
+function ow.ResultsScreen:_reset()
     for animation in range(
         self._title_reveal_animation,
 
@@ -397,6 +504,58 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
     self._shader_fraction = _HIDDEN
     self._shader_fraction_motion:set_value(_HIDDEN)
     self._shader_fraction_motion:set_target_value(_SHOWN)
+
+    self._waiting_for_time_grade = true
+    self._time_grade_connected = false
+    self._waiting_for_flow_grade = true
+    self._flow_grade_connected = false
+    self._waiting_for_coins_grade = true
+    self._coins_grade_connected = false
+    self._waiting_for_total_grade = true
+    self._total_grade_connected = false
+    self._waiting_for_close = false
+end
+
+--- @brief
+--- @param title String stage title
+--- @param flow_percentage Number in [0, 100]
+--- @param flow_grade rt.StageGrade
+--- @param time Number seconds
+--- @param time_grade rt.StageGrade
+--- @param coins Number integer
+--- @param coins_grade rt.StageGrade
+--- @param total_grade rt.StageGrade
+function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_coins, max_n_coins, coins_grade, total_grade)
+    meta.assert(
+        title, "String",
+        time, "Number",
+        time_grade, "Number",
+        flow, "Number",
+        flow_grade, "Number",
+        n_coins, "Number",
+        max_n_coins, "Number",
+        coins_grade, "Number",
+        total_grade, "Number"
+    )
+
+    self._title = title
+    self._total_grade = total_grade
+
+    self._time_target = time
+    self._time_start = 0
+    self._time_grade_label:set_grade(time_grade)
+
+    self._flow_target = flow
+    self._flow_start = 0
+    self._flow_grade_label:set_grade(flow_grade)
+
+    self._coins_max = max_n_coins
+    self._coins_target = n_coins
+    self._coins_start = 0
+    self._coins_grade_label:set_grade(time_grade)
+
+    self:_reset()
+    self._state = _STATE_REVEAL
 end
 
 --- @brief
@@ -464,6 +623,11 @@ end
 --- @brief
 function ow.ResultsScreen:get_is_active()
     return self._shader_fraction_motion:get_target_value() == _SHOWN
+end
+
+--- @brief
+function ow.ResultsScreen:skip()
+
 end
 
 
