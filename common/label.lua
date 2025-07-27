@@ -153,7 +153,14 @@ end
 
 --- @override
 function rt.Label:draw(x, y)
-    if self._n_glyphs == 0 or self._is_visible ~= true or (self._use_caching and self._texture == nil) then return end
+    if self._n_glyphs == 0 or
+        self._is_visible ~= true or
+        self._opacity == 0 or
+        (self._use_caching and self._texture == nil)
+    then
+        return
+    end
+
     if x == nil then x = 0 end
     if y == nil then y = 0 end
 
@@ -1345,7 +1352,10 @@ function rt.Glyph:update(delta)
 end
 
 --- @brief
-function rt.Glyph:draw()
+function rt.Glyph:draw(x, y)
+    if x == nil then x = 0 end
+    if y == nil then y = 0 end
+
     local glyph = self._native
     love.graphics.push("all")
 
@@ -1373,10 +1383,10 @@ function rt.Glyph:draw()
         love.graphics.setColor(r, g, b, a)
 
         if self._use_caching then
-            love.graphics.draw(glyph.outline_glyph, glyph.x, glyph.y)
+            love.graphics.draw(glyph.outline_glyph, glyph.x + x, glyph.y + y)
         else
             love.graphics.setFont(glyph.font_sdf)
-            love.graphics.print(glyph.text, glyph.x, glyph.y)
+            love.graphics.print(glyph.text, glyph.x + x, glyph.y + y)
         end
 
         love.graphics.setShader(nil)
@@ -1385,11 +1395,21 @@ function rt.Glyph:draw()
             love.graphics.setLineWidth(3)
 
             if glyph.is_underlined then
-                love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)
+                love.graphics.line(
+                    glyph.underline_ax + x,
+                    glyph.underline_ay + y,
+                    glyph.underline_bx + x,
+                    glyph.underline_by + y
+                )
             end
 
             if glyph.is_strikethrough then
-                love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
+                love.graphics.line(
+                    glyph.strikethrough_ax + x,
+                    glyph.strikethrough_ay + y,
+                    glyph.strikethrough_bx + x,
+                    glyph.strikethrough_by + y
+                )
             end
         end
 
@@ -1415,10 +1435,10 @@ function rt.Glyph:draw()
     love.graphics.setColor(r, g, b, a)
 
     if self._use_caching then
-        love.graphics.draw(glyph.glyph, glyph.x, glyph.y)
+        love.graphics.draw(glyph.glyph, glyph.x + x, glyph.y + y)
     else
         love.graphics.setFont(glyph.font)
-        love.graphics.print(glyph.text, glyph.x, glyph.y)
+        love.graphics.print(glyph.text, glyph.x + x, glyph.y + y)
     end
 
     love.graphics.setShader(nil)
@@ -1427,11 +1447,21 @@ function rt.Glyph:draw()
         love.graphics.setLineWidth(2)
 
         if glyph.is_underlined then
-            love.graphics.line(glyph.underline_ax, glyph.underline_ay, glyph.underline_bx, glyph.underline_by)
+            love.graphics.line(
+                glyph.underline_ax + x,
+                glyph.underline_ay + y,
+                glyph.underline_bx + x,
+                glyph.underline_by + y
+            )
         end
 
         if glyph.is_strikethrough then
-            love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
+            love.graphics.line(
+                glyph.strikethrough_ax + x,
+                glyph.strikethrough_ay + y,
+                glyph.strikethrough_bx + x,
+                glyph.strikethrough_by + y
+            )
         end
     end
 
