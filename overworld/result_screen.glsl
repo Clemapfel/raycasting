@@ -105,7 +105,7 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
         20 // border width
     );
 
-    return color; //vec4(lch_to_rgb(vec3(0.8, 1, pos.x)) * border_band, opacity);
+    return color; // * vec4(1 + vec3(fraction), 1);
 }
 
 #endif
