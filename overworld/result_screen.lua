@@ -248,17 +248,18 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
     local padding = 0
     local mesh_y = y - padding
     local mesh_h = height + 2 * padding
+    local ratio = (mesh_w / (mesh_w + mesh_overfill)) * 2
 
     do
-        local left = function(v) return 0, v, 1, 1, 1, 1 end
-        local right = function(v) return 1, v, 0, 0, 0, 1  end
+        local left = function() return 1, 1, 1, 1 end
+        local right = function() return  0, 0, 0, 1  end
 
-        local a = { mesh_x,                          mesh_y, left(0) }
-        local b = { mesh_x + mesh_w,                 mesh_y, right(0) }
-        local c = { mesh_x + mesh_w + mesh_overfill, mesh_y, right(0) }
-        local d = { mesh_x,                          mesh_y + mesh_h, left(1) }
-        local e = { mesh_x + mesh_w,                 mesh_y + mesh_h, right(1) }
-        local f = { mesh_x + mesh_w + mesh_overfill, mesh_y + mesh_h, right(1) }
+        local a = { mesh_x,                          mesh_y, 0, 0, left(0) }
+        local b = { mesh_x + mesh_w,                 mesh_y, ratio, 0, right(0) }
+        local c = { mesh_x + mesh_w + mesh_overfill, mesh_y, 2, 0, right(0) } -- sic, uv.x = 2 used for noise generation
+        local d = { mesh_x,                          mesh_y + mesh_h, 0, 1, left(1) }
+        local e = { mesh_x + mesh_w,                 mesh_y + mesh_h, ratio, 1, right(1) }
+        local f = { mesh_x + mesh_w + mesh_overfill, mesh_y + mesh_h, 2, 1, right(1) }
 
         self._mesh = rt.Mesh({ a, b, c, d, e, f }, rt.MeshDrawMode.TRIANGLES)
 
@@ -675,6 +676,7 @@ function ow.ResultsScreen:draw()
 
     love.graphics.push()
     _shader:bind()
+    _shader:send("black", { rt.Palette.BLACK:unpack() })
     _shader:send("fraction", fraction)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     love.graphics.setColor(1, 1, 1, 1)

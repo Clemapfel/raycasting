@@ -23,6 +23,24 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
+// Fractal noise function with configurable octaves
+float fractal_noise(vec3 p, int octaves, float persistence, float lacunarity) {
+    float value = 0.0;
+    float amplitude = 1.0;
+    float frequency = 1.0;
+    float max_value = 0.0;
+
+    for (int i = 0; i < octaves; i++) {
+        value += gradient_noise(p * frequency) * amplitude;
+        max_value += amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+
+    return value / max_value;
+}
+
+
 vec3 lch_to_rgb(vec3 lch) {
     float L = lch.x * 100.0;
     float C = lch.y * 100.0;
@@ -55,6 +73,31 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+// Butterworth bandpass filter
+float butterworth_bandpass(float x, float center, float bandwidth, int order) {
+    // Normalize frequency relative to center
+    float normalized_freq = abs(x - center) / (bandwidth * 0.5);
+
+    // Avoid division by zero
+    if (normalized_freq < 0.001) {
+        return 1.0;
+    }
+
+    // Butterworth bandpass response
+    float response = 1.0 / (1.0 + pow(normalized_freq, 2.0 * float(order)));
+
+    return response;
+}
+
+// Simplified version with default parameters for easy replacement
+float butterworth_bandpass(float x, float ramp, int order) {
+    // Map ramp parameter to bandwidth (inverse relationship like gaussian)
+    float bandwidth = 2.0 / max(ramp, 0.1);
+    float center = 0.0; // Center the filter at x=0
+
+    return butterworth_bandpass(x, center, bandwidth, order);
+}
+
 vec2 rotate(vec2 v, float angle) {
     float s = sin(angle);
     float c = cos(angle);
@@ -65,30 +108,49 @@ vec2 rotate(vec2 v, float angle) {
 
 uniform float fraction; // [0, 1, 2]
 uniform float elapsed;
-uniform float slope = 0.045; // in 0, 1
+uniform float slope = 0.03; // in 0, 1
+
+uniform vec4 black = vec4(0, 0, 0, 1);
 
 vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
-    uv += vec2(0.5, 0.5);
+    vec2 uv_backup = uv;
+    uv += vec2(0, 0);
     uv = rotate(uv, slope * 2 * PI);
-    uv -= vec2(0.5, 0.5);
+    uv -= vec2(0, 0);
+
+    float time = elapsed / 2;
+    float outline_noise = 0.1 * (gradient_noise(vec3((vec2(0, uv_backup.y * 10)), time)) + 1) / 2;
+
+    // Use fractal noise with multiple octaves for more detailed texture
+    float texture_noise = fractal_noise(
+        vec3(fraction, vec2(1, 2) * (vertex_position.xy / love_ScreenSize.xy - vec2(elapsed / 10, 0))),
+        4  , // octaves
+        1,  // amplitude
+        2  // frequency
+    );
 
     vec2 screen_size = love_ScreenSize.xy;
-    float line_width = 100 / love_ScreenSize.x;
+    float line_width = 50 / love_ScreenSize.x;
 
-    float line_center = mix(1.0 + line_width, line_width * 0.5, fraction);
-    float distance_to_line = abs(uv.x - line_center);
+    float line_center = mix(1.0 + line_width, line_width * 0.5, fraction) + outline_noise - 0.5 * line_width;
 
-    float half_width = 0.5 * line_width;
-    float line_mask = 1.0 - smoothstep(0.0, half_width, distance_to_line);
-    float reveal_mask = smoothstep(line_center - half_width, line_center, uv.x);
+    float line_eps = 0.25 * line_width; // aa region of line
+    float line_mask = 1.0 - smoothstep(0.0, line_eps, distance(uv.x, line_center));
+    float reveal_mask = smoothstep(line_center - line_eps, line_center, uv.x);
+    float gradient = gaussian(distance(uv.x, line_center), (1 - line_width) * 10); // gradient width
 
-    float final_alpha = max(line_mask, reveal_mask);
+    // Replace gaussian with Butterworth bandpass filter
+    float texture_gradient = butterworth_bandpass(distance(uv.x, line_center), 5, 3);
+    texture_noise *= texture_gradient;
 
-    vec3 line_color = vec3(1.0, 1.0, 1.0);
-    vec3 final_color = mix(color.rgb, line_color, line_mask);
+    float outline_eps = line_eps * 0.5;
+    float outline = 1.0 - smoothstep(0, outline_eps, distance(uv.x + outline_eps, line_center));
 
-    return vec4(final_color, final_alpha);
+    vec3 rainbow = (max(line_mask, gradient) - outline + texture_noise) * lch_to_rgb(vec3(0.8, 1, fract(uv.y - elapsed / 10)));
+    vec3 base = (reveal_mask + outline) * black.rgb;
+
+    return vec4((base + rainbow), max(line_mask, reveal_mask));
 }
 
 #endif
