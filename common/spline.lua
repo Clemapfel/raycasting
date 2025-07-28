@@ -43,9 +43,9 @@ local _catmull_rom_basis = function(t, p0, p1, p2, p3)
 
     return 0.5 * (
         (2 * p1) +
-            (-p0 + p2) * t +
-            (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-            (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+        (-p0 + p2) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t3
     )
 end
 
@@ -159,7 +159,7 @@ local _adaptive_integrate = function(f, a, b, tolerance)
     end
 
     local function adaptive_step(start, stop, whole_integral, depth)
-        if depth > 20 then  -- Maximum recursion depth
+        if depth > 20 then  -- maximum recursion depth for safety
             return whole_integral
         end
 
