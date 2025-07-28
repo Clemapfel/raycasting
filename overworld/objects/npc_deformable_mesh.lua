@@ -23,6 +23,11 @@ local _mesh_format = {
     { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
 } -- xy stores origin, uv stores dxy, rg stores rest origin, ba stores rest dxy
 
+-- wave equation parameters
+local _dx = 0.2
+local _dt = 0.05
+local _damping = 0.99
+local _courant = _dt / _dx
 
 function ow.DeformableMesh:instantiate(world, contour)
     if _shader == nil then _shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl") end
@@ -134,6 +139,14 @@ function ow.DeformableMesh:instantiate(world, contour)
         _mesh_format,
         rt.GraphicsBufferUsage.DYNAMIC
     )
+
+    -- wave
+    self._n_points = math.floor(#self._contour / 2)
+    self._wave = {
+        previous = table.rep(0, self._n_points),
+        current = table.rep(0, self._n_points),
+        next = {}
+    }
 end
 
 function _collide(origin_x, origin_y, dx, dy, circle_x, circle_y, circle_radius, push_blend)
@@ -399,8 +412,8 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
         data[1], data[2] = origin_x, origin_y
         data[3], data[4] = dx, dy
 
-        self._draw_contour[contour_i+0] = ax
-        self._draw_contour[contour_i+1] = ay
+        self._draw_contour[contour_i+0] = origin_x + dx
+        self._draw_contour[contour_i+1] = origin_y + dy
         contour_i = contour_i + 2
     end
 

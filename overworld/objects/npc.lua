@@ -24,8 +24,6 @@ local _data_mesh_format = {
 
 local _mesh_shader, _outline_shader
 
-local first = true -- TODO
-
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
     if _mesh_shader == nil then
@@ -34,16 +32,6 @@ function ow.NPC:instantiate(object, stage, scene)
 
     if _outline_shader == nil then
         _outline_shader = rt.Shader("overworld/objects/npc_outline.glsl")
-    end
-
-    if first then
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "z" then
-                _mesh_shader:recompile()
-            end
-        end)
-        first = false
     end
 
     self._velocity_x = 0
@@ -143,6 +131,7 @@ function ow.NPC:instantiate(object, stage, scene)
     self._to_contour = nil
     self._draw_contour = contour
 
+    --[[
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "space" then
             self._elapsed = 0
@@ -152,6 +141,7 @@ function ow.NPC:instantiate(object, stage, scene)
             self._to_contour = self._frames[math.wrap(self._current_frame + 1, #self._frames)]
         end
     end)
+    ]]--
 end
 
 --- @brief

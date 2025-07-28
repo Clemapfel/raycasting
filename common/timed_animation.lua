@@ -269,6 +269,7 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
 --- @param end_value
 --- @param interpolation_function
 rt.TimedAnimation = meta.class("TimedAnimation")
+meta.add_signals(rt.TimedAnimation, "done")
 
 function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpolation_function, ...)
     if start_value == nil then start_value = 0 end
@@ -288,8 +289,6 @@ function rt.TimedAnimation:instantiate(duration, start_value, end_value, interpo
         _elapsed = 0
     })
 end
-
-meta.add_signals(rt.TimedAnimation, "done")
 
 --- @brief
 function rt.TimedAnimation:set_lower(lower)
@@ -364,6 +363,7 @@ end
 --- @brief
 function rt.TimedAnimation:skip()
     self._elapsed = self._duration
+    self:signal_emit("done")
 end
 
 --- @brief

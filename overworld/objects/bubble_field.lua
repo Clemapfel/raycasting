@@ -24,6 +24,13 @@ local _scale_index = 1
 -- shader
 local _outline_shader, _base_shader
 
+-- wave equation solver parameters
+
+local _dx = 0.2
+local _dt = 0.05
+local _damping = 0.99
+local _courant = _dt / _dx
+
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
     if _base_shader == nil then _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 }) end
@@ -75,8 +82,12 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local n_smoothing_iterations = rt.settings.overworld.bubble_field.n_smoothing_iterations
     local points = rt.smooth_contour(subdivided, n_smoothing_iterations)
 
+    table.insert(points, points[1])
+    table.insert(points, points[2])
+
     -- compute center and mesh data
     self._contour = points
+
     local center_x, center_y, n = 0, 0, 0
     for i = 1, #points, 2 do
         local x, y = points[i], points[i+1]
@@ -207,11 +218,6 @@ function ow.BubbleField:_block_signals()
     end)
 end
 
-local _dx = 0.2
-local _dt = 0.05
-local _damping = 0.99
-local _courant = _dt / _dx
-
 --- @brief
 function ow.BubbleField:_excite_wave(x, y, sign)
     local min_distance, min_i = math.huge, nil
@@ -243,29 +249,22 @@ function ow.BubbleField:update(delta)
     self._elapsed = self._elapsed + delta
 
     if self._is_active and not rt.GameState:get_is_performance_mode_enabled() then
-        local abs, max, mix2 = math.abs, math.max, math.mix2
         local n_points = self._n_points
-        local courant2 = _courant^2
-        local damping = _damping
-        local wave = self._wave
-        local shape_data = self._shape_mesh_data
-        local center_x, center_y = self._contour_center_x, self._contour_center_y
-
         local offset_max = 0
-        local prev, curr, nextw = wave.previous, wave.current, wave.next
+        local wave_previous, wave_current, wave_next = self._wave.previous, self._wave.current, self._wave.next
 
         for i = 1, n_points do
-            local left = (i == 1) and n_points or (i - 1)
-            local right = (i == n_points) and 1 or (i + 1)
+            local left = math.wrap(i-1, n_points)
+            local right = math.wrap(i+1, n_points)
 
-            local new = 2 * curr[i] - prev[i] + courant2 * (curr[left] - 2 * curr[i] + curr[right])
-            new = new * damping
-            nextw[i] = new
+            local new = 2 * wave_current[i] - wave_previous[i] + _courant^2 * (wave_current[left] - 2 * wave_current[i] + wave_current[right])
+            new = new * _damping
+            wave_next[i] = new
 
-            local abs_new = abs(new)
-            offset_max = max(offset_max, abs_new)
+            local abs_new = math.abs(new)
+            offset_max = math.max(offset_max, abs_new)
 
-            local data = shape_data[i]
+            local data = self._shape_mesh_data[i]
             local dx, dy, magnitude = data[_dx_index], data[_dy_index], data[_magnitude_index]
             local origin_x, origin_y = data[_origin_x_index], data[_origin_y_index]
             local idx = (i - 1) * 2
@@ -276,12 +275,9 @@ function ow.BubbleField:update(delta)
         end
 
         -- close loop
-        local x1, y1, x2, y2 = self._contour[1], self._contour[2], self._contour[#self._contour-1], self._contour[#self._contour]
-        local mean_x, mean_y = math.mix(x1, x2, 0.5), math.mix(y1, y2, 0.5)
         self._contour[1], self._contour[2] = self._contour[#self._contour-1], self._contour[#self._contour]
-        --self._contour[#self._contour-1], self._contour[#self._contour] = mean_x, mean_y
 
-        wave.previous, wave.current, wave.next = wave.current, wave.next, wave.previous
+        self._wave.previous, self._wave.current, self._wave.next = wave_current, wave_next, wave_previous
         self._data_mesh:replace_data(self._data_mesh_data)
 
         if offset_max < rt.settings.overworld.bubble_field.wave_deactivation_threshold then

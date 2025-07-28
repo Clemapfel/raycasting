@@ -318,7 +318,6 @@ local _rope_handler = function(data)
                 local velocity_x = (current_x - old_x) * data.velocity_damping
                 local velocity_y = (current_y - old_y) * data.velocity_damping
 
-                -- inertia
                 velocity_x = math.mix(velocity_x, last_velocities[i+0], data.inertia)
                 velocity_y = math.mix(velocity_y, last_velocities[i+1], data.inertia)
 
