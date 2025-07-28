@@ -90,22 +90,23 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
         result.rgb += mix(sin1, sin2, 0.5) * 0.3;
     }
 
-    // pulse highlight
-
     const float line_width = 0.05;
-    float line_alpha = smoothstep(line_width, 0.0, abs(uv.y - mix(-0.5, 1.5, fraction) * 0.1));
+    // Sweep from below 0 to above 1
+    float center = mix(-line_width, 1.0 + line_width, fraction);
+    float dist = abs(uv.y - center);
+    float line_alpha = smoothstep(line_width, 0.0, dist);
     result.rgb = mix(result.rgb, vec3(1.0), line_alpha);
 
     // black inside outline
     const mat3 sobel_x = mat3(
-    -1.0,  0.0,  1.0,
-    -2.0,  0.0,  2.0,
-    -1.0,  0.0,  1.0
+        -1.0,  0.0,  1.0,
+        -2.0,  0.0,  2.0,
+        -1.0,  0.0,  1.0
     );
     const mat3 sobel_y = mat3(
-    -1.0, -2.0, -1.0,
-    0.0,  0.0,  0.0,
-    1.0,  2.0,  1.0
+        -1.0, -2.0, -1.0,
+        0.0,  0.0,  0.0,
+        1.0,  2.0,  1.0
     );
 
     vec2 texel_size = vec2(1.0) / textureSize(img, 0);

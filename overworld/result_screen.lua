@@ -9,12 +9,12 @@ rt.settings.overworld.result_screen = {
     slope = 0.3, -- how diagonal shape is
 
     flow_step = 1 / 100, -- fraction
-    time_step = 0.2, -- seconds
+    time_step = 1, -- seconds
     coins_step = 1, -- count
 
-    roll_animation_duration = 0.2, -- seconds
-    reveal_animation_duration = 0.1,
-    scale_animation_duration = 0.1,
+    roll_animation_duration = 1.0, -- seconds
+    reveal_animation_duration = 1.0,
+    scale_animation_duration = 1.0,
     max_scale = 3
 }
 
@@ -22,16 +22,21 @@ rt.settings.overworld.result_screen = {
 ow.ResultsScreen = meta.class("ResultScreen", rt.Widget)
 
 local _shader
-local _HIDDEN, _SHOWN = 1, 0
+local _title_font = rt.Font(
+    "assets/fonts/Baloo2/Baloo2-SemiBold.ttf",
+    "assets/fonts/Baloo2/Baloo2-Bold.ttf"
+)
+
+local _HIDDEN, _SHOWN, _CLOSED = 0, 1, 2
 
 local _STATE_IDLE = -1
-local _STATE_REVEAL = 0
+local _STATE_REVEALING = 0
 local _STATE_TITLE = 1
-local _STATE_TIME = 1
-local _STATE_FLOW = 2
-local _STATE_COINS = 3
-local _STATE_TOTAL = 4
-local _STATE_WAIT_FOR_EXIT = 5
+local _STATE_TIME = 2
+local _STATE_FLOW = 3
+local _STATE_COINS = 4
+local _STATE_TOTAL = 5
+local _STATE_WAITING_FOR_EXIT = 6
 
 local _mix_step = function(lower, upper, fraction, step_size)
     local interpolated = math.mix(lower, upper, fraction)
@@ -99,7 +104,7 @@ function ow.ResultsScreen:instantiate()
     self._coins_grade = rt.StageGrade.NONE
     self._total_grade = rt.StageGrade.NONE
 
-    self._title_label = rt.Label("<b><o><u>" .. self._title .. "</b></o></u>", rt.FontSize.BIG)
+    self._title_label = rt.Label("<b><o><u>" .. self._title .. "</b></o></u>", rt.FontSize.BIG, _title_font)
 
     local prefix, postfix = "<b><o>", "</b></o>"
     self._flow_prefix_label = rt.Label(prefix .. translation.flow .. postfix)
@@ -110,7 +115,8 @@ function ow.ResultsScreen:instantiate()
         font_size = rt.FontSize.REGULAR,
         justify_mode = rt.JustifyMode.CENTER,
         style = rt.FontStyle.BOLD,
-        is_outlined = true
+        is_outlined = true,
+        font = _title_font
     }
 
     self._time_value_label = rt.Glyph(_format_time(0, 0, self._time_start), glyph_properties)
@@ -127,7 +133,7 @@ function ow.ResultsScreen:instantiate()
     local _new_reveal_animation = function()
         return rt.TimedAnimation(
             settings.reveal_animation_duration,
-            _HIDDEN, _SHOWN,
+            _SHOWN, _HIDDEN,
             rt.InterpolationFunctions.LINEAR
         )
     end
@@ -165,8 +171,7 @@ function ow.ResultsScreen:instantiate()
     self._time_value_roll_animation = _new_roll_animation()
     self._time_grade_scale_animation = _new_scale_animation()
     self._time_grade_opacity_animation = _new_opacity_animation()
-    self._time_prefix_offset = 0 -- max offsets
-    self._time_value_offset = 0
+    self._time_offset = 0 -- max offset
     self._time_grade_center_x = 0
     self._time_grade_center_y = 0
     self._waiting_for_time_grade = false
@@ -177,8 +182,7 @@ function ow.ResultsScreen:instantiate()
     self._flow_value_roll_animation = _new_roll_animation()
     self._flow_grade_scale_animation = _new_scale_animation()
     self._flow_grade_opacity_animation = _new_opacity_animation()
-    self._flow_prefix_offset = 0
-    self._flow_value_offset = 0
+    self._flow_offset = 0
     self._flow_grade_center_x = 0
     self._flow_grade_center_y = 0
     self._waiting_for_flow_grade = false
@@ -189,8 +193,7 @@ function ow.ResultsScreen:instantiate()
     self._coins_value_roll_animation = _new_roll_animation()
     self._coins_grade_scale_animation = _new_scale_animation()
     self._coins_grade_opacity_animation = _new_opacity_animation()
-    self._coins_prefix_offset = 0
-    self._coins_value_offset = 0
+    self._coins_offset = 0
     self._coins_grade_center_x = 0
     self._coins_grade_center_y = 0
     self._waiting_for_coins_grade = false
@@ -239,16 +242,37 @@ end
 
 --- @brief
 function ow.ResultsScreen:size_allocate(x, y, width, height)
-    local mesh_x, mesh_y, mesh_w = x, y, width
-    local mesh_slope = rt.settings.overworld.result_screen.slope
-    x = x - mesh_w * mesh_slope
-    self._mesh = rt.Mesh({
-        { mesh_x,                      mesh_y + 0 * height, 0, 0, 1, 1, 1, 1 },
-        { mesh_x + mesh_w * (1 + mesh_slope),              mesh_y + 0 * height, 1, 0, 1, 1, 1, 0 },
-        { mesh_x + mesh_w * (1 + mesh_slope),              mesh_y + 1 * height, 1, 1, 1, 1, 1, 0 },
-        { mesh_x + mesh_w * mesh_slope, mesh_y + 1 * height, 0, 1, 1, 1, 1, 1 }
-    })
-    self._mesh_offset = mesh_w
+    local mesh_x, mesh_w = x, width
+    local mesh_overfill = love.graphics.getWidth()
+
+    local padding = 0
+    local mesh_y = y - padding
+    local mesh_h = height + 2 * padding
+
+    do
+        local left = function(v) return 0, v, 1, 1, 1, 1 end
+        local right = function(v) return 1, v, 0, 0, 0, 1  end
+
+        local a = { mesh_x,                          mesh_y, left(0) }
+        local b = { mesh_x + mesh_w,                 mesh_y, right(0) }
+        local c = { mesh_x + mesh_w + mesh_overfill, mesh_y, right(0) }
+        local d = { mesh_x,                          mesh_y + mesh_h, left(1) }
+        local e = { mesh_x + mesh_w,                 mesh_y + mesh_h, right(1) }
+        local f = { mesh_x + mesh_w + mesh_overfill, mesh_y + mesh_h, right(1) }
+
+        self._mesh = rt.Mesh({ a, b, c, d, e, f }, rt.MeshDrawMode.TRIANGLES)
+
+        a, b, c, d, e, f = 1, 2, 3, 4, 5, 6
+        self._mesh:set_vertex_map(
+            a, b, d,
+            b, d, e,
+            b, c, e,
+            c, e, f
+        )
+
+        self._mesh_inner_offset = mesh_w
+        self._mesh_outer_offset = 2 * mesh_w
+    end
 
     local m = rt.settings.margin_unit
     local current_y = 2 * m
@@ -293,14 +317,13 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
         current_y = current_y + max_h
 
         local prefix_offset = love.graphics.getWidth() - select(1, prefix:get_position())
-        local value_offset = love.graphics.getWidth() - select(1, value:get_position())
 
-        return prefix_offset, value_offset, grade_x + 0.5 * grade_w, grade_y + 0.5 * grade_h
+        return prefix_offset, grade_x + 0.5 * grade_w, grade_y + 0.5 * grade_h
     end
 
-    self._time_prefix_offset, self._time_value_offset, self._time_grade_center_x, self._time_grade_center_y = _reformat(self._time_prefix_label, self._time_value_label, self._time_grade_label)
-    self._flow_prefix_offset, self._flow_value_offset, self._flow_grade_center_x, self._flow_grade_center_y = _reformat(self._flow_prefix_label, self._flow_value_label, self._flow_grade_label)
-    self._coins_prefix_offset, self._coins_value_offset, self._coins_grade_center_x, self._coins_grade_center_y = _reformat(self._coins_prefix_label, self._coins_value_label, self._coins_grade_label)
+    self._time_offset, self._time_grade_center_x, self._time_grade_center_y = _reformat(self._time_prefix_label, self._time_value_label, self._time_grade_label)
+    self._flow_offset, self._flow_grade_center_x, self._flow_grade_center_y = _reformat(self._flow_prefix_label, self._flow_value_label, self._flow_grade_label)
+    self._coins_offset, self._coins_grade_center_x, self._coins_grade_center_y = _reformat(self._coins_prefix_label, self._coins_value_label, self._coins_grade_label)
 
     local total_w, total_h = self._total_grade_label:measure()
     local total_x, total_y = x + 0.5 * width - 0.5 * total_w, current_y
@@ -328,143 +351,167 @@ local _eps = 0.01
 
 --- @brief
 function ow.ResultsScreen:update(delta)
-
-    for widget in range(
-        self._title_label,
-        self._flow_prefix_label,
-        self._time_prefix_label,
-        self._coins_prefix_label,
-        self._flow_value_label,
-        self._time_value_label,
-        self._coins_value_label,
-        self._flow_grade_label,
-        self._time_grade_label,
-        self._coins_grade_label,
-        self._total_grade_label
-    ) do
-        widget:update(delta)
+    if self._state > _STATE_IDLE then
+        for widget in range(
+            self._title_label,
+            self._flow_prefix_label,
+            self._time_prefix_label,
+            self._coins_prefix_label,
+            self._flow_value_label,
+            self._time_value_label,
+            self._coins_value_label,
+            self._flow_grade_label,
+            self._time_grade_label,
+            self._coins_grade_label,
+            self._total_grade_label
+        ) do
+            widget:update(delta)
+        end
     end
 
     -- sequencing of animations, jump early if that part of the queue is not yet done
+    local furthest_state = ternary(self:get_is_active(), _STATE_IDLE, _STATE_REVEALING)
 
-    self._shader_fraction = self._shader_fraction_motion:update(delta)
-    if not math.equals(self._shader_fraction, _SHOWN, _eps) then goto skip end
+    while true do -- while true loop used instead of gotos, because of local scope, always exits after 1 iteration
 
-    if self._waiting_for_close then goto skip end
+        self._shader_fraction = self._shader_fraction_motion:update(delta)
+        if self._waiting_for_close then break end
 
-    if not self._title_reveal_animation:update(delta) then goto skip end
+        furthest_state = _STATE_TITLE
 
-    -- time
+        if not self._title_reveal_animation:update(delta) then break end
+        if not math.equals(self._shader_fraction, _SHOWN, _eps) then break end
 
-    if not self._time_prefix_reveal_animation:update(delta) then goto skip end
-    if not self._time_value_reveal_animation:update(delta) then goto skip end
+        -- time
 
-    local time_value_roll_is_done = self._time_value_roll_animation:update(delta)
-    _update_label(self._time_value_label, _format_time(self._time_value_roll_animation:get_value(), 0, self._time_target))
+        furthest_state = _STATE_TIME
 
-    if not time_value_roll_is_done then goto skip end
+        if not math.nand(
+            self._time_prefix_reveal_animation:update(delta),
+            self._time_value_reveal_animation:update(delta)
+        )
+        then break end
 
-    local time_opacity_is_done = self._time_grade_opacity_animation:update(delta)
-    local time_scale_is_done = self._time_grade_scale_animation:update(delta)
+        local time_value_roll_is_done = self._time_value_roll_animation:update(delta)
+        _update_label(self._time_value_label, _format_time(self._time_value_roll_animation:get_value(), 0, self._time_target))
 
-    self._time_grade_label:set_opacity(self._time_grade_opacity_animation:get_value())
+        if not time_value_roll_is_done then break end
 
-    if not (time_opacity_is_done and time_scale_is_done) then goto skip end
+        local time_opacity_is_done = self._time_grade_opacity_animation:update(delta)
+        local time_scale_is_done = self._time_grade_scale_animation:update(delta)
 
-    if self._time_grade_connected == false then
-        self._time_grade_label:pulse()
-        self._time_grade_label:signal_connect("pulse_done", function()
-            self._waiting_for_time_grade = false
-            return meta.DISCONNECT_SIGNAL
-        end)
-        self._time_grade_connected = true
-    end
-    if self._waiting_for_time_grade ~= false then goto skip end
+        self._time_grade_label:set_opacity(self._time_grade_opacity_animation:get_value())
 
-    -- flow
+        if not (time_opacity_is_done and time_scale_is_done) then break end
 
-    if not self._flow_prefix_reveal_animation:update(delta) then goto skip end
-    if not self._flow_value_reveal_animation:update(delta) then goto skip end
+        if self._time_grade_connected == false then
+            self._time_grade_label:pulse()
+            self._time_grade_label:signal_connect("pulse_done", function()
+                self._waiting_for_time_grade = false
+                return meta.DISCONNECT_SIGNAL
+            end)
+            self._time_grade_connected = true
+        end
+        if self._waiting_for_time_grade ~= false then break end
 
-    local flow_value_roll_is_done = self._flow_value_roll_animation:update(delta)
-    _update_label(self._flow_value_label, _format_flow(
-        self._flow_value_reveal_animation:get_value(),
-        0, self._flow_target
-    ))
+        -- flow
 
-    if not flow_value_roll_is_done then goto skip end
+        furthest_state = _STATE_FLOW
 
-    local flow_opacity_is_done = self._flow_grade_opacity_animation:update(delta)
-    local flow_scale_is_done = self._flow_grade_scale_animation:update(delta)
+        if not math.nand(
+            self._flow_prefix_reveal_animation:update(delta),
+            self._flow_value_reveal_animation:update(delta)
+        ) then break end
 
-    self._flow_grade_label:set_opacity(self._flow_grade_opacity_animation:get_value())
+        local flow_value_roll_is_done = self._flow_value_roll_animation:update(delta)
+        _update_label(self._flow_value_label, _format_flow(
+            self._flow_value_reveal_animation:get_value(),
+            0, self._flow_target
+        ))
 
-    if not (flow_opacity_is_done and flow_scale_is_done) then goto skip end
+        if not flow_value_roll_is_done then break end
 
-    if self._flow_grade_connected == false then
-        self._flow_grade_label:pulse()
-        self._flow_grade_label:signal_connect("pulse_done", function()
-            self._waiting_for_flow_grade = false
-            return meta.DISCONNECT_SIGNAL
-        end)
-        self._flow_grade_connected = true
-    end
-    if self._waiting_for_flow_grade ~= false then goto skip end
+        local flow_opacity_is_done = self._flow_grade_opacity_animation:update(delta)
+        local flow_scale_is_done = self._flow_grade_scale_animation:update(delta)
 
-    -- coins
+        self._flow_grade_label:set_opacity(self._flow_grade_opacity_animation:get_value())
 
-    if not self._coins_prefix_reveal_animation:update(delta) then goto skip end
-    if not self._coins_value_reveal_animation:update(delta) then goto skip end
+        if not (flow_opacity_is_done and flow_scale_is_done) then break end
 
-    local coins_value_roll_is_done = self._coins_value_roll_animation:update(delta)
-    _update_label(self._coins_value_label, _format_coins(
-        self._coins_value_roll_animation:get_value(),
-        0, self._coins_target,
-        self._coins_max
-    ))
+        if self._flow_grade_connected == false then
+            self._flow_grade_label:pulse()
+            self._flow_grade_label:signal_connect("pulse_done", function()
+                self._waiting_for_flow_grade = false
+                return meta.DISCONNECT_SIGNAL
+            end)
+            self._flow_grade_connected = true
+        end
+        if self._waiting_for_flow_grade ~= false then break end
 
-    if not coins_value_roll_is_done then goto skip end
+        -- coins
 
-    local coins_opacity_is_done = self._coins_grade_opacity_animation:update(delta)
-    local coins_scale_is_done = self._coins_grade_scale_animation:update(delta)
+        furthest_state = _STATE_COINS
 
-    self._coins_grade_label:set_opacity(self._coins_grade_opacity_animation:get_value())
+        if not math.nand(
+            self._coins_prefix_reveal_animation:update(delta),
+            self._coins_value_reveal_animation:update(delta)
+        ) then break end
 
-    if not (coins_opacity_is_done and coins_scale_is_done) then goto skip end
+        local coins_value_roll_is_done = self._coins_value_roll_animation:update(delta)
+        _update_label(self._coins_value_label, _format_coins(
+            self._coins_value_roll_animation:get_value(),
+            0, self._coins_target,
+            self._coins_max
+        ))
 
-    if self._coins_grade_connected == false then
-        self._coins_grade_label:pulse()
-        self._coins_grade_label:signal_connect("pulse_done", function()
-            self._waiting_for_coins_grade = false
-            return meta.DISCONNECT_SIGNAL
-        end)
-        self._coins_grade_connected = true
-    end
-    if self._waiting_for_coins_grade ~= false then goto skip end
+        if not coins_value_roll_is_done then break end
 
-    -- total
+        local coins_opacity_is_done = self._coins_grade_opacity_animation:update(delta)
+        local coins_scale_is_done = self._coins_grade_scale_animation:update(delta)
 
-    local total_opacity_is_done = self._total_grade_opacity_animation:update(delta)
-    local total_scale_is_done = self._total_grade_scale_animation:update(delta)
+        self._coins_grade_label:set_opacity(self._coins_grade_opacity_animation:get_value())
 
-    self._total_grade_label:set_opacity(self._total_grade_opacity_animation:get_value())
+        if not (coins_opacity_is_done and coins_scale_is_done) then break end
 
-    if not (total_opacity_is_done and total_scale_is_done) then goto skip end
+        if self._coins_grade_connected == false then
+            self._coins_grade_label:pulse()
+            self._coins_grade_label:signal_connect("pulse_done", function()
+                self._waiting_for_coins_grade = false
+                return meta.DISCONNECT_SIGNAL
+            end)
+            self._coins_grade_connected = true
+        end
+        if self._waiting_for_coins_grade ~= false then break end
 
-    if self._total_grade_connected == false then
-        self._total_grade_label:pulse()
-        self._total_grade_label:signal_connect("pulse_done", function()
-            self._waiting_for_total_grade = false
-            return meta.DISCONNECT_SIGNAL
-        end)
-        self._total_grade_connected = true
-    end
-    if self._waiting_for_total_grade ~= false then goto skip end
+        -- total
 
-    -- done, wait for user input
+        furthest_state = _STATE_TOTAL
 
-    self._waiting_for_close = true
-    ::skip::
+        local total_opacity_is_done = self._total_grade_opacity_animation:update(delta)
+        local total_scale_is_done = self._total_grade_scale_animation:update(delta)
+
+        self._total_grade_label:set_opacity(self._total_grade_opacity_animation:get_value())
+
+        if not (total_opacity_is_done and total_scale_is_done) then break end
+
+        if self._total_grade_connected == false then
+            self._total_grade_label:pulse()
+            self._total_grade_label:signal_connect("pulse_done", function()
+                self._waiting_for_total_grade = false
+                return meta.DISCONNECT_SIGNAL
+            end)
+            self._total_grade_connected = true
+        end
+        if self._waiting_for_total_grade ~= false then break end
+
+        -- done, wait for user input
+
+        furthest_state = _STATE_WAITING_FOR_EXIT
+        self._waiting_for_close = true
+
+    break end -- while true
+
+    self._state = furthest_state
 end
 
 --- @brief
@@ -514,6 +561,8 @@ function ow.ResultsScreen:_reset()
     self._waiting_for_total_grade = true
     self._total_grade_connected = false
     self._waiting_for_close = false
+
+    self._state = _STATE_REVEALING
 end
 
 --- @brief
@@ -555,12 +604,46 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
     self._coins_grade_label:set_grade(time_grade)
 
     self:_reset()
-    self._state = _STATE_REVEAL
+    self._shader_fraction_motion:set_target_value(_SHOWN)
+    self._state = _STATE_REVEALING
+
+    -- TODO
+    _shader:recompile()
 end
 
 --- @brief
 function ow.ResultsScreen:close()
-    self._shader_fraction_motion:set_target_value(_HIDDEN)
+    for animation in range(
+        self._title_reveal_animation,
+
+        self._time_prefix_reveal_animation,
+        self._time_value_reveal_animation,
+        self._time_value_roll_animation,
+        self._time_grade_scale_animation,
+        self._time_grade_opacity_animation,
+        self._time_grade_label,
+
+        self._flow_prefix_reveal_animation,
+        self._flow_value_reveal_animation,
+        self._flow_value_roll_animation,
+        self._flow_grade_scale_animation,
+        self._flow_grade_opacity_animation,
+        self._flow_grade_label,
+
+        self._coins_prefix_reveal_animation,
+        self._coins_value_reveal_animation,
+        self._coins_value_roll_animation,
+        self._coins_grade_scale_animation,
+        self._coins_grade_opacity_animation,
+        self._coins_grade_label,
+
+        self._total_grade_scale_animation,
+        self._total_grade_opacity_animation
+    ) do
+        animation:skip()
+    end
+
+    self._shader_fraction_motion:set_target_value(_CLOSED)
 end
 
 local _draw_grade = function(grade, center_x, center_y, scale)
@@ -575,36 +658,50 @@ end
 --- @brief
 function ow.ResultsScreen:draw()
     love.graphics.push()
-    love.graphics.translate(self._mesh_offset * self._shader_fraction, 0)
+
+    -- 0-1: use inner offset, 1-2: add outer offset
+    local offset = 0
+    local fraction = 0
+    if self._shader_fraction <= 1 then
+        offset = self._shader_fraction * self._mesh_inner_offset
+        fraction = self._shader_fraction
+    else
+        offset = self._mesh_inner_offset + (self._shader_fraction - 1) * self._mesh_outer_offset
+        fraction = 1
+    end
+
+    local left_x = self._mesh_inner_offset
+    love.graphics.translate(left_x - offset, 0)
 
     love.graphics.push()
     _shader:bind()
-    _shader:send("fraction", 1 - self._shader_fraction)
+    _shader:send("fraction", fraction)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
     _shader:unbind()
     love.graphics.pop()
 
     self._title_label:draw(self._title_reveal_animation:get_value() * self._title_label_offset)
 
-    self._time_prefix_label:draw(self._time_prefix_reveal_animation:get_value() * self._time_prefix_offset)
-    self._time_value_label:draw(self._time_value_reveal_animation:get_value() * self._time_value_offset)
+    self._time_prefix_label:draw(self._time_prefix_reveal_animation:get_value() * self._time_offset)
+    self._time_value_label:draw(self._time_value_reveal_animation:get_value() * self._time_offset)
     _draw_grade(
         self._time_grade_label,
         self._time_grade_center_x, self._time_grade_center_y,
         1 + self._time_grade_scale_animation:get_value() * self._max_scale
     )
     
-    self._flow_prefix_label:draw(self._flow_prefix_reveal_animation:get_value() * self._flow_prefix_offset)
-    self._flow_value_label:draw(self._flow_value_reveal_animation:get_value() * self._flow_value_offset)
+    self._flow_prefix_label:draw(self._flow_prefix_reveal_animation:get_value() * self._flow_offset)
+    self._flow_value_label:draw(self._flow_value_reveal_animation:get_value() * self._flow_offset)
     _draw_grade(
         self._flow_grade_label,
         self._flow_grade_center_x, self._flow_grade_center_y,
         1 + self._flow_grade_scale_animation:get_value() * self._max_scale
     )
 
-    self._coins_prefix_label:draw(self._coins_prefix_reveal_animation:get_value() * self._coins_prefix_offset)
-    self._coins_value_label:draw(self._coins_value_reveal_animation:get_value() * self._coins_value_offset)
+    self._coins_prefix_label:draw(self._coins_prefix_reveal_animation:get_value() * self._coins_offset)
+    self._coins_value_label:draw(self._coins_value_reveal_animation:get_value() * self._coins_offset)
     _draw_grade(
         self._coins_grade_label,
         self._coins_grade_center_x, self._coins_grade_center_y,
@@ -626,8 +723,46 @@ function ow.ResultsScreen:get_is_active()
 end
 
 --- @brief
+--- @brief
 function ow.ResultsScreen:skip()
+    -- Helper to skip all animations for a section
+    local function skip_section(which)
+        self["_" .. which .. "_prefix_reveal_animation"]:skip()
+        self["_" .. which .. "_value_reveal_animation"]:skip()
+        self["_" .. which .. "_value_roll_animation"]:skip()
+        self["_" .. which .. "_grade_scale_animation"]:skip()
+        self["_" .. which .. "_grade_opacity_animation"]:skip()
+        self["_" .. which .. "_grade_connected"] = true
+        self["_waiting_for_" .. which .. "_grade"] = false
 
+        local grade = self["_" .. which .. "_grade_label"]
+        grade:signal_disconnect_all()
+        grade:set_opacity(1)
+        grade:skip()
+    end
+
+    -- Skip logic: only skip to the NEXT state, not all future states
+    if self._state <= _STATE_TITLE then
+        self._shader_fraction_motion:skip()
+        self._title_reveal_animation:skip()
+    elseif self._state == _STATE_TIME then
+        skip_section("time")
+    elseif self._state == _STATE_FLOW then
+        skip_section("flow")
+    elseif self._state == _STATE_COINS then
+        skip_section("coins")
+    elseif self._state == _STATE_TOTAL then
+        self._total_grade_scale_animation:skip()
+        self._total_grade_opacity_animation:skip()
+        self._total_grade_label:skip()
+        self._total_grade_label:signal_disconnect_all()
+        self._total_grade_label:set_opacity(1)
+        self._waiting_for_total_grade = false
+        self._total_grade_connected = true
+    end
+
+    -- Force update to advance state machine and update visuals
+    self:update(0)
 end
 
 

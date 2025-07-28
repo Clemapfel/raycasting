@@ -11,8 +11,6 @@ rt.settings.menu.stage_grade_label = {
     --font_id = "RubikSprayPaint"
 
     pulse_duration = 2, -- seconds
-    pulse_shine_fraction = 0.25, -- how long letter stays scaled, fraction
-    max_scale = 1.5
 }
 
 --- @class mn.StageGradeLabel
@@ -70,25 +68,11 @@ function mn.StageGradeLabel:instantiate(grade, size)
         _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
     end
 
-    -- animation: scale to max, then start shine, wait for shine to finish before scaling back
-
-    local total_duration = rt.settings.menu.stage_grade_label.pulse_duration
-    local scale_attack = 0.25
-    local scale_sustain = rt.settings.menu.stage_grade_label.pulse_shine_fraction
     self._shine_animation = rt.TimedAnimation(
-        scale_sustain * total_duration,
+        rt.settings.menu.stage_grade_label.pulse_duration,
         0, 1,
         rt.InterpolationFunctions.LINEAR
     )
-
-    self._scale_animation = rt.TimedAnimation(
-        total_duration,
-        1, rt.settings.menu.stage_grade_label.max_scale,
-        rt.InterpolationFunctions.ENVELOPE, scale_attack, scale_sustain
-    )
-    
-    self._shine_delay = scale_attack
-    self._animation_active = false
 end
 
 --- @brief
@@ -121,17 +105,7 @@ function mn.StageGradeLabel:draw()
     _shader_sdf:bind()
     _shader_sdf:send("opacity", self._opacity)
 
-    if self._animation_active then
-        local scale = self._scale_animation:get_value()
-        love.graphics.push()
-        love.graphics.translate(label_cx, label_cy)
-        love.graphics.scale(scale, scale)
-        love.graphics.translate(-label_cx, -label_cy)
-        love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
-        love.graphics.pop()
-    else
-        love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
-    end
+    love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
 
     _shader_sdf:unbind()
 
@@ -156,17 +130,7 @@ function mn.StageGradeLabel:draw()
 
     self._color:bind()
 
-    if self._animation_active then
-        local scale = self._scale_animation:get_value()
-        love.graphics.push()
-        love.graphics.translate(label_cx, label_cy)
-        love.graphics.scale(scale, scale)
-        love.graphics.translate(-label_cx, -label_cy)
-        love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
-        love.graphics.pop()
-    else
-        love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
-    end
+    love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
 
     _shader_no_sdf:unbind()
 end
@@ -179,14 +143,7 @@ end
 --- @brief
 function mn.StageGradeLabel:update(delta)
     if self._animation_active == true then
-        self._scale_animation:update(delta)
-
-        local fraction = self._scale_animation:get_elapsed() / self._scale_animation:get_duration()
-        if fraction > self._shine_delay then
-            self._shine_animation:update(delta)
-        end
-
-        if self._scale_animation:get_is_done() and self._shine_animation:get_is_done() then
+        if self._shine_animation:update(delta) then
             if self._animation_active then
                 self._animation_active = false
                 self:signal_emit("pulse_done")
@@ -252,14 +209,13 @@ end
 function mn.StageGradeLabel:pulse()
     self._animation_active = true
     self._shine_animation:reset()
-    self._scale_animation:reset()
 end
 
 --- @brief
 function mn.StageGradeLabel:skip()
     self._pulse_active = false
     self._shine_animation:skip()
-    self._scale_animation:skip()
+    self:signal_emit("pulse_done")
 end
 
 --- @brief

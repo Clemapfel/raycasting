@@ -277,6 +277,28 @@ function math.round(x)
     return x + 0.5 - (x + 0.5) % 1
 end
 
+--- @brief non-short-circuiting and
+--- @param ... Boolean
+function math.nand(...)
+    local out = select(1, ...)
+    if out == false then return false end
+
+    for i = 2, select("#", ...) do
+        if select(i, ...) == false then return false end
+    end
+    return out
+end
+
+--- @brief non-short-circuiting or
+--- @param ... Boolean
+function math.nor(...)
+    local out = select(1, ...)
+    for i = 2, select("#", ...) do
+        out = out or select(i, ...)
+    end
+    return out
+end
+
 --- @brief
 function math.sign(x)
     if x > 0 then

@@ -13,20 +13,18 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "j" then
         debugger.reload()
     elseif which == "space"then
-        if screen:get_is_active() then
-            screen:close()
-        else
-            screen:present(
-                "Title of Stage that is Long",
-                123, -- time
-                rt.StageGrade.S,
-                0.68, -- flow
-                rt.StageGrade.A,
-                8, 10, -- coins
-                rt.StageGrade.B,
-                rt.StageGrade.NONE
-            )
-        end
+        screen:present(
+            "Title of Stage that is Long",
+            123, -- time
+            rt.StageGrade.S,
+            0.68, -- flow
+            rt.StageGrade.A,
+            8, 10, -- coins
+            rt.StageGrade.B,
+            rt.StageGrade.NONE
+        )
+    elseif which == "b" then
+        screen:close()
     end
 end)
 

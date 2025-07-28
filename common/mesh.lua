@@ -222,7 +222,11 @@ function rt.Mesh:replace_data(data)
 end
 
 --- @brief
-function rt.Mesh:set_vertex_map(map)
+function rt.Mesh:set_vertex_map(map, ...)
+    if type(map) == "number" then
+        map = { map, ... }
+    end
+
     self._native:setVertexMap(map)
 end
 

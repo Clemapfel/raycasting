@@ -23,12 +23,6 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
-vec2 rotate(vec2 v, float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
-    return v * mat2(c, -s, s, c);
-}
-
 vec3 lch_to_rgb(vec3 lch) {
     float L = lch.x * 100.0;
     float C = lch.y * 100.0;
@@ -61,51 +55,40 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+vec2 rotate(vec2 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return v * mat2(c, -s, s, c);
+}
+
 #ifdef PIXEL
 
-uniform float fraction; // 1 fully opaque, 0 fully transparent
+uniform float fraction; // [0, 1, 2]
 uniform float elapsed;
+uniform float slope = 0.045; // in 0, 1
 
 vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
-    vec2 pos = texture_coords;
+    vec2 uv = texture_coords;
+    uv += vec2(0.5, 0.5);
+    uv = rotate(uv, slope * 2 * PI);
+    uv -= vec2(0.5, 0.5);
 
-    const int n_octaves = 3;
-    vec2 noise_scale = vec2(3, 2) * 4;
+    vec2 screen_size = love_ScreenSize.xy;
+    float line_width = 100 / love_ScreenSize.x;
 
-    const float angle_width = 0.5 * 2 * PI;
-    const float angle_direction = 0; // upwards
+    float line_center = mix(1.0 + line_width, line_width * 0.5, fraction);
+    float distance_to_line = abs(uv.x - line_center);
 
-    float step_size = 0.5;
+    float half_width = 0.5 * line_width;
+    float line_mask = 1.0 - smoothstep(0.0, half_width, distance_to_line);
+    float reveal_mask = smoothstep(line_center - half_width, line_center, uv.x);
 
-    float steps = 0;
-    for (int i = 0; i < n_octaves; ++i) {
-        vec2 seed = texture_coords.xy * noise_scale;
-        float angle = mix(angle_direction - angle_width / 2, angle_direction + angle_width / 2, (gradient_noise(vec3(seed.xy, elapsed)) + 1) / 2);
-        vec2 offset = vec2(
-            cos(angle),
-            sin(angle)
-        );
+    float final_alpha = max(line_mask, reveal_mask);
 
-        pos.yx += offset * step_size;
-        step_size = step_size * 0.5;
-        noise_scale = noise_scale * 1.2;
-    }
+    vec3 line_color = vec3(1.0, 1.0, 1.0);
+    vec3 final_color = mix(color.rgb, line_color, line_mask);
 
-    float eps = 0.02;
-
-    float noise = distance(pos.x, texture_coords.x);
-    noise = 1 - clamp(texture_coords.x / 2 + noise, 0, 1);
-
-    float border_fraction = mix(0, 1 - eps, fraction);
-    float opacity = 1 - smoothstep(border_fraction - eps, border_fraction + eps, noise);
-
-    float border_eps = 0.07;
-    float border_band = 1 - gaussian(
-        smoothstep(border_fraction - border_eps, border_fraction, noise) - smoothstep(border_fraction, border_fraction + border_eps, noise),
-        20 // border width
-    );
-
-    return color; // * vec4(1 + vec3(fraction), 1);
+    return vec4(final_color, final_alpha);
 }
 
 #endif
