@@ -112,6 +112,13 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         return math.exp(-4.4 * math.pi / 3 * (-1 * x)^2)
     end,
 
+    DISCONTINUOUS_DIRAC = function(x)
+        local a = 0.045 * math.exp(math.log(1 / 0.045 + 1) * x) - 0.045
+        local b = 0.045 * math.exp(math.log(1 / 0.045 + 1) * (1 - x)) - 0.045
+        local t = 5.81894409826698685315796808094
+        return t * math.min(a, b)
+    end,
+
     BUTTERWORTH = function(x, order)
         if x >= 1 then return 0 elseif x <= 0 then return 0 end
         if order == nil then order = 6 end
