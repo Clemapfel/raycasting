@@ -108,7 +108,8 @@ vec2 rotate(vec2 v, float angle) {
 
 uniform float fraction; // [0, 1, 2]
 uniform float elapsed;
-uniform float slope = 0.03; // in 0, 1
+uniform float slope; // degrees
+uniform float line_width;
 
 uniform vec4 black = vec4(0, 0, 0, 1);
 
@@ -116,11 +117,11 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
     vec2 uv = texture_coords;
     vec2 uv_backup = uv;
     uv += vec2(0, 0);
-    uv = rotate(uv, slope * 2 * PI);
+    uv = rotate(uv, slope);
     uv -= vec2(0, 0);
 
     float time = elapsed / 2;
-    float outline_noise = 0.1 * (gradient_noise(vec3((vec2(0, uv_backup.y * 10)), time)) + 1) / 2;
+    float outline_noise = 0.1 * (gradient_noise(vec3((vec2(0, uv_backup.y * 20)), time)) + 1) / 2;
 
     // Use fractal noise with multiple octaves for more detailed texture
     float texture_noise = fractal_noise(
@@ -131,14 +132,14 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
     );
 
     vec2 screen_size = love_ScreenSize.xy;
-    float line_width = 50 / love_ScreenSize.x;
+    float line_width_normalized = line_width / love_ScreenSize.x;
 
-    float line_center = mix(1.0 + line_width, line_width * 0.5, fraction) + outline_noise - 0.5 * line_width;
+    float line_center = mix(1.0 + line_width_normalized, line_width_normalized * 0.5, fraction) + outline_noise - 0.5 * line_width_normalized;
 
-    float line_eps = 0.25 * line_width; // aa region of line
+    float line_eps = 0.25 * line_width_normalized; // aa region of line
     float line_mask = 1.0 - smoothstep(0.0, line_eps, distance(uv.x, line_center));
     float reveal_mask = smoothstep(line_center - line_eps, line_center, uv.x);
-    float gradient = gaussian(distance(uv.x, line_center), (1 - line_width) * 10); // gradient width
+    float gradient = gaussian(distance(uv.x, line_center), (1 - line_width_normalized) * 20); // gradient width
 
     // Replace gaussian with Butterworth bandpass filter
     float texture_gradient = butterworth_bandpass(distance(uv.x, line_center), 5, 3);

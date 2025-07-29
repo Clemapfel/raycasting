@@ -14,7 +14,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
         debugger.reload()
     elseif which == "space"then
         screen:present(
-            "Title of Stage that is Long",
+            "1-1: Subluminalitiy",
             123, -- time
             rt.StageGrade.S,
             0.68, -- flow
@@ -46,21 +46,21 @@ love.load = function(args)
     --rt.SceneManager:push(ow.StageTitleCardScene, "tutorial")
 
     local screen_w, screen_h = love.graphics.getDimensions()
-    local w = screen_w / 2
+    local w = screen_w * (2 / 3)
     screen:reformat(0 + screen_w - w, 0, w, screen_h)
 end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
 
-    screen:update(delta)
+    --screen:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     rt.SceneManager:draw()
 
-    screen:draw()
+    --screen:draw()
 end
 
 love.resize = function(width, height)

@@ -15,7 +15,11 @@ rt.settings.overworld.result_screen = {
     roll_animation_duration = 1.0, -- seconds
     reveal_animation_duration = 1.0,
     scale_animation_duration = 1.0,
-    max_scale = 3
+    close_duration = 5,
+    max_scale = 3,
+
+    line_width = 50,
+    slope = 0.03 * 2 * math.pi
 }
 
 --- @class ow.ResultScreen
@@ -75,6 +79,8 @@ local _format_coins = function(fraction, start, target, max)
     return math.round(value) .. " / " .. math.round(max)
 end
 
+local _title_prefix, _title_postfix = "<b><o><u>", "</b></o></u>"
+
 --- @brief
 function ow.ResultsScreen:instantiate()
     if _shader == nil then _shader = rt.Shader("overworld/result_screen.glsl") end
@@ -83,7 +89,8 @@ function ow.ResultsScreen:instantiate()
     local translation, settings = rt.Translation.result_screen, rt.settings.overworld.result_screen
 
     self._mesh = nil
-    self._mesh_offset = 0
+    self._mesh_inner_offset = 0
+    self._mesh_outer_offset = 0
 
     self._state = _STATE_IDLE
 
@@ -104,7 +111,7 @@ function ow.ResultsScreen:instantiate()
     self._coins_grade = rt.StageGrade.NONE
     self._total_grade = rt.StageGrade.NONE
 
-    self._title_label = rt.Label("<b><o><u>" .. self._title .. "</b></o></u>", rt.FontSize.BIG, _title_font)
+    self._title_label = rt.Label(_title_prefix .. self._title .. _title_postfix, rt.FontSize.LARGER, _title_font)
 
     local prefix, postfix = "<b><o>", "</b></o>"
     self._flow_prefix_label = rt.Label(prefix .. translation.flow .. postfix)
@@ -133,7 +140,7 @@ function ow.ResultsScreen:instantiate()
     local _new_reveal_animation = function()
         return rt.TimedAnimation(
             settings.reveal_animation_duration,
-            _SHOWN, _HIDDEN,
+            _HIDDEN, _HIDDEN,--_SHOWN, _HIDDEN,
             rt.InterpolationFunctions.LINEAR
         )
     end
@@ -142,7 +149,7 @@ function ow.ResultsScreen:instantiate()
     local _new_scale_animation = function()
         return rt.TimedAnimation(
             settings.scale_animation_duration,
-            1, 0,
+            0, 0, --1, 0,
             rt.InterpolationFunctions.LINEAR
         )
     end
@@ -150,7 +157,7 @@ function ow.ResultsScreen:instantiate()
     local _new_opacity_animation = function()
         return rt.TimedAnimation(
             settings.scale_animation_duration, -- sic
-            0, 1,
+            1, 1, --0, 1,
             rt.InterpolationFunctions.LINEAR
         )
     end
@@ -206,6 +213,12 @@ function ow.ResultsScreen:instantiate()
     self._waiting_for_total_grade = false
     self._total_grade_connected = false
 
+    self._close_animation = rt.TimedAnimation(
+        rt.settings.overworld.result_screen.close_duration,
+        0, 1,
+        rt.InterpolationFunctions.SINUSOID_EASE_OUT
+    )
+
     self._shader_fraction = _HIDDEN
     self._shader_fraction_motion = rt.SmoothedMotion1D(
         self._shader_fraction,
@@ -242,7 +255,10 @@ end
 
 --- @brief
 function ow.ResultsScreen:size_allocate(x, y, width, height)
-    local mesh_x, mesh_w = x, width
+    local line_width = 2 * rt.settings.overworld.result_screen.line_width
+
+    local x_padding = math.sin(rt.settings.overworld.result_screen.slope) * height
+    local mesh_x, mesh_w = x - x_padding, width + 2 * x_padding
     local mesh_overfill = love.graphics.getWidth()
 
     local padding = 0
@@ -278,8 +294,9 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local current_y = 2 * m
 
+    self._title_label:reformat(x, y, width)
     local title_w, title_h = self._title_label:measure()
-    self._title_label:reformat(x + width - title_w, y)
+    self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, y, width)
     self._title_label_offset = select(1, self._title_label:get_position())
     current_y = current_y + title_h + m
 
@@ -298,7 +315,7 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
         local prefix_w, prefix_h = prefix:measure()
         local value_w, value_h = value:measure()
         local grade_w, grade_h = grade:measure()
-        local max_h = math.max(prefix_h, value_h, grade_h)
+        local max_h = math.max(value_h, grade_h)
 
         prefix:reformat(
             x,
@@ -312,10 +329,12 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
             value_area_w, math.huge
         )
 
-        local grade_x, grade_y = x + width - m - grade_w, current_y + 0.5 * max_h - 0.5 * grade_h
+        current_y = current_y + max_h
+
+        local grade_x, grade_y = x + 0.5 * width - 0.5 * grade_w, current_y + 0.5 * max_h - 0.5 * grade_h
         grade:reformat(grade_x, grade_y, grade_w, grade_h)
 
-        current_y = current_y + max_h
+        current_y = current_y + grade_h
 
         local prefix_offset = love.graphics.getWidth() - select(1, prefix:get_position())
 
@@ -589,6 +608,7 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
     )
 
     self._title = title
+    self._title_label:set_text(_title_prefix .. title .. _title_postfix)
     self._total_grade = total_grade
 
     self._time_target = time
@@ -658,6 +678,8 @@ end
 
 --- @brief
 function ow.ResultsScreen:draw()
+    if self._mesh == nil then return end
+
     love.graphics.push()
 
     -- 0-1: use inner offset, 1-2: add outer offset
@@ -676,6 +698,8 @@ function ow.ResultsScreen:draw()
 
     love.graphics.push()
     _shader:bind()
+    _shader:send("line_width", rt.settings.overworld.result_screen.line_width)
+    _shader:send("slope", rt.settings.overworld.result_screen.slope)
     _shader:send("black", { rt.Palette.BLACK:unpack() })
     _shader:send("fraction", fraction)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
@@ -717,6 +741,8 @@ function ow.ResultsScreen:draw()
     )
 
     love.graphics.pop() -- shader fraction
+
+    self:draw_bounds()
 end
 
 --- @brief
