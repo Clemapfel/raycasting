@@ -61,6 +61,10 @@ vec2 to_uv(vec2 frag_position) {
 uniform float elapsed;
 uniform vec4 red;
 
+#if MODE == MODE_INNER
+uniform vec2 center; // unnormalized screen coords
+#endif
+
 const float noise_scale = 30;
 
 float dirac(float x) {
@@ -70,12 +74,16 @@ float dirac(float x) {
     return t * min(a, b);
 }
 
+float triangle(float x) {
+    return 2.0 * abs(fract(x) - 0.5) - 1.0;
+}
+
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
     vec2 uv = to_uv(frag_position.xy);
 
     #if MODE == MODE_OUTER
 
-    vec2 seed = vec2(symmetric(texture_coords.x));
+    vec2 seed = vec2(symmetric(texture_coords.x))   ;
     float noise = (gradient_noise(vec3(vec2(seed) * noise_scale, elapsed)) + 1) / 2;
     float opacity = 1 - (texture_coords.y + 0.5 * noise);
     opacity *= 3;
@@ -83,10 +91,18 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
 
     #elif MODE == MODE_INNER
 
-    vec2 seed = vec2(texture_coords.xy);
-    float noise = gradient_noise(vec3(vec2(seed) * noise_scale, elapsed));
-    float opacity = noise;
-    vec3 intensity = vec3(1 - dirac(opacity));
+    float noise = 0;
+    float scale = 10;
+    for (int _ = 1; _ < 4; _++) {
+        noise += gradient_noise(vec3(uv * scale, elapsed / 2));
+        scale = scale * 2 * fwidth(noise + scale);
+    }
+
+    noise = (noise + 1) / 2;
+
+    float opacity = 1;
+    float weight = 1; //gaussian(color.a, 0.5) * (gradient_noise(vec3(elapsed, 10 * uv + elapsed / 10)) + 1) / 2;
+    vec3 intensity = vec3(pow(dirac(noise), 3) * weight);
 
     #endif
 
