@@ -10,6 +10,7 @@ rt.Font = meta.class("Font")
 rt.FontSize = meta.enum("FontSize", {
     GIGANTIC = 0.15,
     HUGE = 60 / rt.settings.native_height,
+    LARGER = 50 / rt.settings.native_height,
     LARGE = 40 / rt.settings.native_height,
     BIG = 30 / rt.settings.native_height,
     REGULAR = 20 / rt.settings.native_height,
