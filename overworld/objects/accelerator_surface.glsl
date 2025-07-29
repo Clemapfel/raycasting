@@ -175,7 +175,7 @@ float worley_outlines_bisector(vec2 uv, float borderWidth) {
     // Distance to the bisector line
     float bisector_distance = abs(dot(midpoint, direction));
 
-    float eps = 1 / camera_scale * 0.05;
+    float eps = 0.05;
     float outline = smoothstep(borderWidth + eps, borderWidth - eps, bisector_distance);
 
     return outline;
