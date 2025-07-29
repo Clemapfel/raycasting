@@ -31,6 +31,16 @@ function rt.random.integer(min, max)
     return love.math.random(min, max)
 end
 
+--- @brief
+function rt.random.integers(n, min, max)
+    local out = {}
+    for i = 1, n do
+        table.insert(out, rt.random.integer(min, max))
+    end
+    table.insert(out)
+    return table.unpack(out)
+end
+
 --- @brief get random float in given range
 --- @param min Number
 --- @param max Number
@@ -40,6 +50,16 @@ function rt.random.number(min, max)
     if max == nil then max = 1 end
     local lower, upper = math.min(min, max), math.max(min, max)
     return lower + rt.rand() * (upper - lower)
+end
+
+--- @brief
+function rt.random.numbers(n, min, max)
+    local out = {}
+    for i = 1, n do
+        table.insert(out, rt.random.number(min, max))
+    end
+    table.insert(out)
+    return table.unpack(out)
 end
 
 local _sizeof = table.sizeof
