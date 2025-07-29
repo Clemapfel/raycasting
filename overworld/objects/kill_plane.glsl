@@ -63,7 +63,7 @@ uniform vec4 red;
 
 const float noise_scale = 30;
 
-float discontinuous_dirac(float x) {
+float dirac(float x) {
     float a = 0.045 * exp(log(1.0 / 0.045 + 1.0) * x) - 0.045;
     float b = 0.045 * exp(log(1.0 / 0.045 + 1.0) * (1.0 - x)) - 0.045;
     const float t = 5.81894409826698685315796808094;
@@ -76,16 +76,17 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     #if MODE == MODE_OUTER
 
     vec2 seed = vec2(symmetric(texture_coords.x));
-    float noise = gradient_noise(vec3(vec2(seed) * noise_scale, elapsed));
-    float opacity = 1 - (texture_coords.y + noise);
-    vec3 intensity = vec3(1 - discontinuous_dirac(max(opacity, 0)));
+    float noise = (gradient_noise(vec3(vec2(seed) * noise_scale, elapsed)) + 1) / 2;
+    float opacity = 1 - (texture_coords.y + 0.5 * noise);
+    opacity *= 3;
+    vec3 intensity = vec3(gaussian(dirac(opacity), 3));
 
     #elif MODE == MODE_INNER
 
     vec2 seed = vec2(texture_coords.xy);
     float noise = gradient_noise(vec3(vec2(seed) * noise_scale, elapsed));
     float opacity = noise;
-    vec3 intensity = vec3(1 - discontinuous_dirac(opacity));
+    vec3 intensity = vec3(1 - dirac(opacity));
 
     #endif
 
