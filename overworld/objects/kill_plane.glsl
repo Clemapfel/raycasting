@@ -244,7 +244,7 @@ float fast_noise(vec3 p) {
 // Enhanced triangle noise with shading
 float triangle_noise(vec2 p, vec2 origin) {
     vec2 target = normalize(origin - p);
-    float weight = 1 - distance(p, origin);
+    float weight = clamp(1 - distance(p, origin) * 2, 0, 1);
     p *= 40;
 
     vec2 coord = p;

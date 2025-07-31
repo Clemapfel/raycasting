@@ -70,6 +70,8 @@ function ow.KillPlane:instantiate(object, stage, scene)
     center_x = center_x / n
     center_y = center_y / n
 
+    self._mesh_center_x, self._mesh_center_y = center_x, center_y
+
     if rt.is_contour_convex(self._contour) then
         -- if convex, use regular centroid
 
