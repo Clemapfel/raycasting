@@ -116,14 +116,19 @@ float triangle_tiling(vec2 p) {
     vec2 base_point = floor(lattice_coords);
     vec2 fract_part = lattice_coords - base_point;
 
-    // Check the three candidate lattice points in the fundamental triangle
+    // The fundamental parallelogram is divided into two triangles
+    // We need to check different sets of 3 lattice points depending on which triangle we're in
     vec2 candidates[3];
-    candidates[0] = base_point;
-    candidates[1] = base_point + vec2(1.0, 0.0);
-    candidates[2] = base_point + vec2(0.0, 1.0);
 
-    // If we're in the upper-right triangle, add the diagonal point
-    if (fract_part.x + fract_part.y > 1.0) {
+    if (fract_part.x + fract_part.y < 1.0) {
+        // Lower-left triangle
+        candidates[0] = base_point;
+        candidates[1] = base_point + vec2(1.0, 0.0);
+        candidates[2] = base_point + vec2(0.0, 1.0);
+    } else {
+        // Upper-right triangle
+        candidates[0] = base_point + vec2(1.0, 0.0);
+        candidates[1] = base_point + vec2(0.0, 1.0);
         candidates[2] = base_point + vec2(1.0, 1.0);
     }
 
@@ -136,6 +141,169 @@ float triangle_tiling(vec2 p) {
     }
 
     return min_distance;
+}
+
+// Hash function for pseudo-random values
+vec2 hash2(vec2 p) {
+    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+}
+
+// Rotate a 2D vector by angle (in radians)
+vec2 rotate(vec2 v, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+
+// Triangle distance function
+float triangleDist(vec2 p, vec2 a, vec2 b, vec2 c) {
+    vec2 v0 = c - a;
+    vec2 v1 = b - a;
+    vec2 v2 = p - a;
+
+    float dot00 = dot(v0, v0);
+    float dot01 = dot(v0, v1);
+    float dot02 = dot(v0, v2);
+    float dot11 = dot(v1, v1);
+    float dot12 = dot(v1, v2);
+
+    float invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+    float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+    float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+
+    // Check if point is inside triangle
+    if (u >= 0.0 && v >= 0.0 && u + v <= 1.0) {
+        return 0.0;
+    }
+
+    // Distance to edges
+    vec2 pa = p - a;
+    vec2 ba = b - a;
+    vec2 ca = c - a;
+    vec2 pb = p - b;
+    vec2 cb = c - b;
+
+    float h1 = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    float h2 = clamp(dot(pb, cb) / dot(cb, cb), 0.0, 1.0);
+    float h3 = clamp(dot(p - c, -ca) / dot(ca, ca), 0.0, 1.0);
+
+    vec2 d1 = pa - ba * h1;
+    vec2 d2 = pb - cb * h2;
+    vec2 d3 = (p - c) + ca * h3;
+
+    return sqrt(min(min(dot(d1, d1), dot(d2, d2)), dot(d3, d3)));
+}
+
+// Main triangular noise function
+float triangularNoise(vec2 p) {
+    float noise = 0.0;
+    float amplitude = 1.0;
+    float frequency = 1.0;
+
+    // Multiple octaves for complexity
+    for (int i = 0; i < 4; i++) {
+        vec2 coord = p * frequency;
+        vec2 cell = floor(coord);
+        vec2 frac = fract(coord);
+
+        float minDist = 10.0;
+
+        // Check surrounding cells for triangles
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                vec2 cellOffset = vec2(float(x), float(y));
+                vec2 currentCell = cell + cellOffset;
+
+                // Generate random values for this cell
+                vec2 h1 = hash2(currentCell);
+                vec2 h2 = hash2(currentCell + vec2(0.1, 0.7));
+                vec2 h3 = hash2(currentCell + vec2(0.3, 0.2));
+                vec2 h4 = hash2(currentCell + vec2(0.8, 0.9));
+
+                // Create triangle size variation (0.3 to 1.2)
+                float size = 0.3 + 0.9 * (0.5 + 0.5 * h4.x);
+
+                // Random rotation angle
+                float angle = h4.y * 6.28318; // 2*PI
+
+                // Base triangle vertices (equilateral)
+                vec2 v1 = vec2(0.0, 0.6) * size;
+                vec2 v2 = vec2(-0.52, -0.3) * size;
+                vec2 v3 = vec2(0.52, -0.3) * size;
+
+                // Apply rotation
+                v1 = rotate(v1, angle);
+                v2 = rotate(v2, angle);
+                v3 = rotate(v3, angle);
+
+                // Triangle center position with some randomness
+                vec2 center = currentCell + 0.5 + h1 * 0.4;
+
+                // Translate vertices to triangle position
+                v1 += center;
+                v2 += center;
+                v3 += center;
+
+                // Calculate distance to this triangle
+                float dist = triangleDist(coord, v1, v2, v3);
+
+                // Create sharp triangle edges with falloff
+                float triangleValue = 1.0 - smoothstep(0.0, 0.15, dist);
+
+                // Add some randomness to triangle "height"
+                triangleValue *= 0.5 + 0.5 * h2.x;
+
+                noise += triangleValue * amplitude;
+            }
+        }
+
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+
+    return clamp(noise, 0.0, 1.0);
+}
+
+// Alternative version with more pronounced triangle shapes
+float triangle_noise(vec2 p) {
+    vec2 coord = p;
+    vec2 cell = floor(coord);
+
+    float noise = 0.0;
+
+    // Check surrounding cells
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            vec2 cellOffset = vec2(float(x), float(y));
+            vec2 currentCell = cell + cellOffset;
+
+            vec2 h = hash2(currentCell);
+            vec2 h2 = hash2(currentCell + vec2(0.5, 0.5));
+
+            // Triangle center
+            vec2 center = currentCell + 0.5 + h * 0.3;
+
+            // Size and rotation
+            float size = 0.4 + 0.6 * gradient_noise(vec3(h2, elapsed));
+            float angle = h2.y * 6.28318;
+
+            // Triangle pointing in random direction
+            vec2 dir = vec2(cos(angle), sin(angle));
+            vec2 perp = vec2(-dir.y, dir.x);
+
+            vec2 tip = center + dir * size;
+            vec2 base1 = center - dir * size * 0.3 + perp * size * 0.5;
+            vec2 base2 = center - dir * size * 0.3 - perp * size * 0.5;
+
+            float dist = triangleDist(coord, tip, base1, base2);
+            float triangleValue = 1.0 - smoothstep(0.0, 0.1, dist);
+
+            noise = max(noise, triangleValue * (0.7 + 0.3 * abs(h.y)));
+        }
+    }
+
+    return noise;
 }
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
@@ -151,24 +319,14 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
 
     #elif MODE == MODE_INNER
 
-    float noise = 0;
-    float scale = 10;
-    bool which = true;
-    for (int _ = 1; _ < 4; _++) {
-        vec2 seed = uv;
-        noise += gradient_noise(vec3(seed * scale, elapsed / 2));
-        scale = scale * 2;
-        which = !which;
-    }
-
-    noise = (noise + 1) / 2;
-
+    uv = texture_coords;
+    float eps = 0.01;
     float opacity = 1;
-    float weight = 1; //color.a;
-    vec3 intensity = vec3(pow(dirac(noise), 5) * weight);
+    float intensity = triangle_noise(uv * 10);
+
     #endif
 
-    return red * triangle_tiling(uv * 10); //vec4(vec3(intensity), opacity);
+    return red * vec4(vec3(intensity), opacity);
 }
 
 #endif // PIXEL
