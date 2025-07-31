@@ -207,6 +207,22 @@ function rt.Mesh:set_vertex_color(i, r, g, b, a)
 end
 
 --- @brief
+function rt.Mesh:get_vertex_attributes()
+    local out = {}
+    for i = 1, #self._native:getVertexFormat() do
+        for x in range(self._native:getVertexAttribute()) do
+            table.insert(out)
+        end
+    end
+    return out
+end
+
+--- @brief
+function rt.Mesh:set_vertex_attribute(i, ...)
+    self._native:setVertexAttribute(i, ...)
+end
+
+--- @brief
 function rt.Mesh:set_texture(texture)
     self._native:setTexture(texture._native)
 end

@@ -99,7 +99,7 @@ float dirac(float x) {
 }
 
 float triangle(float x) {
-    return 2.0 * abs(fract(x) - 0.5) - 1.0;
+    return 2.0 * abs(symmetric(x) - 0.5) - 1.0;
 }
 
 float triangle_tiling(vec2 p) {
@@ -156,8 +156,8 @@ vec2 rotate(vec2 v, float angle) {
     return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
 }
 
-// Triangle distance function
-float triangleDist(vec2 p, vec2 a, vec2 b, vec2 c) {
+// Triangle distance function with barycentric coordinates for shading
+vec3 triangleDistAndBary(vec2 p, vec2 a, vec2 b, vec2 c) {
     vec2 v0 = c - a;
     vec2 v1 = b - a;
     vec2 v2 = p - a;
@@ -171,106 +171,87 @@ float triangleDist(vec2 p, vec2 a, vec2 b, vec2 c) {
     float invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
     float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
     float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+    float w = 1.0 - u - v;
 
-    // Check if point is inside triangle
+    // Distance calculation
+    float dist;
     if (u >= 0.0 && v >= 0.0 && u + v <= 1.0) {
-        return 0.0;
+        dist = 0.0;
+    } else {
+        // Distance to edges
+        vec2 pa = p - a;
+        vec2 ba = b - a;
+        vec2 ca = c - a;
+        vec2 pb = p - b;
+        vec2 cb = c - b;
+
+        float h1 = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+        float h2 = clamp(dot(pb, cb) / dot(cb, cb), 0.0, 1.0);
+        float h3 = clamp(dot(p - c, -ca) / dot(ca, ca), 0.0, 1.0);
+
+        vec2 d1 = pa - ba * h1;
+        vec2 d2 = pb - cb * h2;
+        vec2 d3 = (p - c) + ca * h3;
+
+        dist = sqrt(min(min(dot(d1, d1), dot(d2, d2)), dot(d3, d3)));
     }
 
-    // Distance to edges
-    vec2 pa = p - a;
-    vec2 ba = b - a;
-    vec2 ca = c - a;
-    vec2 pb = p - b;
-    vec2 cb = c - b;
-
-    float h1 = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    float h2 = clamp(dot(pb, cb) / dot(cb, cb), 0.0, 1.0);
-    float h3 = clamp(dot(p - c, -ca) / dot(ca, ca), 0.0, 1.0);
-
-    vec2 d1 = pa - ba * h1;
-    vec2 d2 = pb - cb * h2;
-    vec2 d3 = (p - c) + ca * h3;
-
-    return sqrt(min(min(dot(d1, d1), dot(d2, d2)), dot(d3, d3)));
+    return vec3(dist, u, v); // distance, and barycentric coords u, v (w = 1-u-v)
 }
 
-// Main triangular noise function
-float triangularNoise(vec2 p) {
-    float noise = 0.0;
-    float amplitude = 1.0;
-    float frequency = 1.0;
+float fast_noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
 
-    // Multiple octaves for complexity
-    for (int i = 0; i < 4; i++) {
-        vec2 coord = p * frequency;
-        vec2 cell = floor(coord);
-        vec2 frac = fract(coord);
+    // Simple quintic interpolation
+    vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
-        float minDist = 10.0;
+    // Minimal hash computation
+    float n = i.x + i.y * 157.0 + i.z * 113.0;
 
-        // Check surrounding cells for triangles
-        for (int x = -1; x <= 1; x++) {
-            for (int y = -1; y <= 1; y++) {
-                vec2 cellOffset = vec2(float(x), float(y));
-                vec2 currentCell = cell + cellOffset;
+    // Generate 8 pseudo-random gradients with minimal computation
+    float ga = sin(n * 0.01) * 2.0 - 1.0;
+    float gb = sin((n + 1.0) * 0.01) * 2.0 - 1.0;
+    float gc = sin((n + 157.0) * 0.01) * 2.0 - 1.0;
+    float gd = sin((n + 158.0) * 0.01) * 2.0 - 1.0;
+    float ge = sin((n + 113.0) * 0.01) * 2.0 - 1.0;
+    float gf = sin((n + 114.0) * 0.01) * 2.0 - 1.0;
+    float gg = sin((n + 270.0) * 0.01) * 2.0 - 1.0;
+    float gh = sin((n + 271.0) * 0.01) * 2.0 - 1.0;
 
-                // Generate random values for this cell
-                vec2 h1 = hash2(currentCell);
-                vec2 h2 = hash2(currentCell + vec2(0.1, 0.7));
-                vec2 h3 = hash2(currentCell + vec2(0.3, 0.2));
-                vec2 h4 = hash2(currentCell + vec2(0.8, 0.9));
+    // Simplified dot products (using only one component for speed)
+    float va = ga * f.x;
+    float vb = gb * (f.x - 1.0);
+    float vc = gc * f.x;
+    float vd = gd * (f.x - 1.0);
+    float ve = ge * f.x;
+    float vf = gf * (f.x - 1.0);
+    float vg = gg * f.x;
+    float vh = gh * (f.x - 1.0);
 
-                // Create triangle size variation (0.3 to 1.2)
-                float size = 0.3 + 0.9 * (0.5 + 0.5 * h4.x);
+    // Trilinear interpolation
+    float k0 = mix(va, vb, u.x);
+    float k1 = mix(vc, vd, u.x);
+    float k2 = mix(ve, vf, u.x);
+    float k3 = mix(vg, vh, u.x);
 
-                // Random rotation angle
-                float angle = h4.y * 6.28318; // 2*PI
+    float k4 = mix(k0, k1, u.y);
+    float k5 = mix(k2, k3, u.y);
 
-                // Base triangle vertices (equilateral)
-                vec2 v1 = vec2(0.0, 0.6) * size;
-                vec2 v2 = vec2(-0.52, -0.3) * size;
-                vec2 v3 = vec2(0.52, -0.3) * size;
-
-                // Apply rotation
-                v1 = rotate(v1, angle);
-                v2 = rotate(v2, angle);
-                v3 = rotate(v3, angle);
-
-                // Triangle center position with some randomness
-                vec2 center = currentCell + 0.5 + h1 * 0.4;
-
-                // Translate vertices to triangle position
-                v1 += center;
-                v2 += center;
-                v3 += center;
-
-                // Calculate distance to this triangle
-                float dist = triangleDist(coord, v1, v2, v3);
-
-                // Create sharp triangle edges with falloff
-                float triangleValue = 1.0 - smoothstep(0.0, 0.15, dist);
-
-                // Add some randomness to triangle "height"
-                triangleValue *= 0.5 + 0.5 * h2.x;
-
-                noise += triangleValue * amplitude;
-            }
-        }
-
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-
-    return clamp(noise, 0.0, 1.0);
+    return mix(k4, k5, u.z) * 0.5 + 0.5;
 }
 
-// Alternative version with more pronounced triangle shapes
-float triangle_noise(vec2 p) {
+// Enhanced triangle noise with shading
+float triangle_noise(vec2 p, vec2 origin) {
+    vec2 target = normalize(origin - p);
+    float weight = 1 - distance(p, origin);
+    p *= 40;
+
     vec2 coord = p;
     vec2 cell = floor(coord);
 
     float noise = 0.0;
+    float shading = 0.0;
 
     // Check surrounding cells
     for (int x = -1; x <= 1; x++) {
@@ -280,31 +261,80 @@ float triangle_noise(vec2 p) {
 
             vec2 h = hash2(currentCell);
             vec2 h2 = hash2(currentCell + vec2(0.5, 0.5));
+            vec2 h3 = hash2(currentCell + vec2(0.7, 0.3)); // Additional hash for shading
 
             // Triangle center
             vec2 center = currentCell + 0.5 + h * 0.3;
 
             // Size and rotation
-            float size = 0.4 + 0.6 * gradient_noise(vec3(h2, elapsed));
-            float angle = h2.y * 6.28318;
+            float size = mix(0.2, 1.0, abs(h.x));
+            float angle = h2.y * 2 * PI;
 
             // Triangle pointing in random direction
-            vec2 dir = vec2(cos(angle), sin(angle));
+            vec2 dir = vec2(cos(angle - elapsed * h2.y), sin(angle + elapsed * h2.x));
             vec2 perp = vec2(-dir.y, dir.x);
 
+            dir = mix(dir, target, weight);
+
             vec2 tip = center + dir * size;
-            vec2 base1 = center - dir * size * 0.3 + perp * size * 0.5;
-            vec2 base2 = center - dir * size * 0.3 - perp * size * 0.5;
+            vec2 base1 = center - dir * size + perp * size;
+            vec2 base2 = center - dir * size - perp * size;
 
-            float dist = triangleDist(coord, tip, base1, base2);
-            float triangleValue = 1.0 - smoothstep(0.0, 0.1, dist);
+            const float eps = 0.0;
+            vec3 distAndBary = triangleDistAndBary(coord, vec2(1 - eps, 1 + eps) * tip, base1, base2);
+            float dist = distAndBary.x;
+            vec2 bary = distAndBary.yz;
+            float baryW = 1.0 - bary.x - bary.y;
 
-            noise = max(noise, triangleValue * (0.7 + 0.3 * abs(h.y)));
+            float blur = mix(0.1, 0.05, 1 - size);
+            float triangleValue = 1.0 - smoothstep(0.0, blur, dist);
+            triangleValue += 1.75 * smoothstep(0, 0.3, 1 - gaussian(3 * dirac(triangleValue), 1.4));
+
+            if (triangleValue > 0.0) {
+                // Base intensity
+                float baseIntensity = abs(h.x);
+
+                // Barycentric-based shading
+                float baryShading = 0.3 + 0.7 * (bary.x * 0.8 + bary.y * 0.6 + baryW * 1.0);
+
+                // Distance from center shading
+                vec2 localPos = coord - center;
+                float centerDist = length(localPos) / size;
+                float radialShading = 1.0 - 0.4 * smoothstep(0.0, 1.0, centerDist);
+
+                // Directional lighting effect
+                vec2 lightDir = normalize(vec2(0.7, 0.3)); // Light coming from top-right
+                vec2 triangleNormal = normalize(perp); // Use perpendicular as "normal"
+                float lightDot = dot(triangleNormal, lightDir);
+                float directionalShading = 0.6 + 0.4 * (lightDot * 0.5 + 0.5);
+
+                // Pattern-based detail
+                float detailNoise = fast_noise(vec3(coord * 20.0 + h3 * 10.0, elapsed * 0.5));
+                float patternDetail = 0.8 + 0.2 * detailNoise;
+
+                // Edge darkening for definition
+                float edgeDistance = min(min(
+                length(coord - tip),
+                length(coord - base1)
+                ), length(coord - base2));
+                float edgeShading = 1.0 - 0.3 * exp(-edgeDistance * 5.0);
+
+                // Combine all shading factors
+                float finalShading = baseIntensity * baryShading * radialShading *
+                directionalShading * patternDetail * edgeShading;
+
+                // Mix with previous triangles using max (like before)
+                if (finalShading * triangleValue > noise) {
+                    noise = finalShading * triangleValue;
+                }
+            }
         }
     }
 
     return noise;
 }
+
+uniform vec2 player_position; // screen coords
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
     vec2 uv = to_uv(frag_position.xy);
@@ -319,10 +349,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
 
     #elif MODE == MODE_INNER
 
-    uv = texture_coords;
     float eps = 0.01;
     float opacity = 1;
-    float intensity = triangle_noise(uv * 10);
+
+    float intensity = triangle_noise(uv, to_uv(player_position));
 
     #endif
 

@@ -405,7 +405,7 @@ function ow.ObjectWrapper:create_mesh()
         rt.error("In ow.ObjectWrapper: trying to create a mesh from object `" .. self.id .. "`, but object has a volume of 0")
     end
 
-    return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles
+    return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles, self.mesh_prototype
 end
 
 --- @brief

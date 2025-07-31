@@ -53,27 +53,111 @@ function ow.KillPlane:instantiate(object, stage, scene)
     if self._is_visible == false then return end
 
     -- inner mesh solid
-    self._contour = object:create_contour()
-    self._inner_mesh = object:create_mesh()
+    self._inner_mesh = nil
 
+    self._contour = object:create_contour()
     table.insert(self._contour, self._contour[1])
     table.insert(self._contour, self._contour[2])
 
-    -- Calculate arc-length parameterization for texture coordinates
-    local arc_lengths = {0} -- cumulative distances
+    local center_x, center_y, n = 0, 0, 0
+    for i = 1, #self._contour, 2 do
+        local x, y = self._contour[i], self._contour[i+1]
+        center_x = center_x + x
+        center_y = center_y + y
+        n = n + 1
+    end
+
+    center_x = center_x / n
+    center_y = center_y / n
+
+    if rt.is_contour_convex(self._contour) then
+        -- if convex, use regular centroid
+
+        local vertex_map = {}
+        local inner_mesh_data = {
+            { center_x, center_y, 0, 0, 0, 0, 0, 0 }
+        }
+
+        for i = 1, #self._contour, 2 do
+            table.insert(inner_mesh_data, {
+                self._contour[i+0], self._contour[i+1], 1, 1, 1, 1, 1, 1
+            })
+        end
+
+        self._inner_mesh = rt.Mesh(
+            inner_mesh_data,
+            rt.MeshDrawMode.TRIANGLE_FAN
+        )
+    else
+        -- if concave, first use common centroid for triangulation
+        -- then use triangle-weighted centroid for fraction
+
+        local inner_mesh_data = {}
+        local temp = table.deepcopy(self._contour)
+        table.insert(temp, 1, center_x)
+        table.insert(temp, 1, center_y)
+
+        local triangles = rt.DelaunayTriangulation(temp, temp):get_triangles()
+        local data = {}
+
+        local total_area = 0
+        for tri in values(triangles) do
+            local x1, y1, x2, y2, x3, y3 = table.unpack(tri)
+            local cx = (x1 + x2 + x3) / 3
+            local cy = (y1 + y2 + y3) / 3
+            local area = 0.5 * math.abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)))
+
+            table.insert(data, {
+                cx, cy, area
+            })
+            total_area = total_area + area
+        end
+
+        center_x, center_y, n = 0, 0
+        for t in values(data) do
+            local weight = t[3] / total_area
+            center_x = center_x + t[1] * weight
+            center_y = center_y + t[2] * weight
+        end
+
+        local max_distance = -math.huge
+        for i = 1, #self._contour, 2 do
+            max_distance = math.max(max_distance, math.distance(center_x, center_y, self._contour[1], self._contour[2]))
+        end
+
+        for tri_i, tri in ipairs(triangles) do
+            for i = 1, #tri, 2 do
+                local x, y = tri[i+0], tri[i+1]
+                local t = math.distance(x, y, center_x, center_y) / max_distance
+
+                    data = {
+                        x, y, 0, 0, t, t, t, t
+                    }
+
+
+                table.insert(inner_mesh_data, data)
+            end
+        end
+
+        self._inner_mesh = rt.Mesh(
+            inner_mesh_data,
+            rt.MeshDrawMode.TRIANGLES
+        )
+    end
+
+    -- outer mesh
+
+    self._outer_mesh = nil
+
+    local arc_lengths = { 0 } -- cumulative distances
     local total_perimeter = 0
 
     for i = 1, #self._contour - 2, 2 do
         local x1, y1 = self._contour[i+0], self._contour[i+1]
         local x2, y2 = self._contour[i+2], self._contour[i+3]
-        local segment_length = math.sqrt((x2 - x1)^2 + (y2 - y1)^2)
-        total_perimeter = total_perimeter + segment_length
+        total_perimeter = total_perimeter + math.distance(x1, y1, x2, y2)
         table.insert(arc_lengths, total_perimeter)
     end
-
-    -- outer mesh border
-
-    self._outer_mesh = nil
 
     local outer_mesh_data = {}
     local outer_mesh_vertex_map = {}
@@ -181,6 +265,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
         end
     end
 
+    --[[
     do -- last triangle needs separate coords, otherwise it would interpolate between uv.x = 0 and uv.y = 1
         local a = table.deepcopy(outer_mesh_data[vertex_i - 4 + 1])
         local b = table.deepcopy(outer_mesh_data[vertex_i - 4 + 3])
@@ -194,6 +279,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
             vertex_i = vertex_i + 1
         end
     end
+    ]]--
 
     self._outer_mesh = rt.Mesh(
         outer_mesh_data,
@@ -207,19 +293,23 @@ function ow.KillPlane:draw()
 
     local camera_offset = { self._scene:get_camera():get_offset() }
     local camera_scale = self._scene:get_camera():get_final_scale()
-    local red = { rt.Palette.RED:unpack() }
+    local red = { rt.Palette.MINT:unpack() }
     love.graphics.setColor(1, 1, 1, 1)
 
+    local player_position = { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) }
+
     _inner_shader:bind()
-    _inner_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self) * 100)
+    _inner_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+    _inner_shader:send("player_position", player_position)
     _inner_shader:send("camera_offset", camera_offset)
     _inner_shader:send("camera_scale", camera_scale)
     _inner_shader:send("red", red)
+    _inner_shader:send("center", { self._mesh_center_x, self._mesh_center_y })
     self._inner_mesh:draw()
     _inner_shader:unbind()
 
     _outer_shader:bind()
-    _outer_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self) * 100)
+    _outer_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     _outer_shader:send("camera_offset", camera_offset)
     _outer_shader:send("camera_scale", camera_scale)
     _outer_shader:send("red", red)
