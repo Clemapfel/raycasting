@@ -43,18 +43,27 @@ function ow.DeformableMesh:instantiate(world, contour)
     self._contour = contour
     self._draw_contour = table.deepcopy(contour)
 
+    local max_y = -math.huge
+    local min_y = math.huge
+
     -- construct center vectors
     local center_x, center_y = 0, 0
     local n = 0
     for i = 1, #contour, 2 do
+        local y =  contour[i+1]
         center_x = center_x + contour[i+0]
-        center_y = center_y + contour[i+1]
+        center_y = center_y + y
+
+        if y >= max_y then max_y = y end
+        if y <= min_y then min_y = y end
         n = n + 1
     end
 
     center_x = center_x / n
     center_y = center_y / n
     self._center_x, self._center_y = center_x, center_y
+    self._base_x, self._base_y = center_x, max_y
+    self._height = max_y - min_y
 
     do -- hard inner shell
         local inner_body_contour = {
@@ -421,15 +430,15 @@ function ow.DeformableMesh:step(delta, outer_x, outer_y, outer_r)
 end
 
 --- @brief
-function ow.DeformableMesh:_get_translation()
+function ow.DeformableMesh:_apply_translation()
     local inner_x, inner_y = self._inner_body:get_position()
-    return inner_x - self._center_x, inner_y - self._center_y
+    love.graphics.translate(inner_x - self._center_x, inner_y - self._center_y)
 end
 
 --- @brief
 function ow.DeformableMesh:draw_body()
     love.graphics.push()
-    love.graphics.translate(self:_get_translation())
+    self:_apply_translation()
 
     local shader_bound = false
     if love.graphics.getShader() == nil then
@@ -459,7 +468,6 @@ end
 --- @brief
 function ow.DeformableMesh:draw_base()
     love.graphics.push()
-    love.graphics.translate(self:_get_translation())
 
     love.graphics.polygon("fill", self._contour)
 
@@ -483,6 +491,16 @@ end
 --- @brief
 function ow.DeformableMesh:get_center()
     return self._center_x, self._center_y
+end
+
+--- @brief
+function ow.DeformableMesh:get_base()
+    return self._base_x, self._base_y
+end
+
+--- @brief
+function ow.DeformableMesh:get_height()
+    return self._height
 end
 
 --- @brief

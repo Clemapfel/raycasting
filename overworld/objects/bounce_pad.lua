@@ -344,5 +344,4 @@ function ow.BouncePad:draw()
     love.graphics.setColor(r, g, b, 1)
     love.graphics.setLineWidth(7-2)
     love.graphics.line(self._draw_contour)
-
 end

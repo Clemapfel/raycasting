@@ -9,21 +9,10 @@ ow.KillPlane = meta.class("KillPlane")
 
 local _inner_shader, _outer_shader
 
-local first = true -- TODO
-
 function ow.KillPlane:instantiate(object, stage, scene)
     if _inner_shader == nil then _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 }) end
     if _outer_shader == nil then _outer_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 1 }) end
 
-    if first then
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "q" then
-                _inner_shader:recompile()
-                _outer_shader:recompile()
-            end
-        end)
-    end
 
     self._scene = scene
     self._stage = stage
@@ -317,4 +306,9 @@ function ow.KillPlane:draw()
     _outer_shader:send("red", red)
     self._outer_mesh:draw()
     _outer_shader:unbind()
+end
+
+--- @brief
+function ow.KillPlane:get_render_priority()
+    return 2
 end

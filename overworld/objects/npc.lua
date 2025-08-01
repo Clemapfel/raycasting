@@ -1,12 +1,10 @@
 require "common.delaunay_triangulation"
 require "overworld.objects.npc_deformable_mesh"
 require "overworld.blood_drop"
+require "overworld.objects.bounce_pad"
 
 rt.settings.overworld.npc = {
-    segment_length = 10,
-    buffer_depth = rt.settings.player.radius,
-    blood_drop_velocity = 300,
-    blood_drop_gravity = 300
+    bounce_max_offset = rt.settings.player.radius -- in px
 }
 
 --- @class ow.NPC
@@ -34,9 +32,6 @@ function ow.NPC:instantiate(object, stage, scene)
         _outline_shader = rt.Shader("overworld/objects/npc_outline.glsl")
     end
 
-    self._velocity_x = 0
-    self._velocity_y = 0
-
     self._scene = scene
     self._stage = stage
     self._world = stage:get_physics_world()
@@ -60,45 +55,20 @@ function ow.NPC:instantiate(object, stage, scene)
     self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
     self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
 
-    self._blood_drops = {}
-
     self._color = { rt.Palette.TRUE_WHITE:unpack() }
 
-    self._is_active = false
+    self._is_active = false -- mesh deformation active
+
+    -- bounce animation
+
+    self._is_bouncing = false
+    self._bounce_position = rt.settings.overworld.bounce_pad.origin -- in [0, 1]
+    self._bounce_velocity = 0
+
     self._sensor:signal_connect("collision_start", function(_, _, normal_x, normal_y, x, y)
         self._is_active = true
-        --[[
-        -- spawn blood drops
-        local x, y = self._scene:get_player():get_position()
-        local up = 3 / 4 * 2 * math.pi
-        for i = 1, rt.random.integer(10, 30) do
-            local angle = rt.random.number(up - 0.5 * math.pi, up + 0.5 * math.pi)
-            local magnitude = rt.settings.overworld.npc.blood_drop_velocity
-            local vx, vy = math.cos(angle) * magnitude, math.sin(angle) * magnitude
-            local blood_drop = ow.BloodDrop(
-                self._stage,
-                x, y,
-                rt.random.number(1, 5), -- radius
-                vx, vy,
-                rt.random.number(0, 1) -- hue
-            )
 
-            blood_drop:signal_connect("collision", function()
-                local to_remove
-                for i, drop in values(self._blood_drops) do
-                    if drop == blood_drop then
-                        to_remove = i
-                    end
-                end
-
-                assert(i ~= nil)
-                table.remove(self._blood_drops, to_remove)
-                return meta.DISCONNECT_SIGNAL
-            end)
-
-            table.insert(self._blood_drops, blood_drop)
-        end
-        ]]--
+        -- bounce started in update
     end)
 
     self._sensor:signal_connect("collision_end", function()
@@ -106,43 +76,59 @@ function ow.NPC:instantiate(object, stage, scene)
         self._last_force_x, self._last_force_y = 0, 0
     end)
 
-    self._deformable_mesh:get_body():signal_connect("collision_start", function(_, _, nx, ny)
-        local px, py = self._scene:get_player():get_position()
-        local cx, cy = self._deformable_mesh:get_center()
-        --self._scene:get_player():bounce(nx, ny, 100) -- fixed
-    end)
-
     self._is_visible = self._scene:get_is_body_visible(self._sensor)
-    self._last_force_x, self._last_force_y = 0, 0
+end
 
+--- @brief
+function ow.NPC:update(delta)
+    if not self._scene:get_is_body_visible(self._sensor) then return end
 
-    self._frames = { self._contour }
-    self._current_frame = 0
-    local other = object:get_object("frame")
-    while other ~= nil do
-        table.insert(self._frames, other:create_contour())
-        other = other:get_object("frame")
+    -- mesh depression
+    local player = self._scene:get_player()
+    local x, y = player:get_position()
+    local radius = player:get_radius()
+    local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
+
+    -- start bounce, manual check because collision is too unreliable
+    local previous = self._bounce_previous
+
+    -- test point on player circle pointing towards mesh, instead of player center
+    local mesh_x, mesh_y = self._deformable_mesh:get_center()
+    local dx, dy = math.normalize(mesh_x - x, mesh_y)
+    local current = self._sensor:test_point(x + dx * radius, y + dy * radius)
+
+    if previous == false and current == true then
+        local center_x, center_y = self._deformable_mesh:get_center()
+        if y <= center_y then -- only bounce up
+            local restitution = self._scene:get_player():bounce(0, -1.3) -- experimentally determined for best game feel
+            self._bounce_velocity = restitution
+            self._bounce_position = restitution
+            self._is_bouncing = true
+        end
     end
 
-    self._elapsed = 0
-    self._duration = 1
-    self._morph_active = false
-    self._from_contour = nil
-    self._to_contour = nil
-    self._draw_contour = contour
+    self._bounce_previous = current
 
-    --[[
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "space" then
-            self._elapsed = 0
-            self._morph_active = true
-            self._current_frame = self._current_frame + 1
-            self._from_contour = self._frames[math.wrap(self._current_frame, #self._frames)]
-            self._to_contour = self._frames[math.wrap(self._current_frame + 1, #self._frames)]
+    -- bounce
+    local damping = rt.settings.overworld.bounce_pad.damping
+    local origin = rt.settings.overworld.bounce_pad.origin
+    local stiffness = 0.5 * rt.settings.overworld.bounce_pad.stiffness
+    local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
+
+    if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
+        local before = self._bounce_position
+        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
+        self._bounce_velocity = self._bounce_velocity * damping
+        self._bounce_position = self._bounce_position + self._bounce_velocity * delta
+
+        if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
+            self._bounce_position = 0
+            self._bounce_velocity = 0
+            self._is_bouncing = false
         end
-    end)
-    ]]--
+    end
 end
+
 
 --- @brief
 function ow.NPC:draw()
@@ -165,6 +151,15 @@ function ow.NPC:draw()
     local player = self._scene:get_player()
     local player_x, player_y = self._scene:get_camera():world_xy_to_screen_xy(player:get_position())
     local color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
+
+    -- apply stretch
+    local base_x, base_y = self._deformable_mesh:get_base()
+    local height = self._deformable_mesh:get_height()
+    local scale = self._bounce_position * rt.settings.overworld.npc.bounce_max_offset / height
+    love.graphics.push()
+    love.graphics.translate(base_x, base_y)
+    love.graphics.scale(1, 1 + scale)
+    love.graphics.translate(-base_x, -base_y)
 
     _mesh_shader:bind()
     _mesh_shader:send("player_color", color)
@@ -201,34 +196,8 @@ function ow.NPC:draw()
 
     self._deformable_mesh:draw_highlight()
 
+    love.graphics.pop() -- stretch
     rt.graphics.set_stencil_mode(nil)
-
-    for drop in values(self._blood_drops) do
-        drop:draw()
-    end
-
-    love.graphics.line(self._draw_contour)
-end
-
---- @brief
-function ow.NPC:update(delta)
-    --if not self._scene:get_is_body_visible(self._sensor) then return
-
-    for drop in values(self._blood_drops) do
-        drop:get_body():apply_force(0, rt.settings.overworld.npc.blood_drop_gravity)
-    end
-
-    local player = self._scene:get_player()
-    local x, y = player:get_position()
-    local radius = player:get_radius()
-    local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
-
-    if self._morph_active then
-        self._draw_contour = rt.interpolate_contours(self._from_contour, self._to_contour, rt.InterpolationFunctions.SINUSOID_EASE_OUT(math.clamp(self._elapsed / self._duration, 0, 1)))
-        table.insert(self._draw_contour, self._draw_contour[1])
-        table.insert(self._draw_contour, self._draw_contour[2])
-        self._elapsed = self._elapsed + delta
-    end
 end
 
 --- @brief
