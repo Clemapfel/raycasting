@@ -15,7 +15,7 @@ require "common.delaunay_triangulation"
 --- @class ow.DeformableMesh
 ow.DeformableMesh = meta.class("DeformableMesh")
 
-local _shader
+local _shader, _outline_shader
 
 local _mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
@@ -23,16 +23,19 @@ local _mesh_format = {
     { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
 } -- xy stores origin, uv stores dxy, rg stores rest origin, ba stores rest dxy
 
--- wave equation parameters
-local _dx = 0.2
-local _dt = 0.05
-local _damping = 0.99
-local _courant = _dt / _dx
 
-function ow.DeformableMesh:instantiate(world, contour)
-    if _shader == nil then _shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl") end
+function ow.DeformableMesh:instantiate(scene, world, contour)
+    if _shader == nil then _shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = false }) end
+    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = true }) end
 
-    meta.assert(world, b2.World)
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "l" then _shader:recompile(); _outline_shader:recompile() end
+    end)
+
+    meta.assert(scene, ow.OverworldScene, world, b2.World)
+    self._scene = scene
     self._world = world
 
     -- player data
@@ -440,17 +443,12 @@ function ow.DeformableMesh:draw_body()
     love.graphics.push()
     self:_apply_translation()
 
-    local shader_bound = false
-    if love.graphics.getShader() == nil then
-        _shader:bind()
-        shader_bound = true
-    end
-
+    _shader:bind()
+    _shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _shader:send("camera_scale", self._scene:get_camera():get_final_scale())
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
     self._mesh:draw()
-
-    if shader_bound then
-        _shader:unbind()
-    end
+    _shader:unbind()
 
     love.graphics.pop()
 end
@@ -463,6 +461,18 @@ end
 --- @brief
 function ow.DeformableMesh:get_contour()
     return self._draw_contour
+end
+
+--- @brief
+function ow.DeformableMesh:draw_outline()
+    --[[
+    _outline_shader:bind()
+    _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _outline_shader:send("camera_scale", self._scene:get_camera():get_final_scale())
+    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    ]]--
+    love.graphics.line(self._draw_contour)
+    --_outline_shader:unbind()
 end
 
 --- @brief

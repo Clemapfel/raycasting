@@ -4,7 +4,8 @@ require "overworld.blood_drop"
 require "overworld.objects.bounce_pad"
 
 rt.settings.overworld.npc = {
-    bounce_max_offset = rt.settings.player.radius -- in px
+    bounce_max_offset = rt.settings.player.radius, -- in px
+    bounce_cooldown = 4 / 60
 }
 
 --- @class ow.NPC
@@ -39,7 +40,7 @@ function ow.NPC:instantiate(object, stage, scene)
     -- inner, hard-body shell
     local contour = object:create_contour()
 
-    self._deformable_mesh = ow.DeformableMesh(self._world, contour) -- has inner hard shell
+    self._deformable_mesh = ow.DeformableMesh(self._scene, self._world, contour) -- has inner hard shell
     self._deformable_mesh:get_body():add_tag("stencil", "hitbox")
 
     self._mesh = object:create_mesh()
@@ -64,6 +65,7 @@ function ow.NPC:instantiate(object, stage, scene)
     self._is_bouncing = false
     self._bounce_position = rt.settings.overworld.bounce_pad.origin -- in [0, 1]
     self._bounce_velocity = 0
+    self._bounce_cooldown = math.huge
 
     self._sensor:signal_connect("collision_start", function(_, _, normal_x, normal_y, x, y)
         self._is_active = true
@@ -99,15 +101,17 @@ function ow.NPC:update(delta)
 
     if previous == false and current == true then
         local center_x, center_y = self._deformable_mesh:get_center()
-        if y <= center_y then -- only bounce up
+        if y <= center_y and self._bounce_cooldown > rt.settings.overworld.npc.bounce_cooldown then -- only bounce up
             local restitution = self._scene:get_player():bounce(0, -1.3) -- experimentally determined for best game feel
             self._bounce_velocity = restitution
             self._bounce_position = restitution
             self._is_bouncing = true
+            self._bounce_cooldown = 0
         end
     end
 
     self._bounce_previous = current
+    self._bounce_cooldown = self._bounce_cooldown + delta
 
     -- bounce
     local damping = rt.settings.overworld.bounce_pad.damping
@@ -171,29 +175,19 @@ function ow.NPC:draw()
 
     local contour = self._deformable_mesh:get_contour()
 
-    love.graphics.setLineWidth(8)
+    love.graphics.setLineWidth(6)
     love.graphics.setLineJoin("bevel")
 
     rt.Palette.BLACK:bind()
-    for i = 1, #contour, 2 do
-        love.graphics.circle("fill", contour[i+0], contour[i+1], 0.5 * love.graphics.getLineWidth())
-    end
-
     love.graphics.line(contour)
 
     _mesh_shader:unbind()
 
     love.graphics.setLineWidth(4)
-    love.graphics.setColor(self._color)
+    love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1))
+    self._deformable_mesh:draw_outline()
 
-    _outline_shader:bind()
-    _outline_shader:send("player_color", color)
-    _outline_shader:send("player_position", { player_x, player_y })
-
-    love.graphics.line(contour)
-
-    _outline_shader:unbind()
-
+    love.graphics.setColor(1, 1, 1, 1)
     self._deformable_mesh:draw_highlight()
 
     love.graphics.pop() -- stretch

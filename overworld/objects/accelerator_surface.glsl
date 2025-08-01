@@ -28,7 +28,6 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
-
 vec3 random_3d(in vec3 p) {
     return fract(sin(vec3(
     dot(p, vec3(127.1, 311.7, 74.7)),
