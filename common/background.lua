@@ -75,23 +75,16 @@ function rt.Background:draw()
     end
 
     if self._shader:has_uniform(_elapsed_name) then
-        self._shader:send(_elapsed_name, self._elapsed)
+        self._shader:send(_elapsed_name, rt.SceneManager:get_elapsed())
     end
     self._shape:draw()
     self._shader:unbind()
 end
 
---- @brief
-function rt.Background:update(delta)
-    self._elapsed = self._elapsed + delta
-end
 
 --- @brief
 function rt.Background:recompile(reset_time)
     self._shader:recompile()
-    if reset_time == true then
-        self._elapsed = 0
-    end
 end
 
 --- @brief

@@ -320,14 +320,13 @@ function love.run()
         update_before = love.timer.getTime()
 
         _update_elapsed = _update_elapsed + delta
+        local before = _update_elapsed
         if _focused then
             if rt.SceneManager._use_fixed_timestep == true then
                 local n_steps = 0
                 while _update_elapsed >= _update_step do
                     love.update(_update_step)
                     _update_elapsed = _update_elapsed - _update_step
-
-                    rt.SceneManager._elapsed = rt.SceneManager._elapsed + _update_step
 
                     n_steps = n_steps + 1
                     if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
@@ -337,9 +336,11 @@ function love.run()
                 end
             else
                 love.update(delta)
-                rt.SceneManager._elapsed = rt.SceneManager._elapsed + delta
+                _update_elapsed = _update_elapsed - delta
             end
         end
+
+        rt.SceneManager._elapsed = rt.SceneManager._elapsed + (before - _update_elapsed)
         update_after = love.timer.getTime()
 
         if love.graphics and love.graphics.isActive() then
