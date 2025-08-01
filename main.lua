@@ -8,13 +8,9 @@ require "overworld.result_screen"
 local screen = ow.ResultsScreen()
 screen:realize()
 
-require "common.background"
-local background = rt.Background("hexagonal")
-
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "j" then
-        background:recompile()
     elseif which == "space"then
         screen:present(
             "1-1: Subluminalitiy",
@@ -51,9 +47,6 @@ love.load = function(args)
     local screen_w, screen_h = love.graphics.getDimensions()
     local w = screen_w * (2 / 3)
     screen:reformat(0 + screen_w - w, 0, w, screen_h)
-
-    background:realize()
-    background:reformat(0, 0, love.graphics.getDimensions())
 end
 
 love.update = function(delta)
@@ -65,8 +58,6 @@ end
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     rt.SceneManager:draw()
-
-    background:draw()
 
     --screen:draw()
 end

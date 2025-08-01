@@ -246,7 +246,6 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     float outline = smoothstep(0, 0.3, min_distance) * smoothstep(outline_thickness + eps, outline_thickness, edge_distance);
 
     // lighting: normal map from SDF gradient, light rotates in xy plane
-    vec2 uv = texture_coords;
     float attenuation = 1; //symmetric(distance(uv, center) * 2 + elapsed / 5);
 
     vec3 surface_normal = normalize(vec3(edge_gradient.xy, 1.0));
@@ -257,7 +256,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // color
     float noise = (fractal_noise(vec3(texture_coords * 1.2, 1), 4, 3, 3) + 1) / 2;
 
-    vec3 rgb = lch_to_rgb(vec3(0.8, 1, min_distance / 3 + hue + noise));
+    vec3 rgb = lch_to_rgb(vec3(0.65, 1, min_distance / 3 + hue + noise));
     rgb = mix(rgb, vec3(1), mix(0, 0.4, alignment));
     rgb = mix(rgb, vec3(0), mix(0, 0.4, gaussian(edge_distance, 4)));
     return vec4(rgb - outline, 1.0);

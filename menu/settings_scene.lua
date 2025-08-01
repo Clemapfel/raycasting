@@ -62,6 +62,8 @@ end
 
 --- @brief
 function mn.SettingsScene:instantiate()
+    self._background = rt.Background("triangle_tiling")
+
     local translation = rt.Translation.settings_scene
     
     self._option_button_control_indicator = rt.ControlIndicator(
@@ -470,7 +472,8 @@ function mn.SettingsScene:realize()
         self._verbose_info,
         self._scrollbar,
         self._item_frame,
-        self._list
+        self._list,
+        self._background
     ) do
         widget:realize()
     end
@@ -478,6 +481,8 @@ end
 
 --- @brief
 function mn.SettingsScene:size_allocate(x, y, width, height)
+    self._background:reformat(x, y, width, height)
+
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
@@ -610,6 +615,7 @@ end
 
 --- @brief
 function mn.SettingsScene:draw()
+    self._background:draw()
     self._heading_label_frame:draw()
     self._heading_label:draw()
     self._verbose_info:draw()
