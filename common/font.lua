@@ -160,6 +160,12 @@ function rt.Font:measure(font_size, str)
 end
 
 --- @brief
+function rt.Font:get_line_height(font_size)
+    meta.assert_enum_value(font_size, rt.FontSize, 1)
+    return self:get_native(font_size):getHeight()
+end
+
+--- @brief
 function rt.Font:set_line_spacing(fraction)
     self._line_spacing = fraction
 end

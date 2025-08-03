@@ -291,7 +291,7 @@ rt.Translation = rt.initialize_translation({
         control_indicator_abort = "Exit"
     },
 
-    -- stages
+    -- ## STAGES ## ---
     stages = {
         [1] = {
             id = "tutorial",

@@ -584,7 +584,6 @@ function string.paste(...)
     return table.concat(out)
 end
 
-
 --- @brief
 function string.format_time(duration)
     local hours = math.floor(duration / 3600)
