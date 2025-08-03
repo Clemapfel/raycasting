@@ -22,6 +22,7 @@ local _pulse_mesh = nil
 local _particle_texture, _particle_shader
 
 function ow.Coin.index_to_hue(i, n_coins)
+    if n_coins - 1 == 0 then return 0 end
     return (i - 1) / (n_coins - 1)
 end
 

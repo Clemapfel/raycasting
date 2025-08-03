@@ -91,6 +91,13 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+float dirac(float x) {
+    float a = 0.045 * exp(log(1.0 / 0.045 + 1.0) * x) - 0.045;
+    float b = 0.045 * exp(log(1.0 / 0.045 + 1.0) * (1.0 - x)) - 0.045;
+    const float t = 5.81894409826698685315796808094;
+    return t * min(a, b);
+}
+
 vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
 
@@ -104,10 +111,9 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
     float step_size = 1.0 / float(steps);
     bubble = floor(bubble / step_size) * step_size;
 
-    // Final grayscale value, clamp for safety
     float value = smoothstep(-0.5, 0.5, bubble);
 
-    return color * vec4(vec3(value), 1);
+    return vec4(vec3(mix(vec3(0), color.rgb, value)), 1);
 }
 
 #endif

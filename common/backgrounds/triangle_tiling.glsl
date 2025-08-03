@@ -241,9 +241,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     triangle_tiling(texture_coords * 10 + elapsed / 9, hue, min_distance, edge_distance, edge_gradient);
 
     // outline
-    float outline_thickness = 5 / love_ScreenSize.y; // tweakable, try 0.015-0.04
+    float outline_thickness = 300 / love_ScreenSize.y * pow(edge_distance, 2); // tweakable, try 0.015-0.04
     float eps = 0.01;
-    float outline = smoothstep(0, 0.3, min_distance) * smoothstep(outline_thickness + eps, outline_thickness, edge_distance);
+    float outline = smoothstep(outline_thickness + eps, outline_thickness, edge_distance);
 
     // lighting: normal map from SDF gradient, light rotates in xy plane
     float attenuation = 1; //symmetric(distance(uv, center) * 2 + elapsed / 5);
@@ -256,8 +256,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // color
     float noise = (fractal_noise(vec3(texture_coords * 1.2, 1), 4, 3, 3) + 1) / 2;
 
-    vec3 rgb = lch_to_rgb(vec3(0.65, 1, min_distance / 3 + hue + noise));
-    rgb = mix(rgb, vec3(1), mix(0, 0.4, alignment));
-    rgb = mix(rgb, vec3(0), mix(0, 0.4, gaussian(edge_distance, 4)));
-    return vec4(rgb - outline, 1.0);
+    vec3 rgb = lch_to_rgb(vec3(0.8, 1, min_distance / 3 + hue + noise));
+    //rgb = mix(rgb, vec3(1), mix(0, 0.4, alignment));
+    //rgb = mix(rgb, vec3(0), mix(0, 0.4, gaussian(edge_distance, 4)));
+    return vec4(rgb - (1 - outline), 1.0);
 }

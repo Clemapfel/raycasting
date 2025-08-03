@@ -121,7 +121,7 @@ function ow.Hitbox:reinitialize()
     _slippery_tris = {}
     _slippery_lines = {}
 
-    if _slippery_mesh ~= nil then
+    if #_slippery_tris > 0 then
         _slippery_mesh:release()
     end
     _slippery_mesh = nil
@@ -129,7 +129,7 @@ function ow.Hitbox:reinitialize()
     _sticky_tris = {}
     _sticky_lines = {}
 
-    if _sticky_mesh ~= nil then
+    if #_sticky_tris > 0 then
         _sticky_mesh:release()
     end
     _sticky_mesh = nil
@@ -147,7 +147,7 @@ local _initialize = function()
         local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
         local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
 
-        if table.sizeof(_sticky_tris) > 0 then
+        if #_sticky_tris > 0 then
             local sticky_data = {}
             for tri in values(_sticky_tris) do
                 table.insert(sticky_data, { tri[1], tri[2] })
@@ -161,7 +161,7 @@ local _initialize = function()
             _sticky_mesh = love.graphics.newMesh(format, sticky_data, mode, usage)
         end
 
-        if table.sizeof(_slippery_tris) > 0 then
+        if #_slippery_tris > 0 then
             local slippery_data = {}
             for tri in values(_slippery_tris) do
                 table.insert(slippery_data, { tri[1], tri[2] })
@@ -175,8 +175,10 @@ local _initialize = function()
             _slippery_mesh = love.graphics.newMesh(format, slippery_data, mode, usage)
         end
 
-        _initialized = true
+        _initialized = #_sticky_tris > 0 or #_slippery_tris > 0
     end
+
+    return _initialized
 end
 
 --- @brief
@@ -186,39 +188,53 @@ end
 
 --- @brief
 function ow.Hitbox:draw_base()
-    _initialize()
+    if not _initialize() then return end
 
-    rt.Palette.SLIPPERY:bind()
-    love.graphics.draw(_slippery_mesh)
+    if #_slippery_tris > 0 then
+        rt.Palette.SLIPPERY:bind()
+        love.graphics.draw(_slippery_mesh)
+    end
 
-    rt.Palette.STICKY:bind()
-    love.graphics.draw(_sticky_mesh)
+    if #_sticky_tris > 0 then
+        rt.Palette.STICKY:bind()
+        love.graphics.draw(_sticky_mesh)
+    end
 end
 
 --- @brief
 function ow.Hitbox:draw_outline()
-    _initialize()
+    if not _initialize() then return end
 
     love.graphics.setLineWidth(3)
+    love.graphics.setLineJoin("bevel")
 
-    for lines_mesh_color in range(
-        {_slippery_lines, _slippery_mesh, rt.Palette.SLIPPERY_OUTLINE},
-        {_sticky_lines, _sticky_mesh, rt.Palette.STICKY_OUTLINE}
-    ) do
-        local lines, mesh, color = table.unpack(lines_mesh_color)
+    local to_iterate = {}
 
-        local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-        love.graphics.draw(mesh)
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-
-        color:bind()
-        for line in values(lines) do
-            love.graphics.line(line)
-        end
-
-        rt.graphics.set_stencil_mode(nil)
+    if #_slippery_tris > 0 then
+        table.insert(to_iterate, {_slippery_lines, _slippery_mesh, rt.Palette.SLIPPERY_OUTLINE})
     end
+
+    if #_slippery_tris > 0 then
+        table.insert(to_iterate,  {_sticky_lines, _sticky_mesh, rt.Palette.STICKY_OUTLINE})
+    end
+
+    for lines_mesh_color in values(to_iterate) do
+        local lines, mesh, color = table.unpack(lines_mesh_color)
+        if mesh ~= nil then
+            local stencil_value = rt.graphics.get_stencil_value()
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+            love.graphics.draw(mesh)
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+            color:bind()
+            for line in values(lines) do
+                love.graphics.line(line)
+            end
+
+        end
+    end
+
+    rt.graphics.set_stencil_mode(nil)
 end
 
 --- @brief
@@ -226,14 +242,14 @@ function ow.Hitbox:draw_mask(sticky, slippery)
     if sticky == nil then sticky = true end
     if slippery == nil then slippery = true end
 
-    _initialize()
+    if not _initialize() then return end
 
     love.graphics.setColor(1, 1, 1, 1)
-    if slippery == true and _slippery_mesh ~= nil then
+    if slippery == true and #_slippery_tris > 0 then
         love.graphics.draw(_slippery_mesh)
     end
 
-    if sticky == true and _sticky_mesh ~= nil then
+    if sticky == true and #_sticky_tris > 0 then
         love.graphics.draw(_sticky_mesh)
     end
 end

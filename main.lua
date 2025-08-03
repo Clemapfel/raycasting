@@ -11,7 +11,9 @@ screen:realize()
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "j" then
+        --background:recompile()
     elseif which == "space"then
+        --[[
         screen:present(
             "1-1: Subluminalitiy",
             123, -- time
@@ -22,6 +24,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
             rt.StageGrade.B,
             rt.StageGrade.NONE
         )
+        ]]--
     elseif which == "b" then
         screen:close()
     end
@@ -30,7 +33,7 @@ end)
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "level_01", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -47,19 +50,16 @@ love.load = function(args)
     local screen_w, screen_h = love.graphics.getDimensions()
     local w = screen_w * (2 / 3)
     screen:reformat(0 + screen_w - w, 0, w, screen_h)
+
 end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
-
-    --screen:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     rt.SceneManager:draw()
-
-    --screen:draw()
 end
 
 love.resize = function(width, height)

@@ -635,10 +635,10 @@ function ow.OverworldScene:draw()
     if opacity > 0 then
         if self._player:get_is_bubble() then
             self._bubble_control_indicator:set_opacity(opacity)
-            --self._bubble_control_indicator:draw()
+            self._bubble_control_indicator:draw()
         else
             self._non_bubble_control_indicator:set_opacity(opacity)
-            --self._non_bubble_control_indicator:draw()
+            self._non_bubble_control_indicator:draw()
         end
     end
 

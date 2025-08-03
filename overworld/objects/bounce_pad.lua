@@ -1,6 +1,8 @@
 require "common.contour"
 
 rt.settings.overworld.bounce_pad = {
+    line_width = 5,
+
     -- bounce animation
     bounce_max_offset = rt.settings.player.radius * 0.7, -- in px
     bounce_min_magnitude = 10,
@@ -335,13 +337,14 @@ function ow.BouncePad:draw()
     love.graphics.draw(self._shape_mesh:get_native())
     _shape_shader:unbind()
 
-    love.graphics.setLineWidth(7)
+    local line_width = rt.settings.overworld.bounce_pad.line_width
+    love.graphics.setLineWidth(line_width)
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")
     rt.Palette.BLACK:bind()
     love.graphics.line(self._draw_contour)
     local r, g, b = table.unpack(self._draw_outer_color)
     love.graphics.setColor(r, g, b, 1)
-    love.graphics.setLineWidth(7-2)
+    love.graphics.setLineWidth(line_width - 2)
     love.graphics.line(self._draw_contour)
 end
