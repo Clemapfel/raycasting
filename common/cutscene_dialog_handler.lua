@@ -26,12 +26,13 @@ function rt.DialogHandler:instantiate()
     self._frame = rt.Frame()
     self._speaker_frame = rt.Frame()
     self._portrait_frame = rt.Frame()
+    self._choice_frame = rt.Frame()
 
     self._text_stencil = rt.AABB()
     self._tree = {}
     
     self._is_waiting_for_advance = true
-    self._should_auto_advance = true
+    self._should_auto_advance = false
 
     self._advance_indicator = {} -- love.Polygon
     self._advance_indicator_max_offset = 1
@@ -86,12 +87,21 @@ function rt.DialogHandler:create_from(tree_id)
 
     local speaker_prefix = "<b>"
     local speaker_postfix = "</b>"
+
     self._entries = {}
 
     for id, node in pairs(tree) do
-        if node[next_key] ~= nil then
-            if seen_nodes[node.next] == nil then
-                rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "." .. next_key .. "` points to id `" .. id .. "`, but it is not present in tree")
+        if node.next ~= nil then
+            if meta.is_table(node.next) then
+                for pair in values(node.next) do
+                    if seen_nodes[pair[2]] == nil then
+                        rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "` points to id `" .. pair[2] .. "`, but it is not present in tree")
+                    end
+                end
+            else
+                if seen_nodes[node.next] == nil then
+                    rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "` points to id `" .. node.next.. "`, but it is not present in tree")
+                end
             end
         end
 
@@ -139,6 +149,47 @@ function rt.DialogHandler:create_from(tree_id)
             entry.orientation = _orientation_left
         end
 
+        entry.has_choices = meta.is_table(node.next)
+        if entry.has_choices then
+            entry.choices_frame_aabb = rt.AABB()
+            entry.choices = {}
+
+            local choice_i = 1
+            for pair in values(node.next) do
+                local answer, next = table.unpack(pair)
+                if not meta.is_string(answer) then
+                    rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. ".next` is a choice, but answer at `" .. choice_i .. "` is not a table of the form `{ \"answer\", 1 }`")
+                end
+
+                -- format, unless formatting already present
+                local highlight_answer = answer
+                if not string.find(answer, "<b>") then
+                    highlight_answer = "<b>" .. highlight_answer .. "</b>"
+                end
+
+                if not string.find(answer, "<color>") then
+                    highlight_answer = "<color=SELECTION>" .. highlight_answer .. "</color>"
+                end
+
+                local highlight = _new_label(highlight_answer)
+                local no_highlight =  _new_label(answer)
+
+                for label in range(highlight, no_highlight) do
+                    label:realize()
+                end
+
+                table.insert(entry.choices, {
+                    label_no_highlight = highlight,
+                    label_highlight = no_highlight,
+                    next = next -- later replaced
+                })
+
+                choice_i = choice_i + 1
+            end
+        else
+            entry.next = node.next -- later replace by proper entry instead of id
+        end
+
         -- labels
         entry.labels = {}
 
@@ -153,17 +204,34 @@ function rt.DialogHandler:create_from(tree_id)
             text_i = text_i + 1
             text = node[text_i]
         end
-
-        entry.next = nil
     end
 
     -- connect nodes
     for entry in values(self._entries) do
-        local next = self._entries[entry.node.next]
-        entry.next = next
+        if entry.has_choices then
+            local choice_i = 1
+            for choice_entry in values(entry.choices) do
+                if choice_entry.next ~= nil then
+                    local next = self._entries[choice_entry.next]
+                    if next == nil then
+                        rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. entry.id .. ".choices[" .. choice_i .. "]` has `" .. choice_entry.next .. "` as next, which does not point to a valid node")
+                    end
 
-        if next ~= nil then
-            can_be_visited[next.id] = true
+                    choice_entry.next = next
+                    can_be_visited[next.id] = true
+                end
+
+                choice_i = choice_i + 1
+            end
+        else
+            if entry.next ~= nil then
+                local next = self._entries[entry.next]
+                if next == nil then
+                    rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. entry.id .. ".next` has `" .. entry.next .. "`as next, which does not point to a valid node")
+                end
+                entry.next = next
+                can_be_visited[next.id] = true
+            end
         end
     end
 
@@ -265,6 +333,54 @@ function rt.DialogHandler:reformat(x, y, width, height)
             )
         end
 
+        if entry.has_choices then
+            local max_w, max_h = -math.huge, -math.huge
+            local total_h = 0
+            for choice_entry in values(entry.choices) do
+                local highlight_w, highlight_h = choice_entry.label_highlight:measure()
+                local no_highlight_w, no_highlight_h = choice_entry.label_no_highlight:measure()
+                max_w = math.max(max_w, no_highlight_w, highlight_h)
+                max_h = math.max(max_h, no_highlight_h, highlight_h)
+                total_h = total_h + math.max(no_highlight_h, highlight_h)
+            end
+
+            local choice_w = max_w + 2 * m
+            local choice_h = total_h + 2 * m
+            local choice_y = frame_y - m - choice_h
+            local choice_x
+            if entry.has_speaker and entry.orientation == _orientation_left then
+                choice_x = frame_x + frame_w - m - choice_w
+            else
+                choice_x = frame_x + m
+            end
+
+            entry.choices_frame_aabb:reformat(
+                choice_x, choice_y,
+                choice_w, choice_h
+            )
+
+            local choice_label_y = choice_y + m
+            local choice_label_x = choice_x + m
+            for choice_entry in values(entry.choices) do
+                local highlight_w, highlight_h = choice_entry.label_highlight:measure()
+                local no_highlight_w, no_highlight_h = choice_entry.label_no_highlight:measure()
+
+                choice_entry.label_highlight:reformat(
+                    choice_label_x,
+                    choice_label_y + 0.5 * max_h - 0.5 * highlight_h,
+                    math.huge
+                )
+
+                choice_entry.label_no_highlight:reformat(
+                    choice_label_x,
+                    choice_label_y + 0.5 * max_h - 0.5 * no_highlight_h,
+                    math.huge
+                )
+
+                choice_label_y = choice_label_y + max_h
+            end
+        end
+
         -- reformat labels
         local label_x = frame_x + 2 * m
         local label_y = frame_y + m
@@ -302,6 +418,10 @@ function rt.DialogHandler:_set_active_entry(entry)
             self._portrait_frame:reformat(entry.portrait_frame_aabb)
             self._speaker_frame:reformat(entry.speaker_frame_aabb)
         end
+
+        if entry.has_choices then
+            self._choice_frame:reformat(entry.choices_frame_aabb)
+        end
     end
 end
 
@@ -316,6 +436,13 @@ function rt.DialogHandler:draw()
         self._portrait_frame:draw()
         self._speaker_frame:draw()
         entry.speaker_label:draw()
+    end
+
+    if self._is_waiting_for_advance and entry.has_choices then
+        self._choice_frame:draw()
+        for choice_entry in values(self._active_entry.choices) do
+            choice_entry.label_highlight:draw()
+        end
     end
 
     local value = rt.graphics.get_stencil_value()

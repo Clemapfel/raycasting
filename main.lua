@@ -19,16 +19,15 @@ handler:create_from({
         "I am testing debug dialog, it has <b><wave><rainbow>fancy formatting</rainbow></wave></b>, too.",
     },
 
-
     [2] = {
         speaker = "Other Speaker",
         orientation = "right",
 
-        "Are you <i>sure</i> this is the best way to implement it? It feels like you're just copying Mystery Dungeon."
+        "Are you <i>sure</i> this is the best way to implement it? It feels like you're just copying Mystery Dungeon.",
 
         next = {
-            ["yes"] = 3,
-            ["no"] = 3
+            { "yes", 3 },
+            { "no", 3 }
         }
     },
 
