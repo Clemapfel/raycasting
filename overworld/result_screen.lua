@@ -3,6 +3,8 @@ require "common.timed_animation_chain"
 --- @class ow.ResultScreen
 ow.ResultsScreen = meta.class("ResultScreen", rt.Widget)
 
+local _shader
+
 --- @param t Number [0, n-1]
 --- @param ... rt.AABB n aabbs
 local _lerp_aabbs = function(t, frames)
@@ -25,21 +27,25 @@ end
 
 --- @brief
 function ow.ResultsScreen:instantiate()
-    local new_animation = function(duration)
-        return
-    end
+    if _shader == nil then _shader = rt.Shader("overworld/result_screen.glsl") end
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "j" then _shader:recompile() end
+        self._sequence:reset()
+    end)
 
     self._sequence = rt.TimedAnimationChain(
         rt.TimedAnimation( -- upwards
             1,    -- duration
             1, 2, -- aabb lerp t
-            rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION
+            rt.InterpolationFunctions.SINUSOID_EASE_OUT
         ),
 
         rt.TimedAnimation(
             1,
             2, 3,
-            rt.InterpolationFunctions.SIGMOID
+            rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
         ),
 
         rt.TimedAnimation(
@@ -63,7 +69,7 @@ end
 
 --- @brief
 function ow.ResultsScreen:size_allocate(x, y, width, height)
-    local m = 30 * rt.get_pixel_scale()
+    local m = 100 * rt.get_pixel_scale()
     local w = (width - 2 * m) / 2
     local h = (height - 2 * m)
     local expand_w = 0.5 * width -- TODO
@@ -74,14 +80,14 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
             x + 0.5 * width - m,
             y + height,
             2 * m,
-            height + 1 * m
+            height + 2 * m
         ),
 
         rt.AABB( -- upwards
             x + 0.5 * width - m,
-            y,
+            y - m,
             2 * m,
-            height + 1 * m
+            height + 2 * m
         ),
 
         rt.AABB( -- expand
@@ -105,7 +111,11 @@ end
 --- @brief
 function ow.ResultsScreen:draw()
     love.graphics.setColor(1, 1, 1, 1)
+
+    _shader:bind()
+    _shader:send("elapsde", rt.SceneManager:get_elapsed())
     self._mesh:draw()
+    _shader:unbind()
 
     love.graphics.setColor(1, 0, 1, 1)
     if self._dbg ~= nil then
