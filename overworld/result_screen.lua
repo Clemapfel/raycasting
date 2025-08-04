@@ -35,7 +35,7 @@ function ow.ResultsScreen:instantiate()
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "j" then _shader:recompile() end
-        --self._sequence:reset()
+        self._sequence:reset()
     end)
 
     self._sequence = rt.TimedAnimationChain(

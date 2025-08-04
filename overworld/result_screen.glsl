@@ -87,26 +87,28 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
     vec2 uv = texture_coords;
     float line_width = 30 / love_ScreenSize.x;
 
-    float sign = vertex_position.x >= 0.5 * love_ScreenSize.x ? -1 : 1;
+    float sign = vertex_position.x >= 0.5 * love_ScreenSize.x ? 1 : -1;
     float texture_noise = fractal_noise(
     vec3(0, vec2(1, 2) * (vertex_position.xy / love_ScreenSize.xy + sign * vec2(elapsed / 10, 0))),
-        4, // octaves
-        1, // amplitude
-        2  // frequency
+    4, // octaves
+    1, // amplitude
+    2  // frequency
     );
 
     float dist = distance(uv.xy, vec2(0 + texture_noise));
     float gradient = gaussian(dist, 1 - 0.15);
 
     float base_mask = clamp(
-        gaussian(distance(uv.x + texture_noise, 0), 3) +
-        gaussian(length(uv) * gradient, 2)
+    gaussian(distance(uv.x + texture_noise, 0), 3) +
+    gaussian(length(uv + texture_noise), 1)
     , 0, 1);
 
-    float eps = 0.5;
-    float line_mask = 1 - base_mask;
-    vec3 rainbow = lch_to_rgb(vec3(0.8, 1, uv.y));
-    return vec4(vec3(mix(black.rgb, rainbow, 1 - base_mask)), base_mask);
+    float line_mask = smoothstep(1, 1 - 0.25, length(uv + texture_noise ));
+    line_mask -= base_mask;
+    line_mask -= gaussian(distance(vertex_position.x / love_ScreenSize.x, 0.5), 20);
+
+    vec3 rainbow = lch_to_rgb(vec3(0.8, 1, (vertex_position.y / love_ScreenSize.xy)));
+    return vec4(vec3(rainbow * line_mask), line_mask);
 }
 
 #endif
