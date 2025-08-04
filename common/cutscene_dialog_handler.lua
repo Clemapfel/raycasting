@@ -10,7 +10,9 @@ rt.settings.dialog_handler = {
     n_lines = 3,
     font_size = rt.FontSize.REGULAR,
     font = rt.settings.font.default,
-    portrait_size = 40
+    portrait_size = 100,
+
+    scroll_speed_speedup = 2, -- fraction
 }
 
 -- @brief rt.DialogHandler
@@ -20,22 +22,25 @@ rt.DialogHandler = meta.class("CutsceneDialogHandler", rt.Widget)
 meta.add_signals(rt.DialogHandler, "choice", "done")
 
 --[[
-[1] = {
-    speaker : String?
-    orientation : < "left" | "right" >?
+dialog_handler:create_from({
+    [1] = { -- node at [1] is required, designates starting node
+        speaker : String?
+        orientation : < "left" | "right" >?
 
-    [1] = "first line",
-    [2] = "second line",
+        [1] = "first line",
+        [2] = "second line",
 
-    next = Any? -- id for next node, nil for end of dialog
-    next = {    -- or table for choice menu
-        { "answer 01", 1 },
-        { "answer 02", "other_id" }
+        next = Any? -- id for next node, nil for end of dialog
+        next = {    -- or table for choice menu
+            { "answer 01", 1 },
+            { "answer 02", "other_id" }
+        }
+    },
+
+    ["other_id"] = {
+        "other line"
+        -- ...
     }
-},
-
-["other_id"] = {
-    -- ...
 }
 ]]--
 
@@ -46,11 +51,14 @@ function rt.DialogHandler:instantiate()
     self._portrait_frame = rt.Frame()
     self._choice_frame = rt.Frame()
 
+    self._frame:set_use_shader(true)
+
     self._text_stencil = rt.AABB()
     self._tree = {}
     
     self._is_waiting_for_advance = false
-    self._should_auto_advance = false
+    self._a_button_is_down = false
+    self._b_button_is_down = false
 
     self._advance_indicator = {} -- love.Polygon
     self._advance_indicator_max_offset = 1
@@ -65,6 +73,10 @@ function rt.DialogHandler:instantiate()
     self._entries = {}
     self._active_entry = nil
     self._entry_y_offset = 0
+
+    self._portrait_canvas = nil -- rt.RenderTexture
+    self._portrait_x = 0
+    self._portrait_y = 0
 end
 
 local _orientation_left = true
@@ -335,6 +347,8 @@ function rt.DialogHandler:size_allocate(x, y, width, height)
         table.insert(self._choice_indicator, choice_indicator_y + math.sin(angle + choice_angle_offset) * choice_indicator_radius)
     end
 
+    self._portrait_canvas = rt.RenderTexture(portrait_w, portrait_h)
+
     self:_reformat_entries()
 end
 
@@ -368,7 +382,7 @@ function rt.DialogHandler:_reformat_entries()
         -- reformat speaker / portrait bounds
         if entry.has_speaker then
             local speaker_w, speaker_h = entry.speaker_label:measure()
-            local speaker_frame_w = speaker_w + 2 * m
+            local speaker_frame_w = speaker_w + 3 * m
             local speaker_frame_h = line_height + 2 * 0.5 * m
             local speaker_frame_y = frame_y - 3 * m + thickness
 
@@ -483,7 +497,9 @@ function rt.DialogHandler:_set_active_entry(entry)
         end
 
         if entry.has_speaker then
-            self._portrait_frame:reformat(entry.portrait_frame_aabb)
+            local portrait = entry.portrait_frame_aabb
+            self._portrait_frame:reformat(portrait)
+            self._portrait_x, self._portrait_y = portrait.x, portrait.y
             self._speaker_frame:reformat(entry.speaker_frame_aabb)
         end
 
@@ -499,9 +515,12 @@ function rt.DialogHandler:draw()
     if entry == nil then return end
 
     self._frame:draw()
-
     if entry.has_speaker then
         self._portrait_frame:draw()
+        self._portrait_frame:bind_stencil()
+        self._portrait_canvas:draw(self._portrait_x, self._portrait_y)
+        self._portrait_frame:unbind_stencil()
+
         self._speaker_frame:draw()
         entry.speaker_label:draw()
     end
@@ -538,7 +557,6 @@ function rt.DialogHandler:draw()
     love.graphics.translate(0, self._entry_y_offset)
     for label in values(entry.labels) do
         label:draw()
-        label:draw_bounds()
     end
     love.graphics.pop()
 
@@ -637,7 +655,16 @@ function rt.DialogHandler:update(delta)
                 n_lines_visible = n_lines_visible + label:get_n_lines()
             else
                 label.dialog_handler_elapsed = label.dialog_handler_elapsed + delta
-                local is_done, new_n_lines, _ = label:update_n_visible_characters_from_elapsed(label.dialog_handler_elapsed)
+
+                local speed = rt.settings.label.scroll_speed * rt.GameState:get_text_speed()
+                if self._a_button_is_down or self._b_button_is_down then
+                    speed = speed * rt.settings.dialog_handler.scroll_speed_speedup
+                end
+
+                local is_done, new_n_lines, _ = label:update_n_visible_characters_from_elapsed(
+                    label.dialog_handler_elapsed, speed
+                )
+
                 n_lines_visible = n_lines_visible + new_n_lines
                 label.dialog_handler_is_done = is_done
             end
@@ -661,7 +688,7 @@ end
 --- @brief
 function rt.DialogHandler:handle_button_pressed(button)
     if self._active_entry == nil then return end
-    if button == rt.InputAction.JUMP then
+    if button == rt.InputAction.CONFIRM then
         if self._is_waiting_for_advance then
             self:advance()
         else
@@ -676,6 +703,10 @@ function rt.DialogHandler:handle_button_pressed(button)
             end
             self:update(0) -- update y_offset
         end
+
+        self._a_button_is_down = true
+    elseif button == rt.InputAction.BACK then
+        self._b_button_is_down = true
     elseif button == rt.InputAction.UP then
         if self._active_entry.has_choices and self._choice_index > 1 then
             self._choice_index = self._choice_index - 1
@@ -690,28 +721,14 @@ end
 --- @brief
 function rt.DialogHandler:handle_button_released(button)
     if self._active_entry == nil then return end
-    if button == rt.InputAction.JUMP then
-        if self._is_waiting_for_advance then
-            self:advance()
-        else
-            -- scroll next label
-            for label in values(self._active_entry.labels) do
-                if label.dialog_handler_is_done ~= true then
-                    label.dialog_handler_is_done = true
-                    label.dialog_handler_elapsed = math.huge
-                    label:set_n_visible_characters(math.huge)
-                    break
-                end
-            end
-            self:update(0) -- update y_offset
-        end
-    elseif button == rt.InputAction.UP then
-        if self._active_entry.has_choices and self._choice_index > 1 then
-            self._choice_index = self._choice_index - 1
-        end
-    elseif button == rt.InputAction.DOWN then
-        if self._active_entry.has_choices and self._choice_index < #(self._active_entry.choices) then
-            self._choice_index = self._choice_index + 1
-        end
+    if button == rt.InputAction.CONFIRM then
+        self._a_button_is_down = false
+    elseif button == rt.InputAction.BACK then
+        self._b_button_is_down = false
     end
+end
+
+--- @brief
+function rt.DialogHandler:get_portrait_canvas()
+    return self._portrait_canvas
 end

@@ -56,7 +56,6 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "j" then
         --background:recompile()
     elseif which == "space"then
-        --[[
         screen:present(
             "1-1: Subluminalitiy",
             123, -- time
@@ -67,7 +66,6 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
             rt.StageGrade.B,
             rt.StageGrade.NONE
         )
-        ]]--
     elseif which == "b" then
         screen:close()
     end
@@ -109,15 +107,14 @@ end
 love.update = function(delta)
     rt.SceneManager:update(delta)
 
-    handler:update(delta)
+    screen:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     --rt.SceneManager:draw()
 
-    handler:draw()
-    handler:draw_bounds()
+    screen:draw()
 end
 
 love.resize = function(width, height)
