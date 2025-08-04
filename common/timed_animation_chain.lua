@@ -150,7 +150,7 @@ function rt.TimedAnimationChain:set_fraction(f)
 end
 
 --- @brief Get the currently active animation
-function rt.TimedAnimationChain:get_current_animation()
+function rt.TimedAnimationChain:get_animation()
     if self._current_animation_index <= #self._animations then
         return self._animations[self._current_animation_index]
     end
@@ -158,6 +158,6 @@ function rt.TimedAnimationChain:get_current_animation()
 end
 
 --- @brief Get the index of the currently active animation
-function rt.TimedAnimationChain:get_current_animation_index()
+function rt.TimedAnimationChain:get_animation_index()
     return self._current_animation_index
 end

@@ -27,12 +27,15 @@ end
 
 --- @brief
 function ow.ResultsScreen:instantiate()
-    if _shader == nil then _shader = rt.Shader("overworld/result_screen.glsl") end
+    if _shader == nil then
+        _shader = rt.Shader("overworld/result_screen.glsl")
+        _shader:send("black", { rt.Palette.GRAY:unpack() })
+    end
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "j" then _shader:recompile() end
-        self._sequence:reset()
+        --self._sequence:reset()
     end)
 
     self._sequence = rt.TimedAnimationChain(
@@ -60,7 +63,9 @@ end
 
 --- @brief
 function ow.ResultsScreen:update(delta)
-    self._sequence:update(delta)
+    if self._sequence:get_animation_index() < 3 then
+        self._sequence:update(delta)
+    end
     local t = self._sequence:get_value()
     local x, y, w, h = _lerp_aabbs(t, self._frames)
     self._dbg = rt.AABB(x, y, w, h)
@@ -113,7 +118,8 @@ function ow.ResultsScreen:draw()
     love.graphics.setColor(1, 1, 1, 1)
 
     _shader:bind()
-    _shader:send("elapsde", rt.SceneManager:get_elapsed())
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("black", { rt.Palette.GRAY:unpack() })
     self._mesh:draw()
     _shader:unbind()
 
