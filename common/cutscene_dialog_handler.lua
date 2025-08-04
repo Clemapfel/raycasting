@@ -3,13 +3,8 @@ require "common.stencil"
 require "common.frame"
 
 rt.settings.dialog_handler = {
-    -- node keys
-    speaker = "speaker",
-    speaker_orientation = "orientation",
     speaker_orientation_left = "left",
     speaker_orientation_right = "right",
-    next = "next",
-    text = "text",
 
     -- formatting
     n_lines = 3,
@@ -21,6 +16,29 @@ rt.settings.dialog_handler = {
 -- @brief rt.DialogHandler
 rt.DialogHandler = meta.class("CutsceneDialogHandler", rt.Widget)
 
+--- @signal choice (self,
+meta.add_signals(rt.DialogHandler, "choice", "done")
+
+--[[
+[1] = {
+    speaker : String?
+    orientation : < "left" | "right" >?
+
+    [1] = "first line",
+    [2] = "second line",
+
+    next = Any? -- id for next node, nil for end of dialog
+    next = {    -- or table for choice menu
+        { "answer 01", 1 },
+        { "answer 02", "other_id" }
+    }
+},
+
+["other_id"] = {
+    -- ...
+}
+]]--
+
 --- @brief
 function rt.DialogHandler:instantiate()
     self._frame = rt.Frame()
@@ -31,14 +49,19 @@ function rt.DialogHandler:instantiate()
     self._text_stencil = rt.AABB()
     self._tree = {}
     
-    self._is_waiting_for_advance = true
+    self._is_waiting_for_advance = false
     self._should_auto_advance = false
 
     self._advance_indicator = {} -- love.Polygon
     self._advance_indicator_max_offset = 1
     self._advance_indicator_y_offset = 0
     self._advance_indicator_elapsed = 0
-    
+
+    self._choice_index = 1
+    self._choice_indicator = {} -- love.Polygon
+    self._choice_indicator_x = 0
+    self._choice_indicator_y = 0
+
     self._entries = {}
     self._active_entry = nil
     self._entry_y_offset = 0
@@ -71,11 +94,8 @@ function rt.DialogHandler:create_from(tree_id)
     end
 
     local settings = rt.settings.dialog_handler
-    local speaker_key = settings.speaker
-    local orientation_key = settings.speaker_orientation
     local orientation_left = settings.speaker_orientation_left
     local orientation_right = settings.speaker_orientation_right
-    local next_key = settings.next
 
     -- validate `next` points to valid node or nil
     local seen_nodes = {}
@@ -117,13 +137,13 @@ function rt.DialogHandler:create_from(tree_id)
         entry.id = id
 
         -- speaker
-        local speaker = node[speaker_key]
-        local orientation = node[orientation_key]
+        local speaker = node.speaker
+        local orientation = node.orientation
 
         entry.has_speaker = speaker ~= nil
         if entry.has_speaker then
             local text = speaker
-            if not string.find(text, "<b>") then
+            if not string.contains(text, "<b>") then
                 text = speaker_prefix .. speaker .. speaker_postfix
             end
             entry.speaker_label = _new_label(text)
@@ -137,7 +157,7 @@ function rt.DialogHandler:create_from(tree_id)
 
         if orientation ~= nil then
             if not (orientation == orientation_left or orientation == orientation_right) then
-                rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "`." .. orientation_key .. "` is not `" .. orientation_left .. "` or `" .. orientation_right .. "`")
+                rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "`.orientation` is not `" .. orientation_left .. "` or `" .. orientation_right .. "`")
             end
 
             if orientation == orientation_left then
@@ -163,11 +183,11 @@ function rt.DialogHandler:create_from(tree_id)
 
                 -- format, unless formatting already present
                 local highlight_answer = answer
-                if not string.find(answer, "<b>") then
+                if not string.contains(answer, "<b>") then
                     highlight_answer = "<b>" .. highlight_answer .. "</b>"
                 end
 
-                if not string.find(answer, "<color>") then
+                if not string.contains(answer, "<color>") then
                     highlight_answer = "<color=SELECTION>" .. highlight_answer .. "</color>"
                 end
 
@@ -179,8 +199,9 @@ function rt.DialogHandler:create_from(tree_id)
                 end
 
                 table.insert(entry.choices, {
-                    label_no_highlight = highlight,
-                    label_highlight = no_highlight,
+                    label_no_highlight = no_highlight,
+                    label_highlight = highlight,
+                    text = answer,
                     next = next -- later replaced
                 })
 
@@ -247,7 +268,7 @@ function rt.DialogHandler:create_from(tree_id)
     end
 
     if self:get_is_realized() then
-        self:reformat()
+        self:_reformat_entries()
     end
 end
 
@@ -265,7 +286,7 @@ function rt.DialogHandler:realize()
 end
 
 --- @brief
-function rt.DialogHandler:reformat(x, y, width, height)
+function rt.DialogHandler:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
 
@@ -291,6 +312,56 @@ function rt.DialogHandler:reformat(x, y, width, height)
         area_w,
         area_h
     )
+
+    -- indicator
+    local advance_indicator_radius = m
+    self._advance_indicator_max_offset = advance_indicator_radius
+    local advance_indicator_x = frame_x + 0.5 * frame_w
+    local advance_indicator_y = frame_y + frame_h
+    self._advance_indicator = {}
+
+    local choice_indicator_radius = advance_indicator_radius / math.sqrt(2)
+    local choice_indicator_x = choice_indicator_radius
+    local choice_indicator_y = choice_indicator_radius
+    self._choice_indicator = {}
+
+    local advance_angle_offset = (2 * math.pi) / 4
+    local choice_angle_offset = 0
+    for angle = 0, 2 * math.pi, (2 * math.pi) / 3 do
+        table.insert(self._advance_indicator, advance_indicator_x + math.cos(angle + advance_angle_offset) * advance_indicator_radius)
+        table.insert(self._advance_indicator, advance_indicator_y + math.sin(angle + advance_angle_offset) * advance_indicator_radius)
+
+        table.insert(self._choice_indicator, choice_indicator_x + math.cos(angle + choice_angle_offset) * choice_indicator_radius)
+        table.insert(self._choice_indicator, choice_indicator_y + math.sin(angle + choice_angle_offset) * choice_indicator_radius)
+    end
+
+    self:_reformat_entries()
+end
+
+--- @brief
+function rt.DialogHandler:_reformat_entries()
+    local x, y, width, height = self:get_bounds():unpack()
+    local m = rt.settings.margin_unit
+    local outer_margin = 2 * m
+
+    local settings = rt.settings.dialog_handler
+    local max_n_lines = settings.n_lines
+    local line_height = settings.font:get_line_height(settings.font_size)
+
+    local frame_w = width - 2 * outer_margin
+    local frame_h = max_n_lines * line_height + 2 * m
+    local frame_x = x + outer_margin
+    local frame_y = y + height - outer_margin - frame_h
+    self._frame:reformat(frame_x, frame_y, frame_w, frame_h)
+
+    local area_w = frame_w - 4 * m
+    local area_h = frame_h - 2 * m
+
+    local portrait_w = settings.portrait_size * rt.get_pixel_scale()
+    local portrait_h = portrait_w
+
+    local advance_indicator_radius = m
+    local choice_indicator_radius = advance_indicator_radius / math.sqrt(2)
 
     local thickness = self._speaker_frame:get_thickness()
     for entry in values(self._entries) do
@@ -339,10 +410,12 @@ function rt.DialogHandler:reformat(x, y, width, height)
             for choice_entry in values(entry.choices) do
                 local highlight_w, highlight_h = choice_entry.label_highlight:measure()
                 local no_highlight_w, no_highlight_h = choice_entry.label_no_highlight:measure()
-                max_w = math.max(max_w, no_highlight_w, highlight_h)
+                max_w = math.max(max_w, no_highlight_w, highlight_w)
                 max_h = math.max(max_h, no_highlight_h, highlight_h)
                 total_h = total_h + math.max(no_highlight_h, highlight_h)
             end
+
+            max_w = max_w + m + 2 * choice_indicator_radius
 
             local choice_w = max_w + 2 * m
             local choice_h = total_h + 2 * m
@@ -359,6 +432,8 @@ function rt.DialogHandler:reformat(x, y, width, height)
                 choice_w, choice_h
             )
 
+            entry.choices_indicator_offsets = {}
+
             local choice_label_y = choice_y + m
             local choice_label_x = choice_x + m
             for choice_entry in values(entry.choices) do
@@ -366,17 +441,21 @@ function rt.DialogHandler:reformat(x, y, width, height)
                 local no_highlight_w, no_highlight_h = choice_entry.label_no_highlight:measure()
 
                 choice_entry.label_highlight:reformat(
-                    choice_label_x,
+                    choice_label_x + 2 * choice_indicator_radius + 0.5 * m,
                     choice_label_y + 0.5 * max_h - 0.5 * highlight_h,
                     math.huge
                 )
 
                 choice_entry.label_no_highlight:reformat(
-                    choice_label_x,
+                    choice_label_x + 2 * choice_indicator_radius + 0.5 * m,
                     choice_label_y + 0.5 * max_h - 0.5 * no_highlight_h,
                     math.huge
                 )
 
+                table.insert(entry.choices_indicator_offsets, {
+                    choice_label_x,
+                    choice_label_y + 0.5 * max_h - choice_indicator_radius
+                })
                 choice_label_y = choice_label_y + max_h
             end
         end
@@ -390,24 +469,13 @@ function rt.DialogHandler:reformat(x, y, width, height)
         end
     end
 
-    -- indicator
-    local advance_radius = m
-    self._advance_indicator_max_offset = advance_radius
-    local center_x = frame_x + 0.5 * frame_w
-    local center_y = frame_y + frame_h
-    self._advance_indicator = {}
-    local angle_offset = (2 * math.pi) / 4
-    for angle = 0, 2 * math.pi, (2 * math.pi) / 3 do
-        table.insert(self._advance_indicator, center_x + math.cos(angle + angle_offset) * advance_radius)
-        table.insert(self._advance_indicator, center_y + math.sin(angle + angle_offset) * advance_radius)
-    end
-
     self:_set_active_entry(self._active_entry)
 end
 
 --- @brief
 function rt.DialogHandler:_set_active_entry(entry)
     self._active_entry = entry
+    self._choice_index = 1
 
     if self._active_entry ~= nil then
         for label in values(entry.labels) do
@@ -438,14 +506,30 @@ function rt.DialogHandler:draw()
         entry.speaker_label:draw()
     end
 
+    love.graphics.setLineJoin("miter")
+    love.graphics.setLineWidth(5 * rt.get_pixel_scale())
+
     if self._is_waiting_for_advance and entry.has_choices then
         self._choice_frame:draw()
-        for choice_entry in values(self._active_entry.choices) do
-            choice_entry.label_highlight:draw()
+        for i, choice_entry in ipairs(entry.choices) do
+            if i == self._choice_index then
+                love.graphics.push()
+                love.graphics.translate(table.unpack(entry.choices_indicator_offsets[i]))
+
+                rt.Palette.BASE_OUTLINE:bind()
+                love.graphics.line(self._choice_indicator)
+                rt.Palette.FOREGROUND:bind()
+                love.graphics.polygon("fill", self._choice_indicator)
+
+                love.graphics.pop()
+                choice_entry.label_highlight:draw()
+            else
+                choice_entry.label_no_highlight:draw()
+            end
         end
     end
 
-    local value = rt.graphics.get_stencil_value()
+    local value = 254
     rt.graphics.set_stencil_mode(value, rt.StencilMode.DRAW)
     love.graphics.rectangle("fill", self._text_stencil:unpack())
     rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
@@ -462,11 +546,9 @@ function rt.DialogHandler:draw()
 
     if self._is_waiting_for_advance then
         love.graphics.push()
-        love.graphics.translate(0, self._advance_indicator_offset)
+        love.graphics.translate(0, self._advance_indicator_y_offset)
 
         rt.Palette.BASE_OUTLINE:bind()
-        love.graphics.setLineJoin("miter")
-        love.graphics.setLineWidth(5 * rt.get_pixel_scale())
         love.graphics.line(self._advance_indicator)
 
         rt.Palette.FOREGROUND:bind()
@@ -498,10 +580,28 @@ function rt.DialogHandler:advance()
     end
     self:_update_node_offset_from_n_lines_visible(n_lines_visible)
 
+    local before = self._active_entry
+
     -- go to next node if already fully advanced
     if self._is_waiting_for_advance then
-        self:_set_active_entry(self._active_entry.next)
+        if self._active_entry.has_choices then
+            local index = self._choice_index
+            local text = self._active_entry.choices[self._choice_index].text
+            self:_set_active_entry(self._active_entry.choices[self._choice_index].next)
+
+            if self._active_entry ~= nil then
+                self:signal_emit("choice", index, text)
+            end
+        else
+            self:_set_active_entry(self._active_entry.next)
+        end
     end
+
+    if before ~= nil and self._active_entry == nil then
+        self:signal_emit("done")
+    end
+
+    self._is_waiting_for_advance = false
 end
 
 --- @brief
@@ -521,7 +621,7 @@ function rt.DialogHandler:update(delta)
     if self._is_waiting_for_advance then
         self._advance_indicator_elapsed = self._advance_indicator_elapsed + delta
         local offset = (math.sin(3 * self._advance_indicator_elapsed) + 1) / 2 - 1
-        self._advance_indicator_offset = offset * self._advance_indicator_max_offset * 0.5
+        self._advance_indicator_y_offset = offset * self._advance_indicator_max_offset * 0.5
     end
     
     -- text scrolling
@@ -544,15 +644,74 @@ function rt.DialogHandler:update(delta)
 
             if label.dialog_handler_is_done == false then
                 at_least_one_label_not_done = true
+                self._is_waiting_for_advance = false
                 break
             end
 
-            self._is_waiting_for_advance = not at_least_one_label_not_done
-            if self._is_waiting_for_advance and self._should_auto_advance then
+            self._is_waiting_for_advance = true -- all labels done
+            if self._should_auto_advance then
                 self:advance()
             end
         end
 
         self:_update_node_offset_from_n_lines_visible(n_lines_visible)
+    end
+end
+
+--- @brief
+function rt.DialogHandler:handle_button_pressed(button)
+    if self._active_entry == nil then return end
+    if button == rt.InputAction.JUMP then
+        if self._is_waiting_for_advance then
+            self:advance()
+        else
+            -- scroll next label
+            for label in values(self._active_entry.labels) do
+                if label.dialog_handler_is_done ~= true then
+                    label.dialog_handler_is_done = true
+                    label.dialog_handler_elapsed = math.huge
+                    label:set_n_visible_characters(math.huge)
+                    break
+                end
+            end
+            self:update(0) -- update y_offset
+        end
+    elseif button == rt.InputAction.UP then
+        if self._active_entry.has_choices and self._choice_index > 1 then
+            self._choice_index = self._choice_index - 1
+        end
+    elseif button == rt.InputAction.DOWN then
+        if self._active_entry.has_choices and self._choice_index < #(self._active_entry.choices) then
+            self._choice_index = self._choice_index + 1
+        end
+    end
+end
+
+--- @brief
+function rt.DialogHandler:handle_button_released(button)
+    if self._active_entry == nil then return end
+    if button == rt.InputAction.JUMP then
+        if self._is_waiting_for_advance then
+            self:advance()
+        else
+            -- scroll next label
+            for label in values(self._active_entry.labels) do
+                if label.dialog_handler_is_done ~= true then
+                    label.dialog_handler_is_done = true
+                    label.dialog_handler_elapsed = math.huge
+                    label:set_n_visible_characters(math.huge)
+                    break
+                end
+            end
+            self:update(0) -- update y_offset
+        end
+    elseif button == rt.InputAction.UP then
+        if self._active_entry.has_choices and self._choice_index > 1 then
+            self._choice_index = self._choice_index - 1
+        end
+    elseif button == rt.InputAction.DOWN then
+        if self._active_entry.has_choices and self._choice_index < #(self._active_entry.choices) then
+            self._choice_index = self._choice_index + 1
+        end
     end
 end
