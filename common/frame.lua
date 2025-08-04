@@ -25,11 +25,18 @@ rt.settings.frame = {
 --- @class rt.Frame
 rt.Frame = meta.class("Frame", rt.Widget)
 
+local _shader = nil
+
 --- @brief
-function rt.Frame:instantiate(type)
+function rt.Frame:instantiate()
+    if _shader == nil then
+        _shader = rt.Shader("common/frame.glsl")
+    end
+
     meta.install(self, {
         _child = {},
         _child_valid = false,
+        _use_shader = false,
 
         _aabb = rt.AABB(0, 0, 1, 1),
 
@@ -59,30 +66,21 @@ function rt.Frame:_update_draw()
     self.draw = function(self)
         love.graphics.setLineWidth(thickness + 2)
         love.graphics.setColor(stencil_r, stencil_g, stencil_b, opacity * stencil_a)
+
+        if self._use_shader then
+            _shader:bind()
+            _shader:send("elapsed", rt.SceneManager:get_elapsed())
+        end
+
         love.graphics.rectangle(
             "fill",
             x, y, w, h,
             corner_radius, corner_radius
         )
 
-        love.graphics.setColor(outline_r, outline_g, outline_b, opacity)
-        love.graphics.rectangle(
-            "line",
-            x, y, w, h,
-            corner_radius, corner_radius
-        )
-
-        love.graphics.setLineWidth(thickness)
-        love.graphics.setColor(frame_r, frame_g, frame_b, opacity)
-        love.graphics.rectangle(
-            "line",
-            x, y, w, h,
-            corner_radius, corner_radius
-        )
-    end
-
-    self._draw_frame = function(self)
-        love.graphics.setLineWidth(thickness + 2)
+        if self._use_shader then
+            _shader:unbind()
+        end
 
         love.graphics.setColor(outline_r, outline_g, outline_b, opacity)
         love.graphics.rectangle(
@@ -103,7 +101,7 @@ end
 
 function rt.Frame:bind_stencil()
     local stencil_value = rt.graphics.get_stencil_value()
-    love.graphics.setStencilMode("draw", stencil_value)
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
     local x, y, w, h = self._bounds:unpack()
     local corner_radius = self._corner_radius
     local thickness = self._thickness * rt.get_pixel_scale()
@@ -112,11 +110,11 @@ function rt.Frame:bind_stencil()
         x + thickness, y + thickness, w - 2 * thickness, h - 2 * thickness,
         corner_radius, corner_radius
     )
-    love.graphics.setStencilMode("test")
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST)
 end
 
 function rt.Frame:unbind_stencil()
-    love.graphics.setStencilMode()
+    rt.graphics.set_stencil_mode(nil)
 end
 
 --- @overload rt.Widget.realize
@@ -225,4 +223,9 @@ end
 --- @brief
 function rt.Frame:get_selection_state()
     return self._selection_state
+end
+
+--- @brief
+function rt.Frame:set_use_shader(b)
+    self._use_shader = b
 end
