@@ -8,6 +8,12 @@ rt.MeshDrawMode = meta.enum("MeshDrawMode", {
     POINTS = "points"
 })
 
+--- @class rt.MeshAttributeAttachmentMode
+rt.MeshAttributeAttachmentMode = meta.enum("MeshAttributeAttachmentMode", {
+    PER_VERTEX = "pervertex",
+    PER_INSTANCE = "perinstance"
+})
+
 --- @class rt.VertexAttribute
 rt.VertexAttribute = meta.enum("VertexAttribute", {
     POSITION = "VertexPosition",
@@ -20,12 +26,6 @@ rt.VertexAttributeLocation = meta.enum("VertexAttribute", {
     POSITION = 0,
     TEXTURE_COORDINATES = 1,
     COLOR = 2
-})
-
---- @class rt.MeshAttributeAttachmentMode
-rt.MeshAttributeAttachmentMode = meta.enum("MeshAttributeAttachmentMode", {
-    PER_VERTEX = "pervertex",
-    PER_INSTANCE = "perinstance"
 })
 
 rt.VertexFormat = {

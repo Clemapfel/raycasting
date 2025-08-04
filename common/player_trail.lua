@@ -151,7 +151,7 @@ function rt.PlayerTrail:_draw_trail(x1, y1, x2, y2)
             {location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4"},
         }, data,
             rt.MeshDrawMode.TRIANGLES,
-            rt.GraphicsBufferUsage.DYNAMIC
+            rt.GraphicsBufferUsage.STREAM
         )
 
         _trail_mesh:setVertexMap(

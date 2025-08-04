@@ -98,7 +98,7 @@ love.load = function(args)
 
     local screen_w, screen_h = love.graphics.getDimensions()
     local w = screen_w * (2 / 3)
-    screen:reformat(0 + screen_w - w, 0, w, screen_h)
+    screen:reformat(0, 0, love.graphics.getDimensions())
 
     handler:realize()
     handler:reformat(0, 0, screen_w, 2 / 3 * screen_h)

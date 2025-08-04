@@ -143,7 +143,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
         offset_mesh_data,
         rt.MeshDrawMode.POINTS,
         offset_mesh_format,
-        rt.GraphicsBufferUsage.DYNAMIC
+        rt.GraphicsBufferUsage.STREAM
     )
 
     self._shape_mesh:attach_attribute(self._offset_mesh, "axis_offset", "pervertex")

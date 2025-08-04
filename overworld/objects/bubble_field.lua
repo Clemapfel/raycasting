@@ -156,7 +156,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
         self._data_mesh_data,
         rt.MeshDrawMode.POINTS,
         data_mesh_format,
-        rt.GraphicsBufferUsage.DYNAMIC
+        rt.GraphicsBufferUsage.STREAM
     )
 
     self._shape_mesh:attach_attribute(self._data_mesh, "scale", "pervertex")

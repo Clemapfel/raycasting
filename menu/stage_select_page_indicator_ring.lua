@@ -123,7 +123,7 @@ function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
         self._data_mesh_data,
         rt.MeshDrawMode.POINTS,
         _data_mesh_format,
-        rt.GraphicsBufferUsage.DYNAMIC
+        rt.GraphicsBufferUsage.STREAM
     )
 
     self._particle_mesh:attach_attribute(self._data_mesh, _data_mesh_format[1].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)

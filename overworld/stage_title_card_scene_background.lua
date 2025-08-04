@@ -77,7 +77,7 @@ function ow.StageTitleCardSceneBackground:size_allocate(x, y, width, height)
             self._mesh_data,
             rt.MeshDrawMode.TRIANGLE_FAN,
             self._mesh_format,
-            rt.GraphicsBufferUsage.DYNAMIC
+            rt.GraphicsBufferUsage.STREAM
         )
         self._particle_mesh:get_native():attachAttribute("position_velocity", self._data_mesh:get_native(), "perinstance")
         self._particle_mesh:get_native():attachAttribute("color", self._data_mesh:get_native(), "perinstance")

@@ -149,7 +149,7 @@ function ow.DeformableMesh:instantiate(scene, world, contour)
         mesh_data,
         rt.MeshDrawMode.TRIANGLE_FAN,
         _mesh_format,
-        rt.GraphicsBufferUsage.DYNAMIC
+        rt.GraphicsBufferUsage.STREAM
     )
 
     -- wave

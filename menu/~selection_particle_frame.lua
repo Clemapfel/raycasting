@@ -178,7 +178,7 @@ function mn.SelectionParticleFrame:size_allocate(x, y, width, height)
                 data_mesh_data,
                 rt.MeshDrawMode.POINTS,
                 _data_mesh_format,
-                rt.GraphicsBufferUsage.DYNAMIC
+                rt.GraphicsBufferUsage.STREAM
             )
 
             local particle_mesh = rt.Mesh(

@@ -173,7 +173,7 @@ function mn.MenuSceneBackground:size_allocate(x, y, width, height)
             self._data_mesh_data,
             rt.MeshDrawMode.POINTS,
             _mesh_format,
-            rt.GraphicsBufferUsage.DYNAMIC
+            rt.GraphicsBufferUsage.STREAM
         )
         for i = 1, #_mesh_format do
             self._particle_mesh:attach_attribute(self._data_mesh, _mesh_format[i].name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)

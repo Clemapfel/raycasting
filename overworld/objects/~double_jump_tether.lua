@@ -140,7 +140,7 @@ function ow.DoubleJumpTether:update(delta)
                 {location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4"},
             }, data,
                 rt.MeshDrawMode.TRIANGLES,
-                rt.GraphicsBufferUsage.DYNAMIC
+                rt.GraphicsBufferUsage.STREAM
             )
 
             self._line_mesh:setVertexMap(
