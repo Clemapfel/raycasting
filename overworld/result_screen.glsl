@@ -104,12 +104,15 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
     line_mask = min(line_mask, center_fill);
 
     vec2 vertex_uv = vertex_position / love_ScreenSize.xy;
-    vec3 rainbow = lch_to_rgb(vec3(0.8, 1, vertex_uv.y - elapsed / 10));
+    float sign = vertex_position.x >= 0.5 * love_ScreenSize.x ? 1 : -1;
+    vec3 rainbow = line_mask * lch_to_rgb(vec3(0.8, 1, vertex_uv.y - elapsed / 10 * sign));
 
     float rainbow_diff = smoothstep(1 - 0.2, 1, center_fill);
     vec4 line_color = vec4(rainbow.rgb, line_mask);
 
-    return vec4(line_color);
+    float inside_mask = smoothstep(0, 0.01, max(1 - uv.x * 2, 0) - gaussian(max(1 - uv.y * 2, 0), 1));
+    vec4 inside_color = vec4(black.rgb * inside_mask, inside_mask);
+    return vec4(inside_color + line_color);
 }
 
 #endif
