@@ -114,6 +114,7 @@ love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     --rt.SceneManager:draw()
 
+    love.graphics.clear(0.5, 0.5, 0.5, 1)
     screen:draw()
 end
 
