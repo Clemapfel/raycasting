@@ -104,7 +104,8 @@ rt.Translation = rt.initialize_translation({
     result_screen = {
         flow = "Flow : ",
         time = "Time : ",
-        coins = "Coins : "
+        coins = "Coins : ",
+        total = "Total : "
     },
 
     -- overworld gameplay

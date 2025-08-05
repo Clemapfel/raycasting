@@ -78,6 +78,13 @@ function rt.TimedAnimation:get_value()
 end
 
 --- @brief
+function rt.TimedAnimation:get_fraction()
+    local x = self._elapsed / self._duration
+    if self._should_loop then x = math.fmod(x, 1) end
+    return self._f(x, table.unpack(self._args))
+end
+
+--- @brief
 function rt.TimedAnimation:get_is_done()
     return self._elapsed >= self._duration
 end

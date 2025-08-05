@@ -51,13 +51,15 @@ handler:create_from({
     },
 })
 
+
+
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "j" then
         --background:recompile()
     elseif which == "space"then
         screen:present(
-            "1-1: Subluminalitiy",
+            "1-1: Subluminality",
             123, -- time
             rt.StageGrade.S,
             0.68, -- flow
@@ -98,6 +100,7 @@ love.load = function(args)
 
     local screen_w, screen_h = love.graphics.getDimensions()
     local w = screen_w * (2 / 3)
+    screen:realize()
     screen:reformat(0, 0, love.graphics.getDimensions())
 
     handler:realize()

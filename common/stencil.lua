@@ -14,6 +14,7 @@ function rt.graphics.get_stencil_value()
     end
 
     rt.graphics._stencil_value = rt.graphics._stencil_value + 1
+    if rt.graphics._stencil_value > 254 then rt.graphics._stencil_value = 2 end
     return out
 end
 

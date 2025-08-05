@@ -105,15 +105,17 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
 
     float noise = fractal_noise(
     vec3(0, vec2(1, 2) * (vertex_position.xy / love_ScreenSize.xy + vec2(elapsed / 10, 0))),
-    4, // octaves
-    1, // amplitude
-    2  // frequency
+        4, // octaves
+        1, // amplitude
+        2  // frequency
     );
 
     noise *= distance(uv.x, 0);
 
     float center_fill = 1 - smoothstep(1 - 0.05, 1, length(texture_coords));
-    float line_mask = smoothstep(1 - 0.25 + 0.075, 1 - 0.25, length(uv + noise));
+    const float outline_thickness = 0.055;
+    float line_mask = smoothstep(1 - 0.25 + 0.075, 1 - 0.25, length(uv + noise + outline_thickness));
+    float outline_mask = smoothstep(1 - 0.25 + 0.01, 1 - 0.25, length(uv + noise)) - line_mask;
 
     center_fill -= 1 - smoothstep(1 - 0.275 + 0.075, 1 - 0.25, length(vec2(1 - uv.y, uv.y) - uv + noise));
     center_fill = max(center_fill, 0);
@@ -135,13 +137,14 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
     #if MODE == MODE_MASK
 
     // stencil masking
+
     if (inside_mask - line_mask < 1) discard;
     return vec4(1);
 
     #elif MODE == MODE_FRAME
 
     vec4 inside_color = vec4(black.rgb * inside_mask, inside_mask);
-    return vec4(mix(inside_color, line_color, line_mask));
+    return vec4(mix(mix(inside_color, line_color, line_mask), black, outline_mask));
 
     #endif
 }
