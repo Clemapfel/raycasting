@@ -120,5 +120,6 @@ end
 
 love.resize = function(width, height)
     rt.SceneManager:resize(width, height)
+    screen:reformat(0, 0, love.graphics.getDimensions())
 end
 

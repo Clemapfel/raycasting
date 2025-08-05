@@ -3,7 +3,7 @@ require "common.timed_animation_chain"
 --- @class ow.ResultScreen
 ow.ResultsScreen = meta.class("ResultScreen", rt.Widget)
 
-local _shader
+local _frame_shader, _mask_shader
 
 --- @param t Number [0, n-1]
 --- @param ... rt.AABB n aabbs
@@ -27,14 +27,18 @@ end
 
 --- @brief
 function ow.ResultsScreen:instantiate()
-    if _shader == nil then
-        _shader = rt.Shader("overworld/result_screen.glsl")
-        _shader:send("black", { rt.Palette.GRAY:unpack() })
+    if _frame_shader == nil then
+        _frame_shader = rt.Shader("overworld/result_screen.glsl", { MODE = 0 })
+        _frame_shader:send("black", { rt.Palette.GRAY:unpack() })
+    end
+
+    if _mask_shader == nil then
+        _mask_shader = rt.Shader("overworld/result_screen.glsl", { MODE = 1 })
     end
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "j" then _shader:recompile() end
+        if which == "j" then _frame_shader:recompile(); _mask_shader:recompile() end
         self._sequence:reset()
     end)
 
@@ -117,11 +121,16 @@ end
 function ow.ResultsScreen:draw()
     love.graphics.setColor(1, 1, 1, 1)
 
-    _shader:bind()
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("black", { rt.Palette.GRAY:unpack() })
+    _frame_shader:bind()
+    _frame_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _frame_shader:send("black", { rt.Palette.GRAY:unpack() })
     self._mesh:draw()
-    _shader:unbind()
+    _frame_shader:unbind()
+
+    _mask_shader:bind()
+    _mask_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    self._mesh:draw()
+    _mask_shader:unbind()
 
     love.graphics.setColor(1, 0, 1, 1)
     if self._dbg ~= nil then
@@ -150,8 +159,8 @@ function ow.ResultsScreen:_update_mesh(x, y, w, h, m)
     y4 = y + m + h + m
 
     local u0, u1, v0, v1 = 0, 1, 0, 1
-    local c1 = function() return 1, 1, 1, 1  end
-    local c0 = function() return 0, 0, 0, 1  end
+    local c1 = function() return 1, 1, 1, 0  end
+    local c0 = function() return 1, 1, 1, 1  end
 
     local data = {
         { x1, y1, u1, v1, c1() },
