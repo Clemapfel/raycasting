@@ -76,6 +76,8 @@ local _title_font = rt.Font(
     "assets/fonts/Baloo2/Baloo2-Bold.ttf"
 )
 
+local _title_prefix, _title_postfix = "<b><o><u>", "</b></o></u>"
+
 --- @brief
 function ow.ResultsScreen:instantiate()
     if _frame_shader == nil then
@@ -93,9 +95,7 @@ function ow.ResultsScreen:instantiate()
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "j" then _frame_shader:recompile(); _mask_shader:recompile(); _grade_shader:recompile() end
-        self._sequence:reset()
-        self._shader_elapsed = 0
+        if which == "j" then self:_reset() end
     end)
 
     -- state
@@ -119,9 +119,7 @@ function ow.ResultsScreen:instantiate()
     -- widgets
 
     local translation, settings = rt.Translation.result_screen, rt.settings.overworld.result_screen
-    local title_prefix, title_postfix = "<b><o><u>", "</b></o></u>"
-
-    self._title_label = rt.Label(title_prefix .. self._title .. title_postfix, rt.FontSize.LARGER, _title_font)
+    self._title_label = rt.Label(_title_prefix .. self._title .. _title_postfix, rt.FontSize.LARGER, _title_font)
 
     local prefix, postfix = "<b><o>", "</b></o>"
     self._flow_prefix_label = rt.Label(prefix .. translation.flow .. postfix)
@@ -146,8 +144,6 @@ function ow.ResultsScreen:instantiate()
     self._coins_grade_label = mn.StageGradeLabel(self._coins_grade, rt.FontSize.HUGE)
     self._total_grade_label = mn.StageGradeLabel(self._total_grade, rt.FontSize.GIGANTIC)
 
-    self._grade_x, self._grade_y, self._grade_r, self._grade_m = 0, 0, 1, 1
-
     -- animation
 
     self._sequence = rt.TimedAnimationSequence(
@@ -171,6 +167,16 @@ function ow.ResultsScreen:instantiate()
     )
 
     self._frames = {} -- List<rt.AABB>
+    self._grade_frame_animation = rt.TimedAnimation(
+        1,
+        0, 1,
+        rt.InterpolationFunctions.LINEAR
+    )
+
+    self._particle_canvas = nil
+    self._particle_texture = nil
+    self._particle_canvas_x, self._particle_canvas_y = 0, 0
+    self._particles = {}
 end
 
 --- @brief
@@ -198,6 +204,10 @@ function ow.ResultsScreen:update(delta)
         self._sequence:update(delta)
     end
 
+    if self._sequence:get_animation_index() > 1 then
+        self._grade_frame_animation:update(delta)
+    end
+
     local t = self._sequence:get_value()
     local x, y, w, h = _lerp_aabbs(t, self._frames)
     self._dbg = rt.AABB(x, y, w, h)
@@ -205,7 +215,13 @@ function ow.ResultsScreen:update(delta)
     local m = self._frame_mesh_m
     self:_update_frame_mesh(x, y, w, h, m)
 
-    self:_update_grade_mesh(self._grade_x, self._grade_y, self._grade_r, self._grade_m)
+    -- particles
+    local circle_x = self._particle_canvas_x + 0.5 * self._particle_canvas:get_width()
+    local circle_y = self._particle_canvas_y + 0.5 * self._particle_canvas:get_height()
+    local circle_r = 0.5 * math.max(self._particle_canvas:get_size())
+    for particle in values(self._particles) do
+        --
+    end
 end
 
 --- @brief
@@ -273,9 +289,6 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
     local grade_r = math.max(total_grade_w, total_grade_h) / 2 + 2 * m
     local grade_m = 30 * rt.get_pixel_scale()
 
-    self._grade_x, self._grade_y, self._grade_r, self._grade_m = grade_x, grade_y, grade_r, grade_m
-    self:_update_grade_mesh(grade_x, grade_y, grade_r, grade_m)
-
     -- frame
 
     local mesh_m = 100 * rt.get_pixel_scale()
@@ -315,13 +328,70 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
         )
     }
 
+    -- particle
+
+    local particle_r = 20 * rt.get_pixel_scale()
+    self._particle_texture = rt.RenderTexture(2 * particle_r, 2 * particle_r)
+
+    local padding = 10
+    self._particle_canvas = rt.RenderTexture(2 * (grade_r + padding), 2 * (grade_r + padding))
+
+    local mesh = rt.MeshCircle(0.5 * self._particle_texture:get_width(), 0.5 * self._particle_texture:get_height(), particle_r)
+    mesh:set_vertex_color(1, 1, 1, 1, 1)
+    for i = 2, mesh:get_n_vertices() do
+        mesh:set_vertex_color(i, 1, 1, 1, 0)
+    end
+
+    love.graphics.push("all")
+    love.graphics.origin()
+    self._particle_texture:bind()
+    mesh:draw()
+    self._particle_texture:unbind()
+    love.graphics.pop()
+
+    self._particles = {}
+    local min_scale, max_scale = 1, 2
+    local particle_x, particle_y = 0.5 * self._particle_canvas:get_width(), 0.5 *  self._particle_canvas:get_height()
+    for i = 1, 32, 1 do
+        local angle = rt.random.number(0, 2 * math.pi)
+        local particle = {
+            x = particle_x,
+            y = particle_y,
+            scale = rt.random.number(min_scale, max_scale)
+        }
+        
+        table.insert(self._particles, particle)
+    end
+
+    self._particle_canvas_x = x + 0.5 * width - 0.5 * self._particle_canvas:get_width()
+    self._particle_canvas_y = grade_y
+    self._particle_canvas_needs_update = true
+    
     self:update(0) -- update mesh from current animation
 end
 
 --- @brief
 function ow.ResultsScreen:draw()
-    love.graphics.setColor(1, 1, 1, 1)
+    if self._particle_canvas_needs_update == true then
+        love.graphics.push("all")
+        self._particle_canvas:bind()
+        love.graphics.origin()
+        love.graphics.setColor(1, 1, 1, 1)
+        for particle in values(self._particles) do
+            love.graphics.draw(
+                self._particle_texture:get_native(), 
+                particle.x, particle.y, 0, 
+                1,  1, --particle.scale, particle.scale,
+                0.5 * self._particle_texture:get_width(), 0.5 * self._particle_texture:get_height()
+            )
+        end
 
+        self._particle_canvas:unbind()
+        love.graphics.pop("all")
+        self._particle_canvas_needs_update = nil
+    end
+    
+    love.graphics.setColor(1, 1, 1, 1)
     local elapsed = rt.SceneManager:get_elapsed()
 
     _frame_shader:bind()
@@ -342,10 +412,18 @@ function ow.ResultsScreen:draw()
 
     _grade_shader:bind()
     _grade_shader:send("elapsed", elapsed)
-    self._grade_mesh:draw()
+    love.graphics.setColor(1, 1, 1, 1)
+    self._particle_canvas:draw(self._particle_canvas_x, self._particle_canvas_y)
     _grade_shader:unbind()
 
+    local draw_label = function(label)
+        local x, y, w, h = label:get_bounds():unpack()
+        rt.Palette.GRAY_1:bind()
+        love.graphics.rectangle("fill", x, y, w, h, 0.25 * h)
+        label:draw()
+    end
 
+    --[[
     for widget in range(
         self._title_label,
         self._flow_prefix_label,
@@ -362,6 +440,9 @@ function ow.ResultsScreen:draw()
     ) do
         widget:draw()
     end
+    ]]--
+
+    draw_label(self._flow_prefix_label)
 
     rt.graphics.set_stencil_mode(nil)
 
@@ -483,149 +564,52 @@ function ow.ResultsScreen:_update_frame_mesh(x, y, w, h, m)
 end
 
 --- @brief
+--- @param title String stage title
+--- @param flow_percentage Number in [0, 100]
+--- @param flow_grade rt.StageGrade
+--- @param time Number seconds
+--- @param time_grade rt.StageGrade
+--- @param coins Number integer
+--- @param coins_grade rt.StageGrade
+--- @param total_grade rt.StageGrade
+function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_coins, max_n_coins, coins_grade, total_grade)
+    meta.assert(
+        title, "String",
+        time, "Number",
+        time_grade, "Number",
+        flow, "Number",
+        flow_grade, "Number",
+        n_coins, "Number",
+        max_n_coins, "Number",
+        coins_grade, "Number",
+        total_grade, "Number"
+    )
+
+    self._title = title
+    self._title_label:set_text(_title_prefix .. title .. _title_postfix)
+    self._total_grade = total_grade
+
+    self._time_target = time
+    self._time_start = 0
+    self._time_grade_label:set_grade(time_grade)
+
+    self._flow_target = flow
+    self._flow_start = 0
+    self._flow_grade_label:set_grade(flow_grade)
+
+    self._coins_max = max_n_coins
+    self._coins_target = n_coins
+    self._coins_start = 0
+    self._coins_grade_label:set_grade(time_grade)
+
+    self:_reset()
+end
+
 --- @brief
-function ow.ResultsScreen:_update_grade_mesh(grade_x, grade_y, grade_r, grade_m)
-    local animation_i = self._sequence:get_animation_index()
-
-    local t = self._sequence:get_animation(2):get_fraction()
-    if animation_i < 2 then t = 0 elseif t >= 2 then t = 1 end
-
-    grade_r = grade_r * t
-
-    -- Grade mesh construction with corrected texture coordinates
-    local segments = 32
-
-    if self._grade_mesh_data == nil then
-        self._grade_mesh_data = {}
-
-        -- Center vertex - u=0, v=0 (center of radial gradient)
-        table.insert(self._grade_mesh_data, { grade_x, grade_y, 0, 0, 1, 1, 1, 1 })
-
-        -- Inner circle vertices (circle edge) - u varies [0,1] around circumference, v=0
-        for i = 1, segments do
-            local angle = (i - 1) * (2 * math.pi / segments)
-            local cx = grade_x + math.cos(angle) * grade_r
-            local cy = grade_y + math.sin(angle) * grade_r
-            local u = (i - 1) / segments  -- u spans [0, 1) around circumference
-            local v = 0  -- v = 0 at inner circle edge
-            table.insert(self._grade_mesh_data, { cx, cy, u, v, 1, 1, 1, 1 })
-        end
-
-        -- Outer ring vertices - u varies [0,1] around circumference, v=1 at peak of gradient
-        for i = 1, segments do
-            local angle = (i - 1) * (2 * math.pi / segments)
-            local cx = grade_x + math.cos(angle) * (grade_r + grade_m)
-            local cy = grade_y + math.sin(angle) * (grade_r + grade_m)
-            local u = (i - 1) / segments  -- u spans [0, 1) around circumference
-            local v = 1  -- v=1 at outer ring (peak of radial gradient)
-            table.insert(self._grade_mesh_data, { cx, cy, u, v, 1, 1, 1, 0 })
-        end
-
-        -- Add duplicate vertices for texture coordinate wraparound
-        local angle = 0  -- first vertex angle
-        local cx_inner = grade_x + math.cos(angle) * grade_r
-        local cy_inner = grade_y + math.sin(angle) * grade_r
-        local cx_outer = grade_x + math.cos(angle) * (grade_r + grade_m)
-        local cy_outer = grade_y + math.sin(angle) * (grade_r + grade_m)
-
-        table.insert(self._grade_mesh_data, { cx_inner, cy_inner, 1, 0, 1, 1, 1, 1 })
-        table.insert(self._grade_mesh_data, { cx_outer, cy_outer, 1, 1, 1, 1, 1, 0 })
-    else
-        local data = self._grade_mesh_data
-
-        -- Update center vertex
-        data[1][1], data[1][2] = grade_x, grade_y
-
-        -- Update inner circle vertices
-        for i = 1, segments do
-            local angle = (i - 1) * (2 * math.pi / segments)
-            local cx = grade_x + math.cos(angle) * grade_r
-            local cy = grade_y + math.sin(angle) * grade_r
-            data[i + 1][1], data[i + 1][2] = cx, cy
-        end
-
-        -- Update outer ring vertices
-        for i = 1, segments do
-            local angle = (i - 1) * (2 * math.pi / segments)
-            local cx = grade_x + math.cos(angle) * (grade_r + grade_m)
-            local cy = grade_y + math.sin(angle) * (grade_r + grade_m)
-            data[i + 1 + segments][1], data[i + 1 + segments][2] = cx, cy
-        end
-
-        -- Update duplicate vertices for wraparound
-        local angle = 0
-        local cx_inner = grade_x + math.cos(angle) * grade_r
-        local cy_inner = grade_y + math.sin(angle) * grade_r
-        local cx_outer = grade_x + math.cos(angle) * (grade_r + grade_m)
-        local cy_outer = grade_y + math.sin(angle) * (grade_r + grade_m)
-
-        data[1 + segments * 2 + 1][1], data[1 + segments * 2 + 1][2] = cx_inner, cy_inner
-        data[1 + segments * 2 + 2][1], data[1 + segments * 2 + 2][2] = cx_outer, cy_outer
-    end
-
-    if self._grade_mesh == nil then
-        -- Create vertex map for triangulation with corrected wraparound
-        local grade_vertex_map = {}
-
-        -- Inner circle triangles (center to inner circle edge)
-        for i = 1, segments do
-            local next_i = (i % segments) + 1
-
-            if i == segments then
-                local duplicate_inner = 1 + segments * 2 + 1
-
-                table.insert(grade_vertex_map, 1)           -- center
-                table.insert(grade_vertex_map, i + 1)      -- current inner vertex
-                table.insert(grade_vertex_map, duplicate_inner) -- duplicate first vertex with u=1
-            else
-                table.insert(grade_vertex_map, 1)           -- center
-                table.insert(grade_vertex_map, i + 1)      -- current inner vertex
-                table.insert(grade_vertex_map, next_i + 1) -- next inner vertex
-            end
-        end
-
-        -- Ring triangles (between inner circle and outer ring)
-        for i = 1, segments do
-            local next_i = (i % segments) + 1
-            local inner_current = i + 1
-            local inner_next = next_i + 1
-            local outer_current = i + 1 + segments
-            local outer_next = next_i + 1 + segments
-
-            if i == segments then
-                local duplicate_inner = 1 + segments * 2 + 1
-                local duplicate_outer = 1 + segments * 2 + 2
-
-                -- First triangle of quad
-                table.insert(grade_vertex_map, inner_current)
-                table.insert(grade_vertex_map, outer_current)
-                table.insert(grade_vertex_map, duplicate_inner)
-
-                -- Second triangle of quad
-                table.insert(grade_vertex_map, duplicate_inner)
-                table.insert(grade_vertex_map, outer_current)
-                table.insert(grade_vertex_map, duplicate_outer)
-            else
-                -- First triangle of quad
-                table.insert(grade_vertex_map, inner_current)
-                table.insert(grade_vertex_map, outer_current)
-                table.insert(grade_vertex_map, inner_next)
-
-                -- Second triangle of quad
-                table.insert(grade_vertex_map, inner_next)
-                table.insert(grade_vertex_map, outer_current)
-                table.insert(grade_vertex_map, outer_next)
-            end
-        end
-
-        self._grade_mesh = rt.Mesh(
-            self._grade_mesh_data,
-            rt.MeshDrawMode.TRIANGLES,
-            rt.VertexFormat,
-            rt.GraphicsBufferUsage.STREAM
-        )
-        self._grade_mesh:set_vertex_map(grade_vertex_map)
-    else
-        self._grade_mesh:replace_data(self._grade_mesh_data)
-    end
+function ow.ResultsScreen:_reset()
+    _frame_shader:recompile()
+    _mask_shader:recompile()
+    _grade_shader:recompile()
+    --self._sequence:reset()
+    --self._grade_frame_animation:reset()
 end

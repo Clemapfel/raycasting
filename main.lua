@@ -95,9 +95,6 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene)
 
-    require "overworld.stage_title_card_scene"
-    --rt.SceneManager:push(ow.StageTitleCardScene, "tutorial")
-
     local screen_w, screen_h = love.graphics.getDimensions()
     local w = screen_w * (2 / 3)
     screen:realize()
@@ -115,7 +112,7 @@ end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
-    --rt.SceneManager:draw()
+    rt.SceneManager:draw()
 
     love.graphics.clear(0.1, 0.5, 0.5, 1)
     screen:draw()
