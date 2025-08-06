@@ -66,7 +66,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
             rt.StageGrade.A,
             8, 10, -- coins
             rt.StageGrade.B,
-            rt.StageGrade.NONE
+            rt.StageGrade.S
         )
     elseif which == "b" then
         screen:close()

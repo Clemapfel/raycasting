@@ -216,11 +216,94 @@ function ow.ResultsScreen:update(delta)
     self:_update_frame_mesh(x, y, w, h, m)
 
     -- particles
+    -- Replace the particle update section in the update method (around line 200-210)
+
+    -- Replace the particle update section in the update method (around line 200-210)
+
+    -- particles
     local circle_x = self._particle_canvas_x + 0.5 * self._particle_canvas:get_width()
     local circle_y = self._particle_canvas_y + 0.5 * self._particle_canvas:get_height()
     local circle_r = 0.5 * math.max(self._particle_canvas:get_size())
+    local particle_r = 0.5 * math.max(self._particle_texture:get_size())
+
+    local particle_speed = 50 * rt.get_pixel_scale() -- constant speed in pixels per second
+    local noise_strength = 0.05 -- how much the noise affects movement
+    local noise_frequency = 0.01 -- how fast the noise changes over time
+
     for particle in values(self._particles) do
-        --
+        local cx, cy, r = particle.x, particle.y, particle.scale * particle_r
+        local vx, vy = particle.velocity_x, particle.velocity_y
+
+        -- normalize velocity to unit vector
+        local velocity_magnitude = math.sqrt(vx * vx + vy * vy)
+        if velocity_magnitude > 0 then
+            vx = vx / velocity_magnitude
+            vy = vy / velocity_magnitude
+        end
+
+        -- add noise perturbation to velocity
+        local time_offset = rt.SceneManager:get_elapsed() * noise_frequency
+        local noise_x = (rt.random.noise(cx * 0.01 + time_offset, cy * 0.01) * 2) - 1
+        local noise_y = (rt.random.noise(cx * 0.01 + time_offset + 100, cy * 0.01 + 100) * 2) - 1 -- offset to get different noise
+
+        -- apply noise as perpendicular force to current velocity
+        local perp_x = -vy -- perpendicular to velocity
+        local perp_y = vx
+
+        --vx = vx + noise_x * noise_strength * perp_x
+        --vy = vy + noise_y * noise_strength * perp_y
+
+        -- renormalize to maintain constant speed
+        local new_magnitude = math.sqrt(vx * vx + vy * vy)
+        if new_magnitude > 0 then
+            vx = vx / new_magnitude
+            vy = vy / new_magnitude
+        end
+
+        -- move particle at constant speed
+        local new_x = cx + vx * particle_speed * particle.velocity_magnitude * delta
+        local new_y = cy + vy * particle_speed * particle.velocity_magnitude * delta
+
+        -- check collision with circular boundary
+        local center_x = 0.5 * self._particle_canvas:get_width()
+        local center_y = 0.5 * self._particle_canvas:get_height()
+        local boundary_radius = 0.5 * math.min(self._particle_canvas:get_width(), self._particle_canvas:get_height()) - 10 -- padding
+
+        -- distance from particle center to circle center
+        local dx = new_x - center_x
+        local dy = new_y - center_y
+        local distance_to_center = math.sqrt(dx * dx + dy * dy)
+
+        -- check if particle (with its radius) would collide with boundary
+        if distance_to_center + r >= boundary_radius then
+            -- collision detected, reflect velocity using normal
+
+            -- calculate normal vector (from circle center to particle center)
+            local normal_x = dx / distance_to_center
+            local normal_y = dy / distance_to_center
+
+            -- reflect velocity: v' = v - 2(v·n)n
+            local dot_product = vx * normal_x + vy * normal_y
+            particle.velocity_x = vx - 2 * dot_product * normal_x
+            particle.velocity_y = vy - 2 * dot_product * normal_y
+
+            -- position particle exactly at boundary to prevent overlap
+            local corrected_distance = boundary_radius - r
+            particle.x = center_x + normal_x * corrected_distance
+            particle.y = center_y + normal_y * corrected_distance
+
+            self._particle_canvas_needs_update = true
+        else
+            -- no collision, update position normally
+            particle.x = new_x
+            particle.y = new_y
+
+            -- store the perturbed velocity for next frame
+            particle.velocity_x = vx
+            particle.velocity_y = vy
+
+            self._particle_canvas_needs_update = true
+        end
     end
 end
 
@@ -330,7 +413,7 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
 
     -- particle
 
-    local particle_r = 20 * rt.get_pixel_scale()
+    local particle_r = 10 * rt.get_pixel_scale()
     self._particle_texture = rt.RenderTexture(2 * particle_r, 2 * particle_r)
 
     local padding = 10
@@ -339,7 +422,7 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
     local mesh = rt.MeshCircle(0.5 * self._particle_texture:get_width(), 0.5 * self._particle_texture:get_height(), particle_r)
     mesh:set_vertex_color(1, 1, 1, 1, 1)
     for i = 2, mesh:get_n_vertices() do
-        mesh:set_vertex_color(i, 1, 1, 1, 0)
+        mesh:set_vertex_color(i, 0, 0, 0, 1)
     end
 
     love.graphics.push("all")
@@ -350,21 +433,25 @@ function ow.ResultsScreen:size_allocate(x, y, width, height)
     love.graphics.pop()
 
     self._particles = {}
-    local min_scale, max_scale = 1, 2
+    local min_scale, max_scale = 1, 3
     local particle_x, particle_y = 0.5 * self._particle_canvas:get_width(), 0.5 *  self._particle_canvas:get_height()
-    for i = 1, 32, 1 do
-        local angle = rt.random.number(0, 2 * math.pi)
+    local n_particles = 128
+    for i = 1, n_particles, 1 do
+        local angle = (i - 1) / n_particles * 2 * math.pi --rt.random.number(0, 2 * math.pi)
         local particle = {
             x = particle_x,
             y = particle_y,
-            scale = rt.random.number(min_scale, max_scale)
+            scale = rt.random.number(min_scale, max_scale),
+            velocity_x = math.cos(angle),
+            velocity_y = math.sin(angle),
+            velocity_magnitude = rt.random.number(0.1, 1)
         }
         
         table.insert(self._particles, particle)
     end
 
-    self._particle_canvas_x = x + 0.5 * width - 0.5 * self._particle_canvas:get_width()
-    self._particle_canvas_y = grade_y
+    self._particle_canvas_x = total_grade_x + 0.5 * total_grade_w - 0.5 * self._particle_canvas:get_width()
+    self._particle_canvas_y = total_grade_y + 0.5 * total_grade_h - 0.5 * self._particle_texture:get_height()
     self._particle_canvas_needs_update = true
     
     self:update(0) -- update mesh from current animation
@@ -374,19 +461,22 @@ end
 function ow.ResultsScreen:draw()
     if self._particle_canvas_needs_update == true then
         love.graphics.push("all")
+        love.graphics.setBlendMode("add", "premultiplied")
         self._particle_canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
         love.graphics.origin()
         love.graphics.setColor(1, 1, 1, 1)
         for particle in values(self._particles) do
             love.graphics.draw(
                 self._particle_texture:get_native(), 
                 particle.x, particle.y, 0, 
-                1,  1, --particle.scale, particle.scale,
+                particle.scale, particle.scale,
                 0.5 * self._particle_texture:get_width(), 0.5 * self._particle_texture:get_height()
             )
         end
 
         self._particle_canvas:unbind()
+        love.graphics.setBlendMode("alpha")
         love.graphics.pop("all")
         self._particle_canvas_needs_update = nil
     end
@@ -423,7 +513,6 @@ function ow.ResultsScreen:draw()
         label:draw()
     end
 
-    --[[
     for widget in range(
         self._title_label,
         self._flow_prefix_label,
@@ -440,9 +529,6 @@ function ow.ResultsScreen:draw()
     ) do
         widget:draw()
     end
-    ]]--
-
-    draw_label(self._flow_prefix_label)
 
     rt.graphics.set_stencil_mode(nil)
 
@@ -450,6 +536,8 @@ function ow.ResultsScreen:draw()
     if self._dbg ~= nil then
         love.graphics.rectangle("line", self._dbg:unpack())
     end
+
+    self._total_grade_label:draw_bounds()
 end
 
 --- @brief
@@ -601,6 +689,8 @@ function ow.ResultsScreen:present(title, time, time_grade, flow, flow_grade, n_c
     self._coins_target = n_coins
     self._coins_start = 0
     self._coins_grade_label:set_grade(time_grade)
+
+    self._total_grade_label:set_grade(total_grade)
 
     self:_reset()
 end
