@@ -71,11 +71,6 @@ local _format_coins = function(fraction, start, target, max)
     return math.round(value) .. " / " .. math.round(max)
 end
 
-local _title_font = rt.Font(
-    "assets/fonts/Baloo2/Baloo2-SemiBold.ttf",
-    "assets/fonts/Baloo2/Baloo2-Bold.ttf"
-)
-
 local _title_prefix, _title_postfix = "<b><o><u>", "</b></o></u>"
 
 --- @brief
@@ -119,7 +114,7 @@ function ow.ResultsScreen:instantiate()
     -- widgets
 
     local translation, settings = rt.Translation.result_screen, rt.settings.overworld.result_screen
-    self._title_label = rt.Label(_title_prefix .. self._title .. _title_postfix, rt.FontSize.LARGER, _title_font)
+    self._title_label = rt.Label(_title_prefix .. self._title .. _title_postfix, rt.FontSize.LARGER, rt.settings.font.title_font)
 
     local prefix, postfix = "<b><o>", "</b></o>"
     self._flow_prefix_label = rt.Label(prefix .. translation.flow .. postfix)
@@ -132,7 +127,7 @@ function ow.ResultsScreen:instantiate()
         justify_mode = rt.JustifyMode.CENTER,
         style = rt.FontStyle.BOLD,
         is_outlined = true,
-        font = _title_font
+        font = rt.settings.font.title_font
     }
 
     self._time_value_label = rt.Glyph(_format_time(0, 0, self._time_start), glyph_properties)

@@ -1,4 +1,5 @@
 require "common.texture"
+require "common.image"
 
 rt._render_texture_dummy = love.graphics.newCanvas(1, 1)
 
@@ -61,6 +62,27 @@ function rt.RenderTexture:as_image()
     else
         return rt.Image(self._native:newImageData())
     end
+end
+
+--- @brief
+function rt.RenderTexture:get_size()
+    return self._native:getDimensions()
+end
+
+--- @brief
+function rt.RenderTexture:get_width()
+    return self._native:getWidth()
+end
+
+--- @brief
+function rt.RenderTexture:get_height()
+    return self._native:getHeight()
+end
+
+--- @brief
+function rt.RenderTexture:replace_data(image)
+    meta.assert_typeof(image, rt.Image, 1)
+    self._native:replacePixels(image:get_native())
 end
 
 --- @brief

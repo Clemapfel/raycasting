@@ -1,5 +1,6 @@
 rt.settings.font = {
     default = nil,
+    title_font = nil,
     love_default = love.graphics.getFont()
 }
 
@@ -185,4 +186,9 @@ rt.settings.font.default = rt.Font(
     "assets/fonts/DejaVuSansMono/DejaVuSansMono-Bold.ttf",
     "assets/fonts/DejaVuSansMono/DejaVuSansMono-Italic.ttf",
     "assets/fonts/DejaVuSansMono/DejaVuSansMono-BoldItalic.ttf"
+)
+
+rt.settings.font.title_font = rt.Font(
+    "assets/fonts/Baloo2/Baloo2-SemiBold.ttf",
+    "assets/fonts/Baloo2/Baloo2-Bold.ttf"
 )
