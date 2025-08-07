@@ -33,10 +33,10 @@ function rt.OptimalTransportInterpolation:realize()
     self._batches = {}
 
     local font = rt.settings.font.default
-    local font_size = rt.FontSize.REGULAR
-    local native = font:get_native(font_size, rt.FontStyle.REGULAR, true) -- sdf
+    local font_size = rt.FontSize.BIG
+    local native = font:get_native(font_size, rt.FontStyle.REGULAR, false) -- sdf
 
-    local symbols = { "1", "2" }
+    local symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "òwó" }
     self._index_to_symbol = {}
 
     local max_w, max_h = -math.huge, -math.huge
@@ -82,7 +82,7 @@ function rt.OptimalTransportInterpolation:realize()
     self._particle_systems = {}
 
     local n_frames = #self._frames
-    for i in range(1) do
+    for i = 1, n_frames do
         local current = self._frames[i+0]:get_data()
         local next = self._frames[math.wrap(i + 1, n_frames)]:get_data()
 
@@ -96,16 +96,15 @@ function rt.OptimalTransportInterpolation:realize()
         self._particle_systems[i] = precompute_particle_system(plan, canvas_w, canvas_h)
     end
 
-
     self._start = love.timer.getTime()
     self._interpolation = rt.Image(canvas_w, canvas_h, rt.TextureFormat.R32F, table.rep(0, canvas_w * canvas_h))
     self._drawing_canvas = canvas
-
+    self._frame_i = 1
     self._update = function(self)
-        local frame_i = 1
-        local t = rt.InterpolationFunctions.SINE_WAVE((love.timer.getTime() - self._start) / 5)
-        local from = self._frames[1]:get_data()
-        local to = self._frames[2]:get_data()
+        local t = (love.timer.getTime() - self._start) / 0.75
+        local frame_i = self._frame_i
+        local from = self._frames[frame_i]:get_data()
+        local to = self._frames[math.wrap(frame_i+1, #self._frames)]:get_data()
 
         local data = self._interpolation:get_data()
         local plan = self._transport_plans[frame_i]
@@ -116,26 +115,31 @@ function rt.OptimalTransportInterpolation:realize()
                 _set_pixel(data, x, y, value)
             end
         end
+
+        if t > 1 then
+            self._start = love.timer.getTime()
+            self._frame_i = math.wrap(frame_i + 1, #self._frames)
+        end
     end
 end
 
 --- @brief
 function rt.OptimalTransportInterpolation:draw()
-    local current_x, current_y = 50, 50
+    local current_x, current_y = 200, 200
     love.graphics.setColor(1, 1, 1, 1)
 
     self:_update()
-    for frame in values(self._frames) do
-        draw_shader:bind()
-        love.graphics.scale(3, 3)
-        self._drawing_canvas:replace_data(self._interpolation)
-        self._drawing_canvas:draw(current_x, current_y)
-        draw_shader:unbind()
-        current_x = current_x + self._drawing_canvas:get_width()
-    end
+    draw_shader:bind()
+    self._drawing_canvas:replace_data(self._interpolation)
+    love.graphics.draw(self._drawing_canvas:get_native(), current_x, current_y, 0, 3, 3, self._drawing_canvas:get_width() * 0.5, self._drawing_canvas:get_height() * 0.5)
+    draw_shader:unbind()
+    current_x = current_x + self._drawing_canvas:get_width()
 end
 
 function compute_transport_plan(image1, image2, canvas_w, canvas_h, get_pixel)
+    -- SDF threshold for inside/outside
+    local sdf_threshold = 0.5  -- Adjust as needed (0 for signed SDF, 0.5 for normalized)
+
     -- Convert 2D coordinates to flat index
     local function to_flat(x, y)
         return (y - 1) * canvas_w + x
@@ -172,30 +176,32 @@ function compute_transport_plan(image1, image2, canvas_w, canvas_h, get_pixel)
         return max_val + math.log(sum_exp)
     end
 
-    -- Extract non-zero pixels and their masses
+    -- Extract non-zero pixels and their masses using SDF thresholding
     local source_pixels = {}
     local target_pixels = {}
     local source_masses = {}
     local target_masses = {}
 
-    -- Collect source pixels
+    -- Collect source pixels (inside glyph region)
     for y = 1, canvas_h do
         for x = 1, canvas_w do
             local val = get_pixel(image1, x, y)
-            if val > 1e-8 then
+            local mass = (val < sdf_threshold) and 1 or 0
+            if mass > 0 then
                 table.insert(source_pixels, {x, y})
-                table.insert(source_masses, val)
+                table.insert(source_masses, mass)
             end
         end
     end
 
-    -- Collect target pixels
+    -- Collect target pixels (inside glyph region)
     for y = 1, canvas_h do
         for x = 1, canvas_w do
             local val = get_pixel(image2, x, y)
-            if val > 1e-8 then
+            local mass = (val < sdf_threshold) and 1 or 0
+            if mass > 0 then
                 table.insert(target_pixels, {x, y})
-                table.insert(target_masses, val)
+                table.insert(target_masses, mass)
             end
         end
     end
