@@ -34,9 +34,9 @@ function rt.OptimalTransportInterpolation:realize()
 
     local font = rt.settings.font.default
     local font_size = rt.FontSize.BIG
-    local native = font:get_native(font_size, rt.FontStyle.REGULAR, false) -- sdf
+    local native = font:get_native(font_size, rt.FontStyle.REGULAR, true) -- sdf
 
-    local symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "òwó" }
+    local symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }
     self._index_to_symbol = {}
 
     local max_w, max_h = -math.huge, -math.huge
@@ -101,7 +101,7 @@ function rt.OptimalTransportInterpolation:realize()
     self._drawing_canvas = canvas
     self._frame_i = 1
     self._update = function(self)
-        local t = (love.timer.getTime() - self._start) / 0.75
+        local t = rt.InterpolationFunctions.SIGMOID(love.timer.getTime() - self._start, 25) / 1
         local frame_i = self._frame_i
         local from = self._frames[frame_i]:get_data()
         local to = self._frames[math.wrap(frame_i+1, #self._frames)]:get_data()
@@ -116,7 +116,7 @@ function rt.OptimalTransportInterpolation:realize()
             end
         end
 
-        if t > 1 then
+        if t > 1 - (1 / 120) then
             self._start = love.timer.getTime()
             self._frame_i = math.wrap(frame_i + 1, #self._frames)
         end
