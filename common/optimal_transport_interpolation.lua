@@ -33,7 +33,7 @@ function rt.OptimalTransportInterpolation:realize()
     self._batches = {}
 
     local font = rt.settings.font.default
-    local font_size = rt.FontSize.BIG
+    local font_size = rt.FontSize.REGULAR
     local native = font:get_native(font_size, rt.FontStyle.REGULAR, true) -- sdf
 
     local symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }
@@ -92,8 +92,13 @@ function rt.OptimalTransportInterpolation:realize()
             canvas_w, canvas_h,
             _get_pixel
         )
-        self._transport_plans[i] = plan
-        self._particle_systems[i] = precompute_particle_system(plan, canvas_w, canvas_h)
+
+        local grid, grid_size = precompute_spatial_grid(plan, canvas_w, canvas_h)
+        self._transport_plans[i] = {
+            plan = plan,
+            grid = grid,
+            grid_size = grid_size
+        }
     end
 
     self._start = love.timer.getTime()
@@ -101,7 +106,7 @@ function rt.OptimalTransportInterpolation:realize()
     self._drawing_canvas = canvas
     self._frame_i = 1
     self._update = function(self)
-        local t = rt.InterpolationFunctions.SIGMOID(love.timer.getTime() - self._start, 25) / 1
+        local t = rt.InterpolationFunctions.SIGMOID((love.timer.getTime() - self._start)  / (1 / 10), 25)
         local frame_i = self._frame_i
         local from = self._frames[frame_i]:get_data()
         local to = self._frames[math.wrap(frame_i+1, #self._frames)]:get_data()
@@ -111,12 +116,12 @@ function rt.OptimalTransportInterpolation:realize()
         local field = self._particle_systems[frame_i]
         for y = 1, canvas_h do
             for x = 1, canvas_w do
-                local value = interpolate_pixel(from, to, field, x, y, t, canvas_w, canvas_w, _get_pixel)
+                local value = interpolate_pixel_grid(from, to, plan.grid, plan.grid_size, x, y, t, canvas_w, canvas_w, _get_pixel)
                 _set_pixel(data, x, y, value)
             end
         end
 
-        if t > 1 - (1 / 120) then
+        if t > 1 - 1 / 120 then
             self._start = love.timer.getTime()
             self._frame_i = math.wrap(frame_i + 1, #self._frames)
         end
@@ -125,13 +130,13 @@ end
 
 --- @brief
 function rt.OptimalTransportInterpolation:draw()
-    local current_x, current_y = 200, 200
+    local current_x, current_y = 50, 50
     love.graphics.setColor(1, 1, 1, 1)
 
     self:_update()
     draw_shader:bind()
     self._drawing_canvas:replace_data(self._interpolation)
-    love.graphics.draw(self._drawing_canvas:get_native(), current_x, current_y, 0, 3, 3, self._drawing_canvas:get_width() * 0.5, self._drawing_canvas:get_height() * 0.5)
+    love.graphics.draw(self._drawing_canvas:get_native(), current_x, current_y, 0, 3, 3, 0.5 * self._drawing_canvas:get_width(), 0.5 * self._drawing_canvas:get_height())
     draw_shader:unbind()
     current_x = current_x + self._drawing_canvas:get_width()
 end
@@ -337,7 +342,9 @@ function compute_transport_plan(image1, image2, canvas_w, canvas_h, get_pixel)
     return transport_plan
 end
 
-function precompute_particle_system(transport_plan, canvas_w, canvas_h)
+function precompute_spatial_grid(transport_plan, canvas_w, canvas_h, grid_size)
+    grid_size = grid_size or 4  -- Grid cell size
+
     -- Convert flat index back to 2D coordinates
     local function from_flat(idx)
         local x = ((idx - 1) % canvas_w) + 1
@@ -345,59 +352,91 @@ function precompute_particle_system(transport_plan, canvas_w, canvas_h)
         return x, y
     end
 
-    -- Create list of all particles (mass movements)
-    local particles = {}
+    local grid_w = math.ceil(canvas_w / grid_size)
+    local grid_h = math.ceil(canvas_h / grid_size)
 
+    -- Grid of transport entries
+    local spatial_grid = {}
+    for gy = 1, grid_h do
+        spatial_grid[gy] = {}
+        for gx = 1, grid_w do
+            spatial_grid[gy][gx] = {}
+        end
+    end
+
+    -- Populate grid with transport entries
     for source_idx, targets in pairs(transport_plan) do
         local sx, sy = from_flat(source_idx)
 
         for target_idx, mass in pairs(targets) do
             local tx, ty = from_flat(target_idx)
 
-            table.insert(particles, {
-                sx = sx, sy = sy,    -- Source position
-                tx = tx, ty = ty,    -- Target position
-                mass = mass,         -- Mass amount
-                value = nil          -- Will be filled during interpolation
-            })
+            -- Determine which grid cells this transport affects
+            local min_x = math.min(sx, tx)
+            local max_x = math.max(sx, tx)
+            local min_y = math.min(sy, ty)
+            local max_y = math.max(sy, ty)
+
+            local gx1 = math.max(1, math.floor((min_x - 1) / grid_size) + 1)
+            local gx2 = math.min(grid_w, math.floor((max_x - 1) / grid_size) + 1)
+            local gy1 = math.max(1, math.floor((min_y - 1) / grid_size) + 1)
+            local gy2 = math.min(grid_h, math.floor((max_y - 1) / grid_size) + 1)
+
+            -- Add to relevant grid cells
+            for gy = gy1, gy2 do
+                for gx = gx1, gx2 do
+                    table.insert(spatial_grid[gy][gx], {
+                        sx = sx, sy = sy, tx = tx, ty = ty, mass = mass
+                    })
+                end
+            end
         end
     end
 
-    return particles
+    return spatial_grid, grid_size
 end
 
-function interpolate_pixel_particles(image1, image2, particles, x, y, t, canvas_w, canvas_h, get_pixel)
-    if t == 0 then
-        return get_pixel(image1, x, y)
-    elseif t == 1 then
-        return get_pixel(image2, x, y)
-    end
+-- Fast interpolation using spatial grid
+function interpolate_pixel_grid(image1, image2, spatial_grid, grid_size, x, y, t, canvas_w, canvas_h, get_pixel)
+    -- Determine which grid cell contains this pixel
+    local gx = math.max(1, math.min(math.ceil(canvas_w / grid_size), math.floor((x - 1) / grid_size) + 1))
+    local gy = math.max(1, math.min(math.ceil(canvas_h / grid_size), math.floor((y - 1) / grid_size) + 1))
 
     local interpolated_value = 0
     local total_weight = 0
-    local sigma = 1.5  -- Kernel width
+    local sigma = 1.0
 
-    -- Check contribution from each particle
-    for _, particle in ipairs(particles) do
-        -- Get particle position at time t
-        local px = particle.sx + t * (particle.tx - particle.sx)
-        local py = particle.sy + t * (particle.ty - particle.sy)
+    -- Only check transport entries in nearby grid cells
+    for dy = -1, 1 do
+        for dx = -1, 1 do
+            local check_gx = gx + dx
+            local check_gy = gy + dy
 
-        -- Distance-based kernel weight
-        local dx = px - x
-        local dy = py - y
-        local dist_sq = dx * dx + dy * dy
-        local weight = math.exp(-dist_sq / (2 * sigma * sigma))
+            if check_gx >= 1 and check_gx <= #spatial_grid[1] and
+                check_gy >= 1 and check_gy <= #spatial_grid then
 
-        if weight > 1e-6 then
-            -- Get source value (cache it if not already cached)
-            if not particle.value then
-                particle.value = get_pixel(image1, particle.sx, particle.sy)
+                local cell = spatial_grid[check_gy][check_gx]
+
+                for _, entry in ipairs(cell) do
+                    local sx, sy = entry.sx, entry.sy
+                    local tx, ty = entry.tx, entry.ty
+                    local mass = entry.mass
+
+                    -- Compute particle position at time t
+                    local particle_x = sx + t * (tx - sx)
+                    local particle_y = sy + t * (ty - sy)
+
+                    -- Distance-based weight
+                    local dist_sq = (particle_x - x)^2 + (particle_y - y)^2
+                    local weight = math.exp(-dist_sq / (2 * sigma * sigma))
+
+                    if weight > 1e-6 then
+                        local source_value = get_pixel(image1, sx, sy)
+                        interpolated_value = interpolated_value + mass * source_value * weight
+                        total_weight = total_weight + mass * weight
+                    end
+                end
             end
-
-            local contribution = particle.mass * particle.value * weight
-            interpolated_value = interpolated_value + contribution
-            total_weight = total_weight + particle.mass * weight
         end
     end
 
@@ -405,11 +444,9 @@ function interpolate_pixel_particles(image1, image2, particles, x, y, t, canvas_
     if total_weight > 1e-8 then
         return interpolated_value / total_weight
     else
-        -- Fallback: linear interpolation
+        -- Fallback: simple linear interpolation
         local val1 = get_pixel(image1, x, y)
-        local val2 = get_pixel(image2, x, y)
+        local val2 = get_pixel(image2, x, y)  -- Assuming access to image2
         return (1 - t) * val1 + t * val2
     end
 end
-
-interpolate_pixel = interpolate_pixel_particles
