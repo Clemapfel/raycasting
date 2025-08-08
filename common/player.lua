@@ -202,7 +202,6 @@ function rt.Player:instantiate()
         _last_bubble_force_y = 0,
 
         _is_frozen = false,
-        _respawn_elapsed = 0,
         _use_wall_friction = true,
 
         _gravity = 1, -- [-1, 1]
@@ -254,7 +253,6 @@ function rt.Player:instantiate()
         _gravity_direction_y = 1,
         _gravity_multiplier = 1,
 
-        _respawn_elapsed = 0,
         _can_wall_jump = false,
         _can_jump = false,
         _is_ghost = false,
@@ -294,8 +292,6 @@ function rt.Player:instantiate()
 
         -- particles
         _body_to_collision_normal = {}
-
-
     })
 
     for i = 1, 2 * _settings.position_history_n, 2 do
@@ -311,9 +307,9 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
-        if self._state == rt.PlayerState.DISABLED then return end
-
         if which == rt.InputAction.JUMP then
+            if self._state == rt.PlayerState.DISABLED then return end
+
             self:jump()
 
             -- unlock double jump by re-pressing mid-air
@@ -1620,8 +1616,12 @@ function rt.Player:disable()
     end
 
     self._state = rt.PlayerState.DISABLED
-    self._up_button_is_down, self._right_button_is_down, self._down_button_is_down, self._left_button_is_down, self._jump_button_is_down = false, false, false, false, false
-    -- sic, don't reset sprint
+
+    self._up_button_is_down = self._input:get_is_down(rt.InputAction.UP)
+    self._right_button_is_down = self._input:get_is_down(rt.InputAction.RIGHT)
+    self._down_button_is_down = self._input:get_is_down(rt.InputAction.DOWN)
+    self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
+    self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
 end
 
 --- @brief
@@ -2030,3 +2030,36 @@ function rt.Player:get_is_ducking()
     return self._down_button_is_down and self:get_is_grounded()
 end
 
+--- @brief
+function rt.Player:reset()
+    self:set_jump_allowed(true)
+    self:set_use_wall_friction(true)
+    self:set_is_ghost(false)
+    self:set_is_bubble(false)
+    self:set_is_visible(true)
+    self:set_is_frozen(false)
+    self:set_collision_disabled(false)
+    self:reset_flow()
+    self:set_gravity(1)
+    self:set_opacity(1)
+    self:set_velocity(0, 0)
+end
+
+--- @brief
+function rt.Player:clear_forces()
+    self._body:set_velocity(0, 0)
+    local px, py = self._body:get_position()
+    for i, body in ipairs(self._spring_bodies) do
+        body:set_velocity(0, 0)
+        body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
+    end
+
+    self._bubble_body:set_velocity(0, 0)
+    px, py = self._bubble_body:get_position()
+    for i, body in ipairs(self._bubble_spring_bodies) do
+        body:set_velocity(0, 0)
+        body:set_position(px + self._bubble_spring_body_offsets_x[i], py + self._bubble_spring_body_offsets_y[i])
+    end
+
+    self._last_velocity_x, self._last_velocity_y = 0, 0
+end

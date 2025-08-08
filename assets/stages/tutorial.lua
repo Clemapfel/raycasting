@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 813,
+  nextobjectid = 815,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,15 +1609,13 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -2088.36,
-          y = 883.593,
+          x = -2029.12,
+          y = 861.379,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {
-            ["value"] = 12321312.123
-          }
+          properties = {}
         },
         {
           id = 155,
@@ -2382,19 +2380,6 @@ return {
           shape = "point",
           x = 1805.4,
           y = 2859.66,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 553,
-          name = "",
-          type = "Goal",
-          shape = "point",
-          x = 2507.04,
-          y = 2806.84,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4238,6 +4223,9 @@ return {
           polygon = {
             { x = -544, y = -432 },
             { x = -464, y = -432 },
+            { x = 1056, y = -432 },
+            { x = 1072, y = -384 },
+            { x = -464, y = -384 },
             { x = -464, y = 0 },
             { x = 1088, y = 0 },
             { x = 1088, y = 80 },
@@ -4250,8 +4238,8 @@ return {
           name = "",
           type = "NPC",
           shape = "polygon",
-          x = -1674.85,
-          y = 914.493,
+          x = -1296,
+          y = 912,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4287,7 +4275,9 @@ return {
             { x = 186.599, y = 8.54653 },
             { x = 26.5407, y = 8.68235 }
           },
-          properties = {}
+          properties = {
+            ["dialog_id"] = "debug_dialog"
+          }
         },
         {
           id = 752,
@@ -4662,9 +4652,9 @@ return {
         {
           id = 808,
           name = "",
-          type = "BouncePad",
+          type = "KillPlane",
           shape = "polygon",
-          x = -1920,
+          x = -1838.55,
           y = 896,
           width = 0,
           height = 0,
@@ -4679,22 +4669,29 @@ return {
           properties = {}
         },
         {
-          id = 812,
-          name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = -1086.82,
-          y = 721.458,
+          id = 813,
+          name = "Goal",
+          type = "PlayerGoal",
+          shape = "point",
+          x = -752,
+          y = 864,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          polygon = {
-            { x = -20.4378, y = 55.6793 },
-            { x = 251.562, y = 55.6793 },
-            { x = 251.562, y = 199.679 },
-            { x = -20.4378, y = 199.679 }
-          },
+          properties = {}
+        },
+        {
+          id = 814,
+          name = "Checkpoint",
+          type = "Checkpoint",
+          shape = "point",
+          x = -1506.85,
+          y = 873.75,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }
