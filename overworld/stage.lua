@@ -86,11 +86,9 @@ function ow.Stage:instantiate(scene, id)
         return meta.DISCONNECT_SIGNAL
     end)
 
-    local render_priorities = {}
-    local render_priority_to_object = {}
-    local _get_default_render_priority = function()
-        return -1
-    end
+    local render_priority_to_entry = {}
+    self._below_player = {}
+    self._above_player = {}
 
     -- batched draws
     ow.Hitbox:reinitialize()
@@ -119,20 +117,33 @@ function ow.Stage:instantiate(scene, id)
                 self._wrapper_id_to_object[wrapper.id] = object
 
                 if object.draw ~= nil then
-                    -- inject render priority
-                    local priority = -1
-                    if object.get_render_priority == nil then
-                        object.get_render_priority = _get_default_render_priority
+                    local priorities = { 0 }
+                    if object.get_render_priority ~= nil then
+                        priorities = { object:get_render_priority() }
                     end
-                    priority = object:get_render_priority()
 
-                    local priority_entry = render_priority_to_object[priority]
-                    if priority_entry == nil then
-                        priority_entry = {}
-                        render_priority_to_object[priority] = priority_entry
+                    for priority in values(priorities) do
+                        if not meta.is_number(priority) then
+                            rt.error("In ow." .. wrapper.class .. ".get_render_priority: does not return a number or tuple of numbers")
+                        end
+
+                        local entry = render_priority_to_entry[priority]
+                        if entry == nil then
+                            entry = {
+                                priority = priority,
+                                objects = {}
+                            }
+
+                            render_priority_to_entry[priority] = entry
+                            if priority <= 0 then
+                                table.insert(self._below_player, entry)
+                            else
+                                table.insert(self._above_player, entry)
+                            end
+                        end
+
+                        table.insert(entry.objects, object)
                     end
-                    table.insert(priority_entry, object)
-                    render_priorities[priority] = true
                 end
 
                 if object.draw_bloom ~= nil then
@@ -146,30 +157,19 @@ function ow.Stage:instantiate(scene, id)
         end
     end
 
-
-    local render_priorities_in_order = {}
-    for priority in keys(render_priorities) do
-        table.insert(render_priorities_in_order, priority)
-    end
-    table.sort(render_priorities_in_order)
-
-    for priority in values(render_priorities_in_order) do
-        local entry = render_priority_to_object[priority]
-        if priority <= 0 then
-            for object in values(entry) do
-                table.insert(self._below_player, object)
-            end
-        else
-            for object in values(entry) do
-                table.insert(self._above_player, object)
-            end
-        end
-    end
-
     -- check for PlayerSpawn
     if self._active_checkpoint == nil then
         rt.warning("In ow.Stage.initialize: not `PlayerSpawn` for stage `" .. self._id .. "`")
     end
+
+    -- sort by render priority
+    table.sort(self._below_player, function(a, b)
+        return a.priority < b.priority
+    end)
+
+    table.sort(self._above_player, function(a, b)
+        return a.priority < b.priority
+    end)
 
     -- setup coins so colors don't repeat
     local in_order = {}
@@ -222,8 +222,10 @@ function ow.Stage:draw_below_player()
     self._normal_map:draw_shadow()
     ow.Hitbox:draw_outline()
 
-    for object in values(self._below_player) do
-        object:draw()
+    for entry in values(self._below_player) do
+        for object in values(entry.objects) do
+            object:draw(entry.priority)
+        end
     end
 
     self._blood_splatter:draw()
@@ -234,8 +236,10 @@ function ow.Stage:draw_above_player()
     self._mirror:draw()
     self._normal_map:draw_light()
 
-    for object in values(self._above_player) do
-        object:draw()
+    for entry in values(self._above_player) do
+        for object in values(entry.objects) do
+            object:draw(entry.priority)
+        end
     end
 end
 

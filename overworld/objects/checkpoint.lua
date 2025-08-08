@@ -180,8 +180,7 @@ function ow.Checkpoint:_set_state(state)
     if self._state == _STATE_STAGE_ENTRY then
         -- on entry, instantly spawn player in position
 
-        local spawn_y = self._bottom_y - 6 * player:get_radius()
-        -- 6 * experimentally determined such that springs are at rest when spawning
+        local spawn_y = self._bottom_y - 4 * player:get_radius()
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         camera:set_position(self._bottom_x, self._bottom_y)
@@ -189,6 +188,9 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:teleport_to(self._top_x, spawn_y)
         player:disable()
+
+    elseif self._state == _STATE_STAGE_EXIT then
+
 
     elseif self._state == _STATE_EXPLODING then
         local explosion_x, explosion_y = player:get_position()
@@ -248,6 +250,7 @@ function ow.Checkpoint:update(delta)
 
     if self._state == _STATE_STAGE_ENTRY then
         self:_set_state(_STATE_DEFAULT)
+        player:clear_forces()
     elseif self._state == _STATE_EXPLODING then
         local duration = rt.settings.overworld.checkpoint.explosion_duration
         self._explosion_fraction = self._explosion_elapsed / duration
@@ -276,41 +279,50 @@ function ow.Checkpoint:update(delta)
     end
 end
 
+local _base_priority = 0
+local _effect_priority = math.huge
+
 --- @brief
-function ow.Checkpoint:draw()
+function ow.Checkpoint:draw(priority)
     if self._state == _STATE_DEFAULT and not self._scene:get_is_body_visible(self._body) then return end
-
-    love.graphics.setColor(self._color)
-    self._body:draw()
-
     local hue = self._scene:get_player():get_hue()
-    if self._state == _STATE_EXPLODING then
-        _explosion_shader:bind()
-        _explosion_shader:send("fraction", self._explosion_fraction)
-        _explosion_shader:send("size", self._explosion_size)
-        _explosion_shader:send("hue", hue)
 
-        local x, y = table.unpack(self._explosion_player_position)
-        local w, h = table.unpack(self._explosion_size)
-        love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
-        _explosion_shader:unbind()
-    elseif self._state == _STATE_RAY or self._state == _STATE_DEFAULT then
-        _ray_shader:bind()
-        _ray_shader:send("fraction", self._ray_fraction)
-        _ray_shader:send("fade_out_fraction", self._ray_fade_out_fraction)
-        _ray_shader:send("size", self._ray_size)
-        _ray_shader:send("elapsed", self._elapsed)
-        _ray_shader:send("hue", hue)
-        _ray_shader:send("camera_offset", self._camera_offset)
-        _ray_shader:send("camera_scale", self._camera_scale)
-        local w, h = table.unpack(self._ray_size)
-        local x, y = self._top_x - 0.5 * w, self._top_y
-        love.graphics.rectangle("fill", x, y, w, h)
-        _ray_shader:unbind()
+    if priority == _base_priority then
+        love.graphics.setColor(self._color)
+        self._body:draw()
+
+        -- ray drawn behind player
+        if self._state == _STATE_RAY or self._state == _STATE_DEFAULT then
+            _ray_shader:bind()
+            _ray_shader:send("fraction", self._ray_fraction)
+            _ray_shader:send("fade_out_fraction", self._ray_fade_out_fraction)
+            _ray_shader:send("size", self._ray_size)
+            _ray_shader:send("elapsed", self._elapsed)
+            _ray_shader:send("hue", hue)
+            _ray_shader:send("camera_offset", self._camera_offset)
+            _ray_shader:send("camera_scale", self._camera_scale)
+            local w, h = table.unpack(self._ray_size)
+            local x, y = self._top_x - 0.5 * w, self._top_y
+            love.graphics.rectangle("fill", x, y, w, h)
+            _ray_shader:unbind()
+        end
+    elseif priority == _effect_priority then
+        -- explosion draw above everything
+        if self._state == _STATE_EXPLODING then
+            _explosion_shader:bind()
+            _explosion_shader:send("fraction", self._explosion_fraction)
+            _explosion_shader:send("size", self._explosion_size)
+            _explosion_shader:send("hue", hue)
+
+            local x, y = table.unpack(self._explosion_player_position)
+            local w, h = table.unpack(self._explosion_size)
+            love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
+            _explosion_shader:unbind()
+        end
     end
 end
 
 --- @brief
 function ow.Checkpoint:get_render_priority()
-    return 0
+    return _base_priority, _effect_priority
 end
