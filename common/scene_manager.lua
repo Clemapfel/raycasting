@@ -23,7 +23,7 @@ function rt.SceneManager:instantiate()
         _current_scene_type = nil,
         _current_scene_varargs = {},
         _schedule_enter = false,
-        
+
         _scene_stack = {}, -- Stack<SceneType>
         _width = love.graphics.getWidth(),
         _height = love.graphics.getHeight(),
@@ -209,7 +209,7 @@ function rt.SceneManager:_draw_performance_metrics()
     local n_draws = tostring(stats.drawcalls)
 
     local fps_mean = tostring(love.timer.getFPS()) --math.ceil(_fps_sum / _n_frames_captured))
-    local fps_variance = tostring(math.ceil((_fps_sum / _n_frames_captured) / (_last_fps_variance_sum / _n_frames_captured)))
+    local fps_variance = tostring(math.ceil((_last_fps_variance_sum / _n_frames_captured)))
     local gpu_side_memory = tostring(math.ceil(stats.texturememory / 1024 / 1024))
     local update_percentage = tostring(math.ceil(_update_sum / _n_frames_captured * 100))
     local draw_percentage = tostring(math.ceil(_draw_sum / _n_frames_captured * 100))
@@ -384,15 +384,22 @@ function love.run()
         table.insert(_last_fps, 1 / love.timer.getDelta())
         _fps_sum = _fps_sum - fps_start + fps
 
+        -- Calculate proper FPS variance (coefficient of variation)
         local variance = 0
         do
-            local fps_min, fps_max = math.huge, -math.huge
+            local fps_mean = _fps_sum / _n_frames_captured
+            local sum_squared_diff = 0
+
             for x in values(_last_fps) do
-                fps_min = math.max(x, fps_max)
-                fps_max = math.min(x, fps_min)
+                local diff = x - fps_mean
+                sum_squared_diff = sum_squared_diff + (diff * diff)
             end
-            local mean = _fps_sum / _n_frames_captured
-            variance = math.max(math.abs(mean - fps_min), math.abs(mean - fps_max))
+
+            local standard_deviation = math.sqrt(sum_squared_diff / _n_frames_captured)
+            -- Convert to coefficient of variation (percentage)
+            if fps_mean > 0 then
+                variance = (standard_deviation / fps_mean) * 100
+            end
         end
 
         local variance_start = _last_fps_variance[1]

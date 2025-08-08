@@ -22,8 +22,9 @@ rt.settings.player = {
     player_collision_group = b2.CollisionGroup.GROUP_16,
     player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
     bounce_collision_group = b2.CollisionGroup.GROUP_14,
-    exempt_collision_group = b2.CollisionGroup.GROUP_13,
+
     ghost_collision_group = b2.CollisionGroup.GROUP_12,
+    ghost_outer_body_collision_group = b2.CollisionGroup.GROUP_13,
 
     ground_target_velocity_x = 300,
     air_target_velocity_x = 320,
@@ -470,7 +471,12 @@ function rt.Player:update(delta)
         x, y = self._body:get_position()
     end
 
-    local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
+    local mask
+    if self._is_ghost == false then
+        mask = bit.bnot(_settings.player_outer_body_collision_group)
+    else
+        mask = _settings.ghost_collision_group
+    end
 
     local bubble_factor = 1
     if self._is_bubble then
@@ -527,15 +533,6 @@ function rt.Player:update(delta)
     self._bottom_right_wall = bottom_right_wall_body ~= nil and not bottom_right_wall_body:get_is_sensor()
     self._bottom_right_wall_body = bottom_right_wall_body
     self._bottom_right_ray = {x, y, x + bottom_right_dx, y + bottom_right_dy}
-
-    if self._is_ghost then
-        self._left_wall = false
-        self._right_wall = false
-        self._top_wall = false
-        self._bottom_wall = false
-        self._bottom_left_wall = false
-        self._bottom_right_wall = false
-    end
 
     -- when going from air to ground, signal emission and re-lock double jump
     if (bottom_left_before == false and bottom_before == false and bottom_right_before == false) and
@@ -1232,12 +1229,15 @@ function rt.Player:move_to_world(world)
     end
 
     initialize_inner_body(self._body, false)
+    self._inner_collision_group = self._body:get_collision_group()
+    self._inner_collision_mask = self._body:get_collides_with()
 
     -- add wrapping shape to body, for cleaner collision with bounce pads
     local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius * 0.8)
     local bounce_group = _settings.bounce_collision_group
     bounce_shape:setFilterData(bounce_group, bounce_group, 0)
     self._bounce_shape = b2.Circle(0, 0, self._radius * 0.8)
+    self._bounce_physics_shape = bounce_shape
 
     -- soft body
     self._spring_bodies = {}
@@ -1260,6 +1260,8 @@ function rt.Player:move_to_world(world)
         body:add_tag("player_outer_body")
     end
 
+    self._outer_collision_group, self._outer_collision_mask = nil, nil
+
     local mask = bit.bnot(rt.settings.player.player_outer_body_collision_group)
     for angle = 0, 2 * math.pi, step do
         local offset_x = math.cos(angle) * outer_radius
@@ -1279,6 +1281,9 @@ function rt.Player:move_to_world(world)
         table.insert(self._spring_joints, joint)
         table.insert(self._spring_body_offsets_x, offset_x)
         table.insert(self._spring_body_offsets_y, offset_y)
+
+        if self._outer_collision_group == nil then self._outer_collision_group = body:get_collision_group() end
+        if self._outer_collision_mask == nil then self._outer_collision_mask = body:get_collides_with() end
     end
 
     self._mass = self._body:get_mass()
@@ -1298,6 +1303,7 @@ function rt.Player:move_to_world(world)
     local bubble_bounce_shape = love.physics.newCircleShape(self._bubble_body:get_native(), x, y, self._radius * _settings.bubble_radius_factor * 0.8)
     bubble_bounce_shape:setFilterData(bounce_group, bounce_group, 0)
     self._bubble_bounce_shape = b2.Circle(0, 0, self._radius * _settings.bubble_radius_factor)
+    self._bubble_bounce_physics_shape = bubble_bounce_shape
 
     self._bubble_spring_bodies = {}
     self._bubble_spring_joints = {}
@@ -1410,70 +1416,6 @@ function rt.Player:draw_body()
     if self._trail_visible then
         self._trail:draw_above()
     end
-
-    if _settings.debug_drawing_enabled then
-        if not self._use_bubble_mesh then
-            self._body:draw()
-            for body in values(self._spring_bodies) do
-                body:draw()
-            end
-
-            love.graphics.push()
-            love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.translate(self._body:get_predicted_position())
-            self._bounce_shape:draw()
-            love.graphics.pop()
-        else
-            self._bubble_body:draw()
-            for body in values(self._bubble_spring_bodies) do
-                body:draw()
-            end
-
-            love.graphics.push()
-            love.graphics.translate(self._bubble_body:get_predicted_position())
-            love.graphics.setColor(1, 1, 1, 1)
-            self._bubble_bounce_shape:draw()
-            love.graphics.pop()
-        end
-
-        love.graphics.setLineWidth(1)
-
-        for wall_ray in range(
-            { self._top_wall, self._top_ray },
-            { self._right_wall, self._right_ray },
-            { self._bottom_wall, self._bottom_ray },
-            { self._left_wall, self._left_ray },
-            { self._bottom_left_wall, self._bottom_left_ray },
-            { self._bottom_right_wall, self._bottom_right_ray }
-        ) do
-            local wall, ray = table.unpack(wall_ray)
-            if wall then rt.Palette.GREEN:bind() else rt.Palette.RED:bind() end
-            love.graphics.line(ray)
-        end
-    end
-
-    love.graphics.push()
-    love.graphics.origin()
-    if false then -- draw flow meter
-        local w, h = 10, 100
-        local x, y = 50, 50
-        local padding = 1
-        local y_pos = self._flow * (h - 2 * padding)
-        love.graphics.setLineWidth(1)
-
-        love.graphics.setColor(r, g, b, 1)
-        love.graphics.rectangle("fill", x, y, w, h, 5)
-
-        love.graphics.setColor(0, 0, 0, 1)
-        love.graphics.rectangle("line", x, y, w, h, 5)
-
-        love.graphics.setColor(r, g, b, 1)
-        love.graphics.rectangle("fill", x - 0.25 * w, y + h - y_pos, w * 1.5, 3)
-
-        love.graphics.setColor(0, 0, 0, 1)
-        love.graphics.rectangle("line", x - 0.25 * w, y + h - y_pos, w * 1.5, 3)
-    end
-    love.graphics.pop()
 end
 
 --- @brief
@@ -1916,15 +1858,37 @@ end
 function rt.Player:set_is_ghost(b)
     self._is_ghost = b
 
-    self._body:set_is_sensor(b)
-    self._bubble_body:set_is_sensor(b)
+    local inner_group, outer_group
+    local inner_mask, outer_mask
+
+    if b == true then
+        inner_group, outer_group = _settings.ghost_collision_group, _settings.ghost_outer_body_collision_group
+        inner_mask, outer_mask = _settings.ghost_collision_group, _settings.ghost_collision_group
+    else
+        local default = bit.bnot(0x0)
+        inner_group, outer_group = self._inner_collision_group or default, self._outer_collision_group or default
+        inner_mask, outer_mask = self._inner_collision_mask or default, self._outer_collision_mask or default
+    end
+
+    self._body:set_collision_group(inner_group)
+    self._body:set_collides_with(inner_mask)
+
+    self._bubble_body:set_collision_group(inner_group)
+    self._bubble_body:set_collides_with(inner_mask)
+
+    -- bounce shapes need to be reset, because body:set_collision_group also affects them
+    local bounce_group = _settings.bounce_collision_group
+    self._bounce_physics_shape:setFilterData(bounce_group, bounce_group, 0)
+    self._bubble_bounce_physics_shape:setFilterData(bounce_group, bounce_group, 0)
 
     for body in values(self._spring_bodies) do
-        body:set_is_sensor(b)
+        body:set_collision_group(outer_group)
+        body:set_collides_with(outer_mask)
     end
 
     for body in values(self._bubble_spring_bodies) do
-        body:set_is_sensor(b)
+        body:set_collision_group(outer_group)
+        body:set_collides_with(outer_mask)
     end
 end
 

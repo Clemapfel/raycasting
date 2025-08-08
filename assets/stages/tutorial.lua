@@ -4652,7 +4652,7 @@ return {
         {
           id = 808,
           name = "",
-          type = "KillPlane",
+          type = "BouncePad",
           shape = "polygon",
           x = -1838.55,
           y = 896,
