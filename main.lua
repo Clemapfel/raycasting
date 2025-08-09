@@ -8,8 +8,8 @@ require "overworld.result_screen"
 local screen = ow.ResultsScreen()
 screen:realize()
 
-require "overworld.fireworks"
-local fireworks = ow.Fireworks()
+require "overworld.shatter_surface"
+local surface = nil
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -30,23 +30,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
         ]]--
     elseif which == "n" then
         local w, h = love.graphics.getDimensions()
-
-        local start_min_x, start_max_x = 0.5 * w - 100, 0.5 * w + 100
-        local start_min_y, start_max_y = 0.75 * h, 1 * h - 50
-
-        local end_min_x, end_min_x = 100, w - 100
-        local end_min_y, end_max_y = 0.25 * h, 0.5 * h
-
-        local start_x, end_x = rt.random.number(start_min_x, start_min_y), rt.random.number(end_min_x, end_min_y)
-        local start_y, end_y = rt.random.number(start_min_y, start_max_y), rt.random.number(end_min_y, end_max_y)
-
-        local width = 0.3
-        local hue = rt.random.number(0, 1)
-        fireworks:spawn(400,
-            start_x, start_y,
-            end_x, end_y,
-            hue - 0.3, hue + 0.3
-        )
+        surface:shatter(0.5 * w, 0.5 * h)
     end
 end)
 
@@ -63,13 +47,16 @@ love.load = function(args)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene)
+
+    local w, h = love.graphics.getDimensions()
+    surface = ow.ShatterSurface(0, 0, w, h)
+    surface:shatter(0.5 * w, 0.5 * h)
 end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
 
     screen:update(delta)
-    fireworks:update(delta)
 end
 
 love.draw = function()
@@ -77,8 +64,8 @@ love.draw = function()
     rt.SceneManager:draw()
 
     --screen:draw()
-    --love.graphics.clear(0.5, 0.5, 0.5, 1)
-    --fireworks:draw()
+
+    surface:draw()
 end
 
 love.resize = function(width, height)
