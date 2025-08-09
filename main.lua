@@ -31,7 +31,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     elseif which == "n" then
         local w, h = love.graphics.getDimensions()
 
-        local min_x, max_x = 50, w - 50
+        local min_x, max_x = 0.5 * w - 100, 0.5 * w + 100
         local start_min_y, start_max_y = 0.75 * h, 1 * h - 50
         local end_min_y, end_max_y = 50, 0.25 * h
 
@@ -39,7 +39,6 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
         local start_y, end_y = rt.random.number(start_min_y, start_max_y), rt.random.number(end_min_y, end_max_y)
 
         fireworks:spawn(400,
-            0.5 * love.graphics.getWidth(), 0.75 * love.graphics.getHeight(),
             start_x, start_y,
             end_x, end_y,
             0, 1
@@ -50,7 +49,7 @@ end)
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
