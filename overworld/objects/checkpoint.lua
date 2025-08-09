@@ -41,8 +41,6 @@ local _STATE_EXPLODING = "EXPLODING"
 local _STATE_STAGE_ENTRY = "STAGE_ENTRY"
 local _STATE_STAGE_EXIT = "STAGE_EXIT"
 
-local first = true
-
 --- @brief
 function ow.Checkpoint:instantiate(object, stage, scene, type)
     if _ray_shader == nil then
@@ -140,9 +138,24 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             if other:has_tag("player") and self._type == ow.CheckpointType.MIDWAY and self._rope_is_cut == false then
                 self:_cut()
 
+                -- fireworks
+                local player = self._scene:get_player()
                 local n_particles = 300
-                local player_x, player_y = self._scene:get_player():get_position()
-                self._fireworks:spawn(n_particles, player_x, player_y, 0, -1, 0.8, 0.9) -- spew upwards
+                local start_x, start_y = self._bottom_x, self._bottom_y
+                local max_distance = math.distance(self._bottom_x, self._bottom_y, self._top_x, self._top_y)
+
+                for i = 1, 6 do
+                    local distance = rt.random.number(0, max_distance)
+                    local vy = -1 -- always upwards
+                    local vx = rt.random.number(-0.5, 0.5)
+                    local hue = rt.random.number(0, 1)
+                    self._fireworks:spawn(
+                        n_particles,
+                        start_x, start_y, -- start pos
+                        start_x + vx * distance, start_y + vy * distance, -- end
+                        hue - 0.2, hue + 0.2
+                    )
+                end
             end
 
             self._passed = true
@@ -164,7 +177,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 rt.settings.player.ghost_collision_group
             )
         elseif self._type == ow.CheckpointType.MIDWAY then
-            self._fireworks = ow.Fireworks(self._scene)
+            self._fireworks = ow.Fireworks(self._scene:get_player())
 
             local height = self._bottom_y - self._top_y
             local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint.segment_length), 2)
@@ -223,22 +236,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
                 self._rope_joints[i] = joint
             end
-        end
-
-
-        if first and self._fireworks ~= nil then
-            self._input = rt.InputSubscriber()
-            self._input:signal_connect("keyboard_key_pressed", function(_, which)
-                dbg(which, self._fireworks ~= nil)
-                if which == "n" and self._fireworks ~= nil then
-                    local n_particles = 300
-                    local player_x, player_y = self._scene:get_player():get_position()
-                    self._fireworks:spawn(n_particles, player_x, player_y, 0, 1) -- spew upwards
-                    self._fireworks:spawn(n_particles, player_x, player_y, 0, 0.5) -- spew upwards
-                    self._fireworks:spawn(n_particles, player_x, player_y, 0, -0.5) -- spew upwards
-                end
-            end)
-            first = false
         end
 
         return meta.DISCONNECT_SIGNAL

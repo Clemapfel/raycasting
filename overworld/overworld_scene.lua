@@ -572,11 +572,9 @@ function ow.OverworldScene:draw()
 
         self._camera:bind()
         self._stage:draw_below_player()
-            love.graphics.clear(0.5, 0.5, 0.5, 1)
-
         self._player:draw_body()
         self._player:draw_core()
-        --self._stage:draw_above_player()
+        self._stage:draw_above_player()
         self._camera:unbind()
 
         if rt.GameState:get_is_bloom_enabled() == true then

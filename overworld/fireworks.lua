@@ -1,20 +1,33 @@
 rt.settings.overworld.fireworks = {
     radius = 7,
-    rocket_initial_speed = 50,
-    rocket_acceleration = 300,
-    rocket_max_speed = 400,
-    particle_air_resistance = 0.98,
-    particle_gravity = 10,
-    particle_restitution = 0.5,
+    rocket_initial_speed = 500,
+    rocket_acceleration = 600,
+    rocket_gravity = 0,
+    --rocket_restitution = 0.05, -- when colliding with player
 
-    min_mass = 0.8,
-    max_mass = 1.2,
+    particle_air_resistance = 0.99,
+    particle_gravity = 500,
+    particle_restitution = 1,
+    particle_fade_out_duration = 0.025,
+    particle_burn_rate = 0.8,
+    particle_velocity_inheritance = 0.6,
+    particle_z_damping = 0.5,
+
+    min_mass = 1,
+    max_mass = 10,
     min_radius = 0.5,
     max_radius = 1,
-    min_lifetime = 1,
-    max_lifetime = 2,
-    min_explosion_force = 150,
-    max_explosion_force = 250
+    min_lifetime = 1.5,
+    max_lifetime = 3,
+    min_explosion_force = 300,
+    max_explosion_force = 400,
+
+    min_explosion_force_multiplier = 1,
+    max_explosion_force_multiplier = 1.33,
+
+    mass_easing = rt.InterpolationFunctions.SINUSOID_EASE_IN,
+    radius_easing = rt.InterpolationFunctions.LINEAR,
+    opacity_easing = rt.InterpolationFunctions.LINEAR
 }
 
 ow.Fireworks = meta.class("Fireworks")
@@ -32,10 +45,10 @@ local _data_mesh_format = {
 
 local _particle_shader = nil
 
-function ow.Fireworks:instantiate(scene)
+function ow.Fireworks:instantiate(player)
     if _particle_shader == nil then _particle_shader = rt.Shader("overworld/fireworks.glsl") end
     self._batches = {}
-    self._scene = scene
+    self._player = player
 end
 
 local _position_x = 1
@@ -70,7 +83,6 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
 
     local data_mesh_data = {}
     for i = 1, n_particles do
-        -- fibonacci spiral for distribution on 3-sphere
         local idx = i - 0.5 - 1
         local z = 1 - 2 * idx / n_particles
         local theta = 2 * math.pi * idx / _golden_ratio
@@ -98,6 +110,7 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
             [_color_r] = r,
             [_color_g] = g,
             [_color_b] = b,
+            [_color_a] = 1,
             [_velocity_x] = 0,
             [_velocity_y] = 0,
             [_velocity_z] = 0,
@@ -116,6 +129,10 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
         _settings.radius, _settings.radius,
         8
     )
+
+    for i = 2, particle_mesh:get_n_vertices() do
+        particle_mesh:set_vertex_color(i, 1, 1, 1, 0)
+    end
 
     local data_mesh = rt.Mesh(
         data_mesh_data,
@@ -150,10 +167,15 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
         rocket_velocity_y = rocket_velocity_y,
         rocket_acceleration_x = rocket_velocity_x / _settings.rocket_initial_speed * _settings.rocket_acceleration,
         rocket_acceleration_y = rocket_velocity_y / _settings.rocket_initial_speed * _settings.rocket_acceleration,
+        rocket_color = { rt.lcha_to_rgba(0.8, 1, math.mix(hue_min, hue_max, 0.5), 1) },
+        explosion_force_multiplier = _rng(_settings.min_explosion_force_multiplier, _settings.max_explosion_force_multiplier),
         particle_mesh = particle_mesh,
         data_mesh_data = data_mesh_data,
         data_mesh = data_mesh,
-        is_exploded = false
+        is_exploded = false,
+        target_distance = math.distance(start_x, start_y, end_x, end_y),
+        explosion_rocket_velocity_x = 0,
+        explosion_rocket_velocity_y = 0,
     })
 end
 
@@ -163,89 +185,128 @@ function ow.Fireworks:update(delta)
         if not batch.is_exploded then
             batch.rocket_velocity_x = batch.rocket_velocity_x + batch.rocket_acceleration_x * delta
             batch.rocket_velocity_y = batch.rocket_velocity_y + batch.rocket_acceleration_y * delta
-
-            local current_speed = math.magnitude(batch.rocket_velocity_x, batch.rocket_velocity_y)
-            if current_speed > _settings.rocket_max_speed then
-                local scale_factor = _settings.rocket_max_speed / current_speed
-                batch.rocket_velocity_x = batch.rocket_velocity_x * scale_factor
-                batch.rocket_velocity_y = batch.rocket_velocity_y * scale_factor
-            end
+            batch.rocket_velocity_y = batch.rocket_velocity_y + _settings.rocket_gravity * delta
 
             batch.rocket_x = batch.rocket_x + batch.rocket_velocity_x * delta
             batch.rocket_y = batch.rocket_y + batch.rocket_velocity_y * delta
 
-            -- get progress of rocket on line segment
-            local line_dx = batch.end_x - batch.start_x
-            local line_dy = batch.end_y - batch.start_y
-            local rocket_dx = batch.rocket_x - batch.start_x
-            local rocket_dy = batch.rocket_y - batch.start_y
-            if math.dot(rocket_dx, rocket_dy, line_dx, line_dy) / math.magnitude(line_dx, line_dy)^2 >= 1 then
+            --[[
+            -- player deflects rocket
+            if self._player ~= nil then
+                local player_x, player_y = self._player:get_position()
+                local player_r = self._player:get_radius()
+                local rocket_r = _settings.radius
+
+                local distance_to_player = math.distance(batch.rocket_x, batch.rocket_y, player_x, player_y)
+                if distance_to_player < (player_r + rocket_r) then
+                    local deflection_x, deflection_y = math.normalize(
+                        batch.rocket_x - player_x,
+                        batch.rocket_y - player_y
+                    )
+
+                    batch.rocket_x = player_x + deflection_x * (player_r + rocket_r)
+                    batch.rocket_y = player_y + deflection_y * (player_r + rocket_r)
+
+                    local velocity_magnitude = math.magnitude(batch.rocket_velocity_x, batch.rocket_velocity_y)
+                    batch.rocket_velocity_x = deflection_x * velocity_magnitude * _settings.rocket_restitution
+                    batch.rocket_velocity_y = deflection_y * velocity_magnitude * _settings.rocket_restitution
+
+                    local new_direction_x, new_direction_y = math.normalize(batch.rocket_velocity_x, batch.rocket_velocity_y)
+                    batch.rocket_acceleration_x = new_direction_x * _settings.rocket_acceleration
+                    batch.rocket_acceleration_y = new_direction_y * _settings.rocket_acceleration
+                end
+            end
+            ]]--
+
+            local distance_traveled = math.distance(batch.start_x, batch.start_y, batch.rocket_x, batch.rocket_y)
+            local distance_to_target = math.distance(batch.rocket_x, batch.rocket_y, batch.end_x, batch.end_y)
+
+            if distance_traveled >= batch.target_distance * 0.9 or distance_to_target < _settings.radius * 2 then
                 batch.is_exploded = true
+                batch.explosion_rocket_velocity_x = batch.rocket_velocity_x
+                batch.explosion_rocket_velocity_y = batch.rocket_velocity_y
             end
 
-            -- rotated rectangle segment with tapering end
-            local left_x, left_y = math.normalize(math.turn_left(rocket_dx, rocket_dy))
-            local right_x, right_y = math.normalize(math.turn_right(rocket_dx, rocket_dy))
+            local velocity_magnitude = math.magnitude(batch.rocket_velocity_x, batch.rocket_velocity_y)
+            if velocity_magnitude > 0 then
+                local left_x, left_y = math.normalize(-batch.rocket_velocity_y, batch.rocket_velocity_x)
+                local right_x, right_y = math.normalize(batch.rocket_velocity_y, -batch.rocket_velocity_x)
 
-            local rocket_length = 4 * _settings.radius
-            local rocket_end_width = _settings.radius
-            local rocket_start_width = rocket_end_width * 0.25
+                local rocket_length = 4 * _settings.radius
+                local rocket_end_width = _settings.radius
+                local rocket_start_width = rocket_end_width * 0.25
 
-            local ndx, ndy = math.normalize(rocket_dx, rocket_dy)
-            local start_x = batch.rocket_x - ndx * rocket_length
-            local start_y = batch.rocket_y - ndy * rocket_length
-            local end_x = batch.rocket_x
-            local end_y = batch.rocket_y
+                local ndx, ndy = math.normalize(batch.rocket_velocity_x, batch.rocket_velocity_y)
+                local start_x = batch.rocket_x - ndx * rocket_length
+                local start_y = batch.rocket_y - ndy * rocket_length
+                local end_x = batch.rocket_x
+                local end_y = batch.rocket_y
 
-            batch.rocket_vertices = {
-                end_x + left_x * rocket_end_width, end_y,
-                end_x + right_x * rocket_end_width, end_y,
-                start_x + right_x * rocket_start_width, start_y,
-                start_x + left_x * rocket_start_width, start_y
-            }
+                batch.rocket_vertices = {
+                    end_x + left_x * rocket_end_width, end_y + left_y * rocket_end_width,
+                    end_x + right_x * rocket_end_width, end_y + right_y * rocket_end_width,
+                    start_x + right_x * rocket_start_width, start_y + right_y * rocket_start_width,
+                    start_x + left_x * rocket_start_width, start_y + left_y * rocket_start_width
+                }
+            end
 
             for particle in values(batch.data_mesh_data) do
                 particle[_position_x] = batch.rocket_x
                 particle[_position_y] = batch.rocket_y
 
                 if batch.is_exploded then
-                    particle[_velocity_x] = particle[_explosion_direction_x] * particle[_explosion_force]
-                    particle[_velocity_y] = particle[_explosion_direction_y] * particle[_explosion_force]
-                    particle[_velocity_z] = particle[_explosion_direction_z] * particle[_explosion_force]
+                    local inherited_velocity_x = batch.explosion_rocket_velocity_x * _settings.particle_velocity_inheritance
+                    local inherited_velocity_y = batch.explosion_rocket_velocity_y * _settings.particle_velocity_inheritance
+
+                    particle[_velocity_x] = particle[_explosion_direction_x] * particle[_explosion_force] * batch.explosion_force_multiplier + inherited_velocity_x
+                    particle[_velocity_y] = particle[_explosion_direction_y] * particle[_explosion_force] * batch.explosion_force_multiplier + inherited_velocity_y
+                    particle[_velocity_z] = particle[_explosion_direction_z] * particle[_explosion_force] * batch.explosion_force_multiplier * _settings.particle_z_damping
                 end
             end
         else
             local air_resistance = _settings.particle_air_resistance
             local gravity = _settings.particle_gravity
             local restitution = _settings.particle_restitution
+            local burn_rate = _settings.particle_burn_rate
 
             local player_x, player_y, player_r
-            if self._scene ~= nil then
-                player_x, player_y = self._scene:get_player():get_position()
-                player_r = self._scene:get_player():get_radius()
+            if self._player ~= nil then
+                player_x, player_y = self._player:get_position()
+                player_r = self._player:get_radius()
             end
 
             batch.elapsed = batch.elapsed + delta
             local is_done = true
 
             for particle in values(batch.data_mesh_data) do
-                local fraction = batch.elapsed / particle[_lifetime]
-                local t = 1 - fraction;
-                particle[_color_a] = t
-                particle[_radius] = t
+                local lifetime = particle[_lifetime]
+                local fraction = batch.elapsed / lifetime
 
-                local mass = particle[_mass] * t
+                local fade_out = _settings.particle_fade_out_duration
+                local opacity = 1
+                if batch.elapsed > lifetime - fade_out then
+                    opacity = _settings.opacity_easing((lifetime - batch.elapsed) / fade_out)
+                end
+                particle[_color_a] = opacity
 
-                particle[_velocity_x] = particle[_velocity_x] * (air_resistance ^ delta)
-                particle[_velocity_y] = particle[_velocity_y] * (air_resistance ^ delta) + gravity * delta * mass
-                particle[_velocity_z] = particle[_velocity_z] * (air_resistance ^ delta)
+                particle[_radius] = _settings.radius_easing(1 - fraction)
+
+                local burn_factor = _settings.mass_easing(1 - fraction)
+                local velocity_burn_factor = math.mix(burn_rate, 1, burn_factor)
+                local mass_factor = math.mix(0.2, 1, burn_factor)
+
+                particle[_velocity_x] = particle[_velocity_x] * (velocity_burn_factor * air_resistance ^ delta)
+                particle[_velocity_y] = particle[_velocity_y] * (velocity_burn_factor * air_resistance ^ delta)
+                particle[_velocity_z] = particle[_velocity_z] * (velocity_burn_factor * air_resistance ^ delta)
+
+                particle[_velocity_y] = particle[_velocity_y] + mass_factor * gravity * delta
 
                 particle[_position_x] = particle[_position_x] + particle[_velocity_x] * delta
                 particle[_position_y] = particle[_position_y] + particle[_velocity_y] * delta
                 particle[_position_z] = particle[_position_z] + particle[_velocity_z] * delta
 
-                if self._scene ~= nil then
-                    local particle_r =particle[_radius]
+                if self._player ~= nil then
+                    local particle_r = particle[_radius]
                     if math.distance(particle[_position_x], particle[_position_y], player_x, player_y) < (player_r + particle_r) then
                         local delta_x, delta_y = math.normalize(particle[_position_x] - player_x, particle[_position_y] - player_y)
                         particle[_position_x] = player_x + delta_x * (player_r + particle_r)
@@ -256,7 +317,7 @@ function ow.Fireworks:update(delta)
                     end
                 end
 
-                if fraction < 1 then is_done = false end
+                if opacity > 0 then is_done = false end
             end
 
             if is_done then
@@ -277,21 +338,22 @@ end
 
 function ow.Fireworks:draw()
     if #self._batches == 0 then return end
-    love.graphics.setColor(1, 1, 1, 1)
 
     for batch in values(self._batches) do
         if batch.is_exploded == false then
+            love.graphics.setColor(batch.rocket_color)
             love.graphics.circle("fill", batch.rocket_x, batch.rocket_y, _settings.radius)
             love.graphics.polygon("fill", batch.rocket_vertices)
         else
+            love.graphics.setColor(1, 1, 1, 1)
             _particle_shader:bind()
             batch.particle_mesh:draw_instanced(batch.n_particles)
             _particle_shader:unbind()
         end
     end
+end
 
-    love.graphics.setLineWidth(1)
-    for batch in values(self._batches) do
-        love.graphics.line(batch.start_x, batch.start_y, batch.end_x, batch.end_y)
-    end
+--- @brief
+function ow.Fireworks:set_player(player)
+    self._player = player
 end

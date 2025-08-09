@@ -31,17 +31,21 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     elseif which == "n" then
         local w, h = love.graphics.getDimensions()
 
-        local min_x, max_x = 0.5 * w - 100, 0.5 * w + 100
+        local start_min_x, start_max_x = 0.5 * w - 100, 0.5 * w + 100
         local start_min_y, start_max_y = 0.75 * h, 1 * h - 50
-        local end_min_y, end_max_y = 50, 0.25 * h
 
-        local start_x, end_x = rt.random.number(min_x, max_x), rt.random.number(min_x, max_x)
+        local end_min_x, end_min_x = 100, w - 100
+        local end_min_y, end_max_y = 0.25 * h, 0.5 * h
+
+        local start_x, end_x = rt.random.number(start_min_x, start_min_y), rt.random.number(end_min_x, end_min_y)
         local start_y, end_y = rt.random.number(start_min_y, start_max_y), rt.random.number(end_min_y, end_max_y)
 
+        local width = 0.3
+        local hue = rt.random.number(0, 1)
         fireworks:spawn(400,
             start_x, start_y,
             end_x, end_y,
-            0, 1
+            hue - 0.3, hue + 0.3
         )
     end
 end)
@@ -49,7 +53,7 @@ end)
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -73,8 +77,8 @@ love.draw = function()
     rt.SceneManager:draw()
 
     --screen:draw()
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
-    fireworks:draw()
+    --love.graphics.clear(0.5, 0.5, 0.5, 1)
+    --fireworks:draw()
 end
 
 love.resize = function(width, height)
