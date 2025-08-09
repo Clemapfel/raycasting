@@ -285,6 +285,7 @@ function rt.SceneManager:get_frame_interpolation()
     end
 end
 
+
 rt.SceneManager = rt.SceneManager() -- static global singleton
 local _focused = true
 
