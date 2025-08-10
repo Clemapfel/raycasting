@@ -30,7 +30,9 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
         ]]--
     elseif which == "n" then
         local w, h = love.graphics.getDimensions()
+        local before = love.timer.getTime()
         surface:shatter(0.5 * w, 0.5 * h)
+        dbg((love.timer.getTime() - before) / (1 / 60))
     end
 end)
 

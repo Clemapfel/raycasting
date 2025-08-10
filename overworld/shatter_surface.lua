@@ -99,12 +99,13 @@ local function clip_polygon_to_rect(vertices, x, y, w, h)
 end
 
 --- @brief Generate seeds using Fibonacci spiral pattern
-local function generate_fibonacci_spiral_seeds(origin_x, origin_y, num_seeds, max_radius, variance)
+local function generate_seeds(origin_x, origin_y, num_seeds, max_radius, variance)
     local seeds = {}
     local golden_angle = math.pi * (3 - math.sqrt(5))
 
     -- Add impact point as the center seed
-    table.insert(seeds, {x = origin_x, y = origin_y})
+    table.insert(seeds, origin_x)
+    table.insert(seeds, origin_y)
 
     local easing = rt.InterpolationFunctions.LINEAR
     local max_angle_variance = rt.settings.overworld.shatter_surface.angle_variance * 2 * math.pi
@@ -112,7 +113,6 @@ local function generate_fibonacci_spiral_seeds(origin_x, origin_y, num_seeds, ma
 
     local max_offset = debugger.get("max_offset")
 
-    -- Calculate radial line density to match spiral
     local n_lines = 32
     local spiral_density_at_edge = math.sqrt(num_seeds) / max_radius
     local average_spiral_spacing = max_radius / math.sqrt(num_seeds)
@@ -135,215 +135,321 @@ local function generate_fibonacci_spiral_seeds(origin_x, origin_y, num_seeds, ma
             x = x + rt.random.noise(x, y) * rt.random.number(-1, 1) * max_offset * length
             y = y + rt.random.noise(-y, x) * rt.random.number(-1, 1) * max_offset * length
 
-            table.insert(seeds, {
-                x = x, y = y
-            })
+            table.insert(seeds, x)
+            table.insert(seeds, y)
         end
     end
 
     return seeds
 end
 
---- @brief Check if two line segments share a common edge (within tolerance)
-local function segments_overlap(x1, y1, x2, y2, x3, y3, x4, y4, tolerance)
-    tolerance = tolerance or 1e-6
+--- @brief Fast Voronoi diagram computation using Fortune's algorithm
+local VoronoiComputer = {}
 
-    -- Check if segments are collinear and overlapping
-    local function point_on_segment(px, py, sx, sy, ex, ey)
-        local cross = (py - sy) * (ex - sx) - (px - sx) * (ey - sy)
-        if math.abs(cross) > tolerance then return false end
-
-        local dot = (px - sx) * (ex - sx) + (py - sy) * (ey - sy)
-        local len_sq = (ex - sx) * (ex - sx) + (ey - sy) * (ey - sy)
-
-        return dot >= -tolerance and dot <= len_sq + tolerance
-    end
-
-    -- Check if any endpoint of one segment lies on the other
-    return point_on_segment(x1, y1, x3, y3, x4, y4) or
-        point_on_segment(x2, y2, x3, y3, x4, y4) or
-        point_on_segment(x3, y3, x1, y1, x2, y2) or
-        point_on_segment(x4, y4, x1, y1, x2, y2)
+function VoronoiComputer:new()
+    local obj = {
+        sites = {},
+        edges = {},
+        cells = {},
+        events = {},
+        beachline = {},
+        sweep_y = 0
+    }
+    setmetatable(obj, { __index = self })
+    return obj
 end
 
---- @brief Check if an edge is aligned radially from the origin
-local function is_edge_radial(x1, y1, x2, y2, origin_x, origin_y, tolerance)
-    -- Calculate the angle of the edge
-    local edge_angle = math.atan2(y2 - y1, x2 - x1)
-
-    -- Calculate the angle from origin to the midpoint of the edge
-    local mid_x = (x1 + x2) / 2
-    local mid_y = (y1 + y2) / 2
-    local radial_angle = math.atan2(mid_y - origin_y, mid_x - origin_x)
-
-    -- Calculate the angle difference
-    local angle_diff = math.abs(edge_angle - radial_angle)
-
-    -- Normalize angle difference to [0, pi]
-    if angle_diff > math.pi then
-        angle_diff = 2 * math.pi - angle_diff
-    end
-
-    -- Check if edge is perpendicular to radial direction (tangential)
-    -- or aligned with radial direction
-    local perpendicular_diff = math.abs(angle_diff - math.pi / 2)
-    local aligned_diff = math.min(angle_diff, math.abs(angle_diff - math.pi))
-
-    -- We want edges that are aligned with the radial direction (not perpendicular)
-    return aligned_diff <= tolerance
+-- Distance squared between two points (using flat arrays)
+local function dist_sq(x1, y1, x2, y2)
+    local dx, dy = x2 - x1, y2 - y1
+    return dx * dx + dy * dy
 end
 
---- @brief Find neighboring shapes that share radially-aligned edges
-local function find_neighbors(parts, origin_x, origin_y)
-    local neighbors = {}
-    local settings = rt.settings.overworld.shatter_surface
+-- Calculate parabola intersection
+local function get_parabola_intersection(site1_x, site1_y, site2_x, site2_y, sweep_y)
+    local dp = 2 * (site1_y - sweep_y)
+    if math.abs(dp) < 1e-10 then
+        return (site1_x + site2_x) / 2
+    end
 
-    for i = 1, #parts do
-        neighbors[i] = {}
-        local part_a = parts[i]
+    local a1 = 1 / dp
+    local b1 = -2 * site1_x / dp
+    local c1 = (site1_x * site1_x + site1_y * site1_y - sweep_y * sweep_y) / dp
 
-        for j = i + 1, #parts do
-            local part_b = parts[j]
-            local shared_radial_edge_found = false
+    dp = 2 * (site2_y - sweep_y)
+    if math.abs(dp) < 1e-10 then
+        return (site1_x + site2_x) / 2
+    end
 
-            -- Check each edge of part_a against each edge of part_b
-            for k = 1, #part_a.vertices, 2 do
-                local next_k = k + 2
-                if next_k > #part_a.vertices then next_k = 1 end
+    local a2 = 1 / dp
+    local b2 = -2 * site2_x / dp
+    local c2 = (site2_x * site2_x + site2_y * site2_y - sweep_y * sweep_y) / dp
 
-                local ax1, ay1 = part_a.vertices[k], part_a.vertices[k + 1]
-                local ax2, ay2 = part_a.vertices[next_k], part_a.vertices[next_k + 1]
+    local a = a1 - a2
+    local b = b1 - b2
+    local c = c1 - c2
 
-                for l = 1, #part_b.vertices, 2 do
-                    local next_l = l + 2
-                    if next_l > #part_b.vertices then next_l = 1 end
+    if math.abs(a) < 1e-10 then
+        return -c / b
+    end
 
-                    local bx1, by1 = part_b.vertices[l], part_b.vertices[l + 1]
-                    local bx2, by2 = part_b.vertices[next_l], part_b.vertices[next_l + 1]
+    local disc = b * b - 4 * a * c
+    if disc < 0 then return nil end
 
-                    -- Check if segments overlap
-                    if segments_overlap(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2) then
-                        -- Check if the shared edge is radially aligned
-                        if is_edge_radial(ax1, ay1, ax2, ay2, origin_x, origin_y, settings.radial_angle_tolerance) then
-                            shared_radial_edge_found = true
-                            break
-                        end
-                    end
+    local x1 = (-b + math.sqrt(disc)) / (2 * a)
+    local x2 = (-b - math.sqrt(disc)) / (2 * a)
+
+    -- Return the intersection closer to the sites
+    if math.abs(x1 - (site1_x + site2_x) / 2) < math.abs(x2 - (site1_x + site2_x) / 2) then
+        return x1
+    else
+        return x2
+    end
+end
+
+-- Calculate circumcenter of three points
+local function circumcenter(x1, y1, x2, y2, x3, y3)
+    local d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    if math.abs(d) < 1e-10 then return nil, nil end
+
+    local ux = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / d
+    local uy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / d
+
+    return ux, uy
+end
+
+function VoronoiComputer:add_site(x, y)
+    table.insert(self.sites, {x, y, #self.sites + 1})
+end
+
+function VoronoiComputer:compute_voronoi(bounds_x, bounds_y, bounds_w, bounds_h)
+    -- Sort sites by y-coordinate
+    table.sort(self.sites, function(a, b)
+        return a[2] < b[2] or (a[2] == b[2] and a[1] < b[1])
+    end)
+
+    -- Initialize cells for each site
+    for i = 1, #self.sites do
+        self.cells[i] = {}
+    end
+
+    -- Simple Delaunay triangulation approach for better performance
+    -- This is a simplified version that works well for shatter patterns
+    local triangles = self:delaunay_triangulation()
+
+    -- Convert triangulation to Voronoi cells
+    for _, tri in ipairs(triangles) do
+        local i1, i2, i3 = tri[1], tri[2], tri[3]
+        local site1 = self.sites[i1]
+        local site2 = self.sites[i2]
+        local site3 = self.sites[i3]
+
+        local cx, cy = circumcenter(site1[1], site1[2], site2[1], site2[2], site3[1], site3[2])
+        if cx and cy then
+            -- Add circumcenter to each site's cell
+            if not self.cells[i1].vertices then self.cells[i1].vertices = {} end
+            if not self.cells[i2].vertices then self.cells[i2].vertices = {} end
+            if not self.cells[i3].vertices then self.cells[i3].vertices = {} end
+
+            table.insert(self.cells[i1].vertices, {cx, cy})
+            table.insert(self.cells[i2].vertices, {cx, cy})
+            table.insert(self.cells[i3].vertices, {cx, cy})
+        end
+    end
+
+    -- Sort vertices for each cell and create polygons
+    for i = 1, #self.sites do
+        if self.cells[i].vertices then
+            local site_x, site_y = self.sites[i][1], self.sites[i][2]
+
+            -- Sort vertices by angle around the site
+            table.sort(self.cells[i].vertices, function(a, b)
+                local angle_a = math.atan2(a[2] - site_y, a[1] - site_x)
+                local angle_b = math.atan2(b[2] - site_y, b[1] - site_x)
+                return angle_a < angle_b
+            end)
+
+            -- Convert to flat array format
+            local flat_vertices = {}
+            for _, vertex in ipairs(self.cells[i].vertices) do
+                table.insert(flat_vertices, vertex[1])
+                table.insert(flat_vertices, vertex[2])
+            end
+
+            self.cells[i].flat_vertices = flat_vertices
+        end
+    end
+end
+
+-- Simplified Delaunay triangulation using incremental insertion
+function VoronoiComputer:delaunay_triangulation()
+    local triangles = {}
+    local n = #self.sites
+
+    if n < 3 then return triangles end
+
+    -- Create super triangle that encompasses all points
+    local min_x, min_y = math.huge, math.huge
+    local max_x, max_y = -math.huge, -math.huge
+
+    for _, site in ipairs(self.sites) do
+        min_x = math.min(min_x, site[1])
+        min_y = math.min(min_y, site[2])
+        max_x = math.max(max_x, site[1])
+        max_y = math.max(max_y, site[2])
+    end
+
+    local dx, dy = max_x - min_x, max_y - min_y
+    local delta_max = math.max(dx, dy)
+    local mid_x, mid_y = (min_x + max_x) / 2, (min_y + max_y) / 2
+
+    -- Super triangle vertices
+    local super1 = {mid_x - 20 * delta_max, mid_y - delta_max, n + 1}
+    local super2 = {mid_x, mid_y + 20 * delta_max, n + 2}
+    local super3 = {mid_x + 20 * delta_max, mid_y - delta_max, n + 3}
+
+    table.insert(triangles, {n + 1, n + 2, n + 3})
+
+    -- Add super triangle to sites temporarily
+    table.insert(self.sites, super1)
+    table.insert(self.sites, super2)
+    table.insert(self.sites, super3)
+
+    -- Insert each point
+    for i = 1, n do
+        local bad_triangles = {}
+        local polygon = {}
+
+        -- Find triangles whose circumcircle contains the point
+        for j, tri in ipairs(triangles) do
+            local site1 = self.sites[tri[1]]
+            local site2 = self.sites[tri[2]]
+            local site3 = self.sites[tri[3]]
+
+            local cx, cy = circumcenter(site1[1], site1[2], site2[1], site2[2], site3[1], site3[2])
+            if cx and cy then
+                local radius_sq = dist_sq(cx, cy, site1[1], site1[2])
+                local point_dist_sq = dist_sq(cx, cy, self.sites[i][1], self.sites[i][2])
+
+                if point_dist_sq < radius_sq then
+                    table.insert(bad_triangles, j)
+                    -- Add edges to polygon
+                    table.insert(polygon, {tri[1], tri[2]})
+                    table.insert(polygon, {tri[2], tri[3]})
+                    table.insert(polygon, {tri[3], tri[1]})
+                end
+            end
+        end
+
+        -- Remove bad triangles
+        for j = #bad_triangles, 1, -1 do
+            table.remove(triangles, bad_triangles[j])
+        end
+
+        -- Remove duplicate edges from polygon
+        local unique_edges = {}
+        for _, edge in ipairs(polygon) do
+            local found = false
+            for k = #unique_edges, 1, -1 do
+                local other = unique_edges[k]
+                if (edge[1] == other[1] and edge[2] == other[2]) or
+                    (edge[1] == other[2] and edge[2] == other[1]) then
+                    table.remove(unique_edges, k)
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                table.insert(unique_edges, edge)
+            end
+        end
+
+        -- Create new triangles
+        for _, edge in ipairs(unique_edges) do
+            table.insert(triangles, {edge[1], edge[2], i})
+        end
+    end
+
+    -- Remove triangles that contain super triangle vertices
+    local final_triangles = {}
+    for _, tri in ipairs(triangles) do
+        if tri[1] <= n and tri[2] <= n and tri[3] <= n then
+            table.insert(final_triangles, tri)
+        end
+    end
+
+    -- Remove super triangle vertices
+    for i = 1, 3 do
+        table.remove(self.sites)
+    end
+
+    return final_triangles
+end
+
+--- @brief Helper to clip polygon to rectangle bounds
+local function clip_polygon_to_rect(vertices, x, y, w, h)
+    local function clip_edge(verts, edge_x, edge_y, edge_w, edge_h, axis, positive)
+        local output = {}
+        if #verts < 6 then return verts end
+
+        local prev_x, prev_y = verts[#verts - 1], verts[#verts]
+        local prev_inside
+
+        if axis == "x" then
+            prev_inside = positive and (prev_x <= edge_x + edge_w) or (prev_x >= edge_x)
+        else
+            prev_inside = positive and (prev_y <= edge_y + edge_h) or (prev_y >= edge_y)
+        end
+
+        for i = 1, #verts, 2 do
+            local curr_x, curr_y = verts[i], verts[i + 1]
+            local curr_inside
+
+            if axis == "x" then
+                curr_inside = positive and (curr_x <= edge_x + edge_w) or (curr_x >= edge_x)
+            else
+                curr_inside = positive and (curr_y <= edge_y + edge_h) or (curr_y >= edge_y)
+            end
+
+            if curr_inside ~= prev_inside then
+                -- Calculate intersection
+                local t
+                if axis == "x" then
+                    local edge = positive and (edge_x + edge_w) or edge_x
+                    t = (edge - prev_x) / (curr_x - prev_x)
+                else
+                    local edge = positive and (edge_y + edge_h) or edge_y
+                    t = (edge - prev_y) / (curr_y - prev_y)
                 end
 
-                if shared_radial_edge_found then break end
+                local int_x = prev_x + t * (curr_x - prev_x)
+                local int_y = prev_y + t * (curr_y - prev_y)
+                table.insert(output, int_x)
+                table.insert(output, int_y)
             end
 
-            if shared_radial_edge_found then
-                table.insert(neighbors[i], j)
-                if neighbors[j] == nil then neighbors[j] = {} end
-                table.insert(neighbors[j], i)
+            if curr_inside then
+                table.insert(output, curr_x)
+                table.insert(output, curr_y)
             end
+
+            prev_x, prev_y = curr_x, curr_y
+            prev_inside = curr_inside
         end
+
+        return output
     end
 
-    return neighbors
+    -- Clip against all four edges
+    vertices = clip_edge(vertices, x, y, w, h, "x", false)  -- left
+    vertices = clip_edge(vertices, x, y, w, h, "x", true)   -- right
+    vertices = clip_edge(vertices, x, y, w, h, "y", false)  -- top
+    vertices = clip_edge(vertices, x, y, w, h, "y", true)   -- bottom
+
+    return vertices
 end
 
---- @brief Merge two polygons by removing their shared edge
-local function merge_polygons(poly1, poly2)
-    -- This is a simplified merge - in practice, you'd want a more robust
-    -- polygon union algorithm. For now, we'll create a convex hull of all points.
-    local all_points = {}
-
-    -- Collect all vertices
-    for i = 1, #poly1, 2 do
-        table.insert(all_points, {x = poly1[i], y = poly1[i + 1]})
-    end
-    for i = 1, #poly2, 2 do
-        table.insert(all_points, {x = poly2[i], y = poly2[i + 1]})
-    end
-
-    -- Simple convex hull using gift wrapping algorithm
-    local function cross_product(o, a, b)
-        return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
-    end
-
-    -- Find leftmost point
-    local leftmost = 1
-    for i = 2, #all_points do
-        if all_points[i].x < all_points[leftmost].x then
-            leftmost = i
-        end
-    end
-
-    local hull = {}
-    local current = leftmost
-
-    repeat
-        table.insert(hull, all_points[current])
-        local next_point = 1
-
-        for i = 1, #all_points do
-            if i == current then goto continue end
-
-            if next_point == current or
-                cross_product(all_points[current], all_points[i], all_points[next_point]) > 0 then
-                next_point = i
-            end
-
-            ::continue::
-        end
-
-        current = next_point
-    until current == leftmost
-
-    -- Convert back to flat array
-    local result = {}
-    for _, point in ipairs(hull) do
-        table.insert(result, point.x)
-        table.insert(result, point.y)
-    end
-
-    return result
-end
-
---- @brief Merge random neighboring shapes with radially-aligned edges
-local function merge_random_neighbors(parts, origin_x, origin_y, merge_probability)
-    local neighbors = find_neighbors(parts, origin_x, origin_y)
-    local merged_indices = {}
-    local new_parts = {}
-
-    -- Randomly select pairs to merge
-    for i = 1, #parts do
-        if merged_indices[i] then goto continue end
-
-        if neighbors[i] and #neighbors[i] > 0 and rt.random.number(0, 1) < merge_probability then
-            -- Pick a random neighbor
-            local neighbor_idx = neighbors[i][rt.random.integer(1, #neighbors[i])]
-
-            if not merged_indices[neighbor_idx] then
-                -- Merge the two shapes
-                local merged_vertices = merge_polygons(parts[i].vertices, parts[neighbor_idx].vertices)
-
-                table.insert(new_parts, {
-                    vertices = merged_vertices,
-                    color = parts[i].color -- Keep the first shape's color
-                })
-
-                merged_indices[i] = true
-                merged_indices[neighbor_idx] = true
-            else
-                -- Neighbor already merged, keep original
-                table.insert(new_parts, parts[i])
-            end
-        else
-            -- No merge, keep original
-            table.insert(new_parts, parts[i])
-        end
-
-        ::continue::
-    end
-
-    return new_parts
-end
-
---- @brief
+--- @brief Optimized shatter function using Voronoi diagram
 function ow.ShatterSurface:shatter(origin_x, origin_y)
     self._is_broken = true
     self._parts = {}
@@ -354,95 +460,47 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
     local min_x, min_y = self._bounds.x, self._bounds.y
     local max_x, max_y = self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height
 
-    -- Calculate number of shards and maximum radius
     local num_shards = math.floor((self._bounds.width * self._bounds.height) * settings.shapes_per_px)
     local max_radius = math.max(self._bounds.width, self._bounds.height) / 2
 
-    -- Generate seeds using Fibonacci spiral
-    local seeds = generate_fibonacci_spiral_seeds(origin_x, origin_y, num_shards, max_radius, settings.shatter_variance)
+    -- Generate seeds using existing function
+    local seeds = generate_seeds(origin_x, origin_y, num_shards, math.sqrt(2) * max_radius, settings.shatter_variance)
+    for x in range(
+        min_x, min_y,
+        max_x, min_y,
+        max_x, max_y,
+        min_x, max_y
+    ) do
+        table.insert(seeds, x)
+    end
+
     self._seeds = seeds
 
-    -- Create Voronoi cells (simplified approach using perpendicular bisectors)
-    for i, seed in ipairs(seeds) do
-        local vertices = {}
+    -- Create Voronoi computer and add sites
+    local voronoi = VoronoiComputer:new()
+    for i = 1, #seeds, 2 do
+        voronoi:add_site(seeds[i], seeds[i + 1])
+    end
 
-        -- Start with a large polygon (the entire bounds)
-        local poly = {
-            min_x - 100, min_y - 100,
-            max_x + 100, min_y - 100,
-            max_x + 100, max_y + 100,
-            min_x - 100, max_y + 100
-        }
+    -- Compute Voronoi diagram
+    voronoi:compute_voronoi(min_x, min_y, self._bounds.width, self._bounds.height)
 
-        -- Clip against perpendicular bisectors with other seeds
-        for j, other in ipairs(seeds) do
-            if i ~= j then
-                -- Calculate perpendicular bisector
-                local mid_x = (seed.x + other.x) / 2
-                local mid_y = (seed.y + other.y) / 2
+    -- Convert Voronoi cells to parts
+    for i, cell in ipairs(voronoi.cells) do
+        if cell.flat_vertices and #cell.flat_vertices >= 6 then
+            -- Clip to bounds
+            local clipped = clip_polygon_to_rect(cell.flat_vertices, min_x, min_y, self._bounds.width, self._bounds.height)
 
-                local dx = other.x - seed.x
-                local dy = other.y - seed.y
-
-                -- Perpendicular direction
-                local perp_x = -dy
-                local perp_y = dx
-
-                -- Normalize
-                local len = math.sqrt(perp_x * perp_x + perp_y * perp_y)
-                if len > 0 then
-                    perp_x = perp_x / len
-                    perp_y = perp_y / len
-                end
-
-                -- Clip polygon against this half-plane
-                local new_poly = {}
-                for k = 1, #poly, 2 do
-                    local px, py = poly[k], poly[k + 1]
-                    local next_k = k + 2
-                    if next_k > #poly then next_k = 1 end
-                    local nx, ny = poly[next_k], poly[next_k + 1]
-
-                    -- Check which side of the line points are on
-                    local d1 = (px - mid_x) * dx + (py - mid_y) * dy
-                    local d2 = (nx - mid_x) * dx + (ny - mid_y) * dy
-
-                    if d1 <= 0 then
-                        table.insert(new_poly, px)
-                        table.insert(new_poly, py)
-                    end
-
-                    -- If edge crosses the line, add intersection
-                    if (d1 < 0 and d2 > 0) or (d1 > 0 and d2 < 0) then
-                        local t = d1 / (d1 - d2)
-                        local int_x = px + t * (nx - px)
-                        local int_y = py + t * (ny - py)
-                        table.insert(new_poly, int_x)
-                        table.insert(new_poly, int_y)
-                    end
-                end
-                poly = new_poly
-
-                if #poly < 6 then break end
-            end
-        end
-
-        -- Clip to bounds and add to parts
-        if #poly >= 6 then
-            poly = clip_polygon_to_rect(poly, min_x, min_y, self._bounds.width, self._bounds.height)
-            if #poly >= 6 then
+            if #clipped >= 6 then
                 table.insert(self._parts, {
-                    vertices = poly,
+                    vertices = clipped,
                     color = {}
                 })
             end
         end
     end
 
-    -- Merge random neighboring shapes with radially-aligned edges
-    self._parts = merge_random_neighbors(self._parts, origin_x, origin_y, settings.merge_probability)
-
-    -- Assign colors after merging
+    -- Assign colors
     for i, entry in ipairs(self._parts) do
         entry.color = { rt.lcha_to_rgba(0.8, 0, 2 * i / #self._parts, 1) }
     end
@@ -450,22 +508,22 @@ end
 
 --- @brief
 function ow.ShatterSurface:draw()
-    if self._is_broken == false then
-        love.graphics.rectangle("fill", self._bounds:unpack())
-    else
-        love.graphics.setLineWidth(1)
-        for part in values(self._parts) do
-            love.graphics.setColor(part.color)
-            love.graphics.polygon("fill", part.vertices)
+    love.graphics.setLineWidth(1)
+    for part in values(self._parts) do
+        love.graphics.setColor(part.color)
+        love.graphics.polygon("fill", part.vertices)
 
-            love.graphics.setColor(0, 0, 0, 1)
-            love.graphics.polygon("line", part.vertices)
-        end
+        love.graphics.setColor(0, 0, 0, 1)
+        love.graphics.polygon("line", part.vertices)
+    end
 
-        if self._seeds ~= nil then
-            for seed in values(self._seeds) do
-                --love.graphics.circle("fill", seed.x, seed.y, 2)
-            end
+    if self._seeds ~= nil then
+        for i = 1, #self._seeds, 2 do
+            local seed_x, seed_y = self._seeds[i], self._seeds[i + 1]
+            love.graphics.circle("fill", seed_x, seed_y, 2)
         end
     end
+
+    love.graphics.setColor(1, 0, 0, 1)
+    love.graphics.rectangle("line", self._bounds:unpack())
 end
