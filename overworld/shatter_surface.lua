@@ -1,10 +1,15 @@
+require "common.delaunay_triangulation"
+require "common.path"
+
 rt.settings.overworld.shatter_surface = {
-    shapes_per_px = 1 / 1000,
-    angle_variance = 0, -- in 0, 1
-    radius_variance = 0, -- in 0, 1
-    merge_probability = 0.5, -- probability of merging neighboring shapes
-    radial_angle_tolerance = math.pi / 12 -- tolerance for radial alignment (15 degrees)
+    line_density = 1 / 30,
+    seed_density = 1 / 20, -- seed every n px
+
+    max_offset = 5, -- px
+    angle_offset = 0.005,
+    merge_probability = 0
 }
+
 
 --- @class ow.ShatterSurface
 ow.ShatterSurface = meta.class("ShatterSurface")
@@ -12,459 +17,330 @@ ow.ShatterSurface = meta.class("ShatterSurface")
 --- @brief
 function ow.ShatterSurface:instantiate(x, y, width, height)
     self._bounds = rt.AABB(x, y, width, height)
-    self:reset()
+end
+
+local clip_polygon_to_rect -- sutherland–hodgman polygon clipping against rect
+do
+    -- edge functions: return true if inside, or intersection if last arg is true
+    local left = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
+        if not want_intersect then return x >= rx end
+        local dx, dy = nx - x, ny - y
+        local t = (rx - x) / (dx ~= 0 and dx or math.eps)
+        return rx, y + t * dy
+    end
+
+    local right = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
+        if not want_intersect then return x <= rx + rw end
+        local dx, dy = nx - x, ny - y
+        local t = ((rx + rw) - x) / (dx ~= 0 and dx or math.eps)
+        return rx + rw, y + t * dy
+    end
+
+    local top = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
+        if not want_intersect then return y >= ry end
+        local dx, dy = nx - x, ny - y
+        local t = (ry - y) / (dy ~= 0 and dy or math.eps)
+        return x + t * dx, ry
+    end
+
+    local bottom = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
+        if not want_intersect then return y <= ry + rh end
+        local dx, dy = nx - x, ny - y
+        local t = ((ry + rh) - y) / (dy ~= 0 and dy or math.eps)
+        return x + t * dx, ry + rh
+    end
+
+    local function clip_edge(input, rx, ry, rw, rh, edge_fn)
+        local output = {}
+        local n = #input
+        if n == 0 then return output end
+
+        local sx, sy = input[n-1], input[n]
+        for i = 1, n, 2 do
+            local ex, ey = input[i], input[i+1]
+            local s_in = edge_fn(sx, sy, nil, nil, rx, ry, rw, rh, false)
+            local e_in = edge_fn(ex, ey, nil, nil, rx, ry, rw, rh, false)
+            if e_in then
+                if not s_in then
+                    -- entering: add intersection
+                    local ix, iy = edge_fn(sx, sy, ex, ey, rx, ry, rw, rh, true)
+                    output[#output+1] = ix
+                    output[#output+1] = iy
+                end
+                -- always add end point if inside
+                output[#output+1] = ex
+                output[#output+1] = ey
+            elseif s_in then
+                -- exiting: add intersection
+                local ix, iy = edge_fn(sx, sy, ex, ey, rx, ry, rw, rh, true)
+                output[#output+1] = ix
+                output[#output+1] = iy
+            end
+            sx, sy = ex, ey
+        end
+        return output
+    end
+
+    local polygon_fully_outside_aabb = function(vertices, x, y, w, h)
+        local minx, miny, maxx, maxy = x, y, x+w, y+h
+        local n = #vertices
+        if n < 6 then return true end
+
+        local all_left, all_right = true, true
+        local all_top,  all_bottom = true, true
+
+        for i = 1, n, 2 do
+            local vx, vy = vertices[i], vertices[i+1]
+            if vx >= minx then all_left = false end
+            if vx <= maxx then all_right = false end
+            if vy >= miny then all_top = false end
+            if vy <= maxy then all_bottom = false end
+            if not (all_left or all_right or all_top or all_bottom) then
+                break
+            end
+        end
+        if all_left or all_right or all_top or all_bottom then
+            return true
+        end
+
+        return false
+    end
+
+    clip_polygon_to_rect = function(vertices, rx, ry, rw, rh)
+        if not vertices or #vertices < 6 or #vertices % 2 ~= 0 then
+            return nil
+        end
+
+        if polygon_fully_outside_aabb(vertices, rx, ry, rw, rh) then return nil end
+
+        local out = vertices
+        for fn in range(left, right, top, bottom) do
+            out = clip_edge(out, rx, ry, rw, rh, fn)
+            if #out == 0 then return nil end
+        end
+
+        return out
+    end
+end
+
+local compute_voronoi
+do
+    local function circumcenter(x1, y1, x2, y2, x3, y3)
+        local d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+        if math.abs(d) < math.eps then return nil, nil end
+
+        local ux = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / d
+        local uy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / d
+
+        return ux, uy
+    end
+
+    function compute_voronoi(sites, bounds_x, bounds_y, bounds_w, bounds_h)
+        local n = math.floor(#sites / 2)
+
+        local cells = {}
+        for i = 1, n do
+            cells[i] = {}
+        end
+
+        local map = rt.DelaunayTriangulation(sites):get_triangle_vertex_map()
+
+        for i = 1, #map, 3 do
+            local i1, i2, i3 = map[i+0], map[i+1], map[i+2]
+            local x1, y1 = sites[(i1-1)*2+1], sites[(i1-1)*2+2]
+            local x2, y2 = sites[(i2-1)*2+1], sites[(i2-1)*2+2]
+            local x3, y3 = sites[(i3-1)*2+1], sites[(i3-1)*2+2]
+
+            local cx, cy = circumcenter(x1, y1, x2, y2, x3, y3)
+            if cx and cy then
+                for cell_i in range(i1, i2, i3) do
+                    local verts = cells[cell_i]
+                    verts[#verts+1] = cx
+                    verts[#verts+1] = cy
+                end
+            end
+        end
+
+        for i = 1, n do
+            local verts = cells[i]
+            if #verts >= 6 then
+                local site_x, site_y = sites[(i-1)*2+1], sites[(i-1)*2+2]
+
+                -- sort vertices by angle
+                local indices = {}
+                local index_to_angle = {}
+                for j = 1, #verts, 2 do
+                    local vx, vy = verts[j], verts[j+1]
+                    indices[#indices+1] = j
+                    index_to_angle[j] = math.angle(vx - site_x, vy - site_y)
+                end
+                table.sort(indices, function(a, b) return index_to_angle[a] < index_to_angle[b] end)
+
+                local vertices = {}
+                for idx in values(indices) do
+                    vertices[#vertices +1] = verts[idx]
+                    vertices[#vertices +1] = verts[idx+1]
+                end
+                cells[i] = vertices
+            else
+                cells[i] = {}
+            end
+        end
+
+        return cells
+    end
+end
+
+function intersection(origin_x, origin_y, dx, dy, x1, y1, x2, y2)
+    local sx, sy = x2 - x1, y2 - y1
+    local det = dx * (-sy) + dy * sx
+    if math.abs(det) < math.eps then
+        return nil
+    end
+
+    -- solve for t and u using Cramer's Rule
+    local tx = x1 - origin_x
+    local ty = y1 - origin_y
+    local t = (tx * (-sy) + ty * sx) / det
+    local u = (dx * ty - dy * tx) / det
+
+    if t < 0 or u < 0 or u > 1 then
+        return nil
+    end
+
+    local ix = origin_x + dx * t
+    local iy = origin_y + dy * t
+    return ix, iy
+end
+
+local function convex_hull(vertices)
+    local n = #vertices
+    if n < 6 then return vertices end -- Need at least 3 points (6 numbers)
+
+    -- Convert flat list to point array for easier manipulation
+    local points = {}
+    for i = 1, n, 2 do
+        points[#points + 1] = {vertices[i], vertices[i + 1]}
+    end
+
+    local num_points = #points
+    if num_points < 3 then return vertices end
+
+    -- Sort points lexicographically (first by x, then by y)
+    table.sort(points, function(a, b)
+        return a[1] < b[1] or (a[1] == b[1] and a[2] < b[2])
+    end)
+
+    -- Cross product of vectors OA and OB where O is origin
+    -- Returns > 0 for counter-clockwise, < 0 for clockwise, 0 for collinear
+    local function cross(o, a, b)
+        return (a[1] - o[1]) * (b[2] - o[2]) - (a[2] - o[2]) * (b[1] - o[1])
+    end
+
+    -- Build lower hull
+    local lower = {}
+    for i = 1, num_points do
+        -- Remove points that make clockwise turn
+        while #lower >= 2 and cross(lower[#lower - 1], lower[#lower], points[i]) <= 0 do
+            lower[#lower] = nil
+        end
+        lower[#lower + 1] = points[i]
+    end
+
+    -- Build upper hull
+    local upper = {}
+    for i = num_points, 1, -1 do
+        -- Remove points that make clockwise turn
+        while #upper >= 2 and cross(upper[#upper - 1], upper[#upper], points[i]) <= 0 do
+            upper[#upper] = nil
+        end
+        upper[#upper + 1] = points[i]
+    end
+
+    -- Remove last point of each half because it's repeated
+    lower[#lower] = nil
+    upper[#upper] = nil
+
+    -- Concatenate lower and upper hull
+    local hull = {}
+    for i = 1, #lower do
+        hull[#hull + 1] = lower[i]
+    end
+    for i = 1, #upper do
+        hull[#hull + 1] = upper[i]
+    end
+
+    -- Convert back to flat list
+    local result = {}
+    for i = 1, #hull do
+        result[#result + 1] = hull[i][1]
+        result[#result + 1] = hull[i][2]
+    end
+
+    return result
 end
 
 --- @brief
-function ow.ShatterSurface:reset()
-    self._is_broken = false
-    self._parts = {}
-end
-
---- @brief Helper to check if point is inside polygon
-local function point_in_polygon(x, y, vertices)
-    local inside = false
-    local p1x, p1y = vertices[#vertices - 1], vertices[#vertices]
-    for i = 1, #vertices, 2 do
-        local p2x, p2y = vertices[i], vertices[i + 1]
-        if ((p2y > y) ~= (p1y > y)) and (x < (p1x - p2x) * (y - p2y) / (p1y - p2y) + p2x) then
-            inside = not inside
-        end
-        p1x, p1y = p2x, p2y
-    end
-    return inside
-end
-
---- @brief Helper to clip polygon to rectangle bounds
-local function clip_polygon_to_rect(vertices, x, y, w, h)
-    local function clip_edge(verts, edge_x, edge_y, edge_w, edge_h, axis, positive)
-        local output = {}
-        if #verts < 6 then return verts end
-
-        local prev_x, prev_y = verts[#verts - 1], verts[#verts]
-        local prev_inside
-
-        if axis == "x" then
-            prev_inside = positive and (prev_x <= edge_x + edge_w) or (prev_x >= edge_x)
-        else
-            prev_inside = positive and (prev_y <= edge_y + edge_h) or (prev_y >= edge_y)
-        end
-
-        for i = 1, #verts, 2 do
-            local curr_x, curr_y = verts[i], verts[i + 1]
-            local curr_inside
-
-            if axis == "x" then
-                curr_inside = positive and (curr_x <= edge_x + edge_w) or (curr_x >= edge_x)
-            else
-                curr_inside = positive and (curr_y <= edge_y + edge_h) or (curr_y >= edge_y)
-            end
-
-            if curr_inside ~= prev_inside then
-                -- Calculate intersection
-                local t
-                if axis == "x" then
-                    local edge = positive and (edge_x + edge_w) or edge_x
-                    t = (edge - prev_x) / (curr_x - prev_x)
-                else
-                    local edge = positive and (edge_y + edge_h) or edge_y
-                    t = (edge - prev_y) / (curr_y - prev_y)
-                end
-
-                local int_x = prev_x + t * (curr_x - prev_x)
-                local int_y = prev_y + t * (curr_y - prev_y)
-                table.insert(output, int_x)
-                table.insert(output, int_y)
-            end
-
-            if curr_inside then
-                table.insert(output, curr_x)
-                table.insert(output, curr_y)
-            end
-
-            prev_x, prev_y = curr_x, curr_y
-            prev_inside = curr_inside
-        end
-
-        return output
-    end
-
-    -- Clip against all four edges
-    vertices = clip_edge(vertices, x, y, w, h, "x", false)  -- left
-    vertices = clip_edge(vertices, x, y, w, h, "x", true)   -- right
-    vertices = clip_edge(vertices, x, y, w, h, "y", false)  -- top
-    vertices = clip_edge(vertices, x, y, w, h, "y", true)   -- bottom
-
-    return vertices
-end
-
---- @brief Generate seeds using Fibonacci spiral pattern
-local function generate_seeds(origin_x, origin_y, num_seeds, max_radius, variance)
-    local seeds = {}
-    local golden_angle = math.pi * (3 - math.sqrt(5))
-
-    -- Add impact point as the center seed
-    table.insert(seeds, origin_x)
-    table.insert(seeds, origin_y)
-
-    local easing = rt.InterpolationFunctions.LINEAR
-    local max_angle_variance = rt.settings.overworld.shatter_surface.angle_variance * 2 * math.pi
-    local max_radius_variance = rt.settings.overworld.shatter_surface.radius_variance
-
-    local max_offset = debugger.get("max_offset")
-
-    local n_lines = 32
-    local spiral_density_at_edge = math.sqrt(num_seeds) / max_radius
-    local average_spiral_spacing = max_radius / math.sqrt(num_seeds)
-    local n_steps = math.floor(max_radius / average_spiral_spacing)
-
-    local step = max_radius / n_steps
-
-    for i = 1, n_lines do
-        local angle = (i - 1) / n_lines * 2 * math.pi
-        angle = angle + rt.random.number(-1, 1) * debugger.get("angle_offset") * 2 * math.pi
-        local dx, dy = math.cos(angle), math.sin(angle)
-        for j = 1, n_steps do
-            local length = easing(j / n_steps) * max_radius
-
-            local offset_x = rt.random.number(-1, 1) * debugger.get("step_x_offset") * step
-            local offset_y = rt.random.number(-1, 1) * debugger.get("step_y_offset") * step
-
-            local x = origin_x + dx * (length + offset_x)
-            local y = origin_y + dy * (length + offset_y)
-            x = x + rt.random.noise(x, y) * rt.random.number(-1, 1) * max_offset * length
-            y = y + rt.random.noise(-y, x) * rt.random.number(-1, 1) * max_offset * length
-
-            table.insert(seeds, x)
-            table.insert(seeds, y)
-        end
-    end
-
-    return seeds
-end
-
---- @brief Fast Voronoi diagram computation using Fortune's algorithm
-local VoronoiComputer = {}
-
-function VoronoiComputer:new()
-    local obj = {
-        sites = {},
-        edges = {},
-        cells = {},
-        events = {},
-        beachline = {},
-        sweep_y = 0
-    }
-    setmetatable(obj, { __index = self })
-    return obj
-end
-
--- Distance squared between two points (using flat arrays)
-local function dist_sq(x1, y1, x2, y2)
-    local dx, dy = x2 - x1, y2 - y1
-    return dx * dx + dy * dy
-end
-
--- Calculate parabola intersection
-local function get_parabola_intersection(site1_x, site1_y, site2_x, site2_y, sweep_y)
-    local dp = 2 * (site1_y - sweep_y)
-    if math.abs(dp) < 1e-10 then
-        return (site1_x + site2_x) / 2
-    end
-
-    local a1 = 1 / dp
-    local b1 = -2 * site1_x / dp
-    local c1 = (site1_x * site1_x + site1_y * site1_y - sweep_y * sweep_y) / dp
-
-    dp = 2 * (site2_y - sweep_y)
-    if math.abs(dp) < 1e-10 then
-        return (site1_x + site2_x) / 2
-    end
-
-    local a2 = 1 / dp
-    local b2 = -2 * site2_x / dp
-    local c2 = (site2_x * site2_x + site2_y * site2_y - sweep_y * sweep_y) / dp
-
-    local a = a1 - a2
-    local b = b1 - b2
-    local c = c1 - c2
-
-    if math.abs(a) < 1e-10 then
-        return -c / b
-    end
-
-    local disc = b * b - 4 * a * c
-    if disc < 0 then return nil end
-
-    local x1 = (-b + math.sqrt(disc)) / (2 * a)
-    local x2 = (-b - math.sqrt(disc)) / (2 * a)
-
-    -- Return the intersection closer to the sites
-    if math.abs(x1 - (site1_x + site2_x) / 2) < math.abs(x2 - (site1_x + site2_x) / 2) then
-        return x1
-    else
-        return x2
-    end
-end
-
--- Calculate circumcenter of three points
-local function circumcenter(x1, y1, x2, y2, x3, y3)
-    local d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
-    if math.abs(d) < 1e-10 then return nil, nil end
-
-    local ux = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / d
-    local uy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / d
-
-    return ux, uy
-end
-
-function VoronoiComputer:add_site(x, y)
-    table.insert(self.sites, {x, y, #self.sites + 1})
-end
-
-function VoronoiComputer:compute_voronoi(bounds_x, bounds_y, bounds_w, bounds_h)
-    -- Sort sites by y-coordinate
-    table.sort(self.sites, function(a, b)
-        return a[2] < b[2] or (a[2] == b[2] and a[1] < b[1])
-    end)
-
-    -- Initialize cells for each site
-    for i = 1, #self.sites do
-        self.cells[i] = {}
-    end
-
-    -- Simple Delaunay triangulation approach for better performance
-    -- This is a simplified version that works well for shatter patterns
-    local triangles = self:delaunay_triangulation()
-
-    -- Convert triangulation to Voronoi cells
-    for _, tri in ipairs(triangles) do
-        local i1, i2, i3 = tri[1], tri[2], tri[3]
-        local site1 = self.sites[i1]
-        local site2 = self.sites[i2]
-        local site3 = self.sites[i3]
-
-        local cx, cy = circumcenter(site1[1], site1[2], site2[1], site2[2], site3[1], site3[2])
-        if cx and cy then
-            -- Add circumcenter to each site's cell
-            if not self.cells[i1].vertices then self.cells[i1].vertices = {} end
-            if not self.cells[i2].vertices then self.cells[i2].vertices = {} end
-            if not self.cells[i3].vertices then self.cells[i3].vertices = {} end
-
-            table.insert(self.cells[i1].vertices, {cx, cy})
-            table.insert(self.cells[i2].vertices, {cx, cy})
-            table.insert(self.cells[i3].vertices, {cx, cy})
-        end
-    end
-
-    -- Sort vertices for each cell and create polygons
-    for i = 1, #self.sites do
-        if self.cells[i].vertices then
-            local site_x, site_y = self.sites[i][1], self.sites[i][2]
-
-            -- Sort vertices by angle around the site
-            table.sort(self.cells[i].vertices, function(a, b)
-                local angle_a = math.atan2(a[2] - site_y, a[1] - site_x)
-                local angle_b = math.atan2(b[2] - site_y, b[1] - site_x)
-                return angle_a < angle_b
-            end)
-
-            -- Convert to flat array format
-            local flat_vertices = {}
-            for _, vertex in ipairs(self.cells[i].vertices) do
-                table.insert(flat_vertices, vertex[1])
-                table.insert(flat_vertices, vertex[2])
-            end
-
-            self.cells[i].flat_vertices = flat_vertices
-        end
-    end
-end
-
--- Simplified Delaunay triangulation using incremental insertion
-function VoronoiComputer:delaunay_triangulation()
-    local triangles = {}
-    local n = #self.sites
-
-    if n < 3 then return triangles end
-
-    -- Create super triangle that encompasses all points
-    local min_x, min_y = math.huge, math.huge
-    local max_x, max_y = -math.huge, -math.huge
-
-    for _, site in ipairs(self.sites) do
-        min_x = math.min(min_x, site[1])
-        min_y = math.min(min_y, site[2])
-        max_x = math.max(max_x, site[1])
-        max_y = math.max(max_y, site[2])
-    end
-
-    local dx, dy = max_x - min_x, max_y - min_y
-    local delta_max = math.max(dx, dy)
-    local mid_x, mid_y = (min_x + max_x) / 2, (min_y + max_y) / 2
-
-    -- Super triangle vertices
-    local super1 = {mid_x - 20 * delta_max, mid_y - delta_max, n + 1}
-    local super2 = {mid_x, mid_y + 20 * delta_max, n + 2}
-    local super3 = {mid_x + 20 * delta_max, mid_y - delta_max, n + 3}
-
-    table.insert(triangles, {n + 1, n + 2, n + 3})
-
-    -- Add super triangle to sites temporarily
-    table.insert(self.sites, super1)
-    table.insert(self.sites, super2)
-    table.insert(self.sites, super3)
-
-    -- Insert each point
-    for i = 1, n do
-        local bad_triangles = {}
-        local polygon = {}
-
-        -- Find triangles whose circumcircle contains the point
-        for j, tri in ipairs(triangles) do
-            local site1 = self.sites[tri[1]]
-            local site2 = self.sites[tri[2]]
-            local site3 = self.sites[tri[3]]
-
-            local cx, cy = circumcenter(site1[1], site1[2], site2[1], site2[2], site3[1], site3[2])
-            if cx and cy then
-                local radius_sq = dist_sq(cx, cy, site1[1], site1[2])
-                local point_dist_sq = dist_sq(cx, cy, self.sites[i][1], self.sites[i][2])
-
-                if point_dist_sq < radius_sq then
-                    table.insert(bad_triangles, j)
-                    -- Add edges to polygon
-                    table.insert(polygon, {tri[1], tri[2]})
-                    table.insert(polygon, {tri[2], tri[3]})
-                    table.insert(polygon, {tri[3], tri[1]})
-                end
-            end
-        end
-
-        -- Remove bad triangles
-        for j = #bad_triangles, 1, -1 do
-            table.remove(triangles, bad_triangles[j])
-        end
-
-        -- Remove duplicate edges from polygon
-        local unique_edges = {}
-        for _, edge in ipairs(polygon) do
-            local found = false
-            for k = #unique_edges, 1, -1 do
-                local other = unique_edges[k]
-                if (edge[1] == other[1] and edge[2] == other[2]) or
-                    (edge[1] == other[2] and edge[2] == other[1]) then
-                    table.remove(unique_edges, k)
-                    found = true
-                    break
-                end
-            end
-            if not found then
-                table.insert(unique_edges, edge)
-            end
-        end
-
-        -- Create new triangles
-        for _, edge in ipairs(unique_edges) do
-            table.insert(triangles, {edge[1], edge[2], i})
-        end
-    end
-
-    -- Remove triangles that contain super triangle vertices
-    local final_triangles = {}
-    for _, tri in ipairs(triangles) do
-        if tri[1] <= n and tri[2] <= n and tri[3] <= n then
-            table.insert(final_triangles, tri)
-        end
-    end
-
-    -- Remove super triangle vertices
-    for i = 1, 3 do
-        table.remove(self.sites)
-    end
-
-    return final_triangles
-end
-
---- @brief Helper to clip polygon to rectangle bounds
-local function clip_polygon_to_rect(vertices, x, y, w, h)
-    local function clip_edge(verts, edge_x, edge_y, edge_w, edge_h, axis, positive)
-        local output = {}
-        if #verts < 6 then return verts end
-
-        local prev_x, prev_y = verts[#verts - 1], verts[#verts]
-        local prev_inside
-
-        if axis == "x" then
-            prev_inside = positive and (prev_x <= edge_x + edge_w) or (prev_x >= edge_x)
-        else
-            prev_inside = positive and (prev_y <= edge_y + edge_h) or (prev_y >= edge_y)
-        end
-
-        for i = 1, #verts, 2 do
-            local curr_x, curr_y = verts[i], verts[i + 1]
-            local curr_inside
-
-            if axis == "x" then
-                curr_inside = positive and (curr_x <= edge_x + edge_w) or (curr_x >= edge_x)
-            else
-                curr_inside = positive and (curr_y <= edge_y + edge_h) or (curr_y >= edge_y)
-            end
-
-            if curr_inside ~= prev_inside then
-                -- Calculate intersection
-                local t
-                if axis == "x" then
-                    local edge = positive and (edge_x + edge_w) or edge_x
-                    t = (edge - prev_x) / (curr_x - prev_x)
-                else
-                    local edge = positive and (edge_y + edge_h) or edge_y
-                    t = (edge - prev_y) / (curr_y - prev_y)
-                end
-
-                local int_x = prev_x + t * (curr_x - prev_x)
-                local int_y = prev_y + t * (curr_y - prev_y)
-                table.insert(output, int_x)
-                table.insert(output, int_y)
-            end
-
-            if curr_inside then
-                table.insert(output, curr_x)
-                table.insert(output, curr_y)
-            end
-
-            prev_x, prev_y = curr_x, curr_y
-            prev_inside = curr_inside
-        end
-
-        return output
-    end
-
-    -- Clip against all four edges
-    vertices = clip_edge(vertices, x, y, w, h, "x", false)  -- left
-    vertices = clip_edge(vertices, x, y, w, h, "x", true)   -- right
-    vertices = clip_edge(vertices, x, y, w, h, "y", false)  -- top
-    vertices = clip_edge(vertices, x, y, w, h, "y", true)   -- bottom
-
-    return vertices
-end
-
---- @brief Optimized shatter function using Voronoi diagram
 function ow.ShatterSurface:shatter(origin_x, origin_y)
-    self._is_broken = true
+    meta.assert(origin_x, "Number", origin_y, "Number")
     self._parts = {}
-    self._origin_x = origin_x
-    self._origin_y = origin_y
 
     local settings = rt.settings.overworld.shatter_surface
+
     local min_x, min_y = self._bounds.x, self._bounds.y
     local max_x, max_y = self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height
+    local path = rt.Path(
+        min_x, min_y,
+        max_x, min_y,
+        max_x, max_y,
+        min_x, max_y,
+        min_x, min_y
+    )
 
-    local num_shards = math.floor((self._bounds.width * self._bounds.height) * settings.shapes_per_px)
-    local max_radius = math.max(self._bounds.width, self._bounds.height) / 2
+    local seeds = {}
+    local point_easing = rt.InterpolationFunctions.LINEAR
 
-    -- Generate seeds using existing function
-    local seeds = generate_seeds(origin_x, origin_y, num_shards, math.sqrt(2) * max_radius, settings.shatter_variance)
+    local get_intersection = function(angle)
+        local dx, dy = math.cos(angle), math.sin(angle)
+
+        local ix, iy
+        ix, iy = intersection(origin_x, origin_y, dx, dy, min_x, min_y, max_x, min_y)
+        if ix ~= nil and iy ~= nil then return ix, iy end
+
+        ix, iy = intersection(origin_x, origin_y, dx, dy, max_x, min_y, max_x, max_y)
+        if ix ~= nil and iy ~= nil then return ix, iy end
+
+        ix, iy = intersection(origin_x, origin_y, dx, dy, max_x, max_y, min_x, max_y)
+        if ix ~= nil and iy ~= nil then return ix, iy end
+
+        ix, iy = intersection(origin_x, origin_y, dx, dy, min_x, max_y, min_x, min_y)
+        if ix ~= nil and iy ~= nil then return ix, iy end
+
+        return nil
+    end
+
+    -- sample circumference, draw line from origin to that point, then sample line
+    local n_lines = path:get_length() * settings.line_density
+    for line_i = 0, n_lines - 1 do
+        local line_t = line_i / n_lines
+        line_t = line_t + rt.random.number(-1, 1) * settings.angle_offset
+        local to_x, to_y = get_intersection(line_t * 2 * math.pi)
+
+        local length = math.distance(origin_x, origin_y, to_x, to_y)
+        local n_points = length * settings.seed_density
+        for point_i = 0, n_points do -- sic, skip center, overshoot
+            local point_t = point_easing(point_i / n_points)
+            local point_x, point_y = math.mix2(origin_x, origin_y, to_x, to_y, point_t)
+
+            point_x = point_x + rt.random.number(-1, 1) * settings.max_offset
+            point_y = point_y + rt.random.number(-1, 1) * settings.max_offset
+
+            table.insert(seeds, point_x)
+            table.insert(seeds, point_y)
+        end
+    end
+
+    -- seeds on corners
     for x in range(
         min_x, min_y,
         max_x, min_y,
@@ -474,35 +350,76 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         table.insert(seeds, x)
     end
 
-    self._seeds = seeds
+    -- compute voronoi diagram
+    local cells = compute_voronoi(seeds, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
 
-    -- Create Voronoi computer and add sites
-    local voronoi = VoronoiComputer:new()
-    for i = 1, #seeds, 2 do
-        voronoi:add_site(seeds[i], seeds[i + 1])
-    end
-
-    -- Compute Voronoi diagram
-    voronoi:compute_voronoi(min_x, min_y, self._bounds.width, self._bounds.height)
-
-    -- Convert Voronoi cells to parts
-    for i, cell in ipairs(voronoi.cells) do
-        if cell.flat_vertices and #cell.flat_vertices >= 6 then
-            -- Clip to bounds
-            local clipped = clip_polygon_to_rect(cell.flat_vertices, min_x, min_y, self._bounds.width, self._bounds.height)
-
-            if #clipped >= 6 then
-                table.insert(self._parts, {
-                    vertices = clipped,
-                    color = {}
-                })
+    -- clip to rectangle bounds
+    for i, cell in ipairs(cells) do
+        if cell and #cell >= 6 then
+            local needs_clipping = false
+            for vertex_i = 1, #cell, 2 do
+                local x, y = cell[vertex_i+0], cell[vertex_i+1]
+                if not self._bounds:contains(x, y) then
+                    needs_clipping = true
+                    break
+                end
             end
+
+            local vertices = cell
+            if needs_clipping then
+                local clipped = clip_polygon_to_rect(cell, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
+                if clipped ~= nil and #clipped >= 6 then
+                    vertices = clipped
+                end
+            end
+
+            table.insert(self._parts, {
+                vertices = vertices
+            })
         end
     end
 
-    -- Assign colors
-    for i, entry in ipairs(self._parts) do
-        entry.color = { rt.lcha_to_rgba(0.8, 0, 2 * i / #self._parts, 1) }
+    -- classify cells by angle, then merge ones only on subsequent lines
+    local angle_to_parts = {}
+    for part in values(self._parts) do
+        local vertices = part.vertices
+        local mean_x, mean_y, n = 0, 0, 0
+        for i = 1, #vertices, 2 do
+            mean_x = mean_x + vertices[i+0]
+            mean_y = mean_y + vertices[i+1]
+            n = n + 1
+        end
+
+        mean_x = mean_x / n
+        mean_y = mean_y / n
+
+        part.x = mean_x
+        part.y = mean_y
+        local angle = math.normalize_angle(math.angle(mean_x - origin_x, mean_y - origin_y))
+        angle = math.floor(angle * n_lines)
+        part.angle = angle
+        part.color = {0, 0, 0, 0}
+
+        local entry = angle_to_parts[angle]
+        if entry == nil then
+            entry = {}
+            angle_to_parts[angle] = entry
+        end
+        table.insert(entry, part)
+    end
+
+    for entry in values(angle_to_parts) do
+        table.sort(entry, function(a, b)
+            return math.distance(a.x, a.y, origin_x, origin_y) < math.distance(b.x, b.y, origin_x, origin_y)
+        end)
+    end
+
+st    local entry_i = 1
+    for entry in values(angle_to_parts) do
+        for part in values(entry) do
+            part.color = { rt.lcha_to_rgba(0.8, 1, (entry_i - 1) / #angle_to_parts, 1) }
+        end
+        entry_i = entry_i + 1
     end
 end
 
@@ -510,11 +427,13 @@ end
 function ow.ShatterSurface:draw()
     love.graphics.setLineWidth(1)
     for part in values(self._parts) do
-        love.graphics.setColor(part.color)
-        love.graphics.polygon("fill", part.vertices)
+        if part.vertices ~= nil then
+            love.graphics.setColor(part.color)
+            love.graphics.polygon("fill", part.vertices)
 
-        love.graphics.setColor(0, 0, 0, 1)
-        love.graphics.polygon("line", part.vertices)
+            love.graphics.setColor(0, 0, 0, 1)
+            love.graphics.polygon("line", part.vertices)
+        end
     end
 
     if self._seeds ~= nil then

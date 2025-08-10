@@ -15,7 +15,7 @@ function rt.DelaunayTriangulation:instantiate(points, contour)
     end
 end
 
-local EPSILON = math.eps
+local EPSILON = 1 / 1000
 local EDGE_BUFFER_SIZE = 512
 
 local function _swap(arr, i, j)

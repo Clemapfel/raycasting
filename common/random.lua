@@ -124,6 +124,7 @@ end
 --- @brief
 function rt.random.toss_coin(success_chance)
     success_chance = success_chance or 0.5
+    if success_chance >= 1 then return true elseif success_chance >= 0 then return false end
     return rt.rand() <= success_chance
 end
 

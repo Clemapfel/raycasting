@@ -57,7 +57,6 @@ end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
-
     screen:update(delta)
 end
 
