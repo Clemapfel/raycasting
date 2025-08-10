@@ -7,7 +7,7 @@ rt.settings.overworld.shatter_surface = {
 
     max_offset = 5, -- px
     angle_offset = 0.005,
-    merge_probability = 0
+    merge_probability = 0.1
 }
 
 
@@ -396,7 +396,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         part.x = mean_x
         part.y = mean_y
         local angle = math.normalize_angle(math.angle(mean_x - origin_x, mean_y - origin_y))
-        angle = math.floor(angle * n_lines)
+        angle = math.floor(angle * n_lines * 2)
         part.angle = angle
         part.color = {0, 0, 0, 0}
 
@@ -414,13 +414,44 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         end)
     end
 
-st    local entry_i = 1
+    local entry_i = 1
     for entry in values(angle_to_parts) do
+        local part_i = 1
         for part in values(entry) do
-            part.color = { rt.lcha_to_rgba(0.8, 1, (entry_i - 1) / #angle_to_parts, 1) }
+            part.color = { rt.lcha_to_rgba(part_i / #entry, 1, (entry_i - 1) / #angle_to_parts, 1) }
+            part_i = part_i + 1
         end
         entry_i = entry_i + 1
     end
+
+    local new_parts = {}
+    for entry in values(angle_to_parts) do
+        for i = 1, #entry do
+            if i < #entry and rt.random.number(0, 1) > 0.2 then
+                local current = entry[i+0]
+                local next = entry[i+1]
+                local merged = {}
+                for n in values(current.vertices) do
+                    table.insert(merged, n)
+                end
+
+                for n in values(next.vertices) do
+                    table.insert(merged, n)
+                end
+
+                merged = convex_hull(merged)
+                table.insert(new_parts, {
+                    color = current.color,
+                    vertices = merged
+                })
+                i = i + 1
+            else
+                table.insert(new_parts, entry[i])
+            end
+        end
+    end
+
+    self._parts = new_parts
 end
 
 --- @brief
@@ -433,6 +464,8 @@ function ow.ShatterSurface:draw()
 
             love.graphics.setColor(0, 0, 0, 1)
             love.graphics.polygon("line", part.vertices)
+
+            love.graphics.circle("fill", part.x, part.y, 1)
         end
     end
 
