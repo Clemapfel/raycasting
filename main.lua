@@ -11,6 +11,8 @@ screen:realize()
 require "overworld.shatter_surface"
 local surface = nil
 
+local allow_update = false
+
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "j" then
@@ -31,8 +33,11 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     elseif which == "n" then
         local w, h = love.graphics.getDimensions()
         local before = love.timer.getTime()
-        surface:shatter(0.5 * w, 0.5 * h)
+        surface:shatter(rt.random.number(0.25, 0.75) * w, rt.random.number(0.25, 0.75) * h)
+        allow_update = false
         dbg((love.timer.getTime() - before) / (1 / 60))
+    elseif which == "m" then
+        allow_update = true
     end
 end)
 
@@ -58,6 +63,10 @@ end
 love.update = function(delta)
     rt.SceneManager:update(delta)
     screen:update(delta)
+
+    if allow_update then
+        surface:update(delta)
+    end
 end
 
 love.draw = function()

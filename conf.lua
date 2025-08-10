@@ -10,6 +10,8 @@ end)
 
 function love.conf(settings)
     --settings.graphics.renderers = {"opengl"}
+    settings.window.width = 600
+    settings.window.height = 600
     settings.window.msaa = 4
     settings.window.resizable = true
     settings.window.vsync = -1

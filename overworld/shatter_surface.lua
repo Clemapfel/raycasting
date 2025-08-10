@@ -3,20 +3,29 @@ require "common.path"
 
 rt.settings.overworld.shatter_surface = {
     line_density = 1 / 30,
-    seed_density = 1 / 20, -- seed every n px
+    seed_density = 1 / 40, -- seed every n px
 
-    max_offset = 5, -- px
+    max_offset = 0.05, -- fraction of line length
     angle_offset = 0.005,
-    merge_probability = 0.1
+    merge_probability = 0.1,
+    gravity = 4,
+    velocity_magnitude = 40,
+
+    cell_size = 10
 }
 
 
 --- @class ow.ShatterSurface
 ow.ShatterSurface = meta.class("ShatterSurface")
 
+local _shader
+
 --- @brief
 function ow.ShatterSurface:instantiate(x, y, width, height)
+    if _shader == nil then _shader = rt.Shader("overworld/shatter_surface.glsl") end
+    self._texture = rt.Texture("assets/sprites/barboach.png")
     self._bounds = rt.AABB(x, y, width, height)
+    self._parts = {}
 end
 
 local clip_polygon_to_rect -- sutherland–hodgman polygon clipping against rect
@@ -280,6 +289,24 @@ local function convex_hull(vertices)
     return result
 end
 
+function polygon_area(vertices)
+    local area = 0
+    local n = #vertices / 2
+
+    -- shoelace formula
+    for i = 1, n do
+        local j = (i % n) + 1
+        local xi = vertices[(i-1) * 2 + 1]
+        local yi = vertices[(i-1) * 2 + 2]
+        local xj = vertices[(j-1) * 2 + 1]
+        local yj = vertices[(j-1) * 2 + 2]
+
+        area = area + (xi * yj) - (xj * yi)
+    end
+
+    return math.abs(area / 2)
+end
+
 --- @brief
 function ow.ShatterSurface:shatter(origin_x, origin_y)
     meta.assert(origin_x, "Number", origin_y, "Number")
@@ -297,8 +324,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         min_x, min_y
     )
 
-    local seeds = {}
     local point_easing = rt.InterpolationFunctions.LINEAR
+    local line_easing = rt.InterpolationFunctions.LINEAR
 
     local get_intersection = function(angle)
         local dx, dy = math.cos(angle), math.sin(angle)
@@ -319,25 +346,48 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         return nil
     end
 
+    local cell_size = settings.cell_size
+    local seed_hash = {}
+
+    function add_to_spatial_hash(x, y)
+        local cells_x = math.ceil((max_x - min_x) / cell_size)
+        local cells_y = math.ceil((max_y - min_y) / cell_size)
+
+        local i = math.floor((x - min_x) / cell_size)
+        local j = math.floor((y - min_y) / cell_size)
+
+        local linear_i = j * cells_x + i
+
+        if seed_hash[linear_i] == nil then seed_hash[linear_i] = {} end
+        table.insert(seed_hash[linear_i], x)
+        table.insert(seed_hash[linear_i], y)
+    end
+
     -- sample circumference, draw line from origin to that point, then sample line
     local n_lines = path:get_length() * settings.line_density
     for line_i = 0, n_lines - 1 do
-        local line_t = line_i / n_lines
+        local line_t = line_easing(line_i / n_lines)
         line_t = line_t + rt.random.number(-1, 1) * settings.angle_offset
         local to_x, to_y = get_intersection(line_t * 2 * math.pi)
 
         local length = math.distance(origin_x, origin_y, to_x, to_y)
         local n_points = length * settings.seed_density
         for point_i = 0, n_points do -- sic, skip center, overshoot
-            local point_t = point_easing(point_i / n_points)
-            local point_x, point_y = math.mix2(origin_x, origin_y, to_x, to_y, point_t)
-
-            point_x = point_x + rt.random.number(-1, 1) * settings.max_offset
-            point_y = point_y + rt.random.number(-1, 1) * settings.max_offset
-
-            table.insert(seeds, point_x)
-            table.insert(seeds, point_y)
+            local point_t = point_easing(point_i / n_points) + rt.random.number(-1, 0) * settings.max_offset
+            add_to_spatial_hash(math.mix2(origin_x, origin_y, to_x, to_y, point_t))
         end
+    end
+
+    local seeds = {}
+    for entry in values(seed_hash) do
+        local mean_x, mean_y, n = 0, 0, 0
+        for i = 1, #entry, 2 do
+            mean_x = mean_x + entry[i+0]
+            mean_y = mean_y + entry[i+1]
+            n = n + 1
+        end
+        table.insert(seeds, mean_x / n)
+        table.insert(seeds, mean_y / n)
     end
 
     -- seeds on corners
@@ -349,6 +399,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
     ) do
         table.insert(seeds, x)
     end
+
+
 
     -- compute voronoi diagram
     local cells = compute_voronoi(seeds, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
@@ -379,8 +431,10 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         end
     end
 
-    -- classify cells by angle, then merge ones only on subsequent lines
-    local angle_to_parts = {}
+    -- TODO merge random neighboring cells using convex_hull
+
+    local max_distance = -math.huge
+    local min_mass, max_mass = math.huge, -math.huge
     for part in values(self._parts) do
         local vertices = part.vertices
         local mean_x, mean_y, n = 0, 0, 0
@@ -393,81 +447,85 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         mean_x = mean_x / n
         mean_y = mean_y / n
 
+        for i = 1, #vertices, 2 do
+            vertices[i+0] = vertices[i+0] - mean_x
+            vertices[i+1] = vertices[i+1] - mean_y
+        end
+
         part.x = mean_x
         part.y = mean_y
-        local angle = math.normalize_angle(math.angle(mean_x - origin_x, mean_y - origin_y))
-        angle = math.floor(angle * n_lines * 2)
-        part.angle = angle
-        part.color = {0, 0, 0, 0}
+        part.velocity_x, part.velocity_y = math.normalize(part.x - origin_x, part.y - origin_y)
+        part.distance = math.distance(part.x, part.y, origin_x, origin_y)
+        part.mass = polygon_area(part.vertices)
 
-        local entry = angle_to_parts[angle]
-        if entry == nil then
-            entry = {}
-            angle_to_parts[angle] = entry
-        end
-        table.insert(entry, part)
-    end
-
-    for entry in values(angle_to_parts) do
-        table.sort(entry, function(a, b)
-            return math.distance(a.x, a.y, origin_x, origin_y) < math.distance(b.x, b.y, origin_x, origin_y)
-        end)
+        min_mass = math.min(min_mass, part.mass)
+        max_mass = math.max(max_mass, part.mass)
+        max_distance = math.max(max_distance, part.distance)
     end
 
     local entry_i = 1
-    for entry in values(angle_to_parts) do
-        local part_i = 1
-        for part in values(entry) do
-            part.color = { rt.lcha_to_rgba(part_i / #entry, 1, (entry_i - 1) / #angle_to_parts, 1) }
-            part_i = part_i + 1
+    for part in values(self._parts) do
+        part.color = { rt.lcha_to_rgba(0.8, 1, (entry_i - 1) / #self._parts, 1) }
+        part.mass = (part.mass - min_mass) / (max_mass - min_mass) -- normalize mass
+        part.velocity_magnitude = (1 + 1 - part.distance / max_distance) * settings.velocity_magnitude
+
+        local mesh_data = {}
+        for i = 1, #part.vertices, 2 do
+            local x = part.vertices[i+0]
+            local y = part.vertices[i+1]
+            local u = ((x + part.x) - min_x) / (max_x - min_x)
+            local v = ((y + part.y) - min_y) / (max_y - min_y)
+            table.insert(mesh_data, {
+                x, y, u, v, 1, 1, 1, 1
+            })
         end
+        part.mesh = rt.Mesh(mesh_data)
+        part.mesh:set_texture(self._texture)
+
         entry_i = entry_i + 1
     end
 
-    local new_parts = {}
-    for entry in values(angle_to_parts) do
-        for i = 1, #entry do
-            if i < #entry and rt.random.number(0, 1) > 0.2 then
-                local current = entry[i+0]
-                local next = entry[i+1]
-                local merged = {}
-                for n in values(current.vertices) do
-                    table.insert(merged, n)
-                end
+    table.sort(self._parts, function(a, b) return a.distance < b.distance end)
+end
 
-                for n in values(next.vertices) do
-                    table.insert(merged, n)
-                end
+--- @brief
+function ow.ShatterSurface:update(delta)
+    if self._parts == nil or #self._parts == 0 then return end
 
-                merged = convex_hull(merged)
-                table.insert(new_parts, {
-                    color = current.color,
-                    vertices = merged
-                })
-                i = i + 1
-            else
-                table.insert(new_parts, entry[i])
-            end
-        end
+    local gravity = rt.settings.overworld.shatter_surface.gravity
+
+    delta = delta
+    for part in values(self._parts) do
+        part.velocity_y = part.velocity_y + math.mix(1, 2, part.mass) * gravity * delta
+
+        local vx, vy = part.velocity_x * part.velocity_magnitude, part.velocity_y * part.velocity_magnitude
+        part.x = part.x + vx * delta
+        part.y = part.y + vy * delta
     end
-
-    self._parts = new_parts
 end
 
 --- @brief
 function ow.ShatterSurface:draw()
     love.graphics.setLineWidth(1)
+    love.graphics.setColor(1, 1, 1, 1)
+
+    _shader:bind()
+    _shader:send("bounds", { self._bounds:unpack() })
+    _shader:send("img", self._texture:get_native())
+
     for part in values(self._parts) do
         if part.vertices ~= nil then
+            love.graphics.push()
+            love.graphics.translate(part.x, part.y)
+
             love.graphics.setColor(part.color)
             love.graphics.polygon("fill", part.vertices)
 
-            love.graphics.setColor(0, 0, 0, 1)
-            love.graphics.polygon("line", part.vertices)
-
-            love.graphics.circle("fill", part.x, part.y, 1)
+            love.graphics.pop()
         end
     end
+
+    _shader:unbind()
 
     if self._seeds ~= nil then
         for i = 1, #self._seeds, 2 do
