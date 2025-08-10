@@ -463,6 +463,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         max_distance = math.max(max_distance, part.distance)
     end
 
+    local max_n = -math.huge
+
     local entry_i = 1
     for part in values(self._parts) do
         part.color = { rt.lcha_to_rgba(0.8, 1, (entry_i - 1) / #self._parts, 1) }
@@ -481,6 +483,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         end
         part.mesh = rt.Mesh(mesh_data)
         part.mesh:set_texture(self._texture)
+
+        max_n = math.max(max_n, #part.vertices)
 
         entry_i = entry_i + 1
     end
