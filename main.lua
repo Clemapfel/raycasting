@@ -33,11 +33,33 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     elseif which == "n" then
         local w, h = love.graphics.getDimensions()
         local before = love.timer.getTime()
-        surface:shatter(rt.random.number(0.25, 0.75) * w, rt.random.number(0.25, 0.75) * h)
+        --surface:shatter(rt.random.number(0.25, 0.75) * w, rt.random.number(0.25, 0.75) * h)
+        surface:shatter(0.5 * w, 0.5 * h)
         allow_update = false
         dbg((love.timer.getTime() - before) / (1 / 60))
     elseif which == "m" then
         allow_update = true
+    elseif which == "k" then
+        local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+
+        for part in values(surface._parts) do
+            for i = 1, #part.vertices, 2 do
+                min_x = math.min(min_x, part.vertices[i+0])
+                max_x = math.max(max_x, part.vertices[i+0])
+                min_y = math.min(min_y, part.vertices[i+1])
+                max_y = math.max(max_y, part.vertices[i+1])
+            end
+        end
+
+        local polygons = {}
+        for part in values(surface._parts) do
+            local to_add = {}
+            for i = 1, #part.vertices, 2 do
+                table.insert(to_add, (part.vertices[i+0] - min_x) / (max_x - min_x))
+                table.insert(to_add, (part.vertices[i+1] - min_y) / (max_y - min_y))
+            end
+            table.insert(polygons, to_add)
+        end
     end
 end)
 
@@ -55,8 +77,10 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene)
 
+
     local w, h = love.graphics.getDimensions()
-    surface = ow.ShatterSurface(0, 0, w, h)
+    local padding = 50
+    surface = ow.ShatterSurface(padding, padding, w - 2 * padding, h - 2 * padding)
     surface:shatter(0.5 * w, 0.5 * h)
 end
 
@@ -72,7 +96,7 @@ end
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     rt.SceneManager:draw()
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
+    love.graphics.clear(0, 0, 0, 1)
     --screen:draw()
 
     surface:draw()

@@ -11,7 +11,7 @@ rt.settings.overworld.shatter_surface = {
     gravity = 4,
     velocity_magnitude = 40,
 
-    cell_size = 10
+    cell_size = 20
 }
 
 
@@ -400,8 +400,6 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         table.insert(seeds, x)
     end
 
-
-
     -- compute voronoi diagram
     local cells = compute_voronoi(seeds, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
 
@@ -463,7 +461,9 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         max_distance = math.max(max_distance, part.distance)
     end
 
-    local max_n = -math.huge
+    -- generate meshs for instancing
+    local n_vertices_to_data = {}
+    local n_vertices_to_instance = {}
 
     local entry_i = 1
     for part in values(self._parts) do
@@ -471,6 +471,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         part.mass = (part.mass - min_mass) / (max_mass - min_mass) -- normalize mass
         part.velocity_magnitude = (1 + 1 - part.distance / max_distance) * settings.velocity_magnitude
 
+        local n_vertices = math.floor(#part.vertices / 2)
         local mesh_data = {}
         for i = 1, #part.vertices, 2 do
             local x = part.vertices[i+0]
@@ -481,12 +482,23 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
                 x, y, u, v, 1, 1, 1, 1
             })
         end
+
+        local data = n_vertices_to_data[n_vertices]
+        if data == nil then
+            data = {}
+            n_vertices_to_data[n_vertices] = data
+        end
+
+        table.insert(data, mesh_data)
+
         part.mesh = rt.Mesh(mesh_data)
         part.mesh:set_texture(self._texture)
 
-        max_n = math.max(max_n, #part.vertices)
-
         entry_i = entry_i + 1
+    end
+
+    for k, v in pairs(n_vertices_to_data) do
+        dbg(k, #v)
     end
 
     table.sort(self._parts, function(a, b) return a.distance < b.distance end)
@@ -524,7 +536,7 @@ function ow.ShatterSurface:draw()
 
             love.graphics.setColor(part.color)
             love.graphics.polygon("fill", part.vertices)
-
+            --love.graphics.draw(part.mesh:get_native())
             love.graphics.pop()
         end
     end
@@ -538,6 +550,4 @@ function ow.ShatterSurface:draw()
         end
     end
 
-    love.graphics.setColor(1, 0, 0, 1)
-    love.graphics.rectangle("line", self._bounds:unpack())
 end
