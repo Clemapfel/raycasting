@@ -26,6 +26,9 @@ function ow.ShatterSurface:instantiate(x, y, width, height)
     self._texture = rt.Texture("assets/sprites/barboach.png")
     self._bounds = rt.AABB(x, y, width, height)
     self._parts = {}
+    self._n_vertices_to_static_data = {}
+    self._n_vertices_to_instance_mesh = {}
+    self._n_vertices_to_data_mesh = {}
 end
 
 local clip_polygon_to_rect -- sutherland–hodgman polygon clipping against rect
@@ -307,6 +310,24 @@ function polygon_area(vertices)
     return math.abs(area / 2)
 end
 
+local _position = rt.VertexAttribute.POSITION
+local _texture_coords = rt.VertexAttribute.TEXTURE_COORDINATES
+local _offset = "offset"
+
+local _instance_mesh_format = {
+    { location = 0, name = _position, format = "floatvec2" },
+    { location = 1, name = _texture_coords, format = "floatvec2" }
+}
+
+local _static_data_mesh_format = {
+    { location = 0, name = _position, format = "floatvec2" },
+    { location = 1, name = _texture_coords, format = "floatvec2" }
+}
+
+local _offset_mesh_format = {
+    { location = 0, name = _offset, format = "floatvec2" }
+}
+
 --- @brief
 function ow.ShatterSurface:shatter(origin_x, origin_y)
     meta.assert(origin_x, "Number", origin_y, "Number")
@@ -428,9 +449,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             })
         end
     end
-
-    -- TODO merge random neighboring cells using convex_hull
-
+    
     local max_distance = -math.huge
     local min_mass, max_mass = math.huge, -math.huge
     for part in values(self._parts) do
@@ -461,9 +480,12 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         max_distance = math.max(max_distance, part.distance)
     end
 
-    -- generate meshs for instancing
-    local n_vertices_to_data = {}
-    local n_vertices_to_instance = {}
+    -- generate meshes for instancing
+
+    self._n_vertices_to_static_data = {}
+    self._n_vertices_to_instance_mesh = {}
+    self._n_vertices_to_instance_count = {}
+    self._n_vertices_to_offset_data = {}
 
     local entry_i = 1
     for part in values(self._parts) do
@@ -472,36 +494,83 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         part.velocity_magnitude = (1 + 1 - part.distance / max_distance) * settings.velocity_magnitude
 
         local n_vertices = math.floor(#part.vertices / 2)
-        local mesh_data = {}
+
+        local static_data_entry = {}
+        local offset_data_entry = {}
+
         for i = 1, #part.vertices, 2 do
             local x = part.vertices[i+0]
             local y = part.vertices[i+1]
             local u = ((x + part.x) - min_x) / (max_x - min_x)
             local v = ((y + part.y) - min_y) / (max_y - min_y)
-            table.insert(mesh_data, {
-                x, y, u, v, 1, 1, 1, 1
+            table.insert(static_data_entry, {
+                x, y, u, v
+            })
+
+            table.insert(offset_data_entry, {
+                part.x, part.y
             })
         end
 
-        local data = n_vertices_to_data[n_vertices]
-        if data == nil then
-            data = {}
-            n_vertices_to_data[n_vertices] = data
+        part.static_data = static_data_entry
+        part.offset = offset_data_entry
+        part.n_vertices = n_vertices
+
+        local count = self._n_vertices_to_instance_count[n_vertices] or 0
+        self._n_vertices_to_instance_count[n_vertices] = count + 1
+
+        local static_data = self._n_vertices_to_static_data[n_vertices]
+        local offset_data = self._n_vertices_to_offset_data[n_vertices] 
+        if static_data == nil then
+            -- static data mesh
+            static_data = {}
+            self._n_vertices_to_static_data[n_vertices] = static_data
+            
+            -- static instance mesh
+            self._n_vertices_to_instance_mesh[n_vertices] = rt.Mesh(
+                static_data_entry, -- is overriden anyway
+                rt.MeshDrawMode.TRIANGLE_FAN,
+                _instance_mesh_format,
+                rt.GraphicsBufferUsage.STATIC
+            )
+            
+            -- dynamic offset mesh
+            offset_data = {}
+            self._n_vertices_to_offset_data[n_vertices] = offset_data
         end
 
-        table.insert(data, mesh_data)
-
-        part.mesh = rt.Mesh(mesh_data)
-        part.mesh:set_texture(self._texture)
-
+        table.insert(static_data, static_data_entry)
+        table.insert(offset_data, offset_data_entry)
         entry_i = entry_i + 1
     end
 
-    for k, v in pairs(n_vertices_to_data) do
-        dbg(k, #v)
-    end
+    for n, instance in pairs(self._n_vertices_to_instance_mesh) do
+        local static_data = self._n_vertices_to_static_data[n]
+        local static_data_mesh = rt.Mesh(
+            static_data,
+            rt.MeshDrawMode.POINTS,
+            _static_data_mesh_format,
+            rt.GraphicsBufferUsage.STATIC
+        )
+        self._n_vertices_to_data_mesh[n] = static_data_mesh
 
-    table.sort(self._parts, function(a, b) return a.distance < b.distance end)
+        local offset_data = self._n_vertices_to_offset_data[n]
+        local offset_data_mesh = rt.Mesh(
+            offset_data,
+            rt.MeshDrawMode.POINTS,
+            _offset_mesh_format,
+            rt.GraphicsBufferUsage.STREAM
+        )
+        self._n_vertices_to_static_data[n] = offset_data_mesh
+
+        for entry in values(_static_data_mesh_format) do
+            instance:attach_attribute(static_data_mesh, entry.name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
+        end
+
+        for entry in values(_offset_mesh_format) do
+            instance:attach_attribute(offset_data_mesh, entry.name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
+        end
+    end
 end
 
 --- @brief
@@ -526,21 +595,9 @@ function ow.ShatterSurface:draw()
     love.graphics.setColor(1, 1, 1, 1)
 
     _shader:bind()
-    _shader:send("bounds", { self._bounds:unpack() })
-    _shader:send("img", self._texture:get_native())
-
-    for part in values(self._parts) do
-        if part.vertices ~= nil then
-            love.graphics.push()
-            love.graphics.translate(part.x, part.y)
-
-            love.graphics.setColor(part.color)
-            love.graphics.polygon("fill", part.vertices)
-            --love.graphics.draw(part.mesh:get_native())
-            love.graphics.pop()
-        end
+    for n, instance in pairs(self._n_vertices_to_instance_mesh) do
+        instance:draw_instanced(self._n_vertices_to_instance_count[n])
     end
-
     _shader:unbind()
 
     if self._seeds ~= nil then
