@@ -236,7 +236,7 @@ function rt.GameState:load_default_input_mapping()
         },
 
         [rt.InputAction.B] = {
-            keyboard = {"b", "shift"},
+            keyboard = {"b", "lshift"},
             controller = rt.ControllerButton.BOTTOM
         },
 

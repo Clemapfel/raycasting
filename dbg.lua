@@ -1,3 +1,3 @@
 return {
-    max_offset = 5
+    t = 0.25
 }

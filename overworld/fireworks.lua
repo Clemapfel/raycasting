@@ -1,5 +1,7 @@
+require "common.interpolation_functions"
+
 rt.settings.overworld.fireworks = {
-    radius = 7,
+    radius = 5,
     rocket_initial_speed = 500,
     rocket_acceleration = 600,
     rocket_gravity = 0,
@@ -131,7 +133,7 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
     )
 
     for i = 2, particle_mesh:get_n_vertices() do
-        particle_mesh:set_vertex_color(i, 1, 1, 1, 0)
+        --particle_mesh:set_vertex_color(i, 1, 1, 1, 0)
     end
 
     local data_mesh = rt.Mesh(
@@ -356,4 +358,9 @@ end
 --- @brief
 function ow.Fireworks:set_player(player)
     self._player = player
+end
+
+--- @brief
+function ow.Fireworks:get_is_done()
+    return #self._batches == 0
 end

@@ -1,4 +1,5 @@
 require "common.input_action"
+require "common.font"
 
 rt.settings.keybinding_indicator = {
     font = rt.settings.font.default,

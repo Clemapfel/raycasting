@@ -1,5 +1,6 @@
 require "common.sound_manager"
 require "overworld.fireworks"
+require "overworld.shatter_surface"
 
 rt.settings.overworld.checkpoint = {
     explosion_duration = 1,
@@ -11,7 +12,10 @@ rt.settings.overworld.checkpoint = {
 
     segment_length = 7, -- px
     segment_hue_speed = 2,
-    segment_gravity = 10000
+    segment_gravity = 10000,
+
+    goal_time_dilation = 0.05,
+    goal_time_dilation_duration = 30 / 60,
 }
 
 --- @class ow.Checkpoint
@@ -90,8 +94,27 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _camera_offset = { 0, 0 },
         _camera_scale = 1,
 
-        _is_broken = false,
-        _should_despawn = false,
+        -- start checkpoint: player spawn
+        _spawn_barrier = nil, -- b2.Body
+
+        -- midway checkpoint: rope
+        _fireworks = nil, -- ow.Fireworks
+        _fireworks_locations = {},
+        _fireworks_visible = false,
+
+        _rope_bodies = nil, -- Table<b2.Bod>
+        _rope_joints = nil, -- Table<love.PrismaticJoint>
+        _rope_n_segments = 0,
+        _rope_is_cut = false,
+        _rope_should_despawn = false,
+        _rope_hue = 0,
+
+        -- last checkpoint: player goal
+        _is_shattered = false,
+        _shatter_body = nil,    -- b2.Body
+        _shatter_surface = nil, -- ow.ShatterSurface
+        _time_dilation_elapsed = 0,
+        _time_dilation_active = false
     })
 
     stage:add_checkpoint(self, object.id, self._type)
@@ -128,40 +151,18 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             rt.settings.player.player_outer_body_collision_group
         ))
 
-        self._body:set_collides_with(rt.settings.player.bounce_collision_group)
-        self._body:set_collision_group(rt.settings.player.bounce_collision_group)
+        local collision_mask, collision_group = rt.settings.player.bounce_collision_group, rt.settings.player.bounce_collision_group
+        self._body:set_collides_with(collision_mask)
+        self._body:set_collision_group(collision_group)
 
         self._body:set_use_continuous_collision(true)
         self._body:set_is_sensor(true)
 
-        self._body:signal_connect("collision_start", function(_, other)
-            if other:has_tag("player") and self._type == ow.CheckpointType.MIDWAY and self._rope_is_cut == false then
-                self:_cut()
-
-                -- fireworks
-                local player = self._scene:get_player()
-                local n_particles = 300
-                local start_x, start_y = self._bottom_x, self._bottom_y
-                local max_distance = math.distance(self._bottom_x, self._bottom_y, self._top_x, self._top_y)
-
-                for i = 1, 6 do
-                    local distance = rt.random.number(0, max_distance)
-                    local vy = -1 -- always upwards
-                    local vx = rt.random.number(-0.5, 0.5)
-                    local hue = rt.random.number(0, 1)
-                    self._fireworks:spawn(
-                        n_particles,
-                        start_x, start_y, -- start pos
-                        start_x + vx * distance, start_y + vy * distance, -- end
-                        hue - 0.2, hue + 0.2
-                    )
-                end
-            end
-
-            self._passed = true
-        end)
-
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
+            self._body:signal_connect("collision_start", function(_, other)
+                self._passed = true
+            end)
+
             local r = rt.settings.player.radius
             self._spawn_barrier = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
                 bottom_x, bottom_y,
@@ -177,6 +178,41 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 rt.settings.player.ghost_collision_group
             )
         elseif self._type == ow.CheckpointType.MIDWAY then
+            self._body:signal_connect("collision_start", function(_, other)
+                if self._rope_is_cut == false then
+                    self:_cut_rope()
+
+                    -- fireworks
+                    local player = self._scene:get_player()
+                    local n_particles = 300
+                    local start_x, start_y = self._bottom_x, self._bottom_y
+                    local max_distance = math.distance(self._bottom_x, self._bottom_y, self._top_x, self._top_y)
+
+                    self._fireworks_locations = {}
+                    for i = 1, 6 do
+                        local distance = rt.random.number(0, max_distance)
+                        local vy = -1 -- always upwards
+                        local vx = rt.random.number(-0.5, 0.5)
+                        local hue = rt.random.number(0, 1)
+                        local end_x, end_y = start_x + vx * distance, start_y + vy * distance
+                        self._fireworks:spawn(
+                            n_particles,
+                            start_x, start_y, -- start pos
+                            end_x, end_y, -- end
+                            hue - 0.2, hue + 0.2
+                        )
+
+                        table.insert(self._fireworks_locations, start_x)
+                        table.insert(self._fireworks_locations, start_y)
+                        table.insert(self._fireworks_locations, end_x)
+                        table.insert(self._fireworks_locations, end_y)
+                    end
+                    self._fireworks_visible = true
+                end
+
+                self._passed = true
+            end)
+
             self._fireworks = ow.Fireworks(self._scene:get_player())
 
             local height = self._bottom_y - self._top_y
@@ -236,6 +272,34 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
                 self._rope_joints[i] = joint
             end
+        elseif self._type == ow.CheckpointType.PLAYER_GOAL then
+            local surface_w = 100
+            local surface_h = self._bottom_y - self._top_y
+
+            local body_x, body_y = self._top_x, self._top_y
+            self._shatter_bounds = rt.AABB(body_x, body_y, surface_w, surface_h)
+            self._shatter_body = b2.Body(self._world, b2.BodyType.STATIC,
+                0, 0,
+                b2.Rectangle(self._shatter_bounds:unpack())
+            )
+
+            self._shatter_surface = ow.ShatterSurface(self._world, self._shatter_bounds:unpack())
+
+            self._shatter_body:set_collides_with(collision_mask)
+            self._shatter_body:set_collision_group(collision_group)
+            self._shatter_body:set_is_sensor(true)
+            self._shatter_body:signal_connect("collision_start", function(_, other, nx, ny, x, y, x2, y2)
+                if self._is_shattered == false then
+                    self._is_shattered = true
+                    local min_x, max_x = self._shatter_bounds.x, self._shatter_bounds.x + self._shatter_bounds.width
+                    local min_y, max_y = self._shatter_bounds.y, self._shatter_bounds.y + self._shatter_bounds.height
+
+                    local px, py = self._scene:get_player():get_position()
+                    self._shatter_surface:shatter(px, py)
+                    self._time_dilation_active = true
+                    self._time_dilation_elapsed = 0
+                end
+            end)
         end
 
         return meta.DISCONNECT_SIGNAL
@@ -344,6 +408,27 @@ end
 
 --- @brief
 function ow.Checkpoint:update(delta)
+    -- update fireworks indepedent from body location
+    if self._type == ow.CheckpointType.MIDWAY then
+        if self._fireworks_visible then
+            self._fireworks:update(delta)
+            self._fireworks_visible = not self._fireworks:get_is_done()
+        end
+    elseif self._type == ow.CheckpointType.PLAYER_GOAL then
+        if self._is_shattered then
+            self._shatter_surface:update(delta)
+        end
+
+        if self._time_dilation_active == true then
+            self._time_dilation_elapsed = self._time_dilation_elapsed + delta
+            local fraction = self._time_dilation_elapsed / rt.settings.overworld.checkpoint.goal_time_dilation_duration
+            fraction = rt.InterpolationFunctions.LINEAR(fraction)
+            local dilation = math.mix(1, rt.settings.overworld.checkpoint.goal_time_dilation, fraction)
+            self._scene:get_player():set_time_dilation(dilation)
+            self._shatter_surface:set_time_dilation(dilation)
+        end
+    end
+
     if not self._scene:get_is_body_visible(self._body) then return end
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
@@ -352,8 +437,9 @@ function ow.Checkpoint:update(delta)
     self._camera_offset = { camera:get_offset() }
     self._camera_scale = camera:get_scale()
 
-    if self._type == ow.CheckpointType.MIDWAY then
-        self._fireworks:update(delta)
+    if self._type == ow.CheckpointType.PLAYER_SPAWN then
+        -- noop
+    elseif self._type == ow.CheckpointType.MIDWAY then
         self._rope_hue = math.fract(self._rope_hue + delta / rt.settings.overworld.checkpoint.segment_hue_speed)
 
         if self._should_despawn then
@@ -366,7 +452,7 @@ function ow.Checkpoint:update(delta)
             end
 
             if seen == false then
-                self:_despawn()
+                self:_despawn_rope()
             end
         else
             local gravity = rt.settings.overworld.checkpoint.segment_gravity * delta
@@ -377,11 +463,13 @@ function ow.Checkpoint:update(delta)
             -- safeguard against solver becoming unstable
             for joint in values(self._rope_joints) do
                 if not joint:isDestroyed() and joint:getJointSpeed() > 1000 then
-                    self:_despawn()
+                    self:_despawn_rope()
                     break
                 end
             end
         end
+    elseif self._type == ow.CheckpointType.PLAYER_GOAL then
+        self._shatter_surface:update(delta)
     end
 
     if self._state == _STATE_STAGE_ENTRY then
@@ -417,10 +505,6 @@ function ow.Checkpoint:update(delta)
         self._ray_fade_out_fraction = self._ray_fade_out_elapsed / fade_out_duration
         self._ray_fade_out_elapsed = self._ray_fade_out_elapsed + delta
     end
-
-    if self._fireworks ~= nil then
-        self._fireworks:update(delta) -- todo
-    end
 end
 
 local _base_priority = 0
@@ -428,6 +512,14 @@ local _effect_priority = math.huge
 
 --- @brief
 function ow.Checkpoint:draw(priority)
+    if priority == _base_priority then
+        if self._type == ow.CheckpointType.MIDWAY then
+            if self._fireworks_visible then self._fireworks:draw() end
+        elseif self._type == ow.CheckpointType.PLAYER_GOAL then
+            if self._is_shattered then self._shatter_surface:draw() end
+        end
+    end
+
     if self._state == _STATE_DEFAULT and not self._scene:get_is_body_visible(self._body) then return end
     local hue = self._scene:get_player():get_hue()
 
@@ -506,6 +598,11 @@ function ow.Checkpoint:draw(priority)
                     end
                 end
             end
+        elseif self._type == ow.CheckpointType.PLAYER_GOAL then
+            if not self._is_shattered then
+                self._shatter_surface:draw()
+                -- otherwise, drawn before body visiblity check
+            end
         end
 
     elseif priority == _effect_priority then
@@ -521,18 +618,10 @@ function ow.Checkpoint:draw(priority)
             love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
             _explosion_shader:unbind()
         end
-
-        if self._type == ow.CheckpointType.MIDWAY then
-            self._fireworks:draw()
-        end
-    end
-
-    if self._fireworks ~= nil then -- todo
-        self._fireworks:draw()
     end
 end
 
-function ow.Checkpoint:_cut()
+function ow.Checkpoint:_cut_rope()
     if self._type ~= ow.CheckpointType.MIDWAY or self._rope_is_cut == true then return end
 
     local player = self._scene:get_player()
@@ -578,7 +667,7 @@ function ow.Checkpoint:_cut()
 end
 
 --- @brief
-function ow.Checkpoint:_despawn()
+function ow.Checkpoint:_despawn_rope()
     for joint in values(self._rope_joints) do
         if not joint:isDestroyed() then
             joint:destroy()

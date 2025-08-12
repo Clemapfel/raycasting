@@ -132,8 +132,8 @@ function ow.OverworldScene:instantiate(state)
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         -- debug reload
         if which == "^" then
-            self:reload()
             self:unpause()
+            self:reload()
         elseif which == "h" then
         elseif which == "j" then
             --self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
@@ -988,6 +988,7 @@ end
 
 --- @brief
 function ow.OverworldScene:pause()
+    self._player_was_disabled = self:get_player():get_state() == rt.PlayerState.DISABLED
     self._player:disable()
     self._pause_menu:present()
     self._pause_menu_active = true
@@ -997,7 +998,12 @@ end
 function ow.OverworldScene:unpause()
     self._pause_menu_active = false
     self._pause_menu:close()
-    self._player:enable()
+
+    if self._player_was_disabled == true then
+        -- noop, keep disabled
+    else
+        self._player:enable()
+    end
 end
 
 --- @brief

@@ -1,29 +1,38 @@
 require "common.delaunay_triangulation"
 require "common.path"
 require "common.graphics_buffer"
+require "common.coroutine"
 
 rt.settings.overworld.shatter_surface = {
-    line_density = 1 / 30,
+    line_density = 1 / 30, -- lines per arclength pixel of perimeter
     seed_density = 1 / 40, -- seed every n px
 
     max_offset = 0.05, -- fraction of line length
-    angle_offset = 0.005,
-    merge_probability = 0.1,
-    gravity = 4,
-    velocity_magnitude = 40,
+    angle_offset = 0.005, -- fraction of 2pi
 
-    cell_size = 20
+    cell_size = 5, -- grid size of spatial hash to merge smaller tiles
+
+    -- physics sim
+    gravity = 1,
+    velocity_magnitude = 100
 }
 
 --- @class ow.ShatterSurface
 ow.ShatterSurface = meta.class("ShatterSurface")
 
 --- @brief
-function ow.ShatterSurface:instantiate(x, y, width, height)
-    self._texture = rt.Texture("assets/sprites/barboach.png")
+function ow.ShatterSurface:instantiate(world, x, y, width, height)
+    meta.assert(world, "PhysicsWorld")
+    self._world = world
     self._bounds = rt.AABB(x, y, width, height)
     self._parts = {}
     self._n_vertices_to_data = {}
+    self._pre_shatter_mesh = rt.MeshRectangle(x, y, width, height)
+
+    self._is_shattered = false
+    self._is_done = false
+    self._callback = nil -- coroutine
+    self._time_dilation = 1
 end
 
 local clip_polygon_to_rect -- sutherland–hodgman polygon clipping against rect
@@ -152,6 +161,8 @@ do
 
         local map = rt.DelaunayTriangulation(sites):get_triangle_vertex_map()
 
+        coroutine.yield()
+
         for i = 1, #map, 3 do
             local i1, i2, i3 = map[i+0], map[i+1], map[i+2]
             local x1, y1 = sites[(i1-1)*2+1], sites[(i1-1)*2+2]
@@ -241,284 +252,324 @@ end
 --- @brief
 function ow.ShatterSurface:shatter(origin_x, origin_y)
     meta.assert(origin_x, "Number", origin_y, "Number")
+
+    do
+        local cell_size = 0.5 * rt.settings.overworld.shatter_surface.cell_size
+        origin_x = math.clamp(origin_x, self._bounds.x + cell_size, self._bounds.x + self._bounds.width - cell_size)
+        origin_y = math.clamp(origin_y, self._bounds.y + cell_size, self._bounds.y + self._bounds.height - cell_size)
+    end
+
     self._parts = {}
+    self._is_done = false
+    self._is_shattered = true
+    self._callback = rt.Coroutine(function()
+        local settings = rt.settings.overworld.shatter_surface
 
-    local settings = rt.settings.overworld.shatter_surface
-
-    local min_x, min_y = self._bounds.x, self._bounds.y
-    local max_x, max_y = self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height
-    local path = rt.Path(
-        min_x, min_y,
-        max_x, min_y,
-        max_x, max_y,
-        min_x, max_y,
-        min_x, min_y
-    )
-
-    local point_easing = rt.InterpolationFunctions.LINEAR
-    local line_easing = rt.InterpolationFunctions.LINEAR
-
-    local get_intersection = function(angle)
-        local dx, dy = math.cos(angle), math.sin(angle)
-
-        local ix, iy
-        ix, iy = intersection(origin_x, origin_y, dx, dy, min_x, min_y, max_x, min_y)
-        if ix ~= nil and iy ~= nil then return ix, iy end
-
-        ix, iy = intersection(origin_x, origin_y, dx, dy, max_x, min_y, max_x, max_y)
-        if ix ~= nil and iy ~= nil then return ix, iy end
-
-        ix, iy = intersection(origin_x, origin_y, dx, dy, max_x, max_y, min_x, max_y)
-        if ix ~= nil and iy ~= nil then return ix, iy end
-
-        ix, iy = intersection(origin_x, origin_y, dx, dy, min_x, max_y, min_x, min_y)
-        if ix ~= nil and iy ~= nil then return ix, iy end
-
-        return nil
-    end
-
-    local cell_size = settings.cell_size
-    local seed_hash = {}
-
-    function add_to_spatial_hash(x, y)
-        local cells_x = math.ceil((max_x - min_x) / cell_size)
-        local cells_y = math.ceil((max_y - min_y) / cell_size)
-
-        local i = math.floor((x - min_x) / cell_size)
-        local j = math.floor((y - min_y) / cell_size)
-
-        local linear_i = j * cells_x + i
-
-        if seed_hash[linear_i] == nil then seed_hash[linear_i] = {} end
-        table.insert(seed_hash[linear_i], x)
-        table.insert(seed_hash[linear_i], y)
-    end
-
-    -- sample circumference, draw line from origin to that point, then sample line
-    local n_lines = path:get_length() * settings.line_density
-    for line_i = 0, n_lines - 1 do
-        local line_t = line_easing(line_i / n_lines)
-        line_t = line_t + rt.random.number(-1, 1) * settings.angle_offset
-        local to_x, to_y = get_intersection(line_t * 2 * math.pi)
-
-        local length = math.distance(origin_x, origin_y, to_x, to_y)
-        local n_points = length * settings.seed_density
-        for point_i = 0, n_points do -- sic, skip center, overshoot
-            local point_t = point_easing(point_i / n_points) + rt.random.number(-1, 0) * settings.max_offset
-            add_to_spatial_hash(math.mix2(origin_x, origin_y, to_x, to_y, point_t))
-        end
-    end
-
-    local seeds = {}
-
-    for i = 1, 10 do
-        table.insert(seeds, self._bounds.x + rt.random.number(0, 1) * self._bounds.width)
-        table.insert(seeds, self._bounds.y + rt.random.number(0, 1) * self._bounds.height)
-    end
-
-    --[[
-    for entry in values(seed_hash) do
-        local mean_x, mean_y, n = 0, 0, 0
-        for i = 1, #entry, 2 do
-            mean_x = mean_x + entry[i+0]
-            mean_y = mean_y + entry[i+1]
-            n = n + 1
-        end
-        table.insert(seeds, mean_x / n)
-        table.insert(seeds, mean_y / n)
-    end
-    ]]--
-
-    -- seeds on corners
-    for x in range(
-        min_x, min_y,
-        max_x, min_y,
-        max_x, max_y,
-        min_x, max_y
-    ) do
-        table.insert(seeds, x)
-    end
-
-    -- compute voronoi diagram
-    local cells = compute_voronoi(seeds, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
-
-    -- clip to rectangle bounds
-    for i, cell in ipairs(cells) do
-        if cell and #cell >= 6 then
-            local needs_clipping = false
-            for vertex_i = 1, #cell, 2 do
-                local x, y = cell[vertex_i+0], cell[vertex_i+1]
-                if not self._bounds:contains(x, y) then
-                    needs_clipping = true
-                    break
-                end
-            end
-
-            local vertices = cell
-            if needs_clipping then
-                local clipped = clip_polygon_to_rect(cell, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
-                if clipped ~= nil and #clipped >= 6 then
-                    vertices = clipped
-                end
-            end
-
-            table.insert(self._parts, {
-                vertices = vertices
-            })
-        end
-    end
-    
-    local max_distance = -math.huge
-    local min_mass, max_mass = math.huge, -math.huge
-    for part in values(self._parts) do
-        local vertices = part.vertices
-        local mean_x, mean_y, n = 0, 0, 0
-        for i = 1, #vertices, 2 do
-            mean_x = mean_x + vertices[i+0]
-            mean_y = mean_y + vertices[i+1]
-            n = n + 1
-        end
-
-        mean_x = mean_x / n
-        mean_y = mean_y / n
-
-        for i = 1, #vertices, 2 do
-            vertices[i+0] = vertices[i+0] - mean_x
-            vertices[i+1] = vertices[i+1] - mean_y
-        end
-
-        part.x = mean_x
-        part.y = mean_y
-        part.velocity_x, part.velocity_y = math.normalize(part.x - origin_x, part.y - origin_y)
-        part.distance = math.distance(part.x, part.y, origin_x, origin_y)
-        part.mass = polygon_area(part.vertices)
-
-        min_mass = math.min(min_mass, part.mass)
-        max_mass = math.max(max_mass, part.mass)
-        max_distance = math.max(max_distance, part.distance)
-    end
-
-    -- generate meshes for instancing
-
-    self._n_vertices_to_data = {}
-    local n_vertices_to_instance_part = {}
-
-    local entry_i = 1
-    for part in values(self._parts) do
-        part.color = { rt.lcha_to_rgba(0.8, 1, (entry_i - 1) / #self._parts, 1) }
-        part.mass = (part.mass - min_mass) / (max_mass - min_mass) -- normalize mass
-        part.velocity_magnitude = (1 + 1 - part.distance / max_distance) * settings.velocity_magnitude
-
-        local n_vertices = math.floor(#part.vertices / 2)
-        part.n_vertices = n_vertices
-
-        local data = self._n_vertices_to_data[n_vertices]
-        if data == nil then
-            data = {
-                positions = {}, -- vec2[]
-                texture_coordinates = {}, -- vec2[]
-                offsets = {}, -- vec2[]
-                n_vertices = n_vertices,
-                n_instances = 0,
-                shader = nil,
-                instance_mesh = nil
-            }
-            self._n_vertices_to_data[n_vertices] = data
-            n_vertices_to_instance_part[n_vertices] = part
-        end
-
-        data.n_instances = data.n_instances + 1
-
-        for i = 1, #part.vertices, 2 do
-            local x = part.vertices[i+0]
-            local y = part.vertices[i+1]
-            local u = ((x + part.x) - min_x) / (max_x - min_x)
-            local v = ((y + part.y) - min_y) / (max_y - min_y)
-            table.insert(data.positions, { x, y })
-            table.insert(data.texture_coordinates, { u, v })
-        end
-
-        local offset = { part.x, part.y }
-        table.insert(data.offsets, offset)
-        part.offset = offset
-
-        entry_i = entry_i + 1
-    end
-
-    local instance_mesh_format = {
-        { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
-        { location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
-        { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
-    }
-
-    for n, data in pairs(self._n_vertices_to_data) do
-        -- instance data is random shard with that many vertices
-        -- is overridden in shader to display different shard
-        local part = n_vertices_to_instance_part[n]
-        local instance_data = {}
-        for i = 1, #part.vertices, 2 do
-            local x = part.vertices[i+0]
-            local y = part.vertices[i+1]
-            local u = ((x + part.x) - min_x) / (max_x - min_x)
-            local v = ((y + part.y) - min_y) / (max_y - min_y)
-            table.insert(instance_data, {
-                x + 50, y + 50, u, v, 1, 1, 1, 1
-            })
-        end
-
-        data.instance_mesh = rt.Mesh(
-            instance_data,
-            rt.MeshDrawMode.TRIANGLE_FAN,
-            rt.VertexFormat,
-            rt.GraphicsBufferUsage.STATIC
+        local min_x, min_y = self._bounds.x, self._bounds.y
+        local max_x, max_y = self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height
+        local path = rt.Path(
+            min_x, min_y,
+            max_x, min_y,
+            max_x, max_y,
+            min_x, max_y,
+            min_x, min_y
         )
-        data.instance_mesh:set_texture(self._texture)
 
-        data.shader = rt.Shader("overworld/shatter_surface.glsl", {
-            N_INSTANCES = data.n_instances,
-            N_VERTICES = data.n_vertices
-        })
+        local point_easing = rt.InterpolationFunctions.LINEAR
+        local line_easing = rt.InterpolationFunctions.LINEAR
 
-        data.shader:send("positions", table.unpack(data.positions))
-        data.shader:send("texture_coordinates", table.unpack(data.texture_coordinates))
-        data.shader:send("offsets", table.unpack(data.offsets))
-    end
+        local get_intersection = function(angle)
+            local dx, dy = math.cos(angle), math.sin(angle)
+
+            local ix, iy
+            ix, iy = intersection(origin_x, origin_y, dx, dy, min_x, min_y, max_x, min_y)
+            if ix ~= nil and iy ~= nil then return ix, iy end
+
+            ix, iy = intersection(origin_x, origin_y, dx, dy, max_x, min_y, max_x, max_y)
+            if ix ~= nil and iy ~= nil then return ix, iy end
+
+            ix, iy = intersection(origin_x, origin_y, dx, dy, max_x, max_y, min_x, max_y)
+            if ix ~= nil and iy ~= nil then return ix, iy end
+
+            ix, iy = intersection(origin_x, origin_y, dx, dy, min_x, max_y, min_x, min_y)
+            if ix ~= nil and iy ~= nil then return ix, iy end
+
+            return nil
+        end
+
+        local cell_size = settings.cell_size
+        local seed_hash = {}
+
+        function add_to_spatial_hash(x, y)
+            local cells_x = math.ceil((max_x - min_x) / cell_size)
+            local cells_y = math.ceil((max_y - min_y) / cell_size)
+
+            local i = math.floor((x - min_x) / cell_size)
+            local j = math.floor((y - min_y) / cell_size)
+
+            local linear_i = j * cells_x + i
+
+            if seed_hash[linear_i] == nil then seed_hash[linear_i] = {} end
+            table.insert(seed_hash[linear_i], x)
+            table.insert(seed_hash[linear_i], y)
+        end
+
+        -- sample circumference, draw line from origin to that point, then sample line
+        local n_lines = path:get_length() * settings.line_density
+        for line_i = 0, n_lines - 1 do
+            local line_t = line_easing(line_i / n_lines)
+            line_t = line_t + rt.random.number(-1, 1) * settings.angle_offset
+            local to_x, to_y = get_intersection(line_t * 2 * math.pi)
+
+            local length = math.distance(origin_x, origin_y, to_x, to_y)
+            local n_points = math.max(length * settings.seed_density, 4)
+            for point_i = 0, n_points do -- sic, skip center, overshoot
+                local point_t = point_easing(point_i / n_points) + rt.random.number(-1, 0) * settings.max_offset
+                add_to_spatial_hash(math.mix2(origin_x, origin_y, to_x, to_y, point_t))
+            end
+        end
+
+        local seeds = {}
+
+        dbg(math.floor(self._bounds.width * self._bounds.height * settings.seed_density / 16))
+        for i = 1, math.floor(self._bounds.width * self._bounds.height * settings.seed_density / 16) do
+            add_to_spatial_hash(
+                self._bounds.x + cell_size + rt.random.number(0, 1) * (self._bounds.width - cell_size),
+                self._bounds.y + cell_size + rt.random.number(0, 1) * (self._bounds.height - cell_size)
+            )
+        end
+
+        for entry in values(seed_hash) do
+            local mean_x, mean_y, n = 0, 0, 0
+            for i = 1, #entry, 2 do
+                mean_x = mean_x + entry[i+0]
+                mean_y = mean_y + entry[i+1]
+                n = n + 1
+            end
+            table.insert(seeds, mean_x / n)
+            table.insert(seeds, mean_y / n)
+        end
+
+        -- seeds on corners
+        for x in range(
+            min_x, min_y,
+            max_x, min_y,
+            max_x, max_y,
+            min_x, max_y
+        ) do
+            table.insert(seeds, x)
+        end
+
+        coroutine.yield()
+
+        -- compute voronoi diagram
+        local cells = compute_voronoi(seeds, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
+
+        coroutine.yield()
+
+        -- clip to rectangle bounds
+        for i, cell in ipairs(cells) do
+            if cell and #cell >= 6 then
+                local needs_clipping = false
+                for vertex_i = 1, #cell, 2 do
+                    local x, y = cell[vertex_i+0], cell[vertex_i+1]
+                    if not self._bounds:contains(x, y) then
+                        needs_clipping = true
+                        break
+                    end
+                end
+
+                local vertices = cell
+                if needs_clipping then
+                    local clipped = clip_polygon_to_rect(cell, self._bounds.x, self._bounds.y, self._bounds.width, self._bounds.height)
+                    if clipped ~= nil and #clipped >= 6 then
+                        vertices = clipped
+                    end
+                end
+
+                table.insert(self._parts, {
+                    vertices = vertices
+                })
+            end
+        end
+
+        local max_distance = -math.huge
+        local min_mass, max_mass = math.huge, -math.huge
+        for part in values(self._parts) do
+            local vertices = part.vertices
+            local mean_x, mean_y, n = 0, 0, 0
+            for i = 1, #vertices, 2 do
+                mean_x = mean_x + vertices[i+0]
+                mean_y = mean_y + vertices[i+1]
+                n = n + 1
+            end
+
+            mean_x = mean_x / n
+            mean_y = mean_y / n
+
+            for i = 1, #vertices, 2 do
+                vertices[i+0] = vertices[i+0] - mean_x
+                vertices[i+1] = vertices[i+1] - mean_y
+            end
+
+            part.x = mean_x
+            part.y = mean_y
+            part.angle = 0
+            part.distance = math.distance(part.x, part.y, origin_x, origin_y)
+            part.mass = polygon_area(part.vertices)
+
+            min_mass = math.min(min_mass, part.mass)
+            max_mass = math.max(max_mass, part.mass)
+            max_distance = math.max(max_distance, part.distance)
+        end
+
+        -- generate meshes for instancing
+
+        self._n_vertices_to_data = {}
+        local n_vertices_to_instance_part = {}
+
+        local entry_i = 1
+        for part in values(self._parts) do
+            part.color = { rt.lcha_to_rgba(0.8, 1, (entry_i - 1) / #self._parts, 1) }
+            part.mass = (part.mass - min_mass) / (max_mass - min_mass) -- normalize mass
+            part.velocity_magnitude = math.mix(1, 2, (1 - part.distance / max_distance)) * settings.velocity_magnitude
+
+            local n_vertices = math.floor(#part.vertices / 2)
+            part.n_vertices = n_vertices
+
+            local data = self._n_vertices_to_data[n_vertices]
+            if data == nil then
+                data = {
+                    positions = {}, -- vec2[]
+                    texture_coordinates = {}, -- vec2[]
+                    offsets = {}, -- vec2[]
+                    n_vertices = n_vertices,
+                    n_instances = 0,
+                    shader = nil,
+                    instance_mesh = nil
+                }
+                self._n_vertices_to_data[n_vertices] = data
+                n_vertices_to_instance_part[n_vertices] = part
+            end
+
+            data.n_instances = data.n_instances + 1
+
+            for i = 1, #part.vertices, 2 do
+                local x = part.vertices[i+0]
+                local y = part.vertices[i+1]
+                local u = ((x + part.x) - min_x) / (max_x - min_x)
+                local v = ((y + part.y) - min_y) / (max_y - min_y)
+                table.insert(data.positions, { x, y })
+                table.insert(data.texture_coordinates, { u, v })
+            end
+
+            local offset = { part.x, part.y, part.angle }
+            table.insert(data.offsets, offset)
+            part.offset = offset
+
+            part.body = b2.Body(self._world, b2.BodyType.DYNAMIC, part.x, part.y, b2.Polygon(part.vertices))
+            part.body:add_tag("stencil", "unjumpable", "slippery")
+            local vx, vy = math.normalize(part.x - origin_x, part.y - origin_y)
+            part.body:set_velocity(vx * settings.velocity_magnitude, vy * settings.velocity_magnitude)
+
+            entry_i = entry_i + 1
+        end
+
+
+        local instance_mesh_format = {
+            { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
+            { location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
+            { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
+        }
+
+        for n, data in pairs(self._n_vertices_to_data) do
+            -- instance data is random shard with that many vertices
+            -- is overridden in shader to display different shard
+            local part = n_vertices_to_instance_part[n]
+            local instance_data = {}
+            for i = 1, #part.vertices, 2 do
+                local x = part.vertices[i+0]
+                local y = part.vertices[i+1]
+                local u = ((x + part.x) - min_x) / (max_x - min_x)
+                local v = ((y + part.y) - min_y) / (max_y - min_y)
+                table.insert(instance_data, {
+                    x + 50, y + 50, u, v, 1, 1, 1, 1
+                })
+            end
+
+            data.instance_mesh = rt.Mesh(
+                instance_data,
+                rt.MeshDrawMode.TRIANGLE_FAN,
+                rt.VertexFormat,
+                rt.GraphicsBufferUsage.STATIC
+            )
+
+            data.shader = rt.Shader("overworld/shatter_surface.glsl", {
+                N_INSTANCES = data.n_instances,
+                N_VERTICES = data.n_vertices,
+                APPLY_VERTEX_SHADER = true
+            })
+
+            data.shader:send("positions", table.unpack(data.positions))
+            data.shader:send("texture_coordinates", table.unpack(data.texture_coordinates))
+            data.shader:send("offsets", table.unpack(data.offsets))
+        end
+
+        self._is_done = true
+    end):start()
 end
 
 --- @brief
 function ow.ShatterSurface:update(delta)
-    if self._parts == nil or #self._parts == 0 then return end
+    if not self._is_shattered then return end
 
+    -- distribute load over multiple frames
+    if not self._callback:get_is_done() then
+        self._callback:resume()
+        return
+    end
+    
     local gravity = rt.settings.overworld.shatter_surface.gravity
-
-    delta = delta
     for part in values(self._parts) do
-        part.velocity_y = part.velocity_y + math.mix(1, 2, part.mass) * gravity * delta
+        part.x, part.y = part.body:get_position()
+        part.angle = part.body:get_rotation()
 
-        local vx, vy = part.velocity_x * part.velocity_magnitude, part.velocity_y * part.velocity_magnitude
-        part.x = part.x + vx * delta
-        part.y = part.y + vy * delta
-        part.offset[1] = part.x
-        part.offset[2] = part.y
+        part.offset[1], part.offset[2], part.offset[3] = part.x, part.y, part.angle
+
+        if self._collision_radius ~= nil then
+
+        end
     end
 end
 
 --- @brief
 function ow.ShatterSurface:draw()
-    love.graphics.setLineWidth(1)
-    love.graphics.setColor(1, 0, 1, 1)
+    love.graphics.setColor(1, 1, 1, 1)
+    if not self._is_done then
+        self._pre_shatter_mesh:draw()
+    else
+        for n, data in pairs(self._n_vertices_to_data) do
+            data.shader:bind()
+            data.shader:send("offsets", table.unpack(data.offsets))
+            data.instance_mesh:draw_instanced(data.n_instances)
+            data.shader:unbind()
+        end
 
-    for n, data in pairs(self._n_vertices_to_data) do
-        data.shader:bind()
-        data.shader:send("offsets", table.unpack(data.offsets))
-        data.instance_mesh:draw_instanced(data.n_instances)
-        data.shader:unbind()
-    end
+        rt.Palette.BLACK:bind()
+        for part in values(self._parts) do
+            love.graphics.polygon("line", part.vertices)
+        end
 
-    if self._seeds ~= nil then
-        for i = 1, #self._seeds, 2 do
-            local seed_x, seed_y = self._seeds[i], self._seeds[i + 1]
-            love.graphics.circle("fill", seed_x, seed_y, 2)
+        if self._seeds ~= nil then
+            for i = 1, #self._seeds, 2 do
+                local seed_x, seed_y = self._seeds[i], self._seeds[i + 1]
+                love.graphics.circle("fill", seed_x, seed_y, 2)
+            end
         end
     end
+end
+
+--- @brief
+function ow.ShatterSurface:set_time_dilation(t)
+    self._time_dilation = math.clamp(t, math.eps, 1)
 end

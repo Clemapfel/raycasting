@@ -304,20 +304,19 @@ function love.run()
     return function()
         if love.event then
             love.event.pump()
-            for name, a,b,c,d,e,f in love.event.poll() do
+            for name, a, b, c, d, e, f in love.event.poll() do
                 if name == "quit" then
                     if not love.quit or not love.quit() then
                         return a or 0
                     end
                 end
-                love.handlers[name](a,b,c,d,e,f)
+                love.handlers[name](a, b, c, d, e, f)
             end
         end
 
         if love.timer then delta = love.timer.step() end
 
         local update_before, update_after, draw_before, draw_after
-
         update_before = love.timer.getTime()
 
         _update_elapsed = _update_elapsed + delta
@@ -336,7 +335,7 @@ function love.run()
                     end
                 end
             else
-                love.update(delta)
+                if love.update ~= nil then love.update(delta) end
                 _update_elapsed = _update_elapsed - delta
             end
         end
@@ -349,7 +348,7 @@ function love.run()
             love.graphics.clear(0, 0, 0, 0)
 
             draw_before = love.timer.getTime()
-            love.draw()
+            if love.draw ~= nil then love.draw() end
             draw_after = love.timer.getTime()
 
             if rt.GameState:get_draw_debug_information() then

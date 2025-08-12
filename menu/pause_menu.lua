@@ -36,7 +36,7 @@ function mn.PauseMenu:instantiate(scene)
             rt.Translation.pause_menu.confirm_exit_submessage,
             mn.MessageDialogOption.ACCEPT,
             mn.MessageDialogOption.CANCEL
-        )
+        ),
     })
 
     local translation = rt.Translation.pause_menu

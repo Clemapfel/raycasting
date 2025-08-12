@@ -439,7 +439,7 @@ function rt.Player:update(delta)
         self._idle_elapsed = self._idle_elapsed + delta
     end
 
-    local gravity = _settings.gravity * delta * self._gravity_multiplier
+    local gravity = t * _settings.gravity * delta * self._gravity_multiplier
 
     if self._state == rt.PlayerState.DISABLED then
         local vx, vy = self._last_velocity_x, self._last_velocity_y
@@ -447,18 +447,18 @@ function rt.Player:update(delta)
 
         if self._is_bubble then
             if self._is_frozen then
-                self._bubble_body:set_linear_velocity(0, 0)
+                self._bubble_body:set_velocity(0, 0)
                 self._last_velocity_x, self._last_velocity_y = 0, 0
             else
-                self._bubble_body:set_linear_velocity(vx, vy)
+                self._bubble_body:set_velocity(vx, vy)
                 self._last_velocity_x, self._last_velocity_y = vx, vy
             end
         else
             if self._is_frozen then
-                self._body:set_linear_velocity(0, 0)
+                self._body:set_velocity(0, 0)
                 self._last_velocity_x, self._last_velocity_y = 0, 0
             else
-                self._body:set_linear_velocity(vx, vy)
+                self._body:set_velocity(vx, vy)
                 self._last_velocity_x, self._last_velocity_y = vx, vy
             end
         end
@@ -668,6 +668,8 @@ function rt.Player:update(delta)
                 duration = math.huge
             end
 
+            duration = duration / t
+
             if duration == 0 then
                 next_velocity_x = target_velocity_x
             else
@@ -717,7 +719,7 @@ function rt.Player:update(delta)
             end
 
             local can_wall_jump = not can_jump and (
-                self._wall_jump_elapsed < _settings.wall_jump_duration or (
+                t * self._wall_jump_elapsed < _settings.wall_jump_duration or (
                     (self._left_wall and not self._left_wall_jump_blocked) or
                         (self._right_wall and not self._right_wall_jump_blocked)
                 ))
@@ -748,14 +750,14 @@ function rt.Player:update(delta)
             if can_jump then
                 self._coyote_elapsed = 0
             else
-                if self._coyote_elapsed < _settings.coyote_time then
+                if t * self._coyote_elapsed < _settings.coyote_time then
                     can_jump = true
                 end
                 self._coyote_elapsed = self._coyote_elapsed + delta
             end
 
             -- prevent horizontal movement after walljump
-            if self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration and math.sign(target_velocity_x) == self._wall_jump_freeze_sign then
+            if self._wall_jump_freeze_elapsed / t < _settings.wall_jump_freeze_duration and math.sign(target_velocity_x) == self._wall_jump_freeze_sign then
                 next_velocity_x = current_velocity_x
             end
             self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
@@ -783,10 +785,10 @@ function rt.Player:update(delta)
                     self._double_jump_locked = true
                 end
 
-                if can_jump and self._jump_elapsed < _settings.jump_duration then
+                if can_jump and t * self._jump_elapsed < _settings.jump_duration then
                     -- regular jump: accelerate upwards wil jump button is down
                     self._coyote_elapsed = 0
-                    next_velocity_y = -1 * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration) * self._spring_multiplier
+                    next_velocity_y = -t * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration) * self._spring_multiplier
                     self._jump_elapsed = self._jump_elapsed + delta
                 elseif not can_jump and can_wall_jump then
                     -- wall jump: initial burst, then small sustain
@@ -811,14 +813,14 @@ function rt.Player:update(delta)
                         elseif self._right_wall then
                             self._wall_jump_freeze_sign =  1
                         end
-                    elseif self._wall_jump_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
+                    elseif t * self._wall_jump_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
                         -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
                         local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
 
                         if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
                         local force = _settings.wall_jump_sustained_impulse * delta + gravity
-                        next_velocity_x = next_velocity_x + dx * force
-                        next_velocity_y = next_velocity_y + dy * force
+                        next_velocity_x = next_velocity_x + dx * force * t
+                        next_velocity_y = next_velocity_y + dy * force * t
                     end
                 end
 
@@ -830,15 +832,15 @@ function rt.Player:update(delta)
             self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
             -- bounce
-            local fraction = self._bounce_elapsed / _settings.bounce_duration
+            local fraction = t * self._bounce_elapsed / _settings.bounce_duration
             if fraction <= 1 then
                 if _settings.bounce_duration == 0 then
-                    next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force
-                    next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force
+                    next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force * t
+                    next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force * t
                 else
                     local bounce_force = (1 - fraction) * self._bounce_force
-                    next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force
-                    next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force
+                    next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force * t
+                    next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force * t
                 end
             else
                 self._bounce_force = 0
@@ -847,7 +849,7 @@ function rt.Player:update(delta)
 
             -- downwards force
             if self._down_button_is_down then
-                next_velocity_y = next_velocity_y + _settings.downwards_force * delta
+                next_velocity_y = next_velocity_y + _settings.downwards_force * delta * t
             end
 
             -- accelerators
@@ -874,8 +876,8 @@ function rt.Player:update(delta)
                     local friction_force_y = -tangent_velocity_y * friction * _settings.friction_coefficient
 
                     -- apply tangential force
-                    next_velocity_x = next_velocity_x + friction_force_x * delta
-                    next_velocity_y = next_velocity_y + friction_force_y * delta
+                    next_velocity_x = next_velocity_x + t * friction_force_x * delta
+                    next_velocity_y = next_velocity_y + t * friction_force_y * delta
 
                     -- magnetize to surface
                     local flipped_x, flipped_y = math.flip(nx, ny)
@@ -883,10 +885,11 @@ function rt.Player:update(delta)
                     next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
                 end
 
-                if math.magnitude(next_velocity_x, next_velocity_y) > _settings.accelerator_max_velocity then
+                local accelerator_max_velocity = t * _settings.accelerator_max_velocity
+                if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
                     next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
-                    next_velocity_x = next_velocity_x * _settings.accelerator_max_velocity
-                    next_velocity_y = next_velocity_y * _settings.accelerator_max_velocity
+                    next_velocity_x = next_velocity_x * accelerator_max_velocity
+                    next_velocity_y = next_velocity_y * accelerator_max_velocity
                 end
             end
 
@@ -916,8 +919,8 @@ function rt.Player:update(delta)
     else -- self._is_bubble == true
         -- bubble movement
         local mass_multiplier = self._bubble_mass / self._mass
-        local bubble_gravity = gravity * (mass_multiplier / delta) * _settings.bubble_gravity_factor
-        local max_velocity = _settings.bubble_target_velocity
+        local bubble_gravity = t * gravity * (mass_multiplier / delta) * _settings.bubble_gravity_factor
+        local max_velocity = t * _settings.bubble_target_velocity
         local target_x, target_y = 0, 0
         local current_x, current_y = self._bubble_body:get_velocity()
 
@@ -941,7 +944,7 @@ function rt.Player:update(delta)
         if not (target_x == 0 and target_y == 0) then
             target_x = target_x * max_velocity * mass_multiplier
             target_y = target_y * max_velocity * mass_multiplier
-            local acceleration = _settings.bubble_acceleration
+            local acceleration = t * _settings.bubble_acceleration
 
             next_force_x = (target_x - current_x) * acceleration
             next_force_y = (target_y - current_y) * acceleration
@@ -980,8 +983,8 @@ function rt.Player:update(delta)
                 local friction_force_y = -tangent_velocity_y * friction * _settings.bubble_friction_coefficient
 
                 -- apply tangential force
-                next_force_x = next_force_x + friction_force_x
-                next_force_y = next_force_y + friction_force_y
+                next_force_x = next_force_x + t * friction_force_x
+                next_force_y = next_force_y + t * friction_force_y
 
                 --[[
                 local flipped_x, flipped_y = math.flip(nx, ny)
@@ -997,8 +1000,8 @@ function rt.Player:update(delta)
         if self._bounce_elapsed <= _settings.bounce_duration then
             -- single impulse in bubble mode
             self._bubble_body:apply_linear_impulse(
-                self._bounce_direction_x * self._bounce_force * mass_multiplier,
-                self._bounce_direction_y * self._bounce_force * mass_multiplier
+                t * self._bounce_direction_x * self._bounce_force * mass_multiplier,
+                t * self._bounce_direction_y * self._bounce_force * mass_multiplier
             )
 
             self._bounce_elapsed = math.huge
