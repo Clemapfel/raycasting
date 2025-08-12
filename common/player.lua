@@ -292,7 +292,9 @@ function rt.Player:instantiate()
         _double_jump_locked = true,
 
         -- particles
-        _body_to_collision_normal = {}
+        _body_to_collision_normal = {},
+
+        _time_dilation = 1
     })
 
     for i = 1, 2 * _settings.position_history_n, 2 do
@@ -414,6 +416,9 @@ function rt.Player:update(delta)
     if self._body == nil then return end
     if self._should_update == false then return end
 
+    local t = self._time_dilation
+
+    -- update visuals with regular time
     self:_update_mesh(delta)
     if self._trail_visible then
         self._trail:update(delta)
@@ -2007,6 +2012,7 @@ function rt.Player:reset()
     self:set_gravity(1)
     self:set_opacity(1)
     self:set_velocity(0, 0)
+    self:set_time_dilation(1)
 end
 
 --- @brief
@@ -2026,4 +2032,10 @@ function rt.Player:clear_forces()
     end
 
     self._last_velocity_x, self._last_velocity_y = 0, 0
+end
+
+
+--- @brief
+function rt.Player:set_time_dilation(t)
+    self._time_dilation = math.clamp(t, math.eps, 1)
 end
