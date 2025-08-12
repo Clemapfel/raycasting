@@ -12,13 +12,13 @@ require "overworld.shatter_surface"
 local surface = nil
 
 local allow_update = false
+local tesselations = {}
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "j" then
         --background:recompile()
     elseif which == "space"then
-        --[[
         screen:present(
             "1-1: Subluminality",
             123, -- time
@@ -29,7 +29,6 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
             rt.StageGrade.B,
             rt.StageGrade.S
         )
-        ]]--
     elseif which == "n" then
         local w, h = love.graphics.getDimensions()
         local before = love.timer.getTime()
@@ -44,10 +43,10 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
 
         for part in values(surface._parts) do
             for i = 1, #part.vertices, 2 do
-                min_x = math.min(min_x, part.vertices[i+0])
-                max_x = math.max(max_x, part.vertices[i+0])
-                min_y = math.min(min_y, part.vertices[i+1])
-                max_y = math.max(max_y, part.vertices[i+1])
+                min_x = math.min(min_x, part.x + part.vertices[i+0])
+                max_x = math.max(max_x, part.x + part.vertices[i+0])
+                min_y = math.min(min_y, part.y + part.vertices[i+1])
+                max_y = math.max(max_y, part.y + part.vertices[i+1])
             end
         end
 
@@ -55,18 +54,23 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
         for part in values(surface._parts) do
             local to_add = {}
             for i = 1, #part.vertices, 2 do
-                table.insert(to_add, (part.vertices[i+0] - min_x) / (max_x - min_x))
-                table.insert(to_add, (part.vertices[i+1] - min_y) / (max_y - min_y))
+                table.insert(to_add, (part.x + part.vertices[i+0] - min_x) / (max_x - min_x))
+                table.insert(to_add, (part.y + part.vertices[i+1] - min_y) / (max_y - min_y))
             end
             table.insert(polygons, to_add)
         end
+
+        table.insert(tesselations, polygons)
+        dbg("stored")
+    elseif which == "l" then
+        dbg(tesselations)
     end
 end)
 
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -106,4 +110,3 @@ love.resize = function(width, height)
     rt.SceneManager:resize(width, height)
     screen:reformat(0, 0, love.graphics.getDimensions())
 end
-

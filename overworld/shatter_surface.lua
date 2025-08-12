@@ -15,7 +15,6 @@ rt.settings.overworld.shatter_surface = {
     cell_size = 20
 }
 
-
 --- @class ow.ShatterSurface
 ow.ShatterSurface = meta.class("ShatterSurface")
 
@@ -221,73 +220,6 @@ function intersection(origin_x, origin_y, dx, dy, x1, y1, x2, y2)
     return ix, iy
 end
 
-local function convex_hull(vertices)
-    local n = #vertices
-    if n < 6 then return vertices end -- Need at least 3 points (6 numbers)
-
-    -- Convert flat list to point array for easier manipulation
-    local points = {}
-    for i = 1, n, 2 do
-        points[#points + 1] = {vertices[i], vertices[i + 1]}
-    end
-
-    local num_points = #points
-    if num_points < 3 then return vertices end
-
-    -- Sort points lexicographically (first by x, then by y)
-    table.sort(points, function(a, b)
-        return a[1] < b[1] or (a[1] == b[1] and a[2] < b[2])
-    end)
-
-    -- Cross product of vectors OA and OB where O is origin
-    -- Returns > 0 for counter-clockwise, < 0 for clockwise, 0 for collinear
-    local function cross(o, a, b)
-        return (a[1] - o[1]) * (b[2] - o[2]) - (a[2] - o[2]) * (b[1] - o[1])
-    end
-
-    -- Build lower hull
-    local lower = {}
-    for i = 1, num_points do
-        -- Remove points that make clockwise turn
-        while #lower >= 2 and cross(lower[#lower - 1], lower[#lower], points[i]) <= 0 do
-            lower[#lower] = nil
-        end
-        lower[#lower + 1] = points[i]
-    end
-
-    -- Build upper hull
-    local upper = {}
-    for i = num_points, 1, -1 do
-        -- Remove points that make clockwise turn
-        while #upper >= 2 and cross(upper[#upper - 1], upper[#upper], points[i]) <= 0 do
-            upper[#upper] = nil
-        end
-        upper[#upper + 1] = points[i]
-    end
-
-    -- Remove last point of each half because it's repeated
-    lower[#lower] = nil
-    upper[#upper] = nil
-
-    -- Concatenate lower and upper hull
-    local hull = {}
-    for i = 1, #lower do
-        hull[#hull + 1] = lower[i]
-    end
-    for i = 1, #upper do
-        hull[#hull + 1] = upper[i]
-    end
-
-    -- Convert back to flat list
-    local result = {}
-    for i = 1, #hull do
-        result[#result + 1] = hull[i][1]
-        result[#result + 1] = hull[i][2]
-    end
-
-    return result
-end
-
 function polygon_area(vertices)
     local area = 0
     local n = #vertices / 2
@@ -378,6 +310,13 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
     end
 
     local seeds = {}
+
+    for i = 1, 10 do
+        table.insert(seeds, self._bounds.x + rt.random.number(0, 1) * self._bounds.width)
+        table.insert(seeds, self._bounds.y + rt.random.number(0, 1) * self._bounds.height)
+    end
+
+    --[[
     for entry in values(seed_hash) do
         local mean_x, mean_y, n = 0, 0, 0
         for i = 1, #entry, 2 do
@@ -388,6 +327,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         table.insert(seeds, mean_x / n)
         table.insert(seeds, mean_y / n)
     end
+    ]]--
 
     -- seeds on corners
     for x in range(
@@ -475,7 +415,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         local data = self._n_vertices_to_data[n_vertices]
         if data == nil then
             data = {
-                static_data = {}, -- vec4[]
+                positions = {}, -- vec2[]
+                texture_coordinates = {}, -- vec2[]
                 offsets = {}, -- vec2[]
                 n_vertices = n_vertices,
                 n_instances = 0,
@@ -493,14 +434,13 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             local y = part.vertices[i+1]
             local u = ((x + part.x) - min_x) / (max_x - min_x)
             local v = ((y + part.y) - min_y) / (max_y - min_y)
-            for a in range(x, y, u, v) do
-                table.insert(data.static_data, a)
-            end
-
-            for a in range(part.x, part.y) do
-                table.insert(data.offsets, a)
-            end
+            table.insert(data.positions, { x, y })
+            table.insert(data.texture_coordinates, { u, v })
         end
+
+        local offset = { part.x, part.y }
+        table.insert(data.offsets, offset)
+        part.offset = offset
 
         entry_i = entry_i + 1
     end
@@ -532,14 +472,16 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             rt.VertexFormat,
             rt.GraphicsBufferUsage.STATIC
         )
+        data.instance_mesh:set_texture(self._texture)
 
         data.shader = rt.Shader("overworld/shatter_surface.glsl", {
             N_INSTANCES = data.n_instances,
             N_VERTICES = data.n_vertices
         })
 
-        data.shader:send("static_data", data.static_data)
-        data.shader:send("offsets", data.offsets)
+        data.shader:send("positions", table.unpack(data.positions))
+        data.shader:send("texture_coordinates", table.unpack(data.texture_coordinates))
+        data.shader:send("offsets", table.unpack(data.offsets))
     end
 end
 
@@ -556,18 +498,19 @@ function ow.ShatterSurface:update(delta)
         local vx, vy = part.velocity_x * part.velocity_magnitude, part.velocity_y * part.velocity_magnitude
         part.x = part.x + vx * delta
         part.y = part.y + vy * delta
+        part.offset[1] = part.x
+        part.offset[2] = part.y
     end
 end
 
 --- @brief
 function ow.ShatterSurface:draw()
     love.graphics.setLineWidth(1)
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 0, 1, 1)
 
     for n, data in pairs(self._n_vertices_to_data) do
         data.shader:bind()
-        data.shader:send("static_data", data.static_data)
-        data.shader:send("offsets", data.offsets)
+        data.shader:send("offsets", table.unpack(data.offsets))
         data.instance_mesh:draw_instanced(data.n_instances)
         data.shader:unbind()
     end

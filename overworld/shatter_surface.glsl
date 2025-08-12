@@ -8,27 +8,29 @@
 #error "N_VERTICES undefined"
 #endif
 
-uniform vec4 static_data[N_INSTANCES * N_VERTICES]; // N_VERTICES many vec4s per instance
-uniform vec2 offsets[N_INSTANCES]; // 1 many vec4s per instance
-
+// default mesh attributes ignored
 layout (location = 0) in vec4 VertexPosition;
 layout (location = 1) in vec4 VertexTexCoord;
 layout (location = 2) in vec4 VertexColor;
+
+uniform vec2 positions[N_INSTANCES * N_VERTICES];
+uniform vec2 texture_coordinates[N_INSTANCES * N_VERTICES];
+uniform vec2 offsets[N_INSTANCES];
 
 out vec4 VaryingTexCoord;
 out vec4 VaryingColor;
 
 void vertexmain() {
     int instance_id = gl_InstanceID;
-    vec4 entry = static_data[instance_id * N_VERTICES + gl_VertexID];
+    int index = instance_id * N_VERTICES + gl_VertexID;
 
-    vec2 position = entry.xy;
-    vec2 uv = entry.zw;
-    vec2 offset = offsets[instance_id];
+    // read vertex attributes from uniform instead
+    vec2 position = positions[index] + offsets[instance_id];
+    vec2 uv = texture_coordinates[index];
 
     VaryingColor = gammaCorrectColor(ConstantColor);
     VaryingTexCoord.xy = uv;
-    love_Position = TransformProjectionMatrix * vec4(VertexPosition.xy + position, 0, 1);
+    love_Position = TransformProjectionMatrix * vec4(position, 0, 1);
 }
 
 #endif
