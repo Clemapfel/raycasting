@@ -251,11 +251,13 @@ function math.smoothstep(lower, upper, ratio)
     return t * t * (3.0 - 2.0 * t);
 end
 
-math.eps = 1.0
-local n = 0
-while (1.0 + math.eps / 2.0) > 1.0 do
-    math.eps = math.eps / 2.0
-    n = n + 1
+do -- compute machine eps
+    math.eps = 1.0
+    local n = 0
+    while (1.0 + math.eps / 2.0) > 1.0 do
+        math.eps = math.eps / 2.0
+        n = n + 1
+    end
 end
 
 math.pi2 = 2 * math.pi
@@ -508,10 +510,10 @@ end
 --- @param x any
 --- @param n Number
 --- @return table
-function table.rep(x, n)
+function table.rep(to_repeat, n)
     local out = { }
     for i = 1, n do
-        table.insert(out, x)
+        table.insert(out, to_repeat)
     end
     return out
 end

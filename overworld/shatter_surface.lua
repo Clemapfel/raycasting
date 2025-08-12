@@ -1,5 +1,6 @@
 require "common.delaunay_triangulation"
 require "common.path"
+require "common.graphics_buffer"
 
 rt.settings.overworld.shatter_surface = {
     line_density = 1 / 30,
@@ -18,17 +19,12 @@ rt.settings.overworld.shatter_surface = {
 --- @class ow.ShatterSurface
 ow.ShatterSurface = meta.class("ShatterSurface")
 
-local _shader
-
 --- @brief
 function ow.ShatterSurface:instantiate(x, y, width, height)
-    if _shader == nil then _shader = rt.Shader("overworld/shatter_surface.glsl") end
     self._texture = rt.Texture("assets/sprites/barboach.png")
     self._bounds = rt.AABB(x, y, width, height)
     self._parts = {}
-    self._n_vertices_to_static_data = {}
-    self._n_vertices_to_instance_mesh = {}
-    self._n_vertices_to_data_mesh = {}
+    self._n_vertices_to_data = {}
 end
 
 local clip_polygon_to_rect -- sutherland–hodgman polygon clipping against rect
@@ -310,24 +306,6 @@ function polygon_area(vertices)
     return math.abs(area / 2)
 end
 
-local _position = rt.VertexAttribute.POSITION
-local _texture_coords = rt.VertexAttribute.TEXTURE_COORDINATES
-local _offset = "offset"
-
-local _instance_mesh_format = {
-    { location = 0, name = _position, format = "floatvec2" },
-    { location = 1, name = _texture_coords, format = "floatvec2" }
-}
-
-local _static_data_mesh_format = {
-    { location = 0, name = _position, format = "floatvec2" },
-    { location = 1, name = _texture_coords, format = "floatvec2" }
-}
-
-local _offset_mesh_format = {
-    { location = 0, name = _offset, format = "floatvec2" }
-}
-
 --- @brief
 function ow.ShatterSurface:shatter(origin_x, origin_y)
     meta.assert(origin_x, "Number", origin_y, "Number")
@@ -482,10 +460,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
 
     -- generate meshes for instancing
 
-    self._n_vertices_to_static_data = {}
-    self._n_vertices_to_instance_mesh = {}
-    self._n_vertices_to_instance_count = {}
-    self._n_vertices_to_offset_data = {}
+    self._n_vertices_to_data = {}
+    local n_vertices_to_instance_part = {}
 
     local entry_i = 1
     for part in values(self._parts) do
@@ -494,82 +470,76 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         part.velocity_magnitude = (1 + 1 - part.distance / max_distance) * settings.velocity_magnitude
 
         local n_vertices = math.floor(#part.vertices / 2)
+        part.n_vertices = n_vertices
 
-        local static_data_entry = {}
-        local offset_data_entry = {}
+        local data = self._n_vertices_to_data[n_vertices]
+        if data == nil then
+            data = {
+                static_data = {}, -- vec4[]
+                offsets = {}, -- vec2[]
+                n_vertices = n_vertices,
+                n_instances = 0,
+                shader = nil,
+                instance_mesh = nil
+            }
+            self._n_vertices_to_data[n_vertices] = data
+            n_vertices_to_instance_part[n_vertices] = part
+        end
+
+        data.n_instances = data.n_instances + 1
 
         for i = 1, #part.vertices, 2 do
             local x = part.vertices[i+0]
             local y = part.vertices[i+1]
             local u = ((x + part.x) - min_x) / (max_x - min_x)
             local v = ((y + part.y) - min_y) / (max_y - min_y)
-            table.insert(static_data_entry, {
-                x, y, u, v
-            })
+            for a in range(x, y, u, v) do
+                table.insert(data.static_data, a)
+            end
 
-            table.insert(offset_data_entry, {
-                part.x, part.y
-            })
+            for a in range(part.x, part.y) do
+                table.insert(data.offsets, a)
+            end
         end
 
-        part.static_data = static_data_entry
-        part.offset = offset_data_entry
-        part.n_vertices = n_vertices
-
-        local count = self._n_vertices_to_instance_count[n_vertices] or 0
-        self._n_vertices_to_instance_count[n_vertices] = count + 1
-
-        local static_data = self._n_vertices_to_static_data[n_vertices]
-        local offset_data = self._n_vertices_to_offset_data[n_vertices] 
-        if static_data == nil then
-            -- static data mesh
-            static_data = {}
-            self._n_vertices_to_static_data[n_vertices] = static_data
-            
-            -- static instance mesh
-            self._n_vertices_to_instance_mesh[n_vertices] = rt.Mesh(
-                static_data_entry, -- is overriden anyway
-                rt.MeshDrawMode.TRIANGLE_FAN,
-                _instance_mesh_format,
-                rt.GraphicsBufferUsage.STATIC
-            )
-            
-            -- dynamic offset mesh
-            offset_data = {}
-            self._n_vertices_to_offset_data[n_vertices] = offset_data
-        end
-
-        table.insert(static_data, static_data_entry)
-        table.insert(offset_data, offset_data_entry)
         entry_i = entry_i + 1
     end
 
-    for n, instance in pairs(self._n_vertices_to_instance_mesh) do
-        local static_data = self._n_vertices_to_static_data[n]
-        local static_data_mesh = rt.Mesh(
-            static_data,
-            rt.MeshDrawMode.POINTS,
-            _static_data_mesh_format,
+    local instance_mesh_format = {
+        { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
+        { location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
+        { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
+    }
+
+    for n, data in pairs(self._n_vertices_to_data) do
+        -- instance data is random shard with that many vertices
+        -- is overridden in shader to display different shard
+        local part = n_vertices_to_instance_part[n]
+        local instance_data = {}
+        for i = 1, #part.vertices, 2 do
+            local x = part.vertices[i+0]
+            local y = part.vertices[i+1]
+            local u = ((x + part.x) - min_x) / (max_x - min_x)
+            local v = ((y + part.y) - min_y) / (max_y - min_y)
+            table.insert(instance_data, {
+                x + 50, y + 50, u, v, 1, 1, 1, 1
+            })
+        end
+
+        data.instance_mesh = rt.Mesh(
+            instance_data,
+            rt.MeshDrawMode.TRIANGLE_FAN,
+            rt.VertexFormat,
             rt.GraphicsBufferUsage.STATIC
         )
-        self._n_vertices_to_data_mesh[n] = static_data_mesh
 
-        local offset_data = self._n_vertices_to_offset_data[n]
-        local offset_data_mesh = rt.Mesh(
-            offset_data,
-            rt.MeshDrawMode.POINTS,
-            _offset_mesh_format,
-            rt.GraphicsBufferUsage.STREAM
-        )
-        self._n_vertices_to_static_data[n] = offset_data_mesh
+        data.shader = rt.Shader("overworld/shatter_surface.glsl", {
+            N_INSTANCES = data.n_instances,
+            N_VERTICES = data.n_vertices
+        })
 
-        for entry in values(_static_data_mesh_format) do
-            instance:attach_attribute(static_data_mesh, entry.name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
-        end
-
-        for entry in values(_offset_mesh_format) do
-            instance:attach_attribute(offset_data_mesh, entry.name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
-        end
+        data.shader:send("static_data", data.static_data)
+        data.shader:send("offsets", data.offsets)
     end
 end
 
@@ -594,11 +564,13 @@ function ow.ShatterSurface:draw()
     love.graphics.setLineWidth(1)
     love.graphics.setColor(1, 1, 1, 1)
 
-    _shader:bind()
-    for n, instance in pairs(self._n_vertices_to_instance_mesh) do
-        instance:draw_instanced(self._n_vertices_to_instance_count[n])
+    for n, data in pairs(self._n_vertices_to_data) do
+        data.shader:bind()
+        data.shader:send("static_data", data.static_data)
+        data.shader:send("offsets", data.offsets)
+        data.instance_mesh:draw_instanced(data.n_instances)
+        data.shader:unbind()
     end
-    _shader:unbind()
 
     if self._seeds ~= nil then
         for i = 1, #self._seeds, 2 do
@@ -606,5 +578,4 @@ function ow.ShatterSurface:draw()
             love.graphics.circle("fill", seed_x, seed_y, 2)
         end
     end
-
 end
