@@ -198,6 +198,7 @@ end
 
 --- @brief
 function ow.DoubleJumpTether:draw_bloom()
+    if not self._scene:get_body_is_visible(self._body) then return end
     love.graphics.setColor(self._color)
     self._particle:draw(self._x, self._y, false, true) -- line only
 end

@@ -182,6 +182,8 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
 end
 
 function ow.Fireworks:update(delta)
+    if #self._batches == 0 then return end
+
     local to_remove = {}
     for batch_i, batch in ipairs(self._batches) do
         if not batch.is_exploded then

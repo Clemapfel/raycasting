@@ -35,53 +35,85 @@ function ow.ShatterSurface:instantiate(world, x, y, width, height)
     self._time_dilation = 1
 end
 
+function polygon_area(vertices)
+    local area = 0
+    local n = #vertices / 2
+
+    -- shoelace formula
+    for i = 1, n do
+        local j = (i % n) + 1
+        local xi = vertices[(i-1) * 2 + 1]
+        local yi = vertices[(i-1) * 2 + 2]
+        local xj = vertices[(j-1) * 2 + 1]
+        local yj = vertices[(j-1) * 2 + 2]
+
+        area = area + (xi * yj) - (xj * yi)
+    end
+
+    return math.abs(area / 2)
+end
+
 local clip_polygon_to_rect -- sutherland–hodgman polygon clipping against rect
 do
+    local eps = 10e-4
     -- edge functions: return true if inside, or intersection if last arg is true
     local left = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
         if not want_intersect then return x >= rx end
         local dx, dy = nx - x, ny - y
-        local t = (rx - x) / (dx ~= 0 and dx or math.eps)
+        if math.abs(dx) < eps then return nil, nil end -- Parallel to edge
+        local t = (rx - x) / dx
+        if t < 0 or t > 1 then return nil, nil end -- Intersection outside segment
         return rx, y + t * dy
     end
 
     local right = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
         if not want_intersect then return x <= rx + rw end
         local dx, dy = nx - x, ny - y
-        local t = ((rx + rw) - x) / (dx ~= 0 and dx or math.eps)
+        if math.abs(dx) < eps then return nil, nil end
+        local t = ((rx + rw) - x) / dx
+        if t < 0 or t > 1 then return nil, nil end
         return rx + rw, y + t * dy
     end
 
     local top = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
         if not want_intersect then return y >= ry end
         local dx, dy = nx - x, ny - y
-        local t = (ry - y) / (dy ~= 0 and dy or math.eps)
+        if math.abs(dy) < eps then return nil, nil end
+        local t = (ry - y) / dy
+        if t < 0 or t > 1 then return nil, nil end
         return x + t * dx, ry
     end
 
     local bottom = function(x, y, nx, ny, rx, ry, rw, rh, want_intersect)
         if not want_intersect then return y <= ry + rh end
         local dx, dy = nx - x, ny - y
-        local t = ((ry + rh) - y) / (dy ~= 0 and dy or math.eps)
+        if math.abs(dy) < eps then return nil, nil end
+        local t = ((ry + rh) - y) / dy
+        if t < 0 or t > 1 then return nil, nil end
         return x + t * dx, ry + rh
     end
 
     local function clip_edge(input, rx, ry, rw, rh, edge_fn)
         local output = {}
         local n = #input
-        if n == 0 then return output end
+        if n < 2 then return output end -- Need at least one vertex (x,y pair)
 
+        -- Get the last vertex (properly indexed)
         local sx, sy = input[n-1], input[n]
+
         for i = 1, n, 2 do
             local ex, ey = input[i], input[i+1]
             local s_in = edge_fn(sx, sy, nil, nil, rx, ry, rw, rh, false)
             local e_in = edge_fn(ex, ey, nil, nil, rx, ry, rw, rh, false)
+
             if e_in then
                 if not s_in then
                     -- entering: add intersection
                     local ix, iy = edge_fn(sx, sy, ex, ey, rx, ry, rw, rh, true)
-                    output[#output+1] = ix
-                    output[#output+1] = iy
+                    if ix and iy then
+                        output[#output+1] = ix
+                        output[#output+1] = iy
+                    end
                 end
                 -- always add end point if inside
                 output[#output+1] = ex
@@ -89,37 +121,158 @@ do
             elseif s_in then
                 -- exiting: add intersection
                 local ix, iy = edge_fn(sx, sy, ex, ey, rx, ry, rw, rh, true)
-                output[#output+1] = ix
-                output[#output+1] = iy
+                if ix and iy then
+                    output[#output+1] = ix
+                    output[#output+1] = iy
+                end
             end
             sx, sy = ex, ey
         end
         return output
     end
 
-    local polygon_fully_outside_aabb = function(vertices, x, y, w, h)
-        local minx, miny, maxx, maxy = x, y, x+w, y+h
-        local n = #vertices
-        if n < 6 then return true end
-
-        local all_left, all_right = true, true
-        local all_top,  all_bottom = true, true
-
-        for i = 1, n, 2 do
-            local vx, vy = vertices[i], vertices[i+1]
-            if vx >= minx then all_left = false end
-            if vx <= maxx then all_right = false end
-            if vy >= miny then all_top = false end
-            if vy <= maxy then all_bottom = false end
-            if not (all_left or all_right or all_top or all_bottom) then
-                break
-            end
+    function clipPolygonToAABB(polygon, rx, ry, rw, rh)
+        local result = {}
+        for i = 1, #polygon do
+            result[i] = polygon[i]
         end
-        if all_left or all_right or all_top or all_bottom then
+
+        -- apply clipping for each edge in order
+        result = clip_edge(result, rx, ry, rw, rh, left)
+        result = clip_edge(result, rx, ry, rw, rh, right)
+        result = clip_edge(result, rx, ry, rw, rh, top)
+        result = clip_edge(result, rx, ry, rw, rh, bottom)
+
+        return result
+    end
+
+    function polygon_fully_outside_aabb(polygon, aabb_x, aabb_y, aabb_w, aabb_h)
+        local aabb_right = aabb_x + aabb_w
+        local aabb_bottom = aabb_y + aabb_h
+
+        local function line_segment_intersects_aabb(x1, y1, x2, y2)
+            -- use parametric line equation and check against AABB planes
+            local dx = x2 - x1
+            local dy = y2 - y1
+
+            -- degenerate line (point)
+            if dx == 0 and dy == 0 then
+                return x1 >= aabb_x and x1 <= aabb_right and
+                    y1 >= aabb_y and y1 <= aabb_bottom
+            end
+
+            local t_min = 0
+            local t_max = 1
+
+            -- check intersection with vertical planes (left and right)
+            if dx ~= 0 then
+                local t1 = (aabb_x - x1) / dx
+                local t2 = (aabb_right - x1) / dx
+
+                if t1 > t2 then
+                    t1, t2 = t2, t1
+                end
+
+                t_min = math.max(t_min, t1)
+                t_max = math.min(t_max, t2)
+
+                if t_min > t_max then
+                    return false
+                end
+            else
+                -- line is vertical, check if it's within x bounds
+                if x1 < aabb_x or x1 > aabb_right then
+                    return false
+                end
+            end
+
+            -- check intersection with horizontal planes (top and bottom)
+            if dy ~= 0 then
+                local t1 = (aabb_y - y1) / dy
+                local t2 = (aabb_bottom - y1) / dy
+
+                if t1 > t2 then
+                    t1, t2 = t2, t1
+                end
+
+                t_min = math.max(t_min, t1)
+                t_max = math.min(t_max, t2)
+
+                if t_min > t_max then
+                    return false
+                end
+            else
+                -- line is horizontal, check if it's within y bounds
+                if y1 < aabb_y or y1 > aabb_bottom then
+                    return false
+                end
+            end
+
             return true
         end
 
-        return false
+        -- helper function for point-in-AABB test
+        local function point_in_aabb(x, y)
+            return x >= aabb_x and x <= aabb_right and
+                y >= aabb_y and y <= aabb_bottom
+        end
+
+        -- check if any polygon vertex is inside the AABB
+        for i = 1, #polygon, 2 do
+            local x = polygon[i]
+            local y = polygon[i + 1]
+
+            if point_in_aabb(x, y) then
+                return false  -- Polygon has vertex inside AABB
+            end
+        end
+
+        -- check if any polygon edge intersects the AABB
+        local num_vertices = math.floor(#polygon / 2)
+        for i = 0, num_vertices - 1 do
+            local curr_idx = i * 2 + 1
+            local next_idx = ((i + 1) % num_vertices) * 2 + 1
+
+            local x1 = polygon[curr_idx]
+            local y1 = polygon[curr_idx + 1]
+            local x2 = polygon[next_idx]
+            local y2 = polygon[next_idx + 1]
+
+            if line_segment_intersects_aabb(x1, y1, x2, y2) then
+                return false  -- polygon edge intersects AABB
+            end
+        end
+
+        -- check if AABB is completely inside the polygon using ray casting
+        local test_x = aabb_x + aabb_w * 0.5
+        local test_y = aabb_y + aabb_h * 0.5
+
+        local inside_count = 0
+        for i = 0, num_vertices - 1 do
+            local curr_idx = i * 2 + 1
+            local next_idx = ((i + 1) % num_vertices) * 2 + 1
+
+            local x1 = polygon[curr_idx]
+            local y1 = polygon[curr_idx + 1]
+            local x2 = polygon[next_idx]
+            local y2 = polygon[next_idx + 1]
+
+            -- ray casting algorithm
+            if ((y1 > test_y) ~= (y2 > test_y)) then
+                local intersect_x = x1 + (x2 - x1) * (test_y - y1) / (y2 - y1)
+                if test_x < intersect_x then
+                    inside_count = inside_count + 1
+                end
+            end
+        end
+
+        local aabb_center_inside_polygon = (inside_count % 2) == 1
+
+        if aabb_center_inside_polygon then
+            return false
+        end
+
+        return true
     end
 
     clip_polygon_to_rect = function(vertices, rx, ry, rw, rh)
@@ -231,30 +384,12 @@ function intersection(origin_x, origin_y, dx, dy, x1, y1, x2, y2)
     return ix, iy
 end
 
-function polygon_area(vertices)
-    local area = 0
-    local n = #vertices / 2
-
-    -- shoelace formula
-    for i = 1, n do
-        local j = (i % n) + 1
-        local xi = vertices[(i-1) * 2 + 1]
-        local yi = vertices[(i-1) * 2 + 2]
-        local xj = vertices[(j-1) * 2 + 1]
-        local yj = vertices[(j-1) * 2 + 2]
-
-        area = area + (xi * yj) - (xj * yi)
-    end
-
-    return math.abs(area / 2)
-end
-
 --- @brief
 function ow.ShatterSurface:shatter(origin_x, origin_y)
     meta.assert(origin_x, "Number", origin_y, "Number")
 
     do
-        local cell_size = 0.5 * rt.settings.overworld.shatter_surface.cell_size
+        local cell_size = 2 * rt.settings.overworld.shatter_surface.cell_size
         origin_x = math.clamp(origin_x, self._bounds.x + cell_size, self._bounds.x + self._bounds.width - cell_size)
         origin_y = math.clamp(origin_y, self._bounds.y + cell_size, self._bounds.y + self._bounds.height - cell_size)
     end
@@ -331,7 +466,6 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
 
         local seeds = {}
 
-        dbg(math.floor(self._bounds.width * self._bounds.height * settings.seed_density / 16))
         for i = 1, math.floor(self._bounds.width * self._bounds.height * settings.seed_density / 16) do
             add_to_spatial_hash(
                 self._bounds.x + cell_size + rt.random.number(0, 1) * (self._bounds.width - cell_size),
@@ -572,4 +706,7 @@ end
 --- @brief
 function ow.ShatterSurface:set_time_dilation(t)
     self._time_dilation = math.clamp(t, math.eps, 1)
+    for part in values(self._parts) do
+        part.body:set_damping(1 - t)
+    end
 end

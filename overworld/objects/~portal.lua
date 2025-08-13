@@ -457,6 +457,7 @@ end
 
 --- @brief
 function ow.Portal:draw_bloom()
+
     local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
 
     local dampening = self._pulse_value * 0.5

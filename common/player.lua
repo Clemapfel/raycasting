@@ -2019,7 +2019,6 @@ function rt.Player:reset()
     self:set_opacity(1)
     self:set_velocity(0, 0)
     self:set_time_dilation(1)
-    self:set_damping(1)
 end
 
 --- @brief
@@ -2044,9 +2043,4 @@ end
 --- @brief
 function rt.Player:set_time_dilation(t)
     self._time_dilation = math.clamp(t, math.eps, 1)
-end
-
---- @brief
-function rt.Player:set_damping(t)
-    self._damping = t
 end

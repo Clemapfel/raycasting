@@ -37,8 +37,6 @@ local _pulse_shader, _particle_shader
 local _LEFT = true
 local _RIGHT = not _LEFT
 
-local first -- TODO
-
 -- which side of a segment vector points to
 local _get_side = function(vx, vy, ax, ay, bx, by)
     local abx = bx - ax
@@ -615,6 +613,7 @@ end
 
 --- @brief
 function ow.Portal:draw_bloom()
+    if not self._scene:get_is_body_visible(self._body) then return end
     local r, g, b, a = table.unpack(self._color)
     love.graphics.setColor(r, g, b, 1)
     _pulse_shader:bind()

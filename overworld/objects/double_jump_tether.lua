@@ -169,6 +169,8 @@ end
 
 --- @brief
 function ow.DoubleJumpTether:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
+
     local line_a = self._line_opacity_motion:get_value()
     if line_a > eps and self._line_mesh ~= nil then
         love.graphics.setBlendMode("alpha")
