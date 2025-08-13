@@ -294,7 +294,8 @@ function rt.Player:instantiate()
         -- particles
         _body_to_collision_normal = {},
 
-        _time_dilation = 1
+        _time_dilation = 1,
+        _damping = 1
     })
 
     for i = 1, 2 * _settings.position_history_n, 2 do
@@ -851,6 +852,8 @@ function rt.Player:update(delta)
             if self._down_button_is_down then
                 next_velocity_y = next_velocity_y + _settings.downwards_force * delta * t
             end
+
+            next_velocity_y = next_velocity_y * self._damping
 
             -- accelerators
             for surface in range(
@@ -2016,6 +2019,7 @@ function rt.Player:reset()
     self:set_opacity(1)
     self:set_velocity(0, 0)
     self:set_time_dilation(1)
+    self:set_damping(1)
 end
 
 --- @brief
@@ -2037,8 +2041,12 @@ function rt.Player:clear_forces()
     self._last_velocity_x, self._last_velocity_y = 0, 0
 end
 
-
 --- @brief
 function rt.Player:set_time_dilation(t)
     self._time_dilation = math.clamp(t, math.eps, 1)
+end
+
+--- @brief
+function rt.Player:set_damping(t)
+    self._damping = t
 end
