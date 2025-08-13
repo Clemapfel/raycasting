@@ -1,6 +1,7 @@
 require "common.sound_manager"
 require "overworld.fireworks"
 require "overworld.shatter_surface"
+require "overworld.objects.checkpoint_rope"
 
 rt.settings.overworld.checkpoint = {
     explosion_duration = 1,
@@ -10,9 +11,6 @@ rt.settings.overworld.checkpoint = {
     ray_width_radius_factor = 4,
     ray_fade_out_duration = 0.5,
 
-    segment_length = 7, -- px
-    segment_hue_speed = 2,
-    segment_gravity = 10000,
 
     goal_time_dilation = 0.05,
     goal_time_dilation_duration = 10 / 60,
@@ -115,17 +113,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         -- start checkpoint: player spawn
         _spawn_barrier = nil, -- b2.Body
 
-        -- midway checkpoint: rope
+        -- midway checkpoint:
         _fireworks = nil, -- ow.Fireworks
         _fireworks_locations = {},
         _fireworks_visible = false,
 
-        _rope_bodies = nil, -- Table<b2.Bod>
-        _rope_joints = nil, -- Table<love.PrismaticJoint>
-        _rope_n_segments = 0,
-        _rope_is_cut = false,
-        _rope_should_despawn = false,
-        _rope_hue = 0,
+        _rope = nil, -- ow.CheckpointRope
 
         -- last checkpoint: player goal
         _is_shattered = false,
@@ -206,9 +199,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 rt.settings.player.ghost_collision_group
             )
         elseif self._type == ow.CheckpointType.MIDWAY then
+            self._fireworks = ow.Fireworks(self._scene:get_player())
+            self._rope = ow.CheckpointRope(self._scene, self._world, self._top_x, self._top_y, self._bottom_x, self._bottom_y)
+
             self._body:signal_connect("collision_start", function(_, other)
-                if self._rope_is_cut == false then
-                    self:_cut_rope()
+                if self._rope:get_is_cut() == false then
+                    self._rope:cut() -- checks player position automatically
 
                     -- fireworks
                     local player = self._scene:get_player()
@@ -241,65 +237,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 self._passed = true
             end)
 
-            self._fireworks = ow.Fireworks(self._scene:get_player())
-
-            local height = self._bottom_y - self._top_y
-            local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint.segment_length), 2)
-            local segment_length = height / (n_segments - 1)
-            local radius = segment_length / 2
-
-            self._rope_bodies = {}
-            self._rope_joints = {}
-            self._rope_n_segments = n_segments
-            self._rope_is_cut = false
-            self._rope_should_despawn = false
-            self._rope_hue = 0
-
-            local collision_group = 0x0
-
-            local current_x, current_y = self._top_x, self._top_y
-            for i = 1, n_segments do
-                local body
-                if i == 1 or i == n_segments then
-                    local anchor_width = 10
-                    body = b2.Body(self._world, b2.BodyType.STATIC, current_x, current_y, b2.Rectangle(-0.5 * anchor_width, -1 * radius, anchor_width, 2 * radius))
-                    body:set_mass(1)
-                else
-                    body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Circle(0, 0, radius))
-                    body:set_mass(height / n_segments * 0.015)
-                end
-
-                body:set_collides_with(collision_group)
-                body:set_collision_group(collision_group)
-                body:set_is_rotation_fixed(false)
-
-                self._rope_bodies[i] = body
-                current_y = current_y + segment_length
-            end
-
-            for i = 1, n_segments - 1 do
-                local a, b = self._rope_bodies[i], self._rope_bodies[i+1]
-                local a_x, a_y = a:get_position()
-                local b_x, b_y = b:get_position()
-
-                if i ~= 1 and i ~= n_segments then
-                    a_y = a_y + radius
-                    b_y = b_y - radius
-                end
-
-                local anchor_x, anchor_y = math.mix2(a_x, a_y, b_x, b_y, 0.5)
-                local axis_x, axis_y = math.normalize(b_x - a_x, b_y - a_y)
-                local joint = love.physics.newPrismaticJoint(
-                    a:get_native(), b:get_native(),
-                    anchor_x, anchor_y,
-                    axis_x, axis_y,
-                    false
-                )
-                joint:setLimitsEnabled(true)
-                joint:setLimits(0, 0)
-
-                self._rope_joints[i] = joint
-            end
         elseif self._type == ow.CheckpointType.PLAYER_GOAL then
             local surface_w = 100
             local surface_h = self._bottom_y - self._top_y
@@ -527,34 +464,7 @@ function ow.Checkpoint:update(delta)
     if self._type == ow.CheckpointType.PLAYER_SPAWN then
         -- noop
     elseif self._type == ow.CheckpointType.MIDWAY then
-        self._rope_hue = math.fract(self._rope_hue + delta / rt.settings.overworld.checkpoint.segment_hue_speed)
-
-        if self._should_despawn then
-            local seen = false
-            for body in values(self._rope_bodies) do
-                if self._scene:get_is_body_visible(body) then
-                    seen = true
-                    break
-                end
-            end
-
-            if seen == false then
-                self:_despawn_rope()
-            end
-        else
-            local gravity = rt.settings.overworld.checkpoint.segment_gravity * delta
-            for body in values(self._rope_bodies) do
-                body:apply_force(0, gravity)
-            end
-
-            -- safeguard against solver becoming unstable
-            for joint in values(self._rope_joints) do
-                if not joint:isDestroyed() and joint:getJointSpeed() > 1000 then
-                    self:_despawn_rope()
-                    break
-                end
-            end
-        end
+        self._rope:update(delta)
     elseif self._type == ow.CheckpointType.PLAYER_GOAL then
         if self._is_shattered == false then
             local x1, y1, x2, y2 = table.unpack(self._goal_indicator_line)
@@ -642,58 +552,7 @@ function ow.Checkpoint:draw(priority)
         end
 
         if self._type == ow.CheckpointType.MIDWAY then
-            local line_width = 6
-            love.graphics.setLineWidth(line_width + 4)
-            rt.Palette.BLACK:bind()
-            for i, joint in ipairs(self._rope_joints) do
-                if not joint:isDestroyed() then
-                    local a_x, a_y = self._rope_bodies[i+0]:get_position()
-                    local b_x, b_y = self._rope_bodies[i+1]:get_position()
-
-                    love.graphics.line(a_x, a_y, b_x, b_y)
-
-                    if i == 1 then
-                        love.graphics.circle("fill", a_x, a_y, line_width / 2)
-                    elseif i == self._rope_n_segments then
-                        love.graphics.circle("fill", b_x, b_y, line_width / 2)
-                    end
-                end
-            end
-
-            love.graphics.setLineWidth(6)
-
-            if self._rope_is_cut then
-                love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1))
-
-                for i, joint in ipairs(self._rope_joints) do
-                    if not joint:isDestroyed() then
-                        local a_x, a_y = self._rope_bodies[i+0]:get_position()
-                        local b_x, b_y = self._rope_bodies[i+1]:get_position()
-                        love.graphics.line(a_x, a_y, b_x, b_y)
-
-                        if i == 1 then
-                            love.graphics.circle("fill", a_x, a_y, line_width / 2)
-                        elseif i == self._rope_n_segments then
-                            love.graphics.circle("fill", b_x, b_y, line_width / 2)
-                        end
-                    end
-                end
-            else
-                for i, joint in ipairs(self._rope_joints) do
-                    if not joint:isDestroyed() then
-                        local a_x, a_y = self._rope_bodies[i+0]:get_position()
-                        local b_x, b_y = self._rope_bodies[i+1]:get_position()
-                        love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, math.fract(self._rope_hue + i / self._rope_n_segments), 1))
-                        love.graphics.line(a_x, a_y, b_x, b_y)
-
-                        if i == 1 then
-                            love.graphics.circle("fill", a_x, a_y, line_width / 2)
-                        elseif i == self._rope_n_segments then
-                            love.graphics.circle("fill", b_x, b_y, line_width / 2)
-                        end
-                    end
-                end
-            end
+            self._rope:draw()
         elseif self._type == ow.CheckpointType.PLAYER_GOAL then
             if not self._is_shattered then
                 self._shatter_surface:draw()
@@ -737,68 +596,6 @@ function ow.Checkpoint:draw(priority)
             _explosion_shader:unbind()
         end
     end
-end
-
-function ow.Checkpoint:_cut_rope()
-    if self._type ~= ow.CheckpointType.MIDWAY or self._rope_is_cut == true then return end
-
-    local player = self._scene:get_player()
-    local player_x, player_y = player:get_position()
-    local impulse = 0.05
-
-    local joint_broken = false
-    for i, joint in ipairs(self._rope_joints) do
-        if i > self._rope_n_segments - 1 then break end
-
-        local a_x, a_y = self._rope_bodies[i+0]:get_position()
-        local b_x, b_y = self._rope_bodies[i+1]:get_position()
-        if player_y >= a_y and player_y <= b_y then
-            joint_broken = true
-            joint:destroy()
-            break
-        end
-    end
-
-    if joint_broken then
-        self._rope_bodies[1]:set_type(b2.BodyType.DYNAMIC)
-        self._rope_bodies[self._rope_n_segments]:set_type(b2.BodyType.DYNAMIC)
-
-        local offset = player:get_radius()
-        local vx, vy = player:get_velocity()
-        if vx > 0 then offset = -offset end
-        impulse = impulse * math.magnitude(vx, vy)
-
-        for body in values(self._rope_bodies) do
-            body:set_collides_with(bit.bnot(bit.bor(
-                rt.settings.player.player_collision_group,
-                rt.settings.player.player_outer_body_collision_group,
-                rt.settings.player.bounce_collision_group
-            )))
-
-            local body_x, body_y = body:get_position()
-            local dx, dy = math.normalize(body_x - (player_x + offset), body_y - player_y)
-            body:apply_linear_impulse(dx * impulse, dy * impulse)
-        end
-        self._rope_is_cut = true
-        self._rope_should_despawn = true
-    end
-end
-
---- @brief
-function ow.Checkpoint:_despawn_rope()
-    for joint in values(self._rope_joints) do
-        if not joint:isDestroyed() then
-            joint:destroy()
-        end
-    end
-
-    for body in values(self._rope_bodies) do
-        body:destroy()
-    end
-
-    self._rope_bodies = {}
-    self._rope_joints = {}
-    self._rope_should_despawn = false
 end
 
 --- @brief

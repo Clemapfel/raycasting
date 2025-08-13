@@ -2,6 +2,8 @@
 rt.SmoothedMotion2D = meta.class("SmoothedMotion2D")
 
 function rt.SmoothedMotion2D:instantiate(position_x, position_y, speed)
+    if position_x == nil then position_x = 0 end
+    if position_y == nil then position_y = position_x end
     if speed == nil then speed = 1 end
     meta.assert(position_x, "Number", position_y,  "Number", speed, "Number")
     meta.install(self, {

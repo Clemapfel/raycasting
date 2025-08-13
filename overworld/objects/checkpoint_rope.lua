@@ -12,7 +12,7 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
     self._scene = scene
     self._world = world
     self._top_x, self._top_y, self._bottom_x, self._bottom_y = x1, y1, x2, y2
-    
+
     self._bodies = {}
     self._joints = {}
     self._n_segments = 0
@@ -27,7 +27,7 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
     local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint_rope.segment_length), 2)
     local segment_length = height / (n_segments - 1)
     local radius = segment_length / 2
-    
+
     self._n_segments = n_segments
 
     local current_x, current_y = self._top_x, self._top_y
@@ -121,12 +121,12 @@ function ow.CheckpointRope:cut()
         self._is_cut = true
         self._should_despawn = true
     end
-end 
+end
 
 --- @brief
 function ow.CheckpointRope:get_is_cut()
     return self._is_cut
-end 
+end
 
 --- @brief
 function ow.CheckpointRope:update(delta)
@@ -159,9 +159,7 @@ function ow.CheckpointRope:update(delta)
         end
     end
 
-    if self._is_cut then
-        self:_update_mesh()
-    end
+    self:_update_mesh()
 end
 
 --- @brief
@@ -184,122 +182,78 @@ end
 
 --- @brie
 function ow.CheckpointRope:_update_mesh()
-    local m, r = 5, 10
+    local m, r = 5, 20
     local inner = function() return 1, 1, 1, 1 end
     local outer = function() return 1, 1, 1, 0 end
 
-    if self._is_cut then
+    local data = {}
+    local vertex_map = {}
+    local vertex_i = 0
 
-    else
-        local data = {}
-        local vertex_map = {}
-        local vertex_i = 0
+    local left_contour, right_contour = {}, {}
 
-        for i = 1, self._n_segments - 1 do
-            local x1, y1 = self._bodies[i+0]:get_position()
-            local x2, y2 = self._bodies[i+1]:get_position()
+    for i = 1, self._n_segments - 1 do
+        local x1, y1 = self._bodies[i+0]:get_position()
+        local x2, y2 = self._bodies[i+1]:get_position()
 
-            local dx, dy = math.normalize(x2 - x1, y2 - y1)
-            local left_x, left_y = math.turn_left(dx, dy)
-            local right_x, right_y = math.turn_right(dx, dy)
+        local dx, dy = math.normalize(x2 - x1, y2 - y1)
+        local left_x, left_y = math.turn_left(dx, dy)
+        local right_x, right_y = math.turn_right(dx, dy)
 
-            left_x = left_x * r
-            left_y = left_y * r
-            right_x = right_x * r
-            right_y = right_y * r
+        left_x = left_x * r
+        left_y = left_y * r
+        right_x = right_x * r
+        right_y = right_y * r
 
-            for entry in range(
-                { x1 + left_x,  y1 + left_y,  1, 0, outer() },
-                { x1 + 0,       y1 + 0,       0, 0, inner() },
-                { x1 + right_x, y1 + right_y, 1, 0, outer() },
-                { x2 + left_x,  y2 + left_y,  1, 1, outer() },
-                { x2 + 0,       y2 + 0,       0, 1, inner() },
-                { x2 + right_x, y2 + right_y, 1, 1, outer() }
+        local left_x1, left_y1 = x1 + left_x, y1 + left_y
+        local center_x1, center_y1 = x1 + 0, y1 + 0
+        local right_x1, right_y1 = x1 + right_x, y1 + right_y
+
+        local left_x2, left_y2 = x2 + left_x, y2 + left_y
+        local center_x2, center_y2 = x2 + 0, y2 + 0
+        local right_x2, right_y2 = x2 + right_x, y2 + right_y
+
+        for entry in range(
+            { left_x1, left_y1, 1, 0, outer() },
+            { center_x1, center_y1, 0, 0, inner() },
+            { right_x1, right_y1, 1, 0, outer() },
+            { left_x2, left_y2, 1, 1, outer() },
+            { center_x2, center_y2, 0, 1, inner() },
+            { right_x2, right_y2, 1, 1, outer() }
+        ) do
+            table.insert(data, entry)
+        end
+
+        if self._mesh == nil then
+            local j = vertex_i
+            for n in range(
+                j + 1, j + 2, j + 5,
+                j + 1, j + 4, j + 5,
+                j + 2, j + 3, j + 6,
+                j + 2, j + 5, j + 6
             ) do
-                table.insert(data, entry)
+                table.insert(vertex_map, n)
             end
 
-            if self._pre_cut_mesh == nil then
-                local j = vertex_i
-                for n in range(
-                    j + 1, j + 2, j + 5,
-                    j + 1, j + 4, j + 5,
-                    j + 2, j + 3, j + 6,
-                    j + 2, j + 5, j + 6
-                ) do
-                    table.insert(vertex_map, j)
-                end
-
-                vertex_i = vertex_i + 6
-            end
+            vertex_i = vertex_i + 6
         end
+    end
 
-        if self._pre_cut_mesh == nil then
-            self._pre_cut_mesh = rt.Mesh(
-                data,
-                rt.MeshDrawMode.TRIANGLES,
-                rt.VertexFormat,
-                rt.GraphicsBufferUsage.STREAM
-            )
-            self._pre_cut_mesh:set_vertex_map(vertex_map)
-        else
-            self._pre_cut_mesh:replace_data(data)
-        end
+    if self._mesh == nil then
+        self._mesh = rt.Mesh(
+            data,
+            rt.MeshDrawMode.TRIANGLES,
+            rt.VertexFormat,
+            rt.GraphicsBufferUsage.STREAM
+        )
+        self._mesh:set_vertex_map(vertex_map)
+    else
+        self._mesh:replace_data(data)
     end
 end
 
 --- @brief
 function ow.CheckpointRope:draw()
-    local line_width = 6
-    love.graphics.setLineWidth(line_width + 4)
-    rt.Palette.BLACK:bind()
-    for i, joint in ipairs(self._joints) do
-        if not joint:isDestroyed() then
-            local a_x, a_y = self._bodies[i+0]:get_position()
-            local b_x, b_y = self._bodies[i+1]:get_position()
-
-            love.graphics.line(a_x, a_y, b_x, b_y)
-
-            if i == 1 then
-                love.graphics.circle("fill", a_x, a_y, line_width / 2)
-            elseif i == self._n_segments then
-                love.graphics.circle("fill", b_x, b_y, line_width / 2)
-            end
-        end
-    end
-
-    love.graphics.setLineWidth(6)
-
-    if self._is_cut then
-        love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1))
-
-        for i, joint in ipairs(self._joints) do
-            if not joint:isDestroyed() then
-                local a_x, a_y = self._bodies[i+0]:get_position()
-                local b_x, b_y = self._bodies[i+1]:get_position()
-                love.graphics.line(a_x, a_y, b_x, b_y)
-
-                if i == 1 then
-                    love.graphics.circle("fill", a_x, a_y, line_width / 2)
-                elseif i == self._n_segments then
-                    love.graphics.circle("fill", b_x, b_y, line_width / 2)
-                end
-            end
-        end
-    else
-        for i, joint in ipairs(self._joints) do
-            if not joint:isDestroyed() then
-                local a_x, a_y = self._bodies[i+0]:get_position()
-                local b_x, b_y = self._bodies[i+1]:get_position()
-                love.graphics.setColor(self._color)
-                love.graphics.line(a_x, a_y, b_x, b_y)
-
-                if i == 1 then
-                    love.graphics.circle("fill", a_x, a_y, line_width / 2)
-                elseif i == self._n_segments then
-                    love.graphics.circle("fill", b_x, b_y, line_width / 2)
-                end
-            end
-        end
-    end
-end 
+    love.graphics.setColor(1, 1, 1, 1)
+    self._mesh:draw()
+end

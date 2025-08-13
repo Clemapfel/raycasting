@@ -541,3 +541,11 @@ end
 function b2.Body:get_collision_disabled()
     return self._collision_disabled
 end
+
+--- @brief
+function b2.Body:set_damping(t)
+    if self._native:isDestroyed() then return end
+    local damping = 1 / math.max(t, math.eps)
+    self._native:setLinearDamping(damping)
+    self._native:setAngularDamping(damping)
+end

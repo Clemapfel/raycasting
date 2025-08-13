@@ -553,7 +553,7 @@ end
 
 if utf8 == nil then utf8 = require "utf8" end
 
---- @brief
+--- @brief get length of utf8 string
 function utf8.size(str)
     return utf8.len(str)
 end
@@ -612,7 +612,10 @@ function string.format_percentage(fraction)
     end
 end
 
---- @brief
+--- @brief get substring of utf8 string
+--- @param s string
+--- @param i Number starting index (in terms of conceptual characters)
+--- @param j Number end index
 function utf8.sub(s, i, j)
     -- src: http://lua-users.org/lists/lua-l/2014-04/msg00590.html
     i = i or 1
@@ -634,7 +637,9 @@ function utf8.sub(s, i, j)
     end
 end
 
---- @brief
+--- @brief get character at position in utf8 string
+--- @param s string
+--- @param i Number character index
 function utf8.at(s, i)
     return utf8.sub(s, i, i)
 end
