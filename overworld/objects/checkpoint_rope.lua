@@ -18,6 +18,7 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
     self._joints = {}
     self._n_segments = 0
     self._is_cut = false
+    self._cut_index = -1
     self._should_despawn = false
     self._is_despawned = false
     self._color = { 1, 1, 1, 1 }
@@ -36,15 +37,15 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
         local body
         if i == 1 or i == n_segments then
             local anchor_width = 10
-            body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Rectangle(-0.5 * anchor_width, -1 * radius, anchor_width, 2 * radius))
-            body:set_mass(1) -- ^ TODO
+            body = b2.Body(self._world, b2.BodyType.STATIC, current_x, current_y, b2.Rectangle(-0.5 * anchor_width, -1 * radius, anchor_width, 2 * radius))
+            body:set_mass(1)
         else
             body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Circle(0, 0, radius))
             body:set_mass(height / n_segments * 0.015)
         end
 
         --body:set_collides_with(collision_group)
-       -- body:set_collision_group(bit.bnot(collision_group))
+        --body:set_collision_group(bit.bnot(collision_group))
         body:set_is_rotation_fixed(false)
 
         self._bodies[i] = body
@@ -94,6 +95,7 @@ function ow.CheckpointRope:cut()
         local b_x, b_y = self._bodies[i+1]:get_position()
         if player_y >= a_y and player_y <= b_y then
             joint_broken = true
+            self._cut_index = i
             joint:destroy()
             break
         end
@@ -121,10 +123,9 @@ function ow.CheckpointRope:cut()
         end
         self._is_cut = true
         self._should_despawn = true
+        self:_update_mesh()
     end
 end
-
-function ow.CheckpointRope:cut() end -- TODO
 
 --- @brief
 function ow.CheckpointRope:get_is_cut()
@@ -227,8 +228,6 @@ function ow.CheckpointRope:_update_mesh()
         return miter_x, miter_y, miter_length
     end
 
-    self._dbg = {} -- TODO
-
     for i = 1, self._n_segments - 1 do
         local x1, y1 = self._bodies[i+0]:get_position()
         local x2, y2 = self._bodies[i+1]:get_position()
@@ -245,56 +244,74 @@ function ow.CheckpointRope:_update_mesh()
         local center_x2, center_y2
         local right_x2, right_y2
 
-        -- previous segment tangent (for start join at x1,y1)
-        local previous_dx, previous_dy
-        if i > 1 then
-            local px, py = self._bodies[i-1]:get_position()
-            previous_dx, previous_dy = math.normalize(x1 - px, y1 - py)
+        if self._is_cut and (i == self._cut_index - 1 or i == self._cut_index or i == self._cut_index + 1) then -- no miter
+            local left_x, left_y = math.turn_left(dx, dy)
+            local right_x, right_y = math.turn_right(dx, dy)
+
+            left_x = left_x * r
+            left_y = left_y * r
+            right_x = right_x * r
+            right_y = right_y * r
+
+            left_x1, left_y1 = x1 + left_x, y1 + left_y
+            center_x1, center_y1 = x1 + 0, y1 + 0
+            right_x1, right_y1 = x1 + right_x, y1 + right_y
+
+            left_x2, left_y2 = x2 + left_x, y2 + left_y
+            center_x2, center_y2 = x2 + 0, y2 + 0
+            right_x2, right_y2 = x2 + right_x, y2 + right_y
         else
-            previous_dx, previous_dy = dx, dy
+            -- previous segment tangent (for start join at x1,y1)
+            local previous_dx, previous_dy
+            if i > 1 then
+                local px, py = self._bodies[i-1]:get_position()
+                previous_dx, previous_dy = math.normalize(x1 - px, y1 - py)
+            else
+                previous_dx, previous_dy = dx, dy
+            end
+
+            local previous_normal_left_x, previous_normal_left_y = math.turn_left(previous_dx, previous_dy)
+            local previous_normal_right_x, previous_normal_right_y = math.turn_right(previous_dx, previous_dy)
+
+            -- next segment tangent (for end join at x2,y2)
+            local next_dx, next_dy
+            if i < self._n_segments - 1 then
+                local nx, ny = self._bodies[i+2]:get_position()
+                next_dx, next_dy = math.normalize(nx - x2, ny - y2)
+            else
+                next_dx, next_dy = dx, dy
+            end
+            local next_normal_left_x, next_normal_left_y = math.turn_left(next_dx, next_dy)
+            local next_normal_right_x, next_normal_right_y = math.turn_right(next_dx, next_dy)
+
+            local miter_left_x1, miter_left_y1, miter_left_l1 = miter( -- left at start
+                previous_normal_left_x, previous_normal_left_y,
+                normal_left_x, normal_left_y
+            )
+
+            local miter_right_x1, miter_right_y1, miter_right_l1 = miter( -- right at start
+                previous_normal_right_x, previous_normal_right_y,
+                normal_right_x, normal_right_y
+            )
+
+            local miter_left_x2, miter_left_y2, miter_left_l2 = miter( -- left at end
+                normal_left_x, normal_left_y,
+                next_normal_left_x, next_normal_left_y
+            )
+
+            local miter_right_x2, miter_right_y2, miter_right_l2 = miter( -- right at end
+                normal_right_x, normal_right_y,
+                next_normal_right_x, next_normal_right_y
+            )
+
+            left_x1, left_y1  = x1 + miter_left_x1 * miter_left_l1, y1 + miter_left_y1 * miter_left_l1
+            center_x1, center_y1= x1 + 0, y1 + 0
+            right_x1, right_y1 = x1 + miter_right_x1 * miter_right_l1, y1 + miter_right_y1 * miter_right_l1
+
+            left_x2, left_y2  = x2 + miter_left_x2 * miter_left_l2, y2 + miter_left_y2 * miter_left_l2
+            center_x2, center_y2= x2 + 0, y2 + 0
+            right_x2, right_y2 = x2 + miter_right_x2 * miter_right_l2, y2 + miter_right_y2 * miter_right_l2
         end
-
-        local previous_normal_left_x, previous_normal_left_y = math.turn_left(previous_dx, previous_dy)
-        local previous_normal_right_x, previous_normal_right_y = math.turn_right(previous_dx, previous_dy)
-
-        -- next segment tangent (for end join at x2,y2)
-        local next_dx, next_dy
-        if i < self._n_segments - 1 then
-            local nx, ny = self._bodies[i+2]:get_position()
-            next_dx, next_dy = math.normalize(nx - x2, ny - y2)
-        else
-            next_dx, next_dy = dx, dy
-        end
-        local next_normal_left_x, next_normal_left_y = math.turn_left(next_dx, next_dy)
-        local next_normal_right_x, next_normal_right_y = math.turn_right(next_dx, next_dy)
-
-        local miter_left_x1, miter_left_y1, miter_left_l1 = miter( -- left at start
-            previous_normal_left_x, previous_normal_left_y,
-            normal_left_x, normal_left_y
-        )
-
-        local miter_right_x1, miter_right_y1, miter_right_l1 = miter( -- right at start
-            previous_normal_right_x, previous_normal_right_y,
-            normal_right_x, normal_right_y
-        )
-
-        local miter_left_x2, miter_left_y2, miter_left_l2 = miter( -- left at end
-            normal_left_x, normal_left_y,
-            next_normal_left_x, next_normal_left_y
-        )
-
-        local miter_right_x2, miter_right_y2, miter_right_l2 = miter( -- right at end
-            normal_right_x, normal_right_y,
-            next_normal_right_x, next_normal_right_y
-        )
-
-        left_x1, left_y1  = x1 + miter_left_x1 * miter_left_l1, y1 + miter_left_y1 * miter_left_l1
-        center_x1, center_y1= x1 + 0, y1 + 0
-        right_x1, right_y1 = x1 + miter_right_x1 * miter_right_l1, y1 + miter_right_y1 * miter_right_l1
-
-        left_x2, left_y2  = x2 + miter_left_x2 * miter_left_l2, y2 + miter_left_y2 * miter_left_l2
-        center_x2, center_y2= x2 + 0, y2 + 0
-        right_x2, right_y2 = x2 + miter_right_x2 * miter_right_l2, y2 + miter_right_y2 * miter_right_l2
 
         --[[
         vertex layout
@@ -313,13 +330,9 @@ function ow.CheckpointRope:_update_mesh()
             table.insert(data, entry)
         end
 
-        for n in range(center_x1, center_y1, center_x2, center_y2) do
-            table.insert(self._dbg, n)
-        end
-
         -- triangulation
-        if true then -- self._mesh == nil then
-            local j = vertex_i
+        local j = vertex_i
+        if not (self._is_cut and i == self._cut_index) then
             for n in range( -- triangulation
                 j + 1, j + 2, j + 5,
                 j + 1, j + 4, j + 5,
@@ -328,26 +341,26 @@ function ow.CheckpointRope:_update_mesh()
             ) do
                 table.insert(vertex_map, n)
             end
-
-            -- contours for fill triangles
-            for n in range(
-                j + 1,
-                j + 2,
-                j + 4
-            ) do
-                table.insert(left_contour, n)
-            end
-
-            for n in range(
-                j + 3,
-                j + 2,
-                j + 6
-            ) do
-                table.insert(right_contour, n)
-            end
-
-            vertex_i = vertex_i + 6
         end
+
+        -- contours for fill triangles
+        for n in range(
+            j + 1,
+            j + 2,
+            j + 4
+        ) do
+            table.insert(left_contour, n)
+        end
+
+        for n in range(
+            j + 3,
+            j + 2,
+            j + 6
+        ) do
+            table.insert(right_contour, n)
+        end
+
+        vertex_i = vertex_i + 6
     end
 
     -- fill triangles
@@ -357,17 +370,19 @@ function ow.CheckpointRope:_update_mesh()
             local i2 = contour[j+1]
             local i3 = contour[j+2]
 
-            if i1 ~= nil and i2 ~= nil and i3 ~= nil then
-                local outer_x1, outer_y1 = table.unpack(data[i1])
-                local inner_x1, inner_y1 = table.unpack(data[i2])
-                local outer_x2, outer_y2 = table.unpack(data[i3])
+            if not (self._is_cut and i2 == self._cut_index) then
+                if i1 ~= nil and i2 ~= nil and i3 ~= nil then
+                    local outer_x1, outer_y1 = table.unpack(data[i1])
+                    local inner_x1, inner_y1 = table.unpack(data[i2])
+                    local outer_x2, outer_y2 = table.unpack(data[i3])
 
-                for n in range(
-                    i1,
-                    i2,
-                    i3
-                ) do
-                    table.insert(vertex_map, n)
+                    for n in range(
+                        i1,
+                        i2,
+                        i3
+                    ) do
+                        table.insert(vertex_map, n)
+                    end
                 end
             end
         end
@@ -450,23 +465,39 @@ function ow.CheckpointRope:_update_mesh()
     add_end_cap(#self._bodies - 1, #self._bodies, false)
     add_end_cap(1, 2, true)
 
-    if self._mesh == nil then
-        self._mesh = rt.Mesh(
-            data,
-            rt.MeshDrawMode.TRIANGLES,
-            rt.VertexFormat,
-            rt.GraphicsBufferUsage.STREAM
-        )
-        self._mesh:set_vertex_map(vertex_map)
+    if not self._is_cut then
+        if self._pre_cut_mesh == nil then
+            self._pre_cut_mesh = rt.Mesh(
+                data,
+                rt.MeshDrawMode.TRIANGLES,
+                rt.VertexFormat,
+                rt.GraphicsBufferUsage.STREAM
+            )
+            self._pre_cut_mesh:set_vertex_map(vertex_map)
+        else
+            self._pre_cut_mesh:replace_data(data)
+        end
     else
-        self._mesh:replace_data(data)
+        if self._post_cut_mesh == nil then
+            self._post_cut_mesh = rt.Mesh(
+                data,
+                rt.MeshDrawMode.TRIANGLES,
+                rt.VertexFormat,
+                rt.GraphicsBufferUsage.STREAM
+            )
+            self._post_cut_mesh:set_vertex_map(vertex_map)
+        else
+            self._post_cut_mesh:replace_data(data)
+        end
     end
 end
 
 --- @brief
 function ow.CheckpointRope:draw()
     love.graphics.setColor(1, 1, 1, 1)
-    self._mesh:draw()
-
-    love.graphics.line(self._dbg)
+    if not self._is_cut then
+        self._pre_cut_mesh:draw()
+    else
+        self._post_cut_mesh:draw()
+    end
 end
