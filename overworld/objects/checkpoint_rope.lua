@@ -1,7 +1,8 @@
 rt.settings.overworld.checkpoint_rope = {
     segment_length = 7, -- px
     segment_hue_speed = 2,
-    segment_gravity = 10000
+    segment_gravity = 0, --10000,
+    radius = 10
 }
 
 --- @class ow.CheckpointRope
@@ -26,7 +27,7 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
     local height = self._bottom_y - self._top_y
     local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint_rope.segment_length), 2)
     local segment_length = height / (n_segments - 1)
-    local radius = segment_length / 2
+    local radius = 5--rt.settings.overworld.checkpoint_rope.radius
 
     self._n_segments = n_segments
 
@@ -35,15 +36,15 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
         local body
         if i == 1 or i == n_segments then
             local anchor_width = 10
-            body = b2.Body(self._world, b2.BodyType.STATIC, current_x, current_y, b2.Rectangle(-0.5 * anchor_width, -1 * radius, anchor_width, 2 * radius))
-            body:set_mass(1)
+            body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Rectangle(-0.5 * anchor_width, -1 * radius, anchor_width, 2 * radius))
+            body:set_mass(1) -- ^ TODO
         else
             body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Circle(0, 0, radius))
             body:set_mass(height / n_segments * 0.015)
         end
 
-        body:set_collides_with(collision_group)
-        body:set_collision_group(bit.bnot(collision_group))
+        --body:set_collides_with(collision_group)
+       -- body:set_collision_group(bit.bnot(collision_group))
         body:set_is_rotation_fixed(false)
 
         self._bodies[i] = body
@@ -123,6 +124,8 @@ function ow.CheckpointRope:cut()
     end
 end
 
+function ow.CheckpointRope:cut() end -- TODO
+
 --- @brief
 function ow.CheckpointRope:get_is_cut()
     return self._is_cut
@@ -192,6 +195,8 @@ function ow.CheckpointRope:_update_mesh()
 
     local left_contour, right_contour = {}, {}
 
+    self._dbg = {} -- TODO
+
     for i = 1, self._n_segments - 1 do
         local x1, y1 = self._bodies[i+0]:get_position()
         local x2, y2 = self._bodies[i+1]:get_position()
@@ -224,9 +229,15 @@ function ow.CheckpointRope:_update_mesh()
             table.insert(data, entry)
         end
 
-        if self._mesh == nil then
+        --[[
+        vertices:
+        1   2   3
+        4   5   6
+        ]]--
+
+        if true then --self._mesh == nil then
             local j = vertex_i
-            for n in range(
+            for n in range( -- triangulation
                 j + 1, j + 2, j + 5,
                 j + 1, j + 4, j + 5,
                 j + 2, j + 3, j + 6,
@@ -235,7 +246,64 @@ function ow.CheckpointRope:_update_mesh()
                 table.insert(vertex_map, n)
             end
 
+            for n in range(
+                j + 1,
+                j + 2,
+                j + 4
+            ) do
+                table.insert(left_contour, n)
+            end
+
+            for n in range(
+                j + 3,
+                j + 2,
+                j + 6
+            ) do
+                table.insert(right_contour, n)
+            end
+
             vertex_i = vertex_i + 6
+        end
+    end
+
+    -- fill triangles
+    for j = 3, #left_contour, 3 do
+        local i1 = left_contour[j+0]
+        local i2 = left_contour[j+1]
+        local i3 = left_contour[j+2]
+
+        if i1 ~= nil and i2 ~= nil and i3 ~= nil then
+            local outer_x1, outer_y1 = table.unpack(data[i1])
+            local inner_x1, inner_y1 = table.unpack(data[i2])
+            local outer_x2, outer_y2 = table.unpack(data[i3])
+
+            for n in range(
+                i1,
+                i2,
+                i3
+            ) do
+                table.insert(vertex_map, n)
+            end
+        end
+    end
+
+    for j = 3, #right_contour, 3 do
+        local i1 = right_contour[j+0]
+        local i2 = right_contour[j+1]
+        local i3 = right_contour[j+2]
+
+        if i1 ~= nil and i2 ~= nil and i3 ~= nil then
+            local outer_x1, outer_y1 = table.unpack(data[i1])
+            local inner_x1, inner_y1 = table.unpack(data[i2])
+            local outer_x2, outer_y2 = table.unpack(data[i3])
+
+            for n in range(
+                i1,
+                i2,
+                i3
+            ) do
+                table.insert(vertex_map, n)
+            end
         end
     end
 
@@ -256,4 +324,6 @@ end
 function ow.CheckpointRope:draw()
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
+
+    --love.graphics.line(self._dbg)
 end
