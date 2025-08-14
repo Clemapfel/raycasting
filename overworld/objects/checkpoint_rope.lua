@@ -191,79 +191,64 @@ function ow.CheckpointRope:_update_mesh()
     local inner = function() return 1, 1, 1, 1 end
     local outer = function() return 1, 1, 1, 0 end
 
-    local data = {}
-    local vertex_map = {}
-    local vertex_i = 0
+    function generate_mesh(start_i, end_i, mesh)
+        local data = {}
+        local vertex_map = {}
+        local vertex_i = 0
 
-    local left_contour, right_contour = {}, {}
+        local left_contour, right_contour = {}, {}
 
-    local function miter(previous_normal_x, previous_normal_y, current_normal_x, current_normal_y)
-        local sum_x = previous_normal_x + current_normal_x
-        local sum_y = previous_normal_y + current_normal_y
-        local sum_length = math.sqrt(sum_x * sum_x + sum_y * sum_y)
+        local function miter(previous_normal_x, previous_normal_y, current_normal_x, current_normal_y)
+            local sum_x = previous_normal_x + current_normal_x
+            local sum_y = previous_normal_y + current_normal_y
+            local sum_length = math.sqrt(sum_x * sum_x + sum_y * sum_y)
 
-        if sum_length < math.eps then
-            -- opposing normals, fallback to current normal
-            return current_normal_x, current_normal_y, r
+            if sum_length < math.eps then
+                -- opposing normals, fallback to current normal
+                return current_normal_x, current_normal_y, r
+            end
+
+            local miter_x = sum_x / sum_length
+            local miter_y = sum_y / sum_length
+            local denom = math.dot(miter_x, miter_y, current_normal_x, current_normal_y)
+
+            if math.abs(denom) < math.eps then
+                return current_normal_x, current_normal_y, r
+            end
+
+            local miter_length = r / denom
+
+            -- clamp miter length to avoid spikes on very sharp angles
+            local miter_limit = 2.0 * r
+            if miter_length > miter_limit then
+                miter_length = miter_limit
+            elseif miter_length < -miter_limit then
+                miter_length = -miter_limit
+            end
+
+            return miter_x, miter_y, miter_length
         end
 
-        local miter_x = sum_x / sum_length
-        local miter_y = sum_y / sum_length
-        local denom = math.dot(miter_x, miter_y, current_normal_x, current_normal_y)
+        -- iterate segments [start_i, end_i - 1]
+        for i = start_i, end_i - 1 do
+            local x1, y1 = self._bodies[i+0]:get_position()
+            local x2, y2 = self._bodies[i+1]:get_position()
 
-        if math.abs(denom) < math.eps then
-            return current_normal_x, current_normal_y, r
-        end
+            local dx, dy = math.normalize(x2 - x1, y2 - y1)
+            local normal_left_x, normal_left_y = math.turn_left(dx, dy)
+            local normal_right_x, normal_right_y = math.turn_right(dx, dy)
 
-        local miter_length = r / denom
+            local left_x1, left_y1
+            local center_x1, center_y1
+            local right_x1, right_y1
 
-        -- clamp miter length to avoid spikes on very sharp angles
-        local miter_limit = 2.0 * r
-        if miter_length > miter_limit then
-            miter_length = miter_limit
-        elseif miter_length < -miter_limit then
-            miter_length = -miter_limit
-        end
+            local left_x2, left_y2
+            local center_x2, center_y2
+            local right_x2, right_y2
 
-        return miter_x, miter_y, miter_length
-    end
-
-    for i = 1, self._n_segments - 1 do
-        local x1, y1 = self._bodies[i+0]:get_position()
-        local x2, y2 = self._bodies[i+1]:get_position()
-
-        local dx, dy = math.normalize(x2 - x1, y2 - y1)
-        local normal_left_x, normal_left_y = math.turn_left(dx, dy)
-        local normal_right_x, normal_right_y = math.turn_right(dx, dy)
-
-        local left_x1, left_y1
-        local center_x1, center_y1
-        local right_x1, right_y1
-
-        local left_x2, left_y2
-        local center_x2, center_y2
-        local right_x2, right_y2
-
-        if self._is_cut and (i == self._cut_index - 1 or i == self._cut_index or i == self._cut_index + 1) then -- no miter
-            local left_x, left_y = math.turn_left(dx, dy)
-            local right_x, right_y = math.turn_right(dx, dy)
-
-            left_x = left_x * r
-            left_y = left_y * r
-            right_x = right_x * r
-            right_y = right_y * r
-
-            left_x1, left_y1 = x1 + left_x, y1 + left_y
-            center_x1, center_y1 = x1 + 0, y1 + 0
-            right_x1, right_y1 = x1 + right_x, y1 + right_y
-
-            left_x2, left_y2 = x2 + left_x, y2 + left_y
-            center_x2, center_y2 = x2 + 0, y2 + 0
-            right_x2, right_y2 = x2 + right_x, y2 + right_y
-        else
             -- previous segment tangent (for start join at x1,y1)
             local previous_dx, previous_dy
-            if i > 1 then
+            if i > start_i then -- FIX: previously used i > 1
                 local px, py = self._bodies[i-1]:get_position()
                 previous_dx, previous_dy = math.normalize(x1 - px, y1 - py)
             else
@@ -275,7 +260,7 @@ function ow.CheckpointRope:_update_mesh()
 
             -- next segment tangent (for end join at x2,y2)
             local next_dx, next_dy
-            if i < self._n_segments - 1 then
+            if i < end_i - 1 then -- FIX: previously used i < n_segments - 1 (wrong frame of reference)
                 local nx, ny = self._bodies[i+2]:get_position()
                 next_dx, next_dy = math.normalize(nx - x2, ny - y2)
             else
@@ -311,28 +296,26 @@ function ow.CheckpointRope:_update_mesh()
             left_x2, left_y2  = x2 + miter_left_x2 * miter_left_l2, y2 + miter_left_y2 * miter_left_l2
             center_x2, center_y2= x2 + 0, y2 + 0
             right_x2, right_y2 = x2 + miter_right_x2 * miter_right_l2, y2 + miter_right_y2 * miter_right_l2
-        end
 
-        --[[
-        vertex layout
-        1   2   3
-        4   5   6
-        ]]--
+            --[[
+            vertex layout
+            1   2   3
+            4   5   6
+            ]]--
 
-        for entry in range(
-            { left_x1,   left_y1,   1, 0, outer() }, -- 1
-            { center_x1, center_y1, 0, 0, inner() }, -- 2
-            { right_x1,  right_y1,  1, 0, outer() }, -- 3
-            { left_x2,   left_y2,   1, 1, outer() }, -- 4
-            { center_x2, center_y2, 0, 1, inner() }, -- 5
-            { right_x2,  right_y2,  1, 1, outer() }  -- 6
-        ) do
-            table.insert(data, entry)
-        end
+            for entry in range(
+                { left_x1,   left_y1,   1, 0, outer() }, -- 1
+                { center_x1, center_y1, 0, 0, inner() }, -- 2
+                { right_x1,  right_y1,  1, 0, outer() }, -- 3
+                { left_x2,   left_y2,   1, 1, outer() }, -- 4
+                { center_x2, center_y2, 0, 1, inner() }, -- 5
+                { right_x2,  right_y2,  1, 1, outer() }  -- 6
+            ) do
+                table.insert(data, entry)
+            end
 
-        -- triangulation
-        local j = vertex_i
-        if not (self._is_cut and i == self._cut_index) then
+            -- triangulation
+            local j = vertex_i
             for n in range( -- triangulation
                 j + 1, j + 2, j + 5,
                 j + 1, j + 4, j + 5,
@@ -341,36 +324,34 @@ function ow.CheckpointRope:_update_mesh()
             ) do
                 table.insert(vertex_map, n)
             end
+
+            -- contours for fill triangles
+            for n in range(
+                j + 1,
+                j + 2,
+                j + 4
+            ) do
+                table.insert(left_contour, n)
+            end
+
+            for n in range(
+                j + 3,
+                j + 2,
+                j + 6
+            ) do
+                table.insert(right_contour, n)
+            end
+
+            vertex_i = vertex_i + 6
         end
 
-        -- contours for fill triangles
-        for n in range(
-            j + 1,
-            j + 2,
-            j + 4
-        ) do
-            table.insert(left_contour, n)
-        end
+        -- fill triangles
+        for contour in range(left_contour, right_contour) do
+            for j = 3, #contour, 3 do -- FIX: use #contour instead of #left_contour
+                local i1 = contour[j+0]
+                local i2 = contour[j+1]
+                local i3 = contour[j+2]
 
-        for n in range(
-            j + 3,
-            j + 2,
-            j + 6
-        ) do
-            table.insert(right_contour, n)
-        end
-
-        vertex_i = vertex_i + 6
-    end
-
-    -- fill triangles
-    for contour in range(left_contour, right_contour) do
-        for j = 3, #left_contour, 3 do
-            local i1 = contour[j+0]
-            local i2 = contour[j+1]
-            local i3 = contour[j+2]
-
-            if not (self._is_cut and i2 == self._cut_index) then
                 if i1 ~= nil and i2 ~= nil and i3 ~= nil then
                     local outer_x1, outer_y1 = table.unpack(data[i1])
                     local inner_x1, inner_y1 = table.unpack(data[i2])
@@ -386,109 +367,104 @@ function ow.CheckpointRope:_update_mesh()
                 end
             end
         end
-    end
 
-    -- end caps
-    local add_end_cap = function(i1, i2, up_or_down)
-        local start_x1, start_y1 = self._bodies[i1]:get_position()
-        local start_x2, start_y2 = self._bodies[i2]:get_position()
-        local start_dx, start_dy = math.normalize(start_x2 - start_x1, start_y2 - start_y1)
+        -- end caps
+        local add_end_cap = function(i1, i2, up_or_down)
+            local start_x1, start_y1 = self._bodies[i1]:get_position()
+            local start_x2, start_y2 = self._bodies[i2]:get_position()
+            local start_dx, start_dy = math.normalize(start_x2 - start_x1, start_y2 - start_y1)
 
-        local end_cap_r = math.distance(start_x1, start_y1, start_x2, start_y2)
+            local end_cap_r = math.distance(start_x1, start_y1, start_x2, start_y2)
 
-        -- move one segment up or down
-        local sign = ternary(up_or_down, -1, 1)
-        start_x1 = start_x1 + sign * start_dx * end_cap_r
-        start_y1 = start_y1 + sign * start_dy * end_cap_r
-        start_x2 = start_x2 + sign * start_dx * end_cap_r
-        start_y2 = start_y2 + sign * start_dy * end_cap_r
+            -- move one segment up or down
+            local sign = ternary(up_or_down, -1, 1)
+            start_x1 = start_x1 + sign * start_dx * end_cap_r
+            start_y1 = start_y1 + sign * start_dy * end_cap_r
+            start_x2 = start_x2 + sign * start_dx * end_cap_r
+            start_y2 = start_y2 + sign * start_dy * end_cap_r
 
-        local left_nx, left_ny = math.turn_left(start_dx, start_dy)
-        local right_nx, right_ny = math.turn_right(start_dx, start_dy)
+            local left_nx, left_ny = math.turn_left(start_dx, start_dy)
+            local right_nx, right_ny = math.turn_right(start_dx, start_dy)
 
-        left_nx = left_nx * r
-        left_ny = left_ny * r
-        right_nx = right_nx * r
-        right_ny = right_ny * r
+            left_nx = left_nx * r
+            left_ny = left_ny * r
+            right_nx = right_nx * r
+            right_ny = right_ny * r
 
-        local left_x1, left_y1 = start_x1 + left_nx, start_y1 + left_ny
-        local center_x1, center_y1 = start_x1, start_y1
-        local right_x1, right_y1 = start_x1 + right_nx, start_y1 + right_ny
+            local left_x1, left_y1 = start_x1 + left_nx, start_y1 + left_ny
+            local center_x1, center_y1 = start_x1, start_y1
+            local right_x1, right_y1 = start_x1 + right_nx, start_y1 + right_ny
 
-        local left_x2, left_y2 = start_x2 + left_nx, start_y2 + left_ny
-        local center_x2, center_y2 = start_x2, start_y2
-        local right_x2, right_y2 = start_x2 + right_nx, start_y2 + right_ny
+            local left_x2, left_y2 = start_x2 + left_nx, start_y2 + left_ny
+            local center_x2, center_y2 = start_x2, start_y2
+            local right_x2, right_y2 = start_x2 + right_nx, start_y2 + right_ny
 
-        if up_or_down then
-            local j = 0
-            for entry in range(
-                { right_x1, right_y1,  1, 0, outer() }, -- 3
-                { center_x1, center_y1, 0, 0, outer() }, -- 2
-                { left_x1, left_y1,   1, 0, outer() } -- 1
-            ) do
-                table.insert(data, 1, entry) -- push front, so reverse order
-            end
+            if up_or_down then
+                local j = 0
+                for entry in range(
+                    { right_x1, right_y1,  1, 0, outer() }, -- 3
+                    { center_x1, center_y1, 0, 0, outer() }, -- 2
+                    { left_x1, left_y1,   1, 0, outer() } -- 1
+                ) do
+                    table.insert(data, 1, entry) -- push front, so reverse order
+                end
 
-            for i = 1, #vertex_map do -- shift rest upwads
-                vertex_map[i] = vertex_map[i] + 3
-            end
+                for i = 1, #vertex_map do -- shift rest upwads
+                    vertex_map[i] = vertex_map[i] + 3
+                end
 
-            for n in range( -- different triangulation, pointing upwards
-                j + 1, j + 2, j + 4,
-                j + 2, j + 4, j + 5,
-                j + 2, j + 5, j + 6,
-                j + 2, j + 3, j + 6
-            ) do
-                table.insert(vertex_map, 1, n)
-            end
-        else
-            local j = #data - 3
-            for entry in range( -- pointing downwards
-                { left_x2, left_y2,   1, 0, outer() }, -- 4
-                { center_x2, center_y2, 0, 0, outer() }, -- 5
-                { right_x2, right_y2,  1, 0, outer() } -- 6
-            ) do
-                table.insert(data, entry)
-            end
+                for n in range( -- different triangulation, pointing upwards
+                    j + 1, j + 2, j + 4,
+                    j + 2, j + 4, j + 5,
+                    j + 2, j + 5, j + 6,
+                    j + 2, j + 3, j + 6
+                ) do
+                    table.insert(vertex_map, 1, n)
+                end
+            else
+                local j = #data - 3
+                for entry in range( -- pointing downwards
+                    { left_x2, left_y2, 1, 0, outer() }, -- 4
+                    { center_x2, center_y2, 0, 0, outer() }, -- 5
+                    { right_x2, right_y2, 1, 0, outer() } -- 6
+                ) do
+                    table.insert(data, entry)
+                end
 
-            for n in range(
-                j + 1, j + 2, j + 5,
-                j + 1, j + 4, j + 5,
-                j + 2, j + 3, j + 5,
-                j + 3, j + 5, j + 6
-            ) do
-                table.insert(vertex_map, n)
+                for n in range(
+                    j + 1, j + 2, j + 5,
+                    j + 1, j + 4, j + 5,
+                    j + 2, j + 3, j + 5,
+                    j + 3, j + 5, j + 6
+                ) do
+                    table.insert(vertex_map, n)
+                end
             end
         end
-    end
 
-    add_end_cap(#self._bodies - 1, #self._bodies, false)
-    add_end_cap(1, 2, true)
+        add_end_cap(end_i - 1, end_i, false)
+        add_end_cap(start_i, start_i + 1, true)
+
+        if mesh == nil then
+            mesh = rt.Mesh(
+                data,
+                rt.MeshDrawMode.TRIANGLES,
+                rt.VertexFormat,
+                rt.GraphicsBufferUsage.STREAM
+            )
+            mesh:set_vertex_map(vertex_map)
+        else
+            mesh:replace_data(data)
+        end
+
+        return mesh
+    end
 
     if not self._is_cut then
-        if self._pre_cut_mesh == nil then
-            self._pre_cut_mesh = rt.Mesh(
-                data,
-                rt.MeshDrawMode.TRIANGLES,
-                rt.VertexFormat,
-                rt.GraphicsBufferUsage.STREAM
-            )
-            self._pre_cut_mesh:set_vertex_map(vertex_map)
-        else
-            self._pre_cut_mesh:replace_data(data)
-        end
+        self._pre_cut_mesh = generate_mesh(1, #self._bodies, self._pre_cut_mesh)
     else
-        if self._post_cut_mesh == nil then
-            self._post_cut_mesh = rt.Mesh(
-                data,
-                rt.MeshDrawMode.TRIANGLES,
-                rt.VertexFormat,
-                rt.GraphicsBufferUsage.STREAM
-            )
-            self._post_cut_mesh:set_vertex_map(vertex_map)
-        else
-            self._post_cut_mesh:replace_data(data)
-        end
+        self._post_cut_mesh_top = generate_mesh(1, self._cut_index - 1, self._post_cut_mesh_top)
+        self._post_cut_mesh_bottom = generate_mesh(self._cut_index + 1, #self._bodies, self._post_cut_mesh_bottom)
     end
 end
 
@@ -498,6 +474,7 @@ function ow.CheckpointRope:draw()
     if not self._is_cut then
         self._pre_cut_mesh:draw()
     else
-        self._post_cut_mesh:draw()
+        self._post_cut_mesh_top:draw()
+        self._post_cut_mesh_bottom:draw()
     end
 end
