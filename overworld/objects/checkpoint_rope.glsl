@@ -48,10 +48,13 @@ uniform float elapsed;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = to_uv(vertex_position);
-    uv.x += sign(dFdx(gaussian(1 - texture_coords.x, 1))) * elapsed / 10;
-    float value = texture_coords.x - gradient_noise(vec3((uv.xy * 20).xy, elapsed));
-    value = gaussian(1 - texture_coords.x, 1.4) * mix(value, gaussian(1 - texture_coords.x, 2), 0.81);
-    return color * vec4(1.1 * value);
+    float sign = sign(dFdx(texture_coords.x));
+    vec2 seed = texture_coords.xy;
+    seed.y += sign * elapsed;
+    seed *= 20;
+    float value = texture_coords.x - gradient_noise(vec3(seed.xy, elapsed));
+    value *= gaussian(1 - texture_coords.x, 0.5);
+    return color * vec4(1 - value);
 }
 
 #endif

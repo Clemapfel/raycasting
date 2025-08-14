@@ -8,8 +8,22 @@ rt.settings.overworld.checkpoint_rope = {
 --- @class ow.CheckpointRope
 ow.CheckpointRope = meta.class("CheckpointRope")
 
+local _indicator_shader
+
 --- @brief
 function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
+    if _indicator_shader == nil then
+        _indicator_shader = rt.Shader("overworld/objects/checkpoint_rope.glsl")
+
+        -- TODO
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "j" then
+                _indicator_shader:recompile()
+            end
+        end)
+    end
+
     self._scene = scene
     self._world = world
     self._top_x, self._top_y, self._bottom_x, self._bottom_y = x1, y1, x2, y2
@@ -248,7 +262,7 @@ function ow.CheckpointRope:_update_mesh()
 
             -- previous segment tangent (for start join at x1,y1)
             local previous_dx, previous_dy
-            if i > start_i then -- FIX: previously used i > 1
+            if i > start_i then
                 local px, py = self._bodies[i-1]:get_position()
                 previous_dx, previous_dy = math.normalize(x1 - px, y1 - py)
             else
@@ -260,7 +274,7 @@ function ow.CheckpointRope:_update_mesh()
 
             -- next segment tangent (for end join at x2,y2)
             local next_dx, next_dy
-            if i < end_i - 1 then -- FIX: previously used i < n_segments - 1 (wrong frame of reference)
+            if i < end_i - 1 then
                 local nx, ny = self._bodies[i+2]:get_position()
                 next_dx, next_dy = math.normalize(nx - x2, ny - y2)
             else
@@ -303,13 +317,16 @@ function ow.CheckpointRope:_update_mesh()
             4   5   6
             ]]--
 
+            local current_v = i / #self._bodies
+            local next_v = (i + 1) / #self._bodies
+
             for entry in range(
-                { left_x1,   left_y1,   1, 0, outer() }, -- 1
-                { center_x1, center_y1, 0, 0, inner() }, -- 2
-                { right_x1,  right_y1,  1, 0, outer() }, -- 3
-                { left_x2,   left_y2,   1, 1, outer() }, -- 4
-                { center_x2, center_y2, 0, 1, inner() }, -- 5
-                { right_x2,  right_y2,  1, 1, outer() }  -- 6
+                { left_x1,   left_y1,   1, current_v, outer() }, -- 1
+                { center_x1, center_y1, 0, current_v, inner() }, -- 2
+                { right_x1,  right_y1,  1, current_v, outer() }, -- 3
+                { left_x2,   left_y2,   1, next_v, outer() }, -- 4
+                { center_x2, center_y2, 0, next_v, inner() }, -- 5
+                { right_x2,  right_y2,  1, next_v, outer() }  -- 6
             ) do
                 table.insert(data, entry)
             end
@@ -402,9 +419,9 @@ function ow.CheckpointRope:_update_mesh()
             if up_or_down then
                 local j = 0
                 for entry in range(
-                    { right_x1, right_y1,  1, 0, outer() }, -- 3
+                    { right_x1, right_y1,   1, 0, outer() }, -- 3
                     { center_x1, center_y1, 0, 0, outer() }, -- 2
-                    { left_x1, left_y1,   1, 0, outer() } -- 1
+                    { left_x1, left_y1,     1, 0, outer() }  -- 1
                 ) do
                     table.insert(data, 1, entry) -- push front, so reverse order
                 end
@@ -424,9 +441,9 @@ function ow.CheckpointRope:_update_mesh()
             else
                 local j = #data - 3
                 for entry in range( -- pointing downwards
-                    { left_x2, left_y2, 1, 0, outer() }, -- 4
-                    { center_x2, center_y2, 0, 0, outer() }, -- 5
-                    { right_x2, right_y2, 1, 0, outer() } -- 6
+                    { left_x2, left_y2,     1, 1, outer() }, -- 4
+                    { center_x2, center_y2, 0, 1, outer() }, -- 5
+                    { right_x2, right_y2,   1, 1, outer() }  -- 6
                 ) do
                     table.insert(data, entry)
                 end
@@ -471,10 +488,14 @@ end
 --- @brief
 function ow.CheckpointRope:draw()
     love.graphics.setColor(1, 1, 1, 1)
+
+    _indicator_shader:bind()
+    _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())
     if not self._is_cut then
         self._pre_cut_mesh:draw()
     else
         self._post_cut_mesh_top:draw()
         self._post_cut_mesh_bottom:draw()
     end
+    _indicator_shader:unbind()
 end

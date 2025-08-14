@@ -36,7 +36,7 @@ ow.PlayerGoal = function(object, stage, scene) -- alias for end of stage
     return ow.Checkpoint(object, stage, scene, ow.CheckpointType.PLAYER_GOAL)
 end
 
-local _ray_shader, _explosion_shader, _indicator_shader, _line_shader
+local _ray_shader, _explosion_shader, _indicator_shader
 
 local _STATE_DEFAULT = "DEFAULT"
 local _STATE_RAY = "RAY"
@@ -57,19 +57,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
     if _indicator_shader == nil then
         _indicator_shader = rt.Shader("overworld/objects/checkpoint_indicator.glsl")
     end
-
-    if _line_shader == nil then
-        _line_shader = rt.Shader("overworld/objects/checkpoint_line.glsl")
-    end
-
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "j" then
-            _indicator_shader:recompile()
-            _line_shader:recompile()
-        end
-    end)
 
     if type == nil then type = ow.CheckpointType.MIDWAY end
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Checkpoint: object is not a point")
