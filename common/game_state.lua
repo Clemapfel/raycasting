@@ -23,6 +23,12 @@ rt.MSAAQuality = meta.enum("MSAAQuality", {
     MAX = 16
 })
 
+--- @class rt.PlayerSprintMode
+rt.PlayerSprintMode = meta.enum("PlayerSprintomde", {
+    HOLD = "hold",
+    TOGGLE = "toggle"
+})
+
 --- @brief rt.GameState
 rt.GameState = meta.class("GameState")
 
@@ -46,7 +52,7 @@ function rt.GameState:instantiate()
         trigger_deadzone = 0.05,
         performance_mode_enabled = false,
         draw_debug_information = true,
-
+        player_sprint_mode = rt.PlayerSprintMode.HOLD,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
 
         -- stage results
@@ -172,6 +178,17 @@ end
 --- @brief
 function rt.GameState:get_trigger_deadzone()
     return self._state.trigger_deadzone
+end
+
+--- @brief
+function rt.GameState:set_player_sprint_mode(mode)
+    meta.assert_enum_value(mode, rt.PlayerSprintMode, 1)
+    self._state.player_sprint_mode = mode
+end
+
+--- @brief
+function rt.GameState:get_player_sprint_mode()
+    return self._state.player_sprint_mode
 end
 
 --- @brief

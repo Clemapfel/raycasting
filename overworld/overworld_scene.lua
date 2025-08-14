@@ -683,6 +683,14 @@ function ow.OverworldScene:_draw_debug_information()
     local a = ternary(self._player._sprint_button_is_down, pressed, unpressed)
     local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
 
+    local sprint
+    if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.HOLD then
+        sprint = self._player._sprint_button_is_down == true
+    else
+        sprint = self._player._sprint_toggled
+    end
+    sprint = ternary(sprint, pressed, unpressed)
+
     local duration = self:get_timer()
     local time = string.format_time(duration)
 
@@ -692,6 +700,7 @@ function ow.OverworldScene:_draw_debug_information()
 
     local to_concat = {
         up .. right .. down .. left .. " " .. a .. b,
+        "sprint: " .. sprint,
         "flow : " .. flow_percentage .. "% (" .. flow_velocity .. ")",
         time,
         --"speed : " .. velocity_fraction .. "%",

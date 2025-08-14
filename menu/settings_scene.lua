@@ -20,6 +20,7 @@ rt.settings.settings_scene = {
     textspeed_default = 1,
     performance_mode_default = false,
     draw_debug_info_default = false,
+    sprint_mode_default = rt.PlayerSprintMode.HOLD,
 
     scale_movement_ticks_per_second = 100,
     scale_movement_delay = 20 / 60,
@@ -240,6 +241,33 @@ function mn.SettingsScene:instantiate()
 
         item:signal_connect("reset", function(_)
             bloom_button:set_option(bloom_to_label[rt.settings.settings_scene.bloom_default])
+        end)
+    end
+
+    do -- sprint mode
+        local sprint_mode_to_label = {
+            [rt.PlayerSprintMode.HOLD] = translation.sprint_mode_hold,
+            [rt.PlayerSprintMode.TOGGLE] = translation.sprint_mode_toggle
+        }
+        local label_to_sprint_mode = reverse(sprint_mode_to_label)
+
+        local sprint_mode_button = mn.OptionButton({
+            sprint_mode_to_label[rt.PlayerSprintMode.HOLD],
+            sprint_mode_to_label[rt.PlayerSprintMode.TOGGLE]
+        })
+
+        sprint_mode_button:set_option(sprint_mode_to_label[rt.GameState:get_player_sprint_mode()])
+        sprint_mode_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_player_sprint_mode(label_to_sprint_mode[label])
+        end)
+
+        local item = add_item(
+            translation.sprint_mode_prefix, sprint_mode_button,
+            mn.VerboseInfoObject.SPRINT_MODE
+        )
+
+        item:signal_connect("reset", function(_)
+            sprint_mode_button:set_option(sprint_mode_to_label[rt.settings.settings_scene.sprint_mode_default])
         end)
     end
 

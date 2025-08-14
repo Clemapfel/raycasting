@@ -197,6 +197,9 @@ rt.Translation = rt.initialize_translation({
         text_speed_description = "How fast letters appear in dialog boxes",
         text_speed_visualization_text = "this text is scrolling.\nthis text is scrolling.\nthis text is scrolling.",
 
+        sprint_mode_title = "Sprint Button Mode",
+        sprint_mode_description = "How TODO",
+
         input_action_a_title = "A: Jump / Confirm",
         input_action_b_title = "B: Sprint / Go Back",
         input_action_x_title = "X: Unused",
@@ -254,6 +257,10 @@ rt.Translation = rt.initialize_translation({
         bloom_prefix = "Bloom",
         bloom_on = "On",
         bloom_off = "Off",
+
+        sprint_mode_prefix = "Sprint Mode",
+        sprint_mode_hold = "Hold",
+        sprint_mode_toggle = "Toggle",
 
         shake_prefix = "Screen Shake",
         shake_on = "On",

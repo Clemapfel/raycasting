@@ -221,6 +221,7 @@ function rt.Player:instantiate()
         _sprint_multiplier = 1,
         _next_sprint_multiplier = 1,
         _next_sprint_multiplier_update_when_grounded = false,
+        _sprint_toggled = false,
 
         _interact_targets = {}, -- Set
 
@@ -328,7 +329,13 @@ function rt.Player:_connect_input()
             end
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = true
-            self._next_sprint_multiplier = _settings.sprint_multiplier
+
+            self._sprint_toggled = not self._sprint_toggled
+            if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.TOGGLE then
+                self._next_sprint_multiplier = ternary(self._sprint_toggled, _settings.sprint_multiplier, 1)
+            else
+                self._next_sprint_multiplier = _settings.sprint_multiplier
+            end
             self._next_sprint_multiplier_update_when_grounded = true
         elseif which == rt.InputAction.Y then
         elseif which == rt.InputAction.LEFT then
@@ -350,8 +357,11 @@ function rt.Player:_connect_input()
             self._spring_multiplier = 1
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = false
-            self._next_sprint_multiplier = 1
-            self._next_sprint_multiplier_update_when_grounded = true
+
+            if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.HOLD then
+                self._next_sprint_multiplier = 1
+                self._next_sprint_multiplier_update_when_grounded = true
+            end
         elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = false
         elseif which == rt.InputAction.RIGHT then
@@ -640,7 +650,8 @@ function rt.Player:update(delta)
                 target = _settings.ground_target_velocity_x
             end
 
-            local target_velocity_x = magnitude * target * self._sprint_multiplier
+            local sprint_multiplier = self._sprint_multiplier
+            local target_velocity_x = magnitude * target * sprint_multiplier
 
             local current_velocity_x, current_velocity_y = self._body:get_velocity()
             current_velocity_x = current_velocity_x / self._velocity_multiplier_x
