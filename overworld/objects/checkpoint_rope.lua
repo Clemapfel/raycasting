@@ -202,8 +202,15 @@ end
 --- @brie
 function ow.CheckpointRope:_update_mesh()
     local m, r = 5, 20
-    local inner = function() return 1, 1, 1, 1 end
-    local outer = function() return 1, 1, 1, 0 end
+    local left_a = 0 -- encode side of rope in color.a
+    local center_a = 0.5
+    local right_a = 1
+
+    local inner = function(a) return 1, 1, 1, a end
+    local outer = function(a) return 1, 1, 1, a end
+    local left_u = 0
+    local center_u = 1
+    local right_u = 0
 
     function generate_mesh(start_i, end_i, mesh)
         local data = {}
@@ -321,12 +328,12 @@ function ow.CheckpointRope:_update_mesh()
             local next_v = (i + 1) / #self._bodies
 
             for entry in range(
-                { left_x1,   left_y1,   1, current_v, outer() }, -- 1
-                { center_x1, center_y1, 0, current_v, inner() }, -- 2
-                { right_x1,  right_y1,  1, current_v, outer() }, -- 3
-                { left_x2,   left_y2,   1, next_v, outer() }, -- 4
-                { center_x2, center_y2, 0, next_v, inner() }, -- 5
-                { right_x2,  right_y2,  1, next_v, outer() }  -- 6
+                { left_x1,   left_y1,   left_u, current_v, outer(left_a) }, -- 1
+                { center_x1, center_y1, center_u, current_v, inner(center_a) }, -- 2
+                { right_x1,  right_y1,  right_u, current_v, outer(right_a) }, -- 3
+                { left_x2,   left_y2,   left_u, next_v, outer(left_a) }, -- 4
+                { center_x2, center_y2, center_u, next_v, inner(center_a) }, -- 5
+                { right_x2,  right_y2,  right_u, next_v, outer(right_a) }  -- 6
             ) do
                 table.insert(data, entry)
             end
@@ -419,9 +426,9 @@ function ow.CheckpointRope:_update_mesh()
             if up_or_down then
                 local j = 0
                 for entry in range(
-                    { right_x1, right_y1,   1, 0, outer() }, -- 3
-                    { center_x1, center_y1, 0, 0, outer() }, -- 2
-                    { left_x1, left_y1,     1, 0, outer() }  -- 1
+                    { right_x1, right_y1,   right_u, 0, outer(left_a) }, -- 3
+                    { center_x1, center_y1, center_u, 0, outer(center_a) }, -- 2
+                    { left_x1, left_y1,     left_u, 0, outer(right_a) }  -- 1
                 ) do
                     table.insert(data, 1, entry) -- push front, so reverse order
                 end
@@ -441,9 +448,9 @@ function ow.CheckpointRope:_update_mesh()
             else
                 local j = #data - 3
                 for entry in range( -- pointing downwards
-                    { left_x2, left_y2,     1, 1, outer() }, -- 4
-                    { center_x2, center_y2, 0, 1, outer() }, -- 5
-                    { right_x2, right_y2,   1, 1, outer() }  -- 6
+                    { left_x2, left_y2,     left_u, 1, outer(left_a) }, -- 4
+                    { center_x2, center_y2, center_u, 1, outer(center_a) }, -- 5
+                    { right_x2, right_y2,   right_u, 1, outer(right_a) }  -- 6
                 ) do
                     table.insert(data, entry)
                 end

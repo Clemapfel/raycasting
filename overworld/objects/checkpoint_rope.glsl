@@ -47,14 +47,13 @@ vec2 to_uv(vec2 frag_position) {
 uniform float elapsed;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
-    vec2 uv = to_uv(vertex_position);
-    float sign = sign(dFdx(texture_coords.x));
-    vec2 seed = texture_coords.xy;
-    seed.y += sign * elapsed;
+    vec2 uv = texture_coords;
+    float side = sign((2 * color.a) - 1); // a is 0 to 1 left to right, while uv is mirror
+    vec2 seed = uv.xy;
+    seed.y += side * 10;
     seed *= 20;
-    float value = texture_coords.x - gradient_noise(vec3(seed.xy, elapsed));
-    value *= gaussian(1 - texture_coords.x, 0.5);
-    return color * vec4(1 - value);
+    float value = uv.x + gradient_noise(vec3(seed.yy, elapsed));
+    return color * vec4(value); //vec4(1 - gaussian(value, 1.5));
 }
 
 #endif
