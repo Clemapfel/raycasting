@@ -650,6 +650,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         end
 
         self._is_done = true
+
     end):start()
 end
 
