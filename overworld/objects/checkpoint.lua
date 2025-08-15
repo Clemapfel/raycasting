@@ -550,13 +550,6 @@ function ow.Checkpoint:draw(priority)
             love.graphics.setColor(self._color)
             love.graphics.line(self._goal_line)
 
-            _line_shader:bind()
-            _line_shader:send("elapsed", rt.SceneManager:get_elapsed())
-            _line_shader:send("camera_offset", self._camera_offset)
-            _line_shader:send("camera_scale", self._camera_scale)
-            self._goal_line_mesh:draw()
-            _line_shader:unbind()
-
             love.graphics.push()
             love.graphics.translate(self._goal_indicator_motion:get_target_position())
 
@@ -582,6 +575,14 @@ function ow.Checkpoint:draw(priority)
             love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
             _explosion_shader:unbind()
         end
+    end
+end
+
+--- @brief
+function ow.Checkpoint:draw_bloom()
+    if not self._scene:get_is_body_visible(self._body) then return end
+    if self._type == ow.CheckpointType.MIDWAY then
+        self._rope:draw_bloom()
     end
 end
 
