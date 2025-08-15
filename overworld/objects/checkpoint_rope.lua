@@ -10,6 +10,28 @@ ow.CheckpointRope = meta.class("CheckpointRope")
 
 local _indicator_shader
 
+function rotate_segment_around_point(x1, y1, x2, y2, px, py, angle)
+    local x1_translated = x1 - px
+    local y1_translated = y1 - py
+    local x2_translated = x2 - px
+    local y2_translated = y2 - py
+
+    local cos_angle = math.cos(angle)
+    local sin_angle = math.sin(angle)
+
+    local x1_rotated = x1_translated * cos_angle - y1_translated * sin_angle
+    local y1_rotated = x1_translated * sin_angle + y1_translated * cos_angle
+    local x2_rotated = x2_translated * cos_angle - y2_translated * sin_angle
+    local y2_rotated = x2_translated * sin_angle + y2_translated * cos_angle
+
+    local new_x1 = x1_rotated + px
+    local new_y1 = y1_rotated + py
+    local new_x2 = x2_rotated + px
+    local new_y2 = y2_rotated + py
+
+    return new_x1, new_y1, new_x2, new_y2
+end
+
 --- @brief
 function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
     if _indicator_shader == nil then
@@ -51,15 +73,37 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
         local body
         if i == 1 or i == n_segments then
             local anchor_width = 10
-            body = b2.Body(self._world, b2.BodyType.STATIC, current_x, current_y, b2.Rectangle(-0.5 * anchor_width, -1 * radius, anchor_width, 2 * radius))
+            local dx_left, dy_left, dx_right, dy_right = -0.5 * anchor_width, -1 * radius, 0.5 * anchor_width, 1 * radius
+            body = b2.Body(self._world, b2.BodyType.STATIC, current_x, current_y, b2.Rectangle(dx_left, dy_left, math.abs(dx_right - dx_left), math.abs(dy_right - dy_left)))
             body:set_mass(1)
         else
             body = b2.Body(self._world, b2.BodyType.DYNAMIC, current_x, current_y, b2.Circle(0, 0, radius))
             body:set_mass(height / n_segments * 0.015)
+
+            -- dummy instance for light source
+            body:add_tag("segment_light_source")
+            local instance = {
+                get_segment_light_sources = function()
+                    local angle = body:get_rotation()
+                    local x, y = body:get_position()
+                    local left_x, left_y = x, y - radius
+                    local right_x, right_y = x, y + radius
+
+                    left_x, left_y, right_x, right_y = rotate_segment_around_point(
+                        left_x, left_y,
+                        right_x, right_y,
+                        x, y,
+                        angle
+                    )
+
+                    return {{ left_x, left_y, right_x, right_y }}, { self._color }
+                end
+            }
+            body:set_user_data(instance)
         end
 
-        body:set_collides_with(collision_group)
-        body:set_collision_group(bit.bnot(collision_group))
+        body:set_collides_with(bit.bnot(collision_group))
+        body:set_collision_group(collision_group)
         body:set_is_rotation_fixed(false)
 
         self._bodies[i] = body
@@ -153,6 +197,8 @@ end
 
 --- @brief
 function ow.CheckpointRope:update(delta)
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
+
     if self._should_despawn then
         local seen = false
         for body in values(self._bodies) do
@@ -213,8 +259,13 @@ function ow.CheckpointRope:_update_mesh()
     local center_a = 0.5
     local right_a = 1
 
-    local inner = function(a) return 1, 1, 1, a end
-    local outer = function(a) return 0, 0, 0, a end
+    local outer_r = 0
+    local inner_r = 1
+
+    -- alpha in 0, 0.5, 1, signals which side of the rope we're on
+    -- r in 0, 1, signals whether the vertex is internal or external
+    local inner = function(a) return inner_r, 1, 1, a end
+    local outer = function(a) return outer_r, 0, 0, a end
     local left_u = 0
     local center_u = 1
     local right_u = 0
@@ -515,11 +566,11 @@ function ow.CheckpointRope:draw()
 
     _indicator_shader:bind()
     _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _indicator_shader:send("color", { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) })
+    _indicator_shader:send("color", self._color)
     love.graphics.setColor(1, 1, 1, 1)
-    if not self._is_cut then
+    if not self._is_cut and self._pre_cut_mesh ~= nil then
         self._pre_cut_mesh:draw()
-    else
+    elseif self._post_cut_mesh_bottom ~= nil and self._post_cut_mesh_bottom ~= nil then
         self._post_cut_mesh_top:draw()
         self._post_cut_mesh_bottom:draw()
     end

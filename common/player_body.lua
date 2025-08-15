@@ -38,7 +38,7 @@ rt.settings.player_body = {
         inertia = 0
     },
 
-    gravity = 0
+    gravity = 5
 }
 
 --- @class rt.PlayerBody

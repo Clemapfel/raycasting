@@ -68,9 +68,10 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_pos
 
     float value = uv.x - noise;
 
-    float eps = 0.25;
+    float eps = 0.3;
     float outline_thickness = 0.2;
-    float outline = smoothstep(outline_thickness, outline_thickness + eps, value * gaussian(1 - uv.x, 1.1));
+    float outline = smoothstep(outline_thickness, outline_thickness + eps, vertex_color.r * value * gaussian(1 - uv.x, 1.1));
+
     value = smoothstep(0, eps, value * gaussian(1 - uv.x, 1));
     return color * smoothstep(0, 0.6, vertex_color.r) * vec4(mix(vec3(value), vec3(0), outline), max(value, outline));
 }
