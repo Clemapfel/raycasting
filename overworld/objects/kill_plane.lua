@@ -139,7 +139,6 @@ function ow.KillPlane:instantiate(object, stage, scene)
     -- outer mesh
 
     self._outer_mesh = nil
-
     local arc_lengths = { 0 } -- cumulative distances
     local total_perimeter = 0
 
@@ -215,7 +214,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
             next[_outer_x1], next[_outer_y1] = ix, iy
         end
 
-        -- Calculate normalized arc-length texture coordinates
+        -- calculate normalized arc-length texture coordinates
         local u1 = arc_lengths[quad_i] / total_perimeter
         local u2 = arc_lengths[quad_i + 1] / total_perimeter
 
@@ -246,13 +245,45 @@ function ow.KillPlane:instantiate(object, stage, scene)
     end
 
     -- fill triangles
-    for i = 1, vertex_i - 6, 4 do
+    local n_vertices = vertex_i
+    for i = 1, n_vertices - 6, 4 do
         for j in range(
             i + 1, -- contour
             i + 3, -- current outer
             i + 4 + 2 -- next outer
         ) do
             table.insert(outer_mesh_vertex_map, j)
+        end
+    end
+
+    -- fill triangles
+    local n_vertices = vertex_i
+    for i = 1, n_vertices - 6, 4 do
+        for j in range(
+            i + 1, -- contour
+            i + 3, -- current outer
+            i + 4 + 2 -- next outer
+        ) do
+            table.insert(outer_mesh_vertex_map, j)
+        end
+    end
+
+    -- last fill triangle needs special vertices
+    if n_vertices >= 9 then -- ensure at least two quads exist
+        local inner = table.deepcopy(outer_mesh_data[n_vertices - 3])
+        local outer_last = table.deepcopy(outer_mesh_data[n_vertices - 1])
+        local outer_first = table.deepcopy(outer_mesh_data[3])
+
+        -- replace arc length parameterized texture coord to avoid interpolation
+        for vertex in range(outer_last, outer_first) do
+            vertex[3] = 1
+        end
+
+        local i = n_vertices
+        for vertex in range(inner, outer_last, outer_first) do
+            table.insert(outer_mesh_data, vertex)
+            table.insert(outer_mesh_vertex_map, i)
+            i = i + 1
         end
     end
 

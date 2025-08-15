@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 817,
+  nextobjectid = 818,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4676,8 +4676,8 @@ return {
           name = "Goal",
           type = "PlayerGoal",
           shape = "point",
-          x = -702.329,
-          y = 827.662,
+          x = -1568,
+          y = 832,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4689,8 +4689,8 @@ return {
           name = "Checkpoint",
           type = "Checkpoint",
           shape = "point",
-          x = -1629.63,
-          y = 798.995,
+          x = -1786.11,
+          y = 791.66,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4713,6 +4713,25 @@ return {
             { x = 0, y = 48 },
             { x = 384, y = 48 },
             { x = 384, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 817,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -1680,
+          y = 544,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 128, y = 80 },
+            { x = 224, y = 32 },
+            { x = 112, y = -160 }
           },
           properties = {}
         }
