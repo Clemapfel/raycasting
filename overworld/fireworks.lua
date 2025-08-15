@@ -126,11 +126,42 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
         })
     end
 
-    local particle_mesh = rt.MeshCircle(
-        0, 0,
-        _settings.radius, _settings.radius,
-        8
+
+    local n_outer_vertices = 8
+    local center_x, center_y = 0, 0
+    local radius = _settings.radius
+
+    local particle_mesh_data = {
+        { center_x, center_y, 0, 0, 1, 1, 1, 1 }
+    }
+
+    for i = 1, n_outer_vertices do
+        local angle = (i - 1) / n_outer_vertices * (2 * math.pi)
+        table.insert(particle_mesh_data, {
+            center_x + math.cos(angle) * radius, -- x
+            center_y + math.sin(angle) * radius, -- y
+            math.cos(angle), -- u
+            math.sin(angle), -- v
+            1, 1, 1, 1 -- rgba
+        })
+    end
+
+    local vertex_map = {} -- triangulation, table of indices, 1-based
+    for outer_i = 2, n_outer_vertices do
+        for i in range(1, outer_i, outer_i + 1) do
+            table.insert(vertex_map, i)
+        end
+    end
+
+    for i in range(n_outer_vertices + 1, 1, 2) do
+        table.insert(vertex_map, i)
+    end
+
+    local particle_mesh = rt.Mesh(
+        particle_mesh_data,
+        rt.MeshDrawMode.TRIANGLES
     )
+    particle_mesh:set_vertex_map(vertex_map)
 
     for i = 2, particle_mesh:get_n_vertices() do
         --particle_mesh:set_vertex_color(i, 1, 1, 1, 0)

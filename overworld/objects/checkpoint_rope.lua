@@ -2,7 +2,7 @@ rt.settings.overworld.checkpoint_rope = {
     segment_length = 7, -- px
     segment_hue_speed = 2,
     segment_gravity = 10000,
-    radius = 10
+    radius = rt.settings.player.radius
 }
 
 --- @class ow.CheckpointRope
@@ -294,6 +294,7 @@ function ow.CheckpointRope:_update_mesh()
             else
                 next_dx, next_dy = dx, dy
             end
+
             local next_normal_left_x, next_normal_left_y = math.turn_left(next_dx, next_dy)
             local next_normal_right_x, next_normal_right_y = math.turn_right(next_dx, next_dy)
 
@@ -346,54 +347,58 @@ function ow.CheckpointRope:_update_mesh()
             end
 
             -- triangulation
-            local j = vertex_i
-            for n in range( -- triangulation
-                j + 1, j + 2, j + 5,
-                j + 1, j + 4, j + 5,
-                j + 2, j + 3, j + 6,
-                j + 2, j + 5, j + 6
-            ) do
-                table.insert(vertex_map, n)
-            end
+            if mesh == nil then
+                local j = vertex_i
+                for n in range( -- triangulation
+                    j + 1, j + 2, j + 5,
+                    j + 1, j + 4, j + 5,
+                    j + 2, j + 3, j + 6,
+                    j + 2, j + 5, j + 6
+                ) do
+                    table.insert(vertex_map, n)
+                end
 
-            -- contours for fill triangles
-            for n in range(
-                j + 1,
-                j + 2,
-                j + 4
-            ) do
-                table.insert(left_contour, n)
-            end
+                -- contours for fill triangles
+                for n in range(
+                    j + 1,
+                    j + 2,
+                    j + 4
+                ) do
+                    table.insert(left_contour, n)
+                end
 
-            for n in range(
-                j + 3,
-                j + 2,
-                j + 6
-            ) do
-                table.insert(right_contour, n)
+                for n in range(
+                    j + 3,
+                    j + 2,
+                    j + 6
+                ) do
+                    table.insert(right_contour, n)
+                end
             end
 
             vertex_i = vertex_i + 6
         end
 
-        -- fill triangles
-        for contour in range(left_contour, right_contour) do
-            for j = 3, #contour, 3 do -- FIX: use #contour instead of #left_contour
-                local i1 = contour[j+0]
-                local i2 = contour[j+1]
-                local i3 = contour[j+2]
+        if mesh == nil then
+            -- fill triangles
+            for contour in range(left_contour, right_contour) do
+                for j = 3, #contour, 3 do -- FIX: use #contour instead of #left_contour
+                    local i1 = contour[j+0]
+                    local i2 = contour[j+1]
+                    local i3 = contour[j+2]
 
-                if i1 ~= nil and i2 ~= nil and i3 ~= nil then
-                    local outer_x1, outer_y1 = table.unpack(data[i1])
-                    local inner_x1, inner_y1 = table.unpack(data[i2])
-                    local outer_x2, outer_y2 = table.unpack(data[i3])
+                    if i1 ~= nil and i2 ~= nil and i3 ~= nil then
+                        local outer_x1, outer_y1 = table.unpack(data[i1])
+                        local inner_x1, inner_y1 = table.unpack(data[i2])
+                        local outer_x2, outer_y2 = table.unpack(data[i3])
 
-                    for n in range(
-                        i1,
-                        i2,
-                        i3
-                    ) do
-                        table.insert(vertex_map, n)
+                        for n in range(
+                            i1,
+                            i2,
+                            i3
+                        ) do
+                            table.insert(vertex_map, n)
+                        end
                     end
                 end
             end
@@ -440,17 +445,19 @@ function ow.CheckpointRope:_update_mesh()
                     table.insert(data, 1, entry) -- push front, so reverse order
                 end
 
-                for i = 1, #vertex_map do -- shift rest upwads
-                    vertex_map[i] = vertex_map[i] + 3
-                end
+                if mesh == nil then
+                    for i = 1, #vertex_map do -- shift rest upwads
+                        vertex_map[i] = vertex_map[i] + 3
+                    end
 
-                for n in range( -- different triangulation, pointing upwards
-                    j + 1, j + 2, j + 4,
-                    j + 2, j + 4, j + 5,
-                    j + 2, j + 5, j + 6,
-                    j + 2, j + 3, j + 6
-                ) do
-                    table.insert(vertex_map, 1, n)
+                    for n in range( -- different triangulation, pointing upwards
+                        j + 1, j + 2, j + 4,
+                        j + 2, j + 4, j + 5,
+                        j + 2, j + 5, j + 6,
+                        j + 2, j + 3, j + 6
+                    ) do
+                        table.insert(vertex_map, 1, n)
+                    end
                 end
             else
                 local j = #data - 3
@@ -462,13 +469,15 @@ function ow.CheckpointRope:_update_mesh()
                     table.insert(data, entry)
                 end
 
-                for n in range(
-                    j + 1, j + 2, j + 5,
-                    j + 1, j + 4, j + 5,
-                    j + 2, j + 3, j + 5,
-                    j + 3, j + 5, j + 6
-                ) do
-                    table.insert(vertex_map, n)
+                if mesh == nil then
+                    for n in range(
+                        j + 1, j + 2, j + 5,
+                        j + 1, j + 4, j + 5,
+                        j + 2, j + 3, j + 5,
+                        j + 3, j + 5, j + 6
+                    ) do
+                        table.insert(vertex_map, n)
+                    end
                 end
             end
         end
@@ -502,11 +511,12 @@ end
 --- @brief
 function ow.CheckpointRope:draw()
     if self._is_despawned then return end
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
+    --love.graphics.clear(0.5, 0.5, 0.5, 1)
 
     _indicator_shader:bind()
     _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _indicator_shader:send("color", { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) })
+    love.graphics.setColor(1, 1, 1, 1)
     if not self._is_cut then
         self._pre_cut_mesh:draw()
     else

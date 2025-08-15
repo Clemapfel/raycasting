@@ -44,25 +44,35 @@ vec2 to_uv(vec2 frag_position) {
     return uv;
 }
 
-uniform float elapsed;
+float dirac(float x) {
+    float a = 0.045 * exp(log(1.0 / 0.045 + 1.0) * x) - 0.045;
+    float b = 0.045 * exp(log(1.0 / 0.045 + 1.0) * (1.0 - x)) - 0.045;
+    const float t = 5.81894409826698685315796808094;
+    return t * min(a, b);
+}
 
-vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
+uniform float elapsed;
+uniform vec4 color;
+
+vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
-    float side = sign((2 * color.a) - 1); // a is 0 to 1 left to right, while uv is mirror
+    float side = sign((2 * vertex_color.a) - 1); // a is 0 to 1 left to right, while uv is mirror
     vec2 seed = uv.xy;
     seed.y += 10 * side;
-    seed *= 20;
-    float noise = gradient_noise(vec3(seed.yy + side * elapsed, elapsed));
 
-    float value = gaussian(uv.x, 0.5) - noise;
-    value *= gaussian(uv.x, 1);
-    value = 1 - value;
+    float noise_frequency = 20;
+    float noise_amplitude = 0.5;
 
-    float outline = gaussian(uv.x, 0.5) - noise;
-    outline *= gaussian(uv.x, 0.7);
+    seed *= noise_frequency;
+    float noise = noise_amplitude * gradient_noise(vec3(seed.yy + side * elapsed, elapsed));
 
-    vec4 foreground = vec4(vec3(1), 1) * smoothstep(0.5, 0.9, value); //vec4(1 - gaussian(value, 1.5));
-    return smoothstep(0, 0.6, color.r) * vec4((foreground).rgb, 1);
+    float value = uv.x - noise;
+
+    float eps = 0.25;
+    float outline_thickness = 0.2;
+    float outline = smoothstep(outline_thickness, outline_thickness + eps, value * gaussian(1 - uv.x, 1.1));
+    value = smoothstep(0, eps, value * gaussian(1 - uv.x, 1));
+    return color * smoothstep(0, 0.6, vertex_color.r) * vec4(mix(vec3(value), vec3(0), outline), max(value, outline));
 }
 
 #endif
