@@ -50,10 +50,19 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     vec2 uv = texture_coords;
     float side = sign((2 * color.a) - 1); // a is 0 to 1 left to right, while uv is mirror
     vec2 seed = uv.xy;
-    seed.y += side * 10;
+    seed.y += 10 * side;
     seed *= 20;
-    float value = uv.x + gradient_noise(vec3(seed.yy, elapsed));
-    return color * vec4(value); //vec4(1 - gaussian(value, 1.5));
+    float noise = gradient_noise(vec3(seed.yy + side * elapsed, elapsed));
+
+    float value = gaussian(uv.x, 0.5) - noise;
+    value *= gaussian(uv.x, 1);
+    value = 1 - value;
+
+    float outline = gaussian(uv.x, 0.5) - noise;
+    outline *= gaussian(uv.x, 0.7);
+
+    vec4 foreground = vec4(vec3(1), 1) * smoothstep(0.5, 0.9, value); //vec4(1 - gaussian(value, 1.5));
+    return smoothstep(0, 0.6, color.r) * vec4((foreground).rgb, 1);
 }
 
 #endif

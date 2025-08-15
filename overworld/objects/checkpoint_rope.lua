@@ -1,7 +1,7 @@
 rt.settings.overworld.checkpoint_rope = {
     segment_length = 7, -- px
     segment_hue_speed = 2,
-    segment_gravity = 0, --10000,
+    segment_gravity = 10000,
     radius = 10
 }
 
@@ -42,7 +42,7 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
     local height = self._bottom_y - self._top_y
     local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint_rope.segment_length), 2)
     local segment_length = height / (n_segments - 1)
-    local radius = 5--rt.settings.overworld.checkpoint_rope.radius
+    local radius = 5 -- experimentally determines for mass, solver stability
 
     self._n_segments = n_segments
 
@@ -58,8 +58,8 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
             body:set_mass(height / n_segments * 0.015)
         end
 
-        --body:set_collides_with(collision_group)
-        --body:set_collision_group(bit.bnot(collision_group))
+        body:set_collides_with(collision_group)
+        body:set_collision_group(bit.bnot(collision_group))
         body:set_is_rotation_fixed(false)
 
         self._bodies[i] = body
@@ -90,7 +90,9 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
         self._joints[i] = joint
     end
 
-    self:_update_mesh()
+    if not self._is_despawned then
+        self:_update_mesh()
+    end
 end
 
 --- @brief
@@ -137,7 +139,10 @@ function ow.CheckpointRope:cut()
         end
         self._is_cut = true
         self._should_despawn = true
-        self:_update_mesh()
+
+        if self._is_despawned ~= true then
+            self:_update_mesh()
+        end
     end
 end
 
@@ -177,7 +182,9 @@ function ow.CheckpointRope:update(delta)
         end
     end
 
-    self:_update_mesh()
+    if self._is_despawned ~= true then
+        self:_update_mesh()
+    end
 end
 
 --- @brief
@@ -201,13 +208,13 @@ end
 --- @brie
 --- @brie
 function ow.CheckpointRope:_update_mesh()
-    local m, r = 5, 20
+    local r = rt.settings.overworld.checkpoint_rope.radius
     local left_a = 0 -- encode side of rope in color.a
     local center_a = 0.5
     local right_a = 1
 
     local inner = function(a) return 1, 1, 1, a end
-    local outer = function(a) return 1, 1, 1, a end
+    local outer = function(a) return 0, 0, 0, a end
     local left_u = 0
     local center_u = 1
     local right_u = 0
@@ -494,7 +501,9 @@ end
 
 --- @brief
 function ow.CheckpointRope:draw()
+    if self._is_despawned then return end
     love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.clear(0.5, 0.5, 0.5, 1)
 
     _indicator_shader:bind()
     _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())
