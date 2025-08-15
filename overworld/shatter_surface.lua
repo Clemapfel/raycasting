@@ -378,8 +378,18 @@ local mesh_format = {
 -- The input contour is convex and ordered clockwise.
 -- This version fixes quad triangulation (including the closing edge) and adds
 -- corner-filling triangles by only appending indices to the vertex map.
+local mesh_format = {
+    { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
+    { location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
+    { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
+}
+
+-- Generate a mesh with an inner region + an outer rim made of quads.
+-- The input contour is convex and ordered clockwise.
+-- This version fixes quad triangulation (including the closing edge) and adds
+-- corner-filling triangles by only appending indices to the vertex map.
 local function generate_mesh(contour, rim_thickness)
-    if rim_thickness == nil then rim_thickness = 10 end
+    if rim_thickness == nil then rim_thickness = 2 end
     contour = table.deepcopy(contour)
 
     -- compute inner region + UVs from AABB
@@ -459,21 +469,23 @@ local function generate_mesh(contour, rim_thickness)
         vertex_i = vertex_i + 4
     end
 
-    -- Fill corner gaps between adjacent quads using existing vertices only.
-    -- For each corner k, connect the outer vertex of the previous edge (outer2)
-    -- and the outer vertex of the current edge (outer1) to the inner corner.
-    -- Tri: (inner_k, outer_prev2, outer_curr1)
+    -- Fill corner gaps between adjacent quads using only rim vertices.
+    -- For each corner k, we'll use:
+    -- - The duplicate inner vertex for this corner (base_curr + 1)
+    -- - The outer vertex from previous edge (base_prev + 4)
+    -- - The outer vertex from current edge (base_curr + 2)
     for k = 1, n_vertices_inner do
         local prev_k = math.wrap(k - 1, n_vertices_inner)
 
         local base_curr = n_vertices_inner + (k - 1) * 4
         local base_prev = n_vertices_inner + (prev_k - 1) * 4
 
-        local inner_index = k
-        local outer_prev2 = base_prev + 4 -- previous edge's outer at its end (vertex k)
-        local outer_curr1 = base_curr + 2 -- current edge's outer at its start (vertex k)
+        -- Use the duplicate inner vertex (base_curr + 1) instead of original inner vertex
+        local inner_dup = base_curr + 1
+        local outer_prev = base_prev + 4  -- previous edge's outer at its end (vertex k)
+        local outer_curr = base_curr + 2  -- current edge's outer at its start (vertex k)
 
-        for j in range(inner_index, outer_prev2, outer_curr1) do
+        for j in range(inner_dup, outer_prev, outer_curr) do
             table.insert(vertex_map, j)
         end
     end

@@ -271,7 +271,7 @@ function ow.CheckpointRope:_update_mesh()
     local center_u = 1
     local right_u = 0
 
-    function generate_mesh(start_i, end_i, mesh)
+    local function generate_mesh(start_i, end_i, mesh)
         local data = {}
         local vertex_map = {}
         local vertex_i = 0
