@@ -320,11 +320,11 @@ function ow.CheckpointRope:_update_mesh()
         end
 
         -- precompute per-segment normals (left/right) for all segments in [start_i, end_i - 1]
-        local seg_count = node_count - 1
+        local n_segments = node_count - 1
         local normals_left_x, normals_left_y = {}, {}
         local normals_right_x, normals_right_y = {}, {}
 
-        for s = 1, seg_count do
+        for s = 1, n_segments do
             local x1, y1 = positions_x[s], positions_y[s]
             local x2, y2 = positions_x[s + 1], positions_y[s + 1]
             local dx, dy = math.normalize(x2 - x1, y2 - y1)
@@ -349,7 +349,7 @@ function ow.CheckpointRope:_update_mesh()
             local previous_normal_right_x, previous_normal_right_y = normals_right_x[prev_idx], normals_right_y[prev_idx]
 
             -- next normals (fallback to current at end)
-            local next_idx = seg_idx < seg_count and (seg_idx + 1) or seg_idx
+            local next_idx = seg_idx < n_segments and (seg_idx + 1) or seg_idx
             local next_normal_left_x,  next_normal_left_y  = normals_left_x[next_idx],  normals_left_y[next_idx]
             local next_normal_right_x, next_normal_right_y = normals_right_x[next_idx], normals_right_y[next_idx]
 

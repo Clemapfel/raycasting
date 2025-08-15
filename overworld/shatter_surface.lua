@@ -26,7 +26,6 @@ function ow.ShatterSurface:instantiate(world, x, y, width, height)
     self._world = world
     self._bounds = rt.AABB(x, y, width, height)
     self._parts = {}
-    self._n_vertices_to_data = {}
     self._pre_shatter_mesh = rt.MeshRectangle(x, y, width, height)
 
     self._is_shattered = false
@@ -129,21 +128,6 @@ do
             sx, sy = ex, ey
         end
         return output
-    end
-
-    function clipPolygonToAABB(polygon, rx, ry, rw, rh)
-        local result = {}
-        for i = 1, #polygon do
-            result[i] = polygon[i]
-        end
-
-        -- apply clipping for each edge in order
-        result = clip_edge(result, rx, ry, rw, rh, left)
-        result = clip_edge(result, rx, ry, rw, rh, right)
-        result = clip_edge(result, rx, ry, rw, rh, top)
-        result = clip_edge(result, rx, ry, rw, rh, bottom)
-
-        return result
     end
 
     function polygon_fully_outside_aabb(polygon, aabb_x, aabb_y, aabb_w, aabb_h)
@@ -362,7 +346,7 @@ do
     end
 end
 
-function intersection(origin_x, origin_y, dx, dy, x1, y1, x2, y2)
+local function intersection(origin_x, origin_y, dx, dy, x1, y1, x2, y2)
     local sx, sy = x2 - x1, y2 - y1
     local det = dx * (-sy) + dy * sx
     if math.abs(det) < math.eps then
@@ -382,6 +366,127 @@ function intersection(origin_x, origin_y, dx, dy, x1, y1, x2, y2)
     local ix = origin_x + dx * t
     local iy = origin_y + dy * t
     return ix, iy
+end
+
+local mesh_format = {
+    { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
+    { location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
+    { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
+}
+
+-- Generate a mesh with an inner region + an outer rim made of quads.
+-- The input contour is convex and ordered clockwise.
+-- This version fixes quad triangulation (including the closing edge) and adds
+-- corner-filling triangles by only appending indices to the vertex map.
+local function generate_mesh(contour, rim_thickness)
+    if rim_thickness == nil then rim_thickness = 10 end
+    contour = table.deepcopy(contour)
+
+    -- compute inner region + UVs from AABB
+    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+    for i = 1, #contour, 2 do
+        local x, y = contour[i + 0], contour[i + 1]
+        min_x = math.min(min_x, x)
+        min_y = math.min(min_y, y)
+        max_x = math.max(max_x, x)
+        max_y = math.max(max_y, y)
+    end
+
+    local mesh_data = {}
+    for i = 1, #contour, 2 do
+        local x, y = contour[i + 0], contour[i + 1]
+        local u = (max_x ~= min_x) and (x - min_x) / (max_x - min_x) or 0
+        local v = (max_y ~= min_y) and (y - min_y) / (max_y - min_y) or 0
+        table.insert(mesh_data, {
+            x, y,            -- position
+            u, v,            -- tex coords
+            1, 1, 1, 1       -- rgba
+        })
+    end
+
+    -- triangulate inner polygon (convex) using existing class
+    local vertex_map = rt.DelaunayTriangulation(contour):get_triangle_vertex_map()
+
+    -- attribute shorthands for rim vertices
+    local inner = function() return 1, 1, 1, 1, 1, 1 end -- uv=(1,1), color=white
+    local rim_inner = function() return 1, 1, 0, 0, 0, 1  end
+    local rim_outer = function() return 1, 1, 0, 0, 0, 1 end -- uv=(1,1), color=black
+
+    local n_vertices_inner = #contour / 2
+    local vertex_i = #mesh_data -- start index for newly appended rim vertices
+
+    -- Build quads per edge, including the closing edge from last->first.
+    -- For edge k: v_k -> v_next, we append 4 vertices:
+    --   base+1: duplicate inner v_k
+    --   base+2: outer of v_k
+    --   base+3: duplicate inner v_next
+    --   base+4: outer of v_next
+    -- Then add two triangles: (base+1, base+2, base+3) and (base+3, base+2, base+4)
+    for k = 1, n_vertices_inner do
+        local next_k = math.wrap(k + 1, n_vertices_inner)
+
+        local i1 = 2 * k - 1
+        local i2 = 2 * k
+        local i3 = 2 * next_k - 1
+        local i4 = 2 * next_k
+
+        local x1, y1 = contour[i1], contour[i2]
+        local x2, y2 = contour[i3], contour[i4]
+
+        -- outward normal (clockwise winding guaranteed)
+        local dx, dy = math.turn_left(math.normalize(x2 - x1, y2 - y1))
+        dx = dx * rim_thickness
+        dy = dy * rim_thickness
+
+        local outer_x1, outer_y1 = x1 + dx, y1 + dy
+        local outer_x2, outer_y2 = x2 + dx, y2 + dy
+
+        -- append rim quad vertices
+        table.insert(mesh_data, { x1,        y1,        rim_inner() })
+        table.insert(mesh_data, { outer_x1,  outer_y1,  rim_outer() })
+        table.insert(mesh_data, { x2,        y2,        rim_inner() })
+        table.insert(mesh_data, { outer_x2,  outer_y2,  rim_outer() })
+
+        local base = vertex_i
+        -- triangulate the quad for this edge
+        for j in range(
+            base + 1, base + 2, base + 3, -- tri 1
+            base + 3, base + 2, base + 4  -- tri 2
+        ) do
+            table.insert(vertex_map, j)
+        end
+
+        vertex_i = vertex_i + 4
+    end
+
+    -- Fill corner gaps between adjacent quads using existing vertices only.
+    -- For each corner k, connect the outer vertex of the previous edge (outer2)
+    -- and the outer vertex of the current edge (outer1) to the inner corner.
+    -- Tri: (inner_k, outer_prev2, outer_curr1)
+    for k = 1, n_vertices_inner do
+        local prev_k = math.wrap(k - 1, n_vertices_inner)
+
+        local base_curr = n_vertices_inner + (k - 1) * 4
+        local base_prev = n_vertices_inner + (prev_k - 1) * 4
+
+        local inner_index = k
+        local outer_prev2 = base_prev + 4 -- previous edge's outer at its end (vertex k)
+        local outer_curr1 = base_curr + 2 -- current edge's outer at its start (vertex k)
+
+        for j in range(inner_index, outer_prev2, outer_curr1) do
+            table.insert(vertex_map, j)
+        end
+    end
+
+    -- build mesh
+    local mesh = rt.Mesh(
+        mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        mesh_format,
+        rt.GraphicsBufferUsage.STATIC
+    )
+    mesh:set_vertex_map(vertex_map)
+    return mesh
 end
 
 --- @brief
@@ -548,6 +653,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
 
             part.x = mean_x
             part.y = mean_y
+            part.centroid_x = mean_x
+            part.centroid_y = mean_y
             part.angle = 0
             part.distance = math.distance(part.x, part.y, origin_x, origin_y)
             part.mass = polygon_area(part.vertices)
@@ -557,7 +664,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             max_distance = math.max(max_distance, part.distance)
         end
 
-        -- generate meshes for instancing
+        -- generate meshes
 
         self._n_vertices_to_data = {}
         local n_vertices_to_instance_part = {}
@@ -571,82 +678,13 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             local n_vertices = math.floor(#part.vertices / 2)
             part.n_vertices = n_vertices
 
-            local data = self._n_vertices_to_data[n_vertices]
-            if data == nil then
-                data = {
-                    positions = {}, -- vec2[]
-                    texture_coordinates = {}, -- vec2[]
-                    offsets = {}, -- vec2[]
-                    n_vertices = n_vertices,
-                    n_instances = 0,
-                    shader = nil,
-                    instance_mesh = nil
-                }
-                self._n_vertices_to_data[n_vertices] = data
-                n_vertices_to_instance_part[n_vertices] = part
-            end
-
-            data.n_instances = data.n_instances + 1
-
-            for i = 1, #part.vertices, 2 do
-                local x = part.vertices[i+0]
-                local y = part.vertices[i+1]
-                local u = ((x + part.x) - min_x) / (max_x - min_x)
-                local v = ((y + part.y) - min_y) / (max_y - min_y)
-                table.insert(data.positions, { x, y })
-                table.insert(data.texture_coordinates, { u, v })
-            end
-
-            local offset = { part.x, part.y, part.angle }
-            table.insert(data.offsets, offset)
-            part.offset = offset
-
             part.body = b2.Body(self._world, b2.BodyType.DYNAMIC, part.x, part.y, b2.Polygon(part.vertices))
             part.body:add_tag("stencil", "unjumpable", "slippery")
             local vx, vy = math.normalize(part.x - origin_x, part.y - origin_y)
             part.body:set_velocity(vx * settings.velocity_magnitude, vy * settings.velocity_magnitude)
+            part.mesh = generate_mesh(part.vertices)
 
             entry_i = entry_i + 1
-        end
-
-
-        local instance_mesh_format = {
-            { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
-            { location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
-            { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
-        }
-
-        for n, data in pairs(self._n_vertices_to_data) do
-            -- instance data is random shard with that many vertices
-            -- is overridden in shader to display different shard
-            local part = n_vertices_to_instance_part[n]
-            local instance_data = {}
-            for i = 1, #part.vertices, 2 do
-                local x = part.vertices[i+0]
-                local y = part.vertices[i+1]
-                local u = ((x + part.x) - min_x) / (max_x - min_x)
-                local v = ((y + part.y) - min_y) / (max_y - min_y)
-                table.insert(instance_data, {
-                    x + 50, y + 50, u, v, 1, 1, 1, 1
-                })
-            end
-
-            data.instance_mesh = rt.Mesh(
-                instance_data,
-                rt.MeshDrawMode.TRIANGLE_FAN,
-                rt.VertexFormat,
-                rt.GraphicsBufferUsage.STATIC
-            )
-
-            data.shader = rt.Shader("overworld/shatter_surface.glsl", {
-                N_INSTANCES = data.n_instances,
-                N_VERTICES = data.n_vertices,
-                APPLY_VERTEX_SHADER = true
-            })
-
-            data.shader:send("positions", table.unpack(data.positions))
-            data.shader:send("texture_coordinates", table.unpack(data.texture_coordinates))
-            data.shader:send("offsets", table.unpack(data.offsets))
         end
 
         self._is_done = true
@@ -668,12 +706,6 @@ function ow.ShatterSurface:update(delta)
     for part in values(self._parts) do
         part.x, part.y = part.body:get_position()
         part.angle = part.body:get_rotation()
-
-        part.offset[1], part.offset[2], part.offset[3] = part.x, part.y, part.angle
-
-        if self._collision_radius ~= nil then
-
-        end
     end
 end
 
@@ -683,16 +715,18 @@ function ow.ShatterSurface:draw()
     if not self._is_done then
         self._pre_shatter_mesh:draw()
     else
-        for n, data in pairs(self._n_vertices_to_data) do
-            data.shader:bind()
-            data.shader:send("offsets", table.unpack(data.offsets))
-            data.instance_mesh:draw_instanced(data.n_instances)
-            data.shader:unbind()
-        end
-
         rt.Palette.BLACK:bind()
         for part in values(self._parts) do
-            love.graphics.polygon("line", part.vertices)
+            love.graphics.push()
+            love.graphics.translate(part.x, part.y)
+            love.graphics.rotate(part.angle) -- part centered at origin
+
+            rt.Palette.WHITE:bind()
+            love.graphics.draw(part.mesh:get_native())
+
+            rt.Palette.BLACK:bind()
+            --love.graphics.polygon("line", part.vertices)
+            love.graphics.pop()
         end
 
         if self._seeds ~= nil then
