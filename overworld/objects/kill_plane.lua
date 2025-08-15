@@ -13,7 +13,6 @@ function ow.KillPlane:instantiate(object, stage, scene)
     if _inner_shader == nil then _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 }) end
     if _outer_shader == nil then _outer_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 1 }) end
 
-
     self._scene = scene
     self._stage = stage
 
@@ -286,22 +285,6 @@ function ow.KillPlane:instantiate(object, stage, scene)
             i = i + 1
         end
     end
-
-    --[[
-    do -- last triangle needs separate coords, otherwise it would interpolate between uv.x = 0 and uv.y = 1
-        local a = table.deepcopy(outer_mesh_data[vertex_i - 4 + 1])
-        local b = table.deepcopy(outer_mesh_data[vertex_i - 4 + 3])
-        local c = table.deepcopy(outer_mesh_data[3])
-
-        for which in range(a, b, c) do
-            which[3] = 1 -- override uv.x
-            table.insert(outer_mesh_data, which)
-
-            table.insert(outer_mesh_vertex_map, vertex_i)
-            vertex_i = vertex_i + 1
-        end
-    end
-    ]]--
 
     self._outer_mesh = rt.Mesh(
         outer_mesh_data,
