@@ -52,7 +52,7 @@ float dirac(float x) {
 }
 
 uniform float elapsed;
-uniform vec4 color;
+uniform vec4 color = vec4(1, 0, 1, 1);
 uniform bool bloom_active = false;
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {

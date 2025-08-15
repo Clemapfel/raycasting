@@ -1,53 +1,3 @@
-#if APPLY_VERTEX_SHADER
-#ifdef VERTEX
-
-#ifndef N_INSTANCES
-#error "N_INSTANCES undefined"
-#endif
-
-#ifndef N_VERTICES
-#error "N_VERTICES undefined"
-#endif
-
-vec2 rotate(vec2 v, float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
-    return v * mat2(c, -s, s, c);
-}
-
-// default mesh attributes ignored
-layout (location = 0) in vec4 VertexPosition;
-layout (location = 1) in vec4 VertexTexCoord;
-layout (location = 2) in vec4 VertexColor;
-
-uniform vec2 positions[N_INSTANCES * N_VERTICES];
-uniform vec2 texture_coordinates[N_INSTANCES * N_VERTICES];
-uniform vec3 offsets[N_INSTANCES];
-
-out vec4 VaryingTexCoord;
-out vec4 VaryingColor;
-
-void vertexmain() {
-    int instance_id = gl_InstanceID;
-    int index = instance_id * N_VERTICES + gl_VertexID;
-
-    // read vertex attributes from uniform instead
-    vec2 position = positions[index];
-    vec3 entry = offsets[instance_id];
-    vec2 uv = texture_coordinates[index];
-
-    position = rotate(position, entry.z);
-    position.xy += entry.xy;
-
-    VaryingColor = gammaCorrectColor(ConstantColor);
-    VaryingTexCoord.xy = uv;
-    love_Position = TransformProjectionMatrix * vec4(position, 0, 1);
-}
-
-#endif // VERTEX
-#endif // APPLY_VERTEX_SHADER
-
-/*
 #ifdef PIXEL
 
 vec3 lch_to_rgb(vec3 lch) {
@@ -84,6 +34,14 @@ vec3 random_3d(in vec3 p) {
     dot(p, vec3(113.5, 271.9, 124.6)))
     ) * 43758.5453123);
 }
+#define PI 3.1415926535897932384626433832795
+
+float gaussian(float x, float ramp)
+{
+    // e^{-\frac{4\pi}{3}\left(r\cdot\left(x-c\right)\right)^{2}}
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
+
 
 float gradient_noise(vec3 p) {
     vec3 i = floor(p);
@@ -102,8 +60,8 @@ float gradient_noise(vec3 p) {
 }
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 _) {
-    return vec4(lch_to_rgb(vec3(0.8, 1, gradient_noise(vec3(texture_coords * 10, 0)))), 1);
+    float outline = length(texture_coords.xy);
+    return vec4(mix(vec3(0), color.rgb, outline), 1);
 }
 
 #endif
-*/

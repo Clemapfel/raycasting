@@ -20,21 +20,7 @@ rt.settings.overworld.shatter_surface = {
 --- @class ow.ShatterSurface
 ow.ShatterSurface = meta.class("ShatterSurface")
 
---- @brief
-function ow.ShatterSurface:instantiate(world, x, y, width, height)
-    meta.assert(world, "PhysicsWorld")
-    self._world = world
-    self._bounds = rt.AABB(x, y, width, height)
-    self._parts = {}
-    self._pre_shatter_mesh = rt.MeshRectangle(x, y, width, height)
-
-    self._is_shattered = false
-    self._is_done = false
-    self._callback = nil -- coroutine
-    self._time_dilation = 1
-end
-
-function polygon_area(vertices)
+local function polygon_area(vertices)
     local area = 0
     local n = #vertices / 2
 
@@ -389,108 +375,119 @@ local mesh_format = {
 -- This version fixes quad triangulation (including the closing edge) and adds
 -- corner-filling triangles by only appending indices to the vertex map.
 local function generate_mesh(contour, rim_thickness)
-    if rim_thickness == nil then rim_thickness = 2 end
+    if rim_thickness == nil then rim_thickness = 3 end
     contour = table.deepcopy(contour)
 
-    -- compute inner region + UVs from AABB
-    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
-    for i = 1, #contour, 2 do
-        local x, y = contour[i + 0], contour[i + 1]
-        min_x = math.min(min_x, x)
-        min_y = math.min(min_y, y)
-        max_x = math.max(max_x, x)
-        max_y = math.max(max_y, y)
-    end
+    local n_vertices = #contour / 2
 
-    local mesh_data = {}
-    for i = 1, #contour, 2 do
-        local x, y = contour[i + 0], contour[i + 1]
-        local u = (max_x ~= min_x) and (x - min_x) / (max_x - min_x) or 0
-        local v = (max_y ~= min_y) and (y - min_y) / (max_y - min_y) or 0
-        table.insert(mesh_data, {
-            x, y,            -- position
-            u, v,            -- tex coords
-            1, 1, 1, 1       -- rgba
-        })
-    end
-
-    -- triangulate inner polygon (convex) using existing class
-    local vertex_map = rt.DelaunayTriangulation(contour):get_triangle_vertex_map()
-
-    -- attribute shorthands for rim vertices
-    local inner = function() return 1, 1, 1, 1, 1, 1 end -- uv=(1,1), color=white
-    local rim_inner = function() return 1, 1, 0, 0, 0, 1  end
-    local rim_outer = function() return 1, 1, 0, 0, 0, 1 end -- uv=(1,1), color=black
-
-    local n_vertices_inner = #contour / 2
-    local vertex_i = #mesh_data -- start index for newly appended rim vertices
-
-    -- Build quads per edge, including the closing edge from last->first.
-    -- For edge k: v_k -> v_next, we append 4 vertices:
-    --   base+1: duplicate inner v_k
-    --   base+2: outer of v_k
-    --   base+3: duplicate inner v_next
-    --   base+4: outer of v_next
-    -- Then add two triangles: (base+1, base+2, base+3) and (base+3, base+2, base+4)
-    for k = 1, n_vertices_inner do
-        local next_k = math.wrap(k + 1, n_vertices_inner)
+    -- Build inward offset lines per edge (clockwise polygon assumed).
+    -- For edge k: v_k -> v_next, inward normal = -turn_left(tangent)
+    local edges = {}
+    for k = 1, n_vertices do
+        local next_k = math.wrap(k + 1, n_vertices)
 
         local i1 = 2 * k - 1
-        local i2 = 2 * k
-        local i3 = 2 * next_k - 1
-        local i4 = 2 * next_k
+        local i2 = 2 * next_k - 1
 
-        local x1, y1 = contour[i1], contour[i2]
-        local x2, y2 = contour[i3], contour[i4]
+        local x1, y1 = contour[i1], contour[i1 + 1]
+        local x2, y2 = contour[i2], contour[i2 + 1]
 
-        -- outward normal (clockwise winding guaranteed)
-        local dx, dy = math.turn_left(math.normalize(x2 - x1, y2 - y1))
-        dx = dx * rim_thickness
-        dy = dy * rim_thickness
+        local tx, ty = math.normalize(x2 - x1, y2 - y1)
+        local nx, ny = math.turn_left(tx, ty)       -- outward for CW
+        nx, ny = -nx, -ny                           -- inward for CW
 
-        local outer_x1, outer_y1 = x1 + dx, y1 + dy
-        local outer_x2, outer_y2 = x2 + dx, y2 + dy
+        local ox, oy = nx * rim_thickness, ny * rim_thickness
+        local px, py = x1 + ox, y1 + oy
+        local qx, qy = x2 + ox, y2 + oy
 
-        -- append rim quad vertices
-        table.insert(mesh_data, { x1,        y1,        rim_inner() })
-        table.insert(mesh_data, { outer_x1,  outer_y1,  rim_outer() })
-        table.insert(mesh_data, { x2,        y2,        rim_inner() })
-        table.insert(mesh_data, { outer_x2,  outer_y2,  rim_outer() })
+        edges[k] = { px = px, py = py, dx = qx - px, dy = qy - py }
+    end
 
-        local base = vertex_i
-        -- triangulate the quad for this edge
+    local function cross(ax, ay, bx, by) return ax * by - ay * bx end
+
+    -- Compute inset polygon as intersections of adjacent inward-offset edges
+    local inset = {}
+    for k = 1, n_vertices do
+        local prev_k = math.wrap(k - 1, n_vertices)
+        local e_prev = edges[prev_k]
+        local e_curr = edges[k]
+
+        local ppx, ppy, prx, pry = e_prev.px, e_prev.py, e_prev.dx, e_prev.dy
+        local qpx, qpy, qrx, qry = e_curr.px, e_curr.py, e_curr.dx, e_curr.dy
+
+        local rxs = cross(prx, pry, qrx, qry)
+        local ix, iy
+        if math.abs(rxs) < 1e-6 then
+            -- Fallback: parallel edges (degenerate). Offset current vertex along current inward normal.
+            local i1 = 2 * k - 1
+            local vx, vy = contour[i1], contour[i1 + 1]
+            local next_k = math.wrap(k + 1, n_vertices)
+            local j1 = 2 * next_k - 1
+            local tx, ty = math.normalize(contour[j1] - vx, contour[j1 + 1] - vy)
+            local nx, ny = math.turn_left(tx, ty); nx, ny = -nx, -ny
+            ix, iy = vx + nx * rim_thickness, vy + ny * rim_thickness
+        else
+            local qmpx, qmpy = qpx - ppx, qpy - ppy
+            local t = cross(qmpx, qmpy, qrx, qry) / rxs
+            ix, iy = ppx + prx * t, ppy + pry * t
+        end
+
+        table.insert(inset, ix)
+        table.insert(inset, iy)
+    end
+
+    -- Mesh data: first, the fill region is the inset polygon (no overlap with rim)
+    local mesh_data = {}
+    for i = 1, #inset, 2 do
+        local x, y = inset[i], inset[i + 1]
+        -- position (x,y), tex (0,0), color (white)
+        table.insert(mesh_data, { x, y, 0, 0, 1, 1, 1, 1 })
+    end
+
+    -- Triangulate the inset polygon (convex) for the fill
+    local vertex_map = rt.DelaunayTriangulation(inset):get_triangle_vertex_map()
+
+    -- Attribute shorthands for rim vertices (keep as in original)
+    local rim_inner = function(t) return 1.0, 1.0, 1, 1, 1, 1 end -- on original boundary
+    local rim_outer = function(t) return 1.0, 1.0, 1, 1, 1, 1 end -- on inset boundary
+
+    -- Build rim quads per edge using ORIGINAL boundary and INSET boundary
+    -- For edge k: v_k -> v_next, inset: w_k -> w_next
+    -- Append 4 vertices per edge:
+    --   base+1: original v_k           (rim_inner)
+    --   base+2: inset w_k              (rim_outer)
+    --   base+3: original v_next        (rim_inner)
+    --   base+4: inset w_next           (rim_outer)
+    -- Triangles: (base+1, base+2, base+3) and (base+3, base+2, base+4)
+    -- This tiles the annulus without gaps/overlaps; no extra corner fill needed.
+    local base_start = #mesh_data
+    for k = 1, n_vertices do
+        local next_k = math.wrap(k + 1, n_vertices)
+
+        local i1 = 2 * k - 1
+        local j1 = 2 * next_k - 1
+
+        local x1, y1 = contour[i1], contour[i1 + 1]
+        local x2, y2 = contour[j1], contour[j1 + 1]
+
+        local ix1, iy1 = inset[i1], inset[i1 + 1]
+        local ix2, iy2 = inset[j1], inset[j1 + 1]
+
+        table.insert(mesh_data, { x1,  y1,  rim_inner() })
+        table.insert(mesh_data, { ix1, iy1, rim_outer() })
+        table.insert(mesh_data, { x2,  y2,  rim_inner() })
+        table.insert(mesh_data, { ix2, iy2, rim_outer() })
+
+        local base = base_start + (k - 1) * 4
         for j in range(
             base + 1, base + 2, base + 3, -- tri 1
             base + 3, base + 2, base + 4  -- tri 2
         ) do
             table.insert(vertex_map, j)
         end
-
-        vertex_i = vertex_i + 4
     end
 
-    -- Fill corner gaps between adjacent quads using only rim vertices.
-    -- For each corner k, we'll use:
-    -- - The duplicate inner vertex for this corner (base_curr + 1)
-    -- - The outer vertex from previous edge (base_prev + 4)
-    -- - The outer vertex from current edge (base_curr + 2)
-    for k = 1, n_vertices_inner do
-        local prev_k = math.wrap(k - 1, n_vertices_inner)
-
-        local base_curr = n_vertices_inner + (k - 1) * 4
-        local base_prev = n_vertices_inner + (prev_k - 1) * 4
-
-        -- Use the duplicate inner vertex (base_curr + 1) instead of original inner vertex
-        local inner_dup = base_curr + 1
-        local outer_prev = base_prev + 4  -- previous edge's outer at its end (vertex k)
-        local outer_curr = base_curr + 2  -- current edge's outer at its start (vertex k)
-
-        for j in range(inner_dup, outer_prev, outer_curr) do
-            table.insert(vertex_map, j)
-        end
-    end
-
-    -- build mesh
+    -- Build mesh
     local mesh = rt.Mesh(
         mesh_data,
         rt.MeshDrawMode.TRIANGLES,
@@ -500,6 +497,39 @@ local function generate_mesh(contour, rim_thickness)
     mesh:set_vertex_map(vertex_map)
     return mesh
 end
+
+
+local _shader
+
+--- @brief
+function ow.ShatterSurface:instantiate(world, x, y, width, height)
+    if _shader == nil then
+        _shader = rt.Shader("overworld/shatter_surface.glsl")
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "j" then
+                _shader:recompile()
+            end
+        end)
+    end
+
+    meta.assert(world, "PhysicsWorld")
+    self._world = world
+    self._bounds = rt.AABB(x, y, width, height)
+    self._parts = {}
+    self._pre_shatter_mesh = generate_mesh({
+        x, y,
+        x + width, y,
+        x + width, y + height,
+        x, y + height
+    }, 10)
+
+    self._is_shattered = false
+    self._is_done = false
+    self._callback = nil -- coroutine
+    self._time_dilation = 1
+end
+
 
 --- @brief
 function ow.ShatterSurface:shatter(origin_x, origin_y)
@@ -683,7 +713,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
 
         local entry_i = 1
         for part in values(self._parts) do
-            part.color = { rt.lcha_to_rgba(0.8, 1, (entry_i - 1) / #self._parts, 1) }
+            part.color = { rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1) }
             part.mass = (part.mass - min_mass) / (max_mass - min_mass) -- normalize mass
             part.velocity_magnitude = math.mix(1, 2, (1 - part.distance / max_distance)) * settings.velocity_magnitude
 
@@ -723,31 +753,20 @@ end
 
 --- @brief
 function ow.ShatterSurface:draw()
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, 0.8, 1))
+    _shader:bind()
     if not self._is_done then
         self._pre_shatter_mesh:draw()
     else
-        rt.Palette.BLACK:bind()
         for part in values(self._parts) do
             love.graphics.push()
             love.graphics.translate(part.x, part.y)
             love.graphics.rotate(part.angle) -- part centered at origin
-
-            rt.Palette.WHITE:bind()
             love.graphics.draw(part.mesh:get_native())
-
-            rt.Palette.BLACK:bind()
-            --love.graphics.polygon("line", part.vertices)
             love.graphics.pop()
         end
-
-        if self._seeds ~= nil then
-            for i = 1, #self._seeds, 2 do
-                local seed_x, seed_y = self._seeds[i], self._seeds[i + 1]
-                love.graphics.circle("fill", seed_x, seed_y, 2)
-            end
-        end
     end
+    _shader:unbind()
 end
 
 --- @brief
