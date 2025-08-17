@@ -279,6 +279,46 @@ function math.round(x)
     return x + 0.5 - (x + 0.5) % 1
 end
 
+local function _gcd(a, b)
+    -- stein's algorithm
+    if a == 0 then return b end
+    if b == 0 then return a end
+
+    local shift = 0
+    while ((bit.band(a, 1) == 0) and (bit.band(b, 1) == 0)) do
+        a = bit.rshift(a, 1)
+        b = bit.rshift(b, 1)
+        shift = shift + 1
+    end
+
+    while (bit.band(a, 1) == 0) do
+        a = bit.rshift(a, 1)
+    end
+
+    repeat
+        while (bit.band(b, 1) == 0) do
+            b = bit.rshift(b, 1)
+        end
+        if a > b then
+            a, b = b, a
+        end
+        b = b - a
+    until b == 0
+
+    return bit.lshift(a, shift)
+end
+
+--- @brief
+--- @param ... Number positive integers
+function math.gcd(...)
+    local result = math.abs(select(1, ...))
+    for i = 2, select("#", ...) do
+        result = _gcd(result, math.abs(select(i, ...)))
+        if result == 1 then break end
+    end
+    return result
+end
+
 --- @brief non-short-circuiting and
 --- @param ... Boolean
 function math.nand(...)

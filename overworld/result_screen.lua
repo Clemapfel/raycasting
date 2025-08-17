@@ -43,13 +43,15 @@ function ow.ResultScreen:size_allocate(x, y, width, height)
     local x_radius = 0.5 * self._mesh_area.width
     local y_radius = x_radius
 
-    local n_outer_vertices = 4 * 16
+    local n_outer_vertices
     local outline_width = 50
 
     -- Calculate rectangle bounds (inner and outer)
     local inner_rect, outer_rect
 
     do
+        local sides = {}
+
         local rx, ry, w, h = self._mesh_area:unpack()
         outer_rect = rt.Path(
             rx + 0, ry + 0,
@@ -59,6 +61,8 @@ function ow.ResultScreen:size_allocate(x, y, width, height)
             rx + 0, ry + 0
         )
 
+        local ow, oh = w, h -- outer size
+
         rx, ry, w, h = rx + outline_width, ry + outline_width, w - 2 * outline_width, h - 2 * outline_width
         inner_rect = rt.Path(
             rx + 0, ry + 0,
@@ -67,6 +71,20 @@ function ow.ResultScreen:size_allocate(x, y, width, height)
             rx + 0, ry + h,
             rx + 0, ry + 0
         )
+
+        local iw, ih = w, h -- inner size
+        local gcd = math.gcd(
+            iw,
+            iw + ih,
+            iw + ih + iw,
+            iw + ih + iw + ih,
+            iw + ih + iw + ih + ow,
+            iw + ih + iw + ih + ow + oh,
+            iw + ih + iw + ih + ow + oh + ow,
+            iw + ih + iw + ih + ow + oh + ow + oh
+        )
+
+        n_outer_vertices = (iw + ih + iw + ih + ow + oh + ow + oh) / gcd
     end
 
     self._vertex_i_to_path = {}
@@ -130,14 +148,14 @@ function ow.ResultScreen:size_allocate(x, y, width, height)
         table.insert(self._mesh_data, {
             ring_inner_x, ring_inner_y, -- xy (starting position)
             (cos_a + 1) * 0.5, (sin_a + 1) * 0.5, -- uv (normalized)
-            1, 1, 1, 1          -- rgba (inner color)
+            1, 1, 1, 1 -- rgba (inner color)
         })
 
         -- Add outer vertex to mesh data
         table.insert(self._mesh_data, {
             ring_outer_x, ring_outer_y, -- xy (starting position)
             (cos_a + 1) * 0.5, (sin_a + 1) * 0.5, -- uv (normalized)
-            0, 0, 0, 1          -- rgba (outer color)
+            0, 0, 0, 1 -- rgba (outer color)
         })
 
         vertex_i = vertex_i + 2
@@ -209,7 +227,7 @@ end
 --- @brief
 function ow.ResultScreen:draw()
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(self._mesh:get_native())
+    --love.graphics.draw(self._mesh:get_native())
 
     love.graphics.setPointSize(3)
     love.graphics.points(self._dbg)
