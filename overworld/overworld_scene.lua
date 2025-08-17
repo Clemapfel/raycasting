@@ -6,7 +6,7 @@ require "overworld.stage"
 require "common.camera"
 require "common.player"
 require "overworld.coin_effect"
-require "overworld.results_screen"
+require "overworld.result_screen"
 require "physics.physics"
 require "menu.pause_menu"
 require "common.bloom"
@@ -99,7 +99,9 @@ function ow.OverworldScene:instantiate(state)
 
         _timer_started = false,
         _timer_paused = false,
-        _timer = 0
+        _timer = 0,
+
+        _result_screen = ow.ResultsScreen()
     })
 
     local translation = rt.Translation.overworld_scene
@@ -285,6 +287,7 @@ function ow.OverworldScene:instantiate(state)
     self._background:realize()
     self._pause_menu:realize()
     self._title_card:realize()
+    self._result_screen:realize()
     self._non_bubble_control_indicator:realize()
     self._bubble_control_indicator:realize()
 
@@ -406,6 +409,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._background:reformat(0, 0, width, height)
     self._pause_menu:reformat(0, 0, width, height)
     self._title_card:reformat(0, 0, width, height)
+    self._result_screen:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -1019,3 +1023,10 @@ end
 function ow.OverworldScene:get_player_canvas()
     return self._player_canvas, self._player_canvas_scale, self._player_canvas_scale
 end
+
+--- @brief
+function ow.OverworldScene:show_result_screen()
+    self._result_screen:present(self._camera:world_xy_to_screen_xy(self._player:get_position()))
+end
+
+
