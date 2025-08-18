@@ -73,23 +73,13 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     float bm = texture(img, texture_coordinates + vec2(0.0, offset.y)).a;        // bottom-middle
     float br = texture(img, texture_coordinates + vec2(offset.x, offset.y)).a;   // bottom-right
 
-    tl = smoothstep(threshold - smoothness, threshold + smoothness, tl);
-    tm = smoothstep(threshold - smoothness, threshold + smoothness, tm);
-    tr = smoothstep(threshold - smoothness, threshold + smoothness, tr);
-    ml = smoothstep(threshold - smoothness, threshold + smoothness, ml);
-    mm = smoothstep(threshold - smoothness, threshold + smoothness, mm);
-    mr = smoothstep(threshold - smoothness, threshold + smoothness, mr);
-    bl = smoothstep(threshold - smoothness, threshold + smoothness, bl);
-    bm = smoothstep(threshold - smoothness, threshold + smoothness, bm);
-    br = smoothstep(threshold - smoothness, threshold + smoothness, br);
-
     // Sobel X gradient: [-1, 0, 1; -2, 0, 2; -1, 0, 1]
     float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
 
     // Sobel Y gradient: [-1, -2, -1; 0, 0, 0; 1, 2, 1]
     float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
-    float magnitude = length(vec2(gradient_x, gradient_y));
+    float magnitude = smoothstep(0.9, 1, length(vec2(gradient_x, gradient_y)));
     float alpha = mm; // center pixel alpha (already processed with smoothstep)
 
     float noise = 0.1 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
