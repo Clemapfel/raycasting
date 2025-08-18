@@ -12,8 +12,8 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "k" then
         local w, h = love.graphics.getDimensions()
         screen:present(
-            rt.random.number(0.25, 0.75, w),
-            rt.random.number(0.25, 0.75, h)
+            rt.random.number(0.25, 0.75) * w,
+            rt.random.number(0.25, 0.75) * h
         )
     end
 end)
@@ -21,7 +21,7 @@ end)
 love.load = function(args)
     -- intialize all scenes
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -40,15 +40,15 @@ end
 love.update = function(delta)
     rt.SceneManager:update(delta)
 
-    screen:update(delta)
+    --screen:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
     rt.SceneManager:draw()
 
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
-    screen:draw()
+   --love.graphics.clear(0.5, 0.5, 0.5, 1)
+   -- screen:draw()
 end
 
 love.resize = function(width, height)

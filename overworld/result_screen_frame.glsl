@@ -23,23 +23,6 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0, 1.0, 1.0)), v - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
 }
 
-float fractal_noise(vec3 p, int octaves, float persistence, float lacunarity) {
-    float value = 0.0;
-    float amplitude = 1.0;
-    float frequency = 1.0;
-    float max_value = 0.0;
-
-    for (int i = 0; i < octaves; i++) {
-        value += gradient_noise(p * frequency) * amplitude;
-        max_value += amplitude;
-        amplitude *= persistence;
-        frequency *= lacunarity;
-    }
-
-    return value / max_value;
-}
-
-
 vec3 lch_to_rgb(vec3 lch) {
     float L = lch.x * 100.0;
     float C = lch.y * 100.0;
@@ -95,15 +78,25 @@ uniform float elapsed;
 
 #if MODE == MODE_FRAME
 
-uniform vec4 black;
 
 #endif
 
+uniform vec4 black;
+
 vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
+
+    float mask = 1 - smoothstep(0, 0.4, texture_coords.y);
+
+    #if MODE == MODE_MASK
+
+    return black * mask;
+
+    #elif MODE == MODE_FRAME
+
     vec2 uv = texture_coords.xy;
 
-    const float noise_scale = 10;
-    float time = elapsed / 10;
+    const float noise_scale = 20;
+    float time = elapsed / 20;
     float inner_noise = gradient_noise(noise_scale * vec3(vec2(symmetric(uv.x)), time));
     float outer_noise = gradient_noise(noise_scale * vec3(vec2(symmetric(uv.x)), 10 + time));
 
@@ -111,37 +104,19 @@ vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) 
     uv.y += noise_strength * 0.25 * mix(inner_noise, outer_noise, texture_coords.y);
 
     const float frame_thickness = 0.2;
-    float inner = smoothstep(0, 0.4, 1 - 1.2 * symmetric(uv.y));
-    float outer = smoothstep(0, 0.2, 1 - 1.2 * symmetric(uv.y));
+    float inner = smoothstep(0.05, 0.2, 1 - 1.5 * symmetric(uv.y));
+    float outer = smoothstep(0.05, 0.2, 1 - 1.15 * symmetric(uv.y));
 
-    vec4 black = vec4(0, 0, 0, 1);
-    vec4 foreground = vec4(lch_to_rgb(vec3(0.8, 1, uv.x + time)), 1);
+    vec4 foreground = vec4(lch_to_rgb(vec3(0.8, 1, 2 * uv.x + elapsed / 4)), 1);
 
-    return black * outer + foreground * inner;
+    float alpha = max(inner, outer);
 
-    /*
+    // mask away lower alpha artifacts in inner region
+    float inner_mask = 1 - smoothstep(0, 0.08, texture_coords.y);
+    alpha -= inner_mask;
 
-    float mask = 1 - smoothstep(0, 1, texture_coords.y);
-    mask -= (gradient_noise(10 * vec3(vec2(symmetric(uv.x)), elapsed / 10)) + 1) / 2;
-    mask = clamp(mask, 0, 1);
-
-    uv.y -= 0.5 * (gradient_noise(10 * vec3(vec2(symmetric(uv.x)), elapsed / 10)) + 1) / 2;
-
-    float inner = smoothstep(0, 0.2, gaussian(uv.y, 1.5));
-    float outer = smoothstep(0, 0.1, gaussian(uv.y, 1.5)) - smoothstep(0, 1, mask);
-
-    vec4 black = vec4(0, 0, 0, 1);
-    vec4 foreground = vec4(lch_to_rgb(vec3(0.8, 1, uv.x)), mask);
-
-
-    return black * outer; // + foreground * inner;
-
-    #if MODE == MODE_MASK
-
-    #elif MODE == MODE_FRAME
-
+    return vec4(mix(black, foreground, 1 - inner).rgb, alpha);
     #endif
-    */
 }
 
 #endif

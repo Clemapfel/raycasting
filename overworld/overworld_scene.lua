@@ -101,7 +101,8 @@ function ow.OverworldScene:instantiate(state)
         _timer_paused = false,
         _timer = 0,
 
-        ---_result_screen = ow.ResultsScreen()
+        _result_screen = ow.ResultScreen(),
+        _result_screen_active = false
     })
 
     local translation = rt.Translation.overworld_scene
@@ -287,7 +288,7 @@ function ow.OverworldScene:instantiate(state)
     self._background:realize()
     self._pause_menu:realize()
     self._title_card:realize()
-    --self._result_screen:realize()
+    self._result_screen:realize()
     self._non_bubble_control_indicator:realize()
     self._bubble_control_indicator:realize()
 
@@ -409,7 +410,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._background:reformat(0, 0, width, height)
     self._pause_menu:reformat(0, 0, width, height)
     self._title_card:reformat(0, 0, width, height)
-    --self._result_screen:reformat(0, 0, width, height)
+    self._result_screen:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -631,6 +632,10 @@ function ow.OverworldScene:draw()
         love.graphics.circle("line", x, y, 6 * scale)
     end
 
+    if self._result_screen_active then
+        self._result_screen:draw()
+    end
+
     if self._pause_menu_active then
         self._pause_menu:draw()
     end
@@ -747,6 +752,10 @@ function ow.OverworldScene:update(delta)
     end
 
     self._control_indicator_motion:update(delta)
+
+    if self._result_screen_active then
+        self._result_screen:update(delta)
+    end
 
     if self._pause_menu_active then
         self._pause_menu:update(delta)
@@ -936,6 +945,7 @@ function ow.OverworldScene:respawn()
     self._stage:get_active_checkpoint():spawn()
     self._stage:reset_coins()
     self._camera:set_position(self._player:get_position())
+
 end
 
 --- @brief
@@ -1027,7 +1037,16 @@ end
 
 --- @brief
 function ow.OverworldScene:show_result_screen()
+    self._result_screen_active = true
     self._result_screen:present(self._camera:world_xy_to_screen_xy(self._player:get_position()))
+end
+
+--- @brief
+function ow.OverworldScene:hide_result_screen()
+    self._result_screen:hide()
+    self._result_screen:signal_connect("hidden", function()
+        self._result_screen_active = false
+    end)
 end
 
 

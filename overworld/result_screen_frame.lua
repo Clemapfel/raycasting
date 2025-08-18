@@ -2,6 +2,8 @@ require "common.timed_animation_sequence"
 
 --- @class ow.ResultScreenFrame
 ow.ResultScreenFrame = meta.class("ResultScreenFrame", rt.Widget)
+meta.add_signal(ow.ResultScreenFrame, "revealed")
+meta.add_signal(ow.ResultScreenFrame, "hidden")
 
 local _draw_shader, _mask_shader
 
@@ -19,10 +21,10 @@ function ow.ResultScreenFrame:instantiate()
         end)
     end
 
-
     self._mesh_animation = rt.AnimationChain(
         1, 0, 1, rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
     )
+    self._signal_emitted = false
 
     self._present_x, self._present_y = 0, 0
     self._rect_area = rt.AABB()
@@ -34,8 +36,80 @@ end
 function ow.ResultScreenFrame:present(x, y)
     self._present_x, self._present_y = x, y
     self._mesh_animation:reset()
+    self._signal_emitted = false
     self:_update_mesh_paths()
     self:update(0)
+end
+
+-- Create outer rounded rectangle path
+local function create_rect_path(x, y, width, height, radius)
+    local path_points = {}
+
+    -- Clamp radius to not exceed half of smaller dimension
+    radius = math.min(radius, width * 0.5, height * 0.5)
+
+    -- Starting point: center of right side
+    table.insert(path_points, x + width)
+    table.insert(path_points, y + 0.5 * height)
+
+    -- Right side to bottom-right corner start
+    table.insert(path_points, x + width)
+    table.insert(path_points, y + height - radius)
+
+    -- Bottom-right rounded corner (quarter circle)
+    local steps = 8 -- Number of steps for corner smoothness
+    for i = 1, steps do
+        local angle = (i / steps) * (math.pi * 0.5) -- 0 to 90 degrees
+        local corner_x = x + width - radius + radius * math.cos(angle)
+        local corner_y = y + height - radius + radius * math.sin(angle)
+        table.insert(path_points, corner_x)
+        table.insert(path_points, corner_y)
+    end
+
+    -- Bottom side
+    table.insert(path_points, x + radius)
+    table.insert(path_points, y + height)
+
+    -- Bottom-left rounded corner
+    for i = 1, steps do
+        local angle = math.pi * 0.5 + (i / steps) * (math.pi * 0.5) -- 90 to 180 degrees
+        local corner_x = x + radius + radius * math.cos(angle)
+        local corner_y = y + height - radius + radius * math.sin(angle)
+        table.insert(path_points, corner_x)
+        table.insert(path_points, corner_y)
+    end
+
+    -- Left side
+    table.insert(path_points, x)
+    table.insert(path_points, y + radius)
+
+    -- Top-left rounded corner
+    for i = 1, steps do
+        local angle = math.pi + (i / steps) * (math.pi * 0.5) -- 180 to 270 degrees
+        local corner_x = x + radius + radius * math.cos(angle)
+        local corner_y = y + radius + radius * math.sin(angle)
+        table.insert(path_points, corner_x)
+        table.insert(path_points, corner_y)
+    end
+
+    -- Top side
+    table.insert(path_points, x + width - radius)
+    table.insert(path_points, y)
+
+    -- Top-right rounded corner
+    for i = 1, steps do
+        local angle = math.pi * 1.5 + (i / steps) * (math.pi * 0.5) -- 270 to 360 degrees
+        local corner_x = x + width - radius + radius * math.cos(angle)
+        local corner_y = y + radius + radius * math.sin(angle)
+        table.insert(path_points, corner_x)
+        table.insert(path_points, corner_y)
+    end
+
+    -- Return to starting point (center of right side)
+    table.insert(path_points, x + width)
+    table.insert(path_points, y + 0.5 * height)
+
+    return rt.Path(table.unpack(path_points))
 end
 
 --- @brief
@@ -57,8 +131,6 @@ function ow.ResultScreenFrame:_update_mesh_paths()
     local circle_x = self._bounds.x + 0.5 * self._bounds.width
     local circle_y = self._bounds.y + 0.5 * self._bounds.height
 
-    origin_x, origin_y = circle_x, circle_y
-
     local outline_width = 50
 
     local inner_rect, outer_rect -- rt.Paths
@@ -67,26 +139,18 @@ function ow.ResultScreenFrame:_update_mesh_paths()
     do -- compute n vertices such that setps fall exactly on corners of rectangle
         local sides = {}
         local rx, ry, w, h = self._rect_area:unpack()
-        outer_rect = rt.Path(
-            rx + w, ry + 0.5 * h,
-            rx + w, ry + h,
-            rx, ry + h,
-            rx, ry,
-            rx + w, ry,
-            rx + w, ry + 0.5 * h
-        )
+
+        local corner_radius = math.min(w, h) * 0.1 -- 10% of the smaller dimension
+
+        outer_rect = create_rect_path(rx, ry, w, h, corner_radius)
 
         local ow, oh = w, h -- outer size
 
         rx, ry, w, h = rx + outline_width, ry + outline_width, w - 2 * outline_width, h - 2 * outline_width
-        inner_rect = rt.Path(
-            rx + w, ry + 0.5 * h,
-            rx + w, ry + h,
-            rx, ry + h,
-            rx, ry,
-            rx + w, ry,
-            rx + w, ry + 0.5 * h
-        )
+
+        -- Create inner rounded rectangle with smaller corner radius
+        local inner_corner_radius = math.max(0, corner_radius - outline_width * 0.5)
+        inner_rect = create_rect_path(rx, ry, w, h, inner_corner_radius)
 
         local iw, ih = w, h -- inner size
 
@@ -139,7 +203,7 @@ function ow.ResultScreenFrame:_update_mesh_paths()
         local rect_x, rect_y = self._rect_area.x + 0.5 * self._rect_area.width, self._rect_area.y + 0.5 * self._rect_area.height
         local path = rt.Path(
             origin_x, origin_y,
-            origin_x, origin_y,
+            circle_x, circle_x,
             rect_x, rect_y
         )
 
@@ -330,13 +394,27 @@ function ow.ResultScreenFrame:update(delta)
     end
 
     self._mesh:replace_data(self._mesh_data)
+
+    if self._mesh_animation:get_fraction() >= 0.5 and self._signal_emitted == false then
+        self:signal_emit("revealed")
+        self._signal_emitted = true
+    end
 end
 
 --- @brief
 function ow.ResultScreenFrame:draw()
+    love.graphics.setColor(1, 1, 1, 1)
+
+    _mask_shader:bind()
+    _mask_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _mask_shader:send("black", { rt.Palette.BLACK:unpack() })
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._mesh:get_native())
+    _mask_shader:unbind()
+
     _draw_shader:bind()
     _draw_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    love.graphics.setColor(1, 1, 1, 1)
+    _draw_shader:send("black", { rt.Palette.BLACK:unpack() })
     love.graphics.draw(self._mesh:get_native())
     _draw_shader:unbind()
 

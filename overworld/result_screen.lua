@@ -25,6 +25,16 @@ function ow.ResultScreen:present(x, y)
 end
 
 --- @brief
+function ow.ResultScreen:hide()
+    self._frame:hide()
+end
+
+--- @brief
+function ow.ResultScreen:reset()
+    self._frame:reset()
+end
+
+--- @brief
 function ow.ResultScreen:realize()
     self._frame:realize()
 end

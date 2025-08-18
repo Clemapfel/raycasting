@@ -11,10 +11,10 @@ rt.settings.overworld.checkpoint = {
     ray_width_radius_factor = 4,
     ray_fade_out_duration = 0.5,
 
-
     goal_time_dilation = 0.05,
     goal_time_dilation_duration = 10 / 60,
     goal_line_width = 50, -- px
+    result_screen_delay = 2,
 }
 
 --- @class ow.Checkpoint
@@ -122,7 +122,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _goal_indicator_motion = rt.SmoothedMotion2D(),
 
         _goal_player_position_x = 0,
-        _goal_player_position_y = 0
+        _goal_player_position_y = 0,
+
+        _result_screen_revealed = false
     })
 
     stage:add_checkpoint(self, object.id, self._type)
@@ -433,10 +435,18 @@ function ow.Checkpoint:update(delta)
         if self._time_dilation_active == true then
             self._time_dilation_elapsed = self._time_dilation_elapsed + delta
             local fraction = self._time_dilation_elapsed / rt.settings.overworld.checkpoint.goal_time_dilation_duration
+
             fraction = rt.InterpolationFunctions.LINEAR(fraction)
             local dilation = math.mix(1, rt.settings.overworld.checkpoint.goal_time_dilation, fraction)
             self._shatter_surface:set_time_dilation(dilation)
             self._scene:get_player():set_velocity(dilation * self._shatter_velocity_x, dilation * self._shatter_velocity_y)
+
+            if self._time_dilation_elapsed >= rt.settings.overworld.checkpoint.result_screen_delay
+                and self._result_screen_revealed == false
+            then
+                self._scene:show_result_screen()
+                self._result_screen_revealed = true
+            end
         end
     end
 
