@@ -100,53 +100,48 @@ uniform vec4 black;
 #endif
 
 vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
-    vec2 uv = texture_coords;
-    float line_width = 30 / love_ScreenSize.x;
+    vec2 uv = texture_coords.xy;
 
-    float noise = fractal_noise(
-    vec3(0, vec2(1, 2) * (vertex_position.xy / love_ScreenSize.xy + vec2(elapsed / 10, 0))),
-        4, // octaves
-        1, // amplitude
-        2  // frequency
-    );
-
-    noise *= distance(uv.x, 0);
-
-    float center_fill = 1 - smoothstep(1 - 0.05, 1, length(texture_coords));
-    const float outline_thickness = 0.055;
-    float line_mask = smoothstep(1 - 0.25 + 0.075, 1 - 0.25, length(uv + noise + outline_thickness));
-    float outline_mask = smoothstep(1 - 0.25 + 0.01, 1 - 0.25, length(uv + noise)) - line_mask;
-
-    center_fill -= 1 - smoothstep(1 - 0.275 + 0.075, 1 - 0.25, length(vec2(1 - uv.y, uv.y) - uv + noise));
-    center_fill = max(center_fill, 0);
-    line_mask = min(line_mask, center_fill);
-
-    vec2 vertex_uv = vertex_position / love_ScreenSize.xy;
-    float sign_smooth = vertex_uv.x > 0.5 ? 1 : -1;
+    const float noise_scale = 10;
     float time = elapsed / 10;
+    float inner_noise = gradient_noise(noise_scale * vec3(vec2(symmetric(uv.x)), time));
+    float outer_noise = gradient_noise(noise_scale * vec3(vec2(symmetric(uv.x)), 10 + time));
 
-    // Calculate hue using the smooth sign to eliminate seam
-    float hue = vertex_uv.y + sign_smooth * time;
-    vec3 rainbow = line_mask * lch_to_rgb(vec3(0.8, 1, hue));
+    const float noise_strength = 0.5;
+    uv.y += noise_strength * 0.25 * mix(inner_noise, outer_noise, texture_coords.y);
 
-    float rainbow_diff = smoothstep(1 - 0.2, 1, center_fill);
-    vec4 line_color = vec4(rainbow.rgb, line_mask);
+    const float frame_thickness = 0.2;
+    float inner = smoothstep(0, 0.4, 1 - 1.2 * symmetric(uv.y));
+    float outer = smoothstep(0, 0.2, 1 - 1.2 * symmetric(uv.y));
 
-    float inside_mask = smoothstep(0, 0.2, max(1 - uv.x * 2, 0) - gaussian(max(1 - uv.y * 2, 0), 1));
+    vec4 black = vec4(0, 0, 0, 1);
+    vec4 foreground = vec4(lch_to_rgb(vec3(0.8, 1, uv.x + time)), 1);
+
+    return black * outer + foreground * inner;
+
+    /*
+
+    float mask = 1 - smoothstep(0, 1, texture_coords.y);
+    mask -= (gradient_noise(10 * vec3(vec2(symmetric(uv.x)), elapsed / 10)) + 1) / 2;
+    mask = clamp(mask, 0, 1);
+
+    uv.y -= 0.5 * (gradient_noise(10 * vec3(vec2(symmetric(uv.x)), elapsed / 10)) + 1) / 2;
+
+    float inner = smoothstep(0, 0.2, gaussian(uv.y, 1.5));
+    float outer = smoothstep(0, 0.1, gaussian(uv.y, 1.5)) - smoothstep(0, 1, mask);
+
+    vec4 black = vec4(0, 0, 0, 1);
+    vec4 foreground = vec4(lch_to_rgb(vec3(0.8, 1, uv.x)), mask);
+
+
+    return black * outer; // + foreground * inner;
 
     #if MODE == MODE_MASK
 
-    // stencil masking
-
-    if (inside_mask - line_mask < 1) discard;
-    return vec4(1);
-
     #elif MODE == MODE_FRAME
 
-    vec4 inside_color = vec4(black.rgb * inside_mask, inside_mask);
-    return vec4(mix(mix(inside_color, line_color, line_mask), black, outline_mask));
-
     #endif
+    */
 }
 
 #endif
