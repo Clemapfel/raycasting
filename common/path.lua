@@ -222,7 +222,7 @@ function rt.Path:override_parameterization(...)
         total = total + select(i, ...)
     end
 
-    if math.abs(total - 1) > 1e-10 then
+    if math.abs(total - 1) > 0.05 then
         rt.error("In rt.Path:override_parametrization: total length of override parameters is `" .. total .. "`, but `1` was expected")
         return
     end

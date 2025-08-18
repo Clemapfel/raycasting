@@ -308,7 +308,7 @@ local function _gcd(a, b)
     return bit.lshift(a, shift)
 end
 
---- @brief
+--- @brief greatest common divisor
 --- @param ... Number positive integers
 function math.gcd(...)
     local result = math.abs(select(1, ...))
@@ -316,6 +316,24 @@ function math.gcd(...)
         result = _gcd(result, math.abs(select(i, ...)))
         if result == 1 then break end
     end
+    return result
+end
+
+--- @brief least common multiple
+function math.lcm(...)
+    local n = select('#', ...)
+
+    local result = math.abs(select(1, ...))
+    if result == 0 then return 0 end
+
+    for i = 2, n do
+        local x = math.abs(select(i, ...))
+        if x == 0 then
+            return 0
+        end
+        result = math.floor((result * x) / math.gcd(result, x))
+    end
+
     return result
 end
 

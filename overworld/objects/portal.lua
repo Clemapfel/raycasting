@@ -10,7 +10,7 @@ rt.settings.overworld.portal = {
         min_scale = 0.3,
         max_scale = 0.6,
         coverage = 5,
-        collapse_speed = 6, -- fraction
+        collapse_speed = 10, -- fraction
     }
 }
 
@@ -54,6 +54,19 @@ local _t = 6
 
 local _FORWARD = true
 local _BACKWARDS = false
+
+
+local function _t_on_line_segment(x1, y1, x2, y2, px, py)
+    local segment_vec_x = x2 - x1
+    local segment_vec_y = y2 - y1
+    local point_vec_x = px - x1
+    local point_vec_y = py - y1
+
+    local t = math.dot(point_vec_x, point_vec_y, segment_vec_x, segment_vec_y) /
+        math.dot(segment_vec_x, segment_vec_y, segment_vec_x, segment_vec_y)
+
+    return 1 - math.clamp(t, 0, 1)
+end
 
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
@@ -102,6 +115,8 @@ function ow.Portal:instantiate(object, stage, scene)
     self._transition_contact_x, self._transition_contact_y = 0, 0
     self._transition_velocity_x, self._transition_velocity_y = 0, 0
     self._transition_speed = 0
+
+    self._entry_t = 0.5
 
     self._particles = {}
     self._static_canvas = nil
@@ -185,6 +200,9 @@ function ow.Portal:instantiate(object, stage, scene)
                     local player = self._scene:get_player()
                     self._pulse_elapsed = 0
                     self._transition_active = true
+
+                    self._entry_t = _t_on_line_segment(self._ax, self._ay, self._bx, self._by, contact_x, contact_y)
+                    self._target._entry_t = 0.5
 
                     self._collapse_active = true
                     self._transition_elapsed = 0
@@ -441,7 +459,7 @@ function ow.Portal:update(delta)
         particle[_t] = t
 
         if self._collapse_active then
-            t = 0.5
+            t = self._entry_t
         end
         local target_x, target_y = math.mix2(ax, ay, bx, by, t)
 
@@ -456,8 +474,9 @@ function ow.Portal:update(delta)
     if self._collapse_active and collapse_mean_distance < 2 * rt.settings.overworld.portal.particle.radius then
         self._collapse_active = false
     end
-end
 
+    self._canvas_needs_update = true
+end
 
 local function teleport_player(
     from_ax, from_ay, from_bx, from_by,
@@ -504,29 +523,11 @@ function ow.Portal:_teleport()
     player:teleport_to(new_x + radius * nvx, new_y + radius * nvy)
     player:set_velocity(new_vx, new_vy)
     player:set_hue(self._hue)
-
-
-    do
-        local contact_x, contact_y = self._transition_contact_x, self._transition_contact_y
-        new_vx, new_vy = math.normalize(new_vx, new_vy)
-
-        _dbg = {
-            {
-                new_x, new_y,
-                new_x + new_vx * 10,
-                new_y + new_vy * 10
-            }, {
-                contact_x, contact_y,
-                contact_x + new_vx * 10,
-                contact_y + new_vy * 10
-            }
-        }
-    end
 end
 
 --- @brief
 function ow.Portal:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._scene:get_is_body_visible(self._area_sensor) then return end
 
     local r, g, b, a = table.unpack(self._color)
 
@@ -557,6 +558,8 @@ function ow.Portal:draw()
 
         self._static_canvas:unbind()
         love.graphics.pop("all")
+
+        self._canvas_needs_update = false
     end
 
     _particle_shader:bind()
@@ -575,19 +578,6 @@ function ow.Portal:draw()
     )
     _particle_shader:unbind()
 
-    if self._transition_active then
-        --love.graphics.circle("fill", self._transition_x, self._transition_y, 5)
-    end
-
-    --[[
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setLineWidth(1)
-    self._segment_sensor:draw()
-
-    if _dbg ~= nil then
-        for l in values(_dbg) do love.graphics.line(l) end
-    end
-    ]]--
 
     if self._transition_active then
         love.graphics.push("all")
@@ -613,7 +603,7 @@ end
 
 --- @brief
 function ow.Portal:draw_bloom()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._scene:get_is_body_visible(self._area_sensor) then return end
     local r, g, b, a = table.unpack(self._color)
     love.graphics.setColor(r, g, b, 1)
     _pulse_shader:bind()

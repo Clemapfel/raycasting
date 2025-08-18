@@ -49,18 +49,6 @@ vec3 lch_to_rgb(vec3 lch) {
     return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
 }
 
-mat3 sobel_x = mat3(
--1, 0, 1,
--2, 0, 2,
--1, 0, 1
-);
-
-mat3 sobel_y = mat3(
--1, -2, -1,
-0, 0, 0,
-1, 2, 1
-);
-
 uniform float elapsed;
 uniform float hue;
 uniform vec3 black;
@@ -73,25 +61,39 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     float smoothness = 0.3; // smoothness factor for blending
 
     float outline_thickness = 0.5;
-    float gradient_x = 0.0;
-    float gradient_y = 0.0;
+    vec2 offset = pixel_size * outline_thickness;
 
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size * outline_thickness;
-            float value = texture(img, neighbor_uv).a;
-            value = smoothstep(threshold - smoothness, threshold + smoothness, value);
+    float tl = texture(img, texture_coordinates + vec2(-offset.x, -offset.y)).a; // top-left
+    float tm = texture(img, texture_coordinates + vec2(0.0, -offset.y)).a;      // top-middle
+    float tr = texture(img, texture_coordinates + vec2(offset.x, -offset.y)).a;  // top-right
+    float ml = texture(img, texture_coordinates + vec2(-offset.x, 0.0)).a;       // middle-left
+    float mm = texture(img, texture_coordinates).a;                              // center
+    float mr = texture(img, texture_coordinates + vec2(offset.x, 0.0)).a;        // middle-right
+    float bl = texture(img, texture_coordinates + vec2(-offset.x, offset.y)).a;  // bottom-left
+    float bm = texture(img, texture_coordinates + vec2(0.0, offset.y)).a;        // bottom-middle
+    float br = texture(img, texture_coordinates + vec2(offset.x, offset.y)).a;   // bottom-right
 
-            gradient_x += value * sobel_x[i + 1][j + 1];
-            gradient_y += value * sobel_y[i + 1][j + 1];
-        }
-    }
+    tl = smoothstep(threshold - smoothness, threshold + smoothness, tl);
+    tm = smoothstep(threshold - smoothness, threshold + smoothness, tm);
+    tr = smoothstep(threshold - smoothness, threshold + smoothness, tr);
+    ml = smoothstep(threshold - smoothness, threshold + smoothness, ml);
+    mm = smoothstep(threshold - smoothness, threshold + smoothness, mm);
+    mr = smoothstep(threshold - smoothness, threshold + smoothness, mr);
+    bl = smoothstep(threshold - smoothness, threshold + smoothness, bl);
+    bm = smoothstep(threshold - smoothness, threshold + smoothness, bm);
+    br = smoothstep(threshold - smoothness, threshold + smoothness, br);
+
+    // Sobel X gradient: [-1, 0, 1; -2, 0, 2; -1, 0, 1]
+    float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
+
+    // Sobel Y gradient: [-1, -2, -1; 0, 0, 0; 1, 2, 1]
+    float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
     float magnitude = length(vec2(gradient_x, gradient_y));
-    float alpha = smoothstep(threshold - smoothness, threshold + smoothness, texture(img, texture_coordinates).a);
+    float alpha = mm; // center pixel alpha (already processed with smoothstep)
 
     float noise = 0.1 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
-    vec3 final_color = lch_to_rgb(vec3(0.8, 1, hue + noise)) + magnitude * 0.2;
+    vec3 final_color = lch_to_rgb(vec3(0.8, 1, hue + noise)) - magnitude * 0.2;
 
     return vec4(final_color * alpha, alpha);
 }

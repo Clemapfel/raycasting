@@ -25,6 +25,36 @@ function rt.TimedAnimationSequence:instantiate(...)
     })
 end
 
+rt.AnimationChain = function(...)
+    local n = select("#", ...)
+    if n % 4 ~= 0 then
+        rt.error("In rt.AnimationChain: number of arguments is not a multiple of four")
+    end
+
+    local animations = {}
+
+    local i = 1
+    while i < n do
+        local duration = select(i + 0, ...)
+        meta.assert_typeof(duration, "Number", i + 0)
+
+        local min = select(i + 1, ...)
+        meta.assert_typeof(min, "Number", i + 1)
+
+        local max = select(i + 2, ...)
+        meta.assert_typeof(max, "Number", i + 2)
+
+        local f = select(i + 3, ...)
+        meta.assert_typeof(f, "Function", i + 3)
+
+        table.insert(animations, rt.TimedAnimation(duration, min, max, f))
+
+        i = i + 4
+    end
+
+    return rt.TimedAnimationSequence(table.unpack(animations))
+end
+
 --- @brief set whether the chain should loop
 function rt.TimedAnimationSequence:set_should_loop(b)
     self._should_loop = b

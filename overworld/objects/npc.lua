@@ -201,7 +201,7 @@ end
 
 --- @brief
 function ow.NPC:draw_bloom()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._scene:get_is_body_visible(self._deformable_mesh:get_body()) then return end
     love.graphics.setColor(self._color)
     love.graphics.line(self._deformable_mesh:get_contour())
 end

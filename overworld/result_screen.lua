@@ -15,107 +15,152 @@ ow.ResultScreen = meta.class("ResultScreen", rt.Widget)
 
 --- @brief
 function ow.ResultScreen:instantiate()
-    self._mesh_animation = rt.TimedAnimation(2, 0, 1, rt.InterpolationFunctions.LINEAR)
+    self._mesh_animation = rt.AnimationChain(
+        2, 0, 0.5, rt.InterpolationFunctions.SIGMOID,
+        1, 0.5, 1, rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
+    )
+    self._present_x, self._present_y = 0, 0
 end
 
 --- @brief
 function ow.ResultScreen:present(x, y)
+    self._present_x, self._present_y = x, y
     self._mesh_animation:reset()
+    self:_update_mesh_paths()
     self:update(0)
 end
 
 --- @brief
-function ow.ResultScreen:realize()
+function ow.ResultScreen:_update_mesh_paths()
+    local origin_x = self._present_x
+    local origin_y = self._present_y
 
-end
-
-function ow.ResultScreen:size_allocate(x, y, width, height)
-    local mesh_w, mesh_h = 0.5 * width, 0.5 * height
-    self._mesh_area = rt.AABB(
-        x + 0.5 * width - 0.5 * mesh_w,
-        y + 0.5 * height - 0.5 * mesh_h,
-        mesh_w, mesh_h
+    local rect_w = 0.75 * self._bounds.width
+    local rect_h = 0.75 * self._bounds.height
+    self._rect_area = rt.AABB(
+        self._bounds.x + 0.5 * self._bounds.width - 0.5 * rect_w,
+        self._bounds.y + 0.5 * self._bounds.height - 0.5 * rect_h,
+        rect_w, rect_h
     )
 
-    -- setup animation paths
-    local center_x = self._mesh_area.x + 0.5 * self._mesh_area.width
-    local center_y = self._mesh_area.y + 0.5 * self._mesh_area.height
-    local x_radius = 0.5 * self._mesh_area.width
+    local x_radius = math.min(rect_w, rect_h) / 2
     local y_radius = x_radius
 
-    local n_outer_vertices
+    local circle_x = self._bounds.x + 0.5 * self._bounds.width
+    local circle_y = self._bounds.y + 0.5 * self._bounds.height
+
+    origin_x, origin_y = circle_x, circle_y
+
+
     local outline_width = 50
 
-    -- Calculate rectangle bounds (inner and outer)
-    local inner_rect, outer_rect
+    local inner_rect, outer_rect -- rt.Paths
+    local n_outer_vertices
 
-    do
+    do -- compute n vertices such that setps fall exactly on corners of rectangle
         local sides = {}
-
-        local rx, ry, w, h = self._mesh_area:unpack()
+        local rx, ry, w, h = self._rect_area:unpack()
         outer_rect = rt.Path(
-            rx + 0, ry + 0,
-            rx + w, ry + 0,
+            rx + w, ry + 0.5 * h,
             rx + w, ry + h,
-            rx + 0, ry + h,
-            rx + 0, ry + 0
+            rx, ry + h,
+            rx, ry,
+            rx + w, ry,
+            rx + w, ry + 0.5 * h
         )
 
         local ow, oh = w, h -- outer size
 
         rx, ry, w, h = rx + outline_width, ry + outline_width, w - 2 * outline_width, h - 2 * outline_width
         inner_rect = rt.Path(
-            rx + 0, ry + 0,
-            rx + w, ry + 0,
+            rx + w, ry + 0.5 * h,
             rx + w, ry + h,
-            rx + 0, ry + h,
-            rx + 0, ry + 0
+            rx, ry + h,
+            rx, ry,
+            rx + w, ry,
+            rx + w, ry + 0.5 * h
         )
 
         local iw, ih = w, h -- inner size
-        local gcd = math.gcd(
+
+        local inner_step_size = math.gcd(
             iw,
             iw + ih,
             iw + ih + iw,
-            iw + ih + iw + ih,
-            iw + ih + iw + ih + ow,
-            iw + ih + iw + ih + ow + oh,
-            iw + ih + iw + ih + ow + oh + ow,
-            iw + ih + iw + ih + ow + oh + ow + oh
+            iw + ih + iw + ih
         )
 
-        n_outer_vertices = (iw + ih + iw + ih + ow + oh + ow + oh) / gcd
+        local outer_step_size = math.gcd(
+            ow,
+            ow + oh,
+            ow + oh + ow,
+            ow + oh + ow + oh
+        )
+
+        local inner_length = (2 * iw + 2 * ih)
+        local outer_length = (2 * ow + 2 * oh)
+
+        n_outer_vertices = math.lcm(
+            inner_length / inner_step_size,
+            outer_length / outer_step_size
+        )
+
+        local k, n = 1, n_outer_vertices
+        while n < 128 do
+            k = k + 1
+            n = n_outer_vertices * k
+        end
+
+        n_outer_vertices = n
     end
 
+    local vertex_i_to_weight_entry = {}
+
     self._vertex_i_to_path = {}
-    self._vertex_i_to_path_weight = {}
     self._mesh_data = {}
 
     -- Add center vertex
     table.insert(self._mesh_data, {
-        center_x, center_y, -- xy
+        origin_x, origin_y, -- xy
         0.5, 0.5,           -- uv (center of texture)
         1, 1, 1, 1          -- rgba
     })
 
-    local vertex_i = 2 -- Start from 2 since center is at index 1
-    local max_inner_path_length, max_outer_path_length = -math.huge, -math.huge
+    do
+        local rect_x, rect_y = self._rect_area.x + 0.5 * self._rect_area.width, self._rect_area.y + 0.5 * self._rect_area.height
+        local path = rt.Path(
+            origin_x, origin_y,
+            circle_x, circle_x,
+            rect_x, rect_y
+        )
 
+        self._vertex_i_to_path[1] = path
+
+        vertex_i_to_weight_entry[1] = {
+            to_circle = math.distance(origin_x, origin_y, circle_x, circle_x),
+            to_rect = math.distance(circle_x, circle_y, rect_x, rect_y)
+        }
+    end
+
+    local vertex_i = 2 -- Start from 2 since center is at index 1
+    local max_inner_to_circle, max_inner_to_rect = -math.huge, -math.huge
+    local max_outer_to_circle, max_outer_to_rect = -math.huge, -math.huge
+    
     -- Generate ring vertices (inner and outer pairs)
     for i = 1, n_outer_vertices do
         local angle = (i - 1) / n_outer_vertices * (2 * math.pi)
         local cos_a, sin_a = math.cos(angle), math.sin(angle)
 
         -- Inner ring vertex
-        local ring_inner_x = center_x + cos_a * (x_radius - outline_width)
-        local ring_inner_y = center_y + sin_a * (y_radius - outline_width)
+        local ring_inner_x = circle_x + cos_a * (x_radius - outline_width)
+        local ring_inner_y = circle_y + sin_a * (y_radius - outline_width)
 
         -- Outer ring vertex
-        local ring_outer_x = center_x + cos_a * x_radius
-        local ring_outer_y = center_y + sin_a * y_radius
+        local ring_outer_x = circle_x + cos_a * x_radius
+        local ring_outer_y = circle_y + sin_a * y_radius
 
         -- Inner rectangle vertex
-        local t = math.fract(angle / (2 * math.pi) + 0.75)
+        local t = (i - 1) / n_outer_vertices
         local rect_inner_x, rect_inner_y = inner_rect:at(t)
 
         -- Outer rectangle vertex
@@ -123,26 +168,38 @@ function ow.ResultScreen:size_allocate(x, y, width, height)
 
         -- Create animation paths
         local inner_path = rt.Path(
-            center_x, center_y,
+            origin_x, origin_y,
             ring_inner_x, ring_inner_y,
             rect_inner_x, rect_inner_y
         )
         self._vertex_i_to_path[vertex_i] = inner_path
 
         local inner_length = inner_path:get_length()
-        self._vertex_i_to_path_weight[vertex_i] = inner_length
-        max_inner_path_length = math.max(max_inner_path_length, inner_length)
+        local inner_weight_entry = {
+            to_circle = math.distance(origin_x, origin_y, ring_inner_x, ring_inner_y),
+            to_rect = math.distance(ring_inner_x, ring_inner_y, rect_inner_x, rect_inner_y)
+        }
 
+        vertex_i_to_weight_entry[vertex_i] = inner_weight_entry
+
+        max_inner_to_circle = math.max(max_inner_to_circle, inner_weight_entry.to_circle)
+        max_inner_to_rect = math.max(max_inner_to_rect, inner_weight_entry.to_rect)
+        
         local outer_path = rt.Path(
-            center_x, center_y,
+            origin_x, origin_y,
             ring_outer_x, ring_outer_y,
             rect_outer_x, rect_outer_y
         )
         self._vertex_i_to_path[vertex_i + 1] = outer_path
 
-        outer_path = outer_path:get_length()
-        self._vertex_i_to_path_weight[vertex_i + 1] = outer_path
-        max_outer_path_length = math.max(max_outer_path_length, outer_path)
+        local outer_weight_entry = {
+            to_circle = math.distance(origin_x, origin_y, ring_outer_x, ring_outer_y),
+            to_rect = math.distance(ring_outer_x, ring_outer_y, rect_outer_x, rect_outer_y)
+        }
+
+        vertex_i_to_weight_entry[vertex_i + 1] = outer_weight_entry
+        max_outer_to_circle = math.max(max_outer_to_circle, outer_weight_entry.to_circle)
+        max_outer_to_rect = math.max(max_outer_to_rect, outer_weight_entry.to_rect)
 
         -- Add inner vertex to mesh data
         table.insert(self._mesh_data, {
@@ -199,13 +256,51 @@ function ow.ResultScreen:size_allocate(x, y, width, height)
 
     self._mesh:set_vertex_map(vertex_map)
 
-    for i, weight in pairs(self._vertex_i_to_path_weight) do
-        if i % 2 == 0 then
-            self._vertex_i_to_path_weight[i] = max_inner_path_length / weight
-        else
-            self._vertex_i_to_path_weight[i] = max_outer_path_length / weight
+    self._vertex_i_to_path_weight = {}
+    local max_inner_total = max_inner_to_circle + max_inner_to_rect
+    local max_outer_total = max_outer_to_circle + max_outer_to_rect
+
+    for i, entry in ipairs(vertex_i_to_weight_entry) do
+        local path = self._vertex_i_to_path[i]
+        if i % 2 == 0 then -- inner
+            local total = entry.to_circle + entry.to_rect
+
+            -- Parameterize so that circle phase takes time proportional to max_inner_to_circle
+            -- and rect phase takes time proportional to max_inner_to_rect
+            local circle_time_ratio = max_inner_to_circle / max_inner_total
+            local rect_time_ratio = max_inner_to_rect / max_inner_total
+
+            path:override_parameterization(
+                circle_time_ratio,
+                rect_time_ratio
+            )
+
+            self._vertex_i_to_path_weight[i] = 1
+
+        else -- outer
+            local total = entry.to_circle + entry.to_rect
+
+            -- Parameterize so that circle phase takes time proportional to max_outer_to_circle
+            -- and rect phase takes time proportional to max_outer_to_rect
+            local circle_time_ratio = max_outer_to_circle / max_outer_total
+            local rect_time_ratio = max_outer_to_rect / max_outer_total
+
+            path:override_parameterization(
+                circle_time_ratio,
+                rect_time_ratio
+            )
+
+            self._vertex_i_to_path_weight[i] = 1
         end
     end
+end
+
+--- @brief
+function ow.ResultScreen:realize()
+
+end
+
+function ow.ResultScreen:size_allocate(x, y, width, height)
 end
 
 --- @brief
@@ -226,9 +321,12 @@ end
 
 --- @brief
 function ow.ResultScreen:draw()
-    love.graphics.setColor(1, 1, 1, 1)
-    --love.graphics.draw(self._mesh:get_native())
+    love.graphics.setColor(0.5, 0.5, 0.5, 1)
+    love.graphics.draw(self._mesh:get_native())
 
+    love.graphics.push()
     love.graphics.setPointSize(3)
+    love.graphics.setColor(1, 1, 1, 1)
     love.graphics.points(self._dbg)
+    love.graphics.pop()
 end

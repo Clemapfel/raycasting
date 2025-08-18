@@ -101,7 +101,7 @@ function ow.OverworldScene:instantiate(state)
         _timer_paused = false,
         _timer = 0,
 
-        _result_screen = ow.ResultsScreen()
+        ---_result_screen = ow.ResultsScreen()
     })
 
     local translation = rt.Translation.overworld_scene
@@ -287,7 +287,7 @@ function ow.OverworldScene:instantiate(state)
     self._background:realize()
     self._pause_menu:realize()
     self._title_card:realize()
-    self._result_screen:realize()
+    --self._result_screen:realize()
     self._non_bubble_control_indicator:realize()
     self._bubble_control_indicator:realize()
 
@@ -409,7 +409,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._background:reformat(0, 0, width, height)
     self._pause_menu:reformat(0, 0, width, height)
     self._title_card:reformat(0, 0, width, height)
-    self._result_screen:reformat(0, 0, width, height)
+    --self._result_screen:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -945,6 +945,7 @@ end
 
 --- @brief
 function ow.OverworldScene:get_is_body_visible(body)
+    meta.assert(body, b2.Body)
     return self._visible_bodies[body] == true
 end
 
