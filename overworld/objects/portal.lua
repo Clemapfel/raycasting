@@ -11,7 +11,9 @@ rt.settings.overworld.portal = {
         max_scale = 0.6,
         coverage = 5,
         collapse_speed = 10, -- fraction
-    }
+    },
+
+    min_velocity_magnitude = 200, -- px/s, when exiting portal
 }
 
 --- @class ow.Portal
@@ -65,7 +67,7 @@ local function _t_on_line_segment(x1, y1, x2, y2, px, py)
     local t = math.dot(point_vec_x, point_vec_y, segment_vec_x, segment_vec_y) /
         math.dot(segment_vec_x, segment_vec_y, segment_vec_x, segment_vec_y)
 
-    return 1 - math.clamp(t, 0, 1)
+    return 1 - math.clamp(t, 0, 1), math.mix2(x1, y1, x2, y2, t)
 end
 
 --- @brief
@@ -244,10 +246,10 @@ function ow.Portal:instantiate(object, stage, scene)
 
             if self._direction == _LEFT then
                 local left_mesh_data = {
-                    { ax + left_x * w, ay +  left_y * w, 0, 1, outer() },
+                    { ax + left_x * w, ay + left_y * w, 0, 1, outer() },
                     { ax, ay, 0, 0, inner() },
                     { bx, by, 1, 0, inner() },
-                    { bx +  left_x * w, by +  left_y * w, 1, 1, outer() }
+                    { bx + left_x * w, by + left_y * w, 1, 1, outer() }
                 }
 
                 self._transition_stencil = {
@@ -276,6 +278,8 @@ function ow.Portal:instantiate(object, stage, scene)
                 self._right_mesh = rt.Mesh(right_mesh_data)
             end
         end
+
+        self._mesh_origin_x, self._mesh_origin_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
 
         -- particles
         local settings = rt.settings.overworld.portal.particle
@@ -495,7 +499,7 @@ local function teleport_player(
     local new_x, new_y = math.mix2(to_ax, to_ay, to_bx, to_by, 0.5) --ratio)
 
     -- new velocity
-    local magnitude = math.magnitude(vx, vy)
+    local magnitude = math.max(math.magnitude(vx, vy), rt.settings.overworld.portal.min_velocity_magnitude)
     local new_vx, new_vy = to_normal_x * magnitude, to_normal_y * magnitude
 
     return new_x, new_y, new_vx, new_vy
@@ -551,6 +555,9 @@ function ow.Portal:draw()
                 particle[_scale], particle[_scale],
                 0.5 * w, 0.5 * h
             )
+        end
+
+        for particle in values(self._particles) do
             love.graphics.circle("fill", particle[_x], particle[_y], 3)
         end
 
@@ -599,11 +606,14 @@ function ow.Portal:draw()
         rt.graphics.set_stencil_mode(nil)
         love.graphics.pop("all")
     end
-end
 
---- @brief
-function ow.Portal:draw_bloom()
-    if not self._scene:get_is_body_visible(self._area_sensor) then return end
+    love.graphics.push()
+    love.graphics.circle("fill", self._mesh_origin_x, self._mesh_origin_x, 4)
+    local offset_x, offset_y = math.mix2(self._ax, self._ay, self._bx, self._by, 1 - self._entry_t)
+    love.graphics.translate(offset_x, offset_y)
+    love.graphics.scale(1 - self._pulse_value)
+    love.graphics.translate(-offset_x, -offset_y)
+
     local r, g, b, a = table.unpack(self._color)
     love.graphics.setColor(r, g, b, 1)
     _pulse_shader:bind()
@@ -615,6 +625,34 @@ function ow.Portal:draw_bloom()
         self._right_mesh:draw()
     end
     _pulse_shader:unbind()
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.Portal:draw_bloom()
+    if not self._scene:get_is_body_visible(self._area_sensor) then return end
+
+    love.graphics.push()
+    love.graphics.circle("fill", self._mesh_origin_x, self._mesh_origin_x, 4)
+    local offset_x, offset_y = math.mix2(self._ax, self._ay, self._bx, self._by, 1 - self._entry_t)
+    love.graphics.translate(offset_x, offset_y)
+    love.graphics.scale(1 - self._pulse_value)
+    love.graphics.translate(-offset_x, -offset_y)
+
+    local r, g, b, a = table.unpack(self._color)
+    love.graphics.setColor(r, g, b, 1)
+    _pulse_shader:bind()
+    _pulse_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
+    _pulse_shader:send("pulse", self._pulse_value)
+    if self._direction == _LEFT then
+        self._left_mesh:draw()
+    else
+        self._right_mesh:draw()
+    end
+    _pulse_shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief
