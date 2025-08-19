@@ -38,7 +38,7 @@ rt.settings.player_body = {
         inertia = 0
     },
 
-    gravity = 5
+    gravity = 2
 }
 
 --- @class rt.PlayerBody
@@ -128,6 +128,12 @@ function rt.PlayerBody:initialize(positions)
     end
 
     if self._is_initialized == false then
+
+        local mass_easing = function(t)
+            -- only last node affected by gravity
+            return ternary(t == 1, 1, 0.25)
+        end
+
         -- init ropes
         local max_rope_length = _settings.max_rope_length_factor * self._player_radius
         for ring = 1, n_rings do
@@ -170,7 +176,7 @@ function rt.PlayerBody:initialize(positions)
                     table.insert(rope.last_positions, center_x)
                     table.insert(rope.last_velocities, 0)
                     table.insert(rope.last_velocities, 0)
-                    table.insert(rope.masses,  (segment_i - 1) / n_segments)
+                    table.insert(rope.masses,  mass_easing(segment_i - 1) / n_segments)
                     table.insert(rope.distances, rope_length / n_segments)
                     table.insert(rope.bubble_distances, bubble_rope_length / n_segments)
                 end
@@ -321,8 +327,8 @@ local _rope_handler = function(data)
                 velocity_x = math.mix(velocity_x, last_velocities[i+0], data.inertia)
                 velocity_y = math.mix(velocity_y, last_velocities[i+1], data.inertia)
 
-                positions[i+0] = current_x + velocity_x + mass * data.gravity_x * data.delta * data.delta
-                positions[i+1] = current_y + velocity_y + mass * data.gravity_y * data.delta * data.delta
+                positions[i+0] = current_x + velocity_x + mass * data.gravity_x * data.delta
+                positions[i+1] = current_y + velocity_y + mass * data.gravity_y * data.delta
 
                 last_positions[i+0] = before_x
                 last_positions[i+1] = before_y
