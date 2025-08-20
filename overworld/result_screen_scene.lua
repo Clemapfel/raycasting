@@ -1,9 +1,17 @@
+require "common.label"
+require "overworld.result_screen_frame"
+require "overworld.fireworks"
+
 --- @class ow.ResultScreenScene
 ow.ResultScreenScene = meta.class("ResultScreenScene", rt.Scene)
 
 --- @brief
 function ow.ResultScreenScene:instantiate(state)
-    self._is_paused = false
+    self._is_paused = true
+
+    -- result animations
+    self._frame = ow.ResultScreenFrame()
+    self._fireworks = ow.Fireworks()
 
     local translation = rt.Translation.result_screen_scene
 
@@ -33,13 +41,14 @@ function ow.ResultScreenScene:instantiate(state)
             option.frame:set_thickness(rt.settings.menu.pause_menu.selection_frame_thickness)
 
             option.node:signal_connect(rt.InputAction.A, function(_)
-                self[function_name]()
+                self[function_name](self) -- self:function_name()
             end)
 
             option.node:signal_connect(rt.InputAction.B, function(_)
                 self:_unpause()
             end)
 
+            self._option_selection_graph:add(option.node)
             table.insert(self._options, option)
         end
 
@@ -71,6 +80,19 @@ function ow.ResultScreenScene:instantiate(state)
     end
 
     self._input = rt.InputSubscriber()
+    self._input:signal_connect("pressed", function(_, which)
+        if not self._is_paused then
+            if which == rt.InputAction.PAUSE then
+                self:_pause()
+            end
+        else
+            if which == rt.InputAction.PAUSE then
+                self:_unpause()
+            else
+                self._option_selection_graph:handle_button(which)
+            end
+        end
+    end)
 end
 
 --- @brief
@@ -88,6 +110,8 @@ function ow.ResultScreenScene:realize()
     ) do
         widget:realize()
     end
+
+    self._frame:realize()
 end
 
 --- @brief
@@ -123,16 +147,16 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
 
         self._option_background:reformat(x, y, width, height)
         local current_y = y + 0.5 * height - 0.5 * total_h
+        local label_xm, label_ym = 2 * m, 0.5 * m
         for option in values(self._options) do
             local selected_w, selected_h = option.selected_label:measure()
             local unselected_w, unselected_h = option.unselected_label:measure()
             local w, h = math.max(selected_w, unselected_w), math.max(selected_h, unselected_h)
 
-
             option.frame:reformat(
-                x + 0.5 * width - 0.5 * w,
-                current_y,
-                w, h
+                x + 0.5 * width - 0.5 * w - label_xm,
+                current_y - label_ym,
+                w + 2 * label_xm, h + 2 * label_ym
             )
 
             option.selected_label:reformat(
@@ -147,9 +171,11 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
                 math.huge, math.huge
             )
 
-            current_y = current_y + h
+            current_y = current_y + h + m
         end
     end
+
+    self._frame:reformat(x, y, width, height)
 end
 
 --- @brief
@@ -179,7 +205,7 @@ function ow.ResultScreenScene:enter(player_x, player_y)
     self._entry_x, self._entry_y = player_x, player_y
     self:_teleport_player(self._entry_x, self._entry_y)
 
-    self._option_selection_graph:set_current_node(self._options[1].node)
+    self._option_selection_graph:set_selected_node(self._options[1].node)
 
     self._input:activate()
     self:_unpause()
@@ -192,9 +218,16 @@ end
 
 --- @brief
 function ow.ResultScreenScene:update(delta)
+    while self._fireworks:get_n_rockets() < 2 do
+        local
+    end
+
+
     for updatable in range(
         self._player,
-        self._world
+        self._world,
+        self._frame,
+        self._fireworks
     ) do
         updatable:update(delta)
     end
@@ -205,12 +238,18 @@ end
 --- @brief
 function ow.ResultScreenScene:draw()
     if not self:get_is_active() then return end
-    self._player:draw()
 
-    if true then -- TODOself._is_paused then
+    for drawable in range(
+        self._frame,
+        self._player
+    ) do
+        drawable:draw()
+    end
+
+    if self._is_paused then
         self._option_background:draw()
         for option in values(self._options) do
-            if self._option_selection_graph:get_current_node() == option.node then
+            if option.node:get_is_selected() then
                 option.frame:draw()
                 option.selected_label:draw()
             else

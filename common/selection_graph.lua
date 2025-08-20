@@ -37,7 +37,8 @@ function rt.SelectionGraphNode:instantiate(aabb)
         _up = _noop_function,
         _right = _noop_function,
         _down = _noop_function,
-        _left = _noop_function
+        _left = _noop_function,
+        _graph = nil -- rt.SelectionGraph
     })
 
     if aabb ~= nil then
@@ -79,6 +80,12 @@ end
 --- @brief
 function rt.SelectionGraphNode:get_bounds()
     return rt.aabb_copy(self._aabb)
+end
+
+--- @brief
+function rt.SelectionGraphNode:get_is_selected()
+    if self._graph == nil then return false end
+    return self._graph:get_selected_node() == self
 end
 
 for which in range("_up", "_right", "_down", "_left") do
@@ -174,6 +181,7 @@ function rt.SelectionGraph:add(...)
         meta.assert(node, rt.SelectionGraphNode)
         if self._nodes[node] == nil then
             self._nodes[node] = true
+            node._graph = self
             if self._n_nodes == 0 then
                 self._current_node = node
                 self._current_node:signal_emit("enter")
@@ -192,7 +200,7 @@ function rt.SelectionGraph:remove(node)
 end
 
 --- @brief
-function rt.SelectionGraph:set_current_node(node)
+function rt.SelectionGraph:set_selected_node(node)
     self:add(node)
 
     if self._current_node ~= nil then
@@ -207,12 +215,12 @@ function rt.SelectionGraph:set_current_node(node)
 end
 
 --- @brief
-function rt.SelectionGraph:get_current_node()
+function rt.SelectionGraph:get_selected_node()
     return self._current_node
 end
 
 --- @brief
-function rt.SelectionGraph:get_current_node_aabb()
+function rt.SelectionGraph:get_selected_node_aabb()
     if self._current_node ~= nil then
         return self._current_node._aabb
     else

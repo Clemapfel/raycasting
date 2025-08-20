@@ -433,3 +433,8 @@ end
 function ow.Fireworks:get_is_done()
     return #self._batches == 0
 end
+
+--- @brief
+function ow.Fireworks:get_n_rockets()
+    return #self._batches
+end

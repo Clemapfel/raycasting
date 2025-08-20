@@ -370,12 +370,8 @@ function ow.ResultScreenFrame:_update_mesh_paths()
     end
 end
 
---- @brief
-function ow.ResultScreenFrame:realize()
-
-end
-
 function ow.ResultScreenFrame:size_allocate(x, y, width, height)
+    self:_update_mesh_paths()
 end
 
 --- @brief
@@ -403,6 +399,8 @@ end
 
 --- @brief
 function ow.ResultScreenFrame:draw()
+    if not self:get_is_realized() then return end
+
     love.graphics.setColor(1, 1, 1, 1)
 
     _mask_shader:bind()
@@ -417,8 +415,6 @@ function ow.ResultScreenFrame:draw()
     _draw_shader:send("black", { rt.Palette.BLACK:unpack() })
     love.graphics.draw(self._mesh:get_native())
     _draw_shader:unbind()
-
-    love.graphics.points(self._dbg)
 end
 
 --- @brief

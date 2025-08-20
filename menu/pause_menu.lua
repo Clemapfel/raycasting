@@ -191,7 +191,7 @@ function mn.PauseMenu:update(delta)
         self._schedule_activate = false
     end
 
-    local current_node = self._selection_graph:get_current_node()
+    local current_node = self._selection_graph:get_selected_node()
     self._background:update(delta)
     for element in values(self._elements) do
         if element.node == current_node then
@@ -210,7 +210,7 @@ end
 function mn.PauseMenu:draw()
     if not self._is_active then return end
 
-    local current_node = self._selection_graph:get_current_node()
+    local current_node = self._selection_graph:get_selected_node()
 
     self._background:draw()
 
@@ -262,8 +262,8 @@ end
 
 --- @brief
 function mn.PauseMenu:present()
-    if self._selection_graph:get_current_node() == nil then
-        self._selection_graph:set_current_node(self._first_node)
+    if self._selection_graph:get_selected_node() == nil then
+        self._selection_graph:set_selected_node(self._first_node)
     end
 
     self._is_active = true
