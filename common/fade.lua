@@ -34,6 +34,7 @@ function rt.Fade:instantiate(duration, shader_path)
         _has_attack = true,
         _has_decay = true,
         _signal_emitted = true,
+        _queue_emit = false,
         _started = false,
         _shader = shader,
         _r = r,
@@ -65,6 +66,14 @@ function rt.Fade:skip()
     self._value = 0
 end
 
+--- @brief
+function rt.Fade:reset()
+    self._elapsed = 0
+    self._signal_emitted = false
+    self._queue_emit = false
+    self._started = false
+end
+
 local function gaussian(x, center)
     return math.exp(-4.4 * math.pi / 3 * ((x - center)^2))
 end
@@ -92,10 +101,9 @@ function rt.Fade:update(delta)
     local fraction = self._elapsed / self._duration
     self._value, self._direction = _envelope(fraction, self._has_attack, self._has_decay)
 
-    if self._signal_emitted == false and fraction >= 0.5 then
+    if self._signal_emitted == false and fraction > 0.5 then
         self._value = 1
-        self:signal_emit("hidden")
-        self._signal_emitted = true
+        self._queue_emit = true -- wait until draw
     end
 
     if self._started then
@@ -123,11 +131,23 @@ function rt.Fade:draw()
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     self._shader:unbind()
     love.graphics.pop()
+
+    if self._queue_emit then
+        love.graphics.present() -- force window update, since emit often lags
+        self:signal_emit("hidden")
+        self._signal_emitted = true
+        self._queue_emit = false
+    end
 end
 
 --- @brief
 function rt.Fade:get_is_active()
     return self._signal_emitted == false
+end
+
+--- @brief
+function rt.Fade:get_is_started()
+    return self._started
 end
 
 --- @brief

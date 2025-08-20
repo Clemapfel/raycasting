@@ -93,7 +93,7 @@ function rt.Background:send(uniform_name, value)
 end
 
 --- @brief
-function rt.Background:_notify_camera_changed(camera)
+function rt.Background:notify_camera_changed(camera)
     _offset_x, _offset_y = camera:get_offset()
     _scale = camera:get_final_scale()
 end

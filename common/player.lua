@@ -258,6 +258,7 @@ function rt.Player:instantiate()
         _can_wall_jump = false,
         _can_jump = false,
         _is_ghost = false,
+        _collision_disabled = false,
 
         -- flow
         _flow = 0,
@@ -1367,6 +1368,7 @@ function rt.Player:move_to_world(world)
     self._is_bubble = nil
     self:set_is_bubble(is_bubble)
     self:set_is_ghost(self._is_ghost)
+    self:set_collision_disabled(self._collision_disabled)
 
     -- reset history
     self._world:signal_connect("step", function()
@@ -1879,6 +1881,7 @@ end
 --- @brief
 function rt.Player:set_is_ghost(b)
     self._is_ghost = b
+    if self._body == nil or self._bubble_body == nil then return end
 
     local inner_group, outer_group
     local inner_mask, outer_mask
@@ -1921,6 +1924,9 @@ end
 
 --- @brief
 function rt.Player:set_collision_disabled(b)
+    self._collision_disabled = b
+    if self._body == nil or self._bubble_body == nil then return end
+
     self._body:set_collision_disabled(b)
     for body in values(self._spring_bodies) do
         body:set_collision_disabled(true)
@@ -2025,6 +2031,7 @@ function rt.Player:reset()
     self:set_is_visible(true)
     self:set_is_frozen(false)
     self:set_collision_disabled(false)
+    self:set_trail_visible(true)
     self:reset_flow()
     self:set_gravity(1)
     self:set_opacity(1)

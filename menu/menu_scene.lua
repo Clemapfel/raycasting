@@ -814,8 +814,6 @@ function mn.MenuScene:draw()
 
             self._bloom:unbind()
         end
-
-        stage_select.exit_fade:draw()
     end
 
     self._camera:bind()
@@ -828,22 +826,8 @@ function mn.MenuScene:draw()
         self._bloom:composite(rt.settings.menu_scene.bloom_composite)
     end
 
+    self._stage_select.exit_fade:draw()
     self._fade:draw()
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(
-        self._bounds.x + 1 / 3 * self._bounds.width,
-        self._bounds.y,
-        self._bounds.x + 1 / 3 * self._bounds.width,
-        self._bounds.y + self._bounds.height
-    )
-
-    love.graphics.line(
-        self._bounds.x + 2 / 3 * self._bounds.width,
-        self._bounds.y,
-        self._bounds.x + 2 / 3 * self._bounds.width,
-        self._bounds.y + self._bounds.height
-    )
 end
 
 --- @brief

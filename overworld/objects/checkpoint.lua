@@ -14,7 +14,7 @@ rt.settings.overworld.checkpoint = {
     goal_time_dilation = 0.05,
     goal_time_dilation_duration = 10 / 60,
     goal_line_width = 50, -- px
-    result_screen_delay = 2,
+    result_screen_delay = 0.5,
 }
 
 --- @class ow.Checkpoint

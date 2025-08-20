@@ -68,6 +68,9 @@ uniform float direction; // +1 going from transparent to opaque, -1 otherwise
 uniform float elapsed;
 
 vec4 effect(vec4 color, sampler2D _, vec2 texture_coords, vec2 vertex_position) {
+    // override for full black at 1, which is when fade usually causes a lag frame
+    if (distance(value, 1) < 0.001) return vec4(0, 0, 0, 1);
+
     // Aspect ratio normalization
     float aspect = love_ScreenSize.x / love_ScreenSize.y;
 

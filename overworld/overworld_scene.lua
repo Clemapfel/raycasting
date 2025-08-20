@@ -6,7 +6,6 @@ require "overworld.stage"
 require "common.camera"
 require "common.player"
 require "overworld.coin_effect"
-require "overworld.result_screen"
 require "physics.physics"
 require "menu.pause_menu"
 require "common.bloom"
@@ -20,7 +19,7 @@ do
         camera_scale_velocity = 0.05, -- % / s
         camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
         camera_pan_width_factor = 0.15,
-        camera_freeze_duration = 1,
+        camera_freeze_duration = 0.25,
         results_screen_fraction = 0.5,
 
         bloom_blur_strength = 1.2, -- > 0
@@ -101,8 +100,8 @@ function ow.OverworldScene:instantiate(state)
         _timer_paused = false,
         _timer = 0,
 
-        _result_screen = ow.ResultScreen(),
-        _result_screen_active = false
+        _screenshot = nil, -- rt.RenderTexture
+        _player_is_visible = true,
     })
 
     local translation = rt.Translation.overworld_scene
@@ -288,7 +287,6 @@ function ow.OverworldScene:instantiate(state)
     self._background:realize()
     self._pause_menu:realize()
     self._title_card:realize()
-    self._result_screen:realize()
     self._non_bubble_control_indicator:realize()
     self._bubble_control_indicator:realize()
 
@@ -410,7 +408,10 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._background:reformat(0, 0, width, height)
     self._pause_menu:reformat(0, 0, width, height)
     self._title_card:reformat(0, 0, width, height)
-    self._result_screen:reformat(0, 0, width, height)
+
+    if self._screenshot == nil or self._screenshot:get_width() ~= width or self._screenshot:get_height() ~= height then
+        self._screenshot = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
+    end
 end
 
 --- @brief
@@ -552,10 +553,12 @@ function ow.OverworldScene:draw()
 
         self._fade:draw()
 
-        self._camera:bind()
-        self._player:draw_body()
-        self._player:draw_core()
-        self._camera:unbind()
+        if self._player_is_visible then
+            self._camera:bind()
+            self._player:draw_body()
+            self._player:draw_core()
+            self._camera:unbind()
+        end
 
         self._title_card:draw()
 
@@ -564,7 +567,9 @@ function ow.OverworldScene:draw()
             self._bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
             self._camera:bind()
-            self._player:draw_bloom()
+            if self._player_is_visible then
+                self._player:draw_bloom()
+            end
             self._title_card:draw()
             self._camera:unbind()
             self._bloom:unbind()
@@ -577,8 +582,10 @@ function ow.OverworldScene:draw()
 
         self._camera:bind()
         self._stage:draw_below_player()
-        self._player:draw_body()
-        self._player:draw_core()
+        if self._player_is_visible then
+            self._player:draw_body()
+            self._player:draw_core()
+        end
         self._stage:draw_above_player()
         self._camera:unbind()
 
@@ -587,7 +594,9 @@ function ow.OverworldScene:draw()
             self._bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
             self._camera:bind()
-            self._player:draw_bloom()
+            if self._player_is_visible then
+                self._player:draw_bloom()
+            end
             self._stage:draw_bloom()
             self._camera:unbind()
             self._bloom:unbind()
@@ -630,10 +639,6 @@ function ow.OverworldScene:draw()
         love.graphics.setLineWidth(1)
         love.graphics.setColor(_black_r, _black_g, _black_b, 1)
         love.graphics.circle("line", x, y, 6 * scale)
-    end
-
-    if self._result_screen_active then
-        self._result_screen:draw()
     end
 
     if self._pause_menu_active then
@@ -753,10 +758,6 @@ function ow.OverworldScene:update(delta)
 
     self._control_indicator_motion:update(delta)
 
-    if self._result_screen_active then
-        self._result_screen:update(delta)
-    end
-
     if self._pause_menu_active then
         self._pause_menu:update(delta)
         return
@@ -771,11 +772,11 @@ function ow.OverworldScene:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
     self._background:update_player_position(x, y, self._player:get_flow())
-    self._background:_notify_camera_changed(self._camera)
+    self._background:notify_camera_changed(self._camera)
     self._background:update(delta)
 
     -- player canvas
-    do
+    if self._player_is_visible then
         love.graphics.push()
         love.graphics.origin()
         local x, y = self._player:get_position()
@@ -1037,16 +1038,21 @@ end
 
 --- @brief
 function ow.OverworldScene:show_result_screen()
-    self._result_screen_active = true
-    self._result_screen:present(self._camera:world_xy_to_screen_xy(self._player:get_position()))
+    require "overworld.result_screen_scene"
+
+    local px, py = self._camera:world_xy_to_screen_xy(self._player:get_position())
+    if self._screenshot == nil or self._screenshot:get_width() ~= self._bounds.width or self._screenshot:get_height() ~= self._bounds.height then
+        self._screenshot = rt.RenderTexture(self._bounds.width, self._bounds.height, rt.GameState:get_msaa_quality())
+    end
+
+    self._player_is_visible = false
+    self._screenshot:bind()
+    love.graphics.clear(1, 0, 1, 1)
+    self:draw()
+    self._screenshot:unbind()
+    self._player_is_visible = true
+    rt.SceneManager:set_scene(ow.ResultScreenScene, self._screenshot, px, py)
 end
 
---- @brief
-function ow.OverworldScene:hide_result_screen()
-    self._result_screen:hide()
-    self._result_screen:signal_connect("hidden", function()
-        self._result_screen_active = false
-    end)
-end
 
 

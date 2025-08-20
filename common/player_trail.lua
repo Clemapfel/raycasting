@@ -131,6 +131,7 @@ function rt.PlayerTrail:_draw_trail(x1, y1, x2, y2)
 
     local r1, r2 = 1, 1
     local a1, a2 = 1, 0
+
     local data = {
         { outer_down_x1, outer_down_y1, r2, r2, r2, a2 },
         { inner_down_x1, inner_down_y1, r1, r1, r1, a1 },
@@ -278,12 +279,20 @@ function rt.PlayerTrail:update(delta)
     end
 end
 
+local _scene_type_to_warning_issued = {}
+
 --- @brief
 function rt.PlayerTrail:draw_below()
     local scene = rt.SceneManager:get_current_scene()
     local x, y = 0, 0
     if scene.get_camera ~= nil then
         x, y = scene:get_camera():get_position()
+    else
+        local type = meta.typeof(scene)
+        if _scene_type_to_warning_issued[type] ~= true then
+            rt.warning("In rt.PlayerTrail: scene of type `" .. type .. "` does not have a `get_camera` function, trail cannot be drawn")
+            _scene_type_to_warning_issued[type] = true
+        end
     end
     local w, h = self._width, self._height
     x = x - 0.5 * w

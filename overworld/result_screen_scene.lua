@@ -2,19 +2,32 @@ require "common.label"
 require "overworld.result_screen_frame"
 require "overworld.fireworks"
 
+rt.settings.overworld.result_screen_scene = {
+    exit_transition_fall_duration = 2, -- seconds
+}
+
 --- @class ow.ResultScreenScene
 ow.ResultScreenScene = meta.class("ResultScreenScene", rt.Scene)
 
 --- @brief
 function ow.ResultScreenScene:instantiate(state)
-    self._is_paused = true
+    -- exit animation
+    self._transition_active = false
+    self._transition_next = nil -- Type<rt.Scene>
+    self._transition_elapsed = 0
+    self._transition_final_y = nil -- Number
+    self._fade = rt.Fade(2, "overworld/overworld_scene_fade.glsl")
+    self._fade_active = false
 
     -- result animations
     self._frame = ow.ResultScreenFrame()
     self._fireworks = ow.Fireworks()
+    self._camera = rt.Camera()
+    self._screenshot = nil -- rt.RenderTexture, cf :enter
 
     local translation = rt.Translation.result_screen_scene
 
+    self._is_paused = false
     do -- options
         local unselected_prefix, unselected_postfix = rt.settings.menu.pause_menu.label_prefix, rt.settings.menu.pause_menu.label_postfix
         local selected_prefix, selected_postfix = unselected_prefix .. "<color=SELECTION>", "</color>" .. unselected_postfix
@@ -71,12 +84,17 @@ function ow.ResultScreenScene:instantiate(state)
     self._entry_x, self._entry_y = 0, 0
     self._player_velocity_x, self._player_velocity_y = 0, 0
     self._player = state:get_player()
+
     do
         self._world = b2.World()
         -- body and teleport updated in size_allocate
 
+        self._player:reset()
         self._player:move_to_world(self._world)
+        self._player:set_gravity(0)
         self._player:set_is_bubble(true)
+
+        if self._body ~= nil then self._body:set_is_enabled(true) end
     end
 
     self._input = rt.InputSubscriber()
@@ -93,6 +111,14 @@ function ow.ResultScreenScene:instantiate(state)
             end
         end
     end)
+
+
+    -- TODO
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "l" then
+            self:_transition_to(mn.MenuScene)
+        end
+    end)
 end
 
 --- @brief
@@ -106,12 +132,12 @@ function ow.ResultScreenScene:realize()
         self._option_retry_stage_selected_label,
         self._option_next_stage_selected_label,
         self._option_return_to_main_menu_selected_label,
-        self._option_background
+        self._option_background,
+
+        self._frame
     ) do
         widget:realize()
     end
-
-    self._frame:realize()
 end
 
 --- @brief
@@ -186,29 +212,41 @@ function ow.ResultScreenScene:_teleport_player(px, py)
     x, y = 0, 0
 
     local r = 2 * self._player:get_radius()
-    local vx, vy = math.normalize(self._player:get_velocity())
+    local vx, vy = math.normalize(1, 0.5) --x + 0.5 * w - px, y + 0.5 * h - py)
     self._player:teleport_to(
         math.clamp(self._entry_x, x + r, x + w - r),
         math.clamp(self._entry_y, y + r, y + h - r)
     )
 
     local magnitude = rt.settings.menu_scene.title_screen.player_velocity
-    if vx == 0 and vy == 0 then vx, vy = math.normalize(1, 1) end
     self._player_velocity_x, self._player_velocity_y = vx * magnitude, vy * magnitude
 end
 
 --- @brief
 --- @param player_x Number in screen coordinates
 --- @param player_y Number
-function ow.ResultScreenScene:enter(player_x, player_y)
-    meta.assert(player_x, "Number", player_y, "Number")
+function ow.ResultScreenScene:enter(screenshot, player_x, player_y)
+    meta.assert(screenshot, rt.RenderTexture, player_x, "Number", player_y, "Number")
+    rt.SceneManager:set_use_fixed_timestep(true)
+
+    self._screenshot = screenshot
+    dbg(meta.typeof(screenshot))
+
+    -- player position continuity
     self._entry_x, self._entry_y = player_x, player_y
     self:_teleport_player(self._entry_x, self._entry_y)
+    self._camera:set_position(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
 
+    -- reset animations
+    self._fade:reset()
+    self._fade_active = false
+    self._frame:present(self._entry_x, self._entry_y)
+
+    -- reset pause menu
     self._option_selection_graph:set_selected_node(self._options[1].node)
+    self:_unpause()
 
     self._input:activate()
-    self:_unpause()
 end
 
 --- @brief
@@ -218,26 +256,61 @@ end
 
 --- @brief
 function ow.ResultScreenScene:update(delta)
-    while self._fireworks:get_n_rockets() < 2 do
-        local
-    end
-
-
     for updatable in range(
         self._player,
         self._world,
         self._frame,
-        self._fireworks
+        self._fireworks,
+        self._camera
     ) do
         updatable:update(delta)
     end
 
-    self._player:set_velocity(self._player_velocity_x, self._player_velocity_y)
+    if self._transition_active then
+        self._fade:update(delta)
+        dbg(self._fade._elapsed)
+
+        local player_x, player_y = self._player:get_position()
+        local player_r = self._player:get_radius()
+
+        -- follow player, after duration wait to exit screen
+        self._transition_elapsed = self._transition_elapsed + delta
+
+        local duration = rt.settings.overworld.result_screen_scene.exit_transition_fall_duration
+        self._player:set_flow(self._transition_elapsed / duration)
+
+        if self._transition_elapsed > duration then
+            if self._transition_final_y == nil then
+                self._transition_final_y = player_y
+            else
+                local screen_h = self._camera:get_world_bounds().height
+                if self._fade_active ~= true and player_y > self._transition_final_y + 2 * screen_h then -- to make sure trail is off screen
+                    self._fade:signal_connect("hidden", function(_)
+                        rt.SceneManager:set_scene(self._transition_next)
+                        return meta.DISCONNECT_SIGNAL
+                    end)
+                    self._fade:start()
+                    self._fade_active = true
+                end
+            end
+        else
+            self._camera:move_to(player_x, player_y)
+        end
+    else
+        self._player:set_velocity(self._player_velocity_x, self._player_velocity_y)
+    end
 end
 
 --- @brief
 function ow.ResultScreenScene:draw()
     if not self:get_is_active() then return end
+
+    if self._screenshot ~= nil then
+        love.graphics.setColor(1, 1, 1, 1)
+        self._screenshot:draw()
+    end
+
+    self._camera:bind()
 
     for drawable in range(
         self._frame,
@@ -257,6 +330,25 @@ function ow.ResultScreenScene:draw()
             end
         end
     end
+
+    self._camera:unbind()
+
+    if self._fade:get_is_active() then
+        self._fade:draw()
+    end
+end
+
+--- @brief
+function ow.ResultScreenScene:_transition_to(scene)
+    self._transition_active = true
+    self._transition_next = scene
+    self._transition_elapsed = 0
+    self._transition_final_y = nil
+    self._player:set_gravity(0.5)
+    self._player:set_is_bubble(false)
+    self._player:set_flow(1)
+    self._player:set_trail_visible(true)
+    self._body:set_is_enabled(false)
 end
 
 --- @brief
@@ -283,4 +375,9 @@ end
 --- @brief
 function ow.ResultScreenScene:_unpause()
 
+end
+
+--- @brief
+function ow.ResultScreenScene:get_camera()
+    return self._camera
 end
