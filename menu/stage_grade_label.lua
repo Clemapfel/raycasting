@@ -20,26 +20,6 @@ meta.add_signal(mn.StageGradeLabel, "pulse_done")
 local _font, _shader_sdf, _shader_no_sdf
 
 local _atlas = {}
-do -- caches love.TextBatches
-    for size in values(meta.instances(rt.FontSize)) do
-        local row = _atlas[size]
-        if row == nil then
-            row = {}
-            _atlas[size] = row
-        end
-
-        for grade in values(meta.instances(rt.StageGrade)) do
-            local entry = row[grade]
-            if entry == nil then
-                entry = {
-                    sdf = nil,
-                    no_sdf = nil
-                }
-                row[grade] = entry
-            end
-        end
-    end
-end
 
 --- @brief
 function mn.StageGradeLabel:instantiate(grade, size)
@@ -187,17 +167,25 @@ function mn.StageGradeLabel:_update_labels()
     local text = rt.Translation.stage_grade_to_string(self._grade)
     self._label_text = text
 
-    local no_sdf = _atlas[self._font_size][self._grade].no_sdf
-    if no_sdf == nil then
-        no_sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, false), text)
-        _atlas[self._font_size][self._grade].no_sdf = no_sdf
+    local size = _font:get_actual_size(self._font_size)
+    if _atlas[size] == nil then _atlas[size] = {} end
+    if _atlas[size][self._grade] == nil then
+        _atlas[size][self._grade] = {
+            sdf = nil,
+            no_sdf = nil
+        }
     end
 
-    local sdf = _atlas[self._font_size][self._grade].sdf
+    local no_sdf = _atlas[size][self._grade].no_sdf
+    if no_sdf == nil then
+        no_sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, false), text)
+        _atlas[size][self._grade].no_sdf = no_sdf
+    end
+
+    local sdf = _atlas[size][self._grade].sdf
     if sdf == nil then
         sdf = love.graphics.newTextBatch(_font:get_native(self._font_size, rt.FontStyle.REGULAR, true), text)
-        _atlas[self._font_size][self._grade].sdf = sdf
-
+        _atlas[size][self._grade].sdf = sdf
     end
 
     self._label_no_sdf = no_sdf
