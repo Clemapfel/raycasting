@@ -463,6 +463,12 @@ function math.magnitude(x, y)
 end
 
 --- @brief
+function math.reflect(vx, vy, normal_x, normal_y)
+    local dot_product = vx * normal_x + vy * normal_y
+    return vx - 2 * dot_product * normal_x,  vy - 2 * dot_product * normal_y
+end
+
+--- @brief
 function math.normalize3(x, y, z)
     local magnitude = math.sqrt(x * x + y * y + z * z)
     if magnitude == 0 then

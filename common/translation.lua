@@ -100,12 +100,20 @@ rt.Translation = rt.initialize_translation({
         control_indicator_unpause = "Unpause"
     },
 
-    -- results screen
-    result_screen = {
+    -- results screen scene
+    result_screen_scene = {
         flow = "Flow : ",
         time = "Time : ",
         coins = "Coins : ",
-        total = "Total : "
+        total = "Total : ",
+
+        option_retry_stage = "Retry",
+        option_next_stage = "Next Level",
+        option_return_to_main_menu = "Return to Stage Select",
+
+
+        control_indicator_move = "Move",
+        control_indicator_select = "Confirm"
     },
 
     -- overworld gameplay

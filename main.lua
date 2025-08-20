@@ -19,9 +19,11 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
 end)
 
 love.load = function(args)
+    local w, h = love.graphics.getDimensions()
+
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -32,7 +34,12 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene)
 
-    local w, h = love.graphics.getDimensions()
+    require "overworld.result_screen_scene"
+    rt.SceneManager:push(ow.ResultScreenScene,
+        rt.random.number(0, 1) * w,
+        rt.random.number(0, 1) * h
+    )
+
     screen:reformat(0, 0, w, h)
     screen:present(0.25 * w, 0.5 * h)
 end

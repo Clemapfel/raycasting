@@ -317,21 +317,12 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             local cx, cw = 0 - 0.5 * w, 0 - 0.5 * h
             title_screen.enable_boundary_on_enter = true
             title_screen.boundaries = {
-                b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx - r, cw - r, cx + w + r, cw - r
-                )),
-
-                b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx + w + r, cw - r, cx + w + r, cw + h + r
-                )),
-
-                b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx + w + r, cw + h + r, cx - r, cw + h + r
-                )),
-
-                b2.Body(self._world, b2.BodyType.STATIC, 0, 0, b2.Segment(
-                    cx - r, cw + h + r, cx - r, cw - r
-                )),
+                b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
+                    b2.Segment(cx - r, cw - r, cx + w + r, cw - r),
+                    b2.Segment(cx + w + r, cw - r, cx + w + r, cw + h + r),
+                    b2.Segment(cx + w + r, cw + h + r, cx - r, cw + h + r),
+                    b2.Segment(cx - r, cw + h + r, cx - r, cw - r)
+                )
             }
 
             -- reflect player along normal
@@ -341,9 +332,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
                 body:set_use_continuous_collision(true)
                 body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
                     local current_vx, current_vy = self._player_velocity_x, self._player_velocity_y
-                    local dot_product = current_vx * normal_x + current_vy * normal_y
-                    self._player_velocity_x = current_vx - 2 * dot_product * normal_x
-                    self._player_velocity_y = current_vy - 2 * dot_product * normal_y
+                    self._player_velocity_x, self._player_velocity_y = math.reflect(current_vx, current_vy, normal_x, normal_y)
                 end)
                 body:set_is_sensor(true)
                 body:signal_set_is_blocked("collision_start", true)
@@ -422,7 +411,8 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 end
 
 --- @brief
-function mn.MenuScene:enter()
+function mn.MenuScene:enter(skip_title)
+    if skip_title == nil then skip_title = true end -- TODO
     if self._player:get_world() ~= self._world then
         self._player:move_to_world(self._world)
     end
@@ -430,7 +420,15 @@ function mn.MenuScene:enter()
     rt.SceneManager:set_use_fixed_timestep(true)
     self._player:set_opacity(1)
 
-    self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
+    if skip_title then
+        self:_set_state(mn.MenuSceneState.STAGE_SELECT)
+        self._shader_fraction = 1
+        self._player:teleport_to(0, 2000) -- skip falling
+        self._stage_select.item_reveal_animation:skip()
+        self:update(0)
+    else
+        self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
+    end
 end
 
 --- @brief
