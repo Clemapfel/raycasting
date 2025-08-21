@@ -172,7 +172,7 @@ function rt.Label:draw(x, y)
     end
 
     if self._use_caching then
-        love.graphics.push()
+        love.graphics.push("all")
 
         love.graphics.setBlendMode("alpha", "premultiplied")
         love.graphics.setColor(self._opacity, self._opacity, self._opacity, self._opacity)
@@ -185,7 +185,7 @@ function rt.Label:draw(x, y)
         love.graphics.pop()
         love.graphics.setBlendMode("alpha")
     else
-        love.graphics.push()
+        love.graphics.push("all")
         love.graphics.translate(
             math.floor(self._bounds.x + justify_offset + self._texture_offset_x + x),
             math.floor(self._bounds.y + self._texture_offset_y + y)

@@ -74,15 +74,28 @@ function rt.Font:instantiate(
     self._line_spacing = 1 -- fraction
 end
 
-local _new_font = function(path, size, sdf)
-    return love.graphics.newFont(path, size, {
-        hinting = "normal",
-        sdf = sdf
-    })
-end
-
+local _atlas = {}
 local _sdf = true
 local _no_sdf = false
+
+-- cached sizes
+local _new_font = function(path, size, sdf)
+    if sdf == nil then sdf = _sdf end
+
+    if _atlas[path] == nil then _atlas[path] = {} end
+    if _atlas[path][size] == nil then _atlas[path][size] = {} end
+
+    local native = _atlas[path][size][sdf]
+    if native == nil then
+        native = love.graphics.newFont(path, size, {
+            hinting = "normal",
+            sdf = sdf
+        })
+        _atlas[path][size][sdf] = native
+    end
+
+    return native
+end
 
 --- @brief
 function rt.Font:get_native(size, style, sdf)
