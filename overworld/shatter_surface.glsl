@@ -61,7 +61,7 @@ float gradient_noise(vec3 p) {
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 _) {
     float outline = length(texture_coords.xy);
-    return vec4(mix(vec3(0), color.rgb, outline), 1);
+    return mix(vec4(0, 0, 0, 0.5), color, outline);
 }
 
 #endif

@@ -14,7 +14,11 @@ rt.settings.overworld.shatter_surface = {
 
     -- physics sim
     gravity = 1,
-    velocity_magnitude = 100
+    velocity_magnitude = 120,
+
+    -- visuals
+    hue_range = 0.25,
+    rim_thickness = 1.5, -- px
 }
 
 --- @class ow.ShatterSurface
@@ -374,8 +378,8 @@ local mesh_format = {
 -- The input contour is convex and ordered clockwise.
 -- This version fixes quad triangulation (including the closing edge) and adds
 -- corner-filling triangles by only appending indices to the vertex map.
-local function generate_mesh(contour, rim_thickness)
-    if rim_thickness == nil then rim_thickness = 3 end
+local function generate_mesh(contour)
+    local rim_thickness = rt.settings.overworld.shatter_surface.rim_thickness
     contour = table.deepcopy(contour)
 
     local n_vertices = #contour / 2
@@ -522,7 +526,7 @@ function ow.ShatterSurface:instantiate(world, x, y, width, height)
         x + width, y,
         x + width, y + height,
         x, y + height
-    }, 10)
+    })
 
     self._is_shattered = false
     self._is_done = false
@@ -712,8 +716,16 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         local n_vertices_to_instance_part = {}
 
         local entry_i = 1
+        local hue = rt.GameState:get_player():get_hue()
+        local hue_range = 0.5 * rt.settings.overworld.shatter_surface.hue_range
         for part in values(self._parts) do
-            part.color = { rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1) }
+            part.color = { rt.lcha_to_rgba(
+                rt.random.number(0.6, 0.85),
+                1,
+                math.fract(math.mix(hue - hue_range, hue + hue_range, part.distance / max_distance)),
+                1
+            )}
+
             part.mass = (part.mass - min_mass) / (max_mass - min_mass) -- normalize mass
             part.velocity_magnitude = math.mix(1, 2, (1 - part.distance / max_distance)) * settings.velocity_magnitude
 
@@ -722,8 +734,13 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
 
             part.body = b2.Body(self._world, b2.BodyType.DYNAMIC, part.x, part.y, b2.Polygon(part.vertices))
             part.body:add_tag("stencil", "unjumpable", "slippery")
+
             local vx, vy = math.normalize(part.x - origin_x, part.y - origin_y)
-            part.body:set_velocity(vx * settings.velocity_magnitude, vy * settings.velocity_magnitude)
+            vx, vy = math.multiply(vx, vy, settings.velocity_magnitude)
+            part.velocity_x = vx
+            part.velocity_y = vy
+            part.body:set_velocity(vx, vy)
+            part.body:set_restitution(1)
             part.mesh = generate_mesh(part.vertices)
 
             entry_i = entry_i + 1
@@ -753,12 +770,13 @@ end
 
 --- @brief
 function ow.ShatterSurface:draw()
-    love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, 0.8, 1))
+     love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue() , 1))
     _shader:bind()
     if not self._is_done then
         self._pre_shatter_mesh:draw()
     else
         for part in values(self._parts) do
+            love.graphics.setColor(part.color)
             love.graphics.push()
             love.graphics.translate(part.x, part.y)
             love.graphics.rotate(part.angle) -- part centered at origin
@@ -773,6 +791,6 @@ end
 function ow.ShatterSurface:set_time_dilation(t)
     self._time_dilation = math.clamp(t, math.eps, 1)
     for part in values(self._parts) do
-        part.body:set_damping(1 - t)
+        part.body:set_damping(t)
     end
 end

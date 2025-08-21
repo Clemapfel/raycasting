@@ -59,7 +59,7 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
     self._is_despawned = false
     self._color = { 1, 1, 1, 1 }
 
-    local collision_group = b2.CollisionGroup.GROUP_10
+    local collision_group = rt.settings.player.exempt_collision_group
 
     local height = self._bottom_y - self._top_y
     local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint_rope.segment_length), 2)
@@ -103,8 +103,14 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
         }
         body:set_user_data(instance)
 
-        body:set_collides_with(bit.bnot(collision_group))
+        body:set_collides_with(bit.bor(
+            bit.bnot(collision_group),
+            bit.bnot(rt.settings.player.player_collision_group),
+            bit.bnot(rt.settings.player.player_outer_body_collision_group))
+        )
+
         body:set_collision_group(collision_group)
+        body:set_collision_disabled(true)
         body:set_is_rotation_fixed(false)
 
         self._bodies[i] = body
