@@ -18,8 +18,8 @@ b2.BodyType = meta.enum("PhysicsBodyType", {
 
 --- @class b2.CollisionGroup
 b2.CollisionGroup = meta.enum("PhysicsCollisionGroup", {
-    NONE = 0x0000,
-    ALL = 0xFFFF,
+    NONE = 0x0,
+    ALL = bit.bnot(0x0),
     DEFAULT = 1,
     GROUP_01 = bit.lshift(1, 0),
     GROUP_02 = bit.lshift(1, 1),
