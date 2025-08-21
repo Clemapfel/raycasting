@@ -26,6 +26,8 @@ rt.settings.player = {
     ghost_collision_group = b2.CollisionGroup.GROUP_12,
     ghost_outer_body_collision_group = b2.CollisionGroup.GROUP_13,
 
+    exempt_collision_group = b2.CollisionGroup.GROUP_11,
+
     ground_target_velocity_x = 300,
     air_target_velocity_x = 320,
     sprint_multiplier = 2,
@@ -490,9 +492,9 @@ function rt.Player:update(delta)
 
     local mask
     if self._is_ghost == false then
-        mask = bit.bnot(_settings.player_outer_body_collision_group)
+        mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
     else
-        mask = _settings.ghost_collision_group
+        mask = bit.band(_settings.ghost_collision_group, bit.bnot(_settings.exempt_collision_group))
     end
 
     local bubble_factor = 1

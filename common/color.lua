@@ -185,64 +185,38 @@ end
 
 --- @brief
 function rt.lcha_to_rgba(l, c, h, alpha)
-    local L, C, H = l, c, h
+    -- Convert to Lab color space
+    local L = l * 100
+    local a = math.cos(h * 6.283185) * c * 100
+    local b = math.sin(h * 6.283185) * c * 100
 
-    L = L * 100
-    C = C * 100
-    H = H * 360
+    -- Lab to XYZ
+    local Y = (L + 16) * 0.008620689  -- 1/116
+    local X = a * 0.002 + Y           -- a/500 + Y
+    local Z = Y - b * 0.005           -- Y - b/200
 
-    local a = math.cos(math.rad(H)) * C
-    local b = math.sin(math.rad(H)) * C
+    -- XYZ cube root correction (combined threshold check)
+    local X3, Y3, Z3 = X*X*X, Y*Y*Y, Z*Z*Z
+    X = X3 > 0.008856 and 0.95047 * X3 or 0.95047 * (X - 0.137931) * 0.128419  -- (X - 16/116) / 7.787
+    Y = Y3 > 0.008856 and Y3 or (Y - 0.137931) * 0.128419
+    Z = Z3 > 0.008856 and 1.08883 * Z3 or 1.08883 * (Z - 0.137931) * 0.128419
 
-    local Y = (L + 16.0) / 116.0
-    local X = a / 500.0 + Y
-    local Z = Y - b / 200.0
+    -- XYZ to linear RGB
+    local R = X * 3.2406 - Y * 1.5372 - Z * 0.4986
+    local G = -X * 0.9689 + Y * 1.8758 + Z * 0.0415
+    local B = X * 0.0557 - Y * 0.2040 + Z * 1.0570
 
-    if X * X * X > 0.008856 then
-        X = 0.95047 * X * X * X
-    else
-        X = 0.95047 * (X - 16.0 / 116.0) / 7.787
-    end
+    -- Gamma correction (sRGB)
+    R = R > 0.0031308 and 1.055 * R^0.416666667 - 0.055 or 12.92 * R
+    G = G > 0.0031308 and 1.055 * G^0.416666667 - 0.055 or 12.92 * G
+    B = B > 0.0031308 and 1.055 * B^0.416666667 - 0.055 or 12.92 * B
 
-    if Y * Y * Y > 0.008856 then
-        Y = 1.00000 * Y * Y * Y
-    else
-        Y = 1.00000 * (Y - 16.0 / 116.0) / 7.787
-    end
-
-    if Z * Z * Z > 0.008856 then
-        Z = 1.08883 * Z * Z * Z
-    else
-        Z = 1.08883 * (Z - 16.0 / 116.0) / 7.787
-    end
-
-    local R = X *  3.2406 + Y * -1.5372 + Z * -0.4986
-    local G = X * -0.9689 + Y *  1.8758 + Z *  0.0415
-    local B = X *  0.0557 + Y * -0.2040 + Z *  1.0570
-
-    if R > 0.0031308 then
-        R = 1.055 * R^(1.0 / 2.4) - 0.055
-    else
-        R = 12.92 * R
-    end
-
-    if G > 0.0031308 then
-        G = 1.055 * G^(1.0 / 2.4) - 0.055
-    else
-        G = 12.92 * G
-    end
-
-    if B > 0.0031308 then
-        B = 1.055 * B^(1.0 / 2.4) - 0.055
-    else
-        B = 12.92 * B
-    end
-
+    -- Clamp to [0,1]
     return
-        math.clamp(R, 0.0, 1.0),
-        math.clamp(G, 0.0, 1.0),
-        math.clamp(B, 0.0, 1.0),
-        alpha
+    R < 0 and 0 or (R > 1 and 1 or R),
+    G < 0 and 0 or (G > 1 and 1 or G),
+    B < 0 and 0 or (B > 1 and 1 or B),
+    alpha
 end
 
 --- @brief

@@ -82,7 +82,6 @@ function ow.Stage:instantiate(scene, id)
     self._normal_map_done = false
     self._normal_map:signal_connect("done", function()
         self._normal_map_done = true
-        self._scene:start_timer()
         return meta.DISCONNECT_SIGNAL
     end)
 

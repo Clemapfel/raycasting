@@ -458,6 +458,90 @@ function math.normalize(x, y)
 end
 
 --- @brief
+function math.add(x, y, scalar_a, scalar_b)
+    if scalar_b == nil then scalar_b = scalar_a end
+    return x + scalar_a, y + scalar_b
+end
+
+--- @brief
+function math.subtract(x, y, scalar_a, scalar_b)
+    if scalar_b == nil then scalar_b = scalar_a end
+    return x - scalar_a, y - scalar_b
+end
+
+--- @brief
+function math.multiply(x, y, scalar_a, scalar_b)
+    if scalar_b == nil then scalar_b = scalar_a end
+    return x * scalar_a, y * scalar_b
+end
+
+--- @brief
+function math.divide(x, y, scalar_a, scalar_b)
+    if scalar_b == nil then scalar_b = scalar_a end
+    return x * scalar_a, y * scalar_b
+end
+
+--- @brief
+function math.add3(x, y, z, scalar_a, scalar_b, scalar_c)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    return x + scalar_a, y + scalar_b, z + scalar_c
+end
+
+--- @brief
+function math.subtract3(x, y, z, scalar_a, scalar_b, scalar_c)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    return x - scalar_a, y - scalar_b, z - scalar_c
+end
+
+--- @brief
+function math.multiply3(x, y, z, scalar_a, scalar_b, scalar_c)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    return x * scalar_a, y * scalar_b, z * scalar_c
+end
+
+--- @brief
+function math.divide3(x, y, z, scalar_a, scalar_b, scalar_c)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    return x / scalar_a, y / scalar_b, z / scalar_c
+end
+
+--- @brief
+function math.add4(x, y, z, w, scalar_a, scalar_b, scalar_c, scalar_d)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    if scalar_d == nil then scalar_d = scalar_a end
+    return x + scalar_a, y + scalar_b, z + scalar_c, w + scalar_d
+end
+
+--- @brief
+function math.subtract4(x, y, z, w, scalar_a, scalar_b, scalar_c, scalar_d)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    if scalar_d == nil then scalar_d = scalar_a end
+    return x - scalar_a, y - scalar_b, z - scalar_c, w - scalar_d
+end
+
+--- @brief
+function math.multiply4(x, y, z, w, scalar_a, scalar_b, scalar_c, scalar_d)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    if scalar_d == nil then scalar_d = scalar_a end
+    return x * scalar_a, y * scalar_b, z * scalar_c, w * scalar_d
+end
+
+--- @brief
+function math.divide4(x, y, z, w, scalar_a, scalar_b, scalar_c, scalar_d)
+    if scalar_b == nil then scalar_b = scalar_a end
+    if scalar_c == nil then scalar_c = scalar_a end
+    if scalar_d == nil then scalar_d = scalar_a end
+    return x / scalar_a, y / scalar_b, z / scalar_c, w / scalar_d
+end
+
+--- @brief
 function math.magnitude(x, y)
     return math.sqrt(x * x + y * y)
 end

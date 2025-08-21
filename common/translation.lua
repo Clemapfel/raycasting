@@ -102,10 +102,13 @@ rt.Translation = rt.initialize_translation({
 
     -- results screen scene
     result_screen_scene = {
-        flow = "Flow : ",
-        time = "Time : ",
-        coins = "Coins : ",
-        total = "Total : ",
+        flow = "Flow",
+        time = "Time",
+        coins = "Coins",
+        total = "Personal Best",
+
+        personal_best = "Personal Best",
+        new_record = "New Record",
 
         option_retry_stage = "Retry",
         option_next_stage = "Next Level",

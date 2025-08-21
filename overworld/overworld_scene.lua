@@ -26,7 +26,9 @@ do
         bloom_composite_strength = bloom, -- [0, 1]
         title_card_min_duration = 3, -- seconds
 
-        idle_control_indicator_popup_threshold = 5
+        idle_control_indicator_popup_threshold = 5,
+
+        result_screen_transition_duration = 5
     }
 end
 
@@ -98,10 +100,15 @@ function ow.OverworldScene:instantiate(state)
 
         _timer_started = false,
         _timer_paused = false,
+        _timer_stopped = false,
         _timer = 0,
 
         _screenshot = nil, -- rt.RenderTexture
         _player_is_visible = true,
+
+        _result_screen_transition_active = false,
+        _result_screen_transition_elapsed = 0,
+        _result_screen_transition_fraction = 0
     })
 
     local translation = rt.Translation.overworld_scene
@@ -331,6 +338,9 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(_cursor)
 
+    self._result_screen_transition_active = false
+    self._result_screen_transition_elapsed = 0
+
     if self._pause_menu_active then
         self._pause_menu:present()
     end
@@ -425,7 +435,7 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
     -- timer is quantized to physics world updates, since that
     -- is the largest temporal resolution the player can move at
     self._stage:get_physics_world():signal_connect("step", function(world, delta)
-        if self._timer_started == true and self._timer_paused ~= true then
+        if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
             self._timer = self._timer + delta
         end
     end)
@@ -440,12 +450,10 @@ end
 
 --- @brief
 function ow.OverworldScene:start_timer()
-    if self._timer_paused then
-        self._timer_pause = false
-    else
-        self._timer_started = true
-        self._timer = 0
-    end
+    self._timer_started = true
+    self._timer_stopped = false
+    self._timer_paused = false
+    self._timer = 0
 end
 
 --- @brief
@@ -461,6 +469,11 @@ end
 --- @brief
 function ow.OverworldScene:set_camera_bounds(bounds)
     self._camera:set_bounds(bounds)
+end
+
+--- @brief
+function ow.OverworldScene:stop_timer()
+    self._timer_stopped = true
 end
 
 --- @brief
@@ -641,6 +654,12 @@ function ow.OverworldScene:draw()
         love.graphics.circle("line", x, y, 6 * scale)
     end
 
+    if self._result_screen_transition_active == true then
+        -- white flash on screenshot
+        love.graphics.setColor(1, 1, 1, self._result_screen_transition_fraction)
+        love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
+    end
+
     if self._pause_menu_active then
         self._pause_menu:draw()
     end
@@ -708,7 +727,7 @@ function ow.OverworldScene:_draw_debug_information()
     local duration = self:get_timer()
     local time = string.format_time(duration)
 
-    if self._timer_paused == true or self._timer_started == false then
+    if self._timer_paused == true or self._timer_started == false or self._timer_stopped then
         time = time .. " (paused)"
     end
 
@@ -878,6 +897,28 @@ function ow.OverworldScene:update(delta)
         self._visible_bodies = visible
         self._light_sources = light_sources
     end
+
+    -- transition
+    if self._result_screen_transition_active == true then
+        self._result_screen_transition_elapsed = self._result_screen_transition_elapsed + delta
+        local duration = rt.settings.overworld_scene.result_screen_transition_duration
+        local fraction = self._result_screen_transition_elapsed / duration
+
+        local should_transition = fraction > 1
+        self._result_screen_transition_fraction = 0.25 * rt.InterpolationFunctions.ENVELOPE(fraction, 0.1)
+        if should_transition then
+            -- screenshot without player
+            self._player_is_visible = false
+            self._screenshot:bind()
+            love.graphics.clear(0, 0, 0, 0)
+            self:draw()
+            self._screenshot:unbind()
+            self._player_is_visible = true
+
+            local local_x, local_y = self._camera:world_xy_to_screen_xy(self._player:get_position())
+            rt.SceneManager:set_scene(ow.ResultScreenScene, local_x, local_y, self._screenshot)
+        end
+    end
 end
 
 --- @brief
@@ -943,10 +984,12 @@ end
 
 --- @brief
 function ow.OverworldScene:respawn()
+    self._result_screen_transition_active = false
+    self._result_screen_transition_elapsed = 0
+
     self._stage:get_active_checkpoint():spawn()
     self._stage:reset_coins()
     self._camera:set_position(self._player:get_position())
-
 end
 
 --- @brief
@@ -1038,20 +1081,9 @@ end
 
 --- @brief
 function ow.OverworldScene:show_result_screen()
-    require "overworld.result_screen_scene"
-
-    local px, py = self._camera:world_xy_to_screen_xy(self._player:get_position())
-    if self._screenshot == nil or self._screenshot:get_width() ~= self._bounds.width or self._screenshot:get_height() ~= self._bounds.height then
-        self._screenshot = rt.RenderTexture(self._bounds.width, self._bounds.height, rt.GameState:get_msaa_quality())
-    end
-
-    self._player_is_visible = false
-    self._screenshot:bind()
-    love.graphics.clear(1, 0, 1, 1)
-    self:draw()
-    self._screenshot:unbind()
-    self._player_is_visible = true
-    rt.SceneManager:set_scene(ow.ResultScreenScene, self._screenshot, px, py)
+    -- start animation, cf update
+    self._result_screen_transition_active = true
+    self._result_screen_transition_elapsed = 0
 end
 
 

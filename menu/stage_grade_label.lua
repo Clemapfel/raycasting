@@ -40,8 +40,15 @@ function mn.StageGradeLabel:instantiate(grade, size)
     if _font == nil then
         local id = rt.settings.menu.stage_grade_label.font_id
         _font = rt.Font("assets/fonts/" .. id .. "/" .. id .. "-Regular.ttf")
-        --_font = rt.Font(rt.settings.menu.stage_grade_label.font_path)
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "l" then
+                _shader_sdf:recompile()
+                _shader_no_sdf:recompile()
+            end
+        end)
     end
+
     if _shader_no_sdf == nil then _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0 }) end
     if _shader_sdf == nil then
         _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
