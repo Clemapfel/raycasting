@@ -1126,7 +1126,7 @@ function rt.Label:_update_texture()
 
     local justify_mode = self._justify_mode
     if justify_mode == rt.JustifyMode.CENTER then
-        love.graphics.translate(-1 * self._justify_center_offset, 0)
+        love.graphics.translate(- self._justify_center_offset, 0)
     elseif justify_mode == rt.JustifyMode.RIGHT then
         love.graphics.translate(-1 * self._justify_right_offset, 0)
     end
@@ -1147,10 +1147,13 @@ function rt.Label:_update_texture()
             justify_offset = glyph.justify_right_offset
         end
 
+        love.graphics.push()
+        love.graphics.translate(justify_offset, 0)
+
         local r, g, b, a = table.unpack(glyph.outline_color)
         love.graphics.setColor(r, g, b, a)
         love.graphics.draw(glyph.outline_glyph,
-            _floor(glyph.x + _padding + justify_offset),
+            _floor(glyph.x + _padding),
             _floor(glyph.y + _padding)
         )
 
@@ -1161,6 +1164,8 @@ function rt.Label:_update_texture()
         if glyph.is_strikethrough then
             love.graphics.line(glyph.strikethrough_ax, glyph.strikethrough_ay, glyph.strikethrough_bx, glyph.strikethrough_by)
         end
+
+        love.graphics.pop()
     end
 
     -- draw glyphs
