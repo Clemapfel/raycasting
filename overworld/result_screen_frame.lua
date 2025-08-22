@@ -16,16 +16,17 @@ end
 
 --- @class ow.ResultScreenFrame
 ow.ResultScreenFrame = meta.class("ResultScreenFrame", rt.Widget)
-meta.add_signal(ow.ResultScreenFrame, "revealed")
-meta.add_signal(ow.ResultScreenFrame, "hidden")
+meta.add_signal(ow.ResultScreenFrame, "presented")
+meta.add_signal(ow.ResultScreenFrame, "closed")
 
-local _particle_texture_shader, _outline_shader, _base_shader
+local _particle_texture_shader, _outline_shader, _base_shader, _mask_shader
 
 --- @brief
 function ow.ResultScreenFrame:instantiate()
     if _particle_texture_shader == nil then _particle_texture_shader = rt.Shader("overworld/result_screen_frame_particle.glsl") end
     if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 }) end
     if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 }) end
+    if _mask_shader == nil then _mask_shader = rt.Shader("overworld/result_screen_frame_mask.glsl") end
 
     self._mesh_animation = rt.AnimationChain(
         1, 0, 1, rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
@@ -147,8 +148,8 @@ function ow.ResultScreenFrame:_update_mesh_paths()
     local origin_x = self._bounds.x + 0.5 * self._bounds.width
     local origin_y = self._bounds.y + 0.5 * self._bounds.height
 
-    local rect_w = 0.75 * self._bounds.width
-    local rect_h = 0.75 * self._bounds.height
+    local rect_w = self._bounds.width
+    local rect_h = self._bounds.height
     self._rect_area = rt.AABB(
         self._bounds.x + 0.5 * self._bounds.width - 0.5 * rect_w,
         self._bounds.y + 0.5 * self._bounds.height - 0.5 * rect_h,
@@ -210,10 +211,14 @@ function ow.ResultScreenFrame:_update_mesh_paths()
             outer_length / outer_step_size
         )
 
+        n_outer_vertices = math.min(n_outer_vertices, 512)
+
         local k, n = 1, n_outer_vertices
-        while n < 128 do
-            k = k + 1
-            n = n_outer_vertices * k
+        if n_outer_vertices > 0 then
+            while n < 128 do
+                k = k + 1
+                n = n_outer_vertices * k
+            end
         end
 
         n_outer_vertices = n
@@ -415,10 +420,11 @@ local _vertex_i = 7
 
 --- @brief
 function ow.ResultScreenFrame:_update_particles()
+    dbg("particles")
     local settings = rt.settings.overworld.result_screen_frame -- outer curve of rectangle
 
     local length = self._outer_path:get_length()
-    local n_particles = settings.coverage * length / settings.particle_radius
+    local n_particles = math.ceil(settings.coverage * length / settings.particle_radius)
 
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     local home_radius = settings.particle_home_radius
@@ -521,8 +527,8 @@ function ow.ResultScreenFrame:update(delta)
 
     self._particle_canvas_needs_update = true
 
-    if self._mesh_animation:get_fraction() >= 0.5 and self._signal_emitted == false then
-        self:signal_emit("revealed")
+    if self._mesh_animation:get_fraction() >= 1 and self._signal_emitted == false then
+        self:signal_emit("presented")
         self._signal_emitted = true
     end
 end
@@ -539,6 +545,7 @@ function ow.ResultScreenFrame:draw()
     if self._particle_canvas ~= nil then
         if self._particle_canvas_needs_update == true then
             love.graphics.push("all")
+            love.graphics.reset()
             self._particle_canvas:bind()
             love.graphics.clear(0, 0, 0, 0)
             love.graphics.translate(-self._canvas_x, -self._canvas_y)
@@ -568,7 +575,7 @@ function ow.ResultScreenFrame:draw()
 
         _outline_shader:bind()
         _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        _outline_shader:send("hue", 0)
+        _outline_shader:send("hue", rt.SceneManager:get_current_scene():get_player():get_hue())
         self._particle_canvas:draw(self._canvas_x, self._canvas_y)
         _outline_shader:unbind()
     end
@@ -576,6 +583,9 @@ end
 
 --- @brief
 function ow.ResultScreenFrame:draw_mask()
+    _mask_shader:bind()
+    self._mesh:draw()
+    _mask_shader:unbind()
 end
 
 

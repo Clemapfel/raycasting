@@ -7,13 +7,20 @@ rt.settings.overworld.result_screen_scene = {
     title_font = "assets/fonts/Baloo2/Baloo2-Bold.ttf",
     glyph_font = "assets/fonts/Baloo2/Baloo2-Medium.ttf",
 
-    coin_indicator_n_vertices = 16
+    coin_indicator_n_vertices = 16,
+    coin_indicator_line_width = 1.5,
+
+    reveal_animation_duration = 2,
 }
 
 --- @class ow.ResultScreenScene
 ow.ResultScreenScene = meta.class("ResultScreenScene", rt.Scene)
 
 local _title_font, _glyph_font
+
+local _format_count = function(n, max_n)
+    return string.paste(n, " / ", max_n)
+end
 
 --- @brief
 function ow.ResultScreenScene:instantiate(state)
@@ -52,12 +59,18 @@ function ow.ResultScreenScene:instantiate(state)
     self._flow_title_label = new_heading(translation.flow)
     self._time_title_label = new_heading(translation.time)
     self._coins_title_label = new_heading(translation.coins)
+
+    self._flow_value_label_x, self._flow_value_label_y = 0, 0
+    self._time_value_label_x, self._time_value_label_y = 0, 0
+    self._coins_value_label_x, self._coins_value_label_y = 0, 0
+
     self._coins = {}
     self._coin_indicators = {}
 
     self._flow_value_label = new_value(string.format_percentage(0))
     self._time_value_label = new_value(string.format_time(0))
-    self._coins_value_label = new_value("0 / 0")
+    self._coins_value_label = new_value(_format_count(0, 0))
+    self._animations_active = false
 
     self._total_label = new_heading(translation.total)
 
@@ -66,6 +79,19 @@ function ow.ResultScreenScene:instantiate(state)
     self._flow_grade_label = mn.StageGradeLabel(rt.StageGrade.A, grade_size)
     self._time_grade_label = mn.StageGradeLabel(rt.StageGrade.B, grade_size)
     self._coins_grade_label = mn.StageGradeLabel(rt.StageGrade.F, grade_size)
+
+    -- reveal animation
+    local duration = rt.settings.overworld.result_screen_scene.reveal_animation_duration
+    local easing = rt.InterpolationFunctions.SINUSOID_EASE_OUT
+    self._coins_animation = rt.TimedAnimation(duration, 0, 1, easing)
+    self._flow_animation = rt.TimedAnimation(duration, 0, 1, easing)
+    self._time_animation = rt.TimedAnimation(duration, 0, 1, easing)
+    self._coin_indicator_animation = rt.TimedAnimation(duration, 0, 1, rt.InterpolationFunctions.LINEAR)
+
+    self._flow = 0
+    self._max_n_coins = 0
+    self._n_coins = 0
+    self._time = 0
 
     -- exit animation
     self._transition_active = false
@@ -309,7 +335,9 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     self._config = config
     local required_keys = {
-        coins = true
+        coins = true,   -- Table<Boolean>
+        time = true,    -- seconds
+        flow = true     -- fraction
     }
 
     for key in keys(required_keys) do
@@ -317,6 +345,9 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
             rt.error("In ow.ResultScreenScene.enter: config does not have `" .. key .. "` field")
         end
     end
+
+    self._flow = config.flow
+    self._time = config.time
 
     -- player position continuity
     self._entry_x, self._entry_y = player_x, player_y
@@ -338,68 +369,52 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
             if b then self._n_coins = self._n_coins + 1 end
         end
 
-        self._coins_value_label:set_text(self._n_coins .. " / " .. self._max_n_coins)
-
+        for entry in values(self._coins) do
+            entry.body:destroy()
+        end
         self._coins = {}
+
         local radius = rt.settings.overworld.coin.radius * rt.get_pixel_scale()
-        local coin_shape = b2.Circle(0, 0, radius)
-        local min_x, max_x = self._bounds.x, self._bounds.x + self._bounds.width
-        local min_y, max_y = self._bounds.y, self._bounds.y + self._bounds.height
-        local padding = 50
-
         for i = 1, self._max_n_coins do
-            local velocity_x, velocity_y = math.normalize(rt.random.number(0, 1), rt.random.number(0, 1))
-            local position_x = rt.random.number(min_x + padding, max_x - padding)
-            local position_y = rt.random.number(min_y + padding, max_y - padding)
-            local body = b2.Body(self._world, b2.BodyType.DYNAMIC, position_x, position_y, coin_shape)
-            body:set_collision_group(rt.settings.player.bounce_collision_group)
-            body:set_collides_with(rt.settings.player.bounce_collision_group)
-            body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
-                if other_body:get_type() ~= b2.BodyType.STATIC then
-                    local entry = body:get_user_data()
-                    entry.velocity_x, entry.velocity_y = math.reflect(entry.velocity_x, entry.velocity_y, normal_x, normal_y)
-
-                    if other_body:has_tag("player") then
-                        self._player_velocity_x, self._player_velocity_y = math.reflect(
-                            self._player_velocity_x, self._player_velocity_y,
-                            -normal_x, -normal_y
-                        )
-                    end
-                end
-            end)
-
-            local coin = ow.CoinParticle(radius)
             local hue = ow.Coin.index_to_hue(i, self._max_n_coins)
-            coin:set_hue(hue)
-
-            local entry = {
-                coin = coin,
-                body = body,
-                velocity_x = velocity_x,
-                velocity_y = velocity_y
-            }
-
-            body:set_user_data(entry)
-            table.insert(self._coins, entry)
-
             table.insert(self._coin_indicators, {
                 radius = radius * 2 / 3,
                 x = 0,
                 y = 0,
-                fill_color = { rt.lcha_to_rgba(0.5, 0.7, hue, 1) },
                 fill_shape = { 0, 0, radius * 2 / 3 }, -- love.Circle
-                line_color = { rt.lcha_to_rgba(0.8, 1, hue, 1) },
+                color = { rt.lcha_to_rgba(0.8, 1, hue, 1) },
                 line_shape = { 0, 0, 1, 1 }, -- love.Line
-                is_collected = self._config.coins[i]
+                is_collected = self._config.coins[i],
+                active = false
             })
         end
     end
 
+    -- labels
+    self._flow_value_label:set_text(string.format_percentage(0))
+    self._time_value_label:set_text(string.format_time(0))
+    self._coins_value_label:set_text(_format_count(0, self._max_n_coins))
+
     self:_reformat_frame() -- realign all mutable ui elements
 
     -- reset animations
+    for animation in range(
+        self._flow_animation,
+        self._coins_animation,
+        self._time_animation,
+        self._coin_indicator_animation
+    ) do
+        animation:reset()
+    end
+    self._animations_active = false
+
     self._fade:reset()
     self._fade_active = false
+    self._frame:signal_connect("presented", function(_)
+        self._animations_active = true
+        return meta.DISCONNECT_SIGNAL
+    end)
+
     self._frame:present(self._entry_x, self._entry_y)
 
     -- reset pause menu
@@ -413,9 +428,12 @@ end
 --- @brief
 function ow.ResultScreenScene:_reformat_frame()
     local x, y, width, height = self:get_bounds():unpack()
-    self._frame:reformat(x, y, width, height)
-
     local m = rt.settings.margin_unit
+
+    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+
+    local y = 0 -- aligned in draw
+    min_y = y
 
     local max_title_w = -math.huge
     for title in range(
@@ -454,6 +472,8 @@ function ow.ResultScreenScene:_reformat_frame()
     local coins_value_w, coins_value_h = self._coins_value_label:measure()
     self._coins_value_label:reformat(coins_x + 0.5 * coins_w - 0.5 * coins_value_w, coins_y, math.huge)
 
+    self._coins_value_label_x, self._coins_value_label_y = coins_x + 0.5 * coins_w, coins_y
+
     -- time
     local time_x, time_y, time_w = col_x, col_y, col_w
     col_x = col_x + col_w
@@ -468,6 +488,8 @@ function ow.ResultScreenScene:_reformat_frame()
 
     local time_value_w, time_value_h = self._time_value_label:measure()
     self._time_value_label:reformat(time_x + 0.5 * time_w - 0.5 * time_value_w, time_y, math.huge)
+
+    self._time_value_label_x, self._time_value_label_y = time_x + 0.5 * time_w, time_y
 
     -- flow
     local flow_x, flow_y, flow_w = col_x, col_y, col_w
@@ -484,6 +506,8 @@ function ow.ResultScreenScene:_reformat_frame()
     local flow_value_w, flow_value_h = self._flow_value_label:measure()
     self._flow_value_label:reformat(flow_x + 0.5 * flow_w - 0.5 * flow_value_w, flow_y, math.huge)
 
+    self._flow_value_label_x, self._flow_value_label_y = flow_x + 0.5 * flow_w, flow_y
+
     -- indicators
     local indicator_y = math.max(time_y, flow_y, coins_y) + m
     local indicator_width = math.abs(col_x - start_x) - 4 * m
@@ -498,6 +522,8 @@ function ow.ResultScreenScene:_reformat_frame()
         local row_height = 2 * radius + spacing
         local row_y = math.max(indicator_y + (indicator_height - (rows * row_height - spacing)) / 2, indicator_y)
 
+        local fill_radius = radius - 2 * rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.get_pixel_scale()
+
         local coin_index = 1
         for row = 0, rows - 1 do
             local coins_in_row = math.floor(n_coins / rows) + ternary(row < (n_coins % rows), 1, 0)
@@ -509,7 +535,12 @@ function ow.ResultScreenScene:_reformat_frame()
                 entry.x = row_x + col * (2 * radius + spacing) + radius
                 entry.y = row_y + row * row_height + radius
 
-                entry.fill_shape[1], entry.fill_shape[2] = entry.x, entry.y
+                min_x = math.min(min_x, entry.x - radius)
+                max_x = math.max(max_x, entry.x + radius)
+                min_y = math.min(min_y, entry.y - radius)
+                max_y = math.max(max_y, entry.y + radius)
+
+                entry.fill_shape[1], entry.fill_shape[2], entry.fill_shape[3] = entry.x, entry.y, fill_radius
 
                 entry.line_shape = {}
                 local n_vertices = rt.settings.overworld.result_screen_scene.coin_indicator_n_vertices
@@ -536,6 +567,36 @@ function ow.ResultScreenScene:_reformat_frame()
 
     local total_x = x + 0.5 * width - 0.5 * total_grade_w
     self._total_grade:reformat(total_x, total_y, total_grade_w, total_grade_h)
+
+    for widget in range(
+        self._stage_name_label,
+        self._flow_title_label,
+        self._flow_grade_label,
+        self._flow_value_label,
+
+        self._time_title_label,
+        self._time_grade_label,
+        self._time_value_label,
+
+        self._coins_title_label,
+        self._coins_grade_label,
+        self._coins_value_label
+    ) do
+        local widget_x, widget_y = widget:get_position()
+        local widget_w, widget_h = widget:measure()
+        min_x = math.min(min_x, widget_x)
+        max_x = math.max(max_x, widget_x + widget_w)
+        min_y = math.min(min_y, widget_y)
+        max_y = math.max(max_y, widget_y + widget_h)
+    end
+
+    min_x = min_x - 8 * m
+    max_x = max_x + 8 * m
+    min_y = min_y - 2 * m
+    max_y = max_y + 8 * m
+    self._frame:reformat(min_x, min_y, max_x - min_x, max_y - min_y)
+
+    self._y_offset = self._bounds.y + 0.5 * self._bounds.height - 0.5 * (max_y - min_y)
 end
 
 --- @brief
@@ -558,6 +619,49 @@ end
 --- @brief
 function ow.ResultScreenScene:exit()
     self._input:deactivate()
+end
+
+--- @brief
+function ow.ResultScreenScene:_spawn_coin(x, y, i)
+    local radius = rt.settings.overworld.coin.radius * rt.get_pixel_scale()
+    local coin_shape = b2.Circle(0, 0, radius)
+    local min_x, max_x = self._bounds.x, self._bounds.x + self._bounds.width
+    local min_y, max_y = self._bounds.y, self._bounds.y + self._bounds.height
+    local padding = 50
+
+    local velocity_x, velocity_y = math.normalize(rt.random.number(-1, 1), rt.random.number(-1, 1))
+    local position_x = math.clamp(x, min_x + padding, max_x - padding)
+    local position_y = math.clamp(y, min_y + padding, max_y - padding)
+    local body = b2.Body(self._world, b2.BodyType.DYNAMIC, position_x, position_y, coin_shape)
+    body:set_collision_group(rt.settings.player.bounce_collision_group)
+    body:set_collides_with(rt.settings.player.bounce_collision_group)
+    body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
+        if other_body:get_type() ~= b2.BodyType.STATIC then
+            local entry = body:get_user_data()
+            entry.velocity_x, entry.velocity_y = math.reflect(entry.velocity_x, entry.velocity_y, normal_x, normal_y)
+
+            if other_body:has_tag("player") then
+                self._player_velocity_x, self._player_velocity_y = math.reflect(
+                    self._player_velocity_x, self._player_velocity_y,
+                    -normal_x, -normal_y
+                )
+            end
+        end
+    end)
+
+    local coin = ow.CoinParticle(radius)
+    local hue = ow.Coin.index_to_hue(i, self._max_n_coins)
+    coin:set_hue(hue)
+
+    local entry = {
+        coin = coin,
+        body = body,
+        velocity_x = velocity_x,
+        velocity_y = velocity_y
+    }
+
+    body:set_user_data(entry)
+    table.insert(self._coins, entry)
 end
 
 --- @brief
@@ -587,6 +691,43 @@ function ow.ResultScreenScene:update(delta)
         self._total_label
     ) do
         updatable:update(delta)
+    end
+
+    if self._animations_active then
+        self._flow_animation:update(delta)
+        self._coins_animation:update(delta)
+        self._time_animation:update(delta)
+        self._coin_indicator_animation:update(delta)
+
+        local flow = self._flow_animation:get_value() * self._flow
+        self._flow_value_label:set_text(string.format_percentage(flow))
+
+        local flow_w, flow_h = self._flow_value_label:measure()
+        self._flow_value_label:reformat(self._flow_value_label_x - 0.5 * flow_w, self._flow_value_label_y)
+
+        local coins = math.round(self._coins_animation:get_value() * self._n_coins)
+        self._coins_value_label:set_text(_format_count(coins, self._max_n_coins))
+
+        local coins_w, coins_h = self._coins_value_label:measure()
+        self._coins_value_label:reformat(self._coins_value_label_x - 0.5 * coins_w, self._coins_value_label_y)
+
+        local active_indicators = math.round(self._coin_indicator_animation:get_value() * self._max_n_coins)
+        for i = 1, active_indicators do
+            local entry = self._coin_indicators[i]
+
+            if entry.is_active ~= true then
+                entry.is_active = true
+                if entry.is_collected then
+                   self:_spawn_coin(entry.fill_shape[1], entry.fill_shape[2], i)
+                end
+            end
+        end
+
+        local time = self._time_animation:get_value() * self._time
+        self._time_value_label:set_text(string.format_time(time))
+
+        local time_w, time_h = self._time_value_label:measure()
+        self._time_value_label:reformat(self._time_value_label_x - 0.5 * time_w, self._time_value_label_y)
     end
 
     if self._transition_active then
@@ -638,12 +779,20 @@ function ow.ResultScreenScene:draw()
 
     self._camera:bind()
 
+    love.graphics.push()
+    love.graphics.translate(0, self._y_offset)
+
     self._frame:draw()
 
     for entry in values(self._coins) do
         entry.coin:draw(entry.body:get_position())
     end
     self._player:draw()
+
+    local stencil = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
+    self._frame:draw_mask()
+    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
     for widget in range(
         self._stage_name_label,
@@ -666,15 +815,22 @@ function ow.ResultScreenScene:draw()
         widget:draw()
     end
 
-    love.graphics.setLineWidth(1.5)
+    love.graphics.setLineWidth(rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.get_pixel_scale())
     for entry in values(self._coin_indicators) do
-        if entry.is_collected then
-            love.graphics.setColor(entry.fill_color)
+        if entry.is_active then
+            love.graphics.setColor(entry.color)
+        else
+            rt.Palette.GRAY:bind()
+        end
+
+        if entry.is_collected and entry.is_active then
             love.graphics.circle("fill", table.unpack(entry.fill_shape))
         end
-        love.graphics.setColor(entry.line_color)
+
         love.graphics.line(table.unpack(entry.line_shape))
     end
+
+    rt.graphics.set_stencil_mode(nil)
 
     if self._is_paused then
         self._option_background:draw()
@@ -688,11 +844,14 @@ function ow.ResultScreenScene:draw()
         end
     end
 
+    love.graphics.pop()
     self._camera:unbind()
 
     if self._fade:get_is_active() then
         self._fade:draw()
     end
+
+    self._frame:draw_bounds()
 end
 
 --- @brief
@@ -737,4 +896,9 @@ end
 --- @brief
 function ow.ResultScreenScene:get_camera()
     return self._camera
+end
+
+--- @brief
+function ow.ResultScreenScene:get_player()
+    return self._player
 end

@@ -3,10 +3,30 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
+local present = function()
+    local coins = {}
+    for i = 1, 50 do
+        table.insert(coins, rt.random.toss_coin(0.5))
+    end
+
+    local w, h = love.graphics.getDimensions()
+    rt.SceneManager:push(ow.ResultScreenScene,
+        rt.random.number(0, 1) * w,
+        rt.random.number(0, 1) * h,
+        rt.RenderTexture(),
+        {
+            coins = coins,
+            time = 1.234,
+            flow = 0.9868
+        }
+    )
+end
+
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "^" then
-        rt.SceneManager:set_scene(ow.OverworldScene, "tutorial", false)
+        --rt.SceneManager:set_scene(ow.OverworldScene, "tutorial", false)
+        present()
     end
 end)
 
@@ -27,19 +47,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.result_screen_scene"
-
-    local coins = {}
-    for i = 1, 50 do
-        table.insert(coins, rt.random.toss_coin(0.5))
-    end
-    rt.SceneManager:push(ow.ResultScreenScene,
-        rt.random.number(0, 1) * w,
-        rt.random.number(0, 1) * h,
-        rt.RenderTexture(),
-        {
-            coins = coins
-        }
-    )
+    present()
 end
 
 love.update = function(delta)

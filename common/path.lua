@@ -13,7 +13,9 @@ function rt.Path:instantiate(points, ...)
         _points = points,
         _segments = {},      -- Flattened segment data for cache efficiency
         _n_segments = 0,
-        _length = 0
+        _length = 0,
+        _lookup_table = {},
+        _lookup_size = 0
     })
     out:create_from(points, ...)
     return out
@@ -21,8 +23,51 @@ end
 
 do
     local _sqrt = math.sqrt
-    local _atan2, _sin, _cos = math.atan2, math.sin, math.cos
     local _floor = math.floor
+
+    --- Rebuild the lookup table from current _segments fractions in O(n_segments + lookup_size)
+    function rt.Path:_rebuild_lookup_table()
+        local n_segments = self._n_segments
+        local segments = self._segments
+
+        -- Adaptive resolution as before
+        local lookup_size = math.clamp(n_segments * 4, 64, 1024)
+        self._lookup_size = lookup_size
+
+        local lookup_table = {}
+
+        if n_segments <= 0 then
+            for i = 0, lookup_size do
+                lookup_table[i] = 1
+            end
+            self._lookup_table = lookup_table
+            return
+        end
+
+        local function base(j) return (j - 1) * 8 end
+
+        -- Initialize first segment window
+        local j = 1
+        local b = base(j)
+        local fraction = segments[b + 7] or 0
+        local fraction_end = fraction + (segments[b + 8] or 0)
+
+        for i = 0, lookup_size do
+            local t = i / lookup_size
+
+            -- Advance to the segment that contains t (skip zero-length fractions)
+            while j < n_segments and t >= fraction_end do
+                j = j + 1
+                b = base(j)
+                fraction = segments[b + 7] or 0
+                fraction_end = fraction + (segments[b + 8] or 0)
+            end
+
+            lookup_table[i] = j
+        end
+
+        self._lookup_table = lookup_table
+    end
 
     --- @brief Build optimized segment data structure with lookup table
     function rt.Path:_update()
@@ -73,48 +118,23 @@ do
                 segments[seg_base + 8] = length / total_length          -- fraction_length
             end
         else
-            -- Handle degenerate case
+            -- Handle degenerate case: all lengths zero
             for i = 1, n_segments do
                 local seg_base = (i - 1) * 8
-                segments[seg_base + 7] = 0  -- fraction
+                segments[seg_base + 7] = 0                    -- fraction
                 segments[seg_base + 8] = (i == 1) and 1 or 0  -- fraction_length
             end
-        end
-
-        -- Build lookup table for O(1) segment finding
-        -- Use adaptive resolution based on number of segments
-        local lookup_size = math.clamp(n_segments * 4, 64, 1024)
-        local lookup_table = {}
-
-        for i = 0, lookup_size do
-            local t = i / lookup_size
-            local segment_idx = 1
-
-            -- Find which segment this t falls into
-            for j = 1, n_segments do
-                local seg_base = (j - 1) * 8
-                local fraction = segments[seg_base + 7]
-                local fraction_end = fraction + segments[seg_base + 8]
-
-                if t >= fraction and t < fraction_end then
-                    segment_idx = j
-                    break
-                elseif j == n_segments then
-                    segment_idx = j  -- Last segment for t=1
-                end
-            end
-
-            lookup_table[i] = segment_idx
         end
 
         self._segments = segments
         self._n_segments = n_segments
         self._length = total_length
-        self._lookup_table = lookup_table
-        self._lookup_size = lookup_size
+
+        -- Build lookup table from current fractions
+        self:_rebuild_lookup_table()
     end
 
-    --- @brief Ultra-fast O(1) at function using lookup table
+    --- @brief Ultra-fast at function using lookup table with robust local correction
     function rt.Path:at(t)
         t = math.clamp(t, 0, 1)
 
@@ -139,33 +159,44 @@ do
             return last_x + last_length * last_cos, last_y + last_length * last_sin
         end
 
-        -- O(1) lookup using pre-computed table
+        -- O(1) lookup using pre-computed table (round to nearest slot)
         local lookup_idx = _floor(t * self._lookup_size + 0.5)
-        local segment_idx = self._lookup_table[lookup_idx]
+        local segment_idx = self._lookup_table[lookup_idx] or 1
 
-        -- Verify segment is correct (handles edge cases in lookup)
-        local seg_base = (segment_idx - 1) * 8
-        local fraction = segments[seg_base + 7]
-        local fraction_end = fraction + segments[seg_base + 8]
+        -- Ensure segment_idx is valid
+        if segment_idx < 1 then segment_idx = 1 end
+        if segment_idx > n_segments then segment_idx = n_segments end
 
-        -- If lookup was slightly off, do a quick local search
-        if t < fraction and segment_idx > 1 then
+        -- Verify segment is correct; adjust with bounded while loops
+        local function seg_base(i) return (i - 1) * 8 end
+
+        local sb = seg_base(segment_idx)
+        local fraction = segments[sb + 7]
+        local fraction_end = fraction + segments[sb + 8]
+
+        -- Move left if t is before this segment's range
+        while segment_idx > 1 and t < fraction do
             segment_idx = segment_idx - 1
-            seg_base = (segment_idx - 1) * 8
-            fraction = segments[seg_base + 7]
-        elseif t >= fraction_end and segment_idx < n_segments then
+            sb = seg_base(segment_idx)
+            fraction = segments[sb + 7]
+            fraction_end = fraction + segments[sb + 8]
+        end
+
+        -- Move right if t is after this segment's range
+        while segment_idx < n_segments and t >= fraction_end do
             segment_idx = segment_idx + 1
-            seg_base = (segment_idx - 1) * 8
-            fraction = segments[seg_base + 7]
+            sb = seg_base(segment_idx)
+            fraction = segments[sb + 7]
+            fraction_end = fraction + segments[sb + 8]
         end
 
         -- Interpolate within the found segment
-        local from_x = segments[seg_base + 1]
-        local from_y = segments[seg_base + 2]
-        local cos_angle = segments[seg_base + 3]
-        local sin_angle = segments[seg_base + 4]
-        local length = segments[seg_base + 5]
-        local fraction_length = segments[seg_base + 8]
+        local from_x = segments[sb + 1]
+        local from_y = segments[sb + 2]
+        local cos_angle = segments[sb + 3]
+        local sin_angle = segments[sb + 4]
+        local length = segments[sb + 5]
+        local fraction_length = segments[sb + 8]
 
         -- Calculate distance along this segment
         local local_t = (fraction_length > 0) and ((t - fraction) / fraction_length) or 0
@@ -190,7 +221,7 @@ function rt.Path:list_points()
     local out = {}
     for i = 1, #self._points, 2 do
         table.insert(out, self._points[i])
-        table.inserT(out, self._points[i+1])
+        table.insert(out, self._points[i + 1])
     end
     return out
 end
@@ -232,9 +263,12 @@ function rt.Path:override_parameterization(...)
         local seg_base = (i - 1) * 8
         local fraction_length = select(i, ...)
 
-        self._segments[seg_base + 7] = fraction      -- fraction
-        self._segments[seg_base + 8] = fraction_length  -- fraction_length
+        self._segments[seg_base + 7] = fraction         -- fraction
+        self._segments[seg_base + 8] = fraction_length   -- fraction_length
 
         fraction = fraction + fraction_length
     end
+
+    -- IMPORTANT: fractions changed => rebuild lookup
+    self:_rebuild_lookup_table()
 end
