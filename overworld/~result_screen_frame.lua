@@ -1,31 +1,25 @@
 require "common.timed_animation_sequence"
 
-do
-    local outline_width = 20
-    rt.settings.overworld.result_screen_frame = {
-        outline_width = outline_width,
-        particle_radius = 0.25 * outline_width,
-        particle_home_radius = 0.75 * outline_width,
-        min_speed = 10, -- px per second
-        max_speed = 15,
-        min_scale = 1, -- fraction
-        max_scale = 1.2,
-        coverage = 3
-    }
-end
-
 --- @class ow.ResultScreenFrame
 ow.ResultScreenFrame = meta.class("ResultScreenFrame", rt.Widget)
 meta.add_signal(ow.ResultScreenFrame, "revealed")
 meta.add_signal(ow.ResultScreenFrame, "hidden")
 
-local _particle_texture_shader, _outline_shader, _base_shader
+local _draw_shader, _mask_shader
 
 --- @brief
 function ow.ResultScreenFrame:instantiate()
-    if _particle_texture_shader == nil then _particle_texture_shader = rt.Shader("overworld/result_screen_frame_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 }) end
-    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 }) end
+    if _draw_shader == nil then _draw_shader = rt.Shader("overworld/result_screen_frame.glsl", { MODE = 0 }) end
+    if _mask_shader == nil then
+        _mask_shader = rt.Shader("overworld/result_screen_frame.glsl", { MODE = 1})
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "k" then
+                _draw_shader:recompile()
+                _mask_shader:recompile()
+            end
+        end)
+    end
 
     self._mesh_animation = rt.AnimationChain(
         1, 0, 1, rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
@@ -36,35 +30,11 @@ function ow.ResultScreenFrame:instantiate()
     self._rect_area = rt.AABB()
     self._vertex_i_to_path = {}
     self._mesh_data = {}
-
-    -- particle texture
-
-    local padding = 5
-    local radius = rt.settings.overworld.result_screen_frame.particle_radius
-    self._particle_texture = rt.RenderTexture(
-        2 * (radius + padding),
-        2 * (radius + padding)
-    )
-
-    do -- init particle texture
-        love.graphics.push("all")
-        love.graphics.reset()
-        self._particle_texture:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        _particle_texture_shader:bind()
-        love.graphics.rectangle("fill", 0, 0, self._particle_texture:get_size())
-        _particle_texture_shader:unbind()
-        self._particle_texture:unbind()
-        love.graphics.pop()
-    end
-
-    self._particles = {}
-    self._particle_canvas = nil
-    self._particle_canvas_needs_update = false
 end
 
 --- @brief
-function ow.ResultScreenFrame:present()
+function ow.ResultScreenFrame:present(x, y)
+    self._present_x, self._present_y = x, y
     self._mesh_animation:reset()
     self._signal_emitted = false
     self:_update_mesh_paths()
@@ -144,8 +114,8 @@ end
 
 --- @brief
 function ow.ResultScreenFrame:_update_mesh_paths()
-    local origin_x = self._bounds.x + 0.5 * self._bounds.width
-    local origin_y = self._bounds.y + 0.5 * self._bounds.height
+    local origin_x = self._present_x
+    local origin_y = self._present_y
 
     local rect_w = 0.75 * self._bounds.width
     local rect_h = 0.75 * self._bounds.height
@@ -161,13 +131,10 @@ function ow.ResultScreenFrame:_update_mesh_paths()
     local circle_x = self._bounds.x + 0.5 * self._bounds.width
     local circle_y = self._bounds.y + 0.5 * self._bounds.height
 
-    local outline_width = rt.settings.overworld.result_screen_frame.outline_width
+    local outline_width = 50
 
     local inner_rect, outer_rect -- rt.Paths
     local n_outer_vertices
-
-    local outer_vertices
-    self._particle_vertex_indices = {}
 
     do -- compute n vertices such that setps fall exactly on corners of rectangle
         local sides = {}
@@ -176,7 +143,6 @@ function ow.ResultScreenFrame:_update_mesh_paths()
         local corner_radius = math.min(w, h) * 0.1 -- 10% of the smaller dimension
 
         outer_rect = create_rect_path(rx, ry, w, h, corner_radius)
-        self._outer_path = outer_rect
 
         local ow, oh = w, h -- outer size
 
@@ -324,13 +290,12 @@ function ow.ResultScreenFrame:_update_mesh_paths()
         local outer = {
             ring_outer_x, ring_outer_y, -- xy (starting position)
             u, 1,
-            1, 1, 1, 0 -- rgba (outer color)
+            0, 0, 0, 1 -- rgba (outer color)
         }
 
         table.insert(self._mesh_data, inner)
         table.insert(self._mesh_data, outer)
 
-        table.insert(self._particle_vertex_indices, vertex_i)
         vertex_i = vertex_i + 2
     end
 
@@ -405,74 +370,8 @@ function ow.ResultScreenFrame:_update_mesh_paths()
     end
 end
 
-local _x = 1
-local _y = 2
-local _velocity_x = 3
-local _velocity_y = 4
-local _velocity_magnitude = 5
-local _scale = 6
-local _vertex_i = 7
-
---- @brief
-function ow.ResultScreenFrame:_update_particles()
-    local settings = rt.settings.overworld.result_screen_frame -- outer curve of rectangle
-
-    local length = self._outer_path:get_length()
-    local n_particles = settings.coverage * length / settings.particle_radius
-
-    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
-    local home_radius = settings.particle_home_radius
-
-    self._particles = {}
-    local n_outer_vertices = #self._particle_vertex_indices
-    local center_x, center_y = self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height
-    for i = 1, n_particles do
-        -- map particle to mesh data index
-        local vertex_i = self._particle_vertex_indices[math.clamp(
-            math.round(i / n_particles * n_outer_vertices),
-            1, n_outer_vertices
-        )]
-
-        local data = self._mesh_data[vertex_i]
-
-        local vx, vy = math.normalize(rt.random.number(-1, 1), rt.random.number(-1, 1))
-
-        local particle = {
-            [_x] = center_x,
-            [_y] = center_y,
-            [_velocity_x] = vx,
-            [_velocity_y] = vy,
-            [_velocity_magnitude] = rt.random.number(settings.min_speed, settings.max_speed),
-            [_scale] = rt.random.number(settings.min_scale, settings.max_scale),
-            [_vertex_i] = vertex_i
-        }
-
-        local home_x, home_y = self._vertex_i_to_path[vertex_i]:at(1)
-        min_x = math.min(min_x, home_x - home_radius)
-        min_y = math.min(min_y, home_y - home_radius)
-        max_x = math.max(max_x, home_x + home_radius)
-        max_y = math.max(max_y, home_y + home_radius)
-
-        table.insert(self._particles, particle)
-    end
-
-    local padding = 10
-    local canvas_w, canvas_h = max_x - min_x + 2 * padding, max_y - min_y + 2 * padding
-    if self._particle_canvas == nil or
-        self._particle_canvas:get_width() ~= canvas_w or
-        self._particle_canvas:get_height() ~= canvas_h
-    then
-        self._particle_canvas = rt.RenderTexture(canvas_w, canvas_h)
-        self._canvas_x = self._bounds.x + 0.5 * self._bounds.width - 0.5 * canvas_w
-        self._canvas_y = self._bounds.y + 0.5 * self._bounds.height - 0.5 * canvas_h
-    end
-
-    self._particle_canvas_needs_update = true
-end
-
 function ow.ResultScreenFrame:size_allocate(x, y, width, height)
     self:_update_mesh_paths()
-    self:_update_particles()
 end
 
 --- @brief
@@ -481,45 +380,16 @@ function ow.ResultScreenFrame:update(delta)
 
     self._mesh_animation:update(delta)
     local t = self._mesh_animation:get_value()
+
+    self._dbg = {}
     for i, path in pairs(self._vertex_i_to_path) do
-        local x, y = path:at(t)
+        local x, y =  path:at(t)
         self._mesh_data[i][1], self._mesh_data[i][2] = x, y
+        table.insert(self._dbg, x)
+        table.insert(self._dbg, y)
     end
+
     self._mesh:replace_data(self._mesh_data)
-
-    local particle_radius = rt.settings.overworld.result_screen_frame.particle_radius
-    local home_radius = rt.settings.overworld.result_screen_frame.particle_home_radius
-    for particle in values(self._particles) do
-        local home_x, home_y = self._vertex_i_to_path[particle[_vertex_i]]:at(t)
-        local velocity_x, velocity_y = particle[_velocity_x], particle[_velocity_y]
-        local radius = particle[_scale] * particle_radius
-
-        local next_x = particle[_x] + velocity_x * particle[_velocity_magnitude] * delta
-        local next_y = particle[_y] + velocity_y * particle[_velocity_magnitude] * delta
-
-        local dx = next_x - home_x
-        local dy = next_y - home_y
-        local distance_to_center = math.magnitude(dx, dy)
-        local max_distance = home_radius - radius
-
-        -- if particle moves outside home radius, reflect velocity
-        if distance_to_center > max_distance then
-            local normal_x, normal_y = math.normalize(dx, dy)
-            local dot_product = math.dot(velocity_x, velocity_y, normal_x, normal_y)
-            particle[_velocity_x], particle[_velocity_y] = math.reflect(
-                velocity_x, velocity_y,
-                normal_x, normal_y
-            )
-
-            particle[_x] = home_x + normal_x * max_distance
-            particle[_y] = home_y + normal_y * max_distance
-        else
-            particle[_x] = next_x
-            particle[_y] = next_y
-        end
-    end
-
-    self._particle_canvas_needs_update = true
 
     if self._mesh_animation:get_fraction() >= 0.5 and self._signal_emitted == false then
         self:signal_emit("revealed")
@@ -530,52 +400,30 @@ end
 --- @brief
 function ow.ResultScreenFrame:draw()
     if not self:get_is_realized() then return end
-    love.graphics.clear(0.4, 0, 0.4, 1)
 
     love.graphics.setColor(1, 1, 1, 1)
 
-    self._mesh:draw()
+    _mask_shader:bind()
+    _mask_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _mask_shader:send("black", { rt.Palette.BLACK:unpack() })
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._mesh:get_native())
+    _mask_shader:unbind()
 
-    if self._particle_canvas ~= nil then
-        if self._particle_canvas_needs_update == true then
-            love.graphics.push("all")
-            self._particle_canvas:bind()
-            love.graphics.clear(0, 0, 0, 0)
-            love.graphics.translate(-self._canvas_x, -self._canvas_y)
-
-            self._mesh:draw()
-
-            local native = self._particle_texture:get_native()
-            local origin_x, origin_y = self._particle_texture:get_width() / 2, self._particle_texture:get_height() / 2
-            love.graphics.setColor(1, 1, 1, 1)
-            for particle in values(self._particles) do
-                love.graphics.draw(native,
-                    particle[_x], particle[_y],
-                    0,
-                    particle[_scale], particle[_scale],
-                    origin_x, origin_y
-                )
-            end
-
-            self._particle_canvas:unbind()
-            love.graphics.pop()
-        end
-
-        _base_shader:bind()
-        rt.Palette.BLACK:bind()
-        self._particle_canvas:draw(self._canvas_x, self._canvas_y)
-        _base_shader:unbind()
-
-        _outline_shader:bind()
-        _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        _outline_shader:send("hue", 0)
-        self._particle_canvas:draw(self._canvas_x, self._canvas_y)
-        _outline_shader:unbind()
-    end
+    _draw_shader:bind()
+    _draw_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _draw_shader:send("black", { rt.Palette.BLACK:unpack() })
+    love.graphics.draw(self._mesh:get_native())
+    _draw_shader:unbind()
 end
 
 --- @brief
 function ow.ResultScreenFrame:draw_mask()
+    _mask_shader:bind()
+    _mask_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._mesh:get_native())
+    _mask_shader:unbind()
 end
 
 

@@ -76,7 +76,6 @@ function mn.StageSelectItemframe:create_from_state()
     end
 end
 
-
 local _particle_mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
     { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
@@ -122,7 +121,7 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
         center_x,
         center_y
         widget
-        decoration
+        decorationd
         decoration_opacity_motion
         width
         height
@@ -521,7 +520,7 @@ function mn.StageSelectItemframe:draw()
 
     local canvas = self._canvas:get_native()
     _base_shader:bind()
-    rt.Palette.TRUE_BLACK:bind()
+    rt.Palette.BLACK:bind()
     love.graphics.draw(canvas)
     _base_shader:unbind()
 
