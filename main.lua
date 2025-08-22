@@ -17,7 +17,13 @@ local present = function()
         {
             coins = coins,
             time = 1.234,
-            flow = 0.9868
+            target_time = 1.230,
+            stage_name = "The Shape of Jump to Come, The Shape of Jump to Come",
+
+            flow = 0.9868,
+            time_grade = rt.StageGrade.S,
+            coins_grade = rt.StageGrade.A,
+            flow_grade = rt.StageGrade.F
         }
     )
 end

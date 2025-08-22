@@ -15,14 +15,14 @@ rt.settings.game_state.stage = {
         [rt.StageGrade.A] = 1.05,
         [rt.StageGrade.B] = 1.5,
         [rt.StageGrade.C] = 2,
-        [rt.StageGrade.F] = math.huge
+        [rt.StageGrade.F] = 5
     },
 
     coin_thresholds = {
-        [rt.StageGrade.S] = 0, -- number of coins missing
-        [rt.StageGrade.A] = 1,
-        [rt.StageGrade.B] = 2,
-        [rt.StageGrade.C] = 3,
+        [rt.StageGrade.S] = 0, -- fraction of missing coins
+        [rt.StageGrade.A] = 1 - 0.9,
+        [rt.StageGrade.B] = 1 - 0.6,
+        [rt.StageGrade.C] = 1 - 0.5,
         [rt.StageGrade.F] = math.huge
     }
 }
@@ -291,6 +291,68 @@ function rt.GameState:get_stage_index(id)
     return stage.index
 end
 
+--- @brief Convert time to grade (faster time = better grade)
+function rt.GameState:time_to_time_grade(time, target_time)
+    meta.assert(time, "Number", target_time, "Number")
+    local time_fraction = time / target_time  -- FIXED: was target_time / time
+    local time_thresholds = rt.settings.game_state.stage.grade_time_thresholds
+
+    for grade in range(
+        rt.StageGrade.S,
+        rt.StageGrade.A,
+        rt.StageGrade.B,
+        rt.StageGrade.C,
+        rt.StageGrade.F
+    ) do
+        if time_fraction <= time_thresholds[grade] then  -- FIXED: was > now <=
+            return grade
+        end
+    end
+
+    return rt.StageGrade.F  -- FIXED: was NONE, should be F for worst case
+end
+
+--- @brief Convert flow percentage to grade (higher flow = better grade)
+function rt.GameState:flow_to_flow_grade(flow)
+    meta.assert(flow, "Number")
+    local flow_thresholds = rt.settings.game_state.stage.grade_flow_thresholds
+
+    for grade in range(
+        rt.StageGrade.S,
+        rt.StageGrade.A,
+        rt.StageGrade.B,
+        rt.StageGrade.C,
+        rt.StageGrade.F
+    ) do
+        if flow >= flow_thresholds[grade] then  -- FIXED: was < now >=
+            return grade
+        end
+    end
+
+    return rt.StageGrade.F
+end
+
+--- @brief Convert coins collected to grade (fewer coins missing = better grade)
+function rt.GameState:n_coins_to_coin_grade(n_coins, max_n_coins)
+    meta.assert(n_coins, "Number", max_n_coins, "Number")
+    local coin_thresholds = rt.settings.game_state.stage.coin_thresholds
+    local n_coins_missing = max_n_coins - n_coins
+
+    for grade in range(
+        rt.StageGrade.S,
+        rt.StageGrade.A,
+        rt.StageGrade.B,
+        rt.StageGrade.C,
+        rt.StageGrade.F
+    ) do
+        if n_coins_missing <= math.floor(max_n_coins * coin_thresholds[grade]) then  -- FIXED: was >= now <=
+            return grade
+        end
+    end
+
+    return rt.StageGrade.NONE
+end
+
 --- @brief
 --- @return (rt.StageGrade, rt.StageGrade, rt.StageGrade) time, flow, total
 function rt.GameState:get_stage_grades(id)
@@ -312,61 +374,20 @@ function rt.GameState:get_stage_grades(id)
         return rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.NONE, rt.StageGrade.F
     end
 
-    local time_fraction = self:get_stage_target_time(id) / time
+    local target_time = self:get_stage_target_time(id)
     local flow_fraction = flow
 
-    local n_coins = self:get_stage_n_coins(id)
-    local n_collected = 0
-    for i = 1, n_coins do
+    local max_n_coins = self:get_stage_n_coins(id)
+    local n_coins = 0
+    for i = 1, max_n_coins do
         if self:get_stage_was_coin_collected(id, i) == true then
-            n_collected = n_collected + 1
+            n_coins = n_coins + 1
         end
     end
 
-    local time_threshold = rt.settings.game_state.stage.grade_time_thresholds
-    local time_grade = rt.StageGrade.NONE
-    for grade in range(
-        rt.StageGrade.S,
-        rt.StageGrade.A,
-        rt.StageGrade.B,
-        rt.StageGrade.C,
-        rt.StageGrade.F
-    ) do
-        if time_fraction > time_threshold[grade] then
-            time_grade = grade
-            break
-        end
-    end
-
-    local flow_thresholds = rt.settings.game_state.stage.grade_flow_thresholds
-    local flow_grade = rt.StageGrade.NONE
-    for grade in range(
-        rt.StageGrade.S,
-        rt.StageGrade.A,
-        rt.StageGrade.B,
-        rt.StageGrade.C,
-        rt.StageGrade.F
-    ) do
-        if flow_fraction < flow_thresholds[grade] then
-            flow_grade = grade
-            break
-        end
-    end
-
-    local coin_thresholds = rt.settings.game_state.stage.coin_thresholds
-    local coin_grade = rt.StageGrade.NONE
-    for grade in range(
-        rt.StageGrade.S,
-        rt.StageGrade.A,
-        rt.StageGrade.B,
-        rt.StageGrade.C,
-        rt.StageGrade.F
-    ) do
-        if n_coins - n_collected > coin_thresholds[grade] then
-            coin_grade = grade
-            break
-        end
-    end
+    local time_grade = self:time_to_time_grade(time, target_time)
+    local flow_grade = self:flow_to_flow_grade(flow)
+    local coin_grade = self:n_coins_to_coin_grade(n_coins, max_n_coins)
 
     -- max, but for SS both have to be
     local total_grade = math.min(flow_grade, time_grade)

@@ -22,6 +22,10 @@ local _format_count = function(n, max_n)
     return string.paste(n, " / ", max_n)
 end
 
+local _format_title = function(text)
+    return "<b><o><u>" .. text .. "</u></o></b>"
+end
+
 --- @brief
 function ow.ResultScreenScene:instantiate(state)
     if _title_font == nil then _title_font = rt.Font(rt.settings.overworld.result_screen_scene.title_font) end
@@ -48,13 +52,13 @@ function ow.ResultScreenScene:instantiate(state)
         })
     end
 
-    self._stage_name_label = rt.Glyph("TODO", {
-        style = rt.FontStyle.BOLD,
-        is_underlined = true,
-        is_outlined = true,
-        font_size = rt.FontSize.LARGE,
-        font = _title_font
-    })
+
+    self._stage_name_label = rt.Label(_format_title(""), rt.FontSize.BIG, _title_font)
+    self._stage_name_label:set_justify_mode(rt.JustifyMode.CENTER)
+
+    self._grade_to_grade_label = {}
+    self._grade_label_font_size = nil
+    self._grade_label_width, self._grade_label_height = 1, 1
 
     self._flow_title_label = new_heading(translation.flow)
     self._time_title_label = new_heading(translation.time)
@@ -76,9 +80,35 @@ function ow.ResultScreenScene:instantiate(state)
 
     local grade_size = rt.FontSize.LARGER
     self._total_grade = mn.StageGradeLabel(rt.StageGrade.S, rt.FontSize.GIGANTIC)
-    self._flow_grade_label = mn.StageGradeLabel(rt.StageGrade.A, grade_size)
-    self._time_grade_label = mn.StageGradeLabel(rt.StageGrade.B, grade_size)
-    self._coins_grade_label = mn.StageGradeLabel(rt.StageGrade.F, grade_size)
+    self._flow_grade_label_x, self._flow_grade_label_y = 0, 0
+    self._time_grade_label_x, self._time_grade_label_y = 0, 0
+    self._coins_grade_label_x, self._coins_grade_label_y = 0, 0
+
+    local scale_duration = 1
+    local easing = rt.InterpolationFunctions.ENVELOPE
+    local max_scale = 2
+    self._flow_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, 0.05)
+    self._time_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, 0.05)
+    self._coins_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, 0.05)
+
+    for to_skip in range(
+        self._flow_grade_label_scale_animation,
+        self._time_grade_label_scale_animation,
+        self._coins_grade_label_scale_animation
+    ) do
+        to_skip:skip()
+    end
+
+    self._flow_grade = rt.StageGrade.NONE
+    self._current_flow_grade = self._flow_grade
+
+    self._time_grade = rt.StageGrade.NONE
+    self._current_time_grade = self._time_grade
+    self._target_time = 0
+    self._max_time = 0
+
+    self._coins_grade = rt.StageGrade.NONE
+    self._current_coins_grade = self._coins_grade
 
     -- reveal animation
     local duration = rt.settings.overworld.result_screen_scene.reveal_animation_duration
@@ -218,16 +248,13 @@ function ow.ResultScreenScene:realize()
         self._stage_name_label,
 
         self._coins_title_label,
-        self._coins_grade_label,
         self._coins_value_label,
 
         self._flow_title_label,
-        self._flow_grade_label,
         self._flow_value_label,
         self._total_grade,
 
         self._time_title_label,
-        self._time_grade_label,
         self._time_value_label
     ) do
         widget:realize()
@@ -236,6 +263,23 @@ end
 
 --- @brief
 function ow.ResultScreenScene:size_allocate(x, y, width, height)
+    do -- preallocate grades
+        self._grade_to_grade_label = {}
+        local max_w, max_h = -math.huge, -math.huge
+        for grade in values(meta.instances(rt.StageGrade)) do
+            local label = mn.StageGradeLabel(grade, rt.FontSize.LARGER)
+            label:realize()
+            local w, h = label:measure()
+            label:reformat(0, 0, w, h)
+            self._grade_to_grade_label[grade] = label
+            max_w = math.max(max_w, w)
+            max_h = math.max(max_h, h)
+        end
+
+        self._grade_label_w, self._grade_label_h = max_w, max_h
+    end
+
+
     local m = rt.settings.margin_unit
     do -- physics world
         local bx, by = 0, 0
@@ -334,11 +378,19 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     meta.assert_typeof(config, "Table", 4)
 
     self._config = config
-    local required_keys = {
-        coins = true,   -- Table<Boolean>
-        time = true,    -- seconds
-        flow = true     -- fraction
-    }
+    local required_keys = {}
+    for key in range(
+        "stage_name",
+        "coins",
+        "time",
+        "flow",
+        "time_grade",
+        "flow_grade",
+        "coins_grade",
+        "target_time"
+    ) do
+        required_keys[key] = true
+    end
 
     for key in keys(required_keys) do
         if self._config[key] == nil then
@@ -346,8 +398,22 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
         end
     end
 
+    self._stage_name_label:set_text(_format_title(config.stage_name))
+
     self._flow = config.flow
     self._time = config.time
+    self._target_time = config.time
+
+    -- calculate maximum time
+    self._max_time = rt.settings.game_state.stage.grade_time_thresholds[rt.StageGrade.F]
+
+    self._flow_grade = config.flow_grade
+    self._time_grade = config.time_grade
+    self._coins_grade = config.coins_grade
+
+    self._current_time_grade = rt.StageGrade.F
+    self._current_flow_grade = rt.StageGrade.F
+    self._current_coins_grade = rt.StageGrade.F
 
     -- player position continuity
     self._entry_x, self._entry_y = player_x, player_y
@@ -406,6 +472,15 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     ) do
         animation:reset()
     end
+
+    for animation in range(
+        self._flow_grade_label_scale_animation,
+        self._coins_grade_label_scale_animation,
+        self._time_grade_label_scale_animation
+    ) do
+        animation:skip()
+    end
+
     self._animations_active = false
 
     self._fade:reset()
@@ -424,11 +499,21 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._input:activate()
 end
 
-
 --- @brief
 function ow.ResultScreenScene:_reformat_frame()
     local x, y, width, height = self:get_bounds():unpack()
     local m = rt.settings.margin_unit
+
+    do
+        local max_w, max_h = -math.huge, -math.huge
+        for grade in values(self._grade_to_grade_label) do
+            local w, h = grade:measure()
+            max_w = math.max(max_w, w)
+            max_h = math.max(max_h, h)
+        end
+
+        self._grade_label_width, self._grade_label_height = max_w, max_h
+    end
 
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
 
@@ -444,12 +529,14 @@ function ow.ResultScreenScene:_reformat_frame()
         max_title_w = math.max(max_title_w, select(1, title:measure()))
     end
 
-    local title_w, title_h = self._stage_name_label:measure()
+    local title_area_w = 2 / 3 * width
     self._stage_name_label:reformat(
-        x + 0.5 * width - 0.5 * title_w,
+        x + 0.5 * width - 0.5 * title_area_w,
         y + m,
-        width, height
+        2 / 3 * width,
+        math.huge
     )
+    local title_w, title_h = self._stage_name_label:measure()
 
     local col_w = (width / 2) / 3 + 4 * m --max_title_w + 4 * m
     local col_x = x + 0.5 * width - 0.5 * (3 * col_w)
@@ -465,8 +552,8 @@ function ow.ResultScreenScene:_reformat_frame()
     self._coins_title_label:reformat(coins_x + 0.5 * coins_w - 0.5 * coins_title_w, coins_y, math.huge)
     coins_y = coins_y + coins_title_h + m
 
-    local coins_grade_w, coins_grade_h = self._coins_grade_label:measure()
-    self._coins_grade_label:reformat(coins_x + 0.5 * coins_w - 0.5 * coins_grade_w, coins_y, coins_grade_w, coins_grade_h)
+    local coins_grade_w, coins_grade_h = self._grade_label_width, self._grade_label_height
+    self._coins_grade_label_x, self._coins_grade_label_y = coins_x + 0.5 * coins_w - 0.5 * coins_grade_w, coins_y
     coins_y = coins_y + coins_grade_h + m
 
     local coins_value_w, coins_value_h = self._coins_value_label:measure()
@@ -482,8 +569,8 @@ function ow.ResultScreenScene:_reformat_frame()
     self._time_title_label:reformat(time_x + 0.5 * time_w - 0.5 * time_title_w, time_y, math.huge)
     time_y = time_y + time_title_h + m
 
-    local time_grade_w, time_grade_h = self._time_grade_label:measure()
-    self._time_grade_label:reformat(time_x + 0.5 * time_w - 0.5 * time_grade_w, time_y, time_grade_w, time_grade_h)
+    local time_grade_w, time_grade_h = self._grade_label_width, self._grade_label_height
+    self._time_grade_label_x, self._time_grade_label_y = time_x + 0.5 * time_w - 0.5 * time_grade_w, time_y
     time_y = time_y + time_grade_h + m
 
     local time_value_w, time_value_h = self._time_value_label:measure()
@@ -499,8 +586,8 @@ function ow.ResultScreenScene:_reformat_frame()
     self._flow_title_label:reformat(flow_x + 0.5 * flow_w - 0.5 * flow_title_w, flow_y, math.huge)
     flow_y = flow_y + flow_title_h + m
 
-    local flow_grade_w, flow_grade_h = self._flow_grade_label:measure()
-    self._flow_grade_label:reformat(flow_x + 0.5 * flow_w - 0.5 * flow_grade_w, flow_y, flow_grade_w, flow_grade_h)
+    local flow_grade_w, flow_grade_h = self._grade_label_width, self._grade_label_height
+    self._flow_grade_label_x, self._flow_grade_label_y = flow_x + 0.5 * flow_w - 0.5 * flow_grade_w, flow_y
     flow_y = flow_y + flow_grade_h + m
 
     local flow_value_w, flow_value_h = self._flow_value_label:measure()
@@ -571,15 +658,12 @@ function ow.ResultScreenScene:_reformat_frame()
     for widget in range(
         self._stage_name_label,
         self._flow_title_label,
-        self._flow_grade_label,
         self._flow_value_label,
 
         self._time_title_label,
-        self._time_grade_label,
         self._time_value_label,
 
         self._coins_title_label,
-        self._coins_grade_label,
         self._coins_value_label
     ) do
         local widget_x, widget_y = widget:get_position()
@@ -694,10 +778,22 @@ function ow.ResultScreenScene:update(delta)
     end
 
     if self._animations_active then
-        self._flow_animation:update(delta)
-        self._coins_animation:update(delta)
-        self._time_animation:update(delta)
-        self._coin_indicator_animation:update(delta)
+        for animation in range(
+            self._flow_animation,
+            self._coins_animation,
+            self._time_animation,
+            self._coin_indicator_animation,
+            self._flow_grade_label_scale_animation,
+            self._coins_grade_label_scale_animation,
+            self._time_grade_label_scale_animation
+        ) do
+            animation:update(delta)
+        end
+
+        local update_grade = function(current, new, animation)
+            if current ~= new then animation:reset() end
+            return new
+        end
 
         local flow = self._flow_animation:get_value() * self._flow
         self._flow_value_label:set_text(string.format_percentage(flow))
@@ -705,11 +801,35 @@ function ow.ResultScreenScene:update(delta)
         local flow_w, flow_h = self._flow_value_label:measure()
         self._flow_value_label:reformat(self._flow_value_label_x - 0.5 * flow_w, self._flow_value_label_y)
 
+        self._current_flow_grade = update_grade(
+            self._current_flow_grade,
+            rt.GameState:flow_to_flow_grade(flow),
+            self._flow_grade_label_scale_animation
+        )
+
+        local time = math.mix(self._max_time, self._time, self._time_animation:get_value())
+        self._time_value_label:set_text(string.format_time(time))
+
+        local time_w, time_h = self._time_value_label:measure()
+        self._time_value_label:reformat(self._time_value_label_x - 0.5 * time_w, self._time_value_label_y)
+
+        self._current_time_grade = update_grade(
+            self._current_time_grade,
+            rt.GameState:time_to_time_grade(time, self._target_time),
+            self._time_grade_label_scale_animation
+        )
+
         local coins = math.round(self._coins_animation:get_value() * self._n_coins)
         self._coins_value_label:set_text(_format_count(coins, self._max_n_coins))
 
         local coins_w, coins_h = self._coins_value_label:measure()
         self._coins_value_label:reformat(self._coins_value_label_x - 0.5 * coins_w, self._coins_value_label_y)
+
+        self._current_coins_grade = update_grade(
+            self._current_coins_grade,
+            rt.GameState:n_coins_to_coin_grade(coins, self._max_n_coins),
+            self._coins_grade_label_scale_animation
+        )
 
         local active_indicators = math.round(self._coin_indicator_animation:get_value() * self._max_n_coins)
         for i = 1, active_indicators do
@@ -718,16 +838,10 @@ function ow.ResultScreenScene:update(delta)
             if entry.is_active ~= true then
                 entry.is_active = true
                 if entry.is_collected then
-                   self:_spawn_coin(entry.fill_shape[1], entry.fill_shape[2], i)
+                    self:_spawn_coin(entry.fill_shape[1], entry.fill_shape[2], i)
                 end
             end
         end
-
-        local time = self._time_animation:get_value() * self._time
-        self._time_value_label:set_text(string.format_time(time))
-
-        local time_w, time_h = self._time_value_label:measure()
-        self._time_value_label:reformat(self._time_value_label_x - 0.5 * time_w, self._time_value_label_y)
     end
 
     if self._transition_active then
@@ -798,22 +912,35 @@ function ow.ResultScreenScene:draw()
         self._stage_name_label,
 
         self._coins_title_label,
-        self._coins_grade_label,
         self._coins_value_label,
 
         self._time_title_label,
-        self._time_grade_label,
         self._time_value_label,
 
         self._flow_title_label,
-        self._flow_grade_label,
-        self._flow_value_label,
+        self._flow_value_label--,
 
-        self._total_grade,
-        self._total_label
+        --self._total_grade,
+        --self._total_label
     ) do
         widget:draw()
     end
+
+    local draw = function(grade, x, y, scale)
+        local w, h = self._grade_label_width, self._grade_label_height
+        local label = self._grade_to_grade_label[grade]
+        love.graphics.push()
+        love.graphics.translate(x, y)
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(scale, scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
+        label:draw()
+        love.graphics.pop()
+    end
+
+    draw(self._current_flow_grade, self._flow_grade_label_x, self._flow_grade_label_y, self._flow_grade_label_scale_animation:get_value())
+    draw(self._current_time_grade, self._time_grade_label_x, self._time_grade_label_y, self._time_grade_label_scale_animation:get_value())
+    draw(self._current_coins_grade, self._coins_grade_label_x, self._coins_grade_label_y, self._coins_grade_label_scale_animation:get_value())
 
     love.graphics.setLineWidth(rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.get_pixel_scale())
     for entry in values(self._coin_indicators) do
@@ -851,7 +978,8 @@ function ow.ResultScreenScene:draw()
         self._fade:draw()
     end
 
-    self._frame:draw_bounds()
+    love.graphics.clear(0.5, 0.5, 0.5, 1)
+    self._stage_name_label:draw()
 end
 
 --- @brief
