@@ -34,6 +34,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "^" then
         --rt.SceneManager:set_scene(ow.OverworldScene, "tutorial", false)
         present()
+        dbg("called")
     end
 end)
 
@@ -42,7 +43,7 @@ love.load = function(args)
 
     -- intialize all scenes
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -54,7 +55,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.result_screen_scene"
-    present()
+    --present()
 end
 
 love.update = function(delta)

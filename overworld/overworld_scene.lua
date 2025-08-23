@@ -335,12 +335,12 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
     if rt.SceneManager:get_is_bloom_enabled() then
         local bloom = rt.SceneManager:get_bloom()
         bloom:set_bloom_strength(rt.settings.overworld_scene.bloom_blur_strength)
-        if self._stage ~= nil then
-            self._stage:get_blood_splatter():set_bloom_factor(
-                rt.settings.overworld_scene.bloom_composite_strength +
-                    rt.settings.overworld.normal_map.segment_light_intensity
-            )
-        end
+
+        self._stage:get_blood_splatter():set_bloom_factor(
+            rt.settings.overworld_scene.bloom_composite_strength
+        )
+    else
+        self._stage:get_blood_splatter():set_bloom_factor(1)
     end
 
     love.mouse.setVisible(false)

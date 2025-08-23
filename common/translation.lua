@@ -112,7 +112,7 @@ rt.Translation = rt.initialize_translation({
 
         option_retry_stage = "Retry",
         option_next_stage = "Continue",
-        option_return_to_main_menu = "Return",
+        option_return_to_main_menu = "Stage Select",
         option_show_splits = "Show Timings",
 
         option_control_indicator_move = "Move",

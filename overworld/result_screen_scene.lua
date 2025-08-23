@@ -9,6 +9,7 @@ rt.settings.overworld.result_screen_scene = {
 
     coin_indicator_n_vertices = 16,
     coin_indicator_line_width = 1.5,
+    coin_gravity = 1000,
 
     reveal_animation_duration = 2,
 }
@@ -493,8 +494,6 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._player:set_gravity(0)
     self._player:set_is_bubble(true)
 
-    self._frame:present()
-
     self._config = config
     local required_keys = {}
     for key in range(
@@ -575,6 +574,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
                 y = 0,
                 velocity_x = 0,
                 velocity_y = 0,
+                mass = rt.random.number(0.5, 1.5),
                 body = nil, -- b2.Body
                 is_collected = self._config.coins[i],
                 active = false
@@ -611,10 +611,21 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     self._fade:reset()
     self._fade_active = false
+
+    self._frame:present()
     self._frame:signal_connect("presented", function(_)
         self._animations_active = true
         return meta.DISCONNECT_SIGNAL
     end)
+
+    self._transition_active = false
+    self._transition_elapsed = math.huge
+    for body in values(self._bodies) do
+        body:set_is_enabled(true)
+    end
+    self._camera:set_position(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
+    self._fade:reset()
+    self._fade_active = false
 
     -- reset pause menu
     self._option_blocked_selection_graph:set_selected_node(self._option_first_blocked_node)
@@ -879,6 +890,7 @@ function ow.ResultScreenScene:update(delta)
     end
 
     if self._animations_active then
+        local done = true
         for animation in range(
             self._flow_animation,
             self._coins_animation,
@@ -888,7 +900,9 @@ function ow.ResultScreenScene:update(delta)
             self._coins_grade_label_scale_animation,
             self._time_grade_label_scale_animation
         ) do
-            animation:update(delta)
+            if animation:update(delta) == false then
+                done = false
+            end
         end
 
         local update_grade = function(current, new, animation)
@@ -936,11 +950,15 @@ function ow.ResultScreenScene:update(delta)
         for i = 1, active_indicators do
             local entry = self._coin_indicators[i]
             if entry.is_collected and entry.body == nil then
-                local body, vx, vy = self:_spawn_coin(entry.x, entry.y)
+                local body, vx, vy = self:_spawn_coin(entry.x, entry.y + self._y_offset)
                 entry.body, entry.velocity_x, entry.velocity_y = body, vx, vy
                 body:set_user_data(entry)
                 entry.coin:set_is_outline(false)
             end
+        end
+
+        if done then
+            self._animations_active = false
         end
     end
 
@@ -956,6 +974,14 @@ function ow.ResultScreenScene:update(delta)
         local duration = rt.settings.overworld.result_screen_scene.exit_transition_fall_duration
         self._player:set_flow(self._transition_elapsed / duration)
 
+        local gravity = rt.settings.overworld.result_screen_scene.coin_gravity
+        for entry in values(self._coin_indicators) do
+            if entry.body ~= nil then
+                entry.velocity_y = entry.velocity_y + delta * gravity * entry.mass
+                entry.body:set_velocity(entry.velocity_x, entry.velocity_y)
+            end
+        end
+
         if self._transition_elapsed > duration then
             if self._transition_final_y == nil then
                 self._transition_final_y = player_y
@@ -963,7 +989,8 @@ function ow.ResultScreenScene:update(delta)
                 local screen_h = self._camera:get_world_bounds().height
                 if self._fade_active ~= true and player_y > self._transition_final_y + 2 * screen_h then -- to make sure trail is off screen
                     self._fade:signal_connect("hidden", function(_)
-                        rt.SceneManager:set_scene(self._transition_next)
+                        require "overworld.overworld_scene"
+                        rt.SceneManager:set_scene(ow.OverworldScene, self._transition_next)
                         return meta.DISCONNECT_SIGNAL
                     end)
                     self._fade:start()
@@ -1091,7 +1118,7 @@ function ow.ResultScreenScene:draw()
         bloom:composite(rt.settings.menu_scene.bloom_composite)
     end
 
-    if self._is_paused then
+    if self._is_paused and not self._transition_active then
         self._option_background:draw()
 
         local graph = ternary(self._next_level_blocked,
@@ -1145,13 +1172,21 @@ function ow.ResultScreenScene:_transition_to(scene)
     self._player:set_is_bubble(false)
     self._player:set_flow(1)
     self._player:set_trail_visible(true)
-    self._body:set_is_enabled(false)
+
+    for entry in values(self._coin_indicators) do
+        if entry.body ~= nil then
+        end
+    end
+
+    for body in values(self._bodies) do
+        body:set_is_enabled(false)
+    end
 end
 
 --- @brief
 function ow.ResultScreenScene:_handle_button(which)
     if self._is_paused then
-        if which == rt.InputAction.PAUSE then
+        if which == rt.InputAction.PAUSE or which == rt.InputAction.BACK then
             -- go back to result screen
             self:_unpause()
         else
@@ -1190,17 +1225,13 @@ end
 --- @brief
 function ow.ResultScreenScene:_on_next_stage()
     if not self._is_paused or self._next_level_blocked == true then return end
-
-    require "overworld.overworld_scene"
-    rt.SceneManager:set_scene(ow.OverworldScene, self._next_stage_id)
+    self:_transition_to(self._next_stage_id)
 end
 
 --- @brief
 function ow.ResultScreenScene:_on_retry_stage()
     if not self._is_paused then return end
-
-    require "overworld.overworld_scene"
-    rt.SceneManager:set_scene(ow.OverworldScene, self._current_stage_id)
+    self:_transition_to(self._current_stage_id)
 end
 
 --- @brief
