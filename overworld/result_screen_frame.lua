@@ -588,4 +588,9 @@ function ow.ResultScreenFrame:draw_mask()
     _mask_shader:unbind()
 end
 
-
+--- @brief
+function ow.ResultScreenFrame:skip()
+    self._mesh_animation:skip()
+    self:_update_mesh_paths()
+    self:update(0)
+end

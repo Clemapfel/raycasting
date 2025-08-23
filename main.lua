@@ -19,6 +19,7 @@ local present = function()
             time = 1.234,
             target_time = 1.230,
             stage_name = "The Shape of Jump to Come, The Shape of Jump to Come",
+            stage_id = "tutorial",
 
             flow = 0.9868,
             time_grade = rt.StageGrade.S,

@@ -92,8 +92,11 @@ function rt.InputSubscriber:instantiate(is_active)
         _callback_id_to_callback = {},
         _callback_id_to_is_blocked = {},
         _override_warning_printed = false,
-        _is_active = is_active
+        _is_active = is_active,
+        _activate_frame = -1
     })
+
+    -- activation delayed to next frame, to prevent same-frame-inputs from leaking during scene transitions
 end
 
 --- @brief
@@ -124,6 +127,7 @@ end
 --- @brief
 function rt.InputSubscriber:deactivate()
     self._is_active = false
+    self._activate_frame = rt.SceneManager:get_frame_index()
 end
 
 --- @brief
@@ -131,5 +135,8 @@ function rt.InputSubscriber:activate()
     self._is_active = true
 end
 
-
+--- @brief
+function rt.InputSubscriber:get_is_active()
+    return self._is_active and rt.SceneManager:get_frame_index() > self._activate_frame
+end
 

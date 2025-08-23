@@ -111,12 +111,14 @@ rt.Translation = rt.initialize_translation({
         new_record = "New Record",
 
         option_retry_stage = "Retry",
-        option_next_stage = "Next Level",
-        option_return_to_main_menu = "Return to Stage Select",
+        option_next_stage = "Continue",
+        option_return_to_main_menu = "Return",
+        option_show_splits = "Show Timings",
 
-
-        control_indicator_move = "Move",
-        control_indicator_select = "Confirm"
+        option_control_indicator_move = "Move",
+        option_control_indicator_select = "Select",
+        option_control_indicator_go_back = "Go Back",
+        grade_control_indicator_continue = "Continue"
     },
 
     -- overworld gameplay

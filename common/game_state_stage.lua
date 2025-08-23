@@ -412,5 +412,24 @@ end
 
 --- @brief
 function rt.GameState:get_n_stages()
+    self:_initialize_stage()
     return table.sizeof(self._stages)
+end
+
+--- @brief
+function rt.GameState:get_next_stage(stage_id)
+    self:_initialize_stage()
+
+    for i, entry in ipairs(self._stages) do
+        if entry.id == stage_id then
+            local next_stage = self._stages[i+1]
+            if next_stage == nil then
+                return nil
+            else
+                return next_stage.id
+            end
+        end
+    end
+
+    rt.error("In rt.GameState.get_next_stage: no stage with id `" .. stage_id .. "`")
 end

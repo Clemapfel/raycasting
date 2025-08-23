@@ -52,7 +52,6 @@ function ow.ResultScreenScene:instantiate(state)
         })
     end
 
-
     self._stage_name_label = rt.Label(_format_title(""), rt.FontSize.BIG, _title_font)
     self._stage_name_label:set_justify_mode(rt.JustifyMode.CENTER)
 
@@ -68,7 +67,6 @@ function ow.ResultScreenScene:instantiate(state)
     self._time_value_label_x, self._time_value_label_y = 0, 0
     self._coins_value_label_x, self._coins_value_label_y = 0, 0
 
-    self._coins = {}
     self._coin_indicators = {}
 
     self._flow_value_label = new_value(string.format_percentage(0))
@@ -141,11 +139,17 @@ function ow.ResultScreenScene:instantiate(state)
     do -- options
         local unselected_prefix, unselected_postfix = rt.settings.menu.pause_menu.label_prefix, rt.settings.menu.pause_menu.label_postfix
         local selected_prefix, selected_postfix = unselected_prefix .. "<color=SELECTION>", "</color>" .. unselected_postfix
+        local blocked_prefix, blocked_postfix = unselected_prefix .. "<s><color=GRAY>", "</color></s>" .. unselected_postfix
         self._options = {}
-        self._option_selection_graph = rt.SelectionGraph()
+        self._option_unblocked_selection_graph = rt.SelectionGraph()
+        self._option_blocked_selection_graph = rt.SelectionGraph()
         self._option_background = rt.Background("menu/pause_menu.glsl", true) -- sic, use same as level pause
 
-        local function add_option(text, function_name)
+        self._option_first_blocked_node = nil
+        self._option_first_unblocked_node = nil
+        self._options = {}
+
+        local function add_option(text, function_name, can_be_blocked)
             local option = {
                 unselected_label = rt.Label(
                     unselected_prefix .. text .. unselected_postfix,
@@ -155,40 +159,119 @@ function ow.ResultScreenScene:instantiate(state)
                     selected_prefix .. text .. selected_postfix,
                     rt.FontSize.LARGE
                 ),
+
                 frame = rt.Frame(),
-                node = rt.SelectionGraphNode()
+                node = rt.SelectionGraphNode(),
             }
 
-            option.frame:set_base_color(1, 1, 1, 0)
+            if can_be_blocked then
+                option.blocked_label = rt.Label(
+                    blocked_prefix .. text .. blocked_postfix,
+                    rt.FontSize.LARGE
+                )
+            end
+            option.can_be_blocked = can_be_blocked
+
+            option.frame:set_base_color(0, 0, 0, 0)
             option.frame:set_selection_state(rt.SelectionState.ACTIVE)
             option.frame:set_thickness(rt.settings.menu.pause_menu.selection_frame_thickness)
 
-            option.node:signal_connect(rt.InputAction.A, function(_)
-                self[function_name](self) -- self:function_name()
-            end)
 
-            option.node:signal_connect(rt.InputAction.B, function(_)
-                self:_unpause()
-            end)
+            option.blocked_node = rt.SelectionGraphNode()
+            option.unblocked_node = rt.SelectionGraphNode()
 
-            self._option_selection_graph:add(option.node)
+            local to_invoke = function(_)
+                self[function_name](self)
+            end
+
+            option.blocked_node:signal_connect(rt.InputAction.A, to_invoke)
+            option.unblocked_node:signal_connect(rt.InputAction.A, to_invoke)
+
+            if self._option_first_blocked_node == nil then
+                self._option_first_blocked_node = option.blocked_node
+            end
+
+            if self._option_first_unblocked_node == nil then
+                self._option_first_unblocked_node = option.unblocked_node
+            end
+
             table.insert(self._options, option)
+
+            return option
         end
 
-        add_option(translation.option_retry_stage, "_on_retry_stage")
-        add_option(translation.option_next_stage, "_on_next_stage")
-        add_option(translation.option_return_to_main_menu, "_on_return_to_main_menu")
+        local retry_option = add_option(
+            translation.option_retry_stage,
+            "_on_retry_stage",
+            false
+        )
+
+        local next_stage_option = add_option(
+            translation.option_next_stage,
+            "_on_next_stage",
+        true
+        )
+
+        local return_to_main_menu_option = add_option(
+            translation.option_return_to_main_menu,
+            "_on_return_to_main_menu",
+            false
+        )
+
+        local show_splits_option = add_option(
+            translation.option_show_splits,
+            "_on_show_splits",
+            false
+        )
 
         -- connect nodes
-        for i = 1, #self._options, 1 do
-            local before = math.wrap(i-1, #self._options)
-            local after = math.wrap(i+1, #self._options)
+        local add_options = function(graph, options, is_blocked)
+            for i = 1, #options, 1 do
+                local before = math.wrap(i-1, #options)
+                local after = math.wrap(i+1, #options)
 
-            local element = self._options[i]
-            element.node:set_up(self._options[before].node)
-            element.node:set_down(self._options[after].node)
+                local element = options[i]
+
+                if is_blocked then
+                    graph:add(element.blocked_node)
+                    element.blocked_node:set_up(options[before].blocked_node)
+                    element.blocked_node:set_down(options[after].blocked_node)
+                else
+                    graph:add(element.unblocked_node)
+                    element.unblocked_node:set_up(options[before].unblocked_node)
+                    element.unblocked_node:set_down(options[after].unblocked_node)
+                end
+            end
         end
+
+        add_options(self._option_unblocked_selection_graph, {
+            retry_option,
+            next_stage_option,
+            return_to_main_menu_option,
+            show_splits_option
+        }, false)
+
+        add_options(self._option_blocked_selection_graph, {
+            retry_option,
+            -- next_stage_option disabled
+            return_to_main_menu_option,
+            show_splits_option
+        }, true)
+
+        self._next_level_blocked = false
     end
+
+    self._option_control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.UP_DOWN, translation.option_control_indicator_move,
+        rt.ControlIndicatorButton.A, translation.option_control_indicator_select,
+        rt.ControlIndicatorButton.PAUSE, translation.option_control_indicator_go_back
+    )
+    self._option_control_indicator:set_has_frame(false)
+
+    self._grade_control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.A, translation.grade_control_indicator_continue
+    )
+    self._grade_control_indicator:set_has_frame(false)
 
     -- player boundaries
     self._entry_x, self._entry_y = 0, 0
@@ -199,36 +282,15 @@ function ow.ResultScreenScene:instantiate(state)
         self._world = b2.World()
         -- body and teleport updated in size_allocate
 
-        self._player:reset()
-        self._player:move_to_world(self._world)
-        self._player:set_gravity(0)
-        self._player:set_is_bubble(true)
-
         if self._body ~= nil then self._body:set_is_enabled(true) end
     end
 
+    -- input
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        if not self._is_paused then
-            if which == rt.InputAction.PAUSE then
-                self:_pause()
-            end
-        else
-            if which == rt.InputAction.PAUSE then
-                self:_unpause()
-            else
-                self._option_selection_graph:handle_button(which)
-            end
-        end
+        self:_handle_button(which)
     end)
-
-
-    -- TODO
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "l" then
-            self:_transition_to(mn.MenuScene)
-        end
-    end)
+    self._input:deactivate()
 end
 
 --- @brief
@@ -255,9 +317,22 @@ function ow.ResultScreenScene:realize()
         self._total_grade,
 
         self._time_title_label,
-        self._time_value_label
+        self._time_value_label,
+
+        self._option_control_indicator,
+        self._grade_control_indicator
     ) do
         widget:realize()
+    end
+
+    for option in values(self._options) do
+        for label in range(
+            option.selected_label,
+            option.unselected_label,
+            option.blocked_label -- can be nil
+        ) do
+            label:realize()
+        end
     end
 end
 
@@ -278,7 +353,6 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
 
         self._grade_label_w, self._grade_label_h = max_w, max_h
     end
-
 
     local m = rt.settings.margin_unit
     do -- physics world
@@ -334,7 +408,15 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
         for option in values(self._options) do
             local selected_w, selected_h = option.selected_label:measure()
             local unselected_w, unselected_h = option.unselected_label:measure()
-            local w, h = math.max(selected_w, unselected_w), math.max(selected_h, unselected_h)
+            local blocked_w, blocked_h
+
+            local w, h
+            if option.can_be_blocked then
+                blocked_w, blocked_h = option.blocked_label:measure()
+                w, h = math.max(selected_w, unselected_w, blocked_w), math.max(selected_h, unselected_h, blocked_h)
+            else
+                w, h = math.max(selected_w, unselected_w), math.max(selected_h, unselected_h)
+            end
 
             option.frame:reformat(
                 x + 0.5 * width - 0.5 * w - label_xm,
@@ -354,8 +436,28 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
                 math.huge, math.huge
             )
 
+            if option.can_be_blocked then
+                option.blocked_label:reformat(
+                    x + 0.5 * width - 0.5 * blocked_w,
+                    current_y + 0.5 * h - 0.5 * blocked_h,
+                    math.huge, math.huge
+                )
+            end
+
             current_y = current_y + h + m
         end
+    end
+
+    for indicator in range(
+        self._option_control_indicator,
+        self._grade_control_indicator
+    ) do
+        local control_w, control_h = indicator:measure()
+        indicator:reformat(
+            x + width - control_w,
+            y + height - control_h,
+            control_w, control_h
+        )
     end
 
     self:_reformat_frame()
@@ -367,6 +469,9 @@ end
 --- @param screenshot RenderTexture?
 function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     if screenshot == nil then screenshot = self._screenshot end
+
+    self._input:activate()
+
     rt.SceneManager:set_use_fixed_timestep(true)
     self._screenshot = screenshot -- can be nil
 
@@ -377,10 +482,18 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     end
     meta.assert_typeof(config, "Table", 4)
 
+    self._player:reset()
+    self._player:move_to_world(self._world)
+    self._player:set_gravity(0)
+    self._player:set_is_bubble(true)
+
+    self._frame:present()
+
     self._config = config
     local required_keys = {}
     for key in range(
         "stage_name",
+        "stage_id",
         "coins",
         "time",
         "flow",
@@ -399,6 +512,10 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     end
 
     self._stage_name_label:set_text(_format_title(config.stage_name))
+
+    self._current_stage_id = config.stage_id
+    self._next_stage_id = rt.GameState:get_next_stage(self._current_stage_id)
+    self._next_level_blocked = self._next_stage_id == nil -- disables menu option
 
     self._flow = config.flow
     self._time = config.time
@@ -423,7 +540,11 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._coin_indicators = {}
 
     do -- coins
-        for entry in values(self._coins) do entry.body:destroy() end
+        for entry in values(self._coin_indicators) do
+            if entry.body ~= nil then
+                entry.body:destroy()
+            end
+        end
 
         self._max_n_coins = #(self._config.coins)
         self._n_coins = 0
@@ -435,21 +556,20 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
             if b then self._n_coins = self._n_coins + 1 end
         end
 
-        for entry in values(self._coins) do
-            entry.body:destroy()
-        end
-        self._coins = {}
-
-        local radius = rt.settings.overworld.coin.radius * rt.get_pixel_scale()
+        local radius = 0.9 * rt.settings.overworld.coin.radius * rt.get_pixel_scale()
         for i = 1, self._max_n_coins do
-            local hue = ow.Coin.index_to_hue(i, self._max_n_coins)
+            local coin = ow.CoinParticle(radius)
+            coin:set_hue(ow.Coin.index_to_hue(i, self._max_n_coins))
+            coin:set_is_outline(true)
+
             table.insert(self._coin_indicators, {
-                radius = radius * 2 / 3,
+                radius = radius,
+                coin = coin,
                 x = 0,
                 y = 0,
-                fill_shape = { 0, 0, radius * 2 / 3 }, -- love.Circle
-                color = { rt.lcha_to_rgba(0.8, 1, hue, 1) },
-                line_shape = { 0, 0, 1, 1 }, -- love.Line
+                velocity_x = 0,
+                velocity_y = 0,
+                body = nil, -- b2.Body
                 is_collected = self._config.coins[i],
                 active = false
             })
@@ -490,10 +610,9 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
         return meta.DISCONNECT_SIGNAL
     end)
 
-    self._frame:present(self._entry_x, self._entry_y)
-
     -- reset pause menu
-    self._option_selection_graph:set_selected_node(self._options[1].node)
+    self._option_blocked_selection_graph:set_selected_node(self._option_first_blocked_node)
+    self._option_unblocked_selection_graph:set_selected_node(self._option_first_unblocked_node)
     self:_unpause()
 
     self._input:activate()
@@ -610,6 +729,7 @@ function ow.ResultScreenScene:_reformat_frame()
         local row_y = math.max(indicator_y + (indicator_height - (rows * row_height - spacing)) / 2, indicator_y)
 
         local fill_radius = radius - 2 * rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.get_pixel_scale()
+        fill_radius = fill_radius * 2 / 3
 
         local coin_index = 1
         for row = 0, rows - 1 do
@@ -622,23 +742,10 @@ function ow.ResultScreenScene:_reformat_frame()
                 entry.x = row_x + col * (2 * radius + spacing) + radius
                 entry.y = row_y + row * row_height + radius
 
-                min_x = math.min(min_x, entry.x - radius)
-                max_x = math.max(max_x, entry.x + radius)
-                min_y = math.min(min_y, entry.y - radius)
-                max_y = math.max(max_y, entry.y + radius)
-
-                entry.fill_shape[1], entry.fill_shape[2], entry.fill_shape[3] = entry.x, entry.y, fill_radius
-
-                entry.line_shape = {}
-                local n_vertices = rt.settings.overworld.result_screen_scene.coin_indicator_n_vertices
-                for i = 1, n_vertices do
-                    local angle = (i - 1) / n_vertices * (2 * math.pi)
-                    table.insert(entry.line_shape, entry.x + math.cos(angle) * radius)
-                    table.insert(entry.line_shape, entry.y + math.sin(angle) * radius)
-                end
-
-                table.insert(entry.line_shape, entry.line_shape[1])
-                table.insert(entry.line_shape, entry.line_shape[2])
+                min_x = math.min(min_x, entry.x - (radius + 2 * spacing))
+                max_x = math.max(max_x, entry.x + (radius + 2 * spacing))
+                min_y = math.min(min_y, entry.y - (radius + 2 * spacing))
+                max_y = math.max(max_y, entry.y + (radius + 2 * spacing))
 
                 coin_index = coin_index + 1
             end
@@ -677,7 +784,7 @@ function ow.ResultScreenScene:_reformat_frame()
     min_x = min_x - 8 * m
     max_x = max_x + 8 * m
     min_y = min_y - 2 * m
-    max_y = max_y + 8 * m
+    max_y = max_y + 4 * m
     self._frame:reformat(min_x, min_y, max_x - min_x, max_y - min_y)
 
     self._y_offset = self._bounds.y + 0.5 * self._bounds.height - 0.5 * (max_y - min_y)
@@ -706,7 +813,7 @@ function ow.ResultScreenScene:exit()
 end
 
 --- @brief
-function ow.ResultScreenScene:_spawn_coin(x, y, i)
+function ow.ResultScreenScene:_spawn_coin(x, y)
     local radius = rt.settings.overworld.coin.radius * rt.get_pixel_scale()
     local coin_shape = b2.Circle(0, 0, radius)
     local min_x, max_x = self._bounds.x, self._bounds.x + self._bounds.width
@@ -733,19 +840,7 @@ function ow.ResultScreenScene:_spawn_coin(x, y, i)
         end
     end)
 
-    local coin = ow.CoinParticle(radius)
-    local hue = ow.Coin.index_to_hue(i, self._max_n_coins)
-    coin:set_hue(hue)
-
-    local entry = {
-        coin = coin,
-        body = body,
-        velocity_x = velocity_x,
-        velocity_y = velocity_y
-    }
-
-    body:set_user_data(entry)
-    table.insert(self._coins, entry)
+    return body, velocity_x, velocity_y
 end
 
 --- @brief
@@ -834,12 +929,11 @@ function ow.ResultScreenScene:update(delta)
         local active_indicators = math.round(self._coin_indicator_animation:get_value() * self._max_n_coins)
         for i = 1, active_indicators do
             local entry = self._coin_indicators[i]
-
-            if entry.is_active ~= true then
-                entry.is_active = true
-                if entry.is_collected then
-                    self:_spawn_coin(entry.fill_shape[1], entry.fill_shape[2], i)
-                end
+            if entry.is_collected and entry.body == nil then
+                local body, vx, vy = self:_spawn_coin(entry.x, entry.y)
+                entry.body, entry.velocity_x, entry.velocity_y = body, vx, vy
+                body:set_user_data(entry)
+                entry.coin:set_is_outline(false)
             end
         end
     end
@@ -876,8 +970,13 @@ function ow.ResultScreenScene:update(delta)
     else
         local magnitude = 2 * rt.settings.menu_scene.title_screen.player_velocity
         self._player:set_velocity(self._player_velocity_x * magnitude, self._player_velocity_y * magnitude)
-        for entry in values(self._coins) do
-            entry.body:set_velocity(entry.velocity_x * magnitude, entry.velocity_y * magnitude)
+        for entry in values(self._coin_indicators) do
+            if entry.body ~= nil then
+                entry.body:set_velocity(
+                    entry.velocity_x * magnitude,
+                    entry.velocity_y * magnitude
+                )
+            end
         end
     end
 end
@@ -895,13 +994,7 @@ function ow.ResultScreenScene:draw()
 
     love.graphics.push()
     love.graphics.translate(0, self._y_offset)
-
     self._frame:draw()
-
-    for entry in values(self._coins) do
-        entry.coin:draw(entry.body:get_position())
-    end
-    self._player:draw()
 
     local stencil = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
@@ -942,44 +1035,64 @@ function ow.ResultScreenScene:draw()
     draw(self._current_time_grade, self._time_grade_label_x, self._time_grade_label_y, self._time_grade_label_scale_animation:get_value())
     draw(self._current_coins_grade, self._coins_grade_label_x, self._coins_grade_label_y, self._coins_grade_label_scale_animation:get_value())
 
-    love.graphics.setLineWidth(rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.get_pixel_scale())
+    -- draw ui coins
     for entry in values(self._coin_indicators) do
-        if entry.is_active then
-            love.graphics.setColor(entry.color)
-        else
-            rt.Palette.GRAY:bind()
-        end
-
-        if entry.is_collected and entry.is_active then
-            love.graphics.circle("fill", table.unpack(entry.fill_shape))
-        end
-
-        love.graphics.line(table.unpack(entry.line_shape))
+        entry.coin:draw(entry.x, entry.y)
     end
 
     rt.graphics.set_stencil_mode(nil)
+    love.graphics.pop()
+
+    -- draw floating coins
+    for entry in values(self._coin_indicators) do
+        if entry.body ~= nil then
+            entry.coin:draw(entry.body:get_position())
+        end
+    end
+    self._player:draw()
 
     if self._is_paused then
         self._option_background:draw()
-        for option in values(self._options) do
-            if option.node:get_is_selected() then
-                option.frame:draw()
-                option.selected_label:draw()
-            else
-                option.unselected_label:draw()
+
+        local graph = ternary(self._next_level_blocked,
+            self._option_blocked_selection_graph,
+            self._option_unblocked_selection_graph
+        )
+
+        if self._next_level_blocked then
+            for option in values(self._options) do
+                if option.can_be_blocked == true then
+                    option.blocked_label:draw()
+                elseif option.blocked_node:get_is_selected() then
+                    option.frame:draw()
+                    option.selected_label:draw()
+                else
+                    option.unselected_label:draw()
+                end
+            end
+        else
+            for option in values(self._options) do
+                if option.unblocked_node:get_is_selected() then
+                    option.frame:draw()
+                    option.selected_label:draw()
+                else
+                    option.unselected_label:draw()
+                end
             end
         end
     end
 
-    love.graphics.pop()
+    if self._is_paused then
+        self._option_control_indicator:draw()
+    else
+        self._grade_control_indicator:draw()
+    end
+
     self._camera:unbind()
 
     if self._fade:get_is_active() then
         self._fade:draw()
     end
-
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
-    self._stage_name_label:draw()
 end
 
 --- @brief
@@ -996,29 +1109,81 @@ function ow.ResultScreenScene:_transition_to(scene)
 end
 
 --- @brief
-function ow.ResultScreenScene:_on_next_stage()
-    if not self._is_paused then return end
+function ow.ResultScreenScene:_handle_button(which)
+    if self._is_paused then
+        if which == rt.InputAction.PAUSE then
+            -- go back to result screen
+            self:_unpause()
+        else
+            -- else handle menu
+            if self._next_level_blocked == true then
+                self._option_blocked_selection_graph:handle_button(which)
+            else
+                self._option_unblocked_selection_graph:handle_button(which)
+            end
+        end
+    else
+        -- skip animation on first press
+        self._frame:skip()
+        if self._animations_active then
+            for animation in range(
+                self._flow_animation,
+                self._coins_animation,
+                self._time_animation,
+                self._coin_indicator_animation,
+                self._flow_grade_label_scale_animation,
+                self._coins_grade_label_scale_animation,
+                self._time_grade_label_scale_animation
+            ) do
+                animation:skip()
+            end
 
+            self:update(0) -- update value labels
+            self._animations_active = false
+        else
+            -- else transition to pause
+            self:_pause()
+        end
+    end
+end
+
+--- @brief
+function ow.ResultScreenScene:_on_next_stage()
+    if not self._is_paused or self._next_level_blocked == true then return end
+
+    require "overworld.overworld_scene"
+    rt.SceneManager:set_scene(ow.OverworldScene, self._next_stage_id)
 end
 
 --- @brief
 function ow.ResultScreenScene:_on_retry_stage()
     if not self._is_paused then return end
+
+    require "overworld.overworld_scene"
+    rt.SceneManager:set_scene(ow.OverworldScene, self._current_stage_id)
 end
 
 --- @brief
 function ow.ResultScreenScene:_on_return_to_main_menu()
     if not self._is_paused then return end
+
+    require "menu.menu_scene"
+    rt.SceneManager:set_scene(mn.MenuScene, true) -- skip title screen
+end
+
+--- @brief
+function ow.ResultScreenFrame:_on_show_splits()
+    if not self._is_paused then return end
 end
 
 --- @brief
 function ow.ResultScreenScene:_pause()
-
+    self._is_paused = true
 end
 
 --- @brief
 function ow.ResultScreenScene:_unpause()
-
+    self._is_paused = false
 end
 
 --- @brief
