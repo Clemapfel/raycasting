@@ -209,6 +209,8 @@ function rt.Player:instantiate()
 
         _gravity = 1, -- [-1, 1]
 
+        _movement_disabled = false,
+
         -- controls
         _joystick_position = 0, -- x axis
         _use_controller_input = rt.InputManager:get_input_method() == rt.InputMethod.CONTROLLER,
@@ -697,6 +699,8 @@ function rt.Player:update(delta)
                 next_velocity_x = self._joystick_x * next_velocity_x
             end
 
+            if self._movement_disabled then next_velocity_x = 0 end
+
             if not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
                 next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
             end
@@ -783,7 +787,7 @@ function rt.Player:update(delta)
             self._can_jump = can_jump
             self._can_wall_jump = can_wall_jump
 
-            if self._jump_button_is_down then
+            if self._jump_button_is_down and not self._movement_disabled then
                 if self._jump_allowed_override ~= nil then
                     -- jump override
                     if self._jump_allowed_override == true then
@@ -863,7 +867,7 @@ function rt.Player:update(delta)
             self._bounce_elapsed = self._bounce_elapsed + delta
 
             -- downwards force
-            if self._down_button_is_down then
+            if self._down_button_is_down and not self._movement_disabled then
                 next_velocity_y = next_velocity_y + _settings.downwards_force * delta * t
             end
 
@@ -2039,6 +2043,8 @@ function rt.Player:reset()
     self:set_opacity(1)
     self:set_velocity(0, 0)
     self:set_time_dilation(1)
+
+    -- do not reset input disabled
 end
 
 --- @brief
@@ -2063,4 +2069,14 @@ end
 --- @brief
 function rt.Player:set_time_dilation(t)
     self._time_dilation = math.clamp(t, math.eps, 1)
+end
+
+--- @brief
+function rt.Player:set_movement_disabled(b)
+    self._movement_disabled = b
+end
+
+--- @brief
+function rt.Player:get_movement_disabled()
+    return self._movement_disabled
 end

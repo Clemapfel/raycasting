@@ -320,11 +320,17 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
         self._input:deactivate()
         self._fade_active = false
         self._fade:start(false, true)
+
+        self._player:set_movement_disabled(true)
+        self._fade:signal_connect("hidden", function(_)
+            self._player:set_movement_disabled(false)
+            self:start_timer()
+        end)
+
         self._title_card:fade_in()
         self._title_card_elapsed = 0
 
-        self._player._input:deactivate()
-        self._stage:signal_connect("done", function()
+        self._stage:signal_connect("loading_done", function()
             self._queue_fade_out = true
             return meta.DISCONNECT_SIGNAL
         end)
@@ -752,9 +758,8 @@ function ow.OverworldScene:update(delta)
     if _skip_fade ~= true then
         if self._queue_fade_out and self._title_card_elapsed >= rt.settings.overworld_scene.title_card_min_duration then
             self._input:activate()
-            self._player._input:activate()
             self._fade_active = true
-            self._title_card:fade_out()
+            self._title_card:fade_out() -- fade out text
             self._queue_fade_out = nil
         end
 

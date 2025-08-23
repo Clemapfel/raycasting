@@ -24,7 +24,7 @@ rt.settings.overworld.stage = {
 --- @class ow.Stage
 --- @signal initialized (self) -> nil
 ow.Stage = meta.class("Stage", rt.Drawable)
-meta.add_signals(ow.Stage, "initialized", "respawn", "done")
+meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done")
 
 ow.Stage._config_atlas = {}
 
@@ -274,7 +274,7 @@ end
 --- @brief
 function ow.Stage:update(delta)
     if self._normal_map_done and self._is_initialized and self._signal_done_emitted == false then
-        self:signal_emit("done")
+        self:signal_emit("loading_done")
         self._signal_done_emitted = true
     end
 

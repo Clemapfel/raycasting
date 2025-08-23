@@ -135,6 +135,8 @@ function ow.ResultScreenScene:instantiate(state)
     self._camera = rt.Camera()
     self._screenshot = nil -- rt.RenderTexture, cf :enter
 
+    self._bloom = nil -- initialized on first draw
+
     self._is_paused = false
     do -- options
         local unselected_prefix, unselected_postfix = rt.settings.menu.pause_menu.label_prefix, rt.settings.menu.pause_menu.label_postfix

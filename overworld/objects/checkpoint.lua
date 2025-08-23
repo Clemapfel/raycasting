@@ -341,12 +341,6 @@ function ow.Checkpoint:spawn(also_kill)
     if also_kill == nil then also_kill = true end
 
     local is_first_spawn = self._stage:get_is_first_spawn()
-    self._start_timer = is_first_spawn
-    if is_first_spawn then
-        self._scene._timer = 0
-        self._scene:stop_timer()
-    end
-
     self._stage:signal_emit("respawn")
 
     local player = self._scene:get_player()
@@ -435,10 +429,6 @@ function ow.Checkpoint:_set_state(state)
     elseif self._state == _STATE_DEFAULT then
         self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
-        if self._start_timer == true then
-            self._scene:start_timer()
-            self._start_timer = false
-        end
         player:reset()
         player:enable()
     end
