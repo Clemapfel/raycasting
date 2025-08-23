@@ -284,11 +284,6 @@ function mn.MenuScene:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 3 * m
 
-    if rt.GameState:get_is_bloom_enabled() then
-        self._bloom = rt.Bloom(width, height)
-        self._bloom:set_bloom_strength(rt.settings.menu_scene.bloom_strength)
-    end
-
     self._background:reformat(x, y, width, height)
 
     do -- title screen
@@ -421,6 +416,10 @@ function mn.MenuScene:enter(skip_title)
 
     rt.SceneManager:set_use_fixed_timestep(true)
     self._player:set_opacity(1)
+
+    if rt.SceneManager:get_is_bloom_enabled() then
+        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
+    end
 
     if skip_title then
         self:_set_state(mn.MenuSceneState.STAGE_SELECT)
@@ -704,11 +703,6 @@ function mn.MenuScene:draw()
         return
     end
 
-    if rt.GameState:get_is_bloom_enabled() and self._bloom == nil then
-        self._bloom = rt.Bloom(self._bounds.width, self._bounds.height)
-        self._bloom:set_bloom_strength(rt.settings.menu_scene.bloom_strength)
-    end
-
     -- draw background
     self._background:draw()
 
@@ -753,7 +747,8 @@ function mn.MenuScene:draw()
         love.graphics.pop()
 
         if rt.GameState:get_is_bloom_enabled() then
-            self._bloom:bind()
+            local bloom = rt.SceneManager:get_bloom()
+            bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
             self._background:draw_bloom()
 
@@ -769,7 +764,7 @@ function mn.MenuScene:draw()
             _title_shader_no_sdf:unbind()
             love.graphics.pop()
 
-            self._bloom:unbind()
+            bloom:unbind()
             bloom_updated = true
         end
     end
@@ -790,7 +785,9 @@ function mn.MenuScene:draw()
         love.graphics.pop()
 
         if not stage_select.exit_fade:get_is_active() and not bloom_updated and rt.GameState:get_is_bloom_enabled() then
-            self._bloom:bind()
+            local bloom = rt.SceneManager:get_bloom()
+
+            bloom:bind()
             love.graphics.clear()
 
             local stencil_value = rt.graphics.get_stencil_value()
@@ -814,7 +811,7 @@ function mn.MenuScene:draw()
             self._player:draw_bloom()
             self._camera:unbind()
 
-            self._bloom:unbind()
+            bloom:unbind()
         end
     end
 
@@ -825,7 +822,7 @@ function mn.MenuScene:draw()
     self._stage_select.debris_emitter:draw_above()
 
     if rt.GameState:get_is_bloom_enabled() then
-        self._bloom:composite(rt.settings.menu_scene.bloom_composite)
+        rt.SceneManager:get_bloom():composite(rt.settings.menu_scene.bloom_composite)
     end
 
     self._stage_select.exit_fade:draw()

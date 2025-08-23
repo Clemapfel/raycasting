@@ -187,3 +187,8 @@ function rt.Bloom:draw()
     love.graphics.draw(self._textures[1]:get_native())
     _tonemap_shader:unbind()
 end
+
+--- @brief
+function rt.Bloom:get_size()
+    return self._textures[1]:get_size()
+end

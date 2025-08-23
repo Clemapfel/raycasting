@@ -477,6 +477,10 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     rt.SceneManager:set_use_fixed_timestep(true)
     self._screenshot = screenshot -- can be nil
 
+    if rt.SceneManager:get_is_bloom_enabled() then
+        rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
+    end
+
     meta.assert_typeof(player_x, "Number", 1)
     meta.assert_typeof(player_x, "Number", 2)
     if screenshot ~= nil then
@@ -1052,6 +1056,40 @@ function ow.ResultScreenScene:draw()
         end
     end
     self._player:draw()
+
+    if rt.SceneManager:get_is_bloom_enabled() then
+        love.graphics.push("all")
+        love.graphics.reset()
+        local bloom = rt.SceneManager:get_bloom()
+        bloom:bind()
+        love.graphics.clear(0, 0, 0, 0)
+
+        love.graphics.push()
+        love.graphics.translate(0, self._y_offset)
+        self._frame:draw_bloom()
+        for entry in values(self._coin_indicators) do
+            if entry.body ~= nil then
+                entry.coin:draw_bloom(entry.x, entry.y)
+            end
+        end
+        love.graphics.pop()
+
+        self._camera:bind()
+
+        for entry in values(self._coin_indicators) do
+            if entry.body ~= nil then
+                entry.coin:draw_bloom(entry.body:get_position())
+            end
+        end
+        self._player:draw_bloom()
+
+        self._camera:unbind()
+
+        bloom:unbind()
+        love.graphics.pop()
+
+        bloom:composite(rt.settings.menu_scene.bloom_composite)
+    end
 
     if self._is_paused then
         self._option_background:draw()

@@ -88,7 +88,6 @@ function ow.OverworldScene:instantiate(state)
         _pause_menu = mn.PauseMenu(self),
         _pause_menu_active = false,
 
-        _bloom = nil, -- rt.Blur
         _fade = rt.Fade(2, "overworld/overworld_scene_fade.glsl"),
         _fade_active = false,
 
@@ -143,13 +142,6 @@ function ow.OverworldScene:instantiate(state)
         if which == "^" then
             self:unpause()
             self:reload()
-        elseif which == "h" then
-        elseif which == "j" then
-            --self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() - 1 / 10)
-            --rt.settings.overworld_scene.bloom_composite_strength = rt.settings.overworld_scene.bloom_composite_strength - 0.01
-        elseif which == "k" then
-            --self._bloom:set_bloom_strength(self._bloom:get_bloom_strength() + 1 / 10)
-            --rt.settings.overworld_scene.bloom_composite_strength =  rt.settings.overworld_scene.bloom_composite_strength + 0.01
         end
     end)
 
@@ -340,6 +332,17 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
         self._title_card_elapsed = math.huge
     end
 
+    if rt.SceneManager:get_is_bloom_enabled() then
+        local bloom = rt.SceneManager:get_bloom()
+        bloom:set_bloom_strength(rt.settings.overworld_scene.bloom_blur_strength)
+        if self._stage ~= nil then
+            self._stage:get_blood_splatter():set_bloom_factor(
+                rt.settings.overworld_scene.bloom_composite_strength +
+                    rt.settings.overworld.normal_map.segment_light_intensity
+            )
+        end
+    end
+
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(_cursor)
@@ -380,17 +383,6 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
             y + height - control_h - m,
             control_w, control_h
         )
-    end
-
-    if rt.GameState:get_is_bloom_enabled() then
-        self._bloom = rt.Bloom(width, height)
-        self._bloom:set_bloom_strength(rt.settings.overworld_scene.bloom_blur_strength)
-        if self._stage ~= nil then
-            self._stage:get_blood_splatter():set_bloom_factor(
-                rt.settings.overworld_scene.bloom_composite_strength +
-                rt.settings.overworld.normal_map.segment_light_intensity
-            )
-        end
     end
 
     self._pan_gradient_top = rt.Mesh({
@@ -544,21 +536,6 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
-    if self._bloom == nil and rt.GameState:get_is_bloom_enabled() then
-        local _, _, width, height = self:get_bounds():unpack()
-        self._bloom = rt.Bloom(width, height,
-            rt.settings.overworld_scene.bloom_msaa,
-            rt.settings.overworld_scene.bloom_texture_format
-        )
-        self._bloom:set_bloom_strength(rt.settings.overworld_scene.bloom_blur_strength)
-        if self._stage ~= nil then
-            self._stage:get_blood_splatter():set_bloom_factor(
-                rt.settings.overworld_scene.bloom_composite_strength +
-                rt.settings.overworld.normal_map.segment_light_intensity
-            )
-        end
-    end
-
     love.graphics.push()
     love.graphics.origin()
     love.graphics.clear(1, 0, 1, 1)
@@ -582,8 +559,9 @@ function ow.OverworldScene:draw()
         self._title_card:draw()
 
         if rt.GameState:get_is_bloom_enabled() == true then
+            local bloom = rt.SceneManager:get_bloom()
             love.graphics.push()
-            self._bloom:bind()
+            bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
             self._camera:bind()
             if self._player_is_visible then
@@ -591,10 +569,10 @@ function ow.OverworldScene:draw()
             end
             self._title_card:draw()
             self._camera:unbind()
-            self._bloom:unbind()
+            bloom:unbind()
             love.graphics.pop()
 
-            self._bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
         end
     else -- not fading
         self._background:draw()
@@ -609,8 +587,9 @@ function ow.OverworldScene:draw()
         self._camera:unbind()
 
         if rt.GameState:get_is_bloom_enabled() == true then
+            local bloom = rt.SceneManager:get_bloom()
             love.graphics.push()
-            self._bloom:bind()
+            bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
             self._camera:bind()
             if self._player_is_visible then
@@ -618,10 +597,10 @@ function ow.OverworldScene:draw()
             end
             self._stage:draw_bloom()
             self._camera:unbind()
-            self._bloom:unbind()
+            bloom:unbind()
             love.graphics.pop()
 
-            self._bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
         end
     end
 

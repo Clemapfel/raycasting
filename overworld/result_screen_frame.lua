@@ -589,6 +589,15 @@ function ow.ResultScreenFrame:draw_mask()
 end
 
 --- @brief
+function ow.ResultScreenFrame:draw_bloom()
+    _outline_shader:bind()
+    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _outline_shader:send("hue", rt.SceneManager:get_current_scene():get_player():get_hue())
+    self._particle_canvas:draw(self._canvas_x, self._canvas_y)
+    _outline_shader:unbind()
+end
+
+--- @brief
 function ow.ResultScreenFrame:skip()
     self._mesh_animation:skip()
     self:_update_mesh_paths()

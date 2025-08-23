@@ -32,6 +32,7 @@ function rt.SceneManager:instantiate()
         _elapsed = 0,
         _frame_timestamp = love.timer.getTime(),
 
+        _bloom = nil, -- initialized on first use
         _input = rt.InputSubscriber(),
     })
 
@@ -69,6 +70,13 @@ function rt.SceneManager:_set_scene(add_to_stack, use_fade, scene_type, ...)
             previous_scene:exit()
             previous_scene._is_active = false
             previous_scene:signal_emit("exit")
+
+            if rt.GameState:get_is_bloom_enabled() then
+                local bloom = self:get_bloom()
+                bloom:bind()
+                love.graphics.clear(0, 0, 0, 0)
+                bloom:unbind()
+            end
         end
 
         -- resize if necessary
@@ -167,6 +175,20 @@ function rt.SceneManager:resize(width, height)
             scene._scene_manager_current_width = self._width
             scene._scene_manager_current_height = self._height
         end
+    end
+
+    local reallocate_bloom = false
+    if self._bloom == nil then
+        reallocate_bloom = true
+    else
+        local w, h = self._bloom:get_size()
+        if w ~= self._width or h ~= self._height then
+            reallocate_bloom = true
+        end
+    end
+
+    if reallocate_bloom then
+        self._bloom = rt.Bloom(self._width, self._height)
     end
 end
 
@@ -270,13 +292,15 @@ function rt.SceneManager:get_use_fixed_timestep()
     return self._use_fixed_timestep
 end
 
-local _update_elapsed = 0
-local _update_step = 1 / 120
-
+--- @brief
 function rt.SceneManager:get_timestep()
     if self._use_fixed_timestep then return 1 / 120 else return 1 / love.timer.getFPS() end
 end
 
+local _update_elapsed = 0
+local _update_step = 1 / 120
+
+--- @brief
 function rt.SceneManager:get_frame_interpolation()
     if self._use_fixed_timestep then
         return _update_elapsed / _update_step
@@ -285,6 +309,19 @@ function rt.SceneManager:get_frame_interpolation()
     end
 end
 
+--- @brief
+function rt.SceneManager:get_is_bloom_enabled()
+    return rt.GameState:get_is_bloom_enabled()
+end
+
+--- @brief
+function rt.SceneManager:get_bloom()
+    if rt.GameState:get_is_bloom_enabled() then
+        return self._bloom
+    else
+        return nil
+    end
+end
 
 rt.SceneManager = rt.SceneManager() -- static global singleton
 local _focused = true
