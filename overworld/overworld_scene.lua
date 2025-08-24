@@ -734,7 +734,7 @@ function ow.OverworldScene:_draw_debug_information()
             local current, best = currents[i], bests[i]
             local delta
             if current == nil then
-                current = string.format_time(self:get_timer())
+                current = translation.unknown
                 delta = 0
             else
                 delta = best - current
@@ -752,7 +752,7 @@ function ow.OverworldScene:_draw_debug_information()
             elseif delta < 0 then
                 delta = "+" .. string.format_time(math.abs(delta))
             else
-                delta = " "
+                delta = translation.unknown
             end
 
             table.insert(currents_strings, current)

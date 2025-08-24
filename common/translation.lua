@@ -126,6 +126,7 @@ rt.Translation = rt.initialize_translation({
         current_header = "Current",
         delta_header = "+/-",
         best_header = "Best",
+        overall_prefix = "Total : ",
         unknown = "\u{2014}" -- long dash
     },
 

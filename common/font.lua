@@ -97,6 +97,15 @@ local _new_font = function(path, size, sdf)
     return native
 end
 
+--[[
+local _new_font = function(path, size, sdf)
+    return love.graphics.newFont(path, size, {
+        hinting = "normal",
+        sdf = sdf
+    })
+end
+]]--
+
 --- @brief
 function rt.Font:get_native(size, style, sdf)
     meta.assert_enum_value(size, rt.FontSize, 1)
