@@ -10,6 +10,13 @@ local present = function()
     end
 
     local w, h = love.graphics.getDimensions()
+
+    local best = rt.GameState:stage_get_splits_best_run("tutorial")
+    local current = table.deepcopy(best)
+    for i, x in ipairs(current) do
+        current[i] = math.max(x + rt.random.number(-10, 10), 0)
+    end
+
     rt.SceneManager:push(ow.ResultScreenScene,
         rt.random.number(0, 1) * w,
         rt.random.number(0, 1) * h,
@@ -24,7 +31,10 @@ local present = function()
             flow = 0.9868,
             time_grade = rt.StageGrade.S,
             coins_grade = rt.StageGrade.A,
-            flow_grade = rt.StageGrade.F
+            flow_grade = rt.StageGrade.F,
+
+            splits_current = current,
+            splits_best = best
         }
     )
 end
@@ -42,7 +52,7 @@ love.load = function(args)
 
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -54,7 +64,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.result_screen_scene"
-    --present()
+    present()
 end
 
 love.update = function(delta)

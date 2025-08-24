@@ -121,6 +121,14 @@ rt.Translation = rt.initialize_translation({
         grade_control_indicator_continue = "Continue"
     },
 
+    -- splits viewer
+    splits_viewer = {
+        current_header = "Current",
+        delta_header = "+/-",
+        best_header = "Best",
+        unknown = "\u{2014}" -- long dash
+    },
+
     -- overworld gameplay
     overworld_scene = {
         control_indicator_move = "Move",

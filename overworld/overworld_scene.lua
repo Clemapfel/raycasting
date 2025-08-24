@@ -664,8 +664,6 @@ function ow.OverworldScene:draw()
     end
 end
 
-local _long_dash = "\u{2014}"
-
 function ow.OverworldScene:_draw_debug_information()
     local player = self._player
     local flow_percentage = player:get_flow()
@@ -730,11 +728,13 @@ function ow.OverworldScene:_draw_debug_information()
         local bests = rt.GameState:stage_get_splits_best_run(self._stage_id)
         local currents = self._stage:get_checkpoint_splits()
 
+        local translation = rt.Translation.splits_viewer
+
         for i, split in ipairs(bests) do
             local current, best = currents[i], bests[i]
             local delta
             if current == nil then
-                current = _long_dash
+                current = string.format_time(self:get_timer())
                 delta = 0
             else
                 delta = best - current
@@ -742,14 +742,14 @@ function ow.OverworldScene:_draw_debug_information()
             end
 
             if best == 0 then
-                best = _long_dash
+                best = translation.unknown
             else
                 best = string.format_time(best)
             end
 
-            if best > current then
+            if delta > 0 then
                 delta = "-" .. string.format_time(math.abs(delta))
-            elseif best < current then
+            elseif delta < 0 then
                 delta = "+" .. string.format_time(math.abs(delta))
             else
                 delta = " "
@@ -772,32 +772,32 @@ function ow.OverworldScene:_draw_debug_information()
             delta_max_width = math.max(delta_max_width, delta_width)
         end
 
-        local current_label = "Current"
-        local current_label_width = font:getWidth(current_label)
+        local current_header = translation.current_header
+        local current_header_width = font:getWidth(current_header)
 
-        local delta_label = "+/-"
-        local delta_label_width = font:getWidth(delta_label)
+        local delta_header = translation.delta_header
+        local delta_header_width = font:getWidth(delta_header)
 
-        local best_label = "Best"
-        local best_label_width = font:getWidth(best_label)
+        local best_header = translation.best_header
+        local best_header_width = font:getWidth(best_header)
 
-        current_max_width = math.max(current_max_width, current_label_width)
-        best_max_width = math.max(best_max_width, best_label_width)
-        delta_max_width = math.max(delta_max_width, delta_label_width)
+        current_max_width = math.max(current_max_width, current_header_width)
+        best_max_width = math.max(best_max_width, best_header_width)
+        delta_max_width = math.max(delta_max_width, delta_header_width)
 
-        love.graphics.translate(0, line_height)
-        local left_x = font:getWidth("    ")
+        love.graphics.translate(0, 2 * line_height)
         local spacing = font:getWidth("\t")
 
+        local start_x = 0 --0 + love.graphics.getWidth() - (current_max_width + spacing + best_max_width + spacing + delta_max_width + spacing)
         do
-            local current_x = left_x
-            love.graphics.printf(current_label, current_x + current_max_width - current_label_width, 0, math.huge)
+            local current_x = start_x
+            love.graphics.printf(current_header, current_x + current_max_width - current_header_width, 0, math.huge)
             current_x = current_x + current_max_width + spacing
 
-            love.graphics.printf(delta_label, current_x + delta_max_width - delta_label_width, 0, math.huge)
+            love.graphics.printf(delta_header, current_x + delta_max_width - delta_header_width, 0, math.huge)
             current_x = current_x + delta_max_width + spacing
 
-            love.graphics.printf(best_label, current_x + best_max_width - best_label_width, 0, math.huge)
+            love.graphics.printf(best_header, current_x + best_max_width - best_header_width, 0, math.huge)
             current_x = current_x + best_max_width + spacing
         end
 
@@ -808,7 +808,7 @@ function ow.OverworldScene:_draw_debug_information()
             local best, best_width = bests_strings[i], best_widths[i]
             local delta, delta_width = delta_strings[i], delta_widths[i]
 
-            local current_x = left_x
+            local current_x = start_x
             love.graphics.printf(current, current_x + current_max_width - current_width, 0, math.huge)
             current_x = current_x + current_max_width + spacing
 

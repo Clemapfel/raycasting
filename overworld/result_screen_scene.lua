@@ -1,6 +1,7 @@
 require "common.label"
 require "overworld.result_screen_frame"
 require "overworld.fireworks"
+require "menu.splits_viewer"
 
 rt.settings.overworld.result_screen_scene = {
     exit_transition_fall_duration = 2, -- seconds
@@ -275,6 +276,11 @@ function ow.ResultScreenScene:instantiate(state)
     )
     self._grade_control_indicator:set_has_frame(false)
 
+    -- splits
+    self._splits = mn.SplitsViewer()
+    self._splits_best = {}
+    self._splits_current = {}
+
     -- player boundaries
     self._entry_x, self._entry_y = 0, 0
     self._player_velocity_x, self._player_velocity_y = 0, 0
@@ -308,6 +314,7 @@ function ow.ResultScreenScene:realize()
         self._option_return_to_main_menu_selected_label,
         self._option_background,
 
+        self._splits,
         self._frame,
         self._stage_name_label,
 
@@ -502,7 +509,9 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
         "time_grade",
         "flow_grade",
         "coins_grade",
-        "target_time"
+        "target_time",
+        "splits_current",
+        "splits_best"
     ) do
         required_keys[key] = true
     end
@@ -519,6 +528,8 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._next_stage_id = rt.GameState:get_next_stage(self._current_stage_id)
     self._next_level_blocked = self._next_stage_id == nil -- disables menu option
 
+    self._splits_current = config.splits_current
+    self._splits_best = config.splits_best
     self._flow = config.flow
     self._time = config.time
     self._target_time = config.time
@@ -802,6 +813,11 @@ function ow.ResultScreenScene:_reformat_frame()
     self._frame:reformat(min_x, min_y, max_x - min_x, max_y - min_y)
 
     self._y_offset = self._bounds.y + 0.5 * self._bounds.height - 0.5 * (max_y - min_y)
+
+    -- splits
+    local margin = 4 * m
+    self._splits:create_from(self._splits_current, self._splits_best)
+    self._splits:reformat(margin, margin, width - 2 * margin, height - 2 * margin)
 end
 
 --- @brief
@@ -1154,6 +1170,8 @@ function ow.ResultScreenScene:draw()
     end
 
     self._camera:unbind()
+
+    self._splits:draw()
 
     if self._fade:get_is_active() then
         self._fade:draw()
