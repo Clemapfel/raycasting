@@ -28,6 +28,7 @@ function rt.SceneManager:instantiate()
         _width = love.graphics.getWidth(),
         _height = love.graphics.getHeight(),
         _fade = rt.Fade(),
+        _should_use_fade = false,
         _use_fixed_timestep = false,
         _elapsed = 0,
         _frame_timestamp = love.timer.getTime(),
@@ -40,7 +41,9 @@ function rt.SceneManager:instantiate()
 end
 
 --- @brief
-function rt.SceneManager:_set_scene(add_to_stack, use_fade, scene_type, ...)
+function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
+    local use_fade = self._should_use_fade
+
     local varargs = { ... }
     local on_scene_changed = function()
         local scene = self._scene_type_to_scene[scene_type]
@@ -101,33 +104,33 @@ function rt.SceneManager:_set_scene(add_to_stack, use_fade, scene_type, ...)
     end
 end
 
-local _use_fade = true
-local _push_to_stack = true
-
 --- @brief
 function rt.SceneManager:push(scene_type, ...)
     assert(scene_type ~= nil, "In rt.SceneManager: scene type cannot be nil")
     if self._current_scene_type ~= scene_type then
-        self:_set_scene(_push_to_stack, _use_fade, scene_type, ...)
+        self:_set_scene(true, scene_type, ...)
     else
-        self:_set_scene(not _push_to_stack, _use_fade, scene_type, ...)
+        self:_set_scene(false, scene_type, ...)
     end
 end
 
 --- @brief
 function rt.SceneManager:pop()
-    local use_fade = true
-    local push_to_stack = false
     local last = self._scene_stack[1]
     if last ~= nil then
         table.remove(self._scene_stack, 1)
-        self:_set_scene(not _push_to_stack, _use_fade, table.unpack(last))
+        self:_set_scene(false, table.unpack(last))
     end
 end
 
 --- @brief
 function rt.SceneManager:set_scene(scene_type, ...)
-    self:_set_scene(_push_to_stack, not _use_fade, scene_type, ...)
+    self:_set_scene(false, scene_type, ...)
+end
+
+--- @brief
+function rt.SceneManager:set_use_fade(b)
+    self._should_use_fade = b
 end
 
 --- @brief
@@ -156,7 +159,10 @@ function rt.SceneManager:draw(...)
     end
 
     rt.graphics._stencil_value = 1 -- reset running stencil value
-    self._fade:draw()
+
+    if self._should_use_fade then
+        self._fade:draw()
+    end
 end
 
 --- @brief

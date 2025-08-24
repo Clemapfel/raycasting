@@ -32,9 +32,8 @@ end
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "^" then
-        --rt.SceneManager:set_scene(ow.OverworldScene, "tutorial", false)
-        present()
-        dbg("called")
+        rt.SceneManager:set_scene(ow.OverworldScene, "tutorial", false)
+        --present()
     end
 end)
 

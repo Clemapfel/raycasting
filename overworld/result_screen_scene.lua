@@ -9,7 +9,6 @@ rt.settings.overworld.result_screen_scene = {
 
     coin_indicator_n_vertices = 16,
     coin_indicator_line_width = 1.5,
-    coin_gravity = 1000,
 
     reveal_animation_duration = 2,
 }
@@ -471,8 +470,6 @@ end
 --- @param player_y Number
 --- @param screenshot RenderTexture?
 function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
-    if screenshot == nil then screenshot = self._screenshot end
-
     self._input:activate()
 
     rt.SceneManager:set_use_fixed_timestep(true)
@@ -962,6 +959,9 @@ function ow.ResultScreenScene:update(delta)
         end
     end
 
+    -- coin and player velocity
+    local magnitude = 2 * rt.settings.menu_scene.title_screen.player_velocity
+
     if self._transition_active then
         self._fade:update(delta)
 
@@ -974,11 +974,12 @@ function ow.ResultScreenScene:update(delta)
         local duration = rt.settings.overworld.result_screen_scene.exit_transition_fall_duration
         self._player:set_flow(self._transition_elapsed / duration)
 
-        local gravity = rt.settings.overworld.result_screen_scene.coin_gravity
+        local px, py = self._player:get_position()
         for entry in values(self._coin_indicators) do
             if entry.body ~= nil then
-                entry.velocity_y = entry.velocity_y + delta * gravity * entry.mass
-                entry.body:set_velocity(entry.velocity_x, entry.velocity_y)
+                entry.velocity_x, entry.velocity_y = math.normalize(math.subtract(px, py, entry.x, entry.y))
+                local coin_magnitude = math.distance(entry.x, entry.y, px, py) / self._bounds.height * magnitude
+                entry.body:set_velocity(entry.velocity_x * coin_magnitude, entry.velocity_y * coin_magnitude)
             end
         end
 
@@ -1001,7 +1002,6 @@ function ow.ResultScreenScene:update(delta)
             self._camera:move_to(player_x, player_y)
         end
     else
-        local magnitude = 2 * rt.settings.menu_scene.title_screen.player_velocity
         self._player:set_velocity(self._player_velocity_x * magnitude, self._player_velocity_y * magnitude)
         for entry in values(self._coin_indicators) do
             if entry.body ~= nil then
@@ -1018,10 +1018,8 @@ end
 function ow.ResultScreenScene:draw()
     if not self:get_is_active() then return end
 
-    if self._screenshot ~= nil then
-        love.graphics.setColor(1, 1, 1, 1)
-        self._screenshot:draw()
-    end
+    love.graphics.setColor(1, 1, 1, 1)
+    self._screenshot:draw()
 
     self._camera:bind()
 

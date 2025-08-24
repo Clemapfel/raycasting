@@ -75,11 +75,14 @@ function rt.GameState:_initialize_stage()
 
         -- extract number of coins from config file
         local config = ow.StageConfig(id)
-        local n_coins = 0
+        local n_coins, n_checkpoints = 0, 0
         for layer_i = 1, config:get_n_layers() do
             for object in values(config:get_layer_object_wrappers(layer_i)) do
                 if object.class == "Coin" then
                     n_coins = n_coins + 1
+                elseif object.class == "Checkpoint" or object.class == "PlayerGoal" then
+                    -- player spawn not counted
+                    n_checkpoints = n_checkpoints + 1
                 end
             end
         end
@@ -92,8 +95,22 @@ function rt.GameState:_initialize_stage()
             description = description,
             target_time = target_time,
             n_coins = n_coins,
-            index = i
+            index = i,
+            splits = {
+                n_segments = n_checkpoints,
+                best_segments = table.rep(0, n_checkpoints), -- best time for individual segments
+                best_run = table.rep(0, n_checkpoints) -- overall splits of best run
+            }
         }
+
+        if _debug_output then
+            local t = 0
+            for segment_i = 1, n_checkpoints do
+                t = t + rt.random.number(0, 10)
+                stage.splits.best_segments[segment_i] = t
+                stage.splits.best_run[segment_i] = t
+            end
+        end
 
         self._stages[i] = stage
         self._stage_id_to_i[id] = i
@@ -432,4 +449,70 @@ function rt.GameState:get_next_stage(stage_id)
     end
 
     rt.error("In rt.GameState.get_next_stage: no stage with id `" .. stage_id .. "`")
+end
+
+--- @brief
+function rt.GameState:stage_update_splits(stage_id, times)
+    meta.assert(stage_id, "String")
+    for i = 1, #times do
+        meta.assert_typeof(times[i], "Number", i+1)
+    end
+
+    self:_initialize_stage()
+    local entry = self:_get_stage(stage_id, "stage_update_best_splits")
+
+    local n_segments = entry.splits.n_segments
+    if n_segments ~= #times then
+        rt.error("In rt.GameState:stage_update_best_splits: for stage `" .. stage_id .. "`, expected `" .. n_segments .. "` segments, got `" .. #times)
+    end
+
+    local current_sum, new_sum = 0, 0
+    for i = 1, n_segments do
+        -- replace per-segment time with new best
+        local current = entry.splits.best_segments[i]
+        local next = times[i]
+        if next <= current then
+            entry.splits.best_segments[i] = current
+        end
+
+        current_sum = current_sum + current
+        new_sum = new_sum + next
+    end
+
+    -- replace total run splits
+    if new_sum < current_sum then
+        for i = 1, n_segments do
+            entry.splits.best_run[i] = times[i]
+        end
+    end
+end
+
+--- @brief
+--- @return Table<Number>
+function rt.GameState:stage_get_splits_best_segments(stage_id)
+    self:_initialize_stage()
+
+    meta.assert(stage_id, "String")
+    local entry = self:_get_stage(stage_id, "stage_get_splits")
+
+    if entry ~= nil then
+        return table.deepcopy(entry.splits.best_segments)
+    else
+        return {}
+    end
+end
+
+--- @brief
+--- @return Table<Number>
+function rt.GameState:stage_get_splits_best_run(stage_id)
+    self:_initialize_stage()
+
+    meta.assert(stage_id, "String")
+    local entry = self:_get_stage(stage_id, "stage_get_splits")
+
+    if entry ~= nil then
+        return table.deepcopy(entry.splits.best_run)
+    else
+        return {}
+    end
 end

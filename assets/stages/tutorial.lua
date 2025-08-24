@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 819,
+  nextobjectid = 825,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -2374,32 +2374,6 @@ return {
           properties = {}
         },
         {
-          id = 551,
-          name = "",
-          type = "Checkpoint",
-          shape = "point",
-          x = 1805.4,
-          y = 2859.66,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 554,
-          name = "",
-          type = "Checkpoint",
-          shape = "point",
-          x = 2080,
-          y = 2800,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 557,
           name = "",
           type = "BouncePad",
@@ -2916,19 +2890,6 @@ return {
             { x = -32, y = 112 },
             { x = -32, y = -16 }
           },
-          properties = {}
-        },
-        {
-          id = 590,
-          name = "",
-          type = "Checkpoint",
-          shape = "point",
-          x = 4528,
-          y = 3360,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
           properties = {}
         },
         {
@@ -4685,19 +4646,6 @@ return {
           properties = {}
         },
         {
-          id = 814,
-          name = "Checkpoint",
-          type = "Checkpoint",
-          shape = "point",
-          x = -1343.6,
-          y = 379.323,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 815,
           name = "",
           type = "",
@@ -4733,6 +4681,84 @@ return {
             { x = 224, y = 32 },
             { x = 112, y = -160 }
           },
+          properties = {}
+        },
+        {
+          id = 819,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -1961.11,
+          y = 640.295,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 820,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -1702.98,
+          y = 764.331,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 821,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -1662.76,
+          y = 643.647,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 822,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -1830.37,
+          y = 724.103,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 823,
+          name = "Checkpoint",
+          type = "Checkpoint",
+          shape = "point",
+          x = -1897.42,
+          y = 744.217,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 824,
+          name = "Checkpoint",
+          type = "Checkpoint",
+          shape = "point",
+          x = -1806.91,
+          y = 767.684,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

@@ -119,7 +119,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         -- last checkpoint: player goal
         _is_shattered = false,
-        _start_timer = false,
         _shatter_body = nil,    -- b2.Body
         _shatter_surface = nil, -- ow.ShatterSurface
         _time_dilation_elapsed = 0,
@@ -135,10 +134,10 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _goal_player_position_x = 0,
         _goal_player_position_y = 0,
 
-        _result_screen_revealed = false
+        _result_screen_revealed = false,
+        _split_send = false
     })
 
-    stage:add_checkpoint(self, object.id, self._type)
     stage:signal_connect("initialized", function()
         -- cast ray up an down to get local bounds
         local inf = love.graphics.getHeight() * 2
@@ -181,6 +180,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
             self._body:signal_connect("collision_start", function(_, other)
+                -- spawn does not split
                 self._passed = true
             end)
 
@@ -203,6 +203,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._rope = ow.CheckpointRope(self._scene, self._world, self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 
             self._body:signal_connect("collision_start", function(_, other)
+                self:_send_split()
+
                 if self._rope:get_is_cut() == false then
                     self._rope:cut() -- checks player position automatically
 
@@ -254,6 +256,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._shatter_body:set_collision_group(collision_group)
             self._shatter_body:set_is_sensor(true)
             self._shatter_body:signal_connect("collision_start", function(_, other, nx, ny, x, y, x2, y2)
+                self:_send_split()
+
                 if self._is_shattered == false then
                     self._is_shattered = true
                     self._scene:stop_timer()
@@ -635,4 +639,16 @@ end
 --- @brief
 function ow.Checkpoint:get_render_priority()
     return _base_priority, _effect_priority
+end
+
+--- @brief
+function ow.Checkpoint:_send_split()
+    if self._split_send == true then return end
+    self._stage:set_checkpoint_split(self)
+    self._split_send = true
+end
+
+--- @brief
+function ow.Checkpoint:get_type()
+    return self._type
 end

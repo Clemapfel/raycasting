@@ -28,7 +28,7 @@ do
 
         idle_control_indicator_popup_threshold = 5,
 
-        result_screen_transition_duration = 5
+        result_screen_transition_duration = 1.5
     }
 end
 
@@ -330,6 +330,7 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
         self._input:activate()
         self._fade_active = false
         self._title_card_elapsed = math.huge
+        self:start_timer()
     end
 
     if rt.SceneManager:get_is_bloom_enabled() then
@@ -430,14 +431,6 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
     self._player:move_to_stage(self._stage)
     self._player_is_focused = true
 
-    -- timer is quantized to physics world updates, since that
-    -- is the largest temporal resolution the player can move at
-    self._stage:get_physics_world():signal_connect("step", function(world, delta)
-        if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
-            self._timer = self._timer + delta
-        end
-    end)
-
     return self._stage
 end
 
@@ -447,11 +440,17 @@ function ow.OverworldScene:get_timer()
 end
 
 --- @brief
+function ow.OverworldScene:get_frame_count()
+    return self._n_frames
+end
+
+--- @brief
 function ow.OverworldScene:start_timer()
     self._timer_started = true
     self._timer_stopped = false
     self._timer_paused = false
     self._timer = 0
+    self._n_frames = 0
 end
 
 --- @brief
@@ -665,33 +664,15 @@ function ow.OverworldScene:draw()
     end
 end
 
+local _long_dash = "\u{2014}"
+
 function ow.OverworldScene:_draw_debug_information()
     local player = self._player
     local flow_percentage = player:get_flow()
     local flow_velocity = player:get_flow_velocity()
 
-    local velocity_fraction
-
-    if player:get_is_bubble() then
-        local bubble_target = rt.settings.player.bubble_target_velocity
-        local current = math.magnitude(player:get_velocity())
-        velocity_fraction = current / bubble_target
-    else
-        local x_velocity = select(1, player:get_velocity())
-        if player:get_is_grounded() then
-            velocity_fraction = x_velocity / rt.settings.player.ground_target_velocity_x
-        else
-            velocity_fraction = x_velocity / rt.settings.player.air_target_velocity_x
-        end
-    end
-
     flow_percentage = tostring(math.round(flow_percentage * 100) / 100)
     flow_velocity = ternary(flow_velocity >= 0, "+", "-")
-    velocity_fraction = tostring(math.round(velocity_fraction * 10) / 10 * 100)
-
-    while #velocity_fraction < 3 do
-        velocity_fraction = "0" .. velocity_fraction
-    end
 
     local pressed, unpressed = "1", "0"
     local up = ternary(self._player._up_button_is_down, pressed, unpressed)
@@ -709,8 +690,7 @@ function ow.OverworldScene:_draw_debug_information()
     end
     sprint = ternary(sprint, pressed, unpressed)
 
-    local duration = self:get_timer()
-    local time = string.format_time(duration)
+    local time = "# cycles : " .. self:get_frame_count()
 
     if self._timer_paused == true or self._timer_started == false or self._timer_stopped then
         time = time .. " (paused)"
@@ -720,13 +700,129 @@ function ow.OverworldScene:_draw_debug_information()
         up .. right .. down .. left .. " " .. a .. b,
         "sprint: " .. sprint,
         "flow : " .. flow_percentage .. "% (" .. flow_velocity .. ")",
-        time,
-        --"speed : " .. velocity_fraction .. "%",
+        time
     }
 
-    love.graphics.setFont(rt.settings.font.love_default)
+    local font = rt.settings.font.love_default
+
+    love.graphics.setFont(font)
+    local line_height = font:getHeight()
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.printf(table.concat(to_concat, " | "), 5, 5, math.huge)
+
+    love.graphics.push()
+    love.graphics.translate(5, 5) -- top margins
+    love.graphics.printf(table.concat(to_concat, " | "), 0, 0, math.huge)
+
+    if self._stage ~= nil then
+        -- draw speedrun splits as two columns
+        local splits = {}
+        local currents_strings = {}
+        local current_widths = {}
+        local bests_strings = {}
+        local best_widths = {}
+        local delta_strings = {}
+        local delta_widths = {}
+
+        local current_max_width = -math.huge
+        local best_max_width = -math.huge
+        local delta_max_width = -math.huge
+
+        local bests = rt.GameState:stage_get_splits_best_run(self._stage_id)
+        local currents = self._stage:get_checkpoint_splits()
+
+        for i, split in ipairs(bests) do
+            local current, best = currents[i], bests[i]
+            local delta
+            if current == nil then
+                current = _long_dash
+                delta = 0
+            else
+                delta = best - current
+                current = string.format_time(current)
+            end
+
+            if best == 0 then
+                best = _long_dash
+            else
+                best = string.format_time(best)
+            end
+
+            if best > current then
+                delta = "-" .. string.format_time(math.abs(delta))
+            elseif best < current then
+                delta = "+" .. string.format_time(math.abs(delta))
+            else
+                delta = " "
+            end
+
+            table.insert(currents_strings, current)
+            table.insert(bests_strings, best)
+            table.insert(delta_strings, delta)
+
+            local current_width = font:getWidth(current)
+            local best_width = font:getWidth(best)
+            local delta_width = font:getWidth(delta)
+
+            table.insert(current_widths, current_width)
+            table.insert(best_widths, best_width)
+            table.insert(delta_widths, delta_width)
+
+            current_max_width = math.max(current_max_width, current_width)
+            best_max_width = math.max(best_max_width, best_width)
+            delta_max_width = math.max(delta_max_width, delta_width)
+        end
+
+        local current_label = "Current"
+        local current_label_width = font:getWidth(current_label)
+
+        local delta_label = "+/-"
+        local delta_label_width = font:getWidth(delta_label)
+
+        local best_label = "Best"
+        local best_label_width = font:getWidth(best_label)
+
+        current_max_width = math.max(current_max_width, current_label_width)
+        best_max_width = math.max(best_max_width, best_label_width)
+        delta_max_width = math.max(delta_max_width, delta_label_width)
+
+        love.graphics.translate(0, line_height)
+        local left_x = font:getWidth("    ")
+        local spacing = font:getWidth("\t")
+
+        do
+            local current_x = left_x
+            love.graphics.printf(current_label, current_x + current_max_width - current_label_width, 0, math.huge)
+            current_x = current_x + current_max_width + spacing
+
+            love.graphics.printf(delta_label, current_x + delta_max_width - delta_label_width, 0, math.huge)
+            current_x = current_x + delta_max_width + spacing
+
+            love.graphics.printf(best_label, current_x + best_max_width - best_label_width, 0, math.huge)
+            current_x = current_x + best_max_width + spacing
+        end
+
+        love.graphics.translate(0, line_height)
+
+        for i = 1, #bests do
+            local current, current_width = currents_strings[i], current_widths[i]
+            local best, best_width = bests_strings[i], best_widths[i]
+            local delta, delta_width = delta_strings[i], delta_widths[i]
+
+            local current_x = left_x
+            love.graphics.printf(current, current_x + current_max_width - current_width, 0, math.huge)
+            current_x = current_x + current_max_width + spacing
+
+            love.graphics.printf(delta, current_x + delta_max_width - delta_width, 0, math.huge)
+            current_x = current_x + delta_max_width + spacing
+
+            love.graphics.printf(best, current_x + best_max_width - best_width, 0, math.huge)
+            current_x = current_x + best_max_width + spacing
+
+            love.graphics.translate(0, line_height)
+        end
+    end
+
+    love.graphics.pop()
 end
 
 
@@ -734,6 +830,11 @@ local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
+    if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
+        self._timer = self._timer + delta
+        self._n_frames = self._n_frames + 1
+    end
+
     if _skip_fade ~= true then
         if self._queue_fade_out and self._title_card_elapsed >= rt.settings.overworld_scene.title_card_min_duration then
             self._input:activate()
@@ -894,13 +995,29 @@ function ow.OverworldScene:update(delta)
             -- screenshot without player
             self._player_is_visible = false
             self._screenshot:bind()
-            love.graphics.clear(0, 0, 0, 0)
+            love.graphics.push("all")
+            love.graphics.clear(1, 0, 1, 1)
             self:draw()
+            love.graphics.pop()
             self._screenshot:unbind()
             self._player_is_visible = true
 
             local local_x, local_y = self._camera:world_xy_to_screen_xy(self._player:get_position())
-            rt.SceneManager:set_scene(ow.ResultScreenScene, local_x, local_y, self._screenshot)
+            rt.SceneManager:set_scene(ow.ResultScreenScene,
+                local_x, local_y,
+                self._screenshot,  {
+                    coins = { true, false, false, true },
+                    time = 1.234,
+                    target_time = 1.230,
+                    stage_name = "The Shape of Jump to Come",
+                    stage_id = "tutorial",
+
+                    flow = 0.9868,
+                    time_grade = rt.StageGrade.S,
+                    coins_grade = rt.StageGrade.A,
+                    flow_grade = rt.StageGrade.F
+                }
+            )
         end
     end
 end

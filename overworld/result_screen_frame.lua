@@ -420,7 +420,6 @@ local _vertex_i = 7
 
 --- @brief
 function ow.ResultScreenFrame:_update_particles()
-    dbg("particles")
     local settings = rt.settings.overworld.result_screen_frame -- outer curve of rectangle
 
     local length = self._outer_path:get_length()
@@ -536,8 +535,6 @@ end
 --- @brief
 function ow.ResultScreenFrame:draw()
     if not self:get_is_realized() then return end
-    love.graphics.clear(0.4, 0, 0.4, 1)
-
     love.graphics.setColor(1, 1, 1, 1)
 
     self._mesh:draw()

@@ -52,6 +52,7 @@ function ow.Stage:instantiate(scene, id)
 
         _objects = {},
         _wrapper_id_to_object = {}, -- Table<Number, Any>
+        _object_to_wrapper_id = {}, -- Table<Any, Number>
 
         -- drawables
         _below_player = meta.make_weak({}),
@@ -63,7 +64,7 @@ function ow.Stage:instantiate(scene, id)
 
         -- stage objects
         _coins = {}, -- cf. add_coin
-        _checkpoints = {}, -- cf. add_checkpoint
+        _checkpoints = {}, -- Table<ow.Checkpoint, Number>
         _blood_splatter = ow.BloodSplatter(scene),
         _mirror = ow.Mirror(scene),
 
@@ -93,6 +94,11 @@ function ow.Stage:instantiate(scene, id)
     ow.Hitbox:reinitialize()
     ow.BoostField:reinitialize()
 
+
+    -- checkpoint to checkpoint split
+    self._checkpoints = {}
+    self._coins = {}
+
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
         --local spritebatches = self._config:get_layer_sprite_batches(layer_i)
@@ -114,7 +120,18 @@ function ow.Stage:instantiate(scene, id)
                 local object = Type(wrapper, self, self._scene)
                 table.insert(self._objects, object)
                 self._wrapper_id_to_object[wrapper.id] = object
+                self._object_to_wrapper_id[object] = wrapper.id
 
+                -- catch objects relating to permanent state
+                if meta.isa(object, ow.Checkpoint) then
+                    self:add_checkpoint(object)
+                elseif meta.isa(object, ow.Coin) then
+                end
+
+                -- inject id
+                object.get_id = function(self) return wrapper.id  end
+
+                -- handle drawables
                 if object.draw ~= nil then
                     local priorities = { 0 }
                     if object.get_render_priority ~= nil then
@@ -158,7 +175,7 @@ function ow.Stage:instantiate(scene, id)
 
     -- check for PlayerSpawn
     if self._active_checkpoint == nil then
-        rt.warning("In ow.Stage.initialize: not `PlayerSpawn` for stage `" .. self._id .. "`")
+        rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `" .. self._id .. "`")
     end
 
     -- sort by render priority
@@ -178,7 +195,7 @@ function ow.Stage:instantiate(scene, id)
     table.sort(in_order, function(a, b)
         local ax, ay = a:get_position()
         local bx, by = b:get_position()
-        return ax < bx
+        if ax == bx then return ay > by else return ax < bx end
     end)
 
     -- contour effects
@@ -341,14 +358,14 @@ function ow.Stage:get_object_instance(object)
     return self._wrapper_id_to_object[object.id]
 end
 
---- @brief
-function ow.Stage:add_checkpoint(checkpoint, id, type)
-    meta.assert(checkpoint, ow.Checkpoint, id, "Number")
-    self._checkpoints[id] = {
-        checkpoint = checkpoint,
-        timestamp = nil
-    }
+local _no_timestamp = -1
 
+--- @brief
+function ow.Stage:add_checkpoint(checkpoint)
+    meta.assert(checkpoint, ow.Checkpoint)
+    self._checkpoints[checkpoint] = _no_timestamp
+
+    local type = checkpoint:get_type()
     if type == ow.CheckpointType.PLAYER_SPAWN then
         self._player_spawn = checkpoint
         self._active_checkpoint = self._player_spawn
@@ -365,6 +382,43 @@ end
 --- @brief
 function ow.Stage:get_active_checkpoint()
     return self._active_checkpoint
+end
+
+--- @brief
+function ow.Stage:set_checkpoint_split(checkpoint)
+    local current = self._checkpoints[checkpoint]
+    if current == nil then
+        rt.error("In ow.Stage:set_checkpoint_split: checkpoint is not present in stage")
+    end
+
+    if current ~= _no_timestamp then
+        rt.error("In ow.Stage:set_checkpoint_split: updating splits of checkpoint `" .. self._object_to_wrapper_id[checkpoint] .. "`, but time was already updated")
+    end
+
+    self._checkpoints[checkpoint] = self._scene:get_timer()
+end
+
+--- @brief
+function ow.Stage:get_checkpoint_splits()
+    local times = {}
+
+    local at_least_one_not_done = false
+    for checkpoint, time in pairs(self._checkpoints) do
+        if time ~= _no_timestamp then
+            table.insert(times, time)
+        else
+            at_least_one_not_done = true
+        end
+    end
+
+    table.sort(times)
+
+    -- add current split time unless player already passed goal
+    if at_least_one_not_done then
+        table.insert(times, self._scene:get_timer())
+    end
+
+    return times
 end
 
 --- @brief
@@ -471,3 +525,4 @@ end
 function ow.Stage:get_is_first_spawn()
     return self._is_first_spawn
 end
+
