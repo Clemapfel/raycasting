@@ -39,11 +39,17 @@ local present = function()
     )
 end
 
+require "common.background"
+local background = rt.Background("triangles")
+background:realize()
+
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "^" then
         rt.SceneManager:set_scene(ow.OverworldScene, "tutorial", false)
         --present()
+    elseif which == "k" then
+
     end
 end)
 
@@ -64,18 +70,26 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.result_screen_scene"
-    present()
+    --present()
+
+    background:reformat(0, 0, love.graphics.getDimensions())
 end
 
 love.update = function(delta)
-    rt.SceneManager:update(delta)
+    --rt.SceneManager:update(delta)
+
+    background:update(delta)
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
-    rt.SceneManager:draw()
+    --rt.SceneManager:draw()
+
+    background:draw()
 end
 
 love.resize = function(width, height)
-    rt.SceneManager:resize(width, height)
+    --rt.SceneManager:resize(width, height)
+
+    background:reformat(0, 0, width, height)
 end

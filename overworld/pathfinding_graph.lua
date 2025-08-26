@@ -64,7 +64,7 @@ end
 --- @brief
 function ow.PathfindingGraph:get_path(from, to)
     local function heuristic(node_a, node_b)
-        -- Use Euclidean distance as heuristic
+        -- euclidean distance as heuristic
         local dx = node_b.x - node_a.x
         local dy = node_b.y - node_a.y
         return math.sqrt(dx * dx + dy * dy)
@@ -76,7 +76,7 @@ function ow.PathfindingGraph:get_path(from, to)
     local f_score = {[from] = heuristic(from, to)}
 
     while next(open_set) do
-        -- Find node in open_set with lowest f_score
+        -- find node in open_set with lowest f_score
         local current, current_f_score = nil, math.huge
         for node in pairs(open_set) do
             if f_score[node] < current_f_score then
@@ -85,7 +85,7 @@ function ow.PathfindingGraph:get_path(from, to)
         end
 
         if current == to then
-            -- Reconstruct path
+            -- reconstruct path
             local path = {}
             while current do
                 table.insert(path, 1, current)
@@ -114,7 +114,7 @@ function ow.PathfindingGraph:get_path(from, to)
         end
     end
 
-    return nil -- No path found
+    return nil -- no path found
 end
 
 --- @brief
@@ -131,8 +131,6 @@ function ow.PathfindingGraph:get_closest_node(x, y)
 
     return min_node
 end
-
-
 
 --- @brief
 function ow.PathfindingGraph:get_closest_reachable_node(x, y, world, radius)
