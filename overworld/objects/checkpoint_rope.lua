@@ -1,5 +1,5 @@
 rt.settings.overworld.checkpoint_rope = {
-    segment_length = 7, -- px
+    segment_length = 10, -- px
     segment_hue_speed = 2,
     segment_gravity = 10000,
     radius = rt.settings.player.radius
@@ -31,6 +31,12 @@ function rotate_segment_around_point(x1, y1, x2, y2, px, py, angle)
 
     return new_x1, new_y1, new_x2, new_y2
 end
+
+local _collision_group = 0x0 --[[bit.bnot(bit.bor(
+    rt.settings.player.player_collision_group,
+    rt.settings.player.player_outer_body_collision_group,
+    rt.settings.player.bounce_collision_group
+))]]--
 
 --- @brief
 function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
@@ -102,14 +108,9 @@ function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
             end
         }
         body:set_user_data(instance)
-
-        body:set_collides_with(bit.bor(
-            bit.bnot(collision_group),
-            bit.bnot(rt.settings.player.player_collision_group),
-            bit.bnot(rt.settings.player.player_outer_body_collision_group))
-        )
-
+        body:set_collides_with(_collision_group)
         body:set_collision_group(collision_group)
+
         body:set_collision_disabled(true)
         body:set_is_rotation_fixed(false)
 
@@ -178,12 +179,7 @@ function ow.CheckpointRope:cut()
         impulse = impulse * math.magnitude(vx, vy)
 
         for body in values(self._bodies) do
-            body:set_collides_with(bit.bnot(bit.bor(
-                rt.settings.player.player_collision_group,
-                rt.settings.player.player_outer_body_collision_group,
-                rt.settings.player.bounce_collision_group
-            )))
-
+            body:set_collides_with(_collision_group)
             local body_x, body_y = body:get_position()
             local dx, dy = math.normalize(body_x - (player_x + offset), body_y - player_y)
             body:apply_linear_impulse(dx * impulse, dy * impulse)
@@ -533,8 +529,8 @@ function ow.CheckpointRope:_update_mesh()
             end
         end
 
-        add_end_cap(end_i - 1, end_i, false)
-        add_end_cap(start_i, start_i + 1, true)
+        add_end_cap(math.max(end_i - 1, 1), end_i, false)
+        add_end_cap(start_i, math.min(start_i + 1, #self._bodies), true)
 
         if mesh == nil then
             mesh = rt.Mesh(
