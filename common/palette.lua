@@ -69,7 +69,7 @@ do -- load from image
     rt.Palette.GRAY = rt.Palette.GRAY_4
 
     -- ui
-    rt.Palette.BACKGROUND = rt.Palette.GRAY_9
+    rt.Palette.BACKGROUND = rt.Palette.GRAY_10
     rt.Palette.BACKGROUND_OUTLINE = rt.Palette.BLACK
 
     rt.Palette.BASE = rt.Palette.GRAY_6

@@ -53,13 +53,13 @@ love.load = function(args)
 
     -- intialize all scenes
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
-    --rt.SceneManager:push(mn.SettingsScene)
+    rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene)

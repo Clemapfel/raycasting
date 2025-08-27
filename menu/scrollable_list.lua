@@ -19,6 +19,7 @@ function mn.ScrollableList:instantiate()
     self._item_y_offset = 0
     self._max_item_y_offset = 0
     self._scrollbar = mn.Scrollbar()
+    self._should_wrap = true
 
     self._item_top_y = 0
     self._item_bottom_y = 0
@@ -157,14 +158,22 @@ end
 --- @brief
 function mn.ScrollableList:scroll_up()
     if self:can_scroll_up() then
-        self:set_selected_item(self._selected_item_i - 1)
+        if self._should_wrap then
+            self:set_selected_item(math.wrap(self._selected_item_i - 1, self._n_items))
+        else
+            self:set_selected_item(self._selected_item_i - 1)
+        end
     end
 end
 
 --- @brief
 function mn.ScrollableList:scroll_down()
     if self:can_scroll_down() then
-        self:set_selected_item(self._selected_item_i + 1)
+        if self._should_wrap then
+            self:set_selected_item(math.wrap(self._selected_item_i + 1, self._n_items))
+        else
+            self:set_selected_item(self._selected_item_i + 1)
+        end
     end
 end
 

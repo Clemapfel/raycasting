@@ -53,6 +53,7 @@ function rt.GameState:instantiate()
         performance_mode_enabled = false,
         draw_debug_information = true,
         player_sprint_mode = rt.PlayerSprintMode.HOLD,
+        color_blind_mode = false,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
 
         -- stage results
@@ -189,6 +190,17 @@ end
 --- @brief
 function rt.GameState:get_player_sprint_mode()
     return self._state.player_sprint_mode
+end
+
+--- @brief
+function rt.GameState:set_is_color_blind_mode_enabled(enabled)
+    meta.assert(enabled, "Boolean")
+    self._state.color_blind_mode = enabled
+end
+
+--- @brief
+function rt.GameState:get_is_color_blind_mode_enabled()
+    return self._state.color_blind_mode
 end
 
 --- @brief

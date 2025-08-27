@@ -19,6 +19,7 @@ rt.settings.settings_scene = {
     deadzone_default = 0.15,
     textspeed_default = 1,
     performance_mode_default = false,
+    color_blind_mode_default = false,
     draw_debug_info_default = false,
     sprint_mode_default = rt.PlayerSprintMode.HOLD,
 
@@ -374,6 +375,29 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
+    do -- color blind mode
+        local color_blind_mode_to_label ={
+            [true] = translation.color_blind_mode_on,
+            [false] = translation.color_blind_mode_off
+        }
+        local label_to_color_blind_mode = reverse(color_blind_mode_to_label)
+
+        local color_blind_mode_button = mn.OptionButton({
+            color_blind_mode_to_label[false],
+            color_blind_mode_to_label[true]
+        })
+
+        color_blind_mode_button:set_option(color_blind_mode_to_label[rt.GameState:get_is_color_blind_mode_enabled()])
+        color_blind_mode_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_color_blind_mode_enabled(label_to_color_blind_mode[label])
+        end)
+
+        local item = add_item(
+            translation.color_blind_mode_prefix, color_blind_mode_button,
+            mn.VerboseInfoObject.COLOR_BLIND_MODE_ENABLED
+        )
+    end
+
     do -- performance mode
         local performance_mode_to_label = {
             [false] = translation.performance_mode_off,
@@ -626,7 +650,7 @@ function mn.SettingsScene:update(delta)
         if self._scale_delay_elapsed > rt.settings.settings_scene.scale_movement_delay then
             self._scale_elapsed = self._scale_elapsed + delta
             local step = 1 / rt.settings.settings_scene.scale_movement_ticks_per_second
-            local scale = self._items[self._selected_item_i].widget
+            local scale = self._list:get_item(self._selected_item_i)
             while self._scale_elapsed > step do
                 self._scale_elapsed = self._scale_elapsed - step
                 if self._scale_direction == rt.Direction.LEFT then

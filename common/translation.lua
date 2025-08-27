@@ -212,6 +212,9 @@ rt.Translation = rt.initialize_translation({
         performance_mode_enabled_title = "Performance Mode",
         performance_mode_enabled_description = "Disables various visual-only effects to increase performance",
 
+        color_blind_mode_enabled_title = "Color Blind Mode",
+        color_blind_mode_enabled_description = "Adds non-diagetic visual indicators for gameplay elements that rely on differentiating colors",
+
         draw_debug_info_enabled_title = "Draw Debug Information",
         draw_debug_info_enabled_description = "Whether to show various information at the top of the screen",
 
@@ -264,6 +267,10 @@ rt.Translation = rt.initialize_translation({
         vsync_adaptive = "Adaptive",
         vsync_off = "Off",
         vsync_on = "On",
+
+        color_blind_mode_prefix = "Color Blind Mode",
+        color_blind_mode_on = "On",
+        color_blind_mode_off = "Off",
 
         fullscreen_prefix = "Fullscreen",
         fullscreen_on = "On",
