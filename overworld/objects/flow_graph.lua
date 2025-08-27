@@ -178,23 +178,31 @@ end
 --- @return Number fraction
 function ow.FlowGraph:update_player_position(player_x, player_y)
     -- find closest segment, and point on that segment
+    local fraction, closest_x, closest_y = self:get_fraction(player_x, player_y)
+    self._last_fraction = fraction
+    self._last_x, self._last_y = closest_x, closest_y
+    self._last_player_x, self._last_player_y = player_x, player_y
+    return fraction, closest_x, closest_y
+end
+
+--- @brief
+function ow.FlowGraph:get_fraction(x, y)
+    meta.assert(x, "Number", y, "Number")
     local min_distance, min_entry, closest_x, closest_y = math.huge, nil, nil, nil, nil
     for i = 1, self._n_entries do
         local entry = self._entries[i]
-        local distance, x, y = _point_to_segment(player_x, player_y, entry.x1, entry.y1, entry.x2, entry.y2)
+        local distance, segment_x, segment_y = _point_to_segment(x, y, entry.x1, entry.y1, entry.x2, entry.y2)
         if distance < min_distance then
             min_distance = distance
             min_entry = entry
-            closest_x = x
-            closest_y = y
+            closest_x = segment_x
+            closest_y = segment_y
         end
     end
 
     local local_fraction = math.distance(min_entry.x1, min_entry.y1, closest_x, closest_y) / min_entry.length
     local total_fraction = min_entry.start_fraction + local_fraction * (min_entry.finish_fraction - min_entry.start_fraction)
-    self._last_fraction = total_fraction
-    self._last_x, self._last_y = closest_x, closest_y
-    self._last_player_x, self._last_player_y = player_x, player_y
+
     return total_fraction, closest_x, closest_y
 end
 

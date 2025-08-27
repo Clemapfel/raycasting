@@ -304,12 +304,12 @@ local _cursor = nil
 function ow.OverworldScene:enter(stage_id, show_title_card)
     meta.assert(stage_id, "String")
     if show_title_card ~= nil then _skip_fade = not show_title_card end
+    self._input:activate()
 
     rt.SceneManager:set_use_fixed_timestep(true)
     self:set_stage(stage_id, show_title_card)
 
     if _skip_fade ~= true then
-        self._input:deactivate()
         self._fade_active = false
         self._fade:start(false, true)
 
@@ -317,6 +317,7 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
         self._fade:signal_connect("hidden", function(_)
             self._player:set_movement_disabled(false)
             self:start_timer()
+            return meta.DISCONNECT_SIGNAL
         end)
 
         self._title_card:fade_in()
@@ -810,14 +811,15 @@ function ow.OverworldScene:_draw_debug_information()
             local delta, delta_width = delta_strings[i], delta_widths[i]
 
             local current_x = start_x
+
+            love.graphics.printf(best, current_x + best_max_width - best_width, 0, math.huge)
+            current_x = current_x + best_max_width + spacing
+
             love.graphics.printf(current, current_x + current_max_width - current_width, 0, math.huge)
             current_x = current_x + current_max_width + spacing
 
             love.graphics.printf(delta, current_x + delta_max_width - delta_width, 0, math.huge)
             current_x = current_x + delta_max_width + spacing
-
-            love.graphics.printf(best, current_x + best_max_width - best_width, 0, math.huge)
-            current_x = current_x + best_max_width + spacing
 
             love.graphics.translate(0, line_height)
         end
@@ -1073,17 +1075,18 @@ end
 --- @brief
 function ow.OverworldScene:reload()
     if self._stage ~= nil then self._stage:destroy() end
+
     local before = self._stage_id
     self._stage_id = nil
     self._stage = nil
     self._stage_mapping = {}
 
-    ow.Stage._config_atlas = {}
-    ow.StageConfig._tileset_atlas = {}
+    ow.NormalMap:clear_cache()
+    ow.Stage:clear_cache()
+    ow.StageConfig:clear_cache()
     rt.Sprite._path_to_spritesheet = {}
 
-    self._player:move_to_stage(nil)
-    self:set_stage(before)
+    self:enter(before)
 end
 
 --- @brief
@@ -1092,7 +1095,6 @@ function ow.OverworldScene:respawn()
     self._result_screen_transition_elapsed = 0
 
     self._stage:get_active_checkpoint():spawn()
-    self._stage:reset_coins()
     self._camera:set_position(self._player:get_position())
 end
 

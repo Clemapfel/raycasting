@@ -1,10 +1,13 @@
 require "common.timed_animation"
 require "common.player"
+require "common.label"
 
 --- @class ow.CoinParticle
 ow.CoinParticle = meta.class("CoinParticle")
 
 local _shader = nil
+
+local _font = rt.Font("assets/fonts/Baloo2/Baloo2-Bold.ttf")
 
 --- @brief
 function ow.CoinParticle:instantiate(radius, is_outline)
@@ -22,6 +25,15 @@ function ow.CoinParticle:instantiate(radius, is_outline)
     self._body_outline = {}
     self._dotted_outlines = {}
     self._is_outline = is_outline
+    
+    self._index = 0
+    self._index_label = rt.Glyph("", {
+        font = _font,
+        font_size = rt.FontSize.TINY,
+        is_outlined = true,
+        is_mono = true,
+        style = rt.FontStyle.REGULAR
+    })
 
     local n_points = 16 * rt.get_pixel_scale()
     for angle = 0, 2 * math.pi, 2 * math.pi / n_points do
@@ -96,6 +108,10 @@ function ow.CoinParticle:draw(x, y)
         self:_draw_core()
     end
 
+    if rt.GameState:get_is_color_blind_mode_enabled() then
+        self._index_label:draw()
+    end
+
     love.graphics.pop()
 end
 
@@ -124,6 +140,18 @@ function ow.CoinParticle:set_hue(hue)
     self._outline_color = table.deepcopy(self._color)
     for i = 1, 3 do
         self._outline_color[i] = self._outline_color[i] - rt.settings.player_body.outline_value_offset
+    end
+end
+
+--- @brief
+function ow.CoinParticle:set_index(index)
+    self._index = index
+    self._index_label:set_text(tostring(index))
+
+    if self._index_label:get_is_realized() == false then
+        self._index_label:realize()
+        local w, h = self._index_label:measure()
+        self._index_label:reformat(0.5 * self._radius + 0.25 * w, 0.5 * self._radius, math.huge)
     end
 end
 

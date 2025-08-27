@@ -26,19 +26,16 @@ rt.settings.overworld.stage = {
 ow.Stage = meta.class("Stage", rt.Drawable)
 meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done")
 
-ow.Stage._config_atlas = {}
-
-local all_types = {}
-local _normal_map_atlas = {}
+local _config_atlas = {}
 
 --- @brief
 function ow.Stage:instantiate(scene, id)
     meta.assert(scene, "OverworldScene", id, "String")
 
-    local config = ow.Stage._config_atlas[id]
+    local config = _config_atlas[id]
     if config == nil then
         config = ow.StageConfig(id)
-        ow.Stage._config_atlas[id] = config
+        _config_atlas[id] = config
     end
 
     self._id = id
@@ -74,10 +71,9 @@ function ow.Stage:instantiate(scene, id)
         _flow_fraction = 0,
 
         _normal_map = ow.NormalMap(self),
-
-        _goals = {}, -- Set
         _active_checkpoint = nil,
     })
+
     self._world:set_use_fixed_timestep(false)
 
     self._signal_done_emitted = false
@@ -95,10 +91,10 @@ function ow.Stage:instantiate(scene, id)
     ow.Hitbox:reinitialize()
     ow.BoostField:reinitialize()
 
-
     -- checkpoint to checkpoint split
     self._checkpoints = {}
-    self._coins = {}
+
+    local coins = {}
 
     -- parse layers
     for layer_i = 1, self._config:get_n_layers() do
@@ -127,6 +123,7 @@ function ow.Stage:instantiate(scene, id)
                 if meta.isa(object, ow.Checkpoint) then
                     self:add_checkpoint(object)
                 elseif meta.isa(object, ow.Coin) then
+                    table.insert(coins, object)
                 end
 
                 -- inject id
@@ -188,17 +185,6 @@ function ow.Stage:instantiate(scene, id)
         return a.priority < b.priority
     end)
 
-    -- setup coins so colors don't repeat
-    local in_order = {}
-    for entry in values(self._coins) do
-        table.insert(in_order, entry.coin)
-    end
-    table.sort(in_order, function(a, b)
-        local ax, ay = a:get_position()
-        local bx, by = b:get_position()
-        if ax == bx then return ay > by else return ax < bx end
-    end)
-
     -- contour effects
     self._blood_splatter:create_contour()
     self._mirror:create_contour()
@@ -211,16 +197,56 @@ function ow.Stage:instantiate(scene, id)
     end
     self._flow_fraction = 0
 
-    local n_goals = 0
-    for goal in keys(self._goals) do
-        n_goals = n_goals + 1
+    do -- setup coin indexing
+        if self._flow_graph ~= nil then
+            -- if flow graph present, order along it
+            local coin_to_fraction = {}
+            for coin in values(coins) do
+                coin_to_fraction[coin] = self._flow_graph:get_fraction(coin:get_position())
+            end
+
+            table.sort(coins, function(a, b)
+                return coin_to_fraction[a] < coin_to_fraction[b]
+            end)
+        else
+            -- else order by x
+            table.sort(coins, function(a, b)
+                local ax, ay = a:get_position()
+                local bx, by = b:get_position()
+                if ax == bx then return ay > by else return ax < bx end
+            end)
+        end
+
+        for i, coin in ipairs(coins) do
+            coin:set_index(i)
+            self._coins[i] = coin
+        end
     end
 
-    if n_goals == 0 then
-        rt.warning("In ow.Stage.initialize: no `Goal` object present in stage `" .. self._id .. "`")
-    else
-        rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `" .. self._id .. "`")
+    do  -- assert checkpoint multiplicity
+        local n_goals, n_spawns = 0, 0
+        for checkpoint in keys(self._checkpoints) do
+            if checkpoint:get_type() == ow.CheckpointType.PLAYER_SPAWN then
+                n_spawns = n_spawns + 1
+            elseif checkpoint:get_type() == ow.CheckpointType.PLAYER_GOAL then
+                n_goals = n_goals + 1
+            end
+        end
+
+        if n_goals == 0 then
+            rt.warning("In ow.Stage.initialize: no `Goal` object present in stage `" .. self._id .. "`")
+        else
+            rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `" .. self._id .. "`")
+        end
+
+        if n_spawns == 0 then
+            rt.warning("In ow.Stage.initialize: no `PlayerSpawn` object present in stage `" .. self._id .. "`")
+        else
+            rt.warning("In ow.Stage.initialize: more than one `PlayerSpawn` object present in stage `" .. self._id .. "`")
+        end
     end
+
+
 
     self._is_initialized = true
     self:signal_emit("initialized")
@@ -384,10 +410,7 @@ function ow.Stage:add_checkpoint(checkpoint)
 
     local type = checkpoint:get_type()
     if type == ow.CheckpointType.PLAYER_SPAWN then
-        self._player_spawn = checkpoint
-        self._active_checkpoint = self._player_spawn
-    elseif type == ow.CheckpointType.PLAYER_GOAL then
-        self._goals[checkpoint] = true
+        self._active_checkpoint = checkpoint
     end
 end
 
@@ -439,15 +462,6 @@ function ow.Stage:get_checkpoint_splits()
 end
 
 --- @brief
-function ow.Stage:add_coin(coin, id)
-    meta.assert(coin, ow.Coin, id, "Number")
-    self._coins[id] = {
-        coin = coin,
-        is_collected = coin:get_is_collected()
-    }
-end
-
---- @brief
 function ow.Stage:set_coin_is_collected(id, is_collected)
     local entry = self._coins[id]
     if entry == nil then
@@ -459,27 +473,19 @@ function ow.Stage:set_coin_is_collected(id, is_collected)
 end
 
 --- @brief
-function ow.Stage:get_coin_is_collected(id)
-    local entry = self._coins[id]
+function ow.Stage:get_coin_is_collected(coin_i)
+    local entry = self._coins[coin_i]
     if entry == nil then
-        rt.warning("In ow.Staget.get_coin_is_collected: no coin with id `" .. id .. "`")
+        rt.warning("In ow.Staget.get_coin_is_collected: no coin with id `" .. coin_i .. "`")
         return false
     end
 
-    return entry.is_collected
+    return entry.is_collected or rt.GameState:get_stage_is_coin_collected(self._id, coin_i)
 end
 
 --- @brief
 function ow.Stage:get_n_coins()
     return table.sizeof(self._coins)
-end
-
---- @brief
-function ow.Stage:reset_coins()
-    for id, entry in pairs(self._coins) do
-        entry.is_collected = false
-        entry.coin:set_is_collected(false)
-    end
 end
 
 --- @brief
@@ -543,3 +549,9 @@ function ow.Stage:get_is_first_spawn()
     return self._is_first_spawn
 end
 
+
+--- @brief
+function ow.Stage:clear_cache()
+    _config_atlas = {}
+    dbg(table.sizeof(_config_atlas))
+end

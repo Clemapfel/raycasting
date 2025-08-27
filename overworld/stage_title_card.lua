@@ -89,6 +89,20 @@ function ow.StageTitleCard:fade_out()
     self._label:set_opacity(0)
 end
 
+function ow.StageTitleCard:skip()
+    self._state = _STATE_IDLE
+    self._fade_in_elapsed = math.huge
+    self._fade_out_elapsed = math.huge
+    self._label:set_opacity(0)
+end
+
+function ow.StageTitleCard:reset()
+    self._state = _STATE_ATTACK
+    self._fade_in_elapsed = 0
+    self._fade_out_elapsed = 0
+    self._label:set_opacity(0)
+end
+
 --- @brief
 function ow.StageTitleCard:update(delta)
     local value

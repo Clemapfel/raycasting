@@ -193,12 +193,12 @@ function rt.GameState:set_stage_best_flow_percentage(id, fraction)
 end
 
 --- @brief
-function rt.GameState:get_stage_was_coin_collected(stage_id, coin_i)
+function rt.GameState:get_stage_is_coin_collected(stage_id, coin_i)
     meta.assert(stage_id, "String", coin_i, "Number")
     if _debug_output then return false end
-    local stage = self:_get_stage(stage_id, "get_stage_was_coin_collected")
+    local stage = self:_get_stage(stage_id, "get_stage_is_coin_collected")
     if coin_i > stage.n_coins then
-        rt.error("In rt.GameState.get_stage_was_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
+        rt.error("In rt.GameState.get_stage_is_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
     end
 
     local entry = self._state.stage_results[stage_id]
@@ -207,12 +207,12 @@ function rt.GameState:get_stage_was_coin_collected(stage_id, coin_i)
 end
 
 --- @brief
-function rt.GameState:set_stage_was_coin_collected(stage_id, coin_i, collected)
+function rt.GameState:set_stage_is_coin_collected(stage_id, coin_i, collected)
     if collected == nil then collected = true end
     meta.assert(stage_id, "String", coin_i, "Number", collected, "Boolean")
-    local stage = self:_get_stage(stage_id, "set_stage_was_coin_collected")
+    local stage = self:_get_stage(stage_id, "set_stage_is_coin_collected")
     if coin_i > stage.n_coins then
-        rt.error("In rt.GameState.set_stage_was_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
+        rt.error("In rt.GameState.set_stage_is_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
     end
 
     local entry = self._stage.stage_results[stage_id]
@@ -271,7 +271,7 @@ function rt.GameState:get_stage_is_hundred_percented(id)
 
     -- all coins collected
     for i = 1, self:get_stage_n_coins(id) do
-        if self:get_stage_was_coin_collected(id, i) == false then return false end
+        if self:get_stage_is_coin_collected(id, i) == false then return false end
     end
 
     local time_grade, flow_grade, coin_grade, total_grade = rt.GameState:get_stage_grades(self._id)
@@ -397,7 +397,7 @@ function rt.GameState:get_stage_grades(id)
     local max_n_coins = self:get_stage_n_coins(id)
     local n_coins = 0
     for i = 1, max_n_coins do
-        if self:get_stage_was_coin_collected(id, i) == true then
+        if self:get_stage_is_coin_collected(id, i) == true then
             n_coins = n_coins + 1
         end
     end

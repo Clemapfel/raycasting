@@ -547,7 +547,9 @@ end
 function ow.NormalMap:clear_cache()
     for cache in values(_atlas) do
         for chunk in values(cache.chunks) do
-            chunk.texture:destroy()
+            if chunk.texture ~= nil then
+                chunk.texture:destroy()
+            end
         end
     end
 

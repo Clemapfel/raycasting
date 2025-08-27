@@ -372,3 +372,8 @@ end
 function ow.StageConfig:get_id()
     return self._id
 end
+
+--- @brief
+function ow.StageConfig:clear_cache()
+    ow.StageConfig._tileset_atlas = {}
+end

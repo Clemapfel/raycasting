@@ -1295,6 +1295,17 @@ function rt.Glyph:instantiate(text, properties)
 end
 
 --- @brief
+function rt.Glyph:set_color(r_or_rgba, g, b, a)
+    if g ~= nil then
+        meta.assert(r_or_rgba, "Number", g, "Number", b, "Number", a, "Number")
+        self._native.color = { r_or_rgba, g, b, a }
+    else
+        meta.assert(r_or_rgba, "Table")
+        self._native.color = r_or_rgba
+    end
+end
+
+--- @brief
 function rt.Glyph:set_justify_mode(justify_mode)
     self._justify_mode = justify_mode
 end

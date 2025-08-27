@@ -53,7 +53,7 @@ function rt.GameState:instantiate()
         performance_mode_enabled = false,
         draw_debug_information = true,
         player_sprint_mode = rt.PlayerSprintMode.HOLD,
-        color_blind_mode = false,
+        color_blind_mode = true,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
 
         -- stage results

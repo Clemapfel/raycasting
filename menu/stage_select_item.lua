@@ -110,10 +110,10 @@ function mn.StageSelectItem:_init_coins()
     for i = 1, n_coins do
         local coin = ow.CoinParticle(
             rt.settings.menu.stage_select_item.coin_radius * rt.get_pixel_scale(),
-            not rt.GameState:get_stage_was_coin_collected(self._id, i)
+            not rt.GameState:get_stage_is_coin_collected(self._id, i)
         )
         coin:set_hue(ow.Coin.index_to_hue(i, n_coins))
-        coin:set_is_outline(not rt.GameState:get_stage_was_coin_collected(self._id, i))
+        coin:set_is_outline(not rt.GameState:get_stage_is_coin_collected(self._id, i))
 
         self._coins[i] = {
             coin = coin,
@@ -476,7 +476,7 @@ function mn.StageSelectItem:create_from_state()
     self._total_grade:set_grade(total_grade)
 
     for coin_i, entry in ipairs(self._coins) do
-        local is_collected = not rt.GameState:get_stage_was_coin_collected(self._id, coin_i)
+        local is_collected = not rt.GameState:get_stage_is_coin_collected(self._id, coin_i)
         entry.coin:set_is_outline(is_collected)
     end
 end

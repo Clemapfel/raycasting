@@ -79,6 +79,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         _state = _STATE_DEFAULT,
         _passed = false,
+        _coin_savestate = {}, -- Set<Integer>
 
         _object = object,
         _x = object.x,
@@ -180,8 +181,12 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
             self._body:signal_connect("collision_start", function(_, other)
-                -- spawn does not split
-                self._passed = true
+                if self._passed == false then
+                    -- spawn does not split
+                    self._passed = true
+                    self._coin_savestate = {} -- no coins
+                    self._stage:set_active_checkpoint(self)
+                end
             end)
 
             local r = rt.settings.player.radius
@@ -203,8 +208,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._rope = ow.CheckpointRope(self._scene, self._world, self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 
             self._body:signal_connect("collision_start", function(_, other)
-                self:_send_split()
-
                 if self._rope:get_is_cut() == false then
                     self._rope:cut() -- checks player position automatically
 
@@ -236,7 +239,17 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                     self._fireworks_visible = true
                 end
 
-                self._passed = true
+                if self._passed == false then
+                    self:_send_split()
+                    self._stage:set_active_checkpoint(self)
+                    self._coin_savestate = {}
+                    for coin_i = 1, self._stage:get_n_coins() do
+                        if self._stage:get_coin_is_collected(coin_i) then
+                            self._coin_savestate[coin_i] = true
+                        end
+                    end
+                    self._passed = true
+                end
             end)
 
         elseif self._type == ow.CheckpointType.PLAYER_GOAL then
@@ -256,8 +269,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._shatter_body:set_collision_group(collision_group)
             self._shatter_body:set_is_sensor(true)
             self._shatter_body:signal_connect("collision_start", function(_, other, nx, ny, x, y, x2, y2)
-                self:_send_split()
-
                 if self._is_shattered == false then
                     self._is_shattered = true
                     self._scene:stop_timer()
@@ -270,6 +281,18 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                     self._shatter_surface:shatter(px, py)
                     self._time_dilation_active = true
                     self._time_dilation_elapsed = 0
+                end
+
+                if self._passed == false then
+                    self:_send_split()
+                    self._stage:set_active_checkpoint(self)
+                    self._coin_savestate = {}
+                    for coin_i = 1, self._stage:get_n_coins() do
+                        if self._stage:get_coin_is_collected(coin_i) then
+                            self._coin_savestate[coin_i] = true
+                        end
+                    end
+                    self._passed = true
                 end
             end)
 
@@ -345,7 +368,11 @@ function ow.Checkpoint:spawn(also_kill)
     if also_kill == nil then also_kill = true end
 
     local is_first_spawn = self._stage:get_is_first_spawn()
-    self._stage:signal_emit("respawn")
+
+    -- restore coins
+    for coin_i = 1, self._stage:get_n_coins() do
+        self._stage:set_coin_is_collected(coin_i, self._coin_savestate[coin_i] == true)
+    end
 
     local player = self._scene:get_player()
     player:reset()
@@ -367,6 +394,7 @@ function ow.Checkpoint:spawn(also_kill)
     end
 
     self._stage:set_active_checkpoint(self)
+    self._stage:signal_emit("respawn")
     self._passed = true
 end
 
@@ -453,6 +481,7 @@ function ow.Checkpoint:update(delta)
 
         self._goal_indicator_motion:update(delta)
         self._goal_time_label:set_text(_format_time(self._scene:get_timer()))
+        self._goal_time_label:set_color(table.unpack(self._color))
         local w, h = self._goal_time_label:measure()
         local gx, gy
         if not self._is_shattered then

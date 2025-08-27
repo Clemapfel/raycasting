@@ -45,32 +45,45 @@ function ow.Coin:instantiate(object, stage, scene)
         _particle_texture:unbind()
     end
 
-    self._id = object.id -- TODO: global id
+    self._id = object.id
+    self._index = nil -- set by stage
+    self._follow_index = 0
 
     self._stage = stage
     self._scene = scene
-    self._x, self._y = object.x, object.y
+    self._x, self._y, self._radius = object.x, object.y, radius
     self._follow_motion = rt.SmoothedMotion2D(self._x, self._y, 1.1)
     self._follow_x, self._follow_y = self._x, self._y
     self._follow_offset = 0
 
-    stage:add_coin(self, self._id)
-    self._index = object:get_number("index") or stage:get_n_coins()
-
     self._pulse_x, self._pulse_y = 0, 0
     self._particle = ow.CoinParticle(radius)
 
-    self._already_collected = rt.GameState:get_stage_was_coin_collected(self._stage:get_id(), self._index)
-    if self._already_collected then
-        self._particle:set_opacity(rt.settings.overworld.coin.already_collected_opacity)
-    else
-        self._particle:set_opacity(1)
-    end
+    self._already_collected = false
 
+    self._index = nil -- set by stage
     self._stage:signal_connect("initialized", function()
+        if self._index == nil then
+            rt.error("In ow.Coin: `set_index` was not called before initialization")
+        end
+
+        self._already_collected = rt.GameState:get_stage_is_coin_collected(self._stage:get_id(), self._index)
+        if self._already_collected then
+            self._particle:set_opacity(rt.settings.overworld.coin.already_collected_opacity)
+        else
+            self._particle:set_opacity(1)
+        end
+
         self._hue = ow.Coin.index_to_hue(self._index, self._stage:get_n_coins())
         self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
         self._particle:set_hue(self._hue)
+        self._particle:set_index(self._index)
+
+        -- recheck each respawn, since checkpoint uncollect coins
+        self._stage:signal_connect("respawn", function(stage)
+            self:set_is_collected(stage:get_coin_is_collected(self._index))
+        end)
+
         return meta.DISCONNECT_SIGNAL
     end)
 
@@ -81,7 +94,6 @@ function ow.Coin:instantiate(object, stage, scene)
         b2.Circle(0, 0, rt.settings.overworld.coin.radius)
     )
 
-    self._x, self._y, self._radius = object.x, object.y, radius
 
     self._is_collected = false
     self._timestamp = -math.huge -- timestamp of collection
@@ -99,10 +111,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(self_body, player_body)
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
-        self._is_collected = true
-        self._follow_offset = rt.settings.overworld.coin.follow_offset * self._stage:get_n_coins_collected()
-        self._stage:set_coin_is_collected(self._id, true)
-        self._timestamp = love.timer.getTime()
+        self:set_is_collected(true)
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
     end)
@@ -131,14 +140,14 @@ end
 
 --- @brief
 function ow.Coin:set_is_collected(b)
-    if b ~= self._is_collected then
-        if b == false then
-            self._follow_x, self._follow_y = self._x, self._y
-            self._follow_motion:set_position(self._x, self._y)
-        end
+    if self._is_collected ~= b then
+        self._is_collected = b
+        self._body:set_is_enabled(not b)
+        self._follow_x, self._follow_y = self._body:get_position()
+        self._stage:set_coin_is_collected(self._index, b)
+        self._follow_offset = rt.settings.overworld.coin.follow_offset * self._index
+        self._timestamp = love.timer.getTime()
     end
-
-    self._is_collected = b
 end
 
 --- @brief
@@ -161,9 +170,10 @@ function ow.Coin:update(delta)
             local px, py = self._scene:get_player():get_position()
             local n_steps = 0
             local radius
-            while math.distance(target_x, target_y, px, py) < rt.settings.player.radius * 2 do
+            while math.distance(target_x, target_y, px, py) < rt.settings.player.radius + self._radius do
                 n_steps = n_steps + 1
-                target_x, target_y = self._scene:get_player():get_past_position(self._follow_offset + n_steps * 2)
+                target_x, target_y = self._scene:get_player():get_past_position(self._follow_offset + n_steps)
+                if self._follow_offset + n_steps >= rt.settings.player.position_history_n then break end
             end
         end
 
@@ -172,7 +182,6 @@ function ow.Coin:update(delta)
         self._follow_motion:update(delta)
         local before_x, before_y = self._follow_x, self._follow_y
         self._follow_x, self._follow_y = self._follow_motion:get_position()
-
     else
         if not self._scene:get_is_body_visible(self._body) then return end
 
@@ -237,4 +246,10 @@ function ow.Coin:draw_bloom()
     if self._scene:get_is_body_visible(self._body) and self._is_collected ~= true then
         self._particle:draw_bloom(self._x + self._noise_x, self._y + self._noise_y)
     end
+end
+
+--- @brief
+function ow.Coin:set_index(i)
+    meta.assert(i, "Number")
+    self._index = i
 end
