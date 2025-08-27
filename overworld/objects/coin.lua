@@ -94,7 +94,6 @@ function ow.Coin:instantiate(object, stage, scene)
         b2.Circle(0, 0, rt.settings.overworld.coin.radius)
     )
 
-
     self._is_collected = false
     self._timestamp = -math.huge -- timestamp of collection
     self._noise_x, self._noise_y = 0, 0
@@ -131,6 +130,8 @@ function ow.Coin:instantiate(object, stage, scene)
         1, 0
     )
     self._pulse_active = false
+
+    self._respawn_return_motion = rt.SmoothedMotion2D(object.x, object.y, 0.9)
 end
 
 --- @brief
@@ -141,6 +142,12 @@ end
 --- @brief
 function ow.Coin:set_is_collected(b)
     if self._is_collected ~= b then
+
+        if self._is_collected == true then -- respawn
+            self._is_returning = true
+            self._respawn_return_motion:set_position(self._follow_x, self._follow_y)
+        end
+
         self._is_collected = b
         self._body:set_is_enabled(not b)
         self._follow_x, self._follow_y = self._body:get_position()
@@ -182,6 +189,15 @@ function ow.Coin:update(delta)
         self._follow_motion:update(delta)
         local before_x, before_y = self._follow_x, self._follow_y
         self._follow_x, self._follow_y = self._follow_motion:get_position()
+    elseif self._is_returning then
+        self._respawn_return_motion:update(delta)
+        local px, py = self._respawn_return_motion:get_position()
+        if math.distance(px, py, self._x, self._y) < 5 then
+            self._is_returning = false
+            self._follow_x = self._x
+            self._follow_y = self._y
+            self._follow_motion:set_position(self._x, self._y)
+        end
     else
         if not self._scene:get_is_body_visible(self._body) then return end
 
@@ -198,7 +214,7 @@ end
 
 --- @brief
 function ow.Coin:draw()
-    if not self._is_collected and not self._scene:get_is_body_visible(self._body) then return end
+    if not self._is_collected and not self._is_returning and not self._scene:get_is_body_visible(self._body) then return end
 
     if self._is_collected then
         if self._pulse_active then
@@ -226,7 +242,11 @@ function ow.Coin:draw()
 
         self._particle:draw(self._follow_x, self._follow_y)
     else
-        self._particle:draw(self._x + self._noise_x, self._y + self._noise_y)
+        if self._is_returning then
+            self._particle:draw(self._respawn_return_motion:get_position())
+        else
+            self._particle:draw(self._x + self._noise_x, self._y + self._noise_y)
+        end
     end
 end
 
@@ -244,7 +264,11 @@ end
 --- @brief
 function ow.Coin:draw_bloom()
     if self._scene:get_is_body_visible(self._body) and self._is_collected ~= true then
-        self._particle:draw_bloom(self._x + self._noise_x, self._y + self._noise_y)
+        if self._is_returning then
+            self._particle:draw_bloom(self._respawn_return_motion:get_position())
+        else
+            self._particle:draw_bloom(self._x + self._noise_x, self._y + self._noise_y)
+        end
     end
 end
 
