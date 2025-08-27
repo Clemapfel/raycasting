@@ -29,6 +29,7 @@ meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done")
 ow.Stage._config_atlas = {}
 
 local all_types = {}
+local _normal_map_atlas = {}
 
 --- @brief
 function ow.Stage:instantiate(scene, id)
@@ -40,9 +41,9 @@ function ow.Stage:instantiate(scene, id)
         ow.Stage._config_atlas[id] = config
     end
 
+    self._id = id
     meta.install(self, {
         _scene = scene,
-        _id = id,
         _config = config,
         _is_initialized = false,
         _is_first_spawn = true,
@@ -273,23 +274,29 @@ function ow.Stage:draw_bloom()
 end
 
 local _data = {}
-
 local _add_entry = function(type, t)
     local entry = _data[type]
     if entry == nil then
         entry = {
             n = 0,
-            sum = 0
+            sum = 0,
+            mean = 0,
+            max = -math.huge
         }
         _data[type] = entry
     end
 
+    entry.type = type
     entry.n = entry.n + 1
     entry.sum = entry.sum + t
+    entry.max = math.max(entry.max, t / (1 / 60))
+    entry.mean = (entry.sum / entry.n) / (1 / 60)
 end
 
 --- @brief
 function ow.Stage:update(delta)
+    local start = love.timer.getTime()
+
     if self._normal_map_done and self._is_initialized and self._signal_done_emitted == false then
         self:signal_emit("loading_done")
         self._signal_done_emitted = true
@@ -321,15 +328,25 @@ function ow.Stage:update(delta)
         _add_entry("world", b - a)
     end
 
-    local times = {}
-    for type, entry in pairs(_data) do
-        table.insert(times, { type, (entry.sum / entry.n) / (1 / 60) })
+    do
+        local a = love.timer.getTime()
+        self._normal_map:update(delta)
+        local b = love.timer.getTime()
+        _add_entry("normal_map", b - a)
     end
-    table.sort(times, function(a, b)
-        return a[2] > b[2]
-    end)
 
-    self._normal_map:update(delta) -- update last for yielding
+    _add_entry("stage", love.timer.getTime() - start)
+
+    if false then -- TODO: disable benchmarking
+        local times = {}
+        for entry in values(_data) do
+            table.insert(times, entry)
+        end
+
+        table.sort(times, function(a, b)
+            return a.mean > b.mean
+        end)
+    end
 end
 
 --- @brief

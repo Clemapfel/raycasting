@@ -20,6 +20,8 @@ function b2.World:instantiate()
         _body_to_collision_sign = {}
     })
 
+    self._native:setSleepingAllowed(true)
+
     local _add_collision_start = function(a, b, nx, ny, x1, y1, x2, y2, contact)
         if a:get_collision_disabled() == true or b:get_collision_disabled() == true then return end
 

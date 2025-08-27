@@ -58,12 +58,18 @@ end
 
 function mn.SettingsScene.Item:measure()
     local w, h = self.prefix:measure()
-    return w, h + 1.5 * rt.settings.margin_unit
+    return w, h
 end
+
+local _shader
 
 --- @brief
 function mn.SettingsScene:instantiate()
-    self._background = rt.Background("triangle_tiling")
+    if _shader == nil then
+        _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 0 })
+    end
+
+    self._background_only = false
 
     local translation = rt.Translation.settings_scene
     
@@ -468,6 +474,8 @@ function mn.SettingsScene:instantiate()
             item:signal_emit("reset")
         elseif which == rt.InputAction.B then
             rt.SceneManager:pop()
+        elseif which == rt.InputAction.L or which == rt.InputAction.R then
+            self._background_only = true
         end
     end)
 
@@ -476,6 +484,8 @@ function mn.SettingsScene:instantiate()
             self._scale_active = false
         elseif which == rt.InputAction.UP or which == rt.InputAction.DOWN then
             self:_stop_scroll()
+        elseif which == rt.InputAction.L or which == rt.InputAction.R then
+            self._background_only = false
         end
     end)
 
@@ -500,8 +510,7 @@ function mn.SettingsScene:realize()
         self._verbose_info,
         self._scrollbar,
         self._item_frame,
-        self._list,
-        self._background
+        self._list
     ) do
         widget:realize()
     end
@@ -509,8 +518,6 @@ end
 
 --- @brief
 function mn.SettingsScene:size_allocate(x, y, width, height)
-    self._background:reformat(x, y, width, height)
-
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
     local item_outer_margin = 2 * m
@@ -578,6 +585,10 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
                 widget_w, widget_h
             )
         end
+
+        item.measure = function(self)
+            return select(1, self.widget:measure()), control_h
+        end
     end
 
     self._list:reformat(
@@ -589,6 +600,7 @@ end
 
 --- @brief
 function mn.SettingsScene:enter()
+    self._background_only = false
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(false)
     self._list:set_selected_item(1)
@@ -643,7 +655,14 @@ end
 
 --- @brief
 function mn.SettingsScene:draw()
-    self._background:draw()
+    _shader:bind()
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("black", { rt.Palette.BLACK:unpack() })
+    love.graphics.rectangle("fill", self._bounds:unpack())
+    _shader:unbind()
+
+    if self._background_only then return end
+
     self._heading_label_frame:draw()
     self._heading_label:draw()
     self._verbose_info:draw()

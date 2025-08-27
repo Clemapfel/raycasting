@@ -44,7 +44,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
     local item_y_padding = m
-    local item_y_margin = m
+    local item_y_margin = 0.5 * m
 
     local max_widget_w, max_widget_h = -math.huge, -math.huge
     for item in values(self._items) do

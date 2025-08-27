@@ -29,11 +29,23 @@ local _init_shader, _step_shader, _pre_process_shader, _post_process_shader, _ex
 
 local _frame_percentage = 0.6
 
+local _atlas = {}
+
 --- @brief
 function ow.NormalMap:instantiate(stage)
     meta.assert(stage, ow.Stage)
 
     self._stage = stage
+    if _atlas[self._stage:get_id()] ~= nil then
+        local entry = _atlas[self._stage:get_id()]
+        self._chunks, self._chunk_size, self._chunk_padding, self._bounds = entry.chunks, entry.chunk_size, entry.chunk_padding, entry.bounds
+        self._computation_started = true
+        self._is_started = true
+        self._is_done = true
+        self._is_visible = true
+        self:signal_emit("done")
+        return
+    end
 
     self._chunks = {}
     self._non_empty_chunks = meta.make_weak({})
@@ -365,6 +377,14 @@ function ow.NormalMap:instantiate(stage)
 
         self._is_done = true
         self._is_visible = true
+
+        _atlas[self._stage:get_id()] = {
+            chunks = self._chunks,
+            chunk_size = self._chunk_size,
+            chunk_padding = self._chunk_padding,
+            bounds = self._bounds
+        }
+
         self:signal_emit("done")
     end)
 end
@@ -372,7 +392,7 @@ end
 --- @brief
 function ow.NormalMap:update(delta)
     -- distribute workload over multiple frames
-    if coroutine.status(self._callback) ~= "dead" then
+    if not self._is_done and coroutine.status(self._callback) ~= "dead" then
         coroutine.resume(self._callback)
     end
 end
@@ -521,4 +541,15 @@ function ow.NormalMap:draw_shadow()
         _draw_shadow_shader:unbind()
         love.graphics.setBlendMode("alpha")
     end
+end
+
+--- @brief
+function ow.NormalMap:clear_cache()
+    for cache in values(_atlas) do
+        for chunk in values(cache.chunks) do
+            chunk.texture:destroy()
+        end
+    end
+
+    _atlas = {}
 end

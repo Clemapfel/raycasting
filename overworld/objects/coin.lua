@@ -93,10 +93,8 @@ function ow.Coin:instantiate(object, stage, scene)
     self._body:set_user_data(self)
     self._body:set_is_sensor(true)
     self._body:add_tag("light_source")
-    self._body:set_collides_with(bit.bor(
-        rt.settings.player.player_collision_group,
-        rt.settings.player.player_outer_body_collision_group
-    ))
+    self._body:set_collides_with(rt.settings.player.bounce_collision_group)
+    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
     self._body:signal_connect("collision_start", function(self_body, player_body)
         if self._is_collected then return end

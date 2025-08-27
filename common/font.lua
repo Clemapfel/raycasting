@@ -74,7 +74,7 @@ function rt.Font:instantiate(
     self._line_spacing = 1 -- fraction
 end
 
-local _atlas = {}
+local _atlas = meta.make_weak({})
 local _sdf = true
 local _no_sdf = false
 
@@ -82,8 +82,8 @@ local _no_sdf = false
 local _new_font = function(path, size, sdf)
     if sdf == nil then sdf = _sdf end
 
-    if _atlas[path] == nil then _atlas[path] = {} end
-    if _atlas[path][size] == nil then _atlas[path][size] = {} end
+    if _atlas[path] == nil then _atlas[path] = meta.make_weak({}) end
+    if _atlas[path][size] == nil then _atlas[path][size] = meta.make_weak({}) end
 
     local native = _atlas[path][size][sdf]
     if native == nil then

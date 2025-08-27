@@ -430,6 +430,7 @@ function ow.OverworldScene:set_stage(stage_id, entrance_i)
 
     self._player:move_to_stage(self._stage)
     self._player_is_focused = true
+    self._n_frames = 0
 
     return self._stage
 end
@@ -733,7 +734,7 @@ function ow.OverworldScene:_draw_debug_information()
         for i, split in ipairs(bests) do
             local current, best = currents[i], bests[i]
             local delta
-            if current == nil then
+            if current == nil or self._timer_started == false then
                 current = translation.unknown
                 delta = 0
             else
@@ -791,14 +792,14 @@ function ow.OverworldScene:_draw_debug_information()
         local start_x = 0 --0 + love.graphics.getWidth() - (current_max_width + spacing + best_max_width + spacing + delta_max_width + spacing)
         do
             local current_x = start_x
+            love.graphics.printf(best_header, current_x + best_max_width - best_header_width, 0, math.huge)
+            current_x = current_x + best_max_width + spacing
+
             love.graphics.printf(current_header, current_x + current_max_width - current_header_width, 0, math.huge)
             current_x = current_x + current_max_width + spacing
 
             love.graphics.printf(delta_header, current_x + delta_max_width - delta_header_width, 0, math.huge)
             current_x = current_x + delta_max_width + spacing
-
-            love.graphics.printf(best_header, current_x + best_max_width - best_header_width, 0, math.huge)
-            current_x = current_x + best_max_width + spacing
         end
 
         love.graphics.translate(0, line_height)
@@ -1003,6 +1004,7 @@ function ow.OverworldScene:update(delta)
             self._player_is_visible = true
 
             local local_x, local_y = self._camera:world_xy_to_screen_xy(self._player:get_position())
+
             rt.SceneManager:set_scene(ow.ResultScreenScene,
                 local_x, local_y,
                 self._screenshot,  {
@@ -1011,11 +1013,12 @@ function ow.OverworldScene:update(delta)
                     target_time = 1.230,
                     stage_name = "The Shape of Jump to Come",
                     stage_id = "tutorial",
-
                     flow = 0.9868,
                     time_grade = rt.StageGrade.S,
                     coins_grade = rt.StageGrade.A,
-                    flow_grade = rt.StageGrade.F
+                    flow_grade = rt.StageGrade.F,
+                    splits_current = self._stage:get_checkpoint_splits(),
+                    splits_best = rt.GameState:stage_get_splits_best_run(self._stage_id)
                 }
             )
         end

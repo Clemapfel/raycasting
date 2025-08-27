@@ -37,9 +37,13 @@ function mn.KeybindingScene.Item:draw()
 end
 
 local _ellipses = "\u{2026}"
+local _shader
 
 --- @brief
 function mn.KeybindingScene:instantiate()
+    if _shader == nil then _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 1 }) end
+    self._background_only = false
+
     local translation = rt.Translation.keybinding_scene
     self._control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
@@ -223,12 +227,16 @@ function mn.KeybindingScene:instantiate()
             self:_exit(true) -- save bindings
         elseif which == rt.InputAction.PAUSE then
             self:_exit(false) -- reset bindings
+        elseif which == rt.InputAction.L or which == rt.InputAction.R then
+            self._background_only = true
         end
     end)
 
     self._input:signal_connect("released", function(_, which)
         if which == rt.InputAction.UP or which == rt.InputAction.DOWN then
             self:_stop_scroll()
+        elseif which == rt.InputAction.L or which == rt.InputAction.R then
+            self._background_only = false
         end
     end)
 
@@ -291,7 +299,6 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
     ) do
         dialog:reformat(x, y, width, height)
     end
-
 
     local control_w, control_h = self._control_indicator:measure()
 
@@ -504,6 +511,12 @@ end
 
 --- @brief
 function mn.KeybindingScene:draw()
+    _shader:bind()
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("black", { rt.Palette.BLACK:unpack() })
+    love.graphics.rectangle("fill", self._bounds:unpack())
+    _shader:unbind()
+
     self._heading_label_frame:draw()
     self._heading_label:draw()
     self._verbose_info:draw()
@@ -517,6 +530,7 @@ end
 
 --- @brief
 function mn.KeybindingScene:enter()
+    self._background_only = false
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(false)
     self._list:set_selected_item(1)

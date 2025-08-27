@@ -75,6 +75,8 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
         _last_last_y = y
     })
 
+    self._native:setSleepingAllowed(true)
+
     local shapes
     if meta.typeof(shape) == "Table" then
         shapes = shape

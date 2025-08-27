@@ -209,7 +209,7 @@ void square_tiling(in vec2 p, out float sdf, out float tile_id) {
     // Use smooth maximum to blend square and circle SDFs
     sdf = square_sdf;
 
-    float top = mix(0.8, 1.875, sigmoid((sin(elapsed / 1.5) + 1) / 2));
+    float top = mix(0.8, 1.75, sigmoid((sin(elapsed / 1.5) + 1) / 2));
     sdf = 1 - smoothstep(sdf, gaussian(distance(p, square_center), top), 0.3);
     sdf = clamp(sdf, 0, 1);
 }
@@ -256,7 +256,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     float tile_id;
 
     // Parameters for smooth max blending and circle size
-    float scroll_offset = elapsed / 9.0;
+    float scroll_offset = elapsed / 12.0;
 
     #if MODE == MODE_TRIANGLE
     triangle_tiling(
