@@ -24,6 +24,7 @@ function ow.ResultScreenFrame:instantiate()
     self._mesh_animation = rt.AnimationChain(
         1, 0, 1, rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
     )
+
     self._signal_emitted = false
 
     self._present_x, self._present_y = 0, 0

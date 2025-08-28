@@ -115,11 +115,11 @@ function rt.SceneManager:push(scene_type, ...)
 end
 
 --- @brief
-function rt.SceneManager:pop()
+function rt.SceneManager:pop(...)
     local last = self._scene_stack[1]
     if last ~= nil then
         table.remove(self._scene_stack, 1)
-        self:_set_scene(false, table.unpack(last))
+        self:_set_scene(false, last[1], ...) --table.unpack(last))
     end
 end
 
@@ -402,6 +402,8 @@ function love.run()
             end
 
             love.graphics.present()
+
+            rt.InputManager:_notify_end_of_frame()
             _frame_i = _frame_i + 1
             rt.SceneManager._frame_timestamp = love.timer.getTime()
         end
@@ -561,7 +563,6 @@ function love.errorhandler(msg)
     if love.filesystem.getDirectory(_log_prefix) then
         pcall(love.filesystem.createDirectory, _log_prefix)
     end
-
 
     love.filesystem.write("")
 

@@ -1,6 +1,7 @@
 --- @class rt.SmoothedMotion2D
 rt.SmoothedMotion2D = meta.class("SmoothedMotion2D")
 
+--- @brief
 function rt.SmoothedMotion2D:instantiate(position_x, position_y, speed)
     if position_x == nil then position_x = 0 end
     if position_y == nil then position_y = position_x end

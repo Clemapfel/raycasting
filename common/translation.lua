@@ -87,13 +87,17 @@ rt.Translation = rt.initialize_translation({
     -- pause menu
     pause_menu = {
         resume = "Resume",
-        retry = "Retry",
+        restart = "Restart",
+        retry = "Respawn",
         controls = "Controls",
         settings = "Settings",
         exit = "Exit",
 
         confirm_exit_message = "Return to Main Menu?",
         confirm_exit_submessage = "All unsaved progress will be lost",
+
+        confirm_restart_message = "Restart Stage?",
+        confirm_restart_submessage = "All Progress will be lost",
 
         control_indicator_select = "Select",
         control_indicator_move = "Move",

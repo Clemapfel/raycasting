@@ -1061,7 +1061,7 @@ function rt.Label:_update_n_visible_characters()
     end
 end
 
---- @brief
+--- @brief update text scrolling visible character count from time
 --- @return Boolean, Number, Number is_done, n_visible_rows, n_characters
 function rt.Label:update_n_visible_characters_from_elapsed(elapsed, n_characters_per_second)
     if self:get_is_realized() ~= true then self:realize() end

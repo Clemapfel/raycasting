@@ -301,13 +301,36 @@ local _blocked = 0
 local _cursor = nil
 
 --- @brief
-function ow.OverworldScene:enter(stage_id, show_title_card)
+function ow.OverworldScene:enter(new_stage_id)
+    self._input:activate()
+
+    love.mouse.setVisible(false)
+    love.mouse.setGrabbed(false)
+    love.mouse.setCursor(_cursor)
+
+    self._fade_active = false
+    self._fade:skip()
+
+    if new_stage_id ~= nil then
+        self:set_stage(new_stage_id)
+    end
+
+    self:unpause()
+end
+
+--- @brief
+function ow.OverworldScene:set_stage(stage_id, show_title_card)
     meta.assert(stage_id, "String")
     if show_title_card ~= nil then _skip_fade = not show_title_card end
     self._input:activate()
 
     rt.SceneManager:set_use_fixed_timestep(true)
     self:set_stage(stage_id, show_title_card)
+
+    self._timer_started = false
+    self._timer_stopped = false
+    self._timer_paused = true
+    self._timer = 0
 
     if _skip_fade ~= true then
         self._fade_active = false
@@ -328,7 +351,6 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
             return meta.DISCONNECT_SIGNAL
         end)
     else
-        self._input:activate()
         self._fade_active = false
         self._title_card_elapsed = math.huge
         self:start_timer()
@@ -344,10 +366,6 @@ function ow.OverworldScene:enter(stage_id, show_title_card)
     else
         self._stage:get_blood_splatter():set_bloom_factor(1)
     end
-
-    love.mouse.setVisible(false)
-    love.mouse.setGrabbed(false)
-    love.mouse.setCursor(_cursor)
 
     self._result_screen_transition_active = false
     self._result_screen_transition_elapsed = 0
@@ -651,7 +669,7 @@ function ow.OverworldScene:draw()
     end
 
     local opacity = self._control_indicator_motion:get_value()
-    if opacity > 0 then
+    if opacity > 0 and self._pause_menu_active == false then
         if self._player:get_is_bubble() then
             self._bubble_control_indicator:set_opacity(opacity)
             self._bubble_control_indicator:draw()
@@ -1086,7 +1104,14 @@ function ow.OverworldScene:reload()
     ow.StageConfig:clear_cache()
     rt.Sprite._path_to_spritesheet = {}
 
-    self:enter(before)
+    self:unpause()
+    self:enter(before, true) -- skip fade
+end
+
+--- @brief
+function ow.OverworldScene:restart()
+    self:unpause()
+    self:set_stage(self._stage_id, true) -- skip fade
 end
 
 --- @brief

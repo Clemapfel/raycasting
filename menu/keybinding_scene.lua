@@ -517,6 +517,8 @@ function mn.KeybindingScene:draw()
     love.graphics.rectangle("fill", self._bounds:unpack())
     _shader:unbind()
 
+    if self._background_only then return end
+
     self._heading_label_frame:draw()
     self._heading_label:draw()
     self._verbose_info:draw()

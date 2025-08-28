@@ -85,18 +85,15 @@ end
 meta.add_signals(rt.InputSubscriber, table.unpack(to_add))
 
 --- @brief
-function rt.InputSubscriber:instantiate(is_active)
-    if is_active == nil then is_active = true end
+function rt.InputSubscriber:instantiate()
     table.insert(rt.InputManager._subscribers, self)
     meta.install(self, {
         _callback_id_to_callback = {},
         _callback_id_to_is_blocked = {},
         _override_warning_printed = false,
-        _is_active = is_active,
+        _n_inactive_frames = 0,
         _activate_frame = -1
     })
-
-    -- activation delayed to next frame, to prevent same-frame-inputs from leaking during scene transitions
 end
 
 --- @brief
@@ -125,18 +122,23 @@ function rt.InputSubscriber:get_input_method()
 end
 
 --- @brief
-function rt.InputSubscriber:deactivate()
-    self._is_active = false
+function rt.InputSubscriber:deactivate(n_frames)
+    if n_frames == nil then n_frames = math.huge end
+    self._n_inactive_frames = n_frames
     self._activate_frame = rt.SceneManager:get_frame_index()
 end
 
 --- @brief
 function rt.InputSubscriber:activate()
-    self._is_active = true
+    self._n_inactive_frames = 0
 end
 
 --- @brief
 function rt.InputSubscriber:get_is_active()
-    return self._is_active and rt.SceneManager:get_frame_index() > self._activate_frame
+    return self._n_inactive_frames <= 0 and rt.SceneManager:get_frame_index() > self._activate_frame
 end
 
+--- @brief
+function rt.InputSubscriber:_notify_end_of_frame()
+    self._n_inactive_frames = self._n_inactive_frames - 1
+end

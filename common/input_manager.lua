@@ -1,4 +1,5 @@
 require "common.input_action"
+require "common.stable_sort"
 
 --- @class rt.InputManager
 rt.InputManager = meta.class("rt.InputManager")
@@ -24,6 +25,23 @@ function rt.InputManager:_notify_input_mapping_changed()
         if sub:get_is_active() then
             sub:signal_emit(rt.InputCallbackID.INPUT_MAPPING_CHANGED)
         end
+    end
+end
+
+local _compare_function = function(a, b)
+    return a:get_priority() > b:get_priority()
+end
+
+--- @brief
+function rt.InputManager:_notify_subscriber_added(subscriber)
+    meta.assert(subscriber, rt.InputSubscriber)
+    table.insert(self._subscribers, 1, subscriber)
+end
+
+--- @brief
+function rt.InputManager:_notify_end_of_frame()
+    for sub in values(self._subscribers) do
+        sub:_notify_end_of_frame()
     end
 end
 

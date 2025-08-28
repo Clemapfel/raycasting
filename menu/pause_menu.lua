@@ -37,6 +37,13 @@ function mn.PauseMenu:instantiate(scene)
             mn.MessageDialogOption.ACCEPT,
             mn.MessageDialogOption.CANCEL
         ),
+
+        _confirm_restart_dialog = mn.MessageDialog(
+            rt.Translation.pause_menu.confirm_restart_message,
+            rt.Translation.pause_menu.confirm_restart_submessage,
+            mn.MessageDialogOption.ACCEPT,
+            mn.MessageDialogOption.CANCEL
+        )
     })
 
     local translation = rt.Translation.pause_menu
@@ -48,9 +55,15 @@ function mn.PauseMenu:instantiate(scene)
     self._control_indicator:set_has_frame(false)
 
     self._input:signal_connect("pressed", function(_, which)
-        if not self._underlying_scene:get_is_active() or self._confirm_exit_dialog:get_is_active() then return end
+        if not self._underlying_scene:get_is_active() then return end
 
-        if which == rt.InputAction.PAUSE then
+        if which == rt.InputAction.BACK then
+            if self._confirm_exit_dialog:get_is_active() then
+                self._confirm_exit_dialog:close()
+            elseif self._confirm_restart_dialog:get_is_active() then
+                self._confirm_restart_dialog:close()
+            end
+        elseif  which == rt.InputAction.PAUSE then
             self._underlying_scene:unpause()
         else
             self._selection_graph:handle_button(which)
@@ -62,18 +75,22 @@ function mn.PauseMenu:instantiate(scene)
 
     self._confirm_exit_dialog:realize()
     self._confirm_exit_dialog:signal_connect("selection", function(_, which)
-        self._underlying_scene:signal_connect("exit", function()
-            -- delay close to after scene manager fade out
-            self._confirm_exit_dialog:close()
-            self._underlying_scene:unpause()
-            return meta.DISCONNECT_SIGNAL
-        end)
-
         if which == mn.MessageDialogOption.ACCEPT then
             require "menu.menu_scene"
             rt.SceneManager:push(mn.MenuScene)
+            self._underlying_scene:unpause()
         elseif which == mn.MessageDialogOption.CANCEL then
             self._confirm_exit_dialog:close()
+        end
+    end)
+
+    self._confirm_restart_dialog:realize()
+    self._confirm_restart_dialog:signal_connect("selection", function(_, which)
+        if which == mn.MessageDialogOption.ACCEPT then
+            self._underlying_scene:reload()
+            self._underlying_scene:unpause()
+        elseif which == mn.MessageDialogOption.CANCEL then
+            self._confirm_restart_dialog:close()
         end
     end)
 
@@ -84,6 +101,7 @@ function mn.PauseMenu:instantiate(scene)
     local prefix, postfix = rt.settings.menu.pause_menu.label_prefix, rt.settings.menu.pause_menu.label_postfix
     for name in range(
         "resume",
+        "restart",
         "retry",
         "controls",
         "settings",
@@ -117,6 +135,7 @@ function mn.PauseMenu:instantiate(scene)
         element.frame:realize()
 
         element.node:signal_connect(rt.InputAction.A, function(_)
+            if not self._is_active then return end
             self["_on_" .. name](self) -- _on_resume, _on_settings, etc
         end)
 
@@ -172,7 +191,7 @@ function mn.PauseMenu:size_allocate(x, y, width, height)
         )
 
         for label in range(element.selected_label, element.unselected_label) do
-            label:reformat(element.x, element.y, element.width, element.height)
+            label:reformat(element.x, element.y, math.huge, element.height)
         end
         element.node:set_bounds(element.frame:get_bounds())
 
@@ -180,6 +199,7 @@ function mn.PauseMenu:size_allocate(x, y, width, height)
     end
 
     self._confirm_exit_dialog:reformat(0, 0, width, height)
+    self._confirm_restart_dialog:reformat(0, 0, width, height)
 end
 
 --- @brief
@@ -204,6 +224,10 @@ function mn.PauseMenu:update(delta)
     if self._confirm_exit_dialog:get_is_active() then
         self._confirm_exit_dialog:update(delta)
     end
+
+    if self._confirm_restart_dialog:get_is_active() then
+        self._confirm_restart_dialog:update(delta)
+    end
 end
 
 --- @brief
@@ -227,6 +251,8 @@ function mn.PauseMenu:draw()
 
     if self._confirm_exit_dialog:get_is_active() then
         self._confirm_exit_dialog:draw()
+    elseif self._confirm_restart_dialog:get_is_active() then
+        self._confirm_restart_dialog:draw()
     else
         self._control_indicator:draw()
     end
@@ -256,6 +282,11 @@ function mn.PauseMenu:_on_controls()
 end
 
 --- @brief
+function mn.PauseMenu:_on_restart()
+    self._confirm_restart_dialog:present()
+end
+
+--- @brief
 function mn.PauseMenu:_on_exit()
     self._confirm_exit_dialog:present()
 end
@@ -273,6 +304,8 @@ end
 
 --- @brief
 function mn.PauseMenu:close()
+    self._confirm_restart_dialog:close()
+    self._confirm_exit_dialog:close()
     self._is_active = false
     self._input:deactivate()
 end
