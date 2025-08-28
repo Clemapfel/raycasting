@@ -12,6 +12,7 @@ rt.settings.overworld.result_screen_scene = {
     coin_indicator_line_width = 1.5,
 
     reveal_animation_duration = 2,
+    screenshot_animation_duration = 4
 }
 
 --- @class ow.ResultScreenScene
@@ -27,10 +28,23 @@ local _format_title = function(text)
     return "<b><o><u>" .. text .. "</u></o></b>"
 end
 
+local _screenshot_shader
+
 --- @brief
 function ow.ResultScreenScene:instantiate(state)
     if _title_font == nil then _title_font = rt.Font(rt.settings.overworld.result_screen_scene.title_font) end
     if _glyph_font == nil then _glyph_font = rt.Font(rt.settings.overworld.result_screen_scene.glyph_font) end
+    if _screenshot_shader == nil then
+        _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl")
+        -- TODO
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "k" then
+                self._screenshot_fraction_animation:reset()
+                _screenshot_shader:recompile()
+            end
+        end)
+    end
 
     -- grades
     local translation = rt.Translation.result_screen_scene
@@ -135,6 +149,11 @@ function ow.ResultScreenScene:instantiate(state)
     self._fireworks = ow.Fireworks()
     self._camera = rt.Camera()
     self._screenshot = nil -- rt.RenderTexture, cf :enter
+    self._screenshot_fraction_animation = rt.TimedAnimation(
+        rt.settings.overworld.result_screen_scene.screenshot_animation_duration,
+        0, 1,
+        rt.InterpolationFunctions.LINEAR
+    )
 
     self._bloom = nil -- initialized on first draw
 
@@ -212,7 +231,7 @@ function ow.ResultScreenScene:instantiate(state)
         local next_stage_option = add_option(
             translation.option_next_stage,
             "_on_next_stage",
-        true
+            true
         )
 
         local return_to_main_menu_option = add_option(
@@ -481,6 +500,15 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     rt.SceneManager:set_use_fixed_timestep(true)
     self._screenshot = screenshot -- can be nil
+    self._screenshot_fraction_animation:reset()
+
+    do -- update to screenshot during lag frames
+        love.graphics.push("all")
+        love.graphics.reset()
+        self._screenshot:draw()
+        love.graphics.present()
+        love.graphics.pop()
+    end
 
     if rt.SceneManager:get_is_bloom_enabled() then
         rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
@@ -810,7 +838,12 @@ function ow.ResultScreenScene:_reformat_frame()
     max_x = max_x + 8 * m
     min_y = min_y - 2 * m
     max_y = max_y + 4 * m
-    self._frame:reformat(min_x, min_y, max_x - min_x, max_y - min_y)
+    self._frame:reformat(
+        x + 0.5 * width - 0.5 * (max_x - min_x),
+        min_y,
+        max_x - min_x,
+        max_y - min_y
+    )
 
     self._y_offset = self._bounds.y + 0.5 * self._bounds.height - 0.5 * (max_y - min_y)
 
@@ -897,7 +930,9 @@ function ow.ResultScreenScene:update(delta)
         self._flow_value_label,
 
         self._total_grade,
-        self._total_label
+        self._total_label,
+
+        self._screenshot_fraction_animation
     ) do
         updatable:update(delta)
     end
@@ -1034,8 +1069,14 @@ end
 function ow.ResultScreenScene:draw()
     if not self:get_is_active() then return end
 
-    love.graphics.setColor(1, 1, 1, 1)
-    self._screenshot:draw()
+    if self._screenshot ~= nil then
+        love.graphics.setColor(1, 1, 1, 1)
+        _screenshot_shader:bind()
+        _screenshot_shader:send("elapesd", rt.SceneManager:get_elapsed())
+        _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
+        self._screenshot:draw()
+        _screenshot_shader:unbind()
+    end
 
     self._camera:bind()
 
@@ -1171,7 +1212,7 @@ function ow.ResultScreenScene:draw()
 
     self._camera:unbind()
 
-    self._splits:draw()
+    --self._splits:draw()
 
     if self._fade:get_is_active() then
         self._fade:draw()
