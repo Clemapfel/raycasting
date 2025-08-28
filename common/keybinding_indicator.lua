@@ -12,7 +12,7 @@ rt.KeybindingIndicator = meta.class("KeybindingIndicator", rt.Widget)
 local _Label = function(text, font_size)
     local out = rt.Label("<mono>" .. text .. "</mono>", font_size or rt.settings.keybinding_indicator.font_size, rt.settings.keybinding_indicator.font)
     out.draw = function(self, opacity)
-        self:set_opacity(opacity)
+        self:set_opacity(opacity or 1)
         rt.Label.draw(self)
     end
     return out

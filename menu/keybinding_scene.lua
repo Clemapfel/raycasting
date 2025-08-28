@@ -180,12 +180,7 @@ function mn.KeybindingScene:instantiate()
         self._keybinding_invalid_dialog
     ) do
         dialog:signal_connect("presented", function()
-            self._input:deactivate()
             self:_abort_listening()
-        end)
-
-        dialog:signal_connect("closed", function()
-            self._input:activate()
         end)
     end
 
@@ -193,7 +188,13 @@ function mn.KeybindingScene:instantiate()
     self._input:signal_connect("pressed", function(_, which)
         if self._listening_active or self._skip_n_input_frames > 0 then return end
 
-        if which == rt.InputAction.UP then
+        if self._confirm_exit_dialog:get_is_active() then
+            self._confirm_exit_dialog:handle_button(which)
+        elseif self._confirm_reset_to_default_dialog:get_is_active() then
+            self._confirm_reset_to_default_dialog:handle_button(which)
+        elseif self._keybinding_invalid_dialog:get_is_active() then
+            self._keybinding_invalid_dialog:handle_button(which)
+        elseif which == rt.InputAction.UP then
             self:_start_scroll(rt.Direction.UP)
         elseif which == rt.InputAction.DOWN then
             self:_start_scroll(rt.Direction.DOWN)
@@ -391,7 +392,9 @@ end
 
 --- @brief
 function mn.KeybindingScene:update(delta)
-    if self._skip_n_input_frames > 0 then self._skip_n_input_frames = self._skip_n_input_frames - 1 end
+    if self._skip_n_input_frames > 0 then
+        self._skip_n_input_frames = self._skip_n_input_frames - 1
+    end
 
     for widget in range(
         self._confirm_reset_to_default_dialog,

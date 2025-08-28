@@ -44,8 +44,6 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
         _is_active = false,
         _queue_activate = 0,
 
-        _input = rt.InputSubscriber(),
-
         _shadow = rt.AABB(0, 0, 1, 1),
         _shadow_color = rt.settings.menu.message_dialog.shadow_strength,
 
@@ -92,10 +90,6 @@ function mn.MessageDialog:realize()
 
         table.insert(self._buttons, to_insert)
     end
-
-    self._input:signal_connect("pressed", function(_, which)
-        self:_handle_button_pressed(which)
-    end)
 end
 
 --- @override
@@ -201,11 +195,11 @@ function mn.MessageDialog:_update_selected_item()
 end
 
 --- @brief
-function mn.MessageDialog:_handle_button_pressed(which)
+function mn.MessageDialog:handle_button(which)
     if self._is_active ~= true then return end
 
     if self._elapsed < rt.settings.menu.message_dialog.input_delay then
-        return
+        --return
     end
 
     if which == rt.InputAction.LEFT then

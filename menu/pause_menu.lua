@@ -57,14 +57,18 @@ function mn.PauseMenu:instantiate(scene)
     self._input:signal_connect("pressed", function(_, which)
         if not self._underlying_scene:get_is_active() then return end
 
-        if which == rt.InputAction.BACK then
-            if self._confirm_exit_dialog:get_is_active() then
-                self._confirm_exit_dialog:close()
-            elseif self._confirm_restart_dialog:get_is_active() then
+        if which == rt.InputAction.PAUSE then
+            if self._confirm_restart_dialog:get_is_active() then
                 self._confirm_restart_dialog:close()
+            elseif self._confirm_exit_dialog:get_is_active() then
+                self._confirm_exit_dialog:close()
+            else
+                self._underlying_scene:unpause()
             end
-        elseif  which == rt.InputAction.PAUSE then
-            self._underlying_scene:unpause()
+        elseif self._confirm_restart_dialog:get_is_active() then
+            self._confirm_restart_dialog:handle_button(which)
+        elseif self._confirm_exit_dialog:get_is_active() then
+            self._confirm_exit_dialog:handle_button(which)
         else
             self._selection_graph:handle_button(which)
         end
