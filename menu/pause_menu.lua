@@ -97,6 +97,7 @@ function mn.PauseMenu:instantiate(scene)
             self._confirm_restart_dialog:close()
         end
     end)
+    self._confirm_restart_dialog:set_default_option(mn.MessageDialogOption.ACCEPT)
 
     self._elements = {}
     self._first_node = nil
@@ -297,12 +298,9 @@ end
 
 --- @brief
 function mn.PauseMenu:present()
-    if self._selection_graph:get_selected_node() == nil then
-        self._selection_graph:set_selected_node(self._first_node)
-    end
-
     self._is_active = true
     self._schedule_activate = true
+    self._selection_graph:set_selected_node(self._first_node)
     -- delay input:activate to next frame
 end
 

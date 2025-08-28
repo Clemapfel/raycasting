@@ -549,9 +549,7 @@ function ow.Stage:get_is_first_spawn()
     return self._is_first_spawn
 end
 
-
 --- @brief
 function ow.Stage:clear_cache()
     _config_atlas = {}
-    dbg(table.sizeof(_config_atlas))
 end

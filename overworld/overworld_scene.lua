@@ -311,11 +311,11 @@ function ow.OverworldScene:enter(new_stage_id)
     self._fade_active = false
     self._fade:skip()
 
-    if new_stage_id ~= nil then
+    if new_stage_id ~= nil and new_stage_id ~= self._stage_id then
         self:set_stage(new_stage_id)
     end
 
-    self:unpause()
+    -- do not reset player or pause state
 end
 
 --- @brief
@@ -379,10 +379,6 @@ end
 function ow.OverworldScene:exit()
     love.mouse.setGrabbed(false)
     love.mouse.setCursor(nil)
-
-    if self._pause_menu_active then
-        self._pause_menu:close()
-    end
 
     self._input:deactivate()
 end

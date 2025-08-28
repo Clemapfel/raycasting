@@ -26,10 +26,20 @@ function mn.MessageDialog:instantiate(message, submessage, option1, ...)
     meta.assert(message, "String", submessage, "String")
     meta.assert_enum_value(option1, mn.MessageDialogOption, 3)
 
+    local default_option = 1
+    local options = { option1, ... }
+    for i, option in ipairs(options) do
+        if option == mn.MessageDialogOption.CANCEL then
+            default_option = i
+            break
+        end
+    end
+
     meta.install(self, {
         _message = message,
         _submessage = submessage,
-        _options = { option1, ... },
+        _options = options,
+        _default_option = default_option,
 
         _selected_item_i = 1,
 
@@ -275,9 +285,26 @@ function mn.MessageDialog:update(delta)
         self._queue_activate = self._queue_activate - 1
         if self._queue_activate == 0 then
             self._is_active = true
+            self._selected_item_i = self._default_option
+            self:_update_selected_item()
+
             if before == false then
                 self:signal_emit("presented")
             end
         end
     end
+end
+
+--- @brief
+function mn.MessageDialog:set_default_option(option)
+    meta.assert_enum_value(option, mn.MessageDialogOption, 1)
+
+    for i, other in ipairs(self._options) do
+        if option == other then
+            self._default_option = i
+            return
+        end
+    end
+
+    rt.error("In mn.MessageDialog.set_default_option: dialog has no option `" .. option .. "`")
 end
