@@ -104,6 +104,7 @@ function ow.OverworldScene:instantiate(state)
 
         _screenshot = nil, -- rt.RenderTexture
         _player_is_visible = true,
+        _hide_debug_information = false,
 
         _result_screen_transition_active = false,
         _result_screen_transition_elapsed = 0,
@@ -682,6 +683,8 @@ function ow.OverworldScene:draw()
 end
 
 function ow.OverworldScene:_draw_debug_information()
+    if self._hide_debug_information == true then return end
+
     local player = self._player
     local flow_percentage = player:get_flow()
     local flow_velocity = player:get_flow_velocity()
@@ -1012,12 +1015,16 @@ function ow.OverworldScene:update(delta)
         if should_transition then
             -- screenshot without player
             self._player_is_visible = false
+
+            local before = self._draw_debug_information
+            self._hide_debug_information = true
             self._screenshot:bind()
             love.graphics.push("all")
             love.graphics.clear(1, 0, 1, 1)
             self:draw()
             love.graphics.pop()
             self._screenshot:unbind()
+            self._hide_debug_information = false
             self._player_is_visible = true
 
             local local_x, local_y = self._camera:world_xy_to_screen_xy(self._player:get_position())

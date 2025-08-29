@@ -44,6 +44,7 @@ function ow.ResultScreenScene:instantiate(state)
             if which == "k" then
                 self._screenshot_fraction_animation:reset()
                 _screenshot_shader:recompile()
+                dbg("called")
             end
         end)
     end
@@ -1075,10 +1076,11 @@ function ow.ResultScreenScene:draw()
     if self._screenshot ~= nil then
         love.graphics.setColor(1, 1, 1, 1)
         _screenshot_shader:bind()
-        _screenshot_shader:send("elapesd", rt.SceneManager:get_elapsed())
+        _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
         self._screenshot:draw()
         _screenshot_shader:unbind()
+        return
     end
 
     self._camera:bind()

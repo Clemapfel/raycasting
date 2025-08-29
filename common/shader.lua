@@ -68,9 +68,15 @@ end
 
 --- @brief
 function rt.Shader:recompile()
-    self._native = love.graphics.newShader(self._filename, {
+    local success, native = pcall(love.graphics.newShader, self._filename, {
         defines = self._defines
     })
+
+    if success then
+        self._native = native
+    else
+        rt.warning("In rt.Shader.recompile: for shader at `" .. self._filename .. "`:\n" .. native)
+    end
 end
 
 --- @brief
