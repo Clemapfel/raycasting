@@ -47,12 +47,19 @@ end)
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
+
+    local result_screen = 1
+    local overworld = 2
+    local keybinding = 3
+    local settings = 4
+    local menu = 5
+
     for to_preallocate in range(
-        --1,
-        --2,
-        --3,
-        --4,
-        5
+        result_screen
+        --, overworld
+        --, keybinding
+        --, settings
+        --, menu
     ) do
         if to_preallocate == 1 then
             require "overworld.result_screen_scene"

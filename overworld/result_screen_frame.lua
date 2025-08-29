@@ -383,30 +383,28 @@ function ow.ResultScreenFrame:_update_mesh_paths()
 
     for i, entry in ipairs(vertex_i_to_weight_entry) do
         local path = self._vertex_i_to_path[i]
-        if i % 2 == 0 then -- inner
-            local total = entry.to_circle + entry.to_rect
+        if i <= 2 then
+            if i % 2 == 0 then -- inner
+                local total = entry.to_circle + entry.to_rect
 
-            -- Parameterize so that circle phase takes time proportional to max_inner_to_circle
-            -- and rect phase takes time proportional to max_inner_to_rect
-            local circle_time_ratio = max_inner_to_circle / max_inner_total
-            local rect_time_ratio = max_inner_to_rect / max_inner_total
+                local circle_time_ratio = max_inner_to_circle / max_inner_total
+                local rect_time_ratio = max_inner_to_rect / max_inner_total
 
-            path:override_parameterization(
-                circle_time_ratio,
-                rect_time_ratio
-            )
-        else -- outer
-            local total = entry.to_circle + entry.to_rect
+                path:override_parameterization(
+                    circle_time_ratio,
+                    rect_time_ratio
+                )
+            else -- outer
+                local total = entry.to_circle + entry.to_rect
 
-            -- Parameterize so that circle phase takes time proportional to max_outer_to_circle
-            -- and rect phase takes time proportional to max_outer_to_rect
-            local circle_time_ratio = max_outer_to_circle / max_outer_total
-            local rect_time_ratio = max_outer_to_rect / max_outer_total
+                local circle_time_ratio = max_outer_to_circle / max_outer_total
+                local rect_time_ratio = max_outer_to_rect / max_outer_total
 
-            path:override_parameterization(
-                circle_time_ratio,
-                rect_time_ratio
-            )
+                path:override_parameterization(
+                    circle_time_ratio,
+                    rect_time_ratio
+                )
+            end
         end
     end
 end
@@ -488,8 +486,10 @@ function ow.ResultScreenFrame:update(delta)
     self._mesh_animation:update(delta)
     local t = self._mesh_animation:get_value()
     for i, path in pairs(self._vertex_i_to_path) do
-        local x, y = path:at(t)
-        self._mesh_data[i][1], self._mesh_data[i][2] = x, y
+        if i > 1 then -- skip center
+            local x, y = path:at(t)
+            self._mesh_data[i][1], self._mesh_data[i][2] = x, y
+        end
     end
     self._mesh:replace_data(self._mesh_data)
 
