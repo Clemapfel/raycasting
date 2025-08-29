@@ -65,21 +65,9 @@ function mn.MenuSceneBackground:instantiate(scene)
     if _particle_texture_shader == nil then _particle_texture_shader = rt.Shader("menu/menu_scene_background_particle.glsl") end
     if _canvas_draw_shader == nil then _canvas_draw_shader = rt.Shader("menu/menu_scene_background.glsl") end
 
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            _particle_texture_shader:recompile()
-            _canvas_draw_shader:recompile()
-
-            local canvas_w = rt.get_pixel_scale() * (rt.settings.menu.menu_scene_background.radius + 5) -- padding
-            self._particle_texture:bind()
-            love.graphics.clear()
-            love.graphics.setColor(1, 1, 1, 1)
-            _particle_texture_shader:bind()
-            love.graphics.rectangle("fill", 0, 0, canvas_w, canvas_w)
-            self._particle_texture:unbind()
-        end
-    end)
+    dbg("particle_draw", _particle_draw_shader._native)
+    dbg("particle_texture", _particle_texture_shader._native)
+    dbg("canvas_draw", _canvas_draw_shader._native)
 
     meta.assert(scene, mn.MenuScene)
     self._scene = scene
@@ -91,12 +79,16 @@ function mn.MenuSceneBackground:instantiate(scene)
     do -- particle texture
         local canvas_w = rt.get_pixel_scale() * (rt.settings.menu.menu_scene_background.radius + 5) -- padding
         self._particle_texture = rt.RenderTexture(canvas_w, canvas_w, 0, _texture_format)
+        love.graphics.push("all")
+        love.graphics.reset()
         self._particle_texture:bind()
         love.graphics.setColor(1, 1, 1, 1)
         _particle_texture_shader:bind()
         love.graphics.rectangle("fill", 0, 0, canvas_w, canvas_w)
         self._particle_texture:unbind()
         self._particle_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+        _particle_texture_shader:unbind()
+        love.graphics.pop()
     end
 
     self._particles = {}
@@ -278,7 +270,7 @@ function mn.MenuSceneBackground:draw()
 
     if self._fraction < 1 then
         if self._canvas_needs_update == true then
-            love.graphics.push()
+            love.graphics.push("all")
             love.graphics.origin()
             self._canvas:bind()
             love.graphics.clear(0, 0, 0, 0)
@@ -299,6 +291,7 @@ function mn.MenuSceneBackground:draw()
         end
     end
 
+    love.graphics.push("all")
     love.graphics.setBlendMode("alpha", "premultiplied")
     _canvas_draw_shader:bind()
     _canvas_draw_shader:send("bloom", false)
@@ -311,12 +304,13 @@ function mn.MenuSceneBackground:draw()
     self._canvas:draw()
     _canvas_draw_shader:unbind()
     love.graphics.setBlendMode("alpha")
+    love.graphics.pop()
 end
 
 --- @brief
 function mn.MenuSceneBackground:draw_bloom()
-    love.graphics.push()
-    love.graphics.origin()
+    love.graphics.push("all")
+    love.graphics.reset()
     _canvas_draw_shader:bind()
     _canvas_draw_shader:send("bloom", true)
     love.graphics.setColor(1, 1, 1, 1)

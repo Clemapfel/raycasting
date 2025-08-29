@@ -1,6 +1,8 @@
 require "common.label"
 require "overworld.result_screen_frame"
 require "overworld.fireworks"
+require "menu.stage_grade_label"
+require "common.camera"
 require "menu.splits_viewer"
 
 rt.settings.overworld.result_screen_scene = {
@@ -159,6 +161,7 @@ function ow.ResultScreenScene:instantiate(state)
 
     self._is_paused = false
     do -- options
+        require "menu.pause_menu"
         local unselected_prefix, unselected_postfix = rt.settings.menu.pause_menu.label_prefix, rt.settings.menu.pause_menu.label_postfix
         local selected_prefix, selected_postfix = unselected_prefix .. "<color=SELECTION>", "</color>" .. unselected_postfix
         local blocked_prefix, blocked_postfix = unselected_prefix .. "<s><color=GRAY>", "</color></s>" .. unselected_postfix

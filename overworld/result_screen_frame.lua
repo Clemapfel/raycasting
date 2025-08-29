@@ -1,4 +1,5 @@
 require "common.timed_animation_sequence"
+require "common.path"
 
 do
     local outline_width = 20

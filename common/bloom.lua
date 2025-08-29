@@ -64,12 +64,14 @@ local lg = love.graphics
 
 --- @brief
 function rt.Bloom:bind()
+    love.graphics.push("all")
     self._textures[1]:bind()
 end
 
 --- @brief
 function rt.Bloom:unbind()
     self._textures[1]:unbind()
+    love.graphics.pop()
     self._update_needed = true
 end
 
@@ -167,12 +169,14 @@ end
 --- @brief
 function rt.Bloom:composite(strength)
     if strength == nil then strength = rt.settings.bloom.default_composite_strength end
+    love.graphics.push("all")
     love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.setColor(strength, strength, strength, strength)
 
     self:draw()
 
     love.graphics.setBlendMode("alpha")
+    love.graphics.pop()
 end
 
 --- @brief

@@ -47,8 +47,31 @@ end)
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
+    for to_preallocate in range(
+        --1,
+        --2,
+        --3,
+        --4,
+        5
+    ) do
+        if to_preallocate == 1 then
+            require "overworld.result_screen_scene"
+            rt.SceneManager:preallocate(ow.ResultScreenScene)
+        elseif to_preallocate == 2 then
+            require "overworld.overworld_scene"
+            rt.SceneManager:preallocate(ow.OverworldScene)
+        elseif to_preallocate == 3 then
+            require "menu.keybinding_scene"
+            rt.SceneManager:preallocate(mn.KeybindingScene)
+        elseif to_preallocate == 4 then
+            require "menu.settings_scene"
+            rt.SceneManager:preallocate(mn.SettingsScene)
+        elseif to_preallocate == 5 then
+            require "menu.menu_scene"
+            rt.SceneManager:preallocate(mn.MenuScene)
+        end
+    end
 
-    -- intialize all scenes
     require "overworld.overworld_scene"
     rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
 

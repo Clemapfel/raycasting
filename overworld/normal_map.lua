@@ -480,6 +480,7 @@ function ow.NormalMap:draw_light()
                         _draw_light_shader:send("n_segment_lights", math.min(n_segment_lights, rt.settings.overworld.normal_map.max_n_segment_lights))
 
                         if shader_bound == false then
+                            love.graphics.push("all")
                             _draw_light_shader:send("camera_offset", { camera:get_offset() })
                             _draw_light_shader:send("camera_scale", camera:get_final_scale())
                             _draw_light_shader:bind()
@@ -498,7 +499,7 @@ function ow.NormalMap:draw_light()
 
     if shader_bound == true then
         _draw_light_shader:unbind()
-        love.graphics.setBlendMode("alpha")
+        love.graphics.pop()
     end
 end
 

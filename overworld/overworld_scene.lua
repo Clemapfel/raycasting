@@ -303,6 +303,7 @@ local _cursor = nil
 --- @brief
 function ow.OverworldScene:enter(new_stage_id)
     self._input:activate()
+    rt.SceneManager:set_use_fixed_timestep(true)
 
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)

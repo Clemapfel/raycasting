@@ -61,11 +61,6 @@ function mn.MenuScene:instantiate(state)
         _title_shader_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 1 })
     end
 
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-    end)
-
     self._input_blocked = true
 
     self._world = b2.World()
@@ -678,7 +673,6 @@ function mn.MenuScene:update(delta)
                         rt.SceneManager:push(ow.OverworldScene, rt.GameState:list_stage_ids()[stage_select.selected_item_i], true) -- with titlecard
                     end)
                     stage_select.waiting_for_exit = false
-                    dbg("called")
                 end
             end
 
@@ -713,7 +707,7 @@ function mn.MenuScene:draw()
         local title_screen = self._title_screen
 
         -- draw title
-        love.graphics.push()
+        love.graphics.push("all")
         love.graphics.translate(self._camera:get_offset())
         _title_shader_sdf:bind()
         _title_shader_sdf:send("elapsed", self._shader_elapsed)

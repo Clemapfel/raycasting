@@ -41,21 +41,35 @@ function rt.SceneManager:instantiate()
 end
 
 --- @brief
+function rt.SceneManager:_reformat_scene(scene)
+    -- resize first time or if necessary
+    local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
+    if current_w ~= self._width or current_h ~= self._height then
+        scene:reformat(0, 0, self._width, self._height)
+        scene._scene_manager_current_width = self._width
+        scene._scene_manager_current_height = self._height
+    end
+end
+
+--- @brief
+function rt.SceneManager:preallocate(scene_type, ...)
+    local scene = self._scene_type_to_scene[scene_type]
+    if scene == nil then
+        scene = scene_type(rt.GameState)
+        scene:realize()
+        self._scene_type_to_scene[scene_type] = scene
+        self:_reformat_scene(scene)
+    end
+end
+
+--- @brief
 function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
     local use_fade = self._should_use_fade
+    self:preallocate(scene_type, ...)
 
     local varargs = { ... }
     local on_scene_changed = function()
         local scene = self._scene_type_to_scene[scene_type]
-        if scene == nil then
-            scene = scene_type(rt.GameState)
-            scene:realize()
-            self._scene_type_to_scene[scene_type] = scene
-
-            scene._scene_manager_current_width = 0
-            scene._scene_manager_current_height = 0
-        end
-
         if add_to_stack == true and self._current_scene ~= nil then
             table.insert(self._scene_stack, 1, {
                 self._current_scene_type,
@@ -82,14 +96,7 @@ function rt.SceneManager:_set_scene(add_to_stack, scene_type, ...)
             end
         end
 
-        -- resize if necessary
-        local current_w, current_h = self._current_scene._scene_manager_current_width, self._current_scene._scene_manager_current_height
-        if current_w ~= self._width or current_h ~= self._height then
-            self._current_scene:reformat(0, 0, self._width, self._height)
-            self._current_scene._scene_manager_current_width = self._width
-            self._current_scene._scene_manager_current_height = self._height
-        end
-
+        self:_reformat_scene(self._current_scene)
         self._schedule_enter = true -- delay enter until next frame to avoid same-frame inputs
     end
 
