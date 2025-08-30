@@ -339,19 +339,19 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // Build the thick white stripe from the raw SDF
     const float threshold = 0.9;
     float eps = 0.05; // thickness/softness of the white band
-    float dist = 1.0 - smoothstep(threshold - eps, threshold + eps, abs(d));
+    float line = 1.0 - smoothstep(threshold - eps, threshold + eps, abs(d));
 
-    float background_epsilon = 0.03;
+    float background_epsilon = 0.05;
 
     // Thin black outline just around the white stripe boundary.
     // Use a narrow band centered at |d| == threshold, width ~ 1-2 pixels via fwidth.
     float outline_eps = background_epsilon; // tune for desired outline thickness (in pixels)
     float outline_threshold = 1;
-    float dist_stripe_mask = 1 - smoothstep(outline_threshold - outline_eps, outline_threshold + outline_eps, abs(d));
+    float line_outline = 1 - smoothstep(outline_threshold - outline_eps, outline_threshold + outline_eps, abs(d));
 
 
     // Composite texel with the warped sample as before
-    texel = mix(texel, vec4(dist), 1.0 - weight);
+    texel = mix(texel, vec4(line), 1.0 - weight);
 
     vec2 noise_coords = to_uv(frag_position);
     float noise_scale = 1.0;
@@ -375,9 +375,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     const vec3 white = vec3(1);
     const vec3 black = vec3(0);
 
-    float alpha = max(dist, dist_stripe_mask);
-    background.rgb *= 1 - alpha;
+    float alpha = max(line, line_outline);
+    vec3 inverted_background = white * (1 - alpha);
 
-    return vec4(background.rgb + vec3(1, 1, 1) * (dist) +  vec3(0, 0, 0) * dist_stripe_mask, 1);
+    return vec4(inverted_background + texel.rgb * background.rgb * line + black * line_outline, 1);
 
 }
