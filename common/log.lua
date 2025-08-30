@@ -22,6 +22,13 @@ local _warning_format = {
     bold = true
 }
 
+local _critical_prefix = "[CRITICAL]"
+local _critical_format = {
+    color = "red",
+    bold = true
+}
+
+
 local _error_prefix = "[ERROR]"
 local _error_format = nil -- because _G.error does not support formatting
 
@@ -134,6 +141,31 @@ function log.warning(...)
 end
 
 --- @brief
+function log.critical(...)
+    local to_print = {}
+
+    table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
+    table.insert(to_print, _printstyled(_critical_prefix, _critical_format))
+    table.insert(to_print, " ")
+
+    for i = 1, select("#", ...) do
+        table.insert(to_print, tostring(select(i, ...)))
+    end
+    table.insert(to_print, "\n")
+
+    local message = table.concat(to_print)
+    local should_print = true
+    if log._message_hook ~= nil then
+        should_print = log._message_hook(message)
+    end
+
+    if should_print == true then
+        io.write(message)
+        io.flush()
+    end
+end
+
+--- @brief
 function log.error(...)
     local to_print = {}
 
@@ -167,5 +199,6 @@ end
 
 rt.log = log.message
 rt.warning = log.warning
+rt.critical = log.critical
 rt.error = log.error
 

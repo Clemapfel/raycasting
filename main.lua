@@ -17,10 +17,12 @@ local present = function()
         current[i] = math.max(x + rt.random.number(-10, 10), 0)
     end
 
+
+
     rt.SceneManager:push(ow.ResultScreenScene,
         rt.random.number(0, 1) * w,
         rt.random.number(0, 1) * h,
-        rt.RenderTexture(),
+        rt.Texture("assets/sprites/why.png"),
         {
             coins = coins,
             time = 1.234,
@@ -80,7 +82,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -92,7 +94,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.result_screen_scene"
-    --present()
+    present()
 end
 
 love.update = function(delta)

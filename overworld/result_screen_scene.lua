@@ -157,6 +157,7 @@ function ow.ResultScreenScene:instantiate(state)
         0, 1,
         rt.InterpolationFunctions.LINEAR
     )
+    self._screenshot_mesh = rt.MeshRectangle(0, 0, 1, 1)
 
     self._bloom = nil -- initialized on first draw
 
@@ -492,6 +493,12 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
         )
     end
 
+    self._screenshot_mesh = rt.MeshRectangle(x, y, width, height)
+
+    if self._screenshot ~= nil then
+        self._screenshot_mesh:set_texture(self._screenshot)
+    end
+
     self:_reformat_frame()
 end
 
@@ -505,11 +512,14 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     rt.SceneManager:set_use_fixed_timestep(true)
     self._screenshot = screenshot -- can be nil
     self._screenshot_fraction_animation:reset()
+    self._screenshot:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    self._screenshot_mesh:set_texture(self._screenshot)
 
     do -- update to screenshot during lag frames
         love.graphics.push("all")
         love.graphics.reset()
-        self._screenshot:draw()
+        love.graphics.setColor(1, 1, 1, 1)
+        self._screenshot_mesh:draw()
         love.graphics.present()
         love.graphics.pop()
     end
@@ -521,7 +531,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     meta.assert_typeof(player_x, "Number", 1)
     meta.assert_typeof(player_x, "Number", 2)
     if screenshot ~= nil then
-        meta.assert_typeof(screenshot, rt.RenderTexture, 3)
+        meta.assert_typeof(screenshot, rt.Texture, 3)
     end
     meta.assert_typeof(config, "Table", 4)
 
@@ -933,13 +943,14 @@ function ow.ResultScreenScene:update(delta)
         self._flow_grade_label,
         self._flow_value_label,
 
-        self._total_grade,
-        self._total_label,
+        self._screenshot_fraction_animation,
 
-        self._screenshot_fraction_animation
+        self._total_grade,
+        self._total_label
     ) do
         updatable:update(delta)
     end
+
 
     if self._animations_active then
         local done = true
@@ -1078,7 +1089,7 @@ function ow.ResultScreenScene:draw()
         _screenshot_shader:bind()
         _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
-        self._screenshot:draw()
+        self._screenshot_mesh:draw()
         _screenshot_shader:unbind()
         return
     end

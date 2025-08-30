@@ -75,7 +75,7 @@ function rt.Shader:recompile()
     if success then
         self._native = native
     else
-        rt.warning("In rt.Shader.recompile: for shader at `" .. self._filename .. "`:\n" .. native)
+        rt.critical("In rt.Shader.recompile: for shader at `" .. self._filename .. "`:\n" .. native)
     end
 end
 

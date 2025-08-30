@@ -1,3 +1,46 @@
+#define WORLEY_CELL(gx, gy, gz) g = vec3(gx, gy, gz); cell_pos = n + g; cell_pos = fract(cell_pos * hash_mul); cell_pos += dot(cell_pos, cell_pos.yxz + hash_add); o = fract((cell_pos.xxy + cell_pos.yzz) * cell_pos.zyx); delta = g + o - f; d = dot(delta, delta); min_dist = min(min_dist, d);
+
+float worley_noise_macro(vec3 p) {
+    vec3 n = floor(p);
+    vec3 f = fract(p);
+
+    float min_dist = 1.0;
+    vec3 g, cell_pos, o, delta;
+    float d;
+
+    const vec3 hash_mul = vec3(0.1031, 0.1030, 0.0973);
+    const float hash_add = 19.19;
+
+    WORLEY_CELL(-1.0, -1.0, -1.0)
+    WORLEY_CELL(-1.0, -1.0,  0.0)
+    WORLEY_CELL(-1.0, -1.0,  1.0)
+    WORLEY_CELL(-1.0,  0.0, -1.0)
+    WORLEY_CELL(-1.0,  0.0,  0.0)
+    WORLEY_CELL(-1.0,  0.0,  1.0)
+    WORLEY_CELL(-1.0,  1.0, -1.0)
+    WORLEY_CELL(-1.0,  1.0,  0.0)
+    WORLEY_CELL(-1.0,  1.0,  1.0)
+    WORLEY_CELL( 0.0, -1.0, -1.0)
+    WORLEY_CELL( 0.0, -1.0,  0.0)
+    WORLEY_CELL( 0.0, -1.0,  1.0)
+    WORLEY_CELL( 0.0,  0.0, -1.0)
+    WORLEY_CELL( 0.0,  0.0,  0.0)
+    WORLEY_CELL( 0.0,  0.0,  1.0)
+    WORLEY_CELL( 0.0,  1.0, -1.0)
+    WORLEY_CELL( 0.0,  1.0,  0.0)
+    WORLEY_CELL( 0.0,  1.0,  1.0)
+    WORLEY_CELL( 1.0, -1.0, -1.0)
+    WORLEY_CELL( 1.0, -1.0,  0.0)
+    WORLEY_CELL( 1.0, -1.0,  1.0)
+    WORLEY_CELL( 1.0,  0.0, -1.0)
+    WORLEY_CELL( 1.0,  0.0,  0.0)
+    WORLEY_CELL( 1.0,  0.0,  1.0)
+    WORLEY_CELL( 1.0,  1.0, -1.0)
+    WORLEY_CELL( 1.0,  1.0,  0.0)
+    WORLEY_CELL( 1.0,  1.0,  1.0)
+
+    return 1.0 - sqrt(min_dist);
+}
 
 uniform float elapsed;
 uniform float fraction;
@@ -113,7 +156,7 @@ vec3 sine_wave_sdf(vec2 p, float freq, float amp) {
 
 float sine_wave_sdf(vec2 point, float frequency, float amplitude) {
     float value = amplitude * sin(frequency * point.x);
-    return abs(point.y - value);
+    return (point.y - value);
 }
 
 vec2 sine_wave_sdf_gradient(vec2 point, float frequency, float amplitude) {
@@ -167,44 +210,43 @@ vec3 lch_to_rgb(vec3 lch) {
     return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
 }
 
-vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
-    // Start from UVs
-    vec2 point = texture_coords;
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
 
-    // Repeat along X: wrap the x coordinate before rotating.
-    // tiles controls how many repeats across the screen width.
-    float tiles = 10.0;
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
+
+    const float n_tiles = 10.0;
     const float scale = 5;
     const float frequency = 4;
-    float tileIndex = floor(point.x * tiles);
-    float direction = (mod(tileIndex, 2.0) == 0.0) ? -1.0 : 1.0;
+
+    vec2 point = texture_coords;
+
+    float tileIndex = floor(point.x * n_tiles);
+    float direction = mod(tileIndex, 2.0) == 0.0 ? -1.0 : 1.0;
+    float side = mod(tileIndex, 1) >= 0.5 ? -1.0 : 1.0;
+
     point.y += step(0, direction);
-    point.x = fract(point.x * tiles);
+    point.x = fract(point.x * n_tiles);
 
-    // Rotate 90 degrees around the center
     point = rotate(point, radians(90.0), vec2(0.5));
-
-    // Center vertically so the wave fits when amplitude = 1
     point += vec2(0.0, -0.5);
+    point *= vec2(2 * PI, scale);
 
-    // Scale:
-    // - Make x span exactly one full 2π period per tile so the curve tiles seamlessly.
-    // - Preserve previous y scaling.
-    point = vec2(point.x * (2.0 * PI), point.y * scale);
+    float amplitude = sin(2 * elapsed) * fraction;
+    float dist = sine_wave_sdf(point, frequency, amplitude * direction);
 
-    // Animated amplitude; max amplitude (1.0) still fits the tiling
-    float amp = sin(2 * elapsed);
-
-    float dist = sine_wave_sdf(point, frequency, amp * direction);
-    vec3 col = lch_to_rgb(vec3(0.8, 1, dist / tiles));
-
-    vec4 texel = texture(img, texture_coords + pow(1 + fraction, 2) * dist * 1 / love_ScreenSize.xy);
-
-    vec2 gradient = sine_wave_sdf_gradient(point, 3.0, amp).yy; // only use gradient away from curve
+    const float speed = 0.2;
+    vec2 translated_coords = texture_coords + vec2(side * dist * fraction * speed, 0);
+    float weight = mix(1, gaussian(0.5 * distance(translated_coords, texture_coords), 4), fraction);
+    vec4 texel = texture(img, translated_coords) * weight; // img is clamp zero wrapping
 
     const float threshold = 0.9;
-    const float eps = 0.2;
-    dist = smoothstep(threshold - eps, threshold + eps, abs(dist));
+    float eps = mix(0.05, 0.5, (1 - fraction));
+    dist = 1 - smoothstep(threshold - eps, threshold + eps, abs(dist));
+    texel = mix(texel, vec4(dist), 1 - weight);
 
     return texel;
 }
