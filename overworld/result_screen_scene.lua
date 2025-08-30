@@ -513,6 +513,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._screenshot = screenshot -- can be nil
     self._screenshot_fraction_animation:reset()
     self._screenshot:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    self._screenshot:set_wrap_mode(rt.TextureWrapMode.MIRROR)
     self._screenshot_mesh:set_texture(self._screenshot)
 
     do -- update to screenshot during lag frames
@@ -530,9 +531,6 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     meta.assert_typeof(player_x, "Number", 1)
     meta.assert_typeof(player_x, "Number", 2)
-    if screenshot ~= nil then
-        meta.assert_typeof(screenshot, rt.Texture, 3)
-    end
     meta.assert_typeof(config, "Table", 4)
 
     self._player:reset()
@@ -1089,6 +1087,8 @@ function ow.ResultScreenScene:draw()
         _screenshot_shader:bind()
         _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
+        _screenshot_shader:send("camera_offset", { self._camera:get_offset() })
+        _screenshot_shader:send("camera_scale", self._camera:get_final_scale())
         self._screenshot_mesh:draw()
         _screenshot_shader:unbind()
         return

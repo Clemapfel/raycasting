@@ -17,8 +17,6 @@ local present = function()
         current[i] = math.max(x + rt.random.number(-10, 10), 0)
     end
 
-
-
     rt.SceneManager:push(ow.ResultScreenScene,
         rt.random.number(0, 1) * w,
         rt.random.number(0, 1) * h,
