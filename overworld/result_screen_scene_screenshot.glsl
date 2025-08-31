@@ -350,9 +350,6 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     float line_outline = 1 - smoothstep(outline_threshold - outline_eps, outline_threshold + outline_eps, abs(d));
 
 
-    // Composite texel with the warped sample as before
-    texel = mix(texel, vec4(line), 1.0 - weight);
-
     vec2 noise_coords = to_uv(frag_position);
     float noise_scale = 1.0;
     vec3 noise = hierarchical_bubble_texture(vec3(noise_coords, elapsed / 20.0));
@@ -376,8 +373,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     const vec3 black = vec3(0);
 
     float alpha = max(line, line_outline);
-    vec3 inverted_background = white * (1 - alpha);
+    texel = texture(img, texture_coords);
+    texel *= (1 - alpha);
 
-    return vec4(inverted_background + texel.rgb * background.rgb * line + black * line_outline, 1);
+    return vec4(texel.rgb  + black * line_outline, 1);
 
 }

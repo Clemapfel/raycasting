@@ -3,6 +3,31 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
+require "build.build"
+
+--[[
+local run_id = 17011208703
+bd.download_love_executables(run_id,
+    bd.SystemArchitecture.WINDOWS_AMD,
+    bd.SystemArchitecture.WINDOWS_ARM
+)]]--
+
+require "dependencies.love-zip.love-zip"
+local instance = love.zip:newZip()
+bd.apply_recursively("build/executables", function(from_path)
+    local to_path = string.gsub(from_path, "%.zip$", "")
+    instance:decompress(from_path, to_path)
+
+    bd.apply_recursively(bd.join_path("build/executables", to_path), function(from_path)
+        if string.match(from_path, "%.zip$") ~= nil then
+            local to_path = string.gsub(from_path, "%.zip$", "")
+            instance:decompress(from_path, to_path)
+        end
+    end)
+end)
+
+exit(0)
+
 local present = function()
     local coins = {}
     for i = 1, 50 do
@@ -92,7 +117,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene)
 
     require "overworld.result_screen_scene"
-    present()
+    --present()
 end
 
 love.update = function(delta)
