@@ -6,11 +6,12 @@ if bd == nil then bd = {} end
 
 --- @class bd.SystemArchitecture
 bd.SystemArchitecture = meta.enum("SystemArchitexture", {
-    WINDOWS_AMD = "WINDOWS_AMD",
-    WINDOWS_ARM = "WINDOWS_ARM",
-    LINUX_AMD = "LINUX_AMD",
-    LINUX_ARM = "LINUX_ARM",
-    UNSUPPORTED = "UNSUPPORTED"
+    WINDOWS_AMD = "windows_amd",
+    WINDOWS_ARM = "windows_arm",
+    LINUX_AMD = "linux_amd",
+    LINUX_ARM = "linux_arm",
+    MAC_OS = "mac_os",
+    UNSUPPORTED = "unsupported"
 })
 
 bd.settings = {
@@ -19,11 +20,13 @@ bd.settings = {
     workspace_directory = "build/workspace",
     executable_directory = "build/executables",
     dependency_directory = "dependencies",
+    love_file_name = "chroma_drift",
     module_names = {
         "common",
         "menu",
         "physics",
         "overworld",
+        "assets"
     },
 
     header_names = {
@@ -33,13 +36,13 @@ bd.settings = {
     },
 
     executable_download_link_prefix = "https://nightly.link/love2d/love/actions/runs",
-    architecture_to_download_link = {
+    architecture_to_filename = {
         [bd.SystemArchitecture.WINDOWS_ARM] = "love-windows-arm64.zip",
         [bd.SystemArchitecture.WINDOWS_AMD] = "love-windows-x64.zip",
         [bd.SystemArchitecture.LINUX_ARM] = "love-linux-ARM64.AppImage.zip",
-        [bd.SystemArchitecture.LINUX_AMD] = "love-linux-X64.AppImage.zip"
+        [bd.SystemArchitecture.LINUX_AMD] = "love-linux-X64.AppImage.zip",
+        [bd.SystemArchitecture.MAC_OS] = "love-macos.zip"
     },
-
 }
 
 --- @brief
@@ -208,35 +211,35 @@ do
 end
 
 --- @brief
-function bd.compile_file(source_file_path, destination_file_path)
+function bd.compile(source_file_path, destination_file_path)
     meta.assert(source_file_path, "String", destination_file_path, "String")
 
     source_file_path = bd.normalize_path(source_file_path)
     destination_file_path = bd.normalize_path(destination_file_path)
 
     if not bd.file_exists(source_file_path) then
-        rt.error("In bd.compile_file: object at `" .. source_file_path .. "` does not exist")
+        rt.error("In bd.compile: object at `" .. source_file_path .. "` does not exist")
     end
 
     if not bd.is_file(source_file_path) then
-        rt.error("In bd.compile_file: object at `" .. source_file_path .. "` is not a file")
+        rt.error("In bd.compile: object at `" .. source_file_path .. "` is not a file")
     end
 
     local file_data, read_error_maybe = love.filesystem.read(source_file_path)
     if not file_data then
-        rt.error("In bd.compile_file: unable to read file at `" .. source_file_path .. "`:" .. read_error_maybe)
+        rt.error("In bd.compile: unable to read file at `" .. source_file_path .. "`:" .. read_error_maybe)
     end
 
     -- load chunk
     local compiled_function, compile_error = _G.loadstring(file_data, "@" .. source_file_path)
     if compiled_function == nil then
-        rt.error("In bd.compile_file: unable to apply loadstring to content of file at  `" .. source_file_path .. "`: " .. compile_error)
+        rt.error("In bd.compile: unable to apply loadstring to content of file at  `" .. source_file_path .. "`: " .. compile_error)
     end
 
     -- compile to bytecade
     local bytecode = string.dump(compiled_function)
     if bytecode == nil then
-        rt.error("In bd.compile_file: failed to generate bytecode for `" .. source_file_path .. "`")
+        rt.error("In bd.compile: failed to generate bytecode for `" .. source_file_path .. "`")
     end
 
     -- Replace file_data with the bytecode for writing
@@ -250,11 +253,11 @@ function bd.compile_file(source_file_path, destination_file_path)
 
     local write_success, write_error_maybe = love.filesystem.write(destination_file_path, file_data)
     if not write_success then
-        rt.error("In bd.compile_file: unable to copy file from `" .. source_file_path .. "` to `" .. destination_file_path .. "`: " .. write_error_maybe)
+        rt.error("In bd.compile: unable to copy file from `" .. source_file_path .. "` to `" .. destination_file_path .. "`: " .. write_error_maybe)
     end
 end
 
---- @brief
+--- @brief copy a single file
 function bd.copy_file(source_file_path, destination_file_path)
     meta.assert(source_file_path, "String", destination_file_path, "String")
 
@@ -262,7 +265,7 @@ function bd.copy_file(source_file_path, destination_file_path)
     destination_file_path = bd.normalize_path(destination_file_path)
 
     if not bd.file_exists(source_file_path) then
-        rt.error("In bd.copy_file: object at `" .. source_file_path .. "` does not exist")
+        rt.error("In bd.copy_file: file at `" .. source_file_path .. "` does not exist")
     end
 
     if not bd.is_file(source_file_path) then
@@ -281,39 +284,182 @@ function bd.copy_file(source_file_path, destination_file_path)
 
     local write_success, write_error_maybe = love.filesystem.write(destination_file_path, file_data)
     if not write_success then
-        rt.error("In bd.copy_file: unable to copy file from `" .. source_file_path .. "` to `" .. destination_file_path .. "`: " .. write_error_maybe)
+        rt.error("In bd.copy_file: unable to write file to `" .. destination_file_path .. "`: " .. write_error_maybe)
     end
 end
 
-do
-    local _env_to_architecture = {
-        ["AMD64"] = bd.SystemArchitecture.WINDOWS_AMD,
-        ["ARM64"] = bd.SystemArchitecture.WINDOWS_ARM,
-    }
+--- @brief remove a single file
+function bd.remove_file(file_path)
+    meta.assert(file_path, "String")
 
-    --- @brief
-    function bd.get_system_architecture()
-        if love.system.getOS() == "windows" then
-            local architecture = _env_to_architecture[os.getenv("PROCESSOR_ARCHITECTURE")]
-            if architecture == nil then
-                return bd.SystemArchitecture.UNSUPPORTED
-            else
-                return architecture
-            end
-        else
-            rt.error("TODO")
+    file_path = bd.normalize_path(file_path)
+
+    if not bd.file_exists(file_path) then
+        rt.error("In bd.remove_file: file at `" .. file_path .. "` does not exist")
+    end
+
+    if not bd.is_file(file_path) then
+        rt.error("In bd.remove_file: object at `" .. file_path .. "` is not a file")
+    end
+
+    local remove_success = love.filesystem.remove(file_path)
+    if not remove_success then
+        rt.error("In bd.remove_file: unable to remove file at `" .. file_path .. "`")
+    end
+end
+
+--- @brief recursively copy a directory and all its contents
+function bd.copy_directory(source_directory_path, destination_directory_path)
+    meta.assert(source_directory_path, "String", destination_directory_path, "String")
+
+    source_directory_path = bd.normalize_path(source_directory_path)
+    destination_directory_path = bd.normalize_path(destination_directory_path)
+
+    if not bd.file_exists(source_directory_path) then
+        rt.error("In bd.copy_directory: directory at `" .. source_directory_path .. "` does not exist")
+    end
+
+    if not bd.is_directory(source_directory_path) then
+        rt.error("In bd.copy_directory: object at `" .. source_directory_path .. "` is not a directory")
+    end
+
+    if not bd.file_exists(destination_directory_path) then
+        bd.create_directory(destination_directory_path)
+    end
+
+    local items = love.filesystem.getDirectoryItems(source_directory_path)
+    for item in values(items) do
+        local source_item = source_directory_path .. "/" .. item
+        local destination_item = destination_directory_path .. "/" .. item
+
+        if bd.is_file(source_item) then
+            bd.copy_file(source_item, destination_item)
+        elseif bd.is_directory(source_item) then
+            bd.copy_directory(source_item, destination_item)
         end
     end
 end
 
-function bd.unzip(path)
-    local zip = require "dependencies.love-zip.love-zip"
-    zip:decompress(path)
+--- @brief recursively remove a directory and all its contents
+function bd.remove_directory(directory_path)
+    meta.assert(directory_path, "String")
+
+    directory_path = bd.normalize_path(directory_path)
+
+    if not bd.file_exists(directory_path) then
+        rt.error("In bd.remove_directory: directory at `" .. directory_path .. "` does not exist")
+    end
+
+    if not bd.is_directory(directory_path) then
+        rt.error("In bd.remove_directory: object at `" .. directory_path .. "` is not a directory")
+    end
+
+    local items = love.filesystem.getDirectoryItems(directory_path)
+    for item in values(items) do
+        local item_path = directory_path .. "/" .. item
+
+        if bd.is_file(item_path) then
+            bd.remove_file(item_path)
+        elseif bd.is_directory(item_path) then
+            bd.remove_directory(item_path)
+        end
+    end
+
+    local remove_success = love.filesystem.remove(directory_path)
+    if not remove_success then
+        rt.error("In bd.remove_directory: unable to remove directory at `" .. directory_path .. "`")
+    end
 end
 
+--- @brief
+function bd.copy(source_path, destination_path)
+    meta.assert(source_path, "String", destination_path, "String")
+    if bd.is_directory(source_path) then
+        bd.copy_directory(source_path, destination_path)
+    elseif bd.is_file(source_path) then
+        bd.copy_file(source_path, destination_path)
+    else
+        rt.error("In bd.copy: object at `" .. source_path .. "` is not a file or directory")
+    end
+end
+
+--- @brief
+function bd.remove(source_path, destination_path)
+    meta.assert(source_path, "String", destination_path, "String")
+    if bd.is_directory(source_path) then
+        bd.remove_directory(source_path, destination_path)
+    elseif bd.is_file(source_path) then
+        bd.remove_file(source_path, destination_path)
+    else
+        rt.error("In bd.remove: object at `" .. source_path .. "` is not a file or directory")
+    end
+end
+
+--- @brief
+function bd.move(source_path, destination_path)
+    meta.assert(source_path, "String", destination_path, "String")
+
+    source_path = bd.normalize_path(source_path)
+    destination_path = bd.normalize_path(destination_path)
+
+    if not bd.file_exists(source_path) then
+        rt.error("In bd.move: object at `" .. source_path .. "` does not exist")
+    end
+
+    if bd.is_file(source_path) then
+        -- if file, copy then remove original
+        bd.copy_file(source_path, destination_path)
+        bd.remove_file(source_path)
+        -- if directory, copy all files recursively, then remove source
+    elseif bd.is_directory(source_path) then
+        bd.copy_directory(source_path, destination_path)
+        bd.remove_directory(source_path)
+    else
+        rt.error("In bd.move: object at `" .. source_path .. "` is neither a file nor a directory")
+    end
+end
+
+print = println
+
+do
+    require "dependencies.love-build.libs.love-zip"
+    local zip = love.zip
+    love.zip = nil
+    local _instance = zip:newZip()
+    function bd.unzip(from_path, to_path)
+        local success, error_maybe = _instance:decompress(from_path, to_path)
+        if success == false then
+            rt.error("In bd.unzip: error when unzipping file `" .. from_path .. "`: " .. error_maybe)
+        end
+    end
+
+    function bd.zip(from_path, to_path)
+        local success, error_maybe = _instance:compress(from_path, to_path)
+        if success == false then
+            rt.error("In bd.zip: error when zipping file `" .. from_path .. "`: " .. error_maybe)
+        end
+    end
+end
+
+do
+    require "dependencies.love-build.libs.love-squashfs"
+    local squashfs = love.squashfs
+    love.squashfs = nil
+
+    function bd.unsquash(from_path, to_path)
+        local instance = squashfs:newSquashFS(true)
+        instance:_stripAppImage(from_path, to_path)
+        local success, error_maybe = instance:decompress(from_path, to_path)
+        if success == false then
+            rt.error("In bd.unsquash: error for file `" .. from_path .. "`: " .. error_maybe)
+        end
+    end
+end
+
+--- @brief downloads executables into build/executables
 --- @param github_actions_run_id Number run id of love2d github actions repo
 --- @param ... bd.SystemArchitecture
-function bd.download_love_executables(github_actions_run_id, ...)
+function bd._download_love_executables(github_actions_run_id, ...)
     local executable_prefix = bd.settings.executable_directory
     if bd.file_exists(executable_prefix) then
         local success = love.filesystem.remove(executable_prefix)
@@ -330,7 +476,7 @@ function bd.download_love_executables(github_actions_run_id, ...)
         local download_link
 
         local prefix = bd.settings.executable_download_link_prefix .. "/" .. github_actions_run_id
-        local postfix = bd.settings.architecture_to_download_link[architecture]
+        local postfix = bd.settings.architecture_to_filename[architecture]
         if postfix == nil then
             rt.error("In bd.download_love_executable: unsupported system architecture: `" .. architecture .. "`")
         end
@@ -349,63 +495,159 @@ function bd.download_love_executables(github_actions_run_id, ...)
     end
 end
 
+function bd._unzip_windows(target_path)
+    local executable_prefix = bd.settings.executable_directory
+    local workspace_prefix = bd.settings.workspace_directory
+
+    local filename_name_to_architecture = {}
+    for architecture in values(meta.instances(bd.SystemArchitecture)) do
+        if architecture ~= bd.SystemArchitecture.UNSUPPORTED then
+            local filename = bd.settings.architecture_to_filename[architecture]
+            filename_name_to_architecture[filename] = architecture
+        end
+    end
+
+    local _zip_pattern = "%.zip$"
+
+    local returned_paths = {}
+
+    -- iterate all files in /build/executables
+    for filename in values(love.filesystem.getDirectoryItems(executable_prefix)) do
+        --[[
+        For windows, the love executable zip contains
+            <outer>.zip
+                <executable>.exe
+                <inner>.zip
+                    <executable>.exe
+                    <executable>c.exe
+                    <libraries>.dll
+                    ...
+
+        It will be exported as
+        <architecture_id>
+            <executable>.exe
+            <executable>c.exe
+            <libraries>.dll
+            ...
+        ]]--
+
+
+        if string.match(filename, "windows") ~= nil  and string.match(filename, _zip_pattern) ~= nil then
+            -- create folder to unzip into
+            local to_name = filename_name_to_architecture[filename]
+            local result_path = bd.join_path(target_path, to_name)
+            bd.create_directory(result_path)
+
+            -- unzip outer
+            local from_path = bd.join_path(executable_prefix, filename)
+            local to_path =  string.gsub(from_path, _zip_pattern, "")
+            bd.unzip(from_path, to_path)
+
+            -- find inner zip, unzip, move contents to executable directory
+            for inner_filename in values(love.filesystem.getDirectoryItems(to_path)) do
+
+                if string.match(inner_filename, _zip_pattern) ~= nil then
+                    local inner_from_path =  bd.join_path(to_path, inner_filename)
+                    bd.unzip(inner_from_path, to_path)
+
+                    local inner_to_path = string.gsub(inner_from_path, _zip_pattern, "")
+                    for inner_inner_filename in values(love.filesystem.getDirectoryItems(inner_to_path)) do
+                        bd.copy(
+                            bd.join_path(inner_to_path, inner_inner_filename),
+                            bd.join_path(result_path, inner_inner_filename)
+                        )
+                    end
+                end
+            end
+
+            -- cleanup
+            bd.remove_directory(to_path)
+        end
+    end
+end
+
 do
     local _is_lua_file = function(path)
         local name = string.match(path, "/([^/]+)%.lua$")
-        return name ~= nil and name ~= "conf" -- exclude conf.lua
+        return name ~= nil-- and name ~= "conf" -- exclude conf.lua
     end
 
     --- @brief
-    function bd.build(architecture, github_actions_run_id)
+    function bd.build()
         local build_prefix = bd.settings.build_directory_mount_point
-
-        if architecture == bd.SystemArchitecture.UNSUPPORTED then
-            rt.error("In bd.build: cannot build for unsupported system architecture")
-        end
-        meta.assert_enum_value(architecture, bd.SystemArchitecture, 1)
-        meta.assert_typeof(github_actions_run_id, "Number", 2)
 
         -- create workspace directory
         local workspace_prefix = bd.settings.workspace_directory
-        if bd.file_exists(workspace_prefix) then
-            local success = love.filesystem.remove(workspace_prefix)
-            if not success then
-                rt.warning("In bd.build: unable to remove folder at `" .. workspace_prefix .. "`")
-            end
-        end
-
+        bd.remove_directory(workspace_prefix)
         bd.create_directory(workspace_prefix)
+
+        local to_zip_path = bd.join_path(workspace_prefix, bd.settings.love_file_name)
+        bd.create_directory(bd.join_path(workspace_prefix, bd.settings.love_file_name))
 
         -- copy all modules into workspace
         for module_name in values(bd.settings.module_names) do
             bd.apply_recursively(module_name, function(from_path)
                 -- check if filename has ~ prefix
                 if string.match(from_path, "[\\/](~[^\\/]*)$") == nil then
-                    local destination_path = bd.join_path(workspace_prefix, from_path)
+                    local destination_path = bd.join_path(to_zip_path, from_path)
                     if _is_lua_file(from_path) then
                         -- if lua, compile to bytecode
-                        bd.compile_file(from_path, destination_path)
+                        bd.compile(from_path, destination_path)
                     else
-                        bd.copy_file(from_path, destination_path)
+                        bd.copy(from_path, destination_path)
                     end
                 end
             end)
         end
 
+        local main_lua_seen = false
+        local conf_lua_seen = false
+
         -- copy headers
         for file in values(bd.settings.header_names) do
-            local destination_path = bd.join_path(workspace_prefix, file)
+            local destination_path = bd.join_path(to_zip_path, file)
+            if file == "main.lua" then main_lua_seen = true end
+            if file == "conf.lua" then conf_lua_seen = true end
+
             if _is_lua_file(file) then
-                bd.compile_file(file, destination_path)
+                bd.compile(file, destination_path)
             else
-                bd.copy_file(file, destination_path)
+                bd.copy(file, destination_path)
             end
         end
 
+        if not main_lua_seen then
+            rt.critical("In bd.build: no `main.lua` is present in top level folder")
+        end
+
+        if not conf_lua_seen then
+            rt.critical("In bd.build: no `conf.lua` is present in top level folder")
+        end
+
         -- copy dependencies unaltered
-        bd.apply_recursively(bd.settings.dependency_directory, function(from_path)
-            bd.copy_file(from_path, bd.join_path(workspace_prefix, from_path))
+        bd.apply_recursively(bd.settings.dependency_directory, function(file)
+            local to_path = bd.join_path(to_zip_path, file)
+            if _is_lua_file(file) then
+                bd.compile(file, to_path)
+            else
+                bd.copy(file, to_path)
+            end
         end)
+
+        -- zip into .love file
+        bd.zip(to_zip_path, to_zip_path .. ".love")
+
+        -- delete pre-zip folder
+        bd.remove_directory(to_zip_path)
+
+        -- wrap with executable
+        if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
+            bd._unzip_windows()
+        elseif bd.get_operating_system() == bd.OperatingSystem.LINUX then
+
+        elseif bd.get_operating_system() == bd.OperatingSystem.MAC_OS then
+
+        end
     end
 end
 
