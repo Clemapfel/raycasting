@@ -6,12 +6,12 @@ require "common.label"
 ow.CoinParticle = meta.class("CoinParticle")
 
 local _shader = nil
-
 local _font = rt.Font("assets/fonts/Baloo2/Baloo2-Bold.ttf")
 
 --- @brief
 function ow.CoinParticle:instantiate(radius, is_outline)
     if _shader == nil then _shader = rt.Shader("common/player_body_core.glsl") end
+    if is_outline == nil then is_outline = false end
 
     self._elapsed_offset = rt.random.number(0, 100)
     self._radius = radius * (1 / rt.settings.player.bubble_radius_factor)
@@ -35,7 +35,9 @@ function ow.CoinParticle:instantiate(radius, is_outline)
         style = rt.FontStyle.REGULAR
     })
 
-    local n_points = 16 * rt.get_pixel_scale()
+    local n_points = math.max(16, 16 * radius / 16)
+    self._line_width = math.max(radius / 32, 0.5)
+
     for angle = 0, 2 * math.pi, 2 * math.pi / n_points do
         table.insert(self._core_outline, math.cos(angle) * self._radius)
         table.insert(self._core_outline, math.sin(angle) * self._radius)
@@ -85,24 +87,25 @@ function ow.CoinParticle:draw(x, y)
     local black_r, black_g, black_b, black_a = rt.Palette.BLACK:unpack()
     local white_r, white_g, white_b, white_a = rt.Palette.FOREGROUND:unpack()
     if self._is_outline then
-        love.graphics.setLineWidth(2)
+        love.graphics.setLineWidth(self._line_width + 2)
         love.graphics.setColor(black_r, black_g, black_b, self._opacity)
         for outline in values(self._dotted_outlines) do
             love.graphics.line(outline)
         end
 
-        love.graphics.setLineWidth(1)
+        love.graphics.setLineWidth(self._line_width)
         love.graphics.setColor(white_r, white_g, white_b, self._opacity)
         for outline in values(self._dotted_outlines) do
             love.graphics.line(outline)
         end
     else
-        love.graphics.setLineWidth(0.5)
+        love.graphics.setLineWidth(self._line_width)
         love.graphics.setColor(black_r, black_g, black_b, self._opacity)
         love.graphics.circle("fill", 0, 0, self._body_radius)
 
         local r, g, b, a = table.unpack(self._color)
         love.graphics.setColor(r, g, b, a * self._opacity)
+
         love.graphics.line(self._body_outline)
 
         self:_draw_core()

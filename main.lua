@@ -34,12 +34,6 @@ bd._download_love_executables(17011208703,
 --require "build.build"
 --bd.build()
 
-dbg(love.filesystem.getAppdataDirectory())
-require "dependencies.zip.zip"
-zip.decompress("build/executables/love-windows-x64.zip", "build/executables/temp")
-zip.compress("/build/executables/temp", "/build/executables/temp.zip")
-exit(0)
-
 local present = function()
     local coins = {}
     for i = 1, 50 do

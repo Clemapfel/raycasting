@@ -23,6 +23,11 @@ bd.settings = {
     love_file_name = "chroma_drift",
     love_file_name_extension = ".love",
 
+    favicon_directory = "build/favicon",
+    favicon_file_name = "favicon",
+    favicon_sizes = { 16 , 24, 32, 48, 64, 72, 80, 96, 128, 256 },
+    favicon_padding = 2, -- px
+
     module_names = {
         "common",
         "menu",
@@ -688,6 +693,48 @@ do
             rt.error("In bd.build: macOS build currently unimplemented")
         end
     end
+end
+
+--- @brief
+function bd.generate_favicon()
+    love.graphics.push("all")
+    love.graphics.reset()
+
+    local padding = bd.settings.favicon_padding
+    local directory = bd.settings.favicon_directory
+    local name = bd.settings.favicon_file_name
+    local hue = bd.settings.favicon_hue
+
+    if bd.file_exists(directory) then
+        bd.remove_directory(directory)
+    end
+    bd.create_directory(directory)
+
+    require "common.render_texture"
+    require "common.image"
+    require "overworld.coin_particle"
+
+    local n = #bd.settings.favicon_sizes
+    local hue_offset = 0.2
+
+    local workspace = rt.RenderTexture(256, 256)
+
+    for i, size in ipairs(bd.settings.favicon_sizes) do
+        local canvas = rt.RenderTexture(size, size, 8)
+        local radius = math.ceil(size - 2 * padding) / 2
+        local position = math.floor(0.5 * size)
+        local particle = ow.CoinParticle(radius)
+        particle:set_hue(math.fract(hue_offset + (i - 1) / n))
+
+        canvas:bind()
+        particle:draw(position, position)
+        canvas:unbind()
+
+        local image = canvas:as_image()
+        image:save_to(bd.join_path(directory, name .. "_" .. tostring(size) .. "x" .. tostring(size) .. ".png"))
+    end
+
+    love.graphics.pop()
 end
 
 -- mount build directory

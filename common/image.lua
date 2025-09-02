@@ -47,3 +47,8 @@ end
 function rt.Image:get_height()
     return select(2, self:get_size())
 end
+
+--- @brief
+function rt.Image:save_to(path)
+    self._native:encode("png", path)
+end
