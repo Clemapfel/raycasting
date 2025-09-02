@@ -38,6 +38,8 @@ function ow.CoinParticle:instantiate(radius, is_outline)
     local n_points = math.max(16, 16 * radius / 16)
     self._line_width = math.max(radius / 32, 0.5)
 
+    local floor = math.floor
+
     for angle = 0, 2 * math.pi, 2 * math.pi / n_points do
         table.insert(self._core_outline, math.cos(angle) * self._radius)
         table.insert(self._core_outline, math.sin(angle) * self._radius)

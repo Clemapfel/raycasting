@@ -34,6 +34,10 @@ bd._download_love_executables(17011208703,
 --require "build.build"
 --bd.build()
 
+--require "build.build"
+--bd.generate_favicon()
+--exit(0)
+
 local present = function()
     local coins = {}
     for i = 1, 50 do
@@ -111,7 +115,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", true)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)

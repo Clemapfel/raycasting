@@ -705,10 +705,9 @@ function bd.generate_favicon()
     local name = bd.settings.favicon_file_name
     local hue = bd.settings.favicon_hue
 
-    if bd.file_exists(directory) then
-        bd.remove_directory(directory)
+    if not bd.file_exists(directory) then
+        bd.create_directory(directory)
     end
-    bd.create_directory(directory)
 
     require "common.render_texture"
     require "common.image"
@@ -717,7 +716,7 @@ function bd.generate_favicon()
     local n = #bd.settings.favicon_sizes
     local hue_offset = 0.2
 
-    local workspace = rt.RenderTexture(256, 256)
+    love.graphics.setLineStyle("smooth")
 
     for i, size in ipairs(bd.settings.favicon_sizes) do
         local canvas = rt.RenderTexture(size, size, 8)
