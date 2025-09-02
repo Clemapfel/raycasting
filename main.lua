@@ -33,7 +33,6 @@ bd._download_love_executables(17011208703,
 
 require "build.build"
 bd.build()
-exit(0)
 
 local present = function()
     local coins = {}

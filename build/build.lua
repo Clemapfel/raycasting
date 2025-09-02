@@ -21,6 +21,8 @@ bd.settings = {
     executable_directory = "build/executables",
     dependency_directory = "dependencies",
     love_file_name = "chroma_drift",
+    love_file_name_extension = ".love",
+
     module_names = {
         "common",
         "menu",
@@ -36,13 +38,21 @@ bd.settings = {
     },
 
     executable_download_link_prefix = "https://nightly.link/love2d/love/actions/runs",
-    architecture_to_filename = {
+    architecture_to_input_filename = {
         [bd.SystemArchitecture.WINDOWS_ARM] = "love-windows-arm64.zip",
         [bd.SystemArchitecture.WINDOWS_AMD] = "love-windows-x64.zip",
         [bd.SystemArchitecture.LINUX_ARM] = "love-linux-ARM64.AppImage.zip",
         [bd.SystemArchitecture.LINUX_AMD] = "love-linux-X64.AppImage.zip",
         [bd.SystemArchitecture.MAC_OS] = "love-macos.zip"
     },
+    
+    architecture_to_output_filename = {
+        [bd.SystemArchitecture.WINDOWS_ARM] = "windows_x86_64",
+        [bd.SystemArchitecture.WINDOWS_AMD] = "windows_arm64",
+        [bd.SystemArchitecture.LINUX_ARM] = "linux_x64_64",
+        [bd.SystemArchitecture.LINUX_AMD] = "linux_arm64",
+        [bd.SystemArchitecture.MAC_OS] = "mac_os"
+    }
 }
 
 --- @brief
@@ -419,22 +429,27 @@ function bd.move(source_path, destination_path)
     end
 end
 
-print = println
-
 do
     require "dependencies.love-build.libs.love-zip"
     local zip = love.zip
     love.zip = nil
     local _instance = zip:newZip()
     function bd.unzip(from_path, to_path)
+        local before = _G.print; _G.print = function() end -- mute love-build logging
         local success, error_maybe = _instance:decompress(from_path, to_path)
+        _G.print = before
+
         if success == false then
             rt.error("In bd.unzip: error when unzipping file `" .. from_path .. "`: " .. error_maybe)
         end
+
     end
 
     function bd.zip(from_path, to_path)
+        local before = _G.print; _G.print = function() end -- mute love-build logging
         local success, error_maybe = _instance:compress(from_path, to_path)
+        _G.print = before
+
         if success == false then
             rt.error("In bd.zip: error when zipping file `" .. from_path .. "`: " .. error_maybe)
         end
@@ -476,7 +491,7 @@ function bd._download_love_executables(github_actions_run_id, ...)
         local download_link
 
         local prefix = bd.settings.executable_download_link_prefix .. "/" .. github_actions_run_id
-        local postfix = bd.settings.architecture_to_filename[architecture]
+        local postfix = bd.settings.architecture_to_input_filename[architecture]
         if postfix == nil then
             rt.error("In bd.download_love_executable: unsupported system architecture: `" .. architecture .. "`")
         end
@@ -495,14 +510,14 @@ function bd._download_love_executables(github_actions_run_id, ...)
     end
 end
 
-function bd._unzip_windows(target_path)
+function bd._unzip_windows(executable_path, target_path)
     local executable_prefix = bd.settings.executable_directory
     local workspace_prefix = bd.settings.workspace_directory
 
     local filename_name_to_architecture = {}
     for architecture in values(meta.instances(bd.SystemArchitecture)) do
         if architecture ~= bd.SystemArchitecture.UNSUPPORTED then
-            local filename = bd.settings.architecture_to_filename[architecture]
+            local filename = bd.settings.architecture_to_input_filename[architecture]
             filename_name_to_architecture[filename] = architecture
         end
     end
@@ -572,6 +587,8 @@ do
         return name ~= nil-- and name ~= "conf" -- exclude conf.lua
     end
 
+    local _zip_pattern = "%.zip$"
+
     --- @brief
     function bd.build()
         local build_prefix = bd.settings.build_directory_mount_point
@@ -635,18 +652,67 @@ do
         end)
 
         -- zip into .love file
-        bd.zip(to_zip_path, to_zip_path .. ".love")
+        bd.zip(to_zip_path, to_zip_path .. bd.settings.love_file_name_extension)
 
         -- delete pre-zip folder
         bd.remove_directory(to_zip_path)
 
-        -- wrap with executable
+        -- iterate executables
         if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
-            bd._unzip_windows()
+            local executable_directory = bd.settings.executable_directory
+            local in_names = bd.settings.architecture_to_input_filename
+            local out_names = bd.settings.architecture_to_output_filename
+
+            for architecture in range(
+                bd.SystemArchitecture.WINDOWS_ARM,
+                bd.SystemArchitecture.WINDOWS_AMD
+            ) do
+                local in_name = in_names[architecture]
+                local out_name = bd.join_path(workspace_prefix, out_names[architecture])
+
+                -- create output dir in workspace/<architecture>
+                bd.create_directory(out_name)
+
+                -- unzip executables/<outer>.zip into executables/<outer>
+                local to_unzip_from = bd.join_path(executable_directory, in_name)
+                local to_unzip_to = string.gsub(to_unzip_from, _zip_pattern, "")
+
+                bd.unzip(to_unzip_from, to_unzip_to)
+
+                -- find inner zip dir
+                for inner_filename in values(love.filesystem.getDirectoryItems(to_unzip_to)) do
+
+                    -- unzip executables/<outer>/<inner>.zip into executables/<outer>/<inner>
+                    if string.match(inner_filename, _zip_pattern) ~= nil then
+                        local to_unzip_inner_from =  bd.join_path(to_unzip_to, inner_filename)
+                        local to_unzip_inner_to = string.gsub(to_unzip_inner_from, _zip_pattern, "")
+
+                        bd.unzip(to_unzip_inner_from, to_unzip_inner_to)
+
+                        -- copy all files from executables/<outer>/<inner> into workspace/<architecture>
+                        for inner_inner_filename in values(love.filesystem.getDirectoryItems(to_unzip_inner_to)) do
+                            bd.copy(
+                                bd.join_path(to_unzip_inner_to, inner_inner_filename),
+                                out_name
+                            )
+                        end
+                    end
+                end
+
+                -- cleanup executables/<outer>
+                bd.remove_directory(to_unzip_to)
+
+                -- move .love into output folder
+                local love_file_name = bd.settings.love_file_name .. bd.settings.love_file_name_extension
+                bd.copy(
+                    bd.join_path(workspace_prefix, love_file_name),
+                    bd.join_path(out_name, love_file_name)
+                )
+            end
         elseif bd.get_operating_system() == bd.OperatingSystem.LINUX then
-
+            rt.error("In bd.build: linux build currently unimplemented")
         elseif bd.get_operating_system() == bd.OperatingSystem.MAC_OS then
-
+            rt.error("In bd.build: macOS build currently unimplemented")
         end
     end
 end
