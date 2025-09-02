@@ -176,7 +176,7 @@ function bd.mount_path(path, mount_point)
         path,
         mount_point,
         "readwrite",
-        true
+        false
     ) then
         rt.error("In bd.mount_path: unable to mount path at `" .. path .. "`")
     end
@@ -426,33 +426,6 @@ function bd.move(source_path, destination_path)
         bd.remove_directory(source_path)
     else
         rt.error("In bd.move: object at `" .. source_path .. "` is neither a file nor a directory")
-    end
-end
-
-do
-    require "dependencies.love-build.libs.love-zip"
-    local zip = love.zip
-    love.zip = nil
-    local _instance = zip:newZip()
-    function bd.unzip(from_path, to_path)
-        local before = _G.print; _G.print = function() end -- mute love-build logging
-        local success, error_maybe = _instance:decompress(from_path, to_path)
-        _G.print = before
-
-        if success == false then
-            rt.error("In bd.unzip: error when unzipping file `" .. from_path .. "`: " .. error_maybe)
-        end
-
-    end
-
-    function bd.zip(from_path, to_path)
-        local before = _G.print; _G.print = function() end -- mute love-build logging
-        local success, error_maybe = _instance:compress(from_path, to_path)
-        _G.print = before
-
-        if success == false then
-            rt.error("In bd.zip: error when zipping file `" .. from_path .. "`: " .. error_maybe)
-        end
     end
 end
 
@@ -720,7 +693,7 @@ end
 -- mount build directory
 do
     local build_prefix = bd.settings.build_directory_mount_point
-    local source_prefix = love.filesystem.getSource()
+    local source_prefix = bd.normalize_path(love.filesystem.getSource())
     local build_directory_path = bd.join_path(source_prefix, bd.settings.build_directory)
     bd.mount_path(build_directory_path, build_prefix)
 
