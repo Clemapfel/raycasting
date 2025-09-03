@@ -1,0 +1,1 @@
+./love/linux/AppRun main.lua

@@ -396,7 +396,7 @@ function bd.remove_directory(directory_path)
 
     local remove_success = love.filesystem.remove(directory_path)
     if not remove_success then
-        rt.error("In bd.remove_directory: unable to remove directory at `" .. directory_path .. "`")
+        rt.warning("In bd.remove_directory: unable to remove directory at `" .. directory_path .. "`")
     end
 end
 
@@ -503,9 +503,12 @@ do
     end
 
     local _zip_pattern = "%.zip$"
+    local _appimage_pattern = "%.[aA]pp[iI]mage$"
+    local _squashfs_root_pattern = "squashfs-root"
 
     --- @brief
-    function bd.build()
+    function bd.build(rebuild_love_file)
+        if rebuild_love_file == nil then rebuild_love_file = true end
         rt.log("starting build for operating system `" .. bd.get_operating_system() .. "`")
 
         local build_prefix = bd.settings.build_directory_mount_point
@@ -524,78 +527,83 @@ do
 
         rt.log("creating .love file")
 
-        local to_zip_path = bd.join_path(workspace_prefix, bd.settings.love_file_name)
-        bd.create_directory(bd.join_path(workspace_prefix, bd.settings.love_file_name))
-
-        -- copy all modules into workspace
-        for module_name in values(bd.settings.module_names) do
-            rt.log("exporting `/" .. module_name .. "`")
-            bd.apply_recursively(module_name, function(from_path)
-                -- check if filename has ~ prefix
-                if string.match(from_path, "[\\/](~[^\\/]*)$") == nil then
-                    local destination_path = bd.join_path(to_zip_path, from_path)
-                    if _is_lua_file(from_path) then
-                        -- if lua, compile to bytecode
-                        bd.compile(from_path, destination_path)
-                    else
-                        bd.copy(from_path, destination_path)
-                    end
-                end
-            end)
-        end
-
-        local main_lua_seen = false
-        local conf_lua_seen = false
-
-        -- copy headers
-        for file in values(bd.settings.header_names) do
-            rt.log("exporting `/" .. file .. "`")
-
-            local destination_path = bd.join_path(to_zip_path, file)
-            if file == "main.lua" then main_lua_seen = true end
-            if file == "conf.lua" then conf_lua_seen = true end
-
-            if _is_lua_file(file) then
-                bd.compile(file, destination_path)
-            else
-                bd.copy(file, destination_path)
-            end
-        end
-
-        if not main_lua_seen then
-            rt.critical("In bd.build: no `main.lua` is present in top level folder")
-        end
-
-        if not conf_lua_seen then
-            rt.critical("In bd.build: no `conf.lua` is present in top level folder")
-        end
-
-        -- copy dependencies
-        for dependency_name in values(bd.settings.dependency_names) do
-            local path = bd.join_path(bd.settings.dependency_directory, dependency_name)
-            rt.log("exporting `/" .. path .. "`")
-
-            bd.apply_recursively(path, function(file)
-                local to_path =  bd.join_path(to_zip_path, file)
-                bd.copy(file, to_path)
-            end)
-        end
-
         require "dependencies.zip.zip"
-
-        -- zip into .love file
+        local to_zip_path = bd.join_path(workspace_prefix, bd.settings.love_file_name)
         local love_file_path = to_zip_path .. bd.settings.love_file_name_extension
-        zip.compress(to_zip_path, love_file_path)
 
-        -- delete pre-zip folder
-        bd.remove_directory(to_zip_path)
+        if rebuild_love_file == true then
+
+            bd.create_directory(bd.join_path(workspace_prefix, bd.settings.love_file_name))
+
+            -- copy all modules into workspace
+            for module_name in values(bd.settings.module_names) do
+                rt.log("exporting `/" .. module_name .. "`")
+                bd.apply_recursively(module_name, function(from_path)
+                    -- check if filename has ~ prefix
+                    if string.match(from_path, "[\\/](~[^\\/]*)$") == nil then
+                        local destination_path = bd.join_path(to_zip_path, from_path)
+                        if _is_lua_file(from_path) then
+                            -- if lua, compile to bytecode
+                            bd.compile(from_path, destination_path)
+                        else
+                            bd.copy(from_path, destination_path)
+                        end
+                    end
+                end)
+            end
+
+            local main_lua_seen = false
+            local conf_lua_seen = false
+
+            -- copy headers
+            for file in values(bd.settings.header_names) do
+                rt.log("exporting `/" .. file .. "`")
+
+                local destination_path = bd.join_path(to_zip_path, file)
+                if file == "main.lua" then main_lua_seen = true end
+                if file == "conf.lua" then conf_lua_seen = true end
+
+                if _is_lua_file(file) then
+                    bd.compile(file, destination_path)
+                else
+                    bd.copy(file, destination_path)
+                end
+            end
+
+            if not main_lua_seen then
+                rt.critical("In bd.build: no `main.lua` is present in top level folder")
+            end
+
+            if not conf_lua_seen then
+                rt.critical("In bd.build: no `conf.lua` is present in top level folder")
+            end
+
+            -- copy dependencies
+            for dependency_name in values(bd.settings.dependency_names) do
+                local path = bd.join_path(bd.settings.dependency_directory, dependency_name)
+                rt.log("exporting `/" .. path .. "`")
+
+                bd.apply_recursively(path, function(file)
+                    local to_path =  bd.join_path(to_zip_path, file)
+                    bd.copy(file, to_path)
+                end)
+            end
+
+            require "dependencies.zip.zip"
+
+            -- zip into .love file
+            zip.compress(to_zip_path, love_file_path)
+
+            -- delete pre-zip folder
+            bd.remove_directory(to_zip_path)
+        end
 
         -- iterate executables
-        if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
-            local executable_directory = bd.settings.executable_directory
-            local in_names = bd.settings.architecture_to_input_filename
-            local out_names = bd.settings.architecture_to_output_filename
+        local executable_directory = bd.settings.executable_directory
+        local in_names = bd.settings.architecture_to_input_filename
+        local out_names = bd.settings.architecture_to_output_filename
 
+        if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
             for architecture in range(
                 bd.SystemArchitecture.WINDOWS_ARM,
                 bd.SystemArchitecture.WINDOWS_AMD
@@ -609,9 +617,9 @@ do
                 -- create output dir in workspace/<architecture>
                 bd.create_directory(out_path)
 
-                -- unzip executables/<outer>.zip into executables/<outer>
+                -- unzip executables/<outer>.zip into workspace/<outer>
                 local to_unzip_from = bd.join_path(executable_directory, in_name)
-                local to_unzip_to = string.gsub(to_unzip_from, _zip_pattern, "")
+                local to_unzip_to = bd.join_path(workspace_prefix, string.gsub(in_name, _zip_pattern, ""))
 
                 zip.decompress(to_unzip_from, to_unzip_to)
 
@@ -708,7 +716,58 @@ do
                 rt.log("wrote `" .. out_name .. "` to `" .. output_prefix .. "`")
             end
         elseif bd.get_operating_system() == bd.OperatingSystem.LINUX then
-            rt.error("In bd.build: linux build currently unimplemented")
+            for architecture in range(
+                bd.SystemArchitecture.LINUX_ARM,
+                bd.SystemArchitecture.LINUX_AMD
+            ) do
+                local in_name = in_names[architecture]
+                local out_name = out_names[architecture]
+                local out_path = bd.join_path(workspace_prefix, out_name)
+
+                rt.log("building executable `" .. out_name .. "`")
+
+                -- unzip executables/<outer>.zip into workspace/<outer>
+                local to_unzip_from = bd.join_path(executable_directory, in_name)
+                local to_unzip_to = bd.join_path(workspace_prefix, string.gsub(in_name, _zip_pattern, ""))
+
+                zip.decompress(to_unzip_from, to_unzip_to)
+
+                -- find inner .appImage
+                for inner_filename in values(love.filesystem.getDirectoryItems(to_unzip_to)) do
+                    if string.match(inner_filename, _appimage_pattern) ~= nil then
+                        local to_unsquash_from = bd.join_path(to_unzip_to, inner_filename)
+                        local to_unsquash_from_absolute = bd.join_path(love.filesystem.getSource(), to_unsquash_from)
+
+                        local extract_command = string.format('binwalk -e %s -quiet', to_unsquash_from_absolute)
+                        local success = os.execute(extract_command)
+                        if success ~= 0 then
+                            rt.error("In bd.build: failed to unsquash app image at `" .. to_unsquash_from_absolute .. "`. Is this a linux machine? Is binwalk installed?")
+                        end
+
+                        -- extracts to _<love-name.appImage>.extracted
+                        local extract_name = "_" .. inner_filename .. ".extracted"
+                        if not bd.file_exists(bd.join_path(to_unzip_to, extract_name)) then
+                            rt.error("In bd.build: failed to iterate results of binwalk, file `" .. extract_name .. "` does not exist")
+                        end
+
+                        -- locate squashfs-root
+                        local moved = false
+                        for inner_inner_filename in values(love.filesystem.getDirectoryItems(bd.join_path(to_unzip_to, extract_name))) do
+                            if inner_inner_filename == _squashfs_root_pattern then
+                                bd.copy_directory(
+                                    bd.join_path(to_unzip_to, extract_name, inner_inner_filename),
+                                    bd.join_path(output_prefix, out_name)
+                                )
+                                moved = true
+                                break
+                            end
+                        end
+                        break
+                    end
+                end
+
+                bd.remove_directory(to_unzip_to)
+            end
         elseif bd.get_operating_system() == bd.OperatingSystem.MAC_OS then
             rt.error("In bd.build: macOS build currently unimplemented")
         end

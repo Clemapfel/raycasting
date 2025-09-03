@@ -1,14 +1,5 @@
 io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
--- compat assertion
-do
-    local supported = love.graphics.getSupported()
-    if supported.glsl4 ~= true or supported.shaderderivatives ~= true then
-        require "common.log"
-        rt.warning("In include.lua: This machine does not have a graphics card or graphics card driver capable of GLSL4. This game cannot run on this machine, we apologize for the inconvenience.")
-    end
-end
-
 -- splash screen
 do
     local screen_w, screen_h = love.graphics.getWidth(), love.graphics.getHeight()
@@ -73,6 +64,15 @@ for _, t in pairs({
 end
 
 require "common.log"
+
+-- compat assertion
+do
+    local supported = love.graphics.getSupported()
+    if supported.glsl4 ~= true or supported.shaderderivatives ~= true then
+        require "common.log"
+        rt.warning("In include.lua: This machine does not have a graphics card or graphics card driver capable of GLSL4. This game cannot run on this machine, we apologize for the inconvenience.")
+    end
+end
 
 rt.settings = meta.make_auto_extend({
     margin_unit = 10,
