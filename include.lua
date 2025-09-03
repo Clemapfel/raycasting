@@ -4,7 +4,8 @@ io.stdout:setvbuf("no") -- makes it so love2d error message is printed to consol
 do
     local supported = love.graphics.getSupported()
     if supported.glsl4 ~= true or supported.shaderderivatives ~= true then
-        error("In include.lua: This machine does not have a graphics card or graphics card driver capable of GLSL4. This game cannot run on this machine, we apologize for the inconvenience.")
+        require "common.log"
+        rt.warning("In include.lua: This machine does not have a graphics card or graphics card driver capable of GLSL4. This game cannot run on this machine, we apologize for the inconvenience.")
     end
 end
 
