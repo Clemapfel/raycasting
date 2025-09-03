@@ -18,6 +18,7 @@ This distribution contains code from the following projects (full license text b
         License: MIT
         Copyright (c) 2024-2025 Kuba Podgórski
 
+
 License text
 ============
 

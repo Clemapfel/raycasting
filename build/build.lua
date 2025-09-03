@@ -18,15 +18,25 @@ bd.settings = {
     build_directory = "build",
     build_directory_mount_point = "build",
     workspace_directory = "build/workspace",
+    output_directory = "build/out",
     executable_directory = "build/executables",
     dependency_directory = "dependencies",
+
     love_file_name = "chroma_drift",
     love_file_name_extension = ".love",
 
-    favicon_directory = "build/favicon",
-    favicon_file_name = "favicon",
-    favicon_sizes = { 16 , 24, 32, 48, 64, 72, 80, 96, 128, 256 },
-    favicon_padding = 2, -- px
+    love_executable_name = "love.exe",
+    love_executable_c_name = "lovec.exe",
+
+    executable_name = "game",
+    executable_c_name = "game_debug",
+
+    favicon_location = "assets/favicon",
+    favicon_name = "favicon.ico",
+
+    license_location = "assets",
+    license_name = "license.txt",
+    love_license_name = "love_license.txt",
 
     module_names = {
         "common",
@@ -42,6 +52,10 @@ bd.settings = {
         "include.lua"
     },
 
+    dependency_names = {
+        "slick"
+    },
+
     executable_download_link_prefix = "https://nightly.link/love2d/love/actions/runs",
     architecture_to_input_filename = {
         [bd.SystemArchitecture.WINDOWS_ARM] = "love-windows-arm64.zip",
@@ -52,10 +66,10 @@ bd.settings = {
     },
     
     architecture_to_output_filename = {
-        [bd.SystemArchitecture.WINDOWS_ARM] = "windows_x86_64",
-        [bd.SystemArchitecture.WINDOWS_AMD] = "windows_arm64",
-        [bd.SystemArchitecture.LINUX_ARM] = "linux_x64_64",
-        [bd.SystemArchitecture.LINUX_AMD] = "linux_arm64",
+        [bd.SystemArchitecture.WINDOWS_ARM] = "chroma_drift_windows_x86_64",
+        [bd.SystemArchitecture.WINDOWS_AMD] = "chroma_drift_windows_arm64",
+        [bd.SystemArchitecture.LINUX_ARM] = "chroma_drift_linux_x64_64",
+        [bd.SystemArchitecture.LINUX_AMD] = "chroma_drift_linux_arm64",
         [bd.SystemArchitecture.MAC_OS] = "mac_os"
     }
 }
@@ -103,6 +117,7 @@ end
 --- @brief
 function bd.create_directory(path)
     meta.assert(path, "String")
+
     local success = love.filesystem.createDirectory(path)
     if not success then
         rt.error("In bd.create_directory: unable to create directory at `" .. path .. "`")
@@ -171,7 +186,6 @@ function bd.get_directory_prefix(file_path)
     meta.assert(file_path, "String")
     return string.match(file_path, "^(.*[\\/])[^\\/]*$")
 end
-
 
 --- @brief
 function bd.mount_path(path, mount_point)
@@ -411,6 +425,18 @@ function bd.remove(source_path, destination_path)
 end
 
 --- @brief
+function bd.move_directory(source_path, destination_path)
+    bd.copy_directory(source_path, destination_path)
+    bd.remove_directory(source_path)
+end
+
+--- @brief
+function bd.move_file(source_path, destination_path)
+    bd.copy_file(source_path, destination_path)
+    bd.remove_file(source_path)
+end
+
+--- @brief
 function bd.move(source_path, destination_path)
     meta.assert(source_path, "String", destination_path, "String")
 
@@ -422,30 +448,11 @@ function bd.move(source_path, destination_path)
     end
 
     if bd.is_file(source_path) then
-        -- if file, copy then remove original
-        bd.copy_file(source_path, destination_path)
-        bd.remove_file(source_path)
-        -- if directory, copy all files recursively, then remove source
+        bd.move_file(source_path, destination_path)
     elseif bd.is_directory(source_path) then
-        bd.copy_directory(source_path, destination_path)
-        bd.remove_directory(source_path)
+        bd.move_directory(source_path, destination_path)
     else
         rt.error("In bd.move: object at `" .. source_path .. "` is neither a file nor a directory")
-    end
-end
-
-do
-    require "dependencies.love-build.libs.love-squashfs"
-    local squashfs = love.squashfs
-    love.squashfs = nil
-
-    function bd.unsquash(from_path, to_path)
-        local instance = squashfs:newSquashFS(true)
-        instance:_stripAppImage(from_path, to_path)
-        local success, error_maybe = instance:decompress(from_path, to_path)
-        if success == false then
-            rt.error("In bd.unsquash: error for file `" .. from_path .. "`: " .. error_maybe)
-        end
     end
 end
 
@@ -457,7 +464,7 @@ function bd._download_love_executables(github_actions_run_id, ...)
     if bd.file_exists(executable_prefix) then
         local success = love.filesystem.remove(executable_prefix)
         if not success then
-            rt.warning("In bd.build: unable to remove folder at `" .. executable_prefix .. "`")
+            rt.warning("In bd._download_love_executables: unable to remove folder at `" .. executable_prefix .. "`")
         end
     end
 
@@ -488,76 +495,6 @@ function bd._download_love_executables(github_actions_run_id, ...)
     end
 end
 
-function bd._unzip_windows(executable_path, target_path)
-    local executable_prefix = bd.settings.executable_directory
-    local workspace_prefix = bd.settings.workspace_directory
-
-    local filename_name_to_architecture = {}
-    for architecture in values(meta.instances(bd.SystemArchitecture)) do
-        if architecture ~= bd.SystemArchitecture.UNSUPPORTED then
-            local filename = bd.settings.architecture_to_input_filename[architecture]
-            filename_name_to_architecture[filename] = architecture
-        end
-    end
-
-    local _zip_pattern = "%.zip$"
-
-    local returned_paths = {}
-
-    -- iterate all files in /build/executables
-    for filename in values(love.filesystem.getDirectoryItems(executable_prefix)) do
-        --[[
-        For windows, the love executable zip contains
-            <outer>.zip
-                <executable>.exe
-                <inner>.zip
-                    <executable>.exe
-                    <executable>c.exe
-                    <libraries>.dll
-                    ...
-
-        It will be exported as
-        <architecture_id>
-            <executable>.exe
-            <executable>c.exe
-            <libraries>.dll
-            ...
-        ]]--
-
-
-        if string.match(filename, "windows") ~= nil  and string.match(filename, _zip_pattern) ~= nil then
-            -- create folder to unzip into
-            local to_name = filename_name_to_architecture[filename]
-            local result_path = bd.join_path(target_path, to_name)
-            bd.create_directory(result_path)
-
-            -- unzip outer
-            local from_path = bd.join_path(executable_prefix, filename)
-            local to_path =  string.gsub(from_path, _zip_pattern, "")
-            bd.unzip(from_path, to_path)
-
-            -- find inner zip, unzip, move contents to executable directory
-            for inner_filename in values(love.filesystem.getDirectoryItems(to_path)) do
-
-                if string.match(inner_filename, _zip_pattern) ~= nil then
-                    local inner_from_path =  bd.join_path(to_path, inner_filename)
-                    bd.unzip(inner_from_path, to_path)
-
-                    local inner_to_path = string.gsub(inner_from_path, _zip_pattern, "")
-                    for inner_inner_filename in values(love.filesystem.getDirectoryItems(inner_to_path)) do
-                        bd.copy(
-                            bd.join_path(inner_to_path, inner_inner_filename),
-                            bd.join_path(result_path, inner_inner_filename)
-                        )
-                    end
-                end
-            end
-
-            -- cleanup
-            bd.remove_directory(to_path)
-        end
-    end
-end
 
 do
     local _is_lua_file = function(path)
@@ -569,18 +506,30 @@ do
 
     --- @brief
     function bd.build()
+        rt.log("starting build for operating system `" .. bd.get_operating_system() .. "`")
+
         local build_prefix = bd.settings.build_directory_mount_point
 
         -- create workspace directory
         local workspace_prefix = bd.settings.workspace_directory
-        bd.remove_directory(workspace_prefix)
-        bd.create_directory(workspace_prefix)
+        if not bd.file_exists(workspace_prefix) then
+            bd.create_directory(workspace_prefix)
+        end
+
+        -- create output directory
+        local output_prefix = bd.settings.output_directory
+        if not bd.file_exists(output_prefix) then
+            bd.create_directory(output_prefix)
+        end
+
+        rt.log("creating .love file")
 
         local to_zip_path = bd.join_path(workspace_prefix, bd.settings.love_file_name)
         bd.create_directory(bd.join_path(workspace_prefix, bd.settings.love_file_name))
 
         -- copy all modules into workspace
         for module_name in values(bd.settings.module_names) do
+            rt.log("exporting `/" .. module_name .. "`")
             bd.apply_recursively(module_name, function(from_path)
                 -- check if filename has ~ prefix
                 if string.match(from_path, "[\\/](~[^\\/]*)$") == nil then
@@ -600,6 +549,8 @@ do
 
         -- copy headers
         for file in values(bd.settings.header_names) do
+            rt.log("exporting `/" .. file .. "`")
+
             local destination_path = bd.join_path(to_zip_path, file)
             if file == "main.lua" then main_lua_seen = true end
             if file == "conf.lua" then conf_lua_seen = true end
@@ -619,18 +570,22 @@ do
             rt.critical("In bd.build: no `conf.lua` is present in top level folder")
         end
 
-        -- copy dependencies unaltered
-        bd.apply_recursively(bd.settings.dependency_directory, function(file)
-            local to_path = bd.join_path(to_zip_path, file)
-            if _is_lua_file(file) then
-                bd.compile(file, to_path)
-            else
+        -- copy dependencies
+        for dependency_name in values(bd.settings.dependency_names) do
+            local path = bd.join_path(bd.settings.dependency_directory, dependency_name)
+            rt.log("exporting `/" .. path .. "`")
+
+            bd.apply_recursively(path, function(file)
+                local to_path =  bd.join_path(to_zip_path, file)
                 bd.copy(file, to_path)
-            end
-        end)
+            end)
+        end
+
+        require "dependencies.zip.zip"
 
         -- zip into .love file
-        bd.zip(to_zip_path, to_zip_path .. bd.settings.love_file_name_extension)
+        local love_file_path = to_zip_path .. bd.settings.love_file_name_extension
+        zip.compress(to_zip_path, love_file_path)
 
         -- delete pre-zip folder
         bd.remove_directory(to_zip_path)
@@ -646,16 +601,19 @@ do
                 bd.SystemArchitecture.WINDOWS_AMD
             ) do
                 local in_name = in_names[architecture]
-                local out_name = bd.join_path(workspace_prefix, out_names[architecture])
+                local out_name = out_names[architecture]
+                local out_path = bd.join_path(workspace_prefix, out_name)
+
+                rt.log("building executable `" .. out_name .. "`")
 
                 -- create output dir in workspace/<architecture>
-                bd.create_directory(out_name)
+                bd.create_directory(out_path)
 
                 -- unzip executables/<outer>.zip into executables/<outer>
                 local to_unzip_from = bd.join_path(executable_directory, in_name)
                 local to_unzip_to = string.gsub(to_unzip_from, _zip_pattern, "")
 
-                bd.unzip(to_unzip_from, to_unzip_to)
+                zip.decompress(to_unzip_from, to_unzip_to)
 
                 -- find inner zip dir
                 for inner_filename in values(love.filesystem.getDirectoryItems(to_unzip_to)) do
@@ -665,13 +623,13 @@ do
                         local to_unzip_inner_from =  bd.join_path(to_unzip_to, inner_filename)
                         local to_unzip_inner_to = string.gsub(to_unzip_inner_from, _zip_pattern, "")
 
-                        bd.unzip(to_unzip_inner_from, to_unzip_inner_to)
+                        zip.decompress(to_unzip_inner_from, to_unzip_inner_to)
 
                         -- copy all files from executables/<outer>/<inner> into workspace/<architecture>
                         for inner_inner_filename in values(love.filesystem.getDirectoryItems(to_unzip_inner_to)) do
                             bd.copy(
                                 bd.join_path(to_unzip_inner_to, inner_inner_filename),
-                                out_name
+                                out_path
                             )
                         end
                     end
@@ -680,64 +638,89 @@ do
                 -- cleanup executables/<outer>
                 bd.remove_directory(to_unzip_to)
 
-                -- move .love into output folder
-                local love_file_name = bd.settings.love_file_name .. bd.settings.love_file_name_extension
+                -- delete love leftovers
+                for file in range(
+                    "changes.txt",
+                    "readme.txt",
+                    "game.ico",
+                    "love.ico"
+                ) do
+                    local path = bd.join_path(out_path, file)
+                    if bd.file_exists(path) then
+                        bd.remove_file(path)
+                    end
+                end
+
+                -- add new icon
+                local favicon_name = bd.settings.favicon_name
                 bd.copy(
-                    bd.join_path(workspace_prefix, love_file_name),
-                    bd.join_path(out_name, love_file_name)
+                    bd.join_path(bd.settings.favicon_location, favicon_name),
+                    bd.join_path(out_path, favicon_name)
                 )
+
+                -- rename license
+                bd.move(
+                    bd.join_path(out_path, "license.txt"),
+                    bd.join_path(out_path, bd.settings.love_license_name)
+                )
+
+                -- add custom license
+                bd.copy(
+                    bd.join_path(bd.settings.license_location, bd.settings.license_name),
+                    bd.join_path(out_path, bd.settings.license_name)
+                )
+
+                do -- append .love to executable and rename
+                    local love_file_data = love.filesystem.read(love_file_path)
+                    if love_file_data == nil then
+                        rt.error("In bd.build: unable to read .love file at `" .. love_file_path .. "`")
+                    end
+
+                    for from_name_to_name in range(
+                        { bd.settings.love_executable_name, bd.settings.executable_name },
+                        { bd.settings.love_executable_c_name, bd.settings.executable_c_name}
+                    ) do
+                        local from_name, to_name = table.unpack(from_name_to_name)
+                        local from_path = bd.join_path(out_path, from_name)
+                        if not bd.file_exists(from_path) then
+                            rt.error("In bd.build: expected executable `" .. from_name .. "`, but it was not found")
+                        end
+
+                        local to_path = bd.join_path(out_path, to_name) .. ".exe"
+
+                        -- concatenate zip to end of executable
+                        local executable_data = love.filesystem.read(from_path) .. love_file_data
+
+                        -- write to new location
+                        love.filesystem.write(to_path, executable_data)
+
+                        -- delete old executable
+                        bd.remove_file(from_path)
+                    end
+                end
+
+                -- move to output folder
+                bd.move_directory(
+                    out_path,
+                    bd.join_path(output_prefix, out_name)
+                )
+
+                rt.log("wrote `" .. out_name .. "` to `" .. output_prefix .. "`")
             end
         elseif bd.get_operating_system() == bd.OperatingSystem.LINUX then
             rt.error("In bd.build: linux build currently unimplemented")
         elseif bd.get_operating_system() == bd.OperatingSystem.MAC_OS then
             rt.error("In bd.build: macOS build currently unimplemented")
         end
+
+        -- remove workspace
+        bd.remove_directory(workspace_prefix)
+
+        rt.log("build done.")
     end
 end
 
---- @brief
-function bd.generate_favicon()
-    love.graphics.push("all")
-    love.graphics.reset()
-
-    local padding = bd.settings.favicon_padding
-    local directory = bd.settings.favicon_directory
-    local name = bd.settings.favicon_file_name
-    local hue = bd.settings.favicon_hue
-
-    if not bd.file_exists(directory) then
-        bd.create_directory(directory)
-    end
-
-    require "common.render_texture"
-    require "common.image"
-    require "overworld.coin_particle"
-
-    local n = #bd.settings.favicon_sizes
-    local hue_offset = 0.2
-
-    love.graphics.setLineStyle("smooth")
-
-    for i, size in ipairs(bd.settings.favicon_sizes) do
-        local canvas = rt.RenderTexture(size, size, 8)
-        local radius = math.ceil(size - 2 * padding) / 2
-        local position = math.floor(0.5 * size)
-        local particle = ow.CoinParticle(radius)
-        particle:set_hue(math.fract(hue_offset + (i - 1) / n))
-
-        canvas:bind()
-        particle:draw(position, position)
-        canvas:unbind()
-
-        local image = canvas:as_image()
-        image:save_to(bd.join_path(directory, name .. "_" .. tostring(size) .. "x" .. tostring(size) .. ".png"))
-    end
-
-    love.graphics.pop()
-end
-
--- mount build directory
-do
+do -- mount build directory
     local build_prefix = bd.settings.build_directory_mount_point
     local source_prefix = bd.normalize_path(love.filesystem.getSource())
     local build_directory_path = bd.join_path(source_prefix, bd.settings.build_directory)

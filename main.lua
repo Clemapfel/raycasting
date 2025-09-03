@@ -3,41 +3,6 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
---require "build.build"
-
---[[
-local run_id = 17011208703
-bd.download_love_executables(run_id,
-    bd.SystemArchitecture.WINDOWS_AMD,
-    bd.SystemArchitecture.WINDOWS_ARM
-)]]--
-
---[[
-bd.download_love_executables(17011208703,
-    bd.SystemArchitecture.WINDOWS_ARM,
-    bd.SystemArchitecture.WINDOWS_AMD
-)
-]]
-
---require "build.build"
-
---[[
-bd._download_love_executables(17011208703,
-    --bd.SystemArchitecture.WINDOWS_ARM,
-    --bd.SystemArchitecture.WINDOWS_AMD,
-    bd.SystemArchitecture.LINUX_ARM,
-    bd.SystemArchitecture.LINUX_AMD--,
-    --bd.SystemArchitecture.MAC_OS
-)
-]]--
-
---require "build.build"
---bd.build()
-
---require "build.build"
---bd.generate_favicon()
---exit(0)
-
 local present = function()
     local coins = {}
     for i = 1, 50 do
