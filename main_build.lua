@@ -1,4 +1,5 @@
 require "include"
 require "build.build"
-bd.build()
+love.filesystem.setSymlinksEnabled(true)
+bd.build(false)
 exit(0)

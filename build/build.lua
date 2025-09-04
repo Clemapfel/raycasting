@@ -14,6 +14,10 @@ bd.SystemArchitecture = meta.enum("SystemArchitexture", {
     UNSUPPORTED = "unsupported"
 })
 
+love.filesystem.setSymlinksEnabled(true)
+
+local executable_name = "chromadrift"
+
 bd.settings = {
     build_directory = "build",
     build_directory_mount_point = "build",
@@ -22,21 +26,23 @@ bd.settings = {
     executable_directory = "build/executables",
     dependency_directory = "dependencies",
 
-    love_file_name = "chroma_drift",
+    love_file_name = executable_name,
     love_file_name_extension = ".love",
 
-    love_executable_name = "love.exe",
-    love_executable_c_name = "lovec.exe",
+    love_executable_name = "love",
+    love_executable_c_name = "lovec",
 
-    executable_name = "game",
-    executable_c_name = "game_debug",
+    executable_name = executable_name,
+    executable_c_name = executable_name .. "debug",
+    executable_comment = "Flow-Based Precision Platformer",
 
     favicon_location = "assets/favicon",
-    favicon_name = "favicon.ico",
+    favicon_name = "favicon",
 
     license_location = "assets",
     license_name = "license.txt",
     love_license_name = "love_license.txt",
+
 
     module_names = {
         "common",
@@ -70,7 +76,7 @@ bd.settings = {
         [bd.SystemArchitecture.WINDOWS_AMD] = "chroma_drift_windows_arm64",
         [bd.SystemArchitecture.LINUX_ARM] = "chroma_drift_linux_x64_64",
         [bd.SystemArchitecture.LINUX_AMD] = "chroma_drift_linux_arm64",
-        [bd.SystemArchitecture.MAC_OS] = "mac_os"
+        [bd.SystemArchitecture.MAC_OS] = "chroma_drift_macos"
     }
 }
 
@@ -335,7 +341,7 @@ function bd.remove_file(file_path)
     if not remove_success then
         rt.error("In bd.remove_file: unable to remove file at `" .. file_path .. "`")
     end
-end
+    end
 
 --- @brief recursively copy a directory and all its contents
 function bd.copy_directory(source_directory_path, destination_directory_path)
@@ -413,12 +419,12 @@ function bd.copy(source_path, destination_path)
 end
 
 --- @brief
-function bd.remove(source_path, destination_path)
-    meta.assert(source_path, "String", destination_path, "String")
+function bd.remove(source_path)
+    meta.assert(source_path, "String")
     if bd.is_directory(source_path) then
-        bd.remove_directory(source_path, destination_path)
+        bd.remove_directory(source_path)
     elseif bd.is_file(source_path) then
-        bd.remove_file(source_path, destination_path)
+        bd.remove_file(source_path)
     else
         rt.error("In bd.remove: object at `" .. source_path .. "` is not a file or directory")
     end
@@ -525,11 +531,11 @@ do
             bd.create_directory(output_prefix)
         end
 
-        rt.log("creating .love file")
+        rt.log("building .love file")
 
         require "dependencies.zip.zip"
         local to_zip_path = bd.join_path(workspace_prefix, bd.settings.love_file_name)
-        local love_file_path = to_zip_path .. bd.settings.love_file_name_extension
+        local love_file_path = bd.join_path(output_prefix, bd.settings.love_file_name) .. bd.settings.love_file_name_extension
 
         if rebuild_love_file == true then
 
@@ -603,6 +609,23 @@ do
         local in_names = bd.settings.architecture_to_input_filename
         local out_names = bd.settings.architecture_to_output_filename
 
+        local love_file_data = love.filesystem.read(love_file_path)
+        if love_file_data == nil then
+            rt.error("In bd.build: unable to read .love file at `" .. love_file_path .. "`")
+        else
+            rt.log("wrote .love file to `" .. love_file_path .. "`")
+        end
+
+        local clear_workspace = function()
+            if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
+                bd.remove_directory(workspace_prefix)
+            else
+                os.execute(string.format("rm -r %s", bd.join_path(love.filesystem.getSource(), workspace_prefix)))
+            end
+        end
+
+        clear_workspace()
+
         if bd.get_operating_system() == bd.OperatingSystem.WINDOWS then
             for architecture in range(
                 bd.SystemArchitecture.WINDOWS_ARM,
@@ -615,6 +638,9 @@ do
                 rt.log("building executable `" .. out_name .. "`")
 
                 -- create output dir in workspace/<architecture>
+                if bd.file_exists(out_path) then
+                    bd.remove_directory(out_path)
+                end
                 bd.create_directory(out_path)
 
                 -- unzip executables/<outer>.zip into workspace/<outer>
@@ -659,11 +685,11 @@ do
                     end
                 end
 
-                -- add new icon
-                local favicon_name = bd.settings.favicon_name
+                -- add favicon as ico
+                local favicon_name = bd.settings.favicon_name .. ".ico"
                 bd.copy(
                     bd.join_path(bd.settings.favicon_location, favicon_name),
-                    bd.join_path(out_path, favicon_name)
+                    bd.join_path(out_path, bd.settings.executable_name .. ".ico")
                 )
 
                 -- rename license
@@ -679,14 +705,9 @@ do
                 )
 
                 do -- append .love to executable and rename
-                    local love_file_data = love.filesystem.read(love_file_path)
-                    if love_file_data == nil then
-                        rt.error("In bd.build: unable to read .love file at `" .. love_file_path .. "`")
-                    end
-
                     for from_name_to_name in range(
-                        { bd.settings.love_executable_name, bd.settings.executable_name },
-                        { bd.settings.love_executable_c_name, bd.settings.executable_c_name}
+                        { bd.settings.love_executable_name .. ".exe", bd.settings.executable_name },
+                        { bd.settings.love_executable_c_name .. ".exe", bd.settings.executable_c_name}
                     ) do
                         local from_name, to_name = table.unpack(from_name_to_name)
                         local from_path = bd.join_path(out_path, from_name)
@@ -697,7 +718,13 @@ do
                         local to_path = bd.join_path(out_path, to_name) .. ".exe"
 
                         -- concatenate zip to end of executable
-                        local executable_data = love.filesystem.read(from_path) .. love_file_data
+                        local executable_data = love.filesystem.read(from_path)
+
+                        if executable_data == nil then
+                            rt.error("In bd.build: unable to read executable at `" .. from_path)
+                        end
+
+                        executable_data = executable_data .. love_file_data
 
                         -- write to new location
                         love.filesystem.write(to_path, executable_data)
@@ -730,7 +757,16 @@ do
                 local to_unzip_from = bd.join_path(executable_directory, in_name)
                 local to_unzip_to = bd.join_path(workspace_prefix, string.gsub(in_name, _zip_pattern, ""))
 
+                if bd.file_exists(to_unzip_to) then
+                    bd.remove_directory(to_unzip_to)
+                end
+
                 zip.decompress(to_unzip_from, to_unzip_to)
+
+                local output_folder =  bd.join_path(output_prefix, out_name)
+                if bd.file_exists(output_folder) then
+                    bd.remove_directory(output_folder)
+                end
 
                 -- find inner .appImage
                 for inner_filename in values(love.filesystem.getDirectoryItems(to_unzip_to)) do
@@ -750,13 +786,13 @@ do
                             rt.error("In bd.build: failed to iterate results of binwalk, file `" .. extract_name .. "` does not exist")
                         end
 
-                        -- locate squashfs-root
+                        -- locate squashfs-root, move to /out
                         local moved = false
                         for inner_inner_filename in values(love.filesystem.getDirectoryItems(bd.join_path(to_unzip_to, extract_name))) do
                             if inner_inner_filename == _squashfs_root_pattern then
                                 bd.copy_directory(
                                     bd.join_path(to_unzip_to, extract_name, inner_inner_filename),
-                                    bd.join_path(output_prefix, out_name)
+                                    output_folder
                                 )
                                 moved = true
                                 break
@@ -767,13 +803,134 @@ do
                 end
 
                 bd.remove_directory(to_unzip_to)
+
+                -- append to executable
+                local old_executable_path = bd.join_path(output_folder, "bin", "love")
+                local executable_data = love.filesystem.read(old_executable_path)
+                if executable_data == nil then
+                    rt.error("In bd.build: unable to read executable at `" .. old_executable_path .. "`")
+                end
+
+                -- add .love to end of executable, then replace
+                executable_data = executable_data .. love_file_data
+
+                local new_executable_path = bd.join_path(output_folder, "bin", bd.settings.executable_name)
+                love.filesystem.write(new_executable_path, executable_data)
+
+                bd.remove_file(old_executable_path)
+
+                -- remove old favicon
+                bd.remove_file(bd.join_path(output_folder, "love.svg"))
+
+                -- add favicon as svg
+                local favicon_name = bd.settings.favicon_name .. ".svg"
+                bd.copy(
+                    bd.join_path(bd.settings.favicon_location, favicon_name),
+                    bd.join_path(output_folder, bd.settings.executable_name .. ".svg") -- favicon needs to have same name as executable
+                )
+
+                -- rename license
+                bd.move(
+                    bd.join_path(output_folder, "license.txt"),
+                    bd.join_path(output_folder, bd.settings.love_license_name)
+                )
+
+                -- add custom license
+                bd.copy(
+                    bd.join_path(bd.settings.license_location, bd.settings.license_name),
+                    bd.join_path(output_folder, bd.settings.license_name)
+                )
+
+                -- modify AppRun
+                local app_run_path = bd.join_path(output_folder, "AppRun")
+                local app_run_data = love.filesystem.read(app_run_path)
+                if app_run_data == nil then
+                    rt.error("In bd.build: unable to read `AppRun` shell script at `" .. app_run_path .. "`")
+                end
+
+                do -- AppRun: replace /bin/love with /bin/<game>
+                    local pattern = "/bin/" .. bd.settings.love_executable_name
+                    local to_replace = "/bin/" .. bd.settings.executable_name
+
+                    if not string.match(app_run_data, pattern) then
+                        rt.error("In bd.build: pattern `" .. pattern .. "` not present in `" .. app_run_path .. "`")
+                    end
+
+                    app_run_data = string.gsub(app_run_data, pattern, to_replace)
+
+                    -- strip .love comments
+                    app_run_data = string.gsub(app_run_data, "# uncomment and edit to add your own game", "")
+                    app_run_data = string.gsub(app_run_data, "FUSE_PATH=\"$APPDIR/my_game\"", "")
+
+                    -- uncomment FUSE_PATH declaration
+                    app_run_data = string.gsub(app_run_data, "#FUSE_PATH", "FUSE_PATH")
+
+                    -- replace with <game>.love
+                    app_run_data = string.gsub(app_run_data, "my_game", bd.settings.love_file_name)
+
+                    if not love.filesystem.write(app_run_path, app_run_data) then
+                        rt.error("In bd.build: unable to write file to `" .. app_run_path .. "`")
+                    end
+                end
+
+                do -- .desktop
+                    local old_desktop_file_path = bd.join_path(output_folder, "love.desktop")
+                    local desktop_file_data = love.filesystem.read(old_desktop_file_path)
+
+                    if desktop_file_data == nil then
+                        rt.error("In bd.build: unable to read file at `" .. old_desktop_file_path .. "`")
+                    end
+
+                    -- replace name
+                    desktop_file_data = string.gsub(desktop_file_data, "\nName=.-\n", "\nName=" .. bd.settings.executable_name .. "\n")
+
+                    -- replace comment
+                    desktop_file_data = string.gsub(desktop_file_data, "\nComment=.-\n", "\nComment=" .. bd.settings.executable_comment .. "\n")
+
+                    -- replace Exec
+                    desktop_file_data = string.gsub(desktop_file_data, "\nExec=.-\n", "\nExec=bin/" .. bd.settings.executable_name .. " %f\n")
+
+                    -- replace mime type
+                    desktop_file_data = string.gsub(desktop_file_data, "\nMimeType=.-\n", "\nMimeType=application/" .. bd.settings.executable_name .. "-game;\n")
+
+                    -- also add favicon to icons folder
+                    local mime_type_icon_prefix = bd.join_path(output_folder, "share", "icons", "hicolor", "scalable", "mimetypes")
+                    bd.remove_file(bd.join_path(mime_type_icon_prefix, "application-x-love-game.svg"))
+                    bd.copy(
+                        bd.join_path(bd.settings.favicon_location, favicon_name),
+                        bd.join_path(mime_type_icon_prefix, "application-" .. bd.settings.executable_name .. ".svg")
+                    )
+
+                    local new_desktop_file_path = bd.join_path(output_folder, bd.settings.executable_name .. ".desktop")
+                    if not love.filesystem.write(new_desktop_file_path, desktop_file_data) then
+                        rt.error("In bd.build: unable to write file to `" .. new_desktop_file_path .. "`")
+                    end
+
+                    bd.remove_file(old_desktop_file_path)
+
+                    -- also replace .desktop in /share
+                    local old_share_desktop_file_path = bd.join_path(output_folder, "share", "applications")
+                    bd.remove_file(bd.join_path(old_share_desktop_file_path, "love.desktop"))
+
+                    local new_share_desktop_file_path = bd.join_path(old_share_desktop_file_path, bd.settings.executable_name .. ".desktop")
+                    if not love.filesystem.write(
+                        new_share_desktop_file_path,
+                        desktop_file_data
+                    ) then
+                        rt.error("In bd.build: unable to write file to `" .. new_share_desktop_file_path .. "`")
+                    end
+                end
+
+                -- add .love to output
+                bd.copy(love_file_path, bd.join_path(output_folder, bd.settings.love_file_name) .. bd.settings.love_file_name_extension)
+
+                rt.log("wrote executable to `" .. output_folder .. "`")
             end
         elseif bd.get_operating_system() == bd.OperatingSystem.MAC_OS then
             rt.error("In bd.build: macOS build currently unimplemented")
         end
 
-        -- remove workspace
-        bd.remove_directory(workspace_prefix)
+        clear_workspace()
 
         rt.log("build done.")
     end
