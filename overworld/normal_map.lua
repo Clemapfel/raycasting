@@ -27,13 +27,12 @@ local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map 
 
 local _init_shader, _step_shader, _pre_process_shader, _post_process_shader, _export_shader
 
-local _draw_light_shader = rt.Shader("overworld/normal_map_draw.glsl", {
-    MODE = 0,
+local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
     MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
     MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights,
 })
 
-local _draw_shadow_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 1 })
+local _draw_shadow_shader = rt.Shader("overworld/normal_map_draw_shadow.glsl")
 
 local _frame_percentage = 0.6
 
@@ -395,7 +394,11 @@ end
 function ow.NormalMap:update(delta)
     -- distribute workload over multiple frames
     if not self._is_done and coroutine.status(self._callback) ~= "dead" then
-        coroutine.resume(self._callback)
+        local success, error_maybe = coroutine.resume(self._callback)
+        if error_maybe ~= nil then
+            rt.critical("In ow.NormalMap: " .. error_maybe)
+            self._is_done = true
+        end
     end
 end
 

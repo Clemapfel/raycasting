@@ -31,41 +31,59 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-mat3 sobel_x = mat3(
-    -1, 0, 1,
-    -2, 0, 2,
-    -1, 0, 1
-);
+#define MODE_THRESHOLD 0
+#define MODE_OUTLINE 1
 
-mat3 sobel_y = mat3(
-    -1, -2, -1,
-    0, 0, 0,
-    1, 2, 1
-);
+#ifndef MODE
+#error "In player_body_outline.glsl: `MODE` undefined"
+#endif
+
+#if MODE == MODE_THRESHOLD
 
 vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position) {
 
-    vec2 pixel_size = vec2(1 / 400.0);
-    float gradient_x = 0.0;
-    float gradient_y = 0.0;
     float threshold = 0.6; // Metaball threshold
     float smoothness = 0.05; // Smoothness factor for blending
     float outline_thickness = 2; // Increase this value to thicken the outline
 
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            vec2 neighbor_uv = texture_coordinates + vec2(i, j) * pixel_size * outline_thickness;
-            float value = texture(img, neighbor_uv).a;
-            value = smoothstep(threshold - smoothness, threshold + smoothness, value);
+    vec4 data = texture(img, texture_coordinates);
+    float value = smoothstep(
+        threshold - smoothness,
+        threshold + smoothness,
+        data.a
+    );
 
-            gradient_x += value * sobel_x[i + 1][j + 1];
-            gradient_y += value * sobel_y[i + 1][j + 1];
-        }
-    }
+    return vec4(value);
+}
+
+#elif MODE == MODE_OUTLINE
+
+vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
+    vec2 pixel_size = vec2(1 / 250.0);
+
+    // Sample only the 6 texels where Sobel kernels have non-zero values
+    // Sobel X kernel non-zero positions: (-1,-1)=-1, (-1,1)=1, (0,-1)=-2, (0,1)=2, (1,-1)=-1, (1,1)=1
+    // Sobel Y kernel non-zero positions: (-1,-1)=-1, (-1,0)=-2, (-1,1)=-1, (1,-1)=1, (1,0)=2, (1,1)=1
+
+    float tl = texture(image, texture_coordinates + vec2(-1, -1) * pixel_size).a; // top-left
+    float tm = texture(image, texture_coordinates + vec2( 0, -1) * pixel_size).a; // top-middle
+    float tr = texture(image, texture_coordinates + vec2( 1, -1) * pixel_size).a; // top-right
+    float ml = texture(image, texture_coordinates + vec2(-1,  0) * pixel_size).a; // middle-left
+    float mr = texture(image, texture_coordinates + vec2( 1,  0) * pixel_size).a; // middle-right
+    float bl = texture(image, texture_coordinates + vec2(-1,  1) * pixel_size).a; // bottom-left
+    float bm = texture(image, texture_coordinates + vec2( 0,  1) * pixel_size).a; // bottom-middle
+    float br = texture(image, texture_coordinates + vec2( 1,  1) * pixel_size).a; // bottom-right
+
+    float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
+    float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
     float magnitude = length(vec2(gradient_x, gradient_y));
-    float alpha = smoothstep(0.0, 1.0, magnitude);
+    float alpha = smoothstep(0.0, 1, magnitude);
     float hue = (1.0 - magnitude) * 2.0;
 
     return vec4(vec3(1.0), alpha) * color;
 }
+
+#endif
+
+

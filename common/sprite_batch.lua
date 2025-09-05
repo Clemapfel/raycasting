@@ -9,15 +9,23 @@ rt.settings.sprite_batch = {
 --- @class rt.SpriteBatch
 rt.SpriteBatch = meta.class("SpriteBatch")
 
+local _shader
+do
+    local defines = {}
+    if rt.settings.sprite_batch.use_subpixel_filtering then
+        defines.APPLY_ANTI_ALIAS_CORRECTION = 1
+    end
+
+    _shader = rt.Shader("common/sprite_batch.glsl", defines)
+end
+
 --- @brief
 function rt.SpriteBatch:instantiate(texture)
     assert(meta.isa(texture, rt.Texture), "In rt.SpriteBatch: expected `Texture`, got `" .. meta.typeof(texture) .. "`")
     texture:set_wrap_mode(rt.TextureWrapMode.REPEAT)
 
-    local defines = {}
     if rt.settings.sprite_batch.use_subpixel_filtering then
         texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
-        defines.APPLY_ANTI_ALIAS_CORRECTION = 1
     else
         texture:set_scale_mode(rt.TextureScaleMode.NEAREST)
     end
@@ -25,7 +33,6 @@ function rt.SpriteBatch:instantiate(texture)
     meta.install(self, {
         _texture = texture,
         _mesh = rt.MeshRectangle(0, 0, 1, 1),
-        _draw_shader = rt.Shader("common/sprite_batch.glsl", defines),
         _buffer = nil,
         _needs_update = true,
         _first_index_that_needs_update = 1,
@@ -33,8 +40,6 @@ function rt.SpriteBatch:instantiate(texture)
         _data = {},
         _current_i = 0
     })
-
-    self._draw_shader:precompile()
 end
 
 function rt.SpriteBatch._params_to_data(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)
@@ -135,7 +140,7 @@ end
 --- @brief
 function rt.SpriteBatch:_upload()
     if self._buffer == nil then
-        self._buffer_format = self._draw_shader:get_buffer_format("SpriteBuffer")
+        self._buffer_format = _shader:get_buffer_format("SpriteBuffer")
         self._buffer = rt.GraphicsBuffer(self._buffer_format, self._current_i)
     end
 
@@ -161,9 +166,9 @@ function rt.SpriteBatch:draw()
         self._needs_update = false
     end
 
-    self._draw_shader:bind()
-    self._draw_shader:send("SpriteBuffer", self._buffer)
-    self._draw_shader:send("texture_resolution", { self._texture:get_size() })
+    _shader:bind()
+    _shader:send("SpriteBuffer", self._buffer)
+    _shader:send("texture_resolution", { self._texture:get_size() })
     self._mesh:draw_instanced(self._current_i)
-    self._draw_shader:unbind()
+    _shader:unbind()
 end

@@ -70,7 +70,7 @@ do
     local supported = love.graphics.getSupported()
     if supported.glsl4 ~= true or supported.shaderderivatives ~= true then
         require "common.log"
-        rt.warning("In include.lua: This machine does not have a graphics card or graphics card driver capable of GLSL4. This game cannot run on this machine, we apologize for the inconvenience.")
+        rt.critical("In include.lua: This machine does not have a graphics card or graphics card driver capable of GLSL4. Entering compatibility mode, wich may severely impact the experience.")
     end
 end
 

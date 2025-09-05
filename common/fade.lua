@@ -21,7 +21,7 @@ function rt.Fade:instantiate(duration, shader_path)
     if shader_path ~= nil then
         meta.assert_typeof(shader_path, "String", 2)
         self._shader = rt.Shader(shader_path)
-        self._shader:precompile()
+        self._shader:compile()
     end
 
     meta.install(self, {
@@ -165,5 +165,5 @@ function rt.Fade:set_shader(shader)
     meta.assert(shader, rt.Shader)
     assert(shader:get_native():hasUniform("value"))
     self._shader = shader
-    self._shader:precompile()
+    self._shader:compile()
 end

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 825,
+  nextobjectid = 826,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4663,8 +4663,8 @@ return {
           name = "Goal",
           type = "PlayerGoal",
           shape = "point",
-          x = -1568,
-          y = 832,
+          x = -1093.81,
+          y = 388.683,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4766,8 +4766,8 @@ return {
           name = "Checkpoint",
           type = "Checkpoint",
           shape = "point",
-          x = -2053.42,
-          y = 1424.22,
+          x = -1389.55,
+          y = 473.624,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4779,12 +4779,34 @@ return {
           name = "Checkpoint",
           type = "Checkpoint",
           shape = "point",
-          x = -1926.91,
-          y = 1445.02,
+          x = -1289.5,
+          y = 472.369,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 825,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = -1784.3,
+          y = 595.501,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -39.7, y = 227.172 },
+            { x = 264.667, y = 244.817 },
+            { x = 295.545, y = -26.4667 },
+            { x = 198.5, y = -26.4667 },
+            { x = 136.745, y = -180.856 },
+            { x = 134.539, y = -19.85 }
+          },
           properties = {}
         }
       }

@@ -558,7 +558,6 @@ function ow.OverworldScene:draw()
     love.graphics.clear(1, 0, 1, 1)
     if not _skip_fade == true and self._fade:get_is_active() or self._fade:get_is_visible() then
         self._background:draw()
-
         self._camera:bind()
         self._stage:draw_below_player()
         self._stage:draw_above_player()
@@ -619,10 +618,6 @@ function ow.OverworldScene:draw()
 
             bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
         end
-    end
-
-    if _skip_fade ~= true then
-        self._title_card:draw()
     end
 
     love.graphics.pop()

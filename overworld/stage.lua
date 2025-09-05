@@ -246,7 +246,8 @@ function ow.Stage:instantiate(scene, id)
         end
     end
 
-
+    -- precompile shader
+    rt.Shader:precompile_all()
 
     self._is_initialized = true
     self:signal_emit("initialized")

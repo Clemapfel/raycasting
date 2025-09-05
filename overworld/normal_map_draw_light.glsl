@@ -1,14 +1,5 @@
 #ifdef PIXEL
 
-#define MODE_LIGHTING 0
-#define MODE_SHADOW 1
-
-#ifndef MODE
-#error "MODE should be 0 or 1"
-#endif
-
-#if MODE == MODE_LIGHTING
-
 #ifndef MAX_N_POINT_LIGHTS
 #define MAX_N_POINT_LIGHTS 32
 #endif
@@ -63,8 +54,6 @@ vec2 closest_point_on_segment(vec2 a, vec2 b, vec2 point) {
     return a + t * ab;
 }
 
-#endif
-
 vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coords) // tex is RG8
 {
     vec4 data = texture(tex, texture_coords);
@@ -73,9 +62,6 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
 
     vec2 gradient = normalize((data.yz * 2) - 1); // normalized gradient
     float dist = data.x; // normalized distance;
-
-    #if MODE == MODE_LIGHTING
-
     vec2 screen_uv = to_uv(screen_coords);
 
     vec4 point_color = vec4(0);
@@ -113,12 +99,6 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
         return point_color;
     else
         return mix(point_color, segment_color, 0.5);
-
-    #elif MODE == MODE_SHADOW
-
-    return vertex_color * mix(vec4(0), vec4(1), dist);
-
-    #endif
 }
 
 #endif
