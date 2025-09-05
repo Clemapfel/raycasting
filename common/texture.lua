@@ -1,5 +1,6 @@
 require "common.drawable"
 require "common.texture_format"
+require "common.shader"
 
 --- @class rt.TextureScaleMode
 rt.TextureScaleMode = meta.enum("TextureScaleMode", {
@@ -75,15 +76,10 @@ function rt.Texture:get_height()
     return self._native:getHeight()
 end
 
-local _default_shader = nil
+local _default_shader = rt.Shader("common/texture.glsl")
 
 --- @overload rt.Drawable.draw
 function rt.Texture:draw(...)
-    if _default_shader == nil then
-        require "common.shader"
-        _default_shader = rt.Shader("common/texture.glsl")
-    end
-
     local default_shader_bound = false
     if love.graphics.getShader() == nil then
         _default_shader:bind()

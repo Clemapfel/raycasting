@@ -24,9 +24,10 @@ local _trail_texture = nil
 --- @brief
 function mn.StageSelectDebrisEmitter:instantiate()
     if _trail_texture == nil then
+        -- generate particle texture, only needs to happen once
         _trail_texture = rt.RenderTexture(rt.settings.menu.stage_select_debris_emitter.max_radius * 2, 100)
-        local shader = rt.Shader("menu/stage_select_debris_emitter_trail.glsl")
 
+        local shader = rt.Shader("menu/stage_select_debris_emitter_trail.glsl")
         love.graphics.push()
         love.graphics.origin()
         _trail_texture:bind()

@@ -30,24 +30,12 @@ local _format_title = function(text)
     return "<b><o><u>" .. text .. "</u></o></b>"
 end
 
-local _screenshot_shader
+local _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl")
 
 --- @brief
 function ow.ResultScreenScene:instantiate(state)
     if _title_font == nil then _title_font = rt.Font(rt.settings.overworld.result_screen_scene.title_font) end
     if _glyph_font == nil then _glyph_font = rt.Font(rt.settings.overworld.result_screen_scene.glyph_font) end
-    if _screenshot_shader == nil then
-        _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl")
-        -- TODO
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "k" then
-                self._screenshot_fraction_animation:reset()
-                _screenshot_shader:recompile()
-                dbg("called")
-            end
-        end)
-    end
 
     -- grades
     local translation = rt.Translation.result_screen_scene

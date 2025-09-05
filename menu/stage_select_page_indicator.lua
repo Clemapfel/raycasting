@@ -7,11 +7,10 @@ require "common.game_state"
 --- @class mn.StageSelectPageIndicator
 mn.StageSelectPageIndicator = meta.class("StageSelectPageIndicator", rt.Widget)
 
-local _shader, _outline_shader = nil
+local _shader = rt.Shader("menu/stage_select_page_indicator.glsl")
 
 --- @brief
 function mn.StageSelectPageIndicator:instantiate()
-    if _shader == nil then _shader = rt.Shader("menu/stage_select_page_indicator.glsl") end
 
     self._hue = 0
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))

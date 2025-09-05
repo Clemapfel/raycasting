@@ -16,8 +16,6 @@ rt.settings.menu.menu_scene_background = {
 --- @class mn.MenuSceneBackground
 mn.MenuSceneBackground = meta.class("MenuSceneBackground", rt.Widget)
 
-local _shader
-
 -- indices for particle indexing
 local _x = 1
 local _y = 2
@@ -46,8 +44,6 @@ local _mesh_angle = 9
 
 -- indices for data mesh
 
-local _particle_draw_shader, _particle_texture_shader, _canvas_draw_shader
-
 local _mesh_format = {
     { location = 3, name = "offset", format = "floatvec2" },
     { location = 4, name = "color", format = "floatvec3" },
@@ -58,17 +54,13 @@ local _mesh_format = {
 
 local _texture_format = rt.TextureFormat.RGBA16F
 
+local _shader = rt.Shader("menu/menu_scene_background.glsl")
+local _particle_draw_shader = rt.Shader("menu/menu_scene_background_particle_draw.glsl")
+local _particle_texture_shader = rt.Shader("menu/menu_scene_background_particle.glsl")
+local _canvas_draw_shader = rt.Shader("menu/menu_scene_background.glsl")
+
 --- @brief
 function mn.MenuSceneBackground:instantiate(scene)
-    if _shader == nil then _shader = rt.Shader("menu/menu_scene_background.glsl") end
-    if _particle_draw_shader == nil then _particle_draw_shader = rt.Shader("menu/menu_scene_background_particle_draw.glsl") end
-    if _particle_texture_shader == nil then _particle_texture_shader = rt.Shader("menu/menu_scene_background_particle.glsl") end
-    if _canvas_draw_shader == nil then _canvas_draw_shader = rt.Shader("menu/menu_scene_background.glsl") end
-
-    dbg("particle_draw", _particle_draw_shader._native)
-    dbg("particle_texture", _particle_texture_shader._native)
-    dbg("canvas_draw", _canvas_draw_shader._native)
-
     meta.assert(scene, mn.MenuScene)
     self._scene = scene
     self._fraction = 0

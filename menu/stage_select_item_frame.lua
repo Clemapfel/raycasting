@@ -21,14 +21,12 @@ rt.settings.menu.stage_select_item_frame = {
 --- @class mn.StageSelectItemframe
 mn.StageSelectItemframe = meta.class("StageSelectItemframe", rt.Widget)
 
-local _particle_shader, _outline_shader, _base_shader
+local _particle_shader = rt.Shader("menu/stage_select_item_frame_particle.glsl")
+local _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 })
+local _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 })
 
 --- @brief
 function mn.StageSelectItemframe:instantiate()
-    if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_item_frame_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 }) end
-    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 }) end
-
     self._canvas = nil -- rt.RenderTexture
     self._is_initialized = false
 

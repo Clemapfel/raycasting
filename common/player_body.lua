@@ -44,8 +44,12 @@ rt.settings.player_body = {
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
 
-local _outline_shader, _core_shader, _fill_shader, _canvas = nil, nil, nil, nil
 local _settings = rt.settings.player_body
+local _canvas = nli
+
+local _outline_shader = rt.Shader("common/player_body_outline.glsl")
+local _core_shader = rt.Shader("common/player_body_core.glsl")
+local _fill_shader = rt.Shader("common/player_body_fill.glsl")
 
 --- @brief
 function rt.PlayerBody:instantiate(player)
@@ -66,10 +70,6 @@ function rt.PlayerBody:instantiate(player)
 
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
-
-    if _outline_shader == nil then _outline_shader = rt.Shader("common/player_body_outline.glsl") end
-    if _core_shader == nil then _core_shader = rt.Shader("common/player_body_core.glsl") end
-    if _fill_shader == nil then _fill_shader = rt.Shader("common/player_body_fill.glsl") end
 
     -- init metaball ball mesh
 

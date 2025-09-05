@@ -9,7 +9,7 @@ rt.settings.overworld.hook = {
 --- @class ow.Hook
 ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
-local _shader
+local _shader = rt.Shader("overworld/objects/hook.glsl")
 
 -- global hue queue such that two elements don't have the same hue
 local _current_hue_step = 1
@@ -24,7 +24,6 @@ end
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
-    if _shader == nil then _shader = rt.Shader("overworld/objects/hook.glsl") end
 
     self._scene = scene
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor

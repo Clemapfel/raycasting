@@ -8,7 +8,7 @@ rt.settings.overworld.mirror = {
 -- @class ow.Mirror
 ow.Mirror = meta.class("Mirror")
 
-local _shader
+local _shader = rt.Shader("overworld/mirror.glsl")
 
 --- @brief
 function ow.Mirror:instantiate(scene)
@@ -18,8 +18,6 @@ function ow.Mirror:instantiate(scene)
         _world = nil
     })
 
-    if _shader == nil then _shader = rt.Shader("overworld/mirror.glsl") end
-    -- TODO
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "p" then

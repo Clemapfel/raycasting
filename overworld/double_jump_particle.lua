@@ -6,12 +6,10 @@ local _sqrt3 = math.sqrt(3)
 local _sqrt6 = math.sqrt(6)
 local _padding = 10
 
-local _outline_shader
+local _outline_shader = rt.Shader("overworld/double_jump_particle.glsl", { MODE = 0 })
 
 --- @brief
 function ow.DoubleJumpParticle:instantiate(radius)
-    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/double_jump_particle.glsl", { MODE = 0 }) end
-
     self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0

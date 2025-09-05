@@ -37,11 +37,10 @@ function mn.KeybindingScene.Item:draw()
 end
 
 local _ellipses = "\u{2026}"
-local _shader
+local _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 1 })
 
 --- @brief
 function mn.KeybindingScene:instantiate()
-    if _shader == nil then _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 1 }) end
     self._background_only = false
 
     local translation = rt.Translation.keybinding_scene

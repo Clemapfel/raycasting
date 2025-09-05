@@ -19,7 +19,9 @@ rt.settings.overworld.coin = {
 ow.Coin = meta.class("Coin")
 
 local _pulse_mesh = nil
-local _particle_texture, _particle_shader
+local _particle_texture
+
+local _particle_shader = rt.Shader("overworld/objects/coin.glsl")
 
 function ow.Coin.index_to_hue(i, n_coins)
     if n_coins - 1 == 0 then return 0 end
@@ -31,9 +33,6 @@ function ow.Coin:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Coin.instantiate: object is not a point")
 
     local radius = rt.settings.overworld.coin.radius
-    if _particle_shader == nil then
-        _particle_shader = rt.Shader("overworld/objects/coin.glsl")
-    end
 
     if _particle_texture == nil then
         local padding = rt.settings.overworld.coin.particle_padding

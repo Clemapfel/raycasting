@@ -19,17 +19,14 @@ local _slippery_max_x, _slippery_max_y = -math.huge, -math.huge
 local _sticky_tris = {}
 local _sticky_lines = {}
 local _sticky_mesh = nil
-local _sticky_shader
+local _sticky_shader = rt.Shader("overworld/objects/hitbox.glsl")
 local _sticky_min_x, _sticky_min_y = math.huge, math.huge
 local _sticky_max_x, _sticky_max_y = -math.huge, -math.huge
-
 
 local _initialized = false
 
 --- @brief
 function ow.Hitbox:instantiate(object, stage, scene)
-    if _sticky_shader == nil then _sticky_shader = rt.Shader("overworld/objects/hitbox.glsl") end
-
     self._body = object:create_physics_body(stage:get_physics_world())
 
     for property in range(

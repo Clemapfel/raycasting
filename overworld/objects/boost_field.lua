@@ -11,7 +11,7 @@ ow.BoostField = meta.class("BoostField")
 --- @class ow.BoostFieldAxis
 ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
-local _shader = nil
+local _shader = rt.Shader("overworld/objects/boost_field.glsl")
 
 -- batched outlines
 local _initialized = false
@@ -87,8 +87,6 @@ function ow.BoostField:instantiate(object, stage, scene)
             tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
         })
     end
-
-    if _shader == nil then _shader = rt.Shader("overworld/objects/boost_field.glsl") end
 end
 
 --- @brief

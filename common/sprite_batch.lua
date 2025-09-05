@@ -33,6 +33,8 @@ function rt.SpriteBatch:instantiate(texture)
         _data = {},
         _current_i = 0
     })
+
+    self._draw_shader:precompile()
 end
 
 function rt.SpriteBatch._params_to_data(x, y, w, h, tx, ty, tw, th, flip_horizontally, flip_vertically, angle)

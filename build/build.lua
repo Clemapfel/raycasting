@@ -74,7 +74,7 @@ bd.settings = {
     architecture_to_output_filename = {
         [bd.SystemArchitecture.WINDOWS_ARM] = "chroma_drift_windows_x86_64",
         [bd.SystemArchitecture.WINDOWS_AMD] = "chroma_drift_windows_arm64",
-        [bd.SystemArchitecture.LINUX_ARM] = "chroma_drift_linux_x64_64",
+        [bd.SystemArchitecture.LINUX_ARM] = "chroma_drift_linux_x86_64",
         [bd.SystemArchitecture.LINUX_AMD] = "chroma_drift_linux_arm64",
         [bd.SystemArchitecture.MAC_OS] = "chroma_drift_macos"
     }

@@ -8,7 +8,7 @@ rt.settings.overworld.checkpoint_rope = {
 --- @class ow.CheckpointRope
 ow.CheckpointRope = meta.class("CheckpointRope")
 
-local _indicator_shader
+local _indicator_shader = rt.Shader("overworld/objects/checkpoint_rope.glsl")
 
 function rotate_segment_around_point(x1, y1, x2, y2, px, py, angle)
     local x1_translated = x1 - px
@@ -40,18 +40,6 @@ local _collision_group = 0x0 --[[bit.bnot(bit.bor(
 
 --- @brief
 function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
-    if _indicator_shader == nil then
-        _indicator_shader = rt.Shader("overworld/objects/checkpoint_rope.glsl")
-
-        -- TODO
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "j" then
-                _indicator_shader:recompile()
-            end
-        end)
-    end
-
     self._scene = scene
     self._world = world
     self._top_x, self._top_y, self._bottom_x, self._bottom_y = x1, y1, x2, y2

@@ -20,15 +20,13 @@ ow.ResultScreenFrame = meta.class("ResultScreenFrame", rt.Widget)
 meta.add_signal(ow.ResultScreenFrame, "presented")
 meta.add_signal(ow.ResultScreenFrame, "closed")
 
-local _particle_texture_shader, _outline_shader, _base_shader, _mask_shader
+local _particle_texture_shader = rt.Shader("overworld/result_screen_frame_particle.glsl")
+local _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 })
+local _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 })
+local _mask_shader = rt.Shader("overworld/result_screen_frame_mask.glsl")
 
 --- @brief
 function ow.ResultScreenFrame:instantiate()
-    if _particle_texture_shader == nil then _particle_texture_shader = rt.Shader("overworld/result_screen_frame_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 }) end
-    if _base_shader == nil then _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 }) end
-    if _mask_shader == nil then _mask_shader = rt.Shader("overworld/result_screen_frame_mask.glsl") end
-
     self._mesh_animation = rt.AnimationChain(
         1, 0, 1, rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
     )

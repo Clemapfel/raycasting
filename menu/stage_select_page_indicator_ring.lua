@@ -38,13 +38,11 @@ local _data_mesh_format = {
     { location = 4, name = "radius", format = "float" },
 }
 
-local _particle_shader, _outline_shader
+local _particle_shader = rt.Shader("menu/stage_select_page_indicator_ring_particle.glsl")
+local _outline_shader = rt.Shader("menu/stage_select_page_indicator_ring.glsl")
 
 --- @brief
 function mn.StageSelectPageIndicatorRing:instantiate(radius, thickness)
-    if _particle_shader == nil then _particle_shader = rt.Shader("menu/stage_select_page_indicator_ring_particle.glsl") end
-    if _outline_shader == nil then _outline_shader = rt.Shader("menu/stage_select_page_indicator_ring.glsl") end
-
     meta.assert(radius, "Number", thickness, "Number")
 
     thickness = math.max(thickness, 1)

@@ -19,15 +19,10 @@ rt.settings.overworld.stage_title_card_scene = {
 ow.StageTitleCardScene = meta.class("StageTitleCardScene", rt.Scene)
 
 local _canvas = nil
-local _post_fx_shader = nil
-local _background_shader = nil
+local _post_fx_shader = rt.Shader("overworld/stage_title_card_scene_post_fx.glsl")
 
 --- @brief
 function ow.StageTitleCardScene:instantiate(state)
-    if _post_fx_shader == nil then
-        _post_fx_shader = rt.Shader("overworld/stage_title_card_scene_post_fx.glsl")
-    end
-
     self._player = state:get_player()
     self._camera = rt.Camera()
     self._camera_anchor_x, self._camera_anchor_y = 0, 0

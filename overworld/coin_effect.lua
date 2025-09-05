@@ -7,9 +7,12 @@ rt.settings.overworld.coin_effect = {
 --- @class ow.CoinEffect
 ow.CoinEffect = meta.class("CoinEffect", rt.Widget)
 
-local _shader = nil
 local _canvas = nil
 local _mask = nil
+
+local _shader = rt.Shader("overworld/coin_effect.glsl", {
+    MAX_N_COINS = rt.settings.overworld.coin_effect.n_coin_buffer_size
+})
 
 --- @brief
 function ow.CoinEffect:_initialize_buffers()
@@ -24,13 +27,6 @@ end
 --- @brief
 function ow.CoinEffect:instantiate(scene)
     meta.assert(scene, ow.OverworldScene)
-
-    if _shader == nil then
-        _shader = rt.Shader("overworld/coin_effect.glsl", {
-            MAX_N_COINS = rt.settings.overworld.coin_effect.n_coin_buffer_size
-        })
-    end
-
     meta.install(self, {
         _x = 0,
         _y = 0,

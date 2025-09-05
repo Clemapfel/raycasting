@@ -49,18 +49,11 @@ mn.MenuSceneState = meta.enum("MenuSceneState", {
     EXITING = "EXITING"
 })
 
-local _title_shader_sdf, _title_shader_no_sdf = nil, nil
+local _title_shader_no_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 0 })
+local _title_shader_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 1 })
 
 -- @brief
 function mn.MenuScene:instantiate(state)
-    if _title_shader_no_sdf == nil then
-        _title_shader_no_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 0 })
-    end
-
-    if _title_shader_sdf == nil then
-        _title_shader_sdf = rt.Shader("menu/menu_scene_label.glsl", { MODE = 1 })
-    end
-
     self._input_blocked = true
 
     self._world = b2.World()

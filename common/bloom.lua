@@ -9,23 +9,14 @@ rt.settings.bloom = {
 --- @class rt.Bloom
 rt.Bloom = meta.class("Bloom")
 
-local _downsample_shader, _upsample_shader, _tonemap_shader
-local _blur_shader_horizontal, _blur_shader_vertical
+local _downsample_shader = rt.Shader("common/bloom_downsample.glsl")
+local _upsample_shader = rt.Shader("common/bloom_upsample.glsl")
+local _tonemap_shader = rt.Shader("common/bloom_tone_map.glsl")
+local _blur_shader_horizontal = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 1 })
+local _blur_shader_vertical = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 0 })
 
 --- @brief
 function rt.Bloom:instantiate(width, height, msaa, texture_format, ...)
-    if _downsample_shader == nil then _downsample_shader = rt.Shader("common/bloom_downsample.glsl") end
-    if _upsample_shader == nil then _upsample_shader = rt.Shader("common/bloom_upsample.glsl") end
-    if _tonemap_shader == nil then _tonemap_shader = rt.Shader("common/bloom_tone_map.glsl") end
-
-    if _blur_shader_horizontal == nil then
-        _blur_shader_horizontal = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 1 })
-    end
-
-    if _blur_shader_vertical == nil then
-        _blur_shader_vertical = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 0 })
-    end
-
     if msaa == nil then msaa = rt.settings.bloom.default_msaa end
     if texture_format == nil then texture_format = rt.settings.bloom.default_texture_format end
 

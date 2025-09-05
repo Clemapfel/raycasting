@@ -62,16 +62,11 @@ function mn.SettingsScene.Item:measure()
     return w, h
 end
 
-local _shader
+local _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 0 })
 
 --- @brief
 function mn.SettingsScene:instantiate()
-    if _shader == nil then
-        _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 0 })
-    end
-
     self._background_only = false
-
     local translation = rt.Translation.settings_scene
     
     self._option_button_control_indicator = rt.ControlIndicator(

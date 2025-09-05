@@ -34,7 +34,9 @@ local _get_hue = function()
 end
 
 local _particle_texture
-local _pulse_shader, _particle_shader
+
+local _pulse_shader = rt.Shader("overworld/objects/portal.glsl")
+local _particle_shader = rt.Shader("overworld/objects/portal_particles.glsl")
 
 local _LEFT = true
 local _RIGHT = not _LEFT
@@ -91,14 +93,6 @@ function ow.Portal:instantiate(object, stage, scene)
         mesh:draw()
         _particle_texture:unbind()
         love.graphics.pop()
-    end
-
-    if _pulse_shader == nil then
-        _pulse_shader = rt.Shader("overworld/objects/portal.glsl")
-    end
-
-    if _particle_shader == nil then
-        _particle_shader = rt.Shader("overworld/objects/portal_particles.glsl")
     end
 
     self._stage = stage

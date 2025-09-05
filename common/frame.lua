@@ -25,14 +25,10 @@ rt.settings.frame = {
 --- @class rt.Frame
 rt.Frame = meta.class("Frame", rt.Widget)
 
-local _shader = nil
+local _shader = rt.Shader("common/frame.glsl")
 
 --- @brief
 function rt.Frame:instantiate()
-    if _shader == nil then
-        _shader = rt.Shader("common/frame.glsl")
-    end
-
     meta.install(self, {
         _child = {},
         _child_valid = false,

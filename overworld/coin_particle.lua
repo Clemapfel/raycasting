@@ -5,12 +5,11 @@ require "common.label"
 --- @class ow.CoinParticle
 ow.CoinParticle = meta.class("CoinParticle")
 
-local _shader = nil
+local _shader = rt.Shader("common/player_body_core.glsl")
 local _font = rt.Font("assets/fonts/Baloo2/Baloo2-Bold.ttf")
 
 --- @brief
 function ow.CoinParticle:instantiate(radius, is_outline)
-    if _shader == nil then _shader = rt.Shader("common/player_body_core.glsl") end
     if is_outline == nil then is_outline = false end
 
     self._elapsed_offset = rt.random.number(0, 100)

@@ -43,6 +43,7 @@ function rt.Background:realize()
 
     self._shape = rt.MeshRectangle(0, 0, 1, 1)
     self._shader = rt.Shader(self._path)
+    self._shader:precompile()
 
     if self._shader:has_uniform(_elapsed_name) then
         self._shader:send(_elapsed_name, 0)

@@ -9,8 +9,10 @@ rt.settings.player_trail = {
 rt.PlayerTrail = meta.class("PlayerTrail", rt.Drawable)
 
 local _boom_mesh = nil
-local _glow_texture, _glow_shader = nil, nil
 local _trail_canvas_a, _trail_canvas_b, _trail_mesh, _trail_circle_mesh = nil, nil, nil, nil
+
+local _glow_texture = nil
+local _glow_shader = rt.Shader("common/player_trail_glow.glsl")
 
 --- @brief
 function rt.PlayerTrail:instantiate(player)
@@ -55,7 +57,6 @@ function rt.PlayerTrail:instantiate(player)
     end
 
     -- init glow
-    if _glow_shader == nil then _glow_shader = rt.Shader("common/player_trail_glow.glsl") end
     if _glow_texture == nil then
         local radius = rt.settings.player.radius * 4
         local padding = 10

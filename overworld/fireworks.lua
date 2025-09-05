@@ -45,10 +45,9 @@ local _data_mesh_format = {
     { location = 10, name = "lifetime", format = "float" }
 }
 
-local _particle_shader = nil
+local _particle_shader = rt.Shader("overworld/fireworks.glsl")
 
 function ow.Fireworks:instantiate(player)
-    if _particle_shader == nil then _particle_shader = rt.Shader("overworld/fireworks.glsl") end
     self._batches = {}
     self._player = player
 end

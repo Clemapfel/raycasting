@@ -15,20 +15,20 @@ local _scale = 9
 local _scale_direction = 10 -- radius change
 local _scale_speed = 11 -- radius change speed
 
-local _draw_shader, _particle_texture_shader
 local _max_size = rt.get_pixel_scale() * 30
 local _min_scale, _max_scale = 0.5, 4
 local _max_scale_speed = 0.5 -- fraction per second
 local _n_particles = 800
 local _gravity = 0.5 -- normalize y velocity
 
+local _draw_shader = rt.Shader("overworld/stage_title_card_scene_background.glsl")
+local _particle_texture_shader = rt.Shader("overworld/stage_title_card_scene_background_particle.glsl")
+
 function ow.StageTitleCardSceneBackground:instantiate(n_particles)
     self._n_particles = n_particles or _n_particles
 end
 
 function ow.StageTitleCardSceneBackground:realize()
-    if _draw_shader == nil or true then _draw_shader = rt.Shader("overworld/stage_title_card_scene_background.glsl") end
-    if _particle_texture_shader == nil or true then _particle_texture_shader = rt.Shader("overworld/stage_title_card_scene_background_particle.glsl") end
     local canvas_w = rt.get_pixel_scale() * _max_size + padding
 
     -- draw circle to texture

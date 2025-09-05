@@ -1,22 +1,16 @@
 --- @class rt.Blur
 rt.Blur = meta.class("Blur")
 
-local _blur_shader_horizontal, _blur_shader_vertical
+local  _blur_shader_horizontal = rt.Shader("common/blur.glsl", {
+    HORIZONTAL_OR_VERTICAL = 1
+}):get_native()
+
+local _blur_shader_vertical = rt.Shader("common/blur.glsl", {
+    HORIZONTAL_OR_VERTICAL = 0
+}):get_native()
 
 --- @brief
 function rt.Blur:instantiate(width, height, ...)
-    if _blur_shader_horizontal == nil then
-        _blur_shader_horizontal = rt.Shader("common/blur.glsl", {
-            HORIZONTAL_OR_VERTICAL = 1
-        }):get_native()
-    end
-
-    if _blur_shader_vertical == nil then
-        _blur_shader_vertical = rt.Shader("common/blur.glsl", {
-            HORIZONTAL_OR_VERTICAL = 0
-        }):get_native()
-    end
-
     return meta.install(self, {
         _blur_strength = 1, -- Integer
         _texture_w = width,
@@ -27,22 +21,27 @@ function rt.Blur:instantiate(width, height, ...)
         _blur_applied = false,
         _blur_horizontally = true,
         _blur_vertically = true,
+        _is_bound = false
     })
 end
 
-local _before
 local lg = love.graphics
 
 --- @brief
 function rt.Blur:bind()
-    _before = love.graphics.getCanvas()
+    if self._is_bound == true then
+        rt.error("In rt.Blur: trying to bind canvas, but it is already bound. Was `unbind` called correctly?")
+    end
+    love.graphics.push("all")
+    self._is_bound = true
     lg.setCanvas({ self._texture_a, stencil = true })
     self._blur_applied = false
 end
 
 --- @brief
 function rt.Blur:unbind()
-    lg.setCanvas(nil)
+    self._is_bound = false
+    love.graphics.pop("all")
 end
 
 --- @brief

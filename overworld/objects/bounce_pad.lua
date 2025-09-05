@@ -28,12 +28,10 @@ local _axis_x_index = 1
 local _axis_y_index = 2
 local _offset_index = 3
 
-local _shape_shader
+local _shape_shader = rt.Shader("overworld/objects/bounce_pad.glsl")
 
 --- @brief
 function ow.BouncePad:instantiate(object, stage, scene)
-    if _shape_shader == nil then _shape_shader = rt.Shader("overworld/objects/bounce_pad.glsl") end
-
     meta.install(self, {
         _scene = scene,
         _stage = stage,

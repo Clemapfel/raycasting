@@ -9,21 +9,19 @@ rt.settings.fade = {
 --- @class rt.Fade
 rt.Fade = meta.class("Fade")
 
-local _default_shader = nil
+local _default_shader = rt.Shader("common/fade_default.glsl")
 
 --- @brief
 function rt.Fade:instantiate(duration, shader_path)
-    if _default_shader == nil then _default_shader = rt.Shader("common/fade_default.glsl") end
-
     duration = duration or rt.settings.fade.default_duration
     meta.assert_typeof(duration, "Number", 1)
 
     local r, g, b, a = rt.Palette.TRUE_BLACK:unpack()
 
-    local shader = _default_shader
     if shader_path ~= nil then
         meta.assert_typeof(shader_path, "String", 2)
-        shader = rt.Shader(shader_path)
+        self._shader = rt.Shader(shader_path)
+        self._shader:precompile()
     end
 
     meta.install(self, {
@@ -36,7 +34,6 @@ function rt.Fade:instantiate(duration, shader_path)
         _signal_emitted = true,
         _queue_emit = false,
         _started = false,
-        _shader = shader,
         _r = r,
         _g = g,
         _b = b,
@@ -168,4 +165,5 @@ function rt.Fade:set_shader(shader)
     meta.assert(shader, rt.Shader)
     assert(shader:get_native():hasUniform("value"))
     self._shader = shader
+    self._shader:precompile()
 end

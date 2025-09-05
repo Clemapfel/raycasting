@@ -16,8 +16,6 @@ rt.settings.overworld.accelerator_surface = {
 --- @class ow.AcceleratorSurface
 ow.AcceleratorSurface = meta.class("AcceleratorSurface")
 
-local _body_shader, _outline_shader, _particle_shader
-
 local _particle_texture, _particle_quads = nil, {}
 local _vertex_counts = {}
 do
@@ -27,6 +25,11 @@ do
     for _ = 1, 3 do table.insert(_vertex_counts, 6) end
     for _ = 1, 2 do table.insert(_vertex_counts, 7) end
 end
+
+
+local _body_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 0 })
+local _outline_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 1 })
+local _particle_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 2 })
 
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
@@ -86,10 +89,6 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
         love.graphics.pop()
     end
-
-    if _body_shader == nil then _body_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 0 }) end
-    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 1 }) end
-    if _particle_shader == nil then _particle_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 2 }) end
 
     self._scene = scene
     self._elapsed = 0

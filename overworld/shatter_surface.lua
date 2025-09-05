@@ -502,21 +502,10 @@ local function generate_mesh(contour)
     return mesh
 end
 
-
-local _shader
+local _shader = rt.Shader("overworld/shatter_surface.glsl")
 
 --- @brief
 function ow.ShatterSurface:instantiate(world, x, y, width, height)
-    if _shader == nil then
-        _shader = rt.Shader("overworld/shatter_surface.glsl")
-        self._input = rt.InputSubscriber()
-        self._input:signal_connect("keyboard_key_pressed", function(_, which)
-            if which == "j" then
-                _shader:recompile()
-            end
-        end)
-    end
-
     meta.assert(world, "PhysicsWorld")
     self._world = world
     self._bounds = rt.AABB(x, y, width, height)

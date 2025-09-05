@@ -15,7 +15,8 @@ require "common.delaunay_triangulation"
 --- @class ow.DeformableMesh
 ow.DeformableMesh = meta.class("DeformableMesh")
 
-local _shader, _outline_shader
+local _shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = false })
+local _outline_shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = true })
 
 local _mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
@@ -25,15 +26,6 @@ local _mesh_format = {
 
 
 function ow.DeformableMesh:instantiate(scene, world, contour)
-    if _shader == nil then _shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = false }) end
-    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = true }) end
-
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "l" then _shader:recompile(); _outline_shader:recompile() end
-    end)
-
     meta.assert(scene, ow.OverworldScene, world, b2.World)
     self._scene = scene
     self._world = world

@@ -25,7 +25,15 @@ local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of w
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 
-local _init_shader, _step_shader, _pre_process_shader, _post_process_shader, _export_shader, _draw_light_shader, _draw_shadow_shader
+local _init_shader, _step_shader, _pre_process_shader, _post_process_shader, _export_shader
+
+local _draw_light_shader = rt.Shader("overworld/normal_map_draw.glsl", {
+    MODE = 0,
+    MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
+    MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights,
+})
+
+local _draw_shadow_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 1 })
 
 local _frame_percentage = 0.6
 
@@ -256,12 +264,6 @@ function ow.NormalMap:instantiate(stage)
         if _pre_process_shader == nil then _pre_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 4, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _draw_light_shader == nil then _draw_light_shader = rt.Shader("overworld/normal_map_draw.glsl", {
-            MODE = 0,
-            MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
-            MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights,
-        }) end
-        if _draw_shadow_shader == nil then _draw_shadow_shader = rt.Shader("overworld/normal_map_draw.glsl", { MODE = 1 }) end
 
         local padding = chunk_size / 2
         self._chunk_padding = padding

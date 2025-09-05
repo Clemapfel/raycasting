@@ -7,12 +7,10 @@ rt.settings.overworld.kill_plane = {
 --- @class ow.KillPlane
 ow.KillPlane = meta.class("KillPlane")
 
-local _inner_shader, _outer_shader
+local _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 })
+local _outer_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 1 })
 
 function ow.KillPlane:instantiate(object, stage, scene)
-    if _inner_shader == nil then _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 }) end
-    if _outer_shader == nil then _outer_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 1 }) end
-
     self._scene = scene
     self._stage = stage
 

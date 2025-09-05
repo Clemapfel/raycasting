@@ -21,9 +21,6 @@ local _magnitude_index = 5
 -- data mesh members
 local _scale_index = 1
 
--- shader
-local _outline_shader, _base_shader
-
 -- wave equation solver parameters
 
 local _dx = 0.2
@@ -31,10 +28,11 @@ local _dt = 0.05
 local _damping = 0.99
 local _courant = _dt / _dx
 
+local _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 })
+local _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 1 })
+
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
-    if _base_shader == nil then _base_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 0 }) end
-    if _outline_shader == nil then _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE = 1 }) end
 
     -- collision
     self._scene = scene

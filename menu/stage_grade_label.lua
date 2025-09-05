@@ -17,9 +17,11 @@ rt.settings.menu.stage_grade_label = {
 mn.StageGradeLabel = meta.class("StageGradeLabel", rt.Widget)
 meta.add_signal(mn.StageGradeLabel, "pulse_done")
 
-local _font, _shader_sdf, _shader_no_sdf
-
+local _font
 local _atlas = {}
+
+local _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0 })
+local _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
 
 --- @brief
 function mn.StageGradeLabel:instantiate(grade, size)
@@ -47,12 +49,6 @@ function mn.StageGradeLabel:instantiate(grade, size)
                 _shader_no_sdf:recompile()
             end
         end)
-    end
-
-    if _shader_no_sdf == nil then _shader_no_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 0 }) end
-    if _shader_sdf == nil then
-        _shader_sdf = rt.Shader("menu/stage_grade_label.glsl", { MODE = 1 })
-        _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
     end
 
     self._shine_animation = rt.TimedAnimation(
@@ -90,6 +86,7 @@ function mn.StageGradeLabel:draw()
 
     -- SDF shader
     _shader_sdf:bind()
+    _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
     _shader_sdf:send("opacity", self._opacity)
 
     love.graphics.draw(self._label_sdf, self._label_x, self._label_y)

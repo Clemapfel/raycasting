@@ -21,18 +21,11 @@ local _data_mesh_format = {
     { location = 5, name = "contour_vector", format = "floatvec3" } -- normalized xy, z is length
 }
 
-local _mesh_shader, _outline_shader
+local _mesh_shader = rt.Shader("overworld/objects/npc_mesh.glsl")
+local _outline_shader = rt.Shader("overworld/objects/npc_outline.glsl")
 
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
-    if _mesh_shader == nil then
-        _mesh_shader = rt.Shader("overworld/objects/npc_mesh.glsl")
-    end
-
-    if _outline_shader == nil then
-        _outline_shader = rt.Shader("overworld/objects/npc_outline.glsl")
-    end
-
     self._scene = scene
     self._stage = stage
     self._world = stage:get_physics_world()
