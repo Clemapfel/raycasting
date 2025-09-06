@@ -286,7 +286,6 @@ function rt.Player:instantiate()
 
         -- bubble
         _is_bubble = false,
-        _position_update_needed = true,
         _use_bubble_mesh = false, -- cf. draw
         _use_bubble_mesh_delay_n_steps = 0,
 
@@ -434,8 +433,36 @@ function rt.Player:update(delta)
 
     local t = self._time_dilation
 
-    -- update visuals with regular time
-    self:_update_mesh(delta)
+    do -- notify body of new anchor positions
+        local positions
+        if self._is_bubble then
+            positions = {
+                self._bubble_body:get_predicted_position()
+            }
+
+            for body in values(self._bubble_spring_bodies) do
+                local x, y = body:get_predicted_position()
+                table.insert(positions, x)
+                table.insert(positions, y)
+            end
+        else
+            positions = {
+                self._body:get_predicted_position()
+            }
+
+            for body in values(self._spring_bodies) do
+                local x, y = body:get_predicted_position()
+                table.insert(positions, x)
+                table.insert(positions, y)
+            end
+        end
+
+        if self._use_bubble_mesh_delay_n_steps <= 0 then
+            self._graphics_body:update_anchors(positions)
+            self._graphics_body:update(delta)
+        end
+    end
+
     if self._trail_visible then
         self._trail:update(delta)
     end
@@ -1387,36 +1414,6 @@ function rt.Player:move_to_world(world)
     end)
 end
 
-function rt.Player:_update_mesh(delta, force_initialize)
-    local positions
-    if self._is_bubble then
-        positions = {
-            self._bubble_body:get_predicted_position()
-        }
-
-        for body in values(self._bubble_spring_bodies) do
-            local x, y = body:get_predicted_position()
-            table.insert(positions, x)
-            table.insert(positions, y)
-        end
-    else
-        positions = {
-            self._body:get_predicted_position()
-        }
-
-        for body in values(self._spring_bodies) do
-            local x, y = body:get_predicted_position()
-            table.insert(positions, x)
-            table.insert(positions, y)
-        end
-    end
-
-    if self._use_bubble_mesh_delay_n_steps <= 0 then
-        self._graphics_body:initialize(positions, force_initialize)
-        self._graphics_body:update(delta)
-    end
-end
-
 --- @brief
 function rt.Player:draw_bloom()
     if self._is_visible == false then return end
@@ -1464,11 +1461,7 @@ end
 --- @brief
 function rt.Player:get_position()
     if self._body == nil then return 0, 0 end
-
-    local use_bubble = self._is_bubble
-    if self._position_update_needed then use_bubble = not use_bubble end
-
-    if use_bubble then
+    if self._is_bubble then
         return self._bubble_body:get_position()
     else
         return self._body:get_position()
@@ -1478,7 +1471,6 @@ end
 --- @brief
 function rt.Player:get_predicted_position()
     if self._body == nil then return 0, 0 end
-
     if not self._is_bubble then
         return self._body:get_predicted_position()
     else
@@ -1804,11 +1796,9 @@ function rt.Player:set_is_bubble(b)
 
     -- delay to after next physics update, because solver needs time to resolve spring after synch teleport
     self._use_bubble_mesh_delay_n_steps = 4
-    self._position_update_needed = true
     self._world:signal_connect("step", function()
         if self._use_bubble_mesh_delay_n_steps <= 0 then
             self._use_bubble_mesh = self._is_bubble
-            self._position_update_needed = false
             return meta.DISCONNECT_SIGNAL
         else
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1
