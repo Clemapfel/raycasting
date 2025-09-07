@@ -30,7 +30,6 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._vertices = {x1 + down_x, y1 + down_y, x1, y1, x2, y2, x2 + down_x, y2 + down_y}
 end
 
-
 --- @brief
 function ow.OneWayPlatform:draw()
     if not self._scene:get_is_body_visible(self._body) then return end

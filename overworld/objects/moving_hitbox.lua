@@ -57,7 +57,6 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     self._body:add_tag("stencil")
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
-    self._body:set_position(self._x, self._y) -- revert offset
 
     -- reset cycle on player respawn
     self._start_timestamp = love.timer.getTime()
@@ -66,27 +65,18 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     end)
 
     -- mesh
-    local _, tris, mesh_prototype
-    _, tris, mesh_prototype = object:create_mesh()
+    -- mesh
+    local _, tris, mesh_data
+    _, tris, mesh_data = object:create_mesh()
 
-    -- subtract from origin
-    for tri in values(tris) do
-        for i = 1, 6, 2 do
-            tri[i+0] = tri[i+0] - centroid_x
-            tri[i+1] = tri[i+1] - centroid_y
-        end
+    local mass_x, mass_y  = self._body:get_position()
+    self._centroid_x, self._centroid_y = mass_x, mass_y
+    for data in values(mesh_data) do
+        data[1] = data[1] - mass_x
+        data[2] = data[2] - mass_y
     end
 
-    for vertex in values(mesh_prototype) do
-        vertex[1] = vertex[1] - centroid_x
-        vertex[2] = vertex[2] - centroid_y
-    end
-
-    self._mesh = rt.Mesh(mesh_prototype, rt.MeshDrawMode.TRIANGLES)
-
-    self._contour = rt.contour_from_tris(tris)
-    table.insert(self._contour, self._contour[1])
-    table.insert(self._contour, self._contour[2])
+    self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 end
 
 local dt = math.eps * 10e2
@@ -140,13 +130,17 @@ end
 
 --- @brief
 function ow.MovingHitbox:draw()
+    if not self._scene:get_is_body_visible(self._body) then return end
     love.graphics.push()
     love.graphics.translate(self._body:get_position())
+    love.graphics.rotate(self._body:get_rotation())
 
     rt.Palette.RED:bind()
+    love.graphics.setWireframe(true)
     self._mesh:draw()
+    love.graphics.setWireframe(false)
 
-    rt.Palette.WHITE:bind()
-    love.graphics.line(self._contour)
     love.graphics.pop()
+
+    self._body:draw()
 end

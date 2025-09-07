@@ -470,6 +470,12 @@ function math.subtract(x, y, scalar_a, scalar_b)
 end
 
 --- @brief
+function math.reverse_subtract(x, y, scalar_a, scalar_b)
+    if scalar_b == nil then scalar_b = scalar_a end
+    return scalar_a - x, scalar_b - y
+end
+
+--- @brief
 function math.multiply(x, y, scalar_a, scalar_b)
     if scalar_b == nil then scalar_b = scalar_a end
     return x * scalar_a, y * scalar_b
