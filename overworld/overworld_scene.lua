@@ -313,7 +313,10 @@ function ow.OverworldScene:enter(new_stage_id)
     self._fade_active = false
     self._fade:skip()
 
-    if new_stage_id ~= nil and new_stage_id ~= self._stage_id then
+    self._result_screen_transition_active = true -- TODO
+    self._result_screen_transition_elapsed = 0
+
+    if new_stage_id ~= nil then
         self:set_stage(new_stage_id)
     end
 
@@ -846,6 +849,7 @@ local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
+    dbg(self._result_screen_transition_active)
     if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
         self._timer = self._timer + delta
         self._n_frames = self._n_frames + 1

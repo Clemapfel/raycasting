@@ -14,7 +14,7 @@ rt.settings.overworld.result_screen_scene = {
     coin_indicator_line_width = 1.5,
 
     reveal_animation_duration = 2,
-    screenshot_animation_duration = 4
+    screenshot_animation_duration = 2
 }
 
 --- @class ow.ResultScreenScene
@@ -30,12 +30,23 @@ local _format_title = function(text)
     return "<b><o><u>" .. text .. "</u></o></b>"
 end
 
-local _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl")
+local _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl", {
+    SHADER_DERIVATIVES = love.graphics.getSupported()["shaderderivatives"]
+})
 
 --- @brief
 function ow.ResultScreenScene:instantiate(state)
     if _title_font == nil then _title_font = rt.Font(rt.settings.overworld.result_screen_scene.title_font) end
     if _glyph_font == nil then _glyph_font = rt.Font(rt.settings.overworld.result_screen_scene.glyph_font) end
+
+    -- TODO
+    self._debug = rt.InputSubscriber()
+    self._debug:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            _screenshot_shader:recompile()
+            self._screenshot_fraction_animation:reset()
+        end
+    end)
 
     -- grades
     local translation = rt.Translation.result_screen_scene
@@ -132,6 +143,7 @@ function ow.ResultScreenScene:instantiate(state)
     self._transition_next = nil -- Type<rt.Scene>
     self._transition_elapsed = 0
     self._transition_final_y = nil -- Number
+    self._transition_fraction = 0
     self._fade = rt.Fade(2, "overworld/overworld_scene_fade.glsl")
     self._fade_active = false
 
@@ -378,7 +390,12 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
     local m = rt.settings.margin_unit
     do -- physics world
         local bx, by = 0, 0
-        local _, _, w, h = self:get_bounds():unpack()
+        local bounds_x, bounds_y = x, y
+
+        local aspect_ratio = width / height
+        local w = aspect_ratio * rt.settings.native_height
+        local h = rt.settings.native_height
+
         for body in values(self._bodies) do body:destroy() end
 
         self._bodies = {}
@@ -411,6 +428,7 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
             table.insert(self._bodies, body)
         end
 
+        self._camera:set_position(bounds_x + 0.5 * w, bounds_y + 0.5 * h)
         self:_teleport_player(self._entry_x, self._entry_y)
     end
 
@@ -655,6 +673,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     end)
 
     self._transition_active = false
+    self._transition_fraction = 0
     self._transition_elapsed = math.huge
     for body in values(self._bodies) do
         body:set_is_enabled(true)
@@ -690,7 +709,7 @@ function ow.ResultScreenScene:_reformat_frame()
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
 
     local y = 0 -- aligned in draw
-    min_y = y
+    min_y = 0
 
     local max_title_w = -math.huge
     for title in range(
@@ -704,7 +723,7 @@ function ow.ResultScreenScene:_reformat_frame()
     local title_area_w = 2 / 3 * width
     self._stage_name_label:reformat(
         x + 0.5 * width - 0.5 * title_area_w,
-        y + m,
+        y,
         2 / 3 * width,
         math.huge
     )
@@ -712,7 +731,7 @@ function ow.ResultScreenScene:_reformat_frame()
 
     local col_w = (width / 2) / 3 + 4 * m --max_title_w + 4 * m
     local col_x = x + 0.5 * width - 0.5 * (3 * col_w)
-    local col_y = y + m + title_h + 2 * m
+    local col_y = y + title_h + 2 * m
 
     local start_x = col_x
 
@@ -810,7 +829,7 @@ function ow.ResultScreenScene:_reformat_frame()
     local total_y = indicator_y + indicator_height - 2 * m
     local total_label_w, total_label_h = self._total_label:measure()
     self._total_label:reformat(x + 0.5 * width - 0.5 * total_label_w - total_grade_w, total_y, math.huge)
-    --total_y = total_y + total_label_h
+    total_y = total_y + total_label_h
 
     local total_x = x + 0.5 * width - 0.5 * total_grade_w
     self._total_grade:reformat(total_x, total_y, total_grade_w, total_grade_h)
@@ -834,18 +853,16 @@ function ow.ResultScreenScene:_reformat_frame()
         max_y = math.max(max_y, widget_y + widget_h)
     end
 
-    min_x = min_x - 8 * m
-    max_x = max_x + 8 * m
-    min_y = min_y - 2 * m
-    max_y = max_y + 4 * m
+    min_x = min_x - 3 * m
+    max_x = max_x + 3 * m
     self._frame:reformat(
         x + 0.5 * width - 0.5 * (max_x - min_x),
-        min_y,
+        y + 0.5 * height - 0.5 * (max_y - min_y),
         max_x - min_x,
         max_y - min_y
     )
 
-    self._y_offset = self._bounds.y + 0.5 * self._bounds.height - 0.5 * (max_y - min_y)
+    self._y_offset = min_y + 0.5 * (max_y - min_y)
 
     -- splits
     local margin = 4 * m
@@ -1024,7 +1041,8 @@ function ow.ResultScreenScene:update(delta)
         self._transition_elapsed = self._transition_elapsed + delta
 
         local duration = rt.settings.overworld.result_screen_scene.exit_transition_fall_duration
-        self._player:set_flow(self._transition_elapsed / duration)
+        self._transition_fraction = self._transition_elapsed / duration
+        self._player:set_flow(self._transition_fraction)
 
         local px, py = self._player:get_position()
         for entry in values(self._coin_indicators) do
@@ -1075,23 +1093,23 @@ function ow.ResultScreenScene:draw()
         _screenshot_shader:bind()
         _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
+        _screenshot_shader:send("transition_fraction", self._transition_fraction)
         _screenshot_shader:send("camera_offset", { self._camera:get_offset() })
-        _screenshot_shader:send("camera_scale", self._camera:get_final_scale())
+        --_screenshot_shader:send("camera_scale", self._camera:get_final_scale())
+        _screenshot_shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
         self._screenshot_mesh:draw()
         _screenshot_shader:unbind()
-        return
     end
 
-    self._camera:bind()
-
     love.graphics.push()
-    love.graphics.translate(0, self._y_offset)
     self._frame:draw()
 
     local stencil = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
     self._frame:draw_mask()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+
+    love.graphics.translate(0, self._y_offset)
 
     for widget in range(
         self._stage_name_label,
@@ -1135,6 +1153,8 @@ function ow.ResultScreenScene:draw()
     rt.graphics.set_stencil_mode(nil)
     love.graphics.pop()
 
+    self._camera:bind()
+
     -- draw floating coins
     for entry in values(self._coin_indicators) do
         if entry.body ~= nil then
@@ -1142,6 +1162,7 @@ function ow.ResultScreenScene:draw()
         end
     end
     self._player:draw()
+    self._camera:unbind()
 
     if rt.SceneManager:get_is_bloom_enabled() then
         love.graphics.push("all")
@@ -1151,8 +1172,9 @@ function ow.ResultScreenScene:draw()
         love.graphics.clear(0, 0, 0, 0)
 
         love.graphics.push()
-        love.graphics.translate(0, self._y_offset)
         self._frame:draw_bloom()
+
+        love.graphics.translate(0, self._y_offset)
         for entry in values(self._coin_indicators) do
             if entry.body ~= nil then
                 entry.coin:draw_bloom(entry.x, entry.y)
@@ -1161,14 +1183,13 @@ function ow.ResultScreenScene:draw()
         love.graphics.pop()
 
         self._camera:bind()
-
         for entry in values(self._coin_indicators) do
             if entry.body ~= nil then
                 entry.coin:draw_bloom(entry.body:get_position())
             end
         end
-        self._player:draw_bloom()
 
+        self._player:draw_bloom()
         self._camera:unbind()
 
         bloom:unbind()
@@ -1214,13 +1235,18 @@ function ow.ResultScreenScene:draw()
         self._grade_control_indicator:draw()
     end
 
-    self._camera:unbind()
-
     --self._splits:draw()
 
     if self._fade:get_is_active() then
         self._fade:draw()
     end
+
+    love.graphics.setColor(1, 1, 1, 1)
+    local x, y, w, h = self._bounds:unpack()
+    love.graphics.line(
+        0, 0.5 * h,
+        w, 0.5 * h
+    )
 end
 
 --- @brief
@@ -1233,11 +1259,6 @@ function ow.ResultScreenScene:_transition_to(scene)
     self._player:set_is_bubble(false)
     self._player:set_flow(1)
     self._player:set_trail_visible(true)
-
-    for entry in values(self._coin_indicators) do
-        if entry.body ~= nil then
-        end
-    end
 
     for body in values(self._bodies) do
         body:set_is_enabled(false)
