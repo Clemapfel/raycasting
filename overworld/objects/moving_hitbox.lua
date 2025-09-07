@@ -16,6 +16,25 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
+    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
+    self._body:add_tag("stencil")
+    self._body:set_collides_with(rt.settings.player.bounce_collision_group)
+    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
+
+    self._elapsed = 0
+    self._is_active = false
+    self._body:signal_connect("collision_start", function(_, other_body)
+        assert(other_body:has_tag("player"))
+        self._is_active = true
+    end)
+
+    self._body:signal_connect("collision_end", function(_, other_body)
+        assert(other_body:has_tag("player"))
+        self._is_active = true
+    end)
+
+    local start_x, start_y = self._body:get_position()
+
     -- read path by iterating through nodes
     local target = object:get_object("target", true)
     local path = {}
@@ -37,10 +56,7 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         self._path = rt.Path(path)
     end
 
-    self._x, self._y = self._path:at(0)
-
     local centroid_x, centroid_y = object:get_centroid()
-    self._offset_x, self._offset_y = centroid_x - self._x, centroid_y - self._y
     self._velocity = object:get_number("velocity", false) or rt.settings.overworld.moving_hitbox.default_velocity
 
     local easing = rt.InterpolationFunctions.LINEAR
@@ -53,11 +69,6 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     end
     self._easing = easing
 
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
-    self._body:add_tag("stencil")
-    self._body:set_collides_with(rt.settings.player.bounce_collision_group)
-    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
-
     -- reset cycle on player respawn
     self._start_timestamp = love.timer.getTime()
     self._stage:signal_connect("respawn", function()
@@ -65,15 +76,11 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     end)
 
     -- mesh
-    -- mesh
     local _, tris, mesh_data
     _, tris, mesh_data = object:create_mesh()
-
-    local mass_x, mass_y  = self._body:get_position()
-    self._centroid_x, self._centroid_y = mass_x, mass_y
     for data in values(mesh_data) do
-        data[1] = data[1] - mass_x
-        data[2] = data[2] - mass_y
+        data[1] = data[1] - start_x
+        data[2] = data[2] - start_y
     end
 
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
@@ -81,15 +88,15 @@ end
 
 local dt = math.eps * 10e2
 
-function ow.MovingHitbox:update(_)
+function ow.MovingHitbox:update(delta)
     --if not self._scene:get_is_body_visible(self._body) then return end
 
-    local elapsed = (love.timer.getTime() - self._start_timestamp)
+    self._elapsed = self._elapsed + delta
     local length = self._path:get_length()
     local t, direction, easing_derivative
 
     if self._should_loop then
-        local distance = self._velocity * elapsed
+        local distance = self._velocity * self._elapsed
         t = (distance / length) % 1.0
         direction = 1
 
@@ -97,8 +104,7 @@ function ow.MovingHitbox:update(_)
         local easing_t_dt = self._easing((t + dt) % 1.0)
         easing_derivative = (easing_t_dt - easing_t) / dt
     else
-        local distance_in_cycle = (self._velocity * elapsed) % (2 * length)
-
+        local distance_in_cycle = (self._velocity * self._elapsed) % (2 * length)
         if distance_in_cycle <= length then
             -- going forwards
             t = distance_in_cycle / length
@@ -122,10 +128,9 @@ function ow.MovingHitbox:update(_)
     end
 
     local dx, dy = self._path:get_tangent(t)
-    self._body:set_velocity(
-        dx * self._velocity * direction * easing_derivative,
-        dy * self._velocity * direction * easing_derivative
-    )
+    local velocity_x = dx * self._velocity * direction * easing_derivative
+    local velocity_y = dy * self._velocity * direction * easing_derivative
+    self._body:set_velocity(velocity_x, velocity_y)
 end
 
 --- @brief
@@ -135,6 +140,8 @@ function ow.MovingHitbox:draw()
     love.graphics.translate(self._body:get_position())
     love.graphics.rotate(self._body:get_rotation())
 
+    love.graphics.setLineWidth(1)
+
     rt.Palette.RED:bind()
     love.graphics.setWireframe(true)
     self._mesh:draw()
@@ -143,4 +150,5 @@ function ow.MovingHitbox:draw()
     love.graphics.pop()
 
     self._body:draw()
+    self._path:draw()
 end

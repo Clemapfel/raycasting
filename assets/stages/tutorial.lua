@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 841,
+  nextobjectid = 842,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4849,16 +4849,16 @@ return {
           type = "MovingHitbox",
           shape = "polygon",
           x = -1526.83,
-          y = 810.976,
+          y = 860.176,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 6.82927, y = 5.02439 },
-            { x = 6.82927, y = 85.0244 },
-            { x = 86.8293, y = 85.0244 },
-            { x = 86.8293, y = 5.02439 }
+            { x = 6.82927, y = 2.117 },
+            { x = 6.82927, y = 35.8246 },
+            { x = 86.8293, y = 35.8246 },
+            { x = 86.8293, y = 2.117 }
           },
           properties = {
             ["easing"] = "SINUSOID_EASE_IN_OUT",
@@ -4945,6 +4945,29 @@ return {
           },
           properties = {
             ["target"] = { id = 827 }
+          }
+        },
+        {
+          id = 841,
+          name = "",
+          type = "MovingHitbox",
+          shape = "polygon",
+          x = -1527.65,
+          y = 792.35,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 6.82927, y = 2.16986 },
+            { x = 6.82927, y = 36.7192 },
+            { x = 86.8293, y = 36.7192 },
+            { x = 86.8293, y = 2.16986 }
+          },
+          properties = {
+            ["easing"] = "SINUSOID_EASE_IN_OUT",
+            ["target"] = { id = 834 },
+            ["velocity"] = 100
           }
         }
       }
