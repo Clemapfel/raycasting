@@ -223,8 +223,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     float hue = mod(tileIndex, float(n_rainbow_steps)) / float(n_rainbow_steps);
 
     // Convert to LCH color space and then to RGB
-    vec3 rainbow_inner_color = 0.8 * lch_to_rgb(vec3(0.8, 1, hue));
-    vec3 rainbow_outer_color = 0.9 * lch_to_rgb(vec3(0.8, 0.8, hue));
+    const float rainbow_intensity = 0.5;
+    vec3 rainbow_inner_color = mix(1, rainbow_intensity, rainbow_fraction) * lch_to_rgb(vec3(0.8, 1, hue));
+    vec3 rainbow_outer_color = mix(1, rainbow_intensity, rainbow_fraction) * lch_to_rgb(vec3(0.8, 0.8, hue));
 
     vec3 non_rainbow_inner_color = vec3(0);
     vec3 non_rainbow_outer_color = player_color.rgb;

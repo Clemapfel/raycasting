@@ -28,7 +28,7 @@ do
 
         idle_control_indicator_popup_threshold = 5,
 
-        result_screen_transition_duration = 0, -- TODO: 1.5
+        result_screen_transition_duration = 1.5
     }
 end
 
@@ -41,7 +41,6 @@ ow.CameraMode = meta.enum("CameraMode", {
 })
 
 local _bloom_shader = nil
-local _skip_fade = false
 
 --- @brief
 function ow.OverworldScene:instantiate(state)
@@ -91,6 +90,7 @@ function ow.OverworldScene:instantiate(state)
         _fade = rt.Fade(2, "overworld/overworld_scene_fade.glsl"),
         _fade_active = false,
 
+        _show_title_card = true,
         _title_card = ow.StageTitleCard("1 - 3: Not a Tutorial"),
         _title_card_active = false,
         _title_card_elapsed = 0,
@@ -302,7 +302,7 @@ local _blocked = 0
 local _cursor = nil
 
 --- @brief
-function ow.OverworldScene:enter(new_stage_id)
+function ow.OverworldScene:enter(new_stage_id, show_title_card)
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
 
@@ -313,31 +313,37 @@ function ow.OverworldScene:enter(new_stage_id)
     self._fade_active = false
     self._fade:skip()
 
-    self._result_screen_transition_active = true -- TODO
+    self._result_screen_transition_active = false
     self._result_screen_transition_elapsed = 0
 
-    if new_stage_id ~= nil then
-        self:set_stage(new_stage_id)
-    end
+    self._show_title_card = show_title_card
 
+    self:set_stage(new_stage_id, show_title_card)
     -- do not reset player or pause state
 end
 
 --- @brief
 function ow.OverworldScene:set_stage(stage_id, show_title_card)
     meta.assert(stage_id, "String")
-    if show_title_card ~= nil then _skip_fade = not show_title_card end
     self._input:activate()
 
+    if show_title_card == nil then show_title_card = true end
+    self._show_title_card = show_title_card
+
     rt.SceneManager:set_use_fixed_timestep(true)
-    self:set_stage(stage_id, show_title_card)
+
+    self._stage_id = stage_id
+    self._stage = ow.Stage(self, stage_id)
+    self._player:move_to_stage(self._stage)
+    self._player_is_focused = true
+    self._n_frames = 0
 
     self._timer_started = false
     self._timer_stopped = false
     self._timer_paused = true
     self._timer = 0
 
-    if _skip_fade ~= true then
+    if self._show_title_card then
         self._fade_active = false
         self._fade:start(false, true)
 
@@ -441,18 +447,6 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     if self._screenshot == nil or self._screenshot:get_width() ~= width or self._screenshot:get_height() ~= height then
         self._screenshot = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
     end
-end
-
---- @brief
-function ow.OverworldScene:set_stage(stage_id, entrance_i)
-    self._stage_id = stage_id
-    self._stage = ow.Stage(self, stage_id)
-
-    self._player:move_to_stage(self._stage)
-    self._player_is_focused = true
-    self._n_frames = 0
-
-    return self._stage
 end
 
 --- @brief
@@ -849,13 +843,12 @@ local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
-    dbg(self._result_screen_transition_active)
     if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
         self._timer = self._timer + delta
         self._n_frames = self._n_frames + 1
     end
 
-    if _skip_fade ~= true then
+    if self._show_title_card then
         if self._queue_fade_out and self._title_card_elapsed >= rt.settings.overworld_scene.title_card_min_duration then
             self._input:activate()
             self._fade_active = true
@@ -1031,7 +1024,7 @@ function ow.OverworldScene:update(delta)
             rt.SceneManager:set_scene(ow.ResultScreenScene,
                 local_x, local_y,
                 self._screenshot,  {
-                    coins = { true, true, true, true },
+                    coins = { true, true, true, true, true, true, true, true },
                     time = 1.234,
                     target_time = 1.230,
                     stage_name = "The Shape of Jump to Come",
@@ -1108,13 +1101,13 @@ function ow.OverworldScene:reload()
     rt.Sprite._path_to_spritesheet = {}
 
     self:unpause()
-    self:enter(before, true) -- skip fade
+    self:enter(before, false)
 end
 
 --- @brief
 function ow.OverworldScene:restart()
     self:unpause()
-    self:set_stage(self._stage_id, true) -- skip fade
+    self:set_stage(self._stage_id, false)
 end
 
 --- @brief

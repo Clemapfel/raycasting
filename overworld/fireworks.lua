@@ -34,6 +34,9 @@ rt.settings.overworld.fireworks = {
 
 ow.Fireworks = meta.class("Fireworks")
 
+--- @signal done (self, batch_id)
+meta.add_signal(ow.Fireworks, "done")
+
 local _data_mesh_format = {
     { location = 3, name = "position", format = "floatvec3" },
     { location = 4, name = "color", format = "floatvec4" },
@@ -50,6 +53,7 @@ local _particle_shader = rt.Shader("overworld/fireworks.glsl")
 function ow.Fireworks:instantiate(player)
     self._batches = {}
     self._player = player
+    self._batch_id = 0
 end
 
 local _position_x = 1
@@ -74,6 +78,7 @@ local _settings = rt.settings.overworld.fireworks
 local _golden_ratio = (1 + math.sqrt(5)) / 2
 local _rng = rt.random.number
 
+--- @return batch_id
 function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min, hue_max)
     if end_x == nil then end_x = start_x end
     if end_y == nil then end_y = start_y end
@@ -221,7 +226,7 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
     rocket_velocity_x = rocket_velocity_x * _settings.rocket_initial_speed
     rocket_velocity_y = rocket_velocity_y * _settings.rocket_initial_speed
 
-    table.insert(self._batches, {
+    local batch = {
         elapsed = 0,
         n_particles = n_particles,
         start_x = start_x,
@@ -244,7 +249,13 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
         target_distance = math.distance(start_x, start_y, end_x, end_y),
         explosion_rocket_velocity_x = 0,
         explosion_rocket_velocity_y = 0,
-    })
+        n_done_particles = 0,
+        batch_id = self._batch_id
+    }
+    table.insert(self._batches, batch)
+
+    self._batch_id = self._batch_id + 1
+    return batch.batch_id
 end
 
 function ow.Fireworks:update(delta)
@@ -252,6 +263,7 @@ function ow.Fireworks:update(delta)
 
     local to_remove = {}
     for batch_i, batch in ipairs(self._batches) do
+        local n_done_particles = 0
         if not batch.is_exploded then
             batch.rocket_velocity_x = batch.rocket_velocity_x + batch.rocket_acceleration_x * delta
             batch.rocket_velocity_y = batch.rocket_velocity_y + batch.rocket_acceleration_y * delta
@@ -352,12 +364,18 @@ function ow.Fireworks:update(delta)
                 local lifetime = particle[_lifetime]
                 local fraction = batch.elapsed / lifetime
 
+                if fraction >= 1 then
+                    n_done_particles = n_done_particles + 1
+                    goto continue
+                end
+
                 local fade_out = _settings.particle_fade_out_duration
                 local opacity = 1
                 if batch.elapsed > lifetime - fade_out then
                     opacity = _settings.opacity_easing((lifetime - batch.elapsed) / fade_out)
                 end
                 particle[_color_a] = opacity
+
 
                 particle[_radius] = _settings.radius_easing(1 - fraction)
 
@@ -388,6 +406,8 @@ function ow.Fireworks:update(delta)
                 end
 
                 if opacity > 0 then is_done = false end
+
+                ::continue::
             end
 
             if is_done then
@@ -395,12 +415,14 @@ function ow.Fireworks:update(delta)
             end
         end
 
+        batch.n_done_particles = n_done_particles
         batch.data_mesh:replace_data(batch.data_mesh_data)
     end
 
     if #to_remove > 0 then
         table.sort(to_remove, function(a, b) return a > b end)
         for batch_i in values(to_remove) do
+            self:signal_emit("done", self._batches[batch_i].batch_id)
             table.remove(self._batches, batch_i)
         end
     end
@@ -436,4 +458,13 @@ end
 --- @brief
 function ow.Fireworks:get_n_rockets()
     return #self._batches
+end
+
+--- @brief
+function ow.Fireworks:get_n_particles()
+    local n = 0
+    for batch in values(self._batches) do
+        n = n + (batch.n_particles - batch.n_done_particles)
+    end
+    return n
 end

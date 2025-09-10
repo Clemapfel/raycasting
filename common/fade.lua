@@ -22,6 +22,8 @@ function rt.Fade:instantiate(duration, shader_path)
         meta.assert_typeof(shader_path, "String", 2)
         self._shader = rt.Shader(shader_path)
         self._shader:compile()
+    else
+        self._shader = _default_shader
     end
 
     meta.install(self, {

@@ -22,7 +22,10 @@ rt.settings.overworld.result_screen_scene = {
     value_font_size = rt.FontSize.BIG,
     grade_font_size = rt.FontSize.GIGANTIC,
 
-    fireworks_n_particles = 300
+    fireworks_max_n_particles = math.huge,
+    fireworks_n_particles = 300,
+    fireworks_hue_range = 0.1,
+    fireworks_max_n_per_instance = 3
 }
 
 --- @class ow.ResultScreenScene
@@ -158,6 +161,7 @@ function ow.ResultScreenScene:instantiate(state)
     -- result animations
     self._frame = ow.ResultScreenFrame()
     self._fireworks = ow.Fireworks()
+
     self._camera = rt.Camera()
     self._screenshot = nil -- rt.RenderTexture, cf :enter
     self._screenshot_fraction_animation = rt.TimedAnimation(
@@ -321,6 +325,45 @@ function ow.ResultScreenScene:instantiate(state)
 end
 
 --- @brief
+function ow.ResultScreenScene:_spawn_fireworks(instance, x, y, hue)
+    meta.assert_typeof(x, "Number", 2)
+    meta.assert_typeof(y, "Number", 3)
+    meta.assert_typeof(hue, "Number", 4)
+
+    local settings = rt.settings.overworld.result_screen_scene
+    local batch_state = "result_screen_scene_n_batches"
+
+    if self._fireworks:get_n_particles() < settings.fireworks_max_n_particles
+        and self._flow_rainbow_active
+        and self._coins_rainbow_active
+        and self._time_rainbow_active
+        and (instance[batch_state] == nil or instance[batch_state] < settings.fireworks_max_n_per_instance)
+    then
+        local hue_range = rt.settings.overworld.result_screen_scene.fireworks_hue_range
+        local batch_id = self._fireworks:spawn(settings.fireworks_n_particles,
+            x, y, x, y,
+            math.fract(hue - hue_range),
+            math.fract(hue + hue_range)
+        )
+
+        -- store fireworks state so there is only one fireworks per instance
+        if instance[batch_state] == nil then
+            instance[batch_state] = 0
+        end
+
+        instance[batch_state] = instance[batch_state] + 1
+
+        self._fireworks:signal_connect("done", function(_, done_id)
+            if done_id == batch_id then
+                instance[batch_state] = instance[batch_state] - 1
+                if instance[batch_state] == 0 then instance[batch_state] = nil end
+                return meta.DISCONNECT_SIGNAL
+            end
+        end)
+    end
+end
+
+--- @brief
 function ow.ResultScreenScene:realize()
     if self:already_realized() then return end
 
@@ -399,19 +442,25 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
             b2.Segment(bx + 0, by + h, bx + 0, by + 0)
         ) do
             local body = b2.Body(self._world, b2.BodyType.STATIC, 0, 0, shape)
-            body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
+            body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, collision_x, collision_y)
                 if other_body:has_tag("player") then
                     local current_vx, current_vy = self._player_velocity_x, self._player_velocity_y
                     self._player_velocity_x, self._player_velocity_y = math.reflect(
                         current_vx, current_vy,
                         normal_x, normal_y
                     )
+
+                    local px, py = self._player:get_position()
+                    self:_spawn_fireworks(self._player, px, py, self._player:get_hue())
                 else -- coin
                     local entry = other_body:get_user_data()
                     entry.velocity_x, entry.velocity_y = math.reflect(
                         entry.velocity_x, entry.velocity_y,
                         normal_x, normal_y
                     )
+
+                    local px, py = entry.body:get_position()
+                    self:_spawn_fireworks(entry.body, px, py, entry.coin:get_hue())
                 end
             end)
 
@@ -899,16 +948,22 @@ function ow.ResultScreenScene:_spawn_coin(x, y)
     local body = b2.Body(self._world, b2.BodyType.DYNAMIC, position_x, position_y, coin_shape)
     body:set_collision_group(rt.settings.player.bounce_collision_group)
     body:set_collides_with(rt.settings.player.bounce_collision_group)
-    body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
+    body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y, collision_x, collision_y)
         if other_body:get_type() ~= b2.BodyType.STATIC then
             local entry = body:get_user_data()
             entry.velocity_x, entry.velocity_y = math.reflect(entry.velocity_x, entry.velocity_y, normal_x, normal_y)
+
+            local px, py = entry.body:get_position()
+            self:_spawn_fireworks(entry.body, px, py, entry.coin:get_hue())
 
             if other_body:has_tag("player") then
                 self._player_velocity_x, self._player_velocity_y = math.reflect(
                     self._player_velocity_x, self._player_velocity_y,
                     -normal_x, -normal_y
                 )
+
+                px, py = self._player:get_position()
+                self:_spawn_fireworks(self._player, px, py, self._player:get_hue())
             end
         end
     end)
@@ -962,31 +1017,13 @@ function ow.ResultScreenScene:update(delta)
             end
         end
 
-        local should_spawn_fireworks = false
-
-        local spawn_fireworks_maybe = function(x, y)
-            local spawned = false
-            if should_spawn_fireworks == true then
-                x = x + 0.5 * self._grade_label_width
-                y = y + 1.0 * self._grade_label_height
-                self._fireworks:spawn(
-                    rt.settings.overworld.result_screen_scene.fireworks_n_particles,
-                    x, y,
-                    x, y - 1 * self._grade_label_height
-                )
-                spawned = true
-            end
-
-            should_spawn_fireworks = false
-            return spawned
-        end
-
         local update_grade = function(current, new, animation)
+            local is_done = false
             if current ~= new then
                 animation:reset()
-                should_spawn_fireworks = new == rt.StageGrade.S
+                if new == rt.StageGrade.S then is_done = true end
             end
-            return new
+            return new, is_done
         end
 
         local flow = self._flow_animation:get_value() * self._flow
@@ -995,12 +1032,13 @@ function ow.ResultScreenScene:update(delta)
         local flow_w, flow_h = self._flow_value_label:measure()
         self._flow_value_label:reformat(self._flow_value_label_x - 0.5 * flow_w, self._flow_value_label_y)
 
-        self._current_flow_grade = update_grade(
+        local flow_rainbow = false
+        self._current_flow_grade, flow_rainbow = update_grade(
             self._current_flow_grade,
             rt.GameState:flow_to_flow_grade(flow),
             self._flow_grade_label_scale_animation
         )
-        if spawn_fireworks_maybe(self._flow_grade_label_x, self._flow_grade_label_y) == true then
+        if flow_rainbow == true then
             self._flow_rainbow_active = true
         end
 
@@ -1010,12 +1048,13 @@ function ow.ResultScreenScene:update(delta)
         local time_w, time_h = self._time_value_label:measure()
         self._time_value_label:reformat(self._time_value_label_x - 0.5 * time_w, self._time_value_label_y)
 
-        self._current_time_grade = update_grade(
+        local time_rainbow = false
+        self._current_time_grade, time_rainbow = update_grade(
             self._current_time_grade,
             rt.GameState:time_to_time_grade(time, self._target_time),
             self._time_grade_label_scale_animation
         )
-        if spawn_fireworks_maybe(self._time_grade_label_x, self._time_grade_label_y) == true then
+        if time_rainbow then
             self._time_rainbow_active = true
         end
 
@@ -1025,12 +1064,13 @@ function ow.ResultScreenScene:update(delta)
         local coins_w, coins_h = self._coins_value_label:measure()
         self._coins_value_label:reformat(self._coins_value_label_x - 0.5 * coins_w, self._coins_value_label_y)
 
-        self._current_coins_grade = update_grade(
+        local coins_rainbow = false
+        self._current_coins_grade, coins_rainbow = update_grade(
             self._current_coins_grade,
             rt.GameState:n_coins_to_coin_grade(coins, self._max_n_coins),
             self._coins_grade_label_scale_animation
         )
-        if spawn_fireworks_maybe(self._coins_grade_label_x, self._coins_grade_label_y) == true then
+        if coins_rainbow then
             self._coins_rainbow_active = true
         end
 
@@ -1046,6 +1086,16 @@ function ow.ResultScreenScene:update(delta)
         end
 
         if self._time_rainbow_active and self._flow_rainbow_active and self._coins_rainbow_active then
+            if self._rainbow_transition_animation:get_elapsed() == 0 then -- on first update
+                local px, py = self._player:get_position()
+                self:_spawn_fireworks(self._player, px, py, self._player:get_hue())
+
+                for entry in values(self._coin_indicators) do
+                    px, py = entry.body:get_position()
+                    self:_spawn_fireworks(entry.body, px, py, entry.coin:get_hue())
+                end
+            end
+
             if not self._rainbow_transition_animation:update(delta) then
                 done = false
             end
@@ -1092,7 +1142,7 @@ function ow.ResultScreenScene:update(delta)
                 if self._fade_active ~= true and player_y > self._transition_final_y + 2 * screen_h then -- to make sure trail is off screen
                     self._fade:signal_connect("hidden", function(_)
                         require "overworld.overworld_scene"
-                        rt.SceneManager:set_scene(ow.OverworldScene, self._transition_next)
+                        rt.SceneManager:set_scene(ow.OverworldScene, self._transition_next, true)
                         return meta.DISCONNECT_SIGNAL
                     end)
                     self._fade:start()
@@ -1183,6 +1233,8 @@ function ow.ResultScreenScene:draw()
     rt.graphics.set_stencil_mode(nil)
     love.graphics.pop()
 
+    self._fireworks:draw()
+
     -- draw floating coins
     for entry in values(self._coin_indicators) do
         if entry.body ~= nil then
@@ -1191,7 +1243,6 @@ function ow.ResultScreenScene:draw()
     end
     self._player:draw()
 
-    self._fireworks:draw()
     self._camera:unbind()
 
     if rt.SceneManager:get_is_bloom_enabled() then

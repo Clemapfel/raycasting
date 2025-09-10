@@ -78,10 +78,15 @@ function ow.Stage:instantiate(scene, id)
 
     self._signal_done_emitted = false
     self._normal_map_done = false
-    self._normal_map:signal_connect("done", function()
+
+    if self._normal_map:get_is_done() then
         self._normal_map_done = true
-        return meta.DISCONNECT_SIGNAL
-    end)
+    else
+        self._normal_map:signal_connect("done", function()
+            self._normal_map_done = true
+            return meta.DISCONNECT_SIGNAL
+        end)
+    end
 
     local render_priority_to_entry = {}
     self._below_player = {}

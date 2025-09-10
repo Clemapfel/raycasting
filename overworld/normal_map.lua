@@ -561,3 +561,8 @@ function ow.NormalMap:clear_cache()
 
     _atlas = {}
 end
+
+--- @brief
+function ow.NormalMap:get_is_done()
+    return self._is_done
+end
