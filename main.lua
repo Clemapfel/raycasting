@@ -30,8 +30,8 @@ local present = function()
 
             flow = 0.9868,
             time_grade = rt.StageGrade.S,
-            coins_grade = rt.StageGrade.A,
-            flow_grade = rt.StageGrade.F,
+            coins_grade = rt.StageGrade.S,
+            flow_grade = rt.StageGrade.S,
 
             splits_current = current,
             splits_best = best

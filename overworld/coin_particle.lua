@@ -106,9 +106,7 @@ function ow.CoinParticle:draw(x, y)
 
         local r, g, b, a = table.unpack(self._color)
         love.graphics.setColor(r, g, b, a * self._opacity)
-
         love.graphics.line(self._body_outline)
-
         self:_draw_core()
     end
 
@@ -145,6 +143,11 @@ function ow.CoinParticle:set_hue(hue)
     for i = 1, 3 do
         self._outline_color[i] = self._outline_color[i] - rt.settings.player_body.outline_value_offset
     end
+end
+
+--- @brief
+function ow.CoinParticle:get_hue()
+    return self._hue
 end
 
 --- @brief

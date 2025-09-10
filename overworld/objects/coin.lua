@@ -25,7 +25,7 @@ local _particle_shader = rt.Shader("overworld/objects/coin.glsl")
 
 function ow.Coin.index_to_hue(i, n_coins)
     if n_coins - 1 == 0 then return 0 end
-    return (i - 1) / (n_coins - 1)
+    return (i - 1) / (n_coins + 1)
 end
 
 --- @brief

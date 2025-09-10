@@ -3,7 +3,6 @@ require "overworld.result_screen_frame"
 require "overworld.fireworks"
 require "menu.stage_grade_label"
 require "common.camera"
-require "menu.splits_viewer"
 
 rt.settings.overworld.result_screen_scene = {
     exit_transition_fall_duration = 2, -- seconds
@@ -13,8 +12,17 @@ rt.settings.overworld.result_screen_scene = {
     coin_indicator_n_vertices = 16,
     coin_indicator_line_width = 1.5,
 
-    reveal_animation_duration = 2,
-    screenshot_animation_duration = 2
+    frame_reveal_animation_duration = 1, -- how long frame takes to expand
+    values_reveal_animation = 2, -- how long it takes to get scroll to actual value
+    screenshot_animation_duration = 2, -- how long background animation takes
+    rainbow_transition_duration = 1,
+
+    title_font_size = rt.FontSize.LARGE,
+    heading_font_size = rt.FontSize.BIG,
+    value_font_size = rt.FontSize.BIG,
+    grade_font_size = rt.FontSize.GIGANTIC,
+
+    fireworks_n_particles = 300
 }
 
 --- @class ow.ResultScreenScene
@@ -55,7 +63,7 @@ function ow.ResultScreenScene:instantiate(state)
         return rt.Glyph(text, {
             style = rt.FontStyle.BOLD,
             is_outlined = true,
-            font_size = rt.FontSize.BIG,
+            font_size = rt.settings.overworld.result_screen_scene.heading_font_size,
             font = _title_font
         })
     end
@@ -64,12 +72,12 @@ function ow.ResultScreenScene:instantiate(state)
         return rt.Glyph(text, {
             style = rt.FontStyle.BOLD,
             is_outlined = true,
-            font_size = override or rt.FontSize.REGULAR,
+            font_size = rt.settings.overworld.result_screen_scene.value_font_size,
             font = _glyph_font
         })
     end
 
-    self._stage_name_label = rt.Label(_format_title(""), rt.FontSize.BIG, _title_font)
+    self._stage_name_label = rt.Label(_format_title(""), rt.settings.overworld.result_screen_scene.title_font_size, _title_font)
     self._stage_name_label:set_justify_mode(rt.JustifyMode.CENTER)
 
     self._grade_to_grade_label = {}
@@ -91,10 +99,6 @@ function ow.ResultScreenScene:instantiate(state)
     self._coins_value_label = new_value(_format_count(0, 0))
     self._animations_active = false
 
-    self._total_label = new_heading(translation.total)
-
-    local grade_size = rt.FontSize.LARGER
-    self._total_grade = mn.StageGradeLabel(rt.StageGrade.S, rt.FontSize.GIGANTIC)
     self._flow_grade_label_x, self._flow_grade_label_y = 0, 0
     self._time_grade_label_x, self._time_grade_label_y = 0, 0
     self._coins_grade_label_x, self._coins_grade_label_y = 0, 0
@@ -126,7 +130,7 @@ function ow.ResultScreenScene:instantiate(state)
     self._current_coins_grade = self._coins_grade
 
     -- reveal animation
-    local duration = rt.settings.overworld.result_screen_scene.reveal_animation_duration
+    local duration = rt.settings.overworld.result_screen_scene.values_reveal_animation
     local easing = rt.InterpolationFunctions.SINUSOID_EASE_OUT
     self._coins_animation = rt.TimedAnimation(duration, 0, 1, easing)
     self._flow_animation = rt.TimedAnimation(duration, 0, 1, easing)
@@ -137,6 +141,10 @@ function ow.ResultScreenScene:instantiate(state)
     self._max_n_coins = 0
     self._n_coins = 0
     self._time = 0
+    self._time_rainbow_active = false
+    self._coins_rainbow_active = false
+    self._flow_rainbow_active = false
+    self._rainbow_transition_animation = rt.TimedAnimation(rt.settings.overworld.result_screen_scene.rainbow_transition_duration, 0, 1, rt.InterpolationFunctions.LINEAR)
 
     -- exit animation
     self._transition_active = false
@@ -245,12 +253,6 @@ function ow.ResultScreenScene:instantiate(state)
             false
         )
 
-        local show_splits_option = add_option(
-            translation.option_show_splits,
-            "_on_show_splits",
-            false
-        )
-
         -- connect nodes
         local add_options = function(graph, options, is_blocked)
             for i = 1, #options, 1 do
@@ -274,15 +276,13 @@ function ow.ResultScreenScene:instantiate(state)
         add_options(self._option_unblocked_selection_graph, {
             retry_option,
             next_stage_option,
-            return_to_main_menu_option,
-            show_splits_option
+            return_to_main_menu_option
         }, false)
 
         add_options(self._option_blocked_selection_graph, {
             retry_option,
             -- next_stage_option disabled
-            return_to_main_menu_option,
-            show_splits_option
+            return_to_main_menu_option
         }, true)
 
         self._next_level_blocked = false
@@ -299,11 +299,6 @@ function ow.ResultScreenScene:instantiate(state)
         rt.ControlIndicatorButton.A, translation.grade_control_indicator_continue
     )
     self._grade_control_indicator:set_has_frame(false)
-
-    -- splits
-    self._splits = mn.SplitsViewer()
-    self._splits_best = {}
-    self._splits_current = {}
 
     -- player boundaries
     self._entry_x, self._entry_y = 0, 0
@@ -338,7 +333,6 @@ function ow.ResultScreenScene:realize()
         self._option_return_to_main_menu_selected_label,
         self._option_background,
 
-        self._splits,
         self._frame,
         self._stage_name_label,
 
@@ -347,7 +341,6 @@ function ow.ResultScreenScene:realize()
 
         self._flow_title_label,
         self._flow_value_label,
-        self._total_grade,
 
         self._time_title_label,
         self._time_value_label,
@@ -375,7 +368,7 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
         self._grade_to_grade_label = {}
         local max_w, max_h = -math.huge, -math.huge
         for grade in values(meta.instances(rt.StageGrade)) do
-            local label = mn.StageGradeLabel(grade, rt.FontSize.LARGER)
+            local label = mn.StageGradeLabel(grade, rt.settings.overworld.result_screen_scene.grade_font_size)
             label:realize()
             local w, h = label:measure()
             label:reformat(0, 0, w, h)
@@ -505,7 +498,9 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
         self._screenshot_mesh:set_texture(self._screenshot)
     end
 
+    -- mutable elements
     self:_reformat_frame()
+    self:update(0)
 end
 
 --- @brief
@@ -555,9 +550,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
         "time_grade",
         "flow_grade",
         "coins_grade",
-        "target_time",
-        "splits_current",
-        "splits_best"
+        "target_time"
     ) do
         required_keys[key] = true
     end
@@ -574,8 +567,6 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._next_stage_id = rt.GameState:get_next_stage(self._current_stage_id)
     self._next_level_blocked = self._next_stage_id == nil -- disables menu option
 
-    self._splits_current = config.splits_current
-    self._splits_best = config.splits_best
     self._flow = config.flow
     self._time = config.time
     self._target_time = config.time
@@ -587,9 +578,14 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._time_grade = config.time_grade
     self._coins_grade = config.coins_grade
 
-    self._current_time_grade = rt.StageGrade.F
-    self._current_flow_grade = rt.StageGrade.F
-    self._current_coins_grade = rt.StageGrade.F
+    self._rainbow_transition_animation:reset()
+    self._time_rainbow_active = false
+    self._flow_rainbow_active = false
+    self._coins_rainbow_active = false
+
+    self._current_time_grade = rt.StageGrade.NONE
+    self._current_flow_grade = rt.StageGrade.NONE
+    self._current_coins_grade = rt.StageGrade.NONE
 
     -- player position continuity
     self._entry_x, self._entry_y = player_x, player_y
@@ -615,25 +611,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
             if b then self._n_coins = self._n_coins + 1 end
         end
 
-        local radius = 0.9 * rt.settings.overworld.coin.radius * rt.get_pixel_scale()
-        for i = 1, self._max_n_coins do
-            local coin = ow.CoinParticle(radius)
-            coin:set_hue(ow.Coin.index_to_hue(i, self._max_n_coins))
-            coin:set_is_outline(true)
-
-            table.insert(self._coin_indicators, {
-                radius = radius,
-                coin = coin,
-                x = 0,
-                y = 0,
-                velocity_x = 0,
-                velocity_y = 0,
-                mass = rt.random.number(0.5, 1.5),
-                body = nil, -- b2.Body
-                is_collected = self._config.coins[i],
-                active = false
-            })
-        end
+        self:_initialize_coin_indicators()
     end
 
     -- labels
@@ -644,6 +622,8 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self:_reformat_frame() -- realign all mutable ui elements
 
     -- reset animations
+    self._frame:reset_hue_range()
+
     for animation in range(
         self._flow_animation,
         self._coins_animation,
@@ -691,6 +671,34 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 end
 
 --- @brief
+function ow.ResultScreenScene:_initialize_coin_indicators()
+    if #self._coin_indicators == 0 or self._last_window_height ~= love.graphics.getHeight() then
+        self._last_window_height = love.graphics.getHeight()
+        self._coin_indicators = {}
+
+        require "overworld.objects.coin"
+        local radius = 1.5 * rt.settings.overworld.coin.radius * rt.get_pixel_scale()
+        for i = 1, self._max_n_coins do
+            local coin = ow.CoinParticle(radius)
+            coin:set_hue(ow.Coin.index_to_hue(i, self._max_n_coins))
+
+            table.insert(self._coin_indicators, {
+                radius = radius,
+                coin = coin,
+                x = 0,
+                y = 0,
+                velocity_x = 0,
+                velocity_y = 0,
+                mass = rt.random.number(0.5, 1.5),
+                body = nil, -- b2.Body
+                is_collected = self._config.coins[i],
+                active = false
+            })
+        end
+    end
+end
+
+--- @brief
 function ow.ResultScreenScene:_reformat_frame()
     local x, y, width, height = self:get_bounds():unpack()
     local m = rt.settings.margin_unit
@@ -707,105 +715,126 @@ function ow.ResultScreenScene:_reformat_frame()
     end
 
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
-
-    local y = 0 -- aligned in draw
-    min_y = 0
+    local current_y = y
 
     local max_title_w = -math.huge
     for title in range(
         self._coins_title_label,
         self._time_title_label,
-        self._flow_title_label
+        self._flow_title_label,
+        self._coins_value_label,
+        self._time_value_label,
+        self._flow_value_label
     ) do
+        title:reformat() -- force upscaling on window size change
         max_title_w = math.max(max_title_w, select(1, title:measure()))
     end
 
-    local title_area_w = 2 / 3 * width
+    local center_y = y + 0.5 * height
+
+    -- columns
+    local grade_ym = 10 -- sic, no pixel scale
+    local grade_xm = 6 * m
+
+    local column_w = max_title_w
+    local column_total_w = 3 * column_w + 2 * grade_xm
+    local column_x = x + 0.5 * width - 0.5 * column_total_w
+
+    local column_top_y = math.huge
+    local column_bottom_y = -math.huge
+
+    for i, column in ipairs({
+        { "coins", self._coins_title_label, self._coins_value_label },
+        { "time", self._time_title_label, self._time_value_label },
+        { "flow", self._flow_title_label, self._flow_value_label }
+    }) do
+        local which, title, value = table.unpack(column)
+
+        local title_w, title_h = title:measure()
+        local grade_w, grade_h = self._grade_label_w, self._grade_label_h
+        local value_w, value_h = value:measure()
+
+        -- align grade with center, everything else depends on its position
+        local grade_y = center_y - 0.5 * grade_h
+
+        if which == "flow" then
+            self._flow_grade_label_x = column_x + 0.5 * column_w - 0.5 * grade_w
+            self._flow_grade_label_y = grade_y
+
+            self._flow_value_label_x = column_x + 0.5 * column_w
+            self._flow_value_label_y = grade_y + grade_h + grade_ym
+        elseif which == "time" then
+            self._time_grade_label_x = column_x + 0.5 * column_w - 0.5 * grade_w
+            self._time_grade_label_y = grade_y
+
+            self._time_value_label_x = column_x + 0.5 * column_w
+            self._time_value_label_y = grade_y + grade_h + grade_ym
+        elseif which == "coins" then
+            self._coins_grade_label_x = column_x + 0.5 * column_w - 0.5 * grade_w
+            self._coins_grade_label_y = grade_y
+
+            self._coins_value_label_x = column_x + 0.5 * column_w
+            self._coins_value_label_y = grade_y + grade_h + grade_ym
+        end
+
+        local title_y = grade_y - grade_ym - title_h
+        title:reformat(
+            column_x + 0.5 * column_w - 0.5 * title_w,
+            title_y
+        )
+
+        local value_y = grade_y + grade_h + grade_ym
+        value:reformat(
+            column_x + 0.5 * column_w - 0.5 * value_w,
+            value_y
+        )
+
+        column_top_y = math.min(column_top_y, title_y)
+        column_bottom_y = math.max(column_bottom_y, value_y + value_h)
+
+        column_x = column_x + column_w + grade_xm
+    end
+
+    -- stage name
+    local stage_name_w, stage_name_h = self._stage_name_label:measure()
+    local stage_name_y = column_top_y - stage_name_h - grade_ym,
+    self._stage_name_label:set_justify_mode(rt.JustifyMode.CENTER)
     self._stage_name_label:reformat(
-        x + 0.5 * width - 0.5 * title_area_w,
-        y,
-        2 / 3 * width,
+        x,
+        stage_name_y,
+        width,
         math.huge
     )
-    local title_w, title_h = self._stage_name_label:measure()
 
-    local col_w = (width / 2) / 3 + 4 * m --max_title_w + 4 * m
-    local col_x = x + 0.5 * width - 0.5 * (3 * col_w)
-    local col_y = y + title_h + 2 * m
-
-    local start_x = col_x
-
-    -- coins
-    local coins_x, coins_y, coins_w = col_x, col_y, col_w
-    col_x = col_x + col_w
-
-    local coins_title_w, coins_title_h = self._coins_title_label:measure()
-    self._coins_title_label:reformat(coins_x + 0.5 * coins_w - 0.5 * coins_title_w, coins_y, math.huge)
-    coins_y = coins_y + coins_title_h + m
-
-    local coins_grade_w, coins_grade_h = self._grade_label_width, self._grade_label_height
-    self._coins_grade_label_x, self._coins_grade_label_y = coins_x + 0.5 * coins_w - 0.5 * coins_grade_w, coins_y
-    coins_y = coins_y + coins_grade_h + m
-
-    local coins_value_w, coins_value_h = self._coins_value_label:measure()
-    self._coins_value_label:reformat(coins_x + 0.5 * coins_w - 0.5 * coins_value_w, coins_y, math.huge)
-
-    self._coins_value_label_x, self._coins_value_label_y = coins_x + 0.5 * coins_w, coins_y
-
-    -- time
-    local time_x, time_y, time_w = col_x, col_y, col_w
-    col_x = col_x + col_w
-
-    local time_title_w, time_title_h = self._time_title_label:measure()
-    self._time_title_label:reformat(time_x + 0.5 * time_w - 0.5 * time_title_w, time_y, math.huge)
-    time_y = time_y + time_title_h + m
-
-    local time_grade_w, time_grade_h = self._grade_label_width, self._grade_label_height
-    self._time_grade_label_x, self._time_grade_label_y = time_x + 0.5 * time_w - 0.5 * time_grade_w, time_y
-    time_y = time_y + time_grade_h + m
-
-    local time_value_w, time_value_h = self._time_value_label:measure()
-    self._time_value_label:reformat(time_x + 0.5 * time_w - 0.5 * time_value_w, time_y, math.huge)
-
-    self._time_value_label_x, self._time_value_label_y = time_x + 0.5 * time_w, time_y
-
-    -- flow
-    local flow_x, flow_y, flow_w = col_x, col_y, col_w
-    col_x = col_x + col_w
-
-    local flow_title_w, flow_title_h = self._flow_title_label:measure()
-    self._flow_title_label:reformat(flow_x + 0.5 * flow_w - 0.5 * flow_title_w, flow_y, math.huge)
-    flow_y = flow_y + flow_title_h + m
-
-    local flow_grade_w, flow_grade_h = self._grade_label_width, self._grade_label_height
-    self._flow_grade_label_x, self._flow_grade_label_y = flow_x + 0.5 * flow_w - 0.5 * flow_grade_w, flow_y
-    flow_y = flow_y + flow_grade_h + m
-
-    local flow_value_w, flow_value_h = self._flow_value_label:measure()
-    self._flow_value_label:reformat(flow_x + 0.5 * flow_w - 0.5 * flow_value_w, flow_y, math.huge)
-
-    self._flow_value_label_x, self._flow_value_label_y = flow_x + 0.5 * flow_w, flow_y
+    current_y = current_y + stage_name_h
 
     -- indicators
-    local indicator_y = math.max(time_y, flow_y, coins_y) + m
-    local indicator_width = math.abs(col_x - start_x) - 4 * m
-    local indicator_x, indicator_height = x + 0.5 * width - 0.5 * indicator_width, indicator_y - col_y
+    self:_initialize_coin_indicators() -- check for window size change
+
+    local indicator_y = column_bottom_y + m
+    local indicator_width = column_total_w - 4 * m
+    local indicator_x, indicator_height = x + 0.5 * width - 0.5 * indicator_width, stage_name_h
 
     local n_coins = #self._coin_indicators
+    local coin_left_x, coin_right_x = math.huge, -math.huge
+    local coin_bottom_y = indicator_y
+
     if n_coins > 0 then
         local radius = self._coin_indicators[1].radius
         local spacing = 0.5 * m
         local max_coins_per_row = math.floor((indicator_width + spacing) / (2 * radius + spacing))
-        local rows = math.ceil(n_coins / max_coins_per_row)
+        local n_rows = math.ceil(n_coins / max_coins_per_row)
         local row_height = 2 * radius + spacing
-        local row_y = math.max(indicator_y + (indicator_height - (rows * row_height - spacing)) / 2, indicator_y)
+        local row_y = math.max(indicator_y + (indicator_height - (n_rows * row_height - spacing)) / 2, indicator_y)
 
         local fill_radius = radius - 2 * rt.settings.overworld.result_screen_scene.coin_indicator_line_width * rt.get_pixel_scale()
         fill_radius = fill_radius * 2 / 3
 
+        coin_bottom_y = row_y + n_rows * row_height
+
         local coin_index = 1
-        for row = 0, rows - 1 do
-            local coins_in_row = math.floor(n_coins / rows) + ternary(row < (n_coins % rows), 1, 0)
+        for row = 0, n_rows - 1 do
+            local coins_in_row = math.floor(n_coins / n_rows) + ternary(row < (n_coins % n_rows), 1, 0)
             local row_width = coins_in_row * (2 * radius + spacing) - spacing
             local row_x = indicator_x + (indicator_width - row_width) / 2
 
@@ -814,60 +843,24 @@ function ow.ResultScreenScene:_reformat_frame()
                 entry.x = row_x + col * (2 * radius + spacing) + radius
                 entry.y = row_y + row * row_height + radius
 
-                min_x = math.min(min_x, entry.x - (radius + 2 * spacing))
-                max_x = math.max(max_x, entry.x + (radius + 2 * spacing))
-                min_y = math.min(min_y, entry.y - (radius + 2 * spacing))
-                max_y = math.max(max_y, entry.y + (radius + 2 * spacing))
+                coin_left_x = math.min(coin_left_x, entry.x)
+                coin_right_x = math.max(coin_right_x, entry.x + radius)
 
                 coin_index = coin_index + 1
             end
         end
     end
 
-    -- total
-    local total_grade_w, total_grade_h = self._total_grade:measure()
-    local total_y = indicator_y + indicator_height - 2 * m
-    local total_label_w, total_label_h = self._total_label:measure()
-    self._total_label:reformat(x + 0.5 * width - 0.5 * total_label_w - total_grade_w, total_y, math.huge)
-    total_y = total_y + total_label_h
 
-    local total_x = x + 0.5 * width - 0.5 * total_grade_w
-    self._total_grade:reformat(total_x, total_y, total_grade_w, total_grade_h)
+    local frame_xm, frame_ym = 8 * m, 4 * m
 
-    for widget in range(
-        self._stage_name_label,
-        self._flow_title_label,
-        self._flow_value_label,
-
-        self._time_title_label,
-        self._time_value_label,
-
-        self._coins_title_label,
-        self._coins_value_label
-    ) do
-        local widget_x, widget_y = widget:get_position()
-        local widget_w, widget_h = widget:measure()
-        min_x = math.min(min_x, widget_x)
-        max_x = math.max(max_x, widget_x + widget_w)
-        min_y = math.min(min_y, widget_y)
-        max_y = math.max(max_y, widget_y + widget_h)
-    end
-
-    min_x = min_x - 3 * m
-    max_x = max_x + 3 * m
+    local frame_w = math.max(column_total_w, stage_name_w, coin_right_x - coin_left_x) + 2 * frame_xm
+    local frame_h = coin_bottom_y - stage_name_y + 2 * frame_ym
     self._frame:reformat(
-        x + 0.5 * width - 0.5 * (max_x - min_x),
-        y + 0.5 * height - 0.5 * (max_y - min_y),
-        max_x - min_x,
-        max_y - min_y
+        x + 0.5 * width - 0.5 * frame_w,
+        y + 0.5 * height - 0.5 * frame_h,
+        frame_w, frame_h
     )
-
-    self._y_offset = min_y + 0.5 * (max_y - min_y)
-
-    -- splits
-    local margin = 4 * m
-    self._splits:create_from(self._splits_current, self._splits_best)
-    self._splits:reformat(margin, margin, width - 2 * margin, height - 2 * margin)
 end
 
 --- @brief
@@ -946,14 +939,12 @@ function ow.ResultScreenScene:update(delta)
         self._flow_grade_label,
         self._flow_value_label,
 
-        self._screenshot_fraction_animation,
-
-        self._total_grade,
-        self._total_label
+        self._screenshot_fraction_animation
     ) do
         updatable:update(delta)
     end
 
+    self._frame:set_hue(self._player:get_hue())
 
     if self._animations_active then
         local done = true
@@ -971,8 +962,30 @@ function ow.ResultScreenScene:update(delta)
             end
         end
 
+        local should_spawn_fireworks = false
+
+        local spawn_fireworks_maybe = function(x, y)
+            local spawned = false
+            if should_spawn_fireworks == true then
+                x = x + 0.5 * self._grade_label_width
+                y = y + 1.0 * self._grade_label_height
+                self._fireworks:spawn(
+                    rt.settings.overworld.result_screen_scene.fireworks_n_particles,
+                    x, y,
+                    x, y - 1 * self._grade_label_height
+                )
+                spawned = true
+            end
+
+            should_spawn_fireworks = false
+            return spawned
+        end
+
         local update_grade = function(current, new, animation)
-            if current ~= new then animation:reset() end
+            if current ~= new then
+                animation:reset()
+                should_spawn_fireworks = new == rt.StageGrade.S
+            end
             return new
         end
 
@@ -987,6 +1000,9 @@ function ow.ResultScreenScene:update(delta)
             rt.GameState:flow_to_flow_grade(flow),
             self._flow_grade_label_scale_animation
         )
+        if spawn_fireworks_maybe(self._flow_grade_label_x, self._flow_grade_label_y) == true then
+            self._flow_rainbow_active = true
+        end
 
         local time = math.mix(self._max_time, self._time, self._time_animation:get_value())
         self._time_value_label:set_text(string.format_time(time))
@@ -999,6 +1015,9 @@ function ow.ResultScreenScene:update(delta)
             rt.GameState:time_to_time_grade(time, self._target_time),
             self._time_grade_label_scale_animation
         )
+        if spawn_fireworks_maybe(self._time_grade_label_x, self._time_grade_label_y) == true then
+            self._time_rainbow_active = true
+        end
 
         local coins = math.round(self._coins_animation:get_value() * self._n_coins)
         self._coins_value_label:set_text(_format_count(coins, self._max_n_coins))
@@ -1011,16 +1030,27 @@ function ow.ResultScreenScene:update(delta)
             rt.GameState:n_coins_to_coin_grade(coins, self._max_n_coins),
             self._coins_grade_label_scale_animation
         )
+        if spawn_fireworks_maybe(self._coins_grade_label_x, self._coins_grade_label_y) == true then
+            self._coins_rainbow_active = true
+        end
 
         local active_indicators = math.round(self._coin_indicator_animation:get_value() * self._max_n_coins)
         for i = 1, active_indicators do
             local entry = self._coin_indicators[i]
             if entry.is_collected and entry.body == nil then
-                local body, vx, vy = self:_spawn_coin(entry.x, entry.y + self._y_offset)
+                local body, vx, vy = self:_spawn_coin(entry.x, entry.y)
                 entry.body, entry.velocity_x, entry.velocity_y = body, vx, vy
                 body:set_user_data(entry)
                 entry.coin:set_is_outline(false)
             end
+        end
+
+        if self._time_rainbow_active and self._flow_rainbow_active and self._coins_rainbow_active then
+            if not self._rainbow_transition_animation:update(delta) then
+                done = false
+            end
+
+            self._frame:set_hue_range(2 * self._rainbow_transition_animation:get_value())
         end
 
         if done then
@@ -1029,6 +1059,7 @@ function ow.ResultScreenScene:update(delta)
     end
 
     -- coin and player velocity
+    require "menu.menu_scene"
     local magnitude = 2 * rt.settings.menu_scene.title_screen.player_velocity
 
     if self._transition_active then
@@ -1069,7 +1100,7 @@ function ow.ResultScreenScene:update(delta)
                 end
             end
         else
-            self._camera:move_to(player_x, player_y)
+            self._camera:move_to(self._player:get_position())
         end
     else
         self._player:set_velocity(self._player_velocity_x * magnitude, self._player_velocity_y * magnitude)
@@ -1091,25 +1122,27 @@ function ow.ResultScreenScene:draw()
     if self._screenshot ~= nil then
         love.graphics.setColor(1, 1, 1, 1)
         _screenshot_shader:bind()
+        _screenshot_shader:send("rainbow_fraction", self._rainbow_transition_animation:get_value())
         _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
         _screenshot_shader:send("transition_fraction", self._transition_fraction)
         _screenshot_shader:send("camera_offset", { self._camera:get_offset() })
-        --_screenshot_shader:send("camera_scale", self._camera:get_final_scale())
+        _screenshot_shader:send("camera_scale", self._camera:get_final_scale())
         _screenshot_shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
         self._screenshot_mesh:draw()
         _screenshot_shader:unbind()
     end
 
+    self._camera:bind()
+
     love.graphics.push()
+
     self._frame:draw()
 
     local stencil = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
     self._frame:draw_mask()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
-
-    love.graphics.translate(0, self._y_offset)
 
     for widget in range(
         self._stage_name_label,
@@ -1121,10 +1154,7 @@ function ow.ResultScreenScene:draw()
         self._time_value_label,
 
         self._flow_title_label,
-        self._flow_value_label--,
-
-        --self._total_grade,
-        --self._total_label
+        self._flow_value_label
     ) do
         widget:draw()
     end
@@ -1153,8 +1183,6 @@ function ow.ResultScreenScene:draw()
     rt.graphics.set_stencil_mode(nil)
     love.graphics.pop()
 
-    self._camera:bind()
-
     -- draw floating coins
     for entry in values(self._coin_indicators) do
         if entry.body ~= nil then
@@ -1162,11 +1190,16 @@ function ow.ResultScreenScene:draw()
         end
     end
     self._player:draw()
+
+    self._fireworks:draw()
     self._camera:unbind()
 
     if rt.SceneManager:get_is_bloom_enabled() then
         love.graphics.push("all")
         love.graphics.reset()
+
+        self._camera:bind()
+
         local bloom = rt.SceneManager:get_bloom()
         bloom:bind()
         love.graphics.clear(0, 0, 0, 0)
@@ -1174,7 +1207,6 @@ function ow.ResultScreenScene:draw()
         love.graphics.push()
         self._frame:draw_bloom()
 
-        love.graphics.translate(0, self._y_offset)
         for entry in values(self._coin_indicators) do
             if entry.body ~= nil then
                 entry.coin:draw_bloom(entry.x, entry.y)
@@ -1182,7 +1214,6 @@ function ow.ResultScreenScene:draw()
         end
         love.graphics.pop()
 
-        self._camera:bind()
         for entry in values(self._coin_indicators) do
             if entry.body ~= nil then
                 entry.coin:draw_bloom(entry.body:get_position())
@@ -1190,13 +1221,15 @@ function ow.ResultScreenScene:draw()
         end
 
         self._player:draw_bloom()
-        self._camera:unbind()
 
         bloom:unbind()
         love.graphics.pop()
 
+        self._camera:unbind()
+
         bloom:composite(rt.settings.menu_scene.bloom_composite)
     end
+
 
     if self._is_paused and not self._transition_active then
         self._option_background:draw()
@@ -1235,18 +1268,9 @@ function ow.ResultScreenScene:draw()
         self._grade_control_indicator:draw()
     end
 
-    --self._splits:draw()
-
     if self._fade:get_is_active() then
         self._fade:draw()
     end
-
-    love.graphics.setColor(1, 1, 1, 1)
-    local x, y, w, h = self._bounds:unpack()
-    love.graphics.line(
-        0, 0.5 * h,
-        w, 0.5 * h
-    )
 end
 
 --- @brief
@@ -1322,11 +1346,6 @@ function ow.ResultScreenScene:_on_return_to_main_menu()
 
     require "menu.menu_scene"
     rt.SceneManager:set_scene(mn.MenuScene, true) -- skip title screen
-end
-
---- @brief
-function ow.ResultScreenFrame:_on_show_splits()
-    if not self._is_paused then return end
 end
 
 --- @brief

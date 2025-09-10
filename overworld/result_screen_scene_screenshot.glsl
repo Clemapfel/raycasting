@@ -103,6 +103,9 @@ uniform vec4 player_color = vec4(1, 0, 1, 1);
 #error "In result_screen_scene_screenshot.glsl: `SHADER_DERIVATIVES` undefined, should be true or false"
 #endif
 
+uniform float rainbow_fraction;
+const int n_rainbow_steps = 8;
+
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
 
     const float n_tiles = 6.0;
@@ -111,7 +114,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
 
     vec2 point = to_uv(frag_position);
 
-    point = rotate(point, radians(45), vec2(0.5));
+    point = rotate(point, radians(45), vec2(0.5)); // this rotation
+    point -= vec2(0.5);
     point += vec2(elapsed / 30, 0);
 
     float aspect_ratio = (love_ScreenSize.x / love_ScreenSize.y) / (800.0 / 600.0);
@@ -124,6 +128,9 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     float tileIndex = floor(point.x * n_tiles);
     float direction = mod(tileIndex, 2.0) == 0.0 ? -1.0 : 1.0;
     float side = mod(tileIndex, 1) >= 0.5 ? -1.0 : 1.0;
+
+    // Store the normalized position within the tile BEFORE transformations
+    vec2 tile_pos = vec2(fract(point.x * n_tiles), point.y);
 
     point.y += step(0, direction);
     point.x = fract(point.x * n_tiles);
@@ -144,27 +151,89 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     vec4 texel = texture(img, translated_coords - camera_offset / love_ScreenSize.xy) * weight; // img is clamp zero wrapping
 
     // Build the thick white stripe from the raw SDF
-    const float threshold = 0.9;
+    const float threshold = 1.25;
     float eps = 0.05 + 0.5 * threshold * transition_fraction; // thickness/softness of the white band
     float line = 1.0 - smoothstep(threshold - eps, threshold + eps, abs(d));
 
-
     // Thin black outline just around the white stripe boundary.
     // Use a narrow band centered at |d| == threshold, width ~ 1-2 pixels via fwidth.
-    float outline_threshold = 0.98;
+    float outline_threshold = threshold + 0.08;
     float outline_eps = 0.05 * 2 + 0.5 * outline_threshold * transition_fraction; // tune for desired outline thickness (in pixels)
     float line_outline = 1 - smoothstep(outline_threshold - outline_eps, outline_threshold + outline_eps, abs(d));
 
+    // NEW: Calculate moving white rectangle
+    // Rectangle dimensions and movement
+    const float rect_height = 1; // Height of the rectangle (relative to tile)
+    const float rect_width = 2.0;  // Width spans entire tile
+
+    // Calculate rectangle edge position based on fraction and column direction
+    // For even columns (direction = -1): move from top to bottom, smooth edge at bottom
+    // For odd columns (direction = 1): move from bottom to top, smooth edge at top
+
+    float rect_fraction = fraction < 1 ? fraction : 10e6; // after animation, rect extends infinitely
+
+    float rect_edge_y;
+    if (direction < 0.0) {
+        // Even column: start above screen, move down
+        rect_edge_y = -rect_height + rect_fraction * (1.0 + 2 * rect_height);
+    } else {
+        // Odd column: start below screen, move up
+        rect_edge_y = 1.0 + rect_height - rect_fraction * (1.0 + 2 * rect_height);
+    }
+
+    // Create rectangle mask with gradient only on the leading edge
+    float rect_mask;
+    float rect_eps = 0.001;
+    if (direction < 0.0) {
+        // Even column: fully opaque above edge, gradient below
+        rect_mask = 1.0 - smoothstep(rect_edge_y - rect_eps, rect_edge_y + rect_eps, tile_pos.y);
+    } else {
+        // Odd column: fully opaque below edge, gradient above
+        rect_mask = smoothstep(rect_edge_y - rect_eps, rect_edge_y + rect_eps, tile_pos.y);
+    }
+
+    // NEW: Create horizontal line at the interpolation region, only where it intersects the inner line
+    // The line appears only where the smoothstep is actively interpolating AND where the inner line exists
+    float line_thickness = 0.001; // Adjust thickness as needed
+    float interpolation_center = rect_edge_y; // Center of the interpolation
+    float horizontal_line = 1.0 - smoothstep(interpolation_center - line_thickness,
+    interpolation_center + line_thickness,
+    abs(tile_pos.y - interpolation_center + line_thickness));
+
+    // Only show the line where smoothstep is interpolating (not at 0 or 1)
+    float smoothstep_value = (direction < 0.0) ?
+    (1.0 - smoothstep(rect_edge_y - rect_eps, rect_edge_y + rect_eps, tile_pos.y)) :
+    smoothstep(rect_edge_y - rect_eps, rect_edge_y + rect_eps, tile_pos.y);
+
+    // Fade the line based on how much interpolation is happening
+    float interpolation_intensity = 10 * smoothstep_value * (1.0 - smoothstep_value);
+
+    // Only draw the horizontal line where it overlaps with the inner sine wave line
+    horizontal_line *= interpolation_intensity * line;
+
     // Foreground: white where the thick stripe (dist) is present, black where the thin outline mask is present.
     // Alpha includes either the white stripe or the black outline.
-    const vec3 black = vec3(0);
 
     float alpha = max(line, line_outline);
     texel = texture(img, texture_coords) * (1 - fraction);
-    texel *= (1 - alpha);
 
-    vec3 outline_color = vec3(1, 0, 1);
-    vec3 outline = (line_outline - line) * player_color.rgb;
+    float outline = (line_outline - line + horizontal_line);
 
-    return vec4(texel.rgb + black * line_outline + outline, 1);
+    // Calculate hue based on tile index, cycling through n_rainbow_steps
+    float hue = mod(tileIndex, float(n_rainbow_steps)) / float(n_rainbow_steps);
+
+    // Convert to LCH color space and then to RGB
+    vec3 rainbow_inner_color = 0.8 * lch_to_rgb(vec3(0.8, 1, hue));
+    vec3 rainbow_outer_color = 0.9 * lch_to_rgb(vec3(0.8, 0.8, hue));
+
+    vec3 non_rainbow_inner_color = vec3(0);
+    vec3 non_rainbow_outer_color = player_color.rgb;
+
+    vec3 inner_color = mix(non_rainbow_inner_color, rainbow_inner_color, rainbow_fraction);
+    vec3 outer_color = mix(non_rainbow_outer_color, rainbow_outer_color, rainbow_fraction);
+
+    // Apply colors with rectangle mask on top of everything
+    vec3 final_color = texel.rgb + rect_mask * inner_color * line_outline + rect_mask * outline * outer_color;
+
+    return vec4(final_color, 1);
 }

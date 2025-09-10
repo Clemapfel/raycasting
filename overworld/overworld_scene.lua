@@ -28,7 +28,7 @@ do
 
         idle_control_indicator_popup_threshold = 5,
 
-        result_screen_transition_duration = 1.5
+        result_screen_transition_duration = 0, -- TODO: 1.5
     }
 end
 
@@ -1031,15 +1031,15 @@ function ow.OverworldScene:update(delta)
             rt.SceneManager:set_scene(ow.ResultScreenScene,
                 local_x, local_y,
                 self._screenshot,  {
-                    coins = { true, false, false, true },
+                    coins = { true, true, true, true },
                     time = 1.234,
                     target_time = 1.230,
                     stage_name = "The Shape of Jump to Come",
                     stage_id = "tutorial",
-                    flow = 0.9868,
+                    flow = 1.0,
                     time_grade = rt.StageGrade.S,
-                    coins_grade = rt.StageGrade.A,
-                    flow_grade = rt.StageGrade.F,
+                    coins_grade = rt.StageGrade.S,
+                    flow_grade = rt.StageGrade.S,
                     splits_current = self._stage:get_checkpoint_splits(),
                     splits_best = rt.GameState:stage_get_splits_best_run(self._stage_id)
                 }

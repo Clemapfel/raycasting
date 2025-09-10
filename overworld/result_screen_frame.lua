@@ -11,7 +11,9 @@ do
         max_speed = 15,
         min_scale = 1, -- fraction
         max_scale = 1.2,
-        coverage = 3
+        coverage = 3,
+
+        hue_range = 0.25
     }
 end
 
@@ -27,8 +29,11 @@ local _mask_shader = rt.Shader("overworld/result_screen_frame_mask.glsl")
 
 --- @brief
 function ow.ResultScreenFrame:instantiate()
-    self._mesh_animation = rt.AnimationChain(
-        1, 0, 1, rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
+    require "overworld.result_screen_scene"
+    self._mesh_animation = rt.TimedAnimation(
+        rt.settings.overworld.result_screen_scene.frame_reveal_animation_duration,
+        0, 1,
+        rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
     )
     self._signal_emitted = false
 
@@ -36,6 +41,9 @@ function ow.ResultScreenFrame:instantiate()
     self._rect_area = rt.AABB()
     self._vertex_i_to_path = {}
     self._mesh_data = {}
+
+    self._hue = 0
+    self._hue_range = rt.settings.overworld.result_screen_frame.hue_range
 
     -- particle texture
 
@@ -571,7 +579,8 @@ function ow.ResultScreenFrame:draw()
 
         _outline_shader:bind()
         _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        _outline_shader:send("hue", rt.SceneManager:get_current_scene():get_player():get_hue())
+        _outline_shader:send("hue", self._hue)
+        _outline_shader:send("hue_range", self._hue_range)
         self._particle_canvas:draw(self._canvas_x, self._canvas_y)
         _outline_shader:unbind()
     end
@@ -588,7 +597,8 @@ end
 function ow.ResultScreenFrame:draw_bloom()
     _outline_shader:bind()
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _outline_shader:send("hue", rt.SceneManager:get_current_scene():get_player():get_hue())
+    _outline_shader:send("hue", self._hue)
+    _outline_shader:send("hue_range", self._hue_range)
     self._particle_canvas:draw(self._canvas_x, self._canvas_y)
     _outline_shader:unbind()
 end
@@ -598,4 +608,24 @@ function ow.ResultScreenFrame:skip()
     self._mesh_animation:skip()
     self:_update_mesh_paths()
     self:update(0)
+end
+
+--- @brief
+function ow.ResultScreenFrame:set_hue(hue)
+    self._hue = hue
+end
+
+--- @brief
+function ow.ResultScreenFrame:get_hue()
+    return self._hue
+end
+
+--- @brief
+function ow.ResultScreenFrame:set_hue_range(range)
+    self._hue_range = range
+end
+
+--- @brief
+function ow.ResultScreenFrame:reset_hue_range()
+    self._hue_range = rt.settings.overworld.result_screen_frame.hue_range
 end

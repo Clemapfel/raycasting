@@ -1279,9 +1279,10 @@ function rt.Glyph:instantiate(text, properties)
     self._elapsed = 0
     self._font = font
     self._use_caching = true -- use textbatch until first text change
+    self._last_window_height = love.graphics.getHeight()
 
-    self._native = rt.Label._glyph_new(
-        text, self._font, font_size, style, is_mono,
+    self._config = {
+        text, font, font_size, style, is_mono,
         color_r, color_g, color_b,
         outline_r, outline_g, outline_b,
         is_underlined,
@@ -1291,7 +1292,9 @@ function rt.Glyph:instantiate(text, properties)
         is_effect_wave,
         is_effect_rainbow,
         is_effect_noise
-    )
+    }
+
+    self._native = rt.Label._glyph_new(table.unpack(self._config))
 end
 
 --- @brief
@@ -1326,6 +1329,11 @@ end
 
 --- @brief
 function rt.Glyph:size_allocate(x, y, width, height)
+    if love.graphics.getHeight() ~= self._last_window_height then
+        self._last_window_height = love.graphics.getHeight()
+        self._native = rt.Label._glyph_new(table.unpack(self._config))
+    end
+
     local glyph = self._native
     glyph.x, glyph.y = _floor(x), _floor(y)
 

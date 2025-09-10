@@ -72,6 +72,7 @@ mat3 sobel_y = mat3(
 
 uniform float elapsed;
 uniform float hue;
+uniform float hue_range = 0.25;
 
 #endif
 
@@ -101,8 +102,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
         float magnitude = length(vec2(gradient_x, gradient_y));
         float alpha = smoothstep(0, 1, magnitude);
 
-        float noise = 0.25 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
-        vec3 hue = lch_to_rgb(vec3(0.8, 1, hue + noise));
+        float noise = hue_range * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
+        vec3 hue = lch_to_rgb(vec3(0.8, 1, fract(hue + noise)));
 
         float outline = smoothstep(0, 0.8, min(2 * magnitude, 1));
 
