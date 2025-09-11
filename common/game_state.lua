@@ -51,7 +51,7 @@ function rt.GameState:instantiate()
         joystick_deadzone = 0.15,
         trigger_deadzone = 0.05,
         performance_mode_enabled = false,
-        draw_debug_information = false,
+        draw_debug_information = true,
         player_sprint_mode = rt.PlayerSprintMode.HOLD,
         color_blind_mode = true,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>

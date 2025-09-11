@@ -70,41 +70,48 @@ function rt.Font:instantiate(
     }
 
     self._size_to_cache = {}
-    self._size_to_fallbacks = {}
     self._line_spacing = 1 -- fraction
 end
 
-local _atlas = meta.make_weak({})
 local _sdf = true
 local _no_sdf = false
 
--- cached sizes
-local _new_font = function(path, size, sdf)
+-- cache font by size
+local _atlas = {}
+local _fallback_atlas = {}
+
+local function _new_font(path, size, sdf)
     if sdf == nil then sdf = _sdf end
 
-    if _atlas[path] == nil then _atlas[path] = meta.make_weak({}) end
+    if _atlas[path] == nil then _atlas[path] = {} end
     if _atlas[path][size] == nil then _atlas[path][size] = meta.make_weak({}) end
 
     local native = _atlas[path][size][sdf]
     if native == nil then
         native = love.graphics.newFont(path, size, {
-            hinting = "normal",
-            sdf = sdf
+            sdf = sdf,
+            hinting = "normal"
         })
+
+        -- get fallbacks
+        if _fallback_atlas[size] == nil then _fallback_atlas[size] = {} end
+        local fallbacks = _fallback_atlas[size][sdf]
+        if fallbacks == nil then
+            fallbacks = {
+                love.graphics.newFont("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", size, {
+                    sdf = sdf,
+                    hinting = "normal"
+                })
+            }
+            _fallback_atlas[size][sdf] = fallbacks
+        end
+
+        native:setFallbacks(table.unpack(fallbacks))
         _atlas[path][size][sdf] = native
     end
 
     return native
 end
-
---[[
-local _new_font = function(path, size, sdf)
-    return love.graphics.newFont(path, size, {
-        hinting = "normal",
-        sdf = sdf
-    })
-end
-]]--
 
 --- @brief
 function rt.Font:get_native(size, style, sdf)
@@ -126,7 +133,6 @@ function rt.Font:get_native(size, style, sdf)
     end
 
     local native_entry = entry[style]
-    local needs_fallbacks = false
     if native_entry == nil then
         native_entry = {
             sdf = _new_font(path, actual_size, _sdf),
@@ -134,30 +140,10 @@ function rt.Font:get_native(size, style, sdf)
         }
 
         entry[style] = native_entry
-        needs_fallbacks = true
     end
 
     local sdf_out = native_entry.sdf
     local no_sdf_out = native_entry.no_sdf
-
-    local fallback_entry = self._size_to_fallbacks[actual_size]
-    if fallback_entry == nil then
-        fallback_entry = {
-            sdf = {
-                _new_font("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", actual_size, _sdf),
-            },
-
-            no_sdf = {
-                _new_font("assets/fonts/NotoSansMath/NotoSansMath-Regular.ttf", actual_size, _no_sdf),
-            }
-        }
-        self._size_to_fallbacks = fallback_entry
-    end
-
-    if needs_fallbacks then
-        sdf_out:setFallbacks(table.unpack(fallback_entry.sdf))
-        no_sdf_out:setFallbacks(table.unpack(fallback_entry.no_sdf))
-    end
 
     if sdf == nil then
         return sdf_out, no_sdf_out
@@ -171,7 +157,7 @@ end
 --- @brief
 function rt.Font:get_actual_size(size)
     meta.assert_enum_value(size, rt.FontSize, 1)
-    return math.max(math.ceil(size * love.graphics.getHeight(), 14))
+    return math.max(math.ceil(size * love.graphics.getHeight()), 14)
 end
 
 --- @brief

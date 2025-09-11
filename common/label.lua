@@ -87,6 +87,7 @@ local _draw_text_shader = love.graphics.newShader("common/label.glsl", { defines
 local _texture_format = rt.TextureFormat.RGBA16
 local _padding = rt.settings.label.outline_offset_padding
 
+
 --- @brief
 function rt.Label._glyph_new(
     text, font, font_size, style, is_mono,
