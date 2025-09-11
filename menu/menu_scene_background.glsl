@@ -165,6 +165,8 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         //balls += gradient_weight * vec4(color, data.a);
         balls = max(balls, vec4(0));
         bg += balls;
+        bg *= 1.2; // bloom
+        bg = clamp(bg, vec4(0), vec4(1));
     }
 
     return vertex_color * bg;

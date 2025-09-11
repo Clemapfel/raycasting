@@ -737,7 +737,6 @@ function mn.MenuScene:draw()
             local bloom = rt.SceneManager:get_bloom()
             bloom:bind()
             love.graphics.clear(0, 0, 0, 0)
-            self._background:draw_bloom()
 
             self._camera:bind()
             self._player:draw_bloom()
