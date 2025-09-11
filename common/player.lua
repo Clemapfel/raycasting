@@ -475,7 +475,8 @@ function rt.Player:update(delta)
         self._down_button_is_down or
         self._left_button_is_down or
         self._jump_button_is_down or
-        (not self._is_bubble and self._bottom_wall == false)
+        (not self._is_bubble and self._bottom_wall == false) or
+        self._state ~= rt.PlayerState.ACTIVE
     then
         self._idle_elapsed = 0
     else
@@ -1580,6 +1581,7 @@ function rt.Player:disable()
     end
 
     self._state = rt.PlayerState.DISABLED
+    self._idle_elapsed = 0
 
     self._up_button_is_down = self._input:get_is_down(rt.InputAction.UP)
     self._right_button_is_down = self._input:get_is_down(rt.InputAction.RIGHT)

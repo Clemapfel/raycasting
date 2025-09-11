@@ -91,7 +91,7 @@ function ow.OverworldScene:instantiate(state)
         _fade_active = false,
 
         _show_title_card = true,
-        _title_card = ow.StageTitleCard("1 - 3: Not a Tutorial"),
+        _title_card = ow.StageTitleCard("TODO"),
         _title_card_active = false,
         _title_card_elapsed = 0,
 
@@ -329,6 +329,7 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
 
     if show_title_card == nil then show_title_card = true end
     self._show_title_card = show_title_card
+    self._title_card:set_title(rt.GameState:get_stage_title(stage_id))
 
     rt.SceneManager:set_use_fixed_timestep(true)
 
@@ -553,7 +554,7 @@ function ow.OverworldScene:draw()
     love.graphics.push()
     love.graphics.origin()
     love.graphics.clear(1, 0, 1, 1)
-    if not _skip_fade == true and self._fade:get_is_active() or self._fade:get_is_visible() then
+    if self._show_title_card == true and self._fade:get_is_active() or self._fade:get_is_visible() then
         self._background:draw()
         self._camera:bind()
         self._stage:draw_below_player()
@@ -619,7 +620,7 @@ function ow.OverworldScene:draw()
 
     love.graphics.pop()
 
-    if not self._pause_menu_active and self._cursor_visible and self._cursor_active then
+    if not self._pause_menu_active and not self._fade:get_is_active() and self._cursor_visible and self._cursor_active then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
 
@@ -913,7 +914,7 @@ function ow.OverworldScene:update(delta)
     end
 
     -- mouse-based scrolling
-    if self._cursor_visible == true then
+    if self._cursor_visible == true and not self._fade:get_is_active() then
         local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
         self._camera_translation_velocity_x = (-1 * self._camera_pan_left_speed + 1 * self._camera_pan_right_speed) * max_velocity
         self._camera_translation_velocity_y = (-1 * self._camera_pan_up_speed + 1 * self._camera_pan_down_speed) * max_velocity
@@ -1027,7 +1028,7 @@ function ow.OverworldScene:update(delta)
                     coins = { true, true, true, true, true, true, true, true },
                     time = 1.234,
                     target_time = 1.230,
-                    stage_name = "The Shape of Jump to Come",
+                    stage_name = "1-3: Debug Level Name",
                     stage_id = "tutorial",
                     flow = 1.0,
                     time_grade = rt.StageGrade.S,

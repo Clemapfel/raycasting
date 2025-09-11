@@ -24,5 +24,5 @@ end
 
 --- @brief
 function mn.OverallCompletionBar:draw()
-    self:draw_bounds()
+    --self:draw_bounds()
 end
