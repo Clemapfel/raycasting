@@ -91,7 +91,7 @@ function mn.PauseMenu:instantiate(scene)
     self._confirm_restart_dialog:realize()
     self._confirm_restart_dialog:signal_connect("selection", function(_, which)
         if which == mn.MessageDialogOption.ACCEPT then
-            self._underlying_scene:reload()
+            self._underlying_scene:restart()
             self._underlying_scene:unpause()
         elseif which == mn.MessageDialogOption.CANCEL then
             self._confirm_restart_dialog:close()
