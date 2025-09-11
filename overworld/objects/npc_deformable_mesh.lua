@@ -77,14 +77,10 @@ function ow.DeformableMesh:instantiate(scene, world, contour)
             local length = math.magnitude(dx, dy)
             dx, dy = math.normalize(dx, dy)
 
-            -- scale vectors the closer they are to pointing downwards, for bottom-heavy inner shell
             local angle = math.angle(dx, dy)
-            local diff = math.abs(math.normalize_angle(angle - downwards_angle))
-            if diff > math.pi then diff = 2 * math.pi - diff end
-            local penalty = 1 + (diff / math.pi) * downwards_scale_factor
-
-            -- rescale so there is at least 0.5 * player spaced
-            local final_length = math.clamp(penalty * length - deformable_max_depth, length - deformable_max_depth, length)
+            local downward_bias = (1 + math.cos(angle - math.pi / 2)) * 0.5
+            local shrink_amount = deformable_max_depth * (1 - downward_bias)
+            local final_length = math.clamp(length - shrink_amount, length - deformable_max_depth, length)
 
             table.insert(inner_body_contour, dx * final_length)
             table.insert(inner_body_contour, dy * final_length)
@@ -465,6 +461,8 @@ function ow.DeformableMesh:draw_outline()
     ]]--
     love.graphics.line(self._draw_contour)
     --_outline_shader:unbind()
+
+    self._inner_body:draw()
 end
 
 --- @brief

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 842,
+  nextobjectid = 843,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4970,6 +4970,33 @@ return {
             ["easing"] = "SINUSOID_EASE_IN_OUT",
             ["target"] = { id = 834 },
             ["velocity"] = 100
+          }
+        },
+        {
+          id = 842,
+          name = "",
+          type = "NPC",
+          shape = "polygon",
+          x = -2035.27,
+          y = 899.89,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 3.73997, y = 2.05145 },
+            { x = -2.83936, y = -7.41019 },
+            { x = -3.30588, y = -25.2191 },
+            { x = 10.4946, y = -31.1505 },
+            { x = 47.6804, y = -31.3255 },
+            { x = 69.707, y = -22.943 },
+            { x = 76.079, y = -6.80577 },
+            { x = 67.4058, y = 0.554737 },
+            { x = 50.3128, y = 5.54022 },
+            { x = 26.5407, y = 8.68235 }
+          },
+          properties = {
+            ["dialog_id"] = "debug_dialog"
           }
         }
       }

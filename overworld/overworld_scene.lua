@@ -142,7 +142,7 @@ function ow.OverworldScene:instantiate(state)
         -- debug reload
         if which == "^" then
             self:unpause()
-            self:reload()
+            self:reset()
         end
     end)
 
@@ -318,7 +318,9 @@ function ow.OverworldScene:enter(new_stage_id, show_title_card)
 
     self._show_title_card = show_title_card
 
-    self:set_stage(new_stage_id, show_title_card)
+    if new_stage_id ~= nil then
+        self:set_stage(new_stage_id, show_title_card)
+    end
     -- do not reset player or pause state
 end
 
@@ -333,8 +335,11 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
 
     rt.SceneManager:set_use_fixed_timestep(true)
 
-    self._stage_id = stage_id
-    self._stage = ow.Stage(self, stage_id)
+    if self._stage_id ~= stage_id then
+        self._stage_id = stage_id
+        self._stage = ow.Stage(self, stage_id)
+    end
+
     self._player:move_to_stage(self._stage)
     self._player_is_focused = true
     self._n_frames = 0
@@ -487,62 +492,6 @@ end
 --- @brief
 function ow.OverworldScene:stop_timer()
     self._timer_stopped = true
-end
-
---- @brief
-function ow.OverworldScene:_get_stage_entry(stage_id)
-    local out = self._stage_mapping[stage_id]
-    if out == nil then
-        out = {
-            stage = nil,
-            spawn_x = nil,
-            spawn_y = nil,
-            exits = {} -- Table<StageID, { x : Number, y : Number, object : ow.StageTransition }>
-        }
-        self._stage_mapping[stage_id] = out
-
-        local stage = ow.Stage(self, stage_id)
-        out.stage = stage
-    end
-    return out
-end
-
---- @brief [internal] builds world map
-function ow.OverworldScene:_notify_stage_transition_added(
-    object,
-    from_stage_id, from_entrance_i,
-    to_stage_id, to_entrance_i
-)
-    meta.assert(object, ow.StageTransition,
-        from_stage_id, "String",
-        from_entrance_i, "Number",
-        to_stage_id, "String",
-        to_entrance_i, "Number"
-    )
-
-    -- pre-load configs now
-    if ow.Stage._config_atlas[from_stage_id] == nil then
-        ow.Stage._config_atlas[from_stage_id] = ow.StageConfig(from_stage_id)
-    end
-
-    if ow.Stage._config_atlas[to_stage_id] == nil then
-        ow.Stage._config_atlas[to_stage_id] = ow.StageConfig(to_stage_id)
-    end
-
-    local to_entry = self:_get_stage_entry(to_stage_id)
-    local x, y = object:get_spawn_position()
-
-    local exits = to_entry.exits[from_stage_id]
-    if exits == nil then
-        exits = {}
-        to_entry.exits[from_stage_id] = exits
-    end
-
-    exits[from_entrance_i] = {
-        x = x,
-        y = y,
-        object = object
-    }
 end
 
 local _white_r, _white_g, _white_b = rt.color_unpack(rt.Palette.WHITE)
@@ -801,7 +750,7 @@ function ow.OverworldScene:_draw_debug_information()
         love.graphics.translate(0, 2 * line_height)
         local spacing = font:getWidth("\t")
 
-        local start_x = 0 --0 + love.graphics.getWidth() - (current_max_width + spacing + best_max_width + spacing + delta_max_width + spacing)
+        local start_x = spacing --0 + love.graphics.getWidth() - (current_max_width + spacing + best_max_width + spacing + delta_max_width + spacing)
         do
             local current_x = start_x
             love.graphics.printf(best_header, current_x + best_max_width - best_header_width, 0, math.huge)
@@ -1088,7 +1037,7 @@ function ow.OverworldScene:set_camera_mode(mode)
 end
 
 --- @brief
-function ow.OverworldScene:reload()
+function ow.OverworldScene:reset()
     if self._stage ~= nil then self._stage:destroy() end
 
     local before = self._stage_id

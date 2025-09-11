@@ -44,8 +44,10 @@ function ow.NPC:instantiate(object, stage, scene)
 
     self._deformable_mesh_center_x, self._deformable_mesh_center_y = self._deformable_mesh:get_center()
 
+    -- create sensor
     self._sensor = object:create_physics_body(self._world)
     self._sensor:set_is_sensor(true)
+    self._sensor:set_use_continuous_collision(true)
     self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
     self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
 
@@ -60,14 +62,15 @@ function ow.NPC:instantiate(object, stage, scene)
     self._bounce_velocity = 0
     self._bounce_cooldown = math.huge
 
-    self._sensor:signal_connect("collision_start", function(_, _, normal_x, normal_y, x, y)
+    self._sensor:signal_connect("collision_start", function(_, other_body, normal_x, normal_y, x, y)
         self._is_active = true
-
+        dbg("enter", meta.hash(other_body))
         -- bounce started in update
     end)
 
-    self._sensor:signal_connect("collision_end", function()
+    self._sensor:signal_connect("collision_end", function(_, other_body)
         self._is_active = false
+        dbg("exit", meta.hash(other_body))
         self._last_force_x, self._last_force_y = 0, 0
     end)
 
@@ -92,6 +95,7 @@ function ow.NPC:update(delta)
     local dx, dy = math.normalize(mesh_x - x, mesh_y)
     local current = self._sensor:test_point(x + dx * radius, y + dy * radius)
 
+    --[[
     if previous == false and current == true then
         local center_x, center_y = self._deformable_mesh:get_center()
         if y <= center_y and self._bounce_cooldown > rt.settings.overworld.npc.bounce_cooldown then -- only bounce up
@@ -102,6 +106,7 @@ function ow.NPC:update(delta)
             self._bounce_cooldown = 0
         end
     end
+    ]]--
 
     self._bounce_previous = current
     self._bounce_cooldown = self._bounce_cooldown + delta
@@ -125,7 +130,6 @@ function ow.NPC:update(delta)
         end
     end
 end
-
 
 --- @brief
 function ow.NPC:draw()
@@ -185,6 +189,8 @@ function ow.NPC:draw()
 
     love.graphics.pop() -- stretch
     rt.graphics.set_stencil_mode(nil)
+
+    self._sensor:draw() -- TODO
 end
 
 --- @brief
