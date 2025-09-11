@@ -477,11 +477,14 @@ function ow.Checkpoint:update(delta)
         if not self._is_shattered then
             gx, gy = self._goal_indicator_motion:get_position()
             gy = select(2, self._scene:get_player():get_position())
+            gy = math.clamp(gy, self._top_y + 0.5 * h, self._bottom_y - 0.5 * h)
         else
             gx, gy = self._goal_player_position_x, self._goal_player_position_y
+            gy = math.clamp(gy, self._top_y + 0.5 * h, self._bottom_y - 0.5 * h)
         end
 
-        self._goal_time_label_offset_x, self._goal_time_label_offset_y = gx - w - 20, gy - 0.5 * h
+        self._goal_time_label_offset_x = gx - w - 20
+        self._goal_time_label_offset_y = gy - 0.5 * h
 
         if self._time_dilation_active == true then
             self._time_dilation_elapsed = self._time_dilation_elapsed + delta
@@ -570,14 +573,6 @@ function ow.Checkpoint:draw(priority)
             if self._fireworks_visible then self._fireworks:draw() end
         elseif self._type == ow.CheckpointType.PLAYER_GOAL then
             if self._is_shattered then self._shatter_surface:draw() end
-
-            love.graphics.push()
-            love.graphics.translate(
-                self._goal_time_label_offset_x,
-                self._goal_time_label_offset_y
-            )
-            self._goal_time_label:draw()
-            love.graphics.pop()
         end
     end
 
@@ -643,6 +638,16 @@ function ow.Checkpoint:draw(priority)
             local w, h = table.unpack(self._explosion_size)
             love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
             _explosion_shader:unbind()
+        end
+
+        if self._type == ow.CheckpointType.PLAYER_GOAL then
+            love.graphics.push()
+            love.graphics.translate(
+                self._goal_time_label_offset_x,
+                self._goal_time_label_offset_y
+            )
+            self._goal_time_label:draw()
+            love.graphics.pop()
         end
     end
 end
