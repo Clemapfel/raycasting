@@ -15,6 +15,9 @@ local _STATE_ATTACK = 1
 local _STATE_SUSTAIN = 2
 local _STATE_DECAY = 3
 
+local _prefix = "<b><outline_color=TRUE_BLACK><noise>"
+local _postfix = "</noise></outline_color></b>"
+
 --- @brief
 function ow.StageTitleCard:instantiate(title, duration)
     duration = duration or rt.settings.fade.default_duration
@@ -34,7 +37,7 @@ function ow.StageTitleCard:instantiate(title, duration)
         _title = title,
         _signal_emitted = true,
         _label = rt.Label(
-            "<b><outline_color=TRUE_BLACK><noise>" .. title .. "</noise></outline_color></b>",
+            _prefix .. title .. _postfix,
             rt.FontSize.HUGE, font
         )
     })
@@ -55,7 +58,7 @@ end
 --- @brief
 function ow.StageTitleCard:set_title(title)
     self._title = title
-    self._label:set_text(title)
+    self._label:set_text(_prefix .. title .. _postfix)
     if self:get_is_realized() then self:reformat() end
 end
 
