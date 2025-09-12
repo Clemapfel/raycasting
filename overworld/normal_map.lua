@@ -413,7 +413,7 @@ function ow.NormalMap:draw_light(
     segment_light_colors
 )
     meta.assert(
-        camera, ow.Camera,
+        camera, rt    .Camera,
         point_light_sources, "Table",
         point_light_colors, "Table",
         segment_light_colors, "Table",
@@ -433,6 +433,9 @@ function ow.NormalMap:draw_light(
     local cell = rt.AABB()
     local padding = 0.5 * chunk_size
     local shader_bound = false
+
+    local max_n_point_lights = rt.settings.overworld.normal_map.max_n_point_lights
+    local max_n_segment_lights = rt.settings.overworld.normal_map.max_n_segment_lights
 
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
@@ -457,6 +460,7 @@ function ow.NormalMap:draw_light(
                             table.insert(point_lights_local, { camera:world_xy_to_screen_xy(world_x, world_y) })
                             table.insert(point_colors, point_light_colors[i])
                             n_point_lights = n_point_lights + 1
+                            if n_point_lights >= max_n_point_lights then break end
                         end
                     end
 
@@ -465,14 +469,15 @@ function ow.NormalMap:draw_light(
                     local segment_colors = {}
                     local n_segment_lights = 0
 
-                    for i, segment in ipairs(segment_light_colors) do
+                    for i, segment in ipairs(segment_light_sources) do
                         local world_x1, world_y1, world_x2, world_y2 = table.unpack(segment)
                         if cell:intersects(world_x1, world_y1, world_x2, world_y2) then
                             local local_x1, local_y1 = camera:world_xy_to_screen_xy(world_x1, world_y1)
                             local local_x2, local_y2 = camera:world_xy_to_screen_xy(world_x2, world_y2)
                             table.insert(segment_lights_local, { local_x1, local_y1, local_x2, local_y2 })
-                            table.insert(segment_lights_local, segment_light_colors[i])
+                            table.insert(segment_colors, segment_light_colors[i])
                             n_segment_lights = n_segment_lights + 1
+                            if n_segment_lights >= max_n_segment_lights then break end
                         end
                     end
 
@@ -487,13 +492,8 @@ function ow.NormalMap:draw_light(
                             _draw_light_shader:send("segment_colors", table.unpack(segment_colors))
                         end
 
-                        _draw_light_shader:send("n_point_lights", math.min(
-                            n_point_lights, rt.settings.overworld.normal_map.max_n_point_lights
-                        ))
-
-                        _draw_light_shader:send("n_segment_lights", math.min(
-                            n_segment_lights, rt.settings.overworld.normal_map.max_n_segment_lights
-                        ))
+                        _draw_light_shader:send("n_point_lights", n_point_lights)
+                        _draw_light_shader:send("n_segment_lights", n_segment_lights)
 
                         if shader_bound == false then
                             love.graphics.push("all")
@@ -520,7 +520,8 @@ function ow.NormalMap:draw_light(
 end
 
 function ow.NormalMap:draw_shadow(camera)
-    meta.assert(camera, ow.Camera)
+    meta.assert(camera, rt.Camera)
+
     if self._is_visible == false or not self._computation_started then return end
 
     local chunk_size = self._chunk_size

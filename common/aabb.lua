@@ -39,47 +39,68 @@ function rt.AABB:contains(x, y)
     return _contains(x, y, self.x, self.y, self.width, self.height)
 end
 
-local function _intersects(x1, y1, x2, y2, x3, y3, x4, y4)
-    local function orientation(px, py, qx, qy, rx, ry)
-        local val = (qy - py) * (rx - qx) - (qx - px) * (ry - qy)
-        if val == 0 then return 0 end -- collinear
-        return (val > 0) and 1 or 2 -- clockwise or counterclockwise
-    end
-
-    local function on_segment(px, py, qx, qy, rx, ry)
-        return rx >= math.min(px, qx) and rx <= math.max(px, qx) and
-            ry >= math.min(py, qy) and ry <= math.max(py, qy)
-    end
-
-    local o1 = orientation(x1, y1, x2, y2, x3, y3)
-    local o2 = orientation(x1, y1, x2, y2, x4, y4)
-    local o3 = orientation(x3, y3, x4, y4, x1, y1)
-    local o4 = orientation(x3, y3, x4, y4, x2, y2)
-
-    if o1 ~= o2 and o3 ~= o4 then
-        return true
-    end
-
-    if o1 == 0 and on_segment(x1, y1, x2, y2, x3, y3) then return true end
-    if o2 == 0 and on_segment(x1, y1, x2, y2, x4, y4) then return true end
-    if o3 == 0 and on_segment(x3, y3, x4, y4, x1, y1) then return true end
-    if o4 == 0 and on_segment(x3, y3, x4, y4, x2, y2) then return true end
-
-    return false
-end
-
---- @brief
 function rt.AABB:intersects(x1, y1, x2, y2)
-    local x, y, w, h = self.x, self.y, self.width, self.height
-    if  _contains(x1, y1, x, y, w, h) or
-        _contains(x2, y2, x, y, w, h) or
-        _intersects(x1, y1, x2, y2, x + 0, y + 0, x + w, y + 0) or
-        _intersects(x1, y1, x2, y2, x + w, y + 0, x + w, y + h) or
-        _intersects(x1, y1, x2, y2, x + w, y + h, x + 0, y + h) or
-        _intersects(x1, y1, x2, y2, x + 0, y + h, x + 0, y + 0)
-    then
+    local x, y, w, h = self:unpack()
+    local right = x + w
+    local bottom = y + h
+
+    -- Fast case 1: Check if either endpoint is inside AABB
+    if (x1 >= x and x1 <= right and y1 >= y and y1 <= bottom) or
+        (x2 >= x and x2 <= right and y2 >= y and y2 <= bottom) then
         return true
     end
 
-    return false
+    -- Fast case 2: Check if segment is entirely outside AABB bounds
+    -- If both points are on the same side of any edge, no intersection possible
+    if (x1 < x and x2 < x) or        -- both left
+        (x1 > right and x2 > right) or   -- both right
+        (y1 < y and y2 < y) or        -- both above
+        (y1 > bottom and y2 > bottom) then -- both below
+        return false
+    end
+
+    -- Parameterized line segment: P(t) = (x1, y1) + t * (dx, dy) where t ∈ [0,1]
+    local dx = x2 - x1
+    local dy = y2 - y1
+
+    -- Use parametric intersection with slab method
+    local tmin = 0.0
+    local tmax = 1.0
+
+    -- Check X slabs
+    if dx ~= 0 then
+        local t1 = (x - x1) / dx      -- intersection with left edge
+        local t2 = (right - x1) / dx  -- intersection with right edge
+
+        if dx < 0 then
+            t1, t2 = t2, t1  -- swap if direction is negative
+        end
+
+        tmin = math.max(tmin, t1)
+        tmax = math.min(tmax, t2)
+
+        if tmin > tmax then
+            return false  -- no overlap in X dimension
+        end
+    end
+
+    -- Check Y slabs
+    if dy ~= 0 then
+        local t1 = (y - y1) / dy      -- intersection with top edge
+        local t2 = (bottom - y1) / dy -- intersection with bottom edge
+
+        if dy < 0 then
+            t1, t2 = t2, t1  -- swap if direction is negative
+        end
+
+        tmin = math.max(tmin, t1)
+        tmax = math.min(tmax, t2)
+
+        if tmin > tmax then
+            return false  -- no overlap in Y dimension
+        end
+    end
+
+    -- If we get here, the line segment intersects the AABB
+    return true
 end

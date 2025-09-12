@@ -290,7 +290,7 @@ end
 function ow.Stage:draw_below_player()
     ow.BoostField:draw_all()
     ow.Hitbox:draw_base()
-    self._normal_map:draw_shadow()
+    self._normal_map:draw_shadow(self._scene:get_camera())
     ow.Hitbox:draw_outline()
 
     for entry in values(self._below_player) do
