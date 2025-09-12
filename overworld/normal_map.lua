@@ -25,7 +25,7 @@ local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of w
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 
-local _init_shader, _step_shader, _export_shader
+local _clear_shader, _init_shader, _step_shader, _export_shader
 
 local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
     MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
@@ -266,9 +266,9 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         self._computation_started = true
 
         local size_x, size_y = rt.settings.overworld.normal_map.work_group_size_x, rt.settings.overworld.normal_map.work_group_size_y
-        if _init_shader == nil then _init_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 0, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _step_shader == nil then _step_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 1, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
+        if _clear_shader == nil then _clear_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end        if _init_shader == nil then _init_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 0, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
 
         local padding = chunk_size / 2
         self._chunk_padding = padding
@@ -279,15 +279,16 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             8, _mask_texture_format, true
         ):get_native()
 
-        local texture_a = rt.RenderTexture(
+        local jfa_texture = love.graphics.newTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
-            0, _jfa_texture_format, true
-        ):get_native()
-
-        local texture_b = rt.RenderTexture(
-            chunk_size + 2 * padding, chunk_size + 2 * padding,
-            0, _jfa_texture_format, true
-        ):get_native()
+            2, -- layer count
+            {
+                format = _jfa_texture_format,
+                type = "array",
+                canvas = true,
+                computewrite = true
+            }
+        )
 
         local export_texture = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
@@ -310,49 +311,42 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             lg.pop()
             lg.setCanvas(nil)
 
-            for to_clear in range(texture_a, texture_b) do
-                lg.setCanvas(to_clear)
-                lg.clear(0, 0, 0, 0)
-                lg.setCanvas(nil)
-            end
+            -- clear array texture
+            _clear_shader:send("jfa_texture_array", jfa_texture)
+            _clear_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
-            -- init
+            -- init (writes to layer 0, boundaries to both layers)
             _init_shader:send("mask_texture", mask)
-            _init_shader:send("input_texture", texture_a)
-            _init_shader:send("output_texture", texture_b)
+            _init_shader:send("jfa_texture_array", jfa_texture)
             _init_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
             savepoint()
 
-            -- jfa
+            -- jfa ping-pong between layers
             local jump = 0.5 * chunk_size
-            local a_or_b = true
-            while jump > 0.5 do
-                if a_or_b then
-                    _step_shader:send("input_texture", texture_a)
-                    _step_shader:send("output_texture", texture_b)
-                else
-                    _step_shader:send("input_texture", texture_b)
-                    _step_shader:send("output_texture", texture_a)
-                end
+            local current_layer = 0
 
+            while jump > 0.5 do
+                local input_layer = current_layer
+                local output_layer = 1 - current_layer
+
+                _step_shader:send("input_layer", input_layer)
+                _step_shader:send("output_layer", output_layer)
+                _step_shader:send("jfa_texture_array", jfa_texture)
+                _step_shader:send("jfa_texture_array_out", jfa_texture) -- Same texture, different binding
                 _step_shader:send("jump_distance", math.ceil(jump))
                 _step_shader:dispatch(dispatch_size_x, dispatch_size_y)
 
-                a_or_b = not a_or_b
+                current_layer = output_layer
                 jump = jump / 2
             end
 
             savepoint()
 
-            -- compute gradient, export to RG8
-            if a_or_b then
-                _export_shader:send("input_texture", texture_a)
-            else
-                _export_shader:send("input_texture", texture_b)
-            end
-
+            -- export final result
+            _export_shader:send("final_layer", current_layer)
             _export_shader:send("mask_texture", mask)
+            _export_shader:send("jfa_texture_array", jfa_texture)
             _export_shader:send("output_texture", export_texture)
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
@@ -372,8 +366,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             savepoint()
         end
 
-        texture_a:release()
-        texture_b:release()
+        jfa_texture:release()
         mask:release()
         export_texture:release()
 
