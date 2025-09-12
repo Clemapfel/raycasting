@@ -770,7 +770,7 @@ function mn.MenuScene:draw()
 
         love.graphics.pop()
 
-        if not stage_select.exit_fade:get_is_active() and not bloom_updated and rt.GameState:get_is_bloom_enabled() then
+        if not bloom_updated and rt.GameState:get_is_bloom_enabled() then
             local bloom = rt.SceneManager:get_bloom()
 
             bloom:bind()
