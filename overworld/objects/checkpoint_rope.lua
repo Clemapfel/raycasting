@@ -193,7 +193,7 @@ function ow.CheckpointRope:update(delta)
     if self._should_despawn then
         local seen = false
         for body in values(self._bodies) do
-            if self._scene:get_is_body_visible(body) then
+            if self._stage:get_is_body_visible(body) then
                 seen = true
                 break
             end

@@ -29,7 +29,7 @@ end
 
 --- @brief
 function ow.MovingHitbox:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
     self._value = rt.InterpolationFunctions.TRIANGLE_WAVE(self._elapsed * (self._speed / self._length))
@@ -52,7 +52,7 @@ end
 
 --- @brief
 function ow.MovingHitbox:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.setColor(1, 1, 1, 1)
     self._body:draw()

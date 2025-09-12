@@ -166,7 +166,7 @@ local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
 
 --- @brief
 function ow.BouncePad:update(delta)
-    if self._is_destroyed or not self._scene:get_is_body_visible(self._body) then return end
+    if self._is_destroyed or not self._stage:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
     self._elapsed = self._elapsed + self._signal
@@ -323,7 +323,7 @@ end
 
 --- @brief
 function ow.BouncePad:draw()
-    if self._is_destroyed or not self._scene:get_is_body_visible(self._body) then return end
+    if self._is_destroyed or not self._stage:get_is_body_visible(self._body) then return end
 
     local r, g, b = table.unpack(self._draw_inner_color)
     love.graphics.setColor(r, g, b, 1)

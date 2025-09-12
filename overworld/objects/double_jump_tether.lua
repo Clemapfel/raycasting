@@ -32,6 +32,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
         b2.Circle(0, 0, self._radius)
     )
     self._scene = scene
+    self._stage = stage
 
     -- collision
     self._body:set_is_sensor(true)
@@ -69,7 +70,7 @@ end
 --- @brief
 function ow.DoubleJumpTether:update(delta)
     local is_attached = self._scene:get_player():get_is_double_jump_source(self)
-    local is_visible = self._scene:get_is_body_visible(self._body)
+    local is_visible = self._stage:get_is_body_visible(self._body)
 
     self._line_opacity_motion:update(delta)
 
@@ -169,7 +170,7 @@ end
 
 --- @brief
 function ow.DoubleJumpTether:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local line_a = self._line_opacity_motion:get_value()
     if line_a > eps and self._line_mesh ~= nil then
@@ -179,7 +180,7 @@ function ow.DoubleJumpTether:draw()
         love.graphics.draw(self._line_mesh)
     end
 
-    if self._scene:get_is_body_visible(self._body) then
+    if self._stage:get_is_body_visible(self._body) then
         local shape_a = self._shape_opacity_motion:get_value()
         local r, g, b = table.unpack(self._color)
 
@@ -196,7 +197,7 @@ end
 
 --- @brief
 function ow.DoubleJumpTether:draw_bloom()
-    if self._scene:get_is_body_visible(self._body) == false then return end
+    if self._stage:get_is_body_visible(self._body) == false then return end
     local r, g, b = table.unpack(self._color)
     local shape_a = self._shape_opacity_motion:get_value()
     if shape_a > eps then

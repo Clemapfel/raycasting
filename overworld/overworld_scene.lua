@@ -81,7 +81,6 @@ function ow.OverworldScene:instantiate(state)
         _cursor_active = false,
         _camera_freeze_elapsed = 0, -- sic, freeze at initialization
 
-        _visible_bodies = {}, -- Set<b2.Body>
         _background = rt.Background("grid"),
 
         _pause_menu = mn.PauseMenu(self),
@@ -928,24 +927,6 @@ function ow.OverworldScene:update(delta)
         end
     end
 
-    do
-        local top_left_x, top_left_y = self._camera:screen_xy_to_world_xy(0, 0)
-        local bottom_left_x, bottom_left_y = self._camera:screen_xy_to_world_xy(love.graphics.getDimensions())
-        local visible = {}
-        local light_sources = {}
-        self._stage:get_physics_world():get_native():queryShapesInArea(top_left_x, top_left_y, bottom_left_x, bottom_left_y, function(shape)
-            local body = shape:getBody():getUserData()
-            visible[body] = true
-
-            if body ~= nil and body:has_tag("light_source") then
-                table.insert(light_sources, body)
-            end
-            return true
-        end)
-        self._visible_bodies = visible
-        self._light_sources = light_sources
-    end
-
     -- transition
     if self._result_screen_transition_active == true then
         self._result_screen_transition_elapsed = self._result_screen_transition_elapsed + delta
@@ -1072,61 +1053,6 @@ end
 --- @brief
 function ow.OverworldScene:get_current_stage()
     return self._stage
-end
-
---- @brief
-function ow.OverworldScene:get_is_body_visible(body)
-    meta.assert(body, b2.Body)
-    return self._visible_bodies[body] == true
-end
-
---- @brief
-function ow.OverworldScene:get_point_light_sources()
-    local positions = {}
-    local colors = {}
-    for body in values(self._light_sources) do
-        local cx, cy = body:get_center_of_mass()
-        table.insert(positions, { cx, cy })
-
-        local class = body:get_user_data()
-        if class ~= nil and class.get_color then
-            local color = class:get_color()
-            if not meta.isa(color, rt.RGBA) then
-                rt.error("In ow.OverworldScene: object `" .. meta.typeof(class) .. "` has a get_color function that does not return an object of type `rt.RGBA`")
-            end
-            table.insert(colors, { class:get_color():unpack() })
-        end
-    end
-
-    table.insert(positions, { self._player:get_position() })
-    table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
-
-    return positions, colors
-end
-
---- @brief
-function ow.OverworldScene:get_segment_light_sources()
-    if self._stage == nil then return {} end
-    local segments, colors = self._stage:get_blood_splatter():get_visible_segments(self._camera:get_world_bounds())
-
-    for body in keys(self._visible_bodies) do
-        if body:has_tag("segment_light_source") then
-            local instance = body:get_user_data()
-            assert(instance ~= nil, "In ow.OverworldScene:get_segment_light_sources: body has `segment_light_source` tag but userdata instance is not set")
-            assert(instance.get_segment_light_sources, "In ow.OverworldScene:get_segment_light_sources: body has `segment_light_source` tag, but instance `" .. meta.typeof(instance) .. "` does not have `get_segment_light_sources` defined")
-            local current_segments, current_colors = instance:get_segment_light_sources()
-
-            for segment in values(current_segments) do
-                table.insert(segments, segment)
-            end
-
-            for color in values(current_colors) do
-                table.insert(colors, color)
-            end
-        end
-    end
-
-    return segments, colors
 end
 
 --- @brief

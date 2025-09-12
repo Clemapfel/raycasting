@@ -189,7 +189,7 @@ end
 
 --- @brief
 function ow.Hook:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     self._motion:update(delta)
 end
@@ -202,7 +202,7 @@ end
 
 --- @brief
 function ow.Hook:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local r = self._radius
 

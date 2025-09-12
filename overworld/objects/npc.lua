@@ -74,12 +74,12 @@ function ow.NPC:instantiate(object, stage, scene)
         self._last_force_x, self._last_force_y = 0, 0
     end)
 
-    self._is_visible = self._scene:get_is_body_visible(self._sensor)
+    self._is_visible = self._stage:get_is_body_visible(self._sensor)
 end
 
 --- @brief
 function ow.NPC:update(delta)
-    if not self._scene:get_is_body_visible(self._sensor) then return end
+    if not self._stage:get_is_body_visible(self._sensor) then return end
 
     -- mesh depression
     local player = self._scene:get_player()
@@ -133,7 +133,7 @@ end
 
 --- @brief
 function ow.NPC:draw()
-    if not self._scene:get_is_body_visible(self._sensor) then
+    if not self._stage:get_is_body_visible(self._sensor) then
         if self._is_visible then
             self._is_visible = false
             self._deformable_mesh:reset()
@@ -200,7 +200,7 @@ end
 
 --- @brief
 function ow.NPC:draw_bloom()
-    if not self._scene:get_is_body_visible(self._deformable_mesh:get_body()) then return end
+    if not self._stage:get_is_body_visible(self._deformable_mesh:get_body()) then return end
     love.graphics.setColor(self._color)
     love.graphics.line(self._deformable_mesh:get_contour())
 end

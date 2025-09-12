@@ -91,6 +91,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     end
 
     self._scene = scene
+    self._stage = stage
     self._elapsed = 0
     self._particles = {}
     self._particle_elapsed = 0
@@ -148,7 +149,7 @@ local _max_n_particles = 1000
 
 --- @brief
 function ow.AcceleratorSurface:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then
+    if not self._stage:get_is_body_visible(self._body) then
         self._particles = {}
         return
     end
@@ -218,7 +219,7 @@ end
 
 --- @brief
 function ow.AcceleratorSurface:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local outline_width = 2
     local outline_color = rt.Palette.GRAY_3;

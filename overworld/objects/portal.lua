@@ -421,7 +421,7 @@ function ow.Portal:update(delta)
         end
     end
 
-    if self._scene:get_is_body_visible(self._area_sensor) == false then return end
+    if self._stage:get_is_body_visible(self._area_sensor) == false then return end
 
     self._pulse_elapsed = self._pulse_elapsed + delta
     local pulse_duration = rt.settings.overworld.portal.pulse_duration
@@ -525,7 +525,7 @@ end
 
 --- @brief
 function ow.Portal:draw()
-    if not self._scene:get_is_body_visible(self._area_sensor) then return end
+    if not self._stage:get_is_body_visible(self._area_sensor) then return end
 
     local r, g, b, a = table.unpack(self._color)
 
@@ -625,7 +625,7 @@ end
 
 --- @brief
 function ow.Portal:draw_bloom()
-    if not self._scene:get_is_body_visible(self._area_sensor) then return end
+    if not self._stage:get_is_body_visible(self._area_sensor) then return end
 
     love.graphics.push()
     love.graphics.circle("fill", self._mesh_origin_x, self._mesh_origin_x, 4)

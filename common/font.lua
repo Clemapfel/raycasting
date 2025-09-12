@@ -92,8 +92,9 @@ local function _new_font(path, size, sdf)
             sdf = sdf,
             hinting = "normal"
         })
+        _atlas[path][size][sdf] = native
 
-        -- get fallbacks
+        -- get fallbacks (also cached)
         if _fallback_atlas[size] == nil then _fallback_atlas[size] = {} end
         local fallbacks = _fallback_atlas[size][sdf]
         if fallbacks == nil then
@@ -105,9 +106,7 @@ local function _new_font(path, size, sdf)
             }
             _fallback_atlas[size][sdf] = fallbacks
         end
-
         native:setFallbacks(table.unpack(fallbacks))
-        _atlas[path][size][sdf] = native
     end
 
     return native

@@ -71,7 +71,7 @@ end
 
 --- @brief
 function ow.Agent:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     self._body:draw()
 

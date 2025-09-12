@@ -292,7 +292,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
 end
 
 function ow.KillPlane:draw()
-    if not self._is_visible or not self._scene:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
     local camera_offset = { self._scene:get_camera():get_offset() }
     local camera_scale = self._scene:get_camera():get_final_scale()

@@ -198,7 +198,7 @@ function ow.Coin:update(delta)
             self._follow_motion:set_position(self._x, self._y)
         end
     else
-        if not self._scene:get_is_body_visible(self._body) then return end
+        if not self._stage:get_is_body_visible(self._body) then return end
 
         self._elapsed = self._elapsed + delta
         local frequency = rt.settings.overworld.coin.translation_noise_frequency
@@ -213,7 +213,7 @@ end
 
 --- @brief
 function ow.Coin:draw()
-    if not self._is_collected and not self._is_returning and not self._scene:get_is_body_visible(self._body) then return end
+    if not self._is_collected and not self._is_returning and not self._stage:get_is_body_visible(self._body) then return end
 
     if self._is_collected then
         if self._pulse_active then
@@ -262,7 +262,7 @@ end
 
 --- @brief
 function ow.Coin:draw_bloom()
-    if self._scene:get_is_body_visible(self._body) and self._is_collected ~= true then
+    if self._stage:get_is_body_visible(self._body) and self._is_collected ~= true then
         if self._is_returning then
             self._particle:draw_bloom(self._respawn_return_motion:get_position())
         else

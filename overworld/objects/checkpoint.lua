@@ -504,7 +504,7 @@ function ow.Checkpoint:update(delta)
         end
     end
 
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
 
@@ -576,7 +576,7 @@ function ow.Checkpoint:draw(priority)
         end
     end
 
-    if self._state == _STATE_DEFAULT and not self._scene:get_is_body_visible(self._body) then return end
+    if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
     local hue = self._scene:get_player():get_hue()
 
     if priority == _base_priority then
@@ -654,7 +654,7 @@ end
 
 --- @brief
 function ow.Checkpoint:draw_bloom()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
     if self._type == ow.CheckpointType.MIDWAY then
         self._rope:draw_bloom()
     end

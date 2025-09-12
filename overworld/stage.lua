@@ -71,25 +71,34 @@ function ow.Stage:instantiate(scene, id)
         _flow_fraction = 0,
 
         _active_checkpoint = nil,
+
+        _visible_bodies = {},
+        _light_sources = {}
     })
 
     ow.Hitbox:reinitialize()
     ow.BoostField:reinitialize()
 
     -- static hitbox normal_map
+
+    local get_triangle_callback = function()
+        return ow.Hitbox:get_tris(true, true)
+    end
+
+    local draw_mask_callback = function()
+        ow.Hitbox:draw_mask(
+            rt.settings.overworld.normal_map.mask_sticky,
+            rt.settings.overworld.normal_map.mask_slippery
+        )
+    end
+
     self._normal_map = ow.NormalMap(
         self:get_id(),
-        self,
-        function()
-            return ow.Hitbox:get_tris(true, true)
-        end ,
-        function()
-            ow.Hitbox:draw_mask(
-                rt.settings.overworld.normal_map.mask_sticky,
-                rt.settings.overworld.normal_map.mask_slippery
-            )
-        end
+        get_triangle_callback,
+        draw_mask_callback
     )
+
+    -- misc
 
     self._world:set_use_fixed_timestep(false)
 
@@ -297,8 +306,8 @@ end
 function ow.Stage:draw_above_player()
     self._mirror:draw()
 
-    local point_lights, point_colors = self._scene:get_point_light_sources()
-    local segment_lights, segment_colors = self._scene:get_segment_light_sources()
+    local point_lights, point_colors = self:get_point_light_sources()
+    local segment_lights, segment_colors = self:get_segment_light_sources()
     self._normal_map:draw_light(
         self._scene:get_camera(),
         point_lights,
@@ -349,58 +358,89 @@ end
 
 --- @brief
 function ow.Stage:update(delta)
-    local start = love.timer.getTime()
-
     if self._normal_map_done and self._is_initialized and self._signal_done_emitted == false then
         self:signal_emit("loading_done")
         self._signal_done_emitted = true
     end
 
-    for object in values(self._to_update) do
-        local a = love.timer.getTime()
-        object:update(delta)
-        local b = love.timer.getTime()
+    if self._normal_map_done then
+        -- collect light sources and visibel bodies
+        local camera = self._scene:get_camera()
+        local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
+        local bottom_left_x, bottom_left_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
 
-        _add_entry(meta.typeof(object), b - a)
+        self._visible_bodies = {}
+        self._light_sources = {}
+        self._world:get_native():queryShapesInArea(top_left_x, top_left_y, bottom_left_x, bottom_left_y, function(shape)
+            local body = shape:getBody():getUserData()
+            self._visible_bodies[body] = true
+
+            if body ~= nil and body:has_tag("light_source") then
+                table.insert(self._light_sources, body)
+            end
+            return true
+        end)
+    end
+
+    for object in values(self._to_update) do
+        object:update(delta)
     end
 
     if self._flow_graph ~= nil then
         self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
 
-    if rt.GameState:get_is_performance_mode_enabled() ~= true then
-        local a = love.timer.getTime()
-        self._mirror:update(delta)
-        local b = love.timer.getTime()
-        _add_entry("mirror", b - a)
-    end
+    self._mirror:update(delta)
+    self._world:update(delta)
+    self._normal_map:update(delta)
+end
 
-    do
-        local a = love.timer.getTime()
-        self._world:update(delta)
-        local b = love.timer.getTime()
-        _add_entry("world", b - a)
-    end
+--- @brief
+function ow.Stage:get_point_light_sources()
+    local positions = {}
+    local colors = {}
+    for body in values(self._light_sources) do
+        local cx, cy = body:get_center_of_mass()
+        table.insert(positions, { cx, cy })
 
-    do
-        local a = love.timer.getTime()
-        self._normal_map:update(delta)
-        local b = love.timer.getTime()
-        _add_entry("normal_map", b - a)
-    end
-
-    _add_entry("stage", love.timer.getTime() - start)
-
-    if false then -- TODO: disable benchmarking
-        local times = {}
-        for entry in values(_data) do
-            table.insert(times, entry)
+        local class = body:get_user_data()
+        if class ~= nil and class.get_color then
+            local color = class:get_color()
+            if not meta.isa(color, rt.RGBA) then
+                rt.error("In ow.Stage: object `" .. meta.typeof(class) .. "` has a get_color function that does not return an object of type `rt.RGBA`")
+            end
+            table.insert(colors, { class:get_color():unpack() })
         end
-
-        table.sort(times, function(a, b)
-            return a.mean > b.mean
-        end)
     end
+
+    table.insert(positions, { self._scene:get_player():get_position() })
+    table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
+
+    return positions, colors
+end
+
+--- @brief
+function ow.Stage:get_segment_light_sources()
+    local segments, colors = self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
+
+    for body in keys(self._visible_bodies) do
+        if body:has_tag("segment_light_source") then
+            local instance = body:get_user_data()
+            assert(instance ~= nil, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag but userdata instance is not set")
+            assert(instance.get_segment_light_sources, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag, but instance `" .. meta.typeof(instance) .. "` does not have `get_segment_light_sources` defined")
+            local current_segments, current_colors = instance:get_segment_light_sources()
+
+            for segment in values(current_segments) do
+                table.insert(segments, segment)
+            end
+
+            for color in values(current_colors) do
+                table.insert(colors, color)
+            end
+        end
+    end
+
+    return segments, colors
 end
 
 --- @brief
@@ -487,6 +527,12 @@ function ow.Stage:get_checkpoint_splits()
     end
 
     return times
+end
+
+--- @brief
+function ow.Stage:get_is_body_visible(body)
+    meta.assert(body, b2.Body)
+    return self._visible_bodies[body] == true
 end
 
 --- @brief

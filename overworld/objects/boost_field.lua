@@ -46,6 +46,7 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._body:set_user_data(self)
 
     self._scene = scene
+    self._stage = stage
     self._player = self._scene:get_player()
 
     local factor = object:get_number("velocity") or 1
@@ -165,7 +166,7 @@ function ow.BoostField.draw_all()
 
     -- draw shader surface per instance
     for self in values(_instances) do
-        if self._scene:get_is_body_visible(self._body) then
+        if self._stage:get_is_body_visible(self._body) then
             love.graphics.setColor(self._color)
             _shader:bind()
             _shader:send("elapsed", self._elapsed)
@@ -205,7 +206,7 @@ end
 
 --- @brief
 function ow.BoostField:draw_bloom()
-    if self._scene:get_is_body_visible(self._body) then
+    if self._stage:get_is_body_visible(self._body) then
         local r, g, b, a = table.unpack(self._color)
         local bloom = rt.settings.overworld.boost_field.bloom
         love.graphics.setColor(bloom * r, bloom * g, bloom * b, bloom * a)

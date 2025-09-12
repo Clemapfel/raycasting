@@ -89,7 +89,7 @@ end
 local dt = math.eps * 10e2
 
 function ow.MovingHitbox:update(delta)
-    --if not self._scene:get_is_body_visible(self._body) then return end
+    --if not self._stage:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
     local length = self._path:get_length()
@@ -135,7 +135,7 @@ end
 
 --- @brief
 function ow.MovingHitbox:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
     love.graphics.push()
     love.graphics.translate(self._body:get_position())
     love.graphics.rotate(self._body:get_rotation())

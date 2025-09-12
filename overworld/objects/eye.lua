@@ -93,7 +93,7 @@ local function draw_rotated_ellipse(mode, cx, cy, rx, ry, angle)
 end
 
 function ow.Eye:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local player = self._scene:get_player()
 
@@ -112,7 +112,7 @@ function ow.Eye:update(delta)
 end
 
 function ow.Eye:draw()
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local r, g, b, a = table.unpack(self._color)
 

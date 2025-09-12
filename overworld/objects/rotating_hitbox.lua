@@ -57,7 +57,7 @@ end
 
 --- @brief
 function ow.RotatingHitbox:update(delta)
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local elapsed = (love.timer.getTime() - self._start_timestamp)
 
@@ -77,7 +77,7 @@ end
 
 --- @brief
 function ow.RotatingHitbox:draw(x, y)
-    if not self._scene:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
     love.graphics.push()
     love.graphics.translate(self._body:get_position())
     love.graphics.rotate(self._body:get_rotation())
