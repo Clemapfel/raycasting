@@ -70,9 +70,26 @@ function ow.Stage:instantiate(scene, id)
         _flow_graph = nil, -- ow.FlowGraph
         _flow_fraction = 0,
 
-        _normal_map = ow.NormalMap(self),
         _active_checkpoint = nil,
     })
+
+    ow.Hitbox:reinitialize()
+    ow.BoostField:reinitialize()
+
+    -- static hitbox normal_map
+    self._normal_map = ow.NormalMap(
+        self:get_id(),
+        self,
+        function()
+            return ow.Hitbox:get_tris(true, true)
+        end ,
+        function()
+            ow.Hitbox:draw_mask(
+                rt.settings.overworld.normal_map.mask_sticky,
+                rt.settings.overworld.normal_map.mask_slippery
+            )
+        end
+    )
 
     self._world:set_use_fixed_timestep(false)
 
@@ -91,10 +108,6 @@ function ow.Stage:instantiate(scene, id)
     local render_priority_to_entry = {}
     self._below_player = {}
     self._above_player = {}
-
-    -- batched draws
-    ow.Hitbox:reinitialize()
-    ow.BoostField:reinitialize()
 
     -- checkpoint to checkpoint split
     self._checkpoints = {}
@@ -283,7 +296,16 @@ end
 --- @brief
 function ow.Stage:draw_above_player()
     self._mirror:draw()
-    self._normal_map:draw_light()
+
+    local point_lights, point_colors = self._scene:get_point_light_sources()
+    local segment_lights, segment_colors = self._scene:get_segment_light_sources()
+    self._normal_map:draw_light(
+        self._scene:get_camera(),
+        point_lights,
+        point_colors,
+        segment_lights,
+        segment_colors
+    )
 
     for entry in values(self._above_player) do
         for object in values(entry.objects) do

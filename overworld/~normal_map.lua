@@ -39,24 +39,15 @@ local _frame_percentage = 0.6
 local _atlas = {}
 
 --- @brief
---- @param id any used for caching
---- @param get_triangles_callback Function () -> Table<Array<Number, 6>
---- @param draw_mask_callback Function () -> nil
-function ow.NormalMap:instantiate(id, stage, get_triangles_callback, draw_mask_callback)
-    -- TODO: arg assertions
+function ow.NormalMap:instantiate(stage)
+    meta.assert(stage, ow.Stage)
 
-    self._id = id
     self._stage = stage
-    self._get_triangles_callback = get_triangles_callback
-    self._draw_mask_callback = draw_mask_callback
-
-    if _atlas[self._id] ~= nil then
-        local entry = _atlas[self._id]
-        self._chunks = entry.chunks
-        self._chunk_size = entry.chunk_size
-        self._chunk_padding = entry.chunk_padding
-        self._bounds =  entry.bounds
+    if _atlas[self._stage:get_id()] ~= nil then
+        local entry = _atlas[self._stage:get_id()]
+        self._chunks, self._chunk_size, self._chunk_padding, self._bounds = entry.chunks, entry.chunk_size, entry.chunk_padding, entry.bounds
         self._computation_started = true
+        self._is_started = true
         self._is_done = true
         self._is_visible = true
         self:signal_emit("done")
@@ -80,7 +71,14 @@ function ow.NormalMap:instantiate(id, stage, get_triangles_callback, draw_mask_c
         chunk_size + 2 * chunk_padding
     )
 
+    self._is_started = false
     self._is_done = false
+
+    stage:signal_connect("initialized", function()
+        self._is_started = true
+        self._start_time = love.timer.getTime()
+        return meta.DISCONNECT_SIGNAL
+    end)
 
     local savepoint = function()
         -- always yield, one step per frame
@@ -92,13 +90,7 @@ function ow.NormalMap:instantiate(id, stage, get_triangles_callback, draw_mask_c
     self._callback = coroutine.create(function()
         -- collect tris of shapes to be normal mapped
         local tris = {}
-
-        local input_triangles = self._get_triangles_callback()
-        if not meta.typeof(input_triangles, "Table") then
-            rt.error("In ow.NormalMap: `get_triangles_callback` does not return a tables of arrays")
-        end
-
-        for tri in values(input_triangles) do -- both
+        for tri in values(ow.Hitbox:get_tris(true, true)) do -- both
             table.insert(tris, tri)
         end
 
@@ -308,7 +300,10 @@ function ow.NormalMap:instantiate(id, stage, get_triangles_callback, draw_mask_c
 
             lg.push()
             lg.translate(-chunk.x + padding, -chunk.y + padding)
-            self._draw_mask_callback()
+            ow.Hitbox:draw_mask(
+                rt.settings.overworld.normal_map.mask_sticky,
+                rt.settings.overworld.normal_map.mask_slippery
+            )
             lg.pop()
             lg.setCanvas(nil)
 
@@ -382,7 +377,7 @@ function ow.NormalMap:instantiate(id, stage, get_triangles_callback, draw_mask_c
         self._is_done = true
         self._is_visible = true
 
-        _atlas[self._id] = {
+        _atlas[self._stage:get_id()] = {
             chunks = self._chunks,
             chunk_size = self._chunk_size,
             chunk_padding = self._chunk_padding,
@@ -405,26 +400,47 @@ function ow.NormalMap:update(delta)
     end
 end
 
-function ow.NormalMap:draw_light(
-    camera,
-    point_light_sources, -- in world coords
-    point_light_colors,
-    segment_light_sources, -- in world coords
-    segment_light_colors
-)
+function ow.NormalMap:draw_light()
     if self._is_visible == false or not self._computation_started then return end
 
     local chunk_size = self._chunk_size
     local bounds = self._bounds
-    local x, y, w, h = camera:get_world_bounds():unpack()
+    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds():unpack()
     local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
     local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
 
+    local scene, camera, player = self._stage:get_scene(), self._stage:get_scene():get_camera(), self._stage:get_scene():get_player()
+    local blood_splatter = self._stage:get_blood_splatter()
+
+    local shader_bound = false
+
+    -- collect all point lights
+    local all_point_positions, all_point_colors = self._stage:get_scene():get_point_light_sources()
+    table.insert(all_point_positions, { player:get_position() })
+    table.insert(all_point_colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+
+    -- convert to screen coords
+    local point_light_world_positions = {}
+    for position in values(all_point_positions) do
+        table.insert(point_light_world_positions, table.deepcopy(position))
+        position[1], position[2] = camera:world_xy_to_screen_xy(table.unpack(position))
+    end
+
+    local segment_lights, segment_colors = self._stage:get_scene():get_segment_light_sources()
+    local n_segment_lights = #segment_lights
+
+    -- translate to screen coords
+    for segment in values(segment_lights) do
+        segment[1], segment[2] = camera:world_xy_to_screen_xy(segment[1], segment[2])
+        segment[3], segment[4] = camera:world_xy_to_screen_xy(segment[3], segment[4])
+    end
+
     local cell = rt.AABB()
     local padding = 0.5 * chunk_size
-    local shader_bound = false
+
+    local r, g, b, a = love.graphics.getColor()
 
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
@@ -439,53 +455,32 @@ function ow.NormalMap:draw_light(
                         chunk_size + 2 * padding
                     )
 
-                    -- filter point lights in cell, translate to screen coords
-                    local point_lights_local = {}
+                    -- filter point lights in cell
+                    local point_lights = {}
                     local point_colors = {}
                     local n_point_lights = 0
-                    for i, point in ipairs(point_light_sources) do
-                        local world_x, world_y = table.unpack(point)
+                    for i, point in ipairs(all_point_positions) do
+                        local world_x, world_y = table.unpack(point_light_world_positions[i])
                         if cell:contains(world_x, world_y) then
-                            table.insert(point_lights_local, { camera:world_xy_to_screen_xy(world_x, world_y) })
-                            table.insert(point_colors, point_light_colors[i])
+                            table.insert(point_lights, point)
+                            table.insert(point_colors, all_point_colors[i])
                             n_point_lights = n_point_lights + 1
-                        end
-                    end
-
-                    -- file segment lights in cell, translate to screen cords
-                    local segment_lights_local = {}
-                    local segment_colors = {}
-                    local n_segment_lights = 0
-
-                    for i, segment in ipairs(segment_light_colors) do
-                        local world_x1, world_y1, world_x2, world_y2 = table.unpack(segment)
-                        if cell:intersects(world_x1, world_y1, world_x2, world_y2) then
-                            local local_x1, local_y1 = camera:world_xy_to_screen_xy(world_x1, world_y1)
-                            local local_x2, local_y2 = camera:world_xy_to_screen_xy(world_x2, world_y2)
-                            table.insert(segment_lights_local, { local_x1, local_y1, local_x2, local_y2 })
-                            table.insert(segment_lights_local, segment_light_colors[i])
-                            n_segment_lights = n_segment_lights + 1
                         end
                     end
 
                     if n_point_lights + n_segment_lights > 0 then
                         if n_point_lights > 0 then
-                            _draw_light_shader:send("point_lights", table.unpack(point_lights_local))
+                            _draw_light_shader:send("point_lights", table.unpack(point_lights))
                             _draw_light_shader:send("point_colors", table.unpack(point_colors))
                         end
 
                         if n_segment_lights > 0 then
-                            _draw_light_shader:send("segment_lights", table.unpack(segment_lights_local))
+                            _draw_light_shader:send("segment_lights", table.unpack(segment_lights))
                             _draw_light_shader:send("segment_colors", table.unpack(segment_colors))
                         end
 
-                        _draw_light_shader:send("n_point_lights", math.min(
-                            n_point_lights, rt.settings.overworld.normal_map.max_n_point_lights
-                        ))
-
-                        _draw_light_shader:send("n_segment_lights", math.min(
-                            n_segment_lights, rt.settings.overworld.normal_map.max_n_segment_lights
-                        ))
+                        _draw_light_shader:send("n_point_lights", math.min(n_point_lights, rt.settings.overworld.normal_map.max_n_point_lights))
+                        _draw_light_shader:send("n_segment_lights", math.min(n_segment_lights, rt.settings.overworld.normal_map.max_n_segment_lights))
 
                         if shader_bound == false then
                             love.graphics.push("all")
@@ -493,7 +488,6 @@ function ow.NormalMap:draw_light(
                             _draw_light_shader:send("camera_scale", camera:get_final_scale())
                             _draw_light_shader:bind()
                             love.graphics.setBlendMode("add", "premultiplied")
-                            local r, g, b, a = love.graphics.getColor() -- premultiply alpha
                             love.graphics.setColor(r * a, g * a, b * a, a)
                             shader_bound = true
                         end
@@ -504,6 +498,7 @@ function ow.NormalMap:draw_light(
             end
         end
     end
+
 
     if shader_bound == true then
         _draw_light_shader:unbind()

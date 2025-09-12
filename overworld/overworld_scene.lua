@@ -1098,6 +1098,9 @@ function ow.OverworldScene:get_point_light_sources()
         end
     end
 
+    table.insert(positions, { self._player:get_position() })
+    table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
+
     return positions, colors
 end
 
