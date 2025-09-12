@@ -2,9 +2,9 @@ require "common.compute_shader"
 require "common.render_texture"
 
 rt.settings.overworld.normal_map = {
-    chunk_size = 512,
+    chunk_size = (16 * 16) * 3,
     work_group_size_x = 16,
-    work_group_size_y = 8,
+    work_group_size_y = 16,
 
     mask_sticky = true,
     mask_slippery = true,
@@ -25,7 +25,7 @@ local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of w
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
 
-local _init_shader, _step_shader, _pre_process_shader, _post_process_shader, _export_shader
+local _init_shader, _step_shader, _export_shader
 
 local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
     MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
@@ -268,9 +268,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
         local size_x, size_y = rt.settings.overworld.normal_map.work_group_size_x, rt.settings.overworld.normal_map.work_group_size_y
         if _init_shader == nil then _init_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 0, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
         if _step_shader == nil then _step_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 1, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _pre_process_shader == nil then _pre_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _post_process_shader == nil then _post_process_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 3, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
-        if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 4, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
+        if _export_shader == nil then _export_shader = rt.ComputeShader("overworld/normal_map_compute.glsl", { MODE = 2, WORK_GROUP_SIZE_X = size_x, WORK_GROUP_SIZE_Y = size_y }) end
 
         local padding = chunk_size / 2
         self._chunk_padding = padding
