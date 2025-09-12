@@ -42,11 +42,11 @@ local _atlas = {}
 --- @param id any used for caching
 --- @param get_triangles_callback Function () -> Table<Array<Number, 6>
 --- @param draw_mask_callback Function () -> nil
-function ow.NormalMap:instantiate(id, stage, get_triangles_callback, draw_mask_callback)
-    -- TODO: arg assertions
+function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback)
+    id = tostring(id)
+    meta.assert(id, "String", get_triangles_callback, "Function", draw_mask_callback, "Function")
 
     self._id = id
-    self._stage = stage
     self._get_triangles_callback = get_triangles_callback
     self._draw_mask_callback = draw_mask_callback
 
@@ -412,6 +412,14 @@ function ow.NormalMap:draw_light(
     segment_light_sources, -- in world coords
     segment_light_colors
 )
+    meta.assert(
+        camera, ow.Camera,
+        point_light_sources, "Table",
+        point_light_colors, "Table",
+        segment_light_colors, "Table",
+        segment_light_colors, "Table"
+    )
+
     if self._is_visible == false or not self._computation_started then return end
 
     local chunk_size = self._chunk_size
@@ -511,12 +519,13 @@ function ow.NormalMap:draw_light(
     end
 end
 
-function ow.NormalMap:draw_shadow()
+function ow.NormalMap:draw_shadow(camera)
+    meta.assert(camera, ow.Camera)
     if self._is_visible == false or not self._computation_started then return end
 
     local chunk_size = self._chunk_size
     local bounds = self._bounds
-    local x, y, w, h = self._stage:get_scene():get_camera():get_world_bounds():unpack()
+    local x, y, w, h = camera:get_world_bounds():unpack()
     local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
