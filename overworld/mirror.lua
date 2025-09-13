@@ -14,26 +14,34 @@ local _shader = rt.Shader("overworld/mirror.glsl")
 function ow.Mirror:instantiate(
     scene,
     get_mirror_tris_callback,
-    get_occluding_tris_callback,
     draw_mirror_mask_callback,
+    get_occluding_tris_callback,
     draw_occluding_mask_callback
 )
     meta.assert(
         scene, "OverworldScene",
         get_mirror_tris_callback, "Function",
-        get_occluding_tris_callback, "Function",
-        draw_mirror_mask_callback, "Function",
-        draw_occluding_mask_callback, "Function"
+        draw_mirror_mask_callback, "Function"
     )
+
+    if get_occluding_tris_callback ~= nil then
+        meta.assert_typeof(get_occluding_tris_callback, "Function", 4)
+    end
+
+    if draw_occluding_mask_callback ~= nil then
+        meta.assert_typeof(draw_occluding_mask_callback, "Function", 5)
+    end
 
     meta.install(self, {
         _scene = scene,
         _get_mirror_tris_callback = get_mirror_tris_callback,
-        _get_occluding_tris_callback = get_occluding_tris_callback,
         _draw_mirror_mask_callback = draw_mirror_mask_callback,
+        _get_occluding_tris_callback = get_occluding_tris_callback,
         _draw_occluding_mask_callback = draw_occluding_mask_callback,
         _edges = {},
-        _world = nil
+        _world = nil,
+        _offset_x = 0,
+        _offset_y = 0
     })
 
     self._input = rt.InputSubscriber()
@@ -51,13 +59,15 @@ function ow.Mirror:draw()
     love.graphics.setColorMask(false)
 
     -- only draw where slippery is
-    self._draw_mirror_mask_callback() --ow.Hitbox:draw_mask(false, true)
+    self._draw_mirror_mask_callback()
 
-    love.graphics.setStencilState("replace", "always", 0)
-    love.graphics.setColorMask(false)
+    if self._draw_occluding_mask_callback ~= nil then
+        love.graphics.setStencilState("replace", "always", 0)
+        love.graphics.setColorMask(false)
 
-    -- exclude sticky
-    self._draw_occluding_mask_callback() --ow.Hitbox:draw_mask(true, false)
+        -- exclude sticky
+        self._draw_occluding_mask_callback()
+    end
 
     love.graphics.setStencilState("keep", "equal", stencil_value)
     love.graphics.setColorMask(true)
@@ -68,14 +78,18 @@ function ow.Mirror:draw()
 
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
-    local player_position = { self._scene:get_camera():world_xy_to_screen_xy(player:get_position()) }
+
+    local player_x, player_y = player:get_position()
+    local player_position = { camera:world_xy_to_screen_xy(player_x, player_y) }
     local player_color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
+
+    local camera_x, camera_y = camera:get_offset()
 
     _shader:bind()
     _shader:send("player_color", player_color)
     _shader:send("player_position", player_position)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("camera_offset", { camera:get_offset() })
+    _shader:send("camera_offset", { camera_x, camera_y })
     _shader:send("camera_scale", camera:get_final_scale())
 
     for image in values(self._mirror_images) do
@@ -83,14 +97,21 @@ function ow.Mirror:draw()
         if image.flip_x == true then flip_x = -1 else flip_x = 1 end
         if image.flip_y == true then flip_y = -1 else flip_y = 1 end
 
-        local lx1, ly1 = camera:world_xy_to_screen_xy(image.segment[1], image.segment[2])
-        local lx2, ly2 = camera:world_xy_to_screen_xy(image.segment[3], image.segment[4])
+        local x1, y1, x2, y2 = table.unpack(image.segment)
+        x1 = x1 + self._offset_x
+        y1 = y1 + self._offset_y
+        x2 = x2 + self._offset_x
+        y2 = y2 + self._offset_y
+
+        local lx1, ly1 = camera:world_xy_to_screen_xy(x1, y1)
+        local lx2, ly2 = camera:world_xy_to_screen_xy(x2, y2)
 
         _shader:send("axis_of_reflection", { lx1, ly1, lx2, ly2 })
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(
             canvas:get_native(),
-            image.x, image.y, image.angle,
+            image.x, image.y,
+            image.angle,
             flip_x / scale_x,
             flip_y / scale_y,
             0.5 * canvas_w, 0.5 * canvas_h
@@ -99,6 +120,18 @@ function ow.Mirror:draw()
     _shader:unbind()
 
     love.graphics.setStencilMode(nil)
+
+    love.graphics.setColor(1, 1, 1, 1)
+    for image in values(self._mirror_images) do
+        love.graphics.circle("fill", image.x, image.y, 5)
+    end
+
+    --[[
+    love.graphics.setColor(1, 1, 1, 1)
+    for edge in values(self._edges) do
+        love.graphics.line(edge:getUserData().segment)
+    end
+    ]]--
 end
 
 local _round = function(x)
@@ -129,9 +162,17 @@ end
 --- @brief
 function ow.Mirror:create_contour()
     local mirror_segments, occluding_segments = {}, {}
+
+    local occluding_tris
+    if self._get_occluding_tris_callback ~= nil then
+        occluding_tris = self._get_occluding_tris_callback()
+    else
+        occluding_tris = {}
+    end
+
     for segments_tris in range(
-        { mirror_segments, self._get_mirror_tris_callback() }, -- ow.Hitbox:get_tris(false, true) slippery
-        { occluding_segments, self._get_occluding_tris_callback() } -- ow.Hitbox:get_tris(true, false) sticky
+        { mirror_segments, self._get_mirror_tris_callback() },
+        { occluding_segments, occluding_tris }
     ) do
         _hash_to_segment = {}
 
@@ -355,12 +396,12 @@ function ow.Mirror:update(delta)
     end)
 
     local px, py = self._scene:get_player():get_physics_body():get_position()
+
     self._visible = _get_visible_subsegments(mirror_segments, px, py, occluding_segments)
 
     self._mirror_images = {}
     for segment in values(self._visible) do
         local x1, y1, x2, y2 = table.unpack(segment)
-
         local rx, ry, angle, flip_x, flip_y, distance = _reflect(px, py, 0, x1, y1, x2, y2)
         if rx ~= nil then
             table.insert(self._mirror_images, {
@@ -378,4 +419,14 @@ end
 --- @brief
 function ow.Mirror:destroy()
     self._world:destroy()
+end
+
+--- @brief
+function ow.Mirror:set_offset(x, y)
+    self._offset_x, self._offset_y = x, y
+end
+
+--- @brief
+function ow.Mirror:get_offset()
+    return self._offset_x, self._offset_y
 end

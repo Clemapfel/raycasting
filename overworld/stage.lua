@@ -119,8 +119,8 @@ function ow.Stage:instantiate(scene, id)
     self._mirror = ow.Mirror(
         scene,
         get_mirror_tris_callback,
-        get_occluding_tris_callback,
         draw_mirror_mask_callback,
+        get_occluding_tris_callback,
         draw_occluding_mask_callback
     )
 

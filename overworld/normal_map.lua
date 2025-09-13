@@ -50,6 +50,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     self._id = id
     self._get_triangles_callback = get_triangles_callback
     self._draw_mask_callback = draw_mask_callback
+    self._is_single_chunk = false
+    self._offset_x, self._offset_y = 0, 0
 
     if _atlas[self._id] ~= nil then
         local entry = _atlas[self._id]
@@ -123,6 +125,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             end
         end
 
+        self._is_single_chunk = is_single_chunk
 
         self._chunk_size = chunk_size
         self._chunk_padding = chunk_padding
@@ -371,7 +374,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             -- crop to save memory
             local offset_x, offset_y = self._quad:getViewport()
             lg.push("all")
-            lg.origin()
+            lg.reset()
             lg.setCanvas(chunk.texture:get_native())
             lg.clear(0, 0, 0, 0)
             lg.setColor(1, 1, 1, 1)
@@ -421,7 +424,7 @@ function ow.NormalMap:draw_light(
     segment_light_colors
 )
     meta.assert(
-        camera, rt    .Camera,
+        camera, rt.Camera,
         point_light_sources, "Table",
         point_light_colors, "Table",
         segment_light_colors, "Table",
@@ -432,7 +435,12 @@ function ow.NormalMap:draw_light(
 
     local chunk_size = self._chunk_size
     local bounds = self._bounds
+
     local x, y, w, h = camera:get_world_bounds():unpack()
+
+    x = x + self._offset_x
+    y = y + self._offset_y
+
     local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
@@ -464,7 +472,8 @@ function ow.NormalMap:draw_light(
                     local n_point_lights = 0
                     for i, point in ipairs(point_light_sources) do
                         local world_x, world_y = table.unpack(point)
-                        if cell:contains(world_x, world_y) then
+
+                        if cell:contains(world_x + self._offset_x, world_y + self._offset_y) then
                             table.insert(point_lights_local, { camera:world_xy_to_screen_xy(world_x, world_y) })
                             table.insert(point_colors, point_light_colors[i])
                             n_point_lights = n_point_lights + 1
@@ -479,7 +488,12 @@ function ow.NormalMap:draw_light(
 
                     for i, segment in ipairs(segment_light_sources) do
                         local world_x1, world_y1, world_x2, world_y2 = table.unpack(segment)
-                        if cell:intersects(world_x1, world_y1, world_x2, world_y2) then
+                        if cell:intersects(
+                            world_x1 + self._offset_x,
+                            world_y1 + self._offset_y,
+                            world_x2 + self._offset_x,
+                            world_y2 + self._offset_y
+                        ) then
                             local local_x1, local_y1 = camera:world_xy_to_screen_xy(world_x1, world_y1)
                             local local_x2, local_y2 = camera:world_xy_to_screen_xy(world_x2, world_y2)
                             table.insert(segment_lights_local, { local_x1, local_y1, local_x2, local_y2 })
@@ -532,43 +546,43 @@ function ow.NormalMap:draw_shadow(camera)
 
     if self._is_visible == false or not self._computation_started then return end
 
+    local shader_bound = false
     local chunk_size = self._chunk_size
     local bounds = self._bounds
+
+    local draw_chunk = function(chunk, chunk_x, chunk_y)
+        if shader_bound == false then
+            love.graphics.setBlendMode("subtract", "premultiplied")
+            local value = 0.1
+            love.graphics.setColor(value, value, value, value)
+            _draw_shadow_shader:bind()
+            shader_bound = true
+        end
+
+        love.graphics.draw(chunk.texture:get_native(),
+            bounds.x + chunk_x * chunk_size,
+            bounds.y + chunk_y * chunk_size
+        )
+    end
+
+
     local x, y, w, h = camera:get_world_bounds():unpack()
+
+    x = x + self._offset_x
+    y = y + self._offset_y
+
     local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
     local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
     local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
     local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
 
-    local shader_bound = false
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
         if column ~= nil then
             for chunk_y = min_chunk_y, max_chunk_y do
                 local chunk = column[chunk_y]
                 if chunk ~= nil and chunk.is_initialized then
-                    if shader_bound == false then
-                        love.graphics.setBlendMode("subtract", "premultiplied")
-                        local value = 0.1
-                        love.graphics.setColor(value, value, value, value)
-                        _draw_shadow_shader:bind()
-                        shader_bound = true
-                    end
-
-                    love.graphics.draw(chunk.texture:get_native(),
-                        bounds.x + chunk_x * chunk_size,
-                        bounds.y + chunk_y * chunk_size
-                    )
-
-                    love.graphics.push("all")
-                    love.graphics.setBlendMode("alpha")
-                    love.graphics.setColor(1, 1, 1, 1)
-                    love.graphics.rectangle("line",
-                        bounds.x + chunk_x * chunk_size,
-                        bounds.y + chunk_y * chunk_size,
-                        chunk_size, chunk_size
-                    )
-                    love.graphics.pop()
+                   draw_chunk(chunk, chunk_x, chunk_y)
                 end
             end
         end
@@ -596,4 +610,14 @@ end
 --- @brief
 function ow.NormalMap:get_is_done()
     return self._is_done
+end
+
+--- @brief
+function ow.NormalMap:set_offset(x, y)
+    self._offset_x, self._offset_y = x, y
+end
+
+--- @brief
+function ow.NormalMap:get_offset()
+    return self._offset_x, self._offset_y
 end
