@@ -13,23 +13,23 @@ local _shader = rt.Shader("overworld/mirror.glsl")
 --- @brief
 function ow.Mirror:instantiate(
     scene,
-    get_mirror_tris_callback,
-    get_occluding_tris_callback,
+    get_mirror_segments_callback,
+    get_occluding_segments_callback,
     draw_mirror_mask_callback,
     draw_occluding_mask_callback
 )
     meta.assert(
-        scene, "OverworldScene",
-        get_mirror_tris_callback, "Function",
-        get_occluding_tris_callback, "Function",
+        scene, "ow.Scene",
+        get_mirror_segments_callback, "Function",
+        get_occluding_segments_callback, "Function",
         draw_mirror_mask_callback, "Function",
         draw_occluding_mask_callback, "Function"
     )
 
     meta.install(self, {
         _scene = scene,
-        _get_mirror_tris_callback = get_mirror_tris_callback,
-        _get_occluding_tris_callback = get_occluding_tris_callback,
+        _get_mirror_segments_callback = get_mirror_segments_callback,
+        _get_occluding_segments_callback = get_occluding_segments_callback,
         _draw_mirror_mask_callback = draw_mirror_mask_callback,
         _draw_occluding_mask_callback = draw_occluding_mask_callback,
         _edges = {},
@@ -51,13 +51,13 @@ function ow.Mirror:draw()
     love.graphics.setColorMask(false)
 
     -- only draw where slippery is
-    self._draw_mirror_mask_callback() --ow.Hitbox:draw_mask(false, true)
+    ow.Hitbox:draw_mask(false, true)
 
     love.graphics.setStencilState("replace", "always", 0)
     love.graphics.setColorMask(false)
 
     -- exclude sticky
-    self._draw_occluding_mask_callback() --ow.Hitbox:draw_mask(true, false)
+    ow.Hitbox:draw_mask(true, false)
 
     love.graphics.setStencilState("keep", "equal", stencil_value)
     love.graphics.setColorMask(true)
@@ -67,6 +67,7 @@ function ow.Mirror:draw()
     local canvas_w, canvas_h = canvas:get_size()
 
     local camera = self._scene:get_camera()
+
     local player = self._scene:get_player()
     local player_position = { self._scene:get_camera():world_xy_to_screen_xy(player:get_position()) }
     local player_color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
@@ -101,6 +102,7 @@ function ow.Mirror:draw()
     love.graphics.setStencilMode(nil)
 end
 
+
 local _round = function(x)
     return math.floor(x)
 end
@@ -130,8 +132,8 @@ end
 function ow.Mirror:create_contour()
     local mirror_segments, occluding_segments = {}, {}
     for segments_tris in range(
-        { mirror_segments, self._get_mirror_tris_callback() }, -- ow.Hitbox:get_tris(false, true) slippery
-        { occluding_segments, self._get_occluding_tris_callback() } -- ow.Hitbox:get_tris(true, false) sticky
+        { mirror_segments, ow.Hitbox:get_tris(false, true) }, -- slippery
+        { occluding_segments, ow.Hitbox:get_tris(true, false) } -- sticky
     ) do
         _hash_to_segment = {}
 
