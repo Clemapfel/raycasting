@@ -64,7 +64,7 @@ function ow.Stage:instantiate(scene, id)
         _coins = {}, -- cf. add_coin
         _checkpoints = {}, -- Table<ow.Checkpoint, Number>
         _blood_splatter = ow.BloodSplatter(scene),
-        _mirror = ow.Mirror(scene),
+        _mirror = nil, -- ow.Mirror
 
         _flow_graph_nodes = {},
         _flow_graph = nil, -- ow.FlowGraph
@@ -96,6 +96,32 @@ function ow.Stage:instantiate(scene, id)
         self:get_id(),
         get_triangle_callback,
         draw_mask_callback
+    )
+
+    -- static hitbox mirrors
+
+    local get_mirror_tris_callback = function()
+        return ow.Hitbox:get_tris(false, true)
+    end
+
+    local get_occluding_tris_callback = function()
+        return ow.Hitbox:get_tris(true, false)
+    end
+
+    local draw_mirror_mask_callback = function()
+        ow.Hitbox:draw_mask(false, true)
+    end
+
+    local draw_occluding_mask_callback = function()
+        ow.Hitbox:draw_mask(true, false)
+    end
+
+    self._mirror = ow.Mirror(
+        scene,
+        get_mirror_tris_callback,
+        get_occluding_tris_callback,
+        draw_mirror_mask_callback,
+        draw_occluding_mask_callback
     )
 
     -- misc

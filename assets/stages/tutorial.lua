@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 843,
+  nextobjectid = 850,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4208,12 +4208,14 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -544, y = -432 },
+            { x = -858.809, y = -383.227 },
             { x = -464, y = -432 },
             { x = -286.667, y = -808 },
             { x = -286.667, y = -760 },
             { x = -464, y = -384 },
-            { x = -464, y = 0 },
+            { x = -624, y = -288 },
+            { x = -616.232, y = -96.1561 },
+            { x = -379.755, y = -1.47798 },
             { x = 304, y = 0 },
             { x = 304, y = -336 },
             { x = 176, y = -336 },
@@ -4221,7 +4223,7 @@ return {
             { x = 816, y = -432 },
             { x = 1088, y = 0 },
             { x = 1088, y = 80 },
-            { x = -544, y = 80 }
+            { x = -863.243, y = 93.3018 }
           },
           properties = {}
         },
@@ -4230,8 +4232,8 @@ return {
           name = "",
           type = "NPC",
           shape = "polygon",
-          x = -1905.33,
-          y = 905.894,
+          x = -3010.86,
+          y = 1401.02,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4850,22 +4852,22 @@ return {
           name = "",
           type = "MovingHitbox",
           shape = "polygon",
-          x = -2521.08,
-          y = 436.325,
+          x = -1959.28,
+          y = 849.3,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 6.82927, y = 2.117 },
-            { x = 6.82927, y = 35.8246 },
-            { x = 86.8293, y = 35.8246 },
-            { x = 86.8293, y = 2.117 }
+            { x = 6.82927, y = 7.59363 },
+            { x = 6.82927, y = 128.502 },
+            { x = 86.8293, y = 128.502 },
+            { x = 86.8293, y = 7.59363 }
           },
           properties = {
             ["easing"] = "SINUSOID_EASE_IN_OUT",
             ["target"] = { id = 834 },
-            ["velocity"] = 100
+            ["velocity"] = 200
           }
         },
         {
@@ -4873,8 +4875,8 @@ return {
           name = "",
           type = "MovingHitboxTarget",
           shape = "point",
-          x = -2475.52,
-          y = 360.991,
+          x = -1916.45,
+          y = 910.591,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4888,8 +4890,8 @@ return {
           name = "",
           type = "MovingHitboxTarget",
           shape = "point",
-          x = -2476.36,
-          y = 96.6394,
+          x = -1696,
+          y = 480,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4950,53 +4952,125 @@ return {
           }
         },
         {
-          id = 841,
+          id = 843,
           name = "",
           type = "MovingHitbox",
           shape = "polygon",
-          x = -2521.9,
-          y = 368.5,
+          x = -2039.98,
+          y = 801.543,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 6.82927, y = 2.16986 },
-            { x = 6.82927, y = 36.7192 },
-            { x = 86.8293, y = 36.7192 },
-            { x = 86.8293, y = 2.16986 }
+            { x = 6.82927, y = 2.30265 },
+            { x = 6.82927, y = 38.9663 },
+            { x = 86.8293, y = 38.9663 },
+            { x = 86.8293, y = 2.30265 }
           },
           properties = {
             ["easing"] = "SINUSOID_EASE_IN_OUT",
-            ["target"] = { id = 834 },
-            ["velocity"] = 100
+            ["target"] = { id = 844 },
+            ["velocity"] = 1000
           }
         },
         {
-          id = 842,
+          id = 844,
           name = "",
-          type = "NPC",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -1989.99,
+          y = 800.294,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 845 }
+          }
+        },
+        {
+          id = 845,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -1992.31,
+          y = 518.77,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 846,
+          name = "",
+          type = "MovingHitbox",
           shape = "polygon",
-          x = -2035.27,
-          y = 899.89,
+          x = -1572.8,
+          y = 361.106,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 3.73997, y = 2.05145 },
-            { x = -2.83936, y = -7.41019 },
-            { x = -3.30588, y = -25.2191 },
-            { x = 10.4946, y = -31.1505 },
-            { x = 47.6804, y = -31.3255 },
-            { x = 69.707, y = -22.943 },
-            { x = 76.079, y = -6.80577 },
-            { x = 67.4058, y = 0.554737 },
-            { x = 50.3128, y = 5.54022 },
-            { x = 26.5407, y = 8.68235 }
+            { x = 0.773165, y = 2.30265 },
+            { x = 0.773165, y = 38.9663 },
+            { x = 9.83025, y = 38.9663 },
+            { x = 9.83025, y = 2.30265 }
           },
           properties = {
-            ["dialog_id"] = "debug_dialog"
+            ["easing"] = "SINUSOID_EASE_IN_OUT",
+            ["target"] = { id = 847 },
+            ["velocity"] = 50
+          }
+        },
+        {
+          id = 847,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -1605.72,
+          y = 384.982,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 848 }
+          }
+        },
+        {
+          id = 848,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -1981.97,
+          y = 388.708,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 849,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -1392,
+          y = 432,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 224, y = 0 },
+            { x = 112, y = -176 }
+          },
+          properties = {
+            ["slippery"] = true
           }
         }
       }

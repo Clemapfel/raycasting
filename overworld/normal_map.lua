@@ -5,6 +5,7 @@ rt.settings.overworld.normal_map = {
     chunk_size = (16 * 16) * 3,
     work_group_size_x = 16,
     work_group_size_y = 16,
+    chunk_bounds_padding = 8,
 
     mask_sticky = true,
     mask_slippery = true,
@@ -66,19 +67,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     self._chunks = {}
     self._non_empty_chunks = meta.make_weak({})
 
-    local chunk_size = rt.settings.overworld.normal_map.chunk_size
-    local chunk_padding = chunk_size / 2
-
-    self._chunk_size = chunk_size
-    self._chunk_padding = chunk_padding
-    self._quad = love.graphics.newQuad(
-        chunk_padding,
-        chunk_padding,
-        chunk_size,
-        chunk_size,
-        chunk_size + 2 * chunk_padding,
-        chunk_size + 2 * chunk_padding
-    )
 
     self._is_done = false
 
@@ -113,10 +101,39 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             max_y = math.max(max_y, tri[2], tri[4], tri[6])
         end
 
-        -- align to nearest tilesize
-        local tile_size = 16
-        min_x = math.floor(min_x / tile_size) * tile_size
-        min_x = math.floor(min_y / tile_size) * tile_size
+        -- padding for top left most chunk, most necessary for single-chunk
+        do
+            local padding = rt.settings.overworld.normal_map.chunk_bounds_padding
+            min_x = min_x - padding
+            min_y = min_y - padding
+            max_x = max_x + padding
+            max_y = max_y + padding
+        end
+
+        local chunk_size = rt.settings.overworld.normal_map.chunk_size
+        local chunk_padding = chunk_size / 2
+
+        local is_single_chunk = false
+        do
+            local size = math.max(max_x - min_x, max_y - min_y)
+            if size <= chunk_size then
+                is_single_chunk = true
+                chunk_size = math.ceil(size / 16) * 16
+                chunk_padding = chunk_size / 2
+            end
+        end
+
+
+        self._chunk_size = chunk_size
+        self._chunk_padding = chunk_padding
+        self._quad = love.graphics.newQuad(
+            chunk_padding,
+            chunk_padding,
+            chunk_size,
+            chunk_size,
+            chunk_size + 2 * chunk_padding,
+            chunk_size + 2 * chunk_padding
+        )
 
         self._bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
         self._non_empty_chunks = {}
@@ -542,6 +559,16 @@ function ow.NormalMap:draw_shadow(camera)
                         bounds.x + chunk_x * chunk_size,
                         bounds.y + chunk_y * chunk_size
                     )
+
+                    love.graphics.push("all")
+                    love.graphics.setBlendMode("alpha")
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.rectangle("line",
+                        bounds.x + chunk_x * chunk_size,
+                        bounds.y + chunk_y * chunk_size,
+                        chunk_size, chunk_size
+                    )
+                    love.graphics.pop()
                 end
             end
         end

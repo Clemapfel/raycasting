@@ -1,5 +1,7 @@
 require "common.path"
 require "common.contour"
+require "overworld.normal_map"
+require "overworld.mirror"
 
 rt.settings.overworld.moving_hitbox = {
     default_velocity = 100, -- px per second
@@ -78,17 +80,36 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     -- mesh
     local _, tris, mesh_data
     _, tris, mesh_data = object:create_mesh()
-    for data in values(mesh_data) do
+
+    --[[
+    for i, data in ipairs(mesh_data) do
         data[1] = data[1] - start_x
         data[2] = data[2] - start_y
     end
 
+    for tri in values(tris) do
+        for j = 1, #tri, 2 do
+            tri[j+0] = tri[j+0] - start_x
+            tri[j+1] = tri[j+1] - start_y
+        end
+    end
+    ]]--
+
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+
+    -- graphics
+    self._normal_map = ow.NormalMap(
+        object:get_id(), -- id for caching
+        function() return tris end, -- get triangles
+        function() self._mesh:draw() end -- draw mask
+    )
 end
 
 local dt = math.eps * 10e2
 
 function ow.MovingHitbox:update(delta)
+    self._normal_map:update(delta)
+
     --if not self._stage:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
@@ -130,7 +151,7 @@ function ow.MovingHitbox:update(delta)
     local dx, dy = self._path:get_tangent(t)
     local velocity_x = dx * self._velocity * direction * easing_derivative
     local velocity_y = dy * self._velocity * direction * easing_derivative
-    self._body:set_velocity(velocity_x, velocity_y)
+    --self._body:set_velocity(velocity_x, velocity_y)
 end
 
 --- @brief
@@ -139,15 +160,25 @@ function ow.MovingHitbox:draw()
     love.graphics.push()
     love.graphics.translate(self._body:get_position())
     love.graphics.rotate(self._body:get_rotation())
+    love.graphics.pop()
 
     love.graphics.setLineWidth(1)
 
-    rt.Palette.RED:bind()
-    love.graphics.setWireframe(true)
+    rt.Palette.GRAY:bind()
     self._mesh:draw()
-    love.graphics.setWireframe(false)
 
-    love.graphics.pop()
+    if self._normal_map:get_is_done() then
+        self._normal_map:draw_shadow(self._stage:get_scene():get_camera())
+        local point_lights, point_colors = self._stage:get_point_light_sources()
+        local segment_lights, segment_colors = self._stage:get_segment_light_sources()
+        self._normal_map:draw_light(
+            self._scene:get_camera(),
+            point_lights,
+            point_colors,
+            segment_lights,
+            segment_colors
+        )
+    end
 
     self._body:draw()
     self._path:draw()
