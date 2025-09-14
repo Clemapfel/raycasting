@@ -2,20 +2,16 @@
 
 #define PI 3.1415926535897932384626433832795
 
-// Improved gaussian function with proper normalization
 float gaussian(float x, float sigma)
 {
-    // Standard gaussian: e^(-x^2 / (2 * sigma^2))
     return exp(-(x * x) / (2.0 * sigma * sigma));
 }
 
-// Alternative falloff functions for different visual effects
 float exponential_falloff(float x, float decay)
 {
     return exp(-decay * pow(x, 1.8));
 }
 
-// Returns the perpendicular distance from point pt to the infinite line through line.xy and line.zw
 float distance_to_line(vec2 pt, vec4 line)
 {
     vec2 a = line.xy;
@@ -46,7 +42,6 @@ vec2 closest_point_on_line(vec2 pt, vec4 line)
     return a + t * ab;
 }
 
-// Reflect a point across a line defined by two points
 vec2 reflect_point_across_line(vec2 point, vec4 line)
 {
     vec2 a = line.xy;
@@ -54,13 +49,13 @@ vec2 reflect_point_across_line(vec2 point, vec4 line)
     vec2 line_dir = normalize(b - a);
     vec2 line_normal = vec2(-line_dir.y, line_dir.x);
 
-    // Vector from line point to the point we want to reflect
+    // vector from line point to the point we want to reflect
     vec2 to_point = point - a;
 
-    // Project onto the normal to get the perpendicular distance
+    // vroject onto the normal to get the perpendicular distance
     float dist_along_normal = dot(to_point, line_normal);
 
-    // Reflect by moving twice the distance in the opposite direction
+    // reflect by moving twice the distance in the opposite direction
     vec2 reflected = point - 2.0 * dist_along_normal * line_normal;
 
     return reflected;
@@ -91,7 +86,6 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords)
 
     vec2 pxy = to_uv(player_position);
     vec2 uv = to_uv(screen_coords);
-
     vec4 axis = vec4(to_uv(axis_of_reflection.xy), to_uv(axis_of_reflection.zw));
 
     // mirror falloff
