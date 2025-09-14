@@ -243,22 +243,22 @@ function ow.MovingHitbox:draw()
         })
     end
 
-    love.graphics.pop()
-
     if self._mirror ~= nil then
-        --self._mirror:set_offset(camera_offset_x, camera_offset_y)
+        self._mirror:set_offset(self._body:get_position())
         self._mirror:draw()
 
         love.graphics.setColor(1, 1, 1, 1)
+        local offset_x, offset_y = 0, 0
         for edge in values(self._mirror._edges) do
             local x1, y1, x2, y2 = table.unpack(edge:getUserData().segment)
             love.graphics.line(
-                x1 - self._offset_x,
-                y1 - self._offset_y,
-                x2 - self._offset_x,
-                y2 - self._offset_y
+                x1 + offset_x,
+                y1 + offset_y,
+                x2 + offset_x,
+                y2 + offset_y
             )
         end
     end
 
+    love.graphics.pop()
 end

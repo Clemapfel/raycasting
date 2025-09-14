@@ -22,6 +22,8 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
+local _disable = true
+
 local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
 local _normal_map_texture_format = rt.TextureFormat.RGB10A2 -- final normal map texture
@@ -80,6 +82,10 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     end
 
     self._callback = coroutine.create(function()
+        if _disable then
+            assert(false, "NormalMap was intentionally disabled")
+        end
+
         -- collect tris of shapes to be normal mapped
         local tris = {}
 
@@ -412,6 +418,7 @@ function ow.NormalMap:update(delta)
         if error_maybe ~= nil then
             rt.critical("In ow.NormalMap: " .. error_maybe)
             self._is_done = true
+            self:signal_emit("done")
         end
     end
 end

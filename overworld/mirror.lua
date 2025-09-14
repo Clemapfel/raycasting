@@ -98,10 +98,6 @@ function ow.Mirror:draw()
         if image.flip_y == true then flip_y = -1 else flip_y = 1 end
 
         local x1, y1, x2, y2 = table.unpack(image.segment)
-        x1 = x1 + self._offset_x
-        y1 = y1 + self._offset_y
-        x2 = x2 + self._offset_x
-        y2 = y2 + self._offset_y
 
         local lx1, ly1 = camera:world_xy_to_screen_xy(x1, y1)
         local lx2, ly2 = camera:world_xy_to_screen_xy(x2, y2)
