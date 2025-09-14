@@ -243,10 +243,13 @@ function ow.MovingHitbox:draw()
         })
     end
 
+    love.graphics.pop()
+
     if self._mirror ~= nil then
         self._mirror:set_offset(self._body:get_position())
         self._mirror:draw()
 
+        --[[
         love.graphics.setColor(1, 1, 1, 1)
         local offset_x, offset_y = 0, 0
         for edge in values(self._mirror._edges) do
@@ -258,7 +261,6 @@ function ow.MovingHitbox:draw()
                 y2 + offset_y
             )
         end
+        ]]--
     end
-
-    love.graphics.pop()
 end

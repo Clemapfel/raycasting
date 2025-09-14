@@ -43,20 +43,15 @@ function ow.Mirror:instantiate(
         _offset_x = 0,
         _offset_y = 0
     })
-
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "p" then
-            _shader:recompile()
-        end
-    end)
 end
 
 --- @brief
 function ow.Mirror:draw()
     local stencil_value = rt.graphics.get_stencil_value()
-    love.graphics.setStencilState("replace", "always", stencil_value)
-    love.graphics.setColorMask(false)
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
 
     -- only draw where slippery is
     self._draw_mirror_mask_callback()
@@ -69,8 +64,9 @@ function ow.Mirror:draw()
         self._draw_occluding_mask_callback()
     end
 
-    love.graphics.setStencilState("keep", "equal", stencil_value)
-    love.graphics.setColorMask(true)
+    love.graphics.pop()
+
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
     -- draw canvases
     local canvas, scale_x, scale_y = self._scene:get_player_canvas()
@@ -98,6 +94,10 @@ function ow.Mirror:draw()
         if image.flip_y == true then flip_y = -1 else flip_y = 1 end
 
         local x1, y1, x2, y2 = table.unpack(image.segment)
+        x1 = x1 + self._offset_x
+        y1 = y1 + self._offset_y
+        x2 = x2 + self._offset_x
+        y2 = y2 + self._offset_y
 
         local lx1, ly1 = camera:world_xy_to_screen_xy(x1, y1)
         local lx2, ly2 = camera:world_xy_to_screen_xy(x2, y2)
@@ -106,28 +106,24 @@ function ow.Mirror:draw()
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(
             canvas:get_native(),
-            image.x, image.y,
+            image.x + self._offset_x, image.y + self._offset_y,
             image.angle,
             flip_x / scale_x,
             flip_y / scale_y,
             0.5 * canvas_w, 0.5 * canvas_h
         )
+
+        love.graphics.circle("fill", image.x + self._offset_x, image.y + self._offset_y, 5)
+
+        love.graphics.push("all")
+        love.graphics.reset()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.line(lx1, ly1, lx2, ly2)
+        love.graphics.pop()
     end
     _shader:unbind()
 
-    love.graphics.setStencilMode(nil)
-
-    love.graphics.setColor(1, 1, 1, 1)
-    for image in values(self._mirror_images) do
-        love.graphics.circle("fill", image.x, image.y, 5)
-    end
-
-    --[[
-    love.graphics.setColor(1, 1, 1, 1)
-    for edge in values(self._edges) do
-        love.graphics.line(edge:getUserData().segment)
-    end
-    ]]--
+    rt.graphics.set_stencil_mode(nil)
 end
 
 local _round = function(x)
@@ -375,6 +371,8 @@ end
 --- @brief
 function ow.Mirror:update(delta)
     local x, y, w, h = self._scene:get_camera():get_world_bounds():unpack()
+    x = x - self._offset_x
+    y = y - self._offset_y
 
     local mirror_segments = {}
     local occluding_segments = {}
@@ -392,13 +390,17 @@ function ow.Mirror:update(delta)
     end)
 
     local px, py = self._scene:get_player():get_physics_body():get_position()
-
-    self._visible = _get_visible_subsegments(mirror_segments, px, py, occluding_segments)
+    self._visible = _get_visible_subsegments(
+        mirror_segments,
+        px - self._offset_x,
+        py - self._offset_y,
+        occluding_segments
+    )
 
     self._mirror_images = {}
     for segment in values(self._visible) do
         local x1, y1, x2, y2 = table.unpack(segment)
-        local rx, ry, angle, flip_x, flip_y, distance = _reflect(px, py, 0, x1, y1, x2, y2)
+        local rx, ry, angle, flip_x, flip_y, distance = _reflect(px - self._offset_x, py - self._offset_y, 0, x1, y1, x2, y2)
         if rx ~= nil then
             table.insert(self._mirror_images, {
                 segment = segment,

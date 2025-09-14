@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 852,
+  nextobjectid = 854,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4853,8 +4853,8 @@ return {
           name = "",
           type = "MovingHitboxTarget",
           shape = "point",
-          x = -1952,
-          y = 768,
+          x = -2164.2,
+          y = 896.379,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4868,8 +4868,8 @@ return {
           name = "",
           type = "MovingHitboxTarget",
           shape = "point",
-          x = -1696,
-          y = 480,
+          x = -1708.08,
+          y = 894.59,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4934,8 +4934,8 @@ return {
           name = "",
           type = "MovingHitbox",
           shape = "polygon",
-          x = -1926.24,
-          y = 692.49,
+          x = -2198.86,
+          y = 839.748,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4959,32 +4959,24 @@ return {
           }
         },
         {
-          id = 851,
+          id = 853,
           name = "",
-          type = "MovingHitbox",
+          type = "Hitbox",
           shape = "polygon",
-          x = -1920.3,
-          y = 545.534,
+          x = -2373.51,
+          y = 874.49,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = -44.8951, y = 7.3675 },
-            { x = -11.3734, y = 30.4523 },
-            { x = 4.78881, y = 73.1839 },
-            { x = 3.59161, y = 28.9788 },
-            { x = 37.1133, y = 55.993 },
-            { x = 77.8182, y = 39.2934 },
-            { x = 87.9945, y = 31.9258 },
-            { x = 36.5147, y = -18.6643 },
-            { x = 31.1273, y = -9.33217 },
-            { x = 16.1622, y = 4.4205 }
+            { x = 95.1518, y = 6.79656 },
+            { x = 92.1311, y = 55.8828 },
+            { x = -26.4311, y = 41.5345 }
           },
           properties = {
-            ["slippery"] = true,
-            ["target"] = { id = 834 }
+            ["slippery"] = true
           }
         }
       }
