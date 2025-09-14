@@ -117,6 +117,8 @@ do -- load from image
     rt.Palette.GOAL = rt.Palette.WHITE
     rt.Palette.BUBBLE_FIELD = rt.Palette.BLUE_1
     rt.Palette.KILL_PLANE = rt.Palette.RED
+    rt.Palette.MOVING_HITBOX_PATH_INNER = rt.Palette.GRAY_6
+    rt.Palette.MOVING_HITBOX_PATH_OUTER = rt.Palette.GRAY_4
 
     rt.Palette[rt.StageGrade.S] = rt.Palette.WHITE -- rainbow shader
     rt.Palette[rt.StageGrade.A] = rt.Palette.YELLOW_5 -- gold

@@ -2,6 +2,7 @@ require "common.path"
 require "common.contour"
 require "overworld.normal_map"
 require "overworld.mirror"
+require "overworld.objects.moving_hitbox_path"
 
 rt.settings.overworld.moving_hitbox = {
     default_velocity = 100, -- px per second
@@ -21,6 +22,7 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
+    self._body:set_use_continuous_collision(true)
 
     self._elapsed = 0
     self._is_active = false
@@ -54,10 +56,17 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     -- read path by iterating through nodes
     local target = object:get_object("target", true)
     local path = {}
+    local path_offset_x, path_offset_y
     repeat
         assert(target:get_type() == ow.ObjectType.POINT, "In ow.MovingHitbox: `MovingHitboxTarget` (" .. object:get_id() .. ") is not a point")
-        table.insert(path, target.x)
-        table.insert(path, target.y)
+        if path_offset_x == nil and path_offset_y == nil then
+            path_offset_x = start_x - target.x
+            path_offset_y = start_y - target.y
+        end
+
+        -- move path to align with center of mass
+        table.insert(path, target.x + path_offset_x)
+        table.insert(path, target.y + path_offset_y)
         target = target:get_object("target")
     until target == nil
 
@@ -133,6 +142,8 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
 
         self._mirror:create_contour()
     end
+
+    self._rail = ow.MovingHitboxPath(self._path)
 end
 
 local dt = math.eps * 10e2
@@ -185,82 +196,97 @@ function ow.MovingHitbox:update(delta)
     self._body:set_velocity(velocity_x, velocity_y)
 end
 
+local _back_priority = -math.huge
+local _front_priority = math.huge
+
 --- @brief
-function ow.MovingHitbox:draw()
+function ow.MovingHitbox:draw(priority)
     --if not self._stage:get_is_body_visible(self._body) then return end
     --self._body:draw()
 
-    love.graphics.push()
-    love.graphics.translate(self._body:get_position())
-    love.graphics.rotate(self._body:get_rotation())
+    if priority == _back_priority then
 
-    if self._is_slippery then
-        rt.Palette.SLIPPERY:bind()
-    else
-        rt.Palette.STICKY:bind()
-    end
-    self._mesh:draw()
+        self._rail:draw_rail(self._body:get_center_of_mass())
 
-    local camera = self._stage:get_scene():get_camera()
-    local camera_offset_x, camera_offset_y = camera:get_position()
-    camera_offset_x = -camera_offset_x
-    camera_offset_y = -camera_offset_y
+        love.graphics.push()
+        love.graphics.translate(self._body:get_position())
+        love.graphics.rotate(self._body:get_rotation())
 
-    if self._normal_map:get_is_done() then
-        -- set offset to compensate for camera movement, and for translation of
-        -- tris to origin in instantiate
-        self._normal_map:set_offset(camera_offset_x, camera_offset_y)
-        self._normal_map:draw_shadow(camera)
+        if self._is_slippery then
+            rt.Palette.SLIPPERY:bind()
+        else
+            rt.Palette.STICKY:bind()
+        end
+        self._mesh:draw()
 
-        local point_lights, point_colors = self._stage:get_point_light_sources()
-        local segment_lights, segment_colors = self._stage:get_segment_light_sources()
-        self._normal_map:draw_light(
-            camera,
-            point_lights,
-            point_colors,
-            segment_lights,
-            segment_colors
-        )
-    end
+        local camera = self._stage:get_scene():get_camera()
+        local camera_offset_x, camera_offset_y = camera:get_position()
+        camera_offset_x = -camera_offset_x
+        camera_offset_y = -camera_offset_y
 
-    local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-    self._mesh:draw()
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+        if self._normal_map:get_is_done() then
+            -- set offset to compensate for camera movement, and for translation of
+            -- tris to origin in instantiate
+            self._normal_map:set_offset(camera_offset_x, camera_offset_y)
+            self._normal_map:draw_shadow(camera)
 
-    if self._is_slippery then
-        rt.Palette.SLIPPERY_OUTLINE:bind()
-    else
-        rt.Palette.STICKY_OUTLINE:bind()
-    end
-
-    love.graphics.setLineWidth(3)
-    love.graphics.setLineJoin("bevel")
-
-    for tri in values(self._tris) do
-        love.graphics.line({
-            tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-        })
-    end
-
-    love.graphics.pop()
-
-    if self._mirror ~= nil then
-        self._mirror:set_offset(self._body:get_position())
-        self._mirror:draw()
-
-        --[[
-        love.graphics.setColor(1, 1, 1, 1)
-        local offset_x, offset_y = 0, 0
-        for edge in values(self._mirror._edges) do
-            local x1, y1, x2, y2 = table.unpack(edge:getUserData().segment)
-            love.graphics.line(
-                x1 + offset_x,
-                y1 + offset_y,
-                x2 + offset_x,
-                y2 + offset_y
+            local point_lights, point_colors = self._stage:get_point_light_sources()
+            local segment_lights, segment_colors = self._stage:get_segment_light_sources()
+            self._normal_map:draw_light(
+                camera,
+                point_lights,
+                point_colors,
+                segment_lights,
+                segment_colors
             )
         end
-        ]]--
+
+        local stencil_value = rt.graphics.get_stencil_value()
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+        self._mesh:draw()
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+        if self._is_slippery then
+            rt.Palette.SLIPPERY_OUTLINE:bind()
+        else
+            rt.Palette.STICKY_OUTLINE:bind()
+        end
+
+        love.graphics.setLineWidth(3)
+        love.graphics.setLineJoin("bevel")
+
+        for tri in values(self._tris) do
+            love.graphics.line({
+                tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
+            })
+        end
+
+        love.graphics.pop()
+
+        if self._mirror ~= nil then
+            self._mirror:set_offset(self._body:get_position())
+            self._mirror:draw()
+
+            --[[
+            love.graphics.setColor(1, 1, 1, 1)
+            local offset_x, offset_y = 0, 0
+            for edge in values(self._mirror._edges) do
+                local x1, y1, x2, y2 = table.unpack(edge:getUserData().segment)
+                love.graphics.line(
+                    x1 + offset_x,
+                    y1 + offset_y,
+                    x2 + offset_x,
+                    y2 + offset_y
+                )
+            end
+            ]]--
+        end
+    elseif priority == _front_priority then
+        self._rail:draw_attachment(self._body:get_position())
     end
 end
+
+function ow.MovingHitbox:get_render_priority()
+    return _back_priority, _front_priority
+end
+

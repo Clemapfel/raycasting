@@ -71,7 +71,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     self._chunks = {}
     self._non_empty_chunks = meta.make_weak({})
 
-
     self._is_done = false
 
     local savepoint = function()

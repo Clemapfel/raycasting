@@ -115,12 +115,6 @@ function ow.Mirror:draw()
         )
 
         love.graphics.circle("fill", image.x + self._offset_x, image.y + self._offset_y, 5)
-
-        love.graphics.push("all")
-        love.graphics.reset()
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.line(lx1, ly1, lx2, ly2)
-        love.graphics.pop()
     end
     _shader:unbind()
 

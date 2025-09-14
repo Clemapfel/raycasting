@@ -293,3 +293,8 @@ function rt.Path:get_closest_point(x, y)
 
     return closest_x, closest_y, closest_t
 end
+
+--- @brief
+function rt.Path:get_points()
+    return self._points
+end

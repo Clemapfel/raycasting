@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 854,
+  nextobjectid = 864,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -735,8 +735,8 @@ return {
             { x = 800, y = -256 },
             { x = 803.097, y = 0 },
             { x = 1312, y = 0 },
-            { x = 1312, y = 32 },
-            { x = 0, y = 32 }
+            { x = 1312, y = 128 },
+            { x = 0, y = 128 }
           },
           properties = {}
         },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -2311.67,
-          y = 786.793,
+          x = 345.988,
+          y = -460.721,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4668,8 +4668,8 @@ return {
           name = "Goal",
           type = "PlayerGoal",
           shape = "point",
-          x = -1536,
-          y = 768,
+          x = -1507.35,
+          y = 730.908,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4874,7 +4874,9 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["target"] = { id = 854 }
+          }
         },
         {
           id = 836,
@@ -4942,20 +4944,28 @@ return {
           visible = true,
           polygon = {
             { x = 0, y = 0 },
+            { x = -23.1467, y = -26.3328 },
+            { x = -60.1556, y = -22.629 },
             { x = -75, y = 15 },
+            { x = -54.9802, y = 43.6693 },
             { x = -19, y = 62 },
-            { x = 8, y = 149 },
-            { x = 6, y = 59 },
+            { x = -15.501, y = 82.0499 },
+            { x = -1.06208, y = 98.4034 },
+            { x = 32.4311, y = 108.841 },
             { x = 62, y = 114 },
-            { x = 130, y = 80 },
-            { x = 147, y = 65 },
+            { x = 91.4862, y = 86.0414 },
+            { x = 112.262, y = 43.1 },
+            { x = 120.419, y = -9.33394 },
+            { x = 105.786, y = -40.8583 },
+            { x = 83.7481, y = -49.6432 },
             { x = 61, y = -38 },
             { x = 52, y = -19 },
             { x = 27, y = 9 }
           },
           properties = {
             ["slippery"] = true,
-            ["target"] = { id = 834 }
+            ["target"] = { id = 834 },
+            ["velocity"] = 999999
           }
         },
         {
@@ -4978,6 +4988,52 @@ return {
           properties = {
             ["slippery"] = true
           }
+        },
+        {
+          id = 854,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -1870.56,
+          y = 602.628,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 855 }
+          }
+        },
+        {
+          id = 855,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -1776.17,
+          y = 431.959,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 860,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 240,
+          y = -1120,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 928, y = 16 },
+            { x = 736, y = -288 }
+          },
+          properties = {}
         }
       }
     }
