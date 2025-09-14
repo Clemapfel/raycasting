@@ -33,7 +33,6 @@ local _outline_shader = rt.Shader("overworld/objects/bubble_field.glsl", { MODE 
 
 --- @brief
 function ow.BubbleField:instantiate(object, stage, scene)
-
     -- collision
     self._scene = scene
     self._stage = stage
@@ -42,11 +41,16 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
 
+    self._inverted = object:get_boolean("inverted")
+    if self._inverted == nil then self._inverted = true end
+
+    local start_b = not self._inverted
+    local end_b = self._inverted
     self._body:signal_connect("collision_start", function()
         local player = scene:get_player()
-        if player:get_is_bubble() == false then
+        if player:get_is_bubble() == (not start_b) then
             self:_block_signals()
-            player:set_is_bubble(true)
+            player:set_is_bubble(start_b)
             self._is_active = true
 
             local x, y = player:get_position()
@@ -56,7 +60,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     self._body:signal_connect("collision_end", function()
         local player = scene:get_player()
-        if player:get_is_bubble() == true then
+        if player:get_is_bubble() == (not end_b) then
             self:_block_signals()
 
             -- check if player is actually outside body, in case of exiting one shape of self but entering another
@@ -64,7 +68,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
                 return
             end
 
-            player:set_is_bubble(false)
+            player:set_is_bubble(end_b)
             local x, y = player:get_position()
             self:_excite_wave(x, y, 1) -- outwards
             self._is_active = true
