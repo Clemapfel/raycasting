@@ -145,10 +145,9 @@ local _unhash = function(hash)
 end
 
 --- @brief
-function ow.BloodSplatter:create_contour()
+function ow.BloodSplatter:create_contour(tris)
     _hash_to_segment = {}
 
-    local tris = ow.Hitbox:get_tris()
     local segments = {}
     for tri in values(tris) do
         for segment in range(

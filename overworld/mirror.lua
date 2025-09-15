@@ -10,34 +10,24 @@ rt.settings.overworld.mirror = {
 ow.Mirror = meta.class("Mirror")
 
 local _shader = rt.Shader("overworld/mirror.glsl")
+local _noop = function() end
 
 --- @brief
 function ow.Mirror:instantiate(
     scene,
-    get_mirror_tris_callback,
     draw_mirror_mask_callback,
-    get_occluding_tris_callback, -- optional
     draw_occluding_mask_callback -- optional
 )
+    if draw_mirror_mask_callback == nil then draw_occluding_mask_callback = _noop end
+
     meta.assert(
         scene, "OverworldScene",
-        get_mirror_tris_callback, "Function",
         draw_mirror_mask_callback, "Function"
     )
 
-    if get_occluding_tris_callback ~= nil then
-        meta.assert_typeof(get_occluding_tris_callback, "Function", 4)
-    end
-
-    if draw_occluding_mask_callback ~= nil then
-        meta.assert_typeof(draw_occluding_mask_callback, "Function", 5)
-    end
-
     meta.install(self, {
         _scene = scene,
-        _get_mirror_tris_callback = get_mirror_tris_callback,
         _draw_mirror_mask_callback = draw_mirror_mask_callback,
-        _get_occluding_tris_callback = get_occluding_tris_callback,
         _draw_occluding_mask_callback = draw_occluding_mask_callback,
         _edges = {},
         _world = nil,
@@ -147,18 +137,14 @@ local function _area(tri)
 end
 
 --- @brief
-function ow.Mirror:create_contour()
+function ow.Mirror:create_contour(mirror_tris, occluding_tris)
+    if occluding_tris == nil then occluding_tris = {} end
+    meta.assert(mirror_tris, "Table", occluding_tris, "Table")
+
     local mirror_segments, occluding_segments = {}, {}
 
-    local occluding_tris
-    if self._get_occluding_tris_callback ~= nil then
-        occluding_tris = self._get_occluding_tris_callback()
-    else
-        occluding_tris = {}
-    end
-
     for segments_tris in range(
-        { mirror_segments, self._get_mirror_tris_callback() },
+        { mirror_segments, mirror_tris },
         { occluding_segments, occluding_tris }
     ) do
         _hash_to_segment = {}
