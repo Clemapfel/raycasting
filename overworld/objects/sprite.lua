@@ -8,12 +8,15 @@ local _vertex_format = {
 }
 
 --- @brief
-function ow.Sprite:instantiate(wrapper, stage, scene)
-    meta.assert(wrapper, "ObjectWrapper")
-    self._wrapper = wrapper
+function ow.Sprite:instantiate(object, stage, scene)
+    meta.assert(object, "ObjectWrapper")
+    assert(object:get_type() == ow.ObjectType.SPRITE, "In ow.Sprite: object `" .. object:get_id() .. "` is not a sprite")
+    self._scene = scene
+    self._stage = stage
+    self._wrapper = object
 
-    local x, y, w, h = 0, 0, wrapper.width, wrapper.height
-    local tx, ty, tw, th = wrapper.texture_x, wrapper.texture_y, wrapper.texture_width, wrapper.texture_height
+    local x, y, w, h = 0, 0, object.width, object.height
+    local tx, ty, tw, th = object.texture_x, object.texture_y, object.texture_width, object.texture_height
     self._mesh = love.graphics.newMesh(
         _vertex_format,
         {
@@ -24,8 +27,10 @@ function ow.Sprite:instantiate(wrapper, stage, scene)
         },
         rt.MeshDrawMode.TRIANGLE_FAN
     )
-    self._mesh:setTexture(wrapper.texture._native)
-    wrapper.texture:set_scale_mode(rt.TextureScaleMode.NEAREST)
+    self._mesh:setTexture(object.texture._native)
+    object.texture:set_scale_mode(rt.TextureScaleMode.NEAREST)
+
+    self._bounds = rt.AABB(x, y, w, h)
 
     for which in range(
         "x", "y",
@@ -36,7 +41,7 @@ function ow.Sprite:instantiate(wrapper, stage, scene)
         "rotation_offset",
         "rotation_origin_x", "rotation_origin_y"
     ) do
-        self["_" .. which] = wrapper[which]
+        self["_" .. which] = object[which]
     end
 
     for which in range(
@@ -48,6 +53,8 @@ end
 
 --- @brief
 function ow.Sprite:draw()
+    if not self._scene:get_camera():get_world_bounds():overlaps(self._bounds) then return end
+
     love.graphics.push()
 
     love.graphics.translate(self._origin_x, self._origin_y)

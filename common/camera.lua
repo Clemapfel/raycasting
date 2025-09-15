@@ -51,8 +51,13 @@ function rt.Camera:instantiate()
         _shake_to_y = 1,
         _shake_current_x = 0,
         _shake_current_y = 0,
+
+        _bounds = rt.AABB(0, 0, 1, 1),
+        _world_bounds = rt.AABB(0, 0, 0, 0),
+        _bounds_needs_update = true
     })
 
+    self:_update_bounds()
     self:set_shake_frequency(1)
 end
 
@@ -159,6 +164,8 @@ function rt.Camera:update(delta)
             end
         end
     end
+
+    self._bounds_needs_update = true
 end
 
 --- @brief
@@ -169,6 +176,8 @@ function rt.Camera:reset()
     self._velocity_y = 0
     self._current_angle = 0
     self._current_scale = 1
+
+    self._bounds_needs_update = true
 end
 
 --- @brief
@@ -179,6 +188,8 @@ end
 --- @brief
 function rt.Camera:set_rotation(r)
     self._current_angle = r
+
+    self._bounds_needs_update = true
 end
 
 --- @brief
@@ -211,6 +222,8 @@ function rt.Camera:set_position(x, y, override_bounds)
     self._target_y = y
     self._current_x = x
     self._current_y = y
+
+    self._bounds_needs_update = true
 end
 
 --- @brief
@@ -245,6 +258,8 @@ function rt.Camera:set_scale(s, override_bounds)
     if override_bounds ~= true then
         self._target_x, self._target_x = self:_constrain(self._target_x, self._target_y)
     end
+
+    self._bounds_needs_update = true
 end
 
 --- @brief
@@ -266,11 +281,14 @@ function rt.Camera:set_bounds(bounds)
         self._bounds_width = math.huge
         self._bounds_height = math.huge
     end
+
+    self._bounds_needs_update = true
 end
 
 --- @brief
 function rt.Camera:get_bounds()
-    return rt.AABB(self._bounds_x, self._bounds_y, self._bounds_width, self._bounds_height)
+    if self._bounds_needs_update then self:_update_bounds() end
+    return self._bounds
 end
 
 --- @brief
@@ -329,13 +347,9 @@ end
 
 --- @brief
 function rt.Camera:get_world_bounds()
-    local w, h = love.graphics.getDimensions()
-    local scale = self:get_final_scale()
-    w = w / scale
-    h = h / scale
-    return rt.AABB(self._current_x - 0.5 * w, self._current_y - 0.5 * h, w, h)
+    if self._bounds_needs_update then self:_update_bounds() end
+    return self._world_bounds
 end
-
 
 --- @brief
 --- @param intensity Number in [0, 1]
@@ -374,4 +388,21 @@ function rt.Camera:get_offset()
     end
 
     return x_offset, y_offset
+end
+
+--- @brief
+function rt.Camera:_update_bounds()
+    self._bounds:reformat(
+        self._bounds_x, self._bounds_y,
+        self._bounds_width, self._bounds_height
+    )
+
+    local w, h = love.graphics.getDimensions()
+    local scale = self:get_final_scale()
+    self._world_bounds:reformat(
+        self._current_x - 0.5 * w, self._current_y - 0.5 * h,
+        w / scale,  h / scale
+    )
+
+    self._bounds_needs_update = false
 end

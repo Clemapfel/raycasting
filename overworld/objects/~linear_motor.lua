@@ -28,7 +28,7 @@ function ow.LinearMotor:instantiate(object, stage, scene)
     stage:signal_connect("initialized", function(stage)
         meta.install(self, {
             _body = object:create_physics_body(world, b2.BodyType.STATIC),
-            _target = stage:get_object_instance(target):get_physics_body()
+            _target = stage:object_wrapper_to_instance(target):get_physics_body()
         })
 
         self._target:set_type(b2.BodyType.KINEMATIC)

@@ -8,7 +8,7 @@ function ow.Teleporter:instantiate(object, stage, scene)
 
     local target = object:get_object("target", true)
     stage:signal_connect("initialized", function(stage)
-        self._other = stage:get_object_instance(target):get_physics_body()
+        self._other = stage:object_wrapper_to_instance(target):get_physics_body()
         self._target_x, self._target_y = self._other:get_center_of_mass()
 
         -- if colliding with player, mark player as blocking body to prevent infinte loop

@@ -48,9 +48,9 @@ function ow.Stage:instantiate(scene, id)
         _world = b2.World(),
         _camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge),
 
-        _objects = {},
-        _wrapper_id_to_object = {}, -- Table<Number, Any>
-        _object_to_wrapper_id = {}, -- Table<Any, Number>
+        _wrapper_id_to_instance = {}, -- Table<Number, Any>
+        _instance_to_wrapper = {}, -- Table<Any, Number>
+        _wrapper_id_to_wrapper = {}, -- Table<Number, ow.ObjectWrapper>
 
         -- drawables
         _below_player = meta.make_weak({}),
@@ -167,26 +167,27 @@ function ow.Stage:instantiate(scene, id)
                     rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
                 end
 
-                local object = Type(wrapper, self, self._scene)
-                table.insert(self._objects, object)
-                self._wrapper_id_to_object[wrapper.id] = object
-                self._object_to_wrapper_id[object] = wrapper.id
+                local instance = Type(wrapper, self, self._scene)
+
+                local wrapper_id = wrapper.id
+                self._wrapper_id_to_instance[wrapper_id] = instance
+                self._instance_to_wrapper[instance] = wrapper
 
                 -- catch objects relating to permanent state
-                if meta.isa(object, ow.Checkpoint) then
-                    self:add_checkpoint(object)
-                elseif meta.isa(object, ow.Coin) then
-                    table.insert(coins, object)
+                if meta.isa(instance, ow.Checkpoint) then
+                    self:add_checkpoint(instance)
+                elseif meta.isa(instance, ow.Coin) then
+                    table.insert(coins, instance)
                 end
 
                 -- inject id
-                object.get_id = function(self) return wrapper.id  end
+                instance.get_id = function(self) return wrapper.id  end
 
                 -- handle drawables
-                if object.draw ~= nil then
+                if instance.draw ~= nil then
                     local priorities = { 0 }
-                    if object.get_render_priority ~= nil then
-                        priorities = { object:get_render_priority() }
+                    if instance.get_render_priority ~= nil then
+                        priorities = { instance:get_render_priority() }
                     end
 
                     for priority in values(priorities) do
@@ -209,16 +210,16 @@ function ow.Stage:instantiate(scene, id)
                             end
                         end
 
-                        table.insert(entry.objects, object)
+                        table.insert(entry.objects, instance)
                     end
                 end
 
-                if object.draw_bloom ~= nil then
-                    table.insert(self._bloom_objects, object)
+                if instance.draw_bloom ~= nil then
+                    table.insert(self._bloom_objects, instance)
                 end
 
-                if object.update ~= nil then
-                    table.insert(self._to_update, object)
+                if instance.update ~= nil then
+                    table.insert(self._to_update, instance)
                 end
             end
         end
@@ -485,15 +486,26 @@ function ow.Stage:get_id()
 end
 
 --- @brief
-function ow.Stage:get_object_instance(object)
+function ow.Stage:object_wrapper_to_instance(object)
     meta.assert(object, ow.ObjectWrapper)
     if not self._is_initialized then
-        rt.error("In ow.Stage:get_object_instance: stage is not yet fully initialized")
-        return
+        rt.error("In ow.Stage:object_wrapper_id_to_instance: stage is not yet fully initialized")
+        return nil
     end
 
-    return self._wrapper_id_to_object[object.id]
+    return self._wrapper_id_to_instance[object:get_id()]
 end
+
+--- @brief
+function ow.Stage:instance_to_object_wrapper(instance)
+    if not self._is_initialized then
+        rt.error("In ow.Stage:object_wrapper_id_to_instance: stage is not yet fully initialized")
+        return nil
+    end
+
+    return self._wrapper_id_to_wrapper[self._instance_to_wrapper[instance]]
+end
+
 
 local _no_timestamp = -1
 
@@ -526,7 +538,7 @@ function ow.Stage:set_checkpoint_split(checkpoint)
     end
 
     if current ~= _no_timestamp then
-        rt.error("In ow.Stage:set_checkpoint_split: updating splits of checkpoint `" .. self._object_to_wrapper_id[checkpoint] .. "`, but time was already updated")
+        rt.error("In ow.Stage:set_checkpoint_split: updating splits of checkpoint `" .. self._instance_to_wrapper[checkpoint] .. "`, but time was already updated")
     end
 
     self._checkpoints[checkpoint] = self._scene:get_timer()

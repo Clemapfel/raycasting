@@ -104,3 +104,23 @@ function rt.AABB:intersects(x1, y1, x2, y2)
     -- If we get here, the line segment intersects the AABB
     return true
 end
+
+--- @brief check if aabb overlaps another aabb
+function rt.AABB:overlaps(x_or_aabb, y, width, height)
+    local x
+    if not meta.is_number(x_or_aabb) then
+        x, y, width, height = x_or_aabb:unpack()
+    else
+        x = x_or_aabb
+    end
+
+    if self.x > x + width
+        or x > self.x + self.width
+        or self.y > y + height
+        or y > self.y + self.height
+    then
+        return false
+    end
+
+    return true
+end

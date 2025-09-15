@@ -1,9 +1,51 @@
 # Type to Tiled Primitive
 
-1 = allowed, 0 = disallowed
+✓ = allowed, x = disallowed
 
-|         Shape          | Polygon | Rectangle | Ellipse | Point | Tile |
-|:----------------------:|:-------:|:---------:|:-------:|:-----:|:----:|
-|       **Hitbox**       |    ✓    |     ✓     |    ✓    |   X   |  X   |
-|    **MovingHitbox**    |    ✓    |     ✓     |    ✓    |   X   |  X   |
-| **MovingHitboxTarget** |    X    |     X     |    X    |   ✓   |  X   |
+|        Shape         | Polygon | Rectangle | Ellipse | Point | Tile |
+|:--------------------:|:-------:|:---------:|:-------:|:-----:|:----:|
+| `AcceleratorSurface` |    ✓    |     ✓     |    ✓    |   x   |  x   |
+|     `BoostField`     |    ✓    |     ✓     |    ✓    |   x   |  x   |
+|     `BouncePad`      |    ✓    |     ✓     |    ✓    |   x   |  x   |
+|    `BubbleField`     |    ✓    |     ✓     |    ✓    |   x   |  x   |
+|    `CameraBounds`    |    x    |     ✓     |    x    |   x   |  x   |
+|     `Checkpoint`     |    x    |     x     |    x    |   ✓   |  x   |
+|        `Coin`        |    x    |     x     |    x    |   ✓   |  x   |
+|  `DoubleJumpTether`  |    x    |     x     |    x    |   ✓   |  x   |
+|     `FlowGraph`      |    x    |     x     |    x    |   ✓   |  x   |
+|   `FlowGraphNode`    |    x    |     x     |    x    |   ✓   |  x   |
+|       `Hitbox`       |    ✓    |     ✓     |    ✓    |   x   |  x   |
+|        `Hook`        |    x    |     x     |    x    |   ✓   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|     `KillPlane`      |    ✓    |     ✓     |    ✓    |   x   |  x   |
+|    `MovingHitbox`    |    ✓    |     ✓      |    ✓    |   x   |  x   |
+| `MovingHitboxTarget` |    x    |     x     |    x    |   ✓    |  x   |
+|        `NPC`         |    ✓     |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+|        `TODO`        |    x    |     x     |    x    |   x   |  x   |

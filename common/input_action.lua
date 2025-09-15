@@ -19,6 +19,7 @@ do
     _input_actions["SPRINT"] = _input_actions.B
     _input_actions["CONFIRM"] = _input_actions.A
     _input_actions["BACK"] = _input_actions.B
+    _input_actions["INTERACT"] = _input_actions.X
     _input_actions["PAUSE"] = _input_actions.START
 
     --- @class rt.InputAction

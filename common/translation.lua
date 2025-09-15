@@ -61,11 +61,11 @@ rt.Translation = rt.initialize_translation({
             [rt.InputAction.A] = "Jump / Confirm",
             [rt.InputAction.B] = "Sprint / Go Back",
             [rt.InputAction.X] = "Reset",
-            [rt.InputAction.Y] = "X UNUSED",
+            [rt.InputAction.Y] = nil, -- unused
             [rt.InputAction.L] = "Zoom In",
             [rt.InputAction.R] = "Zoom Out",
             [rt.InputAction.START] = "Pause / Unpause",
-            [rt.InputAction.SELECT] =  "Select UNUSED",
+            [rt.InputAction.SELECT] = nil, -- unused
             [rt.InputAction.UP] = "Move Up",
             [rt.InputAction.RIGHT] = "Move Right",
             [rt.InputAction.DOWN] = "Move Down",
@@ -333,6 +333,7 @@ rt.Translation = rt.initialize_translation({
     },
 
     -- ## STAGES ## ---
+
     stages = {
         [1] = {
             id = "tutorial",

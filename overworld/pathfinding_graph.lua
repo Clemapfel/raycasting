@@ -17,7 +17,7 @@ function ow.PathfindingNode:instantiate(object, stage, scene)
         for key, value in pairs(object.properties) do
             local as_number = tonumber(key)
             if as_number ~= nil then
-                local other = stage:get_object_instance(value)
+                local other = stage:object_wrapper_to_instance(value)
                 if meta.typeof(other) == "PathfindingNode" then
                     graph:add(self, other) -- add edge
                 else

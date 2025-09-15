@@ -135,7 +135,7 @@ function ow.Portal:instantiate(object, stage, scene)
         _assert_point(self._b)
         self._bx, self._by = self._b.x, self._b.y
 
-        self._target = stage:get_object_instance(object:get_object("target", true))
+        self._target = stage:object_wrapper_to_instance(object:get_object("target", true))
         assert(self._target ~= nil and meta.isa(self._target, ow.Portal), "In ow.Portal: `target` of object `" .. object:get_id() .. "` is not another portal")
 
         -- synch hue

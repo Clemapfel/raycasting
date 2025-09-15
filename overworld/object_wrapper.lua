@@ -389,7 +389,7 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     local to_polygonize = {}
 
     local self_x, self_y
-    if self.type == ow.ObjectType.RECTANGLE then
+    if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
         to_polygonize = {
@@ -441,7 +441,7 @@ end
 --- @brief
 function ow.ObjectWrapper:_initialize_contour_prototype()
     local contour = {}
-    if self.type == ow.ObjectType.RECTANGLE then
+    if self.type == ow.ObjectType.RECTANGLE or self.type == ow.ObjectType.SPRITE then
         local x, y = self.x, self.y
         local w, h = self.width, self.height
         contour = {

@@ -7,7 +7,7 @@ function ow.FlowGraphNode:instantiate(object, stage, scene)
         self.object = object
         local next = object:get_object("next")
         if next ~= nil then
-            self.next = stage:get_object_instance(object:get_object("next"))
+            self.next = stage:object_wrapper_to_instance(object:get_object("next"))
         end
 
         self.x = object.x

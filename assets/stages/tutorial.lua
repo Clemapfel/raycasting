@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 864,
+  nextobjectid = 866,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,7 +1609,7 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 345.988,
+          x = 238.341,
           y = -460.721,
           width = 0,
           height = 0,
@@ -5034,6 +5034,36 @@ return {
             { x = 736, y = -288 }
           },
           properties = {}
+        },
+        {
+          id = 864,
+          name = "",
+          type = "Sprite",
+          shape = "rectangle",
+          x = 47.5873,
+          y = -450.851,
+          width = 72,
+          height = 70,
+          rotation = 0,
+          gid = 3,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 865,
+          name = "",
+          type = "DialogEmitter",
+          shape = "point",
+          x = 170.657,
+          y = -560.731,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["id"] = "dialog",
+            ["target"] = { id = 864 }
+          }
         }
       }
     }

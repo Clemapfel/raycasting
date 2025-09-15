@@ -112,13 +112,15 @@ function mn.KeybindingScene:instantiate()
 
     local scene = self
     for input_action in values(input_action_order) do
-        local prefix = rt.Translation.input_action_to_string(input_action)
+        local text = rt.Translation.input_action_to_string(input_action)
+        if text == nil then goto continue end -- button unused
+
         local info = input_action_to_verbose_info[input_action]
-        assert(prefix ~= nil, input_action)
+        assert(text ~= nil, input_action)
         assert(info ~= nil, input_action)
 
         local item = mn.KeybindingScene.Item({
-            prefix = rt.Label(prefix_prefix .. prefix .. prefix_postfix),
+            prefix = rt.Label(prefix_prefix .. text .. prefix_postfix),
             input_action = input_action,
             keyboard_indicator = rt.KeybindingIndicator(),
             keyboard_key = nil,
@@ -160,6 +162,8 @@ function mn.KeybindingScene:instantiate()
         end
 
         self._list:add_item(item)
+
+        ::continue::
     end
 
     self:_update_all_indicators()

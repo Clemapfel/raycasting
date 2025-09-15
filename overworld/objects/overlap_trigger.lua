@@ -18,7 +18,7 @@ function ow.OverlapTrigger:instantiate(object, stage, scene)
 
     -- add receive once stage is initialized
     stage:signal_connect("initialized", function(stage)
-        self._receiver = stage:get_object_instance(self._target)
+        self._receiver = stage:object_wrapper_to_instance(self._target)
 
         if self._receiver == nil then
             rt.error("In ow.OverlapTrigger: trigger `" .. object:get_id() .. "` targets object, but object `" .. self._target .. "`is not present on the same layer")

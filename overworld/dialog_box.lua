@@ -34,9 +34,9 @@ ow.DialogBox = meta.class("OverworldDialogBox", rt.Widget)
 meta.add_signals(ow.DialogBox, "done")
 
 --- @brief
-function ow.DialogBox:instantiate(dialog_id)
+function ow.DialogBox:instantiate(config)
     meta.install(self, {
-        _dialog_id = dialog_id,
+        _config = config,
         _is_initialized = false,
         _done_emitted = false,
 
@@ -88,25 +88,18 @@ function ow.DialogBox:instantiate(dialog_id)
 
         _text_stencil = rt.AABB(0, 0, 1, 1),
 
-        _line_height = select(2, rt.settings.font.default:measure_glyph("|")),
+        _font = rt.settings.font.default,
         _max_n_lines = rt.settings.overworld.dialog_box.n_lines
     })
 end
 
-local _atlas = require "assets.text.dialog"
 local _node_type_text = "text"
 local _node_type_choice = "choice"
 
 --- @brief
 function ow.DialogBox:realize()
     if self:already_realized() then return end
-    if _atlas == nil then _atlas = require("assets.text.dialog") end
-
-    local entry = _atlas[self._dialog_id]
-    if entry == nil then
-        rt.error("In ow.DialogBox: for dialog `" .. self._dialog_id .. "` does not have an entry in `assets.text.dialog`")
-        return
-    end
+    local entry = self._config
 
     self._id_to_node = {}
     self._portrait_id_to_portrait = {}
@@ -314,11 +307,13 @@ end
 
 --- @brief
 function ow.DialogBox:size_allocate(x, y, width, height)
+    local line_height = self._font:measure(rt.FontSize.REGULAR, "|")
+
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
 
     local frame_w = width - 2 * outer_margin
-    local frame_h = self._max_n_lines * self._line_height + 2 * m
+    local frame_h = self._max_n_lines * line_height + 2 * m
     local frame_x = x + outer_margin
     local frame_y = y + height - outer_margin - frame_h
 
@@ -329,7 +324,7 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local thickness = self._speaker_frame:get_thickness()
 
     local speaker_frame_w = 0 -- size-dependent values set in _set_active_node
-    local speaker_frame_h = self._line_height + m
+    local speaker_frame_h = line_height + m
     self._speaker_frame_w = speaker_frame_w
     self._speaker_frame_h = speaker_frame_h
     self._speaker_frame_left_x = frame_x + m
