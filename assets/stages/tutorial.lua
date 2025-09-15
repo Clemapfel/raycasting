@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 238.341,
-          y = -460.721,
+          x = -2329.84,
+          y = 819.073,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4963,9 +4963,9 @@ return {
             { x = 27, y = 9 }
           },
           properties = {
-            ["slippery"] = true,
+            ["slippery"] = false,
             ["target"] = { id = 834 },
-            ["velocity"] = 999999
+            ["velocity"] = 100
           }
         },
         {

@@ -1,9 +1,11 @@
 require "overworld.dialog_box"
 require "common.label"
 require "common.translation"
+require "common.smoothed_motion_1d"
 
 rt.settings.overworld.dialog_emitter = {
     interact_range_factor = 10, -- * player radius
+    interact_opacity_speed = 2, -- fraction
     asset_prefix = "assets/text/"
 }
 
@@ -48,7 +50,7 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
 
         -- generate sensor shape as half-circle
         local vertices = {}
-        local n_vertices = 8
+        local n_vertices = 6 -- low enough for box2d monolithic collider
         for i = 1, n_vertices do
             local angle = (2 * math.pi) - ((i - 1) / (n_vertices - 1)) * (math.pi)
             table.insert(vertices, bottom_x + math.cos(angle) * x_radius)
@@ -62,6 +64,8 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
         )
     end
 
+    self._selection_opacity_motion = rt.SmoothedMotion1D(0, rt.settings.overworld.dialog_emitter.interact_opacity_speed)
+    self._input_active = false
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.INTERACT then
@@ -74,10 +78,14 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
     self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
     self._sensor:signal_connect("collision_start", function(_, other_body)
         self._input:activate()
+        self._input_active = true
+        self._selection_opacity_motion:set_target_value(1)
     end)
 
     self._sensor:signal_connect("collision_end", function(_, other_body)
         self._input:deactivate()
+        self._input_active = false
+        self._selection_opacity_motion:set_target_value(0)
     end)
 
     self._stage:signal_connect("initialized", function(_)
@@ -133,6 +141,12 @@ function ow.DialogEmitter:emit()
 end
 
 --- @brief
+function ow.DialogEmitter:update(delta)
+    self._selection_opacity_motion:update(delta)
+    dbg(self._selection_opacity_motion:get_value())
+end
+
+--- @brief
 function ow.DialogEmitter:draw()
     if self._target_body ~= nil then
         if not self._stage:get_is_body_visible(self._target_body) then return end
@@ -140,12 +154,14 @@ function ow.DialogEmitter:draw()
         if not self._scene:get_camera():get_world_bounds():overlaps(self._target_aabb) then return end
     end
 
-    rt.Palette.SELECTION:bind()
+    local r, g, b, _ = rt.Palette.SELECTION:unpack()
+    love.graphics.setColor(r, g, b, self._selection_opacity_motion:get_value())
     love.graphics.setLineWidth(1.5)
     love.graphics.line(self._target_contour)
 
-    love.graphics.setColor(1, 1, 1, 1)
     self._sensor:draw()
+
+    love.graphics.setColor(1, 1, 1, 1)
     love.graphics.circle("line", self._x, self._y, 5)
     local h = love.graphics.getFont():getHeight()
     local w = love.graphics.getFont():getWidth(self._dialog_id)

@@ -100,28 +100,10 @@ function ow.Stage:instantiate(scene, id)
 
     -- static hitbox mirrors
 
-    local get_mirror_tris_callback = function()
-        return ow.Hitbox:get_tris(false, true)
-    end
-
-    local get_occluding_tris_callback = function()
-        return ow.Hitbox:get_tris(true, false)
-    end
-
-    local draw_mirror_mask_callback = function()
-        ow.Hitbox:draw_mask(false, true)
-    end
-
-    local draw_occluding_mask_callback = function()
-        ow.Hitbox:draw_mask(true, false)
-    end
-
     self._mirror = ow.Mirror(
         scene,
-        get_mirror_tris_callback,
-        draw_mirror_mask_callback,
-        get_occluding_tris_callback,
-        draw_occluding_mask_callback
+        function() ow.Hitbox:draw_mask(false, true) end,
+        function() ow.Hitbox:draw_mask(true, false) end
     )
 
     -- misc
@@ -239,9 +221,14 @@ function ow.Stage:instantiate(scene, id)
         return a.priority < b.priority
     end)
 
-    -- contour effects
-    self._blood_splatter:create_contour()
-    self._mirror:create_contour()
+    self._blood_splatter:create_contour(
+        ow.Hitbox:get_tris(true, true)
+    )
+
+    self._mirror:create_contour(
+        ow.Hitbox:get_tris(false, true), -- mirror
+        ow.Hitbox:get_tris(true, false) -- occluding
+    )
 
     -- create flow graph
     if table.sizeof(self._flow_graph_nodes) < 2 then
