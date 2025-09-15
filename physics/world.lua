@@ -252,6 +252,7 @@ end
 --- @param ... b2.CollisionGroup
 --- @return number, number, number, number, b2.Body x, y, normal_x, normal_y
 function b2.World:query_ray(origin_x, origin_y, direction_x, direction_y, mask)
+    if mask == nil then mask = bit.bnot(0x0) end
     local min_fraction = math.huge
     local x_out, y_out, normal_x_out, normal_y_out
 

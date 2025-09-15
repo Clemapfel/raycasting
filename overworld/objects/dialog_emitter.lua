@@ -15,6 +15,7 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.DialogEmitter: object is not a point")
     self._stage = stage
     self._scene = scene
+    self._world = self._stage:get_physics_world()
 
     self._target_wrapper = object:get_object("target", true)
     self._target_instance = nil -- any
@@ -23,14 +24,43 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
     table.insert(self._target_contour, self._target_contour[1])
     table.insert(self._target_contour, self._target_contour[2])
 
-    require "common.player"
-    self._x, self._y = object.x, object.y
-    self._radius = rt.settings.overworld.dialog_emitter.interact_range_factor * rt.settings.player.radius
-    self._sensor = b2.Body(
-        self._stage:get_physics_world(), b2.BodyType.STATIC,
-        self._x, self._y,
-        b2.Circle(0, 0, self._radius)
-    )
+    local throw = function(msg)
+        rt.error("In ow.DialogEmitter: for object `" .. object:get_id() .."` : " .. msg)
+    end
+
+    do -- gen trigger area
+        require "common.player"
+        self._x, self._y = object.x, object.y
+
+        local radius = rt.settings.overworld.dialog_emitter.interact_range_factor * rt.settings.player.radius
+        self._radius = radius
+        self._bottom_x, self._bottom_y = self._world:query_ray(
+            self._x, self._y, 0, radius
+        )
+
+        if self._bottom_x == nil then
+            self._bottom_x = self._x
+            self._bottom_y = self._y + radius
+        end
+
+        local bottom_x, bottom_y = 0, self._bottom_y - self._y
+        local x_radius, y_radius = radius, self._bottom_y - self._y
+
+        -- generate sensor shape as half-circle
+        local vertices = {}
+        local n_vertices = 8
+        for i = 1, n_vertices do
+            local angle = (2 * math.pi) - ((i - 1) / (n_vertices - 1)) * (math.pi)
+            table.insert(vertices, bottom_x + math.cos(angle) * x_radius)
+            table.insert(vertices, bottom_y + math.sin(angle) * y_radius)
+        end
+
+        self._sensor = b2.Body(
+            self._world, b2.BodyType.STATIC,
+            self._x, self._y,
+            b2.Polygon(vertices)
+        )
+    end
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
@@ -71,10 +101,6 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
     end)
 
     do -- load dialog config from file
-        local throw = function(msg)
-            rt.error("In ow.DialogEmitter: for object `" .. object:get_id() .."` : " .. msg)
-        end
-
         local id = object:get_string("id", true)
 
         string.gsub(id, "^/|/$", "") -- remove prefix or postfix /
@@ -127,5 +153,10 @@ function ow.DialogEmitter:draw()
         self._dialog_id,
         self._x - 0.5 * w,
         self._y - rt.settings.margin_unit - h
+    )
+
+    love.graphics.line(
+        self._x, self._y,
+        self._bottom_x, self._bottom_y
     )
 end
