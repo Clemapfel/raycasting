@@ -14,7 +14,9 @@ function ow.BloodSplatter:instantiate(scene)
         _edges = {},
         _active_divisions = {},
         _world = nil,
-        _bloom_factor = 0
+        _bloom_factor = 0,
+        _offset_x = 0,
+        _offset_y = 0
     })
 end
 
@@ -49,8 +51,11 @@ end
 
 --- @brief
 function ow.BloodSplatter:add(x, y, radius, hue)
-    local r = 0.5
+    local r = 0.5 * radius
     local was_added = false
+    x = x - self._offset_x
+    y = y - self._offset_y
+
     self._world:queryShapesInArea(x - r, y - r, x + r, y + r, function(shape)
         local data = shape:getUserData()
         if data ~= nil then
@@ -102,12 +107,17 @@ function ow.BloodSplatter:draw()
     love.graphics.setLineWidth(3.5)
 
     local x, y, w, h = self._scene:get_camera():get_world_bounds():unpack()
+    x = x - self._offset_x
+    y = y - self._offset_y
     local visible = {}
     self._world:update(0)
     self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
         visible[shape] = true
         return true
     end)
+
+    love.graphics.push()
+    love.graphics.translate(self._offset_x, self._offset_y)
 
     local t = self._bloom_factor -- experimentally determined to compensate best
     for division in keys(self._active_divisions) do
@@ -122,6 +132,17 @@ function ow.BloodSplatter:draw()
             love.graphics.line(division.line)
         end
     end
+
+    --[[
+    if self._dbg then
+        love.graphics.setColor(1, 1, 1, 1)
+        for edge in values(self._edges) do
+            love.graphics.line(edge:getUserData().line)
+        end
+    end
+    ]]--
+
+    love.graphics.pop()
 end
 
 local _round = function(x)
@@ -237,6 +258,8 @@ function ow.BloodSplatter:create_contour(tris)
                 line = {x1, y1, x2, y2},
                 subdivisions = subdivisions
             })
+
+            table.insert(self._edges, edge)
         end
     end
 end
@@ -261,7 +284,7 @@ function ow.BloodSplatter:get_visible_segments(bounds)
     end
     ]]--
 
-    self._world:queryShapesInArea(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, function(shape)
+    self._world:queryShapesInArea(bounds.x - self._offset_x, bounds.y - self._offset_y, bounds.x + bounds.width, bounds.y + bounds.height, function(shape)
         local edge = shape:getUserData()
 
         local before = nil
@@ -292,4 +315,14 @@ function ow.BloodSplatter:get_visible_segments(bounds)
     end)
 
     return segments, colors, n
+end
+
+--- @brief
+function ow.BloodSplatter:set_offset(x, y)
+    self._offset_x, self._offset_y = x, y
+end
+
+--- @brief
+function ow.BloodSplatter:get_offset()
+    return self._offset_x, self._offset_y
 end
