@@ -338,8 +338,8 @@ end
 
 --- @brief
 --- @return Table<Body>
-function b2.World:query_aabb(x, y, width, height)
-    local shapes = self._native:getShapesInArea(x, y, x + width, y + height)
+function b2.World:query_aabb(x, y, width, height, mask)
+    local shapes = self._native:getShapesInArea(x, y, x + width, y + height, mask)
     local out = {}
     local seen = {}
     for shape in values(shapes) do

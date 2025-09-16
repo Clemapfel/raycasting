@@ -1,73 +1,15 @@
 require "common.path"
 
 rt.settings.overworld.moving_hitbox_path = {
-    rail_inner_radius = 3,
-    rail_outer_radius = 7,
-    attachment_outer_radius = 12,
-    attachment_inner_radius = 8,
+    rail_inner_radius = 5,
+    rail_outer_radius = 8.5,
+    attachment_outer_radius = 10,
+    attachment_inner_radius = 5,
     contour_line_width = 1.5
 }
 
 --- @class ow.MovingHitboxPath
 ow.MovingHitboxPath = meta.class("MovingHitboxPath")
-
---[[
-  stroke_polyline_contour.lua (y-down coordinate system)
-
-  Computes the contour (polygon path) of the union of:
-    - a rectangle of width r swept along each polyline segment, and
-    - a circle of radius r at each vertex.
-  Equivalent to a round-join, round-cap stroke outline with half-width r.
-
-  This version is adapted for screen-like coordinates where the Y axis grows downward.
-  Key adaptations vs. Cartesian y-up:
-    - "Left" normal is (uy, -ux), "Right" normal is (-uy, ux).
-    - Left/right turn tests are inverted (because angles increase CCW in math space,
-      which is visually CW when Y is down).
-    - End caps sweep by +pi (CCW in math) to connect left->right and right->left.
-
-  Input:
-    - flat_points: flat array of numbers {x1, y1, x2, y2, ...}
-    - r: positive number (radius)
-    - opts: optional table:
-        - max_angle_step: maximum angle step in radians for arc sampling (default 0.20)
-        - epsilon: small tolerance (default 1e-9)
-
-  Output:
-    - flat array of numbers representing the outline polygon {x1, y1, x2, y2, ...}
-      The polygon is not explicitly closed (first != last).
-
-  Author: IDE Programming Assistant
-]]--
-
---[[
-  stroke_polyline_contour.lua (y-down coordinate system)
-
-  Computes the contour (polygon path) of the union of:
-    - a rectangle of width r swept along each polyline segment, and
-    - a circle of radius r at each vertex.
-  Equivalent to a round-join, round-cap stroke outline with half-width r.
-
-  This version is adapted for screen-like coordinates where the Y axis grows downward.
-  Key adaptations vs. Cartesian y-up:
-    - "Left" normal is (uy, -ux), "Right" normal is (-uy, ux).
-    - Left/right turn tests are inverted (because angles increase CCW in math space,
-      which is visually CW when Y is down).
-    - End caps sweep by +pi (CCW in math) to connect left->right and right->left.
-
-  Input:
-    - flat_points: flat array of numbers {x1, y1, x2, y2, ...}
-    - r: positive number (radius)
-    - opts: optional table:
-        - max_angle_step: maximum angle step in radians for arc sampling (default 0.20)
-        - epsilon: small tolerance (default 1e-9)
-
-  Output:
-    - flat array of numbers representing the outline polygon {x1, y1, x2, y2, ...}
-      The polygon is not explicitly closed (first != last).
-
-  Author: IDE Programming Assistant
-]]--
 
 local function normalize_angle_signed(a)
     -- Normalize to (-pi, pi]

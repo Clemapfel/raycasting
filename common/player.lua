@@ -1060,27 +1060,80 @@ function rt.Player:update(delta)
         self._bubble_body:apply_force(0, bubble_gravity)
     end
 
-    do
-        -- safeguard against springs catching
-        local bodies, joints, offset_x, offset_y
-        if self._is_bubble then
-            bodies, joints = self._bubble_spring_bodies, self._bubble_spring_joints
-            offset_x, offset_y = self._bubble_spring_body_offsets_x, self._bubble_spring_body_offsets_y
-        else
-            bodies, joints = self._spring_bodies, self._spring_joints
-            offset_x, offset_y = self._spring_body_offsets_x, self._spring_body_offsets_y
+    do -- detect being squished by moving objects
+        local at_least_one_moving = false
+        local shapes = {} -- Set<b2.Body>
+        for body in range(
+            self._bottom_wall_body,
+            self._top_wall_body,
+            self._right_wall_body,
+            self._left_wall_body
+        ) do
+            if not body:get_is_sensor() then
+                shapes[body] = true
+                if body:get_type() ~= b2.BodyType.STATIC and math.magnitude(body:get_velocity()) > math.eps then
+                    at_least_one_moving = true
+                    break
+                end
+            end
         end
 
-        if not self._is_ghost then
+        -- necessary but not sufficient: at least one colliding body has to be moving
+        if at_least_one_moving then
+            local center_body, spring_bodies, xs, ys
+            if not self._is_bubble then
+                center_body = self._body
+                spring_bodies = self._spring_bodies
+                xs = self._spring_body_offsets_x
+                ys = self._spring_body_offsets_y
+            else
+                center_body = self._bubble_body
+                spring_bodies = self._bubble_spring_bodies
+                xs = self._bubble_spring_body_offsets_x
+                ys = self._bubble_spring_body_offsets_y
+            end
+
+            -- collect shapes around center, raycast to unreliable
+            local r = self:get_radius()
+            local center_x, center_y = center_body:get_position()
+            local bodies = self._world:query_aabb(
+                center_x - radius, center_y - radius, 2 * radius, 2 * radius,
+                bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
+            )
+
+            local to_remove = {}
             for i, body in ipairs(bodies) do
-                local joint = joints[i]
-                local over_threshold = joint:get_distance() > self:get_radius()
-                body:set_is_sensor(over_threshold)
-                joint:set_enabled(not over_threshold)
-                if over_threshold then
-                    local px, py = self._body:get_position()
-                    body:set_velocity(0, 0)
-                    body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
+                if body:get_is_sensor() == true or body:has_tag("player") then
+                    table.insert(to_remove, i)
+                end
+            end
+            table.sort(to_remove, function(a, b) return a > b end)
+            for i in values(to_remove) do
+                table.remove(bodies, i)
+            end
+
+            local center_squished = false
+            for body in values(bodies) do
+                if not body:get_is_sensor() and body:test_point(center_body:get_position()) == true then
+                    center_squished = true
+                    break
+                end
+            end
+
+            if center_squished then
+                local n_squished, max_n_squished = 0, #spring_bodies
+                for spring_body in values(spring_bodies) do
+                    for body in values(bodies) do
+                        if body:test_point(spring_body:get_position()) == true then
+                            n_squished = n_squished + 1
+                            break
+                        end
+                    end
+                end
+
+                dbg(n_squished, max_n_squished)
+                if n_squished == max_n_squished then
+                    self._stage:get_active_checkpoint():spawn(true) -- kill
                 end
             end
         end

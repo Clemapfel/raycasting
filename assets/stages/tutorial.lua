@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 319.658,
-          y = -519.474,
+          x = -1982.18,
+          y = 864.429,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4810,8 +4810,8 @@ return {
           name = "",
           type = "MovingHitboxTarget",
           shape = "point",
-          x = -2164.2,
-          y = 896.379,
+          x = -2128,
+          y = 656,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4825,14 +4825,14 @@ return {
           name = "",
           type = "MovingHitboxTarget",
           shape = "point",
-          x = -1708.08,
-          y = 894.59,
+          x = -2128,
+          y = 960,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 854 }
+            ["target"] = { id = 0 }
           }
         },
         {
@@ -4867,31 +4867,24 @@ return {
           name = "",
           type = "MovingHitbox",
           shape = "polygon",
-          x = -2198.86,
-          y = 839.748,
+          x = -2145.75,
+          y = 619.487,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = -23.1467, y = -26.3328 },
-            { x = -60.1556, y = -22.629 },
-            { x = -75, y = 15 },
-            { x = -54.9802, y = 43.6693 },
-            { x = -19, y = 62 },
-            { x = -15.501, y = 82.0499 },
-            { x = -1.06208, y = 98.4034 },
-            { x = 32.4311, y = 108.841 },
-            { x = 62, y = 114 },
-            { x = 91.4862, y = 86.0414 },
-            { x = 112.262, y = 43.1 },
-            { x = 120.419, y = -9.33394 },
-            { x = 105.786, y = -40.8583 },
-            { x = 83.7481, y = -49.6432 },
-            { x = 61, y = -38 },
-            { x = 52, y = -19 },
-            { x = 27, y = 9 }
+            { x = 118.86, y = 40.252 },
+            { x = 70.86, y = 88.252 },
+            { x = 17.3249, y = 72.3727 },
+            { x = -41.5662, y = 87.4709 },
+            { x = -62.2526, y = 36.5129 },
+            { x = -87.2229, y = 116.513 },
+            { x = -110.253, y = 36.5129 },
+            { x = -110.253, y = -11.4871 },
+            { x = -41.5662, y = -8.52907 },
+            { x = 70.86, y = -7.748 },
+            { x = 120.419, y = -9.33394 }
           },
           properties = {
             ["slippery"] = false,
@@ -4919,34 +4912,6 @@ return {
           properties = {
             ["slippery"] = true
           }
-        },
-        {
-          id = 854,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -1870.56,
-          y = 602.628,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 855 }
-          }
-        },
-        {
-          id = 855,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -1776.17,
-          y = 431.959,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         },
         {
           id = 860,
