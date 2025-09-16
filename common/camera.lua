@@ -399,9 +399,14 @@ function rt.Camera:_update_bounds()
 
     local w, h = love.graphics.getDimensions()
     local scale = self:get_final_scale()
+    local world_width = w / scale
+    local world_height = h / scale
+
     self._world_bounds:reformat(
-        self._current_x - 0.5 * w, self._current_y - 0.5 * h,
-        w / scale,  h / scale
+        self._current_x - 0.5 * world_width,
+        self._current_y - 0.5 * world_height,
+        world_width,
+        world_height
     )
 
     self._bounds_needs_update = false
