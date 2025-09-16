@@ -78,6 +78,7 @@ function ow.Stage:instantiate(scene, id)
 
     ow.Hitbox:reinitialize()
     ow.BoostField:reinitialize()
+    ow.Sprite:reinitialize()
 
     -- static hitbox normal_map
 
@@ -207,6 +208,26 @@ function ow.Stage:instantiate(scene, id)
         end
     end
 
+    -- add sprites, batched by priority
+    for priority in values(ow.Sprite.list_all_priorites) do
+        local entry = render_priority_to_entry[priority]
+        if entry == nil then
+            entry = {
+                priority = priority,
+                objects = {}
+            }
+
+            render_priority_to_entry[priority] = entry
+            if priority <= 0 then
+                table.insert(self._below_player, entry)
+            else
+                table.insert(self._above_player, entry)
+            end
+        end
+
+        -- no insert, sprites invoked automatically
+    end
+
     -- check for PlayerSpawn
     if self._active_checkpoint == nil then
         rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `" .. self._id .. "`")
@@ -311,6 +332,8 @@ function ow.Stage:draw_below_player()
         for object in values(entry.objects) do
             object:draw(entry.priority)
         end
+
+        ow.Sprite.draw_all(entry.priority)
     end
 
     self._blood_splatter:draw()
@@ -334,6 +357,8 @@ function ow.Stage:draw_above_player()
         for object in values(entry.objects) do
             object:draw(entry.priority)
         end
+
+        ow.Sprite.draw_all(entry.priority)
     end
 end
 

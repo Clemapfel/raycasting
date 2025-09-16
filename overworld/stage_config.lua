@@ -54,7 +54,7 @@ function ow.StageConfig:instantiate(stage_id)
     -- init tilesets
 
     self._tilesets = {}
-    self._gid_to_tileset_id = {}
+    self._gid_to_tileset = {}
 
     for entry in values(_get(self._config, "tilesets")) do
         local name = _get(entry, "name")
@@ -71,7 +71,7 @@ function ow.StageConfig:instantiate(stage_id)
         })
 
         for id in values(tileset:get_ids()) do
-            self._gid_to_tileset_id[id + id_offset] = {
+            self._gid_to_tileset[id + id_offset] = {
                 id = id,
                 tileset = tileset
             }
@@ -123,13 +123,20 @@ function ow.StageConfig:instantiate(stage_id)
                     local sprite = object
 
                     -- if sprite, set texture
-                    local tile_entry = self._gid_to_tileset_id[sprite.gid]
-                    sprite.texture = tile_entry.tileset:get_texture()
-                    local tx, ty, tw, th = tile_entry.tileset:get_tile_texture_bounds(tile_entry.id)
+                    local tileset_entry = self._gid_to_tileset[sprite.gid]
+                    sprite.texture = tileset_entry.tileset:get_texture()
+                    local atlas_w, atlas_h = sprite.texture:get_size()
+                    local tx, ty, tw, th = tileset_entry.tileset:get_tile_texture_bounds(tileset_entry.id)
                     sprite.texture_x, sprite.texture_y, sprite.texture_width, sprite.texture_height = tx, ty, tw, th
 
+                    sprite.quad = love.graphics.newQuad(
+                        tx * atlas_w, ty * atlas_h,
+                        tw * atlas_w, th * atlas_h,
+                        atlas_w, atlas_h
+                    )
+
                     -- also collect objects of sprite tile, inherit sprite transform
-                    for sprite_object in values(tile_entry.tileset:get_tile_objects(tile_entry.id)) do
+                    for sprite_object in values(tileset_entry.tileset:get_tile_objects(tileset_entry.id)) do
                         sprite_object.offset_x = sprite.x
                         sprite_object.offset_y = sprite.y
                         sprite_object.rotation_origin_x = sprite.origin_x
@@ -172,7 +179,7 @@ function ow.StageConfig:instantiate(stage_id)
                             assert(gid_matrix:get(x + x_offset, y + y_offset) == nil)
                             gid_matrix:set(x + x_offset, y + y_offset, gid)
 
-                            local tile_entry = self._gid_to_tileset_id[gid]
+                            local tile_entry = self._gid_to_tileset[gid]
                             local is_solid = tile_entry.tileset:get_tile_property(tile_entry.id, is_solid_property_name) == true
                             if is_solid then
                                 is_solid_matrix:set(x + x_offset, y + y_offset, true)
@@ -198,7 +205,7 @@ function ow.StageConfig:instantiate(stage_id)
                 for col_i = tile_min_x, tile_max_x do
                     local gid = gid_matrix:get(col_i, row_i)
                     if gid ~= nil then
-                        local tile_entry = self._gid_to_tileset_id[gid]
+                        local tile_entry = self._gid_to_tileset[gid]
                         assert(tile_entry ~= nil)
 
                         local tileset = tile_entry.tileset

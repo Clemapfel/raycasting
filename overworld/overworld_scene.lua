@@ -279,7 +279,7 @@ function ow.OverworldScene:instantiate(state)
         if self._camera_mode ~= ow.CameraMode.MANUAL and love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl") then
             local current = self._camera:get_scale()
             current = current + dy * rt.settings.overworld_scene.camera_scale_velocity
-            self._camera:set_scale(math.clamp(current, 1 / 3, 3))
+            self._camera:set_scale(math.clamp(current, 1 / 100, 4))
         end
     end)
 

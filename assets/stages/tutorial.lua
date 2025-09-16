@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -2329.84,
-          y = 819.073,
+          x = 319.658,
+          y = -519.474,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4806,49 +4806,6 @@ return {
           properties = {}
         },
         {
-          id = 829,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -2533.73,
-          y = 39.3164,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 831 }
-          }
-        },
-        {
-          id = 830,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -2685.91,
-          y = 248.844,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 829 }
-          }
-        },
-        {
-          id = 831,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -2699.15,
-          y = -84.1946,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 834,
           name = "",
           type = "MovingHitboxTarget",
@@ -4876,32 +4833,6 @@ return {
           visible = true,
           properties = {
             ["target"] = { id = 854 }
-          }
-        },
-        {
-          id = 836,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -2705.39,
-          y = 181.317,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -20.2003, y = 47.9758 },
-            { x = -66.4927, y = 7.57512 },
-            { x = -91.7431, y = 77.4346 },
-            { x = 85.0097, y = 123.727 },
-            { x = 12.6252, y = 90.9014 },
-            { x = 121.202, y = 59.7593 },
-            { x = 52.1842, y = 47.9758 },
-            { x = 12.6252, y = 65.651 }
-          },
-          properties = {
-            ["target"] = { id = 830 }
           }
         },
         {
@@ -5022,8 +4953,8 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 240,
-          y = -1120,
+          x = -252.18,
+          y = -876.21,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5054,8 +4985,8 @@ return {
           name = "",
           type = "DialogEmitter",
           shape = "point",
-          x = 170.657,
-          y = -560.731,
+          x = 83.8431,
+          y = -501.89,
           width = 0,
           height = 0,
           rotation = 0,
