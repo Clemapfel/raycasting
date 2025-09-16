@@ -397,8 +397,11 @@ function ow.Checkpoint:_set_state(state)
     if self._state == _STATE_STAGE_ENTRY then
         -- on entry, instantly spawn player in position
 
-        local _, screen_h = camera:world_xy_to_screen_xy(0, self._bottom_y)
-        local spawn_y = self._bottom_y - screen_h - 2 * player:get_radius() -- always out of bounds, safe because ghost
+        local before = camera:get_apply_bounds()
+        camera:set_apply_bounds(false)
+        local screen_h = camera:get_world_bounds().height
+        local spawn_y = self._bottom_y - screen_h - 4 * player:get_radius() -- always out of bounds, safe because ghost
+        camera:get_apply_bounds()
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         camera:set_position(self._bottom_x, self._bottom_y)
