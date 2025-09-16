@@ -51,7 +51,7 @@ end
 
 --- @brief
 function ow.BloodSplatter:add(x, y, radius, hue)
-    local r = 0.5 * radius
+    local r = radius
     local was_added = false
     x = x - self._offset_x
     y = y - self._offset_y
@@ -61,7 +61,7 @@ function ow.BloodSplatter:add(x, y, radius, hue)
         if data ~= nil then
             local x1, y1, x2, y2 = table.unpack(data.line)
             local cx, cy = x, y
-            local ix1, iy1, ix2, iy2 = _overlap(x1, y1, x2, y2, cx, cy, radius)
+            local ix1, iy1, ix2, iy2 = _overlap(x1, y1, x2, y2, cx, cy, r)
 
             -- get left and right bounds as fraction in [0, 1]
             local distance_1 = math.distance(ix1, iy1, x1, y1)
