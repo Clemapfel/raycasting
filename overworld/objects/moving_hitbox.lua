@@ -36,6 +36,13 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         self._is_active = true
     end)
 
+    -- lighting
+    self._body:add_tag("segment_light_source")
+    self._body:set_user_data(self)
+    self.get_segment_light_sources = function(self)
+        return self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
+    end
+
     -- match tags from ow.Hitbox
     for property in range(
         "slippery",
@@ -134,13 +141,24 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     if self._is_slippery then
         self._mirror = ow.Mirror(
             self._scene,
-            function() return self._tris end, -- mirror tris
             function() self._mesh:draw() end, -- mirror mask
-            nil, -- occluding tris
             nil  -- occluding mask
         )
 
-        self._mirror:create_contour()
+        self._mirror:create_contour(
+            function() return self._tris end, -- mirror tris
+            nil -- occluding tris
+        )
+    else
+        self._blood_splatter = ow.BloodSplatter(
+            self._scene
+        )
+
+        self._blood_splatter:create_contour(
+            self._tris
+        )
+
+        self._blood_splatter._dbg = true -- TODO
     end
 
     self._rail = ow.MovingHitboxPath(self._path)
@@ -150,7 +168,18 @@ local dt = math.eps * 10e2
 
 function ow.MovingHitbox:update(delta)
     self._normal_map:update(delta)
-    if self._mirror ~= nil then self._mirror:update(delta) end
+    if self._mirror ~= nil then
+        self._mirror:update(delta)
+        self._mirror:set_offset(self._body:get_position())
+    else
+        self._blood_splatter:set_offset(self._body:get_position())
+        local player = self._scene:get_player()
+        if player:get_is_colliding_with(self._body) then
+            local nx, ny, cx, cy = player:get_collision_normal(self._body)
+            local r = player:get_radius() / 2
+            self._blood_splatter:add(cx, cy, r, player:get_hue())
+        end
+    end
 
     --if not self._stage:get_is_body_visible(self._body) then return end
 
@@ -261,10 +290,11 @@ function ow.MovingHitbox:draw(priority)
             })
         end
 
+        rt.graphics.set_stencil_mode(nil)
+
         love.graphics.pop()
 
         if self._mirror ~= nil then
-            self._mirror:set_offset(self._body:get_position())
             self._mirror:draw()
 
             --[[
@@ -280,6 +310,8 @@ function ow.MovingHitbox:draw(priority)
                 )
             end
             ]]--
+        elseif self._blood_splatter ~= nil then
+            self._blood_splatter:draw()
         end
     elseif priority == _front_priority then
         self._rail:draw_attachment(self._body:get_position())
