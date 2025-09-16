@@ -143,7 +143,6 @@ end
 --- @brief
 function ow.DialogEmitter:update(delta)
     self._selection_opacity_motion:update(delta)
-    dbg(self._selection_opacity_motion:get_value())
 end
 
 --- @brief
