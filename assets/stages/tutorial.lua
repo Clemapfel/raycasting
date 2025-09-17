@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 888,
+  nextobjectid = 891,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -2722.53,
-          y = 2119.08,
+          x = -2633.05,
+          y = 2122.8,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5024,7 +5024,7 @@ return {
         {
           id = 870,
           name = "",
-          type = "",
+          type = "AcceleratorSurface",
           shape = "polygon",
           x = -4362.34,
           y = 2162.49,
@@ -5035,9 +5035,9 @@ return {
           polygon = {
             { x = -1013.66, y = 253.514 },
             { x = 660.67, y = 253.514 },
-            { x = 1472, y = 256 },
-            { x = 1466.34, y = -18.4863 },
-            { x = 1610.34, y = -18.4863 },
+            { x = 1664, y = 256 },
+            { x = 1658.34, y = -18.4863 },
+            { x = 1802.34, y = -18.4863 },
             { x = 2122.34, y = 253.514 },
             { x = 2266.34, y = 253.514 },
             { x = 2266.34, y = -82.4863 },
@@ -5061,7 +5061,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 0 }
+            ["target"] = { id = 888 }
           }
         },
         {
@@ -5083,6 +5083,8 @@ return {
             { x = 1361.04, y = 46.5606 }
           },
           properties = {
+            ["easing"] = "LINEAR",
+            ["should_loop"] = true,
             ["target"] = { id = 876 },
             ["velocity"] = 1000
           }
@@ -5103,166 +5105,48 @@ return {
           }
         },
         {
-          id = 879,
+          id = 888,
           name = "",
           type = "MovingHitboxTarget",
           shape = "point",
-          x = -2798.96,
-          y = 2206.56,
+          x = -3212.44,
+          y = 2001.88,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 889 }
+          }
+        },
+        {
+          id = 889,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -2800,
+          y = 1840,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 890 }
+          }
+        },
+        {
+          id = 890,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -3851.47,
+          y = 1793.06,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
             ["target"] = { id = 0 }
-          }
-        },
-        {
-          id = 880,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -4976,
-          y = 2144,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 1089.04, y = 46.5606 },
-            { x = 1089.04, y = 78.5606 },
-            { x = 1286.05, y = 78.5606 },
-            { x = 1361.04, y = 78.5606 },
-            { x = 1361.04, y = 46.5606 }
-          },
-          properties = {
-            ["target"] = { id = 881 },
-            ["velocity"] = 500
-          }
-        },
-        {
-          id = 881,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -3758.96,
-          y = 2206.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 879 }
-          }
-        },
-        {
-          id = 882,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -2798.96,
-          y = 2046.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 0 },
-            ["velocity"] = 50
-          }
-        },
-        {
-          id = 883,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -4976,
-          y = 1984,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 1089.04, y = 46.5606 },
-            { x = 1089.04, y = 78.5606 },
-            { x = 1286.05, y = 78.5606 },
-            { x = 1361.04, y = 78.5606 },
-            { x = 1361.04, y = 46.5606 }
-          },
-          properties = {
-            ["target"] = { id = 884 },
-            ["velocity"] = 250
-          }
-        },
-        {
-          id = 884,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -3758.96,
-          y = 2046.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 882 },
-            ["velocity"] = 50
-          }
-        },
-        {
-          id = 885,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -2800.98,
-          y = 1875.68,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 0 },
-            ["velocity"] = 10
-          }
-        },
-        {
-          id = 886,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -4978.02,
-          y = 1813.12,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 1089.04, y = 46.5606 },
-            { x = 1089.04, y = 78.5606 },
-            { x = 1286.05, y = 78.5606 },
-            { x = 1361.04, y = 78.5606 },
-            { x = 1361.04, y = 46.5606 }
-          },
-          properties = {
-            ["target"] = { id = 887 },
-            ["velocity"] = 100
-          }
-        },
-        {
-          id = 887,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -3760.98,
-          y = 1875.68,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 885 },
-            ["velocity"] = 10
           }
         }
       }

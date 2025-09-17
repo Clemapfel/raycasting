@@ -201,6 +201,10 @@ function rt.Player:instantiate()
         _velocity_multiplier_x = 1,
         _velocity_multiplier_y = 1,
 
+        _platform_inheritance_velocity_x = 0,
+        _platform_inheritance_velocity_y = 0,
+        _platform_inheritance_elapsed = math.huge,
+
         _last_bubble_force_x = 0,
         _last_bubble_force_y = 0,
 
@@ -944,6 +948,9 @@ function rt.Player:update(delta)
             end
 
             -- inherit platform velocity
+            local is_touching_platform = false
+            local platform_inheritance_vx = 0
+            local platform_inheritance_vy = 0
             local _inherit_velocity = function(body, nx, ny)
                 if body == nil
                     or body:get_type() == b2.BodyType.STATIC
@@ -951,6 +958,8 @@ function rt.Player:update(delta)
                 then
                     return
                 end
+
+                is_touching_platform = true
 
                 local player_vx, player_vy = self._body:get_velocity()
                 local platform_vx, platform_vy = body:get_velocity()
@@ -968,9 +977,13 @@ function rt.Player:update(delta)
                 local tangent_vx = rel_vx - normal_vx
                 local tangent_vy = rel_vy - normal_vy
 
-                -- Apply friction to tangential component
-                local easing = rt.InterpolationFunctions.LINEAR
-                local friction_coefficient = math.mix(0, 1, easing(1))
+                local platform_nvx, platform_nvy = math.normalize(platform_vx, player_vy)
+                local player_nvx, player_nvy = math.normalize(player_vx, player_vy)
+
+                local weight = math.dot(platform_nvx, platform_nvy, player_nvx, player_nvy)
+                local max_friction_coefficient = _settings.max_platform_friction_coefficient
+
+                local friction_coefficient = 1
 
                 local tangent_magnitude = math.magnitude(tangent_vx, tangent_vy)
 
@@ -996,8 +1009,13 @@ function rt.Player:update(delta)
                 local final_rel_vy = normal_vy + tangent_vy
 
                 -- Add platform velocity back to get final player velocity
+                local weight = math.clamp((math.dot(platform_nvx, platform_nvy, player_nvy, player_nvy) + 1) / 2, 0, 1)
+
                 next_velocity_x = final_rel_vx + platform_vx
-                --next_velocity_y = final_rel_vy + platform_vy
+                next_velocity_y = final_rel_vy + platform_vy
+
+                platform_inheritance_vx = platform_inheritance_vx + platform_vx * weight
+                platform_inheritance_vy = platform_inheritance_vy + platform_vy * weight
             end
 
             _inherit_velocity(self._left_wall_body, left_nx, left_ny)
@@ -1006,6 +1024,28 @@ function rt.Player:update(delta)
             _inherit_velocity(self._bottom_right_wall_body, bottom_right_nx, bottom_right_ny)
             _inherit_velocity(self._right_wall_body, right_nx, right_ny)
             _inherit_velocity(self._top_wall_body, top_nx, top_ny)
+
+            if not self:get_is_grounded() then
+                next_velocity_x = next_velocity_x + self._platform_inheritance_velocity_x
+                next_velocity_y = next_velocity_y + self._platform_inheritance_velocity_y
+            end
+
+            -- when going from platform to air, remember platform velocity
+            if is_touching_platform == true then
+                self._platform_inheritance_velocity_x = platform_inheritance_vx
+                self._platform_inheritance_velocity_y = platform_inheritance_vy
+                self._platform_inheritance_elapsed = 0
+            else
+                local decay = _settings.platform_velocity_inheritance_decay
+                local inheritance_t = math.min(1, self._platform_inheritance_elapsed / _settings.platform_velocity_inheritance_decay_duration)
+                self._platform_inheritance_velocity_x = self._platform_inheritance_velocity_x * decay
+                self._platform_inheritance_velocity_y = self._platform_inheritance_velocity_y * decay
+            end
+            self._is_touching_platform = is_touching_platform
+
+            if is_touching_platform and self._down_button_is_down then
+                next_velocity_y = next_velocity_y - platform_inheritance_vy
+            end
 
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
