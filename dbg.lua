@@ -1,5 +1,10 @@
 return {
-    moving_platform_horizontal_inheritance = 0.12,
-    moving_platform_vertical_down_inheritance = 0,
-    moving_platform_vertical_up_inheritance = 0
+    platform_velocity_inheritance_factor = 1
 }
+
+--[[
+1 if standing still
+0 moving opposite
+
+
+]]--

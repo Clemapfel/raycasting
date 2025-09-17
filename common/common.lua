@@ -167,6 +167,20 @@ function math.clamp(x, lower_bound, upper_bound)
     return x
 end
 
+-- Calculate cosine similarity between two 2D vectors
+-- Takes 4 numbers: x1, y1, x2, y2 representing vector1(x1, y1) and vector2(x2, y2)
+-- Returns a value between -1 and 1, where 1 means same direction, -1 means opposite direction
+function math.cosine_similarity(x1, y1, x2, y2)
+    local magnitude_a = math.magnitude(x1, y1)
+    local magnitude_b = math.magnitude(x2, y2)
+
+    if magnitude_a == 0 or magnitude_b == 0 then -- Undefined similarity for zero vectors
+    end
+
+    local dot_product = math.dot(x1, y1, x2, y2)
+    return dot_product / (magnitude_a * magnitude_b)
+end
+
 --- @brief
 function math.project(x, target_range_lower, target_range_upper, original_range_lower, original_range_upper)
     if original_range_lower == nil then original_range_lower = 0 end

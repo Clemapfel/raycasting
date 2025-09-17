@@ -281,12 +281,15 @@ function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, ma
         direction_x, direction_y = math.normalize(direction_x, direction_y)
     end
 
-    local shape, x, y, nx, ny, fraction = self._native:rayCastAny(
+    local success, shape, x, y, nx, ny, fraction = pcall(self._native.rayCastAny,
+        self._native,
         origin_x, origin_y,
         origin_x + direction_x,
         origin_y + direction_y,
         mask
     )
+
+    if not success then return nil end
 
     if shape ~= nil then shape = shape:getBody():getUserData() end
     return x, y, nx, ny, shape

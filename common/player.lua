@@ -665,6 +665,7 @@ function rt.Player:update(delta)
         local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
 
         -- update velocity
+        local acceleration_t
         do
             -- horizontal movement
             local magnitude
@@ -942,6 +943,70 @@ function rt.Player:update(delta)
                 end
             end
 
+            -- inherit platform velocity
+            local _inherit_velocity = function(body, nx, ny)
+                if body == nil
+                    or body:get_type() == b2.BodyType.STATIC
+                    or math.magnitude(body:get_velocity()) < math.eps
+                then
+                    return
+                end
+
+                local player_vx, player_vy = self._body:get_velocity()
+                local platform_vx, platform_vy = body:get_velocity()
+
+                -- Calculate relative velocity between player and platform
+                local rel_vx = player_vx - platform_vx
+                local rel_vy = player_vy - platform_vy
+
+                -- Calculate normal component of relative velocity
+                local normal_dot = math.dot(rel_vx, rel_vy, nx, ny)
+                local normal_vx = normal_dot * nx
+                local normal_vy = normal_dot * ny
+
+                -- Calculate tangential component of relative velocity
+                local tangent_vx = rel_vx - normal_vx
+                local tangent_vy = rel_vy - normal_vy
+
+                -- Apply friction to tangential component
+                local easing = rt.InterpolationFunctions.LINEAR
+                local friction_coefficient = math.mix(0, 1, easing(1))
+
+                local tangent_magnitude = math.magnitude(tangent_vx, tangent_vy)
+
+                if tangent_magnitude > math.eps then
+                    -- Normalize tangent vector
+                    local tangent_unit_x = tangent_vx / tangent_magnitude
+                    local tangent_unit_y = tangent_vy / tangent_magnitude
+
+                    -- Apply friction force (reduce tangential velocity)
+                    local friction_force = friction_coefficient * tangent_magnitude
+                    tangent_vx = tangent_vx - friction_force * tangent_unit_x
+                    tangent_vy = tangent_vy - friction_force * tangent_unit_y
+
+                    -- Ensure friction doesn't reverse direction
+                    if math.magnitude(tangent_vx, tangent_vy) > tangent_magnitude then
+                        tangent_vx = 0
+                        tangent_vy = 0
+                    end
+                end
+
+                -- Recombine normal and friction-modified tangential components
+                local final_rel_vx = normal_vx + tangent_vx
+                local final_rel_vy = normal_vy + tangent_vy
+
+                -- Add platform velocity back to get final player velocity
+                next_velocity_x = final_rel_vx + platform_vx
+                --next_velocity_y = final_rel_vy + platform_vy
+            end
+
+            _inherit_velocity(self._left_wall_body, left_nx, left_ny)
+            _inherit_velocity(self._bottom_left_wall_body, bottom_left_nx, bottom_left_ny)
+            _inherit_velocity(self._bottom_wall_body, bottom_nx, bottom_ny)
+            _inherit_velocity(self._bottom_right_wall_body, bottom_right_nx, bottom_right_ny)
+            _inherit_velocity(self._right_wall_body, right_nx, right_ny)
+            _inherit_velocity(self._top_wall_body, top_nx, top_ny)
+
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
@@ -1062,19 +1127,17 @@ function rt.Player:update(delta)
 
     do -- detect being squished by moving objects
         local at_least_one_moving = false
-        local shapes = {} -- Set<b2.Body>
         for body in range(
             self._bottom_wall_body,
+            self._bottom_left_wall_body,
+            self._bottom_right_wall_body,
             self._top_wall_body,
             self._right_wall_body,
             self._left_wall_body
         ) do
-            if not body:get_is_sensor() then
-                shapes[body] = true
-                if body:get_type() ~= b2.BodyType.STATIC and math.magnitude(body:get_velocity()) > math.eps then
-                    at_least_one_moving = true
-                    break
-                end
+            if not body:get_is_sensor() and body:get_type() ~= b2.BodyType.STATIC and math.magnitude(body:get_velocity()) > math.eps then
+                at_least_one_moving = true
+                break
             end
         end
 
@@ -1093,25 +1156,17 @@ function rt.Player:update(delta)
                 ys = self._bubble_spring_body_offsets_y
             end
 
+            local not_player_mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
+
             -- collect shapes around center, raycast to unreliable
             local r = self:get_radius()
             local center_x, center_y = center_body:get_position()
             local bodies = self._world:query_aabb(
                 center_x - radius, center_y - radius, 2 * radius, 2 * radius,
-                bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
+                not_player_mask
             )
 
-            local to_remove = {}
-            for i, body in ipairs(bodies) do
-                if body:get_is_sensor() == true or body:has_tag("player") then
-                    table.insert(to_remove, i)
-                end
-            end
-            table.sort(to_remove, function(a, b) return a > b end)
-            for i in values(to_remove) do
-                table.remove(bodies, i)
-            end
-
+            -- if all bodies including center are inside another shape, is squished
             local center_squished = false
             for body in values(bodies) do
                 if not body:get_is_sensor() and body:test_point(center_body:get_position()) == true then
@@ -1121,18 +1176,17 @@ function rt.Player:update(delta)
             end
 
             if center_squished then
-                local n_squished, max_n_squished = 0, #spring_bodies
+                local is_squished = true
                 for spring_body in values(spring_bodies) do
                     for body in values(bodies) do
-                        if body:test_point(spring_body:get_position()) == true then
-                            n_squished = n_squished + 1
+                        if body:test_point(spring_body:get_position()) ~= true then
+                            is_squished = false
                             break
                         end
                     end
                 end
 
-                dbg(n_squished, max_n_squished)
-                if n_squished == max_n_squished then
+                if is_squished then
                     self._stage:get_active_checkpoint():spawn(true) -- kill
                 end
             end
