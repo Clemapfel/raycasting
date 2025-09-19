@@ -1043,10 +1043,6 @@ function rt.Player:update(delta)
             end
             self._is_touching_platform = is_touching_platform
 
-            if is_touching_platform and self._down_button_is_down then
-                next_velocity_y = next_velocity_y - platform_inheritance_vy
-            end
-
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 

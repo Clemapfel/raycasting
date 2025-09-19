@@ -13,13 +13,16 @@ config:
 --- @class rt.MusicManager
 rt.MusicManager = meta.class("MusicManager")
 
+local _a = true
+local _b = false
+
 --- @brie
 function rt.MusicManager:instantiate()
     self._id_to_config = {}
 
     self._active_source_a = nil -- love.QueableSource
     self._active_source_b = nil
-    self._active_source_a_or_b = true
+    self._active_source_a_or_b = _a
 
     self._sources = {} -- QueableSourceBuffer
 
@@ -129,6 +132,34 @@ function rt.MusicManager:play(id)
     local sample_rate = entry.decoder:getSampleRate()
     local bit_depth = entry.decoder:getBitDepth()
     local channel_count = entry.decoder:getChannelCount()
+
+    -- use cached source if available
+    local sample_rate_entry = self._sources[sample_rate]
+    if sample_rate_entry == nil then
+        sample_rate_entry = {}
+        self._sources[sample_rate] = sample_rate_entry
+    end
+
+    local bit_depth_entry = sample_rate_entry[bit_depth]
+    if bit_depth_entry == nil then
+        bit_depth_entry = meta.make_weak({})
+        sample_rate_entry[bit_depth] = bit_depth_entry
+    end
+
+    local source = bit_depth_entry[channel_count]
+    if source == nil then
+        source = love.audio.newQueableSource(
+            sample_rate,
+            bit_depth,
+            channel_count
+        )
+        bit_depth_entry[channel_count] = source
+    end
+
+    if self._active_source_a_or_b == _a then
+
+    end
+
 
 end
 
