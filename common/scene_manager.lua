@@ -4,6 +4,7 @@ require "common.input_subscriber"
 require "common.fade"
 require "common.thread_pool"
 require "common.palette"
+require "common.music_manager"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
@@ -462,7 +463,7 @@ function love.run()
         meta._benchmark = {}
         collectgarbage("step") -- helps catch gc-related bugs
 
-        if love.timer then love.timer.sleep(0.001) end -- prevent cpu running at max rate for empty projects
+        --if love.timer then love.timer.sleep(0.001) end -- prevent cpu running at max rate for empty projects
     end
 end
 

@@ -47,13 +47,17 @@ meta = require "common.meta"
 rt = {}
 mn = {}
 ow = {}
+b2 = {}
+bd = {}
 rt.graphics = {}
 
 for _, t in pairs({
     {"_G", _G},
     {"rt", rt},
     {"mn", mn},
+    {"bd", bd},
     {"ow", ow},
+    {"b2", b2},
     {"meta", meta}
 }) do
     setmetatable(t, {

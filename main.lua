@@ -45,6 +45,7 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
     end
 end)
 
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

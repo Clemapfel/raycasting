@@ -2,6 +2,7 @@ require "overworld.dialog_box"
 require "common.label"
 require "common.translation"
 require "common.smoothed_motion_1d"
+require "common.filesystem"
 
 rt.settings.overworld.dialog_emitter = {
     interact_range_factor = 10, -- * player radius
@@ -113,21 +114,7 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
 
         string.gsub(id, "^/|/$", "") -- remove prefix or postfix /
         local path = rt.settings.overworld.dialog_emitter.asset_prefix .. id .. ".lua"
-
-        if love.filesystem.getInfo(path) == nil then
-            throw("file at `" .. path .. "` does not exist")
-        end
-
-        local chunk, error_maybe = love.filesystem.load(path)
-        if error_maybe ~= nil then
-            throw("unable to load file at `" .. path .. "`: " .. error_maybe)
-        end
-
-        local success, config_or_error = pcall(chunk)
-
-        if success == false then
-            throw("error when running file at `" .. path .. "`: " .. config_or_error)
-        end
+        local success, config_or_error = pcall(bd.load(path))
 
         self._dialog_id = id
         self._dialog_config = config_or_error

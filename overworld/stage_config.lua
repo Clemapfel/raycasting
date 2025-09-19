@@ -1,5 +1,6 @@
 require "common.matrix"
 require "common.sprite_batch"
+require "common.filesystem"
 require "overworld.object_wrapper"
 require "overworld.tileset"
 
@@ -29,27 +30,14 @@ local _dummy_hitbox_id = -1
 
 --- @brief
 function ow.StageConfig:instantiate(stage_id)
-    self._path = rt.settings.overworld.stage_config.config_path .. "/" .. stage_id .. ".lua"
+    self._path = bd.join_path(
+        rt.settings.overworld.stage_config.config_path,
+        stage_id
+    ) .. ".lua"
+
     self._id = stage_id
 
-    local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, self._path)
-    if not load_success then
-        rt.error("In ow.StageConfig: error when parsing file at `" .. self._path .. "`: " .. chunk_or_error)
-        return
-    end
-
-    if love_error ~= nil then
-        rt.error("In ow.StageConfig: error when loading file at `" .. self._path .. "`: " .. love_error)
-        return
-    end
-
-    local chunk_success, config_or_error = pcall(chunk_or_error)
-    if not chunk_success then
-        rt.error("In ow.StageConfig: error when running file at `" .. self._path .. "`: " .. config_or_error)
-        return
-    end
-
-    self._config = config_or_error
+    self._config = bd.load(self._path)
 
     -- init tilesets
 
