@@ -168,9 +168,7 @@ function ow.MovingHitbox:update(delta)
     self._normal_map:update(delta)
     if self._mirror ~= nil then
         self._mirror:update(delta)
-        self._mirror:set_offset(self._body:get_position())
     else
-        self._blood_splatter:set_offset(self._body:get_position())
         local player = self._scene:get_player()
         if player:get_is_colliding_with(self._body) then
             local nx, ny, cx, cy = player:get_collision_normal(self._body)
@@ -230,6 +228,13 @@ local _front_priority = math.huge
 function ow.MovingHitbox:draw(priority)
     --if not self._stage:get_is_body_visible(self._body) then return end
     --self._body:draw()
+
+
+    if self._mirror ~= nil then
+        self._mirror:set_offset(self._body:get_predicted_position())
+    else
+        self._blood_splatter:set_offset(self._body:get_predicted_position())
+    end
 
     if priority == _back_priority then
 

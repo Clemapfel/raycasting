@@ -31,8 +31,8 @@ rt.settings.player = {
     ground_target_velocity_x = 300,
     air_target_velocity_x = 320,
     sprint_multiplier = 2,
-    friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
-    bubble_friction_coefficient = 1.5,
+    accelerator_friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
+    bubble_accelerator_friction_coefficient = 1.5,
 
     flow_increase_velocity = 1 / 200, -- percent per second
     flow_decrease_velocity = 1,
@@ -92,6 +92,9 @@ rt.settings.player = {
     ground_regular_friction = 0,
     ground_slippery_friction = -0.2,
 
+    friction_coefficient = 14,
+    platform_velocity_decay = 0.98,
+
     max_velocity_x = 2500,
     max_velocity_y = 2500,
 
@@ -101,7 +104,7 @@ rt.settings.player = {
 
     color_a = 1.0,
     color_b = 0.6,
-    hue_cylce_duration = 1,
+    hue_cylce_duration = 10,
 
     --debug_drawing_enabled = true,
 }
@@ -222,6 +225,7 @@ function rt.Player:instantiate()
         _platforms = {},
         _platform_velocity_x = 0,
         _platform_velocity_y = 0,
+        _is_touching_platform = false,
 
         -- controls
         _joystick_position = 0, -- x axis
@@ -444,42 +448,49 @@ function rt.Player:update(delta)
     if self._should_update == false then return end
 
     local t = self._time_dilation
+    local should_decay_platform_velocity = true
 
-    do -- notify body of new anchor positions
-        local positions
-        if self._is_bubble then
-            positions = {
-                self._bubble_body:get_predicted_position()
-            }
+    local function update_graphics()
+        do -- notify body of new anchor positions
+            local positions
+            if self._is_bubble then
+                positions = {
+                    self._bubble_body:get_predicted_position()
+                }
 
-            for body in values(self._bubble_spring_bodies) do
-                local x, y = body:get_predicted_position()
-                table.insert(positions, x)
-                table.insert(positions, y)
+                for body in values(self._bubble_spring_bodies) do
+                    local x, y = body:get_predicted_position()
+                    table.insert(positions, x)
+                    table.insert(positions, y)
+                end
+            else
+                local body_x, body_y = self._body:get_predicted_position()
+                local dx, dy = delta * self._platform_velocity_x, delta * self._platform_velocity_y
+
+                positions = {
+                    body_x + dx,
+                    body_y + dy
+                }
+
+                for body in values(self._spring_bodies) do
+                    local x, y = body:get_predicted_position()
+                    table.insert(positions, x + dx)
+                    table.insert(positions, y + dy)
+                end
             end
-        else
-            positions = {
-                self._body:get_predicted_position()
-            }
 
-            for body in values(self._spring_bodies) do
-                local x, y = body:get_predicted_position()
-                table.insert(positions, x)
-                table.insert(positions, y)
+            if self._use_bubble_mesh_delay_n_steps <= 0 then
+                self._graphics_body:update_anchors(positions)
+                self._graphics_body:update(delta)
             end
         end
 
-        if self._use_bubble_mesh_delay_n_steps <= 0 then
-            self._graphics_body:update_anchors(positions)
-            self._graphics_body:update(delta)
+        if self._trail_visible then
+            self._trail:update(delta)
         end
-    end
 
-    if self._trail_visible then
-        self._trail:update(delta)
+        self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
     end
-
-    self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
 
     -- detect idle
     if self._state == rt.PlayerState.ACTIVE and
@@ -521,6 +532,7 @@ function rt.Player:update(delta)
             end
         end
 
+        update_graphics()
         return
     end
 
@@ -807,13 +819,12 @@ function rt.Player:update(delta)
             end
 
             -- wall friction
-
             local net_friction_x, net_friction_y = 0, 0
             local add_friction = function(normal_x, normal_y, contact_x, contact_y, velocity_x, velocity_y, ray_length)
                 local player_x, player_y = self._body:get_position()
                 local player_vx, player_vy = self._body:get_velocity()
 
-                local friction_coefficient = _settings.platform_friction_coefficient
+                local friction_coefficient = _settings.friction_coefficient
 
                 local relative_vx = player_vx - velocity_x
                 local relative_vy = player_vy - velocity_y
@@ -848,7 +859,7 @@ function rt.Player:update(delta)
                 net_friction_y = friction_direction_y * friction_magnitude
             end
 
-            if self._left_wall and not self._right_wall and self._left_button_is_down then
+            if self._left_wall and self._left_button_is_down then
                 local vx, vy = self._left_wall_body:get_velocity()
                 add_friction(
                     left_nx, left_ny,
@@ -858,7 +869,7 @@ function rt.Player:update(delta)
                 )
             end
 
-            if self._right_wall and not self._left_wall and self._right_button_is_down then
+            if self._right_wall and self._right_button_is_down then
                 local vx, vy = self._right_wall_body:get_velocity()
                 add_friction(
                     right_nx, right_ny,
@@ -868,6 +879,36 @@ function rt.Player:update(delta)
                 )
             end
 
+            if self._top_left_wall then
+                local vx, vy = self._top_left_wall_body:get_velocity()
+                add_friction(
+                    top_left_nx, top_left_ny,
+                    top_left_x, top_left_y,
+                    vx, vy,
+                    math.magnitude(top_left_dx, top_left_y)
+                )
+            end
+
+            if self._top_wall then
+                local vx, vy = self._top_wall_body:get_velocity()
+                add_friction(
+                    top_nx, top_ny,
+                    top_x, top_y,
+                    vx, vy,
+                    math.magnitude(top_dx, top_y)
+                )
+            end
+
+            if self._top_right_wall then
+                local vx, vy = self._top_right_wall_body:get_velocity()
+                add_friction(
+                    top_right_nx, top_right_ny,
+                    top_right_x, top_right_y,
+                    vx, vy,
+                    math.magnitude(top_right_dx, top_right_y)
+                )
+            end
+
             if current_velocity_x > 0 then
                 net_friction_x = math.min(net_friction_x, 0)
             elseif current_velocity_x < 0 then
@@ -881,181 +922,11 @@ function rt.Player:update(delta)
             end
 
             next_velocity_x = next_velocity_x + net_friction_x
-            next_velocity_y = next_velocity_y + net_friction_x
 
-
-            --[[
-            local try_add_platform = function(
-                body,
-                normal_x, normal_y,
-                contact_x, contact_y,
-                ray_dx, ray_dy,
-                use_wall_friction
-            )
-                if body == nil then return end
-
-                meta.assert(ray_dx, "Number", ray_dy, "Number")
-                local vx, vy = body:get_velocity()
-                if body:get_type() ~= b2.BodyType.STATIC and math.magnitude(vx, vy) > math.eps then
-                    local entry = platforms[body]
-                    if entry == nil then
-                        entry = {
-                            body = body,
-                            normal_x = 0,
-                            normal_y = 0,
-                            velocity_x = vx,
-                            velocity_y = vy,
-                            contact_x = 0,
-                            contact_y = 0,
-                            ray_length = 0,
-                            count = 0,
-                            use_wall_friction = false
-                        }
-                        platforms[body] = entry
-                    end
-
-                    assert(entry.velocity_x == vx, entry.velocity_y == vy)
-                    entry.normal_x = entry.normal_x + normal_x
-                    entry.normal_y = entry.normal_y + normal_y
-                    entry.contact_x = entry.contact_x + contact_x
-                    entry.contact_y = entry.contact_y + contact_y
-                    entry.ray_length = entry.ray_length + math.magnitude(ray_dx, ray_dy)
-                    entry.count = entry.count + 1
-
-                    if use_wall_friction == true then -- override
-                        entry.use_wall_friction = true
-                    end
-
-                    is_touching_platform = true
-                end
+            -- only apply friction when sliding down
+            if net_friction_y < 0 then
+                next_velocity_y = next_velocity_y + net_friction_y
             end
-
-            try_add_platform(bottom_left_wall_body,
-                bottom_left_nx, bottom_left_ny,
-                bottom_left_x, bottom_left_y,
-                bottom_left_dx, bottom_left_y,
-                self._down_button_is_down
-            )
-
-            try_add_platform(bottom_wall_body,
-                bottom_nx, bottom_ny, bottom_x, bottom_y,
-                bottom_dx, bottom_dy,
-                self._down_button_is_down
-            )
-
-            try_add_platform(bottom_right_wall_body,
-                bottom_right_nx, bottom_right_ny,
-                bottom_right_x, bottom_right_y,
-                bottom_right_dx, bottom_right_dy,
-                self._down_button_is_down
-            )
-
-            if not self._jump_button_is_down then
-                try_add_platform(left_wall_body,
-                    left_nx, left_ny,
-                    left_x, left_y,
-                    left_dx, left_dy,
-                    self._left_button_is_down
-                )
-
-                try_add_platform(right_wall_body,
-                    right_nx, right_ny,
-                    right_x, right_y,
-                    right_dx, right_dy,
-                    self._right_button_is_down
-                )
-            end
-
-            try_add_platform(top_left_wall_body,
-                top_left_nx, top_left_ny,
-                top_left_x, top_left_y,
-                top_left_dx, top_left_dy,
-                false
-            )
-
-            try_add_platform(top_wall_body,
-                top_nx, top_ny,
-                top_x, top_y,
-                top_dx, top_dy,
-                false
-            )
-
-            try_add_platform(top_right_wall_body,
-                top_right_nx, top_right_ny,
-                top_right_x, top_right_y,
-                top_right_dx, top_right_y,
-                false
-            )
-
-
-
-            local compute_friction = function(normal_x, normal_y, contact_x, contact_y, velocity_x, velocity_y, ray_length)
-                local player_x, player_y = self._body:get_position()
-                local player_vx, player_vy = self._body:get_velocity()
-                local friction_coefficient = _settings.platform_friction_coefficient
-
-                local relative_vx = player_vx - velocity_x
-                local relative_vy = player_vy - velocity_y
-
-                local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
-
-                local slide_speed = math.dot(relative_vx, relative_vy, tangent_x, tangent_y)
-                local friction_direction_x, friction_direction_y = 0, 0
-                if slide_speed < 0 then
-                    friction_direction_x, friction_direction_y = tangent_x, tangent_y
-                else
-                    friction_direction_x, friction_direction_y = math.flip(tangent_x, tangent_y)
-                end
-
-                local contact_distance = math.distance(player_x, player_y, contact_x, contact_y)
-                local compression = 1 - contact_distance / ray_length
-
-                local player_nvx, player_nvy = math.normalize(player_vx, player_vy)
-
-                local vertical_speed_factor = 1
-
-                local y_alignment = math.abs(velocity_y) / math.magnitude(velocity_x, velocity_y) -- in [0, 1]
-                vertical_speed_factor = 1 + y_alignment * math.abs(
-                    math.magnitude(0, player_vy) - math.magnitude(0, velocity_y)
-                )
-
-                local normal_force = compression * friction_coefficient * vertical_speed_factor
-                local friction_magnitude = math.min(math.abs(slide_speed), normal_force)
-
-                return friction_direction_x * friction_magnitude, friction_direction_y * friction_magnitude
-            end
-
-            -- compute net friction
-            local net_friction_x, net_friction_y = 0, 0
-            for body, entry in pairs(platforms) do
-                local friction_x, friction_y = compute_friction(
-                    entry.normal_x, entry.normal_y,
-                    entry.contact_x, entry.contact_y,
-                    entry.velocity_x, entry.velocity_y,
-                    entry.ray_length
-                )
-
-                net_friction_x = net_friction_x + friction_x
-                net_friction_y = net_friction_y + friction_y
-            end
-
-            -- clamp to prevent sliding forwards in high friction scenarios
-            if current_velocity_x > 0 then
-                net_friction_x = math.min(net_friction_x, 0)
-            elseif current_velocity_x < 0 then
-                net_friction_x = math.max(net_friction_x, 0)
-            end
-
-            if current_velocity_y > 0 then
-                net_friction_y = math.min(net_friction_y, 0)
-            elseif current_velocity_y < 0 then
-                net_friction_y = math.max(net_friction_y, 0)
-            end
-
-            next_velocity_x = next_velocity_x + net_friction_x
-            next_velocity_y = next_velocity_y + net_friction_y
-        end
-        ]]--
 
             -- reset jump button when going from air to ground, to disallow buffering jumps while falling
             if (bottom_before == false and self._bottom_wall == true) or
@@ -1201,8 +1072,8 @@ function rt.Player:update(delta)
                     local tangent_velocity_x = dot_product * tx
                     local tangent_velocity_y = dot_product * ty
 
-                    local friction_force_x = -tangent_velocity_x * friction * _settings.friction_coefficient
-                    local friction_force_y = -tangent_velocity_y * friction * _settings.friction_coefficient
+                    local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
+                    local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
 
                     -- apply tangential force
                     next_velocity_x = next_velocity_x + t * friction_force_x * delta
@@ -1226,6 +1097,7 @@ function rt.Player:update(delta)
             do -- inherit platform velocity
                 local velocity_x, velocity_y, n = 0, 0, 0
 
+                local is_platform = {}
                 for body in range(
                     self._top_wall_body,
                     self._top_right_wall_body,
@@ -1240,11 +1112,22 @@ function rt.Player:update(delta)
                         velocity_x = velocity_x + body_vx
                         velocity_y = velocity_y + body_vy
                         n = n + 1
-                        is_touching_platform = true
+
+                        is_platform[body] = true
                     end
                 end
 
-                if is_touching_platform then
+                 is_touching_platform =
+                     (is_platform[self._top_wall_body] or is_platform[self._top_left_wall_body] or is_platform[self._top_right_wall_body])
+                     or is_platform[self._bottom_wall_body]
+                     or (math.to_number(is_platform[self._bottom_left_wall_body])
+                        + math.to_number(is_platform[self._bottom_wall_body])
+                        + math.to_number(is_platform[self._bottom_right_wall_body])
+                        ) >= 2
+                     or (is_platform[self._left_wall_body] and self._left_button_is_down)
+                     or (is_platform[self._right_wall_body] and self._right_button_is_down)
+
+                if is_touching_platform == true then
                     if n == 0 then
                         self._platform_velocity_x = 0
                         self._platform_velocity_y = 0
@@ -1252,20 +1135,11 @@ function rt.Player:update(delta)
                         self._platform_velocity_x = velocity_x / n
                         self._platform_velocity_y = velocity_y / n
                     end
+
+                    should_decay_platform_velocity = false
                 else
-                    -- decay, see below
+                    -- decay, shared after bubble logic
                 end
-            end
-
-            if not is_touching_platform then -- decay platform velocity influence
-                local player_nvx, player_nvy = math.normalize(current_velocity_x, current_velocity_y)
-                local platform_nvx, platform_nvy = math.normalize(self._platform_velocity_x, self._platform_velocity_y)
-                local decay_factor = (math.dot(player_nvx, player_nvy, platform_nvx, platform_nvy) + 1) / 2 -- 0 if misaligned, 1 if aligned
-
-                local default_decay = _settings.platform_velocity_decay
-                local decay = math.min(math.mix(0.8 * default_decay, default_decay, decay_factor), 1)
-                self._platform_velocity_x = self._platform_velocity_x * decay
-                self._platform_velocity_y = self._platform_velocity_y * decay
             end
 
             if is_touching_platform then
@@ -1273,6 +1147,8 @@ function rt.Player:update(delta)
             else
                 self._graphics_body:set_relative_velocity(0, 0)
             end
+
+            self._is_touching_platform = is_touching_platform
 
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
@@ -1401,8 +1277,8 @@ function rt.Player:update(delta)
                 local tangent_velocity_x = dot_product * tx
                 local tangent_velocity_y = dot_product * ty
 
-                local friction_force_x = -tangent_velocity_x * friction * _settings.bubble_friction_coefficient
-                local friction_force_y = -tangent_velocity_y * friction * _settings.bubble_friction_coefficient
+                local friction_force_x = -tangent_velocity_x * friction * _settings.bubble_accelerator_friction_coefficient
+                local friction_force_y = -tangent_velocity_y * friction * _settings.bubble_accelerator_friction_coefficient
 
                 -- apply tangential force
                 next_force_x = next_force_x + t * friction_force_x
@@ -1432,6 +1308,19 @@ function rt.Player:update(delta)
 
         self._bubble_body:apply_force(0, bubble_gravity)
     end
+
+    if should_decay_platform_velocity then
+        local body = ternary(self._is_bubble, self._bubble_body, self._body)
+        local player_nvx, player_nvy = math.normalize(body:get_velocity())
+        local platform_nvx, platform_nvy = math.normalize(self._platform_velocity_x, self._platform_velocity_y)
+        local decay_factor = (math.dot(player_nvx, player_nvy, platform_nvx, platform_nvy) + 1) / 2 -- 0 if misaligned, 1 if aligned
+
+        local default_decay = _settings.platform_velocity_decay
+        local decay = math.clamp(math.mix(0.8 * default_decay, default_decay, decay_factor), 0, 1)
+        self._platform_velocity_x = self._platform_velocity_x * decay
+        self._platform_velocity_y = self._platform_velocity_y * decay
+    end
+
 
     do -- detect being squished by moving objects
         local at_least_one_moving = false
@@ -1620,6 +1509,8 @@ function rt.Player:update(delta)
     self._last_right_x, self._last_right_y = right_x, right_y
     self._last_bottom_x, self._last_bottom_y = bottom_x, bottom_y
     self._last_left_x, self._last_left_y = left_x, left_y
+
+    update_graphics()
 end
 
 local _signal_id
@@ -1866,12 +1757,6 @@ function rt.Player:draw_core()
     if self._is_visible == false then return end
 
     self._graphics_body:draw_core()
-
-    if self._dbg_x ~= nil then -- TODO
-        love.graphics.setColor(1, 1, 1, 1)
-        local x, y = self._body:get_position()
-        love.graphics.line(x, y, x + 100 * self._dbg_x, y + 100 * self._dbg_y)
-    end
 end
 
 --- @brief
@@ -2009,6 +1894,8 @@ function rt.Player:disable()
     self._down_button_is_down = self._input:get_is_down(rt.InputAction.DOWN)
     self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
     self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
+
+    self._platform_velocity_x, self._platform_velocity_y = 0, 0
 end
 
 --- @brief
@@ -2461,6 +2348,15 @@ function rt.Player:reset()
 
     self._platform_velocity_x = 0
     self._platform_velocity_y = 0
+
+    self._top_wall = false
+    self._top_right_wall = false
+    self._right_wall = false
+    self._bottom_right_wall = false
+    self._bottom_wall = false
+    self._bottom_left_wall = false
+    self._left_wall = false
+    self._top_left_wall = false
 
     -- do not reset input disabled
 end

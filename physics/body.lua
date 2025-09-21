@@ -165,33 +165,22 @@ function math.slerp2(x0, y0, x1, y1, t)
 end
 
 function b2.Body:get_predicted_position()
-    if true then
-        -- linear interpolation
-        local x, y = self._native:getPosition()
-        local vx, vy = self._native:getLinearVelocity()
-        local last_last_x, last_last_y = self._last_x, self._last_y
-        local last_x, last_y = self._last_last_x, self._last_last_y
-        local current_x, current_y = self._native:getPosition()
-        return math.mix2(last_x, last_y, current_x, current_y, self._world._elapsed / self._world:get_timestep())
-    else
-        -- hermite interpolation
-        local current_x, current_y = self._native:getPosition()
-        local last_x, last_y = self._last_x, self._last_y
-        local timestep = self._world:get_timestep()
+    if self._native:isDestroyed() then return 0, 0 end
 
-        local last_vx, last_vy = self._last_vx, self._last_vy
-        local current_vx, current_vy = (current_x - self._last_x), (current_y - self._last_y)
-        local tangent_ax, tangent_ay = last_vx, last_vy
-        local tangent_bx, tangent_by = current_vx, current_vy
+    local x, y = self._native:getPosition()
+    local vx, vy = self._native:getLinearVelocity()
+    local last_last_x, last_last_y = self._last_last_x, self._last_last_y
+    local last_x, last_y = self._last_x, self._last_y
+    local current_x, current_y = self._native:getPosition()
 
-        local t = math.clamp(self._world._elapsed / timestep, 0, 1)
-        local interpolated_x = _hermite(t, last_x, current_x, tangent_ax, tangent_bx)
-        local interpolated_y = _hermite(t, last_y, current_y, tangent_ay, tangent_by)
-
-        return interpolated_x, interpolated_y
-    end
+    local step = self._world:get_timestep()
+    return math.mix2(
+        current_x, current_y,
+        current_x + (last_x - last_last_x) * step,
+        current_y + (last_y - last_last_y) * step,
+        self._world._elapsed / self._world:get_timestep()
+    )
 end
-
 
 --- @brief
 function b2.Body:set_use_interpolation(b)

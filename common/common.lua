@@ -673,6 +673,17 @@ function math.gaussian(x, ramp)
     return math.exp(((-4 * math.pi) / 3) * (ramp * x) * (ramp * x))
 end
 
+function math.to_number(any)
+    if any == true then
+        return 1
+    elseif any == false then
+        return 0
+    elseif any == nil then
+        return 0
+    else
+        return tonumber(any)
+    end
+end
 
 --- @brief create a table with n copies of object
 --- @param x any

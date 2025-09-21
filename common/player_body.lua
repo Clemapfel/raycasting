@@ -1,4 +1,6 @@
 rt.settings.player_body = {
+    use_relative_velocity = true,
+
     -- rope params
     n_rings = 7,
     n_segments_per_rope = 8,
@@ -317,6 +319,16 @@ local _rope_handler = function(data)
     local distances = data.is_bubble and rope.bubble_distances or rope.distances
     local masses = rope.masses
 
+    -- translate whole physics system into relative velocity
+    if rt.settings.player_body.use_relative_velocity == true then
+        for i = 1, #positions, 2 do
+            positions[i] = positions[i] + data.platform_delta_x
+            positions[i+1] = positions[i+1] + data.platform_delta_y
+            last_positions[i] = last_positions[i] + data.platform_delta_x
+            last_positions[i+1] = last_positions[i+1] + data.platform_delta_y
+        end
+    end
+
     local n_axis_iterations_done = 0
     local n_distance_iterations_done = 0
     local n_velocity_iterations_done = 0
@@ -325,7 +337,7 @@ local _rope_handler = function(data)
     data.n_distance_iterations = data.n_distance_iterations + data.n_bending_iterations
 
     while
-        (n_velocity_iterations_done < data.n_velocity_iterations)
+    (n_velocity_iterations_done < data.n_velocity_iterations)
         or (n_distance_iterations_done < data.n_distance_iterations)
         or (n_axis_iterations_done < data.n_axis_iterations)
         or (n_bending_iterations_done < data.n_bending_iterations)
@@ -499,8 +511,8 @@ function rt.PlayerBody:update(delta)
             velocity_damping = velocity_damping,
             player_x = self._player_x,
             player_y = self._player_y,
-            relative_velocity_x = self._relative_velocity_x,
-            relative_velocity_y = self._relative_velocity_y
+            platform_delta_x = self._relative_velocity_x * delta,
+            platform_delta_y = self._relative_velocity_y * delta
         })
     end
 
@@ -508,6 +520,7 @@ function rt.PlayerBody:update(delta)
     self._body_canvas_needs_update = true
 end
 
+-- Rest of the code remains unchanged (draw_body, draw_core, draw_bloom, set_relative_velocity methods)
 local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
 
 --- @brief
@@ -540,7 +553,6 @@ function rt.PlayerBody:draw_body()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
         -- draw rope nodes
-
         rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
         if self._is_bubble then
             love.graphics.setColor(1, 1, 1, 1)
@@ -553,7 +565,8 @@ function rt.PlayerBody:draw_body()
         for rope in values(self._ropes) do
             for i = 1, #rope.current_positions, 2 do
                 local scale = math.min(rope.scale + _settings.non_bubble_scale_offset / self._player:get_radius(), 1)
-                local x, y = rope.last_positions[i+0], rope.last_positions[i+1]
+                -- Use current_positions for drawing to reduce visual lag
+                local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
                 love.graphics.draw(self._node_mesh_texture:get_native(), x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
             end
         end
@@ -573,7 +586,6 @@ function rt.PlayerBody:draw_body()
         love.graphics.reset()
 
         -- draw a to b: fill
-
         self._body_canvas_b:bind()
         love.graphics.clear(0, 0, 0, 0)
         _threshold_shader:bind()
@@ -582,7 +594,6 @@ function rt.PlayerBody:draw_body()
         self._body_canvas_b:unbind()
 
         -- draw b to a: outline
-
         self._body_canvas_a:bind()
         love.graphics.clear(0, 0, 0, 0)
         _outline_shader:bind()
@@ -591,7 +602,6 @@ function rt.PlayerBody:draw_body()
         self._body_canvas_a:unbind()
 
         -- b contains fill, a contains outline
-
         love.graphics.pop("all")
     end
 
@@ -695,7 +705,6 @@ function rt.PlayerBody:draw_core()
     )
 
     -- highlight
-
     local boost = _settings.highlight_brightness
     love.graphics.push()
     love.graphics.setColor(boost, boost, boost, 1 * opacity)
@@ -716,9 +725,6 @@ function rt.PlayerBody:draw_core()
         rt.graphics.set_stencil_mode(nil)
         rt.graphics.pop_stencil()
     end
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.circle("fill", self._player_x, self._player_y, 5)
 end
 
 --- @brief
