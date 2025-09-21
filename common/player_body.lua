@@ -46,7 +46,7 @@ rt.settings.player_body = {
 rt.PlayerBody = meta.class("PlayerBody")
 
 local _settings = rt.settings.player_body
-local _canvas = nli
+local _canvas = nil
 
 local _threshold_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 0})
 local _outline_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 1 })
@@ -66,7 +66,6 @@ function rt.PlayerBody:instantiate(player)
     self._player_radius = rt.settings.player.radius
     self._is_bubble = self._player:get_is_bubble()
     self._player_x, self._player_y = self._player:get_position()
-    self._center_x, self._center_x = self._player_x, self._player_y
     self._ropes = {}
     self._n_ropes = 0
     self._positions = {}
@@ -124,7 +123,7 @@ end
 --- @brief
 function rt.PlayerBody:update_anchors(positions)
     self._positions = positions
-    self._center_x, self._center_y = positions[1], positions[2]
+    self._player_x, self._player_y = positions[1], positions[2]
     table.insert(self._positions, self._positions[3])
     table.insert(self._positions, self._positions[4])
 
@@ -189,9 +188,9 @@ function rt.PlayerBody:initialize(positions)
                     n_segments = n_segments
                 }
 
-                center_x = center_x + self._center_x
-                center_y = center_y + self._center_y
-                local dx, dy = math.normalize(rope.anchor_x - self._center_x, rope.anchor_y - self._center_y)
+                center_x = center_x + self._player_x
+                center_y = center_y + self._player_y
+                local dx, dy = math.normalize(rope.anchor_x - self._player_x, rope.anchor_y - self._player_y)
 
                 for segment_i = 1, n_segments do
                     table.insert(rope.current_positions, center_x)
@@ -326,16 +325,21 @@ local _rope_handler = function(data)
     data.n_distance_iterations = data.n_distance_iterations + data.n_bending_iterations
 
     while
-    (n_velocity_iterations_done < data.n_velocity_iterations) or
-        (n_distance_iterations_done < data.n_distance_iterations) or
-        (n_axis_iterations_done < data.n_axis_iterations) or
-        (n_bending_iterations_done < data.n_bending_iterations)
+        (n_velocity_iterations_done < data.n_velocity_iterations)
+        or (n_distance_iterations_done < data.n_distance_iterations)
+        or (n_axis_iterations_done < data.n_axis_iterations)
+        or (n_bending_iterations_done < data.n_bending_iterations)
     do
         -- verlet integration
         if n_velocity_iterations_done < data.n_velocity_iterations then
             local mass_i = 1
             for i = 1, #positions, 2 do
                 local current_x, current_y = positions[i+0], positions[i+1]
+                if i == 1 then
+                    current_x = data.player_x + rope.anchor_x
+                    current_y = data.player_y + rope.anchor_y
+                end
+
                 local old_x, old_y = last_positions[i+0], last_positions[i+1]
                 local mass = masses[mass_i]
                 local before_x, before_y = current_x, current_y
@@ -449,7 +453,6 @@ function rt.PlayerBody:update(delta)
     -- non rope sim updates
     self._shader_elapsed = self._shader_elapsed + delta
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), self._player:get_opacity())
-    self._player_x, self._player_y = self._player:get_predicted_position()
 
     local w, h = self._body_canvas_a:get_size()
     local bodies = self._player:get_physics_world():query_aabb(
@@ -522,7 +525,7 @@ function rt.PlayerBody:draw_body()
         love.graphics.translate(0.5 * w, 0.5 * h)
         love.graphics.scale(self._canvas_scale, self._canvas_scale)
         love.graphics.translate(-0.5 * w, -0.5 * h)
-        love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
+        love.graphics.translate(-self._player_x + 0.5 * w, -self._player_y + 0.5 * h)
 
         -- draw body
         self._body_canvas_a:bind()
@@ -596,8 +599,8 @@ function rt.PlayerBody:draw_body()
     love.graphics.setColor(_black_r, _black_g, _black_b, self._a * opacity)
     love.graphics.draw(
         self._body_canvas_b:get_native(),
-        self._center_x,
-        self._center_y,
+        self._player_x,
+        self._player_y,
         0,
         1 / self._canvas_scale,
         1 / self._canvas_scale,
@@ -608,8 +611,8 @@ function rt.PlayerBody:draw_body()
     love.graphics.setColor(self._r, self._g, self._b, self._a * opacity)
     love.graphics.draw(
         self._body_canvas_a:get_native(),
-        self._center_x,
-        self._center_y,
+        self._player_x,
+        self._player_y,
         0,
         1 / self._canvas_scale,
         1 / self._canvas_scale,
@@ -638,14 +641,14 @@ function rt.PlayerBody:draw_core()
         love.graphics.translate(0.5 * w, 0.5 * h)
         love.graphics.scale(self._canvas_scale)
         love.graphics.translate(-0.5 * w, -0.5 * h)
-        love.graphics.translate(-self._center_x + 0.5 * w, -self._center_y + 0.5 * h)
+        love.graphics.translate(-self._player_x + 0.5 * w, -self._player_y + 0.5 * h)
 
         love.graphics.setColor(1, 1, 1, self._a)
         _core_shader:bind()
         _core_shader:send("hue", self._player:get_hue())
         _core_shader:send("elapsed", self._shader_elapsed)
         if self._is_bubble then
-            love.graphics.circle("fill", self._center_x, self._center_y, rt.settings.player.radius)
+            love.graphics.circle("fill", self._player_x, self._player_y, rt.settings.player.radius)
         else
             love.graphics.polygon("fill", self._positions)
         end
@@ -713,6 +716,9 @@ function rt.PlayerBody:draw_core()
         rt.graphics.set_stencil_mode(nil)
         rt.graphics.pop_stencil()
     end
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.circle("fill", self._player_x, self._player_y, 5)
 end
 
 --- @brief
@@ -723,8 +729,8 @@ function rt.PlayerBody:draw_bloom()
     love.graphics.setColor(self._r, self._g, self._b, self._a * self._player:get_opacity())
     love.graphics.draw(
         self._body_canvas_a:get_native(),
-        self._center_x,
-        self._center_y,
+        self._player_x,
+        self._player_y,
         0,
         1 / self._canvas_scale,
         1 / self._canvas_scale,
