@@ -75,6 +75,9 @@ function rt.PlayerBody:instantiate(player)
     self._is_initialized = false
     self._queue_relax = false
 
+    self._relative_velocity_x = 0
+    self._relative_velocity_y = 0
+
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
 
@@ -323,7 +326,7 @@ local _rope_handler = function(data)
     data.n_distance_iterations = data.n_distance_iterations + data.n_bending_iterations
 
     while
-        (n_velocity_iterations_done < data.n_velocity_iterations) or
+    (n_velocity_iterations_done < data.n_velocity_iterations) or
         (n_distance_iterations_done < data.n_distance_iterations) or
         (n_axis_iterations_done < data.n_axis_iterations) or
         (n_bending_iterations_done < data.n_bending_iterations)
@@ -492,7 +495,9 @@ function rt.PlayerBody:update(delta)
             delta = delta,
             velocity_damping = velocity_damping,
             player_x = self._player_x,
-            player_y = self._player_y
+            player_y = self._player_y,
+            relative_velocity_x = self._relative_velocity_x,
+            relative_velocity_y = self._relative_velocity_y
         })
     end
 
@@ -726,4 +731,10 @@ function rt.PlayerBody:draw_bloom()
         0.5 * w,
         0.5 * h
     )
+end
+
+--- @brief
+function rt.PlayerBody:set_relative_velocity(vx, vy)
+    self._relative_velocity_x = vx
+    self._relative_velocity_y = vy
 end
