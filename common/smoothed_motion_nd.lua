@@ -1,6 +1,6 @@
 rt.settings.smoothed_motion_nd = {
     -- fraction / second; 1.0 means a full lerp to the target over one second
-    default_speed = 1,
+    default_duration = 1,
 }
 
 --- @class rt.SmoothedMotionND
@@ -8,11 +8,7 @@ rt.SmoothedMotionND = meta.class("SmoothedMotionND")
 
 --- @brief
 function rt.SmoothedMotionND:instantiate(speed)
-    if speed == nil then
-        speed = rt.settings.smoothed_motion_nd.default_speed
-    end
-
-    self._speed = speed
+    self._speed = math.log(100) / (6 * rt.settings.smoothed_motion_nd.default_duration)
     self._dimensions = {} -- Set
     self._current_position = {}
     self._target_dimension = nil
@@ -22,6 +18,8 @@ end
 function rt.SmoothedMotionND:add_dimension(id, value)
     if value == nil then value = 0 end
 
+    local make_current = table.is_empty(self._dimensions)
+
     if self._dimensions[id] then
         self:set_dimension(id, value)
         return
@@ -29,6 +27,7 @@ function rt.SmoothedMotionND:add_dimension(id, value)
 
     self._dimensions[id] = true
     self._current_position[id] = math.clamp(value, 0, 1)
+    if make_current then self:set_target_dimension(id) end
 end
 
 --- @brief
@@ -161,4 +160,13 @@ end
 --- @brief Get the currently set target dimension id or nil
 function rt.SmoothedMotionND:get_target_dimension()
     return self._target_dimension
+end
+
+--- @brief
+function rt.SmoothedMotionND:get_ids()
+    local out = {}
+    for id in keys(self._dimensions) do
+        table.insert(out, id)
+    end
+    return out
 end

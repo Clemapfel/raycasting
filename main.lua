@@ -3,48 +3,17 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
-local present = function()
-    local coins = {}
-    for i = 1, 50 do
-        table.insert(coins, rt.random.toss_coin(0.5))
-    end
 
-    local w, h = love.graphics.getDimensions()
+require "common.music_manager_playback"
+local playback_a = rt.MusicManagerPlayback("assets/music/debug_song_a/debug_song_a.mp3")
+--playback_a:play()
 
-    local best = rt.GameState:stage_get_splits_best_run("tutorial")
-    local current = table.deepcopy(best)
-    for i, x in ipairs(current) do
-        current[i] = math.max(x + rt.random.number(-10, 10), 0)
-    end
+local playback_b = rt.MusicManagerPlayback("assets/music/debug_song_b/debug_song_b.mp3")
+--playback_b:play()
 
-    rt.SceneManager:push(ow.ResultScreenScene,
-        rt.random.number(0, 1) * w,
-        rt.random.number(0, 1) * h,
-        rt.Texture("assets/sprites/why.png"),
-        {
-            coins = coins,
-            time = 1.234,
-            target_time = 1.230,
-            stage_name = "The Shape of Jump to Come, The Shape of Jump to Come",
-            stage_id = "tutorial",
-
-            flow = 0.9868,
-            time_grade = rt.StageGrade.S,
-            coins_grade = rt.StageGrade.S,
-            flow_grade = rt.StageGrade.S,
-
-            splits_current = current,
-            splits_best = best
-        }
-    )
-end
-
-input = rt.InputSubscriber()
-input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-    end
-end)
-
+local mixer = rt.SmoothedMotionND()
+mixer:add_dimension(meta.hash(playback_a))
+mixer:add_dimension(meta.hash(playback_b))
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
@@ -98,6 +67,14 @@ end
 
 love.update = function(delta)
     rt.SceneManager:update(delta)
+
+    mixer:update(delta)
+
+    playback_a:set_volume(mixer:get_dimension(meta.hash(playback_a)))
+    playback_b:set_volume(mixer:get_dimension(meta.hash(playback_b)))
+
+    playback_a:update()
+    playback_b:update()
 end
 
 love.draw = function()

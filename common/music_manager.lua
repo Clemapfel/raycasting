@@ -1,7 +1,10 @@
 require "common.filesystem"
+require "common.music_manager_playback"
+require "common.smoothed_motion_nd"
 
 rt.settings.music_manager = {
     config_directory = "assets/music",
+    cross_fade_speed = 2, -- fraction
 }
 
 --[[
@@ -13,18 +16,11 @@ config:
 --- @class rt.MusicManager
 rt.MusicManager = meta.class("MusicManager")
 
-local _a = true
-local _b = false
-
 --- @brie
 function rt.MusicManager:instantiate()
-    self._id_to_config = {}
-
-    self._active_source_a = nil -- love.QueableSource
-    self._active_source_b = nil
-    self._active_source_a_or_b = _a
-
-    self._sources = {} -- QueableSourceBuffer
+    self._id_to_entry = {}
+    self._mixer = rt.SmoothedMotionND(rt.settings.coss_fade_speed)
+    -- n-dimension interpolate between n sources, ids keep track of active sources, integrates to 1
 
     local _lua_pattern = "%.lua$"
     local function _is_sound_file(filename)
@@ -103,19 +99,35 @@ function rt.MusicManager:instantiate()
                 end
             end
 
-            self._id_to_config[entry.id] = entry
+            self._id_to_entry[entry.id] = entry
         end
     end)
 end
 
 --- @brief
 function rt.MusicManager:update(delta)
+    self._mixer:update(delta)
 
+    local to_remove = {}
+    for id in values(self._mixer:get_ids()) do
+        local entry = self._id_to_entry[id]
+        entry.source:update(delta)
+
+        local volume = self._mixer:get_dimension(id)
+        entry.source:setVolume(volume)
+        if volume < math.eps then
+            table.insert(to_remove, id)
+        end
+    end
+
+    for id in values(to_remove) do
+        self._mixer:remove_dimension(id)
+    end
 end
 
 --- @brief
 function rt.MusicManager:_get_entry(id, scope)
-    local entry = self._id_to_config[id]
+    local entry = self._id_to_entry[id]
     if entry == nil then
         rt.critical("In rt.MusicManager." .. scope .. ": no music with id `" .. id .. "` available")
         return nil
@@ -128,44 +140,20 @@ end
 function rt.MusicManager:play(id)
     local entry = self:_get_entry(id, "play")
     if entry == nil then return end
-
-    local sample_rate = entry.decoder:getSampleRate()
-    local bit_depth = entry.decoder:getBitDepth()
-    local channel_count = entry.decoder:getChannelCount()
-
-    -- use cached source if available
-    local sample_rate_entry = self._sources[sample_rate]
-    if sample_rate_entry == nil then
-        sample_rate_entry = {}
-        self._sources[sample_rate] = sample_rate_entry
+    if entry.source == nil then
+        entry.source = rt.QueableSource(entry.decoder)
+        entry.source:set_loop_bounds(table.unpack(entry.loop))
+        entry.source:set_volume(0)
+        entry.source:play()
     end
 
-    local bit_depth_entry = sample_rate_entry[bit_depth]
-    if bit_depth_entry == nil then
-        bit_depth_entry = meta.make_weak({})
-        sample_rate_entry[bit_depth] = bit_depth_entry
-    end
-
-    local source = bit_depth_entry[channel_count]
-    if source == nil then
-        source = love.audio.newQueableSource(
-            sample_rate,
-            bit_depth,
-            channel_count
-        )
-        bit_depth_entry[channel_count] = source
-    end
-
-    if self._active_source_a_or_b == _a then
-
-    end
-
-
+    self._mixer:add_dimension(entry.id, 0)
+    self._mixer:set_target_dimension(entry.id)
 end
 
 --- @brief
 function rt.MusicManager:pause()
-
+    
 end
 
 rt.MusicManager = rt.MusicManager() -- singleton instance

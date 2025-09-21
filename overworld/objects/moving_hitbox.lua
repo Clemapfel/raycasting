@@ -91,7 +91,7 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     local centroid_x, centroid_y = object:get_centroid()
     self._velocity = object:get_number("velocity", false) or rt.settings.overworld.moving_hitbox.default_velocity
 
-    local easing = rt.InterpolationFunctions.LINEAR
+    local easing = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
     local easing_name = object:get_string("easing", false)
     if easing_name ~= nil then
         easing = rt.InterpolationFunctions[easing_name]
@@ -157,8 +157,6 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         self._blood_splatter:create_contour(
             self._tris
         )
-
-        self._blood_splatter._dbg = true -- TODO
     end
 
     self._rail = ow.MovingHitboxPath(self._path)
