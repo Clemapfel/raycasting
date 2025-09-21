@@ -1,5 +1,5 @@
 return {
-    platform_friction_coefficient = 9,
+    platform_friction_coefficient = 8,
     platform_velocity_decay = 0.999
 }
 

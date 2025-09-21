@@ -807,6 +807,83 @@ function rt.Player:update(delta)
             end
 
             -- wall friction
+
+            local net_friction_x, net_friction_y = 0, 0
+            local add_friction = function(normal_x, normal_y, contact_x, contact_y, velocity_x, velocity_y, ray_length)
+                local player_x, player_y = self._body:get_position()
+                local player_vx, player_vy = self._body:get_velocity()
+
+                local friction_coefficient = _settings.platform_friction_coefficient
+
+                local relative_vx = player_vx - velocity_x
+                local relative_vy = player_vy - velocity_y
+
+                local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
+
+                local slide_speed = math.dot(relative_vx, relative_vy, tangent_x, tangent_y)
+                local friction_direction_x, friction_direction_y = 0, 0
+                if slide_speed < 0 then
+                    friction_direction_x, friction_direction_y = tangent_x, tangent_y
+                else
+                    friction_direction_x, friction_direction_y = math.flip(tangent_x, tangent_y)
+                end
+
+                local contact_distance = math.distance(player_x, player_y, contact_x, contact_y)
+                local compression = 1 - contact_distance / ray_length
+
+                local player_nvx, player_nvy = math.normalize(player_vx, player_vy)
+
+                local vertical_speed_factor = 1
+                if math.magnitude(velocity_x, velocity_y) > math.eps then
+                    local y_alignment =  math.abs(velocity_y) / math.magnitude(velocity_x, velocity_y) -- in [0, 1]
+                    vertical_speed_factor = 1 + y_alignment * math.abs(
+                        math.magnitude(0, player_vy) - math.magnitude(0, velocity_y)
+                    )
+                end
+
+                local normal_force = compression * friction_coefficient * vertical_speed_factor
+                local friction_magnitude = math.min(math.abs(slide_speed), normal_force)
+
+                net_friction_x = friction_direction_x * friction_magnitude
+                net_friction_y = friction_direction_y * friction_magnitude
+            end
+
+            if self._left_wall and not self._right_wall and self._left_button_is_down then
+                local vx, vy = self._left_wall_body:get_velocity()
+                add_friction(
+                    left_nx, left_ny,
+                    left_x, left_y,
+                    vx, vy,
+                    math.magnitude(left_dx, left_y)
+                )
+            end
+
+            if self._right_wall and not self._left_wall and self._right_button_is_down then
+                local vx, vy = self._right_wall_body:get_velocity()
+                add_friction(
+                    right_nx, right_ny,
+                    right_x, right_y,
+                    vx, vy,
+                    math.magnitude(right_dx, right_y)
+                )
+            end
+
+            if current_velocity_x > 0 then
+                net_friction_x = math.min(net_friction_x, 0)
+            elseif current_velocity_x < 0 then
+                net_friction_x = math.max(net_friction_x, 0)
+            end
+
+            if current_velocity_y > 0 then
+                net_friction_y = math.min(net_friction_y, 0)
+            elseif current_velocity_y < 0 then
+                net_friction_y = math.max(net_friction_y, 0)
+            end
+
+            next_velocity_x = next_velocity_x + net_friction_x
+            next_velocity_y = next_velocity_y + net_friction_x
+
+
             --[[
             local try_add_platform = function(
                 body,
@@ -1010,6 +1087,8 @@ function rt.Player:update(delta)
             self._can_jump = can_jump
             self._can_wall_jump = can_wall_jump
 
+            local is_jumping = false
+
             if self._jump_button_is_down and not self._movement_disabled then
                 if self._jump_allowed_override ~= nil then
                     -- jump override
@@ -1032,6 +1111,7 @@ function rt.Player:update(delta)
                     self._coyote_elapsed = 0
                     next_velocity_y = -t * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration) * self._spring_multiplier
                     self._jump_elapsed = self._jump_elapsed + delta
+                    is_jumping = true
                 elseif not can_jump and can_wall_jump then
                     -- wall jump: initial burst, then small sustain
                     if self._wall_jump_elapsed == 0 then -- set by jump button
@@ -1055,6 +1135,9 @@ function rt.Player:update(delta)
                         elseif self._right_wall then
                             self._wall_jump_freeze_sign =  1
                         end
+
+                        is_jumping = true
+
                     elseif t * self._wall_jump_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
                         -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
                         local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
@@ -1063,6 +1146,8 @@ function rt.Player:update(delta)
                         local force = _settings.wall_jump_sustained_impulse * delta + gravity
                         next_velocity_x = next_velocity_x + dx * force * t
                         next_velocity_y = next_velocity_y + dy * force * t
+
+                        is_jumping = true
                     end
                 end
 
@@ -1197,7 +1282,7 @@ function rt.Player:update(delta)
 
             -- componensate when going up slopes, which would slow down player in stock box2d
             local before_projection_x, before_projection_y = next_velocity_x, next_velocity_y
-            if self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
+            if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
                 local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
                 if next_magnitude > math.eps then
                     -- prefer normal in direction of movement, if available
