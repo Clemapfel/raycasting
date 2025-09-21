@@ -1,5 +1,5 @@
 rt.settings.player_body = {
-    use_relative_velocity = true,
+    relative_velocity_influence = 1 / 3, -- [0, 1] where 0 no influence
 
     -- rope params
     n_rings = 7,
@@ -319,13 +319,13 @@ local _rope_handler = function(data)
     local distances = data.is_bubble and rope.bubble_distances or rope.distances
     local masses = rope.masses
 
-    -- translate whole physics system into relative velocity
-    if rt.settings.player_body.use_relative_velocity == true then
+    do -- translate whole physics system into relative velocity
+        local t = 1 - math.clamp(rt.settings.player_body.relative_velocity_influence, 0, 1)
         for i = 1, #positions, 2 do
-            positions[i] = positions[i] + data.platform_delta_x
-            positions[i+1] = positions[i+1] + data.platform_delta_y
-            last_positions[i] = last_positions[i] + data.platform_delta_x
-            last_positions[i+1] = last_positions[i+1] + data.platform_delta_y
+            positions[i] = positions[i] + data.platform_delta_x * t
+            positions[i+1] = positions[i+1] + data.platform_delta_y * t
+            last_positions[i] = last_positions[i] + data.platform_delta_x * t
+            last_positions[i+1] = last_positions[i+1] + data.platform_delta_y * t
         end
     end
 
