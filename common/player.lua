@@ -185,9 +185,6 @@ function rt.Player:instantiate()
         _left_wall_elapsed = 0,
         _right_wall_elapsed = 0,
 
-        _ground_normal_x = 0,
-        _ground_normal_y = 1,
-
         -- jump
         _jump_elapsed = math.huge,
         _coyote_elapsed = 0,
@@ -221,7 +218,7 @@ function rt.Player:instantiate()
         _gravity = 1, -- [-1, 1]
 
         _movement_disabled = false,
-        
+
         _platforms = {},
         _platform_velocity_x = 0,
         _platform_velocity_y = 0,
@@ -616,30 +613,6 @@ function rt.Player:update(delta)
     self._top_left_wall_body = top_left_wall_body
     self._top_left_ray = { x, y, x + top_left_dx, y + top_left_dy }
 
-    do -- compute ground normal, velocity is tanget to this
-        local normal_x, normal_y, n = 0, 0, 0
-        local handle_wall = function(nx, ny)
-            if nx ~= nil and ny ~= nil then
-                nx, ny = math.normalize(nx, ny)
-                normal_x = normal_x + nx
-                normal_y = normal_y + ny
-                n = n + 1
-            end
-        end
-
-        handle_wall(bottom_left_nx, bottom_left_ny)
-        handle_wall(bottom_nx, bottom_ny)
-        handle_wall(bottom_right_nx, bottom_right_ny)
-
-        if n == 0 then
-            self._ground_normal_x = 0
-            self._ground_normal_y = 0
-        else
-            self._ground_normal_x = normal_x / n
-            self._ground_normal_y = normal_y / n
-        end
-    end
-
     -- when going from air to ground, signal emission and re-lock double jump
     if (bottom_left_before == false and bottom_before == false and bottom_right_before == false) and
         (self._bottom_left_wall == true or self._bottom_wall == true or self._bottom_right_wall == true)
@@ -771,7 +744,7 @@ function rt.Player:update(delta)
             end
 
             -- if ducking, slide freely
-            if not is_accelerating and self._bottom_wall == true and (self._down_button_is_down and not (self._left_button_is_donw or self._right_button_is_down)) then
+            if not is_accelerating and self._bottom_wall == true and (self._down_button_is_down and not (self._left_button_is_down or self._right_button_is_down)) then
                 duration = math.huge
             end
 
@@ -793,20 +766,6 @@ function rt.Player:update(delta)
 
             if not self._bottom_wall and not self._left_wall and not self._right_wall and not self._bottom_left_wall and not self._bottom_right_wall then
                 next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier) -- air resistance
-            end
-
-            if self._use_wall_friction and not (self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall) then
-                -- magnetize to walls, decrease based on how far wall is from vertical
-                local magnet_force = _settings.wall_magnet_force
-                if self._left_wall and not self._right_wall and self._left_button_is_down and not left_wall_body:has_tag("slippery")then
-                    local force = magnet_force * math.distance(x, y, left_x, left_y) / (self._radius * _settings.side_wall_ray_length_factor)
-                    force = force * (1 - math.abs(math.dot(left_nx, left_ny, 0, 1)))
-                    next_velocity_x = next_velocity_x - force
-                elseif self._right_wall and not self._left_wall and self._right_button_is_down and not right_wall_body:has_tag("slippery") then
-                    local force = magnet_force * math.distance(x, y, right_x, right_y) / (self._radius * _settings.side_wall_ray_length_factor)
-                    force = force * (1 - math.abs(math.dot(right_nx, right_ny, 0, 1)))
-                    next_velocity_x = next_velocity_x + force
-                end
             end
 
             if self._use_controller_input then
@@ -846,6 +805,180 @@ function rt.Player:update(delta)
             then
                 can_wall_jump = false
             end
+
+            -- wall friction
+            --[[
+            local try_add_platform = function(
+                body,
+                normal_x, normal_y,
+                contact_x, contact_y,
+                ray_dx, ray_dy,
+                use_wall_friction
+            )
+                if body == nil then return end
+
+                meta.assert(ray_dx, "Number", ray_dy, "Number")
+                local vx, vy = body:get_velocity()
+                if body:get_type() ~= b2.BodyType.STATIC and math.magnitude(vx, vy) > math.eps then
+                    local entry = platforms[body]
+                    if entry == nil then
+                        entry = {
+                            body = body,
+                            normal_x = 0,
+                            normal_y = 0,
+                            velocity_x = vx,
+                            velocity_y = vy,
+                            contact_x = 0,
+                            contact_y = 0,
+                            ray_length = 0,
+                            count = 0,
+                            use_wall_friction = false
+                        }
+                        platforms[body] = entry
+                    end
+
+                    assert(entry.velocity_x == vx, entry.velocity_y == vy)
+                    entry.normal_x = entry.normal_x + normal_x
+                    entry.normal_y = entry.normal_y + normal_y
+                    entry.contact_x = entry.contact_x + contact_x
+                    entry.contact_y = entry.contact_y + contact_y
+                    entry.ray_length = entry.ray_length + math.magnitude(ray_dx, ray_dy)
+                    entry.count = entry.count + 1
+
+                    if use_wall_friction == true then -- override
+                        entry.use_wall_friction = true
+                    end
+
+                    is_touching_platform = true
+                end
+            end
+
+            try_add_platform(bottom_left_wall_body,
+                bottom_left_nx, bottom_left_ny,
+                bottom_left_x, bottom_left_y,
+                bottom_left_dx, bottom_left_y,
+                self._down_button_is_down
+            )
+
+            try_add_platform(bottom_wall_body,
+                bottom_nx, bottom_ny, bottom_x, bottom_y,
+                bottom_dx, bottom_dy,
+                self._down_button_is_down
+            )
+
+            try_add_platform(bottom_right_wall_body,
+                bottom_right_nx, bottom_right_ny,
+                bottom_right_x, bottom_right_y,
+                bottom_right_dx, bottom_right_dy,
+                self._down_button_is_down
+            )
+
+            if not self._jump_button_is_down then
+                try_add_platform(left_wall_body,
+                    left_nx, left_ny,
+                    left_x, left_y,
+                    left_dx, left_dy,
+                    self._left_button_is_down
+                )
+
+                try_add_platform(right_wall_body,
+                    right_nx, right_ny,
+                    right_x, right_y,
+                    right_dx, right_dy,
+                    self._right_button_is_down
+                )
+            end
+
+            try_add_platform(top_left_wall_body,
+                top_left_nx, top_left_ny,
+                top_left_x, top_left_y,
+                top_left_dx, top_left_dy,
+                false
+            )
+
+            try_add_platform(top_wall_body,
+                top_nx, top_ny,
+                top_x, top_y,
+                top_dx, top_dy,
+                false
+            )
+
+            try_add_platform(top_right_wall_body,
+                top_right_nx, top_right_ny,
+                top_right_x, top_right_y,
+                top_right_dx, top_right_y,
+                false
+            )
+
+
+
+            local compute_friction = function(normal_x, normal_y, contact_x, contact_y, velocity_x, velocity_y, ray_length)
+                local player_x, player_y = self._body:get_position()
+                local player_vx, player_vy = self._body:get_velocity()
+                local friction_coefficient = _settings.platform_friction_coefficient
+
+                local relative_vx = player_vx - velocity_x
+                local relative_vy = player_vy - velocity_y
+
+                local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
+
+                local slide_speed = math.dot(relative_vx, relative_vy, tangent_x, tangent_y)
+                local friction_direction_x, friction_direction_y = 0, 0
+                if slide_speed < 0 then
+                    friction_direction_x, friction_direction_y = tangent_x, tangent_y
+                else
+                    friction_direction_x, friction_direction_y = math.flip(tangent_x, tangent_y)
+                end
+
+                local contact_distance = math.distance(player_x, player_y, contact_x, contact_y)
+                local compression = 1 - contact_distance / ray_length
+
+                local player_nvx, player_nvy = math.normalize(player_vx, player_vy)
+
+                local vertical_speed_factor = 1
+
+                local y_alignment = math.abs(velocity_y) / math.magnitude(velocity_x, velocity_y) -- in [0, 1]
+                vertical_speed_factor = 1 + y_alignment * math.abs(
+                    math.magnitude(0, player_vy) - math.magnitude(0, velocity_y)
+                )
+
+                local normal_force = compression * friction_coefficient * vertical_speed_factor
+                local friction_magnitude = math.min(math.abs(slide_speed), normal_force)
+
+                return friction_direction_x * friction_magnitude, friction_direction_y * friction_magnitude
+            end
+
+            -- compute net friction
+            local net_friction_x, net_friction_y = 0, 0
+            for body, entry in pairs(platforms) do
+                local friction_x, friction_y = compute_friction(
+                    entry.normal_x, entry.normal_y,
+                    entry.contact_x, entry.contact_y,
+                    entry.velocity_x, entry.velocity_y,
+                    entry.ray_length
+                )
+
+                net_friction_x = net_friction_x + friction_x
+                net_friction_y = net_friction_y + friction_y
+            end
+
+            -- clamp to prevent sliding forwards in high friction scenarios
+            if current_velocity_x > 0 then
+                net_friction_x = math.min(net_friction_x, 0)
+            elseif current_velocity_x < 0 then
+                net_friction_x = math.max(net_friction_x, 0)
+            end
+
+            if current_velocity_y > 0 then
+                net_friction_y = math.min(net_friction_y, 0)
+            elseif current_velocity_y < 0 then
+                net_friction_y = math.max(net_friction_y, 0)
+            end
+
+            next_velocity_x = next_velocity_x + net_friction_x
+            next_velocity_y = next_velocity_y + net_friction_y
+        end
+        ]]--
 
             -- reset jump button when going from air to ground, to disallow buffering jumps while falling
             if (bottom_before == false and self._bottom_wall == true) or
@@ -1006,131 +1139,28 @@ function rt.Player:update(delta)
 
             local is_touching_platform = false
             do -- inherit platform velocity
-                local platforms = {} -- Set
-                local try_add_platform = function(
-                    body,
-                    normal_x, normal_y,
-                    contact_x, contact_y,
-                    ray_dx, ray_dy,
-                    use_wall_friction
-                )
-                    if body == nil then return end
+                local velocity_x, velocity_y, n = 0, 0, 0
 
-                    meta.assert(ray_dx, "Number", ray_dy, "Number")
-                    local vx, vy = body:get_velocity()
-                    if body:get_type() ~= b2.BodyType.STATIC and math.magnitude(vx, vy) > math.eps then
-                        local entry = platforms[body]
-                        if entry == nil then
-                            entry = {
-                                body = body,
-                                normal_x = 0,
-                                normal_y = 0,
-                                velocity_x = vx,
-                                velocity_y = vy,
-                                contact_x = 0,
-                                contact_y = 0,
-                                ray_length = 0,
-                                count = 0,
-                                use_wall_friction = false
-                            }
-                            platforms[body] = entry
-                        end
-
-                        assert(entry.velocity_x == vx, entry.velocity_y == vy)
-                        entry.normal_x = entry.normal_x + normal_x
-                        entry.normal_y = entry.normal_y + normal_y
-                        entry.contact_x = entry.contact_x + contact_x
-                        entry.contact_y = entry.contact_y + contact_y
-                        entry.ray_length = entry.ray_length + math.magnitude(ray_dx, ray_dy)
-                        entry.count = entry.count + 1
-
-                        if use_wall_friction == true then -- override
-                            entry.use_wall_friction = true
-                        end
-
+                for body in range(
+                    self._top_wall_body,
+                    self._top_right_wall_body,
+                    self._right_wall_body,
+                    self._bottom_right_wall_body,
+                    self._bottom_wall_body,
+                    self._bottom_left_wall_body,
+                    self._left_wall_body
+                ) do
+                    local body_vx, body_vy = body:get_velocity()
+                    if body:get_type() ~= b2.BodyType.STATIC and math.magnitude(body_vy, body_vy) > math.eps then
+                        velocity_x = velocity_x + body_vx
+                        velocity_y = velocity_y + body_vy
+                        n = n + 1
                         is_touching_platform = true
                     end
                 end
 
-                try_add_platform(bottom_left_wall_body,
-                    bottom_left_nx, bottom_left_ny,
-                    bottom_left_x, bottom_left_y,
-                    bottom_left_dx, bottom_left_y,
-                    self._down_button_is_down
-                )
-
-                try_add_platform(bottom_wall_body,
-                    bottom_nx, bottom_ny, bottom_x, bottom_y,
-                    bottom_dx, bottom_dy,
-                    self._down_button_is_down
-                )
-
-                try_add_platform(bottom_right_wall_body,
-                    bottom_right_nx, bottom_right_ny,
-                    bottom_right_x, bottom_right_y,
-                    bottom_right_dx, bottom_right_dy,
-                    self._down_button_is_down
-                )
-
-                if not self._jump_button_is_down then
-                    try_add_platform(left_wall_body,
-                        left_nx, left_ny,
-                        left_x, left_y,
-                        left_dx, left_dy,
-                        self._left_button_is_down
-                    )
-
-                    try_add_platform(right_wall_body,
-                        right_nx, right_ny,
-                        right_x, right_y,
-                        right_dx, right_dy,
-                        self._right_button_is_down
-                    )
-                end
-
-                try_add_platform(top_left_wall_body,
-                    top_left_nx, top_left_ny,
-                    top_left_x, top_left_y,
-                    top_left_dx, top_left_dy,
-                    false
-                )
-
-                try_add_platform(top_wall_body,
-                    top_nx, top_ny,
-                    top_x, top_y,
-                    top_dx, top_dy,
-                    false
-                )
-
-                try_add_platform(top_right_wall_body,
-                    top_right_nx, top_right_ny,
-                    top_right_x, top_right_y,
-                    top_right_dx, top_right_y,
-                    false
-                )
-
-                local velocity_x, velocity_y, n = 0, 0, 0
-                for body, entry in pairs(platforms) do
-                    -- average normals and contacts, in case multiple rays collide with the same body
-                    entry.normal_x = entry.normal_x / entry.count
-                    entry.normal_y = entry.normal_y / entry.count
-
-                    entry.contact_x = entry.contact_x / entry.count
-                    entry.contact_y = entry.contact_y / entry.count
-
-                    entry.ray_length = entry.ray_length / entry.count
-
-                    -- add total velocity for non-grounded inheritance
-                    velocity_x = velocity_x + entry.velocity_x
-                    velocity_y = velocity_y + entry.velocity_y
-                    n = n + 1
-                end
-
-                self._platforms = platforms
-
-                -- if grounded, reset momentum
-                if self:get_is_grounded() then
-                    if n == 0 then -- prevent division by 0
+                if is_touching_platform then
+                    if n == 0 then
                         self._platform_velocity_x = 0
                         self._platform_velocity_y = 0
                     else
@@ -1140,65 +1170,6 @@ function rt.Player:update(delta)
                 else
                     -- decay, see below
                 end
-
-                -- compute net friction
-                local player_x, player_y = self._body:get_position()
-                local net_friction_x, net_friction_y = 0, 0
-                local friction_coefficient = _settings.platform_friction_coefficient
-
-                for body, entry in pairs(platforms) do
-                    local platform_vx, platform_vy = entry.velocity_x, entry.velocity_y
-                    local platform_nx, platform_ny = entry.normal_x, entry.normal_y
-                    local platform_cx, platform_cy = entry.contact_x, entry.contact_y
-
-                    local relative_vx = current_velocity_x - platform_vx
-                    local relative_vy = current_velocity_y - platform_vy
-
-                    local tangent_x, tangent_y = math.turn_right(platform_nx, platform_ny)
-
-                    local slide_speed = math.dot(relative_vx, relative_vy, tangent_x, tangent_y)
-                    local friction_direction_x, friction_direction_y = 0, 0
-                    if slide_speed < 0 then
-                        friction_direction_x, friction_direction_y = tangent_x, tangent_y
-                    else
-                        friction_direction_x, friction_direction_y = math.flip(tangent_x, tangent_y)
-                    end
-
-                    local contact_distance = math.distance(player_x, player_y, platform_cx, platform_cy)
-                    local compression = 1 - contact_distance / entry.ray_length
-
-                    local player_nvx, player_nvy = math.normalize(current_velocity_x, current_velocity_y)
-
-                    local vertical_speed_factor = 1
-                    if entry.use_wall_friction then
-                        local y_alignment = math.abs(platform_vy) / math.magnitude(platform_vx, platform_vy) -- in [0, 1]
-                        vertical_speed_factor = 1 + y_alignment * math.abs(
-                            math.magnitude(0, current_velocity_y) - math.magnitude(0, platform_vy)
-                        )
-                    end
-
-                    local normal_force = compression * friction_coefficient * vertical_speed_factor
-                    local friction_magnitude = math.min(math.abs(slide_speed), normal_force)
-
-                    net_friction_x = net_friction_x + friction_direction_x * friction_magnitude
-                    net_friction_y = net_friction_y + friction_direction_y * friction_magnitude
-                end
-
-                -- clamp to prevent sliding forwards in high friction scenarios
-                if current_velocity_x > 0 then
-                    net_friction_x = math.min(net_friction_x, 0)
-                elseif current_velocity_x < 0 then
-                    net_friction_x = math.max(net_friction_x, 0)
-                end
-
-                if current_velocity_y > 0 then
-                    net_friction_y = math.min(net_friction_y, 0)
-                elseif current_velocity_y < 0 then
-                    net_friction_y = math.max(net_friction_y, 0)
-                end
-
-                next_velocity_x = next_velocity_x + net_friction_x
-                next_velocity_y = next_velocity_y + net_friction_y
             end
 
             if not is_touching_platform then -- decay platform velocity influence
@@ -1224,32 +1195,49 @@ function rt.Player:update(delta)
             next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
             next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
 
-            next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
-            next_velocity_y = self._platform_velocity_y + next_velocity_y * self._velocity_multiplier_y
-
-            -- project onto ground tangent, avoids slowing down on slopes
+            -- componensate when going up slopes, which would slow down player in stock box2d
             local before_projection_x, before_projection_y = next_velocity_x, next_velocity_y
-            if self:get_is_grounded() then
-                --[[
-                local ground_tangent_x, ground_tangent_y = 0, 0
-                if next_velocity_x < 0 then
-                    ground_tangent_x, ground_tangent_y = math.turn_left(self._ground_normal_x, self._ground_normal_y)
-                elseif next_velocity_y > 0 then
-                    ground_tangent_x, ground_tangent_y = math.turn_right(self._ground_normal_x, self._ground_normal_y)
-                end
-                ground_tangent_x, ground_tangent_y = math.normalize(ground_tangent_x, ground_tangent_y)
+            if self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
+                local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
+                if next_magnitude > math.eps then
+                    -- prefer normal in direction of movement, if available
+                    local ground_normal_x, ground_normal_y = bottom_nx, bottom_ny
+                    if next_velocity_x > 0 then
+                        if self._bottom_left_wall then
+                            ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
+                        end
+                    else
+                        if self._bottom_right_wall then
+                            ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
+                        end
+                    end
 
-                if ground_tangent_y < 0 then -- going upwards on a slope
-                    dbg("called")
-                    local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
-                    if magnitude > math.eps then
-                        next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
-                        next_velocity_x, next_velocity_y = math.multiply(next_velocity_x, next_velocity_y, ground_tangent_x, ground_tangent_y)
-                        next_velocity_x, next_velocity_y = math.multiply(next_velocity_x, next_velocity_y, next_magnitude)
+                    -- compute ground tangent
+                    local ground_tangent_x, ground_tangent_y = 0, 0
+                    if next_velocity_x > 0 then
+                        ground_tangent_x, ground_tangent_y = math.turn_right(ground_normal_x, ground_normal_y)
+                    elseif next_velocity_x < 0 then
+                        ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
+                    end
+
+                    -- if going up slopes
+                    if ground_tangent_y < 0 then
+                        -- project current velocity onto the ground tangent
+                        local tangent_dot = math.dot(next_velocity_x, next_velocity_y, ground_tangent_x, ground_tangent_y)
+
+                        -- calculate gravity component along the slope (opposing movement)
+                        local gravity_along_slope = math.dot(0, gravity, ground_tangent_x, ground_tangent_y)
+
+                        next_velocity_x, next_velocity_y = math.multiply(
+                            ground_tangent_x, ground_tangent_y,
+                            tangent_dot - gravity_along_slope
+                        )
                     end
                 end
-                ]]--
             end
+
+            next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
+            next_velocity_y = self._platform_velocity_y + next_velocity_y * self._velocity_multiplier_y
 
             self._body:set_velocity(next_velocity_x, next_velocity_y)
             self._last_velocity_x, self._last_velocity_y = before_projection_x - self._platform_velocity_x, before_projection_y - self._platform_velocity_y
@@ -1793,6 +1781,12 @@ function rt.Player:draw_core()
     if self._is_visible == false then return end
 
     self._graphics_body:draw_core()
+
+    if self._dbg_x ~= nil then -- TODO
+        love.graphics.setColor(1, 1, 1, 1)
+        local x, y = self._body:get_position()
+        love.graphics.line(x, y, x + 100 * self._dbg_x, y + 100 * self._dbg_y)
+    end
 end
 
 --- @brief
