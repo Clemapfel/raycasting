@@ -5,6 +5,7 @@ require "common.fade"
 require "common.thread_pool"
 require "common.palette"
 require "common.music_manager"
+require "common.music_manager_interface"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
@@ -342,6 +343,14 @@ local _focused = true
 
 love.focus = function(b)
     _focused = b
+
+    if rt.MusicManager ~= nil then
+        if _focused then
+            rt.MusicManager:unpause()
+        else
+            rt.MusicManager:pause()
+        end
+    end
 end
 
 -- override love.run for metrics

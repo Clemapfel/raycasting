@@ -7,7 +7,6 @@ rt.settings.music_manager = {
     config_directory = "assets/music",
     cross_fade_speed = 2, -- fraction
     pause_speed = 3, -- fraction
-    volume_eps = 0.01
 }
 
 --[[
@@ -29,7 +28,6 @@ function rt.MusicManager:instantiate()
     self._state = _STATE_STOPPED
     self._active_id = nil
 
-    self._volume = 1
     self._mixer = rt.SmoothedMotionND(rt.settings.music_manager.cross_fade_speed)
     -- n-dimension interpolate between n sources, ids keep track of active sources, integrates to 1
 
@@ -127,8 +125,8 @@ function rt.MusicManager:update(delta)
         entry.source:update(delta)
 
         local volume = self._mixer:get_dimension(id)
-        entry.source:set_volume(volume * self._volume)
-        if volume < rt.settings.music_manager.volume_eps then
+        entry.source:set_volume(volume)
+        if volume < 1 / 100 then
             table.insert(done, entry)
         end
     end
@@ -209,7 +207,4 @@ function rt.MusicManager:get_is_paused()
     return self._state == _STATE_PAUSED or self._state == _STATE_STOPPED
 end
 
---- @brief
-function rt.MusicManager:set_volume(volume)
-    self._volume = volume
-end
+rt.MusicManager = rt.MusicManager() -- singleton instance
