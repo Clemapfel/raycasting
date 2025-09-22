@@ -157,7 +157,7 @@ function rt.SceneManager:update(delta)
         self._current_scene:signal_emit("update", delta)
     end
 
-    rt.ThreadPool:update(delta)
+    rt.MusicManager:update(delta)
 end
 
 --- @brief

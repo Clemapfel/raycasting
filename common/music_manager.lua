@@ -1,10 +1,12 @@
 require "common.filesystem"
 require "common.music_manager_playback"
 require "common.smoothed_motion_nd"
+require "common.smoothed_motion_1d"
 
 rt.settings.music_manager = {
     config_directory = "assets/music",
     cross_fade_speed = 2, -- fraction
+    pause_speed = 3, -- fraction
 }
 
 --[[
@@ -16,10 +18,17 @@ config:
 --- @class rt.MusicManager
 rt.MusicManager = meta.class("MusicManager")
 
+local _STATE_PLAYING = "PLAYING"
+local _STATE_PAUSED = "PAUSED"
+local _STATE_STOPPED = "STOPPED"
+
 --- @brie
 function rt.MusicManager:instantiate()
     self._id_to_entry = {}
-    self._mixer = rt.SmoothedMotionND(rt.settings.coss_fade_speed)
+    self._state = _STATE_STOPPED
+    self._active_id = nil
+
+    self._mixer = rt.SmoothedMotionND(rt.settings.music_manager.cross_fade_speed)
     -- n-dimension interpolate between n sources, ids keep track of active sources, integrates to 1
 
     local _lua_pattern = "%.lua$"
@@ -63,6 +72,8 @@ function rt.MusicManager:instantiate()
             local decoder = love.sound.newDecoder(mp3)
             local entry = {
                 id = directory_name,
+                filename = mp3,
+                config_filename = lua,
                 decoder = decoder,
                 loop = { 0, decoder:getDuration() }
             }
@@ -108,20 +119,26 @@ end
 function rt.MusicManager:update(delta)
     self._mixer:update(delta)
 
-    local to_remove = {}
+    local done = {}
     for id in values(self._mixer:get_ids()) do
         local entry = self._id_to_entry[id]
         entry.source:update(delta)
 
         local volume = self._mixer:get_dimension(id)
-        entry.source:setVolume(volume)
-        if volume < math.eps then
-            table.insert(to_remove, id)
+        entry.source:set_volume(volume)
+        if volume < 1 / 100 then
+            table.insert(done, entry)
         end
     end
 
-    for id in values(to_remove) do
-        self._mixer:remove_dimension(id)
+    for entry in values(done) do
+        if self._state == _STATE_STOPPED then
+            entry.source:stop()
+        else
+            entry.source:pause()
+        end
+
+        self._mixer:remove_dimension(entry.id)
     end
 end
 
@@ -137,23 +154,57 @@ function rt.MusicManager:_get_entry(id, scope)
 end
 
 --- @brief crossfade to song immediately
-function rt.MusicManager:play(id)
+function rt.MusicManager:play(id, restart)
+    if restart == nil then restart = false end
     local entry = self:_get_entry(id, "play")
     if entry == nil then return end
-    if entry.source == nil then
-        entry.source = rt.QueableSource(entry.decoder)
-        entry.source:set_loop_bounds(table.unpack(entry.loop))
-        entry.source:set_volume(0)
+
+    if self._mixer:get_target_dimension() == entry.id then
+        if restart == true then
+            entry.source:stop()
+        end
         entry.source:play()
+        return
     end
 
-    self._mixer:add_dimension(entry.id, 0)
+    if entry.source == nil then
+        entry.source = rt.MusicManagerPlayback(entry.decoder)
+        entry.source:set_loop_bounds(table.unpack(entry.loop))
+        entry.source:set_volume(0)
+    elseif restart then
+        entry.source:stop()
+    end
+
+    entry.source:play()
+
+    self._state = _STATE_PAUSED
+    self._active_id = entry.id
     self._mixer:set_target_dimension(entry.id)
 end
 
 --- @brief
 function rt.MusicManager:pause()
-    
+    self._state = _STATE_PAUSED
+    self._mixer:stop()
+end
+
+--- @brief
+function rt.MusicManager:unpause()
+    self._state = _STATE_PLAYING
+    if self._active_id ~= nil then
+        self._mixer:set_target_dimension(self._active_id)
+    end
+end
+
+--- @brief
+function rt.MusicManager:stop()
+    self._state = _STATE_STOPPED
+    self._mixer:stop()
+end
+
+--- @brief
+function rt.MusicManager:get_is_paused()
+    return self._state == _STATE_PAUSED or self._state == _STATE_STOPPED
 end
 
 rt.MusicManager = rt.MusicManager() -- singleton instance

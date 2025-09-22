@@ -6,6 +6,8 @@ rt.settings.smoothed_motion_nd = {
 --- @class rt.SmoothedMotionND
 rt.SmoothedMotionND = meta.class("SmoothedMotionND")
 
+local _stop_dimension = -math.huge
+
 --- @brief
 function rt.SmoothedMotionND:instantiate(speed)
     self._speed = math.log(100) / (6 * rt.settings.smoothed_motion_nd.default_duration)
@@ -48,8 +50,7 @@ end
 --- @brief
 function rt.SmoothedMotionND:set_target_dimension(id)
     if self._dimensions[id] == nil then
-        rt.error("In rt.SmoothedMotionND:set_target_dimension: no dimension with id `" .. tostring(id) .. "`")
-        return
+        self:add_dimension(id, 0)
     end
 
     self._target_dimension = id
@@ -105,24 +106,40 @@ function rt.SmoothedMotionND:update(delta)
 
     local target_id = self._target_dimension
 
-    -- compute distances to per-dimension targets (1 for target axis, 0 otherwise)
+    local speed = self._speed
+
+    -- compute distances to per-dimension targets
     local distances = {}
     for id, value in pairs(self._current_position) do
-        local target = (id == target_id) and 1 or 0
+        local target
+        if target_id == _stop_dimension then
+            -- when stopping, all dimensions move to 0
+            target = 0
+            speed = speed^2
+        else
+            -- normal behavior: target dimension moves to 1, others to 0
+            target = (id == target_id) and 1 or 0
+        end
         distances[id] = target - value
     end
 
     -- advance with exponential smoothing
     for id, value in pairs(self._current_position) do
         local distance = distances[id]
-        local step = 6 * distance * self._speed * delta
+        local step = 6 * distance * speed * delta
         local next_value = value + step
         self._current_position[id] = next_value
     end
 
     -- clamp overshoot exactly at the targets
     for id in keys(self._current_position) do
-        local target = (id == target_id) and 1 or 0
+        local target
+        if target_id == _stop_dimension then
+            target = 0
+        else
+            target = (id == target_id) and 1 or 0
+        end
+
         local distance = distances[id]
         local v = self._current_position[id]
 
@@ -169,4 +186,9 @@ function rt.SmoothedMotionND:get_ids()
         table.insert(out, id)
     end
     return out
+end
+
+--- @brief
+function rt.SmoothedMotionND:stop()
+    self._target_dimension = _stop_dimension
 end
