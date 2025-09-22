@@ -1,3 +1,4 @@
+DEBUG = true -- removed by build script
 io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
 -- splash screen
@@ -20,16 +21,18 @@ do
     love.graphics.present()
 end
 
--- debugger
-debugger = {}
-local _debugger_active, _emmy_debugger = false
-function debugger.break_here()
-    if _debugger_active == false then
-        debugger.connect()
-    end
+if DEBUG then
+    -- debugger
+    debugger = {}
+    local _debugger_active, _emmy_debugger = false
+    function debugger.break_here()
+        if _debugger_active == false then
+            debugger.connect()
+        end
 
-    if _emmy_debugger ~= nil then
-        _emmy_debugger.breakHere()
+        if _emmy_debugger ~= nil then
+            _emmy_debugger.breakHere()
+        end
     end
 end
 
@@ -41,6 +44,29 @@ bit = require "bit"
 
 require "common.common"
 meta = require "common.meta"
+
+if DEBUG then
+    -- load love definitions
+    require "love.audio"
+    require "love.data"
+    require "love.event"
+    require "love.filesystem"
+    require "love.font"
+    require "love.graphics"
+    require "love.image"
+    require "love.joystick"
+    require "love.keyboard"
+    require "love.math"
+    require "love.mouse"
+    require "love.physics"
+    require "love.sound"
+    require "love.system"
+    require "love.thread"
+    require "love.timer"
+    require "love.touch"
+    require "love.video"
+    require "love.window"
+end
 
 -- globals
 

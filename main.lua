@@ -3,6 +3,34 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
+local t = {}
+
+function meta.make_auto_extend(x, recursive)
+    if recursive == nil then recursive = false end
+    local metatable = getmetatable(x)
+    if metatable == nil then
+        metatable = {}
+    end
+
+    metatable.__index = function(self, key)
+        local out = {}
+        self[key] = out
+
+        if recursive then
+            return meta.make_auto_extend(out, recursive)
+        else
+            return out
+        end
+    end
+
+    return setmetatable(x, metatable)
+end
+
+meta.make_auto_extend(t, true)
+
+t.x.y.z = 1234
+
+
 
 require "common.music_manager_playback"
 local playback_a = rt.MusicManagerPlayback("assets/music/debug_song_a/debug_song_a.mp3")
