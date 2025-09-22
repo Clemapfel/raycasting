@@ -4,8 +4,6 @@ require "common.input_subscriber"
 require "common.fade"
 require "common.thread_pool"
 require "common.palette"
-require "common.music_manager"
-require "common.music_manager_interface"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
@@ -157,8 +155,6 @@ function rt.SceneManager:update(delta)
         self._current_scene:update(delta)
         self._current_scene:signal_emit("update", delta)
     end
-
-    rt.MusicManager:update(delta)
 end
 
 --- @brief
@@ -344,6 +340,7 @@ local _focused = true
 love.focus = function(b)
     _focused = b
 
+    dbg(b)
     if rt.MusicManager ~= nil then
         if _focused then
             rt.MusicManager:unpause()

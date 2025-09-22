@@ -107,6 +107,7 @@ function rt.SmoothedMotionND:update(delta)
     local target_id = self._target_dimension
 
     local speed = self._speed
+    local ramp = 6
 
     -- compute distances to per-dimension targets
     local distances = {}
@@ -115,7 +116,7 @@ function rt.SmoothedMotionND:update(delta)
         if target_id == _stop_dimension then
             -- when stopping, all dimensions move to 0
             target = 0
-            speed = speed^2
+            ramp = ramp * 2
         else
             -- normal behavior: target dimension moves to 1, others to 0
             target = (id == target_id) and 1 or 0
@@ -126,7 +127,7 @@ function rt.SmoothedMotionND:update(delta)
     -- advance with exponential smoothing
     for id, value in pairs(self._current_position) do
         local distance = distances[id]
-        local step = 6 * distance * speed * delta
+        local step = ramp * distance * speed * delta
         local next_value = value + step
         self._current_position[id] = next_value
     end

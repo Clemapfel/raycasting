@@ -3,8 +3,7 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
-require "common.music_manager_interface"
-rt.MusicManager = rt.MusicManagerInterface()
+require "common.music_manager"
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -12,16 +11,12 @@ input:signal_connect("keyboard_key_pressed", function(_, which)
         rt.MusicManager:play("debug_song_a")
     elseif which == "2" then
         rt.MusicManager:play("debug_song_b")
-    elseif which == "9" then
-        if rt.MusicManager:get_is_paused() then
-            rt.MusicManager:unpause()
-            dbg("unpause")
-        else
-            rt.MusicManager:pause()
-            dbg("pause")
-        end
     elseif which == "3" then
         rt.MusicManager:set_volume(0.2)
+    elseif which == "4" then
+        rt.MusicManager:pause()
+    elseif which == "5" then
+        rt.MusicManager:unpause()
     elseif which == "0" then
         rt.MusicManager:stop()
     end

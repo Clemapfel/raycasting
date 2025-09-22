@@ -2,7 +2,7 @@ DEBUG = true -- removed by build script
 io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
 -- splash screen
-do
+if love.graphics then
     local screen_w, screen_h = love.graphics.getWidth(), love.graphics.getHeight()
     love.graphics.setColor(0, 0, 0, 1)
     local label = "loading..."

@@ -2,14 +2,14 @@ local main_to_worker, worker_to_main, messages = ...
 
 require "love.timer"
 require "include"
-require "common.music_manager"
+require "common.music_manager_instance"
 
-local manager = nil -- rt.MusicManager
+local manager = nil -- rt.MusicManagerInstance
 
 -- message handling
 local message_id_to_callback = {
     [messages.instantiate] = function(message)
-        manager = rt.MusicManager()
+        manager = rt.MusicManagerInstance()
     end,
 
     [messages.play] = function(message)
@@ -60,22 +60,23 @@ end
 local last_time = love.timer.getTime()
 local step = 1 / 120
 while true do
-    -- if initialized, busy check for messages
-    if manager ~= nil then
-        if main_to_worker:peek() ~= nil then
-            handle_message(main_to_worker:pop())
-        end
+    while main_to_worker:peek() ~= nil do
+        handle_message(main_to_worker:pop())
+    end
 
+    if manager ~= nil then
         local now = love.timer.getTime()
         local elapsed = now - last_time
-        local updated = false
         while elapsed > step do
-            manager:update(step)
-            last_time = now
-        end
+            local success, error_maybe = pcall(manager.update, manager, step)
+            if not success then
+                rt.critical("In rt.MusicManager: error in thread when called `rt.MusicManagerInstance.update`: " .. error_maybe)
+            end
 
-        love.timer.sleep(step^2) -- prevent CPU running at full cycle
-    else
-        handle_message(main_to_worker:demand()) -- non busy wait
+            elapsed = elapsed - step
+            last_time = last_time + step
+        end
     end
+
+    love.timer.sleep(step^2) -- limit cpu rate
 end
