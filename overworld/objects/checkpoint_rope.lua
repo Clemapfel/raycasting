@@ -39,8 +39,9 @@ local _collision_group = 0x0 --[[bit.bnot(bit.bor(
 ))]]--
 
 --- @brief
-function ow.CheckpointRope:instantiate(scene, world, x1, y1, x2, y2)
+function ow.CheckpointRope:instantiate(scene, stage, world, x1, y1, x2, y2)
     self._scene = scene
+    self._stage = stage
     self._world = world
     self._top_x, self._top_y, self._bottom_x, self._bottom_y = x1, y1, x2, y2
 

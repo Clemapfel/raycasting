@@ -195,7 +195,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             )
         elseif self._type == ow.CheckpointType.MIDWAY then
             self._fireworks = ow.Fireworks(self._scene:get_player())
-            self._rope = ow.CheckpointRope(self._scene, self._world, self._top_x, self._top_y, self._bottom_x, self._bottom_y)
+            self._rope = ow.CheckpointRope(self._scene, self._stage, self._world, self._top_x, self._top_y, self._bottom_x, self._bottom_y)
 
             self._body:signal_connect("collision_start", function(_, other)
                 if self._rope:get_is_cut() == false then
