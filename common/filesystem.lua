@@ -112,6 +112,19 @@ function bd.get_directory_prefix(file_path)
 end
 
 --- @brief
+--- @param file_path String
+--- @param include_extension Boolean
+function bd.get_file_name(file_path, include_extension)
+    if include_extension == nil then include_extension = false end
+    if include_extension then
+        return string.match(file_path, "([^/\\]+)$") -- after last / or \
+    else
+        return string.match(file_path, "([^/\\%.]+)") -- after last / or \ but before last . (if present)
+    end
+end
+
+
+--- @brief
 function bd.mount_path(path, mount_point)
     meta.assert(path, "String")
     path = bd.normalize_path(path)

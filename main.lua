@@ -2,23 +2,22 @@ require "include"
 require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
+require "common.sound_manager"
 
-require "common.music_manager"
+require "common.filesystem"
+local list = {}
+bd.apply("assets/sounds", function(path, filename)
+    if rt.random.toss_coin(0.5) then
+        list[rt.random.integer(1, 9)] = string.sub(filename, 1, #filename - 4)
+    end
+end)
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "1" then
-        rt.MusicManager:play("debug_song_a")
-    elseif which == "2" then
-        rt.MusicManager:play("debug_song_b")
-    elseif which == "3" then
-        rt.MusicManager:set_volume(0.2)
-    elseif which == "4" then
-        rt.MusicManager:pause()
-    elseif which == "5" then
-        rt.MusicManager:unpause()
-    elseif which == "0" then
-        rt.MusicManager:stop()
+    for i in range(1, 2, 3, 4, 5, 6, 7, 8, 9) do
+        if which == tostring(i) then
+            rt.SoundManager:play(list[i])
+        end
     end
 end)
 
@@ -75,6 +74,8 @@ end
 local elapsed = 0
 love.update = function(delta)
     rt.SceneManager:update(delta)
+
+    rt.SoundManager:update(delta)
 end
 
 love.draw = function()
