@@ -1,7 +1,6 @@
 --- @class rt.MusicManager
 rt.MusicManager = meta.class("MusicManager")
 
-local _success_postfix = "_success"
 local _messages = {}
 for message_id in range(
     "instantiate",
@@ -12,7 +11,6 @@ for message_id in range(
     "set_volume"
 ) do
     _messages[message_id] = message_id
-    _messages[message_id .. _success_postfix] = message_id .. _success_postfix
 end
 
 --- @brief

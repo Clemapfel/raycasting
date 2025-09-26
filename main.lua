@@ -2,21 +2,15 @@ require "include"
 require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
-require "common.sound_manager"
+require "common.sound_manager_instance"
 
-require "common.filesystem"
-local list = {}
-bd.apply("assets/sounds", function(path, filename)
-    if rt.random.toss_coin(0.5) then
-        list[rt.random.integer(1, 9)] = string.sub(filename, 1, #filename - 4)
-    end
-end)
+rt.SoundManager = rt.SoundManagerInstance() -- singleton instance
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     for i in range(1, 2, 3, 4, 5, 6, 7, 8, 9) do
         if which == tostring(i) then
-            rt.SoundManager:play(list[i])
+            rt.SoundManager:play("0700 - Click", rt.random.number(-10, 10), rt.random.number(-10, 10))
         end
     end
 end)
