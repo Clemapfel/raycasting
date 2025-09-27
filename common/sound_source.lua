@@ -17,12 +17,12 @@ end
 function rt.SoundSource:add_effect(effect)
     if love.audio.isEffectsSupported() ~= true then return end
     meta.assert(effect, rt.SoundEffect)
-    self._native:setEffect(effect._native, true)
+    self._native:setEffect(effect:get_native(), true)
 end
 
 --- @brief
 function rt.SoundSource:remove_effect(effect)
     if love.audio.isEffectsSupported() ~= true then return end
     meta.assert(effect, rt.SoundEffect)
-    self._native:setEffect(effect._native, false)
+    self._native:setEffect(effect:get_native(), false)
 end

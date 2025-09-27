@@ -166,7 +166,7 @@ end
 function rt.SoundManager:_get_entry(id, scope)
     local entry = self._id_to_entry[id]
     if entry == nil then
-        rt.error("In rt.SoundManager." .. scope .. ": no sound with id `" .. id .. "`")
+        rt.critical("In rt.SoundManager." .. scope .. ": no sound with id `" .. id .. "`")
         return nil
     else
         return entry
@@ -280,7 +280,8 @@ local _config_valid_keys = {}
 for key in range(
     "pitch",
     "position_x",
-    "position_y"
+    "position_y",
+    "effects"
 ) do
     _config_valid_keys[key] = true
 end
@@ -292,6 +293,7 @@ function rt.SoundManager:play(id, config)
     if config.pitch == nil then config.pitch = 1 end
     if config.position_x == nil then config.position_x = self._listener_x end
     if config.position_y == nil then config.position_y = self._listener_y end
+    if config.effects == nil then config.effects = {} end
 
     for key in keys(config) do
         if not _config_valid_keys[key] == true then
@@ -300,6 +302,8 @@ function rt.SoundManager:play(id, config)
     end
 
     local entry = self:_get_entry(id, "play")
+    if entry == nil then return end
+
     config.handler_id = self._current_handler_id
     self._current_handler_id = self._current_handler_id + 1
 
@@ -333,6 +337,11 @@ function rt.SoundManager:play(id, config)
     source:setRolloff(1)
     source:setVelocity(_map_coordinates(0, 0))
     source:setVolume(entry.equalizer_volume * self._volume)
+
+    for effect in values(config.effects) do
+        source:setEffect(effect:get_native(), true)
+    end
+
     source:play()
 
     local current = self._id_to_n_active_sources[id]
