@@ -2,15 +2,27 @@ require "include"
 require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
-require "common.sound_manager_instance"
+require "common.sound_manager"
 
-rt.SoundManager = rt.SoundManagerInstance() -- singleton instance
+rt.SoundManager = rt.SoundManager() -- singleton instance
+
+local to_allocate = {}
+bd.apply("assets/sounds", function(path, name)
+    if #to_allocate < 128 then
+        table.insert(to_allocate, string.sub(name, 1, #name - 4))
+        return true
+    end
+end)
+rt.SoundManager:preallocate(to_allocate)
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     for i in range(1, 2, 3, 4, 5, 6, 7, 8, 9) do
         if which == tostring(i) then
-            rt.SoundManager:play("0700 - Click", rt.random.number(-10, 10), rt.random.number(-10, 10))
+            rt.SoundManager:play("0700 - Click", {
+                position_x = rt.random.number(-10, 10),
+                position_y = rt.random.number(-10, 10)
+            })
         end
     end
 end)

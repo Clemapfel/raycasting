@@ -336,11 +336,11 @@ do
         local normalized_path = bd.normalize_path(path)
 
         -- prevent loop on symlinks
-        if visited[normalized_path] then return end
+        if visited[normalized_path] then return false end
         visited[normalized_path] = true
 
         if not bd.file_exists(path) or not bd.is_directory(path) then
-            return
+            return false
         end
 
         local items = love.filesystem.getDirectoryItems(path)
@@ -348,11 +348,17 @@ do
             local full_path = bd.join_path(path, item)
             local type = bd.get_file_type(full_path)
             if type == bd.FileType.DIRECTORY then
-                _apply(full_path, f, visited)
+                if _apply(full_path, f, visited) == true then
+                    return true
+                end
             else
-                f(full_path, item)
+                if f(full_path, item) == true then
+                    return true -- signal exit
+                end
             end
         end
+
+        return false
     end
 
     --- @brief apply function to full paths of all items recursively
@@ -382,7 +388,9 @@ function bd.apply(path, f)
         local items = love.filesystem.getDirectoryItems(path)
         for item in values(items) do
             local full_path = bd.join_path(path, item)
-            f(full_path, item)
+            if f(full_path, item) == true then
+                return -- exit early if callback returns true
+            end
         end
     else
         f(path)
