@@ -5,7 +5,7 @@ require "table.clear"
 rt.settings.sound_manager_instance = {
     config_directory = "assets/sounds",
     default_equalization_alpha = 0.1,
-    source_inactive_lifetime_threshold = 60, -- seconds
+    source_inactive_lifetime_threshold = 30, -- seconds
     enable_volume_equalization = true,
 
     reference_hearing_distance = 50,
@@ -77,7 +77,7 @@ function rt.SoundManager:instantiate()
                 sound_data = nil, -- love.SoundData
                 duration = nil, -- seconds
                 handler_id_to_active_sources = {}, -- Table<Number, love.Source>
-                inactive_source_to_elapsed = {}, -- Table<love.Source, Number>
+                inactive_source_to_timestamp = {}, -- Table<love.Source, Number>
                 was_processed = false,
                 equalizer_entry_rms = 0,
                 equalizer_volume = 1
@@ -259,6 +259,16 @@ function rt.SoundManager:preallocate(id, ...)
     end
 end
 
+--- @brief
+function rt.SoundManager:deallocate()
+    -- mark all for deallocation in next update
+    for entry in keys(self._active_entries) do
+        for source in keys(entry.inactive_source_to_timestamp) do
+            entry.inactive_source_to_timestamp[source] = -math.huge
+        end
+    end
+end
+
 -- game xy to OpenAL xyz
 local _map_coordinates = function(x, y)
     return x, -y, 0
@@ -286,6 +296,8 @@ for key in range(
     _config_valid_keys[key] = true
 end
 
+local _handler_id_to_source_wrapper = meta.make_weak({})
+
 --- @brief
 --- @return Number handler id
 function rt.SoundManager:play(id, config)
@@ -296,7 +308,7 @@ function rt.SoundManager:play(id, config)
     if config.effects == nil then config.effects = {} end
 
     for key in keys(config) do
-        if not _config_valid_keys[key] == true then
+        if _config_valid_keys[key] == true then
             rt.critical("In rt.SoundManager.player: unrecognized option `" .. key .. "`")
         end
     end
@@ -319,9 +331,9 @@ function rt.SoundManager:play(id, config)
     entry.equalizer_volume = math.clamp(entry.equalizer_volume, 0.05, 3)
 
     -- check if inactive source available
-    local source, elapsed = next(entry.inactive_source_to_elapsed)
+    local source, elapsed = next(entry.inactive_source_to_timestamp)
     if source ~= nil then
-        entry.inactive_source_to_elapsed[source] = nil
+        entry.inactive_source_to_timestamp[source] = nil
     else
         source = love.audio.newSource(entry.sound_data)
     end
@@ -350,7 +362,9 @@ function rt.SoundManager:play(id, config)
 
     self._active_entries[entry] = true
 
-    return rt.SoundSource(source)
+    local wrapper = rt.SoundSource(config.id, source)
+    _handler_id_to_source_wrapper[config.handler_id] = wrapper
+    return wrapper
 end
 
 --- @brief
@@ -360,8 +374,14 @@ function rt.SoundManager:update(delta)
         for entry in keys(self._active_entries) do
             local to_move = {}
             for handler_id, source in pairs(entry.handler_id_to_active_sources) do
-                if source:tell("samples") >= entry.sound_data:getSampleCount() then
+                if not source:isPlaying() then
+                    -- reset
                     source:stop()
+                    source:setVolume(0)
+                    source:setFilter()
+                    for effect in values(source:getActiveEffects()) do
+                        source:setEffect(effect, false)
+                    end
                     table.insert(to_move, handler_id)
                 end
             end
@@ -369,44 +389,56 @@ function rt.SoundManager:update(delta)
             for handler_id in values(to_move) do
                 local source = entry.handler_id_to_active_sources[handler_id]
                 entry.handler_id_to_active_sources[handler_id] = nil
-                entry.inactive_source_to_elapsed[source] = 0 -- elapsed
+                entry.inactive_source_to_timestamp[source] = love.timer.getTime()
 
-                local current = self._id_to_n_active_sources[entry.id] == nil
+                local current = self._id_to_n_active_sources[entry.id]
                 assert(current ~= nil)
                 self._id_to_n_active_sources[entry.id] = current - 1
 
                 if table.sizeof(entry.handler_id_to_active_sources) == 0 then
                     table.insert(to_mark_inactive, entry)
                 end
+
+                -- disable wrapper
+                local wrapper = _handler_id_to_source_wrapper[handler_id]
+                wrapper._native = nil
+                _handler_id_to_source_wrapper[handler_id] = nil
             end
         end
     end
 
     do -- deallocate
+        local to_make_inactive = {}
         for entry in keys(self._active_entries) do
             local to_remove = {}
-            for source, elapsed in pairs(entry.inactive_source_to_elapsed) do
-                elapsed = elapsed + delta
-                if elapsed > rt.settings.sound_manager_instance.source_inactive_lifetime_threshold then
-                    table.insert(to_remove)
+            for source, timestamp in pairs(entry.inactive_source_to_timestamp) do
+                if timestamp == -math.huge or love.timer.getTime() - timestamp > rt.settings.sound_manager_instance.source_inactive_lifetime_threshold then
+                    table.insert(to_remove, source)
                 end
             end
 
             for source in values(to_remove) do
-                entry.inactive_source_to_elapsed[source] = nil
+                entry.inactive_source_to_timestamp[source] = nil
                 source:release()
             end
 
-            --[[
-            if table.sizeof(entry.handler_id_to_active_sources) == 0
-                and table.sizeof(entry.inactive_source_to_elapsed) == 0
+            if entry.sound_data ~= nil
+                and table.sizeof(entry.handler_id_to_active_sources) == 0
+                and table.sizeof(entry.inactive_source_to_timestamp) == 0
             then
                 -- free entry
                 entry.sound_data:release()
                 entry.sound_data = nil
                 -- keep .was_processed and rms
+
+                table.insert(to_make_inactive, entry)
             end
-            ]]--
+        end
+
+        for entry in values(to_make_inactive) do
+            dbg(entry.id)
+            self._active_entries[entry] = nil
         end
     end
 end
+

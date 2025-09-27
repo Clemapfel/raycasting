@@ -12,15 +12,25 @@ local echo = rt.ReverbSoundEffect()
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "p" then
+        rt.SoundManager:deallocate()
+    end
+
     for i in range(1, 2, 3, 4, 5, 6, 7, 8, 9) do
         if which == tostring(i) then
             local effects = {}
             if i % 2 == 0 then
                 table.insert(effects, echo)
             end
-            rt.SoundManager:play("0700 - Click", {
+            local source = rt.SoundManager:play("0700 - Click", {
                 effects = effects
             })
+
+            if i % 2 == 0 then
+                source:set_filter(rt.SoundSourceFilterType.LOWPASS, 10)
+            else
+                source:set_filter(rt.SoundSourceFilterType.HIGHPASS, 1)
+            end
         end
     end
 end)

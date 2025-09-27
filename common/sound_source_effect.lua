@@ -7,7 +7,8 @@ rt.SoundEffectType = meta.enum("SoundEffectType", {
     EQUALIZER = "equalizer",
     FLANGER = "flanger",
     REVERB = "reverb",
-    RING_MODULATION = "ringmodulator"
+    RING_MODULATION = "ringmodulator",
+    FILTER = "filter"
 })
 
 --- @class rt.SoundEffectWaveform
@@ -18,17 +19,17 @@ rt.SoundEffectWaveform = meta.enum("SoundEffectWaveform", {
     TRIANGLE = "triangle"
 })
 
---- @class rt.SouncEffect
-rt.SoundEffect = meta.class("SoundEffect")
+--- @class rt.SoundSourceEffect
+rt.SoundSourceEffect = meta.class("SoundEffect")
 
 --- @brief
-function rt.SoundEffect:instantiate(native_id)
+function rt.SoundSourceEffect:instantiate(native_id)
     meta.assert(native_id, "String")
     self._native = native_id
 end
 
 --- @brief
-function rt.SoundEffect:get_native()
+function rt.SoundSourceEffect:get_native()
     return self._native
 end
 
@@ -108,7 +109,7 @@ do
             _current_id = _current_id + 1
         end
 
-        return rt.SoundEffect(native_id)
+        return rt.SoundSourceEffect(native_id)
     end
 end
 
@@ -129,7 +130,7 @@ do
             end
         end
 
-        return rt.SoundEffect(_native_id)
+        return rt.SoundSourceEffect(_native_id)
     end
 end
 
@@ -182,7 +183,7 @@ do
             _current_id = _current_id + 1
         end
 
-        return rt.SoundEffect(native_id)
+        return rt.SoundSourceEffect(native_id)
     end
 end
 
@@ -235,7 +236,7 @@ do
             _current_id = _current_id + 1
         end
 
-        return rt.SoundEffect(native_id)
+        return rt.SoundSourceEffect(native_id)
     end
 end
 
@@ -308,7 +309,7 @@ do
             _current_id = _current_id + 1
         end
 
-        return rt.SoundEffect(native_id)
+        return rt.SoundSourceEffect(native_id)
     end
 end
 
@@ -364,7 +365,7 @@ do
             _current_id = _current_id + 1
         end
 
-        return rt.SoundEffect(native_id)
+        return rt.SoundSourceEffect(native_id)
     end
 end
 
@@ -449,7 +450,7 @@ do
             _current_id = _current_id + 1
         end
 
-        return rt.SoundEffect(native_id)
+        return rt.SoundSourceEffect(native_id)
     end
 end
 
@@ -493,6 +494,6 @@ do
             _current_id = _current_id + 1
         end
 
-        return rt.SoundEffect(native_id)
+        return rt.SoundSourceEffect(native_id)
     end
 end
