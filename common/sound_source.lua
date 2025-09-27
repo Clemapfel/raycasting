@@ -14,9 +14,15 @@ function rt.SoundSource:stop()
 end
 
 --- @brief
-function rt.SoundSource:set_effect(effect)
+function rt.SoundSource:add_effect(effect)
     if love.audio.isEffectsSupported() ~= true then return end
-
     meta.assert(effect, rt.SoundEffect)
+    self._native:setEffect(effect._native, true)
+end
 
+--- @brief
+function rt.SoundSource:remove_effect(effect)
+    if love.audio.isEffectsSupported() ~= true then return end
+    meta.assert(effect, rt.SoundEffect)
+    self._native:setEffect(effect._native, false)
 end
