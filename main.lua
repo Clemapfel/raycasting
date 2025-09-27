@@ -8,22 +8,18 @@ rt.SoundManager = rt.SoundManager() -- singleton instance
 require "common.sound_source"
 require "common.sound_source_effect"
 
-local chorus1 = rt.ChorusSoundEffect(rt.SoundEffectWaveform.SINE)
-local chorus2 = rt.ChorusSoundEffect(rt.SoundEffectWaveform.TRIANGLE)
-local chorus3 = rt.ChorusSoundEffect(rt.SoundEffectWaveform.SINE)
-
-for chorus in range(chorus1, chorus2, chorus3) do
-    dbg(chorus._native)
-end
-
+local echo = rt.ReverbSoundEffect()
 
 input = rt.InputSubscriber()
 input:signal_connect("keyboard_key_pressed", function(_, which)
     for i in range(1, 2, 3, 4, 5, 6, 7, 8, 9) do
         if which == tostring(i) then
+            local effects = {}
+            if i % 2 == 0 then
+                table.insert(effects, echo)
+            end
             rt.SoundManager:play("0700 - Click", {
-                position_x = rt.random.number(-10, 10),
-                position_y = rt.random.number(-10, 10)
+                effects = effects
             })
         end
     end

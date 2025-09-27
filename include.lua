@@ -1,25 +1,6 @@
 DEBUG = true -- removed by build script
 io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
-
--- splash screen
-if love.graphics then
-    local screen_w, screen_h = love.graphics.getWidth(), love.graphics.getHeight()
-    love.graphics.setColor(0, 0, 0, 1)
-    local label = "loading..."
-    local font = love.graphics.newFont(0.15 * love.graphics.getHeight())
-    local label_w, label_h = font:getWidth(label), font:getHeight(label)
-
-    love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.rectangle("fill", 0, 0, screen_w, screen_h)
-
-    local value = 0.3
-    love.graphics.setColor(value, value, value, 1)
-    love.graphics.print(label, font,
-        math.floor(0.5 * screen_w - 0.5 * label_w),
-        math.floor(0.5 * screen_h - 0.5 * label_h)
-    )
-    love.graphics.present()
-end
+require "common.splash_screen" -- splash screen during compilation
 
 if DEBUG then
     -- debugger
@@ -46,7 +27,7 @@ require "common.common"
 meta = require "common.meta"
 
 if DEBUG then
-    -- load love definitions
+    -- load love language server definitions
     require "love.audio"
     require "love.data"
     require "love.event"
@@ -69,7 +50,6 @@ if DEBUG then
 end
 
 -- globals
-
 rt = {}
 mn = {}
 ow = {}
@@ -77,7 +57,7 @@ b2 = {}
 bd = {}
 rt.graphics = {}
 
-for _, t in pairs({
+for id, t in pairs({
     {"_G", _G},
     {"rt", rt},
     {"mn", mn},
@@ -88,27 +68,16 @@ for _, t in pairs({
 }) do
     setmetatable(t, {
         __index = function(self, key)
-            error("In _G." .. key .. ": trying to access `" .. key .. "`, but no such value exists in table _G")
+            error("In " .. id .. "." .. key .. ": trying to access `" .. key .. "`, but no such value exists in table `" .. id .. "`")
         end
     })
 end
 
 require "common.log"
 
--- compat assertion
-do
-    local supported = love.graphics.getSupported()
-    if supported.glsl4 ~= true or supported.shaderderivatives ~= true then
-        require "common.log"
-        rt.critical("In include.lua: This machine does not have a graphics card or graphics card driver capable of GLSL4. Entering compatibility mode, wich may severely impact the experience.")
-    end
-end
-
 rt.settings = meta.make_auto_extend({
     margin_unit = 10,
-    native_height = 600,
-    identity = "chroma_drift",
-    window_title = "Chroma Drift"
+    native_height = 600
 }, true)
 
 function rt.get_pixel_scale()

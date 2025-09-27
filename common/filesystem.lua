@@ -123,7 +123,6 @@ function bd.get_file_name(file_path, include_extension)
     end
 end
 
-
 --- @brief
 function bd.mount_path(path, mount_point)
     meta.assert(path, "String")
@@ -308,8 +307,12 @@ function bd.move(source_path, destination_path)
     end
 end
 
+local _setfenv = debug.setfenv
+
 --- @brief
-function bd.load(path)
+function bd.load(path, should_sandbox)
+    if should_sandbox == nil then should_sandbox = true end
+    meta.assert(path, "String", should_sandbox, "Boolean")
 
     local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
     if not load_success then
@@ -322,7 +325,12 @@ function bd.load(path)
         return nil
     end
 
-    local chunk_success, config_or_error = pcall(chunk_or_error)
+    local chunk = chunk_or_error
+    if _setfenv ~= nil and should_sandbox then
+        debug.setfenv(chunk, {})
+    end
+
+    local chunk_success, config_or_error = pcall(chunk)
     if not chunk_success then
         rt.error("In bd.load: error when running file at `" .. path .. "`: " .. config_or_error)
         return nil
