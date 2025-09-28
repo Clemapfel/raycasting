@@ -1,3 +1,7 @@
+rt.settings.music_manager = {
+    pause_on_focus_lost = false, -- whether to pause when window focus is lost, hanlded in SceneManager
+}
+
 --- @class rt.MusicManager
 rt.MusicManager = meta.class("MusicManager")
 

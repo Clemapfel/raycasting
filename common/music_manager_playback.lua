@@ -59,38 +59,43 @@ end
 function rt.MusicManagerPlayback:update(_)
     if self._is_playing then
         for i = 1, self._native:getFreeBufferCount() do
-            -- clamp in samples
             self._decoder_offset = math.clamp(self._decoder_offset, 0, self._loop_end)
 
-            -- seek by sample
-            self._decoder:seek(self:_sample_to_seconds(self._decoder_offset))
+            -- seek by sample - convert total samples to seconds
+            self._decoder:seek(self:_total_samples_to_seconds(self._decoder_offset))
             local chunk = self._decoder:decode()
-            local chunk_samples = chunk:getSampleCount()
-            local chunk_length = chunk_samples / self._sample_rate
 
-            local chunk_end_sample = self._decoder_offset + chunk_samples
+            -- `getSampleCount` returns samples *per channel*
+            local chunk_samples_per_channel = chunk:getSampleCount()
+            local chunk_total_samples = chunk_samples_per_channel * self._channel_count
+            local chunk_end_sample = self._decoder_offset + chunk_total_samples
 
             if chunk_end_sample > self._loop_end then
-                -- split the chunk at the loop point
-                local samples_before_loop = self._loop_end - self._decoder_offset
-                local samples_after_loop = chunk_samples - samples_before_loop
+                -- replace samples in chunk that would go past loop with samples from the start of the loop
+                local loop_end_chunk = chunk
 
-                -- first part: from current offset to loop end
-                local first_chunk = love.sound.newSoundData(samples_before_loop / self._channel_count, self._sample_rate, self._bit_depth, self._channel_count)
-                ffi.copy(first_chunk:getFFIPointer(), chunk:getFFIPointer(), samples_before_loop * ffi.sizeof("int16_t"))
-                self._native:queue(first_chunk)
+                -- get samples from start of loop - convert loop_start to seconds
+                self._decoder:seek(self:_total_samples_to_seconds(self._loop_start))
+                local loop_start_chunk = self._decoder:decode()
 
-                -- loop: seek to loop start and fill remaining samples
-                self._decoder:seek(self:_sample_to_seconds(self._loop_start))
-                local new_chunk = self._decoder:decode()
-                local second_chunk = love.sound.newSoundData(samples_after_loop / self._channel_count, self._sample_rate, self._bit_depth, self._channel_count)
-                ffi.copy(second_chunk:getFFIPointer(), new_chunk:getFFIPointer(), samples_after_loop * ffi.sizeof("int16_t"))
-                self._native:queue(second_chunk)
+                local sample_t = ternary(chunk:getBitDepth() == 8, "uint8_t", "int16_t")
+                local n_samples_before_loop_end = self._loop_end - self._decoder_offset
 
-                self._decoder_offset = self._loop_start + samples_after_loop
+                -- calculate how many samples per channel to replace
+                local samples_to_replace_per_channel = chunk_samples_per_channel - (n_samples_before_loop_end / self._channel_count)
+                samples_to_replace_per_channel = math.min(samples_to_replace_per_channel, loop_start_chunk:getSampleCount())
+
+                -- replace the samples that would go past loop_end with samples from loop_start
+                local loop_end_ptr = ffi.cast(sample_t .. "*", loop_end_chunk:getFFIPointer())
+                local loop_start_ptr = ffi.cast(sample_t .. "*", loop_start_chunk:getFFIPointer())
+                local n_bytes_to_copy = samples_to_replace_per_channel * self._channel_count * ffi.sizeof(sample_t)
+                ffi.copy(loop_end_ptr + n_samples_before_loop_end, loop_start_ptr, n_bytes_to_copy)
+
+                self._native:queue(loop_end_chunk)
+                self._decoder_offset = self._loop_start + samples_to_replace_per_channel * self._channel_count
             else
                 self._native:queue(chunk)
-                self._decoder_offset = self._decoder_offset + chunk_samples
+                self._decoder_offset = self._decoder_offset + chunk_total_samples
             end
         end
 
@@ -98,12 +103,20 @@ function rt.MusicManagerPlayback:update(_)
     end
 end
 
---- @brief
+-- Also need to fix the conversion functions to be clear about units
+function rt.MusicManagerPlayback:_seconds_to_total_samples(seconds)
+    return math.floor(seconds * self._sample_rate * self._channel_count + 0.5)
+end
+
+function rt.MusicManagerPlayback:_total_samples_to_seconds(total_samples)
+    return total_samples / (self._sample_rate * self._channel_count)
+end
+
 function rt.MusicManagerPlayback:set_loop_bounds(loop_start, loop_end, unit)
     if unit == nil then unit = rt.AudioTimeUnit.SECONDS end
     if unit == rt.AudioTimeUnit.SECONDS then
-        local start_sample = self:_seconds_to_sample(loop_start)
-        local end_sample = self:_seconds_to_sample(loop_end)
+        local start_sample = self:_seconds_to_total_samples(loop_start)
+        local end_sample = self:_seconds_to_total_samples(loop_end)
         self._loop_start = start_sample
         self._loop_end = end_sample
     elseif unit == rt.AudioTimeUnit.SAMPLES then
