@@ -328,6 +328,9 @@ end
 --- @brief
 function rt.SceneManager:get_bloom()
     if rt.GameState:get_is_bloom_enabled() then
+        if self._bloom == nil then
+            self._bloom = rt.Bloom(self._width, self._height)
+        end
         return self._bloom
     else
         return nil
@@ -340,8 +343,7 @@ local _focused = true
 love.focus = function(b)
     _focused = b
 
-    dbg(b)
-    if rt.MusicManager ~= nil then
+    if rt.settings.music_manager.pause_on_focus_lost and rt.MusicManager ~= nil then
         if _focused then
             rt.MusicManager:unpause()
         else
@@ -378,24 +380,30 @@ function love.run()
 
         _update_elapsed = _update_elapsed + delta
         local before = _update_elapsed
-        if _focused then
-            if rt.SceneManager._use_fixed_timestep == true then
-                local n_steps = 0
-                while _update_elapsed >= _update_step do
-                    love.update(_update_step)
-                    _update_elapsed = _update_elapsed - _update_step
 
-                    n_steps = n_steps + 1
-                    if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
-                        _update_elapsed = 0
-                        break
-                    end
-                end
-            else
-                if love.update ~= nil then love.update(delta) end
-                _update_elapsed = _update_elapsed - delta
-            end
+        local current_scene = rt.SceneManager._current_scene
+        if not _focused and (current_scene == nil or current_scene:get_pause_on_focus_lost() == true) then
+            goto skip_update
         end
+
+        if rt.SceneManager._use_fixed_timestep == true then
+            local n_steps = 0
+            while _update_elapsed >= _update_step do
+                love.update(_update_step)
+                _update_elapsed = _update_elapsed - _update_step
+
+                n_steps = n_steps + 1
+                if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
+                    _update_elapsed = 0
+                    break
+                end
+            end
+        else
+            if love.update ~= nil then love.update(delta) end
+            _update_elapsed = _update_elapsed - delta
+        end
+
+        ::skip_update::
 
         rt.SceneManager._elapsed = rt.SceneManager._elapsed + (before - _update_elapsed)
         update_after = love.timer.getTime()

@@ -54,3 +54,8 @@ end
 function rt.Scene:reload()
     rt.error("In " .. meta.typeof(self) .. ".reload: abstract method called")
 end
+
+--- @brief
+function rt.Scene:get_pause_on_focus_lost()
+    return true
+end

@@ -1092,5 +1092,9 @@ function ow.OverworldScene:show_result_screen()
     self._result_screen_transition_elapsed = 0
 end
 
+--- @brief
+function ow.OverworldScene:get_pause_on_focus_lost()
+    return false
+end
 
 
