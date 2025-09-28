@@ -13,7 +13,8 @@ rt.settings.menu.stage_select_debris_emitter = {
     max_angle_perturbation = 0.01 * math.pi,
     trail_max_scale = 3,
     collision_duration = 0.2, -- seconds
-    draw_trails = true
+    draw_trails = true,
+    player_collision_radius_threshold = 0.5 -- fraction
 }
 
 --- @class mn.StageSelectDebrisEmitter
@@ -242,8 +243,9 @@ function mn.StageSelectDebrisEmitter:update(delta)
             table.insert(to_despawn, particle_i)
         end
 
-        -- despawn when colliding with player
-        if _rectangle_circle_overlap(
+        -- despawn if in foreground and when colliding with player
+        if particle.radius > rt.settings.menu.stage_select_debris_emitter.player_collision_radius_threshold
+            and _rectangle_circle_overlap(
             self._hitbox_x - self._offset_x, self._hitbox_y - self._offset_y - 0.5 - self._hitbox_radius, 2 * self._hitbox_radius, 0.25 * self._hitbox_radius,
             particle.x, particle.y, math.mix(min_radius, max_radius, particle.radius)
         ) then
