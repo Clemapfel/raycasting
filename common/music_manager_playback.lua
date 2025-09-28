@@ -1,7 +1,7 @@
 require "common.audio_time_unit"
 
 rt.settings.music_manager_playback = {
-    buffer_size = 2^12, -- bytes
+    n_samples_per_chunk = 2^12,
     n_buffers = 8,
 }
 
@@ -25,27 +25,22 @@ end
 
 --- @brief
 function rt.MusicManagerPlayback:create_from(path)
-    local decoder = love.sound.newDecoder(
-        path,
-        rt.settings.music_manager_playback.buffer_size
-    )
 
-    self._decoder = decoder
-    self._decoder_offset = 0 -- in samples
+    self._data = love.sound.newSoundData(path)
+    self._offset = 1 -- in samples per channel
+
     self._buffer_size = rt.settings.music_manager_playback.buffer_size
-    self._sample_rate = decoder:getSampleRate()
-    self._bit_depth = decoder:getBitDepth()
-    self._channel_count = decoder:getChannelCount()
+    self._sample_rate = self._data:getSampleRate()
+    self._bit_depth = self._data:getBitDepth()
+    self._sample_t = ternary(self._bit_depth == 8, "uint8_t", "int16_t")
+    self._channel_count = self._data:getChannelCount()
 
     if self._loop_start == nil then
         self._loop_start = 0
     end
 
-    local duration = self:_seconds_to_sample(decoder:getDuration())
     if self._loop_end == nil then
-        self._loop_end = duration
-    else
-        self._loop_end = math.min(self._loop_end, duration)
+        self._loop_end = self._data:getSampleCount()
     end
 
     self._native = love.audio.newQueueableSource(
@@ -55,47 +50,67 @@ function rt.MusicManagerPlayback:create_from(path)
         rt.settings.music_manager_playback.n_buffers
     )
 
+    -- reusable chunk
+    self._chunk = love.sound.newSoundData(
+        rt.settings.music_manager_playback.n_samples_per_chunk,
+        self._sample_rate,
+        self._bit_depth,
+        self._channel_count
+    )
+
     self._is_playing = false
 end
 
+--- @brief
+function rt.MusicManagerPlayback:_copy_to_chunk(from_data, to_chunk, data_start_i, data_end_i)
+
 --- @brief Updates the playback state and handles looping.
 function rt.MusicManagerPlayback:update(_)
+    local n_samples_per_chunk = rt.settings.music_manager_playback.n_samples_per_chunk
     if self._is_playing then
-        for i = 1, self._native:getFreeBufferCount() do
+        for _ = 1, self._native:getFreeBufferCount() do
+
             -- seek by sample - convert total samples to seconds
-            self._decoder:seek(self:_total_samples_to_seconds(self._decoder_offset))
-            local chunk = self._decoder:decode()
+            if self._offset + n_samples_per_chunk > self._loop_end then
+                local n_samples_until_loop_end = self._loop_end - self._offset
+                -- start chunk with current until end of loop
+                for offset = 0, n_samples_until_loop_end do
+                    for channel_i = 1, self._channel_count do
+                        self._chunk:setSample(
+                            offset, channel_i,
+                            self._data:getSample(self._offset + offset, channel_i)
+                        )
+                    end
+                end
 
-            -- `getSampleCount` returns samples *per channel*
-            local chunk_samples_per_channel = chunk:getSampleCount()
-            local chunk_total_samples = chunk_samples_per_channel * self._channel_count
+                -- jump to loop start
+                self._offset = self._loop_start
 
-            if self._decoder_offset + chunk_total_samples > self._loop_end then
-                -- replace samples in chunk that would go past loop with samples from the start of the loop
-                local loop_end_chunk = chunk
+                -- finish chunk with samples from start of loop
+                for offset = n_samples_until_loop_end, n_samples_per_chunk do
+                    for channel_i = 1, self._channel_count do
+                        self._chunk:setSample(
+                            offset, channel_i,
+                            self._data:getSample(self._offset + offset, channel_i)
+                        )
+                    end
+                end
 
-                -- get samples from start of loop - convert loop_start to seconds
-                self._decoder:seek(self:_total_samples_to_seconds(self._loop_start))
-                local loop_start_chunk = self._decoder:decode()
-
-                local sample_t = ternary(chunk:getBitDepth() == 8, "uint8_t", "int16_t")
-                local n_samples_before_loop_end = self._loop_end - self._decoder_offset
-
-                -- calculate how many samples per channel to replace
-                local samples_to_replace_per_channel = chunk_samples_per_channel - (n_samples_before_loop_end / self._channel_count)
-                samples_to_replace_per_channel = math.min(samples_to_replace_per_channel, loop_start_chunk:getSampleCount())
-
-                -- replace the samples that would go past loop_end with samples from loop_start
-                local loop_end_ptr = ffi.cast(sample_t .. "*", loop_end_chunk:getFFIPointer())
-                local loop_start_ptr = ffi.cast(sample_t .. "*", loop_start_chunk:getFFIPointer())
-                local n_bytes_to_copy = samples_to_replace_per_channel * self._channel_count * ffi.sizeof(sample_t)
-                ffi.copy(loop_end_ptr + n_samples_before_loop_end, loop_start_ptr, n_bytes_to_copy)
-
-                self._native:queue(loop_end_chunk)
-                self._decoder_offset = self._loop_start + samples_to_replace_per_channel
+                -- jump to end of chunk
+                self._offset = self._loop_start + (n_samples_per_chunk - n_samples_until_loop_end)
             else
-                self._native:queue(chunk)
-                self._decoder_offset = self._decoder_offset + self:_seconds_to_sample(chunk:getDuration()) * self._channel_count
+                -- file chunk from sound data
+                for offset = 0, n_samples_per_chunk - 1 do
+                    for channel_i = 1, self._channel_count do
+                        self._chunk:setSample(
+                            offset, channel_i,
+                            self._data:getSample(self._offset + offset, channel_i)
+                        )
+                    end
+                end
+
+                self._native:queue(self._chunk)
+                self._offset = self._offset + self._chunk:getSampleCount()
             end
         end
 
@@ -154,5 +169,5 @@ end
 function rt.MusicManagerPlayback:stop()
     self._is_playing = false
     self._native:stop()
-    self._decoder_offset = 0
+    self._offset = 0
 end
