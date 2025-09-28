@@ -1,7 +1,7 @@
 require "common.audio_time_unit"
 
 rt.settings.music_manager_playback = {
-    buffer_size = 2^11, -- bytes
+    buffer_size = 2^12, -- bytes
     n_buffers = 16,
 }
 
@@ -68,9 +68,8 @@ function rt.MusicManagerPlayback:update(_)
             -- `getSampleCount` returns samples *per channel*
             local chunk_samples_per_channel = chunk:getSampleCount()
             local chunk_total_samples = chunk_samples_per_channel * self._channel_count
-            local chunk_end_sample = self._decoder_offset + chunk_total_samples
 
-            if chunk_end_sample > self._loop_end then
+            if self._decoder_offset + chunk_total_samples > self._loop_end then
                 -- replace samples in chunk that would go past loop with samples from the start of the loop
                 local loop_end_chunk = chunk
 
@@ -92,20 +91,20 @@ function rt.MusicManagerPlayback:update(_)
                 ffi.copy(loop_end_ptr + n_samples_before_loop_end, loop_start_ptr, n_bytes_to_copy)
 
                 self._native:queue(loop_end_chunk)
-                self._decoder_offset = self._loop_start + samples_to_replace_per_channel * self._channel_count
+                self._decoder_offset = self._loop_start + samples_to_replace_per_channel
             else
                 self._native:queue(chunk)
                 self._decoder_offset = self._decoder_offset + chunk_total_samples
             end
         end
-
-        self._native:play()
     end
+
+    self._native:play()
 end
 
 -- Also need to fix the conversion functions to be clear about units
 function rt.MusicManagerPlayback:_seconds_to_total_samples(seconds)
-    return math.floor(seconds * self._sample_rate * self._channel_count + 0.5)
+    return math.ceil(seconds * self._sample_rate * self._channel_count)
 end
 
 function rt.MusicManagerPlayback:_total_samples_to_seconds(total_samples)
