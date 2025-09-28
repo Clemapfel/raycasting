@@ -96,7 +96,7 @@ function rt.MusicManagerPlayback:_copy_to_chunk(data_start_i, chunk_start_i, n_s
     ffi.copy(
         chunk_typed + destination_offset, -- destination
         data_typed + source_offset, -- source
-        n_bytes * sample_size -- bytes to copy
+        n_bytes * sample_size -- n bytes to copy
     )
 end
 
@@ -106,10 +106,10 @@ function rt.MusicManagerPlayback:update(_)
     if self._is_playing then
         for _ = 1, self._native:getFreeBufferCount() do
 
-            -- sanity check, this should never be able to trigger
             if self._offset > self._loop_end then
+                -- sanity check, this should never be able to trigger, cut to loop end
                 rt.critical("In rt.MusicManager: unreachable reached")
-                self._offset = self._loop_end - n_samples_per_chunk - 1
+                self._offset = self._loop_end - n_samples_per_chunk + 2
             end
 
             if self._offset + n_samples_per_chunk > self._loop_end then
