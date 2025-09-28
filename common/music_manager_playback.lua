@@ -25,11 +25,13 @@ end
 
 --- @brief
 function rt.MusicManagerPlayback:create_from(path)
-
     self._data = love.sound.newSoundData(path)
-    self._offset = 1 -- in samples per channel
+    self._offset = 1 -- in samples per channel (1 based)
 
-    self._buffer_size = rt.settings.music_manager_playback.buffer_size
+    local size_mb = (self._data:getSampleCount() * self._data:getChannelCount()) * (self._data:getBitDepth() / 8) / (1024 * 1024)
+    size_mb = math.ceil(size_mb * 1000) / 1000
+    rt.log("In rt.MusicManager: allocating " .. size_mb .. " mb for music at `" .. path .. "`")
+
     self._sample_rate = self._data:getSampleRate()
     self._bit_depth = self._data:getBitDepth()
     self._sample_t = ternary(self._bit_depth == 8, "uint8_t", "int16_t")
@@ -62,55 +64,83 @@ function rt.MusicManagerPlayback:create_from(path)
 end
 
 --- @brief
-function rt.MusicManagerPlayback:_copy_to_chunk(from_data, to_chunk, data_start_i, data_end_i)
+function rt.MusicManagerPlayback:_copy_to_chunk(data_start_i, chunk_start_i, n_samples)
+    --[[
+    n_samples = math.min(n_samples, self._chunk:getSampleCount() - chunk_start_i)
+    for offset = 0, n_samples - 1 do
+        for channel_i = 1, self._chunk:getChannelCount() do
+            self._chunk:setSample(
+                chunk_start_i + offset,
+                channel_i,
+                self._data:getSample(data_start_i + offset, channel_i)
+            )
+        end
+    end
+    ]]--
 
---- @brief Updates the playback state and handles looping.
+    n_samples = math.min(n_samples,
+        self._chunk:getSampleCount() - chunk_start_i,
+        self._data:getSampleCount() - data_start_i
+    )
+
+    local sample_size = self._bit_depth / 8  -- bytes per sample
+    local channel_count = self._channel_count
+
+    local data_typed = ffi.cast(self._sample_t .. "*", self._data:getFFIPointer())
+    local chunk_typed = ffi.cast(self._sample_t .. "*", self._chunk:getFFIPointer())
+
+    local source_offset = data_start_i * channel_count
+    local destination_offset = chunk_start_i * channel_count
+    local n_bytes = n_samples * channel_count
+
+    ffi.copy(
+        chunk_typed + destination_offset, -- destination
+        data_typed + source_offset, -- source
+        n_bytes * sample_size -- bytes to copy
+    )
+end
+
+--- @brief
 function rt.MusicManagerPlayback:update(_)
-    local n_samples_per_chunk = rt.settings.music_manager_playback.n_samples_per_chunk
+    local n_samples_per_chunk = self._chunk:getSampleCount()
     if self._is_playing then
         for _ = 1, self._native:getFreeBufferCount() do
 
-            -- seek by sample - convert total samples to seconds
+            -- sanity check, this should never be able to trigger
+            if self._offset > self._loop_end then
+                rt.critical("In rt.MusicManager: unreachable reached")
+                self._offset = self._loop_end - n_samples_per_chunk - 1
+            end
+
             if self._offset + n_samples_per_chunk > self._loop_end then
+                self._offset = math.min(self._offset, self._loop_end)
                 local n_samples_until_loop_end = self._loop_end - self._offset
-                -- start chunk with current until end of loop
-                for offset = 0, n_samples_until_loop_end do
-                    for channel_i = 1, self._channel_count do
-                        self._chunk:setSample(
-                            offset, channel_i,
-                            self._data:getSample(self._offset + offset, channel_i)
-                        )
-                    end
+
+                -- fill chunk with current data until end of loop
+                if n_samples_until_loop_end > 0 then
+                    self:_copy_to_chunk(
+                        self._offset,
+                        0,
+                        n_samples_until_loop_end
+                    )
                 end
 
-                -- jump to loop start
-                self._offset = self._loop_start
-
-                -- finish chunk with samples from start of loop
-                for offset = n_samples_until_loop_end, n_samples_per_chunk do
-                    for channel_i = 1, self._channel_count do
-                        self._chunk:setSample(
-                            offset, channel_i,
-                            self._data:getSample(self._offset + offset, channel_i)
-                        )
-                    end
-                end
-
-                -- jump to end of chunk
-                self._offset = self._loop_start + (n_samples_per_chunk - n_samples_until_loop_end)
-            else
-                -- file chunk from sound data
-                for offset = 0, n_samples_per_chunk - 1 do
-                    for channel_i = 1, self._channel_count do
-                        self._chunk:setSample(
-                            offset, channel_i,
-                            self._data:getSample(self._offset + offset, channel_i)
-                        )
-                    end
+                -- fill remaining chunk with samples from start of loop
+                local n_samples_from_loop_start = n_samples_per_chunk - n_samples_until_loop_end
+                if n_samples_from_loop_start > 0 then
+                    self:_copy_to_chunk(
+                        self._loop_start,
+                        n_samples_until_loop_end,
+                        n_samples_from_loop_start
+                    )
                 end
 
                 self._native:queue(self._chunk)
-                self._offset = self._offset + self._chunk:getSampleCount()
+                self._offset = self._loop_start + n_samples_from_loop_start
+            else
+                self:_copy_to_chunk(self._offset, 0, n_samples_per_chunk)
+                self._native:queue(self._chunk)
+                self._offset = self._offset + n_samples_per_chunk
             end
         end
 
@@ -118,13 +148,12 @@ function rt.MusicManagerPlayback:update(_)
     end
 end
 
--- Also need to fix the conversion functions to be clear about units
 function rt.MusicManagerPlayback:_seconds_to_total_samples(seconds)
-    return math.ceil(seconds * self._sample_rate * self._channel_count)
+    return math.floor(seconds * self._sample_rate)
 end
 
 function rt.MusicManagerPlayback:_total_samples_to_seconds(total_samples)
-    return total_samples / (self._sample_rate * self._channel_count)
+    return total_samples / self._sample_rate
 end
 
 function rt.MusicManagerPlayback:set_loop_bounds(loop_start, loop_end, unit)
@@ -169,5 +198,5 @@ end
 function rt.MusicManagerPlayback:stop()
     self._is_playing = false
     self._native:stop()
-    self._offset = 0
+    self._offset = 1
 end

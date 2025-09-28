@@ -1,3 +1,4 @@
 return {
-    loop = { 5.186, 169.892 }
+    loop = { 228811, 7490767 },
+    unit = "samples"
 }

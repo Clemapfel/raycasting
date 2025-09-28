@@ -76,7 +76,8 @@ function rt.MusicManagerInstance:instantiate()
                 id = directory_name,
                 filename = mp3,
                 config_filename = lua,
-                loop = { 0, decoder:getDuration() }
+                loop = { 0, decoder:getDuration() },
+                unit = rt.AudioTimeUnit.SECONDS,
             }
 
             if lua ~= nil then
@@ -98,13 +99,27 @@ function rt.MusicManagerInstance:instantiate()
                 end
 
                 local loop = get("loop", "Table")
+                local unit = get("unit", "String")
                 if loop ~= nil then
                     if #loop ~= 2 then
                         rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `loop`, but it is not a table with 2 numerical entries")
                     end
 
-                    if loop[1] < 0 or loop[1] > decoder:getDuration() or loop[2] < 0 or loop[2] > decoder:getDuration() then
-                        rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `loop`, its timestampes are outside `0, " .. decoder:getDuration() .. "`, the duration of the file at `" .. mp3 .. "`")
+                    if unit == nil or unit == rt.AudioTimeUnit.SECONDS then
+                        if loop[1] < 0 or loop[1] > decoder:getDuration() or loop[2] < 0 or loop[2] > decoder:getDuration() then
+                            rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `loop`, its timestampes are outside `0, " .. decoder:getDuration() .. "`, the duration of the file at `" .. mp3 .. "`")
+                        end
+
+                        entry.unit = rt.AudioTimeUnit.SECONDS
+                    elseif unit == rt.AudioTimeUnit.SAMPLES then
+                        local max_n_samples = decoder:getDuration() * decoder:getSampleRate()
+                        if loop[1] < 0 or loop[1] > max_n_samples or loop[2] < 0 or loop[2] > max_n_samples then
+                            rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `loop`, its samples are outside `0, " .. max_n_samples .. "`, the duration of the file at `" .. mp3 .. "`")
+                        end
+
+                        entry.unit = rt.AudioTimeUnit.SAMPLES
+                    else
+                        rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "`: expected rt.AudioTimeUnit for `unit`, got `" .. meta.typeof(unit) .. "`")
                     end
 
                     entry.loop = loop
@@ -171,7 +186,8 @@ function rt.MusicManagerInstance:play(id, restart)
 
     if entry.source == nil then
         entry.source = rt.MusicManagerPlayback(entry.filename)
-        entry.source:set_loop_bounds(table.unpack(entry.loop))
+        local loop_start, loop_end = table.unpack(entry.loop)
+        entry.source:set_loop_bounds(loop_start, loop_end, entry.unit)
         entry.source:set_volume(0)
     elseif restart then
         entry.source:stop()
