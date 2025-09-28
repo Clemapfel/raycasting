@@ -76,7 +76,6 @@ function rt.MusicManagerInstance:instantiate()
                 id = directory_name,
                 filename = mp3,
                 config_filename = lua,
-                decoder = decoder,
                 loop = { 0, decoder:getDuration() }
             }
 
@@ -171,7 +170,7 @@ function rt.MusicManagerInstance:play(id, restart)
     end
 
     if entry.source == nil then
-        entry.source = rt.MusicManagerPlayback(entry.decoder)
+        entry.source = rt.MusicManagerPlayback(entry.filename)
         entry.source:set_loop_bounds(table.unpack(entry.loop))
         entry.source:set_volume(0)
     elseif restart then

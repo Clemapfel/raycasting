@@ -2,14 +2,14 @@ require "common.audio_time_unit"
 
 rt.settings.music_manager_playback = {
     buffer_size = 2^12, -- bytes
-    n_buffers = 16,
+    n_buffers = 8,
 }
 
 rt.MusicManagerPlayback = meta.class("MusicManagerPlayback")
 
 --- @brief
 function rt.MusicManagerPlayback:_seconds_to_sample(seconds)
-    return math.floor(seconds * self._sample_rate + 0.5)
+    return math.ceil(seconds * self._sample_rate)
 end
 
 --- @brief
@@ -18,18 +18,20 @@ function rt.MusicManagerPlayback:_sample_to_seconds(sample)
 end
 
 --- @brief
-function rt.MusicManagerPlayback:instantiate(path_or_decoder)
-    if meta.is_string(path_or_decoder) then
-        self:create_form(love.sound.newDecoder(path_or_decoder, rt.settings.music_manager_playback))
-    elseif path_or_decoder.typeOf ~= nil and path_or_decoder:typeOf("Decoder") then
-        self:create_from(path_or_decoder)
-    end
+function rt.MusicManagerPlayback:instantiate(path)
+    meta.assert(path, "String")
+    self:create_from(path)
 end
 
 --- @brief
-function rt.MusicManagerPlayback:create_from(decoder)
-    self._decoder = decoder -- love.audio.Decoder
-    self._decoder_offset = 0
+function rt.MusicManagerPlayback:create_from(path)
+    local decoder = love.sound.newDecoder(
+        path,
+        rt.settings.music_manager_playback.buffer_size
+    )
+
+    self._decoder = decoder
+    self._decoder_offset = 0 -- in samples
     self._buffer_size = rt.settings.music_manager_playback.buffer_size
     self._sample_rate = decoder:getSampleRate()
     self._bit_depth = decoder:getBitDepth()
@@ -52,6 +54,7 @@ function rt.MusicManagerPlayback:create_from(decoder)
         self._channel_count,
         rt.settings.music_manager_playback.n_buffers
     )
+
     self._is_playing = false
 end
 
@@ -59,8 +62,6 @@ end
 function rt.MusicManagerPlayback:update(_)
     if self._is_playing then
         for i = 1, self._native:getFreeBufferCount() do
-            self._decoder_offset = math.clamp(self._decoder_offset, 0, self._loop_end)
-
             -- seek by sample - convert total samples to seconds
             self._decoder:seek(self:_total_samples_to_seconds(self._decoder_offset))
             local chunk = self._decoder:decode()
@@ -94,12 +95,12 @@ function rt.MusicManagerPlayback:update(_)
                 self._decoder_offset = self._loop_start + samples_to_replace_per_channel
             else
                 self._native:queue(chunk)
-                self._decoder_offset = self._decoder_offset + chunk_total_samples
+                self._decoder_offset = self._decoder_offset + self:_seconds_to_sample(chunk:getDuration()) * self._channel_count
             end
         end
-    end
 
-    self._native:play()
+        self._native:play()
+    end
 end
 
 -- Also need to fix the conversion functions to be clear about units
