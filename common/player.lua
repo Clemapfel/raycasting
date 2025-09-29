@@ -414,8 +414,6 @@ function rt.Player:_connect_input()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
-        elseif which == "r" then
-            self:set_is_ghost(not self:get_is_ghost())
         elseif false then --which == "h" then
             is_sleeping = not is_sleeping
 
@@ -1433,49 +1431,81 @@ function rt.Player:update(delta)
     -- add blood splatter
     if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            local r = self._radius / 2
+            local r = self._radius
             local cx, cy = contact_x, contact_y
 
-            if last_contact_x ~= nil then
-                local dx, dy = contact_x - last_contact_x, contact_y - last_contact_y
-                r = math.magnitude(dx, dy) / 2
+            if last_contact_x ~= nil and last_contact_y ~= nil then
+                local dist = math.distance(contact_x, contact_y, last_contact_x, last_contact_y)
+                r = math.max(dist / 2, self._radius)
+                cx = math.mix(contact_x, last_contact_x, 0.5)
+                cy = math.mix(contact_y, last_contact_y, 0.5)
             end
 
-            self._stage:get_blood_splatter():add(cx, cy, r, self._hue)
+            self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
         end
 
-        do
-            if self._top_wall and
-                not top_wall_body:has_tag("slippery") and
-                not top_wall_body:has_tag("no_blood") and
-                math.distance(top_x, top_y, x, y) <= self._radius
-            then
-                _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
-            end
+        if self._top_left_wall
+            and not top_left_wall_body:has_tag("slippery")
+            and not top_left_wall_body:has_tag("no_blood")
+            --and math.distance(top_left_x, top_left_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(top_left_x, top_left_y, self._last_top_left_x, self._last_top_left_y)
+        end
 
-            if self._right_wall and
-                not right_wall_body:has_tag("slippery") and
-                not right_wall_body:has_tag("no_blood") and
-                math.distance(right_x, right_y, x, y) <= self._radius
-            then
-                _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
-            end
+        if self._top_wall
+            and not top_wall_body:has_tag("slippery")
+            and not top_wall_body:has_tag("no_blood")
+            --and math.distance(top_x, top_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
+        end
 
-            if self._bottom_wall and
-                not bottom_wall_body:has_tag("slippery") and
-                not bottom_wall_body:has_tag("no_blood") and
-                math.distance(bottom_x, bottom_y, x, y) <= self._radius
-            then
-                _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
-            end
+        if self._top_right_wall
+            and not top_right_wall_body:has_tag("slippery")
+            and not top_right_wall_body:has_tag("no_blood")
+            --and math.distance(top_right_x, top_right_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(top_right_x, top_right_y, self._last_top_right_x, self._last_top_right_y)
+        end
 
-            if self._left_wall and
-                not left_wall_body:has_tag("slippery") and
-                not left_wall_body:has_tag("no_blood") and
-                math.distance(left_x, left_y, x, y) <= self._radius
-            then
-                _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
-            end
+        if self._right_wall
+            and not right_wall_body:has_tag("slippery")
+            and not right_wall_body:has_tag("no_blood")
+            --and math.distance(right_x, right_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
+        end
+
+        if self._bottom_right_wall
+            and not bottom_right_wall_body:has_tag("slippery")
+            and not bottom_right_wall_body:has_tag("no_blood")
+            --and math.distance(bottom_right_x, bottom_right_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(bottom_right_x, bottom_right_y, self._last_bottom_right_x, self._last_bottom_right_y)
+        end
+
+        if self._bottom_wall
+            and not bottom_wall_body:has_tag("slippery")
+            and not bottom_wall_body:has_tag("no_blood")
+            --and math.distance(bottom_x, bottom_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
+        end
+
+        if self._bottom_left_wall
+            and not bottom_left_wall_body:has_tag("slippery")
+            and not bottom_left_wall_body:has_tag("no_blood")
+            --and math.distance(bottom_left_x, bottom_left_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(bottom_left_x, bottom_left_y, self._last_bottom_left_x, self._last_bottom_left_y)
+        end
+
+        if self._left_wall
+            and not left_wall_body:has_tag("slippery")
+            and not left_wall_body:has_tag("no_blood")
+            --and math.distance(left_x, left_y, x, y) <= self._radius
+        then
+            _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
         end
     end
 
@@ -1505,9 +1535,13 @@ function rt.Player:update(delta)
         self._last_position_x, self._last_position_y = self._bubble_body:get_position()
     end
 
+    self._last_top_left_x, self._last_top_left_y = top_left_x, top_left_y
     self._last_top_x, self._last_top_y = top_x, top_y
+    self._last_top_right_x, self._last_top_right_y = top_right_x, top_right_y
     self._last_right_x, self._last_right_y = right_x, right_y
+    self._last_bottom_right_x, self._last_bottom_right_y = bottom_right_x, bottom_right_y
     self._last_bottom_x, self._last_bottom_y = bottom_x, bottom_y
+    self._last_bottom_left_x, self._last_bottom_left_y = bottom_left_x, bottom_left_y
     self._last_left_x, self._last_left_y = left_x, left_y
 
     update_graphics()
@@ -1567,9 +1601,6 @@ function rt.Player:move_to_world(world)
 
     self._last_position_x, self._last_position_y = x, y
     self._skip_next_flow_update = true
-
-    local bubble_group = b2.CollisionGroup.GROUP_13
-    local non_bubble_group = b2.CollisionGroup.GROUP_12
 
     -- hard body
     local inner_body_shape = b2.Circle(0, 0, self._inner_body_radius)
