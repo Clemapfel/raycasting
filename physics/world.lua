@@ -127,6 +127,7 @@ end
 
 --- @brief
 function b2.World:_notify_position_changed(body, x, y)
+    if self._native:isDestroyed() then return end
     if self._native:isLocked() == true then
         table.insert(self._body_to_move_queue, {
             body = body:get_native(),
@@ -134,31 +135,39 @@ function b2.World:_notify_position_changed(body, x, y)
             position_y = y,
         })
     else
-        body._native:setPosition(x, y)
+        if body._native:isDestroyed() ~= true then
+            body._native:setPosition(x, y)
+        end
     end
 end
 
 --- @brief
 function b2.World:_notify_rotation_changed(body, rotation)
+    if self._native:isDestroyed() then return end
     if self._native:isLocked() == true then
         table.insert(self._body_to_rotate_queue, {
             body = body:get_native(),
             angle = rotation
         })
     else
-        body._native:setAngle(rotation)
+        if body._native:isDestroyed() ~= true then
+            body._native:setAngle(rotation)
+        end
     end
 end
 
 --- @brief
 function b2.World:_notify_active_changed(body, b)
+    if self._native:isDestroyed() then return end
     if self._native:isLocked() == true then
         table.insert(self._body_to_activate_queue, {
             body = body:get_native(),
             is_active = b
         })
     else
-        body._native:setActive(b)
+        if body._native:isDestroyed() ~= true then
+            body._native:setActive(b)
+        end
     end
 end
 
@@ -173,11 +182,13 @@ end
 
 --- @brief
 function b2.World:set_gravity(x, y)
+    if self._native:isDestroyed() then return end
     self._native:setGravity(x, y)
 end
 
 --- @brief
 function b2.World:get_gravity()
+    if self._native:isDestroyed() then return 0, 0 end
     return self._native:getGravity()
 end
 
@@ -187,6 +198,8 @@ local _n_velocity_iterations = 4
 
 --- @brief
 function b2.World:update(delta)
+    if self._native:isDestroyed() then return end
+
     if self._use_fixed_timestep then
         self._elapsed = self._elapsed + delta * self._time_dilation
     else

@@ -667,7 +667,6 @@ function ow.Stage:destroy()
         body:destroy()
     end
     native:destroy()
-    native:release()
 
     self._blood_splatter:destroy()
     self._mirror:destroy()

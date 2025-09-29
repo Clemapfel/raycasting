@@ -110,6 +110,7 @@ function ow.PlayerRecorder:play()
     self._path_elapsed = 0
     self._path_x, self._path_y = self._position_interpolation:at(0)
     self._body:initialize(self._path_x, self._path_y)
+    self._body:relax()
 end
 
 --- @brief
@@ -147,6 +148,18 @@ function ow.PlayerRecorder:update(delta)
             self._body:set_position(self._position_interpolation:at(0))
             self._state = _STATE_PLAYBACK
         end
+
+        local i = 7 * math.round(math.mix(0, self._path_n_snapshots - 1, t_now)) + 1
+
+        self._body:update_input(
+            self._input_data[i+0], -- up
+            self._input_data[i+1], -- right
+            self._input_data[i+2], -- down
+            self._input_data[i+3], -- left
+            self._input_data[i+4], -- sprint
+            self._input_data[i+5]  -- jump
+        )
+        self._body:update(delta)
     end
 end
 
