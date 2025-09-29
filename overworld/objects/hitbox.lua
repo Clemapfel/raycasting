@@ -1,6 +1,10 @@
 require "common.shader"
 require "common.mesh"
 
+rt.settings.overworld.hitbox = {
+    collision_group = b2.CollisionGroup.GROUP_10
+}
+
 --- @class ow.Hitbox
 ow.Hitbox = meta.class("Hitbox")
 
@@ -111,6 +115,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
         end
         self._body:set_collides_with(bit.bnot(group))
     end
+
+    self._body:set_collision_group(rt.settings.overworld.hitbox.collision_group)
 end
 
 --- @brief

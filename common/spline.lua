@@ -16,8 +16,14 @@ function rt.Spline:create_from(...)
         points = first
     end
 
-    if #points < 4 or #points % 2 ~= 0 then
+    if #points < 2 or #points % 2 ~= 0 then
         rt.error("In rt.Spline: number of coordinates is not a multiple of 2")
+    end
+
+    if #points < 4 then
+        -- line is point
+        table.insert(points, points[1])
+        table.insert(points, points[2])
     end
 
     -- phantom points
@@ -95,7 +101,7 @@ local _catmull_rom_derivative = function(t, p0, p1, p2, p3)
 end
 
 -- get tangent at t
-local _get_derivative_at = function(self, t)
+function rt.Spline:get_derivative_at(t)
     t = math.clamp(t, 0, 1)
 
     local points = self._points
@@ -106,7 +112,7 @@ local _get_derivative_at = function(self, t)
         return 0, 0
     end
 
-    -- Handle edge cases with small epsilon to avoid division by zero
+    -- handle edge cases with small epsilon to avoid division by zero
     if t <= math.eps then
         t = math.eps
     elseif t >= 1 - math.eps then
@@ -130,67 +136,64 @@ local _get_derivative_at = function(self, t)
     local p2_x, p2_y = points[base_idx + 4], points[base_idx + 5]
     local p3_x, p3_y = points[base_idx + 6], points[base_idx + 7]
 
-    -- Calculate derivative and scale by segment density
+    -- calculate derivative and scale by segment density
     local dx = _catmull_rom_derivative(local_t, p0_x, p1_x, p2_x, p3_x) * num_segments
     local dy = _catmull_rom_derivative(local_t, p0_y, p1_y, p2_y, p3_y) * num_segments
 
     return dx, dy
 end
 
--- Adaptive Gauss-Legendre quadrature for arc length integration
-local _adaptive_integrate = function(f, a, b, tolerance)
-    if tolerance == nil then tolerance = math.eps end
-
+-- adaptive gauss-legendre quadrature for arc length integration
+local _integrate
+do
     -- 5-point Gauss-Legendre quadrature weights and nodes
-    local nodes = { -0.9061798459, -0.5384693101, 0, 0.5384693101, 0.9061798459 }
-    local weights = { 0.2369268851, 0.4786286705, 0.5688888889, 0.4786286705, 0.2369268851 }
+    local _nodes = { -0.9061798459, -0.5384693101, 0, 0.5384693101, 0.9061798459 }
+    local _weights = { 0.2369268851, 0.4786286705, 0.5688888889, 0.4786286705, 0.2369268851 }
 
-    local function gauss_integrate(start, stop)
-        local mid = (start + stop) * 0.5
-        local half_width = (stop - start) * 0.5
-        local result = 0
+    _integrate = function(a, b, f)
 
-        for i = 1, 5 do
-            local x = mid + half_width * nodes[i]
-            result = result + weights[i] * f(x)
+        local function gauss_integrate(start, stop)
+            local mid = (start + stop) * 0.5
+            local half_width = (stop - start) * 0.5
+            local result = 0
+
+            for i = 1, 5 do
+                local x = mid + half_width * _nodes[i]
+                result = result + _weights[i] * f(x)
+            end
+
+            return result * half_width
         end
 
-        return result * half_width
+        local function adaptive_step(start, stop, whole_integral, depth)
+            if depth > 20 then  -- maximum recursion depth for safety
+                return whole_integral
+            end
+
+            local mid = (start + stop) * 0.5
+            local left = gauss_integrate(start, mid)
+            local right = gauss_integrate(mid, stop)
+            local combined = left + right
+
+            if math.abs(combined - whole_integral) < math.eps then
+                return combined
+            else
+                return adaptive_step(start, mid, left, depth + 1) +
+                    adaptive_step(mid, stop, right, depth + 1)
+            end
+        end
+
+        return adaptive_step(a, b, gauss_integrate(a, b), 0)
     end
-
-    local function adaptive_step(start, stop, whole_integral, depth)
-        if depth > 20 then  -- maximum recursion depth for safety
-            return whole_integral
-        end
-
-        local mid = (start + stop) * 0.5
-        local left = gauss_integrate(start, mid)
-        local right = gauss_integrate(mid, stop)
-        local combined = left + right
-
-        if math.abs(combined - whole_integral) < tolerance then
-            return combined
-        else
-            return adaptive_step(start, mid, left, depth + 1) +
-                adaptive_step(mid, stop, right, depth + 1)
-        end
-    end
-
-    local initial = gauss_integrate(a, b)
-    return adaptive_step(a, b, initial, 0)
 end
 
---- @brief get the arc length of the spline using adaptive numerical integration
+--- @brief get arc length
 function rt.Spline:get_length()
-    if self._length then -- cached
-        return self._length
-    end
+    if self._length then return self._length end
 
-    local speed_function = function(t)
-        local dx, dy = _get_derivative_at(self, t)
-        return math.sqrt(dx * dx + dy * dy)
-    end
+    self._length = _integrate(0, 1, function(t)
+        return math.magnitude(self:get_derivative_at(self, t))
+    end)
 
-    self._length = _adaptive_integrate(speed_function, 0, 1, math.eps)
     return self._length
 end

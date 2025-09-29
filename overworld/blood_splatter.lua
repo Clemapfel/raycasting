@@ -50,7 +50,8 @@ function _overlap(x1, y1, x2, y2, cx, cy, radius)
 end
 
 --- @brief
-function ow.BloodSplatter:add(x, y, radius, hue)
+function ow.BloodSplatter:add(x, y, radius, hue, saturation)
+    if saturation == nil then saturation = 1 end
     local r = radius
     local was_added = false
     x = x - self._offset_x
@@ -77,7 +78,7 @@ function ow.BloodSplatter:add(x, y, radius, hue)
             local right_fraction = distance_2 / length
             assert(left_fraction <= right_fraction)
 
-            local color = { rt.lcha_to_rgba(rt.LCHA(0.9, 1, hue, 1):unpack()) }
+            local color = { rt.lcha_to_rgba(rt.LCHA(0.9 * saturation, 1 * saturation, hue, 1):unpack()) }
 
             for division in values(data.subdivisions) do
                 -- check if segment overlaps interval

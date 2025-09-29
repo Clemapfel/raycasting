@@ -436,9 +436,9 @@ function rt.SoundManager:update(delta)
         end
 
         for entry in values(to_make_inactive) do
-            dbg(entry.id)
             self._active_entries[entry] = nil
         end
     end
 end
 
+rt.SoundManager = rt.SoundManager() -- singleton instance

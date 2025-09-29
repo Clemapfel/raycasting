@@ -5,6 +5,7 @@ require "overworld.pathfinding_graph"
 require "overworld.blood_splatter"
 require "overworld.mirror"
 require "overworld.normal_map"
+require "overworld.player_recorder"
 require "physics.physics"
 
 -- include all overworld classes
@@ -73,8 +74,24 @@ function ow.Stage:instantiate(scene, id)
         _active_checkpoint = nil,
 
         _visible_bodies = {},
-        _light_sources = {}
+        _light_sources = {},
+
+        -- npc
+        _player_recorder = nil -- ow.PlayerRecorder
     })
+
+    self._player_recorder = ow.PlayerRecorder(self, self._scene)
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "r" then
+            self._player_recorder:record()
+        elseif which == "t" then
+            self._player_recorder:play()
+        end
+    end)
+    -- TODO
 
     ow.Hitbox:reinitialize()
     ow.BoostField:reinitialize()
@@ -336,6 +353,7 @@ function ow.Stage:draw_below_player()
         ow.Sprite.draw_all(entry.priority)
     end
 
+    self._player_recorder:draw()
     self._blood_splatter:draw()
 end
 
@@ -420,6 +438,8 @@ function ow.Stage:update(delta)
             return true
         end)
     end
+
+    self._player_recorder:update(delta)
 
     for object in values(self._to_update) do
         object:update(delta)

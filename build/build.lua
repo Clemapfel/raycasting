@@ -441,7 +441,7 @@ do
                         local to_unsquash_from = bd.join_path(to_unzip_to, inner_filename)
                         local to_unsquash_from_absolute = bd.join_path(love.filesystem.getSource(), to_unsquash_from)
 
-                        local extract_command = string.format('binwalk -e %s -quiet', to_unsquash_from_absolute)
+                        local extract_command = string.format("binwalk -e %s -quiet", to_unsquash_from_absolute)
                         local success = os.execute(extract_command)
                         if success ~= 0 then
                             rt.error("In bd.build: failed to unsquash app image at `" .. to_unsquash_from_absolute .. "`. Is this a linux machine? Is binwalk installed?")

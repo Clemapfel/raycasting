@@ -462,7 +462,7 @@ function ow.DeformableMesh:draw_outline()
     love.graphics.line(self._draw_contour)
     --_outline_shader:unbind()
 
-    self._inner_body:draw()
+    --self._inner_body:draw()
 end
 
 --- @brief

@@ -64,13 +64,11 @@ function ow.NPC:instantiate(object, stage, scene)
 
     self._sensor:signal_connect("collision_start", function(_, other_body, normal_x, normal_y, x, y)
         self._is_active = true
-        dbg("enter", meta.hash(other_body))
         -- bounce started in update
     end)
 
     self._sensor:signal_connect("collision_end", function(_, other_body)
         self._is_active = false
-        dbg("exit", meta.hash(other_body))
         self._last_force_x, self._last_force_y = 0, 0
     end)
 
@@ -95,7 +93,6 @@ function ow.NPC:update(delta)
     local dx, dy = math.normalize(mesh_x - x, mesh_y)
     local current = self._sensor:test_point(x + dx * radius, y + dy * radius)
 
-    --[[
     if previous == false and current == true then
         local center_x, center_y = self._deformable_mesh:get_center()
         if y <= center_y and self._bounce_cooldown > rt.settings.overworld.npc.bounce_cooldown then -- only bounce up
@@ -106,7 +103,6 @@ function ow.NPC:update(delta)
             self._bounce_cooldown = 0
         end
     end
-    ]]--
 
     self._bounce_previous = current
     self._bounce_cooldown = self._bounce_cooldown + delta
@@ -190,7 +186,7 @@ function ow.NPC:draw()
     love.graphics.pop() -- stretch
     rt.graphics.set_stencil_mode(nil)
 
-    self._sensor:draw() -- TODO
+    --self._sensor:draw() -- TODO
 end
 
 --- @brief

@@ -185,8 +185,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 b2.Polygon(
                     0 - 4 * r, 0,
                     0 + 4 * r, 0,
-                    0 + 4 * r, r,
-                    0 - 4 * r, r
+                    0 + 4 * r, 2 * r,
+                    0 - 4 * r, 2 * r
                 )
             )
 
