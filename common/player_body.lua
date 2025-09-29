@@ -1,3 +1,5 @@
+require "common.smoothed_motion_1d"
+
 rt.settings.player_body = {
     relative_velocity_influence = 1 / 3, -- [0, 1] where 0 no influence
 
@@ -41,7 +43,10 @@ rt.settings.player_body = {
         inertia = 0
     },
 
-    gravity = 2
+    gravity = 2,
+
+    squish_speed = 4, -- fraction
+    squish_magnitude = 0.11, -- fraction
 }
 
 --- @class rt.PlayerBody
@@ -82,6 +87,14 @@ function rt.PlayerBody:instantiate(player)
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
 
+    self._is_squished = false
+    self._squish_normal_x = nil -- set by set_is_squished
+    self._squish_normal_y = nil
+    self._squish_origin_x = nil
+    self._squish_normal_y = nil
+
+    self._squish_motion = rt.SmoothedMotion1D(1, _settings.squish_speed)
+
     self._r, self._g, self._b, self._a = 1, 1, 1, 1
 
     -- init metaball ball mesh
@@ -100,7 +113,6 @@ function rt.PlayerBody:instantiate(player)
     self._node_mesh_texture:unbind()
 
     -- init canvases
-
     self._canvas_scale = _settings.canvas_scale
 
     do
@@ -466,6 +478,8 @@ function rt.PlayerBody:update(delta)
     self._shader_elapsed = self._shader_elapsed + delta
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), self._player:get_opacity())
 
+    self._squish_motion:update(delta)
+
     local w, h = self._body_canvas_a:get_size()
     local bodies = self._player:get_physics_world():query_aabb(
         self._player_x - 0.5 * w, self._player_y - 0.5 * h, w, h
@@ -520,6 +534,28 @@ function rt.PlayerBody:update(delta)
     self._body_canvas_needs_update = true
 end
 
+--- @brief
+function rt.PlayerBody:_apply_squish(factor)
+    local squish_amount = self._squish_motion:get_value()
+    if squish_amount < 0.01 then return end -- skip
+
+    local magnitude = _settings.squish_magnitude * (factor or 1)
+    local squish_nx, squish_ny = self._squish_normal_x or 0, self._squish_normal_y or -1
+    local squish_origin_x = self._squish_origin_x or self._player_x
+    local squish_origin_y = self._squish_origin_y or self._player_y + 0.5 * self._player_radius
+
+    local angle = math.angle(squish_nx, squish_ny)
+
+    love.graphics.translate(squish_origin_x, squish_origin_y)
+    love.graphics.rotate(angle)
+    love.graphics.scale(
+        1 - squish_amount * magnitude,
+        1
+    )
+    love.graphics.rotate(-angle)
+    love.graphics.translate(-squish_origin_x, -squish_origin_y)
+end
+
 -- Rest of the code remains unchanged (draw_body, draw_core, draw_bloom, set_relative_velocity methods)
 local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
 
@@ -564,19 +600,19 @@ function rt.PlayerBody:draw_body()
         local tw, th = self._node_mesh_texture:get_size()
         for rope in values(self._ropes) do
             for i = 1, #rope.current_positions, 2 do
+                love.graphics.push()
+                self:_apply_squish(1 + 1 - (i - 1) / (#rope.current_positions / 2))
+
                 local scale = math.min(rope.scale + _settings.non_bubble_scale_offset / self._player:get_radius(), 1)
                 -- Use current_positions for drawing to reduce visual lag
                 local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
                 love.graphics.draw(self._node_mesh_texture:get_native(), x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
+
+                love.graphics.pop()
             end
         end
 
         rt.graphics.set_blend_mode(nil)
-
-        if not self._is_bubble then
-            love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.polygon("fill", self._positions)
-        end
 
         self._body_canvas_a:unbind()
         rt.graphics.set_stencil_mode(nil)
@@ -679,6 +715,9 @@ function rt.PlayerBody:draw_core()
             body:draw(true)
         end
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+    else
+        love.graphics.push()
+        self:_apply_squish()
     end
 
     -- draw outline
@@ -724,6 +763,8 @@ function rt.PlayerBody:draw_core()
     if self._is_bubble then
         rt.graphics.set_stencil_mode(nil)
         rt.graphics.pop_stencil()
+    else
+        love.graphics.pop() -- squish
     end
 end
 
@@ -749,4 +790,19 @@ end
 function rt.PlayerBody:set_relative_velocity(vx, vy)
     self._relative_velocity_x = vx
     self._relative_velocity_y = vy
+end
+
+--- @brief
+function rt.PlayerBody:set_is_squished(b, nx, ny, contact_x, contact_y)
+    self._is_squished = b
+    self._squish_normal_x = nx
+    self._squish_normal_y = ny
+    self._squish_origin_x = contact_x
+    self._squish_origin_y = contact_y
+
+    if b == true then
+        self._squish_motion:set_target_value(1)
+    else
+        self._squish_motion:set_target_value(0)
+    end
 end

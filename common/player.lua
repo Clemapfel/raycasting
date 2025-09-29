@@ -694,6 +694,24 @@ function rt.Player:update(delta)
                 contact_y = y_sum / n
             }
         end
+
+
+        -- update squish
+        local squished = false
+        if self._down_button_is_down then
+            for body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
+                local entry = self._body_to_collision_normal[body]
+                if entry ~= nil then
+                    self._graphics_body:set_is_squished(true,
+                        entry.normal_x, entry.normal_y,
+                        entry.contact_x, entry.contact_y
+                    )
+                    squished = true
+                end
+            end
+        end
+
+        if not squished then self._graphics_body:set_is_squished(false) end
     end
 
     if not self._is_bubble then
@@ -1447,7 +1465,6 @@ function rt.Player:update(delta)
         if self._top_left_wall
             and not top_left_wall_body:has_tag("slippery")
             and not top_left_wall_body:has_tag("no_blood")
-            --and math.distance(top_left_x, top_left_y, x, y) <= self._radius
         then
             _add_blood_splatter(top_left_x, top_left_y, self._last_top_left_x, self._last_top_left_y)
         end
@@ -1455,7 +1472,6 @@ function rt.Player:update(delta)
         if self._top_wall
             and not top_wall_body:has_tag("slippery")
             and not top_wall_body:has_tag("no_blood")
-            --and math.distance(top_x, top_y, x, y) <= self._radius
         then
             _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
         end
@@ -1463,7 +1479,6 @@ function rt.Player:update(delta)
         if self._top_right_wall
             and not top_right_wall_body:has_tag("slippery")
             and not top_right_wall_body:has_tag("no_blood")
-            --and math.distance(top_right_x, top_right_y, x, y) <= self._radius
         then
             _add_blood_splatter(top_right_x, top_right_y, self._last_top_right_x, self._last_top_right_y)
         end
@@ -1471,7 +1486,6 @@ function rt.Player:update(delta)
         if self._right_wall
             and not right_wall_body:has_tag("slippery")
             and not right_wall_body:has_tag("no_blood")
-            --and math.distance(right_x, right_y, x, y) <= self._radius
         then
             _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
         end
@@ -1479,7 +1493,6 @@ function rt.Player:update(delta)
         if self._bottom_right_wall
             and not bottom_right_wall_body:has_tag("slippery")
             and not bottom_right_wall_body:has_tag("no_blood")
-            --and math.distance(bottom_right_x, bottom_right_y, x, y) <= self._radius
         then
             _add_blood_splatter(bottom_right_x, bottom_right_y, self._last_bottom_right_x, self._last_bottom_right_y)
         end
@@ -1487,7 +1500,6 @@ function rt.Player:update(delta)
         if self._bottom_wall
             and not bottom_wall_body:has_tag("slippery")
             and not bottom_wall_body:has_tag("no_blood")
-            --and math.distance(bottom_x, bottom_y, x, y) <= self._radius
         then
             _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
         end
@@ -1495,7 +1507,6 @@ function rt.Player:update(delta)
         if self._bottom_left_wall
             and not bottom_left_wall_body:has_tag("slippery")
             and not bottom_left_wall_body:has_tag("no_blood")
-            --and math.distance(bottom_left_x, bottom_left_y, x, y) <= self._radius
         then
             _add_blood_splatter(bottom_left_x, bottom_left_y, self._last_bottom_left_x, self._last_bottom_left_y)
         end
@@ -1503,7 +1514,6 @@ function rt.Player:update(delta)
         if self._left_wall
             and not left_wall_body:has_tag("slippery")
             and not left_wall_body:has_tag("no_blood")
-            --and math.distance(left_x, left_y, x, y) <= self._radius
         then
             _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
         end
@@ -2022,11 +2032,6 @@ end
 --- @brief
 function rt.Player:set_override_flow(flow_or_nil)
     self._override_flow = flow_or_nil
-end
-
---- @brief
-function rt.Player:get_flow()
-    return self._flow
 end
 
 --- @brief
