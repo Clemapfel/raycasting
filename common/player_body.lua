@@ -190,16 +190,16 @@ function rt.PlayerBody:initialize(positions)
                     current_positions = {},
                     last_positions = {},
                     last_velocities = {},
-                    distances = {}, -- segment distances
                     masses = {},
-                    bubble_distances = {},
                     anchor_x = center_x, -- anchor of first node
                     anchor_y = center_y,
                     axis_x = axis_x, -- axis constraint
                     axis_y = axis_y,
                     scale = scale, -- metaball scale
                     length = rope_length, -- total rope length
-                    n_segments = n_segments
+                    n_segments = n_segments,
+                    segment_length = rope_length / n_segments,
+                    bubble_segment_length = bubble_rope_length / n_segments
                 }
 
                 center_x = center_x + self._player_x
@@ -214,8 +214,6 @@ function rt.PlayerBody:initialize(positions)
                     table.insert(rope.last_velocities, 0)
                     table.insert(rope.last_velocities, 0)
                     table.insert(rope.masses,  mass_easing(segment_i - 1) / n_segments)
-                    table.insert(rope.distances, rope_length / n_segments)
-                    table.insert(rope.bubble_distances, bubble_rope_length / n_segments)
                 end
 
                 table.insert(self._ropes, rope)
@@ -243,7 +241,7 @@ function rt.PlayerBody:relax()
         local x, y = px + rope.anchor_x, py + rope.anchor_y
 
         for i = 0, rope.n_segments - 1 do
-            local step = ternary(self._player:get_is_bubble(), rope.distances[i+1], rope.bubble_distances[i+1])
+            local step = ternary(self._player:get_is_bubble(), rope.segment_length, rope.bubble_segment_length)
             rope.current_positions[i * 2 + 1] = x + dx * step * i
             rope.current_positions[i * 2 + 2] = y + dy * step * i
         end
@@ -258,7 +256,7 @@ function rt.PlayerBody:relax()
     end
 end
 
-local _rope_handler = function(data)
+rt.PlayerBody._rope_handler = function(data)
     -- keep nodes at fixed distance
     local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
         local current_distance = math.distance(a_x, a_y, b_x, b_y)
@@ -279,7 +277,9 @@ local _rope_handler = function(data)
     end
 
     -- align nodes with axis
-    local function _solve_axis_constraint(a_x, a_y, b_x, b_y, axis_x, axis_y)
+    local function _solve_axis_constraint(a_x, a_y, b_x, b_y, axis_x, axis_y, intensity)
+        if intensity == nil then intensity = 1 end
+
         local delta_x = b_x - a_x
         local delta_y = b_y - a_y
 
@@ -290,7 +290,7 @@ local _rope_handler = function(data)
         local correction_x = (projection_x - delta_x)
         local correction_y = (projection_y - delta_y)
 
-        local blend = 0.5
+        local blend = math.mix(0, 0.5, intensity)
         a_x = a_x - correction_x * blend
         a_y = a_y - correction_y * blend
         b_x = b_x + correction_x * blend
@@ -328,7 +328,7 @@ local _rope_handler = function(data)
     local positions = rope.current_positions
     local last_positions = rope.last_positions
     local last_velocities = rope.last_velocities
-    local distances = data.is_bubble and rope.bubble_distances or rope.distances
+    local segment_length = data.is_bubble and rope.bubble_segment_length or rope.segment_length
     local masses = rope.masses
 
     do -- translate whole physics system into relative velocity
@@ -399,7 +399,8 @@ local _rope_handler = function(data)
                 local new_x1, new_y1, new_x2, new_y2 = _solve_axis_constraint(
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
-                    rope.axis_x, rope.axis_y
+                    rope.axis_x, rope.axis_y,
+                    data.axis_intensity
                 )
 
                 positions[node_1_xi] = new_x1
@@ -451,7 +452,7 @@ local _rope_handler = function(data)
                     node_1_y = data.player_y + rope.anchor_y
                 end
 
-                local rest_length = distances[distance_i]
+                local rest_length = segment_length
 
                 local new_x1, new_y1, new_x2, new_y2 = _solve_distance_constraint(
                     node_1_x, node_1_y,
@@ -510,13 +511,14 @@ function rt.PlayerBody:update(delta)
     local to_send = {}
 
     for i, rope in ipairs(self._ropes) do
-        _rope_handler({
+        self._rope_handler({
             rope = rope,
             rope_i = i,
             is_bubble = self._is_bubble,
             n_velocity_iterations = todo.n_velocity_iterations,
             n_distance_iterations = todo.n_distance_iterations,
             n_axis_iterations = todo.n_axis_iterations,
+            axis_intensity = 1,
             n_bending_iterations = todo.n_bending_iterations,
             inertia = todo.inertia,
             gravity_x = gravity_x,

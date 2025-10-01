@@ -3,12 +3,26 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
+require "overworld.player_recorder_eyes"
+local eyes = ow.PlayerRecorderEyes(100)
 
+require "common.input_subscriber"
+
+local point = { 0, 0 }
 input = rt.InputSubscriber()
-input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "r" then
-
+input:signal_connect("pressed", function(_, which)
+    local delta = 1
+    if which == rt.InputAction.RIGHT then
+        point[1] = point[1] - delta
+    elseif which == rt.InputAction.LEFT then
+        point[1] = point[1] + delta
+    elseif which == rt.InputAction.UP then
+        point[2] = point[2] + delta
+    elseif which == rt.InputAction.DOWN then
+        point[2] = point[2] - delta
     end
+
+    --eyes:look_at(table.unpack(point))
 end)
 
 love.load = function(args)
@@ -21,7 +35,7 @@ love.load = function(args)
     local menu = 5
 
     for to_preallocate in range(
-        result_screen
+        -- result_screen
         --, overworld
         --, keybinding
         --, settings
@@ -46,7 +60,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -59,20 +73,31 @@ love.load = function(args)
 
     require "overworld.result_screen_scene"
     --present()
+
+    eyes:set_position(0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight())
 end
 
 local elapsed = 0
 love.update = function(delta)
-    rt.SceneManager:update(delta)
+    if rt.SceneManager ~= nil then
+        rt.SceneManager:update(delta)
+    end
 
-    rt.SoundManager:update(delta)
+    eyes:update(delta)
+    eyes:look_at(love.mouse.getPosition())
 end
 
 love.draw = function()
     love.graphics.clear(0, 0, 0, 0)
-    rt.SceneManager:draw()
+    if rt.SceneManager ~= nil then
+        rt.SceneManager:draw()
+    end
+
+    eyes:draw()
 end
 
 love.resize = function(width, height)
-    rt.SceneManager:resize(width, height)
+    if rt.SceneManager ~= nil then
+        rt.SceneManager:resize(width, height)
+    end
 end

@@ -85,5 +85,5 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 _) {
     float chroma = 1;
     float lightness = mix(0.7, 1, noise);
     float hue = mix(hue - hue_eps, hue + hue_eps, noise);
-    return vec4(lch_to_rgb(vec3(lightness, chroma, hue)), texel.a * color.a);
+    return color * vec4(lch_to_rgb(vec3(lightness, chroma, hue)), texel.a * color.a);
 }

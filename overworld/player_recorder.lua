@@ -166,8 +166,10 @@ end
 --- @brief
 function ow.PlayerRecorder:draw()
     if self._state == _STATE_PLAYBACK then
-        love.graphics.setColor(0.5, 0.5, 0.5, 1)
-        love.graphics.line(self._to_render)
+        if self._render ~= nil then
+            love.graphics.setColor(0.5, 0.5, 0.5, 1)
+            love.graphics.line(self._to_render)
+        end
 
         love.graphics.setColor(1, 1, 1, 1)
         self._body:draw()

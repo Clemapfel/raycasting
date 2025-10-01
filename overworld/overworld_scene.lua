@@ -581,6 +581,8 @@ function ow.OverworldScene:draw()
         love.graphics.setColor(1, 1, 1, self._camera_pan_left_speed)
         love.graphics.draw(self._pan_gradient_left._native)
 
+        --[[
+        TODO
         local x, y = love.mouse.getPosition()
         local scale = love.window.getDPIScale()
         love.graphics.setLineStyle("smooth")
@@ -595,6 +597,7 @@ function ow.OverworldScene:draw()
         love.graphics.setLineWidth(1)
         love.graphics.setColor(_black_r, _black_g, _black_b, 1)
         love.graphics.circle("line", x, y, 6 * scale)
+        ]]--
     end
 
     if self._result_screen_transition_active == true then

@@ -1,4 +1,5 @@
 require "common.interpolation_functions"
+require "common.random"
 
 rt.settings.overworld.fireworks = {
     radius = 5,
