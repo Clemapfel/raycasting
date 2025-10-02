@@ -28,11 +28,19 @@ rt.VertexAttributeLocation = meta.enum("VertexAttribute", {
     COLOR = 2
 })
 
-rt.VertexFormat = {
+rt.VertexFormat2D = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
     { location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
     { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
 }
+
+rt.VertexFormat3D = {
+    { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec3" },
+    { location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
+    { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
+}
+
+rt.VertexFormat = rt.VertexFormat2D
 
 --- @class rt.Mesh
 rt.Mesh = meta.class("Mesh", rt.Drawable)

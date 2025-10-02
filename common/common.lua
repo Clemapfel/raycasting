@@ -171,13 +171,13 @@ end
 -- Takes 4 numbers: x1, y1, x2, y2 representing vector1(x1, y1) and vector2(x2, y2)
 -- Returns a value between -1 and 1, where 1 means same direction, -1 means opposite direction
 function math.cosine_similarity(x1, y1, x2, y2)
-    local magnitude_a = math.magnitude(x1, y1)
-    local magnitude_b = math.magnitude(x2, y2)
+    local magnitude_a = math.magnitude2(x1, y1)
+    local magnitude_b = math.magnitude2(x2, y2)
 
     if magnitude_a == 0 or magnitude_b == 0 then -- Undefined similarity for zero vectors
     end
 
-    local dot_product = math.dot(x1, y1, x2, y2)
+    local dot_product = math.dot2(x1, y1, x2, y2)
     return dot_product / (magnitude_a * magnitude_b)
 end
 
@@ -203,13 +203,13 @@ end
 
 function math.mix2(x1, y1, x2, y2, ratio)
     return x1 * (1 - ratio) + x2 * ratio,
-        y1 * (1 - ratio) + y2 * ratio
+    y1 * (1 - ratio) + y2 * ratio
 end
 
 function math.mix3(x1, y1, z1, x2, y2, z2, ratio)
     return x1 * (1 - ratio) + x2 * ratio,
-        y1 * (1 - ratio) + y2 * ratio,
-        z1 * (1 - ratio) + z2 * ratio
+    y1 * (1 - ratio) + y2 * ratio,
+    z1 * (1 - ratio) + z2 * ratio
 end
 
 function math.mix4(x1, y1, z1, w1, x2, y2, z2, w2, ratio)
@@ -462,16 +462,6 @@ function math.gamma(x)
 end
 
 --- @brief
-function math.normalize(x, y)
-    local magnitude = math.sqrt(x * x + y * y)
-    if magnitude == 0 then
-        return 0, 0
-    else
-        return x / magnitude, y / magnitude
-    end
-end
-
---- @brief
 function math.add(x, y, scalar_a, scalar_b)
     if scalar_b == nil then scalar_b = scalar_a end
     return x + scalar_a, y + scalar_b
@@ -561,18 +551,34 @@ function math.divide4(x, y, z, w, scalar_a, scalar_b, scalar_c, scalar_d)
     return x / scalar_a, y / scalar_b, z / scalar_c, w / scalar_d
 end
 
---- @brief
-function math.magnitude(x, y)
+-- =============================================================================
+-- == 2D/3D VECTOR MATH
+-- =============================================================================
+
+-- == CONCRETE IMPLEMENTATIONS ==
+
+--- @brief Normalize a 2D vector.
+function math.normalize2(x, y)
+    local magnitude = math.sqrt(x * x + y * y)
+    if magnitude == 0 then
+        return 0, 0
+    else
+        return x / magnitude, y / magnitude
+    end
+end
+
+--- @brief Get the magnitude of a 2D vector.
+function math.magnitude2(x, y)
     return math.sqrt(x * x + y * y)
 end
 
---- @brief
+--- @brief Reflect a 2D vector off a surface with a given normal.
 function math.reflect(vx, vy, normal_x, normal_y)
     local dot_product = vx * normal_x + vy * normal_y
     return vx - 2 * dot_product * normal_x,  vy - 2 * dot_product * normal_y
 end
 
---- @brief
+--- @brief Normalize a 3D vector.
 function math.normalize3(x, y, z)
     local magnitude = math.sqrt(x * x + y * y + z * z)
     if magnitude == 0 then
@@ -582,40 +588,148 @@ function math.normalize3(x, y, z)
     end
 end
 
---- @brief
+--- @brief Get the magnitude of a 3D vector.
 function math.magnitude3(x, y, z)
     return math.sqrt(x * x + y * y + z * z)
 end
 
-function math.rotate(x, y, angle)
+--- @brief Rotate a 2D vector by an angle.
+function math.rotate2(x, y, angle)
     local cos_angle = math.cos(angle)
     local sin_angle = math.sin(angle)
     return x * cos_angle - y * sin_angle,
-        x * sin_angle + y * cos_angle
+    x * sin_angle + y * cos_angle
 end
 
---- @brief
-function math.angle(x, y)
+--- @brief Rotate a 3D vector around the Z axis.
+function math.rotate3(x, y, z, angle)
+    local cos_a = math.cos(angle)
+    local sin_a = math.sin(angle)
+    return x * cos_a - y * sin_a, x * sin_a + y * cos_a, z
+end
+
+--- @brief Get the angle of a 2D vector from the positive X axis.
+function math.angle2(x, y)
     return math.atan2(y, x)
-    --[[
-    if x == 0 and y == 0 then return 0 end
-
-    local abs_y = math.abs(y) + 1e-10
-
-    local angle
-    if x >= 0 then
-        angle = math.pi / 4 - math.pi / 4 * ((x - abs_y) / (x + abs_y))
-    else
-        angle = 3 * math.pi / 4 - math.pi / 4 * ((x + abs_y) / (abs_y - x))
-    end
-
-    if y < 0 then
-        return -angle
-    else
-        return angle
-    end
-    ]]--
 end
+
+--- @brief Get the angle between two 3D vectors.
+function math.angle3(x1, y1, z1, x2, y2, z2)
+    local dot = math.dot3(x1, y1, z1, x2, y2, z2)
+    local mag_a = math.magnitude3(x1, y1, z1)
+    local mag_b = math.magnitude3(x2, y2, z2)
+    if mag_a == 0 or mag_b == 0 then return 0 end
+    local cos_val = dot / (mag_a * mag_b)
+    return math.acos(math.clamp(cos_val, -1, 1))
+end
+
+--- @brief Get the distance between two 2D points.
+function math.distance2(x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    return math.sqrt(dx * dx + dy * dy)
+end
+
+--- @brief Get the distance between two 3D points.
+function math.distance3(x1, y1, z1, x2, y2, z2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local dz = z2 - z1
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+--- @brief Get the dot product of two 2D vectors.
+function math.dot2(x1, y1, x2, y2)
+    return x1 * x2 + y1 * y2
+end
+
+--- @brief Get the dot product of two 3D vectors.
+function math.dot3(x1, y1, z1, x2, y2, z2)
+    return x1 * x2 + y1 * y2 + z1 * z2
+end
+
+--- @brief Get the 2D cross product (a scalar).
+function math.cross2(x1, y1, x2, y2)
+    return x1 * y2 - y1 * x2
+end
+
+--- @brief Get the 3D cross product (a vector).
+function math.cross3(x1, y1, z1, x2, y2, z2)
+    return y1 * z2 - z1 * y2,
+    z1 * x2 - x1 * z2,
+    x1 * y2 - y1 * x2
+end
+
+
+-- == WRAPPERS ==
+
+--- @brief Normalize a 2D or 3D vector.
+function math.normalize(...)
+    if select("#", ...) == 2 then
+        return math.normalize2(...)
+    else
+        return math.normalize3(...)
+    end
+end
+
+--- @brief Get the magnitude of a 2D or 3D vector.
+function math.magnitude(...)
+    if select("#", ...) == 2 then
+        return math.magnitude2(...)
+    else
+        return math.magnitude3(...)
+    end
+end
+
+--- @brief Rotate a 2D vector, or a 3D vector around the Z axis.
+function math.rotate(...)
+    if select("#", ...) == 3 then
+        return math.rotate2(...)
+    else
+        return math.rotate3(...)
+    end
+end
+
+--- @brief Dot product of two 2D or 3D vectors.
+function math.dot(...)
+    if select("#", ...) == 4 then
+        return math.dot2(...)
+    else
+        return math.dot3(...)
+    end
+end
+
+--- @brief Cross product of two 2D (scalar) or 3D (vector) vectors.
+function math.cross(...)
+    if select("#", ...) == 4 then
+        return math.cross2(...)
+    else
+        return math.cross3(...)
+    end
+end
+
+--- @brief Get the angle of a 2D vector from the X axis, or the angle between two 3D vectors.
+function math.angle(...)
+    if select("#", ...) == 2 then
+        return math.angle2(...)
+    else
+        return math.angle3(...)
+    end
+end
+
+--- @brief Get the distance between two 2D or 3D points.
+function math.distance(...)
+    if select("#", ...) == 4 then
+        return math.distance2(...)
+    else
+        return math.distance3(...)
+    end
+end
+
+-- =============================================================================
+-- == END 2D/3D VECTOR MATH
+-- =============================================================================
+
 
 --- @brief
 function math.translate_by_angle(x, y, angle, distance)
@@ -645,27 +759,6 @@ end
 --- @brief
 function math.flip(x, y)
     return -x, -y
-end
-
---- @brief
-function math.distance(x1, y1, x2, y2)
-    local dx = x2 - x1
-    local dy = y2 - y1
-    return math.sqrt(dx * dx + dy * dy)
-end
-
---- @brief
-function math.dot(x1, y1, x2, y2)
-    return x1 * x2 + y1 * y2
-end
-
-function math.dot3(x1, y1, z1, x2, y2, z2)
-    return x1 * x2 + y1 * y2 + z1 * z2
-end
-
---- @brief
-function math.cross(x1, y1, x2, y2)
-    return x1 * y2 - y1 * x2
 end
 
 function math.gaussian(x, ramp)
@@ -1023,7 +1116,8 @@ end
 --- @param object any
 --- @param comment_out_unserializable Boolean false by default
 --- @return string
-function serialize(object)
+local function _serialize(object, comment_out_unserializable)
+    if comment_out_unserializable == nil then comment_out_unserializable = true end
     if object == nil then return "nil" end
 
     if object == nil then
@@ -1039,11 +1133,10 @@ end
 --- @brief
 function dbg(...)
     for _, x in pairs({...}) do
-        io.write(serialize(x))
+        io.write(_serialize(x))
         io.write(" ")
     end
 
     io.write("\n")
     io.flush()
 end
-

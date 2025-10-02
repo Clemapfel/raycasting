@@ -11,6 +11,8 @@ function love.conf(settings)
     settings.window.vsync = -1
     settings.window.usedpiscale = false
     settings.window.title = GAME_NAME
+    settings.window.stencil = true
+    settings.window.depth = false
 
     for exclude in range(
         "touch",

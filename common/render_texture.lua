@@ -26,7 +26,7 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute)
     msaa = msaa or 0
     meta.install(self, {
         _native = love.graphics.newCanvas(width or 1, height or 1, {
-            msaa = msaa or false,
+            msaa = msaa or 0,
             format = format,
             computewrite = is_compute or false
         }),
@@ -38,7 +38,7 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute)
     self:set_wrap_mode(rt.TextureWrapMode.CLAMP)
 end
 
---- @brief bind texture as render target, needs to be unbound manually later
+--- @brief bbnd texture as render target, needs to be unbound manually later
 function rt.RenderTexture:bind()
     self._before = love.graphics.getCanvas()
     if self._before == self._native then self._before = nil end
