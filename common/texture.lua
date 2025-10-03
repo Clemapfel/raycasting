@@ -76,21 +76,9 @@ function rt.Texture:get_height()
     return self._native:getHeight()
 end
 
-local _default_shader = rt.Shader("common/texture.glsl")
-
 --- @overload rt.Drawable.draw
 function rt.Texture:draw(...)
-    local default_shader_bound = false
-    if love.graphics.getShader() == nil then
-        _default_shader:bind()
-        default_shader_bound = true
-    end
-
     love.graphics.draw(self._native, ...)
-
-    if default_shader_bound == true then
-        _default_shader:unbind()
-    end
 end
 
 --- @brief

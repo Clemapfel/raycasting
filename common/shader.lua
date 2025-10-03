@@ -5,8 +5,6 @@ rt.settings.shader = {
 --- @class rt.Shader
 rt.Shader = meta.class("Shader")
 
-local _stencil_active_uniform_name = "love_StencilActive";
-
 local _dummy_shader = love.graphics.newShader([[
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     return vec4(vec3(0.5), 1) * texture(tex, texture_coords);
@@ -94,12 +92,6 @@ end
 function rt.Shader:bind()
     self._before = love.graphics.getShader()
     if self._native == nil then self:compile() end
-
-    if self._native:hasUniform("love_StencilActive") then
-        -- custom stencil behavior for canvases
-        self._native:send("love_StencilActive", rt.graphics._stencil_mode_active == true)
-    end
-
     love.graphics.setShader(self._native)
 end
 

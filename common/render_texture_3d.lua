@@ -15,17 +15,20 @@ rt.ProjectionType3D = meta.enum("ProjectionType3D", {
 })
 
 --- @brief
-function rt.RenderTexture3D:instantiate(width, height, msaa, format)
+function rt.RenderTexture3D:instantiate(width, height, msaa, format, is_compute, use_mipmaps)
     meta.assert(width, "Number", height, "Number")
 
     self._native = love.graphics.newCanvas(width, height, {
         msaa = msaa or 0,
-        format = format -- on nil, use love default
+        format = format,
+        computewrite = is_compute or false,
+        mipmaps = use_mipmaps and "auto" or "none"
     })
 
     self._fov = 0.5
     self._view = rt.Transform()
     self._model = rt.Transform()
+    self._is_bound = false
 
     self._projection_type = rt.ProjectionType3D.PERSPECTIVE
     self:_update_projections()
@@ -50,30 +53,7 @@ function rt.RenderTexture3D:_update_projections()
 end
 
 --- @brief
-function rt.RenderTexture3D:set_projection_type(type)
-    meta.assert_enum_value(type, rt.ProjectionType3D)
-    self._projection_type = type
-end
-
---- @brief
-function rt.RenderTexture3D:set_view_transform(transform)
-    meta.assert(transform, rt.Transform)
-    self._view = transform
-end
-
---- @brief
-function rt.RenderTexture3D:set_model_transform(transform)
-    meta.assert(transform, rt.Transform)
-    self._model = transform
-end
-
---- @brief
-function rt.RenderTexture3D:bind()
-    love.graphics.push("all")
-    love.graphics.setCanvas({ self._native, depth = true, stencil = true })
-    love.graphics.setFrontFaceWinding("cw")
-    love.graphics.setDepthMode("less", true)
-
+function rt.RenderTexture3D:_bind_transforms()
     local projection
     if self._projection_type == rt.ProjectionType3D.ORTHOGRAPHIC then
         projection = self._projection_orthographic
@@ -87,41 +67,58 @@ function rt.RenderTexture3D:bind()
 end
 
 --- @brief
+function rt.RenderTexture3D:set_projection_type(type)
+    meta.assert_enum_value(type, rt.ProjectionType3D)
+    self._projection_type = type
+    if self._is_bound then self:_bind_transforms() end
+end
+
+--- @brief
+function rt.RenderTexture3D:set_view_transform(transform)
+    meta.assert(transform, rt.Transform)
+    self._view = transform
+    if self._is_bound then self:_bind_transforms() end
+end
+
+--- @brief
+function rt.RenderTexture3D:set_model_transform(transform)
+    meta.assert(transform, rt.Transform)
+    self._model = transform
+    if self._is_bound then self:_bind_transforms() end
+end
+
+--- @brief
+function rt.RenderTexture3D:bind()
+    love.graphics.push("all")
+    love.graphics.setCanvas({ self._native, depth = true, stencil = true })
+    love.graphics.setFrontFaceWinding("cw")
+    love.graphics.setDepthMode("less", true)
+
+    self:_bind_transforms()
+
+    self._is_bound = true
+end
+
+--- @brief
 function rt.RenderTexture3D:unbind()
+    self._is_bound = false
     love.graphics.pop()
-end
-
---- @brief
-function rt.RenderTexture3D:draw()
-    love.graphics.draw(self._native)
-end
-
---- @brief
-function rt.RenderTexture3D:get_size()
-    return self._native:getDimensions()
-end
-
---- @brief
-function rt.RenderTexture3D:get_width()
-    return self._native:getWidth()
 end
 
 --- @brief
 function rt.RenderTexture3D:set_fov(fov)
     if self._fov ~= fov then
-        self._fov = math.clamp(fov, 10e-3, 1 - 10e-3)
+        local eps = 10e-3
+        self._fov = math.clamp(fov, eps, 1 - eps)
         self:_update_projections()
+
+        if self._is_bound then self:_bind_transforms() end
     end
 end
 
 --- @brief
 function rt.RenderTexture3D:get_fov()
     return self._fov
-end
-
---- @brief
-function rt.RenderTexture3D:get_height()
-    return self._native:getHeight()
 end
 
 --- @brief

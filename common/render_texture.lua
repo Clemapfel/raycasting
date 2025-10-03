@@ -12,7 +12,7 @@ rt._render_texture_dummy = love.graphics.newCanvas(1, 1)
 rt.RenderTexture = meta.class("RenderTexture", rt.Texture)
 
 --- @brief
-function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute)
+function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute, use_mipmaps)
     if width == nil and height == nil then
         meta.install(self, {
             _native = rt._render_texture_dummy,
@@ -27,9 +27,9 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute)
     meta.install(self, {
         _native = love.graphics.newCanvas(width or 1, height or 1, {
             msaa = msaa or 0,
-            format = format,
+            format = format, -- if nil, love default
             computewrite = is_compute or false,
-            mipmaps = "auto"
+            mipmaps = use_mipmaps and "auto" or "none"
         }),
         _width = width,
         _height = height,
@@ -63,21 +63,6 @@ function rt.RenderTexture:as_image()
     else
         return rt.Image(self._native:newImageData())
     end
-end
-
---- @brief
-function rt.RenderTexture:get_size()
-    return self._native:getDimensions()
-end
-
---- @brief
-function rt.RenderTexture:get_width()
-    return self._native:getWidth()
-end
-
---- @brief
-function rt.RenderTexture:get_height()
-    return self._native:getHeight()
 end
 
 --- @brief
