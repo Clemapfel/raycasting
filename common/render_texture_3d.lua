@@ -71,8 +71,8 @@ end
 function rt.RenderTexture3D:bind()
     love.graphics.push("all")
     love.graphics.setCanvas({ self._native, depth = true, stencil = true })
-    love.graphics.setMeshCullMode("back")
     love.graphics.setFrontFaceWinding("cw")
+    love.graphics.setDepthMode("less", true)
 
     local projection
     if self._projection_type == rt.ProjectionType3D.ORTHOGRAPHIC then

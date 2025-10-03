@@ -4,9 +4,10 @@ rt.settings.player_body = {
     relative_velocity_influence = 1 / 3, -- [0, 1] where 0 no influence
 
     -- rope params
+    n_ropes = 27,
     n_rings = 7,
     n_segments_per_rope = 8,
-    max_rope_length_factor = 5, -- * player radius
+    max_rope_length_factor = 5.2, -- * player radius
 
     -- graphics
     node_mesh_alpha = 0.05,
@@ -162,7 +163,7 @@ function rt.PlayerBody:initialize(positions)
             if ring_i == 1 then
                 return 3
             else
-                return #positions / 2
+                return _settings.n_ropes
             end
         end
 
@@ -184,6 +185,7 @@ function rt.PlayerBody:initialize(positions)
                 local center_x = axis_x * ring_radius
                 local center_y = axis_y * ring_radius
                 local scale = ring / n_rings
+
                 local rope_length = (1 - scale) * max_rope_length
 
                 local rope = {
@@ -360,8 +362,8 @@ rt.PlayerBody._rope_handler = function(data)
             for i = 1, #positions, 2 do
                 local current_x, current_y = positions[i+0], positions[i+1]
                 if i == 1 then
-                    current_x = data.player_x + rope.anchor_x
-                    current_y = data.player_y + rope.anchor_y
+                    current_x = data.position_x + rope.anchor_x
+                    current_y = data.position_y + rope.anchor_y
                 end
 
                 local old_x, old_y = last_positions[i+0], last_positions[i+1]
@@ -448,8 +450,8 @@ rt.PlayerBody._rope_handler = function(data)
                 local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
 
                 if i == 1 then
-                    node_1_x = data.player_x + rope.anchor_x
-                    node_1_y = data.player_y + rope.anchor_y
+                    node_1_x = data.position_x + rope.anchor_x
+                    node_1_y = data.position_y + rope.anchor_y
                 end
 
                 local rest_length = segment_length
@@ -525,8 +527,8 @@ function rt.PlayerBody:update(delta)
             gravity_y = gravity_y,
             delta = delta,
             velocity_damping = velocity_damping,
-            player_x = self._player_x,
-            player_y = self._player_y,
+            position_x = self._player_x,
+            position_y = self._player_y,
             platform_delta_x = self._relative_velocity_x * delta,
             platform_delta_y = self._relative_velocity_y * delta
         })
@@ -598,19 +600,30 @@ function rt.PlayerBody:draw_body()
             love.graphics.setColor(1, 1, 1, _settings.node_mesh_alpha)
         end
 
+        -- function to thin out only very last part of tail
+        local easing = function(t)
+            -- f\left(x\right)=\left(0.045\cdot e^{\ln\left(\frac{1}{0.045}+1\right)x}-0.045\right)^{b}
+            local buldge = 2.5 -- the higher, the closer to f(x) = x easing
+            t = t * 0.8
+            local v = (0.045 * math.exp(math.log(1 / 0.045 + 1) * t) - 0.045) ^ buldge
+            return 1 - math.clamp(v, 0, 1)
+        end
+
         local rope_i, n_ropes = 0, self._n_ropes
         local tw, th = self._node_mesh_texture:get_size()
         for rope in values(self._ropes) do
+            local segment_i = 0
             for i = 1, #rope.current_positions, 2 do
                 love.graphics.push()
                 self:_apply_squish(1 + 1 - (i - 1) / (#rope.current_positions / 2))
-
-                local scale = math.min(rope.scale + _settings.non_bubble_scale_offset / self._player:get_radius(), 1)
+                local scale = easing(segment_i / rope.n_segments) * math.min(1, rope.scale + _settings.non_bubble_scale_offset / self._player:get_radius())
                 -- Use current_positions for drawing to reduce visual lag
                 local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
                 love.graphics.draw(self._node_mesh_texture:get_native(), x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
 
                 love.graphics.pop()
+
+                segment_i = segment_i + 1
             end
         end
 

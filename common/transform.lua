@@ -270,8 +270,8 @@ end
 
 --- @brief
 function rt.Transform:look_at(
-    eye_x, eye_y, eye_z, target_x,
-    target_y, target_z,
+    eye_x, eye_y, eye_z,
+    target_x, target_y, target_z,
     up_x, up_y, up_z
 )
     local z1, z2, z3 = math.normalize(eye_x - target_x, eye_y - target_y, eye_z - target_z)

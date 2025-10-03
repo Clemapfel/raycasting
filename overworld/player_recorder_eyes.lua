@@ -1,6 +1,7 @@
 require "common.shader"
 require "common.mesh"
 require "common.color"
+require "common.palette"
 require "common.interpolation_functions"
 
 rt.settings.overworld.player_recorder_eyes = {
@@ -17,12 +18,13 @@ function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
     self._radius = radius
     self._position_x = position_x or 0
     self._position_y = position_y or 0
+    self._elapsed = 0
     self:_initialize()
 end
 
 --- @brief
 function ow.PlayerRecorderEyes:_initialize()
-    local radius_to_h = 0.8
+    local radius_to_h = 0.6
     local radius_to_spacing = 0.6
 
     local ratio = rt.settings.overworld.player_recorder_eyes.aspect_ratio
@@ -131,20 +133,19 @@ function ow.PlayerRecorderEyes:draw()
 
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth(self._outline_width + 2)
-    if side == "left" then
-        love.graphics.line(self._base_left_outline)
-    else
-        love.graphics.line(self._base_right_outline)
-    end
+    love.graphics.line(self._base_left_outline)
+    love.graphics.line(self._base_right_outline)
 
     love.graphics.setColor(1, 1, 1, 1)
     _base_shader:bind()
+
     love.graphics.setColor(self._outline_color)
     _base_shader:send("hue", self._hue)
-    _base_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _base_shader:send("elapsed", self._elapsed)
     self._base_left:draw()
-    _base_shader:send("elapsed", rt.SceneManager:get_elapsed() + math.pi * 100)
+    _base_shader:send("elapsed", self._elapsed + math.pi * 100)
     self._base_right:draw()
+
     _base_shader:unbind()
 
     love.graphics.setColor(self._highlight_color)
@@ -161,7 +162,8 @@ end
 
 --- @brief
 function ow.PlayerRecorderEyes:update(delta)
-    self._hue = self._hue + delta / 10
+    self._hue = self._hue + delta / 100
+    self._elapsed = self._elapsed + delta
     self._outline_color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
 end
 

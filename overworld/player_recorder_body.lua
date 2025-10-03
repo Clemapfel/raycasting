@@ -1,9 +1,7 @@
 require "common.smoothed_motion_1d"
 
 rt.settings.overworld.player_recorder_body = {
-    input_motion_speed = 3,
-    spring_body_radius_factor = 0.05,
-    n_spring_bodies = 16,
+    input_motion_speed = 3
 }
 
 --- @class ow.PlayerRecorderBody
@@ -31,10 +29,6 @@ function ow.PlayerRecorderBody:instantiate(player_recorder, stage, scene)
     self._right_pressed_motion = rt.SmoothedMotion1D(_NOT_PRESSED, speed)
     self._down_pressed_motion = rt.SmoothedMotion1D(_NOT_PRESSED, speed)
     self._left_pressed_motion = rt.SmoothedMotion1D(_NOT_PRESSED, speed)
-
-    self._body = nil -- b2.Body
-    self._spring_bodies = {} -- Table<b2.Body>
-    self._springs = {} -- Table<love.DistanceJoint>
 end
 
 --- @brief
@@ -44,68 +38,22 @@ function ow.PlayerRecorderBody:initialize(x, y)
             self._stage:get_physics_world(),
             b2.BodyType.DYNAMIC,
             x, y,
-            b2.Circle(0, 0, 5) -- handpicked for ratio against outer body for numerical stability
+            b2.Circle(0, 0, self._radius)
         )
 
         local player_settings = rt.settings.player
-
-        function set_collision_group(body)
-            body:set_collides_with(bit.bnot(bit.bor(
-                player_settings.player_collision_group,
-                player_settings.player_outer_body_collision_group,
-                player_settings.bounce_collision_group,
-                player_settings.ghost_collision_group,
-                player_settings.exempt_collision_group
-            )))
-            body:set_collision_group(player_settings.exempt_collision_group)
-        end
-
-        set_collision_group(self._body)
-        self._body:set_mass(1)
-
+        self._body:set_collides_with(bit.bnot(bit.bor(
+            player_settings.player_collision_group,
+            player_settings.player_outer_body_collision_group,
+            player_settings.bounce_collision_group,
+            player_settings.ghost_collision_group
+        )))
+        self._body:set_collision_group(player_settings.exempt_collision_group)
         self._body:signal_connect("collision_start", function(_, other_body, normal_x, normal_y, x1, y1, x2, y2)
             if x1 ~= nil then
                 self._stage:get_blood_splatter():add(x1, y1, self._radius, 0, 0)
             end
         end)
-
-
-        for body in values(self._spring_bodies) do body:destroy() end
-
-        local settings = rt.settings.overworld.player_recorder_body
-        local spring_body_r = settings.spring_body_radius_factor * self._radius
-        local spring_shape = b2.Circle(0, 0, 1)
-        local spring_length = player_settings.radius
-        self._spring_length = spring_length
-        for i = 1, settings.n_spring_bodies do
-            local angle = ((i - 1) / settings.n_spring_bodies) * (2 * math.pi)
-            local spring_body_x= x + math.cos(angle) * spring_length
-            local spring_body_y = y + math.sin(angle) * spring_length
-
-            local spring_body = b2.Body(
-                self._stage:get_physics_world(),
-                b2.BodyType.DYNAMIC,
-                spring_body_x, spring_body_y,
-                spring_shape
-            )
-            spring_body:set_mass(10e-4 * player_settings.outer_body_spring_strength)
-            spring_body:set_is_rotation_fixed(true)
-
-            local spring = b2.Spring(
-                self._body,
-                spring_body,
-                x, y,
-                spring_body_x, spring_body_y,
-                spring_length
-            )
-
-            set_collision_group(spring_body)
-            spring_body:set_position(x, y) -- let solver resolve position after spawn
-
-            table.insert(self._spring_bodies, spring_body)
-            table.insert(self._springs, spring)
-        end
-
     else
         self:set_position(x, y)
     end
@@ -155,14 +103,6 @@ function ow.PlayerRecorderBody:update(delta)
     ) do
         to_update:update(delta)
     end
-
-    -- protect against solver getting unstable
-    local body_x, body_y = self._body:get_position()
-    for spring_body in values(self._spring_bodies) do
-        spring_body:set_is_sensor(
-            math.distance(body_x, body_y, spring_body:get_position()) > 1.5 * self._spring_length
-        )
-    end
 end
 
 --- @brief
@@ -201,6 +141,7 @@ function ow.PlayerRecorderBody:draw()
     local r = 2 * self._radius
     local x, y = self._body:get_position()
 
+    --[[
     for motion_nx_ny in range(
         { self._up_pressed_motion, 0, -1 },
         { self._right_pressed_motion, 1, 0 },
@@ -216,9 +157,7 @@ function ow.PlayerRecorderBody:draw()
             y + ny * r * v
         )
     end
+    ]]--
 
     self._body:draw()
-    for body in values(self._spring_bodies) do
-        body:draw()
-    end
 end

@@ -28,7 +28,8 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute)
         _native = love.graphics.newCanvas(width or 1, height or 1, {
             msaa = msaa or 0,
             format = format,
-            computewrite = is_compute or false
+            computewrite = is_compute or false,
+            mipmaps = "auto"
         }),
         _width = width,
         _height = height,
