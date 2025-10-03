@@ -726,11 +726,6 @@ function math.distance(...)
     end
 end
 
--- =============================================================================
--- == END 2D/3D VECTOR MATH
--- =============================================================================
-
-
 --- @brief
 function math.translate_by_angle(x, y, angle, distance)
     return x + math.cos(angle) * distance, y + math.sin(angle) * distance
