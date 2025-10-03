@@ -288,7 +288,7 @@ function rt.Transform:look_at(
     return self
 end
 
---- @briefbrief
+--- @brief
 function rt.Transform:set_target_to(
     eye_x, eye_y, eye_z,
     target_x, target_y, target_z,

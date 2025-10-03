@@ -208,8 +208,8 @@ function love.draw()
     local model = rt.Transform()
     model:set_target_to(
         0, 0, 0,  -- eye / object position
-        mouse_x * turn_magnitude, mouse_y * turn_magnitude, mouse_z,  -- target (mouse converted)
-        0, 1, 0                       -- up vector (negative Y because screen Y goes down)
+        mouse_x * turn_magnitude, mouse_y * turn_magnitude, mouse_z, -- target (mouse converted)
+        0, 1, 0 -- up vector (negative Y because screen Y goes down)
     )
 
     model = model:inverse()

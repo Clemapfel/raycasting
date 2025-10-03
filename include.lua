@@ -24,6 +24,7 @@ utf8 = require "utf8"
 bit = require "bit"
 
 require "common.common"
+require "common.math"
 meta = require "common.meta"
 
 if DEBUG then
