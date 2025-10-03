@@ -151,11 +151,43 @@ local canvas_3d = rt.RenderTexture3D(love.graphics.getDimensions())
 
 local sphere_x, sphere_y, sphere_z = 0, 0, 0
 
-local sphere_mesh = make_sphere_mesh(
+local instance_mesh = make_sphere_mesh(
     sphere_x, sphere_y, sphere_z,  -- center
-    50, -- radius
+    1, -- radius
     8, 8 -- n rings, n segments per ring
 )
+
+require "common.random"
+local data_mesh_data = {}
+local min_x, max_x = -100, 100
+local min_y, max_y = -100, 100
+local min_z, max_z = -100, 100
+local min_r, max_r = 2, 5
+local n_instances = 5000
+for i = 1, n_instances do
+    table.insert(data_mesh_data, {
+        rt.random.number(min_x, max_x),
+        rt.random.number(min_y, max_y),
+        rt.random.number(min_z, max_z),
+
+        rt.random.number(min_r, max_r),
+
+        rt.random.number(0, 1)
+    })
+end
+
+local data_mesh_format = {
+    { location = 3, name = "position", format = "floatvec3" },
+    { location = 4, name = "radius", format = "float" },
+    { location = 5, name = "hue", format = "float" }
+}
+local data_mesh = rt.Mesh(data_mesh_data, rt.MeshDrawMode.TRIANGLES, data_mesh_format, rt.GraphicsBufferUsage.STREAM)
+
+for v in values(data_mesh_format) do
+    instance_mesh:attach_attribute(data_mesh, v.name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
+end
+
+local shader = rt.Shader("main_3d.glsl")
 
 local curvature = 20
 local eye_mesh = make_deformed_plane_mesh(
@@ -164,12 +196,6 @@ local eye_mesh = make_deformed_plane_mesh(
     curvature
 )
 
-local perspective = true
-love.keypressed = function()
-    perspective = not perspective
-end
-
-local shader = rt.Shader("main_3d.glsl")
 require "common.render_texture"
 local radius, padding = 200
 padding = radius * 0.5
@@ -181,21 +207,31 @@ texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
 require "overworld.player_recorder_eyes"
 local eyes = ow.PlayerRecorderEyes(radius)
 
-
 eye_mesh:set_texture(texture)
+
+local camera_x, camera_z = 0, -100
 
 function love.update(delta)
     eyes:update(delta)
 
     texture:bind()
-    love.graphics.clear(1, 1, 1, 0.1)
+    love.graphics.clear(true, true, true)
     love.graphics.translate(0.5 * texture:get_width(), 0.5 * texture:get_height())
     eyes:draw()
     texture:unbind()
-end
 
-function love.draw()
-    local distance = 400
+    if love.keyboard.isDown("w") then
+    camera_z = camera_z + 100 * delta
+    elseif love.keyboard.isDown("s") then
+    camera_z = camera_z - 10* delta
+    elseif love.keyboard.isDown("a") then
+    camera_x = camera_x - 100 * delta
+    elseif love.keyboard.isDown("d") then
+    camera_x = camera_x + 100 * delta
+    end
+    end
+
+    function love.draw()
     local mouse_x, mouse_y = love.mouse.getPosition()
     local mouse_z = -10
 
@@ -206,24 +242,23 @@ function love.draw()
     local turn_magnitude = 30
 
     local model = rt.Transform()
+
     model:set_target_to(
-        0, 0, 0,  -- eye / object position
-        mouse_x * turn_magnitude, mouse_y * turn_magnitude, mouse_z, -- target (mouse converted)
-        0, 1, 0 -- up vector (negative Y because screen Y goes down)
+    0, 0, 0,  -- eye / object position
+    mouse_x * turn_magnitude, mouse_y * turn_magnitude, mouse_z, -- target (mouse converted)
+    0, 1, 0 -- up vector (negative Y because screen Y goes down)
     )
 
     model = model:inverse()
 
 
     local view = rt.Transform()
-    view:translate(0, 0, -distance)
+    view:translate(camera_x, 0, camera_z)
 
-    --[[
-    canvas_3d:set_projection_type(ternary(perspective,
-        rt.ProjectionType3D.ORTHOGRAPHIC,
-        rt.ProjectionType3D.PERSPECTIVE
+    canvas_3d:set_projection_type(ternary(false,
+    rt.ProjectionType3D.ORTHOGRAPHIC,
+    rt.ProjectionType3D.PERSPECTIVE
     ))
-    ]]--
 
     canvas_3d:set_fov(0.2)
     canvas_3d:set_model_transform(model)
@@ -234,10 +269,16 @@ function love.draw()
 
     love.graphics.clear(0, 0, 0, 1)
     love.graphics.setColor(1, 1, 1, 1)
-    --sphere_mesh:draw()
-    eye_mesh:draw()
+    --eye_mesh:draw()
+
+    shader:bind()
+    shader:send("elapsed", love.timer.getTime())
+    canvas_3d:set_model_transform(rt.Transform())
+    instance_mesh:draw_instanced(n_instances)
+    shader:unbind()
+
     canvas_3d:unbind()
 
     love.graphics.setColor(1, 1, 1, 1)
     canvas_3d:draw()
-end
+    end

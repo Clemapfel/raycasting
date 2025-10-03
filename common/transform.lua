@@ -221,7 +221,7 @@ end
 
 --[[
 local projection = rt.Transform():as_perspective_projection(
-    math.pi / 1.5,
+    math.pi / 2,
     love.graphics.getWidth() / love.graphics.getHeight(),
     0.1, 1000
 )
