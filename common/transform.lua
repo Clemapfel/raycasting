@@ -10,6 +10,7 @@ end
 function rt.Transform:apply(other)
     meta.assert(other, rt.Transform)
     self._native:apply(other._native)
+    return self
 end
 
 --- @brief get a copy of this transform
@@ -218,6 +219,13 @@ function rt.Transform:inverse_transform_point(...)
     end
 end
 
+--[[
+local projection = rt.Transform():as_perspective_projection(
+    math.pi / 1.5,
+    love.graphics.getWidth() / love.graphics.getHeight(),
+    0.1, 1000
+)
+]]
 function rt.Transform:as_perspective_projection(fov, aspect, near, far)
     local top = near * math.tan(fov / 2)
     local bottom = -top
@@ -234,16 +242,26 @@ function rt.Transform:as_perspective_projection(fov, aspect, near, far)
     return self
 end
 
+--[[
+local projection = rt.Transform():as_orthographic_projection(
+    love.graphics.getWidth(),
+    love.graphics.getHeight(),
+    0.1, 1000
+)
+]]--
 function rt.Transform:as_orthographic_projection(width, height, near, far)
-    local aspect = width / height
-    local top = -height / 2
-    local bottom = -top
-    local right = top * -aspect
-    local left = -right
+    local half_width = width / 2
+    local half_height = -height / 2
+
+    local top = half_height
+    local bottom = -half_height
+    local right = half_width
+    local left = -half_width
+
     self._native:setMatrix(
-        2 / (right - left), 0, 0, -(right + left) / (right - left),
-        0, 2 / (top - bottom), 0, -(top + bottom) / (top - bottom),
-        0, 0, -2 / (far - near), -(far + near) / (far - near),
+        2 / (right - left), 0, 0, -((right + left) / (right - left)),
+        0, 2 / (top - bottom), 0, -((top + bottom) / (top - bottom)),
+        0, 0, -2 / (far - near), -((far + near) / (far - near)),
         0, 0, 0, 1
     )
 
@@ -270,7 +288,7 @@ function rt.Transform:look_at(
     return self
 end
 
---- @brief
+--- @briefbrief
 function rt.Transform:set_target_to(
     eye_x, eye_y, eye_z,
     target_x, target_y, target_z,
