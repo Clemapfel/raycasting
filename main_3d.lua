@@ -209,7 +209,7 @@ local eyes = ow.PlayerRecorderEyes(radius)
 
 eye_mesh:set_texture(texture)
 
-local camera_x, camera_z = 0, -100
+local camera_x, camera_z = 0, -200
 
 function love.update(delta)
     eyes:update(delta)
@@ -269,13 +269,7 @@ function love.update(delta)
 
     love.graphics.clear(0, 0, 0, 1)
     love.graphics.setColor(1, 1, 1, 1)
-    --eye_mesh:draw()
-
-    shader:bind()
-    shader:send("elapsed", love.timer.getTime())
-    canvas_3d:set_model_transform(rt.Transform())
-    instance_mesh:draw_instanced(n_instances)
-    shader:unbind()
+    eye_mesh:draw()
 
     canvas_3d:unbind()
 

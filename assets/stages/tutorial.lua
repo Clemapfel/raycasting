@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 950,
+  nextobjectid = 951,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4229,40 +4229,6 @@ return {
           properties = {}
         },
         {
-          id = 751,
-          name = "",
-          type = "NPC",
-          shape = "polygon",
-          x = -6949.98,
-          y = 1891.18,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 12.9809, y = 2.71152 },
-            { x = 11.244, y = -9.75643 },
-            { x = 17.3712, y = -24.1358 },
-            { x = 28.3106, y = -30.489 },
-            { x = 29.451, y = -81.1831 },
-            { x = 30.1494, y = -105.528 },
-            { x = 34.3839, y = -111.084 },
-            { x = 42.473, y = -113.82 },
-            { x = 52.5037, y = -110.93 },
-            { x = 57.2052, y = -104.026 },
-            { x = 58.6579, y = -83.7302 },
-            { x = 57.9728, y = -30.1076 },
-            { x = 72.8178, y = -20.6444 },
-            { x = 77.2744, y = -5.6132 },
-            { x = 69.887, y = 6.78561 },
-            { x = 59.7976, y = 12.802 },
-            { x = 21.2602, y = 11.9827 }
-          },
-          properties = {
-            ["dialog_id"] = "debug_dialog"
-          }
-        },
-        {
           id = 752,
           name = "",
           type = "",
@@ -5027,6 +4993,8 @@ return {
             { x = -3637.66, y = 61.51 },
             { x = -3429.66, y = 93.51 },
             { x = -3253.66, y = 157.51 },
+            { x = -3045.66, y = 77.51 },
+            { x = -2949.66, y = 77.51 },
             { x = -2853.66, y = 45.51 },
             { x = -2661.66, y = -258.49 },
             { x = -2261.66, y = -258.49 },
@@ -5636,6 +5604,19 @@ return {
           properties = {
             ["target"] = { id = 947 }
           }
+        },
+        {
+          id = 950,
+          name = "",
+          type = "NPC",
+          shape = "point",
+          x = -7824,
+          y = 2192,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     }

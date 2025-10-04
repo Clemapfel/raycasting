@@ -100,9 +100,9 @@ function ow.PlayerRecorderEyes:_initialize()
     self._hue = 0.2
     self._outline_color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
 
-    local highlight_x_radius = 0.45 * base_x_radius
-    local highlight_y_radius = 0.3 * base_y_radius
-    local highlight_x_offset = 0 * base_x_radius
+    local highlight_x_radius = 0.4 * base_x_radius
+    local highlight_y_radius = 0.4 * base_x_radius
+    local highlight_x_offset = -0.05 * base_x_radius
     local highlight_y_offset = -1 * (base_y_radius - highlight_y_radius - self._outline_width * 4)
 
     self._left_highlight = {

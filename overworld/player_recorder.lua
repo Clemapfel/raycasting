@@ -40,8 +40,8 @@ function ow.PlayerRecorder:instantiate(stage, scene)
     self._state = _STATE_IDLE
 
     self._body = ow.PlayerRecorderBody(self, self._stage, self._scene)
+    self._body:initialize(self._player:get_position())
 end
-
 
 --- @brief
 function ow.PlayerRecorder:_snapshot(step)
@@ -165,7 +165,7 @@ end
 
 --- @brief
 function ow.PlayerRecorder:draw()
-    if self._state == _STATE_PLAYBACK then
+    if true then -- TODOself._state == _STATE_PLAYBACK then
         if self._render ~= nil then
             love.graphics.setColor(0.5, 0.5, 0.5, 1)
             love.graphics.line(self._to_render)

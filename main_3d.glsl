@@ -92,7 +92,7 @@ varying float override_hue;
 varying float shadow;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
-    return vec4(lch_to_rgb(vec3(mix(0.4, 1, shadow), 1, override_hue)), mix(0.9, 1, shadow));
+    return vec4(lch_to_rgb(vec3(mix(0.4, 1, shadow), 1, override_hue)), mix(0.4, 1, shadow));
 }
 
 #endif

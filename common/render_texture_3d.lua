@@ -6,7 +6,7 @@ rt.settings.render_texture_3d = {
 }
 
 --- @class rt.RenderTexture3D
-rt.RenderTexture3D = meta.class("3DCanvas")
+rt.RenderTexture3D = meta.class("3DCanvas", rt.Texture)
 
 --- @class rt.ProjectionType3D
 rt.ProjectionType3D = meta.enum("ProjectionType3D", {

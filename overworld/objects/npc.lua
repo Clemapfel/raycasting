@@ -1,28 +1,19 @@
 require "common.delaunay_triangulation"
-require "overworld.objects.npc_deformable_mesh"
-require "overworld.blood_drop"
-require "overworld.objects.bounce_pad"
+require "overworld.player_recorder_body"
+require "overworld.player_recorder_eyes"
+require "common.render_texture_3d"
 
 rt.settings.overworld.npc = {
-    bounce_max_offset = rt.settings.player.radius, -- in px
-    bounce_cooldown = 4 / 60
+   canvas_radius = 200,
+   canvas_padding = 20,
+
+   eye_mesh_width = 100,
+   eye_mesh_height = 100,
+   eye_mesh_curvature = 20
 }
 
 --- @class ow.NPC
 ow.NPC = meta.class("NPC")
-
---- @class ow.NPCFrame
-ow.NPCFrame = meta.class("NPCFrame") -- dummy
-
-local _collision_group = b2.CollisionGroup.GROUP_07
-
-local _data_mesh_format = {
-    { location = 4, name = "origin", format = "floatvec2" }, -- spring origin
-    { location = 5, name = "contour_vector", format = "floatvec3" } -- normalized xy, z is length
-}
-
-local _mesh_shader = rt.Shader("overworld/objects/npc_mesh.glsl")
-local _outline_shader = rt.Shader("overworld/objects/npc_outline.glsl")
 
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
@@ -30,173 +21,98 @@ function ow.NPC:instantiate(object, stage, scene)
     self._stage = stage
     self._world = stage:get_physics_world()
 
-    -- inner, hard-body shell
-    local contour = object:create_contour()
+    assert(object:get_type() == ow.ObjectType.POINT, "NPC should be Point")
+    self._position_x = object.x
+    self._position_y = object.y
 
-    self._deformable_mesh = ow.DeformableMesh(self._scene, self._world, contour) -- has inner hard shell
-    self._deformable_mesh:get_body():add_tag("stencil", "hitbox")
+    local radius = rt.settings.overworld.npc.canvas_radius
+    local padding = rt.settings.overworld.npc.canvas_padding
+    self._eyes = ow.PlayerRecorderEyes(radius, 0, 0)
+    self._eyes_texture =rt.RenderTexture(
+        2 * (radius + padding), 2 * (radius + padding)
+    )
+    self._eyes_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
-    self._mesh = object:create_mesh()
+    self._3d_texture = rt.RenderTexture3D(
+        2 * (radius + 2 * padding), 2 * (radius + 2 * padding)
+    )
 
-    table.insert(contour, contour[1])
-    table.insert(contour, contour[2])
-    self._contour = contour
+    self._model_transform = rt.Transform()
+    self._view_transform = rt.Transform()
+    self._view_transform:translate(0, 0, -2 * radius)
 
-    self._deformable_mesh_center_x, self._deformable_mesh_center_y = self._deformable_mesh:get_center()
-
-    -- create sensor
-    self._sensor = object:create_physics_body(self._world)
-    self._sensor:set_is_sensor(true)
-    self._sensor:set_use_continuous_collision(true)
-    self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
-    self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
-
-    self._color = { rt.Palette.TRUE_WHITE:unpack() }
-
-    self._is_active = false -- mesh deformation active
-
-    -- bounce animation
-
-    self._is_bouncing = false
-    self._bounce_position = rt.settings.overworld.bounce_pad.origin -- in [0, 1]
-    self._bounce_velocity = 0
-    self._bounce_cooldown = math.huge
-
-    self._sensor:signal_connect("collision_start", function(_, other_body, normal_x, normal_y, x, y)
-        self._is_active = true
-        -- bounce started in update
-    end)
-
-    self._sensor:signal_connect("collision_end", function(_, other_body)
-        self._is_active = false
-        self._last_force_x, self._last_force_y = 0, 0
-    end)
-
-    self._is_visible = self._stage:get_is_body_visible(self._sensor)
+    self._center_x, self._center_y, self._center_z = 0, 0, 0
+    self._eye_mesh = rt.MeshPlane(
+        self._center_x, self._center_y, self._center_z,
+        rt.settings.overworld.npc.eye_mesh_width,
+        rt.settings.overworld.npc.eye_mesh_height,
+        rt.settings.overworld.npc.eye_mesh_curvature
+    )
+    self._eye_mesh:set_texture(self._eyes_texture)
 end
 
 --- @brief
 function ow.NPC:update(delta)
-    if not self._stage:get_is_body_visible(self._sensor) then return end
+    -- update eye texture
+    love.graphics.push("all")
+    self._eyes_texture:bind()
+    love.graphics.clear(1, 0, 1, 1)
+    love.graphics.translate(
+        0.5 * self._eyes_texture:get_width(),
+        0.5 * self._eyes_texture:get_height()
+    )
+    self._eyes:draw()
+    self._eyes_texture:unbind()
+    love.graphics.pop()
 
-    -- mesh depression
-    local player = self._scene:get_player()
-    local x, y = player:get_position()
-    local radius = player:get_radius()
-    local force_x, force_y = self._deformable_mesh:step(delta, x, y, radius)
+    -- orient eye mesh
+    local target_x, target_y = self._scene:get_player():get_position()
+    target_x = target_x - self._position_x - 0.5 * self._3d_texture:get_width()
+    target_y = target_y - self._position_y - 0.5 * self._3d_texture:get_height()
 
-    -- start bounce, manual check because collision is too unreliable
-    local previous = self._bounce_previous
+    self._dbg = {target_x, target_y}
+    target_x, target_y = 0, 0
+    local target_z = -1
+    local turn_magnitude = 1
 
-    -- test point on player circle pointing towards mesh, instead of player center
-    local mesh_x, mesh_y = self._deformable_mesh:get_center()
-    local dx, dy = math.normalize(mesh_x - x, mesh_y)
-    local current = self._sensor:test_point(x + dx * radius, y + dy * radius)
+    self._model_transform = rt.Transform()
+    self._model_transform:set_target_to(
+        self._center_x, self._center_y, self._center_z, -- object position
+        target_x * turn_magnitude, target_y * turn_magnitude, target_z, -- target position
+        0, 1, 0 -- up
+    )
 
-    if previous == false and current == true then
-        local center_x, center_y = self._deformable_mesh:get_center()
-        if y <= center_y and self._bounce_cooldown > rt.settings.overworld.npc.bounce_cooldown then -- only bounce up
-            local restitution = self._scene:get_player():bounce(0, -1.3) -- experimentally determined for best game feel
-            self._bounce_velocity = restitution
-            self._bounce_position = restitution
-            self._is_bouncing = true
-            self._bounce_cooldown = 0
-        end
-    end
+    -- update 3d texture
+    love.graphics.push("all")
+    local canvas = self._3d_texture
+    canvas:set_fov(0.2)
+    canvas:set_model_transform(self._model_transform)
+    canvas:set_view_transform(self._view_transform)
+    canvas:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setMeshCullMode("back")
 
-    self._bounce_previous = current
-    self._bounce_cooldown = self._bounce_cooldown + delta
-
-    -- bounce
-    local damping = rt.settings.overworld.bounce_pad.damping
-    local origin = rt.settings.overworld.bounce_pad.origin
-    local stiffness = 0.5 * rt.settings.overworld.bounce_pad.stiffness
-    local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
-
-    if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
-        local before = self._bounce_position
-        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
-        self._bounce_velocity = self._bounce_velocity * damping
-        self._bounce_position = self._bounce_position + self._bounce_velocity * delta
-
-        if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
-            self._bounce_position = 0
-            self._bounce_velocity = 0
-            self._is_bouncing = false
-        end
-    end
+    self._eye_mesh:draw()
+    canvas:unbind()
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.NPC:draw()
-    if not self._stage:get_is_body_visible(self._sensor) then
-        if self._is_visible then
-            self._is_visible = false
-            self._deformable_mesh:reset()
-        end
-
-        return
-    end
-
-    local stencil = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
-
-    ow.Hitbox:draw_mask(true, true)
-
-    rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-
-    local player = self._scene:get_player()
-    local player_x, player_y = self._scene:get_camera():world_xy_to_screen_xy(player:get_position())
-    local color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
-
-    -- apply stretch
-    local base_x, base_y = self._deformable_mesh:get_base()
-    local height = self._deformable_mesh:get_height()
-    local scale = self._bounce_position * rt.settings.overworld.npc.bounce_max_offset / height
-    love.graphics.push()
-    love.graphics.translate(base_x, base_y)
-    love.graphics.scale(1, 1 + scale)
-    love.graphics.translate(-base_x, -base_y)
-
-    _mesh_shader:bind()
-    _mesh_shader:send("player_color", color)
-    _mesh_shader:send("player_position", { player_x, player_y })
-
-    self._deformable_mesh:draw_body()
-
-    -- outline
-
-    local contour = self._deformable_mesh:get_contour()
-
-    love.graphics.setLineWidth(6)
-    love.graphics.setLineJoin("bevel")
-
-    rt.Palette.BLACK:bind()
-    love.graphics.line(contour)
-
-    _mesh_shader:unbind()
-
-    love.graphics.setLineWidth(4)
-    love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1))
-    self._deformable_mesh:draw_outline()
-
     love.graphics.setColor(1, 1, 1, 1)
-    self._deformable_mesh:draw_highlight()
+    love.graphics.circle("fill", self._position_x, self._position_y, 30)
+    love.graphics.line(self._position_x, self._position_y, table.unpack(self._dbg))
 
-    love.graphics.pop() -- stretch
-    rt.graphics.set_stencil_mode(nil)
-
-    --self._sensor:draw() -- TODO
+    love.graphics.push()
+    love.graphics.translate(
+        self._position_x - 0.5 * self._3d_texture:get_width(),
+        self._position_y - 0.5 * self._3d_texture:get_height()
+    )
+    self._3d_texture:draw()
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.NPC:get_render_priority()
     return math.huge
-end
-
---- @brief
-function ow.NPC:draw_bloom()
-    if not self._stage:get_is_body_visible(self._deformable_mesh:get_body()) then return end
-    love.graphics.setColor(self._color)
-    love.graphics.line(self._deformable_mesh:get_contour())
 end
