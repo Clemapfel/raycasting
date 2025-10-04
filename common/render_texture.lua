@@ -29,7 +29,8 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute, u
             msaa = msaa or 0,
             format = format, -- if nil, love default
             computewrite = is_compute or false,
-            mipmaps = use_mipmaps and "auto" or "none"
+            mipmaps = use_mipmaps and "auto" or "none",
+            readable = true
         }),
         _width = width,
         _height = height,

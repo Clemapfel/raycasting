@@ -168,11 +168,11 @@ rt.MeshLine = function(x1, y1, x2, y2, thickness)
 end
 
 --- @class rt.MeshPlane
-rt.MeshPlane = function(center_x, center_y, center_z, width, height, curvature)
+rt.MeshPlane = function(center_x, center_y, center_z, width, height, curvature, n_segments_x, n_segments_y)
     -- Choose resolution based on size and curvature
     -- More curvature needs more vertices for smooth deformation
-    local n_segments_x = math.max(20, math.floor(width * 2 + curvature * 10))
-    local n_segments_y = math.max(20, math.floor(height * 2 + curvature * 10))
+    n_segments_x = n_segments_x or math.max(20, math.floor(width * 2 + curvature * 10))
+    n_segments_y = n_segments_y or math.max(20, math.floor(height * 2 + curvature * 10))
 
     local data = {}
     local indices = {}
@@ -277,8 +277,8 @@ function rt.MeshSphere(center_x, center_y, center_z, radius, n_rings, n_segments
             local v = 1 - ring / n_rings
 
             -- Insert vertex: { x, y, z, u, v, r, g, b, a }
-            local c = math.max(math.cos(theta - math.pi / 2), 0.5)
-            table.insert(data, { px, py, pz, u, v, c, c, c, 0.25 })
+            local c = 1 --math.max(math.cos(theta - math.pi / 2), 0.5)
+            table.insert(data, { px, py, pz, u, v, c, c, c, 1 })
         end
     end
 
