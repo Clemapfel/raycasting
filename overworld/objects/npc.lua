@@ -67,20 +67,23 @@ function ow.NPC:update(delta)
 
     -- orient eye mesh
     local target_x, target_y = self._scene:get_player():get_position()
-    target_x = target_x - self._position_x - 0.5 * self._3d_texture:get_width()
-    target_y = target_y - self._position_y - 0.5 * self._3d_texture:get_height()
+    target_x = target_x - self._position_x
+    target_y = target_y - self._position_y
 
-    self._dbg = {target_x, target_y}
-    target_x, target_y = 0, 0
-    local target_z = -1
-    local turn_magnitude = 1
+    local target_z = -10
+    local turn_magnitude_x = 7 -- the higher, the less it will react along that axis
+    local turn_magnitude_y = 30
 
     self._model_transform = rt.Transform()
     self._model_transform:set_target_to(
-        self._center_x, self._center_y, self._center_z, -- object position
-        target_x * turn_magnitude, target_y * turn_magnitude, target_z, -- target position
+        self._center_x, self._center_y, self._center_z,
+        target_x / turn_magnitude_x,
+        target_y / turn_magnitude_y, -- separate value for y to prevent roll
+        target_z,
         0, 1, 0 -- up
     )
+
+    self._model_transform:as_inverse()
 
     -- update 3d texture
     love.graphics.push("all")
@@ -101,7 +104,6 @@ end
 function ow.NPC:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.circle("fill", self._position_x, self._position_y, 30)
-    love.graphics.line(self._position_x, self._position_y, table.unpack(self._dbg))
 
     love.graphics.push()
     love.graphics.translate(
@@ -110,6 +112,9 @@ function ow.NPC:draw()
     )
     self._3d_texture:draw()
     love.graphics.pop()
+
+    --love.graphics.line(self._position_x, self._position_y, self._position_x + self._dbg[1] * 100, self._position_y + self._dbg[2] * 100)
+
 end
 
 --- @brief
