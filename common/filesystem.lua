@@ -311,7 +311,7 @@ end
 local _setfenv = debug.setfenv -- backup if debug is disabled later
 
 --- @brief
-function bd.load(path, should_sandbox)
+function bd.load(path, should_sandbox, fenv)
     if should_sandbox == nil then should_sandbox = true end
     meta.assert(path, "String", should_sandbox, "Boolean")
 
@@ -327,8 +327,17 @@ function bd.load(path, should_sandbox)
     end
 
     local chunk = chunk_or_error
-    if _setfenv ~= nil and should_sandbox then
-        _setfenv(chunk, {})
+
+    if _setfenv ~= nil then
+        if should_sandbox then
+            if fenv == nil then
+                _setfenv(chunk, {})
+            else
+                _setfenv(chunk, fenv)
+            end
+        else
+            _setfenv(chunk, _G)
+        end
     end
 
     local chunk_success, config_or_error = pcall(chunk)
