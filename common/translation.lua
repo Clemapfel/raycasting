@@ -135,13 +135,18 @@ rt.Translation = rt.initialize_translation({
     },
 
     -- overworld gameplay
+    player_name = "Player",
+    npc_name = "NPC",
+
     overworld_scene = {
         control_indicator_move = "Move",
         control_indicator_down = "Duck",
         control_indicator_jump = "Jump",
         control_indicator_sprint = "Sprint",
         control_indicator_bubble_move = "Move Around",
-        control_indicator_interact = "Interact"
+        control_indicator_interact = "Interact",
+        control_indicator_dialog_confirm = "Advance",
+        control_indicator_dialog_leave = "Leave"
     },
 
     -- title screen / stage select

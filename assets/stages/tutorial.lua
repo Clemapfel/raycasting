@@ -4948,7 +4948,7 @@ return {
         {
           id = 870,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = -4362.34,
           y = 2162.49,
@@ -4986,7 +4986,9 @@ return {
             { x = 506.335, y = 400 },
             { x = -4005.66, y = 397.51 }
           },
-          properties = {}
+          properties = {
+            ["slippery"] = true
+          }
         },
         {
           id = 879,
@@ -5601,6 +5603,7 @@ return {
           visible = true,
           properties = {
             ["id"] = "debug_dialog",
+            ["should_lock"] = false,
             ["target"] = { id = 950 }
           }
         },

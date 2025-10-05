@@ -72,6 +72,8 @@ function ow.Mirror:draw()
 
     local camera_x, camera_y = camera:get_offset()
 
+    for image in values(self._mirror_images) do love.graphics.line(image.segment) end
+
     _shader:bind()
     _shader:send("player_color", player_color)
     _shader:send("player_position", player_position)

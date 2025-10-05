@@ -873,7 +873,10 @@ function rt.Player:update(delta)
                 net_friction_y = friction_direction_y * friction_magnitude
             end
 
-            if self._left_wall and self._left_button_is_down then
+            if self._left_wall
+                and not self._left_wall_body:has_tag("slippery")
+                and self._left_button_is_down
+            then
                 local vx, vy = self._left_wall_body:get_velocity()
                 add_friction(
                     left_nx, left_ny,
@@ -883,7 +886,10 @@ function rt.Player:update(delta)
                 )
             end
 
-            if self._right_wall and self._right_button_is_down then
+            if self._right_wall
+                and not self._right_wall_body:has_tag("slippery")
+                and self._right_button_is_down
+            then
                 local vx, vy = self._right_wall_body:get_velocity()
                 add_friction(
                     right_nx, right_ny,
@@ -893,7 +899,7 @@ function rt.Player:update(delta)
                 )
             end
 
-            if self._top_left_wall then
+            if self._top_left_wall and not self._top_left_wall_body:has_tag("slippery") then
                 local vx, vy = self._top_left_wall_body:get_velocity()
                 add_friction(
                     top_left_nx, top_left_ny,
@@ -903,7 +909,7 @@ function rt.Player:update(delta)
                 )
             end
 
-            if self._top_wall then
+            if self._top_wall and not self._top_wall_body:has_tag("slippery") then
                 local vx, vy = self._top_wall_body:get_velocity()
                 add_friction(
                     top_nx, top_ny,
@@ -913,7 +919,7 @@ function rt.Player:update(delta)
                 )
             end
 
-            if self._top_right_wall then
+            if self._top_right_wall and not self._top_right_wall_body:has_tag("slippery") then
                 local vx, vy = self._top_right_wall_body:get_velocity()
                 add_friction(
                     top_right_nx, top_right_ny,
@@ -1173,6 +1179,19 @@ function rt.Player:update(delta)
             -- componensate when going up slopes, which would slow down player in stock box2d
             local before_projection_x, before_projection_y = next_velocity_x, next_velocity_y
             if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
+
+                local friction = 0
+                for body in values({
+                    self._bottom_left_wall_body,
+                    self._bottom_right_wall_body,
+                    self._bottom_wall_body
+                }) do
+                    friction = math.min(friction, body:get_friction())
+                end
+
+                local compensation = 1 / math.abs(friction) -- compensate for accelerators
+                if friction == 0 then compensation = 1 end
+
                 local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
                 if next_magnitude > math.eps then
                     -- prefer normal in direction of movement, if available
@@ -1205,7 +1224,7 @@ function rt.Player:update(delta)
 
                         next_velocity_x, next_velocity_y = math.multiply(
                             ground_tangent_x, ground_tangent_y,
-                            tangent_dot - gravity_along_slope
+                            (compensation) * (tangent_dot - gravity_along_slope)
                         )
                     end
                 end
