@@ -28,21 +28,23 @@ rt.settings.overworld.dialog_box = {
     menu_confirm_sound_id = "menu_confirm",
 
     asset_prefix = "assets/text",
-
-    player_speaker_id = "Player",
-    npc_speaker_id = "NPC",
 }
 
 --- @class ow.DialogBox
+--- @signal done (DialogBox) -> nil
+--- @signal speaker_changed (DialogBox, current_speaker_id, last_speaker_id) -> nil
 ow.DialogBox = meta.class("OverworldDialogBox", rt.Widget)
-meta.add_signals(ow.DialogBox, "done")
+meta.add_signals(ow.DialogBox,
+    "done",
+    "speaker_changed"
+)
 
 --- @brief
 function ow.DialogBox:instantiate(id)
     meta.assert(id, "String")
     self._id = id
     self._path = bd.join_path(rt.settings.overworld.dialog_box.asset_prefix, self._id) .. ".lua"
-    self._config = bd.load(self._path)
+    self._config = bd.load(self._path, false) -- no sandbox
 
     meta.install(self, {
         _is_initialized = false,
@@ -99,7 +101,9 @@ function ow.DialogBox:instantiate(id)
         _text_stencil = rt.AABB(0, 0, 1, 1),
 
         _font = rt.settings.font.default,
-        _max_n_lines = rt.settings.overworld.dialog_box.n_lines
+        _max_n_lines = rt.settings.overworld.dialog_box.n_lines,
+
+        _is_first_update = true
     })
 end
 
@@ -167,6 +171,11 @@ function ow.DialogBox:realize()
             node.type = _node_type_text
             node.labels = {}
             node.next_id = node_entry[next_key]
+
+            -- default next for numbered entries
+            if node.next_id == nil and meta.is_number(key) then
+                node.next_id = key + 1
+            end
 
             local speaker_id = node_entry[speaker_key]
             local orientation = node_entry[orientation_key]
@@ -251,6 +260,7 @@ end
 --- @brief
 function ow.DialogBox:_set_active_node(node)
     local m = rt.settings.margin_unit
+    local before = self._active_node
 
     if node == nil then
         if self._done_emitted == false then
@@ -296,6 +306,14 @@ function ow.DialogBox:_set_active_node(node)
         end
     else
         assert(false)
+    end
+
+    if before == nil or (node ~= nil and (before.speaker_id ~= node.speaker_id)) then
+        if before == nil then
+            self:signal_emit("speaker_changed", node.speaker_id, nil)
+        else
+            self:signal_emit("speaker_changed", node.speaker_id, before.speaker_id)
+        end
     end
 end
 
@@ -421,6 +439,11 @@ function ow.DialogBox:update(delta)
     if self._active_node ~= nil then
         for label in values(self._active_node.labels) do
             label:update(delta)
+        end
+
+        if self._is_first_update then
+            self:signal_emit("speaker_changed", self._active_node.speaker_id)
+            self._is_first_update = false
         end
     end
 
@@ -632,6 +655,7 @@ function ow.DialogBox:reset()
 
     self:_set_active_node(self._id_to_node[1])
     self._done_emitted = false
+    self._is_first_update = true
 end
 
 --- @brief

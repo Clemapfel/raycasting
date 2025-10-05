@@ -28,7 +28,7 @@ do
 
         result_screen_transition_duration = 1.5,
         idle_threshold_duration = 5,
-        control_indicator_delay = 0.8,
+        control_indicator_delay = 0.0,
     }
 end
 
@@ -46,6 +46,7 @@ ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
     MOTION_NON_BUBBLE = "motion_non_bubble",
     MOTION_BUBBLE = "motion_bubble",
     INTERACT = "interact",
+    DIALOG = "dialog",
     NONE = "none"
 })
 
@@ -136,10 +137,30 @@ function ow.OverworldScene:instantiate(state)
     self._interact_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.INTERACT, translation.control_indicator_interact
     )
-
     self._interact_control_indicator:set_has_frame(true)
 
-    self._control_indicator_motion = rt.SmoothedMotion1D(0, 1) -- opacity
+    self._dialog_control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.A, translation.control_indicator_dialog_confirm,
+        rt.ControlIndicatorButton.X, translation.control_indicator_dialog_leave
+    )
+    self._dialog_control_indicator:set_has_frame(false)
+
+    self._control_indicator_type_to_control_indicator = {
+        [ow.ControlIndicatorType.MOTION_BUBBLE] = self._bubble_control_indicator,
+        [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = self._non_bubble_control_indicator,
+        [ow.ControlIndicatorType.INTERACT] = self._interact_control_indicator,
+        [ow.ControlIndicatorType.DIALOG] = self._dialog_control_indicator,
+        [ow.ControlIndicatorType.NONE] = nil,
+    }
+
+    self._control_indicator_opacity_motion = rt.SmoothedMotion1D(0, 1) -- opacity
+    self._control_indicator_offset_motion = rt.SmoothedMotion2D(
+        0, 0,
+        1.5 -- speed factor
+    )
+    self._control_indicator_max_offset = 0
+    self._control_indicator_allow_override = true
+
     self._control_indicator_type = ow.ControlIndicatorType.NONE
     self._control_indicator_delay_elapsed = math.huge
 
@@ -299,12 +320,17 @@ function ow.OverworldScene:instantiate(state)
         end
     end)
 
-    self._background:realize()
-    self._pause_menu:realize()
-    self._title_card:realize()
-    self._non_bubble_control_indicator:realize()
-    self._bubble_control_indicator:realize()
-    self._interact_control_indicator:realize()
+    for widget in range(
+        self._background,
+        self._pause_menu,
+        self._title_card
+    ) do
+        widget:realize()
+    end
+
+    for indicator in values(self._control_indicator_type_to_control_indicator) do
+        indicator:realize()
+    end
 
     self._player_canvas_scale = 2
     local radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor * 2.5
@@ -425,17 +451,19 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._camera_pan_area_width = gradient_w
 
     local m = rt.settings.margin_unit
-    for indicator in range(
-        self._non_bubble_control_indicator,
-        self._bubble_control_indicator,
-        self._interact_control_indicator
-    ) do
-        local control_w, control_h = indicator:measure()
-        indicator:reformat(
-            x + 0.5 * width - 0.5 * control_w - m,
-            y + height - control_h - m,
-            control_w, control_h
-        )
+    do
+        local max_h = -math.huge
+        for indicator in values(self._control_indicator_type_to_control_indicator) do
+            local control_w, control_h = indicator:measure()
+            local down_m = ternary(indicator:get_has_frame(), m, 0.5 * m)
+            indicator:reformat(
+                x + 0.5 * width - 0.5 * control_w - m,
+                y + height - control_h - down_m,
+                control_w, control_h
+            )
+            max_h = math.max(max_h, control_h)
+        end
+        self._control_indicator_max_offset = 2 * max_h
     end
 
     self._pan_gradient_top = rt.Mesh({
@@ -659,17 +687,15 @@ function ow.OverworldScene:draw()
         self._pause_menu:draw()
     end
 
-    local opacity = self._control_indicator_motion:get_value()
+    local opacity = self._control_indicator_opacity_motion:get_value()
     if opacity > 0 and self._pause_menu_active == false then
-        if self._control_indicator_type == ow.ControlIndicatorType.MOTION_NON_BUBBLE then
-            self._non_bubble_control_indicator:set_opacity(opacity)
-            self._non_bubble_control_indicator:draw()
-        elseif self._control_indicator_type == ow.ControlIndicatorType.MOTION_BUBBLE then
-            self._bubble_control_indicator:set_opacity(opacity)
-            self._bubble_control_indicator:draw()
-        elseif self._control_indicator_type == ow.ControlIndicatorType.INTERACT then
-            self._interact_control_indicator:set_opacity(opacity)
-            self._interact_control_indicator:draw()
+        local indicator = self._control_indicator_type_to_control_indicator[self._control_indicator_type]
+        if indicator ~= nil then
+            indicator:set_opacity(opacity)
+            love.graphics.push()
+            love.graphics.translate(self._control_indicator_offset_motion:get_position())
+            indicator:draw()
+            love.graphics.pop()
         end
     end
 
@@ -874,10 +900,7 @@ function ow.OverworldScene:update(delta)
         -- if idle for too long in overworld, display scene control indicator
         -- only override if other indicator is not currently active
         local current_type = self._control_indicator_type
-        if current_type == ow.ControlIndicatorType.NONE
-            or current_type == ow.ControlIndicatorType.MOTION_BUBBLE
-            or current_type == ow.ControlIndicatorType.MOTION_NON_BUBBLE
-        then
+        if self._control_indicator_allow_override then
             if self._player:get_idle_duration() > rt.settings.overworld_scene.idle_threshold_duration then
                 self:set_control_indicator_type(ternary(
                     self._player:get_is_bubble(),
@@ -891,9 +914,10 @@ function ow.OverworldScene:update(delta)
     end
 
     self._control_indicator_delay_elapsed = self._control_indicator_delay_elapsed + delta
-    if math.equals(self._control_indicator_motion:get_target_value(), 1) and self._control_indicator_delay_elapsed > rt.settings.overworld_scene.control_indicator_delay then
-        self._control_indicator_motion:update(delta)
+    if math.equals(self._control_indicator_opacity_motion:get_target_value(), 1) and self._control_indicator_delay_elapsed > rt.settings.overworld_scene.control_indicator_delay then
+        self._control_indicator_opacity_motion:update(delta)
     end
+    self._control_indicator_offset_motion:update(delta)
 
     if self._pause_menu_active then
         self._pause_menu:update(delta)
@@ -1172,15 +1196,25 @@ end
 function ow.OverworldScene:set_control_indicator_type(type)
     meta.assert_enum_value(type, ow.ControlIndicatorType)
     if type == ow.ControlIndicatorType.NONE then
-        self._control_indicator_motion:set_target_value(0)
+        self._control_indicator_opacity_motion:set_target_value(0)
+        self._control_indicator_offset_motion:set_target_position(
+            0, self._control_indicator_max_offset
+        )
     else
-        self._control_indicator_motion:set_target_value(1)
+        self._control_indicator_opacity_motion:set_target_value(1)
+        self._control_indicator_offset_motion:set_target_position(
+            0, 0
+        )
     end
 
-    self._control_indicator_type = type
     if type ~= ow.ControlIndicatorType.NONE then
+        self._control_indicator_type = type
         self._control_indicator_delay_elapsed = 0
     end
+
+    self._control_indicator_allow_override = type == ow.ControlIndicatorType.NONE
+        or type == ow.ControlIndicatorType.MOTION_NON_BUBBLE
+        or type == ow.ControlIndicatorType.MOTION_BUBBLE
 end
 
 --- @brief
@@ -1196,5 +1230,10 @@ function ow.OverworldScene:get_screenshot()
     else
         return self._screenshot_a
     end
+end
+
+--- @brief
+function ow.OverworldScene:get_control_indicator()
+    return self._control_indicator_type_to_control_indicator[self._control_indicator_type]
 end
 

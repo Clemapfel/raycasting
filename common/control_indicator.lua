@@ -291,6 +291,11 @@ function rt.ControlIndicator:set_has_frame(b)
 end
 
 --- @brief
+function rt.ControlIndicator:get_has_frame()
+    return self._use_frame
+end
+
+--- @brief
 function rt.ControlIndicator:refresh()
     self:create_from(self._layout)
 end
