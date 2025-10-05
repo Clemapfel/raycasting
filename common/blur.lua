@@ -71,6 +71,7 @@ end
 
 --- @brief
 function rt.Blur:_apply_blur()
+    love.graphics.push("all")
     if self._blur_strength > 0 then
         lg.push()
         lg.origin()
@@ -110,6 +111,8 @@ function rt.Blur:_apply_blur()
         lg.setShader(nil)
         lg.pop()
     end
+
+    love.graphics.pop()
 end
 
 --- @brief

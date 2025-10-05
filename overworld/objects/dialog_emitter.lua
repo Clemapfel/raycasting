@@ -130,20 +130,27 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
         love.graphics.push()
         love.graphics.clear()
         local player = self._scene:get_player()
+        local camera = self._scene:get_camera()
+
         love.graphics.origin()
         local px, py = player:get_position()
+        px, py = camera:world_xy_to_screen_xy(px, py)
         love.graphics.translate(-px + 0.5 * width, -py + 0.5 * height)
-        player:draw()
+        self._scene:get_screenshot():draw()
         love.graphics.pop()
     end)
+
+
 
     if self._target_wrapper ~= nil then
         self._dialog_box:register_speaker_frame(rt.settings.overworld.dialog_box.npc_speaker_id, function(width, height)
             love.graphics.push()
             love.graphics.clear()
-            local target = self._target -- set after initialize
-            love.graphics.origin()
+            local player = self._scene:get_player()
+            local camera = self._scene:get_camera()
 
+            love.graphics.origin()
+            local target = self._target
             local px, py
             if target.get_position ~= nil then
                 px, py = target:get_position()
@@ -151,8 +158,9 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
                 px, py = self._target_wrapper:get_centroid()
             end
 
+            px, py = camera:world_xy_to_screen_xy(px, py)
             love.graphics.translate(-px + 0.5 * width, -py + 0.5 * height)
-            target:draw()
+            self._scene:get_screenshot():draw()
             love.graphics.pop()
         end)
     end

@@ -107,7 +107,10 @@ function ow.OverworldScene:instantiate(state)
         _timer_stopped = false,
         _timer = 0,
 
-        _screenshot = nil, -- rt.RenderTexture
+        _screenshot_a = nil, -- rt.RenderTexture
+        _screenshot_b = nil,
+        _screenshot_a_or_b = true,
+
         _player_is_visible = true,
         _hide_debug_information = false,
 
@@ -467,8 +470,15 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._pause_menu:reformat(0, 0, width, height)
     self._title_card:reformat(0, 0, width, height)
 
-    if self._screenshot == nil or self._screenshot:get_width() ~= width or self._screenshot:get_height() ~= height then
-        self._screenshot = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
+    if self._screenshot_a == nil
+        or self._screenshot_a:get_width() ~= width
+        or self._screenshot_a:get_height() ~= height
+        or self._screenshot_b == nil
+        or self._screenshot_b:get_width() ~= width
+        or self._screenshot_b:get_height() ~= height
+    then
+        self._screenshot_a = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
+        self._screenshot_b = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
     end
 end
 
@@ -519,8 +529,14 @@ function ow.OverworldScene:draw()
 
     love.graphics.push("all")
 
+    local screenshot
     if not self._result_screen_transition_active then
-        self._screenshot:bind()
+        if self._screenshot_a_or_b then
+            screenshot = self._screenshot_a
+        else
+            screenshot = self._screenshot_b
+        end
+        screenshot:bind()
     end
 
     love.graphics.origin()
@@ -590,9 +606,14 @@ function ow.OverworldScene:draw()
     end
 
     if not self._result_screen_transition_active then
-        self._screenshot:unbind()
+        screenshot:unbind()
+
+        love.graphics.push()
         love.graphics.reset()
-        self._screenshot:draw()
+        screenshot:draw()
+        love.graphics.pop()
+
+        self._screenshot_a_or_b = not self._screenshot_a_or_b
     end
     love.graphics.pop()
 
@@ -1165,5 +1186,15 @@ end
 --- @brief
 function ow.OverworldScene:get_control_indicator_type()
     return self._control_indicator_type
+end
+
+--- @brief
+function ow.OverworldScene:get_screenshot()
+    -- get screenshot of last frmae
+    if self._screenshot_a_or_b then
+        return self._screenshot_b
+    else
+        return self._screenshot_a
+    end
 end
 
