@@ -124,3 +124,18 @@ function rt.AABB:overlaps(x_or_aabb, y, width, height)
 
     return true
 end
+
+--- @brief
+function rt.AABB:equals(x_or_aabb, y, width, height)
+    local x
+    if not meta.is_number(x_or_aabb) then
+        x, y, width, height = x_or_aabb:unpack()
+    else
+        x = x_or_aabb
+    end
+
+    return math.equals(self.x, x)
+        and math.equals(self.y, y)
+        and math.equals(self.width, width)
+        and math.equals(self.height, height)
+end

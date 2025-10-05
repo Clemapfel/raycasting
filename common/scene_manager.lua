@@ -48,6 +48,7 @@ function rt.SceneManager:_reformat_scene(scene)
         scene:reformat(0, 0, self._width, self._height)
         scene._scene_manager_current_width = self._width
         scene._scene_manager_current_height = self._height
+        scene:signal_emit("resize", 0, 0, self._width, self._height)
     end
 end
 
@@ -182,7 +183,7 @@ function rt.SceneManager:resize(width, height)
     if scene ~= nil then
         local current_w, current_h = scene._scene_manager_current_width, scene._scene_manager_current_height
         if current_w ~= self._width or current_w ~= self._height then
-            scene:reformat(0, 0, self._width, self._height)
+            self:_reformat_scene(scene)
             scene._scene_manager_current_width = self._width
             scene._scene_manager_current_height = self._height
         end

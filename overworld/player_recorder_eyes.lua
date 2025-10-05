@@ -11,7 +11,7 @@ rt.settings.overworld.player_recorder_eyes = {
 
     aspect_ratio = 1 / 1.35, -- width / height
     spacing_factor = 0.5, -- factor
-    highlight_intensity = 0.4, -- fraction
+    highlight_intensity = 0.6, -- fraction
     highlight_x_factor = 0.55,
     highlight_y_factor = 0.35
 }
@@ -228,6 +228,46 @@ function ow.PlayerRecorderEyes:draw()
     love.graphics.setLineWidth(self._outline_width)
     love.graphics.line(self._base_left_outline)
     love.graphics.line(self._base_right_outline)
+
+    if stencil_active then
+        rt.graphics.pop_stencil()
+    end
+
+    love.graphics.pop()
+end
+
+function ow.PlayerRecorderEyes:draw_bloom()
+    love.graphics.push()
+    love.graphics.translate(self._position_x, self._position_y)
+
+    local stencil_active = self._blink_progress > 0
+    local stencil_value
+
+    if stencil_active then
+        stencil_value = rt.graphics.get_stencil_value()
+        rt.graphics.push_stencil()
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW, rt.StencilReplaceMode.REPLACE)
+
+        local visible_fraction = 1 - self._blink_progress
+        local visible_height = self._eye_y_radius * visible_fraction
+
+        local left_x = -self._eye_x_radius - 0.5 * self._eye_spacing
+        local right_x = self._eye_x_radius + 0.5 * self._eye_spacing
+
+        love.graphics.ellipse("fill", left_x, self._eye_center_y, self._eye_x_radius, visible_height)
+        love.graphics.ellipse("fill", right_x, self._eye_center_y, self._eye_x_radius, visible_height)
+
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+    end
+
+
+
+    love.graphics.setColor(self._outline_color)
+    self._base_left:draw()
+    self._base_right:draw()
+    love.graphics.setLineWidth(2 * self._outline_width)
+    --love.graphics.line(self._base_left_outline)
+    --love.graphics.line(self._base_right_outline)
 
     if stencil_active then
         rt.graphics.pop_stencil()

@@ -20,8 +20,8 @@ rt.settings.player_body = {
     canvas_padding = 50,
     canvas_scale = 3,
 
-    highlight_brightness = 0.2,
-    highlight_radius = 4,
+    highlight_brightness = 0.4,
+    highlight_radius = 8,
     outline_value_offset = 0.5,
     outline_width = 1.5,
 
@@ -132,6 +132,19 @@ function rt.PlayerBody:instantiate(player)
         local radius = self._player_radius
         self._core_canvas = rt.RenderTexture(self._canvas_scale * (radius + 2 * padding), self._canvas_scale * (radius + 2 * padding), 8)
         self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    end
+
+    -- highlight mesh
+    local highlight_r = rt.settings.player_body.highlight_radius
+
+    self._highlight_mesh = rt.MeshCircle(0, 0, highlight_r, highlight_r)
+    for i = 1, self._highlight_mesh:get_n_vertices() do
+        if i == 1 then
+            self._highlight_mesh:set_vertex_color(i, 1, 1, 1, 1)
+            self._highlight_mesh:set_vertex_position(i, -0.25 * highlight_r, -0.25 * highlight_r)
+        else
+            self._highlight_mesh:set_vertex_color(i, 1, 1, 1, 0)
+        end
     end
 end
 
@@ -761,16 +774,20 @@ function rt.PlayerBody:draw_core()
     -- highlight
     local boost = _settings.highlight_brightness
     love.graphics.push()
-    love.graphics.setColor(boost, boost, boost, 1 * opacity)
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD)
-    local highlight_radius = rt.settings.player_body.highlight_radius
+    love.graphics.setColor(1, 1, 1, boost)
+    --love.graphics.setColor(boost, boost, boost, 1 * opacity)
+    --rt.graphics.set_blend_mode(rt.BlendMode.ADD)
     local offset = self._player_radius * 1 / 4
-    love.graphics.translate(-offset, -offset)
-    love.graphics.ellipse("fill", self._player_x, self._player_y, highlight_radius, highlight_radius)
+    local highlight_radius = rt.settings.player_body.highlight_radius
 
-    love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1 * opacity)
+    love.graphics.translate(self._player_x, self._player_y)
+    love.graphics.translate(-offset, -offset)
+    self._highlight_mesh:draw()
+
+    --love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1 * opacity)
     love.graphics.translate(-highlight_radius / 4, -highlight_radius / 4)
-    love.graphics.ellipse("fill", self._player_x, self._player_y, highlight_radius / 2, highlight_radius / 2)
+    love.graphics.scale(0.5, 0.5)
+    --self._highlight_mesh:draw()
 
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()

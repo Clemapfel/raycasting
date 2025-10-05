@@ -147,6 +147,8 @@ end
 
 --- @brief batched drawing
 function ow.BoostField.draw_all()
+    love.graphics.push("all")
+
     if _initialized ~= true and table.sizeof(_tris) > 0 then
         local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
         local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
@@ -202,6 +204,7 @@ function ow.BoostField.draw_all()
     end
 
     rt.graphics.set_stencil_mode(nil)
+    love.graphics.pop()
 end
 
 --- @brief

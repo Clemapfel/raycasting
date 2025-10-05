@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 951,
+  nextobjectid = 954,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4886,36 +4886,6 @@ return {
           properties = {}
         },
         {
-          id = 864,
-          name = "",
-          type = "Sprite",
-          shape = "rectangle",
-          x = 47.5873,
-          y = -450.851,
-          width = 72,
-          height = 70,
-          rotation = 0,
-          gid = 3,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 865,
-          name = "",
-          type = "DialogEmitter",
-          shape = "point",
-          x = 83.8431,
-          y = -501.89,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["id"] = "dialog",
-            ["target"] = { id = 864 }
-          }
-        },
-        {
           id = 866,
           name = "",
           type = "MovingHitboxTarget",
@@ -5607,11 +5577,40 @@ return {
         },
         {
           id = 950,
-          name = "",
+          name = "NPC",
           type = "NPC",
           shape = "point",
           x = -7824,
           y = 2192,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 952,
+          name = "Dialog",
+          type = "DialogEmitter",
+          shape = "point",
+          x = -7860.67,
+          y = 2156,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["id"] = "debug_dialog",
+            ["target"] = { id = 950 }
+          }
+        },
+        {
+          id = 953,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -7712,
+          y = 2121.33,
           width = 0,
           height = 0,
           rotation = 0,

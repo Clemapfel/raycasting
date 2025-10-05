@@ -54,7 +54,9 @@ function rt.Camera:instantiate()
 
         _bounds = rt.AABB(0, 0, 1, 1),
         _world_bounds = rt.AABB(0, 0, 0, 0),
-        _bounds_needs_update = true
+        _bounds_needs_update = true,
+
+        _push_stack = {}
     })
 
     self:_update_bounds()
@@ -85,6 +87,37 @@ end
 function rt.Camera:unbind()
     --love.graphics.rectangle("line", self._bounds_x, self._bounds_y, self._bounds_width, self._bounds_height)
     love.graphics.pop()
+end
+
+--- @brief
+function rt.Camera:push()
+    table.insert(self._push_stack, {
+        _current_x = self._current_x,
+        _current_y = self._current_y,
+        _target_x = self._target_x,
+        _target_y = self._target_y,
+        _velocity_x = self._velocity_x,
+        _velocity_y = self._velocity_y,
+        _current_angle = self._current_angle,
+        _current_scale = self._current_scale,
+        _shake_offset_x = self._shake_offset_x,
+        _shake_offset_y = self._shake_offset_y,
+    })
+end
+
+--- @brief
+function rt.Camera:pop()
+    local state = table.remove(self._push_stack)
+    if state == nil then
+        rt.warning("rt.Camera:pop: pop called but push stack is empty")
+        return
+    end
+
+    for k, v in pairs(state) do
+        self[k] = v
+    end
+
+    self._bounds_needs_update = true
 end
 
 --- @brief [internal]

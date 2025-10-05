@@ -97,6 +97,7 @@ end
 
 --- @brief
 function b2.Body:get_position()
+    if self._native:isDestroyed() then return 0, 0 end
     return self._native:getPosition()
 end
 

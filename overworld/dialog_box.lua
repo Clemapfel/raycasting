@@ -8,7 +8,6 @@ require "common.sound_manager"
 
 -- accepted ids for dialog node in config file
 rt.settings.overworld.dialog_box = {
-    portrait_key = "portrait",
     speaker_key = "speaker",
     speaker_orientation_key = "orientation",
     speaker_orientation_left = "left",
@@ -21,12 +20,17 @@ rt.settings.overworld.dialog_box = {
     choice_text_prefix = "<b><color=SELECTION><outline_color=BLACK>",
     choice_text_postfix = "</color></outline_color></b>",
 
-    portrait_resolution_w = 40,
-    portrait_resolution_h = 40,
+    portrait_resolution_w = 80,
+    portrait_resolution_h = 80,
     n_lines = 3,
 
     menu_move_sound_id = "menu_move",
     menu_confirm_sound_id = "menu_confirm",
+
+    asset_prefix = "assets/text",
+
+    player_speaker_id = "Player",
+    npc_speaker_id = "NPC",
 }
 
 --- @class ow.DialogBox
@@ -34,14 +38,17 @@ ow.DialogBox = meta.class("OverworldDialogBox", rt.Widget)
 meta.add_signals(ow.DialogBox, "done")
 
 --- @brief
-function ow.DialogBox:instantiate(config)
+function ow.DialogBox:instantiate(id)
+    meta.assert(id, "String")
+    self._id = id
+    self._path = bd.join_path(rt.settings.overworld.dialog_box.asset_prefix, self._id) .. ".lua"
+    self._config = bd.load(self._path)
+
     meta.install(self, {
-        _config = config,
         _is_initialized = false,
         _done_emitted = false,
 
         _id_to_node = {},
-        _portrait_id_to_portrait = {},
 
         _active_node = nil,
         _active_choice_node = nil,
@@ -62,6 +69,9 @@ function ow.DialogBox:instantiate(config)
         _portrait_right_y = 0,
         _portrait_visible = false,
         _portrait_left_or_right = true,
+        _portrait_canvas = nil, -- rt.RenderTexture
+
+        _speaker_id_to_portrait_callback = {}, -- Table<String, Function>
 
         _speaker_frame = rt.Frame(),
         _speaker_frame_w = 0,
@@ -102,10 +112,8 @@ function ow.DialogBox:realize()
     local entry = self._config
 
     self._id_to_node = {}
-    self._portrait_id_to_portrait = {}
 
     local settings = rt.settings.overworld.dialog_box
-    local portrait_key = settings.portrait_key
     local speaker_key = settings.speaker_key
     local next_key = settings.next_key
     local dialog_choice_key = settings.dialog_choice_key
@@ -140,7 +148,7 @@ function ow.DialogBox:realize()
             for i, choice in ipairs(node_entry[dialog_choice_key]) do
                 local text = choice[1]
                 if not meta.is_string(text) then
-                    rt.error("In ow.DialogBox: for dialog `" .. self._dialog_id .. "` multiple choice node `" .. key .. "` does not have answer at position 1")
+                    rt.error("In ow.DialogBox: for dialog `" .. self._id .. "` multiple choice node `" .. key .. "` does not have answer at position 1")
                 end
 
                 local label = rt.Label(text)
@@ -167,7 +175,7 @@ function ow.DialogBox:realize()
             elseif orientation == orientation_right then
                 node.speaker_orientation = false
             else
-                rt.error("In ow.DialogBox: for dialog `" .. self._dialog_id .. "` node `" .. key .. "` has invalid value for `orientation` field, expected `" .. orientation_left .. "` or `" .. orientation_right .. "`, got: `" .. orientation)
+                rt.error("In ow.DialogBox: for dialog `" .. self._id .. "` node `" .. key .. "` has invalid value for `orientation` field, expected `" .. orientation_left .. "` or `" .. orientation_right .. "`, got: `" .. orientation)
                 node.speaker_orientation = true
             end
 
@@ -187,19 +195,8 @@ function ow.DialogBox:realize()
                 )
             end
 
-            local portrait_id = node_entry[portrait_key]
-            node.portrait = nil -- rt.Sprite
-            if portrait_id ~= nil then
-                local sprite = self._portrait_id_to_portrait[portrait_id]
-                if sprite == nil then
-                    sprite = rt.Sprite(portrait_id)
-                    self._portrait_id_to_portrait[portrait_id] = sprite
-                end
-                node.portrait = sprite
-            end
-
             if not meta.is_string(node_entry[1]) then
-                rt.error("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`: node `" .. node.id .. "` does not have any dialog text")
+                rt.error("In ow.DialogBox: for dialog `" .. self._id .. "`: node `" .. node.id .. "` does not have any dialog text")
             end
 
             local i = 1
@@ -220,7 +217,7 @@ function ow.DialogBox:realize()
 
     local first_node = self._id_to_node[1]
     if first_node == nil then
-        rt.warning("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`, no node with id `1`")
+        rt.warning("In ow.DialogBox: for dialog `" .. self._id .. "`, no node with id `1`")
         first_node = table.first(self._id_to_node)
     end
     can_be_visited[first_node] = true
@@ -244,7 +241,7 @@ function ow.DialogBox:realize()
 
     for node, visited in pairs(can_be_visited) do
         if visited == false then
-            rt.warning("In ow.DialogBox: for dialog `" .. self._dialog_id .. "`: node `" .. node.id .. "` has node pointing to it, it cannot be visited" )
+            rt.warning("In ow.DialogBox: for dialog `" .. self._id .. "`: node `" .. node.id .. "` has node pointing to it, it cannot be visited" )
         end
     end
 
@@ -273,13 +270,10 @@ function ow.DialogBox:_set_active_node(node)
         self._active_choice_node = nil
         self._active_node = node
 
-        self._portrait_visible = node.portrait ~= nil
+        self._portrait_visible = self._speaker_id_to_portrait_callback[node.speaker_id] ~= nil
         self._node_offset_x, self._node_offset_y = 0, 0
 
         self._portrait_left_or_right = node.speaker_orientation
-        if self._portrait_visible then
-            node.portrait:set_flip_horizontally(not self._portrait_left_or_right) -- all portraits look to the right
-        end
 
         local speaker_label = node.speaker
         self._speaker_visible = speaker_label ~= nil
@@ -307,13 +301,14 @@ end
 
 --- @brief
 function ow.DialogBox:size_allocate(x, y, width, height)
-    local line_height = self._font:measure(rt.FontSize.REGULAR, "|")
+    local line_height = self._font:get_line_height(rt.FontSize.REGULAR)
+    self._line_height = line_height
 
     local m = rt.settings.margin_unit
     local outer_margin = 2 * m
 
     local frame_w = width - 2 * outer_margin
-    local frame_h = self._max_n_lines * line_height + 2 * m
+    local frame_h = self._max_n_lines * self._line_height + 2 * m
     local frame_x = x + outer_margin
     local frame_y = y + height - outer_margin - frame_h
 
@@ -324,7 +319,7 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local thickness = self._speaker_frame:get_thickness()
 
     local speaker_frame_w = 0 -- size-dependent values set in _set_active_node
-    local speaker_frame_h = line_height + m
+    local speaker_frame_h = self._line_height + m
     self._speaker_frame_w = speaker_frame_w
     self._speaker_frame_h = speaker_frame_h
     self._speaker_frame_left_x = frame_x + m
@@ -333,15 +328,26 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     self._speaker_frame_right_y = self._speaker_frame_left_y
     self._speaker_frame:reformat(0, 0, speaker_frame_w, speaker_frame_h)
 
-    local sprite_scale = rt.settings.sprite_scale
-    local portrait_w = rt.settings.overworld.dialog_box.portrait_resolution_w * sprite_scale
-    local portrait_h = rt.settings.overworld.dialog_box.portrait_resolution_h * sprite_scale
+    local sprite_scale = rt.get_pixel_scale()
+    local portrait_w = rt.settings.overworld.dialog_box.portrait_resolution_w * sprite_scale + 2 * thickness
+    local portrait_h = rt.settings.overworld.dialog_box.portrait_resolution_h * sprite_scale + 2 * thickness
 
     self._portrait_left_x = frame_x + m
     self._portrait_left_y = frame_y - speaker_frame_h - m - portrait_h
     self._portrait_right_x = frame_x + frame_w - m - portrait_w
     self._portrait_right_y = self._portrait_left_y
-    self._portrait_frame:reformat(0, 0, portrait_w, portrait_h)
+    self._portrait_frame:reformat(
+        0, 0,
+        portrait_w,
+        portrait_h
+    )
+
+    if self._portrait_canvas == nil
+        or self._portrait_canvas:get_width() ~= portrait_w
+        or self._portrait_canvas:get_height() ~= portrait_h
+    then
+        self._portrait_canvas = rt.RenderTexture(portrait_w, portrait_h, rt.GameState:get_msaa_quality())
+    end
 
     do
         local advance_radius = m
@@ -370,7 +376,6 @@ function ow.DialogBox:size_allocate(x, y, width, height)
             end
         elseif node.type == _node_type_choice then
             -- measure all labels
-
             node.width = choice_w
             node.height = 0
             for i = 1, node.n_answers do
@@ -517,6 +522,14 @@ function ow.DialogBox:draw()
     self._frame:draw()
 
     if self._portrait_visible then
+
+        love.graphics.push("all")
+        self._portrait_canvas:bind()
+        local callback = self._speaker_id_to_portrait_callback[self._active_node.speaker_id]
+        if meta.is_function(callback) then callback(self._portrait_canvas:get_size()) end
+        self._portrait_canvas:unbind()
+        love.graphics.pop()
+
         love.graphics.push()
         if self._portrait_left_or_right then
             love.graphics.translate(self._portrait_left_x, self._portrait_left_y)
@@ -525,7 +538,7 @@ function ow.DialogBox:draw()
         end
         self._portrait_frame:draw()
         self._portrait_frame:bind_stencil()
-        self._active_node.portrait:draw()
+        self._portrait_canvas:draw()
         self._portrait_frame:unbind_stencil()
         love.graphics.pop()
     end
@@ -619,4 +632,31 @@ function ow.DialogBox:reset()
 
     self:_set_active_node(self._id_to_node[1])
     self._done_emitted = false
+end
+
+--- @brief
+function ow.DialogBox:get_speakers()
+    local out = {}
+    for node in values(self._id_to_node) do
+        table.insert(out, node.speaker_id)
+    end
+    return out
+end
+
+--- @brief
+--- @param render_callback Function (width, height) -> nil
+function ow.DialogBox:register_speaker_frame(speaker_id, render_callback)
+    meta.assert(speaker_id, "String", render_callback, "Function")
+
+    local seen = false
+    for node in values(self._id_to_node) do
+        if node.speaker_id == speaker_id then
+            seen = true
+            break
+        end
+    end
+
+    if not seen then return end
+
+    self._speaker_id_to_portrait_callback[speaker_id] = render_callback
 end

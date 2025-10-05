@@ -40,7 +40,7 @@ function ow.PlayerRecorder:instantiate(stage, scene)
     self._state = _STATE_IDLE
 
     self._body = ow.PlayerRecorderBody(self, self._stage, self._scene)
-    self._body:initialize(self._player:get_position())
+    self._body:initialize(self._scene:get_player():get_position())
 end
 
 --- @brief

@@ -98,8 +98,6 @@ rt.settings.player = {
     max_velocity_x = 2500,
     max_velocity_y = 2500,
 
-    idle_threshold_duration = 0.5,
-
     squeeze_multiplier = 1.4,
 
     color_a = 1.0,

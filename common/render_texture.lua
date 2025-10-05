@@ -42,6 +42,7 @@ end
 
 --- @brief bbnd texture as render target, needs to be unbound manually later
 function rt.RenderTexture:bind()
+    love.graphics.push("all")
     self._before = love.graphics.getCanvas()
     if self._before == self._native then self._before = nil end
     love.graphics.setCanvas({ self._native, stencil = true })
@@ -55,6 +56,7 @@ function rt.RenderTexture:unbind()
         love.graphics.setCanvas(nil)
     end
     self._before = nil
+    love.graphics.pop()
 end
 
 --- @brief

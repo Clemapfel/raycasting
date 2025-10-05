@@ -51,8 +51,6 @@ function rt.Sprite:instantiate(path, n_columns, n_rows, border_x, border_y)
         _x = 0, -- xy position
         _y = 0,
 
-        _scale = rt.settings.sprite_scale, -- scale around origin
-
         _is_animated = false,   -- whether `update` should loop through frames
         _elapsed = 0, -- elapsed time, does not flow linearly
 
@@ -112,12 +110,13 @@ function rt.Sprite:draw(x, y, angle, scale_x, scale_y, origin_x, origin_y)
 
     local quad = self._frame_data[self._current_frame].quad
 
-    local frame_w, frame_h = self._frame_width * self._scale, self._frame_height * self._scale
+    local scale = rt.get_pixel_scale()
+    local frame_w, frame_h = self._frame_width * scale, self._frame_height * scale
 
     -- flip around center
     if self._flip_horizontally == true or self._flip_vertically == true then
-        local quad_width = frame_w - 2 * self._border_x * self._scale
-        local quad_height = frame_h - 2 * self._border_y * self._scale
+        local quad_width = frame_w - 2 * self._border_x * scale
+        local quad_height = frame_h - 2 * self._border_y * scale
         local center_x = x + quad_width / 2
         local center_y = y + quad_height / 2
 
@@ -131,7 +130,7 @@ function rt.Sprite:draw(x, y, angle, scale_x, scale_y, origin_x, origin_y)
         love.graphics.translate(-center_x, -center_y)
     end
 
-    love.graphics.draw(self._image, quad, x, y, angle, self._scale * scale_x, self._scale * scale_y, origin_x, origin_y)
+    love.graphics.draw(self._image, quad, x, y, angle, scale * scale_x, scale * scale_y, origin_x, origin_y)
     love.graphics.pop()
 end
 
@@ -365,7 +364,8 @@ end
 
 --- @brief get frame dimension, in px
 function rt.Sprite:get_size()
-    return self._frame_width * self._scale, self._frame_height * self._scale
+    local scale = rt.get_pixel_scale()
+    return self._frame_width * scale, self._frame_height * scale
 end
 
 local _scale_warning_printed = false

@@ -2,6 +2,7 @@ require "common.widget"
 
 --- @class rt.Scene
 --- @signal update (Scene) -> nil
+--- @signal resize (Scene, x, y, width, height) -> nil
 rt.Scene = meta.abstract_class("Scene", rt.Widget)
 
 --- @brief
@@ -12,7 +13,8 @@ end
 meta.add_signals(rt.Scene,
     "update",
     "enter",
-    "exit"
+    "exit",
+    "resize"
 )
 
 --- @brief

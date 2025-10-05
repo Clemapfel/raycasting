@@ -72,7 +72,8 @@ function bd.join_path(...)
     for i = 1, n do
         local part = select(i, ...)
         if part and part ~= "" then
-            to_concatenate[table_i] = tostring(part)
+            part = string.gsub(tostring(part), "[\\/]*$", "") -- remove trailing slashes
+            to_concatenate[table_i] = part
             table_i = table_i + 1
         end
     end
@@ -307,7 +308,7 @@ function bd.move(source_path, destination_path)
     end
 end
 
-local _setfenv = debug.setfenv
+local _setfenv = debug.setfenv -- backup if debug is disabled later
 
 --- @brief
 function bd.load(path, should_sandbox)
@@ -327,7 +328,7 @@ function bd.load(path, should_sandbox)
 
     local chunk = chunk_or_error
     if _setfenv ~= nil and should_sandbox then
-        debug.setfenv(chunk, {})
+        _setfenv(chunk, {})
     end
 
     local chunk_success, config_or_error = pcall(chunk)
