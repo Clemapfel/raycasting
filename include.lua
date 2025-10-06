@@ -1,5 +1,3 @@
-DEBUG = true -- removed by build script
-io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 require "common.splash_screen" -- splash screen during compilation
 
 if DEBUG then

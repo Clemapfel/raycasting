@@ -102,6 +102,11 @@ function bd.compile(source_file_path, destination_file_path)
         rt.error("In bd.compile: unable to read file at `" .. source_file_path .. "`:" .. read_error_maybe)
     end
 
+    -- make release mode when treating conf.lua
+    if source_file_path == "conf.lua" then
+        file_data:gsub("DEBUG = true", "DEBUG = false")
+    end
+
     -- load chunk
     local compiled_function, compile_error = _G.loadstring(file_data, "@" .. source_file_path)
     if compiled_function == nil then
@@ -211,7 +216,7 @@ do
             -- copy all modules into workspace
             for module_name in values(bd.settings.module_names) do
                 rt.log("exporting `/" .. module_name .. "`")
-                bd.apply_recursively(module_name, function(from_path)
+                bd.apply_recursively(module_name, function(from_path, filename)
                     -- check if filename has ~ prefix
                     if string.match(from_path, "[\\/](~[^\\/]*)$") == nil then
                         local destination_path = bd.join_path(to_zip_path, from_path)

@@ -1,9 +1,6 @@
 if table.unpack == nil then table.unpack = unpack end
 assert(table.unpack ~= nil)
 
-if debug.setfenv == nil then debug.setfenv = setfenv end
-assert(debug.setfenv ~= nil)
-
 local _noop = function() return nil end
 
 local _keys_iterator = function(t, k)
