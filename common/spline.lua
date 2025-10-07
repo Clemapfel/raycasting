@@ -151,7 +151,6 @@ do
     local _weights = { 0.2369268851, 0.4786286705, 0.5688888889, 0.4786286705, 0.2369268851 }
 
     _integrate = function(a, b, f)
-
         local function gauss_integrate(start, stop)
             local mid = (start + stop) * 0.5
             local half_width = (stop - start) * 0.5
@@ -192,7 +191,7 @@ function rt.Spline:get_length()
     if self._length then return self._length end
 
     self._length = _integrate(0, 1, function(t)
-        return math.magnitude(self:get_derivative_at(self, t))
+        return math.magnitude(self:get_derivative_at(t))
     end)
 
     return self._length

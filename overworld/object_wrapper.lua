@@ -17,7 +17,7 @@ ow.ObjectType = meta.enum("ObjectType", {
 })
 
 local _calculate_n_outer_vertices = function(x_radius, y_radius)
-    local out = math.max(math.floor(math.sqrt(((x_radius + y_radius) / 2.0))) * 2, 8) -- cf https://github.com/love2d/love/blob/4e49a8db762bd51d8ad6f698e2c9ac462a9e8e35/src/modules/graphics/Graphics.cpp#L2419
+    local out = rt.get_pixel_scale() * math.max(math.floor(math.sqrt(((x_radius + y_radius) / 2.0))) * 2, 8) -- cf https://github.com/love2d/love/blob/4e49a8db762bd51d8ad6f698e2c9ac462a9e8e35/src/modules/graphics/Graphics.cpp#L2419
     if out % 2 == 1 then out = out + 1 end
     return out
 end

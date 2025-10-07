@@ -1654,7 +1654,7 @@ function rt.Player:move_to_world(world)
     self._inner_collision_mask = self._body:get_collides_with()
 
     -- add wrapping shape to body, for cleaner collision with bounce pads
-    local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius * 0.8)
+    local bounce_shape = love.physics.newCircleShape(self._body:get_native(), x, y, self._radius * 1.05)
     local bounce_group = _settings.bounce_collision_group
     bounce_shape:setFilterData(bounce_group, bounce_group, 0)
     self._bounce_shape = b2.Circle(0, 0, self._radius * 0.8)

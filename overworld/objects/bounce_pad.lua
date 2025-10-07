@@ -52,20 +52,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
         _default_color = { rt.Palette.BOUNCE_PAD:unpack() },
         _bounce_magnitude = 0,
 
-        -- popping bubbles
-        _is_single_use = object:get_string("is_single_use", false) or false,
-        _respawn_elapsed = math.huge,
-        _respawn_duration = object:get_number("respawn_duration", false) or rt.settings.overworld.bounce_pad.default_respawn_duration,
-        _is_destroyed = false,
-
         _signal_elapsed = 0,
         _signal = 0
     })
 
-    if self._is_single_use then
-        self._pop_motion = rt.SmoothedMotion1D(1, 4) -- opacity: 1, speed: 4x
-        self._pop_motion:set_attack_speed(0.5)
-    end
 
     self._draw_inner_color = { rt.Palette.BOUNCE_PAD:unpack() }
     self._draw_outer_color = { rt.Palette.BOUNCE_PAD:unpack() }
@@ -79,8 +69,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:set_collision_group(bounce_group)
 
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
-        if self._is_destroyed or cx == nil then return end -- popped, or player is sensor
-
         local player = self._scene:get_player()
         local restitution = player:bounce(nx, ny)
 
@@ -93,16 +81,6 @@ function ow.BouncePad:instantiate(object, stage, scene)
         self._bounce_position = restitution
         self._bounce_contact_x, self._bounce_contact_y = cx, cy
         self._bounce_magnitude = math.max(rt.settings.overworld.bounce_pad.bounce_max_offset * restitution, rt.settings.overworld.bounce_pad.bounce_min_magnitude)
-
-        if self._is_single_use then
-            self:_pop()
-        end
-    end)
-
-    self._stage:signal_connect("respawn", function()
-        if self._is_single_use then
-            self:_unpop()
-        end
     end)
 
     -- contour
@@ -164,48 +142,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
         table.insert(self._draw_contour, y)
     end
 
-    table.insert(self._draw_contour, self._draw_contour[1])
-    table.insert(self._draw_contour, self._draw_contour[2])
-
     self._rotation_origin_x = object.rotation_origin_x
     self._rotation_origin_y = object.rotation_origin_y
-
-    if self._is_single_use then
-        self._dashed_contour = {}
-        local path = rt.Path(self._contour)
-        local segment_length = rt.settings.overworld.bounce_pad.dashed_contour_segment_length
-
-        local total_length = path:get_length()
-        local dash_cycle = 2 * segment_length
-        local n_cycles = math.floor(total_length / dash_cycle)
-
-        if n_cycles > 0 then
-            local adjusted_cycle = total_length / n_cycles
-            segment_length = adjusted_cycle / 2
-        end
-
-        local current_distance = 0
-        local is_visible = true
-
-        while current_distance < total_length do
-            if is_visible then
-                local start_t = current_distance / total_length
-                local end_distance = math.min(current_distance + segment_length, total_length)
-                local end_t = end_distance / total_length
-
-                local x1, y1 = path:at(start_t)
-                local x2, y2 = path:at(end_t)
-
-                table.insert(self._dashed_contour, {x1, y1, x2, y2})
-
-                current_distance = end_distance
-            else
-                current_distance = current_distance + segment_length
-            end
-
-            is_visible = not is_visible
-        end
-    end
 end
 
 local stiffness = rt.settings.overworld.bounce_pad.stiffness
@@ -217,19 +155,6 @@ local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
 
 --- @brief
 function ow.BouncePad:update(delta)
-    -- respawn timer even if off screen
-    if self._is_single_use then
-
-        self._pop_motion:update(delta)
-
-        if self._is_destroyed then
-            self._respawn_elapsed = self._respawn_elapsed + delta
-            if self._respawn_elapsed >= self._respawn_duration and not self._body:test_point(self._scene:get_player():get_position()) then
-                self:_unpop()
-            end
-        end
-    end
-
     if not self._stage:get_is_body_visible(self._body) then return end
 
     if self._is_single_use and math.equals(self._pop_motion:get_value(), 0) then return end
@@ -309,7 +234,7 @@ function ow.BouncePad:_update_vertices()
     end
 
     local offset_x, offset_y = self._body:get_position()
-    px = px - offset_x -- TODO: is this correct?
+    px = px - offset_x
     py = py - offset_y
 
     -- find closest segment to contact
@@ -392,27 +317,6 @@ function ow.BouncePad:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     local opacity = 1
-    if self._is_single_use then
-        opacity = self._pop_motion:get_value()
-    end
-
-    if self._is_single_use then
-        local line_width = rt.settings.overworld.bounce_pad.line_width
-
-        love.graphics.setLineWidth(line_width)
-        local r, g, b = rt.Palette.BLACK:unpack()
-        love.graphics.setColor(r, g, b, 1 - opacity)
-        for line in values(self._dashed_contour) do
-            love.graphics.line(line)
-        end
-
-        love.graphics.setLineWidth(line_width - 2)
-        local r, g, b = table.unpack(self._draw_outer_color)
-        love.graphics.setColor(r, g, b, 1 - opacity)
-        for line in values(self._dashed_contour) do
-            love.graphics.line(line)
-        end
-    end
 
     local r, g, b = table.unpack(self._draw_inner_color)
     love.graphics.setColor(r, g, b, opacity)
@@ -437,21 +341,6 @@ function ow.BouncePad:draw()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(line_width - 2)
     love.graphics.line(self._draw_contour)
-end
 
---- @brief
-function ow.BouncePad:_pop()
-    self._is_destroyed = true
-    self._respawn_elapsed = 0
-    self._pop_motion:set_target_value(0)
-    self._body:set_is_sensor(true)
-end
-
---- @brief
-function ow.BouncePad:_unpop()
-    self._is_destroyed = false
-    self._body:set_is_sensor(false)
-    self._pop_motion:set_target_value(1)
-    self._signal_elapsed = 0
-    self._color_elapsed = math.huge
+    self._body:draw()
 end

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 957,
+  nextobjectid = 964,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5621,22 +5621,6 @@ return {
           properties = {}
         },
         {
-          id = 954,
-          name = "",
-          type = "BouncePad",
-          shape = "ellipse",
-          x = -7404.25,
-          y = 1796.5,
-          width = 300.935,
-          height = 317.251,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["is_single_use"] = true,
-            ["respawn_duration"] = 2.4
-          }
-        },
-        {
           id = 955,
           name = "",
           type = "Hitbox",
@@ -5673,6 +5657,45 @@ return {
           width = 32,
           height = 256,
           rotation = 180,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 961,
+          name = "",
+          type = "Bubble",
+          shape = "ellipse",
+          x = -7232,
+          y = 1904,
+          width = 57.6476,
+          height = 57.6476,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 962,
+          name = "",
+          type = "Bubble",
+          shape = "ellipse",
+          x = -7319.49,
+          y = 1949.29,
+          width = 58.7911,
+          height = 58.7911,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 963,
+          name = "",
+          type = "Bubble",
+          shape = "ellipse",
+          x = -7290.1,
+          y = 1870.29,
+          width = 44.0933,
+          height = 44.0933,
+          rotation = 0,
           visible = true,
           properties = {}
         }
