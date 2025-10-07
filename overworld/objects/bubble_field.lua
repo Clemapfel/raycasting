@@ -9,6 +9,8 @@ rt.settings.overworld.bubble_field = {
 }
 
 --- @class ow.BubbleField
+--- @types Polygon, Rectangle, Ellipse
+--- @field inverted Boolean? if false, non-bubble -> bubble, otherwise bubble -> non-bubble
 ow.BubbleField = meta.class("BubbleField")
 
 -- shape mesh data members

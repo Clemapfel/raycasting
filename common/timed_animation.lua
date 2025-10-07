@@ -64,6 +64,8 @@ end
 
 --- @brief
 function rt.TimedAnimation:get_value()
+    if self._elapsed == math.huge then return self._f(1, table.unpack(self._args)) end
+
     local x = self._elapsed / self._duration
     if self._should_loop then x = math.fmod(x, 1) end
     local y = self._f(x, table.unpack(self._args))

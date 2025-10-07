@@ -7,6 +7,7 @@ rt.settings.overworld.hook = {
 }
 
 --- @class ow.Hook
+--- @types Point
 ow.Hook = meta.class("OverworldHook", rt.Drawable)
 
 local _shader = rt.Shader("overworld/objects/hook.glsl")
@@ -23,6 +24,7 @@ end
 
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
+    assert(object:get_type() == ow.ObjectType.POINT, "In ow.Hook: object `" .. object:get_id() .. "` is not a point")
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
 
     self._scene = scene

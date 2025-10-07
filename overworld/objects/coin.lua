@@ -16,6 +16,7 @@ rt.settings.overworld.coin = {
 }
 
 --- @class ow.Coin
+--- @types Point
 ow.Coin = meta.class("Coin")
 
 local _pulse_mesh = nil

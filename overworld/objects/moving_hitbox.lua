@@ -9,9 +9,14 @@ rt.settings.overworld.moving_hitbox = {
 }
 
 --- @class ow.MovingHitbox
+--- @types Polygon, Rectangle
+--- @field velocity Number?
+--- @field target ow.MovingHitboxTarget! pointer to path
 ow.MovingHitbox = meta.class("MovingHitbox")
 
 --- @class ow.MovingHitboxTarget
+--- @types Point
+--- @field target ow.MovingHitboxTarget!
 ow.MovingHitboxTarget = meta.class("MovingHitboxTarget")
 
 --- @brief

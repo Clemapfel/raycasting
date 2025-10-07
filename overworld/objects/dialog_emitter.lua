@@ -11,6 +11,10 @@ rt.settings.overworld.dialog_emitter = {
 }
 
 --- @class ow.DialogEmitter
+--- @types Point
+--- @field id String! dialog id, file in assets/text
+--- @field target Object? if set, emitter will be positioned on object centroid
+--- @field should_lock Boolean? if dialog should lock player movement
 ow.DialogEmitter = meta.class("DialogEmitter")
 
 --- @brief

@@ -17,6 +17,10 @@ rt.settings.overworld.portal = {
 }
 
 --- @class ow.Portal
+--- @types Point
+--- @field target ow.Portal! where to teleport to
+--- @field other ow.PortalNode! to create line
+--- @field left_or_right Boolean? sidedness
 ow.Portal = meta.class("Portal")
 
 --- @class ow.PortalNode

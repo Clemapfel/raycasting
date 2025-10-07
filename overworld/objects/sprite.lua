@@ -1,4 +1,6 @@
 --- @class ow.Sprite
+--- @types Rectangle
+--- @field render_priority Number?
 ow.Sprite = meta.class("OverworldSprite") -- not a rt.Drawable
 
 -- sprite atlas has to list of sprites, sorted by render priority

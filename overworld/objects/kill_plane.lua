@@ -5,6 +5,8 @@ rt.settings.overworld.kill_plane = {
 }
 
 --- @class ow.KillPlane
+--- @types Polygon, Rectangle, Ellipse
+--- @field is_visible Boolean?
 ow.KillPlane = meta.class("KillPlane")
 
 local _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 })

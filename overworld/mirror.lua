@@ -38,6 +38,10 @@ end
 
 --- @brief
 function ow.Mirror:draw()
+    for image in values(self._mirror_images) do love.graphics.line(image.segment) end
+    --for segment in values(self._dbg) do love.graphics.line(segment) end
+    love.graphics.circle("fill", self._px, self._py, 5)
+
     local stencil_value = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
 
@@ -71,8 +75,6 @@ function ow.Mirror:draw()
     local player_color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
 
     local camera_x, camera_y = camera:get_offset()
-
-    for image in values(self._mirror_images) do love.graphics.line(image.segment) end
 
     _shader:bind()
     _shader:send("player_color", player_color)
@@ -209,222 +211,126 @@ function ow.Mirror:create_contour(mirror_tris, occluding_tris)
     end
 end
 
+--- Calculates the intersection of two lines defined by a point and a direction vector.
+--- It returns the parametric multipliers 't' and 'u' such that:
+--- intersection_point = (x1, y1) + t * (dx1, dy1) = (x2, y2) + u * (dx2, dy2)
+--- @param x1 Number Starting x of the first line.
+--- @param y1 Number Starting y of the first line.
+--- @param dx1 Number X-direction of the first line.
+--- @param dy1 Number Y-direction of the first line.
+--- @param x2 Number Starting x of the second line.
+--- @param y2 Number Starting y of the second line.
+--- @param dx2 Number X-direction of the second line.
+--- @param dy2 Number Y-direction of the second line.
+--- @return Number or nil The parameter 't' for the first line.
+--- @return Number or nil The parameter 'u' for the second line.
+local function _get_line_intersection_params(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
+    -- The denominator is the 2D cross-product of the direction vectors.
+    -- If it's zero, the lines are parallel or collinear.
+    local denominator = dx1 * dy2 - dy1 * dx2
+    if math.abs(denominator) < 1e-9 then
+        return nil, nil
+    end
+
+    -- Using Cramer's rule to solve the system of linear equations for t and u
+    local t = ((x2 - x1) * dy2 - (y2 - y1) * dx2) / denominator
+    local u = ((x2 - x1) * dy1 - (y2 - y1) * dx1) / denominator
+    return t, u
+end
+
+
+--- Calculates all visible subsegments from a given point.
+--- It determines which parts of the 'segments' are visible from (px, py),
+--- considering that 'occluding_segments' can block the line of sight.
+--- The y-axis is assumed to extend downwards.
+---
+--- @param segments Table<Tuple<Number, Number, Number, Number>> A list of segments to check for visibility.
+--- @param px Number The x-coordinate of the viewpoint.
+--- @param py Number The y-coordinate of the viewpoint.
+--- @param occluding_segments Table<Tuple<Number, Number, Number, Number>> A list of segments that can block the view.
+--- @return Table<Tuple<Number, Number, Number, Number>> A list of all visible subsegments.
 function _get_visible_subsegments(segments, px, py, occluding_segments)
-    local visible_segments = {}
+    -- If there are no occluders, all segments are fully visible.
+    if not occluding_segments or #occluding_segments == 0 then
+        return segments
+    end
 
-    local abs, min, max = math.abs, math.min, math.max
-    local segment_eps = 1e-8
-    local distance_eps = 1e-6
+    local all_visible_subsegments = {}
 
-    local n_mirror_segments = #segments
-    local n_occluding_segments = occluding_segments and #occluding_segments or 0
-
-    -- precompute bounding boxes for intersection culling
-    local mirror_aabbs = {}
-    for i = 1, n_mirror_segments do
-        local segment = segments[i]
+    -- Iterate over each segment we want to find the visible parts of.
+    for _, segment in ipairs(segments) do
         local x1, y1, x2, y2 = segment[1], segment[2], segment[3], segment[4]
-        mirror_aabbs[i] = { min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2) }
-    end
+        local target_dx, target_dy = x2 - x1, y2 - y1
 
-    local occluding_aabbs
-    if occluding_segments then
-        occluding_aabbs = {}
-        for k = 1, n_occluding_segments do
-            local segment = occluding_segments[k]
-            local x1, y1, x2, y2 = segment[1], segment[2], segment[3], segment[4]
-            occluding_aabbs[k] = { min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2) }
-        end
-    end
+        -- A segment is represented parametrically as S(t) = P1 + t * (P2 - P1) for t in [0, 1].
+        -- We start by assuming the entire segment is visible, which corresponds to the interval [0, 1].
+        -- This list can be fragmented into multiple smaller intervals by occluders.
+        local visible_t_intervals = {{0, 1}}
 
-    local function aabb_intersects(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2)
-        return ax1 <= bx2 and ax2 >= bx1 and ay1 <= by2 and ay2 >= by1
-    end
+        -- Now, for each occluder, we will "subtract" its shadow from our visible intervals.
+        for _, occluder in ipairs(occluding_segments) do
+            local ox1, oy1, ox2, oy2 = occluder[1], occluder[2], occluder[3], occluder[4]
 
-    -- check if segments intersect, return point and parametric coordinates
-    local function segment_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
-        local denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-        if abs(denom) < segment_eps then return false end
+            -- Find where the lines of sight from the viewpoint to the occluder's endpoints
+            -- intersect the infinite line defined by the target segment.
+            local ray1_dx, ray1_dy = ox1 - px, oy1 - py
+            local t1, u1 = _get_line_intersection_params(x1, y1, target_dx, target_dy, px, py, ray1_dx, ray1_dy)
 
-        local t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
-        local u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
-        if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
-            local ix = x1 + t * (x2 - x1)
-            local iy = y1 + t * (y2 - y1)
-            return true, ix, iy, t, u
-        end
+            local ray2_dx, ray2_dy = ox2 - px, oy2 - py
+            local t2, u2 = _get_line_intersection_params(x1, y1, target_dx, target_dy, px, py, ray2_dx, ray2_dy)
 
-        return false
-    end
+            -- An intersection is valid only if it occurs 'in front' of the viewpoint (u > 0).
+            -- An occlusion is only valid if the occluder is closer to the viewpoint than the target segment (u < 1).
+            if t1 and t2 and (u1 and u1 > 1e-9 and u1 < 1) or (u2 and u2 > 1e-9 and u2 < 1) then
+                local shadow_start_t = math.min(t1, t2)
+                local shadow_end_t = math.max(t1, t2)
 
-    -- find all intersection points to split segments
-    local segment_split_ts = {}
-    for i = 1, n_mirror_segments do
-        segment_split_ts[i] = { 0.0, 1.0 }
-    end
+                -- If the shadow is completely outside the [0,1] range of the segment, ignore it.
+                if shadow_end_t < 0 or shadow_start_t > 1 then
+                    -- continue (to the next occluder)
+                else
+                    local next_visible_intervals = {}
+                    -- Subtract the shadow interval from all current visible intervals.
+                    for _, interval in ipairs(visible_t_intervals) do
+                        local vis_start, vis_end = interval[1], interval[2]
 
-    -- mirror segment intersections
-    for i = 1, n_mirror_segments do
-        local segment_a = segments[i]
-        local x1, y1, x2, y2 = segment_a[1], segment_a[2], segment_a[3], segment_a[4]
-        local aabb_a = mirror_aabbs[i]
-        for j = i + 1, n_mirror_segments do
-            local aabb_b = mirror_aabbs[j]
-            if aabb_intersects(aabb_a[1], aabb_a[2], aabb_a[3], aabb_a[4], aabb_b[1], aabb_b[2], aabb_b[3], aabb_b[4]) then
-                local segment_b = segments[j]
-                local ok, _, _, t1, t2 = segment_intersection(x1, y1, x2, y2, segment_b[1], segment_b[2], segment_b[3], segment_b[4])
-                if ok then
-                    if t1 > segment_eps and t1 < 1 - segment_eps then
-                        segment_split_ts[i][#segment_split_ts[i] + 1] = t1
-                    end
-                    if t2 > segment_eps and t2 < 1 - segment_eps then
-                        segment_split_ts[j][#segment_split_ts[j] + 1] = t2
-                    end
-                end
-            end
-        end
-    end
+                        -- Case 1: The part of the interval *before* the shadow.
+                        local before_interval_end = math.min(vis_end, shadow_start_t)
+                        if before_interval_end > vis_start + 1e-9 then
+                            table.insert(next_visible_intervals, {vis_start, before_interval_end})
+                        end
 
-    -- occluding segment intersections
-    if occluding_segments and n_occluding_segments > 0 then
-        for i = 1, n_mirror_segments do
-            local segment_a = segments[i]
-            local x1, y1, x2, y2 = segment_a[1], segment_a[2], segment_a[3], segment_a[4]
-            local aabb_a = mirror_aabbs[i]
-            local ts = segment_split_ts[i]
-            for k = 1, n_occluding_segments do
-                local aabb_b = occluding_aabbs[k]
-                if aabb_intersects(aabb_a[1], aabb_a[2], aabb_a[3], aabb_a[4], aabb_b[1], aabb_b[2], aabb_b[3], aabb_b[4]) then
-                    local segment_b = occluding_segments[k]
-                    local ok, _, _, t1, _ = segment_intersection(x1, y1, x2, y2, segment_b[1], segment_b[2], segment_b[3], segment_b[4])
-                    if ok and t1 > segment_eps and t1 < 1 - segment_eps then
-                        ts[#ts + 1] = t1
-                    end
-                end
-            end
-        end
-    end
-
-    -- Precompute potential blockers using fan-shaped bounding box from player to segment
-    local mirror_blocks = {}
-    local occluding_blocks = {}
-    for i = 1, n_mirror_segments do
-        local segment = segments[i]
-        local x1, y1, x2, y2 = segment[1], segment[2], segment[3], segment[4]
-        local fan_min_x = min(px, min(x1, x2))
-        local fan_max_x = max(px, max(x1, x2))
-        local fan_min_y = min(py, min(y1, y2))
-        local fan_max_y = max(py, max(y1, y2))
-
-        local blockers = {}
-        for j = 1, n_mirror_segments do
-            if j ~= i then
-                local mirror_aabb = mirror_aabbs[j]
-                if aabb_intersects(
-                    fan_min_x, fan_min_y, fan_max_x, fan_max_y,
-                    mirror_aabb[1], mirror_aabb[2], mirror_aabb[3], mirror_aabb[4]
-                ) then
-                    blockers[#blockers + 1] = j
-                end
-            end
-        end
-        mirror_blocks[i] = blockers
-
-        if n_occluding_segments > 0 then
-            local occluding = {}
-            for k = 1, n_occluding_segments do
-                local occluding_aabb = occluding_aabbs[k]
-                if aabb_intersects(
-                    fan_min_x, fan_min_y, fan_max_x, fan_max_y,
-                    occluding_aabb[1], occluding_aabb[2], occluding_aabb[3], occluding_aabb[4]
-                ) then
-                    occluding[#occluding + 1] = k
-                end
-            end
-            occluding_blocks[i] = occluding
-        end
-    end
-
-    local function point_at_parameter(seg, t)
-        local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
-        return x1 + t * (x2 - x1), y1 + t * (y2 - y1)
-    end
-
-    -- test visibility of each subsegment
-    for i = 1, n_mirror_segments do
-        local segment = segments[i]
-        local t_list = segment_split_ts[i]
-        table.sort(t_list, function(a, b) return a < b end)
-
-        local blocker_candidates = mirror_blocks[i]
-        local occluding_candidates = occluding_blocks and occluding_blocks[i] or nil
-
-        for k = 1, #t_list - 1 do
-            local t1 = t_list[k]
-            local t2 = t_list[k + 1]
-            if t2 - t1 > segment_eps then
-                local x1, y1 = point_at_parameter(segment, t1)
-                local x2, y2 = point_at_parameter(segment, t2)
-
-                local mid_x, mid_y = (x1 + x2) * 0.5, (y1 + y2) * 0.5
-                local distance_to_mid = math.distance(px, py, mid_x, mid_y)
-                local blocked = false
-
-                local ray_min_x = min(px, mid_x)
-                local ray_max_x = max(px, mid_x)
-                local ray_min_y = min(py, mid_y)
-                local ray_max_y = max(py, mid_y)
-
-                -- check mirror segment occlusion
-                for idx = 1, #blocker_candidates do
-                    local blocker = blocker_candidates[idx]
-                    local blocker_aabb = mirror_aabbs[blocker]
-                    if aabb_intersects(
-                        ray_min_x, ray_min_y, ray_max_x, ray_max_y,
-                        blocker_aabb[1], blocker_aabb[2], blocker_aabb[3], blocker_aabb[4]
-                    ) then
-                        local s2 = segments[blocker]
-                        local intersects, ix, iy, _, _ = segment_intersection(px, py, mid_x, mid_y, s2[1], s2[2], s2[3], s2[4])
-                        if intersects then
-                            local distance = math.distance(px, py, ix, iy)
-                            if distance < distance_to_mid - distance_eps then
-                                blocked = true
-                                break
-                            end
+                        -- Case 2: The part of the interval *after* the shadow.
+                        local after_interval_start = math.max(vis_start, shadow_end_t)
+                        if after_interval_start < vis_end - 1e-9 then
+                            table.insert(next_visible_intervals, {after_interval_start, vis_end})
                         end
                     end
+                    visible_t_intervals = next_visible_intervals
                 end
+            end
+        end
 
-                -- check occluding segment occlusion
-                if not blocked and occluding_candidates then
-                    for candidate_i = 1, #occluding_candidates do
-                        local occluder = occluding_candidates[candidate_i]
-                        local occluder_aabb = occluding_aabbs[occluder]
-                        if aabb_intersects(
-                            ray_min_x, ray_min_y, ray_max_x, ray_max_y,
-                            occluder_aabb[1], occluder_aabb[2], occluder_aabb[3], occluder_aabb[4]
-                        ) then
-                            local segment_b = occluding_segments[occluder]
-                            local intersects, ix, iy, _, _ = segment_intersection(px, py, mid_x, mid_y, segment_b[1], segment_b[2], segment_b[3], segment_b[4])
-                            if intersects then
-                                local distance = math.distance(px, py, ix, iy)
-                                if distance < distance_to_mid - distance_eps then
-                                    blocked = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
+        -- Convert the final visible t-intervals back into world coordinate subsegments.
+        for _, interval in ipairs(visible_t_intervals) do
+            local t_start, t_end = interval[1], interval[2]
 
-                if not blocked then
-                    visible_segments[#visible_segments + 1] = { x1, y1, x2, y2 }
-                end
+            -- Clamp the final intervals to the original segment's bounds [0, 1].
+            t_start = math.max(0, t_start)
+            t_end = math.min(1, t_end)
+
+            -- If the resulting interval is valid, calculate the subsegment's endpoints.
+            if t_start < t_end - 1e-9 then
+                local sx = x1 + t_start * target_dx
+                local sy = y1 + t_start * target_dy
+                local ex = x1 + t_end * target_dx
+                local ey = y1 + t_end * target_dy
+                table.insert(all_visible_subsegments, {sx, sy, ex, ey})
             end
         end
     end
 
-    return visible_segments
+    return all_visible_subsegments
 end
 
 local function _reflect(px, py, angle, x1, y1, x2, y2)
@@ -463,12 +369,15 @@ function ow.Mirror:update(delta)
     local fraction = rt.settings.overworld.mirror.player_attenuation_radius
     local px, py = self._scene:get_player():get_physics_body():get_position()
 
-    local w, h = 2 * camera_w * fraction, 2 * camera_h * fraction
+    local w, h = camera_w * fraction, camera_h * fraction
     local x = px - w / 2
     local y = py - h / 2
 
     x = x - self._offset_x
     y = y - self._offset_y
+
+    self._dbg = {}
+    self._px, self._py = px, py
 
     local mirror_segments = {}
     local occluding_segments = {}
@@ -476,6 +385,7 @@ function ow.Mirror:update(delta)
     self._world:update(delta)
     self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
         local data = shape:getUserData()
+        table.insert(self._dbg, data.segment)
         if data.is_mirror == true then
             table.insert(mirror_segments, data.segment)
         else

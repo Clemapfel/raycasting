@@ -1,4 +1,5 @@
 --- @class ow.FlowGraph
+--- @types Point
 ow.FlowGraphNode = meta.class("FlowGraphNode")
 
 --- @brief
@@ -18,6 +19,7 @@ function ow.FlowGraphNode:instantiate(object, stage, scene)
 end
 
 --- @class ow.FlowGraphNode
+--- @types Point
 ow.FlowGraph = meta.class("FlowGraph")
 
 --- @brief

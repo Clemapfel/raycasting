@@ -68,3 +68,19 @@ end
 function rt.SmoothedMotion1D:skip()
     self:set_value(self._target_value)
 end
+
+--- @brief
+function rt.SmoothedMotion1D:set_speed(speed)
+    self._attack_speed = speed
+    self._defense_speed = speed
+end
+
+--- @brief
+function rt.SmoothedMotion1D:set_attack_speed(speed)
+    self._attack_speed = speed
+end
+
+--- @brief
+function rt.SmoothedMotion1D:set_defense_speed(speed)
+    self._defense_speed = speed
+end

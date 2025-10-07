@@ -1,4 +1,5 @@
 --- @class ow.OneWayPlatform
+--- @types Rectangle
 ow.OneWayPlatform = meta.class("OneWayPlatform")
 
 --- @brief

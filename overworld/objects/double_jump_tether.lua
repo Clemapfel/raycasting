@@ -5,6 +5,7 @@ rt.settings.overworld.double_jump_tether = {
 }
 
 --- @class DoubleJumpTether
+--- @types Point
 ow.DoubleJumpTether = meta.class("DoubleJumpThether")
 
 local _shader

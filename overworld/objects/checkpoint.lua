@@ -19,8 +19,10 @@ rt.settings.overworld.checkpoint = {
 }
 
 --- @class ow.Checkpoint
+--- @types Point
 ow.Checkpoint = meta.class("Checkpoint")
 
+--- @class ow.CheckpointTye
 ow.CheckpointType = meta.enum("CheckpointType", {
     PLAYER_SPAWN = 0,
     MIDWAY = 1,
@@ -28,11 +30,13 @@ ow.CheckpointType = meta.enum("CheckpointType", {
 })
 
 --- @class ow.PlayerSpawn
+--- @types Point
 ow.PlayerSpawn = function(object, stage, scene) -- alias for first checkpoint
     return ow.Checkpoint(object, stage, scene, ow.CheckpointType.PLAYER_SPAWN)
 end
 
 --- @class ow.PlayerGoal
+--- @types Point
 ow.PlayerGoal = function(object, stage, scene) -- alias for end of stage
     return ow.Checkpoint(object, stage, scene, ow.CheckpointType.PLAYER_GOAL)
 end

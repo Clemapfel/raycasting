@@ -1,9 +1,9 @@
 --- @class ow.CameraBounds
+--- @types Rectangle
 ow.CameraBounds = meta.class("CameraBounds")
 
 --- @brief
 function ow.CameraBounds:instantiate(object, stage, scene)
-
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)

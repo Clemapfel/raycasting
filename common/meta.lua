@@ -43,6 +43,7 @@ local _native_type_to_type = {
 --- @class Table
 --- @class Function
 --- @class Coroutine
+--- @class TiledObject
 
 --- @brief
 function meta.typeof(instance)

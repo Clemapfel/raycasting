@@ -503,7 +503,7 @@ function rt.PlayerBody:update(delta)
 
     self._stencil_bodies = {}
     for body in values(bodies) do
-        if body:has_tag("stencil") then
+        if body:has_tag("stencil") and not body:get_is_sensor() then
             table.insert(self._stencil_bodies, body)
         end
     end

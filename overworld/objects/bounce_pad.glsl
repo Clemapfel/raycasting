@@ -113,7 +113,7 @@ vec4 effect(vec4 color, Image img, vec2 texture_coords, vec2 vertex_position) {
 
     float value = smoothstep(-0.5, 0.5, bubble);
 
-    return vec4(vec3(mix(vec3(0), color.rgb, value)), 1);
+    return vec4(vec3(mix(vec3(0), color.rgb, value)), color.a);
 }
 
 #endif

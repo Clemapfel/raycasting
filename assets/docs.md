@@ -1,51 +1,58 @@
-# Type to Tiled Primitive
+# Classes
 
-✓ = allowed, x = disallowed
+```
+## ClassName
 
-|        Shape         | Polygon | Rectangle | Ellipse | Point | Tile |
-|:--------------------:|:-------:|:---------:|:-------:|:-----:|:----:|
-| `AcceleratorSurface` |    ✓    |     ✓     |    ✓    |   x   |  x   |
-|     `BoostField`     |    ✓    |     ✓     |    ✓    |   x   |  x   |
-|     `BouncePad`      |    ✓    |     ✓     |    ✓    |   x   |  x   |
-|    `BubbleField`     |    ✓    |     ✓     |    ✓    |   x   |  x   |
-|    `CameraBounds`    |    x    |     ✓     |    x    |   x   |  x   |
-|     `Checkpoint`     |    x    |     x     |    x    |   ✓   |  x   |
-|        `Coin`        |    x    |     x     |    x    |   ✓   |  x   |
-|  `DoubleJumpTether`  |    x    |     x     |    x    |   ✓   |  x   |
-|     `FlowGraph`      |    x    |     x     |    x    |   ✓   |  x   |
-|   `FlowGraphNode`    |    x    |     x     |    x    |   ✓   |  x   |
-|       `Hitbox`       |    ✓    |     ✓     |    ✓    |   x   |  x   |
-|        `Hook`        |    x    |     x     |    x    |   ✓   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|     `KillPlane`      |    ✓    |     ✓     |    ✓    |   x   |  x   |
-|    `MovingHitbox`    |    ✓    |     ✓      |    ✓    |   x   |  x   |
-| `MovingHitboxTarget` |    x    |     x     |    x    |   ✓    |  x   |
-|        `NPC`         |    ✓     |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
-|        `TODO`        |    x    |     x     |    x    |   x   |  x   |
+Types: Polygon, Circle, Rectangle, Point, Sprite
+
+
+
+```
+
+### ClassName
+
+| Polygon | Circle | Rectangle | Point | Sprite |
+|--------|-------|----------|------|-------|
+| OX     | OX    | OX       | OX   | OX    |
+
+| Property | Type | Values | Optional |
+|--------|------|-----|-----------|
+|        |      |     | |
+
+
+
+### AcceleratorSurface
+
+| Polygon | Circle | Rectangle | Point | Sprite |
+|-------|------|---------|-----|------|
+| O     | O    | O       | X   | X    |
+
+| Property Name | Type   | Values | Optional |
+|---------------|--------|--------|----------
+| `friction`      | Float? | `<= 0`   | y
+
+### BoostField
+
+| Polygon | Circle | Rectangle | Point | Sprite |
+|-------|------|---------|-----|------|
+| O     | O    | O       | X   | X    |
+
+| Property  | Type  | Values |
+|-----------|-------|------|
+| `velocity` | Float | `> 0`  |
+| `axis` | Object | `BoostFieldAxis`   |
+
+### BoostFieldAxis
+
+| Polygon | Circle | Rectangle | Point | Sprite |
+|-------|------|---------|-------|------|
+| X     | X    | X       | O     | X    |
+
+| Property | Type  | Values   |
+|----------|-------|----------|
+| `axis_x` | Float | `[-1, 1]` |
+| `axis_x` | Float | `[-1, 1]` |
+
+
+
+

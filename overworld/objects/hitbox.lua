@@ -6,8 +6,11 @@ rt.settings.overworld.hitbox = {
 }
 
 --- @class ow.Hitbox
+--- @types Polygon, Rectangle, Ellipse
 ow.Hitbox = meta.class("Hitbox")
 
+--- @class ow.SlipperyHitbox
+--- @types Polygon, Rectangle, Ellipse
 ow.SlipperyHitbox = function(object, stage, scene)
     object.properties["slippery"] = true
     return ow.Hitbox(object, stage, scene)

@@ -5,10 +5,15 @@ rt.settings.overworld.boost_field = {
 }
 
 --- @class ow.BoostField
---- @field axis ow.ObjectWrapper axis from centroid of self to axis point
+--- @types Polygon, Rectangle, Ellipse
+--- @field velocity Number?
+--- @field axis ow.BoostFieldAxis! non-optional
 ow.BoostField = meta.class("BoostField")
 
 --- @class ow.BoostFieldAxis
+--- @types Point
+--- @field axis_x Number! in [-1, 1]
+--- @field axis_y Number! in [-1, 1]
 ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
 local _shader = rt.Shader("overworld/objects/boost_field.glsl")
@@ -52,10 +57,11 @@ function ow.BoostField:instantiate(object, stage, scene)
     local factor = object:get_number("velocity") or 1
     self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
 
-    local axis = object:get_object("axis")
+    local axis_mandatory = false -- TODO
+    local axis = object:get_object("axis", axis_mandatory)
     if axis == nil then
-        local axis_x = object:get_number("axis_x")
-        local axis_y = object:get_number("axis_y")
+        local axis_x = object:get_number("axis_x", axis_mandatory)
+        local axis_y = object:get_number("axis_y", axis_mandatory)
         self._axis_x = axis_x or 0
         self._axis_y = axis_y or -1
     else

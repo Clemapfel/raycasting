@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 954,
+  nextobjectid = 956,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -7599.02,
-          y = 2206.4,
+          x = -7545.83,
+          y = 2193.02,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5619,6 +5619,49 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 954,
+          name = "",
+          type = "BouncePad",
+          shape = "ellipse",
+          x = -7404.25,
+          y = 1796.5,
+          width = 300.935,
+          height = 317.251,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["is_single_use"] = true,
+            ["respawn_duration"] = 2.4
+          }
+        },
+        {
+          id = 955,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -2400,
+          y = 3408,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 144, y = 160 },
+            { x = 320, y = 0 },
+            { x = 144, y = -144 },
+            { x = -32, y = 32 },
+            { x = 144, y = 224 },
+            { x = 400, y = -16 },
+            { x = 144, y = -208 },
+            { x = -64, y = -16 },
+            { x = -32, y = 32 }
+          },
+          properties = {
+            ["slippery"] = true
+          }
         }
       }
     }

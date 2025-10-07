@@ -1,4 +1,5 @@
 --- @class ow.OverlapTrigger
+--- @types Polygon, Rectangle, Ellipse
 --- @field signal String
 --- @field target ow.ObjectWrapper
 --- @field value any?
