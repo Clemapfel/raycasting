@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 956,
+  nextobjectid = 957,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -734,8 +734,8 @@ return {
             { x = 784, y = -256 },
             { x = 800, y = -256 },
             { x = 803.097, y = 0 },
-            { x = 1312, y = 0 },
-            { x = 1312, y = 128 },
+            { x = 1792, y = 0 },
+            { x = 1792, y = 128 },
             { x = 0, y = 128 }
           },
           properties = {}
@@ -794,10 +794,10 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = 720, y = 0 },
             { x = 6122.31, y = 3.36817 },
             { x = 6122.31, y = 35.3682 },
-            { x = 0, y = 32 }
+            { x = 720, y = 32 }
           },
           properties = {}
         },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -7545.83,
-          y = 2193.02,
+          x = -6915.17,
+          y = 1853.69,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5662,6 +5662,19 @@ return {
           properties = {
             ["slippery"] = true
           }
+        },
+        {
+          id = 956,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "rectangle",
+          x = -6704,
+          y = 1904,
+          width = 32,
+          height = 256,
+          rotation = 180,
+          visible = true,
+          properties = {}
         }
       }
     }

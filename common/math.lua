@@ -504,6 +504,10 @@ function math.distance3(x1, y1, z1, x2, y2, z2)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
+function math.signed_distance(x1, y1, x2, y2)
+    return x1 * y2 - y1 * x2
+end
+
 --- @brief Get the dot product of two 2D vectors.
 function math.dot2(x1, y1, x2, y2)
     return x1 * x2 + y1 * y2

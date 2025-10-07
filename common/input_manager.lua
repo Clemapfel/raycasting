@@ -1,5 +1,4 @@
 require "common.input_action"
-require "common.stable_sort"
 
 --- @class rt.InputManager
 rt.InputManager = meta.class("rt.InputManager")

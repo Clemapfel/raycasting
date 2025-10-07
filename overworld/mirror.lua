@@ -38,30 +38,30 @@ end
 
 --- @brief
 function ow.Mirror:draw()
-    for image in values(self._mirror_images) do love.graphics.line(image.segment) end
-    --for segment in values(self._dbg) do love.graphics.line(segment) end
-    love.graphics.circle("fill", self._px, self._py, 5)
+    local should_stencil = self._draw_mirror_mask_callback ~= nil
 
-    local stencil_value = rt.graphics.get_stencil_value()
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    -- stencil mirror areas
+    if should_stencil then
+        local stencil_value = rt.graphics.get_stencil_value()
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
 
-    love.graphics.push()
-    love.graphics.translate(self._offset_x, self._offset_y)
+        love.graphics.push()
+        love.graphics.translate(self._offset_x, self._offset_y)
 
-    -- only draw where slippery is
-    self._draw_mirror_mask_callback()
+        self._draw_mirror_mask_callback()
 
-    if self._draw_occluding_mask_callback ~= nil then
-        love.graphics.setStencilState("replace", "always", 0)
-        love.graphics.setColorMask(false)
+        if self._draw_occluding_mask_callback ~= nil then
+            love.graphics.setStencilState("replace", "always", 0)
+            love.graphics.setColorMask(false)
 
-        -- exclude occluding
-        self._draw_occluding_mask_callback()
+            -- exclude occluding
+            self._draw_occluding_mask_callback()
+        end
+
+        love.graphics.pop()
+
+        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
     end
-
-    love.graphics.pop()
-
-    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
     -- draw canvases
     local canvas, scale_x, scale_y = self._scene:get_player_canvas()
@@ -70,17 +70,11 @@ function ow.Mirror:draw()
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
 
-    local player_x, player_y = player:get_position()
-    local player_position = { camera:world_xy_to_screen_xy(player_x, player_y) }
-    local player_color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
-
-    local camera_x, camera_y = camera:get_offset()
-
     _shader:bind()
-    _shader:send("player_color", player_color)
-    _shader:send("player_position", player_position)
+    _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+    _shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_position()) })
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("camera_offset", { camera_x, camera_y })
+    _shader:send("camera_offset", { camera:get_offset() })
     _shader:send("camera_scale", camera:get_final_scale())
 
     for image in values(self._mirror_images) do
@@ -107,12 +101,12 @@ function ow.Mirror:draw()
             flip_y / scale_y,
             0.5 * canvas_w, 0.5 * canvas_h
         )
-
-        love.graphics.circle("fill", image.x + self._offset_x, image.y + self._offset_y, 5)
     end
     _shader:unbind()
 
-    rt.graphics.set_stencil_mode(nil)
+    if should_stencil then
+        rt.graphics.set_stencil_mode(nil)
+    end
 end
 
 local _round = function(x)
@@ -238,134 +232,197 @@ local function _get_line_intersection_params(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
     return t, u
 end
 
-
---- Calculates all visible subsegments from a given point.
---- It determines which parts of the 'segments' are visible from (px, py),
---- considering that 'occluding_segments' can block the line of sight.
---- The y-axis is assumed to extend downwards.
----
---- @param segments Table<Tuple<Number, Number, Number, Number>> A list of segments to check for visibility.
---- @param px Number The x-coordinate of the viewpoint.
---- @param py Number The y-coordinate of the viewpoint.
---- @param occluding_segments Table<Tuple<Number, Number, Number, Number>> A list of segments that can block the view.
---- @return Table<Tuple<Number, Number, Number, Number>> A list of all visible subsegments.
+-- get all visible subsegments of `segments`, any segment in `segments` or `occluding_segments` can occlude
 function _get_visible_subsegments(segments, px, py, occluding_segments)
-    -- If there are no occluders, all segments are fully visible.
-    if not occluding_segments or #occluding_segments == 0 then
-        return segments
+    local eps = 10e-4
+    local _ray_segment_intersection = function(px, py, dx, dy, x1, y1, x2, y2)
+        local sx = x2 - x1
+        local sy = y2 - y1
+
+        local denom = dx * sy - dy * sx
+        if math.abs(denom) < eps then return nil end
+
+        local t = ((x1 - px) * sy - (y1 - py) * sx) / denom
+        local u = ((x1 - px) * dy - (y1 - py) * dx) / denom
+
+        if t >= 0 and u >= 0 and u <= 1 then
+            return px + t * dx, py + t * dy
+        end
+
+        return nil
     end
 
-    local all_visible_subsegments = {}
+    local angle_quantization = 1 / 0.0001
 
-    -- Iterate over each segment we want to find the visible parts of.
-    for _, segment in ipairs(segments) do
-        local x1, y1, x2, y2 = segment[1], segment[2], segment[3], segment[4]
-        local target_dx, target_dy = x2 - x1, y2 - y1
+    -- collect critical angles
+    local critical_points = {}
+    local add_point = function(segment, is_mirror)
+        local x1, y1, x2, y2 = table.unpack(segment)
 
-        -- A segment is represented parametrically as S(t) = P1 + t * (P2 - P1) for t in [0, 1].
-        -- We start by assuming the entire segment is visible, which corresponds to the interval [0, 1].
-        -- This list can be fragmented into multiple smaller intervals by occluders.
-        local visible_t_intervals = {{0, 1}}
+        local true_angle_a = math.angle(x1 - px, y1 - py)
+        local true_angle_b = math.angle(x2 - px, y2 - py)
 
-        -- Now, for each occluder, we will "subtract" its shadow from our visible intervals.
-        for _, occluder in ipairs(occluding_segments) do
-            local ox1, oy1, ox2, oy2 = occluder[1], occluder[2], occluder[3], occluder[4]
+        local angle_a = math.floor(true_angle_a * angle_quantization) / angle_quantization
+        local angle_b = math.floor(true_angle_b * angle_quantization) / angle_quantization
 
-            -- Find where the lines of sight from the viewpoint to the occluder's endpoints
-            -- intersect the infinite line defined by the target segment.
-            local ray1_dx, ray1_dy = ox1 - px, oy1 - py
-            local t1, u1 = _get_line_intersection_params(x1, y1, target_dx, target_dy, px, py, ray1_dx, ray1_dy)
+        table.insert(critical_points, {
+            angle = math.normalize_angle(angle_a),
+            segment = segment,
+            is_mirror = is_mirror
+        })
 
-            local ray2_dx, ray2_dy = ox2 - px, oy2 - py
-            local t2, u2 = _get_line_intersection_params(x1, y1, target_dx, target_dy, px, py, ray2_dx, ray2_dy)
+        table.insert(critical_points, {
+            angle = math.normalize_angle(angle_b),
+            segment = segment,
+            is_mirror = is_mirror
+        })
+    end
 
-            -- An intersection is valid only if it occurs 'in front' of the viewpoint (u > 0).
-            -- An occlusion is only valid if the occluder is closer to the viewpoint than the target segment (u < 1).
-            if t1 and t2 and (u1 and u1 > 1e-9 and u1 < 1) or (u2 and u2 > 1e-9 and u2 < 1) then
-                local shadow_start_t = math.min(t1, t2)
-                local shadow_end_t = math.max(t1, t2)
+    -- candidate for subsegments, also occlude
+    for segment in values(segments) do add_point(segment, true) end
 
-                -- If the shadow is completely outside the [0,1] range of the segment, ignore it.
-                if shadow_end_t < 0 or shadow_start_t > 1 then
-                    -- continue (to the next occluder)
-                else
-                    local next_visible_intervals = {}
-                    -- Subtract the shadow interval from all current visible intervals.
-                    for _, interval in ipairs(visible_t_intervals) do
-                        local vis_start, vis_end = interval[1], interval[2]
+    -- only occlude
+    for segment in values(occluding_segments) do add_point(segment, false) end
 
-                        -- Case 1: The part of the interval *before* the shadow.
-                        local before_interval_end = math.min(vis_end, shadow_start_t)
-                        if before_interval_end > vis_start + 1e-9 then
-                            table.insert(next_visible_intervals, {vis_start, before_interval_end})
-                        end
+    table.sort(critical_points, function(a, b)
+        return a.angle < b.angle
+    end)
 
-                        -- Case 2: The part of the interval *after* the shadow.
-                        local after_interval_start = math.max(vis_start, shadow_end_t)
-                        if after_interval_start < vis_end - 1e-9 then
-                            table.insert(next_visible_intervals, {after_interval_start, vis_end})
-                        end
-                    end
-                    visible_t_intervals = next_visible_intervals
+    local subsegments_to_intervals = {}
+    local n_critical_points = #critical_points
+    if n_critical_points == 0 then return {} end
+
+    for i = 1, n_critical_points do
+        local entry_a = critical_points[math.wrap(i+0, n_critical_points)]
+        local entry_b = critical_points[math.wrap(i+1, n_critical_points)]
+
+        local angle_a, angle_b = entry_a.angle, entry_b.angle
+
+        local bisector_angle
+        if i == n_critical_points then
+            bisector_angle = math.mix(angle_a, angle_b + 2 * math.pi, 0.5)
+        else
+            bisector_angle = math.mix(angle_a, angle_b, 0.5)
+        end
+
+        local dx, dy = math.cos(bisector_angle), math.sin(bisector_angle)
+
+        -- get closest segment
+        local min_distance, min_entry = math.huge
+        for entry in values(critical_points) do
+            local cx, cy = _ray_segment_intersection(px, py, dx, dy, table.unpack(entry.segment))
+            if cx ~= nil and cy ~= nil then
+                local distance = math.distance(px, py, cx, cy)
+                if distance <= min_distance then
+                    min_distance = distance
+                    min_entry = entry
                 end
             end
         end
 
-        -- Convert the final visible t-intervals back into world coordinate subsegments.
-        for _, interval in ipairs(visible_t_intervals) do
-            local t_start, t_end = interval[1], interval[2]
+        -- for this segment, cast ray to find intersection points, these are start and end of subsegment
+        if min_entry ~= nil and min_entry.is_mirror then
+            local segment = min_entry.segment
 
-            -- Clamp the final intervals to the original segment's bounds [0, 1].
-            t_start = math.max(0, t_start)
-            t_end = math.min(1, t_end)
+            local ray_angle_a = angle_a
+            local ray_angle_b = angle_b
 
-            -- If the resulting interval is valid, calculate the subsegment's endpoints.
-            if t_start < t_end - 1e-9 then
-                local sx = x1 + t_start * target_dx
-                local sy = y1 + t_start * target_dy
-                local ex = x1 + t_end * target_dx
-                local ey = y1 + t_end * target_dy
-                table.insert(all_visible_subsegments, {sx, sy, ex, ey})
+            local cx1, cy1 = _ray_segment_intersection(
+                px, py, math.cos(ray_angle_a), math.sin(ray_angle_a), table.unpack(segment)
+            )
+
+            if cx1 == nil or cy1 == nil then
+                goto continue
             end
+
+            local cx2, cy2 = _ray_segment_intersection(
+                px, py, math.cos(ray_angle_b), math.sin(ray_angle_b), table.unpack(segment)
+            )
+
+            if cx2 == nil or cy2 == nil then
+                goto continue
+            end
+
+            local intervals = subsegments_to_intervals[segment]
+            if intervals == nil then
+                intervals = {}
+                subsegments_to_intervals[segment] = intervals
+            end
+
+            -- convert to normalized parameter for later merging
+            local segment_length = math.distance(table.unpack(segment))
+            if segment_length > 0 and cx1 ~= cx2 or cy1 ~= cy2 then
+                local t1 = math.distance(segment[1], segment[2], cx1, cy1) / segment_length
+                local t2 = math.distance(segment[1], segment[2], cx2, cy2) / segment_length
+                table.insert(intervals, {
+                    math.min(t1, t2), math.max(t1, t2)
+                })
+            end
+        end
+
+        ::continue::
+    end
+
+    local result = {}
+    for segment, intervals in pairs(subsegments_to_intervals) do
+        -- merge overlaps
+        if #intervals > 1 then
+            table.sort(intervals, function(a, b)
+                return a[1] < b[1]
+            end)
+
+            ::retry::
+            for i = 1, #intervals - 1 do
+                local a1, a2 = table.unpack(intervals[i+0])
+                local b1, b2 = table.unpack(intervals[i+1])
+
+                if a2 >= b1 then
+                    local merged = { a1, math.max(a2, b2) }
+                    intervals[i] = merged
+                    table.remove(intervals, i + 1)
+                    goto retry
+                end
+            end
+        end
+
+        -- convert to line segments
+        local start_x, start_y = segment[1], segment[2]
+        local dx, dy = segment[3] - segment[1], segment[4] - segment[2]
+        for ts in values(intervals) do
+            local x1, y1 = start_x + dx * ts[1], start_y + dy * ts[1]
+            local x2, y2 = start_x + dx * ts[2], start_y + dy * ts[2]
+            table.insert(result, { x1, y1, x2, y2 })
         end
     end
 
-    return all_visible_subsegments
+    return result
 end
 
-local function _reflect(px, py, angle, x1, y1, x2, y2)
-    local dx, dy = math.subtract(x2, y2, x1, y1)
+-- flip accross line defined by line segment
+function _reflect(px, py, x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local ux, uy = math.normalize(dx, dy)
+    local normal_x, normal_y = math.turn_left(ux, uy)
 
-    local t = math.dot(px - x1, py - y1, dx, dy) / math.dot(dx, dy, dx, dy)
-    if t < 0 or t > 1 then return nil end -- reject early
+    local to_point_x, to_point_y = px - x1, py - y1
 
-    local closest_x = x1 + t * dx
-    local closest_y = y1 + t * dy
+    local projection = math.dot(to_point_x, to_point_y, normal_x, normal_y)
 
-    local distance = math.distance(closest_x, closest_y, px, py)
-    if distance > rt.settings.overworld.mirror.distance_threshold then return nil end
+    local reflected_x = px - 2 * projection * normal_x
+    local reflected_y = py - 2 * projection * normal_y
 
-    local segment_length = math.magnitude(dx, dy)
-    local ndx, ndy = math.normalize(dx, dy)
-    local nx, ny = -ndy, ndx -- normal (right-hand, y-down)
+    local flip_x = math.abs(math.dot(ux, uy, 1, 0)) < math.abs(math.dot(ux, uy, 0, 1))
+    local flip_y = not flip_x
 
-    local vx, vy = px - closest_x, py - closest_y
-    local distance_squared = math.dot(vx, vy, nx, ny)
-
-    local rx = px - 2 * distance_squared * nx
-    local ry = py - 2 * distance_squared * ny
-
-    local line_angle = math.angle(dx, dy)
-    local reflected_angle = 2 * line_angle - angle
-
-    return rx, ry, reflected_angle, false, true, distance
+    return reflected_x, reflected_y, flip_x, flip_y
 end
 
 --- @brief
 function ow.Mirror:update(delta)
     local camera_x, camera_y, camera_w, camera_h = self._scene:get_camera():get_world_bounds():unpack()
 
-    -- instead of checking all segments on screen, only check segments near player
+    -- find segments near player
     local fraction = rt.settings.overworld.mirror.player_attenuation_radius
     local px, py = self._scene:get_player():get_physics_body():get_position()
 
@@ -376,16 +433,13 @@ function ow.Mirror:update(delta)
     x = x - self._offset_x
     y = y - self._offset_y
 
-    self._dbg = {}
     self._px, self._py = px, py
 
     local mirror_segments = {}
     local occluding_segments = {}
 
-    self._world:update(delta)
     self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
         local data = shape:getUserData()
-        table.insert(self._dbg, data.segment)
         if data.is_mirror == true then
             table.insert(mirror_segments, data.segment)
         else
@@ -404,18 +458,14 @@ function ow.Mirror:update(delta)
 
     self._mirror_images = {}
     for segment in values(self._visible) do
-        local x1, y1, x2, y2 = table.unpack(segment)
-        local rx, ry, angle, flip_x, flip_y, distance = _reflect(px - self._offset_x, py - self._offset_y, 0, x1, y1, x2, y2)
-        if rx ~= nil then
-            table.insert(self._mirror_images, {
-                segment = segment,
-                x = rx,
-                y = ry,
-                angle = angle,
-                flip_x = flip_x,
-                flip_y = flip_y
-            })
-        end
+        local rx, ry, flip_x, flip_y = _reflect(px - self._offset_x, py - self._offset_y, table.unpack(segment))
+        table.insert(self._mirror_images, {
+            segment = segment,
+            x = rx,
+            y = ry,
+            flip_x = flip_x,
+            flip_y = flip_y
+        })
     end
 end
 
