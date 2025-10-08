@@ -459,17 +459,20 @@ function ow.Stage:get_point_light_sources()
     local positions = {}
     local colors = {}
     for body in values(self._light_sources) do
-        local cx, cy = body:get_center_of_mass()
-        table.insert(positions, { cx, cy })
-
         local class = body:get_user_data()
         if class ~= nil and class.get_color then
             local color = class:get_color()
             if not meta.isa(color, rt.RGBA) then
                 rt.error("In ow.Stage: object `" .. meta.typeof(class) .. "` has a get_color function that does not return an object of type `rt.RGBA`")
             end
+
+            if color.a == 0 then goto skip end
             table.insert(colors, { class:get_color():unpack() })
         end
+
+        local cx, cy = body:get_center_of_mass()
+        table.insert(positions, { cx, cy })
+        ::skip::
     end
 
     table.insert(positions, { self._scene:get_player():get_position() })

@@ -605,8 +605,6 @@ function ow.OverworldScene:draw()
         end
     else -- not fading
         self._background:draw()
-        love.graphics.clear(0.5, 0.5, 0.5, 1)
-
         self._camera:bind()
         self._stage:draw_below_player()
         if self._player_is_visible then

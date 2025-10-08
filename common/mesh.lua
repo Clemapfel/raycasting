@@ -90,7 +90,6 @@ rt.MeshRectangle = function(x, y, width, height)
     })
 end
 
-local _n_outer_vertices_to_vertex_map = {}
 
 --- @class rt.VertexCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)

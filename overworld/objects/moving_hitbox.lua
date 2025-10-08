@@ -231,9 +231,7 @@ local _front_priority = math.huge
 
 --- @brief
 function ow.MovingHitbox:draw(priority)
-    --if not self._stage:get_is_body_visible(self._body) then return end
-    --self._body:draw()
-
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     if self._mirror ~= nil then
         self._mirror:set_offset(self._body:get_predicted_position())

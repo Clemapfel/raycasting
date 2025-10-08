@@ -4987,7 +4987,7 @@ return {
             { x = -4005.66, y = 397.51 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = false
           }
         },
         {
@@ -5665,8 +5665,8 @@ return {
           name = "",
           type = "Bubble",
           shape = "ellipse",
-          x = -7232,
-          y = 1904,
+          x = -6792.41,
+          y = 1681.43,
           width = 57.6476,
           height = 57.6476,
           rotation = 0,
@@ -5678,8 +5678,8 @@ return {
           name = "",
           type = "Bubble",
           shape = "ellipse",
-          x = -7319.49,
-          y = 1949.29,
+          x = -6708.14,
+          y = 1718.61,
           width = 58.7911,
           height = 58.7911,
           rotation = 0,
@@ -5691,8 +5691,8 @@ return {
           name = "",
           type = "Bubble",
           shape = "ellipse",
-          x = -7290.1,
-          y = 1870.29,
+          x = -6783.02,
+          y = 1783.94,
           width = 44.0933,
           height = 44.0933,
           rotation = 0,
