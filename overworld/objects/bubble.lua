@@ -14,9 +14,19 @@ local _shader = rt.Shader("overworld/objects/bubble.glsl")
 local _hue = 0
 local _n_hue_steps = 12
 
+local todo = true
+
 --- @brief
 function ow.Bubble:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Bubble: object is not an ellipse")
+
+    if todo then
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("keyboard_key_pressed", function(_, which)
+            if which == "o" then _shader:recompile() end
+        end)
+        todo = false
+    end
 
     self._scene = scene
     self._stage = stage
@@ -62,6 +72,8 @@ function ow.Bubble:instantiate(object, stage, scene)
         table.insert(points, rt.random.number(-0.5 * max_offset, 0.5 * max_offset))
         table.insert(points, rt.random.number(-max_offset, max_offset))
     end
+    table.insert(points, points[1])
+    table.insert(points, points[2])
 
     self._path = rt.Spline(points)
     self._path_elapsed = 0
@@ -75,6 +87,7 @@ function ow.Bubble:instantiate(object, stage, scene)
     local data = {
         { self._x, self._y, 0, 0, 1, 1, 1, 1 }
     }
+
     local n_outer_vertices = 64
     for i = 1, n_outer_vertices + 1 do
         local angle = (i - 1) / n_outer_vertices * 2 * math.pi
@@ -141,7 +154,6 @@ function ow.Bubble:draw()
     love.graphics.setColor(r, g, b, opacity)
 
     _shader:bind()
-    _shader:send("pop_origin", { self._pop_origin_x, self._pop_origin_y })
     _shader:send("pop_fraction", math.clamp(self._pop_elapsed / self._pop_duration, 0, 1))
     self._mesh:draw()
     _shader:unbind()
