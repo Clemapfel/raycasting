@@ -76,8 +76,6 @@ function b2.Spring:set_tolerance(lower, upper)
 end
 
 --- @brief
-
---- @brief
 function b2.Spring:get_force()
     return self._prismatic_joint:getJointSpeed()
 end

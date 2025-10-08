@@ -383,6 +383,7 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
     end
 
     self._player:move_to_stage(self._stage)
+
     self._player_is_focused = true
     self._n_frames = 0
 
@@ -872,6 +873,12 @@ local _last_x, _last_y
 
 --- @brief
 function ow.OverworldScene:update(delta)
+    -- wait for stage to finish
+    if self._stage:get_is_initialized() ~= true then
+        self._stage:update(delta)
+        return
+    end
+
     if self._timer_started == true and self._timer_paused ~= true and self._timer_stopped ~= true then
         self._timer = self._timer + delta
         self._n_frames = self._n_frames + 1

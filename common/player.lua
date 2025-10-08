@@ -1469,14 +1469,26 @@ function rt.Player:update(delta)
             local r = self._radius
             local cx, cy = contact_x, contact_y
 
+            -- at high velocities, interpolate
             if last_contact_x ~= nil and last_contact_y ~= nil then
-                local dist = math.distance(contact_x, contact_y, last_contact_x, last_contact_y)
-                r = math.max(dist / 2, self._radius)
-                cx = math.mix(contact_x, last_contact_x, 0.5)
-                cy = math.mix(contact_y, last_contact_y, 0.5)
-            end
+                local lcx, lcy = last_contact_x, last_contact_y
+                local dx = cx - lcx
+                local dy = cy - lcy
+                local distance = math.sqrt(dx * dx + dy * dy)
 
-            self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
+                local step_size = r * 0.5
+                local num_steps = math.max(1, math.ceil(distance / step_size))
+
+                for i = 0, num_steps do
+                    local t = i / num_steps
+                    local interp_x = lcx + dx * t
+                    local interp_y = lcy + dy * t
+
+                    self._stage:get_blood_splatter():add(interp_x, interp_y, r, self._hue, 1)
+                end
+            else
+                self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
+            end
         end
 
         if self._top_left_wall
@@ -2416,11 +2428,14 @@ end
 
 --- @brief
 function rt.Player:clear_forces()
+    if self._world == nil then return end
+
     self._body:set_velocity(0, 0)
     local px, py = self._body:get_position()
     for i, body in ipairs(self._spring_bodies) do
         body:set_velocity(0, 0)
         body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
+        body:set_is_enabled(false)
     end
 
     self._bubble_body:set_velocity(0, 0)
@@ -2428,7 +2443,20 @@ function rt.Player:clear_forces()
     for i, body in ipairs(self._bubble_spring_bodies) do
         body:set_velocity(0, 0)
         body:set_position(px + self._bubble_spring_body_offsets_x[i], py + self._bubble_spring_body_offsets_y[i])
+        body:set_is_enabled(false)
     end
+
+    self._world:signal_connect("step", function(_)
+        for body in values(self._spring_bodies) do
+            body:set_is_enabled(not self._is_bubble)
+        end
+
+        for body in values(self._bubble_spring_bodies) do
+            body:set_is_enabled(self._is_bubble)
+        end
+
+        return meta.DISCONNECT_SIGNAL
+    end)
 
     self._last_velocity_x, self._last_velocity_y = 0, 0
 end

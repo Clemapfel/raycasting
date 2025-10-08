@@ -452,7 +452,6 @@ function ow.Checkpoint:_set_state(state)
 
         player:reset()
         player:set_is_visible(true)
-        player:set_velocity(0, 1000)
         player:disable()
 
     elseif self._state == _STATE_DEFAULT then

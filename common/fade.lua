@@ -135,7 +135,6 @@ function rt.Fade:draw()
     end
 
     if self._queue_emit then
-        love.graphics.present() -- force window update, since emit often lags
         self:signal_emit("hidden")
         self._signal_emitted = true
         self._queue_emit = false

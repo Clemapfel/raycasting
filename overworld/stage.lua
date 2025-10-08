@@ -699,3 +699,13 @@ end
 function ow.Stage:clear_cache()
     _config_atlas = {}
 end
+
+--- @brief
+function ow.Stage:get_is_initialized()
+    return self._is_initialized
+end
+
+--- @brief
+function ow.Stage:get_is_loading_done()
+    return self._signal_done_emitted
+end
