@@ -90,8 +90,15 @@ function ow.NPC:update(delta)
             0.5 * self._eyes_texture:get_height()
         )
 
+        local r = 0.5 * self._eyes_texture:get_width()
+        local line_width = 7
+
         rt.Palette.BLACK:bind()
-        love.graphics.circle("fill", 0, 0, 0.5 * self._eyes_texture:get_width())
+        love.graphics.circle("fill", 0, 0, r - line_width)
+
+        love.graphics.setColor(self._eyes:get_color())
+        love.graphics.setLineWidth(line_width)
+        love.graphics.circle("line", 0, 0, r - line_width)
 
         rt.Palette.TRUE_WHITE:bind()
         self._eyes:draw()

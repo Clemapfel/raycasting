@@ -161,7 +161,7 @@ function ow.PlayerRecorderBody:update(delta)
             n_distance_iterations = settings.n_distance_iterations,
             n_axis_iterations = settings.n_axis_iterations,
             n_bending_iterations = settings.n_bending_iterations,
-            n_inverse_kinematics_iterations = 0,
+            n_inverse_kinematics_iterations = 1,
             inverse_kinematics_intensity = 0.01,
             inertia = settings.inertia,
             delta = delta,
