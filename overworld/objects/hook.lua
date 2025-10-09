@@ -3,7 +3,8 @@ require "common.smoothed_motion_1d"
 rt.settings.overworld.hook = {
     radius_factor = 1.8,
     hook_animation_duration = 3,
-    hook_sound_id = "hook"
+    hook_sound_id = "hook",
+    outline_width = 2
 }
 
 --- @class ow.Hook
@@ -28,8 +29,10 @@ function ow.Hook:instantiate(object, stage, scene)
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
 
     self._scene = scene
+    self._stage = stage
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
     self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.hook.hook_animation_duration)
+    self._hue_motion = rt.SmoothedMotion1D(0, 0.1) -- 0.1 velocity factor
 
     self._world = stage:get_physics_world()
     self._body = b2.Body(
@@ -44,6 +47,7 @@ function ow.Hook:instantiate(object, stage, scene)
     self._hue_step = _current_hue_step
     _current_hue_step = (_current_hue_step % _n_hue_steps) + 1
     self:_update_hue()
+    self._hue_motion:set_value(self._hue_motion:get_target_value())
 
     -- collision
     self._is_hooked = false
@@ -79,13 +83,6 @@ function ow.Hook:instantiate(object, stage, scene)
             if which == rt.InputAction.DOWN then
                 self:_unhook()
             end
-        end
-    end)
-
-    -- TODO
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "p" then
-            _shader:recompile()
         end
     end)
 end
@@ -162,7 +159,6 @@ function ow.Hook:_hook()
     self._motion:set_value(0)
 
     self:_update_hue()
-    player:set_hue(self._hue)
 end
 
 --- @brief
@@ -193,12 +189,16 @@ end
 function ow.Hook:update(delta)
     if not self._stage:get_is_body_visible(self._body) then return end
 
+    self._hue_motion:update(delta)
+
+    local hue = self._hue_motion:get_value()
+    self._color = { rt.lcha_to_rgba(0.8, 1,   hue, 1) }
+
     self._motion:update(delta)
 end
 
 function ow.Hook:_update_hue()
-    self._hue = _hue_steps[self._hue_step]
-    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+    self._hue_motion:set_target_value(_hue_steps[self._hue_step])
     self._hue_step = self._hue_step % _n_hue_steps + 1
 end
 
@@ -211,20 +211,15 @@ function ow.Hook:draw()
     if self._outline == nil then
         self._outline = {}
         for angle = 0, 2 * math.pi, (2 + math.pi) / 32 do
-            table.insert(self._outline, math.cos(angle) * r)
-            table.insert(self._outline, math.sin(angle) * r)
+            table.insert(self._outline, math.cos(angle) * r * 0.95)
+            table.insert(self._outline, math.sin(angle) * r * 0.95)
         end
 
         table.insert(self._outline, self._outline[1])
         table.insert(self._outline, self._outline[2])
     end
-
-    rt.Palette.WHITE:bind()
-    local line_width = 2
-    love.graphics.setLineWidth(2)
     love.graphics.push()
     love.graphics.translate(self._x, self._y)
-    love.graphics.line(self._outline)
 
     local value = self._motion:get_value()
 
@@ -232,10 +227,19 @@ function ow.Hook:draw()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("fraction", rt.InterpolationFunctions.SIGMOID(1 - value))
     _shader:send("player_color", self._color)
-    _shader:send("hue", self._hue)
+    _shader:send("hue", self._hue_motion:get_value())
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
     _shader:unbind()
+
+
+    rt.Palette.BLACK:bind()
+    love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width + 2)
+    love.graphics.line(self._outline)
+
+    love.graphics.setColor(self._color)
+    love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width)
+    love.graphics.line(self._outline)
 
     love.graphics.pop()
 end

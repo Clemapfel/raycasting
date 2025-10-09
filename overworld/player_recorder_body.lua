@@ -18,14 +18,12 @@ local _settings = rt.settings.overworld.player_recorder_body
 local _outline_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 1 })
 
 --- @brief
-function ow.PlayerRecorderBody:instantiate(player_recorder, stage, scene)
+function ow.PlayerRecorderBody:instantiate(stage, scene)
     meta.assert(
-        player_recorder, ow.PlayerRecorder,
         stage, ow.Stage,
         scene, ow.OverworldScene
     )
 
-    self._recorder = player_recorder
     self._stage = stage
     self._scene = scene
 
@@ -73,39 +71,47 @@ function ow.PlayerRecorderBody:initialize(x, y)
         end)
 
         self._ropes = {}
-        self._n_ropes = _settings.rope_n_ropes
-        for rope_i = 1, self._n_ropes do
-            local current_x, current_y = x, y
-            local angle = (rope_i - 1) / self._n_ropes * 2 * math.pi
-            local rope = {
-                current_positions = {},
-                last_positions = {},
-                last_velocities = {},
-                masses = {},
-                anchor_x = math.cos(angle) * self._radius, -- offset
-                anchor_y = math.sin(angle) * self._radius,
-                target_x = 0,
-                target_y = 0,
-                n_segments = _settings.rope_n_segments,
-                length = _settings.rope_length
-            }
+        self._n_ropes = 0
 
-            rope.segment_length = rope.length / rope.n_segments
+        local n_rings = 5
+        for ring_i = 0, 5 do
+            local ring_r = ring_i / n_rings * self._radius
+            local length_weight = math.max(1 - ring_i / n_rings, 0.5)
+            local n_ropes = 2 * math.pi * ring_r / 4
+            for rope_i = 1, n_ropes do
+                local current_x, current_y = x, y
+                local angle = (rope_i - 1) / self._n_ropes * 2 * math.pi
+                local rope = {
+                    current_positions = {},
+                    last_positions = {},
+                    last_velocities = {},
+                    masses = {},
+                    anchor_x = math.cos(angle) * ring_r, -- offset
+                    anchor_y = math.sin(angle) * ring_r,
+                    target_x = 0,
+                    target_y = 0,
+                    n_segments = _settings.rope_n_segments,
+                    length = _settings.rope_length * length_weight
+                }
 
-            for segment_i = 1, _settings.rope_n_segments do
-                table.insert(rope.current_positions, x)
-                table.insert(rope.current_positions, y)
+                rope.segment_length = rope.length / rope.n_segments
 
-                table.insert(rope.last_positions, x)
-                table.insert(rope.last_positions, y)
-                table.insert(rope.last_velocities, 0)
-                table.insert(rope.last_velocities, 0)
-                table.insert(rope.masses,  1) -- TODO: determine easing
+                for segment_i = 1, _settings.rope_n_segments do
+                    table.insert(rope.current_positions, x)
+                    table.insert(rope.current_positions, y)
 
-                current_y = current_y + rope.segment_length * 0.5
+                    table.insert(rope.last_positions, x)
+                    table.insert(rope.last_positions, y)
+                    table.insert(rope.last_velocities, 0)
+                    table.insert(rope.last_velocities, 0)
+                    table.insert(rope.masses,  1) -- TODO: determine easing
+
+                    current_y = current_y + rope.segment_length * 0.5
+                end
+
+                table.insert(self._ropes, rope)
+                self._n_ropes = self._n_ropes + 1
             end
-
-            table.insert(self._ropes, rope)
         end
     else -- body == nil
         self:set_position(x, y)
@@ -139,8 +145,8 @@ function ow.PlayerRecorderBody:update(delta)
     local x, y = self._body:get_position()
     for rope in values(self._ropes) do
         local dx, dy = math.normalize(rope.anchor_x, rope.anchor_y)
-        local length = 45
-        rope.target_x, rope.target_y = x + dx * length, y + dy * length
+        --rope.target_x = x + rt.random.number(-10 * rope.length, 10 * rope.length)
+        --rope.target_y = y + rt.random.number(-10 * rope.length, 10 * rope.length)
     end
 
     require "common.player_body"
@@ -155,7 +161,7 @@ function ow.PlayerRecorderBody:update(delta)
             n_distance_iterations = settings.n_distance_iterations,
             n_axis_iterations = settings.n_axis_iterations,
             n_bending_iterations = settings.n_bending_iterations,
-            n_inverse_kinematics_iterations = 1,
+            n_inverse_kinematics_iterations = 0,
             inverse_kinematics_intensity = 0.01,
             inertia = settings.inertia,
             delta = delta,
@@ -180,10 +186,17 @@ function ow.PlayerRecorderBody:relax()
         motion:set_target_value(_NOT_PRESSED)
     end
 
+    local px, py = self._body:get_position()
     for rope in values(self._ropes) do
-        for i = 1, #rope.current_positions do
-            rope.last_positions[i] = rope.current_positions[i]
-            rope.last_velocities[i] = 0
+        for i = 1, #rope.current_positions, 2 do
+            rope.current_positions[i+0] = px
+            rope.current_positions[i+1] = py
+
+            rope.last_positions[i+0] = px
+            rope.last_positions[i+1] = py
+
+            rope.last_velocities[i+0] = 0
+            rope.last_velocities[i+1] = 0
         end
     end
 end

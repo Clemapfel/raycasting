@@ -9,8 +9,8 @@ rt.settings.overworld.npc = {
     canvas_radius = 150,
     canvas_padding = 20,
     face_backing_factor = 1.2, -- times eye radius
-    radius_factor = 2, -- times player radius
-    blur_strength = 3,
+    radius_factor = 1.5, -- times player radius
+    blur_strength = 4,
 }
 
 --- @class ow.NPC
@@ -91,7 +91,7 @@ function ow.NPC:update(delta)
         )
 
         rt.Palette.BLACK:bind()
-        --love.graphics.circle("fill", 0, 0, 0.5 * self._eyes_texture:get_width())
+        love.graphics.circle("fill", 0, 0, 0.5 * self._eyes_texture:get_width())
 
         rt.Palette.TRUE_WHITE:bind()
         self._eyes:draw()
@@ -130,6 +130,7 @@ function ow.NPC:update(delta)
         rt.Palette.TRUE_WHITE:bind()
         canvas:set_model_transform(self._model_transform)
         self._eye_mesh:draw()
+
         canvas:unbind()
         love.graphics.pop()
 

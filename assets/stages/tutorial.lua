@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 964,
+  nextobjectid = 968,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -7562.61,
-          y = 2248.14,
+          x = -5718.22,
+          y = 2060.44,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5698,6 +5698,72 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 964,
+          name = "",
+          type = "Hook",
+          shape = "point",
+          x = -6934.17,
+          y = 1800.87,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 965,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -5038.54,
+          y = 2117.6,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 0 }
+          }
+        },
+        {
+          id = 966,
+          name = "",
+          type = "MovingHitbox",
+          shape = "polygon",
+          x = -5810.22,
+          y = 2338.44,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 687.067, y = 223.406 },
+            { x = 687.067, y = 376.948 },
+            { x = 811.357, y = 376.948 },
+            { x = 858.669, y = 376.948 },
+            { x = 858.669, y = 223.406 }
+          },
+          properties = {
+            ["target"] = { id = 967 },
+            ["velocity"] = 1000
+          }
+        },
+        {
+          id = 967,
+          name = "",
+          type = "MovingHitboxTarget",
+          shape = "point",
+          x = -5040,
+          y = 2658.86,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 965 }
+          }
         }
       }
     }
