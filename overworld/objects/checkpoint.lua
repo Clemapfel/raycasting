@@ -510,7 +510,7 @@ function ow.Checkpoint:update(delta)
         end
     end
 
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
 

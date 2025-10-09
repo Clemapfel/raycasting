@@ -976,7 +976,7 @@ function rt.PlayerBody:set_relative_velocity(vx, vy)
 end
 
 --- @brief
-function rt.PlayerBody:set_is_squished(b, nx, ny, contact_x, contact_y)
+function rt.PlayerBody:set_is_ducking(b, nx, ny, contact_x, contact_y)
     self._is_squished = b
     self._squish_normal_x = nx
     self._squish_normal_y = ny

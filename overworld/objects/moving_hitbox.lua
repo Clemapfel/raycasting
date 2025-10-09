@@ -26,7 +26,11 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
 
     self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
-    self._body:set_collision_group(rt.settings.player.bounce_collision_group)
+    self._body:set_collision_group(bit.bor(
+        rt.settings.player.bounce_collision_group,
+        rt.settings.overworld.hitbox.collision_group
+    ))
+
     self._body:set_use_continuous_collision(true)
 
     self._elapsed = 0
