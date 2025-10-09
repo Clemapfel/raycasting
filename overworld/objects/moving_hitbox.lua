@@ -82,6 +82,26 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         target = target:get_object("target")
     until target == nil
 
+    do -- proxy bodies used for on camera query
+        self._camera_test_bodies = {}
+        local camera_body_shape = b2.Circle(0, 0, 2)
+        for i = 1, #path, 2 do
+            local x = path[i+0]
+            local y = path[i+1]
+            local body = b2.Body(
+                self._stage:get_physics_world(),
+                b2.BodyType.STATIC,
+                x, y,
+                camera_body_shape
+            )
+
+            body:set_collides_with(0x0)
+            body:set_collision_group(0x0)
+
+            table.insert(self._camera_test_bodies, body)
+        end
+    end
+
     self._should_loop = object:get_boolean("should_loop", false)
     if self._should_loop == nil then self._should_loop = false end
 
@@ -231,95 +251,108 @@ local _front_priority = math.huge
 
 --- @brief
 function ow.MovingHitbox:draw(priority)
-    if not self._stage:get_is_body_visible(self._body) then return end
+    local box_visible = self._stage:get_is_body_visible(self._body)
 
-    if self._mirror ~= nil then
-        self._mirror:set_offset(self._body:get_predicted_position())
-    else
-        self._blood_splatter:set_offset(self._body:get_predicted_position())
+    if box_visible then
+        if self._mirror ~= nil then
+            self._mirror:set_offset(self._body:get_predicted_position())
+        else
+            self._blood_splatter:set_offset(self._body:get_predicted_position())
+        end
     end
 
     if priority == _back_priority then
-
-        self._rail:draw_rail(self._body:get_center_of_mass())
-
-        love.graphics.push()
-        love.graphics.translate(self._body:get_position())
-        love.graphics.rotate(self._body:get_rotation())
-
-        if self._is_slippery then
-            rt.Palette.SLIPPERY:bind()
-        else
-            rt.Palette.STICKY:bind()
-        end
-        self._mesh:draw()
-
-        local camera = self._stage:get_scene():get_camera()
-        local camera_offset_x, camera_offset_y = camera:get_position()
-        camera_offset_x = -camera_offset_x
-        camera_offset_y = -camera_offset_y
-
-        if self._normal_map:get_is_done() then
-            -- set offset to compensate for camera movement, and for translation of
-            -- tris to origin in instantiate
-            self._normal_map:set_offset(camera_offset_x, camera_offset_y)
-            self._normal_map:draw_shadow(camera)
-
-            local point_lights, point_colors = self._stage:get_point_light_sources()
-            local segment_lights, segment_colors = self._stage:get_segment_light_sources()
-            self._normal_map:draw_light(
-                camera,
-                point_lights,
-                point_colors,
-                segment_lights,
-                segment_colors
-            )
+        local rail_visible = box_visible
+        for body in values(self._camera_test_bodies) do
+            if rail_visible then break end
+            if self._stage:get_is_body_visible(body) then
+                rail_visible = true
+            end
         end
 
-        local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-        self._mesh:draw()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-
-        if self._is_slippery then
-            rt.Palette.SLIPPERY_OUTLINE:bind()
-        else
-            rt.Palette.STICKY_OUTLINE:bind()
+        if rail_visible then
+            self._rail:draw_rail(self._body:get_center_of_mass())
         end
 
-        love.graphics.setLineWidth(3)
-        love.graphics.setLineJoin("bevel")
+        if box_visible then
+            love.graphics.push()
+            love.graphics.translate(self._body:get_position())
+            love.graphics.rotate(self._body:get_rotation())
 
-        for tri in values(self._tris) do
-            love.graphics.line({
-                tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-            })
-        end
+            if self._is_slippery then
+                rt.Palette.SLIPPERY:bind()
+            else
+                rt.Palette.STICKY:bind()
+            end
+            self._mesh:draw()
 
-        rt.graphics.set_stencil_mode(nil)
+            local camera = self._stage:get_scene():get_camera()
+            local camera_offset_x, camera_offset_y = camera:get_position()
+            camera_offset_x = -camera_offset_x
+            camera_offset_y = -camera_offset_y
 
-        love.graphics.pop()
+            if self._normal_map:get_is_done() then
+                -- set offset to compensate for camera movement, and for translation of
+                -- tris to origin in instantiate
+                self._normal_map:set_offset(camera_offset_x, camera_offset_y)
+                self._normal_map:draw_shadow(camera)
 
-        if self._mirror ~= nil then
-            self._mirror:draw()
-
-            --[[
-            love.graphics.setColor(1, 1, 1, 1)
-            local offset_x, offset_y = 0, 0
-            for edge in values(self._mirror._edges) do
-                local x1, y1, x2, y2 = table.unpack(edge:getUserData().segment)
-                love.graphics.line(
-                    x1 + offset_x,
-                    y1 + offset_y,
-                    x2 + offset_x,
-                    y2 + offset_y
+                local point_lights, point_colors = self._stage:get_point_light_sources()
+                local segment_lights, segment_colors = self._stage:get_segment_light_sources()
+                self._normal_map:draw_light(
+                    camera,
+                    point_lights,
+                    point_colors,
+                    segment_lights,
+                    segment_colors
                 )
             end
-            ]]--
-        elseif self._blood_splatter ~= nil then
-            self._blood_splatter:draw()
+
+            local stencil_value = rt.graphics.get_stencil_value()
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+            self._mesh:draw()
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+            if self._is_slippery then
+                rt.Palette.SLIPPERY_OUTLINE:bind()
+            else
+                rt.Palette.STICKY_OUTLINE:bind()
+            end
+
+            love.graphics.setLineWidth(3)
+            love.graphics.setLineJoin("bevel")
+
+            for tri in values(self._tris) do
+                love.graphics.line({
+                    tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
+                })
+            end
+
+            rt.graphics.set_stencil_mode(nil)
+
+            love.graphics.pop()
+
+            if self._mirror ~= nil then
+                self._mirror:draw()
+
+                --[[
+                love.graphics.setColor(1, 1, 1, 1)
+                local offset_x, offset_y = 0, 0
+                for edge in values(self._mirror._edges) do
+                    local x1, y1, x2, y2 = table.unpack(edge:getUserData().segment)
+                    love.graphics.line(
+                        x1 + offset_x,
+                        y1 + offset_y,
+                        x2 + offset_x,
+                        y2 + offset_y
+                    )
+                end
+                ]]--
+            elseif self._blood_splatter ~= nil then
+                self._blood_splatter:draw()
+            end
         end
-    elseif priority == _front_priority then
+    elseif priority == _front_priority and box_visible then
         self._rail:draw_attachment(self._body:get_position())
     end
 end
