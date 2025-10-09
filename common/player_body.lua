@@ -31,7 +31,7 @@ rt.settings.player_body = {
         n_distance_iterations = 8,
         n_axis_iterations = 0,
         n_bending_iterations = 0,
-        velocity_damping = 0.15,
+        velocity_damping = 1 - 0.15,
         inertia = 0.8
     },
 
@@ -40,7 +40,7 @@ rt.settings.player_body = {
         n_distance_iterations = 0, -- copies n_bending
         n_axis_iterations = 1,
         n_bending_iterations = 13,
-        velocity_damping = 0.1,
+        velocity_damping = 1 - 0.1,
         inertia = 0
     },
 
@@ -339,6 +339,26 @@ rt.PlayerBody._rope_handler = function(data)
         return a_x, a_y, c_x, c_y
     end
 
+    if data.gravity_x == nil then
+        data.gravity_x = 0
+    end
+
+    if data.gravity_y == nil then
+        data.gravity_y = ternary(data.is_bubble == true, 0, 1)
+    end
+
+    if data.platform_delta_x == nil then
+        data.platform_delta_x = 0
+    end
+
+    if data.platform_delta_y == nil then
+        data.platform_delta_y = 0
+    end
+
+    if data.axis_intensity == nil then
+        data.axis_intensity = 1
+    end
+
     local rope = data.rope
     local positions = rope.current_positions
     local last_positions = rope.last_positions
@@ -512,13 +532,11 @@ function rt.PlayerBody:update(delta)
     local player_grounded = self._player:get_is_grounded()
 
     -- rope sim
-    local gravity_x, gravity_y, velocity_damping
+    local gravity_x, gravity_y
     if self._is_bubble then
         gravity_x, gravity_y = 0, 0
-        velocity_damping = 1 - _settings.bubble.velocity_damping
     else
         gravity_x, gravity_y = 0, 1 * _settings.gravity
-        velocity_damping = 1 - _settings.non_bubble.velocity_damping
     end
 
     local todo = self._is_bubble and _settings.bubble or _settings.non_bubble
@@ -526,9 +544,8 @@ function rt.PlayerBody:update(delta)
     local to_send = {}
 
     for i, rope in ipairs(self._ropes) do
-        self._rope_handler({
+        rt.PlayerBody._rope_handler({
             rope = rope,
-            rope_i = i,
             is_bubble = self._is_bubble,
             n_velocity_iterations = todo.n_velocity_iterations,
             n_distance_iterations = todo.n_distance_iterations,
@@ -539,7 +556,7 @@ function rt.PlayerBody:update(delta)
             gravity_x = gravity_x,
             gravity_y = gravity_y,
             delta = delta,
-            velocity_damping = velocity_damping,
+            velocity_damping = todo.velocity_damping,
             position_x = self._player_x,
             position_y = self._player_y,
             platform_delta_x = self._relative_velocity_x * delta,

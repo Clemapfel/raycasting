@@ -91,7 +91,7 @@ function ow.NPC:update(delta)
         )
 
         rt.Palette.BLACK:bind()
-        love.graphics.circle("fill", 0, 0, 0.5 * self._eyes_texture:get_width())
+        --love.graphics.circle("fill", 0, 0, 0.5 * self._eyes_texture:get_width())
 
         rt.Palette.TRUE_WHITE:bind()
         self._eyes:draw()

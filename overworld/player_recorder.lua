@@ -138,10 +138,12 @@ function ow.PlayerRecorder:update(delta)
             self._body:set_position(x1, y1)
         end
 
-        self._body:set_velocity(
-            (x2 - x1) / delta,
-            (y2 - y1) / delta
-        )
+        if delta > 0 then
+            self._body:set_velocity(
+                (x2 - x1) / delta,
+                (y2 - y1) / delta
+            )
+        end
 
         if t_now >= 1 then
             self._path_elapsed = 0
@@ -149,7 +151,8 @@ function ow.PlayerRecorder:update(delta)
             self._state = _STATE_PLAYBACK
         end
 
-        local i = 7 * math.round(math.mix(0, self._path_n_snapshots - 1, t_now)) + 1
+        local i = 7 * math.floor(math.mix(0, self._path_n_snapshots - 1, t_now)) + 1
+        i = math.min(i, #self._input_data - 7)
 
         self._body:update_input(
             self._input_data[i+0], -- up
@@ -157,7 +160,8 @@ function ow.PlayerRecorder:update(delta)
             self._input_data[i+2], -- down
             self._input_data[i+3], -- left
             self._input_data[i+4], -- sprint
-            self._input_data[i+5]  -- jump
+            self._input_data[i+5], -- jump
+            self._input_data[i+6]  -- is_bubble
         )
         self._body:update(delta)
     end

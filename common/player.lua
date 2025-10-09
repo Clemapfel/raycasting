@@ -2434,7 +2434,7 @@ function rt.Player:clear_forces()
     local px, py = self._body:get_position()
     for i, body in ipairs(self._spring_bodies) do
         body:set_velocity(0, 0)
-        body:set_position(px + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
+        body:set_position(px, py)-- + self._spring_body_offsets_x[i], py + self._spring_body_offsets_y[i])
         body:set_is_enabled(false)
     end
 
@@ -2442,7 +2442,7 @@ function rt.Player:clear_forces()
     px, py = self._bubble_body:get_position()
     for i, body in ipairs(self._bubble_spring_bodies) do
         body:set_velocity(0, 0)
-        body:set_position(px + self._bubble_spring_body_offsets_x[i], py + self._bubble_spring_body_offsets_y[i])
+        body:set_position(px, py)-- + self._bubble_spring_body_offsets_x[i], py + self._bubble_spring_body_offsets_y[i])
         body:set_is_enabled(false)
     end
 

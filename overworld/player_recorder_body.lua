@@ -1,7 +1,10 @@
 require "common.smoothed_motion_1d"
 
 rt.settings.overworld.player_recorder_body = {
-    input_motion_speed = 3
+    rope_n_ropes = 16,
+    rope_n_segments = 16,
+    rope_length = 45,
+    rope_thickness = 3
 }
 
 --- @class ow.PlayerRecorderBody
@@ -9,6 +12,8 @@ ow.PlayerRecorderBody = meta.class("PlayerRecorderBody")
 
 local _NOT_PRESSED = 0
 local _PRESSED = 1
+
+local _settings = rt.settings.overworld.player_recorder_body
 
 --- @brief
 function ow.PlayerRecorderBody:instantiate(player_recorder, stage, scene)
@@ -23,12 +28,10 @@ function ow.PlayerRecorderBody:instantiate(player_recorder, stage, scene)
     self._scene = scene
 
     self._radius = rt.settings.player.radius
-
-    local speed = rt.settings.overworld.player_recorder_body.input_motion_speed
-    self._up_pressed_motion = rt.SmoothedMotion1D(_NOT_PRESSED, speed)
-    self._right_pressed_motion = rt.SmoothedMotion1D(_NOT_PRESSED, speed)
-    self._down_pressed_motion = rt.SmoothedMotion1D(_NOT_PRESSED, speed)
-    self._left_pressed_motion = rt.SmoothedMotion1D(_NOT_PRESSED, speed)
+    self._body = nil
+    self._ropes = {}
+    self._n_ropes = 0
+    self._is_bubble = false
 end
 
 --- @brief
@@ -54,7 +57,41 @@ function ow.PlayerRecorderBody:initialize(x, y)
                 self._stage:get_blood_splatter():add(x1, y1, self._radius, 0, 0)
             end
         end)
-    else
+
+        self._ropes = {}
+        self._n_ropes = _settings.rope_n_ropes
+        for rope_i = 1, self._n_ropes do
+            local current_x, current_y = x, y
+            local angle = (rope_i - 1) / self._n_ropes * 2 * math.pi
+            local rope = {
+                current_positions = {},
+                last_positions = {},
+                last_velocities = {},
+                masses = {},
+                anchor_x = math.cos(angle) * self._radius, -- offset
+                anchor_y = math.sin(angle) * self._radius,
+                n_segments = _settings.rope_n_segments,
+                length = _settings.rope_length
+            }
+
+            rope.segment_length = rope.length / rope.n_segments
+
+            for segment_i = 1, _settings.rope_n_segments do
+                table.insert(rope.current_positions, x)
+                table.insert(rope.current_positions, y)
+
+                table.insert(rope.last_positions, x)
+                table.insert(rope.last_positions, y)
+                table.insert(rope.last_velocities, 0)
+                table.insert(rope.last_velocities, 0)
+                table.insert(rope.masses,  1) -- TODO: determine easing
+
+                current_y = current_y + rope.segment_length * 0.5
+            end
+
+            table.insert(self._ropes, rope)
+        end
+    else -- body == nil
         self:set_position(x, y)
     end
 end
@@ -66,31 +103,10 @@ function ow.PlayerRecorderBody:update_input(
     down_pressed,
     left_pressed,
     sprint_pressed,
-    jump_pressed
+    jump_pressed,
+    is_bubble
 )
-    if up_pressed then
-        self._up_pressed_motion:set_target_value(_PRESSED)
-    else
-        self._up_pressed_motion:set_target_value(_NOT_PRESSED)
-    end
-
-    if right_pressed then
-        self._right_pressed_motion:set_target_value(_PRESSED)
-    else
-        self._right_pressed_motion:set_target_value(_NOT_PRESSED)
-    end
-
-    if down_pressed then
-        self._down_pressed_motion:set_target_value(_PRESSED)
-    else
-        self._down_pressed_motion:set_target_value(_NOT_PRESSED)
-    end
-
-    if left_pressed then
-        self._left_pressed_motion:set_target_value(_PRESSED)
-    else
-        self._left_pressed_motion:set_target_value(_NOT_PRESSED)
-    end
+    self._is_bubble = is_bubble
 end
 
 --- @brief
@@ -103,6 +119,28 @@ function ow.PlayerRecorderBody:update(delta)
     ) do
         to_update:update(delta)
     end
+
+    require "common.player_body"
+
+    -- use rope constraint solver from player
+    local x, y = self._body:get_position()
+    local settings = ternary(self._is_bubble, rt.settings.player_body.bubble, rt.settings.player_body.non_bubble)
+    for rope in values(self._ropes) do
+        rt.PlayerBody._rope_handler({
+            rope = rope,
+            is_bubble = self._is_bubble,
+            n_velocity_iterations = settings.n_velocity_iterations,
+            n_distance_iterations = settings.n_distance_iterations,
+            n_axis_iterations = settings.n_axis_iterations,
+            n_bending_iterations = settings.n_bending_iterations,
+            inertia = settings.inertia,
+            delta = delta,
+            velocity_damping = settings.velocity_damping,
+            position_x = x,
+            position_y = y
+        })
+    end
+
 end
 
 --- @brief
@@ -115,6 +153,13 @@ function ow.PlayerRecorderBody:relax()
     ) do
         motion:set_value(_NOT_PRESSED)
         motion:set_target_value(_NOT_PRESSED)
+    end
+
+    for rope in values(self._ropes) do
+        for i = 1, #rope.current_positions do
+            rope.last_positions[i] = rope.current_positions[i]
+            rope.last_velocities[i] = 0
+        end
     end
 end
 
@@ -160,4 +205,19 @@ function ow.PlayerRecorderBody:draw()
     ]]--
 
     self._body:draw()
+
+    love.graphics.setLineWidth(_settings.rope_thickness)
+    rt.Palette.BLACK:bind()
+    for rope in values(self._ropes) do
+        love.graphics.line(rope.current_positions)
+    end
+
+    for rope in values(self._ropes) do
+        for i = 1, #rope.current_positions, 2 do
+            love.graphics.circle("fill",
+                rope.current_positions[1], rope.current_positions[2],
+                _settings.rope_thickness
+            )
+        end
+    end
 end

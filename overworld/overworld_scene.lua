@@ -572,6 +572,7 @@ function ow.OverworldScene:draw()
     love.graphics.clear(1, 0, 1, 1)
     if self._show_title_card == true and self._fade:get_is_active() or self._fade:get_is_visible() then
         self._background:draw()
+        love.graphics.clear(0.5, 0.5, 0.5, 1)
         self._camera:bind()
         self._stage:draw_below_player()
         self._stage:draw_above_player()
