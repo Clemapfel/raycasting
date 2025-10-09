@@ -4,7 +4,7 @@ rt.settings.overworld.player_recorder_body = {
     rope_n_ropes = 16,
     rope_n_segments = 16,
     rope_length = 45,
-    rope_thickness = 3
+    rope_thickness = 10
 }
 
 --- @class ow.PlayerRecorderBody
@@ -14,6 +14,8 @@ local _NOT_PRESSED = 0
 local _PRESSED = 1
 
 local _settings = rt.settings.overworld.player_recorder_body
+
+local _outline_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 1 })
 
 --- @brief
 function ow.PlayerRecorderBody:instantiate(player_recorder, stage, scene)
@@ -32,6 +34,18 @@ function ow.PlayerRecorderBody:instantiate(player_recorder, stage, scene)
     self._ropes = {}
     self._n_ropes = 0
     self._is_bubble = false
+
+    -- canvases
+    self._canvas_scale = rt.settings.player_body.canvas_scale
+    self._canvas_needs_update = true
+
+    local padding = rt.settings.player_body.canvas_padding
+    local radius = _settings.rope_length + self._radius
+    self._canvas = rt.RenderTexture(
+        self._canvas_scale * (radius + 2 * padding),
+        self._canvas_scale * (radius + 2 * padding),
+    4) -- msaa
+
 end
 
 --- @brief
@@ -70,6 +84,8 @@ function ow.PlayerRecorderBody:initialize(x, y)
                 masses = {},
                 anchor_x = math.cos(angle) * self._radius, -- offset
                 anchor_y = math.sin(angle) * self._radius,
+                target_x = 0,
+                target_y = 0,
                 n_segments = _settings.rope_n_segments,
                 length = _settings.rope_length
             }
@@ -120,10 +136,16 @@ function ow.PlayerRecorderBody:update(delta)
         to_update:update(delta)
     end
 
+    local x, y = self._body:get_position()
+    for rope in values(self._ropes) do
+        local dx, dy = math.normalize(rope.anchor_x, rope.anchor_y)
+        local length = 45
+        rope.target_x, rope.target_y = x + dx * length, y + dy * length
+    end
+
     require "common.player_body"
 
     -- use rope constraint solver from player
-    local x, y = self._body:get_position()
     local settings = ternary(self._is_bubble, rt.settings.player_body.bubble, rt.settings.player_body.non_bubble)
     for rope in values(self._ropes) do
         rt.PlayerBody._rope_handler({
@@ -133,6 +155,8 @@ function ow.PlayerRecorderBody:update(delta)
             n_distance_iterations = settings.n_distance_iterations,
             n_axis_iterations = settings.n_axis_iterations,
             n_bending_iterations = settings.n_bending_iterations,
+            n_inverse_kinematics_iterations = 1,
+            inverse_kinematics_intensity = 0.01,
             inertia = settings.inertia,
             delta = delta,
             velocity_damping = settings.velocity_damping,
@@ -141,6 +165,7 @@ function ow.PlayerRecorderBody:update(delta)
         })
     end
 
+    self._canvas_needs_update = true
 end
 
 --- @brief
@@ -180,6 +205,56 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:draw()
+    local w, h = self._canvas:get_size()
+    local position_x, position_y = self._body:get_position()
+
+    if self._canvas_needs_update then
+        love.graphics.push("all")
+        love.graphics.reset()
+
+        self._canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
+
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(self._canvas_scale, self._canvas_scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
+
+        love.graphics.translate(-position_x, -position_y)
+        love.graphics.translate(0.5 * w, 0.5 * h)
+
+        love.graphics.setColor(0, 0, 0,1)
+        love.graphics.circle("fill", position_x, position_y, 10)
+
+        love.graphics.setLineWidth(_settings.rope_thickness)
+        love.graphics.setLineJoin("none")
+
+        for rope in values(self._ropes) do
+            local rope_i = 0
+            for i = 1, #rope.current_positions, 2 do
+                local v = rope_i / self._n_ropes * 0.2
+                love.graphics.setColor(v, v, v, 1)
+
+                if i < #rope.current_positions - 2 then
+                    local x1, y1, x2, y2 = rope.current_positions[i+0], rope.current_positions[i+1], rope.current_positions[i+2], rope.current_positions[i+3]
+                    love.graphics.line(x1, y1, x2, y2)
+                end
+
+                love.graphics.circle("fill",
+                    rope.current_positions[i+0],
+                    rope.current_positions[i+1],
+                    _settings.rope_thickness
+                )
+
+                rope_i = rope_i + 1
+            end
+        end
+
+        self._body:draw()
+
+        self._canvas:unbind()
+        love.graphics.pop()
+        self._canvas_needs_update = false
+    end
 
     love.graphics.setLineWidth(2)
     love.graphics.setColor(1, 1, 1, 1)
@@ -206,18 +281,21 @@ function ow.PlayerRecorderBody:draw()
 
     self._body:draw()
 
-    love.graphics.setLineWidth(_settings.rope_thickness)
-    rt.Palette.BLACK:bind()
-    for rope in values(self._ropes) do
-        love.graphics.line(rope.current_positions)
-    end
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._canvas:get_native(),
+        position_x, position_y,
+        0,
+        1 / self._canvas_scale, 1 / self._canvas_scale,
+        0.5 * w, 0.5 * h
+    )
 
-    for rope in values(self._ropes) do
-        for i = 1, #rope.current_positions, 2 do
-            love.graphics.circle("fill",
-                rope.current_positions[1], rope.current_positions[2],
-                _settings.rope_thickness
-            )
-        end
-    end
+    _outline_shader:bind()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(self._canvas:get_native(),
+        position_x, position_y,
+        0,
+        1 / self._canvas_scale, 1 / self._canvas_scale,
+        0.5 * w, 0.5 * h
+    )
+    _outline_shader:unbind()
 end

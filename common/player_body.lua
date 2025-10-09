@@ -32,7 +32,9 @@ rt.settings.player_body = {
         n_axis_iterations = 0,
         n_bending_iterations = 0,
         velocity_damping = 1 - 0.15,
-        inertia = 0.8
+        inertia = 0.8,
+        n_inverse_kinematics_iterations = 0,
+        inverse_kinematics_intensity = 0
     },
 
     bubble = {
@@ -41,7 +43,9 @@ rt.settings.player_body = {
         n_axis_iterations = 1,
         n_bending_iterations = 13,
         velocity_damping = 1 - 0.1,
-        inertia = 0
+        inertia = 0,
+        n_inverse_kinematics_iterations = 0,
+        inverse_kinematics_intensity = 0
     },
 
     gravity = 2,
@@ -208,6 +212,8 @@ function rt.PlayerBody:initialize(positions)
                     masses = {},
                     anchor_x = center_x, -- anchor of first node
                     anchor_y = center_y,
+                    target_x = 0, -- inverse kinematics target
+                    target_y = 0,
                     axis_x = axis_x, -- axis constraint
                     axis_y = axis_y,
                     scale = scale, -- metaball scale
@@ -271,74 +277,174 @@ function rt.PlayerBody:relax()
     end
 end
 
+rt.PlayerBody._solve_distance_constraint = function(a_x, a_y, b_x, b_y, rest_length)
+    local current_distance = math.distance(a_x, a_y, b_x, b_y)
+
+    local delta_x = b_x - a_x
+    local delta_y = b_y - a_y
+    local distance_correction = (current_distance - rest_length) / current_distance
+    local correction_x = delta_x * distance_correction
+    local correction_y = delta_y * distance_correction
+
+    local blend = 0.5
+    a_x = a_x + correction_x * blend
+    a_y = a_y + correction_y * blend
+    b_x = b_x - correction_x * blend
+    b_y = b_y - correction_y * blend
+
+    return a_x, a_y, b_x, b_y
+end
+
+rt.PlayerBody._solve_axis_constraint = function(a_x, a_y, b_x, b_y, axis_x, axis_y, intensity)
+    if intensity == nil then intensity = 1 end
+
+    local delta_x = b_x - a_x
+    local delta_y = b_y - a_y
+
+    local dot_product = math.abs(delta_x * axis_x + delta_y * axis_y)
+    local projection_x = dot_product * axis_x
+    local projection_y = dot_product * axis_y
+
+    local correction_x = (projection_x - delta_x)
+    local correction_y = (projection_y - delta_y)
+
+    local blend = math.mix(0, 0.5, intensity)
+    a_x = a_x - correction_x * blend
+    a_y = a_y - correction_y * blend
+    b_x = b_x + correction_x * blend
+    b_y = b_y + correction_y * blend
+
+    return a_x, a_y, b_x, b_y
+end
+
+rt.PlayerBody._solve_bending_constraint = function(a_x, a_y, b_x, b_y, c_x, c_y, stiffness)
+    local ab_x = b_x - a_x
+    local ab_y = b_y - a_y
+    local bc_x = c_x - b_x
+    local bc_y = c_y - b_y
+
+    ab_x, ab_y = math.normalize(ab_x, ab_y)
+    bc_x, bc_y = math.normalize(bc_x, bc_y)
+
+    local target_x = ab_x + bc_x
+    local target_y = ab_y + bc_y
+
+    local correction_x = target_x
+    local correction_y = target_y
+
+    local blend = 0.5 * stiffness
+    a_x = a_x - correction_x * blend
+    a_y = a_y - correction_y * blend
+    c_x = c_x + correction_x * blend
+    c_y = c_y + correction_y * blend
+
+    return a_x, a_y, c_x, c_y
+end
+
+rt.PlayerBody._solve_inverse_kinematics_constraint = function(positions, base_x, base_y, target_x, target_y, segment_length, intensity, max_iterations)
+    if target_x == nil or target_y == nil then return end
+
+    intensity = math.clamp(intensity or 1, 0, 1)
+    max_iterations = max_iterations or 3
+
+    local n_nodes = math.floor(#positions / 2)
+    if n_nodes < 2 or intensity <= 0 then
+        -- Ensure base is anchored
+        if n_nodes >= 1 then
+            positions[1], positions[2] = base_x, base_y
+        end
+        return
+    end
+
+    -- Copy current chain; enforce base at [1]
+    local px, py = {}, {}
+    px[1], py[1] = base_x, base_y
+    for i = 2, n_nodes do
+        local xi = (i - 1) * 2 + 1
+        px[i], py[i] = positions[xi], positions[xi + 1]
+    end
+
+    local total_length = segment_length * (n_nodes - 1)
+    local dist_to_target = math.distance(base_x, base_y, target_x, target_y)
+    local tolerance = segment_length * 0.01  -- 1% of segment length
+    local length_eps = 1e-10
+
+    if dist_to_target >= total_length - tolerance then
+        -- Target unreachable: stretch directly towards target
+        local dir_x, dir_y = target_x - base_x, target_y - base_y
+        local len = math.sqrt(dir_x * dir_x + dir_y * dir_y)
+
+        if len > 1e-10 then
+            dir_x, dir_y = dir_x / len, dir_y / len
+            for i = 1, n_nodes do
+                px[i] = base_x + dir_x * segment_length * (i - 1)
+                py[i] = base_y + dir_y * segment_length * (i - 1)
+            end
+        else
+            -- Degenerate case: maintain current orientation
+            local prev_dx = px[2] - px[1]
+            local prev_dy = py[2] - py[1]
+            local prev_len = math.magnitude(prev_dx, prev_dy)
+
+            if prev_len > length_eps then
+                dir_x, dir_y = prev_dx / prev_len, prev_dy / prev_len
+                for i = 1, n_nodes do
+                    px[i] = base_x + dir_x * segment_length * (i - 1)
+                    py[i] = base_y + dir_y * segment_length * (i - 1)
+                end
+            end
+        end
+    else
+        -- target reachable: iterative FABRIK step
+        local converged = false
+
+        -- forward reaching: start from target
+        px[n_nodes], py[n_nodes] = target_x, target_y
+        for i = n_nodes - 1, 1, -1 do
+            local dx = px[i] - px[i + 1]
+            local dy = py[i] - py[i + 1]
+            local len = math.magnitude(dx, dy)
+
+            if len > length_eps then
+                local scale = segment_length / len
+                px[i] = px[i + 1] + dx * scale
+                py[i] = py[i + 1] + dy * scale
+            end
+        end
+
+        -- backward reaching: restore base position
+        px[1], py[1] = base_x, base_y
+        for i = 1, n_nodes - 1 do
+            local dx = px[i + 1] - px[i]
+            local dy = py[i + 1] - py[i]
+            local len = math.magnitude(dx, dy)
+
+            if len > length_eps then
+                local scale = segment_length / len
+                px[i + 1] = px[i] + dx * scale
+                py[i + 1] = py[i] + dy * scale
+            end
+        end
+
+        -- Check convergence
+        local end_dist = math.distance(px[n_nodes], py[n_nodes], target_x, target_y)
+        if end_dist < tolerance then
+            converged = true
+        end
+    end
+
+    -- Blend IK solution with intensity
+    positions[1], positions[2] = base_x, base_y
+    for i = 2, n_nodes do
+        local xi = (i - 1) * 2 + 1
+        positions[xi]     = math.mix(positions[xi],     px[i], intensity)
+        positions[xi + 1] = math.mix(positions[xi + 1], py[i], intensity)
+    end
+
+    return converged
+end
+
 rt.PlayerBody._rope_handler = function(data)
-    -- keep nodes at fixed distance
-    local function _solve_distance_constraint(a_x, a_y, b_x, b_y, rest_length)
-        local current_distance = math.distance(a_x, a_y, b_x, b_y)
-
-        local delta_x = b_x - a_x
-        local delta_y = b_y - a_y
-        local distance_correction = (current_distance - rest_length) / current_distance
-        local correction_x = delta_x * distance_correction
-        local correction_y = delta_y * distance_correction
-
-        local blend = 0.5
-        a_x = a_x + correction_x * blend
-        a_y = a_y + correction_y * blend
-        b_x = b_x - correction_x * blend
-        b_y = b_y - correction_y * blend
-
-        return a_x, a_y, b_x, b_y
-    end
-
-    -- align nodes with axis
-    local function _solve_axis_constraint(a_x, a_y, b_x, b_y, axis_x, axis_y, intensity)
-        if intensity == nil then intensity = 1 end
-
-        local delta_x = b_x - a_x
-        local delta_y = b_y - a_y
-
-        local dot_product = math.abs(delta_x * axis_x + delta_y * axis_y)
-        local projection_x = dot_product * axis_x
-        local projection_y = dot_product * axis_y
-
-        local correction_x = (projection_x - delta_x)
-        local correction_y = (projection_y - delta_y)
-
-        local blend = math.mix(0, 0.5, intensity)
-        a_x = a_x - correction_x * blend
-        a_y = a_y - correction_y * blend
-        b_x = b_x + correction_x * blend
-        b_y = b_y + correction_y * blend
-
-        return a_x, a_y, b_x, b_y
-    end
-
-    -- align sequence of 3 nodes towards straight line
-    local function _solve_bending_constraint(a_x, a_y, b_x, b_y, c_x, c_y, stiffness)
-        local ab_x = b_x - a_x
-        local ab_y = b_y - a_y
-        local bc_x = c_x - b_x
-        local bc_y = c_y - b_y
-
-        ab_x, ab_y = math.normalize(ab_x, ab_y)
-        bc_x, bc_y = math.normalize(bc_x, bc_y)
-
-        local target_x = ab_x + bc_x
-        local target_y = ab_y + bc_y
-
-        local correction_x = target_x
-        local correction_y = target_y
-
-        local blend = 0.5 * stiffness
-        a_x = a_x - correction_x * blend
-        a_y = a_y - correction_y * blend
-        c_x = c_x + correction_x * blend
-        c_y = c_y + correction_y * blend
-
-        return a_x, a_y, c_x, c_y
-    end
-
     if data.gravity_x == nil then
         data.gravity_x = 0
     end
@@ -357,6 +463,14 @@ rt.PlayerBody._rope_handler = function(data)
 
     if data.axis_intensity == nil then
         data.axis_intensity = 1
+    end
+
+    -- NEW: default IK params
+    if data.n_inverse_kinematics_iterations == nil then
+        data.n_inverse_kinematics_iterations = 0
+    end
+    if data.inverse_kinematics_intensity == nil then
+        data.inverse_kinematics_intensity = 1
     end
 
     local rope = data.rope
@@ -380,6 +494,7 @@ rt.PlayerBody._rope_handler = function(data)
     local n_distance_iterations_done = 0
     local n_velocity_iterations_done = 0
     local n_bending_iterations_done = 0
+    local n_inverse_kinematics_iterations_done = 0
 
     data.n_distance_iterations = data.n_distance_iterations + data.n_bending_iterations
 
@@ -388,6 +503,7 @@ rt.PlayerBody._rope_handler = function(data)
         or (n_distance_iterations_done < data.n_distance_iterations)
         or (n_axis_iterations_done < data.n_axis_iterations)
         or (n_bending_iterations_done < data.n_bending_iterations)
+        or (n_inverse_kinematics_iterations_done < data.n_inverse_kinematics_iterations) -- NEW
     do
         -- verlet integration
         if n_velocity_iterations_done < data.n_velocity_iterations then
@@ -431,7 +547,7 @@ rt.PlayerBody._rope_handler = function(data)
                 local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
                 local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
 
-                local new_x1, new_y1, new_x2, new_y2 = _solve_axis_constraint(
+                local new_x1, new_y1, new_x2, new_y2 = rt.PlayerBody._solve_axis_constraint(
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
                     rope.axis_x, rope.axis_y,
@@ -456,7 +572,7 @@ rt.PlayerBody._rope_handler = function(data)
                 local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
                 local node_3_x, node_3_y = positions[node_3_xi], positions[node_3_yi]
 
-                local new_x1, new_y1, new_x3, new_y3 = _solve_bending_constraint(
+                local new_x1, new_y1, new_x3, new_y3 = rt.PlayerBody._solve_bending_constraint(
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
                     node_3_x, node_3_y,
@@ -474,6 +590,21 @@ rt.PlayerBody._rope_handler = function(data)
             n_bending_iterations_done = n_bending_iterations_done + 1
         end
 
+        -- inverse kinematics
+        if n_inverse_kinematics_iterations_done < data.n_inverse_kinematics_iterations and rope.target_x ~= nil and rope.target_y ~= nil then
+            local base_x = data.position_x + rope.anchor_x
+            local base_y = data.position_y + rope.anchor_y
+            local converged = rt.PlayerBody._solve_inverse_kinematics_constraint(
+                positions,
+                base_x, base_y,
+                rope.target_x, rope.target_y,
+                segment_length,
+                data.inverse_kinematics_intensity
+            )
+            n_inverse_kinematics_iterations_done = n_inverse_kinematics_iterations_done + 1
+            if converged then n_inverse_kinematics_iterations_done = math.huge end
+        end
+
         -- distance
         if n_distance_iterations_done < data.n_distance_iterations then
             local distance_i = 1
@@ -489,7 +620,7 @@ rt.PlayerBody._rope_handler = function(data)
 
                 local rest_length = segment_length
 
-                local new_x1, new_y1, new_x2, new_y2 = _solve_distance_constraint(
+                local new_x1, new_y1, new_x2, new_y2 = rt.PlayerBody._solve_distance_constraint(
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
                     rest_length
@@ -560,13 +691,16 @@ function rt.PlayerBody:update(delta)
             position_x = self._player_x,
             position_y = self._player_y,
             platform_delta_x = self._relative_velocity_x * delta,
-            platform_delta_y = self._relative_velocity_y * delta
+            platform_delta_y = self._relative_velocity_y * delta,
+            n_inverse_kinematics_iterations = todo.n_inverse_kinematics_iterations,
+            inverse_kinematics_intensity = todo.inverse_kinematics_intensity
         })
     end
 
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
 end
+
 
 --- @brief
 function rt.PlayerBody:_apply_squish(factor)
