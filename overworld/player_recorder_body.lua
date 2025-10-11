@@ -2,15 +2,16 @@ require "common.smoothed_motion_1d"
 require "common.matrix"
 
 rt.settings.overworld.player_recorder_body = {
-    edge_length = 5,
-    n_nodes = 200,
+    edge_length = 12,
+    n_rows = 7,
+
     n_distance_iterations = 10,
     n_velocity_iterations = 1,
-    n_bending_iterations = 10,
+    n_bending_iterations = 1,
     n_axis_iterations = 1,
-    axis_intensity = 0.2,
+    axis_intensity = 0.05,
     inertia = 0.0,
-    velocity_damping = 0.8,
+    velocity_damping = 0.6,
     gravity = 10,
 
     n_tentacles = 12,
@@ -48,7 +49,7 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
     self._canvas_needs_update = true
 
     local padding = rt.settings.player_body.canvas_padding
-    local radius = _settings.edge_length + self._radius
+    local radius = _settings.edge_length * _settings.n_rows * 2
     self._canvas = rt.RenderTexture(
         self._canvas_scale * (radius + 2 * padding),
         self._canvas_scale * (radius + 2 * padding),
@@ -73,6 +74,7 @@ local _offset_y = 9
 local _is_anchor = 10
 local _anchor_x = 11
 local _anchor_y = 12
+local _value = 13
 
 --- @brief
 function ow.PlayerRecorderBody:initialize(x, y)
@@ -104,22 +106,31 @@ function ow.PlayerRecorderBody:initialize(x, y)
     end)
 
     -- simulation
-
     self._cloths = {}
 
-    local n_cloths = _settings.n_tentacles
+    local n_rings = 4
+    local n_cloths_per_ring = 4
+    local n_cloths = 12  -- total number of cloths in the spiral
     for cloth_i = 1, n_cloths do
-        local cloth = {}
-        table.insert(self._cloths, cloth)
+        local ring_t = 1 --cloth_i / n_cloths
+        local ring_angle = ring_t * 2 * math.pi
+        local ring_r = _settings.radius
 
-        -- Orientation of this cloth (tentacle)
+        local px = x + math.cos(ring_angle) * ring_r
+        local py = y + math.sin(ring_angle) * ring_r
+
+        local edge_length = _settings.edge_length * math.mix(0.5, 1, ring_t)
+        if edge_length < 2 then goto continue end
+
+        local cloth = {}
+        table.insert(self._cloths, 1, cloth)
+
         local angle = (cloth_i - 1) / n_cloths * 2 * math.pi
         local axis_x = math.cos(angle)
         local axis_y = math.sin(angle)
 
-        local n_rows = 20
+        local n_rows = _settings.n_rows
         local n_columns = 5
-        local edge_length = _settings.edge_length
 
         cloth.nodes = {}       -- Table<Node>, n
         cloth.pairs = {}       -- Table<Node>, 2 * n
@@ -132,12 +143,9 @@ function ow.PlayerRecorderBody:initialize(x, y)
 
         local matrix = rt.Matrix()
 
-        -- Offsets for the whole cloth position
         local x_offset = -0.5 * (n_columns * edge_length)
         local y_offset = 0
-        local px, py = x, y
 
-        -- Node constructor
         local new_node = function(node_x, node_y, offset_x, offset_y)
             return {
                 [_current_position_x] = node_x,
@@ -151,11 +159,12 @@ function ow.PlayerRecorderBody:initialize(x, y)
                 [_offset_y] = offset_y,
                 [_is_anchor] = false,
                 [_anchor_x] = 0,
-                [_anchor_y] = 0
+                [_anchor_y] = 0,
+                [_value] = 0 -- set by solver
             }
         end
 
-        -- Create node grid
+        -- grid
         for row_i = 1, n_rows do
             for col_i = 1, n_columns do
                 local offset_x = (col_i - 1) * edge_length
@@ -169,7 +178,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
             end
         end
 
-        do -- tapering end
+        if false then -- tapering end
             local n = n_columns - 2
             local row_i = n_rows + 1
             local repeat_n = 0
@@ -190,10 +199,9 @@ function ow.PlayerRecorderBody:initialize(x, y)
             end
         end
 
-        -- Get valid index range
         local min_row, min_col, max_row, max_col = matrix:get_index_range()
 
-        -- Mass decreases toward anchors (top rows lighter)
+        -- mass inverse proportional to distance to anchor
         for row_i = min_row, max_row do
             local mass = row_i / (n_rows + 1)
             for col_i = min_col, max_col do
@@ -204,7 +212,11 @@ function ow.PlayerRecorderBody:initialize(x, y)
             end
         end
 
-        -- Build neighbor pairs (distance constraints)
+        local hdistance_easing = function(t)
+            return math.sqrt(1 - t^15)
+        end
+
+        -- pairs for distance constraint
         for row_i = min_row, max_row do
             for col_i = min_col, max_col do
                 local node = matrix:get(row_i, col_i)
@@ -213,9 +225,11 @@ function ow.PlayerRecorderBody:initialize(x, y)
                     if right ~= nil then
                         table.insert(cloth.pairs, node)
                         table.insert(cloth.pairs, right)
-                        table.insert(cloth.edge_lengths, edge_length)
-                        table.insert(cloth.axes, 0)
-                        table.insert(cloth.axes, 0)
+                        table.insert(cloth.edge_lengths, math.max(hdistance_easing(row_i / n_rows) * edge_length, 0.05))
+
+                        local haxis_x, haxis_y = math.turn_left(axis_x, axis_y)
+                        table.insert(cloth.axes, haxis_x)
+                        table.insert(cloth.axes, haxis_y)
                     end
 
                     local bottom = matrix:get(row_i + 1, col_i)
@@ -230,6 +244,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
             end
         end
 
+        -- triplets for bending constraint
         for row_i = min_row, max_row do
             for col_i = min_col, max_col do
                 local col_a = matrix:get(row_i, col_i)
@@ -252,23 +267,21 @@ function ow.PlayerRecorderBody:initialize(x, y)
             end
         end
 
-        -- Anchors (top row)
-        do
-            local r = _settings.radius or 0
+        do -- anchors
             for col_i = min_col, max_col do
                 local node = matrix:get(min_row, col_i)
                 if node then
                     local anchor_angle = (col_i - 1) / n_columns * 2 * math.pi
                     node[_is_anchor] = true
-                    node[_anchor_x] = math.cos(anchor_angle) * r
-                    node[_anchor_y] = math.sin(anchor_angle) * r
+                    node[_anchor_x] = 0 --math.cos(ring_t * 2 * math.pi) * ring_r
+                    node[_anchor_y] = 0 --math.sin(ring_t * 2 * math.pi) * ring_r
                 end
             end
         end
 
         -- mesh
         local mesh_data = {}
-        local triangulation = {} -- table of vertex indices for triangulation, 1-based
+        local triangulation = {}
 
         local add_vertex = function(x, y)
             table.insert(mesh_data, {
@@ -278,14 +291,13 @@ function ow.PlayerRecorderBody:initialize(x, y)
             })
         end
 
-        -- Add vertices for all nodes
         local node_to_vertex_index = {}
         for i, node in ipairs(cloth.nodes) do
             add_vertex(node[_current_position_x], node[_current_position_y])
             node_to_vertex_index[node] = i
         end
 
-        -- Build triangulation by traversing the grid
+        -- triangulation
         for row_i = min_row, max_row - 1 do
             for col_i = min_col, max_col - 1 do
                 local top_left = matrix:get(row_i, col_i)
@@ -293,34 +305,31 @@ function ow.PlayerRecorderBody:initialize(x, y)
                 local bottom_left = matrix:get(row_i + 1, col_i)
                 local bottom_right = matrix:get(row_i + 1, col_i + 1)
 
-                -- Create two triangles for each quad if all four corners exist
+                -- create two triangles for each quad if all four corners exist
                 if top_left and top_right and bottom_left and bottom_right then
-                    -- First triangle: top_left, bottom_left, top_right
                     table.insert(triangulation, node_to_vertex_index[top_left])
                     table.insert(triangulation, node_to_vertex_index[bottom_left])
                     table.insert(triangulation, node_to_vertex_index[top_right])
 
-                    -- Second triangle: top_right, bottom_left, bottom_right
                     table.insert(triangulation, node_to_vertex_index[top_right])
                     table.insert(triangulation, node_to_vertex_index[bottom_left])
                     table.insert(triangulation, node_to_vertex_index[bottom_right])
                 elseif top_left and top_right and bottom_left then
-                    -- Only three corners (tapering): single triangle
                     table.insert(triangulation, node_to_vertex_index[top_left])
                     table.insert(triangulation, node_to_vertex_index[bottom_left])
                     table.insert(triangulation, node_to_vertex_index[top_right])
+
                 elseif top_left and top_right and bottom_right then
-                    -- Only three corners (tapering): single triangle
                     table.insert(triangulation, node_to_vertex_index[top_left])
                     table.insert(triangulation, node_to_vertex_index[top_right])
                     table.insert(triangulation, node_to_vertex_index[bottom_right])
+
                 elseif top_left and bottom_left and bottom_right then
-                    -- Only three corners (tapering): single triangle
                     table.insert(triangulation, node_to_vertex_index[top_left])
                     table.insert(triangulation, node_to_vertex_index[bottom_left])
                     table.insert(triangulation, node_to_vertex_index[bottom_right])
+
                 elseif top_right and bottom_left and bottom_right then
-                    -- Only three corners (tapering): single triangle
                     table.insert(triangulation, node_to_vertex_index[top_right])
                     table.insert(triangulation, node_to_vertex_index[bottom_left])
                     table.insert(triangulation, node_to_vertex_index[bottom_right])
@@ -336,7 +345,9 @@ function ow.PlayerRecorderBody:initialize(x, y)
         )
         cloth.mesh:set_vertex_map(triangulation)
         cloth.mesh_data = mesh_data
-    end
+
+        ::continue::
+    end -- ring_i
 end
 
 ow.PlayerRecorderBody._solve_distance_constraint = function(a_x, a_y, b_x, b_y, rest_length)
@@ -585,6 +596,11 @@ function ow.PlayerRecorderBody:update(delta)
             local data = cloth.mesh_data[node_i]
             data[1] = node[_current_position_x]
             data[2] = node[_current_position_y]
+
+            local value = 1 - node[_value]
+            data[5] = value
+            data[6] = value
+            data[7] = value
         end
 
         cloth.mesh:replace_data(cloth.mesh_data)
@@ -638,9 +654,8 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:draw()
-    --[[
     local w, h = self._canvas:get_size()
-    local position_x, position_y = self._body:get_position()
+    local position_x, position_y = self:get_position()
 
     if self._canvas_needs_update then
         love.graphics.push("all")
@@ -656,34 +671,9 @@ function ow.PlayerRecorderBody:draw()
         love.graphics.translate(-position_x, -position_y)
         love.graphics.translate(0.5 * w, 0.5 * h)
 
-        love.graphics.setColor(0, 0, 0,1)
-        love.graphics.circle("fill", position_x, position_y, 10)
-
-        love.graphics.setLineWidth(_settings.rope_thickness)
-        love.graphics.setLineJoin("none")
-
-        for rope in values(self._ropes) do
-            local rope_i = 0
-            for i = 1, #rope.current_positions, 2 do
-                local v = rope_i / self._n_ropes * 0.2
-                love.graphics.setColor(v, v, v, 1)
-
-                if i < #rope.current_positions - 2 then
-                    local x1, y1, x2, y2 = rope.current_positions[i+0], rope.current_positions[i+1], rope.current_positions[i+2], rope.current_positions[i+3]
-                    love.graphics.line(x1, y1, x2, y2)
-                end
-
-                love.graphics.circle("fill",
-                    rope.current_positions[i+0],
-                    rope.current_positions[i+1],
-                    _settings.rope_thickness
-                )
-
-                rope_i = rope_i + 1
-            end
-        end
-
-        self._body:draw()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.circle("fill", position_x, position_y, 1.5 * _settings.radius)
+        for cloth in values(self._cloths) do cloth.mesh:draw() end
 
         self._canvas:unbind()
         love.graphics.pop()
@@ -697,13 +687,21 @@ function ow.PlayerRecorderBody:draw()
 
     self._body:draw()
 
-    love.graphics.setColor(1, 1, 1, 1)
+    --[[
+    rt.Palette.BLACK:bind()
     love.graphics.draw(self._canvas:get_native(),
         position_x, position_y,
         0,
         1 / self._canvas_scale, 1 / self._canvas_scale,
         0.5 * w, 0.5 * h
     )
+    ]]--
+
+    for i, cloth in ipairs(self._cloths) do
+        love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#self._cloths), 1))
+        cloth.mesh:draw()
+    end
+
 
     _outline_shader:bind()
     love.graphics.setColor(1, 1, 1, 1)
@@ -714,47 +712,6 @@ function ow.PlayerRecorderBody:draw()
         0.5 * w, 0.5 * h
     )
     _outline_shader:unbind()
-    ]]--
-
-    local px, py = self:get_position()
-
-    for cloth in values(self._cloths) do
-        --[[
-        for i = 1, #cloth.pairs, 2 do
-            local node_1 = cloth.pairs[i+0]
-            local node_2 = cloth.pairs[i+1]
-            --love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#cloth.pairs / 2), 1))
-            local axis_x, axis_y = cloth.axes[i+0], cloth.axes[i+1]
-            love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, math.angle(axis_x, axis_y) / (2 * math.pi), 1))
-            love.graphics.line(
-                node_1[_current_position_x],
-                node_1[_current_position_y],
-                node_2[_current_position_x],
-                node_2[_current_position_y]
-            )
-        end
-        ]]--
-
-        cloth.mesh:draw()
-
-        --[[
-        for i = 1, #cloth.triplets, 3 do
-            local node_1 = cloth.triplets[i+0]
-            local node_2 = cloth.triplets[i+1]
-            local node_3 = cloth.triplets[i+2]
-
-            love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#cloth.triplets / 3), 1))
-            love.graphics.line(
-                node_1[_current_position_x],
-                node_1[_current_position_y],
-                node_2[_current_position_x],
-                node_2[_current_position_y],
-                node_3[_current_position_x],
-                node_3[_current_position_y]
-            )
-        end
-        ]]--
-    end
 end
 
 
