@@ -513,12 +513,14 @@ function love.errorhandler(msg)
             love.mouse.setCursor()
         end
     end
+
     if love.joystick then
         -- Stop all joystick vibrations.
         for i,v in ipairs(love.joystick.getJoysticks()) do
             v:setVibration()
         end
     end
+
     if love.audio then love.audio.stop() end
 
     love.graphics.reset()

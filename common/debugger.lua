@@ -1,5 +1,4 @@
 debugger = {}
-
 local _debugger_active, _emmy_debugger = false
 
 --- @brief

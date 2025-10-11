@@ -13,7 +13,7 @@ rt.settings.overworld.player_recorder_body = {
     velocity_damping = 0.8,
     gravity = 10,
 
-    n_tentacles = 6,
+    n_tentacles = 12,
     radius = 10,
 }
 
@@ -67,13 +67,12 @@ local _last_position_x = 3
 local _last_position_y = 4
 local _last_velocity_x = 5
 local _last_velocity_y = 6
-local _id = 7
-local _mass = 8
-local _offset_x = 9
-local _offset_y = 10
-local _is_anchor = 11
-local _anchor_x = 12
-local _anchor_y = 13
+local _mass = 7
+local _offset_x = 8
+local _offset_y = 9
+local _is_anchor = 10
+local _anchor_x = 11
+local _anchor_y = 12
 
 --- @brief
 function ow.PlayerRecorderBody:initialize(x, y)
@@ -105,132 +104,238 @@ function ow.PlayerRecorderBody:initialize(x, y)
     end)
 
     -- simulation
-    
+
     self._cloths = {}
 
-    local n_cloths = 1
+    local n_cloths = _settings.n_tentacles
     for cloth_i = 1, n_cloths do
         local cloth = {}
         table.insert(self._cloths, cloth)
 
+        -- Orientation of this cloth (tentacle)
+        local angle = (cloth_i - 1) / n_cloths * 2 * math.pi
+        local axis_x = math.cos(angle)
+        local axis_y = math.sin(angle)
+
         local n_rows = 20
-        local n_columns = _settings.n_tentacles * 8
+        local n_columns = 5
         local edge_length = _settings.edge_length
 
-        cloth.nodes = {} -- Table<Node>, n
-        cloth.pairs = {} -- Table<Node>, 2 * n
-        cloth.edge_lengths = {} -- Table<Number>, pair_i to length
-        cloth.axes = {} -- Table<Number>, pair_i to axis x, axis y, 0, 0 for skip
-        cloth.triplets = {} -- Table<Node>, 3 * n
+        cloth.nodes = {}       -- Table<Node>, n
+        cloth.pairs = {}       -- Table<Node>, 2 * n
+        cloth.edge_lengths = {}-- Table<Number>, pair_i to length
+        cloth.axes = {}        -- Table<Number>, pair_i to axis x, axis y
+        cloth.triplets = {}    -- Table<Node>, 3 * n
 
+        cloth.mesh_data = {}
+        cloth.mesh = nil
 
-        local dy = 1
-        local dx = -(1 / (n_cloths / 2)) + (cloth_i - 1) * (1 / n_cloths)
         local matrix = rt.Matrix()
 
+        -- Offsets for the whole cloth position
         local x_offset = -0.5 * (n_columns * edge_length)
         local y_offset = 0
-
         local px, py = x, y
 
-        local node_i = 1
+        -- Node constructor
+        local new_node = function(node_x, node_y, offset_x, offset_y)
+            return {
+                [_current_position_x] = node_x,
+                [_current_position_y] = node_y,
+                [_last_position_x] = node_x,
+                [_last_position_y] = node_y,
+                [_last_velocity_x] = 0,
+                [_last_velocity_y] = 0,
+                [_mass] = 1, -- set after
+                [_offset_x] = offset_x,
+                [_offset_y] = offset_y,
+                [_is_anchor] = false,
+                [_anchor_x] = 0,
+                [_anchor_y] = 0
+            }
+        end
+
+        -- Create node grid
         for row_i = 1, n_rows do
             for col_i = 1, n_columns do
-                local offset_x = (row_i - 1) * edge_length + dx * x_offset
-                local offset_y = (col_i - 1) * edge_length + dy * y_offset
-                local node_x = px + offset_x + x_offset
-                local node_y = py + offset_y + y_offset
-                local node = {
-                    [_current_position_x] = node_x,
-                    [_current_position_y] = node_y,
-                    [_last_position_x] = node_x,
-                    [_last_position_y] = node_y,
-                    [_last_velocity_x] = 0,
-                    [_last_velocity_y] = 0,
-                    [_id] = node_i,
-                    [_mass] = 1, -- set after
-                    [_offset_x] = offset_x,
-                    [_offset_y] = offset_y,
-                    [_is_anchor] = false,
-                    [_anchor_x] = 0,
-                    [_anchor_y] = 0
-                }
+                local offset_x = (col_i - 1) * edge_length
+                local offset_y = (row_i - 1) * edge_length
+                local node_x = px + x_offset + offset_x
+                local node_y = py + y_offset + offset_y
 
+                local node = new_node(node_x, node_y, offset_x, offset_y)
                 matrix:set(row_i, col_i, node)
-                cloth.nodes[node_i] = node
-                node_i = node_i + 1
+                table.insert(cloth.nodes, node)
             end
         end
 
-        -- mass is inversely proportionate to anchors
-        for row_i = 1, n_rows do
+        do -- tapering end
+            local n = n_columns - 2
+            local row_i = n_rows + 1
+            local repeat_n = 0
+            while n > 0 do
+                for i = 1, n do
+                    local col_i = (n_columns - n) / 2 + i
+                    local offset_x = (col_i - 1) * edge_length
+                    local offset_y = (row_i - 1) * edge_length
+                    local node_x = px + x_offset + offset_x
+                    local node_y = py + y_offset + offset_y
+
+                    local node = new_node(node_x, node_y, offset_x, offset_y)
+                    matrix:set(row_i, col_i, node)
+                    table.insert(cloth.nodes, node)
+                end
+                row_i = row_i + 1
+                n = n - 2
+            end
+        end
+
+        -- Get valid index range
+        local min_row, min_col, max_row, max_col = matrix:get_index_range()
+
+        -- Mass decreases toward anchors (top rows lighter)
+        for row_i = min_row, max_row do
             local mass = row_i / (n_rows + 1)
-            for col_i = 1, n_columns do
-                if col_i % 2 == 0 then mass = mass * -1 end
-                matrix:get(row_i, col_i)[_mass] = mass
-            end
-        end
-
-        local reject = function(row_i, col_i)
-            return col_i % 4 == 1
-        end
-
-        -- all neighbor pairs, for distance constraint solver
-        for row_i = 1, n_rows do
-            for col_i = 1, n_columns do
-                local t = (col_i - 1) / n_columns
-                if not reject(row_i, col_i) then -- skip every 3rd for gaps in the cloth
-                    local top_i = col_i
-                    local bottom_i = math.wrap(col_i + 1, n_columns)
-                    table.insert(cloth.pairs, matrix:get(row_i, top_i))
-                    table.insert(cloth.pairs, matrix:get(row_i, bottom_i))
-                    table.insert(cloth.edge_lengths, edge_length)
-                    table.insert(cloth.axes, 0)
-                    table.insert(cloth.axes, 0)
-                end
-
-                if row_i < n_rows then
-                    local left_i = row_i
-                    local right_i = math.wrap(row_i + 1, n_rows)
-                    table.insert(cloth.pairs, matrix:get(left_i, col_i))
-                    table.insert(cloth.pairs, matrix:get(right_i, col_i))
-                    table.insert(cloth.edge_lengths, edge_length)
-                    table.insert(cloth.axes, math.cos(t * 2 * math.pi))
-                    table.insert(cloth.axes, math.sin(t * 2 * math.pi))
-
+            for col_i = min_col, max_col do
+                local node = matrix:get(row_i, col_i)
+                if node ~= nil then
+                    node[_mass] = mass
                 end
             end
         end
 
-        -- all neighbor triplets, for bending constraint solver
-        for row_i = 1, n_rows do
-            for col_i = 1, n_columns do
-                if not reject(row_i, col_i) and not reject(row_i, col_i + 1) and col_i < n_columns - 1 then
-                    table.insert(cloth.triplets, matrix:get(row_i, col_i + 0))
-                    table.insert(cloth.triplets, matrix:get(row_i, col_i + 1))
-                    table.insert(cloth.triplets, matrix:get(row_i, col_i + 2))
-                end
+        -- Build neighbor pairs (distance constraints)
+        for row_i = min_row, max_row do
+            for col_i = min_col, max_col do
+                local node = matrix:get(row_i, col_i)
+                if node then
+                    local right = matrix:get(row_i, col_i + 1)
+                    if right ~= nil then
+                        table.insert(cloth.pairs, node)
+                        table.insert(cloth.pairs, right)
+                        table.insert(cloth.edge_lengths, edge_length)
+                        table.insert(cloth.axes, 0)
+                        table.insert(cloth.axes, 0)
+                    end
 
-                if row_i < n_rows - 1 then
-                    table.insert(cloth.triplets, matrix:get(row_i + 0, col_i))
-                    table.insert(cloth.triplets, matrix:get(row_i + 1, col_i))
-                    table.insert(cloth.triplets, matrix:get(row_i + 2, col_i))
+                    local bottom = matrix:get(row_i + 1, col_i)
+                    if bottom ~= nil then
+                        table.insert(cloth.pairs, node)
+                        table.insert(cloth.pairs, bottom)
+                        table.insert(cloth.edge_lengths, edge_length)
+                        table.insert(cloth.axes, axis_x)
+                        table.insert(cloth.axes, axis_y)
+                    end
                 end
             end
         end
 
-        -- anchors
+        for row_i = min_row, max_row do
+            for col_i = min_col, max_col do
+                local col_a = matrix:get(row_i, col_i)
+                local col_b = matrix:get(row_i, col_i + 1)
+                local col_c = matrix:get(row_i, col_i + 2)
+                if col_a and col_b and col_c then
+                    table.insert(cloth.triplets, col_a)
+                    table.insert(cloth.triplets, col_b)
+                    table.insert(cloth.triplets, col_c)
+                end
+
+                local row_a = matrix:get(row_i, col_i)
+                local row_b = matrix:get(row_i + 1, col_i)
+                local row_c = matrix:get(row_i + 2, col_i)
+                if row_a and row_b and row_c then
+                    table.insert(cloth.triplets, row_a)
+                    table.insert(cloth.triplets, row_b)
+                    table.insert(cloth.triplets, row_c)
+                end
+            end
+        end
+
+        -- Anchors (top row)
         do
-            local cx, cy, r = 0, 0, _settings.radius
-            for col_i = 1, n_columns do
-                local node = matrix:get(1, col_i)
-
-                local angle = (col_i - 1) / n_columns * 2 * math.pi
-                node[_is_anchor] = true
-                node[_anchor_x] = math.cos(angle) * r
-                node[_anchor_y] = math.sin(angle) * r
+            local r = _settings.radius or 0
+            for col_i = min_col, max_col do
+                local node = matrix:get(min_row, col_i)
+                if node then
+                    local anchor_angle = (col_i - 1) / n_columns * 2 * math.pi
+                    node[_is_anchor] = true
+                    node[_anchor_x] = math.cos(anchor_angle) * r
+                    node[_anchor_y] = math.sin(anchor_angle) * r
+                end
             end
         end
+
+        -- mesh
+        local mesh_data = {}
+        local triangulation = {} -- table of vertex indices for triangulation, 1-based
+
+        local add_vertex = function(x, y)
+            table.insert(mesh_data, {
+                x, y,
+                1, 1,
+                1, 1, 1, 1
+            })
+        end
+
+        -- Add vertices for all nodes
+        local node_to_vertex_index = {}
+        for i, node in ipairs(cloth.nodes) do
+            add_vertex(node[_current_position_x], node[_current_position_y])
+            node_to_vertex_index[node] = i
+        end
+
+        -- Build triangulation by traversing the grid
+        for row_i = min_row, max_row - 1 do
+            for col_i = min_col, max_col - 1 do
+                local top_left = matrix:get(row_i, col_i)
+                local top_right = matrix:get(row_i, col_i + 1)
+                local bottom_left = matrix:get(row_i + 1, col_i)
+                local bottom_right = matrix:get(row_i + 1, col_i + 1)
+
+                -- Create two triangles for each quad if all four corners exist
+                if top_left and top_right and bottom_left and bottom_right then
+                    -- First triangle: top_left, bottom_left, top_right
+                    table.insert(triangulation, node_to_vertex_index[top_left])
+                    table.insert(triangulation, node_to_vertex_index[bottom_left])
+                    table.insert(triangulation, node_to_vertex_index[top_right])
+
+                    -- Second triangle: top_right, bottom_left, bottom_right
+                    table.insert(triangulation, node_to_vertex_index[top_right])
+                    table.insert(triangulation, node_to_vertex_index[bottom_left])
+                    table.insert(triangulation, node_to_vertex_index[bottom_right])
+                elseif top_left and top_right and bottom_left then
+                    -- Only three corners (tapering): single triangle
+                    table.insert(triangulation, node_to_vertex_index[top_left])
+                    table.insert(triangulation, node_to_vertex_index[bottom_left])
+                    table.insert(triangulation, node_to_vertex_index[top_right])
+                elseif top_left and top_right and bottom_right then
+                    -- Only three corners (tapering): single triangle
+                    table.insert(triangulation, node_to_vertex_index[top_left])
+                    table.insert(triangulation, node_to_vertex_index[top_right])
+                    table.insert(triangulation, node_to_vertex_index[bottom_right])
+                elseif top_left and bottom_left and bottom_right then
+                    -- Only three corners (tapering): single triangle
+                    table.insert(triangulation, node_to_vertex_index[top_left])
+                    table.insert(triangulation, node_to_vertex_index[bottom_left])
+                    table.insert(triangulation, node_to_vertex_index[bottom_right])
+                elseif top_right and bottom_left and bottom_right then
+                    -- Only three corners (tapering): single triangle
+                    table.insert(triangulation, node_to_vertex_index[top_right])
+                    table.insert(triangulation, node_to_vertex_index[bottom_left])
+                    table.insert(triangulation, node_to_vertex_index[bottom_right])
+                end
+            end
+        end
+
+        cloth.mesh = rt.Mesh(
+            mesh_data,
+            rt.MeshDrawMode.TRIANGLES,
+            rt.VertexFormat,
+            rt.GraphicsBufferUsage.STREAM
+        )
+        cloth.mesh:set_vertex_map(triangulation)
+        cloth.mesh_data = mesh_data
     end
 end
 
@@ -388,7 +493,7 @@ ow.PlayerRecorderBody._cloth_handler = function(data)
                 local axis_x = data.axes[pair_i + 0]
                 local axis_y = data.axes[pair_i + 1]
 
-                if axis_x ~= 0 and axis_y ~= 0 then
+                if axis_x ~= 0 or axis_y ~= 0 then
                     local new_x1, new_y1, new_x2, new_y2 = ow.PlayerRecorderBody._solve_axis_constraint(
                         node_1[_current_position_x], node_1[_current_position_y],
                         node_2[_current_position_x], node_2[_current_position_y],
@@ -472,6 +577,17 @@ function ow.PlayerRecorderBody:update(delta)
             position_x = px,
             position_y = py,
         })
+    end
+
+    -- update mesh
+    for cloth in values(self._cloths) do
+        for node_i, node in ipairs(cloth.nodes) do
+            local data = cloth.mesh_data[node_i]
+            data[1] = node[_current_position_x]
+            data[2] = node[_current_position_y]
+        end
+
+        cloth.mesh:replace_data(cloth.mesh_data)
     end
 
     self._canvas_needs_update = true
@@ -603,11 +719,13 @@ function ow.PlayerRecorderBody:draw()
     local px, py = self:get_position()
 
     for cloth in values(self._cloths) do
+        --[[
         for i = 1, #cloth.pairs, 2 do
             local node_1 = cloth.pairs[i+0]
             local node_2 = cloth.pairs[i+1]
             --love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#cloth.pairs / 2), 1))
-            love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, math.angle(cloth.axes[i+0], cloth.axes[i+1]) / (2 * math.pi), 1))
+            local axis_x, axis_y = cloth.axes[i+0], cloth.axes[i+1]
+            love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, math.angle(axis_x, axis_y) / (2 * math.pi), 1))
             love.graphics.line(
                 node_1[_current_position_x],
                 node_1[_current_position_y],
@@ -615,6 +733,9 @@ function ow.PlayerRecorderBody:draw()
                 node_2[_current_position_y]
             )
         end
+        ]]--
+
+        cloth.mesh:draw()
 
         --[[
         for i = 1, #cloth.triplets, 3 do

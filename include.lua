@@ -1,20 +1,5 @@
 require "common.splash_screen" -- splash screen during compilation
 
-if DEBUG then
-    -- debugger
-    debugger = {}
-    local _debugger_active, _emmy_debugger = false
-    function debugger.break_here()
-        if _debugger_active == false then
-            debugger.connect()
-        end
-
-        if _emmy_debugger ~= nil then
-            _emmy_debugger.breakHere()
-        end
-    end
-end
-
 -- standard library extension
 
 ffi = require "ffi"
