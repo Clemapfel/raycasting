@@ -176,7 +176,6 @@ function ow.NPC:draw_bloom()
     love.graphics.push("all")
     love.graphics.reset()
     self._eyes_texture:bind()
-    love.graphics.clear(0, 0, 0, 0)
     love.graphics.translate(
         0.5 * self._eyes_texture:get_width(),
         0.5 * self._eyes_texture:get_height()

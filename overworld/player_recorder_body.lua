@@ -5,13 +5,16 @@ rt.settings.overworld.player_recorder_body = {
     edge_length = 5,
     n_nodes = 200,
     n_distance_iterations = 10,
-    n_velocity_iterations = 3,
-    n_bending_iterations = 3,
-    n_axis_iterations = 0,
+    n_velocity_iterations = 1,
+    n_bending_iterations = 10,
+    n_axis_iterations = 1,
     axis_intensity = 0.2,
-    inertia = 0.3,
+    inertia = 0.0,
     velocity_damping = 0.8,
-    gravity = 4,
+    gravity = 10,
+
+    n_tentacles = 6,
+    radius = 10,
 }
 
 --- @class ow.PlayerRecorderBody
@@ -109,18 +112,17 @@ function ow.PlayerRecorderBody:initialize(x, y)
     for cloth_i = 1, n_cloths do
         local cloth = {}
         table.insert(self._cloths, cloth)
-        
-        local n_rows = 30
-        local n_columns = 4 * 8
+
+        local n_rows = 20
+        local n_columns = _settings.n_tentacles * 8
         local edge_length = _settings.edge_length
 
         cloth.nodes = {} -- Table<Node>, n
         cloth.pairs = {} -- Table<Node>, 2 * n
         cloth.edge_lengths = {} -- Table<Number>, pair_i to length
+        cloth.axes = {} -- Table<Number>, pair_i to axis x, axis y, 0, 0 for skip
         cloth.triplets = {} -- Table<Node>, 3 * n
 
-        cloth.axis_x = math.random(-0.25, 0.25)
-        cloth.axis_y = 1
 
         local dy = 1
         local dx = -(1 / (n_cloths / 2)) + (cloth_i - 1) * (1 / n_cloths)
@@ -169,23 +171,33 @@ function ow.PlayerRecorderBody:initialize(x, y)
             end
         end
 
-        local reject = function(col_i)
-            return col_i % 4 == 0
+        local reject = function(row_i, col_i)
+            return col_i % 4 == 1
         end
 
         -- all neighbor pairs, for distance constraint solver
         for row_i = 1, n_rows do
             for col_i = 1, n_columns do
-                if col_i < n_columns then
-                    table.insert(cloth.pairs, matrix:get(row_i, col_i + 0))
-                    table.insert(cloth.pairs, matrix:get(row_i, col_i + 1))
+                local t = (col_i - 1) / n_columns
+                if not reject(row_i, col_i) then -- skip every 3rd for gaps in the cloth
+                    local top_i = col_i
+                    local bottom_i = math.wrap(col_i + 1, n_columns)
+                    table.insert(cloth.pairs, matrix:get(row_i, top_i))
+                    table.insert(cloth.pairs, matrix:get(row_i, bottom_i))
                     table.insert(cloth.edge_lengths, edge_length)
+                    table.insert(cloth.axes, 0)
+                    table.insert(cloth.axes, 0)
                 end
 
                 if row_i < n_rows then
-                    table.insert(cloth.pairs, matrix:get(row_i + 0, col_i))
-                    table.insert(cloth.pairs, matrix:get(row_i + 1, col_i))
+                    local left_i = row_i
+                    local right_i = math.wrap(row_i + 1, n_rows)
+                    table.insert(cloth.pairs, matrix:get(left_i, col_i))
+                    table.insert(cloth.pairs, matrix:get(right_i, col_i))
                     table.insert(cloth.edge_lengths, edge_length)
+                    table.insert(cloth.axes, math.cos(t * 2 * math.pi))
+                    table.insert(cloth.axes, math.sin(t * 2 * math.pi))
+
                 end
             end
         end
@@ -193,7 +205,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
         -- all neighbor triplets, for bending constraint solver
         for row_i = 1, n_rows do
             for col_i = 1, n_columns do
-                if col_i < n_columns - 1 then
+                if not reject(row_i, col_i) and not reject(row_i, col_i + 1) and col_i < n_columns - 1 then
                     table.insert(cloth.triplets, matrix:get(row_i, col_i + 0))
                     table.insert(cloth.triplets, matrix:get(row_i, col_i + 1))
                     table.insert(cloth.triplets, matrix:get(row_i, col_i + 2))
@@ -209,13 +221,14 @@ function ow.PlayerRecorderBody:initialize(x, y)
 
         -- anchors
         do
-            local anchor_distance = 0.25 * edge_length
-            local cx, cy = 0, 0
+            local cx, cy, r = 0, 0, _settings.radius
             for col_i = 1, n_columns do
                 local node = matrix:get(1, col_i)
+
+                local angle = (col_i - 1) / n_columns * 2 * math.pi
                 node[_is_anchor] = true
-                node[_anchor_x] = (-0.5 * n_columns * anchor_distance) + ((col_i - 1) / n_columns) * (n_columns * anchor_distance)
-                node[_anchor_y] = 0
+                node[_anchor_x] = math.cos(angle) * r
+                node[_anchor_y] = math.sin(angle) * r
             end
         end
     end
@@ -372,18 +385,23 @@ ow.PlayerRecorderBody._cloth_handler = function(data)
                 local node_1 = data.pairs[pair_i + 0]
                 local node_2 = data.pairs[pair_i + 1]
 
-                local new_x1, new_y1, new_x2, new_y2 = ow.PlayerRecorderBody._solve_axis_constraint(
-                    node_1[_current_position_x], node_1[_current_position_y],
-                    node_2[_current_position_x], node_2[_current_position_y],
-                    data.axis_x, data.axis_y, data.axis_intensity
-                )
+                local axis_x = data.axes[pair_i + 0]
+                local axis_y = data.axes[pair_i + 1]
 
-                if node_1[_is_anchor] ~= true then
-                    node_1[_current_position_x], node_1[_current_position_y] = new_x1, new_y1
-                end
+                if axis_x ~= 0 and axis_y ~= 0 then
+                    local new_x1, new_y1, new_x2, new_y2 = ow.PlayerRecorderBody._solve_axis_constraint(
+                        node_1[_current_position_x], node_1[_current_position_y],
+                        node_2[_current_position_x], node_2[_current_position_y],
+                        axis_x, axis_y, data.axis_intensity
+                    )
 
-                if node_2[_is_anchor] ~= true then
-                    node_2[_current_position_x], node_2[_current_position_y] = new_x2, new_y2
+                    if node_1[_is_anchor] ~= true then
+                        node_1[_current_position_x], node_1[_current_position_y] = new_x1, new_y1
+                    end
+
+                    if node_2[_is_anchor] ~= true then
+                        node_2[_current_position_x], node_2[_current_position_y] = new_x2, new_y2
+                    end
                 end
             end
 
@@ -401,7 +419,7 @@ ow.PlayerRecorderBody._cloth_handler = function(data)
                 local a_x, a_y = node_a[_current_position_x], node_a[_current_position_y]
                 local b_x, b_y = node_b[_current_position_x], node_b[_current_position_y]
                 local c_x, c_y = node_c[_current_position_x], node_c[_current_position_y]
-                
+
                 local mass_a, mass_b, mass_c = math.abs(node_a[_mass]), math.abs(node_b[_mass]), math.abs(node_c[_mass])
 
                 -- inverse masses, anchored nodes behave as 1 / mass = 0
@@ -410,7 +428,7 @@ ow.PlayerRecorderBody._cloth_handler = function(data)
                 if node_a[_is_anchor] == true or mass_a == 0 then w_a = 0 end
                 if node_b[_is_anchor] == true or mass_b == 0 then w_b = 0 end
                 if node_c[_is_anchor] == true or mass_c == 0 then w_c = 0 end
-                
+
                 local nx1, ny1, nx2, ny2, nx3, ny3 = ow.PlayerRecorderBody._solve_bending_constraint(
                     a_x, a_y,
                     b_x, b_y,
@@ -440,13 +458,12 @@ function ow.PlayerRecorderBody:update(delta)
             pairs = cloth.pairs,
             triplets = cloth.triplets,
             edge_lengths = cloth.edge_lengths,
+            axes = cloth.axes,
             n_distance_iterations = _settings.n_distance_iterations,
             n_velocity_iterations = _settings.n_velocity_iterations,
             n_bending_iterations = _settings.n_bending_iterations,
             n_axis_iterations = _settings.n_axis_iterations,
             axis_intensity = _settings.axis_intensity,
-            axis_x = cloth.axis_x,
-            axis_y = cloth.axis_y,
             velocity_damping = _settings.velocity_damping,
             inertia = _settings.inertia,
             gravity_x = 0,
@@ -589,7 +606,8 @@ function ow.PlayerRecorderBody:draw()
         for i = 1, #cloth.pairs, 2 do
             local node_1 = cloth.pairs[i+0]
             local node_2 = cloth.pairs[i+1]
-            love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#cloth.pairs / 2), 1))
+            --love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#cloth.pairs / 2), 1))
+            love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, math.angle(cloth.axes[i+0], cloth.axes[i+1]) / (2 * math.pi), 1))
             love.graphics.line(
                 node_1[_current_position_x],
                 node_1[_current_position_y],
@@ -597,6 +615,24 @@ function ow.PlayerRecorderBody:draw()
                 node_2[_current_position_y]
             )
         end
+
+        --[[
+        for i = 1, #cloth.triplets, 3 do
+            local node_1 = cloth.triplets[i+0]
+            local node_2 = cloth.triplets[i+1]
+            local node_3 = cloth.triplets[i+2]
+
+            love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#cloth.triplets / 3), 1))
+            love.graphics.line(
+                node_1[_current_position_x],
+                node_1[_current_position_y],
+                node_2[_current_position_x],
+                node_2[_current_position_y],
+                node_3[_current_position_x],
+                node_3[_current_position_y]
+            )
+        end
+        ]]--
     end
 end
 
