@@ -2,19 +2,20 @@ require "common.smoothed_motion_1d"
 require "common.matrix"
 
 rt.settings.overworld.player_recorder_body = {
-    edge_length = 12,
+    edge_length = 10,
     n_rows = 7,
+    n_columns = 3,
 
-    n_distance_iterations = 10,
+    n_distance_iterations = 1,
     n_velocity_iterations = 1,
-    n_bending_iterations = 1,
+    n_bending_iterations = 0,
     n_axis_iterations = 1,
-    axis_intensity = 0.05,
+    axis_intensity = 0.2,
     inertia = 0.0,
     velocity_damping = 0.6,
     gravity = 10,
 
-    n_tentacles = 12,
+    n_cloths = 16,
     radius = 10,
 }
 
@@ -108,11 +109,9 @@ function ow.PlayerRecorderBody:initialize(x, y)
     -- simulation
     self._cloths = {}
 
-    local n_rings = 4
-    local n_cloths_per_ring = 4
-    local n_cloths = 12  -- total number of cloths in the spiral
+    local n_cloths = _settings.n_cloths  -- total number of cloths in the spiral
     for cloth_i = 1, n_cloths do
-        local ring_t = 1 --cloth_i / n_cloths
+        local ring_t = math.floor(1 * 5) / 5--cloth_i / n_cloths
         local ring_angle = ring_t * 2 * math.pi
         local ring_r = _settings.radius
 
@@ -130,7 +129,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
         local axis_y = math.sin(angle)
 
         local n_rows = _settings.n_rows
-        local n_columns = 5
+        local n_columns = _settings.n_columns
 
         cloth.nodes = {}       -- Table<Node>, n
         cloth.pairs = {}       -- Table<Node>, 2 * n
@@ -213,7 +212,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
         end
 
         local hdistance_easing = function(t)
-            return math.sqrt(1 - t^15)
+            return math.sqrt(1 - t^2)
         end
 
         -- pairs for distance constraint
@@ -672,7 +671,7 @@ function ow.PlayerRecorderBody:draw()
         love.graphics.translate(0.5 * w, 0.5 * h)
 
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.circle("fill", position_x, position_y, 1.5 * _settings.radius)
+        --love.graphics.circle("fill", position_x, position_y, 1.5 * _settings.radius)
         for cloth in values(self._cloths) do cloth.mesh:draw() end
 
         self._canvas:unbind()
@@ -699,6 +698,7 @@ function ow.PlayerRecorderBody:draw()
 
     for i, cloth in ipairs(self._cloths) do
         love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (i - 1) / (#self._cloths), 1))
+        rt.Palette.BLACK:bind()
         cloth.mesh:draw()
     end
 
