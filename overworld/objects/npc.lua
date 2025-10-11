@@ -73,6 +73,9 @@ function ow.NPC:instantiate(object, stage, scene)
         -- blur for manual anti aliasing
         self._blur = rt.Blur(self._3d_texture:get_width(), self._3d_texture:get_height())
         self._blur:set_blur_strength(rt.settings.overworld.npc.blur_strength)
+
+        self._graphics_body = ow.PlayerRecorderBody(self._stage, self._scene)
+        self._graphics_body:initialize(self._x, self._y)
     end
 end
 
@@ -80,6 +83,7 @@ end
 function ow.NPC:update(delta)
     do -- graphics
         self._eyes:update(delta)
+        self._graphics_body:update(delta)
 
         -- update eye texture
         love.graphics.push("all")
@@ -164,6 +168,8 @@ function ow.NPC:draw()
         0.5 * self._3d_texture:get_width(),
         0.5 * self._3d_texture:get_height()
     )
+
+    self._graphics_body:draw()
 end
 
 function ow.NPC:draw_bloom()

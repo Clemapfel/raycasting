@@ -4,7 +4,7 @@ rt.Matrix = meta.class("Matrix")
 --- @brief
 function rt.Matrix:instantiate()
     meta.install(self, {
-        _data = {},
+        _data = {}, -- Table<Table<Any>>, not inline so it can be sparse
         _min_x = 0,
         _min_y = 0,
         _max_x = 0,
@@ -13,7 +13,7 @@ function rt.Matrix:instantiate()
     })
 end
 
---- @return Number|nil
+--- @return Number
 function rt.Matrix:get(x, y)
     if self._data[x] ~= nil and self._data[x][y] ~= nil then
         return self._data[x][y]

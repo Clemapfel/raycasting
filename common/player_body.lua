@@ -278,10 +278,11 @@ function rt.PlayerBody:relax()
 end
 
 rt.PlayerBody._solve_distance_constraint = function(a_x, a_y, b_x, b_y, rest_length)
-    local current_distance = math.distance(a_x, a_y, b_x, b_y)
+    local current_distance = math.max(1, math.distance(a_x, a_y, b_x, b_y))
 
     local delta_x = b_x - a_x
     local delta_y = b_y - a_y
+
     local distance_correction = (current_distance - rest_length) / current_distance
     local correction_x = delta_x * distance_correction
     local correction_y = delta_y * distance_correction
@@ -465,7 +466,6 @@ rt.PlayerBody._rope_handler = function(data)
         data.axis_intensity = 1
     end
 
-    -- NEW: default IK params
     if data.n_inverse_kinematics_iterations == nil then
         data.n_inverse_kinematics_iterations = 0
     end
@@ -565,7 +565,6 @@ rt.PlayerBody._rope_handler = function(data)
 
         -- bending
         if n_bending_iterations_done < data.n_bending_iterations then
-            local distance_i = 1
             for i = 1, #positions - 4, 2 do
                 local node_1_xi, node_1_yi, node_2_xi, node_2_yi, node_3_xi, node_3_yi = i+0, i+1, i+2, i+3, i+4, i+5
                 local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
@@ -576,15 +575,14 @@ rt.PlayerBody._rope_handler = function(data)
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
                     node_3_x, node_3_y,
-                    (1 - i / #positions) -- more bendy the farther away from base
+                    (1 - (i - 1) / (#positions / 2)) -- more bendy the farther away from base
                 )
 
                 positions[node_1_xi] = new_x1
                 positions[node_1_yi] = new_y1
+
                 positions[node_3_xi] = new_x3
                 positions[node_3_yi] = new_y3
-
-                distance_i = distance_i + 1
             end
 
             n_bending_iterations_done = n_bending_iterations_done + 1
