@@ -2,7 +2,7 @@ require "common.smoothed_motion_1d"
 require "common.player_body"
 
 do
-    local radius = rt.settings.player.radius * 1.5
+    local radius = rt.settings.player.radius * 1.2
     rt.settings.overworld.player_recorder_body = {
         radius = radius,
         max_radius = radius * rt.settings.player.bubble_radius_factor,
@@ -41,6 +41,8 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
         node_mesh_radius = _settings.node_mesh_radius
     })
     self._graphics_body:set_world(stage:get_physics_world())
+
+    self._eyes = ow.PlayerRecorderEyes(self._radius * 1.4)
 end
 
 --- @brief
@@ -77,6 +79,8 @@ function ow.PlayerRecorderBody:update(delta)
     if self._body == nil then return end
     self._graphics_body:set_position(self._body:get_predicted_position())
     self._graphics_body:update(delta)
+    self._eyes:update(delta)
+    self._eyes:set_position(self._body:get_predicted_position())
 end
 
 --- @brief
@@ -105,6 +109,7 @@ end
 function ow.PlayerRecorderBody:draw()
     self._graphics_body:draw_body()
     self._graphics_body:draw_core()
+    self._eyes:draw()
 end
 
 --- @brief

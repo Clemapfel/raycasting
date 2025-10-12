@@ -16,6 +16,7 @@ rt.settings.overworld.npc = {
 --- @class ow.NPC
 ow.NPC = meta.class("NPC")
 
+--[[
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
     self._scene = scene
@@ -209,3 +210,5 @@ end
 function ow.NPC:get_render_priority()
     return -1 -- below player
 end
+
+]]--

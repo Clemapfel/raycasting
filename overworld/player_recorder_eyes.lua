@@ -4,6 +4,8 @@ require "common.color"
 require "common.palette"
 require "common.interpolation_functions"
 require "common.smoothed_motion_1d"
+require "common.render_texture"
+require "common.render_texture_3d"
 
 rt.settings.overworld.player_recorder_eyes = {
     blink_duration = 0.2,
@@ -34,6 +36,12 @@ function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
     self._position_y = position_y or 0
     self._elapsed = 0
     self._state = _STATE_IDLE
+
+    -- 3d looking direction
+    self._target_x = self._position_x
+    self._target_y = self._position_y
+
+    self._canvas_needs_update = true
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -73,10 +81,11 @@ function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
     )
     self._blink_progress = 0
 
-    self:_initialize()
+    self:_initialize_eyes()
+    self:_initialize_3d()
 end
 
-function ow.PlayerRecorderEyes:_initialize()
+function ow.PlayerRecorderEyes:_initialize_eyes()
     local ratio = rt.settings.overworld.player_recorder_eyes.aspect_ratio
     local spacing_factor = rt.settings.overworld.player_recorder_eyes.spacing_factor
 
@@ -319,78 +328,182 @@ function ow.PlayerRecorderEyes:_update_deformed_geometry()
     self._current_right_outline = right_outline
 end
 
+--- @brief
+function ow.PlayerRecorderEyes:_initialize_3d()
+    local settings = rt.settings.overworld.player_recorder_eyes
+    local radius = self._radius
+    local padding = 0.1 * self._radius
+
+    -- mesh texture
+    self._eyes_texture = rt.RenderTexture(
+        2 * (radius + padding),
+        2 * (radius + padding),
+        4 -- msaa
+    )
+    self._eyes_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+
+    self._3d_texture = rt.RenderTexture3D(
+        2 * (radius + 2 * padding),
+        2 * (radius + 2 * padding),
+        4
+    )
+    self._3d_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+
+    self._model_transform = rt.Transform()
+    self._view_transform = rt.Transform()
+    self._view_transform:translate(0, 0, -1 * (radius + padding))
+
+    self._center_x, self._center_y, self._center_z = 0, 0, 0
+    self._eye_mesh = rt.MeshPlane(
+        self._center_x, self._center_y, self._center_z,
+        self._eyes_texture:get_width() / 4,
+        self._eyes_texture:get_height() / 4,
+        radius / 7 -- curvature
+    )
+    self._eye_mesh:set_texture(self._eyes_texture)
+
+    self._blur = rt.Blur(self._3d_texture:get_width(), self._3d_texture:get_height())
+    self._blur:set_blur_strength(0)
+
+    self._canvas_needs_update = true
+end
+
 function ow.PlayerRecorderEyes:draw()
-    love.graphics.push()
-    love.graphics.translate(self._position_x, self._position_y)
+    if self._canvas_needs_update then
+        self._canvas_needs_update = false
 
-    -- apply current deformation before drawing
-    self:_update_deformed_geometry()
+        -- draw eyes
+        love.graphics.push("all")
+        love.graphics.reset()
+        self._eyes_texture:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.translate(0.5 * self._eyes_texture:get_width(), 0.5 * self._eyes_texture:get_height())
 
-    local stencil_active = self._blink_progress > 0
-    local stencil_value
+        -- apply current deformation before drawing
+        self:_update_deformed_geometry()
 
-    if stencil_active then
-        stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.push_stencil()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW, rt.StencilReplaceMode.REPLACE)
+        local stencil_active = self._blink_progress > 0
+        local stencil_value
 
-        local visible_fraction = 1 - self._blink_progress
+        if stencil_active then
+            stencil_value = rt.graphics.get_stencil_value()
+            rt.graphics.push_stencil()
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW, rt.StencilReplaceMode.REPLACE)
 
-        -- widen/tall with surprise in stencil as well
-        local s = 1 + 0.35 * self._surprised:get_value()
-        local visible_height = self._eye_y_radius * s * visible_fraction
+            local visible_fraction = 1 - self._blink_progress
 
-        local left_x = -self._eye_x_radius - 0.5 * self._eye_spacing
-        local right_x = self._eye_x_radius + 0.5 * self._eye_spacing
+            -- widen/tall with surprise in stencil as well
+            local s = 1 + 0.35 * self._surprised:get_value()
+            local visible_height = self._eye_y_radius * s * visible_fraction
 
-        love.graphics.ellipse("fill", left_x, self._eye_center_y, self._eye_x_radius * s, visible_height)
-        love.graphics.ellipse("fill", right_x, self._eye_center_y, self._eye_x_radius * s, visible_height)
+            local left_x = -self._eye_x_radius - 0.5 * self._eye_spacing
+            local right_x = self._eye_x_radius + 0.5 * self._eye_spacing
 
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+            love.graphics.ellipse("fill", left_x, self._eye_center_y, self._eye_x_radius * s, visible_height)
+            love.graphics.ellipse("fill", right_x, self._eye_center_y, self._eye_x_radius * s, visible_height)
+
+            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
+        end
+
+        rt.Palette.BLACK:bind()
+        love.graphics.setLineWidth(self._outline_width + 2)
+        love.graphics.line(self._current_left_outline)
+        love.graphics.line(self._current_right_outline)
+
+        love.graphics.setColor(1, 1, 1, 1)
+        _base_shader:bind()
+
+        love.graphics.setColor(self._outline_color)
+        _base_shader:send("hue", self._hue)
+        _base_shader:send("elapsed", self._elapsed)
+        self._base_left:draw()
+        _base_shader:send("elapsed", self._elapsed + math.pi * 100)
+        self._base_right:draw()
+
+        _base_shader:unbind()
+
+        -- scale highlight position with surprise so it stays visually in place
+        local s = 1 - 0.2 * (math.max(self._surprised:get_value(), self._sleepy:get_value()) or 0)
+        local left_cx, cy, right_cx, _ = self:_get_eye_centers()
+        local hl_lx = left_cx + (self._highlight_left_x - left_cx) * s
+        local hl_ly = cy      + (self._highlight_left_y - cy) * s
+        local hl_rx = right_cx + (self._highlight_right_x - right_cx) * s
+        local hl_ry = cy       + (self._highlight_right_y - cy) * s
+
+        love.graphics.setColor(self._highlight_color)
+        self._highlight_mesh:draw(hl_lx, hl_ly)
+        self._highlight_mesh:draw(hl_rx, hl_ry)
+
+        love.graphics.setColor(self._outline_color)
+        love.graphics.setLineWidth(self._outline_width)
+        love.graphics.line(self._current_left_outline)
+        love.graphics.line(self._current_right_outline)
+
+        if stencil_active then
+            rt.graphics.pop_stencil()
+        end
+
+        self._eyes_texture:unbind()
+        love.graphics.pop()
+
+        -- orient eye mesh
+        local target_x, target_y = self._target_x, self._target_y
+        target_x = target_x - self._position_x
+        target_y = target_y - self._position_y
+
+        local target_z = -10
+        local turn_magnitude_x = 10 -- the higher, the less it will react along that axis
+        local turn_magnitude_y = 30
+
+        self._model_transform = rt.Transform()
+        self._model_transform:set_target_to(
+            self._center_x, self._center_y, self._center_z,
+            target_x / turn_magnitude_x,
+            target_y / turn_magnitude_y, -- separate value for y to prevent roll
+            target_z,
+            0, 1, 0 -- up
+        )
+
+        self._model_transform:as_inverse()
+
+        -- update 3d texture
+        love.graphics.push("all")
+        local canvas = self._3d_texture
+        canvas:set_fov(0.2)
+        canvas:set_view_transform(self._view_transform)
+        canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.setMeshCullMode("back")
+
+        love.graphics.setColor(1, 1, 1, 1)
+        canvas:set_model_transform(self._model_transform)
+        self._eye_mesh:draw()
+
+        canvas:unbind()
+        love.graphics.pop()
+
+        -- blur
+        love.graphics.push("all")
+        love.graphics.origin()
+        self._blur:bind()
+        love.graphics.clear(0, 0, 0, 0)
+        canvas:draw(0, 0)
+        self._blur:unbind()
+        love.graphics.pop()
     end
 
-    rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(self._outline_width + 2)
-    love.graphics.line(self._current_left_outline)
-    love.graphics.line(self._current_right_outline)
-
+    local texture = self._3d_texture:get_native()--self._blur:get_texture()
     love.graphics.setColor(1, 1, 1, 1)
-    _base_shader:bind()
-
-    love.graphics.setColor(self._outline_color)
-    _base_shader:send("hue", self._hue)
-    _base_shader:send("elapsed", self._elapsed)
-    self._base_left:draw()
-    _base_shader:send("elapsed", self._elapsed + math.pi * 100)
-    self._base_right:draw()
-
-    _base_shader:unbind()
-
-    -- scale highlight position with surprise so it stays visually in place
-    local s = 1 - 0.2 * (math.max(self._surprised:get_value(), self._sleepy:get_value()) or 0)
-    local left_cx, cy, right_cx, _ = self:_get_eye_centers()
-    local hl_lx = left_cx + (self._highlight_left_x - left_cx) * s
-    local hl_ly = cy      + (self._highlight_left_y - cy) * s
-    local hl_rx = right_cx + (self._highlight_right_x - right_cx) * s
-    local hl_ry = cy       + (self._highlight_right_y - cy) * s
-
-    love.graphics.setColor(self._highlight_color)
-    self._highlight_mesh:draw(hl_lx, hl_ly)
-    self._highlight_mesh:draw(hl_rx, hl_ry)
-
-    love.graphics.setColor(self._outline_color)
-    love.graphics.setLineWidth(self._outline_width)
-    love.graphics.line(self._current_left_outline)
-    love.graphics.line(self._current_right_outline)
-
-    if stencil_active then
-        rt.graphics.pop_stencil()
-    end
-
-    love.graphics.pop()
+    love.graphics.draw(
+        texture,
+        self._position_x, self._position_y,
+        0, 1, 1,
+        0.5 * texture:getWidth(), 0.5 * texture:getHeight()
+    )
 end
 
 function ow.PlayerRecorderEyes:draw_bloom()
+    --[[
     love.graphics.push()
     love.graphics.translate(self._position_x, self._position_y)
 
@@ -430,6 +543,7 @@ function ow.PlayerRecorderEyes:draw_bloom()
     end
 
     love.graphics.pop()
+    ]]--
 end
 
 function ow.PlayerRecorderEyes:update(delta)
@@ -472,17 +586,13 @@ function ow.PlayerRecorderEyes:update(delta)
     ) do
         motion:update(delta)
     end
-end
 
-function ow.PlayerRecorderEyes:set_radius(radius)
-    if self._radius ~= radius then
-        self._radius = radius
-        self:_initialize()
-    end
+    self._canvas_needs_update = true
 end
 
 function ow.PlayerRecorderEyes:set_position(position_x, position_y)
     self._position_x, self._position_y = position_x, position_y
+    self._target_x, self._target_y = position_x, position_y
 end
 
 function ow.PlayerRecorderEyes:get_position()
