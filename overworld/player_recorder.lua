@@ -134,7 +134,7 @@ function ow.PlayerRecorder:update(delta)
 
         -- safety check for numerical error accumulating
         local px, py = self._body:get_position()
-        if math.distance(px, py, x1, y1) > 0.5 * rt.settings.player.radius then
+        if math.distance(px, py, x1, y1) > 0.5 * self._body:get_radius() then
             self._body:set_position(x1, y1)
         end
 

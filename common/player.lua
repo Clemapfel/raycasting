@@ -478,7 +478,6 @@ function rt.Player:update(delta)
                 self._graphics_body:set_shape(positions)
                 self._graphics_body:set_position(center_x, center_y)
                 self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1)))
-                self._graphics_body:set_world(self._world)
                 self._graphics_body:set_is_bubble(self:get_is_bubble())
                 self._graphics_body:update(delta)
             end
@@ -1767,6 +1766,8 @@ function rt.Player:move_to_world(world)
     self:set_is_bubble(is_bubble)
     self:set_is_ghost(self._is_ghost)
     self:set_collision_disabled(self._collision_disabled)
+
+    self._graphics_body:set_world(world)
 
     -- reset history
     self._world:signal_connect("step", function()

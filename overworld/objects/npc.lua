@@ -83,7 +83,7 @@ end
 function ow.NPC:update(delta)
     do -- graphics
         self._eyes:update(delta)
-        self._graphics_body:update(delta)
+        --self._graphics_body:update(delta)
 
         -- update eye texture
         love.graphics.push("all")

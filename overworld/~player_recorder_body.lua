@@ -13,7 +13,7 @@ rt.settings.overworld.player_recorder_body = {
 
     n_cloths = 4,
     edge_length = 10,
-    n_rows = 10,
+    n_rows = 7,
     n_columns = 3,
     radius = 10,
     use_taper = false,
@@ -58,12 +58,6 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
         self._canvas_scale * (radius + 2 * padding),
         self._canvas_scale * (radius + 2 * padding),
         4) -- msaa
-
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then self:relax() end
-    end)
 end
 
 local _current_position_x = 1
@@ -702,7 +696,6 @@ function ow.PlayerRecorderBody:draw()
         rt.Palette.BLACK:bind()
         cloth.mesh:draw()
     end
-
 
     _outline_shader:bind()
     love.graphics.setColor(1, 1, 1, 1)

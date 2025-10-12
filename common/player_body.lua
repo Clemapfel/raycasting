@@ -8,7 +8,6 @@ rt.settings.player_body = {
     default_n_ropes_per_ring = 27,
     default_n_segments_per_rope = 8,
     default_rope_length_radius_factor = 7, -- * player radius
-    default_node_mesh_radius = 10,
 
     -- static params
     node_mesh_alpha = 0.05,
@@ -16,8 +15,9 @@ rt.settings.player_body = {
     node_mesh_bubble_radius = 1,
     bubble_scale_offset = 10,
     non_bubble_scale_offset = 6,
+    node_mesh_radius_factor = 10 / 12.5,
 
-    canvas_padding = 50,
+    canvas_padding_radius_factor = 5,
     canvas_scale = 3,
 
     highlight_brightness = 0.4,
@@ -81,8 +81,7 @@ function rt.PlayerBody:instantiate(config)
         n_rings = _settings.default_n_rings,
         n_ropes_per_ring = _settings.default_n_ropes_per_ring,
         n_segments_per_rope = _settings.default_n_segments_per_rope,
-        rope_length_radius_factor = _settings.default_rope_length_radius_factor,
-        node_mesh_radius = _settings.default_node_mesh_radius
+        rope_length_radius_factor = _settings.default_rope_length_radius_factor
     }) do
         if config[key] == nil then config[key] = default end
     end
@@ -102,8 +101,6 @@ function rt.PlayerBody:instantiate(config)
             self._n_segments_per_rope = value
         elseif key == "rope_length_radius_factor" then
             self._rope_length_radius_factor = value
-        elseif key == "node_mesh_radius" then
-            self._node_mesh_radius = value
         else
             rt.error("In rt.PlayerBody: unrecognized key `" .. key .. "`")
         end
@@ -115,6 +112,7 @@ function rt.PlayerBody:instantiate(config)
         end
     end
 
+    self._node_mesh_radius = _settings.node_mesh_radius_factor * self._radius
     self._core_vertices = {}
     self._ropes = {}
     self._n_ropes = 0
@@ -159,7 +157,7 @@ function rt.PlayerBody:instantiate(config)
     self._canvas_scale = _settings.canvas_scale
 
     do
-        local padding = _settings.canvas_padding
+        local padding = 60
         local r = self._max_radius
         self._body_canvas_a = rt.RenderTexture(self._canvas_scale * (r + 2 * padding), self._canvas_scale * (r + 2 * padding), 4)
         self._body_canvas_b = rt.RenderTexture(self._canvas_scale * (r + 2 * padding), self._canvas_scale * (r + 2 * padding), 4)
@@ -280,8 +278,6 @@ function rt.PlayerBody:initialize()
             self._n_ropes = self._n_ropes + 1
         end
     end
-
-    dbg(self._n_ropes)
 
     self._is_initialized = true
     if self._queue_relax == true then
