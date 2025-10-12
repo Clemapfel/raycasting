@@ -110,7 +110,7 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
     float blend_factor = fract(slice_f);
 
     // Define three hues (as offsets in [0,1)), spaced evenly on the color wheel
-    float offset = 1 / 3.;
+    float offset = 1. / 3.;
     float hue_a = fract(hue + 0 * offset);
     float hue_b = fract(hue + 1 * offset);
     float hue_c = fract(hue + 2 * offset);
@@ -137,13 +137,11 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
         next_hue = hue_c;
     }
 
-    // Smooth blending between slices
-    float blend_width = 0.06; // Controls the width of the blend region (0.0 to 0.5)
+    float blend_width = 0.0; // Controls the width of the blend region (0.0 to 0.5)
     float blend_start = 0.5 - blend_width;
     float blend_end = 0.5 + blend_width;
     float local_blend = (blend_factor - blend_start) / blend_width;
 
-    // --- Assign three hues, cycling per slice ---
     float shine = (sin(distance(uv, vec2(0.5)) * 20 + elapsed + current_hue * 2 * n) + 1) / 2;
     float l = 0.8;
     float c = 1.0;

@@ -4,6 +4,7 @@ require "common.player_body"
 require "common.player_trail"
 require "common.random"
 require "common.palette"
+require "common.smoothed_motion_1d"
 
 local radius = 13.5
 rt.settings.player = {
@@ -103,6 +104,7 @@ rt.settings.player = {
     color_a = 1.0,
     color_b = 0.6,
     hue_cycle_duration = 1,
+    hue_motion_velocity = 4, -- fraction per second
 
     --debug_drawing_enabled = true,
 }
@@ -148,6 +150,8 @@ function rt.Player:instantiate()
         _bubble_radius = player_radius * _settings.bubble_radius_factor,
         _bubble_inner_body_radius = _settings.inner_body_radius * _settings.bubble_inner_radius_scale,
         _bubble_outer_body_radius = (player_radius * _settings.bubble_radius_factor * 2 * math.pi) / _settings.n_outer_bodies / 2,
+
+        _core_radius = player_radius, -- set on world enter
 
         -- geometry detection
         _left_wall = false,
@@ -266,6 +270,8 @@ function rt.Player:instantiate()
 
         _hue = 0,
         _hue_duration = _settings.hue_cycle_duration,
+        _hue_motion_current = 0,
+        _hue_motion_target = 0,
 
         _mass = 1,
         _gravity_direction_x = 0,
@@ -469,15 +475,15 @@ function rt.Player:update(delta)
 
                 for body in values(self._spring_bodies) do
                     local x, y = body:get_predicted_position()
-                    table.insert(positions, x + dx)
-                    table.insert(positions, y + dy)
+                    table.insert(positions, x + dx - center_x) -- body expects local coords
+                    table.insert(positions, y + dy - center_y)
                 end
             end
 
             if self._use_bubble_mesh_delay_n_steps <= 0 then
                 self._graphics_body:set_shape(positions)
                 self._graphics_body:set_position(center_x, center_y)
-                self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1)))
+                self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue_motion_current, 1)))
                 self._graphics_body:set_is_bubble(self:get_is_bubble())
                 self._graphics_body:update(delta)
             end
@@ -488,6 +494,18 @@ function rt.Player:update(delta)
         end
 
         self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
+        self._hue_motion_target = self._hue
+
+        do -- move gradually towards hue target, periodic in [0, 1]
+            local to, from = self._hue_motion_target, self._hue_motion_current
+            local dist = to - from
+            dist = dist + (dist > 0.5 and -1 or (dist < -0.5 and 1 or 0))
+
+            local step = math.min(math.abs(dist), _settings.hue_motion_velocity * delta)
+            if dist < 0 then step = -step end
+
+            self._hue_motion_current = math.fract(from + step)
+        end
     end
 
     -- detect idle
@@ -574,7 +592,7 @@ function rt.Player:update(delta)
     local top_left_dx, top_left_dy = -top_left_ray_length, -top_left_ray_length
     local top_right_dx, top_right_dy = top_right_ray_length, -top_right_ray_length
 
-    local top_x, top_y, top_nx, top_ny, top_wall_body = self._world:query_ray_any(x, y, top_dx, top_dy, mask)
+    local top_x, top_y, top_nx, top_ny, top_wall_body = self._world:query_ray(x, y, top_dx, top_dy, mask)
     local right_x, right_y, right_nx, right_ny, right_wall_body = self._world:query_ray(x, y, right_dx, right_dy, mask)
     local bottom_x, bottom_y, bottom_nx, bottom_ny, bottom_wall_body = self._world:query_ray(x, y, bottom_dx, bottom_dy, mask)
     local left_x, left_y, left_nx, left_ny, left_wall_body = self._world:query_ray(x, y, left_dx, left_dy, mask)
@@ -1412,153 +1430,153 @@ function rt.Player:update(delta)
 
     -- update flow
     if self._stage ~= nil and not self._flow_frozen and not (self._skip_next_flow_update == true) and self._state ~= rt.PlayerState.DISABLED then
-    self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed + delta
+        self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed + delta
 
-    -- compute whether the player was making progress over the last n samples
-    local next_flow_fraction = self._stage:get_flow_fraction()
-    local n = _settings.flow_fraction_history_n
-    local step = 1 / _settings.flow_fraction_sample_frequency
-    while self._flow_fraction_history_elapsed > step do
-    local first_fraction = self._flow_fraction_history[1]
-    local new_fraction = (next_flow_fraction - self._last_flow_fraction) > 0 and 1 or -1
-    table.remove(self._flow_fraction_history, 1)
-    table.insert(self._flow_fraction_history, new_fraction)
-    self._flow_fraction_history_sum = self._flow_fraction_history_sum - first_fraction + new_fraction
+        -- compute whether the player was making progress over the last n samples
+        local next_flow_fraction = self._stage:get_flow_fraction()
+        local n = _settings.flow_fraction_history_n
+        local step = 1 / _settings.flow_fraction_sample_frequency
+        while self._flow_fraction_history_elapsed > step do
+            local first_fraction = self._flow_fraction_history[1]
+            local new_fraction = (next_flow_fraction - self._last_flow_fraction) > 0 and 1 or -1
+            table.remove(self._flow_fraction_history, 1)
+            table.insert(self._flow_fraction_history, new_fraction)
+            self._flow_fraction_history_sum = self._flow_fraction_history_sum - first_fraction + new_fraction
 
-    self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed - step
-    end
+            self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed - step
+        end
 
-    self._last_flow_fraction = next_flow_fraction
+        self._last_flow_fraction = next_flow_fraction
 
-    local fraction_average = self._flow_fraction_history_sum / n
-    local should_increase = fraction_average > 0
+        local fraction_average = self._flow_fraction_history_sum / n
+        local should_increase = fraction_average > 0
 
-    local target_velocity
-    if should_increase then
-    target_velocity = _settings.flow_increase_velocity
-    else
-    target_velocity = -1 * _settings.flow_decrease_velocity
-    end
+        local target_velocity
+        if should_increase then
+            target_velocity = _settings.flow_increase_velocity
+        else
+            target_velocity = -1 * _settings.flow_decrease_velocity
+        end
 
-    local acceleration = (target_velocity - self._flow_velocity)
-    self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
-    self._flow = self._flow + self._flow_velocity * delta
-    self._flow = math.clamp(self._flow, 0, 1)
+        local acceleration = (target_velocity - self._flow_velocity)
+        self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
+        self._flow = self._flow + self._flow_velocity * delta
+        self._flow = math.clamp(self._flow, 0, 1)
     end
 
     if self._skip_next_flow_update == true then
-    self._skip_next_flow_update = false
+        self._skip_next_flow_update = false
     end
 
     -- add blood splatter
     if self._stage ~= nil and not self._is_ghost then
-    local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-    local r = self._radius
-    local cx, cy = contact_x, contact_y
+        local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
+            local r = self._radius
+            local cx, cy = contact_x, contact_y
 
-    -- at high velocities, interpolate
-    if last_contact_x ~= nil and last_contact_y ~= nil then
-    local lcx, lcy = last_contact_x, last_contact_y
-    local dx = cx - lcx
-    local dy = cy - lcy
-    local distance = math.sqrt(dx * dx + dy * dy)
+            -- at high velocities, interpolate
+            if last_contact_x ~= nil and last_contact_y ~= nil then
+                local lcx, lcy = last_contact_x, last_contact_y
+                local dx = cx - lcx
+                local dy = cy - lcy
+                local distance = math.sqrt(dx * dx + dy * dy)
 
-    local step_size = r * 0.5
-    local num_steps = math.max(1, math.ceil(distance / step_size))
+                local step_size = r * 0.5
+                local num_steps = math.max(1, math.ceil(distance / step_size))
 
-    for i = 0, num_steps do
-    local t = i / num_steps
-    local interp_x = lcx + dx * t
-    local interp_y = lcy + dy * t
+                for i = 0, num_steps do
+                    local t = i / num_steps
+                    local interp_x = lcx + dx * t
+                    local interp_y = lcy + dy * t
 
-    self._stage:get_blood_splatter():add(interp_x, interp_y, r, self._hue, 1)
-    end
-    else
-    self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
-    end
-    end
+                    self._stage:get_blood_splatter():add(interp_x, interp_y, r, self._hue, 1)
+                end
+            else
+                self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
+            end
+        end
 
-    if self._top_left_wall
-    and not top_left_wall_body:has_tag("slippery")
-    and not top_left_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(top_left_x, top_left_y, self._last_top_left_x, self._last_top_left_y)
-    end
+        if self._top_left_wall
+            and not top_left_wall_body:has_tag("slippery")
+            and not top_left_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(top_left_x, top_left_y, self._last_top_left_x, self._last_top_left_y)
+        end
 
-    if self._top_wall
-    and not top_wall_body:has_tag("slippery")
-    and not top_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
-    end
+        if self._top_wall
+            and not top_wall_body:has_tag("slippery")
+            and not top_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(top_x, top_y, self._last_top_x, self._last_top_y)
+        end
 
-    if self._top_right_wall
-    and not top_right_wall_body:has_tag("slippery")
-    and not top_right_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(top_right_x, top_right_y, self._last_top_right_x, self._last_top_right_y)
-    end
+        if self._top_right_wall
+            and not top_right_wall_body:has_tag("slippery")
+            and not top_right_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(top_right_x, top_right_y, self._last_top_right_x, self._last_top_right_y)
+        end
 
-    if self._right_wall
-    and not right_wall_body:has_tag("slippery")
-    and not right_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
-    end
+        if self._right_wall
+            and not right_wall_body:has_tag("slippery")
+            and not right_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(right_x, right_y, self._last_right_x, self._last_right_y)
+        end
 
-    if self._bottom_right_wall
-    and not bottom_right_wall_body:has_tag("slippery")
-    and not bottom_right_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(bottom_right_x, bottom_right_y, self._last_bottom_right_x, self._last_bottom_right_y)
-    end
+        if self._bottom_right_wall
+            and not bottom_right_wall_body:has_tag("slippery")
+            and not bottom_right_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(bottom_right_x, bottom_right_y, self._last_bottom_right_x, self._last_bottom_right_y)
+        end
 
-    if self._bottom_wall
-    and not bottom_wall_body:has_tag("slippery")
-    and not bottom_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
-    end
+        if self._bottom_wall
+            and not bottom_wall_body:has_tag("slippery")
+            and not bottom_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(bottom_x, bottom_y, self._last_bottom_x, self._last_bottom_y)
+        end
 
-    if self._bottom_left_wall
-    and not bottom_left_wall_body:has_tag("slippery")
-    and not bottom_left_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(bottom_left_x, bottom_left_y, self._last_bottom_left_x, self._last_bottom_left_y)
-    end
+        if self._bottom_left_wall
+            and not bottom_left_wall_body:has_tag("slippery")
+            and not bottom_left_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(bottom_left_x, bottom_left_y, self._last_bottom_left_x, self._last_bottom_left_y)
+        end
 
-    if self._left_wall
-    and not left_wall_body:has_tag("slippery")
-    and not left_wall_body:has_tag("no_blood")
-    then
-    _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
-    end
+        if self._left_wall
+            and not left_wall_body:has_tag("slippery")
+            and not left_wall_body:has_tag("no_blood")
+        then
+            _add_blood_splatter(left_x, left_y, self._last_left_x, self._last_left_y)
+        end
     end
 
     -- update position history
     do
-    local last_x, last_y = self._position_history[#self._position_history - 1], self._position_history[#self._position_history]
-    local current_x, current_y = self:get_position()
-    local distance = math.distance(current_x, current_y, last_x, last_y)
-    local dx, dy = math.normalize(current_x - last_x, current_y - last_y)
-    local step = _settings.position_history_sample_frequency
-    repeat
-    table.insert(self._position_history, current_x)
-    table.insert(self._position_history, current_y)
-    table.remove(self._position_history, 1)
-    table.remove(self._position_history, 1)
+        local last_x, last_y = self._position_history[#self._position_history - 1], self._position_history[#self._position_history]
+        local current_x, current_y = self:get_position()
+        local distance = math.distance(current_x, current_y, last_x, last_y)
+        local dx, dy = math.normalize(current_x - last_x, current_y - last_y)
+        local step = _settings.position_history_sample_frequency
+        repeat
+            table.insert(self._position_history, current_x)
+            table.insert(self._position_history, current_y)
+            table.remove(self._position_history, 1)
+            table.remove(self._position_history, 1)
 
-    current_x = current_x + dx * step
-    current_y = current_y + dy * step
+            current_x = current_x + dx * step
+            current_y = current_y + dy * step
 
-    distance = distance - step
-    until distance < step;
+            distance = distance - step
+        until distance < step;
     end
 
     if not self._is_bubble then
-    self._last_position_x, self._last_position_y = self._body:get_position()
+        self._last_position_x, self._last_position_y = self._body:get_position()
     else
-    self._last_position_x, self._last_position_y = self._bubble_body:get_position()
+        self._last_position_x, self._last_position_y = self._bubble_body:get_position()
     end
 
     self._last_top_left_x, self._last_top_left_y = top_left_x, top_left_y
@@ -1570,8 +1588,8 @@ function rt.Player:update(delta)
     self._last_bottom_left_x, self._last_bottom_left_y = bottom_left_x, bottom_left_y
     self._last_left_x, self._last_left_y = left_x, left_y
 
-        update_graphics()
-        end
+    update_graphics()
+end
 
 local _signal_id
 
@@ -1665,7 +1683,9 @@ function rt.Player:move_to_world(world)
     self._spring_body_offsets_x = {}
     self._spring_body_offsets_y = {}
 
-    local outer_radius = self._radius - self._outer_body_radius
+    local core_radius = self._radius - self._outer_body_radius
+    self._core_radius = core_radius
+
     local outer_body_shape = b2.Circle(0, 0, self._outer_body_radius)
     local step = (2 * math.pi) / _settings.n_outer_bodies
 
@@ -1684,8 +1704,8 @@ function rt.Player:move_to_world(world)
 
     local mask = bit.bnot(rt.settings.player.player_outer_body_collision_group)
     for angle = 0, 2 * math.pi, step do
-        local offset_x = math.cos(angle) * outer_radius
-        local offset_y = math.sin(angle) * outer_radius
+        local offset_x = math.cos(angle) * core_radius
+        local offset_y = math.sin(angle) * core_radius
         local cx = x + offset_x
         local cy = y + offset_y
 
@@ -1898,6 +1918,11 @@ function rt.Player:get_radius()
 end
 
 --- @brief
+function rt.Player:get_core_radius()
+    return self._core_radius
+end
+
+--- @brief
 function rt.Player:set_jump_allowed(b)
     self._jump_allowed_override = b
 
@@ -2080,6 +2105,7 @@ end
 --- @brief
 function rt.Player:set_hue(value)
     self._hue = math.fract(value)
+    self._hue_motion_target = value
 end
 
 --- @brief

@@ -32,7 +32,6 @@ function ow.Hook:instantiate(object, stage, scene)
     self._stage = stage
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
     self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.hook.hook_animation_duration)
-    self._hue_motion = rt.SmoothedMotion1D(0, 0.1) -- 0.1 velocity factor
 
     self._world = stage:get_physics_world()
     self._body = b2.Body(
@@ -44,10 +43,16 @@ function ow.Hook:instantiate(object, stage, scene)
 
     self._x, self._y = object.x, object.y
 
-    self._hue_step = _current_hue_step
+    self._hue = _current_hue_step
+    self._original_hue = self._hue
     _current_hue_step = (_current_hue_step % _n_hue_steps) + 1
-    self:_update_hue()
-    self._hue_motion:set_value(self._hue_motion:get_target_value())
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+
+    self._stage:signal_connect("respawn", function(_)
+        -- revert hue changes from hooking player
+        self._hue = self._original_hue
+        self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+    end)
 
     -- collision
     self._is_hooked = false
@@ -88,9 +93,17 @@ function ow.Hook:instantiate(object, stage, scene)
 end
 
 --- @brief
+function ow.Hook:update(delta)
+    if not self._is_hooked and not self._stage:get_is_body_visible(self._body) then return end
+    self._motion:update(delta)
+end
+
+--- @brief
 function ow.Hook:_hook()
     if self._is_hooked == true or self._is_blocked then return end
     local player = self._scene:get_player()
+    self._hue = player:get_hue()
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
 
     if player:get_is_bubble() and (
         self._input:get_is_down(rt.InputAction.UP) or
@@ -157,8 +170,6 @@ function ow.Hook:_hook()
 
     self._motion:set_target_value(0)
     self._motion:set_value(0)
-
-    self:_update_hue()
 end
 
 --- @brief
@@ -167,15 +178,21 @@ function ow.Hook:_unhook()
 
     -- hook has to be delay to after box2d collision step
     self._world:signal_connect("step", function(_)
-        self._bubble_hook:destroy()
-        self._bubble_hook = nil
-        self._non_bubble_hook:destroy()
-        self._non_bubble_hook = nil
+        if self._bubble_hook ~= nil then
+            self._bubble_hook:destroy()
+            self._bubble_hook = nil
+        end
+
+        if self._non_bubble_hook ~= nil then
+            self._non_bubble_hook:destroy()
+            self._non_bubble_hook = nil
+        end
+
         self._is_hooked = false
         self._is_blocked = true
 
         if self._jump_callback_id ~= nil then
-            self._scene:get_player():signal_disconnect("jump", self._jump_callback_id)
+            self._scene:get_player():signal_try_disconnect("jump", self._jump_callback_id)
         end
 
         return meta.DISCONNECT_SIGNAL
@@ -183,23 +200,6 @@ function ow.Hook:_unhook()
 
     self._motion:set_target_value(0)
     self._motion:set_value(0)
-end
-
---- @brief
-function ow.Hook:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then return end
-
-    self._hue_motion:update(delta)
-
-    local hue = self._hue_motion:get_value()
-    self._color = { rt.lcha_to_rgba(0.8, 1,   hue, 1) }
-
-    self._motion:update(delta)
-end
-
-function ow.Hook:_update_hue()
-    self._hue_motion:set_target_value(_hue_steps[self._hue_step])
-    self._hue_step = self._hue_step % _n_hue_steps + 1
 end
 
 --- @brief
@@ -227,7 +227,7 @@ function ow.Hook:draw()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("fraction", rt.InterpolationFunctions.SIGMOID(1 - value))
     _shader:send("player_color", self._color)
-    _shader:send("hue", self._hue_motion:get_value())
+    _shader:send("hue", self._hue)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
     _shader:unbind()
