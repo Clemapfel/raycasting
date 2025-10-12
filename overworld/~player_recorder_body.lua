@@ -13,7 +13,7 @@ rt.settings.overworld.player_recorder_body = {
 
     n_cloths = 4,
     edge_length = 10,
-    n_rows = 7,
+    n_rows = 10,
     n_columns = 3,
     radius = 10,
     use_taper = false,

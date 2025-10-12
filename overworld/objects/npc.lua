@@ -157,6 +157,8 @@ end
 
 --- @brief
 function ow.NPC:draw()
+    self._graphics_body:draw()
+
     local scale = rt.settings.overworld.npc.radius_factor * rt.settings.player.radius / self._eyes:get_radius()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(
@@ -168,8 +170,6 @@ function ow.NPC:draw()
         0.5 * self._3d_texture:get_width(),
         0.5 * self._3d_texture:get_height()
     )
-
-    self._graphics_body:draw()
 end
 
 function ow.NPC:draw_bloom()
