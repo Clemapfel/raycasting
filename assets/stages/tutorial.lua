@@ -5588,7 +5588,9 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["radius_factor"] = 2
+          }
         },
         {
           id = 952,
@@ -5704,8 +5706,8 @@ return {
           name = "",
           type = "Hook",
           shape = "point",
-          x = -6934.17,
-          y = 1800.87,
+          x = -7373.23,
+          y = 2184.25,
           width = 0,
           height = 0,
           rotation = 0,

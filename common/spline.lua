@@ -196,3 +196,42 @@ function rt.Spline:get_length()
 
     return self._length
 end
+
+--- @brief Discretizes the spline into a series of points with a target distance between them.
+-- @param step_size The desired distance between consecutive points along the curve.
+-- @return A table of numbers {x1, y1, x2, y2, ...} representing the discretized points.
+function rt.Spline:discretize(step_size)
+    if not step_size or step_size <= 0 then
+        rt.error("In rt.Spline:discretize: step_size must be a positive number")
+        return {}
+    end
+
+    local result = {}
+    local current_t = 0.0
+
+    local start_x, start_y = self:at(0)
+    table.insert(result, start_x)
+    table.insert(result, start_y)
+
+    while current_t < 1.0 do
+        local dx, dy = self:get_derivative_at(current_t)
+        local speed = math.magnitude(dx, dy)
+
+        local delta_t = math.max(step_size / speed, 1e-3)
+        current_t = current_t + delta_t
+
+        if current_t < 1.0 then
+            local next_x, next_y = self:at(current_t)
+            table.insert(result, next_x)
+            table.insert(result, next_y)
+        end
+    end
+
+    local end_x, end_y = self:at(1.0)
+    if math.distance(end_x, end_y, result[#result - 1], result[#result]) > math.eps then
+        table.insert(result, end_x)
+        table.insert(result, end_y)
+    end
+
+    return result
+end

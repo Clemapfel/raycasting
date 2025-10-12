@@ -41,6 +41,7 @@ function ow.Bubble:instantiate(object, stage, scene)
         local px, py = player:get_position()
         local dx, dy = px - self._x, py - self._y
         local restitution = player:bounce(math.normalize(dx, dy))
+        --player:set_hue(self._hue)
 
         self:_pop()
 
@@ -66,6 +67,7 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     local hue = math.fract(_hue / _n_hue_steps)
     _hue = _hue + 1
+    self._hue = hue
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
 
     self._contour = {}

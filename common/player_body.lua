@@ -30,6 +30,7 @@ rt.settings.player_body = {
         n_velocity_iterations = 4,
         n_distance_iterations = 8,
         n_axis_iterations = 0,
+        axis_intensity = 0,
         n_bending_iterations = 0,
         velocity_damping = 1 - 0.15,
         inertia = 0.8,
@@ -38,14 +39,15 @@ rt.settings.player_body = {
     },
 
     bubble = {
-        n_velocity_iterations = 2,
-        n_distance_iterations = 0, -- copies n_bending
-        n_axis_iterations = 1,
-        n_bending_iterations = 13,
-        velocity_damping = 1 - 0.1,
+        n_velocity_iterations = 1,
+        n_distance_iterations = 1,
+        n_axis_iterations = 0,
+        axis_intensity = 0,
+        n_bending_iterations = 0,
+        velocity_damping = 1 - 0.3,
         inertia = 0,
-        n_inverse_kinematics_iterations = 0,
-        inverse_kinematics_intensity = 0
+        n_inverse_kinematics_iterations = 3,
+        inverse_kinematics_intensity = 0.1
     },
 
     gravity = 2,
@@ -123,6 +125,9 @@ function rt.PlayerBody:instantiate(config)
     self._is_initialized = false
     self._queue_relax = false
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))
+    self._body_color = rt.Palette.BLACK
+    self._core_color = rt.Palette.TRUE_WHITE
+    self._opacity = 1
     self._hue = 0
     self._relative_velocity_x = 0
     self._relative_velocity_y = 0
@@ -200,7 +205,6 @@ function rt.PlayerBody:set_shape(positions)
     self._core_vertices = positions
     table.insert(self._core_vertices, self._core_vertices[1])
     table.insert(self._core_vertices, self._core_vertices[2])
-
 end
 
 --- @brief
@@ -210,7 +214,6 @@ function rt.PlayerBody:initialize()
     local n_rings = self._n_rings
     local n_ropes_per_ring = self._n_ropes_per_ring
     local n_segments = self._n_segments_per_rope
-    local bubble_rope_length = (self._max_radius) - 2.5 * self._node_mesh_radius
 
     local ring_to_ring_radius = function(ring_i)
         return ((ring_i - 1) / n_rings) * self._radius
@@ -218,7 +221,7 @@ function rt.PlayerBody:initialize()
 
     local ring_to_n_ropes = function(ring_i)
         local t = ring_i / (n_rings + 1)
-        return math.max(t * self._n_ropes_per_ring, 3)
+        return math.ceil(t * self._n_ropes_per_ring)
     end
 
     local mass_easing = function(t)
@@ -228,6 +231,8 @@ function rt.PlayerBody:initialize()
 
     -- init ropes
     local max_rope_length = self._rope_length_radius_factor * self._radius
+    local bubble_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius / 2
+
     for ring = 1, n_rings do
         local ring_radius = ring_to_ring_radius(ring)
         local current_n_ropes = ring_to_n_ropes(ring)
@@ -238,7 +243,7 @@ function rt.PlayerBody:initialize()
             local axis_x, axis_y = math.cos(angle), math.sin(angle)
             local center_x = axis_x * ring_radius
             local center_y = axis_y * ring_radius
-            local scale = ring / n_rings
+            local scale = ring / (n_rings)
 
             local rope_length = (1 - scale) * max_rope_length
 
@@ -263,6 +268,10 @@ function rt.PlayerBody:initialize()
             center_x = center_x + self._position_x
             center_y = center_y + self._position_y
             local dx, dy = math.normalize(rope.anchor_x - self._position_x, rope.anchor_y - self._position_y)
+
+            local overreach = 2 -- px
+            rope.target_x = rope.anchor_x + (bubble_rope_length + overreach) * rope.axis_x
+            rope.target_y = rope.anchor_y + (bubble_rope_length + overreach) * rope.axis_y
 
             for segment_i = 1, n_segments do
                 table.insert(rope.current_positions, center_x)
@@ -628,10 +637,12 @@ rt.PlayerBody._rope_handler = function(data)
         if n_inverse_kinematics_iterations_done < data.n_inverse_kinematics_iterations and rope.target_x ~= nil and rope.target_y ~= nil then
             local base_x = data.position_x + rope.anchor_x
             local base_y = data.position_y + rope.anchor_y
+            local target_x = data.position_x + rope.target_x
+            local target_y = data.position_y + rope.target_y
             local converged = rt.PlayerBody._solve_inverse_kinematics_constraint(
                 positions,
                 base_x, base_y,
-                rope.target_x, rope.target_y,
+                target_x, target_y,
                 segment_length,
                 data.inverse_kinematics_intensity
             )
@@ -681,6 +692,24 @@ function rt.PlayerBody:set_color(color)
 end
 
 --- @brief
+function rt.PlayerBody:set_body_color(color)
+    meta.assert(color, "RGBA")
+    self._body_color = color
+end
+
+--- @brief
+function rt.PlayerBody:set_core_color(color)
+    meta.assert(color, "RGBA")
+    self._core_color = color
+end
+
+--- @brief
+function rt.PlayerBody:set_opacity(opacity)
+    meta.assert(opacity, "Number")
+    self._opacity = opacity
+end
+
+--- @brief
 function rt.PlayerBody:set_world(physics_world)
     if physics_world ~= nil then
         meta.assert(physics_world, b2.World)
@@ -719,7 +748,7 @@ function rt.PlayerBody:update(delta)
     if self._is_bubble then
         gravity_x, gravity_y = 0, 0
     else
-        gravity_x, gravity_y = 0, 1 * _settings.gravity
+        gravity_x, gravity_y = self._gravity_x or 0, self._gravity_y or 1 * _settings.gravity
     end
 
     local todo = self._is_bubble and _settings.bubble or _settings.non_bubble
@@ -731,7 +760,7 @@ function rt.PlayerBody:update(delta)
             n_velocity_iterations = todo.n_velocity_iterations,
             n_distance_iterations = todo.n_distance_iterations,
             n_axis_iterations = todo.n_axis_iterations,
-            axis_intensity = 1,
+            axis_intensity = todo.axis_intensity,
             n_bending_iterations = todo.n_bending_iterations,
             inertia = todo.inertia,
             gravity_x = gravity_x,
@@ -753,6 +782,8 @@ end
 
 --- @brief
 function rt.PlayerBody:_apply_squish(factor)
+    if self._is_squished == false then return end
+
     local squish_amount = self._squish_motion:get_value()
     if squish_amount < 0.01 then return end -- skip
 
@@ -773,15 +804,11 @@ function rt.PlayerBody:_apply_squish(factor)
     love.graphics.translate(-squish_origin_x, -squish_origin_y)
 end
 
--- Rest of the code remains unchanged (draw_body, draw_core, draw_bloom, set_relative_velocity methods)
-local _black_r, _black_g, _black_b = rt.Palette.BLACK:unpack()
-
 --- @brief
 function rt.PlayerBody:draw_body()
     if self._is_initialized ~= true then return end
 
     local w, h = self._body_canvas_a:get_size()
-    local opacity = self._color.a
 
     if self._body_canvas_needs_update then
         self._body_canvas_needs_update = false
@@ -816,7 +843,7 @@ function rt.PlayerBody:draw_body()
         -- function to thin out only very last part of tail
         local easing = function(t)
             -- f\left(x\right)=\left(0.045\cdot e^{\ln\left(\frac{1}{0.045}+1\right)x}-0.045\right)^{b}
-            local buldge = 2.5 -- the higher, the closer to f(x) = x easing
+            local buldge = 4--2.5 -- the higher, the closer to f(x) = x easing
             t = t * 0.8
             local v = (0.045 * math.exp(math.log(1 / 0.045 + 1) * t) - 0.045) ^ buldge
             return 1 - math.clamp(v, 0, 1)
@@ -838,6 +865,10 @@ function rt.PlayerBody:draw_body()
 
                 segment_i = segment_i + 1
             end
+        end
+
+        if self._is_bubble then
+            love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
         end
 
         rt.graphics.set_blend_mode(nil)
@@ -869,37 +900,48 @@ function rt.PlayerBody:draw_body()
         love.graphics.pop("all")
     end
 
-    love.graphics.setShader(nil)
-    love.graphics.setColor(_black_r, _black_g, _black_b, opacity)
-    love.graphics.draw(
-        self._body_canvas_b:get_native(),
-        self._position_x,
-        self._position_y,
-        0,
-        1 / self._canvas_scale,
-        1 / self._canvas_scale,
-        0.5 * w,
-        0.5 * h
-    )
+    love.graphics.push("all")
+    love.graphics.setBlendMode("alpha", "premultiplied")
 
-    love.graphics.setColor(self._color:unpack())
-    love.graphics.draw(
-        self._body_canvas_a:get_native(),
-        self._position_x,
-        self._position_y,
-        0,
-        1 / self._canvas_scale,
-        1 / self._canvas_scale,
-        0.5 * w,
-        0.5 * h
-    )
+    do
+        love.graphics.setShader(nil)
+        local r, g, b, a = self._body_color:unpack()
+        love.graphics.setColor(r * self._opacity, g * self._opacity, b * self._opacity, a * self._opacity)
+        love.graphics.draw(
+            self._body_canvas_b:get_native(),
+            self._position_x,
+            self._position_y,
+            0,
+            1 / self._canvas_scale,
+            1 / self._canvas_scale,
+            0.5 * w,
+            0.5 * h
+        )
+    end
+
+    do
+        local r, g, b, a = self._color:unpack()
+        love.graphics.setColor(r * self._opacity, g * self._opacity, b * self._opacity, a * self._opacity)
+        love.graphics.draw(
+            self._body_canvas_a:get_native(),
+            self._position_x,
+            self._position_y,
+            0,
+            1 / self._canvas_scale,
+            1 / self._canvas_scale,
+            0.5 * w,
+            0.5 * h
+        )
+    end
+
+    love.graphics.pop()
 end
 
 --- @brief
 function rt.PlayerBody:draw_core()
     if self._is_initialized ~= true or #self._core_vertices < 6 then return end
 
-    local opacity = self._color.a
+    local opacity = self._color.a * self._opacity
     local w, h = self._core_canvas:get_size()
 
     if self._core_canvas_needs_update then
@@ -918,14 +960,17 @@ function rt.PlayerBody:draw_core()
         love.graphics.translate(-0.5 * w, -0.5 * h)
         love.graphics.translate(-self._position_x + 0.5 * w, -self._position_y + 0.5 * h)
 
-        love.graphics.setColor(1, 1, 1, 1)
+        self._core_color:bind()
         _core_shader:bind()
         _core_shader:send("hue", self._hue)
         _core_shader:send("elapsed", self._shader_elapsed)
         if self._is_bubble then
-            love.graphics.circle("fill", self._position_x, self._position_y, rt.settings.player.radius)
+            love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
         else
+            love.graphics.push()
+            love.graphics.translate(self._position_x, self._position_y)
             love.graphics.polygon("fill", self._core_vertices)
+            love.graphics.pop()
         end
         _core_shader:unbind()
 
@@ -973,22 +1018,13 @@ function rt.PlayerBody:draw_core()
     )
 
     -- highlight
-    local boost = _settings.highlight_brightness
     love.graphics.push()
-    love.graphics.setColor(1, 1, 1, boost)
-    --love.graphics.setColor(boost, boost, boost, 1 * opacity)
-    --rt.graphics.set_blend_mode(rt.BlendMode.ADD)
+    love.graphics.setColor(1, 1, 1, _settings.highlight_brightness * opacity)
     local offset = self._radius * 1 / 4
-    local highlight_radius = rt.settings.player_body.highlight_radius
 
     love.graphics.translate(self._position_x, self._position_y)
     love.graphics.translate(-offset, -offset)
     self._highlight_mesh:draw()
-
-    --love.graphics.setColor(boost / 2, boost / 2, boost / 2, 1 * opacity)
-    love.graphics.translate(-highlight_radius / 4, -highlight_radius / 4)
-    love.graphics.scale(0.5, 0.5)
-    --self._highlight_mesh:draw()
 
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
@@ -1038,4 +1074,9 @@ function rt.PlayerBody:set_is_ducking(b, nx, ny, contact_x, contact_y)
     else
         self._squish_motion:set_target_value(0)
     end
+end
+
+--- @brief
+function rt.PlayerBody:set_gravity(gravity_x, gravity_y)
+    self._gravity_x, self._gravity_y = gravity_x, gravity_y -- can be nil
 end

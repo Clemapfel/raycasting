@@ -69,7 +69,7 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
         vec2 position = to_uv(point_lights[i]);
         vec4 color = point_colors[i];
 
-        float attenuation = gaussian(distance(position, screen_uv) * 2, 3.7); // range
+        float attenuation = gaussian(distance(position, screen_uv) * 2, 1.5); // lower ot increase range
         vec2 light_direction = normalize(position - screen_uv);
         float alignment = max(dot(gradient, light_direction), 0.0);
         float light = alignment * attenuation;
@@ -85,7 +85,7 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
         vec2 b_uv = to_uv(segment.zw);
         vec2 position = closest_point_on_segment(a_uv, b_uv, screen_uv);
 
-        float attenuation = gaussian(distance(position, screen_uv) * 2, 9.5); // range
+        float attenuation = gaussian(distance(position, screen_uv) * 2, 9.5); // lower to increase range
 
         vec2 light_direction = normalize(position - screen_uv);
         float alignment = max(dot(gradient, light_direction), 0.0);

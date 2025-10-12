@@ -203,6 +203,38 @@ local _signal_disconnect = function(instance, id, callback_id)
     end
 end
 
+local _signal_try_disconnect = function(instance, id, callback_id)
+    local component = instance[_object_signal_component_index]
+    if component == nil then
+        return false
+    end
+
+    local entry = component[id]
+    if entry == nil then
+        return false
+    end
+
+    if callback_id == nil then
+        instance:signal_disconnect_all(id)
+        return true
+    else
+        local callback = entry.callback_id_to_callback[callback_id]
+        if callback == nil then
+            return false
+        end
+
+        entry.callback_id_to_callback[callback_id] = nil
+        for i, other in ipairs(entry.callbacks_in_order) do
+            if other == callback then
+                table.remove(entry.callbacks_in_order, i)
+                break
+            end
+        end
+
+        return true
+    end
+end
+
 local _signal_list_handler_ids = function(instance, id)
     local component = instance[_object_signal_component_index]
     if component == nil then
@@ -411,6 +443,7 @@ local function _install_signals(instance, type)
             instance.signal_try_emit = _signal_try_emit
             instance.signal_connect = _signal_connect
             instance.signal_disconnect = _signal_disconnect
+            instance.signal_try_disconnect = _signal_try_disconnect
             instance.signal_disconnect_all = _signal_disconnect_all
             instance.signal_set_is_blocked = _signal_set_is_blocked
             instance.signal_get_is_blocked = _signal_get_is_blocked

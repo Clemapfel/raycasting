@@ -50,8 +50,10 @@ function _overlap(x1, y1, x2, y2, cx, cy, radius)
 end
 
 --- @brief
-function ow.BloodSplatter:add(x, y, radius, hue, saturation)
-    if saturation == nil then saturation = 1 end
+function ow.BloodSplatter:add(x, y, radius, hue, opacity, allow_override)
+    if opacity == nil then opacity = 1 end
+    if allow_override == nil then allow_override = true end
+
     local r = radius
     local was_added = false
     x = x - self._offset_x
@@ -78,9 +80,11 @@ function ow.BloodSplatter:add(x, y, radius, hue, saturation)
             local right_fraction = distance_2 / length
             assert(left_fraction <= right_fraction)
 
-            local color = { rt.lcha_to_rgba(rt.LCHA(0.9 * saturation, 1 * saturation, hue, 1):unpack()) }
+            local color = { rt.lcha_to_rgba(0.9, 1, hue, opacity) }
 
             for division in values(data.subdivisions) do
+                if allow_override == false and self._active_divisions[division] == true then goto skip end
+
                 -- check if segment overlaps interval
                 local left_f, right_f = division.left_fraction, division.right_fraction
                 if (left_f >= left_fraction and left_f <= right_fraction) or (right_f >= left_fraction and right_f <= right_fraction) then
@@ -94,6 +98,8 @@ function ow.BloodSplatter:add(x, y, radius, hue, saturation)
                     was_added = true
                     return false -- only use first result
                 end
+
+                ::skip::
             end
         end
 

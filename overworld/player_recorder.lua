@@ -7,7 +7,8 @@ require "overworld.player_recorder_body"
 
 rt.settings.overworld.player_recorder = {
     snapshot_frequency = 60, -- n per second
-    spline_quantization_max_n_steps = 10e5
+    spline_quantization_max_n_steps = 10e5,
+    path_step_size = 5 -- px, adaptive step
 }
 
 --- @class ow.PlayerRecorder
@@ -87,23 +88,7 @@ function ow.PlayerRecorder:play()
 
     if self._state ~= _STATE_PLAYBACK then
         self._position_interpolation = rt.Spline(self._position_data)
-        self._to_render = {}
-
-        local step = 2 * 1 / rt.settings.overworld.player_recorder.snapshot_frequency
-
-        -- downsample if necessary
-        local n_steps = math.ceil(self._path_duration / step)
-        while n_steps > rt.settings.overworld.player_recorder.spline_quantization_max_n_steps do
-            step = step * 0.95
-            n_steps = math.ceil(self._path_duration / step)
-        end
-
-        for i = 1, n_steps do
-            local t = (i - 1) / n_steps
-            local x, y = self._position_interpolation:at(t)
-            table.insert(self._to_render, x)
-            table.insert(self._to_render, y)
-        end
+        self._to_render = self._position_interpolation:discretize(rt.settings.overworld.player_recorder.path_step_size)
     end
 
     self._state = _STATE_PLAYBACK
