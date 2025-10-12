@@ -186,7 +186,6 @@ function ow.StageTitleCardScene:_initialize()
 
     self._player:move_to_world(self._world)
     self._player:set_is_bubble(true)
-    self._player:set_opacity(1)
     self._player:enable()
 
     self._player:teleport_to(

@@ -138,7 +138,6 @@ function rt.Player:instantiate()
         _state = rt.PlayerState.ACTIVE,
 
         _color = rt.Palette.PLAYER,
-        _opacity = 1,
         _is_visible = true,
         _should_update = true,
 
@@ -323,7 +322,7 @@ function rt.Player:instantiate()
     end
 
     self._trail = rt.PlayerTrail(self)
-    self._graphics_body = rt.PlayerBody(self)
+    self._graphics_body = rt.PlayerBody(_settings.radius, _settings.radius * _settings.bubble_radius_factor)
     self:_connect_input()
 end
 
@@ -476,7 +475,10 @@ function rt.Player:update(delta)
             end
 
             if self._use_bubble_mesh_delay_n_steps <= 0 then
-                self._graphics_body:update_anchors(positions)
+                self._graphics_body:update_anchors(positions, self:get_is_bubble())
+                self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1)))
+                self._graphics_body:set_world(self._world)
+                self._graphics_body:set_is_bubble(self:get_is_bubble())
                 self._graphics_body:update(delta)
             end
         end
@@ -1780,8 +1782,6 @@ end
 function rt.Player:draw_bloom()
     if self._is_visible == false then return end
 
-    local r, g, b, a = self._color:unpack()
-
     if self:get_flow() == 0 then
         self._graphics_body:draw_bloom()
     elseif self._trail_visible then
@@ -1794,8 +1794,6 @@ end
 function rt.Player:draw_body()
     if self._is_visible == false then return end
 
-    local r, g, b, a = self._color:unpack()
-
     if self._trail_visible then
         self._trail:draw_below()
     end
@@ -1805,8 +1803,6 @@ function rt.Player:draw_body()
     if self._trail_visible then
         self._trail:draw_above()
     end
-
-    love.graphics.setColor(1, 1, 1, 1)
 end
 
 --- @brief
@@ -2187,16 +2183,6 @@ function rt.Player:get_is_bubble()
 end
 
 --- @brief
-function rt.Player:set_opacity(alpha)
-    self._opacity = alpha
-end
-
---- @brief
-function rt.Player:get_opacity()
-    return self._opacity
-end
-
---- @brief
 function rt.Player:get_state()
     return self._state
 end
@@ -2403,7 +2389,6 @@ function rt.Player:reset()
     self:set_trail_visible(true)
     self:reset_flow()
     self:set_gravity(1)
-    self:set_opacity(1)
     self:set_velocity(0, 0)
     self:set_time_dilation(1)
 

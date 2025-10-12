@@ -203,7 +203,7 @@ function rt.PlayerTrail:update(delta)
     end
 
     self._r, self._g, self._b, self._a = rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)
-    self._opacity = self._player:get_opacity()
+    self._opacity = 1
 
     local flow = self._player:get_flow()
     self._glow_intensity = 0.5 * flow
