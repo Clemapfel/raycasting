@@ -197,6 +197,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._spawn_barrier:set_collision_group(
                 rt.settings.player.ghost_collision_group
             )
+            self._spawn_barrier:add_tag("stencil", "hitbox")
         elseif self._type == ow.CheckpointType.MIDWAY then
             self._fireworks = ow.Fireworks(self._scene:get_player())
             self._rope = ow.CheckpointRope(self._scene, self._stage, self._world, self._top_x, self._top_y, self._bottom_x, self._bottom_y)

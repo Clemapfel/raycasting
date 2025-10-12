@@ -12,6 +12,7 @@ require "common.bloom"
 require "common.fade"
 require "overworld.stage_title_card"
 
+
 do
     local bloom = 0.2
     rt.settings.overworld_scene = {
@@ -20,6 +21,7 @@ do
         camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
         camera_pan_width_factor = 0.15,
         camera_freeze_duration = 0.25,
+        allow_translation = false,
         results_screen_fraction = 0.5,
 
         bloom_blur_strength = 1.2, -- > 0
@@ -1010,7 +1012,7 @@ function ow.OverworldScene:update(delta)
 
             local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
         end
-    elseif self._camera_freeze_elapsed > rt.settings.overworld_scene.camera_freeze_duration and love.window.hasMouseFocus() then
+    elseif rt.settings.overworld_scene.allow_translation and self._camera_freeze_elapsed > rt.settings.overworld_scene.camera_freeze_duration and love.window.hasMouseFocus() then
         local cx, cy = self._camera:get_position()
         cx = cx + self._camera_translation_velocity_x * delta
         cy = cy + self._camera_translation_velocity_y * delta

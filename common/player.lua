@@ -102,7 +102,7 @@ rt.settings.player = {
 
     color_a = 1.0,
     color_b = 0.6,
-    hue_cylce_duration = 10,
+    hue_cycle_duration = 1,
 
     --debug_drawing_enabled = true,
 }
@@ -265,7 +265,7 @@ function rt.Player:instantiate()
         _graphics_body = nil,
 
         _hue = 0,
-        _hue_duration = _settings.hue_cylce_duration,
+        _hue_duration = _settings.hue_cycle_duration,
 
         _mass = 1,
         _gravity_direction_x = 0,
@@ -322,7 +322,10 @@ function rt.Player:instantiate()
     end
 
     self._trail = rt.PlayerTrail(self)
-    self._graphics_body = rt.PlayerBody(_settings.radius, _settings.radius * _settings.bubble_radius_factor)
+    self._graphics_body = rt.PlayerBody({
+        radius = _settings.radius,
+        max_radius = _settings.radius * _settings.bubble_radius_factor
+    })
     self:_connect_input()
 end
 
@@ -447,11 +450,10 @@ function rt.Player:update(delta)
 
     local function update_graphics()
         do -- notify body of new anchor positions
-            local positions
+            local positions, center_x, center_y
             if self._is_bubble then
-                positions = {
-                    self._bubble_body:get_predicted_position()
-                }
+                center_x, center_y = self._bubble_body:get_predicted_position()
+                positions = {}
 
                 for body in values(self._bubble_spring_bodies) do
                     local x, y = body:get_predicted_position()
@@ -462,10 +464,8 @@ function rt.Player:update(delta)
                 local body_x, body_y = self._body:get_predicted_position()
                 local dx, dy = delta * self._platform_velocity_x, delta * self._platform_velocity_y
 
-                positions = {
-                    body_x + dx,
-                    body_y + dy
-                }
+                center_x, center_y = body_x + dx, body_y + dy
+                positions = {}
 
                 for body in values(self._spring_bodies) do
                     local x, y = body:get_predicted_position()
@@ -475,7 +475,8 @@ function rt.Player:update(delta)
             end
 
             if self._use_bubble_mesh_delay_n_steps <= 0 then
-                self._graphics_body:update_anchors(positions, self:get_is_bubble())
+                self._graphics_body:set_shape(positions)
+                self._graphics_body:set_position(center_x, center_y)
                 self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1)))
                 self._graphics_body:set_world(self._world)
                 self._graphics_body:set_is_bubble(self:get_is_bubble())

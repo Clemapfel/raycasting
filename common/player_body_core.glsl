@@ -68,22 +68,25 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 _) {
     vec4 texel = texture(image, texture_coordinates);
     vec2 uv = texture_coordinates - vec2(1);
 
-    float time = elapsed / 2;
-    float scale = 3;
-    float n_octaves = 2;
+    float time = elapsed / 2.0;
+    float scale = 3.0;
+    float n_octaves = 2.0;
     vec2 step = vec2(0, 1);
-    float persistence = 1;
-    for (int i = 0; i < n_octaves; ++i) {
+    float persistence = 1.0;
+
+    for (int i = 0; i < int(n_octaves); ++i) {
         uv = uv + step * gradient_noise(vec3(uv * persistence * scale, time));
-        step = rotate(step, (n_octaves - i) * 2 * PI);
+        step = rotate(step, (n_octaves - float(i)) * 2.0 * PI);
         persistence *= distance(uv, texture_coordinates) * 0.4;
     }
 
     float hue_eps = 0.05;
-    float noise = gradient_noise(vec3(uv * distance(uv, texture_coordinates) , 0));
+    float noise = gradient_noise(vec3(uv * distance(uv, texture_coordinates), 0.0));
 
     float chroma = 1;
-    float lightness = mix(0.7, 1, noise);
-    float hue = mix(hue - hue_eps, hue + hue_eps, noise);
-    return color * vec4(lch_to_rgb(vec3(lightness, chroma, hue)), texel.a * color.a);
+    float lightness = mix(0.4, 1, (noise + 1) / 2);
+    float hue_adj = fract(hue + mix(-hue_eps, +hue_eps, noise)); // intentional overflow of mixed, noise in -1, 1
+
+    vec3 rgb = lch_to_rgb(vec3(lightness, chroma, fract(hue_adj)));
+    return color * vec4(rgb, texel.a * color.a);
 }

@@ -3,16 +3,16 @@ require "common.smoothed_motion_1d"
 rt.settings.player_body = {
     relative_velocity_influence = 1 / 3, -- [0, 1] where 0 no influence
 
-    -- rope params
-    n_ropes = 27,
-    n_rings = 7,
-    n_segments_per_rope = 8,
-    max_rope_length_factor = 5.2, -- * player radius
+    -- user set params
+    default_n_rings = 7,
+    default_n_ropes_per_ring = 27,
+    default_n_segments_per_rope = 8,
+    default_rope_length_radius_factor = 7, -- * player radius
+    default_node_mesh_radius = 10,
 
-    -- graphics
+    -- static params
     node_mesh_alpha = 0.05,
     node_mesh_padding = 4,
-    node_mesh_radius = 10,
     node_mesh_bubble_radius = 1,
     bubble_scale_offset = 10,
     non_bubble_scale_offset = 6,
@@ -64,20 +64,68 @@ local _outline_shader = rt.Shader("common/player_body_outline.glsl", { MODE = 1 
 local _core_shader = rt.Shader("common/player_body_core.glsl")
 
 --- @brief
-function rt.PlayerBody:instantiate(radius, max_radius)
-    meta.assert(radius, "Number", max_radius, "Number")
-    self._max_radius = max_radius
-    self._radius = radius
-    self._is_bubble = false
-    self._position_x, self._position_y = 0, 0
+function rt.PlayerBody:instantiate(config)
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then _core_shader:recompile() end
+    end)
+
+    meta.assert(config, "Table")
+
+    local necessary_keys = {
+        radius = false,
+        max_radius = false
+    }
+
+    for key, default in pairs({
+        n_rings = _settings.default_n_rings,
+        n_ropes_per_ring = _settings.default_n_ropes_per_ring,
+        n_segments_per_rope = _settings.default_n_segments_per_rope,
+        rope_length_radius_factor = _settings.default_rope_length_radius_factor,
+        node_mesh_radius = _settings.default_node_mesh_radius
+    }) do
+        if config[key] == nil then config[key] = default end
+    end
+
+    for key, value in pairs(config) do
+        if necessary_keys[key] ~= nil then necessary_keys[key] = true end
+
+        if key == "radius" then
+            self._radius = value
+        elseif key == "max_radius" then
+            self._max_radius = value
+        elseif key == "n_rings" then
+            self._n_rings = value
+        elseif key == "n_ropes_per_ring" then
+            self._n_ropes_per_ring = value
+        elseif key == "n_segments_per_rope" then
+            self._n_segments_per_rope = value
+        elseif key == "rope_length_radius_factor" then
+            self._rope_length_radius_factor = value
+        elseif key == "node_mesh_radius" then
+            self._node_mesh_radius = value
+        else
+            rt.error("In rt.PlayerBody: unrecognized key `" .. key .. "`")
+        end
+    end
+
+    for key, is_present in pairs(necessary_keys) do
+        if is_present == false then
+            rt.error("In rt.PlayerBody: key `" .. key .. "` is not present in config")
+        end
+    end
+
+    self._core_vertices = {}
     self._ropes = {}
     self._n_ropes = 0
-    self._positions = {}
+    self._is_bubble = false
+    self._position_x, self._position_y = 0, 0
     self._stencil_bodies = {}
     self._shader_elapsed = 0
     self._is_initialized = false
     self._queue_relax = false
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))
+    self._hue = 0
     self._relative_velocity_x = 0
     self._relative_velocity_y = 0
 
@@ -94,13 +142,13 @@ function rt.PlayerBody:instantiate(radius, max_radius)
 
     -- init metaball ball mesh
 
-    self._node_mesh = rt.MeshCircle(0, 0, _settings.node_mesh_radius)
+    self._node_mesh = rt.MeshCircle(0, 0, self._node_mesh_radius)
     self._node_mesh:set_vertex_color(1, 1, 1, 1, 1)
     for i = 2, self._node_mesh:get_n_vertices() do
         self._node_mesh:set_vertex_color(i, 1, 1, 1, 0.0)
     end
 
-    local canvas_w = 2 * _settings.node_mesh_radius + 2 * _settings.node_mesh_padding
+    local canvas_w = 2 * self._node_mesh_radius + 2 * _settings.node_mesh_padding
     self._node_mesh_texture = rt.RenderTexture(canvas_w, canvas_w, 4)
     self._node_mesh_texture:bind()
     love.graphics.setColor(1, 1, 1, 1)
@@ -112,7 +160,7 @@ function rt.PlayerBody:instantiate(radius, max_radius)
 
     do
         local padding = _settings.canvas_padding
-        local r = max_radius
+        local r = self._max_radius
         self._body_canvas_a = rt.RenderTexture(self._canvas_scale * (r + 2 * padding), self._canvas_scale * (r + 2 * padding), 4)
         self._body_canvas_b = rt.RenderTexture(self._canvas_scale * (r + 2 * padding), self._canvas_scale * (r + 2 * padding), 4)
 
@@ -140,100 +188,104 @@ function rt.PlayerBody:instantiate(radius, max_radius)
             self._highlight_mesh:set_vertex_color(i, 1, 1, 1, 0)
         end
     end
+
+    self:initialize()
 end
 
 --- @brief
-function rt.PlayerBody:update_anchors(positions)
-    self._positions = positions
-    self._position_x, self._position_y = positions[1], positions[2]
-    table.insert(self._positions, self._positions[3])
-    table.insert(self._positions, self._positions[4])
-
-    self:initialize(positions)
+function rt.PlayerBody:set_position(x, y)
+    self._position_x, self._position_y = x, y
 end
 
 --- @brief
-function rt.PlayerBody:initialize(positions)
-    if self._is_initialized == false then
-        local n_rings = _settings.n_rings
-        local n_ropes_per_ring = #positions / 2
-        local n_segments = _settings.n_segments_per_rope
-        local bubble_rope_length = (self._max_radius) - 2.5 * _settings.node_mesh_radius
+function rt.PlayerBody:set_shape(positions)
+    self._core_vertices = positions
+    table.insert(self._core_vertices, self._core_vertices[1])
+    table.insert(self._core_vertices, self._core_vertices[2])
 
-        local ring_to_ring_radius = function(ring_i)
-            return ((ring_i - 1) / n_rings) * self._radius
-        end
+end
 
-        local ring_to_n_ropes = function(ring_i)
-            if ring_i == 1 then
-                return 3
-            else
-                return _settings.n_ropes
+--- @brief
+function rt.PlayerBody:initialize()
+    if self._is_initialized == true then return end
+
+    local n_rings = self._n_rings
+    local n_ropes_per_ring = self._n_ropes_per_ring
+    local n_segments = self._n_segments_per_rope
+    local bubble_rope_length = (self._max_radius) - 2.5 * self._node_mesh_radius
+
+    local ring_to_ring_radius = function(ring_i)
+        return ((ring_i - 1) / n_rings) * self._radius
+    end
+
+    local ring_to_n_ropes = function(ring_i)
+        local t = ring_i / (n_rings + 1)
+        return math.max(t * self._n_ropes_per_ring, 3)
+    end
+
+    local mass_easing = function(t)
+        -- only last node affected by gravity
+        return ternary(t == 1, 1, 0.25)
+    end
+
+    -- init ropes
+    local max_rope_length = self._rope_length_radius_factor * self._radius
+    for ring = 1, n_rings do
+        local ring_radius = ring_to_ring_radius(ring)
+        local current_n_ropes = ring_to_n_ropes(ring)
+        local angle_step = (2 * math.pi) / current_n_ropes
+        for i = 1, current_n_ropes do
+            local angle = (i - 1) * angle_step
+            if ring % 2 == 1 then angle = angle + angle_step * 0.5 end
+            local axis_x, axis_y = math.cos(angle), math.sin(angle)
+            local center_x = axis_x * ring_radius
+            local center_y = axis_y * ring_radius
+            local scale = ring / n_rings
+
+            local rope_length = (1 - scale) * max_rope_length
+
+            local rope = {
+                current_positions = {},
+                last_positions = {},
+                last_velocities = {},
+                masses = {},
+                anchor_x = center_x, -- anchor of first node
+                anchor_y = center_y,
+                target_x = 0, -- inverse kinematics target
+                target_y = 0,
+                axis_x = axis_x, -- axis constraint
+                axis_y = axis_y,
+                scale = scale, -- metaball scale
+                length = rope_length, -- total rope length
+                n_segments = n_segments,
+                segment_length = rope_length / n_segments,
+                bubble_segment_length = bubble_rope_length / n_segments
+            }
+
+            center_x = center_x + self._position_x
+            center_y = center_y + self._position_y
+            local dx, dy = math.normalize(rope.anchor_x - self._position_x, rope.anchor_y - self._position_y)
+
+            for segment_i = 1, n_segments do
+                table.insert(rope.current_positions, center_x)
+                table.insert(rope.current_positions, center_x)
+                table.insert(rope.last_positions, center_x)
+                table.insert(rope.last_positions, center_x)
+                table.insert(rope.last_velocities, 0)
+                table.insert(rope.last_velocities, 0)
+                table.insert(rope.masses,  mass_easing(segment_i - 1) / n_segments)
             end
+
+            table.insert(self._ropes, rope)
+            self._n_ropes = self._n_ropes + 1
         end
+    end
 
-        local mass_easing = function(t)
-            -- only last node affected by gravity
-            return ternary(t == 1, 1, 0.25)
-        end
+    dbg(self._n_ropes)
 
-        -- init ropes
-        local max_rope_length = _settings.max_rope_length_factor * self._radius
-        for ring = 1, n_rings do
-            local ring_radius = ring_to_ring_radius(ring)
-            local current_n_ropes = ring_to_n_ropes(ring)
-            local angle_step = (2 * math.pi) / current_n_ropes
-            for i = 1, current_n_ropes do
-                local angle = (i - 1) * angle_step
-                if ring % 2 == 1 then angle = angle + angle_step * 0.5 end
-                local axis_x, axis_y = math.cos(angle), math.sin(angle)
-                local center_x = axis_x * ring_radius
-                local center_y = axis_y * ring_radius
-                local scale = ring / n_rings
-
-                local rope_length = (1 - scale) * max_rope_length
-
-                local rope = {
-                    current_positions = {},
-                    last_positions = {},
-                    last_velocities = {},
-                    masses = {},
-                    anchor_x = center_x, -- anchor of first node
-                    anchor_y = center_y,
-                    target_x = 0, -- inverse kinematics target
-                    target_y = 0,
-                    axis_x = axis_x, -- axis constraint
-                    axis_y = axis_y,
-                    scale = scale, -- metaball scale
-                    length = rope_length, -- total rope length
-                    n_segments = n_segments,
-                    segment_length = rope_length / n_segments,
-                    bubble_segment_length = bubble_rope_length / n_segments
-                }
-
-                center_x = center_x + self._position_x
-                center_y = center_y + self._position_y
-                local dx, dy = math.normalize(rope.anchor_x - self._position_x, rope.anchor_y - self._position_y)
-
-                for segment_i = 1, n_segments do
-                    table.insert(rope.current_positions, center_x)
-                    table.insert(rope.current_positions, center_x)
-                    table.insert(rope.last_positions, center_x)
-                    table.insert(rope.last_positions, center_x)
-                    table.insert(rope.last_velocities, 0)
-                    table.insert(rope.last_velocities, 0)
-                    table.insert(rope.masses,  mass_easing(segment_i - 1) / n_segments)
-                end
-
-                table.insert(self._ropes, rope)
-                self._n_ropes = self._n_ropes + 1
-            end
-        end
-
-        self._is_initialized = true
-        if self._queue_relax == true then
-            self:relax()
-        end
+    self._is_initialized = true
+    if self._queue_relax == true then
+        self:relax()
     end
 end
 
@@ -652,8 +704,8 @@ function rt.PlayerBody:update(delta)
     self._shader_elapsed = self._shader_elapsed + delta
     self._squish_motion:update(delta)
 
-    self._stencil_bodies = {}
     if self._world ~= nil then
+        self._stencil_bodies = {}
         local w, h = self._body_canvas_a:get_size()
         local bodies = self._world:query_aabb(
             self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h
@@ -849,7 +901,7 @@ end
 
 --- @brief
 function rt.PlayerBody:draw_core()
-    if self._is_initialized ~= true then return end
+    if self._is_initialized ~= true or #self._core_vertices < 6 then return end
 
     local opacity = self._color.a
     local w, h = self._core_canvas:get_size()
@@ -862,6 +914,7 @@ function rt.PlayerBody:draw_core()
 
         love.graphics.push("all")
         love.graphics.setStencilMode(nil)
+        rt.graphics.set_blend_mode(nil)
         love.graphics.origin()
 
         love.graphics.translate(0.5 * w, 0.5 * h)
@@ -869,14 +922,14 @@ function rt.PlayerBody:draw_core()
         love.graphics.translate(-0.5 * w, -0.5 * h)
         love.graphics.translate(-self._position_x + 0.5 * w, -self._position_y + 0.5 * h)
 
-        love.graphics.setColor(1, 1, 1, self._color.a)
+        love.graphics.setColor(1, 1, 1, 1)
         _core_shader:bind()
         _core_shader:send("hue", self._hue)
         _core_shader:send("elapsed", self._shader_elapsed)
         if self._is_bubble then
             love.graphics.circle("fill", self._position_x, self._position_y, rt.settings.player.radius)
         else
-            love.graphics.polygon("fill", self._positions)
+            love.graphics.polygon("fill", self._core_vertices)
         end
         _core_shader:unbind()
 
