@@ -2,7 +2,8 @@ rt.settings.overworld.one_way_platform = {
     thickness = 40,
     bloom_intensity = 0.5, -- fraction
     direction_light_intensity = 0.5, -- fraction
-    line_width = 5
+    line_width = 5,
+    allow_fallthrough = false
 }
 
 --- @class ow.OneWayPlatform
@@ -46,19 +47,21 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._body:add_tag("stencil", "hitbox")
     self._body:add_tag("segment_light_source")
     self._body:set_user_data(self)
+    self._body:set_use_continuous_collision(true)
 
     local thickness = rt.settings.overworld.one_way_platform.thickness
 
-    local sensor_r = rt.settings.player.radius
+    local sensor_r = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
     local ldx, ldy = math.turn_left(math.normalize(dx, dy))
     local rdx, rdy = math.turn_right(math.normalize(dx, dy))
+
     self._sensor = b2.Body(world, b2.BodyType.STATIC, 0, 0, b2.Polygon(
         x1 + ldx * sensor_r,
         y1 + ldy * sensor_r,
-        x1 + rdx * sensor_r,
-        y1 + rdy * sensor_r,
-        x2 + rdx * sensor_r,
-        y2 + rdy * sensor_r,
+        x1,
+        y1,
+        x2,
+        y2,
         x2 + ldx * sensor_r,
         y2 + ldy * sensor_r
     ))
@@ -66,114 +69,63 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
     self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
 
-    --[[
-    -- allow fallthrough
-    self._sensor:signal_connect("collision_start", function(_)
-        local player =  self._scene:get_player()
-
-        -- buffer fallthrough
-        if player._down_button_is_down then
-            self._body:set_is_sensor(true)
-        else
-            player:signal_connect("duck", function(_)
-                self._body:set_is_sensor(true)
-                return meta.DISCONNECT_SIGNAL
-            end)
-        end
-    end)
-
-    self._sensor:signal_connect("collision_end", function(_)
-        self._body:set_is_sensor(false)
-    end)
-    ]]--
-
-    local mesh_data = {}
-    self._line_drawdraw_vertices = {}
-
-    function add_vertex(x, y, u, v, alpha)
-        table.insert(mesh_data, { x, y, u, v, 1, 1, 1, alpha })
-    end
-
-    local left_x, left_y, right_x, right_y = x1, y1, x2, y2
-    local n_half_circle_vertices = 8
-
     dx, dy = math.normalize(dx, dy)
-    local normal_x, normal_y = math.turn_left(dx, dy)
 
-    for i = 0, n_half_circle_vertices - 1 do
-        local t = ternary(n_half_circle_vertices == 1, 0, i / (n_half_circle_vertices - 1))
-        local angle = math.pi + t * math.pi
-        local cos_alpha = math.cos(angle)
-        local sin_alpha = math.sin(angle)
-        local vx = normal_x * cos_alpha + dx * sin_alpha
-        local vy = normal_y * cos_alpha + dy * sin_alpha
-        add_vertex(
-            left_x + vx * thickness,
-            left_y + vy * thickness,
-            cos_alpha, sin_alpha,
-            0
-        )
+    do -- bodies purely to stencil
+        for body in values(self._stencil_bodies) do
+            body:add_tag("stencil")
+            body:set_collides_with(0x0)
+        end
+
+        self._stencil_body = b2.Body(world, b2.BodyType.STATIC, 0, 0, b2.Polygon(
+            x1 - ldx * sensor_r,
+            y1 - ldy * sensor_r,
+            x1,
+            y1,
+            x2,
+            y2,
+            x2 - ldx * sensor_r,
+            y2 - ldy * sensor_r
+        ))
+
+        for body in range(self._stencil_body, self._right_stencil_body) do
+            body:set_is_enabled(false)
+            body:add_tag("stencil")
+            body:set_collides_with(0x0)
+        end
+
+        self._sensor_test_active = false
+        self._sensor:signal_connect("collision_start", function(_)
+            self._sensor_test_active = true
+            -- continuously check, since if set immediately on
+            -- player entry, part of the player tail can be cut off
+        end)
+
+        self._sensor:signal_connect("collision_end", function(_)
+            self._stencil_body:set_is_enabled(false)
+            self._sensor_test_active = false
+        end)
     end
 
-    for i = 0, n_half_circle_vertices - 1 do
-        local t = ternary(n_half_circle_vertices == 1, 0, i / (n_half_circle_vertices - 1))
-        local angle = t * math.pi
-        local cos_alpha = math.cos(angle)
-        local sin_alpha = math.sin(angle)
-        local vx = normal_x * cos_alpha + dx * sin_alpha
-        local vy = normal_y * cos_alpha + dy * sin_alpha
-        add_vertex(
-            right_x + vx * thickness,
-            right_y + vy * thickness,
-            cos_alpha, sin_alpha,
-        0
-        )
+    if rt.settings.overworld.one_way_platform.allow_fallthrough == true then
+        self._sensor:signal_connect("collision_start", function(_)
+            local player =  self._scene:get_player()
+
+            -- buffered fallthrough
+            if player._down_button_is_down then
+                self._body:set_is_sensor(true)
+            else
+                player:signal_connect("duck", function(_)
+                    self._body:set_is_sensor(true)
+                    return meta.DISCONNECT_SIGNAL
+                end)
+            end
+        end)
+
+        self._sensor:signal_connect("collision_end", function(_)
+            self._body:set_is_sensor(false)
+        end)
     end
-
-    -- center vertices for nicer triangulation
-    local left_center_index = #mesh_data + 1
-    add_vertex(left_x, left_y, 0, 0, 1)
-
-    local right_center_index = #mesh_data + 1
-    add_vertex(right_x, right_y, 0, 0, 1)
-
-    -- triangulate
-    local triangulation = {}
-
-    for i = 1, n_half_circle_vertices - 1 do
-        table.insert(triangulation, left_center_index)
-        table.insert(triangulation, i)
-        table.insert(triangulation, i + 1)
-    end
-
-    local right_arc_start = n_half_circle_vertices
-    for i = 1, n_half_circle_vertices - 1 do
-        local j = right_arc_start + i
-        table.insert(triangulation, right_center_index)
-        table.insert(triangulation, j)
-        table.insert(triangulation, j + 1)
-    end
-
-    local left_top = n_half_circle_vertices
-    local right_top = n_half_circle_vertices + 1
-    local left_bottom = 1
-    local right_bottom = n_half_circle_vertices + n_half_circle_vertices
-
-    table.insert(triangulation, left_top)
-    table.insert(triangulation, right_top)
-    table.insert(triangulation, left_center_index)
-
-    table.insert(triangulation, right_top)
-    table.insert(triangulation, right_center_index)
-    table.insert(triangulation, left_center_index)
-
-    table.insert(triangulation, left_bottom)
-    table.insert(triangulation, left_center_index)
-    table.insert(triangulation, right_center_index)
-
-    table.insert(triangulation, left_bottom)
-    table.insert(triangulation, right_center_index)
-    table.insert(triangulation, right_bottom)
 
     self._line_draw_vertices = {
         x1, y1,
@@ -195,6 +147,8 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         local down_x, down_y = math.turn_left(math.normalize(dx, dy))
         down_x = down_x * width
         down_y = down_y * width
+
+        dx, dy = math.normalize(dx, dy)
 
         local overshoot = 10
         local left_x, left_y = -dx * overshoot, -dy * overshoot
@@ -295,6 +249,44 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._hue = _hue_steps[_current_hue_step]
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
+end
+
+--- @brief
+function ow.OneWayPlatform:update(delta)
+    if not self._sensor_test_active or not self._stage:get_is_body_visible(self._sensor) then return end
+
+    if self._stencil_body:get_is_enabled() == false then
+        local should_stencil = false
+
+        -- check which side of the line the player is on
+        local player =  self._scene:get_player()
+        local px, py = player:get_position()
+        local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
+        local side = math.cross(
+            x2 - x1, y2 - y1,
+            px - x1, py - y1
+        )
+
+        -- check distance to line segment
+        if side <= 0 then
+            local vx, vy = x2 - x1, y2 - y1
+
+            local len = math.magnitude(vx, vy)
+            local nx, ny = math.normalize(vx, vy)
+            local wx, wy = px - x1, py - y1
+
+            local t = math.dot(wx, wy, nx, ny)
+
+            if t < 0 then t = 0 end
+            if t > len then t = len end
+
+            local cx = x1 + nx * t
+            local cy = y1 + ny * t
+            should_stencil = math.distance(px, py, cx, cy) > player:get_radius()
+        end
+
+        self._stencil_body:set_is_enabled(should_stencil)
+    end
 end
 
 --- @brief

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 987,
+  nextobjectid = 991,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1609,8 +1609,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -7616,
-          y = 2176,
+          x = -6908.49,
+          y = 1819.61,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5728,120 +5728,6 @@ return {
           properties = {}
         },
         {
-          id = 970,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -6544,
-          y = 1872,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 0 },
-            ["velocity"] = 10
-          }
-        },
-        {
-          id = 971,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -8112,
-          y = 1808,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 1088, y = 64 },
-            { x = 1184, y = 80 },
-            { x = 1488, y = 80 },
-            { x = 1488, y = 48 },
-            { x = 1104, y = 48 }
-          },
-          properties = {
-            ["slippery"] = true,
-            ["target"] = { id = 972 },
-            ["velocity"] = 100
-          }
-        },
-        {
-          id = 972,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -6894.96,
-          y = 1870.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 970 },
-            ["velocity"] = 10
-          }
-        },
-        {
-          id = 974,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -6544,
-          y = 1808,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["slippery"] = true,
-            ["target"] = { id = 0 },
-            ["velocity"] = 10
-          }
-        },
-        {
-          id = 975,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -8112,
-          y = 1744,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 1089.04, y = 46.5606 },
-            { x = 1089.04, y = 64.2695 },
-            { x = 1104, y = 80 },
-            { x = 1488, y = 80 },
-            { x = 1488, y = 48 }
-          },
-          properties = {
-            ["slippery"] = true,
-            ["target"] = { id = 976 },
-            ["velocity"] = 100
-          }
-        },
-        {
-          id = 976,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -6894.96,
-          y = 1806.56,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["slippery"] = true,
-            ["target"] = { id = 974 },
-            ["velocity"] = 10
-          }
-        },
-        {
           id = 977,
           name = "",
           type = "DoubleJumpTether",
@@ -5872,10 +5758,10 @@ return {
           name = "",
           type = "OneWayPlatform",
           shape = "rectangle",
-          x = -7296,
-          y = 2000,
-          width = 144,
-          height = 5.48961,
+          x = -6513.76,
+          y = 1527.74,
+          width = 287.961,
+          height = 10.9777,
           rotation = 90,
           visible = true,
           properties = {}
@@ -5903,6 +5789,64 @@ return {
           width = 57.3653,
           height = 5.48961,
           rotation = 180,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 987,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -6336,
+          y = 1520,
+          width = 293.228,
+          height = 11.1785,
+          rotation = 90,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 988,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -6144,
+          y = 1520,
+          width = 289.716,
+          height = 11.0446,
+          rotation = 90,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 989,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -6619.33,
+          y = 1525.71,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 720, y = 0 },
+            { x = 720, y = -240 },
+            { x = 16, y = -240 }
+          },
+          properties = {}
+        },
+        {
+          id = 990,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -6752,
+          y = 1792,
+          width = 287.961,
+          height = 10.9777,
+          rotation = 45,
           visible = true,
           properties = {}
         }
