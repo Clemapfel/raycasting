@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 980,
+  nextobjectid = 987,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5872,11 +5872,37 @@ return {
           name = "",
           type = "OneWayPlatform",
           shape = "rectangle",
-          x = -7450.12,
-          y = 2235.51,
+          x = -7296,
+          y = 2000,
+          width = 144,
+          height = 5.48961,
+          rotation = 90,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 985,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -7461.89,
+          y = 2148.24,
           width = 144,
           height = 5.48961,
           rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 986,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -7231.98,
+          y = 1991.46,
+          width = 57.3653,
+          height = 5.48961,
+          rotation = 180,
           visible = true,
           properties = {}
         }

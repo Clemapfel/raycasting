@@ -41,7 +41,8 @@ float gaussian(float x, float ramp)
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
 
     float self_dist = length(texture_coords);
-    self_dist = 0.5 * gaussian(self_dist, 1);
+    self_dist = gaussian(self_dist, 0.6);
+    return color * self_dist;
 
     vec2 screen_uv = screen_coords / love_ScreenSize.xy;
     vec2 player_uv = player_position / love_ScreenSize.xy;

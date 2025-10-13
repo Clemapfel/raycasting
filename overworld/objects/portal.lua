@@ -109,7 +109,8 @@ function ow.Portal:instantiate(object, stage, scene)
     self._hue = 0
     self._hue_set = false
 
-    self._direction = object:get_boolean("left_or_right", true)
+    self._direction = object:get_boolean("left_or_right", false)
+    if self._direction == nil then self._direction = true end
     self._transition_active = false
     self._transition_elapsed = math.huge
     self._transition_contact_x, self._transition_contact_y = 0, 0

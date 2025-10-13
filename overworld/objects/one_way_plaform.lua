@@ -1,6 +1,7 @@
 rt.settings.overworld.one_way_platform = {
     thickness = 40,
     bloom_intensity = 0.5, -- fraction
+    direction_light_intensity = 0.5, -- fraction
     line_width = 5
 }
 
@@ -65,7 +66,8 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
     self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
 
-    self._active = false
+    --[[
+    -- allow fallthrough
     self._sensor:signal_connect("collision_start", function(_)
         local player =  self._scene:get_player()
 
@@ -83,6 +85,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._sensor:signal_connect("collision_end", function(_)
         self._body:set_is_sensor(false)
     end)
+    ]]--
 
     local mesh_data = {}
     self._line_drawdraw_vertices = {}
@@ -172,9 +175,6 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     table.insert(triangulation, right_center_index)
     table.insert(triangulation, right_bottom)
 
-    self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
-    self._mesh:set_vertex_map(triangulation)
-
     self._line_draw_vertices = {
         x1, y1,
         x2, y2,
@@ -190,6 +190,108 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         y2 + ldy * highlight_offset - dy * highlight_shorten,
     }
 
+    do -- direction mesh
+        local width = 1 * thickness
+        local down_x, down_y = math.turn_left(math.normalize(dx, dy))
+        down_x = down_x * width
+        down_y = down_y * width
+
+        local overshoot = 10
+        local left_x, left_y = -dx * overshoot, -dy * overshoot
+        local right_x, right_y = dx * overshoot, dy * overshoot
+
+        x1 = x1 + right_x / 2
+        y1 = y1 + right_y / 2
+        x2 = x2 + left_x / 2
+        y2 = y2 + left_y / 2
+
+        local r, alpha = 1, rt.settings.overworld.one_way_platform.direction_light_intensity
+        local segments = 8 -- Number of segments per quarter circle
+
+        -- Create vertices array
+        local vertices = {}
+
+        -- Top vertices (center line)
+        table.insert(vertices, { x1, y1, 0, 0, r, r, r, alpha }) -- 1: top-left center
+        table.insert(vertices, { x2, y2, 0, 0, r, r, r, alpha }) -- 2: top-right center
+
+        -- Left quarter circle (from top-left to bottom-left)
+        for i = 0, segments do
+            local t = i / segments
+            local angle = t * math.pi / 2 -- 0 to 90 degrees
+
+            -- Interpolate between left_x/y (forward) and down_x/y (perpendicular)
+            local offset_x = left_x * math.cos(angle) + down_x * math.sin(angle)
+            local offset_y = left_y * math.cos(angle) + down_y * math.sin(angle)
+
+            table.insert(vertices, {
+                x1 + offset_x,
+                y1 + offset_y,
+                math.cos(angle), math.sin(angle),
+                r, r, r, 0
+            })
+        end
+
+        -- Right quarter circle (from top-right to bottom-right)
+        for i = 0, segments do
+            local t = i / segments
+            local angle = t * math.pi / 2 -- 0 to 90 degrees
+
+            -- Interpolate between right_x/y (backward) and down_x/y (perpendicular)
+            local offset_x = right_x * math.cos(angle) + down_x * math.sin(angle)
+            local offset_y = right_y * math.cos(angle) + down_y * math.sin(angle)
+
+            table.insert(vertices, {
+                x2 + offset_x,
+                y2 + offset_y,
+                math.cos(angle), math.sin(angle),
+                r, r, r, 0
+            })
+        end
+
+        self._direction_mesh = rt.Mesh(vertices, rt.MeshDrawMode.TRIANGLES)
+
+        -- Generate triangulation
+        local indices = {}
+
+        -- Fan triangulation from top-left center (vertex 1)
+        local left_start = 3 -- First vertex of left quarter circle
+        local left_end = left_start + segments -- Last vertex of left quarter circle
+
+        for i = left_start, left_end - 1 do
+            table.insert(indices, 1) -- top-left center
+            table.insert(indices, i)
+            table.insert(indices, i + 1)
+        end
+
+        -- Connect the two arcs at the bottom
+        local right_start = left_end + 1 -- First vertex of right quarter circle
+        local right_end = right_start + segments -- Last vertex of right quarter circle
+
+        -- Center quad (two triangles)
+        table.insert(indices, 1) -- top-left center
+        table.insert(indices, left_end) -- end of left arc
+        table.insert(indices, 2) -- top-right center
+
+        table.insert(indices, left_end) -- end of left arc
+        table.insert(indices, right_end) -- end of right arc
+        table.insert(indices, 2) -- top-right center
+
+        -- Bottom connection
+        table.insert(indices, left_end) -- end of left arc
+        table.insert(indices, right_start) -- start of right arc
+        table.insert(indices, right_end) -- end of right arc
+
+        -- Fan triangulation from top-right center (vertex 2)
+        for i = right_start, right_end - 1 do
+            table.insert(indices, 2) -- top-right center
+            table.insert(indices, i)
+            table.insert(indices, i + 1)
+        end
+
+        self._direction_mesh:set_vertex_map(indices)
+    end
+
     self._hue = _hue_steps[_current_hue_step]
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
@@ -197,50 +299,41 @@ end
 
 --- @brief
 function ow.OneWayPlatform:draw()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._sensor) then return end
 
     local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
 
     local base_line_width = rt.settings.overworld.one_way_platform.line_width
-    local line_width = base_line_width + 2
+    local line_width = base_line_width + 4
     love.graphics.setLineWidth(line_width)
     rt.Palette.BLACK:bind()
     love.graphics.line(self._line_draw_vertices)
-
     love.graphics.circle("fill", x1, y1, line_width * 0.5)
     love.graphics.circle("fill", x2, y2, line_width * 0.5)
 
     line_width = base_line_width
     love.graphics.setLineWidth(line_width)
     self._color:bind()
+
+    _shader:bind()
+    self._direction_mesh:draw()
+    _shader:unbind()
     love.graphics.line(self._line_draw_vertices)
     love.graphics.circle("fill", x1, y1, line_width * 0.5)
     love.graphics.circle("fill", x2, y2, line_width * 0.5)
 
-    love.graphics.push("all")
-    love.graphics.setLineWidth(1)
-    rt.graphics.set_blend_mode(rt.BlendMode.ADD)
+    love.graphics.setColor(1, 1, 1, 0.5)
+    love.graphics.setLineWidth(2)
     love.graphics.line(self._highlight_draw_vertices)
-    love.graphics.pop()
 end
 
 --- @brief
 function ow.OneWayPlatform:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._sensor) then return end
 
-    local line_width = rt.settings.overworld.one_way_platform.line_width
-    local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
-
-    local player = self._scene:get_player()
-    local thickness = rt.settings.overworld.one_way_platform.thickness
-    local px, py = player:get_position()
-
-    love.graphics.setColor(1, 1, 1, rt.settings.overworld.one_way_platform.bloom_intensity)
+    self._color:bind()
     _shader:bind()
-    _shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(px, py) })
-    _shader:send("player_hue", player:get_hue())
-    _shader:send("hue", self._hue)
-    self._mesh:draw()
+    self._direction_mesh:draw()
     _shader:unbind()
 end
 
