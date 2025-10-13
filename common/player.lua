@@ -123,7 +123,8 @@ local _settings = setmetatable({}, {
 rt.Player = meta.class("Player")
 meta.add_signals(rt.Player,
     "jump",      -- when jumping
-    "grounded"   -- touching ground after being airborne
+    "grounded",   -- touching ground after being airborne
+    "duck" -- when pressing down while grounded
 )
 
 rt.PlayerState = meta.enum("PlayerState", {
@@ -190,6 +191,7 @@ function rt.Player:instantiate()
         _right_wall_elapsed = 0,
 
         _is_grounded = false,
+        _is_ducking = false,
 
         -- jump
         _jump_elapsed = math.huge,
@@ -727,9 +729,8 @@ function rt.Player:update(delta)
             }
         end
 
-
         -- update down animation
-        local ducking = false
+        local is_ducking = false
         if self._down_button_is_down then
             for body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
                 local entry = self._body_to_collision_normal[body]
@@ -738,12 +739,17 @@ function rt.Player:update(delta)
                         entry.normal_x, entry.normal_y,
                         entry.contact_x, entry.contact_y
                     )
-                    ducking = true
+                    is_ducking = true
                 end
             end
         end
 
-        if not ducking then self._graphics_body:set_is_ducking(false) end
+        if not is_ducking then self._graphics_body:set_is_ducking(false) end
+
+        if self._is_ducking == false and is_ducking == true then
+            self:signal_emit("duck")
+        end
+        self._is_ducking = is_ducking
     end
 
     if not self._is_bubble then

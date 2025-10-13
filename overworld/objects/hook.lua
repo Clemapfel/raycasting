@@ -90,6 +90,16 @@ function ow.Hook:instantiate(object, stage, scene)
             end
         end
     end)
+
+    local r = self._radius
+    self._outline = {}
+    for angle = 0, 2 * math.pi, (2 + math.pi) / 32 do
+        table.insert(self._outline, math.cos(angle) * r * 0.95)
+        table.insert(self._outline, math.sin(angle) * r * 0.95)
+    end
+
+    table.insert(self._outline, self._outline[1])
+    table.insert(self._outline, self._outline[2])
 end
 
 --- @brief
@@ -206,22 +216,11 @@ end
 function ow.Hook:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
-    local r = self._radius
-
-    if self._outline == nil then
-        self._outline = {}
-        for angle = 0, 2 * math.pi, (2 + math.pi) / 32 do
-            table.insert(self._outline, math.cos(angle) * r * 0.95)
-            table.insert(self._outline, math.sin(angle) * r * 0.95)
-        end
-
-        table.insert(self._outline, self._outline[1])
-        table.insert(self._outline, self._outline[2])
-    end
     love.graphics.push()
     love.graphics.translate(self._x, self._y)
 
     local value = self._motion:get_value()
+    local r = self._radius
 
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
@@ -239,6 +238,20 @@ function ow.Hook:draw()
 
     love.graphics.setColor(self._color)
     love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width)
+    love.graphics.line(self._outline)
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.Hook:draw_bloom()
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    love.graphics.push()
+    love.graphics.translate(self._x, self._y)
+
+    love.graphics.setColor(self._color)
+    love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width * 1.5)
     love.graphics.line(self._outline)
 
     love.graphics.pop()

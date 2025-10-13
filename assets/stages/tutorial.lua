@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 979,
+  nextobjectid = 980,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4990,7 +4990,7 @@ return {
             { x = -4005.66, y = 397.51 }
           },
           properties = {
-            ["slippery"] = true
+            ["slippery"] = false
           }
         },
         {
@@ -5625,8 +5625,8 @@ return {
           name = "",
           type = "Hook",
           shape = "point",
-          x = -7373.23,
-          y = 2184.25,
+          x = -7614.61,
+          y = 2050.3,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5863,6 +5863,19 @@ return {
           y = 1664,
           width = 384,
           height = 304,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 979,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -7450.12,
+          y = 2235.51,
+          width = 144,
+          height = 5.48961,
           rotation = 0,
           visible = true,
           properties = {}
