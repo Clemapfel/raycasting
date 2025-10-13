@@ -183,16 +183,37 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 end
             end)
 
-            local r = rt.settings.player.radius
-            self._spawn_barrier = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
-                bottom_x, bottom_y,
-                b2.Polygon(
-                    0 - 4 * r, 0,
-                    0 + 4 * r, 0,
-                    0 + 4 * r, 2 * r,
-                    0 - 4 * r, 2 * r
+            -- add ghost-safe collision
+            local r = rt.settings.player.radius * 4
+
+            -- match slope of ground
+            local left_x, left_y, _, _, _ = self._world:query_ray(self._x - r, self._y, 0, inf)
+            local right_x, right_y, _, _, _ = self._world:query_ray(self._x + r, self._y, 0, inf)
+
+            --[[
+            left_x, left_y = math.subtract(left_x, left_y, bottom_x, bottom_y)
+            right_x, right_y = math.subtract(right_x, right_y, bottom_x, bottom_y)
+            local lowest_y = math.max(left_y, bottom_y, right_y)
+                ]]--
+
+            -- match shape at spawn, could be convex
+            do
+                require "common.triangulate"
+                local shapes = {}
+                for tri in values(rt.math.triangulate({
+                    left_x, left_y,
+                    bottom_x, bottom_y,
+                    right_x, right_y,
+                    right_x, right_y + r,
+                    left_x, left_y + r
+                })) do
+                    table.insert(shapes, b2.Polygon(table.unpack(tri)))
+                end
+
+                self._spawn_barrier = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
+                    0, 0, table.unpack(shapes)
                 )
-            )
+            end
 
             self._spawn_barrier:set_collision_group(
                 rt.settings.player.ghost_collision_group
