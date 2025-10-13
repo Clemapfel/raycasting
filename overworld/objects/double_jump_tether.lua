@@ -43,20 +43,13 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._body:add_tag("light_source")
     self._body:set_user_data(self)
 
-    self._is_consumed = false
     self._was_consumed = false
-    self._was_attached = false
     self._body:signal_connect("collision_start", function(_)
+        dbg("called")
         local player = self._scene:get_player()
-        if not self._is_consumed and not player:get_is_double_jump_source(self) then
+        if not player:get_is_double_jump_source(self) then
             player:add_double_jump_source(self)
-            self._is_consumed = true
             self:update(0)
-
-            player:signal_connect("grounded", function()
-                self._is_consumed = false
-                return meta.DISCONNECT_SIGNAL
-            end)
         end
     end)
 
@@ -65,37 +58,35 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
     self._particle = ow.DoubleJumpParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
-    self._shape_opacity_motion = rt.SmoothedMotion1D(1, 2)
+    self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
 end
 
 --- @brief
 function ow.DoubleJumpTether:update(delta)
-    local is_attached = self._scene:get_player():get_is_double_jump_source(self)
+    local is_consumed = self._scene:get_player():get_is_double_jump_source(self)
     local is_visible = self._stage:get_is_body_visible(self._body)
 
     self._line_opacity_motion:update(delta)
 
     -- show / hide particle when consumed
-    if self._is_consumed == true and self._was_consumed == false then
-        self._shape_opacity_motion:set_target_value(0)
-    elseif self._is_consumed == false and self._was_consumed == true then
-        self._shape_opacity_motion:set_target_value(1)
-    end
-    self._was_consumed = self._is_consumed
-
-    -- show / hide line when attached
-    if is_attached == true and self._was_attached == false then
+    if self._was_consumed == false and is_consumed == true then
         self._line_opacity_motion:set_target_value(1)
-    elseif is_attached == false and self._was_attached == true then
+        self._particle_opacity_motion:set_target_value(0)
+    elseif self._was_consumed == true and is_consumed == false then
         self._line_opacity_motion:set_target_value(0)
+        self._particle_opacity_motion:set_target_value(1)
     end
-    self._was_attached = is_attached
+    self._was_consumed = is_consumed
 
-    if is_visible then
+    self._particle_opacity_motion:update(delta)
+    self._line_opacity_motion:update(delta)
+
+    -- update particle if on screen and visible
+    if is_visible and self._particle_opacity_motion:get_value() > eps then
         self._particle:update(delta)
-        self._shape_opacity_motion:update(delta)
     end
 
+    -- update line if visible
     if self._line_opacity_motion:get_value() > eps then
         local x1, y1 = self._x, self._y
         local x2, y2 = self._scene:get_player():get_position()
@@ -172,15 +163,14 @@ end
 --- @brief
 function ow.DoubleJumpTether:draw()
     local line_a = self._line_opacity_motion:get_value()
-    if line_a > eps and self._line_mesh ~= nil then
-        love.graphics.setBlendMode("alpha")
+    if line_a > eps then
         local r, g, b = table.unpack(self._color)
         love.graphics.setColor(r, g, b, 1)
         love.graphics.draw(self._line_mesh)
     end
 
     if self._stage:get_is_body_visible(self._body) then
-        local shape_a = self._shape_opacity_motion:get_value()
+        local shape_a = self._particle_opacity_motion:get_value()
         local r, g, b = table.unpack(self._color)
 
         -- always draw core, fade out line
@@ -197,8 +187,9 @@ end
 --- @brief
 function ow.DoubleJumpTether:draw_bloom()
     if self._stage:get_is_body_visible(self._body) == false then return end
+
     local r, g, b = table.unpack(self._color)
-    local shape_a = self._shape_opacity_motion:get_value()
+    local shape_a = self._particle_opacity_motion:get_value()
     if shape_a > eps then
         love.graphics.setColor(r, g, b, shape_a)
         self._particle:draw(self._x, self._y, false, true) -- line only

@@ -1,15 +1,25 @@
 # Dependency
 
 AcceleratorSurface
+AcceleratorSurface + Portal as Loop
 BoostField
 BouncePad
+BouncePad + PlayerBubble
+BouncePad vs Bubble
 Bubble
-BubbleFied
+Bubble + PlayerBubble
+BubbleField
+BubbleField Inverted
 Checkpoint
 Coin
 DoubleJumpTether
+DoubleJumpTether x N
+
 KillPlane
 MovingHitbox
+MovingHitbox Horizontal
+MovingHitbox Vertical
+MovingHitbox as Cannon
 OneWayPlatform
 Portal
 Hitbox

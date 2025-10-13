@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 977,
+  nextobjectid = 979,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5840,6 +5840,32 @@ return {
             ["target"] = { id = 974 },
             ["velocity"] = 10
           }
+        },
+        {
+          id = 977,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -8256,
+          y = 1888,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 978,
+          name = "",
+          type = "BubbleField",
+          shape = "rectangle",
+          x = -8112,
+          y = 1664,
+          width = 384,
+          height = 304,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     }

@@ -44,7 +44,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
 
     self._inverted = object:get_boolean("inverted")
-    if self._inverted == nil then self._inverted = true end
+    if self._inverted == nil then self._inverted = false end
 
     local start_b = not self._inverted
     local end_b = self._inverted

@@ -189,6 +189,8 @@ function rt.Player:instantiate()
         _left_wall_elapsed = 0,
         _right_wall_elapsed = 0,
 
+        _is_grounded = false,
+
         -- jump
         _jump_elapsed = math.huge,
         _coyote_elapsed = 0,
@@ -313,7 +315,7 @@ function rt.Player:instantiate()
 
         -- double jump
         _double_jump_sources = {},
-        _double_jump_locked = true,
+        _double_jump_disallowed = true,
 
         -- particles
         _body_to_collision_normal = {},
@@ -346,12 +348,7 @@ function rt.Player:_connect_input()
             -- unlock double jump by re-pressing mid-air
             local is_midair = self._bottom_left_wall == false and self._bottom_wall == false and self._bottom_right_wall == false
             if #self._double_jump_sources > 0 and is_midair then
-                self._double_jump_locked = false
-            end
-
-            -- allow buffered double jumps
-            if #self._double_jump_sources == 0 and is_midair then
-                self._double_jump_buffer_elapsed = 0
+                self._double_jump_disallowed = false
             end
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = true
@@ -641,18 +638,35 @@ function rt.Player:update(delta)
     self._top_left_wall_body = top_left_wall_body
     self._top_left_ray = { x, y, x + top_left_dx, y + top_left_dy }
 
-    -- when going from air to ground, signal emission and re-lock double jump
-    if (bottom_left_before == false and bottom_before == false and bottom_right_before == false) and
-        (self._bottom_left_wall == true or self._bottom_wall == true or self._bottom_right_wall == true)
-    then
-        self:signal_emit("grounded")
-        self._double_jump_locked = true
+    local is_grounded = false
+    if not is_grounded and self._bottom_left_wall then
+        if math.distance(x, y, bottom_left_x, bottom_left_y) <= self._radius then
+            is_grounded = true
+        end
     end
 
+    if not is_grounded and self._bottom_wall then
+        if math.distance(x, y, bottom_x, bottom_y) <= self._radius then
+            is_grounded = true
+        end
+    end
+
+    if not is_grounded and self._bottom_right_wall then
+        if math.distance(x, y, bottom_right_x, bottom_right_y) <= self._radius then
+            is_grounded = true
+        end
+    end
+
+    -- when going from air to ground, signal emission and re-lock double jump
+    if self._is_grounded == false and is_grounded == true then
+        self:signal_emit("grounded")
+        self._double_jump_disallowed = true
+    end
+    self._is_grounded = is_grounded
+
     if not self._is_bubble then -- reset double jump counter when touching wall or ground
-        local is_grounded = self._bottom_left_wall or self._bottom_left_wall or self._bottom_wall
         local is_touching_wall = self._left_wall or self._right_wall
-        if is_grounded or (not is_grounded and is_touching_wall) then
+        if is_touching_wall or is_grounded then
             self._double_jump_sources = {}
         end
     end
@@ -1009,12 +1023,12 @@ function rt.Player:update(delta)
                         goto skip_jump
                     end
                     self._jump_allowed_override = nil
-                elseif not self._double_jump_locked and #self._double_jump_sources > 0 then
+                elseif not self._double_jump_disallowed and #self._double_jump_sources > 0 then
                     -- double jump
                     can_jump = true
                     self._jump_elapsed = 0
                     assert(table.pop(self._double_jump_sources) ~= nil)
-                    self._double_jump_locked = true
+                    self._double_jump_disallowed = true
                 end
 
                 if can_jump and t * self._jump_elapsed < _settings.jump_duration then
@@ -2239,7 +2253,7 @@ end
 
 --- @brief
 function rt.Player:get_is_grounded()
-    return self._bottom_left_wall or self._bottom_wall or self._bottom_right_wall
+    return self._is_grounded
 end
 
 --- @brief
@@ -2338,11 +2352,6 @@ end
 --- @brief
 function rt.Player:add_double_jump_source(instance)
     table.insert(self._double_jump_sources, 1, instance)
-
-    -- override lock for buffered jumps
-    if self._double_jump_buffer_elapsed < _settings.double_jump_buffer_duration then
-        self._double_jump_locked = false
-    end
 end
 
 --- @brief
