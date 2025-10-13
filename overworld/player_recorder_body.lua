@@ -3,7 +3,7 @@ require "common.player_body"
 
 rt.settings.overworld.player_recorder_body = {
     radius_factor = 1,
-    length_factor = 1.5
+    length_factor = 1
 }
 
 --- @class ow.PlayerRecorderBody
@@ -49,7 +49,7 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
         end
 
         self._graphics_body:set_shape(positions)
-        self._graphics_body:set_opacity(1)
+        self._graphics_body:set_opacity(0.5)
     end
 end
 
@@ -84,7 +84,7 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:update(delta)
-    if self._body == nil then return end
+    if self._body == nil or not self._stage:get_is_body_visible(self._body) then return end
 
     self._graphics_body:set_position(self._body:get_predicted_position())
     self._graphics_body:update(delta)
@@ -148,6 +148,8 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:draw()
+    if self._body == nil or not self._stage:get_is_body_visible(self._body) then return end
+
     self._graphics_body:draw_body()
     self._graphics_body:draw_core()
 

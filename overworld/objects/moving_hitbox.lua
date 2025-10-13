@@ -45,13 +45,6 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         self._is_active = true
     end)
 
-    -- lighting
-    self._body:add_tag("segment_light_source")
-    self._body:set_user_data(self)
-    self.get_segment_light_sources = function(self)
-        return self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
-    end
-
     -- match tags from ow.Hitbox
     for property in range(
         "slippery",
@@ -175,8 +168,8 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         )
 
         self._mirror:create_contour(
-            function() return self._tris end, -- mirror tris
-            nil -- occluding tris
+            self._tris, -- mirror tris
+            {} -- occluding tris
         )
     else
         self._blood_splatter = ow.BloodSplatter(
@@ -186,6 +179,15 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         self._blood_splatter:create_contour(
             self._tris
         )
+    end
+
+    -- lighting
+    if self._blood_splatter ~= nil then
+        self._body:add_tag("segment_light_source")
+        self._body:set_user_data(self)
+        self.get_segment_light_sources = function(self)
+            return self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
+        end
     end
 
     self._rail = ow.MovingHitboxPath(self._path)
