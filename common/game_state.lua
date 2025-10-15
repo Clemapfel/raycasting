@@ -48,7 +48,7 @@ function rt.GameState:instantiate()
         sound_effect_level = 1.0,
         music_level = 1.0,
         text_speed = 1.0,
-        joystick_deadzone = 0.15,
+        joystick_deadzone = 0.05,
         trigger_deadzone = 0.05,
         performance_mode_enabled = false,
         draw_debug_information = true,

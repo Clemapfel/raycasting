@@ -1430,20 +1430,24 @@ function rt.Player:update(delta)
         local target_x, target_y = 0, 0
         local current_x, current_y = self._bubble_body:get_velocity()
 
-        if self._left_button_is_down then
-            target_x = -1
-        end
+        if not self._use_analog_input then
+            if self._left_button_is_down then
+                target_x = -1
+            end
 
-        if self._right_button_is_down then
-            target_x = 1
-        end
+            if self._right_button_is_down then
+                target_x = 1
+            end
 
-        if self._up_button_is_down or self._jump_button_is_down then
-            target_y = -1
-        end
+            if self._up_button_is_down then
+                target_y = -1
+            end
 
-        if self._down_button_is_down then
-            target_y = 1
+            if self._down_button_is_down then
+                target_y = 1
+            end
+        else
+            target_x, target_y = self._joystick_position_x, self._joystick_position_y
         end
 
         local next_force_x, next_force_y

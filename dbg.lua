@@ -1,5 +1,4 @@
 return {
-    friction_coefficient = 14
 }
 
 --[[
