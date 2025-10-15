@@ -261,12 +261,12 @@ function rt.GameState:load_default_input_mapping()
 
         [rt.InputAction.A] = {
             keyboard = {"space"},
-            controller = rt.ControllerButton.RIGHT
+            controller = rt.ControllerButton.BOTTOM
         },
 
         [rt.InputAction.B] = {
             keyboard = {"b", "lshift"},
-            controller = rt.ControllerButton.BOTTOM
+            controller = rt.ControllerButton.LEFT
         },
 
         [rt.InputAction.X] = {
@@ -276,7 +276,7 @@ function rt.GameState:load_default_input_mapping()
 
         [rt.InputAction.Y] = {
             keyboard = {"y"},
-            controller = rt.ControllerButton.LEFT
+            controller = rt.ControllerButton.RIGHT
         },
 
         [rt.InputAction.L] = {
