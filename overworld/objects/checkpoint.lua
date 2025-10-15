@@ -2,6 +2,7 @@ require "common.sound_manager"
 require "overworld.fireworks"
 require "overworld.shatter_surface"
 require "overworld.objects.checkpoint_rope"
+require "overworld.objects.checkpoint_platform"
 require "common.label"
 
 rt.settings.overworld.checkpoint = {
@@ -111,6 +112,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _fireworks_visible = false,
 
         _rope = nil, -- ow.CheckpointRope
+        _platform = nil, -- ow.CheckpointPlatform
 
         -- last checkpoint: player goal
         _is_shattered = false,
@@ -184,36 +186,33 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             end)
 
             -- add ghost-safe collision
-            local r = rt.settings.player.radius * 4
+            local r = rt.settings.overworld.checkpoint_rope.radius
 
             -- match slope of ground
-            local left_x, left_y, _, _, _ = self._world:query_ray(self._x - r, self._y, 0, inf)
-            local right_x, right_y, _, _, _ = self._world:query_ray(self._x + r, self._y, 0, inf)
+            local width = rt.settings.player.radius * 4
+            local left_x, left_y, _, _, _ = self._world:query_ray(self._x - width, self._y, 0, inf)
+            local right_x, right_y, _, _, _ = self._world:query_ray(self._x + width, self._y, 0, inf)
 
-            --[[
-            left_x, left_y = math.subtract(left_x, left_y, bottom_x, bottom_y)
-            right_x, right_y = math.subtract(right_x, right_y, bottom_x, bottom_y)
-            local lowest_y = math.max(left_y, bottom_y, right_y)
-                ]]--
+            left_x = left_x or bottom_x
+            left_y = left_y or bottom_y
+            right_x = right_x or bottom_x
+            right_y = right_y or bottom_y
 
             -- match shape at spawn, could be convex
-            do
-                require "common.triangulate"
-                local shapes = {}
-                for tri in values(rt.math.triangulate({
+            self._platform = ow.CheckpointPlatform(
+                left_x, left_y,
+                right_x, right_y,
+                r
+            )
+
+            self._spawn_barrier = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC, 0, 0,
+                b2.Polygon(
                     left_x, left_y,
-                    bottom_x, bottom_y,
                     right_x, right_y,
                     right_x, right_y + r,
                     left_x, left_y + r
-                })) do
-                    table.insert(shapes, b2.Polygon(table.unpack(tri)))
-                end
-
-                self._spawn_barrier = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
-                    0, 0, table.unpack(shapes)
                 )
-            end
+            )
 
             self._spawn_barrier:set_collision_group(
                 rt.settings.player.ghost_collision_group
@@ -601,6 +600,8 @@ function ow.Checkpoint:draw(priority)
             if self._fireworks_visible then self._fireworks:draw() end
         elseif self._type == ow.CheckpointType.PLAYER_GOAL then
             if self._is_shattered then self._shatter_surface:draw() end
+        elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
+            self._platform:draw()
         end
     end
 
@@ -685,6 +686,8 @@ function ow.Checkpoint:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) then return end
     if self._type == ow.CheckpointType.MIDWAY then
         self._rope:draw_bloom()
+    elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
+        self._platform:draw_bloom()
     end
 end
 

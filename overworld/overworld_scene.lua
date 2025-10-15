@@ -1089,9 +1089,9 @@ end
 function ow.OverworldScene:_handle_trigger(value, left_or_right)
     local max_velocity = rt.settings.overworld_scene.camera_scale_velocity
     if left_or_right == false then
-        self._camera_scale_velocity = value * max_velocity * 5
+        self._camera_scale_velocity = value * max_velocity * 20
     else
-        self._camera_scale_velocity = -value * max_velocity * 5
+        self._camera_scale_velocity = -value * max_velocity * 20
     end
 end
 

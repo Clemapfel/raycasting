@@ -1534,7 +1534,7 @@ function rt.Player:update(delta)
     end
     
 
-    do -- detect being squished by moving objects
+    if not self._is_ghost then -- detect being squished by moving objects
         local center_body, to_check, xs, ys
         if not self._is_bubble then
             center_body = self._body
@@ -2595,7 +2595,12 @@ function rt.Player:reset()
     self._left_wall = false
     self._top_left_wall = false
 
-    -- do not reset input disabled
+    self._jump_button_is_down = self._input:get_is_down(rt.InputAction.JUMP)
+    self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
+    self._up_button_is_down = self._input:get_is_down(rt.InputAction.UP)
+    self._down_button_is_down = self._input:get_is_down(rt.InputAction.DOWN)
+    self._right_button_is_down = self._input:get_is_down(rt.InputAction.RIGHT)
+    self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
 end
 
 --- @brief

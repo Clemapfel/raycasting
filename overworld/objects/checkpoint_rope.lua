@@ -246,8 +246,6 @@ end
 --- @brie
 --- @brie
 function ow.CheckpointRope:_update_mesh()
-    if true then return end
-
     local r = rt.settings.overworld.checkpoint_rope.radius
     local left_a = 0 -- encode side of rope in color.a
     local center_a = 0.5
@@ -549,8 +547,6 @@ end
 --- @brief
 function ow.CheckpointRope:_draw(bloom_active)
     if self._is_despawned then return end
-
-    --love.graphics.clear(0.5, 0.5, 0.5, 1)
 
     _indicator_shader:bind()
     _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())

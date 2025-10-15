@@ -31,9 +31,8 @@ MovingHitbox Vertical
 MovingHitbox as Cannon
 
 OneWayPlatform
-OneWayPlatform allows fallthrought with down
-OneWayPlatform allows buffered down
 OneWayPlatform use rotated for walljump
+OneWayPlatform fall from top, the use as ceiling
 
 Portal
 Portal as one way

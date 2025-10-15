@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 991,
+  nextobjectid = 1004,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -102,6 +102,48 @@ return {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 75, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          }
+        },
+        {
+          x = -480, y = 112, width = 16, height = 16,
+          data = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          }
+        },
+        {
+          x = -448, y = 160, width = 16, height = 16,
+          data = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
           }
         },
@@ -4734,19 +4776,6 @@ return {
           properties = {}
         },
         {
-          id = 824,
-          name = "Checkpoint",
-          type = "Checkpoint",
-          shape = "point",
-          x = -2283.75,
-          y = 48.5184,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 827,
           name = "",
           type = "RotatingHitboxTarget",
@@ -5758,9 +5787,9 @@ return {
           name = "",
           type = "OneWayPlatform",
           shape = "rectangle",
-          x = -6513.76,
-          y = 1527.74,
-          width = 287.961,
+          x = -6379.61,
+          y = 1613.11,
+          width = 153.815,
           height = 10.9777,
           rotation = 90,
           visible = true,
@@ -5793,60 +5822,67 @@ return {
           properties = {}
         },
         {
-          id = 987,
-          name = "",
-          type = "OneWayPlatform",
-          shape = "rectangle",
-          x = -6336,
-          y = 1520,
-          width = 293.228,
-          height = 11.1785,
-          rotation = 90,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 988,
-          name = "",
-          type = "OneWayPlatform",
-          shape = "rectangle",
-          x = -6144,
-          y = 1520,
-          width = 289.716,
-          height = 11.0446,
-          rotation = 90,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 989,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -6619.33,
-          y = 1525.71,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 720, y = 0 },
-            { x = 720, y = -240 },
-            { x = 16, y = -240 }
-          },
-          properties = {}
-        },
-        {
           id = 990,
           name = "",
           type = "OneWayPlatform",
           shape = "rectangle",
-          x = -6657.2,
-          y = 1784.98,
-          width = 287.961,
+          x = -6148.62,
+          y = 1932.05,
+          width = 88.3089,
           height = 10.9777,
-          rotation = 45,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 991,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -6186.66,
+          y = 1612.4,
+          width = 153.815,
+          height = 10.9777,
+          rotation = 90,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 992,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = -6013.9,
+          y = 1616.46,
+          width = 153.815,
+          height = 10.9777,
+          rotation = 90,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1002,
+          name = "",
+          type = "",
+          shape = "rectangle",
+          x = -7269.98,
+          y = 1283.63,
+          width = 787.505,
+          height = 455.44,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1003,
+          name = "Checkpoint",
+          type = "Checkpoint",
+          shape = "point",
+          x = -6993.11,
+          y = 1838.09,
+          width = 0,
+          height = 0,
+          rotation = 0,
           visible = true,
           properties = {}
         }
