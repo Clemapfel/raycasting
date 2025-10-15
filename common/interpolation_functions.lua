@@ -51,16 +51,18 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         return 0.045 * math.exp(math.log(1 / 0.045 + 1) * (-1 * x + 1)) - 0.045
     end,
 
-    SQUARE_ACCELERATION = function(x)
+    SQUARE_ACCELERATION = function(x, n)
         -- x^{2}
         if x <= 0 then return 0 end
-        return x * x
+        if n == nil then n = 2 end
+        return x^n
     end,
 
-    SQUARE_DECELERATION = function(x)
+    SQUARE_DECELERATION = function(x, n)
         -- \left(x-1\right)^{2}
         if x >= 1 then return 0 end
-        return (x - 1) * (x - 1)
+        if n == nil then n = 2 end
+        return (x - 1)^n
     end,
 
     SIGMOID = function(x, k)
@@ -139,7 +141,7 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         if x >= 1 then return 1 elseif x <= 0 then return 0 end
         if order == nil then order = 6 end
         if order % 2 ~= 0 then order = order + 1 end
-        -- \frac{1}{\left(1+\left(3x\right)^{n}\right)}
+        -- \frac{1}{\left(1+\left(3(x-1)\right)^{n}\right)}
         return 1 / (1 + (3 * (x - 1))^order)
     end,
 
@@ -233,6 +235,40 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
             -- \sqrt{\left(0.5\left(x-0.5\right)\right)}+0.5
             return math.sqrt(0.5 * (x - 0.5)) + 0.5
         end
+    end,
+
+    FRACTIONAL_ROOT_ACCELERATION = function(x, fraction)
+        if x <= 0 then return 0 elseif x >= 1 then return 1 end
+
+        -- x^{t}
+        if fraction == nil then
+            fraction = 0.5
+        else
+            if fraction <= 0 then
+                fraction = math.eps
+            elseif fraction > 1 then
+                fraction = 1
+            end
+        end
+
+        if fraction == 0.5 then return math.sqrt(x) else return x^fraction end
+    end,
+
+    FRACTIONAL_ROOT_DELECERATION = function(x, fraction)
+        if x <= 0 then return 1 elseif x >= 1 then return 0 end
+
+        -- \left(1-x\right)^{t}
+        if fraction == nil then
+            fraction = 0.5
+        else
+            if fraction <= 0 then
+                fraction = math.eps
+            elseif fraction > 1 then
+                fraction = 1
+            end
+        end
+
+        if fraction == 0.5 then return math.sqrt(1 - x) else return (1 - x)^fraction end
     end,
 
     PARABOLA_BANDPASS = function(x)
