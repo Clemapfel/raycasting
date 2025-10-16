@@ -186,7 +186,7 @@ end
 function ow.Hook:_unhook()
     if self._is_hooked == false then return end
 
-    -- hook has to be delay to after box2d collision step
+    -- delay to after box2d collision step
     self._world:signal_connect("step", function(_)
         if self._bubble_hook ~= nil then
             self._bubble_hook:destroy()
@@ -230,7 +230,6 @@ function ow.Hook:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
     _shader:unbind()
-
 
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width + 2)
