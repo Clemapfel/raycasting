@@ -368,17 +368,7 @@ local mesh_format = {
 -- The input contour is convex and ordered clockwise.
 -- This version fixes quad triangulation (including the closing edge) and adds
 -- corner-filling triangles by only appending indices to the vertex map.
-local mesh_format = {
-    { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
-    { location = 1, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
-    { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
-}
-
--- Generate a mesh with an inner region + an outer rim made of quads.
--- The input contour is convex and ordered clockwise.
--- This version fixes quad triangulation (including the closing edge) and adds
--- corner-filling triangles by only appending indices to the vertex map.
-local function generate_mesh(contour)
+local function generate_mesh(contour, min_x, min_y, max_x, max_y)
     local rim_thickness = rt.settings.overworld.shatter_surface.rim_thickness
     contour = table.deepcopy(contour)
 
@@ -440,20 +430,33 @@ local function generate_mesh(contour)
         table.insert(inset, iy)
     end
 
+    local xy_to_uv = function(x, y, u, v)
+        return (x - min_x) / (max_x - min_x),
+        (y - min_y) / (max_y - min_y)
+    end
+
     -- Mesh data: first, the fill region is the inset polygon (no overlap with rim)
     local mesh_data = {}
     for i = 1, #inset, 2 do
         local x, y = inset[i], inset[i + 1]
         -- position (x,y), tex (0,0), color (white)
-        table.insert(mesh_data, { x, y, 0, 0, 1, 1, 1, 1 })
+        local u, v = xy_to_uv(x, y)
+        table.insert(mesh_data, { x, y, u, v, 1, 1, 1, 1 })
     end
 
     -- Triangulate the inset polygon (convex) for the fill
     local vertex_map = rt.DelaunayTriangulation(inset):get_triangle_vertex_map()
 
     -- Attribute shorthands for rim vertices (keep as in original)
-    local rim_inner = function(t) return 1.0, 1.0, 1, 1, 1, 1 end -- on original boundary
-    local rim_outer = function(t) return 1.0, 1.0, 1, 1, 1, 1 end -- on inset boundary
+    local rim_inner = function(x, y) -- on original boundary
+        local u, v = xy_to_uv(x, y)
+        return u, v, 1, 1, 1, 0
+    end
+
+    local rim_outer = function(x, y)  -- on inset boundary
+        local u, v = xy_to_uv(x, y)
+        return u, v, 1, 1, 1, 1
+    end
 
     -- Build rim quads per edge using ORIGINAL boundary and INSET boundary
     -- For edge k: v_k -> v_next, inset: w_k -> w_next
@@ -477,10 +480,10 @@ local function generate_mesh(contour)
         local ix1, iy1 = inset[i1], inset[i1 + 1]
         local ix2, iy2 = inset[j1], inset[j1 + 1]
 
-        table.insert(mesh_data, { x1,  y1,  rim_inner() })
-        table.insert(mesh_data, { ix1, iy1, rim_outer() })
-        table.insert(mesh_data, { x2,  y2,  rim_inner() })
-        table.insert(mesh_data, { ix2, iy2, rim_outer() })
+        table.insert(mesh_data, { x1,  y1,  rim_inner(x1, y1) })
+        table.insert(mesh_data, { ix1, iy1, rim_outer(ix1, iy1) })
+        table.insert(mesh_data, { x2,  y2,  rim_inner(x2, y2) })
+        table.insert(mesh_data, { ix2, iy2, rim_outer(ix2, iy2) })
 
         local base = base_start + (k - 1) * 4
         for j in range(
@@ -515,12 +518,19 @@ function ow.ShatterSurface:instantiate(world, x, y, width, height)
         x + width, y,
         x + width, y + height,
         x, y + height
-    })
+    }, x, y, x + width, y + height)
 
     self._is_shattered = false
     self._is_done = false
     self._callback = nil -- coroutine
     self._time_dilation = 1
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "l" then
+            _shader:recompile()
+        end
+    end)
 end
 
 
@@ -725,12 +735,16 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             part.body:add_tag("stencil", "unjumpable", "slippery")
 
             local vx, vy = math.normalize(part.x - origin_x, part.y - origin_y)
-            vx, vy = math.multiply(vx, vy, settings.velocity_magnitude)
+            vx, vy = math.multiply(vx, vy, settings.velocity_magnitude, settings.velocity_magnitude)
             part.velocity_x = vx
             part.velocity_y = vy
             part.body:set_velocity(vx, vy)
             part.body:set_restitution(1)
-            part.mesh = generate_mesh(part.vertices)
+            part.mesh = generate_mesh(
+                part.vertices,
+                self._bounds.x, self._bounds.y,
+                self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height
+            )
 
             entry_i = entry_i + 1
         end
@@ -761,6 +775,7 @@ end
 function ow.ShatterSurface:draw()
      love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue() , 1))
     _shader:bind()
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
     if not self._is_done then
         self._pre_shatter_mesh:draw()
     else
@@ -782,4 +797,13 @@ function ow.ShatterSurface:set_time_dilation(t)
     for part in values(self._parts) do
         part.body:set_damping(t)
     end
+end
+
+--- @brief
+function ow.ShatterSurface:reset()
+    for part in values(self._parts) do
+        part.body:destroy()
+    end
+
+    self:instantiate(self._world, self._bounds:unpack())
 end

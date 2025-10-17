@@ -61,11 +61,14 @@ float gradient_noise(vec3 p) {
 
 uniform float elapsed;
 
-vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 _) {
+vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
+    // uv encodes global position
+    float noise = gradient_noise(vec3(texture_coords.xy * 5, elapsed));
+
     // alpha encodes rim
     float outline = 1 - color.a > 0 ? 1 : 0;
     vec4 rim = vec4(mix( vec3(0), color.rgb, outline), outline);
-    return rim + (1 - outline) * vec4(0, 0, 0, 0.5);
+    return rim + (1 - outline) * vec4(vec3(noise), 0.5);
 }
 
 #endif
