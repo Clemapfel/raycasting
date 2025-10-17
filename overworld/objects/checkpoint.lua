@@ -108,7 +108,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         -- midway checkpoint:
         _fireworks = nil, -- ow.Fireworks
-        _fireworks_locations = {},
         _fireworks_visible = false,
 
         _rope = nil, -- ow.CheckpointRope
@@ -154,7 +153,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         local player = self._scene:get_player()
 
         self._bottom_x, self._bottom_y = bottom_x, bottom_y
-        self._top_x, self._top_y = top_x, top_y
+        self._top_x, self._top_y = top_x, top_y + 4 * player:get_radius()
 
         self._body = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
             self._x, self._y,
@@ -176,6 +175,8 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         self._body:set_is_sensor(true)
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
+            self._fireworks = ow.Fireworks(self._scene:get_player())
+
             self._body:signal_connect("collision_start", function(_, other)
                 if self._passed == false then
                     -- spawn does not split
@@ -218,6 +219,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 rt.settings.player.ghost_collision_group
             )
             self._spawn_barrier:add_tag("stencil", "hitbox")
+
         elseif self._type == ow.CheckpointType.MIDWAY then
             self._fireworks = ow.Fireworks(self._scene:get_player())
             self._rope = ow.CheckpointRope(self._scene, self._stage, self._world, self._top_x, self._top_y, self._bottom_x, self._bottom_y)
@@ -232,7 +234,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                     local start_x, start_y = self._bottom_x, self._bottom_y
                     local max_distance = math.distance(self._bottom_x, self._bottom_y, self._top_x, self._top_y)
 
-                    self._fireworks_locations = {}
                     for i = 1, 6 do
                         local distance = rt.random.number(0, max_distance)
                         local vy = -1 -- always upwards
@@ -245,11 +246,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                             end_x, end_y, -- end
                             hue - 0.2, hue + 0.2
                         )
-
-                        table.insert(self._fireworks_locations, start_x)
-                        table.insert(self._fireworks_locations, start_y)
-                        table.insert(self._fireworks_locations, end_x)
-                        table.insert(self._fireworks_locations, end_y)
                     end
                     self._fireworks_visible = true
                 end
@@ -398,7 +394,7 @@ function ow.Checkpoint:spawn(also_kill)
 
     local type = self._type
     if is_first_spawn then
-        -- if first spawn, skip ray animation, spawn at position
+        -- if first spawn, skip ray animation, spawn at position, spawn fireworks
         self:_set_state(_STATE_STAGE_ENTRY)
     else
         if also_kill then
@@ -425,7 +421,7 @@ function ow.Checkpoint:_set_state(state)
         local before = camera:get_apply_bounds()
         camera:set_apply_bounds(false)
         local screen_h = camera:get_world_bounds().height
-        local spawn_y = self._bottom_y - screen_h - 4 * player:get_radius() -- always out of bounds, safe because ghost
+        local spawn_y = math.max(self._bottom_y - screen_h - 4 * player:get_radius(), self._top_y) -- always out of bounds, safe because ghost
         camera:get_apply_bounds()
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
@@ -486,7 +482,7 @@ end
 --- @brief
 function ow.Checkpoint:update(delta)
     -- update fireworks indepedent from body location
-    if self._type == ow.CheckpointType.MIDWAY then
+    if self._type == ow.CheckpointType.MIDWAY or self._type == ow.CheckpointType.PLAYER_SPAWN then
         if self._fireworks_visible then
             self._fireworks:update(delta)
             self._fireworks_visible = not self._fireworks:get_is_done()
@@ -540,7 +536,7 @@ function ow.Checkpoint:update(delta)
     self._camera_scale = camera:get_scale()
 
     if self._type == ow.CheckpointType.PLAYER_SPAWN then
-        -- noop
+        self._platform:set_hue(self._scene:get_player():get_hue())
     elseif self._type == ow.CheckpointType.MIDWAY then
         self._rope:update(delta)
     elseif self._type == ow.CheckpointType.PLAYER_GOAL then
@@ -601,7 +597,7 @@ function ow.Checkpoint:draw(priority)
         elseif self._type == ow.CheckpointType.PLAYER_GOAL then
             if self._is_shattered then self._shatter_surface:draw() end
         elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
-            self._platform:draw()
+            -- noop
         end
     end
 
@@ -611,8 +607,6 @@ function ow.Checkpoint:draw(priority)
     if priority == _base_priority then
         love.graphics.setColor(self._color)
         self._body:draw()
-
-        if self._spawn_barrier ~= nil then self._spawn_barrier:draw() end
 
         -- ray drawn behind player
         if self._state == _STATE_RAY or self._state == _STATE_DEFAULT then
@@ -677,6 +671,8 @@ function ow.Checkpoint:draw(priority)
             )
             self._goal_time_label:draw()
             love.graphics.pop()
+        elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
+            self._platform:draw()
         end
     end
 end
@@ -706,4 +702,14 @@ end
 --- @brief
 function ow.Checkpoint:get_type()
     return self._type
+end
+
+--- @brief
+function ow.Checkpoint:reset()
+    for to_reset in range( -- automatically skips nils
+        self._shatter_surface,
+        self._rope
+    ) do
+       to_reset:reset()
+    end
 end
