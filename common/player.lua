@@ -1398,7 +1398,7 @@ function rt.Player:update(delta)
                         -- calculate gravity component along the slope (opposing movement)
                         local gravity_along_slope = math.dot(0, gravity, ground_tangent_x, ground_tangent_y)
 
-                        next_velocity_x, next_velocity_y = math.multiply(
+                        next_velocity_x, next_velocity_y = math.multiply2(
                             ground_tangent_x, ground_tangent_y,
                             (compensation) * (tangent_dot - gravity_along_slope)
                         )

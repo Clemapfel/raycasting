@@ -249,14 +249,14 @@ function ow.ResultScreenFrame:_update_mesh_paths()
         local rect_x, rect_y = self._rect_area.x + 0.5 * self._rect_area.width, self._rect_area.y + 0.5 * self._rect_area.height
         local path = rt.Path(
             origin_x, origin_y,
-            circle_x, circle_x,
+            circle_x, circle_y,
             rect_x, rect_y
         )
 
         self._vertex_i_to_path[1] = path
 
         vertex_i_to_weight_entry[1] = {
-            to_circle = math.distance(origin_x, origin_y, circle_x, circle_x),
+            to_circle = math.distance(origin_x, origin_y, circle_x, circle_y),
             to_rect = math.distance(circle_x, circle_y, rect_x, rect_y)
         }
     end
@@ -389,7 +389,7 @@ function ow.ResultScreenFrame:_update_mesh_paths()
 
     for i, entry in ipairs(vertex_i_to_weight_entry) do
         local path = self._vertex_i_to_path[i]
-        if i <= 2 then
+        if i >= 2 then
             if i % 2 == 0 then -- inner
                 local total = entry.to_circle + entry.to_rect
 

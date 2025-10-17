@@ -28,7 +28,7 @@ do
         bloom_composite_strength = bloom, -- [0, 1]
         title_card_min_duration = 3, -- seconds
 
-        result_screen_transition_duration = 1.5,
+        result_screen_transition_duration = 0, --1.5,
         idle_threshold_duration = 5,
         control_indicator_delay = 0.0,
     }
@@ -382,8 +382,11 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
     if self._stage_id ~= stage_id then
         self._stage_id = stage_id
         self._stage = ow.Stage(self, stage_id)
+    else
+        self._stage:reset()
     end
 
+    self._stage:set_active_checkpoint(nil)
     self._player:move_to_stage(self._stage)
 
     self._player_is_focused = true
@@ -574,13 +577,12 @@ function ow.OverworldScene:draw()
     love.graphics.clear(1, 0, 1, 1)
     if self._show_title_card == true and self._fade:get_is_active() or self._fade:get_is_visible() then
         self._background:draw()
-        love.graphics.clear(0.5, 0.5, 0.5, 1)
         self._camera:bind()
         self._stage:draw_below_player()
         self._stage:draw_above_player()
         self._camera:unbind()
 
-        self._fade:draw()
+        --self._fade:draw()
 
         if self._player_is_visible then
             self._camera:bind()
@@ -1044,12 +1046,14 @@ function ow.OverworldScene:update(delta)
 
             local before = self._draw_debug_information
             self._hide_debug_information = true
-            self._screenshot:bind()
+            local screenshot = ternary(self._screenshot_a_or_b, self._screenshot_a, self._screenshot_b)
+
+            screenshot:bind()
             love.graphics.push("all")
             love.graphics.clear(1, 0, 1, 1)
             self:draw()
             love.graphics.pop()
-            self._screenshot:unbind()
+            screenshot:unbind()
             self._hide_debug_information = false
             self._player_is_visible = true
 
@@ -1057,7 +1061,7 @@ function ow.OverworldScene:update(delta)
 
             rt.SceneManager:set_scene(ow.ResultScreenScene,
                 local_x, local_y,
-                self._screenshot,  {
+                screenshot,  {
                     coins = { true, true, true, true, true, true, true, true },
                     time = 1.234,
                     target_time = 1.230,

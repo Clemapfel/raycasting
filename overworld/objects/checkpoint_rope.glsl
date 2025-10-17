@@ -30,20 +30,6 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-uniform vec2 camera_offset;
-uniform float camera_scale = 1;
-vec2 to_uv(vec2 frag_position) {
-    vec2 uv = frag_position;
-    vec2 origin = vec2(love_ScreenSize.xy / 2);
-    uv -= origin;
-    uv /= camera_scale;
-    uv += origin;
-    uv -= camera_offset;
-    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
-    uv /= love_ScreenSize.xy;
-    return uv;
-}
-
 float dirac(float x) {
     float a = 0.045 * exp(log(1.0 / 0.045 + 1.0) * x) - 0.045;
     float b = 0.045 * exp(log(1.0 / 0.045 + 1.0) * (1.0 - x)) - 0.045;
@@ -57,7 +43,7 @@ uniform bool bloom_active = false;
 
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coords, vec2 vertex_position) {
     vec2 uv = texture_coords;
-    float side = sign((2 * vertex_color.a) - 1); // a is 0 to 1 left to right, while uv is mirror
+    float side = sign((2 * vertex_color.a) - 1);
     vec2 seed = uv.xy;
     seed.y += 10 * side;
 

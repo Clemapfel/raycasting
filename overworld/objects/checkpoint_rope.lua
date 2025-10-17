@@ -8,7 +8,7 @@ rt.settings.overworld.checkpoint_rope = {
 --- @class ow.CheckpointRope
 ow.CheckpointRope = meta.class("CheckpointRope")
 
-local _indicator_shader = rt.Shader("overworld/objects/checkpoint_rope.glsl")
+local _shader = rt.Shader("overworld/objects/checkpoint_rope.glsl")
 
 function rotate_segment_around_point(x1, y1, x2, y2, px, py, angle)
     local x1_translated = x1 - px
@@ -548,10 +548,10 @@ end
 function ow.CheckpointRope:_draw(bloom_active)
     if self._is_despawned then return end
 
-    _indicator_shader:bind()
-    _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _indicator_shader:send("color", self._color)
-    _indicator_shader:send("bloom_active", bloom_active)
+    _shader:bind()
+    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("color", self._color)
+    _shader:send("bloom_active", bloom_active)
     love.graphics.setColor(1, 1, 1, 1)
     if not self._is_cut and self._pre_cut_mesh ~= nil then
         self._pre_cut_mesh:draw()
@@ -559,7 +559,7 @@ function ow.CheckpointRope:_draw(bloom_active)
         self._post_cut_mesh_top:draw()
         self._post_cut_mesh_bottom:draw()
     end
-    _indicator_shader:unbind()
+    _shader:unbind()
 end
 
 --- @brief
@@ -570,5 +570,19 @@ end
 --- @brief
 function ow.CheckpointRope:draw_bloom()
     self:_draw(true)
+end
+
+--- @brief
+function ow.CheckpointRope:reset()
+    for body in values(self._bodies) do body:destroy() end
+    self:instantiate(
+        self._scene,
+        self._stage,
+        self._world,
+        self._top_x,
+        self._top_y,
+        self._bottom_x,
+        self._bottom_y
+    )
 end
 

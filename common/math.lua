@@ -587,60 +587,70 @@ end
 --- @brief
 function math.add(...)
     local n = select("#", ...)
-    if n == 2 or n == 3 then
+    if n == 4 then
         return math.add2(...)
-    elseif n == 4 or n == 6 then
+    elseif n == 6 then
         return math.add3(...)
     elseif n == 8 then
         return math.add4(...)
+    else
+        rt.error("In math.add: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
     end
 end
 
 --- @brief
 function math.subtract(...)
     local n = select("#", ...)
-    if n == 2 or n == 3 then
+    if n == 4 then
         return math.subtract2(...)
-    elseif n == 4 or n == 6 then
+    elseif n == 6 then
         return math.subtract3(...)
     elseif n == 8 then
         return math.subtract4(...)
+    else
+        rt.error("In math.subtract: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
     end
 end
 
 --- @brief
 function math.reverse_subtract(...)
     local n = select("#", ...)
-    if n == 2 or n == 3 then
+    if n == 4 then
         return math.reverse_subtract2(...)
-    elseif n == 4 or n == 6 then
+    elseif n == 6 then
         return math.reverse_subtract3(...)
     elseif n == 8 then
         return math.reverse_subtract4(...)
+    else
+        rt.error("In math.reverse_subtract: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
     end
 end
 
 --- @brief
 function math.multiply(...)
     local n = select("#", ...)
-    if n == 2 or n == 3 then
+    if n == 4 then
         return math.multiply2(...)
-    elseif n == 4 or n == 6 then
+    elseif n == 6 then
         return math.multiply3(...)
     elseif n == 8 then
         return math.multiply4(...)
+    else
+        rt.error("In math.multiply: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
     end
 end
 
 --- @brief
 function math.divide(...)
     local n = select("#", ...)
-    if n == 2 or n == 3 then
+    if n == 4 then
         return math.divide2(...)
-    elseif n == 4 or n == 6 then
+    elseif n == 6 then
         return math.divide3(...)
     elseif n == 8 then
         return math.divide4(...)
+    else
+        rt.error("In math.divide: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
     end
 end
 

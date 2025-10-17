@@ -304,6 +304,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             8, _mask_texture_format, true
         ):get_native()
 
+        savepoint()
+
         local jfa_texture = love.graphics.newTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             2, -- layer count
@@ -315,10 +317,14 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             }
         )
 
+        savepoint()
+
         local export_texture = rt.RenderTexture(
             chunk_size + 2 * padding, chunk_size + 2 * padding,
             0, _normal_map_texture_format, true
         )
+
+        savepoint()
 
         local dispatch_size_x, dispatch_size_y = (chunk_size + 2 * padding) / size_x, (chunk_size + 2 * padding) / size_y
         local lg = love.graphics
@@ -336,9 +342,13 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             lg.pop()
             lg.setCanvas(nil)
 
+            savepoint()
+
             -- clear array texture
             _clear_shader:send("jfa_texture_array", jfa_texture)
             _clear_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+            savepoint()
 
             -- init (writes to layer 0, boundaries to both layers)
             _init_shader:send("mask_texture", mask)
@@ -351,6 +361,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local jump = 0.5 * chunk_size
             local current_layer = 0
 
+            local last_time = love.timer.getTime()
             while jump > 0.5 do
                 local input_layer = current_layer
                 local output_layer = 1 - current_layer
@@ -364,9 +375,12 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
                 current_layer = output_layer
                 jump = jump / 2
-            end
 
-            savepoint()
+                if (love.timer.getTime() - last_time) > 1 / 480 then
+                    savepoint()
+                    last_time = love.timer.getTime()
+                end
+            end
 
             -- export final result
             _export_shader:send("final_layer", current_layer)
@@ -387,8 +401,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             lg.pop()
 
             chunk.is_initialized = true
-
-            savepoint()
         end
 
         jfa_texture:release()

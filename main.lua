@@ -3,10 +3,6 @@ require "common.scene_manager"
 require "common.game_state"
 require "common.input_subscriber"
 
-input = rt.InputSubscriber()
-input:signal_connect("pressed", function(_, which)
-end)
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 

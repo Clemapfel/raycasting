@@ -196,7 +196,16 @@ end
 local dt = math.eps * 10e2
 
 function ow.MovingHitbox:update(delta)
-    self._normal_map:update(delta)
+    if self._normal_map:get_is_done() == false then
+        self._normal_map:update(delta) -- finish loading coroutine
+    end
+
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    if self._normal_map:get_is_done() then
+        self._normal_map:update()
+    end
+
     if self._mirror ~= nil then
         self._mirror:update(delta)
     else
@@ -207,8 +216,6 @@ function ow.MovingHitbox:update(delta)
             self._blood_splatter:add(cx, cy, r, player:get_hue())
         end
     end
-
-    --if not self._stage:get_is_body_visible(self._body) then return end
 
     self._elapsed = self._elapsed + delta
     local length = self._path:get_length()

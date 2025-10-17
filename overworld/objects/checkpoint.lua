@@ -12,11 +12,6 @@ rt.settings.overworld.checkpoint = {
     ray_duration = 0.1,
     ray_width_radius_factor = 4,
     ray_fade_out_duration = 0.5,
-
-    goal_time_dilation = 0,
-    goal_time_dilation_duration = 1,
-    goal_line_width = 50, -- px
-    result_screen_delay = 0.0,
 }
 
 --- @class ow.Checkpoint
@@ -26,8 +21,7 @@ ow.Checkpoint = meta.class("Checkpoint")
 --- @class ow.CheckpointTye
 ow.CheckpointType = meta.enum("CheckpointType", {
     PLAYER_SPAWN = 0,
-    MIDWAY = 1,
-    PLAYER_GOAL = 2
+    MIDWAY = 1
 })
 
 --- @class ow.PlayerSpawn
@@ -36,30 +30,13 @@ ow.PlayerSpawn = function(object, stage, scene) -- alias for first checkpoint
     return ow.Checkpoint(object, stage, scene, ow.CheckpointType.PLAYER_SPAWN)
 end
 
---- @class ow.PlayerGoal
---- @types Point
-ow.PlayerGoal = function(object, stage, scene) -- alias for end of stage
-    return ow.Checkpoint(object, stage, scene, ow.CheckpointType.PLAYER_GOAL)
-end
-
 local _ray_shader = rt.Shader("overworld/objects/checkpoint_ray.glsl")
 local _explosion_shader = rt.Shader("overworld/objects/checkpoint_explosion.glsl")
-local _indicator_shader = rt.Shader("overworld/objects/checkpoint_indicator.glsl")
 
 local _STATE_DEFAULT = "DEFAULT"
 local _STATE_RAY = "RAY"
 local _STATE_EXPLODING = "EXPLODING"
 local _STATE_STAGE_ENTRY = "STAGE_ENTRY"
-local _STATE_STAGE_EXIT = "STAGE_EXIT"
-
-local _format_time = function(time)
-    return string.format_time(time), {
-        style = rt.FontStyle.BOLD,
-        is_outlined = true,
-        font_size = rt.FontSize.REGULAR,
-        color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue(), 1))
-    }
-end
 
 --- @brief
 function ow.Checkpoint:instantiate(object, stage, scene, type)
@@ -98,6 +75,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _explosion_size = { 0, 0 },
 
         _elapsed = 0,
+        _split_send = false,
 
         -- shader uniform
         _camera_offset = { 0, 0 },
@@ -110,28 +88,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _fireworks = nil, -- ow.Fireworks
         _fireworks_visible = false,
 
-        _rope = nil, -- ow.CheckpointRope
-        _platform = nil, -- ow.CheckpointPlatform
-
-        -- last checkpoint: player goal
-        _is_shattered = false,
-        _shatter_body = nil,    -- b2.Body
-        _shatter_surface = nil, -- ow.ShatterSurface
-        _time_dilation_elapsed = 0,
-        _time_dilation_active = false,
-        _shatter_velocity_x = 0,
-        _shatter_velocity_y = 0,
-
-        _goal_indicator_outline = { 0, 0, 1, 1 }, -- love.Line
-        _goal_indicator_line = { 0, 0, 1, 1 }, -- love.Line
-        _goal_indicator = nil, -- rt.Mesh
-        _goal_indicator_motion = rt.SmoothedMotion2D(),
-
-        _goal_player_position_x = 0,
-        _goal_player_position_y = 0,
-
-        _result_screen_revealed = false,
-        _split_send = false
+        _rope = nil -- ow.CheckpointRope, only if midpoint
     })
 
     stage:signal_connect("initialized", function()
@@ -153,7 +110,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         local player = self._scene:get_player()
 
         self._bottom_x, self._bottom_y = bottom_x, bottom_y
-        self._top_x, self._top_y = top_x, top_y + 4 * player:get_radius()
+        self._top_x, self._top_y = top_x, top_y + 2 * player:get_radius()
 
         self._body = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
             self._x, self._y,
@@ -262,112 +219,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                     self._passed = true
                 end
             end)
-
-        elseif self._type == ow.CheckpointType.PLAYER_GOAL then
-            local surface_w = 100
-            local surface_h = self._bottom_y - self._top_y
-
-            local body_x, body_y = self._top_x, self._top_y
-            self._shatter_bounds = rt.AABB(body_x, body_y, surface_w, surface_h)
-            self._shatter_body = b2.Body(self._world, b2.BodyType.STATIC,
-                0, 0,
-                b2.Rectangle(self._shatter_bounds:unpack())
-            )
-
-            self._shatter_surface = ow.ShatterSurface(self._world, self._shatter_bounds:unpack())
-
-            self._shatter_body:set_collides_with(collision_mask)
-            self._shatter_body:set_collision_group(collision_group)
-            self._shatter_body:set_is_sensor(true)
-            self._shatter_body:signal_connect("collision_start", function(_, other, nx, ny, x, y, x2, y2)
-                if self._is_shattered == false then
-                    self._is_shattered = true
-                    self._scene:stop_timer()
-                    self._shatter_velocity_x, self._shatter_velocity_y = self._scene:get_player():get_velocity()
-                    local min_x, max_x = self._shatter_bounds.x, self._shatter_bounds.x + self._shatter_bounds.width
-                    local min_y, max_y = self._shatter_bounds.y, self._shatter_bounds.y + self._shatter_bounds.height
-
-                    local px, py = self._scene:get_player():get_position()
-                    self._goal_player_position_x, self._goal_player_position_y = self._goal_indicator_line[1], py
-                    self._shatter_surface:shatter(px, py)
-                    self._time_dilation_active = true
-                    self._time_dilation_elapsed = 0
-                end
-
-                if self._passed == false then
-                    self:_send_split()
-                    self._stage:set_active_checkpoint(self)
-                    self._coin_savestate = {}
-                    for coin_i = 1, self._stage:get_n_coins() do
-                        if self._stage:get_coin_is_collected(coin_i) then
-                            self._coin_savestate[coin_i] = true
-                        end
-                    end
-                    self._passed = true
-                end
-            end)
-
-            self._goal_line = {
-                body_x, body_y,
-                body_x, body_y + surface_h
-            }
-
-            do
-                local r, h = rt.settings.overworld.checkpoint.goal_line_width, surface_h
-                local x, y = body_x - r, body_y
-                local inner = function() return 1, 1, 1, 1 end
-                local outer = function() return 1, 1, 1, 0  end
-                self._goal_line_mesh = rt.Mesh({
-                    [1] = { x + 0 * r, y + 0, 0, 0, outer() },
-                    [2] = { x + 1 * r, y + 0, 1, 0, inner() },
-                    [3] = { x + 2 * r, y + 0, 0, 0, outer() },
-                    [4] = { x + 0 * r, y + h, 0, 1, outer() } ,
-                    [5] = { x + 1 * r, y + h, 1, 1, inner() },
-                    [6] = { x + 2 * r, y + h, 0, 1, outer() }
-                }, rt.MeshDrawMode.TRIANGLES)
-
-                self._goal_line_mesh:set_vertex_map({
-                    1, 2, 5,
-                    1, 4, 5,
-                    2, 3, 6,
-                    2, 5, 6
-                })
-            end
-
-            local center_x, center_y, radius = 0, 0, 2 * player:get_radius()
-
-            self._goal_indicator_outline = {}
-            local mesh_data = {
-                { center_x, center_y, 0, 0, 1, 1, 1, }
-            }
-
-            local n_vertices = 16
-            for i = 1, n_vertices + 1 do
-                local angle = (i - 1) / n_vertices * (2 * math.pi)
-                local u, v = math.cos(angle), math.sin(angle)
-                table.insert(mesh_data, {
-                    center_x + u * radius, center_y + v * radius,
-                    u, v,
-                    1, 1, 1, 1
-                })
-
-                table.insert(self._goal_indicator_outline, center_x + u * radius)
-                table.insert(self._goal_indicator_outline, center_y + v * radius)
-            end
-
-            self._goal_indicator = rt.Mesh(mesh_data)
-            self._goal_indicator_line = {
-                body_x, body_y, body_x, body_y + surface_h
-            }
-
-            local offset_x, offset_y = body_x, body_y + 0.5 * surface_h
-            self._goal_indicator_motion:set_position(offset_x, offset_y)
-            self._goal_indicator_motion:set_target_position(offset_x, offset_y)
-
-            self._goal_time_label = rt.Glyph(_format_time(self._scene:get_timer()))
-            self._goal_time_label:realize()
-            self._goal_time_label:reformat(0, 0, math.huge, math.huge)
-            self._goal_time_label_offset_x, self._goal_time_label_offset_y = 0, 0
         end
 
         return meta.DISCONNECT_SIGNAL
@@ -432,8 +283,6 @@ function ow.Checkpoint:_set_state(state)
         player:set_is_ghost(true)
         player:disable()
 
-    elseif self._state == _STATE_STAGE_EXIT then
-
     elseif self._state == _STATE_EXPLODING then
         local explosion_x, explosion_y = player:get_position()
         self._explosion_player_position = { explosion_x, explosion_y }
@@ -482,49 +331,9 @@ end
 --- @brief
 function ow.Checkpoint:update(delta)
     -- update fireworks indepedent from body location
-    if self._type == ow.CheckpointType.MIDWAY or self._type == ow.CheckpointType.PLAYER_SPAWN then
-        if self._fireworks_visible then
-            self._fireworks:update(delta)
-            self._fireworks_visible = not self._fireworks:get_is_done()
-        end
-    elseif self._type == ow.CheckpointType.PLAYER_GOAL then
-        if self._is_shattered then
-            self._shatter_surface:update(delta)
-        end
-
-        self._goal_indicator_motion:update(delta)
-        self._goal_time_label:set_text(_format_time(self._scene:get_timer()))
-        self._goal_time_label:set_color(table.unpack(self._color))
-        local w, h = self._goal_time_label:measure()
-        local gx, gy
-        if not self._is_shattered then
-            gx, gy = self._goal_indicator_motion:get_position()
-            gy = select(2, self._scene:get_player():get_position())
-            gy = math.clamp(gy, self._top_y + 0.5 * h, self._bottom_y - 0.5 * h)
-        else
-            gx, gy = self._goal_player_position_x, self._goal_player_position_y
-            gy = math.clamp(gy, self._top_y + 0.5 * h, self._bottom_y - 0.5 * h)
-        end
-
-        self._goal_time_label_offset_x = gx - w - 20
-        self._goal_time_label_offset_y = gy - 0.5 * h
-
-        if self._time_dilation_active == true then
-            self._time_dilation_elapsed = self._time_dilation_elapsed + delta
-            local fraction = self._time_dilation_elapsed / rt.settings.overworld.checkpoint.goal_time_dilation_duration
-
-            fraction = rt.InterpolationFunctions.SINUSOID_EASE_OUT(fraction)
-            local dilation = math.mix(1, rt.settings.overworld.checkpoint.goal_time_dilation, fraction)
-            self._shatter_surface:set_time_dilation(dilation)
-            self._scene:get_player():set_velocity(0.5 * dilation * self._shatter_velocity_x, 0.5 * dilation * self._shatter_velocity_y)
-
-            if self._time_dilation_elapsed >= rt.settings.overworld.checkpoint.result_screen_delay
-                and self._result_screen_revealed == false
-            then
-                self._scene:show_result_screen()
-                self._result_screen_revealed = true
-            end
-        end
+    if self._fireworks_visible then
+        self._fireworks:update(delta)
+        self._fireworks_visible = not self._fireworks:get_is_done()
     end
 
     if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
@@ -539,16 +348,6 @@ function ow.Checkpoint:update(delta)
         self._platform:set_hue(self._scene:get_player():get_hue())
     elseif self._type == ow.CheckpointType.MIDWAY then
         self._rope:update(delta)
-    elseif self._type == ow.CheckpointType.PLAYER_GOAL then
-        if self._is_shattered == false then
-            local x1, y1, x2, y2 = table.unpack(self._goal_indicator_line)
-            local y = math.clamp(select(2, player:get_position()), y1, y2)
-            self._goal_indicator_motion:set_target_position(x1, y)
-        else
-            self._goal_indicator_motion:set_target_position(self._goal_player_position_x, self._goal_player_position_y)
-        end
-
-        self._shatter_surface:update(delta)
     end
 
     if self._state == _STATE_STAGE_ENTRY then
@@ -594,10 +393,8 @@ function ow.Checkpoint:draw(priority)
     if priority == _base_priority then
         if self._type == ow.CheckpointType.MIDWAY then
             if self._fireworks_visible then self._fireworks:draw() end
-        elseif self._type == ow.CheckpointType.PLAYER_GOAL then
-            if self._is_shattered then self._shatter_surface:draw() end
         elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
-            -- noop
+            self._platform:draw()
         end
     end
 
@@ -626,29 +423,7 @@ function ow.Checkpoint:draw(priority)
 
         if self._type == ow.CheckpointType.MIDWAY then
             self._rope:draw()
-        elseif self._type == ow.CheckpointType.PLAYER_GOAL then
-            if not self._is_shattered then
-                self._shatter_surface:draw()
-                -- otherwise, drawn before body visiblity check
-            end
-
-            love.graphics.setLineWidth(2)
-            love.graphics.setColor(self._color)
-            love.graphics.line(self._goal_line)
-
-            love.graphics.push()
-            love.graphics.translate(self._goal_indicator_motion:get_target_position())
-
-            _indicator_shader:bind()
-            _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())
-            self._goal_indicator:draw()
-            _indicator_shader:unbind()
-
-            --rt.Palette.BLACK:bind()
-            --love.graphics.line(self._goal_indicator_outline)
-            love.graphics.pop()
         end
-
     elseif priority == _effect_priority then
         -- explosion draw above everything
         if self._state == _STATE_EXPLODING then
@@ -661,18 +436,6 @@ function ow.Checkpoint:draw(priority)
             local w, h = table.unpack(self._explosion_size)
             love.graphics.rectangle("fill", x - 0.5 * w, y - 0.5 * h, w, h)
             _explosion_shader:unbind()
-        end
-
-        if self._type == ow.CheckpointType.PLAYER_GOAL then
-            love.graphics.push()
-            love.graphics.translate(
-                self._goal_time_label_offset_x,
-                self._goal_time_label_offset_y
-            )
-            self._goal_time_label:draw()
-            love.graphics.pop()
-        elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
-            self._platform:draw()
         end
     end
 end

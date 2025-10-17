@@ -138,7 +138,6 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
     -- portraits
     self._dialog_box:realize()
     self._dialog_box:signal_connect("speaker_changed", function(_, new_speaker)
-        dbg(new_speaker)
         local px, py = self._x, self._y
         if new_speaker == rt.Translation.player_name then
             px, py = self._scene:get_player():get_position()

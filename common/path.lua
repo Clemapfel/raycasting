@@ -5,7 +5,7 @@ rt.Path = meta.class("Path")
 --- @brief
 function rt.Path:instantiate(points, ...)
     if meta.is_number(points) then
-        points = {points, ...}
+        points = { points, ... }
     end
 
     assert(#points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to create a path")
@@ -189,6 +189,7 @@ end
 
 --- @brief
 function rt.Path:draw()
+    love.graphics.setLineJoin("none")
     if self._n_points >= 4 then
         love.graphics.line(self._points)
     end

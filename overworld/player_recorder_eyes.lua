@@ -47,7 +47,6 @@ function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         local set = function(motion)
             if motion:get_target_value() == 0 then motion:set_target_value(1) else motion:set_target_value(0) end
-            dbg(motion:get_target_value())
         end
 
         if which == "1" then

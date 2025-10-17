@@ -42,7 +42,6 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-
 float gradient_noise(vec3 p) {
     vec3 i = floor(p);
     vec3 v = fract(p);
@@ -59,16 +58,47 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 }
 
+float manhatten_distance(vec2 p)
+{
+    return max(abs(p.x), abs(p.y));
+}
+
+float checkerboard(vec2 uv, float eps) {
+    // src: https://www.shadertoy.com/view/wc2Szh
+    float value = (int(floor(uv.x)) + int(floor(uv.y))) % 2 == 0
+        ? 1.0 - manhatten_distance(fract(uv) - 0.5)
+        :       manhatten_distance(fract(uv) - 0.5)
+    ;
+    return smoothstep(0.5 - eps, 0.5 + eps, value);
+}
+
+float dirac(float x) {
+    float a = 0.045 * exp(log(1.0 / 0.045 + 1.0) * x) - 0.045;
+    float b = 0.045 * exp(log(1.0 / 0.045 + 1.0) * (1.0 - x)) - 0.045;
+    const float t = 5.81894409826698685315796808094;
+    return t * min(a, b);
+}
+
 uniform float elapsed;
+uniform float fraction; // 0: start, 1: end
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
+
+    float noise = mix(0.025, 0.6, fraction) * gradient_noise(vec3(texture_coords.xy * 10 + vec2(0, -elapsed), 0));
+    texture_coords.x += noise;
+    texture_coords.y += noise;
+
     // uv encodes global position
-    float noise = gradient_noise(vec3(texture_coords.xy * 5, elapsed));
+    const float min_eps = 0.015;
+    const float max_eps = 0.75;
+    vec2 pattern_uv = texture_coords.xy * 5;
+    float pattern = checkerboard(pattern_uv, mix(min_eps, max_eps, fraction));
+    pattern -= (1 - color.a);
 
     // alpha encodes rim
     float outline = 1 - color.a > 0 ? 1 : 0;
     vec4 rim = vec4(mix( vec3(0), color.rgb, outline), outline);
-    return rim + (1 - outline) * vec4(vec3(noise), 0.5);
+    return rim + (1 - outline) * vec4(color.rgb * vec3((1 - fraction) * pattern), 1); //mix(0.7, 0.5, fraction));
 }
 
 #endif

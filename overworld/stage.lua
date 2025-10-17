@@ -60,6 +60,7 @@ function ow.Stage:instantiate(scene, id)
 
         -- updatables
         _to_update = meta.make_weak({}),
+        _to_reset = meta.make_weak({}),
 
         -- stage objects
         _coins = {}, -- cf. add_coin
@@ -72,6 +73,7 @@ function ow.Stage:instantiate(scene, id)
         _flow_fraction = 0,
 
         _active_checkpoint = nil,
+        _player_spawn_checkpoint = nil,
 
         _visible_bodies = {},
         _light_sources = {},
@@ -146,6 +148,7 @@ function ow.Stage:instantiate(scene, id)
 
     -- checkpoint to checkpoint split
     self._checkpoints = {}
+    local n_goals = 0 -- number ow.Goal, for warning
 
     local coins = {}
 
@@ -178,6 +181,8 @@ function ow.Stage:instantiate(scene, id)
                     self:add_checkpoint(instance)
                 elseif meta.isa(instance, ow.Coin) then
                     table.insert(coins, instance)
+                elseif meta.isa(instance, ow.Goal) then
+                    n_goals = n_goals + 1
                 end
 
                 -- inject id
@@ -220,6 +225,10 @@ function ow.Stage:instantiate(scene, id)
 
                 if instance.update ~= nil then
                     table.insert(self._to_update, instance)
+                end
+
+                if instance.reset ~= nil then
+                    table.insert(self._to_reset, instance)
                 end
             end
         end
@@ -303,12 +312,11 @@ function ow.Stage:instantiate(scene, id)
     end
 
     do  -- assert checkpoint multiplicity
-        local n_goals, n_spawns = 0, 0
+        local n_spawns = 0
         for checkpoint in keys(self._checkpoints) do
             if checkpoint:get_type() == ow.CheckpointType.PLAYER_SPAWN then
+                self._player_spawn_checkpoint = checkpoint
                 n_spawns = n_spawns + 1
-            elseif checkpoint:get_type() == ow.CheckpointType.PLAYER_GOAL then
-                n_goals = n_goals + 1
             end
         end
 
@@ -557,7 +565,7 @@ end
 
 --- @brief
 function ow.Stage:set_active_checkpoint(checkpoint)
-    self._active_checkpoint = checkpoint
+    self._active_checkpoint = checkpoint or self._player_spawn_checkpoint
 end
 
 --- @brief
@@ -708,4 +716,11 @@ end
 --- @brief
 function ow.Stage:get_is_loading_done()
     return self._signal_done_emitted
+end
+
+--- @brief
+function ow.Stage:reset()
+    for instance in values(self._to_reset) do
+        instance:reset()
+    end
 end

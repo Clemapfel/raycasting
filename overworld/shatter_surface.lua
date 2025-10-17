@@ -19,6 +19,7 @@ rt.settings.overworld.shatter_surface = {
     -- visuals
     hue_range = 0.25,
     rim_thickness = 1.5, -- px
+    fade_duration = 1, -- seconds, for shape fraction
 }
 
 --- @class ow.ShatterSurface
@@ -521,6 +522,7 @@ function ow.ShatterSurface:instantiate(world, x, y, width, height)
     }, x, y, x + width, y + height)
 
     self._is_shattered = false
+    self._time_since_shatter = 0 -- time since shatter
     self._is_done = false
     self._callback = nil -- coroutine
     self._time_dilation = 1
@@ -543,6 +545,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
         origin_x = math.clamp(origin_x, self._bounds.x + cell_size, self._bounds.x + self._bounds.width - cell_size)
         origin_y = math.clamp(origin_y, self._bounds.y + cell_size, self._bounds.y + self._bounds.height - cell_size)
     end
+
+    local outer_bounds = self._bounds
 
     self._parts = {}
     self._is_done = false
@@ -742,14 +746,17 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             part.body:set_restitution(1)
             part.mesh = generate_mesh(
                 part.vertices,
-                self._bounds.x, self._bounds.y,
-                self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height
+                outer_bounds.x - part.x - origin_x,
+                outer_bounds.y - part.y - origin_y,
+                outer_bounds.x + outer_bounds.width - part.x - origin_x,
+                outer_bounds.y + outer_bounds.height - part.y - origin_y
             )
 
             entry_i = entry_i + 1
         end
 
         self._is_done = true
+        self._time_since_shatter = 0
 
     end):start()
 end
@@ -769,6 +776,8 @@ function ow.ShatterSurface:update(delta)
         part.x, part.y = part.body:get_position()
         part.angle = part.body:get_rotation()
     end
+    
+    self._time_since_shatter = self._time_since_shatter + delta
 end
 
 --- @brief
@@ -776,6 +785,7 @@ function ow.ShatterSurface:draw()
      love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue() , 1))
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("fraction", math.clamp(self._time_since_shatter / rt.settings.overworld.shatter_surface.fade_duration, 0, 1))
     if not self._is_done then
         self._pre_shatter_mesh:draw()
     else
