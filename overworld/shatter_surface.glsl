@@ -59,9 +59,13 @@ float gradient_noise(vec3 p) {
     dot( -1 + 2 * random_3d(i + vec3(1.0,1.0,1.0)), v - vec3(1.0,1.0,1.0)), u.x), u.y), u.z );
 }
 
+uniform float elapsed;
+
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 _) {
-    float outline = length(texture_coords.xy);
-    return mix(vec4(0, 0, 0, 0.5), color, outline);
+    // alpha encodes rim
+    float outline = 1 - color.a > 0 ? 1 : 0;
+    vec4 rim = vec4(mix( vec3(0), color.rgb, outline), outline);
+    return rim + (1 - outline) * vec4(0, 0, 0, 0.5);
 }
 
 #endif
