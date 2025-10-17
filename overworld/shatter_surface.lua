@@ -18,8 +18,8 @@ rt.settings.overworld.shatter_surface = {
 
     -- visuals
     hue_range = 0.25,
-    rim_thickness = 1.5, -- px
-    fade_duration = 1, -- seconds, for shape fraction
+    rim_thickness = 2, -- px
+    fade_duration = 0.5, -- seconds, for shape fraction
 }
 
 --- @class ow.ShatterSurface

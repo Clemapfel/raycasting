@@ -6,7 +6,7 @@ require "common.label"
 rt.settings.overworld.goal = {
     time_dilation = 0,
     result_screen_delay = 0.5,
-    
+    outline_width = 6,
     size = 200, -- px, square
 }
 
@@ -97,15 +97,33 @@ function ow.Goal:instantiate(object, stage, scene)
         )
 
         self._bounds = rt.AABB(self._x + bx, self._y + by, bw, bh)
+
+        local offset = rt.settings.overworld.goal.outline_width / 2 -- for pixel perfect hitbox accuracy
         self._outline = {
+            self._bounds.x + offset, self._bounds.y + offset,
+            self._bounds.x + self._bounds.width - offset, self._bounds.y + offset,
+            self._bounds.x + self._bounds.width - offset, self._bounds.y + self._bounds.height - offset,
+            self._bounds.x + offset, self._bounds.y + self._bounds.height - offset,
+            self._bounds.x + offset, self._bounds.y + offset
+        }
+
+        self._path = rt.Path(
             self._bounds.x, self._bounds.y,
             self._bounds.x + self._bounds.width, self._bounds.y,
             self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height,
             self._bounds.x, self._bounds.y + self._bounds.height,
             self._bounds.x, self._bounds.y
-        }
+        )
 
-        self._path = rt.Path(self._outline)
+        self._segment_lights = {}
+        for i = 1, #self._outline - 4, 4 do
+            table.insert(self._segment_lights, {
+                self._outline[i+0],
+                self._outline[i+1],
+                self._outline[i+2],
+                self._outline[i+3]
+            })
+        end
 
         self._shatter_surface = ow.ShatterSurface(self._world, self._bounds:unpack())
 
@@ -128,6 +146,9 @@ function ow.Goal:instantiate(object, stage, scene)
                 self._time_dilation_elapsed = 0
             end
         end)
+
+        self._body:add_tag("segment_light_source")
+        self._body:set_user_data(self)
 
         local center_x, center_y, radius = 0, 0, 2 * player:get_radius()
 
@@ -223,7 +244,7 @@ function ow.Goal:draw(priority)
         self._shatter_surface:draw()
 
         if not self._is_shattered then
-            local line_width = 6
+            local line_width = rt.settings.overworld.goal.outline_width
 
             rt.Palette.BLACK:bind()
             love.graphics.setLineWidth(line_width)
@@ -272,4 +293,9 @@ end
 --- @brief
 function ow.Goal:get_render_priority()
     return _base_priority, _label_priority
+end
+
+--- @brief
+function ow.Goal:get_segment_light_sources()
+    return self._segment_lights, table.rep(self._color, #self._segment_lights)
 end
