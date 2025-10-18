@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1005,
+  nextobjectid = 1010,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5705,24 +5705,24 @@ return {
           properties = {}
         },
         {
-          id = 1004,
+          id = 1009,
           name = "",
-          type = "BouncePad",
+          type = "BubbleField",
           shape = "polygon",
-          x = -2010.27,
-          y = 472.626,
+          x = -2076.56,
+          y = 556.031,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 2.13858, y = 0 },
-            { x = 282.293, y = 124.038 },
-            { x = 325.064, y = 299.401 },
-            { x = -171.086, y = 342.173 },
-            { x = -198.888, y = 237.382 },
-            { x = -70.5731, y = 19.2472 }
+            { x = -106.929, y = 186.056 },
+            { x = 215.997, y = 310.094 },
+            { x = 408.469, y = 215.997 },
+            { x = 320.787, y = -158.255 },
+            { x = 196.749, y = -162.532 },
+            { x = 53.4645, y = 6.41574 }
           },
           properties = {}
         }

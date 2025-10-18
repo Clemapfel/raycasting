@@ -15,7 +15,6 @@ local _shader = rt.Shader("overworld/objects/bubble.glsl")
 local _hue = 0
 local _n_hue_steps = 12
 
-
 function ow.Bubble:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.ELLIPSE, "In ow.Bubble: object is not an ellipse")
 
@@ -41,7 +40,6 @@ function ow.Bubble:instantiate(object, stage, scene)
         local px, py = player:get_position()
         local dx, dy = px - self._x, py - self._y
         local restitution = player:bounce(math.normalize(dx, dy))
-        --player:set_hue(self._hue)
 
         self:_pop()
 
@@ -225,4 +223,9 @@ function ow.Bubble:get_color()
     else
         return rt.RGBA(table.unpack(self._color))
     end
+end
+
+--- @brief
+function ow.Bubble:reset()
+    self:_unpop()
 end

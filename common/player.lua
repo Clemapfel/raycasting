@@ -65,7 +65,7 @@ rt.settings.player = {
     wall_jump_freeze_duration = 7 / 60,
 
     accelerator_max_velocity = 2000, -- vxy magnitude
-    accelerator_magnet_force = 200,
+    accelerator_magnet_force = 400,
 
     bounce_min_force = 200,
     bounce_max_force = 600,

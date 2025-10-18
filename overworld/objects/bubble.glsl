@@ -38,7 +38,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
         vec2 highlight_pos = player_dir * 0.4;
         float dist = distance(pow(distance(uv, center), 1.5) * uv, highlight_pos);
         float highlight = gaussian(1 - dist, 1.3) * gaussian(1 - distance(uv, center), 0.25);
-        player_highlight_color = player_color * highlight * min(intensity, 1);
+        player_highlight_color = player_color * highlight * min(intensity, 0.5);
     }
 
     float alpha = pop_fraction;

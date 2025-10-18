@@ -310,3 +310,13 @@ function ow.BubbleField:draw_bloom()
     love.graphics.line(self._contour)
     _outline_shader:unbind()
 end
+
+--- @brief
+function ow.BubbleField:reset()
+    self._wave.next = {}
+    for i = 1, self._n_points do
+        self._wave.previous[i] = 0
+        self._wave.current[i] = 0
+    end
+    self:update(0)
+end
