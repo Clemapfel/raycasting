@@ -1,8 +1,7 @@
 rt.settings.overworld.boost_field = {
     acceleration_duration = 0.2, -- seconds to accelerate player from 0 to max
     max_velocity = 1500,
-    bloom = 0.4,
-    line_width = 3
+    bloom = 0.4
 }
 
 --- @class ow.BoostField
@@ -18,6 +17,13 @@ ow.BoostField = meta.class("BoostField")
 ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
 local _shader = rt.Shader("overworld/objects/boost_field.glsl")
+
+-- global batching
+local _initialized = false
+local _instances = {}
+local _tris = {}
+local _lines = {}
+local _mesh = nil
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
@@ -76,10 +82,18 @@ function ow.BoostField:instantiate(object, stage, scene)
     local aabb = self._body:compute_aabb()
     self._origin_offset_x, self._origin_offset_y = aabb.x, aabb.y
 
-    self._mesh = object:create_mesh()
-    self._outline = object:create_contour()
-    table.insert(self._outline, self._outline[1])
-    table.insert(self._outline, self._outline[2])
+    local tris
+    self._mesh, tris = object:create_mesh()
+
+    -- batched drawing
+    table.insert(_instances, self)
+
+    for tri in values(tris) do
+        table.insert(_tris, tri)
+        table.insert(_lines, {
+            tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
+        })
+    end
 end
 
 --- @brief
@@ -124,39 +138,87 @@ function ow.BoostField:update(delta)
     self._camera_scale = camera:get_scale()
 end
 
+--- @brief
+function ow.BoostField:reinitialize()
+    _initialized = false
+    _instances = {}
+    _tris = {}
+    _lines = {}
+
+    if _mesh ~= nil then
+        _mesh:release()
+    end
+    _mesh = nil
+end
+
 --- @brief batched drawing
-function ow.BoostField:draw()
-    if not self._stage:get_is_body_visible(self._body) then return end
+function ow.BoostField.draw_all()
+    love.graphics.push("all")
 
-    love.graphics.setColor(self._color)
-    _shader:bind()
-    _shader:send("elapsed", self._elapsed)
-    _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
-    _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
-    _shader:send("camera_scale", self._camera_scale)
-    _shader:send("axis", { self._axis_x, self._axis_y })
-    love.graphics.draw(self._mesh:get_native())
-    _shader:unbind()
+    if _initialized ~= true and table.sizeof(_tris) > 0 then
+        local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
+        local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
 
+        local data = {}
+        for tri in values(_tris) do
+            table.insert(data, { tri[1], tri[2] })
+            table.insert(data, { tri[3], tri[4] })
+            table.insert(data, { tri[5], tri[6] })
+        end
+        _mesh = love.graphics.newMesh(format, data, mode, usage)
+        _initialized = true
+    end
+    if _mesh == nil then return end
+
+    love.graphics.setBlendMode("alpha")
+
+    -- draw shader surface per instance
+    for self in values(_instances) do
+        if self._stage:get_is_body_visible(self._body) then
+            love.graphics.setColor(self._color)
+            _shader:bind()
+            _shader:send("elapsed", self._elapsed)
+            _shader:send("origin_offset", { self._origin_offset_x, self._origin_offset_y })
+            _shader:send("camera_offset", { self._camera_offset_x, self._camera_offset_y })
+            _shader:send("camera_scale", self._camera_scale)
+            _shader:send("axis", { self._axis_x, self._axis_y })
+            love.graphics.draw(self._mesh:get_native())
+            _shader:unbind()
+        end
+    end
+
+    -- draw outlines as giant batch
     love.graphics.setLineJoin("bevel")
-    local line_width = rt.settings.overworld.boost_field.line_width
+    local line_width = 2
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    love.graphics.draw(_mesh)
+
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
     rt.Palette.BLACK:bind()
     love.graphics.setLineWidth(line_width + 2)
-    love.graphics.line(self._outline)
+    for lines in values(_lines) do
+        love.graphics.line(lines)
+    end
 
     rt.Palette.BOOST_OUTLINE:bind()
-    love.graphics.setColor(self._color)
     love.graphics.setLineWidth(line_width)
-    love.graphics.line(self._outline)
+    for lines in values(_lines) do
+        love.graphics.line(lines)
+    end
+
+    rt.graphics.set_stencil_mode(nil)
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.BoostField:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
-
-    rt.Palette.WHITE:bind()
-    love.graphics.setColor(self._color)
-    love.graphics.setLineWidth(rt.settings.overworld.boost_field.line_width)
-    love.graphics.line(self._outline)
+    if self._stage:get_is_body_visible(self._body) then
+        local r, g, b, a = table.unpack(self._color)
+        local bloom = rt.settings.overworld.boost_field.bloom
+        love.graphics.setColor(bloom * r, bloom * g, bloom * b, bloom * a)
+        love.graphics.draw(self._mesh:get_native())
+    end
 end

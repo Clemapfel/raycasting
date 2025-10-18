@@ -59,13 +59,20 @@ uniform vec2 axis = vec2(0, -1);
 vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_position) {
     vec2 uv = to_uv(frag_position - origin_offset);
 
-    float angle = atan(axis.y, axis.x) + 0.5 * PI;
-    uv = rotate(uv, -angle);
+    // rotate
+    vec2 axis_norm = normalize(axis);
+    float cos_a = -axis_norm.y;
+    float sin_a = -axis_norm.x;
 
-    uv *= 20;
+    uv = vec2(
+        uv.x * cos_a - uv.y * sin_a,
+        uv.x * sin_a + uv.y * cos_a
+    );
+
+    uv *= 15;
 
     const float width = 0.5;
-    const float eps = 0.2;
+    const float eps = 0.01;
     const float flatness = 2;
 
     uv.y = fract(uv.y + elapsed);

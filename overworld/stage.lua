@@ -96,7 +96,6 @@ function ow.Stage:instantiate(scene, id)
     -- TODO
 
     ow.Hitbox:reinitialize()
-    ow.BoostField:reinitialize()
     ow.Sprite:reinitialize()
 
     -- static hitbox normal_map
@@ -348,7 +347,6 @@ end
 
 --- @brief
 function ow.Stage:draw_below_player()
-    ow.BoostField:draw_all()
     ow.Hitbox:draw_base()
     self._normal_map:draw_shadow(self._scene:get_camera())
     ow.Hitbox:draw_outline()
