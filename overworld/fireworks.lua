@@ -469,3 +469,8 @@ function ow.Fireworks:get_n_particles()
     end
     return n
 end
+
+--- @brief
+function ow.Fireworks:reset()
+    self._batches = {}
+end

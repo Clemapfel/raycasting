@@ -17,9 +17,6 @@ function ow.CheckpointPlatform:instantiate(x1, y1, x2, y2, radius)
     local inner_thickness = 0.25 * radius
     local outer_thickness = radius
 
-    y1 = y1 + (outer_thickness) * 0.5
-    y2 = y2 + (outer_thickness) * 0.5
-
     self._x1 = math.min(x1, x2)
     self._y1 = math.min(y1, y2)
     self._x2 = math.max(x1, x2)

@@ -32,11 +32,11 @@ function rotate_segment_around_point(x1, y1, x2, y2, px, py, angle)
     return new_x1, new_y1, new_x2, new_y2
 end
 
-local _collision_group = 0x0 --[[bit.bnot(bit.bor(
+local _collision_group = bit.bnot(bit.bor(
     rt.settings.player.player_collision_group,
     rt.settings.player.player_outer_body_collision_group,
     rt.settings.player.bounce_collision_group
-))]]--
+))
 
 --- @brief
 function ow.CheckpointRope:instantiate(scene, stage, world, x1, y1, x2, y2)
@@ -45,14 +45,24 @@ function ow.CheckpointRope:instantiate(scene, stage, world, x1, y1, x2, y2)
     self._world = world
     self._top_x, self._top_y, self._bottom_x, self._bottom_y = x1, y1, x2, y2
 
-    self._bodies = {}
-    self._joints = {}
-    self._n_segments = 0
     self._is_cut = false
     self._cut_index = -1
     self._should_despawn = false
     self._is_despawned = false
     self._color = { 1, 1, 1, 1 }
+
+    self:_init_bodies()
+
+    if not self._is_despawned then
+        self:_update_mesh()
+    end
+end
+
+--- @brief
+function ow.CheckpointRope:_init_bodies()
+    self._bodies = {}
+    self._joints = {}
+    self._n_segments = 0
 
     local collision_group = rt.settings.player.exempt_collision_group
 
@@ -129,10 +139,6 @@ function ow.CheckpointRope:instantiate(scene, stage, world, x1, y1, x2, y2)
         joint:setLimits(0, 0)
 
         self._joints[i] = joint
-    end
-
-    if not self._is_despawned then
-        self:_update_mesh()
     end
 end
 
@@ -243,8 +249,7 @@ function ow.CheckpointRope:_despawn()
     self._is_despawned = true
 end
 
---- @brie
---- @brie
+--- @brief
 function ow.CheckpointRope:_update_mesh()
     local r = rt.settings.overworld.checkpoint_rope.radius
     local left_a = 0 -- encode side of rope in color.a
@@ -574,15 +579,14 @@ end
 
 --- @brief
 function ow.CheckpointRope:reset()
-    for body in values(self._bodies) do body:destroy() end
-    self:instantiate(
-        self._scene,
-        self._stage,
-        self._world,
-        self._top_x,
-        self._top_y,
-        self._bottom_x,
-        self._bottom_y
-    )
+    self:_despawn()
+    self._is_despawned = false
+    self._is_cut = false
+    self:_init_bodies()
+
+    self._pre_cut_mesh = nil
+    self._post_cut_mesh_top = nil
+    self._post_cut_mesh_bottom = nil
+    self:_update_mesh()
 end
 

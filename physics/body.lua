@@ -447,6 +447,8 @@ end
 
 --- @brief
 function b2.Body:destroy()
+    if self._native:isDestroyed() then return end
+
     self:signal_emit("destroy")
     self:signal_disconnect_all()
 
