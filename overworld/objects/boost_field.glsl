@@ -1,63 +1,43 @@
-uniform float elapsed;
-
 float smooth_abs(float x) {
     return abs(x);
 }
 
 #define PI 3.1415926535897932384626433832795
-vec2 rotate(vec2 v, float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
-    return v * mat2(c, -s, s, c);
-}
-
-uniform vec2 camera_offset;
-uniform float camera_scale = 1;
-uniform vec2 origin_offset;
-
-vec2 to_uv(vec2 frag_position) {
-    vec2 uv = frag_position;
-    vec2 origin = vec2(love_ScreenSize.xy / 2);
-    uv -= origin;
-    uv /= camera_scale;
-    uv += origin;
-    uv -= camera_offset;
-    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
-    uv /= love_ScreenSize.xy;
-    return uv;
-}
-
-vec3 lch_to_rgb(vec3 lch) {
-    float L = lch.x * 100.0;
-    float C = lch.y * 100.0;
-    float H = lch.z * 360.0;
-
-    float a = cos(radians(H)) * C;
-    float b = sin(radians(H)) * C;
-
-    float Y = (L + 16.0) / 116.0;
-    float X = a / 500.0 + Y;
-    float Z = Y - b / 200.0;
-
-    X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
-    Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
-    Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
-
-    float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
-    float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
-    float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
-
-    R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
-    G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
-    B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
-
-    return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
 uniform vec2 axis = vec2(0, -1);
 
-vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_position) {
-    vec2 uv = to_uv(frag_position - origin_offset);
+uniform vec2 camera_offset;
+uniform float camera_scale = 1.0;
+vec2 to_uv(vec2 world_position) {
+    vec2 cam_space = world_position - camera_offset;
+    cam_space *= camera_scale;
+
+    vec2 screen_center = love_ScreenSize.xy / 2.0;
+    vec2 screen_pos = cam_space + screen_center ;
+
+    return screen_pos / love_ScreenSize.xy;
+}
+
+uniform vec2 player_position; // in screen space
+uniform vec4 player_color;
+uniform float player_influence; // 0, 1
+uniform float elapsed;
+
+vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {
+    vec2 uv = to_uv(frag_position);
+
+    vec2 aspect_correct = vec2(1, love_ScreenSize.y / love_ScreenSize.x);
+    float dist = gaussian(distance(aspect_correct * to_uv(frag_position), aspect_correct * to_uv(player_position)), 4);
+
+    #if SHADER_DERIVATIVES_AVAILABLE == 1
+    vec2 dxy = vec2(dFdx(dist), dFdy(dist)) * 1.25;
+    #else
+    vec2 dxy = vec2(1);
+    #endif
 
     // rotate
     vec2 axis_norm = normalize(axis);
@@ -69,18 +49,23 @@ vec4 effect(vec4 vertex_color, Image image, vec2 texture_coordinates, vec2 frag_
         uv.x * sin_a + uv.y * cos_a
     );
 
-    uv *= 15;
+    uv += dxy * player_influence;
 
-    const float width = 0.5;
+    uv *= 12;
+
+    const float width = 0.5; // line width
     const float eps = 0.01;
-    const float flatness = 2;
+    const float flatness = 1.1;
 
-    uv.y = fract(uv.y + elapsed);
+    uv.y = fract(uv.y + elapsed / 2.5);
     uv.y /= width;
     uv.y -= width;
     uv.x = fract(uv.x);
 
     float v = distance(uv.y, (1 / flatness) * smooth_abs(uv.x * 2 - 1));
     float value = smoothstep(width - eps, width + eps, 1 - v);
-    return vec4(vec3(mix(0.2, 1, value)), 1) * vertex_color;
+
+    vec4 color = mix(vertex_color, player_color, player_influence * dist);
+
+    return vec4(vec3(mix(0.2, 1, value)), 1) * color;
 }
