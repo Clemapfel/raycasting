@@ -159,9 +159,9 @@ function rt.round_contour(points, radius, samples_per_corner)
         local current_idx = i
         local next_idx = (i % n) + 1
 
-        local previous_x, previous_y = points[ 2 * previous_idx - 1], points[2 *previous_idx]
+        local previous_x, previous_y = points[2 * previous_idx - 1], points[2 * previous_idx]
         local current_x, current_y = points[2 * current_idx - 1], points[2 * current_idx]
-        local next_x, next_y = points[2 * next_idx-1], points[2 * next_idx]
+        local next_x, next_y = points[2 * next_idx - 1], points[2 * next_idx]
 
         local v1x = current_x - previous_x
         local v1y = current_y - previous_y
@@ -194,7 +194,6 @@ function rt.round_contour(points, radius, samples_per_corner)
         end
     end
 
-    -- close loop
     table.insert(new_points, new_points[1])
     table.insert(new_points, new_points[2])
 

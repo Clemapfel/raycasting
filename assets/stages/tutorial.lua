@@ -5707,7 +5707,7 @@ return {
         {
           id = 1004,
           name = "",
-          type = "BoostField",
+          type = "BouncePad",
           shape = "polygon",
           x = -2010.27,
           y = 472.626,

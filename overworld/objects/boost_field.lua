@@ -25,12 +25,6 @@ local _shader = rt.Shader("overworld/objects/boost_field.glsl", {
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
-
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, j)
-        if j == "j" then _shader:recompile() end
-    end)
-
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)

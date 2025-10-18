@@ -11,16 +11,19 @@ float gaussian(float x, float ramp)
 uniform vec2 axis = vec2(0, -1);
 
 uniform vec2 camera_offset;
-uniform float camera_scale = 1.0;
-vec2 to_uv(vec2 world_position) {
-    vec2 cam_space = world_position - camera_offset;
-    cam_space *= camera_scale;
-
-    vec2 screen_center = love_ScreenSize.xy / 2.0;
-    vec2 screen_pos = cam_space + screen_center ;
-
-    return screen_pos / love_ScreenSize.xy;
+uniform float camera_scale = 1;
+vec2 to_uv(vec2 frag_position) {
+    vec2 uv = frag_position;
+    vec2 origin = vec2(love_ScreenSize.xy / 2);
+    uv -= origin;
+    uv /= camera_scale;
+    uv += origin;
+    uv -= camera_offset;
+    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
+    uv /= love_ScreenSize.xy;
+    return uv;
 }
+
 
 uniform vec2 player_position; // in screen space
 uniform vec4 player_color;
