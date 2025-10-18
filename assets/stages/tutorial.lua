@@ -4241,7 +4241,7 @@ return {
         {
           id = 749,
           name = "",
-          type = "Hitbox",
+          type = "AcceleratorSurface",
           shape = "polygon",
           x = -1740.98,
           y = 893.121,

@@ -10,7 +10,9 @@ rt.settings.overworld.accelerator_surface = {
         min_scale = 0.1,
         max_scale = 0.4,
         deceleration = 0.985
-    }
+    },
+
+    outline_width = 2
 }
 
 --- @class ow.AcceleratorSurface
@@ -19,6 +21,8 @@ rt.settings.overworld.accelerator_surface = {
 ow.AcceleratorSurface = meta.class("AcceleratorSurface")
 
 local _particle_texture, _particle_quads = nil, {}
+
+-- init particle meshes
 local _vertex_counts = {}
 do
     for _ = 1, 1 do table.insert(_vertex_counts, 3) end
@@ -27,7 +31,6 @@ do
     for _ = 1, 3 do table.insert(_vertex_counts, 6) end
     for _ = 1, 2 do table.insert(_vertex_counts, 7) end
 end
-
 
 local _body_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 0 })
 local _outline_shader = rt.Shader("overworld/objects/accelerator_surface.glsl", { MODE = 1 })
@@ -58,7 +61,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
             local vertices = {}
             local centroid_x, centroid_y = 0, 0
             for i = 1, n_vertices do
-                local angle = (i - 1) *  (2 * math.pi) / n_vertices
+                local angle = (i - 1) * (2 * math.pi) / n_vertices
                 local length = radius + rt.random.number(-1, 1) * max_offset
                 local dx, dy = math.cos(angle) * length, math.sin(angle) * length
                 table.insert(vertices, dx)
@@ -223,10 +226,7 @@ end
 function ow.AcceleratorSurface:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
-    local outline_width = 2
-    local outline_color = rt.Palette.GRAY_3;
     love.graphics.setColor(1, 1, 1, 1)
-
     local offset_x, offset_y = self._scene:get_camera():get_offset()
 
     _body_shader:bind()
@@ -240,13 +240,12 @@ function ow.AcceleratorSurface:draw()
     love.graphics.pop()
     _body_shader:unbind()
 
-    outline_color:bind()
     _outline_shader:bind()
     _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
     _outline_shader:send("camera_scale", self._scene:get_camera():get_scale())
     _outline_shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    love.graphics.setLineWidth(outline_width)
+    love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
     love.graphics.line(self._outline)
     _outline_shader:unbind()
 
@@ -278,4 +277,22 @@ function ow.AcceleratorSurface:draw()
     love.graphics.pop()
 
     _particle_shader:unbind()
+end
+
+--- @brief
+function ow.AcceleratorSurface:draw_bloom()
+    love.graphics.setColor(1, 1, 1, 1)
+    _outline_shader:bind()
+    _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
+    _outline_shader:send("camera_scale", self._scene:get_camera():get_scale())
+    _outline_shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
+    love.graphics.line(self._outline)
+    _outline_shader:unbind()
+end
+
+--- @brief
+function ow.AcceleratorSurface:reset()
+    self._particles = {}
 end
