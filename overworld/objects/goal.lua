@@ -272,7 +272,7 @@ function ow.Goal:update(delta)
 end
 
 local _base_priority = 0
-local _label_priority = math.huge
+local _label_priority = 1
 
 --- @brief
 function ow.Goal:draw(priority)

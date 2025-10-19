@@ -73,9 +73,11 @@ function ow.DoubleJumpTether:update(delta)
     if self._was_consumed == false and is_consumed == true then
         self._line_opacity_motion:set_target_value(1)
         self._particle_opacity_motion:set_target_value(0)
+        self._particle:set_is_exploded(true)
     elseif self._was_consumed == true and is_consumed == false then
         self._line_opacity_motion:set_target_value(0)
         self._particle_opacity_motion:set_target_value(1)
+        self._particle:set_is_exploded(false)
     end
     self._was_consumed = is_consumed
 
@@ -194,6 +196,13 @@ function ow.DoubleJumpTether:draw_bloom()
     if shape_a > eps then
         love.graphics.setColor(r, g, b, shape_a)
         self._particle:draw(self._x, self._y, false, true) -- line only
+    end
+
+    local line_a = self._line_opacity_motion:get_value()
+    if line_a > eps then
+        local r, g, b = self._color:unpack()
+        love.graphics.setColor(r, g, b, 1)
+        love.graphics.draw(self._line_mesh)
     end
 end
 

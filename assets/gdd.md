@@ -20,6 +20,7 @@ Coin
 DoubleJumpTether
 DoubleJumpTether Multiple Times
 DoubleJumpTether keep as PlayerBubble
+Juggle on a single continuously by repressing jump
 
 KillPlane
 KillPlane below camera

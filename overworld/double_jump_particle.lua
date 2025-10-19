@@ -1,3 +1,9 @@
+require "common.smoothed_motion_1d"
+
+rt.settings.overworld.double_jump_particle = {
+    explosion_distance = 80
+}
+
 --- @class ow.DoubleJumpParticle
 ow.DoubleJumpParticle = meta.class("DoubleJumpParticle")
 
@@ -15,6 +21,9 @@ function ow.DoubleJumpParticle:instantiate(radius)
     self._x, self._y, self._z = 0, 0, 0
     self._canvas = rt.RenderTexture(2 * (radius + _padding), 2 * (radius + _padding))
     self._canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
+
+    self._explosion_motion = rt.SmoothedMotion1D(0) -- 0: not exploded, 1: fully exploded
+    self._explosion_motion:set_speed(2, 1) -- attack, decay, fractional
     self:_update_vertices()
 end
 
@@ -26,6 +35,9 @@ local _edges = {
 
 --- @brief
 function ow.DoubleJumpParticle:_update_vertices()
+    local explosion_t = self._explosion_motion:get_value() -- in [0, 1]
+    local offset = explosion_t * rt.settings.overworld.double_jump_particle.explosion_distance
+
     local vertices = self._vertices
     if vertices == nil then
         vertices = {
@@ -40,11 +52,11 @@ function ow.DoubleJumpParticle:_update_vertices()
         vertices[3][1], vertices[3][2], vertices[3][3] = -1,  1, -1
         vertices[4][1], vertices[4][2], vertices[4][3] =  1, -1, -1
     end
-    
+
     for v in values(vertices) do
-        v[1] = (v[1] / _sqrt3) * self._radius
-        v[2] = (v[2] / _sqrt3) * self._radius
-        v[3] = (v[3] / _sqrt3) * self._radius
+        v[1] = (v[1] / _sqrt3) * (self._radius + offset)
+        v[2] = (v[2] / _sqrt3) * (self._radius + offset)
+        v[3] = (v[3] / _sqrt3) * (self._radius + offset)
     end
 
     -- rotate (spherical coordinates)
@@ -73,6 +85,7 @@ function ow.DoubleJumpParticle:_update_vertices()
 
     self._vertices = vertices
 
+
     self._draw_line = {}
     for edge in values(_edges) do
         local v1 = self._vertices[edge[1]]
@@ -84,12 +97,23 @@ function ow.DoubleJumpParticle:_update_vertices()
 end
 
 --- @brief
+function ow.DoubleJumpParticle:set_is_exploded(b)
+    if b == true then
+        self._explosion_motion:set_target_value(1)
+    else
+        self._explosion_motion:set_target_value(0)
+    end
+end
+
+--- @brief
 function ow.DoubleJumpParticle:update(delta)
     local speed = 0.05 -- radians per second
     self._theta = math.normalize_angle(self._theta + delta * 2 * math.pi * speed)
     self._phi = math.normalize_angle(self._phi + delta * 2 * math.pi * speed)
     self:_update_vertices()
     self._canvas_needs_update = true
+
+    self._explosion_motion:update(delta)
 end
 
 function ow.DoubleJumpParticle:draw(x, y, draw_shape, draw_core)

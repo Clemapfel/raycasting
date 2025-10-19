@@ -253,7 +253,7 @@ function ow.MovingHitbox:update(delta)
         end
     end
 
-    local dx, dy = self._path:get_tangent(t)
+    local dx, dy = self._path:get_tangent(math.clamp(t, 0, 1))
     local velocity_x = dx * self._velocity * direction * easing_derivative
     local velocity_y = dy * self._velocity * direction * easing_derivative
     self._body:set_velocity(velocity_x, velocity_y)

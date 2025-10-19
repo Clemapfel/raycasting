@@ -2704,6 +2704,7 @@ function rt.Player:clear_forces()
     end)
 
     self._last_velocity_x, self._last_velocity_y = 0, 0
+    self._graphics_body:relax()
 end
 
 --- @brief

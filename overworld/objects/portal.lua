@@ -524,6 +524,8 @@ function ow.Portal:_teleport()
     local radius = player:get_radius()
     local nvx, nvy = math.normalize(new_vx, new_vy)
     player:teleport_to(new_x + radius * nvx, new_y + radius * nvy)
+    player:update(0) -- relax graphics body
+    player:clear_forces()
     player:set_velocity(new_vx, new_vy)
     player:set_hue(self._hue)
 end
