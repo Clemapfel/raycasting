@@ -151,11 +151,14 @@ function ow.Goal:instantiate(object, stage, scene)
             return mesh
         end
 
-        self._outline_mesh = create_mesh(
-            self._x - 0.5 * size, self._y - 0.5 * size,
-            self._x + 0.5 * size, self._y + 0.5 * size,
-            rt.settings.overworld.checkpoint_rope.radius
-        )
+        do
+            local r = 2
+            self._outline_mesh = create_mesh(
+                self._x - 0.5 * size + r, self._y - 0.5 * size + r,
+                self._x + 0.5 * size - r, self._y + 0.5 * size - r,
+                rt.settings.overworld.checkpoint_rope.radius
+            )
+        end
 
         self._path = rt.Path(
             self._bounds.x, self._bounds.y,
@@ -259,7 +262,7 @@ function ow.Goal:update(delta)
 
         fraction = rt.InterpolationFunctions.SINUSOID_EASE_OUT(fraction)
         local dilation = math.mix(1, rt.settings.overworld.goal.time_dilation, fraction)
-        self._shatter_surface:set_time_dilation(dilation)
+        self._shatter_surface:set_time_dilation(math.max(0.5, dilation))
         self._scene:get_player():set_velocity(0.5 * dilation * self._shatter_velocity_x, 0.5 * dilation * self._shatter_velocity_y)
 
         if self._time_dilation_elapsed >= rt.settings.overworld.goal.result_screen_delay

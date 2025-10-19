@@ -63,6 +63,42 @@ float manhatten_distance(vec2 p)
     return max(abs(p.x), abs(p.y));
 }
 
+// Hash function for generating pseudo-random values
+vec3 hash33(vec3 p3) {
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return fract((p3.xxy + p3.yxx) * p3.zyx);
+}
+
+// Fast 3D Voronoi - returns distance to nearest cell point
+float voronoise(vec3 p) {
+    vec3 cell = floor(p);
+    vec3 frac = fract(p);
+
+    float minDist = 1.0;
+
+    // Check neighboring cells
+    for(int z = -1; z <= 1; z++) {
+        for(int y = -1; y <= 1; y++) {
+            for(int x = -1; x <= 1; x++) {
+                vec3 offset = vec3(x, y, z);
+                vec3 neighbor = cell + offset;
+
+                // Random point within the neighbor cell
+                vec3 point = hash33(neighbor);
+
+                // Distance to this point
+                vec3 diff = offset + point - frac;
+                float dist = dot(diff, diff);
+
+                minDist = min(minDist, dist);
+            }
+        }
+    }
+
+    return sqrt(minDist);
+}
+
 // checkerboard sdf
 float checkerboard(vec2 uv) {
     // src: https://www.shadertoy.com/view/wc2Szh
@@ -102,7 +138,12 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
 
     float pattern_fill = checkerboard((5 * texture_coords) + 0.2 * noise);
     pattern_fill = smoothstep(0.5 - threshold_eps, 0.5 + threshold_eps, pattern_fill);
-    pattern_fill *= 0.5 * (1 + gradient_noise(vec3(texture_coords * 10, elapsed)));
+
+    float pattern_noise = gradient_noise(vec3(texture_coords * 10, elapsed));
+
+    float pattern_eps = 2; //fwidth(pattern_noise);
+    float pattern_threshold = 0;
+    pattern_fill *= 0.4 * smoothstep(pattern_threshold - pattern_eps, pattern_threshold + pattern_eps, pattern_noise);
 
     // alpha encodes rim
     float outline = 1 - color.a > 0 ? 1 : 0;

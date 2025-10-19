@@ -511,6 +511,12 @@ local _shader = rt.Shader("overworld/shatter_surface.glsl")
 --- @brief
 function ow.ShatterSurface:instantiate(world, x, y, width, height)
     meta.assert(world, "PhysicsWorld")
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, key)
+        if key == "j" then _shader:recompile() end
+    end)
+
     self._world = world
     self._bounds = rt.AABB(x, y, width, height)
     self._parts = {}
@@ -743,6 +749,8 @@ function ow.ShatterSurface:shatter(origin_x, origin_y)
             part.velocity_x = vx
             part.velocity_y = vy
             part.body:set_velocity(vx, vy)
+            part.body:set_collides_with(b2.CollisionGroup.GROUP_07)
+            part.body:set_collision_group(b2.CollisionGroup.GROUP_07)
             part.body:set_restitution(1)
             part.mesh = generate_mesh(
                 part.vertices,

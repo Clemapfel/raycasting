@@ -11,6 +11,12 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 }
 ]])
 
+local _feature_to_define = {
+    ["shaderderivatives"] = "RT_SHADER_DERIVATIVES",
+    ["glsl4"] = "RT_GLSL4",
+    ["glsl3"] = "RT_GLSL3"
+}
+
 --- @brief
 function rt.Shader:instantiate(filename, defines)
     meta.install(self, {
@@ -26,6 +32,13 @@ end
 function rt.Shader:compile()
     if self._native ~= nil then
         rt.settings.shader.precompilation_queue[self._native] = nil
+    end
+
+    if self._defines == nil then self._defines = {} end
+
+    local supported = love.graphics.getSupported()
+    for feature, define in pairs(_feature_to_define) do
+        self._defines[feature] = ternary(supported[feature], define, nil)
     end
 
     local success, shader = pcall(love.graphics.newShader, self._filename, {

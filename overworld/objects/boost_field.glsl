@@ -36,7 +36,7 @@ vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_
     vec2 aspect_correct = vec2(1, love_ScreenSize.y / love_ScreenSize.x);
     float dist = gaussian(distance(aspect_correct * to_uv(frag_position), aspect_correct * to_uv(player_position)), 4);
 
-    #if SHADER_DERIVATIVES_AVAILABLE == 1
+    #ifdef RT_SHADER_DERIVATIVES
     vec2 dxy = vec2(dFdx(dist), dFdy(dist)) * 1.25;
     #else
     vec2 dxy = vec2(1);

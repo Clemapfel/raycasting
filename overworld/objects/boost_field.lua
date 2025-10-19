@@ -19,9 +19,7 @@ ow.BoostField = meta.class("BoostField")
 --- @field axis_y Number! in [-1, 1]
 ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
-local _shader = rt.Shader("overworld/objects/boost_field.glsl", {
-    SHADER_DERIVATIVES_AVAILABLE = ternary(love.graphics.getSupported().shaderderivatives == true, 1, 0)
-})
+local _shader = rt.Shader("overworld/objects/boost_field.glsl")
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)

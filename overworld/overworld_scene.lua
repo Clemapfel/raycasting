@@ -20,7 +20,7 @@ do
         camera_rotate_velocity = 2 * math.pi / 10, -- rad / s
         camera_pan_width_factor = 0.15,
         camera_freeze_duration = 0.25,
-        allow_translation = false,
+        allow_translation = true,
         results_screen_fraction = 0.5,
 
         bloom_blur_strength = 1.2, -- > 0
@@ -649,8 +649,7 @@ function ow.OverworldScene:draw()
     end
     love.graphics.pop()
 
-    --[[ TODO
-    if not self._pause_menu_active and not self._fade:get_is_active() and self._cursor_visible and self._cursor_active then
+    if not self._pause_menu_active and not self._fade:get_is_active() and self._cursor_visible and rt.settings.overworld_scene.allow_translation then
         love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
 
@@ -678,7 +677,6 @@ function ow.OverworldScene:draw()
         love.graphics.setColor(_black_r, _black_g, _black_b, 1)
         love.graphics.circle("line", x, y, 6 * scale)
     end
-    ]]--
 
     if self._result_screen_transition_active == true then
         -- white flash on screenshot
