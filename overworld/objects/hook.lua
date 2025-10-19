@@ -138,7 +138,6 @@ function ow.Hook:_hook()
         local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
         bubble:set_position(self._x, self._y)
         non_bubble:set_position(self._x, self._y)
-        player:set_velocity(0, 0)
         player:set_jump_allowed(true)
         player:jump()
         self._is_blocked = true
@@ -169,6 +168,26 @@ function ow.Hook:_hook()
                     self:_unhook()
                     self._jump_callback_id = nil
                     return meta.DISCONNECT_SIGNAL
+                end)
+            else
+                -- handle swapping between bubble and non bubble
+                local bubble_jump_callback_id = nil
+                self._bubble_callback_id = player:signal_connect("bubble", function(_, is_bubble)
+                    if is_bubble == false then
+                        player:set_jump_allowed(true)
+                        if bubble_jump_callback_id == nil then
+                            player:signal_connect("jump", function()
+                                self:_unhook()
+                                bubble_jump_callback_id = nil
+                                return meta.DISCONNECT_SIGNAL
+                            end)
+                        end
+                    else
+                        player:set_jump_allowed(false)
+                        if bubble_jump_callback_id ~= nil then
+                            player:signal_try_disconnect("jump", bubble_jump_callback_id)
+                        end
+                    end
                 end)
             end
 
@@ -208,6 +227,12 @@ function ow.Hook:_unhook()
 
         if self._jump_callback_id ~= nil then
             self._scene:get_player():signal_try_disconnect("jump", self._jump_callback_id)
+            self._jump_callback_id = nil
+        end
+
+        if self._bubble_callback_id ~= nil then
+            self._scene:get_player():signal_try_disconnect("bubble", self._bubble_callback_id)
+            self._bubble_callback_id = nil
         end
 
         return meta.DISCONNECT_SIGNAL

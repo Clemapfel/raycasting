@@ -47,6 +47,9 @@ Teleport to Center
 Buffer jump to jump instantly
 Hold down to skip hook
 
+Bubble teleport to center
+Bubble hold to release
+
 Jump
 Squeeze
 Squeeze through Accelerator

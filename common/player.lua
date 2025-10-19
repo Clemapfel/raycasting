@@ -127,7 +127,8 @@ rt.Player = meta.class("Player")
 meta.add_signals(rt.Player,
     "jump",      -- when jumping
     "grounded",   -- touching ground after being airborne
-    "duck" -- when pressing down while grounded
+    "duck", -- when pressing down while grounded
+    "bubble" -- (Player, Boolean), when going from non-bubble to bubble or vice versa
 )
 
 rt.PlayerState = meta.enum("PlayerState", {
@@ -1213,7 +1214,7 @@ function rt.Player:update(delta)
                 end
 
                 if can_jump and t * self._down_elapsed < _settings.jump_duration then
-                    -- regular jump: accelerate upwards wil jump button is down
+                    -- regular jump: accelerate upwards wiljump  button is down
                     self._coyote_elapsed = 0
                     next_velocity_y = -t * _settings.jump_impulse * math.sqrt(self._down_elapsed / _settings.jump_duration) * self._spring_multiplier
                     self._down_elapsed = self._down_elapsed + delta
@@ -2417,6 +2418,7 @@ function rt.Player:set_is_bubble(b)
     self._world:signal_connect("step", function()
         if self._use_bubble_mesh_delay_n_steps <= 0 then
             self._use_bubble_mesh = self._is_bubble
+            self:signal_emit("bubble", self._is_bubble)
             return meta.DISCONNECT_SIGNAL
         else
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1

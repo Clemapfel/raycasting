@@ -5078,7 +5078,7 @@ return {
           },
           properties = {
             ["target"] = { id = 908 },
-            ["velocity"] = 1000
+            ["velocity"] = 100
           }
         },
         {
@@ -5709,8 +5709,8 @@ return {
           name = "Tether",
           type = "DoubleJumpTether",
           shape = "point",
-          x = -2063.73,
-          y = 872.541,
+          x = -2097.95,
+          y = 825.492,
           width = 0,
           height = 0,
           rotation = 0,
