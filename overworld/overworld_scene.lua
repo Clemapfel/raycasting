@@ -1125,8 +1125,6 @@ end
 
 --- @brief
 function ow.OverworldScene:reset()
-    if self._stage ~= nil then self._stage:destroy() end
-
     local before = self._stage_id
     self._stage_id = nil
     self._stage = nil

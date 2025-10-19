@@ -62,19 +62,6 @@ function ow.StageTitleCardScene:instantiate(state)
             self._player:set_is_bubble(false)
         end
     end)
-
-    -- TODO
-    local n = 100
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "^" then
-            self:_initialize()
-        elseif which == "k" then
-            n = n + 100
-            self._background = ow.StageTitleCardSceneBackground(n)
-            self._background:realize()
-            self._background:size_allocate(self._bounds:unpack())
-        end
-    end)
 end
 
 local _config

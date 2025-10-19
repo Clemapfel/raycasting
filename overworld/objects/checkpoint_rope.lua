@@ -582,6 +582,7 @@ function ow.CheckpointRope:reset()
     self:_despawn()
     self._is_despawned = false
     self._is_cut = false
+
     self:_init_bodies()
 
     self._pre_cut_mesh = nil
