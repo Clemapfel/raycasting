@@ -370,7 +370,13 @@ function ow.MovingHitbox:draw(priority)
     end
 end
 
+--- @brief
 function ow.MovingHitbox:get_render_priority()
     return _back_priority, _front_priority
+end
+
+--- @brief
+function ow.MovingHitbox:reset()
+    self._elapsed = 0
 end
 

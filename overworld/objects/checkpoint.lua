@@ -10,7 +10,7 @@ rt.settings.overworld.checkpoint = {
     explosion_radius_factor = 9, -- times player radius
 
     ray_duration = 0.1,
-    ray_width_radius_factor = 4,
+    ray_width_radius_factor = 8,
     ray_fade_out_duration = 0.5,
 
     platform_width = 6 * rt.settings.player.radius,
@@ -51,11 +51,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
     if type == nil then type = ow.CheckpointType.MIDWAY end
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Checkpoint: object is not a point")
 
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, j)
-        if j == "j" then self:reset() end
-    end)
-
     meta.install(self, {
         _scene = scene,
         _stage = stage,
@@ -78,7 +73,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         _ray_fraction = math.huge,
         _ray_fade_out_fraction = math.huge,
-        _ray_size = { 0, 0 },
+        _ray_area = rt.AABB(),
         _ray_fade_out_elapsed = math.huge,
 
         _explosion_elapsed = math.huge,
@@ -100,21 +95,22 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _rope = nil -- ow.CheckpointRope, only if midpoint
     })
 
+
     stage:signal_connect("initialized", function()
-        if self._type == ow.CheckpointType.PLAYER_SPAWN then
+
+        local create_platform = function(x, y)
             local platform_w = rt.settings.overworld.checkpoint.platform_width
             local platform_h = rt.settings.overworld.checkpoint.platform_height
-            local left_x, left_y = self._x - 0.5 * platform_w, self._y
-            local right_x, right_y = self._x + 0.5 * platform_w, self._y
 
-            -- barrier at object origin
+            local left_x, left_y = x - 0.5 * platform_w, y
+            local right_x, right_y = x + 0.5 * platform_w, y
 
             self._platform = ow.CheckpointPlatform(
                 left_x, left_y, right_x, right_y, platform_h
             )
 
             local min_x, max_x = left_x, right_x
-            local min_y, max_y = self._y - 0.5 * platform_h, self._y + 0.5 * platform_h
+            local min_y, max_y = y, y + platform_h
             self._spawn_barrier = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC, 0, 0,
                 b2.Polygon(
                     min_x, min_y,
@@ -124,10 +120,16 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 )
             )
 
-            self._body = self._spawn_barrier
-
             self._spawn_barrier:set_collision_group(rt.settings.player.ghost_collision_group)
             self._spawn_barrier:add_tag("stencil", "hitbox")
+            self._spawn_barrier:set_is_enabled(false)
+        end
+
+        if self._type == ow.CheckpointType.PLAYER_SPAWN then
+            create_platform(self._x, self._y)
+            self._spawn_barrier:set_is_enabled(true)
+
+            self._body = self._spawn_barrier
 
             self._top_x, self._top_y = self._x, self._y
             self._bottom_x, self._bottom_y = self._x, self._y
@@ -157,6 +159,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
             self._top_x, self._top_y = top_x, top_y
             self._bottom_x, self._bottom_y = bottom_x, bottom_y
+
+            create_platform(self._bottom_x, self._bottom_y)
+            self._spawn_barrier:set_is_enabled(false)
 
             self._body = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
                 self._x, self._y,
@@ -262,6 +267,7 @@ function ow.Checkpoint:spawn(also_kill)
     self:_restore_coins()
     self._stage:set_active_checkpoint(self)
     self._stage:signal_emit("respawn")
+    self._spawn_barrier:set_is_enabled(true)
     self._passed = true
 end
 
@@ -319,19 +325,20 @@ function ow.Checkpoint:_set_state(state)
         self._ray_fraction = 0
         self._ray_fade_out_elapsed = 0
         self._ray_fade_out_fraction = 0
-        local factor = rt.settings.overworld.checkpoint.ray_width_radius_factor
-        self._ray_size = { 2 * factor * player:get_radius(), self._bottom_y - self._top_y }
+        local ray_w = player:get_radius() * rt.settings.overworld.checkpoint.ray_width_radius_factor
 
         local screen_h = camera:get_world_bounds().height
         local _, max_y = self._world:query_ray(self._x, self._y, 0, -10e8)
-        local spawn_y = ternary(max_y == nil, self._x - screen_h, math.max(self._x - screen_h, max_y))
+        local spawn_y = ternary(max_y == nil, self._y - screen_h, math.max(self._y - screen_h, max_y))
         self._top_y = spawn_y
+        self._ray_area:reformat(self._top_x - 0.5 * ray_w, self._top_y, ray_w, self._bottom_y - self._top_y)
 
         player:teleport_to(self._x, spawn_y)
 
         player:reset()
+        player:teleport_to(self._top_x, spawn_y)
+        player:set_is_ghost(true)
         player:clear_forces()
-        player:set_is_visible(true)
         player:disable()
 
     elseif self._state == _STATE_DEFAULT then
@@ -359,9 +366,11 @@ function ow.Checkpoint:update(delta)
     self._camera_offset = { camera:get_offset() }
     self._camera_scale = camera:get_scale()
 
-    if self._type == ow.CheckpointType.PLAYER_SPAWN then
+    if self._spawn_barrier:get_is_enabled() then
         self._platform:set_hue(self._scene:get_player():get_hue())
-    elseif self._type == ow.CheckpointType.MIDWAY then
+    end
+
+    if self._type == ow.CheckpointType.MIDWAY then
         self._rope:update(delta)
     end
 
@@ -386,7 +395,7 @@ function ow.Checkpoint:update(delta)
         local threshold = self._bottom_y - 2 * player:get_radius()
         local player_x, player_y = player:get_position()
         if self._ray_fade_out_elapsed <= 0 and self._ray_fraction < 1 then
-            self._ray_fraction = (player_y - self._top_y) / (threshold - self._top_y)
+            self._ray_fraction = 1 - (player_y - threshold) / (self._top_y - threshold)
         end
 
         if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
@@ -412,9 +421,11 @@ function ow.Checkpoint:draw(priority)
     if priority == _base_priority then
         if self._type == ow.CheckpointType.MIDWAY then
             if self._fireworks_visible then self._fireworks:draw() end
-        elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
-            self._platform:draw()
         end
+    end
+
+    if self._stage:get_is_body_visible(self._spawn_barrier) then
+        self._platform:draw()
     end
 
     if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
@@ -428,14 +439,12 @@ function ow.Checkpoint:draw(priority)
             _ray_shader:bind()
             _ray_shader:send("fraction", self._ray_fraction)
             _ray_shader:send("fade_out_fraction", self._ray_fade_out_fraction)
-            _ray_shader:send("size", self._ray_size)
+            _ray_shader:send("size", { self._ray_area.width, self._ray_area.height })
             _ray_shader:send("elapsed", self._elapsed)
             _ray_shader:send("hue", hue)
             _ray_shader:send("camera_offset", self._camera_offset)
             _ray_shader:send("camera_scale", self._camera_scale)
-            local w, h = table.unpack(self._ray_size)
-            local x, y = self._top_x - 0.5 * w, self._top_y
-            love.graphics.rectangle("fill", x, y, w, h)
+            love.graphics.rectangle("fill", self._ray_area:unpack())
             _ray_shader:unbind()
         end
 

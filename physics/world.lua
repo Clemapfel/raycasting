@@ -6,6 +6,8 @@ meta.add_signals(b2.World, "step")
 function b2.World:instantiate()
     meta.install(self, {
         _native = love.physics.newWorld(0, 0),
+        _is_enabled = true,
+        _to_enable = {},
         _body_to_move_queue = {},
         _body_to_rotate_queue = {},
         _body_to_activate_queue = {},
@@ -123,6 +125,14 @@ function b2.World:instantiate()
         nil,
         nil
     )
+end
+
+--- @brief
+function b2.World:_notify_body_added(body)
+    if self._is_enabled == false then
+        self._to_enable[body] = true
+        body:set_is_enabled(false)
+    end
 end
 
 --- @brief
@@ -442,4 +452,20 @@ end
 --- @brief
 function b2.World:get_n_updates()
     return self._n_updates
+end
+
+--- @brief
+function b2.World:set_is_enabled(b)
+    if self._is_enabled == false and b == true then
+        for body in keys(self._to_enable) do
+            body:set_is_enabled(true)
+        end
+        self._to_enable = {}
+    end
+    self._is_enabled = b
+end
+
+--- @brief
+function b2.World:get_is_enabled()
+    return self._is_enabled
 end

@@ -786,6 +786,7 @@ function ow.ShatterSurface:draw()
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("fraction", math.clamp(self._time_since_shatter / rt.settings.overworld.shatter_surface.fade_duration, 0, 1))
+    _shader:send("draw_bloom", false)
     if not self._is_done then
         self._pre_shatter_mesh:draw()
     else
@@ -799,6 +800,19 @@ function ow.ShatterSurface:draw()
         end
     end
     _shader:unbind()
+end
+
+--- @brief
+function ow.ShatterSurface:draw_bloom()
+    if not self._is_done then
+        love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue() , 1))
+        _shader:bind()
+        _shader:send("elapsed", rt.SceneManager:get_elapsed())
+        _shader:send("fraction", math.clamp(self._time_since_shatter / rt.settings.overworld.shatter_surface.fade_duration, 0, 1))
+        _shader:send("draw_bloom", true)
+        self._pre_shatter_mesh:draw()
+        _shader:unbind()
+    end
 end
 
 --- @brief

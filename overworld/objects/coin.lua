@@ -142,7 +142,6 @@ end
 --- @brief
 function ow.Coin:set_is_collected(b)
     if self._is_collected ~= b then
-
         if self._is_collected == true then -- respawn
             self._is_returning = true
             self._respawn_return_motion:set_position(self._follow_x, self._follow_y)
@@ -276,4 +275,11 @@ end
 function ow.Coin:set_index(i)
     meta.assert(i, "Number")
     self._index = i
+end
+
+--- @brief
+function ow.Coin:reset()
+    self:set_is_collected(false)
+    self._pulse_opacity_animation:reset()
+    self._pulse_active = true
 end

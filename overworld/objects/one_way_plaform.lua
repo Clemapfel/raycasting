@@ -23,13 +23,6 @@ end
 
 --- @brief
 function ow.OneWayPlatform:instantiate(object, stage, scene)
-
-    -- TODO
-    self._input_subscriber = rt.InputSubscriber()
-    self._input_subscriber:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "p" then _shader:recompile() end
-    end)
-
     self._scene = scene
     self._stage = stage
 

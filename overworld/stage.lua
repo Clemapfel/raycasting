@@ -64,7 +64,7 @@ function ow.Stage:instantiate(scene, id)
 
         -- stage objects
         _coins = {}, -- cf. add_coin
-        _checkpoints = {}, -- Table<ow.Checkpoint, Number>
+        _checkpoints = meta.make_weak({}), -- Table<ow.Checkpoint, Number>
         _blood_splatter = ow.BloodSplatter(scene),
         _mirror = nil, -- ow.Mirror
 
@@ -73,7 +73,7 @@ function ow.Stage:instantiate(scene, id)
         _flow_fraction = 0,
 
         _active_checkpoint = nil,
-        _player_spawn_checkpoint = nil,
+        _player_spawn_ref = nil,
 
         _visible_bodies = {},
         _light_sources = {},
@@ -91,6 +91,8 @@ function ow.Stage:instantiate(scene, id)
             self._player_recorder:record()
         elseif which == "t" then
             self._player_recorder:play()
+        elseif which == "j" then
+            self:reset()
         end
     end)
     -- TODO
@@ -146,7 +148,7 @@ function ow.Stage:instantiate(scene, id)
     self._above_player = {}
 
     -- checkpoint to checkpoint split
-    self._checkpoints = {}
+    self._checkpoints = meta.make_weak({})
     local n_goals = 0 -- number ow.Goal, for warning
 
     local coins = {}
@@ -314,7 +316,7 @@ function ow.Stage:instantiate(scene, id)
         local n_spawns = 0
         for checkpoint in keys(self._checkpoints) do
             if checkpoint:get_type() == ow.CheckpointType.PLAYER_SPAWN then
-                self._player_spawn_checkpoint = checkpoint
+                self._player_spawn_ref = checkpoint
                 n_spawns = n_spawns + 1
             end
         end
@@ -563,7 +565,7 @@ end
 
 --- @brief
 function ow.Stage:set_active_checkpoint(checkpoint)
-    self._active_checkpoint = checkpoint or self._player_spawn_checkpoint
+    self._active_checkpoint = checkpoint or self._player_spawn_ref
 end
 
 --- @brief

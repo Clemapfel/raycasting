@@ -189,12 +189,16 @@ function ow.Hook:_unhook()
     -- delay to after box2d collision step
     self._world:signal_connect("step", function(_)
         if self._bubble_hook ~= nil then
-            self._bubble_hook:destroy()
+            if not self._bubble_hook:isDestroyed() then
+                self._bubble_hook:destroy()
+            end
             self._bubble_hook = nil
         end
 
         if self._non_bubble_hook ~= nil then
-            self._non_bubble_hook:destroy()
+            if not self._non_bubble_hook:isDestroyed() then
+                self._non_bubble_hook:destroy()
+            end
             self._non_bubble_hook = nil
         end
 
@@ -254,4 +258,9 @@ function ow.Hook:draw_bloom()
     love.graphics.line(self._outline)
 
     love.graphics.pop()
+end
+
+--- @brief
+function ow.Hook:reset()
+    self:_unhook()
 end

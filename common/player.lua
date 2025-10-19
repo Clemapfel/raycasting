@@ -2509,6 +2509,19 @@ function rt.Player:add_double_jump_source(instance)
 end
 
 --- @brief
+function rt.Player:remove_double_jump_source(instance)
+    local to_remove_is = {}
+    for i, other in ipairs(self._double_jump_sources) do
+        if other == instance then table.insert(to_remove_is, i) end
+    end
+
+    table.sort(to_remove_is,function(a, b) return a > b end)
+    for i in values(to_remove_is) do
+        table.remove(self._double_jump_sources, i)
+    end
+end
+
+--- @brief
 function rt.Player:get_is_double_jump_source(instance)
     if table.is_empty(self._double_jump_sources) then return false end
 

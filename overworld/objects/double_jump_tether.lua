@@ -45,7 +45,6 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
 
     self._was_consumed = false
     self._body:signal_connect("collision_start", function(_)
-        dbg("called")
         local player = self._scene:get_player()
         if not player:get_is_double_jump_source(self) then
             player:add_double_jump_source(self)
@@ -199,4 +198,13 @@ end
 --- @brief
 function ow.DoubleJumpTether:get_color()
     return rt.RGBA(table.unpack(self._color))
+end
+
+--- @brief
+function ow.DoubleJumpTether:reset()
+    local player = self._scene:get_player()
+    if player:get_is_double_jump_source(self) then
+        player:remove_double_jump_source(self)
+        self:update(0)
+    end
 end

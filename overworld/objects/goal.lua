@@ -17,6 +17,7 @@ rt.settings.overworld.goal.time_dilation_duration = rt.settings.overworld.shatte
 ow.Goal = meta.class("Goal")
 
 local _indicator_shader = rt.Shader("overworld/objects/goal_indicator.glsl")
+local _outline_shader = rt.Shader("overworld/objects/checkpoint_platform.glsl")
 
 local _format_time = function(time)
     return string.format_time(time), {
@@ -62,6 +63,7 @@ function ow.Goal:instantiate(object, stage, scene)
 
         _result_screen_revealed = false
     })
+
     stage:signal_connect("initialized", function()
         local player = self._scene:get_player()
         local size = rt.settings.overworld.goal.size
@@ -99,13 +101,61 @@ function ow.Goal:instantiate(object, stage, scene)
         self._bounds = rt.AABB(self._x + bx, self._y + by, bw, bh)
 
         local offset = rt.settings.overworld.goal.outline_width / 2 -- for pixel perfect hitbox accuracy
-        self._outline = {
-            self._bounds.x + offset, self._bounds.y + offset,
-            self._bounds.x + self._bounds.width - offset, self._bounds.y + offset,
-            self._bounds.x + self._bounds.width - offset, self._bounds.y + self._bounds.height - offset,
-            self._bounds.x + offset, self._bounds.y + self._bounds.height - offset,
-            self._bounds.x + offset, self._bounds.y + offset
-        }
+
+        -- setup outline mesh to be compatible with checkpoint_platform
+        function create_mesh(min_x, min_y, max_x, max_y, radius)
+            meta.assert(min_x, "Number", min_y, "Number", max_x, "Number", max_y, "Number")
+            if min_x > max_x then min_x, max_x = max_x, min_x end
+            if min_y > max_y then min_y, max_y = max_y, min_y end
+
+            local inner_thickness = 0.25 * radius
+            local outer_thickness = radius
+
+            local ix1 = min_x + inner_thickness
+            local iy1 = min_y + inner_thickness
+            local ix2 = max_x - inner_thickness
+            local iy2 = max_y - inner_thickness
+
+            local ox1 = min_x - outer_thickness
+            local oy1 = min_y - outer_thickness
+            local ox2 = max_x + outer_thickness
+            local oy2 = max_y + outer_thickness
+
+
+            local mesh_data = {}
+            local function add_vertex(x, y, u, v, alpha)
+                table.insert(mesh_data, { x, y, u, v, 1, 1, 1, alpha })
+            end
+
+            add_vertex(ix1, iy1, 0/4, 1, 1) -- top-left
+            add_vertex(ix2, iy1, 1/4, 1, 1) -- top-right
+            add_vertex(ix2, iy2, 2/4, 1, 1) -- bottom-right
+            add_vertex(ix1, iy2, 3/4, 1, 1) -- bottom-left
+            add_vertex(ix1, iy1, 4/4, 1, 1) -- wrap duplicate
+
+            add_vertex(ox1, oy1, 0/4, 0, 0) -- top-left
+            add_vertex(ox2, oy1, 1/4, 0, 0) -- top-right
+            add_vertex(ox2, oy2, 2/4, 0, 0) -- bottom-right
+            add_vertex(ox1, oy2, 3/4, 0, 0) -- bottom-left
+            add_vertex(ox1, oy1, 4/4, 0, 0) -- wrap duplicate
+
+            local mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+
+            mesh:set_vertex_map({
+                1, 6, 2,   2, 6, 7,
+                2, 7, 3,   3, 7, 8,
+                3, 8, 4,   4, 8, 9,
+                4, 9, 5,   5, 9, 10
+            })
+
+            return mesh
+        end
+
+        self._outline_mesh = create_mesh(
+            self._x - 0.5 * size, self._y - 0.5 * size,
+            self._x + 0.5 * size, self._y + 0.5 * size,
+            rt.settings.overworld.checkpoint_rope.radius
+        )
 
         self._path = rt.Path(
             self._bounds.x, self._bounds.y,
@@ -114,16 +164,6 @@ function ow.Goal:instantiate(object, stage, scene)
             self._bounds.x, self._bounds.y + self._bounds.height,
             self._bounds.x, self._bounds.y
         )
-
-        self._segment_lights = {}
-        for i = 1, #self._outline - 4, 4 do
-            table.insert(self._segment_lights, {
-                self._outline[i+0],
-                self._outline[i+1],
-                self._outline[i+2],
-                self._outline[i+3]
-            })
-        end
 
         self._shatter_surface = ow.ShatterSurface(self._world, self._bounds:unpack())
 
@@ -146,9 +186,6 @@ function ow.Goal:instantiate(object, stage, scene)
                 self._time_dilation_elapsed = 0
             end
         end)
-
-        self._body:add_tag("segment_light_source")
-        self._body:set_user_data(self)
 
         local center_x, center_y, radius = 0, 0, 2 * player:get_radius()
 
@@ -243,16 +280,13 @@ function ow.Goal:draw(priority)
         love.graphics.setColor(self._color)
         self._shatter_surface:draw()
 
-        if not self._is_shattered then
-            local line_width = rt.settings.overworld.goal.outline_width
-
-            rt.Palette.BLACK:bind()
-            love.graphics.setLineWidth(line_width)
-            love.graphics.line(self._outline)
-
-            love.graphics.setColor(self._color)
-            love.graphics.setLineWidth(line_width - 3)
-            love.graphics.line(self._outline)
+        if self._is_shattered == false then
+            _outline_shader:bind()
+            _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+            _outline_shader:send("color", self._color)
+            _outline_shader:send("bloom_active", false)
+            self._outline_mesh:draw()
+            _outline_shader:unbind()
         end
 
         love.graphics.push()
@@ -278,6 +312,17 @@ end
 --- @brief
 function ow.Goal:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) then return end
+
+    if self._is_shattered == false then
+        self._shatter_surface:draw_bloom()
+
+        _outline_shader:bind()
+        _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        _outline_shader:send("color", self._color)
+        _outline_shader:send("bloom_active", false)
+        self._outline_mesh:draw()
+        _outline_shader:unbind()
+    end
 end
 
 --- @brief
@@ -293,9 +338,4 @@ end
 --- @brief
 function ow.Goal:get_render_priority()
     return _base_priority, _label_priority
-end
-
---- @brief
-function ow.Goal:get_segment_light_sources()
-    return self._segment_lights, table.rep(self._color, #self._segment_lights)
 end

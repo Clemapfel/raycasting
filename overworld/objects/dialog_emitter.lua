@@ -252,3 +252,9 @@ function ow.DialogEmitter:draw()
         love.graphics.pop()
     end
 end
+
+--- @brief
+function ow.DialogEmitter:reset()
+    self._dialog_box_active = false
+    self._dialog_box:reset()
+end

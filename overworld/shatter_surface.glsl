@@ -63,13 +63,14 @@ float manhatten_distance(vec2 p)
     return max(abs(p.x), abs(p.y));
 }
 
-float checkerboard(vec2 uv, float eps) {
+// checkerboard sdf
+float checkerboard(vec2 uv) {
     // src: https://www.shadertoy.com/view/wc2Szh
     float value = (int(floor(uv.x)) + int(floor(uv.y))) % 2 == 0
         ? 1.0 - manhatten_distance(fract(uv) - 0.5)
         :       manhatten_distance(fract(uv) - 0.5)
     ;
-    return smoothstep(0.5 - eps, 0.5 + eps, value);
+    return value;
 }
 
 float dirac(float x) {
@@ -80,25 +81,37 @@ float dirac(float x) {
 }
 
 uniform float elapsed;
-uniform float fraction; // 0: start, 1: end
+uniform float fraction; // 0: start, 1: end;
+uniform bool draw_bloom = true;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
 
-    float noise = mix(0.025, 0.6, fraction) * gradient_noise(vec3(texture_coords.xy * 10 + vec2(0, -elapsed), 0));
-    texture_coords.x += noise;
-    texture_coords.y += noise;
+    float noise = gradient_noise(vec3(texture_coords * 10 + vec2(0, -elapsed), 0));
 
     // uv encodes global position
     const float min_eps = 0.015;
     const float max_eps = 0.75;
-    vec2 pattern_uv = texture_coords.xy * 5;
-    float pattern = checkerboard(pattern_uv, mix(min_eps, max_eps, fraction));
-    pattern -= (1 - color.a);
+    float pattern_outline = checkerboard((5 * texture_coords) + mix(0.05, 0.6, fraction) * vec2(noise));
+
+    const float threshold_eps = 0.04;
+    const float threshold_a = 0.5;
+    float threshold_b = 0.5 + 0.5 * threshold_eps + 0.02 * (draw_bloom ? 1 : 1);
+    pattern_outline = smoothstep(threshold_a - threshold_eps, threshold_a + threshold_eps, pattern_outline) -
+        smoothstep(threshold_b - threshold_eps, threshold_b + threshold_eps, pattern_outline);
+    pattern_outline -= (1 - color.a);
+
+    float pattern_fill = checkerboard((5 * texture_coords) + 0.2 * noise);
+    pattern_fill = smoothstep(0.5 - threshold_eps, 0.5 + threshold_eps, pattern_fill);
+    pattern_fill *= 0.5 * (1 + gradient_noise(vec3(texture_coords * 10, elapsed)));
 
     // alpha encodes rim
     float outline = 1 - color.a > 0 ? 1 : 0;
     vec4 rim = vec4(mix( vec3(0), color.rgb, outline), outline);
-    return rim + (1 - outline) * vec4(color.rgb * vec3((1 - fraction) * pattern), 1); //mix(0.7, 0.5, fraction));
+
+    if (!draw_bloom)
+        return rim + (1 - outline) * vec4(color.rgb * vec3((1 - fraction * 0.5) * min(pattern_outline + pattern_fill, 1)), 1);
+    else
+        return rim + (1 - outline) * vec4(color.rgb * pattern_outline, 1);
 }
 
 #endif

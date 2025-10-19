@@ -93,6 +93,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
     end
 
     self._native:setUserData(self)
+    self._world:_notify_body_added(self)
 end
 
 --- @brief

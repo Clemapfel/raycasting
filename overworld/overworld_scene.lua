@@ -12,7 +12,6 @@ require "common.bloom"
 require "common.fade"
 require "overworld.stage_title_card"
 
-
 do
     local bloom = 0.2
     rt.settings.overworld_scene = {

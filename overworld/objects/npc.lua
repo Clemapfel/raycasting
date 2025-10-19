@@ -16,7 +16,6 @@ rt.settings.overworld.npc = {
 --- @class ow.NPC
 ow.NPC = meta.class("NPC")
 
-
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
     self._scene = scene

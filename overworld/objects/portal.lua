@@ -663,3 +663,9 @@ end
 function ow.Portal:get_segment_light_sources()
     return { { self._ax, self._ay, self._bx, self._by } }, { table.deepcopy(self._color) }
 end
+
+--- @brief
+function ow.Portal:reset()
+    self._transition_elapsed = math.huge
+    self:update(0) -- teleport player to goal
+end
