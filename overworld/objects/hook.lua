@@ -46,12 +46,12 @@ function ow.Hook:instantiate(object, stage, scene)
     self._hue = _current_hue_step
     self._original_hue = self._hue
     _current_hue_step = (_current_hue_step % _n_hue_steps) + 1
-    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
 
     self._stage:signal_connect("respawn", function(_)
         -- revert hue changes from hooking player
         self._hue = self._original_hue
-        self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+        self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     end)
 
     -- collision
@@ -113,7 +113,6 @@ function ow.Hook:_hook()
     if self._is_hooked == true or self._is_blocked then return end
     local player = self._scene:get_player()
     self._hue = player:get_hue()
-    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
 
     if player:get_is_bubble() and (
         self._input:get_is_down(rt.InputAction.UP) or
@@ -174,10 +173,12 @@ function ow.Hook:_hook()
             end
 
             self._is_hooked = true
+            player:pulse(self._color)
             return meta.DISCONNECT_SIGNAL
         end)
     end
 
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     self._motion:set_target_value(0)
     self._motion:set_value(0)
 end
@@ -229,7 +230,7 @@ function ow.Hook:draw()
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("fraction", rt.InterpolationFunctions.SIGMOID(1 - value))
-    _shader:send("player_color", self._color)
+    _shader:send("player_color", { self._color:unpack() })
     _shader:send("hue", self._hue)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
@@ -239,7 +240,7 @@ function ow.Hook:draw()
     love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width + 2)
     love.graphics.line(self._outline)
 
-    love.graphics.setColor(self._color)
+    self._color:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width)
     love.graphics.line(self._outline)
 
@@ -253,7 +254,7 @@ function ow.Hook:draw_bloom()
     love.graphics.push()
     love.graphics.translate(self._x, self._y)
 
-    love.graphics.setColor(self._color)
+    self._color:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width * 1.5)
     love.graphics.line(self._outline)
 

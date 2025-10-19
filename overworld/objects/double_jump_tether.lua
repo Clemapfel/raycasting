@@ -48,12 +48,14 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
         local player = self._scene:get_player()
         if not player:get_is_double_jump_source(self) then
             player:add_double_jump_source(self)
+            player:pulse(self._color)
             self:update(0)
         end
     end)
 
     -- graphics
-    self._color = { rt.lcha_to_rgba(0.8, 1, _hue_steps[_current_hue_step], 1) }
+    self._hue = _hue_steps[_current_hue_step]
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
     self._particle = ow.DoubleJumpParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
@@ -163,14 +165,14 @@ end
 function ow.DoubleJumpTether:draw()
     local line_a = self._line_opacity_motion:get_value()
     if line_a > eps then
-        local r, g, b = table.unpack(self._color)
+        local r, g, b = self._color:unpack()
         love.graphics.setColor(r, g, b, 1)
         love.graphics.draw(self._line_mesh)
     end
 
     if self._stage:get_is_body_visible(self._body) then
         local shape_a = self._particle_opacity_motion:get_value()
-        local r, g, b = table.unpack(self._color)
+        local r, g, b = self._color:unpack()
 
         -- always draw core, fade out line
         love.graphics.setColor(r, g, b, 1)
@@ -187,7 +189,7 @@ end
 function ow.DoubleJumpTether:draw_bloom()
     if self._stage:get_is_body_visible(self._body) == false then return end
 
-    local r, g, b = table.unpack(self._color)
+    local r, g, b = self._color:unpack()
     local shape_a = self._particle_opacity_motion:get_value()
     if shape_a > eps then
         love.graphics.setColor(r, g, b, shape_a)
@@ -197,7 +199,7 @@ end
 
 --- @brief
 function ow.DoubleJumpTether:get_color()
-    return rt.RGBA(table.unpack(self._color))
+    return self._color
 end
 
 --- @brief

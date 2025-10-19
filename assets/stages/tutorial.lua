@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1013,
+  nextobjectid = 1014,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5724,6 +5724,19 @@ return {
           shape = "point",
           x = -1997.43,
           y = 791.275,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1013,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -2200.6,
+          y = 757.057,
           width = 0,
           height = 0,
           rotation = 0,

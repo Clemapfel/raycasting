@@ -113,6 +113,7 @@ function ow.Coin:instantiate(object, stage, scene)
         self:set_is_collected(true)
         self._pulse_opacity_animation:reset()
         self._pulse_active = true
+        self._scene:get_player():pulse(self._color)
     end)
 
     if _pulse_mesh == nil then
@@ -127,7 +128,8 @@ function ow.Coin:instantiate(object, stage, scene)
 
     self._pulse_opacity_animation = rt.TimedAnimation(
         rt.settings.overworld.coin.pulse_animation_duration,
-        1, 0
+        1, 0,
+        rt.InterpolationFunctions.SINUSOID_EASE_OUT
     )
     self._pulse_active = false
 
@@ -166,7 +168,7 @@ function ow.Coin:update(delta)
     if self._is_collected then
         if self._pulse_active then
             self._pulse_active = not self._pulse_opacity_animation:update(delta)
-            self._pulse_x, self._pulse_y = self._scene:get_player():get_physics_body():get_predicted_position()
+            self._pulse_x, self._pulse_y = self._follow_x, self._follow_y
         end
 
         local player_radius = rt.settings.player.radius
@@ -221,15 +223,6 @@ function ow.Coin:draw()
             local v = self._pulse_opacity_animation:get_value()
 
             local x, y = self._pulse_x, self._pulse_y
-            love.graphics.push()
-            love.graphics.translate(x, y)
-            love.graphics.scale(2 * (1 - v))
-            love.graphics.translate(-x, -y)
-            love.graphics.setColor(r, g, b, v)
-            love.graphics.draw(_pulse_mesh, x, y)
-            love.graphics.pop()
-
-            x, y = self._follow_x, self._follow_y
             love.graphics.push()
             love.graphics.translate(x, y)
             love.graphics.scale(2 * (1 - v))

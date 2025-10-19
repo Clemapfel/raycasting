@@ -41,6 +41,12 @@ Portal horizontal loop to gain height
 
 Hitbox
 SlipperyHitbox
+
+Hook
+Teleport to Center
+Buffer jump to jump instantly
+Hold down to skip hook
+
 Jump
 Squeeze
 Squeeze through Accelerator

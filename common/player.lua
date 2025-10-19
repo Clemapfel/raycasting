@@ -6,107 +6,111 @@ require "common.random"
 require "common.palette"
 require "common.smoothed_motion_1d"
 
-local radius = 13.5
-rt.settings.player = {
-    radius = radius,
-    inner_body_radius = 10 / 2 - 0.5,
-    n_outer_bodies = 27,
-    max_spring_length = radius * 3,
-    outer_body_spring_strength = 2,
+do
+    local radius = 13.5
+    rt.settings.player = {
+        radius = radius,
+        inner_body_radius = 10 / 2 - 0.5,
+        n_outer_bodies = 27,
+        max_spring_length = radius * 3,
+        outer_body_spring_strength = 2,
 
-    bottom_wall_ray_length_factor = 1.5,
-    side_wall_ray_length_factor = 1.05,
-    corner_wall_ray_length_factor = 0.8,
-    top_wall_ray_length_factor = 1,
-    joystick_to_analog_eps = 0.35,
+        bottom_wall_ray_length_factor = 1.5,
+        side_wall_ray_length_factor = 1.05,
+        corner_wall_ray_length_factor = 0.8,
+        top_wall_ray_length_factor = 1,
+        joystick_to_analog_eps = 0.35,
 
-    player_collision_group = b2.CollisionGroup.GROUP_16,
-    player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
-    bounce_collision_group = b2.CollisionGroup.GROUP_14,
+        player_collision_group = b2.CollisionGroup.GROUP_16,
+        player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
+        bounce_collision_group = b2.CollisionGroup.GROUP_14,
 
-    ghost_collision_group = b2.CollisionGroup.GROUP_12,
-    ghost_outer_body_collision_group = b2.CollisionGroup.GROUP_13,
+        ghost_collision_group = b2.CollisionGroup.GROUP_12,
+        ghost_outer_body_collision_group = b2.CollisionGroup.GROUP_13,
 
-    exempt_collision_group = b2.CollisionGroup.GROUP_11,
+        exempt_collision_group = b2.CollisionGroup.GROUP_11,
 
-    ground_target_velocity_x = 300,
-    air_target_velocity_x = 320,
-    sprint_multiplier = 2,
-    accelerator_friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
-    bubble_accelerator_friction_coefficient = 1.5,
+        ground_target_velocity_x = 300,
+        air_target_velocity_x = 320,
+        sprint_multiplier = 2,
+        accelerator_friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
+        bubble_accelerator_friction_coefficient = 1.5,
 
-    flow_increase_velocity = 1 / 200, -- percent per second
-    flow_decrease_velocity = 1,
-    flow_max_velocity = 1, -- percent per second
-    flow_fraction_history_n = 100, -- n samples
-    flow_fraction_sample_frequency = 60, -- n samples per second
+        flow_increase_velocity = 1 / 200, -- percent per second
+        flow_decrease_velocity = 1,
+        flow_max_velocity = 1, -- percent per second
+        flow_fraction_history_n = 100, -- n samples
+        flow_fraction_sample_frequency = 60, -- n samples per second
 
-    position_history_n = 1000, -- n samples
-    position_history_sample_frequency = 10, -- px
+        position_history_n = 1000, -- n samples
+        position_history_sample_frequency = 10, -- px
 
-    ground_acceleration_duration = 20 / 60, -- seconds
-    ground_deceleration_duration = 5 / 60,
+        ground_acceleration_duration = 20 / 60, -- seconds
+        ground_deceleration_duration = 5 / 60,
 
-    air_acceleration_duration = 15 / 60, -- seconds
-    air_deceleration_duration = 15 / 60,
+        air_acceleration_duration = 15 / 60, -- seconds
+        air_deceleration_duration = 15 / 60,
 
-    coyote_time = 3 / 60,
+        coyote_time = 3 / 60,
 
-    jump_duration = 11 / 60,
-    jump_impulse = 520, -- 4 * 32 neutral jump
+        jump_duration = 11 / 60,
+        jump_impulse = 520, -- 4 * 32 neutral jump
 
-    wall_magnet_force = 200,
-    wall_jump_initial_impulse = 340,
-    wall_jump_sustained_impulse = 1200, -- force per second
-    wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
-    wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
-    non_sprint_walljump_duration_multiplier = 1.4,
-    wall_jump_duration = 12 / 60,
-    wall_jump_freeze_duration = 7 / 60,
+        wall_magnet_force = 200,
+        wall_jump_initial_impulse = 340,
+        wall_jump_sustained_impulse = 1200, -- force per second
+        wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
+        wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
+        non_sprint_walljump_duration_multiplier = 1.4,
+        wall_jump_duration = 12 / 60,
+        wall_jump_freeze_duration = 7 / 60,
 
-    accelerator_max_velocity = 2000, -- vxy magnitude
-    accelerator_magnet_force = 400,
+        accelerator_max_velocity = 2000, -- vxy magnitude
+        accelerator_magnet_force = 400,
 
-    bounce_min_force = 200,
-    bounce_max_force = 600,
-    bounce_relative_velocity = 2000,
-    bounce_duration = 2 / 60,
+        bounce_min_force = 200,
+        bounce_max_force = 600,
+        bounce_relative_velocity = 2000,
+        bounce_duration = 2 / 60,
 
-    double_jump_buffer_duration = 15 / 60,
+        double_jump_buffer_duration = 15 / 60,
 
-    spring_multiplier = 1.2,
-    spring_constant = 1.8,
-    joint_force_threshold = 1000,
-    joint_length_threshold = 100,
+        spring_multiplier = 1.2,
+        spring_constant = 1.8,
+        joint_force_threshold = 1000,
+        joint_length_threshold = 100,
 
-    bubble_radius_factor = 2.25,
-    bubble_inner_radius_scale = 1.7,
-    bubble_target_velocity = 400,
-    bubble_acceleration = 2.5,
-    bubble_air_resistance = 0.5, -- px / s
-    bubble_gravity_factor = 0.015,
+        bubble_radius_factor = 2.25,
+        bubble_inner_radius_scale = 1.7,
+        bubble_target_velocity = 400,
+        bubble_acceleration = 2.5,
+        bubble_air_resistance = 0.5, -- px / s
+        bubble_gravity_factor = 0.015,
 
-    gravity = 1500, -- px / s
-    air_resistance = 0.03, -- [0, 1]
-    downwards_force = 3000,
+        gravity = 1500, -- px / s
+        air_resistance = 0.03, -- [0, 1]
+        downwards_force = 3000,
 
-    friction_coefficient = 14,
-    friction_compression_influence = 1, -- fraction
-    down_button_friction_release_duration = 30 / 60, -- s
-    platform_velocity_decay = 0.98,
+        friction_coefficient = 14,
+        friction_compression_influence = 1, -- fraction
+        down_button_friction_release_duration = 30 / 60, -- s
+        platform_velocity_decay = 0.98,
 
-    max_velocity_x = 2500,
-    max_velocity_y = 2500,
+        max_velocity_x = 2500,
+        max_velocity_y = 2500,
 
-    squeeze_multiplier = 1.4,
+        squeeze_multiplier = 1.4,
 
-    color_a = 1.0,
-    color_b = 0.6,
-    hue_cycle_duration = 1,
-    hue_motion_velocity = 4, -- fraction per second
+        color_a = 1.0,
+        color_b = 0.6,
+        hue_cycle_duration = 1,
+        hue_motion_velocity = 4, -- fraction per second
+        pulse_duration = 0.6, -- seconds
+        pulse_radius_factor = 2, -- factor
 
-    --debug_drawing_enabled = true,
-}
+        --debug_drawing_enabled = true,
+    }
+end
 
 local _settings = setmetatable({}, {
     __index = function(self, key)
@@ -331,7 +335,11 @@ function rt.Player:instantiate()
         _body_to_collision_normal = {},
 
         _time_dilation = 1,
-        _damping = 1
+        _damping = 1,
+
+        -- animation
+        _pulses = {}, -- Table<love.Timestamp>
+        _pulse_mesh = nil -- rt.Mesh
     })
 
     for i = 1, 2 * _settings.position_history_n, 2 do
@@ -345,6 +353,18 @@ function rt.Player:instantiate()
         max_radius = _settings.radius * _settings.bubble_radius_factor
     })
     self:_connect_input()
+
+    self._pulse_mesh = rt.MeshCircle(0, 0, 1) -- scaled in draw
+    self._pulse_mesh:set_vertex_color(1, 1, 1, 1, 0)
+    for i = 2, self._pulse_mesh:get_n_vertices() do
+        self._pulse_mesh:set_vertex_color(i, 1, 1, 1, 1)
+    end
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "0" then self:pulse(rt.RGBA(1, 1, 1, 1)) end
+    end)
 end
 
 --- @brief
@@ -555,6 +575,20 @@ function rt.Player:update(delta)
 
         if self._trail_visible then
             self._trail:update(delta)
+        end
+
+        do
+            local to_remove = {}
+            for i, pulse in ipairs(self._pulses) do
+                local elapsed = love.timer.getTime() - pulse.timestamp
+                if elapsed > _settings.pulse_duration then
+                    table.insert(to_remove, i)
+                end
+            end
+
+            for i = #to_remove, 1, -1 do
+                table.remove(self._pulses, i)
+            end
         end
 
         self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
@@ -1553,7 +1587,7 @@ function rt.Player:update(delta)
         local not_player_mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
         local hitbox_mask = rt.settings.overworld.hitbox.collision_group
         local bodies = self._world:query_aabb(
-            center_x - radius, center_y - radius, 2 * radius, 2 * radius,
+            center_x - r, center_y - r, 2 * r, 2 * r,
             bit.band(not_player_mask, hitbox_mask)
         )
 
@@ -1998,6 +2032,25 @@ end
 --- @brief
 function rt.Player:draw_core()
     if self._is_visible == false then return end
+
+    if #self._pulses > 0 then
+        local time = love.timer.getTime()
+        local radius = self._core_radius * _settings.pulse_radius_factor
+        local x, y = self:get_predicted_position()
+        local mesh = self._pulse_mesh:get_native()
+        for pulse in values(self._pulses) do
+            local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT((time - pulse.timestamp) / _settings.pulse_duration)
+
+            love.graphics.push()
+            love.graphics.translate(x, y)
+            love.graphics.scale(2 * radius * (1 - t))
+            love.graphics.translate(-x, -y)
+            local r, g, b, a = pulse.color:unpack()
+            love.graphics.setColor(r, g, b, a * t)
+            love.graphics.draw(self._pulse_mesh:get_native(), x, y)
+            love.graphics.pop()
+        end
+    end
 
     self._graphics_body:draw_core()
 end
@@ -2664,4 +2717,16 @@ end
 --- @brief
 function rt.Player:get_movement_disabled()
     return self._movement_disabled
+end
+
+--- @brief
+function rt.Player:pulse(color_maybe)
+    if color_maybe ~= nil then
+        meta.assert(color_maybe, rt.RGBA)
+    end
+
+    table.insert(self._pulses, {
+        timestamp = love.timer.getTime(),
+        color = color_maybe or rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+    })
 end
