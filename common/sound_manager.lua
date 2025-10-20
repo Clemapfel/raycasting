@@ -10,15 +10,15 @@ rt.settings.sound_manager = {
     enable_volume_equalization = true,
     source_stop_decay_duration = 20 / 60, -- seconds
 
-    reference_hearing_distance = 50,
-    maximum_hearing_distance = 600,
-    distance_model = "inverseclamped",
+    reference_hearing_distance = 1,
+    distance_model = "linear",
 
     throw_id_error_only_once = false
 }
 
 --- @class rt.SoundManager
 rt.SoundManager = meta.class("SoundManager")
+
 
 local _is_config_file = function(path)
     return string.match(path, "%.lua$") ~= nil
@@ -58,8 +58,8 @@ function rt.SoundManager:instantiate()
     love.audio.setVelocity(0, 0, 0)
     love.audio.setDistanceModel(_settings.distance_model)
     love.audio.setOrientation(
-        0, 0, -1,
-        0, 1, 0
+        0, 0, -1,   -- "at" vector pointing along X axis (right)
+        0, 1, 0    -- "up" vector (unchanged)
     )
 
     -- volume equalization
@@ -289,7 +289,7 @@ end
 
 -- game xy to OpenAL xyz
 local _map_coordinates = function(x, y)
-    return x, -y, 0
+    return -x, -y, 1  -- Swapped: game X → OpenAL Z, game Y → OpenAL X
 end
 
 --- @brief
@@ -362,13 +362,14 @@ function rt.SoundManager:play(id, config)
 
     entry.handler_id_to_active_sources[config.handler_id] = source
     source:setPosition(_map_coordinates(config.position_x, config.position_y))
-    source:setRelative(true)
+    source:setRelative(false)
     source:setPitch(config.pitch)
     source:setAttenuationDistances(
         _settings.reference_hearing_distance,
-        _settings.maximum_hearing_distance
+        math.huge
     )
-    source:setRolloff(1)
+    source:setRolloff(0)
+    source:setAirAbsorption(0)
     source:setVelocity(_map_coordinates(0, 0))
     source:setVolume(entry.equalizer_volume * self._volume)
     source:setLooping(config.should_loop)
@@ -426,8 +427,44 @@ function rt.SoundManager:stop(id, handler_id)
     end
 end
 
+--- @brief
+function rt.SoundManager:stop(id, handler_id)
+    if handler_id == nil then
+        meta.assert(id, "String")
+    else
+        meta.assert(id, "String", handler_id, "Number")
+    end
+
+    local entry = self:_get_entry(id, "play")
+
+    local to_stop = {}
+    local add = function(entry, handler_id)
+        assert(entry.handler_id_to_active_sources[handler_id] ~= nil)
+        table.insert(to_stop, {
+            entry = entry,
+            handler_id = handler_id,
+            elapsed = 0
+        })
+    end
+
+    if handler_id == nil then
+        for current_id, source in pairs(entry.handler_id_to_active_sources) do
+            add(entry, current_id)
+        end
+    else
+        local source = entry.handler_id_to_active_sources[handler_id]
+        if source ~= nil then
+            add(entry, handler_id)
+        end
+    end
+
+    for stop_entry in values(to_stop) do
+        table.insert(self._stop_entries, stop_entry)
+    end
+end
+
 -- sound manager is run at very high refresh rate for
--- smooth fading, but deallocation only need to check rarely
+-- smooth fading, but deallocation only needs to check rarely
 local _elapsed = 0
 local _step = 1 / 60
 
@@ -435,23 +472,29 @@ local _step = 1 / 60
 function rt.SoundManager:update(delta)
     do -- fade out
         local duration = rt.settings.sound_manager.source_stop_decay_duration
-        local to_remove = {}
-        for i, stop_entry in ipairs(self._stop_entries) do
-            -- sinusoid because it is smooth on both ends and actually reaches 0
-            local t = rt.InterpolationFunctions.SINUSOID_EASE_OUT(1 - stop_entry.elapsed / duration)
-
-            local source = stop_entry.entry.handler_id_to_active_sources[stop_entry.handler_id]
-            if source ~= nil then source:setVolume(t) end
-            if stop_entry.elapsed > duration then
-                if source ~= nil then source:stop() end
-                table.insert(to_remove, i)
-            end
-
-            stop_entry.elapsed = stop_entry.elapsed + delta
+        local easing = function(t)
+            return rt.InterpolationFunctions.SINUSOID_EASE_OUT(1 - math.clamp(t, 0, 1))
         end
 
-        for i = #to_remove, 1, -1 do
-            table.remove(self._stop_entries, to_remove[i])
+        do -- stops
+            local to_remove = {}
+            for i, stop_entry in ipairs(self._stop_entries) do
+                -- sinusoid because it is smooth on both ends and actually reaches 0
+                local t = easing(stop_entry.elapsed / duration)
+
+                local source = stop_entry.entry.handler_id_to_active_sources[stop_entry.handler_id]
+                if source ~= nil then source:setVolume(t) end
+                if stop_entry.elapsed > duration then
+                    if source ~= nil then source:stop() end
+                    table.insert(to_remove, i)
+                end
+
+                stop_entry.elapsed = stop_entry.elapsed + delta
+            end
+
+            for i = #to_remove, 1, -1 do
+                table.remove(self._stop_entries, to_remove[i])
+            end
         end
     end
 
@@ -474,6 +517,9 @@ function rt.SoundManager:update(delta)
                         end
                         table.insert(to_move, handler_id)
                     end
+
+                    local x, y = source:getPosition()
+                    dbg(love.audio.getDistanceModel(), source:isRelative(), x, y, love.audio.getPosition())
                 end
 
                 for handler_id in values(to_move) do
