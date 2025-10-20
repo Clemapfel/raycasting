@@ -190,6 +190,34 @@ function ow.Goal:instantiate(object, stage, scene)
             end
         end)
 
+        do
+            self._body:add_tag("segment_light_source")
+            self._body:set_user_data(self)
+
+            local offset = 0
+            self._outline = {
+                self._bounds.x + offset, self._bounds.y + offset,
+                self._bounds.x + self._bounds.width - offset, self._bounds.y + offset,
+                self._bounds.x + self._bounds.width - offset, self._bounds.y + self._bounds.height - offset,
+                self._bounds.x + offset, self._bounds.y + self._bounds.height - offset,
+                self._bounds.x + offset, self._bounds.y + offset
+            }
+
+            local segment_lights = {}
+            for i = 1, #self._outline - 4, 4 do
+                table.insert(segment_lights, {
+                    self._outline[i+0],
+                    self._outline[i+1],
+                    self._outline[i+2],
+                    self._outline[i+3]
+                })
+            end
+
+            self.get_segment_light_sources = function(self)
+                return segment_lights, table.rep(self._color, #segment_lights)
+            end
+        end
+
         local center_x, center_y, radius = 0, 0, 2 * player:get_radius()
 
         self._indicator_outline = {}
