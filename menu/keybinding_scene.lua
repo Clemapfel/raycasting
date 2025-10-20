@@ -206,6 +206,8 @@ function mn.KeybindingScene:instantiate()
                 self._listening_active = true
                 self._listening_item = self._list:get_selected_item()
 
+                rt.SoundManager:play(rt.SoundIDs.keybinding_scene.listening_activated)
+
                 if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
                     self._listening_item:set_keyboard_indicator(nil)
                 elseif self._input:get_input_method() == rt.InputMethod.CONTROLLER then
@@ -219,6 +221,7 @@ function mn.KeybindingScene:instantiate()
                         rt.GameState:load_default_input_mapping()
                         self:_update_all_indicators()
                     end
+                    rt.SoundManager:player(rt.SoundIDs.keybinding_scene.reset)
                     dialog:close()
                     return meta.DISCONNECT_SIGNAL
                 end)
@@ -262,6 +265,7 @@ function mn.KeybindingScene:instantiate()
         if not self._listening_active then return end
         self._listening_item:set_keyboard_indicator(which)
         self._listening_active = false
+        rt.SoundManager:play(rt.SoundIDs.keybinding_scene.assign_successfull)
         self._skip_n_input_frames = 3
     end)
 
@@ -269,6 +273,7 @@ function mn.KeybindingScene:instantiate()
         if not self._listening_active then return end
         self._listening_item:set_controller_indicator(which)
         self._listening_active = false
+        rt.SoundManager:play(rt.SoundIDs.keybinding_scene.assign_successfull)
         self._skip_n_input_frames = 3
     end)
 end
@@ -453,6 +458,7 @@ function mn.KeybindingScene:_abort_listening()
     local item = self._listening_item
     item:set_keyboard_indicator(item.keyboard_key)
     item:set_controller_indicator(item.controller_button)
+    rt.SoundManager:play(rt.SoundIDs.keybinding_scene.listening_aborted)
     self._listening_active = false
 end
 
@@ -492,6 +498,7 @@ function mn.KeybindingScene:_exit(save)
 
             local valid, error_maybe = rt.GameState:set_input_mapping(new_mapping)
             if not valid then
+                rt.SoundManager:play(rt.SoundIDs.keybinding_scene.keybinding_invalid)
                 self._keybinding_invalid_dialog:set_submessage(error_maybe, rt.JustifyMode.LEFT)
                 self._keybinding_invalid_dialog:present()
             else
@@ -502,8 +509,9 @@ function mn.KeybindingScene:_exit(save)
         if not save or can_exit then
             self._confirm_exit_dialog:signal_connect("selection", function(dialog, which)
                 if which == mn.MessageDialogOption.CANCEL then
-                    -- noop
+                    rt.SoundManager:play(rt.SoundIDs.keybinding_scene.no_save)
                 elseif which == mn.MessageDialogOption.ACCEPT then
+                    rt.SoundManager:play(rt.SoundIDs.keybinding_scene.save)
                     rt.SceneManager:pop()
                 end
 
@@ -544,10 +552,16 @@ function mn.KeybindingScene:enter()
     self._list:set_selected_item(1)
     self:_abort_listening()
     self:_update_all_indicators()
+
+    rt.SoundManager:play(rt.SoundIDs.keybinding_scene.enter)
+    rt.MusicManager:play(rt.MusicIDs.keybinding_scene)
 end
 
 --- @brief
 function mn.KeybindingScene:exit()
     self._input:activate()
     self:_abort_listening()
+
+    -- exit sound done by dialog
+    rt.MusicManager:pause(rt.MusicIDs.keybinding_scene)
 end

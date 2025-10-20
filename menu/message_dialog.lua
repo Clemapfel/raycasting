@@ -195,12 +195,21 @@ end
 
 --- @brief
 function mn.MessageDialog:_update_selected_item()
+    local changed = false
     for item_i, item in ipairs(self._buttons) do
         if item_i == self._selected_item_i then
-            item.frame:set_selection_state(rt.SelectionState.ACTIVE)
+            local next = rt.SelectionState.ACTIVE
+            if item.frame:get_selection_state() ~= next then changed = true end
+            item.frame:set_selection_state(next)
         else
-            item.frame:set_selection_state(rt.SelectionState.INACTIVE)
+            local next = rt.SelectionState.INACTIVE
+            if item.frame:get_selection_state() ~= next then changed = true end
+            item.frame:set_selection_state(next)
         end
+    end
+
+    if changed == true then
+        rt.SoundManager:play(rt.SoundIDs.menu.message.select_button)
     end
 end
 
@@ -224,7 +233,11 @@ function mn.MessageDialog:handle_button(which)
         end
     elseif which == rt.InputAction.A then
         local success = self:signal_try_emit("selection", self._options[self._selected_item_i])
-        if not success then self:close() end -- default button behavior
+        if not success then
+            self:close() -- default button behavior
+        else
+            rt.SoundManager:play(rt.SoundIDs.menu.message_dialog.selection)
+        end
     end
 end
 

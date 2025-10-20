@@ -687,6 +687,60 @@ function meta.make_immutable(t)
 end
 
 --- @brief
+function meta.make_id_table(t, scope, debug_mode)
+    meta.assert(t, "Table", scope, "String", debug_mode, "Boolean")
+
+    if debug_mode then
+        rt.warning("In meta.make_id_table: debug mode for `" .. scope .. "` is active, ids will be override")
+    end
+
+    local _as_immutable = function(t, path)
+        return setmetatable(t, {
+            __index = function(self, key)
+                local value = rawget(self, key)
+                if value == nil then
+                    rt.warning("In " .. scope .. ": key `" .. key .. "` does not point to valid id")
+                    return nil
+                else
+                    return value
+                end
+            end,
+
+            __newindex = function(self, key, new_value)
+                rt.error("In " .. scope .. ": trying to modify dictionary, but it is declared immutable")
+            end
+        })
+    end
+
+    local function _make_immutable(t, path)
+        path = path or ""
+        local to_process = {}
+        local n_to_process = 0
+
+        for k, v in pairs(t) do
+            local current_path = path == "" and tostring(k) or (path .. "." .. tostring(k))
+
+            if meta.is_table(v) then
+                t[k] = _as_immutable(v, current_path)
+                table.insert(to_process, {table = v, path = current_path})
+                n_to_process = n_to_process + 1
+            else
+                if debug_mode and t[k] == "todo" then
+                    t[k] = current_path
+                end
+            end
+        end
+
+        for i = 1, n_to_process do
+            _make_immutable(to_process[i].table, to_process[i].path)
+        end
+        return _as_immutable(t, path)
+    end
+
+    return _make_immutable(t, "")
+end
+
+--- @brief
 function meta.get_instance_metatable(type)
     meta.assert(type, "Type")
     return _type_to_instance_metatable[type]

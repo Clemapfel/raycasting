@@ -12,6 +12,7 @@ rt.settings.menu.option_button = {
 --- @class mn.OptionButton
 --- @signal selection (mn.OptionButton, string) -> nil
 mn.OptionButton = meta.class("OptionButton", rt.Widget)
+meta.add_signal(mn.OptionButton, "selection")
 
 --- @brief
 function mn.OptionButton:instantiate(...)
@@ -54,11 +55,12 @@ function mn.OptionButton:instantiate(...)
     end
 end
 
-meta.add_signal(mn.OptionButton, "selection")
-
 --- @brief
 function mn.OptionButton:_emit_selection()
-    self:signal_emit("selection", self._options[self._current_item_i])
+    local success = self:signal_try_emit("selection", self._options[self._current_item_i])
+    if success then
+        rt.SoundManager:play(rt.SoundIDs.menu.option_button.selection)
+    end
 end
 
 --- @override

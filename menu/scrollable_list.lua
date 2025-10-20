@@ -247,4 +247,8 @@ function mn.ScrollableList:set_selected_item(i)
     end
 
     self._scrollbar:set_page_index(self._selected_item_i)
+
+    if before ~= after and before ~= nil and after ~= nil then
+        rt.SoundManager:play(rt.SoundIDs.menu.scrollable_list.scroll)
+    end
 end

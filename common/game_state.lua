@@ -318,7 +318,7 @@ end
 function rt.GameState:_validate_input_mapping()
     local unassigned_keyboard = {}
     local unassigned_keyboard_active = false
-    
+
     local unassigned_controller = {}
     local unassigned_controller_active = false
 
@@ -330,8 +330,13 @@ function rt.GameState:_validate_input_mapping()
     local double_assigned_controller = {}
     local double_assigned_controller_active = false
 
-    -- verify that all actions have an assignment
+    local input_actions = {} -- Set
     for action in values(meta.instances(rt.InputAction)) do
+        input_actions[action] = true
+    end
+
+    -- verify that all actions have an assignment
+    for action in keys(input_actions) do
         local keyboard = self._state.input_mapping[action].keyboard
         if #keyboard == 0 then
             table.insert(unassigned_keyboard, action)
@@ -461,9 +466,10 @@ function rt.GameState:_update_reverse_mapping()
     self._keyboard_key_to_input_action = {}
     self._controller_button_to_input_action = {}
 
-    local unique = {}
-    for action in values(meta.instances(rt.InputAction)) do unique[action] = true end
-    for action in keys(unique) do
+    local input_actions = {}
+    for action in values(meta.instances(rt.InputAction)) do input_actions[action] = true end
+
+    for action in keys(input_actions) do
         local mapping = self._state.input_mapping[action]
 
         for key in values(mapping.keyboard) do

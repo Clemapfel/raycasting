@@ -490,8 +490,10 @@ function mn.SettingsScene:instantiate()
             end
         elseif which == rt.InputAction.Y then
             local item = self._list:get_selected_item()
+            rt.SoundManager:play(rt.SoundIDs.settings_scene.reset)
             item:signal_emit("reset")
         elseif which == rt.InputAction.B then
+            rt.SoundManager:play(rt.SoundIDs.settings_scene.save)
             rt.SceneManager:pop()
         elseif which == rt.InputAction.L or which == rt.InputAction.R then
             self._background_only = true
@@ -623,11 +625,14 @@ function mn.SettingsScene:enter()
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(false)
     self._list:set_selected_item(1)
+
+    rt.MusicManager:play(rt.MusicIDs.settings_scene)
 end
 
 --- @brief
 function mn.SettingsScene:exit()
     self._input:deactivate()
+    rt.MusicManager:pause(rt.MusicIDs.settings_scene)
 end
 
 --- @brief

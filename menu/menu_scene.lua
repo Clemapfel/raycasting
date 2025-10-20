@@ -24,7 +24,7 @@ rt.settings.menu_scene = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
         menu_font_path_regular = "assets/fonts/Baloo2/Baloo2-Medium.ttf",
         menu_font_path_bold = "assets/fonts/Baloo2/Baloo2-ExtraBold.ttf",
-        player_velocity = 100, -- when reflecting
+        player_velocity = 400, -- when reflecting
         player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
     },
@@ -145,16 +145,19 @@ function mn.MenuScene:instantiate(state)
         title_screen.input:signal_connect("pressed", function(_, which)
             if self._initialized == false or self._input_blocked == true then return end
 
-            if which == rt.InputAction.JUMP then
+            if which == rt.InputAction.CONFIRM then
                 local item = title_screen.menu_items[title_screen.selected_item_i]
                 item.activate()
+                rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.confirm)
             elseif which == rt.InputAction.UP then
                 if title_screen.selected_item_i > 1 then
                     title_screen.selected_item_i = title_screen.selected_item_i - 1
+                    rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.selection)
                 end
             elseif which == rt.InputAction.DOWN then
                 if title_screen.selected_item_i < title_screen.n_menu_items then
                     title_screen.selected_item_i = title_screen.selected_item_i + 1
+                    rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.selection)
                 end
             end
         end)
@@ -316,6 +319,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
                 body:signal_connect("collision_start", function(self_body, other_body, normal_x, normal_y)
                     local current_vx, current_vy = self._player_velocity_x, self._player_velocity_y
                     self._player_velocity_x, self._player_velocity_y = math.reflect(current_vx, current_vy, normal_x, normal_y)
+                    rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.player_reflected)
                 end)
                 body:set_is_sensor(true)
                 body:signal_set_is_blocked("collision_start", true)
@@ -425,6 +429,10 @@ function mn.MenuScene:exit()
     self._camera:set_is_shaking(false)
     self._title_screen.input:deactivate()
     self._stage_select.input:deactivate()
+
+    if self._title_screen.neon_buzz_playing then
+        rt.SoundManager:stop(rt.SoundIDs.menu_scene.title_screen.neon_buzz)
+    end
 end
 
 --- @brief
@@ -451,7 +459,7 @@ function mn.MenuScene:_set_state(next)
         local x, y = self._player:get_position()
         local new_x =  math.clamp(x, -0.5 * w + 2 * r, 0.5 * w - 2 * r)
         self._player:teleport_to(
-           new_x,
+            new_x,
             0
         )
         self._player:disable()
@@ -470,6 +478,15 @@ function mn.MenuScene:_set_state(next)
         self._player:set_flow(0)
         self._title_screen.opacity_fade_animation:reset()
         self._stage_select.item_reveal_animation:reset()
+
+        if self._title_screen.neon_buzz_playing ~= true then
+            rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.neon_buzz, {
+                position_x = 0,
+                position_y = 0,
+                should_loop = true
+            })
+            self._title_screen.neon_buzz_playing = true
+        end
 
         return
     end
@@ -506,6 +523,18 @@ function mn.MenuScene:update(delta)
             end)
         end
     end
+
+    if self._state == mn.MenuSceneState.TITLE_SCREEN then
+        rt.SoundManager:set_player_position(self._player:get_position())
+        local x, y = love.mouse.getPosition()
+        x = x - 0.5 * love.graphics.getWidth()
+        y = y - 0.5 * love.graphics.getHeight()
+        rt.SoundManager:set_player_position(x, y)
+
+    else
+        rt.SoundManager:set_player_position(self._camera:get_position())
+    end
+
 
     if self._input_blocked then self._input_blocked = false end
     -- keep input subscribers from firing on the same frame they are activated

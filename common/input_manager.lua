@@ -1,7 +1,7 @@
 require "common.input_action"
 
 --- @class rt.InputManager
-rt.InputManager = meta.class("rt.InputManager")
+rt.InputManager = meta.class("InputManager")
 
 rt.InputMethod = meta.enum("InputMethod", {
     KEYBOARD = true,
