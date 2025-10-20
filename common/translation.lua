@@ -1,51 +1,7 @@
 require "common.input_action"
 
 --- @class rt.Translation
-rt.Translation = {}
-
---- @brief initialize translation table as immutable
-function rt.initialize_translation(x)
-    -- recursively replace all tables with proxy tables, such that when they are accessed, only the metatables are invoked
-    local _as_immutable = function(t)
-        return setmetatable(t, {
-            __index = function(self, key)
-                local value = rawget(self, key)
-                if value == nil then
-                    rt.warning("In rt.Translation: key `" .. key .. "` does not point to valid text")
-                    return "(#" .. key .. ")"
-                end
-                return value
-            end,
-
-            __newindex = function(self, key, new_value)
-                rt.error("In rt.Translation: trying to modify text atlas, but it is declared immutable")
-            end
-        })
-    end
-
-    local function _make_immutable(t)
-        local to_process = {}
-        local n_to_process = 0
-
-        for k, v in pairs(t) do
-            if meta.is_table(v) then
-                t[k] = _as_immutable(v)
-                table.insert(to_process, v)
-                n_to_process = n_to_process + 1
-            end
-        end
-
-        for i = 1, n_to_process do
-            _make_immutable(to_process[i])
-        end
-        return _as_immutable(t)
-    end
-
-    meta.assert(x, "Table")
-    return _make_immutable(x)
-end
-
-rt.Translation = rt.initialize_translation({
+rt.Translation = {
     -- game state
     game_state = {
         validate_keybinding_error = {
@@ -61,11 +17,11 @@ rt.Translation = rt.initialize_translation({
             [rt.InputAction.A] = "Jump / Confirm",
             [rt.InputAction.B] = "Sprint / Go Back",
             [rt.InputAction.X] = "Reset",
-            [rt.InputAction.Y] = nil, -- unused
+            [rt.InputAction.Y] = "UNUSED",
             [rt.InputAction.L] = "Zoom In",
             [rt.InputAction.R] = "Zoom Out",
             [rt.InputAction.START] = "Pause / Unpause",
-            [rt.InputAction.SELECT] = nil, -- unused
+            [rt.InputAction.SELECT] = "UNUSED",
             [rt.InputAction.UP] = "Move Up",
             [rt.InputAction.RIGHT] = "Move Right",
             [rt.InputAction.DOWN] = "Move Down",
@@ -365,4 +321,47 @@ rt.Translation = rt.initialize_translation({
             target_time = math.huge
         }
     }
-})
+}
+
+--- ###
+
+do -- recursively replace all tables with proxy tables, such that when they are accessed, only the metatables are invoked
+    local _as_immutable = function(t)
+        return setmetatable(t, {
+            __index = function(self, key)
+                local value = rawget(self, key)
+                if value == nil then
+                    rt.warning("In rt.Translation: key `" .. key .. "` does not point to valid text")
+                    return "(#" .. key .. ")"
+                else
+                    return value
+                end
+            end,
+
+            __newindex = function(self, key, new_value)
+                rt.error("In rt.Translation: trying to modify text atlas, but it is declared immutable")
+            end
+        })
+    end
+
+    local function _make_immutable(t)
+        local to_process = {}
+        local n_to_process = 0
+
+        for k, v in pairs(t) do
+            if meta.is_table(v) then
+                t[k] = _as_immutable(v)
+                table.insert(to_process, v)
+                n_to_process = n_to_process + 1
+            end
+        end
+
+        for i = 1, n_to_process do
+            _make_immutable(to_process[i])
+        end
+        return _as_immutable(t)
+    end
+
+    -- singleton
+    rt.Translation = _make_immutable(rt.Translation)
+end
