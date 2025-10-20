@@ -35,6 +35,8 @@ function rt.SceneManager:instantiate()
 
         _bloom = nil, -- initialized on first use
         _input = rt.InputSubscriber(),
+
+        _sound_manager_elapsed = 0
     })
 
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
@@ -353,6 +355,9 @@ love.focus = function(b)
     end
 end
 
+local _sound_manager_elapsed = 0
+local _sound_manager_step = 1 / 240
+
 -- override love.run for metrics
 function love.run()
     io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
@@ -405,6 +410,12 @@ function love.run()
         end
 
         ::skip_update::
+
+        _sound_manager_elapsed = _sound_manager_elapsed + delta
+        while _sound_manager_elapsed > _sound_manager_step do
+            rt.SoundManager:update(_sound_manager_step)
+            _sound_manager_elapsed = _sound_manager_elapsed - _sound_manager_step
+        end
 
         rt.SceneManager._elapsed = rt.SceneManager._elapsed + (before - _update_elapsed)
         update_after = love.timer.getTime()

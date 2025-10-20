@@ -1,3 +1,6 @@
+require "love.sound"
+require "love.audio"
+
 require "common.filesystem"
 require "common.music_manager_playback"
 require "common.smoothed_motion_nd"
@@ -172,6 +175,8 @@ end
 
 --- @brief crossfade to song immediately
 function rt.MusicManagerInstance:play(id, restart)
+    if id == nil then return end
+
     if restart == nil then restart = false end
     local entry = self:_get_entry(id, "play")
     if entry == nil then return end
@@ -180,7 +185,7 @@ function rt.MusicManagerInstance:play(id, restart)
         if restart == true then
             entry.source:stop()
         end
-        entry.source:play()
+        entry.source:play() -- already playing
         return
     end
 

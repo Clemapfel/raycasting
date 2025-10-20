@@ -1,16 +1,20 @@
 require "common.sound_source"
 require "common.filesystem"
 require "table.clear"
+require "common.sound_ids"
 
-rt.settings.sound_manager_instance = {
+rt.settings.sound_manager = {
     config_directory = "assets/sounds",
     default_equalization_alpha = 0.1,
     source_inactive_lifetime_threshold = 30, -- seconds
     enable_volume_equalization = true,
+    source_stop_decay_duration = 20 / 60, -- seconds
 
     reference_hearing_distance = 50,
     maximum_hearing_distance = 600,
-    distance_model = "inverseclamped"
+    distance_model = "inverseclamped",
+
+    throw_id_error_only_once = false
 }
 
 --- @class rt.SoundManager
@@ -34,7 +38,7 @@ local _is_sound_file = function(filename)
     return false
 end
 
-local _settings = rt.settings.sound_manager_instance
+local _settings = rt.settings.sound_manager
 
 --- @brief
 function rt.SoundManager:instantiate()
@@ -87,7 +91,7 @@ function rt.SoundManager:instantiate()
         return entry
     end
 
-    bd.apply(rt.settings.sound_manager_instance.config_directory, function(filepath, filename)
+    bd.apply(rt.settings.sound_manager.config_directory, function(filepath, filename)
         if _is_sound_file(filename) then
             get_entry(bd.get_file_name(filename, false)).sound_path = filepath
         elseif _is_config_file(filename) then
@@ -96,6 +100,8 @@ function rt.SoundManager:instantiate()
             -- noop
         end
     end)
+
+    self._stop_entries = {}
 
     -- check for unmatched configs
     local to_remove = {}
@@ -162,11 +168,23 @@ function rt.SoundManager:_process_entry(entry)
     return true
 end
 
+local _sound_id_to_error_thrown = {} -- Set<ID, Boolean>
+
 --- @brief
 function rt.SoundManager:_get_entry(id, scope)
     local entry = self._id_to_entry[id]
     if entry == nil then
-        rt.critical("In rt.SoundManager." .. scope .. ": no sound with id `" .. id .. "`")
+        local should_throw = true
+
+        if rt.settings.sound_manager.throw_id_error_only_once == true then
+            if _sound_id_to_error_thrown[id] == true then should_throw = false end
+            _sound_id_to_error_thrown[id] = true
+        end
+
+        if should_throw then
+            rt.critical("In rt.SoundManager." .. scope .. ": no sound with id `" .. id .. "`")
+        end
+
         return nil
     else
         return entry
@@ -286,12 +304,13 @@ function rt.SoundManager:set_player_velocity(velocity_x, velocity_y)
     love.audio.setVelocity(_map_coordinates(velocity_x, velocity_y))
 end
 
-local _config_valid_keys = {}
+local _config_valid_keys = {} -- Set<String, Boolean>
 for key in range(
     "pitch",
     "position_x",
     "position_y",
-    "effects"
+    "effects",
+    "should_loop"
 ) do
     _config_valid_keys[key] = true
 end
@@ -301,14 +320,17 @@ local _handler_id_to_source_wrapper = meta.make_weak({})
 --- @brief
 --- @return Number handler id
 function rt.SoundManager:play(id, config)
+    if id == nil then return end -- rt.SoundIDs defaults to nil if id is missing
+
     if config == nil then config = {} end
     if config.pitch == nil then config.pitch = 1 end
     if config.position_x == nil then config.position_x = self._listener_x end
     if config.position_y == nil then config.position_y = self._listener_y end
+    if config.should_loop == nil then config.should_loop = false end
     if config.effects == nil then config.effects = {} end
 
     for key in keys(config) do
-        if _config_valid_keys[key] == true then
+        if _config_valid_keys[key] ~= true then
             rt.critical("In rt.SoundManager.player: unrecognized option `" .. key .. "`")
         end
     end
@@ -349,6 +371,7 @@ function rt.SoundManager:play(id, config)
     source:setRolloff(1)
     source:setVelocity(_map_coordinates(0, 0))
     source:setVolume(entry.equalizer_volume * self._volume)
+    source:setLooping(config.should_loop)
 
     for effect in values(config.effects) do
         source:setEffect(effect:get_native(), true)
@@ -368,75 +391,143 @@ function rt.SoundManager:play(id, config)
 end
 
 --- @brief
-function rt.SoundManager:update(delta)
-    do -- mark inactive
-        local to_mark_inactive = {}
-        for entry in keys(self._active_entries) do
-            local to_move = {}
-            for handler_id, source in pairs(entry.handler_id_to_active_sources) do
-                if not source:isPlaying() then
-                    -- reset
-                    source:stop()
-                    source:setVolume(0)
-                    source:setFilter()
-                    for effect in values(source:getActiveEffects()) do
-                        source:setEffect(effect, false)
-                    end
-                    table.insert(to_move, handler_id)
-                end
-            end
+function rt.SoundManager:stop(id, handler_id)
+    if handler_id == nil then
+        meta.assert(id, "String")
+    else
+        meta.assert(id, "String", handler_id, "Number")
+    end
 
-            for handler_id in values(to_move) do
-                local source = entry.handler_id_to_active_sources[handler_id]
-                entry.handler_id_to_active_sources[handler_id] = nil
-                entry.inactive_source_to_timestamp[source] = love.timer.getTime()
+    local entry = self:_get_entry(id, "play")
 
-                local current = self._id_to_n_active_sources[entry.id]
-                assert(current ~= nil)
-                self._id_to_n_active_sources[entry.id] = current - 1
+    local to_stop = {}
+    local add = function(entry, handler_id)
+        assert(entry.handler_id_to_active_sources[handler_id] ~= nil)
+        table.insert(to_stop, {
+            entry = entry,
+            handler_id = handler_id,
+            elapsed = 0
+        })
+    end
 
-                if table.sizeof(entry.handler_id_to_active_sources) == 0 then
-                    table.insert(to_mark_inactive, entry)
-                end
-
-                -- disable wrapper
-                local wrapper = _handler_id_to_source_wrapper[handler_id]
-                wrapper._native = nil
-                _handler_id_to_source_wrapper[handler_id] = nil
-            end
+    if handler_id == nil then
+        for current_id, source in pairs(entry.handler_id_to_active_sources) do
+            add(entry, current_id)
+        end
+    else
+        local source = entry.handler_id_to_active_sources[handler_id]
+        if source ~= nil then
+            add(entry, handler_id)
         end
     end
 
-    do -- deallocate
-        local to_make_inactive = {}
-        for entry in keys(self._active_entries) do
-            local to_remove = {}
-            for source, timestamp in pairs(entry.inactive_source_to_timestamp) do
-                if timestamp == -math.huge or love.timer.getTime() - timestamp > rt.settings.sound_manager_instance.source_inactive_lifetime_threshold then
-                    table.insert(to_remove, source)
+    for stop_entry in values(to_stop) do
+        table.insert(self._stop_entries, stop_entry)
+    end
+end
+
+-- sound manager is run at very high refresh rate for
+-- smooth fading, but deallocation only need to check rarely
+local _elapsed = 0
+local _step = 1 / 60
+
+--- @brief
+function rt.SoundManager:update(delta)
+    do -- fade out
+        local duration = rt.settings.sound_manager.source_stop_decay_duration
+        local to_remove = {}
+        for i, stop_entry in ipairs(self._stop_entries) do
+            -- sinusoid because it is smooth on both ends and actually reaches 0
+            local t = rt.InterpolationFunctions.SINUSOID_EASE_OUT(1 - stop_entry.elapsed / duration)
+
+            local source = stop_entry.entry.handler_id_to_active_sources[stop_entry.handler_id]
+            if source ~= nil then source:setVolume(t) end
+            if stop_entry.elapsed > duration then
+                if source ~= nil then source:stop() end
+                table.insert(to_remove, i)
+            end
+
+            stop_entry.elapsed = stop_entry.elapsed + delta
+        end
+
+        for i = #to_remove, 1, -1 do
+            table.remove(self._stop_entries, to_remove[i])
+        end
+    end
+
+    _elapsed = _elapsed + delta
+    while _elapsed >= _step do
+        _elapsed = _elapsed - _step
+
+        do -- mark inactive
+            local to_mark_inactive = {}
+            for entry in keys(self._active_entries) do
+                local to_move = {}
+                for handler_id, source in pairs(entry.handler_id_to_active_sources) do
+                    if not source:isPlaying() then
+                        -- reset
+                        source:stop()
+                        source:setVolume(0)
+                        source:setFilter()
+                        for effect in values(source:getActiveEffects()) do
+                            source:setEffect(effect, false)
+                        end
+                        table.insert(to_move, handler_id)
+                    end
                 end
-            end
 
-            for source in values(to_remove) do
-                entry.inactive_source_to_timestamp[source] = nil
-                source:release()
-            end
+                for handler_id in values(to_move) do
+                    local source = entry.handler_id_to_active_sources[handler_id]
+                    entry.handler_id_to_active_sources[handler_id] = nil
+                    entry.inactive_source_to_timestamp[source] = love.timer.getTime()
 
-            if entry.sound_data ~= nil
-                and table.sizeof(entry.handler_id_to_active_sources) == 0
-                and table.sizeof(entry.inactive_source_to_timestamp) == 0
-            then
-                -- free entry
-                entry.sound_data:release()
-                entry.sound_data = nil
-                -- keep .was_processed and rms
+                    local current = self._id_to_n_active_sources[entry.id]
+                    assert(current ~= nil)
+                    self._id_to_n_active_sources[entry.id] = current - 1
 
-                table.insert(to_make_inactive, entry)
+                    if table.sizeof(entry.handler_id_to_active_sources) == 0 then
+                        table.insert(to_mark_inactive, entry)
+                    end
+
+                    -- disable wrapper
+                    local wrapper = _handler_id_to_source_wrapper[handler_id]
+                    wrapper._native = nil
+                    _handler_id_to_source_wrapper[handler_id] = nil
+                end
             end
         end
 
-        for entry in values(to_make_inactive) do
-            self._active_entries[entry] = nil
+        do -- deallocate
+            local to_make_inactive = {}
+            for entry in keys(self._active_entries) do
+                local to_remove = {}
+                for source, timestamp in pairs(entry.inactive_source_to_timestamp) do
+                    if timestamp == -math.huge or love.timer.getTime() - timestamp > rt.settings.sound_manager.source_inactive_lifetime_threshold then
+                        table.insert(to_remove, source)
+                    end
+                end
+
+                for source in values(to_remove) do
+                    entry.inactive_source_to_timestamp[source] = nil
+                    source:release()
+                end
+
+                if entry.sound_data ~= nil
+                    and table.sizeof(entry.handler_id_to_active_sources) == 0
+                    and table.sizeof(entry.inactive_source_to_timestamp) == 0
+                then
+                    -- free entry
+                    entry.sound_data:release()
+                    entry.sound_data = nil
+                    -- keep .was_processed and rms
+
+                    table.insert(to_make_inactive, entry)
+                end
+            end
+
+            for entry in values(to_make_inactive) do
+                self._active_entries[entry] = nil
+            end
         end
     end
 end

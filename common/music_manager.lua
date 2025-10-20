@@ -1,3 +1,5 @@
+require "common.music_ids"
+
 rt.settings.music_manager = {
     pause_on_focus_lost = false, -- whether to pause when window focus is lost, hanlded in SceneManager
 }
@@ -38,6 +40,7 @@ end
 
 --- @brief
 function rt.MusicManager:play(id, restart)
+    if id == nil then return end -- default for rt.MusicIDs
     if restart == nil then restart = false end
     self._main_to_worker:push({
         message_id = _messages.play,
