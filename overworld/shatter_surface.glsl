@@ -129,8 +129,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     const float max_eps = 0.75;
     float pattern_outline = checkerboard((5 * texture_coords) + mix(0.05, 0.6, fraction) * vec2(noise));
 
-    const float threshold_eps = 0.04;
-    const float threshold_a = 0.5;
+    float threshold_eps = draw_bloom ? 0.08 : 0.04;
+    const float threshold_a = 0.49;
     float threshold_b = 0.5 + 0.5 * threshold_eps + 0.02 * (draw_bloom ? 1 : 1);
     pattern_outline = smoothstep(threshold_a - threshold_eps, threshold_a + threshold_eps, pattern_outline) -
         smoothstep(threshold_b - threshold_eps, threshold_b + threshold_eps, pattern_outline);
