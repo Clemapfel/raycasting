@@ -2,6 +2,7 @@ require "common.sound_source"
 require "common.filesystem"
 require "table.clear"
 require "common.sound_ids"
+require "common.smoothed_motion_3d"
 
 rt.settings.sound_manager = {
     config_directory = "assets/sounds",
@@ -10,15 +11,18 @@ rt.settings.sound_manager = {
     enable_volume_equalization = true,
     source_stop_decay_duration = 20 / 60, -- seconds
 
-    reference_hearing_distance = 1,
-    distance_model = "linear",
+    throw_id_error_only_once = false,
 
-    throw_id_error_only_once = false
+    -- distance modeling
+    z_offset = -1,
+    distance_model = "inverseclamped",
+    rolloff = 2,
+    scale = 1 / 2000, -- panning, lower is less panning
+    distance_scale = 1 / 200 -- attenuation, lower is less attenuation
 }
 
 --- @class rt.SoundManager
 rt.SoundManager = meta.class("SoundManager")
-
 
 local _is_config_file = function(path)
     return string.match(path, "%.lua$") ~= nil
@@ -48,18 +52,19 @@ function rt.SoundManager:instantiate()
     self._id_to_n_active_sources = {} -- Table<String, Number>
     self._active_entries = {} -- Set<Entry>
 
+    -- positional audio
     self._listener_x = 0
     self._listener_y = 0
     self._velocity_x = 0
     self._velocity_y = 0
 
-    -- audio config for side scroller
+    self._position_motion = rt.SmoothedMotion3D(0, 0, 0)
     love.audio.setPosition(0, 0, 0)
     love.audio.setVelocity(0, 0, 0)
     love.audio.setDistanceModel(_settings.distance_model)
     love.audio.setOrientation(
-        0, 0, -1,   -- "at" vector pointing along X axis (right)
-        0, 1, 0    -- "up" vector (unchanged)
+        0, 0, 1, -- forward
+        0, 1, 0 -- up
     )
 
     -- volume equalization
@@ -289,13 +294,18 @@ end
 
 -- game xy to OpenAL xyz
 local _map_coordinates = function(x, y)
-    return -x, -y, 1  -- Swapped: game X → OpenAL Z, game Y → OpenAL X
+    local dist = math.magnitude(x, y)
+    local scale = rt.settings.sound_manager.scale
+    x = x * scale
+    y = y * scale
+    return x, y, dist * rt.settings.sound_manager.distance_scale
 end
 
 --- @brief
 function rt.SoundManager:set_player_position(position_x, position_y)
     self._listener_x, self._listener_y = position_x, position_y
-    love.audio.setPosition(_map_coordinates(self._listener_x, self._listener_y))
+    local x, y, z = _map_coordinates(self._listener_x, self._listener_y)
+    self._position_motion:set_target_position(x, y, z)
 end
 
 --- @brief
@@ -323,6 +333,8 @@ function rt.SoundManager:play(id, config)
     if id == nil then return end -- rt.SoundIDs defaults to nil if id is missing
 
     if config == nil then config = {} end
+    local position_specified = config.position_x ~= nil or config.position_y ~= nil
+
     if config.pitch == nil then config.pitch = 1 end
     if config.position_x == nil then config.position_x = self._listener_x end
     if config.position_y == nil then config.position_y = self._listener_y end
@@ -361,16 +373,22 @@ function rt.SoundManager:play(id, config)
     end
 
     entry.handler_id_to_active_sources[config.handler_id] = source
-    source:setPosition(_map_coordinates(config.position_x, config.position_y))
-    source:setRelative(false)
+
+    if position_specified then
+        -- static position in world
+        local x, y, z = _map_coordinates(config.position_x, config.position_y)
+        source:setPosition(x, y, z + rt.settings.sound_manager.z_offset)
+        source:setRelative(false)
+    else
+        -- always 0 distance away from player
+        source:setPosition(0, 0, 0)
+        source:setRelative(true)
+    end
+
     source:setPitch(config.pitch)
-    source:setAttenuationDistances(
-        _settings.reference_hearing_distance,
-        math.huge
-    )
-    source:setRolloff(0)
-    source:setAirAbsorption(0)
-    source:setVelocity(_map_coordinates(0, 0))
+    source:setRolloff(rt.settings.sound_manager.rolloff)
+    source:setAttenuationDistances(1, math.huge)
+    source:setVelocity(0, 0, 0)
     source:setVolume(entry.equalizer_volume * self._volume)
     source:setLooping(config.should_loop)
 
@@ -498,6 +516,8 @@ function rt.SoundManager:update(delta)
         end
     end
 
+    love.audio.setPosition(self._position_motion:update(delta))
+
     _elapsed = _elapsed + delta
     while _elapsed >= _step do
         _elapsed = _elapsed - _step
@@ -517,9 +537,6 @@ function rt.SoundManager:update(delta)
                         end
                         table.insert(to_move, handler_id)
                     end
-
-                    local x, y = source:getPosition()
-                    dbg(love.audio.getDistanceModel(), source:isRelative(), x, y, love.audio.getPosition())
                 end
 
                 for handler_id in values(to_move) do
