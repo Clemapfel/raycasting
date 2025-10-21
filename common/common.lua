@@ -219,12 +219,17 @@ function string.paste(...)
     local values = {...}
     local out = {}
     for _, v in pairs(values) do
-        table.insert(out, tostring(v))
+        if v == nil then
+            table.insert(out, "nil")
+        else
+            table.insert(out, tostring(v))
+        end
     end
-    return table.concat(out)
+    return table.concat(out, "")
 end
 
 --- @brief
+--- @param duration Number in seconds
 function string.format_time(duration)
     local hours = math.floor(duration / 3600)
     local minutes = math.floor((duration % 3600) / 60)

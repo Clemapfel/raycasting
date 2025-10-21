@@ -86,6 +86,7 @@ function rt.SoundManager:instantiate()
                 sound_data = nil, -- love.SoundData
                 duration = nil, -- seconds
                 handler_id_to_active_sources = {}, -- Table<Number, love.Source>
+                handler_id_to_volume = {}, -- Table<Number, Number>
                 inactive_source_to_timestamp = {}, -- Table<love.Source, Number>
                 was_processed = false,
                 equalizer_entry_rms = 0,
@@ -373,6 +374,7 @@ function rt.SoundManager:play(id, config)
     end
 
     entry.handler_id_to_active_sources[config.handler_id] = source
+    entry.handler_id_to_volume[config.handler_id] = 1
 
     if position_specified then
         -- static position in world
@@ -446,6 +448,25 @@ function rt.SoundManager:stop(id, handler_id)
 end
 
 --- @brief
+function rt.SoundManager:set_volume(id, handler_id, volume)
+    if id == nil then
+        return
+    else
+        meta.assert(id, "String", handler_id, "Number", volume, "Number")
+    end
+
+    local entry = self:_get_entry(id, "set_volume")
+    local source = entry.handler_id_to_active_sources[handler_id]
+
+    if source == nil then
+        rt.warning(string.paste("In rt.SoundManager.set_volume: sound `", id, "` has not active source with handler id `", handler_id, "`"))
+    else
+        entry.handler_id_to_volume[handler_id] = math.clamp(volume, 0, 1)
+        -- applied to source next update
+    end
+end
+
+--- @brief
 function rt.SoundManager:stop(id, handler_id)
     if handler_id == nil then
         meta.assert(id, "String")
@@ -500,8 +521,12 @@ function rt.SoundManager:update(delta)
                 -- sinusoid because it is smooth on both ends and actually reaches 0
                 local t = easing(stop_entry.elapsed / duration)
 
-                local source = stop_entry.entry.handler_id_to_active_sources[stop_entry.handler_id]
-                if source ~= nil then source:setVolume(t) end
+                local entry, handler_id = stop_entry.entry, stop_entry.handler_id
+                local source = entry.handler_id_to_active_sources[handler_id]
+                if source ~= nil then
+                    source:setVolume(t * (entry.handler_id_to_volume[handler_id] or 1))
+                end
+
                 if stop_entry.elapsed > duration then
                     if source ~= nil then source:stop() end
                     table.insert(to_remove, i)
@@ -542,6 +567,7 @@ function rt.SoundManager:update(delta)
                 for handler_id in values(to_move) do
                     local source = entry.handler_id_to_active_sources[handler_id]
                     entry.handler_id_to_active_sources[handler_id] = nil
+                    entry.handler_id_to_volume[handler_id] = nil
                     entry.inactive_source_to_timestamp[source] = love.timer.getTime()
 
                     local current = self._id_to_n_active_sources[entry.id]

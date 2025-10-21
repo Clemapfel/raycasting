@@ -24,7 +24,7 @@ rt.settings.menu_scene = {
         title_font_path = "assets/fonts/RubikSprayPaint/RubikSprayPaint-Regular.ttf",
         menu_font_path_regular = "assets/fonts/Baloo2/Baloo2-Medium.ttf",
         menu_font_path_bold = "assets/fonts/Baloo2/Baloo2-ExtraBold.ttf",
-        player_velocity = 400, -- when reflecting
+        player_velocity = 1000, -- when reflecting
         player_offset_magnitude = 0.05 * 2 * math.pi, -- when holding left / right
         falling_fraction_threshold = 2000, -- how long it takes to transition to stage select
     },
@@ -304,9 +304,18 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             title_screen.enable_boundary_on_enter = true
             title_screen.boundaries = {
                 b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
-                    b2.Segment(cx - r, cw - r, cx + w + r, cw - r),
-                    b2.Segment(cx + w + r, cw - r, cx + w + r, cw + h + r),
-                    b2.Segment(cx + w + r, cw + h + r, cx - r, cw + h + r),
+                    b2.Segment(cx - r, cw - r, cx + w + r, cw - r)
+                ),
+
+                b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
+                    b2.Segment(cx + w + r, cw - r, cx + w + r, cw + h + r)
+                ),
+
+                b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
+                    b2.Segment(cx + w + r, cw + h + r, cx - r, cw + h + r)
+                ),
+
+                b2.Body(self._world, b2.BodyType.STATIC, 0, 0,
                     b2.Segment(cx - r, cw + h + r, cx - r, cw - r)
                 )
             }
@@ -472,10 +481,8 @@ function mn.MenuScene:_set_state(next)
             boundary:signal_set_is_blocked("collision_start", true)
         end
 
-        self._player:set_velocity(0, 0)
-        self._player:set_gravity(0)
+        self._player:reset()
         self._player:set_is_bubble(true)
-        self._player:set_flow(0)
         self._title_screen.opacity_fade_animation:reset()
         self._stage_select.item_reveal_animation:reset()
 
