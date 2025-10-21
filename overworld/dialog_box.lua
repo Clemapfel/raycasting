@@ -152,7 +152,7 @@ function ow.DialogBox:realize()
             for i, choice in ipairs(node_entry[dialog_choice_key]) do
                 local text = choice[1]
                 if not meta.is_string(text) then
-                    rt.error("In ow.DialogBox: for dialog `" .. self._id .. "` multiple choice node `" .. key .. "` does not have answer at position 1")
+                    rt.error("In ow.DialogBox: for dialog `",  self._id,  "` multiple choice node `",  key,  "` does not have answer at position 1")
                 end
 
                 local label = rt.Label(text)
@@ -184,7 +184,7 @@ function ow.DialogBox:realize()
             elseif orientation == orientation_right then
                 node.speaker_orientation = false
             else
-                rt.error("In ow.DialogBox: for dialog `" .. self._id .. "` node `" .. key .. "` has invalid value for `orientation` field, expected `" .. orientation_left .. "` or `" .. orientation_right .. "`, got: `" .. orientation)
+                rt.error("In ow.DialogBox: for dialog `",  self._id,  "` node `",  key,  "` has invalid value for `orientation` field, expected `",  orientation_left,  "` or `",  orientation_right,  "`, got: `",  orientation)
                 node.speaker_orientation = true
             end
 
@@ -205,7 +205,7 @@ function ow.DialogBox:realize()
             end
 
             if not meta.is_string(node_entry[1]) then
-                rt.error("In ow.DialogBox: for dialog `" .. self._id .. "`: node `" .. node.id .. "` does not have any dialog text")
+                rt.error("In ow.DialogBox: for dialog `",  self._id,  "`: node `",  node.id,  "` does not have any dialog text")
             end
 
             local i = 1
@@ -226,7 +226,7 @@ function ow.DialogBox:realize()
 
     local first_node = self._id_to_node[1]
     if first_node == nil then
-        rt.warning("In ow.DialogBox: for dialog `" .. self._id .. "`, no node with id `1`")
+        rt.warning("In ow.DialogBox: for dialog `",  self._id,  "`, no node with id `1`")
         first_node = table.first(self._id_to_node)
     end
     can_be_visited[first_node] = true
@@ -250,7 +250,7 @@ function ow.DialogBox:realize()
 
     for node, visited in pairs(can_be_visited) do
         if visited == false then
-            rt.warning("In ow.DialogBox: for dialog `" .. self._id .. "`: node `" .. node.id .. "` has node pointing to it, it cannot be visited" )
+            rt.warning("In ow.DialogBox: for dialog `",  self._id,  "`: node `",  node.id,  "` has node pointing to it, it cannot be visited" )
         end
     end
 

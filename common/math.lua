@@ -594,7 +594,7 @@ function math.add(...)
     elseif n == 8 then
         return math.add4(...)
     else
-        rt.error("In math.add: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
+        rt.error("In math.add: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
     end
 end
 
@@ -608,7 +608,7 @@ function math.subtract(...)
     elseif n == 8 then
         return math.subtract4(...)
     else
-        rt.error("In math.subtract: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
+        rt.error("In math.subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
     end
 end
 
@@ -622,7 +622,7 @@ function math.reverse_subtract(...)
     elseif n == 8 then
         return math.reverse_subtract4(...)
     else
-        rt.error("In math.reverse_subtract: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
+        rt.error("In math.reverse_subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
     end
 end
 
@@ -636,7 +636,7 @@ function math.multiply(...)
     elseif n == 8 then
         return math.multiply4(...)
     else
-        rt.error("In math.multiply: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
+        rt.error("In math.multiply: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
     end
 end
 
@@ -650,7 +650,7 @@ function math.divide(...)
     elseif n == 8 then
         return math.divide4(...)
     else
-        rt.error("In math.divide: wrong number of arguments, expected 4, 6, or 8, got `" .. select("#", ...))
+        rt.error("In math.divide: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
     end
 end
 

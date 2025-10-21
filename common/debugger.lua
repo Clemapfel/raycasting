@@ -45,18 +45,18 @@ function debugger.reload()
     local path = "dbg.lua"
     local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
     if not load_success then
-        rt.warning("In debugger.reload: error when parsing file at `" .. path.. "`: " .. chunk_or_error)
+        rt.warning("In debugger.reload: error when parsing file at `",  path.. "`: ",  chunk_or_error)
         return
     end
 
     if love_error ~= nil then
-        rt.warning("In debugger.reload: error when loading file at `" .. path .. "`: " .. love_error)
+        rt.warning("In debugger.reload: error when loading file at `",  path,  "`: ",  love_error)
         return
     end
 
     local chunk_success, config_or_error = pcall(chunk_or_error)
     if not chunk_success then
-        rt.warning("In debugger.reload: error when running file at `" .. path .. "`: " .. config_or_error)
+        rt.warning("In debugger.reload: error when running file at `",  path,  "`: ",  config_or_error)
         return
     end
 

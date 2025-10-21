@@ -19,18 +19,18 @@ function ow.Tileset:instantiate(tileset_name)
 
     local load_success, chunk_or_error, love_error = pcall(love.filesystem.load, path)
     if not load_success then
-        rt.error("In ow.Tileset: error when parsing tileset at `" .. path .. "`: " .. chunk_or_error)
+        rt.error("In ow.Tileset: error when parsing tileset at `",  path,  "`: ",  chunk_or_error)
         return
     end
 
     if love_error ~= nil then
-        rt.error("In ow.Tileset: error when loading tileset at `" .. path .. "`: " .. love_error)
+        rt.error("In ow.Tileset: error when loading tileset at `",  path,  "`: ",  love_error)
         return
     end
 
     local chunk_success, config_or_error = pcall(chunk_or_error)
     if not chunk_success then
-        rt.error("In ow.Tileset: error when running tileset at `" .. path .. "`: " .. config_or_error)
+        rt.error("In ow.Tileset: error when running tileset at `",  path,  "`: ",  config_or_error)
         return
     end
 
@@ -39,7 +39,7 @@ function ow.Tileset:instantiate(tileset_name)
     local _get = function(t, name)
         local out = t[name]
         if out == nil then
-            rt.error("In ow.Tileset: trying to access property `" .. name .. "` of tileset at `" .. path .. "`, but it does not exist")
+            rt.error("In ow.Tileset: trying to access property `",  name,  "` of tileset at `",  path,  "`, but it does not exist")
         end
         return out
     end
@@ -167,7 +167,7 @@ function ow.Tileset:instantiate(tileset_name)
 
     local space_usage = total_area / (atlas_width * atlas_height)
     if space_usage < 0.7 then
-        rt.warning("In ow.Tileset: texture atlas of tileset `" .. self._id .. "` only uses `" .. math.floor(space_usage * 1000) / 1000 * 100 .. "%` of allocated space")
+        rt.warning("In ow.Tileset: texture atlas of tileset `", self._id .. "` only uses `",  math.floor(space_usage * 1000) / 1000 * 100,  "%` of allocated space")
     end
 
     love.graphics.push()
@@ -197,7 +197,7 @@ end
 function ow.Tileset:get_tile_property(id, property_name)
     local tile = self._tiles[id]
     if tile == nil then
-        rt.error("In ow.Tileset.get_tile_property: no tiled with id `" .. id .. "` in tileset `" .. self._name .. "`")
+        rt.error("In ow.Tileset.get_tile_property: no tiled with id `",  id,  "` in tileset `",  self._name,  "`")
         return nil
     end
 
@@ -208,7 +208,7 @@ end
 function ow.Tileset:get_tile_texture_bounds(id)
     local tile = self._tiles[id]
     if tile == nil then
-        rt.error("In ow.Tileset.get_tile_texture_bounds: no tiled with id `" .. id .. "` in tileset `" .. self._name .. "`")
+        rt.error("In ow.Tileset.get_tile_texture_bounds: no tiled with id `",  id,  "` in tileset `",  self._name,  "`")
         return nil
     end
 
@@ -219,7 +219,7 @@ end
 function ow.Tileset:get_tile_size(id)
     local tile = self._tiles[id]
     if tile == nil then
-        rt.error("In ow.Tileset.get_tile_size: no tiled with id `" .. id .. "` in tileset `" .. self._name .. "`")
+        rt.error("In ow.Tileset.get_tile_size: no tiled with id `",  id,  "` in tileset `",  self._name,  "`")
         return nil
     end
 
@@ -230,7 +230,7 @@ end
 function ow.Tileset:get_tile_objects(id)
     local tile = self._tiles[id]
     if tile == nil then
-        rt.error("In ow.Tileset.get_tile_objects: no tiled with id `" .. id .. "` in tileset `" .. self._name .. "`")
+        rt.error("In ow.Tileset.get_tile_objects: no tiled with id `",  id,  "` in tileset `",  self._name,  "`")
         return nil
     end
 

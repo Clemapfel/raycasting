@@ -40,13 +40,13 @@ function rt.GameState:_initialize_stage()
     local path_prefix = rt.settings.overworld.stage_config.config_path
 
     local warn = function(i, name)
-        rt.warning("In rt.Translation: stage entry `" .. i .. "` does not have `" .. name .. "` property")
+        rt.warning("In rt.Translation: stage entry `",  i,  "` does not have `",  name,  "` property")
     end
 
     for i, entry in pairs(rt.Translation.stages) do
         local id = entry.id
         if id == nil then
-            rt.error("In rt.Translation: stage entry `" .. i .. "` does not have an id")
+            rt.error("In rt.Translation: stage entry `",  i,  "` does not have an id")
         end
 
         local title = entry.title
@@ -124,7 +124,7 @@ function rt.GameState:_get_stage(id, scope)
     self:_initialize_stage()
     local stage = self._stages[self._stage_id_to_i[id]]
     if stage == nil then
-        rt.error("In rt.GameState." .. scope .. "`: no stage with id `" .. id .. "`")
+        rt.error("In rt.GameState.", scope, "`: no stage with id `", id, "`")
     end
     return stage
 end
@@ -198,7 +198,7 @@ function rt.GameState:get_stage_is_coin_collected(stage_id, coin_i)
     if _debug_output then return false end
     local stage = self:_get_stage(stage_id, "get_stage_is_coin_collected")
     if coin_i > stage.n_coins then
-        rt.error("In rt.GameState.get_stage_is_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
+        rt.error("In rt.GameState.get_stage_is_coin_collected: coin index `", coin_i, "` is out of bounds, stage `", stage_id, "` only has ", stage.n_coins, " coins")
     end
 
     local entry = self._state.stage_results[stage_id]
@@ -212,7 +212,7 @@ function rt.GameState:set_stage_is_coin_collected(stage_id, coin_i, collected)
     meta.assert(stage_id, "String", coin_i, "Number", collected, "Boolean")
     local stage = self:_get_stage(stage_id, "set_stage_is_coin_collected")
     if coin_i > stage.n_coins then
-        rt.error("In rt.GameState.set_stage_is_coin_collected: coin index `" .. coin_i .. "` is out of bounds, stage `" .. stage_id .. "` only has " .. stage.n_coins .. " coins")
+        rt.error("In rt.GameState.set_stage_is_coin_collected: coin index `", coin_i, "` is out of bounds, stage `", stage_id, "` only has ", stage.n_coins, " coins")
     end
 
     local entry = self._stage.stage_results[stage_id]
@@ -448,7 +448,7 @@ function rt.GameState:get_next_stage(stage_id)
         end
     end
 
-    rt.error("In rt.GameState.get_next_stage: no stage with id `" .. stage_id .. "`")
+    rt.error("In rt.GameState.get_next_stage: no stage with id `", stage_id, "`")
 end
 
 --- @brief
@@ -463,7 +463,7 @@ function rt.GameState:stage_update_splits(stage_id, times)
 
     local n_segments = entry.splits.n_segments
     if n_segments ~= #times then
-        rt.error("In rt.GameState:stage_update_best_splits: for stage `" .. stage_id .. "`, expected `" .. n_segments .. "` segments, got `" .. #times)
+        rt.error("In rt.GameState:stage_update_best_splits: for stage `", stage_id, "`, expected `", n_segments, "` segments, got `", #times)
     end
 
     local current_sum, new_sum = 0, 0

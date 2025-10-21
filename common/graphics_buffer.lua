@@ -100,7 +100,7 @@ function rt.GraphicsBuffer:_initialize_formatting()
         local element_offset = e.offset
 
         if e.arraylength > 0 then
-            rt.error("In rt.GraphicsBuffer._initialize_formatting: unhandled array length `" .. e.array_length .. "`")
+            rt.error("In rt.GraphicsBuffer._initialize_formatting: unhandled array length `", e.array_length, "`")
         end
 
         if e.format == "uint32" then
@@ -182,7 +182,7 @@ function rt.GraphicsBuffer:_initialize_formatting()
                 i = i + 1
             end
         else
-            rt.error("In rt.GraphicsBuffer:_initialize_formatting: unhandled format `" .. e.format .. "`")
+            rt.error("In rt.GraphicsBuffer:_initialize_formatting: unhandled format `", e.format, "`")
         end
     end
 

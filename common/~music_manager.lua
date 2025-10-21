@@ -51,7 +51,7 @@ function rt.MusicManager:instantiate()
 
     bd.apply(rt.settings.music_manager.config_directory, function(directory_path, directory_name)
         if not bd.is_directory(directory_path) then
-            rt.warning("In rt.MusicManager: ignoring file at `" .. directory_path .. "`: not a directory")
+            rt.warning("In rt.MusicManager: ignoring file at `",  directory_path,  "`: not a directory")
         else
             -- locate .mp3 and .lua
             local mp3, lua
@@ -66,7 +66,7 @@ function rt.MusicManager:instantiate()
             end)
 
             if mp3 == nil then
-                rt.critical("In rt.MusicManager: directory at `" .. directory_path .. "` does not have a playable sound file")
+                rt.critical("In rt.MusicManager: directory at `",  directory_path,  "` does not have a playable sound file")
             end
 
             local decoder = love.sound.newDecoder(mp3)
@@ -84,7 +84,7 @@ function rt.MusicManager:instantiate()
                     local out = config[id]
                     if out ~= nil then
                         if not meta.typeof(id) == type then
-                            rt.error("In rt.MusicManager: config at `" .. lua .. "` has entry `" .. id .. "` which is not of type `" .. type .. "`")
+                            rt.error("In rt.MusicManager: config at `",  lua,  "` has entry `",  id,  "` which is not of type `",  type,  "`")
                         end
                     end
 
@@ -99,11 +99,11 @@ function rt.MusicManager:instantiate()
                 local loop = get("loop", "Table")
                 if loop ~= nil then
                     if #loop ~= 2 then
-                        rt.error("In rt.MusicManager: config at `" .. lua .. "` has entry `loop`, but it is not a table with 2 numerical entries")
+                        rt.error("In rt.MusicManager: config at `",  lua,  "` has entry `loop`, but it is not a table with 2 numerical entries")
                     end
 
                     if loop[1] < 0 or loop[1] > decoder:getDuration() or loop[2] < 0 or loop[2] > decoder:getDuration() then
-                        rt.error("In rt.MusicManager: config at `" .. lua .. "` has entry `loop`, its timestampes are outside `0, " .. decoder:getDuration() .. "`, the duration of the file at `" .. mp3 .. "`")
+                        rt.error("In rt.MusicManager: config at `",  lua,  "` has entry `loop`, its timestampes are outside `0, ",  decoder:getDuration(),  "`, the duration of the file at `",  mp3,  "`")
                     end
 
                     entry.loop = loop
@@ -146,7 +146,7 @@ end
 function rt.MusicManager:_get_entry(id, scope)
     local entry = self._id_to_entry[id]
     if entry == nil then
-        rt.critical("In rt.MusicManager." .. scope .. ": no music with id `" .. id .. "` available")
+        rt.critical("In rt.MusicManager.",  scope,  ": no music with id `",  id,  "` available")
         return nil
     else
         return entry

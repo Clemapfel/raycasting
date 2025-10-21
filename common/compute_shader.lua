@@ -12,7 +12,7 @@ function rt.ComputeShader:instantiate(filename, defines)
     })
 
     if not success then
-        rt.error("In rt.ComputeShader: Error when evaluating shader at `" .. filename .. "`:\n" .. shader)
+        rt.error("In rt.ComputeShader: Error when evaluating shader at `", filename, "`:\n", shader)
     end
 
     meta.install(self, {
@@ -25,7 +25,7 @@ end
 --- @param name String
 --- @param value
 function rt.ComputeShader:send(name, value)
-    assert(value ~= nil, "uniform " .. name .. " is nil")
+    rt.assert(value ~= nil, "uniform " .. name .. " is nil")
     if meta.isa(value, rt.GraphicsBuffer) or meta.isa(value, rt.Texture) then value = value._native end
 
     if self._native:hasUniform(name) then

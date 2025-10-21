@@ -319,5 +319,5 @@ function mn.MessageDialog:set_default_option(option)
         end
     end
 
-    rt.error("In mn.MessageDialog.set_default_option: dialog has no option `" .. option .. "`")
+    rt.error("In mn.MessageDialog.set_default_option: dialog has no option `", option, "`")
 end

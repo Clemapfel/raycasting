@@ -35,7 +35,7 @@ end
 --- @brief
 function rt.SmoothedMotionND:remove_dimension(id)
     if self._dimensions[id] == nil then
-        rt.error("In rt.SmoothedMotionND:remove_dimension: no dimension with id `" .. tostring(id) .. "`")
+        rt.error("In rt.SmoothedMotionND:remove_dimension: no dimension with id `", id, "`")
         return
     end
 
@@ -159,7 +159,7 @@ function rt.SmoothedMotionND:get_dimension(...)
     if select("#", ...) == 1 then
         local id = select(1, ...)
         if self._dimensions[id] == nil then
-            rt.error("In rt.SmoothedMotionND: no dimension with id `" .. tostring(id) .. "`")
+            rt.error("In rt.SmoothedMotionND: no dimension with id `", id, "`")
         end
         return self._current_position[id] or 0
     else
@@ -167,7 +167,7 @@ function rt.SmoothedMotionND:get_dimension(...)
         for i = 1, select("#", ...) do
             local id = select(i, ...)
             if self._dimensions[id] == nil then
-                rt.error("In rt.SmoothedMotionND: no dimension with id `" .. tostring(id) .. "`")
+                rt.error("In rt.SmoothedMotionND: no dimension with id `", id, "`")
             end
             table.insert(out, self._current_position[id] or 0)
         end

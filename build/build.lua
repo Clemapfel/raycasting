@@ -90,16 +90,16 @@ function bd.compile(source_file_path, destination_file_path)
     destination_file_path = bd.normalize_path(destination_file_path)
 
     if not bd.file_exists(source_file_path) then
-        rt.error("In bd.compile: object at `" .. source_file_path .. "` does not exist")
+        rt.error("In bd.compile: object at `", source_file_path, "` does not exist")
     end
 
     if not bd.is_file(source_file_path) then
-        rt.error("In bd.compile: object at `" .. source_file_path .. "` is not a file")
+        rt.error("In bd.compile: object at `", source_file_path, "` is not a file")
     end
 
     local file_data, read_error_maybe = love.filesystem.read(source_file_path)
     if not file_data then
-        rt.error("In bd.compile: unable to read file at `" .. source_file_path .. "`:" .. read_error_maybe)
+        rt.error("In bd.compile: unable to read file at `", source_file_path, "`:", read_error_maybe)
     end
 
     -- make release mode when treating conf.lua
@@ -110,13 +110,13 @@ function bd.compile(source_file_path, destination_file_path)
     -- load chunk
     local compiled_function, compile_error = _G.loadstring(file_data, "@" .. source_file_path)
     if compiled_function == nil then
-        rt.error("In bd.compile: unable to apply loadstring to content of file at  `" .. source_file_path .. "`: " .. compile_error)
+        rt.error("In bd.compile: unable to apply loadstring to content of file at  `",  source_file_path,  "`: ",  compile_error)
     end
 
     -- compile to bytecade
     local bytecode = string.dump(compiled_function)
     if bytecode == nil then
-        rt.error("In bd.compile: failed to generate bytecode for `" .. source_file_path .. "`")
+        rt.error("In bd.compile: failed to generate bytecode for `",  source_file_path,  "`")
     end
 
     -- Replace file_data with the bytecode for writing
@@ -130,7 +130,7 @@ function bd.compile(source_file_path, destination_file_path)
 
     local write_success, write_error_maybe = love.filesystem.write(destination_file_path, file_data)
     if not write_success then
-        rt.error("In bd.compile: unable to copy file from `" .. source_file_path .. "` to `" .. destination_file_path .. "`: " .. write_error_maybe)
+        rt.error("In bd.compile: unable to copy file from `",  source_file_path,  "` to `",  destination_file_path,  "`: ",  write_error_maybe)
     end
 end
 
@@ -142,7 +142,7 @@ function bd._download_love_executables(github_actions_run_id, ...)
     if bd.file_exists(executable_prefix) then
         local success = love.filesystem.remove(executable_prefix)
         if not success then
-            rt.warning("In bd._download_love_executables: unable to remove folder at `" .. executable_prefix .. "`")
+            rt.warning("In bd._download_love_executables: unable to remove folder at `",  executable_prefix, "`")
         end
     end
 
@@ -156,19 +156,19 @@ function bd._download_love_executables(github_actions_run_id, ...)
         local prefix = bd.settings.executable_download_link_prefix .. "/" .. github_actions_run_id
         local postfix = bd.settings.architecture_to_input_filename[architecture]
         if postfix == nil then
-            rt.error("In bd.download_love_executable: unsupported system architecture: `" .. architecture .. "`")
+            rt.error("In bd.download_love_executable: unsupported system architecture: `", architecture, "`")
         end
 
         download_link = prefix .. "/" .. postfix
         local code, download_data = https.request(download_link)
         if code == 404 then
-            rt.error("In bd.download_love_executable: unable to download executable from `" .. download_link .. "`, received `" .. code .. "`")
+            rt.error("In bd.download_love_executable: unable to download executable from `", download_link, "`, received `", code, "`")
         end
 
         local write_path = bd.join_path(executable_prefix, postfix)
         local write_success, write_error_maybe = love.filesystem.write(write_path, download_data)
         if not write_success then
-            rt.error("In bd.download_love_executables: unable to write downloaded data to `" .. write_path .. "`")
+            rt.error("In bd.download_love_executables: unable to write downloaded data to `", write_path, "`")
         end
     end
 end
@@ -187,7 +187,7 @@ do
     --- @brief
     function bd.build(rebuild_love_file)
         if rebuild_love_file == nil then rebuild_love_file = true end
-        rt.log("starting build for operating system `" .. bd.get_operating_system() .. "`")
+        rt.log("starting build for operating system `", bd.get_operating_system(), "`")
 
         local build_prefix = bd.settings.build_directory_mount_point
 
@@ -215,7 +215,7 @@ do
 
             -- copy all modules into workspace
             for module_name in values(bd.settings.module_names) do
-                rt.log("exporting `/" .. module_name .. "`")
+                rt.log("exporting `/", module_name, "`")
                 bd.apply_recursively(module_name, function(from_path, filename)
                     -- check if filename has ~ prefix
                     if string.match(from_path, "[\\/](~[^\\/]*)$") == nil then
@@ -235,7 +235,7 @@ do
 
             -- copy headers
             for file in values(bd.settings.header_names) do
-                rt.log("exporting `/" .. file .. "`")
+                rt.log("exporting `/", file, "`")
 
                 local destination_path = bd.join_path(to_zip_path, file)
                 if file == "main.lua" then main_lua_seen = true end
@@ -259,7 +259,7 @@ do
             -- copy dependencies
             for dependency_name in values(bd.settings.dependency_names) do
                 local path = bd.join_path(bd.settings.dependency_directory, dependency_name)
-                rt.log("exporting `/" .. path .. "`")
+                rt.log("exporting `/", path, "`")
 
                 bd.apply_recursively(path, function(file)
                     local to_path =  bd.join_path(to_zip_path, file)
@@ -283,9 +283,9 @@ do
 
         local love_file_data = love.filesystem.read(love_file_path)
         if love_file_data == nil then
-            rt.error("In bd.build: unable to read .love file at `" .. love_file_path .. "`")
+            rt.error("In bd.build: unable to read .love file at `", love_file_path, "`")
         else
-            rt.log("wrote .love file to `" .. love_file_path .. "`")
+            rt.log("wrote .love file to `", love_file_path, "`")
         end
 
         local clear_workspace = function()
@@ -307,7 +307,7 @@ do
                 local out_name = out_names[architecture]
                 local out_path = bd.join_path(workspace_prefix, out_name)
 
-                rt.log("building executable `" .. out_name .. "`")
+                rt.log("building executable `", out_name, "`")
 
                 -- create output dir in workspace/<architecture>
                 if bd.file_exists(out_path) then
@@ -384,7 +384,7 @@ do
                         local from_name, to_name = table.unpack(from_name_to_name)
                         local from_path = bd.join_path(out_path, from_name)
                         if not bd.file_exists(from_path) then
-                            rt.error("In bd.build: expected executable `" .. from_name .. "`, but it was not found")
+                            rt.error("In bd.build: expected executable `", from_name, "`, but it was not found")
                         end
 
                         local to_path = bd.join_path(out_path, to_name) .. ".exe"
@@ -393,7 +393,7 @@ do
                         local executable_data = love.filesystem.read(from_path)
 
                         if executable_data == nil then
-                            rt.error("In bd.build: unable to read executable at `" .. from_path)
+                            rt.error("In bd.build: unable to read executable at `", from_path)
                         end
 
                         executable_data = executable_data .. love_file_data
@@ -412,7 +412,7 @@ do
                     bd.join_path(output_prefix, out_name)
                 )
 
-                rt.log("wrote `" .. out_name .. "` to `" .. output_prefix .. "`")
+                rt.log("wrote `", out_name, "` to `", output_prefix, "`")
             end
         elseif bd.get_operating_system() == bd.OperatingSystem.LINUX then
             for architecture in range(
@@ -423,7 +423,7 @@ do
                 local out_name = out_names[architecture]
                 local out_path = bd.join_path(workspace_prefix, out_name)
 
-                rt.log("building executable `" .. out_name .. "`")
+                rt.log("building executable `", out_name, "`")
 
                 -- unzip executables/<outer>.zip into workspace/<outer>
                 local to_unzip_from = bd.join_path(executable_directory, in_name)
@@ -449,13 +449,13 @@ do
                         local extract_command = string.format("binwalk -e %s -quiet", to_unsquash_from_absolute)
                         local success = os.execute(extract_command)
                         if success ~= 0 then
-                            rt.error("In bd.build: failed to unsquash app image at `" .. to_unsquash_from_absolute .. "`. Is this a linux machine? Is binwalk installed?")
+                            rt.error("In bd.build: failed to unsquash app image at `", to_unsquash_from_absolute, "`. Is this a linux machine? Is binwalk installed?")
                         end
 
                         -- extracts to _<love-name.appImage>.extracted
                         local extract_name = "_" .. inner_filename .. ".extracted"
                         if not bd.file_exists(bd.join_path(to_unzip_to, extract_name)) then
-                            rt.error("In bd.build: failed to iterate results of binwalk, file `" .. extract_name .. "` does not exist")
+                            rt.error("In bd.build: failed to iterate results of binwalk, file `", extract_name, "` does not exist")
                         end
 
                         -- locate squashfs-root, move to /out
@@ -480,7 +480,7 @@ do
                 local old_executable_path = bd.join_path(output_folder, "bin", "love")
                 local executable_data = love.filesystem.read(old_executable_path)
                 if executable_data == nil then
-                    rt.error("In bd.build: unable to read executable at `" .. old_executable_path .. "`")
+                    rt.error("In bd.build: unable to read executable at `", old_executable_path, "`")
                 end
 
                 -- add .love to end of executable, then replace
@@ -525,7 +525,7 @@ do
                     local to_replace = "/bin/" .. bd.settings.executable_name
 
                     if not string.match(app_run_data, pattern) then
-                        rt.error("In bd.build: pattern `" .. pattern .. "` not present in `" .. app_run_path .. "`")
+                        rt.error("In bd.build: pattern `", pattern, "` not present in `", app_run_path, "`")
                     end
 
                     app_run_data = string.gsub(app_run_data, pattern, to_replace)
@@ -541,7 +541,7 @@ do
                     app_run_data = string.gsub(app_run_data, "my_game", bd.settings.love_file_name)
 
                     if not love.filesystem.write(app_run_path, app_run_data) then
-                        rt.error("In bd.build: unable to write file to `" .. app_run_path .. "`")
+                        rt.error("In bd.build: unable to write file to `", app_run_path, "`")
                     end
                 end
 
@@ -550,7 +550,7 @@ do
                     local desktop_file_data = love.filesystem.read(old_desktop_file_path)
 
                     if desktop_file_data == nil then
-                        rt.error("In bd.build: unable to read file at `" .. old_desktop_file_path .. "`")
+                        rt.error("In bd.build: unable to read file at `", old_desktop_file_path, "`")
                     end
 
                     -- replace name
@@ -589,14 +589,14 @@ do
                         new_share_desktop_file_path,
                         desktop_file_data
                     ) then
-                        rt.error("In bd.build: unable to write file to `" .. new_share_desktop_file_path .. "`")
+                        rt.error("In bd.build: unable to write file to `", new_share_desktop_file_path, "`")
                     end
                 end
 
                 -- add .love to output
                 bd.copy(love_file_path, bd.join_path(output_folder, bd.settings.love_file_name) .. bd.settings.love_file_name_extension)
 
-                rt.log("wrote executable to `" .. output_folder .. "`")
+                rt.log("wrote executable to `", output_folder, "`")
             end
         elseif bd.get_operating_system() == bd.OperatingSystem.MAC_OS then
             rt.error("In bd.build: macOS build currently unimplemented")

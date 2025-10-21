@@ -162,13 +162,13 @@ function ow.Stage:instantiate(scene, id)
         if table.sizeof(object_wrappers) > 0 then
             for wrapper in values(object_wrappers) do
                 if wrapper.class == nil then
-                    rt.warning("In ow.Stage.instantiate: object `" .. wrapper.id .. "` of stage `" .. self._config:get_id() .. "` has no class, assuming `Hitbox`")
+                    rt.warning("In ow.Stage.instantiate: object `",  wrapper.id,  "` of stage `",  self._config:get_id(),  "` has no class, assuming `Hitbox`")
                     wrapper.class = "Hitbox"
                 end
 
                 local Type = ow[wrapper.class]
                 if Type == nil then
-                    rt.error("In ow.Stage: unhandled object class `" .. tostring(wrapper.class) .. "`")
+                    rt.error("In ow.Stage: unhandled object class `",  tostring(wrapper.class),  "`")
                 end
 
                 local instance = Type(wrapper, self, self._scene)
@@ -198,7 +198,7 @@ function ow.Stage:instantiate(scene, id)
 
                     for priority in values(priorities) do
                         if not meta.is_number(priority) then
-                            rt.error("In ow." .. wrapper.class .. ".get_render_priority: does not return a number or tuple of numbers")
+                            rt.error("In ow.",  wrapper.class,  ".get_render_priority: does not return a number or tuple of numbers")
                         end
 
                         local entry = render_priority_to_entry[priority]
@@ -257,7 +257,7 @@ function ow.Stage:instantiate(scene, id)
 
     -- check for PlayerSpawn
     if self._active_checkpoint == nil then
-        rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `" .. self._id .. "`")
+        rt.warning("In ow.Stage.initialize: no `PlayerSpawn` for stage `",  self._id,  "`")
     end
 
     -- sort by render priority
@@ -322,15 +322,15 @@ function ow.Stage:instantiate(scene, id)
         end
 
         if n_goals == 0 then
-            rt.warning("In ow.Stage.initialize: no `Goal` object present in stage `" .. self._id .. "`")
+            rt.warning("In ow.Stage.initialize: no `Goal` object present in stage `",  self._id,  "`")
         else
-            rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `" .. self._id .. "`")
+            rt.warning("In ow.Stage.initialize: more than one `Goal` object present in stage `",  self._id,  "`")
         end
 
         if n_spawns == 0 then
-            rt.warning("In ow.Stage.initialize: no `PlayerSpawn` object present in stage `" .. self._id .. "`")
+            rt.warning("In ow.Stage.initialize: no `PlayerSpawn` object present in stage `",  self._id,  "`")
         else
-            rt.warning("In ow.Stage.initialize: more than one `PlayerSpawn` object present in stage `" .. self._id .. "`")
+            rt.warning("In ow.Stage.initialize: more than one `PlayerSpawn` object present in stage `",  self._id,  "`")
         end
     end
 
@@ -471,7 +471,7 @@ function ow.Stage:get_point_light_sources()
         if class ~= nil and class.get_color then
             local color = class:get_color()
             if not meta.isa(color, rt.RGBA) then
-                rt.error("In ow.Stage: object `" .. meta.typeof(class) .. "` has a get_color function that does not return an object of type `rt.RGBA`")
+                rt.error("In ow.Stage: object `",  meta.typeof(class),  "` has a get_color function that does not return an object of type `rt.RGBA`")
             end
 
             if color.a == 0 then goto skip end
@@ -497,7 +497,7 @@ function ow.Stage:get_segment_light_sources()
         if body:has_tag("segment_light_source") then
             local instance = body:get_user_data()
             assert(instance ~= nil, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag but userdata instance is not set")
-            assert(instance.get_segment_light_sources, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag, but instance `" .. meta.typeof(instance) .. "` does not have `get_segment_light_sources` defined")
+            assert(instance.get_segment_light_sources, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag, but instance `",  meta.typeof(instance),  "` does not have `get_segment_light_sources` defined")
             local current_segments, current_colors = instance:get_segment_light_sources()
 
             for segment in values(current_segments) do
@@ -581,7 +581,7 @@ function ow.Stage:set_checkpoint_split(checkpoint)
     end
 
     if current ~= _no_timestamp then
-        rt.error("In ow.Stage:set_checkpoint_split: updating splits of checkpoint `" .. self._instance_to_wrapper[checkpoint] .. "`, but time was already updated")
+        rt.error("In ow.Stage:set_checkpoint_split: updating splits of checkpoint `",  self._instance_to_wrapper[checkpoint],  "`, but time was already updated")
     end
 
     self._checkpoints[checkpoint] = self._scene:get_timer()
@@ -620,7 +620,7 @@ end
 function ow.Stage:set_coin_is_collected(id, is_collected)
     local entry = self._coins[id]
     if entry == nil then
-        rt.warning("In ow.Staget.set_coin_collected: no coin with id `" .. id .. "`")
+        rt.warning("In ow.Staget.set_coin_collected: no coin with id `",  id,  "`")
         return
     end
 
@@ -631,7 +631,7 @@ end
 function ow.Stage:get_coin_is_collected(coin_i)
     local entry = self._coins[coin_i]
     if entry == nil then
-        rt.warning("In ow.Staget.get_coin_is_collected: no coin with id `" .. coin_i .. "`")
+        rt.warning("In ow.Staget.get_coin_is_collected: no coin with id `",  coin_i,  "`")
         return false
     end
 

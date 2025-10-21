@@ -77,7 +77,7 @@ function ow.FlowGraph:initialize(nodes)
             end
         end
 
-        rt.error("In ow.FlowGraph.initialize: multiple nodes do not have a next, graph has multiple leaves. List of nodes: " .. table.concat(to_concat))
+        rt.error("In ow.FlowGraph.initialize: multiple nodes do not have a next, graph has multiple leaves. List of nodes: ", table.concat(to_concat))
     end
 
     -- check that only one node is root
@@ -98,7 +98,7 @@ function ow.FlowGraph:initialize(nodes)
             end
         end
 
-        rt.error("In ow.FlowGraph.initialize: multiple nodes do not have a previous, graph has multiple roots. List of nodes: " .. table.concat(to_concat))
+        rt.error("In ow.FlowGraph.initialize: multiple nodes do not have a previous, graph has multiple roots. List of nodes: ", table.concat(to_concat))
     end
 
     local root

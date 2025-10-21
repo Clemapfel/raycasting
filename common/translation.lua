@@ -143,7 +143,7 @@ rt.Translation = {
         vsync_title = "Vertical Synchronization (VSync)",
         vsync_description = "If enabled, limits maximum FPS to the refresh rate of the monitor",
         vsync_widget = function(fps)
-            return "Current FPS: " .. fps
+            return "Current FPS: ",  fps
         end,
 
         music_level_widget = function(percentage)
@@ -331,7 +331,7 @@ do -- recursively replace all tables with proxy tables, such that when they are 
             __index = function(self, key)
                 local value = rawget(self, key)
                 if value == nil then
-                    rt.warning("In rt.Translation: key `" .. key .. "` does not point to valid text")
+                    rt.warning("In rt.Translation: key `",  key,  "` does not point to valid text")
                     return "(#" .. key .. ")"
                 else
                     return value

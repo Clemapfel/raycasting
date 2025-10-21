@@ -21,7 +21,7 @@ end
 
 --- @brief
 function rt.SpriteBatch:instantiate(texture)
-    assert(meta.isa(texture, rt.Texture), "In rt.SpriteBatch: expected `Texture`, got `" .. meta.typeof(texture) .. "`")
+   rt.assert(meta.isa(texture, rt.Texture), "In rt.SpriteBatch: expected `Texture`, got `" .. meta.typeof(texture) .. "`")
     texture:set_wrap_mode(rt.TextureWrapMode.REPEAT)
 
     if rt.settings.sprite_batch.use_subpixel_filtering then
@@ -121,7 +121,7 @@ function rt.SpriteBatch:set(i, x, y, w, h, tx, ty, tw, th, flip_horizontally, fl
     )
 
     if i > self._current_i then
-        rt.error("In rt.SpriteBatch.set: index `" .. i .. "` is out of bounds for a batch with `" .. self._current_i .. "` sprites")
+        rt.error("In rt.SpriteBatch.set: index `",  i,  "` is out of bounds for a batch with `",  self._current_i,  "` sprites")
         return
     end
 

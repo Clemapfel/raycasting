@@ -427,7 +427,7 @@ function ow.NormalMap:update(delta)
     if not self._is_done and coroutine.status(self._callback) ~= "dead" then
         local success, error_maybe = coroutine.resume(self._callback)
         if error_maybe ~= nil then
-            rt.critical("In ow.NormalMap: " .. error_maybe)
+            rt.critical("In ow.NormalMap: ", error_maybe)
             self._is_done = true
             self:signal_emit("done")
         end

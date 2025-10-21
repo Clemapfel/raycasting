@@ -113,7 +113,7 @@ function rt.SoundManager:instantiate()
     local to_remove = {}
     for id, entry in pairs(self._id_to_entry) do
         if entry.config_path ~= nil and entry.sound_path == nil then
-            rt.critical("In rt.SoundManager: found config file at `" .. entry.config_path .. "` but no matching sound file with that id `" .. bd.get_file_name(entry.config_path, false) .. "`")
+            rt.critical("In rt.SoundManager: found config file at `",  entry.config_path,  "` but no matching sound file with that id `",  bd.get_file_name(entry.config_path, false),  "`")
             table.insert(to_remove, id)
         end
     end
@@ -188,7 +188,7 @@ function rt.SoundManager:_get_entry(id, scope)
         end
 
         if should_throw then
-            rt.critical("In rt.SoundManager." .. scope .. ": no sound with id `" .. id .. "`")
+            rt.critical("In rt.SoundManager.",  scope,  ": no sound with id `",  id,  "`")
         end
 
         return nil
@@ -264,9 +264,9 @@ function rt.SoundManager:preallocate(id, ...)
                 entry.sound_data = message.data
                 self:_process_entry(entry)
             elseif message.type == preallocate_message_types.load_failure then
-                rt.critical("In rt.SoundManager.preallocate: " .. message.error)
+                rt.critical("In rt.SoundManager.preallocate: ",  message.error)
             else
-                rt.error("In rt.SoundManager:preallocate: unhandled main-side message `" .. tostring(message.type) .. "`")
+                rt.error("In rt.SoundManager:preallocate: unhandled main-side message `",  tostring(message.type),  "`")
             end
 
             n_messages_received = n_messages_received + 1
@@ -344,7 +344,7 @@ function rt.SoundManager:play(id, config)
 
     for key in keys(config) do
         if _config_valid_keys[key] ~= true then
-            rt.critical("In rt.SoundManager.player: unrecognized option `" .. key .. "`")
+            rt.critical("In rt.SoundManager.player: unrecognized option `",  key,  "`")
         end
     end
 
@@ -423,7 +423,6 @@ function rt.SoundManager:stop(id, handler_id)
 
     local to_stop = {}
     local add = function(entry, handler_id)
-        assert(entry.handler_id_to_active_sources[handler_id] ~= nil)
         table.insert(to_stop, {
             entry = entry,
             handler_id = handler_id,
@@ -571,7 +570,6 @@ function rt.SoundManager:update(delta)
                     entry.inactive_source_to_timestamp[source] = love.timer.getTime()
 
                     local current = self._id_to_n_active_sources[entry.id]
-                    assert(current ~= nil)
                     self._id_to_n_active_sources[entry.id] = current - 1
 
                     if table.sizeof(entry.handler_id_to_active_sources) == 0 then

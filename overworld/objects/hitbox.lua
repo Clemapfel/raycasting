@@ -114,7 +114,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
     if filter ~= nil then
         local group = id_to_group[filter]
         if group == nil then
-            rt.error("In ow.Hitbox.instantiate: object `" .. object:get_id() .. "` in stage `" .. stage:get_id() .. "` property `filter` expects number between 1 and 16")
+            rt.error("In ow.Hitbox.instantiate: object `" .. object:get_id(),  "` in stage `",  stage:get_id(),  "` property `filter` expects number between 1 and 16")
         end
         self._body:set_collides_with(bit.bnot(group))
     end

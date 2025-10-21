@@ -650,7 +650,7 @@ function rt.Label:_parse()
     end
 
     local function throw_parse_error(reason)
-        rt.error("In rt.Label._parse: Error at position `" .. tostring(i) .. "`: " .. reason)
+        rt.error("In rt.Label._parse: Error at position `", i, "`: " .. reason)
     end
 
     local function step(n)
@@ -1270,7 +1270,7 @@ function rt.Glyph:instantiate(text, properties)
         elseif name == "justify_mode" then
             self._justify_mode = value
         else
-            rt.error("In rt.Glyph: unknown property `" .. tostring(name) .. "`")
+            rt.error("In rt.Glyph: unknown property `", tostring(name), "`")
         end
     end
 

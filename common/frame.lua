@@ -147,7 +147,7 @@ end
 --- @brief
 function rt.Frame:set_thickness(thickness)
     if thickness < 0 then
-        rt.error("In rt.Frame.set_thickness: value `" .. tostring(thickness) .. "` is out of range")
+        rt.error("In rt.Frame.set_thickness: value `", tostring(thickness), "` is out of range")
         return
     end
 
@@ -166,7 +166,7 @@ end
 --- @brief
 function rt.Frame:set_corner_radius(radius)
     if radius < 0 then
-        rt.error("In rt.Frame.set_corner_radius: value `" .. tostring(radius) .. "` is out of range")
+        rt.error("In rt.Frame.set_corner_radius: value `", radius, "` is out of range")
         return
     end
     self._corner_radius = radius

@@ -291,7 +291,7 @@ function ow.ObjectWrapper:_initialize_physics_prototypes()
         table.insert(all_vertices, xy[1])
         table.insert(all_vertices, xy[2])
     else
-        rt.error("In ow.ObjectWrapper._initialize_physics_prototypes: unhandled object type `" .. tostring(self.type) .. "`")
+        rt.error("In ow.ObjectWrapper._initialize_physics_prototypes: unhandled object type `",  self.type,  "`")
     end
 
     -- Calculate centroid of all vertices
@@ -344,7 +344,7 @@ function ow.ObjectWrapper:get_physics_shapes()
         elseif prototype.type == ow.ObjectWrapperShapeType.CIRCLE then
             table.insert(out, b2.Circle(prototype.x, prototype.y, prototype.radius))
         else
-            rt.error("In ow.ObjectWrapper:get_physics_shape: unhandled prototype shape type `" .. tostring(prototype.type) .. "`")
+            rt.error("In ow.ObjectWrapper:get_physics_shape: unhandled prototype shape type `",  tostring(prototype.type),  "`")
         end
     end
 
@@ -373,7 +373,7 @@ function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
 
     local success, out = pcall(b2.Body, world, type, body_x, body_y, self:get_physics_shapes())
     if not success then
-        rt.error("In ow.ObjectWrapper:create_physics_body: for object `" .. self.id .. "`: " .. out)
+        rt.error("In ow.ObjectWrapper:create_physics_body: for object `",  self.id,  "`: ",  out)
     end
     if type == b2.BodyType.DYNAMIC then
         out._native:setLinearDamping(30)
@@ -417,7 +417,7 @@ function ow.ObjectWrapper:_initialize_mesh_prototype()
     elseif self.type == ow.ObjectType.POINT then
         self_x, self_y = self.x, self.y
     else
-        rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `" .. tostring(self.type) .. "`")
+        rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `",  tostring(self.type),  "`")
     end
 
     self.mesh_prototype = {}
@@ -464,7 +464,7 @@ function ow.ObjectWrapper:_initialize_contour_prototype()
     elseif self.type == ow.ObjectType.POINT then
         -- noop
     else
-        rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `" .. tostring(self.type) .. "`")
+        rt.error("In ow.ObjectWrapper._initialize_mesh_prototype: unhandled object type `",  tostring(self.type),  "`")
     end
 
     self.contour = _process_polygon(contour, self)
@@ -478,7 +478,7 @@ function ow.ObjectWrapper:create_mesh()
     end
 
     if self.type == ow.ObjectType.POINT then
-        rt.error("In ow.ObjectWrapper: trying to create a mesh from object `" .. self.id .. "`, but object has a volume of 0")
+        rt.error("In ow.ObjectWrapper: trying to create a mesh from object `",  self.id,  "`, but object has a volume of 0")
     end
 
     return rt.Mesh(self.mesh_prototype, rt.MeshDrawMode.TRIANGLES), self.mesh_triangles, self.mesh_prototype
@@ -491,7 +491,7 @@ function ow.ObjectWrapper:triangulate()
     end
 
     if self.type == ow.ObjectType.POINT then
-        rt.error("In ow.ObjectWrapper: trying to triangulate `" .. self.id .. "`, but object has a volume of 0")
+        rt.error("In ow.ObjectWrapper: trying to triangulate `",  self.id,  "`, but object has a volume of 0")
     end
 
     return self.mesh_triangles
@@ -535,12 +535,12 @@ function ow.ObjectWrapper:get_string(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: property does not exist")
         end
         return nil
     end
     if meta.is_table(out) then
-        rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `String`, got `Table`")
+        rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: expected `String`, got `Table`")
         return nil
     end
 
@@ -557,19 +557,19 @@ function ow.ObjectWrapper:get_number(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: property does not exist")
         end
         return nil
     end
 
     if meta.is_table(out) then
-        rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `Number`, got `Table`")
+        rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: expected `Number`, got `Table`")
     end
 
     if meta.is_string(out) then
         local parsed = tonumber(out)
         if parsed == nil then
-            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `Number`, got `\"" .. out .. "\"`")
+            rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: expected `Number`, got `\"",  out,  "\"`")
         end
         return parsed
     end
@@ -584,7 +584,7 @@ function ow.ObjectWrapper:get_boolean(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: property does not exist")
         end
         return nil
     end
@@ -606,7 +606,7 @@ function ow.ObjectWrapper:get_boolean(id, assert_exists)
         end
     end
 
-    rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `boolean`, got `" .. meta.typeof(out) .. "`")
+    rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: expected `boolean`, got `",  meta.typeof(out),  "`")
     return nil
 end
 
@@ -617,13 +617,13 @@ function ow.ObjectWrapper:get_object(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: property does not exist")
         end
         return nil
     end
 
     if not meta.is_table(out) then
-        rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: expected `ObjectWrapper`, got `" .. meta.typeof(out) .. "`")
+        rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: expected `ObjectWrapper`, got `",  meta.typeof(out),  "`")
     end
 
     return out
@@ -635,7 +635,7 @@ function ow.ObjectWrapper:get(id, assert_exists)
     local out = self.properties[id]
     if out == nil then
         if assert_exists == true then
-            rt.error("In ow.ObjectWrapper: when trying to access property `" .. id .. "` of object `" .. self.id .. "`: property does not exist")
+            rt.error("In ow.ObjectWrapper: when trying to access property `",  id,  "` of object `",  self.id,  "`: property does not exist")
         end
     end
     return out
@@ -704,7 +704,7 @@ function ow.ObjectWrapper:draw()
         love.graphics.setColor(r, g, b, line_a)
         love.graphics.rectangle("line", self.x, self.y, self.width, self.height)
     else
-        rt.error("In ow.Tileset._debug_draw: unhandled shape type `" .. tostring(self.type) .. "`")
+        rt.error("In ow.Tileset._debug_draw: unhandled shape type `",  tostring(self.type),  "`")
     end
 
     love.graphics.pop()
@@ -714,7 +714,7 @@ end
 local _get = function(t, name)
     local out = t[name]
     if out == nil then
-        rt.error("In ow._parse_object_group: trying to access property `" .. name .. "` but it does not exist")
+        rt.error("In ow._parse_object_group: trying to access property `",  name,  "` but it does not exist")
     end
     return out
 end
@@ -758,7 +758,7 @@ function ow._parse_object_group(object_group, scope)
         wrapper.rotation = math.rad(_get(object, "rotation"))
 
         if object.gid ~= nil then
-            assert(object.shape == "rectangle", "In ow._parse_object_group (" .. scope .. "): object has gid, but is not a rectangle")
+            assert(object.shape == "rectangle", "In ow._parse_object_group (",  scope,  "): object has gid, but is not a rectangle")
 
             local true_gid, flip_horizontally, flip_vertically = _decode_gid(object.gid)
             local x, y = _get(object, "x"), _get(object, "y")
@@ -834,7 +834,7 @@ function ow._parse_object_group(object_group, scope)
             end
 
             if wrapper.class == nil then
-                rt.warning("In ow._parse_object_group (" .. scope .. "): object `" .. wrapper.id .. "` has no class, assuming `Hitbox`")
+                rt.warning("In ow._parse_object_group (",  scope,  "): object `",  wrapper.id,  "` has no class, assuming `Hitbox`")
                 wrapper.class = "Hitbox"
             end
         end
@@ -850,7 +850,7 @@ function ow._parse_object_group(object_group, scope)
         for key, id in pairs(wrapper.to_replace) do
             if id > 0 then
                 wrapper.properties[key] = object_id_to_wrapper[id]
-                assert(wrapper.properties[key] ~= nil, "In ow._parse_object_group: object `" .. wrapper.id .. "` points to `" .. id .. "`, but not object with that id is located on the same layer")
+                assert(wrapper.properties[key] ~= nil, "In ow._parse_object_group: object `",  wrapper.id,  "` points to `",  id,  "`, but not object with that id is located on the same layer")
             end
         end
         wrapper.to_replace = nil

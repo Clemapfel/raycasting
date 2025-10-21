@@ -167,7 +167,7 @@ function rt.MusicManagerPlayback:set_loop_bounds(loop_start, loop_end, unit)
         self._loop_start = loop_start
         self._loop_end = loop_end
     else
-        rt.error("In rt.MusicManagerPlayback:set_loop_bounds: unknown unit `" .. unit .. "`, expected rt.AudioTimeUnit")
+        rt.error("In rt.MusicManagerPlayback:set_loop_bounds: unknown unit `",  unit,  "`, expected rt.AudioTimeUnit")
     end
 end
 

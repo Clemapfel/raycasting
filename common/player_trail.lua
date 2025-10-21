@@ -291,7 +291,7 @@ function rt.PlayerTrail:draw_below()
     else
         local type = meta.typeof(scene)
         if _scene_type_to_warning_issued[type] ~= true then
-            rt.warning("In rt.PlayerTrail: scene of type `" .. type .. "` does not have a `get_camera` function, trail cannot be drawn")
+            rt.warning("In rt.PlayerTrail: scene of type `",  type,  "` does not have a `get_camera` function, trail cannot be drawn")
             _scene_type_to_warning_issued[type] = true
         end
     end

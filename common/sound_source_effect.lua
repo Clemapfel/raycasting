@@ -48,7 +48,7 @@ local _hash_config = function(config)
             as_string = tostring(as_string)
         end
 
-        assert(as_string ~= nil)
+        rt.assert(as_string ~= nil)
         table.insert(to_concat, as_string)
     end
     
@@ -102,7 +102,7 @@ do
                 feedback = feedback_native,
                 delay = delay_native
             }) then
-                rt.critical("In rt.ChorusSoundEffect: unable to create sound effect `" .. hash .. "`")
+                rt.critical("In rt.ChorusSoundEffect: unable to create sound effect `", hash, "`")
             end
 
             _atlas[hash] = native_id
@@ -126,7 +126,7 @@ do
                 volume = _default_volume,
                 enable = true
             }) then
-                rt.critical("In rt.CompressionSoundEffect: unable to create sound effect `" .. _native_id .. "`")
+                rt.critical("In rt.CompressionSoundEffect: unable to create sound effect `", _native_id, "`")
             end
         end
 
@@ -176,7 +176,7 @@ do
                 center = center_native,
                 bandwidth = bandwidth_native
             }) then
-                rt.critical("In rt.DistortionSoundEffect: unable to create sound effect `" .. hash .. "`")
+                rt.critical("In rt.DistortionSoundEffect: unable to create sound effect `",  hash,  "`")
             end
 
             _atlas[hash] = native_id
@@ -229,7 +229,7 @@ do
                 feedback = feedback_native,
                 spread = spread_native
             }) then
-                rt.critical("In rt.DelaySoundEffect: unable to create sound effect `" .. hash .. "`")
+                rt.critical("In rt.DelaySoundEffect: unable to create sound effect `",  hash,  "`")
             end
 
             _atlas[hash] = native_id
@@ -302,7 +302,7 @@ do
                 highgain = highgain_native,
                 highcut = highcut_native
             }) then
-                rt.critical("In rt.EqualizerSoundEffect: unable to create sound effect `" .. hash .. "`")
+                rt.critical("In rt.EqualizerSoundEffect: unable to create sound effect `",  hash,  "`")
             end
 
             _atlas[hash] = native_id
@@ -358,7 +358,7 @@ do
                 feedback = feedback_native,
                 delay = delay_native
             }) then
-                rt.critical("In rt.FlangerSoundEffect: unable to create sound effect `" .. hash .. "`")
+                rt.critical("In rt.FlangerSoundEffect: unable to create sound effect `",  hash,  "`")
             end
 
             _atlas[hash] = native_id
@@ -443,7 +443,7 @@ do
                 airabsorption = airabsorption_native,
                 highlimit = highlimit_native
             }) then
-                rt.critical("In rt.ReverbSoundEffect: unable to create sound effect `" .. hash .. "`")
+                rt.critical("In rt.ReverbSoundEffect: unable to create sound effect `",  hash,  "`")
             end
 
             _atlas[hash] = native_id
@@ -487,7 +487,7 @@ do
                 frequency = frequency_native,
                 highcut = highcut_native
             }) then
-                rt.critical("In rt.RingModulationSoundEffect: unable to create sound effect `" .. hash .. "`")
+                rt.critical("In rt.RingModulationSoundEffect: unable to create sound effect `",  hash,  "`")
             end
 
             _atlas[hash] = native_id

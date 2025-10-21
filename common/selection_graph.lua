@@ -161,7 +161,7 @@ do
                 local next = current[f](current)
                 if next ~= nil then
                     if not meta.isa(next, rt.SelectionGraphNode) then
-                        rt.error("In rt.SelectionGraph:handle_button: node #" .. meta.hash(current) .. " returns object of type `" .. meta.typeof(next) .. "` on `" .. button .. "` instead of rt.SelectionGraphNode")
+                        rt.error("In rt.SelectionGraph:handle_button: node #", meta.hash(current), " returns object of type `", meta.typeof(next), "` on `", button, "` instead of rt.SelectionGraphNode")
                         return
                     end
                     current:signal_emit(_button_to_leave_directional_signal[button])

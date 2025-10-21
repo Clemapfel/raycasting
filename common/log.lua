@@ -71,7 +71,7 @@ local function _printstyled(message, config)
     if config.color ~= nil then
         local tag = to_tag[config.color]
         if tag == nil then
-            rt.error("In prinstyled: unsupported color `" .. config.color .. "`")
+            rt.error("In prinstyled: unsupported color `", config.color, "`")
         end
         table.insert(to_print, tag)
     end
@@ -89,6 +89,14 @@ local function _printstyled(message, config)
     return table.concat(to_print)
 end
 
+local _to_string = function(x)
+    if x == nil then
+        return "nil"
+    else
+        return tostring(x)
+    end
+end
+
 --- @brief
 function log.message(...)
     local to_print = {}
@@ -99,7 +107,7 @@ function log.message(...)
 
     for i = 1, select("#", ...) do
         local word = select(i, ...)
-        table.insert(to_print, tostring(word))
+        table.insert(to_print, _to_string(word))
     end
     table.insert(to_print, "\n")
 
@@ -124,7 +132,7 @@ function log.warning(...)
     table.insert(to_print, " ")
 
     for i = 1, select("#", ...) do
-        table.insert(to_print, tostring(select(i, ...)))
+        table.insert(to_print, _to_string(select(i, ...)))
     end
     table.insert(to_print, "\n")
 
@@ -149,7 +157,7 @@ function log.critical(...)
     table.insert(to_print, " ")
 
     for i = 1, select("#", ...) do
-        table.insert(to_print, tostring(select(i, ...)))
+        table.insert(to_print, _to_string(select(i, ...)))
     end
     table.insert(to_print, "\n")
 
@@ -174,7 +182,7 @@ function log.error(...)
     table.insert(to_print, " ")
 
     for i = 1, select("#", ...) do
-        table.insert(to_print, tostring(select(i, ...)))
+        table.insert(to_print, _to_string(select(i, ...)))
     end
     table.insert(to_print, "\n")
 
@@ -190,9 +198,35 @@ function log.error(...)
 end
 
 --- @brief
+function log.assert(condition, ...)
+    if condition ~= true then
+        local to_print = {}
+
+        table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
+        table.insert(to_print, _printstyled(_error_prefix, nil)) -- sic, error does not support tty pretty printing
+        table.insert(to_print, " ")
+
+        for i = 1, select("#", ...) do
+            table.insert(to_print, _to_string(select(i, ...)))
+        end
+        table.insert(to_print, "\n")
+
+        local message = table.concat(to_print)
+        local should_print = true
+        if log._message_hook ~= nil then
+            should_print = log._message_hook(message)
+        end
+
+        if should_print == true then
+            _G.assert(condition, message)
+        end
+    end
+end
+
+--- @brief
 function log.setMessageHook(hook)
     if hook ~= nil then
-        assert(type(hook) == "function", "In log.setMessageHook: expected `function`, got `" .. type(hook) .. "`")
+        _G.assert(type(hook) == "function", "In log.setMessageHook: expected `function`, got `" .. type(hook) .. "`")
     end
     log._message_hook = hook
 end
@@ -201,4 +235,5 @@ rt.log = log.message
 rt.warning = log.warning
 rt.critical = log.critical
 rt.error = log.error
+rt.assert = log.assert
 

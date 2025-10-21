@@ -20,7 +20,7 @@ ow.StageConfig = meta.class("StageConfig")
 local _get = function(x, key)
     local out = x[key]
     if out == nil then
-        rt.error("In StageConfig: error when accessing key `" .. key .. "` : value does not exist")
+        rt.error("In StageConfig: error when accessing key `",  key,  "` : value does not exist")
     end
     return out
 end
@@ -328,7 +328,7 @@ end
 function ow.StageConfig:get_layer_sprite_batches(layer_i)
     local layer = self._layer_i_to_layer[layer_i]
     if layer == nil then
-        rt.error("In ow.StageConfig.get_layer_sprite_batches: no layer with id `" .. tostring(layer_i) .. "`")
+        rt.error("In ow.StageConfig.get_layer_sprite_batches: no layer with id `" .. tostring(layer_i),  "`")
     end
 
     return { table.unpack(layer.spritebatches) }
@@ -338,7 +338,7 @@ end
 function ow.StageConfig:get_layer_object_wrappers(layer_i)
     local layer = self._layer_i_to_layer[layer_i]
     if layer == nil then
-        rt.error("In ow.StageConfig.get_layer_object_wrappers: no layer with id `" .. tostring(layer_i) .. "`")
+        rt.error("In ow.StageConfig.get_layer_object_wrappers: no layer with id `",  tostring(layer_i),  "`")
     end
 
     local out = {}
@@ -352,7 +352,7 @@ end
 function ow.StageConfig:get_layer_class(layer_i)
     local layer = self._layer_i_to_layer[layer_i]
     if layer == nil then
-        rt.error("In ow.StageConfig.get_layeget_layer_object_wrappersr_sprite_batches: no layer with id `" .. tostring(layer_i) .. "`")
+        rt.error("In ow.StageConfig.get_layeget_layer_object_wrappersr_sprite_batches: no layer with id `",  tostring(layer_i),  "`")
     end
 
     return layer.class

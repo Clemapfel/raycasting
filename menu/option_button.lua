@@ -246,7 +246,7 @@ function mn.OptionButton:set_option(i_or_text)
     if meta.is_number(i_or_text) then
         local i = i_or_text
         if i > self._n_items then
-            rt.error("In mn.OptionButton:set_option: option #" .. i .. " is out of bounds for OptionButton with `" .. self._n_items .. "` options")
+            rt.error("In mn.OptionButton:set_option: option #",  i,  " is out of bounds for OptionButton with `",  self._n_items,  "` options")
             return
         end
 
@@ -257,7 +257,7 @@ function mn.OptionButton:set_option(i_or_text)
         local text = i_or_text
         local new_i = self._item_label_to_item_i[text]
         if new_i == nil then
-            rt.error("In mn.OptionButton:set_option: option `" .. text .. "` is not available")
+            rt.error("In mn.OptionButton:set_option: option `",  text,  "` is not available")
             return
         end
 

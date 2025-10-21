@@ -8,8 +8,8 @@ function rt.Path:instantiate(points, ...)
         points = { points, ... }
     end
 
-    assert(#points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to create a path")
-    assert(#points % 2 == 0, "In rt.Path: number of point coordinates must be even")
+    rt.assert(#points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to create a path")
+    rt.assert(#points % 2 == 0, "In rt.Path: number of point coordinates must be even")
 
     local out = meta.install(self, {
         _points = points,
@@ -165,8 +165,8 @@ function rt.Path:create_from(points, ...)
     end
 
     local n_points = #points
-    assert(n_points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to draw a path")
-    assert(n_points % 2 == 0, "In rt.Path: number of point coordinates must be even")
+    rt.assert(n_points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to draw a path")
+    rt.assert(n_points % 2 == 0, "In rt.Path: number of point coordinates must be even")
 
     self._points = points
     self._n_points = n_points
@@ -196,11 +196,11 @@ function rt.Path:draw()
 end
 
 --- @brief override arclength parameterization with custom per-segment fraction
---- @param ... Number of values equal to number of segments, must sum to 1
+--- @param, . Number of values equal to number of segments, must sum to 1
 function rt.Path:override_parameterization(...)
     local n_args = select("#", ...)
     if n_args ~= self._n_entries then
-        rt.error("In rt.Path.override_parameterization: expected `" .. self._n_entries .. "` parameters, got `" .. n_args .. "`")
+        rt.error("In rt.Path.override_parameterization: expected `",  self._n_entries,  "` parameters, got `",  n_args,  "`")
         return
     end
 
@@ -211,14 +211,14 @@ function rt.Path:override_parameterization(...)
     for i = 1, n_args do
         local arg = args[i]
         if type(arg) ~= "number" or arg < 0 then
-            rt.error("In rt.Path:override_parameterization: parameter " .. i .. " must be a non-negative number")
+            rt.error("In rt.Path:override_parameterization: parameter ",  i,  " must be a non-negative number")
             return
         end
         total = total + arg
     end
 
     if math.abs(total - 1) > 1e-10 then
-        rt.error("In rt.Path:override_parameterization: total length of override parameters is `" .. total .. "`, but `1` was expected")
+        rt.error("In rt.Path:override_parameterization: total length of override parameters is `",  total,  "`, but `1` was expected")
         return
     end
 

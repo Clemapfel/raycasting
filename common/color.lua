@@ -103,7 +103,7 @@ function rt.color_unpack(color)
     elseif meta.typeof(color) == "HSVA" then
         return color.h, color.s, color.v. color.a
     else
-        rt.error("In rt.color_unpack: unknown color format `" .. meta.typeof(color) .. "`")
+        rt.error("In rt.color_unpack: unknown color format `", meta.typeof(color), "`")
     end
 end
 
@@ -316,7 +316,7 @@ function rt.html_code_to_color(code)
     end
 
     ::error::
-    rt.error("In rt.html_code_to_rgba: `" .. code .. "` is not a valid hexadecimal color identifier. Reason: " .. error_reason)
+    rt.error("In rt.html_code_to_rgba: `", code, "` is not a valid hexadecimal color identifier. Reason: ", error_reason)
 end
 
 --- @brief

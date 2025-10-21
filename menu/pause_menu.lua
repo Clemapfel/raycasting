@@ -19,7 +19,7 @@ mn.PauseMenu = meta.class("PauseMenu", rt.Widget)
 --- @brief
 function mn.PauseMenu:instantiate(scene)
     if not meta.isa(scene, rt.Scene) then
-        rt.error("In mn.PauseMenu.enter: expected `Scene`, got `" .. meta.typeof(scene) .. "`")
+        rt.error("In mn.PauseMenu.enter: expected `Scene`, got `", meta.typeof(scene), "`")
     end
 
     meta.install(self, {

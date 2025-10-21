@@ -310,7 +310,7 @@ function rt.GameState:load_default_input_mapping()
     if valid then
         self:_update_reverse_mapping()
     else
-        rt.error("In rt.GameState.validate_input_mapping: " .. error)
+        rt.error("In rt.GameState.validate_input_mapping: ", error)
     end
 end
 
@@ -528,7 +528,7 @@ function rt.GameState:set_input_mapping(input_action_to_keyboard_controller)
 
     for action, entry in pairs(input_action_to_keyboard_controller) do
         meta.assert_enum_value(action, rt.InputAction)
-        assert(entry.keyboard ~= nil or entry.controller ~= nil, "In rt.GameState.set_input_mapping: new mapping for action `" .. action .. "` does not have `keyboard` or `controller` entry")
+        rt.assert(entry.keyboard ~= nil or entry.controller ~= nil, "In rt.GameState.set_input_mapping: new mapping for action `", action, "` does not have `keyboard` or `controller` entry")
 
         if entry.keyboard ~= nil then
             meta.assert_typeof(entry.keyboard, "String")

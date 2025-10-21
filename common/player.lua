@@ -1209,7 +1209,6 @@ function rt.Player:update(delta)
                     -- double jump
                     can_jump = true
                     self._down_elapsed = 0
-                    assert(table.pop(self._double_jump_sources) ~= nil)
                     self._double_jump_disallowed = true
                 end
 

@@ -276,7 +276,7 @@ love.gamepadaxis = function(joystick, axis, value)
         end
     else
         if _axis_warning_printed[axis] == nil then
-            rt.warning("In rt.InputManager.gamepadaxis: unhandled axis `" .. axis .. "`")
+            rt.warning("In rt.InputManager.gamepadaxis: unhandled axis `", axis, "`")
             _axis_warning_printed[axis] = true
         end
     end

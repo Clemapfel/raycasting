@@ -56,7 +56,7 @@ function rt.MusicManagerInstance:instantiate()
 
     bd.apply(rt.settings.music_manager.config_directory, function(directory_path, directory_name)
         if not bd.is_directory(directory_path) then
-            rt.warning("In rt.MusicManagerInstance: ignoring file at `" .. directory_path .. "`: not a directory")
+            rt.warning("In rt.MusicManagerInstance: ignoring file at `", directory_path, "`: not a directory")
         else
             -- locate .mp3 and .lua
             local mp3, lua
@@ -71,7 +71,7 @@ function rt.MusicManagerInstance:instantiate()
             end)
 
             if mp3 == nil then
-                rt.critical("In rt.MusicManagerInstance: directory at `" .. directory_path .. "` does not have a playable sound file")
+                rt.critical("In rt.MusicManagerInstance: directory at `", directory_path, "` does not have a playable sound file")
             end
 
             local decoder = love.sound.newDecoder(mp3)
@@ -89,7 +89,7 @@ function rt.MusicManagerInstance:instantiate()
                     local out = config[id]
                     if out ~= nil then
                         if not meta.typeof(id) == type then
-                            rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `" .. id .. "` which is not of type `" .. type .. "`")
+                            rt.error("In rt.MusicManagerInstance: config at `", lua, "` has entry `", id, "` which is not of type `", type, "`")
                         end
                     end
 
@@ -105,24 +105,24 @@ function rt.MusicManagerInstance:instantiate()
                 local unit = get("unit", "String")
                 if loop ~= nil then
                     if #loop ~= 2 then
-                        rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `loop`, but it is not a table with 2 numerical entries")
+                        rt.error("In rt.MusicManagerInstance: config at `",  lua,  "` has entry `loop`, but it is not a table with 2 numerical entries")
                     end
 
                     if unit == nil or unit == rt.AudioTimeUnit.SECONDS then
                         if loop[1] < 0 or loop[1] > decoder:getDuration() or loop[2] < 0 or loop[2] > decoder:getDuration() then
-                            rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `loop`, its timestampes are outside `0, " .. decoder:getDuration() .. "`, the duration of the file at `" .. mp3 .. "`")
+                            rt.error("In rt.MusicManagerInstance: config at `",  lua,  "` has entry `loop`, its timestampes are outside `0, ",  decoder:getDuration(),  "`, the duration of the file at `",  mp3,  "`")
                         end
 
                         entry.unit = rt.AudioTimeUnit.SECONDS
                     elseif unit == rt.AudioTimeUnit.SAMPLES then
                         local max_n_samples = decoder:getDuration() * decoder:getSampleRate()
                         if loop[1] < 0 or loop[1] > max_n_samples or loop[2] < 0 or loop[2] > max_n_samples then
-                            rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "` has entry `loop`, its samples are outside `0, " .. max_n_samples .. "`, the duration of the file at `" .. mp3 .. "`")
+                            rt.error("In rt.MusicManagerInstance: config at `",  lua,  "` has entry `loop`, its samples are outside `0, ",  max_n_samples,  "`, the duration of the file at `",  mp3,  "`")
                         end
 
                         entry.unit = rt.AudioTimeUnit.SAMPLES
                     else
-                        rt.error("In rt.MusicManagerInstance: config at `" .. lua .. "`: expected rt.AudioTimeUnit for `unit`, got `" .. meta.typeof(unit) .. "`")
+                        rt.error("In rt.MusicManagerInstance: config at `",  lua,  "`: expected rt.AudioTimeUnit for `unit`, got `",  meta.typeof(unit),  "`")
                     end
 
                     entry.loop = loop
@@ -166,7 +166,7 @@ end
 function rt.MusicManagerInstance:_get_entry(id, scope)
     local entry = self._id_to_entry[id]
     if entry == nil then
-        rt.critical("In rt.MusicManagerInstance." .. scope .. ": no music with id `" .. id .. "` available")
+        rt.critical("In rt.MusicManagerInstance.",  scope,  ": no music with id `",  id,  "` available")
         return nil
     else
         return entry

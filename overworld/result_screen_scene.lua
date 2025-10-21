@@ -606,7 +606,7 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     for key in keys(required_keys) do
         if self._config[key] == nil then
-            rt.error("In ow.ResultScreenScene.enter: config does not have `" .. key .. "` field")
+            rt.error("In ow.ResultScreenScene.enter: config does not have `",  key,  "` field")
         end
     end
 

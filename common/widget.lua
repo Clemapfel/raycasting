@@ -95,6 +95,6 @@ end
 
 --- @brief
 function rt.Widget:set_selection_state(state)
-    assert(meta.is_enum_value(state, rt.SelectionState), "In `" .. meta.typeof(self) .. "`.set_selection_state: for argument #1: expected `SelectionState`, got `" .. meta.typeof(state) .. "`")
+    rt.assert(meta.is_enum_value(state, rt.SelectionState), "In `", meta.typeof(self), "`.set_selection_state: for argument #1: expected `SelectionState`, got `", meta.typeof(state), "`")
     self._selection_state = state
 end

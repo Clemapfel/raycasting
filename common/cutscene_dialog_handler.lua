@@ -102,7 +102,7 @@ function rt.DialogHandler:create_from(tree_id)
     self._tree = tree
 
     if tree == nil then
-        rt.error("In rt.DialogHandler.push: no dialog tree with id `" .. tree_id .. "` present in common/translation.lua")
+        rt.error("In rt.DialogHandler.push: no dialog tree with id `", tree_id, "` present in common/translation.lua")
     end
 
     local settings = rt.settings.dialog_handler
@@ -127,18 +127,18 @@ function rt.DialogHandler:create_from(tree_id)
             if meta.is_table(node.next) then
                 for pair in values(node.next) do
                     if seen_nodes[pair[2]] == nil then
-                        rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "` points to id `" .. pair[2] .. "`, but it is not present in tree")
+                        rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", id, "` points to id `", pair[2], "`, but it is not present in tree")
                     end
                 end
             else
                 if seen_nodes[node.next] == nil then
-                    rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "` points to id `" .. node.next.. "`, but it is not present in tree")
+                    rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", id, "` points to id `", node.next.. "`, but it is not present in tree")
                 end
             end
         end
 
         if not meta.is_string(node[1]) then
-            rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "` has no text")
+            rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", id, "` has no text")
         end
 
         -- construct nodes
@@ -169,7 +169,7 @@ function rt.DialogHandler:create_from(tree_id)
 
         if orientation ~= nil then
             if not (orientation == orientation_left or orientation == orientation_right) then
-                rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "`.orientation` is not `" .. orientation_left .. "` or `" .. orientation_right .. "`")
+                rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", id, "`.orientation` is not `", orientation_left, "` or `", orientation_right, "`")
             end
 
             if orientation == orientation_left then
@@ -190,7 +190,7 @@ function rt.DialogHandler:create_from(tree_id)
             for pair in values(node.next) do
                 local answer, next = table.unpack(pair)
                 if not meta.is_string(answer) then
-                    rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. ".next` is a choice, but answer at `" .. choice_i .. "` is not a table of the form `{ \"answer\", 1 }`")
+                    rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", id, ".next` is a choice, but answer at `", choice_i, "` is not a table of the form `{ \"answer\", 1 }`")
                 end
 
                 -- format, unless formatting already present
@@ -247,7 +247,7 @@ function rt.DialogHandler:create_from(tree_id)
                 if choice_entry.next ~= nil then
                     local next = self._entries[choice_entry.next]
                     if next == nil then
-                        rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. entry.id .. ".choices[" .. choice_i .. "]` has `" .. choice_entry.next .. "` as next, which does not point to a valid node")
+                        rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", entry.id, ".choices[", choice_i, "]` has `", choice_entry.next, "` as next, which does not point to a valid node")
                     end
 
                     choice_entry.next = next
@@ -260,7 +260,7 @@ function rt.DialogHandler:create_from(tree_id)
             if entry.next ~= nil then
                 local next = self._entries[entry.next]
                 if next == nil then
-                    rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. entry.id .. ".next` has `" .. entry.next .. "`as next, which does not point to a valid node")
+                    rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", entry.id, ".next` has `", entry.next, "`as next, which does not point to a valid node")
                 end
                 entry.next = next
                 can_be_visited[next.id] = true
@@ -270,13 +270,13 @@ function rt.DialogHandler:create_from(tree_id)
 
     for id, b in pairs(can_be_visited) do
         if b == false then
-            rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: node `" .. id .. "` has no node pointing to it, it cannot be visited")
+            rt.error("In rt.DialogHandler: in tree `", tree_id, "`: node `", id, "` has no node pointing to it, it cannot be visited")
         end
     end
 
     self._active_entry = self._entries[1]
     if self._active_entry == nil then
-        rt.error("In rt.DialogHandler: in tree `" .. tree_id .. "`: no node with id `1`, unable to determine first node in tree")
+        rt.error("In rt.DialogHandler: in tree `", tree_id, "`: no node with id `1`, unable to determine first node in tree")
     end
 
     if self:get_is_realized() then

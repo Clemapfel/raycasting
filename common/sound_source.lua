@@ -10,7 +10,7 @@ rt.SoundSource = meta.class("SoundSource")
 
 --- @brief
 function rt.SoundSource:instantiate(id, native)
-    assert(native.typeOf ~= nil and native:typeOf("Source"), "In rt.SoundSource: expected `love.audio.Source`, got `" .. meta.typeof(native) .. "` ")
+    rt.assert(native.typeOf ~= nil and native:typeOf("Source"), "In rt.SoundSource: expected `love.audio.Source`, got `", meta.typeof(native), "` ")
     self._id = id
     self._native = native
 end
@@ -25,7 +25,7 @@ function rt.SoundSource:_check_disabled(scope)
     -- `SoundManager` may disable wrapper so if source is reused
     -- this reference does not affect another `SoundSource`
     if self._native == nil then
-        rt.critical("In rt.SoundSource." .. scope .. ": trying to use source `" .. self._id .. "`, but it is already released")
+        rt.critical("In rt.SoundSource.",  scope,  ": trying to use source `",  self._id,  "`, but it is already released")
         return true
     else
         return false
@@ -66,7 +66,7 @@ function rt.SoundSource:set_filter(type, gain)
     end
 
     if not self._native:setFilter(config) then
-        rt.critical("In rt.SoundSource: unable to apply filter `" .. type .. "` to source `" .. self._id .. "`")
+        rt.critical("In rt.SoundSource: unable to apply filter `",  type,  "` to source `",  self._id,  "`")
     end
 end
 

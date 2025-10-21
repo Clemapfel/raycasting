@@ -104,13 +104,13 @@ function rt.PlayerBody:instantiate(config)
         elseif key == "rope_length_radius_factor" then
             self._rope_length_radius_factor = value
         else
-            rt.error("In rt.PlayerBody: unrecognized key `" .. key .. "`")
+            rt.error("In rt.PlayerBody: unrecognized key `", key, "`")
         end
     end
 
     for key, is_present in pairs(necessary_keys) do
         if is_present == false then
-            rt.error("In rt.PlayerBody: key `" .. key .. "` is not present in config")
+            rt.error("In rt.PlayerBody: key `", key, "` is not present in config")
         end
     end
 

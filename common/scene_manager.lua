@@ -116,7 +116,7 @@ end
 
 --- @brief
 function rt.SceneManager:push(scene_type, ...)
-    assert(scene_type ~= nil, "In rt.SceneManager: scene type cannot be nil")
+    rt.assert(scene_type ~= nil, "In rt.SceneManager: scene type cannot be nil")
     if self._current_scene_type ~= scene_type then
         self:_set_scene(true, scene_type, ...)
     else
@@ -175,7 +175,7 @@ end
 
 --- @brief
 function rt.SceneManager:resize(width, height)
-    assert(type(width) == "number" and type(height) == "number")
+    rt.assert(type(width) == "number" and type(height) == "number")
 
     self._width = width
     self._height = height

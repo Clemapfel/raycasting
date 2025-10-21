@@ -34,7 +34,7 @@ end
 local function _import_audio(sound_path)
     local success, data_or_error = pcall(love.sound.newSoundData, sound_path)
     if not success then
-        rt.critical("In rt.SoundManager.play: when trying to play sound at `" .. sound_path .. "`: " .. data_or_error)
+        rt.critical("In rt.SoundManager.play: when trying to play sound at `",  sound_path,  "`: ",  data_or_error)
         return nil
     end
 

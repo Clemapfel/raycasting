@@ -136,7 +136,7 @@ setmetatable(rt.Palette, {
     __index = function(self, key)
         local out = _backup[key]
         if out == nil then
-            rt.error("In rt.Palette. trying to access color `" .. key .. "`, but it does not exist")
+            rt.error("In rt.Palette. trying to access color `",  key,  "`, but it does not exist")
         end
         return out
     end,

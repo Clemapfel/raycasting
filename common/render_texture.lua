@@ -77,5 +77,5 @@ end
 --- @brief
 function rt.RenderTexture:free()
     if self._is_valid == false then return end
-    assert(self._native:release(), "RenderTexture was already released")
+    rt.assert(self._native:release(), "RenderTexture was already released")
 end

@@ -83,7 +83,7 @@ function rt.GameState:_update_save_worker()
             end
         elseif message.type == MessageType.ERROR then
             -- { type, reason }
-            rt.error("In rt.GameState:_update_save_worker: Thread error: " .. message.reason)
+            rt.error("In rt.GameState:_update_save_worker: Thread error: ", message.reason)
         end
     end
 end

@@ -200,7 +200,7 @@ function rt.ThreadPool:update(delta)
                 end
                 table.insert(message_entry, message.data)
             elseif message.type == MessageType.ERROR then
-                rt.error("In rt.ThreadPool: " .. message.reason)
+                rt.error("In rt.ThreadPool: ",  message.reason)
             end
 
             message = entry._worker_to_main:pop()

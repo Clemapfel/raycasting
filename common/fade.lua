@@ -164,7 +164,7 @@ end
 --- @brief
 function rt.Fade:set_shader(shader)
     meta.assert(shader, rt.Shader)
-    assert(shader:get_native():hasUniform("value"))
+    rt.assert(shader:get_native():hasUniform("value"))
     self._shader = shader
     self._shader:compile()
 end
