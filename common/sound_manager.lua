@@ -1,4 +1,5 @@
 require "common.sound_source"
+require "common.sound_effect"
 require "common.filesystem"
 require "table.clear"
 require "common.sound_ids"
@@ -15,13 +16,14 @@ rt.settings.sound_manager = {
 
     -- distance modeling
     z_offset = -1,
-    distance_model = "inverseclamped",
+    distance_model = "inverse",
     rolloff = 2,
     scale = 1 / 2000, -- panning, lower is less panning
-    distance_scale = 1 / 200 -- attenuation, lower is less attenuation
+    distance_scale = 1 / 100 -- attenuation, lower is less attenuation
 }
 
 --- @class rt.SoundManager
+--- @signals sound_done (rt.SoundManager, SoundID : String, HandlerID : Number) -> nil
 rt.SoundManager = meta.class("SoundManager")
 
 local _is_config_file = function(path)
@@ -86,7 +88,9 @@ function rt.SoundManager:instantiate()
                 sound_data = nil, -- love.SoundData
                 duration = nil, -- seconds
                 handler_id_to_active_sources = {}, -- Table<Number, love.Source>
-                handler_id_to_volume = {}, -- Table<Number, Number>
+                handler_id_to_volume_motion = {}, -- Table<Number, rt.SmoothedMotion1D>
+                handler_id_to_pitch_motion = {}, -- Table<Number, rt.SmoothedMotion1D>
+                handler_id_to_effects = {}, -- Table<Number, Table<rt.SoundEffect>>
                 inactive_source_to_timestamp = {}, -- Table<love.Source, Number>
                 was_processed = false,
                 equalizer_entry_rms = 0,
@@ -326,8 +330,6 @@ for key in range(
     _config_valid_keys[key] = true
 end
 
-local _handler_id_to_source_wrapper = meta.make_weak({})
-
 --- @brief
 --- @return Number handler id
 function rt.SoundManager:play(id, config)
@@ -349,10 +351,11 @@ function rt.SoundManager:play(id, config)
     end
 
     local entry = self:_get_entry(id, "play")
-    if entry == nil then return end
 
     config.handler_id = self._current_handler_id
     self._current_handler_id = self._current_handler_id + 1
+
+    if entry == nil then return config.handler_id end
 
     if entry.sound_data == nil then
         entry.sound_data = _import_audio(entry.sound_path)
@@ -374,7 +377,9 @@ function rt.SoundManager:play(id, config)
     end
 
     entry.handler_id_to_active_sources[config.handler_id] = source
-    entry.handler_id_to_volume[config.handler_id] = 1
+    entry.handler_id_to_volume_motion[config.handler_id] = nil
+    entry.handler_id_to_pitch_motion[config.handler_id] = nil
+    entry.handler_id_to_effects[config.handler_id] = {}
 
     if position_specified then
         -- static position in world
@@ -403,12 +408,9 @@ function rt.SoundManager:play(id, config)
     local current = self._id_to_n_active_sources[id]
     if current == nil then current = 0 end
     self._id_to_n_active_sources[id] = current + 1
-
     self._active_entries[entry] = true
 
-    local wrapper = rt.SoundSource(config.id, source)
-    _handler_id_to_source_wrapper[config.handler_id] = wrapper
-    return wrapper
+    return config.handler_id
 end
 
 --- @brief
@@ -447,41 +449,114 @@ function rt.SoundManager:stop(id, handler_id)
 end
 
 --- @brief
-function rt.SoundManager:set_volume(id, handler_id, volume)
+function rt.SoundManager:set_volume(id, handler_id, volume, use_smoothing)
     if id == nil then
         return
     else
-        meta.assert(id, "String", handler_id, "Number", volume, "Number")
+        if use_smoothing == nil then use_smoothing = true end
+        meta.assert(id, "String", handler_id, "Number", volume, "Number", use_smoothing, "Boolean")
     end
 
     local entry = self:_get_entry(id, "set_volume")
-    local source = entry.handler_id_to_active_sources[handler_id]
+    if entry == nil then return end
 
-    if source == nil then
-        rt.warning(string.paste("In rt.SoundManager.set_volume: sound `", id, "` has not active source with handler id `", handler_id, "`"))
+    if entry.handler_id_to_active_sources[handler_id] == nil then
+        rt.warning("In rt.SoundManager.set_volume: sound `", id, "` has no active source with handler id `", handler_id, "`")
     else
-        entry.handler_id_to_volume[handler_id] = math.clamp(volume, 0, 1)
+        local motion =  entry.handler_id_to_volume_motion[handler_id]
+        if motion == nil then
+            motion = rt.SmoothedMotion1D(1)
+            entry.handler_id_to_volume_motion[handler_id] = motion
+        end
+
+        volume = math.clamp(volume, 0, 1)
+        motion:set_target_value(volume)
+        if use_smoothing == false then
+            motion:set_current_value(volume)
+        end
         -- applied to source next update
     end
 end
 
 --- @brief
-function rt.SoundManager:stop(id, handler_id)
+function rt.SoundManager:set_pitch(id, handler_id, pitch, use_smoothing)
+    if id == nil then
+        return
+    else
+        if use_smoothing == nil then use_smoothing = true end
+        meta.assert(id, "String", handler_id, "Number", pitch, "Number", use_smoothing, "Boolean")
+    end
+
+    local entry = self:_get_entry(id, "set_pitch")
+    if entry == nil then return end
+
+    if entry.handler_id_to_active_sources[handler_id] == nil then
+        rt.warning("In rt.SoundManager.set_pitch: sound `", id, "` has no active source with handler id `", handler_id, "`")
+    else
+        local motion =  entry.handler_id_to_pitch_motion[handler_id]
+        if motion == nil then
+            motion = rt.SmoothedMotion1D(1)
+            entry.handler_id_to_pitch_motion[handler_id] = motion
+        end
+
+        motion:set_target_value(pitch)
+        if use_smoothing == false then
+            motion:set_current_value(pitch)
+        end
+    end
+end
+
+local _reference_filter = nil
+
+--- @brief
+function rt.SoundManager:set_filter(id, handler_id, t)
+    local entry = self:_get_entry(id, "set_filter")
+    if entry == nil then return end
+
+    t = math.clamp(t, 0, 1)
+
+    local source = entry.handler_id_to_active_sources[handler_id]
+    if source == nil then return end
+
+    if _reference_filter == nil then
+        _reference_filter = "reference_bandpass"
+        love.audio.setEffect(_reference_filter, {
+            type = "equalizer",
+            volume = 1,
+            lowgain = 0,
+            lowmidgain = 1,
+            highmidgain = 1,
+            highgain = 0
+        })
+    end
+
+    source:setEffect(_reference_filter, {
+        type = "bandpass",
+        volume = 1,
+        lowgain = t,
+        highgain = 1 - t
+    })
+end
+
+--- @brief
+function rt.SoundManager:stop(id, handler_id, fade_out_duration)
     if handler_id == nil then
         meta.assert(id, "String")
     else
         meta.assert(id, "String", handler_id, "Number")
     end
 
+    if fade_out_duration == nil then fade_out_duration = rt.settings.sound_manager.source_stop_decay_duration end
+
     local entry = self:_get_entry(id, "play")
 
     local to_stop = {}
     local add = function(entry, handler_id)
-        assert(entry.handler_id_to_active_sources[handler_id] ~= nil)
         table.insert(to_stop, {
             entry = entry,
             handler_id = handler_id,
-            elapsed = 0
+            elapsed = 0,
+            duration = fade_out_duration
         })
     end
 
@@ -501,32 +576,67 @@ function rt.SoundManager:stop(id, handler_id)
     end
 end
 
+--- @brief
+function rt.SoundManager:list_active_handler_ids(sound_id)
+    local entry = self:_get_entry(sound_id, "list_handler_ids")
+    local out = {}
+    if entry ~= nil then
+        for handler_id in keys(entry.handler_id_to_active_sources) do
+            table.insert(out, handler_id)
+        end
+    end
+    return out
+end
+
 -- sound manager is run at very high refresh rate for
--- smooth fading, but deallocation only needs to check rarely
+-- smooth fading, but deallocation only needs to
+-- check rarely, run it at 60 fps
 local _elapsed = 0
 local _step = 1 / 60
 
 --- @brief
 function rt.SoundManager:update(delta)
     do -- fade out
-        local duration = rt.settings.sound_manager.source_stop_decay_duration
         local easing = function(t)
             return rt.InterpolationFunctions.SINUSOID_EASE_OUT(1 - math.clamp(t, 0, 1))
         end
 
-        do -- stops
+        do -- pitch
+            for entry in keys(self._active_entries) do
+                for handler_id, motion in pairs(entry.handler_id_to_pitch_motion) do
+                    local source = entry.handler_id_to_active_sources[handler_id]
+                    if source ~= nil then
+                        source:setPitch(motion:update(delta))
+                    end
+                end
+
+                for handler_id, motion in pairs(entry.handler_id_to_volume_motion) do
+                    local source = entry.handler_id_to_active_sources[handler_id]
+                    if source ~= nil then
+                        source:setVolume(motion:update(delta))
+                    end
+                end
+            end
+        end
+
+        do -- stops & volume
             local to_remove = {}
             for i, stop_entry in ipairs(self._stop_entries) do
                 -- sinusoid because it is smooth on both ends and actually reaches 0
-                local t = easing(stop_entry.elapsed / duration)
+                local t = easing(stop_entry.elapsed / stop_entry.duration)
 
                 local entry, handler_id = stop_entry.entry, stop_entry.handler_id
                 local source = entry.handler_id_to_active_sources[handler_id]
                 if source ~= nil then
-                    source:setVolume(t * (entry.handler_id_to_volume[handler_id] or 1))
+                    local motion = entry.handler_id_to_volume_motion[handler_id]
+                    if motion == nil then
+                        source:setVolume(t)
+                    else
+                        source:setVolume(t * motion:get_value())
+                    end
                 end
 
-                if stop_entry.elapsed > duration then
+                if stop_entry.elapsed > stop_entry.duration then
                     if source ~= nil then source:stop() end
                     table.insert(to_remove, i)
                 end
@@ -566,7 +676,9 @@ function rt.SoundManager:update(delta)
                 for handler_id in values(to_move) do
                     local source = entry.handler_id_to_active_sources[handler_id]
                     entry.handler_id_to_active_sources[handler_id] = nil
-                    entry.handler_id_to_volume[handler_id] = nil
+                    entry.handler_id_to_volume_motion[handler_id] = nil
+                    entry.handler_id_to_pitch_motion[handler_id] = nil
+                    entry.handler_id_to_effects[handler_id] = {}
                     entry.inactive_source_to_timestamp[source] = love.timer.getTime()
 
                     local current = self._id_to_n_active_sources[entry.id]
@@ -575,11 +687,6 @@ function rt.SoundManager:update(delta)
                     if table.sizeof(entry.handler_id_to_active_sources) == 0 then
                         table.insert(to_mark_inactive, entry)
                     end
-
-                    -- disable wrapper
-                    local wrapper = _handler_id_to_source_wrapper[handler_id]
-                    wrapper._native = nil
-                    _handler_id_to_source_wrapper[handler_id] = nil
                 end
             end
         end

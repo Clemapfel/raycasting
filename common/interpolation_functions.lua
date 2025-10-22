@@ -1,11 +1,9 @@
 --- @class rt.InterpolationFunction
 rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
-    CONSTANT_ZERO = function(x)
-        return 0
-    end,
-
-    CONSTANT = function(x)
-        return 1
+    CONSTANT = function(x, constant)
+        -- c
+        if constant == nil then constant = 1 end
+        return constant
     end,
 
     LINEAR = function(x, slope)

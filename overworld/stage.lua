@@ -79,7 +79,10 @@ function ow.Stage:instantiate(scene, id)
         _light_sources = {},
 
         -- npc
-        _player_recorder = nil -- ow.PlayerRecorder
+        _player_recorder = nil, -- ow.PlayerRecorder
+
+        -- goal fade to black
+        _fade_to_black = 0
     })
 
     self._player_recorder = ow.PlayerRecorder(self, self._scene)
@@ -466,6 +469,13 @@ end
 function ow.Stage:get_point_light_sources()
     local positions = {}
     local colors = {}
+
+    -- sort to have consistent order if number of body exceeds
+    -- normal map point light limit
+    table.sort(self._light_sources, function(a, b)
+        return meta.hash(a) < meta.hash(b)
+    end)
+
     for body in values(self._light_sources) do
         local class = body:get_user_data()
         if class ~= nil and class.get_color then
@@ -476,10 +486,10 @@ function ow.Stage:get_point_light_sources()
 
             if color.a == 0 then goto skip end
             table.insert(colors, { class:get_color():unpack() })
-        end
 
-        local cx, cy = body:get_center_of_mass()
-        table.insert(positions, { cx, cy })
+            local cx, cy = body:get_center_of_mass()
+            table.insert(positions, { cx, cy })
+        end
         ::skip::
     end
 
@@ -723,4 +733,11 @@ function ow.Stage:reset()
     for instance in values(self._to_reset) do
         instance:reset()
     end
+
+    self._fade_to_black = 0
+end
+
+--- @brief
+function ow.Stage:set_fade_to_black(t)
+    self._fade_to_black = t
 end

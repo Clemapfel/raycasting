@@ -21,7 +21,16 @@ rt.SoundIDs = {
             player_reflected = "todo", --
             selection = "todo", --
             confirm = "todo", --
-            neon_buzz = "0008 - Run, My Dog, Run!",
+            neon_buzz = "todo", --
+        },
+
+        stage_select = {
+            wind_rush = "todo", --
+            debris_continuous = "todo", --
+            debris_collision = "todo", --
+            frame_expand = "todo",
+            frame_contract = "todo",
+            frame_move = "todo"
         }
     },
 

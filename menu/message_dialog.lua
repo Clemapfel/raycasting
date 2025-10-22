@@ -209,7 +209,7 @@ function mn.MessageDialog:_update_selected_item()
     end
 
     if changed == true then
-        rt.SoundManager:play(rt.SoundIDs.menu.message.select_button)
+        rt.SoundManager:play(rt.SoundIDs.menu.message_dialog.select_button)
     end
 end
 

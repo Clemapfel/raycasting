@@ -104,6 +104,10 @@ function math.equals(a, b, eps)
     return math.abs(a - b) <= eps
 end
 
+function math.is_nan(x)
+    return x ~= x
+end
+
 --- @brief
 function math.mix_angles(angle_a, angle_b, ratio)
     angle_a = math.normalize_angle(angle_a)

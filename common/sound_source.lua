@@ -9,15 +9,26 @@ rt.SoundSourceFilterType = meta.enum("SoundSourceFilterType", {
 rt.SoundSource = meta.class("SoundSource")
 
 --- @brief
-function rt.SoundSource:instantiate(id, native)
+function rt.SoundSource:instantiate(id, handler_id, native)
     rt.assert(native.typeOf ~= nil and native:typeOf("Source"), "In rt.SoundSource: expected `love.audio.Source`, got `", meta.typeof(native), "` ")
     self._id = id
+    self._handler_id = handler_id
     self._native = native
 end
 
 --- @brief
 function rt.SoundSource:get_native()
     return self._native
+end
+
+--- @brief
+function rt.SoundSource:get_id()
+    return self._id
+end
+
+--- @brief
+function rt.SoundSource:get_handler_id()
+    return self._handler_id
 end
 
 --- @brief
@@ -38,15 +49,13 @@ function rt.SoundSource:stop()
     self._native:stop()
 end
 
---- @brief
+-- no volume, handled by sound manager
 function rt.SoundSource:set_volume(v)
-    if self:_check_disabled("set_volume") then return end
-    self._native:setVolume(v)
+    rt.critical("In rt.SoundSource.set_volume, volume cannot be set directly, use rt.SoundManager.set_volume(source:get_id(), source:get_handler_id(), volume)")
 end
 
---- @brief
 function rt.SoundSource:get_volume()
-    if self:_check_disabled("set_volume") then return 0 end
+    if self:_check_disabled("get_volume") then return 0 end
     return self._native:getVolume()
 end
 

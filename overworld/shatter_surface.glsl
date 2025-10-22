@@ -119,6 +119,7 @@ float dirac(float x) {
 uniform float elapsed;
 uniform float fraction; // 0: start, 1: end;
 uniform bool draw_bloom = true;
+uniform float flash;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
 
@@ -149,10 +150,17 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     float outline = 1 - color.a > 0 ? 1 : 0;
     vec4 rim = vec4(mix( vec3(0), color.rgb, outline), outline);
 
+    float intensity = 0.6;
+    pattern_outline *= intensity;
+    pattern_fill *= intensity;
+
+    vec4 result;
     if (!draw_bloom)
-        return rim + (1 - outline) * vec4(color.rgb * vec3((1 - fraction * 0.5) * min(pattern_outline + pattern_fill, 1)), 1);
+        result = rim + (1 - outline) * vec4(color.rgb * vec3((1 - fraction * 0.5) * min(pattern_outline + pattern_fill, 1)), 1);
     else
-        return rim + (1 - outline) * vec4(color.rgb * pattern_outline, 1);
+        result = rim + (1 - outline) * vec4(color.rgb * pattern_outline, 1);
+
+    return mix(result, vec4(1), flash);
 }
 
 #endif

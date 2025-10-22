@@ -8,13 +8,13 @@ local appdata_dir = string.gsub(love.filesystem.getSaveDirectory(), "\\", "/")
 
 -- convert _000...001234 to 1234
 local save_id_to_index = function(filename)
-    assert(type(filename) == "string")
+    rt.assert(type(filename) == "string")
     return string.match(filename, "^_0*(%d+)$")
 end
 
 -- convert 1234 to _00...0001234
 local index_to_save_id = function(id)
-    assert(type(id) == "number")
+    rt.assert(type(id) == "number")
     local str = id
     return "_" .. string.rep("0", math.max(16 - utf8.len(str), 0)) .. id
 end

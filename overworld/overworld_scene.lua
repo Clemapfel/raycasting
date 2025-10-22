@@ -119,6 +119,8 @@ function ow.OverworldScene:instantiate(state)
         _result_screen_transition_active = false,
         _result_screen_transition_elapsed = 0,
         _result_screen_transition_fraction = 0,
+
+        _fade_to_black = 0
     })
 
     local translation = rt.Translation.overworld_scene
@@ -610,6 +612,13 @@ function ow.OverworldScene:draw()
         end
     else -- not fading
         self._background:draw()
+
+        if self._fade_to_black > 0 then
+            local r, g, b, _ = rt.Palette.BLACK:unpack()
+            love.graphics.setColor(r, g, b, self._fade_to_black)
+            love.graphics.rectangle("fill", self._bounds:unpack())
+        end
+
         self._camera:bind()
         self._stage:draw_below_player()
         if self._player_is_visible then
@@ -754,7 +763,7 @@ function ow.OverworldScene:_draw_debug_information()
     love.graphics.translate(5, 5) -- top margins
     love.graphics.printf(table.concat(to_concat, " | "), 0, 0, math.huge)
 
-    if self._stage ~= nil then
+    if self._stage ~= nil and rt.GameState:get_draw_speedrun_splits() then
         -- draw speedrun splits as two columns
         local splits = {}
         local currents_strings = {}
@@ -1133,6 +1142,8 @@ function ow.OverworldScene:reset()
     ow.StageConfig:clear_cache()
     rt.Sprite._path_to_spritesheet = {}
 
+    self._fade_to_black = 0
+
     self:unpause()
     self:enter(before, false)
 end
@@ -1242,5 +1253,11 @@ end
 --- @brief
 function ow.OverworldScene:get_control_indicator()
     return self._control_indicator_type_to_control_indicator[self._control_indicator_type]
+end
+
+--- @brief
+function ow.OverworldScene:set_fade_to_black(t)
+    self._fade_to_black = t
+    if self._stage ~= nil then self._stage:set_fade_to_black(t) end
 end
 

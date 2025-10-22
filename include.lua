@@ -34,11 +34,11 @@ if DEBUG then
 end
 
 -- globals
-rt = {}
-mn = {}
-ow = {}
-b2 = {}
-bd = {}
+rt = {} -- common
+mn = {} -- menu
+ow = {} -- overworld
+b2 = {} -- physics (box2d)
+bd = {} -- build
 rt.graphics = {}
 
 for id, t in pairs({

@@ -14,7 +14,7 @@ rt.settings.overworld.normal_map = {
     point_light_intensity = 1,
     segment_light_intensity = 0.2,
 
-    max_n_point_lights = 32,
+    max_n_point_lights = 256,
     max_n_segment_lights = 16
 }
 

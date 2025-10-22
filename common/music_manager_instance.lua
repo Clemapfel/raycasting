@@ -56,7 +56,8 @@ function rt.MusicManagerInstance:instantiate()
 
     bd.apply(rt.settings.music_manager.config_directory, function(directory_path, directory_name)
         if not bd.is_directory(directory_path) then
-            rt.warning("In rt.MusicManagerInstance: ignoring file at `", directory_path, "`: not a directory")
+            --rt.warning("In rt.MusicManagerInstance: ignoring file at `", directory_path, "`: not a directory")
+            -- noop
         else
             -- locate .mp3 and .lua
             local mp3, lua

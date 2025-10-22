@@ -6,18 +6,17 @@ function rt.SmoothedMotion1D:instantiate(value, speed, ramp)
     if ramp == nil then ramp = 6 end
     if speed == nil then speed = 1 end
     meta.assert(value, "Number", speed, "Number")
-    meta.install(self, {
-        _attack_speed = speed,
-        _decay_speed = speed,
-        _ramp = ramp,
-        _current_value = value,
-        _target_value = value,
-        _elapsed = 0,
 
-        _is_periodic = false,
-        _lower_bound = 0,
-        _upper_bound = 1
-    })
+    self._attack_speed = speed
+    self._decay_speed = speed
+    self._ramp = ramp
+    self._current_value = value
+    self._target_value = value
+    self._elapsed = 0
+
+    self._is_periodic = false
+    self._lower_bound = 0
+    self._upper_bound = 1
 end
 
 --- @brief
@@ -45,9 +44,7 @@ end
 --- @brief
 function rt.SmoothedMotion1D:update(delta)
     local distance
-
     if self._is_periodic then
-        -- Calculate the periodic distance
         local range = self._upper_bound - self._lower_bound
         local direct_distance = self._target_value - self._current_value
         local wrapped_distance = direct_distance - range * math.floor((direct_distance + range * 0.5) / range)
@@ -66,11 +63,9 @@ function rt.SmoothedMotion1D:update(delta)
     self._current_value = self._current_value + step
 
     if self._is_periodic then
-        -- Wrap the current value to stay within bounds
         local range = self._upper_bound - self._lower_bound
         self._current_value = self._lower_bound + ((self._current_value - self._lower_bound) % range)
 
-        -- Check if we've reached the target (accounting for wrapping)
         local final_distance = self._target_value - self._current_value
         local wrapped_final_distance = final_distance - range * math.floor((final_distance + range * 0.5) / range)
         if math.abs(wrapped_final_distance) < math.abs(step) then

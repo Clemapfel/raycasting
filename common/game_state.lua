@@ -52,6 +52,7 @@ function rt.GameState:instantiate()
         trigger_deadzone = 0.05,
         performance_mode_enabled = false,
         draw_debug_information = true,
+        draw_speedrun_splits = false,
         player_sprint_mode = rt.PlayerSprintMode.HOLD,
         color_blind_mode = true,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
@@ -233,6 +234,17 @@ end
 --- @brief
 function rt.GameState:get_draw_debug_information()
     return self._state.draw_debug_information
+end
+
+--- @brief
+function rt.GameState:set_draw_speedrun_splits(b)
+    meta.assert(b, "Boolean")
+    self._state.draw_speedrun_splits = b
+end
+
+--- @brief
+function rt.GameState:get_draw_speedrun_splits()
+    return self._state.draw_speedrun_splits
 end
 
 --- @brief

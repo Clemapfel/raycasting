@@ -4565,8 +4565,8 @@ return {
           name = "",
           type = "Portal",
           shape = "point",
-          x = -1344,
-          y = 896,
+          x = -1032.61,
+          y = 893.558,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4582,8 +4582,8 @@ return {
           name = "",
           type = "PortalNode",
           shape = "point",
-          x = -1264,
-          y = 896,
+          x = -952.607,
+          y = 893.558,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4595,8 +4595,8 @@ return {
           name = "",
           type = "Portal",
           shape = "point",
-          x = -1520,
-          y = 896,
+          x = -1208.61,
+          y = 893.558,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4612,8 +4612,8 @@ return {
           name = "",
           type = "PortalNode",
           shape = "point",
-          x = -1440,
-          y = 896,
+          x = -1128.61,
+          y = 893.558,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5022,59 +5022,6 @@ return {
           visible = true,
           properties = {
             ["target"] = { id = 894 }
-          }
-        },
-        {
-          id = 906,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -2063.27,
-          y = 478.7,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 0 }
-          }
-        },
-        {
-          id = 907,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -1920,
-          y = -80,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 201.718, y = 522.264 },
-            { x = 207.187, y = 596.889 },
-            { x = 244.667, y = 596.889 },
-            { x = 258.934, y = 596.889 },
-            { x = 253.465, y = 522.264 }
-          },
-          properties = {
-            ["target"] = { id = 908 },
-            ["velocity"] = 100
-          }
-        },
-        {
-          id = 908,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -1696,
-          y = 480,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 906 }
           }
         },
         {

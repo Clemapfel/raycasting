@@ -18,7 +18,9 @@ rt.settings.menu.stage_select_debris_emitter = {
 }
 
 --- @class mn.StageSelectDebrisEmitter
+--- @signal collisiong (mn.StageSelectDebrisEmitter, position_x, position_y) -> nil
 mn.StageSelectDebrisEmitter = meta.class("StageSelectDebrisEmitter", rt.Widget)
+meta.add_signals(mn.StageSelectDebrisEmitter, "collision")
 
 local _trail_texture = nil
 
@@ -47,8 +49,6 @@ function mn.StageSelectDebrisEmitter:instantiate()
     self._collision = {}
     self._bounds = rt.AABB(0, 0, love.graphics.getDimensions())
     self._offset_x, self._offset_y = 0, 0
-
-    self._collision_bar = {}
 end
 
 --- @brief
@@ -255,12 +255,9 @@ function mn.StageSelectDebrisEmitter:update(delta)
                 y = particle.y,
                 elapsed = 0,
                 radius = math.mix(min_radius, max_radius, particle.radius) * 2,
-                color = table.deepcopy(particle.color) -- because particle will be free
+                color = table.deepcopy(particle.color) -- because particle may be freed
             })
-            table.insert(self._collision_bar, {
-                radius = particle.radius,
-                color = table.deepcopy(particle.color)
-            })
+            self:signal_emit("collision", particle.x, particle.y)
         end
 
         local points = {}
