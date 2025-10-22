@@ -21,6 +21,7 @@ rt.settings.settings_scene = {
     performance_mode_default = false,
     color_blind_mode_default = false,
     draw_debug_info_default = false,
+    draw_speedrun_splits_default = false,
     sprint_mode_default = rt.PlayerSprintMode.HOLD,
 
     scale_movement_ticks_per_second = 100,
@@ -68,7 +69,7 @@ local _shader = rt.Shader("menu/settings_scene_background.glsl", { MODE = 0 })
 function mn.SettingsScene:instantiate()
     self._background_only = false
     local translation = rt.Translation.settings_scene
-    
+
     self._option_button_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_select,
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
@@ -85,7 +86,7 @@ function mn.SettingsScene:instantiate()
 
     self._verbose_info = mn.VerboseInfoPanel()
     self._item_stencil = rt.AABB()
-    
+
     self._heading_label = rt.Label("<b><o>" .. translation.heading .. "</o></b>")
     self._heading_label_frame = rt.Frame()
 
@@ -127,7 +128,7 @@ function mn.SettingsScene:instantiate()
         self._list:add_item(item)
         return item
     end
-   
+
     local new_scale = function(default_value)
         return mn.Scale(0, 1, 100, default_value)
     end
@@ -417,6 +418,33 @@ function mn.SettingsScene:instantiate()
 
         item:signal_connect("reset", function(_)
             performance_mode_button:set_option(performance_mode_to_label[rt.settings.settings_scene.performance_mode_default])
+        end)
+    end
+
+    do -- speedrun splits
+        local draw_speedrun_splits_to_label = {
+            [false] = translation.draw_speedrun_splits_off,
+            [true] = translation.draw_speedrun_splits_on
+        }
+        local label_to_draw_speedrun_splits = reverse(draw_speedrun_splits_to_label)
+
+        local draw_speedrun_splits_button = mn.OptionButton({
+            draw_speedrun_splits_to_label[false],
+            draw_speedrun_splits_to_label[true]
+        })
+
+        draw_speedrun_splits_button:set_option(draw_speedrun_splits_to_label[rt.GameState:get_draw_speedrun_splits()])
+        draw_speedrun_splits_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_draw_speedrun_splits(label_to_draw_speedrun_splits[label])
+        end)
+
+        local item = add_item(
+            translation.draw_speedrun_splits_prefix, draw_speedrun_splits_button,
+            mn.VerboseInfoObject.DRAW_SPEEDRUN_SPLITS_ENABLED
+        )
+
+        item:signal_connect("reset", function(_)
+            draw_speedrun_splits_button:set_option(draw_speedrun_splits_to_label[rt.settings.settings_scene.draw_speedrun_splits_default])
         end)
     end
 

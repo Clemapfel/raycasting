@@ -143,7 +143,7 @@ rt.Translation = {
         vsync_title = "Vertical Synchronization (VSync)",
         vsync_description = "If enabled, limits maximum FPS to the refresh rate of the monitor",
         vsync_widget = function(fps)
-            return "Current FPS: ",  fps
+            return "Current FPS: " .. fps
         end,
 
         music_level_widget = function(percentage)
@@ -183,6 +183,9 @@ rt.Translation = {
 
         draw_debug_info_enabled_title = "Draw Debug Information",
         draw_debug_info_enabled_description = "Whether to show various information at the top of the screen",
+
+        draw_speedrun_splits_enabled_title = "Draw Checkpoint Timings",
+        draw_speedrun_splits_enabled_description = "Show frame-perfect timestamps for when a checkpoint is reached or the level is completed. Useful for speedrunners, automatically accounts for lag or loading",
 
         text_speed_title = "Text Speed",
         text_speed_description = "How fast letters appear in dialog boxes",
@@ -268,6 +271,10 @@ rt.Translation = {
         draw_debug_info_prefix = "Draw Debug Info",
         draw_debug_info_on = "Yes",
         draw_debug_info_off = "No",
+
+        draw_speedrun_splits_prefix = "Draw Checkpoint Times",
+        draw_speedrun_splits_on = "Yes",
+        draw_speedrun_splits_off = "No",
 
         music_level_prefix = "Music",
         sound_effect_level_prefix = "Sound Effects",
