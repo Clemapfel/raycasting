@@ -2,6 +2,9 @@
 
 AcceleratorSurface
 AcceleratorSurface + Portal as Loop
+AcceleratorSurface as vertical wall
+AcceleratorSurface + Bubble
+
 BoostField
 BouncePad
 BouncePad + PlayerBubble

@@ -1566,9 +1566,9 @@ function rt.Player:update(delta)
         self._platform_velocity_x = self._platform_velocity_x * decay
         self._platform_velocity_y = self._platform_velocity_y * decay
     end
-    
 
-    if not self._is_ghost then -- detect being squished by moving objects
+    -- detect being squished by moving objects
+    if not self._is_ghost then
         local center_body, to_check, xs, ys
         if not self._is_bubble then
             center_body = self._body
@@ -1622,6 +1622,20 @@ function rt.Player:update(delta)
         end
     end
 
+    do -- safeguard against springs catching
+        local inner_x, inner_y = self._body:get_position()
+        local max_distance = self._radius + self._inner_body_radius
+        for body_i, outer_body in ipairs(self._spring_bodies) do
+            if math.distance(inner_x, inner_y, outer_body:get_position()) > max_distance then
+                -- reset, let spring handle repositioning against geometry
+                outer_body:set_position(
+                    inner_x + self._spring_body_offsets_x[body_i],
+                    inner_y + self._spring_body_offsets_y[body_i]
+                )
+            end
+        end
+    end
+
     -- update flow
     if self._stage ~= nil and not self._flow_frozen and not (self._skip_next_flow_update == true) and self._state ~= rt.PlayerState.DISABLED then
         self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed + delta
@@ -1636,7 +1650,6 @@ function rt.Player:update(delta)
             table.remove(self._flow_fraction_history, 1)
             table.insert(self._flow_fraction_history, new_fraction)
             self._flow_fraction_history_sum = self._flow_fraction_history_sum - first_fraction + new_fraction
-
             self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed - step
         end
 
