@@ -14,19 +14,6 @@ rt.settings.overworld.goal = {
     fade_to_black_duration = 0.5,
 
     n_particles = 40,
-    particle = {
-        min_radius = 5,
-        max_radius = 7,
-        min_velocity = 100,
-        max_velocity = 250,
-        gravity_x = 0,
-        gravity_y = 20,
-        velocity_influence = 0.7,
-        min_mass = 1,
-        max_mass = 1,
-        hue_offset = 0.2,
-        n_path_points = 20,
-    }
 }
 
 rt.settings.overworld.goal.time_dilation_duration = rt.settings.overworld.shatter_surface.fade_duration
