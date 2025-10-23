@@ -1,7 +1,8 @@
 require "common.sound_manager"
-require "overworld.fireworks"
 require "overworld.shatter_surface"
+require "overworld.checkpoint_particles"
 require "common.label"
+
 
 rt.settings.overworld.goal = {
     result_screen_delay = 0.5,
@@ -13,7 +14,7 @@ rt.settings.overworld.goal = {
     result_screen_delay = 1,
     fade_to_black_duration = 0.5,
 
-    n_particles = 40,
+    n_particles = 40
 }
 
 rt.settings.overworld.goal.time_dilation_duration = rt.settings.overworld.shatter_surface.fade_duration
@@ -74,7 +75,7 @@ function ow.Goal:instantiate(object, stage, scene)
 
         _result_screen_revealed = false,
 
-        _particles = {}
+        _particles = ow.CheckpointParticles()
     })
 
     -- animations
@@ -257,7 +258,12 @@ function ow.Goal:instantiate(object, stage, scene)
                 self._flash_animation:reset()
                 self._player_time_dilation_animation:reset()
                 self._world_time_dilation_animation:reset()
-                self:_init_particles(px, py, self._shatter_velocity_x, self._shatter_velocity_y)
+                self._particles:spawn(
+                    rt.settings.overworld.goal.n_particles,
+                    px, py,
+                    player:get_hue(),
+                    self._shatter_velocity_x, self._shatter_velocity_y
+                )
                 player:pulse()
                 self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
             end
@@ -358,7 +364,8 @@ function ow.Goal:update(delta)
             --TODO: self._scene:show_result_screen()
         end
 
-        self:_update_particles(delta)
+        self._particles:set_screen_bounds(self._scene:get_camera():get_world_bounds())
+        self._particles:update(delta)
     end
 
     self._indicator_motion:update(delta)
@@ -411,7 +418,7 @@ function ow.Goal:draw(priority)
             love.graphics.pop()
         end
 
-        self:_draw_particles()
+        self._particles:draw()
     elseif priority == _label_priority then
         if not self._is_shattered then
             love.graphics.push()
@@ -452,171 +459,10 @@ function ow.Goal:reset()
     self._world_time_dilation_animation:reset()
     self._player_time_dilation_animation:reset()
     self:update(0)
-    self._particles = {}
+    self._particles:clear()
 end
 
 --- @brief
 function ow.Goal:get_render_priority()
     return _base_priority, _label_priority
-end
-
-local _position_x = 1
-local _position_y = 2
-local _velocity_x = 3
-local _velocity_y = 4
-local _color_r = 5
-local _color_g = 6
-local _color_b = 7
-local _mass = 8
-local _radius = 9
-local _path = 10
-local _polygon = 11
-
---- @brief
-function ow.Goal:_init_particles(origin_x, origin_y, player_vx, player_vy)
-    require "table.new"
-
-    local player = self._scene:get_player()
-    local player_hue = player:get_hue()
-
-    local settings = rt.settings.overworld.goal.particle
-    local n_path_points = settings.n_path_points
-
-    local hue_offset = settings.hue_offset
-    local min_velocity, max_velocity = settings.min_velocity, settings.max_velocity
-    local min_mass, max_mass = settings.min_mass, settings.max_mass
-    local min_radius, max_radius = settings.min_radius, settings.max_radius
-
-    local velocity_influence = settings.velocity_influence
-    local offset = 2 * rt.settings.player.radius
-
-    self._particles = {}
-    for i = 1, rt.settings.overworld.goal.n_particles do
-        local vx, vy = math.normalize(rt.random.number(-1, 1), rt.random.number(-1, 1))
-
-        local mass_t = rt.random.number(0, 1)
-        local mass = math.mix(min_mass, max_mass, mass_t)
-        local magnitude = math.mix(min_velocity, max_velocity, mass)
-        local hue = player_hue + rt.random.number(-hue_offset, hue_offset)
-        local r, g, b, _ = rt.lcha_to_rgba(0.8, 1, hue, 1)
-        local dx = math.cos(math.mix(0, 2 * math.pi, rt.random.number(0, 1)))
-        local dy = math.sin(math.mix(0, 2 * math.pi, rt.random.number(0, 1)))
-        local position_x = origin_x + dx * offset
-        local position_y = origin_y + dy * offset
-
-        local particle = {
-            [_position_x] = position_x,
-            [_position_y] = position_y,
-            [_velocity_x] = magnitude * dx + player_vx * velocity_influence * (1 - mass_t),
-            [_velocity_y] = magnitude * dy + player_vy * velocity_influence * (1 - mass_t),
-            [_color_r] = r,
-            [_color_g] = g,
-            [_color_b] = b,
-            [_mass] = mass,
-            [_radius] = math.mix(min_radius, max_radius, mass),
-            [_path] = {},
-            [_polygon] = {}
-        }
-
-        for _ = 1, n_path_points do
-            table.insert(particle[_path], position_x)
-            table.insert(particle[_path], position_y)
-        end
-
-        table.insert(self._particles, particle)
-    end
-
-    self:_update_particles(0, true) -- build polygons
-end
-
---- @brief
-function ow.Goal:_update_particles(delta, force_rebuild)
-    --delta = delta * self._world_time_dilation_animation:get_value()
-
-    local settings = rt.settings.overworld.goal.particle
-    local gravity_x = settings.gravity_x * delta
-    local gravity_y = settings.gravity_y * delta
-
-    local left, right = {}, {} -- buffered
-    for particle in values(self._particles) do
-        local px, py = particle[_position_x], particle[_position_y]
-
-        px = px + particle[_velocity_x] * delta
-        py = py + particle[_velocity_y] * delta
-
-        local vx, vy = particle[_velocity_x], particle[_velocity_y]
-        vx = vx + (1 + particle[_mass]) * gravity_x
-        vy = vy + (1 + particle[_mass]) * gravity_y
-
-        table.insert(particle[_path], px)
-        table.insert(particle[_path], py)
-        table.remove(particle[_path], 1)
-        table.remove(particle[_path], 1)
-
-        particle[_position_x] = px
-        particle[_position_y] = py
-        particle[_velocity_x] = vx
-        particle[_velocity_y] = vy
-
-        local radius = particle[_radius] * 0.5
-
-        local path = particle[_path]
-        local node_i, n_nodes = 1, math.floor(#path / 2)
-        for i = 1, #path - 2, 2 do
-            local t = (node_i - 1) / n_nodes
-            local x1, y1 = path[i+0], path[i+1]
-            local x2, y2 = path[i+2], path[i+3]
-            local dx, dy = math.normalize(x2 - x1, y2 - y1)
-            local left_nx, left_ny = math.turn_left(dx, dy)
-            local right_nx, right_ny = math.turn_right(dx, dy)
-
-            left[node_i+0] = x1 + left_nx * radius * t
-            left[node_i+1] = y1 + left_ny * radius * t
-
-            right[node_i+0] = x1 + right_nx * radius * t
-            right[node_i+1] = y1 + right_ny * radius * t
-
-            node_i = node_i + 2
-        end
-
-        local polygon = particle[_polygon]
-
-        node_i = 1
-        for i = #left - 1, 1, -2 do
-            polygon[node_i+0] = left[i+0]
-            polygon[node_i+1] = left[i+1]
-            node_i = node_i + 2
-        end
-
-        for i = 1, #right, 2 do
-            polygon[node_i+0] = right[i+0]
-            polygon[node_i+1] = right[i+1]
-            node_i = node_i + 2
-        end
-    end
-end
-
---- @brief
-function ow.Goal:_draw_particles()
-    love.graphics.setLineWidth(1)
-    for particle in values(self._particles) do
-        rt.Palette.BLACK:bind()
-        love.graphics.circle("fill",
-            particle[_position_x], particle[_position_y],
-            particle[_radius]
-        )
-
-        love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], 1)        love.graphics.circle("line",
-            particle[_position_x], particle[_position_y],
-            particle[_radius]
-        )
-    end
-
-    for particle in values(self._particles) do
-        rt.Palette.BLACK:bind()
-        love.graphics.polygon("fill", particle[_polygon])
-
-        love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], 1)
-        love.graphics.line(particle[_polygon])
-    end
 end

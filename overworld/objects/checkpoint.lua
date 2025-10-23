@@ -1,5 +1,5 @@
 require "common.sound_manager"
-require "overworld.fireworks"
+require "overworld.checkpoint_particles"
 require "overworld.shatter_surface"
 require "overworld.objects.checkpoint_rope"
 require "overworld.objects.checkpoint_platform"
@@ -17,7 +17,7 @@ rt.settings.overworld.checkpoint = {
     platform_height = rt.settings.overworld.checkpoint_rope.radius,
 
     max_rope_length = 400,
-    fireworks_n_particles = 300,
+    n_particles = 40,
 
     max_spawn_duration = 3, -- safety timer
 }
@@ -90,11 +90,9 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _spawn_barrier = nil, -- b2.Body
 
         -- only for midway
-        _fireworks = nil, -- ow.Fireworks
-        _fireworks_visible = false,
+        _particles = nil, -- ow.CheckpointParticles
         _rope = nil -- ow.CheckpointRope, only if midpoint
     })
-
 
     stage:signal_connect("initialized", function()
 
@@ -189,32 +187,18 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
                 self._bottom_x, self._bottom_y
             )
 
-            self._fireworks = ow.Fireworks(self._scene:get_player())
+            self._particles = ow.CheckpointParticles()
 
             self._body:signal_connect("collision_start", function(_, other)
                 if self._rope:get_is_cut() == false then
                     self._rope:cut() -- checks player position automatically
 
-                    -- fireworks
+                    local n_particles = rt.settings.overworld.checkpoint.n_particles
                     local player = self._scene:get_player()
-                    local n_particles = rt.settings.overworld.checkpoint.fireworks_n_particles
-                    local start_x, start_y = self._bottom_x, self._bottom_y
-                    local max_distance = math.distance(self._bottom_x, self._bottom_y, self._top_x, self._top_y)
-
-                    for i = 1, 6 do
-                        local distance = rt.random.number(0, max_distance)
-                        local vy = -1 -- always upwards
-                        local vx = rt.random.number(-0.5, 0.5)
-                        local hue = rt.random.number(0, 1)
-                        local end_x, end_y = start_x + vx * distance, start_y + vy * distance
-                        self._fireworks:spawn(
-                            n_particles,
-                            start_x, start_y, -- start pos
-                            end_x, end_y, -- end
-                            hue - 0.2, hue + 0.2
-                        )
-                    end
-                    self._fireworks_visible = true
+                    local px, py = player:get_position()
+                    local vx, vy = player:get_velocity()
+                    local hue = player:get_hue()
+                    self._particles:spawn(n_particles, px, py, hue, vx, vy)
                 end
 
                 if self._passed == false then
@@ -254,7 +238,6 @@ function ow.Checkpoint:spawn(also_kill)
 
     local type = self._type
     if is_first_spawn then
-        -- if first spawn, skip ray animation, spawn at position, spawn fireworks
         self:_set_state(_STATE_STAGE_ENTRY)
     else
         if also_kill then
@@ -351,16 +334,17 @@ end
 
 --- @brief
 function ow.Checkpoint:update(delta)
-    -- update fireworks indepedent from body location
-    if self._fireworks_visible then
-        self._fireworks:update(delta)
-        self._fireworks_visible = not self._fireworks:get_is_done()
-    end
-
-    if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
-
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
+
+    -- update particles indepedent from body location
+    if self._particles ~= nil then
+        self._particles:set_screen_bounds(self._scene:get_camera():get_world_bounds())
+        self._particles:set_target_velocity(player:get_velocity())
+        self._particles:set_target_position(player:get_position())
+        self._particles:update(delta)
+    end
+    if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
 
     self._color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
     self._camera_offset = { camera:get_offset() }
@@ -419,9 +403,7 @@ local _effect_priority = math.huge
 --- @brief
 function ow.Checkpoint:draw(priority)
     if priority == _base_priority then
-        if self._type == ow.CheckpointType.MIDWAY then
-            if self._fireworks_visible then self._fireworks:draw() end
-        end
+        if self._particles ~= nil then self._particles:draw() end
     end
 
     if self._stage:get_is_body_visible(self._spawn_barrier) then
@@ -472,6 +454,7 @@ function ow.Checkpoint:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) then return end
     if self._type == ow.CheckpointType.MIDWAY then
         self._rope:draw_bloom()
+        self._particles:draw_bloom()
     elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
         self._platform:draw_bloom()
     end
@@ -500,8 +483,7 @@ function ow.Checkpoint:reset()
     self._split_send = false
 
     if self._type == ow.CheckpointType.MIDWAY then
-        self._fireworks:reset()
-        self._fireworks_visible = false
+        self._particles:clear()
         self._rope:reset()
     end
 

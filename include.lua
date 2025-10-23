@@ -1,3 +1,4 @@
+DEBUG = false
 require "common.splash_screen" -- splash screen during compilation
 
 -- standard library extension

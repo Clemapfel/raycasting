@@ -591,9 +591,11 @@ function love.errorhandler(msg)
         p = p .. "\n\nPress Ctrl+C or tap to copy this error"
     end
 
-    debugger.connect()
-    if debugger.get_is_active() then
-        debugger.break_here()
+    if DEBUG then
+        debugger.connect()
+        if debugger.get_is_active() then
+            debugger.break_here()
+        end
     end
 
     -- write to log folder
