@@ -375,7 +375,7 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
     self._input:activate()
 
     if not rt.GameState:get_stage_exists(stage_id) then
-        rt.critical("In ow.OverwoldScene: not stage with id `", stage_id, "`: does `assets/stages/<id>.lua` and `rt.Translation.stage[<id>]` exist?")
+        rt.error("In ow.OverwoldScene: no stage with id `", stage_id, "`: does `assets/stages/<id>.lua` and `rt.Translation.stages[<id>]` exist?")
     end
 
     if show_title_card == nil then show_title_card = true end
