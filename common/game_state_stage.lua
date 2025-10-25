@@ -130,6 +130,12 @@ function rt.GameState:_get_stage(id, scope)
 end
 
 --- @brief
+function rt.GameState:get_stage_exists(id)
+    self:_initialize_stage()
+    return self._stages[id]
+end
+
+--- @brief
 function rt.GameState:get_stage_best_time(id)
     meta.assert(id, "String")
     if _debug_output then return rt.random.number(1, 100) end

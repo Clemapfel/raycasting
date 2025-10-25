@@ -379,6 +379,7 @@ function love.run()
             end
         end
 
+        rt.SceneManager._frame_timestamp = love.timer.getTime()
         if love.timer then delta = love.timer.step() end
 
         local update_before, update_after, draw_before, draw_after
@@ -439,7 +440,6 @@ function love.run()
 
             rt.InputManager:_notify_end_of_frame()
             _frame_i = _frame_i + 1
-            rt.SceneManager._frame_timestamp = love.timer.getTime()
         end
 
         local fps = 1 / math.max(love.timer.getDelta(), 1 / 500)
@@ -591,7 +591,7 @@ function love.errorhandler(msg)
         p = p .. "\n\nPress Ctrl+C or tap to copy this error"
     end
 
-    if DEBUG then
+    if ENABLE_DEBUGGER == true then
         debugger.connect()
         if debugger.get_is_active() then
             debugger.break_here()

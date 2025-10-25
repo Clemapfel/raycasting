@@ -327,7 +327,7 @@ function ow.Goal:instantiate(object, stage, scene)
 
         self._time_label = rt.Glyph(_format_time(self._scene:get_timer()))
         self._time_label:realize()
-        self._time_label:reformat(0, 0, math.huge, math.huge)
+        self._time_label:reformat(-math.huge, -math.huge, math.huge, math.huge)
         self._time_label_offset_x, self._time_label_offset_y = 0, 0
 
         return meta.DISCONNECT_SIGNAL

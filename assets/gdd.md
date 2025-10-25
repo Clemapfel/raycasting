@@ -19,6 +19,8 @@ Checkpoint as midway
 Checkpoint as goal
 
 Coin
+Coin in squeeze tunnel
+Coin in unreachable vertical hole
 
 DoubleJumpTether
 DoubleJumpTether Multiple Times

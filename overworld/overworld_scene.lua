@@ -374,6 +374,10 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
     meta.assert(stage_id, "String")
     self._input:activate()
 
+    if not rt.GameState:get_stage_exists(stage_id) then
+        rt.critical("In ow.OverwoldScene: not stage with id `", stage_id, "`: does `assets/stages/<id>.lua` and `rt.Translation.stage[<id>]` exist?")
+    end
+
     if show_title_card == nil then show_title_card = true end
     self._show_title_card = show_title_card
     self._title_card:set_title(rt.GameState:get_stage_title(stage_id))

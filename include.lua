@@ -1,4 +1,4 @@
-DEBUG = false
+ENABLE_DEBUGGER = false -- if true, love errorhandler invokes debugger
 require "common.splash_screen" -- splash screen during compilation
 
 -- standard library extension

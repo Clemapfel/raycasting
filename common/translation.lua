@@ -303,30 +303,22 @@ rt.Translation = {
 
     -- ## STAGES ## ---
 
-    stages = {
-        [1] = {
+    stages = { -- order matters
+        {
             id = "tutorial",
-            title = "Not a Tutorial",
+            title = "[DEBUG TUTORIAL]",
             description = "tutorial description TODO",
             difficulty = 0,
             target_time = math.huge,
         },
 
-        [2] = {
-            id = "boost_tutorial",
-            title = "Boost Tutorial",
-            description = "boost tutorial description TODO",
-            difficulty = 1,
-            target_time = math.huge
+        {
+            id = "template",
+            title = "[DEBUG TEMPLATE]",
+            description = "tutorial description TODO",
+            difficulty = 0,
+            target_time = math.huge,
         },
-
-        [3] = {
-            id = "debug_stage",
-            title = "Debug Stage",
-            description = "debug stage description TODO",
-            difficulty = 1,
-            target_time = math.huge
-        }
     }
 }
 

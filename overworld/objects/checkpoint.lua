@@ -268,6 +268,8 @@ function ow.Checkpoint:_set_state(state)
         -- find top most point to spawn player
         local screen_h = camera:get_world_bounds().height
         local _, max_y = self._world:query_ray(self._x, self._y, 0, -10e8)
+        if max_y == nil then max_y = -math.huge end
+
         local spawn_y = ternary(max_y == nil, self._x - screen_h, math.max(self._x - screen_h, max_y))
         self._top_y = spawn_y
 
