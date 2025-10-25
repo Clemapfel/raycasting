@@ -15,14 +15,16 @@ rt.settings.overworld.normal_map = {
     segment_light_intensity = 0.2,
 
     max_n_point_lights = 256,
-    max_n_segment_lights = 16
+    max_n_segment_lights = 16,
+
+    yield_savepoint_fraction = 0.01
 }
 
 --- @class ow.NormalMap
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _disable = true -- TODO
+local _disable = false -- TODO
 
 local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -73,11 +75,16 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
 
     self._is_done = false
 
+    local last = love.timer.getTime()
     local savepoint = function()
-        -- always yield, one step per frame
-        love.graphics.push("all")
-        coroutine.yield()
-        love.graphics.pop()
+        -- compute shader dispatch is not blocked, tracking frame time this way is not accurate
+        local t = (love.timer.getTime() - last) / rt.SceneManager:get_timestep()
+        if t > rt.settings.overworld.normal_map.yield_savepoint_fraction then
+            love.graphics.push("all")
+            coroutine.yield()
+            love.graphics.pop()
+            last = love.timer.getTime()
+        end
     end
 
     self._callback = coroutine.create(function()
@@ -361,7 +368,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local jump = 0.5 * chunk_size
             local current_layer = 0
 
-            local last_time = love.timer.getTime()
             while jump > 0.5 do
                 local input_layer = current_layer
                 local output_layer = 1 - current_layer
@@ -376,10 +382,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
                 current_layer = output_layer
                 jump = jump / 2
 
-                if (love.timer.getTime() - last_time) > 1 / 480 then
-                    savepoint()
-                    last_time = love.timer.getTime()
-                end
+                savepoint()
             end
 
             -- export final result
@@ -389,6 +392,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             _export_shader:send("output_texture", export_texture)
             _export_shader:send("max_distance", rt.settings.overworld.normal_map.max_distance)
             _export_shader:dispatch(dispatch_size_x, dispatch_size_y)
+
+            savepoint()
 
             -- crop to save memory
             local offset_x, offset_y = self._quad:getViewport()
