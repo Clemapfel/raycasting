@@ -68,9 +68,9 @@ end
 --- @brief
 function rt.Transform:scale(...)
     if select("#", ...) == 2 then
-        self._native:scale(select(1, ...), select(2, ...))
+        self._native:scale(select(1, ...), select(2, ...) or select(1, ...))
     else
-        local x, y, z = select(1, ...), select(2, ...), select(3, ...)
+        local x, y, z = select(1, ...), select(2, ...) or select(1, ...), select(3, ...) or select(1, ...)
 
         local x11, x12, x13, x14,
         x21, x22, x23, x24,

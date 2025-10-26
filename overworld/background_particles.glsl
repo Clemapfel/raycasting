@@ -4,6 +4,7 @@
 layout (location = 3) in vec3 offset;
 layout (location = 4) in float scale;
 layout (location = 5) in vec4 rotation; // quaternion, normalized
+layout (location = 6) in vec4 color;
 
 vec3 rotate(vec3 vector, vec4 quaternion)
 {
@@ -16,6 +17,7 @@ vec3 rotate(vec3 vector, vec4 quaternion)
 }
 
 varying vec3 world_position;
+varying vec4 vertex_color;
 
 vec4 position(mat4 transform_projection, vec4 vertex_position)
 {
@@ -26,6 +28,8 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
     dxyz += offset;
 
     world_position = dxyz;
+    vertex_color = color;
+
     return transform_projection * vec4(dxyz, vertex_position.w);
 }
 
@@ -33,37 +37,55 @@ vec4 position(mat4 transform_projection, vec4 vertex_position)
 
 #ifdef PIXEL
 
-varying vec3 world_position;
-varying vec3 world_normal;
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
 
-uniform vec3 light_direction = vec3(0.2, -0.7, -0.5); // Direction TO the light
-uniform vec3 light_color = vec3(1.0, 0.95, 0.9);
-uniform vec3 ambient_color = vec3(0.3, 0.35, 0.4);
-uniform float ambient_strength = 0.2;
-uniform vec3 base_color = vec3(0.8, 0.8, 0.8);
+varying vec3 world_position;
+varying vec4 vertex_color;
+
+uniform vec3 light_direction = vec3(0.2, -1, 0);
+uniform float ambient_strength = 0.35;
+uniform float point_light_intensity = 0.2;
+uniform float shadow_falloff = 1;
+
+#ifndef MAX_N_POINT_LIGHTS
+#define MAX_N_POINT_LIGHTS 32
+#endif
+
+uniform vec3 camera_offset;
+uniform vec3 point_lights[MAX_N_POINT_LIGHTS];
+uniform int n_point_lights;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     vec3 normal = normalize(cross(dFdx(world_position), dFdy(world_position)));
-
-
     vec3 light_dir = normalize(-light_direction);
 
-    // Lambertian diffuse lighting
-    float diffuse_factor = max(dot(normal, light_dir), 0.0);
+    float diffuse_dot = max(dot(normal, light_dir), 0.0);
+    float diffuse = pow(diffuse_dot, shadow_falloff);
 
-    // Ambient lighting
-    vec3 ambient = ambient_strength * ambient_color;
+    float front_light = min(ambient_strength + diffuse, 1.0);
 
-    // Diffuse lighting
-    vec3 diffuse = diffuse_factor * light_color;
+    // Both positions should be in the same coordinate space
+    vec3 light_pos = vec3(0, 0, 150) - camera_offset;
+    vec3 frag_pos = world_position - camera_offset;
 
-    // Combine lighting
-    vec3 lighting = ambient + diffuse;
+    // Calculate distance and attenuation
+    float dist = distance(light_pos, frag_pos);
+    float attenuation = gaussian(dist, 1.0 / 500.0);
 
-    // Apply lighting to base color
-    vec3 final_color = base_color * lighting * color.rgb;
+    // Calculate light direction and alignment with normal
+    vec3 to_light = normalize(light_pos - frag_pos);
+    float alignment = max(dot(-normal, to_light), 0.0);
 
-    return vec4(final_color, color.a);
+    float point_light = point_light_intensity * alignment * attenuation;
+
+    vec4 texel = texture(tex, texture_coords);
+    texel.xyz = vec3(max(max(texel.x, texel.y), max(texel.y, texel.z)));
+
+    return vec4((mix(front_light, front_light + point_light, 0.6)) * color.rgb * vertex_color.rgb, 1);
 }
 
 #endif
