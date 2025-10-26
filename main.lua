@@ -5,12 +5,9 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
---[[
-local sound_id = "0011 - F-F-Fire!"
-local sound_handler, wrapper = rt.SoundManager:play(sound_id, {
-    should_loop = true
-})
-]]--
+require "overworld.background"
+local background = ow.Background()
+background:realize()
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
@@ -47,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "one_way_platform_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -60,6 +57,9 @@ love.load = function(args)
 
     require "overworld.result_screen_scene"
     --present()
+
+    -- TODO
+    background:reformat(0, 0, love.graphics.getDimensions())
 end
 
 local elapsed = 0
@@ -67,6 +67,8 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
+
+    background:update(delta)
 
     --[[
     local x, y = love.mouse.getPosition()
@@ -80,10 +82,14 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
+
+    background:draw()
 end
 
 love.resize = function(width, height)
     if rt.SceneManager ~= nil then
         rt.SceneManager:resize(width, height)
     end
+
+    background:reformat(0, 0, widht, height)
 end

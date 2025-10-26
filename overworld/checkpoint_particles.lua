@@ -30,8 +30,12 @@ function ow.CheckpointParticles:instantiate()
          math.huge
     }
 
-    self._target_velocity_x = nil
+    self._target_velocity_x = nil -- ignore if unset
     self._target_velocity_y = nil
+    self._target_position_x = nil 
+    self._target_position_y = nil
+    
+    self._gravity_factor = 1
 end
 
 --- @brief
@@ -66,6 +70,11 @@ end
 function ow.CheckpointParticles:set_target_position(px, py)
     self._target_position_x = px
     self._target_position_y = py
+end
+
+--- @brief
+function ow.CheckpointParticles:set_gravity_factor(t)
+    self._gravity_factor = t
 end
 
 --- @brief
@@ -184,6 +193,11 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
 
     local arc_offset = math.pi / 2
 
+    local target_nvx, target_nvy
+    if self._target_velocity_x ~= nil and self._target_velocity_y ~= nil then
+        target_nvx, target_nvy = math.normalize(self._target_velocity_x, self._target_velocity_y)
+    end
+
     local left, right = {}, {} -- buffered
     for particle_i, particle in ipairs(batch.particles) do
         local px, py = particle[_position_x], particle[_position_y]
@@ -208,9 +222,6 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
         particle[_arc_min] = angle - arc_offset
         particle[_arc_max] = angle + arc_offset
 
-        vx = vx + mass * gravity_x
-        vy = vy + mass * gravity_y
-
         if self._target_position_x ~= nil and self._target_position_y ~= nil then
             local dx = self._target_position_x - px
             local dy = self._target_position_y - py
@@ -220,6 +231,7 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
             vy = vy + dy * attraction_force
         end
 
+        local gravity_factor = 1
         if self._target_velocity_x ~= nil and self._target_velocity_y then
             local target_vx = self._target_velocity_x
             local target_vy = self._target_velocity_y
@@ -227,7 +239,15 @@ function ow.CheckpointParticles:_update_batch(batch, delta)
 
             vx = vx + (target_vx - vx) * alignment_factor
             vy = vy + (target_vy - vy) * alignment_factor
+
+            local nvx, nvy = math.normalize(vx, vy)
+            gravity_factor = 2 - math.abs(math.dot(
+                nvx, nvy, target_nvx, target_nvy
+            ))
         end
+
+        vx = vx + mass * gravity_x * gravity_factor * self._gravity_factor
+        vy = vy + mass * gravity_y * gravity_factor * self._gravity_factor
 
         table.insert(path, px)
         table.insert(path, py)

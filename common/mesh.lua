@@ -43,6 +43,11 @@ rt.VertexFormat3D = {
 rt.VertexFormat = rt.VertexFormat2D
 
 --- @class rt.Mesh
+--- @brief create a new mesh for raw vertex data
+--- @param data Table<Table<Number>>
+--- @param draw_mode rt.MeshDrawMode
+--- @param format Table<Table<Number>>
+--- @param usage rt.GraphicsBufferUsage
 rt.Mesh = meta.class("Mesh", rt.Drawable)
 
 --- @brief

@@ -2,8 +2,13 @@
 rt.Transform = meta.class("Transform")
 
 --- @brief initialize as identity
-function rt.Transform:instantiate()
+function rt.Transform:instantiate(...)
     self._native = love.math.newTransform()
+
+    if select("#", ...) > 0 then
+        rt.assert(select("#", ...) == 4 * 4, "In rt.Transform: expected 4x4 arguments, got `" .. select("#", ...) .. "`")
+        self._native:setMatrix(...)
+    end
 end
 
 --- @brief apply another transform to this one
@@ -368,6 +373,16 @@ function rt.Transform:set_to_orientation()
         x11, x12, x13, 0,
         x21, x22, x23, 0,
         x31, x32, x33, 0,
+        0, 0, 0, 1
+    )
+end
+
+--- @brief reset to identity
+function rt.Transform:reset()
+    self._native:setMatrix(
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
         0, 0, 0, 1
     )
 end

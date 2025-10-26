@@ -304,17 +304,25 @@ rt.Translation = {
     -- ## STAGES ## ---
 
     stages = { -- order matters
-        {
+        [1] = {
             id = "tutorial",
             title = "[DEBUG TUTORIAL]",
-            description = "tutorial description TODO",
+            description = "description TODO",
             difficulty = 0,
             target_time = math.huge,
         },
 
-        {
+        [2] = {
             id = "template",
             title = "[DEBUG TEMPLATE]",
+            description = "description TODO",
+            difficulty = 0,
+            target_time = math.huge,
+        },
+
+        [3] = {
+            id = "one_way_platform_tutorial",
+            title = "TODO: One Way Platforms",
             description = "tutorial description TODO",
             difficulty = 0,
             target_time = math.huge,

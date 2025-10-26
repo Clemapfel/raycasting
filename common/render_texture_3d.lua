@@ -81,9 +81,21 @@ function rt.RenderTexture3D:set_view_transform(transform)
 end
 
 --- @brief
+function rt.RenderTexture3D:reset_view_transform()
+    self._view:reset()
+    if self._is_bound then self._bind_transforms() end
+end
+
+--- @brief
 function rt.RenderTexture3D:set_model_transform(transform)
     meta.assert(transform, rt.Transform)
     self._model = transform
+    if self._is_bound then self:_bind_transforms() end
+end
+
+--- @brief
+function rt.RenderTexture3D:reset_model_transform()
+    self._model:reset()
     if self._is_bound then self:_bind_transforms() end
 end
 

@@ -268,9 +268,14 @@ function ow.Checkpoint:_set_state(state)
         -- find top most point to spawn player
         local screen_h = camera:get_world_bounds().height
         local _, max_y = self._world:query_ray(self._x, self._y, 0, -10e8)
-        if max_y == nil then max_y = -math.huge end
+        local spawn_y
+        if max_y == nil then
+            spawn_y = self._x - screen_h
+        else
+            spawn_y = math.max(self._x - screen_h, max_y)
+        end
 
-        local spawn_y = ternary(max_y == nil, self._x - screen_h, math.max(self._x - screen_h, max_y))
+        dbg(spawn_y, self._x)
         self._top_y = spawn_y
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
@@ -314,7 +319,15 @@ function ow.Checkpoint:_set_state(state)
 
         local screen_h = camera:get_world_bounds().height
         local _, max_y = self._world:query_ray(self._x, self._y, 0, -10e8)
-        local spawn_y = ternary(max_y == nil, self._y - screen_h, math.max(self._y - screen_h, max_y))
+
+        local spawn_y
+        if max_y == nil then
+            spawn_y = self._y - screen_h
+        else
+            spawn_y = math.max(self._y - screen_h, max_y)
+        end
+
+
         self._top_y = spawn_y
         self._ray_area:reformat(self._top_x - 0.5 * ray_w, self._top_y, ray_w, self._bottom_y - self._top_y)
 
@@ -344,6 +357,7 @@ function ow.Checkpoint:update(delta)
         self._particles:set_screen_bounds(self._scene:get_camera():get_world_bounds())
         self._particles:set_target_velocity(player:get_velocity())
         self._particles:set_target_position(player:get_position())
+        self._particles:set_gravity_factor(1 - player:get_flow()) -- zero gravity at max flow
         self._particles:update(delta)
     end
     if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end

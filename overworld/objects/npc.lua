@@ -40,6 +40,9 @@ function ow.NPC:instantiate(object, stage, scene)
     self._graphics_body:set_gravity(0, 0)
 
     local bottom_x, bottom_y = self._world:query_ray(self._x, self._y, 0, 1 * 10e8)
+    if bottom_x == nil then
+        bottom_x, bottom_y = self._x, self._y
+    end
 
     self._body = b2.Body(
         self._world,

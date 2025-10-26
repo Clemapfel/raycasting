@@ -132,7 +132,13 @@ end
 --- @brief
 function rt.GameState:get_stage_exists(id)
     self:_initialize_stage()
-    return self._stages[id]
+    for entry in values(self._stages) do
+        if entry.id == id then
+            return true
+        end
+    end
+
+    return false
 end
 
 --- @brief

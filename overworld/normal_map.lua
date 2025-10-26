@@ -24,7 +24,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _disable = false -- TODO
+local _disable = true -- TODO
 
 local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
