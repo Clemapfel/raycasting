@@ -52,6 +52,17 @@ function rt.RenderTexture3D:_update_projections()
     )
 end
 
+
+
+--- @brief
+function rt.RenderTexture3D:get_projection_transform()
+    if self._projection_type == rt.ProjectionType3D.ORTHOGRAPHIC then
+        return self._projection_orthographic
+    else
+        return self._projection_perspective
+    end
+end
+
 --- @brief
 function rt.RenderTexture3D:_bind_transforms()
     local projection
@@ -83,7 +94,7 @@ end
 --- @brief
 function rt.RenderTexture3D:reset_view_transform()
     self._view:reset()
-    if self._is_bound then self._bind_transforms() end
+    if self._is_bound then self:_bind_transforms() end
 end
 
 --- @brief
