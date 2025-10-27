@@ -576,27 +576,27 @@ local _enum_to_instances = {}
 
 --- @return meta.Enum
 function meta.enum(typename, fields)
-    local enum_metatable = {
-        __index = function(self, key)
-            local result = fields[key]
-            if result == nil then
-                rt.error("In meta.enum: trying to access field `",  key,  "` of enum `",  typename,  "`, but enum has no such field")
-                return nil
-            end
-            return result
-        end,
+        local enum_metatable = {
+            __index = function(self, key)
+                local result = fields[key]
+                if result == nil then
+                    rt.error("In meta.enum: trying to access field `",  key,  "` of enum `",  typename,  "`, but enum has no such field")
+                    return nil
+                end
+                return result
+            end,
 
-        __newindex = function()
-            rt.error("In meta.enum: trying to modify enum `",  typename,  "`, but it is immutable")
-            return
-        end,
+            __newindex = function()
+                rt.error("In meta.enum: trying to modify enum `",  typename,  "`, but it is immutable")
+                return
+            end,
 
-        __typename = "Enum",
-        __tostring = function() return typename end,
-        __value_to_is_present = {}
-    }
+            __typename = "Enum",
+            __tostring = function() return typename end,
+            __value_to_is_present = {}
+        }
 
-    for _, value in pairs(fields) do
+        for _, value in pairs(fields) do
         enum_metatable.__value_to_is_present[value] = true
     end
 

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1014,
+  nextobjectid = 1015,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -3866,48 +3866,6 @@ return {
           properties = {}
         },
         {
-          id = 664,
-          name = "",
-          type = "Hitbox",
-          shape = "polygon",
-          x = 432,
-          y = 192,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 32, y = -16 },
-            { x = 80.5735, y = -16.3423 },
-            { x = 32, y = 32 },
-            { x = 16, y = 32 },
-            { x = 5.75512, y = 12.9935 }
-          },
-          properties = {}
-        },
-        {
-          id = 665,
-          name = "",
-          type = "Hitbox",
-          shape = "polygon",
-          x = 432.941,
-          y = 143.981,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 32, y = 16 },
-            { x = 80.7718, y = 16.0542 },
-            { x = 32, y = -64 },
-            { x = 16, y = -64 },
-            { x = 4.75562, y = -16.7416 }
-          },
-          properties = {}
-        },
-        {
           id = 700,
           name = "",
           type = "DoubleJumpTether",
@@ -5643,6 +5601,25 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 1014,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = 208,
+          y = 80,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -96, y = 96 },
+            { x = 192, y = 96 },
+            { x = 144, y = 0 }
+          },
           properties = {}
         }
       }

@@ -44,7 +44,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "one_way_platform_tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -59,7 +59,7 @@ love.load = function(args)
     --present()
 
     -- TODO
-    background:reformat(0, 0, love.graphics.getDimensions())
+   -- background:reformat(0, 0, love.graphics.getDimensions())
 end
 
 local elapsed = 0
@@ -68,7 +68,7 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    background:update(delta)
+   -- background:update(delta)
 
     --[[
     local x, y = love.mouse.getPosition()
@@ -83,7 +83,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    background:draw()
+    --background:draw()
 end
 
 love.resize = function(width, height)
@@ -91,5 +91,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize(width, height)
     end
 
-    background:reformat(0, 0, widht, height)
+   -- background:reformat(0, 0, widht, height)
 end

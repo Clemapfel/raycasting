@@ -19,6 +19,22 @@ rt.settings.overworld.bounce_pad = {
     damping = 0.95,
     origin = 0,
     magnitude = 100,
+
+    -- particles
+    min_n_particles = 6,
+    max_n_particles = 12,
+    angle_range = math.degrees_to_radians(30),
+    hue_range = 0.01,
+    min_velocity_x = 150,
+    max_velocity_y = 1000,
+    min_decay = 0.92,
+    max_decay = 0.93,
+    min_radius = 2,
+    max_radius = 4.5,
+    fade_out_fraction = 0.05,
+    saturation = 0.8,
+    min_value = 1,
+    max_value = 1
 }
 
 --- @class ow.BouncePad
@@ -27,6 +43,7 @@ rt.settings.overworld.bounce_pad = {
 --- @field respawn_duration Number? if single use, how long to respawn
 ow.BouncePad = meta.class("BouncePad", rt.Drawable)
 
+-- mesh deformation
 local _x_index = 1
 local _y_index = 2
 local _axis_x_index = 1
@@ -55,7 +72,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
         _bounce_magnitude = 0,
 
         _signal_elapsed = 0,
-        _signal = 0
+        _signal = 0,
+
+        -- particles
+        _batches = {}
     })
 
     self._draw_inner_color = { rt.Palette.BOUNCE_PAD:unpack() }
@@ -76,13 +96,28 @@ function ow.BouncePad:instantiate(object, stage, scene)
         -- color animation
         self._hue = player:get_hue()
 
+        local settings = rt.settings.overworld.bounce_pad
+
         self._color_elapsed = 0
         self._is_bouncing = true
         self._bounce_velocity = restitution
         self._bounce_position = restitution
         self._bounce_contact_x, self._bounce_contact_y = cx, cy
         self._bounce_normal_x, self._bounce_normal_y = nx, ny
-        self._bounce_magnitude = math.max(rt.settings.overworld.bounce_pad.bounce_max_offset * restitution, rt.settings.overworld.bounce_pad.bounce_min_magnitude)
+        self._bounce_magnitude = math.max(settings.bounce_max_offset * restitution, settings.bounce_min_magnitude)
+
+        local n_particles = rt.random.number(
+            settings.min_n_particles,
+            settings.max_n_particles
+        )
+
+        local vx, vy = player:get_velocity()
+        local particle_nx, particle_ny = math.normalize(math.flip(vx, vy)) --math.reflect(vx, vy, nx, ny))
+        self:_spawn_particles(
+            cx, cy,
+            particle_nx, particle_ny,
+            n_particles, self._hue
+        )
     end)
 
     -- contour
@@ -148,57 +183,63 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._rotation_origin_y = object.rotation_origin_y
 end
 
-local stiffness = rt.settings.overworld.bounce_pad.stiffness
-local origin = rt.settings.overworld.bounce_pad.origin
-local damping = rt.settings.overworld.bounce_pad.damping
-local magnitude = rt.settings.overworld.bounce_pad.magnitude
-local color_duration = rt.settings.overworld.bounce_pad.color_decay_duration
-local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
+do
+    local stiffness = rt.settings.overworld.bounce_pad.stiffness
+    local origin = rt.settings.overworld.bounce_pad.origin
+    local damping = rt.settings.overworld.bounce_pad.damping
+    local magnitude = rt.settings.overworld.bounce_pad.magnitude
+    local color_duration = rt.settings.overworld.bounce_pad.color_decay_duration
+    local offset = rt.settings.overworld.bounce_pad.bounce_max_offset
 
---- @brief
-function ow.BouncePad:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then return end
-
-    if self._is_single_use and math.equals(self._pop_motion:get_value(), 0) then return end
-
-    self._signal_elapsed = self._signal_elapsed + delta
-    self._signal_elapsed = self._signal_elapsed + self._signal
-
-    -- color animation
-    self._color_elapsed = self._color_elapsed + delta
-    self._signal = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / rt.settings.overworld.bounce_pad.outer_color_decay_duration, 1))
-    local player = self._scene:get_player()
-
-    local base_r, base_g, base_b = rt.Palette.BOUNCE_PAD:unpack()
-    local target_r, target_g, target_b = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
-    local outer_fraction = self._signal
-    self._draw_outer_color = { math.mix3(
-        target_r, target_g, target_b,
-        base_r, base_g, base_b,
-        1 - math.clamp(outer_fraction, 0, 1)
-    )}
-
-    local inner_fraction = self._color_elapsed / rt.settings.overworld.bounce_pad.inner_color_decay_duration
-    target_r, target_g, target_b = rt.lcha_to_rgba(0.9, 0.9, self._hue, 1)
-    self._draw_inner_color = { math.mix3(
-        target_r, target_g, target_b,
-        base_r, base_g, base_b,
-        math.clamp(inner_fraction, 0, 1)
-    )}
-
-    -- bounce
-    if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
-        local before = self._bounce_position
-        self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
-        self._bounce_velocity = self._bounce_velocity * damping
-        self._bounce_position = self._bounce_position + self._bounce_velocity * delta
-
-        if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
-            self._bounce_position = 0
-            self._bounce_velocity = 0
-            self._is_bouncing = false
+    --- @brief
+    function ow.BouncePad:update(delta)
+        if #self._batches > 0 then
+            self:_update_particles(delta)
         end
-        self:_update_vertices()
+
+        if not self._stage:get_is_body_visible(self._body) then return end
+
+        if self._is_single_use and math.equals(self._pop_motion:get_value(), 0) then return end
+
+        self._signal_elapsed = self._signal_elapsed + delta
+        self._signal_elapsed = self._signal_elapsed + self._signal
+
+        -- color animation
+        self._color_elapsed = self._color_elapsed + delta
+        self._signal = rt.InterpolationFunctions.EXPONENTIAL_DECELERATION(math.min(self._color_elapsed / rt.settings.overworld.bounce_pad.outer_color_decay_duration, 1))
+        local player = self._scene:get_player()
+
+        local base_r, base_g, base_b = rt.Palette.BOUNCE_PAD:unpack()
+        local target_r, target_g, target_b = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+        local outer_fraction = self._signal
+        self._draw_outer_color = { math.mix3(
+            target_r, target_g, target_b,
+            base_r, base_g, base_b,
+            1 - math.clamp(outer_fraction, 0, 1)
+        )}
+
+        local inner_fraction = self._color_elapsed / rt.settings.overworld.bounce_pad.inner_color_decay_duration
+        target_r, target_g, target_b = rt.lcha_to_rgba(0.9, 0.9, self._hue, 1)
+        self._draw_inner_color = { math.mix3(
+            target_r, target_g, target_b,
+            base_r, base_g, base_b,
+            math.clamp(inner_fraction, 0, 1)
+        )}
+
+        -- bounce
+        if self._is_bouncing and not rt.GameState:get_is_performance_mode_enabled() then
+            local before = self._bounce_position
+            self._bounce_velocity = self._bounce_velocity + -1 * (self._bounce_position - origin) * stiffness
+            self._bounce_velocity = self._bounce_velocity * damping
+            self._bounce_position = self._bounce_position + self._bounce_velocity * delta
+
+            if math.abs(self._bounce_position - before) * offset < 1 / love.graphics.getWidth() then -- more than 1 px change
+                self._bounce_position = 0
+                self._bounce_velocity = 0
+                self._is_bouncing = false
+            end
+            self:_update_vertices()
+        end
     end
 end
 
@@ -273,6 +314,8 @@ function ow.BouncePad:draw()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(line_width - 2)
     love.graphics.line(self._draw_contour)
+
+    self:_draw_particles()
 end
 
 --- @brief
@@ -280,4 +323,174 @@ function ow.BouncePad:reset()
     self._bounce_velocity = 0
     self._bounce_position = 0
     self._is_bouncing = false
+    self._batches = {}
+end
+
+local _position_x = 1
+local _position_y = 2
+local _velocity_x = 3
+local _velocity_y = 4
+local _t = 5
+local _velocity_decay = 6
+local _radius = 7
+local _hue = 8
+local _color_r = 9
+local _color_g = 10
+local _color_b = 11
+local _alpha = 12
+
+-- @brief
+function ow.BouncePad:_spawn_particles(x, y, normal_x, normal_y, n_particles, hue)
+    meta.assert(
+        x, "Number", y, "Number",
+        normal_x, "Number", normal_y, "Number",
+        n_particles, "Number",
+        hue, "Number"
+    )
+
+    local batch = {}
+    table.insert(self._batches, batch)
+
+    local settings = rt.settings.overworld.bounce_pad
+    local angle = math.angle(normal_x, normal_y)
+    local angle_range = settings.angle_range
+
+    for particle_i = 1, n_particles do
+        local theta = rt.random.number(angle - 0.5* angle_range, angle + 0.5 * angle_range)
+
+        local vx, vy = math.cos(theta), math.sin(theta)
+        local magnitude = rt.random.number(settings.min_velocity_x, settings.max_velocity_y)
+        local particle = {
+            [_position_x] = x,
+            [_position_y] = y,
+            [_velocity_x] = vx * magnitude,
+            [_velocity_y] = vy * magnitude,
+            [_t] = 1,
+            [_velocity_decay] = rt.random.number(settings.min_decay, settings.max_decay),
+            [_radius] = rt.random.number(settings.min_radius, settings.max_radius),
+            [_hue] = rt.random.number(hue - settings.hue_range, hue + settings.hue_range),
+            [_alpha] = 1
+        }
+
+        particle[_color_r], particle[_color_g], particle[_color_b] = rt.hsva_to_rgba(
+            particle[_hue],
+            settings.saturation,
+            1,
+            1
+        )
+
+        table.insert(batch, particle)
+    end
+end
+
+--- @brief
+function ow.BouncePad:_update_particles(delta)
+    local fade_out_fraction = rt.settings.overworld.bounce_pad.fade_out_fraction
+    local saturation = rt.settings.overworld.bounce_pad.saturation
+
+    local player = self._scene:get_player()
+    local player_x, player_y = player:get_position()
+    local player_r = player:get_radius() + rt.settings.overworld.bounce_pad.max_radius
+
+    local resolve_overlap = function(cx, cy, cr)
+        local px, py, pr = player_x, player_y, player_r
+
+        local dist = math.distance(cx, cy, px, py)
+        local min_distance = pr + cr
+        if dist >= min_distance then
+            return cx, cy, 0, 0
+        end
+
+        local dx = cx - px
+        local dy = cy - py
+
+        local ndx, ndy = math.normalize(dx, dy)
+        return px + ndx * min_distance, py + ndy * min_distance, dx, dy
+    end
+
+    local batch_to_remove = {}
+    for batch_i, batch in ipairs(self._batches) do
+        local particle_to_remove = {}
+        for particle_i, particle in ipairs(batch) do
+            local x, y = particle[_position_x], particle[_position_y]
+            local vx, vy = particle[_velocity_x], particle[_velocity_y]
+            local t, decay = particle[_t], particle[_velocity_decay]
+
+            x = x + vx * delta * t
+            y = y + vy * delta * t
+            t = t * decay
+
+            local dx, dy
+            x, y, dx, dy = resolve_overlap(x, y, particle[_radius])
+
+            particle[_position_x], particle[_position_y] = x, y
+            particle[_velocity_x] = vx + dx
+            particle[_velocity_y] = vy + dy
+            particle[_t] = t
+
+            if t < 0.001 then
+                table.insert(particle_to_remove, 1, particle_i)
+            end
+
+            if t < fade_out_fraction then
+                particle[_alpha] = t / fade_out_fraction
+            end
+
+            particle[_color_r], particle[_color_g], particle[_color_b] = rt.hsva_to_rgba(
+                particle[_hue],
+                particle[_t] * saturation,
+                1,
+                1
+            )
+        end
+
+        for i in values(particle_to_remove) do
+            table.remove(batch, i)
+        end
+
+        if #batch == 0 then
+            table.insert(batch_to_remove, 1, batch_i)
+        end
+    end
+
+    for i in values(batch_to_remove) do
+        table.remove(self._batches, i)
+    end
+end
+
+--- @brief
+function ow.BouncePad:_draw_particles()
+    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
+    local saturation = rt.settings.overworld.bounce_pad.saturation
+    love.graphics.setLineWidth(1)
+    for batch in values(self._batches) do
+        for particle in values(batch) do
+            love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], particle[_alpha])
+            love.graphics.circle("fill",
+                particle[_position_x],
+                particle[_position_y],
+                particle[_radius]
+            )
+        end
+
+        love.graphics.setLineWidth(1.5)
+        for particle in values(batch) do
+            love.graphics.setColor(black_r, black_g, black_b, particle[_alpha])
+            love.graphics.circle("line",
+                particle[_position_x],
+                particle[_position_y],
+                particle[_radius]
+            )
+        end
+
+        love.graphics.setLineWidth(1)
+        for particle in values(batch) do
+            love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], particle[_alpha])
+            love.graphics.circle("line",
+                particle[_position_x],
+                particle[_position_y],
+                particle[_radius]
+            )
+        end
+    end
 end
