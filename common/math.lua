@@ -684,6 +684,17 @@ function math.flip(x, y)
     return -x, -y
 end
 
+math.flip2 = math.flip
+
+--- @brief
+function math.flip3(x, y, z)
+    return -x, -y, -z
+end
+
+function math.flip4(x, y, z, w)
+    return -x, -y, -z, -w
+end
+
 function math.gaussian(x, ramp)
     return math.exp(((-4 * math.pi) / 3) * (ramp * x) * (ramp * x))
 end

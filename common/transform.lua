@@ -38,6 +38,8 @@ function rt.Transform:_update(
         x31, x32, x33, x34,
         x41, x42, x43, x44
     )
+
+    return self
 end
 
 --- @brief
@@ -63,6 +65,8 @@ function rt.Transform:translate(...)
             x41, x42, x43, x44
         )
     end
+
+    return self
 end
 
 --- @brief
@@ -94,6 +98,8 @@ function rt.Transform:scale(...)
             x41, x42, x43, x44
         )
     end
+
+    return self
 end
 
 --- @brief inverse
@@ -122,21 +128,8 @@ function rt.Transform:transpose()
         x13, x23, x33, x43,
         x14, x24, x34, x44
     )
-end
 
---- @brief
-function rt.Transform:override(
-    x11, x12, x13, x14,
-    x21, x22, x23, x24,
-    x31, x32, x33, x34,
-    x41, x42, x43, x44
-)
-    self._native:setMatrix(
-        x11, x12, x13, x14,
-        x21, x22, x23, x24,
-        x31, x32, x33, x34,
-        x41, x42, x43, x44
-    )
+    return self
 end
 
 local _reusable = love.math.newTransform()
