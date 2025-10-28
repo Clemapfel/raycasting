@@ -5552,19 +5552,6 @@ return {
           properties = {}
         },
         {
-          id = 1010,
-          name = "Checkpoint",
-          type = "Checkpoint",
-          shape = "point",
-          x = 460.198,
-          y = -9.95457,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 1011,
           name = "Tether",
           type = "DoubleJumpTether",
@@ -5601,25 +5588,6 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 1014,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = 208,
-          y = 80,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -96, y = 96 },
-            { x = 192, y = 96 },
-            { x = 144, y = 0 }
-          },
           properties = {}
         }
       }

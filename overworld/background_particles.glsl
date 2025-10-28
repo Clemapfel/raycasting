@@ -5,6 +5,10 @@ layout (location = 3) in vec3 offset;
 layout (location = 4) in float scale;
 layout (location = 5) in vec4 rotation; // quaternion, normalized
 layout (location = 6) in vec4 color;
+layout (location = 7) in vec3 from;
+layout (location = 8) in vec3 to;
+
+uniform float path_t;
 
 vec3 rotate(vec3 vector, vec4 quaternion)
 {
@@ -21,7 +25,7 @@ varying vec4 vertex_color;
 
 vec4 position(mat4 transform_projection, vec4 vertex_position)
 {
-    vec3 dxyz = vertex_position.xyz; // local position (around origin)
+    vec3 dxyz = mix(from, to, path_t); // local position (around origin)
 
     dxyz *= scale;
     dxyz = rotate(dxyz, rotation);

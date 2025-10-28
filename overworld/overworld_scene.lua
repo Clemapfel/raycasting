@@ -89,7 +89,7 @@ function ow.OverworldScene:instantiate(state)
         _cursor_active = false,
         _camera_freeze_elapsed = 0, -- sic, freeze at initialization
 
-        _background = rt.Background("grid"),
+        _background = ow.Background(),
 
         _pause_menu = mn.PauseMenu(self),
         _pause_menu_active = false,
@@ -952,7 +952,7 @@ function ow.OverworldScene:update(delta)
     self._player:update(delta)
     self._camera:update(delta)
     self._stage:update(delta)
-    self._background:update_player_position(x, y, self._player:get_flow())
+
     self._background:notify_camera_changed(self._camera)
     self._background:update(delta)
 

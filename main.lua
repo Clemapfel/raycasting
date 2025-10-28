@@ -59,7 +59,7 @@ love.load = function(args)
     --present()
 
     -- TODO
-   -- background:reformat(0, 0, love.graphics.getDimensions())
+    --background:reformat(0, 0, love.graphics.getDimensions())
 end
 
 local elapsed = 0
@@ -68,13 +68,7 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-   -- background:update(delta)
-
-    --[[
-    local x, y = love.mouse.getPosition()
-    local t = (1 - y / love.graphics.getHeight())
-    rt.SoundManager:set_filter(sound_id, sound_handler, t)
-    ]]--
+    --background:update(delta)
 end
 
 love.draw = function()
@@ -91,5 +85,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize(width, height)
     end
 
-   -- background:reformat(0, 0, widht, height)
+    --background:reformat(0, 0, width, height)
 end

@@ -275,7 +275,6 @@ function ow.Checkpoint:_set_state(state)
             spawn_y = math.max(self._x - screen_h, max_y)
         end
 
-        dbg(spawn_y, self._x)
         self._top_y = spawn_y
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)

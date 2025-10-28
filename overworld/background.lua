@@ -5,12 +5,12 @@ require "common.render_texture_3d"
 rt.settings.overworld.background = {
     n_particles = 1000,
     min_scale = 0.8,
-    max_scale = 2,
+    max_scale = 1.5,
     fov = 0.3,
     min_depth = 50,
     max_depth = 200,
     n_point_lights = 3,
-    
+
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
 
@@ -35,6 +35,11 @@ local _data_mesh_format = {
     { location = 6, name = "color", format = "floatvec4" }
 }
 
+local _path_mesh_format = {
+    { location = 7, name = "from", format = "floatvec3" },
+    { location = 8, name = "to", format = "floatvec3" }
+}
+
 --- @brief
 function ow.Background:instantiate()
     self._input = rt.InputSubscriber()
@@ -51,8 +56,8 @@ function ow.Background:realize()
 
     self._n_particles = rt.settings.overworld.background.n_particles
 
-    self._cube_mesh = nil -- rt.Mesh
-    self:_init_cube_mesh()
+    self._instance_mesh = nil -- rt.Mesh
+    self:_init_instance_mesh()
 
     self._data_mesh_data = {}
     self._data_mesh_data_aux = {}
@@ -69,8 +74,7 @@ function ow.Background:realize()
     )
 
     self._offset_transform = rt.Transform() -- xyz offset
-    self._scale_transform = rt.Transform()
-    self._point_lights = {}
+    self._scale_transform = rt.Transform() -- xyz offset
 end
 
 --- @brief
@@ -79,9 +83,13 @@ function ow.Background:size_allocate(x, y, width, height)
 
     self._canvas = rt.RenderTexture3D(width, height, 8)
     self._canvas:set_fov(rt.settings.overworld.background.fov)
-    self:_init_data_mesh()
-    self:_init_room_mesh()
-    self:_init_point_lights()
+    if self._data_mesh == nil then
+        self:_init_data_mesh()
+    end
+
+    if self._room_mesh == nil then
+        self:_init_room_mesh()
+    end
 end
 
 --- @brief
@@ -89,24 +97,27 @@ function ow.Background:draw()
     if self._canvas_needs_update == true then
         self._canvas:bind()
         love.graphics.clear(0, 0, 0, 0)
-        local transform = self._view_transform:clone()
 
         local scale = self:_get_scale_factor()
-        transform:scale(scale, scale, 1)
-        transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
 
-        self._canvas:set_view_transform(transform)
+        -- room drawn unaffected by stage camera
+        local room_transform = self._view_transform:clone()
+        room_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
+        room_transform:scale(scale, scale, 1)
+
+        self._canvas:set_view_transform(room_transform)
         self._room_mesh:draw()
 
-        transform:apply(self._offset_transform)
+        -- particles affected
+        local particle_transform = self._view_transform:clone()
+        particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
+        particle_transform:scale(scale, scale, 1)
+        particle_transform:apply(self._scale_transform)
 
-        local cx, cy, cz, _ = self._offset_transform:transform_point(0, 0, 0)
-        self._canvas:set_view_transform(transform)
+        self._canvas:set_view_transform(particle_transform)
         _particle_shader:bind()
-        _particle_shader:send("point_lights", { 0, 0, 150 })
-        _particle_shader:send("n_point_lights", 1)
-        _particle_shader:send("camera_offset", { cx, cy, cz })
-        self._cube_mesh:draw_instanced(self._n_particles)
+        _particle_shader:send("path_t", (math.sin(rt.SceneManager:get_elapsed()) + 1) / 2)
+        self._instance_mesh:draw_instanced(self._n_particles)
         _particle_shader:unbind()
 
         self._canvas:unbind()
@@ -114,35 +125,20 @@ function ow.Background:draw()
     end
 
     love.graphics.push()
-    love.graphics.translate(self._bounds.x, self._bounds.y)
+    love.graphics.origin()
     self._canvas:draw()
     love.graphics.pop()
 end
 
 --- @brief
-function ow.Background:update(delta)
-    -- TODO
-    local t = delta * 4
-    if self._input:get_is_down(rt.InputAction.LEFT) then
-        self._offset_transform:translate(-t, 0, 0)
-    end
-    if self._input:get_is_down(rt.InputAction.RIGHT) then
-        self._offset_transform:translate(t, 0, 0)
-    end
-    if self._input:get_is_down(rt.InputAction.UP) then
-        self._offset_transform:translate(0, -t, 0)
-    end
-    if self._input:get_is_down(rt.InputAction.DOWN) then
-        self._offset_transform:translate(0, t, 0)
-    end
-    if self._input:get_is_down(rt.InputAction.A) then
-        self._offset_transform:translate(0, 0, t)
-    end
-    if self._input:get_is_down(rt.InputAction.B) then
-        self._offset_transform:translate(0, 0, -t)
-    end
-    -- TODO
+function ow.Background:notify_camera_changed(camera)
+    self._scale_transform:reset()
+    local scale_x, scale_y = camera:get_final_scale()
+    self._scale_transform:scale(scale_x, scale_y, 1)
+end
 
+--- @brief
+function ow.Background:update(delta)
     self._canvas_needs_update = true
 
     -- boxing
@@ -181,7 +177,6 @@ function ow.Background:update(delta)
 
     for data_i, data in ipairs(self._data_mesh_data) do
         local aux_data = self._data_mesh_data_aux[data_i]
-        
         local x, y, z, r = data[1], data[2], data[3], data[4]
 
         if is_outside(x, y, z, r) then
@@ -217,7 +212,217 @@ function ow.Background:update(delta)
     self._data_mesh:replace_data(self._data_mesh_data)
 end
 
-function ow.Background:_init_cube_mesh()
+function ow.Background:_init_instance_mesh()
+    local function generate_sphere_cube_morph_paths(n_rings, n_vertices_per_ring)
+        assert(type(n_rings) == "number" and n_rings >= 2 and n_rings % 1 == 0, "n_rings must be an integer >= 2")
+        assert(type(n_vertices_per_ring) == "number" and n_vertices_per_ring >= 3 and n_vertices_per_ring % 1 == 0, "n_vertices_per_ring must be an integer >= 3")
+
+        local paths = {}
+        local triangles = {}
+
+        local sqrt = math.sqrt
+
+        local r = 1
+
+        local function push_path(sx, sy, sz, ex, ey, ez)
+            paths[#paths + 1] = { sx, sy, sz, ex, ey, ez }
+        end
+
+        -- Map cube point to sphere by normalizing and scaling
+        local function cube_to_sphere(cx, cy, cz)
+            local len = sqrt(cx*cx + cy*cy + cz*cz)
+            if len < 1e-10 then return 0, 0, 0 end
+            local s = r / len
+            return s * cx, s * cy, s * cz
+        end
+
+        -- Vertex deduplication map
+        local vertex_map = {}
+        local vertex_index = 1
+
+        local function add_vertex(cx, cy, cz)
+            -- Round to avoid floating point issues
+            local key = string.format("%.8f,%.8f,%.8f", cx, cy, cz)
+            if vertex_map[key] then
+                return vertex_map[key]
+            end
+
+            local sx, sy, sz = cube_to_sphere(cx, cy, cz)
+            push_path(sx, sy, sz, cx, cy, cz)
+
+            vertex_map[key] = vertex_index
+            vertex_index = vertex_index + 1
+            return vertex_index - 1
+        end
+
+        -- Create a subdivided cube using a grid approach
+        -- We'll use n_rings-1 as the number of subdivisions per edge
+        local n_div = n_rings - 1
+
+        -- Generate all vertices in a 3D grid from -r to +r
+        -- This naturally handles vertex sharing at edges and corners
+        local grid = {}
+        for ix = 0, n_div do
+            grid[ix] = {}
+            for iy = 0, n_div do
+                grid[ix][iy] = {}
+                for iz = 0, n_div do
+                    -- Map [0, n_div] to [-r, r]
+                    local x = -r + (2*r*ix)/n_div
+                    local y = -r + (2*r*iy)/n_div
+                    local z = -r + (2*r*iz)/n_div
+
+                    -- Only add vertices that are on the surface of the cube
+                    -- A point is on the surface if at least one coordinate is at min/max
+                    local on_surface = (ix == 0 or ix == n_div or
+                        iy == 0 or iy == n_div or
+                        iz == 0 or iz == n_div)
+
+                    if on_surface then
+                        grid[ix][iy][iz] = add_vertex(x, y, z)
+                    end
+                end
+            end
+        end
+
+        -- Helper to safely get vertex index
+        local function get_vertex(ix, iy, iz)
+            if grid[ix] and grid[ix][iy] and grid[ix][iy][iz] then
+                return grid[ix][iy][iz]
+            end
+            return nil
+        end
+
+        -- Face -Z (z = 0)
+        for ix = 0, n_div - 1 do
+            for iy = 0, n_div - 1 do
+                local a = get_vertex(ix, iy, 0)
+                local b = get_vertex(ix+1, iy, 0)
+                local c = get_vertex(ix, iy+1, 0)
+                local d = get_vertex(ix+1, iy+1, 0)
+                if a and b and c and d then
+                    for x in range(a, b, c, b, d, c) do
+                        table.insert(triangles, x)
+                    end
+                end
+            end
+        end
+
+        -- Face +Z (z = n_div)
+        for ix = 0, n_div - 1 do
+            for iy = 0, n_div - 1 do
+                local a = get_vertex(ix, iy, n_div)
+                local b = get_vertex(ix+1, iy, n_div)
+                local c = get_vertex(ix, iy+1, n_div)
+                local d = get_vertex(ix+1, iy+1, n_div)
+                if a and b and c and d then
+                    for x in range(a, c, b, b, c, d) do
+                        table.insert(triangles, x)
+                    end
+                end
+            end
+        end
+
+        -- Face -X (x = 0)
+        for iz = 0, n_div - 1 do
+            for iy = 0, n_div - 1 do
+                local a = get_vertex(0, iy, iz)
+                local b = get_vertex(0, iy, iz+1)
+                local c = get_vertex(0, iy+1, iz)
+                local d = get_vertex(0, iy+1, iz+1)
+                if a and b and c and d then
+                    for x in range(a, c, b, b, c, d) do
+                        table.insert(triangles, x)
+                    end
+                end
+            end
+        end
+
+        -- Face +X (x = n_div)
+        for iz = 0, n_div - 1 do
+            for iy = 0, n_div - 1 do
+                local a = get_vertex(n_div, iy, iz)
+                local b = get_vertex(n_div, iy, iz+1)
+                local c = get_vertex(n_div, iy+1, iz)
+                local d = get_vertex(n_div, iy+1, iz+1)
+                if a and b and c and d then
+                    for x in range(a, b, c, b, d, c) do
+                        table.insert(triangles, x)
+                    end
+                end
+            end
+        end
+
+        -- Face -Y (y = 0)
+        for ix = 0, n_div - 1 do
+            for iz = 0, n_div - 1 do
+                local a = get_vertex(ix, 0, iz)
+                local b = get_vertex(ix+1, 0, iz)
+                local c = get_vertex(ix, 0, iz+1)
+                local d = get_vertex(ix+1, 0, iz+1)
+                if a and b and c and d then
+                    for x in range(a, c, b, b, c, d) do
+                        table.insert(triangles, x)
+                    end
+                end
+            end
+        end
+
+        -- Face +Y (y = n_div)
+        for ix = 0, n_div - 1 do
+            for iz = 0, n_div - 1 do
+                local a = get_vertex(ix, n_div, iz)
+                local b = get_vertex(ix+1, n_div, iz)
+                local c = get_vertex(ix, n_div, iz+1)
+                local d = get_vertex(ix+1, n_div, iz+1)
+                if a and b and c and d then
+                    for x in range(a, b, c, b, d, c) do
+                        table.insert(triangles, x)
+                    end
+                end
+            end
+        end
+
+        return paths, triangles
+    end
+    local paths, tris = generate_sphere_cube_morph_paths(5, 9)
+
+    local t = 0
+    local instance_mesh_data = {}
+    local path_mesh_data = {}
+    for path in values(paths) do
+        local start_x, start_y, start_z, end_x, end_y, end_z = table.unpack(path)
+        local x, y, z = math.mix3(start_x, start_y, start_z, end_x, end_y, end_z, t)
+        table.insert(instance_mesh_data, { x, y, z, 0, 0, 1, 1, 1, 1 })
+        table.insert(path_mesh_data, { start_x, start_y, start_z, end_x, end_y, end_z })
+    end
+
+    self._instance_mesh = rt.Mesh(
+        instance_mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        _instance_mesh_format,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    self._instance_mesh:set_vertex_map(tris)
+
+    self._path_data_mesh = rt.Mesh(
+        path_mesh_data,
+        rt.MeshDrawMode.POINTS,
+        _path_mesh_format,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    for entry in values(_path_mesh_format) do
+        self._instance_mesh:attach_attribute(
+            self._path_data_mesh,
+            entry.name,
+            rt.MeshAttributeAttachmentMode.PER_VERTEX
+        )
+    end
+
+    --[[
+
     local cube_mesh_data = {}
     local s = 1 / math.sqrt(3)
 
@@ -268,14 +473,14 @@ function ow.Background:_init_cube_mesh()
     add_vertex(-s,  s,  s, 1, 1)
     add_vertex(-s,  s, -s, 0, 1)
 
-    self._cube_mesh = rt.Mesh(
+    self._instance_mesh = rt.Mesh(
         cube_mesh_data,
         rt.MeshDrawMode.TRIANGLES,
         rt.VertexFormat3D,
         rt.GraphicsBufferUsage.STATIC
     )
 
-    self._cube_mesh:set_vertex_map({
+    self._instance_mesh:set_vertex_map({
         1, 2, 3, -- front
         1, 3, 4,
 
@@ -293,7 +498,7 @@ function ow.Background:_init_cube_mesh()
 
         21, 22, 23, -- left
         21, 23, 24
-    })
+    })]]--
 end
 
 --- @brief compute 3d aabb that is visible given view transform and fov
@@ -315,17 +520,14 @@ function ow.Background:_get_3d_bounds()
     local min_y = -half_h + max_radius
     local max_y =  half_h - max_radius
 
-    local inv = self._offset_transform:inverse()
+    local inv = rt.Transform() --self._offset_transform:inverse()
     local wmin_x, wmin_y, wfar_z  = inv:transform_point(min_x, min_y, far_z)
     local wmax_x, wmax_y, wnear_z = inv:transform_point(max_x, max_y, near_z)
 
     return wmin_x, wmax_x, wmin_y, wmax_y, wfar_z, wnear_z
 end
 
---- @brief
---- Compute a scale factor such that, when applied to X and Y (not Z),
---- the back wall of the room fills the view frustum and no side/top/bottom walls are visible.
---- Returns a scalar s; apply as scale(s, s, 1).
+--- @brief scale factor such that only back wall is visible
 function ow.Background:_get_scale_factor()
     local aspect = self._bounds.width / self._bounds.height
 
@@ -368,8 +570,8 @@ function ow.Background:_init_data_mesh()
 
     local settings = rt.settings.overworld.background
     local n_particles = settings.n_particles
-    local min_scale = settings.min_scale * rt.get_pixel_scale()
-    local max_scale = settings.max_scale * rt.get_pixel_scale()
+    local min_scale = settings.min_scale
+    local max_scale = settings.max_scale
 
     local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
     min_x, max_x, min_y, max_y, min_z, max_z = math.min(min_x, max_x),
@@ -507,10 +709,10 @@ function ow.Background:_init_data_mesh()
         rt.GraphicsBufferUsage.STREAM
     )
 
-    assert(self._cube_mesh ~= nil)
+    assert(self._instance_mesh ~= nil)
 
     for entry in values(_data_mesh_format) do
-        self._cube_mesh:attach_attribute(
+        self._instance_mesh:attach_attribute(
             self._data_mesh,
             entry.name,
             rt.MeshAttributeAttachmentMode.PER_INSTANCE
@@ -595,29 +797,4 @@ function ow.Background:_init_room_mesh()
         17, 18, 19, -- left wall
         17, 19, 20
     })
-
-
-end
-
---- @brief
-function ow.Background:_init_point_lights()
-    local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
-
-    local offset = 0.2
-    local width, height, depth = max_x - min_x, max_y - min_y, max_z - min_z
-    min_x = min_x + offset * width
-    max_x = max_x - offset * width
-    min_y = min_y + offset * height
-    max_y = max_y - offset * height
-    min_z = min_z + offset * depth
-    max_z = max_z - offset * depth
-
-    self._point_lights = {}
-    for i = 1, rt.settings.overworld.background.n_point_lights do
-        table.insert(self._point_lights, {
-            rt.random.number(min_x, max_x),
-            rt.random.number(min_y, max_y),
-            rt.random.number(min_z, max_z)
-        })
-    end
 end
