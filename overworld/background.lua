@@ -8,13 +8,16 @@ rt.settings.overworld.background = {
     max_scale = 1.5,
     fov = 0.3,
     min_depth = 50,
-    max_depth = 200,
+    max_depth = 400,
+    cell_size = 2^3,
+    cell_occupancy_change = 0.5,
     n_point_lights = 3,
 
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
 
     z_zoom = 0, -- camera position towards z axis
+    stage_z_position = 1 -- world z coord of stage plane
 }
 
 --- @class ow.Background
@@ -127,22 +130,34 @@ function ow.Background:draw()
 end
 
 --- @brief
+--- @brief
+--- @brief
 function ow.Background:notify_camera_changed(camera)
-    self._scale_transform:reset()
-    local scale_x, scale_y = camera:get_final_scale()
-    self._scale_transform:scale(scale_x, scale_y, 1)
+    do
+        self._scale_transform:reset()
+        local scale = camera:get_final_scale()
+        self._scale_transform:scale(scale, scale, 1)
+    end
 
-    --[[
-    local offset_x, offset_y = camera:get_offset()
-    local scale = 0 --self:_get_scale_factor()
+    local offset_x, offset_y = camera:get_offset() -- in screen coords (pixels)
+
+    local aspect = self._bounds.width / self._bounds.height
+    local fov = math.pi * self._canvas:get_fov()
+    local tan_half = math.tan(0.5 * fov)
+    local near_z = rt.settings.overworld.background.stage_z_position
+
+    local half_h_near = tan_half * near_z
+    local half_w_near = half_h_near * aspect
+
+    local world_offset_x = (offset_x / self._bounds.width) * (2 * half_w_near)
+    local world_offset_y = (offset_y / self._bounds.height) * (2 * half_h_near) * -1 -- y points down
+
     self._offset_transform:reset()
     self._offset_transform:translate(
-        offset_x * scale,
-        offset_y * scale,
+        world_offset_x,
+        world_offset_y,
         0
     )
-    ]]--
-    -- TODO apply
 end
 
 --- @brief compute 3d aabb that is visible given view transform and fov
@@ -204,6 +219,7 @@ end
 function ow.Background:update(delta)
     self._canvas_needs_update = true
 
+    --[[
     if self._input:get_is_down(rt.InputAction.RIGHT) then
         self._offset_transform:translate(10 * delta, 0, 0)
     elseif self._input:get_is_down(rt.InputAction.LEFT) then
@@ -213,6 +229,7 @@ function ow.Background:update(delta)
     elseif self._input:get_is_down(rt.InputAction.DOWN) then
         self._offset_transform:translate(0, 10 * delta, 0)
     end
+    ]]--
 
     local min_x, max_x, min_y, max_y, min_z, max_z = table.unpack(self._room_bounds)
 
@@ -225,6 +242,7 @@ function ow.Background:update(delta)
         local x, y, z = data[1], data[2], data[3]
         local bx, by, bz = x, y, z
 
+        -- wrap when moving out of visible box
         local x_wrapped, y_wrapped, z_wrapped = false, false, false
 
         local width = max_x - min_x
@@ -254,17 +272,18 @@ function ow.Background:update(delta)
             z_wrapped = true
         end
 
+        -- if wrapped, teleport to new deterministic position
         if x_wrapped then
             y = math.mix(min_y, max_y, rt.random.noise(x, y))
         end
 
         if y_wrapped then
-            x = math.mix(min_x, max_x, rt.random.noise(x, y))
+            x = math.mix(min_x, max_x, rt.random.noise(y, x))
         end
 
         data[1], data[2], data[3] = x, y, z
 
-        -- Update rotation
+        -- rotate
         local angle = delta * 2 * math.pi * aux_data.rotation_speed
         local axis_x, axis_y, axis_z = table.unpack(aux_data.rotation_axis)
         data[5], data[6], data[7], data[8] = math.quaternion.normalize(math.quaternion.multiply(
@@ -361,7 +380,6 @@ function ow.Background:_init_data_mesh()
     local aspect = self._bounds.width / self._bounds.height
 
     local settings = rt.settings.overworld.background
-    local n_particles = settings.n_particles
     local min_scale = settings.min_scale
     local max_scale = settings.max_scale
 
@@ -372,7 +390,7 @@ function ow.Background:_init_data_mesh()
     min_y = min_y - max_scale
     max_y = max_y + max_scale
 
-    min_z = min_z + max_scale -- sic, prevent cubes spawning such that they would keep warping
+    min_z = min_z + max_scale
     max_z = max_z - max_scale
 
     self._room_bounds = {
@@ -381,115 +399,70 @@ function ow.Background:_init_data_mesh()
         min_z, max_z
     }
 
-    -- Spatial hashing parameters
-    local cell_size = max_scale * 2  -- Ensure cells can accommodate the largest possible cube
-    local spatial_grid = {}
-
-    -- Helper function to get grid key from position
-    local function get_grid_key(x, y, z)
-        local cx = math.floor(x / cell_size)
-        local cy = math.floor(y / cell_size)
-        local cz = math.floor(z / cell_size)
-        return string.format("%d,%d,%d", cx, cy, cz)
-    end
-
-    -- Helper function to check if position is valid (no overlaps)
-    local function is_position_valid(x, y, z, scale, max_attempts)
-        max_attempts = max_attempts or 100
-
-        -- Get all neighboring cells to check
-        local neighbors = {}
-        local search_radius = math.ceil(scale / cell_size) + 1
-
-        for dx = -search_radius, search_radius do
-            for dy = -search_radius, search_radius do
-                for dz = -search_radius, search_radius do
-                    local key = get_grid_key(x + dx * cell_size, y + dy * cell_size, z + dz * cell_size)
-                    if spatial_grid[key] then
-                        for _, existing_cube in ipairs(spatial_grid[key]) do
-                            table.insert(neighbors, existing_cube)
-                        end
-                    end
-                end
-            end
-        end
-
-        -- Check distance to all neighboring cubes
-        for _, cube in ipairs(neighbors) do
-            local dx = x - cube.x
-            local dy = y - cube.y
-            local dz = z - cube.z
-            local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-            local min_distance = scale + cube.scale
-
-            if distance < min_distance then
-                return false
-            end
-        end
-
-        return true
-    end
+    local cell_size = rt.settings.overworld.background.cell_size
+    local spawn_probability = rt.settings.overworld.background.cell_occupancy_change
 
     self._data_mesh_data = {}
     self._data_mesh_data_aux = self._data_mesh_data_aux or {}
 
-    local placed_cubes = 0
-    local attempts = 0
-    local max_attempts = n_particles * 10  -- Prevent infinite loops
+    local grid_x_count = math.ceil((max_x - min_x) / cell_size)
+    local grid_y_count = math.ceil((max_y - min_y) / cell_size)
+    local grid_z_count = math.ceil((max_z - min_z) / cell_size)
 
-    while placed_cubes < n_particles and attempts < max_attempts do
-        local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1))
-        local x = rt.random.number(min_x, max_x)
-        local y = rt.random.number(min_y, max_y)
-        local z = rt.random.number(min_z, max_z)
+    for ix = 0, grid_x_count - 1 do
+        for iy = 0, grid_y_count - 1 do
+            for iz = 0, grid_z_count - 1 do
+                if rt.random.toss_coin(spawn_probability) then
+                    local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1))
 
-        attempts = attempts + 1
+                    local cell_min_x = min_x + ix * cell_size
+                    local cell_max_x = math.min(cell_min_x + cell_size, max_x)
+                    local cell_min_y = min_y + iy * cell_size
+                    local cell_max_y = math.min(cell_min_y + cell_size, max_y)
+                    local cell_min_z = min_z + iz * cell_size
+                    local cell_max_z = math.min(cell_min_z + cell_size, max_z)
 
-        -- Check if this position is valid (no overlaps)
-        if is_position_valid(x, y, z, scale) then
-            -- Add to spatial grid
-            local key = get_grid_key(x, y, z)
-            if not spatial_grid[key] then
-                spatial_grid[key] = {}
+                    -- prevent cube from reaching outside cell
+                    local spawn_min_x = cell_min_x + scale
+                    local spawn_max_x = cell_max_x - scale
+                    local spawn_min_y = cell_min_y + scale
+                    local spawn_max_y = cell_max_y - scale
+                    local spawn_min_z = cell_min_z + scale
+                    local spawn_max_z = cell_max_z - scale
+
+                    local x = rt.random.number(spawn_min_x, spawn_max_x)
+                    local y = rt.random.number(spawn_min_y, spawn_max_y)
+                    local z = rt.random.number(spawn_min_z, spawn_max_z)
+
+                    local qx, qy, qz, qw = math.quaternion.random()
+
+                    local hue = rt.random.number(0, 1)
+                    local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
+
+                    table.insert(self._data_mesh_data, {
+                        x, y, z,
+                        scale,
+                        qx, qy, qz, qw,
+                        r, g, b, a
+                    })
+
+                    table.insert(self._data_mesh_data_aux, {
+                        rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
+                            settings.min_rotation_speed,
+                            settings.max_rotation_speed
+                        ),
+
+                        rotation_axis = { math.normalize(
+                            rt.random.number(-1, 1),
+                            rt.random.number(-1, 1),
+                            rt.random.number(-1, 1)
+                        )}
+                    })
+                end
             end
-            table.insert(spatial_grid[key], {x = x, y = y, z = z, scale = scale})
-
-            local qx, qy, qz, qw = math.quaternion.random()
-
-            local hue = rt.random.number(0, 1)
-            local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
-
-            table.insert(self._data_mesh_data, {
-                x, y, z,
-                scale,
-                qx, qy, qz, qw,
-                r, g, b, a
-            })
-
-            table.insert(self._data_mesh_data_aux, {
-                rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
-                    settings.min_rotation_speed,
-                    settings.max_rotation_speed
-                ),
-
-                rotation_axis = { math.normalize(
-                    rt.random.number(-1, 1),
-                    rt.random.number(-1, 1),
-                    rt.random.number(-1, 1)
-                )}
-            })
-
-            placed_cubes = placed_cubes + 1
-            attempts = 0  -- Reset attempts counter after successful placement
         end
     end
 
-    -- Log placement statistics
-    if placed_cubes < n_particles then
-        print(string.format("Warning: Only placed %d out of %d cubes due to spatial constraints", placed_cubes, n_particles))
-    end
-
-    -- sort by z (front to back)
     table.sort(self._data_mesh_data, function(a, b)
         return a[3] < b[3]
     end)
