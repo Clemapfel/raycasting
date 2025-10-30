@@ -68,15 +68,12 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
     float front_light = min(ambient_strength + diffuse, 1.0);
 
-    // Both positions should be in the same coordinate space
     vec3 light_pos = vec3(0, 0, 150) - camera_offset;
     vec3 frag_pos = world_position - camera_offset;
 
-    // Calculate distance and attenuation
     float dist = distance(light_pos, frag_pos);
     float attenuation = gaussian(dist, 1.0 / 500.0);
 
-    // Calculate light direction and alignment with normal
     vec3 to_light = normalize(light_pos - frag_pos);
     float alignment = max(dot(-normal, to_light), 0.0);
 

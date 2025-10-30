@@ -11,19 +11,22 @@ rt.settings.overworld.background = {
     max_depth = 400,
     cell_size = 2^3,
     cell_occupancy_change = 0.5,
-    n_point_lights = 3,
 
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
 
     z_zoom = 0, -- camera position towards z axis
-    stage_z_position = 1 -- world z coord of stage plane
+    stage_z_position = 1, -- world z coord of stage plane,
+    cube_thickness = 0.1, -- fraction
+
+    room_color = rt.Palette.GRAY_9
 }
 
 --- @class ow.Background
 ow.Background = meta.class("OverworldBackground", rt.Widget)
 
 local _particle_shader = rt.Shader("overworld/background_particles.glsl")
+local _room_shader = rt.Shader("overworld/background_room.glsl")
 
 local _instance_mesh_format = {
     { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec3" },
@@ -44,6 +47,7 @@ function ow.Background:instantiate()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
             _particle_shader:recompile()
+            _room_shader:recompile()
         end
     end)
 end
@@ -105,7 +109,10 @@ function ow.Background:draw()
         room_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
 
         self._canvas:set_view_transform(room_transform)
+        _room_shader:bind()
+        _room_shader:send("elapsed", rt.SceneManager:get_elapsed())
         self._room_mesh:draw()
+        _room_shader:unbind()
 
         -- particles affected
         local particle_transform = self._view_transform:clone()
@@ -295,7 +302,7 @@ function ow.Background:update(delta)
     self._data_mesh:replace_data(self._data_mesh_data)
 end
 
-
+--[[
 function ow.Background:_init_instance_mesh()
     local cube_mesh_data = {}
     local s = 1 / math.sqrt(3)
@@ -373,6 +380,298 @@ function ow.Background:_init_instance_mesh()
         21, 22, 23, -- left
         21, 23, 24
     })
+end
+]]--
+
+function ow.Background:_init_instance_mesh()
+    local mesh_data = {}
+    local indices = {}
+    local vertex_count = 0
+
+    local s = 1 / math.sqrt(3)  -- outer radius
+    local t = rt.settings.overworld.background.cube_thickness * s
+    local si = s - t
+
+    function add_vertex(x, y, z, u, v)
+        table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+        vertex_count = vertex_count + 1
+        return vertex_count
+    end
+
+    function add_quad(v1, v2, v3, v4)
+        -- Add two triangles for a quad (v1-v2-v3-v4 in CCW order)
+        table.insert(indices, v1)
+        table.insert(indices, v2)
+        table.insert(indices, v3)
+        table.insert(indices, v1)
+        table.insert(indices, v3)
+        table.insert(indices, v4)
+    end
+
+    -- Helper to add a rectangular strip (frame segment)
+    -- outer: 4 corners of outer edge (CCW), inner: 4 corners of inner edge (CCW)
+    function add_frame_strip(o1, o2, i1, i2)
+        add_quad(o1, o2, i2, i1)
+    end
+
+    -- +Z face (front) - looking at face from outside
+    local v = {}
+    v[1] = add_vertex(-s, -s, s, 0, 0)
+    v[2] = add_vertex(s, -s, s, 1, 0)
+    v[3] = add_vertex(s, s, s, 1, 1)
+    v[4] = add_vertex(-s, s, s, 0, 1)
+    v[5] = add_vertex(-si, -si, s, 1 / 4, 1 / 4)
+    v[6] = add_vertex(si, -si, s, 3 / 4, 1 / 4)
+    v[7] = add_vertex(si, si, s, 3 / 4, 3 / 4)
+    v[8] = add_vertex(-si, si, s, 1 / 4, 3 / 4)
+
+    add_frame_strip(v[1], v[2], v[5], v[6])
+    add_frame_strip(v[2], v[3], v[6], v[7])
+    add_frame_strip(v[3], v[4], v[7], v[8])
+    add_frame_strip(v[4], v[1], v[8], v[5])
+
+    -- -Z face (back)
+    v = {}
+    v[1] = add_vertex(s, -s, -s, 0, 0)
+    v[2] = add_vertex(-s, -s, -s, 1, 0)
+    v[3] = add_vertex(-s, s, -s, 1, 1)
+    v[4] = add_vertex(s, s, -s, 0, 1)
+    v[5] = add_vertex(si, -si, -s, 1 / 4, 1 / 4)
+    v[6] = add_vertex(-si, -si, -s, 3 / 4, 1 / 4)
+    v[7] = add_vertex(-si, si, -s, 3 / 4, 3 / 4)
+    v[8] = add_vertex(si, si, -s, 1 / 4, 3 / 4)
+
+    add_frame_strip(v[1], v[2], v[5], v[6])
+    add_frame_strip(v[2], v[3], v[6], v[7])
+    add_frame_strip(v[3], v[4], v[7], v[8])
+    add_frame_strip(v[4], v[1], v[8], v[5])
+
+    -- +Y face (top)
+    v = {}
+    v[1] = add_vertex(-s, s, s, 0, 0)
+    v[2] = add_vertex(s, s, s, 1, 0)
+    v[3] = add_vertex(s, s, -s, 1, 1)
+    v[4] = add_vertex(-s, s, -s, 0, 1)
+    v[5] = add_vertex(-si, s, si, 1 / 4, 1 / 4)
+    v[6] = add_vertex(si, s, si, 3 / 4, 1 / 4)
+    v[7] = add_vertex(si, s, -si, 3 / 4, 3 / 4)
+    v[8] = add_vertex(-si, s, -si, 1 / 4, 3 / 4)
+
+    add_frame_strip(v[1], v[2], v[5], v[6])
+    add_frame_strip(v[2], v[3], v[6], v[7])
+    add_frame_strip(v[3], v[4], v[7], v[8])
+    add_frame_strip(v[4], v[1], v[8], v[5])
+
+    -- -Y face (bottom)
+    v = {}
+    v[1] = add_vertex(-s, -s, -s, 0, 0)
+    v[2] = add_vertex(s, -s, -s, 1, 0)
+    v[3] = add_vertex(s, -s, s, 1, 1)
+    v[4] = add_vertex(-s, -s, s, 0, 1)
+    v[5] = add_vertex(-si, -s, -si, 1 / 4, 1 / 4)
+    v[6] = add_vertex(si, -s, -si, 3 / 4, 1 / 4)
+    v[7] = add_vertex(si, -s, si, 3 / 4, 3 / 4)
+    v[8] = add_vertex(-si, -s, si, 1 / 4, 3 / 4)
+
+    add_frame_strip(v[1], v[2], v[5], v[6])
+    add_frame_strip(v[2], v[3], v[6], v[7])
+    add_frame_strip(v[3], v[4], v[7], v[8])
+    add_frame_strip(v[4], v[1], v[8], v[5])
+
+    -- +X face (right)
+    v = {}
+    v[1] = add_vertex(s, -s, s, 0, 0)
+    v[2] = add_vertex(s, -s, -s, 1, 0)
+    v[3] = add_vertex(s, s, -s, 1, 1)
+    v[4] = add_vertex(s, s, s, 0, 1)
+    v[5] = add_vertex(s, -si, si, 1 / 4, 1 / 4)
+    v[6] = add_vertex(s, -si, -si, 3 / 4, 1 / 4)
+    v[7] = add_vertex(s, si, -si, 3 / 4, 3 / 4)
+    v[8] = add_vertex(s, si, si, 1 / 4, 3 / 4)
+
+    add_frame_strip(v[1], v[2], v[5], v[6])
+    add_frame_strip(v[2], v[3], v[6], v[7])
+    add_frame_strip(v[3], v[4], v[7], v[8])
+    add_frame_strip(v[4], v[1], v[8], v[5])
+
+    -- -X face (left)
+    v = {}
+    v[1] = add_vertex(-s, -s, -s, 0, 0)
+    v[2] = add_vertex(-s, -s, s, 1, 0)
+    v[3] = add_vertex(-s, s, s, 1, 1)
+    v[4] = add_vertex(-s, s, -s, 0, 1)
+    v[5] = add_vertex(-s, -si, -si, 1 / 4, 1 / 4)
+    v[6] = add_vertex(-s, -si, si, 3 / 4, 1 / 4)
+    v[7] = add_vertex(-s, si, si, 3 / 4, 3 / 4)
+    v[8] = add_vertex(-s, si, -si, 1 / 4, 3 / 4)
+
+    add_frame_strip(v[1], v[2], v[5], v[6])
+    add_frame_strip(v[2], v[3], v[6], v[7])
+    add_frame_strip(v[3], v[4], v[7], v[8])
+    add_frame_strip(v[4], v[1], v[8], v[5])
+
+    -- Now add the interior faces for all 12 edge beams
+    -- each beam needs: 2 side faces (already added above as frame strips)
+    -- + 1 inner face (the face pointing toward the hollow center)
+
+    -- 4 edges parallel to Z axis (vertical when looking at XY plane)
+
+    -- edge at (-s, -s, z): beam from back to front
+    v = {}
+    v[1] = add_vertex(-si, -s, -si, 0, 0)
+    v[2] = add_vertex(-s, -si, -si, 0, 1 / 3)
+    v[3] = add_vertex(-s, -si, si, 0, 2 / 3)
+    v[4] = add_vertex(-si, -s, si, 0, 1)
+    v[5] = add_vertex(-si, -si, -s, 1, 0)
+    v[6] = add_vertex(-si, -si, s, 1, 1)
+    add_quad(v[1], v[5], v[6], v[4])
+    add_quad(v[1], v[2], v[3], v[4])
+    add_quad(v[2], v[5], v[6], v[3])
+
+    -- edge at (s, -s, z)
+    v = {}
+    v[1] = add_vertex(si, -s, -si, 0, 0)
+    v[2] = add_vertex(s, -si, -si, 0, 1 / 3)
+    v[3] = add_vertex(s, -si, si, 0, 2 / 3)
+    v[4] = add_vertex(si, -s, si, 0, 1)
+    v[5] = add_vertex(si, -si, -s, 1, 0)
+    v[6] = add_vertex(si, -si, s, 1, 1)
+    add_quad(v[4], v[6], v[5], v[1])
+    add_quad(v[4], v[3], v[2], v[1])
+    add_quad(v[3], v[6], v[5], v[2])
+
+    -- edge at (s, s, z)
+    v = {}
+    v[1] = add_vertex(si, s, -si, 0, 0)
+    v[2] = add_vertex(s, si, -si, 0, 1 / 3)
+    v[3] = add_vertex(s, si, si, 0, 2 / 3)
+    v[4] = add_vertex(si, s, si, 0, 1)
+    v[5] = add_vertex(si, si, -s, 1, 0)
+    v[6] = add_vertex(si, si, s, 1, 1)
+    add_quad(v[1], v[5], v[6], v[4])
+    add_quad(v[1], v[2], v[3], v[4])
+    add_quad(v[5], v[2], v[3], v[6])
+
+    -- edge at (-s, s, z)
+    v = {}
+    v[1] = add_vertex(-si, s, -si, 0, 0)
+    v[2] = add_vertex(-s, si, -si, 0, 1 / 3)
+    v[3] = add_vertex(-s, si, si, 0, 2 / 3)
+    v[4] = add_vertex(-si, s, si, 0, 1)
+    v[5] = add_vertex(-si, si, -s, 1, 0)
+    v[6] = add_vertex(-si, si, s, 1, 1)
+    add_quad(v[4], v[6], v[5], v[1])
+    add_quad(v[4], v[3], v[2], v[1])
+    add_quad(v[6], v[3], v[2], v[5])
+
+    -- 4 edges parallel to X axis
+
+    -- edge at (x, -s, -s)
+    v = {}
+    v[1] = add_vertex(-si, -s, -si, 0, 0)
+    v[2] = add_vertex(-si, -si, -s, 0, 1 / 3)
+    v[3] = add_vertex(si, -si, -s, 0, 2 / 3)
+    v[4] = add_vertex(si, -s, -si, 0, 1)
+    v[5] = add_vertex(-s, -si, -si, 1, 0)
+    v[6] = add_vertex(s, -si, -si, 1, 1)
+    add_quad(v[1], v[5], v[6], v[4])
+    add_quad(v[1], v[2], v[3], v[4])
+    add_quad(v[2], v[5], v[6], v[3])
+
+    -- edge at (x, s, -s)
+    v = {}
+    v[1] = add_vertex(-si, s, -si, 0, 0)
+    v[2] = add_vertex(-si, si, -s, 0, 1 / 3)
+    v[3] = add_vertex(si, si, -s, 0, 2 / 3)
+    v[4] = add_vertex(si, s, -si, 0, 1)
+    v[5] = add_vertex(-s, si, -si, 1, 0)
+    v[6] = add_vertex(s, si, -si, 1, 1)
+    add_quad(v[4], v[6], v[5], v[1])
+    add_quad(v[4], v[3], v[2], v[1])
+    add_quad(v[3], v[6], v[5], v[2])
+
+    -- edge at (x, s, s)
+    v = {}
+    v[1] = add_vertex(-si, s, si, 0, 0)
+    v[2] = add_vertex(-si, si, s, 0, 1 / 3)
+    v[3] = add_vertex(si, si, s, 0, 2 / 3)
+    v[4] = add_vertex(si, s, si, 0, 1)
+    v[5] = add_vertex(-s, si, si, 1, 0)
+    v[6] = add_vertex(s, si, si, 1, 1)
+    add_quad(v[1], v[5], v[6], v[4])
+    add_quad(v[1], v[2], v[3], v[4])
+    add_quad(v[5], v[2], v[3], v[6])
+
+    -- edge at (x, -s, s)
+    v = {}
+    v[1] = add_vertex(-si, -s, si, 0, 0)
+    v[2] = add_vertex(-si, -si, s, 0, 1 / 3)
+    v[3] = add_vertex(si, -si, s, 0, 2 / 3)
+    v[4] = add_vertex(si, -s, si, 0, 1)
+    v[5] = add_vertex(-s, -si, si, 1, 0)
+    v[6] = add_vertex(s, -si, si, 1, 1)
+    add_quad(v[4], v[6], v[5], v[1])
+    add_quad(v[4], v[3], v[2], v[1])
+    add_quad(v[6], v[3], v[2], v[5])
+
+    -- 4 edges parallel to Y axis
+
+    -- edge at (-s, y, -s)
+    v = {}
+    v[1] = add_vertex(-si, -si, -s, 0, 0)
+    v[2] = add_vertex(-s, -si, -si, 0, 1 / 3)
+    v[3] = add_vertex(-s, si, -si, 0, 2 / 3)
+    v[4] = add_vertex(-si, si, -s, 0, 1)
+    v[5] = add_vertex(-si, -s, -si, 1, 0)
+    v[6] = add_vertex(-si, s, -si, 1, 1)
+    add_quad(v[1], v[5], v[6], v[4])
+    add_quad(v[1], v[2], v[3], v[4])
+    add_quad(v[2], v[5], v[6], v[3])
+
+    -- edge at (s, y, -s)
+    v = {}
+    v[1] = add_vertex(si, -si, -s, 0, 0)
+    v[2] = add_vertex(s, -si, -si, 0, 1 / 3)
+    v[3] = add_vertex(s, si, -si, 0, 2 / 3)
+    v[4] = add_vertex(si, si, -s, 0, 1)
+    v[5] = add_vertex(si, -s, -si, 1, 0)
+    v[6] = add_vertex(si, s, -si, 1, 1)
+    add_quad(v[4], v[6], v[5], v[1])
+    add_quad(v[4], v[3], v[2], v[1])
+    add_quad(v[3], v[6], v[5], v[2])
+
+    -- edge at (s, y, s)
+    v = {}
+    v[1] = add_vertex(si, -si, s, 0, 0)
+    v[2] = add_vertex(s, -si, si, 0, 1 / 3)
+    v[3] = add_vertex(s, si, si, 0, 2 / 3)
+    v[4] = add_vertex(si, si, s, 0, 1)
+    v[5] = add_vertex(si, -s, si, 1, 0)
+    v[6] = add_vertex(si, s, si, 1, 1)
+    add_quad(v[1], v[5], v[6], v[4])
+    add_quad(v[1], v[2], v[3], v[4])
+    add_quad(v[5], v[2], v[3], v[6])
+
+    -- edge at (-s, y, s)
+    v = {}
+    v[1] = add_vertex(-si, -si, s, 0, 0)
+    v[2] = add_vertex(-s, -si, si, 0, 1 / 3)
+    v[3] = add_vertex(-s, si, si, 0, 2 / 3)
+    v[4] = add_vertex(-si, si, s, 0, 1)
+    v[5] = add_vertex(-si, -s, si, 1, 0)
+    v[6] = add_vertex(-si, s, si, 1, 1)
+    add_quad(v[4], v[6], v[5], v[1])
+    add_quad(v[4], v[3], v[2], v[1])
+    add_quad(v[6], v[3], v[2], v[5])
+
+    self._instance_mesh = rt.Mesh(
+        mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.VertexFormat3D,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    self._instance_mesh:set_vertex_map(indices)
 end
 
 --- @brief
@@ -462,7 +761,7 @@ function ow.Background:_init_data_mesh()
             end
         end
     end
-
+    
     table.sort(self._data_mesh_data, function(a, b)
         return a[3] < b[3]
     end)
@@ -494,48 +793,49 @@ function ow.Background:_init_room_mesh()
     local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
     local hue = 0
 
+    local r, g, b, a = settings.room_color:unpack()
     local function add_vertex(x, y, z, u, v)
         table.insert(room_mesh_data, {
             x, y, z,
             u, v,
-            rt.lcha_to_rgba(0.5, 1, hue, 1)
+            hue * r, hue * g, hue * b, 1
         })
     end
 
-    -- front wall
-    hue = 0 / 6
-    add_vertex(min_x, min_y, max_z, 0, 1) -- Flipped
-    add_vertex(max_x, min_y, max_z, 1, 1) -- Flipped
-    add_vertex(max_x, max_y, max_z, 1, 0) -- Flipped
-    add_vertex(min_x, max_y, max_z, 0, 0) -- Flipped
+    -- back wall
+    hue = 1
+    add_vertex(min_x, min_y, max_z, 0, 1)
+    add_vertex(max_x, min_y, max_z, 1, 1)
+    add_vertex(max_x, max_y, max_z, 1, 0)
+    add_vertex(min_x, max_y, max_z, 0, 0)
 
     -- top wall
-    hue = 1 / 6
-    add_vertex(min_x, min_y, min_z, 0, 1) -- Flipped
-    add_vertex(max_x, min_y, min_z, 1, 1) -- Flipped
-    add_vertex(max_x, min_y, max_z, 1, 0) -- Flipped
-    add_vertex(min_x, min_y, max_z, 0, 0) -- Flipped
+    hue = 2
+    add_vertex(min_x, min_y, min_z, 0, 1)
+    add_vertex(max_x, min_y, min_z, 1, 1)
+    add_vertex(max_x, min_y, max_z, 1, 0)
+    add_vertex(min_x, min_y, max_z, 0, 0)
 
     -- bottom wall
-    hue = 2 / 6
-    add_vertex(min_x, max_y, max_z, 0, 1) -- Flipped
-    add_vertex(max_x, max_y, max_z, 1, 1) -- Flipped
-    add_vertex(max_x, max_y, min_z, 1, 0) -- Flipped
-    add_vertex(min_x, max_y, min_z, 0, 0) -- Flipped
+    hue = 2
+    add_vertex(min_x, max_y, max_z, 0, 1)
+    add_vertex(max_x, max_y, max_z, 1, 1)
+    add_vertex(max_x, max_y, min_z, 1, 0)
+    add_vertex(min_x, max_y, min_z, 0, 0)
 
     -- right wall
-    hue = 3 / 6
-    add_vertex(max_x, min_y, min_z, 0, 1) -- Flipped
-    add_vertex(max_x, max_y, min_z, 1, 1) -- Flipped
-    add_vertex(max_x, max_y, max_z, 1, 0) -- Flipped
-    add_vertex(max_x, min_y, max_z, 0, 0) -- Flipped
+    hue = 1.5
+    add_vertex(max_x, min_y, min_z, 0, 1)
+    add_vertex(max_x, max_y, min_z, 1, 1)
+    add_vertex(max_x, max_y, max_z, 1, 0)
+    add_vertex(max_x, min_y, max_z, 0, 0)
 
     -- left wall
-    hue = 4 / 6
-    add_vertex(min_x, min_y, max_z, 0, 1) -- Flipped
-    add_vertex(min_x, max_y, max_z, 1, 1) -- Flipped
-    add_vertex(min_x, max_y, min_z, 1, 0) -- Flipped
-    add_vertex(min_x, min_y, min_z, 0, 0) -- Flipped
+    hue = 1.5
+    add_vertex(min_x, min_y, max_z, 0, 1)
+    add_vertex(min_x, max_y, max_z, 1, 1)
+    add_vertex(min_x, max_y, min_z, 1, 0)
+    add_vertex(min_x, min_y, min_z, 0, 0)
 
     self._room_mesh = rt.Mesh(
         room_mesh_data,
