@@ -97,19 +97,19 @@ function ow.Background:draw()
 
         -- room drawn unaffected by stage camera
         local room_transform = self._view_transform:clone()
-        room_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
         room_transform:scale(scale, scale, 1)
         room_transform:apply(self._scale_transform)
+        room_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
 
         self._canvas:set_view_transform(room_transform)
         self._room_mesh:draw()
 
         -- particles affected
         local particle_transform = self._view_transform:clone()
-        particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
-        particle_transform:apply(self._offset_transform)
         particle_transform:scale(scale, scale, 1)
         particle_transform:apply(self._scale_transform)
+        particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
+        particle_transform:apply(self._offset_transform)
 
         self._canvas:set_view_transform(particle_transform)
         _particle_shader:bind()
@@ -204,54 +204,62 @@ end
 function ow.Background:update(delta)
     self._canvas_needs_update = true
 
-    -- Camera offset movement
     if self._input:get_is_down(rt.InputAction.RIGHT) then
-        self._offset_transform:translate(100 * delta, 0, 0)
+        self._offset_transform:translate(10 * delta, 0, 0)
     elseif self._input:get_is_down(rt.InputAction.LEFT) then
-        self._offset_transform:translate(-100 * delta, 0, 0)
+        self._offset_transform:translate(-10 * delta, 0, 0)
+    elseif self._input:get_is_down(rt.InputAction.UP) then
+        self._offset_transform:translate(0, -10 * delta, 0)
+    elseif self._input:get_is_down(rt.InputAction.DOWN) then
+        self._offset_transform:translate(0, 10 * delta, 0)
     end
 
-    local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
-    local region_width = max_x - min_x
-    local region_height = max_y - min_y
+    local min_x, max_x, min_y, max_y, min_z, max_z = table.unpack(self._room_bounds)
 
-    -- Use the same transform stack as draw()
-    local scale = self:_get_scale_factor()
-    local transform = rt.Transform()
-    transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
-    transform:apply(self._offset_transform)
-    transform:scale(scale, scale, 1)
-    transform:apply(self._scale_transform)
+    local transform = self._offset_transform:clone()
+    min_x, min_y, min_z = transform:inverse_transform_point(min_x, min_y, min_z)
+    max_x, max_y, max_z = transform:inverse_transform_point(max_x, max_y, max_z)
 
-    -- Update particles (X and Y wrapping)
     for data_i, data in ipairs(self._data_mesh_data) do
         local aux_data = self._data_mesh_data_aux[data_i]
         local x, y, z = data[1], data[2], data[3]
+        local bx, by, bz = x, y, z
 
-        -- Forward transform to camera space
-        local tx, ty, tz = transform:transform_point(x, y, z)
+        local x_wrapped, y_wrapped, z_wrapped = false, false, false
 
-        -- Wrap in camera space, then transform back to world space
-        local wrapped = false
-        if tx < min_x then
-            tx = tx + region_width
-            wrapped = true
-        elseif tx > max_x then
-            tx = tx - region_width
-            wrapped = true
+        local width = max_x - min_x
+        if x > max_x then
+            x = min_x + (x - max_x) % width
+            x_wrapped = true
+        elseif x < min_x then
+            x = max_x - (min_x - x) % width
+            x_wrapped = true
         end
 
-        if ty < min_y then
-            ty = ty + region_height
-            wrapped = true
-        elseif ty > max_y then
-            ty = ty - region_height
-            wrapped = true
+        local height = max_y - min_y
+        if y > max_y then
+            y = min_y + (y - max_y) % height
+            y_wrapped = true
+        elseif y < min_y then
+            y = max_y - (min_y - y) % height
+            y_wrapped = true
         end
 
-        -- Convert back to world space if we wrapped
-        if wrapped then
-            x, y, z = transform:inverse_transform_point(tx, ty, tz)
+        local depth = max_z - min_z
+        if z > max_z then
+            z = min_z + (z - max_z) % depth
+            z_wrapped = true
+        elseif z < min_z then
+            z = max_z - (min_z - z) % depth
+            z_wrapped = true
+        end
+
+        if x_wrapped then
+            y = math.mix(min_y, max_y, rt.random.noise(x, y))
+        end
+
+        if y_wrapped then
+            x = math.mix(min_x, max_x, rt.random.noise(x, y))
         end
 
         data[1], data[2], data[3] = x, y, z
@@ -366,6 +374,12 @@ function ow.Background:_init_data_mesh()
 
     min_z = min_z + max_scale -- sic, prevent cubes spawning such that they would keep warping
     max_z = max_z - max_scale
+
+    self._room_bounds = {
+        min_x, max_x,
+        min_y, max_y,
+        min_z, max_z
+    }
 
     -- Spatial hashing parameters
     local cell_size = max_scale * 2  -- Ensure cells can accommodate the largest possible cube

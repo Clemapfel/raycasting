@@ -5,6 +5,8 @@ rt.settings.camera = {
     speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
     max_velocity = 2000,
     max_scale_velocity = 5, -- per second
+    min_scale = 1 / 2,
+    max_scale = 10,
     shake_max_frequency = 30,
     shake_max_offset = 6,
     shake_speed = 100,
@@ -152,6 +154,7 @@ function rt.Camera:update(delta)
         local scale_velocity = math.sign(ds) * math.min(math.abs(ds), rt.settings.camera.max_scale_velocity)
 
         self._current_scale = self._current_scale * math.exp(scale_velocity * delta)
+        self._current_scale = math.clamp(self._current_scale, rt.settings.camera.min_scale, rt.settings.camera.max_scale)
     end
 
     do -- movement
