@@ -17,7 +17,7 @@ rt.settings.overworld.background = {
 
     z_zoom = 0, -- camera position towards z axis
     stage_z_position = 1, -- world z coord of stage plane,
-    cube_thickness = 0.1, -- fraction
+    cube_thickness = 0.2, -- fraction
 
     room_color = rt.Palette.GRAY_9
 }
@@ -27,6 +27,7 @@ ow.Background = meta.class("OverworldBackground", rt.Widget)
 
 local _particle_shader = rt.Shader("overworld/background_particles.glsl")
 local _room_shader = rt.Shader("overworld/background_room.glsl")
+local _front_wall_shader = rt.Shader("overworld/background_front_room.glsl")
 
 local _instance_mesh_format = {
     { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec3" },
@@ -48,6 +49,7 @@ function ow.Background:instantiate()
         if which == "k" then
             _particle_shader:recompile()
             _room_shader:recompile()
+            _front_wall_shader:recompile()
         end
     end)
 end
@@ -65,6 +67,9 @@ function ow.Background:realize()
     self._data_mesh_data_aux = {}
     self._data_mesh = nil -- rt.Mesh
 
+    self._room_mesh = nil -- rt.Mesh
+    self._front_wall_mesh = nil -- rt.Mesh
+
     self._canvas = nil -- rt.RenderTexture3D
     self._canvas_needs_update = true
 
@@ -77,6 +82,9 @@ function ow.Background:realize()
 
     self._offset_transform = rt.Transform() -- xyz offset
     self._scale_transform = rt.Transform() -- xyz offset
+
+    self._camera_scale = 1
+    self._camera_offset = { 0, 0 }
 end
 
 --- @brief
@@ -91,6 +99,10 @@ function ow.Background:size_allocate(x, y, width, height)
 
     if self._room_mesh == nil then
         self:_init_room_mesh()
+    end
+
+    if self._front_wall_mesh == nil then
+        self:_init_front_wall_mesh()
     end
 end
 
@@ -126,6 +138,16 @@ function ow.Background:draw()
         self._instance_mesh:draw_instanced(self._n_particles)
         _particle_shader:unbind()
 
+        local front_wall_transform = rt.Transform()
+        front_wall_transform:apply(self._scale_transform)
+        front_wall_transform:apply(self._offset_transform)
+
+        _front_wall_shader:bind()
+        _front_wall_shader:send("camera_scale", self._camera_scale)
+        _front_wall_shader:send("camera_offset", self._camera_offset)
+        self._front_wall_mesh:draw()
+        _front_wall_shader:unbind()
+
         self._canvas:unbind()
         self._canvas_needs_update = false
     end
@@ -133,6 +155,15 @@ function ow.Background:draw()
     love.graphics.push()
     love.graphics.origin()
     self._canvas:draw()
+    love.graphics.pop()
+end
+
+function ow.Background:draw_bloom()
+    love.graphics.push()
+    love.graphics.origin()
+    love.graphics.setBlendMode("add", "premultiplied")
+    self._canvas:draw()
+    love.graphics.setBlendMode("alpha")
     love.graphics.pop()
 end
 
@@ -165,6 +196,9 @@ function ow.Background:notify_camera_changed(camera)
         world_offset_y,
         0
     )
+
+    self._camera_scale = camera:get_final_scale()
+    self._camera_offset = { camera:get_offset() }
 end
 
 --- @brief compute 3d aabb that is visible given view transform and fov
@@ -225,18 +259,6 @@ end
 --- @brief
 function ow.Background:update(delta)
     self._canvas_needs_update = true
-
-    --[[
-    if self._input:get_is_down(rt.InputAction.RIGHT) then
-        self._offset_transform:translate(10 * delta, 0, 0)
-    elseif self._input:get_is_down(rt.InputAction.LEFT) then
-        self._offset_transform:translate(-10 * delta, 0, 0)
-    elseif self._input:get_is_down(rt.InputAction.UP) then
-        self._offset_transform:translate(0, -10 * delta, 0)
-    elseif self._input:get_is_down(rt.InputAction.DOWN) then
-        self._offset_transform:translate(0, 10 * delta, 0)
-    end
-    ]]--
 
     local min_x, max_x, min_y, max_y, min_z, max_z = table.unpack(self._room_bounds)
 
@@ -389,12 +411,30 @@ function ow.Background:_init_instance_mesh()
     local vertex_count = 0
 
     local s = 1 / math.sqrt(3)  -- outer radius
-    local t = rt.settings.overworld.background.cube_thickness * s
-    local si = s - t
+    local t = rt.settings.overworld.background.cube_thickness * s -- beam thickness (adjust this value as needed)
+    local si = s - t -- inner radius
+
+    local vertex_cache = {}
+
+    local n_digits = 8
+    local scale = 10^n_digits
+    function get_vertex_key(x, y, z)
+        -- Round to avoid floating point precision issues
+        local px = math.floor(x * scale + 0.5)
+        local py = math.floor(y * scale + 0.5)
+        local pz = math.floor(z * scale + 0.5)
+        return string.format("%d %d %d", px, py, pz)
+    end
 
     function add_vertex(x, y, z, u, v)
+        local key = get_vertex_key(x, y, z)
+        if vertex_cache[key] then
+            return vertex_cache[key]
+        end
+
         table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
         vertex_count = vertex_count + 1
+        vertex_cache[key] = vertex_count
         return vertex_count
     end
 
@@ -408,13 +448,11 @@ function ow.Background:_init_instance_mesh()
         table.insert(indices, v4)
     end
 
-    -- Helper to add a rectangular strip (frame segment)
-    -- outer: 4 corners of outer edge (CCW), inner: 4 corners of inner edge (CCW)
     function add_frame_strip(o1, o2, i1, i2)
         add_quad(o1, o2, i2, i1)
     end
 
-    -- +Z face (front) - looking at face from outside
+    -- +Z face (front)
     local v = {}
     v[1] = add_vertex(-s, -s, s, 0, 0)
     v[2] = add_vertex(s, -s, s, 1, 0)
@@ -510,13 +548,12 @@ function ow.Background:_init_instance_mesh()
     add_frame_strip(v[3], v[4], v[7], v[8])
     add_frame_strip(v[4], v[1], v[8], v[5])
 
-    -- Now add the interior faces for all 12 edge beams
-    -- each beam needs: 2 side faces (already added above as frame strips)
-    -- + 1 inner face (the face pointing toward the hollow center)
+    -- Interior faces for 12 edge beams
+    -- Each beam has 3 interior faces, vertices are now shared via cache
 
-    -- 4 edges parallel to Z axis (vertical when looking at XY plane)
+    -- 4 edges parallel to Z axis
 
-    -- edge at (-s, -s, z): beam from back to front
+    -- Edge at (-s, -s, z)
     v = {}
     v[1] = add_vertex(-si, -s, -si, 0, 0)
     v[2] = add_vertex(-s, -si, -si, 0, 1 / 3)
@@ -528,7 +565,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[1], v[2], v[3], v[4])
     add_quad(v[2], v[5], v[6], v[3])
 
-    -- edge at (s, -s, z)
+    -- Edge at (s, -s, z)
     v = {}
     v[1] = add_vertex(si, -s, -si, 0, 0)
     v[2] = add_vertex(s, -si, -si, 0, 1 / 3)
@@ -540,7 +577,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[4], v[3], v[2], v[1])
     add_quad(v[3], v[6], v[5], v[2])
 
-    -- edge at (s, s, z)
+    -- Edge at (s, s, z)
     v = {}
     v[1] = add_vertex(si, s, -si, 0, 0)
     v[2] = add_vertex(s, si, -si, 0, 1 / 3)
@@ -552,7 +589,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[1], v[2], v[3], v[4])
     add_quad(v[5], v[2], v[3], v[6])
 
-    -- edge at (-s, s, z)
+    -- Edge at (-s, s, z)
     v = {}
     v[1] = add_vertex(-si, s, -si, 0, 0)
     v[2] = add_vertex(-s, si, -si, 0, 1 / 3)
@@ -566,7 +603,7 @@ function ow.Background:_init_instance_mesh()
 
     -- 4 edges parallel to X axis
 
-    -- edge at (x, -s, -s)
+    -- Edge at (x, -s, -s)
     v = {}
     v[1] = add_vertex(-si, -s, -si, 0, 0)
     v[2] = add_vertex(-si, -si, -s, 0, 1 / 3)
@@ -578,7 +615,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[1], v[2], v[3], v[4])
     add_quad(v[2], v[5], v[6], v[3])
 
-    -- edge at (x, s, -s)
+    -- Edge at (x, s, -s)
     v = {}
     v[1] = add_vertex(-si, s, -si, 0, 0)
     v[2] = add_vertex(-si, si, -s, 0, 1 / 3)
@@ -590,7 +627,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[4], v[3], v[2], v[1])
     add_quad(v[3], v[6], v[5], v[2])
 
-    -- edge at (x, s, s)
+    -- Edge at (x, s, s)
     v = {}
     v[1] = add_vertex(-si, s, si, 0, 0)
     v[2] = add_vertex(-si, si, s, 0, 1 / 3)
@@ -602,7 +639,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[1], v[2], v[3], v[4])
     add_quad(v[5], v[2], v[3], v[6])
 
-    -- edge at (x, -s, s)
+    -- Edge at (x, -s, s)
     v = {}
     v[1] = add_vertex(-si, -s, si, 0, 0)
     v[2] = add_vertex(-si, -si, s, 0, 1 / 3)
@@ -616,7 +653,7 @@ function ow.Background:_init_instance_mesh()
 
     -- 4 edges parallel to Y axis
 
-    -- edge at (-s, y, -s)
+    -- Edge at (-s, y, -s)
     v = {}
     v[1] = add_vertex(-si, -si, -s, 0, 0)
     v[2] = add_vertex(-s, -si, -si, 0, 1 / 3)
@@ -628,7 +665,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[1], v[2], v[3], v[4])
     add_quad(v[2], v[5], v[6], v[3])
 
-    -- edge at (s, y, -s)
+    -- Edge at (s, y, -s)
     v = {}
     v[1] = add_vertex(si, -si, -s, 0, 0)
     v[2] = add_vertex(s, -si, -si, 0, 1 / 3)
@@ -640,7 +677,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[4], v[3], v[2], v[1])
     add_quad(v[3], v[6], v[5], v[2])
 
-    -- edge at (s, y, s)
+    -- Edge at (s, y, s)
     v = {}
     v[1] = add_vertex(si, -si, s, 0, 0)
     v[2] = add_vertex(s, -si, si, 0, 1 / 3)
@@ -652,7 +689,7 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[1], v[2], v[3], v[4])
     add_quad(v[5], v[2], v[3], v[6])
 
-    -- edge at (-s, y, s)
+    -- Edge at (-s, y, s)
     v = {}
     v[1] = add_vertex(-si, -si, s, 0, 0)
     v[2] = add_vertex(-s, -si, si, 0, 1 / 3)
@@ -861,4 +898,34 @@ function ow.Background:_init_room_mesh()
         17, 18, 19, -- left wall
         17, 19, 20
     })
+end
+
+--- @brief
+function ow.Background:_init_front_wall_mesh()
+    local mesh_data = {}
+    local function add_vertex(x, y, z, u, v)
+        table.insert(mesh_data, {
+            x, y, z, u, v, 1, 1, 1, 1
+        })
+    end
+
+    local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
+
+    local z = 0
+    add_vertex(min_x, min_y, z, 0, 1)
+    add_vertex(max_x, min_y, z, 1, 1)
+    add_vertex(max_x, max_y, z, 1, 0)
+    add_vertex(min_x, max_y, z, 0, 0)
+
+    self._front_wall_mesh = rt.Mesh(
+        mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.VertexFormat3D,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    self._front_wall_mesh:set_vertex_map(
+        1, 2, 3, -- back wall
+        1, 3, 4
+    )
 end

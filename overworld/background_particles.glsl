@@ -59,6 +59,8 @@ uniform vec3 camera_offset;
 uniform vec3 point_lights[MAX_N_POINT_LIGHTS];
 uniform int n_point_lights;
 
+const vec3 light_position = vec3(0, 0, 150);
+
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     vec3 normal = normalize(cross(dFdx(world_position), dFdy(world_position)));
     vec3 light_dir = normalize(-light_direction);
@@ -68,13 +70,13 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
 
     float front_light = min(ambient_strength + diffuse, 1.0);
 
-    vec3 light_pos = vec3(0, 0, 150) - camera_offset;
+    vec3 light_direction = light_position - camera_offset;
     vec3 frag_pos = world_position - camera_offset;
 
-    float dist = distance(light_pos, frag_pos);
+    float dist = distance(light_direction, frag_pos);
     float attenuation = gaussian(dist, 1.0 / 500.0);
 
-    vec3 to_light = normalize(light_pos - frag_pos);
+    vec3 to_light = normalize(light_direction - frag_pos);
     float alignment = max(dot(-normal, to_light), 0.0);
 
     float point_light = point_light_intensity * alignment * attenuation;

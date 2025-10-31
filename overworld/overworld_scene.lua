@@ -580,41 +580,7 @@ function ow.OverworldScene:draw()
 
     love.graphics.origin()
     love.graphics.clear(1, 0, 1, 1)
-    if self._show_title_card == true and self._fade:get_is_active() or self._fade:get_is_visible() then
-        self._background:draw()
-        self._camera:bind()
-        self._stage:draw_below_player()
-        self._stage:draw_above_player()
-        self._camera:unbind()
-
-        --self._fade:draw()
-
-        if self._player_is_visible then
-            self._camera:bind()
-            self._player:draw_body()
-            self._player:draw_core()
-            self._camera:unbind()
-        end
-
-        self._title_card:draw()
-
-        if rt.GameState:get_is_bloom_enabled() == true then
-            local bloom = rt.SceneManager:get_bloom()
-            love.graphics.push()
-            bloom:bind()
-            love.graphics.clear(0, 0, 0, 0)
-            self._camera:bind()
-            if self._player_is_visible then
-                self._player:draw_bloom()
-            end
-            self._title_card:draw()
-            self._camera:unbind()
-            bloom:unbind()
-            love.graphics.pop()
-
-            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
-        end
-    else -- not fading
+    if not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
         self._background:draw()
 
         if self._fade_to_black > 0 then
@@ -642,6 +608,40 @@ function ow.OverworldScene:draw()
                 self._player:draw_bloom()
             end
             self._stage:draw_bloom()
+            self._camera:unbind()
+            bloom:unbind()
+            love.graphics.pop()
+
+            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+        end
+    else -- fading
+        self._background:draw()
+        self._camera:bind()
+        self._stage:draw_below_player()
+        self._stage:draw_above_player()
+        self._camera:unbind()
+
+        self._fade:draw()
+
+        if self._player_is_visible then
+            self._camera:bind()
+            self._player:draw_body()
+            self._player:draw_core()
+            self._camera:unbind()
+        end
+
+        self._title_card:draw()
+
+        if rt.GameState:get_is_bloom_enabled() == true then
+            local bloom = rt.SceneManager:get_bloom()
+            love.graphics.push()
+            bloom:bind()
+            love.graphics.clear(0, 0, 0, 0)
+            self._camera:bind()
+            if self._player_is_visible then
+                self._player:draw_bloom()
+            end
+            self._title_card:draw()
             self._camera:unbind()
             bloom:unbind()
             love.graphics.pop()
