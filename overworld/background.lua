@@ -7,10 +7,10 @@ rt.settings.overworld.background = {
     min_scale = 0.8,
     max_scale = 1.5,
     fov = 0.3,
-    min_depth = 50,
+    min_depth = 43,
     max_depth = 400,
     cell_size = 2^3,
-    cell_occupancy_change = 0.5,
+    cell_occupancy_change = 0.2,
 
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
@@ -28,6 +28,7 @@ ow.Background = meta.class("OverworldBackground", rt.Widget)
 local _particle_shader = rt.Shader("overworld/background_particles.glsl")
 local _room_shader = rt.Shader("overworld/background_room.glsl")
 local _front_wall_shader = rt.Shader("overworld/background_front_room.glsl")
+local _post_fx_shader = rt.Shader("overworld/background_postfx.glsl")
 
 local _instance_mesh_format = {
     { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec3" },
@@ -47,9 +48,14 @@ function ow.Background:instantiate()
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
-            _particle_shader:recompile()
-            _room_shader:recompile()
-            _front_wall_shader:recompile()
+            for shader in range(
+                _particle_shader,
+                _room_shader,
+                _front_wall_shader,
+                _post_fx_shader
+            ) do
+                shader:recompile()
+            end
         end
     end)
 end
@@ -60,12 +66,7 @@ function ow.Background:realize()
 
     self._n_particles = rt.settings.overworld.background.n_particles
 
-    self._instance_mesh = nil -- rt.Mesh
-    self:_init_instance_mesh()
-
-    self._data_mesh_data = {}
-    self._data_mesh_data_aux = {}
-    self._data_mesh = nil -- rt.Mesh
+    self._particles = {}
 
     self._room_mesh = nil -- rt.Mesh
     self._front_wall_mesh = nil -- rt.Mesh
@@ -93,8 +94,134 @@ function ow.Background:size_allocate(x, y, width, height)
 
     self._canvas = rt.RenderTexture3D(width, height, 8)
     self._canvas:set_fov(rt.settings.overworld.background.fov)
-    if self._data_mesh == nil then
-        self:_init_data_mesh()
+
+    self._particles = {}
+
+    -- init entry and instances
+    for instance_mesh in range(
+        self:_init_tetrahedron_particle(),
+        self:_init_icosahedron_particle(),
+        self:_init_octahedron_particle(),
+        self:_init_cube_particle()
+        --self:_init_sphere_particle(6, 6)
+        --self:_init_cuboid_particle()
+    ) do
+        table.insert(self._particles, {
+            instance_mesh = instance_mesh,
+            data_mesh = nil,
+            data_mesh_data = {},
+            data_mesh_data_aux = {},
+            n_particles = nil
+        })
+    end
+
+    do
+        local aspect = self._bounds.width / self._bounds.height
+
+        local settings = rt.settings.overworld.background
+        local min_scale = settings.min_scale
+        local max_scale = settings.max_scale
+
+        local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
+
+        min_x = min_x - max_scale
+        max_x = max_x + max_scale
+        min_y = min_y - max_scale
+        max_y = max_y + max_scale
+
+        min_z = min_z + max_scale
+        max_z = max_z - max_scale
+
+        self._room_bounds = {
+            min_x, max_x,
+            min_y, max_y,
+            min_z, max_z
+        }
+
+        local cell_size = rt.settings.overworld.background.cell_size
+        local spawn_probability = rt.settings.overworld.background.cell_occupancy_change
+
+        local grid_x_count = math.ceil((max_x - min_x) / cell_size)
+        local grid_y_count = math.ceil((max_y - min_y) / cell_size)
+        local grid_z_count = math.ceil((max_z - min_z) / cell_size)
+
+        for ix = 0, grid_x_count - 1 do
+            for iy = 0, grid_y_count - 1 do
+                for iz = 0, grid_z_count - 1 do
+                    if rt.random.toss_coin(spawn_probability) then
+                        local entry = rt.random.choose(self._particles)
+                        local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1))
+
+                        local cell_min_x = min_x + ix * cell_size
+                        local cell_max_x = math.min(cell_min_x + cell_size, max_x)
+                        local cell_min_y = min_y + iy * cell_size
+                        local cell_max_y = math.min(cell_min_y + cell_size, max_y)
+                        local cell_min_z = min_z + iz * cell_size
+                        local cell_max_z = math.min(cell_min_z + cell_size, max_z)
+
+                        -- prevent cube from reaching outside cell
+                        local spawn_min_x = cell_min_x + scale
+                        local spawn_max_x = cell_max_x - scale
+                        local spawn_min_y = cell_min_y + scale
+                        local spawn_max_y = cell_max_y - scale
+                        local spawn_min_z = cell_min_z + scale
+                        local spawn_max_z = cell_max_z - scale
+
+                        local x = rt.random.number(spawn_min_x, spawn_max_x)
+                        local y = rt.random.number(spawn_min_y, spawn_max_y)
+                        local z = rt.random.number(spawn_min_z, spawn_max_z)
+
+                        local qx, qy, qz, qw = math.quaternion.random()
+
+                        local hue = rt.random.number(0, 1)
+                        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
+
+                        table.insert(entry.data_mesh_data, {
+                            x, y, z,
+                            scale,
+                            qx, qy, qz, qw,
+                            r, g, b, a
+                        })
+
+                        table.insert(entry.data_mesh_data_aux, {
+                            rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
+                                settings.min_rotation_speed,
+                                settings.max_rotation_speed
+                            ),
+
+                            rotation_axis = { math.normalize(
+                                rt.random.number(-1, 1),
+                                rt.random.number(-1, 1),
+                                rt.random.number(-1, 1)
+                            )}
+                        })
+                    end
+                end
+            end
+        end
+    end
+
+    -- post process
+    for entry in values(self._particles) do
+        table.sort(entry.data_mesh_data, function(a, b)
+            return a[3] < b[3]
+        end)
+
+        entry.n_particles = #entry.data_mesh_data
+        entry.data_mesh = rt.Mesh(
+            entry.data_mesh_data,
+            rt.MeshDrawMode.POINTS,
+            _data_mesh_format,
+            rt.GraphicsBufferUsage.STREAM
+        )
+
+        for format in values(_data_mesh_format) do
+            entry.instance_mesh:attach_attribute(
+                entry.data_mesh,
+                format.name,
+                rt.MeshAttributeAttachmentMode.PER_INSTANCE
+            )
+        end
     end
 
     if self._room_mesh == nil then
@@ -126,27 +253,30 @@ function ow.Background:draw()
         self._room_mesh:draw()
         _room_shader:unbind()
 
-        -- particles affected
         local particle_transform = self._view_transform:clone()
         particle_transform:scale(scale, scale, 1)
         particle_transform:apply(self._scale_transform)
         particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
         particle_transform:apply(self._offset_transform)
-
         self._canvas:set_view_transform(particle_transform)
         _particle_shader:bind()
-        self._instance_mesh:draw_instanced(self._n_particles)
+        for entry in values(self._particles) do
+            -- particles affected
+            entry.instance_mesh:draw_instanced(entry.n_particles)
+        end
         _particle_shader:unbind()
 
         local front_wall_transform = rt.Transform()
         front_wall_transform:apply(self._scale_transform)
         front_wall_transform:apply(self._offset_transform)
 
+        --[[
         _front_wall_shader:bind()
         _front_wall_shader:send("camera_scale", self._camera_scale)
         _front_wall_shader:send("camera_offset", self._camera_offset)
         self._front_wall_mesh:draw()
         _front_wall_shader:unbind()
+        ]]--
 
         self._canvas:unbind()
         self._canvas_needs_update = false
@@ -154,7 +284,9 @@ function ow.Background:draw()
 
     love.graphics.push()
     love.graphics.origin()
+    _post_fx_shader:bind()
     self._canvas:draw()
+    _post_fx_shader:unbind()
     love.graphics.pop()
 end
 
@@ -167,8 +299,6 @@ function ow.Background:draw_bloom()
     love.graphics.pop()
 end
 
---- @brief
---- @brief
 --- @brief
 function ow.Background:notify_camera_changed(camera)
     do
@@ -256,7 +386,6 @@ function ow.Background:_get_scale_factor()
 end
 
 --- @brief
---- @brief
 function ow.Background:update(delta)
     self._canvas_needs_update = true
 
@@ -266,66 +395,67 @@ function ow.Background:update(delta)
     min_x, min_y, min_z = transform:inverse_transform_point(min_x, min_y, min_z)
     max_x, max_y, max_z = transform:inverse_transform_point(max_x, max_y, max_z)
 
-    for data_i, data in ipairs(self._data_mesh_data) do
-        local aux_data = self._data_mesh_data_aux[data_i]
-        local x, y, z = data[1], data[2], data[3]
-        local bx, by, bz = x, y, z
+    for entry in values(self._particles) do
+        for data_i, data in ipairs(entry.data_mesh_data) do
+            local aux_data = entry.data_mesh_data_aux[data_i]
+            local x, y, z = data[1], data[2], data[3]
+            local bx, by, bz = x, y, z
 
-        -- wrap when moving out of visible box
-        local x_wrapped, y_wrapped, z_wrapped = false, false, false
+            -- wrap when moving out of visible box
+            local x_wrapped, y_wrapped, z_wrapped = false, false, false
 
-        local width = max_x - min_x
-        if x > max_x then
-            x = min_x + (x - max_x) % width
-            x_wrapped = true
-        elseif x < min_x then
-            x = max_x - (min_x - x) % width
-            x_wrapped = true
+            local width = max_x - min_x
+            if x > max_x then
+                x = min_x + (x - max_x) % width
+                x_wrapped = true
+            elseif x < min_x then
+                x = max_x - (min_x - x) % width
+                x_wrapped = true
+            end
+
+            local height = max_y - min_y
+            if y > max_y then
+                y = min_y + (y - max_y) % height
+                y_wrapped = true
+            elseif y < min_y then
+                y = max_y - (min_y - y) % height
+                y_wrapped = true
+            end
+
+            local depth = max_z - min_z
+            if z > max_z then
+                z = min_z + (z - max_z) % depth
+                z_wrapped = true
+            elseif z < min_z then
+                z = max_z - (min_z - z) % depth
+                z_wrapped = true
+            end
+
+            -- if wrapped, teleport to new deterministic position
+            if x_wrapped then
+                y = math.mix(min_y, max_y, rt.random.noise(x, y))
+            end
+
+            if y_wrapped then
+                x = math.mix(min_x, max_x, rt.random.noise(y, x))
+            end
+
+            data[1], data[2], data[3] = x, y, z
+
+            -- rotate
+            local angle = delta * 2 * math.pi * aux_data.rotation_speed
+            local axis_x, axis_y, axis_z = table.unpack(aux_data.rotation_axis)
+            data[5], data[6], data[7], data[8] = math.quaternion.normalize(math.quaternion.multiply(
+                data[5], data[6], data[7], data[8],
+                math.quaternion.from_axis_angle(axis_x, axis_y, axis_z, angle)
+            ))
         end
 
-        local height = max_y - min_y
-        if y > max_y then
-            y = min_y + (y - max_y) % height
-            y_wrapped = true
-        elseif y < min_y then
-            y = max_y - (min_y - y) % height
-            y_wrapped = true
-        end
-
-        local depth = max_z - min_z
-        if z > max_z then
-            z = min_z + (z - max_z) % depth
-            z_wrapped = true
-        elseif z < min_z then
-            z = max_z - (min_z - z) % depth
-            z_wrapped = true
-        end
-
-        -- if wrapped, teleport to new deterministic position
-        if x_wrapped then
-            y = math.mix(min_y, max_y, rt.random.noise(x, y))
-        end
-
-        if y_wrapped then
-            x = math.mix(min_x, max_x, rt.random.noise(y, x))
-        end
-
-        data[1], data[2], data[3] = x, y, z
-
-        -- rotate
-        local angle = delta * 2 * math.pi * aux_data.rotation_speed
-        local axis_x, axis_y, axis_z = table.unpack(aux_data.rotation_axis)
-        data[5], data[6], data[7], data[8] = math.quaternion.normalize(math.quaternion.multiply(
-            data[5], data[6], data[7], data[8],
-            math.quaternion.from_axis_angle(axis_x, axis_y, axis_z, angle)
-        ))
+        entry.data_mesh:replace_data(entry.data_mesh_data)
     end
-
-    self._data_mesh:replace_data(self._data_mesh_data)
 end
 
---[[
-function ow.Background:_init_instance_mesh()
+function ow.Background:_init_cube_particle()
     local cube_mesh_data = {}
     local s = 1 / math.sqrt(3)
 
@@ -376,14 +506,14 @@ function ow.Background:_init_instance_mesh()
     add_vertex(-s,  s,  s, 1, 1)
     add_vertex(-s,  s, -s, 0, 1)
 
-    self._instance_mesh = rt.Mesh(
+    local instance_mesh = rt.Mesh(
         cube_mesh_data,
         rt.MeshDrawMode.TRIANGLES,
         rt.VertexFormat3D,
         rt.GraphicsBufferUsage.STATIC
     )
 
-    self._instance_mesh:set_vertex_map({
+    instance_mesh:set_vertex_map({
         1, 2, 3, -- front
         1, 3, 4,
 
@@ -402,10 +532,251 @@ function ow.Background:_init_instance_mesh()
         21, 22, 23, -- left
         21, 23, 24
     })
-end
-]]--
 
-function ow.Background:_init_instance_mesh()
+    return instance_mesh
+end
+
+function ow.Background:_init_tetrahedron_particle()
+    local mesh_data = {}
+    local vertex_index = 1
+
+    local function add_vertex(x, y, z, u, v)
+        table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+        local idx = vertex_index
+        vertex_index = vertex_index + 1
+        return idx
+    end
+
+    local s = 1 / math.sqrt(3)
+    local verts = {
+        {  s,  s,  s },
+        { -s, -s,  s },
+        { -s,  s, -s },
+        {  s, -s, -s },
+    }
+
+    -- add vertices to the mesh
+    local v1 = add_vertex(verts[1][1], verts[1][2], verts[1][3], 0.5, 0)
+    local v2 = add_vertex(verts[2][1], verts[2][2], verts[2][3], 0, 1)
+    local v3 = add_vertex(verts[3][1], verts[3][2], verts[3][3], 0.5, 1)
+    local v4 = add_vertex(verts[4][1], verts[4][2], verts[4][3], 1, 1)
+
+    local indices = {
+        v1, v2, v3,
+        v1, v4, v2,
+        v1, v3, v4,
+        v2, v4, v3
+    }
+
+    local mesh = rt.Mesh(
+        mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.VertexFormat3D,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    mesh:set_vertex_map(indices)
+    return mesh
+end
+
+function ow.Background:_init_octahedron_particle()
+    local mesh_data = {}
+    local vertex_index = 1
+
+    function add_vertex(x, y, z, u, v)
+        table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+        local idx = vertex_index
+        vertex_index = vertex_index + 1
+        return idx
+    end
+
+    -- octahedron vertices
+    local top = add_vertex(0, 1, 0, 0.5, 0)
+    local front = add_vertex(0, 0, 1, 0.5, 1 / 3)
+    local right = add_vertex(1, 0, 0, 0.75, 0.5)
+    local back = add_vertex(0, 0, -1, 0.5, 2 / 3)
+    local left = add_vertex(-1, 0, 0, 0.25, 0.5)
+    local bottom = add_vertex(0, -1, 0, 0.5, 1)
+
+    local indices = {
+        -- top pyramid
+        top, front, right,
+        top, right, back,
+        top, back, left,
+        top, left, front,
+
+        -- bottom pyramid
+        bottom, right, front,
+        bottom, back, right,
+        bottom, left, back,
+        bottom, front, left
+    }
+
+    local mesh = rt.Mesh(
+        mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.VertexFormat3D,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    mesh:set_vertex_map(indices)
+    return mesh
+end
+
+function ow.Background:_init_icosahedron_particle()
+    local mesh_data = {}
+    local vertex_index = 1
+
+    function add_vertex(x, y, z, u, v)
+        table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+        local idx = vertex_index
+        vertex_index = vertex_index + 1
+        return idx
+    end
+
+    -- golden ratio
+    local phi = (1 + math.sqrt(5)) / 2
+    local scale = 1 / math.sqrt(phi * phi + 1)
+
+    local v1 = add_vertex(0, scale, phi * scale, 0, 0.25)
+    local v2 = add_vertex(0, -scale, phi * scale, 0.1, 0.5)
+    local v3 = add_vertex(0, scale, -phi * scale, 0.2, 0.25)
+    local v4 = add_vertex(0, -scale, -phi * scale, 0.3, 0.5)
+
+    local v5 = add_vertex(scale, phi * scale, 0, 0.4, 0.1)
+    local v6 = add_vertex(-scale, phi * scale, 0, 0.5, 0.1)
+    local v7 = add_vertex(scale, -phi * scale, 0, 0.6, 0.9)
+    local v8 = add_vertex(-scale, -phi * scale, 0, 0.7, 0.9)
+
+    local v9 = add_vertex(phi * scale, 0, scale, 0.8, 0.4)
+    local v10 = add_vertex(phi * scale, 0, -scale, 0.9, 0.6)
+    local v11 = add_vertex(-phi * scale, 0, scale, 1.0, 0.4)
+    local v12 = add_vertex(-phi * scale, 0, -scale, 0.95, 0.6)
+
+    local indices = {
+        v1, v2, v9,
+        v1, v9, v5,
+        v1, v5, v6,
+        v1, v6, v11,
+        v1, v11, v2,
+
+        v2, v11, v8,
+        v2, v8, v7,
+        v2, v7, v9,
+
+        v9, v7, v10,
+        v9, v10, v5,
+
+        v5, v10, v3,
+        v5, v3, v6,
+
+        v6, v3, v12,
+        v6, v12, v11,
+
+        v11, v12, v8,
+
+        v8, v12, v4,
+        v8, v4, v7,
+
+        v7, v4, v10,
+
+        v10, v4, v3,
+
+        v3, v4, v12
+    }
+
+    local mesh = rt.Mesh(
+        mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.VertexFormat3D,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    mesh:set_vertex_map(indices)
+    return mesh
+end
+
+function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
+
+    local sphere_mesh_data = {}
+    local vertex_index = 1
+    local indices = {}
+
+    function add_vertex(x, y, z, u, v)
+        table.insert(sphere_mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+        local idx = vertex_index
+        vertex_index = vertex_index + 1
+        return idx
+    end
+
+    local top_idx = add_vertex(0, -1, 0, 0.5, 0)
+
+    local ring_indices = {}
+    for ring = 1, n_rings - 1 do
+        ring_indices[ring] = {}
+        local phi = math.pi * ring / n_rings
+        local y = -math.cos(phi)
+        local ring_radius = math.sin(phi)
+
+        for seg = 0, n_segments_per_ring - 1 do
+            local theta = 2 * math.pi * seg / n_segments_per_ring
+            local x = ring_radius * math.cos(theta)
+            local z = ring_radius * math.sin(theta)
+            local u = seg / n_segments_per_ring
+            local v = ring / n_rings
+
+            ring_indices[ring][seg + 1] = add_vertex(x, y, z, u, v)
+        end
+    end
+
+    local bottom_idx = add_vertex(0, 1, 0, 0.5, 1)
+
+    for seg = 0, n_segments_per_ring - 1 do
+        local next_seg = (seg + 1) % n_segments_per_ring
+        table.insert(indices, top_idx)
+        table.insert(indices, ring_indices[1][seg + 1])
+        table.insert(indices, ring_indices[1][next_seg + 1])
+    end
+
+    for ring = 1, n_rings - 2 do
+        for seg = 0, n_segments_per_ring - 1 do
+            local next_seg = (seg + 1) % n_segments_per_ring
+            local curr_ring_curr = ring_indices[ring][seg + 1]
+            local curr_ring_next = ring_indices[ring][next_seg + 1]
+            local next_ring_curr = ring_indices[ring + 1][seg + 1]
+            local next_ring_next = ring_indices[ring + 1][next_seg + 1]
+
+            table.insert(indices, curr_ring_curr)
+            table.insert(indices, next_ring_curr)
+            table.insert(indices, curr_ring_next)
+
+            table.insert(indices, curr_ring_next)
+            table.insert(indices, next_ring_curr)
+            table.insert(indices, next_ring_next)
+        end
+    end
+
+    for seg = 0, n_segments_per_ring - 1 do
+        local next_seg = (seg + 1) % n_segments_per_ring
+        table.insert(indices, ring_indices[n_rings - 1][seg + 1])
+        table.insert(indices, bottom_idx)
+        table.insert(indices, ring_indices[n_rings - 1][next_seg + 1])
+    end
+
+    local instance_mesh = rt.Mesh(
+        sphere_mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.VertexFormat3D,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    instance_mesh:set_vertex_map(indices)
+
+    return instance_mesh
+end
+
+
+function ow.Background:_init_cuboid_particle()
     local mesh_data = {}
     local indices = {}
     local vertex_count = 0
@@ -701,124 +1072,15 @@ function ow.Background:_init_instance_mesh()
     add_quad(v[4], v[3], v[2], v[1])
     add_quad(v[6], v[3], v[2], v[5])
 
-    self._instance_mesh = rt.Mesh(
+    local instance_mesh = rt.Mesh(
         mesh_data,
         rt.MeshDrawMode.TRIANGLES,
         rt.VertexFormat3D,
         rt.GraphicsBufferUsage.STATIC
     )
 
-    self._instance_mesh:set_vertex_map(indices)
-end
-
---- @brief
-function ow.Background:_init_data_mesh()
-    local aspect = self._bounds.width / self._bounds.height
-
-    local settings = rt.settings.overworld.background
-    local min_scale = settings.min_scale
-    local max_scale = settings.max_scale
-
-    local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
-
-    min_x = min_x - max_scale
-    max_x = max_x + max_scale
-    min_y = min_y - max_scale
-    max_y = max_y + max_scale
-
-    min_z = min_z + max_scale
-    max_z = max_z - max_scale
-
-    self._room_bounds = {
-        min_x, max_x,
-        min_y, max_y,
-        min_z, max_z
-    }
-
-    local cell_size = rt.settings.overworld.background.cell_size
-    local spawn_probability = rt.settings.overworld.background.cell_occupancy_change
-
-    self._data_mesh_data = {}
-    self._data_mesh_data_aux = self._data_mesh_data_aux or {}
-
-    local grid_x_count = math.ceil((max_x - min_x) / cell_size)
-    local grid_y_count = math.ceil((max_y - min_y) / cell_size)
-    local grid_z_count = math.ceil((max_z - min_z) / cell_size)
-
-    for ix = 0, grid_x_count - 1 do
-        for iy = 0, grid_y_count - 1 do
-            for iz = 0, grid_z_count - 1 do
-                if rt.random.toss_coin(spawn_probability) then
-                    local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1))
-
-                    local cell_min_x = min_x + ix * cell_size
-                    local cell_max_x = math.min(cell_min_x + cell_size, max_x)
-                    local cell_min_y = min_y + iy * cell_size
-                    local cell_max_y = math.min(cell_min_y + cell_size, max_y)
-                    local cell_min_z = min_z + iz * cell_size
-                    local cell_max_z = math.min(cell_min_z + cell_size, max_z)
-
-                    -- prevent cube from reaching outside cell
-                    local spawn_min_x = cell_min_x + scale
-                    local spawn_max_x = cell_max_x - scale
-                    local spawn_min_y = cell_min_y + scale
-                    local spawn_max_y = cell_max_y - scale
-                    local spawn_min_z = cell_min_z + scale
-                    local spawn_max_z = cell_max_z - scale
-
-                    local x = rt.random.number(spawn_min_x, spawn_max_x)
-                    local y = rt.random.number(spawn_min_y, spawn_max_y)
-                    local z = rt.random.number(spawn_min_z, spawn_max_z)
-
-                    local qx, qy, qz, qw = math.quaternion.random()
-
-                    local hue = rt.random.number(0, 1)
-                    local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
-
-                    table.insert(self._data_mesh_data, {
-                        x, y, z,
-                        scale,
-                        qx, qy, qz, qw,
-                        r, g, b, a
-                    })
-
-                    table.insert(self._data_mesh_data_aux, {
-                        rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
-                            settings.min_rotation_speed,
-                            settings.max_rotation_speed
-                        ),
-
-                        rotation_axis = { math.normalize(
-                            rt.random.number(-1, 1),
-                            rt.random.number(-1, 1),
-                            rt.random.number(-1, 1)
-                        )}
-                    })
-                end
-            end
-        end
-    end
-    
-    table.sort(self._data_mesh_data, function(a, b)
-        return a[3] < b[3]
-    end)
-
-    self._data_mesh = rt.Mesh(
-        self._data_mesh_data,
-        rt.MeshDrawMode.POINTS,
-        _data_mesh_format,
-        rt.GraphicsBufferUsage.STREAM
-    )
-
-    assert(self._instance_mesh ~= nil)
-
-    for entry in values(_data_mesh_format) do
-        self._instance_mesh:attach_attribute(
-            self._data_mesh,
-            entry.name,
-            rt.MeshAttributeAttachmentMode.PER_INSTANCE
-        )
-    end
+    instance_mesh:set_vertex_map(indices)
+    return instance_mesh
 end
 
 --- @brief
