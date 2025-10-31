@@ -4,13 +4,13 @@ require "common.render_texture_3d"
 
 rt.settings.overworld.background = {
     n_particles = 1000,
-    min_scale = 0.8,
-    max_scale = 1.5,
+    min_scale = 1,
+    max_scale = 1,
     fov = 0.3,
-    min_depth = 43,
-    max_depth = 400,
+    min_depth = 33,
+    max_depth = 200,
     cell_size = 2^3,
-    cell_occupancy_change = 0.2,
+    cell_occupancy_change = 0.09,
 
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
@@ -25,10 +25,10 @@ rt.settings.overworld.background = {
 --- @class ow.Background
 ow.Background = meta.class("OverworldBackground", rt.Widget)
 
-local _particle_shader = rt.Shader("overworld/background_particles.glsl")
+local _particle_shader_no_bloom = rt.Shader("overworld/background_particles.glsl", { IS_BLOOM = 0 })
+local _particle_shader_bloom = rt.Shader("overworld/background_particles.glsl", { IS_BLOOM = 1 })
 local _room_shader = rt.Shader("overworld/background_room.glsl")
 local _front_wall_shader = rt.Shader("overworld/background_front_room.glsl")
-local _post_fx_shader = rt.Shader("overworld/background_postfx.glsl")
 
 local _instance_mesh_format = {
     { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec3" },
@@ -49,10 +49,10 @@ function ow.Background:instantiate()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
             for shader in range(
-                _particle_shader,
+                _particle_shader_no_bloom,
+                _particle_shader_bloom,
                 _room_shader,
-                _front_wall_shader,
-                _post_fx_shader
+                _front_wall_shader
             ) do
                 shader:recompile()
             end
@@ -100,9 +100,11 @@ function ow.Background:size_allocate(x, y, width, height)
     -- init entry and instances
     for instance_mesh in range(
         self:_init_tetrahedron_particle(),
-        self:_init_icosahedron_particle(),
         self:_init_octahedron_particle(),
-        self:_init_cube_particle()
+        self:_init_cube_particle(),
+        self:_init_icosahedron_particle(),
+        self:_init_dodecahedron_particle()
+        --self:_init_sphere_particle(5, 5)
         --self:_init_sphere_particle(6, 6)
         --self:_init_cuboid_particle()
     ) do
@@ -259,24 +261,22 @@ function ow.Background:draw()
         particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
         particle_transform:apply(self._offset_transform)
         self._canvas:set_view_transform(particle_transform)
-        _particle_shader:bind()
+        _particle_shader_no_bloom:bind()
         for entry in values(self._particles) do
-            -- particles affected
             entry.instance_mesh:draw_instanced(entry.n_particles)
         end
-        _particle_shader:unbind()
+        _particle_shader_no_bloom:unbind()
 
         local front_wall_transform = rt.Transform()
         front_wall_transform:apply(self._scale_transform)
         front_wall_transform:apply(self._offset_transform)
 
-        --[[
         _front_wall_shader:bind()
+        _front_wall_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _front_wall_shader:send("camera_scale", self._camera_scale)
         _front_wall_shader:send("camera_offset", self._camera_offset)
         self._front_wall_mesh:draw()
         _front_wall_shader:unbind()
-        ]]--
 
         self._canvas:unbind()
         self._canvas_needs_update = false
@@ -284,18 +284,30 @@ function ow.Background:draw()
 
     love.graphics.push()
     love.graphics.origin()
-    _post_fx_shader:bind()
     self._canvas:draw()
-    _post_fx_shader:unbind()
     love.graphics.pop()
 end
 
 function ow.Background:draw_bloom()
+    self._canvas:bind()
+    love.graphics.clear(0, 0, 0, 0)
+    local particle_transform = self._view_transform:clone()
+    local scale = self:_get_scale_factor()
+    particle_transform:scale(scale, scale, 1)
+    particle_transform:apply(self._scale_transform)
+    particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
+    particle_transform:apply(self._offset_transform)
+    self._canvas:set_view_transform(particle_transform)
+    _particle_shader_bloom:bind()
+    for entry in values(self._particles) do
+        entry.instance_mesh:draw_instanced(entry.n_particles)
+    end
+    _particle_shader_bloom:unbind()
+    self._canvas:unbind()
+
     love.graphics.push()
     love.graphics.origin()
-    love.graphics.setBlendMode("add", "premultiplied")
     self._canvas:draw()
-    love.graphics.setBlendMode("alpha")
     love.graphics.pop()
 end
 
@@ -458,82 +470,57 @@ end
 function ow.Background:_init_cube_particle()
     local cube_mesh_data = {}
     local s = 1 / math.sqrt(3)
+    local vertex_index = 1
 
-    local hue = 0
-    function add_vertex(x, y, z, u, v)
-        table.insert(cube_mesh_data, { x, y, z, u, v, 1, 1, 1, 1 }) --rt.lcha_to_rgba(0.8, 1, hue, 1) })
+    local function add_vertex(x, y, z, u, v)
+        table.insert(cube_mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+        local idx = vertex_index
+        vertex_index = vertex_index + 1
+        return idx
     end
 
-    -- front
-    hue = 0 / 6
-    add_vertex(-s, -s,  s, 0, 0)
-    add_vertex( s, -s,  s, 1, 0)
-    add_vertex( s,  s,  s, 1, 1)
-    add_vertex(-s,  s,  s, 0, 1)
+    local faces = {
+        { {-s,-s, s}, { s,-s, s}, { s, s, s}, {-s, s, s} }, -- front
+        { { s,-s,-s}, {-s,-s,-s}, {-s, s,-s}, { s, s,-s} }, -- back
+        { {-s,-s,-s}, { s,-s,-s}, { s,-s, s}, {-s,-s, s} }, -- top
+        { {-s, s, s}, { s, s, s}, { s, s,-s}, {-s, s,-s} }, -- bottom
+        { { s,-s, s}, { s,-s,-s}, { s, s,-s}, { s, s, s} }, -- right
+        { {-s,-s,-s}, {-s,-s, s}, {-s, s, s}, {-s, s,-s} }, -- left
+    }
 
-    -- back
-    hue = 1 / 6
-    add_vertex( s, -s, -s, 0, 0)
-    add_vertex(-s, -s, -s, 1, 0)
-    add_vertex(-s,  s, -s, 1, 1)
-    add_vertex( s,  s, -s, 0, 1)
+    local indices = {}
 
-    -- top
-    hue = 2 / 6
-    add_vertex(-s, -s, -s, 0, 0)
-    add_vertex( s, -s, -s, 1, 0)
-    add_vertex( s, -s,  s, 1, 1)
-    add_vertex(-s, -s,  s, 0, 1)
+    for _, face in ipairs(faces) do
+        local v = {}
+        for i = 1, 4 do
+            v[i] = add_vertex(face[i][1], face[i][2], face[i][3], 0, 0)
+        end
+        -- add center vertex
+        local cx, cy, cz = 0, 0, 0
+        for i = 1, 4 do
+            cx = cx + face[i][1]
+            cy = cy + face[i][2]
+            cz = cz + face[i][3]
+        end
+        cx, cy, cz = cx / 4, cy / 4, cz / 4
+        local vc = add_vertex(cx, cy, cz, 1, 1)
 
-    -- bottom
-    hue = 3 / 6
-    add_vertex(-s,  s,  s, 0, 0)
-    add_vertex( s,  s,  s, 1, 0)
-    add_vertex( s,  s, -s, 1, 1)
-    add_vertex(-s,  s, -s, 0, 1)
+        -- fan triangles
+        table.insert(indices, v[1]); table.insert(indices, v[2]); table.insert(indices, vc)
+        table.insert(indices, v[2]); table.insert(indices, v[3]); table.insert(indices, vc)
+        table.insert(indices, v[3]); table.insert(indices, v[4]); table.insert(indices, vc)
+        table.insert(indices, v[4]); table.insert(indices, v[1]); table.insert(indices, vc)
+    end
 
-    -- right
-    hue = 4 / 6
-    add_vertex( s, -s,  s, 0, 0)
-    add_vertex( s, -s, -s, 1, 0)
-    add_vertex( s,  s, -s, 1, 1)
-    add_vertex( s,  s,  s, 0, 1)
-
-    -- left
-    hue = 5 / 6
-    add_vertex(-s, -s, -s, 0, 0)
-    add_vertex(-s, -s,  s, 1, 0)
-    add_vertex(-s,  s,  s, 1, 1)
-    add_vertex(-s,  s, -s, 0, 1)
-
-    local instance_mesh = rt.Mesh(
+    local mesh = rt.Mesh(
         cube_mesh_data,
         rt.MeshDrawMode.TRIANGLES,
         rt.VertexFormat3D,
         rt.GraphicsBufferUsage.STATIC
     )
 
-    instance_mesh:set_vertex_map({
-        1, 2, 3, -- front
-        1, 3, 4,
-
-        5, 6, 7, -- back
-        5, 7, 8,
-
-        9, 10, 11, -- top
-        9, 11, 12,
-
-        13, 14, 15, -- bottom
-        13, 15, 16,
-
-        17, 18, 19, -- right
-        17, 19, 20,
-
-        21, 22, 23, -- left
-        21, 23, 24
-    })
-
-    return instance_mesh
+    mesh:set_vertex_map(indices)
+    return mesh
 end
 
 function ow.Background:_init_tetrahedron_particle()
@@ -555,70 +542,85 @@ function ow.Background:_init_tetrahedron_particle()
         {  s, -s, -s },
     }
 
-    -- add vertices to the mesh
-    local v1 = add_vertex(verts[1][1], verts[1][2], verts[1][3], 0.5, 0)
-    local v2 = add_vertex(verts[2][1], verts[2][2], verts[2][3], 0, 1)
-    local v3 = add_vertex(verts[3][1], verts[3][2], verts[3][3], 0.5, 1)
-    local v4 = add_vertex(verts[4][1], verts[4][2], verts[4][3], 1, 1)
-
-    local indices = {
-        v1, v2, v3,
-        v1, v4, v2,
-        v1, v3, v4,
-        v2, v4, v3
+    local faces = {
+        {1,2,3},
+        {1,4,2},
+        {1,3,4},
+        {2,4,3}
     }
 
-    local mesh = rt.Mesh(
-        mesh_data,
-        rt.MeshDrawMode.TRIANGLES,
-        rt.VertexFormat3D,
-        rt.GraphicsBufferUsage.STATIC
-    )
+    local indices = {}
 
+    for _, f in ipairs(faces) do
+        local v1 = add_vertex(verts[f[1]][1], verts[f[1]][2], verts[f[1]][3], 0, 0)
+        local v2 = add_vertex(verts[f[2]][1], verts[f[2]][2], verts[f[2]][3], 0, 0)
+        local v3 = add_vertex(verts[f[3]][1], verts[f[3]][2], verts[f[3]][3], 0, 0)
+
+        local cx = (verts[f[1]][1] + verts[f[2]][1] + verts[f[3]][1]) / 3
+        local cy = (verts[f[1]][2] + verts[f[2]][2] + verts[f[3]][2]) / 3
+        local cz = (verts[f[1]][3] + verts[f[2]][3] + verts[f[3]][3]) / 3
+        local vc = add_vertex(cx, cy, cz, 1, 1)
+
+        table.insert(indices, v1); table.insert(indices, v2); table.insert(indices, vc)
+        table.insert(indices, v2); table.insert(indices, v3); table.insert(indices, vc)
+        table.insert(indices, v3); table.insert(indices, v1); table.insert(indices, vc)
+    end
+
+    local mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat3D, rt.GraphicsBufferUsage.STATIC)
     mesh:set_vertex_map(indices)
     return mesh
 end
+
 
 function ow.Background:_init_octahedron_particle()
     local mesh_data = {}
     local vertex_index = 1
 
-    function add_vertex(x, y, z, u, v)
+    local function add_vertex(x, y, z, u, v)
         table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
         local idx = vertex_index
         vertex_index = vertex_index + 1
         return idx
     end
 
-    -- octahedron vertices
-    local top = add_vertex(0, 1, 0, 0.5, 0)
-    local front = add_vertex(0, 0, 1, 0.5, 1 / 3)
-    local right = add_vertex(1, 0, 0, 0.75, 0.5)
-    local back = add_vertex(0, 0, -1, 0.5, 2 / 3)
-    local left = add_vertex(-1, 0, 0, 0.25, 0.5)
-    local bottom = add_vertex(0, -1, 0, 0.5, 1)
-
-    local indices = {
-        -- top pyramid
-        top, front, right,
-        top, right, back,
-        top, back, left,
-        top, left, front,
-
-        -- bottom pyramid
-        bottom, right, front,
-        bottom, back, right,
-        bottom, left, back,
-        bottom, front, left
+    local verts = {
+        {0, 1, 0},  -- top
+        {0, 0, 1},  -- front
+        {1, 0, 0},  -- right
+        {0, 0, -1}, -- back
+        {-1, 0, 0}, -- left
+        {0, -1, 0}, -- bottom
     }
 
-    local mesh = rt.Mesh(
-        mesh_data,
-        rt.MeshDrawMode.TRIANGLES,
-        rt.VertexFormat3D,
-        rt.GraphicsBufferUsage.STATIC
-    )
+    local faces = {
+        {1,2,3},
+        {1,3,4},
+        {1,4,5},
+        {1,5,2},
+        {6,3,2},
+        {6,4,3},
+        {6,5,4},
+        {6,2,5},
+    }
 
+    local indices = {}
+
+    for _, f in ipairs(faces) do
+        local v1 = add_vertex(verts[f[1]][1], verts[f[1]][2], verts[f[1]][3], 0, 0)
+        local v2 = add_vertex(verts[f[2]][1], verts[f[2]][2], verts[f[2]][3], 0, 0)
+        local v3 = add_vertex(verts[f[3]][1], verts[f[3]][2], verts[f[3]][3], 0, 0)
+
+        local cx = (verts[f[1]][1] + verts[f[2]][1] + verts[f[3]][1]) / 3
+        local cy = (verts[f[1]][2] + verts[f[2]][2] + verts[f[3]][2]) / 3
+        local cz = (verts[f[1]][3] + verts[f[2]][3] + verts[f[3]][3]) / 3
+        local vc = add_vertex(cx, cy, cz, 1, 1)
+
+        table.insert(indices, v1); table.insert(indices, v2); table.insert(indices, vc)
+        table.insert(indices, v2); table.insert(indices, v3); table.insert(indices, vc)
+        table.insert(indices, v3); table.insert(indices, v1); table.insert(indices, vc)
+    end
+
+    local mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat3D, rt.GraphicsBufferUsage.STATIC)
     mesh:set_vertex_map(indices)
     return mesh
 end
@@ -627,77 +629,186 @@ function ow.Background:_init_icosahedron_particle()
     local mesh_data = {}
     local vertex_index = 1
 
-    function add_vertex(x, y, z, u, v)
+    local function add_vertex(x, y, z, u, v)
         table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
         local idx = vertex_index
         vertex_index = vertex_index + 1
         return idx
     end
 
-    -- golden ratio
     local phi = (1 + math.sqrt(5)) / 2
     local scale = 1 / math.sqrt(phi * phi + 1)
 
-    local v1 = add_vertex(0, scale, phi * scale, 0, 0.25)
-    local v2 = add_vertex(0, -scale, phi * scale, 0.1, 0.5)
-    local v3 = add_vertex(0, scale, -phi * scale, 0.2, 0.25)
-    local v4 = add_vertex(0, -scale, -phi * scale, 0.3, 0.5)
-
-    local v5 = add_vertex(scale, phi * scale, 0, 0.4, 0.1)
-    local v6 = add_vertex(-scale, phi * scale, 0, 0.5, 0.1)
-    local v7 = add_vertex(scale, -phi * scale, 0, 0.6, 0.9)
-    local v8 = add_vertex(-scale, -phi * scale, 0, 0.7, 0.9)
-
-    local v9 = add_vertex(phi * scale, 0, scale, 0.8, 0.4)
-    local v10 = add_vertex(phi * scale, 0, -scale, 0.9, 0.6)
-    local v11 = add_vertex(-phi * scale, 0, scale, 1.0, 0.4)
-    local v12 = add_vertex(-phi * scale, 0, -scale, 0.95, 0.6)
-
-    local indices = {
-        v1, v2, v9,
-        v1, v9, v5,
-        v1, v5, v6,
-        v1, v6, v11,
-        v1, v11, v2,
-
-        v2, v11, v8,
-        v2, v8, v7,
-        v2, v7, v9,
-
-        v9, v7, v10,
-        v9, v10, v5,
-
-        v5, v10, v3,
-        v5, v3, v6,
-
-        v6, v3, v12,
-        v6, v12, v11,
-
-        v11, v12, v8,
-
-        v8, v12, v4,
-        v8, v4, v7,
-
-        v7, v4, v10,
-
-        v10, v4, v3,
-
-        v3, v4, v12
+    local verts = {
+        { 0,  scale,  phi*scale },
+        { 0, -scale,  phi*scale },
+        { 0,  scale, -phi*scale },
+        { 0, -scale, -phi*scale },
+        {  scale,  phi*scale, 0 },
+        { -scale,  phi*scale, 0 },
+        {  scale, -phi*scale, 0 },
+        { -scale, -phi*scale, 0 },
+        {  phi*scale, 0,  scale },
+        {  phi*scale, 0, -scale },
+        { -phi*scale, 0,  scale },
+        { -phi*scale, 0, -scale },
     }
 
-    local mesh = rt.Mesh(
-        mesh_data,
-        rt.MeshDrawMode.TRIANGLES,
-        rt.VertexFormat3D,
-        rt.GraphicsBufferUsage.STATIC
-    )
+    local raw_indices = {
+        1,2,9, 1,9,5, 1,5,6, 1,6,11, 1,11,2,
+        2,11,8, 2,8,7, 2,7,9,
+        9,7,10, 9,10,5,
+        5,10,3, 5,3,6,
+        6,3,12, 6,12,11,
+        11,12,8,
+        8,12,4, 8,4,7,
+        7,4,10,
+        10,4,3,
+        3,4,12
+    }
 
+    local indices = {}
+
+    for i = 1, #raw_indices, 3 do
+        local f = { raw_indices[i], raw_indices[i+1], raw_indices[i+2] }
+
+        local v1 = add_vertex(verts[f[1]][1], verts[f[1]][2], verts[f[1]][3], 0, 0)
+        local v2 = add_vertex(verts[f[2]][1], verts[f[2]][2], verts[f[2]][3], 0, 0)
+        local v3 = add_vertex(verts[f[3]][1], verts[f[3]][2], verts[f[3]][3], 0, 0)
+
+        local cx = (verts[f[1]][1] + verts[f[2]][1] + verts[f[3]][1]) / 3
+        local cy = (verts[f[1]][2] + verts[f[2]][2] + verts[f[3]][2]) / 3
+        local cz = (verts[f[1]][3] + verts[f[2]][3] + verts[f[3]][3]) / 3
+        local vc = add_vertex(cx, cy, cz, 1, 1)
+
+        table.insert(indices, v1); table.insert(indices, v2); table.insert(indices, vc)
+        table.insert(indices, v2); table.insert(indices, v3); table.insert(indices, vc)
+        table.insert(indices, v3); table.insert(indices, v1); table.insert(indices, vc)
+    end
+
+    local mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat3D, rt.GraphicsBufferUsage.STATIC)
     mesh:set_vertex_map(indices)
     return mesh
 end
 
-function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
+function ow.Background:_init_dodecahedron_particle()
+    local mesh_data = {}
+    local vertex_index = 1
 
+    local function add_vertex(x, y, z, u, v)
+        table.insert(mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+        local idx = vertex_index
+        vertex_index = vertex_index + 1
+        return idx
+    end
+
+    -- Golden ratio
+    local phi = (1 + math.sqrt(5)) / 2
+    local inv_phi = 1 / phi
+
+    -- Dodecahedron vertices (normalized)
+    -- These are the 20 vertices arranged in 3 orthogonal rectangles
+    local verts = {
+        -- Rectangle in xy-plane
+        { 1,  1,  1},
+        { 1,  1, -1},
+        { 1, -1,  1},
+        { 1, -1, -1},
+        {-1,  1,  1},
+        {-1,  1, -1},
+        {-1, -1,  1},
+        {-1, -1, -1},
+
+        -- Rectangle in yz-plane
+        { 0,  inv_phi,  phi},
+        { 0,  inv_phi, -phi},
+        { 0, -inv_phi,  phi},
+        { 0, -inv_phi, -phi},
+
+        -- Rectangle in xz-plane
+        { inv_phi,  phi, 0},
+        { inv_phi, -phi, 0},
+        {-inv_phi,  phi, 0},
+        {-inv_phi, -phi, 0},
+
+        -- Additional rectangle in xz-plane
+        { phi, 0,  inv_phi},
+        { phi, 0, -inv_phi},
+        {-phi, 0,  inv_phi},
+        {-phi, 0, -inv_phi},
+    }
+
+    -- Normalize vertices
+    for i = 1, #verts do
+        local x, y, z = verts[i][1], verts[i][2], verts[i][3]
+        local len = math.sqrt(x*x + y*y + z*z)
+        verts[i][1] = x / len
+        verts[i][2] = y / len
+        verts[i][3] = z / len
+    end
+
+    -- Dodecahedron faces (12 pentagonal faces)
+    -- Each face is defined by 5 vertices in CCW order when viewed from outside
+    local faces = {
+        {1, 9, 11, 3, 17},     -- Front-right
+        {1, 17, 18, 2, 13},    -- Top-right
+        {1, 13, 15, 5, 9},     -- Top-front
+        {9, 5, 19, 7, 11},     -- Front-left
+        {11, 7, 16, 14, 3},    -- Bottom-front
+        {3, 14, 4, 18, 17},    -- Right
+        {2, 18, 4, 12, 10},    -- Back-right
+        {13, 2, 10, 6, 15},    -- Top-back
+        {15, 6, 20, 19, 5},    -- Left
+        {19, 20, 8, 16, 7},    -- Bottom-left
+        {16, 8, 12, 4, 14},    -- Bottom-back
+        {6, 10, 12, 8, 20},    -- Back
+    }
+
+    local indices = {}
+
+    -- Generate mesh for each pentagonal face
+    for _, face in ipairs(faces) do
+        -- Add the 5 edge vertices
+        local edge_verts = {}
+        for i = 1, 5 do
+            local v = verts[face[i]]
+            local idx = add_vertex(v[1], v[2], v[3], 0, 0)
+            table.insert(edge_verts, idx)
+        end
+
+        -- Calculate center vertex
+        local cx, cy, cz = 0, 0, 0
+        for i = 1, 5 do
+            local v = verts[face[i]]
+            cx = cx + v[1]
+            cy = cy + v[2]
+            cz = cz + v[3]
+        end
+        cx = cx / 5
+        cy = cy / 5
+        cz = cz / 5
+
+        -- Add center vertex
+        local center_idx = add_vertex(cx, cy, cz, 1, 1)
+
+        -- Create 5 triangles: each edge pair with center
+        for i = 1, 5 do
+            local v1 = edge_verts[i]
+            local v2 = edge_verts[(i % 5) + 1]  -- Wrap around to first vertex
+
+            table.insert(indices, v1)
+            table.insert(indices, v2)
+            table.insert(indices, center_idx)
+        end
+    end
+
+    local mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat3D, rt.GraphicsBufferUsage.STATIC)
+    mesh:set_vertex_map(indices)
+    return mesh
+end
+
+
+function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
     local sphere_mesh_data = {}
     local vertex_index = 1
     local indices = {}
