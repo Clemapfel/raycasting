@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1015,
+  nextobjectid = 1035,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -568,19 +568,6 @@ return {
           properties = {
             ["slippery"] = true
           }
-        },
-        {
-          id = 42,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 5272.58,
-          y = 89.1503,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         },
         {
           id = 43,
@@ -1214,19 +1201,6 @@ return {
           properties = {
             ["slippery"] = true
           }
-        },
-        {
-          id = 101,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 2416,
-          y = 2080,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         },
         {
           id = 102,
@@ -2468,45 +2442,6 @@ return {
           properties = {}
         },
         {
-          id = 558,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 1949.67,
-          y = 2887.4,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 559,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 2032.95,
-          y = 2702.75,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 560,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 2197.68,
-          y = 2851.19,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 564,
           name = "",
           type = "BubbleField",
@@ -3595,19 +3530,6 @@ return {
           properties = {}
         },
         {
-          id = 628,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 376.097,
-          y = 264.539,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 634,
           name = "",
           type = "",
@@ -4126,45 +4048,6 @@ return {
           properties = {}
         },
         {
-          id = 718,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 187.783,
-          y = 1068.42,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 720,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 71.2281,
-          y = 1070.58,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 745,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = 256.667,
-          y = 998,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 746,
           name = "",
           type = "KillPlane",
@@ -4649,51 +4532,12 @@ return {
           properties = {}
         },
         {
-          id = 819,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -2111.78,
-          y = 1318.96,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 820,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -1853.65,
-          y = 1443,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 821,
           name = "Goal",
           type = "Goal",
           shape = "point",
           x = -1171.23,
           y = 403.2,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 822,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -1981.04,
-          y = 1402.77,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5301,19 +5145,6 @@ return {
           }
         },
         {
-          id = 953,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -7712,
-          y = 2121.33,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 955,
           name = "",
           type = "Hitbox",
@@ -5578,12 +5409,12 @@ return {
           properties = {}
         },
         {
-          id = 1013,
+          id = 1034,
           name = "",
           type = "Coin",
           shape = "point",
-          x = -1882.06,
-          y = 843.26,
+          x = 194.079,
+          y = 120.066,
           width = 0,
           height = 0,
           rotation = 0,

@@ -581,19 +581,8 @@ function ow.OverworldScene:draw()
     love.graphics.origin()
     love.graphics.clear(1, 0, 1, 1)
     if not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
+        love.graphics.clear(0, 0, 0, 0)
         self._background:draw()
-
-        if rt.GameState:get_is_bloom_enabled() == true then
-            local bloom = rt.SceneManager:get_bloom()
-            love.graphics.push()
-            bloom:bind()
-            love.graphics.clear(0, 0, 0, 0)
-            self._background:draw_bloom()
-            bloom:unbind()
-            love.graphics.pop()
-
-            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
-        end
 
         if self._fade_to_black > 0 then
             local r, g, b, _ = rt.Palette.BLACK:unpack()

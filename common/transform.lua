@@ -45,7 +45,7 @@ end
 --- @brief
 function rt.Transform:translate(...)
     if select("#", ...) == 2 then
-        self._native:transform(select(1, ...), select(2, ...))
+        self._native:translate(select(1, ...), select(2, ...))
     else
         local x, y, z = select(1, ...), select(2, ...), select(3, ...)
 
@@ -145,6 +145,8 @@ function rt.Transform:rotate_x(angle)
         0, 0, 0, 1
     )
     self._native:apply(_reusable)
+
+    return self
 end
 
 --- @brief rotate around the Y axis
@@ -158,6 +160,8 @@ function rt.Transform:rotate_y(angle)
         0, 0, 0, 1
     )
     self._native:apply(_reusable)
+
+    return self
 end
 
 --- @brief rotate around the Z axis
@@ -171,6 +175,8 @@ function rt.Transform:rotate_z(angle)
         0, 0, 0, 1
     )
     self._native:apply(_reusable)
+
+    return self
 end
 
 --- @brief transform a point by this transform
@@ -302,6 +308,8 @@ function rt.Transform:set_target_to(
         x3, y3, z3, eye_z,
         0, 0, 0, 1
     )
+
+    return self
 end
 
 --- @brief
@@ -325,6 +333,8 @@ function rt.Transform:set_orientation(
         forward_x, forward_y, forward_z, x34,
         x41, x42, x43, x44
     )
+
+    return self
 end
 
 --- @brief Set the translation component of the transform
@@ -340,6 +350,8 @@ function rt.Transform:set_position(x, y, z)
         x31, x32, x33, z,
         x41, x42, x43, x44
     )
+
+    return self
 end
 
 --- @brief Set orientation from a quaternion (i, j, k, w)
@@ -350,6 +362,8 @@ function rt.Transform:set_to_orientation_from_quaternion(i, j, k, w)
         2 * i * k + 2 * w * j, 2 * j * k - 2 * w * i, 1 - 2 * i * i - 2 * j * j, 0,
         0, 0, 0, 1
     )
+
+    return self
 end
 
 --- @brief Remove translation and scale, leaving only normalized rotation axes
@@ -368,6 +382,8 @@ function rt.Transform:set_to_orientation()
         x31, x32, x33, 0,
         0, 0, 0, 1
     )
+
+    return self
 end
 
 --- @brief reset to identity
@@ -378,6 +394,8 @@ function rt.Transform:reset()
         0, 0, 1, 0,
         0, 0, 0, 1
     )
+
+    return self
 end
 
 --- @brief Get the underlying LÖVE transform for direct use

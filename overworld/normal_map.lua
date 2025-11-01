@@ -24,7 +24,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _disable = true -- TODO
+local _disable = false -- TODO
 
 local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -56,6 +56,12 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     self._draw_mask_callback = draw_mask_callback
     self._is_single_chunk = false
     self._offset_x, self._offset_y = 0, 0
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then _draw_light_shader:recompile() end
+    end)
 
     if _atlas[self._id] ~= nil then
         local entry = _atlas[self._id]
@@ -489,6 +495,7 @@ function ow.NormalMap:draw_light(
                         chunk_size + 2 * padding
                     )
 
+
                     -- filter point lights in cell, translate to screen coords
                     local point_lights_local = {}
                     local point_colors = {}
@@ -503,6 +510,9 @@ function ow.NormalMap:draw_light(
                             if n_point_lights >= max_n_point_lights then break end
                         end
                     end
+
+                    -- TODO
+                    self._dbg = point_lights_local
 
                     -- file segment lights in cell, translate to screen cords
                     local segment_lights_local = {}
@@ -542,8 +552,7 @@ function ow.NormalMap:draw_light(
 
                         if shader_bound == false then
                             love.graphics.push("all")
-                            _draw_light_shader:send("camera_offset", { camera:get_offset() })
-                            _draw_light_shader:send("camera_scale", camera:get_final_scale())
+                            _draw_light_shader:send("camera_scale", camera:get_scale())
                             _draw_light_shader:bind()
                             love.graphics.setBlendMode("add", "premultiplied")
                             local r, g, b, a = love.graphics.getColor() -- premultiply alpha
@@ -562,6 +571,17 @@ function ow.NormalMap:draw_light(
         _draw_light_shader:unbind()
         love.graphics.pop()
     end
+
+    love.graphics.push()
+    love.graphics.origin()
+    love.graphics.setColor(1, 1, 1, 1)
+    if self._dbg ~= nil then
+        for pos in values(self._dbg) do
+            local x, y = table.unpack(pos)
+            love.graphics.circle("fill", x, y, 15)
+        end
+    end
+    love.graphics.pop()
 end
 
 function ow.NormalMap:draw_shadow(camera)

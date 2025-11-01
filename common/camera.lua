@@ -1,5 +1,6 @@
 require "common.random"
 require "common.smoothed_motion_2d"
+require "common.transform"
 
 rt.settings.camera = {
     speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
@@ -58,7 +59,8 @@ function rt.Camera:instantiate()
         _world_bounds = rt.AABB(0, 0, 0, 0),
         _bounds_needs_update = true,
 
-        _push_stack = {}
+        _push_stack = {},
+        _transform = rt.Transform()
     })
 
     self:_update_bounds()
@@ -70,15 +72,7 @@ local _floor = math.floor --function(x) return x end
 --- @brief
 function rt.Camera:bind()
     love.graphics.push()
-    local w, h = love.graphics.getDimensions()
-
-    local origin_x, origin_y = _floor(0.5 * w), _floor(0.5 * h)
-    love.graphics.translate(origin_x, origin_y)
-    local scale = self:get_final_scale()
-    love.graphics.scale(scale, scale)
-    love.graphics.rotate(self._current_angle)
-    love.graphics.translate(-origin_x, -origin_y)
-    love.graphics.translate(-_floor(self._current_x) + 0.5 * w, -_floor(self._current_y) + 0.5 * h)
+    love.graphics.replaceTransform(self._transform:get_native())
 
     if rt.GameState:get_is_screen_shake_enabled() then
         love.graphics.translate(self._shake_offset_x, self._shake_offset_y)
@@ -87,7 +81,6 @@ end
 
 --- @brief
 function rt.Camera:unbind()
-    --love.graphics.rectangle("line", self._bounds_x, self._bounds_y, self._bounds_width, self._bounds_height)
     love.graphics.pop()
 end
 
@@ -200,6 +193,13 @@ function rt.Camera:update(delta)
             end
         end
     end
+
+    -- update transform
+    local t = self._transform:reset()
+    t:translate(0.5 * screen_w, 0.5 * screen_h, 0)
+    t:scale(self._current_scale, self._current_scale, 1)
+    t:rotate_z(self._current_angle)
+    t:translate(-self._current_x, -self._current_y, 0)
 
     self._bounds_needs_update = true
 end
@@ -339,46 +339,14 @@ end
 
 --- @brief
 function rt.Camera:screen_xy_to_world_xy(screen_x, screen_y)
-    local screen_w, screen_h = love.graphics.getDimensions()
-    local origin_x, origin_y = 0.5 * screen_w, 0.5 * screen_h
-
-    local x = screen_x - origin_x
-    local y = screen_y - origin_y
-
-    x = x / self._current_scale
-    y = y / self._current_scale
-
-    local cos_angle = math.cos(-self._current_angle)
-    local sin_angle = math.sin(-self._current_angle)
-    local world_x = x * cos_angle - y * sin_angle
-    local world_y = x * sin_angle + y * cos_angle
-
-    world_x = world_x + self._current_x
-    world_y = world_y + self._current_y
-
-    return world_x, world_y
+    local x, y, _ = self._transform:inverse_transform_point(screen_x, screen_y, 0)
+    return x, y
 end
 
 --- @brief
 function rt.Camera:world_xy_to_screen_xy(world_x, world_y)
-    local screen_w, screen_h = love.graphics.getDimensions()
-    local origin_x, origin_y = 0.5 * screen_w, 0.5 * screen_h
-
-    local x = world_x - self._current_x
-    local y = world_y - self._current_y
-
-    local cos_angle = math.cos(self._current_angle)
-    local sin_angle = math.sin(self._current_angle)
-    local screen_x = x * cos_angle - y * sin_angle
-    local screen_y = x * sin_angle + y * cos_angle
-
-    screen_x = screen_x * self._current_scale
-    screen_y = screen_y * self._current_scale
-
-    screen_x = screen_x + origin_x
-    screen_y = screen_y + origin_y
-
-    return screen_x, screen_y
+    local x, y, _ = self._transform:transform_point(world_x, world_y, 0)
+    return x, y
 end
 
 --- @brief
@@ -434,16 +402,44 @@ function rt.Camera:_update_bounds()
     )
 
     local w, h = love.graphics.getDimensions()
-    local scale = self:get_final_scale()
-    local world_width = w / scale
-    local world_height = h / scale
+    local screen_corners = {
+        0, 0,
+        w, 0,
+        w, h,
+        0, h
+    }
+
+    local world_corners = {}
+    for i = 1, #screen_corners, 2 do
+        local wx, wy, _ = self._transform:inverse_transform_point(screen_corners[i+0], screen_corners[i+1], 0)
+        table.insert(world_corners, wx)
+        table.insert(world_corners, wy)
+    end
+
+    local min_x = math.huge
+    local min_y = math.huge
+    local max_x = -math.huge
+    local max_y = -math.huge
+
+    for i = 1, #world_corners, 2 do
+        local wx, wy = world_corners[i+0], world_corners[i+1]
+        min_x = math.min(min_x, wx)
+        min_y = math.min(min_y, wy)
+        max_x = math.max(max_x, wx)
+        max_y = math.max(max_y, wy)
+    end
 
     self._world_bounds:reformat(
-        self._current_x - 0.5 * world_width,
-        self._current_y - 0.5 * world_height,
-        world_width,
-        world_height
+        min_x,
+        min_y,
+        max_x - min_x,
+        max_y - min_y
     )
 
     self._bounds_needs_update = false
+end
+
+--- @brief
+function rt.Camera:get_transform()
+    return self._transform
 end
