@@ -6,11 +6,16 @@ rt.settings.overworld.background = {
     n_particles = 1000,
     min_scale = 1,
     max_scale = 1,
+    cell_occupancy_chance = 0.2,
+
+    min_scale_bloom = 0.1,
+    max_scale_bloom = 0.2,
+    bloom_particle_chance = 0.7,
+
     fov = 0.3,
-    min_depth = 33,
-    max_depth = 200,
+    min_depth = 21,
+    max_depth = 21 + 200,
     cell_size = 2^3,
-    cell_occupancy_change = 0.09,
 
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
@@ -18,6 +23,13 @@ rt.settings.overworld.background = {
     z_zoom = 0, -- camera position towards z axis
     stage_z_position = 1, -- world z coord of stage plane,
     cube_thickness = 0.2, -- fraction
+
+    -- shape distribution
+    tetrahedron_p = 5,
+    octahedron_p = 3,
+    cube_p = 7,
+    icosahedron_p = 1,
+    dodecahedron_p = 1,
 
     room_color = rt.Palette.GRAY_9
 }
@@ -96,26 +108,50 @@ function ow.Background:size_allocate(x, y, width, height)
     self._canvas:set_fov(rt.settings.overworld.background.fov)
 
     self._particles = {}
+    rt.random.seed(1234)
+
+    local id_tetrahedron, id_octahedron, id_cube, id_icosahedron, id_dodecahedron = 1, 2, 3, 4, 5
+    local instances = {
+        [id_tetrahedron] = self:_init_tetrahedron_particle(),
+        [id_octahedron] = self:_init_octahedron_particle(),
+        [id_cube] = self:_init_cube_particle(),
+        [id_icosahedron] =  self:_init_icosahedron_particle(),
+        [id_dodecahedron] = self:_init_dodecahedron_particle()
+    }
+
+    local settings = rt.settings.overworld.background
+    local probabilities = {
+        [id_tetrahedron] = settings.tetrahedron_p,
+        [id_octahedron] = settings.octahedron_p,
+        [id_cube] = settings.cube_p,
+        [id_icosahedron] =  settings.icosahedron_p,
+        [id_dodecahedron] = settings.dodecahedron_p
+    }
 
     -- init entry and instances
-    for instance_mesh in range(
-        self:_init_tetrahedron_particle(),
-        self:_init_octahedron_particle(),
-        self:_init_cube_particle(),
-        self:_init_icosahedron_particle(),
-        self:_init_dodecahedron_particle()
-        --self:_init_sphere_particle(5, 5)
-        --self:_init_sphere_particle(6, 6)
-        --self:_init_cuboid_particle()
-    ) do
-        table.insert(self._particles, {
+    local new_entry = function(instance_mesh, is_bloom)
+        return {
             instance_mesh = instance_mesh,
+            is_bloom = is_bloom,
             data_mesh = nil,
             data_mesh_data = {},
             data_mesh_data_aux = {},
             n_particles = nil
-        })
+        }
     end
+
+
+    local to_sample = {}
+    for id, instance_mesh in pairs(instances) do
+        local entry = new_entry(instance_mesh, false) -- no bloom
+        table.insert(self._particles, entry)
+        for _ = 1, probabilities[id] do
+            table.insert(to_sample, entry)
+        end
+    end
+
+    local sphere_entry = new_entry(self:_init_sphere_particle(16, 16), true) -- bloom
+    table.insert(self._particles, sphere_entry)
 
     do
         local aspect = self._bounds.width / self._bounds.height
@@ -141,7 +177,56 @@ function ow.Background:size_allocate(x, y, width, height)
         }
 
         local cell_size = rt.settings.overworld.background.cell_size
-        local spawn_probability = rt.settings.overworld.background.cell_occupancy_change
+        local shape_probability = rt.settings.overworld.background.cell_occupancy_chance
+        local bloom_probability = rt.settings.overworld.background.bloom_particle_chance
+
+        local generate_particle = function(entry, ix, iy, iz, min_scale, max_scale)
+            local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1))
+
+            local cell_min_x = min_x + ix * cell_size
+            local cell_max_x = math.min(cell_min_x + cell_size, max_x)
+            local cell_min_y = min_y + iy * cell_size
+            local cell_max_y = math.min(cell_min_y + cell_size, max_y)
+            local cell_min_z = min_z + iz * cell_size
+            local cell_max_z = math.min(cell_min_z + cell_size, max_z)
+
+            -- prevent cube from reaching outside cell
+            local spawn_min_x = cell_min_x + scale
+            local spawn_max_x = cell_max_x - scale
+            local spawn_min_y = cell_min_y + scale
+            local spawn_max_y = cell_max_y - scale
+            local spawn_min_z = cell_min_z + scale
+            local spawn_max_z = cell_max_z - scale
+
+            local x = rt.random.number(spawn_min_x, spawn_max_x)
+            local y = rt.random.number(spawn_min_y, spawn_max_y)
+            local z = rt.random.number(spawn_min_z, spawn_max_z)
+
+            local qx, qy, qz, qw = math.quaternion.random()
+
+            local hue = rt.random.number(0, 1)
+            local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
+
+            table.insert(entry.data_mesh_data, {
+                x, y, z,
+                scale,
+                qx, qy, qz, qw,
+                r, g, b, a
+            })
+
+            table.insert(entry.data_mesh_data_aux, {
+                rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
+                    settings.min_rotation_speed,
+                    settings.max_rotation_speed
+                ),
+
+                rotation_axis = { math.normalize(
+                    rt.random.number(-1, 1),
+                    rt.random.number(-1, 1),
+                    rt.random.number(-1, 1)
+                )}
+            })
+        end
 
         local grid_x_count = math.ceil((max_x - min_x) / cell_size)
         local grid_y_count = math.ceil((max_y - min_y) / cell_size)
@@ -150,53 +235,20 @@ function ow.Background:size_allocate(x, y, width, height)
         for ix = 0, grid_x_count - 1 do
             for iy = 0, grid_y_count - 1 do
                 for iz = 0, grid_z_count - 1 do
-                    if rt.random.toss_coin(spawn_probability) then
-                        local entry = rt.random.choose(self._particles)
-                        local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1))
-
-                        local cell_min_x = min_x + ix * cell_size
-                        local cell_max_x = math.min(cell_min_x + cell_size, max_x)
-                        local cell_min_y = min_y + iy * cell_size
-                        local cell_max_y = math.min(cell_min_y + cell_size, max_y)
-                        local cell_min_z = min_z + iz * cell_size
-                        local cell_max_z = math.min(cell_min_z + cell_size, max_z)
-
-                        -- prevent cube from reaching outside cell
-                        local spawn_min_x = cell_min_x + scale
-                        local spawn_max_x = cell_max_x - scale
-                        local spawn_min_y = cell_min_y + scale
-                        local spawn_max_y = cell_max_y - scale
-                        local spawn_min_z = cell_min_z + scale
-                        local spawn_max_z = cell_max_z - scale
-
-                        local x = rt.random.number(spawn_min_x, spawn_max_x)
-                        local y = rt.random.number(spawn_min_y, spawn_max_y)
-                        local z = rt.random.number(spawn_min_z, spawn_max_z)
-
-                        local qx, qy, qz, qw = math.quaternion.random()
-
-                        local hue = rt.random.number(0, 1)
-                        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
-
-                        table.insert(entry.data_mesh_data, {
-                            x, y, z,
-                            scale,
-                            qx, qy, qz, qw,
-                            r, g, b, a
-                        })
-
-                        table.insert(entry.data_mesh_data_aux, {
-                            rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
-                                settings.min_rotation_speed,
-                                settings.max_rotation_speed
-                            ),
-
-                            rotation_axis = { math.normalize(
-                                rt.random.number(-1, 1),
-                                rt.random.number(-1, 1),
-                                rt.random.number(-1, 1)
-                            )}
-                        })
+                    if rt.random.toss_coin(shape_probability) then
+                        generate_particle(
+                            rt.random.choose(to_sample),
+                            ix, iy, iz,
+                            settings.min_scale,
+                            settings.max_scale
+                        )
+                    else
+                        generate_particle(
+                            sphere_entry,
+                            ix, iy, iz,
+                            settings.min_scale_bloom,
+                            settings.max_scale_bloom
+                        )
                     end
                 end
             end
@@ -204,27 +256,34 @@ function ow.Background:size_allocate(x, y, width, height)
     end
 
     -- post process
-    for entry in values(self._particles) do
-        table.sort(entry.data_mesh_data, function(a, b)
-            return a[3] < b[3]
-        end)
-
+    local to_remove = {}
+    for entry_i, entry in ipairs(self._particles) do
         entry.n_particles = #entry.data_mesh_data
-        entry.data_mesh = rt.Mesh(
-            entry.data_mesh_data,
-            rt.MeshDrawMode.POINTS,
-            _data_mesh_format,
-            rt.GraphicsBufferUsage.STREAM
-        )
+        if entry.n_particles == 0 then
+            table.insert(to_remove, 1, entry_i)
+        else
+            table.sort(entry.data_mesh_data, function(a, b)
+                return a[3] < b[3]
+            end)
 
-        for format in values(_data_mesh_format) do
-            entry.instance_mesh:attach_attribute(
-                entry.data_mesh,
-                format.name,
-                rt.MeshAttributeAttachmentMode.PER_INSTANCE
+            entry.data_mesh = rt.Mesh(
+                entry.data_mesh_data,
+                rt.MeshDrawMode.POINTS,
+                _data_mesh_format,
+                rt.GraphicsBufferUsage.STREAM
             )
+
+            for format in values(_data_mesh_format) do
+                entry.instance_mesh:attach_attribute(
+                    entry.data_mesh,
+                    format.name,
+                    rt.MeshAttributeAttachmentMode.PER_INSTANCE
+                )
+            end
         end
     end
+
+    for i in values(to_remove) do table.remove(self._particles, i) end
 
     if self._room_mesh == nil then
         self:_init_room_mesh()
@@ -240,6 +299,7 @@ function ow.Background:draw()
     if self._canvas_needs_update == true then
         self._canvas:bind()
         love.graphics.clear(0, 0, 0, 0)
+        love.graphics.setColor(1, 1, 1, 1)
 
         local scale = self:_get_scale_factor()
 
@@ -263,7 +323,17 @@ function ow.Background:draw()
         self._canvas:set_view_transform(particle_transform)
         _particle_shader_no_bloom:bind()
         for entry in values(self._particles) do
-            entry.instance_mesh:draw_instanced(entry.n_particles)
+            if entry.is_bloom == false then
+                entry.instance_mesh:draw_instanced(entry.n_particles)
+            end
+        end
+        _particle_shader_no_bloom:unbind()
+
+        _particle_shader_no_bloom:bind()
+        for entry in values(self._particles) do
+            if entry.is_bloom == true then
+                entry.instance_mesh:draw_instanced(entry.n_particles)
+            end
         end
         _particle_shader_no_bloom:unbind()
 
@@ -271,12 +341,15 @@ function ow.Background:draw()
         front_wall_transform:apply(self._scale_transform)
         front_wall_transform:apply(self._offset_transform)
 
+        --[[
         _front_wall_shader:bind()
         _front_wall_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        _front_wall_shader:send("player_position", { rt.SceneManager:get_current_scene():get_camera():world_xy_to_screen_xy(rt.GameState:get_player():get_position()) })
         _front_wall_shader:send("camera_scale", self._camera_scale)
         _front_wall_shader:send("camera_offset", self._camera_offset)
         self._front_wall_mesh:draw()
         _front_wall_shader:unbind()
+        ]]--
 
         self._canvas:unbind()
         self._canvas_needs_update = false
@@ -289,8 +362,11 @@ function ow.Background:draw()
 end
 
 function ow.Background:draw_bloom()
+    --[[
     self._canvas:bind()
     love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setColor(1, 1, 1, 1)
+
     local particle_transform = self._view_transform:clone()
     local scale = self:_get_scale_factor()
     particle_transform:scale(scale, scale, 1)
@@ -300,11 +376,13 @@ function ow.Background:draw_bloom()
     self._canvas:set_view_transform(particle_transform)
     _particle_shader_bloom:bind()
     for entry in values(self._particles) do
-        entry.instance_mesh:draw_instanced(entry.n_particles)
+        if entry.is_bloom == true then
+            entry.instance_mesh:draw_instanced(entry.n_particles)
+        end
     end
     _particle_shader_bloom:unbind()
     self._canvas:unbind()
-
+    ]]--
     love.graphics.push()
     love.graphics.origin()
     self._canvas:draw()
@@ -813,15 +891,26 @@ function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
     local vertex_index = 1
     local indices = {}
 
-    function add_vertex(x, y, z, u, v)
-        table.insert(sphere_mesh_data, { x, y, z, u, v, 1, 1, 1, 1 })
+    -- Add an edge vertex (shared between faces). All edge vertices get UV 1,1.
+    local function add_vertex(x, y, z, _u, _v)
+        table.insert(sphere_mesh_data, { x, y, z, 0, 0, 1, 1, 1, 1 })
         local idx = vertex_index
         vertex_index = vertex_index + 1
         return idx
     end
 
+    -- Add a center vertex (unique per face). Center vertices get UV 0,0.
+    local function add_center_vertex(x, y, z)
+        table.insert(sphere_mesh_data, { x, y, z, 0, 0, 1, 1, 1, 1 })
+        local idx = vertex_index
+        vertex_index = vertex_index + 1
+        return idx
+    end
+
+    -- Top pole
     local top_idx = add_vertex(0, -1, 0, 0.5, 0)
 
+    -- Rings (excluding poles)
     local ring_indices = {}
     for ring = 1, n_rings - 1 do
         ring_indices[ring] = {}
@@ -836,12 +925,15 @@ function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
             local u = seg / n_segments_per_ring
             local v = ring / n_rings
 
+            -- Note: u,v are ignored in add_vertex; all edge verts are forced to 1,1
             ring_indices[ring][seg + 1] = add_vertex(x, y, z, u, v)
         end
     end
 
+    -- Bottom pole
     local bottom_idx = add_vertex(0, 1, 0, 0.5, 1)
 
+    -- Top cap triangles (fan from top_idx to first ring)
     for seg = 0, n_segments_per_ring - 1 do
         local next_seg = (seg + 1) % n_segments_per_ring
         table.insert(indices, top_idx)
@@ -849,6 +941,7 @@ function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
         table.insert(indices, ring_indices[1][next_seg + 1])
     end
 
+    -- Middle quads split into two triangles each
     for ring = 1, n_rings - 2 do
         for seg = 0, n_segments_per_ring - 1 do
             local next_seg = (seg + 1) % n_segments_per_ring
@@ -867,6 +960,7 @@ function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
         end
     end
 
+    -- Bottom cap triangles (fan to bottom_idx from last ring)
     for seg = 0, n_segments_per_ring - 1 do
         local next_seg = (seg + 1) % n_segments_per_ring
         table.insert(indices, ring_indices[n_rings - 1][seg + 1])
@@ -874,14 +968,40 @@ function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
         table.insert(indices, ring_indices[n_rings - 1][next_seg + 1])
     end
 
+    -- Re-triangulate by inserting a center vertex for each triangle
+    -- Each original triangle (a,b,c) becomes:
+    -- (a, b, center), (b, c, center), (c, a, center)
+    local new_indices = {}
+    for i = 1, #indices, 3 do
+        local a = indices[i]
+        local b = indices[i + 1]
+        local c = indices[i + 2]
+
+        -- Fetch positions (1-based indexing)
+        local va = sphere_mesh_data[a]
+        local vb = sphere_mesh_data[b]
+        local vc = sphere_mesh_data[c]
+
+        local cx = (va[1] + vb[1] + vc[1]) / 3
+        local cy = (va[2] + vb[2] + vc[2]) / 3
+        local cz = (va[3] + vb[3] + vc[3]) / 3
+
+        local center_idx = add_center_vertex(cx, cy, cz)
+
+        -- Maintain winding; indices are 1-based
+        table.insert(new_indices, a); table.insert(new_indices, b); table.insert(new_indices, center_idx)
+        table.insert(new_indices, b); table.insert(new_indices, c); table.insert(new_indices, center_idx)
+        table.insert(new_indices, c); table.insert(new_indices, a); table.insert(new_indices, center_idx)
+    end
+
+    -- Build mesh
     local instance_mesh = rt.Mesh(
         sphere_mesh_data,
         rt.MeshDrawMode.TRIANGLES,
         rt.VertexFormat3D,
         rt.GraphicsBufferUsage.STATIC
     )
-
-    instance_mesh:set_vertex_map(indices)
+    instance_mesh:set_vertex_map(new_indices)
 
     return instance_mesh
 end
