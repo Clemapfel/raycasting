@@ -5,6 +5,7 @@ require "common.player_trail"
 require "common.random"
 require "common.palette"
 require "common.smoothed_motion_1d"
+require "common.path"
 
 do
     local radius = 13.5
@@ -43,7 +44,7 @@ do
         flow_fraction_sample_frequency = 60, -- n samples per second
 
         position_history_n = 1000, -- n samples
-        position_history_sample_frequency = 10, -- px
+        position_history_sample_frequency = 5, -- px
 
         ground_acceleration_duration = 20 / 60, -- seconds
         ground_deceleration_duration = 5 / 60,
@@ -347,6 +348,7 @@ function rt.Player:instantiate()
         self._position_history[i+0] = 0
         self._position_history[i+1] = 0
     end
+    self._position_history_path = rt.Path(self._position_history)
 
     self._trail = rt.PlayerTrail(self)
     self._graphics_body = rt.PlayerBody({
@@ -374,7 +376,7 @@ function rt.Player:_connect_input()
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = true
             self._jump_button_is_down_elapsed = 0
-            
+
             if self._state == rt.PlayerState.DISABLED then return end
 
             self:jump()
@@ -452,23 +454,23 @@ function rt.Player:_connect_input()
 
         -- convert joystick inputs to digital
         local eps = _settings.joystick_to_analog_eps
-        
-        local before_up, before_down, before_right, before_left = self._up_button_is_down_elapsed, 
-            self._down_button_is_down, 
-            self._right_button_is_down, 
+
+        local before_up, before_down, before_right, before_left = self._up_button_is_down_elapsed,
+            self._down_button_is_down,
+            self._right_button_is_down,
             self._left_button_is_down
-        
+
         self._up_button_is_down = y < -eps
         self._down_button_is_down = y > eps
         self._right_button_is_down = x > eps
         self._left_button_is_down = x < -eps
-        
+
         if before_up ~= self._up_button_is_down then self._up_button_is_down_elapsed = 0 end
         if before_down ~= self._down_button_is_down then self._down_button_is_down_elapsed = 0 end
         if before_right ~= self._right_button_is_down then self._right_button_is_down_elapsed = 0 end
         if before_left ~= self._left_button_is_down then self._left_button_is_down_elapsed = 0 end
     end)
-    
+
     self._input:signal_connect("controller_button_pressed", function(_, which)
         if which == rt.ControllerButton.DPAD_UP then
             self._up_button_is_down = true
@@ -1210,6 +1212,18 @@ function rt.Player:update(delta)
                     can_jump = true
                     self._down_elapsed = 0
                     self._double_jump_disallowed = true
+
+                    -- pop oldest source
+                    local instance = self._double_jump_sources[#self._double_jump_sources]
+                    if instance ~= nil then
+                        self:remove_double_jump_source(instance)
+                        if instance.get_color ~= nil then
+                            local color = instance:get_color()
+                            if meta.isa(color, rt.RGBA) then
+                                self:pulse(color)
+                            end
+                        end
+                    end
                 end
 
                 if can_jump and t * self._down_elapsed < _settings.jump_duration then
@@ -1674,7 +1688,7 @@ function rt.Player:update(delta)
     if self._skip_next_flow_update == true then
         self._skip_next_flow_update = false
     end
-    
+
     -- timers
     if self._down_button_is_down then self._down_button_is_down_elapsed = self._down_button_is_down_elapsed + delta end
     if self._up_button_is_down then self._up_button_is_down_elapsed = self._up_button_is_down_elapsed + delta end
@@ -1775,17 +1789,13 @@ function rt.Player:update(delta)
         local distance = math.distance(current_x, current_y, last_x, last_y)
         local dx, dy = math.normalize(current_x - last_x, current_y - last_y)
         local step = _settings.position_history_sample_frequency
-        repeat
-            table.insert(self._position_history, current_x)
-            table.insert(self._position_history, current_y)
-            table.remove(self._position_history, 1)
-            table.remove(self._position_history, 1)
 
-            current_x = current_x + dx * step
-            current_y = current_y + dy * step
+        table.remove(self._position_history, #self._position_history)
+        table.remove(self._position_history, #self._position_history)
+        table.insert(self._position_history, 1, current_y)
+        table.insert(self._position_history, 1, current_x)
 
-            distance = distance - step
-        until distance < step;
+        self._position_history_path_needs_update = true
     end
 
     if not self._is_bubble then
@@ -2600,22 +2610,22 @@ function rt.Player:get_is_double_jump_source(instance)
     return false
 end
 
---- @brief
 function rt.Player:get_past_position(distance)
-    local n = #self._position_history
-    local i = n
-    local walked = 0
-    local current_x, current_y = self._position_history[n-1], self._position_history[n]
-    while walked < distance do
-        i = i - 2
-        if i < 1 then break end
-
-        local next_x, next_y = self._position_history[i-1], self._position_history[i-0]
-        walked = walked + math.distance(current_x, current_y, next_x, next_y)
-        current_x, current_y = next_x, next_y
+    if self._position_history_path_needs_update == true then
+        self._position_history_path:create_from(self._position_history)
+        self._position_history_path_needs_update = nil
     end
 
-    return current_x, current_y
+    local length = self._position_history_path:get_length()
+
+    local t
+    if length == 0 or distance > length then
+        t = 1
+    else
+        t = distance / length
+    end
+
+    return self._position_history_path:at(t)
 end
 
 --- @brief

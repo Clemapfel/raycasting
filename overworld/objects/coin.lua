@@ -46,7 +46,6 @@ function ow.Coin:instantiate(object, stage, scene)
     end
 
     self._id = object.id
-    self._index = nil -- set by stage
     self._follow_index = 0
 
     self._stage = stage
@@ -153,7 +152,7 @@ function ow.Coin:set_is_collected(b)
         self._body:set_is_enabled(not b)
         self._follow_x, self._follow_y = self._body:get_position()
         self._stage:set_coin_is_collected(self._index, b)
-        self._follow_offset = rt.settings.overworld.coin.follow_offset * self._index
+        self._follow_offset = rt.settings.overworld.coin.follow_offset * (self._index - 1)
         self._timestamp = love.timer.getTime()
     end
 end
@@ -171,20 +170,18 @@ function ow.Coin:update(delta)
             self._pulse_x, self._pulse_y = self._follow_x, self._follow_y
         end
 
-        local player_radius = rt.settings.player.radius
-        local target_x, target_y = self._scene:get_player():get_past_position(self._follow_offset)
+        local player = self._scene:get_player()
 
-        do -- prevent coin from overlapping player core
-            local px, py = self._scene:get_player():get_position()
-            local n_steps = 0
-            local radius
-            while math.distance(target_x, target_y, px, py) < rt.settings.player.radius + self._radius do
-                n_steps = n_steps + 1
-                target_x, target_y = self._scene:get_player():get_past_position(self._follow_offset + n_steps)
-                if self._follow_offset + n_steps >= rt.settings.player.position_history_n then break end
-            end
+        local player_x, player_y = player:get_position()
+        local target_x, target_y = player:get_past_position(self._follow_offset)
+
+        -- prevent coin from overlapping player
+        local max_radius = self._radius + player:get_radius()
+        if math.distance(target_x, target_y, player_x, player_y) < max_radius then
+            local nx, ny = math.normalize(target_x - player_x, target_y - player_y)
+            if math.magnitude(nx, ny) < math.eps then nx = -1 end
+            target_x, target_y = player_x + nx * max_radius, player_y + ny * max_radius
         end
-
         self._follow_motion:set_target_position(target_x, target_y)
 
         self._follow_motion:update(delta)
