@@ -76,8 +76,6 @@ end
 function ow.Background:realize()
     if self:already_realized() then return end
 
-    self._n_particles = rt.settings.overworld.background.n_particles
-
     self._particles = {}
 
     self._room_mesh = nil -- rt.Mesh
@@ -139,7 +137,6 @@ function ow.Background:size_allocate(x, y, width, height)
             n_particles = nil
         }
     end
-
 
     local to_sample = {}
     for id, instance_mesh in pairs(instances) do
@@ -304,6 +301,7 @@ function ow.Background:draw()
         local scale = self:_get_scale_factor()
 
         -- room drawn unaffected by stage camera
+        --[[
         local room_transform = self._view_transform:clone()
         room_transform:scale(scale, scale, 1)
         room_transform:apply(self._scale_transform)
@@ -314,6 +312,7 @@ function ow.Background:draw()
         _room_shader:send("elapsed", rt.SceneManager:get_elapsed())
         self._room_mesh:draw()
         _room_shader:unbind()
+        ]]--
 
         local particle_transform = self._view_transform:clone()
         particle_transform:scale(scale, scale, 1)
@@ -337,11 +336,11 @@ function ow.Background:draw()
         end
         _particle_shader_no_bloom:unbind()
 
+        --[[
         local front_wall_transform = rt.Transform()
         front_wall_transform:apply(self._scale_transform)
         front_wall_transform:apply(self._offset_transform)
 
-        --[[
         _front_wall_shader:bind()
         _front_wall_shader:send("elapsed", rt.SceneManager:get_elapsed())
         _front_wall_shader:send("player_position", { rt.SceneManager:get_current_scene():get_camera():world_xy_to_screen_xy(rt.GameState:get_player():get_position()) })

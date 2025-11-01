@@ -446,6 +446,7 @@ function ow.Stage:update(delta)
             if body ~= nil and body:has_tag("light_source") then
                 table.insert(self._light_sources, body)
             end
+
             return true
         end)
     end

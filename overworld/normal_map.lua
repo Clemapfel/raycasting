@@ -14,8 +14,8 @@ rt.settings.overworld.normal_map = {
     point_light_intensity = 1,
     segment_light_intensity = 0.2,
 
-    max_n_point_lights = 256,
-    max_n_segment_lights = 16,
+    max_n_point_lights = 64,
+    max_n_segment_lights = 32,
 
     yield_savepoint_fraction = 0.01
 }
@@ -452,6 +452,8 @@ function ow.NormalMap:draw_light(
     segment_light_sources, -- in world coords
     segment_light_colors
 )
+    if _disable then return end
+
     meta.assert(
         camera, rt.Camera,
         point_light_sources, "Table",
@@ -511,8 +513,6 @@ function ow.NormalMap:draw_light(
                         end
                     end
 
-                    -- TODO
-                    self._dbg = point_lights_local
 
                     -- file segment lights in cell, translate to screen cords
                     local segment_lights_local = {}
@@ -585,6 +585,8 @@ function ow.NormalMap:draw_light(
 end
 
 function ow.NormalMap:draw_shadow(camera)
+    if _disable then return end
+
     meta.assert(camera, rt.Camera)
 
     if self._is_visible == false or not self._computation_started then return end

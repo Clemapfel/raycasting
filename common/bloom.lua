@@ -1,7 +1,7 @@
 rt.settings.bloom = {
     n_preprocessing_passes = 0,
     default_blur_strength = 1.2,
-    default_msaa = 4,
+    default_msaa = 0,
     default_texture_format = rt.TextureFormat.RG11B10F,
     default_composite_strength = 0.1
 }

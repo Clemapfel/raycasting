@@ -35,7 +35,8 @@ float gaussian(float x, float ramp)
 }
 
 vec2 screen_xy_to_uv(vec2 xy) {
-    return xy / love_ScreenSize.xy;
+    const vec2 reference_size = vec2(800, 600);
+    return (xy / (reference_size / love_ScreenSize.xy)) / love_ScreenSize.xy;
 }
 
 uniform float camera_scale;
@@ -63,30 +64,23 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
     }
 
     vec4 segment_color = vec4(0);
-    /*
     for (int i = 0; i < n_segment_lights; ++i) {
         vec4 segment = segment_lights[i];
         vec4 color = segment_colors[i];
 
-        vec2 a_uv = to_uv(segment.xy);
-        vec2 b_uv = to_uv(segment.zw);
+        vec2 a_uv = screen_xy_to_uv(segment.xy);
+        vec2 b_uv = screen_xy_to_uv(segment.zw);
         vec2 position = closest_point_on_segment(a_uv, b_uv, screen_uv);
 
-        float attenuation = gaussian(distance(position, screen_uv) * 2, 1.5); // lower to increase range
+        float attenuation = gaussian(distance(position, screen_uv) * 2 / camera_scale, 5); // lower to increase range
 
         vec2 light_direction = normalize(position - screen_uv);
         float alignment = max(dot(gradient, light_direction), 0.0);
         float light = alignment * attenuation;
-        segment_color += segment_light_intensity * vec4(vec3(light * color.rgb), 1) * (1 - dist);
+        segment_color += 0.6 * vec4(vec3(light * color.rgb), 1) * (1 - dist);
     }
-    */
 
-    if (n_point_lights == 0 && n_segment_lights > n_point_lights)
-        return segment_color;
-    else if (n_segment_lights == 0 && n_point_lights > n_segment_lights)
-        return point_color;
-    else
-        return mix(point_color, segment_color, 0.5);
+    return mix(point_color, segment_color, 0.5);
 }
 
 #endif

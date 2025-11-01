@@ -952,6 +952,7 @@ function ow.OverworldScene:update(delta)
     local x, y = self._camera:world_xy_to_screen_xy(self._player:get_physics_body():get_predicted_position())
     self._player:update(delta)
     self._camera:update(delta)
+
     self._stage:update(delta)
 
     self._background:notify_camera_changed(self._camera)
@@ -1265,4 +1266,3 @@ function ow.OverworldScene:set_fade_to_black(t)
     self._fade_to_black = t
     if self._stage ~= nil then self._stage:set_fade_to_black(t) end
 end
-
