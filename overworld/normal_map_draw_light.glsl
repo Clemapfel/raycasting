@@ -18,7 +18,6 @@ uniform vec4 segment_colors[MAX_N_SEGMENT_LIGHTS];
 uniform int n_segment_lights; // see n_point_lights
 uniform float segment_light_intensity = 0.35;
 
-
 vec2 closest_point_on_segment(vec2 a, vec2 b, vec2 point) {
     vec2 ab = b - a;
     vec2 ap = point - a;

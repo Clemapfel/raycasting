@@ -233,7 +233,7 @@ float hexagon_tiling_sdf(vec2 p, out vec2 gradient) {
     }
 
     // gradient is in world-space (lp was in world units), no further transform needed
-    return sdf;
+    return smoothstep(0, 0.1, 0 * sdf);
 }
 
 /*
@@ -274,19 +274,13 @@ float hexagon_tiling_sdf(vec2 p, out vec2 gradient) {
 // a = apothem (distance center -> side).
 float hexagonal_tiling_sdf(in vec2 p, in float a, out vec2 grad)
 {
-    // Constants for 60-degree geometry
     const float SQRT3    = 1.7320508075688772;
     const float INV_SQRT3= 0.5773502691896258;
 
-    // 1) Find nearest hex center (flat-top) using axial coordinates
-    // Basis vectors for centers (columns):
-    //   bq = (sqrt(3)*a, a), br = (0, 2a)
-    // Inverse mapping to axial coordinates (q, r_axial):
     float qf = p.x / (SQRT3 * a);
     float rf = (-p.x + SQRT3 * p.y) / (2.0 * SQRT3 * a);
 
-    // Cube rounding to nearest axial integer coordinates
-    vec3 cube = vec3(qf, -qf - rf, rf);     // (x, y, z) with x+y+z=0
+    vec3 cube = vec3(qf, -qf - rf, rf);
     vec3 rc = round(cube);
     vec3 diff = abs(rc - cube);
     if (diff.x > diff.y && diff.x > diff.z) {
@@ -297,18 +291,11 @@ float hexagonal_tiling_sdf(in vec2 p, in float a, out vec2 grad)
         rc.z = -rc.x - rc.y;
     }
 
-    // Convert back to world center using basis:
-    // center = bq*rc.x + br*rc.z
     vec2 center = vec2(SQRT3 * a * rc.x, a * rc.x + 2.0 * a * rc.z);
-
-    // Local coordinates relative to nearest center
     vec2 v = p - center;
 
-    // 2) Fold into wedge via reflections (Inigo Quilez-style hex SDF core)
-    // k.xy and k.yx are unit normals to the 60° reflection lines; k.z = 1/sqrt(3)
     const vec3 k = vec3(-0.5, 0.8660254037844386, INV_SQRT3);
 
-    // Record sign from absolute-value fold to reflect gradient back later
     vec2 sAxis = vec2(v.x < 0.0 ? -1.0 : 1.0, v.y < 0.0 ? -1.0 : 1.0);
     vec2 w = abs(v);
 
@@ -320,31 +307,22 @@ float hexagonal_tiling_sdf(in vec2 p, in float a, out vec2 grad)
     bool ref2 = (d2 < 0.0);
     if (ref2) w -= 2.0 * d2 * k.yx;
 
-    // 3) Nearest point on the top edge segment (y = a, x in [-a/sqrt(3), a/sqrt(3)])
-    float xClamp = clamp(w.x, -k.z * a, k.z * a);
-    vec2  qEdge  = vec2(xClamp, a);
+    // Distance to the slanted edge of the hexagon
+    float dist = dot(k.xy, w) - a;
 
-    vec2  dv     = w - qEdge;
-    float lenDV  = length(dv);
+    // Gradient is the normal to the edge
+    vec2 g = k.xy;
 
-    // Signed distance: positive above the edge in wedge coords, negative below
-    // (for line rendering you typically use abs(dist))
-    float sgn = (dv.y >= 0.0) ? 1.0 : -1.0;
-    float dist = lenDV * sgn;
-
-    // 4) Analytic gradient in wedge coords
-    vec2 g = (lenDV > 0.0) ? (dv / lenDV) : vec2(0.0, 1.0);
-    // Outward normal of the edge (gradient of signed distance)
-    g *= sgn;
-
-    // 5) Unfold gradient back through reflections (reverse order), then axis reflections
+    // Unfold gradient back through reflections
     if (ref2) g = g - 2.0 * dot(g, k.yx) * k.yx;
     if (ref1) g = g - 2.0 * dot(g, k.xy) * k.xy;
-    g *= sAxis;  // undo abs()
+    g *= sAxis;
 
     grad = g;
     return dist;
 }
+
+
 
 #define PI 3.1415926535897932384626433832795
 float gaussian(float x, float ramp)
@@ -358,6 +336,32 @@ uniform vec2 player_position; // screen coords
 uniform vec4 player_color;
 uniform mat4x4 screen_to_world_transform;
 
+#ifndef MAX_N_POINT_LIGHTS
+#define MAX_N_POINT_LIGHTS 32
+#endif
+
+
+#ifndef MAX_N_SEGMENT_LIGHTS
+#define MAX_N_SEGMENT_LIGHTS 32
+#endif
+
+uniform vec2 point_lights[MAX_N_POINT_LIGHTS]; // in screen coords (px, py)
+uniform vec4 point_colors[MAX_N_POINT_LIGHTS];
+uniform int n_point_lights; // clamped before being send to shader
+
+uniform vec4 segment_lights[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
+uniform vec4 segment_colors[MAX_N_SEGMENT_LIGHTS];
+uniform int n_segment_lights; // see n_point_lights
+
+vec2 closest_point_on_segment(vec2 a, vec2 b, vec2 point) {
+    vec2 ab = b - a;
+    vec2 ap = point - a;
+    float ab_length_squared = dot(ab, ab);
+    float t = dot(ap, ab) / ab_length_squared;
+    t = clamp(t, 0.0, 1.0);
+    return a + t * ab;
+}
+
 uniform vec4 outline_color;
 
 vec2 to_world_position(vec2 xy) {
@@ -366,25 +370,45 @@ vec2 to_world_position(vec2 xy) {
 }
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) {
-    vec2 player_pos = to_world_position(player_position);
     vec2 screen_pos = to_world_position(screen_coords);
+    float noise = gradient_noise(vec3(screen_pos / 100, elapsed / 4));
 
-    float noise = gradient_noise(vec3(screen_pos / 100, elapsed / 3));
-
+    const float tiling_height = 0.4;
 
     vec2 gradient;
-    float tiling = hexagonal_tiling_sdf(screen_pos / 75.0, 0.4, gradient);
+    float tiling = hexagonal_tiling_sdf(screen_pos / 30.0, 1, gradient);
+    vec2 surface_normal = normalize(-1 * gradient) * tiling_height;
 
-    vec2 surface_normal = normalize(-1 * gradient) * 0.5;
-
-    float dist = distance(player_pos, screen_pos) / 100.0;
-    float attenuation = gaussian(dist, 0.5) * 0.5;
-
-    vec2 light_direction = normalize(player_pos - screen_pos);
-    float alignment = smoothstep(0, 1.6, max(dot(surface_normal, light_direction), 0.0));
-    float light = alignment;
     const float eps = 0.1;
     float threshold = noise;
     float line = 1 - smoothstep(threshold - eps, threshold + eps, tiling);
-    return vec4(mix(color.rgb * tiling, (max((1 - line) * 0.4, light)) * player_color.rgb * attenuation, 2), 0.7);
+
+    vec4 accumulated_color = vec4(0);
+    for (int i = 1; i < n_point_lights; ++i) {
+        vec2 light_pos = to_world_position(point_lights[i]);
+        float dist = distance(light_pos, screen_pos) / 100.0;
+        float attenuation = gaussian(dist, 0.5);
+        vec2 light_direction = normalize(light_pos - screen_pos);
+        float alignment = max(dot(surface_normal, light_direction), 0);
+        float light = alignment * (attenuation * max(1 - line, 0.7));
+        accumulated_color += light * point_colors[i];
+    }
+
+    vec4 segment_color = vec4(0);
+    for (int i = 0; i < n_segment_lights; ++i) {
+        vec4 segment = segment_lights[i];
+        vec2 a_uv = to_world_position(segment.xy);
+        vec2 b_uv = to_world_position(segment.zw);
+        vec2 light_pos = closest_point_on_segment(a_uv, b_uv, screen_pos);
+
+        float dist = distance(light_pos, screen_pos) / 100.0;
+        float attenuation = gaussian(dist, 0.5);
+        vec2 light_direction = normalize(light_pos - screen_pos);
+        float alignment = max(dot(surface_normal, light_direction), 0);
+        float light = alignment * (attenuation * max(1 - line, 0.7));
+        segment_color += light * segment_colors[i];
+    }
+
+    float base = mix(0, 0.5, -tiling);
+    return vec4((base * color + mix(segment_color, accumulated_color, 0.5)).rgb, 0.8);
 }

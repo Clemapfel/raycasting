@@ -353,7 +353,15 @@ end
 
 --- @brief
 function ow.Stage:draw_below_player()
-    ow.Wall:draw_all()
+    local point_lights, point_colors = self:get_point_light_sources()
+    local segment_lights, segment_colors = self:get_segment_light_sources()
+    ow.Wall:draw_all(
+        self._scene:get_camera(),
+        point_lights,
+        point_colors,
+        segment_lights,
+        segment_colors
+    )
     ow.Hitbox:draw_base()
     self._normal_map:draw_shadow(self._scene:get_camera())
     ow.Hitbox:draw_outline()

@@ -50,24 +50,44 @@ local _try_initialize = function()
 end
 
 --- @brief
-function ow.Wall:draw_all()
+function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segment_light_sources, segment_light_colors)
     _try_initialize()
 
     love.graphics.setColor(1, 1, 1, 1)
 
     local scene = rt.SceneManager:get_current_scene()
-    local camera = scene:get_camera()
-    local player = scene:get_player()
+
+    local point_local = {}
+    for source in values(point_light_sources) do
+        table.insert(point_local, { camera:world_xy_to_screen_xy(table.unpack(source))})
+    end
+
+    local segment_local = {}
+    for source in values(segment_light_sources) do
+        local ax, ay = camera:world_xy_to_screen_xy(source[1], source[2])
+        local bx, by = camera:world_xy_to_screen_xy(source[3], source[4])
+        table.insert(segment_local, { ax, ay, bx, by })
+    end
 
     rt.Palette.WALL:bind()
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_position()) })
-    _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+    _shader:send("n_point_lights", #point_local)
+    if #point_local > 0 then
+        _shader:send("point_lights", table.unpack(point_local))
+        _shader:send("point_colors", table.unpack(point_light_colors))
+    end
+
+    _shader:send("n_segment_lights", #segment_local)
+    if #segment_local > 0 then
+        _shader:send("segment_lights", table.unpack(segment_local))
+        _shader:send("segment_colors", table.unpack(segment_light_colors))
+    end
     _shader:send("screen_to_world_transform", camera:get_transform():inverse())
     _shader:send("outline_color", { rt.Palette.WALL:unpack() })
     love.graphics.draw(_mesh)
     _shader:unbind()
+
 
     rt.Palette.WALL_OUTLINE:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hitbox.outline_width)
