@@ -198,6 +198,7 @@ function rt.Camera:update(delta)
     local t = self._transform:reset()
     t:translate(0.5 * screen_w, 0.5 * screen_h, 0)
     t:scale(self._current_scale, self._current_scale, 1)
+    t:scale(rt.get_pixel_scale())
     t:rotate_z(self._current_angle)
     t:translate(-self._current_x, -self._current_y, 0)
 
@@ -441,5 +442,5 @@ end
 
 --- @brief
 function rt.Camera:get_transform()
-    return self._transform
+    return self._transform:clone()
 end

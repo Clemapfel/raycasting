@@ -98,7 +98,7 @@ function ow.OverworldScene:instantiate(state)
         _fade_active = false,
 
         _show_title_card = true,
-        _title_card = ow.StageTitleCard("TODO"),
+        _title_card = ow.StageTitleCard("UNINITIALIZED"),
         _title_card_active = false,
         _title_card_elapsed = 0,
 
@@ -109,16 +109,8 @@ function ow.OverworldScene:instantiate(state)
         _timer_stopped = false,
         _timer = 0,
 
-        _screenshot_a = nil, -- rt.RenderTexture
-        _screenshot_b = nil,
-        _screenshot_a_or_b = true,
-
         _player_is_visible = true,
         _hide_debug_information = false,
-
-        _result_screen_transition_active = false,
-        _result_screen_transition_elapsed = 0,
-        _result_screen_transition_fraction = 0,
 
         _fade_to_black = 0
     })
@@ -358,9 +350,6 @@ function ow.OverworldScene:enter(new_stage_id, show_title_card)
     self._fade_active = false
     self._fade:skip()
 
-    self._result_screen_transition_active = false
-    self._result_screen_transition_elapsed = 0
-
     self._show_title_card = show_title_card
 
     if new_stage_id ~= nil then
@@ -437,9 +426,6 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
         self._stage:get_blood_splatter():set_bloom_factor(1)
     end
 
-    self._result_screen_transition_active = false
-    self._result_screen_transition_elapsed = 0
-
     if self._pause_menu_active then
         self._pause_menu:present()
     end
@@ -508,17 +494,6 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     self._background:reformat(0, 0, width, height)
     self._pause_menu:reformat(0, 0, width, height)
     self._title_card:reformat(0, 0, width, height)
-
-    if self._screenshot_a == nil
-        or self._screenshot_a:get_width() ~= width
-        or self._screenshot_a:get_height() ~= height
-        or self._screenshot_b == nil
-        or self._screenshot_b:get_width() ~= width
-        or self._screenshot_b:get_height() ~= height
-    then
-        self._screenshot_a = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
-        self._screenshot_b = rt.RenderTexture(width, height, rt.GameState:get_msaa_quality())
-    end
 end
 
 --- @brief
@@ -567,16 +542,6 @@ function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
     love.graphics.push("all")
-
-    local screenshot
-    if not self._result_screen_transition_active then
-        if self._screenshot_a_or_b then
-            screenshot = self._screenshot_a
-        else
-            screenshot = self._screenshot_b
-        end
-        screenshot:bind()
-    end
 
     love.graphics.origin()
     love.graphics.clear(1, 0, 1, 1)
@@ -651,16 +616,6 @@ function ow.OverworldScene:draw()
         end
     end
 
-    if not self._result_screen_transition_active then
-        screenshot:unbind()
-
-        love.graphics.push()
-        love.graphics.reset()
-        screenshot:draw()
-        love.graphics.pop()
-
-        self._screenshot_a_or_b = not self._screenshot_a_or_b
-    end
     love.graphics.pop()
 
     if not self._pause_menu_active and not self._fade:get_is_active() and self._cursor_visible and rt.settings.overworld_scene.allow_translation then
@@ -690,12 +645,6 @@ function ow.OverworldScene:draw()
         love.graphics.setLineWidth(1)
         love.graphics.setColor(_black_r, _black_g, _black_b, 1)
         love.graphics.circle("line", x, y, 6 * scale)
-    end
-
-    if self._result_screen_transition_active == true then
-        -- white flash on screenshot
-        love.graphics.setColor(1, 1, 1, self._result_screen_transition_fraction)
-        love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
     end
 
     if self._pause_menu_active then
@@ -1043,52 +992,6 @@ function ow.OverworldScene:update(delta)
             self._camera_scale_velocity = 0
         end
     end
-
-    -- transition
-    if self._result_screen_transition_active == true then
-        self._result_screen_transition_elapsed = self._result_screen_transition_elapsed + delta
-        local duration = rt.settings.overworld_scene.result_screen_transition_duration
-        local fraction = self._result_screen_transition_elapsed / duration
-
-        local should_transition = fraction > 1
-        self._result_screen_transition_fraction = 0.25 * rt.InterpolationFunctions.ENVELOPE(fraction, 0.1)
-        if should_transition then
-            -- screenshot without player
-            self._player_is_visible = false
-
-            local before = self._draw_debug_information
-            self._hide_debug_information = true
-            local screenshot = ternary(self._screenshot_a_or_b, self._screenshot_a, self._screenshot_b)
-
-            screenshot:bind()
-            love.graphics.push("all")
-            love.graphics.clear(1, 0, 1, 1)
-            self:draw()
-            love.graphics.pop()
-            screenshot:unbind()
-            self._hide_debug_information = false
-            self._player_is_visible = true
-
-            local local_x, local_y = self._camera:world_xy_to_screen_xy(self._player:get_position())
-
-            rt.SceneManager:set_scene(ow.ResultScreenScene,
-                local_x, local_y,
-                screenshot,  {
-                    coins = { true, true, true, true, true, true, true, true },
-                    time = 1.234,
-                    target_time = 1.230,
-                    stage_name = "1-3: Debug Level Name",
-                    stage_id = "tutorial",
-                    flow = 1.0,
-                    time_grade = rt.StageGrade.S,
-                    coins_grade = rt.StageGrade.S,
-                    flow_grade = rt.StageGrade.S,
-                    splits_current = self._stage:get_checkpoint_splits(),
-                    splits_best = rt.GameState:stage_get_splits_best_run(self._stage_id)
-                }
-            )
-        end
-    end
 end
 
 --- @brief
@@ -1162,9 +1065,6 @@ end
 
 --- @brief
 function ow.OverworldScene:respawn()
-    self._result_screen_transition_active = false
-    self._result_screen_transition_elapsed = 0
-
     self._stage:get_active_checkpoint():spawn()
     self._camera:set_position(self._player:get_position())
 end
@@ -1206,9 +1106,7 @@ end
 
 --- @brief
 function ow.OverworldScene:show_result_screen()
-    -- start animation, cf update
-    self._result_screen_transition_active = true
-    self._result_screen_transition_elapsed = 0
+    rt.error("TODO")
 end
 
 --- @brief
@@ -1244,16 +1142,6 @@ end
 --- @brief
 function ow.OverworldScene:get_control_indicator_type()
     return self._control_indicator_type
-end
-
---- @brief
-function ow.OverworldScene:get_screenshot()
-    -- get screenshot of last frmae
-    if self._screenshot_a_or_b then
-        return self._screenshot_b
-    else
-        return self._screenshot_a
-    end
 end
 
 --- @brief

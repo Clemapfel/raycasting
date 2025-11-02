@@ -38,6 +38,16 @@ local _particle_shader = rt.Shader("overworld/objects/accelerator_surface.glsl",
 
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
+
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            for shader in range(_body_shader, _outline_shader, _particle_shader) do
+                shader:recompile()
+            end
+        end
+    end)
+
     if _particle_texture == nil then
         love.graphics.push("all")
         love.graphics.origin()
@@ -230,28 +240,25 @@ function ow.AcceleratorSurface:draw()
     local offset_x, offset_y = self._scene:get_camera():get_offset()
     local camera_scale = self._scene:get_camera():get_final_scale()
 
+    local transform = self._scene:get_camera():get_transform():inverse()
+
     _body_shader:bind()
-    _body_shader:send("camera_offset", { offset_x, offset_y })
-    _body_shader:send("camera_scale", camera_scale)
-    _body_shader:send("player_position", { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+    _body_shader:send("screen_to_world_transform", transform)
     _body_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _body_shader:send("player_hue", self._scene:get_player():get_hue())
     love.graphics.push()
     self._mesh:draw()
     love.graphics.pop()
     _body_shader:unbind()
 
     _outline_shader:bind()
-    _outline_shader:send("camera_offset", { offset_x, offset_y })
-    _outline_shader:send("camera_scale", camera_scale)
+    _outline_shader:send("screen_to_world_transform", transform)
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
     love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
     love.graphics.line(self._outline)
     _outline_shader:unbind()
 
     _particle_shader:bind()
-    _particle_shader:send("camera_offset", { offset_x, offset_y })
-    _particle_shader:send("camera_scale", camera_scale)
+    _particle_shader:send("screen_to_world_transform", transform)
 
     local frame_h = _particle_texture:get_height()
     local texture = _particle_texture:get_native()
