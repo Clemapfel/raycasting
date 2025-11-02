@@ -437,11 +437,32 @@ end
 
 --- @brief
 function ow.Background:notify_camera_changed(camera)
-    do
-        self._scale_transform:reset()
-        local scale = camera:get_scale()
-        self._scale_transform:scale(scale, scale, 1)
-    end
+    self._scale_transform:reset()
+    local scale = camera:get_scale()
+    self._scale_transform:scale(scale, scale, 1)
+
+    local offset_x, offset_y = camera:get_offset() -- in screen coords (pixels)
+
+    local aspect = self._bounds.width / self._bounds.height
+    local fov = math.pi * self._canvas:get_fov()
+    local tan_half = math.tan(0.5 * fov)
+    local near_z = rt.settings.overworld.background.stage_z_position
+
+    local half_h_near = tan_half * near_z
+    local half_w_near = half_h_near * aspect
+
+    local world_offset_x = (offset_x / self._bounds.width) * (2 * half_w_near)
+    local world_offset_y = (offset_y / self._bounds.height) * (2 * half_h_near) * -1 -- y points down
+
+    self._offset_transform:reset()
+    self._offset_transform:translate(
+        world_offset_x,
+        world_offset_y,
+        0
+    )
+
+    self._camera_scale = camera:get_final_scale()
+    self._camera_offset = { camera:get_offset() }
 end
 
 --- @brief compute 3d aabb that is visible given view transform and fov

@@ -1700,7 +1700,7 @@ function rt.Player:update(delta)
     -- add blood splatter
     if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            local r = self._radius
+            local r = _settings.radius
             local cx, cy = contact_x, contact_y
 
             -- at high velocities, interpolate

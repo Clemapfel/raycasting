@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1035,
+  nextobjectid = 1037,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4035,19 +4035,6 @@ return {
           }
         },
         {
-          id = 716,
-          name = "",
-          type = "DoubleJumpTether",
-          shape = "point",
-          x = 610.164,
-          y = 282.657,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 746,
           name = "",
           type = "KillPlane",
@@ -5419,6 +5406,33 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 1036,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = 297.288,
+          y = 212.349,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 32.6691, y = -222.15 },
+            { x = 150.278, y = -339.758 },
+            { x = 411.63, y = -421.431 },
+            { x = 620.712, y = -401.829 },
+            { x = 761.189, y = -365.893 },
+            { x = 859.196, y = -277.687 },
+            { x = 927.801, y = -120.876 },
+            { x = 934.335, y = -62.0712 },
+            { x = 927.801, y = 6.53381 },
+            { x = 918.712, y = 123.651 },
+            { x = 10.313, y = 117.117 }
+          },
           properties = {}
         }
       }

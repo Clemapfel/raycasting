@@ -114,7 +114,6 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
-
 uniform vec2 player_position;
 uniform float flow;
 

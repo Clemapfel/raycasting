@@ -8,7 +8,7 @@ function love.conf(settings)
     settings.window.height = 600
     settings.window.msaa = 4
     settings.window.resizable = true
-    settings.window.vsync = 0
+    settings.window.vsync = -1
     settings.window.usedpiscale = false
 
     -- non-overridable settings

@@ -2,7 +2,8 @@ require "common.shader"
 require "common.mesh"
 
 rt.settings.overworld.hitbox = {
-    collision_group = b2.CollisionGroup.GROUP_10
+    collision_group = b2.CollisionGroup.GROUP_10,
+    outline_width = 3
 }
 
 --- @class ow.Hitbox
@@ -64,10 +65,14 @@ function ow.Hitbox:instantiate(object, stage, scene)
     self._body:set_use_continuous_collision(true)
 
     local _, tris = object:create_mesh()
+    local contour = object:create_contour()
+    table.insert(contour, contour[1])
+    table.insert(contour, contour[2])
 
     if self._body:has_tag("slippery") then
         for tri in values(tris) do
             table.insert(_slippery_tris, tri)
+            table.insert(_slippery_lines, contour)
 
             for i = 1, 6, 2 do
                 local x, y = tri[i+0], tri[i+1]
@@ -80,6 +85,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
     else
         for tri in values(tris) do
             table.insert(_sticky_tris, tri)
+            table.insert(_sticky_lines, contour)
 
             for i = 1, 6, 2 do
                 local x, y = tri[i+0], tri[i+1]
@@ -159,10 +165,6 @@ local _initialize = function()
                 table.insert(sticky_data, { tri[1], tri[2] })
                 table.insert(sticky_data, { tri[3], tri[4] })
                 table.insert(sticky_data, { tri[5], tri[6] })
-
-                table.insert(_sticky_lines, {
-                    tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-                })
             end
             _sticky_mesh = love.graphics.newMesh(format, sticky_data, mode, usage)
         end
@@ -173,10 +175,6 @@ local _initialize = function()
                 table.insert(slippery_data, { tri[1], tri[2] })
                 table.insert(slippery_data, { tri[3], tri[4] })
                 table.insert(slippery_data, { tri[5], tri[6] })
-
-                table.insert(_slippery_lines, {
-                    tri[1], tri[2], tri[3], tri[4], tri[5], tri[6], tri[1], tri[2]
-                })
             end
             _slippery_mesh = love.graphics.newMesh(format, slippery_data, mode, usage)
         end
@@ -211,7 +209,7 @@ end
 function ow.Hitbox:draw_outline()
     if not _initialize() then return end
 
-    love.graphics.setLineWidth(3)
+    love.graphics.setLineWidth(rt.settings.overworld.hitbox.outline_width)
     love.graphics.setLineJoin("bevel")
 
     local to_iterate = {}
