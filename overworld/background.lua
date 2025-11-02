@@ -3,6 +3,8 @@ require "common.widget"
 require "common.render_texture_3d"
 
 rt.settings.overworld.background = {
+    intensity = 0.9,
+
     n_particles = 1000,
     min_scale = 1,
     max_scale = 1,
@@ -10,12 +12,13 @@ rt.settings.overworld.background = {
 
     min_scale_bloom = 0.1,
     max_scale_bloom = 0.2,
-    bloom_particle_chance = 0.7,
+    bloom_particle_chance = 1,
+    bloom_particle_min_z = 0,
 
     fov = 0.3,
     min_depth = 21,
     max_depth = 21 + 200,
-    cell_size = 2^3,
+    cell_size = 7,
 
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
@@ -31,6 +34,8 @@ rt.settings.overworld.background = {
     icosahedron_p = 1,
     dodecahedron_p = 1,
 
+    glow_n_outer_vertices = 16,
+
     room_color = rt.Palette.GRAY_9
 }
 
@@ -41,6 +46,7 @@ local _particle_shader_no_bloom = rt.Shader("overworld/background_particles.glsl
 local _particle_shader_bloom = rt.Shader("overworld/background_particles.glsl", { IS_BLOOM = 1 })
 local _room_shader = rt.Shader("overworld/background_room.glsl")
 local _front_wall_shader = rt.Shader("overworld/background_front_room.glsl")
+local _glow_particle_texture_shader = rt.Shader("overworld/background_glow.glsl")
 
 local _instance_mesh_format = {
     { location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec3" },
@@ -127,10 +133,11 @@ function ow.Background:size_allocate(x, y, width, height)
     }
 
     -- init entry and instances
-    local new_entry = function(instance_mesh, is_bloom)
+    local new_entry = function(instance_mesh)
         return {
             instance_mesh = instance_mesh,
-            is_bloom = is_bloom,
+            is_bloom = false,
+            should_rotate = true,
             data_mesh = nil,
             data_mesh_data = {},
             data_mesh_data_aux = {},
@@ -147,8 +154,11 @@ function ow.Background:size_allocate(x, y, width, height)
         end
     end
 
-    local sphere_entry = new_entry(self:_init_sphere_particle(16, 16), true) -- bloom
-    table.insert(self._particles, sphere_entry)
+    local glow_entry = new_entry(self:_init_glow_particle())
+    glow_entry.is_bloom = true
+    glow_entry.should_rotate = false
+
+    table.insert(self._particles, glow_entry)
 
     do
         local aspect = self._bounds.width / self._bounds.height
@@ -199,7 +209,12 @@ function ow.Background:size_allocate(x, y, width, height)
             local y = rt.random.number(spawn_min_y, spawn_max_y)
             local z = rt.random.number(spawn_min_z, spawn_max_z)
 
-            local qx, qy, qz, qw = math.quaternion.random()
+            local qx, qy, qz, qw
+            if entry.should_rotate then
+                qx, qy, qz, qw = math.quaternion.random()
+            else
+                qx, qy, qz, qw = math.quaternion.identity()
+            end
 
             local hue = rt.random.number(0, 1)
             local r, g, b, a = rt.lcha_to_rgba(0.8, 1, hue, 1)
@@ -211,19 +226,23 @@ function ow.Background:size_allocate(x, y, width, height)
                 r, g, b, a
             })
 
-            table.insert(entry.data_mesh_data_aux, {
-                rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
-                    settings.min_rotation_speed,
-                    settings.max_rotation_speed
-                ),
+            if entry.should_rotate then
+                table.insert(entry.data_mesh_data_aux, {
+                    rotation_speed = rt.random.choose(-1, 1) * rt.random.number(
+                        settings.min_rotation_speed,
+                        settings.max_rotation_speed
+                    ),
 
-                rotation_axis = { math.normalize(
-                    rt.random.number(-1, 1),
-                    rt.random.number(-1, 1),
-                    rt.random.number(-1, 1)
-                )}
-            })
+                    rotation_axis = { math.normalize(
+                        rt.random.number(-1, 1),
+                        rt.random.number(-1, 1),
+                        rt.random.number(-1, 1)
+                    )}
+                })
+            end
         end
+
+        local small_cell_size = 0.5 * cell_size
 
         local grid_x_count = math.ceil((max_x - min_x) / cell_size)
         local grid_y_count = math.ceil((max_y - min_y) / cell_size)
@@ -240,12 +259,27 @@ function ow.Background:size_allocate(x, y, width, height)
                             settings.max_scale
                         )
                     else
-                        generate_particle(
-                            sphere_entry,
-                            ix, iy, iz,
-                            settings.min_scale_bloom,
-                            settings.max_scale_bloom
-                        )
+                        local subdivisions = math.ceil(cell_size / small_cell_size)
+                        for sub_x = 0, subdivisions - 1 do
+                            for sub_y = 0, subdivisions - 1 do
+                                for sub_z = 0, subdivisions - 1 do
+                                    if rt.random.toss_coin(bloom_probability) then
+                                        local offset_x = sub_x * small_cell_size / cell_size
+                                        local offset_y = sub_y * small_cell_size / cell_size
+                                        local offset_z = sub_z * small_cell_size / cell_size
+
+                                        if iz + offset_z > settings.bloom_particle_min_z then
+                                            generate_particle(
+                                                glow_entry,
+                                                ix + offset_x, iy + offset_y, iz + offset_z,
+                                                settings.min_scale_bloom,
+                                                settings.max_scale_bloom
+                                            )
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
             end
@@ -294,9 +328,12 @@ end
 --- @brief
 function ow.Background:draw()
     if self._canvas_needs_update == true then
+        love.graphics.push("all")
+
         self._canvas:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.clear(rt.Palette.BLACK:unpack())
+        local intensity = rt.settings.overworld.background.intensity
+        love.graphics.setColor(intensity, intensity, intensity, 1)
 
         local scale = self:_get_scale_factor()
 
@@ -320,6 +357,9 @@ function ow.Background:draw()
         particle_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
         particle_transform:apply(self._offset_transform)
         self._canvas:set_view_transform(particle_transform)
+
+        love.graphics.setDepthMode("less", true) -- write
+
         _particle_shader_no_bloom:bind()
         for entry in values(self._particles) do
             if entry.is_bloom == false then
@@ -328,13 +368,19 @@ function ow.Background:draw()
         end
         _particle_shader_no_bloom:unbind()
 
-        _particle_shader_no_bloom:bind()
+        love.graphics.setDepthMode("less", false) -- do not write
+
+        _particle_shader_bloom:bind()
         for entry in values(self._particles) do
             if entry.is_bloom == true then
                 entry.instance_mesh:draw_instanced(entry.n_particles)
             end
         end
-        _particle_shader_no_bloom:unbind()
+        _particle_shader_bloom:unbind()
+
+
+
+
 
         --[[
         local front_wall_transform = rt.Transform()
@@ -352,6 +398,8 @@ function ow.Background:draw()
 
         self._canvas:unbind()
         self._canvas_needs_update = false
+
+        love.graphics.pop()
     end
 
     love.graphics.push()
@@ -361,7 +409,6 @@ function ow.Background:draw()
 end
 
 function ow.Background:draw_bloom()
-    --[[
     self._canvas:bind()
     love.graphics.clear(0, 0, 0, 0)
     love.graphics.setColor(1, 1, 1, 1)
@@ -381,7 +428,7 @@ function ow.Background:draw_bloom()
     end
     _particle_shader_bloom:unbind()
     self._canvas:unbind()
-    ]]--
+
     love.graphics.push()
     love.graphics.origin()
     self._canvas:draw()
@@ -392,32 +439,9 @@ end
 function ow.Background:notify_camera_changed(camera)
     do
         self._scale_transform:reset()
-        local scale = camera:get_final_scale()
+        local scale = camera:get_scale()
         self._scale_transform:scale(scale, scale, 1)
     end
-
-    local offset_x, offset_y = camera:get_offset() -- in screen coords (pixels)
-
-    local aspect = self._bounds.width / self._bounds.height
-    local fov = math.pi * self._canvas:get_fov()
-    local tan_half = math.tan(0.5 * fov)
-    local near_z = rt.settings.overworld.background.stage_z_position
-
-    local half_h_near = tan_half * near_z
-    local half_w_near = half_h_near * aspect
-
-    local world_offset_x = (offset_x / self._bounds.width) * (2 * half_w_near)
-    local world_offset_y = (offset_y / self._bounds.height) * (2 * half_h_near) * -1 -- y points down
-
-    self._offset_transform:reset()
-    self._offset_transform:translate(
-        world_offset_x,
-        world_offset_y,
-        0
-    )
-
-    self._camera_scale = camera:get_final_scale()
-    self._camera_offset = { camera:get_offset() }
 end
 
 --- @brief compute 3d aabb that is visible given view transform and fov
@@ -531,13 +555,15 @@ function ow.Background:update(delta)
 
             data[1], data[2], data[3] = x, y, z
 
-            -- rotate
-            local angle = delta * 2 * math.pi * aux_data.rotation_speed
-            local axis_x, axis_y, axis_z = table.unpack(aux_data.rotation_axis)
-            data[5], data[6], data[7], data[8] = math.quaternion.normalize(math.quaternion.multiply(
-                data[5], data[6], data[7], data[8],
-                math.quaternion.from_axis_angle(axis_x, axis_y, axis_z, angle)
-            ))
+            if entry.should_rotate then
+                -- rotate
+                local angle = delta * 2 * math.pi * aux_data.rotation_speed
+                local axis_x, axis_y, axis_z = table.unpack(aux_data.rotation_axis)
+                data[5], data[6], data[7], data[8] = math.quaternion.normalize(math.quaternion.multiply(
+                    data[5], data[6], data[7], data[8],
+                    math.quaternion.from_axis_angle(axis_x, axis_y, axis_z, angle)
+                ))
+            end
         end
 
         entry.data_mesh:replace_data(entry.data_mesh_data)
@@ -884,7 +910,6 @@ function ow.Background:_init_dodecahedron_particle()
     return mesh
 end
 
-
 function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
     local sphere_mesh_data = {}
     local vertex_index = 1
@@ -1005,6 +1030,59 @@ function ow.Background:_init_sphere_particle(n_rings, n_segments_per_ring)
     return instance_mesh
 end
 
+function ow.Background:_init_glow_particle()
+    local n_outer_vertices = rt.settings.overworld.background.glow_n_outer_vertices
+    local radius = 1
+    local center_x, center_y, center_z = 0, 0, 0
+
+    local mesh_data = {
+        { center_x, center_y, center_z, 0, 0, 1, 1, 1, 1 }
+    }
+
+    for i = 1, n_outer_vertices do
+        local angle = (i - 1) / n_outer_vertices * 2 * math.pi
+        local x = center_x + math.cos(angle) * radius
+        local y = center_y + math.sin(angle) * radius
+        local z = 0
+
+        table.insert(mesh_data, {
+            x, y, z,
+            1, 1,
+            1, 1, 1, 1
+        })
+    end
+
+    local indices = {}
+    for outer_i = 2, n_outer_vertices do
+        for i in range(1, outer_i, outer_i + 1) do
+            table.insert(indices, i)
+        end
+    end
+
+    for i in range(n_outer_vertices + 1, 1, 2) do
+        table.insert(indices, i)
+    end
+
+    local canvas = rt.RenderTexture(50, 50)
+    love.graphics.push("all")
+    canvas:bind()
+    _glow_particle_texture_shader:bind()
+    love.graphics.rectangle("fill", 0, 0, canvas:get_size())
+    canvas:unbind()
+
+
+    local instance_mesh = rt.Mesh(
+        mesh_data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.VertexFormat3D,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    instance_mesh:set_vertex_map(indices)
+    instance_mesh:set_texture(canvas)
+
+    return instance_mesh
+end
 
 function ow.Background:_init_cuboid_particle()
     local mesh_data = {}

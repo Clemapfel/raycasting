@@ -63,15 +63,15 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     const float intensity = 0.4;
 
     #if IS_BLOOM == 1
-        return color * vec4(vertex_color.rgb, 1);
+        vec4 result = color * vertex_color * texture(tex, texture_coords);
+        return result;
     #else
         vec3 normal = normalize(cross(dFdx(world_position), dFdy(world_position)));
         vec3 light_dir = normalize(-light_direction);
 
         float diffuse_dot = max(dot(normal, light_dir), 0.0);
         float diffuse = pow(diffuse_dot, shadow_falloff);
-        float front_light = min(ambient_strength + diffuse, 1.0);
-        front_light *= 0.2;
+        float front_light = 0.6 * min(ambient_strength + diffuse, 1.0);
         return color * vec4(intensity * (edge + front_light) * vertex_color.rgb, 1);
     #endif
 }

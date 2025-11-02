@@ -122,8 +122,8 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_position, vec2 frag_posit
     vec2 uv = to_uv(frag_position);
 
     float weight = distance(
-    texture_position * vec2(love_ScreenSize.x / love_ScreenSize.y, 1),
-    (player_position / love_ScreenSize.xy) * vec2(love_ScreenSize.x / love_ScreenSize.y, 1)
+        texture_position * vec2(love_ScreenSize.x / love_ScreenSize.y, 1),
+        (player_position / love_ScreenSize.xy) * vec2(love_ScreenSize.x / love_ScreenSize.y, 1)
     );
 
     float player_weight = gaussian(weight, 2) * flow;

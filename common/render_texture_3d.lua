@@ -52,8 +52,6 @@ function rt.RenderTexture3D:_update_projections()
     )
 end
 
-
-
 --- @brief
 function rt.RenderTexture3D:get_projection_transform()
     if self._projection_type == rt.ProjectionType3D.ORTHOGRAPHIC then
