@@ -92,10 +92,25 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
             table.insert(_particle_quads, quad)
 
-            love.graphics.push()
+            local line_vertices = table.deepcopy(vertices)
+            table.insert(line_vertices, vertices[1])
+            table.insert(line_vertices, vertices[2])
+
+            love.graphics.push("all")
+            local line_width = 6
+            love.graphics.setLineWidth(line_width)
+            love.graphics.setLineStyle("smooth")
+            love.graphics.setLineJoin("none")
+
             _particle_texture:bind()
             love.graphics.translate(x + center_x - centroid_x, y + center_y - centroid_y)
+            love.graphics.setColor(0, 0, 0, 1);
             love.graphics.polygon("fill", vertices)
+            love.graphics.setColor(1, 1, 1, 1)
+            for i = 1, #line_vertices, 2 do
+                love.graphics.circle("fill", line_vertices[i+0], line_vertices[i+1], 0.5 * line_width)
+            end
+            love.graphics.line(line_vertices)
             _particle_texture:unbind()
             love.graphics.pop()
 
@@ -237,14 +252,21 @@ function ow.AcceleratorSurface:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.setColor(1, 1, 1, 1)
+    local camera = self._scene:get_camera()
     local offset_x, offset_y = self._scene:get_camera():get_offset()
     local camera_scale = self._scene:get_camera():get_final_scale()
 
     local transform = self._scene:get_camera():get_transform():inverse()
 
+    local camera_bounds = camera:get_world_bounds()
+
+
     _body_shader:bind()
     _body_shader:send("screen_to_world_transform", transform)
     _body_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _body_shader:send("camera_position", { camera_bounds.x + camera_bounds.width * 0.5, camera_bounds.y + camera_bounds.height * 0.5})
+    _body_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+    _body_shader:send("player_hue", self._scene:get_player():get_hue())
     love.graphics.push()
     self._mesh:draw()
     love.graphics.pop()
@@ -253,6 +275,8 @@ function ow.AcceleratorSurface:draw()
     _outline_shader:bind()
     _outline_shader:send("screen_to_world_transform", transform)
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _outline_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+    _outline_shader:send("player_hue", self._scene:get_player():get_hue())
     love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
     love.graphics.line(self._outline)
     _outline_shader:unbind()
