@@ -333,6 +333,10 @@ function rt.Player:instantiate()
         _double_jump_sources = {},
         _double_jump_disallowed = true,
 
+        -- air dash
+        _air_dash_sources = {},
+        _air_dash_disallowed = true,
+
         -- particles
         _body_to_collision_normal = {},
 
@@ -768,10 +772,10 @@ function rt.Player:update(delta)
     end
     self._is_grounded = is_grounded
 
-    if not self._is_bubble then -- reset double jump counter when touching wall or ground
-        local is_touching_wall = self._left_wall or self._right_wall
-        if is_touching_wall or is_grounded then
+    if not self._is_bubble then -- reset tethers when ground
+        if self._bottom_wall then -- TODO better detect when ground or wall is touched
             self._double_jump_sources = {}
+            self._air_dash_sources = {}
         end
     end
 
@@ -1224,6 +1228,19 @@ function rt.Player:update(delta)
                             end
                         end
                     end
+                elseif not self._air_dash_disallowed and #self._air_dash_sources > 0 then
+                    -- TODO: air dash
+
+                    local instance = self._double_jump_sources[#self._double_jump_sources]
+                    if instance ~= nil then
+                        self:remove_double_jump_source(instance)
+                        if instance.get_color ~= nil then
+                            local color = instance:get_color()
+                            if meta.isa(color, rt.RGBA) then
+                                self:pulse(color)
+                            end
+                        end
+                    end
                 end
 
                 if can_jump and t * self._down_elapsed < _settings.jump_duration then
@@ -1257,6 +1274,7 @@ function rt.Player:update(delta)
                         end
 
                         is_jumping = true
+                        self:signal_emit("jump")
 
                     elseif t * self._wall_down_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
                         -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
@@ -2576,8 +2594,6 @@ function rt.Player:jump()
             self._wall_down_elapsed = 0
         end
     end
-
-    self:signal_emit("jump")
 end
 
 --- @brief
@@ -2603,6 +2619,36 @@ function rt.Player:get_is_double_jump_source(instance)
     if table.is_empty(self._double_jump_sources) then return false end
 
     for other in values(self._double_jump_sources) do
+        if meta.hash(other) == meta.hash(instance) then
+            return true
+        end
+    end
+    return false
+end
+
+--- @brief
+function rt.Player:add_air_dash_source(instance)
+    table.insert(self._air_dash_sources, 1, instance)
+end
+
+--- @brief
+function rt.Player:remove_air_dash_source(instance)
+    local to_remove_is = {}
+    for i, other in ipairs(self._air_dash_sources) do
+        if other == instance then table.insert(to_remove_is, i) end
+    end
+
+    table.sort(to_remove_is,function(a, b) return a > b end)
+    for i in values(to_remove_is) do
+        table.remove(self._air_dash_sources, i)
+    end
+end
+
+--- @brief
+function rt.Player:get_is_air_dash_source(instance)
+    if table.is_empty(self._air_dash_sources) then return false end
+
+    for other in values(self._air_dash_sources) do
         if meta.hash(other) == meta.hash(instance) then
             return true
         end
