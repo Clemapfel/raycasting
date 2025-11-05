@@ -72,6 +72,14 @@ function ow.Stage:instantiate(scene, id)
         _flow_graph = nil, -- ow.FlowGraph
         _flow_fraction = 0,
 
+        _segment_light_sources = {},
+        _segment_light_colors = {},
+        _segment_light_sources_need_update = true,
+
+        _point_light_sources = {},
+        _point_light_colors = {},
+        _point_light_sources_need_update = true,
+
         _active_checkpoint = nil,
         _player_spawn_ref = nil,
 
@@ -463,6 +471,8 @@ function ow.Stage:update(delta)
 
             return true
         end)
+        self._segment_light_sources_need_update = true
+        self._point_light_sources_need_update = true
     end
 
     self._player_recorder:update(delta)
@@ -482,60 +492,78 @@ end
 
 --- @brief
 function ow.Stage:get_point_light_sources()
-    local positions = {}
-    local colors = {}
+    if self._point_light_sources_need_update == true then
+        local positions = {}
+        local colors = {}
 
-    -- sort to have consistent order if number of body exceeds
-    -- normal map point light limit
-    table.sort(self._light_sources, function(a, b)
-        return meta.hash(a) < meta.hash(b)
-    end)
+        -- sort to have consistent order if number of body exceeds
+        -- normal map point light limit
+        table.sort(self._light_sources, function(a, b)
+            return meta.hash(a) < meta.hash(b)
+        end)
 
-    for body in values(self._light_sources) do
-        local class = body:get_user_data()
-        if class ~= nil and class.get_color then
-            local color = class:get_color()
-            if not meta.isa(color, rt.RGBA) then
-                rt.error("In ow.Stage: object `",  meta.typeof(class),  "` has a get_color function that does not return an object of type `rt.RGBA`")
+        local camera = self._scene:get_camera()
+
+        for body in values(self._light_sources) do
+            local class = body:get_user_data()
+            if class ~= nil and class.get_color then
+                local color = class:get_color()
+                if not meta.isa(color, rt.RGBA) then
+                    rt.error("In ow.Stage: object `",  meta.typeof(class),  "` has a get_color function that does not return an object of type `rt.RGBA`")
+                end
+
+                if color.a == 0 then goto skip end
+                table.insert(colors, { class:get_color():unpack() })
+
+                local cx, cy = body:get_center_of_mass()
+                table.insert(positions, { camera:world_xy_to_screen_xy(cx, cy) })
             end
-
-            if color.a == 0 then goto skip end
-            table.insert(colors, { class:get_color():unpack() })
-
-            local cx, cy = body:get_center_of_mass()
-            table.insert(positions, { cx, cy })
+            ::skip::
         end
-        ::skip::
+
+        table.insert(positions, { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+        table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
+
+        self._point_light_sources, self._point_light_colors = positions, colors
+        self._point_light_sources_need_update = false
     end
 
-    table.insert(positions, { self._scene:get_player():get_position() })
-    table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
-
-    return positions, colors
+    return self._point_light_sources, self._point_light_colors
 end
 
 --- @brief
 function ow.Stage:get_segment_light_sources()
-    local segments, colors = self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
+    if self._segment_light_sources_need_update == true then
+        local segments, colors = self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
+        local camera = self._scene:get_camera()
 
-    for body in keys(self._visible_bodies) do
-        if body:has_tag("segment_light_source") then
-            local instance = body:get_user_data()
-            assert(instance ~= nil, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag but userdata instance is not set")
-            assert(instance.get_segment_light_sources, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag, but instance `",  meta.typeof(instance),  "` does not have `get_segment_light_sources` defined")
-            local current_segments, current_colors = instance:get_segment_light_sources()
+        for body in keys(self._visible_bodies) do
+            if body:has_tag("segment_light_source") then
+                local instance = body:get_user_data()
+                assert(instance ~= nil, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag but userdata instance is not set")
+                assert(instance.get_segment_light_sources, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag, but instance `",  meta.typeof(instance),  "` does not have `get_segment_light_sources` defined")
+                local current_segments, current_colors = instance:get_segment_light_sources()
 
-            for segment in values(current_segments) do
-                table.insert(segments, segment)
-            end
+                for segment in values(current_segments) do
+                    table.insert(segments, segment)
+                end
 
-            for color in values(current_colors) do
-                table.insert(colors, color)
+                for color in values(current_colors) do
+                    table.insert(colors, color)
+                end
             end
         end
+
+        for segment in values(segments) do
+            segment[1], segment[2] = camera:world_xy_to_screen_xy(segment[1], segment[2])
+            segment[3], segment[4] = camera:world_xy_to_screen_xy(segment[3], segment[4])
+        end
+
+        self._segment_light_sources, self._segment_light_colors = segments, colors
+        self._segment_light_sources_need_update = false
     end
 
-    return segments, colors
+    return self._segment_light_sources, self._segment_light_colors
 end
 
 --- @brief

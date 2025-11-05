@@ -513,7 +513,6 @@ function ow.NormalMap:draw_light(
                         end
                     end
 
-
                     -- file segment lights in cell, translate to screen cords
                     local segment_lights_local = {}
                     local segment_colors = {}

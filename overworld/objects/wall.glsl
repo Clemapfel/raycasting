@@ -81,13 +81,13 @@ float hexagonal_dome_sdf(vec2 position, float radius, float height, out vec3 sur
 #define MAX_N_SEGMENT_LIGHTS 32
 #endif
 
-uniform vec2 point_lights[MAX_N_POINT_LIGHTS]; // in screen coords (px, py)
-uniform vec4 point_colors[MAX_N_POINT_LIGHTS];
-uniform int n_point_lights;
+uniform vec2 point_light_sources[MAX_N_POINT_LIGHTS]; // in screen coords (px, py)
+uniform vec4 point_light_colors[MAX_N_POINT_LIGHTS];
+uniform int n_point_light_sources;
 
-uniform vec4 segment_lights[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
-uniform vec4 segment_colors[MAX_N_SEGMENT_LIGHTS];
-uniform int n_segment_lights;
+uniform vec4 segment_light_sources[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
+uniform vec4 segment_light_colors[MAX_N_SEGMENT_LIGHTS];
+uniform int n_segment_light_sources;
 
 vec2 closest_point_on_segment(vec2 a, vec2 b, vec2 point) {
     vec2 ab = b - a;
@@ -124,8 +124,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
     vec2 surface_normal = surface_normal_3d.xy;
 
     vec4 point_color = vec4(0);
-    for (int i = 1; i < n_point_lights; ++i) {
-        vec2 light_position = to_world_position(point_lights[i]);
+    for (int i = 1; i < n_point_light_sources; ++i) {
+        vec2 light_position = to_world_position(point_light_sources[i]);
 
         float dist = distance(light_position, world_position) / 100.0;
         float attenuation = gaussian(dist, 0.5);
@@ -133,12 +133,12 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         vec2 light_direction = normalize(light_position - world_position);
         float alignment = max(dot(surface_normal, light_direction), 0);
         float light = alignment * attenuation;
-        point_color += light * point_colors[i];
+        point_color += light * point_light_colors[i];
     }
 
     vec4 segment_color = vec4(0);
-    for (int i = 0; i < n_segment_lights; ++i) {
-        vec4 segment = segment_lights[i];
+    for (int i = 0; i < n_segment_light_sources; ++i) {
+        vec4 segment = segment_light_sources[i];
         vec2 a_uv = to_world_position(segment.xy);
         vec2 b_uv = to_world_position(segment.zw);
         vec2 light_position = closest_point_on_segment(a_uv, b_uv, world_position);
@@ -149,10 +149,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         vec2 light_direction = normalize(light_position - world_position);
         float alignment = max(dot(surface_normal, light_direction), 0);
         float light = alignment * attenuation;
-        segment_color += light * segment_colors[i];
+        segment_color += light * segment_light_colors[i];
     }
 
-    const float segment_light_intensity = 0.2;
+    const float segment_light_intensity = 0.5;
     const float point_light_intensity = 1.2;
     const float opacity = 0.8;
 
