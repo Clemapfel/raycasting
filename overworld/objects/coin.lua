@@ -100,9 +100,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._noise_amplitude = 1
     self._elapsed = 0
 
-    self._body:set_user_data(self)
     self._body:set_is_sensor(true)
-    self._body:add_tag("light_source")
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
@@ -114,6 +112,18 @@ function ow.Coin:instantiate(object, stage, scene)
         self._pulse_active = true
         self._scene:get_player():pulse(self._color)
     end)
+
+    self._light_source_proxy = b2.Body(
+        stage:get_physics_world(),
+        b2.BodyType.DYNAMIC,
+        object.x, object.y,
+        b2.Circle(0, 0, rt.settings.overworld.coin.radius)
+    )
+    self._light_source_proxy:set_collides_with(0x0)
+    self._light_source_proxy:set_collision_group(0x0)
+    self._light_source_proxy:set_collision_disabled(true)
+    self._light_source_proxy:add_tag("light_source")
+    self._light_source_proxy:set_user_data(self)
 
     if _pulse_mesh == nil then
         _pulse_mesh = rt.MeshCircle(0, 0, rt.settings.player.radius * 2)
@@ -187,6 +197,7 @@ function ow.Coin:update(delta)
         self._follow_motion:update(delta)
         local before_x, before_y = self._follow_x, self._follow_y
         self._follow_x, self._follow_y = self._follow_motion:get_position()
+        self._light_source_proxy:set_position(self._follow_x, self._follow_y)
     elseif self._is_returning then
         self._respawn_return_motion:update(delta)
         local px, py = self._respawn_return_motion:get_position()
@@ -195,6 +206,7 @@ function ow.Coin:update(delta)
             self._follow_x = self._x
             self._follow_y = self._y
             self._follow_motion:set_position(self._x, self._y)
+            self._light_source_proxy:set_position(self._x, self._y)
         end
     else
         if not self._stage:get_is_body_visible(self._body) then return end
@@ -204,6 +216,8 @@ function ow.Coin:update(delta)
         local offset = self._radius
         self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
         self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+
+        self._light_source_proxy:set_position(self._x + self._noise_x, self._y + self._noise_y)
 
         frequency = rt.settings.overworld.coin.amplitude_noise_frequency
         self._noise_amplitude = rt.settings.overworld.coin.amplitude_max_offset * (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1)

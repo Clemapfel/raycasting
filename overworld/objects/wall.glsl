@@ -84,10 +84,12 @@ float hexagonal_dome_sdf(vec2 position, float radius, float height, out vec3 sur
 uniform vec2 point_light_sources[MAX_N_POINT_LIGHTS]; // in screen coords (px, py)
 uniform vec4 point_light_colors[MAX_N_POINT_LIGHTS];
 uniform int n_point_light_sources;
+uniform float point_light_intensity = 1.2;
 
 uniform vec4 segment_light_sources[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
 uniform vec4 segment_light_colors[MAX_N_SEGMENT_LIGHTS];
 uniform int n_segment_light_sources;
+uniform float segment_light_intensity = 0.5;
 
 vec2 closest_point_on_segment(vec2 a, vec2 b, vec2 point) {
     vec2 ab = b - a;
@@ -152,13 +154,11 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         segment_color += light * segment_light_colors[i];
     }
 
-    const float segment_light_intensity = 0.5;
-    const float point_light_intensity = 1.2;
     const float opacity = 0.8;
 
     float base = mix(0, 0.5, -tiling);
     return vec4((base * color + mix(
         segment_light_intensity * segment_color,
         point_light_intensity * point_color,
-    0.5)).rgb, opacity);
+    0.5)).rgb, color.a * opacity);
 }

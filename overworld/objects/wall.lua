@@ -12,11 +12,6 @@ local _tris = {}
 local _lines = {}
 local _mesh = nil
 
-input = rt.InputSubscriber()
-input:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then _shader:recompile() end
-end)
-
 function ow.Wall:instantiate(object, stage, scene)
     local _, tris = object:create_mesh()
     for tri in values(tris) do

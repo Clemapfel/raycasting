@@ -8,14 +8,14 @@
 #define MAX_N_SEGMENT_LIGHTS 32
 #endif
 
-uniform vec2 point_lights[MAX_N_POINT_LIGHTS]; // in screen coords (px, py)
-uniform vec4 point_colors[MAX_N_POINT_LIGHTS];
-uniform int n_point_lights; // clamped before being send to shader
+uniform vec2 point_light_sources[MAX_N_POINT_LIGHTS]; // in screen coords (px, py)
+uniform vec4 point_light_colors[MAX_N_POINT_LIGHTS];
+uniform int n_point_light_sources;
 uniform float point_light_intensity = 1;
 
-uniform vec4 segment_lights[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
-uniform vec4 segment_colors[MAX_N_SEGMENT_LIGHTS];
-uniform int n_segment_lights; // see n_point_lights
+uniform vec4 segment_light_sources[MAX_N_SEGMENT_LIGHTS]; // in screen coords (ax, ay, bx, by)
+uniform vec4 segment_light_colors[MAX_N_SEGMENT_LIGHTS];
+uniform int n_segment_light_sources;
 uniform float segment_light_intensity = 0.35;
 
 vec2 closest_point_on_segment(vec2 a, vec2 b, vec2 point) {
@@ -51,9 +51,9 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
     vec2 screen_uv = screen_xy_to_uv(screen_coords);
 
     vec4 point_color = vec4(0);
-    for (int i = 0; i < n_point_lights; ++i) {
-        vec2 position = screen_xy_to_uv(point_lights[i]);
-        vec4 color = point_colors[i];
+    for (int i = 0; i < n_point_light_sources; ++i) {
+        vec2 position = screen_xy_to_uv(point_light_sources[i]);
+        vec4 color = point_light_colors[i];
 
         float attenuation = gaussian(distance(position, screen_uv) * 2 / camera_scale, 1.5); // lower ot increase range
         vec2 light_direction = normalize(position - screen_uv);
@@ -63,9 +63,9 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
     }
 
     vec4 segment_color = vec4(0);
-    for (int i = 0; i < n_segment_lights; ++i) {
-        vec4 segment = segment_lights[i];
-        vec4 color = segment_colors[i];
+    for (int i = 0; i < n_segment_light_sources; ++i) {
+        vec4 segment = segment_light_sources[i];
+        vec4 color = segment_light_colors[i];
 
         vec2 a_uv = screen_xy_to_uv(segment.xy);
         vec2 b_uv = screen_xy_to_uv(segment.zw);

@@ -67,19 +67,10 @@ float symmetric(float value) {
     return abs(fract(value) * 2.0 - 1.0);
 }
 
-uniform vec2 camera_offset;
-uniform float camera_scale = 1;
-
-vec2 to_uv(vec2 frag_position) {
-    vec2 uv = frag_position;
-    vec2 origin = vec2(love_ScreenSize.xy / 2);
-    uv -= origin;
-    uv /= camera_scale;
-    uv += origin;
-    uv -= camera_offset;
-    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
-    uv /= love_ScreenSize.xy;
-    return uv;
+uniform mat4x4 screen_to_world_transform;
+vec2 to_world_position(vec2 xy) {
+    vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
+    return result.xy / result.w;
 }
 
 uniform float elapsed;
@@ -337,7 +328,7 @@ float triangle_noise(vec2 p, vec2 origin) {
 uniform vec2 player_position; // screen coords
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) {
-    vec2 uv = to_uv(frag_position.xy);
+    vec2 world_position = to_world_position(frag_position.xy);
 
     #if MODE == MODE_OUTER
 
@@ -352,7 +343,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     float eps = 0.01;
     float opacity = 1;
 
-    float intensity = triangle_noise(uv, to_uv(player_position));
+    const float world_scale = 1. / 500;
+    float intensity = triangle_noise(world_position * world_scale, to_world_position(player_position) * world_scale);
 
     #endif
 

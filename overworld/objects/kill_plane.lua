@@ -296,18 +296,17 @@ end
 function ow.KillPlane:draw()
     if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
-    local camera_offset = { self._scene:get_camera():get_offset() }
-    local camera_scale = self._scene:get_camera():get_final_scale()
+    local transform = self._scene:get_camera():get_transform():inverse()
     local red = { rt.Palette.MINT:unpack() }
     love.graphics.setColor(1, 1, 1, 1)
 
     local player_position = { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) }
 
+
     _inner_shader:bind()
     _inner_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     _inner_shader:send("player_position", player_position)
-    _inner_shader:send("camera_offset", camera_offset)
-    _inner_shader:send("camera_scale", camera_scale)
+    _inner_shader:send("screen_to_world_transform", transform)
     _inner_shader:send("red", red)
     _inner_shader:send("center", { self._mesh_center_x, self._mesh_center_y })
     self._inner_mesh:draw()
@@ -315,8 +314,7 @@ function ow.KillPlane:draw()
 
     _outer_shader:bind()
     _outer_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-    _outer_shader:send("camera_offset", camera_offset)
-    _outer_shader:send("camera_scale", camera_scale)
+    _outer_shader:send("screen_to_world_transform", transform)
     _outer_shader:send("red", red)
     self._outer_mesh:draw()
     _outer_shader:unbind()

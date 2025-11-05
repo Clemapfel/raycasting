@@ -57,12 +57,6 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     self._is_single_chunk = false
     self._offset_x, self._offset_y = 0, 0
 
-    -- TODO
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then _draw_light_shader:recompile() end
-    end)
-
     if _atlas[self._id] ~= nil then
         local entry = _atlas[self._id]
         self._chunks = entry.chunks
@@ -447,9 +441,9 @@ end
 
 function ow.NormalMap:draw_light(
     camera,
-    point_light_sources, -- in world coords
+    point_light_sources, -- in screen coords
     point_light_colors,
-    segment_light_sources, -- in world coords
+    segment_light_sources, -- in screen coords
     segment_light_colors
 )
     if _disable then return end
@@ -580,6 +574,76 @@ function ow.NormalMap:draw_light(
             love.graphics.circle("fill", x, y, 15)
         end
     end
+    love.graphics.pop()
+end
+
+function ow.NormalMap:draw_light(
+    camera,
+    point_light_sources, -- in screen coords
+    point_light_colors,
+    segment_light_sources, -- in screen coords
+    segment_light_colors
+)
+    if _disable then return end
+
+    meta.assert(
+        camera, rt.Camera,
+        point_light_sources, "Table",
+        point_light_colors, "Table",
+        segment_light_colors, "Table",
+        segment_light_colors, "Table"
+    )
+
+    if self._is_visible == false or not self._computation_started then return end
+
+    local chunk_size = self._chunk_size
+    local bounds = self._bounds
+
+    local x, y, w, h = camera:get_world_bounds():unpack()
+
+    x = x + self._offset_x
+    y = y + self._offset_y
+
+    local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
+    local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
+    local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
+    local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
+
+    love.graphics.push("all")
+
+    _draw_light_shader:send("n_point_light_sources", #point_light_sources)
+    if #point_light_sources > 0 then
+        _draw_light_shader:send("point_light_sources", table.unpack(point_light_sources))
+        _draw_light_shader:send("point_light_colors", table.unpack(point_light_colors))
+    end
+
+    _draw_light_shader:send("n_segment_light_sources", #segment_light_sources)
+    if #segment_light_sources > 0 then
+        _draw_light_shader:send("segment_light_sources", table.unpack(segment_light_sources))
+        _draw_light_shader:send("segment_light_colors", table.unpack(segment_light_colors))
+    end
+
+    _draw_light_shader:send("camera_scale", camera:get_scale())
+    _draw_light_shader:bind()
+    love.graphics.setBlendMode("add", "premultiplied")
+    local r, g, b, a = love.graphics.getColor() -- premultiply alpha
+    love.graphics.setColor(r * a, g * a, b * a, a)
+
+    for chunk_x = min_chunk_x, max_chunk_x do
+        local column = self._chunks[chunk_x]
+        if column ~= nil then
+            for chunk_y = min_chunk_y, max_chunk_y do
+                local chunk = column[chunk_y]
+                if chunk ~= nil and chunk.is_initialized then
+                    local cell_x = bounds.x + chunk_x * chunk_size
+                    local cell_y = bounds.y + chunk_y * chunk_size
+                    love.graphics.draw(chunk.texture:get_native(), cell_x, cell_y)
+                end
+            end
+        end
+    end
+
+    _draw_light_shader:unbind()
     love.graphics.pop()
 end
 
