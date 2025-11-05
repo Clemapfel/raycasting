@@ -445,11 +445,15 @@ function ow.Stage:update(delta)
         -- collect light sources and visibel bodies
         local camera = self._scene:get_camera()
         local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
-        local bottom_left_x, bottom_left_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
+        local bottom_right_x, bottom_right_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
+
+        local padding = 4 * rt.settings.player.radius
+        top_left_x, top_left_y = math.subtract(top_left_x, top_left_y, padding, padding)
+        bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
 
         self._visible_bodies = {}
         self._light_sources = {}
-        self._world:get_native():queryShapesInArea(top_left_x, top_left_y, bottom_left_x, bottom_left_y, function(shape)
+        self._world:get_native():queryShapesInArea(top_left_x, top_left_y, bottom_right_x, bottom_right_y, function(shape)
             local body = shape:getBody():getUserData()
             self._visible_bodies[body] = true
 

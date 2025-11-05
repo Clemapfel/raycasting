@@ -2,7 +2,10 @@
 --- @class ow.Wall
 ow.Wall = meta.class("Wall")
 
-local _shader = rt.Shader("overworld/objects/wall.glsl")
+local _shader = rt.Shader("overworld/objects/wall.glsl", {
+    MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
+    MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights
+})
 
 -- global batching
 local _tris = {}

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1037,
+  nextobjectid = 1039,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -217,34 +217,12 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = -240, y = 0 },
             { x = 416, y = 0 },
             { x = 416, y = 32 },
-            { x = 0, y = 32 }
+            { x = -240, y = 32 }
           },
           properties = {}
-        },
-        {
-          id = 5,
-          name = "",
-          type = "Hitbox",
-          shape = "polygon",
-          x = -45.9937,
-          y = 228.841,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -256 },
-            { x = -32, y = -256 },
-            { x = -32, y = 32 },
-            { x = 0, y = 32 }
-          },
-          properties = {
-            ["slippery"] = true
-          }
         },
         {
           id = 6,
@@ -758,14 +736,14 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = 320, y = 0 },
             { x = 784, y = 0 },
             { x = 784, y = -256 },
             { x = 800, y = -256 },
             { x = 803.097, y = 0 },
             { x = 1792, y = 0 },
             { x = 1792, y = 128 },
-            { x = 0, y = 128 }
+            { x = 320, y = 128 }
           },
           properties = {}
         },
@@ -3260,35 +3238,6 @@ return {
           properties = {}
         },
         {
-          id = 615,
-          name = "",
-          type = "AcceleratorSurface",
-          shape = "polygon",
-          x = -352,
-          y = 1344,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -48, y = -32 },
-            { x = -96, y = -160 },
-            { x = -148.692, y = -1247.78 },
-            { x = -131.737, y = -1309.41 },
-            { x = -86.8362, y = -1371.49 },
-            { x = -11.0294, y = -1412.86 },
-            { x = 96.4197, y = -1445.48 },
-            { x = 214.051, y = -1475.07 },
-            { x = 365.329, y = -1503.16 },
-            { x = 423.135, y = -1546.69 },
-            { x = -368, y = -1504 },
-            { x = -208, y = 240 },
-            { x = 0, y = 64 }
-          },
-          properties = {}
-        },
-        {
           id = 619,
           name = "",
           type = "Hitbox",
@@ -5409,29 +5358,34 @@ return {
           properties = {}
         },
         {
-          id = 1036,
+          id = 1037,
           name = "",
           type = "Wall",
+          shape = "ellipse",
+          x = 398.996,
+          y = -159.665,
+          width = 700,
+          height = 700,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1038,
+          name = "",
+          type = "AcceleratorSurface",
           shape = "polygon",
-          x = 297.288,
-          y = 212.349,
+          x = -132.337,
+          y = 165.782,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 32.6691, y = -222.15 },
-            { x = 150.278, y = -339.758 },
-            { x = 411.63, y = -421.431 },
-            { x = 620.712, y = -401.829 },
-            { x = 761.189, y = -365.893 },
-            { x = 859.196, y = -277.687 },
-            { x = 927.801, y = -120.876 },
-            { x = 934.335, y = -62.0712 },
-            { x = 927.801, y = 6.53381 },
-            { x = 918.712, y = 123.651 },
-            { x = 10.313, y = 117.117 }
+            { x = -27.0136, y = 56.673 },
+            { x = -27.6635, y = -357.782 },
+            { x = -123.663, y = -357.782 },
+            { x = -123.663, y = 58.218 }
           },
           properties = {}
         }
