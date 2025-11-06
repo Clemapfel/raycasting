@@ -2,6 +2,7 @@ require "common.input_subscriber"
 require "physics.physics"
 require "common.player_body"
 require "common.player_trail"
+require "common.player_dash_indicator"
 require "common.random"
 require "common.palette"
 require "common.smoothed_motion_1d"
@@ -73,6 +74,9 @@ do
         bounce_max_force = 600,
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
+
+        air_dash_duration = 20 / 60,
+        air_dash_velocity = 4000,
 
         double_jump_buffer_duration = 15 / 60,
 
@@ -335,7 +339,13 @@ function rt.Player:instantiate()
 
         -- air dash
         _air_dash_sources = {},
-        _air_dash_disallowed = true,
+        _air_dash_elapsed = math.huge,
+        _air_dash_allowed = false,
+        _is_air_dashing = false,
+
+        _air_dash_indicator = nil, -- rt.PlayerDashIndicator
+        _air_dash_direction_x = 0,
+        _air_dash_direction_y = -1,
 
         -- particles
         _body_to_collision_normal = {},
@@ -355,6 +365,8 @@ function rt.Player:instantiate()
     self._position_history_path = rt.Path(self._position_history)
 
     self._trail = rt.PlayerTrail(self)
+    self._air_dash_indicator = rt.PlayerDashIndicator(self._radius)
+
     self._graphics_body = rt.PlayerBody({
         radius = _settings.radius,
         max_radius = _settings.radius * _settings.bubble_radius_factor
@@ -370,7 +382,11 @@ function rt.Player:instantiate()
     -- TODO
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "0" then self:pulse(rt.RGBA(1, 1, 1, 1)) end
+        if which == "0" then
+            self:pulse(rt.RGBA(1, 1, 1, 1))
+        elseif which == "q" then
+            self:air_dash()
+        end
     end)
 end
 
@@ -576,7 +592,10 @@ function rt.Player:update(delta)
                 self._graphics_body:set_position(center_x, center_y)
                 self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue_motion_current, 1)))
                 self._graphics_body:set_is_bubble(self:get_is_bubble())
-                self._graphics_body:update(delta)
+
+                if not self._is_air_dashing then
+                    self._graphics_body:update(delta)
+                end
             end
         end
 
@@ -865,9 +884,10 @@ function rt.Player:update(delta)
         end
 
         local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
+        local current_velocity_x, current_velocity_y = self._body:get_velocity()
 
         -- update velocity
-        local acceleration_t
+        local acceleration_t = 0
         do
             -- horizontal movement
             local magnitude
@@ -888,8 +908,6 @@ function rt.Player:update(delta)
 
             local sprint_multiplier = self._sprint_multiplier
             local target_velocity_x = magnitude * target * sprint_multiplier
-
-            local current_velocity_x, current_velocity_y = self._body:get_velocity()
 
             current_velocity_x = current_velocity_x - self._platform_velocity_x
             current_velocity_y = current_velocity_y - self._platform_velocity_y
@@ -1228,19 +1246,6 @@ function rt.Player:update(delta)
                             end
                         end
                     end
-                elseif not self._air_dash_disallowed and #self._air_dash_sources > 0 then
-                    -- TODO: air dash
-
-                    local instance = self._double_jump_sources[#self._double_jump_sources]
-                    if instance ~= nil then
-                        self:remove_double_jump_source(instance)
-                        if instance.get_color ~= nil then
-                            local color = instance:get_color()
-                            if meta.isa(color, rt.RGBA) then
-                                self:pulse(color)
-                            end
-                        end
-                    end
                 end
 
                 if can_jump and t * self._down_elapsed < _settings.jump_duration then
@@ -1293,7 +1298,6 @@ function rt.Player:update(delta)
             end
 
             if self._down_elapsed >= _settings.jump_duration then self._spring_multiplier = 1 end
-
             self._wall_down_elapsed = self._wall_down_elapsed + delta
 
             -- bounce
@@ -1470,6 +1474,37 @@ function rt.Player:update(delta)
                         )
                     end
                 end
+            end
+
+
+            self._air_dash_allowed = not (
+                self._right_wall or
+                self._bottom_right_wall or
+                self._bottom_wall or
+                self._bottom_left_wall or
+                self._left_wall
+            )
+
+            -- air dash: override velocity
+            if self._is_air_dashing and self._air_dash_allowed
+            then
+                if self._air_dash_elapsed / _settings.air_dash_duration <= 1 then
+                    next_velocity_x = self._air_dash_direction_x * _settings.air_dash_velocity
+                    next_velocity_y = self._air_dash_direction_y * _settings.air_dash_velocity
+                else
+                    self._is_air_dashing = false
+                end
+
+                self._air_dash_elapsed = self._air_dash_elapsed + delta
+            else
+                self._is_air_dashing = false
+
+                local dx, dy = 0, 0
+                if self._left_button_is_down then dx = dx - 1 end
+                if self._right_button_is_down then dx = dx + 1 end
+                if self._up_button_is_down then dy = dy - 1 end
+                if self._down_button_is_down then dy = dy + 1 end
+                self._air_dash_direction_x, self._air_dash_direction_y = math.normalize(dx, dy)
             end
 
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
@@ -2074,17 +2109,18 @@ end
 function rt.Player:draw_core()
     if self._is_visible == false then return end
 
+    local radius = self._core_radius
+    local x, y = self:get_predicted_position()
+
     if #self._pulses > 0 then
         local time = love.timer.getTime()
-        local radius = self._core_radius * _settings.pulse_radius_factor
-        local x, y = self:get_predicted_position()
-        local mesh = self._pulse_mesh:get_native()
+               local mesh = self._pulse_mesh:get_native()
         for pulse in values(self._pulses) do
             local t = 1 - rt.InterpolationFunctions.SINUSOID_EASE_OUT((time - pulse.timestamp) / _settings.pulse_duration)
 
             love.graphics.push()
             love.graphics.translate(x, y)
-            love.graphics.scale(2 * radius * (1 - t))
+            love.graphics.scale(2 * radius * _settings.pulse_radius_factor * (1 - t))
             love.graphics.translate(-x, -y)
             local r, g, b, a = pulse.color:unpack()
             love.graphics.setColor(r, g, b, a * t)
@@ -2094,6 +2130,14 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
+
+    if self._air_dash_allowed then
+        self._air_dash_indicator:draw(
+            x, y, radius,
+            self._air_dash_direction_x, self._air_dash_direction_y,
+            1--TODO#self._air_dash_sources
+        )
+    end
 end
 
 --- @brief
@@ -2597,6 +2641,14 @@ function rt.Player:jump()
 end
 
 --- @brief
+function rt.Player:air_dash()
+    if math.magnitude(self._air_dash_direction_x, self._air_dash_direction_y) > math.eps then
+        self._air_dash_elapsed = 0
+        self._is_air_dashing = true
+    end
+end
+
+--- @brief
 function rt.Player:add_double_jump_source(instance)
     table.insert(self._double_jump_sources, 1, instance)
 end
@@ -2730,6 +2782,8 @@ function rt.Player:reset()
     self._bottom_left_wall = false
     self._left_wall = false
     self._top_left_wall = false
+
+    self._is_air_dashing = false
 
     self._jump_button_is_down = self._input:get_is_down(rt.InputAction.JUMP)
     self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
