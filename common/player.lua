@@ -592,10 +592,7 @@ function rt.Player:update(delta)
                 self._graphics_body:set_position(center_x, center_y)
                 self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue_motion_current, 1)))
                 self._graphics_body:set_is_bubble(self:get_is_bubble())
-
-                if not self._is_air_dashing then
-                    self._graphics_body:update(delta)
-                end
+                self._graphics_body:update(delta)
             end
         end
 
