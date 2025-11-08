@@ -3,6 +3,7 @@ require "physics.physics"
 require "common.player_body"
 require "common.player_trail"
 require "common.player_dash_indicator"
+require "common.player_particles"
 require "common.random"
 require "common.palette"
 require "common.smoothed_motion_1d"
@@ -290,6 +291,7 @@ function rt.Player:instantiate()
         _trail = nil, -- rt.PlayerTrail
         _trail_visible = true,
         _graphics_body = nil,
+        _particles = rt.PlayerParticles(),
 
         _hue = 0,
         _hue_duration = _settings.hue_cycle_duration,
@@ -341,6 +343,7 @@ function rt.Player:instantiate()
         -- air dash
         _air_dash_sources = {},
         _air_dash_elapsed = math.huge,
+        _air_dash_particle_spawn_elapsed = 0,
         _air_dash_allowed = false,
         _is_air_dashing = false,
 
@@ -383,13 +386,14 @@ function rt.Player:instantiate()
         self._pulse_mesh:set_vertex_color(i, 1, 1, 1, 1)
     end
 
-    -- TODO
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "0" then
             self:pulse(rt.RGBA(1, 1, 1, 1))
         elseif which == "f" then
-            self:air_dash()
+            self:air_dash(math.normalize(self:get_velocity()))
+        elseif which == "r" then
+            self:emit_particles(4)
         end
     end)
 end
@@ -603,6 +607,8 @@ function rt.Player:update(delta)
         if self._trail_visible then
             self._trail:update(delta)
         end
+
+        self._particles:update(delta)
 
         do
             local to_remove = {}
@@ -1497,15 +1503,30 @@ function rt.Player:update(delta)
                 end
 
                 self._air_dash_elapsed = self._air_dash_elapsed + delta
+
+                -- Instead of fixed intervals, use random intervals with the same average rate
+                local average_step = 10 / 60
+                self._air_dash_particle_spawn_elapsed = self._air_dash_particle_spawn_elapsed + delta
+
+                while self._air_dash_particle_spawn_elapsed > 0 do
+                    local random_interval = -average_step * math.log(math.random())
+                    if self._air_dash_particle_spawn_elapsed >= random_interval then
+                        local origin_x, origin_y = self:get_position()
+                        local velocity_x, velocity_y = math.flip(math.normalize(self:get_velocity()))
+                        self._particles:spawn(
+                            rt.random.integer(1, 2),
+                            origin_x, origin_y,
+                            self:get_hue(),
+                            velocity_x, velocity_y
+                        )
+                        self._air_dash_particle_spawn_elapsed = self._air_dash_particle_spawn_elapsed - random_interval
+                    else
+                        break
+                    end
+                end
+
             else
                 self._is_air_dashing = false
-
-                local dx, dy = 0, 0
-                if self._left_button_is_down then dx = dx - 1 end
-                if self._right_button_is_down then dx = dx + 1 end
-                if self._up_button_is_down then dy = dy - 1 end
-                if self._down_button_is_down then dy = dy + 1 end
-                self._air_dash_direction_x, self._air_dash_direction_y = math.normalize(dx, dy)
             end
 
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
@@ -2104,6 +2125,8 @@ function rt.Player:draw_body()
     if self._trail_visible then
         self._trail:draw_above()
     end
+
+    self._particles:draw()
 end
 
 --- @brief
@@ -2131,14 +2154,6 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
-
-    if self._air_dash_allowed then
-        self._air_dash_indicator:draw(
-            x, y, radius,
-            self._air_dash_direction_x, self._air_dash_direction_y,
-            1--TODO#self._air_dash_sources
-        )
-    end
 end
 
 --- @brief
@@ -2642,12 +2657,11 @@ function rt.Player:jump()
 end
 
 --- @brief
-function rt.Player:air_dash()
-    if math.magnitude(self._air_dash_direction_x, self._air_dash_direction_y) > math.eps then
-        self._air_dash_elapsed = 0
-        self._is_air_dashing = true
-        self._air_dash_stretch_animation:reset()
-    end
+function rt.Player:air_dash(axis_x, axis_y)
+    self._air_dash_elapsed = 0
+    self._air_dash_particle_spawn_elapsed = 0
+    self._air_dash_direction_x, self._air_dash_direction_y = axis_x, axis_y
+    self._is_air_dashing = true
 end
 
 --- @brief
@@ -2787,7 +2801,6 @@ function rt.Player:reset()
 
     self._is_air_dashing = false
     self._air_dash_elapsed = math.huge
-    self._air_dash_stretch_animation:set_elapsed(10e8)
 
     self._jump_button_is_down = self._input:get_is_down(rt.InputAction.JUMP)
     self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
@@ -2858,4 +2871,17 @@ function rt.Player:pulse(color_maybe)
         timestamp = love.timer.getTime(),
         color = color_maybe or rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     })
+end
+
+--- @brief
+function rt.Player:emit_particles(n, dx, dy)
+    local origin_x, origin_y = self:get_position()
+    local velocity_x, velocity_y = math.flip(math.normalize(self:get_velocity()))
+    self._particles:spawn(
+        n,
+        origin_x, origin_y,
+        self:get_hue(),
+        dx or velocity_x,
+        dy or velocity_y
+    )
 end
