@@ -1,3 +1,5 @@
+require "common.thread"
+
 rt.settings.thread_pool = {
     max_n_threads = 2
 }
@@ -53,9 +55,9 @@ function rt.ThreadPool:instantiate()
     for i = 1, self._n_threads do
         local entry = {
             _id = i,
-            _thread = love.thread.newThread("common/thread_pool_worker.lua"),
-            _main_to_worker_local = love.thread.newChannel(),
-            _worker_to_main = love.thread.newChannel()
+            _thread = rt.Thread("common/thread_pool_worker.lua"):get_native(),
+            _main_to_worker_local = rt.Channel():get_native(),
+            _worker_to_main = rt.Channel():get_native()
         }
 
         table.insert(self._entries, entry)

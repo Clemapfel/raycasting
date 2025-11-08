@@ -277,7 +277,7 @@ function rt.GameState:load_default_input_mapping()
         },
 
         [rt.InputAction.B] = {
-            keyboard = {"b", "lshift"},
+            keyboard = {"n", "lshift"},
             controller = rt.ControllerButton.LEFT
         },
 
@@ -292,12 +292,12 @@ function rt.GameState:load_default_input_mapping()
         },
 
         [rt.InputAction.L] = {
-            keyboard = {"n", "l"},
+            keyboard = {"l", "l"},
             controller = rt.ControllerButton.LEFT_SHOULDER
         },
 
         [rt.InputAction.R] = {
-            keyboard = {"m", "r"},
+            keyboard = {"k", "r"},
             controller = rt.ControllerButton.RIGHT_SHOULDER
         },
 

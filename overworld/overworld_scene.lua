@@ -11,7 +11,6 @@ require "menu.pause_menu"
 require "common.bloom"
 require "common.fade"
 require "overworld.stage_title_card"
-require "overworld.after_image"
 
 do
     local bloom = 0.2
@@ -33,8 +32,7 @@ do
         control_indicator_delay = 0.0,
 
         player_canvas_scale = rt.settings.player_body.canvas_scale,
-        player_canvas_size_radius_factor = rt.settings.player.bubble_radius_factor * 2.5,
-        n_after_images = 5
+        player_canvas_size_radius_factor = rt.settings.player.bubble_radius_factor * 2.5
     }
 end
 
@@ -108,9 +106,6 @@ function ow.OverworldScene:instantiate(state)
         _title_card_elapsed = 0,
 
         _player_canvas = nil,
-        _player_after_image = nil, -- rt.AfterImage
-        _player_after_image_positions = {}, -- Table<Pair<Number>>
-        _draw_after_image = false,
 
         _timer_started = false,
         _timer_paused = false,
@@ -182,6 +177,8 @@ function ow.OverworldScene:instantiate(state)
         if which == "^" then
             self:unpause()
             self:reset()
+        elseif which == "escape" then
+            love.event.restart()
         end
     end)
 
@@ -341,11 +338,6 @@ function ow.OverworldScene:instantiate(state)
         local radius = rt.settings.player.radius * settings.player_canvas_size_radius_factor
         local texture_w, texture_h = 2 * radius * self._player_canvas_scale, 2 * radius * self._player_canvas_scale
         self._player_canvas = rt.RenderTexture(texture_w, texture_h)
-        self._after_image = rt.AfterImage(
-            settings.n_after_images,
-            texture_w, texture_h,
-            self._player_canvas_scale
-        )
     end
 end
 
@@ -397,14 +389,6 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
 
     self._stage:set_active_checkpoint(nil)
     self._player:move_to_stage(self._stage)
-
-    do
-        local x, y = self._player:get_position()
-        self._player_after_image_positions = {}
-        for i = 1, rt.settings.overworld_scene.n_after_images do
-            table.insert(self._player_after_image_positions, { x, y })
-        end
-    end
 
     self._player_is_focused = true
     self._n_frames = 0
@@ -580,15 +564,6 @@ function ow.OverworldScene:draw()
 
         self._camera:bind()
         self._stage:draw_below_player()
-
-        if self._draw_after_image then
-            local w, h = self._after_image:get_size()
-            love.graphics.push()
-            for position in values(self._player_after_image_positions) do
-                love.graphics.translate()
-            end
-            love.graphics.pop()
-        end
 
         if self._player_is_visible then
             self._player:draw_body()
@@ -942,8 +917,9 @@ function ow.OverworldScene:update(delta)
 
     -- player canvas
     if self._player_is_visible then
-        love.graphics.push()
-        love.graphics.origin()
+        love.graphics.push("all")
+        love.graphics.reset()
+        love.graphics.setColor(1, 1, 1, 1)
         local x, y = self._player:get_position()
         local w, h = self._player_canvas:get_size()
 
@@ -957,10 +933,8 @@ function ow.OverworldScene:update(delta)
         self._player:draw_body()
         self._player:draw_core()
         self._player_canvas:unbind()
-        love.graphics.pop()
 
-        table.remove(self._player_after_image_positions, #self._player_after_image_positions)
-        table.insert(self._player_after_image_positions, 1, { self._player:get_position() })
+        love.graphics.pop()
     end
 
     -- mouse-based scrolling
@@ -1189,9 +1163,4 @@ end
 function ow.OverworldScene:set_fade_to_black(t)
     self._fade_to_black = t
     if self._stage ~= nil then self._stage:set_fade_to_black(t) end
-end
-
---- @brief
-function ow.OverworldScene:set_should_draw_after_image(b)
-    self._draw_after_image = b
 end

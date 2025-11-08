@@ -54,6 +54,8 @@ rt.settings.player_body = {
 
     squish_speed = 4, -- fraction
     squish_magnitude = 0.11, -- fraction
+
+    max_stretch = 2,
 }
 
 --- @class rt.PlayerBody
@@ -129,6 +131,9 @@ function rt.PlayerBody:instantiate(config)
     self._core_color = rt.Palette.TRUE_WHITE
     self._opacity = 1
     self._hue = 0
+    self._stretch_factor = 1
+    self._stretch_axis_x = 0
+    self._stretch_axis_y = 0
     self._relative_velocity_x = 0
     self._relative_velocity_y = 0
 
@@ -163,9 +168,10 @@ function rt.PlayerBody:instantiate(config)
 
     do
         local padding = 60
-        local r = self._max_radius
-        self._body_canvas_a = rt.RenderTexture(self._canvas_scale * (r + 2 * padding), self._canvas_scale * (r + 2 * padding), 4)
-        self._body_canvas_b = rt.RenderTexture(self._canvas_scale * (r + 2 * padding), self._canvas_scale * (r + 2 * padding), 4)
+        local r = self._radius * _settings.max_stretch
+        local texture_size = self._canvas_scale * (r + 2 * padding)
+        self._body_canvas_a = rt.RenderTexture(texture_size, texture_size, 4)
+        self._body_canvas_b = rt.RenderTexture(texture_size, texture_size, 4)
 
         for canvas in range(self._body_canvas_a, self._body_canvas_b) do
             canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
@@ -174,8 +180,8 @@ function rt.PlayerBody:instantiate(config)
 
     do
         local padding = self._radius
-        local r = self._radius
-        self._core_canvas = rt.RenderTexture(self._canvas_scale * (r + 2 * padding), self._canvas_scale * (r + 2 * padding), 8)
+        local r = self._radius * _settings.max_stretch
+        self._core_canvas = rt.RenderTexture( self._canvas_scale * (r + 2 * padding) , self._canvas_scale * (r + 2 * padding), 8)
         self._core_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
     end
 
@@ -1079,4 +1085,12 @@ end
 --- @brief
 function rt.PlayerBody:set_gravity(gravity_x, gravity_y)
     self._gravity_x, self._gravity_y = gravity_x, gravity_y -- can be nil
+end
+
+--- @brief
+function rt.PlayerBody:set_stretch_factor(t, axis_x, axis_y)
+    meta.assert(t, "Number", axis_x, "Number", axis_y, "Number")
+    self._stretch_factor = math.clamp(t, 0, 1)
+    self._stretch_axis_x = axis_x
+    self._stretch_axis_y = axis_y
 end

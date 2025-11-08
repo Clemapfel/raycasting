@@ -4,6 +4,7 @@ require "common.filesystem"
 require "table.clear"
 require "common.sound_ids"
 require "common.smoothed_motion_3d"
+require "common.thread"
 
 rt.settings.sound_manager = {
     config_directory = "assets/sounds",
@@ -232,8 +233,8 @@ function rt.SoundManager:preallocate(id, ...)
         -- spin up threads
         while #preallocate_threads < n_workers do
             local entry = {
-                thread = love.thread.newThread("common/sound_manager_preallocate_worker.lua"),
-                main_to_worker = love.thread.newChannel()
+                thread = rt.Thread("common/sound_manager_preallocate_worker.lua"):get_native(),
+                main_to_worker = rt.Channel():get_native()
             }
 
             table.insert(preallocate_threads, entry)

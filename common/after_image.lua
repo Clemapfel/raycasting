@@ -1,18 +1,19 @@
-rt.settings.overworld.after_image = {
-    texture_format = "r8",
-    msaa = 0
+rt.settings.after_image = {
+    texture_format = rt.TextureFormat.RGBA8,
+    msaa = 0,
+    frame_delay = 4 / 60, -- time between frames
 }
 
---- @class ow.AfterImage
-ow.AfterImage = meta.class("AfterImage")
+--- @class rt.AfterImage
+rt.AfterImage = meta.class("AfterImage")
 
 local _shader = rt.Shader("overworld/after_image.glsl")
 
 --- @brief
-function ow.AfterImage(n_frames, texture_width, texture_height)
+function rt.AfterImage:instantiate(n_frames, texture_width, texture_height)
     meta.assert(n_frames, "Number", texture_width, "Number", texture_height, "Number")
 
-    local settings = rt.settings.overworld.after_image
+    local settings = rt.settings.after_image
 
     self._textures = {}
     self._texture_buffer = meta.make_weak({}) -- fifo queue
@@ -29,7 +30,6 @@ function ow.AfterImage(n_frames, texture_width, texture_height)
             settings.texture_format
         )
         texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
-        table.insert(self._texture, texture)
         table.insert(self._texture_buffer, texture)
         table.insert(self._color_buffer, {
             rt.lcha_to_rgba(0.8, 1, (frame_i - 1) / n_frames, 1)
@@ -38,16 +38,13 @@ function ow.AfterImage(n_frames, texture_width, texture_height)
 end
 
 --- @brief
-function ow.AfterImage:bind()
-    love.graphics.push("all")
+function rt.AfterImage:bind()
     self._texture_buffer[1]:bind()
-    love.graphics.clear(0, 0, 0, 0)
 end
 
 --- @brief
-function ow.AfterImage:unbind()
+function rt.AfterImage:unbind()
     self._texture_buffer[1]:unbind()
-    love.graphics.pop()
 
     for buffer in range(self._texture_buffer, self._color_buffer) do
         local front = self._texture_buffer[1]
@@ -57,22 +54,22 @@ function ow.AfterImage:unbind()
 end
 
 --- @brief
-function ow.AfterImage:draw(x, y)
-    if x == nil then x = 0 end
-    if y == nil then y = 0 end
-
+function rt.AfterImage:draw(index, ...)
     _shader:bind()
-    for i = 1, #self._texture_buffer do
-        love.graphics.setColor(self._color_buffer[i])
-        local texture = self._texture_buffer[1]
-        love.graphics.draw(
-            self._text
-        )
-    end
+    love.graphics.setColor(self._color_buffer[index])
+    love.graphics.draw(
+        self._texture_buffer[index]:get_native(),
+        ...
+    )
     _shader:unbind()
 end
 
 --- @brief
-function ow.AfterImage:get_size()
+function rt.AfterImage:get_n_frames()
+    return #self._texture_buffer
+end
+
+--- @brief
+function rt.AfterImage:get_size()
     return self._texture_width, self._texture_height
 end

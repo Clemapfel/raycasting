@@ -21,9 +21,10 @@ end
 
 --- @brief
 function rt.MusicManager:instantiate()
-    self._thread = love.thread.newThread("common/music_manager_worker.lua")
-    self._main_to_worker = love.thread.newChannel()
-    self._worker_to_main = love.thread.newChannel()
+    require "common.thread"
+    self._thread = rt.Thread("common/music_manager_worker.lua"):get_native()
+    self._main_to_worker = rt.Channel():get_native()
+    self._worker_to_main = rt.Channel():get_native()
     self._thread:start(
         self._main_to_worker,
         self._worker_to_main,

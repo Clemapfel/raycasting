@@ -28,10 +28,11 @@ end
 
 function rt.GameState:_init_save_worker()
     if self._save_worker == nil then
+        require "common.thread"
         local worker = {
-            thread = love.thread.newThread("common/game_state_save_worker.lua"),
-            main_to_worker = love.thread.newChannel(),
-            worker_to_main = love.thread.newChannel()
+            thread = rt.Thread("common/game_state_save_worker.lua"):get_native(),
+            main_to_worker = rt.Channel():get_native(),
+            worker_to_main = rt.Channel():get_native()
         }
 
         worker.thread:start(

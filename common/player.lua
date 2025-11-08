@@ -7,6 +7,7 @@ require "common.random"
 require "common.palette"
 require "common.smoothed_motion_1d"
 require "common.path"
+require "common.timed_animation"
 
 do
     local radius = 13.5
@@ -346,6 +347,9 @@ function rt.Player:instantiate()
         _air_dash_indicator = nil, -- rt.PlayerDashIndicator
         _air_dash_direction_x = 0,
         _air_dash_direction_y = -1,
+        _air_dash_stretch_animation = rt.TimedAnimation(
+            0.5, 1, 0, rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
+        ),
 
         -- particles
         _body_to_collision_normal = {},
@@ -384,7 +388,7 @@ function rt.Player:instantiate()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "0" then
             self:pulse(rt.RGBA(1, 1, 1, 1))
-        elseif which == "q" then
+        elseif which == "f" then
             self:air_dash()
         end
     end)
@@ -2642,6 +2646,7 @@ function rt.Player:air_dash()
     if math.magnitude(self._air_dash_direction_x, self._air_dash_direction_y) > math.eps then
         self._air_dash_elapsed = 0
         self._is_air_dashing = true
+        self._air_dash_stretch_animation:reset()
     end
 end
 
@@ -2781,6 +2786,8 @@ function rt.Player:reset()
     self._top_left_wall = false
 
     self._is_air_dashing = false
+    self._air_dash_elapsed = math.huge
+    self._air_dash_stretch_animation:set_elapsed(10e8)
 
     self._jump_button_is_down = self._input:get_is_down(rt.InputAction.JUMP)
     self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
