@@ -19,14 +19,12 @@ local function _init()
     cloud_center_z = math.max(cloud_w, cloud_h)
     require "common.clouds"
     clouds = rt.Clouds(
-        x,
-        y,
+        0, 0,
         cloud_center_z,
-        r,
-        r,
-        r
+        w,
+        h,
+        20
     )
-    dbg(r * r * r)
     clouds:realize()
 
 
@@ -119,7 +117,7 @@ love.update = function(delta)
     local x, y, z, w = table.unpack(rotation)
     local offset_x, offset_y, offset_z = math.quaternion.inverse_apply(x, y, z, w, offset, 0, 0)
     --clouds:set_offset(offset_x, offset_y, offset_z, 0) --elapsed / 10)
-    clouds:set_offset(0, 0, 0, elapsed / 100)
+    clouds:set_offset(0, 0, 0, elapsed / 10)
 end
 
 love.draw = function()

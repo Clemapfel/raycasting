@@ -200,23 +200,23 @@ void computemain() {
     // Create 4D position using time_offset as the fourth dimension
     vec4 pos = vec4(uv + noise_offset, time_offset);
 
+    float mix_coefficient = 1; // 0: alt noise, 1: regular clouds
+
     // Generate multi-octave fractal noise
     // Base noise at different frequencies for cloud-like appearance
-    float frequency = 4.0;
+    float frequency = mix(2.0, 8, mix_coefficient);
     float noise = fractal_brownian_motion(
         pos * frequency,
         2, // octaves
-        3.0, // lacunarity
-        0.4 // gain
+        mix(3, 1, mix_coefficient), // lacunarity
+        mix(0.4, 0, mix_coefficient) // gain
     );
 
-    noise = continuous_step((noise + 1) / 2, 7, 20) * 2 - 1;
+    float alt_noise = noise;
+    alt_noise = continuous_step((alt_noise + 1) / 2, 7, 20) * 2 - 1;
+    alt_noise = dirac(21 * pow(1 - abs(alt_noise / 4), 100));
 
-    noise = mix(
-        noise,
-        dirac(20 * pow(1 - abs(noise / 4), 100)),
-        1
-    );
+    noise = mix(alt_noise, noise, mix_coefficient);
 
     noise = 1 - (noise + 1) / 2;
     imageStore(volume_texture, gid, vec4(noise));
@@ -233,7 +233,7 @@ void main() {
     }
 
     vec3 uv = (vec3(gid) + 0.5) / vec3(volume_size);
-    vec4 pos = vec4(uv + noise_offset, time_offset);
+    vec4 pos = vec4(uv + noise_offset, 0);
 
     // Generate base FBM noise (single invocation as required)
     float baseFreq = 8.0;

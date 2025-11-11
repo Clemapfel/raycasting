@@ -215,14 +215,22 @@ end
 
 --- @brief
 function rt.Clouds:_init_volume_texture()
+    local n_voxels = 0.25 * math.sqrt(100^3) --math.sqrt(self._bounds.size_x * self._bounds.size_y * self._bounds.size_z)
+    local sum = self._bounds.size_x + self._bounds.size_y + self._bounds.size_z
+
     self._volume_texture = rt.RenderTextureVolume(
-        self._bounds.size_x,
-        self._bounds.size_y,
-        self._bounds.size_z,
+        n_voxels * (self._bounds.size_x / sum),
+        n_voxels * (self._bounds.size_y / sum),
+        n_voxels * (self._bounds.size_z / sum),
         0, -- msaa
         rt.settings.clouds.volume_texture_format,
         true, -- compute readable
         false -- use mipmaps
+    )
+
+    dbg(n_voxels * (self._bounds.size_x / sum) *
+        n_voxels * (self._bounds.size_y / sum) *
+        n_voxels * (self._bounds.size_z / sum)
     )
 
     self._volume_texture:set_scale_mode(
