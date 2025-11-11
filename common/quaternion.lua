@@ -61,6 +61,11 @@ function math.quaternion.inverse(x, y, z, w)
          w / magnitude_squared
 end
 
+function math.quaternion.inverse_apply(x, y, z, w, vx, vy, vz)
+    local ix, iy, iz, iw = math.quaternion.inverse(x, y, z, w)
+    return math.quaternion.apply(ix, iy, iz, iw, vx, vy, vz)
+end
+
 function math.quaternion.magnitude(x, y, z, w)
     return math.sqrt(x*x + y*y + z*z + w*w)
 end

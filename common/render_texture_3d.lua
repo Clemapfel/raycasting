@@ -70,9 +70,13 @@ function rt.RenderTexture3D:_bind_transforms()
         projection = self._projection_perspective
     end
 
-    local mvp = rt.Transform():apply(self._view):apply(self._model) -- sic, no projection
+    love.graphics.replaceTransform(self:get_transform():get_native()) -- has no projection
     love.graphics.setProjection(projection:get_native()) -- set here instead
-    love.graphics.replaceTransform(mvp:get_native())
+end
+
+--- @brief
+function rt.RenderTexture3D:get_transform()
+    return rt.Transform():apply(self._view):apply(self._model)
 end
 
 --- @brief

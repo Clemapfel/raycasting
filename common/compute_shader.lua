@@ -17,7 +17,8 @@ function rt.ComputeShader:instantiate(filename, defines)
 
     meta.install(self, {
         _native = shader,
-        _filename = filename
+        _filename = filename,
+        _defines = defines
     })
 end
 
@@ -30,6 +31,8 @@ function rt.ComputeShader:send(name, value)
 
     if self._native:hasUniform(name) then
         self._native:send(name, value)
+    else
+        rt.critical("In rt.ComputeShader: shader at `", self._filename, "` does not have uniform `" .. name .. "`")
     end
 end
 
@@ -46,4 +49,17 @@ end
 --- @brief
 function rt.ComputeShader:dispatch(x, y, z)
     love.graphics.dispatchThreadgroups(self._native, x, y, z)
+end
+
+--- @brief
+function rt.ComputeShader:recompile()
+    local success, shader = pcall(love.graphics.newComputeShader, self._filename, {
+        defines = self._defines
+    })
+
+    if not success then
+        rt.critical("In rt.ComputeShader: Error when evaluating shader at `", self._filename, "`:\n", shader)
+    else
+        self._native = shader
+    end
 end

@@ -4,8 +4,8 @@ require "common.shader"
 require "common.compute_shader"
 
 rt.settings.clouds = {
-    volume_texture_format = rt.TextureFormat.RGBA16F,
-    volume_texture_anisotropy = 4
+    volume_texture_format = rt.TextureFormat.R32F,
+    volume_texture_anisotropy = 1
 }
 
 --- @class rt.Clouds
@@ -13,7 +13,7 @@ rt.Clouds = meta.class("Clouds")
 
 local _draw_mesh_format = {
     { location = 0, name = "position", format = "floatvec3" },
-    { location = 1, name = "texture_coords", format = "floatvec2" },
+    { location = 1, name = "texture_coords", format = "floatvec3" },
     { location = 2, name = "color", format = "floatvec4" },
 }
 
@@ -51,8 +51,18 @@ function rt.Clouds:instantiate(x, y, z, size_x, size_y, size_z)
     self._noise_offset_x = 0
     self._noise_offset_y = 0
     self._noise_offset_z = 0
+    self._noise_offset_time = 0
 
     self._is_realized = false
+
+    -- TODO
+    self._input = rt.InputSubscriber()
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            _draw_mesh_shader:recompile()
+            _fill_volume_texture_shader:recompile()
+        end
+    end)
 end
 
 --- @brief
@@ -65,12 +75,7 @@ function rt.Clouds:realize()
     self._volume_texture = nil -- love.VolumeText
     self:_init_volume_texture()
 
-    self:_fill_volume_texture(
-        self._noise_offset_x,
-        self._noise_offset_y,
-        self._noise_offset_z
-    )
-
+    self:_fill_volume_texture()
     self._is_realized = true
 end
 
@@ -81,14 +86,45 @@ function rt.Clouds:update(delta)
 end
 
 --- @brief
-function rt.Clouds:draw()
+function rt.Clouds:set_offset(x, y, z, time)
+    local recompute = (x ~= nil and self._noise_offset_x ~= x)
+        or (y ~= nil and self._noise_offset_y ~= y)
+        or (z ~= nil and self._noise_offset_z ~= z)
+        or (time ~= nil and self._noise_offset_time ~= time)
+
+    self._noise_offset_x = x or self._noise_offset_x
+    self._noise_offset_y = y or self._noise_offset_y
+    self._noise_offset_z = z or self._noise_offset_z
+    self._noise_offset_time = time or self._noise_offset_time
+
+    if recompute then
+        self:_fill_volume_texture()
+    end
+end
+
+--- @brief
+--- @brief
+--- @brief
+function rt.Clouds:draw(camera_position, view_transform_inverse)
     if self._is_realized ~= true then return end
+
+    local b = self._bounds
+    local x0, y0, z0 = b.x - b.size_x / 2, b.y - b.size_y / 2, b.z - b.size_z / 2
 
     _draw_mesh_shader:bind()
     _draw_mesh_shader:send("volume_texture", self._volume_texture:get_native())
+    _draw_mesh_shader:send("camera_position", camera_position)
+    _draw_mesh_shader:send("view_transform_inverse", view_transform_inverse:get_native())
+
     love.graphics.setColor(1, 1, 1, 1)
     self._draw_mesh:draw()
     _draw_mesh_shader:unbind()
+
+    local dim = 0.75
+    love.graphics.setColor(dim, dim, dim, dim)
+    love.graphics.setWireframe(true)
+    self._draw_mesh:draw()
+    love.graphics.setWireframe(false)
 end
 
 --- @brief
@@ -103,7 +139,7 @@ function rt.Clouds:_init_draw_mesh()
     local function add_vertex(x, y, z, u, v, w)
         table.insert(data, {
             x, y, z, u, v, w,
-            rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1)
+            1, 1, 1, 1
         })
     end
 
@@ -116,7 +152,12 @@ function rt.Clouds:_init_draw_mesh()
         add_vertex(table.unpack(v4))
     end
 
-    -- front face (z1)
+    -- Texture coordinates now map to 3D position in unit cube [0,1]³
+    -- u = normalized X position (0 at x0, 1 at x1)
+    -- v = normalized Y position (0 at y0, 1 at y1)
+    -- w = normalized Z position (0 at z0, 1 at z1)
+
+    -- front face (z1, w=1)
     add_quad(
         {x0, y0, z1, 0, 0, 1},
         {x1, y0, z1, 1, 0, 1},
@@ -124,7 +165,7 @@ function rt.Clouds:_init_draw_mesh()
         {x0, y1, z1, 0, 1, 1}
     )
 
-    -- back face (z0)
+    -- back face (z0, w=0)
     add_quad(
         {x1, y0, z0, 1, 0, 0},
         {x0, y0, z0, 0, 0, 0},
@@ -132,7 +173,7 @@ function rt.Clouds:_init_draw_mesh()
         {x1, y1, z0, 1, 1, 0}
     )
 
-    -- left face (x0)
+    -- left face (x0, u=0)
     add_quad(
         {x0, y0, z0, 0, 0, 0},
         {x0, y0, z1, 0, 0, 1},
@@ -140,7 +181,7 @@ function rt.Clouds:_init_draw_mesh()
         {x0, y1, z0, 0, 1, 0}
     )
 
-    -- right face (x1)
+    -- right face (x1, u=1)
     add_quad(
         {x1, y0, z1, 1, 0, 1},
         {x1, y0, z0, 1, 0, 0},
@@ -148,7 +189,7 @@ function rt.Clouds:_init_draw_mesh()
         {x1, y1, z1, 1, 1, 1}
     )
 
-    -- top face (y0, since y goes downward)
+    -- top face (y0, v=0)
     add_quad(
         {x0, y0, z0, 0, 0, 0},
         {x1, y0, z0, 1, 0, 0},
@@ -156,7 +197,7 @@ function rt.Clouds:_init_draw_mesh()
         {x0, y0, z1, 0, 0, 1}
     )
 
-    -- bottom face (y1)
+    -- bottom face (y1, v=1)
     add_quad(
         {x0, y1, z1, 0, 1, 1},
         {x1, y1, z1, 1, 1, 1},
@@ -189,11 +230,20 @@ function rt.Clouds:_init_volume_texture()
         rt.TextureScaleMode.LINEAR,
         rt.settings.clouds.volume_texture_anisotropy
     )
+
+    self._volume_texture:set_wrap_mode(
+        rt.TextureWrapMode.ZERO
+    )
 end
 
 --- @brief
-function rt.Clouds:_fill_volume_texture(offset_x, offset_y, offset_z)
-    _fill_volume_texture_shader:send("noise_offset", { offset_x, offset_y, offset_z })
+function rt.Clouds:_fill_volume_texture()
+    _fill_volume_texture_shader:send("noise_offset", {
+        self._noise_offset_x,
+        self._noise_offset_y,
+        self._noise_offset_z
+    })
+    _fill_volume_texture_shader:send("time_offset", self._noise_offset_time)
     _fill_volume_texture_shader:send("volume_texture", self._volume_texture:get_native())
 
     local defines = _fill_volume_texture_shader_defines
@@ -201,6 +251,7 @@ function rt.Clouds:_fill_volume_texture(offset_x, offset_y, offset_z)
     _fill_volume_texture_shader:dispatch(
         math.ceil(size_x / defines.WORK_GROUP_SIZE_X),
         math.ceil(size_y / defines.WORK_GROUP_SIZE_Y),
-        math.ceil((size_z or 0) / defines.WORK_GROUP_SIZE_Z)
+        math.ceil(size_z / defines.WORK_GROUP_SIZE_Z)
     )
+
 end

@@ -6,7 +6,7 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-local canvas, clouds, rotation, cloud_center_z
+local canvas, clouds, rotation, cloud_center_z, view_transform
 local function _init()
     local w, h = love.graphics.getDimensions()
     local x, y = 0, 0
@@ -14,8 +14,9 @@ local function _init()
     canvas = rt.RenderTexture3D(w, h)
     canvas:set_fov(0.4)
 
-    local r = math.min(w, h) / 3
-    cloud_center_z = 2 * r + 0.5 * r
+    local r = 110
+    local cloud_w, cloud_h = r * 2, r * 2
+    cloud_center_z = math.max(cloud_w, cloud_h)
     require "common.clouds"
     clouds = rt.Clouds(
         x,
@@ -25,10 +26,11 @@ local function _init()
         r,
         r
     )
+    dbg(r * r * r)
     clouds:realize()
 
 
-    local view_transform = rt.Transform():look_at(
+    view_transform = rt.Transform():look_at(
         0,  0,  0, -- eye xyz
         0,  0,  1, -- target xyz
         0, -1,  0  -- up xyz
@@ -99,12 +101,25 @@ love.update = function(delta)
 
     clouds:update(delta)
 
+    elapsed = elapsed + delta
+
     local x, y, z, w = table.unpack(rotation)
-    local delta_angle = 2 * math.pi * delta * 0.25
+    local delta_angle = 2 * math.pi * delta * 0.05
     rotation = { math.quaternion.multiply(
         x, y, z, w,
-        math.quaternion.from_axis_angle(0, 1, 0, delta_angle)
+        math.quaternion.from_axis_angle(
+            0,
+            1,
+            0.5,
+            delta_angle
+        )
     )}
+
+    local offset = elapsed * 0.2
+    local x, y, z, w = table.unpack(rotation)
+    local offset_x, offset_y, offset_z = math.quaternion.inverse_apply(x, y, z, w, offset, 0, 0)
+    --clouds:set_offset(offset_x, offset_y, offset_z, 0) --elapsed / 10)
+    clouds:set_offset(0, 0, 0, elapsed / 100)
 end
 
 love.draw = function()
@@ -122,7 +137,12 @@ love.draw = function()
         :translate(0, 0, -cloud_center_z)
 
     canvas:set_model_transform(transform)
-    clouds:draw()
+
+    clouds:draw(
+        { 0, 0, 0 },
+        transform:inverse()
+    )
+
     canvas:unbind()
 
     love.graphics.setColor(1, 1, 1, 1)

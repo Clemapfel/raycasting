@@ -16,7 +16,7 @@ rt.RenderTextureVolume = meta.class("RenderTextureVolume", rt.Texture)
 function rt.RenderTextureVolume:instantiate(width, height, depth, msaa, format, is_compute, use_mipmaps)
     msaa = msaa or 0
     meta.install(self, {
-        _native = love.graphics.newCanvas(width or 1, height or 1, {
+        _native = love.graphics.newVolumeImage(width or 1, height or 1, depth or 1, {
             msaa = msaa or 0,
             format = format, -- if nil, love default
             computewrite = is_compute or true,
