@@ -59,7 +59,7 @@ function ow.CheckpointPlatform:instantiate(x1, y1, x2, y2, radius)
     local outer_bottom_left_y = inner_bottom_left_y + ndy * outer_thickness + right_y * outer_thickness
 
     local mesh_data = {}
-    function add_vertex(x, y, u, v, alpha)
+    local function add_vertex(x, y, u, v, alpha)
         table.insert(mesh_data, { x, y, u, v, 1, 1, 1, alpha })
     end
 

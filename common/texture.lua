@@ -34,9 +34,9 @@ end
 
 --- @brief set scale mode
 --- @param mode rt.TextureScaleMode
-function rt.Texture:set_scale_mode(mode, other)
+function rt.Texture:set_scale_mode(mode, other, anisotropy)
     if other == nil then other = mode end
-    self._native:setFilter(mode, other)
+    self._native:setFilter(mode, other, anisotropy)
 end
 
 --- @brief get scale mode

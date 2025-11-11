@@ -6,9 +6,38 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-require "overworld.background"
-local background = ow.Background()
-background:realize()
+local canvas, clouds, rotation, cloud_center_z
+local function _init()
+    local w, h = love.graphics.getDimensions()
+    local x, y = 0, 0
+    require "common.render_texture_3d"
+    canvas = rt.RenderTexture3D(w, h)
+    canvas:set_fov(0.4)
+
+    local r = math.min(w, h) / 3
+    cloud_center_z = 2 * r + 0.5 * r
+    require "common.clouds"
+    clouds = rt.Clouds(
+        x,
+        y,
+        cloud_center_z,
+        r,
+        r,
+        r
+    )
+    clouds:realize()
+
+
+    local view_transform = rt.Transform():look_at(
+        0,  0,  0, -- eye xyz
+        0,  0,  1, -- target xyz
+        0, -1,  0  -- up xyz
+    )
+    canvas:set_view_transform(view_transform)
+
+    require "common.quaternion"
+    rotation = { math.quaternion.from_axis_angle(0, 1, 0, 0) }
+end
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
@@ -45,7 +74,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -59,8 +88,7 @@ love.load = function(args)
     require "overworld.result_screen_scene"
     --present()
 
-    -- TODO
-    --background:reformat(0, 0, love.graphics.getDimensions())
+    _init()
 end
 
 local elapsed = 0
@@ -69,7 +97,14 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    --background:update(delta)
+    clouds:update(delta)
+
+    local x, y, z, w = table.unpack(rotation)
+    local delta_angle = 2 * math.pi * delta * 0.25
+    rotation = { math.quaternion.multiply(
+        x, y, z, w,
+        math.quaternion.from_axis_angle(0, 1, 0, delta_angle)
+    )}
 end
 
 love.draw = function()
@@ -78,7 +113,20 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    --background:draw()
+    canvas:bind()
+    love.graphics.clear()
+
+    local transform = rt.Transform()
+        :translate(0, 0, cloud_center_z)
+        :apply(math.quaternion.as_transform(table.unpack(rotation)))
+        :translate(0, 0, -cloud_center_z)
+
+    canvas:set_model_transform(transform)
+    clouds:draw()
+    canvas:unbind()
+
+    love.graphics.setColor(1, 1, 1, 1)
+    canvas:draw()
 end
 
 love.resize = function(width, height)
@@ -86,5 +134,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize(width, height)
     end
 
-    --background:reformat(0, 0, width, height)
+    _init()
 end
