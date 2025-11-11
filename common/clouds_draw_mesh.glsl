@@ -25,7 +25,8 @@ uniform sampler3D volume_texture;
 out vec4 frag_color;
 
 void pixelmain() {
-    frag_color = texture(volume_texture, varying_texture_coords);
+    vec4 texel = texture(volume_texture, varying_texture_coords);
+    frag_color = vec4(texel.rrr, 1);
 }
 
 #endif // PIXEL

@@ -26,12 +26,21 @@ function rt.RenderTextureVolume:instantiate(width, height, depth, msaa, format, 
         }),
         _width = width,
         _height = height,
+        _depth = depth,
         _is_valid = true
     })
     self:set_scale_mode(rt.TextureScaleMode.LINEAR)
     self:set_wrap_mode(rt.TextureWrapMode.CLAMP)
 end
 
+--- @brief
+function rt.RenderTextureVolume:get_size()
+    local width, height = self._native:getDimensions()
+    local depth = self._native:getDepth()
+    return width, height, depth
+end
+
+--- @brief
 function rt.RenderTextureVolume:bind()
     love.graphics.push("all")
     self._before = love.graphics.getCanvas()

@@ -44,6 +44,6 @@ function rt.ComputeShader:get_buffer_format(buffer)
 end
 
 --- @brief
-function rt.ComputeShader:dispatch(x, y)
-    love.graphics.dispatchThreadgroups(self._native, x, y)
+function rt.ComputeShader:dispatch(x, y, z)
+    love.graphics.dispatchThreadgroups(self._native, x, y, z)
 end

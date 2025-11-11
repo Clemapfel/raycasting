@@ -1,8 +1,10 @@
 require "common.texture_format"
 require "common.render_texture_volume"
+require "common.shader"
+require "common.compute_shader"
 
 rt.settings.clouds = {
-    volume_texture_format = rt.TextureFormat.R32F,
+    volume_texture_format = rt.TextureFormat.RGBA16F,
     volume_texture_anisotropy = 4
 }
 
@@ -16,6 +18,18 @@ local _draw_mesh_format = {
 }
 
 local _draw_mesh_shader = rt.Shader("common/clouds_draw_mesh.glsl")
+
+local _fill_volume_texture_shader_defines = {
+    WORK_GROUP_SIZE_X = 8,
+    WORK_GROUP_SIZE_Y = 8,
+    WORK_GROUP_SIZE_Z = 4,
+    VOLUME_TEXTURE_FORMAT = rt.settings.clouds.volume_texture_format
+}
+
+local _fill_volume_texture_shader = rt.ComputeShader(
+    "common/clouds_fill_volume_texture.glsl",
+    _fill_volume_texture_shader_defines
+)
 
 --- @brief
 --- @param x Number
@@ -34,6 +48,10 @@ function rt.Clouds:instantiate(x, y, z, size_x, size_y, size_z)
         size_z = size_z
     }
 
+    self._noise_offset_x = 0
+    self._noise_offset_y = 0
+    self._noise_offset_z = 0
+
     self._is_realized = false
 end
 
@@ -47,7 +65,11 @@ function rt.Clouds:realize()
     self._volume_texture = nil -- love.VolumeText
     self:_init_volume_texture()
 
-    --self._draw_mesh:set_texture(self._volume_texture)
+    self:_fill_volume_texture(
+        self._noise_offset_x,
+        self._noise_offset_y,
+        self._noise_offset_z
+    )
 
     self._is_realized = true
 end
@@ -62,11 +84,11 @@ end
 function rt.Clouds:draw()
     if self._is_realized ~= true then return end
 
-    --_draw_mesh_shader:bind()
-    --_draw_mesh_shader:send("volume_texture", self._volume_texture:get_native())
+    _draw_mesh_shader:bind()
+    _draw_mesh_shader:send("volume_texture", self._volume_texture:get_native())
     love.graphics.setColor(1, 1, 1, 1)
     self._draw_mesh:draw()
-    --_draw_mesh_shader:unbind()
+    _draw_mesh_shader:unbind()
 end
 
 --- @brief
@@ -80,8 +102,7 @@ function rt.Clouds:_init_draw_mesh()
 
     local function add_vertex(x, y, z, u, v, w)
         table.insert(data, {
-            x, y, z, u, v,
-            --w,
+            x, y, z, u, v, w,
             rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1)
         })
     end
@@ -146,7 +167,7 @@ function rt.Clouds:_init_draw_mesh()
     self._draw_mesh = rt.Mesh(
         data,
         rt.MeshDrawMode.TRIANGLES,
-        rt.VertexFormat3D,--_draw_mesh_format,
+        _draw_mesh_format,
         rt.GraphicsBufferUsage.STATIC
     )
 end
@@ -167,5 +188,19 @@ function rt.Clouds:_init_volume_texture()
         rt.TextureScaleMode.LINEAR,
         rt.TextureScaleMode.LINEAR,
         rt.settings.clouds.volume_texture_anisotropy
+    )
+end
+
+--- @brief
+function rt.Clouds:_fill_volume_texture(offset_x, offset_y, offset_z)
+    _fill_volume_texture_shader:send("noise_offset", { offset_x, offset_y, offset_z })
+    _fill_volume_texture_shader:send("volume_texture", self._volume_texture:get_native())
+
+    local defines = _fill_volume_texture_shader_defines
+    local size_x, size_y, size_z = self._volume_texture:get_size()
+    _fill_volume_texture_shader:dispatch(
+        math.ceil(size_x / defines.WORK_GROUP_SIZE_X),
+        math.ceil(size_y / defines.WORK_GROUP_SIZE_Y),
+        math.ceil((size_z or 0) / defines.WORK_GROUP_SIZE_Z)
     )
 end
