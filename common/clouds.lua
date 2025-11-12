@@ -228,11 +228,6 @@ function rt.Clouds:_init_volume_texture()
         false -- use mipmaps
     )
 
-    dbg(n_voxels * (self._bounds.size_x / sum) *
-        n_voxels * (self._bounds.size_y / sum) *
-        n_voxels * (self._bounds.size_z / sum)
-    )
-
     self._volume_texture:set_scale_mode(
         rt.TextureScaleMode.LINEAR,
         rt.TextureScaleMode.LINEAR,
