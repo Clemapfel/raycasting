@@ -1,12 +1,15 @@
 require "overworld.double_jump_particle"
+require "overworld.double_jump_tether_particle_effect"
 
 rt.settings.overworld.double_jump_tether = {
-    radius_factor = 1.5
+    radius_factor = 1.5,
+    particle_density = 0.75, -- fraction
 }
 
 --- @class DoubleJumpTether
 --- @types Point
 ow.DoubleJumpTether = meta.class("DoubleJumpThether")
+meta.add_signal(ow.DoubleJumpTether, "removed")
 
 local _shader
 
@@ -62,6 +65,17 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._particle = ow.DoubleJumpParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
     self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
+    self._particles = ow.DoubleJumpTetherParticleEffect()
+
+    self:signal_connect("removed", function()
+        local ax, ay = self:get_position()
+        local bx, by = self._scene:get_player():get_position()
+        self._particles:emit(
+            rt.settings.overworld.double_jump_tether.particle_density * math.distance(ax, ay, bx, by),
+            ax, ay, bx, by,
+            self:get_color():unpack()
+        )
+    end)
 end
 
 --- @brief
@@ -69,6 +83,7 @@ function ow.DoubleJumpTether:update(delta)
     local is_consumed = self._scene:get_player():get_is_double_jump_source(self)
     local is_visible = self._stage:get_is_body_visible(self._body)
 
+    self._particles:update(delta)
     self._line_opacity_motion:update(delta)
 
     -- show / hide particle when consumed
@@ -173,6 +188,8 @@ function ow.DoubleJumpTether:draw()
         love.graphics.setColor(r, g, b, 1)
         love.graphics.draw(self._line_mesh)
     end
+
+    self._particles:draw()
 
     if self._stage:get_is_body_visible(self._body) then
         local shape_a = self._particle_opacity_motion:get_value()

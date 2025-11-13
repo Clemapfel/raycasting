@@ -394,8 +394,6 @@ function rt.Player:instantiate()
             self:pulse(rt.RGBA(1, 1, 1, 1))
         elseif which == "f" then
             self:air_dash(math.normalize(self:get_velocity()))
-        elseif which == "r" then
-            self:emit_particles(4)
         end
     end)
 end
@@ -821,30 +819,8 @@ function rt.Player:update(delta)
         end
 
         if should_clear then
-
             for instance in values(self._double_jump_sources) do
-                if instance.get_position ~= nil then
-                    local color
-                    if instance.get_color ~= nil then
-                        local instance_color = instance:get_color()
-                        if meta.isa(instance_color, rt.RGBA) then
-                            color = instance_color
-                        end
-                    end
-
-                    if color == nil then color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1)) end
-
-                    local ax, ay = self:get_position()
-                    local bx, by = instance:get_position()
-
-                    if meta.is_number(bx) and meta.is_number(by) then
-                        self._particles:emit(
-                            _settings.double_jump_source_particle_density * math.distance(ax, ay, bx, by),
-                            ax, ay, bx, by,
-                            color:unpack()
-                        )
-                    end
-                end
+                if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
             end
 
             self._double_jump_sources = {}
@@ -1303,17 +1279,7 @@ function rt.Player:update(delta)
                             color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1))
                         end
 
-                        if instance.get_position ~= nil then
-                            local ax, ay = self:get_position()
-                            local bx, by = instance:get_position()
-                            if meta.is_number(bx) and meta.is_number(by) then
-                                self._particles:emit(
-                                    _settings.double_jump_source_particle_density * math.distance(ax, ay, bx, by),
-                                    ax, ay, bx, by,
-                                    color:unpack()
-                                )
-                            end
-                        end
+                        if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
                     end
                 end
 
