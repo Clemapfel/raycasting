@@ -1,6 +1,6 @@
 require "common.scene"
 require "common.mesh"
-require "common.background"
+require "overworld.background"
 require "common.control_indicator"
 require "overworld.stage"
 require "common.camera"

@@ -1,14 +1,18 @@
 DEBUG = true -- overriden by build script
 io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
+local VSYNC_ADAPTIVE = -1
+local VSYNC_OFF = 0
+local VSYNC_ON = 1
+
 function love.conf(settings)
 
-    settings.graphics.renderers = {"opengl"}
+    --settings.graphics.renderers = {"opengl"}
     settings.window.width = 800
     settings.window.height = 600
     settings.window.msaa = 4
     settings.window.resizable = true
-    settings.window.vsync = -1
+    settings.window.vsync = VSYNC_ADAPTIVE
     settings.window.usedpiscale = false
 
     -- non-overridable settings

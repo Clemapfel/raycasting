@@ -4,8 +4,9 @@ require "common.shader"
 require "common.compute_shader"
 
 rt.settings.clouds = {
-    volume_texture_format = rt.TextureFormat.R32F,
-    volume_texture_anisotropy = 1
+    volume_texture_format = rt.TextureFormat.RG32F,
+    volume_texture_anisotropy = 1,
+    n_layers = 1
 }
 
 --- @class rt.Clouds
@@ -19,16 +20,23 @@ local _draw_mesh_format = {
 
 local _draw_mesh_shader = rt.Shader("common/clouds_draw_mesh.glsl")
 
-local _fill_volume_texture_shader_defines = {
+local _compute_shader_defines = {
     WORK_GROUP_SIZE_X = 8,
     WORK_GROUP_SIZE_Y = 8,
     WORK_GROUP_SIZE_Z = 4,
     VOLUME_TEXTURE_FORMAT = rt.settings.clouds.volume_texture_format
 }
 
+_compute_shader_defines.MODE = 0
 local _fill_volume_texture_shader = rt.ComputeShader(
-    "common/clouds_fill_volume_texture.glsl",
-    _fill_volume_texture_shader_defines
+    "common/clouds_compute.glsl",
+    _compute_shader_defines
+)
+
+_compute_shader_defines.MODE = 1
+local _compute_gradient_shader = rt.ComputeShader(
+    "common/clouds_compute.glsl",
+    _compute_shader_defines
 )
 
 --- @brief
@@ -70,12 +78,14 @@ function rt.Clouds:realize()
     if self._is_realized == true then return end
 
     self._draw_mesh = nil -- rt.Mesh
-    self:_init_draw_mesh()
+    self:_init_draw_mesh(rt.settings.clouds.n_layers)
 
     self._volume_texture = nil -- love.VolumeText
     self:_init_volume_texture()
 
-    self:_fill_volume_texture()
+    self:_update_volume_texture()
+
+    self._draw_mesh:set_texture(self._volume_texture)
     self._is_realized = true
 end
 
@@ -98,18 +108,13 @@ function rt.Clouds:set_offset(x, y, z, time)
     self._noise_offset_time = time or self._noise_offset_time
 
     if recompute then
-        self:_fill_volume_texture()
+        self:_update_volume_texture()
     end
 end
 
 --- @brief
---- @brief
---- @brief
 function rt.Clouds:draw(camera_position, view_transform_inverse)
     if self._is_realized ~= true then return end
-
-    local b = self._bounds
-    local x0, y0, z0 = b.x - b.size_x / 2, b.y - b.size_y / 2, b.z - b.size_z / 2
 
     _draw_mesh_shader:bind()
     _draw_mesh_shader:send("volume_texture", self._volume_texture:get_native())
@@ -119,98 +124,58 @@ function rt.Clouds:draw(camera_position, view_transform_inverse)
     love.graphics.setColor(1, 1, 1, 1)
     self._draw_mesh:draw()
     _draw_mesh_shader:unbind()
-
-    local dim = 0.75
-    love.graphics.setColor(dim, dim, dim, dim)
-    love.graphics.setWireframe(true)
-    self._draw_mesh:draw()
-    love.graphics.setWireframe(false)
 end
 
 --- @brief
-function rt.Clouds:_init_draw_mesh()
+--- @brief
+function rt.Clouds:_init_draw_mesh(n_layers)
     local data = {}
+    local vertex_map = {}
 
     local bounds = self._bounds
     local x0, x1 = bounds.x - bounds.size_x / 2, bounds.x + bounds.size_x / 2
     local y0, y1 = bounds.y - bounds.size_y / 2, bounds.y + bounds.size_y / 2
     local z0, z1 = bounds.z - bounds.size_z / 2, bounds.z + bounds.size_z / 2
 
-    local function add_vertex(x, y, z, u, v, w)
-        table.insert(data, {
-            x, y, z, u, v, w,
-            1, 1, 1, 1
-        })
+    -- build vertices for each layer (back to front for proper alpha blending)
+    for i = n_layers - 1, 0, -1 do
+        local t = (n_layers > 1) and (i / (n_layers - 1)) or 0.5  -- center single layer
+        local z = z0 + (z1 - z0) * t
+        local w = t  -- normalized texture z coordinate
+
+        -- Each quad: 4 vertices, ordered CCW
+        local base_index = #data + 1
+
+        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, i / n_layers, 1)
+
+        -- bottom-left
+        table.insert(data, {x0, y0, z, 0, 0, w, r, g, b, a})
+        -- bottom-right
+        table.insert(data, {x1, y0, z, 1, 0, w, r, g, b, a})
+        -- top-right
+        table.insert(data, {x1, y1, z, 1, 1, w, r, g, b, a})
+        -- top-left
+        table.insert(data, {x0, y1, z, 0, 1, w, r, g, b, a})
+
+        -- Triangulation (two triangles per quad)
+        table.insert(vertex_map, base_index + 0)
+        table.insert(vertex_map, base_index + 1)
+        table.insert(vertex_map, base_index + 2)
+
+        table.insert(vertex_map, base_index + 0)
+        table.insert(vertex_map, base_index + 2)
+        table.insert(vertex_map, base_index + 3)
     end
 
-    local function add_quad(v1, v2, v3, v4)
-        add_vertex(table.unpack(v1))
-        add_vertex(table.unpack(v2))
-        add_vertex(table.unpack(v3))
-        add_vertex(table.unpack(v1))
-        add_vertex(table.unpack(v3))
-        add_vertex(table.unpack(v4))
-    end
-
-    -- Texture coordinates now map to 3D position in unit cube [0,1]³
-    -- u = normalized X position (0 at x0, 1 at x1)
-    -- v = normalized Y position (0 at y0, 1 at y1)
-    -- w = normalized Z position (0 at z0, 1 at z1)
-
-    -- front face (z1, w=1)
-    add_quad(
-        {x0, y0, z1, 0, 0, 1},
-        {x1, y0, z1, 1, 0, 1},
-        {x1, y1, z1, 1, 1, 1},
-        {x0, y1, z1, 0, 1, 1}
-    )
-
-    -- back face (z0, w=0)
-    add_quad(
-        {x1, y0, z0, 1, 0, 0},
-        {x0, y0, z0, 0, 0, 0},
-        {x0, y1, z0, 0, 1, 0},
-        {x1, y1, z0, 1, 1, 0}
-    )
-
-    -- left face (x0, u=0)
-    add_quad(
-        {x0, y0, z0, 0, 0, 0},
-        {x0, y0, z1, 0, 0, 1},
-        {x0, y1, z1, 0, 1, 1},
-        {x0, y1, z0, 0, 1, 0}
-    )
-
-    -- right face (x1, u=1)
-    add_quad(
-        {x1, y0, z1, 1, 0, 1},
-        {x1, y0, z0, 1, 0, 0},
-        {x1, y1, z0, 1, 1, 0},
-        {x1, y1, z1, 1, 1, 1}
-    )
-
-    -- top face (y0, v=0)
-    add_quad(
-        {x0, y0, z0, 0, 0, 0},
-        {x1, y0, z0, 1, 0, 0},
-        {x1, y0, z1, 1, 0, 1},
-        {x0, y0, z1, 0, 0, 1}
-    )
-
-    -- bottom face (y1, v=1)
-    add_quad(
-        {x0, y1, z1, 0, 1, 1},
-        {x1, y1, z1, 1, 1, 1},
-        {x1, y1, z0, 1, 1, 0},
-        {x0, y1, z0, 0, 1, 0}
-    )
-
-    self._draw_mesh = rt.Mesh(
+    local mesh = rt.Mesh(
         data,
         rt.MeshDrawMode.TRIANGLES,
         _draw_mesh_format,
         rt.GraphicsBufferUsage.STATIC
     )
+
+    mesh:set_vertex_map(vertex_map)
+    self._draw_mesh = mesh
 end
 
 --- @brief
@@ -218,7 +183,8 @@ function rt.Clouds:_init_volume_texture()
     local n_voxels = 0.25 * math.sqrt(100^3) --math.sqrt(self._bounds.size_x * self._bounds.size_y * self._bounds.size_z)
     local sum = self._bounds.size_x + self._bounds.size_y + self._bounds.size_z
 
-    self._volume_texture = rt.RenderTextureVolume(
+    local n_layers = rt.settings.clouds.n_layeres
+    local texture_config = {
         n_voxels * (self._bounds.size_x / sum),
         n_voxels * (self._bounds.size_y / sum),
         n_voxels * (self._bounds.size_z / sum),
@@ -226,7 +192,9 @@ function rt.Clouds:_init_volume_texture()
         rt.settings.clouds.volume_texture_format,
         true, -- compute readable
         false -- use mipmaps
-    )
+    }
+
+    self._volume_texture = rt.RenderTextureVolume(table.unpack(texture_config))
 
     self._volume_texture:set_scale_mode(
         rt.TextureScaleMode.LINEAR,
@@ -240,7 +208,7 @@ function rt.Clouds:_init_volume_texture()
 end
 
 --- @brief
-function rt.Clouds:_fill_volume_texture()
+function rt.Clouds:_update_volume_texture()
     _fill_volume_texture_shader:send("noise_offset", {
         self._noise_offset_x,
         self._noise_offset_y,
@@ -249,12 +217,14 @@ function rt.Clouds:_fill_volume_texture()
     _fill_volume_texture_shader:send("time_offset", self._noise_offset_time)
     _fill_volume_texture_shader:send("volume_texture", self._volume_texture:get_native())
 
-    local defines = _fill_volume_texture_shader_defines
+    local defines = _compute_shader_defines
     local size_x, size_y, size_z = self._volume_texture:get_size()
-    _fill_volume_texture_shader:dispatch(
-        math.ceil(size_x / defines.WORK_GROUP_SIZE_X),
-        math.ceil(size_y / defines.WORK_GROUP_SIZE_Y),
-        math.ceil(size_z / defines.WORK_GROUP_SIZE_Z)
-    )
+    local dispatch_x = math.ceil(size_x / defines.WORK_GROUP_SIZE_X)
+    local dispatch_y = math.ceil(size_y / defines.WORK_GROUP_SIZE_Y)
+    local dispatch_z = math.ceil(size_z / defines.WORK_GROUP_SIZE_Z)
 
+    _fill_volume_texture_shader:dispatch(dispatch_x, dispatch_y, dispatch_z)
+
+    _compute_gradient_shader:send("volume_texture", self._volume_texture:get_native())
+    _compute_gradient_shader:dispatch(dispatch_x, dispatch_y, dispatch_z)
 end

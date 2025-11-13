@@ -1,3 +1,12 @@
+#ifndef MODE
+#error "MODE undefined, should be 0 or 1"
+#endif
+
+#define MODE_FILL 0
+#define MODE_COMPUTE_GRADIENT 1
+
+#if MODE == MODE_FILL
+
 const int perm[256] = int[256](
     151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
     140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
@@ -163,8 +172,10 @@ float continuous_step(float x, int n_steps, float smoothness) {
     return h * ((tanh((a * x / h) - a * floor(x / h) - a / 2.0) / (2.0 * tanh(a / 2.0)) + 0.5 + floor(x / h)));
 }
 
+#endif // MODE_FILL
+
 #ifndef VOLUME_TEXTURE_FORMAT
-#define VOLUME_TEXTURE_FORMAT r32f
+#define VOLUME_TEXTURE_FORMAT rg8
 #endif
 
 #ifndef WORK_GROUP_SIZE_X
@@ -179,130 +190,127 @@ float continuous_step(float x, int n_steps, float smoothness) {
 #define WORK_GROUP_SIZE_Z 4
 #endif
 
-layout(VOLUME_TEXTURE_FORMAT) uniform writeonly image3D volume_texture;
+#if MODE == MODE_FILL
 
+layout(VOLUME_TEXTURE_FORMAT) uniform writeonly image3D volume_texture;
 uniform vec3 noise_offset;
 uniform float time_offset;  // Fourth dimension for animation
+
+#elif MODE == MODE_COMPUTE_GRADIENT
+
+layout(VOLUME_TEXTURE_FORMAT) uniform image3D volume_texture;
+
+#endif
 
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = WORK_GROUP_SIZE_Z) in;
 void computemain() {
     ivec3 gid = ivec3(gl_GlobalInvocationID.xyz);
     ivec3 volume_size = imageSize(volume_texture);
 
-    // dispatched as volume_size.x / WORK_GROUP_SIZE_X, volume_size.y / WORK_GROUP_SIZE_Y, volume_size.z / WORK_GROUP_SIZE_Z
     if (any(greaterThanEqual(gid, volume_size))) {
         return;
     }
 
-    // Normalize coordinates to [0, 1]
     vec3 uv = (vec3(gid) + 0.5) / vec3(volume_size);
 
-    // Create 4D position using time_offset as the fourth dimension
+    #if MODE == MODE_FILL
+
     vec4 pos = vec4(uv + noise_offset, time_offset);
 
-    float mix_coefficient = 1; // 0: alt noise, 1: regular clouds
-
-    // Generate multi-octave fractal noise
-    // Base noise at different frequencies for cloud-like appearance
-    float frequency = mix(2.0, 8, mix_coefficient);
+    float frequency = 16;
     float noise = fractal_brownian_motion(
         pos * frequency,
-        2, // octaves
-        mix(3, 1, mix_coefficient), // lacunarity
-        mix(0.4, 0, mix_coefficient) // gain
+        4,  // octaves
+        3,  // lacunarity
+        0.4 // gain
     );
 
     float alt_noise = noise;
-    alt_noise = continuous_step((alt_noise + 1) / 2, 7, 20) * 2 - 1;
-    alt_noise = dirac(21 * pow(1 - abs(alt_noise / 4), 100));
-
-    noise = mix(alt_noise, noise, mix_coefficient);
-
     noise = 1 - (noise + 1) / 2;
-    imageStore(volume_texture, gid, vec4(noise));
+
+    // .r stores noise
+    imageStore(volume_texture, gid, vec4(noise, 0, 0, 0));
+
+    #elif MODE == MODE_COMPUTE_GRADIENT
+
+    // Read center value
+    float center = imageLoad(volume_texture, gid).r;
+
+    // 3D Sobel kernel - only non-zero weighted samples
+    // X-gradient: weight ±1 samples by ±1, weight ±2 samples by ±2
+    float gx = 0.0;
+    // Front face (z-1)
+    gx += -1.0 * imageLoad(volume_texture, gid + ivec3(-1, -1, -1)).r;
+    gx += -2.0 * imageLoad(volume_texture, gid + ivec3(-1,  0, -1)).r;
+    gx += -1.0 * imageLoad(volume_texture, gid + ivec3(-1,  1, -1)).r;
+    gx +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1, -1, -1)).r;
+    gx +=  2.0 * imageLoad(volume_texture, gid + ivec3( 1,  0, -1)).r;
+    gx +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1,  1, -1)).r;
+    // Middle face (z=0)
+    gx += -2.0 * imageLoad(volume_texture, gid + ivec3(-1, -1,  0)).r;
+    gx += -4.0 * imageLoad(volume_texture, gid + ivec3(-1,  0,  0)).r;
+    gx += -2.0 * imageLoad(volume_texture, gid + ivec3(-1,  1,  0)).r;
+    gx +=  2.0 * imageLoad(volume_texture, gid + ivec3( 1, -1,  0)).r;
+    gx +=  4.0 * imageLoad(volume_texture, gid + ivec3( 1,  0,  0)).r;
+    gx +=  2.0 * imageLoad(volume_texture, gid + ivec3( 1,  1,  0)).r;
+    // Back face (z+1)
+    gx += -1.0 * imageLoad(volume_texture, gid + ivec3(-1, -1,  1)).r;
+    gx += -2.0 * imageLoad(volume_texture, gid + ivec3(-1,  0,  1)).r;
+    gx += -1.0 * imageLoad(volume_texture, gid + ivec3(-1,  1,  1)).r;
+    gx +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1, -1,  1)).r;
+    gx +=  2.0 * imageLoad(volume_texture, gid + ivec3( 1,  0,  1)).r;
+    gx +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1,  1,  1)).r;
+
+    // Y-gradient
+    float gy = 0.0;
+    // Front face (z-1)
+    gy += -1.0 * imageLoad(volume_texture, gid + ivec3(-1, -1, -1)).r;
+    gy += -2.0 * imageLoad(volume_texture, gid + ivec3( 0, -1, -1)).r;
+    gy += -1.0 * imageLoad(volume_texture, gid + ivec3( 1, -1, -1)).r;
+    gy +=  1.0 * imageLoad(volume_texture, gid + ivec3(-1,  1, -1)).r;
+    gy +=  2.0 * imageLoad(volume_texture, gid + ivec3( 0,  1, -1)).r;
+    gy +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1,  1, -1)).r;
+    // Middle face (z=0)
+    gy += -2.0 * imageLoad(volume_texture, gid + ivec3(-1, -1,  0)).r;
+    gy += -4.0 * imageLoad(volume_texture, gid + ivec3( 0, -1,  0)).r;
+    gy += -2.0 * imageLoad(volume_texture, gid + ivec3( 1, -1,  0)).r;
+    gy +=  2.0 * imageLoad(volume_texture, gid + ivec3(-1,  1,  0)).r;
+    gy +=  4.0 * imageLoad(volume_texture, gid + ivec3( 0,  1,  0)).r;
+    gy +=  2.0 * imageLoad(volume_texture, gid + ivec3( 1,  1,  0)).r;
+    // Back face (z+1)
+    gy += -1.0 * imageLoad(volume_texture, gid + ivec3(-1, -1,  1)).r;
+    gy += -2.0 * imageLoad(volume_texture, gid + ivec3( 0, -1,  1)).r;
+    gy += -1.0 * imageLoad(volume_texture, gid + ivec3( 1, -1,  1)).r;
+    gy +=  1.0 * imageLoad(volume_texture, gid + ivec3(-1,  1,  1)).r;
+    gy +=  2.0 * imageLoad(volume_texture, gid + ivec3( 0,  1,  1)).r;
+    gy +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1,  1,  1)).r;
+
+    // Z-gradient
+    float gz = 0.0;
+    // Front face (z-1)
+    gz += -1.0 * imageLoad(volume_texture, gid + ivec3(-1, -1, -1)).r;
+    gz += -2.0 * imageLoad(volume_texture, gid + ivec3( 0, -1, -1)).r;
+    gz += -1.0 * imageLoad(volume_texture, gid + ivec3( 1, -1, -1)).r;
+    gz += -2.0 * imageLoad(volume_texture, gid + ivec3(-1,  0, -1)).r;
+    gz += -4.0 * imageLoad(volume_texture, gid + ivec3( 0,  0, -1)).r;
+    gz += -2.0 * imageLoad(volume_texture, gid + ivec3( 1,  0, -1)).r;
+    gz += -1.0 * imageLoad(volume_texture, gid + ivec3(-1,  1, -1)).r;
+    gz += -2.0 * imageLoad(volume_texture, gid + ivec3( 0,  1, -1)).r;
+    gz += -1.0 * imageLoad(volume_texture, gid + ivec3( 1,  1, -1)).r;
+    // Back face (z+1)
+    gz +=  1.0 * imageLoad(volume_texture, gid + ivec3(-1, -1,  1)).r;
+    gz +=  2.0 * imageLoad(volume_texture, gid + ivec3( 0, -1,  1)).r;
+    gz +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1, -1,  1)).r;
+    gz +=  2.0 * imageLoad(volume_texture, gid + ivec3(-1,  0,  1)).r;
+    gz +=  4.0 * imageLoad(volume_texture, gid + ivec3( 0,  0,  1)).r;
+    gz +=  2.0 * imageLoad(volume_texture, gid + ivec3( 1,  0,  1)).r;
+    gz +=  1.0 * imageLoad(volume_texture, gid + ivec3(-1,  1,  1)).r;
+    gz +=  2.0 * imageLoad(volume_texture, gid + ivec3( 0,  1,  1)).r;
+    gz +=  1.0 * imageLoad(volume_texture, gid + ivec3( 1,  1,  1)).r;
+
+    // .g stores gradient magnitude
+    float gradient_length = length(vec3(gx, gy, gz));
+    imageStore(volume_texture, gid, vec4(center, gradient_length, 0.0, 0.0));
+
+    #endif // MODE
 }
-
-#if false
-
-void main() {
-    ivec3 gid = ivec3(gl_GlobalInvocationID.xyz);
-    ivec3 volume_size = imageSize(volume_texture);
-
-    if (any(greaterThanEqual(gid, volume_size))) {
-        return;
-    }
-
-    vec3 uv = (vec3(gid) + 0.5) / vec3(volume_size);
-    vec4 pos = vec4(uv + noise_offset, 0);
-
-    // Generate base FBM noise (single invocation as required)
-    float baseFreq = 8.0;
-    float noise = fractal_brownian_motion(
-    pos * baseFreq,
-    8,
-    3.0,
-    0.2
-    );
-
-    // ===== CREATIVE RESHAPING SECTION =====
-
-    // 1. Create multiple derivatives from single noise value
-    float n_normalized = noise * 0.5 + 0.5; // [0, 1]
-
-    // Billowing effect - creates puffy, rounded cloud formations
-    float billow = 1.0 - abs(noise);
-    billow = pow(billow, 1.2);
-
-    // Ridged effect - creates sharp, wispy edges
-    float ridged = abs(noise);
-    ridged = 1.0 - ridged * ridged;
-
-    // 2. Height-based density gradient (clouds dissipate with altitude)
-    float heightFactor = uv.y;
-    float densityGradient = pow(1.0 - heightFactor, 1.2);
-
-    // Bottom layer has more definition, top layer is wispier
-    float cloudType = smoothstep(0.2, 0.6, heightFactor);
-
-    // 3. Multi-scale combination using noise self-modulation
-    // Use the noise to create variations at different "frequencies"
-    float detailA = fract(noise * 4.731); // pseudo-random based on noise
-    float detailB = fract(noise * 7.283);
-    float detailC = fract(noise * 13.157);
-
-    // Create turbulent detail
-    float microDetail = (detailA * 0.5 + detailB * 0.3 + detailC * 0.2);
-    microDetail = smoothstep(0.3, 0.7, microDetail);
-
-    // 4. Erosion mapping - creates distinct cloud shapes with sharp edges
-    float eroded = smoothstep(0.35, 0.75, n_normalized);
-    eroded = pow(eroded, 1.5); // sharpen edges
-
-    // 5. Advanced blending based on height
-    // Lower clouds are more billowy and defined
-    // Upper clouds are more wispy and ridged
-    float baseDensity = mix(billow, ridged, cloudType);
-    baseDensity *= eroded;
-
-    // 6. Apply density gradient
-    baseDensity *= densityGradient;
-
-    // 7. Add back micro-detail in a multiplicative way
-    // This creates internal structure without changing overall shape
-    float finalNoise = baseDensity * (0.75 + 0.25 * microDetail);
-
-    // 8. Optional: Add some stratification (layering effect)
-    float stratification = sin(uv.y * 12.0 + noise * 2.0) * 0.5 + 0.5;
-    stratification = smoothstep(0.3, 0.7, stratification);
-    finalNoise *= (0.85 + 0.15 * stratification);
-
-    // 9. Final contrast adjustment for more dramatic clouds
-    finalNoise = smoothstep(0.1, 0.9, finalNoise);
-
-    // Clamp to valid range
-    finalNoise = clamp(finalNoise, 0.0, 1.0);
-
-    imageStore(volume_texture, gid, vec4(finalNoise));
-}
-
-#endif

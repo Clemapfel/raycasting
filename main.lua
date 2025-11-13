@@ -14,19 +14,17 @@ local function _init()
     canvas = rt.RenderTexture3D(w, h)
     canvas:set_fov(0.4)
 
-    local r = 110
-    local cloud_w, cloud_h = r * 2, r * 2
-    cloud_center_z = math.max(cloud_w, cloud_h)
+
+    cloud_center_z = 220
     require "common.clouds"
     clouds = rt.Clouds(
         0, 0,
         cloud_center_z,
         w,
         h,
-        20
+        w
     )
     clouds:realize()
-
 
     view_transform = rt.Transform():look_at(
         0,  0,  0, -- eye xyz
@@ -74,7 +72,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -88,7 +86,7 @@ love.load = function(args)
     require "overworld.result_screen_scene"
     --present()
 
-    _init()
+    --_init()
 end
 
 local elapsed = 0
@@ -97,11 +95,13 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
+    --[[
     clouds:update(delta)
 
     elapsed = elapsed + delta
 
     local x, y, z, w = table.unpack(rotation)
+
     local delta_angle = 2 * math.pi * delta * 0.05
     rotation = { math.quaternion.multiply(
         x, y, z, w,
@@ -117,7 +117,8 @@ love.update = function(delta)
     local x, y, z, w = table.unpack(rotation)
     local offset_x, offset_y, offset_z = math.quaternion.inverse_apply(x, y, z, w, offset, 0, 0)
     --clouds:set_offset(offset_x, offset_y, offset_z, 0) --elapsed / 10)
-    clouds:set_offset(0, 0, 0, elapsed / 10)
+    --clouds:set_offset(0, 0, 0, elapsed / 10)
+    ]]--
 end
 
 love.draw = function()
@@ -126,6 +127,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
+    --[[
     canvas:bind()
     love.graphics.clear()
 
@@ -145,6 +147,7 @@ love.draw = function()
 
     love.graphics.setColor(1, 1, 1, 1)
     canvas:draw()
+    ]]--
 end
 
 love.resize = function(width, height)
