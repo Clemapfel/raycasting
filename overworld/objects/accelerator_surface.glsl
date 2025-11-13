@@ -88,7 +88,6 @@ float hash13(vec3 p) {
     return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
-
 float height_pattern(vec3 uv, out vec3 gradient, out float cell_id)
 {
     gradient = vec3(0.0);
@@ -230,7 +229,6 @@ float max_hue = hue + 0.5;
 
 uniform vec2 player_position; // world position
 uniform float player_hue;
-
 
 #if MODE == MODE_BODY
 

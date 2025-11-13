@@ -19,10 +19,25 @@ ow.BoostField = meta.class("BoostField")
 --- @field axis_y Number! in [-1, 1]
 ow.BoostFieldAxis = meta.class("BoostFieldAxis") -- dummy
 
-local _shader = rt.Shader("overworld/objects/boost_field.glsl")
+local _shader
+do
+    local defines = {}
+    if love.graphics.getSupported().shaderderivatives then
+        defines.SHADER_DERIVATIVES_AVAILABLE = 1
+    end
+    _shader = rt.Shader("overworld/objects/boost_field.glsl", defines)
+end
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
+
+    self._input = rt.InputSubscriber() -- TODO
+    self._input:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            _shader:recompile()
+        end
+    end)
+
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
@@ -129,9 +144,8 @@ function ow.BoostField:draw()
     _shader:bind()
     _shader:send("player_position", { px, py })
     _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+    _shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
     _shader:send("player_influence", self._player_influence_motion:get_value())
-    _shader:send("camera_offset", { camera:get_offset() })
-    _shader:send("camera_scale", camera:get_final_scale())
     _shader:send("axis", { self._axis_x, self._axis_y })
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     love.graphics.draw(self._mesh:get_native())

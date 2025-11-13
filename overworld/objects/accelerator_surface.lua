@@ -260,7 +260,6 @@ function ow.AcceleratorSurface:draw()
 
     local camera_bounds = camera:get_world_bounds()
 
-
     _body_shader:bind()
     _body_shader:send("screen_to_world_transform", transform)
     _body_shader:send("elapsed", rt.SceneManager:get_elapsed())
