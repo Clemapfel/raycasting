@@ -79,6 +79,15 @@ function rt.InputManager:is_controller_button_down(button)
     end
 end
 
+--- @brief
+function rt.InputManager:get_is_down(action)
+    if self._input_method == rt.InputMethod.KEYBOARD then
+        return self:is_keyboard_key_down(rt.GameState:get_input_mapping(action, rt.InputMethod.KEYBOARD))
+    else
+        return self:is_controller_button_down(rt.GameState:get_input_mapping(action, rt.InputMethod.CONTROLLER))
+    end
+end
+
 rt.InputManager = rt.InputManager() -- static singleton instance
 
 --- ### set love callbacks

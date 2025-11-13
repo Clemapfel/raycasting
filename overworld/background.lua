@@ -378,10 +378,6 @@ function ow.Background:draw()
         end
         _particle_shader_bloom:unbind()
 
-
-
-
-
         --[[
         local front_wall_transform = rt.Transform()
         front_wall_transform:apply(self._scale_transform)
@@ -1126,7 +1122,7 @@ function ow.Background:_init_cuboid_particle()
         return string.format("%d %d %d", px, py, pz)
     end
 
-    function add_vertex(x, y, z, u, v)
+    local function add_vertex(x, y, z, u, v)
         local key = get_vertex_key(x, y, z)
         if vertex_cache[key] then
             return vertex_cache[key]
@@ -1138,7 +1134,7 @@ function ow.Background:_init_cuboid_particle()
         return vertex_count
     end
 
-    function add_quad(v1, v2, v3, v4)
+    local function add_quad(v1, v2, v3, v4)
         -- Add two triangles for a quad (v1-v2-v3-v4 in CCW order)
         table.insert(indices, v1)
         table.insert(indices, v2)
@@ -1148,7 +1144,7 @@ function ow.Background:_init_cuboid_particle()
         table.insert(indices, v4)
     end
 
-    function add_frame_strip(o1, o2, i1, i2)
+    local function add_frame_strip(o1, o2, i1, i2)
         add_quad(o1, o2, i2, i1)
     end
 

@@ -144,7 +144,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
         local cell_size = settings.cell_size
         local seed_hash = {}
 
-        function add_to_spatial_hash(x, y)
+        local function add_to_spatial_hash(x, y)
             local cells_x = math.ceil((max_x - min_x) / cell_size)
             local cells_y = math.ceil((max_y - min_y) / cell_size)
 

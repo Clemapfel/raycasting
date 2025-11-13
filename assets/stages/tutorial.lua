@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1050,
+  nextobjectid = 1062,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -4402,8 +4402,8 @@ return {
           name = "",
           type = "BoostField",
           shape = "polygon",
-          x = -1606.06,
-          y = -318.182,
+          x = 214.453,
+          y = -78.8658,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5360,7 +5360,7 @@ return {
         {
           id = 1038,
           name = "",
-          type = "KillPlane",
+          type = "Hitbox",
           shape = "polygon",
           x = -132.337,
           y = 165.782,
@@ -5374,6 +5374,71 @@ return {
             { x = -123.663, y = -357.782 },
             { x = -123.663, y = 58.218 }
           },
+          properties = {}
+        },
+        {
+          id = 1057,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -56.3747,
+          y = 30.3556,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1058,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = 119.977,
+          y = -141.659,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1059,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -180.688,
+          y = -335.357,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1060,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -474.125,
+          y = -199.48,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1061,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -773.345,
+          y = -112.749,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

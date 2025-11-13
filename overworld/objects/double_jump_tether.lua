@@ -46,7 +46,9 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._was_consumed = false
     self._body:signal_connect("collision_start", function(_)
         local player = self._scene:get_player()
-        if not player:get_is_double_jump_source(self) then
+        if not player:get_is_double_jump_source(self)
+            and self._particle_opacity_motion:get_value() > 0.8 -- cooldown tied to animation
+        then
             player:add_double_jump_source(self)
             player:pulse(self._color)
             self:update(0)

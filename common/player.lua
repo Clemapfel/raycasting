@@ -798,8 +798,27 @@ function rt.Player:update(delta)
     end
     self._is_grounded = is_grounded
 
-    if not self._is_bubble then -- reset tethers when ground
-        if self._bottom_wall then -- TODO better detect when ground or wall is touched
+    -- check if tethers should be cleared
+    if not self._is_bubble then
+        local should_clear = false
+        for tuple in range(
+            { bottom_wall_body, bottom_x, bottom_y },
+            { bottom_left_wall_body, bottom_left_x, bottom_left_y },
+            { bottom_right_wall_body, bottom_right_x, bottom_right_y },
+            { left_wall_body, left_x, left_y },
+            { right_wall_body, right_x, right_y }
+        ) do
+            local body, ray_x, ray_y = table.unpack(tuple)
+            if body ~= nil and body:has_tag("hitbox") then
+                local distance = math.distance(x, y, ray_x, ray_y)
+                if distance < self._radius then
+                    should_clear = true
+                    break
+                end
+            end
+        end
+
+        if should_clear then
             self._double_jump_sources = {}
             self._air_dash_sources = {}
         end
@@ -1246,12 +1265,24 @@ function rt.Player:update(delta)
                     local instance = self._double_jump_sources[#self._double_jump_sources]
                     if instance ~= nil then
                         self:remove_double_jump_source(instance)
+                        local hue
                         if instance.get_color ~= nil then
                             local color = instance:get_color()
                             if meta.isa(color, rt.RGBA) then
                                 self:pulse(color)
                             end
+
+                            hue = select(1, rt.rgba_to_hsva(color:unpack()))
                         end
+
+                        local origin_x, origin_y = self:get_position()
+                        self._particles:spawn(
+                            rt.random.integer(3, 5),
+                            origin_x, origin_y,
+                            hue,
+                            0, 1, -- direction: down
+                            self:get_velocity()
+                        )
                     end
                 end
 
@@ -1390,8 +1421,7 @@ function rt.Player:update(delta)
                     end
                 end
 
-                is_touching_platform =
-                (is_platform[self._top_wall_body] or is_platform[self._top_left_wall_body] or is_platform[self._top_right_wall_body])
+                is_touching_platform = (is_platform[self._top_wall_body] or is_platform[self._top_left_wall_body] or is_platform[self._top_right_wall_body])
                     or is_platform[self._bottom_wall_body]
                     or (math.to_number(is_platform[self._bottom_left_wall_body])
                     + math.to_number(is_platform[self._bottom_wall_body])
@@ -1432,7 +1462,6 @@ function rt.Player:update(delta)
             -- componensate when going up slopes, which would slow down player in stock box2d
             local before_projection_x, before_projection_y = next_velocity_x, next_velocity_y
             if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
-
                 local friction = 0
                 for body in values({
                     self._bottom_left_wall_body,
@@ -1483,7 +1512,6 @@ function rt.Player:update(delta)
                 end
             end
 
-
             self._air_dash_allowed = not (
                 self._right_wall or
                 self._bottom_right_wall or
@@ -1503,28 +1531,6 @@ function rt.Player:update(delta)
                 end
 
                 self._air_dash_elapsed = self._air_dash_elapsed + delta
-
-                -- Instead of fixed intervals, use random intervals with the same average rate
-                local average_step = 10 / 60
-                self._air_dash_particle_spawn_elapsed = self._air_dash_particle_spawn_elapsed + delta
-
-                while self._air_dash_particle_spawn_elapsed > 0 do
-                    local random_interval = -average_step * math.log(math.random())
-                    if self._air_dash_particle_spawn_elapsed >= random_interval then
-                        local origin_x, origin_y = self:get_position()
-                        local velocity_x, velocity_y = math.flip(math.normalize(self:get_velocity()))
-                        self._particles:spawn(
-                            rt.random.integer(1, 2),
-                            origin_x, origin_y,
-                            self:get_hue(),
-                            velocity_x, velocity_y
-                        )
-                        self._air_dash_particle_spawn_elapsed = self._air_dash_particle_spawn_elapsed - random_interval
-                    else
-                        break
-                    end
-                end
-
             else
                 self._is_air_dashing = false
             end
@@ -2871,17 +2877,4 @@ function rt.Player:pulse(color_maybe)
         timestamp = love.timer.getTime(),
         color = color_maybe or rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     })
-end
-
---- @brief
-function rt.Player:emit_particles(n, dx, dy)
-    local origin_x, origin_y = self:get_position()
-    local velocity_x, velocity_y = math.flip(math.normalize(self:get_velocity()))
-    self._particles:spawn(
-        n,
-        origin_x, origin_y,
-        self:get_hue(),
-        dx or velocity_x,
-        dy or velocity_y
-    )
 end
