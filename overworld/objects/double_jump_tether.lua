@@ -214,6 +214,11 @@ function ow.DoubleJumpTether:get_color()
 end
 
 --- @brief
+function ow.DoubleJumpTether:get_position()
+    return self._body:get_position()
+end
+
+--- @brief
 function ow.DoubleJumpTether:reset()
     local player = self._scene:get_player()
     if player:get_is_double_jump_source(self) then

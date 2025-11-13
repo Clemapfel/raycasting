@@ -115,6 +115,8 @@ do
         pulse_duration = 0.6, -- seconds
         pulse_radius_factor = 2, -- factor
 
+        double_jump_source_particle_density = 0.75, -- fraction
+
         --debug_drawing_enabled = true,
     }
 end
@@ -819,6 +821,32 @@ function rt.Player:update(delta)
         end
 
         if should_clear then
+
+            for instance in values(self._double_jump_sources) do
+                if instance.get_position ~= nil then
+                    local color
+                    if instance.get_color ~= nil then
+                        local instance_color = instance:get_color()
+                        if meta.isa(instance_color, rt.RGBA) then
+                            color = instance_color
+                        end
+                    end
+
+                    if color == nil then color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1)) end
+
+                    local ax, ay = self:get_position()
+                    local bx, by = instance:get_position()
+
+                    if meta.is_number(bx) and meta.is_number(by) then
+                        self._particles:emit(
+                            _settings.double_jump_source_particle_density * math.distance(ax, ay, bx, by),
+                            ax, ay, bx, by,
+                            color:unpack()
+                        )
+                    end
+                end
+            end
+
             self._double_jump_sources = {}
             self._air_dash_sources = {}
         end
@@ -1265,24 +1293,27 @@ function rt.Player:update(delta)
                     local instance = self._double_jump_sources[#self._double_jump_sources]
                     if instance ~= nil then
                         self:remove_double_jump_source(instance)
-                        local hue
+                        local color
                         if instance.get_color ~= nil then
-                            local color = instance:get_color()
+                            color = instance:get_color()
                             if meta.isa(color, rt.RGBA) then
                                 self:pulse(color)
                             end
-
-                            hue = select(1, rt.rgba_to_hsva(color:unpack()))
+                        else
+                            color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1))
                         end
 
-                        local origin_x, origin_y = self:get_position()
-                        self._particles:spawn(
-                            rt.random.integer(3, 5),
-                            origin_x, origin_y,
-                            hue,
-                            0, 1, -- direction: down
-                            self:get_velocity()
-                        )
+                        if instance.get_position ~= nil then
+                            local ax, ay = self:get_position()
+                            local bx, by = instance:get_position()
+                            if meta.is_number(bx) and meta.is_number(by) then
+                                self._particles:emit(
+                                    _settings.double_jump_source_particle_density * math.distance(ax, ay, bx, by),
+                                    ax, ay, bx, by,
+                                    color:unpack()
+                                )
+                            end
+                        end
                     end
                 end
 
