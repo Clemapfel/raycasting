@@ -24,30 +24,20 @@ in vec4 varying_color;
 in vec4 varying_frag_position;
 
 uniform sampler3D volume_texture;
-
-uniform vec3 camera_position;
-uniform mat4x4 view_transform_inverse;
+uniform vec3 ray_direction;
 
 out vec4 frag_color;
 
 void pixelmain() {
-
-    /*
-    frag_color = varying_color * texture(volume_texture, varying_texture_coords).r;
-    return;
-    */
-
     const int max_n_steps = 64;
     const float min_step_size = 0.01;
     const float max_step_size = 0.04;
 
     vec3 ray_pos = varying_texture_coords;
-    vec3 cam_pos_tex = (view_transform_inverse * vec4(camera_position, 1.0)).xyz;
-    vec3 ray_dir = normalize(varying_frag_position.xyz - cam_pos_tex);
+    vec3 ray_dir = ray_direction;
 
     // Light in world space, transformed to texture space
-    vec3 light_dir_world = normalize(vec3(0, 1.0, 0));
-    vec3 light_dir = normalize((view_transform_inverse * vec4(light_dir_world, 0.0)).xyz);
+    vec3 light_dir = normalize(vec3(0, 1.0, 0));
 
     float transmittance = 1.0;
     vec3 accumulated_light = vec3(0.0);

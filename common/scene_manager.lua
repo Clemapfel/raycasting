@@ -598,13 +598,6 @@ function love.errorhandler(msg)
         end
     end
 
-    -- write to log folder
-    if love.filesystem.getDirectory(_log_prefix) then
-        pcall(love.filesystem.createDirectory, _log_prefix)
-    end
-
-    love.filesystem.write("")
-
     return function()
         love.event.pump(0.1)
 

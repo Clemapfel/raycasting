@@ -6,7 +6,9 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-local canvas, clouds, rotation, cloud_center_z, view_transform
+local canvas, clouds, rotation, cloud_center_z, view_transform, draw_mesh
+local slice_i = 1
+local first = true
 local function _init()
     local w, h = love.graphics.getDimensions()
     local x, y = 0, 0
@@ -14,15 +16,12 @@ local function _init()
     canvas = rt.RenderTexture3D(w, h)
     canvas:set_fov(0.4)
 
-
-    cloud_center_z = 220
     require "common.clouds"
     clouds = rt.Clouds(
-        0, 0,
-        cloud_center_z,
-        w,
-        h,
-        w
+        4, -- n_slices
+        256,
+        256,
+        16 -- depth
     )
     clouds:realize()
 
@@ -35,6 +34,34 @@ local function _init()
 
     require "common.quaternion"
     rotation = { math.quaternion.from_axis_angle(0, 1, 0, 0) }
+
+    cloud_center_z = 220
+    draw_mesh = rt.MeshRectangle3D(
+        0, 0, cloud_center_z,
+        w / 2, h / 2,
+        0, 0, -1
+    )
+    draw_mesh:set_texture(clouds:get_texture(slice_i))
+
+    if first then
+        DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+            local update_texture = false
+
+            if which == "right" and slice_i < clouds:get_n_slices() then
+                slice_i = slice_i + 1
+                update_texture = true
+            elseif which == "left" and slice_i > 1 then
+                slice_i = slice_i - 1
+                update_texture = true
+            end
+
+            if update_texture then
+                draw_mesh:set_texture(clouds:get_texture(slice_i))
+                dbg(slice_i)
+            end
+        end)
+        first = false
+    end
 end
 
 love.load = function(args)
@@ -72,7 +99,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -86,7 +113,7 @@ love.load = function(args)
     require "overworld.result_screen_scene"
     --present()
 
-    --_init()
+    _init()
 end
 
 local elapsed = 0
@@ -95,30 +122,8 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    --[[
-    clouds:update(delta)
-
     elapsed = elapsed + delta
-
-    local x, y, z, w = table.unpack(rotation)
-
-    local delta_angle = 2 * math.pi * delta * 0.05
-    rotation = { math.quaternion.multiply(
-        x, y, z, w,
-        math.quaternion.from_axis_angle(
-            0,
-            1,
-            0.5,
-            delta_angle
-        )
-    )}
-
-    local offset = elapsed * 0.2
-    local x, y, z, w = table.unpack(rotation)
-    local offset_x, offset_y, offset_z = math.quaternion.inverse_apply(x, y, z, w, offset, 0, 0)
-    --clouds:set_offset(offset_x, offset_y, offset_z, 0) --elapsed / 10)
-    --clouds:set_offset(0, 0, 0, elapsed / 10)
-    ]]--
+    clouds:set_offset(0, 0, 0, elapsed / 10)
 end
 
 love.draw = function()
@@ -127,7 +132,6 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    --[[
     canvas:bind()
     love.graphics.clear()
 
@@ -137,17 +141,11 @@ love.draw = function()
         :translate(0, 0, -cloud_center_z)
 
     canvas:set_model_transform(transform)
-
-    clouds:draw(
-        { 0, 0, 0 },
-        transform:inverse()
-    )
-
+    draw_mesh:draw()
     canvas:unbind()
 
     love.graphics.setColor(1, 1, 1, 1)
     canvas:draw()
-    ]]--
 end
 
 love.resize = function(width, height)
