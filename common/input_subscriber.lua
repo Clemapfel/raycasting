@@ -142,3 +142,8 @@ end
 function rt.InputSubscriber:_notify_end_of_frame()
     self._n_inactive_frames = self._n_inactive_frames - 1
 end
+
+
+if DEBUG then
+    DEBUG_INPUT = rt.InputSubscriber()
+end
