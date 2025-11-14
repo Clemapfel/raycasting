@@ -66,7 +66,7 @@ function rt.Mesh:instantiate(data, draw_mode, format, usage)
     })
 end
 
---- @class rt.VertexRectangle
+--- @class rt.MeshRectangle
 rt.MeshRectangle = function(x, y, width, height)
     if x == nil then x = 0 end
     if y == nil then y = 0 end
@@ -95,6 +95,84 @@ rt.MeshRectangle = function(x, y, width, height)
     })
 end
 
+--- @class rt.MeshRectangle3D
+rt.MeshRectangle3D = function(
+    center_x, center_y, center_z,
+    width, height,
+    normal_x, normal_y, normal_z
+)
+    if center_x == nil then center_x = 0 end
+    if center_y == nil then center_y = 0 end
+    if center_z == nil then center_z = 0 end
+    if width == nil then width = 1 end
+    if height == nil then height = 1 end
+    if normal_x == nil then normal_x = 0 end
+    if normal_y == nil then normal_y = 0 end
+    if normal_z == nil then normal_z = 0 end
+
+    local data = {}
+    local function add_vertex(x, y, z, u, v)
+        table.insert(data, {
+            x, y, z, u, v, 1, 1, 1, 1
+        })
+    end
+
+    normal_x, normal_y, normal_z = math.normalize3(normal_x, normal_y, normal_z)
+
+    -- get refence vector
+    local up_x, up_y, up_z
+    if math.abs(normal_y) < 0.9 then
+        up_x, up_y, up_z = 0, -1, 0
+    else
+        up_x, up_y, up_z = 1, -0, 0
+    end
+
+    local right_x, right_y, right_z = math.cross3(up_x, up_y, up_z, normal_x, normal_y, normal_z)
+    right_x, right_y, right_z = math.normalize3(right_x, right_y, right_z)
+
+    up_x, up_y, up_z = math.cross3(normal_x, normal_y, normal_z, right_x, right_y, right_z)
+    up_x, up_y, up_z = math.normalize3(up_x, up_y, up_z)
+
+    local half_width = width / 2
+    local half_height = height / 2
+
+    local bottom_left_x = center_x - right_x * half_width - up_x * half_height
+    local bottom_left_y = center_y - right_y * half_width - up_y * half_height
+    local bottom_left_z = center_z - right_z * half_width - up_z * half_height
+
+    local bottom_right_x = center_x + right_x * half_width - up_x * half_height
+    local bottom_right_y = center_y + right_y * half_width - up_y * half_height
+    local bottom_right_z = center_z + right_z * half_width - up_z * half_height
+
+    local top_right_x = center_x + right_x * half_width + up_x * half_height
+    local top_right_y = center_y + right_y * half_width + up_y * half_height
+    local top_right_z = center_z + right_z * half_width + up_z * half_height
+
+    local top_left_x = center_x - right_x * half_width + up_x * half_height
+    local top_left_y = center_y - right_y * half_width + up_y * half_height
+    local top_left_z = center_z - right_z * half_width + up_z * half_height
+
+    add_vertex(bottom_left_x, bottom_left_y, bottom_left_z, 0, 1)
+    add_vertex(bottom_right_x, bottom_right_y, bottom_right_z, 1, 1)
+    add_vertex(top_right_x, top_right_y, top_right_z, 1, 0)
+    add_vertex(top_left_x, top_left_y, top_left_z, 0, 0)
+
+    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
+    out = meta.install(out, {
+        _native = love.graphics.newMesh(
+            rt.VertexFormat3D,
+            data,
+            rt.MeshDrawMode.TRIANGLES,
+            rt.GraphicsBufferUsage.STATIC
+        ),
+        _r = 1,
+        _g = 1,
+        _b = 1,
+        _opacity = 1
+    })
+    out:set_vertex_map({ 1, 2, 3, 1, 3, 4 })
+    return out
+end
 
 --- @class rt.VertexCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
