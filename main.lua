@@ -19,8 +19,8 @@ local function _init()
     require "common.clouds"
     clouds = rt.Clouds(
         4, -- n_slices
-        256,
-        256,
+        64,
+        64,
         16 -- depth
     )
     clouds:realize()
@@ -123,7 +123,7 @@ love.update = function(delta)
     end
 
     elapsed = elapsed + delta
-    --clouds:set_offset(0, 0, 0, elapsed / 10)
+    clouds:set_offset(0, 0, 0, elapsed / 10)
 end
 
 love.draw = function()
