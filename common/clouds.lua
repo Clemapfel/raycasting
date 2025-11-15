@@ -167,6 +167,7 @@ function rt.Clouds:_update_volume_texture()
     })
     _fill_volume_texture_shader:send("time_offset", self._noise_offset_time)
     _fill_volume_texture_shader:send("volume_texture", self._volume_texture:get_native())
+    _fill_volume_texture_shader:send("export_textures", table.unpack(self._export_textures))
 
     local settings = rt.settings.clouds
     local size_x, size_y, size_z = self._volume_texture:get_size()
@@ -216,7 +217,7 @@ end
 --- @brief
 function rt.Clouds:_init_slices()
     self._slices = {}
-    self._export_textures = meta.make_weak({})
+    self._export_textures = {}
     for slice_i = 1, self._n_slices do
         local entry = {
             canvas = rt.RenderTexture(
@@ -244,6 +245,16 @@ function rt.Clouds:_init_slices()
         table.insert(self._export_textures, entry.canvas:get_native())
     end
 
+    self._export_texture = love.graphics.newArrayImage(
+        self._resolution_x,
+        self._resolution_y,
+        self._n_slices, {
+            msaa = 0,
+            format = rt.settings.clouds.export_texture_format,
+            computewrite = true,
+            mipmaps = false
+        }
+    )
 end
 
 --- @brief

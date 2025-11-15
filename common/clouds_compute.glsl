@@ -190,11 +190,23 @@ float continuous_step(float x, int n_steps, float smoothness) {
 #error "VOLUME_TEXTURE_FORMAT undefined"
 #endif
 
+
+
 #if MODE == MODE_FILL
 
 layout(VOLUME_TEXTURE_FORMAT) uniform writeonly image3D volume_texture;
 uniform vec3 noise_offset;
 uniform float time_offset;
+
+#ifndef EXPORT_TEXTURE_FORMAT
+#define EXPORT_TEXTURE_FORMAT rgba8
+#endif
+
+#ifndef MAX_N_EXPORT_TEXTURES
+#define MAX_N_EXPORT_TEXTURES 8
+#endif
+
+layout(EXPORT_TEXTURE_FORMAT) uniform image2D export_textures[MAX_N_EXPORT_TEXTURES];
 
 #elif MODE == MODE_RAYMARCH
 
@@ -206,7 +218,8 @@ uniform float time_offset;
 #error "MAX_N_EXPORT_TEXTURES undefined"
 #endif
 
-layout(VOLUME_TEXTURE_FORMAT) uniform readonly image3D volume_texture;
+
+layout(VOLUME_TEXTURE_FORMAT) uniform image3D volume_texture;
 layout(EXPORT_TEXTURE_FORMAT) uniform image2D export_textures[MAX_N_EXPORT_TEXTURES];
 uniform int n_export_textures;
 
@@ -246,6 +259,9 @@ void computemain() {
     noise = 1 - (noise + 1) / 2;
 
     imageStore(volume_texture, gid, vec4(noise, 0, 0, 0));
+
+    for (int i = 0; i < MAX_N_EXPORT_TEXTURES; ++i)
+        imageStore(export_textures[i], gid.xy, vec4(0));
 
     #elif MODE == MODE_RAYMARCH
 

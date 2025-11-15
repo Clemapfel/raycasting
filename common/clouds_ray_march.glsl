@@ -1,3 +1,4 @@
+#pragma glsl4
 #ifdef VERTEX
 
 layout (location = 0) in vec3 position;
@@ -25,6 +26,8 @@ in vec4 varying_frag_position;
 
 uniform sampler3D volume_texture;
 uniform vec3 ray_direction;
+
+uniform sampler2D export_textures[8];
 
 out vec4 frag_color;
 
@@ -118,6 +121,9 @@ void pixelmain() {
     }
 
     vec3 final_color = accumulated_light;
+
+        final_color.rgb += texture(export_textures[7], varying_texture_coords.xy).rgb;
+
     frag_color = vec4(final_color, 1.0 - transmittance);
 }
 

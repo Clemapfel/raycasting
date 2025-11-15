@@ -25,12 +25,11 @@ end
 --- @brief set uniform
 --- @param name String
 --- @param value
-function rt.ComputeShader:send(name, value)
+function rt.ComputeShader:send(name, value, ...)
     rt.assert(value ~= nil, "uniform " .. name .. " is nil")
-    if meta.isa(value, rt.GraphicsBuffer) or meta.isa(value, rt.Texture) then value = value._native end
 
     if self._native:hasUniform(name) then
-        self._native:send(name, value)
+        self._native:send(name, value, ...)
     else
         rt.critical("In rt.ComputeShader: shader at `", self._filename, "` does not have uniform `" .. name .. "`")
     end
@@ -49,6 +48,11 @@ end
 --- @brief
 function rt.ComputeShader:dispatch(x, y, z)
     love.graphics.dispatchThreadgroups(self._native, x, y, z)
+end
+
+--- @brief
+function rt.ComputeShader:get_native()
+    return self._native
 end
 
 --- @brief

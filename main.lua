@@ -123,7 +123,7 @@ love.update = function(delta)
     end
 
     elapsed = elapsed + delta
-    clouds:set_offset(0, 0, 0, elapsed / 10)
+    --clouds:set_offset(0, 0, 0, elapsed / 10)
 end
 
 love.draw = function()
