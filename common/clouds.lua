@@ -5,12 +5,18 @@ require "common.compute_shader"
 
 rt.settings.clouds = {
     volume_texture_format = rt.TextureFormat.R32F,
-    export_texture_format = rt.TextureFormat.RGBA8,
+    export_texture_format = rt.TextureFormat.R8,
     volume_texture_anisotropy = 1,
     max_n_slices = 8,
     work_group_size_x = 8,
     work_group_size_y = 8,
-    work_group_size_z = 4
+    work_group_size_z = 4,
+
+    n_density_steps = 64,
+    density_step_size = 0.01, -- in uv space
+    n_shadow_steps = 64,
+    shadow_step_size = 0.01
+
 }
 
 --- @class rt.Clouds
@@ -154,7 +160,7 @@ function rt.Clouds:_init_volume_texture()
     )
 
     self._volume_texture:set_wrap_mode(
-        rt.TextureWrapMode.MIRROR
+        rt.TextureWrapMode.ZERO
     )
 end
 
@@ -167,7 +173,6 @@ function rt.Clouds:_update_volume_texture()
     })
     _fill_volume_texture_shader:send("time_offset", self._noise_offset_time)
     _fill_volume_texture_shader:send("volume_texture", self._volume_texture:get_native())
-    _fill_volume_texture_shader:send("export_textures", table.unpack(self._export_textures))
 
     local settings = rt.settings.clouds
     local size_x, size_y, size_z = self._volume_texture:get_size()
@@ -252,17 +257,23 @@ function rt.Clouds:_init_slices()
             msaa = 0,
             format = rt.settings.clouds.export_texture_format,
             computewrite = true,
-            mipmaps = false
+            mipmaps = false,
+            canvas = true
         }
     )
 end
 
 --- @brief
 function rt.Clouds:_update_slice_textures()
+    local settings = rt.settings.clouds
     _raymarch_shader:send("volume_texture", self._volume_texture:get_native())
     _raymarch_shader:send("export_textures", table.unpack(self._export_textures))
     _raymarch_shader:send("n_export_textures", #self._export_textures)
     _raymarch_shader:send("ray_direction", { 0, 0, 1 }) -- ray offset is 3d texture coords
+    _raymarch_shader:send("n_density_steps", settings.n_density_steps)
+    _raymarch_shader:send("density_step_size", settings.density_step_size)
+    _raymarch_shader:send("n_shadow_steps", settings.n_shadow_steps)
+    _raymarch_shader:send("shadow_step_size", settings.shadow_step_size)
 
     local settings = rt.settings.clouds
     local size_x, size_y, size_z = self._volume_texture:get_size()

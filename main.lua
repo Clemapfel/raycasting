@@ -21,7 +21,7 @@ local function _init()
         4, -- n_slices
         64,
         64,
-        16 -- depth
+        32 -- depth
     )
     clouds:realize()
 
