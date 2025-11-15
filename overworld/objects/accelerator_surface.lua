@@ -6,7 +6,7 @@ rt.settings.overworld.accelerator_surface = {
         min_lifetime = 0.5,
         max_lifetime = 1.5,
         attack = 0.05,
-        sustain = 0.4,
+        decay = 1 - 0.05 - 0.4,
         min_scale = 0.1,
         max_scale = 0.4,
         deceleration = 0.985
@@ -293,7 +293,7 @@ function ow.AcceleratorSurface:draw()
             rt.InterpolationFunctions.ENVELOPE(
                 particle[_elapsed] / particle[_lifetime],
                 rt.settings.overworld.accelerator_surface.particle.attack,
-                rt.settings.overworld.accelerator_surface.particle.sustain
+                rt.settings.overworld.accelerator_surface.particle.decay
             )
         )
 

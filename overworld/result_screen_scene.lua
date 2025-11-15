@@ -108,10 +108,11 @@ function ow.ResultScreenScene:instantiate(state)
 
     local scale_duration = 1
     local easing = rt.InterpolationFunctions.ENVELOPE
+    local attack, decay = 0.05, 0.05
     local max_scale = 2
-    self._flow_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, 0.05)
-    self._time_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, 0.05)
-    self._coins_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, 0.05)
+    self._flow_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, attack, decay)
+    self._time_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, attack, decay)
+    self._coins_grade_label_scale_animation = rt.TimedAnimation(scale_duration, 1, max_scale, easing, attack, decay)
 
     for to_skip in range(
         self._flow_grade_label_scale_animation,

@@ -431,8 +431,9 @@ function ow.Portal:update(delta)
     self._pulse_elapsed = self._pulse_elapsed + delta
     local pulse_duration = rt.settings.overworld.portal.pulse_duration
     self._pulse_value = rt.InterpolationFunctions.ENVELOPE(
-        math.min(self._pulse_elapsed / pulse_duration),
-        pulse_duration * 0.05
+        self._pulse_elapsed / pulse_duration,
+        0.05, -- attack
+        0.05  -- decay
     )
 
     local ax, ay, bx, by = table.unpack(self._particle_axis)

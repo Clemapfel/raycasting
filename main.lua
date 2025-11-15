@@ -113,7 +113,7 @@ love.load = function(args)
     require "overworld.result_screen_scene"
     --present()
 
-    _init()
+    --_init()
 end
 
 local elapsed = 0
@@ -122,8 +122,10 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
+    --[[
     elapsed = elapsed + delta
     clouds:set_offset(0, 0, 0, elapsed / 10)
+    ]]--
 end
 
 love.draw = function()
@@ -132,6 +134,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
+    --[[
     canvas:bind()
     love.graphics.clear()
 
@@ -146,6 +149,7 @@ love.draw = function()
 
     love.graphics.setColor(1, 1, 1, 1)
     canvas:draw()
+    ]]--
 end
 
 love.resize = function(width, height)
@@ -153,5 +157,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize(width, height)
     end
 
-    _init()
+    --_init()
 end

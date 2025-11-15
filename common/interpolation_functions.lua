@@ -175,7 +175,7 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         -- https://www.desmos.com/calculator/zxo1os3qen
         if x >= 1 then return 0 elseif x <= 0 then return 0 end
         if shelf_width == nil then shelf_width = 0.5 end
-        shelf_width = clamp(shelf_width, 0, 1)
+        shelf_width = math.clamp(shelf_width, 0, 1)
         if order == nil then order = 6 end
         if order % 2 ~= 0 then order = order + 1 end
         return 1 - math.tanh(math.pow(2 * ((x - 0.5) / shelf_width), order))
@@ -275,31 +275,31 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         return 1 - (2 * (x - 0.5))^2
     end,
 
-    ENVELOPE = function(x, attack_fraction, sustain_fraction)
+    ENVELOPE = function(x, attack_fraction, decay_fraction)
         -- piecewise gaussian with optional sustain, peak at 1
         if attack_fraction == nil then attack_fraction = 0.5 end
-        if sustain_fraction == nil then sustain_fraction = 0 end
+        if decay_fraction == nil then decay_fraction = attack_fraction end
         if x < 0 or x > 1 then return 0 end
 
-        local total_non_decay = attack_fraction + sustain_fraction
-        if total_non_decay > 1 then
-            local scale = 1 / total_non_decay
+        local total_attack_decay = attack_fraction + decay_fraction
+        if total_attack_decay > 1 then
+            local scale = 1 / total_attack_decay
             attack_fraction = attack_fraction * scale
-            sustain_fraction = sustain_fraction * scale
+            decay_fraction = decay_fraction * scale
         end
 
         local function gaussian(x, center)
             return math.exp(-4.4 * math.pi / 3 * ((x - center)^2))
         end
 
-        local decay_start = attack_fraction + sustain_fraction
+        local decay_start = 1 - decay_fraction
 
         if x < attack_fraction then -- attack
             return gaussian(x / attack_fraction, 1)
         elseif x < decay_start then -- sustain
             return 1
         else -- decay
-            return gaussian((x - decay_start) / (1 - decay_start), 0)
+            return gaussian((x - decay_start) / decay_fraction, 0)
         end
     end
 })

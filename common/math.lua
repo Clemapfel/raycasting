@@ -570,7 +570,7 @@ function math.dot(...)
     end
 end
 
---- @brief Cross product of two 2D (scalar) or 3D (vector) vectors.
+--- @brief
 function math.cross(...)
     if select("#", ...) == 4 then
         return math.cross2(...)
@@ -579,7 +579,7 @@ function math.cross(...)
     end
 end
 
---- @brief Get the distance between two 2D or 3D points.
+--- @brief
 function math.distance(...)
     if select("#", ...) == 4 then
         return math.distance2(...)
@@ -598,7 +598,7 @@ function math.add(...)
     elseif n == 8 then
         return math.add4(...)
     else
-        rt.error("In math.add: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
+        rt.error("In math.add: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
     end
 end
 
@@ -612,7 +612,7 @@ function math.subtract(...)
     elseif n == 8 then
         return math.subtract4(...)
     else
-        rt.error("In math.subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
+        rt.error("In math.subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
     end
 end
 
@@ -626,7 +626,7 @@ function math.reverse_subtract(...)
     elseif n == 8 then
         return math.reverse_subtract4(...)
     else
-        rt.error("In math.reverse_subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
+        rt.error("In math.reverse_subtract: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
     end
 end
 
@@ -640,7 +640,7 @@ function math.multiply(...)
     elseif n == 8 then
         return math.multiply4(...)
     else
-        rt.error("In math.multiply: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
+        rt.error("In math.multiply: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
     end
 end
 
@@ -654,7 +654,7 @@ function math.divide(...)
     elseif n == 8 then
         return math.divide4(...)
     else
-        rt.error("In math.divide: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...))
+        rt.error("In math.divide: wrong number of arguments, expected 4, 6, or 8, got `", select("#", ...), "`")
     end
 end
 
@@ -680,19 +680,32 @@ function math.turn_right(x, y)
 end
 
 --- @brief
-function math.flip(x, y)
+function math.flip2(x, y)
     return -x, -y
 end
-
-math.flip2 = math.flip
 
 --- @brief
 function math.flip3(x, y, z)
     return -x, -y, -z
 end
 
+--- @brief
 function math.flip4(x, y, z, w)
     return -x, -y, -z, -w
+end
+
+--- @brief
+function math.flip(...)
+    local n = select("#", ...)
+    if n == 2 then
+        return math.flip2(...)
+    elseif n == 3 then
+        return math.flip3(...)
+    elseif n == 4 then
+        return math.flip4(...)
+    else
+        rt.error("In math.flip: wrong number of arguments, expected 2, 3, or 4, got `", n, "`")
+    end
 end
 
 function math.gaussian(x, ramp)

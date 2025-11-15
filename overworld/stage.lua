@@ -455,7 +455,7 @@ function ow.Stage:update(delta)
         local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
         local bottom_right_x, bottom_right_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
 
-        local padding = 4 * rt.settings.player.radius
+        local padding = 8 * rt.settings.player.radius
         top_left_x, top_left_y = math.subtract(top_left_x, top_left_y, padding, padding)
         bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
 
