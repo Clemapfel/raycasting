@@ -16,7 +16,8 @@ function ow.BloodSplatter:instantiate(scene)
         _world = nil,
         _bloom_factor = 0,
         _offset_x = 0,
-        _offset_y = 0
+        _offset_y = 0,
+        _impulse = rt.ImpulseSubscriber()
     })
 end
 
@@ -127,13 +128,14 @@ function ow.BloodSplatter:draw()
     love.graphics.translate(self._offset_x, self._offset_y)
 
     local t = self._bloom_factor -- experimentally determined to compensate best
+    local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
     for division in keys(self._active_divisions) do
         if visible[division.shape] == true then
             local r, g, b, a = table.unpack(division.color)
             love.graphics.setColor(
-                r - t,
-                g - t,
-                b - t,
+                (r - t) * brightness_offset,
+                (g - t) * brightness_offset,
+                (b - t) * brightness_offset,
                 a
             )
             love.graphics.line(division.line)

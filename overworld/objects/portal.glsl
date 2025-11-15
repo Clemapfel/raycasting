@@ -33,6 +33,7 @@ float gaussian(float x, float ramp)
 
 uniform float pulse;
 uniform float elapsed;
+uniform float brightness_scale; // already scale
 
 vec4 effect(vec4 vertex_color, Image img, vec2 texture_coords, vec2 frag_position) {
 
@@ -47,7 +48,8 @@ vec4 effect(vec4 vertex_color, Image img, vec2 texture_coords, vec2 frag_positio
         vertex_color,
         vec4(1),
         x * y * (pulse + 0.4))
-    * vec4(1, 1, 1, 2 * max(pulse, 0.5) * x * y);
+    * vec4(1, 1, 1, 2 * max(pulse, 0.5) * x * y)
+    * vec4(vec3(brightness_scale), 1);
 }
 
 #endif // PIXEL

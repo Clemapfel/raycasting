@@ -54,11 +54,7 @@ uniform float hue;
 uniform vec3 black;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
-
     vec2 pixel_size = vec2(2.0 / textureSize(img, 0));
-
-    float threshold = 1 - 0.5; // metaball threshold
-    float smoothness = 0.3; // smoothness factor for blending
 
     float outline_thickness = 0.5;
     vec2 offset = pixel_size * outline_thickness;
@@ -80,7 +76,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
     float magnitude = smoothstep(0.9, 1, length(vec2(gradient_x, gradient_y)));
-    float alpha = mm; // center pixel alpha (already processed with smoothstep)
+    float alpha = mm;
 
     float noise = 0.1 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
     vec3 final_color = lch_to_rgb(vec3(0.8, 1, hue + noise)) - magnitude * 0.2;

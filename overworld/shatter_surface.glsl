@@ -120,6 +120,7 @@ uniform float elapsed;
 uniform float fraction; // 0: start, 1: end;
 uniform bool draw_bloom = true;
 uniform float flash;
+uniform float brightness_scale;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
 
@@ -131,7 +132,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     float pattern_outline = checkerboard((5 * texture_coords) + mix(0.05, 0.6, fraction) * vec2(noise));
 
     float threshold_eps = draw_bloom ? 0.08 : 0.04;
-    const float threshold_a = 0.49;
+    float threshold_a = 0.49;
     float threshold_b = 0.5 + 0.5 * threshold_eps + 0.02 * (draw_bloom ? 1 : 1);
     pattern_outline = smoothstep(threshold_a - threshold_eps, threshold_a + threshold_eps, pattern_outline) -
         smoothstep(threshold_b - threshold_eps, threshold_b + threshold_eps, pattern_outline);
@@ -160,7 +161,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
     else
         result = rim + (1 - outline) * vec4(color.rgb * pattern_outline, 1);
 
-    return mix(result, vec4(1), flash);
+    return mix(brightness_scale * result, vec4(1), flash);
 }
 
 #endif

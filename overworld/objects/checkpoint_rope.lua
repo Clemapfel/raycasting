@@ -50,6 +50,7 @@ function ow.CheckpointRope:instantiate(scene, stage, world, x1, y1, x2, y2)
     self._should_despawn = false
     self._is_despawned = false
     self._color = { 1, 1, 1, 1 }
+    self._impulse = rt.ImpulseSubscriber()
 
     self:_init_bodies()
 
@@ -557,6 +558,7 @@ function ow.CheckpointRope:_draw(bloom_active)
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("color", self._color)
     _shader:send("bloom_active", bloom_active)
+    _shader:send("brightness_scale", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     love.graphics.setColor(1, 1, 1, 1)
     if not self._is_cut and self._pre_cut_mesh ~= nil then
         self._pre_cut_mesh:draw()

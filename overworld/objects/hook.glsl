@@ -83,6 +83,7 @@ uniform float elapsed;
 uniform vec4 player_color;
 uniform float hue;
 uniform float fraction;
+uniform float brightness_scale;
 
 vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
 
@@ -90,11 +91,12 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
     const float eps = 0.01;
     float circle = smoothstep(threshold - eps, threshold + eps, (1.0 - distance(uv, vec2(0.5)) * 2.0));
 
-    float open = gaussian(fraction * distance(uv, vec2(0.5)) * 2, 1.5);
+    float open_fraction = min(1, fraction);
+    float open = gaussian(open_fraction * distance(uv, vec2(0.5)) * 2, 1.5);
     const int n = 3;
 
     uv -= vec2(0.5);
-    uv = rotate(uv, 0.75 * (1 - fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) + elapsed);
+    uv = rotate(uv, 0.75 * (1 - open_fraction) * (1.0 - distance(uv, vec2(0.0)) * 2.0 * PI) + elapsed);
     uv += vec2(0.5);
 
     // Calculate normalized angle in [0, 1)
@@ -137,10 +139,13 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
         next_hue = hue_c;
     }
 
-    float blend_width = 0.0; // Controls the width of the blend region (0.0 to 0.5)
+    float blend_width = 0;
+
     float blend_start = 0.5 - blend_width;
-    float blend_end = 0.5 + blend_width;
+    float blend_end   = 0.5 + blend_width;
+
     float local_blend = (blend_factor - blend_start) / blend_width;
+
 
     float shine = (sin(distance(uv, vec2(0.5)) * 20 + elapsed + current_hue * 2 * n) + 1) / 2;
     float l = 0.8;
@@ -158,10 +163,10 @@ vec4 effect(vec4 color, Image img, vec2 uv, vec2 _) {
         col = mix(current_rgb, next_rgb, local_blend);
     }
 
-    float vignette = 1 - smoothstep(0, 1 - 0.8, gaussian(fraction * distance(uv, vec2(0.5)) * 2, 1));
-    col = mix(col, player_color.rgb - vignette, fraction);
+    float vignette = 1 - smoothstep(0, 1 - 0.8, gaussian(open_fraction * distance(uv, vec2(0.5)) * 2, 1));
+    col = mix(col, player_color.rgb - vignette, open_fraction);
 
-    return color * vec4(col, circle);
+    return ((brightness_scale - 1) * 0.5 + 1) * color * vec4(col, circle);
 }
 
 #endif // PIXEL

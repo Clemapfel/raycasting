@@ -77,16 +77,16 @@ function rt.Shader:send(name, value, ...)
     if self._is_disabled then return elseif self._native == nil then self:compile() end
 
     rt.assert(value ~= nil, "In rt.Shader.send: uniform `", name, "` is nil")
-    if meta.typeof(value) == "GraphicsBuffer"
-        or meta.typeof(value) == "Texture"
-        or meta.typeof(value) == "RenderTexture"
-        or meta.typeof(value) == "Transform"
-    then
-        value = value._native
+
+    local args = { value, ... }
+    for i, x in ipairs(args) do
+        if meta.is_table(x) and x.get_native ~= nil then
+            args[i] = x:get_native()
+        end
     end
 
     if self._native:hasUniform(name) then
-        self._native:send(name, value, ...)
+        self._native:send(name, table.unpack(args))
     else
         if self._uniform_to_warning_printed == nil then self._uniform_to_warning_printed = {} end
         if self._uniform_to_warning_printed[name] == true then return end

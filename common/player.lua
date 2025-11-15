@@ -1266,20 +1266,22 @@ function rt.Player:update(delta)
                     self._double_jump_disallowed = true
 
                     -- pop oldest source
-                    local instance = self._double_jump_sources[#self._double_jump_sources]
-                    if instance ~= nil then
-                        self:remove_double_jump_source(instance)
-                        local color
-                        if instance.get_color ~= nil then
-                            color = instance:get_color()
-                            if meta.isa(color, rt.RGBA) then
-                                self:pulse(color)
+                    if self._jump_allowed_override ~= true then
+                        local instance = self._double_jump_sources[#self._double_jump_sources]
+                        if instance ~= nil then
+                            self:remove_double_jump_source(instance)
+                            local color
+                            if instance.get_color ~= nil then
+                                color = instance:get_color()
+                                if meta.isa(color, rt.RGBA) then
+                                    self:pulse(color)
+                                end
+                            else
+                                color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1))
                             end
-                        else
-                            color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1))
-                        end
 
-                        if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
+                            if instance.signal_try_emit ~= nil then instance:signal_try_emit("removed") end
+                        end
                     end
                 end
 
@@ -1314,8 +1316,6 @@ function rt.Player:update(delta)
                         end
 
                         is_jumping = true
-                        self:signal_emit("jump")
-
                     elseif t * self._wall_down_elapsed <= _settings.wall_jump_duration * (self._sprint_multiplier >= _settings.sprint_multiplier and _settings.non_sprint_walljump_duration_multiplier or 1)then
                         -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
                         local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
@@ -2657,6 +2657,8 @@ function rt.Player:jump()
             self._wall_down_elapsed = 0
         end
     end
+
+    self:signal_emit("jump")
 end
 
 --- @brief
@@ -2727,9 +2729,10 @@ function rt.Player:get_is_air_dash_source(instance)
     return false
 end
 
+--- @return Number, Number, Number, Number position_x, position_y, velocity_x, velocity_y
 function rt.Player:get_past_position(distance)
     if self._position_history_path_needs_update == true then
-        self._position_history_path:create_from(self._position_history)
+        self._position_history_path:create_from_and_reparameterize(self._position_history)
         self._position_history_path_needs_update = nil
     end
 
@@ -2742,7 +2745,9 @@ function rt.Player:get_past_position(distance)
         t = distance / length
     end
 
-    return self._position_history_path:at(t)
+    local position_x, position_y = self._position_history_path:at(t)
+    local velocity_x, velocity_y = self._position_history_path:get_tangent(t)
+    return position_x, position_y, velocity_x, velocity_y
 end
 
 --- @brief

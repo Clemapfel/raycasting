@@ -102,8 +102,6 @@ function ow.Stage:instantiate(scene, id)
             self._player_recorder:record()
         elseif which == "t" then
             self._player_recorder:play()
-        elseif which == "j" then
-            self:reset()
         end
     end)
     -- TODO
@@ -346,9 +344,6 @@ function ow.Stage:instantiate(scene, id)
         end
     end
 
-    -- precompile shader
-    rt.Shader:precompile_all()
-
     self._is_initialized = true
     self:signal_emit("initialized")
 
@@ -357,6 +352,9 @@ function ow.Stage:instantiate(scene, id)
         self._is_first_spawn = false
         return meta.DISCONNECT_SIGNAL
     end)
+
+    -- precompile shader
+    rt.Shader:precompile_all()
 end
 
 --- @brief

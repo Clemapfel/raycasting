@@ -5,12 +5,12 @@ require "common.control_indicator"
 require "overworld.stage"
 require "common.camera"
 require "common.player"
-require "overworld.coin_effect"
 require "physics.physics"
 require "menu.pause_menu"
 require "common.bloom"
 require "common.fade"
 require "overworld.stage_title_card"
+require "common.impulse_manager"
 
 do
     local bloom = 0.2
@@ -177,8 +177,10 @@ function ow.OverworldScene:instantiate(state)
         if which == "^" then
             self:unpause()
             self:reset()
-        elseif which == "escape" then
-            love.event.restart()
+        elseif which == "h" then
+            rt.ImpulseManager:beat()
+        elseif which == "j" then
+            rt.ImpulseManager:pulse()
         end
     end)
 

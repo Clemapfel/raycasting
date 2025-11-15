@@ -75,7 +75,8 @@ function ow.Goal:instantiate(object, stage, scene)
 
         _result_screen_revealed = false,
 
-        _particles = ow.CheckpointParticles()
+        _particles = ow.CheckpointParticles(),
+        _impulse = rt.ImpulseSubscriber()
     })
 
     -- animations
@@ -393,6 +394,9 @@ local _label_priority = 1
 
 --- @brief
 function ow.Goal:draw(priority)
+    if not self._is_shatterd and not self._stage:get_is_body_visible(self._body) then return end
+    local brightness_scale = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
+
     if priority == _base_priority then
         love.graphics.setColor(self._color)
         self._shatter_surface:draw()
@@ -401,6 +405,7 @@ function ow.Goal:draw(priority)
             _outline_shader:bind()
             _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
             _outline_shader:send("color", self._color)
+            _outline_shader:send("brightness_scale", brightness_scale)
             _outline_shader:send("bloom_active", false)
             self._outline_mesh:draw()
             _outline_shader:unbind()
@@ -412,6 +417,7 @@ function ow.Goal:draw(priority)
 
             _indicator_shader:bind()
             _indicator_shader:send("elapsed", rt.SceneManager:get_elapsed())
+            _indicator_shader:send("brightness_scale", brightness_scale)
             self._indicator:draw()
             _indicator_shader:unbind()
 

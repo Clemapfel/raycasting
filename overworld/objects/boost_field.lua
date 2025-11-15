@@ -1,4 +1,5 @@
 require "common.smoothed_motion_1d"
+require "common.impulse_manager"
 
 rt.settings.overworld.boost_field = {
     acceleration_duration = 0.2, -- seconds to accelerate player from 0 to max
@@ -30,14 +31,6 @@ end
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
-
-    self._input = rt.InputSubscriber() -- TODO
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            _shader:recompile()
-        end
-    end)
-
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
@@ -88,10 +81,14 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._outline = object:create_contour()
     table.insert(self._outline, self._outline[1])
     table.insert(self._outline, self._outline[2])
+
+    self._impulse = rt.ImpulseSubscriber()
 end
 
 --- @brief
 function ow.BoostField:update(delta)
+    if not self._stage:get_is_body_visible(self._body) then return end
+
     local is_active = self._is_active
     if self._use_exact_testing then
         is_active = self._body:test_point(self._player:get_position())
@@ -145,8 +142,9 @@ function ow.BoostField:draw()
     _shader:send("player_position", { px, py })
     _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
     _shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
-    _shader:send("player_influence", self._player_influence_motion:get_value())
+    _shader:send("player_influence", self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat()))
     _shader:send("axis", { self._axis_x, self._axis_y })
+    _shader:send("brightness_offset", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     love.graphics.draw(self._mesh:get_native())
     _shader:unbind()
@@ -154,13 +152,15 @@ function ow.BoostField:draw()
     love.graphics.setLineJoin("bevel")
     local line_width = rt.settings.overworld.boost_field.line_width
 
+    local offset = math.mix(1, 1.4, self._impulse:get_pulse())
+
     rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(line_width + 2)
+    love.graphics.setLineWidth(line_width * offset + 2)
     love.graphics.line(self._outline)
 
-    rt.Palette.BOOST_OUTLINE:bind()
-    love.graphics.setColor(self._color)
-    love.graphics.setLineWidth(line_width)
+    local r, g, b, a = table.unpack(self._color)
+    love.graphics.setColor(r * offset, g * offset, b * offset, a)
+    love.graphics.setLineWidth(line_width * offset)
     love.graphics.line(self._outline)
 end
 

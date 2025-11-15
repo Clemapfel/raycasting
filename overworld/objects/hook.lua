@@ -32,6 +32,7 @@ function ow.Hook:instantiate(object, stage, scene)
     self._stage = stage
     self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
     self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.hook.hook_animation_duration)
+    self._impulse = rt.ImpulseSubscriber()
 
     self._world = stage:get_physics_world()
     self._body = b2.Body(
@@ -250,23 +251,31 @@ function ow.Hook:draw()
     love.graphics.translate(self._x, self._y)
 
     local value = self._motion:get_value()
-    local r = self._radius
+    local radius = self._radius
+    local brightness_scale = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
 
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("fraction", rt.InterpolationFunctions.SIGMOID(1 - value))
     _shader:send("player_color", { self._color:unpack() })
     _shader:send("hue", self._hue)
+    _shader:send("brightness_scale", brightness_scale)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.rectangle("fill", -r, -r, 2 * r, 2 * r)
+    love.graphics.rectangle("fill", -radius, -radius, 2 * radius, 2 * radius)
     _shader:unbind()
 
     rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width + 2)
+    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.hook.outline_width + 2)
     love.graphics.line(self._outline)
 
-    self._color:bind()
-    love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width)
+    local r, g, b, a = self._color:unpack()
+    love.graphics.setColor(
+        r * brightness_scale,
+        g * brightness_scale,
+        b * brightness_scale,
+        a
+    )
+    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.hook.outline_width)
     love.graphics.line(self._outline)
 
     love.graphics.pop()

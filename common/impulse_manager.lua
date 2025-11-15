@@ -1,32 +1,38 @@
 require "common.interpolation_functions"
 
-rt.settings.overworld.overworld_object = {
-    pulse_duration = 1 / 120 * 2,
-    pulse_attack = 0.1, -- fraction
-    pulse_decay = 0.1,
+rt.settings.impulse_manager = {
+    bpm = 120,
 
-    beat_duration = 1 / 120,
-    beat_attack = 0.05, -- fraction
-    beat_decay = 0
+    pulse_duration = 1 / 2, -- fraction of bpm
+    pulse_attack = 0.25, -- fraction
+    pulse_decay = 0.25,
+
+    beat_duration = 1 / 8, -- fraction of bpm
+    beat_attack = 0.05, -- fraction of total duration
+    beat_decay = 0,
+    
+    max_brightness_factor = 1.4
 }
 
---- @class ow.ImpulseManager
-ow.ImpulseManager = meta.class("ImpulseManager")
+--- @class rt.ImpulseManager
+rt.ImpulseManager = meta.class("ImpulseManager")
 
---- @class ow.ImpulseSubscriber
-ow.ImpulseSubscriber = meta.class("ImpulseSubscriber")
-meta.add_signals(ow.ImpulseSubscriber,
+--- @class rt.ImpulseSubscriber
+rt.ImpulseSubscriber = meta.class("ImpulseSubscriber")
+meta.add_signals(rt.ImpulseSubscriber,
     "beat",
     "pulse"
 )
 
 --- @brief
-function ow.ImpulseManager:instantiate()
+function rt.ImpulseManager:instantiate()
     self._subscribers = meta.make_weak({})
+    self._elapsed = 0
 end
 
 --- @brief
-function ow.ImpulseManager:beat()
+function rt.ImpulseManager:beat()
+    dbg("beat")
     local timestamp = love.timer.getTime()
     for subscriber in values(self._subscribers) do
         subscriber._beat_start = timestamp
@@ -35,7 +41,9 @@ function ow.ImpulseManager:beat()
 end
 
 --- @brief
-function ow.ImpulseManager:pulse()
+function rt.ImpulseManager:pulse()
+    dbg("pulse")
+    dbg(#self._subscribers)
     local timestamp = love.timer.getTime()
     for subscriber in values(self._subscribers) do
         subscriber._pulse_start = timestamp
@@ -43,35 +51,39 @@ function ow.ImpulseManager:pulse()
     end
 end
 
-ow.ImpulseManager = ow.ImpulseManager() -- singleton instance
+rt.ImpulseManager = rt.ImpulseManager() -- singleton instance
 
 -- ###
 
-local _settings = rt.settings.overworld.overworld_object
+local _settings = rt.settings.impulse_manager
 
 --- @brief
-function ow.ImpulseSubscriber:instantiate()
-    table.insert(ow.ImpulseManager._subscribers, self)
+function rt.ImpulseSubscriber:instantiate()
+    table.insert(rt.ImpulseManager._subscribers, self)
 
     self._pulse_start = math.huge
     self._beat_start = math.huge
 end
 
+local _bpm_fraction_to_seconds = function(t)
+    return t / _settings.bpm * 60
+end
+
 --- @brief
-function ow.ImpulseSubscriber:get_pulse_value()
+function rt.ImpulseSubscriber:get_pulse()
     local delta = love.timer.getTime() - self._pulse_start
     return rt.InterpolationFunctions.ENVELOPE(
-        delta / _settings.pulse_duration,
+        delta / _bpm_fraction_to_seconds(_settings.pulse_duration),
         _settings.pulse_attack,
         _settings.pulse_decay
     )
 end
 
 --- @brief
-function ow.ImpulseSubscriber:get_beat_value()
+function rt.ImpulseSubscriber:get_beat()
     local delta = love.timer.getTime() - self._beat_start
     return rt.InterpolationFunctions.ENVELOPE(
-        delta / _settings.beat_duration,
+        delta / _bpm_fraction_to_seconds(_settings.beat_duration),
         _settings.beat_attack,
         _settings.beat_decay
     )

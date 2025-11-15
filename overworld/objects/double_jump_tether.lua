@@ -1,5 +1,6 @@
-require "overworld.double_jump_particle"
+require "overworld.double_jump_tether_particle"
 require "overworld.double_jump_tether_particle_effect"
+require "common.impulse_manager"
 
 rt.settings.overworld.double_jump_tether = {
     radius_factor = 1.5,
@@ -62,7 +63,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._hue = _hue_steps[_current_hue_step]
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
-    self._particle = ow.DoubleJumpParticle(self._radius)
+    self._particle = ow.DoubleJumpTetherParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
     self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
     self._particles = ow.DoubleJumpTetherParticleEffect()
@@ -76,6 +77,8 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
             self:get_color():unpack()
         )
     end)
+
+    self._impulse = rt.ImpulseSubscriber()
 end
 
 --- @brief
@@ -102,8 +105,13 @@ function ow.DoubleJumpTether:update(delta)
     self._line_opacity_motion:update(delta)
 
     -- update particle if on screen and visible
-    if is_visible and self._particle_opacity_motion:get_value() > eps then
-        self._particle:update(delta)
+    if is_visible then
+        if self._particle_opacity_motion:get_value() > eps then
+            self._particle:update(delta)
+        end
+
+        self._particle:set_brightness_offset(self._impulse:get_pulse())
+        self._particle:set_scale_offset(self._impulse:get_beat())
     end
 
     -- update line if visible

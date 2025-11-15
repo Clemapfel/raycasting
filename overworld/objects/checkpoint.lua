@@ -95,7 +95,6 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
     })
 
     stage:signal_connect("initialized", function()
-
         local create_platform = function(x, y)
             local platform_w = rt.settings.overworld.checkpoint.platform_width
             local platform_h = rt.settings.overworld.checkpoint.platform_height

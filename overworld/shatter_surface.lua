@@ -32,17 +32,11 @@ local mesh_format = {
     { location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4" }
 }
 
-
 local _shader = rt.Shader("overworld/shatter_surface.glsl")
 
 --- @brief
 function ow.ShatterSurface:instantiate(world, x, y, width, height)
     meta.assert(world, "PhysicsWorld")
-
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, key)
-        if key == "j" then _shader:recompile() end
-    end)
 
     self._world = world
     self._bounds = rt.AABB(x, y, width, height)
@@ -61,11 +55,10 @@ function ow.ShatterSurface:instantiate(world, x, y, width, height)
     self._time_dilation = 1 -- fraction
     self._flash = 0 -- white, fraction
 
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "l" then
-            _shader:recompile()
-        end
+    self._impulse = rt.ImpulseSubscriber()
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then _shader:recompile() end
     end)
 end
 
@@ -379,6 +372,9 @@ function ow.ShatterSurface:draw()
     _shader:send("flash", self._flash)
     _shader:send("fraction", math.clamp(self._time_since_shatter / rt.settings.overworld.shatter_surface.fade_duration, 0, 1))
     _shader:send("draw_bloom", false)
+    _shader:send("brightness_scale", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
+    _shader:send("pulse", self._impulse:get_pulse())
+
     if not self._is_done then
         self._pre_shatter_mesh:draw()
     else

@@ -1,5 +1,6 @@
 require "common.compute_shader"
 require "common.render_texture"
+require "common.impulse_manager"
 
 rt.settings.overworld.normal_map = {
     chunk_size = (16 * 16) * 3,
@@ -12,7 +13,7 @@ rt.settings.overworld.normal_map = {
     max_distance = 16, -- < 256
 
     point_light_intensity = 1,
-    segment_light_intensity = 0.2,
+    segment_light_intensity = 0.35,
 
     max_n_point_lights = 64,
     max_n_segment_lights = 32,
@@ -52,6 +53,8 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     meta.assert(id, "String", get_triangles_callback, "Function", draw_mask_callback, "Function")
 
     self._id = id
+    self._impulse = rt.ImpulseSubscriber()
+
     self._get_triangles_callback = get_triangles_callback
     self._draw_mask_callback = draw_mask_callback
     self._is_single_chunk = false
@@ -624,6 +627,10 @@ function ow.NormalMap:draw_light(
     end
 
     _draw_light_shader:send("camera_scale", camera:get_scale())
+
+    local scale = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
+    _draw_light_shader:send("point_light_intensity", rt.settings.overworld.normal_map.point_light_intensity * scale)
+    _draw_light_shader:send("segment_light_intensity", rt.settings.overworld.normal_map.segment_light_intensity * scale)
     _draw_light_shader:bind()
     love.graphics.setBlendMode("add", "premultiplied")
     local r, g, b, a = love.graphics.getColor() -- premultiply alpha

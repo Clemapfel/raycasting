@@ -4,6 +4,7 @@ require "overworld.coin_particle"
 
 rt.settings.overworld.coin = {
     radius = 10,
+    beat_max_offset = 20,
     pulse_animation_duration = 0.4,
     sound_id = "overworld_coin_collected",
     flow_increase = 0.1,
@@ -143,6 +144,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._pulse_active = false
 
     self._respawn_return_motion = rt.SmoothedMotion2D(object.x, object.y, 0.9)
+    self._impulse = rt.ImpulseSubscriber()
 end
 
 --- @brief
@@ -161,8 +163,8 @@ function ow.Coin:set_is_collected(b)
         self._is_collected = b
         self._body:set_is_enabled(not b)
         self._follow_x, self._follow_y = self._body:get_position()
+        self._follow_offset = rt.settings.overworld.coin.follow_offset * (self._stage:get_n_coins_collected() + 1)
         self._stage:set_coin_is_collected(self._index, b)
-        self._follow_offset = rt.settings.overworld.coin.follow_offset * (self._index - 1)
         self._timestamp = love.timer.getTime()
     end
 end
@@ -192,7 +194,9 @@ function ow.Coin:update(delta)
             if math.magnitude(nx, ny) < math.eps then nx = -1 end
             target_x, target_y = player_x + nx * max_radius, player_y + ny * max_radius
         end
-        self._follow_motion:set_target_position(target_x, target_y)
+
+        local offset = self._impulse:get_beat() * rt.settings.overworld.coin.beat_max_offset
+        self._follow_motion:set_target_position(target_x, target_y + offset)
 
         self._follow_motion:update(delta)
         local before_x, before_y = self._follow_x, self._follow_y

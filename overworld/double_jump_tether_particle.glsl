@@ -43,7 +43,8 @@ float gaussian(float x, float ramp)
 }
 
 uniform vec4 black;
-uniform bool draw_core = true;
+uniform bool draw_core;
+uniform float brightness_offset;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
     vec2 dxdy = derivative(img, texture_coordinates);
@@ -52,7 +53,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     float eps = 0.01;
     float outline = smoothstep(threshold - eps, threshold + eps, length(dxdy));
 
-    float center = smoothstep(0, 1 - 0.1, gaussian(distance(texture_coordinates, vec2(0.5)), 4.5)) * 1.3;
+    float center = smoothstep(0, 1 - 0.1, gaussian(distance(texture_coordinates, vec2(0.5)), mix(4.5, 4, brightness_offset))) * 1.3;
+    color *= mix(1, 1.2, brightness_offset);
     return float(draw_core) * center * color + outline * vec4(black.rgb, color.a);
 }
 

@@ -159,18 +159,85 @@ function rt.Path:get_tangent(t)
 end
 
 --- @brief
-function rt.Path:create_from(points, ...)
+function rt.Path:_create_from(reparameterize_as_uniform, points, ...)
     if meta.is_number(points) then
-        points = {points, ...}
+        points = { points, ... }
     end
 
     local n_points = #points
     rt.assert(n_points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to draw a path")
     rt.assert(n_points % 2 == 0, "In rt.Path: number of point coordinates must be even")
 
+    -- reparameterize to uniform spacing if requested
+    if reparameterize_as_uniform then
+        local num_points = n_points / 2
+
+        -- calculate cumulative distances
+        local distances = { 0 }
+        local total_length = 0
+        for i = 1, n_points - 2, 2 do
+            local dist = math.distance(points[i], points[i+1], points[i+2], points[i+3])
+            total_length = total_length + dist
+            distances[#distances + 1] = total_length
+        end
+
+        if total_length > 0 then
+            local uniform_points = {}
+            local target_spacing = total_length / (num_points - 1)
+            local num_segments = #distances - 1
+
+            -- first point
+            uniform_points[1] = points[1]
+            uniform_points[2] = points[2]
+
+            -- intermediate points
+            local segment_idx = 1
+            for i = 1, num_points - 2 do
+                local target_dist = i * target_spacing
+
+                -- advance segment_idx (distances are sorted, so we can start from last position)
+                while segment_idx < num_segments and target_dist > distances[segment_idx + 1] do
+                    segment_idx = segment_idx + 1
+                end
+
+                -- interpolate within the segment
+                local seg_start_dist = distances[segment_idx]
+                local seg_end_dist = distances[segment_idx + 1]
+                local seg_length = seg_end_dist - seg_start_dist
+
+                local local_t = (target_dist - seg_start_dist) / seg_length
+
+                local point_idx = segment_idx * 2 - 1
+                local x1, y1 = points[point_idx], points[point_idx + 1]
+                local x2, y2 = points[point_idx + 2], points[point_idx + 3]
+
+                local out_idx = i * 2 + 1
+                uniform_points[out_idx], uniform_points[out_idx + 1] = math.mix2(x1, y1, x2, y2, local_t)
+            end
+
+            -- last point
+            local last_idx = (num_points - 1) * 2 + 1
+            uniform_points[last_idx] = points[n_points - 1]
+            uniform_points[last_idx + 1] = points[n_points]
+
+            points = uniform_points
+            n_points = #points
+        end
+    end
+
     self._points = points
     self._n_points = n_points
     self:_update()
+end
+
+--- @brief
+function rt.Path:create_from(...)
+    self:_create_from(false, ...)
+end
+
+--- @brief
+function rt.Path:create_from_and_reparameterize(...)
+    self:_create_from(true, ...)
 end
 
 --- @brief

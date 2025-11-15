@@ -14,6 +14,7 @@ rt.settings.overworld.portal = {
     },
 
     min_velocity_magnitude = 200, -- px/s, when exiting portal
+    impulse_max_scale = 1.2
 }
 
 --- @class ow.Portal
@@ -105,6 +106,7 @@ function ow.Portal:instantiate(object, stage, scene)
 
     self._pulse_elapsed = math.huge
     self._pulse_value = 0
+    self._impulse = rt.ImpulseSubscriber()
 
     self._hue = 0
     self._hue_set = false
@@ -550,11 +552,12 @@ function ow.Portal:draw()
         rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
         local w, h = _particle_texture:get_size()
+        local scale = math.mix(1, rt.settings.overworld.portal.impulse_max_scale, self._impulse:get_beat())
         for particle in values(self._particles) do
             love.graphics.draw(
                 _particle_texture:get_native(),
                 particle[_x], particle[_y], 0,
-                particle[_scale], particle[_scale],
+                particle[_scale] * scale, particle[_scale] * scale,
                 0.5 * w, 0.5 * h
             )
         end
@@ -574,7 +577,6 @@ function ow.Portal:draw()
     _particle_shader:bind()
     _particle_shader:send("hue", self._hue)
     _particle_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     _particle_shader:send("black", { black_r, black_g, black_b })
     local w, h = self._static_canvas:get_size()
@@ -621,6 +623,7 @@ function ow.Portal:draw()
     _pulse_shader:bind()
     _pulse_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     _pulse_shader:send("pulse", self._pulse_value)
+    _pulse_shader:send("brightness_scale", math.mix(1, 2 * rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     if self._direction == _LEFT then
         self._left_mesh:draw()
     else

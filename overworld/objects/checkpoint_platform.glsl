@@ -43,6 +43,7 @@ uniform float elapsed;
 uniform vec4 color = vec4(1, 0, 1, 1);
 uniform bool bloom_active = false;
 uniform float outline_width = 0.08;
+uniform float brightness_scale;
 
 vec4 effect(vec4 vertex_color, sampler2D img, vec2 uv, vec2 vertex_position) {
     if (color.a == 0) return vec4(0.0, 0.0, 0.0, 1.0);
@@ -54,13 +55,13 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 uv, vec2 vertex_position) {
     float value = uv.y - (noise + 1.0) / 2.0;
 
     float eps = 0.3;
-    float outline_thickness = outline_width;
+    float outline_thickness = outline_width * (1 + (3.5 * (brightness_scale - 1)));
     float outline = smoothstep(outline_thickness, outline_thickness + eps,
         gaussian(1.0 - uv.y, 2) * abs(value));
 
     float inner = smoothstep(0.0, 0.15, value * gaussian(1.0 - uv.y, 1.0));
 
-    vec4 result = color * vec4(mix(vec3(inner), vec3(0.0), outline), max(inner, outline));
+    vec4 result = brightness_scale * color * vec4(mix(vec3(inner), vec3(0.0), outline), max(inner, outline));
     return result;
 }
 

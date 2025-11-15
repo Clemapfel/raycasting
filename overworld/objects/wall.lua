@@ -1,3 +1,7 @@
+rt.settings.overworld.wall = {
+    point_light_intensity = 1,
+    segment_light_intensity = 0.4
+}
 
 --- @class ow.Wall
 ow.Wall = meta.class("Wall")
@@ -47,6 +51,8 @@ local _try_initialize = function()
     _mesh = love.graphics.newMesh(format, data, mode, usage)
 end
 
+local _wall_impulse = rt.ImpulseSubscriber()
+
 --- @brief
 function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segment_light_sources, segment_light_colors)
     _try_initialize()
@@ -69,11 +75,14 @@ function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segme
         _shader:send("segment_light_sources", table.unpack(segment_light_sources))
         _shader:send("segment_light_colors", table.unpack(segment_light_colors))
     end
+
+    local brightness_factor = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, _wall_impulse:get_pulse())
+    _shader:send("point_light_intensity", rt.settings.overworld.wall.point_light_intensity * brightness_factor)
+    _shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
     _shader:send("screen_to_world_transform", camera:get_transform():inverse())
     _shader:send("outline_color", { rt.Palette.WALL:unpack() })
     love.graphics.draw(_mesh)
     _shader:unbind()
-
 
     rt.Palette.WALL_OUTLINE:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hitbox.outline_width)

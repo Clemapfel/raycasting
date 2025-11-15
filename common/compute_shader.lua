@@ -28,8 +28,15 @@ end
 function rt.ComputeShader:send(name, value, ...)
     rt.assert(value ~= nil, "uniform " .. name .. " is nil")
 
+    local args = { value, ... }
+    for i, x in ipairs(args) do
+        if meta.is_table(x) and x.get_native ~= nil then
+            args[i] = x:get_native()
+        end
+    end
+
     if self._native:hasUniform(name) then
-        self._native:send(name, value, ...)
+        self._native:send(name, table.unpack(args))
     else
         rt.critical("In rt.ComputeShader: shader at `", self._filename, "` does not have uniform `" .. name .. "`")
     end

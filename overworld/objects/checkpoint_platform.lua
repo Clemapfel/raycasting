@@ -5,12 +5,8 @@ local _shader = rt.Shader("overworld/objects/checkpoint_platform.glsl")
 
 --- @brief
 function ow.CheckpointPlatform:instantiate(x1, y1, x2, y2, radius)
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "p" then _shader:recompile() end
-    end)
-
     self._color = { rt.lcha_to_rgba(0.8, 1, 0, 1) }
+    self._impulse = rt.ImpulseSubscriber()
 
     meta.assert(x1, "Number", y1, "Number", x2, "Number", y2, "Number")
 
@@ -93,6 +89,7 @@ function ow.CheckpointPlatform:draw()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("color", self._color)
     _shader:send("bloom_active", false)
+    _shader:send("brightness_scale", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
     _shader:unbind()
@@ -104,6 +101,7 @@ function ow.CheckpointPlatform:draw_bloom()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("color", self._color)
     _shader:send("bloom_active", true)
+    _shader:send("brightness_scale", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
     _shader:unbind()

@@ -11,6 +11,7 @@ float gaussian(float x, float ramp)
 }
 
 uniform float elapsed;
+uniform float brightness_scale;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) {
     float value = symmetric(length(texture_coords + normalize(-1 * texture_coords) * elapsed));
@@ -25,7 +26,7 @@ vec4 effect(vec4 color, Image image, vec2 texture_coords, vec2 vertex_position) 
     outline *= smoothstep(0.0, threshold, value);
     vec3 wave = vec3(value);
 
-    return color * vec4(mix(vec3(0), wave, edge), max(value, outline));
+    return brightness_scale * color * vec4(mix(vec3(0), wave, edge), value);
 }
 
 #endif

@@ -1,21 +1,23 @@
 require "common.smoothed_motion_1d"
 
-rt.settings.overworld.double_jump_particle = {
-    explosion_distance = 80
+rt.settings.overworld.double_jump_tether_particle = {
+    explosion_distance = 80, -- px
+    scale_offset_distance = 5, -- px
+    brightness_offset = 0.5 -- fraction
 }
 
---- @class ow.DoubleJumpParticle
-ow.DoubleJumpParticle = meta.class("DoubleJumpParticle")
+--- @class ow.DoubleJumpTetherParticle
+ow.DoubleJumpTetherParticle = meta.class("DoubleJumpTetherParticle")
 
 local _sqrt2 = math.sqrt(2)
 local _sqrt3 = math.sqrt(3)
 local _sqrt6 = math.sqrt(6)
 local _padding = 10
 
-local _outline_shader = rt.Shader("overworld/double_jump_particle.glsl", { MODE = 0 })
+local _outline_shader = rt.Shader("overworld/double_jump_tether_particle.glsl", { MODE = 0 })
 
 --- @brief
-function ow.DoubleJumpParticle:instantiate(radius)
+function ow.DoubleJumpTetherParticle:instantiate(radius)
     self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0
@@ -24,6 +26,10 @@ function ow.DoubleJumpParticle:instantiate(radius)
 
     self._explosion_motion = rt.SmoothedMotion1D(0) -- 0: not exploded, 1: fully exploded
     self._explosion_motion:set_speed(2, 1) -- attack, decay, fractional
+
+    self._brightness_offset = 0
+    self._scale_offset = 0
+
     self:_update_vertices()
 end
 
@@ -34,9 +40,9 @@ local _edges = {
 }
 
 --- @brief
-function ow.DoubleJumpParticle:_update_vertices()
-    local explosion_t = self._explosion_motion:get_value() -- in [0, 1]
-    local offset = explosion_t * rt.settings.overworld.double_jump_particle.explosion_distance
+function ow.DoubleJumpTetherParticle:_update_vertices()
+    local offset = self._scale_offset * rt.settings.overworld.double_jump_tether_particle.scale_offset_distance
+        + self._explosion_motion:get_value() * rt.settings.overworld.double_jump_tether_particle.explosion_distance
 
     local vertices = self._vertices
     if vertices == nil then
@@ -85,7 +91,6 @@ function ow.DoubleJumpParticle:_update_vertices()
 
     self._vertices = vertices
 
-
     self._draw_line = {}
     for edge in values(_edges) do
         local v1 = self._vertices[edge[1]]
@@ -97,7 +102,7 @@ function ow.DoubleJumpParticle:_update_vertices()
 end
 
 --- @brief
-function ow.DoubleJumpParticle:set_is_exploded(b)
+function ow.DoubleJumpTetherParticle:set_is_exploded(b)
     if b == true then
         self._explosion_motion:set_target_value(1)
     else
@@ -106,7 +111,19 @@ function ow.DoubleJumpParticle:set_is_exploded(b)
 end
 
 --- @brief
-function ow.DoubleJumpParticle:update(delta)
+function ow.DoubleJumpTetherParticle:set_brightness_offset(t)
+    meta.assert(t, "Number")
+    self._brightness_offset = t
+end
+
+--- @brief
+function ow.DoubleJumpTetherParticle:set_scale_offset(t)
+    meta.assert(t, "Number")
+    self._scale_offset = t
+end
+
+--- @brief
+function ow.DoubleJumpTetherParticle:update(delta)
     local speed = 0.05 -- radians per second
     self._theta = math.normalize_angle(self._theta + delta * 2 * math.pi * speed)
     self._phi = math.normalize_angle(self._phi + delta * 2 * math.pi * speed)
@@ -116,7 +133,7 @@ function ow.DoubleJumpParticle:update(delta)
     self._explosion_motion:update(delta)
 end
 
-function ow.DoubleJumpParticle:draw(x, y, draw_shape, draw_core)
+function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
     local line_width = self._canvas:get_width() / 35
     local w, h = self._canvas:get_size()
     local r, g, b, a = love.graphics.getColor()
@@ -128,7 +145,7 @@ function ow.DoubleJumpParticle:draw(x, y, draw_shape, draw_core)
         love.graphics.clear(0, 0, 0, 0)
         love.graphics.translate(0.5 * w, 0.5 *h)
 
-        if self._draw_shape then
+        if draw_shape then
             love.graphics.setLineWidth(line_width)
             love.graphics.setLineJoin("none")
             love.graphics.setColor(r, g, b, a)
@@ -143,16 +160,19 @@ function ow.DoubleJumpParticle:draw(x, y, draw_shape, draw_core)
 
     _outline_shader:bind()
     _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
+    _outline_shader:send("draw_core", draw_core)
+    _outline_shader:send("brightness_offset", self._brightness_offset)
     love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
     _outline_shader:unbind()
 
     if draw_shape == true then
+        local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
         love.graphics.push()
-        love.graphics.setLineWidth(line_width)
+        love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset))
         love.graphics.setLineJoin("none")
 
         love.graphics.translate(x, y)
-        love.graphics.setColor(r, g, b, a)
+        love.graphics.setColor(r * offset, g * offset, b * offset, a)
         love.graphics.line(self._draw_line)
 
         for v in values(self._vertices) do
