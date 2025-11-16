@@ -218,6 +218,11 @@ uniform vec3 ray_direction;
 
 #endif // MODE_RAYMARCH
 
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
 
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = WORK_GROUP_SIZE_Z) in;
 void computemain() {
@@ -232,7 +237,6 @@ void computemain() {
         return;
 
     vec4 pos = vec4(uv + noise_offset, time_offset);
-    pos.y += 0;
 
     float frequency = 1. / 1500 * (volume_texture_size.x * volume_texture_size.y);
     float noise = fractal_brownian_motion(
@@ -244,25 +248,24 @@ void computemain() {
 
     noise = 1 - (noise + 1) / 2;
 
-    noise *= min(1, pow(pos.y + 0.2, falloff));
+    //noise *= min(1, pow(pos.y + 0.2, falloff));
+    noise *= gaussian(distance(pos.y, 1), 2);
     imageStore(volume_texture, gid, vec4(noise, 0, 0, 0));
 
     #elif MODE == MODE_RAYMARCH
 
     if (gid.z != 0) return;
 
-    const float ambient_light = 0.15;
-    const vec4 ambient_light_color = vec4(1, 1, 1, 1);
-
-    const vec4 light_color = vec4(1, 1, 1, 1);
-    const vec3 light_direction = normalize(vec3(0, 1, 0));
-
     const float absorption_intensity = 2.5;
     const float scattering_intensity = 1.8;
+    const float min_density = 0.01;
+    const float min_transmittance = 0.01;
 
     vec3 ray_position = vec3(uv.xy, 0.0);
     float transmittance = 1.0;
-    vec4 color = vec4(0.0);
+    float accumulated_density = 0.0;
+
+    ivec2 export_size = imageSize(export_texture).xy;
 
     for (int step = 0; step < n_density_steps; step++) {
 
@@ -272,56 +275,29 @@ void computemain() {
         vec3 sample_pos = ray_position * vec3(volume_texture_size);
         float density = imageLoad(volume_texture, ivec3(sample_pos)).r;
 
-        if (density > 0.01) {
-            float light_transmittance = 1.0;
-            vec3 shadow_ray_pos = ray_position;
-
-            for (int shadow_step = 0; shadow_step < n_shadow_steps; shadow_step++) {
-                shadow_ray_pos += light_direction * shadow_step_size;
-
-                if (any(lessThan(shadow_ray_pos, vec3(0.0))) || any(greaterThanEqual(shadow_ray_pos, vec3(1.0))))
-                    break;
-
-                vec3 shadow_sample_pos = shadow_ray_pos * vec3(volume_texture_size);
-                float shadow_density = imageLoad(volume_texture, ivec3(shadow_sample_pos)).r;
-
-                light_transmittance *= exp(-shadow_density * absorption_intensity * shadow_step_size);
-
-                if (light_transmittance < 0.01) break;
-            }
-
-            light_transmittance * light_color;
-
+        if (density > min_density) {
             float density_contribution = density * scattering_intensity * density_step_size;
-            color += transmittance * density_contribution;
 
-            // Attenuate transmittance (absorption/out-scattering)
+            accumulated_density += transmittance * density_contribution;
+
             transmittance *= exp(-density * absorption_intensity * density_step_size);
 
-            // Early exit if transmittance is negligible
-            if (transmittance < 0.01) break;
+            if (transmittance < min_transmittance) break;
         }
 
-        // Write accumulated result to the appropriate layer for this depth
-        // Each layer represents a depth slice for proper occlusion compositing
         int layer = int(float(step) / float(n_density_steps) * float(export_texture_n_layers));
+
         if (layer < export_texture_n_layers) {
-            ivec2 export_size = imageSize(export_texture).xy;
             if (all(lessThan(gid.xy, export_size))) {
-                // Store RGB color and alpha (opacity = 1 - transmittance)
-                imageStore(export_texture, ivec3(gid.xy, layer), vec4(color.rgb, 1.0 - transmittance));
+                imageStore(export_texture, ivec3(gid.xy, layer), vec4(accumulated_density));
             }
         }
 
-        // Advance ray position
         ray_position += ray_direction * density_step_size;
     }
 
-    // Write final accumulated result to the last layer if we didn't fill all layers
-    ivec2 export_size = imageSize(export_texture).xy;
-    if (all(lessThan(gid.xy, export_size))) {
-        imageStore(export_texture, ivec3(gid.xy, export_texture_n_layers - 1), vec4(color.rgb, 1.0 - transmittance));
-    }
+    if (all(lessThan(gid.xy, export_size)))
+        imageStore(export_texture, ivec3(gid.xy, export_texture_n_layers - 1), vec4(accumulated_density));
 
     #endif // MODE_RAYMARCH
 }

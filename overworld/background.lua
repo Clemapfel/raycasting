@@ -19,7 +19,7 @@ rt.settings.overworld.background = {
     fov = 0.3,
     min_depth = 21,
     max_depth = 21 + 200,
-    cell_size = 7,
+    cell_size = 8,
 
     min_rotation_speed = 0.02, -- radians per second
     max_rotation_speed = 0.05,
@@ -38,6 +38,9 @@ rt.settings.overworld.background = {
     glow_n_outer_vertices = 16,
     no_bloom_particle_intensity = 0.4,
     bloom_particle_intensity = 0.8,
+
+    cloud_x_offset_weight = 1,
+    cloud_y_offset_weight = 0.25,
 
     room_color = rt.Palette.GRAY_9
 }
@@ -194,8 +197,10 @@ function ow.Background:size_allocate(x, y, width, height)
         local shape_probability = rt.settings.overworld.background.cell_occupancy_chance
         local bloom_probability = rt.settings.overworld.background.bloom_particle_chance
 
+        local padding = 0.01
+
         local generate_particle = function(entry, ix, iy, iz, min_scale, max_scale)
-            local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1))
+            local scale = math.mix(min_scale, max_scale, rt.random.number(0, 1)) + padding
 
             local cell_min_x = min_x + ix * cell_size
             local cell_max_x = math.min(cell_min_x + cell_size, max_x)
@@ -346,6 +351,9 @@ function ow.Background:size_allocate(x, y, width, height)
         max_z - min_z,
         rt.settings.overworld.background.fov
     )
+
+    self._clouds_offset_x = 0
+    self._clouds_offset_y = 0
 end
 
 --- @brief
@@ -396,7 +404,11 @@ function ow.Background:draw()
         local clouds_transform = self._view_transform:clone()
         clouds_transform:scale(scale, scale, 1)
         clouds_transform:apply(self._scale_transform)
-        clouds_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
+        clouds_transform:translate(
+            self._clouds_offset_x,
+            self._clouds_offset_y,
+            rt.settings.overworld.background.z_zoom
+        )
 
         self._canvas:set_view_transform(clouds_transform)
         self._clouds:set_hue(self._scene:get_player():get_hue())
@@ -480,6 +492,9 @@ function ow.Background:notify_camera_changed(camera)
         world_offset_y,
         0
     )
+
+    self._clouds_offset_x = world_offset_x * rt.settings.overworld.background.cloud_x_offset_weight
+    self._clouds_offset_y = world_offset_y * rt.settings.overworld.background.cloud_y_offset_weight
 
     self._camera_scale = camera:get_final_scale()
     self._camera_offset = { camera:get_offset() }

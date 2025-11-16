@@ -264,6 +264,9 @@ function rt.Clouds:_init_draw_mesh(size_x, size_y, fov)
     local plane_cx = bounds.x + size_x * 0.5
     local plane_cy = bounds.y + size_y * 0.5
 
+    local min_uv_u, max_uv_u = -1, 1
+    local min_uv_v, max_uv_v = 0, 2
+
     for i = self._n_slices, 1, -1 do
         -- Slice depth in world space
         local z_normalized = (i - 0.5) / self._n_slices
@@ -280,6 +283,12 @@ function rt.Clouds:_init_draw_mesh(size_x, size_y, fov)
         local scaled_width = size_x * s
         local scaled_height = size_y * s
 
+        local left_x = -scaled_width
+        local right_x = scaled_width
+
+        local top_y = 0
+        local bottom_y = -scaled_height
+
         -- Position the quad so its center stays fixed on the near-plane center.
         local x0 = plane_cx - scaled_width * 0.5
         local y0 = plane_cy - scaled_height * 0.5
@@ -288,10 +297,10 @@ function rt.Clouds:_init_draw_mesh(size_x, size_y, fov)
         local base_index = #data
 
         -- Note: texture coords range from (1,1) top-left to (0,0) bottom-right as before
-        table.insert(data, { x0,                 y0,                  z_world, 1, 1, layer_index, r, g, b, a })
-        table.insert(data, { x0 + scaled_width,  y0,                  z_world, 0, 1, layer_index, r, g, b, a })
-        table.insert(data, { x0 + scaled_width,  y0 + scaled_height,  z_world, 0, 0, layer_index, r, g, b, a })
-        table.insert(data, { x0,                 y0 + scaled_height,  z_world, 1, 0, layer_index, r, g, b, a })
+        table.insert(data, { x0 + left_x,                  y0 + bottom_y,                  z_world, max_uv_u, max_uv_v, layer_index, r, g, b, a })
+        table.insert(data, { x0 + scaled_width + right_x,  y0 + bottom_y,                   z_world, min_uv_u, max_uv_v, layer_index, r, g, b, a })
+        table.insert(data, { x0 + scaled_width + right_x,  y0 + scaled_height + top_y,  z_world, min_uv_u, min_uv_v, layer_index, r, g, b, a })
+        table.insert(data, { x0 + left_x,                  y0 + scaled_height + top_y,  z_world, max_uv_u, min_uv_v, layer_index, r, g, b, a })
 
         table.insert(vertex_map, base_index + 1)
         table.insert(vertex_map, base_index + 2)
@@ -380,6 +389,10 @@ function rt.Clouds:_init_slices()
         rt.TextureScaleMode.LINEAR,
         rt.TextureScaleMode.LINEAR,
         4 -- anisotropy
+    )
+
+    self._export_texture:set_wrap_mode(
+        rt.TextureWrapMode.MIRROR
     )
 end
 

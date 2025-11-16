@@ -200,20 +200,22 @@ function ow.MovingHitbox:update(delta)
         self._normal_map:update(delta) -- finish loading coroutine
     end
 
-    if not self._stage:get_is_body_visible(self._body) then return end
+    local is_visible = self._stage:get_is_body_visible(self._body)
 
-    if self._normal_map:get_is_done() then
-        self._normal_map:update()
-    end
+    if is_visible then
+        if self._normal_map:get_is_done() then
+            self._normal_map:update()
+        end
 
-    if self._mirror ~= nil then
-        self._mirror:update(delta)
-    else
-        local player = self._scene:get_player()
-        if player:get_is_colliding_with(self._body) then
-            local nx, ny, cx, cy = player:get_collision_normal(self._body)
-            local r = player:get_radius() / 2
-            self._blood_splatter:add(cx, cy, r, player:get_hue())
+        if self._mirror ~= nil then
+            self._mirror:update(delta)
+        else
+            local player = self._scene:get_player()
+            if player:get_is_colliding_with(self._body) then
+                local nx, ny, cx, cy = player:get_collision_normal(self._body)
+                local r = player:get_radius() / 2
+                self._blood_splatter:add(cx, cy, r, player:get_hue())
+            end
         end
     end
 
