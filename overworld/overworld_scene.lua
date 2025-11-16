@@ -92,7 +92,7 @@ function ow.OverworldScene:instantiate(state)
         _cursor_active = false,
         _camera_freeze_elapsed = 0, -- sic, freeze at initialization
 
-        _background = ow.Background(),
+        _background = nil, -- ow.Background
 
         _pause_menu = mn.PauseMenu(self),
         _pause_menu_active = false,
@@ -117,6 +117,8 @@ function ow.OverworldScene:instantiate(state)
 
         _fade_to_black = 0
     })
+
+    self._background = ow.Background(self)
 
     local translation = rt.Translation.overworld_scene
     self._non_bubble_control_indicator = rt.ControlIndicator(

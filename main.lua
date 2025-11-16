@@ -17,11 +17,12 @@ local function _init()
     canvas:set_fov(0.4)
 
     require "common.clouds"
+    cloud_center_z = 800
     clouds = rt.Clouds(
         4, -- n_slices
-        64,
-        64,
-        32 -- depth
+        64, 64, 32, -- resolution
+        0, 0, cloud_center_z, -- position
+        w, h, 200 -- size
     )
     clouds:realize()
 
@@ -34,34 +35,6 @@ local function _init()
 
     require "common.quaternion"
     rotation = { math.quaternion.from_axis_angle(0, 1, 0, 0) }
-
-    cloud_center_z = 220
-    draw_mesh = rt.MeshRectangle3D(
-        0, 0, cloud_center_z,
-        w / 2, h / 2,
-        0, 0, -1
-    )
-    draw_mesh:set_texture(clouds:get_texture(slice_i))
-
-    if first then
-        DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-            local update_texture = false
-
-            if which == "right" and slice_i < clouds:get_n_slices() then
-                slice_i = slice_i + 1
-                update_texture = true
-            elseif which == "left" and slice_i > 1 then
-                slice_i = slice_i - 1
-                update_texture = true
-            end
-
-            if update_texture then
-                draw_mesh:set_texture(clouds:get_texture(slice_i))
-                dbg(slice_i)
-            end
-        end)
-        first = false
-    end
 end
 
 love.load = function(args)
@@ -144,7 +117,7 @@ love.draw = function()
         :translate(0, 0, -cloud_center_z)
 
     canvas:set_model_transform(transform)
-    draw_mesh:draw()
+    clouds:draw()
     canvas:unbind()
 
     love.graphics.setColor(1, 1, 1, 1)

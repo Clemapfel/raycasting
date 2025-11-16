@@ -1,6 +1,7 @@
 require "common.quaternion"
 require "common.widget"
 require "common.render_texture_3d"
+require "common.clouds"
 
 rt.settings.overworld.background = {
     intensity = 0.9,
@@ -35,6 +36,8 @@ rt.settings.overworld.background = {
     dodecahedron_p = 1,
 
     glow_n_outer_vertices = 16,
+    no_bloom_particle_intensity = 0.4,
+    bloom_particle_intensity = 0.8,
 
     room_color = rt.Palette.GRAY_9
 }
@@ -62,7 +65,10 @@ local _data_mesh_format = {
 }
 
 --- @brief
-function ow.Background:instantiate()
+function ow.Background:instantiate(scene)
+    meta.assert(scene, ow.OverworldScene)
+    self._scene = scene
+
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
@@ -86,6 +92,7 @@ function ow.Background:realize()
 
     self._room_mesh = nil -- rt.Mesh
     self._front_wall_mesh = nil -- rt.Mesh
+    self._clouds = nil -- rt.Clouds
 
     self._canvas = nil -- rt.RenderTexture3D
     self._canvas_needs_update = true
@@ -323,6 +330,22 @@ function ow.Background:size_allocate(x, y, width, height)
     if self._front_wall_mesh == nil then
         self:_init_front_wall_mesh()
     end
+
+    local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
+    local padding = 0 --(max_x - min_x) * 0.
+
+    local n_slices = 32
+    self._clouds = rt.Clouds(
+        n_slices, -- n slices
+        256, 256, n_slices * 2, -- resolution
+        min_x - padding, -- position
+        min_y - padding,
+        min_z,
+        max_x - min_x + 2 * padding, -- size
+        max_y - min_y + 2 * padding,
+        max_z - min_z,
+        rt.settings.overworld.background.fov
+    )
 end
 
 --- @brief
@@ -361,6 +384,7 @@ function ow.Background:draw()
         love.graphics.setDepthMode("less", true) -- write
 
         _particle_shader_no_bloom:bind()
+        _particle_shader_no_bloom:send("intensity", rt.settings.overworld.background.no_bloom_particle_intensity)
         for entry in values(self._particles) do
             if entry.is_bloom == false then
                 entry.instance_mesh:draw_instanced(entry.n_particles)
@@ -369,28 +393,28 @@ function ow.Background:draw()
         _particle_shader_no_bloom:unbind()
 
         love.graphics.setDepthMode("less", false) -- do not write
+        local clouds_transform = self._view_transform:clone()
+        clouds_transform:scale(scale, scale, 1)
+        clouds_transform:apply(self._scale_transform)
+        clouds_transform:translate(0, 0, rt.settings.overworld.background.z_zoom)
+
+        self._canvas:set_view_transform(clouds_transform)
+        self._clouds:set_hue(self._scene:get_player():get_hue())
+        self._clouds:draw()
+
+        love.graphics.setDepthMode("less", false)
+        love.graphics.setBlendMode("add", "premultiplied")
+
+        self._canvas:set_view_transform(particle_transform)
 
         _particle_shader_bloom:bind()
+        _particle_shader_bloom:send("intensity", rt.settings.overworld.background.bloom_particle_intensity)
         for entry in values(self._particles) do
             if entry.is_bloom == true then
                 entry.instance_mesh:draw_instanced(entry.n_particles)
             end
         end
         _particle_shader_bloom:unbind()
-
-        --[[
-        local front_wall_transform = rt.Transform()
-        front_wall_transform:apply(self._scale_transform)
-        front_wall_transform:apply(self._offset_transform)
-
-        _front_wall_shader:bind()
-        _front_wall_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        _front_wall_shader:send("player_position", { rt.SceneManager:get_current_scene():get_camera():world_xy_to_screen_xy(rt.GameState:get_player():get_position()) })
-        _front_wall_shader:send("camera_scale", self._camera_scale)
-        _front_wall_shader:send("camera_offset", self._camera_offset)
-        self._front_wall_mesh:draw()
-        _front_wall_shader:unbind()
-        ]]--
 
         self._canvas:unbind()
         self._canvas_needs_update = false

@@ -1,5 +1,6 @@
 require "common.texture_format"
 require "common.render_texture_volume"
+require "common.render_texture_array"
 require "common.shader"
 require "common.compute_shader"
 
@@ -7,7 +8,6 @@ rt.settings.clouds = {
     volume_texture_format = rt.TextureFormat.R32F,
     export_texture_format = rt.TextureFormat.R8,
     volume_texture_anisotropy = 1,
-    max_n_slices = 8,
     work_group_size_x = 8,
     work_group_size_y = 8,
     work_group_size_z = 4,
@@ -15,8 +15,12 @@ rt.settings.clouds = {
     n_density_steps = 64,
     density_step_size = 0.01, -- in uv space
     n_shadow_steps = 64,
-    shadow_step_size = 0.01
+    shadow_step_size = 0.01,
+    n_slices = 8,
 
+    whiteness = 10, -- rgb multiplier
+    opacity = 0.5, -- a multiplier
+    hue_offset = 0.25 -- min/max hue of cloud, +/- player hue
 }
 
 --- @class rt.Clouds
@@ -28,7 +32,7 @@ local _draw_mesh_format = {
     { location = 2, name = "color", format = "floatvec4" },
 }
 
-local _fill_volume_texture_shader, _raymarch_shader
+local _fill_volume_texture_shader, _raymarch_shader, _draw_shader
 do
     local settings = rt.settings.clouds
     _fill_volume_texture_shader = rt.ComputeShader("common/clouds_compute.glsl", {
@@ -45,9 +49,10 @@ do
         WORK_GROUP_SIZE_Y = settings.work_group_size_y,
         WORK_GROUP_SIZE_Z = settings.work_group_size_z,
         VOLUME_TEXTURE_FORMAT = settings.volume_texture_format,
-        EXPORT_TEXTURE_FORMAT = settings.export_texture_format,
-        MAX_N_EXPORT_TEXTURES = settings.max_n_slices
+        EXPORT_TEXTURE_FORMAT = settings.export_texture_format
     })
+
+    _draw_shader = rt.Shader("common/clouds_draw.glsl")
 end
 
 --- @brief
@@ -57,9 +62,13 @@ end
 --- @param size_x Number
 --- @param size_y Number
 --- @param size_z Number
-function rt.Clouds:instantiate(n_slices, resolution_x, resolution_y, resolution_z)
-    n_slices = rt.settings.clouds.max_n_slices
-
+function rt.Clouds:instantiate(
+    n_slices,
+    resolution_x, resolution_y, resolution_z,
+    x, y, z,
+    size_x, size_y, size_z,
+    fov
+)
     meta.assert(
         n_slices, "Number",
         resolution_x, "Number",
@@ -71,16 +80,21 @@ function rt.Clouds:instantiate(n_slices, resolution_x, resolution_y, resolution_
     self._resolution_y = resolution_y
     self._resolution_z = resolution_z
 
+    self._bounds = {
+        x = x,
+        y = y,
+        z = z,
+        size_x = size_x,
+        size_y = size_y,
+        size_z = size_z
+    }
+
     self._noise_offset_x = 0
     self._noise_offset_y = 0
     self._noise_offset_z = 0
     self._noise_offset_time = 0
 
-    local max_n_slices = rt.settings.clouds.max_n_slices
-    if n_slices > max_n_slices then
-        rt.critical("In rt.Clouds: argument #1 is `", n_slices, "`, but rt.Clouds can only have a maximum of `", max_n_slices, "` slices")
-        n_slices = max_n_slices
-    end
+    self._hue = 0
 
     self._is_realized = false
     self._n_slices = n_slices
@@ -90,14 +104,32 @@ function rt.Clouds:instantiate(n_slices, resolution_x, resolution_y, resolution_
     self:_init_slices()
     self:_init_volume_texture()
 
+    self:_init_draw_mesh(
+        self._bounds.size_x,
+        self._bounds.size_y,
+        fov
+    )
+
     self:_update_volume_texture()
     self:_update_slice_textures()
 
-    -- TODO
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
-            _raymarch_shader:recompile()
-            _fill_volume_texture_shader:recompile()
+            for shader in range(
+                _fill_volume_texture_shader,
+                _raymarch_shader,
+                _draw_shader
+            ) do
+                shader:recompile()
+            end
+
+            self:set_offset(
+                self._noise_offset_x,
+                self._noise_offset_y,
+                self._noise_offset_z,
+                self._noise_offset_time,
+                true
+            )
         end
     end)
 end
@@ -117,12 +149,11 @@ end
 --- @brief
 function rt.Clouds:realize()
     if self._is_realized == true then return end
-
     self._is_realized = true
 end
 
 --- @brief
-function rt.Clouds:set_offset(x, y, z, time)
+function rt.Clouds:set_offset(x, y, z, time, force_recompute)
     local recompute = (x ~= nil and self._noise_offset_x ~= x)
         or (y ~= nil and self._noise_offset_y ~= y)
         or (z ~= nil and self._noise_offset_z ~= z)
@@ -133,7 +164,7 @@ function rt.Clouds:set_offset(x, y, z, time)
     self._noise_offset_z = z or self._noise_offset_z
     self._noise_offset_time = time or self._noise_offset_time
 
-    if recompute then
+    if recompute or force_recompute == true then
         self:_update_volume_texture()
         self:_update_slice_textures()
     end
@@ -188,25 +219,88 @@ function rt.Clouds:_update_volume_texture()
 end
 
 --- @brief
-function rt.Clouds:_create_draw_mesh(slice_i)
+function rt.Clouds:_init_draw_mesh(size_x, size_y, fov)
+    -- Build a layered mesh where each slice is scaled to fill the camera frustum
+    -- using the provided vertical FOV. If self._view_from_world (4x4) is present,
+    -- we transform slice centers into view space and use the view-space depth for scaling.
+    --
+    -- Assumptions:
+    -- - The camera looks along -Z in view space.
+    -- - size_x,size_y correspond to the near-plane rectangle that fills the screen.
+    -- - Slices are centered around the same on-screen center and expand with depth.
     local data = {}
     local vertex_map = {}
 
     local bounds = self._bounds
-    local x, y = 0, 0
-    local x0, x1 = x, x + self._resolution_x
-    local y0, y1 = y, y + self._resolution_y
+    local aspect = size_x / size_y
+    local tan_half_fov = math.tan(fov / 2) * 0.5
 
-    local t = (self._n_slices > 1) and (slice_i / (self._n_slices - 1)) or 0.5
-    local z = 0
-    local w = t -- normalized texture z coordinate
+    -- Compute an equivalent near distance from provided plane sizes so that
+    -- scaled size at near equals size_x/size_y. Using both X and Y-derived near distances
+    -- and picking the larger ensures coverage in both axes.
+    local near_d_y = size_y / (2 * tan_half_fov)
+    local near_d_x = size_x / (2 * tan_half_fov * aspect)
+    local near_d = math.max(near_d_x, near_d_y, 1e-6)
 
-    local r, g, b, a = rt.lcha_to_rgba(0.8, 1, slice_i / self._n_slices, 1)
+    -- Optional view transform support (4x4, column-major expected). If not provided, identity.
+    local view_from_world = self._view_from_world
+    local function transform_to_view_space(x, y, z)
+        if type(view_from_world) ~= "table" then
+            return x, y, z
+        end
+        -- Column-major 4x4 multiplication with vec4(x,y,z,1)
+        local m = view_from_world
+        local vx = m[1] * x + m[5] * y + m[9]  * z + m[13]
+        local vy = m[2] * x + m[6] * y + m[10] * z + m[14]
+        local vz = m[3] * x + m[7] * y + m[11] * z + m[15]
+        local vw = m[4] * x + m[8] * y + m[12] * z + m[16]
+        if vw ~= nil and vw ~= 0 then
+            vx, vy, vz = vx / vw, vy / vw, vz / vw
+        end
+        return vx, vy, vz
+    end
 
-    table.insert(data, {x0, y0, z, 0, 0, w, r, g, b, a})
-    table.insert(data, {x1, y0, z, 1, 0, w, r, g, b, a})
-    table.insert(data, {x1, y1, z, 1, 1, w, r, g, b, a})
-    table.insert(data, {x0, y1, z, 0, 1, w, r, g, b, a})
+    -- Center of the near plane in world space; we keep all slices centered around this.
+    local plane_cx = bounds.x + size_x * 0.5
+    local plane_cy = bounds.y + size_y * 0.5
+
+    for i = self._n_slices, 1, -1 do
+        -- Slice depth in world space
+        local z_normalized = (i - 0.5) / self._n_slices
+        local z_world = bounds.z + z_normalized * bounds.size_z
+        local layer_index = i - 1
+
+        -- Determine view-space depth for scaling. We only need |z| to compute scale,
+        -- assuming camera looks down -Z; abs handles both conventions robustly.
+        local _, _, z_view = transform_to_view_space(plane_cx, plane_cy, z_world)
+        local depth = math.max(math.abs(z_view), 1e-6)
+
+        -- Scale factor so that at near depth we have size_x/size_y, and it grows linearly with depth.
+        local s = depth / near_d
+        local scaled_width = size_x * s
+        local scaled_height = size_y * s
+
+        -- Position the quad so its center stays fixed on the near-plane center.
+        local x0 = plane_cx - scaled_width * 0.5
+        local y0 = plane_cy - scaled_height * 0.5
+
+        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, i / self._n_slices, 1)
+        local base_index = #data
+
+        -- Note: texture coords range from (1,1) top-left to (0,0) bottom-right as before
+        table.insert(data, { x0,                 y0,                  z_world, 1, 1, layer_index, r, g, b, a })
+        table.insert(data, { x0 + scaled_width,  y0,                  z_world, 0, 1, layer_index, r, g, b, a })
+        table.insert(data, { x0 + scaled_width,  y0 + scaled_height,  z_world, 0, 0, layer_index, r, g, b, a })
+        table.insert(data, { x0,                 y0 + scaled_height,  z_world, 1, 0, layer_index, r, g, b, a })
+
+        table.insert(vertex_map, base_index + 1)
+        table.insert(vertex_map, base_index + 2)
+        table.insert(vertex_map, base_index + 3)
+
+        table.insert(vertex_map, base_index + 1)
+        table.insert(vertex_map, base_index + 3)
+        table.insert(vertex_map, base_index + 4)
+    end
 
     local mesh = rt.Mesh(
         data,
@@ -215,51 +309,77 @@ function rt.Clouds:_create_draw_mesh(slice_i)
         rt.GraphicsBufferUsage.STATIC
     )
 
-    mesh:set_vertex_map({ 1, 2, 3, 1, 3, 4 })
+    mesh:set_vertex_map(vertex_map)
+    mesh:set_texture(self._export_texture)
+    self._draw_mesh = mesh
     return mesh
 end
 
---- @brief
-function rt.Clouds:_init_slices()
-    self._slices = {}
-    self._export_textures = {}
-    for slice_i = 1, self._n_slices do
-        local entry = {
-            canvas = rt.RenderTexture(
-                self._resolution_x,
-                self._resolution_y,
-                0, -- msaa
-                rt.settings.clouds.export_texture_format,
-                true -- computewrite
-            ),
+--[[
+function rt.Clouds:_init_draw_mesh()
+    local data = {}
+    local vertex_map = {}
 
-            mesh = self:_create_draw_mesh(
-                slice_i
-            ),
+    local bounds = self._bounds
+    local z_step = bounds.size_z / self._n_slices
 
-            needs_update = true
-        }
-
-        entry.mesh:set_texture(entry.canvas)
-        entry.canvas:set_scale_mode(
-            rt.TextureScaleMode.LINEAR,
-            rt.TextureScaleMode.LINEAR,
-            4 -- anisotropy
-        )
-        table.insert(self._slices, entry)
-        table.insert(self._export_textures, entry.canvas:get_native())
+    local function add_vertex(x, y, z, u, v, w, r, g, b, a)
+        table.insert(data, { x, y, z, u, v, w, r, g, b, a })
     end
 
-    self._export_texture = love.graphics.newArrayImage(
+    for i = self._n_slices, 1, -1 do
+        -- Calculate z position for this slice (centered within its slice region)
+        local z_normalized = (i - 0.5) / self._n_slices
+        local z = bounds.z + z_normalized * bounds.size_z
+        local w = (i - 1) / self._n_slices
+
+        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, i / self._n_slices, 1)
+        local base_index = #data
+
+        local x, y, width, height = self._bounds.x, self._bounds.y, self._bounds.size_x, self._bounds.size_y
+        add_vertex(x, y, z, 1, 1, width, r, g, b, a)
+        add_vertex(x + width, y, z, 0, 1, width, r, g, b, a)
+        add_vertex(x + width, y + height, z, 0, 0, width, r, g, b, a)
+        add_vertex(x, y + height, z, 1, 0, width, r, g, b, a)
+
+        table.insert(vertex_map, base_index + 1)
+        table.insert(vertex_map, base_index + 2)
+        table.insert(vertex_map, base_index + 3)
+
+        table.insert(vertex_map, base_index + 1)
+        table.insert(vertex_map, base_index + 3)
+        table.insert(vertex_map, base_index + 4)
+    end
+
+    local mesh = rt.Mesh(
+        data,
+        rt.MeshDrawMode.TRIANGLES,
+        _draw_mesh_format,
+        rt.GraphicsBufferUsage.STATIC
+    )
+
+    mesh:set_vertex_map(vertex_map)
+    mesh:set_texture(self._export_texture)
+    self._draw_mesh = mesh
+    return mesh
+end
+]]--
+
+--- @brief
+function rt.Clouds:_init_slices()
+    self._export_texture = rt.RenderTextureArray(
         self._resolution_x,
         self._resolution_y,
-        self._n_slices, {
-            msaa = 0,
-            format = rt.settings.clouds.export_texture_format,
-            computewrite = true,
-            mipmaps = false,
-            canvas = true
-        }
+        self._n_slices,
+        0, -- msaa,
+        rt.settings.clouds.export_texture_format,
+        true -- computewrite
+    )
+
+    self._export_texture:set_scale_mode(
+        rt.TextureScaleMode.LINEAR,
+        rt.TextureScaleMode.LINEAR,
+        4 -- anisotropy
     )
 end
 
@@ -267,8 +387,8 @@ end
 function rt.Clouds:_update_slice_textures()
     local settings = rt.settings.clouds
     _raymarch_shader:send("volume_texture", self._volume_texture:get_native())
-    _raymarch_shader:send("export_textures", table.unpack(self._export_textures))
-    _raymarch_shader:send("n_export_textures", #self._export_textures)
+    _raymarch_shader:send("export_texture", self._export_texture)
+    _raymarch_shader:send("export_texture_n_layers", self._n_slices)
     _raymarch_shader:send("ray_direction", { 0, 0, 1 }) -- ray offset is 3d texture coords
     _raymarch_shader:send("n_density_steps", settings.n_density_steps)
     _raymarch_shader:send("density_step_size", settings.density_step_size)
@@ -280,7 +400,25 @@ function rt.Clouds:_update_slice_textures()
     local dispatch_x = math.ceil(size_x / settings.work_group_size_x)
     local dispatch_y = math.ceil(size_y / settings.work_group_size_y)
     local dispatch_z = math.ceil(size_z / settings.work_group_size_z)
-    _raymarch_shader:dispatch(dispatch_x, dispatch_y, dispatch_z)
+    _raymarch_shader:dispatch(dispatch_x, dispatch_y, 1)
+end
+
+--- @brief
+function rt.Clouds:set_hue(hue)
+    self._hue = hue
+end
+
+--- @brief
+function rt.Clouds:draw()
+    _draw_shader:bind()
+    _draw_shader:send("export_texture", self._export_texture)
+    _draw_shader:send("hue", self._hue)
+    _draw_shader:send("n_layers", self._n_slices)
+    _draw_shader:send("whiteness", rt.settings.clouds.whiteness)
+    _draw_shader:send("opacity", rt.settings.clouds.opacity)
+    _draw_shader:send("hue_offset", rt.settings.clouds.hue_offset)
+    self._draw_mesh:draw()
+    _draw_shader:unbind()
 end
 
 --- @brief

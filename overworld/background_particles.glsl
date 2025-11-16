@@ -53,6 +53,8 @@ uniform float shadow_falloff = 1;
 #error "IS_BLOOM undefined, should be 0 or 1"
 #endif
 
+uniform float intensity;
+
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
 
     float edge = gaussian(length(texture_coords), 2.5);
@@ -60,10 +62,8 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     float edge_eps = 0.2;
     edge = smoothstep(edge_threshold - edge_eps, edge_threshold + edge_eps, edge);
 
-    const float intensity = 0.4;
-
     #if IS_BLOOM == 1
-        vec4 result = color * vertex_color * texture(tex, texture_coords);
+        vec4 result = intensity * color * vertex_color * texture(tex, texture_coords);
         return result;
     #else
         vec3 normal = normalize(cross(dFdx(world_position), dFdy(world_position)));

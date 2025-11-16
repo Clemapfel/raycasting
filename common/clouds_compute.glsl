@@ -196,29 +196,28 @@ layout(VOLUME_TEXTURE_FORMAT) uniform writeonly image3D volume_texture;
 uniform vec3 noise_offset;
 uniform float time_offset;
 
+const float falloff = 16; // exponent
+
 #elif MODE == MODE_RAYMARCH
 
 #ifndef EXPORT_TEXTURE_FORMAT
 #define EXPORT_TEXTURE_FORMAT rgba8
 #endif
 
-#ifndef MAX_N_EXPORT_TEXTURES
-#define MAX_N_EXPORT_TEXTURES 1
-#endif
-
 layout(VOLUME_TEXTURE_FORMAT) uniform readonly image3D volume_texture;
-layout(EXPORT_TEXTURE_FORMAT) uniform writeonly image2D export_textures[MAX_N_EXPORT_TEXTURES];
-uniform int n_export_textures;
+layout(EXPORT_TEXTURE_FORMAT) uniform writeonly image2DArray export_texture;
+uniform int export_texture_n_layers;
 
 uniform int n_density_steps = 128;
 uniform float density_step_size = 0.03;
 
-uniform int n_shadow_steps = 32;
-uniform float shadow_step_size = 0.06;
+uniform int n_shadow_steps = 64;
+uniform float shadow_step_size = 0.02;
 
 uniform vec3 ray_direction;
 
 #endif // MODE_RAYMARCH
+
 
 layout (local_size_x = WORK_GROUP_SIZE_X, local_size_y = WORK_GROUP_SIZE_Y, local_size_z = WORK_GROUP_SIZE_Z) in;
 void computemain() {
@@ -230,151 +229,98 @@ void computemain() {
     #if MODE == MODE_FILL
 
     if (any(greaterThanEqual(gid, volume_texture_size)))
-    return;
+        return;
 
     vec4 pos = vec4(uv + noise_offset, time_offset);
+    pos.y += 0;
 
-    float frequency = 16;
+    float frequency = 1. / 1500 * (volume_texture_size.x * volume_texture_size.y);
     float noise = fractal_brownian_motion(
-    pos * frequency,
-    4,  // octaves
-    3,  // lacunarity
-    0.4 // gain
+        pos * frequency,
+        3,  // octaves
+        3,  // lacunarity
+        0.4 // gain
     );
 
-    float alt_noise = noise;
     noise = 1 - (noise + 1) / 2;
 
+    noise *= min(1, pow(pos.y + 0.2, falloff));
     imageStore(volume_texture, gid, vec4(noise, 0, 0, 0));
 
     #elif MODE == MODE_RAYMARCH
 
-    ivec2 export_texture_size = volume_texture_size.xy; // export has same width / height, 1 ray per pixel
-
-    // only process 2D pixels, not the z dimension
     if (gid.z != 0) return;
 
-    // ambient light - soft base illumination for cloud interior
     const float ambient_light = 0.15;
     const vec4 ambient_light_color = vec4(1, 1, 1, 1);
 
-    // directional light - sun/moon
     const vec4 light_color = vec4(1, 1, 1, 1);
     const vec3 light_direction = normalize(vec3(0, 1, 0));
 
-    // Beer-Lambert law coefficients for realistic atmospheric scattering
-    const float absorption_intensity = 2.5;  // how much light is absorbed by cloud particles
-    const float scattering_intensity = 1.8;  // how much light is scattered toward viewer
+    const float absorption_intensity = 2.5;
+    const float scattering_intensity = 1.8;
 
-    // start ray at the beginning of the volume
     vec3 ray_position = vec3(uv.xy, 0.0);
-
-    // accumulated transmittance (how much light passes through)
     float transmittance = 1.0;
-
-    // accumulated radiance (final color)
     vec4 color = vec4(0.0);
 
-    // calculate slice depth positions
-    float slice_depth_step = 1.0 / float(n_export_textures);
-    int next_slice_index = 0;
-    float next_slice_depth = slice_depth_step * 0.5; // center of first slice
+    for (int step = 0; step < n_density_steps; step++) {
 
-    for (int density_step_i = 0; density_step_i < n_density_steps; ++density_step_i) {
-        // convert normalized position to texture coordinates
+        if (any(lessThan(ray_position, vec3(0.0))) || any(greaterThanEqual(ray_position, vec3(1.0))))
+            break;
+
         vec3 sample_pos = ray_position * vec3(volume_texture_size);
-        ivec3 sample_coord = ivec3(sample_pos);
+        float density = imageLoad(volume_texture, ivec3(sample_pos)).r;
 
-        // bounds check
-        if (any(lessThan(sample_coord, ivec3(0))) ||
-        any(greaterThanEqual(sample_coord, volume_texture_size))) {
-            ray_position += ray_direction * density_step_size;
-            continue;
-        }
-
-        // sample cloud density at current position
-        float sampled_density = imageLoad(volume_texture, sample_coord).r;
-
-        // skip empty space for performance
-        if (sampled_density > 0.01) {
-            // ===== SHADOW CALCULATION =====
-            // march toward light source to calculate occlusion
-            float shadow_density = 0.0;
+        if (density > 0.01) {
+            float light_transmittance = 1.0;
             vec3 shadow_ray_pos = ray_position;
 
-            for (int shadow_step_i = 0; shadow_step_i < n_shadow_steps; ++shadow_step_i) {
+            for (int shadow_step = 0; shadow_step < n_shadow_steps; shadow_step++) {
                 shadow_ray_pos += light_direction * shadow_step_size;
-                vec3 shadow_sample_pos = shadow_ray_pos * vec3(volume_texture_size);
-                ivec3 shadow_coord = ivec3(shadow_sample_pos);
 
-                // exit if we leave the volume
-                if (any(lessThan(shadow_coord, ivec3(0))) ||
-                any(greaterThanEqual(shadow_coord, volume_texture_size))) {
+                if (any(lessThan(shadow_ray_pos, vec3(0.0))) || any(greaterThanEqual(shadow_ray_pos, vec3(1.0))))
                     break;
-                }
 
-                float shadow_sample = imageLoad(volume_texture, shadow_coord).r;
-                shadow_density += shadow_sample * shadow_step_size;
+                vec3 shadow_sample_pos = shadow_ray_pos * vec3(volume_texture_size);
+                float shadow_density = imageLoad(volume_texture, ivec3(shadow_sample_pos)).r;
+
+                light_transmittance *= exp(-shadow_density * absorption_intensity * shadow_step_size);
+
+                if (light_transmittance < 0.01) break;
             }
 
-            // ===== BEER-LAMBERT LIGHT ATTENUATION =====
-            // exponential falloff based on accumulated shadow density
-            float light_transmittance = exp(-shadow_density * absorption_intensity);
+            light_transmittance * light_color;
 
-            // ===== LIGHTING CALCULATION =====
-            // combine directional light with shadow attenuation and ambient light
-            vec4 directional_contribution = light_color * light_transmittance * scattering_intensity;
-            vec4 ambient_contribution = ambient_light * ambient_light_color;
-            vec4 total_light = directional_contribution + ambient_contribution;
+            float density_contribution = density * scattering_intensity * density_step_size;
+            color += transmittance * density_contribution;
 
-            // ===== IN-SCATTERING =====
-            // light scattered into the ray at this sample point
-            float in_scatter = sampled_density * scattering_intensity * density_step_size;
+            // Attenuate transmittance (absorption/out-scattering)
+            transmittance *= exp(-density * absorption_intensity * density_step_size);
 
-            // add scattered light attenuated by current transmittance
-            color += vec4(total_light.rgb * transmittance * in_scatter, 0.0);
+            // Early exit if transmittance is negligible
+            if (transmittance < 0.01) break;
+        }
 
-            // ===== BEER-LAMBERT TRANSMITTANCE UPDATE =====
-            // reduce transmittance based on absorption along this step
-            float step_optical_depth = sampled_density * absorption_intensity * density_step_size;
-            transmittance *= exp(-step_optical_depth);
-
-            // ===== EARLY RAY TERMINATION =====
-
-            if (any(greaterThan(ray_position, vec3(1.0))) || any(lessThan(ray_position, vec3(0.0))) || transmittance < 0.01) {
-                break;
+        // Write accumulated result to the appropriate layer for this depth
+        // Each layer represents a depth slice for proper occlusion compositing
+        int layer = int(float(step) / float(n_density_steps) * float(export_texture_n_layers));
+        if (layer < export_texture_n_layers) {
+            ivec2 export_size = imageSize(export_texture).xy;
+            if (all(lessThan(gid.xy, export_size))) {
+                // Store RGB color and alpha (opacity = 1 - transmittance)
+                imageStore(export_texture, ivec3(gid.xy, layer), vec4(color.rgb, 1.0 - transmittance));
             }
         }
 
-        // advance ray position
-        vec3 prev_ray_position = ray_position;
+        // Advance ray position
         ray_position += ray_direction * density_step_size;
-
-        // check if we crossed a slice boundary and write to that slice
-        while (next_slice_index < n_export_textures && ray_position.z >= next_slice_depth) {
-            // write current accumulated color/transmittance to this slice
-            vec4 slice_color = color;
-            slice_color.a = 1.0 - transmittance;
-
-            imageStore(export_textures[next_slice_index], gid.xy, slice_color);
-
-            // move to next slice
-            next_slice_index++;
-            next_slice_depth += slice_depth_step;
-        }
-
-        // exit if we've written to all slices or left the volume
-        if (next_slice_index >= n_export_textures) {
-            break;
-        }
     }
 
-    // write final state to any remaining slices (if ray terminated early)
-    while (next_slice_index < n_export_textures) {
-        vec4 final_color = color;
-        final_color.a = 1.0 - transmittance;
-        imageStore(export_textures[next_slice_index], gid.xy, final_color);
-        next_slice_index++;
+    // Write final accumulated result to the last layer if we didn't fill all layers
+    ivec2 export_size = imageSize(export_texture).xy;
+    if (all(lessThan(gid.xy, export_size))) {
+        imageStore(export_texture, ivec3(gid.xy, export_texture_n_layers - 1), vec4(color.rgb, 1.0 - transmittance));
     }
 
     #endif // MODE_RAYMARCH
