@@ -200,7 +200,7 @@ function ow.AcceleratorSurface:update(delta)
         
         dx, dy = math.normalize(dx, dy)
 
-        local player_radius = rt.settings.player.radius * 2
+        local player_radius = rt.settings.player.radius * 2.5
         px, py = px + dx * player_radius, py + dy * player_radius
 
         dx, dy = math.mix2(dx, dy, normal_x, normal_y, 0.5)

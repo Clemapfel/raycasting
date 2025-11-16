@@ -248,7 +248,6 @@ void computemain() {
 
     noise = 1 - (noise + 1) / 2;
 
-    //noise *= min(1, pow(pos.y + 0.2, falloff));
     noise *= gaussian(distance(pos.y, 1), 2);
     imageStore(volume_texture, gid, vec4(noise, 0, 0, 0));
 

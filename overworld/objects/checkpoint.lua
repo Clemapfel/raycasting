@@ -269,9 +269,9 @@ function ow.Checkpoint:_set_state(state)
         local _, max_y = self._world:query_ray(self._x, self._y, 0, -10e8)
         local spawn_y
         if max_y == nil then
-            spawn_y = self._x - screen_h
+            spawn_y = self._y - screen_h
         else
-            spawn_y = math.max(self._x - screen_h, max_y)
+            spawn_y = math.max(self._y - screen_h, max_y)
         end
 
         self._top_y = spawn_y
