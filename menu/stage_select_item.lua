@@ -54,7 +54,7 @@ function mn.StageSelectItem:instantiate(stage_id)
     local game_state, id = rt.GameState, self._id
     local time_grade, flow_grade, coin_grade, total_grade = game_state:get_stage_grades(id)
 
-    local title = game_state:get_stage_title(id)
+    local title = game_state:get_stage_name(id)
     local was_cleared = game_state:get_stage_was_cleared(id)
     local time = not was_cleared and _long_dash or string.format_time(game_state:get_stage_best_time(id))
     local flow = not was_cleared and _long_dash or string.format_percentage(game_state:get_stage_best_flow_percentage(id))

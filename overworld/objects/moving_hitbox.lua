@@ -34,12 +34,12 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     self._elapsed = 0
     self._is_active = false
     self._body:signal_connect("collision_start", function(_, other_body)
-        assert(other_body:has_tag("player"))
+        if not other_body:has_tag("player") then return end
         self._is_active = true
     end)
 
     self._body:signal_connect("collision_end", function(_, other_body)
-        assert(other_body:has_tag("player"))
+        if not other_body:has_tag("player") then return end
         self._is_active = true
     end)
 

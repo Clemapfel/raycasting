@@ -11,8 +11,7 @@ rt.settings.overworld.goal = {
 
     flash_animation_duration = 20 / 60, -- seconds
     time_dilation_animation_duration = 2,
-    result_screen_delay = 1,
-    fade_to_black_duration = 0.5,
+    fade_to_black_duration = 2.5,
 
     n_particles = 40
 }
@@ -119,11 +118,7 @@ function ow.Goal:instantiate(object, stage, scene)
 
             duration * 3 / 8,
             min_dilation, 1,
-            rt.InterpolationFunctions.GAUSSIAN_HIGHPASS,
-
-            rt.settings.overworld.goal.result_screen_delay,
-            1, 1,
-            rt.InterpolationFunctions.LINEAR
+            rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
         )
     end
 
@@ -131,7 +126,8 @@ function ow.Goal:instantiate(object, stage, scene)
         self._fade_to_black_animation = rt.TimedAnimation(
             rt.settings.overworld.goal.fade_to_black_duration,
             0, 1,
-            rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
+            rt.InterpolationFunctions.ENVELOPE,
+            0.05, 0
         )
     end
 
@@ -362,7 +358,8 @@ function ow.Goal:update(delta)
 
         if is_done and not self._result_screen_revealed then
             self._result_screen_revealed = true
-            --TODO: self._scene:show_result_screen()
+            self._world:set_time_dilation(0)
+            self._scene:show_result_screen()
         end
 
         self._particles:set_screen_bounds(self._scene:get_camera():get_world_bounds())

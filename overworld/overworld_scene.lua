@@ -21,13 +21,11 @@ do
         camera_pan_width_factor = 0.15,
         camera_freeze_duration = 0.25,
         allow_translation = true,
-        results_screen_fraction = 0.5,
 
         bloom_blur_strength = 1.2, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
         title_card_min_duration = 3, -- seconds
 
-        result_screen_transition_duration = 0, --1.5,
         idle_threshold_duration = 5,
         control_indicator_delay = 0.0,
 
@@ -380,7 +378,7 @@ function ow.OverworldScene:set_stage(stage_id, show_title_card)
 
     if show_title_card == nil then show_title_card = true end
     self._show_title_card = show_title_card
-    self._title_card:set_title(rt.GameState:get_stage_title(stage_id))
+    self._title_card:set_title(rt.GameState:get_stage_name(stage_id))
 
     rt.SceneManager:set_use_fixed_timestep(true)
 
@@ -502,9 +500,13 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
         { x + width - gradient_w, y + height, 0, 0, r, g, b, 0 }
     })
 
-    self._background:reformat(0, 0, width, height)
-    self._pause_menu:reformat(0, 0, width, height)
-    self._title_card:reformat(0, 0, width, height)
+    for widget in range(
+        self._background,
+        self._pause_menu,
+        self._title_card
+    ) do
+        widget:reformat(0, 0, width, height)
+    end
 end
 
 --- @brief
@@ -1120,7 +1122,26 @@ end
 
 --- @brief
 function ow.OverworldScene:show_result_screen()
-    rt.error("TODO")
+    if self._stage == nil then return end
+
+    local player_x, player_y = self._camera:world_xy_to_screen_xy(self._player:get_position())
+    local stage_id = self._stage:get_id()
+
+    local coins = {}
+    for coin_i = 1, self._stage:get_n_coins() do
+        coins[coin_i] = self._stage:get_coin_is_collected(coin_i)
+    end
+
+    rt.SceneManager:set_scene(
+        ow.ResultScreenScene,
+        player_x, player_y,
+        {
+            stage_id = stage_id,
+            coins = coins,
+            time = self:get_timer(),
+            flow = self._stage:get_flow_fraction(),
+        }
+    )
 end
 
 --- @brief

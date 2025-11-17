@@ -291,7 +291,7 @@ function rt.GameState:get_stage_is_hundred_percented(id)
 end
 
 --- @brief
-function rt.GameState:get_stage_title(id)
+function rt.GameState:get_stage_name(id)
     local stage = self:_get_stage(id, "get_stage_name")
     return stage.title
 end

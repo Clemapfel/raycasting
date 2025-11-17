@@ -47,7 +47,7 @@ love.load = function(args)
     local menu = 5
 
     for to_preallocate in range(
-        -- result_screen
+         result_screen
         --, overworld
         --, keybinding
         --, settings

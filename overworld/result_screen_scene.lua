@@ -46,18 +46,9 @@ local _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.g
 })
 
 --- @brief
-function ow.ResultScreenScene:instantiate(state)
+function ow.ResultScreenScene:instantiate()
     if _title_font == nil then _title_font = rt.Font(rt.settings.overworld.result_screen_scene.title_font) end
     if _glyph_font == nil then _glyph_font = rt.Font(rt.settings.overworld.result_screen_scene.glyph_font) end
-
-    -- TODO
-    self._debug = rt.InputSubscriber()
-    self._debug:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            _screenshot_shader:recompile()
-            self._screenshot_fraction_animation:reset()
-        end
-    end)
 
     -- grades
     local translation = rt.Translation.result_screen_scene
@@ -164,7 +155,6 @@ function ow.ResultScreenScene:instantiate(state)
     self._fireworks = ow.Fireworks()
 
     self._camera = rt.Camera()
-    self._screenshot = nil -- rt.RenderTexture, cf :enter
     self._screenshot_fraction_animation = rt.TimedAnimation(
         rt.settings.overworld.result_screen_scene.screenshot_animation_duration,
         0, 1,
@@ -308,7 +298,7 @@ function ow.ResultScreenScene:instantiate(state)
     -- player boundaries
     self._entry_x, self._entry_y = 0, 0
     self._player_velocity_x, self._player_velocity_y = 0, 0
-    self._player = state:get_player()
+    self._player = rt.GameState:get_player()
 
     do
         self._world = b2.World()
@@ -544,10 +534,6 @@ function ow.ResultScreenScene:size_allocate(x, y, width, height)
 
     self._screenshot_mesh = rt.MeshRectangle(x, y, width, height)
 
-    if self._screenshot ~= nil then
-        self._screenshot_mesh:set_texture(self._screenshot)
-    end
-
     -- mutable elements
     self:_reformat_frame()
     self:update(0)
@@ -556,25 +542,10 @@ end
 --- @brief
 --- @param player_x Number in screen coordinates
 --- @param player_y Number
---- @param screenshot RenderTexture?
-function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
+function ow.ResultScreenScene:enter(player_x, player_y, config)
     self._input:activate()
 
     rt.SceneManager:set_use_fixed_timestep(true)
-    self._screenshot = screenshot -- can be nil
-    self._screenshot_fraction_animation:reset()
-    self._screenshot:set_scale_mode(rt.TextureScaleMode.LINEAR)
-    self._screenshot:set_wrap_mode(rt.TextureWrapMode.MIRROR)
-    self._screenshot_mesh:set_texture(self._screenshot)
-
-    do -- update to screenshot during lag frames
-        love.graphics.push("all")
-        love.graphics.reset()
-        love.graphics.setColor(1, 1, 1, 1)
-        self._screenshot_mesh:draw()
-        love.graphics.present()
-        love.graphics.pop()
-    end
 
     if rt.SceneManager:get_is_bloom_enabled() then
         rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
@@ -589,28 +560,37 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._player:set_gravity(0)
     self._player:set_is_bubble(true)
 
-    self._config = config
     local required_keys = {}
     for key in range(
-        "stage_name",
         "stage_id",
         "coins",
         "time",
-        "flow",
-        "time_grade",
-        "flow_grade",
-        "coins_grade",
-        "target_time"
+        "flow"
     ) do
         required_keys[key] = true
     end
 
     for key in keys(required_keys) do
-        if self._config[key] == nil then
+        if config[key] == nil then
             rt.error("In ow.ResultScreenScene.enter: config does not have `",  key,  "` field")
         end
     end
 
+    local id = config.stage_id
+    config.stage_name = rt.GameState:get_stage_name(id)
+
+    config.target_time = rt.GameState:get_stage_target_time(id)
+    config.time_grade = rt.GameState:time_to_time_grade(config.time, config.target_time)
+    config.flow_grade = rt.GameState:flow_to_flow_grade(config.flow)
+
+    local n_coins = 0
+    for coin in values(config.coins) do
+        if coin == true then n_coins = n_coins + 1 end
+    end
+
+    config.coins_grade = rt.GameState:n_coins_to_coin_grade(n_coins, #config.coins)
+
+    self._config = config
     self._stage_name_label:set_text(_format_title(config.stage_name))
 
     self._current_stage_id = config.stage_id
@@ -642,27 +622,17 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self:_teleport_player(self._entry_x, self._entry_y)
     self._camera:set_position(self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height)
 
+    for entry in values(self._coin_indicators) do
+        if entry.body ~= nil then
+            entry.body:destroy()
+        end
+    end
     self._coin_indicators = {}
 
-    do -- coins
-        for entry in values(self._coin_indicators) do
-            if entry.body ~= nil then
-                entry.body:destroy()
-            end
-        end
+    self._max_n_coins = #config.coins
+    self._n_coins = n_coins
 
-        self._max_n_coins = #(self._config.coins)
-        self._n_coins = 0
-        for b in values(self._config.coins) do
-            if not meta.is_boolean(b) then
-                rt.error("In ow.ResultScreen.enter: `coins` field does not contain exclusively booleans")
-            end
-
-            if b then self._n_coins = self._n_coins + 1 end
-        end
-
-        self:_initialize_coin_indicators()
-    end
+    self:_initialize_coin_indicators()
 
     -- labels
     self._flow_value_label:set_text(string.format_percentage(0))
@@ -732,6 +702,9 @@ function ow.ResultScreenScene:_initialize_coin_indicators()
             local coin = ow.CoinParticle(radius)
             coin:set_hue(ow.Coin.index_to_hue(i, self._max_n_coins))
 
+            local is_collected = self._config.coins[i]
+            coin:set_is_outline(not is_collected)
+
             table.insert(self._coin_indicators, {
                 radius = radius,
                 coin = coin,
@@ -741,7 +714,7 @@ function ow.ResultScreenScene:_initialize_coin_indicators()
                 velocity_y = 0,
                 mass = rt.random.number(0.5, 1.5),
                 body = nil, -- b2.Body
-                is_collected = self._config.coins[i],
+                is_collected = is_collected,
                 active = false
             })
         end
@@ -1170,19 +1143,9 @@ end
 function ow.ResultScreenScene:draw()
     if not self:get_is_active() then return end
 
-    if self._screenshot ~= nil then
-        love.graphics.setColor(1, 1, 1, 1)
-        _screenshot_shader:bind()
-        _screenshot_shader:send("rainbow_fraction", self._rainbow_transition_animation:get_value())
-        _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
-        _screenshot_shader:send("transition_fraction", self._transition_fraction)
-        _screenshot_shader:send("camera_offset", { self._camera:get_offset() })
-        _screenshot_shader:send("camera_scale", self._camera:get_final_scale())
-        _screenshot_shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
-        self._screenshot_mesh:draw()
-        _screenshot_shader:unbind()
-    end
+    local fraction = self._screenshot_fraction_animation:get_value()
+    love.graphics.setColor(1, 1, 1, fraction)
+    self._screenshot_mesh:draw()
 
     self._camera:bind()
 

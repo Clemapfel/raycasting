@@ -550,6 +550,7 @@ function rt.SoundManager:stop(id, handler_id, fade_out_duration)
     if fade_out_duration == nil then fade_out_duration = rt.settings.sound_manager.source_stop_decay_duration end
 
     local entry = self:_get_entry(id, "play")
+    if entry == nil then return end
 
     local to_stop = {}
     local add = function(entry, handler_id)
