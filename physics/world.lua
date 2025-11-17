@@ -279,13 +279,15 @@ function b2.World:query_ray(origin_x, origin_y, direction_x, direction_y, mask)
     local min_fraction = math.huge
     local x_out, y_out, normal_x_out, normal_y_out
 
-    local shape, x, y, nx, ny, fraction = self._native:rayCastClosest(
+    local success, shape, x, y, nx, ny, fraction = pcall(self._native.rayCastClosest,
+        self._native,
         origin_x, origin_y,
         origin_x + direction_x,
         origin_y + direction_y,
         mask
     )
 
+    if not success then return nil end
     if shape ~= nil then shape = shape:getBody():getUserData() end
     return x, y, nx, ny, shape
 end
@@ -298,11 +300,7 @@ end
 --- @param ... b2.CollisionGroup
 --- @return number, number, number, number, b2.Body x, y, normal_x, normal_y
 function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, mask)
-    local min_fraction = math.huge
-
-    if math.magnitude(direction_x, direction_y) < 1 then
-        direction_x, direction_y = math.normalize(direction_x, direction_y)
-    end
+    if direction_x == 0 and direction_y == 0 then return nil end
 
     local success, shape, x, y, nx, ny, fraction = pcall(self._native.rayCastAny,
         self._native,
@@ -313,7 +311,6 @@ function b2.World:query_ray_any(origin_x, origin_y, direction_x, direction_y, ma
     )
 
     if not success then return nil end
-
     if shape ~= nil then shape = shape:getBody():getUserData() end
     return x, y, nx, ny, shape
 end
@@ -326,6 +323,8 @@ end
 --- @param ... b2.CollisionGroup
 --- @return number, number, number, number, b2.Body x, y, normal_x, normal_y
 function b2.World:query_segment(origin_x, origin_y, direction_x, direction_y, ...)
+    if direction_x == 0 and direction_y == 0 then return nil end
+
     local min_fraction = math.huge
     local x_out, y_out, normal_x_out, normal_y_out
 
@@ -343,7 +342,7 @@ function b2.World:query_segment(origin_x, origin_y, direction_x, direction_y, ..
     local bodies = {}
     local body_to_fraction = {}
 
-    self._native:rayCast(
+    pcall(self._native.rayCast,
         origin_x, origin_y,
         origin_x + direction_x,
         origin_y + direction_y,

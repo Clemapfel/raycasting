@@ -97,26 +97,6 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
         end
     end
 
-    do
-        local shapes = {}
-        local contour = object:create_contour()
-        table.insert(contour, contour[1])
-        table.insert(contour, contour[2])
-        for i = 1, #contour - 2, 2 do
-            local ax, ay = contour[i+0], contour[i+1]
-            local bx, by = contour[i+2], contour[i+3]
-            table.insert(shapes, b2.Segment(ax, ay, bx, by))
-        end
-
-        local x, y = self._body:get_position()
-        self._contour_body = b2.Body(
-            stage:get_physics_world(),
-            b2.BodyType.KINEMATIC,
-            x, y,
-            shapes
-        )
-    end
-
     self._should_loop = object:get_boolean("should_loop", false)
     if self._should_loop == nil then self._should_loop = false end
 

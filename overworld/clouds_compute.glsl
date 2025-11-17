@@ -161,17 +161,6 @@ float dirac(float x) {
     return t * min(a, b);
 }
 
-float continuous_step(float x, int n_steps, float smoothness) {
-    // https://www.desmos.com/calculator/ggoaqtlh7c
-    if (n_steps == 0) n_steps = 3;
-    if (smoothness == 0.0) smoothness = 11.5;
-
-    float h = (n_steps > 0) ? (1.0 / float(n_steps)) : 2.0;
-    float a = smoothness;
-
-    return h * ((tanh((a * x / h) - a * floor(x / h) - a / 2.0) / (2.0 * tanh(a / 2.0)) + 0.5 + floor(x / h)));
-}
-
 #endif // MODE_FILL
 
 #ifndef WORK_GROUP_SIZE_X
@@ -238,9 +227,9 @@ void computemain() {
 
     vec4 pos = vec4(uv + noise_offset, time_offset);
 
-    float frequency = 1. / 1500 * (volume_texture_size.x * volume_texture_size.y);
+    float frequency = 1. / 1000 * (volume_texture_size.x * volume_texture_size.y);
     float noise = fractal_brownian_motion(
-        pos * frequency,
+        pos,
         3,  // octaves
         3,  // lacunarity
         0.4 // gain
@@ -248,7 +237,14 @@ void computemain() {
 
     noise = 1 - (noise + 1) / 2;
 
-    noise *= gaussian(distance(pos.y, 1), 2);
+    float gradient_offset = fractal_brownian_motion(
+        pos * vec4(5, 2.8, 0, 1),
+        2,
+        4,
+        0.3
+    );
+
+    noise *= gaussian(distance((pos.y + gradient_offset), 1), 1);
     imageStore(volume_texture, gid, vec4(noise, 0, 0, 0));
 
     #elif MODE == MODE_RAYMARCH

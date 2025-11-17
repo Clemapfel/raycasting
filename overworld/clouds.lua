@@ -4,7 +4,7 @@ require "common.render_texture_array"
 require "common.shader"
 require "common.compute_shader"
 
-rt.settings.clouds = {
+rt.settings.overworld.clouds = {
     volume_texture_format = rt.TextureFormat.R32F,
     export_texture_format = rt.TextureFormat.R8,
     volume_texture_anisotropy = 1,
@@ -23,8 +23,8 @@ rt.settings.clouds = {
     hue_offset = 0.25 -- min/max hue of cloud, +/- player hue
 }
 
---- @class rt.Clouds
-rt.Clouds = meta.class("Clouds")
+--- @class ow.Clouds
+ow.Clouds = meta.class("Clouds")
 
 local _draw_mesh_format = {
     { location = 0, name = "position", format = "floatvec3" },
@@ -34,8 +34,8 @@ local _draw_mesh_format = {
 
 local _fill_volume_texture_shader, _raymarch_shader, _draw_shader
 do
-    local settings = rt.settings.clouds
-    _fill_volume_texture_shader = rt.ComputeShader("common/clouds_compute.glsl", {
+    local settings = rt.settings.overworld.clouds
+    _fill_volume_texture_shader = rt.ComputeShader("overworld/clouds_compute.glsl", {
         MODE = 0,
         WORK_GROUP_SIZE_X = settings.work_group_size_x,
         WORK_GROUP_SIZE_Y = settings.work_group_size_y,
@@ -43,7 +43,7 @@ do
         VOLUME_TEXTURE_FORMAT = settings.volume_texture_format
     })
 
-    _raymarch_shader = rt.ComputeShader("common/clouds_compute.glsl", {
+    _raymarch_shader = rt.ComputeShader("overworld/clouds_compute.glsl", {
         MODE = 1,
         WORK_GROUP_SIZE_X = settings.work_group_size_x,
         WORK_GROUP_SIZE_Y = settings.work_group_size_y,
@@ -52,30 +52,18 @@ do
         EXPORT_TEXTURE_FORMAT = settings.export_texture_format
     })
 
-    _draw_shader = rt.Shader("common/clouds_draw.glsl")
+    _draw_shader = rt.Shader("overworld/clouds_draw.glsl")
 end
 
 --- @brief
---- @param x Number
---- @param y Number
---- @param z Number
---- @param size_x Number
---- @param size_y Number
---- @param size_z Number
-function rt.Clouds:instantiate(
+function ow.Clouds:instantiate(
     n_slices,
     resolution_x, resolution_y, resolution_z,
     x, y, z,
     size_x, size_y, size_z,
-    fov
+    fov,
+    offset_x, offset_y, offset_z, offset_w
 )
-    meta.assert(
-        n_slices, "Number",
-        resolution_x, "Number",
-        resolution_y, "Number",
-        resolution_z, "Number"
-    )
-
     self._resolution_x = resolution_x
     self._resolution_y = resolution_y
     self._resolution_z = resolution_z
@@ -89,10 +77,10 @@ function rt.Clouds:instantiate(
         size_z = size_z
     }
 
-    self._noise_offset_x = 0
-    self._noise_offset_y = 0
-    self._noise_offset_z = 0
-    self._noise_offset_time = 0
+    self._noise_offset_x = offset_x or 0
+    self._noise_offset_y = offset_y or 0
+    self._noise_offset_z = offset_z or 0
+    self._noise_offset_time = offset_w or 0
 
     self._hue = 0
 
@@ -135,25 +123,25 @@ function rt.Clouds:instantiate(
 end
 
 --- @brief
-function rt.Clouds:get_texture(i)
+function ow.Clouds:get_texture(i)
     if i == nil then i = 1 end
 
     local entry = self._slices[i]
     if entry == nil then
-        rt.error("In rt.Clouds: trying to access texture #", i, " but clouds only has ", self._n_slices, " slices")
+        rt.error("In ow.Clouds: trying to access texture #", i, " but clouds only has ", self._n_slices, " slices")
     end
 
     return entry.canvas
 end
 
 --- @brief
-function rt.Clouds:realize()
+function ow.Clouds:realize()
     if self._is_realized == true then return end
     self._is_realized = true
 end
 
 --- @brief
-function rt.Clouds:set_offset(x, y, z, time, force_recompute)
+function ow.Clouds:set_offset(x, y, z, time, force_recompute)
     local recompute = (x ~= nil and self._noise_offset_x ~= x)
         or (y ~= nil and self._noise_offset_y ~= y)
         or (z ~= nil and self._noise_offset_z ~= z)
@@ -171,14 +159,14 @@ function rt.Clouds:set_offset(x, y, z, time, force_recompute)
 end
 
 --- @brief
-function rt.Clouds:_init_volume_texture()
-    local n_layers = rt.settings.clouds.n_layeres
+function ow.Clouds:_init_volume_texture()
+    local n_layers = rt.settings.overworld.clouds.n_layeres
     local texture_config = {
         self._resolution_x,
         self._resolution_y,
         self._resolution_z,
         0, -- msaa
-        rt.settings.clouds.volume_texture_format,
+        rt.settings.overworld.clouds.volume_texture_format,
         true -- compute writable
     }
 
@@ -187,7 +175,7 @@ function rt.Clouds:_init_volume_texture()
     self._volume_texture:set_scale_mode(
         rt.TextureScaleMode.LINEAR,
         rt.TextureScaleMode.LINEAR,
-        rt.settings.clouds.volume_texture_anisotropy
+        rt.settings.overworld.clouds.volume_texture_anisotropy
     )
 
     self._volume_texture:set_wrap_mode(
@@ -196,7 +184,7 @@ function rt.Clouds:_init_volume_texture()
 end
 
 --- @brief
-function rt.Clouds:_update_volume_texture()
+function ow.Clouds:_update_volume_texture()
     _fill_volume_texture_shader:send("noise_offset", {
         self._noise_offset_x,
         self._noise_offset_y,
@@ -205,7 +193,7 @@ function rt.Clouds:_update_volume_texture()
     _fill_volume_texture_shader:send("time_offset", self._noise_offset_time)
     _fill_volume_texture_shader:send("volume_texture", self._volume_texture:get_native())
 
-    local settings = rt.settings.clouds
+    local settings = rt.settings.overworld.clouds
     local size_x, size_y, size_z = self._volume_texture:get_size()
     local dispatch_x = math.ceil(size_x / settings.work_group_size_x)
     local dispatch_y = math.ceil(size_y / settings.work_group_size_y)
@@ -219,7 +207,7 @@ function rt.Clouds:_update_volume_texture()
 end
 
 --- @brief
-function rt.Clouds:_init_draw_mesh(size_x, size_y, fov)
+function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
     -- Build a layered mesh where each slice is scaled to fill the camera frustum
     -- using the provided vertical FOV. If self._view_from_world (4x4) is present,
     -- we transform slice centers into view space and use the view-space depth for scaling.
@@ -264,7 +252,7 @@ function rt.Clouds:_init_draw_mesh(size_x, size_y, fov)
     local plane_cx = bounds.x + size_x * 0.5
     local plane_cy = bounds.y + size_y * 0.5
 
-    local min_uv_u, max_uv_u = -1, 1
+    local min_uv_u, max_uv_u = 0, 1-- -1, 1
     local min_uv_v, max_uv_v = 0, 2
 
     for i = self._n_slices, 1, -1 do
@@ -325,7 +313,7 @@ function rt.Clouds:_init_draw_mesh(size_x, size_y, fov)
 end
 
 --[[
-function rt.Clouds:_init_draw_mesh()
+function ow.Clouds:_init_draw_mesh()
     local data = {}
     local vertex_map = {}
 
@@ -375,13 +363,13 @@ end
 ]]--
 
 --- @brief
-function rt.Clouds:_init_slices()
+function ow.Clouds:_init_slices()
     self._export_texture = rt.RenderTextureArray(
         self._resolution_x,
         self._resolution_y,
         self._n_slices,
         0, -- msaa,
-        rt.settings.clouds.export_texture_format,
+        rt.settings.overworld.clouds.export_texture_format,
         true -- computewrite
     )
 
@@ -397,8 +385,8 @@ function rt.Clouds:_init_slices()
 end
 
 --- @brief
-function rt.Clouds:_update_slice_textures()
-    local settings = rt.settings.clouds
+function ow.Clouds:_update_slice_textures()
+    local settings = rt.settings.overworld.clouds
     _raymarch_shader:send("volume_texture", self._volume_texture:get_native())
     _raymarch_shader:send("export_texture", self._export_texture)
     _raymarch_shader:send("export_texture_n_layers", self._n_slices)
@@ -408,7 +396,7 @@ function rt.Clouds:_update_slice_textures()
     _raymarch_shader:send("n_shadow_steps", settings.n_shadow_steps)
     _raymarch_shader:send("shadow_step_size", settings.shadow_step_size)
 
-    local settings = rt.settings.clouds
+    local settings = rt.settings.overworld.clouds
     local size_x, size_y, size_z = self._volume_texture:get_size()
     local dispatch_x = math.ceil(size_x / settings.work_group_size_x)
     local dispatch_y = math.ceil(size_y / settings.work_group_size_y)
@@ -417,24 +405,24 @@ function rt.Clouds:_update_slice_textures()
 end
 
 --- @brief
-function rt.Clouds:set_hue(hue)
+function ow.Clouds:set_hue(hue)
     self._hue = hue
 end
 
 --- @brief
-function rt.Clouds:draw()
+function ow.Clouds:draw()
     _draw_shader:bind()
     _draw_shader:send("export_texture", self._export_texture)
     _draw_shader:send("hue", self._hue)
     _draw_shader:send("n_layers", self._n_slices)
-    _draw_shader:send("whiteness", rt.settings.clouds.whiteness)
-    _draw_shader:send("opacity", rt.settings.clouds.opacity)
-    _draw_shader:send("hue_offset", rt.settings.clouds.hue_offset)
+    _draw_shader:send("whiteness", rt.settings.overworld.clouds.whiteness)
+    _draw_shader:send("opacity", rt.settings.overworld.clouds.opacity)
+    _draw_shader:send("hue_offset", rt.settings.overworld.clouds.hue_offset)
     self._draw_mesh:draw()
     _draw_shader:unbind()
 end
 
 --- @brief
-function rt.Clouds:get_n_slices()
+function ow.Clouds:get_n_slices()
     return self._n_slices
 end

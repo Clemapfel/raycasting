@@ -1477,43 +1477,41 @@ function rt.Player:update(delta)
                     friction = math.min(friction, body:get_friction())
                 end
 
-                local compensation = 1 / math.abs(friction) -- compensate for accelerators
-                if friction == 0 then compensation = 1 end
-
-                local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
-                if next_magnitude > math.eps then
-                    -- prefer normal in direction of movement, if available
-                    local ground_normal_x, ground_normal_y = bottom_nx, bottom_ny
-                    if next_velocity_x > 0 then
-                        if self._bottom_left_wall then
-                            ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
+                if friction > 0 then -- skip accelerators
+                    local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
+                    if next_magnitude > math.eps then
+                        -- prefer normal in direction of movement, if available
+                        local ground_normal_x, ground_normal_y = bottom_nx, bottom_ny
+                        if next_velocity_x > 0 then
+                            if self._bottom_left_wall then
+                                ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
+                            end
+                        else
+                            if self._bottom_right_wall then
+                                ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
+                            end
                         end
-                    else
-                        if self._bottom_right_wall then
-                            ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
+
+                        -- compute ground tangent
+                        local ground_tangent_x, ground_tangent_y = 0, 0
+                        if next_velocity_x > 0 then
+                            ground_tangent_x, ground_tangent_y = math.turn_right(ground_normal_x, ground_normal_y)
+                        elseif next_velocity_x < 0 then
+                            ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
                         end
-                    end
 
-                    -- compute ground tangent
-                    local ground_tangent_x, ground_tangent_y = 0, 0
-                    if next_velocity_x > 0 then
-                        ground_tangent_x, ground_tangent_y = math.turn_right(ground_normal_x, ground_normal_y)
-                    elseif next_velocity_x < 0 then
-                        ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
-                    end
+                        -- if going up slopes
+                        if ground_tangent_y < 0 then
+                            -- project current velocity onto the ground tangent
+                            local tangent_dot = math.dot(next_velocity_x, next_velocity_y, ground_tangent_x, ground_tangent_y)
 
-                    -- if going up slopes
-                    if ground_tangent_y < 0 then
-                        -- project current velocity onto the ground tangent
-                        local tangent_dot = math.dot(next_velocity_x, next_velocity_y, ground_tangent_x, ground_tangent_y)
+                            -- calculate gravity component along the slope (opposing movement)
+                            local gravity_along_slope = math.dot(0, gravity, ground_tangent_x, ground_tangent_y)
 
-                        -- calculate gravity component along the slope (opposing movement)
-                        local gravity_along_slope = math.dot(0, gravity, ground_tangent_x, ground_tangent_y)
-
-                        next_velocity_x, next_velocity_y = math.multiply2(
-                            ground_tangent_x, ground_tangent_y,
-                            (compensation) * (tangent_dot - gravity_along_slope)
-                        )
+                            next_velocity_x, next_velocity_y = math.multiply2(
+                                ground_tangent_x, ground_tangent_y, (tangent_dot - gravity_along_slope)
+                            )
+                        end
                     end
                 end
             end

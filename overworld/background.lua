@@ -1,7 +1,7 @@
 require "common.quaternion"
 require "common.widget"
 require "common.render_texture_3d"
-require "common.clouds"
+require "overworld.clouds"
 
 rt.settings.overworld.background = {
     intensity = 0.9,
@@ -338,18 +338,20 @@ function ow.Background:size_allocate(x, y, width, height)
 
     local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
     local padding = 0 --(max_x - min_x) * 0.
+    local clouds_y_offset = 8
 
     local n_slices = 32
-    self._clouds = rt.Clouds(
+    self._clouds = ow.Clouds(
         n_slices, -- n slices
-        256, 256, n_slices * 2, -- resolution
+        512 + 256, 256, 64, -- resolution
         min_x - padding, -- position
-        min_y - padding,
+        min_y - padding - clouds_y_offset,
         min_z,
         max_x - min_x + 2 * padding, -- size
         max_y - min_y + 2 * padding,
         max_z - min_z,
-        rt.settings.overworld.background.fov
+        rt.settings.overworld.background.fov,
+        0, 0, 0, rt.SceneManager:get_elapsed() * 100 -- noise offset
     )
 
     self._clouds_offset_x = 0
@@ -411,7 +413,7 @@ function ow.Background:draw()
         )
 
         self._canvas:set_view_transform(clouds_transform)
-        self._clouds:set_hue(self._scene:get_player():get_hue())
+        self._clouds:set_hue(rt.SceneManager:get_elapsed() / 100)
         self._clouds:draw()
 
         love.graphics.setDepthMode("less", false)

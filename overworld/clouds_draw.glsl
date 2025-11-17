@@ -62,6 +62,8 @@ out vec4 frag_color;
 
 void pixelmain() {
     float value = texture(export_texture, varying_texture_coords).r;
+    if (value < 10e-3) discard;
+
     vec3 layer_color = lch_to_rgb(vec3(0.8, 1, fract(mix(hue - hue_offset, hue + hue_offset, varying_texture_coords.z / n_layers))));
     frag_color = vec4(layer_color, 1) * vec4(vec3(min(6 * value, 1)), opacity * value);
 }
