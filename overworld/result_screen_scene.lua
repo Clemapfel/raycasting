@@ -1116,7 +1116,7 @@ function ow.ResultScreenScene:update(delta)
                 if self._fade_active ~= true and player_y > self._transition_final_y + 2 * screen_h then -- to make sure trail is off screen
                     self._fade:signal_connect("hidden", function(_)
                         require "overworld.overworld_scene"
-                        rt.SceneManager:set_scene(ow.OverworldScene, self._transition_next, true)
+                        rt.SceneManager:set_scene(ow.OverworldScene, table.unpack(self._transition_next))
                         return meta.DISCONNECT_SIGNAL
                     end)
                     self._fade:start()
@@ -1145,7 +1145,17 @@ function ow.ResultScreenScene:draw()
 
     local fraction = self._screenshot_fraction_animation:get_value()
     love.graphics.setColor(1, 1, 1, fraction)
+
+    _screenshot_shader:bind()
+    _screenshot_shader:send("rainbow_fraction", self._rainbow_transition_animation:get_value())
+    _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
+    _screenshot_shader:send("transition_fraction", self._transition_fraction)
+    _screenshot_shader:send("camera_offset", { self._camera:get_offset() })
+    _screenshot_shader:send("camera_scale", self._camera:get_final_scale())
+    _screenshot_shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
     self._screenshot_mesh:draw()
+    _screenshot_shader:unbind()
 
     self._camera:bind()
 
@@ -1289,9 +1299,9 @@ function ow.ResultScreenScene:draw()
 end
 
 --- @brief
-function ow.ResultScreenScene:_transition_to(scene)
+function ow.ResultScreenScene:_transition_to(...)
     self._transition_active = true
-    self._transition_next = scene
+    self._transition_next = { ... }
     self._transition_elapsed = 0
     self._transition_final_y = nil
     self._player:set_gravity(0.5)
@@ -1346,13 +1356,13 @@ end
 --- @brief
 function ow.ResultScreenScene:_on_next_stage()
     if not self._is_paused or self._next_level_blocked == true then return end
-    self:_transition_to(self._next_stage_id)
+    self:_transition_to(self._next_stage_id, true)
 end
 
 --- @brief
 function ow.ResultScreenScene:_on_retry_stage()
     if not self._is_paused then return end
-    self:_transition_to(self._current_stage_id)
+    self:_transition_to(self._current_stage_id, false)
 end
 
 --- @brief

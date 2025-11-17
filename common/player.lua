@@ -2799,6 +2799,7 @@ function rt.Player:reset()
 
     self._platform_velocity_x = 0
     self._platform_velocity_y = 0
+    if self._world ~= nil then self._world:set_time_dilation(1) end
 
     self._top_wall = false
     self._top_right_wall = false

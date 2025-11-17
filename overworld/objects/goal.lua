@@ -463,6 +463,7 @@ function ow.Goal:reset()
     self._player_time_dilation_animation:reset()
     self:update(0)
     self._particles:clear()
+    self._is_shattered = false
 end
 
 --- @brief

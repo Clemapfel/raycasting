@@ -86,7 +86,6 @@ function ow.OverworldScene:instantiate(state)
         _camera_pan_gradient_left = nil,
         _camera_pan_left_speed = 0,
 
-        _cursor_visible = false,
         _cursor_active = false,
         _camera_freeze_elapsed = 0, -- sic, freeze at initialization
 
@@ -163,6 +162,8 @@ function ow.OverworldScene:instantiate(state)
     self._control_indicator_delay_elapsed = math.huge
 
     self._input:signal_connect("pressed", function(_, which)
+        self:_set_cursor_is_visible(false) -- on any input action
+
         if which == rt.InputAction.PAUSE then
             if not self._pause_menu_active then
                 self:pause()
@@ -186,22 +187,22 @@ function ow.OverworldScene:instantiate(state)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, true)
-        self._cursor_active = false
+        self:_set_cursor_is_active(false)
     end)
 
     self._input:signal_connect("right_joystick_moved", function(_, x, y)
         self:_handle_joystick(x, y, false)
-        self._cursor_active = false
+        self:_set_cursor_is_active(false)
     end)
 
     self._input:signal_connect("left_trigger_moved", function(_, value)
         self:_handle_trigger(value, true)
-        self._cursor_active = false
+        self:_set_cursor_is_active(false)
     end)
 
     self._input:signal_connect("right_trigger_moved", function(_, value)
         self:_handle_trigger(value, false)
-        self._cursor_active = false
+        self:_set_cursor_is_active(false)
     end)
 
     -- raw inputs
@@ -211,7 +212,7 @@ function ow.OverworldScene:instantiate(state)
             self._camera:reset()
             self._camera:set_position(self._player:get_position())
         end
-        self._cursor_active = false
+        self:_set_cursor_is_active(false)
     end)
 
     local _up_pressed = false
@@ -242,14 +243,18 @@ function ow.OverworldScene:instantiate(state)
         end
     end
 
-    function self:_set_cursor_visible(b)
-        self._cursor_visible = b
+    function self:_set_cursor_is_visible(b)
+        rt.SceneManager:set_cursor_is_visible(b)
         if b == false then
             self._camera_pan_up_speed = 0
             self._camera_pan_right_speed = 0
             self._camera_pan_down_speed = 0
             self._camera_pan_left_speed = 0
         end
+    end
+    
+    function self:_set_cursor_is_active(b)
+        self._cursor_active = b
     end
 
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -265,7 +270,7 @@ function ow.OverworldScene:instantiate(state)
         end
 
         _update_velocity()
-        self._cursor_active = false
+        self:_set_cursor_is_active(false)
         self._camera_pan_up_speed = 0
         self._camera_pan_right_speed = 0
         self._camera_pan_down_speed = 0
@@ -284,25 +289,25 @@ function ow.OverworldScene:instantiate(state)
         end
 
         _update_velocity()
-        self._cursor_active = false
+        self:_set_cursor_is_active(false)
     end)
 
     self._input:signal_connect("mouse_moved", function(_, x, y)
-        self._cursor_active = true
+        self:_set_cursor_is_active(true)
         if self._input:get_input_method() == rt.InputMethod.KEYBOARD then
             local w = self._camera_pan_area_width
             self._camera_pan_up_speed = math.max((w - y) / w, 0)
             self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
             self._camera_pan_down_speed = math.max((y - (self._bounds.y + self._bounds.height - w)) / w, 0)
             self._camera_pan_left_speed = math.max((w - x) / w, 0)
-            self:_set_cursor_visible(true)
+            self:_set_cursor_is_visible(true)
         end
     end)
 
     self._input:signal_connect("input_method_changed", function(_, which)
         if which ~= rt.InputMethod.KEYBOARD then
-            self:_set_cursor_visible(false)
-            self._cursor_active = false
+            self:_set_cursor_is_visible(false)
+            self:_set_cursor_is_active(false)
             -- only hide, reveal could mess up out-of-window disable
         end
     end)
@@ -311,7 +316,7 @@ function ow.OverworldScene:instantiate(state)
     end)
 
     self._input:signal_connect("mouse_left_screen", function(_)
-        self:_set_cursor_visible(false)
+        self:_set_cursor_is_visible(false)
     end)
 
     self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
@@ -345,16 +350,10 @@ end
 
 local _blocked = 0
 
-local _cursor = nil
-
 --- @brief
 function ow.OverworldScene:enter(new_stage_id, show_title_card)
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(true)
-
-    love.mouse.setVisible(false)
-    love.mouse.setGrabbed(false)
-    love.mouse.setCursor(_cursor)
 
     self._fade_active = false
     self._fade:skip()
@@ -632,33 +631,23 @@ function ow.OverworldScene:draw()
 
     love.graphics.pop()
 
-    if not self._pause_menu_active and not self._fade:get_is_active() and self._cursor_visible and rt.settings.overworld_scene.allow_translation then
-        love.graphics.setColor(1, 1, 1, self._camera_pan_up_speed)
+    if rt.settings.overworld_scene.allow_translation
+        and not self._pause_menu_active
+        and not self._fade:get_is_active()
+        and rt.SceneManager:get_cursor_is_visible()
+    then
+        local factor = 2
+        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_up_speed)
         love.graphics.draw(self._pan_gradient_top._native)
 
-        love.graphics.setColor(1, 1, 1, self._camera_pan_right_speed)
+        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_right_speed)
         love.graphics.draw(self._pan_gradient_right._native)
 
-        love.graphics.setColor(1, 1, 1, self._camera_pan_down_speed)
+        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_down_speed)
         love.graphics.draw(self._pan_gradient_bottom._native)
 
-        love.graphics.setColor(1, 1, 1, self._camera_pan_left_speed)
+        love.graphics.setColor(1, 1, 1, factor * self._camera_pan_left_speed)
         love.graphics.draw(self._pan_gradient_left._native)
-
-        local x, y = love.mouse.getPosition()
-        local scale = love.window.getDPIScale()
-        love.graphics.setLineStyle("smooth")
-
-        love.graphics.setColor(_white_r, _white_g, _white_b, 0.7)
-        love.graphics.circle("fill", x, y, 6 * scale)
-
-        love.graphics.setLineWidth(1.5)
-        love.graphics.setColor(_white_r, _white_g, _white_b, 1)
-        love.graphics.circle("line", x, y, 6 * scale - 1)
-
-        love.graphics.setLineWidth(1)
-        love.graphics.setColor(_black_r, _black_g, _black_b, 1)
-        love.graphics.circle("line", x, y, 6 * scale)
     end
 
     if self._pause_menu_active then
@@ -944,7 +933,7 @@ function ow.OverworldScene:update(delta)
     end
 
     -- mouse-based scrolling
-    if self._cursor_visible == true and not self._fade:get_is_active() then
+    if rt.SceneManager:get_cursor_is_visible() and not self._fade:get_is_active() then
         local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
         self._camera_translation_velocity_x = (-1 * self._camera_pan_left_speed + 1 * self._camera_pan_right_speed) * max_velocity
         self._camera_translation_velocity_y = (-1 * self._camera_pan_up_speed + 1 * self._camera_pan_down_speed) * max_velocity
@@ -1067,7 +1056,7 @@ function ow.OverworldScene:reset()
     ow.StageConfig:clear_cache()
     rt.Sprite._path_to_spritesheet = {}
 
-    self._fade_to_black = 0
+    self:set_fade_to_black(0)
 
     self:unpause()
     self:enter(before, false)
@@ -1090,10 +1079,6 @@ function ow.OverworldScene:get_current_stage()
     return self._stage
 end
 
---- @brief
-function ow.OverworldScene:get_is_cursor_visible()
-    return (self._cursor_visible and self._cursor_active)
-end
 
 --- @brief
 function ow.OverworldScene:pause()

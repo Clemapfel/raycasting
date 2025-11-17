@@ -4,6 +4,7 @@ require "common.input_subscriber"
 require "common.fade"
 require "common.thread_pool"
 require "common.palette"
+require "common.cursor"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
@@ -36,7 +37,10 @@ function rt.SceneManager:instantiate()
         _bloom = nil, -- initialized on first use
         _input = rt.InputSubscriber(),
 
-        _sound_manager_elapsed = 0
+        _sound_manager_elapsed = 0,
+        
+        _cursor_visible = false,
+        _cursor = rt.Cursor()
     })
 
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
@@ -170,6 +174,10 @@ function rt.SceneManager:draw(...)
 
     if self._should_use_fade then
         self._fade:draw()
+    end
+
+    if self._cursor_visible then
+        self._cursor:draw()
     end
 end
 
@@ -340,6 +348,26 @@ function rt.SceneManager:get_bloom()
     end
 end
 
+--- @brief
+function rt.SceneManager:set_cursor_is_visible(b)
+    self._cursor_visible = b
+end
+
+--- @brief
+function rt.SceneManager:get_cursor_is_visible()
+    return self._cursor_visible
+end
+
+--- @brief
+function rt.SceneManager:set_cursor_type(type)
+    self._cursor:set_type(type)
+end
+
+--- @brief
+function rt.SceneManager:get_cursor_type()
+    return self._cursor:get_type()
+end
+
 rt.SceneManager = rt.SceneManager() -- static global singleton
 local _focused = true
 
@@ -360,7 +388,8 @@ local _sound_manager_step = 1 / 240
 
 -- override love.run for metrics
 function love.run()
-    io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
+    love.mouse.setVisible(false)
+    love.mouse.setGrabbed(false)
 
     if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
     if love.timer then love.timer.step() end

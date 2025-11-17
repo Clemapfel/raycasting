@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1069,
+  nextobjectid = 1070,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1603,8 +1603,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -5540.51,
-          y = 1655.05,
+          x = -8771.56,
+          y = 1099.88,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4423,8 +4423,8 @@ return {
           name = "Goal",
           type = "Goal",
           shape = "point",
-          x = -5819.5,
-          y = 1670.65,
+          x = -5644.45,
+          y = 2228.64,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5337,6 +5337,25 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 1069,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -8832,
+          y = 1632,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 116.455, y = 0 },
+            { x = 116.455, y = 116.455 },
+            { x = 0, y = 116.455 }
+          },
           properties = {}
         }
       }
