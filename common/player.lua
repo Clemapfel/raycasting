@@ -695,7 +695,11 @@ function rt.Player:update(delta)
 
     local mask
     if self._is_ghost == false then
-        mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
+        mask = bit.bor(
+            rt.settings.overworld.hitbox.collision_group,
+            _settings.bounce_relative_velocity,
+            bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
+        )
     else
         mask = bit.band(_settings.ghost_collision_group, bit.bnot(_settings.exempt_collision_group))
     end
@@ -1353,44 +1357,46 @@ function rt.Player:update(delta)
 
             next_velocity_y = next_velocity_y * self._damping
 
-            -- accelerators
-            for surface in range(
-                { left_wall_body, left_nx, left_ny },
-                { top_wall_body, top_nx, top_ny },
-                { right_wall_body, right_nx, right_ny },
-                { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
-                { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
-                { bottom_wall_body, bottom_nx, bottom_ny }
-            ) do
-                local body, nx, ny = table.unpack(surface)
-                if body ~= nil and body:has_tag("use_friction") then
-                    local friction = body:get_friction()
+            -- friction
+            if not self._down_button_is_down then
+                for surface in range(
+                    { left_wall_body, left_nx, left_ny },
+                    { top_wall_body, top_nx, top_ny },
+                    { right_wall_body, right_nx, right_ny },
+                    { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
+                    { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
+                    { bottom_wall_body, bottom_nx, bottom_ny }
+                ) do
+                    local body, nx, ny = table.unpack(surface)
+                    if body ~= nil and body:has_tag("use_friction") then
+                        local friction = body:get_friction() -- accelerators have negative friction
 
-                    local tx, ty = -ny, nx
-                    local vx, vy = next_velocity_x, next_velocity_y
-                    local dot_product = vx * tx + vy * ty
+                        local tx, ty = math.turn_left(nx, ny)
+                        local vx, vy = next_velocity_x, next_velocity_y
+                        local dot_product = vx * tx + vy * ty
 
-                    local tangent_velocity_x = dot_product * tx
-                    local tangent_velocity_y = dot_product * ty
+                        local tangent_velocity_x = dot_product * tx
+                        local tangent_velocity_y = dot_product * ty
 
-                    local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
-                    local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
+                        local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
+                        local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
 
-                    -- apply tangential force
-                    next_velocity_x = next_velocity_x + t * friction_force_x * delta
-                    next_velocity_y = next_velocity_y + t * friction_force_y * delta
+                        -- apply tangential force
+                        next_velocity_x = next_velocity_x + t * friction_force_x * delta
+                        next_velocity_y = next_velocity_y + t * friction_force_y * delta
 
-                    -- magnetize to surface
-                    local flipped_x, flipped_y = math.flip(nx, ny)
-                    next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
-                    next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
-                end
+                        -- magnetize to surface
+                        local flipped_x, flipped_y = math.flip(nx, ny)
+                        next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
+                        next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
+                    end
 
-                local accelerator_max_velocity = t * _settings.accelerator_max_velocity
-                if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
-                    next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
-                    next_velocity_x = next_velocity_x * accelerator_max_velocity
-                    next_velocity_y = next_velocity_y * accelerator_max_velocity
+                    local accelerator_max_velocity = t * _settings.accelerator_max_velocity
+                    if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
+                        next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
+                        next_velocity_x = next_velocity_x * accelerator_max_velocity
+                        next_velocity_y = next_velocity_y * accelerator_max_velocity
+                    end
                 end
             end
 
@@ -1418,7 +1424,10 @@ function rt.Player:update(delta)
                     end
                 end
 
-                is_touching_platform = (is_platform[self._top_wall_body] or is_platform[self._top_left_wall_body] or is_platform[self._top_right_wall_body])
+                is_touching_platform = (is_platform[self._top_wall_body]
+                        or is_platform[self._top_left_wall_body]
+                        or is_platform[self._top_right_wall_body]
+                    )
                     or is_platform[self._bottom_wall_body]
                     or (math.to_number(is_platform[self._bottom_left_wall_body])
                     + math.to_number(is_platform[self._bottom_wall_body])
@@ -1621,12 +1630,6 @@ function rt.Player:update(delta)
                 -- apply tangential force
                 next_force_x = next_force_x + t * friction_force_x
                 next_force_y = next_force_y + t * friction_force_y
-
-                --[[
-                local flipped_x, flipped_y = math.flip(nx, ny)
-                next_force_x = next_force_x + flipped_x * delta * _settings.wall_magnet_force
-                next_force_y = next_force_y + flipped_y * delta * _settings.wall_magnet_force
-                ]]--
             end
         end
 
@@ -2665,7 +2668,8 @@ end
 function rt.Player:air_dash(axis_x, axis_y)
     self._air_dash_elapsed = 0
     self._air_dash_particle_spawn_elapsed = 0
-    self._air_dash_direction_x, self._air_dash_direction_y = axis_x, axis_y
+    local nvx, nvy = math.normalize(self:get_velocity())
+    self._air_dash_direction_x, self._air_dash_direction_y = axis_x or nvx, axis_y or nvy
     self._is_air_dashing = true
 end
 
