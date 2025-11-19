@@ -5,7 +5,9 @@ require "menu.stage_cleared_label"
 
 rt.settings.menu.stage_select_item_frame = {
     hold_velocity = 5,
-    hold_jitter_max_range = 4,
+    noise_magnitude = 8,
+    min_noise_velocity = 0.15,
+    max_noise_velocity = 0.45,
     min_particle_radius = 15,
     max_particle_radius = 15,
     min_particle_velocity = 1, -- factor
@@ -101,7 +103,12 @@ local _origin_y = 7
 local _velocity_x = 8
 local _velocity_y = 9
 local _velocity_magnitude = 10
-local _segment = 11
+local _noise_position_x = 11
+local _noise_position_y = 12
+local _noise_offset_x = 13
+local _noise_offset_y = 14
+local _noise_velocity = 15
+local _segment = 16
 
 local _MODE_HOLD = 0
 local _MODE_EXPAND = 1
@@ -193,7 +200,7 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
     height = max_h + 2 * inner_offset + 2 * outer_offset
 
     local min_velocity, max_velocity = rt.settings.menu.stage_select_item_frame.min_particle_velocity, rt.settings.menu.stage_select_item_frame.max_particle_velocity
-
+    local min_noise_velocity, max_noise_velocity = rt.settings.menu.stage_select_item_frame.min_noise_velocity, rt.settings.menu.stage_select_item_frame.max_noise_velocity
     for page_i = 1, self._n_pages do
         local page_offset = self:_get_page_offset(page_i)
         local stage_id = self._page_i_to_stage_id[page_i]
@@ -240,6 +247,11 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
                     [_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi)),
                     [_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi)),
                     [_velocity_magnitude] = rt.random.number(min_velocity, max_velocity),
+                    [_noise_position_x] = rt.random.number(-10e6, 10e6),
+                    [_noise_position_y] = rt.random.number(-10e6, 10e6),
+                    [_noise_offset_x] = 0,
+                    [_noise_offset_y] = 0,
+                    [_noise_velocity] = rt.random.number(min_noise_velocity, max_noise_velocity),
                     [_segment] = segment
                 }
 
@@ -327,7 +339,6 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
             y = page_y,
             width = page_w,
             height = page_h,
-            center_offset = center_offset,
             widget = widget,
             decoration = decoration,
             decoration_opacity_motion = motion
@@ -383,6 +394,18 @@ function mn.StageSelectItemframe:update(delta)
     self._hue = math.mix(lower_i / self._n_pages, higher_i / self._n_pages, math.fract(t))
     if self._hue < 0 then self._hue = 0 end
 
+    local noise_range = rt.settings.menu.stage_select_item_frame.noise_magnitude * rt.get_pixel_scale()
+
+    local update_noise_offset = function(particle)
+        local velocity = particle[_noise_velocity] * rt.get_pixel_scale()
+        particle[_noise_position_x] = particle[_noise_position_x] + delta * velocity
+        particle[_noise_position_y] = particle[_noise_position_y] + delta * velocity
+
+        local px, py = particle[_noise_position_x], particle[_noise_position_y]
+        particle[_noise_offset_x] = ((rt.random.noise(px, py) + 1) - 2) * noise_range
+        particle[_noise_offset_y] = ((rt.random.noise(-py, px) + 1) - 2) * noise_range
+    end
+
     for page_i in values(self:_get_active_pages()) do
         local page = self._pages[page_i]
         page.widget:update(delta)
@@ -391,38 +414,16 @@ function mn.StageSelectItemframe:update(delta)
         page.decoration:update(delta)
         page.decoration:set_opacity(value)
 
-        local max_range = rt.settings.menu.stage_select_item_frame.hold_jitter_max_range * rt.get_pixel_scale()
         local hold_velocity = rt.settings.menu.stage_select_item_frame.hold_velocity * rt.get_pixel_scale()
 
         if page.mode == _MODE_HOLD then
-            if hold_velocity ~= 0 then
-                for i = 1, page.n_particles do
-                    local particle = page.particles[i]
-                    local x, y = particle[_x], particle[_y]
-                    local vx, vy = particle[_velocity_x], particle[_velocity_y]
-                    local magnitude = particle[_velocity_magnitude]
+            for i = 1, page.n_particles do
+                local particle = page.particles[i]
+                update_noise_offset(particle)
 
-                    local ax, ay, bx, by = table.unpack(particle[_segment])
-                    local dx, dy = bx - ax, by - ay
-
-                    x = x + delta * vx * magnitude * hold_velocity
-                    y = y + delta * vy * magnitude * hold_velocity
-
-                    local origin_x, origin_y = particle[_origin_x], particle[_origin_y]
-                    if math.distance(x, y, origin_x, origin_y) > max_range then
-                        particle[_velocity_x] = math.cos(rt.random.number(0, 2 * math.pi))
-                        particle[_velocity_y] = math.sin(rt.random.number(0, 2 * math.pi))
-                    end
-
-                    particle[_last_x] = particle[_x]
-                    particle[_last_y] = particle[_y]
-                    particle[_x] = x
-                    particle[_y] = y
-
-                    local data = page.data_mesh_data[i]
-                    data[_x] = x
-                    data[_y] = y
-                end
+                local data = page.data_mesh_data[i]
+                data[_x] = particle[_x] + particle[_noise_offset_x]
+                data[_y] = particle[_y] + particle[_noise_offset_y]
             end
         elseif page.mode == _MODE_COLLAPSE or (
             page.mode == _MODE_EXPAND and
@@ -451,9 +452,11 @@ function mn.StageSelectItemframe:update(delta)
                 particle[_last_y] = particle[_y]
                 particle[_x], particle[_y] = x, y
 
+                update_noise_offset(particle, i)
+
                 local data = page.data_mesh_data[i]
-                data[_x] = x
-                data[_y] = y
+                data[_x] = x + particle[_noise_offset_x]
+                data[_y] = y + particle[_noise_offset_y]
 
                 page.dynamic_mask[mask_i+0] = x
                 page.dynamic_mask[mask_i+1] = y
