@@ -18,14 +18,14 @@ rt.settings.overworld.normal_map = {
     max_n_point_lights = 64,
     max_n_segment_lights = 32,
 
-    yield_savepoint_fraction = 0.01
+    yield_savepoint_fraction = 0.004
 }
 
 --- @class ow.NormalMap
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _disable = true -- TODO
+local _disable = false -- TODO
 
 local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA

@@ -447,6 +447,8 @@ function mn.StageSelectItem:draw()
     for entry in values(self._coins) do
         entry.coin:draw(entry.x, entry.y)
     end
+
+    self:draw_bounds()
 end
 
 --- @brief

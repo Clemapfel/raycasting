@@ -202,6 +202,7 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
         local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
         page_y = page_y + page_offset
         widget:reformat(page_x, page_y, page_w, page_h)
+        page_w, page_h = widget:measure() -- may update after reformat
 
         local decoration = self._stage_id_to_decoration[stage_id]
         local decoration_w, decoration_h = decoration:measure()
