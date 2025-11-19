@@ -387,10 +387,11 @@ function mn.StageSelectItemframe:update(delta)
         page.decoration:update(delta)
         page.decoration:set_opacity(value)
 
+        local max_range = rt.settings.menu.stage_select_item_frame.hold_jitter_max_range * rt.get_pixel_scale()
+        local hold_velocity = rt.settings.menu.stage_select_item_frame.hold_velocity * rt.get_pixel_scale()
+
         if page.mode == _MODE_HOLD then
-            local hold_velocity = rt.settings.menu.stage_select_item_frame.hold_velocity * rt.get_pixel_scale()
             if hold_velocity ~= 0 then
-                local max_range = rt.settings.menu.stage_select_item_frame.hold_jitter_max_range * rt.get_pixel_scale()
                 for i = 1, page.n_particles do
                     local particle = page.particles[i]
                     local x, y = particle[_x], particle[_y]
@@ -534,7 +535,6 @@ function mn.StageSelectItemframe:draw()
     local stencil = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
 
-    love.graphics.setColor(1, 1, 1, 1)
     self._canvas:draw(self._canvas_x, self._canvas_y)
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
