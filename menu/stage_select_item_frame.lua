@@ -24,6 +24,7 @@ mn.StageSelectItemframe = meta.class("StageSelectItemframe", rt.Widget)
 local _particle_shader = rt.Shader("menu/stage_select_item_frame_particle.glsl")
 local _outline_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 0 })
 local _base_shader = rt.Shader("menu/stage_select_item_frame_outline.glsl", { MODE = 1 })
+local _stencil_shader = rt.Shader("menu/stage_select_item_frame_stencil.glsl")
 
 --- @brief
 function mn.StageSelectItemframe:instantiate()
@@ -199,10 +200,12 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
 
         local widget = self._stage_id_to_widget[stage_id]
         local page_w, page_h = widget:measure()
+        widget:reformat(0, 0, page_w, page_h)
+
+        page_w, page_h = widget:measure() -- may update after reformat
         local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
         page_y = page_y + page_offset
         widget:reformat(page_x, page_y, page_w, page_h)
-        page_w, page_h = widget:measure() -- may update after reformat
 
         local decoration = self._stage_id_to_decoration[stage_id]
         local decoration_w, decoration_h = decoration:measure()
@@ -324,6 +327,7 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
             y = page_y,
             width = page_w,
             height = page_h,
+            center_offset = center_offset,
             widget = widget,
             decoration = decoration,
             decoration_opacity_motion = motion
@@ -535,7 +539,10 @@ function mn.StageSelectItemframe:draw()
     local stencil = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
 
+    _stencil_shader:bind()
     self._canvas:draw(self._canvas_x, self._canvas_y)
+    _stencil_shader:unbind()
+
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
     love.graphics.push()
@@ -550,6 +557,7 @@ function mn.StageSelectItemframe:draw()
     for page_i in values(self:_get_active_pages()) do
         self._pages[page_i].decoration:draw()
     end
+
     love.graphics.pop()
 end
 

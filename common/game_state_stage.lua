@@ -27,7 +27,7 @@ rt.settings.game_state.stage = {
     }
 }
 
-local _debug_output = true
+local _debug_output = false
 
 --- @brief
 function rt.GameState:_initialize_stage()
@@ -286,7 +286,7 @@ function rt.GameState:get_stage_is_hundred_percented(id)
         if self:get_stage_is_coin_collected(id, i) == false then return false end
     end
 
-    local time_grade, flow_grade, coin_grade, total_grade = rt.GameState:get_stage_grades(self._id)
+    local time_grade, flow_grade, coin_grade, total_grade = rt.GameState:get_stage_grades(id)
     return time_grade == rt.StageGrade.S
 end
 
