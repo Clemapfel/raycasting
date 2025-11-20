@@ -1535,28 +1535,31 @@ function rt.Player:update(delta)
                 self._bottom_left_wall
             )
 
-            local before = self._is_dashing
-            if self._is_dashing then
-                local hit, normal_x, normal_y = self:_get_ground_normal()
-                if not hit then
-                    self._is_dashing = false
-                else
-                    local dash_fraction = math.min(self._dash_elapsed / _settings.dash_duration, 1)
-                    if dash_fraction < 1 then
-                        next_velocity_x = next_velocity_x + self._dash_direction_x * _settings.dash_velocity * delta
-                        next_velocity_y = next_velocity_y + self._dash_direction_y * _settings.dash_velocity * delta
-                    else
+            do
+                local before = self._is_dashing
+                local dash_fraction = 1
+                if self._is_dashing then
+                    local hit, normal_x, normal_y = self:_get_ground_normal()
+                    if not hit then
                         self._is_dashing = false
+                    else
+                        dash_fraction = math.min(self._dash_elapsed / _settings.dash_duration, 1)
+                        if dash_fraction < 1 then
+                            next_velocity_x = next_velocity_x + self._dash_direction_x * _settings.dash_velocity * delta
+                            next_velocity_y = next_velocity_y + self._dash_direction_y * _settings.dash_velocity * delta
+                        else
+                            self._is_dashing = false
+                        end
                     end
+
+                    self._dash_elapsed = self._dash_elapsed + delta
+                else
+                    self._is_dashing = false
                 end
 
-                self._dash_elapsed = self._dash_elapsed + delta
-            else
-                self._is_dashing = false
-            end
-
-            if self._is_dashing == false and self._is_dashing ~= before then
-                self._graphics_body:set_is_ducking(false)
+                if self._is_dashing == false and self._is_dashing ~= before then
+                    self._graphics_body:set_is_ducking(false)
+                end
             end
 
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x

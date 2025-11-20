@@ -63,6 +63,7 @@ vec2 rotate(vec2 v, float angle) {
 
 uniform float elapsed;
 uniform float hue;
+uniform float saturation = 1;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 _) {
     vec4 texel = texture(image, texture_coordinates);
@@ -87,6 +88,6 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 _) {
     float lightness = mix(0.4, 1, (noise + 1) / 2);
     float hue_adj = fract(hue + mix(-hue_eps, +hue_eps, noise)); // intentional overflow of mixed, noise in -1, 1
 
-    vec3 rgb = lch_to_rgb(vec3(lightness, chroma, fract(hue_adj)));
+    vec3 rgb = lch_to_rgb(vec3(lightness, chroma * saturation, fract(hue_adj)));
     return color * vec4(rgb, texel.a * color.a);
 }

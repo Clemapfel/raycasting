@@ -129,6 +129,7 @@ function rt.PlayerBody:instantiate(config)
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))
     self._body_color = rt.Palette.BLACK
     self._core_color = rt.Palette.TRUE_WHITE
+    self._saturation = 1
     self._opacity = 1
     self._hue = 0
     self._stretch_factor = 1
@@ -970,6 +971,7 @@ function rt.PlayerBody:draw_core()
         _core_shader:bind()
         _core_shader:send("hue", self._hue)
         _core_shader:send("elapsed", self._shader_elapsed)
+        _core_shader:send("saturation", self._saturation)
         if self._is_bubble then
             love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
         else
@@ -1093,4 +1095,14 @@ function rt.PlayerBody:set_stretch_factor(t, axis_x, axis_y)
     self._stretch_factor = math.clamp(t, 0, 1)
     self._stretch_axis_x = axis_x
     self._stretch_axis_y = axis_y
+end
+
+--- @brief
+function rt.PlayerBody:set_saturation(t)
+    self._saturation = t
+end
+
+--- @brief
+function rt.PlayerBody:get_saturation()
+    return self._saturation
 end

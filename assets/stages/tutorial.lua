@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1071,
+  nextobjectid = 1072,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5348,6 +5348,25 @@ return {
             { x = 116.455, y = 0 },
             { x = 116.455, y = 116.455 },
             { x = 0, y = 116.455 }
+          },
+          properties = {}
+        },
+        {
+          id = 1071,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -4896.64,
+          y = 2398.71,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -15.3561, y = 33.2877 },
+            { x = 0, y = -640 },
+            { x = 128, y = -640 },
+            { x = 128.644, y = 33.2877 }
           },
           properties = {}
         }

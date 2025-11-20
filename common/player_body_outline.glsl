@@ -79,7 +79,6 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_positio
 
     float magnitude = length(vec2(gradient_x, gradient_y));
     float alpha = smoothstep(0.0, 1, magnitude);
-    float hue = (1.0 - magnitude) * 2.0;
 
     return vec4(vec3(1.0), alpha) * color;
 }
