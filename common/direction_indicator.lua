@@ -1,19 +1,11 @@
 require "common.shape"
 require "common.blend_mode"
+require "common.direction"
 
 rt.settings.direction_indicator = {
     min_line_width = rt.settings.margin_unit,
     arrow_offset = 0 -- thickness factor
 }
-
---- @class rt.Direction
-rt.Direction = meta.enum("Direction", {
-    UP = "up",
-    RIGHT = "right",
-    DOWN = "down",
-    LEFT = "left",
-    NONE = "none"
-})
 
 --- @class rt.DirectionIndicator
 rt.DirectionIndicator = meta.class("DirectionIndicator", rt.Widget)

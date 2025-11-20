@@ -271,24 +271,24 @@ function rt.GameState:load_default_input_mapping()
             controller = rt.ControllerButton.DPAD_RIGHT
         },
 
-        [rt.InputAction.A] = {
+        [rt.InputAction.A] = { -- INTERACT
+            keyboard = {"x"},
+            controller = rt.ControllerButton.RIGHT
+        },
+
+        [rt.InputAction.B] = { -- JUMP
             keyboard = {"space"},
             controller = rt.ControllerButton.BOTTOM
         },
 
-        [rt.InputAction.B] = {
-            keyboard = {"n", "lshift"},
-            controller = rt.ControllerButton.LEFT
-        },
-
-        [rt.InputAction.X] = {
-            keyboard = {"x"},
+        [rt.InputAction.X] = { -- DASH
+            keyboard = {"m"},
             controller = rt.ControllerButton.TOP
         },
 
-        [rt.InputAction.Y] = {
-            keyboard = {"y"},
-            controller = rt.ControllerButton.RIGHT
+        [rt.InputAction.Y] = { -- SPRINT
+            keyboard = {"n", "lshift"},
+            controller = rt.ControllerButton.LEFT
         },
 
         [rt.InputAction.L] = {

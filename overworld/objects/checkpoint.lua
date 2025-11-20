@@ -235,6 +235,9 @@ function ow.Checkpoint:spawn(also_kill)
     player:reset()
     player:disable()
 
+    self._scene:set_fade_to_black(0)
+    self._world:set_time_dilation(1)
+
     local type = self._type
     if is_first_spawn then
         self:_set_state(_STATE_STAGE_ENTRY)

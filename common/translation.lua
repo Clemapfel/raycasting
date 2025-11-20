@@ -14,10 +14,10 @@ rt.Translation = {
 
     input_action_to_string = function(action)
         return ({
-            [rt.InputAction.A] = "Jump / Confirm",
-            [rt.InputAction.B] = "Sprint / Go Back",
-            [rt.InputAction.X] = "Reset",
-            [rt.InputAction.Y] = "UNUSED",
+            [rt.InputAction.A] = "Interact / Confirm",
+            [rt.InputAction.B] = "Jump / Go Back",
+            [rt.InputAction.X] = "Dash / Reset",
+            [rt.InputAction.Y] = "Spring",
             [rt.InputAction.L] = "Zoom In",
             [rt.InputAction.R] = "Zoom Out",
             [rt.InputAction.START] = "Pause / Unpause",
@@ -99,6 +99,7 @@ rt.Translation = {
         control_indicator_down = "Duck",
         control_indicator_jump = "Jump",
         control_indicator_sprint = "Sprint",
+        control_indicator_dash = "Dash",
         control_indicator_bubble_move = "Move Around",
         control_indicator_interact = "Interact",
         control_indicator_dialog_confirm = "Advance",

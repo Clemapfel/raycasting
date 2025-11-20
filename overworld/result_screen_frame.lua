@@ -1,17 +1,18 @@
 require "common.timed_animation_sequence"
 require "common.path"
+require "menu.stage_select_item_frame"
 
 do
     local outline_width = 20
     rt.settings.overworld.result_screen_frame = {
         outline_width = outline_width,
-        particle_radius = 0.25 * outline_width,
-        particle_home_radius = 0.75 * outline_width,
+        particle_radius = 1 * outline_width,
+        noise_magnitude = 1 * outline_width,
         min_speed = 10, -- px per second
         max_speed = 15,
         min_scale = 1, -- fraction
         max_scale = 1.2,
-        coverage = 3,
+        coverage = 4,
 
         hue_range = 0.25
     }
@@ -422,16 +423,22 @@ local _velocity_y = 4
 local _velocity_magnitude = 5
 local _scale = 6
 local _vertex_i = 7
+local _noise_position_x = 8
+local _noise_position_y = 9
+local _noise_offset_x = 10
+local _noise_offset_y = 11
+local _noise_velocity = 12
 
 --- @brief
 function ow.ResultScreenFrame:_update_particles()
     local settings = rt.settings.overworld.result_screen_frame -- outer curve of rectangle
+    local other_settings = rt.settings.menu.stage_select_item_frame
 
     local length = self._outer_path:get_length()
     local n_particles = math.ceil(settings.coverage * length / settings.particle_radius)
 
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
-    local home_radius = settings.particle_home_radius
+    local home_radius = settings.noise_magnitude
 
     self._particles = {}
     local n_outer_vertices = #self._particle_vertex_indices
@@ -454,6 +461,11 @@ function ow.ResultScreenFrame:_update_particles()
             [_velocity_y] = vy,
             [_velocity_magnitude] = rt.random.number(settings.min_speed, settings.max_speed),
             [_scale] = rt.random.number(settings.min_scale, settings.max_scale),
+            [_noise_position_x] = rt.random.number(-10e6, 10e6),
+            [_noise_position_y] = rt.random.number(-10e6, 10e6),
+            [_noise_offset_x] = 0,
+            [_noise_offset_y] = 0,
+            [_noise_velocity] = rt.random.number(other_settings.min_noise_velocity, other_settings.max_noise_velocity),
             [_vertex_i] = vertex_i
         }
 
@@ -466,7 +478,7 @@ function ow.ResultScreenFrame:_update_particles()
         table.insert(self._particles, particle)
     end
 
-    local padding = 10
+    local padding = 10 + rt.settings.overworld.result_screen_frame.particle_radius + rt.settings.overworld.result_screen_frame.noise_magnitude
     local canvas_w, canvas_h = max_x - min_x + 2 * padding, max_y - min_y + 2 * padding
     if self._particle_canvas == nil or
         self._particle_canvas:get_width() ~= canvas_w or
@@ -500,35 +512,23 @@ function ow.ResultScreenFrame:update(delta)
     self._mesh:replace_data(self._mesh_data)
 
     local particle_radius = rt.settings.overworld.result_screen_frame.particle_radius
-    local home_radius = rt.settings.overworld.result_screen_frame.particle_home_radius
+    local noise_range = rt.settings.overworld.result_screen_frame.noise_magnitude * rt.get_pixel_scale()
+
     for particle in values(self._particles) do
         local home_x, home_y = self._vertex_i_to_path[particle[_vertex_i]]:at(t)
         local velocity_x, velocity_y = particle[_velocity_x], particle[_velocity_y]
         local radius = particle[_scale] * particle_radius
 
-        local next_x = particle[_x] + velocity_x * particle[_velocity_magnitude] * delta
-        local next_y = particle[_y] + velocity_y * particle[_velocity_magnitude] * delta
+        particle[_x] = home_x + noise_range * 0.5
+        particle[_y] = home_y + noise_range * 0.5
 
-        local dx = next_x - home_x
-        local dy = next_y - home_y
-        local distance_to_center = math.magnitude(dx, dy)
-        local max_distance = home_radius - radius
+        local noise_velocity = particle[_noise_velocity] * rt.get_pixel_scale()
+        particle[_noise_position_x] = particle[_noise_position_x] + delta * noise_velocity
+        particle[_noise_position_y] = particle[_noise_position_y] + delta * noise_velocity
 
-        -- if particle moves outside home radius, reflect velocity
-        if distance_to_center > max_distance then
-            local normal_x, normal_y = math.normalize(dx, dy)
-            local dot_product = math.dot(velocity_x, velocity_y, normal_x, normal_y)
-            particle[_velocity_x], particle[_velocity_y] = math.reflect(
-                velocity_x, velocity_y,
-                normal_x, normal_y
-            )
-
-            particle[_x] = home_x + normal_x * max_distance
-            particle[_y] = home_y + normal_y * max_distance
-        else
-            particle[_x] = next_x
-            particle[_y] = next_y
-        end
+        local px, py = particle[_noise_position_x], particle[_noise_position_y]
+        particle[_noise_offset_x] = ((rt.random.noise(px, py) + 1) - 2) * noise_range
+        particle[_noise_offset_y] = ((rt.random.noise(-py, px) + 1) - 2) * noise_range
     end
 
     self._particle_canvas_needs_update = true
@@ -561,7 +561,7 @@ function ow.ResultScreenFrame:draw()
             love.graphics.setColor(1, 1, 1, 1)
             for particle in values(self._particles) do
                 love.graphics.draw(native,
-                    particle[_x], particle[_y],
+                    particle[_x] + particle[_noise_offset_x], particle[_y] + particle[_noise_offset_y],
                     0,
                     particle[_scale], particle[_scale],
                     origin_x, origin_y

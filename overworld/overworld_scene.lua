@@ -30,7 +30,9 @@ do
         control_indicator_delay = 0.0,
 
         player_canvas_scale = rt.settings.player_body.canvas_scale,
-        player_canvas_size_radius_factor = rt.settings.player.bubble_radius_factor * 2.5
+        player_canvas_size_radius_factor = rt.settings.player.bubble_radius_factor * 2.5,
+
+        screenshot_texture_format = rt.RGBA8
     }
 end
 
@@ -112,7 +114,8 @@ function ow.OverworldScene:instantiate(state)
         _player_is_visible = true,
         _hide_debug_information = false,
 
-        _fade_to_black = 0
+        _fade_to_black = 0,
+        _screenshot = nil
     })
 
     self._background = ow.Background(self)
@@ -122,6 +125,7 @@ function ow.OverworldScene:instantiate(state)
         rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
         rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
         rt.ControlIndicatorButton.SPRINT, translation.control_indicator_sprint,
+        rt.ControlIndicatorButton.DASH, translation.control_indicator_dash,
         rt.ControlIndicatorButton.DOWN, translation.control_indicator_down
     )
     self._non_bubble_control_indicator:set_has_frame(true)
@@ -455,6 +459,15 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     local r, g, b, a = 1, 1, 1, 0.2
     self._camera_pan_area_width = gradient_w
 
+    if self._screenshot == nil or self._screenshot:get_width() ~= width or self._screenshot:get_height() ~= height then
+        if self._screenshot ~= nil then self._screenshot:free() end
+        self._screenshot = rt.RenderTexture(
+            width, height,
+            0, -- msaa
+            rt.settings.overworld_scene.screenshot_texture_format
+        )
+    end
+
     local m = rt.settings.margin_unit
     do
         local max_h = -math.huge
@@ -556,7 +569,6 @@ function ow.OverworldScene:draw()
     love.graphics.push("all")
 
     love.graphics.origin()
-    love.graphics.clear(1, 0, 1, 1)
     if not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
         love.graphics.clear(0, 0, 0, 0)
         self._background:draw()
@@ -669,6 +681,37 @@ function ow.OverworldScene:draw()
     if rt.GameState:get_draw_debug_information() then
         self:_draw_debug_information()
     end
+end
+
+function ow.OverworldScene:_update_screenshot()
+    if self._stage == nil or self._screenshot == nil then return end
+
+    love.graphics.push("all")
+    love.graphics.reset()
+    self._screenshot:bind()
+
+    love.graphics.clear(0, 0, 0, 0)
+    self._background:draw()
+
+    if self._fade_to_black > 0 then
+        local r, g, b, _ = rt.Palette.BLACK:unpack()
+        love.graphics.setColor(r, g, b, self._fade_to_black)
+        love.graphics.rectangle("fill", self._bounds:unpack())
+    end
+
+    self._camera:bind()
+    self._stage:draw_below_player()
+    self._stage:draw_above_player()
+    self._camera:unbind()
+
+
+    if rt.GameState:get_is_bloom_enabled() == true then
+        local bloom = rt.SceneManager:get_bloom()
+        -- skip bloom, use bloom from last update
+        bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+    end
+
+    self._screenshot:unbind()
 end
 
 function ow.OverworldScene:_draw_debug_information()
@@ -1117,9 +1160,11 @@ function ow.OverworldScene:show_result_screen()
         coins[coin_i] = self._stage:get_coin_is_collected(coin_i)
     end
 
+    self:_update_screenshot()
     rt.SceneManager:set_scene(
         ow.ResultScreenScene,
         player_x, player_y,
+        self._screenshot,
         {
             stage_id = stage_id,
             coins = coins,
@@ -1174,3 +1219,4 @@ function ow.OverworldScene:set_fade_to_black(t)
     self._fade_to_black = t
     if self._stage ~= nil then self._stage:set_fade_to_black(t) end
 end
+

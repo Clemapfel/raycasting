@@ -126,8 +126,7 @@ function ow.Goal:instantiate(object, stage, scene)
         self._fade_to_black_animation = rt.TimedAnimation(
             rt.settings.overworld.goal.fade_to_black_duration,
             0, 1,
-            rt.InterpolationFunctions.ENVELOPE,
-            0.05, 0
+            rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
         )
     end
 
@@ -350,15 +349,16 @@ function ow.Goal:update(delta)
             0.5 * dilation * self._shatter_velocity_y
         )
 
-        local is_done = self._world_time_dilation_animation:update(delta)
+        self._world_time_dilation_animation:update(delta)
         self._world:set_time_dilation(self._world_time_dilation_animation:get_value())
 
-        self._fade_to_black_animation:update(delta)
+        local is_done = self._fade_to_black_animation:update(delta)
         self._scene:set_fade_to_black(self._fade_to_black_animation:get_value())
 
         if is_done and not self._result_screen_revealed then
             self._result_screen_revealed = true
             self._world:set_time_dilation(0)
+            self._scene:set_fade_to_black(1)
             self._scene:show_result_screen()
         end
 

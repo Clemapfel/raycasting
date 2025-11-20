@@ -26,19 +26,10 @@ uniform float elapsed;
 uniform float fraction; // 0-1 fade in
 uniform float transition_fraction; // 0-1 fade out
 
-uniform vec2 camera_offset;
-uniform float camera_scale = 1;
-vec2 to_uv(vec2 frag_position) {
-    vec2 uv = frag_position;
-    vec2 origin = vec2(love_ScreenSize.xy / 2);
-    uv -= origin;
-    uv /= camera_scale;
-    uv += origin;
-
-    uv -= camera_offset;
-    uv.x *= love_ScreenSize.x / love_ScreenSize.y;
-    uv /= love_ScreenSize.xy;
-    return uv;
+uniform mat4x4 screen_to_world_transform;
+vec2 to_world_position(vec2 xy) {
+    vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
+    return result.xy / result.w;
 }
 
 #define PI 3.1415926535897932384626433832795
@@ -99,10 +90,6 @@ vec3 lch_to_rgb(vec3 lch) {
 
 uniform vec4 player_color = vec4(1, 0, 1, 1);
 
-#ifndef SHADER_DERIVATIVES
-#error "In result_screen_scene_screenshot.glsl: `SHADER_DERIVATIVES` undefined, should be true or false"
-#endif
-
 uniform float rainbow_fraction;
 const int n_rainbow_steps = 8;
 
@@ -112,18 +99,11 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     const float scale = 6.0;
     const float frequency = 4.0;
 
-    vec2 point = to_uv(frag_position);
+    vec2 point = to_world_position(frag_position) / 800;
 
     point = rotate(point, radians(45), vec2(0.5)); // this rotation
     point -= vec2(0.5);
     point += vec2(elapsed / 30, 0);
-
-    float aspect_ratio = (love_ScreenSize.x / love_ScreenSize.y) / (800.0 / 600.0);
-    if (aspect_ratio > 1.0) {
-        point.x *= aspect_ratio;
-    } else {
-        point.y /= aspect_ratio;
-    }
 
     float tileIndex = floor(point.x * n_tiles);
     float direction = mod(tileIndex, 2.0) == 0.0 ? -1.0 : 1.0;
@@ -148,7 +128,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // Use the raw SDF (d) for texture translation as before
     vec2 translated_coords = texture_coords + vec2(side * d * fraction * speed, 0.0);
     float weight = mix(1.0, gaussian(0.5 * distance(translated_coords, texture_coords), 4.0), fraction);
-    vec4 texel = texture(img, translated_coords - camera_offset / love_ScreenSize.xy) * weight; // img is clamp zero wrapping
+    vec4 texel = texture(img, translated_coords / love_ScreenSize.xy) * weight; // img is clamp zero wrapping
 
     // Build the thick white stripe from the raw SDF
     const float threshold = 1.25;
@@ -211,11 +191,8 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 frag_position) 
     // Only draw the horizontal line where it overlaps with the inner sine wave line
     horizontal_line *= interpolation_intensity * line;
 
-    // Foreground: white where the thick stripe (dist) is present, black where the thin outline mask is present.
-    // Alpha includes either the white stripe or the black outline.
-
     float alpha = max(line, line_outline);
-    texel = texture(img, texture_coords) * (1 - fraction);
+    texel = texture(img, texture_coords) * (1 - fraction); // here
 
     float outline = (line_outline - line + horizontal_line);
 

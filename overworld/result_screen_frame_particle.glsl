@@ -7,5 +7,5 @@ float gaussian(float x, float ramp)
 }
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
-    return vec4(gaussian(distance(texture_coords.xy, vec2(0.5)), 1.3));
+    return vec4(gaussian(distance(texture_coords.xy, vec2(0.5)), 2.0));
 }

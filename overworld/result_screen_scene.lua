@@ -41,9 +41,7 @@ local _format_title = function(text)
     return "<b><o><u>" .. text .. "</u></o></b>"
 end
 
-local _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl", {
-    SHADER_DERIVATIVES = love.graphics.getSupported()["shaderderivatives"]
-})
+local _screenshot_shader = rt.Shader("overworld/result_screen_scene_screenshot.glsl")
 
 --- @brief
 function ow.ResultScreenScene:instantiate()
@@ -542,11 +540,10 @@ end
 --- @brief
 --- @param player_x Number in screen coordinates
 --- @param player_y Number
-function ow.ResultScreenScene:enter(player_x, player_y, config)
+function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
     self._input:activate()
 
     rt.SceneManager:set_use_fixed_timestep(true)
-
     if rt.SceneManager:get_is_bloom_enabled() then
         rt.SceneManager:get_bloom():set_bloom_strength(rt.settings.menu_scene.bloom_strength)
     end
@@ -554,6 +551,9 @@ function ow.ResultScreenScene:enter(player_x, player_y, config)
     meta.assert_typeof(player_x, "Number", 1)
     meta.assert_typeof(player_x, "Number", 2)
     meta.assert_typeof(config, "Table", 4)
+
+    self._screenshot = screenshot
+    self._screenshot_mesh:set_texture(screenshot)
 
     self._player:reset()
     self._player:move_to_world(self._world)
@@ -1151,8 +1151,7 @@ function ow.ResultScreenScene:draw()
     _screenshot_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
     _screenshot_shader:send("transition_fraction", self._transition_fraction)
-    _screenshot_shader:send("camera_offset", { self._camera:get_offset() })
-    _screenshot_shader:send("camera_scale", self._camera:get_final_scale())
+    _screenshot_shader:send("screen_to_world_transform", self._camera:get_transform():inverse())
     _screenshot_shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
     self._screenshot_mesh:draw()
     _screenshot_shader:unbind()
