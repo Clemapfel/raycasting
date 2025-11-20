@@ -53,7 +53,7 @@ rt.settings.player_body = {
     gravity = 2,
 
     squish_speed = 4, -- fraction
-    squish_magnitude = 0.11, -- fraction
+    squish_magnitude = 0.16, -- fraction
 
     max_stretch = 2,
 }
@@ -770,7 +770,7 @@ function rt.PlayerBody:update(delta)
             n_bending_iterations = todo.n_bending_iterations,
             inertia = todo.inertia,
             gravity_x = gravity_x,
-            gravity_y = gravity_y,
+            gravity_y = gravity_y * (1 + self._squish_motion:get_value()),
             delta = delta,
             velocity_damping = todo.velocity_damping,
             position_x = self._position_x,
@@ -1070,10 +1070,10 @@ end
 --- @brief
 function rt.PlayerBody:set_is_ducking(b, nx, ny, contact_x, contact_y)
     self._is_squished = b
-    self._squish_normal_x = nx
-    self._squish_normal_y = ny
-    self._squish_origin_x = contact_x
-    self._squish_origin_y = contact_y
+    self._squish_normal_x = nx or self._squish_normal_x
+    self._squish_normal_y = ny or self._squish_normal_y
+    self._squish_origin_x = contact_x or self._squish_origin_x
+    self._squish_origin_y = contact_y or self._squish_origin_y
 
     if b == true then
         self._squish_motion:set_target_value(1)

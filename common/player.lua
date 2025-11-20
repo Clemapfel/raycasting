@@ -9,6 +9,7 @@ require "common.palette"
 require "common.smoothed_motion_1d"
 require "common.path"
 require "common.timed_animation"
+require "common.direction"
 
 do
     local radius = 13.5
@@ -77,8 +78,8 @@ do
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
 
-        air_dash_duration = 20 / 60,
-        air_dash_velocity = 4000,
+        dash_duration = 20 / 60,
+        dash_velocity = 5000,
 
         double_jump_buffer_duration = 15 / 60,
 
@@ -257,6 +258,7 @@ function rt.Player:instantiate()
         _up_button_is_down = false,
         _jump_button_is_down = false,
         _sprint_button_is_down = false,
+        _dash_button_is_down = false,
 
         _left_button_is_down_elapsed = 0,
         _right_button_is_down_elapsed = 0,
@@ -264,6 +266,7 @@ function rt.Player:instantiate()
         _up_button_is_down_elapsed = 0,
         _jump_button_is_down_elapsed = 0,
         _sprint_button_is_down_elapsed = 0,
+        _dash_button_is_down_elapsed = 0,
 
         _sprint_multiplier = 1,
         _next_sprint_multiplier = 1,
@@ -343,16 +346,17 @@ function rt.Player:instantiate()
         _double_jump_disallowed = true,
 
         -- air dash
-        _air_dash_sources = {},
-        _air_dash_elapsed = math.huge,
-        _air_dash_particle_spawn_elapsed = 0,
-        _air_dash_allowed = false,
-        _is_air_dashing = false,
+        _dash_sources = {},
+        _dash_elapsed = math.huge,
+        _dash_direction = rt.Direction.RIGHT,
+        _dash_particle_spawn_elapsed = 0,
+        _dash_allowed = false,
+        _is_dashing = false,
 
-        _air_dash_indicator = nil, -- rt.PlayerDashIndicator
-        _air_dash_direction_x = 0,
-        _air_dash_direction_y = -1,
-        _air_dash_stretch_animation = rt.TimedAnimation(
+        _dash_indicator = nil, -- rt.PlayerDashIndicator
+        _dash_direction_x = 0,
+        _dash_direction_y = -1,
+        _dash_stretch_animation = rt.TimedAnimation(
             0.5, 1, 0, rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
         ),
 
@@ -374,7 +378,7 @@ function rt.Player:instantiate()
     self._position_history_path = rt.Path(self._position_history)
 
     self._trail = rt.PlayerTrail(self)
-    self._air_dash_indicator = rt.PlayerDashIndicator(self._radius)
+    self._dash_indicator = rt.PlayerDashIndicator(self._radius)
 
     self._graphics_body = rt.PlayerBody({
         radius = _settings.radius,
@@ -387,21 +391,19 @@ function rt.Player:instantiate()
     for i = 2, self._pulse_mesh:get_n_vertices() do
         self._pulse_mesh:set_vertex_color(i, 1, 1, 1, 1)
     end
-
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "0" then
-            self:pulse(rt.RGBA(1, 1, 1, 1))
-        elseif which == "f" then
-            self:air_dash(math.normalize(self:get_velocity()))
-        end
-    end)
 end
 
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputAction.JUMP then
+        if which == rt.InputAction.DASH then
+            self._dash_button_is_down = true
+            self._dash_button_is_down_elapsed = 0
+
+            if self._state == rt.PlayerState.DISABLED then return end
+
+            self:dash()
+        elseif which == rt.InputAction.JUMP then
             self._jump_button_is_down = true
             self._jump_button_is_down_elapsed = 0
 
@@ -426,6 +428,7 @@ function rt.Player:_connect_input()
             end
             self._next_sprint_multiplier_update_when_grounded = true
         elseif which == rt.InputAction.Y then
+            -- noop
         elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = true
             self._left_button_is_down_elapsed = 0
@@ -443,6 +446,8 @@ function rt.Player:_connect_input()
 
     self._input:signal_connect("released", function(_, which)
         if self._state == rt.PlayerState.DISABLED then return end
+
+        -- dash release has no effect
 
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = false
@@ -828,7 +833,6 @@ function rt.Player:update(delta)
             end
 
             self._double_jump_sources = {}
-            self._air_dash_sources = {}
         end
     end
 
@@ -942,6 +946,15 @@ function rt.Player:update(delta)
 
             local sprint_multiplier = self._sprint_multiplier
             local target_velocity_x = magnitude * target * sprint_multiplier
+
+            if magnitude ~= 0 then
+                -- update dash direction, remembers last intended direction
+                if target_velocity_x < 0 then
+                    self._dash_direction = rt.Direction.LEFT
+                elseif target_velocity_x > 0 then
+                    self._dash_direction = rt.Direction.RIGHT
+                end
+            end
 
             current_velocity_x = current_velocity_x - self._platform_velocity_x
             current_velocity_y = current_velocity_y - self._platform_velocity_y
@@ -1516,27 +1529,34 @@ function rt.Player:update(delta)
                 end
             end
 
-            self._air_dash_allowed = not (
-                self._right_wall or
+            self._dash_allowed = self._down_button_is_down and (
                 self._bottom_right_wall or
                 self._bottom_wall or
-                self._bottom_left_wall or
-                self._left_wall
+                self._bottom_left_wall
             )
 
-            -- air dash: override velocity
-            if self._is_air_dashing and self._air_dash_allowed
-            then
-                if self._air_dash_elapsed / _settings.air_dash_duration <= 1 then
-                    next_velocity_x = self._air_dash_direction_x * _settings.air_dash_velocity
-                    next_velocity_y = self._air_dash_direction_y * _settings.air_dash_velocity
+            local before = self._is_dashing
+            if self._is_dashing then
+                local hit, normal_x, normal_y = self:_get_ground_normal()
+                if not hit then
+                    self._is_dashing = false
                 else
-                    self._is_air_dashing = false
+                    local dash_fraction = math.min(self._dash_elapsed / _settings.dash_duration, 1)
+                    if dash_fraction < 1 then
+                        next_velocity_x = next_velocity_x + self._dash_direction_x * _settings.dash_velocity * delta
+                        next_velocity_y = next_velocity_y + self._dash_direction_y * _settings.dash_velocity * delta
+                    else
+                        self._is_dashing = false
+                    end
                 end
 
-                self._air_dash_elapsed = self._air_dash_elapsed + delta
+                self._dash_elapsed = self._dash_elapsed + delta
             else
-                self._is_air_dashing = false
+                self._is_dashing = false
+            end
+
+            if self._is_dashing == false and self._is_dashing ~= before then
+                self._graphics_body:set_is_ducking(false)
             end
 
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
@@ -2663,12 +2683,61 @@ function rt.Player:jump()
 end
 
 --- @brief
-function rt.Player:air_dash(axis_x, axis_y)
-    self._air_dash_elapsed = 0
-    self._air_dash_particle_spawn_elapsed = 0
-    local nvx, nvy = math.normalize(self:get_velocity())
-    self._air_dash_direction_x, self._air_dash_direction_y = axis_x or nvx, axis_y or nvy
-    self._is_air_dashing = true
+function rt.Player:_get_ground_normal()
+    local mask
+    if self._is_ghost == false then
+        mask = bit.bor(
+            rt.settings.overworld.hitbox.collision_group,
+            _settings.bounce_relative_velocity,
+            bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
+        )
+    else
+        mask = bit.band(_settings.ghost_collision_group, bit.bnot(_settings.exempt_collision_group))
+    end
+
+    -- check if grounded
+    local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    local x, y = body:get_position()
+    local dx, dy = math.normalize(0, 1)
+    local ray_length = self._radius * _settings.bubble_radius_factor
+
+    local contact_y, contact_x, normal_x, normal_y, hit = self._world:query_ray(
+        x, y, dx * ray_length, dy * ray_length, mask
+    )
+
+    hit = hit ~= nil
+
+    local distance = nil
+    if hit then
+        distance = math.distance(contact_x, contact_y, x, y)
+    end
+    return hit, normal_x, normal_y, distance
+end
+
+--- @brief
+function rt.Player:dash(axis_x, axis_y)
+    if self._dash_direction == rt.Direction.NONE then return end
+
+    local hit, normal_x, normal_y = self:_get_ground_normal()
+
+    -- get ground tangent
+    if hit then
+        local vx, vy = self:get_velocity()
+        local dash_dx, dash_dy = 1, 0
+        if self._dash_direction == rt.Direction.LEFT then
+            dash_dx, dash_dy = math.turn_left(normal_x, normal_y)
+        elseif self._dash_direction == rt.Direction.RIGHT then
+            dash_dx, dash_dy = math.turn_right(normal_x, normal_y)
+        else
+            return -- rt.Direction.NONE
+        end
+
+        self._dash_elapsed = 0
+        self._dash_particle_spawn_elapsed = 0
+        self._dash_direction_x, self._dash_direction_y = dash_dx, dash_dy
+        self._is_dashing = true
+        self._graphics_body:set_is_ducking(false) -- "pump" motion
+    end
 end
 
 --- @brief
@@ -2694,36 +2763,6 @@ function rt.Player:get_is_double_jump_source(instance)
     if table.is_empty(self._double_jump_sources) then return false end
 
     for other in values(self._double_jump_sources) do
-        if meta.hash(other) == meta.hash(instance) then
-            return true
-        end
-    end
-    return false
-end
-
---- @brief
-function rt.Player:add_air_dash_source(instance)
-    table.insert(self._air_dash_sources, 1, instance)
-end
-
---- @brief
-function rt.Player:remove_air_dash_source(instance)
-    local to_remove_is = {}
-    for i, other in ipairs(self._air_dash_sources) do
-        if other == instance then table.insert(to_remove_is, i) end
-    end
-
-    table.sort(to_remove_is,function(a, b) return a > b end)
-    for i in values(to_remove_is) do
-        table.remove(self._air_dash_sources, i)
-    end
-end
-
---- @brief
-function rt.Player:get_is_air_dash_source(instance)
-    if table.is_empty(self._air_dash_sources) then return false end
-
-    for other in values(self._air_dash_sources) do
         if meta.hash(other) == meta.hash(instance) then
             return true
         end
@@ -2810,10 +2849,11 @@ function rt.Player:reset()
     self._left_wall = false
     self._top_left_wall = false
 
-    self._is_air_dashing = false
-    self._air_dash_elapsed = math.huge
+    self._is_dashing = false
+    self._dash_elapsed = math.huge
 
     self._jump_button_is_down = self._input:get_is_down(rt.InputAction.JUMP)
+    self._dash_button_is_down = self._input:get_is_down(rt.InputAction.DASH)
     self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
     self._up_button_is_down = self._input:get_is_down(rt.InputAction.UP)
     self._down_button_is_down = self._input:get_is_down(rt.InputAction.DOWN)
