@@ -1,12 +1,12 @@
+require "common.thread_handler"
+
 --- @class rt.Thread
 rt.Thread = meta.class("Thread")
-
-local _all_threads = meta.make_weak({})
 
 --- @brief
 function rt.Thread:instantiate(...)
     self._native = love.thread.newThread(...)
-    table.insert(_all_threads, self._native)
+    rt.ThreadHandler:notify_thread_added(self)
 end
 
 --- @brief
