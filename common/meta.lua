@@ -431,6 +431,7 @@ local _signal_try_emit = function(instance, id, ...)
         callback(instance, ...)
         emitted = true
     end
+
     return emitted
 end
 

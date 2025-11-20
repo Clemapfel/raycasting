@@ -14,7 +14,8 @@ for message_id in range(
     "pause",
     "unpause",
     "stop",
-    "set_volume"
+    "set_volume",
+    "shutdown"
 ) do
     _messages[message_id] = message_id
 end
@@ -22,18 +23,27 @@ end
 --- @brief
 function rt.MusicManager:instantiate()
     require "common.thread"
-    self._thread = rt.Thread("common/music_manager_worker.lua"):get_native()
-    self._main_to_worker = rt.Channel():get_native()
-    self._worker_to_main = rt.Channel():get_native()
-    self._thread:start(
-        self._main_to_worker,
-        self._worker_to_main,
-        _messages
-    )
+    self._thread = rt.Thread("common/music_manager_worker.lua")
+    self._main_to_worker = rt.Channel()
+    self._worker_to_main = rt.Channel()
 
-    self._main_to_worker:push({
-        message_id = _messages.instantiate
-    })
+    self._thread:signal_connect("shutdown", function(_)
+        self._main_to_worker:push({
+            message_id = _messages.shutdown
+        })
+    end)
+
+    if not rt.ThreadManager:shutdown_active() then
+        self._thread:start(
+            self._main_to_worker:get_native(),
+            self._worker_to_main:get_native(),
+            _messages
+        )
+
+        self._main_to_worker:push({
+            message_id = _messages.instantiate
+        })
+    end
 
     self._volume = 1
     self:set_volume(rt.GameState:get_music_level())

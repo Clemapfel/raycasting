@@ -2,9 +2,9 @@ require "common.scene"
 require "common.scene"
 require "common.input_subscriber"
 require "common.fade"
-require "common.thread_pool"
 require "common.palette"
 require "common.cursor"
+require "common.thread_manager"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
@@ -13,6 +13,19 @@ rt.settings.scene_manager = {
 
 --- @class SceneManager
 rt.SceneManager = meta.class("SceneManager")
+
+--- @brief restart the game
+_G.restart = function()
+    rt.SceneManager._restart_active = true
+    rt.ThreadManager:request_shutdown()
+end
+
+_G._exit = _G.exit
+
+--- @brief shutdown runtime
+_G.exit = function(status)
+    _G._exit(status)
+end
 
 local _frame_i = 0
 
@@ -40,7 +53,9 @@ function rt.SceneManager:instantiate()
         _sound_manager_elapsed = 0,
         
         _cursor_visible = false,
-        _cursor = rt.Cursor()
+        _cursor = rt.Cursor(),
+
+        _restart_active = false
     })
 
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
@@ -149,6 +164,14 @@ end
 
 --- @brief
 function rt.SceneManager:update(delta)
+    if self._restart_active == true then
+        if rt.ThreadManager:get_is_shutdown() then
+            self._restart_active = false
+            love.event.restart()
+            return
+        end
+    end
+
     rt.GameState:update(delta)
 
     self._fade:update(delta)

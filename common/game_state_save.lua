@@ -3,6 +3,7 @@ local MessageType = {
     CREATE_SAVE_SUCCESS = 1,
     LOAD_SAVE = 2,
     LOAD_SAVE_SUCCESS = 3,
+    SHUTDOWN = 4,
     ERROR = 5,
 }
 
@@ -30,16 +31,24 @@ function rt.GameState:_init_save_worker()
     if self._save_worker == nil then
         require "common.thread"
         local worker = {
-            thread = rt.Thread("common/game_state_save_worker.lua"):get_native(),
-            main_to_worker = rt.Channel():get_native(),
-            worker_to_main = rt.Channel():get_native()
+            thread = rt.Thread("common/game_state_save_worker.lua"),
+            main_to_worker = rt.Channel(),
+            worker_to_main = rt.Channel()
         }
 
-        worker.thread:start(
-            worker.main_to_worker,
-            worker.worker_to_main,
-            MessageType
-        )
+        worker.thread:signal_connect("shutdown", function(self)
+            worker.main_to_worker:push({
+                type = MessageType.SHUTDOWN
+            })
+        end)
+
+        if not rt.ThreadManager:shutdown_active() then
+            worker.thread:start(
+                worker.main_to_worker:get_native(),
+                worker.worker_to_main:get_native(),
+                MessageType
+            )
+        end
 
         self._save_worker = worker
     end
@@ -51,26 +60,32 @@ function rt.GameState:save()
     _verify_state(self._state)
 
     local worker = self._save_worker
-    self._save_worker.main_to_worker:push({
-        type = MessageType.CREATE_SAVE,
-        state = self._state
-    })
+
+    if worker.thread:get_is_running() then
+        self._save_worker.main_to_worker:push({
+            type = MessageType.CREATE_SAVE,
+            state = self._state
+        })
+    end
 end
 
 function rt.GameState:load()
     self:_init_save_worker()
 
     local worker = self._save_worker
-    self._save_worker.main_to_worker:push({
-        type = MessageType.LOAD_SAVE
-    })
+
+    if worker.thread:get_is_running() then
+        self._save_worker.main_to_worker:push({
+            type = MessageType.LOAD_SAVE
+        })
+    end
 end
 
 --- @brief
 function rt.GameState:_update_save_worker()
     self:_init_save_worker()
     local worker = self._save_worker
-    while worker.worker_to_main:getCount() > 0 do
+    while worker.thread:get_is_running() and worker.worker_to_main:get_n_messages() > 0 do
         local message = worker.worker_to_main:pop()
         if message.type == MessageType.CREATE_SAVE_SUCCESS then
             -- { type, path }

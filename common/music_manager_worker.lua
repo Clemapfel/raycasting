@@ -61,7 +61,9 @@ local last_time = love.timer.getTime()
 local step = 1 / 120
 while true do
     while main_to_worker:peek() ~= nil do
-        handle_message(main_to_worker:pop())
+        local message = main_to_worker:pop()
+        if message.message_id == "shutdown" then return end
+        handle_message(message)
     end
 
     if manager ~= nil then

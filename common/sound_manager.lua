@@ -233,15 +233,15 @@ function rt.SoundManager:preallocate(id, ...)
         -- spin up threads
         while #preallocate_threads < n_workers do
             local entry = {
-                thread = rt.Thread("common/sound_manager_preallocate_worker.lua"):get_native(),
-                main_to_worker = rt.Channel():get_native()
+                thread = rt.Thread("common/sound_manager_preallocate_worker.lua"),
+                main_to_worker = rt.Channel()
             }
 
             table.insert(preallocate_threads, entry)
             entry.thread:start(
                 entry.main_to_worker,
-                preallocate_worker_to_main,
-                preallocate_message_types
+                preallocate_worker_to_main:get_native(),
+                preallocate_message_types:get_native()
             )
         end
 

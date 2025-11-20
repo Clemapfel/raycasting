@@ -301,6 +301,8 @@ while true do
             push_error("no uncorrupted save file in `" .. appdata_dir .. "/" .. save_dir)
             goto next_message -- fatal
         end
+    elseif message.type == MessageType.SHUTDOWN then
+        return
     else
         -- unhandled message
         worker_to_main:push({
