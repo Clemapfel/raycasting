@@ -6,6 +6,16 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
+require "overworld.cloth_body"
+local cloth
+function _init()
+    cloth = ow.ClothBody(
+        0, 0, -- x y
+        30, -- z
+        50, 50 -- width, height
+    )
+end
+
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -41,7 +51,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -62,6 +72,8 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
+
+    cloth:update(delta)
 end
 
 love.draw = function()
@@ -69,10 +81,14 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
+
+    cloth:draw()
 end
 
 love.resize = function(width, height)
     if rt.SceneManager ~= nil then
         rt.SceneManager:resize(width, height)
     end
+
+    _init()
 end
