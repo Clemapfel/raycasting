@@ -50,7 +50,7 @@ rt.settings.player_body = {
         inverse_kinematics_intensity = 0.1
     },
 
-    gravity = 2,
+    gravity = 2.5,
 
     squish_speed = 4, -- fraction
     squish_magnitude = 0.16, -- fraction
@@ -137,6 +137,9 @@ function rt.PlayerBody:instantiate(config)
     self._stretch_axis_y = 0
     self._relative_velocity_x = 0
     self._relative_velocity_y = 0
+    self._attraction_x = 0
+    self._attraction_y = 0
+    self._attraction_magnitude = 0
 
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
@@ -329,7 +332,7 @@ function rt.PlayerBody:relax()
     end
 end
 
-rt.PlayerBody._solve_distance_constraint = function(a_x, a_y, b_x, b_y, rest_length)
+rt.PlayerBody._solve_distance_constraint = function(a_x, a_y, b_x, b_y, mass_a, mass_b, rest_length)
     local current_distance = math.max(1, math.distance(a_x, a_y, b_x, b_y))
 
     local delta_x = b_x - a_x
@@ -339,16 +342,24 @@ rt.PlayerBody._solve_distance_constraint = function(a_x, a_y, b_x, b_y, rest_len
     local correction_x = delta_x * distance_correction
     local correction_y = delta_y * distance_correction
 
-    local blend = 0.5
-    a_x = a_x + correction_x * blend
-    a_y = a_y + correction_y * blend
-    b_x = b_x - correction_x * blend
-    b_y = b_y - correction_y * blend
+    local total_mass = mass_a + mass_b
+    local blend_a = mass_b / total_mass
+    local blend_b = mass_a / total_mass
+
+    a_x = a_x + correction_x * blend_a
+    a_y = a_y + correction_y * blend_a
+    b_x = b_x - correction_x * blend_b
+    b_y = b_y - correction_y * blend_b
 
     return a_x, a_y, b_x, b_y
 end
 
-rt.PlayerBody._solve_axis_constraint = function(a_x, a_y, b_x, b_y, axis_x, axis_y, intensity)
+rt.PlayerBody._solve_axis_constraint = function(
+    a_x, a_y, b_x, b_y,
+    axis_x, axis_y,
+    mass_a, mass_b,
+    intensity
+)
     if intensity == nil then intensity = 1 end
 
     local delta_x = b_x - a_x
@@ -361,16 +372,23 @@ rt.PlayerBody._solve_axis_constraint = function(a_x, a_y, b_x, b_y, axis_x, axis
     local correction_x = (projection_x - delta_x)
     local correction_y = (projection_y - delta_y)
 
-    local blend = math.mix(0, 0.5, intensity)
-    a_x = a_x - correction_x * blend
-    a_y = a_y - correction_y * blend
-    b_x = b_x + correction_x * blend
-    b_y = b_y + correction_y * blend
+    local total_mass = mass_a + mass_b
+    local blend_a = math.mix(0, mass_b / total_mass, intensity)
+    local blend_b = math.mix(0, mass_a / total_mass, intensity)
+
+    a_x = a_x - correction_x * blend_a
+    a_y = a_y - correction_y * blend_a
+    b_x = b_x + correction_x * blend_b
+    b_y = b_y + correction_y * blend_b
 
     return a_x, a_y, b_x, b_y
 end
 
-rt.PlayerBody._solve_bending_constraint = function(a_x, a_y, b_x, b_y, c_x, c_y, stiffness)
+rt.PlayerBody._solve_bending_constraint = function(
+    a_x, a_y, b_x, b_y, c_x, c_y,
+    mass_a, mass_b, mass_c,
+    stiffness
+)
     local ab_x = b_x - a_x
     local ab_y = b_y - a_y
     local bc_x = c_x - b_x
@@ -382,16 +400,23 @@ rt.PlayerBody._solve_bending_constraint = function(a_x, a_y, b_x, b_y, c_x, c_y,
     local target_x = ab_x + bc_x
     local target_y = ab_y + bc_y
 
-    local correction_x = target_x
-    local correction_y = target_y
+    local correction_x = target_x * stiffness
+    local correction_y = target_y * stiffness
 
-    local blend = 0.5 * stiffness
-    a_x = a_x - correction_x * blend
-    a_y = a_y - correction_y * blend
-    c_x = c_x + correction_x * blend
-    c_y = c_y + correction_y * blend
+    -- Use inverse mass for proper physical distribution
+    local inv_mass_sum = (1 / mass_a) + (1 / mass_b) + (1 / mass_c)
+    local blend_a = (1 / mass_a) / inv_mass_sum
+    local blend_b = (1 / mass_b) / inv_mass_sum
+    local blend_c = (1 / mass_c) / inv_mass_sum
 
-    return a_x, a_y, c_x, c_y
+    a_x = a_x - correction_x * blend_a
+    a_y = a_y - correction_y * blend_a
+    b_x = b_x + correction_x * blend_b
+    b_y = b_y + correction_y * blend_b
+    c_x = c_x + correction_x * blend_c
+    c_y = c_y + correction_y * blend_c
+
+    return a_x, a_y, b_x, b_y, c_x, c_y
 end
 
 rt.PlayerBody._solve_inverse_kinematics_constraint = function(positions, base_x, base_y, target_x, target_y, segment_length, intensity, max_iterations)
@@ -422,6 +447,8 @@ rt.PlayerBody._solve_inverse_kinematics_constraint = function(positions, base_x,
     local tolerance = segment_length * 0.01  -- 1% of segment length
     local length_eps = 1e-10
 
+    local converged
+
     if dist_to_target >= total_length - tolerance then
         -- Target unreachable: stretch directly towards target
         local dir_x, dir_y = target_x - base_x, target_y - base_y
@@ -449,8 +476,6 @@ rt.PlayerBody._solve_inverse_kinematics_constraint = function(positions, base_x,
         end
     else
         -- target reachable: iterative FABRIK step
-        local converged = false
-
         -- forward reaching: start from target
         px[n_nodes], py[n_nodes] = target_x, target_y
         for i = n_nodes - 1, 1, -1 do
@@ -521,8 +546,13 @@ rt.PlayerBody._rope_handler = function(data)
     if data.n_inverse_kinematics_iterations == nil then
         data.n_inverse_kinematics_iterations = 0
     end
+
     if data.inverse_kinematics_intensity == nil then
         data.inverse_kinematics_intensity = 1
+    end
+
+    if data.attraction_magnitude == nil then
+        data.attraction_magnitude = 0
     end
 
     local rope = data.rope
@@ -577,8 +607,15 @@ rt.PlayerBody._rope_handler = function(data)
                 velocity_x = math.mix(velocity_x, last_velocities[i+0], data.inertia)
                 velocity_y = math.mix(velocity_y, last_velocities[i+1], data.inertia)
 
-                positions[i+0] = current_x + velocity_x + mass * data.gravity_x * data.delta
-                positions[i+1] = current_y + velocity_y + mass * data.gravity_y * data.delta
+                local attraction_x, attraction_y = 0, 0
+                if data.attraction_magnitude > 0 then
+                    local dx, dy = math.normalize(data.attraction_x - current_x, data.attraction_y - current_y)
+                    attraction_x, attraction_y = dx * data.attraction_magnitude, dy * data.attraction_magnitude
+                end
+
+                -- sic: mass * gravity is intended
+                positions[i+0] = current_x + velocity_x + mass * data.gravity_x * data.delta + attraction_x * mass
+                positions[i+1] = current_y + velocity_y + mass * data.gravity_y * data.delta + attraction_y * mass
 
                 last_positions[i+0] = before_x
                 last_positions[i+1] = before_y
@@ -594,6 +631,7 @@ rt.PlayerBody._rope_handler = function(data)
 
         -- axis
         if n_axis_iterations_done < data.n_axis_iterations then
+            local mass_i = 1
             for i = 1, #positions - 2, 2 do
                 local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
                 local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
@@ -603,6 +641,7 @@ rt.PlayerBody._rope_handler = function(data)
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
                     rope.axis_x, rope.axis_y,
+                    masses[mass_i + 0], masses[mass_i + 1],
                     data.axis_intensity
                 )
 
@@ -610,6 +649,8 @@ rt.PlayerBody._rope_handler = function(data)
                 positions[node_1_yi] = new_y1
                 positions[node_2_xi] = new_x2
                 positions[node_2_yi] = new_y2
+
+                mass_i = mass_i + 1
             end
 
             n_axis_iterations_done = n_axis_iterations_done + 1
@@ -617,6 +658,7 @@ rt.PlayerBody._rope_handler = function(data)
 
         -- bending
         if n_bending_iterations_done < data.n_bending_iterations then
+            local mass_i = 1
             for i = 1, #positions - 4, 2 do
                 local node_1_xi, node_1_yi, node_2_xi, node_2_yi, node_3_xi, node_3_yi = i+0, i+1, i+2, i+3, i+4, i+5
                 local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
@@ -627,6 +669,7 @@ rt.PlayerBody._rope_handler = function(data)
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
                     node_3_x, node_3_y,
+                    masses[mass_i + 0], masses[mass_i + 1], masses[mass_i + 2],
                     (1 - (i - 1) / (#positions / 2)) -- more bendy the farther away from base
                 )
 
@@ -635,6 +678,8 @@ rt.PlayerBody._rope_handler = function(data)
 
                 positions[node_3_xi] = new_x3
                 positions[node_3_yi] = new_y3
+
+                mass_i = mass_i + 1
             end
 
             n_bending_iterations_done = n_bending_iterations_done + 1
@@ -660,6 +705,7 @@ rt.PlayerBody._rope_handler = function(data)
         -- distance
         if n_distance_iterations_done < data.n_distance_iterations then
             local distance_i = 1
+            local mass_i = 1
             for i = 1, #positions - 2, 2 do
                 local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
                 local node_1_x, node_1_y = positions[node_1_xi], positions[node_1_yi]
@@ -675,6 +721,7 @@ rt.PlayerBody._rope_handler = function(data)
                 local new_x1, new_y1, new_x2, new_y2 = rt.PlayerBody._solve_distance_constraint(
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
+                    masses[mass_i+0], masses[mass_i+1],
                     rest_length
                 )
 
@@ -684,6 +731,7 @@ rt.PlayerBody._rope_handler = function(data)
                 positions[node_2_yi] = new_y2
 
                 distance_i = distance_i + 1
+                mass_i = mass_i + 1
             end
 
             n_distance_iterations_done = n_distance_iterations_done + 1
@@ -772,6 +820,9 @@ function rt.PlayerBody:update(delta)
             inertia = todo.inertia,
             gravity_x = gravity_x,
             gravity_y = gravity_y * (1 + self._squish_motion:get_value()),
+            attraction_x = self._attraction_x,
+            attraction_y = self._attraction_y,
+            attraction_magnitude = self._attraction_magnitude,
             delta = delta,
             velocity_damping = todo.velocity_damping,
             position_x = self._position_x,
@@ -1105,4 +1156,14 @@ end
 --- @brief
 function rt.PlayerBody:get_saturation()
     return self._saturation
+end
+
+--- @brief
+function rt.PlayerBody:set_attraction(x, y, magnitude)
+    self._attraction_x, self._attraction_y, self._attraction_magnitude = x, y, magnitude
+end
+
+--- @brief
+function rt.PlayerBody:get_attraction()
+    return self._attraction_x, self._attraction_y, self._attraction_magnitude
 end

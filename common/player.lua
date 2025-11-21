@@ -546,6 +546,13 @@ function rt.Player:_connect_input()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
+        elseif which == "o" then
+            local x, y = self:get_position()
+            local r = 50
+            local angle = rt.random.number(0, 2 * math.pi)
+            x = x + r * math.cos(angle)
+            y = y + r * math.sin(angle)
+            self._graphics_body:set_attraction(x, y, 2)
         elseif false then --which == "h" then
             is_sleeping = not is_sleeping
 
