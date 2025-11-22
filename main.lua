@@ -51,7 +51,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -73,7 +73,7 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    cloth:update(delta)
+    --cloth:update(delta)
 end
 
 love.draw = function()
@@ -82,7 +82,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    cloth:draw()
+    --cloth:draw()
 end
 
 love.resize = function(width, height)
@@ -90,5 +90,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize(width, height)
     end
 
-    _init()
+    --_init()
 end

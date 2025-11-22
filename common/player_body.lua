@@ -64,17 +64,8 @@ rt.PlayerBody = meta.class("PlayerBody")
 rt.PlayerBodyContourType = meta.enum("PlayerBodyContourType", {
     CIRCLE = "circle",
     SQUARE = "square",
-    SQUARE_ROTATED = "suqare_rotate",
-    TRIANGLE_UP = "triangle_up",
-    TRIANGLE_RIGHT = "triangle_right",
-    TRIANGLE_DOWN = "triangle_down",
-    TRIANGLE_LEFT = "triangle_left",
-    EPICYCLOID_2 = "epicycloid_2",
-    EPICYCLOID_3 = "epicycloid_3",
-    EPICYCLOID_4 = "epicycloid_4",
-    EPICYCLOID_5 = "epicycloid_5",
-    EPICYCLOID_6 = "epicycloid_6",
-    EPICYCLOID_7 = "epicycloid_7",
+    TRIANGLE = "triangle",
+    TEAR_DROP = "tear_drop"
 })
 
 local _settings = rt.settings.player_body
@@ -260,7 +251,7 @@ function rt.PlayerBody:initialize()
     -- init ropes
     local max_rope_length = self._rope_length_radius_factor * self._radius
     local contour_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius / 2
-
+    self._contour_rope_length = contour_rope_length
     self._t_to_ropes = {}
 
     for ring = 1, n_rings do
@@ -318,7 +309,7 @@ function rt.PlayerBody:initialize()
             local entry = self._t_to_ropes[angle]
             if entry == nil then
                 entry = meta.make_weak({})
-                self._t_to_ropes[math.floor(angle / 2 * math.pi * 10) / 10] = entry
+                self._t_to_ropes[angle] = entry
             end
             table.insert(entry, rope)
 
@@ -326,7 +317,7 @@ function rt.PlayerBody:initialize()
         end
     end
     
-    self:set_use_contour(false, rt.PlayerBodyContourType.CIRCLE)
+    self:set_use_contour(false, self._contour_type)
 
     self._is_initialized = true
     if self._queue_relax == true then
@@ -364,15 +355,15 @@ end
 
 local epicycloid_equation = function(k)
     return function(angle, radius)
-        local amplitude = 0.5 * radius
-        local dist = 0.5 * radius + (1 + math.sin(k * angle)) / 2 * amplitude
+        local amplitude = 0.25 * radius
+        local dist = radius + math.sin(k * angle) * amplitude
         return math.cos(angle) * dist, math.sin(angle) * dist
     end
 end
 
 local square_equation = function(rotation_offset)
     return function(angle, radius)
-        local n = 8  -- higher = sharper corners (try 4-12)
+        local n = 5  -- higher = sharper corners (try 4-12)
 
         local rotated_angle = angle + rotation_offset
         local t = rotated_angle
@@ -383,8 +374,8 @@ local square_equation = function(rotation_offset)
         local sign_cos = cos_t >= 0 and 1 or -1
         local sign_sin = sin_t >= 0 and 1 or -1
 
-        local x = sign_cos * math.pow(math.abs(cos_t), 2/n) * radius
-        local y = sign_sin * math.pow(math.abs(sin_t), 2/n) * radius
+        local x = sign_cos * math.pow(math.abs(cos_t), 2 / n) * radius
+        local y = sign_sin * math.pow(math.abs(sin_t), 2 / n) * radius
 
         return x, y
     end
@@ -392,27 +383,23 @@ end
 
 local triangle_equation = function(rotation_offset)
     return function(angle, radius)
-        -- Use a 3-pointed astroid-like shape
-        -- Modified superformula to create triangle approximation
-        local n = 6  -- higher = sharper corners
+        local n = 5
 
-        -- Rotate the angle
-        local rotated_angle = angle + rotation_offset
+        local t = angle % (2 * math.pi)
 
-        -- For a triangle, we want 3-fold symmetry
-        -- Use |cos(3θ/2)|^(2/n) pattern
-        local t = rotated_angle * 1.5  -- 3/2 factor for 3 points
-        local cos_t = math.cos(t)
-        local sin_t = math.sin(t)
+        local cos_3t = math.cos(3 * t)
+        local sin_3t = math.sin(3 * t)
 
-        local sign_cos = cos_t >= 0 and 1 or -1
-        local sign_sin = sin_t >= 0 and 1 or -1
+        local sign_cos = cos_3t >= 0 and 1 or -1
+        local sign_sin = sin_3t >= 0 and 1 or -1
 
-        -- Scale factor to maintain consistent size
-        local scale = 1.2
+        local r_cos = sign_cos * math.pow(math.abs(cos_3t), 2 / n)
+        local r_sin = sign_sin * math.pow(math.abs(sin_3t), 2 / n)
 
-        local x = sign_cos * math.pow(math.abs(cos_t), 2/n) * radius * scale
-        local y = sign_sin * math.pow(math.abs(sin_t), 2/n) * radius * scale
+
+        t = t + 0.5 * math.pi
+        local x = (r_cos * math.cos(t) - r_sin * math.sin(t)) * radius
+        local y = (r_cos * math.sin(t) + r_sin * math.cos(t)) * radius
 
         return x, y
     end
@@ -424,13 +411,7 @@ local contour_type_to_callback = {
     end,
 
     [rt.PlayerBodyContourType.SQUARE] = square_equation(0),
-    --[rt.PlayerBodyContourType.TRIANGLE] = triangle_equation(0),
-
-    [rt.PlayerBodyContourType.EPICYCLOID_3] = epicycloid_equation(3),
-    [rt.PlayerBodyContourType.EPICYCLOID_4] = epicycloid_equation(4),
-    [rt.PlayerBodyContourType.EPICYCLOID_5] = epicycloid_equation(5),
-    [rt.PlayerBodyContourType.EPICYCLOID_6] = epicycloid_equation(6),
-    [rt.PlayerBodyContourType.EPICYCLOID_7] = epicycloid_equation(7),
+    [rt.PlayerBodyContourType.TRIANGLE] = triangle_equation(0),
 }
 
 --- @brief
@@ -439,12 +420,13 @@ function rt.PlayerBody:_update_contour()
     local center_x, center_y = 0, 0
     local callback = contour_type_to_callback[self._contour_type]
 
-
+    local max_r = -math.huge
     for t, ropes in pairs(self._t_to_ropes) do
         for rope in values(ropes) do
-            local x, y = callback(t * 2 * math.pi, rope.contour_length)
+            local x, y = callback(t, rope.contour_length)
             rope.target_x = rope.anchor_x + x
             rope.target_y = rope.anchor_y + y
+            max_r = math.max(max_r, math.magnitude(rope.target_x, rope.target_y))
         end
     end
 
@@ -452,7 +434,7 @@ function rt.PlayerBody:_update_contour()
     local n = 64
     for i = 1, n do
         local angle = (i - 1) / n * 2 * math.pi
-        local x, y = callback(angle, 50)
+        local x, y = callback(angle, max_r)
         table.insert(self._dbg, x)
         table.insert(self._dbg, y)
     end
@@ -1057,6 +1039,10 @@ function rt.PlayerBody:draw_body()
 
         if self._use_contour then
             --love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
+            love.graphics.push()
+            love.graphics.translate(self._position_x, self._position_y)
+            love.graphics.polygon("fill", self._dbg)
+            love.graphics.pop()
         end
 
         rt.graphics.set_blend_mode(nil)
@@ -1126,6 +1112,7 @@ function rt.PlayerBody:draw_body()
 
 
     -- TODO
+    --[[
     love.graphics.push()
     love.graphics.origin()
     love.graphics.translate(50, 50)
@@ -1134,6 +1121,7 @@ function rt.PlayerBody:draw_body()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.line(self._dbg)
     love.graphics.pop()
+    ]]--
 end
 
 --- @brief

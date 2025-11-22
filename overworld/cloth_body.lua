@@ -361,7 +361,6 @@ ow.ClothBody._cloth_handler = function(data)
         or not axis_done
         or not bending_done
     do
-
         if not velocity_done then
             local mass_i = 1
             for i = 1, #positions, 2 do

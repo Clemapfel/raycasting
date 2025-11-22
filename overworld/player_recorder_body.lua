@@ -171,7 +171,7 @@ function ow.PlayerRecorderBody:update_input(
     jump_pressed,
     is_bubble
 )
-    self._graphics_body:set_is_bubble(is_bubble)
+    self._graphics_body:set_use_contour(is_bubble, rt.PlayerBodyContourType.CIRCLE)
 end
 
 --- @brief
