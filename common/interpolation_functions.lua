@@ -3,7 +3,7 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
     CONSTANT = function(x, constant)
         -- c
         if constant == nil then constant = 1 end
-        return constant
+        if x < 0 or x > 1 then return 0 else return constant end
     end,
 
     LINEAR = function(x, slope)

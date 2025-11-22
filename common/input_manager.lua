@@ -88,6 +88,53 @@ function rt.InputManager:get_is_down(action)
     end
 end
 
+--- @brief
+function rt.InputManager:get_left_joystick()
+    local joystick = self._last_active_joystick
+    if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
+    if joystick == nil then return 0, 0 end
+
+    local dx = joystick:getGamepadAxis("leftx")
+    local dy = joystick:getGamepadAxis("lefty")
+
+    local deadzone = rt.GameState:get_joystick_deadzone()
+    local apply = function(x)
+        if x > deadzone then
+            return (x - deadzone) / (1 - deadzone)
+        elseif x < -deadzone then
+            return (x + deadzone) / (1 - deadzone)
+        else
+            return 0
+        end
+    end
+
+    return apply(dx), apply(dy)
+end
+
+--- @brief
+function rt.InputManager:get_right_joystick()
+    local joystick = self._last_active_joystick
+    if joystick == nil then joystick = love.joystick.getJoysticks()[1] end
+    if joystick == nil then return 0, 0 end
+
+    local dx = joystick:getGamepadAxis("rightx")
+    local dy = joystick:getGamepadAxis("righty")
+
+    local deadzone = rt.GameState:get_joystick_deadzone()
+    local apply = function(x)
+        if x > deadzone then
+            return (x - deadzone) / (1 - deadzone)
+        elseif x < -deadzone then
+            return (x + deadzone) / (1 - deadzone)
+        else
+            return 0
+        end
+    end
+
+    return apply(dx), apply(dy)
+end
+
+
 rt.InputManager = rt.InputManager() -- static singleton instance
 
 --- ### set love callbacks

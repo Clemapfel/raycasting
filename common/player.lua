@@ -27,6 +27,8 @@ do
         top_wall_ray_length_factor = 1,
         joystick_to_analog_eps = 0.35,
 
+        double_press_max_delay = 30 / 60,
+
         player_collision_group = b2.CollisionGroup.GROUP_16,
         player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
         bounce_collision_group = b2.CollisionGroup.GROUP_14,
@@ -79,10 +81,12 @@ do
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
 
-        dash_duration = 40 / 60,
-        dash_velocity = 600,--8000,
+        dash_duration = 3 / 60,
+        instant_dash_velocity = 600,
+        sustained_dash_velocity = 8000,
         dash_cooldown = 40 / 60,
-        allow_air_dash = false,
+        dash_particle_spawn_duration = 40 / 60,
+        allow_air_dash = true,
 
         double_jump_buffer_duration = 15 / 60,
 
@@ -353,7 +357,7 @@ function rt.Player:instantiate()
         _dash_elapsed = math.huge,
         _dash_cooldown_elapsed = math.huge,
         _dash_direction = rt.Direction.RIGHT,
-        _dash_particle_spawn_elapsed = 0,
+        _dash_particle_spawn_elapsed = math.huge,
         _dash_allowed = false,
         _is_dashing = false,
         _dash_particles = rt.PlayerDashParticles(),
@@ -381,7 +385,7 @@ function rt.Player:instantiate()
     end
     self._position_history_path = rt.Path(self._position_history)
 
-    self._trail = rt.PlayerTrail(self)
+    self._trail = rt.PlayerTrail(self._radius)
     self._dash_indicator = rt.PlayerDashIndicator(self._radius)
 
     self._graphics_body = rt.PlayerBody({
@@ -629,9 +633,10 @@ function rt.Player:update(delta)
             end
         end
 
-        if self._trail_visible then
-            self._trail:update(delta)
-        end
+        self._trail:set_position(self:get_position())
+        self._trail:set_velocity(self:get_velocity())
+        self._trail:set_hue(self:get_hue())
+        self._trail:update(delta)
 
         self._dash_particles:update(delta)
 
@@ -1553,29 +1558,23 @@ function rt.Player:update(delta)
                 local before = self._is_dashing
                 self._dash_cooldown_elapsed = self._dash_cooldown_elapsed + delta
 
-                if self._is_dashing then
-                    local hit, contact_x, contact_y, normal_x, normal_y = self:_get_ground_normal()
-                    if not hit then
-                        contact_x, contact_y = self:get_position()
-                        normal_x, normal_y = math.flip(math.normalize(self:get_velocity()))
-                    end
+                local hit, contact_x, contact_y, normal_x, normal_y = self:_get_ground_normal()
+                if not hit then
+                    contact_x, contact_y = self:get_position()
+                    normal_x, normal_y = math.flip(math.normalize(self:get_velocity()))
+                end
 
+                if self._is_dashing then
                     local dash_fraction = math.min(self._dash_elapsed / _settings.dash_duration, 1)
                     self._dash_elapsed = self._dash_elapsed + delta
                     local t = rt.InterpolationFunctions.CONSTANT(dash_fraction, 1)
 
                     if (_settings.allow_air_dash or hit or self._down_button_is_down) and dash_fraction < 1 then
-                        next_velocity_x = --[[next_velocity_x +]] t * self._dash_direction_x * _settings.dash_velocity-- * delta
-                        next_velocity_y = --[[next_velocity_y +]] t * self._dash_direction_y * _settings.dash_velocity-- * delta
+                        next_velocity_x = next_velocity_x + t * self._dash_direction_x * _settings.sustained_dash_velocity * delta
+                        next_velocity_y = next_velocity_y + t * self._dash_direction_y * _settings.sustained_dash_velocity * delta
 
                         if dash_fraction == 0 then
                             self._dash_particles:add( -- start new trail
-                                contact_x, contact_y,
-                                normal_x, normal_y,
-                                self:get_hue()
-                            )
-                        else
-                            self._dash_particles:append(
                                 contact_x, contact_y,
                                 normal_x, normal_y,
                                 self:get_hue()
@@ -1590,9 +1589,14 @@ function rt.Player:update(delta)
                     end
                 end
 
-                if before and not self._is_dashing then
-                    self._graphics_body:set_is_ducking(false)
+                if self._dash_particle_spawn_elapsed < _settings.dash_particle_spawn_duration then
+                    self._dash_particles:append(
+                        contact_x, contact_y,
+                        normal_x, normal_y,
+                        self:get_hue()
+                    )
                 end
+                self._dash_particle_spawn_elapsed = self._dash_particle_spawn_elapsed + delta
             end
 
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
@@ -1822,6 +1826,18 @@ function rt.Player:update(delta)
 
     if self._skip_next_flow_update == true then
         self._skip_next_flow_update = false
+    end
+
+    do -- update trail
+        local flow = rt.InterpolationFunctions.SINUSOID_EASE_IN(self._flow)
+        local dash = rt.InterpolationFunctions.ENVELOPE(
+            1 - math.min(1, self._dash_cooldown_elapsed / _settings.dash_cooldown),
+            0.05,
+            0.05
+        )
+        local value = math.max(flow, dash)
+        self._trail:set_glow_intensity(value)
+        self._trail:set_boom_intensity(value)
     end
 
     -- timers
@@ -2752,31 +2768,63 @@ function rt.Player:dash(axis_x, axis_y)
         or self._dash_cooldown_elapsed < _settings.dash_cooldown
     then return end
 
+    local controller_x, controller_y = rt.InputManager:get_left_joystick()
+
+    if math.abs(controller_x) < 0.5 then controller_x = 0 end
+    if math.abs(controller_y) < 0.5 then controller_y = 0 end
+
+    local dx, dy = 0, 0
+    if rt.InputManager:get_is_down(rt.InputAction.LEFT) or controller_x < 0 then
+        dx = dx - 1
+    end
+
+    if rt.InputManager:get_is_down(rt.InputAction.RIGHT) or controller_x > 0 then
+        dx = dx + 1
+    end
+
+    if rt.InputManager:get_is_down(rt.InputAction.UP) or controller_y < 0 then
+        dy = dy - 1
+    end
+
+    if rt.InputManager:get_is_down(rt.InputAction.DOWN) or controller_y > 0 then
+        dy = dy + 1
+    end
+
     local hit, contact_x, contact_y, normal_x, normal_y = self:_get_ground_normal()
-
-    -- get ground tangent
-    local vx, vy = self:get_velocity()
-
-    local dash_dx, dash_dy = math.normalize(vx, vy)
     if hit then
-        if self._dash_direction == rt.Direction.LEFT then
-            dash_dx, dash_dy = math.turn_left(normal_x, normal_y)
-        elseif self._dash_direction == rt.Direction.RIGHT then
-            dash_dx, dash_dy = math.turn_right(normal_x, normal_y)
+        if _settings.allow_air_dash and dx == 0 and dy == -1 then -- if neutral, dash upwards
+            dx, dy = 0, -1
         else
-            return -- rt.Direction.NONE
+            if dx < 0 then
+                dx, dy = math.turn_left(normal_x, normal_y)
+            elseif dx > 0 then
+                dx, dy = math.turn_right(normal_x, normal_y)
+            else -- else, use last known direction
+                if self._dash_direction == rt.Direction.LEFT then
+                    dx, dy = math.turn_left(normal_x, normal_y)
+                elseif self._dash_direction == rt.Direction.RIGHT then
+                    dx, dy = math.turn_right(normal_x, normal_y)
+                end
+            end
         end
-    elseif self._down_button_is_down then
-        dash_dx, dash_dy = 0, 1
     elseif not _settings.allow_air_dash then
         return
     end
 
-    self._dash_elapsed = 0
-    self._dash_particle_spawn_elapsed = 0
-    self._dash_direction_x, self._dash_direction_y = dash_dx, dash_dy
+    if math.equals(math.magnitude(dx, dy), 0) then end -- air neutral or grounded with no known direction
+
+    self._dash_direction_x, self._dash_direction_y = math.normalize(dx, dy)
     self._is_dashing = true
+    self._dash_cooldown_elapsed = 0
+    self._dash_particle_spawn_elapsed = 0
+    self._dash_elapsed = 0
     self._graphics_body:set_is_ducking(false) -- "pump" motion
+
+    -- instantly accelerate to dash speed
+    self:set_velocity(
+        self._dash_direction_x * _settings.instant_dash_velocity,
+        self._dash_direction_y * _settings.instant_dash_velocity
+    )
 end
 
 --- @brief
