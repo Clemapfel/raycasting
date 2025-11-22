@@ -12,9 +12,9 @@ rt.settings.player_body = {
     -- static params
     node_mesh_alpha = 0.05,
     node_mesh_padding = 4,
-    node_mesh_bubble_radius = 1,
-    bubble_scale_offset = 10,
-    non_bubble_scale_offset = 6,
+    node_mesh_contour_radius = 1,
+    contour_scale_offset = 10,
+    non_contour_scale_offset = 6,
     node_mesh_radius_factor = 10 / 12.5,
 
     canvas_padding_radius_factor = 5,
@@ -26,7 +26,7 @@ rt.settings.player_body = {
     outline_width = 1.5,
 
     -- constraint solver params
-    non_bubble = {
+    non_contour = {
         n_velocity_iterations = 4,
         n_distance_iterations = 8,
         n_axis_iterations = 0,
@@ -38,7 +38,7 @@ rt.settings.player_body = {
         inverse_kinematics_intensity = 0
     },
 
-    bubble = {
+    contour = {
         n_velocity_iterations = 1,
         n_distance_iterations = 1,
         n_axis_iterations = 0,
@@ -60,6 +60,22 @@ rt.settings.player_body = {
 
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
+
+rt.PlayerBodyContourType = meta.enum("PlayerBodyContourType", {
+    CIRCLE = "circle",
+    SQUARE = "square",
+    SQUARE_ROTATED = "suqare_rotate",
+    TRIANGLE_UP = "triangle_up",
+    TRIANGLE_RIGHT = "triangle_right",
+    TRIANGLE_DOWN = "triangle_down",
+    TRIANGLE_LEFT = "triangle_left",
+    EPICYCLOID_2 = "epicycloid_2",
+    EPICYCLOID_3 = "epicycloid_3",
+    EPICYCLOID_4 = "epicycloid_4",
+    EPICYCLOID_5 = "epicycloid_5",
+    EPICYCLOID_6 = "epicycloid_6",
+    EPICYCLOID_7 = "epicycloid_7",
+})
 
 local _settings = rt.settings.player_body
 
@@ -120,7 +136,7 @@ function rt.PlayerBody:instantiate(config)
     self._core_vertices = {}
     self._ropes = {}
     self._n_ropes = 0
-    self._is_bubble = false
+    self._is_contour = false
     self._position_x, self._position_y = 0, 0
     self._stencil_bodies = {}
     self._shader_elapsed = 0
@@ -140,6 +156,8 @@ function rt.PlayerBody:instantiate(config)
     self._attraction_x = 0
     self._attraction_y = 0
     self._attraction_magnitude = 0
+    
+    self._contour_type = rt.PlayerBodyContourType.CIRCLE
 
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
@@ -241,7 +259,9 @@ function rt.PlayerBody:initialize()
 
     -- init ropes
     local max_rope_length = self._rope_length_radius_factor * self._radius
-    local bubble_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius / 2
+    local contour_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius / 2
+
+    self._t_to_ropes = {}
 
     for ring = 1, n_rings do
         local ring_radius = ring_to_ring_radius(ring)
@@ -272,16 +292,16 @@ function rt.PlayerBody:initialize()
                 length = rope_length, -- total rope length
                 n_segments = n_segments,
                 segment_length = rope_length / n_segments,
-                bubble_segment_length = bubble_rope_length / n_segments
+                contour_segment_length = contour_rope_length / n_segments,
+                contour_length = contour_rope_length
             }
 
             center_x = center_x + self._position_x
             center_y = center_y + self._position_y
             local dx, dy = math.normalize(rope.anchor_x - self._position_x, rope.anchor_y - self._position_y)
 
-            local overreach = 2 -- px
-            rope.target_x = rope.anchor_x + (bubble_rope_length + overreach) * rope.axis_x
-            rope.target_y = rope.anchor_y + (bubble_rope_length + overreach) * rope.axis_y
+            rope.target_x = rope.anchor_x + (rope.contour_length) * rope.axis_x
+            rope.target_y = rope.anchor_y + (rope.contour_length) * rope.axis_y
 
             for segment_i = 1, n_segments do
                 table.insert(rope.current_positions, center_x)
@@ -294,9 +314,19 @@ function rt.PlayerBody:initialize()
             end
 
             table.insert(self._ropes, rope)
+
+            local entry = self._t_to_ropes[angle]
+            if entry == nil then
+                entry = meta.make_weak({})
+                self._t_to_ropes[math.floor(angle / 2 * math.pi * 10) / 10] = entry
+            end
+            table.insert(entry, rope)
+
             self._n_ropes = self._n_ropes + 1
         end
     end
+    
+    self:set_use_contour(false, rt.PlayerBodyContourType.CIRCLE)
 
     self._is_initialized = true
     if self._queue_relax == true then
@@ -317,7 +347,7 @@ function rt.PlayerBody:relax()
         local x, y = px + rope.anchor_x, py + rope.anchor_y
 
         for i = 0, rope.n_segments - 1 do
-            local step = ternary(self._is_bubble, rope.segment_length, rope.bubble_segment_length)
+            local step = ternary(self._is_contour, rope.segment_length, rope.contour_segment_length)
             rope.current_positions[i * 2 + 1] = x + dx * step * i
             rope.current_positions[i * 2 + 2] = y + dy * step * i
         end
@@ -329,6 +359,102 @@ function rt.PlayerBody:relax()
         for i = 1, #rope.last_velocities do
             rope.last_velocities[i] = 0
         end
+    end
+end
+
+local epicycloid_equation = function(k)
+    return function(angle, radius)
+        local amplitude = 0.5 * radius
+        local dist = 0.5 * radius + (1 + math.sin(k * angle)) / 2 * amplitude
+        return math.cos(angle) * dist, math.sin(angle) * dist
+    end
+end
+
+local square_equation = function(rotation_offset)
+    return function(angle, radius)
+        local n = 8  -- higher = sharper corners (try 4-12)
+
+        local rotated_angle = angle + rotation_offset
+        local t = rotated_angle
+
+        local cos_t = math.cos(t)
+        local sin_t = math.sin(t)
+
+        local sign_cos = cos_t >= 0 and 1 or -1
+        local sign_sin = sin_t >= 0 and 1 or -1
+
+        local x = sign_cos * math.pow(math.abs(cos_t), 2/n) * radius
+        local y = sign_sin * math.pow(math.abs(sin_t), 2/n) * radius
+
+        return x, y
+    end
+end
+
+local triangle_equation = function(rotation_offset)
+    return function(angle, radius)
+        -- Use a 3-pointed astroid-like shape
+        -- Modified superformula to create triangle approximation
+        local n = 6  -- higher = sharper corners
+
+        -- Rotate the angle
+        local rotated_angle = angle + rotation_offset
+
+        -- For a triangle, we want 3-fold symmetry
+        -- Use |cos(3θ/2)|^(2/n) pattern
+        local t = rotated_angle * 1.5  -- 3/2 factor for 3 points
+        local cos_t = math.cos(t)
+        local sin_t = math.sin(t)
+
+        local sign_cos = cos_t >= 0 and 1 or -1
+        local sign_sin = sin_t >= 0 and 1 or -1
+
+        -- Scale factor to maintain consistent size
+        local scale = 1.2
+
+        local x = sign_cos * math.pow(math.abs(cos_t), 2/n) * radius * scale
+        local y = sign_sin * math.pow(math.abs(sin_t), 2/n) * radius * scale
+
+        return x, y
+    end
+end
+
+local contour_type_to_callback = {
+    [rt.PlayerBodyContourType.CIRCLE] = function(angle, radius)
+        return math.cos(angle) * radius, math.sin(angle) * radius
+    end,
+
+    [rt.PlayerBodyContourType.SQUARE] = square_equation(0),
+    --[rt.PlayerBodyContourType.TRIANGLE] = triangle_equation(0),
+
+    [rt.PlayerBodyContourType.EPICYCLOID_3] = epicycloid_equation(3),
+    [rt.PlayerBodyContourType.EPICYCLOID_4] = epicycloid_equation(4),
+    [rt.PlayerBodyContourType.EPICYCLOID_5] = epicycloid_equation(5),
+    [rt.PlayerBodyContourType.EPICYCLOID_6] = epicycloid_equation(6),
+    [rt.PlayerBodyContourType.EPICYCLOID_7] = epicycloid_equation(7),
+}
+
+--- @brief
+function rt.PlayerBody:_update_contour()
+    local n_samples = #self._t_to_ropes
+    local center_x, center_y = 0, 0
+    local callback = contour_type_to_callback[self._contour_type]
+
+
+    for t, ropes in pairs(self._t_to_ropes) do
+        for rope in values(ropes) do
+            local x, y = callback(t * 2 * math.pi, rope.contour_length)
+            rope.target_x = rope.anchor_x + x
+            rope.target_y = rope.anchor_y + y
+        end
+    end
+
+    self._dbg = {}
+    local n = 64
+    for i = 1, n do
+        local angle = (i - 1) / n * 2 * math.pi
+        local x, y = callback(angle, 50)
+        table.insert(self._dbg, x)
+        table.insert(self._dbg, y)
     end
 end
 
@@ -528,7 +654,7 @@ rt.PlayerBody._rope_handler = function(data)
     end
 
     if data.gravity_y == nil then
-        data.gravity_y = ternary(data.is_bubble == true, 0, 1)
+        data.gravity_y = ternary(data.is_contour == true, 0, 1)
     end
 
     if data.platform_delta_x == nil then
@@ -559,7 +685,7 @@ rt.PlayerBody._rope_handler = function(data)
     local positions = rope.current_positions
     local last_positions = rope.last_positions
     local last_velocities = rope.last_velocities
-    local segment_length = data.is_bubble and rope.bubble_segment_length or rope.segment_length
+    local segment_length = data.is_contour and rope.contour_segment_length or rope.segment_length
     local masses = rope.masses
 
     do -- translate whole physics system into relative velocity
@@ -585,7 +711,7 @@ rt.PlayerBody._rope_handler = function(data)
         or (n_distance_iterations_done < data.n_distance_iterations)
         or (n_axis_iterations_done < data.n_axis_iterations)
         or (n_bending_iterations_done < data.n_bending_iterations)
-        or (n_inverse_kinematics_iterations_done < data.n_inverse_kinematics_iterations) -- NEW
+        or (n_inverse_kinematics_iterations_done < data.n_inverse_kinematics_iterations)
     do
         -- verlet integration
         if n_velocity_iterations_done < data.n_velocity_iterations then
@@ -695,7 +821,7 @@ rt.PlayerBody._rope_handler = function(data)
                 positions,
                 base_x, base_y,
                 target_x, target_y,
-                segment_length,
+                rope.contour_segment_length,
                 data.inverse_kinematics_intensity
             )
             n_inverse_kinematics_iterations_done = n_inverse_kinematics_iterations_done + 1
@@ -773,9 +899,13 @@ function rt.PlayerBody:set_world(physics_world)
 end
 
 --- @brief
-function rt.PlayerBody:set_is_bubble(b)
+function rt.PlayerBody:set_use_contour(b, type)
     meta.assert(b, "Boolean")
-    self._is_bubble = b
+    self._use_contour = b
+
+    local before = self._contour_type
+    self._contour_type = type or self._contour_type
+    self:_update_contour()
 end
 
 --- @brief
@@ -800,18 +930,18 @@ function rt.PlayerBody:update(delta)
 
     -- rope sim
     local gravity_x, gravity_y
-    if self._is_bubble then
+    if self._use_contour then
         gravity_x, gravity_y = 0, 0
     else
         gravity_x, gravity_y = self._gravity_x or 0, self._gravity_y or 1 * _settings.gravity
     end
 
-    local todo = self._is_bubble and _settings.bubble or _settings.non_bubble
+    local todo = self._use_contour and _settings.contour or _settings.non_contour
 
     for i, rope in ipairs(self._ropes) do
         rt.PlayerBody._rope_handler({
             rope = rope,
-            is_bubble = self._is_bubble,
+            use_contour = self._use_contour,
             n_velocity_iterations = todo.n_velocity_iterations,
             n_distance_iterations = todo.n_distance_iterations,
             n_axis_iterations = todo.n_axis_iterations,
@@ -892,7 +1022,7 @@ function rt.PlayerBody:draw_body()
 
         -- draw rope nodes
         rt.graphics.set_blend_mode(rt.BlendMode.ADD, rt.BlendMode.ADD)
-        if self._is_bubble then
+        if self._use_contour then
             love.graphics.setColor(1, 1, 1, 1)
         else
             love.graphics.setColor(1, 1, 1, _settings.node_mesh_alpha)
@@ -914,7 +1044,7 @@ function rt.PlayerBody:draw_body()
             for i = 1, #rope.current_positions, 2 do
                 love.graphics.push()
                 self:_apply_squish(1 + 1 - (i - 1) / (#rope.current_positions / 2))
-                local scale = easing(segment_i / rope.n_segments) * math.min(1, rope.scale + _settings.non_bubble_scale_offset / self._radius)
+                local scale = easing(segment_i / rope.n_segments) * math.min(1, rope.scale + _settings.non_contour_scale_offset / self._radius)
                 -- Use current_positions for drawing to reduce visual lag
                 local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
                 love.graphics.draw(self._node_mesh_texture:get_native(), x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
@@ -925,8 +1055,8 @@ function rt.PlayerBody:draw_body()
             end
         end
 
-        if self._is_bubble then
-            love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
+        if self._use_contour then
+            --love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
         end
 
         rt.graphics.set_blend_mode(nil)
@@ -993,6 +1123,17 @@ function rt.PlayerBody:draw_body()
     end
 
     love.graphics.pop()
+
+
+    -- TODO
+    love.graphics.push()
+    love.graphics.origin()
+    love.graphics.translate(50, 50)
+
+    love.graphics.setLineWidth(1)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.line(self._dbg)
+    love.graphics.pop()
 end
 
 --- @brief
@@ -1023,7 +1164,7 @@ function rt.PlayerBody:draw_core()
         _core_shader:send("hue", self._hue)
         _core_shader:send("elapsed", self._shader_elapsed)
         _core_shader:send("saturation", self._saturation)
-        if self._is_bubble then
+        if self._use_contour then
             love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
         else
             love.graphics.push()
@@ -1040,7 +1181,7 @@ function rt.PlayerBody:draw_core()
     local outline_width = _settings.outline_width
     local outside_scale = 1 + outline_width / self._radius
 
-    if self._is_bubble then
+    if self._use_contour then
         rt.graphics.push_stencil()
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
@@ -1088,7 +1229,7 @@ function rt.PlayerBody:draw_core()
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
 
-    if self._is_bubble then
+    if self._use_contour then
         rt.graphics.set_stencil_mode(nil)
         rt.graphics.pop_stencil()
     else
