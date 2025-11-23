@@ -502,6 +502,9 @@ function ow.Stage:get_point_light_sources()
 
         local camera = self._scene:get_camera()
 
+        table.insert(positions, { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+        table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
+
         for body in values(self._light_sources) do
             local class = body:get_user_data()
             if class ~= nil and class.get_color then
@@ -518,9 +521,6 @@ function ow.Stage:get_point_light_sources()
             end
             ::skip::
         end
-
-        table.insert(positions, { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-        table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
 
         self._point_light_sources, self._point_light_colors = positions, colors
         self._point_light_sources_need_update = false

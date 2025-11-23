@@ -1,6 +1,6 @@
 rt.settings.overworld.wall = {
     point_light_intensity = 1,
-    segment_light_intensity = 0.4
+    segment_light_intensity = 0.2
 }
 
 --- @class ow.Wall
@@ -53,6 +53,10 @@ end
 
 local _wall_impulse = rt.ImpulseSubscriber()
 
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then _shader:recompile() end
+end)
+
 --- @brief
 function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segment_light_sources, segment_light_colors)
     _try_initialize()
@@ -61,7 +65,7 @@ function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segme
 
     local scene = rt.SceneManager:get_current_scene()
 
-    rt.Palette.WALL:bind()
+    love.graphics.setColor(1, 1, 1, 1)
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("n_point_light_sources", #point_light_sources)

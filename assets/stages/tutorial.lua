@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1075,
+  nextobjectid = 1077,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5415,6 +5415,27 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 1076,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = -5392.4,
+          y = 2412.69,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -98.1734, y = -201.702 },
+            { x = 152.912, y = -175.522 },
+            { x = 198.727, y = -143.393 },
+            { x = 163.027, y = 2.97495 },
+            { x = 117.808, y = 42.8393 }
+          },
           properties = {}
         }
       }

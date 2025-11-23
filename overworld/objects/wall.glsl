@@ -125,8 +125,17 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
 
     vec2 surface_normal = surface_normal_3d.xy;
 
+    const vec4 ambient_light_color = vec4(1);
+    const float ambient_light_intensity = 0.3;
+    const float ambient_light_time_scale = 0; //1. / 1000;
+    vec3 ambient_light_direction = normalize(vec3(
+    -1, -1, mix(-0.25, 0.75, 0.5 * (1 + sin(elapsed * ambient_light_time_scale)))
+    ));
+    float ambient_alignment = max(dot(surface_normal_3d, ambient_light_direction), 0.0);
+    vec4 ambient_color = ambient_light_intensity * ambient_alignment * ambient_light_color;
+
     vec4 point_color = vec4(0);
-    for (int i = 1; i < n_point_light_sources; ++i) {
+    for (int i = 0; i < n_point_light_sources; ++i) {
         vec2 light_position = to_world_position(point_light_sources[i]);
 
         float dist = distance(light_position, world_position) / 100.0;
@@ -156,9 +165,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
 
     const float opacity = 0.8;
 
-    float base = mix(0, 0.5, -tiling);
-    return vec4((base * color + mix(
-        segment_light_intensity * segment_color,
-        point_light_intensity * point_color,
-    0.5)).rgb, color.a * opacity);
+    return vec4((
+        color * 0.05 * (1 - tiling)
+        + ambient_color
+        + segment_light_intensity * segment_color
+        + point_light_intensity * point_color
+    ).rgb, color.a * opacity);
 }

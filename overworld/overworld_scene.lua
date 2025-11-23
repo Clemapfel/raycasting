@@ -684,7 +684,7 @@ function ow.OverworldScene:draw()
     end
 end
 
-function ow.OverworldScene:_update_screenshot()
+function ow.OverworldScene:_update_screenshot(draw_player)
     if self._stage == nil
         or self._screenshot == nil
         or self._screenshot_needs_update == false
@@ -705,6 +705,10 @@ function ow.OverworldScene:_update_screenshot()
 
     self._camera:bind()
     self._stage:draw_below_player()
+    if draw_player == true then
+        self._player:draw_body()
+        self._player:draw_core()
+    end
     self._stage:draw_above_player()
     self._camera:unbind()
 
@@ -721,8 +725,8 @@ function ow.OverworldScene:_update_screenshot()
 end
 
 --- @brief
-function ow.OverworldScene:get_screenshot()
-    self:_update_screenshot()
+function ow.OverworldScene:get_screenshot(draw_player)
+    self:_update_screenshot(draw_player)
     return self._screenshot
 end
 
@@ -1174,7 +1178,7 @@ function ow.OverworldScene:show_result_screen()
         coins[coin_i] = self._stage:get_coin_is_collected(coin_i)
     end
 
-    self:_update_screenshot()
+    self:_update_screenshot(false) -- do not draw player
     rt.SceneManager:set_scene(
         ow.ResultScreenScene,
         player_x, player_y,
