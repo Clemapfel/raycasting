@@ -11,6 +11,11 @@ function rt.Transform:instantiate(...)
     end
 end
 
+--- @brief
+function rt.Transform:bind()
+    love.graphics.applyTransform(self._native)
+end
+
 --- @brief apply another transform to this one
 function rt.Transform:apply(other)
     meta.assert(other, rt.Transform)

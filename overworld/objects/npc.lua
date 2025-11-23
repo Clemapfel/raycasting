@@ -1,16 +1,8 @@
-require "common.delaunay_triangulation"
-require "overworld.player_recorder_body"
-require "overworld.player_recorder_eyes"
-require "common.render_texture_3d"
-require "common.blur"
+require "overworld.npc_body"
 
 rt.settings.overworld.npc = {
-    -- model
     canvas_radius = 150,
-    canvas_padding = 20,
-    face_backing_factor = 1.2, -- times eye radius
-    radius_factor = 1.5, -- times player radius
-    blur_strength = 4,
+    hole_radius_factor = 0.15
 }
 
 --- @class ow.NPC
@@ -26,62 +18,63 @@ function ow.NPC:instantiate(object, stage, scene)
     self._x = object.x
     self._y = object.y
 
-    local radius_factor = object:get_number("radius_factor", false) or 1
-    local length_factor = object:get_number("length_factor", false) or 1
+    local width = rt.settings.overworld.npc.canvas_radius
+    local height = width
 
-    self._radius = radius_factor * self._scene:get_player():get_radius()
-    self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
-    self._graphics_body = rt.PlayerBody({
-        radius = self._radius,
-        max_radius = self._max_radius,
-        rope_length_radius_factor = rt.settings.player_body.default_rope_length_radius_factor * length_factor,
-    })
-    self._graphics_body:set_world(self._world)
-    self._graphics_body:set_gravity(0, 0)
-
-    local bottom_x, bottom_y = self._world:query_ray(self._x, self._y, 0, 1 * 10e8)
-    if bottom_x == nil then
-        bottom_x, bottom_y = self._x, self._y
-    end
-
-    self._body = b2.Body(
-        self._world,
-        b2.BodyType.DYNAMIC,
-        bottom_x, bottom_y - self._radius,
-        b2.Circle(0, 0, self._radius)
+    self._graphics_body_x = self._x - 0.5 * width
+    self._graphics_body_y = self._y - 0.5 * height
+    self._graphics_body = ow.NPCBody(
+        self._graphics_body_x,
+        self._graphics_body_y,
+        width, height,
+        rt.settings.overworld.npc.hole_radius_factor * width
     )
-
-    -- core shape
-    do
-        local n_outer_vertices = rt.settings.player.n_outer_bodies
-        local positions = {}
-        local r = radius_factor * self._scene:get_player():get_core_radius() - 1.5
-        for i = 1, n_outer_vertices do
-            local angle = (i - 1) / n_outer_vertices * 2 * math.pi
-            table.insert(positions, math.cos(angle) * r)
-            table.insert(positions, math.sin(angle) * r)
-        end
-
-        self._graphics_body:set_shape(positions)
-        self._graphics_body:set_opacity(1)
-    end
+    self._camera_body = b2.Body(
+        stage:get_physics_world(),
+        b2.BodyType.STATIC,
+        0, 0,
+        b2.Rectangle(self._x, self._y, width, height)
+    )
+    self._camera_body:set_collides_with(0x0)
+    self._camera_body:set_collision_group(0x0)
 end
 
 --- @brief
+--- @brief
 function ow.NPC:update(delta)
-    self._graphics_body:set_position(self._body:get_position())
-    self._graphics_body:update(delta)
+    if not self._stage:get_is_body_visible(self._camera_body) then return end
 end
 
 --- @brief
 function ow.NPC:draw()
-    self._graphics_body:draw_body()
-    self._graphics_body:draw_core()
-    self._graphics_body:draw_bloom()
+    if not self._stage:get_is_body_visible(self._camera_body) then return end
+
+    local screenshot = self._scene:get_screenshot()
+    if screenshot == nil then return end
+
+    local small = self._graphics_body:get_texture()
+
+    love.graphics.push("all")
+    love.graphics.reset()
+    small:bind()
+    love.graphics.clear(0, 0, 0, 0)
+
+    local screen_x, screen_y = self._scene:get_camera():world_xy_to_screen_xy(
+        self._graphics_body_x, self._graphics_body_y
+    )
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.translate(-screen_x, -screen_y)
+    screenshot:draw()
+    small:unbind()
+
+    love.graphics.circle("fill", screen_x, screen_y, 5)
+    love.graphics.pop()
+
+    self._graphics_body:draw()
 end
 
 function ow.NPC:draw_bloom()
-    self._graphics_body:draw_bloom()
 end
 
 --- @brief

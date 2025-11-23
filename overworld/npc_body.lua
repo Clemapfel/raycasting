@@ -46,35 +46,31 @@ end
 
 --- @brief
 function ow.NPCBody:_init(
-    top_left_x, top_left_y,
-    bottom_right_x, bottom_right_y,
+    min_x, min_y,
+    max_x, max_y,
     radius, inner_radius,
     n_strands, n_segments_per_strand
 )
-    local width, height = bottom_right_x - top_left_x, bottom_right_y - top_left_y
-    self._canvas = rt.RenderTexture3D(
+    local width, height = max_x - min_x, max_y - min_y
+    self._dilation_canvas = rt.RenderTexture(
         width, height
     )
 
     local center_x, center_y, center_z = math.mix2(
-        bottom_right_x, bottom_right_y,
-        top_left_x, top_left_y,
+        max_x, max_y,
+        min_x, min_y,
         0.5
     )
 
-    local min_x, min_y, max_x, max_y = top_left_x, top_left_y, bottom_right_x, bottom_right_y
-
     local mesh_data = {}
     local mesh_vertex_indices = {} -- 1-based
-    local function add_vertex(x, y, hue)
+    local function add_vertex(x, y)
         local u = (x - min_x) / (max_x - min_x)
         local v = (y - min_y) / (max_y - min_y)
-
         table.insert(mesh_data, {
             x, y,
             u, v,
             1, 1, 1, 1
-            ---rt.lcha_to_rgba(0.8,1, hue, 1)
         })
     end
 
@@ -83,21 +79,15 @@ function ow.NPCBody:_init(
 
     for i = 1, n_strands do
         local angle = (i - 1) * 2 * math.pi / n_strands
-
-        local center_offset_x = 0 --(math.cos(angle) * right_x + math.sin(angle) * up_x) * inner_radius
-        local center_offset_y = 0 --(math.cos(angle) * right_y + math.sin(angle) * up_y) * inner_radius
-
-        local strand = {
+        strands[i] = {
             anchor_x = center_x,
             anchor_y = center_y,
 
             axis_x = math.cos(angle),
             axis_y = math.sin(angle),
 
-            nodes = {},
+            nodes = {}
         }
-
-        strands[i] = strand
     end
 
     local function easing(t)
@@ -136,7 +126,7 @@ function ow.NPCBody:_init(
                 next_y = strand.anchor_y + strand.axis_y * distance_b
             end
 
-            add_vertex(current_x, current_y, current_i / n_segments_per_strand)
+            add_vertex(current_x, current_y)
 
             table.insert(strand.nodes, {
                 current_x = current_x,
@@ -151,7 +141,7 @@ function ow.NPCBody:_init(
         end
     end
 
-    -- triangulate the strands (quads between neighboring strands)
+    -- triangulate
     for segment_i = 1, n_segments_per_strand - 1 do
         for strand_i = 1, n_strands do
             local next_strand_i = (strand_i % n_strands) + 1
@@ -172,14 +162,11 @@ function ow.NPCBody:_init(
     end
 
     do -- add corners and connect them to the shape
-        local corner_z = center_z
-        local corner_hue = 1.0
-
         local corner_start_index = #mesh_data + 1
-        add_vertex(min_x, min_y, corner_hue)
-        add_vertex(max_x, min_y, corner_hue)
-        add_vertex(min_x, max_y, corner_hue)
-        add_vertex(max_x, max_y, corner_hue)
+        add_vertex(min_x, min_y)
+        add_vertex(max_x, min_y)
+        add_vertex(min_x, max_y)
+        add_vertex(max_x, max_y)
 
         local top_left = corner_start_index
         local top_right = corner_start_index + 1
@@ -258,11 +245,11 @@ function ow.NPCBody:_init(
         rt.GraphicsBufferUsage.STREAM
     )
     self._dilation_mesh:set_vertex_map(mesh_vertex_indices)
+    self._dilation_mesh:set_texture(self._dilation_canvas)
 
     self._dilation_background = rt.AABB(
         min_x, min_y, max_x - min_x, max_y - min_y
     )
-    self._dilation_mesh:set_texture(rt.Texture("assets/sprites/why.png"))
 
     self:_update_dilation()
 end
@@ -302,6 +289,11 @@ end
 function ow.NPCBody:set_dilation(t)
     self._dilation = t
     self:_update_dilation()
+end
+
+--- @brief
+function ow.NPCBody:get_texture()
+    return self._dilation_canvas
 end
 
 --- @brief

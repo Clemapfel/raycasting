@@ -466,6 +466,7 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
             0, -- msaa
             rt.settings.overworld_scene.screenshot_texture_format
         )
+        self._screenshot_needs_update = true
     end
 
     local m = rt.settings.margin_unit
@@ -684,7 +685,10 @@ function ow.OverworldScene:draw()
 end
 
 function ow.OverworldScene:_update_screenshot()
-    if self._stage == nil or self._screenshot == nil then return end
+    if self._stage == nil
+        or self._screenshot == nil
+        or self._screenshot_needs_update == false
+    then return end
 
     love.graphics.push("all")
     love.graphics.reset()
@@ -704,7 +708,6 @@ function ow.OverworldScene:_update_screenshot()
     self._stage:draw_above_player()
     self._camera:unbind()
 
-
     if rt.GameState:get_is_bloom_enabled() == true then
         local bloom = rt.SceneManager:get_bloom()
         -- skip bloom, use bloom from last update
@@ -712,6 +715,15 @@ function ow.OverworldScene:_update_screenshot()
     end
 
     self._screenshot:unbind()
+
+    love.graphics.pop()
+    self._screenshot_needs_update = false
+end
+
+--- @brief
+function ow.OverworldScene:get_screenshot()
+    self:_update_screenshot()
+    return self._screenshot
 end
 
 function ow.OverworldScene:_draw_debug_information()
@@ -952,6 +964,8 @@ function ow.OverworldScene:update(delta)
 
     self._background:notify_camera_changed(self._camera)
     self._background:update(delta)
+
+    self._screenshot_needs_update = true
 
     -- player canvas
     if self._player_is_visible then

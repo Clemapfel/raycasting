@@ -56,7 +56,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -74,8 +74,6 @@ love.load = function(args)
             dilation_animation:set_target_value(ternary(dilation_animation:get_target_value() == 0, 1, 0))
         end
     end)
-
-    _init()
 end
 
 local elapsed = 0
@@ -83,10 +81,6 @@ love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
     end
-
-    dilation_animation:update(delta)
-    cloth:set_dilation(dilation_animation:get_value())
-    cloth:update(delta)
 end
 
 love.draw = function()
@@ -94,14 +88,10 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
-
-    cloth:draw()
 end
 
 love.resize = function(width, height)
     if rt.SceneManager ~= nil then
         rt.SceneManager:resize(width, height)
     end
-
-    _init()
 end
