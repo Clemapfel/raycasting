@@ -11,11 +11,12 @@ local cloth
 local dilation_animation = rt.SmoothedMotion1D(0)
 
 function _init()
+    local w, h = love.graphics.getDimensions()
+    local x, y = 50, 50
     cloth = ow.NPCBody(
-        0, 0, -- x y
-        10, -- z
-        50, 50, -- width, height
-        3
+        x, y,
+        w - 2 * x, h - 2 * y,
+        0.1 * h
     )
 end
 
