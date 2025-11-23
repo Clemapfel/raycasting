@@ -1,22 +1,20 @@
---- @class rt.Path
---- @brief arc-length parameterized chain of line segments, unlike spline, extremely fast to evaluate
-rt.Path = meta.class("Path")
-
-rt.Path2D = rt.Path -- alias to be consistent with `Path3D`
+--- @class rt.Path3D
+--- @brief arc-length parameterized chain of line segments in 3D; fast to evaluate (binary search for segment)
+rt.Path3D = meta.class("Path3D")
 
 --- @brief
-function rt.Path:instantiate(points, ...)
+function rt.Path3D:instantiate(points, ...)
     if meta.is_number(points) then
         points = { points, ... }
     end
 
-    rt.assert(#points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to create a path")
-    rt.assert(#points % 2 == 0, "In rt.Path: number of point coordinates must be even")
+    rt.assert(#points >= 6, "In rt.Path3D: need at least 2 points (6 coordinates) to create a path")
+    rt.assert(#points % 3 == 0, "In rt.Path3D: number of point coordinates must be divisible by 3")
 
     local out = meta.install(self, {
         _points = points,
         _entries = {},
-        _n_points = #points,
+        _n_points = #points,         -- number of scalars (flattened x,y,z,...)
         _n_entries = 0,
         _length = 0,
         _first_distance = 0,
@@ -27,7 +25,7 @@ function rt.Path:instantiate(points, ...)
 end
 
 --- @brief
-function rt.Path:_update()
+function rt.Path3D:_update()
     local entries = {}
     local points = self._points
     local n_points = self._n_points
@@ -35,22 +33,26 @@ function rt.Path:_update()
     local n_entries = 0
 
     -- create entries for each line segment
-    for i = 1, n_points - 2, 2 do
-        local x1, y1 = points[i], points[i+1]
-        local x2, y2 = points[i+2], points[i+3]
+    for i = 1, n_points - 3, 3 do
+        local x1, y1, z1 = points[i], points[i + 1], points[i + 2]
+        local x2, y2, z2 = points[i + 3], points[i + 4], points[i + 5]
 
         local dx = x2 - x1
         local dy = y2 - y1
-        local distance = math.distance(x1, y1, x2, y2)
-        dx, dy = math.normalize(dx, dy)
+        local dz = z2 - z1
+        local distance = math.distance(x1, y1, z1, x2, y2, z2)
+        dx, dy, dz = math.normalize(dx, dy, dz)
 
         local entry = {
             from_x = x1,
             from_y = y1,
+            from_z = z1,
             to_x = x2,
             to_y = y2,
+            to_z = z2,
             dx = dx,  -- normalized direction vector
             dy = dy,
+            dz = dz,
             distance = distance,
             cumulative_distance = total_length,
             fraction = 0, -- set below
@@ -93,7 +95,7 @@ function rt.Path:_update()
 end
 
 --- @brief
-function rt.Path:_find_segment(t)
+function rt.Path3D:_find_segment(t)
     local entries = self._entries
     local n_entries = self._n_entries
 
@@ -133,7 +135,8 @@ function rt.Path:_find_segment(t)
 end
 
 --- @brief get position at parameter t [0, 1]
-function rt.Path:at(t)
+--- @return Number, Number, Number
+function rt.Path3D:at(t)
     t = math.clamp(t, 0, 1)
 
     local segment = self:_find_segment(t)
@@ -143,42 +146,50 @@ function rt.Path:at(t)
     return math.add(
         segment.from_x,
         segment.from_y,
+        segment.from_z,
         segment.dx * distance_along_segment,
-        segment.dy * distance_along_segment
+        segment.dy * distance_along_segment,
+        segment.dz * distance_along_segment
     )
 end
 
 --- @brief
-function rt.Path:get_segment(t)
+--- @return Number, Number, Number, Number, Number, Number
+function rt.Path3D:get_segment(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment.from_x, segment.from_y, segment.to_x, segment.to_y
+    return segment.from_x, segment.from_y, segment.from_z, segment.to_x, segment.to_y, segment.to_z
 end
 
 --- @brief
-function rt.Path:get_tangent(t)
+--- @return Number, Number, Number
+function rt.Path3D:get_tangent(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment.dx, segment.dy
+    return segment.dx, segment.dy, segment.dz
 end
 
 --- @brief
-function rt.Path:_create_from(reparameterize_as_uniform, points, ...)
+function rt.Path3D:_create_from(reparameterize_as_uniform, points, ...)
     if meta.is_number(points) then
         points = { points, ... }
     end
 
     local n_points = #points
-    rt.assert(n_points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to draw a path")
-    rt.assert(n_points % 2 == 0, "In rt.Path: number of point coordinates must be even")
+    rt.assert(n_points >= 6, "In rt.Path3D: need at least 2 points (6 coordinates) to draw a path")
+    rt.assert(n_points % 3 == 0, "In rt.Path3D: number of point coordinates must be divisible by 3")
 
     -- reparameterize to uniform spacing if requested
     if reparameterize_as_uniform then
-        local num_points = n_points / 2
+        local dim = 3
+        local num_points = n_points / dim
 
         -- calculate cumulative distances
         local distances = { 0 }
         local total_length = 0
-        for i = 1, n_points - 2, 2 do
-            local dist = math.distance(points[i], points[i+1], points[i+2], points[i+3])
+        for i = 1, n_points - dim, dim do
+            local dist = math.distance(
+                points[i], points[i + 1], points[i + 2],
+                points[i + 3], points[i + 4], points[i + 5]
+            )
             total_length = total_length + dist
             distances[#distances + 1] = total_length
         end
@@ -191,6 +202,7 @@ function rt.Path:_create_from(reparameterize_as_uniform, points, ...)
             -- first point
             uniform_points[1] = points[1]
             uniform_points[2] = points[2]
+            uniform_points[3] = points[3]
 
             -- intermediate points
             local segment_idx = 1
@@ -209,18 +221,22 @@ function rt.Path:_create_from(reparameterize_as_uniform, points, ...)
 
                 local local_t = (target_dist - seg_start_dist) / seg_length
 
-                local point_idx = segment_idx * 2 - 1
-                local x1, y1 = points[point_idx], points[point_idx + 1]
-                local x2, y2 = points[point_idx + 2], points[point_idx + 3]
+                local point_idx = (segment_idx - 1) * dim + 1
+                local x1, y1, z1 = points[point_idx], points[point_idx + 1], points[point_idx + 2]
+                local x2, y2, z2 = points[point_idx + 3], points[point_idx + 4], points[point_idx + 5]
 
-                local out_idx = i * 2 + 1
-                uniform_points[out_idx], uniform_points[out_idx + 1] = math.mix2(x1, y1, x2, y2, local_t)
+                local out_idx = i * dim + 1
+                -- inline mix3 to avoid dependency; math.mix2 exists, but we compute component-wise for 3D
+                uniform_points[out_idx]     = x1 * (1 - local_t) + x2 * local_t
+                uniform_points[out_idx + 1] = y1 * (1 - local_t) + y2 * local_t
+                uniform_points[out_idx + 2] = z1 * (1 - local_t) + z2 * local_t
             end
 
             -- last point
-            local last_idx = (num_points - 1) * 2 + 1
-            uniform_points[last_idx] = points[n_points - 1]
-            uniform_points[last_idx + 1] = points[n_points]
+            local last_idx = (num_points - 1) * dim + 1
+            uniform_points[last_idx]     = points[n_points - 2]
+            uniform_points[last_idx + 1] = points[n_points - 1]
+            uniform_points[last_idx + 2] = points[n_points]
 
             points = uniform_points
             n_points = #points
@@ -233,61 +249,58 @@ function rt.Path:_create_from(reparameterize_as_uniform, points, ...)
 end
 
 --- @brief
-function rt.Path:create_from(...)
+function rt.Path3D:create_from(...)
     self:_create_from(false, ...)
 end
 
 --- @brief
-function rt.Path:create_from_and_reparameterize(...)
+function rt.Path3D:create_from_and_reparameterize(...)
     self:_create_from(true, ...)
 end
 
 --- @brief
-function rt.Path:list_points()
+function rt.Path3D:list_points()
     local out = {}
-    for i = 1, self._n_points, 2 do
-        table.insert(out, {self._points[i], self._points[i+1]})
+    for i = 1, self._n_points, 3 do
+        table.insert(out, { self._points[i], self._points[i + 1], self._points[i + 2] })
     end
     return out
 end
 
 --- @brief
-function rt.Path:get_length()
+function rt.Path3D:get_length()
     return self._length
 end
 
---- @brief
-function rt.Path:draw()
-    love.graphics.setLineJoin("none")
-    if self._n_points >= 4 then
-        love.graphics.line(self._points)
-    end
+--- @brief draw (not implemented for 3D)
+function rt.Path3D:draw()
+    -- 3D rendering is outside the scope of this class
 end
 
 --- @brief override arclength parameterization with custom per-segment fraction
 --- @param, . Number of values equal to number of segments, must sum to 1
-function rt.Path:override_parameterization(...)
+function rt.Path3D:override_parameterization(...)
     local n_args = select("#", ...)
     if n_args ~= self._n_entries then
-        rt.error("In rt.Path.override_parameterization: expected `",  self._n_entries,  "` parameters, got `",  n_args,  "`")
+        rt.error("In rt.Path3D.override_parameterization: expected `", self._n_entries, "` parameters, got `", n_args, "`")
         return
     end
 
     local total = 0
-    local args = {...}
+    local args = { ... }
 
     -- validate arguments sum to 1
     for i = 1, n_args do
         local arg = args[i]
         if type(arg) ~= "number" or arg < 0 then
-            rt.error("In rt.Path:override_parameterization: parameter ",  i,  " must be a non-negative number")
+            rt.error("In rt.Path3D:override_parameterization: parameter ", i, " must be a non-negative number")
             return
         end
         total = total + arg
     end
 
     if math.abs(total - 1) > 1e-10 then
-        rt.error("In rt.Path:override_parameterization: total length of override parameters is `",  total,  "`, but `1` was expected")
+        rt.error("In rt.Path3D:override_parameterization: total length of override parameters is `", total, "`, but `1` was expected")
         return
     end
 
@@ -301,70 +314,76 @@ function rt.Path:override_parameterization(...)
 end
 
 --- @brief Get the number of segments in the path
-function rt.Path:get_segment_count()
+function rt.Path3D:get_segment_count()
     return self._n_entries
 end
 
 --- @brief helper function to find closest point on a specific line segment
 --- @param x Number query point x
---- @param y Number query point y  
+--- @param y Number query point y
+--- @param z Number query point z
 --- @param entry Table segment entry from self._entries
---- @return Number, Number, Number closest point x, y and global parameter t
-function rt.Path:_closest_point_on_segment(x, y, entry)
-    local x1, y1 = entry.from_x, entry.from_y
-    local x2, y2 = entry.to_x, entry.to_y
+--- @return Number, Number, Number, Number closest point x, y, z and global parameter t
+function rt.Path3D:_closest_point_on_segment(x, y, z, entry)
+    local x1, y1, z1 = entry.from_x, entry.from_y, entry.from_z
+    local x2, y2, z2 = entry.to_x, entry.to_y, entry.to_z
 
     -- vector from start to end of segment
     local segment_dx = x2 - x1
     local segment_dy = y2 - y1
-    local segment_length_sq = segment_dx * segment_dx + segment_dy * segment_dy
+    local segment_dz = z2 - z1
+    local segment_length_sq = segment_dx * segment_dx + segment_dy * segment_dy + segment_dz * segment_dz
 
     if segment_length_sq < 1e-10 then
         -- degenerate segment
         local global_t = entry.fraction + entry.fraction_length * 0.5
-        return x1, y1, global_t
+        return x1, y1, z1, global_t
     end
 
-    local dot = (x - x1) * segment_dx + (y - y1) * segment_dy
+    local dot = (x - x1) * segment_dx + (y - y1) * segment_dy + (z - z1) * segment_dz
     local local_t = math.clamp(dot / segment_length_sq, 0, 1)
 
     local closest_x = x1 + local_t * segment_dx
     local closest_y = y1 + local_t * segment_dy
+    local closest_z = z1 + local_t * segment_dz
     local global_t = entry.fraction + entry.fraction_length * local_t
 
-    return closest_x, closest_y, global_t
+    return closest_x, closest_y, closest_z, global_t
 end
 
---- @brief 
-function rt.Path:get_closest_point(x, y)
+--- @brief find closest point on the path to a 3D query point
+--- @return Number, Number, Number, Number closest x, y, z, and parameter t
+function rt.Path3D:get_closest_point(x, y, z)
     if self._n_entries == 0 then
-        return nil, nil, nil
+        return nil, nil, nil, nil
     end
 
     local closest_distance_sq = math.huge
-    local closest_x, closest_y = nil, nil
+    local closest_x, closest_y, closest_z = nil, nil, nil
     local closest_t = 0
 
     for i = 1, self._n_entries do
         local entry = self._entries[i]
-        local segment_x, segment_y, segment_t = self:_closest_point_on_segment(x, y, entry)
+        local segment_x, segment_y, segment_z, segment_t = self:_closest_point_on_segment(x, y, z, entry)
 
         local dx = segment_x - x
         local dy = segment_y - y
-        local distance_sq = dx * dx + dy * dy
+        local dz = segment_z - z
+        local distance_sq = dx * dx + dy * dy + dz * dz
 
         if distance_sq < closest_distance_sq then
             closest_distance_sq = distance_sq
             closest_x = segment_x
             closest_y = segment_y
+            closest_z = segment_z
             closest_t = segment_t
         end
     end
 
-    return closest_x, closest_y, closest_t
+    return closest_x, closest_y, closest_z, closest_t
 end
 
 --- @brief
-function rt.Path:get_points()
+function rt.Path3D:get_points()
     return self._points
 end
