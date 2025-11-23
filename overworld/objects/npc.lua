@@ -1,7 +1,7 @@
 require "overworld.npc_body"
 
 rt.settings.overworld.npc = {
-    canvas_radius = 150,
+    canvas_radius = 200,
     hole_radius_factor = 0.15
 }
 
@@ -62,7 +62,7 @@ function ow.NPC:draw()
     if exclude_from_drawing == true or not self._stage:get_is_body_visible(self._camera_body) then return end
 
     exclude_from_drawing = true -- prevent loop
-    local screenshot = self._scene:get_screenshot()
+    local screenshot = self._scene:get_screenshot(true) -- draw player
     exclude_from_drawing = false
 
     if screenshot == nil then return end
@@ -97,5 +97,5 @@ end
 
 --- @brief
 function ow.NPC:get_render_priority()
-    return -1 -- below player
+    return 1
 end

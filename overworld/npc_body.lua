@@ -20,6 +20,7 @@ ow.NPCBody = meta.class("NPCBody")
 
 local _settings = rt.settings.overworld.cloth_body
 local _shader = rt.Shader("overworld/~npc_body.glsl")
+local _backing_shader = rt.Shader("overworld/npc_body_backing.glsl")
 
 --- @brief
 function ow.NPCBody:instantiate(
@@ -298,9 +299,11 @@ end
 
 --- @brief
 function ow.NPCBody:draw()
-    rt.Palette.TRUE_MAGENTA:bind()
+    _backing_shader:bind()
+    _backing_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _backing_shader:send("screen_to_world_transform", rt.SceneManager:get_current_scene():get_camera():get_transform():inverse())
     love.graphics.rectangle("fill", self._dilation_background:unpack())
-
+    _backing_shader:unbind()
     --love.graphics.setWireframe(true)
     love.graphics.setColor(1, 1, 1, 1)
     self._dilation_mesh:draw()
