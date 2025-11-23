@@ -6,13 +6,16 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-require "overworld.cloth_body"
+require "overworld.npc_body"
 local cloth
+local dilation_animation = rt.SmoothedMotion1D(0)
+
 function _init()
-    cloth = ow.ClothBody(
+    cloth = ow.NPCBody(
         0, 0, -- x y
-        30, -- z
-        50, 50 -- width, height
+        10, -- z
+        50, 50, -- width, height
+        3
     )
 end
 
@@ -51,7 +54,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -63,8 +66,14 @@ love.load = function(args)
     --rt.SceneManager:push(mn.MenuScene)
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "0" then _G.restart() end
+        if which == "0" then
+            _G.restart()
+        elseif which == "g" then
+            dilation_animation:set_target_value(ternary(dilation_animation:get_target_value() == 0, 1, 0))
+        end
     end)
+
+    _init()
 end
 
 local elapsed = 0
@@ -73,7 +82,9 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
-    --cloth:update(delta)
+    dilation_animation:update(delta)
+    cloth:set_dilation(dilation_animation:get_value())
+    cloth:update(delta)
 end
 
 love.draw = function()
@@ -82,7 +93,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    --cloth:draw()
+    cloth:draw()
 end
 
 love.resize = function(width, height)
@@ -90,5 +101,5 @@ love.resize = function(width, height)
         rt.SceneManager:resize(width, height)
     end
 
-    --_init()
+    _init()
 end
