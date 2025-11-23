@@ -2,7 +2,6 @@ require "common.input_subscriber"
 require "physics.physics"
 require "common.player_body"
 require "common.player_trail"
-require "common.player_dash_indicator"
 require "common.player_particles"
 require "common.player_dash_particles"
 require "common.random"
@@ -85,7 +84,6 @@ do
         instant_dash_velocity = 600,
         sustained_dash_velocity = 8000,
         dash_cooldown = 40 / 60,
-        dash_particle_spawn_duration = 40 / 60,
         allow_air_dash = true,
 
         double_jump_buffer_duration = 15 / 60,
@@ -357,17 +355,11 @@ function rt.Player:instantiate()
         _dash_elapsed = math.huge,
         _dash_cooldown_elapsed = math.huge,
         _dash_direction = rt.Direction.RIGHT,
-        _dash_particle_spawn_elapsed = math.huge,
         _dash_allowed = false,
         _is_dashing = false,
         _dash_particles = rt.PlayerDashParticles(),
-
-        _dash_indicator = nil, -- rt.PlayerDashIndicator
         _dash_direction_x = 0,
         _dash_direction_y = -1,
-        _dash_stretch_animation = rt.TimedAnimation(
-            0.5, 1, 0, rt.InterpolationFunctions.GAUSSIAN_HIGHPASS
-        ),
 
         _body_to_collision_normal = {},
 
@@ -386,7 +378,6 @@ function rt.Player:instantiate()
     self._position_history_path = rt.Path(self._position_history)
 
     self._trail = rt.PlayerTrail(self._radius)
-    self._dash_indicator = rt.PlayerDashIndicator(self._radius)
 
     self._graphics_body = rt.PlayerBody({
         radius = _settings.radius,
@@ -1574,7 +1565,13 @@ function rt.Player:update(delta)
                         next_velocity_y = next_velocity_y + t * self._dash_direction_y * _settings.sustained_dash_velocity * delta
 
                         if dash_fraction == 0 then
-                            self._dash_particles:add( -- start new trail
+                            self._dash_particles:start( -- start new trail
+                                contact_x, contact_y,
+                                normal_x, normal_y,
+                                self:get_hue()
+                            )
+                        elseif dash_fraction <= 1 then
+                            self._dash_particles:append( -- start new trail
                                 contact_x, contact_y,
                                 normal_x, normal_y,
                                 self:get_hue()
@@ -1588,15 +1585,6 @@ function rt.Player:update(delta)
                         self._is_dashing = false
                     end
                 end
-
-                if self._dash_particle_spawn_elapsed < _settings.dash_particle_spawn_duration then
-                    self._dash_particles:append(
-                        contact_x, contact_y,
-                        normal_x, normal_y,
-                        self:get_hue()
-                    )
-                end
-                self._dash_particle_spawn_elapsed = self._dash_particle_spawn_elapsed + delta
             end
 
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
@@ -1833,11 +1821,14 @@ function rt.Player:update(delta)
         local dash = rt.InterpolationFunctions.ENVELOPE(
             1 - math.min(1, self._dash_cooldown_elapsed / _settings.dash_cooldown),
             0.05,
-            0.05
+            0.2
         )
+        dash = 0
+
         local value = math.max(flow, dash)
         self._trail:set_glow_intensity(value)
         self._trail:set_boom_intensity(value)
+        self._trail:set_trail_intensity(value)
     end
 
     -- timers
@@ -2816,7 +2807,6 @@ function rt.Player:dash(axis_x, axis_y)
     self._dash_direction_x, self._dash_direction_y = math.normalize(dx, dy)
     self._is_dashing = true
     self._dash_cooldown_elapsed = 0
-    self._dash_particle_spawn_elapsed = 0
     self._dash_elapsed = 0
     self._graphics_body:set_is_ducking(false) -- "pump" motion
 

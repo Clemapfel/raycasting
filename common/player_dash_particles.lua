@@ -11,8 +11,10 @@ rt.settings.player_dash_particles = {
         max_velocity = 50,
 
         position_jitter_offset = 4, -- px
-        velocity_decay = 20, -- (px / s) / s
-    }
+        velocity_decay = 20 -- (px / s) / s
+    },
+
+    gravity = 20
 }
 
 --- @class rt.PlayerDashParticles
@@ -84,14 +86,13 @@ function rt.PlayerDashParticles:_add(
             local particle_x, particle_y = math.mix2(current.x, current.y, last.x, last.y, t)
             local particle_velocity = rt.random.number(settings.min_velocity, settings.max_velocity)
             local radius = rt.random.number(settings.min_radius, settings.max_radius)
-
             local offset = rt.random.number(-settings.position_jitter_offset, settings.position_jitter_offset)
 
             local particle = {
                 [_x] = particle_x + dx * offset + normal_x * radius, -- prevent overlap with ground
                 [_y] = particle_y + dy * offset + normal_y * radius,
-                [_velocity_x] = normal_x * particle_velocity,
-                [_velocity_y] = normal_y * particle_velocity,
+                [_velocity_x] = 0, --normal_x * particle_velocity,
+                [_velocity_y] = 0, --normal_y * particle_velocity,
                 [_lifetime_elapsed] = 0,
                 [_lifetime] = rt.random.number(settings.min_lifetime, settings.max_lifetime),
                 [_radius] = radius,
@@ -104,7 +105,7 @@ function rt.PlayerDashParticles:_add(
 end
 
 --- @brief
-function rt.PlayerDashParticles:add(...)
+function rt.PlayerDashParticles:start(...)
     self:_add(true, ...)
 end
 
@@ -121,6 +122,8 @@ function rt.PlayerDashParticles:update(delta)
     local scale_easing = function(t)
         return rt.InterpolationFunctions.SINUSOID_EASE_OUT(t, 15)
     end
+
+    local settings = rt.settings.player_dash_particles
 
     for batch_i, batch in ipairs(self._batches) do
         local is_done = true
@@ -146,8 +149,8 @@ function rt.PlayerDashParticles:update(delta)
                 vx = vx * magnitude
                 vy = vy * magnitude
 
-                particle[_velocity_x] = vx
-                particle[_velocity_y] = vy
+                particle[_velocity_x] = vx + settings.gravity * delta
+                particle[_velocity_y] = vy + settings.gravity * delta
 
                 particle[_lifetime_elapsed] = particle[_lifetime_elapsed] + delta
                 particle[_scale] = scale_easing(math.min(1, particle[_lifetime_elapsed] / particle[_lifetime]))
