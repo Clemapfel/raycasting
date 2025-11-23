@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1074,
+  nextobjectid = 1075,
   properties = {
     ["title"] = "Not a Tutorial"
   },

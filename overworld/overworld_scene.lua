@@ -711,7 +711,7 @@ function ow.OverworldScene:_update_screenshot()
     if rt.GameState:get_is_bloom_enabled() == true then
         local bloom = rt.SceneManager:get_bloom()
         -- skip bloom, use bloom from last update
-        bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+        --bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
     end
 
     self._screenshot:unbind()

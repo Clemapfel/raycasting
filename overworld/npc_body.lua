@@ -298,7 +298,7 @@ end
 
 --- @brief
 function ow.NPCBody:draw()
-    rt.Palette.BLACK:bind()
+    rt.Palette.TRUE_MAGENTA:bind()
     love.graphics.rectangle("fill", self._dilation_background:unpack())
 
     --love.graphics.setWireframe(true)

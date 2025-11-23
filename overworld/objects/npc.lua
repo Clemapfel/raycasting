@@ -37,19 +37,34 @@ function ow.NPC:instantiate(object, stage, scene)
     )
     self._camera_body:set_collides_with(0x0)
     self._camera_body:set_collision_group(0x0)
+
+    self._dilation_motion = rt.SmoothedMotion1D(0)
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "l" then
+            self._dilation_motion:set_target_value(ternary(self._dilation_motion:get_target_value() == 1, 0, 1))
+        end
+    end)
 end
 
 --- @brief
 --- @brief
 function ow.NPC:update(delta)
     if not self._stage:get_is_body_visible(self._camera_body) then return end
+    self._dilation_motion:update(delta)
+    self._graphics_body:set_dilation(self._dilation_motion:get_value())
 end
+
+local exclude_from_drawing = false
 
 --- @brief
 function ow.NPC:draw()
-    if not self._stage:get_is_body_visible(self._camera_body) then return end
+    if exclude_from_drawing == true or not self._stage:get_is_body_visible(self._camera_body) then return end
 
+    exclude_from_drawing = true -- prevent loop
     local screenshot = self._scene:get_screenshot()
+    exclude_from_drawing = false
+
     if screenshot == nil then return end
 
     local small = self._graphics_body:get_texture()
@@ -63,12 +78,15 @@ function ow.NPC:draw()
         self._graphics_body_x, self._graphics_body_y
     )
 
+    local scale = self._scene:get_camera():get_final_scale()
+
     love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.scale(1 / scale, 1 / scale)
     love.graphics.translate(-screen_x, -screen_y)
+
     screenshot:draw()
     small:unbind()
 
-    love.graphics.circle("fill", screen_x, screen_y, 5)
     love.graphics.pop()
 
     self._graphics_body:draw()
