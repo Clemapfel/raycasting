@@ -154,8 +154,6 @@ function ow.BloodSplatter:draw()
     love.graphics.pop()
 end
 
-ow.BloodSplatter.draw = function()  end
-
 local _round = function(x)
     return math.floor(x)
 end
