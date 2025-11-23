@@ -67,10 +67,14 @@ function ow.NPCBody:_init(
     local mesh_data = {}
     local mesh_vertex_indices = {} -- 1-based
     local function add_vertex(x, y, hue)
+        local u = (x - min_x) / (max_x - min_x)
+        local v = (y - min_y) / (max_y - min_y)
+
         table.insert(mesh_data, {
             x, y,
-            0, 0,
-            rt.lcha_to_rgba(0.8,1, hue, 1)
+            u, v,
+            1, 1, 1, 1
+            ---rt.lcha_to_rgba(0.8,1, hue, 1)
         })
     end
 
@@ -97,11 +101,13 @@ function ow.NPCBody:_init(
     end
 
     local function easing(t)
-        return 1 - math.exp(-3 * t)
+        local k = 1.5
+        return 0.5 * (1 + math.erf((t - 0.5) * k))
     end
 
-    local rest_length = radius - inner_radius
-    local default_segment_length = rest_length / n_segments_per_strand
+    local size = inner_radius
+    local rest_length = radius
+    local dilate_length = radius - inner_radius
 
     -- add vertices
     for segment_i = 1, n_segments_per_strand do
@@ -113,26 +119,18 @@ function ow.NPCBody:_init(
             local has_next = segment_i < n_segments_per_strand
 
             local distance_a, distance_b
+            local t = current_i / n_segments_per_strand
+            distance_a = t * rest_length
 
-            if segment_i == 1 then
-                -- inner most segment: starts at origin, ends at inner radius
-                distance_a = 0
-                distance_b = inner_radius
-            else
-                -- outer segments: use cumulative eased distance
-                local t_a = (current_i - 1) / (n_segments_per_strand - 1)
-                distance_a = inner_radius + rest_length * easing(t_a)
-
-                if has_next then
-                    local t_b = (next_i - 1) / (n_segments_per_strand - 1)
-                    distance_b = inner_radius + rest_length * easing(t_b)
-                end
+            if has_next then
+                distance_b = math.min(inner_radius + easing(t) * dilate_length, radius)
             end
 
+            -- position at min dilation
             local current_x = strand.anchor_x + strand.axis_x * distance_a
             local current_y = strand.anchor_y + strand.axis_y * distance_a
 
-            local next_x, next_y
+            local next_x, next_y -- position at max dilation
             if has_next then
                 next_x = strand.anchor_x + strand.axis_x * distance_b
                 next_y = strand.anchor_y + strand.axis_y * distance_b
@@ -251,14 +249,6 @@ function ow.NPCBody:_init(
             table.insert(mesh_vertex_indices, top_left)
         end
     end
-    
-    -- uv mapping
-    for data in values(mesh_data) do
-        local x, y = data[1], data[2]
-        local u = (x - min_x) / (max_x - min_x)
-        local v = (y - min_y) / (max_y - min_y)
-        data[3], data[4] = u, v
-    end
 
     self._dilation_mesh_data = mesh_data
     self._dilation_mesh = rt.Mesh(
@@ -272,6 +262,7 @@ function ow.NPCBody:_init(
     self._dilation_background = rt.AABB(
         min_x, min_y, max_x - min_x, max_y - min_y
     )
+    self._dilation_mesh:set_texture(rt.Texture("assets/sprites/why.png"))
 
     self:_update_dilation()
 end
@@ -303,6 +294,10 @@ function ow.NPCBody:_update_dilation()
     self._dilation_mesh:replace_data(self._dilation_mesh_data)
 end
 
+function ow.NPCBody:update(delta)
+    -- noop
+end
+
 --- @brief
 function ow.NPCBody:set_dilation(t)
     self._dilation = t
@@ -315,13 +310,7 @@ function ow.NPCBody:draw()
     love.graphics.rectangle("fill", self._dilation_background:unpack())
 
     --love.graphics.setWireframe(true)
-    _shader:bind()
+    love.graphics.setColor(1, 1, 1, 1)
     self._dilation_mesh:draw()
-    _shader:unbind()
     --love.graphics.setWireframe(false)
-end
-
---- @brief
-function ow.NPCBody:update(delta)
-    -- noop for now
 end
