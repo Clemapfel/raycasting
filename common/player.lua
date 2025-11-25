@@ -1605,16 +1605,19 @@ function rt.Player:update(delta)
             -- componensate when going up slopes, which would slow down player in stock box2d
             local before_projection_x, before_projection_y = next_velocity_x, next_velocity_y
             if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
-                local friction = 0
-                for body in values({
+                local should_skip = false
+                for body in range(
                     self._bottom_left_wall_body,
                     self._bottom_right_wall_body,
                     self._bottom_wall_body
-                }) do
-                    friction = math.min(friction, body:get_friction())
+                ) do
+                    if body:has_tag("use_friction") then
+                        should_skip = true
+                        break
+                    end
                 end
 
-                if friction > 0 then -- skip accelerators
+                if should_skip then
                     local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
                     if next_magnitude > math.eps then
                         -- prefer normal in direction of movement, if available
