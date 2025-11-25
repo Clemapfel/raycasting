@@ -987,7 +987,6 @@ function rt.PlayerBody:_apply_squish(factor)
         love.graphics.translate(-origin_x, -origin_y)
     end
 
-    -- Down squish (default normal points up, origin at bottom edge center)
     apply(
         self._down_squish,
         self._down_squish_motion,
@@ -997,7 +996,6 @@ function rt.PlayerBody:_apply_squish(factor)
         self._position_x, self._position_y + 0.5 * self._radius
     )
 
-    -- Left squish (default normal points right, origin at left edge center)
     apply(
         self._left_squish,
         self._left_squish_motion,
@@ -1007,7 +1005,6 @@ function rt.PlayerBody:_apply_squish(factor)
         self._position_x - 0.5 * self._radius, self._position_y
     )
 
-    -- Right squish (default normal points left, origin at right edge center)
     apply(
         self._right_squish,
         self._right_squish_motion,
