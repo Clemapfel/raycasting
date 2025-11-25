@@ -26,7 +26,10 @@ do
         corner_wall_ray_length_factor = 0.8,
         top_wall_ray_length_factor = 1,
 
-        joystick_magnitude_threshold = 0.05,
+        joystick_magnitude_left_threshold = 0.15,
+        joystick_magnitude_right_threshold = 0.15,
+        joystick_magnitude_up_threshold = 0.05,
+        joystick_magnitude_down_threshold = 0.05,
 
         player_collision_group = b2.CollisionGroup.GROUP_16,
         player_outer_body_collision_group = b2.CollisionGroup.GROUP_15,
@@ -879,6 +882,19 @@ function rt.Player:update(delta)
         end
     end
 
+    -- input method agnostic button state
+    local left_is_down = self._left_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
+
+    local right_is_down = self._right_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
+
+    local up_is_down = self._up_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.UP) > _settings.joystick_magnitude_up_threshold
+
+    local down_is_down = self._down_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
+
     do -- compute current normal for all colliding walls
         local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.player_collision_group))
         local body = self._is_bubble and self._bubble_body or self._body
@@ -935,27 +951,73 @@ function rt.Player:update(delta)
             }
         end
 
-        -- update down animation
-        local is_ducking = false
-        if self._down_button_is_down and not self._left_button_is_down and not self._right_button_is_down then
-            for body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
-                local entry = self._body_to_collision_normal[body]
-                if entry ~= nil then
-                    self._graphics_body:set_is_ducking(true,
-                        entry.normal_x, entry.normal_y,
-                        entry.contact_x, entry.contact_y
-                    )
-                    is_ducking = true
+        do -- update down squish
+            local is_ducking = false
+
+            -- on analog, prioritize disregarding side inputs
+            local should_duck
+            if self._use_analog_input then
+                should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
+                    and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < _settings.joystick_magnitude_left_threshold
+                    and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < _settings.joystick_magnitude_right_threshold
+            else
+                should_duck = down_is_down and not left_is_down and not right_is_down
+            end
+
+            if should_duck then
+                for wall_body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
+                    local entry = self._body_to_collision_normal[wall_body]
+                    if entry ~= nil then
+                        self._graphics_body:set_down_squish(true,
+                            entry.normal_x, entry.normal_y,
+                            entry.contact_x, entry.contact_y
+                        )
+                        is_ducking = true
+                    end
                 end
             end
+
+            if not is_ducking then self._graphics_body:set_down_squish(false) end
+
+            if self._is_ducking == false and is_ducking == true then
+                self:signal_emit("duck")
+            end
+            self._is_ducking = is_ducking
         end
 
-        if not is_ducking then self._graphics_body:set_is_ducking(false) end
+        local should_squish = function(button, ...)
+            local apply = button
+            for i = 1, select("#", ...) do
+                if select(i, ...) == nil then
+                    apply = false
+                    break
+                end
+            end
 
-        if self._is_ducking == false and is_ducking == true then
-            self:signal_emit("duck")
+            if apply then
+                for i = 1, select("#", ...) do
+                    local wall_body = select(i, ...)
+                    if wall_body ~= nil then
+                        local entry = self._body_to_collision_normal[wall_body]
+                        return true,
+                            entry.normal_x, entry.normal_y,
+                            entry.contact_x, entry.contact_y
+                    end
+                end
+            end
+
+            return false
         end
-        self._is_ducking = is_ducking
+
+        self._graphics_body:set_left_squish(should_squish(
+            left_is_down,
+            left_wall_body
+        ))
+
+        self._graphics_body:set_right_squish(should_squish(
+            right_is_down,
+            right_wall_body
+        ))
     end
 
     if not self._is_bubble then
@@ -972,27 +1034,6 @@ function rt.Player:update(delta)
 
         local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
-
-        local threshold = _settings.joystick_magnitude_threshold
-        local left_is_down = ternary(use_analog_input == false,
-            self._left_button_is_down,
-            self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > threshold
-        )
-
-        local right_is_down = ternary(use_analog_input == false,
-            self._right_button_is_down,
-            self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > threshold
-        )
-
-        local up_is_down = ternary(use_analog_input == false,
-            self._up_button_is_down,
-            self._joystick_gesture:get_magnitude(rt.InputAction.UP) > threshold
-        )
-
-        local down_is_down = ternary(use_analog_input == false,
-            self._down_button_is_down,
-            self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > threshold
-        )
 
         -- update velocity
         local acceleration_t = 0
@@ -1163,8 +1204,14 @@ function rt.Player:update(delta)
                     local factor =  rt.InterpolationFunctions.SQUARE_ACCELERATION(1 - fraction, 3.5) -- manually chosen for smoothest release
                     max_friction_force = max_friction_force * factor
                 elseif use_analog_input then
-                    -- on controller use down analog input and input pressing against wall, linear reasing
-                    max_friction_force = max_friction_force * math.max(self._joystick_position_y, 0)
+                    -- more friction the more joystick is pushing along flipped normal
+                    local factor = math.max(0, math.dot(
+                        self._joystick_position_x,
+                        self._joystick_position_y,
+                        -normal_x, -normal_y
+                    ))
+
+                    max_friction_force = max_friction_force * factor
                 end
 
                 -- clamp to avoid moving in opposite direction
@@ -1295,13 +1342,20 @@ function rt.Player:update(delta)
             end
 
             -- downwards force, disabled when wall clinging, handled in friction handler
-            if down_is_down
-                and not left_is_down
-                and not right_is_down
-                and not self._movement_disabled
-                and not ((left_is_down and left_wall_body) or (right_is_down and right_wall_body))
-            then
-                next_velocity_y = next_velocity_y + _settings.downwards_force * delta * time_dilation
+            do
+                local should_apply
+                if self._use_analog_input then
+                    should_apply = self._is_ducking
+                else
+                    should_apply = down_is_down and not left_is_down and not right_is_down
+                end
+
+                if should_apply
+                    and not self._movement_disabled
+                    and not ((left_is_down and left_wall_body) or (right_is_down and right_wall_body))
+                then
+                    next_velocity_y = next_velocity_y + _settings.downwards_force * delta * time_dilation
+                end
             end
 
             -- reset jump button when going from air to ground, to disallow buffering jumps while falling
@@ -2980,7 +3034,7 @@ end
 
 --- @brief
 function rt.Player:get_is_ducking()
-    return self._down_button_is_down and self:get_is_grounded()
+    return self._is_ducking
 end
 
 --- @brief

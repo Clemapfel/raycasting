@@ -180,8 +180,10 @@ function ow.OverworldScene:instantiate(state)
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         -- debug reload
         if which == "^" then
+            self._input:deactivate()
             self:unpause()
             self:reset()
+            self._input:activate()
         elseif which == "h" then
             rt.ImpulseManager:beat()
         elseif which == "j" then
