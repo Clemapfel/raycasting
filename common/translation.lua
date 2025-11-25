@@ -192,6 +192,9 @@ rt.Translation = {
         text_speed_description = "How fast letters appear in dialog boxes",
         text_speed_visualization_text = "this text is scrolling.\nthis text is scrolling.\nthis text is scrolling.",
 
+        double_press_threshold_title = "Double Press",
+        double_press_threshold_description = "Maximum amount of time that is allowed to elapsed for a double press to be recognized",
+
         sprint_mode_title = "Sprint Button Mode",
         sprint_mode_description = "How TODO",
 
@@ -280,7 +283,8 @@ rt.Translation = {
         music_level_prefix = "Music",
         sound_effect_level_prefix = "Sound Effects",
         joystick_deadzone_prefix = "Deadzone",
-        text_speed_prefix = "Text Speed"
+        text_speed_prefix = "Text Speed",
+        double_press_threshold_prefix = "Double Press"
     },
 
     -- keybinding scene

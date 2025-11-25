@@ -179,66 +179,15 @@ function mn.VerboseInfoPanel.Item:create_from_enum(which)
     end
 
     local translation = rt.Translation.verbose_info
-    if _titles == nil then
-        _titles = {
-            [mn.VerboseInfoObject.VSYNC] = format_title(translation.vsync_title),
-            [mn.VerboseInfoObject.FULLSCREEN] = format_title(translation.fullscreen_title),
-            [mn.VerboseInfoObject.MSAA] = format_title(translation.msaa_title),
-            [mn.VerboseInfoObject.BLOOM] = format_title(translation.bloom_title),
-            [mn.VerboseInfoObject.SOUND_EFFECT_LEVEL] = format_title(translation.sound_effect_level_title),
-            [mn.VerboseInfoObject.MUSIC_LEVEL] = format_title(translation.music_level_title),
-            [mn.VerboseInfoObject.SHAKE_ENABLED] = format_title(translation.shake_enabled_title),
-            [mn.VerboseInfoObject.PERFORMANCE_MODE_ENABLED] = format_title(translation.performance_mode_enabled_title),
-            [mn.VerboseInfoObject.COLOR_BLIND_MODE_ENABLED] = format_title(translation.color_blind_mode_enabled_title),
-            [mn.VerboseInfoObject.DRAW_DEBUG_INFO_ENABLED] = format_title(translation.draw_debug_info_enabled_title),
-            [mn.VerboseInfoObject.DRAW_SPEEDRUN_SPLITS_ENABLED] = format_title(translation.draw_speedrun_splits_enabled_title),
-            [mn.VerboseInfoObject.JOYSTICK_DEADZONE] = format_title(translation.joystick_deadzone_title),
-            [mn.VerboseInfoObject.TEXT_SPEED] = format_title(translation.text_speed_title),
-            [mn.VerboseInfoObject.SPRINT_MODE] = format_title(translation.text_speed_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_A] = format_title(translation.input_action_a_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_B] = format_title(translation.input_action_b_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_X] = format_title(translation.input_action_x_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_Y] = format_title(translation.input_action_y_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_UP] = format_title(translation.input_action_up_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_RIGHT] = format_title(translation.input_action_right_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_DOWN] = format_title(translation.input_action_down_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_LEFT] = format_title(translation.input_action_left_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_START] = format_title(translation.input_action_start_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_SELECT] = format_title(translation.input_action_select_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_L] = format_title(translation.input_action_l_title),
-            [mn.VerboseInfoObject.INPUT_ACTION_R] = format_title(translation.input_action_r_title)
-        }
-    end
-
-    if _descriptions == nil then
-        _descriptions = {
-            [mn.VerboseInfoObject.VSYNC] = format_description(translation.vsync_description),
-            [mn.VerboseInfoObject.FULLSCREEN] = format_description(translation.fullscreen_description),
-            [mn.VerboseInfoObject.MSAA] = format_description(translation.msaa_description),
-            [mn.VerboseInfoObject.BLOOM] = format_description(translation.bloom_description),
-            [mn.VerboseInfoObject.SOUND_EFFECT_LEVEL] = format_description(translation.sound_effect_level_description),
-            [mn.VerboseInfoObject.MUSIC_LEVEL] = format_description(translation.music_level_description),
-            [mn.VerboseInfoObject.SHAKE_ENABLED] = format_description(translation.shake_enabled_description),
-            [mn.VerboseInfoObject.PERFORMANCE_MODE_ENABLED] = format_description(translation.performance_mode_enabled_description),
-            [mn.VerboseInfoObject.COLOR_BLIND_MODE_ENABLED] = format_description(translation.color_blind_mode_enabled_description),
-            [mn.VerboseInfoObject.DRAW_DEBUG_INFO_ENABLED] = format_description(translation.draw_debug_info_enabled_description),
-            [mn.VerboseInfoObject.DRAW_SPEEDRUN_SPLITS_ENABLED] = format_description(translation.draw_speedrun_splits_enabled_description),
-            [mn.VerboseInfoObject.JOYSTICK_DEADZONE] = format_description(translation.joystick_deadzone_description),
-            [mn.VerboseInfoObject.TEXT_SPEED] = format_description(translation.text_speed_description),
-            [mn.VerboseInfoObject.SPRINT_MODE] = format_description(translation.sprint_mode_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_A] = format_description(translation.input_action_a_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_B] = format_description(translation.input_action_b_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_X] = format_description(translation.input_action_x_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_Y] = format_description(translation.input_action_y_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_UP] = format_description(translation.input_action_up_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_RIGHT] = format_description(translation.input_action_right_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_DOWN] = format_description(translation.input_action_down_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_LEFT] = format_description(translation.input_action_left_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_START] = format_description(translation.input_action_start_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_SELECT] = format_description(translation.input_action_select_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_L] = format_description(translation.input_action_l_description),
-            [mn.VerboseInfoObject.INPUT_ACTION_R] = format_description(translation.input_action_r_description)
-        }
+    if _titles == nil or _descriptions == nil then
+        _titles = {}
+        _descriptions = {}
+        for item in values(meta.instances(mn.VerboseInfoObject)) do
+            if not string.contains(item, "widget") then -- exclude WIDGET items
+                _titles[item] = format_title(translation[item .. "_title"])
+                _descriptions[item] = format_description(translation[item .. "_description"])
+            end
+        end
     end
 
     self.realize = function()

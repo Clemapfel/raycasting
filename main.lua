@@ -67,7 +67,15 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene)
 
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which, count)
+        if which == "0" then
+            _G.restart()
+        elseif which == "g" then
+            dilation_animation:set_target_value(ternary(dilation_animation:get_target_value() == 0, 1, 0))
+        end
+    end)
+
+    DEBUG_INPUT:signal_connect("controller_button_pressed", function(_, which, count)
         if which == "0" then
             _G.restart()
         elseif which == "g" then

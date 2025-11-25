@@ -18,6 +18,7 @@ rt.settings.settings_scene = {
     sound_effect_level_default = 1,
     deadzone_default = 0.15,
     textspeed_default = 1,
+    double_press_threshold_default = 0.5,
     performance_mode_default = false,
     color_blind_mode_default = false,
     draw_debug_info_default = false,
@@ -38,8 +39,17 @@ rt.settings.settings_scene = {
 mn.SettingsScene = meta.class("MenuSettingsScene", rt.Scene)
 
 --- @class mn.SettingsScene.Item
-mn.SettingsScene.Item = meta.class("SettinsSceneItem", rt.Widget)
+mn.SettingsScene.Item = meta.class("SettingsSceneItem", rt.Widget)
 meta.add_signal(mn.SettingsScene.Item, "reset")
+
+--[[
+How to add a new settings items:
+    add <name> to mn.VerboseInfoObject enum
+    add <name>_description to rt.Translation.verbose_info
+    add <name>_title to rt.Translation.verbose_info
+    add <name>_prefix to rt.Translation.settings_scene
+    add widget in mn.SettingsScene:instantiate
+]]
 
 --- @brief [internal]
 function mn.SettingsScene.Item:instantiate(t)
@@ -371,6 +381,22 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
+    do -- double press threshold
+        local double_press_threshold_scale = new_scale(rt.GameState:get_double_press_threshold())
+        double_press_threshold_scale:signal_connect("value_changed", function(_, value)
+            rt.GameState:set_double_press_threshold(value)
+        end)
+
+        local item = add_item(
+            translation.double_press_threshold_prefix, double_press_threshold_scale,
+            mn.VerboseInfoObject.DOUBLE_PRESS_THRESHOLD
+        )
+
+        item:signal_connect("reset", function(_)
+            double_press_threshold_scale:set_value(rt.settings.settings_scene.double_press_threshold_default)
+        end)
+    end
+
     do -- color blind mode
         local color_blind_mode_to_label ={
             [true] = translation.color_blind_mode_on,
@@ -678,7 +704,7 @@ function mn.SettingsScene:update(delta)
         if self._scale_delay_elapsed > rt.settings.settings_scene.scale_movement_delay then
             self._scale_elapsed = self._scale_elapsed + delta
             local step = 1 / rt.settings.settings_scene.scale_movement_ticks_per_second
-            local scale = self._list:get_item(self._selected_item_i)
+            local scale = self._list:get_item(self._list:get_selected_item_i()).widget
             while self._scale_elapsed > step do
                 self._scale_elapsed = self._scale_elapsed - step
                 if self._scale_direction == rt.Direction.LEFT then

@@ -5,6 +5,8 @@ require "common.scene_manager"
 require "common.player"
 
 rt.settings.game_state = {
+    min_double_click_threshold = 0.2, -- seconds
+    max_double_click_threshold = 0.5
 }
 
 --- @class rt.VSyncMode
@@ -50,6 +52,7 @@ function rt.GameState:instantiate()
         text_speed = 1.0,
         joystick_deadzone = 0.05,
         trigger_deadzone = 0.05,
+        double_press_threshold = 0.5, -- fraction, in [0, 1]
         performance_mode_enabled = false,
         draw_debug_information = true,
         draw_speedrun_splits = false,
@@ -271,9 +274,9 @@ function rt.GameState:load_default_input_mapping()
             controller = rt.ControllerButton.DPAD_RIGHT
         },
 
-        [rt.InputAction.A] = { -- INTERACT
+        [rt.InputAction.X] = { -- INTERACT
             keyboard = {"x"},
-            controller = rt.ControllerButton.RIGHT
+            controller = rt.ControllerButton.TOP
         },
 
         [rt.InputAction.B] = { -- JUMP
@@ -281,9 +284,9 @@ function rt.GameState:load_default_input_mapping()
             controller = rt.ControllerButton.BOTTOM
         },
 
-        [rt.InputAction.X] = { -- DASH
+        [rt.InputAction.A] = { -- DASH
             keyboard = {"m"},
-            controller = rt.ControllerButton.TOP
+            controller = rt.ControllerButton.RIGHT
         },
 
         [rt.InputAction.Y] = { -- SPRINT
@@ -529,6 +532,22 @@ function rt.GameState:get_reverse_input_mapping(native, method)
     else
         return self._keyboard_key_to_input_action[native], self._controller_button_to_input_action[native]
     end
+end
+
+--- @brief
+function rt.GameState:get_double_press_threshold()
+    return math.mix(
+        rt.settings.game_state.min_double_click_threshold,
+        rt.settings.game_state.max_double_click_threshold,
+        self._state.double_press_threshold
+    )
+end
+
+--- @brief
+--- @param t Number fraction, in 0, 1
+function rt.GameState:set_double_press_threshold(t)
+    meta.assert(t, "Number")
+    self._state.double_press_threshold = t
 end
 
 --- @brief

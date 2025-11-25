@@ -184,6 +184,7 @@ end
 
 --- @brief
 function mn.ScrollableList:get_item(i)
+    if self._items[i] == nil then return nil end
     return self._items[i].widget
 end
 
@@ -228,14 +229,15 @@ function mn.ScrollableList:set_selected_item(i)
     self._selected_item_i = i
     local after = self._items[self._selected_item_i]
 
-    local item = self._items[self._selected_item_i]
-    local item_top_y = item.y
-    local item_bottom_y = item_top_y + item.height
+    if after ~= nil then
+        local effective_top = after.y + self._item_y_offset
+        local effective_bottom = effective_top + after.height
 
-    if item_top_y <= self._item_top_y then
-        self._item_y_offset = self._item_top_y - item_top_y
-    elseif item_bottom_y >= self._item_bottom_y then
-        self._item_y_offset = self._item_bottom_y - item_bottom_y
+        if effective_top < self._item_top_y then
+            self._item_y_offset = self._item_top_y - after.y
+        elseif effective_bottom > self._item_bottom_y then
+            self._item_y_offset = self._item_bottom_y - (after.y + after.height)
+        end
     end
 
     if before ~= nil then

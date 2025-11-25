@@ -29,6 +29,7 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     JOYSTICK_DEADZONE_WIDGET = "deadzone_visualization_widget",
     TEXT_SPEED = "text_speed",
     TEXT_SPEED_WIDGET = "text_speed_visualization_widget",
+    DOUBLE_PRESS_THRESHOLD = "double_press_threshold",
     INPUT_ACTION_A = "input_action_a",
     INPUT_ACTION_B = "input_action_b",
     INPUT_ACTION_X = "input_action_x",

@@ -211,7 +211,7 @@ function ow.OverworldScene:instantiate(state)
 
     -- raw inputs
 
-    self._input:signal_connect("controller_button_pressed", function(_, which)
+    self._input:signal_connect("controller_button_pressed", function(_, which, count, controller_id)
         if which == "leftstick" or which == "rightstick" and self._camera_mode ~= ow.CameraMode.MANUAL then
             self._camera:reset()
             self._camera:set_position(self._player:get_position())
