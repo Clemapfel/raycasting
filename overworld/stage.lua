@@ -109,6 +109,7 @@ function ow.Stage:instantiate(scene, id)
     ow.Hitbox:reinitialize()
     ow.Wall:reinitialize()
     ow.Sprite:reinitialize()
+    ow.AirDashNode:reinitialize()
 
     -- static hitbox normal_map
 

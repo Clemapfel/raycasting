@@ -3,7 +3,7 @@ require "common.path"
 rt.settings.overworld.air_dash_tether = {
     radius_factor = 1,
     dash_duration = 0.5, -- seconds
-    dash_velocity = 1200
+    dash_velocity = 2000
 }
 
 --- @class AirDashTether
@@ -48,6 +48,8 @@ function ow.AirDashTether:instantiate(object, stage, scene)
     self._player_vx, self._player_vy = 0, 0
     self._tether_elapsed = 0
     self._tether_path = rt.Path(0, 0, 0, 0)
+    self._tether_goal_line = { self._x, self.x, self._x, self._y }
+    self._tether_goal_sign = 0
 
     -- graphics
     self._hue = _hue_steps[_current_hue_step]
@@ -69,10 +71,14 @@ function ow.AirDashTether:instantiate(object, stage, scene)
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1))
 end
 
-function _apply_force(
-    ax, ay, bx, by, elapsed
-)
+function _get_side(px, py, x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
 
+    local dpx = px - x1
+    local dpy = py - y1
+
+    return math.sign(math.cross(dx, dy, dpx, dpy))
 end
 
 --- @brief
@@ -95,8 +101,8 @@ function ow.AirDashTether:update(delta)
 
     if self._is_active then
         self._tether_draw = { self._x, self._y, px, py }
-
         self._tether_elapsed = self._tether_elapsed + delta
+
         local t = self._tether_elapsed / rt.settings.overworld.air_dash_tether.dash_duration
         local target_x, target_y = self._tether_path:at(t)
         local tangent_x, tangent_y = self._tether_path:get_tangent(t)
@@ -104,18 +110,40 @@ function ow.AirDashTether:update(delta)
         local player_vx, player_vy = player:get_velocity()
         local target_velocity = rt.settings.overworld.air_dash_tether.dash_velocity
         target_velocity = target_velocity * rt.InterpolationFunctions.SINUSOID_EASE_IN(t)
-        target_velocity = math.max(target_velocity, self._tether_start_velocity)
 
+        local target_vx = target_velocity * -tangent_x
+        local target_vy = target_velocity * -tangent_y
+
+        -- Calculate position error
+        local pos_error_x = target_x - current_x
+        local pos_error_y = target_y - current_y
+
+        -- Calculate remaining time
+        local remaining_time = (1 - t) * rt.settings.overworld.air_dash_tether.dash_duration
+
+        -- Calculate correction velocity needed to reach target position
+        local correction_vx = pos_error_x / remaining_time
+        local correction_vy = pos_error_y / remaining_time
+
+        -- Blend between current velocity trajectory and corrected velocity
+        local blend = math.min(t / 1, 1)
         player:set_velocity(
-            target_velocity * -tangent_x,
-            target_velocity * -tangent_y
+            player_vx + (target_vx + correction_vx - player_vx) * blend,
+            player_vy + (target_vy + correction_vy - player_vy) * blend
         )
 
-        if distance > active_radius then self._is_blocked = false end
+        player:set_velocity(target_vx, target_vy)
+
+        if _get_side(px, py, table.unpack(self._tether_goal_line)) ~= self._tether_goal_sign then
+            player:set_velocity(target_vx, target_vy)
+            self._is_active = false
+            self._is_blocked = true
+        end
     end
 
-    if not self._stage:get_is_body_visible(self._sensor) then return end
+    if distance > active_radius then self._is_blocked = false end
 
+    if not self._stage:get_is_body_visible(self._sensor) then return end
 
     -- update opacity
     local opacity_radius = 2 * self._radius
@@ -138,11 +166,23 @@ function ow.AirDashTether:update(delta)
             self._tether_path = rt.Path(
                 self._x +  dx * self._radius,
                 self._y +  dy * self._radius,
-                self._x + -dx * self._radius,
-                self._y + -dy * self._radius
+                self._x, -- + -dx * self._radius,
+                self._y -- + -dy * self._radius
             )
 
+            local left_x, left_y = math.turn_left(dx, dy)
+            local right_x, right_y = math.turn_right(dx, dy)
+            self._tether_goal_line = {
+                self._x + left_x * self._radius,
+                self._y + left_y * self._radius,
+                self._x + right_x * self._radius,
+                self._y + right_y * self._radius
+            }
+
+            self._tether_goal_sign = _get_side(px, py, table.unpack(self._tether_goal_line))
+
             self._tether_start_velocity = math.magnitude(player:get_velocity())
+
 
             self._dbg = {
                 self._x +  dx * self._radius,
