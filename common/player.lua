@@ -999,6 +999,8 @@ function rt.Player:update(delta)
                     local wall_body = select(i, ...)
                     if wall_body ~= nil then
                         local entry = self._body_to_collision_normal[wall_body]
+                        if entry == nil then return end
+
                         return true,
                             entry.normal_x, entry.normal_y,
                             entry.contact_x, entry.contact_y
@@ -2121,6 +2123,8 @@ function rt.Player:move_to_stage(stage)
     if stage ~= nil and stage:get_active_checkpoint() ~= nil then
         stage:get_active_checkpoint():spawn(false)
     end
+
+    self._input:signal_emit("pressed", rt.InputAction.SPRINT) -- start map with sprint active
 end
 
 function rt.Player:move_to_world(world)
@@ -2776,6 +2780,15 @@ function rt.Player:get_is_grounded()
 end
 
 --- @brief
+function rt.Player:get_colliding_bodies()
+    local bodies = {}
+    for body in keys(self._body_to_collision_normal) do
+        table.insert(bodies, body)
+    end
+    return bodies
+end
+
+--- @brief
 function rt.Player:get_is_colliding_with(body)
     return self._body_to_collision_normal[body] ~= nil
 end
@@ -2950,7 +2963,7 @@ function rt.Player:dash(axis_x, axis_y)
     self._is_dashing = true
     self._dash_cooldown_elapsed = 0
     self._dash_elapsed = 0
-    self._graphics_body:set_is_ducking(false) -- "pump" motion
+    self._graphics_body:set_down_squish(false) -- "pump" motion
 
     -- instantly accelerate to dash speed
     self:set_velocity(
