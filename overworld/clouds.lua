@@ -249,7 +249,7 @@ function ow.Clouds:_init_draw_mesh(size_x, size_y, fov)
     end
 
     -- Center of the near plane in world space; we keep all slices centered around this.
-    local plane_cx = bounds.x + size_x * 0.5
+    local plane_cx = 0 --bounds.x + size_x * 0.5
     local plane_cy = bounds.y + size_y * 0.5
 
     local min_uv_u, max_uv_u = 0, 1-- -1, 1

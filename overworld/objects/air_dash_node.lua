@@ -57,10 +57,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         local radius_c = 1.25 * self._radius
 
         local glow_data = {}
-        local core_data = {}
-
         local glow_vertex_map = {} -- 1-based
-        local core_vertex_map = {}
 
         local function add_vertex(which, x, y, u, v, arc_length, density, opacity)
             -- shader information encoded in rgba
@@ -74,30 +71,19 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             })
         end
 
-        for which in range(glow_data, core_data) do
-            add_vertex(which,
-                self._x, self._y,
-                0, 0,
-                0,
-                1,
-                1
-            )
-        end
+        add_vertex(glow_data,
+            self._x, self._y,
+            0, 0,
+            0,
+            1,
+            1
+        )
 
         local n_outer_vertices = math.ceil(0.5 * self._radius)
         for i = 1, n_outer_vertices do
             local arc_length = (i - 1) / n_outer_vertices
             local angle = arc_length * 2 * math.pi
             local dx, dy = math.cos(angle), math.sin(angle)
-
-            -- core
-            add_vertex(core_data,
-                self._x + dx * radius_a,
-                self._y + dy * radius_a,
-                dx, dy, arc_length,
-                0.5,
-                0
-            )
 
             -- inner
             add_vertex(glow_data,
@@ -156,31 +142,12 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             table.insert(glow_vertex_map, next_b_i)
         end
 
-        for i = 1, n_outer_vertices do
-            local next_i = (i % n_outer_vertices) + 1
-
-            local center_i = 1
-            local outer_i = 1 + i
-            local next_outer_i = 1 + next_i
-
-            table.insert(core_vertex_map, center_i)
-            table.insert(core_vertex_map, outer_i)
-            table.insert(core_vertex_map, next_outer_i)
-        end
-
-        self._core_glow_mesh = rt.Mesh(glow_data,
+        self._glow_mesh = rt.Mesh(glow_data,
             rt.MeshDrawMode.TRIANGLES,
             rt.VertexFormat,
             rt.GraphicsBufferUsage.STATIC
         )
-        self._core_glow_mesh:set_vertex_map(glow_vertex_map)
-
-        self._core_mesh = rt.Mesh(core_data,
-            rt.MeshDrawMode.TRIANGLES,
-            rt.VertexFormat,
-            rt.GraphicsBufferUsage.STATIC
-        )
-        self._core_mesh:set_vertex_map(core_vertex_map)
+        self._glow_mesh:set_vertex_map(glow_vertex_map)
     end
 
     -- global handler
@@ -274,10 +241,7 @@ function ow.AirDashNode:draw()
     _core_shader:bind()
     _core_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     _core_shader:send("color", { r, g, b, opacity })
-    self._core_glow_mesh:draw()
-
-    _core_shader:send("color", { r, g, b, 1 })
-    self._core_mesh:draw()
+    self._glow_mesh:draw()
     _core_shader:unbind()
 
     rt.graphics.set_blend_mode()
@@ -306,7 +270,7 @@ function ow.AirDashNode:draw_bloom()
     _core_shader:bind()
     _core_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     _core_shader:send("color", { r, g, b, opacity })
-    --self._core_glow_mesh:draw()
+    --self._glow_mesh:draw()
     _core_shader:unbind()
 end
 

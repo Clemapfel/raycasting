@@ -338,7 +338,7 @@ function ow.Background:size_allocate(x, y, width, height)
 
     local min_x, max_x, min_y, max_y, min_z, max_z = self:_get_3d_bounds()
     local padding = 0 --(max_x - min_x) * 0.
-    local clouds_y_offset = 8
+    local clouds_y_offset = 0.25 * (max_y - min_y)
 
     local n_slices = 32
     self._clouds = ow.Clouds(
