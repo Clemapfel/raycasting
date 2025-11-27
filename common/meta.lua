@@ -693,7 +693,7 @@ function meta.make_id_table(t, scope, debug_mode)
     meta.assert(t, "Table", scope, "String", debug_mode, "Boolean")
 
     if debug_mode then
-        rt.warning("In meta.make_id_table: debug mode for `",  scope,  "` is active, ids will be override")
+        rt.warning("In meta.make_id_table: debug mode for `",  scope,  "` is active, ids will be overriden")
     end
 
     local _as_immutable = function(t, path)
