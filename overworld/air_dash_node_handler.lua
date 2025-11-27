@@ -104,32 +104,6 @@ function ow.AirDashNodeHandler:_untether()
     self._tethered_node = nil
 end
 
-function _temp()
-    local duration = rt.settings.overworld.air_dash_node.dash_duration
-    local target_velocity = rt.settings.overworld.air_dash_node.dash_velocity
-
-    local ax, ay = self._tether_path:at(0)
-    local bx, by = self._tether_path:at(1)
-    local t = rt.InterpolationFunctions.SINUSOID_EASE_IN(
-        math.mix(0.5, 1, (1 - math.distance(px, py, self._x, self._y) / math.distance(ax, ay, bx, by)))
-    )
-
-    local tangent_x, tangent_y = self._tether_path:get_tangent(t)
-
-    local target_vx = t * target_velocity * -tangent_x
-    local target_vy = t * target_velocity * -tangent_y
-
-    player:set_velocity(target_vx, target_vy)
-    self._tether_elapsed = self._tether_elapsed + delta
-
-    if _get_side(px, py, table.unpack(self._tether_sign_line)) ~= self._tether_sign
-        or (t > 0.5 and #(player:get_colliding_bodies()) ~= 0) -- if past mid point, skip if hitting obstacle
-    then
-        player:set_velocity(target_vx, target_vy) -- exit velocity always consistent
-        self:_untether()
-    end
-end
-
 --- @brief
 function ow.AirDashNodeHandler:notify_node_added(node)
     local x, y = node:get_position()

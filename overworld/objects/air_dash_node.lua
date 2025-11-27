@@ -1,4 +1,5 @@
 require "common.path"
+require "overworld.air_dash_node_particle"
 
 rt.settings.overworld.air_dash_node = {
     core_radius = 10,
@@ -16,7 +17,7 @@ function ow.AirDashNode:reinitialize()
     _is_first = true
 end
 
-local _core_shader = rt.Shader("overworld/objects/air_dash_node_core.glsl")
+local _core_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
 
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
@@ -150,12 +151,16 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         self._glow_mesh:set_vertex_map(glow_vertex_map)
     end
 
+    self._particle = ow.AirDashNodeParticle(rt.settings.overworld.air_dash_node.core_radius)
+    self._particle:set_is_exploded(true)
+    self._particle:update(10) -- skip explosion
+
     -- global handler
 
     if _is_first then -- first node is proxy instance
         require "overworld.air_dash_node_handler"
         _handler = ow.AirDashNodeHandler(self._scene, self._stage)
-        self._update_handler = true
+        self._is_handler_proxy = true
         _is_first = false
 
         DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
@@ -164,7 +169,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
             end
         end)
     else
-        self._update_handler = false
+        self._is_handler_proxy = false
     end
 
     _handler:notify_node_added(self)
@@ -172,6 +177,7 @@ end
 
 --- @brief
 function ow.AirDashNode:set_is_tethered(b)
+    local before = self._is_tethered
     self._is_tethered = b
 
     if b == false then
@@ -185,6 +191,7 @@ end
 function ow.AirDashNode:set_is_current(b)
     self._is_current = b
     self._is_current_motion:set_target_value(ternary(b, 1, 0))
+    self._particle:set_is_exploded(not b)
 end
 
 --- @brief
@@ -209,7 +216,7 @@ end
 
 --- @brief
 function ow.AirDashNode:update(delta)
-    if self._update_handler then _handler:update(delta) end
+    if self._is_handler_proxy then _handler:update(delta) end
 
     if not self._is_tethered then
         self._cooldown_elapsed = self._cooldown_elapsed + delta
@@ -220,11 +227,14 @@ function ow.AirDashNode:update(delta)
     if is_visible then
         self._is_current_motion:update(delta)
         self._is_tethered_motion:update(delta)
+        self._particle:update(delta)
     end
 end
 
 --- @brief
 function ow.AirDashNode:draw()
+    --if self._is_handler_proxy then _handler:draw() end
+
     if not self._stage:get_is_body_visible(self._body) then return end
     local r, g, b, a = self._color:unpack()
 
@@ -245,6 +255,8 @@ function ow.AirDashNode:draw()
     _core_shader:unbind()
 
     rt.graphics.set_blend_mode()
+
+    self._particle:draw(self._x, self._y, true, true)
 
     if self._is_current or self._is_tethered then
         local px, py = self._scene:get_player():get_position()
