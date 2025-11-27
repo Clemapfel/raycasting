@@ -12,60 +12,98 @@ ow.AirDashNodeParticle = meta.class("AirDashNodeParticle")
 local _padding = 10
 local _outline_shader = rt.Shader("overworld/double_jump_tether_particle.glsl", { MODE = 0 })
 
--- number of segments used to approximate each ring
-local _RING_SEGMENTS = 32
-
---- @brief Rotate a 3D point by yaw (phi) around Y and pitch (theta) around X, then return projected 2D (x,y) and z
-local function _rotate_point(x, y, z, theta, phi)
-    -- rotate around Y by phi
+--- @brief Project a 3D ring onto 2D as an ellipse
+--- Returns: center_x, center_y, radius_x, radius_y, rotation_angle
+local function _project_ring_to_ellipse(normal_x, normal_y, normal_z, radius, theta, phi)
+    -- Rotate the normal vector by the same rotations
+    -- First rotate around Y by phi
     local cos_phi, sin_phi = math.cos(phi), math.sin(phi)
-    local x1 =  x * cos_phi + z * sin_phi
-    local y1 =  y
-    local z1 = -x * sin_phi + z * cos_phi
+    local nx1 =  normal_x * cos_phi + normal_z * sin_phi
+    local ny1 =  normal_y
+    local nz1 = -normal_x * sin_phi + normal_z * cos_phi
 
-    -- rotate around X by theta
+    -- Then rotate around X by theta
     local cos_theta, sin_theta = math.cos(theta), math.sin(theta)
-    local x2 = x1
-    local y2 = y1 * cos_theta - z1 * sin_theta
-    local z2 = y1 * sin_theta + z1 * cos_theta
+    local nx2 = nx1
+    local ny2 = ny1 * cos_theta - nz1 * sin_theta
+    local nz2 = ny1 * sin_theta + nz1 * cos_theta
 
-    return x2, y2, z2
+    -- The rotated normal is (nx2, ny2, nz2)
+    -- For a ring with this normal, we need two orthogonal vectors in the plane
+    -- Find an arbitrary vector not parallel to the normal
+    local temp_x, temp_y, temp_z
+    if math.abs(nx2) < 0.9 then
+        temp_x, temp_y, temp_z = 1, 0, 0
+    else
+        temp_x, temp_y, temp_z = 0, 1, 0
+    end
+
+    -- First basis vector: cross product of normal and temp
+    local u_x = ny2 * temp_z - nz2 * temp_y
+    local u_y = nz2 * temp_x - nx2 * temp_z
+    local u_z = nx2 * temp_y - ny2 * temp_x
+    local u_len = math.sqrt(u_x * u_x + u_y * u_y + u_z * u_z)
+    u_x, u_y, u_z = u_x / u_len, u_y / u_len, u_z / u_len
+
+    -- Second basis vector: cross product of normal and first basis
+    local v_x = ny2 * u_z - nz2 * u_y
+    local v_y = nz2 * u_x - nx2 * u_z
+    local v_z = nx2 * u_y - ny2 * u_x
+
+    -- When projected to 2D (ignoring z), the ellipse is defined by these vectors
+    -- Ellipse semi-axes are the projected lengths of radius * u and radius * v
+    local axis1_x = radius * u_x
+    local axis1_y = radius * u_y
+
+    local axis2_x = radius * v_x
+    local axis2_y = radius * v_y
+
+    -- Find the ellipse parameters from these two axes
+    -- The semi-major and semi-minor axes and rotation angle
+    local a_sq = axis1_x * axis1_x + axis1_y * axis1_y
+    local b_sq = axis2_x * axis2_x + axis2_y * axis2_y
+
+    -- Compute rotation angle from axis1
+    local angle = math.atan2(axis1_y, axis1_x)
+
+    -- Radii are the lengths of the projected axes
+    local rx = math.sqrt(a_sq)
+    local ry = math.sqrt(b_sq)
+
+    return 0, 0, rx, ry, angle
 end
 
 --- @brief
 function ow.AirDashNodeParticle:instantiate(radius)
-    self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
+    self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi)
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0
     self._canvas = rt.RenderTexture(2 * (radius + _padding), 2 * (radius + _padding))
     self._canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
-    self._explosion_motion = rt.SmoothedMotion1D(0) -- 0: not exploded, 1: fully exploded
-    self._explosion_motion:set_speed(2, 1) -- attack, decay, fractional
+    self._explosion_motion = rt.SmoothedMotion1D(0)
+    self._explosion_motion:set_speed(2, 1)
 
     self._brightness_offset = 0
     self._scale_offset = 0
 
-    -- storage for flattened line vertices of each ring
-    self._rings_draw_lines = {} -- array of {x1, y1, x2, y2, ...}
+    -- Storage for ellipse parameters: {cx, cy, rx, ry, rotation}
+    self._rings_ellipses = {}
     self:_update_rings()
 end
 
--- Base ring orientations in object space (orthogonal planes):
--- Ring A in XY plane (normal +Z), Ring B in YZ plane (normal +X), Ring C in ZX plane (normal +Y)
-local _ring_planes = {
-    { u = {1, 0, 0}, v = {0, 1, 0} }, -- XY
-    { u = {0, 1, 0}, v = {0, 0, 1} }, -- YZ
-    { u = {0, 0, 1}, v = {1, 0, 0} }, -- ZX
+-- Ring normals in object space (perpendicular to each ring plane)
+local _ring_normals = {
+    {0, 0, 1}, -- XY plane, normal is +Z
+    {1, 0, 0}, -- YZ plane, normal is +X
+    {0, 1, 0}, -- ZX plane, normal is +Y
 }
 
---- @brief Recompute ring polylines with current rotation and offsets
+--- @brief Recompute ellipse parameters for each ring with current rotation and offsets
 function ow.AirDashNodeParticle:_update_rings()
-    -- outward offset behavior consistent with previous tetrahedron
     local offset = self._scale_offset * rt.settings.overworld.double_jump_tether_particle.scale_offset_distance
         + self._explosion_motion:get_value() * rt.settings.overworld.double_jump_tether_particle.explosion_distance
 
-    -- choose three radii that are concentric and visually distinct
     local base_r = self._radius + offset
     local radii = {
         base_r * 0.55,
@@ -74,40 +112,31 @@ function ow.AirDashNodeParticle:_update_rings()
     }
 
     local theta, phi = self._theta, self._phi
-    local rings = {}
+    local ellipses = {}
 
     for i = 1, 3 do
-        local plane = _ring_planes[i]
-        local u = plane.u
-        local v = plane.v
+        local normal = _ring_normals[i]
         local r = radii[i]
 
-        -- approximate circle in the plane spanned by u and v
-        local pts = {}
-        for s = 0, _RING_SEGMENTS do
-            local t = (s / _RING_SEGMENTS) * 2 * math.pi
-            local cx, cy = math.cos(t), math.sin(t)
+        local cx, cy, rx, ry, angle = _project_ring_to_ellipse(
+            normal[1], normal[2], normal[3],
+            r, theta, phi
+        )
 
-            local x = r * (cx * u[1] + cy * v[1])
-            local y = r * (cx * u[2] + cy * v[2])
-            local z = r * (cx * u[3] + cy * v[3])
+        -- Apply translation
+        cx = cx + self._x
+        cy = cy + self._y
 
-            -- apply global rotation
-            local xr, yr, zr = _rotate_point(x, y, z, theta, phi)
-
-            -- translate (kept for parity with previous implementation)
-            xr = xr + self._x
-            yr = yr + self._y
-            zr = zr + self._z
-
-            table.insert(pts, xr)
-            table.insert(pts, yr)
-        end
-
-        rings[i] = pts
+        ellipses[i] = {
+            cx = cx,
+            cy = cy,
+            rx = rx,
+            ry = ry,
+            angle = angle
+        }
     end
 
-    self._rings_draw_lines = rings
+    self._rings_ellipses = ellipses
 end
 
 --- @brief
@@ -156,11 +185,15 @@ function ow.AirDashNodeParticle:draw(x, y, draw_shape, draw_core)
 
         if draw_shape then
             love.graphics.setLineWidth(line_width)
-            love.graphics.setLineJoin("none")
             love.graphics.setColor(r, g, b, a * (1 - self._explosion_motion:get_value()))
 
-            for i = 1, #self._rings_draw_lines do
-                love.graphics.line(self._rings_draw_lines[i])
+            for i = 1, #self._rings_ellipses do
+                local ellipse = self._rings_ellipses[i]
+                love.graphics.push()
+                love.graphics.translate(ellipse.cx, ellipse.cy)
+                love.graphics.rotate(ellipse.angle)
+                love.graphics.ellipse("line", 0, 0, ellipse.rx, ellipse.ry)
+                love.graphics.pop()
             end
         end
 
@@ -181,13 +214,17 @@ function ow.AirDashNodeParticle:draw(x, y, draw_shape, draw_core)
         local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
         love.graphics.push()
         love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset))
-        love.graphics.setLineJoin("none")
 
         love.graphics.translate(x, y)
         love.graphics.setColor(r * offset, g * offset, b * offset, a)
 
-        for i = 1, #self._rings_draw_lines do
-            love.graphics.line(self._rings_draw_lines[i])
+        for i = 1, #self._rings_ellipses do
+            local ellipse = self._rings_ellipses[i]
+            love.graphics.push()
+            love.graphics.translate(ellipse.cx, ellipse.cy)
+            love.graphics.rotate(ellipse.angle)
+            love.graphics.ellipse("line", 0, 0, ellipse.rx, ellipse.ry)
+            love.graphics.pop()
         end
 
         love.graphics.pop()

@@ -151,9 +151,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
         self._glow_mesh:set_vertex_map(glow_vertex_map)
     end
 
-    self._particle = ow.AirDashNodeParticle(rt.settings.overworld.air_dash_node.core_radius)
-    self._particle:set_is_exploded(true)
-    self._particle:update(10) -- skip explosion
+    self._particle = ow.AirDashNodeParticle(3 * rt.settings.overworld.air_dash_node.core_radius)
 
     -- global handler
 
@@ -191,7 +189,7 @@ end
 function ow.AirDashNode:set_is_current(b)
     self._is_current = b
     self._is_current_motion:set_target_value(ternary(b, 1, 0))
-    self._particle:set_is_exploded(not b)
+    --self._particle:set_is_exploded(not b)
 end
 
 --- @brief
