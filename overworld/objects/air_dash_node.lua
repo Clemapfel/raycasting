@@ -3,7 +3,7 @@ require "common.path"
 rt.settings.overworld.air_dash_node = {
     core_radius = 10,
     cooldown = 25 / 60,
-    min_opacity = 0.6
+    min_opacity = 0.0
 }
 
 --- @class AirDashNode
@@ -95,7 +95,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
                 self._x + dx * radius_a,
                 self._y + dy * radius_a,
                 dx, dy, arc_length,
-                0,
+                0.5,
                 0
             )
 
@@ -275,12 +275,10 @@ function ow.AirDashNode:draw()
     _core_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     _core_shader:send("color", { r, g, b, opacity })
     self._core_glow_mesh:draw()
-    _core_shader:unbind()
 
-    --[[
     _core_shader:send("color", { r, g, b, 1 })
     self._core_mesh:draw()
-    ]]--
+    _core_shader:unbind()
 
     rt.graphics.set_blend_mode()
 
@@ -295,15 +293,21 @@ end
 
 --- @brief
 function ow.AirDashNode:draw_bloom()
-    --[[
     local r, g, b, a = self._color:unpack()
+
+    local current_a = self._is_current_motion:get_value()
+    local cooldown_a = 1 - math.min(1, self._cooldown_elapsed / rt.settings.overworld.air_dash_node.cooldown)
+    local opacity =  math.max(
+        current_a,
+        cooldown_a,
+        rt.settings.overworld.air_dash_node.min_opacity
+    )
 
     _core_shader:bind()
     _core_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
-    _core_shader:send("color", { r, g, b, 1 })
-    self._core_glow_mesh:draw()
+    _core_shader:send("color", { r, g, b, opacity })
+    --self._core_glow_mesh:draw()
     _core_shader:unbind()
-    ]]
 end
 
 --- @brief
