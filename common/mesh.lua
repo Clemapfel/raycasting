@@ -174,7 +174,7 @@ rt.MeshRectangle3D = function(
     return out
 end
 
---- @class rt.VertexCircle
+--- @class rt.MeshCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
     y_radius = y_radius or x_radius
     n_outer_vertices = n_outer_vertices or 16
@@ -202,6 +202,126 @@ rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertice
 
     for i in range(n_outer_vertices + 1, 1, 2) do
         table.insert(map, i)
+    end
+
+    local native = love.graphics.newMesh(
+        rt.VertexFormat,
+        data,
+        rt.MeshDrawMode.TRIANGLES,
+        rt.GraphicsBufferUsage.STATIC
+    )
+    native:setVertexMap(map)
+
+    local out = setmetatable({}, meta.get_instance_metatable(rt.Mesh))
+    return meta.install(out, {
+        _native = native,
+        _r = 1,
+        _g = 1,
+        _b = 1,
+        _opacity = 1
+    })
+end
+
+--- @class rt.MeshRing
+rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices)
+    n_outer_vertices = n_outer_vertices or 16
+    fill_center = fill_center or false
+
+    local data = {}
+    local map = {}
+
+    if fill_center then
+        -- Add center point
+        table.insert(data, {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1})
+
+        -- Add inner ring vertices
+        local step = 2 * math.pi / n_outer_vertices
+        for angle = 0, 2 * math.pi, step do
+            table.insert(data, {
+                center_x + math.cos(angle) * inner_radius,
+                center_y + math.sin(angle) * inner_radius,
+                0.5 + math.cos(angle) * 0.5,
+                0.5 + math.sin(angle) * 0.5,
+                1, 1, 1, 1
+            })
+        end
+
+        -- Add outer ring vertices
+        for angle = 0, 2 * math.pi, step do
+            table.insert(data, {
+                center_x + math.cos(angle) * outer_radius,
+                center_y + math.sin(angle) * outer_radius,
+                0.5 + math.cos(angle) * 0.5,
+                0.5 + math.sin(angle) * 0.5,
+                1, 1, 1, 1
+            })
+        end
+
+        -- Triangulate center to inner ring
+        for i = 1, n_outer_vertices do
+            table.insert(map, 1)
+            table.insert(map, i + 1)
+            table.insert(map, i + 2)
+        end
+
+        -- Triangulate ring between inner and outer
+        for i = 1, n_outer_vertices do
+            local inner_idx = i + 1
+            local inner_next_idx = i + 2
+            local outer_idx = i + n_outer_vertices + 2
+            local outer_next_idx = i + n_outer_vertices + 3
+
+            -- First triangle
+            table.insert(map, inner_idx)
+            table.insert(map, outer_idx)
+            table.insert(map, outer_next_idx)
+
+            -- Second triangle
+            table.insert(map, inner_idx)
+            table.insert(map, outer_next_idx)
+            table.insert(map, inner_next_idx)
+        end
+    else
+        -- Add inner ring vertices
+        local step = 2 * math.pi / n_outer_vertices
+        for angle = 0, 2 * math.pi, step do
+            table.insert(data, {
+                center_x + math.cos(angle) * inner_radius,
+                center_y + math.sin(angle) * inner_radius,
+                0.5 + math.cos(angle) * 0.5,
+                0.5 + math.sin(angle) * 0.5,
+                1, 1, 1, 1
+            })
+        end
+
+        -- Add outer ring vertices
+        for angle = 0, 2 * math.pi, step do
+            table.insert(data, {
+                center_x + math.cos(angle) * outer_radius,
+                center_y + math.sin(angle) * outer_radius,
+                0.5 + math.cos(angle) * 0.5,
+                0.5 + math.sin(angle) * 0.5,
+                1, 1, 1, 1
+            })
+        end
+
+        -- Triangulate ring
+        for i = 1, n_outer_vertices do
+            local inner_idx = i
+            local inner_next_idx = i + 1
+            local outer_idx = i + n_outer_vertices + 1
+            local outer_next_idx = i + n_outer_vertices + 2
+
+            -- First triangle
+            table.insert(map, inner_idx)
+            table.insert(map, outer_idx)
+            table.insert(map, outer_next_idx)
+
+            -- Second triangle
+            table.insert(map, inner_idx)
+            table.insert(map, outer_next_idx)
+            table.insert(map, inner_next_idx)
+        end
     end
 
     local native = love.graphics.newMesh(
