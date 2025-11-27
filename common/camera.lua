@@ -353,7 +353,7 @@ end
 --- @brief
 function rt.Camera:get_world_bounds()
     if self._bounds_needs_update then self:_update_bounds() end
-    return self._world_bounds
+    return self._world_bounds:clone()
 end
 
 --- @brief
