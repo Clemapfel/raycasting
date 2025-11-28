@@ -1,7 +1,7 @@
 require "common.smoothed_motion_1d"
 
 rt.settings.overworld.air_dash_node_particle = {
-    explosion_distance = 80, -- px
+    explosion_distance = 30, -- px
     scale_offset_distance = 5, -- px
     brightness_offset = 0.5, -- fraction
     n_circles = 3 -- number of circles rotating around core
@@ -326,7 +326,6 @@ end
 
 --- @brief
 function ow.AirDashNodeParticle:draw(x, y, draw_shape, draw_core)
-
     local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
 
     local _draw = function(r, g, b, a, line_width, scale)

@@ -56,7 +56,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1))
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
     self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
-    self._particles = ow.DoubleJumpTetherParticleEffect()
+    self._particles = ow.PlayerTetherParticleEffect()
 
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
 
@@ -199,13 +199,13 @@ function ow.AirDashNode:set_is_tethered(b)
 
         local dx, dy = self._x - bx, self._y - by
         local ax, ay = self._x + dx, self._y + dy
+        dbg(meta.typeof(self._particles))
         self._particles:emit(
-            rt.settings.overworld.double_jump_tether.particle_density * math.distance(ax, ay, bx, by),
-            ax, ay, bx, by,
+            rt.Path(ax, ay, bx, by),
             self:get_color():unpack()
         )
 
-        self._dbg = {ax, ay, bx, by}
+        self._dbg = { ax, ay, bx, by }
     end
 end
 

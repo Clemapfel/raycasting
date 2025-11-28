@@ -14,10 +14,6 @@ local _sqrt2 = math.sqrt(2)
 local _sqrt3 = math.sqrt(3)
 local _sqrt6 = math.sqrt(6)
 
-local _outline_shader = rt.Shader("overworld/double_jump_tether_particle.glsl", { MODE = 0 })
-
-local _radius_to_canvas = {}
-
 --- @brief
 function ow.DoubleJumpTetherParticle:instantiate(radius)
     self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
@@ -160,6 +156,7 @@ function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
 
         local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
         love.graphics.setColor(black_r, black_g, black_b, a)
+        self._core:draw()
 
         love.graphics.setColor(r * offset, g * offset, b * offset, a)
         self._core:draw()

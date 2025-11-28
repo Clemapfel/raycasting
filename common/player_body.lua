@@ -524,20 +524,19 @@ rt.PlayerBody._solve_bending_constraint = function(
     local correction_x = target_x * stiffness
     local correction_y = target_y * stiffness
 
-    -- Use inverse mass for proper physical distribution
-    local inv_mass_sum = (1 / mass_a) + (1 / mass_b) + (1 / mass_c)
-    local blend_a = (1 / mass_a) / inv_mass_sum
-    local blend_b = (1 / mass_b) / inv_mass_sum
-    local blend_c = (1 / mass_c) / inv_mass_sum
+    local inv_mass_a = 1 / mass_a
+    local inv_mass_c = 1 / mass_c
+    local inv_mass_sum = inv_mass_a + inv_mass_c
+
+    local blend_a = (inv_mass_a / inv_mass_sum) * 0.5
+    local blend_c = (inv_mass_c / inv_mass_sum) * 0.5
 
     a_x = a_x - correction_x * blend_a
     a_y = a_y - correction_y * blend_a
-    b_x = b_x + correction_x * blend_b
-    b_y = b_y + correction_y * blend_b
     c_x = c_x + correction_x * blend_c
     c_y = c_y + correction_y * blend_c
 
-    return a_x, a_y, b_x, b_y, c_x, c_y
+    return a_x, a_y, c_x, c_y
 end
 
 rt.PlayerBody._solve_inverse_kinematics_constraint = function(positions, base_x, base_y, target_x, target_y, segment_length, intensity, max_iterations)
@@ -643,53 +642,63 @@ rt.PlayerBody._solve_inverse_kinematics_constraint = function(positions, base_x,
     return converged
 end
 
-rt.PlayerBody._rope_handler = function(data)
-    if data.gravity_x == nil then
-        data.gravity_x = 0
-    end
+rt.PlayerBody.update_rope = function(data)
+    if data.use_contour == nil then data.use_contour = false end
+    local use_contour = data.use_contour
 
-    if data.gravity_y == nil then
-        data.gravity_y = ternary(data.is_contour == true, 0, 1)
-    end
+    local contour_segment_length = data.contour_segment_length or data.segment_length or 1
+    local segment_length = ternary(data.use_contour, contour_segment_length, data.segment_length or 1)
 
-    if data.platform_delta_x == nil then
-        data.platform_delta_x = 0
-    end
+    local n_velocity_iterations = data.n_velocity_iterations or 0
+    local n_distance_iterations = data.n_distance_iterations or 0
+    local n_axis_iterations = data.n_axis_iterations or 0
+    local n_bending_iterations = data.n_bending_iterations or 0
+    local n_inverse_kinematics_iterations = data.n_inverse_kinematics_iterations or 0
+    local axis_intensity = data.axis_intensity or 1
+    local inverse_kinematics_intensity = data.inverse_kinematics_intensity or 1
 
-    if data.platform_delta_y == nil then
-        data.platform_delta_y = 0
-    end
+    local inertia = data.inertia or 1
+    local gravity_x = data.gravity_x or 0
+    local gravity_y = data.gravity_y or rt.settings.player_body.gravity
+    local attraction_x = data.attraction_x or 0
+    local attraction_y = data.attraction_y or 0
+    local attraction_magnitude = data.attraction_magnitude or 0
+    local velocity_damping = data.velocity_damping or rt.settings.player_body.non_contour.velocity_damping
+    local platform_delta_x = data.platform_delta_x or 0
+    local platform_delta_y = data.platform_delta_y or 0
 
-    if data.axis_intensity == nil then
-        data.axis_intensity = 1
-    end
+    local anchor_x = data.anchor_x or 0
+    local anchor_y = data.anchor_y or 0
+    local axis_x = data.axis_x or 0
+    local axis_y = data.axis_y or 0
+    local target_x = data.target_x or data.position_x
+    local target_y = data.target_y or data.position_y
 
-    if data.n_inverse_kinematics_iterations == nil then
-        data.n_inverse_kinematics_iterations = 0
-    end
+    meta.assert(
+        data.delta, "Number",
+        data.current_positions, "Table",
+        data.last_positions, "Table",
+        data.last_velocities, "Table",
+        data.masses, "Table",
+        data.position_x, "Number",
+        data.position_y, "Number"
+    )
 
-    if data.inverse_kinematics_intensity == nil then
-        data.inverse_kinematics_intensity = 1
-    end
-
-    if data.attraction_magnitude == nil then
-        data.attraction_magnitude = 0
-    end
-
-    local rope = data.rope
-    local positions = rope.current_positions
-    local last_positions = rope.last_positions
-    local last_velocities = rope.last_velocities
-    local segment_length = data.is_contour and rope.contour_segment_length or rope.segment_length
-    local masses = rope.masses
+    local delta = data.delta
+    local position_x = data.position_x
+    local position_y = data.position_y
+    local positions = data.current_positions
+    local last_positions = data.last_positions
+    local last_velocities = data.last_velocities
+    local masses = data.masses
 
     do -- translate whole physics system into relative velocity
         local t = 1 - math.clamp(rt.settings.player_body.relative_velocity_influence, 0, 1)
         for i = 1, #positions, 2 do
-            positions[i] = positions[i] + data.platform_delta_x * t
-            positions[i+1] = positions[i+1] + data.platform_delta_y * t
-            last_positions[i] = last_positions[i] + data.platform_delta_x * t
-            last_positions[i+1] = last_positions[i+1] + data.platform_delta_y * t
+            positions[i] = positions[i] + platform_delta_x * t
+            positions[i+1] = positions[i+1] + platform_delta_y * t
+            last_positions[i] = last_positions[i] + platform_delta_x * t
+            last_positions[i+1] = last_positions[i+1] + platform_delta_y * t
         end
     end
 
@@ -699,44 +708,44 @@ rt.PlayerBody._rope_handler = function(data)
     local n_bending_iterations_done = 0
     local n_inverse_kinematics_iterations_done = 0
 
-    data.n_distance_iterations = data.n_distance_iterations + data.n_bending_iterations
+    n_distance_iterations = n_distance_iterations + n_bending_iterations
 
     while
-    (n_velocity_iterations_done < data.n_velocity_iterations)
-        or (n_distance_iterations_done < data.n_distance_iterations)
-        or (n_axis_iterations_done < data.n_axis_iterations)
-        or (n_bending_iterations_done < data.n_bending_iterations)
-        or (n_inverse_kinematics_iterations_done < data.n_inverse_kinematics_iterations)
+    (n_velocity_iterations_done < n_velocity_iterations)
+        or (n_distance_iterations_done < n_distance_iterations)
+        or (n_axis_iterations_done < n_axis_iterations)
+        or (n_bending_iterations_done < n_bending_iterations)
+        or (n_inverse_kinematics_iterations_done < n_inverse_kinematics_iterations)
     do
         -- verlet integration
-        if n_velocity_iterations_done < data.n_velocity_iterations then
+        if n_velocity_iterations_done < n_velocity_iterations then
             local mass_i = 1
             for i = 1, #positions, 2 do
                 local current_x, current_y = positions[i+0], positions[i+1]
                 if i == 1 then
-                    current_x = data.position_x + rope.anchor_x
-                    current_y = data.position_y + rope.anchor_y
+                    current_x = position_x + anchor_x
+                    current_y = position_y + anchor_y
                 end
 
                 local old_x, old_y = last_positions[i+0], last_positions[i+1]
                 local mass = masses[mass_i]
                 local before_x, before_y = current_x, current_y
 
-                local velocity_x = (current_x - old_x) * data.velocity_damping
-                local velocity_y = (current_y - old_y) * data.velocity_damping
+                local velocity_x = (current_x - old_x) * velocity_damping
+                local velocity_y = (current_y - old_y) * velocity_damping
 
-                velocity_x = math.mix(velocity_x, last_velocities[i+0], data.inertia)
-                velocity_y = math.mix(velocity_y, last_velocities[i+1], data.inertia)
+                velocity_x = math.mix(velocity_x, last_velocities[i+0], inertia)
+                velocity_y = math.mix(velocity_y, last_velocities[i+1], inertia)
 
-                local attraction_x, attraction_y = 0, 0
-                if data.attraction_magnitude > 0 then
-                    local dx, dy = math.normalize(data.attraction_x - current_x, data.attraction_y - current_y)
-                    attraction_x, attraction_y = dx * data.attraction_magnitude, dy * data.attraction_magnitude
+                local attraction_dx, attraction_dy = 0, 0
+                if attraction_magnitude > 0 then
+                    local dx, dy = math.normalize(attraction_x - current_x, attraction_y - current_y)
+                    attraction_dx, attraction_dy = dx * attraction_magnitude, dy * attraction_magnitude
                 end
 
                 -- sic: mass * gravity is intended
-                positions[i+0] = current_x + velocity_x + mass * data.gravity_x * data.delta + attraction_x * mass
-                positions[i+1] = current_y + velocity_y + mass * data.gravity_y * data.delta + attraction_y * mass
+                positions[i+0] = current_x + velocity_x + mass * gravity_x * delta + attraction_dx * mass
+                positions[i+1] = current_y + velocity_y + mass * gravity_y * delta + attraction_dy * mass
 
                 last_positions[i+0] = before_x
                 last_positions[i+1] = before_y
@@ -751,7 +760,7 @@ rt.PlayerBody._rope_handler = function(data)
         end
 
         -- axis
-        if n_axis_iterations_done < data.n_axis_iterations then
+        if n_axis_iterations_done < n_axis_iterations then
             local mass_i = 1
             for i = 1, #positions - 2, 2 do
                 local node_1_xi, node_1_yi, node_2_xi, node_2_yi = i+0, i+1, i+2, i+3
@@ -761,9 +770,9 @@ rt.PlayerBody._rope_handler = function(data)
                 local new_x1, new_y1, new_x2, new_y2 = rt.PlayerBody._solve_axis_constraint(
                     node_1_x, node_1_y,
                     node_2_x, node_2_y,
-                    rope.axis_x, rope.axis_y,
+                    axis_x, axis_y,
                     masses[mass_i + 0], masses[mass_i + 1],
-                    data.axis_intensity
+                    axis_intensity
                 )
 
                 positions[node_1_xi] = new_x1
@@ -778,7 +787,7 @@ rt.PlayerBody._rope_handler = function(data)
         end
 
         -- bending
-        if n_bending_iterations_done < data.n_bending_iterations then
+        if n_bending_iterations_done < n_bending_iterations then
             local mass_i = 1
             for i = 1, #positions - 4, 2 do
                 local node_1_xi, node_1_yi, node_2_xi, node_2_yi, node_3_xi, node_3_yi = i+0, i+1, i+2, i+3, i+4, i+5
@@ -807,24 +816,24 @@ rt.PlayerBody._rope_handler = function(data)
         end
 
         -- inverse kinematics
-        if n_inverse_kinematics_iterations_done < data.n_inverse_kinematics_iterations and rope.target_x ~= nil and rope.target_y ~= nil then
-            local base_x = data.position_x + rope.anchor_x
-            local base_y = data.position_y + rope.anchor_y
-            local target_x = data.position_x + rope.target_x
-            local target_y = data.position_y + rope.target_y
+        if n_inverse_kinematics_iterations_done < n_inverse_kinematics_iterations then
+            local base_x = position_x + anchor_x
+            local base_y = position_y + anchor_y
+            local final_target_x = position_x + target_x
+            local final_target_y = position_y + target_y
             local converged = rt.PlayerBody._solve_inverse_kinematics_constraint(
                 positions,
                 base_x, base_y,
-                target_x, target_y,
-                rope.contour_segment_length,
-                data.inverse_kinematics_intensity
+                final_target_x, final_target_y,
+                contour_segment_length or segment_length,
+                inverse_kinematics_intensity
             )
             n_inverse_kinematics_iterations_done = n_inverse_kinematics_iterations_done + 1
             if converged then n_inverse_kinematics_iterations_done = math.huge end
         end
 
         -- distance
-        if n_distance_iterations_done < data.n_distance_iterations then
+        if n_distance_iterations_done < n_distance_iterations then
             local distance_i = 1
             local mass_i = 1
             for i = 1, #positions - 2, 2 do
@@ -833,8 +842,8 @@ rt.PlayerBody._rope_handler = function(data)
                 local node_2_x, node_2_y = positions[node_2_xi], positions[node_2_yi]
 
                 if i == 1 then
-                    node_1_x = data.position_x + rope.anchor_x
-                    node_1_y = data.position_y + rope.anchor_y
+                    node_1_x = position_x + anchor_x
+                    node_1_y = position_y + anchor_y
                 end
 
                 local rest_length = segment_length
@@ -934,8 +943,22 @@ function rt.PlayerBody:update(delta)
     local todo = self._use_contour and _settings.contour or _settings.non_contour
 
     for i, rope in ipairs(self._ropes) do
-        rt.PlayerBody._rope_handler({
-            rope = rope,
+        rt.PlayerBody.update_rope({
+            current_positions = rope.current_positions,
+            last_positions = rope.last_positions,
+            last_velocities = rope.last_velocities,
+            masses = rope.masses,
+            position_x = self._position_x,
+            position_y = self._position_y,
+            target_x = rope.target_x,
+            target_y = rope.target_y,
+            anchor_x = rope.anchor_x,
+            anchor_y = rope.anchor_y,
+            axis_x = rope.axis_x,
+            axis_y = rope.axis_y,
+            delta = delta,
+            segment_length = rope.segment_length,
+            contour_segment_length = rope.contour_segment_length,
             use_contour = self._use_contour,
             n_velocity_iterations = todo.n_velocity_iterations,
             n_distance_iterations = todo.n_distance_iterations,
@@ -943,15 +966,12 @@ function rt.PlayerBody:update(delta)
             axis_intensity = todo.axis_intensity,
             n_bending_iterations = todo.n_bending_iterations,
             inertia = todo.inertia,
+            velocity_damping = todo.velocity_damping,
             gravity_x = gravity_x,
             gravity_y = gravity_y * (1 + self._down_squish_motion:get_value()),
             attraction_x = self._attraction_x,
             attraction_y = self._attraction_y,
             attraction_magnitude = self._attraction_magnitude,
-            delta = delta,
-            velocity_damping = todo.velocity_damping,
-            position_x = self._position_x,
-            position_y = self._position_y,
             platform_delta_x = self._relative_velocity_x * delta,
             platform_delta_y = self._relative_velocity_y * delta,
             n_inverse_kinematics_iterations = todo.n_inverse_kinematics_iterations,

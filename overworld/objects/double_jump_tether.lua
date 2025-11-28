@@ -1,10 +1,10 @@
 require "overworld.double_jump_tether_particle"
-require "overworld.double_jump_tether_particle_effect"
+require "overworld.player_tether_particle_effect"
+require "overworld.player_tether"
 require "common.impulse_manager"
 
 rt.settings.overworld.double_jump_tether = {
     radius_factor = 1.5,
-    particle_density = 0.75, -- fraction
 }
 
 --- @class DoubleJumpTether
@@ -65,15 +65,15 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
     self._particle = ow.DoubleJumpTetherParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
+    self._tether= ow.PlayerTether(self._scene)
     self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
-    self._particles = ow.DoubleJumpTetherParticleEffect()
+    self._particles = ow.PlayerTetherParticleEffect()
 
     self:signal_connect("removed", function()
         local ax, ay = self:get_position()
         local bx, by = self._scene:get_player():get_position()
         self._particles:emit(
-            rt.settings.overworld.double_jump_tether.particle_density * math.distance(ax, ay, bx, by),
-            ax, ay, bx, by,
+            self._line:as_path(),
             self:get_color():unpack()
         )
     end)
@@ -88,12 +88,14 @@ function ow.DoubleJumpTether:update(delta)
 
     self._particles:update(delta)
     self._line_opacity_motion:update(delta)
+    local already_tethered = false
 
     -- show / hide particle when consumed
     if self._was_consumed == false and is_consumed == true then
         self._line_opacity_motion:set_target_value(1)
         self._particle_opacity_motion:set_target_value(0)
         self._particle:set_is_exploded(true)
+        self._tether:tether(self._x, self._y, self._scene:get_player():get_position())
     elseif self._was_consumed == true and is_consumed == false then
         self._line_opacity_motion:set_target_value(0)
         self._particle_opacity_motion:set_target_value(1)
@@ -116,70 +118,11 @@ function ow.DoubleJumpTether:update(delta)
 
     -- update line if visible
     if self._line_opacity_motion:get_value() > eps then
-        local x1, y1 = self._x, self._y
-        local x2, y2 = self._scene:get_player():get_position()
-
-        local dx, dy = math.normalize(x2 - x1, y2 - y1)
-        local inner_width = 1
-        local outer_width = 3
-
-        local up_x, up_y = math.turn_left(dx, dy)
-        local inner_up_x, inner_up_y = up_x * inner_width, up_y * inner_width
-        local outer_up_x, outer_up_y = up_x * (inner_width + outer_width), up_y * (inner_width + outer_width)
-
-        local down_x, down_y = math.turn_right(dx, dy)
-        local inner_down_x, inner_down_y = down_x * inner_width, down_y * inner_width
-        local outer_down_x, outer_down_y = down_x * (inner_width + outer_width), down_y * (inner_width + outer_width)
-
-        local inner_up_x1, inner_up_y1 = x1 + inner_up_x, y1 + inner_up_y
-        local outer_up_x1, outer_up_y1 = x1 + outer_up_x, y1 + outer_up_y
-        local inner_down_x1, inner_down_y1 = x1 + inner_down_x, y1 + inner_down_y
-        local outer_down_x1, outer_down_y1 = x1 + outer_down_x, y1 + outer_down_y
-
-        local inner_up_x2, inner_up_y2 = x2 + inner_up_x, y2 + inner_up_y
-        local outer_up_x2, outer_up_y2 = x2 + outer_up_x, y2 + outer_up_y
-        local inner_down_x2, inner_down_y2 = x2 + inner_down_x, y2 + inner_down_y
-        local outer_down_x2, outer_down_y2 = x2 + outer_down_x, y2 + outer_down_y
-
-        local r1, r2 = 1, 1
-        local a1, a2 = 1, 0
-
-        local data = {
-            { outer_down_x1, outer_down_y1, r2, r2, r2, a2 },
-            { inner_down_x1, inner_down_y1, r1, r1, r1, a1 },
-            { x1, y1, r1, r1, r1, a1 },
-            { inner_up_x1, inner_up_y1, r1, r1, r1, a1 },
-            { outer_up_x1, outer_up_y1, r2, r2, r2, a2 },
-
-            { outer_down_x2, outer_down_y2, r2, r2, r2, a2 },
-            { inner_down_x2, inner_down_y2, r1, r1, r1, a1 },
-            { x2, y2, r1, r1, r1, 2 },
-            { inner_up_x2, inner_up_y2, r1, r1, r1, a1 },
-            { outer_up_x2, outer_up_y2, r2, r2, r2, a2 },
-        }
-
-        if self._line_mesh == nil then
-            self._line_mesh = love.graphics.newMesh({
-                {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
-                {location = 2, name = rt.VertexAttribute.COLOR, format = "floatvec4"},
-            }, data,
-                rt.MeshDrawMode.TRIANGLES,
-                rt.GraphicsBufferUsage.STREAM
-            )
-
-            self._line_mesh:setVertexMap(
-                1, 6, 7,
-                1, 2, 7,
-                2, 7, 8,
-                2, 3, 8,
-                3, 8, 9,
-                3, 4, 9,
-                4, 9, 10,
-                4, 5, 10
-            )
-        else
-            self._line_mesh:setVertices(data)
-        end
+        self._tether:tether( -- update player position
+            self._x, self._y,
+            self._scene:get_player():get_position()
+        )
+        self._tether:update(delta)
     end
 end
 
@@ -194,7 +137,7 @@ function ow.DoubleJumpTether:draw()
     if line_a > eps then
         local r, g, b = self._color:unpack()
         love.graphics.setColor(r, g, b, 1)
-        love.graphics.draw(self._line_mesh)
+        self._tether:draw()
     end
 
     self._particles:draw()
@@ -227,9 +170,8 @@ function ow.DoubleJumpTether:draw_bloom()
 
     local line_a = self._line_opacity_motion:get_value()
     if line_a > eps then
-        local r, g, b = self._color:unpack()
         love.graphics.setColor(r, g, b, 1)
-        love.graphics.draw(self._line_mesh)
+        self._tether:draw()
     end
 end
 

@@ -1,7 +1,7 @@
 require "common.random"
 require "common.color"
 
-rt.settings.double_jump_tether_particle_effect = {
+rt.settings.overworld.player_tether_particle_effect = {
     min_radius = 2,
     max_radius = 3,
     min_initial_velocity = 2,
@@ -22,36 +22,37 @@ rt.settings.double_jump_tether_particle_effect = {
     turbulence_strength = 1,
     turbulence_scale = 1,
 
-    max_n_particles = 10000
+    max_n_particles = 5000,
+    particle_density = 0.75 -- fraction
 }
 
---- @class ow.DoubleJumpTetherParticleEffect
-ow.DoubleJumpTetherParticleEffect = meta.class("DoubleJumpTetherParticleEffect")
+--- @class ow.PlayerTetherParticleEffect
+ow.PlayerTetherParticleEffect = meta.class("PlayerTetherParticleEffect")
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:instantiate()
+function ow.PlayerTetherParticleEffect:instantiate()
     self._batches = {}
 end
 
 local _n_particles = 0 -- global count
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:emit(
-    n_particles,
-    ax, ay, bx, by,
+function ow.PlayerTetherParticleEffect:emit(
+    path,
     color_r, color_g, color_b, color_a
 )
+    meta.assert(path, rt.Path)
+
     local batch = {}
     table.insert(self._batches, batch)
     self:_init_batch(batch,
-        n_particles,
-        ax, ay, bx, by,
+        path,
         color_r, color_g, color_b, color_a
     )
 end
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:update(delta)
+function ow.PlayerTetherParticleEffect:update(delta)
     local to_remove = {}
     for batch_i, batch in ipairs(self._batches) do
         local is_done = self:_update_batch(batch, delta)
@@ -62,21 +63,21 @@ function ow.DoubleJumpTetherParticleEffect:update(delta)
 end
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:draw()
+function ow.PlayerTetherParticleEffect:draw()
     for batch in values(self._batches) do
         self:_draw_batch(batch, false) -- no bloom
     end
 end
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:draw_bloom()
+function ow.PlayerTetherParticleEffect:draw_bloom()
     for batch in values(self._batches) do
         self:_draw_batch(batch, true)
     end
 end
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:clear()
+function ow.PlayerTetherParticleEffect:clear()
     self._batches = {}
 end
 
@@ -98,21 +99,19 @@ local _hue_velocity = 16
 local _hue_velocity_direction = 17
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:_init_batch(
-    batch, n_particles,
-    ax, ay, bx, by,
+function ow.PlayerTetherParticleEffect:_init_batch(
+    batch, path,
     color_r, color_g, color_b, color_a
 )
     require "table.new"
 
+
+    local length = path:get_length()
+    local n_particles = length * rt.settings.overworld.player_tether_particle_effect.particle_density
+
     local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, color_a))
 
-    local dx, dy = bx - ax, by - ay
-    local length = math.magnitude(dx, dy)
-    local up_x, up_y = math.normalize(math.turn_left(dx, dy))
-    local down_x, down_y = math.normalize(math.turn_right(dx, dy))
-
-    local settings = rt.settings.double_jump_tether_particle_effect
+    local settings = rt.settings.overworld.player_tether_particle_effect
 
     local min_acceleration, max_acceleration = settings.min_acceleration, settings.max_acceleration
     local min_mass, max_mass = settings.min_mass, settings.max_mass
@@ -125,14 +124,16 @@ function ow.DoubleJumpTetherParticleEffect:_init_batch(
     for i = 1, n_particles do
         if _n_particles > settings.max_n_particles then break end
 
+        local t = (i - 1) / n_particles
+        local position_x, position_y = path:at(t)
+        local dx, dy = path:get_tangent(t)
+        local up_x, up_y = math.normalize(math.turn_left(dx, dy))
+        local down_x, down_y = math.normalize(math.turn_right(dx, dy))
+
         local mass_t = rt.random.number(0, 1)
         local mass = math.mix(min_mass, max_mass, mass_t)
         local radius = math.mix(min_radius, max_radius, mass)
         local magnitude = math.mix(min_initial_velocity, max_initial_velocity, mass_t)
-
-        local t = (i - 1) / n_particles
-        local position_x = ax + dx * t
-        local position_y = ay + dy * t
 
         local vx, vy
         if i % 2 == 0 then
@@ -168,8 +169,8 @@ function ow.DoubleJumpTetherParticleEffect:_init_batch(
 end
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:_update_batch(batch, delta)
-    local settings = rt.settings.double_jump_tether_particle_effect
+function ow.PlayerTetherParticleEffect:_update_batch(batch, delta)
+    local settings = rt.settings.overworld.player_tether_particle_effect
 
     -- update particles
     local gravity_x = settings.gravity_x * delta
@@ -243,7 +244,7 @@ function ow.DoubleJumpTetherParticleEffect:_update_batch(batch, delta)
 end
 
 --- @brief
-function ow.DoubleJumpTetherParticleEffect:_draw_batch(batch, is_bloom)
+function ow.PlayerTetherParticleEffect:_draw_batch(batch, is_bloom)
     if is_bloom == nil then is_bloom = false end
 
     love.graphics.setLineWidth(1)
