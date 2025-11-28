@@ -73,7 +73,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
         local ax, ay = self:get_position()
         local bx, by = self._scene:get_player():get_position()
         self._particles:emit(
-            self._line:as_path(),
+            self._tether:as_path(),
             self:get_color():unpack()
         )
     end)

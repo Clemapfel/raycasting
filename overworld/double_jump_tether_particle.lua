@@ -4,7 +4,8 @@ rt.settings.overworld.double_jump_tether_particle = {
     explosion_distance = 80, -- px
     scale_offset_distance = 5, -- px
     brightness_offset = 0.5, -- fraction
-    core_radius_factor = 0.35
+    core_radius_factor = 0.35,
+    rotation_speed = 0.05 -- n rotations per second
 }
 
 --- @class ow.DoubleJumpTetherParticle
@@ -46,9 +47,9 @@ function ow.DoubleJumpTetherParticle:instantiate(radius)
 end
 
 local _edges = {
-    {1, 2}, {1, 3}, {1, 4},
-    {2, 3}, {2, 4},
-    {3, 4}
+    { 1, 2 }, { 1, 3 }, { 1, 4 },
+    { 2, 3 }, { 2, 4 },
+    { 3, 4 }
 }
 
 --- @brief
@@ -136,18 +137,19 @@ end
 
 --- @brief
 function ow.DoubleJumpTetherParticle:update(delta)
-    local speed = 0.05 -- radians per second
+    local speed = rt.settings.overworld.double_jump_tether_particle.rotation_speed
     self._theta = math.normalize_angle(self._theta + delta * 2 * math.pi * speed)
     self._phi = math.normalize_angle(self._phi + delta * 2 * math.pi * speed)
-    self:_update_vertices()
-    self._canvas_needs_update = true
 
     self._explosion_motion:update(delta)
+
+    self:_update_vertices()
 end
 
 function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
     local line_width = 2
     local r, g, b, a = love.graphics.getColor()
+
 
     if draw_core == true then
         local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)

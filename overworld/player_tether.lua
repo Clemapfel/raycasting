@@ -140,9 +140,8 @@ function ow.PlayerTether:update(delta)
         n_distance_iterations = 0,
         n_bending_iterations = 2,
         n_inverse_kinematics_iterations = 0,
-        inverse_kinematics_intensity = 0.1,
-        inertia = todo.inertia,
-        velocity_damping = 1 - 0.75,
+        inertia = 0,
+        velocity_damping = 1 - 0.5,
         gravity_x = 0,
         gravity_y = rt.settings.overworld.player_tether.gravity
     })

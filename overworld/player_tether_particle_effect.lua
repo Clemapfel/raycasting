@@ -39,15 +39,20 @@ local _n_particles = 0 -- global count
 --- @brief
 function ow.PlayerTetherParticleEffect:emit(
     path,
-    color_r, color_g, color_b, color_a
+    color_r, color_g, color_b, color_a,
+    velocity_x, velocity_y
 )
     meta.assert(path, rt.Path)
+
+    if velocity_x == nil then velocity_x = 0 end
+    if velocity_y == nil then velocity_y = 0 end
 
     local batch = {}
     table.insert(self._batches, batch)
     self:_init_batch(batch,
         path,
-        color_r, color_g, color_b, color_a
+        color_r, color_g, color_b, color_a,
+        velocity_x, velocity_y
     )
 end
 
@@ -101,10 +106,10 @@ local _hue_velocity_direction = 17
 --- @brief
 function ow.PlayerTetherParticleEffect:_init_batch(
     batch, path,
-    color_r, color_g, color_b, color_a
+    color_r, color_g, color_b, color_a,
+    velocity_x, velocity_y
 )
     require "table.new"
-
 
     local length = path:get_length()
     local n_particles = length * rt.settings.overworld.player_tether_particle_effect.particle_density
@@ -145,8 +150,8 @@ function ow.PlayerTetherParticleEffect:_init_batch(
         local particle = {
             [_position_x] = position_x,
             [_position_y] = position_y,
-            [_velocity_x] = vx * magnitude,
-            [_velocity_y] = vy * magnitude,
+            [_velocity_x] = (vx + velocity_x) * magnitude,
+            [_velocity_y] = (vy + velocity_y) * magnitude,
             [_acceleration] = math.mix(min_acceleration, max_acceleration, mass_t),
             [_color_r] = color_r,
             [_color_g] = color_g,
