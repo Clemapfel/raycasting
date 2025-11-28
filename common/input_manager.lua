@@ -89,6 +89,13 @@ end
 function rt.InputManager:_notify_subscriber_added(subscriber)
     meta.assert(subscriber, rt.InputSubscriber)
     table.insert(self._subscribers, 1, subscriber)
+    self:_notify_priority_changed(subscriber)
+end
+
+--- @brief
+function rt.InputManager:_notify_priority_changed(subscriber)
+    require "common.stable_sort"
+    table.stable_sort(self._subscribers, function(a, b) return a:get_priority() < b:get_priority() end)
 end
 
 --- @brief
