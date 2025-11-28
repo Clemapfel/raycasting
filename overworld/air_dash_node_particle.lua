@@ -1,142 +1,273 @@
 require "common.smoothed_motion_1d"
 
-rt.settings.overworld.double_jump_tether_particle = {
+rt.settings.overworld.air_dash_node_particle = {
     explosion_distance = 80, -- px
     scale_offset_distance = 5, -- px
-    brightness_offset = 0.5 -- fraction
+    brightness_offset = 0.5, -- fraction
+    n_circles = 3 -- number of circles rotating around core
 }
 
 --- @class ow.AirDashNodeParticle
 ow.AirDashNodeParticle = meta.class("AirDashNodeParticle")
 
-local _padding = 10
-local _outline_shader = rt.Shader("overworld/double_jump_tether_particle.glsl", { MODE = 0 })
+local _sqrt2 = math.sqrt(2)
+local _sqrt3 = math.sqrt(3)
 
---- @brief Project a 3D ring onto 2D as an ellipse
---- Returns: center_x, center_y, radius_x, radius_y, rotation_angle
-local function _project_ring_to_ellipse(normal_x, normal_y, normal_z, radius, theta, phi)
-    -- Rotate the normal vector by the same rotations
-    -- First rotate around Y by phi
-    local cos_phi, sin_phi = math.cos(phi), math.sin(phi)
-    local nx1 =  normal_x * cos_phi + normal_z * sin_phi
-    local ny1 =  normal_y
-    local nz1 = -normal_x * sin_phi + normal_z * cos_phi
+-- local math helpers
+local function _normalize3(x, y, z)
+    local l = math.sqrt(x * x + y * y + z * z)
+    if l == 0 then return 0, 0, 1 end
+    return x / l, y / l, z / l
+end
 
-    -- Then rotate around X by theta
-    local cos_theta, sin_theta = math.cos(theta), math.sin(theta)
-    local nx2 = nx1
-    local ny2 = ny1 * cos_theta - nz1 * sin_theta
-    local nz2 = ny1 * sin_theta + nz1 * cos_theta
+local function _cross(ax, ay, az, bx, by, bz)
+    return ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx
+end
 
-    -- The rotated normal is (nx2, ny2, nz2)
-    -- For a ring with this normal, we need two orthogonal vectors in the plane
-    -- Find an arbitrary vector not parallel to the normal
-    local temp_x, temp_y, temp_z
-    if math.abs(nx2) < 0.9 then
-        temp_x, temp_y, temp_z = 1, 0, 0
-    else
-        temp_x, temp_y, temp_z = 0, 1, 0
-    end
-
-    -- First basis vector: cross product of normal and temp
-    local u_x = ny2 * temp_z - nz2 * temp_y
-    local u_y = nz2 * temp_x - nx2 * temp_z
-    local u_z = nx2 * temp_y - ny2 * temp_x
-    local u_len = math.sqrt(u_x * u_x + u_y * u_y + u_z * u_z)
-    u_x, u_y, u_z = u_x / u_len, u_y / u_len, u_z / u_len
-
-    -- Second basis vector: cross product of normal and first basis
-    local v_x = ny2 * u_z - nz2 * u_y
-    local v_y = nz2 * u_x - nx2 * u_z
-    local v_z = nx2 * u_y - ny2 * u_x
-
-    -- When projected to 2D (ignoring z), the ellipse is defined by these vectors
-    -- Ellipse semi-axes are the projected lengths of radius * u and radius * v
-    local axis1_x = radius * u_x
-    local axis1_y = radius * u_y
-
-    local axis2_x = radius * v_x
-    local axis2_y = radius * v_y
-
-    -- Find the ellipse parameters from these two axes
-    -- The semi-major and semi-minor axes and rotation angle
-    local a_sq = axis1_x * axis1_x + axis1_y * axis1_y
-    local b_sq = axis2_x * axis2_x + axis2_y * axis2_y
-
-    -- Compute rotation angle from axis1
-    local angle = math.atan2(axis1_y, axis1_x)
-
-    -- Radii are the lengths of the projected axes
-    local rx = math.sqrt(a_sq)
-    local ry = math.sqrt(b_sq)
-
-    return 0, 0, rx, ry, angle
+local function _dot(ax, ay, az, bx, by, bz)
+    return ax * bx + ay * by + az * bz
 end
 
 --- @brief
 function ow.AirDashNodeParticle:instantiate(radius)
-    self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi)
+    self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0
-    self._canvas = rt.RenderTexture(2 * (radius + _padding), 2 * (radius + _padding))
-    self._canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
-    self._explosion_motion = rt.SmoothedMotion1D(0)
-    self._explosion_motion:set_speed(2, 1)
+    self._explosion_motion = rt.SmoothedMotion1D(0) -- 0: not exploded, 1: fully exploded
+    self._explosion_motion:set_speed(2, 1) -- attack, decay, fractional
 
     self._brightness_offset = 0
     self._scale_offset = 0
 
-    -- Storage for ellipse parameters: {cx, cy, rx, ry, rotation}
-    self._rings_ellipses = {}
-    self:_update_rings()
-end
+    self._is_aligned = false
+    self._target_normal_x = 0
+    self._target_normal_y = 0
+    self._target_normal_z = 1
+    self._alignment_motion = rt.SmoothedMotion1D(0) -- 0: not aligned, 1: fully aligned
 
--- Ring normals in object space (perpendicular to each ring plane)
-local _ring_normals = {
-    {0, 0, 1}, -- XY plane, normal is +Z
-    {1, 0, 0}, -- YZ plane, normal is +X
-    {0, 1, 0}, -- ZX plane, normal is +Y
-}
+    local n_outer_vertices = 24
+    local core_radius = rt.settings.overworld.double_jump_tether_particle.core_radius_factor * radius
+    self._core = rt.MeshRing(
+        0, 0,
+        0.75 * core_radius,
+        core_radius,
+        true,
+        n_outer_vertices
+    )
 
---- @brief Recompute ellipse parameters for each ring with current rotation and offsets
-function ow.AirDashNodeParticle:_update_rings()
-    local offset = self._scale_offset * rt.settings.overworld.double_jump_tether_particle.scale_offset_distance
-        + self._explosion_motion:get_value() * rt.settings.overworld.double_jump_tether_particle.explosion_distance
+    local n = self._core:get_n_vertices()
+    for i = n, n - n_outer_vertices, -1 do -- outer aliasing
+        self._core:set_vertex_color(i, 1, 1, 1, 0)
+    end
+    self._core:set_vertex_color(1, 1, 1, 1)
 
-    local base_r = self._radius + offset
-    local radii = {
-        base_r * 0.55,
-        base_r * 0.8,
-        base_r * 1.05
-    }
+    -- Initialize circles
+    self._n_circles = rt.settings.overworld.air_dash_node_particle.n_circles
+    self._circles = {}
 
-    local theta, phi = self._theta, self._phi
-    local ellipses = {}
+    for i = 1, self._n_circles do
+        self._circles[i] = {
+            radius = radius - 3, --math.mix(0.75 * radius, radius, (i - 1) / self._n_circles),
+            angle_offset = (i - 1) * (2 * math.pi / self._n_circles), -- distribute evenly around sphere
 
-    for i = 1, 3 do
-        local normal = _ring_normals[i]
-        local r = radii[i]
-
-        local cx, cy, rx, ry, angle = _project_ring_to_ellipse(
-            normal[1], normal[2], normal[3],
-            r, theta, phi
-        )
-
-        -- Apply translation
-        cx = cx + self._x
-        cy = cy + self._y
-
-        ellipses[i] = {
-            cx = cx,
-            cy = cy,
-            rx = rx,
-            ry = ry,
-            angle = angle
+            -- computed each update:
+            back_strips = {},  -- array of {x1,y1,x2,y2,...}
+            front_strips = {}  -- array of {x1,y1,x2,y2,...}
         }
     end
 
-    self._rings_ellipses = ellipses
+    self:_update_segments()
+end
+
+--- @brief compute 3D oriented circle basis, sample it, and split into back/front line strips
+function ow.AirDashNodeParticle:_update_segments()
+    local offset = self._scale_offset * rt.settings.overworld.air_dash_node_particle.scale_offset_distance
+        + self._explosion_motion:get_value() * rt.settings.overworld.air_dash_node_particle.explosion_distance
+
+    local cx = self._x
+    local cy = self._y
+    local cz = self._z
+
+    -- alignment factor in [0,1]
+    local align_t = self._alignment_motion:get_value()
+
+    -- normalized target normal for aligned pose
+    local Nx, Ny, Nz = _normalize3(self._target_normal_x, self._target_normal_y, self._target_normal_z)
+
+    -- choose a robust reference that's not parallel to N
+    local rx, ry, rz
+    if math.abs(Nz) < 0.999 then
+        rx, ry, rz = 0, 0, 1
+    else
+        rx, ry, rz = 0, 1, 0
+    end
+
+    -- build an orthonormal basis (U_align, V_align) spanning plane perpendicular to N
+    local Uax, Uay, Uaz = _cross(Nx, Ny, Nz, rx, ry, rz)
+    Uax, Uay, Uaz = _normalize3(Uax, Uay, Uaz)
+    -- If degenerate (shouldn't be), fall back to X axis
+    if Uax == 0 and Uay == 0 and Uaz == 0 then Uax, Uay, Uaz = 1, 0, 0 end
+    local Vax, Vay, Vaz = _cross(Nx, Ny, Nz, Uax, Uay, Uaz)
+    Vax, Vay, Vaz = _normalize3(Vax, Vay, Vaz)
+
+    for circle_idx = 1, self._n_circles do
+        local circle = self._circles[circle_idx]
+        local circle_radius = circle.radius + offset
+        local angle_offset = circle.angle_offset
+
+        -- Define initial basis U=(1,0,0), V=(0,1,0) in XY plane and normal N=(0,0,1) for the "regular" pose
+        local ux, uy, uz = 1, 0, 0
+        local vx, vy, vz = 0, 1, 0
+
+        -- Regular pose: first rotate around Y by angle_offset to tilt the plane
+        do
+            local c, s = math.cos(angle_offset), math.sin(angle_offset)
+            local ux1, uy1, uz1 = ux * c - uz * s, uy, ux * s + uz * c
+            local vx1, vy1, vz1 = vx * c - vz * s, vy, vx * s + vz * c
+            ux, uy, uz = ux1, uy1, uz1
+            vx, vy, vz = vx1, vy1, vz1
+        end
+
+        -- Apply spherical rotations: phi around Y, then theta around X
+        do
+            local phi = self._phi
+            local c, s = math.cos(phi), math.sin(phi)
+            local ux1, uy1, uz1 = ux * c - uz * s, uy, ux * s + uz * c
+            local vx1, vy1, vz1 = vx * c - vz * s, vy, vx * s + vz * c
+            ux, uy, uz = ux1, uy1, uz1
+            vx, vy, vz = vx1, vy1, vz1
+        end
+        do
+            local theta = self._theta
+            local c, s = math.cos(theta), math.sin(theta)
+            local ux1, uy1, uz1 = ux, uy * c - uz * s, uy * s + uz * c
+            local vx1, vy1, vz1 = vx, vy * c - vz * s, vy * s + vz * c
+            ux, uy, uz = ux1, uy1, uz1
+            vx, vy, vz = vx1, vy1, vz1
+        end
+
+        -- Aligned pose: use plane perpendicular to target normal, rotate in-plane by angle_offset
+        local ca, sa = math.cos(angle_offset), math.sin(angle_offset)
+        local uax = Uax * ca + Vax * sa
+        local uay = Uay * ca + Vay * sa
+        local uaz = Uaz * ca + Vaz * sa
+        local vax = -Uax * sa + Vax * ca
+        local vay = -Uay * sa + Vay * ca
+        local vaz = -Uaz * sa + Vaz * ca
+
+        -- Prepare sampling resolution: roughly one vertex every ~4px of circumference, clamped
+        local approx_circ = 2 * math.pi * circle_radius
+        local n_segments = math.max(24, math.min(256, math.floor(approx_circ / 4)))
+        local n_points = n_segments -- we'll wrap the last segment to the first point
+
+        -- Generate points for regular and aligned poses and blend them
+        local pts = {} -- array of {x, y, z}
+        for i = 0, n_points - 1 do
+            local t = (i / n_points) * 2 * math.pi
+            local ct, st = math.cos(t), math.sin(t)
+
+            -- regular
+            local rx1 = cx + circle_radius * (ct * ux + st * vx)
+            local ry1 = cy + circle_radius * (ct * uy + st * vy)
+            local rz1 = cz + circle_radius * (ct * uz + st * vz)
+
+            -- aligned (in the plane of target normal)
+            local ax1 = cx + circle_radius * (ct * uax + st * vax)
+            local ay1 = cy + circle_radius * (ct * uay + st * vay)
+            local az1 = cz + circle_radius * (ct * uaz + st * vaz)
+
+            -- blend
+            local px = math.mix(rx1, ax1, align_t)
+            local py = math.mix(ry1, ay1, align_t)
+            local pz = math.mix(rz1, az1, align_t)
+
+            pts[#pts + 1] = { px, py, pz }
+        end
+
+        -- Convenience for wrap indexing
+        local function get_point(i)
+            local idx = ((i - 1) % n_points) + 1
+            return pts[idx][1], pts[idx][2], pts[idx][3]
+        end
+
+        -- Split into back/front strips relative to core z (cz)
+        local back_strips = {}
+        local front_strips = {}
+        local curr_back = nil
+        local curr_front = nil
+
+        local function append_point(strip, x, y)
+            strip[#strip + 1] = x
+            strip[#strip + 1] = y
+        end
+
+        for i = 1, n_points do
+            local x0, y0, z0 = get_point(i)
+            local x1, y1, z1 = get_point(i + 1)
+
+            local d0 = z0 - cz
+            local d1 = z1 - cz
+
+            if d0 < 0 and d1 < 0 then
+                -- Entirely behind
+                if curr_back == nil then curr_back = {} end
+                if #curr_back == 0 then append_point(curr_back, x0, y0) end
+                append_point(curr_back, x1, y1)
+            elseif d0 >= 0 and d1 >= 0 then
+                -- Entirely in front
+                if curr_front == nil then curr_front = {} end
+                if #curr_front == 0 then append_point(curr_front, x0, y0) end
+                append_point(curr_front, x1, y1)
+            else
+                -- Segment crosses the core plane, split at intersection
+                local t = d1 ~= d0 and (-d0) / (d1 - d0) or 0.5
+                t = math.max(0, math.min(1, t))
+                local xi = x0 + (x1 - x0) * t
+                local yi = y0 + (y1 - y0) * t
+                -- zi would be cz by construction
+
+                if d0 < 0 and d1 >= 0 then
+                    -- Back -> Front
+                    if curr_back == nil then curr_back = {} end
+                    if #curr_back == 0 then append_point(curr_back, x0, y0) end
+                    append_point(curr_back, xi, yi)
+                    if #curr_back >= 4 then back_strips[#back_strips + 1] = curr_back end
+                    curr_back = nil
+
+                    if curr_front == nil then curr_front = {} end
+                    append_point(curr_front, xi, yi)
+                    append_point(curr_front, x1, y1)
+                else
+                    -- Front -> Back
+                    if curr_front == nil then curr_front = {} end
+                    if #curr_front == 0 then append_point(curr_front, x0, y0) end
+                    append_point(curr_front, xi, yi)
+                    if #curr_front >= 4 then front_strips[#front_strips + 1] = curr_front end
+                    curr_front = nil
+
+                    if curr_back == nil then curr_back = {} end
+                    append_point(curr_back, xi, yi)
+                    append_point(curr_back, x1, y1)
+                end
+            end
+        end
+
+        -- Close any remaining current strips
+        if curr_back ~= nil and #curr_back >= 4 then
+            back_strips[#back_strips + 1] = curr_back
+        end
+        if curr_front ~= nil and #curr_front >= 4 then
+            front_strips[#front_strips + 1] = curr_front
+        end
+
+        -- Store results
+        circle.back_strips = back_strips
+        circle.front_strips = front_strips
+
+        -- Avg z can still be useful for optional ordering if needed
+        circle.avg_z = cz
+    end
 end
 
 --- @brief
@@ -145,6 +276,25 @@ function ow.AirDashNodeParticle:set_is_exploded(b)
         self._explosion_motion:set_target_value(1)
     else
         self._explosion_motion:set_target_value(0)
+    end
+end
+
+--- @brief
+function ow.AirDashNodeParticle:set_aligned(is_aligned, normal_x, normal_y, normal_z)
+    meta.assert(is_aligned, "Boolean")
+    self._is_aligned = is_aligned
+
+    if is_aligned == true then
+        meta.assert(normal_x, "Number")
+        meta.assert(normal_y, "Number")
+        meta.assert(normal_z, "Number")
+
+        self._target_normal_x = normal_x
+        self._target_normal_y = normal_y
+        self._target_normal_z = normal_z
+        self._alignment_motion:set_target_value(1)
+    else
+        self._alignment_motion:set_target_value(0)
     end
 end
 
@@ -162,71 +312,72 @@ end
 
 --- @brief
 function ow.AirDashNodeParticle:update(delta)
-    local speed = 0.05 -- radians per second
+    -- animate rotations
+    local speed = 0.05 -- rotations per second
     self._theta = math.normalize_angle(self._theta + delta * 2 * math.pi * speed)
     self._phi = math.normalize_angle(self._phi + delta * 2 * math.pi * speed)
-    self:_update_rings()
-    self._canvas_needs_update = true
 
+    -- update smoothing motions
     self._explosion_motion:update(delta)
+    self._alignment_motion:update(delta)
+
+    self:_update_segments()
 end
 
+--- @brief
 function ow.AirDashNodeParticle:draw(x, y, draw_shape, draw_core)
-    local line_width = self._canvas:get_width() / 35
-    local w, h = self._canvas:get_size()
-    local r, g, b, a = love.graphics.getColor()
 
-    if self._canvas_needs_update then
+    local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
+
+    local _draw = function(r, g, b, a, line_width, scale)
         love.graphics.push()
-        love.graphics.origin()
-        self._canvas:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.translate(x, y)
 
-        if draw_shape then
-            love.graphics.setLineWidth(line_width)
-            love.graphics.setColor(r, g, b, a * (1 - self._explosion_motion:get_value()))
+        if draw_shape == true then
+            -- Draw BACK strips first (behind core)
+            for i = 1, self._n_circles do
+                local circle = self._circles[i]
 
-            for i = 1, #self._rings_ellipses do
-                local ellipse = self._rings_ellipses[i]
-                love.graphics.push()
-                love.graphics.translate(ellipse.cx, ellipse.cy)
-                love.graphics.rotate(ellipse.angle)
-                love.graphics.ellipse("line", 0, 0, ellipse.rx, ellipse.ry)
-                love.graphics.pop()
+                for _, strip in ipairs(circle.back_strips) do
+                    love.graphics.setColor(r * offset, g * offset, b * offset, a)
+                    love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset))
+                    if #strip >= 4 then
+                        love.graphics.line(strip)
+                    end
+                end
             end
         end
 
-        self._canvas:unbind()
-        love.graphics.pop()
-
-        self._canvas_needs_update = false
-    end
-
-    _outline_shader:bind()
-    _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
-    _outline_shader:send("draw_core", draw_core)
-    _outline_shader:send("brightness_offset", self._brightness_offset)
-    love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
-    _outline_shader:unbind()
-
-    if draw_shape == true then
-        local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
-        love.graphics.push()
-        love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset))
-
-        love.graphics.translate(x, y)
-        love.graphics.setColor(r * offset, g * offset, b * offset, a)
-
-        for i = 1, #self._rings_ellipses do
-            local ellipse = self._rings_ellipses[i]
+        -- Draw CORE in between
+        if draw_core == true then
             love.graphics.push()
-            love.graphics.translate(ellipse.cx, ellipse.cy)
-            love.graphics.rotate(ellipse.angle)
-            love.graphics.ellipse("line", 0, 0, ellipse.rx, ellipse.ry)
+            love.graphics.scale(scale, scale) -- core outline
+            love.graphics.setColor(r, g, b, a)
+            self._core:draw()
             love.graphics.pop()
+        end
+
+        if draw_shape == true then
+            -- Draw FRONT strips last (in front of core)
+            for i = 1, self._n_circles do
+                local circle = self._circles[i]
+
+                for _, strip in ipairs(circle.front_strips) do
+                    love.graphics.setColor(r * offset, g * offset, b * offset, a)
+                    love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset))
+                    if #strip >= 4 then
+                        love.graphics.line(strip)
+                    end
+                end
+            end
         end
 
         love.graphics.pop()
     end
+
+    local r, g, b, a = love.graphics.getColor()
+    local line_width = 2
+    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
+    _draw(black_r, black_g, black_b, a, line_width + 1.5, 1.25)
+    _draw(r, g, b, a, line_width, 1)
 end

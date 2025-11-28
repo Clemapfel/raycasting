@@ -3,7 +3,8 @@ require "common.smoothed_motion_1d"
 rt.settings.overworld.double_jump_tether_particle = {
     explosion_distance = 80, -- px
     scale_offset_distance = 5, -- px
-    brightness_offset = 0.5 -- fraction
+    brightness_offset = 0.5, -- fraction
+    core_radius_factor = 0.35
 }
 
 --- @class ow.DoubleJumpTetherParticle
@@ -12,23 +13,38 @@ ow.DoubleJumpTetherParticle = meta.class("DoubleJumpTetherParticle")
 local _sqrt2 = math.sqrt(2)
 local _sqrt3 = math.sqrt(3)
 local _sqrt6 = math.sqrt(6)
-local _padding = 10
 
 local _outline_shader = rt.Shader("overworld/double_jump_tether_particle.glsl", { MODE = 0 })
+
+local _radius_to_canvas = {}
 
 --- @brief
 function ow.DoubleJumpTetherParticle:instantiate(radius)
     self._theta, self._phi = rt.random.number(0, 2 * math.pi), rt.random.number(0, 2 * math.pi) -- spherical rotation angles
     self._radius = radius
     self._x, self._y, self._z = 0, 0, 0
-    self._canvas = rt.RenderTexture(2 * (radius + _padding), 2 * (radius + _padding))
-    self._canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
     self._explosion_motion = rt.SmoothedMotion1D(0) -- 0: not exploded, 1: fully exploded
     self._explosion_motion:set_speed(2, 1) -- attack, decay, fractional
 
     self._brightness_offset = 0
     self._scale_offset = 0
+
+    local n_outer_vertices = 24
+    local core_radius = rt.settings.overworld.double_jump_tether_particle.core_radius_factor * radius
+    self._core = rt.MeshRing(
+        0, 0,
+        0.75 * core_radius,
+        core_radius,
+        true,
+        n_outer_vertices
+    )
+
+    local n = self._core:get_n_vertices()
+    for i = n, n - n_outer_vertices, -1 do -- outer aliasing
+        self._core:set_vertex_color(i, 1, 1, 1, 0)
+    end
+    self._core:set_vertex_color(1, 1, 1, 1)
 
     self:_update_vertices()
 end
@@ -134,46 +150,45 @@ function ow.DoubleJumpTetherParticle:update(delta)
 end
 
 function ow.DoubleJumpTetherParticle:draw(x, y, draw_shape, draw_core)
-    local line_width = self._canvas:get_width() / 35
-    local w, h = self._canvas:get_size()
+    local line_width = 2
     local r, g, b, a = love.graphics.getColor()
 
-    if self._canvas_needs_update then
+    if draw_core == true then
+        local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
         love.graphics.push()
-        love.graphics.origin()
-        self._canvas:bind()
-        love.graphics.clear(0, 0, 0, 0)
-        love.graphics.translate(0.5 * w, 0.5 *h)
+        love.graphics.translate(x, y)
 
-        if draw_shape then
-            love.graphics.setLineWidth(line_width)
-            love.graphics.setLineJoin("none")
-            love.graphics.setColor(r, g, b, a)
-            love.graphics.line(self._draw_line)
-        end
+        local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
+        love.graphics.setColor(black_r, black_g, black_b, a)
 
-        self._canvas:unbind()
+        love.graphics.setColor(r * offset, g * offset, b * offset, a)
+        self._core:draw()
+
         love.graphics.pop()
-
-        self._canvas_needs_update = false
     end
-
-    _outline_shader:bind()
-    _outline_shader:send("black", { rt.Palette.BLACK:unpack() })
-    _outline_shader:send("draw_core", draw_core)
-    _outline_shader:send("brightness_offset", self._brightness_offset)
-    love.graphics.draw(self._canvas:get_native(), x - 0.5 * w, y - 0.5 * h)
-    _outline_shader:unbind()
 
     if draw_shape == true then
         local offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._brightness_offset)
         love.graphics.push()
-        love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset))
         love.graphics.setLineJoin("none")
 
         love.graphics.translate(x, y)
+
+        local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
+        love.graphics.setColor(black_r, black_g, black_b, a)
+
+        love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset) + 2)
+        love.graphics.line(self._draw_line)
+
+        love.graphics.push()
+        love.graphics.scale(1.33, 1.33) -- core outline
+        self._core:draw()
+        love.graphics.pop()
+
+        love.graphics.setLineWidth(math.mix(line_width, line_width * 1.5, self._brightness_offset))
         love.graphics.setColor(r * offset, g * offset, b * offset, a)
         love.graphics.line(self._draw_line)
+        self._core:draw()
 
         for v in values(self._vertices) do
             love.graphics.circle("fill", v[1], v[2], 0.5 * line_width)
