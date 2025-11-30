@@ -53,6 +53,7 @@ function rt.SceneManager:instantiate()
         _restart_active = false,
 
         -- love.run variables
+        _ignore_next_step = false,
         _frame_i = 0,
         _elapsed = 0,
         _frame_timestamp = love.timer.getTime(),
@@ -426,6 +427,10 @@ end
 rt.SceneManager = rt.SceneManager() -- static global singleton
 
 love.focus = function(b)
+    if rt.SceneManager._is_focused == false and b == true then
+        rt.SceneManager._ignore_next_step = true
+    end
+
     rt.SceneManager._is_focused = b
 end
 
@@ -461,7 +466,14 @@ love.run = function()
 
         -- skip if window unfocused
         local current_scene = rt.SceneManager._current_scene
-        if not state._is_focused and (current_scene == nil or current_scene:get_pause_on_focus_lost() == true) then
+        if state._ignore_next_step == true
+            or (not state._is_focused
+                and (current_scene == nil
+                    or current_scene:get_pause_on_focus_lost() == true
+                )
+            )
+        then
+            state._ignore_next_step = false
             goto skip_update
         end
 

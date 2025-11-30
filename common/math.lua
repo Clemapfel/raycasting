@@ -4,6 +4,47 @@ assert(table.unpack ~= nil)
 if debug.setfenv == nil then debug.setfenv = setfenv end
 assert(debug.setfenv ~= nil)
 
+--- @brief
+function math.mean(values)
+    local sum = 0
+    for i = 1, #values do
+        sum = sum + values[i]
+    end
+    return sum / #values
+end
+math.mean_arithmetic = math.mean
+
+--- @brief
+function math.variance(values)
+    local m = math.mean(values)
+    local s = 0
+    for i = 1, #values do
+        local d = values[i] - m
+        s = s + d * d
+    end
+    return s / #values
+end
+
+--- @brief
+function math.mean_harmonic(values)
+    local inv_sum = 0
+    for i = 1, #values do
+        if values[i] ~= 0 then
+            inv_sum = inv_sum + 1 / values[i]
+        end
+    end
+    return #values / inv_sum
+end
+
+--- @brief
+function math.mean_geometric(values)
+    local log_sum = 0
+    for i = 1, #values do
+        log_sum = log_sum + math.log(values[i])
+    end
+    return math.exp(log_sum / #values)
+end
+
 --- @brief clamp
 --- @param x number
 --- @param lower_bound number
@@ -87,11 +128,6 @@ function math.mix(...)
     elseif n == 9 then
         return math.mix4(...)
     end
-end
-
---- @brief
-function math.mean(a, b)
-    return (a + b) / 2
 end
 
 --- @brief project any angle into [0, 2 * math.pi]

@@ -252,9 +252,9 @@ end
 function ow.PlayerTetherParticleEffect:_draw_batch(batch, is_bloom)
     if is_bloom == nil then is_bloom = false end
 
-    love.graphics.setLineWidth(1)
+    love.graphics.setLineWidth(1.2)
     local alpha = ternary(is_bloom, 0.4, 1)
-
+    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     for particle in values(batch.particles) do
         local radius = particle[_radius] * particle[_mass]
         if radius > 1 then

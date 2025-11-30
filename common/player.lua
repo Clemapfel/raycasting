@@ -2,8 +2,6 @@ require "common.input_subscriber"
 require "physics.physics"
 require "common.player_body"
 require "common.player_trail"
-require "common.player_particles"
-require "common.player_dash_particles"
 require "common.random"
 require "common.palette"
 require "common.smoothed_motion_1d"
@@ -61,6 +59,8 @@ do
         air_acceleration_duration = 15 / 60, -- seconds
         air_deceleration_duration = 15 / 60,
 
+        instant_turnaround_velocity = 600,
+
         coyote_time = 3 / 60,
 
         jump_duration = 11 / 60,
@@ -82,12 +82,6 @@ do
         bounce_max_force = 600,
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
-
-        dash_duration = 3 / 60,
-        instant_dash_velocity = 600,
-        sustained_dash_velocity = 8000,
-        dash_cooldown = 40 / 60,
-        allow_air_dash = true,
 
         double_jump_buffer_duration = 15 / 60,
 
@@ -125,6 +119,8 @@ do
         pulse_radius_factor = 2, -- factor
 
         double_jump_source_particle_density = 0.75, -- fraction
+
+        input_subscriber_priority = 1,
 
         --debug_drawing_enabled = true,
     }
@@ -230,6 +226,9 @@ function rt.Player:instantiate()
         _wall_jump_freeze_elapsed = math.huge,
         _wall_jump_freeze_sign = 0,
 
+        _jump_allowed_override = nil, -- Boolean
+        _jump_disabled = nil, -- Boolean
+
         _bounce_direction_x = 0,
         _bounce_direction_y = 0,
         _bounce_force = 0,
@@ -268,7 +267,6 @@ function rt.Player:instantiate()
         _up_button_is_down = false,
         _jump_button_is_down = false,
         _sprint_button_is_down = false,
-        _dash_button_is_down = false,
 
         _left_button_is_down_elapsed = 0,
         _right_button_is_down_elapsed = 0,
@@ -276,7 +274,6 @@ function rt.Player:instantiate()
         _up_button_is_down_elapsed = 0,
         _jump_button_is_down_elapsed = 0,
         _sprint_button_is_down_elapsed = 0,
-        _dash_button_is_down_elapsed = 0,
 
         _sprint_multiplier = 1,
         _next_sprint_multiplier = 1,
@@ -347,24 +344,14 @@ function rt.Player:instantiate()
         _use_bubble_mesh = false, -- cf. draw
         _use_bubble_mesh_delay_n_steps = 0,
 
-        _input = rt.InputSubscriber(),
+        _input = rt.InputSubscriber(_settings.input_subscriber_priority),
+        _ignore_jump_stack = 0,
         _joystick_gesture = rt.JoystickGestureDetector(),
         _idle_elapsed = 0,
 
         -- double jump
         _double_jump_sources = {},
         _double_jump_disallowed = true,
-
-        -- air dash
-        _dash_sources = {},
-        _dash_elapsed = math.huge,
-        _dash_cooldown_elapsed = math.huge,
-        _dash_direction = rt.Direction.RIGHT,
-        _dash_allowed = false,
-        _is_dashing = false,
-        _dash_particles = rt.PlayerDashParticles(),
-        _dash_direction_x = 0,
-        _dash_direction_y = -1,
 
         _use_analog_input = rt.InputManager:get_input_method() == rt.InputMethod.CONTROLLER,
 
@@ -375,7 +362,7 @@ function rt.Player:instantiate()
 
         -- animation
         _pulses = {}, -- Table<love.Timestamp>
-        _pulse_mesh = nil -- rt.Mesh
+        _pulse_mesh = nil, -- rt.Mesh,
     })
 
     for i = 1, 2 * _settings.position_history_n, 2 do
@@ -401,18 +388,26 @@ end
 
 --- @brief
 function rt.Player:_connect_input()
-
     self._input:signal_connect("pressed", function(_, which, count)
         if self._state == rt.PlayerState.DISABLED then return end
 
-        if which == rt.InputAction.DASH then
-            self._dash_button_is_down = true
-            self._dash_button_is_down_elapsed = 0
+        local queue_sprint = function()
+            self._sprint_toggled = not self._sprint_toggled
+            if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.TOGGLE then
+                self._next_sprint_multiplier = ternary(self._sprint_toggled, _settings.sprint_multiplier, 1)
+            else
+                self._next_sprint_multiplier = _settings.sprint_multiplier
+            end
+            self._next_sprint_multiplier_update_when_grounded = true
+        end
 
-            if self._state == rt.PlayerState.DISABLED then return end
+        local queue_turnaround = function(direction)
+            self._queue_turn_around = true
+            self._queue_turn_around_direction = direction
+            queue_sprint()
+        end
 
-            self:dash()
-        elseif which == rt.InputAction.JUMP then
+        if which == rt.InputAction.JUMP then
             self._jump_button_is_down = true
             self._jump_button_is_down_elapsed = 0
 
@@ -429,14 +424,7 @@ function rt.Player:_connect_input()
             self._sprint_button_is_down = true
             self._sprint_button_is_down_elapsed = 0
 
-            self._sprint_toggled = not self._sprint_toggled
-            if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.TOGGLE then
-                self._next_sprint_multiplier = ternary(self._sprint_toggled, _settings.sprint_multiplier, 1)
-            else
-                self._next_sprint_multiplier = _settings.sprint_multiplier
-            end
-
-            self._next_sprint_multiplier_update_when_grounded = true
+            queue_sprint()
         elseif which == rt.InputAction.Y then
             -- noop
         elseif which == rt.InputAction.LEFT then
@@ -445,32 +433,28 @@ function rt.Player:_connect_input()
 
             -- on double press, instant turnaround
             if count == 2 then
-                self._queue_turn_around = true
-                self._queue_turn_around_direction = rt.Direction.LEFT
+                queue_turnaround(rt.Direction.LEFT)
             end
         elseif which == rt.InputAction.RIGHT then
             self._right_button_is_down = true
             self._right_button_is_down_elapsed = 0
 
             if count == 2 then
-                self._queue_turn_around = true
-                self._queue_turn_around_direction = rt.Direction.RIGHT
+                queue_turnaround(rt.Direction.RIGHT)
             end
         elseif which == rt.InputAction.DOWN then
             self._down_button_is_down = true
             self._down_button_is_down_elapsed = 0
 
             if count == 2 then
-                self._queue_turn_around = true
-                self._queue_turn_around_direction = rt.Direction.DOWN
+                queue_turnaround(rt.Direction.DOWN)
             end
         elseif which == rt.InputAction.UP then
             self._up_button_is_down = true
             self._up_button_is_down_elapsed = 0
 
             if count == 2 then
-                self._queue_turn_around = true
-                self._queue_turn_around_direction = rt.Direction.UP
+                queue_turnaround(rt.Direction.UP)
             end
         end
     end)
@@ -478,12 +462,7 @@ function rt.Player:_connect_input()
     self._input:signal_connect("released", function(_, which, count)
         if self._state == rt.PlayerState.DISABLED then return end
 
-        if which == rt.InputAction.DASH then
-            self._dash_button_is_down = false
-            self._dash_button_is_down_elapsed = 0
-            self._is_dashing = false -- dash needs to be held to complete
-
-        elseif which == rt.InputAction.JUMP then
+        if which == rt.InputAction.JUMP then
             self._jump_button_is_down = false
             self._spring_multiplier = 1
             self._jump_button_is_down_elapsed = 0
@@ -656,9 +635,7 @@ function rt.Player:update(delta)
         self._trail:set_velocity(self:get_velocity())
         self._trail:set_hue(self:get_hue())
         self._trail:update(delta)
-
-        self._dash_particles:update(delta)
-
+        
         do
             local to_remove = {}
             for i, pulse in ipairs(self._pulses) do
@@ -1064,15 +1041,6 @@ function rt.Player:update(delta)
             local sprint_multiplier = self._sprint_multiplier
             local target_velocity_x = magnitude * target * sprint_multiplier
 
-            if magnitude ~= 0 then
-                -- update dash direction, remembers last intended direction
-                if target_velocity_x < 0 then
-                    self._dash_direction = rt.Direction.LEFT
-                elseif target_velocity_x > 0 then
-                    self._dash_direction = rt.Direction.RIGHT
-                end
-            end
-
             current_velocity_x = current_velocity_x - self._platform_velocity_x
             current_velocity_y = current_velocity_y - self._platform_velocity_y
 
@@ -1392,6 +1360,12 @@ function rt.Player:update(delta)
 
             local is_jumping = false
 
+            if self._jump_disabled == true then
+                -- reset jump button state to prevent buffering jump when air node dashing with
+                -- double jump tether
+                self._jump_button_is_down = false
+            end
+
             if self._jump_button_is_down and not self._movement_disabled then
                 if self._jump_allowed_override ~= nil then
                     -- jump override
@@ -1662,58 +1636,15 @@ function rt.Player:update(delta)
             if self._queue_turn_around == true then
                 local vx, vy = self:get_velocity()
                 if self._queue_turn_around_direction == rt.Direction.RIGHT and is_grounded then
-                    next_velocity_x = math.max(math.abs(vx), _settings.instant_dash_velocity)
+                    next_velocity_x = math.max(math.abs(vx), _settings.instant_turnaround_velocity)
                 elseif self._queue_turn_around_direction == rt.Direction.LEFT and is_grounded then
-                    next_velocity_x = -1 * math.max(math.abs(vx), _settings.instant_dash_velocity)
+                    next_velocity_x = -1 * math.max(math.abs(vx), _settings.instant_turnaround_velocity)
                 elseif self._queue_turn_around_direction == rt.Direction.DOWN then -- even in air
-                    next_velocity_y = math.max(math.abs(vy), _settings.instant_dash_velocity)
+                    next_velocity_y = math.max(math.abs(vy), _settings.instant_turnaround_velocity)
                 end
 
                 -- noop on rt.Direction.UP
-
                 self._queue_turn_around = false
-            end
-
-            do
-                local before = self._is_dashing
-                self._dash_cooldown_elapsed = self._dash_cooldown_elapsed + delta
-
-                local hit, contact_x, contact_y, normal_x, normal_y = self:_get_ground_normal()
-                if not hit then
-                    contact_x, contact_y = self:get_position()
-                    normal_x, normal_y = math.flip(math.normalize(self:get_velocity()))
-                end
-
-                if self._is_dashing then
-                    local dash_fraction = math.min(self._dash_elapsed / _settings.dash_duration, 1)
-                    self._dash_elapsed = self._dash_elapsed + delta
-                    local t = rt.InterpolationFunctions.CONSTANT(dash_fraction, 1)
-
-                    if (_settings.allow_air_dash or hit or down_is_down) and dash_fraction < 1 then
-                        next_velocity_x = next_velocity_x + t * self._dash_direction_x * _settings.sustained_dash_velocity * delta
-                        next_velocity_y = next_velocity_y + t * self._dash_direction_y * _settings.sustained_dash_velocity * delta
-
-                        if dash_fraction == 0 then
-                            self._dash_particles:start( -- start new trail
-                                contact_x, contact_y,
-                                normal_x, normal_y,
-                                self:get_hue()
-                            )
-                        elseif dash_fraction <= 1 then
-                            self._dash_particles:append( -- start new trail
-                                contact_x, contact_y,
-                                normal_x, normal_y,
-                                self:get_hue()
-                            )
-                        end
-
-                        if not down_is_down and not _settings.allow_air_dash and not hit then
-                            self._is_dashing = false
-                        end
-                    else
-                        self._is_dashing = false
-                    end
-                end
             end
 
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
@@ -1961,15 +1892,7 @@ function rt.Player:update(delta)
     end
 
     do -- update trail
-        local flow = rt.InterpolationFunctions.SINUSOID_EASE_IN(self._flow)
-        local dash = rt.InterpolationFunctions.ENVELOPE(
-            1 - math.min(1, self._dash_cooldown_elapsed / _settings.dash_cooldown),
-            0.05,
-            0.2
-        )
-        dash = 0
-
-        local value = math.max(flow, dash)
+        local value = rt.InterpolationFunctions.SINUSOID_EASE_IN(self._flow)
         self._trail:set_glow_intensity(value)
         self._trail:set_boom_intensity(value)
         self._trail:set_trail_intensity(value)
@@ -2344,9 +2267,7 @@ end
 --- @brief
 function rt.Player:draw_core()
     if self._is_visible == false then return end
-
-    self._dash_particles:draw()
-
+    
     local radius = self._core_radius
     local x, y = self:get_predicted_position()
 
@@ -2466,6 +2387,11 @@ function rt.Player:set_jump_allowed(b)
         self._down_elapsed = 0
         self._wall_down_elapsed = 0
     end
+end
+
+--- @brief
+function rt.Player:set_jump_disabled(b)
+    self._jump_disabled = b
 end
 
 --- @brief
@@ -2909,70 +2835,6 @@ function rt.Player:_get_ground_normal()
 end
 
 --- @brief
-function rt.Player:dash(axis_x, axis_y)
-    if self._dash_direction == rt.Direction.NONE
-        or self._dash_cooldown_elapsed < _settings.dash_cooldown
-    then return end
-
-    local controller_x, controller_y = rt.InputManager:get_left_joystick()
-
-    if math.abs(controller_x) < 0.5 then controller_x = 0 end
-    if math.abs(controller_y) < 0.5 then controller_y = 0 end
-
-    local dx, dy = 0, 0
-    if rt.InputManager:get_is_down(rt.InputAction.LEFT) or controller_x < 0 then
-        dx = dx - 1
-    end
-
-    if rt.InputManager:get_is_down(rt.InputAction.RIGHT) or controller_x > 0 then
-        dx = dx + 1
-    end
-
-    if rt.InputManager:get_is_down(rt.InputAction.UP) or controller_y < 0 then
-        dy = dy - 1
-    end
-
-    if rt.InputManager:get_is_down(rt.InputAction.DOWN) or controller_y > 0 then
-        dy = dy + 1
-    end
-
-    local hit, contact_x, contact_y, normal_x, normal_y = self:_get_ground_normal()
-    if hit then
-        if _settings.allow_air_dash and dx == 0 and dy == -1 then -- if neutral, dash upwards
-            dx, dy = 0, -1
-        else
-            if dx < 0 then
-                dx, dy = math.turn_left(normal_x, normal_y)
-            elseif dx > 0 then
-                dx, dy = math.turn_right(normal_x, normal_y)
-            else -- else, use last known direction
-                if self._dash_direction == rt.Direction.LEFT then
-                    dx, dy = math.turn_left(normal_x, normal_y)
-                elseif self._dash_direction == rt.Direction.RIGHT then
-                    dx, dy = math.turn_right(normal_x, normal_y)
-                end
-            end
-        end
-    elseif not _settings.allow_air_dash then
-        return
-    end
-
-    if math.equals(math.magnitude(dx, dy), 0) then end -- air neutral or grounded with no known direction
-
-    self._dash_direction_x, self._dash_direction_y = math.normalize(dx, dy)
-    self._is_dashing = true
-    self._dash_cooldown_elapsed = 0
-    self._dash_elapsed = 0
-    self._graphics_body:set_down_squish(false) -- "pump" motion
-
-    -- instantly accelerate to dash speed
-    self:set_velocity(
-        self._dash_direction_x * _settings.instant_dash_velocity,
-        self._dash_direction_y * _settings.instant_dash_velocity
-    )
-end
-
---- @brief
 function rt.Player:add_double_jump_source(instance)
     table.insert(self._double_jump_sources, 1, instance)
 end
@@ -3081,16 +2943,14 @@ function rt.Player:reset()
     self._left_wall = false
     self._top_left_wall = false
 
-    self._is_dashing = false
-    self._dash_elapsed = math.huge
-
     self._jump_button_is_down = self._input:get_is_down(rt.InputAction.JUMP)
-    self._dash_button_is_down = self._input:get_is_down(rt.InputAction.DASH)
     self._sprint_button_is_down = self._input:get_is_down(rt.InputAction.SPRINT)
     self._up_button_is_down = self._input:get_is_down(rt.InputAction.UP)
     self._down_button_is_down = self._input:get_is_down(rt.InputAction.DOWN)
     self._right_button_is_down = self._input:get_is_down(rt.InputAction.RIGHT)
     self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
+
+    self._sprint_multiplier = _settings.sprint_multiplier
 end
 
 --- @brief
@@ -3154,4 +3014,13 @@ function rt.Player:pulse(color_maybe)
         timestamp = love.timer.getTime(),
         color = color_maybe or rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     })
+end
+
+--- @brief
+function rt.Player:set_ignore_next_jump(b)
+    if b == true then
+        self._ignore_jump_stack = self._ignore_jump_stack + 1
+    elseif b == false then
+        self._ignore_jump_stack = math.max(0, self._ignore_jump_stack - 1)
+    end
 end

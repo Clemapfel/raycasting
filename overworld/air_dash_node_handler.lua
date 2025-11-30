@@ -24,19 +24,11 @@ function ow.AirDashNodeHandler:instantiate(scene, stage)
     self._tether_exit_line = {} -- Array<Number, 4>
     self._tether_exit_sign = 0
 
+    self._input = rt.InputSubscriber(rt.settings.player.input_subscriber_priority + 1)
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        if which == rt.InputAction.JUMP then
-            if self._tethered_node ~= nil
-                and self._next_node ~= nil
-                and self._next_node ~= self._tethered_node
-            then
-                -- if already tethered, swap to new node
-                self:_tether(self._next_node)
-            elseif self._tethered_node == nil
-                and self._next_node ~= nil
-            then
-                -- if not tethered, tether
+        if which == rt.InputAction.JUMP and self._next_node ~= nil then
+            if self._tethered_node ~= self._next_node then
                 self:_tether(self._next_node)
             end
         end
@@ -95,6 +87,8 @@ function ow.AirDashNodeHandler:_tether(node)
         player_x, player_y,
         self._tether_sign_line
     )
+
+    player:pulse(node:get_color())
 end
 
 --- @brief
@@ -106,24 +100,12 @@ end
 
 --- @brief
 function ow.AirDashNodeHandler:notify_node_added(node)
-    local x, y = node:get_position()
-    local radius = node:get_radius()
-
-    local entry = {
-        cooldown_elapsed = math.huge,
-        x = x,
-        y = y,
-        radius = radius
-    }
-
-    self._node_to_entry = entry
-
     -- prepare body for aabb query
     local body = node:get_body()
     body:set_user_data(node)
     body:set_collision_group(rt.settings.overworld.air_dash_node_handler.node_collision_group)
 
-    self._max_node_radius = math.max(self._max_node_radius, radius)
+    self._max_node_radius = math.max(self._max_node_radius, node:get_radius())
 end
 
 --- @brief
@@ -172,19 +154,27 @@ function ow.AirDashNodeHandler:update(delta)
         rt.settings.overworld.air_dash_node_handler.node_collision_group
     )
 
+    local disable_double_jump = false -- in range of at least one node
+
     local entries = {}
     for body in values(bodies) do
         local node = body:get_user_data()
-        if not node:get_is_on_cooldown() then
+        local on_cooldown = node:get_is_on_cooldown()
+        if not on_cooldown then
             local node_x, node_y = node:get_position()
             local dx, dy = math.normalize(px - node_x, py - node_y)
+            local distance =  math.distance(px, py, node_x, node_y)
             table.insert(entries, {
                 node = node,
-                distance = math.distance(px, py, node_x, node_y),
+                distance = distance,
                 dx = dx,
                 dy = dy,
                 alignment = math.dot(dx, dy, pvx, pvy)
             })
+
+            if distance < node:get_radius() + 2 * player:get_radius() then
+                disable_double_jump = true
+            end
         end
     end
 
@@ -215,4 +205,7 @@ function ow.AirDashNodeHandler:update(delta)
         self._next_node = best_entry.node
         self._next_node:set_is_current(true)
     end
+
+    -- disable double jump while in range
+    player:set_jump_disabled(disable_double_jump)
 end
