@@ -16,6 +16,7 @@ rt.settings.overworld.dialog_emitter = {
 --- @field target Object? if set, emitter will be positioned on object centroid
 --- @field should_lock Boolean? if dialog should lock player movement
 ow.DialogEmitter = meta.class("DialogEmitter")
+meta.add_signal(ow.DialogEmitter, "start", "end")
 
 --- @brief
 function ow.DialogEmitter:instantiate(object, stage, scene)
@@ -118,17 +119,11 @@ function ow.DialogEmitter:instantiate(object, stage, scene)
     -- show scene control indicator, delayed automatically
     self._resize_handler = nil
     self._dialog_sensor:signal_connect("collision_start", function(_)
-        if not self._dialog_box_active then
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.INTERACT)
-            self._interact_allowed = true
-        end
+        self:set_is_active(true)
     end)
 
     self._dialog_sensor:signal_connect("collision_end", function(_)
-        if not self._dialog_box_active then
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
-            self._interact_allowed = false
-        end
+        self:set_is_active(false)
     end)
 
     self._stage:signal_connect("respawn", function()
@@ -155,6 +150,7 @@ end
 
 --- @brief
 function ow.DialogEmitter:_start_dialog()
+    self:signal_emit("start")
     self:_reformat_dialog_box()
     self._dialog_box_active = true
     self._dialog_box:reset()
@@ -206,6 +202,7 @@ function ow.DialogEmitter:_end_dialog()
     end
 
     self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+    self:signal_emit("end")
 end
 
 --- @brief
@@ -257,4 +254,27 @@ end
 function ow.DialogEmitter:reset()
     self._dialog_box_active = false
     self._dialog_box:reset()
+end
+
+--- @brief
+function ow.DialogEmitter:get_sensor()
+    return self._dialog_sensor
+end
+
+--- @brief
+function ow.DialogEmitter:set_target(target)
+    self._target = target
+end
+
+
+function ow.DialogEmitter:set_is_active(b)
+    if not self._dialog_box_active then
+        if b == true then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.INTERACT)
+            self._interact_allowed = true
+        elseif b == false then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+            self._interact_allowed = false
+        end
+    end
 end

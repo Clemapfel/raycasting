@@ -142,7 +142,7 @@ function ow.OverworldScene:instantiate(state)
 
     self._dialog_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.A, translation.control_indicator_dialog_confirm,
-        rt.ControlIndicatorButton.X, translation.control_indicator_dialog_leave
+        rt.ControlIndicatorButton.INTERACT, translation.control_indicator_dialog_leave
     )
     self._dialog_control_indicator:set_has_frame(false)
 

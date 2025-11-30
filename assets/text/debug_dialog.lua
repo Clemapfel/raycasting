@@ -7,8 +7,9 @@ return {
     {
         speaker = NPC,
         orientation = NPC_SIDE,
+        next = nil,
 
-        "Did you finally put <b><wave><rainbow>DIALOG</rainbow></wave></b> in the game?"
+        "Are|| you|||| sure about that?"
     },
 
     {

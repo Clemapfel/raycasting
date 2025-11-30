@@ -2,12 +2,15 @@ require "common.shader"
 require "common.mesh"
 require "common.color"
 require "common.palette"
+require "common.blur"
 require "common.interpolation_functions"
 require "common.smoothed_motion_1d"
 require "common.render_texture"
 require "common.render_texture_3d"
 
 rt.settings.overworld.player_recorder_eyes = {
+    canvas_scale = 1.5,
+
     blink_duration = 0.2,
     blink_time_between_min = 1.0,
     blink_time_between_max = 5.0,
@@ -23,14 +26,15 @@ rt.settings.overworld.player_recorder_eyes = {
     angry_slope = 0.35
 }
 
-ow.PlayerRecorderEyes = meta.class("PlayerRecorderEyes")
+ow.NPCEyes = meta.class("NPCEyes")
 
 local _base_shader = rt.Shader("common/player_body_core.glsl")
 
 local _STATE_IDLE = "idle"
 local _STATE_BLINKING = "blinking"
 
-function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
+-- add canvas_scale to instance
+function ow.NPCEyes:instantiate(position_x, position_y, radius)
     self._radius = radius
     self._position_x = position_x or 0
     self._position_y = position_y or 0
@@ -42,6 +46,10 @@ function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
     self._target_y = self._position_y
 
     self._canvas_needs_update = true
+
+    -- scale used for internal rendering resolution
+    local settings = rt.settings.overworld.player_recorder_eyes
+    self._canvas_scale = settings.canvas_scale or 1
 
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
@@ -69,7 +77,6 @@ function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
 
     self._blink_timer = 0
 
-    local settings = rt.settings.overworld.player_recorder_eyes
     self._blink_duration = settings.blink_duration
     self._blink_time_between_min = settings.blink_time_between_min
     self._blink_time_between_max = settings.blink_time_between_max
@@ -84,25 +91,25 @@ function ow.PlayerRecorderEyes:instantiate(radius, position_x, position_y)
     self:_initialize_3d()
 end
 
-function ow.PlayerRecorderEyes:_initialize_eyes()
-    local ratio = rt.settings.overworld.player_recorder_eyes.aspect_ratio
-    local spacing_factor = rt.settings.overworld.player_recorder_eyes.spacing_factor
+-- initialize eye geometry; scale all local-space dimensions by self._canvas_scale
+function ow.NPCEyes:_initialize_eyes()
+    local settings = rt.settings.overworld.player_recorder_eyes
+    local ratio = settings.aspect_ratio
+    local spacing_factor = settings.spacing_factor
+    local scale = self._canvas_scale or 1
 
-    -- Calculate base dimensions
+    -- unscaled base dims
     local base_y_radius = ratio * self._radius
     local base_x_radius = ratio * base_y_radius
     local base_spacing = spacing_factor * self._radius
 
-    -- Calculate total width required for both eyes
     local total_width = 2 * base_x_radius + base_spacing
+    local base_scale_factor = self._radius / total_width
 
-    -- Scale down if needed to fit within radius
-    local scale_factor = self._radius / total_width
-
-    -- Apply scaling while maintaining ratios
-    local eye_x_radius = base_x_radius * scale_factor
-    local eye_y_radius = base_y_radius * scale_factor
-    local spacing = base_spacing * scale_factor
+    -- apply original fit, then canvas scale
+    local eye_x_radius = (base_x_radius * base_scale_factor) * scale
+    local eye_y_radius = (base_y_radius * base_scale_factor) * scale
+    local spacing = (base_spacing * base_scale_factor) * scale
 
     local center_x, center_y = 0, 0
     local left_x = center_x - eye_x_radius - 0.5 * spacing
@@ -153,7 +160,6 @@ function ow.PlayerRecorderEyes:_initialize_eyes()
         local y = math.sin(angle) * eye_y_radius
 
         local u, v = position_to_uv(x, y)
-
         local gradient_v = (math.sin(angle) + 1) / 2
 
         table.insert(self._base_left_data, {
@@ -173,12 +179,14 @@ function ow.PlayerRecorderEyes:_initialize_eyes()
     self._base_left = rt.Mesh(self._base_left_data)
     self._base_right = rt.Mesh(self._base_right_data)
 
-    self._outline_width = self._radius / 40
+    -- scale outline width with canvas scale so visual thickness stays when downscaled
+    self._outline_width = (self._radius / 40) * scale
     self._hue = 0.2
     self._outline_color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
 
-    local highlight_x_radius = rt.settings.overworld.player_recorder_eyes.highlight_x_factor * eye_x_radius
-    local highlight_y_radius = rt.settings.overworld.player_recorder_eyes.highlight_y_factor * eye_y_radius
+    -- highlights (scale all)
+    local highlight_x_radius = settings.highlight_x_factor * eye_x_radius
+    local highlight_y_radius = settings.highlight_y_factor * eye_y_radius
     local highlight_x_offset = -0.05 * eye_x_radius
     local highlight_y_offset = -1 * (eye_y_radius - highlight_y_radius) + 0.15 * eye_y_radius
 
@@ -215,7 +223,7 @@ function ow.PlayerRecorderEyes:_initialize_eyes()
 
     do
         local v = 1
-        self._highlight_color = { v, v, v, rt.settings.overworld.player_recorder_eyes.highlight_intensity }
+        self._highlight_color = { v, v, v, settings.highlight_intensity }
     end
 
     -- init current outline buffers
@@ -223,8 +231,9 @@ function ow.PlayerRecorderEyes:_initialize_eyes()
     self._current_right_outline = { table.unpack(self._base_right_outline) }
 end
 
+
 -- compute eye centers based on current geom (without deformation)
-function ow.PlayerRecorderEyes:_get_eye_centers()
+function ow.NPCEyes:_get_eye_centers()
     local left_x = -self._eye_x_radius - 0.5 * self._eye_spacing
     local right_x = self._eye_x_radius + 0.5 * self._eye_spacing
     local cy = self._eye_center_y
@@ -232,7 +241,7 @@ function ow.PlayerRecorderEyes:_get_eye_centers()
 end
 
 -- local deformation for a single point in local eye space (center at origin)
-function ow.PlayerRecorderEyes:_deform_point(local_x, local_y, is_left)
+function ow.NPCEyes:_deform_point(local_x, local_y, is_left)
     local xr = self._eye_x_radius
     local yr = self._eye_y_radius
 
@@ -283,7 +292,7 @@ function ow.PlayerRecorderEyes:_deform_point(local_x, local_y, is_left)
 end
 
 -- recompute mesh vertex positions and outlines according to current emotions
-function ow.PlayerRecorderEyes:_update_deformed_geometry()
+function ow.NPCEyes:_update_deformed_geometry()
     local left_cx, cy, right_cx, _ = self:_get_eye_centers()
 
     -- update left mesh + outline
@@ -327,37 +336,42 @@ function ow.PlayerRecorderEyes:_update_deformed_geometry()
     self._current_right_outline = right_outline
 end
 
---- @brief
-function ow.PlayerRecorderEyes:_initialize_3d()
+
+-- scale offscreen textures and 3D scene by canvas_scale; downscale later when drawing
+function ow.NPCEyes:_initialize_3d()
     local settings = rt.settings.overworld.player_recorder_eyes
     local radius = self._radius
     local padding = 0.1 * self._radius
+    local scale = self._canvas_scale or 1
 
-    -- mesh texture
-    self._eyes_texture = rt.RenderTexture(
-        2 * (radius + padding),
-        2 * (radius + padding),
-        4 -- msaa
-    )
+    local r_scaled = radius * scale
+    local p_scaled = padding * scale
+
+    -- mesh texture (scaled resolution)
+    local tex_w = math.ceil(2 * (r_scaled + p_scaled))
+    local tex_h = math.ceil(2 * (r_scaled + p_scaled))
+    self._eyes_texture = rt.RenderTexture(tex_w, tex_h, 4) -- msaa
     self._eyes_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
-    self._3d_texture = rt.RenderTexture3D(
-        2 * (radius + 2 * padding),
-        2 * (radius + 2 * padding),
-        4
-    )
+    -- 3D texture (scaled resolution)
+    local tex3_w = math.ceil(2 * (r_scaled + 2 * p_scaled))
+    local tex3_h = math.ceil(2 * (r_scaled + 2 * p_scaled))
+    self._3d_texture = rt.RenderTexture3D(tex3_w, tex3_h, 4)
     self._3d_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
+    -- transforms scaled to keep same composition when downscaling later
     self._model_transform = rt.Transform()
     self._view_transform = rt.Transform()
-    self._view_transform:translate(0, 0, -1 * (radius + padding))
+    self._view_transform:translate(0, 0, -1 * (r_scaled + p_scaled))
 
     self._center_x, self._center_y, self._center_z = 0, 0, 0
+
+    -- plane size derives from texture size; curvature scaled with radius
     self._eye_mesh = rt.MeshPlane(
         self._center_x, self._center_y, self._center_z,
         self._eyes_texture:get_width() / 4,
         self._eyes_texture:get_height() / 4,
-        radius / 7 -- curvature
+        (radius / 7) * scale -- curvature
     )
     self._eye_mesh:set_texture(self._eyes_texture)
 
@@ -367,7 +381,8 @@ function ow.PlayerRecorderEyes:_initialize_3d()
     self._canvas_needs_update = true
 end
 
-function ow.PlayerRecorderEyes:draw()
+-- draw: render high-res offscreen, then draw downscaled to original size/position
+function ow.NPCEyes:draw()
     if self._canvas_needs_update then
         self._canvas_needs_update = false
 
@@ -405,7 +420,7 @@ function ow.PlayerRecorderEyes:draw()
         end
 
         rt.Palette.BLACK:bind()
-        love.graphics.setLineWidth(self._outline_width + 2)
+        love.graphics.setLineWidth(self._outline_width + 2 * (self._canvas_scale or 1) / (self._canvas_scale or 1)) -- keep same scaled thickness adjustment
         love.graphics.line(self._current_left_outline)
         love.graphics.line(self._current_right_outline)
 
@@ -451,16 +466,16 @@ function ow.PlayerRecorderEyes:draw()
         target_y = target_y - self._position_y
 
         local target_z = -10
-        local turn_magnitude_x = 10 -- the higher, the less it will react along that axis
+        local turn_magnitude_x = 30 -- the higher, the less it will react along that axis
         local turn_magnitude_y = 30
 
         self._model_transform = rt.Transform()
         self._model_transform:set_target_to(
             self._center_x, self._center_y, self._center_z,
             target_x / turn_magnitude_x,
-            target_y / turn_magnitude_y, -- separate value for y to prevent roll
+            target_y / turn_magnitude_y,
             target_z,
-            0, 1, 0 -- up
+            0, 1, 0
         )
 
         self._model_transform:as_inverse()
@@ -481,7 +496,7 @@ function ow.PlayerRecorderEyes:draw()
         canvas:unbind()
         love.graphics.pop()
 
-        -- blur
+        -- blur pass (kept at high-res)
         love.graphics.push("all")
         love.graphics.origin()
         self._blur:bind()
@@ -491,18 +506,19 @@ function ow.PlayerRecorderEyes:draw()
         love.graphics.pop()
     end
 
-    local texture = self._3d_texture:get_native()--self._blur:get_texture()
+    -- final draw: downscale to original on-screen size/position
+    local texture = self._3d_texture:get_native() -- or self._blur:get_texture()
+    local ds = 1 / (self._canvas_scale or 1)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(
         texture,
         self._position_x, self._position_y,
-        0, 1, 1,
+        0, ds, ds,
         0.5 * texture:getWidth(), 0.5 * texture:getHeight()
     )
 end
 
-function ow.PlayerRecorderEyes:draw_bloom()
-    --[[
+function ow.NPCEyes:draw_bloom()
     love.graphics.push()
     love.graphics.translate(self._position_x, self._position_y)
 
@@ -542,10 +558,9 @@ function ow.PlayerRecorderEyes:draw_bloom()
     end
 
     love.graphics.pop()
-    ]]--
 end
 
-function ow.PlayerRecorderEyes:update(delta)
+function ow.NPCEyes:update(delta)
     self._hue = self._hue + delta / 100
     self._elapsed = self._elapsed + delta
     self._outline_color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
@@ -589,42 +604,49 @@ function ow.PlayerRecorderEyes:update(delta)
     self._canvas_needs_update = true
 end
 
-function ow.PlayerRecorderEyes:set_position(position_x, position_y)
+function ow.NPCEyes:set_position(position_x, position_y)
     self._position_x, self._position_y = position_x, position_y
-    self._target_x, self._target_y = position_x, position_y
 end
 
-function ow.PlayerRecorderEyes:get_position()
+function ow.NPCEyes:get_position()
     return self._position_x, self._position_y
 end
 
-function ow.PlayerRecorderEyes:get_radius()
+function ow.NPCEyes:set_target(target_x, target_y)
+    self._target_x, self._target_y = target_x, target_y
+end
+
+function ow.NPCEyes:get_target()
+    return self._target_x, self._target_y
+end
+
+function ow.NPCEyes:get_radius()
     return self._radius
 end
 
-function ow.PlayerRecorderEyes:get_color()
+function ow.NPCEyes:get_color()
     return self._outline_color
 end
 
 -- emotion API (values clamped to [0,1])
-function ow.PlayerRecorderEyes:set_happy(v)
+function ow.NPCEyes:set_happy(v)
     self._happy:set_target_value(math.clamp(v or 0, 0, 1))
 end
 
-function ow.PlayerRecorderEyes:set_angry(v)
+function ow.NPCEyes:set_angry(v)
     self._angry:set_target_value(math.clamp(v or 0, 0, 1))
 end
 
-function ow.PlayerRecorderEyes:set_sleepy(v)
+function ow.NPCEyes:set_sleepy(v)
     self._sleepy:set_target_value(math.clamp(v or 0, 0, 1))
 end
 
-function ow.PlayerRecorderEyes:set_surprised(v)
+function ow.NPCEyes:set_surprised(v)
     self._surprised:set_target_value(math.clamp(v or 0, 0, 1))
 end
 
 -- optional batch setter
-function ow.PlayerRecorderEyes:set_emotions(happy, angry, sleepy, surprised)
+function ow.NPCEyes:set_emotions(happy, angry, sleepy, surprised)
     if happy ~= nil then self:set_happy(happy) end
     if angry ~= nil then self:set_angry(angry) end
     if sleepy ~= nil then self:set_sleepy(sleepy) end

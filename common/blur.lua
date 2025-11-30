@@ -138,3 +138,8 @@ function rt.Blur:get_texture()
     return self._texture_a
 end
 
+
+--- @brief
+function rt.Blur:get_size()
+    return self._texture_w, self._texture_h
+end

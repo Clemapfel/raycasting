@@ -488,7 +488,7 @@ end
 
 --- @brief [internal]
 function ow.DialogBox:_advance()
-    if self._active_node == nil or self._active_node.type ~= _node_type_text then return end
+    if self._active_node == nil or self._active_node.type ~= _node_type_text then return false end
 
     local sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
 
@@ -510,10 +510,16 @@ function ow.DialogBox:_advance()
             rt.SoundManager:play(sound_id)
         end
     end
+
+    return true
 end
 
 --- @brief
 function ow.DialogBox:handle_button(which)
+    if which == rt.InputAction.INTERACT then
+        self:_set_active_node(nil)
+    end
+
     if self._active_choice_node ~= nil then
         local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
         local confirm_sound_id = rt.settings.overwold.dialog_box.menu_confirm_sound_id
