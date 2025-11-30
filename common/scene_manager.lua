@@ -8,6 +8,7 @@ require "common.thread_manager"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
+    performance_metrics_n_frames = 144,
     fade_duration = 0.2,
 }
 
@@ -27,8 +28,6 @@ _G.exit = function(status)
     _G._exit(status)
 end
 
-local _frame_i = 0
-
 --- @brief
 function rt.SceneManager:instantiate()
     meta.install(self, {
@@ -44,19 +43,40 @@ function rt.SceneManager:instantiate()
         _fade = rt.Fade(),
         _should_use_fade = false,
         _use_fixed_timestep = false,
-        _elapsed = 0,
-        _frame_timestamp = love.timer.getTime(),
 
         _bloom = nil, -- initialized on first use
         _input = rt.InputSubscriber(),
 
-        _sound_manager_elapsed = 0,
-        
         _cursor_visible = false,
         _cursor = rt.Cursor(),
 
-        _restart_active = false
+        _restart_active = false,
+
+        -- love.run variables
+        _frame_i = 0,
+        _elapsed = 0,
+        _frame_timestamp = love.timer.getTime(),
+
+        _accumulator = 0,
+        _step = 1 / 120,
+
+        _sound_manager_accumulator = 0,
+        _sound_manager_step = 1 / 240,
+
+        _is_focused = true
     })
+
+    -- performance metrics
+    local n = rt.settings.scene_manager.performance_metrics_n_frames
+    self._update_fractions = table.rep(0, n)
+    self._update_sum = 0
+    self._update_max = 0
+    self._draw_fractions = table.rep(0, n)
+    self._draw_sum = 0
+    self._draw_max = 0
+    self._frame_durations = table.rep(1 / 60, n)
+    self._frame_sum = (1 / 60) * n
+    self._frame_max = 1 / 60
 
     self._fade:set_duration(rt.settings.scene_manager.fade_duration)
 end
@@ -247,74 +267,9 @@ function rt.SceneManager:get_current_scene()
     return self._current_scene
 end
 
-local _n_frames_captured = 120
-
-local _last_update_times = {}
-local _update_sum = 0
-
-local _last_draw_times = {}
-local _draw_sum = 0
-
-local _last_fps = {}
-local _fps_sum = _n_frames_captured * 60
-
-local _last_fps_variance = {}
-local _last_fps_variance_sum = 0
-
-local _default_font = love.graphics.getFont()
-
-for i = 1, _n_frames_captured do
-    table.insert(_last_update_times, 0)
-    table.insert(_last_draw_times, 0)
-    table.insert(_last_fps, 60)
-    table.insert(_last_fps_variance, 0)
-end
-
---- @brief [internal]
-function rt.SceneManager:_draw_performance_metrics()
-    local stats = love.graphics.getStats()
-    local n_draws = tostring(stats.drawcalls)
-
-    local fps_mean = tostring(love.timer.getFPS()) --math.ceil(_fps_sum / _n_frames_captured))
-    local fps_variance = tostring(math.ceil((_last_fps_variance_sum / _n_frames_captured)))
-    local gpu_side_memory = tostring(math.ceil(stats.texturememory / 1024 / 1024))
-    local update_percentage = tostring(math.ceil(_update_sum / _n_frames_captured * 100))
-    local draw_percentage = tostring(math.ceil(_draw_sum / _n_frames_captured * 100))
-
-    while #fps_mean < 3 do
-        fps_mean = "0" .. fps_mean
-    end
-
-    while #n_draws < 2 do
-        n_draws = "0" .. n_draws
-    end
-
-    while #update_percentage < 3 do
-        update_percentage = "0" .. update_percentage
-    end
-
-    while #draw_percentage < 3 do
-        draw_percentage = "0" .. draw_percentage
-    end
-
-    local str = table.concat({
-        fps_mean, " fps \u{00B1} " .. fps_variance .. "% | ",             -- max frame duration
-        update_percentage, "% | ",   -- frame usage, how much of a frame was taken up by the game
-        draw_percentage, "% | ",
-        n_draws, " draws | ",       -- total number of draws
-        gpu_side_memory, " mb ",       -- vram usage
-    })
-
-    love.graphics.setFont(_default_font)
-    local str_width = _default_font:getWidth(str)
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.printf(str, love.graphics.getWidth() - str_width - 5, 5, math.huge)
-end
-
 --- @brief
 function rt.SceneManager:get_frame_index()
-    return _frame_i
+    return self._frame_i
 end
 
 --- @brief
@@ -342,16 +297,93 @@ function rt.SceneManager:get_timestep()
     if self._use_fixed_timestep then return 1 / 120 else return 1 / love.timer.getFPS() end
 end
 
-local _update_elapsed = 0
-local _update_step = 1 / 120
-
 --- @brief
 function rt.SceneManager:get_frame_interpolation()
     if self._use_fixed_timestep then
-        return _update_elapsed / _update_step
+        return self._accumulator / self._step
     else
         return 1
     end
+end
+
+--- @brief
+function rt.SceneManager:_update_performance_metrics(update_duration, draw_duration, frame_duration)
+    local update_fraction = update_duration / frame_duration
+    local draw_fraction = draw_duration / frame_duration
+
+    local find_max = function(t)
+        local max = -math.huge
+        for x in values(t) do max = math.max(max, x) end
+        return max
+    end
+
+    local update_first = self._update_fractions[1]
+    table.remove(self._update_fractions, 1)
+    table.insert(self._update_fractions, update_fraction)
+    self._update_sum = self._update_sum - update_first + update_fraction
+
+    if self._update_max == update_first then
+        self._update_max = find_max(self._update_fractions)
+    end
+
+    local draw_first = self._draw_fractions[1]
+    table.remove(self._draw_fractions, 1)
+    table.insert(self._draw_fractions, draw_fraction)
+    self._draw_sum = self._draw_sum - draw_first + draw_fraction
+
+    if self._draw_max == draw_first then
+        self._draw_max = find_max(self._draw_fractions)
+    end
+
+    frame_duration = 1 / frame_duration -- fps
+    local frame_first = self._frame_durations[1]
+    table.remove(self._frame_durations, 1)
+    table.insert(self._frame_durations, frame_duration)
+    self._frame_sum = self._frame_sum - frame_first + frame_duration
+
+    if self._frame_max == frame_first then
+        self._frame_max = find_max(self._frame_durations)
+    end
+end
+
+local _default_font = love.graphics.getFont()
+
+--- @brief
+function rt.SceneManager:_draw_performance_metrics()
+    local update_mean = self._update_sum / #self._update_fractions
+    local draw_mean = self._draw_sum / #self._draw_fractions
+    local fps_mean = math.mean(self._frame_durations)
+    local fps_variance = math.sqrt(math.variance(self._frame_durations))
+
+    local update_max = self._update_max
+    local draw_max = self._draw_max
+    local fps_max = 1 / self._frame_max
+
+    local stats = love.graphics.getStats()
+    local n_draws = stats.drawcalls
+    local gpu_side_memory = math.ceil(stats.texturememory / 1024 / 1024) -- in mb
+
+    local format = function(value)
+        local str = tostring(value)
+        while #str < 3 do
+            str = "0" .. str
+        end
+        return str
+    end
+
+    local str = table.concat({
+        format(math.ceil(love.timer.getFPS())), " fps \u{00B1} " .. format(math.ceil(fps_variance)) .. " | ",
+        format(math.ceil(update_mean * 100)), "% | ",
+        format(math.ceil(draw_mean * 100)), "% | ",
+        n_draws, " draws | ",
+        gpu_side_memory, " mb "
+    })
+
+    love.graphics.setFont(_default_font)
+    local str_width = _default_font:getWidth(str)
+
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.printf(str, love.graphics.getWidth() - str_width - 5, 5, math.huge)
 end
 
 --- @brief
@@ -392,32 +424,18 @@ function rt.SceneManager:get_cursor_type()
 end
 
 rt.SceneManager = rt.SceneManager() -- static global singleton
-local _focused = true
 
 love.focus = function(b)
-    _focused = b
-
-    if rt.settings.music_manager.pause_on_focus_lost and rt.MusicManager ~= nil then
-        if _focused then
-            rt.MusicManager:unpause()
-        else
-            rt.MusicManager:pause()
-        end
-    end
+    rt.SceneManager._is_focused = b
 end
 
-local _sound_manager_elapsed = 0
-local _sound_manager_step = 1 / 240
-
--- override love.run for metrics
-function love.run()
+love.run = function()
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
 
     if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
     if love.timer then love.timer.step() end
 
-    local delta = 0
     return function()
         if love.event then
             love.event.pump()
@@ -431,47 +449,56 @@ function love.run()
             end
         end
 
-        rt.SceneManager._frame_timestamp = love.timer.getTime()
-        if love.timer then delta = love.timer.step() end
+        -- performance metrics
+        local frame_before, frame_fater, update_before, update_after, draw_before, draw_after
 
-        local update_before, update_after, draw_before, draw_after
+        local state = rt.SceneManager
+        state._frame_timestamp = love.timer.getTime()
+        
+        local delta = love.timer.step()
+        
         update_before = love.timer.getTime()
 
-        _update_elapsed = _update_elapsed + delta
-        local before = _update_elapsed
-
+        -- skip if window unfocused
         local current_scene = rt.SceneManager._current_scene
-        if not _focused and (current_scene == nil or current_scene:get_pause_on_focus_lost() == true) then
+        if not state._is_focused and (current_scene == nil or current_scene:get_pause_on_focus_lost() == true) then
             goto skip_update
         end
 
-        if rt.SceneManager._use_fixed_timestep == true then
+        state._accumulator = state._accumulator + delta
+
+        if rt.SceneManager._use_fixed_timestep then
             local n_steps = 0
-            while _update_elapsed >= _update_step do
-                love.update(_update_step)
-                _update_elapsed = _update_elapsed - _update_step
+            while state._accumulator >= state._step do
+                if love.update then
+                    love.update(state._step)
+                end
+
+                state._accumulator = state._accumulator - state._step
 
                 n_steps = n_steps + 1
                 if n_steps > rt.settings.scene_manager.max_n_steps_per_frame then
-                    _update_elapsed = 0
-                    break
+                    state._accumulator = 0
+                    break -- safeguard against death spiral on lag frame
                 end
             end
         else
-            if love.update ~= nil then love.update(delta) end
-            _update_elapsed = _update_elapsed - delta
+            if love.update then
+                love.update(delta)
+            end
         end
 
         ::skip_update::
 
-        _sound_manager_elapsed = _sound_manager_elapsed + delta
-        while _sound_manager_elapsed > _sound_manager_step do
-            rt.SoundManager:update(_sound_manager_step)
-            _sound_manager_elapsed = _sound_manager_elapsed - _sound_manager_step
+        update_after = love.timer.getTime()
+
+        state._sound_manager_accumulator = state._sound_manager_accumulator + delta
+        while state._sound_manager_accumulator >= state._sound_manager_step do
+            rt.SoundManager:update(state._sound_manager_step)
+            state._sound_manager_accumulator = state._sound_manager_accumulator - state._sound_manager_step
         end
 
-        rt.SceneManager._elapsed = rt.SceneManager._elapsed + (before - _update_elapsed)
-        update_after = love.timer.getTime()
+        state._elapsed = state._elapsed + delta
 
         if love.graphics and love.graphics.isActive() then
             love.graphics.reset()
@@ -489,59 +516,18 @@ function love.run()
             end
 
             love.graphics.present()
-
-            rt.InputManager:_notify_end_of_frame()
-            _frame_i = _frame_i + 1
         end
 
-        local fps = 1 / math.max(love.timer.getDelta(), 1 / 500)
-        if fps == 0 then fps = 60 end
+        rt.InputManager:_notify_end_of_frame()
+        state._frame_i = state._frame_i + 1
 
-        local update_time = (update_after - update_before) / (1 / fps)
-        local draw_time = (draw_after - draw_before) / (1 / fps)
+        rt.SceneManager:_update_performance_metrics(
+            update_after - update_before,
+            draw_after - draw_before,
+            love.timer.getTime() - state._frame_timestamp
+        )
 
-        local update_start = _last_update_times[1]
-        table.remove(_last_update_times, 1)
-        table.insert(_last_update_times, update_time)
-        _update_sum = _update_sum - update_start + update_time
-
-        local draw_start = _last_draw_times[1]
-        table.remove(_last_draw_times, 1)
-        table.insert(_last_draw_times, draw_time)
-        _draw_sum = _draw_sum - draw_start + draw_time
-
-        local fps_start = _last_fps[1]
-        table.remove(_last_fps, 1)
-        table.insert(_last_fps, 1 / love.timer.getDelta())
-        _fps_sum = _fps_sum - fps_start + fps
-
-        -- Calculate proper FPS variance (coefficient of variation)
-        local variance = 0
-        do
-            local fps_mean = _fps_sum / _n_frames_captured
-            local sum_squared_diff = 0
-
-            for x in values(_last_fps) do
-                local diff = x - fps_mean
-                sum_squared_diff = sum_squared_diff + (diff * diff)
-            end
-
-            local standard_deviation = math.sqrt(sum_squared_diff / _n_frames_captured)
-            -- Convert to coefficient of variation (percentage)
-            if fps_mean > 0 then
-                variance = (standard_deviation / fps_mean) * 100
-            end
-        end
-
-        local variance_start = _last_fps_variance[1]
-        table.remove(_last_fps_variance, 1)
-        table.insert(_last_fps_variance, variance)
-        _last_fps_variance_sum = _last_fps_variance_sum - variance_start + variance
-
-        meta._benchmark = {}
-        collectgarbage("step") -- helps catch gc-related bugs
-
-        --if love.timer then love.timer.sleep(0.001) end -- prevent cpu running at max rate for empty projects
+        love.timer.sleep(1 / 1000) -- safeguard if vsync off
     end
 end
 
