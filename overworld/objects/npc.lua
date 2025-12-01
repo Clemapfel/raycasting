@@ -1,6 +1,6 @@
 require "overworld.npc_body"
 require "overworld.npc_eyes"
-require "overworld.objects.dialog_emitter"
+require "overworld.dialog_emitter"
 
 rt.settings.overworld.npc = {
     canvas_radius = 200,
@@ -47,8 +47,47 @@ function ow.NPC:instantiate(object, stage, scene)
     )
 
     self._dilation_motion = rt.SmoothedMotion1D(0)
-    self._dialog_emitter = ow.DialogEmitter(object, stage, scene)
-    self._dialog_emitter:set_target(self)
+
+    local interact_id = object:get_string("dialog_id", false) or object:get_string("interact_dialog_id", false)
+    self._has_interact_dialog = interact_id ~= nil
+    self._interact_allowed = false
+
+    if self._has_interact_dialog then
+        local should_lock = object:get_boolean("should_lock", false) or object:get_boolean("interact_should_lock", false)
+        if should_lock == nil then should_lock = true end
+        self._interact_dialog_emitter = ow.DialogEmitter(
+            scene,
+            interact_id,
+            self,
+            should_lock
+        )
+    end
+    
+    local enter_id = object:get_string("enter_dialog_id", false)
+    self._has_enter_dialog = enter_id ~= nil
+    if self._has_enter_dialog then
+        local should_lock = object:get_string("enter_should_lock", false)
+        if should_lock == nil then should_lock = false end
+        self._enter_dialog_emitter = ow.DialogEmitter(
+            scene,
+            enter_id,
+            self,
+            should_lock -- should_lock
+        )
+    end
+    
+    local exit_id = object:get_string("exit_dialog_id", false)
+    self._has_exit_dialog = exit_id ~= nil
+    if self._has_exit_dialog then
+        local should_lock = object:get_string("exit_should_lock", false)
+        if should_lock == nil then should_lock = false end
+        self._exit_dialog_emitter = ow.DialogEmitter(
+            scene,
+            exit_id,
+            self,
+            should_lock
+        )
+    end
 
     local target = object:get_object("target", false)
     if target == nil then
@@ -70,6 +109,17 @@ function ow.NPC:instantiate(object, stage, scene)
     self._sensor:set_is_sensor(true)
     self._sensor_active = self._sensor:test_point(self._scene:get_player():get_position())
     self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
+
+    if self._has_interact_dialog then
+        self._input = rt.InputSubscriber()
+        self._input:signal_connect("pressed", function(_, which)
+            if which == rt.InputAction.INTERACT then
+                if self._interact_allowed and self._interact_dialog_emitter:get_is_active() == false then
+                    self._interact_dialog_emitter:present()
+                end
+            end
+        end)
+    end
 end
 
 --- @brief
@@ -77,14 +127,50 @@ function ow.NPC:update(delta)
     if not self._stage:get_is_body_visible(self._sensor) then return end
 
     local is_active = self._sensor:test_point(self._scene:get_player():get_position())
+    local was_active = self._sensor_active
     if is_active ~= self._sensor_active then
         self._sensor_active = is_active
         self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
     end
 
-    self._dialog_emitter:update(delta)
+    local already_active = (self._has_interact_dialog and self._interact_dialog_emitter:get_is_active())
+        or (self._has_enter_dialog and self._enter_dialog_emitter:get_is_active())
+        or (self._has_exit_dialog and self._exit_dialog_emitter:get_is_active())
+
+    if not already_active then
+        if self._has_enter_dialog and was_active == false and is_active == true then
+            self._enter_dialog_emitter:present()
+        elseif self._has_exit_dialog and was_active == true and is_active == false then
+            self._exit_dialog_emitter:present()
+        elseif was_active == false and is_active == true then
+            self:_set_is_interactable(true)
+        elseif was_active == true and is_active == false then
+            self:_set_is_interactable(false)
+        end
+    else
+        -- leaving while enter dialog is active
+        if self._has_enter_dialog and self._enter_dialog_emitter:get_is_active()
+            and was_active == true and is_active == false
+        then
+            self._enter_dialog_emitter:close()
+        end
+    end
+
+    if self._has_interact_dialog then
+        self._interact_dialog_emitter:update(delta)
+    end
+
+    if self._has_enter_dialog then
+        self._enter_dialog_emitter:update(delta)
+    end
+
+    if self._has_exit_dialog then
+        self._exit_dialog_emitter:update(delta)
+    end
+
     self._dilation_motion:update(delta)
     self._graphics_body:set_dilation(self._dilation_motion:get_value())
+
     self._eyes:update(delta)
     self._eyes:set_target(self._scene:get_player():get_position())
 end
@@ -129,7 +215,13 @@ function ow.NPC:draw(priority)
     self._eyes:draw()
     self._graphics_body:draw()
 
-    self._dialog_emitter:draw(priority)
+    if self._has_interact_dialog and self._interact_dialog_emitter:get_is_active() then
+        self._interact_dialog_emitter:draw(priority)
+    elseif self._has_exit_dialog and self._exit_dialog_emitter:get_is_active() then
+        self._exit_dialog_emitter:draw(priority)
+    elseif self._has_enter_dialog and self._enter_dialog_emitter:get_is_active() then
+        self._enter_dialog_emitter:draw(priority)
+    end
 end
 
 function ow.NPC:get_position()
@@ -142,4 +234,15 @@ end
 --- @brief
 function ow.NPC:get_render_priority()
     return 1
+end
+
+--- @brief
+function ow.NPC:_set_is_interactable(b)
+    if b == true then
+        self._scene:set_control_indicator_type(ow.ControlIndicatorType.INTERACT)
+        self._interact_allowed = true
+    elseif b == false then
+        self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+        self._interact_allowed = false
+    end
 end

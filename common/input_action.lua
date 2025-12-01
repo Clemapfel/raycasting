@@ -17,7 +17,6 @@ do
     -- aliases
     _input_actions["JUMP"] = _input_actions.B
     _input_actions["SPRINT"] = _input_actions.Y
-    _input_actions["DASH"] = _input_actions.A
     _input_actions["INTERACT"] = _input_actions.X
 
     _input_actions["CONFIRM"] = _input_actions.A

@@ -442,18 +442,6 @@ love.run = function()
     if love.timer then love.timer.step() end
 
     return function()
-        if love.event then
-            love.event.pump()
-            for name, a, b, c, d, e, f in love.event.poll() do
-                if name == "quit" then
-                    if not love.quit or not love.quit() then
-                        return a or 0
-                    end
-                end
-                love.handlers[name](a, b, c, d, e, f)
-            end
-        end
-
         -- performance metrics
         local frame_before, frame_fater, update_before, update_after, draw_before, draw_after
 
@@ -482,6 +470,16 @@ love.run = function()
         if rt.SceneManager._use_fixed_timestep then
             local n_steps = 0
             while state._accumulator >= state._step do
+                love.event.pump()
+                for name, a, b, c, d, e, f in love.event.poll() do
+                    if name == "quit" then
+                        if not love.quit or not love.quit() then
+                            return a or 0
+                        end
+                    end
+                    love.handlers[name](a, b, c, d, e, f)
+                end
+
                 if love.update then
                     love.update(state._step)
                 end

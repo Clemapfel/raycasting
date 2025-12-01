@@ -469,11 +469,13 @@ function ow.NPCEyes:draw()
         local turn_magnitude_x = 30 -- the higher, the less it will react along that axis
         local turn_magnitude_y = 30
 
+        local nod_motion = math.sin(rt.SceneManager:get_elapsed() * 30) * 100
+
         self._model_transform = rt.Transform()
         self._model_transform:set_target_to(
             self._center_x, self._center_y, self._center_z,
             target_x / turn_magnitude_x,
-            target_y / turn_magnitude_y,
+            (target_y + nod_motion) / turn_magnitude_y,
             target_z,
             0, 1, 0
         )

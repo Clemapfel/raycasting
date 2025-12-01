@@ -48,7 +48,7 @@ function mn.PauseMenu:instantiate(scene)
 
     local translation = rt.Translation.pause_menu
     self._control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.A, translation.control_indicator_select,
+        rt.ControlIndicatorButton.JUMP, translation.control_indicator_select,
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
         --rt.ControlIndicatorButton.START, translation.control_indicator_unpause
     )

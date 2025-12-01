@@ -5228,14 +5228,14 @@ return {
           name = "NPC",
           type = "NPC",
           shape = "point",
-          x = -5311.4,
-          y = 2348.34,
+          x = -5313.22,
+          y = 2286.61,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["id"] = "debug_dialog",
+            ["enter_dialog_id"] = "debug_dialog",
             ["target"] = { id = 1125 }
           }
         },

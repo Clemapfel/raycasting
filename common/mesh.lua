@@ -578,7 +578,7 @@ end
 
 --- @brief
 function rt.Mesh:set_texture(texture)
-    self._native:setTexture(texture._native)
+    self._native:setTexture(texture and texture._native or nil)
 end
 
 --- @brief

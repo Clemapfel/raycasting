@@ -7,7 +7,7 @@ return {
     {
         speaker = NPC,
         orientation = NPC_SIDE,
-        next = nil,
+        next = 2,
 
         "Are|| you|||| sure about that?"
     },
@@ -15,6 +15,7 @@ return {
     {
         speaker = PLAYER,
         orientation = PLAYER_SIDE,
+        next = 3,
 
         "I did.\n But idk if the player should talk at all, the NPC definitely should, but I really want to implement that thing where instead of choosing an option, the player has to nod or shake their head."
     },
@@ -23,6 +24,7 @@ return {
         speaker = PLAYER,
         orientation = PLAYER_SIDE,
         next = "loop_a",
+        next = 4,
 
         "Anyway, this dialog also has fancy camera movement."
     },

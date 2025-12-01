@@ -125,7 +125,6 @@ function ow.OverworldScene:instantiate(state)
         rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
         rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
         rt.ControlIndicatorButton.SPRINT, translation.control_indicator_sprint,
-        rt.ControlIndicatorButton.DASH, translation.control_indicator_dash,
         rt.ControlIndicatorButton.DOWN, translation.control_indicator_down
     )
     self._non_bubble_control_indicator:set_has_frame(true)

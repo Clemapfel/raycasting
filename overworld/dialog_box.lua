@@ -103,7 +103,8 @@ function ow.DialogBox:instantiate(id)
         _font = rt.settings.font.default,
         _max_n_lines = rt.settings.overworld.dialog_box.n_lines,
 
-        _is_first_update = true
+        _is_first_update = true,
+        _input_delay = 0
     })
 end
 
@@ -172,10 +173,6 @@ function ow.DialogBox:realize()
             node.labels = {}
             node.next_id = node_entry[next_key]
 
-            -- default next for numbered entries
-            if node.next_id == nil and meta.is_number(key) then
-                node.next_id = key + 1
-            end
 
             local speaker_id = node_entry[speaker_key]
             local orientation = node_entry[orientation_key]
@@ -689,4 +686,9 @@ function ow.DialogBox:register_speaker_frame(speaker_id, render_callback)
     if not seen then return end
 
     self._speaker_id_to_portrait_callback[speaker_id] = render_callback
+end
+
+--- @brief
+function ow.DialogBox:close()
+    self:_set_active_node(nil)
 end
