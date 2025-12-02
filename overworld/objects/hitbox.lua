@@ -17,6 +17,13 @@ ow.SlipperyHitbox = function(object, stage, scene)
     return ow.Hitbox(object, stage, scene)
 end
 
+--- @class ow.SlipperyHitbox
+--- @types Polygon, Rectangle, Ellipse
+ow.StickyHitbox = function(object, stage, scene)
+    object.properties["slippery"] = false
+    return ow.Hitbox(object, stage, scene)
+end
+
 -- manually batched, cf. draw_all
 local _slippery_tris = {}
 local _slippery_lines = {}
