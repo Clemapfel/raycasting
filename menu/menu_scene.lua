@@ -93,7 +93,7 @@ function mn.MenuScene:instantiate(state)
         title_screen.menu_font:set_line_spacing(0.75)
 
         title_screen.control_indicator = rt.ControlIndicator(
-            rt.ControlIndicatorButton.A, translation.control_indicator_select,
+            rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_select,
             rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
         )
         title_screen.control_indicator:set_has_frame(false)
@@ -239,7 +239,7 @@ function mn.MenuScene:instantiate(state)
 
         local translation = rt.Translation.menu_scene.stage_select
         stage_select.control_indicator = rt.ControlIndicator(
-            rt.ControlIndicatorButton.A, translation.control_indicator_confirm,
+            rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_confirm,
             rt.ControlIndicatorButton.B, translation.control_indicator_back,
             rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_select
         )

@@ -46,7 +46,7 @@ function mn.KeybindingScene:instantiate()
     local translation = rt.Translation.keybinding_scene
     self._control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move,
-        rt.ControlIndicatorButton.A, translation.control_indicator_select,
+        rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_select,
         rt.ControlIndicatorButton.B, translation.control_indicator_back,
         rt.ControlIndicatorButton.Y, translation.control_indicator_reset_to_default,
         rt.ControlIndicatorButton.START, translation.control_indicator_abort

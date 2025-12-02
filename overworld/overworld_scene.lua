@@ -36,7 +36,7 @@ do
     }
 end
 
---- @class
+--- @class ow.OverworldScene
 ow.OverworldScene = meta.class("OverworldScene", rt.Scene)
 
 ow.CameraMode = meta.enum("CameraMode", {
@@ -47,11 +47,12 @@ ow.CameraMode = meta.enum("CameraMode", {
 local _bloom_shader = nil
 
 ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
-    MOTION_NON_BUBBLE = "motion_non_bubble",
-    MOTION_BUBBLE = "motion_bubble",
-    INTERACT = "interact",
-    DIALOG = "dialog",
-    NONE = "none"
+    MOTION_NON_BUBBLE = "MOTION_NON_BUBBLE",
+    MOTION_BUBBLE = "MOTION_BUBBLE",
+    INTERACT = "INTERACT",
+    DIALOG = "DIALOG",
+    AIR_DASH = "AIR_DASH",
+    NONE = "NONE"
 })
 
 --- @brief
@@ -140,16 +141,23 @@ function ow.OverworldScene:instantiate(state)
     self._interact_control_indicator:set_has_frame(true)
 
     self._dialog_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.A, translation.control_indicator_dialog_confirm,
+        rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_dialog_confirm,
         rt.ControlIndicatorButton.INTERACT, translation.control_indicator_dialog_leave
     )
     self._dialog_control_indicator:set_has_frame(false)
+
+    self._air_dash_control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
+    rt.ControlIndicatorButton.JUMP, translation.control_indicator_air_dash
+    )
+    self._air_dash_control_indicator:set_has_frame(true)
 
     self._control_indicator_type_to_control_indicator = {
         [ow.ControlIndicatorType.MOTION_BUBBLE] = self._bubble_control_indicator,
         [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = self._non_bubble_control_indicator,
         [ow.ControlIndicatorType.INTERACT] = self._interact_control_indicator,
         [ow.ControlIndicatorType.DIALOG] = self._dialog_control_indicator,
+        [ow.ControlIndicatorType.AIR_DASH] = self._air_dash_control_indicator,
         [ow.ControlIndicatorType.NONE] = nil,
     }
 
@@ -1200,7 +1208,9 @@ end
 
 --- @brief
 function ow.OverworldScene:set_control_indicator_type(type)
+    if type == nil then type = ow.ControlIndicatorType.NONE end
     meta.assert_enum_value(type, ow.ControlIndicatorType)
+
     if type == ow.ControlIndicatorType.NONE then
         self._control_indicator_opacity_motion:set_target_value(0)
         self._control_indicator_offset_motion:set_target_position(

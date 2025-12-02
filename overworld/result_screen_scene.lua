@@ -283,13 +283,13 @@ function ow.ResultScreenScene:instantiate()
 
     self._option_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.UP_DOWN, translation.option_control_indicator_move,
-        rt.ControlIndicatorButton.A, translation.option_control_indicator_select,
+        rt.ControlIndicatorButton.CONFIRM, translation.option_control_indicator_select,
         rt.ControlIndicatorButton.PAUSE, translation.option_control_indicator_go_back
     )
     self._option_control_indicator:set_has_frame(false)
 
     self._grade_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.A, translation.grade_control_indicator_continue
+        rt.ControlIndicatorButton.CONFIRM, translation.grade_control_indicator_continue
     )
     self._grade_control_indicator:set_has_frame(false)
 
