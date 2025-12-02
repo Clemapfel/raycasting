@@ -99,11 +99,11 @@ rt.Translation = {
         control_indicator_down = "Duck",
         control_indicator_jump = "Jump",
         control_indicator_sprint = "Sprint",
-        control_indicator_dash = "Dash",
         control_indicator_bubble_move = "Move Around",
         control_indicator_interact = "Interact",
         control_indicator_dialog_confirm = "Advance",
-        control_indicator_dialog_leave = "Leave"
+        control_indicator_dialog_leave = "Leave",
+        control_indicator_air_dash = "(mid-air) Dash"
     },
 
     -- title screen / stage select
@@ -174,19 +174,19 @@ rt.Translation = {
         shake_enabled_description = "TODO",
 
         joystick_deadzone_title = "Deadzone",
-        joystick_deadzone_description = "How far the controllers joystick has to be moved away from the center before an input is recognized",
+        joystick_deadzone_description = "How far the controllers joystick has to be moved away from the center before an input is registered",
 
         performance_mode_enabled_title = "Performance Mode",
-        performance_mode_enabled_description = "Disables various visual-only effects to increase performance",
+        performance_mode_enabled_description = "Disables various visual-only effects, increases performance on low-end machines",
 
         color_blind_mode_enabled_title = "Color Blind Mode",
-        color_blind_mode_enabled_description = "Adds non-diagetic visual indicators for gameplay elements that rely on differentiating colors",
+        color_blind_mode_enabled_description = "Adds various non-diagetic visual elements to objects that rely on the user being able to differentiate colors",
 
         draw_debug_info_enabled_title = "Draw Debug Information",
         draw_debug_info_enabled_description = "Whether to show various information at the top of the screen",
 
         draw_speedrun_splits_enabled_title = "Draw Checkpoint Timings",
-        draw_speedrun_splits_enabled_description = "Show frame-perfect timestamps for when a checkpoint is reached or the level is completed. Useful for speedrunners, automatically accounts for lag or loading",
+        draw_speedrun_splits_enabled_description = "Show frame-perfect timestamps for when a checkpoint is reached or a level is completed. Useful for speedrunners, automatically accounts for lag and load time.",
 
         text_speed_title = "Text Speed",
         text_speed_description = "How fast letters appear in dialog boxes",
@@ -312,7 +312,7 @@ rt.Translation = {
         [1] = {
             id = "tutorial",
             title = "[DEBUG TUTORIAL]",
-            description = "description TODO",
+            description = "TODO",
             difficulty = 0,
             target_time = math.huge,
         },
@@ -320,7 +320,7 @@ rt.Translation = {
         [2] = {
             id = "template",
             title = "[DEBUG TEMPLATE]",
-            description = "description TODO",
+            description = "TODO",
             difficulty = 0,
             target_time = math.huge,
         },
@@ -328,7 +328,15 @@ rt.Translation = {
         [3] = {
             id = "one_way_platform_tutorial",
             title = "TODO: One Way Platforms",
-            description = "tutorial description TODO",
+            description = "TODO",
+            difficulty = 0,
+            target_time = math.huge,
+        },
+
+        [4] = {
+            id = "air_dash_node_tutorial",
+            title = "TODO: Air Dash",
+            description = "TODO",
             difficulty = 0,
             target_time = math.huge,
         },

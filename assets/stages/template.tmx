@@ -4,21 +4,20 @@
   <export target="template.lua" format="lua"/>
  </editorsettings>
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
-  <image source="../tilesets/debug_tileset/Frame035.png" width="32" height="32"/>
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="2" name="objects">
-  <object id="1" type="Hitbox" x="-96" y="-128">
+  <object id="1" type="Hitbox" x="-96" y="16">
    <polygon points="0,0 1200,0 1200,672 0,672"/>
   </object>
-  <object id="2" name="Spawn" type="PlayerSpawn" x="16" y="-192">
+  <object id="2" name="Spawn" type="PlayerSpawn" x="8.39232" y="3.07303">
    <point/>
   </object>
-  <object id="3" name="Goal" type="Goal" x="992" y="-176">
+  <object id="3" name="Goal" type="Goal" x="992" y="0">
    <point/>
   </object>
-  <object id="5" name="Checkpoint" type="Checkpoint" x="512" y="-192">
+  <object id="5" name="Checkpoint" type="Checkpoint" x="512" y="0">
    <point/>
   </object>
-  <object id="6" name="CameraBounds" type="CameraBounds" x="-528" y="-944" width="2048" height="1488"/>
  </objectgroup>
 </map>

@@ -36,7 +36,7 @@ function ow.Wall:reinitialize()
 end
 
 local _try_initialize = function()
-    if _mesh ~= nil then return end -- already initialized
+    if _mesh ~= nil or #_tris == 0 then return end -- already initialized
 
     local data = {}
     local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
@@ -48,17 +48,15 @@ local _try_initialize = function()
         table.insert(data, { tri[5], tri[6] })
     end
 
-    _mesh = love.graphics.newMesh(format, data, mode, usage)
+    _mesh = pcall(love.graphics.newMesh, format, data, mode, usage)
 end
 
 local _wall_impulse = rt.ImpulseSubscriber()
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then _shader:recompile() end
-end)
-
 --- @brief
 function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segment_light_sources, segment_light_colors)
+    if #_tris == 0 then return end
+
     _try_initialize()
 
     love.graphics.setColor(1, 1, 1, 1)

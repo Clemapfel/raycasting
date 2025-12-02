@@ -842,6 +842,7 @@ function rt.Player:update(delta)
         ) do
             local body, ray_x, ray_y = table.unpack(tuple)
             if body ~= nil and body:has_tag("hitbox") then
+                dbg(body.temp) -- TODO
                 local distance = math.distance(x, y, ray_x, ray_y)
                 if distance < self._radius then
                     should_clear = true

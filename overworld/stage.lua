@@ -207,6 +207,11 @@ function ow.Stage:instantiate(scene, id)
                         priorities = { instance:get_render_priority() }
                     end
 
+                    -- render priority override
+                    if wrapper:get_number("render_priority", false) ~= nil then
+                        priorities[1] = wrapper:get_number("render_priority")
+                    end
+
                     for priority in values(priorities) do
                         if not meta.is_number(priority) then
                             rt.error("In ow.",  wrapper.class,  ".get_render_priority: does not return a number or tuple of numbers")
@@ -369,6 +374,7 @@ function ow.Stage:draw_below_player()
         segment_lights,
         segment_colors
     )
+
     ow.Hitbox:draw_base()
     self._normal_map:draw_shadow(self._scene:get_camera())
     ow.Hitbox:draw_outline()
@@ -380,6 +386,8 @@ function ow.Stage:draw_below_player()
 
         ow.Sprite.draw_all(entry.priority)
     end
+
+    self._world:draw() -- TODO
 
     self._player_recorder:draw()
     self._blood_splatter:draw()
