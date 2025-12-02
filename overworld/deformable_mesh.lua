@@ -15,15 +15,14 @@ require "common.delaunay_triangulation"
 --- @class ow.DeformableMesh
 ow.DeformableMesh = meta.class("DeformableMesh")
 
-local _shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = false })
-local _outline_shader = rt.Shader("overworld/objects/npc_deformable_mesh.glsl", { OUTLINE = true })
+local _shader = rt.Shader("overworld/deformable_mesh.glsl", { OUTLINE = false })
+local _outline_shader = rt.Shader("overworld/deformable_mesh.glsl", { OUTLINE = true })
 
 local _mesh_format = {
     { location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2" },
     { location = rt.VertexAttributeLocation.TEXTURE_COORDINATES, name = rt.VertexAttribute.TEXTURE_COORDINATES, format = "floatvec2" },
     { location = rt.VertexAttributeLocation.COLOR, name = rt.VertexAttribute.COLOR, format = "floatvec4" },
 } -- xy stores origin, uv stores dxy, rg stores rest origin, ba stores rest dxy
-
 
 function ow.DeformableMesh:instantiate(scene, world, contour)
     meta.assert(scene, ow.OverworldScene, world, b2.World)
@@ -94,7 +93,6 @@ function ow.DeformableMesh:instantiate(scene, world, contour)
         self._inner_body = b2.Body(world, b2.BodyType.KINEMATIC, center_x, center_y, shapes)
     end
 
-    self._highlight = rt.generate_contour_highlight(self._contour, 1, 1, 250, 0.5 * deformable_max_depth)
 
     -- subdivide, then get outer shape
     contour = rt.subdivide_contour(contour, rt.settings.overworld.deformable_mesh.subdivide_step)
@@ -439,11 +437,6 @@ function ow.DeformableMesh:draw_body()
     _shader:unbind()
 
     love.graphics.pop()
-end
-
-function ow.DeformableMesh:draw_highlight()
-    love.graphics.setColor(1, 1, 1, 0.2)
-    love.graphics.polygon("fill", self._highlight)
 end
 
 --- @brief
