@@ -62,12 +62,6 @@ function ow.PlayerRecorderBody:initialize(x, y)
 
     -- physics shape
     local player_settings = rt.settings.player
-    local mask = bit.bnot(bit.bor(
-        player_settings.player_collision_group,
-        player_settings.player_outer_body_collision_group,
-        player_settings.bounce_collision_group,
-        player_settings.ghost_collision_group
-    ))
 
     self._world = self._stage:get_physics_world()
     self._body = b2.Body(
@@ -76,8 +70,8 @@ function ow.PlayerRecorderBody:initialize(x, y)
         x, y,
         b2.Circle(0, 0, rt.settings.player.radius)
     )
-    self._body:set_collides_with(mask)
-    self._body:set_collision_group(player_settings.exempt_collision_group)
+    self._body:set_collides_with(0x0)
+    self._body:set_collision_group(0x0)
     self._body:set_user_data(self)
     self._body:add_tag("light_source")
 end
@@ -182,4 +176,9 @@ end
 --- @brief
 function ow.PlayerRecorderBody:get_color()
     return self._color
+end
+
+--- @brief
+function ow.PlayerRecorderBody:get_physics_body()
+    return self._body
 end

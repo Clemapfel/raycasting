@@ -42,6 +42,7 @@ function ow.PlayerRecorder:instantiate(stage, scene)
 
     self._body = ow.PlayerRecorderBody(self._stage, self._scene)
     self._body:initialize(self._scene:get_player():get_position())
+    self._body:get_physics_body():set_is_enabled(false)
 end
 
 --- @brief
@@ -72,6 +73,7 @@ function ow.PlayerRecorder:record()
     if self._state == _STATE_RECORDING then return end
     self._state = _STATE_RECORDING
     self:clear()
+    self._body:get_physics_body():set_is_enabled(false)
 end
 
 --- @brief
@@ -85,6 +87,7 @@ end
 --- @brief
 function ow.PlayerRecorder:play()
     self:_snapshot(0)
+    self._body:get_physics_body():set_is_enabled(true)
 
     if self._state ~= _STATE_PLAYBACK then
         self._position_interpolation = rt.Spline(self._position_data)
