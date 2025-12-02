@@ -1,23 +1,24 @@
 require "common.stable_sort"
 require "common.path"
 
-rt.settings.overworld.air_dash_node_handler = {
+rt.settings.overworld.objects.air_dash_node_manager = {
     node_collision_group = b2.CollisionGroup.GROUP_09,
     dash_velocity = 1000 -- on exit
 }
 
---- @class ow.AirDashNodeHandler
-ow.AirDashNodeHandler = meta.class("AirDashNodeHandler")
+--- @class ow.AirDashNodeManager
+ow.AirDashNodeManager = meta.class("AirDashNodeManager")
 
 --- @brief
-function ow.AirDashNodeHandler:instantiate(scene, stage)
+function ow.AirDashNodeManager:instantiate(scene, stage)
     self._scene = scene
     self._stage = stage
     self._node_to_entry = meta.make_weak({})
     self._max_node_radius = 0
 
-    self._next_node = nil -- if player initiates tether, this is the target
-    self._tethered_node = nil -- bound node
+    self._next_node = nil -- if player initiates tether and is in range, this is the target
+    self._recommended_node = nil -- this is the next recommended next_node
+    self._tethered_node = nil -- bound node, player actively dashing
 
     self._tether_path = nil -- rt.Path
     self._tether_dx, self._tether_dy = 0, 0 -- direction
@@ -48,7 +49,7 @@ function _get_side(px, py, line)
 end
 
 --- @brief
-function ow.AirDashNodeHandler:_tether(node)
+function ow.AirDashNodeManager:_tether(node)
     if self._tethered_node ~= nil then
         self._tethered_node:set_is_tethered(false)
     end
@@ -92,24 +93,24 @@ function ow.AirDashNodeHandler:_tether(node)
 end
 
 --- @brief
-function ow.AirDashNodeHandler:_untether()
+function ow.AirDashNodeManager:_untether()
     if self._tethered_node == nil then return end
     self._tethered_node:set_is_tethered(false)
     self._tethered_node = nil
 end
 
 --- @brief
-function ow.AirDashNodeHandler:notify_node_added(node)
+function ow.AirDashNodeManager:notify_node_added(node)
     -- prepare body for aabb query
     local body = node:get_body()
     body:set_user_data(node)
-    body:set_collision_group(rt.settings.overworld.air_dash_node_handler.node_collision_group)
+    body:set_collision_group(rt.settings.overworld.objects.air_dash_node_manager.node_collision_group)
 
     self._max_node_radius = math.max(self._max_node_radius, node:get_radius())
 end
 
 --- @brief
-function ow.AirDashNodeHandler:update(delta)
+function ow.AirDashNodeManager:update(delta)
     local bounds = self._scene:get_camera():get_world_bounds()
     local player = self._scene:get_player()
     local px, py = player:get_position()
@@ -118,7 +119,7 @@ function ow.AirDashNodeHandler:update(delta)
 
     if self._tethered_node ~= nil then
         -- move player
-        local target_velocity = rt.settings.overworld.air_dash_node_handler.dash_velocity
+        local target_velocity = rt.settings.overworld.objects.air_dash_node_manager.dash_velocity
         local ax, ay = self._tether_path:at(0)
         local bx, by = self._tether_path:at(1)
         local t = rt.InterpolationFunctions.SINUSOID_EASE_IN(
@@ -151,7 +152,7 @@ function ow.AirDashNodeHandler:update(delta)
 
     local bodies = self._stage:get_physics_world():query_aabb(
         bounds.x, bounds.y, bounds.width, bounds.height,
-        rt.settings.overworld.air_dash_node_handler.node_collision_group
+        rt.settings.overworld.objects.air_dash_node_manager.node_collision_group
     )
 
     local disable_double_jump = false -- in range of at least one node
@@ -195,15 +196,32 @@ function ow.AirDashNodeHandler:update(delta)
         end
     end
 
+    if self._recommended_node ~= nil then
+        self._recommended_node:set_is_outline_visible(false)
+    end
+
     if self._next_node ~= nil then
         self._next_node:set_is_current(false)
     end
 
     if best_entry == nil then
+        -- no candidate, highlight closest
         self._next_node = nil
+
+        if #entries > 0 then
+            self._recommended_node = entries[1].node
+        else
+            self._recommended_node = nil
+        end
     else
         self._next_node = best_entry.node
         self._next_node:set_is_current(true)
+
+        self._recommended_node = self._next_node
+    end
+
+    if self._recommended_node ~= nil then
+        self._recommended_node:set_is_outline_visible(true)
     end
 
     -- disable double jump while in range

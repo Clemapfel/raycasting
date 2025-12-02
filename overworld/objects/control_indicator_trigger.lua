@@ -1,0 +1,39 @@
+--- @class ow.ControlIndicatorTrigger
+--- @types Polygon, Rectangle, Ellipse
+--- @field is_visible Boolean?
+ow.ControlIndicatorTrigger = meta.class("ControlIndicatorTrigger")
+
+local _types
+do
+    _types = {}
+    for type in values(meta.instances(ow.ControlIndicatorType)) do
+        table.insert("`", tostring(type), "`")
+        table.insert(", ")
+    end
+    _types[#_types] = nil -- last comma
+    _types = table.concat(_types, "")
+end
+
+function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
+    assert(object:get_type() ~= ow.ObjectType.POINT, "In ow.ControlIndicatorTrigger: object `", object:get_id(), "` is a point")
+
+    self._scene = scene
+    self._stage = stage
+    self._type = object:get_string("type", true)
+    assert(meta.is_enum_value(self._type, ow.ControlIndicatorType), "In ow.ControlIndicatorTrigger: property `type` of object `" .. object:get_id() .. "` unrecognized. Should be one of " .. _types)
+    
+    local body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.STATIC)
+    self._body = body
+
+    body:set_is_sensor(true)
+    body:set_collides_with(rt.settings.player.bounce_collision_group)
+    body:set_collision_group(rt.settings.player.bounce_collision_group)
+    
+    body:signal_connect("collision_start", function(_, other_body)
+        self._scene:set_control_indicator_type(self._type)
+    end)
+
+    body:signal_connect("collision_end", function()
+        self._scene:set_control_indicator_type(nil)
+    end)
+end

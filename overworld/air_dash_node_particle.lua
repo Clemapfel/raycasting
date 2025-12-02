@@ -1,6 +1,6 @@
 require "common.smoothed_motion_1d"
 
-rt.settings.overworld.air_dash_node_particle = {
+rt.settings.overworld.objects.air_dash_node_particle = {
     explosion_distance = 30, -- px
     scale_offset_distance = 5, -- px
     brightness_offset = 0.5, -- fraction
@@ -44,7 +44,7 @@ function ow.AirDashNodeParticle:instantiate(radius)
     end
     self._core:set_vertex_color(1, 1, 1, 1)
 
-    self._n_circles = rt.settings.overworld.air_dash_node_particle.n_circles
+    self._n_circles = rt.settings.overworld.objects.air_dash_node_particle.n_circles
     self._circles = {}
 
     for i = 1, self._n_circles do
@@ -64,8 +64,8 @@ local _sqrt3 = math.sqrt(3)
 
 --- @brief compute 3D oriented circle basis, sample it, and split into back/front line strips
 function ow.AirDashNodeParticle:_update_segments()
-    local explosion_offset = self._explosion_motion:get_value() * rt.settings.overworld.air_dash_node_particle.explosion_distance
-    local scale_offset = self._scale_offset * rt.settings.overworld.air_dash_node_particle.scale_offset_distance
+    local explosion_offset = self._explosion_motion:get_value() * rt.settings.overworld.objects.air_dash_node_particle.explosion_distance
+    local scale_offset = self._scale_offset * rt.settings.overworld.objects.air_dash_node_particle.scale_offset_distance
     local total_offset = scale_offset + explosion_offset
 
     local center_x = self._x
