@@ -106,8 +106,7 @@ do
         down_button_friction_release_duration = 30 / 60, -- s
         platform_velocity_decay = 0.98,
 
-        max_velocity_x = 2500,
-        max_velocity_y = 2500,
+        max_velocity = 2500,
 
         squeeze_multiplier = 1.4,
 
@@ -248,8 +247,6 @@ function rt.Player:instantiate()
         _is_frozen = false,
         _use_wall_friction = true,
 
-        _gravity = 1, -- [-1, 1]
-
         _movement_disabled = false,
 
         _platforms = {},
@@ -313,6 +310,7 @@ function rt.Player:instantiate()
         _gravity_direction_x = 0,
         _gravity_direction_y = 1,
         _gravity_multiplier = 1,
+        _fall_speed_multiplier = 1, -- [0, 1]
 
         _can_wall_jump = false,
         _can_jump = false,
@@ -842,7 +840,6 @@ function rt.Player:update(delta)
         ) do
             local body, ray_x, ray_y = table.unpack(tuple)
             if body ~= nil and body:has_tag("hitbox") then
-                dbg(body.temp) -- TODO
                 local distance = math.distance(x, y, ray_x, ray_y)
                 if distance < self._radius then
                     should_clear = true
@@ -1112,15 +1109,18 @@ function rt.Player:update(delta)
                 ))
 
             -- override wall conditions
-            if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable")) or
-                (self._bottom_left_wall and bottom_left_wall_body:has_tag("unjumpable")) or
-                (self._bottom_right_wall and bottom_right_wall_body:has_tag("unjumpable"))
+            if (self._bottom_wall and bottom_wall_body:has_tag("unjumpable"))
+                or (self._bottom_left_wall and bottom_left_wall_body:has_tag("unjumpable"))
+                or (self._bottom_right_wall and bottom_right_wall_body:has_tag("unjumpable"))
             then
                 can_jump = false
             end
 
-            if (self._left_wall and (left_wall_body:has_tag("unjumpable") or left_wall_body:has_tag("slippery"))) or
-                (self._right_wall and (right_wall_body:has_tag("unjumpable") or right_wall_body:has_tag("slippery")))
+            if (self._left_wall and (left_wall_body:has_tag("unjumpable") or left_wall_body:has_tag("slippery")))
+                or (self._right_wall and (right_wall_body:has_tag("unjumpable") or right_wall_body:has_tag("slippery")))
+                or (self._top_right_wall_body and (top_right_wall_body:has_tag("unjumpable") or top_right_wall_body:has_tag("slippery")))
+                or (self._top_wall and (top_wall_body:has_tag("unjumpable") or top_wall_body:has_tag("slippery")))
+                or (self._top_left_wall and (top_left_wall_body:has_tag("unjumpable") or top_left_wall_body:has_tag("slippery")))
             then
                 can_wall_jump = false
             end
@@ -1576,8 +1576,8 @@ function rt.Player:update(delta)
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
-            next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity_x, _settings.max_velocity_x)
-            next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity_y, _settings.max_velocity_y)
+            next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
+            next_velocity_y = math.min(next_velocity_y, _settings.max_velocity) -- downwards unbounded
 
             -- componensate when going up slopes, which would slow down player in stock box2d
             local before_projection_x, before_projection_y = next_velocity_x, next_velocity_y
@@ -1651,7 +1651,13 @@ function rt.Player:update(delta)
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
             next_velocity_y = self._platform_velocity_y + next_velocity_y * self._velocity_multiplier_y
 
-            self._body:set_velocity(next_velocity_x, next_velocity_y)
+            local multiplier = self._fall_speed_multiplier
+
+            if next_velocity_y > 0 then -- only affect falling
+                self._body:set_velocity(next_velocity_x, next_velocity_y * multiplier)
+            else
+                self._body:set_velocity(next_velocity_x, next_velocity_y)
+            end
             self._last_velocity_x, self._last_velocity_y = before_projection_x - self._platform_velocity_x, before_projection_y - self._platform_velocity_y
         end
 
@@ -2579,6 +2585,16 @@ end
 --- @brief
 function rt.Player:get_gravity()
     return self._gravity_multiplier
+end
+
+--- @brief
+function rt.Player:set_fall_speed(x)
+    self._fall_speed_multiplier = x
+end
+
+--- @brief
+function rt.Player:get_gravity()
+    return self._fall_speed_multiplier
 end
 
 --- @brief

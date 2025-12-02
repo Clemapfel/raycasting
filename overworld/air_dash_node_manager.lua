@@ -213,11 +213,20 @@ function ow.AirDashNodeManager:update(delta)
         else
             self._recommended_node = nil
         end
+
+        player:set_fall_speed(1)
     else
+        local before = self._next_node
         self._next_node = best_entry.node
         self._next_node:set_is_current(true)
 
         self._recommended_node = self._next_node
+
+        if not player:get_is_grounded() then
+            player:set_fall_speed(math.mix(0.9, 1, (math.distance(px, py, self._next_node:get_position()) / self._next_node:get_radius())))
+        else
+            player:set_fall_speed(1)
+        end
     end
 
     if self._recommended_node ~= nil then

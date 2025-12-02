@@ -46,7 +46,8 @@ function ow.Hitbox:instantiate(object, stage, scene)
 
     for property in range(
         "slippery",
-        "sticky"
+        "sticky",
+        "unjumpable"
     ) do
         if object:get_boolean(property) then
             self._body:add_tag(property)

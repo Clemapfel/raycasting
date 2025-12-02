@@ -102,6 +102,9 @@ do -- load from image
     rt.Palette.SLIPPERY.a = 0.8
     rt.Palette.SLIPPERY_OUTLINE = rt.Palette.GRAY_5
 
+    rt.Palette.DECELERATOR_SURFACE = rt.Palette.YELLOW_5
+    rt.Palette.DECELERATOR_SURFACE_OUTLINE = rt.Palette.WHITE
+
     rt.Palette.WALL = rt.Palette.GRAY_8
     rt.Palette.WALL_OUTLINE = rt.Palette.GRAY_7
 

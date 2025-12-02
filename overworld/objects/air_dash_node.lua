@@ -4,7 +4,7 @@ require "overworld.air_dash_node_particle"
 rt.settings.overworld.objects.air_dash_node = {
     core_radius = 10,
     indicator_length = 30,
-    cooldown = 25 / 60,
+    cooldown = 45 / 60,
     min_opacity = 0.0,
     particle_emit_delay_duration = 5 / 60, -- seconds
 
@@ -25,6 +25,9 @@ end
 
 local _core_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
 
+local _hue = 0
+local _n_hue_steps = 12
+
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
@@ -36,6 +39,9 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     self._scene = scene
     self._stage = stage
+
+    self._indicator_always_visible = object:get_boolean("indicator_always_visible", false)
+    if self._indicator_always_visible == nil then self._indicator_always_visible = true end
 
     -- dummy collision, for camera queries
     self._body = b2.Body(
@@ -60,7 +66,10 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     self._is_tethered_motion = rt.SmoothedMotion1D(0)
 
-    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1))
+    self._hue = math.fract(_hue / _n_hue_steps)
+    _hue = _hue + 1
+
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
     self._particles = ow.PlayerTetherParticleEffect()
     self._dash_line = { self._x, self._y, self._x, self._y } -- love.Line
@@ -362,6 +371,7 @@ function ow.AirDashNode:draw(priority)
 
     if priority == _behind_player_priority then
         local current_a = self._is_current_motion:get_value()
+        if self._indicator_always_visible then current_a = 1 end
         local cooldown_a = 1 - math.min(1, self._cooldown_elapsed / rt.settings.overworld.objects.air_dash_node.cooldown)
         local opacity =  math.max(
             current_a,

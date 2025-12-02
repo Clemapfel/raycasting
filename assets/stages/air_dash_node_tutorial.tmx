@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="28">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="79">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -8,20 +8,22 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="5" name="aux">
-  <object id="22" type="ControlIndicatorTrigger" x="-2674.13" y="436.54" width="554.03" height="925.136">
+  <object id="22" type="ControlIndicatorTrigger" x="-2031.82" y="497.413" width="554.03" height="971.316">
    <properties>
     <property name="type" value="AIR_DASH"/>
    </properties>
   </object>
-  <object id="23" name="Different Sizes" type="Hitbox" x="-2476.38" y="3788.41">
-   <polygon points="0,0 973.237,0 972.377,-1148.41 1180.38,-1148.41 1168,160 0,160"/>
+  <object id="32" type="ControlIndicatorTrigger" x="-2147.13" y="2021.16" width="700.073" height="1094.81">
+   <properties>
+    <property name="type" value="AIR_DASH"/>
+   </properties>
   </object>
  </objectgroup>
  <objectgroup id="2" name="main">
   <object id="1" type="Hitbox" x="-96" y="16">
-   <polygon points="0,0 1200,0 1200,672 0,672"/>
+   <polygon points="0,0 1200,0 1200,64 0,64"/>
   </object>
-  <object id="2" name="Spawn" type="PlayerSpawn" x="-2345.69" y="1452.37">
+  <object id="2" name="Spawn" type="PlayerSpawn" x="-609.586" y="2519.86">
    <point/>
   </object>
   <object id="3" name="Goal" type="Goal" x="992" y="0">
@@ -56,14 +58,118 @@
    </properties>
    <polygon points="0,0 0,48 64,32 64,16"/>
   </object>
-  <object id="24" type="AirDashNode" x="-1888" y="3377.02" width="300" height="300">
+  <object id="24" type="AirDashNode" x="-1872" y="2689.02" width="300" height="300">
    <ellipse/>
   </object>
-  <object id="25" type="AirDashNode" x="-1888" y="2800" width="300" height="300">
+  <object id="25" type="AirDashNode" x="-1872" y="2160" width="300" height="300">
    <ellipse/>
   </object>
-  <object id="27" type="AirDashNode" x="-2080" y="3168" width="150" height="150">
+  <object id="27" type="AirDashNode" x="-2064" y="2480" width="150" height="150">
    <ellipse/>
+  </object>
+  <object id="29" type="SlipperyHitbox" x="-2160" y="2192">
+   <polygon points="-48,-384 880,-384 880,-336 144,-336 16,-224 16,864 -48,848"/>
+  </object>
+  <object id="33" type="BoostField" x="-2208" y="3040">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="render_priority" type="float" value="-2"/>
+   </properties>
+   <polygon points="0,0 0,48 64,32 64,16"/>
+  </object>
+  <object id="34" type="SlipperyHitbox" x="-2144" y="3072">
+   <polygon points="0,0 -64,16 -64,32 0,32"/>
+  </object>
+  <object id="35" name="Different Sizes" type="Hitbox" x="-2448" y="3100.41">
+   <polygon points="-3.62323,3.58556 1004.38,3.58556 1004.38,-1052.41 972.377,-1084.41 1180.38,-1084.41 1180.38,163.586 -3.62323,163.586"/>
+  </object>
+  <object id="36" type="SlipperyHitbox" x="-1475.62" y="2016">
+   <polygon points="0,0 0,1088 32,1088 32,32"/>
+  </object>
+  <object id="37" name="Horizontal Practice" type="Hitbox" x="-880" y="3085.29">
+   <polygon points="-3.62323,3.58556 224.103,2.71242 224.103,34.7124 1472.1,34.7124 1472.1,2.71242 1664.1,2.71242 1664.1,162.712 -3.62323,163.586"/>
+  </object>
+  <object id="39" type="AirDashNode" x="-623.897" y="2800" width="250" height="250">
+   <ellipse/>
+  </object>
+  <object id="42" type="AirDashNode" x="-335.897" y="2800" width="250" height="250">
+   <ellipse/>
+  </object>
+  <object id="45" type="AirDashNode" x="-63.897" y="2800" width="250" height="250">
+   <ellipse/>
+  </object>
+  <object id="46" type="AirDashNode" x="208.103" y="2800" width="250" height="250">
+   <ellipse/>
+  </object>
+  <object id="47" type="DeceleratorSurface" x="-655.897" y="3088">
+   <polygon points="0,0 0,32 1248,32 1248,0"/>
+  </object>
+  <object id="48" x="-832" y="2400">
+   <polygon points="-128,128 2560,128 2560,256 -128,272"/>
+  </object>
+  <object id="50" type="AirDashNode" x="-432" y="2384" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="51" type="AirDashNode" x="-432" y="2064" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="64" type="AirDashNode" x="-112" y="2112" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="66" type="AirDashNode" x="-432" y="1728" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="68" type="SlipperyHitbox" x="-192" y="1632">
+   <properties>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,48.0896 22.6956,-32 48,48.0896 48,800 0,800"/>
+  </object>
+  <object id="69" type="AirDashNode" x="80" y="1920" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="70" type="AirDashNode" x="272" y="1728" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="71" type="AirDashNode" x="528" y="1712" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="72" type="AirDashNode" x="784" y="1712" width="200" height="200">
+   <properties>
+    <property name="indicator_always_visible" type="bool" value="true"/>
+   </properties>
+   <ellipse/>
+  </object>
+  <object id="73" x="1024" y="1888">
+   <polygon points="0,0 0,48 224,48 224,0"/>
+  </object>
+  <object id="77" type="KillPlane" x="-352" y="2016">
+   <polygon points="583.211,-349.832 1376,-352 1376,-384 583.211,-381.832"/>
+  </object>
+  <object id="78" type="Coin" x="-128" y="2128">
+   <point/>
   </object>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">

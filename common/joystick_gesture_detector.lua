@@ -4,7 +4,8 @@ require "common.direction"
 rt.settings.joystick_gesture_detector = {
     magnitude_threshold = 0.25,
     likelihood_threshold = 0.5,
-    time_threshold_factor = 1.5 -- * rt.GameState:get_double_press_threshold
+    deadzone = 0.25,
+    time_threshold_factor = 1 -- * rt.GameState:get_double_press_threshold
 }
 
 --- @class rt.JoystickGestureDetector
@@ -72,6 +73,8 @@ local _direction_to_angle = {
 }
 
 function rt.JoystickGestureDetector:_handle_joystick_moved(x, y)
+    if math.magnitude(x, y) < rt.settings.joystick_gesture_detector.deadzone then return end
+
     local angle = math.normalize_angle(math.angle(x, y))
 
     local direction_to_likelihood = {}

@@ -6,20 +6,8 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-require "overworld.npc_body"
-local cloth
-local dilation_animation = rt.SmoothedMotion1D(0)
-
-function _init()
-    local w, h = 350, 350
-    local screen_w, screen_h = love.graphics.getDimensions()
-    cloth = ow.NPCBody(
-        0 + 0.5 * screen_w - 0.5 * w,
-        0 + 0.5 * screen_h - 0.5 * h,
-        w, h,
-        0.3 * w
-    )
-end
+require "overworld.stage_preview"
+local preview = ow.StagePreview(ow.StageConfig("air_dash_node_tutorial"))
 
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
