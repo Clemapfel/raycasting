@@ -1,0 +1,140 @@
+return {
+  version = "1.10",
+  luaversion = "5.1",
+  tiledversion = "1.11.2",
+  class = "",
+  orientation = "orthogonal",
+  renderorder = "right-down",
+  width = 32,
+  height = 32,
+  tilewidth = 16,
+  tileheight = 16,
+  nextlayerid = 4,
+  nextobjectid = 10,
+  properties = {},
+  tilesets = {},
+  layers = {
+    {
+      type = "imagelayer",
+      image = "../tilesets/debug_tileset_16x16/tile.png",
+      id = 3,
+      name = "background",
+      class = "",
+      visible = true,
+      opacity = 1,
+      offsetx = 0,
+      offsety = 0,
+      parallaxx = 1,
+      parallaxy = 1,
+      repeatx = true,
+      repeaty = true,
+      properties = {}
+    },
+    {
+      type = "objectgroup",
+      draworder = "topdown",
+      id = 2,
+      name = "objects",
+      class = "",
+      visible = true,
+      opacity = 1,
+      offsetx = 0,
+      offsety = 0,
+      parallaxx = 1,
+      parallaxy = 1,
+      properties = {},
+      objects = {
+        {
+          id = 1,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -96,
+          y = -128,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 1200, y = 0 },
+            { x = 1200, y = 672 },
+            { x = 0, y = 672 }
+          },
+          properties = {}
+        },
+        {
+          id = 2,
+          name = "Spawn",
+          type = "PlayerSpawn",
+          shape = "point",
+          x = 2246.23,
+          y = -233.94,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 3,
+          name = "Goal",
+          type = "Goal",
+          shape = "point",
+          x = 992,
+          y = -176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 5,
+          name = "Checkpoint",
+          type = "Checkpoint",
+          shape = "point",
+          x = 512,
+          y = -192,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 7,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 1825.62,
+          y = 214.674,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -592, y = 0 },
+            { x = -592, y = 656 },
+            { x = 1744, y = 656 },
+            { x = 1744, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 9,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "rectangle",
+          x = 1739.51,
+          y = -503.369,
+          width = 16,
+          height = 240,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        }
+      }
+    }
+  }
+}

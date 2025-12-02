@@ -1,0 +1,1333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1128">
+ <editorsettings>
+  <export target="tutorial.lua" format="lua"/>
+ </editorsettings>
+ <properties>
+  <property name="title" value="Not a Tutorial"/>
+ </properties>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
+ <imagelayer id="3" name="bg" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="2" name="objects">
+  <object id="4" type="Hitbox" x="-48" y="224">
+   <polygon points="-240,0 416,0 416,32 -240,32"/>
+  </object>
+  <object id="6" name="Jump 01" type="Hitbox" x="432" y="224">
+   <polygon points="0,0 112,0 112,64 672,64 672,-400 960,0 960,-64 1248,-64 1248,-128 1744,-128 1744,64 2464.13,64 2464,-80 2864,-80 2864,64.6396 3680,64 3680,-160 4192,-160 4192,16 5152,16 5152,-160 5360,-160 5360,112 5184,112 0,112 0,32 -48,32 -48,0"/>
+  </object>
+  <object id="7" type="Hitbox" x="544" y="224">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 16,64 0,64"/>
+  </object>
+  <object id="8" type="Hitbox" x="896" y="224">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="192,0 192,64 208,64 208,0"/>
+  </object>
+  <object id="9" type="Hitbox" x="1264" y="160">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="128,0 112,0 112,64 128,64"/>
+  </object>
+  <object id="10" type="Hitbox" x="1344" y="240">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="320,-144 320,-80 336,-80 336,-144"/>
+  </object>
+  <object id="11" type="Hitbox" x="1648" y="96">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="528,0 528,192 720,192"/>
+  </object>
+  <object id="12" type="Hitbox" x="2688" y="176">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 64,0 64,32 0,32"/>
+  </object>
+  <object id="15" type="Hitbox" x="2896" y="288">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -32,0 -32,-176 416,-176 576,0 400,0 400,-144 0,-144"/>
+  </object>
+  <object id="33" type="Hitbox" x="3808" y="192">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 32,0 32,16 0,16"/>
+  </object>
+  <object id="35" type="Hitbox" x="3952" y="112">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 32,0 32,16 0,16"/>
+  </object>
+  <object id="36" type="Hitbox" x="4144" y="496">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-32,-208 -48,-208 -48,-432 -32,-432"/>
+  </object>
+  <object id="37" type="Hitbox" x="4640" y="288">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-48 -16,-48 -16,-224 0,-224 0,-144 32,-144 32,-128 0,-128"/>
+  </object>
+  <object id="40" name="Sprint" type="Hitbox" x="4928" y="80">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 336,0 336,16 0,16"/>
+  </object>
+  <object id="41" type="Hitbox" x="5584" y="288">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-48 -16,-48 -16,-224 0,-224"/>
+  </object>
+  <object id="43" name="Walljump" type="Hitbox" x="158.985" y="2432">
+   <polygon points="1.01513,0 577.015,0 578.03,-384 82.0303,-384 82.0303,-416 674.03,-416 674.03,-384 673.015,0 673.015,80 1.01513,80"/>
+  </object>
+  <object id="44" type="Hitbox" x="622.985" y="2304">
+   <polygon points="-14.9849,0 -590.985,0 -590.985,-432 -494.985,-432 -494.985,-32 -14.9849,-32"/>
+  </object>
+  <object id="45" type="Hitbox" x="734.985" y="2256">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="1.01513,0 -61.9697,-160 -157.97,-208 2.03025,-208"/>
+  </object>
+  <object id="46" type="Hitbox" x="606.985" y="2272">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="1.01513,0 1.01513,32 17.0151,32 17.0151,-16 -478.985,-16 -478.985,0"/>
+  </object>
+  <object id="48" type="Hitbox" x="718.985" y="2528">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="17.0151,-96 -78.9849,-96 17.0151,-144"/>
+  </object>
+  <object id="49" type="Hitbox" x="238.985" y="2096">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="2.03025,-48 -13.9697,-48 -13.9697,-96 594.03,-96 594.03,-80 2.03025,-80"/>
+  </object>
+  <object id="50" type="Hitbox" x="128" y="1936">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="1.01513,0 65.0151,-80 544,-80 576,-48 577.015,-160 1.01513,-160"/>
+  </object>
+  <object id="53" type="Hitbox" x="1168" y="1387.43">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,-11.4286 0,100.571 16,100.571 16,-11.4286"/>
+  </object>
+  <object id="60" type="Hitbox" x="-80" y="-432">
+   <polygon points="320,0 784,0 784,-256 800,-256 803.097,0 1792,0 1792,128 320,128"/>
+  </object>
+  <object id="61" type="Hitbox" x="400" y="-480">
+   <polygon points="0,-16 0,-320 624,-320 624,0 608,0 608,-304 16,-304 16,-16"/>
+  </object>
+  <object id="62" type="BubbleField" x="1008" y="-784">
+   <polygon points="0,0 0,352 -592,352 -592,0"/>
+  </object>
+  <object id="63" type="KillPlane" x="1024" y="-400">
+   <polygon points="720,0 6122.31,3.36817 6122.31,35.3682 720,32"/>
+  </object>
+  <object id="65" type="BoostField" x="1488" y="-624">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+   </properties>
+   <polygon points="0,0 208,0 208,144 0,144"/>
+  </object>
+  <object id="66" type="BubbleField" x="1488" y="-784" width="784" height="304"/>
+  <object id="68" type="BubbleField" x="2336" y="-784" width="80" height="304"/>
+  <object id="69" type="BubbleField" x="2480" y="-784" width="80" height="304"/>
+  <object id="70" type="Hitbox" x="7040" y="-405.828">
+   <polygon points="0,0 256,0 256,32 0,32"/>
+  </object>
+  <object id="72" type="BubbleField" x="2640" y="-784" width="992" height="304"/>
+  <object id="73" type="BoostField" x="2731.78" y="-979.853">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+   </properties>
+   <polygon points="0,0 160,0 160,176 0,176"/>
+  </object>
+  <object id="76" type="Hitbox" x="992" y="1275.43">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,-11.4286 0,100.571 16,100.571 16,-11.4286"/>
+  </object>
+  <object id="77" type="Hitbox" x="1168" y="1163.43">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,-11.4286 0,100.571 16,100.571 16,-11.4286"/>
+  </object>
+  <object id="78" type="Hitbox" x="992" y="1051.43">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,-11.4286 0,100.571 16,100.571 16,-11.4286"/>
+  </object>
+  <object id="83" type="Hitbox" x="1168" y="1024">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,16 0,32 416,32 416,-383.988 592,-384 592,-432 352,-432 352,16"/>
+  </object>
+  <object id="89" type="Hitbox" x="816" y="1616">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="1.01513,-64 1.01513,384 17.0151,384 17.0151,-48 352,-48 352,-64"/>
+  </object>
+  <object id="91" type="Hitbox" x="704" y="1632">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,-240 1.01513,256 17.0151,256 16,-240"/>
+  </object>
+  <object id="93" type="Hitbox" x="704" y="1376">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,16 304,16 304,16 304,0 288,0 288,-112 304,-112 304,-224 288,-224 288,-336 304,-336 304,-432 704,-432 704,-878.102 1056,-880 1056,-944 624,-944 624,-512 208,-512 208,0"/>
+  </object>
+  <object id="95" type="Hitbox" x="1168" y="1488">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-432 0,-336 16,-336 16,-224 0,-224 0,-112 16,-112 16,0 0,0 0,80 96,80 96,-432"/>
+  </object>
+  <object id="98" type="Hitbox" x="2384" y="2000">
+   <polygon points="0,0 0,112 16,112 16,0"/>
+  </object>
+  <object id="99" type="Hitbox" x="2704" y="2176">
+   <polygon points="0,0 208,0 208,48 0,48"/>
+  </object>
+  <object id="100" type="Hitbox" x="2384" y="2000">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 8.52091,-15.3023"/>
+  </object>
+  <object id="102" type="Hitbox" x="2192" y="2176">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 16,48 0,48"/>
+  </object>
+  <object id="103" type="Hitbox" x="2688" y="2176">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 16,48 0,48"/>
+  </object>
+  <object id="108" type="Hitbox" x="3424" y="2176">
+   <polygon points="336,-416 544,-416 544,48 336,48"/>
+  </object>
+  <object id="111" type="Hitbox" x="2912" y="2176">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 16,48 0,48"/>
+  </object>
+  <object id="112" type="Hitbox" x="3408" y="2176">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="336,-416 352,-416 352,48 336,48"/>
+  </object>
+  <object id="113" type="Hitbox" x="2384" y="2112">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 7.2836,15.2747 16,0"/>
+  </object>
+  <object id="114" type="Hitbox" x="3104" y="2016">
+   <polygon points="0,0 0,80 16,80 16,0"/>
+  </object>
+  <object id="115" type="Hitbox" x="3104" y="2016">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 8.52091,-15.3023"/>
+  </object>
+  <object id="117" type="Hitbox" x="3104" y="2128">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
+  </object>
+  <object id="118" type="Hitbox" x="3312" y="1904">
+   <polygon points="0,0 0,80 16,80 16,0"/>
+  </object>
+  <object id="119" type="Hitbox" x="3312" y="1904">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 8.52091,-15.3023"/>
+  </object>
+  <object id="120" type="Hitbox" x="3312" y="2016">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
+  </object>
+  <object id="121" type="Hitbox" x="3520" y="1696">
+   <polygon points="0,0 0,80 16,80 16,0"/>
+  </object>
+  <object id="122" type="Hitbox" x="3520" y="1696">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 8.52091,-15.3023"/>
+  </object>
+  <object id="123" type="Hitbox" x="3520" y="1824">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-48 7.2836,-32.7253 16,-48"/>
+  </object>
+  <object id="138" type="Hitbox" x="3104" y="1760">
+   <polygon points="0,0 0,80 16,80 16,0"/>
+  </object>
+  <object id="139" type="Hitbox" x="3104" y="1760">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 8.52091,-15.3023"/>
+  </object>
+  <object id="140" type="Hitbox" x="3104" y="1872">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
+  </object>
+  <object id="141" type="Hitbox" x="3312" y="1664">
+   <polygon points="0,0 0,80 16,80 16,0"/>
+  </object>
+  <object id="142" type="Hitbox" x="3312" y="1664">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,0 8.52091,-15.3023"/>
+  </object>
+  <object id="143" type="Hitbox" x="3312" y="1776">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
+  </object>
+  <object id="154" name="Spawn" type="PlayerSpawn" x="-5558.95" y="2354.39">
+   <point/>
+  </object>
+  <object id="155" type="Hitbox" x="1168" y="2176">
+   <polygon points="-80,-0.6977 112,-0.6977 112,47.3023 -80,47.3023"/>
+  </object>
+  <object id="156" type="KillPlane" x="1216" y="2224">
+   <polygon points="-126.316,-0.6977 2753.68,0 2753.68,64 -126.316,63.3023"/>
+  </object>
+  <object id="157" type="Hitbox" x="1552" y="2000">
+   <polygon points="-80,-0.6977 -80,111.302 -64,111.302 -64,-0.6977"/>
+  </object>
+  <object id="158" type="Hitbox" x="1872" y="2176">
+   <polygon points="112,0 320,0 320,48 112,48"/>
+  </object>
+  <object id="159" type="Hitbox" x="1552" y="2000">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-0.6977 -64,-0.6977 -71.4791,-16"/>
+  </object>
+  <object id="161" type="Hitbox" x="1360" y="2176">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-0.6977 -64,-0.6977 -64,47.3023 -80,47.3023"/>
+  </object>
+  <object id="162" type="Hitbox" x="1856" y="2176">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="112,0 128,0 128,48 112,48"/>
+  </object>
+  <object id="163" type="Hitbox" x="1552" y="2112">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-0.6977 -72.7164,14.577 -64,-0.6977"/>
+  </object>
+  <object id="164" type="Hitbox" x="1696" y="2000">
+   <polygon points="-80,-0.6977 -80,111.302 -64,111.302 -64,-0.6977"/>
+  </object>
+  <object id="165" type="Hitbox" x="1696" y="2000">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-0.6977 -64,-0.6977 -71.4791,-16"/>
+  </object>
+  <object id="166" type="Hitbox" x="1696" y="2112">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-0.6977 -72.7164,14.577 -64,-0.6977"/>
+  </object>
+  <object id="167" type="Hitbox" x="1840" y="2000">
+   <polygon points="-80,-0.6977 -80,111.302 -64,111.302 -64,-0.6977"/>
+  </object>
+  <object id="168" type="Hitbox" x="1840" y="2000">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-0.6977 -64,-0.6977 -71.4791,-16"/>
+  </object>
+  <object id="169" type="Hitbox" x="1840" y="2112">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-80,-0.6977 -72.7164,14.577 -64,-0.6977"/>
+  </object>
+  <object id="171" type="Hitbox" x="1573.33" y="2944">
+   <polygon points="-533.33,0 1386.67,0 1386.67,48 -533.333,47.3023"/>
+  </object>
+  <object id="178" type="BouncePad" x="3081.58" y="2395.15" width="16" height="575.087"/>
+  <object id="180" type="BouncePad" x="1040" y="2368" width="19.0575" height="576"/>
+  <object id="182" type="Hitbox" x="1952" y="1312">
+   <polygon points="0,0 160,0 160,32 0,32"/>
+  </object>
+  <object id="184" type="KillPlane" x="1792" y="1344">
+   <polygon points="0,0 1840,0 1840,16 0,16"/>
+  </object>
+  <object id="185" type="Hitbox" x="2112" y="1312">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 64,0 64,32 0,32"/>
+  </object>
+  <object id="186" type="Hitbox" x="2176" y="1248">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -32,0 -32,-48 -32,-240 0,-240 0,-192 -16,-192 -16,-192 -16,-48 0,-48"/>
+  </object>
+  <object id="187" type="Hitbox" x="2176" y="1200">
+   <polygon points="0,0 -16,0 -16,-144 0,-144"/>
+  </object>
+  <object id="188" type="Hitbox" x="2416" y="1008">
+   <properties>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -16,0 -16,-64 0,-64"/>
+  </object>
+  <object id="189" type="Hitbox" x="2416" y="1104">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="-16,-96 0,-96 0,-160 -16,-160 -16,-192 -16,-208 0,-192 16,-192 32,-208 80,-112 80,-96 64,-96 64,16 -16,-80"/>
+  </object>
+  <object id="191" type="Hitbox" x="2480" y="976">
+   <properties>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,32 0,144 16,144 16,32"/>
+  </object>
+  <object id="192" type="Hitbox" x="2688" y="976">
+   <polygon points="0,32 0,176 32,176 32,32"/>
+  </object>
+  <object id="193" type="Hitbox" x="2688" y="976">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="-128,-144 160,-144 160,-32 32,32 0,32 -128,-32"/>
+  </object>
+  <object id="196" type="Hitbox" x="3072" y="960">
+   <polygon points="0,48 0,240 32,240 32,48"/>
+  </object>
+  <object id="197" type="Hitbox" x="2688" y="1184">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,16 0,160 48,160 48,16 32,32 16,32"/>
+  </object>
+  <object id="198" type="Hitbox" x="3072" y="1177.85">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,22.1538 0,166.154 32,166.154 32,22.1538"/>
+  </object>
+  <object id="199" type="Hitbox" x="3072" y="1008">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+    <property name="unjumpable" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 16,-32 32,0"/>
+  </object>
+  <object id="200" type="Hitbox" x="3328" y="1168">
+   <polygon points="160,32 160,48 304,48 304,32"/>
+  </object>
+  <object id="201" type="Hitbox" x="3328" y="1184">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="160,32 160,160 304,160 304,32"/>
+  </object>
+  <object id="202" type="Hitbox" x="2688" y="1200">
+   <polygon points="0,0 48,0 32,16 16,16"/>
+  </object>
+  <object id="203" type="Hitbox" x="2400" y="896">
+   <polygon points="0,0 48,0 32,16 16,16"/>
+  </object>
+  <object id="204" type="KillPlane" x="1840" y="1408">
+   <polygon points="0,0 1840,0 1840,16 0,16"/>
+  </object>
+  <object id="209" type="BubbleField" x="346.814" y="3043.07" width="514.478" height="519.592">
+   <ellipse/>
+  </object>
+  <object id="550" type="BubbleField" x="1296" y="848">
+   <polygon points="0,0 336,0 336,-464 -48,-448"/>
+  </object>
+  <object id="551" type="Checkpoint" x="1805.4" y="2859.66">
+   <point/>
+  </object>
+  <object id="554" type="Checkpoint" x="2080" y="2800">
+   <point/>
+  </object>
+  <object id="557" type="BouncePad" x="-320" y="3136.3">
+   <polygon points="-1040,0 -922.877,-115.332 -872.41,-40.121 -738.042,5.42734 -538.514,8.00006 -451.948,-260.088 -432.902,-146.256 -348.051,-35.0778 336,0 336,64 -1040,64"/>
+  </object>
+  <object id="564" type="BubbleField" x="1872" y="2640">
+   <polygon points="0,0 48,272 528,272 528,0"/>
+  </object>
+  <object id="566" type="BubbleField" x="3520" y="3392">
+   <polygon points="0,-80 0,48 144,48 144,-80"/>
+  </object>
+  <object id="567" type="BubbleField" x="3792" y="3328">
+   <polygon points="0,-16 0,160 256,160 256,-16"/>
+  </object>
+  <object id="568" type="KillPlane" x="1024" y="3552">
+   <polygon points="0,0 3648,0 3648,64 0,64"/>
+  </object>
+  <object id="569" type="BubbleField" x="4160" y="3392">
+   <polygon points="0,-80 0,48 144,48 144,-80"/>
+  </object>
+  <object id="571" name="Bubble" type="Hitbox" x="992" y="3872">
+   <polygon points="0,0 0,80 218,80 224,752 304,752 304,0"/>
+  </object>
+  <object id="572" type="BubbleField" x="1328" y="4208">
+   <polygon points="0,-80 0,416 64,368 80,368 145.376,416 145.376,272 176,272 192,256 224,256 336,96 368,96 368,-336 384,-336 384,-400 304,-400 304,32 192,192 145.376,192 144,-80 80,-128 64,-128"/>
+  </object>
+  <object id="573" type="KillPlane" x="832" y="4624">
+   <polygon points="0,0 1536,0 1536,64 0,64"/>
+  </object>
+  <object id="574" type="Hitbox" x="1504" y="4384">
+   <polygon points="0,0 0,16 16,16 128,-144 112,-144 112,-736 -80,-736 -80,-640 -16,-624 -16,-592 0,-592 0,-512"/>
+  </object>
+  <object id="575" type="Hitbox" x="1552" y="4496">
+   <polygon points="160,-192 160,-624 208,-624 208,128 -48,128 -48,-17.879 -32,-32 0,-32 112,-192"/>
+  </object>
+  <object id="576" type="Hitbox" x="1312" y="4624">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,-752 -16,-752 -16,0"/>
+  </object>
+  <object id="577" type="Hitbox" x="1504" y="4624">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-224 0,-832 -16,-832 -16,-224"/>
+  </object>
+  <object id="578" type="Hitbox" x="1488" y="4480">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,144 16,144 16,0"/>
+  </object>
+  <object id="579" type="Hitbox" x="1696" y="4304">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="16,0 16,-432 0,-432 0,0"/>
+  </object>
+  <object id="580" type="Hitbox" x="1632" y="4304">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,-64 0,-656 -16,-656 -16,-64"/>
+  </object>
+  <object id="582" name="Bubble" type="Hitbox" x="848" y="5472">
+   <polygon points="0,0 0,80 432,80 432,0"/>
+  </object>
+  <object id="583" type="KillPlane" x="848" y="5552">
+   <polygon points="0,0 3216,-16 3216,48 0,64"/>
+  </object>
+  <object id="584" type="BubbleField" x="1392" y="3408">
+   <polygon points="0,0 0,-176 464,-176 464,0"/>
+  </object>
+  <object id="585" name="Bubble" type="Hitbox" x="3632" y="5456">
+   <polygon points="0,0 0,80 432,80 432,0"/>
+  </object>
+  <object id="586" name="Bubble" type="Hitbox" x="1024" y="3472">
+   <polygon points="16,16 16,80 272,80 272,16"/>
+  </object>
+  <object id="589" type="BubbleField" x="2288" y="3360">
+   <polygon points="80,-16 176,-80 336,-80 464,0 592,0 720,-80 864,-80 864,0 720,0 592,80 464,80 336,0 176,0 80,64 80,112 -32,112 -32,-16"/>
+  </object>
+  <object id="592" type="Hitbox" x="1040" y="3552">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -16,0 -16,-80 272,-80 272,0 256,0 256,-64 0,-64"/>
+  </object>
+  <object id="593" type="Hitbox" x="1920" y="3472">
+   <polygon points="16,16 16,80 272,80 272,16"/>
+  </object>
+  <object id="594" type="Hitbox" x="1936" y="3552">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -16,0 -16,-80 272,-80 272,0 256,0 256,-64 0,-64"/>
+  </object>
+  <object id="595" type="Hitbox" x="3184" y="3472">
+   <polygon points="16,16 16,80 272,80 272,16"/>
+  </object>
+  <object id="596" type="Hitbox" x="3200" y="3552">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -16,0 -16,-80 272,-80 272,0 256,0 256,-64 0,-64"/>
+  </object>
+  <object id="597" name="s" type="Hitbox" x="4384" y="3472">
+   <polygon points="16,16 16,80 272,80 272,16"/>
+  </object>
+  <object id="598" type="Hitbox" x="4400" y="3552">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 -16,0 -16,-80 272,-80 272,0 256,0 256,-64 0,-64"/>
+  </object>
+  <object id="599" type="Hitbox" x="4400" y="3312">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-16,-144 0,-144 0,-80 256,-80 256,-144 272,-144 272,-64 -16,-64"/>
+  </object>
+  <object id="600" name="s" type="Hitbox" x="4384" y="3152">
+   <polygon points="16,16 16,80 272,80 272,16"/>
+  </object>
+  <object id="604" name="Toast" type="KillPlane" x="-3872.11" y="-108.97">
+   <properties>
+    <property name="print" value="&quot;yes&quot;ss"/>
+   </properties>
+   <polygon points="19.7995,-13.8596 79.1978,-43.5589 170.275,-67.3181 281.153,-79.1978 360.349,-81.1777 443.508,-77.2179 524.686,-69.298 566.265,-61.3783 617.743,-45.5388 647.443,-19.7995 667.242,13.8596 673.181,41.5789 679.122,89.0976 683.082,162.356 685.06,207.894 685.06,259.373 685.06,306.891 683.082,360.349 679.122,411.83 679.122,447.468 677.141,498.946 675.162,603.704 671.202,627.463 659.323,643.302 637.542,655.182 588.043,655.182 516.766,663.101 449.447,667.061 368.269,678.941 306.891,688.841 253.434,692.801 196.015,694.78 134.636,690.82 85.1378,680.922 53.4584,665.082 29.6992,635.382 27.7193,589.843 21.7794,483.107 7.91978,423.709 -3.9599,352.43 -7.91978,277.193 -11.8797,197.995 -13.8596,136.616 -13.8596,85.1378 -11.8797,27.7193"/>
+  </object>
+  <object id="605" type="BubbleField" x="1360" y="5280">
+   <polygon points="0,0 0,160 304,160 304,0"/>
+  </object>
+  <object id="607" type="BoostField" x="1616" y="5264">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 -64,64 -16,112 48,48"/>
+  </object>
+  <object id="608" type="BubbleField" x="1952" y="5280">
+   <polygon points="0,0 0,160 304,160 304,0"/>
+  </object>
+  <object id="609" type="BoostField" x="2208" y="5264">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 -64,64 -16,112 48,48"/>
+  </object>
+  <object id="610" type="Hitbox" x="-352" y="1344">
+   <polygon points="0,0 80,0 80,64 0,64"/>
+  </object>
+  <object id="619" type="Hitbox" x="2176.05" y="1004.37">
+   <polygon points="0,3.62598 -32.0506,3.62598 -32.0506,-12.374 -0.0506176,-12.374"/>
+  </object>
+  <object id="620" type="BouncePad" x="1184" y="2832">
+   <polygon points="0,0 80,32 128,-16 0,-32"/>
+  </object>
+  <object id="621" type="BouncePad" x="1392" y="2896">
+   <polygon points="0,0 0,48 144,32 144,-16"/>
+  </object>
+  <object id="622" type="BouncePad" x="2256" y="1312">
+   <polygon points="0,0 384,0 384,32 0,32"/>
+  </object>
+  <object id="625" type="Hitbox" x="-32" y="1232">
+   <polygon points="0,0 240,0 224,-64 240,-64 272,-64 544,-64 544,32 -32,32 -32,-224 544,-224 544,-112 272,-112 240,-112 224,-112 240,-192 0,-192"/>
+  </object>
+  <object id="626" type="AcceleratorSurface" x="340.441" y="601.862">
+   <polygon points="16,0 -16,16 0,16 311.131,16.3856 580.673,136.564 696.868,70.9285 691.654,47.5077 688.75,-88.0679 713.591,-195.3 688.237,-175.096 673.88,-147.922 670.931,-100.955 669.448,-71.7674 669.966,-31.9579 668.891,1.20895 668.732,41.4705 663.599,64.7055 651.2,80.2136 638.198,89.4186 623.947,94.3516 604.908,94.5051 586.812,93.2928 572.639,90.6384 554.363,82.557 548.816,72.6945 547.87,54.0478 549.975,38.0283 550.721,20.9258 551.265,1.35767 548.811,-17.1695 543.54,-31.0046 534.546,-37.2125 524.932,-33.9356 515.076,-23.7101 500.528,-5.61124 487.168,11.0756 474.723,24.4406 463.961,33.5664 454.982,35.901 444.406,34.1659 436.759,27.0478 430.948,11.9958 425.516,-3.76559 416.977,-18.9728 407.795,-31.5147 396.732,-41.5263 382.436,-47.1215 362.67,-44.875 347.056,-36.4347 332.901,-23.4366 319.028,-9.60013 304,0"/>
+  </object>
+  <object id="627" type="AcceleratorSurface" x="340.441" y="569.862">
+   <polygon points="0,0 -16,0 16,16 304,16 331.104,-8.10176 349.554,-21.1878 368.329,-27.0951 384.52,-27.1888 403.263,-19.1166 416.908,-6.07881 427.354,9.10219 436.64,27.3388 443.126,40.4319 445.618,48.2521 452.393,53.1521 460.846,51.8044 468.221,47.0301 475.702,37.0932 483.603,28.1598 501.707,-4.86056 521.06,-25.5453 534.564,-28.5112 550.01,-21.3932 559.713,-1.96892 563.377,28.1854 563.79,61.8161 560.53,88.6874 565.095,101.479 578.014,109.656 595.018,113.259 610.146,114.486 624.501,112.033 637.272,107.599 645.594,99.0027 654.056,83.12 656.897,66.7259 656.975,35.1069 655.673,-24.035 654.868,-44.695 655.006,-69.583 655.219,-116.493 652.461,-131.784 644.228,-142.802 629.288,-146.875 600.084,-144.091 567.378,-139.309 536.866,-133.983 496.516,-125.077 447.313,-108.84 402.915,-87.7836 364.388,-62.032 304,0"/>
+  </object>
+  <object id="634" x="-1408" y="2400">
+   <polygon points="0,0 256,0 256,64 0,64"/>
+  </object>
+  <object id="635" type="Hitbox" x="-32" y="1152">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,80 137.002,77.8133 89.0015,13.8133 37.7046,14.0498"/>
+  </object>
+  <object id="641" type="BouncePad" x="-994.573" y="2967.44">
+   <polygon points="0,0 130.573,8.56445 130.573,-39.4355 -29.4274,-39.4355"/>
+  </object>
+  <object id="642" type="BouncePad" x="-1210.31" y="2944.37">
+   <polygon points="0,0 99.0502,-35.2782 -2.7137,-119.403"/>
+  </object>
+  <object id="643" type="BubbleField" x="-848.033" y="2766.62">
+   <polygon points="0,0 274.084,55.6309 363.636,180.461 576.662,151.967 466.757,-177.748 135.685,-255.088 -124.83,-225.237 -135.685,-97.6934"/>
+  </object>
+  <object id="645" type="AcceleratorSurface" x="-1408" y="2400">
+   <polygon points="0,0 -48,-16 -80,-48 -105.052,-103.817 -112,-160 -112,-208 -109.922,-301.942 -76.4589,-389.982 -6.07815,-447.641 48.2119,-478.743 121.059,-482.885 196.903,-482.885 258.718,-464.822 300.55,-422.052 337.554,-340.55 346.785,-276.142 345.267,-203.788 347.592,-107.909 353.918,-22.376 351.098,44.8985 349.917,125.604 344.349,195.878 311.782,252.379 265.06,277.586 203.869,295.79 98.5386,306.27 -24.2376,299.491 -118.659,262.776 -177.983,232.192 -225.778,203.92 -274.737,163.039 -305.792,114.607 -312.458,23.4047 -319.988,-74.0623 -322.781,-183.161 -320.493,-281.925 -316.584,-393.528 -307.802,-482.733 -300.16,-615.914 -293.704,-707.243 -268.301,-783.792 -248.129,-836.594 -218.444,-882.16 -196.406,-915.989 -95.8122,-982.875 11.1074,-982.01 110.482,-946.197 193.988,-893.845 283.115,-805.786 417.033,-690.707 566.474,-542.997 601.711,-499.967 614.618,-442.043 628.906,-339.85 624.399,-75.6923 593.978,323.915 557.111,498.873 645.811,508.935 700.608,125.123 717.98,-465.493 350.568,-1057.94 -4.93466,-1155.63 -312.496,-923.349 -505.132,-715.363 -428.095,129.294 -131.769,658.594 473.825,497.927 537.099,-345.228 528.137,-433.58 478.347,-523.424 357.453,-654.775 197.791,-803.736 124.879,-870.344 39.7056,-909.693 -40.9467,-916.122 -118.766,-893.02 -157.773,-861.29 -179.477,-818.995 -211.576,-761.275 -235.966,-696.838 -252.954,-618.849 -264.014,-488.112 -262.142,-387.364 -261.253,-279.283 -262.053,-176.845 -243.363,-70.6286 -210.163,21.4396 -176,64 0,64 21.8818,3.42152"/>
+  </object>
+  <object id="654" type="DoubleJumpTether" x="624" y="160">
+   <point/>
+  </object>
+  <object id="656" type="DoubleJumpTether" x="637.178" y="228.909">
+   <point/>
+  </object>
+  <object id="657" type="DoubleJumpTether" x="649.571" y="104.25">
+   <point/>
+  </object>
+  <object id="658" type="DoubleJumpTether" x="687.926" y="66.5988">
+   <point/>
+  </object>
+  <object id="700" type="DoubleJumpTether" x="750.195" y="49.8054">
+   <point/>
+  </object>
+  <object id="701" type="DoubleJumpTether" x="827.237" y="77.821">
+   <point/>
+  </object>
+  <object id="702" type="DoubleJumpTether" x="866.148" y="119.844">
+   <point/>
+  </object>
+  <object id="703" type="DoubleJumpTether" x="880.934" y="183.658">
+   <point/>
+  </object>
+  <object id="704" type="DoubleJumpTether" x="846.693" y="238.911">
+   <point/>
+  </object>
+  <object id="705" type="Hitbox" x="1968" y="-96">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 32,80 96,16"/>
+  </object>
+  <object id="706" type="Hitbox" x="1645.22" y="-19.2485" rotation="327.865">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 32,80 96,16"/>
+  </object>
+  <object id="707" type="Hitbox" x="1731.09" y="-123.361" rotation="45.587">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 32,80 96,16"/>
+  </object>
+  <object id="708" type="Hitbox" x="1752.82" y="58.8662" rotation="14.6684">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 32,80 96,16"/>
+  </object>
+  <object id="710" type="Hitbox" x="2032" y="-16" rotation="14.6684">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="85.7862,12.6055 -110.946,144.814 -2.59591,116.453 101.048,43.765"/>
+  </object>
+  <object id="712" x="1792.42" y="-64.6084">
+   <polygon points="0,0 -31.3812,49.3793 -22.6129,53.5327 9.69126,5.99935"/>
+  </object>
+  <object id="713" type="Hitbox" x="1840" y="-80">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 80,0 80,-80 0,-80"/>
+  </object>
+  <object id="714" type="Hitbox" x="1946.95" y="-154.384" rotation="54">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 32,80 96,16"/>
+  </object>
+  <object id="715" type="Hitbox" x="704" y="256">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 0,32 80,32 80,0"/>
+  </object>
+  <object id="746" type="KillPlane" x="368" y="864">
+   <polygon points="0,0 -32,64 256,112 128,-80"/>
+  </object>
+  <object id="747" type="CameraBounds" x="-329.628" y="628.593" width="1034.88" height="636.259"/>
+  <object id="749" type="Hitbox" x="-1740.98" y="893.121">
+   <polygon points="-858.809,-383.227 -638.948,-491.482 -286.667,-808 -286.667,-760 -499.02,-381.121 -671.266,-374.344 -659.02,2.879 -379.755,-1.47798 924.98,2.879 923.635,-203.776 268.98,-205.121 176,-432 1160.31,-438.416 1717.29,-19.5367 1372.98,82.879 -863.243,93.3018"/>
+  </object>
+  <object id="752" x="-1744" y="-176">
+   <polygon points="0,0 -64,0 0,64 0,288 -176,288 -176,0 -240,0 -240,-240 -288,-240 -288,64 -240,66.6656 -240,352 774.744,352 784,704 1024,672 1008,288 64,288 64,22.4759 64,0"/>
+  </object>
+  <object id="766" x="-1504" y="112">
+   <polygon points="0,0 112,-112 256,-112 304,0"/>
+  </object>
+  <object id="784" type="Portal" x="-1952" y="-288">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="785"/>
+    <property name="target" type="object" value="786"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="785" type="PortalNode" x="-1952" y="-176">
+   <point/>
+  </object>
+  <object id="786" type="Portal" x="-1728" y="-288">
+   <properties>
+    <property name="left_or_right" type="bool" value="true"/>
+    <property name="other" type="object" value="787"/>
+    <property name="target" type="object" value="784"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="787" type="PortalNode" x="-1728" y="-176">
+   <point/>
+  </object>
+  <object id="788" type="Portal" x="-1920" y="0">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="789"/>
+    <property name="target" type="object" value="790"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="789" type="PortalNode" x="-1920" y="112">
+   <point/>
+  </object>
+  <object id="790" type="Portal" x="-1680" y="0">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="791"/>
+    <property name="target" type="object" value="788"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="791" type="PortalNode" x="-1680" y="112">
+   <point/>
+  </object>
+  <object id="792" type="Portal" x="-1408" y="16">
+   <properties>
+    <property name="left_or_right" type="bool" value="true"/>
+    <property name="other" type="object" value="793"/>
+    <property name="target" type="object" value="794"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="793" type="PortalNode" x="-1488" y="96">
+   <point/>
+  </object>
+  <object id="794" type="Portal" x="-1238.11" y="17.2024">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="795"/>
+    <property name="target" type="object" value="792"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="795" type="PortalNode" x="-1204.44" y="99.1434">
+   <point/>
+  </object>
+  <object id="796" type="Portal" x="-1376" y="-368">
+   <properties>
+    <property name="left_or_right" type="bool" value="true"/>
+    <property name="other" type="object" value="797"/>
+    <property name="target" type="object" value="798"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="797" type="PortalNode" x="-1296" y="-368">
+   <point/>
+  </object>
+  <object id="798" type="Portal" x="-1376" y="-96">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="799"/>
+    <property name="target" type="object" value="796"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="799" type="PortalNode" x="-1280" y="-96">
+   <point/>
+  </object>
+  <object id="800" type="Portal" x="-1032.61" y="893.558">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="801"/>
+    <property name="target" type="object" value="802"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="801" type="PortalNode" x="-952.607" y="893.558">
+   <point/>
+  </object>
+  <object id="802" type="Portal" x="-1208.61" y="893.558">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="803"/>
+    <property name="target" type="object" value="800"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="803" type="PortalNode" x="-1128.61" y="893.558">
+   <point/>
+  </object>
+  <object id="804" type="BoostField" x="214.453" y="-78.8658">
+   <polygon points="0,0 -9.93939,190.182 102.061,206.182 118.061,-1.81818"/>
+  </object>
+  <object id="815" x="-896" y="496">
+   <polygon points="0,0 0,48 384,48 384,0"/>
+  </object>
+  <object id="817" type="KillPlane" x="-2524.66" y="-443.602">
+   <polygon points="0,0 128,80 224,32 112,-160"/>
+  </object>
+  <object id="821" name="Goal" type="Goal" x="-513.967" y="-231.354">
+   <point/>
+  </object>
+  <object id="860" type="Hitbox" x="-252.18" y="-876.21">
+   <polygon points="0,0 928,16 736,-288"/>
+  </object>
+  <object id="870" type="Hitbox" x="-4362.34" y="2162.49">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="-2293.66,413.51 -3189.66,413.51 -4272.35,426.2 -4591.42,76.4513 -3943.78,-448.734 -3397.66,-338.49 -3397.66,173.51 -2965.66,173.51 -2869.66,125.51 -2805.66,61.51 -2773.66,-18.49 -2245.66,-18.49 -2245.66,173.51 -1558.94,175.203 -1269.66,237.51 -213.66,253.51 660.67,253.514 1472,256 1466.34,-18.4863 1610.34,-18.4863 2122.34,253.514 2266.34,253.514 2266.34,-82.4863 2378.34,-82.4863 2378.34,397.514 1616,400 506.335,400 -1285.66,397.51"/>
+  </object>
+  <object id="879" type="MovingHitboxTarget" x="-3069.98" y="2202.88">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="880" type="MovingHitbox" x="-4976" y="2144">
+   <properties>
+    <property name="target" type="object" value="881"/>
+    <property name="velocity" type="float" value="500"/>
+   </properties>
+   <polygon points="1089.04,46.5606 1089.04,78.5606 1286.05,78.5606 1361.04,78.5606 1361.04,46.5606"/>
+  </object>
+  <object id="881" type="MovingHitboxTarget" x="-3758.96" y="2206.56">
+   <properties>
+    <property name="target" type="object" value="879"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="882" type="MovingHitboxTarget" x="-3069.98" y="2042.88">
+   <properties>
+    <property name="target" type="object" value="0"/>
+    <property name="velocity" type="float" value="50"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="883" type="MovingHitbox" x="-4976" y="1984">
+   <properties>
+    <property name="target" type="object" value="884"/>
+    <property name="velocity" type="float" value="250"/>
+   </properties>
+   <polygon points="1089.04,46.5606 1089.04,78.5606 1286.05,78.5606 1361.04,78.5606 1361.04,46.5606"/>
+  </object>
+  <object id="884" type="MovingHitboxTarget" x="-3758.96" y="2046.56">
+   <properties>
+    <property name="target" type="object" value="882"/>
+    <property name="velocity" type="float" value="50"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="885" type="MovingHitboxTarget" x="-3072" y="1872">
+   <properties>
+    <property name="target" type="object" value="0"/>
+    <property name="velocity" type="float" value="10"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="886" type="MovingHitbox" x="-4978.02" y="1813.12">
+   <properties>
+    <property name="target" type="object" value="887"/>
+    <property name="velocity" type="float" value="100"/>
+   </properties>
+   <polygon points="1089.04,46.5606 1089.04,78.5606 1286.05,78.5606 1361.04,78.5606 1361.04,46.5606"/>
+  </object>
+  <object id="887" type="MovingHitboxTarget" x="-3760.98" y="1875.68">
+   <properties>
+    <property name="target" type="object" value="885"/>
+    <property name="velocity" type="float" value="10"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="894" type="MovingHitboxTarget" x="-3069.98" y="2346.88">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="895" type="MovingHitbox" x="-7506.02" y="2288">
+   <properties>
+    <property name="target" type="object" value="896"/>
+    <property name="velocity" type="float" value="1000"/>
+   </properties>
+   <polygon points="3113.45,46.5606 3113.45,78.5606 3676.67,78.5606 3891.06,78.5606 3891.06,46.5606"/>
+  </object>
+  <object id="896" type="MovingHitboxTarget" x="-3758.96" y="2350.56">
+   <properties>
+    <property name="target" type="object" value="894"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="909" type="MovingHitboxTarget" x="-2380.13" y="1520">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="910" type="MovingHitbox" x="-2608" y="1617.88">
+   <properties>
+    <property name="target" type="object" value="911"/>
+    <property name="velocity" type="float" value="500"/>
+   </properties>
+   <polygon points="207.187,353.759 207.187,596.889 244.667,596.889 258.934,596.889 258.934,353.759"/>
+  </object>
+  <object id="911" type="MovingHitboxTarget" x="-2375.77" y="2108.85">
+   <properties>
+    <property name="target" type="object" value="909"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="912" type="MovingHitboxTarget" x="-2540.13" y="1408">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="913" type="MovingHitbox" x="-2768" y="1505.88">
+   <properties>
+    <property name="target" type="object" value="914"/>
+    <property name="velocity" type="float" value="100"/>
+   </properties>
+   <polygon points="207.187,353.759 207.187,596.889 244.667,596.889 258.934,596.889 258.934,353.759"/>
+  </object>
+  <object id="914" type="MovingHitboxTarget" x="-2535.77" y="1996.85">
+   <properties>
+    <property name="target" type="object" value="912"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="915" type="MovingHitboxTarget" x="-2716.13" y="1296">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="916" type="MovingHitbox" x="-2944" y="1393.88">
+   <properties>
+    <property name="target" type="object" value="917"/>
+    <property name="velocity" type="float" value="10"/>
+   </properties>
+   <polygon points="207.187,353.759 207.187,596.889 244.667,596.889 258.934,596.889 258.934,353.759"/>
+  </object>
+  <object id="917" type="MovingHitboxTarget" x="-2711.77" y="1884.85">
+   <properties>
+    <property name="target" type="object" value="915"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="941" type="MovingHitboxTarget" x="-3788.41" y="1496.99">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="942" type="MovingHitbox" x="-4155.46" y="1361.2">
+   <properties>
+    <property name="target" type="object" value="943"/>
+    <property name="velocity" type="float" value="10"/>
+   </properties>
+   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
+  </object>
+  <object id="943" type="MovingHitboxTarget" x="-3380.4" y="1668.55">
+   <properties>
+    <property name="target" type="object" value="941"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="944" type="MovingHitboxTarget" x="-3579.74" y="1312.86">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="945" type="MovingHitbox" x="-3703.44" y="1289.93">
+   <properties>
+    <property name="target" type="object" value="946"/>
+    <property name="velocity" type="float" value="200"/>
+   </properties>
+   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
+  </object>
+  <object id="946" type="MovingHitboxTarget" x="-2928.38" y="1597.28">
+   <properties>
+    <property name="target" type="object" value="944"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="947" type="MovingHitboxTarget" x="-3419.74" y="1104.86">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="948" type="MovingHitbox" x="-3843.21" y="1023.74">
+   <properties>
+    <property name="target" type="object" value="949"/>
+    <property name="velocity" type="float" value="1000"/>
+   </properties>
+   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
+  </object>
+  <object id="949" type="MovingHitboxTarget" x="-3092.84" y="1324.04">
+   <properties>
+    <property name="target" type="object" value="947"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="955" type="Hitbox" x="-2400" y="3408">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 144,160 320,0 144,-144 -32,32 144,224 400,-16 144,-208 -64,-16 -32,32"/>
+  </object>
+  <object id="965" type="MovingHitboxTarget" x="-4538.54" y="1661.6">
+   <properties>
+    <property name="target" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="966" type="MovingHitbox" x="-5310.22" y="1882.44">
+   <properties>
+    <property name="target" type="object" value="967"/>
+    <property name="velocity" type="float" value="1000"/>
+   </properties>
+   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
+  </object>
+  <object id="967" type="MovingHitboxTarget" x="-4540" y="2202.86">
+   <properties>
+    <property name="target" type="object" value="965"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1011" name="Tether" type="DoubleJumpTether" x="-2341.75" y="821.215">
+   <point/>
+  </object>
+  <object id="1012" name="Hook" type="Hook" x="-2288.28" y="699.316">
+   <point/>
+  </object>
+  <object id="1037" type="Wall" x="398.996" y="-159.665" width="700" height="700">
+   <ellipse/>
+  </object>
+  <object id="1038" type="Hitbox" x="-132.337" y="165.782">
+   <polygon points="-27.0136,56.673 -27.6635,-357.782 -123.663,-357.782 -235.663,-357.782 -523.663,-357.782 -523.663,-741.782 -651.663,-741.782 -651.663,-197.782 -123.663,-193.348 -123.663,58.218"/>
+  </object>
+  <object id="1057" type="Coin" x="-69.7169" y="153.771">
+   <point/>
+  </object>
+  <object id="1060" type="DoubleJumpTether" x="-1186.45" y="-1076.19">
+   <point/>
+  </object>
+  <object id="1061" type="DoubleJumpTether" x="-2033.62" y="-934.667">
+   <point/>
+  </object>
+  <object id="1062" type="Coin" x="-60.04" y="96.7312">
+   <point/>
+  </object>
+  <object id="1063" type="Coin" x="126.751" y="113.409">
+   <point/>
+  </object>
+  <object id="1064" type="Coin" x="250.167" y="206.805">
+   <point/>
+  </object>
+  <object id="1065" type="Coin" x="110.073" y="-46.6978">
+   <point/>
+  </object>
+  <object id="1066" type="Coin" x="280.187" y="-160.107">
+   <point/>
+  </object>
+  <object id="1067" type="Coin" x="436.958" y="-183.456">
+   <point/>
+  </object>
+  <object id="1068" name="Checkpoint" type="Checkpoint" x="-1434.65" y="857.54">
+   <point/>
+  </object>
+  <object id="1071" type="AcceleratorSurface" x="-4896.64" y="2398.71">
+   <polygon points="-309.047,6.09413 -203.41,-37.6035 -158.374,-84.9548 -127.519,-135.778 -103.432,-198.824 -83.8255,-270.634 -66.9291,-335.621 -58.1151,-399.035 -48.248,-469.433 -39.2803,-529.428 -37.055,-603.04 -34.4453,-641.813 128,-640 128.644,33.2877"/>
+  </object>
+  <object id="1073" name="NPC" type="NPC" x="-5313.22" y="2286.61">
+   <properties>
+    <property name="enter_dialog_id" value="debug_dialog"/>
+    <property name="target" type="object" value="1125"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1088" type="AirDashNode" x="-6736" y="1972.2" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1090" type="AirDashNode" x="-6967.08" y="1857.05" width="161.379" height="161.379">
+   <ellipse/>
+  </object>
+  <object id="1091" type="AirDashNode" x="-7681.58" y="1859.67" width="200" height="200">
+   <ellipse/>
+  </object>
+  <object id="1092" type="AirDashNode" x="-7664" y="2144" width="140" height="140">
+   <ellipse/>
+  </object>
+  <object id="1093" type="AirDashNode" x="-6720" y="2080" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1094" type="AirDashNode" x="-7664" y="2016" width="150" height="150">
+   <ellipse/>
+  </object>
+  <object id="1095" type="AirDashNode" x="-7136" y="2080" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1097" type="AirDashNode" x="-7110.56" y="1966.16" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1098" type="AirDashNode" x="-6807.08" y="1874.36" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1099" type="AirDashNode" x="-7040" y="1872" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1100" type="AirDashNode" x="-6928" y="1696" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1101" type="AirDashNode" x="-6928" y="1472" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1102" type="AirDashNode" x="-6928" y="1584" width="100" height="100">
+   <ellipse/>
+  </object>
+  <object id="1103" type="AirDashNode" x="-7565.11" y="1992.4" width="237.11" height="237.11">
+   <ellipse/>
+  </object>
+  <object id="1113" type="DoubleJumpTether" x="-6890.93" y="2067.99">
+   <point/>
+  </object>
+  <object id="1125" type="Wall" x="-5448.44" y="2202.25" width="272.331" height="343.137">
+   <ellipse/>
+  </object>
+  <object id="1127" type="NPCInteractSensor" x="-5448.44" y="2199.53" width="272.331" height="343.137">
+   <ellipse/>
+  </object>
+ </objectgroup>
+ <layer id="1" name="tiles" width="32" height="32">
+  <data encoding="csv">
+   <chunk x="288" y="16" width="16" height="16">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,75,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</chunk>
+   <chunk x="16" y="64" width="16" height="16">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,75,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</chunk>
+   <chunk x="144" y="160" width="16" height="16">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,75,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</chunk>
+   <chunk x="80" y="240" width="16" height="16">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,75,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</chunk>
+  </data>
+ </layer>
+</map>

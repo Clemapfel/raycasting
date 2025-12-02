@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="4" nextobjectid="10">
+ <editorsettings>
+  <export target="one_way_platform_tutorial.lua" format="lua"/>
+ </editorsettings>
+ <imagelayer id="3" name="background" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="2" name="objects">
+  <object id="1" type="Hitbox" x="-96" y="-128">
+   <polygon points="0,0 1200,0 1200,672 0,672"/>
+  </object>
+  <object id="2" name="Spawn" type="PlayerSpawn" x="2246.23" y="-233.94">
+   <point/>
+  </object>
+  <object id="3" name="Goal" type="Goal" x="992" y="-176">
+   <point/>
+  </object>
+  <object id="5" name="Checkpoint" type="Checkpoint" x="512" y="-192">
+   <point/>
+  </object>
+  <object id="7" type="Hitbox" x="2016.5" y="-92.8553">
+   <polygon points="-592,0 -592,656 1744,656 1744,0"/>
+  </object>
+  <object id="9" type="OneWayPlatform" x="1739.51" y="-503.369" width="16" height="240"/>
+ </objectgroup>
+</map>

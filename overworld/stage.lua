@@ -387,8 +387,6 @@ function ow.Stage:draw_below_player()
         ow.Sprite.draw_all(entry.priority)
     end
 
-    self._world:draw() -- TODO
-
     self._player_recorder:draw()
     self._blood_splatter:draw()
 end

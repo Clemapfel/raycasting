@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="28">
+ <editorsettings>
+  <export target="air_dash_node_tutorial.lua" format="lua"/>
+ </editorsettings>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <imagelayer id="3" name="background" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="5" name="aux">
+  <object id="22" type="ControlIndicatorTrigger" x="-2674.13" y="436.54" width="554.03" height="925.136">
+   <properties>
+    <property name="type" value="AIR_DASH"/>
+   </properties>
+  </object>
+  <object id="23" name="Different Sizes" type="Hitbox" x="-2476.38" y="3788.41">
+   <polygon points="0,0 973.237,0 972.377,-1148.41 1180.38,-1148.41 1168,160 0,160"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="2" name="main">
+  <object id="1" type="Hitbox" x="-96" y="16">
+   <polygon points="0,0 1200,0 1200,672 0,672"/>
+  </object>
+  <object id="2" name="Spawn" type="PlayerSpawn" x="-2345.69" y="1452.37">
+   <point/>
+  </object>
+  <object id="3" name="Goal" type="Goal" x="992" y="0">
+   <point/>
+  </object>
+  <object id="5" name="Checkpoint" type="Checkpoint" x="512" y="0">
+   <point/>
+  </object>
+  <object id="7" name="Introduce Controls" type="Hitbox" x="-2560" y="1472">
+   <polygon points="0,0 1074.38,0 1072,-944 1040,-976 1072,-976 1264,-976 1264,144 0,144"/>
+  </object>
+  <object id="11" type="SlipperyHitbox" x="-1568" y="608">
+   <polygon points="48,-112 80,-80 80,864 48,864"/>
+  </object>
+  <object id="12" type="AirDashNode" x="-1904" y="1024" width="300" height="300">
+   <ellipse/>
+  </object>
+  <object id="17" type="AirDashNode" x="-1904" y="560" width="300" height="300">
+   <ellipse/>
+  </object>
+  <object id="18" type="SlipperyHitbox" x="-2048" y="608">
+   <polygon points="-32,-352 704,-352 704,-304 160,-304 32,-192 32,816 -32,800"/>
+  </object>
+  <object id="19" type="SlipperyHitbox" x="-2016" y="1440">
+   <polygon points="0,0 -64,16 -64,32 0,32"/>
+  </object>
+  <object id="20" type="BoostField" x="-2080" y="1408">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="render_priority" type="float" value="-2"/>
+   </properties>
+   <polygon points="0,0 0,48 64,32 64,16"/>
+  </object>
+  <object id="24" type="AirDashNode" x="-1888" y="3377.02" width="300" height="300">
+   <ellipse/>
+  </object>
+  <object id="25" type="AirDashNode" x="-1888" y="2800" width="300" height="300">
+   <ellipse/>
+  </object>
+  <object id="27" type="AirDashNode" x="-2080" y="3168" width="150" height="150">
+   <ellipse/>
+  </object>
+ </objectgroup>
+ <layer id="4" name="noop" width="32" height="32">
+  <data encoding="base64" compression="zlib"/>
+ </layer>
+</map>

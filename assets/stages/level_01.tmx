@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="3" nextobjectid="11">
+ <editorsettings>
+  <export target="level_01.lua" format="lua"/>
+ </editorsettings>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <objectgroup id="2" name="Object Layer 1">
+  <object id="1" type="Hitbox" x="-128" y="32">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="-368,16 304,16 304,0 384,0 384,160 -432,160 -432,-304 -288,-304 -288,-256 -368,-256"/>
+  </object>
+  <object id="2" name="Spawn" type="PlayerSpawn" x="-154.581" y="-81.4765">
+   <point/>
+  </object>
+  <object id="3" type="Hitbox" x="-771.656" y="76.334">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="0,0 163.308,0 163.308,160 0,160"/>
+  </object>
+  <object id="4" type="Hitbox" x="-128" y="32">
+   <properties>
+    <property name="friction" type="float" value="0.5"/>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="304,-25.5313 310.752,-33.8209 319.634,-38.291 336,-44.0185 384,-46.3902 448,-46.3902 453.501,-46.7791 463.292,-51.2491 470.109,-58.7264 480,-64 560,-64 560,0 304,0"/>
+  </object>
+  <object id="5" type="Hitbox" x="-128" y="32">
+   <properties>
+    <property name="slippery" type="bool" value="true"/>
+   </properties>
+   <polygon points="384,-64 336,-64 319.958,-65.8227 311.034,-71.9956 304,-80 304,-134.365 304,-192 256,-240 464,-240 470.762,-159.54 469.315,-96.6499 469.156,-89.2869 464,-80 456.899,-70.3204 448,-65.1419 436.694,-64"/>
+  </object>
+  <object id="6" type="Hitbox" x="-272" y="-208">
+   <polygon points="336,0 336,-48 544,-48 544,0"/>
+  </object>
+  <object id="7" type="Hitbox" x="-368" y="-128">
+   <properties>
+    <property name="slippery" type="bool" value="false"/>
+   </properties>
+   <polygon points="-96,-48 -96,144 -96,160 64,160 544,160 544,176 64,176 -128,176 -128,-96 -48,-96"/>
+  </object>
+  <object id="8" type="BouncePad" x="-464" y="32">
+   <polygon points="0,0 96,0 128,0 96,-32 0,-32"/>
+  </object>
+  <object id="9" type="Coin" x="-412.572" y="-168.229">
+   <point/>
+  </object>
+  <object id="10" type="NPC" x="-223.208" y="23.5131">
+   <properties>
+    <property name="dialog_id" value="debug_dialog"/>
+   </properties>
+   <polygon points="2.29248,1.25747 -7.26877,-6.38499 -13.2234,-14.7945 -15.2638,-26.7397 -14.0422,-39.5292 -11.8628,-51.0744 -7.72457,-59.6267 -2.89058,-67.1575 2.91502,-73.8584 10.1099,-80.6587 18.33,-85.8224 32.5291,-91.6781 47.221,-93.9332 62.4284,-95.3908 80.9051,-95.0261 98.6634,-93.1394 112.493,-89.8667 125.573,-84.6553 138.318,-74.1435 146.029,-62.4352 150.716,-50.9403 152.885,-35.5446 153.274,-22.501 150.236,-13.059 142.852,-5.46371 135.087,-1.10043 124.857,2.18281 114.379,5.23876 16.2686,5.32201"/>
+  </object>
+ </objectgroup>
+</map>
