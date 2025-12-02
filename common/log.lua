@@ -97,13 +97,27 @@ local _to_string = function(x)
     end
 end
 
+local _should_print_current_line = true
+function log.set_print_current_line(b)
+    _should_print_current_line = b
+end
+
+local _append_current_line = function(to_add_to)
+    if _should_print_current_line then
+        local info = debug.getinfo(3, "Sl")
+        if info ~= nil and info.short_src ~= nil and info.lastlinedefined ~= nil then
+            table.insert(to_add_to, " " .. info.short_src .. ":" .. info.lastlinedefined .. ": ")
+        end
+    end
+end
+
 --- @brief
 function log.message(...)
     local to_print = {}
 
     table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
     table.insert(to_print, _printstyled(_message_prefix, _message_format))
-    table.insert(to_print, " ")
+    _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
         local word = select(i, ...)
@@ -129,7 +143,7 @@ function log.warning(...)
 
     table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
     table.insert(to_print, _printstyled(_warning_prefix, _warning_format))
-    table.insert(to_print, " ")
+    _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
         table.insert(to_print, _to_string(select(i, ...)))
@@ -154,7 +168,7 @@ function log.critical(...)
 
     table.insert(to_print, _printstyled(_prefix_label, _prefix_format))
     table.insert(to_print, _printstyled(_critical_prefix, _critical_format))
-    table.insert(to_print, " ")
+    _append_current_line(to_print)
 
     for i = 1, select("#", ...) do
         table.insert(to_print, _to_string(select(i, ...)))
@@ -231,9 +245,13 @@ function log.setMessageHook(hook)
     log._message_hook = hook
 end
 
-rt.log = log.message
-rt.warning = log.warning
-rt.critical = log.critical
-rt.error = log.error
-rt.assert = log.assert
+if rt ~= nil then
+    rt.log = log.message
+    rt.warning = log.warning
+    rt.critical = log.critical
+    rt.error = log.error
+    rt.assert = log.assert
+end
+
+return log
 
