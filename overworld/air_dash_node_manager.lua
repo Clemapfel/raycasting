@@ -3,7 +3,8 @@ require "common.path"
 
 rt.settings.overworld.objects.air_dash_node_manager = {
     node_collision_group = b2.CollisionGroup.GROUP_09,
-    dash_velocity = 1000 -- on exit
+    dash_velocity = 1000, -- on exit
+    dash_velocity_bubble = 500
 }
 
 --- @class ow.AirDashNodeManager
@@ -117,16 +118,27 @@ function ow.AirDashNodeManager:update(delta)
     local pvx, pvy = player:get_velocity()
     local pr = player:get_radius()
 
+    local non_bubble_easing = rt.InterpolationFunctions.SINUSOID_EASE_IN
+    local bubble_easing = rt.InterpolationFunctions.CONSTANT
+
     if self._tethered_node ~= nil then
         -- move player
         player:set_directional_damping(rt.Direction.DOWN, 1) -- to prevent downwards dash being dampened
 
-        local target_velocity = rt.settings.overworld.objects.air_dash_node_manager.dash_velocity
+        local target_velocity = ternary(not player:get_is_bubble(),
+            rt.settings.overworld.objects.air_dash_node_manager.dash_velocity,
+            rt.settings.overworld.objects.air_dash_node_manager.dash_velocity_bubble
+        )
+
         local ax, ay = self._tether_path:at(0)
         local bx, by = self._tether_path:at(1)
-        local t = rt.InterpolationFunctions.SINUSOID_EASE_IN(
+
+        local easing = ternary(not player:get_is_bubble(), non_bubble_easing, bubble_easing)
+        local t = easing(
             math.mix(0.5, 1, (1 - math.distance(px, py, bx, by) / math.distance(ax, ay, bx, by)))
         )
+
+
 
         player:set_velocity(
             t * target_velocity * self._tether_dx,
