@@ -310,7 +310,13 @@ function rt.Player:instantiate()
         _gravity_direction_x = 0,
         _gravity_direction_y = 1,
         _gravity_multiplier = 1,
-        _fall_speed_multiplier = 1, -- [0, 1]
+
+        _direction_to_damping = {
+            [rt.Direction.UP] = 1,
+            [rt.Direction.RIGHT] = 1,
+            [rt.Direction.DOWN] = 1,
+            [rt.Direction.LEFT] = 1
+        },
 
         _can_wall_jump = false,
         _can_jump = false,
@@ -827,6 +833,14 @@ function rt.Player:update(delta)
         self._double_jump_disallowed = true
     end
     self._is_grounded = is_grounded
+
+    local function _apply_damping(next_velocity_x, next_velocity_y)
+        if next_velocity_x < 0 then next_velocity_x = next_velocity_x * self._direction_to_damping[rt.Direction.LEFT] end
+        if next_velocity_x > 0 then next_velocity_x = next_velocity_x * self._direction_to_damping[rt.Direction.RIGHT] end
+        if next_velocity_y < 0 then next_velocity_y = next_velocity_y * self._direction_to_damping[rt.Direction.UP] end
+        if next_velocity_y > 0 then next_velocity_y = next_velocity_y * self._direction_to_damping[rt.Direction.DOWN] end
+        return next_velocity_x, next_velocity_y
+    end
 
     -- check if tethers should be cleared
     if not self._is_bubble then
@@ -1651,13 +1665,7 @@ function rt.Player:update(delta)
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
             next_velocity_y = self._platform_velocity_y + next_velocity_y * self._velocity_multiplier_y
 
-            local multiplier = self._fall_speed_multiplier
-
-            if next_velocity_y > 0 then -- only affect falling
-                self._body:set_velocity(next_velocity_x, next_velocity_y * multiplier)
-            else
-                self._body:set_velocity(next_velocity_x, next_velocity_y)
-            end
+            self._body:set_velocity(_apply_damping(next_velocity_x, next_velocity_y))
             self._last_velocity_x, self._last_velocity_y = before_projection_x - self._platform_velocity_x, before_projection_y - self._platform_velocity_y
         end
 
@@ -1761,7 +1769,7 @@ function rt.Player:update(delta)
             end
         end
 
-        self._bubble_body:apply_force(next_force_x, next_force_y)
+        self._bubble_body:apply_force(_apply_damping(next_force_x, next_force_y))
         self._last_bubble_force_x, self._last_bubble_force_y = next_force_x, next_force_y
 
         if self._bounce_elapsed <= _settings.bounce_duration then
@@ -2588,13 +2596,18 @@ function rt.Player:get_gravity()
 end
 
 --- @brief
-function rt.Player:set_fall_speed(x)
-    self._fall_speed_multiplier = x
+function rt.Player:set_directional_damping(direction, x)
+    meta.assert_enum_value(direction, rt.Direction, 1)
+    meta.assert_typeof(x, "Number", 2)
+
+    self._direction_to_damping[direction] = x
 end
 
 --- @brief
-function rt.Player:get_gravity()
-    return self._fall_speed_multiplier
+function rt.Player:get_directional_damping(direction)
+    meta.assert_enum_value(direction, rt.Direction, 1)
+
+    return self._direction_to_damping[direction]
 end
 
 --- @brief
@@ -3040,4 +3053,9 @@ function rt.Player:set_ignore_next_jump(b)
     elseif b == false then
         self._ignore_jump_stack = math.max(0, self._ignore_jump_stack - 1)
     end
+end
+
+--- @brief
+function rt.Player:set_damping(t)
+    self._damping = t
 end

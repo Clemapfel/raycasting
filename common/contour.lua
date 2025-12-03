@@ -107,7 +107,6 @@ end
 --- @param segment_length Number
 function rt.subdivide_contour(contour, segment_length)
     local subdivided = {}
-    local num_vertices = #contour / 2
 
     for i = 1, #contour, 2 do
         local x1, y1 = contour[i], contour[i+1]
@@ -131,6 +130,65 @@ function rt.subdivide_contour(contour, segment_length)
     end
 
     return subdivided
+end
+
+--- @param contour Table<Number>
+--- @return Table<Number>
+--- @param contour Table<Number>
+--- @return Table<Number>
+function rt.get_contour_normals(contour)
+    local normals = {}
+    local num_vertices = #contour / 2
+
+    -- Determine winding order using signed area
+    local signed_area = 0
+    for i = 1, #contour, 2 do
+        local x1, y1 = contour[i], contour[i+1]
+        local next_i = (i + 2 > #contour) and 1 or (i + 2)
+        local x2, y2 = contour[next_i], contour[next_i+1]
+        signed_area = signed_area + (x1 * y2 - x2 * y1)
+    end
+
+    -- If signed area is negative, contour is clockwise, use turn_right
+    -- If positive, contour is counter-clockwise, use turn_left
+    local turn_func = (signed_area < 0) and math.turn_right or math.turn_left
+
+    for i = 1, #contour, 2 do
+        local x1, y1 = contour[i], contour[i+1]
+
+        -- Get previous point (wrapping around for closed contour)
+        local prev_i = (i - 2 < 1) and (#contour - 1) or (i - 2)
+        local x0, y0 = contour[prev_i], contour[prev_i+1]
+
+        -- Get next point (wrapping around for closed contour)
+        local next_i = (i + 2 > #contour) and 1 or (i + 2)
+        local x2, y2 = contour[next_i], contour[next_i+1]
+
+        -- Compute tangent as average of incoming and outgoing directions
+        local dx_in = x1 - x0
+        local dy_in = y1 - y0
+        local dx_out = x2 - x1
+        local dy_out = y2 - y1
+
+        -- Average tangent
+        local tx = dx_in + dx_out
+        local ty = dy_in + dy_out
+
+        -- Normalize tangent
+        local tangent_length = math.sqrt(tx * tx + ty * ty)
+        if tangent_length > 0 then
+            tx = tx / tangent_length
+            ty = ty / tangent_length
+        end
+
+        -- Get normal by rotating tangent 90 degrees (outward facing)
+        local nx, ny = turn_func(tx, ty)
+
+        table.insert(normals, nx)
+        table.insert(normals, ny)
+    end
+
+    return normals
 end
 
 --- ###

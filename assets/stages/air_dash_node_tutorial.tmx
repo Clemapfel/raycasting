@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="79">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="6" nextobjectid="82">
  <editorsettings>
   <export target="air_dash_node_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -23,7 +23,7 @@
   <object id="1" type="Hitbox" x="-96" y="16">
    <polygon points="0,0 1200,0 1200,64 0,64"/>
   </object>
-  <object id="2" name="Spawn" type="PlayerSpawn" x="-609.586" y="2519.86">
+  <object id="2" name="Spawn" type="PlayerSpawn" x="-770.697" y="3437.86">
    <point/>
   </object>
   <object id="3" name="Goal" type="Goal" x="992" y="0">
@@ -87,22 +87,22 @@
   <object id="36" type="SlipperyHitbox" x="-1475.62" y="2016">
    <polygon points="0,0 0,1088 32,1088 32,32"/>
   </object>
-  <object id="37" name="Horizontal Practice" type="Hitbox" x="-880" y="3085.29">
+  <object id="37" name="Horizontal Practice" type="Hitbox" x="-880" y="3453.29">
    <polygon points="-3.62323,3.58556 224.103,2.71242 224.103,34.7124 1472.1,34.7124 1472.1,2.71242 1664.1,2.71242 1664.1,162.712 -3.62323,163.586"/>
   </object>
-  <object id="39" type="AirDashNode" x="-623.897" y="2800" width="250" height="250">
+  <object id="39" type="AirDashNode" x="-512" y="3136" width="250" height="250">
    <ellipse/>
   </object>
-  <object id="42" type="AirDashNode" x="-335.897" y="2800" width="250" height="250">
+  <object id="42" type="AirDashNode" x="-224" y="3136" width="250" height="250">
    <ellipse/>
   </object>
-  <object id="45" type="AirDashNode" x="-63.897" y="2800" width="250" height="250">
+  <object id="45" type="AirDashNode" x="48" y="3136" width="250" height="250">
    <ellipse/>
   </object>
-  <object id="46" type="AirDashNode" x="208.103" y="2800" width="250" height="250">
+  <object id="46" type="AirDashNode" x="320" y="3136" width="250" height="250">
    <ellipse/>
   </object>
-  <object id="47" type="DeceleratorSurface" x="-655.897" y="3088">
+  <object id="47" type="DeceleratorSurface" x="-655.897" y="3456">
    <polygon points="0,0 0,32 1248,32 1248,0"/>
   </object>
   <object id="48" x="-832" y="2400">
@@ -170,6 +170,12 @@
   </object>
   <object id="78" type="Coin" x="-128" y="2128">
    <point/>
+  </object>
+  <object id="79" type="DeceleratorSurface" x="-656" y="3072">
+   <polygon points="0,0 0,32 1248,32 1248,0"/>
+  </object>
+  <object id="80" name="Horizontal Practice" type="Hitbox" x="-896" y="2944">
+   <polygon points="-3.62323,3.58556 1664.1,2.71242 1664,160 1488,160 1488,128 240,128 240,160 0,160"/>
   </object>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">

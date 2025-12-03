@@ -119,6 +119,8 @@ function ow.AirDashNodeManager:update(delta)
 
     if self._tethered_node ~= nil then
         -- move player
+        player:set_directional_damping(rt.Direction.DOWN, 1) -- to prevent downwards dash being dampened
+
         local target_velocity = rt.settings.overworld.objects.air_dash_node_manager.dash_velocity
         local ax, ay = self._tether_path:at(0)
         local bx, by = self._tether_path:at(1)
@@ -214,7 +216,7 @@ function ow.AirDashNodeManager:update(delta)
             self._recommended_node = nil
         end
 
-        player:set_fall_speed(1)
+        player:set_directional_damping(rt.Direction.DOWN, 1)
     else
         local before = self._next_node
         self._next_node = best_entry.node
@@ -223,9 +225,11 @@ function ow.AirDashNodeManager:update(delta)
         self._recommended_node = self._next_node
 
         if not player:get_is_grounded() then
-            player:set_fall_speed(math.mix(0.9, 1, (math.distance(px, py, self._next_node:get_position()) / self._next_node:get_radius())))
+            player:set_directional_damping(rt.Direction.DOWN,
+                math.mix(0.94, 0.98, (math.distance(px, py, self._next_node:get_position()) / self._next_node:get_radius()))
+            )
         else
-            player:set_fall_speed(1)
+            player:set_directional_damping(rt.Direction.DOWN, 1)
         end
     end
 
