@@ -1249,3 +1249,8 @@ function ow.OverworldScene:set_fade_to_black(t)
     if self._stage ~= nil then self._stage:set_fade_to_black(t) end
 end
 
+--- @brief
+function ow.OverworldScene:get_control_indicator(type)
+    return self._control_indicator_type_to_control_indicator[type]
+end
+

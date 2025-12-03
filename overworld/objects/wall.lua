@@ -48,7 +48,12 @@ local _try_initialize = function()
         table.insert(data, { tri[5], tri[6] })
     end
 
-    _mesh = pcall(love.graphics.newMesh, format, data, mode, usage)
+    local success, mesh_or_error = pcall(love.graphics.newMesh, format, data, mode, usage)
+    if success then
+        _mesh = mesh_or_error
+    else
+        rt.critical("In ow.Wall._try_initialize: ", mesh_or_error)
+    end
 end
 
 local _wall_impulse = rt.ImpulseSubscriber()

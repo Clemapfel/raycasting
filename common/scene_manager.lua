@@ -280,7 +280,7 @@ end
 
 --- @brief
 function rt.SceneManager:get_elapsed()
-    return math.fmod(self._elapsed, 7200) -- 2h
+    return math.fmod(self._elapsed, 12 * 3600) -- 12h
 end
 
 --- @brief

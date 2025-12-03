@@ -61,6 +61,7 @@ function ow.NPC:instantiate(object, stage, scene)
             self,
             should_lock
         )
+        self._interact_dialog_emitter:realize()
     end
     
     local enter_id = object:get_string("enter_dialog_id", false)
@@ -74,6 +75,7 @@ function ow.NPC:instantiate(object, stage, scene)
             self,
             should_lock -- should_lock
         )
+        self._enter_dialog_emitter:realize()
     end
     
     local exit_id = object:get_string("exit_dialog_id", false)
@@ -87,6 +89,7 @@ function ow.NPC:instantiate(object, stage, scene)
             self,
             should_lock
         )
+        self._exit_dialog_emitter:realize()
     end
 
     local target = object:get_object("target", false)
@@ -128,8 +131,9 @@ function ow.NPC:update(delta)
 
     local is_active = self._sensor:test_point(self._scene:get_player():get_position())
     local was_active = self._sensor_active
-    if is_active ~= self._sensor_active then
-        self._sensor_active = is_active
+    self._sensor_active = is_active
+
+    if is_active ~= was_active then
         self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
     end
 
@@ -215,11 +219,11 @@ function ow.NPC:draw(priority)
     self._eyes:draw()
     self._graphics_body:draw()
 
-    if self._has_interact_dialog and self._interact_dialog_emitter:get_is_active() then
+    if self._has_interact_dialog then
         self._interact_dialog_emitter:draw(priority)
-    elseif self._has_exit_dialog and self._exit_dialog_emitter:get_is_active() then
+    elseif self._has_exit_dialog then
         self._exit_dialog_emitter:draw(priority)
-    elseif self._has_enter_dialog and self._enter_dialog_emitter:get_is_active() then
+    elseif self._has_enter_dialog then
         self._enter_dialog_emitter:draw(priority)
     end
 end

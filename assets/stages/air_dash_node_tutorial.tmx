@@ -23,7 +23,7 @@
   <object id="1" type="Hitbox" x="-96" y="16">
    <polygon points="0,0 1200,0 1200,64 0,64"/>
   </object>
-  <object id="2" name="Spawn" type="PlayerSpawn" x="-770.697" y="3437.86">
+  <object id="2" name="Spawn" type="PlayerSpawn" x="-1367.8" y="1984.3">
    <point/>
   </object>
   <object id="3" name="Goal" type="Goal" x="992" y="0">
