@@ -25,14 +25,22 @@ rt.settings.frame = {
 --- @class rt.Frame
 rt.Frame = meta.class("Frame", rt.Widget)
 
-local _shader = rt.Shader("common/frame.glsl")
+local _fill_shader = rt.Shader("common/frame.glsl", { MODE = 0 })
+local _outline_shader = rt.Shader("common/frame.glsl", { MODE = 1 })
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then
+        _fill_shader:recompile()
+        _outline_shader:recompile()
+    end
+end)
 
 --- @brief
 function rt.Frame:instantiate()
     meta.install(self, {
         _child = {},
         _child_valid = false,
-        _use_shader = false,
+        _is_animated = true,
 
         _aabb = rt.AABB(0, 0, 1, 1),
 
@@ -63,9 +71,9 @@ function rt.Frame:_update_draw()
         love.graphics.setLineWidth(thickness + 2)
         love.graphics.setColor(stencil_r, stencil_g, stencil_b, opacity * stencil_a)
 
-        if self._use_shader then
-            _shader:bind()
-            _shader:send("elapsed", rt.SceneManager:get_elapsed())
+        if self._is_animated then
+            _fill_shader:bind()
+            _fill_shader:send("elapsed", rt.SceneManager:get_elapsed())
         end
 
         love.graphics.rectangle(
@@ -74,8 +82,8 @@ function rt.Frame:_update_draw()
             corner_radius, corner_radius
         )
 
-        if self._use_shader then
-            _shader:unbind()
+        if self._is_animated then
+            _fill_shader:unbind()
         end
 
         love.graphics.setColor(outline_r, outline_g, outline_b, opacity)
@@ -85,6 +93,11 @@ function rt.Frame:_update_draw()
             corner_radius, corner_radius
         )
 
+        if self._is_animated then
+            _outline_shader:bind()
+            _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        end
+
         love.graphics.setLineWidth(thickness)
         love.graphics.setColor(frame_r, frame_g, frame_b, opacity)
         love.graphics.rectangle(
@@ -92,6 +105,10 @@ function rt.Frame:_update_draw()
             x, y, w, h,
             corner_radius, corner_radius
         )
+
+        if self._is_animated then
+            _outline_shader:unbind()
+        end
     end
 end
 
@@ -222,6 +239,6 @@ function rt.Frame:get_selection_state()
 end
 
 --- @brief
-function rt.Frame:set_use_shader(b)
-    self._use_shader = b
+function rt.Frame:set_is_animated(b)
+    self._is_animated = b
 end

@@ -1,3 +1,9 @@
+#define MODE_FILL 0
+#define MODE_OUTLINE 1
+#ifndef MODE
+#error "In common/frame.glsl: MODE undefined, should be 0 or 1"
+#endif
+
 #ifdef PIXEL
 
 vec3 random_3d(in vec3 p) {
@@ -31,12 +37,55 @@ float gaussian(float x, float ramp)
     return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
 }
 
+vec3 lch_to_rgb(vec3 lch) {
+    float L = lch.x * 100.0;
+    float C = lch.y * 100.0;
+    float H = lch.z * PI * 2;
+
+    float a = cos(H) * C;
+    float b = sin(H) * C;
+
+    float Y = (L + 16.0) / 116.0;
+    float X = a / 500.0 + Y;
+    float Z = Y - b / 200.0;
+
+    X = 0.95047 * ((X * X * X > 0.008856) ? X * X * X : (X - 16.0 / 116.0) / 7.787);
+    Y = 1.00000 * ((Y * Y * Y > 0.008856) ? Y * Y * Y : (Y - 16.0 / 116.0) / 7.787);
+    Z = 1.08883 * ((Z * Z * Z > 0.008856) ? Z * Z * Z : (Z - 16.0 / 116.0) / 7.787);
+
+    float R = X *  3.2406 + Y * -1.5372 + Z * -0.4986;
+    float G = X * -0.9689 + Y *  1.8758 + Z *  0.0415;
+    float B = X *  0.0557 + Y * -0.2040 + Z *  1.0570;
+
+    R = (R > 0.0031308) ? 1.055 * pow(R, 1.0 / 2.4) - 0.055 : 12.92 * R;
+    G = (G > 0.0031308) ? 1.055 * pow(G, 1.0 / 2.4) - 0.055 : 12.92 * G;
+    B = (B > 0.0031308) ? 1.055 * pow(B, 1.0 / 2.4) - 0.055 : 12.92 * B;
+
+    return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
+}
+
 uniform float elapsed;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) {
+
+
+    #if MODE == MODE_FILL
+
     vec2 uv = texture_coords * (love_ScreenSize.xy / max(love_ScreenSize.x, love_ScreenSize.y));
     uv.y = min(uv.y + 0.5 * (gradient_noise(vec3(vec2(4 * (screen_coords.x / love_ScreenSize.x)), elapsed)) + 1) / 2, 1);
     return vec4(vec3(mix(color - 0.1, color, 1 - clamp(gaussian(1 - uv.y, 1.5), 0, 1))), 1);
+
+    #elif MODE == MODE_OUTLINE
+
+    return color * texture(img, texture_coords);
+
+    /*
+    vec2 uv = screen_coords / love_ScreenSize.xy;
+    float noise = gradient_noise(vec3(uv.xy * 12, elapsed / 10));
+    return vec4(lch_to_rgb(vec3(0.8, 1, noise)), 1);
+    */
+
+    #endif
 }
 
 #endif
