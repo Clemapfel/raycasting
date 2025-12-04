@@ -9,10 +9,11 @@ rt.settings.overworld.accelerator_surface = {
         decay = 1 - 0.05 - 0.4,
         min_scale = 0.1,
         max_scale = 0.4,
-        deceleration = 0.985
+        deceleration = 0.985,
+        max_n_particles = 1000
     },
 
-    outline_width = 2
+    outline_width = 2,
 }
 
 --- @class ow.AcceleratorSurface
@@ -38,7 +39,6 @@ local _particle_shader = rt.Shader("overworld/objects/accelerator_surface.glsl",
 
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
-
     self._input = rt.InputSubscriber()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then
@@ -47,6 +47,14 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
             end
         end
     end)
+
+    self._scene = scene
+    self._stage = stage
+
+    -- inject global particle count into stage
+    if self._stage.accelerator_total_n_particles == nil then
+        self._stage.accelerator_total_n_particles = 0
+    end
 
     if _particle_texture == nil then
         love.graphics.push("all")
@@ -174,9 +182,6 @@ local _scale = 8
 local _angle = 9
 local _quad = 10
 
-local _total_n_particles = 0
-local _max_n_particles = 1000
-
 --- @brief
 function ow.AcceleratorSurface:update(delta)
     if not self._stage:get_is_body_visible(self._body) then
@@ -221,7 +226,7 @@ function ow.AcceleratorSurface:update(delta)
 
             table.insert(self._particles, particle)
             self._particle_elapsed = self._particle_elapsed - step
-            _total_n_particles = _total_n_particles + 1
+            self._stage.accelerator_total_n_particles = self._stage.accelerator_total_n_particles + 1
         end
     end
 
@@ -233,9 +238,13 @@ function ow.AcceleratorSurface:update(delta)
         particle[_y] = particle[_y] + particle[_velocity_y] * particle[_velocity_magnitude] * delta
         particle[_elapsed] = particle[_elapsed] + delta
         particle[_velocity_magnitude] = particle[_velocity_magnitude] * settings.deceleration
-        if _total_n_particles > _max_n_particles or not aabb:contains(particle[_x], particle[_y]) or particle[_elapsed] > particle[_lifetime] then
+
+        if self._stage.accelerator_total_n_particles > settings.max_n_particles
+            or not aabb:contains(particle[_x], particle[_y])
+            or particle[_elapsed] > particle[_lifetime]
+        then
             table.insert(to_remove, i)
-            _total_n_particles = _total_n_particles - 1
+            self._stage.accelerator_total_n_particles = self._stage.accelerator_total_n_particles - 1
         end
     end
 

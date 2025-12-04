@@ -31,9 +31,8 @@ rt.PlayerParticles = meta.class("CheckpointParticles")
 --- @brief
 function rt.PlayerParticles:instantiate()
     self._batches = {}
+    self._total_n_particles = 0
 end
-
-local _n_particles = 0
 
 --- @brief
 function rt.PlayerParticles:emit(
@@ -123,7 +122,7 @@ function rt.PlayerParticles:_init_batch(
 
     batch.particles = {}
     for i = 1, n_particles do
-        if _n_particles > settings.max_n_particles then break end
+        if self._total_n_particles > settings.max_n_particles then break end
 
         local mass_t = rt.random.number(0, 1)
         local mass = math.mix(min_mass, max_mass, mass_t)
@@ -161,7 +160,7 @@ function rt.PlayerParticles:_init_batch(
         }
 
         table.insert(batch.particles, particle)
-        _n_particles = _n_particles + 1
+        self._total_n_particles = self._total_n_particles + 1
     end
 
     self:_update_batch(batch, 0) -- builds particle polygons
@@ -237,7 +236,7 @@ function rt.PlayerParticles:_update_batch(batch, delta)
 
     for i in values(to_remove) do
         table.remove(batch.particles, i)
-        _n_particles = _n_particles - 1
+        self._total_n_particles = self._total_n_particles - 1
     end
 
     return n_updated == 0
