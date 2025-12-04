@@ -139,7 +139,6 @@ function ow.AirDashNodeManager:update(delta)
         )
 
 
-
         player:set_velocity(
             t * target_velocity * self._tether_dx,
             t * target_velocity * self._tether_dy

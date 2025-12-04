@@ -11,6 +11,7 @@ require "common.bloom"
 require "common.fade"
 require "overworld.stage_title_card"
 require "common.impulse_manager"
+require "overworld.reveal_particle_effect"
 
 do
     local bloom = 0.2
@@ -51,7 +52,9 @@ ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
     MOTION_BUBBLE = "MOTION_BUBBLE",
     INTERACT = "INTERACT",
     DIALOG = "DIALOG",
+    DIALOG_EXIT = "DIALOG_EXIT",
     AIR_DASH = "AIR_DASH",
+    DOUBLE_JUMP = "DOUBLE_JUMP",
     NONE = "NONE"
 })
 
@@ -60,6 +63,12 @@ function ow.OverworldScene:instantiate(state)
     ow.Stage._config_atlas = {}
     ow.StageConfig._tileset_atlas = {}
     rt.Sprite._path_to_spritesheet = {}
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "j" then
+            self:set_control_indicator_type(ow.ControlIndicatorType.DOUBLE_JUMP, true)
+        end
+    end)
 
     meta.install(self, {
         _state = state,
@@ -146,9 +155,20 @@ function ow.OverworldScene:instantiate(state)
     )
     self._dialog_control_indicator:set_has_frame(false)
 
+    self._dialog_leave_conrol_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.INTERACT, translation.control_indicator_dialog_leave
+    )
+    self._dialog_leave_conrol_indicator:set_has_frame(false)
+
     self._air_dash_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
-    rt.ControlIndicatorButton.JUMP, translation.control_indicator_air_dash
+        rt.ControlIndicatorButton.JUMP, translation.control_indicator_air_dash
+    )
+    self._air_dash_control_indicator:set_has_frame(true)
+
+    self._double_jump_control_indicator = rt.ControlIndicator(
+        rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
+        rt.ControlIndicatorButton.JUMP, translation.control_indicator_double_jump
     )
     self._air_dash_control_indicator:set_has_frame(true)
 
@@ -157,7 +177,9 @@ function ow.OverworldScene:instantiate(state)
         [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = self._non_bubble_control_indicator,
         [ow.ControlIndicatorType.INTERACT] = self._interact_control_indicator,
         [ow.ControlIndicatorType.DIALOG] = self._dialog_control_indicator,
+        [ow.ControlIndicatorType.DIALOG_EXIT] = self._dialog_leave_conrol_indicator,
         [ow.ControlIndicatorType.AIR_DASH] = self._air_dash_control_indicator,
+        [ow.ControlIndicatorType.DOUBLE_JUMP] = self._double_jump_control_indicator,
         [ow.ControlIndicatorType.NONE] = nil,
     }
 
@@ -171,6 +193,7 @@ function ow.OverworldScene:instantiate(state)
 
     self._control_indicator_type = ow.ControlIndicatorType.NONE
     self._control_indicator_delay_elapsed = math.huge
+    self._control_indicator_particle_effect = ow.RevealParticleEffect()
 
     self._input:signal_connect("pressed", function(_, which)
         self:_set_cursor_is_visible(false) -- on any input action
@@ -676,6 +699,8 @@ function ow.OverworldScene:draw()
         self._pause_menu:draw()
     end
 
+    self._control_indicator_particle_effect:draw()
+
     local opacity = self._control_indicator_opacity_motion:get_value()
     if opacity > 0 and self._pause_menu_active == false then
         local indicator = self._control_indicator_type_to_control_indicator[self._control_indicator_type]
@@ -947,11 +972,15 @@ function ow.OverworldScene:update(delta)
                     self._player:get_is_bubble(),
                     ow.ControlIndicatorType.MOTION_BUBBLE,
                     ow.ControlIndicatorType.MOTION_NON_BUBBLE
-                ))
+                ), false)
             else
-                self:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+                self:set_control_indicator_type(ow.ControlIndicatorType.NONE, false)
             end
         end
+    end
+
+    if not self._fade_active then
+        self._control_indicator_particle_effect:update(delta)
     end
 
     self._control_indicator_delay_elapsed = self._control_indicator_delay_elapsed + delta
@@ -1207,7 +1236,7 @@ function ow.OverworldScene:get_pause_on_focus_lost()
 end
 
 --- @brief
-function ow.OverworldScene:set_control_indicator_type(type)
+function ow.OverworldScene:set_control_indicator_type(type, emit_particles)
     if type == nil then type = ow.ControlIndicatorType.NONE end
     meta.assert_enum_value(type, ow.ControlIndicatorType)
 
@@ -1226,6 +1255,13 @@ function ow.OverworldScene:set_control_indicator_type(type)
     if type ~= ow.ControlIndicatorType.NONE then
         self._control_indicator_type = type
         self._control_indicator_delay_elapsed = 0
+
+        if emit_particles == true then
+            local x, y, w, h = self._bounds:unpack()
+            self._control_indicator_particle_effect:emit(
+                x, y + h, x + w, y + h
+            )
+        end
     end
 
     self._control_indicator_allow_override = type == ow.ControlIndicatorType.NONE

@@ -352,6 +352,7 @@ function rt.Player:instantiate()
         _ignore_jump_stack = 0,
         _joystick_gesture = rt.JoystickGestureDetector(),
         _idle_elapsed = 0,
+        _idle_timer_frozen = false,
 
         -- double jump
         _double_jump_sources = {},
@@ -682,7 +683,7 @@ function rt.Player:update(delta)
         self._state ~= rt.PlayerState.ACTIVE
     then
         self._idle_elapsed = 0
-    else
+    elseif self._idle_timer_frozen == false then
         self._idle_elapsed = self._idle_elapsed + delta
     end
 
@@ -1075,6 +1076,9 @@ function rt.Player:update(delta)
             -- if ducking, slide freely
             if not is_accelerating
                 and is_grounded
+                and not (self._bottom_left_wall and self._bottom_left_wall_body:has_tag("use_friction"))
+                and not (self._bottom_wall and self._bottom_wall_body:has_tag("use_friction"))
+                and not (self._bottom_right_wall and self._bottom_right_wall_body:has_tag("use_friction"))
                 and (down_is_down and not (left_is_down or right_is_down))
             then
                 duration = math.huge
@@ -1086,19 +1090,31 @@ function rt.Player:update(delta)
             if duration == 0 then
                 next_velocity_x = target_velocity_x
             else
-                local velocity_change = (target_velocity_x - current_velocity_x) / duration
-                next_velocity_x = current_velocity_x + velocity_change * delta
-            end
+                local velocity_delta = target_velocity_x - current_velocity_x
 
-            if self._movement_disabled then next_velocity_x = 0 end
+                -- do not apply velocity decrease if mid air and holding no direction
+
+
+                local is_decelerating = (not right_is_down and next_velocity_x < 0 and velocity_delta > 0)
+                    or (not left_is_down and next_velocity_x > 0 and velocity_delta < 0)
+
+                if not (not is_grounded and is_decelerating) then
+                    next_velocity_x = current_velocity_x + (velocity_delta / duration) * delta
+                end
+            end
 
             -- air resistance
             if not is_grounded
                 and not self._left_wall
                 and not self._right_wall
             then
-                next_velocity_x = next_velocity_x * (1 - _settings.air_resistance * self._gravity_multiplier)
+                local air_resistance_factor = 1 - _settings.air_resistance
+                next_velocity_x = next_velocity_x * air_resistance_factor
+                next_velocity_y = next_velocity_y * air_resistance_factor
             end
+
+            -- override on disable
+            if self._movement_disabled then next_velocity_x = 0 end
 
             -- vertical movement
             next_velocity_y = current_velocity_y
@@ -3058,4 +3074,15 @@ end
 --- @brief
 function rt.Player:set_damping(t)
     self._damping = t
+end
+
+--- @brief
+function rt.Player:set_idle_timer_frozen(b)
+    self._idle_timer_frozen = b
+    if b == false then self._idle_elapsed = 0 end
+end
+
+--- @brief
+function rt.Player:get_idle_timer_frozen()
+    return self._idle_timer_frozen
 end

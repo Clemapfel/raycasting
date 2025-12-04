@@ -29,10 +29,22 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock)
     self._dialog_box_y = 0
     self._dialog_box_height = 0
 
+    self._dialog_box:signal_connect("advance", function(_, can_advance)
+        if can_advance == true then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG)
+        else
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_EXIT)
+        end
+    end)
+
+    self._dialog_box:signal_connect("done", function(_)
+        self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+    end)
+
     self._input_delay = 0 -- n frames
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
-        if self._dialog_box_active and self._input_delay <= 0 then
+        if self._is_active and self._input_delay <= 0 then
             self._dialog_box:handle_button(which)
         end
     end)
@@ -74,7 +86,6 @@ function ow.DialogEmitter:present()
 
     self._dialog_box:reset()
     self._dialog_box_motion:set_target_value(_REVEALED)
-    self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG)
 
     if self._should_lock then
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
@@ -91,7 +102,7 @@ function ow.DialogEmitter:present()
     end
 
     self._dialog_box:signal_connect("done", function(_)
-        self:_end_dialog()
+        self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
         self._dialog_box_motion:set_target_value(_HIDDEN)
         return meta.DISCONNECT_SIGNAL
     end)

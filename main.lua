@@ -6,6 +6,8 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
+require "assets.level_design_permutation_aid"
+
 require "overworld.stage_preview"
 local preview = ow.StagePreview(ow.StageConfig("air_dash_node_tutorial"))
 
@@ -44,7 +46,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "air_dash_node_tutorial", false)
+    rt.SceneManager:push(ow.OverworldScene, "tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)

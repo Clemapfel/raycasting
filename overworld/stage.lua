@@ -286,7 +286,8 @@ function ow.Stage:instantiate(scene, id)
     end)
 
     self._blood_splatter:create_contour(
-        ow.Hitbox:get_tris(true, true)
+        ow.Hitbox:get_tris(true, false), -- sticky
+        ow.Hitbox:get_tris(false, true)  -- slippery occluding
     )
 
     self._mirror:create_contour(

@@ -142,14 +142,10 @@ function ow.BloodSplatter:draw()
         end
     end
 
-    --[[
-    if self._dbg then
-        love.graphics.setColor(1, 1, 1, 1)
-        for edge in values(self._edges) do
-            love.graphics.line(edge:getUserData().line)
-        end
+    love.graphics.setColor(1, 1, 1, 1)
+    for edge in values(self._edges) do
+        love.graphics.line(edge:getUserData().line)
     end
-    ]]--
 
     love.graphics.pop()
 end
@@ -175,17 +171,26 @@ local _unhash = function(hash)
 end
 
 --- @brief
-function ow.BloodSplatter:create_contour(tris)
+function ow.BloodSplatter:create_contour(tris, occluding_tris)
     _hash_to_segment = {}
+    local hash_to_is_valid = {}
 
     local segments = {}
-    for tri in values(tris) do
-        for segment in range(
-            {tri[1], tri[2], tri[3], tri[4]},
-            {tri[3], tri[4], tri[5], tri[6]},
-            {tri[1], tri[2], tri[5], tri[6]}
-        ) do
-            table.insert(segments, segment)
+    for tris_and_is_valid in range(
+        { tris, true },
+        { occluding_tris, false }
+    ) do
+        local to_iterate, is_valid = table.unpack(tris_and_is_valid)
+        for tri in values(to_iterate) do
+            for segment in range(
+                {tri[1], tri[2], tri[3], tri[4]},
+                {tri[3], tri[4], tri[5], tri[6]},
+                {tri[1], tri[2], tri[5], tri[6]}
+            ) do
+                table.insert(segments, segment)
+                local hash = _hash(segment)
+                hash_to_is_valid[hash] = is_valid
+            end
         end
     end
 
@@ -210,7 +215,7 @@ function ow.BloodSplatter:create_contour(tris)
 
     local max_length = rt.settings.player.radius / 2
     for hash, count in pairs(tuples) do
-        if count == 1 then
+        if count == 1 and hash_to_is_valid[hash] == true then
             local x1, y1, x2, y2 = _unhash(hash)
             local dx, dy = x2 - x1, y2 - y1
             local length = math.sqrt(dx * dx + dy * dy)

@@ -35,8 +35,14 @@ rt.settings.overworld.dialog_box = {
 --- @signal speaker_changed (DialogBox, current_speaker_id, last_speaker_id) -> nil
 ow.DialogBox = meta.class("OverworldDialogBox", rt.Widget)
 meta.add_signals(ow.DialogBox,
+    --- @signal (ow.DialogBox) -> nil
     "done",
-    "speaker_changed"
+
+    --- @signal (ow.DialogBox, new_speaker, before_speaker) -> nil
+    "speaker_changed",
+
+    --- @signal (ow.DialogBox, is_last_node) -> nil
+    "advance"
 )
 
 --- @brief
@@ -54,6 +60,7 @@ function ow.DialogBox:instantiate(id)
 
         _active_node = nil,
         _active_choice_node = nil,
+        _should_emit_advance = false,
 
         _should_auto_advance = false,
         _is_waiting_for_advance = false,
@@ -252,6 +259,7 @@ function ow.DialogBox:realize()
     end
 
     self._active_node = first_node -- do not use _set_active_node, called in first resize
+    self._should_emit_advance = true
 end
 
 --- @brief
@@ -301,6 +309,8 @@ function ow.DialogBox:_set_active_node(node)
             label.dialog_box_is_done = nil
             label:set_n_visible_characters(0)
         end
+
+        self._should_emit_advance = true
     else
         assert(false)
     end
@@ -476,6 +486,11 @@ function ow.DialogBox:update(delta)
 
         self:_update_node_offset_from_n_lines_visible(n_lines_visible)
 
+        if self._should_emit_advance == true then
+            self:signal_emit("advance", self._active_node.next ~= nil) -- can advance
+            self._should_emit_advance = false
+        end
+
         self._is_waiting_for_advance = not at_least_one_label_not_done
         if self._is_waiting_for_advance and self._should_auto_advance then
             self:_advance()
@@ -531,11 +546,11 @@ function ow.DialogBox:handle_button(which)
                 node.highlighted_answer_i = node.highlighted_answer_i + 1
                 rt.SoundManager:play(move_sound_id)
             end
-        elseif which == rt.InputAction.A then
+        elseif which == rt.InputAction.CONFIRM then
             self:_set_active_node(node.answer_i_to_next_node[node.highlighted_answer_i])
         end
-    elseif self._active_node ~= nil then
-        if which == rt.InputAction.A then
+    elseif self._active_node ~= nil and self._active_node.next ~= nil then
+        if which == rt.InputAction.CONFIRM then
             self:_advance()
         end
     end
@@ -589,7 +604,7 @@ function ow.DialogBox:draw()
         love.graphics.pop()
     end
 
-    if self._is_waiting_for_advance then
+    if self._is_waiting_for_advance and self._active_node ~= nil and self._active_node.next ~= nil then
         love.graphics.push()
         rt.Palette.BASE:bind()
         love.graphics.translate(0, self._advance_indicator_offset)

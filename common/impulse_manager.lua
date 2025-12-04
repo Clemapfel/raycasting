@@ -42,8 +42,6 @@ end
 
 --- @brief
 function rt.ImpulseManager:pulse()
-    dbg("pulse")
-    dbg(#self._subscribers)
     local timestamp = love.timer.getTime()
     for subscriber in values(self._subscribers) do
         subscriber._pulse_start = timestamp

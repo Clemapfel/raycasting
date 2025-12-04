@@ -98,12 +98,13 @@ rt.Translation = {
         control_indicator_move = "Move",
         control_indicator_down = "Duck",
         control_indicator_jump = "Jump",
+        control_indicator_double_jump = "<i>(while tethered)</i> Double Jump",
         control_indicator_sprint = "Sprint",
         control_indicator_bubble_move = "Move Around",
         control_indicator_interact = "Interact",
         control_indicator_dialog_confirm = "Advance",
         control_indicator_dialog_leave = "Leave",
-        control_indicator_air_dash = "(mid-air) Dash"
+        control_indicator_air_dash = "<i>(mid-air)</i> Dash"
     },
 
     -- title screen / stage select
