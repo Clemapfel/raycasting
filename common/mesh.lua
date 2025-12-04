@@ -225,103 +225,67 @@ end
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices)
     n_outer_vertices = n_outer_vertices or 16
-    fill_center = fill_center or false
+    fill_center = fill_center == nil and true or fill_center
 
-    local data = {}
+    local data = {
+        {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1}, -- center vertex (index 1)
+    }
+
+    local step = 2 * math.pi / n_outer_vertices
+
+    -- Inner circle vertices (indices 2 to n_outer_vertices + 1)
+    for i = 0, n_outer_vertices - 1 do
+        local angle = i * step
+        table.insert(data, {
+            center_x + math.cos(angle) * inner_radius,
+            center_y + math.sin(angle) * inner_radius,
+            0.5 + math.cos(angle) * 0.5 * (inner_radius / outer_radius),
+            0.5 + math.sin(angle) * 0.5 * (inner_radius / outer_radius),
+            1, 1, 1, 1
+        })
+    end
+
+    -- Outer circle vertices (indices n_outer_vertices + 2 to 2*n_outer_vertices + 1)
+    for i = 0, n_outer_vertices - 1 do
+        local angle = i * step
+        table.insert(data, {
+            center_x + math.cos(angle) * outer_radius,
+            center_y + math.sin(angle) * outer_radius,
+            0.5 + math.cos(angle) * 0.5,
+            0.5 + math.sin(angle) * 0.5,
+            1, 1, 1, 1
+        })
+    end
+
     local map = {}
 
+    -- Fill center triangles (if requested)
     if fill_center then
-        -- Add center point
-        table.insert(data, {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1})
-
-        -- Add inner ring vertices
-        local step = 2 * math.pi / n_outer_vertices
-        for angle = 0, 2 * math.pi, step do
-            table.insert(data, {
-                center_x + math.cos(angle) * inner_radius,
-                center_y + math.sin(angle) * inner_radius,
-                0.5 + math.cos(angle) * 0.5,
-                0.5 + math.sin(angle) * 0.5,
-                1, 1, 1, 1
-            })
+        for i = 0, n_outer_vertices - 1 do
+            local inner_curr = 2 + i
+            local inner_next = 2 + ((i + 1) % n_outer_vertices)
+            table.insert(map, 1)  -- center
+            table.insert(map, inner_curr)
+            table.insert(map, inner_next)
         end
+    end
 
-        -- Add outer ring vertices
-        for angle = 0, 2 * math.pi, step do
-            table.insert(data, {
-                center_x + math.cos(angle) * outer_radius,
-                center_y + math.sin(angle) * outer_radius,
-                0.5 + math.cos(angle) * 0.5,
-                0.5 + math.sin(angle) * 0.5,
-                1, 1, 1, 1
-            })
-        end
+    -- Ring triangles (connecting inner and outer circles)
+    for i = 0, n_outer_vertices - 1 do
+        local inner_curr = 2 + i
+        local inner_next = 2 + ((i + 1) % n_outer_vertices)
+        local outer_curr = 2 + n_outer_vertices + i
+        local outer_next = 2 + n_outer_vertices + ((i + 1) % n_outer_vertices)
 
-        -- Triangulate center to inner ring
-        for i = 1, n_outer_vertices do
-            table.insert(map, 1)
-            table.insert(map, i + 1)
-            table.insert(map, i + 2)
-        end
+        -- First triangle of the quad
+        table.insert(map, inner_curr)
+        table.insert(map, outer_curr)
+        table.insert(map, inner_next)
 
-        -- Triangulate ring between inner and outer
-        for i = 1, n_outer_vertices do
-            local inner_idx = i + 1
-            local inner_next_idx = i + 2
-            local outer_idx = i + n_outer_vertices + 2
-            local outer_next_idx = i + n_outer_vertices + 3
-
-            -- First triangle
-            table.insert(map, inner_idx)
-            table.insert(map, outer_idx)
-            table.insert(map, outer_next_idx)
-
-            -- Second triangle
-            table.insert(map, inner_idx)
-            table.insert(map, outer_next_idx)
-            table.insert(map, inner_next_idx)
-        end
-    else
-        -- Add inner ring vertices
-        local step = 2 * math.pi / n_outer_vertices
-        for angle = 0, 2 * math.pi, step do
-            table.insert(data, {
-                center_x + math.cos(angle) * inner_radius,
-                center_y + math.sin(angle) * inner_radius,
-                0.5 + math.cos(angle) * 0.5,
-                0.5 + math.sin(angle) * 0.5,
-                1, 1, 1, 1
-            })
-        end
-
-        -- Add outer ring vertices
-        for angle = 0, 2 * math.pi, step do
-            table.insert(data, {
-                center_x + math.cos(angle) * outer_radius,
-                center_y + math.sin(angle) * outer_radius,
-                0.5 + math.cos(angle) * 0.5,
-                0.5 + math.sin(angle) * 0.5,
-                1, 1, 1, 1
-            })
-        end
-
-        -- Triangulate ring
-        for i = 1, n_outer_vertices do
-            local inner_idx = i
-            local inner_next_idx = i + 1
-            local outer_idx = i + n_outer_vertices + 1
-            local outer_next_idx = i + n_outer_vertices + 2
-
-            -- First triangle
-            table.insert(map, inner_idx)
-            table.insert(map, outer_idx)
-            table.insert(map, outer_next_idx)
-
-            -- Second triangle
-            table.insert(map, inner_idx)
-            table.insert(map, outer_next_idx)
-            table.insert(map, inner_next_idx)
-        end
+        -- Second triangle of the quad
+        table.insert(map, inner_next)
+        table.insert(map, outer_curr)
+        table.insert(map, outer_next)
     end
 
     local native = love.graphics.newMesh(

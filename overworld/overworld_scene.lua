@@ -66,7 +66,9 @@ function ow.OverworldScene:instantiate(state)
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "j" then
-            self:set_control_indicator_type(ow.ControlIndicatorType.DOUBLE_JUMP, true)
+            self:set_control_indicator_type(ow.ControlIndicatorType.INTERACT, true)
+        elseif which == "h" then
+            self:set_control_indicator_type(ow.ControlIndicatorType.NONE)
         end
     end)
 
