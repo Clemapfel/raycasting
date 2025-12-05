@@ -1,3 +1,5 @@
+require "overworld.movable_object"
+
 rt.settings.overworld.accelerator_surface = {
     particle = {
         max_n_particles_per_second = 120,
@@ -19,7 +21,7 @@ rt.settings.overworld.accelerator_surface = {
 --- @class ow.AcceleratorSurface
 --- @types Polygon, Rectangle
 --- @field friction Number? defaults to -1, negative friction speeds up player
-ow.AcceleratorSurface = meta.class("AcceleratorSurface")
+ow.AcceleratorSurface = meta.class("AcceleratorSurface", ow.MovableObject)
 
 local _particle_texture, _particle_quads = nil, {}
 
@@ -39,15 +41,6 @@ local _particle_shader = rt.Shader("overworld/objects/accelerator_surface.glsl",
 
 --- @brief
 function ow.AcceleratorSurface:instantiate(object, stage, scene)
-    self._input = rt.InputSubscriber()
-    self._input:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            for shader in range(_body_shader, _outline_shader, _particle_shader) do
-                shader:recompile()
-            end
-        end
-    end)
-
     self._scene = scene
     self._stage = stage
 
@@ -137,7 +130,10 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     -- mesh
     self._contour = rt.round_contour(object:create_contour(), 10)
     self._mesh = object:create_mesh()
-    self._body = object:create_physics_body(stage:get_physics_world())
+    self._body = object:create_physics_body(
+        stage:get_physics_world(),
+        b2.BodyType.KINEMATIC
+    )
 
     self._body:add_tag(
         "use_friction",
@@ -154,9 +150,10 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     self._mesh = object:create_mesh()
     self._outline = object:create_contour()
-
     table.insert(self._outline, self._outline[1])
     table.insert(self._outline, self._outline[2])
+
+    self._x, self._y = object:get_centroid()
 end
 
 function _get_friction(nx, ny, vx, vy)
@@ -260,12 +257,16 @@ end
 function ow.AcceleratorSurface:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
+    local offset_x, offset_y = self._body:get_position()
+
+    love.graphics.push()
+    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+
     love.graphics.setColor(1, 1, 1, 1)
     local camera = self._scene:get_camera()
-    local offset_x, offset_y = self._scene:get_camera():get_offset()
-    local camera_scale = self._scene:get_camera():get_final_scale()
-
-    local transform = self._scene:get_camera():get_transform():inverse()
+    local transform = self._scene:get_camera():get_transform()
+    transform:translate(offset_x, offset_y)
+    transform = transform:inverse()
 
     local camera_bounds = camera:get_world_bounds()
 
@@ -288,6 +289,8 @@ function ow.AcceleratorSurface:draw()
     love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
     love.graphics.line(self._outline)
     _outline_shader:unbind()
+
+    love.graphics.pop()
 
     _particle_shader:bind()
     _particle_shader:send("screen_to_world_transform", transform)
@@ -320,6 +323,10 @@ end
 
 --- @brief
 function ow.AcceleratorSurface:draw_bloom()
+    love.graphics.push()
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+
     love.graphics.setColor(1, 1, 1, 1)
     _outline_shader:bind()
     _outline_shader:send("camera_offset", { self._scene:get_camera():get_offset() })
@@ -328,6 +335,8 @@ function ow.AcceleratorSurface:draw_bloom()
     love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
     love.graphics.line(self._outline)
     _outline_shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief

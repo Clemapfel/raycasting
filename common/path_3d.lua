@@ -259,7 +259,7 @@ function rt.Path3D:create_from_and_reparameterize(...)
 end
 
 --- @brief
-function rt.Path3D:list_points()
+function rt.Path3D:get_points()
     local out = {}
     for i = 1, self._n_points, 3 do
         table.insert(out, { self._points[i], self._points[i + 1], self._points[i + 2] })

@@ -1,15 +1,17 @@
 require "common.smoothed_motion_1d"
+require "overworld.movable_object"
 
-rt.settings.overworld.hook = {
+rt.settings.overworld.objects.hook = {
     radius_factor = 1.8,
     hook_animation_duration = 3,
     hook_sound_id = "hook",
-    outline_width = 2
+    outline_width = 2,
+    cooldown = 20 / 60
 }
 
 --- @class ow.Hook
 --- @types Point
-ow.Hook = meta.class("OverworldHook", rt.Drawable)
+ow.Hook = meta.class("OverworldHook", ow.MovableObject)
 
 local _shader = rt.Shader("overworld/objects/hook.glsl")
 
@@ -26,23 +28,22 @@ end
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Hook: object `" .. object:get_id() .. "` is not a point")
-    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
+    self._radius = rt.settings.player.radius * rt.settings.overworld.objects.hook.radius_factor
+    self._cooldown_elapsed = math.huge
 
     self._scene = scene
     self._stage = stage
-    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
-    self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.hook.hook_animation_duration)
+    self._radius = rt.settings.player.radius * rt.settings.overworld.objects.hook.radius_factor
+    self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.objects.hook.hook_animation_duration)
     self._impulse = rt.ImpulseSubscriber()
 
     self._world = stage:get_physics_world()
     self._body = b2.Body(
         self._world,
-        b2.BodyType.STATIC,
+        b2.BodyType.KINEMATIC,
         object.x, object.y,
         b2.Circle(0, 0, self._radius)
     )
-
-    self._x, self._y = object.x, object.y
 
     self._hue = _current_hue_step
     self._original_hue = self._hue
@@ -62,6 +63,7 @@ function ow.Hook:instantiate(object, stage, scene)
 
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
+    self._body:add_tag("slippery")
 
     self._body:signal_connect("collision_start", function(_)
         self:_hook()
@@ -105,15 +107,25 @@ end
 
 --- @brief
 function ow.Hook:update(delta)
+    self._cooldown_elapsed = self._cooldown_elapsed + delta
+
     if not self._is_hooked and not self._stage:get_is_body_visible(self._body) then return end
     self._motion:update(delta)
 end
 
 --- @brief
 function ow.Hook:_hook()
-    if self._is_hooked == true or self._is_blocked then return end
+    if self._is_hooked == true
+        or self._is_blocked
+        or self._cooldown_elapsed < rt.settings.overworld.objects.hook.cooldown
+    then
+        return
+    end
+
     local player = self._scene:get_player()
     self._hue = player:get_hue()
+
+    local x, y = self._body:get_position()
 
     if player:get_is_bubble() and (
         self._input:get_is_down(rt.InputAction.UP) or
@@ -123,22 +135,22 @@ function ow.Hook:_hook()
     ) then
         -- if bubble and direction is held, only teleport
         local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
-        bubble:set_position(self._x, self._y)
-        non_bubble:set_position(self._x, self._y)
+        bubble:set_position(x, y)
+        non_bubble:set_position(x, y)
         self._is_blocked = true
     elseif player:get_is_bubble() == false and self._input:get_is_down(rt.InputAction.DOWN) then
         -- if holding down, teleport but keep momentum
-        local vx, vy = player:get_velocity()
+        local before_vx, before_vy = player:get_velocity()
         local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
-        bubble:set_position(self._x, self._y)
-        non_bubble:set_position(self._x, self._y)
-        player:set_velocity(vx, vy)
+        bubble:set_position(x, y)
+        non_bubble:set_position(x, y)
+        player:set_velocity(before_vx, before_vy)
         self._is_blocked = true
     elseif player:get_is_bubble() == false and self._input:get_is_down(rt.InputAction.JUMP) then
         -- if holding jump, jump again
         local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
-        bubble:set_position(self._x, self._y)
-        non_bubble:set_position(self._x, self._y)
+        bubble:set_position(x, y)
+        non_bubble:set_position(x, y)
         player:set_jump_allowed(true)
         player:jump()
         self._is_blocked = true
@@ -146,21 +158,21 @@ function ow.Hook:_hook()
         -- hook properly
         self._world:signal_connect("step", function(_) -- delay to after box2d update because world is locked
             local bubble, non_bubble = player:get_physics_body(true), player:get_physics_body(false)
-            bubble:set_position(self._x, self._y)
-            non_bubble:set_position(self._x, self._y)
+            bubble:set_position(x, y)
+            non_bubble:set_position(x, y)
 
             self._bubble_hook = love.physics.newDistanceJoint(
                 self._body:get_native(),
                 bubble:get_native(),
-                self._x, self._y,
-                self._x, self._y
+                x, y,
+                x, y
             )
 
             self._non_bubble_hook = love.physics.newDistanceJoint(
                 self._body:get_native(),
                 non_bubble:get_native(),
-                self._x, self._y,
-                self._x, self._y
+                x, y,
+                x, y
             )
 
             if player:get_is_bubble() == false then
@@ -226,8 +238,10 @@ function ow.Hook:_unhook()
         self._is_hooked = false
         self._is_blocked = true
 
+        local player = self._scene:get_player()
+
         if self._jump_callback_id ~= nil then
-            self._scene:get_player():signal_try_disconnect("jump", self._jump_callback_id)
+            player:signal_try_disconnect("jump", self._jump_callback_id)
             self._jump_callback_id = nil
         end
 
@@ -248,7 +262,7 @@ function ow.Hook:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
-    love.graphics.translate(self._x, self._y)
+    love.graphics.translate(self._body:get_position())
 
     local value = self._motion:get_value()
     local radius = self._radius
@@ -265,7 +279,7 @@ function ow.Hook:draw()
     _shader:unbind()
 
     rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.hook.outline_width + 2)
+    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.objects.hook.outline_width + 2)
     love.graphics.line(self._outline)
 
     local r, g, b, a = self._color:unpack()
@@ -275,7 +289,7 @@ function ow.Hook:draw()
         b * brightness_scale,
         a
     )
-    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.hook.outline_width)
+    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.objects.hook.outline_width)
     love.graphics.line(self._outline)
 
     love.graphics.pop()
@@ -283,13 +297,17 @@ end
 
 --- @brief
 function ow.Hook:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._stage:get_is_body_visible(self._body)
+        or self._is_hooked -- prevent bloom being drawn on top of player
+    then
+        return
+    end
 
     love.graphics.push()
-    love.graphics.translate(self._x, self._y)
+    love.graphics.translate(self._body:get_position())
 
     self._color:bind()
-    love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width * 1.5)
+    love.graphics.setLineWidth(rt.settings.overworld.objects.hook.outline_width * 1.5)
     love.graphics.line(self._outline)
 
     love.graphics.pop()

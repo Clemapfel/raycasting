@@ -1,4 +1,5 @@
 require "common.contour"
+require "overworld.movable_object"
 
 rt.settings.overworld.kill_plane = {
     border_width = 20
@@ -7,7 +8,7 @@ rt.settings.overworld.kill_plane = {
 --- @class ow.KillPlane
 --- @types Polygon, Rectangle, Ellipse
 --- @field is_visible Boolean?
-ow.KillPlane = meta.class("KillPlane")
+ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
 
 local _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 })
 local _outer_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 1 })
@@ -17,7 +18,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._stage = stage
 
     -- collision
-    self._body = object:create_physics_body(stage:get_physics_world())
+    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
     self._body:set_is_sensor(true)
 
     local bounce_group = rt.settings.player.bounce_collision_group
@@ -44,28 +45,28 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._inner_mesh = nil
 
     self._contour = object:create_contour()
-    table.insert(self._contour, self._contour[1])
-    table.insert(self._contour, self._contour[2])
-
-    local center_x, center_y, n = 0, 0, 0
+    local center_x, center_y = object:get_centroid()
+    local n = 0
     for i = 1, #self._contour, 2 do
-        local x, y = self._contour[i], self._contour[i+1]
-        center_x = center_x + x
-        center_y = center_y + y
+        self._contour[i+0] = self._contour[i+0] - center_x
+        self._contour[i+1] = self._contour[i+1] - center_y
         n = n + 1
     end
 
-    center_x = center_x / n
-    center_y = center_y / n
+    table.insert(self._contour, self._contour[1])
+    table.insert(self._contour, self._contour[2])
 
-    self._mesh_center_x, self._mesh_center_y = center_x, center_y
 
     if rt.is_contour_convex(self._contour) then
         -- if convex, use regular centroid
 
         local vertex_map = {}
         local inner_mesh_data = {
-            { center_x, center_y, 0, 0, 0, 0, 0, 0 }
+            {
+              0, 0,
+              0, 0,
+              0, 0, 0, 0
+            }
         }
 
         for i = 1, #self._contour, 2 do
@@ -255,18 +256,6 @@ function ow.KillPlane:instantiate(object, stage, scene)
         end
     end
 
-    -- fill triangles
-    local n_vertices = vertex_i
-    for i = 1, n_vertices - 6, 4 do
-        for j in range(
-            i + 1, -- contour
-            i + 3, -- current outer
-            i + 4 + 2 -- next outer
-        ) do
-            table.insert(outer_mesh_vertex_map, j)
-        end
-    end
-
     -- last fill triangle needs special vertices
     if n_vertices >= 9 then -- ensure at least two quads exist
         local inner = table.deepcopy(outer_mesh_data[n_vertices - 3])
@@ -296,11 +285,20 @@ end
 function ow.KillPlane:draw()
     if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
-    local transform = self._scene:get_camera():get_transform():inverse()
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.push()
+    love.graphics.translate(offset_x, offset_y)
+
+    local px, py = self._scene:get_player():get_position()
+
+    local transform = self._scene:get_camera():get_transform()
+    local player_position = { transform:transform_point(px, py) }
+
+    transform:translate(offset_x, offset_y)
+    transform = transform:inverse()
+
     local red = { rt.Palette.MINT:unpack() }
     love.graphics.setColor(1, 1, 1, 1)
-
-    local player_position = { self._scene:get_camera():world_xy_to_screen_xy(self._scene:get_player():get_position()) }
 
 
     _inner_shader:bind()
@@ -308,7 +306,7 @@ function ow.KillPlane:draw()
     _inner_shader:send("player_position", player_position)
     _inner_shader:send("screen_to_world_transform", transform)
     _inner_shader:send("red", red)
-    _inner_shader:send("center", { self._mesh_center_x, self._mesh_center_y })
+    _inner_shader:send("center", { offset_x, offset_y })
     self._inner_mesh:draw()
     _inner_shader:unbind()
 
@@ -318,6 +316,8 @@ function ow.KillPlane:draw()
     _outer_shader:send("red", red)
     self._outer_mesh:draw()
     _outer_shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief

@@ -1,5 +1,6 @@
 require "common.smoothed_motion_1d"
 require "common.impulse_manager"
+require "overworld.movable_object"
 
 rt.settings.overworld.boost_field = {
     acceleration_duration = 0.2, -- seconds to accelerate player from 0 to max
@@ -12,7 +13,7 @@ rt.settings.overworld.boost_field = {
 --- @types Polygon, Rectangle, Ellipse
 --- @field velocity Number?
 --- @field axis ow.BoostFieldAxis! non-optional
-ow.BoostField = meta.class("BoostField")
+ow.BoostField = meta.class("BoostField", ow.MovableObject)
 
 --- @class ow.BoostFieldAxis
 --- @types Point
@@ -31,7 +32,7 @@ end
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
-    self._body = object:create_physics_body(stage:get_physics_world())
+    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._use_exact_testing = table.sizeof(self._body:get_native():getShapes()) > 1
@@ -77,6 +78,7 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     self._color = { rt.lcha_to_rgba(0.8, 1, math.angle(self._axis_x, self._axis_y) / (2 * math.pi), 0.8) }
 
+    self._draw_offset_x, self._draw_offset_y = object:get_centroid()
     self._mesh = object:create_mesh()
     self._outline = object:create_contour()
     table.insert(self._outline, self._outline[1])
@@ -132,16 +134,24 @@ end
 function ow.BoostField:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
+    love.graphics.push()
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.translate(-self._draw_offset_x + offset_x, -self._draw_offset_y + offset_y)
+
     local player = self._scene:get_player()
     local camera = self._scene:get_camera()
     local px, py = player:get_position()
     px, py = camera:world_xy_to_screen_xy(px, py)
 
+    local transform = self._scene:get_camera():get_transform()
+    transform:translate(offset_x, offset_y)
+    transform = transform:inverse()
+
     love.graphics.setColor(self._color)
     _shader:bind()
     _shader:send("player_position", { px, py })
     _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
-    _shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
+    _shader:send("screen_to_world_transform", transform)
     _shader:send("player_influence", self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat()))
     _shader:send("axis", { self._axis_x, self._axis_y })
     _shader:send("brightness_offset", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
@@ -162,16 +172,24 @@ function ow.BoostField:draw()
     love.graphics.setColor(r * offset, g * offset, b * offset, a)
     love.graphics.setLineWidth(line_width * offset)
     love.graphics.line(self._outline)
+
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.BoostField:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) then return end
 
+    love.graphics.push()
+    love.graphics.translate(-self._draw_offset_x, -self._draw_offset_x)
+    love.graphics.translate(self._body:get_position())
+
     rt.Palette.WHITE:bind()
     love.graphics.setColor(self._color)
     love.graphics.setLineWidth(rt.settings.overworld.boost_field.line_width)
     love.graphics.line(self._outline)
+
+    love.graphics.pop()
 end
 
 --- @brief

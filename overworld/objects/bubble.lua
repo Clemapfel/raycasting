@@ -1,3 +1,5 @@
+require "overworld.movable_object"
+
 rt.settings.overworld.bubble = {
     respawn_duration = 4,
     line_width = 1,
@@ -8,7 +10,7 @@ rt.settings.overworld.bubble = {
 }
 
 --- @class ow.Bubble
-ow.Bubble = meta.class("Bubble")
+ow.Bubble = meta.class("Bubble", ow.MovableObject)
 
 local _shader = rt.Shader("overworld/objects/bubble.glsl")
 
@@ -30,7 +32,7 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     -- physics
 
-    self._body = object:create_physics_body(stage:get_physics_world())
+    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC) -- ow.MovableObject
     self._body:add_tag("slippery", "no_blood", "unjumpable")
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
         if self._is_destroyed or cx == nil then return end -- popped, or player is sensor
@@ -74,16 +76,17 @@ function ow.Bubble:instantiate(object, stage, scene)
     local line_width = rt.settings.overworld.bubble.line_width
     local outline_width = rt.settings.overworld.bubble.outline_width
 
+    local mesh_x, mesh_y = 0, 0
     local data = {
-        { self._x, self._y, 0, 0, 1, 1, 1, 1 }
+        { mesh_x, mesh_y, 0, 0, 1, 1, 1, 1 }
     }
 
     local n_outer_vertices = 64
 
     for i = 1, n_outer_vertices + 1 do
         local angle = (i - 1) / n_outer_vertices * 2 * math.pi
-        local x = self._x + math.cos(angle) * self._x_radius
-        local y = self._y + math.sin(angle) * self._y_radius
+        local x = mesh_x + math.cos(angle) * self._x_radius
+        local y = mesh_y + math.sin(angle) * self._y_radius
 
         local u = math.cos(angle)
         local v = math.sin(angle)
@@ -98,8 +101,8 @@ function ow.Bubble:instantiate(object, stage, scene)
         table.insert(self._contour, x)
         table.insert(self._contour, y)
 
-        local outline_x = self._x + math.cos(angle) * (self._x_radius + 0.5 * line_width + 0.5 * outline_width)
-        local outline_y = self._y + math.sin(angle) * (self._y_radius + 0.5 * line_width + 0.5 * outline_width)
+        local outline_x = mesh_x + math.cos(angle) * (self._x_radius + 0.5 * line_width + 0.5 * outline_width)
+        local outline_y = mesh_y + math.sin(angle) * (self._y_radius + 0.5 * line_width + 0.5 * outline_width)
 
         table.insert(self._outline_contour, outline_x)
         table.insert(self._outline_contour, outline_y)
@@ -164,9 +167,11 @@ function ow.Bubble:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
-    love.graphics.translate(self._path:at(math.fract(self._path_elapsed / self._path_duration)))
+    local path_x, path_y = self._path:at(math.fract(self._path_elapsed / self._path_duration))
+    local body_x, body_y = self._body:get_position()
+    love.graphics.translate(body_x + path_x, body_y + path_y)
 
-    -- outline always visible so player know where bubble will respawn
+    -- outline always visible so player knows where bubble will respawn
     local opacity = 1 * math.max(0.5, self._pop_fraction)
     love.graphics.setLineStyle("smooth")
     love.graphics.setLineJoin("bevel")

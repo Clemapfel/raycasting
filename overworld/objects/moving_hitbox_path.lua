@@ -334,9 +334,6 @@ end
 
 --- @brief
 function ow.MovingHitboxPath:draw_rail(origin_x, origin_y)
-    love.graphics.setColor(1, 1, 1, 1)
-    self._path:draw()
-
     love.graphics.setLineJoin("none")
 
     local outer_r = rt.settings.overworld.moving_hitbox_path.rail_outer_radius

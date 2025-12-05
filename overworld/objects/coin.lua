@@ -1,6 +1,7 @@
 require "common.sound_manager"
 require "common.timed_animation"
 require "overworld.coin_particle"
+require "overworld.movable_object"
 
 rt.settings.overworld.coin = {
     radius = 10,
@@ -18,7 +19,7 @@ rt.settings.overworld.coin = {
 
 --- @class ow.Coin
 --- @types Point
-ow.Coin = meta.class("Coin")
+ow.Coin = meta.class("Coin", ow.MovableObject)
 
 local _pulse_mesh = nil
 local _particle_texture
@@ -155,15 +156,19 @@ end
 --- @brief
 function ow.Coin:set_is_collected(b)
     if self._is_collected ~= b then
+        local x, y = self._body:get_position()
+
         if self._is_collected == true then -- respawn
             self._is_returning = true
-            self._respawn_return_motion:set_position(self._follow_x, self._follow_y)
+            self._respawn_return_motion:set_position(x, y)
         end
 
         self._is_collected = b
         self._body:set_is_enabled(not b)
-        self._follow_x, self._follow_y = self._body:get_position()
+        self._follow_x, self._follow_y = x, y
+        self._pulse_x, self._pulse_y = x, y
         self._follow_offset = rt.settings.overworld.coin.follow_offset * (self._stage:get_n_coins_collected() + 1)
+        self._follow_motion:set_position(x, y)
         self._stage:set_coin_is_collected(self._index, b)
         self._timestamp = love.timer.getTime()
     end
@@ -205,6 +210,7 @@ function ow.Coin:update(delta)
     elseif self._is_returning then
         self._respawn_return_motion:update(delta)
         local px, py = self._respawn_return_motion:get_position()
+        local x, y = self._body:get_position()
         if math.distance(px, py, self._x, self._y) < 5 then
             self._is_returning = false
             self._follow_x = self._x
@@ -252,7 +258,8 @@ function ow.Coin:draw()
         if self._is_returning then
             self._particle:draw(self._respawn_return_motion:get_position())
         else
-            self._particle:draw(self._x + self._noise_x, self._y + self._noise_y)
+            local offset_x, offset_y = self._body:get_position()
+            self._particle:draw(offset_x + self._noise_x, offset_y + self._noise_y)
         end
     end
 end
@@ -274,7 +281,8 @@ function ow.Coin:draw_bloom()
         if self._is_returning then
             self._particle:draw_bloom(self._respawn_return_motion:get_position())
         else
-            self._particle:draw_bloom(self._x + self._noise_x, self._y + self._noise_y)
+            local offset_x, offset_y = self._body:get_position()
+            self._particle:draw_bloom(offset_x + self._noise_x, offset_y + self._noise_y)
         end
     end
 end
@@ -290,4 +298,22 @@ function ow.Coin:reset()
     self:set_is_collected(false)
     self._pulse_opacity_animation:reset()
     self._pulse_active = true
+end
+
+--- @brief
+function ow.Coin:set_position(x, y)
+    -- always, since body stays at origin
+    self._body:set_position(x, y)
+end
+
+--- @brief
+function ow.Coin:get_velocity()
+    return self._body:get_velocity()
+end
+
+--- @brief
+function ow.Coin:set_velocity(vx, vy)
+    if self._is_collected == false then
+        self._body:set_velocity(vx, vy)
+    end
 end

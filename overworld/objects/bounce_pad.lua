@@ -1,4 +1,5 @@
 require "common.contour"
+require "overworld.movable_object"
 
 rt.settings.overworld.bounce_pad = {
     line_width = 5,
@@ -41,7 +42,7 @@ rt.settings.overworld.bounce_pad = {
 --- @types Polygon, Rectangle, Ellipse
 --- @field is_single_use Boolean? whether pad pops after being hit
 --- @field respawn_duration Number? if single use, how long to respawn
-ow.BouncePad = meta.class("BouncePad", rt.Drawable)
+ow.BouncePad = meta.class("BouncePad", ow.MovableObject)
 
 -- mesh deformation
 local _x_index = 1
@@ -57,7 +58,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     meta.install(self, {
         _scene = scene,
         _stage = stage,
-        _body = object:create_physics_body(stage:get_physics_world()),
+        _body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC),
 
         -- spring simulation
         _bounce_position = rt.settings.overworld.bounce_pad.origin, -- in [0, 1]
@@ -126,6 +127,12 @@ function ow.BouncePad:instantiate(object, stage, scene)
         rt.settings.overworld.bounce_pad.corner_radius,
         16
     )
+
+    local center_x, center_y = object:get_centroid()
+    for i = 1, #self._contour, 2 do
+        self._contour[i+0] = self._contour[i+0] - center_x
+        self._contour[i+1] = self._contour[i+1] - center_y
+    end
 
     local shape_mesh_format = {
         {location = rt.VertexAttributeLocation.POSITION, name = rt.VertexAttribute.POSITION, format = "floatvec2"},
@@ -289,6 +296,9 @@ end
 function ow.BouncePad:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
+    love.graphics.push()
+    love.graphics.translate(self._body:get_position())
+
     local opacity = 1
 
     local r, g, b = table.unpack(self._draw_inner_color)
@@ -314,6 +324,8 @@ function ow.BouncePad:draw()
     love.graphics.setColor(r, g, b, opacity)
     love.graphics.setLineWidth(line_width - 2)
     love.graphics.line(self._draw_contour)
+
+    love.graphics.pop()
 
     self:_draw_particles()
 end

@@ -243,7 +243,7 @@ function rt.Path:create_from_and_reparameterize(...)
 end
 
 --- @brief
-function rt.Path:list_points()
+function rt.Path:get_points()
     local out = {}
     for i = 1, self._n_points, 2 do
         table.insert(out, {self._points[i], self._points[i+1]})
@@ -254,14 +254,6 @@ end
 --- @brief
 function rt.Path:get_length()
     return self._length
-end
-
---- @brief
-function rt.Path:draw()
-    love.graphics.setLineJoin("none")
-    if self._n_points >= 4 then
-        love.graphics.line(self._points)
-    end
 end
 
 --- @brief override arclength parameterization with custom per-segment fraction

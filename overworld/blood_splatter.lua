@@ -142,11 +142,6 @@ function ow.BloodSplatter:draw()
         end
     end
 
-    love.graphics.setColor(1, 1, 1, 1)
-    for edge in values(self._edges) do
-        love.graphics.line(edge:getUserData().line)
-    end
-
     love.graphics.pop()
 end
 

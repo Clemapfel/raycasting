@@ -32,16 +32,6 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     self._body:set_use_continuous_collision(true)
 
     self._elapsed = 0
-    self._is_active = false
-    self._body:signal_connect("collision_start", function(_, other_body)
-        if not other_body:has_tag("player") then return end
-        self._is_active = true
-    end)
-
-    self._body:signal_connect("collision_end", function(_, other_body)
-        if not other_body:has_tag("player") then return end
-        self._is_active = true
-    end)
 
     -- match tags from ow.Hitbox
     for property in range(
@@ -56,7 +46,7 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     if self._body:has_tag("slippery") then
         self._body:add_tag("no_blood")
     end
-    self._body:add_tag("moving", "hitbox", "stencil")
+    self._body:add_tag("hitbox", "stencil")
 
     local start_x, start_y = self._body:get_position()
 
@@ -121,10 +111,8 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     end
     self._easing = easing
 
-    -- reset cycle on player respawn
-    self._start_timestamp = love.timer.getTime()
     self._stage:signal_connect("respawn", function()
-        self._start_timestamp = love.timer.getTime()
+        self:reset()
     end)
 
     -- mesh

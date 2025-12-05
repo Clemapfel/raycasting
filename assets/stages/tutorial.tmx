@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1128">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1150">
  <editorsettings>
   <export target="tutorial.lua" format="lua"/>
  </editorsettings>
@@ -339,7 +339,7 @@
    </properties>
    <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
   </object>
-  <object id="154" name="Spawn" type="PlayerSpawn" x="-5558.95" y="2354.39">
+  <object id="154" name="Spawn" type="PlayerSpawn" x="-6156.82" y="2309.74">
    <point/>
   </object>
   <object id="155" type="Hitbox" x="1168" y="2176">
@@ -1106,25 +1106,6 @@
    </properties>
    <point/>
   </object>
-  <object id="947" type="MovingHitboxTarget" x="-3419.74" y="1104.86">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="948" type="MovingHitbox" x="-3843.21" y="1023.74">
-   <properties>
-    <property name="target" type="object" value="949"/>
-    <property name="velocity" type="float" value="1000"/>
-   </properties>
-   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
-  </object>
-  <object id="949" type="MovingHitboxTarget" x="-3092.84" y="1324.04">
-   <properties>
-    <property name="target" type="object" value="947"/>
-   </properties>
-   <point/>
-  </object>
   <object id="955" type="Hitbox" x="-2400" y="3408">
    <properties>
     <property name="slippery" type="bool" value="true"/>
@@ -1235,7 +1216,7 @@
   <object id="1100" type="AirDashNode" x="-6928" y="1696" width="100" height="100">
    <ellipse/>
   </object>
-  <object id="1101" type="AirDashNode" x="-6928" y="1472" width="100" height="100">
+  <object id="1101" name="AirDashNode" type="AirDashNode" x="-6133.14" y="1707.19" width="100" height="100">
    <ellipse/>
   </object>
   <object id="1102" type="AirDashNode" x="-6928" y="1584" width="100" height="100">
@@ -1252,6 +1233,52 @@
   </object>
   <object id="1127" type="NPCInteractSensor" x="-5448.44" y="2199.53" width="272.331" height="343.137">
    <ellipse/>
+  </object>
+  <object id="1128" type="PathNode" x="-5900.74" y="2263.99">
+   <properties>
+    <property name="next" type="object" value="1131"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1130" name="Path" type="Path" x="-6112" y="2155.46">
+   <properties>
+    <property name="next" type="object" value="1128"/>
+    <property name="should_loop" type="bool" value="true"/>
+    <property name="target" type="object" value="1149"/>
+    <property name="velocity" type="float" value="100"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1131" type="PathNode" x="-5708.26" y="2150.83">
+   <properties>
+    <property name="next" type="object" value="1139"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1134" name="Hook" type="Hook" x="-6244.11" y="1781.2">
+   <point/>
+  </object>
+  <object id="1139" type="PathNode" x="-5879.43" y="1989.58">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1140" name="BoostField" type="BoostField" x="-6494.4" y="1667.39">
+   <polygon points="0,0 0,112 128,64"/>
+  </object>
+  <object id="1144" name="BubbleField" type="BubbleField" x="-5964.55" y="1799.08">
+   <polygon points="0,0 0,-154.042 172.31,-154.042 172.31,0"/>
+  </object>
+  <object id="1146" name="AcceleratorSurfacess" type="AcceleratorSurface" x="-6620.21" y="2010.02">
+   <polygon points="0,0 0,-154.042 172.31,-154.042 172.31,0"/>
+  </object>
+  <object id="1147" name="Coin" type="Coin" x="-6330.57" y="1903.31">
+   <point/>
+  </object>
+  <object id="1148" name="DeceleratorSurface" type="DeceleratorSurface" x="-6182.49" y="1768.29" width="106.707" height="108.885"/>
+  <object id="1149" name="DoubleJumpTether" type="DoubleJumpTether" x="-6136.76" y="2171.17">
+   <point/>
   </object>
  </objectgroup>
  <layer id="1" name="tiles" width="32" height="32">

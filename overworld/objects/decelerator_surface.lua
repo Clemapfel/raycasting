@@ -1,4 +1,5 @@
 require "overworld.deformable_mesh"
+require "overworld.movable_object"
 
 rt.settings.overworld.objects.decelerator_surface = {
     friction = 1.15,
@@ -8,7 +9,7 @@ rt.settings.overworld.objects.decelerator_surface = {
 }
 
 --- @class ow.DeceleratorSurface
-ow.DeceleratorSurface = meta.class("DeceleratorSurface")
+ow.DeceleratorSurface = meta.class("DeceleratorSurface", ow.MovableObject)
 
 local padding = 20
 local _shader = rt.Shader("overworld/objects/decelerator_surface.glsl")
@@ -19,10 +20,11 @@ end)
 
 --- @brief
 function ow.DeceleratorSurface:instantiate(object, stage, scene)
+    rt.warning("In ow.DeceleratorSurface: FLICKERING todo")
     self._scene = scene
     self._stage = stage
 
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.STATIC)
+    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
     self._body:add_tag("slippery")
 
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
@@ -44,6 +46,11 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     end)
 
     local contour = object:create_contour()
+    local centroid_x, centroid_y = object:get_centroid()
+    for i = 1, #contour, 2 do
+        contour[i+0] = contour[i+0] - centroid_x
+        contour[i+1] = contour[i+1] - centroid_y
+    end
 
     self._tris = {}
     if rt.is_contour_convex(contour) then
@@ -62,8 +69,9 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._contour_amplitudes = table.deepcopy(self._contour)
 
     self._stage:signal_connect("initialized", function(_)
+        local offset_x, offset_y = self._body:get_position()
         for i = 1, #self._contour_normals, 2 do
-            local x, y = self._contour[i], self._contour[i+1]
+            local x, y = self._contour[i] + offset_x, self._contour[i+1] + offset_y
             local dx, dy = self._contour_normals[i], self._contour_normals[i+1]
             x = x + dx * padding
             y = y + dy * padding
@@ -89,9 +97,7 @@ end
 
 --- @brief
 function ow.DeceleratorSurface:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then
-        return
-    end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local sdf = function(x, y, px, py, radius)
         if x < px then x = px - math.abs(px - x) end
@@ -136,12 +142,13 @@ function ow.DeceleratorSurface:update(delta)
     end
 
     local player = self._scene:get_player()
+    local offset_x, offset_y = self._body:get_position()
     local px, py = player:get_position()
     local radius = player:get_radius()
 
     self._buldge = {}
     for i = 1, #self._contour, 2 do
-        local x, y = self._contour[i], self._contour[i+1]
+        local x, y = self._contour[i] + offset_x, self._contour[i+1] + offset_y
         local dx, dy = self._contour_normals[i], self._contour_normals[i+1]
         if dx ~= 0 or dy ~= 0 then
             local depression = sdf(x, y, px, py, radius)
@@ -157,7 +164,6 @@ function ow.DeceleratorSurface:update(delta)
         end
     end
 
-
     if #self._draw_contour < #self._contour + 2 then
         table.insert(self._draw_contour, self._draw_contour[1])
         table.insert(self._draw_contour, self._draw_contour[2])
@@ -171,14 +177,25 @@ end
 function ow.DeceleratorSurface:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
+    local offset_x, offset_y = self._body:get_position()
+
+    local transform = self._scene:get_camera():get_transform()
+    transform:translate(offset_x, offset_y)
+    transform = transform:inverse()
+
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("screen_to_world_transform", self._scene:get_camera():get_transform():inverse())
+    _shader:send("screen_to_world_transform", transform)
+
+    love.graphics.push()
+    love.graphics.translate(offset_x, offset_y)
 
     rt.Palette.DECELERATOR_SURFACE:bind()
     for tri in values(self._tris) do
         love.graphics.polygon("fill", tri)
     end
+
+    love.graphics.pop()
 
     love.graphics.setLineStyle("rough")
     love.graphics.setLineWidth(rt.settings.overworld.objects.decelerator_surface.subdivision_length)
@@ -188,9 +205,6 @@ function ow.DeceleratorSurface:draw()
     love.graphics.setLineStyle("smooth")
 
     _shader:unbind()
-
-    --love.graphics.polygon("fill", self._buldge)
-
 
     local line_width = 1.5
     rt.Palette.BLACK:bind()

@@ -1,4 +1,5 @@
 require "common.contour"
+require "overworld.movable_object"
 
 rt.settings.overworld.bubble_field = {
     segment_length = 10,
@@ -11,7 +12,7 @@ rt.settings.overworld.bubble_field = {
 --- @class ow.BubbleField
 --- @types Polygon, Rectangle, Ellipse
 --- @field inverted Boolean? if false, non-bubble -> bubble, otherwise bubble -> non-bubble
-ow.BubbleField = meta.class("BubbleField")
+ow.BubbleField = meta.class("BubbleField", ow.MovableObject)
 
 -- shape mesh data members
 local _origin_x_index = 1
@@ -39,9 +40,11 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
     self._world = stage:get_physics_world()
-    self._body = object:create_physics_body(self._world)
+    self._body = object:create_physics_body(self._world, b2.BodyType.KINEMATIC)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
+
+    self._x, self._y = object:get_centroid()
 
     self._inverted = object:get_boolean("inverted")
     if self._inverted == nil then self._inverted = false end
@@ -180,6 +183,10 @@ end
 function ow.BubbleField:draw()
     if not self._stage:get_is_body_visible(self._body) then return end
 
+       local offset_x, offset_y = self._body:get_position()
+    love.graphics.push()
+    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(3)
     love.graphics.setLineJoin("none")
@@ -207,6 +214,8 @@ function ow.BubbleField:draw()
     _outline_shader:send("hue", hue)
     love.graphics.line(self._contour)
     _outline_shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief
@@ -294,6 +303,11 @@ end
 --- @brief
 function ow.BubbleField:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) then return end
+
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.push()
+    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(3)
     love.graphics.setLineJoin("none")
@@ -309,6 +323,8 @@ function ow.BubbleField:draw_bloom()
     _outline_shader:bind()
     love.graphics.line(self._contour)
     _outline_shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief

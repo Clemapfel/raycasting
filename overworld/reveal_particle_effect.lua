@@ -163,8 +163,6 @@ function ow.RevealParticleEffect:draw()
     local radius = rt.settings.overworld.reveal_particle_effect.radius * rt.get_pixel_scale()
     local line_width = 2
 
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
-
     love.graphics.push("all")
 
     local damping = 0.05

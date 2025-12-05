@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1128,
+  nextobjectid = 1150,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1457,8 +1457,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -5558.95,
-          y = 2354.39,
+          x = -6156.82,
+          y = 2309.74,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4868,59 +4868,6 @@ return {
           }
         },
         {
-          id = 947,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -3419.74,
-          y = 1104.86,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 0 }
-          }
-        },
-        {
-          id = 948,
-          name = "",
-          type = "MovingHitbox",
-          shape = "polygon",
-          x = -3843.21,
-          y = 1023.74,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 687.067, y = 223.406 },
-            { x = 687.067, y = 376.948 },
-            { x = 811.357, y = 376.948 },
-            { x = 858.669, y = 376.948 },
-            { x = 858.669, y = 223.406 }
-          },
-          properties = {
-            ["target"] = { id = 949 },
-            ["velocity"] = 1000
-          }
-        },
-        {
-          id = 949,
-          name = "",
-          type = "MovingHitboxTarget",
-          shape = "point",
-          x = -3092.84,
-          y = 1324.04,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["target"] = { id = 947 }
-          }
-        },
-        {
           id = 955,
           name = "",
           type = "Hitbox",
@@ -5384,11 +5331,11 @@ return {
         },
         {
           id = 1101,
-          name = "",
+          name = "AirDashNode",
           type = "AirDashNode",
           shape = "ellipse",
-          x = -6928,
-          y = 1472,
+          x = -6133.14,
+          y = 1707.19,
           width = 100,
           height = 100,
           rotation = 0,
@@ -5456,6 +5403,177 @@ return {
           y = 2199.53,
           width = 272.331,
           height = 343.137,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1128,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -5900.74,
+          y = 2263.99,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1131 }
+          }
+        },
+        {
+          id = 1130,
+          name = "Path",
+          type = "Path",
+          shape = "point",
+          x = -6112,
+          y = 2155.46,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1128 },
+            ["should_loop"] = true,
+            ["target"] = { id = 1149 },
+            ["velocity"] = 100
+          }
+        },
+        {
+          id = 1131,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -5708.26,
+          y = 2150.83,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1139 }
+          }
+        },
+        {
+          id = 1134,
+          name = "Hook",
+          type = "Hook",
+          shape = "point",
+          x = -6244.11,
+          y = 1781.2,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1139,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -5879.43,
+          y = 1989.58,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 0 }
+          }
+        },
+        {
+          id = 1140,
+          name = "BoostField",
+          type = "BoostField",
+          shape = "polygon",
+          x = -6494.4,
+          y = 1667.39,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 112 },
+            { x = 128, y = 64 }
+          },
+          properties = {}
+        },
+        {
+          id = 1144,
+          name = "BubbleField",
+          type = "BubbleField",
+          shape = "polygon",
+          x = -5964.55,
+          y = 1799.08,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -154.042 },
+            { x = 172.31, y = -154.042 },
+            { x = 172.31, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 1146,
+          name = "AcceleratorSurfacess",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -6620.21,
+          y = 2010.02,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -154.042 },
+            { x = 172.31, y = -154.042 },
+            { x = 172.31, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 1147,
+          name = "Coin",
+          type = "Coin",
+          shape = "point",
+          x = -6330.57,
+          y = 1903.31,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1148,
+          name = "DeceleratorSurface",
+          type = "DeceleratorSurface",
+          shape = "rectangle",
+          x = -6182.49,
+          y = 1768.29,
+          width = 106.707,
+          height = 108.885,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1149,
+          name = "DoubleJumpTether",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -6136.76,
+          y = 2171.17,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {}

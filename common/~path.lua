@@ -217,7 +217,7 @@ function rt.Path:create_from(points, ...)
 end
 
 --- @brief
-function rt.Path:list_points()
+function rt.Path:get_points()
     local out = {}
     for i = 1, #self._points, 2 do
         table.insert(out, self._points[i])

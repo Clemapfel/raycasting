@@ -1,5 +1,6 @@
 require "common.path"
 require "overworld.air_dash_node_particle"
+require "overworld.movable_object"
 
 rt.settings.overworld.objects.air_dash_node = {
     core_radius = 10,
@@ -15,7 +16,7 @@ rt.settings.overworld.objects.air_dash_node = {
 
 --- @class AirDashNode
 --- @types Circle
-ow.AirDashNode = meta.class("AirDashNode")
+ow.AirDashNode = meta.class("AirDashNode", ow.MovableObject)
 
 local _handler, _is_first = true
 function ow.AirDashNode:reinitialize()
@@ -46,7 +47,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     -- dummy collision, for camera queries
     self._body = b2.Body(
         stage:get_physics_world(),
-        b2.BodyType.STATIC,
+        b2.BodyType.KINEMATIC,
         self._x, self._y,
         b2.Circle(0, 0, self._radius)
     )
@@ -207,14 +208,15 @@ function ow.AirDashNode:set_is_tethered(b)
         self._particle:set_is_exploded(true)
 
     elseif before == true and b == false then
+        local x, y = self._body:get_position()
         local px, py = self._tether_start_x, self._tether_start_y
-        local dx, dy = math.normalize(self._x - px, self._y - py)
+        local dx, dy = math.normalize(x - px, y - py)
         local magnitude = rt.settings.overworld.objects.air_dash_node.indicator_length
         dx = dx * magnitude
         dy = dy * magnitude
 
-        local bx, by = self._x + dx, self._y + dy
-        local ax, ay = px, py--self._x - dx, self._y - dy
+        local bx, by = x + dx, y + dy
+        local ax, ay = px, py --x - dx, y - dy
 
         self._queue_emit = function()
             self._particles:emit(
@@ -238,8 +240,9 @@ function ow.AirDashNode:set_is_current(b)
         self._is_current_motion:set_value(1)
     end
 
+    local x, y = self._body:get_position()
     local px, py = self._scene:get_player():get_position()
-    local dx, dy = math.normalize(px - self._x, py - self._y)
+    local dx, dy = math.normalize(px - x, py - y)
     self._particle:set_aligned(b, dx, dy, 0)
 end
 
@@ -250,7 +253,7 @@ end
 
 --- @brief
 function ow.AirDashNode:get_position()
-    return self._x, self._y
+    return self._body:get_position()
 end
 
 --- @brief
@@ -287,14 +290,15 @@ function ow.AirDashNode:update(delta)
         self._particles:update(delta)
 
         if self._is_tethered or self._is_current then
+            local x, y = self._body:get_position()
             local px, py = self._scene:get_player():get_position()
-            local dx, dy = math.normalize(self._x - px, self._y - py)
+            local dx, dy = math.normalize(x - px, y - py)
             local magnitude = rt.settings.overworld.objects.air_dash_node.indicator_length
             dx = dx * magnitude
             dy = dy * magnitude
 
-            local bx, by = self._x + dx, self._y + dy
-            local ax, ay = px, py--self._x - dx, self._y - dy
+            local bx, by = x + dx, y + dy
+            local ax, ay = px, py --x - dx, y - dy
 
             local width = rt.settings.overworld.objects.air_dash_node.core_radius  / 2
             local left_x, left_y = math.turn_left(math.normalize(dx, dy))
@@ -311,9 +315,9 @@ function ow.AirDashNode:update(delta)
                 local t = 1.2 -- value boost
 
                 add_vertex(ax, ay, r, g, b)
-                add_vertex(self._x + left_x * width, self._y + left_y * width, r, g, b)
-                add_vertex(self._x, self._y, t * r, t * g, t * b)
-                add_vertex(self._x + right_x * width, self._y + right_y * width, r, g, b)
+                add_vertex(x + left_x * width, y + left_y * width, r, g, b)
+                add_vertex(x, y, t * r, t * g, t * b)
+                add_vertex(x + right_x * width, y + right_y * width, r, g, b)
                 add_vertex(bx, by, r, g, b)
 
                 self._indicator_mesh = rt.Mesh(
@@ -336,9 +340,9 @@ function ow.AirDashNode:update(delta)
                 end
 
                 add_vertex(ax, ay, r, g, b)
-                add_vertex(self._x + left_x * width, self._y + left_y * width, r, g, b)
-                add_vertex(self._x, self._y, 1, 1, 1)
-                add_vertex(self._x + right_x * width, self._y + right_y * width, r, g, b)
+                add_vertex(x + left_x * width, y + left_y * width, r, g, b)
+                add_vertex(x, y, 1, 1, 1)
+                add_vertex(x + right_x * width, y + right_y * width, r, g, b)
                 add_vertex(bx, by, r, g, b)
 
                 self._indicator_mesh:replace_data(self._indicator_data)
@@ -346,9 +350,9 @@ function ow.AirDashNode:update(delta)
 
             self._indicator_mesh_outline = {
                 ax, ay,
-                self._x + left_x * width, self._y + left_y * width,
+                x + left_x * width, y + left_y * width,
                 bx, by,
-                self._x + right_x * width, self._y + right_y * width,
+                x + right_x * width, y + right_y * width,
                 ax, ay -- line loop
             }
         end
@@ -366,10 +370,17 @@ local _in_front_of_payer_priority = 1
 --- @brief
 function ow.AirDashNode:draw(priority)
     if not self._stage:get_is_body_visible(self._body) then return end
+
+    local offset_x, offset_y = self._body:get_position()
+
     local r, g, b, a = self._color:unpack()
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
 
     if priority == _behind_player_priority then
+
+        love.graphics.push()
+        love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+
         local current_a = self._is_current_motion:get_value()
         if self._indicator_always_visible then current_a = 1 end
         local cooldown_a = 1 - math.min(1, self._cooldown_elapsed / rt.settings.overworld.objects.air_dash_node.cooldown)
@@ -402,7 +413,10 @@ function ow.AirDashNode:draw(priority)
             self._particle:draw(self._x, self._y, true, true)
         end
 
+        love.graphics.pop()
+
         self._particles:draw()
+
     elseif priority == _in_front_of_payer_priority then
         if self._indicator_mesh ~= nil and (self._is_current or self._is_tethered
             or self._queue_emit_elapsed < rt.settings.overworld.objects.air_dash_node.particle_emit_delay_duration
@@ -415,10 +429,15 @@ function ow.AirDashNode:draw(priority)
             self._indicator_mesh:draw()
         end
 
+        love.graphics.push()
+        love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+
         if self._is_current == true then
             love.graphics.setColor(r, g, b, 1)
             self._particle:draw(self._x, self._y, true, true)
         end
+
+        love.graphics.pop()
     end
 end
 
@@ -426,9 +445,15 @@ end
 function ow.AirDashNode:draw_bloom()
     if self._stage:get_is_body_visible(self._body) == false then return end
 
+    love.graphics.push()
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+
     local r, g, b = self._color:unpack()
     love.graphics.setColor(r, g, b, 1)
     self._particle:draw(self._x, self._y, false, true) -- line only
+
+    love.graphics.pop()
 end
 
 --- @brief

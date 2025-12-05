@@ -1093,8 +1093,6 @@ function rt.Player:update(delta)
                 local velocity_delta = target_velocity_x - current_velocity_x
 
                 -- do not apply velocity decrease if mid air and holding no direction
-
-
                 local is_decelerating = (not right_is_down and next_velocity_x < 0 and velocity_delta > 0)
                     or (not left_is_down and next_velocity_x > 0 and velocity_delta < 0)
 
@@ -1161,7 +1159,7 @@ function rt.Player:update(delta)
                 return math.exp(-180 * (x-1) * (x-1))
             end
 
-            local add_friction = function(
+            local apply_friction = function(
                 normal_x, normal_y,
                 contact_x, contact_y,
                 body,
@@ -1227,7 +1225,7 @@ function rt.Player:update(delta)
                 and left_is_down
             then
                 local vx, vy = self._left_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     left_nx, left_ny,
                     left_x, left_y,
                     self._left_wall_body,
@@ -1240,7 +1238,7 @@ function rt.Player:update(delta)
                 and right_is_down
             then
                 local vx, vy = self._right_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     right_nx, right_ny,
                     right_x, right_y,
                     self._right_wall_body,
@@ -1252,7 +1250,7 @@ function rt.Player:update(delta)
                 and not self._top_left_wall_body:has_tag("slippery")
             then
                 local vx, vy = self._top_left_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     top_left_nx, top_left_ny,
                     top_left_x, top_left_y,
                     self._top_left_wall_body,
@@ -1264,7 +1262,7 @@ function rt.Player:update(delta)
                 and not self._top_wall_body:has_tag("slippery")
             then
                 local vx, vy = self._top_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     top_nx, top_ny,
                     top_x, top_y,
                     self._top_wall_body,
@@ -1276,7 +1274,7 @@ function rt.Player:update(delta)
                 and not self._top_right_wall_body:has_tag("slippery")
             then
                 local vx, vy = self._top_right_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     top_right_nx, top_right_ny,
                     top_right_x, top_right_y,
                     self._top_right_wall_body,
@@ -1289,7 +1287,7 @@ function rt.Player:update(delta)
                 and not down_is_down
             then
                 local vx, vy = self._bottom_left_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     bottom_left_nx, bottom_left_ny,
                     bottom_left_x, bottom_left_y,
                     self._bottom_left_wall_body,
@@ -1302,7 +1300,7 @@ function rt.Player:update(delta)
                 and not down_is_down
             then
                 local vx, vy = self._bottom_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     bottom_nx, bottom_ny,
                     bottom_x, bottom_y,
                     self._bottom_wall_body,
@@ -1315,7 +1313,7 @@ function rt.Player:update(delta)
                 and not down_is_down
             then
                 local vx, vy = self._bottom_right_wall_body:get_velocity()
-                add_friction(
+                apply_friction(
                     bottom_right_nx, bottom_right_ny,
                     bottom_right_x, bottom_right_y,
                     self._bottom_right_wall_body,
