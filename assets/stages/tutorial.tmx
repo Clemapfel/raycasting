@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1150">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1170">
  <editorsettings>
   <export target="tutorial.lua" format="lua"/>
  </editorsettings>
@@ -339,7 +339,7 @@
    </properties>
    <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
   </object>
-  <object id="154" name="Spawn" type="PlayerSpawn" x="-6156.82" y="2309.74">
+  <object id="154" name="Spawn" type="PlayerSpawn" x="-6060.19" y="2305.83">
    <point/>
   </object>
   <object id="155" type="Hitbox" x="1168" y="2176">
@@ -929,7 +929,7 @@
    <properties>
     <property name="slippery" type="bool" value="false"/>
    </properties>
-   <polygon points="-2293.66,413.51 -3189.66,413.51 -4272.35,426.2 -4591.42,76.4513 -3943.78,-448.734 -3397.66,-338.49 -3397.66,173.51 -2965.66,173.51 -2869.66,125.51 -2805.66,61.51 -2773.66,-18.49 -2245.66,-18.49 -2245.66,173.51 -1558.94,175.203 -1269.66,237.51 -213.66,253.51 660.67,253.514 1472,256 1466.34,-18.4863 1610.34,-18.4863 2122.34,253.514 2266.34,253.514 2266.34,-82.4863 2378.34,-82.4863 2378.34,397.514 1616,400 506.335,400 -1285.66,397.51"/>
+   <polygon points="-2293.66,413.51 -3189.66,413.51 -4272.35,426.2 -4591.42,76.4513 -3943.78,-448.734 -3397.66,-338.49 -3397.66,173.51 -2965.66,173.51 -2869.66,125.51 -2805.66,61.51 -2773.66,-18.49 -2245.66,-18.49 -2245.66,173.51 -1558.94,175.203 -1093.66,45.51 -917.66,45.51 -917.66,-354.49 -763.587,123.527 -213.66,253.51 660.67,253.514 1472,256 1466.34,-18.4863 1610.34,-18.4863 2122.34,253.514 2266.34,253.514 2266.34,-82.4863 2378.34,-82.4863 2378.34,397.514 1616,400 506.335,400 -1285.66,397.51"/>
   </object>
   <object id="879" type="MovingHitboxTarget" x="-3069.98" y="2202.88">
    <properties>
@@ -1173,8 +1173,8 @@
   <object id="1068" name="Checkpoint" type="Checkpoint" x="-1434.65" y="857.54">
    <point/>
   </object>
-  <object id="1071" type="AcceleratorSurface" x="-4896.64" y="2398.71">
-   <polygon points="-309.047,6.09413 -203.41,-37.6035 -158.374,-84.9548 -127.519,-135.778 -103.432,-198.824 -83.8255,-270.634 -66.9291,-335.621 -58.1151,-399.035 -48.248,-469.433 -39.2803,-529.428 -37.055,-603.04 -34.4453,-641.813 128,-640 128.644,33.2877"/>
+  <object id="1071" type="Hitbox" x="-4896.64" y="2398.71">
+   <polygon points="-309.047,6.09413 -203.41,-37.6035 -158.374,-84.9548 -127.519,-135.778 -103.432,-198.824 -83.8255,-270.634 -66.9291,-335.621 -58.1151,-399.035 -48.248,-469.433 -39.2803,-529.428 -37.055,-603.04 -34.4453,-641.813 128,-640 176.64,-270.71 128.644,33.2877"/>
   </object>
   <object id="1073" name="NPC" type="NPC" x="-5313.22" y="2286.61">
    <properties>
@@ -1216,7 +1216,7 @@
   <object id="1100" type="AirDashNode" x="-6928" y="1696" width="100" height="100">
    <ellipse/>
   </object>
-  <object id="1101" name="AirDashNode" type="AirDashNode" x="-6133.14" y="1707.19" width="100" height="100">
+  <object id="1101" name="AirDashNode" type="AirDashNode" x="-6433.7" y="2112.77" width="100" height="100">
    <ellipse/>
   </object>
   <object id="1102" type="AirDashNode" x="-6928" y="1584" width="100" height="100">
@@ -1234,7 +1234,7 @@
   <object id="1127" type="NPCInteractSensor" x="-5448.44" y="2199.53" width="272.331" height="343.137">
    <ellipse/>
   </object>
-  <object id="1128" type="PathNode" x="-5900.74" y="2263.99">
+  <object id="1128" type="PathNode" x="-5978.6" y="2274.85">
    <properties>
     <property name="next" type="object" value="1131"/>
    </properties>
@@ -1244,12 +1244,12 @@
    <properties>
     <property name="next" type="object" value="1128"/>
     <property name="should_loop" type="bool" value="true"/>
-    <property name="target" type="object" value="1149"/>
+    <property name="target" type="object" value="1150"/>
     <property name="velocity" type="float" value="100"/>
    </properties>
    <point/>
   </object>
-  <object id="1131" type="PathNode" x="-5708.26" y="2150.83">
+  <object id="1131" type="PathNode" x="-5735.42" y="2015.04">
    <properties>
     <property name="next" type="object" value="1139"/>
    </properties>
@@ -1270,14 +1270,65 @@
   <object id="1144" name="BubbleField" type="BubbleField" x="-5964.55" y="1799.08">
    <polygon points="0,0 0,-154.042 172.31,-154.042 172.31,0"/>
   </object>
-  <object id="1146" name="AcceleratorSurfacess" type="AcceleratorSurface" x="-6620.21" y="2010.02">
-   <polygon points="0,0 0,-154.042 172.31,-154.042 172.31,0"/>
-  </object>
   <object id="1147" name="Coin" type="Coin" x="-6330.57" y="1903.31">
    <point/>
   </object>
-  <object id="1148" name="DeceleratorSurface" type="DeceleratorSurface" x="-6182.49" y="1768.29" width="106.707" height="108.885"/>
-  <object id="1149" name="DoubleJumpTether" type="DoubleJumpTether" x="-6136.76" y="2171.17">
+  <object id="1148" name="DeceleratorSurface" type="DeceleratorSurface" x="-6530.13" y="1922.19" width="106.707" height="108.885"/>
+  <object id="1149" name="DoubleJumpTether" type="DoubleJumpTether" x="-5968.37" y="1943.03">
+   <point/>
+  </object>
+  <object id="1150" name="OneWayPlatform" type="OneWayPlatform" x="-6224" y="2160">
+   <properties>
+    <property name="target" type="object" value="1151"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1151" type="OneWayPlatformTarget" x="-6016" y="2160">
+   <point/>
+  </object>
+  <object id="1160" type="PathNode" x="-5642.6" y="2189.27">
+   <properties>
+    <property name="next" type="object" value="1162"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1161" name="Path" type="Path" x="-5776" y="2069.88">
+   <properties>
+    <property name="next" type="object" value="1160"/>
+    <property name="should_loop" type="bool" value="true"/>
+    <property name="target" type="object" value="1164"/>
+    <property name="velocity" type="float" value="100"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1162" type="PathNode" x="-5399.42" y="1929.46">
+   <properties>
+    <property name="next" type="object" value="1163"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1163" type="PathNode" x="-5543.43" y="1904">
+   <properties>
+    <property name="next" type="object" value="0"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1164" name="OneWayPlatform" type="OneWayPlatform" x="-5739.53" y="2197.54">
+   <properties>
+    <property name="target" type="object" value="1165"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1165" type="OneWayPlatformTarget" x="-5744" y="2064">
+   <point/>
+  </object>
+  <object id="1168" name="OneWayPlatform" type="OneWayPlatform" x="-5459.45" y="2193.81">
+   <properties>
+    <property name="target" type="object" value="1169"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1169" type="OneWayPlatformTarget" x="-5463.92" y="2060.27">
    <point/>
   </object>
  </objectgroup>

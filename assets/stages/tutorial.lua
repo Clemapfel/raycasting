@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1150,
+  nextobjectid = 1170,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1457,8 +1457,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -6156.82,
-          y = 2309.74,
+          x = -6060.19,
+          y = 2305.83,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4367,7 +4367,10 @@ return {
             { x = -2245.66, y = -18.49 },
             { x = -2245.66, y = 173.51 },
             { x = -1558.94, y = 175.203 },
-            { x = -1269.66, y = 237.51 },
+            { x = -1093.66, y = 45.51 },
+            { x = -917.66, y = 45.51 },
+            { x = -917.66, y = -354.49 },
+            { x = -763.587, y = 123.527 },
             { x = -213.66, y = 253.51 },
             { x = 660.67, y = 253.514 },
             { x = 1472, y = 256 },
@@ -5144,7 +5147,7 @@ return {
         {
           id = 1071,
           name = "",
-          type = "AcceleratorSurface",
+          type = "Hitbox",
           shape = "polygon",
           x = -4896.64,
           y = 2398.71,
@@ -5166,6 +5169,7 @@ return {
             { x = -37.055, y = -603.04 },
             { x = -34.4453, y = -641.813 },
             { x = 128, y = -640 },
+            { x = 176.64, y = -270.71 },
             { x = 128.644, y = 33.2877 }
           },
           properties = {}
@@ -5334,8 +5338,8 @@ return {
           name = "AirDashNode",
           type = "AirDashNode",
           shape = "ellipse",
-          x = -6133.14,
-          y = 1707.19,
+          x = -6433.7,
+          y = 2112.77,
           width = 100,
           height = 100,
           rotation = 0,
@@ -5412,8 +5416,8 @@ return {
           name = "",
           type = "PathNode",
           shape = "point",
-          x = -5900.74,
-          y = 2263.99,
+          x = -5978.6,
+          y = 2274.85,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5436,7 +5440,7 @@ return {
           properties = {
             ["next"] = { id = 1128 },
             ["should_loop"] = true,
-            ["target"] = { id = 1149 },
+            ["target"] = { id = 1150 },
             ["velocity"] = 100
           }
         },
@@ -5445,8 +5449,8 @@ return {
           name = "",
           type = "PathNode",
           shape = "point",
-          x = -5708.26,
-          y = 2150.83,
+          x = -5735.42,
+          y = 2015.04,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5521,25 +5525,6 @@ return {
           properties = {}
         },
         {
-          id = 1146,
-          name = "AcceleratorSurfacess",
-          type = "AcceleratorSurface",
-          shape = "polygon",
-          x = -6620.21,
-          y = 2010.02,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -154.042 },
-            { x = 172.31, y = -154.042 },
-            { x = 172.31, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 1147,
           name = "Coin",
           type = "Coin",
@@ -5557,8 +5542,8 @@ return {
           name = "DeceleratorSurface",
           type = "DeceleratorSurface",
           shape = "rectangle",
-          x = -6182.49,
-          y = 1768.29,
+          x = -6530.13,
+          y = 1922.19,
           width = 106.707,
           height = 108.885,
           rotation = 0,
@@ -5570,8 +5555,155 @@ return {
           name = "DoubleJumpTether",
           type = "DoubleJumpTether",
           shape = "point",
-          x = -6136.76,
-          y = 2171.17,
+          x = -5968.37,
+          y = 1943.03,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1150,
+          name = "OneWayPlatform",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -6224,
+          y = 2160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 1151 }
+          }
+        },
+        {
+          id = 1151,
+          name = "",
+          type = "OneWayPlatformTarget",
+          shape = "point",
+          x = -6016,
+          y = 2160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1160,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -5642.6,
+          y = 2189.27,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1162 }
+          }
+        },
+        {
+          id = 1161,
+          name = "Path",
+          type = "Path",
+          shape = "point",
+          x = -5776,
+          y = 2069.88,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1160 },
+            ["should_loop"] = true,
+            ["target"] = { id = 1164 },
+            ["velocity"] = 100
+          }
+        },
+        {
+          id = 1162,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -5399.42,
+          y = 1929.46,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1163 }
+          }
+        },
+        {
+          id = 1163,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -5543.43,
+          y = 1904,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 0 }
+          }
+        },
+        {
+          id = 1164,
+          name = "OneWayPlatform",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -5739.53,
+          y = 2197.54,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 1165 }
+          }
+        },
+        {
+          id = 1165,
+          name = "",
+          type = "OneWayPlatformTarget",
+          shape = "point",
+          x = -5744,
+          y = 2064,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1168,
+          name = "OneWayPlatform",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -5459.45,
+          y = 2193.81,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["target"] = { id = 1169 }
+          }
+        },
+        {
+          id = 1169,
+          name = "",
+          type = "OneWayPlatformTarget",
+          shape = "point",
+          x = -5463.92,
+          y = 2060.27,
           width = 0,
           height = 0,
           rotation = 0,

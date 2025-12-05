@@ -149,6 +149,11 @@ function ow.ObjectWrapper:get_id()
     return self.id
 end
 
+--- @brief
+function ow.ObjectWrapper:get_class()
+    return self.class
+end
+
 ow.ObjectWrapperShapeType = meta.enum("ObjectWrapperShapeType", {
     CIRCLE = true,
     POLYGON = false

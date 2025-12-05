@@ -1155,81 +1155,154 @@ function rt.Player:update(delta)
 
             -- wall friction
             local net_friction_x, net_friction_y = 0, 0
-            local surface_verticality_easing = function(x)
-                return math.exp(-180 * (x-1) * (x-1))
+
+            local function surface_slope_factor(velocity_x, velocity_y, normal_x, normal_y)
+                -- Normalize velocity to get direction
+                local vel_dir_x, vel_dir_y = math.normalize(velocity_x, velocity_y)
+                normal_x, normal_y = math.normalize(normal_x, normal_y)
+
+                -- Factor 1: How much the surface is NOT downward-facing
+                -- Clamp normal_y to [0, 1] so downward surfaces (normal_y < 0) give 0
+                local not_downward = math.max(0, normal_y)
+
+                -- Factor 2: How much the surface slopes towards the player
+                -- Dot product of velocity with normal (negative = opposing = slopes towards)
+                local horizontal_dot = vel_dir_x * normal_x
+                local towards_factor = math.max(0, -horizontal_dot)
+
+                -- Factor 3: Vertical surfaces should have high value
+                -- 1 - |normal_y| gives 1 for vertical, 0 for horizontal
+                local vertical_factor = 1 - math.abs(normal_y)
+
+                -- Combine: not downward AND (slopes towards player OR is vertical)
+                -- Use max to favor whichever is stronger
+                local slope_contribution = math.max(towards_factor, vertical_factor)
+
+                -- Scale by how non-downward the surface is (but add bonus for vertical)
+                return rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(math.max(not_downward, vertical_factor) * slope_contribution)
             end
 
             local apply_friction = function(
                 normal_x, normal_y,
                 contact_x, contact_y,
                 body,
-                ray_length
+                ray_length,
+                friction_multiplier,
+                apply_slope_factor
             )
+                if friction_multiplier == nil then friction_multiplier = 1 end
+
+                -- convert to factor
+                local body_friction = body:get_friction()
+                if body_friction >= 0 then
+                    body_friction = 1 + body_friction
+                elseif body_friction < 0 then
+                    body_friction = body_friction - 1
+                end
+
+                -- Calculate surface verticality (0 = horizontal floor/ceiling, 1 = vertical wall)
+                -- Horizontal surfaces have normal pointing up/down (normal_x ≈ 0)
+                -- Vertical surfaces have normal pointing left/right (|normal_x| ≈ 1)
+
+                -- Get positions and velocities
                 local player_x, player_y = self._body:get_position()
                 local player_vx, player_vy = self._body:get_velocity()
                 local body_velocity_x, body_velocity_y = body:get_velocity()
 
+                if math.abs(friction_multiplier) < math.eps then return end
+
+                friction_multiplier = friction_multiplier * (surface_slope_factor(player_vx, player_vy, normal_x, normal_y))
+
+                -- Calculate relative velocity (player velocity relative to surface)
                 local relative_vx = player_vx - body_velocity_x
                 local relative_vy = player_vy - body_velocity_y
 
-                local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
+                -- Get surface tangent (perpendicular to normal, points along surface)
+                local tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
 
-                -- velocity along tangent
+                -- Project relative velocity onto tangent to get sliding speed
+                -- Positive = sliding in tangent direction, Negative = sliding opposite
                 local slide_speed = math.dot(relative_vx, relative_vy, tangent_x, tangent_y)
 
-                local friction_direction_x, friction_direction_y
-                if math.abs(slide_speed) < math.eps then
-                    friction_direction_x, friction_direction_y = 0, 0
-                elseif slide_speed < 0 then
-                    friction_direction_x, friction_direction_y = tangent_x, tangent_y
-                else
-                    friction_direction_x, friction_direction_y = math.flip(tangent_x, tangent_y)
-                end
+                -- Get surface friction coefficient from body
+                local surface_friction_coefficient = body_friction * _settings.friction_coefficient
 
-                -- friction should increase with player pressing into the surface
+                -- Calculate normal force (how hard player is pressed into surface)
+                -- Component 1: Compression from penetration depth
                 local contact_distance = math.distance(player_x, player_y, contact_x, contact_y)
-                local compression = (1 - contact_distance / ray_length) * _settings.friction_compression_influence
+                local penetration_ratio = 1 - (contact_distance / ray_length)
+                local compression_force = 1 --penetration_ratio * _settings.friction_compression_influence
 
+                -- Component 2: Velocity pressing into surface
                 local velocity_into_surface = -math.dot(relative_vx, relative_vy, normal_x, normal_y)
+                local velocity_normal_force = math.max(0, velocity_into_surface)
 
-                -- weight friction such that walls have maximum friction, horizontal surface have none
-                local surface_verticality = surface_verticality_easing(math.abs(normal_x))
-                local normal_force = compression + math.max(0, velocity_into_surface)
-                local max_friction_force = _settings.friction_coefficient * normal_force * surface_verticality
+                -- Total normal force before modifiers
+                local base_normal_force = compression_force + velocity_normal_force
 
-                if self._down_button_is_down and not use_analog_input then
-                    -- on keyboard, press down to slowly release wall cling
-                    local fraction = math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
-                    local factor =  rt.InterpolationFunctions.SQUARE_ACCELERATION(1 - fraction, 3.5) -- manually chosen for smoothest release
-                    max_friction_force = max_friction_force * factor
-                elseif use_analog_input then
-                    -- more friction the more joystick is pushing along flipped normal
-                    local factor = math.max(0, math.dot(
+                -- Apply joystick/button influence on normal force
+                -- Player pushing into surface increases friction, pulling away reduces it
+                local input_modifier = 1.0
+                if use_analog_input then
+                    -- Joystick: measure how much player is pushing against surface
+                    -- Dot product with flipped normal gives [-1, 1] where 1 = pushing directly into surface
+                    local push_factor = math.dot(
                         self._joystick_position_x,
                         self._joystick_position_y,
                         -normal_x, -normal_y
-                    ))
-
-                    max_friction_force = max_friction_force * factor
+                    )
+                    input_modifier = math.max(0, push_factor)
+                elseif down_is_down then
+                    -- Keyboard down button: gradually release wall cling
+                    local release_progress = math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
+                    input_modifier = 1 - math.sqrt(release_progress) -- square root easing
                 end
 
-                -- clamp to avoid moving in opposite direction
-                local friction_magnitude = math.min(math.abs(slide_speed), max_friction_force)
+                -- Apply all modifiers to get final normal force
+                local normal_force = base_normal_force * input_modifier
 
-                net_friction_x = friction_direction_x * friction_magnitude
-                net_friction_y = friction_direction_y * friction_magnitude
+                -- Calculate friction force magnitude
+                -- Friction = coefficient × normal_force, scaled by surface verticality
+                local friction_magnitude = math.abs(surface_friction_coefficient) * normal_force * friction_multiplier
+
+                -- Determine friction force based on surface friction sign
+                local friction_force_along_tangent
+
+                if math.abs(slide_speed) < math.eps then
+                    -- No sliding = no friction
+                    friction_force_along_tangent = 0
+                elseif surface_friction_coefficient < 0 then
+                    -- Negative friction: ACCELERATE in direction of sliding
+                    -- This creates a "boost" effect along the tangent
+                    friction_force_along_tangent = friction_magnitude * math.sign(slide_speed)
+                else
+                    -- Zero or positive friction: OPPOSE sliding motion
+                    -- Clamp to never exceed slide_speed (prevents reversing direction)
+                    -- This ensures friction only slows down, never speeds up or reverses
+                    local max_opposition = math.abs(slide_speed)
+                    local opposition_force = math.min(friction_magnitude, max_opposition)
+                    friction_force_along_tangent = -opposition_force * math.sign(slide_speed)
+                end
+
+                -- Convert friction force from tangent space to world space
+                net_friction_x = tangent_x * friction_force_along_tangent
+                net_friction_y = tangent_y * friction_force_along_tangent
             end
+
+            local wall_cling_friction = 4
+            local slide_friction = 0
 
             if self._left_wall
                 and not self._left_wall_body:has_tag("slippery")
                 and left_is_down
             then
-                local vx, vy = self._left_wall_body:get_velocity()
                 apply_friction(
                     left_nx, left_ny,
                     left_x, left_y,
                     self._left_wall_body,
-                    math.magnitude(left_dx, left_y)
+                    math.magnitude(left_dx, left_dy),
+                    ternary(left_is_down, wall_cling_friction, 1),
+                    true
                 )
             end
 
@@ -1237,12 +1310,13 @@ function rt.Player:update(delta)
                 and not self._right_wall_body:has_tag("slippery")
                 and right_is_down
             then
-                local vx, vy = self._right_wall_body:get_velocity()
                 apply_friction(
                     right_nx, right_ny,
                     right_x, right_y,
                     self._right_wall_body,
-                    math.magnitude(right_dx, right_y)
+                    math.magnitude(right_dx, right_dy),
+                    ternary(right_is_down, wall_cling_friction, 1),
+                    true
                 )
             end
 
@@ -1254,7 +1328,9 @@ function rt.Player:update(delta)
                     top_left_nx, top_left_ny,
                     top_left_x, top_left_y,
                     self._top_left_wall_body,
-                    math.magnitude(top_left_dx, top_left_y)
+                    math.magnitude(top_left_dx, top_left_dy),
+                    1,
+                    math.magnitude(vx, vy) < math.eps
                 )
             end
 
@@ -1266,7 +1342,9 @@ function rt.Player:update(delta)
                     top_nx, top_ny,
                     top_x, top_y,
                     self._top_wall_body,
-                    math.magnitude(top_dx, top_y)
+                    math.magnitude(top_dx, top_dy),
+                    1,
+                    math.magnitude(vx, vy) < math.eps
                 )
             end
 
@@ -1278,7 +1356,9 @@ function rt.Player:update(delta)
                     top_right_nx, top_right_ny,
                     top_right_x, top_right_y,
                     self._top_right_wall_body,
-                    math.magnitude(top_right_dx, top_right_y)
+                    math.magnitude(top_right_dx, top_right_dy),
+                    1,
+                    math.magnitude(vx, vy) < math.eps
                 )
             end
 
@@ -1291,7 +1371,9 @@ function rt.Player:update(delta)
                     bottom_left_nx, bottom_left_ny,
                     bottom_left_x, bottom_left_y,
                     self._bottom_left_wall_body,
-                    math.magnitude(bottom_left_dx, bottom_left_y)
+                    math.magnitude(bottom_left_dx, bottom_left_dy),
+                    ternary(down_is_down, slide_friction, 1),
+                    true
                 )
             end
 
@@ -1304,7 +1386,9 @@ function rt.Player:update(delta)
                     bottom_nx, bottom_ny,
                     bottom_x, bottom_y,
                     self._bottom_wall_body,
-                    math.magnitude(bottom_dx, bottom_y)
+                    math.magnitude(bottom_dx, bottom_dy),
+                    ternary( down_is_down, slide_friction, 1),
+                    true
                 )
             end
 
@@ -1317,7 +1401,9 @@ function rt.Player:update(delta)
                     bottom_right_nx, bottom_right_ny,
                     bottom_right_x, bottom_right_y,
                     self._bottom_right_wall_body,
-                    math.magnitude(bottom_right_dx, bottom_right_y)
+                    math.magnitude(bottom_right_dx, bottom_right_dy),
+                    ternary(down_is_down, slide_friction, 1),
+                    true
                 )
             end
 
@@ -1335,8 +1421,8 @@ function rt.Player:update(delta)
 
             next_velocity_x = next_velocity_x + net_friction_x
 
-            -- only apply friction when sliding down
-            if net_friction_y < 0 then
+            -- when wall clinging, do not apply upwards friction
+            if not ((self._left_wall or self._right_wall) and net_friction_y > 0) then
                 next_velocity_y = next_velocity_y + net_friction_y
             end
 
@@ -1496,103 +1582,118 @@ function rt.Player:update(delta)
             end
             self._bounce_elapsed = self._bounce_elapsed + delta
 
-            next_velocity_y = next_velocity_y * self._damping
+            -- accelerators
+            for surface in range(
+                { left_wall_body, left_nx, left_ny },
+                { top_wall_body, top_nx, top_ny },
+                { right_wall_body, right_nx, right_ny },
+                { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
+                { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
+                { bottom_wall_body, bottom_nx, bottom_ny }
+            ) do
+                local body, nx, ny = table.unpack(surface)
+                if body ~= nil and (body:has_tag("use_friction") or body:get_friction() < 0) then
+                    local friction = body:get_friction()
 
-            -- friction
-            if not down_is_down then
-                for surface in range(
-                    { left_wall_body, left_nx, left_ny },
-                    { top_wall_body, top_nx, top_ny },
-                    { right_wall_body, right_nx, right_ny },
-                    { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
-                    { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
-                    { bottom_wall_body, bottom_nx, bottom_ny }
-                ) do
-                    local body, nx, ny = table.unpack(surface)
-                    if body ~= nil and body:has_tag("use_friction") then
-                        local friction = body:get_friction() -- accelerators have negative friction
+                    local tx, ty = math.turn_left(nx, ny)
+                    local vx, vy = next_velocity_x, next_velocity_y
+                    local dot_product = vx * tx + vy * ty
 
-                        local tx, ty = math.turn_left(nx, ny)
-                        local vx, vy = next_velocity_x, next_velocity_y
-                        local dot_product = vx * tx + vy * ty
+                    local tangent_velocity_x = dot_product * tx
+                    local tangent_velocity_y = dot_product * ty
 
-                        local tangent_velocity_x = dot_product * tx
-                        local tangent_velocity_y = dot_product * ty
+                    local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
+                    local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
 
-                        local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
-                        local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
+                    -- apply tangential force
+                    next_velocity_x = next_velocity_x + time_dilation * friction_force_x * delta
+                    next_velocity_y = next_velocity_y + time_dilation * friction_force_y * delta
 
-                        -- apply tangential force
-                        next_velocity_x = next_velocity_x + time_dilation * friction_force_x * delta
-                        next_velocity_y = next_velocity_y + time_dilation * friction_force_y * delta
+                    -- magnetize to surface
+                    local flipped_x, flipped_y = math.flip(nx, ny)
+                    next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
+                    next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
+                end
 
-                        -- magnetize to surface
-                        local flipped_x, flipped_y = math.flip(nx, ny)
-                        next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
-                        next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
-                    end
-
-                    local accelerator_max_velocity = time_dilation * _settings.accelerator_max_velocity
-                    if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
-                        next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
-                        next_velocity_x = next_velocity_x * accelerator_max_velocity
-                        next_velocity_y = next_velocity_y * accelerator_max_velocity
-                    end
+                local accelerator_max_velocity = time_dilation * _settings.accelerator_max_velocity
+                if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
+                    next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
+                    next_velocity_x = next_velocity_x * accelerator_max_velocity
+                    next_velocity_y = next_velocity_y * accelerator_max_velocity
                 end
             end
 
             local is_touching_platform = false
             do -- inherit platform velocity
                 local velocity_x, velocity_y, n = 0, 0, 0
+                local min_magnitude = 1
 
-                local is_platform = {}
-                for body in range(
-                    self._top_wall_body,
-                    self._top_right_wall_body,
-                    self._right_wall_body,
-                    self._bottom_right_wall_body,
-                    self._bottom_wall_body,
-                    self._bottom_left_wall_body,
-                    self._left_wall_body
-                ) do
-                    local body_vx, body_vy = body:get_velocity()
-                    if body:get_type() ~= b2.BodyType.STATIC and math.magnitude(body_vy, body_vy) > math.eps then
-                        velocity_x = velocity_x + body_vx
-                        velocity_y = velocity_y + body_vy
-                        n = n + 1
+                local chosen_body = nil
+                if down_is_down then
+                    for first in range( -- automatically skips nils
+                        self._bottom_wall_body,
+                        self._bottom_left_wall_body,
+                        self._bottom_right_wall_body
+                    ) do
+                        chosen_body = first
+                        break
+                    end
+                elseif left_is_down and self._left_wall_body then
+                    for first in range(
+                        self._left_wall_body,
+                        self._bottom_left_wall_body,
+                        self._bottom_wall_body,
+                        self._bottom_right_wall_body
+                    ) do
+                        chosen_body = first
+                        break
+                    end
+                elseif right_is_down and self.right_wall_body then
+                    for first in range(
+                        self._right_wall_body,
+                        self._bottom_left_wall_body,
+                        self._bottom_wall_body,
+                        self._bottom_right_wall_body
+                    ) do
+                        chosen_body = first
+                        break
+                    end
+                else
+                    for body in range( -- priority queue
+                        self._left_wall_body,
+                        self._right_wall_body,
 
-                        is_platform[body] = true
+                        self._bottom_wall_body,
+                        self._bottom_left_wall_body,
+                        self._bottom_right_wall_body,
+
+                        self._top_wall_body,
+                        self._top_left_wall_body,
+                        self._top_right_wall_body
+                    ) do
+                        local body_vx, body_vy = body:get_velocity()
+                        local magnitude = math.magnitude(body_vx, body_vy)
+                        if body:get_type() ~= b2.BodyType.STATIC
+                            and magnitude > min_magnitude
+                        then
+                            velocity_x, velocity_y = body_vx, body_vy
+                            min_magnitude = magnitude
+                            chosen_body = body
+                        end
                     end
                 end
 
-                is_touching_platform = (
-                        is_platform[self._top_wall_body]
-                        or is_platform[self._top_left_wall_body]
-                        or is_platform[self._top_right_wall_body]
-                    )
-                    or is_platform[self._bottom_wall_body]
-                    or (math.to_number(is_platform[self._bottom_left_wall_body])
-                        + math.to_number(is_platform[self._bottom_wall_body])
-                        + math.to_number(is_platform[self._bottom_right_wall_body])
-                    ) >= 2
-                    or (is_platform[self._left_wall_body] and left_is_down)
-                    or (is_platform[self._right_wall_body] and right_is_down)
+                is_touching_platform = chosen_body ~= nil and math.magnitude(chosen_body:get_velocity()) >= min_magnitude
 
-                if is_touching_platform == true then
-                    if n == 0 then
-                        self._platform_velocity_x = 0
-                        self._platform_velocity_y = 0
-                    else
-                        self._platform_velocity_x = velocity_x / n
-                        self._platform_velocity_y = velocity_y / n
-                    end
-
+                if is_touching_platform then
+                    self._platform_velocity_x, self._platform_velocity_y = chosen_body:get_velocity()
                     should_decay_platform_velocity = false
                 else
+                    should_decay_platform_velocity = true
                     -- decay, shared after bubble logic
                 end
             end
-
+            
             if is_touching_platform then
                 self._graphics_body:set_relative_velocity(self._platform_velocity_x, self._platform_velocity_y)
             else
@@ -1600,6 +1701,8 @@ function rt.Player:update(delta)
             end
 
             self._is_touching_platform = is_touching_platform
+
+            next_velocity_y = next_velocity_y * self._damping
 
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity

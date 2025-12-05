@@ -66,7 +66,7 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
 
         _use_interpolation = false, -- false = extrapolation, cf. get_predicted_position
 
-        _friction = 0,
+        _friction = nil,
         _collision_disabled = false,
 
         _last_x = x,
@@ -489,7 +489,7 @@ end
 
 --- @brief
 function b2.Body:get_friction()
-    return self._friction
+    return self._friction or 1
 end
 
 --- @brief

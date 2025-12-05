@@ -1,3 +1,5 @@
+require "overworld.movable_object"
+
 rt.settings.overworld.one_way_platform = {
     thickness = 40,
     bloom_intensity = 0.5, -- fraction
@@ -8,7 +10,10 @@ rt.settings.overworld.one_way_platform = {
 
 --- @class ow.OneWayPlatform
 --- @types Rectangle
-ow.OneWayPlatform = meta.class("OneWayPlatform")
+ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
+
+--- @class ow.OneWayPlatformTarget
+ow.OneWayPlatformTarget = meta.class("OneWayPlatformTarget")
 
 local _shader = rt.Shader("overworld/objects/one_way_platform.glsl")
 
@@ -26,17 +31,31 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
-    local x1, y1 = object.x, object.y
-    local w, h = object.width, object.height
+    local other = object:get_object("target", true)
+    for x in range(object, other) do
+        if not x:get_type() == ow.ObjectType.POINT then
+            rt.error("In ow.OneWayPlatform: object `", x:get_id(), "` is not a point")
+        end
+    end
 
-    local dx, dy = math.rotate(w, 0, object.rotation)
-    local x2, y2 = x1 + dx, y1 + dy
+    local x1, y1 = object.x, object.y
+    local x2, y2 = other.x, other.y
+    local centroid_x, centroid_y = math.mix2(x1, y1, x2, y2, 0.5)
+
+    x1 = x1 - centroid_x
+    y1 = y1 - centroid_y
+    x2 = x2 - centroid_x
+    y2 = y2 - centroid_y
+
+    local dx, dy = x2 - x1, y2 - y1
 
     local shape = b2.Segment(x1, y1, x2, y2)
     shape:set_is_one_sided(true)
 
+    self._original_x, self._original_y = x1, y1
+
     local world = stage:get_physics_world()
-    self._body = b2.Body(world, b2.BodyType.STATIC, 0, 0, shape)
+    self._body = b2.Body(world, b2.BodyType.KINEMATIC, centroid_x, centroid_y, shape)
     self._body:add_tag("stencil", "hitbox")
     self._body:add_tag("segment_light_source")
     self._body:set_user_data(self)
@@ -48,7 +67,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     local ldx, ldy = math.turn_left(math.normalize(dx, dy))
     local rdx, rdy = math.turn_right(math.normalize(dx, dy))
 
-    self._sensor = b2.Body(world, b2.BodyType.STATIC, 0, 0, b2.Polygon(
+    self._sensor = b2.Body(world, b2.BodyType.KINEMATIC, centroid_x, centroid_y, b2.Polygon(
         x1 + ldx * sensor_r,
         y1 + ldy * sensor_r,
         x1,
@@ -65,12 +84,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     dx, dy = math.normalize(dx, dy)
 
     do -- bodies purely to stencil
-        for body in values(self._stencil_bodies) do
-            body:add_tag("stencil")
-            body:set_collides_with(0x0)
-        end
-
-        self._stencil_body = b2.Body(world, b2.BodyType.STATIC, 0, 0, b2.Polygon(
+        self._stencil_body = b2.Body(world, b2.BodyType.KINEMATIC, centroid_x, centroid_y, b2.Polygon(
             x1 - ldx * sensor_r,
             y1 - ldy * sensor_r,
             x1,
@@ -81,9 +95,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
             y2 - ldy * sensor_r
         ))
 
-        for body in range(self._stencil_body, self._right_stencil_body) do
-            body:set_is_enabled(false)
-            body:add_tag("stencil")
+        for body in range(self._stencil_body) do
             body:set_collides_with(0x0)
         end
 
@@ -95,7 +107,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         end)
 
         self._sensor:signal_connect("collision_end", function(_)
-            self._stencil_body:set_is_enabled(false)
+            self._stencil_body:remove_tag("stencil")
             self._sensor_test_active = false
         end)
     end
@@ -137,7 +149,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     do -- direction mesh
         local width = 1 * thickness
-        local down_x, down_y = math.turn_left(math.normalize(dx, dy))
+        local down_x, down_y = math.turn_right(math.normalize(dx, dy))
         down_x = down_x * width
         down_y = down_y * width
 
@@ -248,43 +260,49 @@ end
 function ow.OneWayPlatform:update(delta)
     if not self._sensor_test_active or not self._stage:get_is_body_visible(self._sensor) then return end
 
-    if self._stencil_body:get_is_enabled() == false then
-        local should_stencil = false
+    local should_stencil = false
 
-        -- check which side of the line the player is on
-        local player =  self._scene:get_player()
-        local px, py = player:get_position()
-        local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
-        local side = math.cross(
-            x2 - x1, y2 - y1,
-            px - x1, py - y1
-        )
+    -- check which side of the line the player is on
+    local player =  self._scene:get_player()
+    local px, py = player:get_position()
+    local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
+    local side = math.cross(
+        x2 - x1, y2 - y1,
+        px - x1, py - y1
+    )
 
-        -- check distance to line segment
-        if side <= 0 then
-            local vx, vy = x2 - x1, y2 - y1
+    -- check distance to line segment
+    if side >= 0 then
+        local vx, vy = x2 - x1, y2 - y1
 
-            local len = math.magnitude(vx, vy)
-            local nx, ny = math.normalize(vx, vy)
-            local wx, wy = px - x1, py - y1
+        local len = math.magnitude(vx, vy)
+        local nx, ny = math.normalize(vx, vy)
+        local wx, wy = px - x1, py - y1
 
-            local t = math.dot(wx, wy, nx, ny)
+        local t = math.dot(wx, wy, nx, ny)
 
-            if t < 0 then t = 0 end
-            if t > len then t = len end
+        if t < 0 then t = 0 end
+        if t > len then t = len end
 
-            local cx = x1 + nx * t
-            local cy = y1 + ny * t
-            should_stencil = math.distance(px, py, cx, cy) > player:get_radius()
-        end
+        local cx = x1 + nx * t
+        local cy = y1 + ny * t
+        should_stencil = math.distance(px, py, cx, cy) > player:get_radius()
+    end
 
-        self._stencil_body:set_is_enabled(should_stencil)
+    if should_stencil then
+        self._stencil_body:add_tag("stencil")
+    else
+        self._stencil_body:remove_tag("stencil")
     end
 end
 
 --- @brief
 function ow.OneWayPlatform:draw()
     if not self._stage:get_is_body_visible(self._sensor) then return end
+
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.push()
+    love.graphics.translate(offset_x, offset_y)
 
     local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
 
@@ -310,19 +328,54 @@ function ow.OneWayPlatform:draw()
     love.graphics.setColor(1, 1, 1, 0.5)
     love.graphics.setLineWidth(2)
     love.graphics.line(self._highlight_draw_vertices)
+
+    love.graphics.pop()
+
+    for body in range(--self._body, self._sensor,
+        self._stencil_body
+    ) do
+        body:draw()
+    end
 end
 
 --- @brief
 function ow.OneWayPlatform:draw_bloom()
     if not self._stage:get_is_body_visible(self._sensor) then return end
 
+
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.push()
+    love.graphics.translate(offset_x, offset_y)
+
     self._color:bind()
     _shader:bind()
     self._direction_mesh:draw()
     _shader:unbind()
+
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.OneWayPlatform:get_segment_light_sources()
-    return { self._line_draw_vertices }, { { self._color:unpack() } }
+    local vertices = table.deepcopy(self._line_draw_vertices)
+    local offset_x, offset_y = self._body:get_position()
+    for i = 1, #vertices, 2 do
+        vertices[i+0] = vertices[i+0] + offset_x
+        vertices[i+1] = vertices[i+1] + offset_y
+    end
+    return { vertices }, { { self._color:unpack() } }
+end
+
+--- @brief
+function ow.OneWayPlatform:set_position(x, y)
+    self._body:set_position(x, y)
+    self._sensor:set_position(x, y)
+    self._stencil_body:set_position(x, y)
+end
+
+--- @brief
+function ow.OneWayPlatform:set_velocity(vx, vy)
+    self._body:set_velocity(vx, vy)
+    self._sensor:set_velocity(vx, vy)
+    self._stencil_body:set_velocity(vx, vy)
 end
