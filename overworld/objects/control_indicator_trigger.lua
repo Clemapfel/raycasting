@@ -1,6 +1,7 @@
 --- @class ow.ControlIndicatorTrigger
 --- @types Polygon, Rectangle, Ellipse
---- @field is_visible Boolean?
+--- @field type String!
+--- @field should_emit_particles Boolean?
 ow.ControlIndicatorTrigger = meta.class("ControlIndicatorTrigger")
 
 local _types
@@ -20,6 +21,9 @@ function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
     self._type = object:get_string("type", true)
+    self._should_emit_particles = object:get_boolean("should_emit_particles", false)
+    if self._should_emit_particles == nil then self._should_emit_particles = false end
+
     assert(meta.is_enum_value(self._type, ow.ControlIndicatorType), "In ow.ControlIndicatorTrigger: property `type` of object `" .. object:get_id() .. "` unrecognized. Should be one of " .. _types)
     
     local body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.STATIC)
@@ -30,7 +34,7 @@ function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
     body:set_collision_group(rt.settings.player.bounce_collision_group)
     
     body:signal_connect("collision_start", function(_, other_body)
-        self._scene:set_control_indicator_type(self._type)
+        self._scene:set_control_indicator_type(self._type, self._should_emit_particles)
     end)
 
     body:signal_connect("collision_end", function()
