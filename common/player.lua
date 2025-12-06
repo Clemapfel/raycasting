@@ -1803,38 +1803,40 @@ function rt.Player:update(delta)
         local target_x, target_y = 0, 0
         local current_x, current_y = self._bubble_body:get_velocity()
 
-        if not use_analog_input then
-            if self._left_button_is_down then
-                target_x = -1
-            end
+        if not self._movement_disabled then
+            if not use_analog_input then
+                if self._left_button_is_down then
+                    target_x = -1
+                end
 
-            if self._right_button_is_down then
-                target_x = 1
-            end
+                if self._right_button_is_down then
+                    target_x = 1
+                end
 
-            if self._up_button_is_down then
-                target_y = -1
-            end
+                if self._up_button_is_down then
+                    target_y = -1
+                end
 
-            if self._down_button_is_down then
-                target_y = 1
-            end
-        else
-            local threshold = _settings.joystick_magnitude_threshold
-            if self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > threshold then
-                target_x = -1
-            end
+                if self._down_button_is_down then
+                    target_y = 1
+                end
+            else
+                local threshold = _settings.joystick_magnitude_threshold
+                if self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > threshold then
+                    target_x = -1
+                end
 
-            if self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > threshold then
-                target_x = 1
-            end
+                if self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > threshold then
+                    target_x = 1
+                end
 
-            if self._joystick_gesture:get_magnitude(rt.InputAction.UP) > threshold then
-                target_y = -1
-            end
+                if self._joystick_gesture:get_magnitude(rt.InputAction.UP) > threshold then
+                    target_y = -1
+                end
 
-            if self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > threshold then
-                target_y = 1
+                if self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > threshold then
+                    target_y = 1
+                end
             end
         end
 
@@ -2393,7 +2395,6 @@ function rt.Player:draw_body()
     if self._trail_visible then
         self._trail:draw_above()
     end
-
 end
 
 --- @brief
@@ -2421,6 +2422,11 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
+
+    love.graphics.push()
+    love.graphics.translate(self._bubble_body:get_position())
+    self._bubble_bounce_shape:draw()
+    love.graphics.pop()
 end
 
 --- @brief
@@ -2463,21 +2469,43 @@ function rt.Player:teleport_to(x, y, relax_body)
     if relax_body == nil then relax_body = true end
 
     meta.assert(x, "Number", y, "Number")
-    if self._body ~= nil then
-        self._body:set_position(x, y)
-        for i, body in ipairs(self._spring_bodies) do
-            body:set_position(
-                x + self._spring_body_offsets_x[i],
-                y + self._spring_body_offsets_y[i]
-            )
-        end
+    if self._body ~= nil and self._bubble_body ~= nil then
+        if not self._is_bubble then
+            self._body:set_is_enabled(false)
+            for body in values(self._spring_bodies) do body:set_is_enabled(false) end
 
-        self._bubble_body:set_position(x, y)
-        for i, body in ipairs(self._bubble_spring_bodies) do
-            body:set_position(
-                x + self._bubble_spring_body_offsets_x[i],
-                y + self._bubble_spring_body_offsets_y[i]
-            )
+            self._body:set_position(x, y)
+            for i, body in ipairs(self._spring_bodies) do
+                body:set_position(
+                    x + self._spring_body_offsets_x[i],
+                    y + self._spring_body_offsets_y[i]
+                )
+            end
+
+            self._world:signal_connect("step", function(_)
+                self._body:set_is_enabled(true)
+                for body in values(self._spring_bodies) do body:set_is_enabled(true) end
+
+                return meta.DISCONNECT_SIGNAL
+            end)
+        else
+            self._bubble_body:set_is_enabled(false)
+            for body in values(self._bubble_spring_bodies) do body:set_is_enabled(false) end
+
+            self._bubble_body:set_position(x, y)
+            for i, body in ipairs(self._bubble_spring_bodies) do
+                body:set_position(
+                    x + self._bubble_spring_body_offsets_x[i],
+                    y + self._bubble_spring_body_offsets_y[i]
+                )
+            end
+
+            self._world:signal_connect("step", function(_)
+                self._bubble_body:set_is_enabled(true)
+                for body in values(self._bubble_spring_bodies) do body:set_is_enabled(true) end
+
+                return meta.DISCONNECT_SIGNAL
+            end)
         end
 
         self._skip_next_flow_update = true

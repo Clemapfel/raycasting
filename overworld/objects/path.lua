@@ -188,7 +188,6 @@ local _front_priority = math.huge
 --- @brief
 function ow.Path:draw(priority)
     if not self._is_visible or not self._stage:get_is_body_visible(self._camera_body) then return end
-
 end
 
 --- @brief

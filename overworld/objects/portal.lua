@@ -175,7 +175,7 @@ function ow.Portal:instantiate(object, stage, scene)
 
         local center_x, center_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
         local segment_w = 5
-        self._segment_sensor = b2.Body(
+        self._segment_sensor_non_bubble = b2.Body(
             self._world,
             b2.BodyType.STATIC,
             center_x, center_y,
@@ -187,13 +187,14 @@ function ow.Portal:instantiate(object, stage, scene)
             )
         )
 
-        self._segment_sensor:set_use_continuous_collision(true)
-        self._segment_sensor:set_collides_with(rt.settings.player.player_collision_group)
-        self._segment_sensor:add_tag("unjumpable", "slippery")
-        self._segment_sensor:add_tag("segment_light_source")
-        self._segment_sensor:set_user_data(self)
+        self._segment_sensor_non_bubble:set_use_continuous_collision(true)
+        self._segment_sensor_non_bubble:set_collides_with(rt.settings.player.bounce_collision_group)
+        self._segment_sensor_non_bubble:set_collision_group(rt.settings.player.bounce_collision_group)
+        self._segment_sensor_non_bubble:add_tag("unjumpable", "slippery")
+        self._segment_sensor_non_bubble:add_tag("segment_light_source")
+        self._segment_sensor_non_bubble:set_user_data(self)
 
-        self._segment_sensor:signal_connect("collision_start", function(self_body, other_body, nx, ny, contact_x, contact_y)
+        self._segment_sensor_non_bubble:signal_connect("collision_start", function(self_body, other_body, nx, ny, contact_x, contact_y)
             if not self._is_disabled and contact_x ~= nil and contact_y ~= nil then
                 -- check if allowed to enter from that side
                 local vx, vy = self._scene:get_player():get_velocity()
@@ -216,13 +217,13 @@ function ow.Portal:instantiate(object, stage, scene)
                     self._transition_contact_x, self._transition_contact_y = contact_x, contact_y
                     self._transition_x, self._transition_y = contact_x, contact_y
                     self._transition_velocity_x, self._transition_velocity_y = player:get_velocity()
-                    self:_set_player_disabled(true)
+                    --self:_set_player_disabled(true)
                 end
             end
         end)
 
         -- rectangle sensor
-        local sensor_w = rt.settings.player.radius
+        local sensor_w = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
 
         local sensor_shape = b2.Polygon(
             self._ax +  left_x * sensor_w - center_x, self._ay +  left_y * sensor_w - center_y,
@@ -239,11 +240,11 @@ function ow.Portal:instantiate(object, stage, scene)
             local inner = function() return 1, 1, 1, 1 end
 
             local w = rt.settings.overworld.objects.portal.mesh_w
-            local stencil_w = 100
+            local stencil_w = sensor_w * 4
 
-            local padding = 0 --0.25 * math.distance(self._ax, self._ay, self._bx, self._by)
-            local ax, ay = self._ax - dx * padding, self._ay - dy * padding
-            local bx, by = self._bx + dx * padding, self._by + dy * padding
+            local padding = sensor_w
+            local ax, ay = self._ax + dx * padding, self._ay + dy * padding
+            local bx, by = self._bx - dx * padding, self._by - dy * padding
 
             if self._direction == _LEFT then
                 local left_mesh_data = {
@@ -254,10 +255,10 @@ function ow.Portal:instantiate(object, stage, scene)
                 }
 
                 self._transition_stencil = {
-                    self._ax + left_x * stencil_w, self._ay + left_y * stencil_w,
-                    self._ax, self._ay,
-                    self._bx, self._by,
-                    self._bx + left_x * stencil_w, self._by + left_y * stencil_w
+                    ax + left_x * stencil_w, ay + left_y * stencil_w,
+                    ax, ay,
+                    bx, by,
+                    bx + left_x * stencil_w, by + left_y * stencil_w
                 }
 
                 self._left_mesh = rt.Mesh(left_mesh_data)
@@ -270,10 +271,10 @@ function ow.Portal:instantiate(object, stage, scene)
                 }
 
                 self._transition_stencil = {
-                    self._ax, self._ay,
-                    self._ax + right_x * stencil_w, self._ay + right_y * stencil_w,
-                    self._bx + right_x * stencil_w, self._by + right_y * stencil_w,
-                    self._bx, self._by
+                    ax, ay,
+                    ax + right_x * stencil_w, ay + right_y * stencil_w,
+                    bx + right_x * stencil_w, by + right_y * stencil_w,
+                    bx, by
                 }
 
                 self._right_mesh = rt.Mesh(right_mesh_data)
@@ -356,32 +357,10 @@ end
 function ow.Portal:_set_player_disabled(b)
     local player = self._scene:get_player()
     player:set_is_ghost(b)
-    player:set_gravity(ternary(b, 0, 1))
     -- do not disable control
-
-    if b == false then
-        local delay = 4
-        self._world:signal_connect("step", function()
-            delay = delay - 1
-            if delay <= 0 then
-                player:set_is_visible(true)
-                return meta.DISCONNECT_SIGNAL
-            end
-        end)
-    else
-        player:set_is_visible(false)
-    end
-
-    if b == true then -- move towards portal
-        local magnitude = math.magnitude(self._transition_velocity_x, self._transition_velocity_y)
-        magnitude = math.max(rt.settings.overworld.objects.portal.min_velocity_magnitude, magnitude)
-        local dx, dy = -self._normal_x, -self._normal_y
-        player:set_velocity(dx * magnitude, dy * magnitude)
-    end
 
     self._scene:set_camera_mode(ow.CameraMode.MANUAL)
 end
-
 
 local _get_ratio = function(px, py, ax, ay, bx, by)
     local abx, aby = bx - ax, by - ay
@@ -410,6 +389,12 @@ function ow.Portal:update(delta)
 
         self._transition_x, self._transition_y = math.mix2(from_x, from_y, to_x, to_y, t)
         self._scene:get_camera():move_to(self._transition_x, self._transition_y)
+
+        local magnitude = math.magnitude(self._transition_velocity_x, self._transition_velocity_y)
+        magnitude = math.max(rt.settings.overworld.objects.portal.min_velocity_magnitude, magnitude)
+        local dx, dy = -self._normal_x, -self._normal_y
+        local player = self._scene:get_player()
+        player:set_velocity(dx * magnitude, dy * magnitude)
 
         if t >= 1 then
             self:_teleport()
@@ -632,6 +617,8 @@ function ow.Portal:draw()
     _pulse_shader:unbind()
 
     love.graphics.pop()
+
+    love.graphics.polygon("line", self._transition_stencil)
 end
 
 --- @brief

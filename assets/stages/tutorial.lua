@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1170,
+  nextobjectid = 1185,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1457,8 +1457,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -6060.19,
-          y = 2305.83,
+          x = -6864,
+          y = 2128,
           width = 0,
           height = 0,
           rotation = 0,
@@ -4194,66 +4194,6 @@ return {
           properties = {}
         },
         {
-          id = 800,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1032.61,
-          y = 893.558,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["left_or_right"] = false,
-            ["other"] = { id = 801 },
-            ["target"] = { id = 802 }
-          }
-        },
-        {
-          id = 801,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -952.607,
-          y = 893.558,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 802,
-          name = "",
-          type = "Portal",
-          shape = "point",
-          x = -1208.61,
-          y = 893.558,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["left_or_right"] = false,
-            ["other"] = { id = 803 },
-            ["target"] = { id = 800 }
-          }
-        },
-        {
-          id = 803,
-          name = "",
-          type = "PortalNode",
-          shape = "point",
-          x = -1128.61,
-          y = 893.558,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 804,
           name = "",
           type = "BoostField",
@@ -5191,32 +5131,6 @@ return {
           }
         },
         {
-          id = 1088,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -6736,
-          y = 1972.2,
-          width = 100,
-          height = 100,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1090,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -6967.08,
-          y = 1857.05,
-          width = 161.379,
-          height = 161.379,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 1091,
           name = "",
           type = "AirDashNode",
@@ -5243,19 +5157,6 @@ return {
           properties = {}
         },
         {
-          id = 1093,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -6720,
-          y = 2080,
-          width = 100,
-          height = 100,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 1094,
           name = "",
           type = "AirDashNode",
@@ -5264,71 +5165,6 @@ return {
           y = 2016,
           width = 150,
           height = 150,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1095,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -7136,
-          y = 2080,
-          width = 100,
-          height = 100,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1097,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -7110.56,
-          y = 1966.16,
-          width = 100,
-          height = 100,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1098,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -6807.08,
-          y = 1874.36,
-          width = 100,
-          height = 100,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1099,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -7040,
-          y = 1872,
-          width = 100,
-          height = 100,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1100,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -6928,
-          y = 1696,
-          width = 100,
-          height = 100,
           rotation = 0,
           visible = true,
           properties = {}
@@ -5347,19 +5183,6 @@ return {
           properties = {}
         },
         {
-          id = 1102,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -6928,
-          y = 1584,
-          width = 100,
-          height = 100,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 1103,
           name = "",
           type = "AirDashNode",
@@ -5368,19 +5191,6 @@ return {
           y = 1992.4,
           width = 237.11,
           height = 237.11,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 1113,
-          name = "",
-          type = "DoubleJumpTether",
-          shape = "point",
-          x = -6890.93,
-          y = 2067.99,
-          width = 0,
-          height = 0,
           rotation = 0,
           visible = true,
           properties = {}
@@ -5704,6 +5514,79 @@ return {
           shape = "point",
           x = -5463.92,
           y = 2060.27,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1180,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -6528,
+          y = 1920,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1181,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -6624,
+          y = 2000,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 1182 },
+            ["target"] = { id = 1183 }
+          }
+        },
+        {
+          id = 1182,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -6720,
+          y = 2000,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1183,
+          name = "",
+          type = "Portal",
+          shape = "point",
+          x = -7088,
+          y = 2144,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 1184 },
+            ["target"] = { id = 1181 }
+          }
+        },
+        {
+          id = 1184,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -7008,
+          y = 2144,
           width = 0,
           height = 0,
           rotation = 0,

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1170">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1185">
  <editorsettings>
   <export target="tutorial.lua" format="lua"/>
  </editorsettings>
@@ -339,7 +339,7 @@
    </properties>
    <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
   </object>
-  <object id="154" name="Spawn" type="PlayerSpawn" x="-6060.19" y="2305.83">
+  <object id="154" name="Spawn" type="PlayerSpawn" x="-6864" y="2128">
    <point/>
   </object>
   <object id="155" type="Hitbox" x="1168" y="2176">
@@ -888,28 +888,6 @@
   <object id="799" type="PortalNode" x="-1280" y="-96">
    <point/>
   </object>
-  <object id="800" type="Portal" x="-1032.61" y="893.558">
-   <properties>
-    <property name="left_or_right" type="bool" value="false"/>
-    <property name="other" type="object" value="801"/>
-    <property name="target" type="object" value="802"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="801" type="PortalNode" x="-952.607" y="893.558">
-   <point/>
-  </object>
-  <object id="802" type="Portal" x="-1208.61" y="893.558">
-   <properties>
-    <property name="left_or_right" type="bool" value="false"/>
-    <property name="other" type="object" value="803"/>
-    <property name="target" type="object" value="800"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="803" type="PortalNode" x="-1128.61" y="893.558">
-   <point/>
-  </object>
   <object id="804" type="BoostField" x="214.453" y="-78.8658">
    <polygon points="0,0 -9.93939,190.182 102.061,206.182 118.061,-1.81818"/>
   </object>
@@ -1183,50 +1161,20 @@
    </properties>
    <point/>
   </object>
-  <object id="1088" type="AirDashNode" x="-6736" y="1972.2" width="100" height="100">
-   <ellipse/>
-  </object>
-  <object id="1090" type="AirDashNode" x="-6967.08" y="1857.05" width="161.379" height="161.379">
-   <ellipse/>
-  </object>
   <object id="1091" type="AirDashNode" x="-7681.58" y="1859.67" width="200" height="200">
    <ellipse/>
   </object>
   <object id="1092" type="AirDashNode" x="-7664" y="2144" width="140" height="140">
    <ellipse/>
   </object>
-  <object id="1093" type="AirDashNode" x="-6720" y="2080" width="100" height="100">
-   <ellipse/>
-  </object>
   <object id="1094" type="AirDashNode" x="-7664" y="2016" width="150" height="150">
-   <ellipse/>
-  </object>
-  <object id="1095" type="AirDashNode" x="-7136" y="2080" width="100" height="100">
-   <ellipse/>
-  </object>
-  <object id="1097" type="AirDashNode" x="-7110.56" y="1966.16" width="100" height="100">
-   <ellipse/>
-  </object>
-  <object id="1098" type="AirDashNode" x="-6807.08" y="1874.36" width="100" height="100">
-   <ellipse/>
-  </object>
-  <object id="1099" type="AirDashNode" x="-7040" y="1872" width="100" height="100">
-   <ellipse/>
-  </object>
-  <object id="1100" type="AirDashNode" x="-6928" y="1696" width="100" height="100">
    <ellipse/>
   </object>
   <object id="1101" name="AirDashNode" type="AirDashNode" x="-6433.7" y="2112.77" width="100" height="100">
    <ellipse/>
   </object>
-  <object id="1102" type="AirDashNode" x="-6928" y="1584" width="100" height="100">
-   <ellipse/>
-  </object>
   <object id="1103" type="AirDashNode" x="-7565.11" y="1992.4" width="237.11" height="237.11">
    <ellipse/>
-  </object>
-  <object id="1113" type="DoubleJumpTether" x="-6890.93" y="2067.99">
-   <point/>
   </object>
   <object id="1125" type="Wall" x="-5448.44" y="2202.25" width="272.331" height="343.137">
    <ellipse/>
@@ -1329,6 +1277,31 @@
    <point/>
   </object>
   <object id="1169" type="OneWayPlatformTarget" x="-5463.92" y="2060.27">
+   <point/>
+  </object>
+  <object id="1180" type="PathNode" x="-6528" y="1920">
+   <point/>
+  </object>
+  <object id="1181" type="Portal" x="-6624" y="2000">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="1182"/>
+    <property name="target" type="object" value="1183"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1182" type="PortalNode" x="-6720" y="2000">
+   <point/>
+  </object>
+  <object id="1183" type="Portal" x="-7088" y="2144">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="1184"/>
+    <property name="target" type="object" value="1181"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="1184" type="PortalNode" x="-7008" y="2144">
    <point/>
   </object>
  </objectgroup>
