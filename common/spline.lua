@@ -26,20 +26,40 @@ function rt.Spline:create_from(...)
         table.insert(points, points[2])
     end
 
-    -- phantom points
+    -- Check if spline should be closed (first and last points are very close)
+    local first_x, first_y = points[1], points[2]
+    local last_x, last_y = points[#points - 1], points[#points]
+    local is_closed = math.distance(first_x, first_y, last_x, last_y) < math.eps
 
-    local p0_x = 2 * points[1] - points[3]
-    local p0_y = 2 * points[2] - points[4]
-    table.insert(points, 1, p0_y)
-    table.insert(points, 1, p0_x)
+    if is_closed then
+        -- For closed splines, use actual neighboring points as phantoms
+        -- Phantom at start: use second-to-last real point
+        local p0_x = points[#points - 3]
+        local p0_y = points[#points - 2]
+        table.insert(points, 1, p0_y)
+        table.insert(points, 1, p0_x)
 
-    local n = #points
-    local pn_x = 2 * points[n - 1] - points[n - 3]
-    local pn_y = 2 * points[n] - points[n - 2]
-    table.insert(points, pn_x)
-    table.insert(points, pn_y)
+        -- Phantom at end: use second real point
+        local pn_x = points[5]  -- After inserting two values at start, second point is at index 5
+        local pn_y = points[6]
+        table.insert(points, pn_x)
+        table.insert(points, pn_y)
+    else
+        -- For open splines, use reflected phantom points
+        local p0_x = 2 * points[1] - points[3]
+        local p0_y = 2 * points[2] - points[4]
+        table.insert(points, 1, p0_y)
+        table.insert(points, 1, p0_x)
+
+        local n = #points
+        local pn_x = 2 * points[n - 1] - points[n - 3]
+        local pn_y = 2 * points[n] - points[n - 2]
+        table.insert(points, pn_x)
+        table.insert(points, pn_y)
+    end
 
     self._points = points
+    self._is_closed = is_closed
     self._length = nil -- computed on first query
 end
 
@@ -49,9 +69,9 @@ local _catmull_rom_basis = function(t, p0, p1, p2, p3)
 
     return 0.5 * (
         (2 * p1) +
-        (-p0 + p2) * t +
-        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-        (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+            (-p0 + p2) * t +
+            (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+            (-p0 + 3 * p1 - 3 * p2 + p3) * t3
     )
 end
 
@@ -87,7 +107,7 @@ function rt.Spline:at(t)
     local p3_x, p3_y = points[base_idx + 6], points[base_idx + 7]
 
     return _catmull_rom_basis(local_t, p0_x, p1_x, p2_x, p3_x),
-        _catmull_rom_basis(local_t, p0_y, p1_y, p2_y, p3_y)
+    _catmull_rom_basis(local_t, p0_y, p1_y, p2_y, p3_y)
 end
 
 -- derivative of basis function
@@ -95,8 +115,8 @@ local _catmull_rom_derivative = function(t, p0, p1, p2, p3)
     local t2 = t * t
     return 0.5 * (
         (-p0 + p2) +
-        (4 * p0 - 10 * p1 + 8 * p2 - 2 * p3) * t +
-        (-3 * p0 + 9 * p1 - 9 * p2 + 3 * p3) * t2
+            (4 * p0 - 10 * p1 + 8 * p2 - 2 * p3) * t +
+            (-3 * p0 + 9 * p1 - 9 * p2 + 3 * p3) * t2
     )
 end
 
