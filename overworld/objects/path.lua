@@ -1,12 +1,13 @@
 require "common.path"
-require "common.contour"
+require "common.spline"
 require "overworld.normal_map"
 require "overworld.mirror"
 require "overworld.objects.moving_hitbox_path"
 require "overworld.movable_object"
 
-rt.settings.overworld.moving_hitbox = {
-    default_velocity = 100, -- px per second
+rt.settings.overworld.objects.path = {
+    draw_line_width = 3,
+    segment_length = 5
 }
 
 --- @class ow.Path
@@ -31,6 +32,16 @@ function ow.Path:instantiate(object, stage, scene)
 
     self._should_loop = object:get_boolean("should_loop", false)
     if self._should_loop == nil then self._should_loop = false end
+
+    self._is_visible = object:get_boolean("is_visible", false)
+    if self._is_visible == nil then self._is_visible = true end
+
+    self._is_smooth = object:get_boolean("is_smooth", false)
+    if self._is_smooth == nil then self._is_smooth = false end
+
+    if self._is_visible then
+        self._color = rt.RGBA(1, 1, 1, 1)
+    end
 
     -- read target
     self._target = nil
@@ -68,11 +79,38 @@ function ow.Path:instantiate(object, stage, scene)
         if self._should_loop then
             table.insert(path, path[1])
             table.insert(path, path[2])
-            self._path = rt.Path(path)
-        else
-            self._path = rt.Path(path)
         end
-    end)
+
+            if self._is_smooth then
+                local spline = rt.Spline(path)
+                local length = spline:get_length()
+                local segment_length = rt.settings.overworld.objects.path.segment_length
+                local n_segments = math.ceil(length / segment_length)
+
+                local spline_path = {}
+                for i = 1, n_segments do
+                    local t = (i - 1) / n_segments
+                    local x, y = spline:at(t)
+                    table.insert(spline_path, x)
+                    table.insert(spline_path, y)
+                end
+
+                self._path = rt.Path(spline_path)
+            else
+                self._path = rt.Path(path)
+            end
+
+            if self._is_visible then
+                self._camera_body = b2.Body(
+                    self._stage:get_physics_world(),
+                    b2.BodyType.STATIC,
+                    0, 0,
+                    b2.Segment(path)
+                )
+                self._camera_body:set_collides_with(0x0)
+                self._camera_body:set_collision_group(0x0)
+            end
+        end)
 
     local centroid_x, centroid_y = object:get_centroid()
     self._velocity = object:get_number("velocity", false) or rt.settings.overworld.moving_hitbox.default_velocity
@@ -87,7 +125,6 @@ function ow.Path:instantiate(object, stage, scene)
     end
     self._easing = easing
 end
-
 
 function ow.Path:update(delta)
     self._elapsed = self._elapsed + delta
@@ -150,9 +187,26 @@ local _front_priority = math.huge
 
 --- @brief
 function ow.Path:draw(priority)
-    -- debug drawing
-    love.graphics.setColor(1, 1, 1, 1)
+    if not self._is_visible or not self._stage:get_is_body_visible(self._camera_body) then return end
+
+end
+
+--- @brief
+function ow.Path:draw_bloom()
+    if not self._is_visible or not self._stage:get_is_body_visible(self._camera_body) then return end
+
+    self._color:bind()
+    love.graphics.setLineWidth(rt.settings.overworld.objects.path.draw_line_width)
     love.graphics.line(self._path:get_points())
+end
+
+--- @brief
+function ow.Path:get_render_priority()
+    if not self._is_visible then
+        return nil
+    else
+        return -math.huge
+    end
 end
 
 --- @brief
