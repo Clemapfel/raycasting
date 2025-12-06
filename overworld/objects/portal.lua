@@ -1,4 +1,4 @@
-rt.settings.overworld.portal = {
+rt.settings.overworld.objects.portal = {
     mesh_w = 100, -- px
     pulse_duration = 1, -- s
     transition_min_speed = 400,
@@ -13,7 +13,7 @@ rt.settings.overworld.portal = {
         collapse_speed = 10, -- fraction
     },
 
-    min_velocity_magnitude = 200, -- px/s, when exiting portal
+    min_velocity_magnitude = 400, -- px/s, when exiting portal
     impulse_max_scale = 1.2
 }
 
@@ -80,7 +80,7 @@ end
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
     if _particle_texture == nil then
-        local radius = rt.settings.overworld.portal.particle.radius
+        local radius = rt.settings.overworld.objects.portal.particle.radius
         local padding = 3
         _particle_texture = rt.RenderTexture(2 * (radius + padding), 2 * (radius + padding))
 
@@ -210,8 +210,8 @@ function ow.Portal:instantiate(object, stage, scene)
                     self._collapse_active = true
                     self._transition_elapsed = 0
                     self._transition_speed = math.max(
-                        rt.settings.overworld.portal.transition_speed_factor * math.magnitude(player:get_velocity()),
-                        rt.settings.overworld.portal.transition_min_speed
+                        rt.settings.overworld.objects.portal.transition_speed_factor * math.magnitude(player:get_velocity()),
+                        rt.settings.overworld.objects.portal.transition_min_speed
                     )
                     self._transition_contact_x, self._transition_contact_y = contact_x, contact_y
                     self._transition_x, self._transition_y = contact_x, contact_y
@@ -238,7 +238,7 @@ function ow.Portal:instantiate(object, stage, scene)
             local outer = function() return 0, 0, 0, 0 end -- rgba
             local inner = function() return 1, 1, 1, 1 end
 
-            local w = rt.settings.overworld.portal.mesh_w
+            local w = rt.settings.overworld.objects.portal.mesh_w
             local stencil_w = 100
 
             local padding = 0 --0.25 * math.distance(self._ax, self._ay, self._bx, self._by)
@@ -283,7 +283,7 @@ function ow.Portal:instantiate(object, stage, scene)
         self._mesh_origin_x, self._mesh_origin_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
 
         -- particles
-        local settings = rt.settings.overworld.portal.particle
+        local settings = rt.settings.overworld.objects.portal.particle
         local min_radius = settings.radius * settings.min_scale
         local max_radius = settings.radius * settings.max_scale
 
@@ -356,6 +356,7 @@ end
 function ow.Portal:_set_player_disabled(b)
     local player = self._scene:get_player()
     player:set_is_ghost(b)
+    player:set_gravity(ternary(b, 0, 1))
     -- do not disable control
 
     if b == false then
@@ -373,9 +374,8 @@ function ow.Portal:_set_player_disabled(b)
 
     if b == true then -- move towards portal
         local magnitude = math.magnitude(self._transition_velocity_x, self._transition_velocity_y)
-        local center_x, center_y = math.mix2(self._ax, self._ay, self._bx, self._by, 0.5)
-        local dx, dy = math.normalize(center_x - self._transition_contact_x, center_y - self._transition_contact_y)
-        dx, dy = -self._normal_x, -self._normal_y
+        magnitude = math.max(rt.settings.overworld.objects.portal.min_velocity_magnitude, magnitude)
+        local dx, dy = -self._normal_x, -self._normal_y
         player:set_velocity(dx * magnitude, dy * magnitude)
     end
 
@@ -431,7 +431,7 @@ function ow.Portal:update(delta)
     if self._stage:get_is_body_visible(self._area_sensor) == false then return end
 
     self._pulse_elapsed = self._pulse_elapsed + delta
-    local pulse_duration = rt.settings.overworld.portal.pulse_duration
+    local pulse_duration = rt.settings.overworld.objects.portal.pulse_duration
     self._pulse_value = rt.InterpolationFunctions.ENVELOPE(
         self._pulse_elapsed / pulse_duration,
         0.05, -- attack
@@ -442,7 +442,7 @@ function ow.Portal:update(delta)
     local length = math.distance(ax, ay, bx, by)
     local dx, dy = bx - ax, by - ay
 
-    local speed = rt.settings.overworld.portal.particle.collapse_speed
+    local speed = rt.settings.overworld.objects.portal.particle.collapse_speed
     local collapse_mean_distance = 0
 
     for particle in values(self._particles) do
@@ -477,7 +477,7 @@ function ow.Portal:update(delta)
         end
     end
 
-    if self._collapse_active and collapse_mean_distance < 2 * rt.settings.overworld.portal.particle.radius then
+    if self._collapse_active and collapse_mean_distance < 2 * rt.settings.overworld.objects.portal.particle.radius then
         self._collapse_active = false
     end
 
@@ -501,7 +501,7 @@ local function teleport_player(
     local new_x, new_y = math.mix2(to_ax, to_ay, to_bx, to_by, 0.5) --ratio)
 
     -- new velocity
-    local magnitude = math.max(math.magnitude(vx, vy), rt.settings.overworld.portal.min_velocity_magnitude)
+    local magnitude = math.max(math.magnitude(vx, vy), rt.settings.overworld.objects.portal.min_velocity_magnitude)
     local new_vx, new_vy = to_normal_x * magnitude, to_normal_y * magnitude
 
     return new_x, new_y, new_vx, new_vy
@@ -552,7 +552,7 @@ function ow.Portal:draw()
         rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
         local w, h = _particle_texture:get_size()
-        local scale = math.mix(1, rt.settings.overworld.portal.impulse_max_scale, self._impulse:get_beat())
+        local scale = math.mix(1, rt.settings.overworld.objects.portal.impulse_max_scale, self._impulse:get_beat())
         for particle in values(self._particles) do
             love.graphics.draw(
                 _particle_texture:get_native(),
