@@ -5349,13 +5349,13 @@ return {
         },
         {
           id = 1148,
-          name = "DeceleratorSurface",
-          type = "DeceleratorSurface",
+          name = "",
+          type = "Hitbox",
           shape = "rectangle",
-          x = -6483.47,
-          y = 1913.06,
+          x = -6550.51,
+          y = 1841.32,
           width = 106.707,
-          height = 108.885,
+          height = 448.765,
           rotation = 0,
           visible = true,
           properties = {}

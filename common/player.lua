@@ -2627,8 +2627,6 @@ function rt.Player:set_velocity(x, y)
         self._body:set_velocity(x, y)
     end
 
-    dbg(rt.SceneManager:get_frame_index(), debug.traceback())
-
     self._last_velocity_x, self._last_velocity_y = x, y
     self._platform_velocity_x = 0
     self._platform_velocity_y = 0

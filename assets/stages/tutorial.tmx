@@ -1221,7 +1221,7 @@
   <object id="1147" name="Coin" type="Coin" x="-6330.57" y="1903.31">
    <point/>
   </object>
-  <object id="1148" name="DeceleratorSurface" type="DeceleratorSurface" x="-6483.47" y="1913.06" width="106.707" height="108.885"/>
+  <object id="1148" type="Hitbox" x="-6550.51" y="1841.32" width="106.707" height="448.765"/>
   <object id="1149" name="DoubleJumpTether" type="DoubleJumpTether" x="-5968.37" y="1943.03">
    <point/>
   </object>

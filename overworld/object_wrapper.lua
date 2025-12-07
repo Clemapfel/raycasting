@@ -864,6 +864,10 @@ function ow._parse_object_group(object_group, scope)
         wrapper.to_replace = nil
     end
 
+    table.sort(objects, function(a, b)
+        return a.id < b.id
+    end)
+
     return objects
 end
 

@@ -15,7 +15,7 @@ rt.settings.overworld.objects.portal = {
         collapse_speed = 10, -- fraction
     },
 
-    min_velocity_magnitude = 400, -- px/s, when exiting portal
+    min_velocity_magnitude = 500, -- px/s, when exiting portal
     impulse_max_scale = 1.2,
     velocity_angle_min_threshold = math.degrees_to_radians(15)
 }
@@ -29,14 +29,6 @@ ow.Portal = meta.class("Portal", ow.MovableObject)
 
 --- @class ow.PortalNode
 ow.PortalNode = meta.class("PortalNode") -- dummy
-
--- hue steps
-local _current_hue = 0
-local _get_hue = function()
-    local out = _current_hue
-    _current_hue = math.fract(_current_hue + 1 / 3)
-    return _current_hue
-end
 
 local _particle_texture -- rt.RenderTexture
 
@@ -153,7 +145,7 @@ function ow.Portal:instantiate(object, stage, scene)
         elseif self._hue_set == true and self._target._hue_set == false then
             self._target._hue = self._hue
         elseif self._hue_set == false and self._target._hue_set == false then
-            self._hue = _get_hue()
+            self._hue = (object:get_id() % 16) / 16
             self._target._hue = self._hue
         end
 
@@ -350,6 +342,7 @@ function ow.Portal:instantiate(object, stage, scene)
                     self:_set_stencil_enabled(true)
                     self._target:_set_stencil_enabled(true)
 
+
                     self._transition_elapsed = 0
                     self._transition_speed = math.max(
                         rt.settings.overworld.objects.portal.transition_speed_factor * math.magnitude(player_vx, player_vy),
@@ -365,11 +358,11 @@ function ow.Portal:instantiate(object, stage, scene)
 
         -- setup tether, wait for first update since both portals need to have been fully initialized
         self._world:signal_connect("step", function(_)
-            if self._draw_tether == nil then
+            if self._has_tether == nil then
                 local other = self._target
 
-                self._draw_tether = true
-                other._draw_tether = false
+                self._has_tether = true
+                other._has_tether = false
 
                 local from_x, from_y = self._offset_x, self._offset_y
                 local to_x, to_y = other._offset_x, other._offset_y
@@ -521,14 +514,21 @@ function ow.Portal:update(delta)
         local distance = math.distance(self._offset_x, self._offset_y, target._offset_x, target._offset_y)
         local t = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(distance_traveled / distance)
 
-        local transition_x, transition_y
+        local transition_x, transition_y, path
         if self._tether ~= nil then
-            transition_x, transition_y = rt.Path(self._tether:get_points()):at(t)
-            self._buldge_x, self._buldge_y = transition_x, transition_y
+            path = rt.Path(self._tether:get_points())
+            transition_x, transition_y = path:at(t)
         else
-            transition_x, transition_y = rt.Path(self._target._tether:get_points()):at(1 - t)
+            path = rt.Path(self._target._tether:get_points())
+            transition_x, transition_y = path:at(1 - t)
         end
         self._scene:get_camera():move_to(transition_x, transition_y)
+
+        if self._tether ~= nil then
+            self:_set_buldge(t, path)
+        else
+            self._target:_set_buldge(t, path)
+        end
 
         -- reposition stencil body
         do
@@ -560,9 +560,9 @@ function ow.Portal:update(delta)
         if t >= 1 then
             self:_teleport()
             self:_set_player_disabled(false)
-            self._transition_active = false
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
+            self._transition_active = false
             target._pulse_elapsed = 0
             target._collapse_active = true
         end
@@ -660,13 +660,23 @@ function ow.Portal:_teleport()
         rt.settings.overworld.objects.portal.min_velocity_magnitude
     )
 
-    magnitude = 500
     local player_vx, player_vy = target._normal_x * magnitude, target._normal_y * magnitude
 
     -- teleport to be outside collision geometry
     player:teleport_to(new_x, new_y)
     player:clear_forces()
     player:set_velocity(player_vx, player_vy)
+
+    local elapsed = 0
+    self._world:signal_connect("step", function(_, delta)
+        player:set_velocity(player_vx, player_vy)
+        elapsed = elapsed + delta
+
+        if elapsed > 4 / 60 then
+            return meta.DISCONNECT_SIGNAL
+        end
+    end)
+    self._player_teleported = true
 
     self._transition_active = false
 
@@ -696,15 +706,24 @@ function ow.Portal:_teleport()
 end
 
 --- @brief
+function ow.Portal:_set_buldge(t, path)
+
+end
+
+--- @brief
 function ow.Portal:draw()
     if not self._stage:get_is_body_visible(self._area_sensor) then return end
 
     local r, g, b, a = table.unpack(self._color)
 
-    if self._draw_tether then
-        love.graphics.setLineWidth(3)
+    if self._tether ~= nil then
+        love.graphics.setLineWidth(10)
         love.graphics.setColor(r, g, b, a)
         self._tether:draw()
+
+        if self._transition_active then
+
+        end
     end
 
     if self._canvas_needs_update == true then
