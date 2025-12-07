@@ -361,7 +361,7 @@ end
 function ow.ObjectWrapper:create_physics_body(world, type, is_sensor)
     meta.assert(world, b2.World)
     if type == nil then
-        type = self:get_string("type") or self:get__physics_body_type()
+        type = self:get_string("type") or self:get_physics_body_type()
     elseif self._should_be_kinematic and type == b2.BodyType.STATIC then
         rt.warning("In ow.ObjectWrapper.create_physics_body: object `", self:get_id(), "` was manually declared to have body type `STATIC`, but the stage config has requested the body to respect velocity changes, the type should be `KINEMATIC` or `DYNAMIC`")
     end
@@ -868,7 +868,7 @@ function ow._parse_object_group(object_group, scope)
 end
 
 --- @brief
-function ow.ObjectWrapper:get__physics_body_type()
+function ow.ObjectWrapper:get_physics_body_type()
     if self.should_be_kinematic then
         return b2.BodyType.KINEMATIC
     else

@@ -33,7 +33,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._x, self._y, self._radius = object.x, object.y, rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor
     self._body = b2.Body(
         stage:get_physics_world(),
-        object:get__physics_body_type(),
+        object:get_physics_body_type(),
         self._x, self._y,
         b2.Circle(0, 0, self._radius)
     )
@@ -177,6 +177,7 @@ function ow.DoubleJumpTether:draw_bloom()
     local line_a = self._line_opacity_motion:get_value()
     if line_a > eps then
         love.graphics.setColor(r, g, b, 1)
+        love.graphics.setLineWidth(2)
         self._tether:draw()
     end
 end

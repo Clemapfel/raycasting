@@ -47,7 +47,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     -- dummy collision, for camera queries
     self._body = b2.Body(
         stage:get_physics_world(),
-        object:get__physics_body_type(),
+        object:get_physics_body_type(),
         self._x, self._y,
         b2.Circle(0, 0, self._radius)
     )

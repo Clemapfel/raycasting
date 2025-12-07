@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1186,
+  nextobjectid = 1188,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1457,8 +1457,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -6864,
-          y = 2128,
+          x = -6878.87,
+          y = 1987.55,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5174,8 +5174,8 @@ return {
           name = "AirDashNode",
           type = "AirDashNode",
           shape = "ellipse",
-          x = -6946.99,
-          y = 1740.48,
+          x = -7137.01,
+          y = 1525.67,
           width = 100,
           height = 100,
           rotation = 0,
@@ -5525,8 +5525,8 @@ return {
           name = "",
           type = "PathNode",
           shape = "point",
-          x = -6928,
-          y = 1936,
+          x = -6759.72,
+          y = 1884.27,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5555,8 +5555,8 @@ return {
           name = "",
           type = "PortalNode",
           shape = "point",
-          x = -6720,
-          y = 2048,
+          x = -6682,
+          y = 2054.61,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5598,15 +5598,44 @@ return {
           name = "Path",
           type = "Path",
           shape = "point",
-          x = -6928,
-          y = 2048,
+          x = -6655.25,
+          y = 2112.24,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
             ["next"] = { id = 1180 },
-            ["target"] = { id = 1101 }
+            ["target"] = { id = 1181 }
+          }
+        },
+        {
+          id = 1186,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -7040,
+          y = 1888,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1187,
+          name = "Path",
+          type = "Path",
+          shape = "point",
+          x = -7040,
+          y = 2112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 1186 },
+            ["target"] = { id = 1183 }
           }
         }
       }

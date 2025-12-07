@@ -54,7 +54,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._original_x, self._original_y = x1, y1
 
-    local body_type = object:get__physics_body_type()
+    local body_type = object:get_physics_body_type()
 
     local world = stage:get_physics_world()
     self._body = b2.Body(world, body_type, centroid_x, centroid_y, shape)

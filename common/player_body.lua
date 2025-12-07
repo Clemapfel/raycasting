@@ -130,6 +130,7 @@ function rt.PlayerBody:instantiate(config)
     self._is_contour = false
     self._position_x, self._position_y = 0, 0
     self._stencil_bodies = {}
+    self._core_stencil_bodies = {}
     self._shader_elapsed = 0
     self._is_initialized = false
     self._queue_relax = false
@@ -920,6 +921,7 @@ function rt.PlayerBody:update(delta)
 
     if self._world ~= nil then
         self._stencil_bodies = {}
+        self._core_stencil_bodies = {}
         local w, h = self._body_canvas_a:get_size()
         local bodies = self._world:query_aabb(
             self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h
@@ -928,6 +930,10 @@ function rt.PlayerBody:update(delta)
         for body in values(bodies) do
             if body:has_tag("stencil") and not body:get_is_sensor() then
                 table.insert(self._stencil_bodies, body)
+            end
+
+            if body:has_tag("core_stencil") and not body:get_is_sensor() then
+                table.insert(self._core_stencil_bodies, body)
             end
         end
     end
@@ -1230,18 +1236,16 @@ function rt.PlayerBody:draw_core()
     local outline_width = _settings.outline_width
     local outside_scale = 1 + outline_width / self._radius
 
-    if self._use_contour then
-        rt.graphics.push_stencil()
-        local stencil_value = rt.graphics.get_stencil_value()
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-        for body in values(self._stencil_bodies) do
-            body:draw(true)
-        end
-        rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-    else
-        love.graphics.push()
-        self:_apply_squish()
+    rt.graphics.push_stencil()
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._core_stencil_bodies) do
+        body:draw(true)
     end
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+    love.graphics.push()
+    self:_apply_squish()
 
     -- draw outline
     local darken = _settings.outline_value_offset
@@ -1278,12 +1282,7 @@ function rt.PlayerBody:draw_core()
     rt.graphics.set_blend_mode(nil)
     love.graphics.pop()
 
-    if self._use_contour then
-        rt.graphics.set_stencil_mode(nil)
-        rt.graphics.pop_stencil()
-    else
-        love.graphics.pop() -- squish
-    end
+    love.graphics.pop() -- squish
 end
 
 --- @brief

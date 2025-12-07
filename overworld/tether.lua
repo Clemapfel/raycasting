@@ -183,7 +183,7 @@ function ow.Tether:draw()
     love.graphics.setLineJoin("none")
     love.graphics.setLineStyle("rough")
 
-    local line_width = 2
+    local line_width = love.graphics.getLineWidth()
     love.graphics.setLineWidth(line_width + 1.5)
     rt.Palette.BLACK:bind()
     love.graphics.line(rope.current_positions)

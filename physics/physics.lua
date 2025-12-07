@@ -1,10 +1,5 @@
 b2 = {}
-
---- @param self b2.Body
---- @param other b2.Body
-b2._default_filter = function(self, other, self_shape, other_shape)
-    return true
-end
+b2.huge = 10e6 -- because box2d cannot handle math.huge
 
 require("physics.world")
 require("physics.shapes")

@@ -2518,6 +2518,8 @@ function rt.Player:teleport_to(x, y, relax_body)
     self._last_bottom_x, self._last_bottom_y = x, y
     self._last_bottom_left_x, self._last_bottom_left_y = x, y
     self._last_left_x, self._last_left_y = x, y
+
+    self:update(0) -- relax physics body
 end
 
 --- @brief
@@ -2624,6 +2626,8 @@ function rt.Player:set_velocity(x, y)
     elseif self._body ~= nil then
         self._body:set_velocity(x, y)
     end
+
+    dbg(rt.SceneManager:get_frame_index(), debug.traceback())
 
     self._last_velocity_x, self._last_velocity_y = x, y
     self._platform_velocity_x = 0
@@ -2739,8 +2743,6 @@ end
 function rt.Player:set_directional_damping(direction, x)
     meta.assert_enum_value(direction, rt.Direction, 1)
     meta.assert_typeof(x, "Number", 2)
-
-    dbg(debug.traceback())
 
     self._direction_to_damping[direction] = x
 end
