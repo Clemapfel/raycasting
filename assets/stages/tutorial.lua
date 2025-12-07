@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1188,
+  nextobjectid = 1190,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -5320,8 +5320,8 @@ return {
           name = "BubbleField",
           type = "BubbleField",
           shape = "polygon",
-          x = -5964.55,
-          y = 1799.08,
+          x = -7265.58,
+          y = 2003.96,
           width = 0,
           height = 0,
           rotation = 0,
@@ -5635,7 +5635,8 @@ return {
           visible = true,
           properties = {
             ["next"] = { id = 1186 },
-            ["target"] = { id = 1183 }
+            ["target_01"] = { id = 1183 },
+            ["target_02"] = { id = 1144 }
           }
         }
       }

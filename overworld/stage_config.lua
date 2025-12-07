@@ -81,7 +81,7 @@ function ow.StageConfig:instantiate(stage_id)
     local all_path_objects = {} -- class == "Path"
     require "overworld.objects.path"
     local path_class_id = rt.settings.overworld.objects.path.class_id
-    local path_target_property_id = rt.settings.overworld.objects.path.target_property_id
+    local path_target_property_pattern = rt.settings.overworld.objects.path.target_property_pattern
 
     local layer_i = 1
     local n_layers = 0
@@ -194,8 +194,11 @@ function ow.StageConfig:instantiate(stage_id)
 
             -- set object wrapper body type based on whether a path points to it
             for path in values(all_path_objects) do
-                local target = path:get_object(path_target_property_id, true)
-                target.should_be_kinematic = true
+                for property in values(path:list_property_names()) do
+                    if rt.settings.overworld.objects.path.is_target_property_pattern(property) then
+                        path:get_object(property, true).should_be_kinematic = true
+                    end
+                end
             end
 
             -- construct tile spritebatches

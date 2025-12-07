@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1188">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1190">
  <editorsettings>
   <export target="tutorial.lua" format="lua"/>
  </editorsettings>
@@ -1215,7 +1215,7 @@
   <object id="1140" name="BoostField" type="BoostField" x="-6494.4" y="1667.39">
    <polygon points="0,0 0,112 128,64"/>
   </object>
-  <object id="1144" name="BubbleField" type="BubbleField" x="-5964.55" y="1799.08">
+  <object id="1144" name="BubbleField" type="BubbleField" x="-7265.58" y="2003.96">
    <polygon points="0,0 0,-154.042 172.31,-154.042 172.31,0"/>
   </object>
   <object id="1147" name="Coin" type="Coin" x="-6330.57" y="1903.31">
@@ -1317,7 +1317,8 @@
   <object id="1187" name="Path" type="Path" x="-7040" y="2112">
    <properties>
     <property name="next" type="object" value="1186"/>
-    <property name="target" type="object" value="1183"/>
+    <property name="target_01" type="object" value="1183"/>
+    <property name="target_02" type="object" value="1144"/>
    </properties>
    <point/>
   </object>

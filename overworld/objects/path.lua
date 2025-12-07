@@ -11,7 +11,11 @@ rt.settings.overworld.objects.path = {
 
     -- needed for stage config
     class_id = "Path",
-    target_property_id = "target"
+    is_target_property_pattern = function(str)
+        local pattern1 = "^target$"
+        local pattern2 = "^target_%d+$"
+        return string.match(str, pattern1) or string.match(str, pattern2)
+    end
 }
 
 --- @class ow.Path
@@ -19,6 +23,7 @@ rt.settings.overworld.objects.path = {
 --- @field velocity Number?
 --- @field next ow.PathNode! pointer to path
 --- @field target Any object with set_velocity and set_position
+--- @field target_x Any additional targets, where x is 0-9
 ow.Path = meta.class("OverworldPath")
 
 --- @class ow.PathNode
@@ -47,36 +52,44 @@ function ow.Path:instantiate(object, stage, scene)
         self._color = rt.RGBA(1, 1, 1, 1)
     end
 
-    -- read target
-    self._target = nil
-    self._start_x, self._start_y = nil, nil
-    self._path = nil -- rt.Path
+    local targets = {}
+
+    -- get additional targets
+    for property_name in values(object:list_property_names()) do
+        if rt.settings.overworld.objects.path.is_target_property_pattern(property_name) then
+            table.insert(targets, object:get_object(property_name, true))
+        end
+    end
+
+    self._entries = {}
     self._last_t = 0
 
-    local target = object:get_object("target", true)
     self._stage:signal_connect("initialized", function(_)
-        local instance = self._stage:object_wrapper_to_instance(target)
-        if not meta.isa(instance, ow.MovableObject) then
-            rt.error("In ow.Path: instance type `" .. meta.typeof(instance) .. "` of object `" .. target:get_id() .. "` does not inherit from `ow.MovableObject`")
-        end
+        for target in values(targets) do
+            local instance = self._stage:object_wrapper_to_instance(target)
+            if not meta.isa(instance, ow.MovableObject) then
+                rt.error("In ow.Path: instance type `" .. meta.typeof(instance) .. "` of object `" .. target:get_id() .. "` does not inherit from `ow.MovableObject`")
+            end
 
-        self._target = instance
-        self._start_x, self._start_y = self._target:get_position()
+            local start_x, start_y = instance:get_position()
+            local entry = {
+                target = instance,
+                start_x = start_x,
+                start_y = start_y,
+            }
+
+            table.insert(self._entries, entry)
+        end
 
         -- read path by iterating through nodes
         local node = object
         local path = {}
-        local path_offset_x, path_offset_y
         repeat
             assert(node:get_type() == ow.ObjectType.POINT, "In ow.Path: `PathNode` (" .. object:get_id() .. ") is not a point")
-            if path_offset_x == nil and path_offset_y == nil then
-                path_offset_x = self._start_x - node.x
-                path_offset_y = self._start_y - node.y
-            end
 
             -- move path to align with center of mass
-            table.insert(path, node.x + path_offset_x)
-            table.insert(path, node.y + path_offset_y)
+            table.insert(path, node.x)
+            table.insert(path, node.y)
             node = node:get_object("next", false)
         until node == nil
 
@@ -84,7 +97,6 @@ function ow.Path:instantiate(object, stage, scene)
             table.insert(path, path[1])
             table.insert(path, path[2])
         end
-
             if self._is_smooth then
                 local spline = rt.Spline(path)
                 local length = spline:get_length()
@@ -159,19 +171,21 @@ function ow.Path:update(delta)
     local eased_t = self._easing(t)
     local current_x, current_y = self._path:at(math.clamp(eased_t, 0, 1))
 
-    -- set velocity based on last frames position
-    if self._last_x ~= nil and self._last_y ~= nil then
-        local velocity_x = (current_x - self._last_x) / delta
-        local velocity_y = (current_y - self._last_y) / delta
-        self._target:set_velocity(velocity_x, velocity_y)
-    else
-        local easing_t_dt = self._easing(math.clamp(t + dt, 0, 1))
-        local easing_derivative = (easing_t_dt - eased_t) / dt
+    for entry in values(self._entries) do
+        -- set velocity based on last frames position
+        if self._last_x ~= nil and self._last_y ~= nil then
+            local velocity_x = (current_x - self._last_x) / delta
+            local velocity_y = (current_y - self._last_y) / delta
+            entry.target:set_velocity(velocity_x, velocity_y)
+        else
+            local easing_t_dt = self._easing(math.clamp(t + dt, 0, 1))
+            local easing_derivative = (easing_t_dt - eased_t) / dt
 
-        local dx, dy = self._path:get_tangent(math.clamp(eased_t, 0, 1))
-        local velocity_x = dx * self._velocity * direction * easing_derivative
-        local velocity_y = dy * self._velocity * direction * easing_derivative
-        self._target:set_velocity(velocity_x, velocity_y)
+            local dx, dy = self._path:get_tangent(math.clamp(eased_t, 0, 1))
+            local velocity_x = dx * self._velocity * direction * easing_derivative
+            local velocity_y = dy * self._velocity * direction * easing_derivative
+            entry.target:set_velocity(velocity_x, velocity_y)
+        end
     end
 
     self._last_x = current_x
@@ -180,7 +194,13 @@ function ow.Path:update(delta)
     -- when object completes loop, snap to start to avoid numerical drift
     local difference = math.abs(self._last_t - t)
     if difference > 0.5 then
-        self._target:set_position(self._path:at(0))
+        for entry in values(self._entries) do
+            local x, y = self._path:at(0)
+            entry.target:set_position(
+                x - entry.start_x,
+                y - entry.start_y
+            )
+        end
     end
 
     self._last_t = t
@@ -215,6 +235,9 @@ end
 --- @brief
 function ow.Path:reset()
     self._elapsed = 0
-    self._target:set_position(self._start_x, self._start_y)
+
+    for entry in values(self._entries) do
+        entry.target:set_position(entry.start_x, entry.start_y)
+    end
 end
 

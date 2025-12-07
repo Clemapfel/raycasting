@@ -879,3 +879,12 @@ function ow.ObjectWrapper:get_physics_body_type()
         return b2.BodyType.STATIC
     end
 end
+
+--- @brief
+function ow.ObjectWrapper:list_property_names()
+    local out = {}
+    for key in keys(self.properties) do
+        table.insert(out, key)
+    end
+    return out
+end

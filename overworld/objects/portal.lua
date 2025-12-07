@@ -6,7 +6,7 @@ rt.settings.overworld.objects.portal = {
     transition_min_speed = 400,
     transition_speed_factor = 1.5,
     particle = {
-        radius = 20,
+        radius = 25,
         min_speed = 10, -- px / s
         max_speed = 20,
         min_scale = 0.3,
@@ -58,11 +58,14 @@ function ow.Portal:instantiate(object, stage, scene)
         local padding = 3
         _particle_texture = rt.RenderTexture(2 * (radius + padding), 2 * (radius + padding))
 
-        local mesh = rt.MeshCircle(0, 0, radius)
-        mesh:set_vertex_color(1, 1, 1, 1)
-        for i = 2, mesh:get_n_vertices() do
+        local n_outer_vertices = 32
+        local mesh = rt.MeshRing(0, 0, radius - 2, radius, n_outer_vertices)
+
+        local n = mesh:get_n_vertices()
+        for i = n, n - n_outer_vertices, -1 do -- outer aliasing
             mesh:set_vertex_color(i, 1, 1, 1, 0)
         end
+        mesh:set_vertex_color(1, 1, 1, 1)
 
         love.graphics.push()
         love.graphics.origin()
@@ -371,6 +374,14 @@ function ow.Portal:instantiate(object, stage, scene)
                     from_x, from_y,
                     to_x, to_y
                 )
+
+                -- fully relax tether
+                local elapsed = 2
+                local step = rt.SceneManager:get_timestep()
+                while elapsed > step do
+                    self._tether:update(step)
+                    elapsed = elapsed - step
+                end
             end
 
             return meta.DISCONNECT_SIGNAL
@@ -524,12 +535,6 @@ function ow.Portal:update(delta)
         end
         self._scene:get_camera():move_to(transition_x, transition_y)
 
-        if self._tether ~= nil then
-            self:_set_buldge(t, path)
-        else
-            self._target:_set_buldge(t, path)
-        end
-
         -- reposition stencil body
         do
             local player_x, player_y = player:get_position()
@@ -579,14 +584,12 @@ function ow.Portal:update(delta)
     if self._stage:get_is_body_visible(self._area_sensor) == false then return end
 
     -- tether
-    if self._draw_tether then
+    if self._tether ~= nil and (self._object:get_physics_body_type() ~= b2.BodyType.STATIC or target._object:get_physics_body_type() ~= b2.BodyType.STATIC) then
+        self._tether:tether(
+            self._offset_x, self._offset_y,
+            target._offset_x, target._offset_y
+        )
         self._tether:update(delta)
-        if self._object:get_physics_body_type() ~= b2.BodyType.STATIC or target._object:get_physics_body_type() ~= b2.BodyType.STATIC then
-            self._tether:tether(
-                self._offset_x, self._offset_y,
-                target._offset_x, target._offset_y
-            )
-        end
     end
 
     -- move particles
@@ -706,24 +709,15 @@ function ow.Portal:_teleport()
 end
 
 --- @brief
-function ow.Portal:_set_buldge(t, path)
-
-end
-
---- @brief
 function ow.Portal:draw()
     if not self._stage:get_is_body_visible(self._area_sensor) then return end
 
     local r, g, b, a = table.unpack(self._color)
 
-    if self._tether ~= nil then
+    if self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
         love.graphics.setLineWidth(10)
         love.graphics.setColor(r, g, b, a)
         self._tether:draw()
-
-        if self._transition_active then
-
-        end
     end
 
     if self._canvas_needs_update == true then
@@ -788,7 +782,7 @@ function ow.Portal:draw()
     _pulse_shader:bind()
     _pulse_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
     _pulse_shader:send("pulse", self._pulse_value)
-    _pulse_shader:send("brightness_scale", math.mix(1, 2 * rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
+    _pulse_shader:send("brightness_scale", 1)
     if self._direction == _LEFT then
         self._left_mesh:draw()
     else
@@ -848,9 +842,22 @@ end
 
 --- @brief
 function ow.Portal:reset()
-    self._transition_elapsed = math.huge
     self._transition_active = false
-    self:update(0)
+    self._transition_elapsed = math.huge
+    self._transition_velocity_x, self._transition_velocity_y = 0, 0
+    self._transition_speed = 0
+    self._player_teleported = false
+
+    self._is_disabled = false
+    if self._transition_stencil ~= nil then
+        self:_set_stencil_enabled(false)
+    end
+
+    self._pulse_elapsed = math.huge
+    self._pulse_value = 0
+    self._collapse_active = false
+    self._entry_t = 0.5
+    self._canvas_needs_update = true
 end
 
 --- @brief
