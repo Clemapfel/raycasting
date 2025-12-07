@@ -29,10 +29,7 @@ ow.Portal = meta.class("Portal")
 --- @class ow.PortalNode
 ow.PortalNode = meta.class("PortalNode") -- dummy
 
-local _assert_point = function(object)
-    assert(object:get_type() == ow.ObjectType.POINT, "In ow.Portal: object `" .. object:get_id() .. " is not a point")
-end
-
+-- hue steps
 local _current_hue = 0
 local _get_hue = function()
     local out = _current_hue
@@ -40,49 +37,26 @@ local _get_hue = function()
     return _current_hue
 end
 
-local _particle_texture
+local _particle_texture -- rt.RenderTexture
 
 local _pulse_shader = rt.Shader("overworld/objects/portal.glsl")
 local _particle_shader = rt.Shader("overworld/objects/portal_particles.glsl")
 
+-- orientation of portal (line winding order)
 local _LEFT = true
 local _RIGHT = not _LEFT
 
-local function _velocity_towards_line(ax, ay, bx, by, vx, vy)
-    local dx, dy = math.normalize(ax - bx, ay - by)
-    local left_x, left_y = math.turn_left(dx, dy)
-    local proj = math.dot(vx, vy, left_x, left_y)
-    local eps = 1e-6
-    if proj < -eps then
-        return _LEFT
-    elseif proj > eps then
-        return _RIGHT
-    else
-        return _RIGHT
-    end
-end
+-- particle directions
+local _FORWARD = true
+local _BACKWARDS = not _FORWARD
 
+-- particle properties
 local _x = 1
 local _y = 2
 local _direction = 3
 local _speed = 4
 local _scale = 5
 local _t = 6
-
-local _FORWARD = true
-local _BACKWARDS = false
-
-local function _t_on_line_segment(x1, y1, x2, y2, px, py)
-    local segment_vec_x = x2 - x1
-    local segment_vec_y = y2 - y1
-    local point_vec_x = px - x1
-    local point_vec_y = py - y1
-
-    local t = math.dot(point_vec_x, point_vec_y, segment_vec_x, segment_vec_y) /
-        math.dot(segment_vec_x, segment_vec_y, segment_vec_x, segment_vec_y)
-
-    return 1 - math.clamp(t, 0, 1), math.mix2(x1, y1, x2, y2, t)
-end
 
 function ow.Portal:instantiate(object, stage, scene)
     if _particle_texture == nil then
@@ -137,11 +111,15 @@ function ow.Portal:instantiate(object, stage, scene)
     end)
 
     stage:signal_connect("initialized", function()
-        _assert_point(object)
+        local assert_point = function(object)
+            assert(object:get_type() == ow.ObjectType.POINT, "In ow.Portal: object `" .. object:get_id() .. " is not a point")
+        end
+
+        assert_point(object)
         self._ax, self._ay = object.x, object.y
 
         local other = object:get_object("other", true)
-        _assert_point(other)
+        assert_point(other)
         self._bx, self._by = other.x, other.y
 
         self._target = stage:object_wrapper_to_instance(object:get_object("target", true))
@@ -195,9 +173,37 @@ function ow.Portal:instantiate(object, stage, scene)
         self._segment_sensor:set_user_data(self)
         self._segment_sensor:set_is_sensor(true)
 
+        -- check if directed vector points towards or away from line
+        local function velocity_towards_line(ax, ay, bx, by, vx, vy)
+            local dx, dy = math.normalize(ax - bx, ay - by)
+            local left_x, left_y = math.turn_left(dx, dy)
+            local proj = math.dot(vx, vy, left_x, left_y)
+            local eps = 1e-5
+            if proj < -eps then
+                return _LEFT
+            elseif proj > eps then
+                return _RIGHT
+            else
+                return _RIGHT
+            end
+        end
+
+        -- get t in 0, 1 of closest point on line to px, py
+        local function t_on_line(x1, y1, x2, y2, px, py)
+            local segment_vec_x = x2 - x1
+            local segment_vec_y = y2 - y1
+            local point_vec_x = px - x1
+            local point_vec_y = py - y1
+
+            local t = math.dot(point_vec_x, point_vec_y, segment_vec_x, segment_vec_y) /
+                math.dot(segment_vec_x, segment_vec_y, segment_vec_x, segment_vec_y)
+
+            return 1 - math.clamp(t, 0, 1), math.mix2(x1, y1, x2, y2, t)
+        end
+
         self._segment_sensor:signal_connect("collision_start", function(self_body, other_body, nx, ny, contact_x, contact_y)
             if not self._is_disabled then
-                local side = _velocity_towards_line(self._ax, self._ay, self._bx, self._by, self._scene:get_player():get_physics_body():get_velocity())
+                local side = velocity_towards_line(self._ax, self._ay, self._bx, self._by, self._scene:get_player():get_physics_body():get_velocity())
                 if (side == self._direction) then
                     local player = self._scene:get_player()
                     self._pulse_elapsed = 0
@@ -220,7 +226,7 @@ function ow.Portal:instantiate(object, stage, scene)
                         end
                     end
 
-                    self._entry_t = _t_on_line_segment(self._ax, self._ay, self._bx, self._by, contact_x, contact_y)
+                    self._entry_t = t_on_line(self._ax, self._ay, self._bx, self._by, contact_x, contact_y)
                     self._target._entry_t = 0.5
 
                     self._collapse_active = true
