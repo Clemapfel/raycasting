@@ -1,25 +1,32 @@
 require "common.player_body"
 require "common.path"
 
-rt.settings.overworld.player_tether = {
+rt.settings.overworld.tether = {
     node_density = 0.1,
     gravity = 4,
 
     min_n_nodes = 3,
-    max_n_nodes = 1024
+    max_n_nodes = 1024,
+
+    buldge_radius = 20
 }
 
---- @class ow.PlayerTether
-ow.PlayerTether = meta.class("PlayerTether")
+--- @class ow.Tether
+ow.Tether = meta.class("Tether")
+
+local _bulge = nil
 
 --- @brief
-function ow.PlayerTether:instantiate()
+function ow.Tether:instantiate()
     self._is_tethered = false
     self._rope = {}
+
+    self._draw_buldge = false
+    self._buldge_x, self._buldge_y = nil, nil -- Number
 end
 
 --- @brief
-function ow.PlayerTether:tether(attachment_x, attachment_y, target_x, target_y)
+function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
     if self._is_tethered == true then
         local rope = self._rope
         rope.position_x, rope.position_y = attachment_x, attachment_y
@@ -33,9 +40,9 @@ function ow.PlayerTether:tether(attachment_x, attachment_y, target_x, target_y)
         local n_nodes = math.ceil(math.clamp(math.distance(
             attachment_x, attachment_y,
             target_x, target_y
-        ) * rt.settings.overworld.player_tether.node_density,
-            rt.settings.overworld.player_tether.min_n_nodes,
-            rt.settings.overworld.player_tether.max_n_nodes
+        ) * rt.settings.overworld.tether.node_density,
+            rt.settings.overworld.tether.min_n_nodes,
+            rt.settings.overworld.tether.max_n_nodes
         ))
 
         -- extend / shorten if necessary
@@ -77,7 +84,7 @@ function ow.PlayerTether:tether(attachment_x, attachment_y, target_x, target_y)
         local bx, by = target_x, target_y
         local dx, dy = math.normalize(bx - ax, by - ay)
         local distance = math.distance(attachment_x, attachment_y, target_x, target_y)
-        local n_nodes = math.max(3, distance * rt.settings.overworld.player_tether.node_density)
+        local n_nodes = math.max(3, distance * rt.settings.overworld.tether.node_density)
 
         local rope = {
             current_positions = {},
@@ -107,16 +114,26 @@ function ow.PlayerTether:tether(attachment_x, attachment_y, target_x, target_y)
         self._rope = rope
         self._is_tethered = true
     end
+
+    return self
 end
 
 --- @brief
-function ow.PlayerTether:untether()
+function ow.Tether:untether()
     if self._is_tethered == false then return end
     self._ropes = {}
 end
 
 --- @brief
-function ow.PlayerTether:update(delta)
+function ow.Tether:set_draw_bulge(t)
+    self._draw_buldge = t ~= nil
+    self._buldge_x, self._buldge_y = t
+end
+
+local _buldge = nil -- 2d vertives
+
+--- @brief
+function ow.Tether:update(delta)
     require "common.player_body"
 
     local todo = rt.settings.player_body.non_contour
@@ -143,19 +160,28 @@ function ow.PlayerTether:update(delta)
         inertia = 0,
         velocity_damping = 1 - 0.5,
         gravity_x = 0,
-        gravity_y = rt.settings.overworld.player_tether.gravity
+        gravity_y = rt.settings.overworld.tether.gravity
     })
 
     rope.current_positions[#rope.current_positions - 1] = rope.target_x
     rope.current_positions[#rope.current_positions - 0] = rope.target_y
+
+    if self._draw_buldge then
+        if self._path == nil then
+            self._path = rt.Path(rope.current_positions)
+        else
+            self._path:create_from(rope.current_positions)
+        end
+    end
 end
 
 --- @brief
-function ow.PlayerTether:draw()
+function ow.Tether:draw()
     local r, g, b, a = love.graphics.getColor()
     local rope = self._rope
 
     love.graphics.setLineJoin("none")
+    love.graphics.setLineStyle("rough")
 
     local line_width = 2
     love.graphics.setLineWidth(line_width + 1.5)
@@ -171,14 +197,29 @@ function ow.PlayerTether:draw()
         rope.current_positions[#rope.current_positions - 0],
         0.5 * line_width
     )
+
+    local eps = 0.4
+    local path = rt.Path(rope.current_positions)
+    local length = path:get_length()
+    local radius = 20
+    local t = 0.5
+    local x, y = path:at(t)
+    local ax, ay = path:at(t - (radius / length))
+    local bx, by = path:at(t + (radius / length))
+
 end
 
 --- @brief
-function ow.PlayerTether:get_is_tethered()
+function ow.Tether:get_is_tethered()
     return self._is_tethered
 end
 
 --- @brief
-function ow.PlayerTether:as_path()
+function ow.Tether:get_points()
+    return self._rope.current_positions
+end
+
+--- @brief
+function ow.Tether:as_path()
     return rt.Path(self._rope.current_positions)
 end

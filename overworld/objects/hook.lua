@@ -40,7 +40,7 @@ function ow.Hook:instantiate(object, stage, scene)
     self._world = stage:get_physics_world()
     self._body = b2.Body(
         self._world,
-        b2.BodyType.KINEMATIC,
+        object:get__physics_body_type(),
         object.x, object.y,
         b2.Circle(0, 0, self._radius)
     )

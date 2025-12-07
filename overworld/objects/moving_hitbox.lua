@@ -24,7 +24,7 @@ function ow.MovingHitbox:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
+    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_collision_group(bit.bor(
         rt.settings.overworld.hitbox.collision_group
     ))

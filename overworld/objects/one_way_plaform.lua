@@ -54,8 +54,10 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._original_x, self._original_y = x1, y1
 
+    local body_type = object:get__physics_body_type()
+
     local world = stage:get_physics_world()
-    self._body = b2.Body(world, b2.BodyType.KINEMATIC, centroid_x, centroid_y, shape)
+    self._body = b2.Body(world, body_type, centroid_x, centroid_y, shape)
     self._body:add_tag("stencil", "hitbox")
     self._body:add_tag("segment_light_source")
     self._body:set_user_data(self)
@@ -67,7 +69,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     local ldx, ldy = math.turn_left(math.normalize(dx, dy))
     local rdx, rdy = math.turn_right(math.normalize(dx, dy))
 
-    self._sensor = b2.Body(world, b2.BodyType.KINEMATIC, centroid_x, centroid_y, b2.Polygon(
+    self._sensor = b2.Body(world, body_type, centroid_x, centroid_y, b2.Polygon(
         x1 + ldx * sensor_r,
         y1 + ldy * sensor_r,
         x1,
@@ -84,7 +86,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     dx, dy = math.normalize(dx, dy)
 
     do -- bodies purely to stencil
-        self._stencil_body = b2.Body(world, b2.BodyType.KINEMATIC, centroid_x, centroid_y, b2.Polygon(
+        self._stencil_body = b2.Body(world, body_type, centroid_x, centroid_y, b2.Polygon(
             x1 - ldx * sensor_r,
             y1 - ldy * sensor_r,
             x1,

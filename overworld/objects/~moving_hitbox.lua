@@ -9,7 +9,7 @@ ow.MovingHitboxTarget = meta.class("MovingHitboxTarget")
 function ow.MovingHitbox:instantiate(object, stage, scene)
     self._scene = scene
 
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
+    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:add_tag("stencil")
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)

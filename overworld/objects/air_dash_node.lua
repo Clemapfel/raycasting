@@ -47,7 +47,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     -- dummy collision, for camera queries
     self._body = b2.Body(
         stage:get_physics_world(),
-        b2.BodyType.KINEMATIC,
+        object:get__physics_body_type(),
         self._x, self._y,
         b2.Circle(0, 0, self._radius)
     )
@@ -72,7 +72,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     self._particle = ow.AirDashNodeParticle(rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor)
-    self._particles = ow.PlayerTetherParticleEffect()
+    self._particles = ow.TetherParticleEffect()
     self._dash_line = { self._x, self._y, self._x, self._y } -- love.Line
 
     self._queue_emit = nil -- Function

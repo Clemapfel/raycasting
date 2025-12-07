@@ -40,7 +40,7 @@ function rt.Frame:instantiate()
     meta.install(self, {
         _child = {},
         _child_valid = false,
-        _is_animated = true,
+        _is_animated = false,
 
         _aabb = rt.AABB(0, 0, 1, 1),
 

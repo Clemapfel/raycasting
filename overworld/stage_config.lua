@@ -5,7 +5,7 @@ require "overworld.object_wrapper"
 require "overworld.tileset"
 
 rt.settings.overworld.stage_config = {
-    config_path = "assets/stages",
+    config_path = "assets/stages"
 }
 
 --- @class ow.LayerType
@@ -78,6 +78,11 @@ function ow.StageConfig:instantiate(stage_id)
     local is_solid_property_name = rt.settings.overworld.tileset_config.is_solid_property_name
     self._layer_i_to_layer = {}
 
+    local all_path_objects = {} -- class == "Path"
+    require "overworld.objects.path"
+    local path_class_id = rt.settings.overworld.objects.path.class_id
+    local path_target_property_id = rt.settings.overworld.objects.path.target_property_id
+
     local layer_i = 1
     local n_layers = 0
     for layer_entry in values(_get(self._config, "layers")) do
@@ -137,6 +142,8 @@ function ow.StageConfig:instantiate(stage_id)
 
                         table.insert(to_add.objects, sprite_object)
                     end
+                elseif object.class == path_class_id then
+                    table.insert(all_path_objects, object)
                 end
             end
         elseif layer_type == "imagelayer" then
@@ -183,6 +190,12 @@ function ow.StageConfig:instantiate(stage_id)
                         end
                     end
                 end
+            end
+
+            -- set object wrapper body type based on whether a path points to it
+            for path in values(all_path_objects) do
+                local target = path:get_object(path_target_property_id, true)
+                target.should_be_kinematic = true
             end
 
             -- construct tile spritebatches

@@ -32,7 +32,7 @@ end
 
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
+    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
     self._use_exact_testing = table.sizeof(self._body:get_native():getShapes()) > 1

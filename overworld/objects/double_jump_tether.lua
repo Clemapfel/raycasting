@@ -1,6 +1,6 @@
 require "overworld.double_jump_tether_particle"
-require "overworld.player_tether_particle_effect"
-require "overworld.player_tether"
+require "overworld.tether_particle_effect"
+require "overworld.tether"
 require "common.impulse_manager"
 require "overworld.movable_object"
 
@@ -33,7 +33,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._x, self._y, self._radius = object.x, object.y, rt.settings.player.radius * rt.settings.overworld.double_jump_tether.radius_factor
     self._body = b2.Body(
         stage:get_physics_world(),
-        b2.BodyType.KINEMATIC,
+        object:get__physics_body_type(),
         self._x, self._y,
         b2.Circle(0, 0, self._radius)
     )
@@ -66,9 +66,9 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     _current_hue_step = _current_hue_step % _n_hue_steps + 1
     self._particle = ow.DoubleJumpTetherParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
-    self._tether= ow.PlayerTether(self._scene)
+    self._tether= ow.Tether(self._scene)
     self._particle_opacity_motion = rt.SmoothedMotion1D(1, 2)
-    self._particles = ow.PlayerTetherParticleEffect()
+    self._particles = ow.TetherParticleEffect()
 
     self:signal_connect("removed", function()
         local ax, ay = self:get_position()

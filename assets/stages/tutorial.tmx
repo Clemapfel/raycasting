@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1185">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1186">
  <editorsettings>
   <export target="tutorial.lua" format="lua"/>
  </editorsettings>
@@ -1170,7 +1170,7 @@
   <object id="1094" type="AirDashNode" x="-7664" y="2016" width="150" height="150">
    <ellipse/>
   </object>
-  <object id="1101" name="AirDashNode" type="AirDashNode" x="-6433.7" y="2112.77" width="100" height="100">
+  <object id="1101" name="AirDashNode" type="AirDashNode" x="-6946.99" y="1740.48" width="100" height="100">
    <ellipse/>
   </object>
   <object id="1103" type="AirDashNode" x="-7565.11" y="1992.4" width="237.11" height="237.11">
@@ -1221,7 +1221,7 @@
   <object id="1147" name="Coin" type="Coin" x="-6330.57" y="1903.31">
    <point/>
   </object>
-  <object id="1148" name="DeceleratorSurface" type="DeceleratorSurface" x="-6530.13" y="1922.19" width="106.707" height="108.885"/>
+  <object id="1148" name="DeceleratorSurface" type="DeceleratorSurface" x="-6483.47" y="1913.06" width="106.707" height="108.885"/>
   <object id="1149" name="DoubleJumpTether" type="DoubleJumpTether" x="-5968.37" y="1943.03">
    <point/>
   </object>
@@ -1279,10 +1279,10 @@
   <object id="1169" type="OneWayPlatformTarget" x="-5463.92" y="2060.27">
    <point/>
   </object>
-  <object id="1180" type="PathNode" x="-6528" y="1920">
+  <object id="1180" type="PathNode" x="-6928" y="1936">
    <point/>
   </object>
-  <object id="1181" type="Portal" x="-6624" y="2000">
+  <object id="1181" type="Portal" x="-6720" y="1968">
    <properties>
     <property name="left_or_right" type="bool" value="false"/>
     <property name="other" type="object" value="1182"/>
@@ -1290,10 +1290,10 @@
    </properties>
    <point/>
   </object>
-  <object id="1182" type="PortalNode" x="-6720" y="2000">
+  <object id="1182" type="PortalNode" x="-6720" y="2048">
    <point/>
   </object>
-  <object id="1183" type="Portal" x="-7088" y="2144">
+  <object id="1183" type="Portal" x="-7088" y="2108.5">
    <properties>
     <property name="left_or_right" type="bool" value="false"/>
     <property name="other" type="object" value="1184"/>
@@ -1301,7 +1301,14 @@
    </properties>
    <point/>
   </object>
-  <object id="1184" type="PortalNode" x="-7008" y="2144">
+  <object id="1184" type="PortalNode" x="-7008" y="2108.5">
+   <point/>
+  </object>
+  <object id="1185" name="Path" type="Path" x="-6928" y="2048">
+   <properties>
+    <property name="next" type="object" value="1180"/>
+    <property name="target" type="object" value="1101"/>
+   </properties>
    <point/>
   </object>
  </objectgroup>

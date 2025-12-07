@@ -40,7 +40,7 @@ function ow.BubbleField:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
     self._world = stage:get_physics_world()
-    self._body = object:create_physics_body(self._world, b2.BodyType.KINEMATIC)
+    self._body = object:create_physics_body(self._world)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)
 

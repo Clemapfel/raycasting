@@ -58,7 +58,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     meta.install(self, {
         _scene = scene,
         _stage = stage,
-        _body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC),
+        _body = object:create_physics_body(stage:get_physics_world()),
 
         -- spring simulation
         _bounce_position = rt.settings.overworld.bounce_pad.origin, -- in [0, 1]

@@ -2422,11 +2422,6 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
-
-    love.graphics.push()
-    love.graphics.translate(self._bubble_body:get_position())
-    self._bubble_bounce_shape:draw()
-    love.graphics.pop()
 end
 
 --- @brief
@@ -2744,6 +2739,8 @@ end
 function rt.Player:set_directional_damping(direction, x)
     meta.assert_enum_value(direction, rt.Direction, 1)
     meta.assert_typeof(x, "Number", 2)
+
+    dbg(debug.traceback())
 
     self._direction_to_damping[direction] = x
 end

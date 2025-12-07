@@ -24,7 +24,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
+    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:add_tag("slippery")
 
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)

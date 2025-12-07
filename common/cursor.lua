@@ -64,7 +64,7 @@ function rt.Cursor:_draw_pointer(x, y, scale)
     mid_x, mid_y = mid_x + dx * h, mid_y + dy * h
 
     rt.Palette.BLACK:bind()
-    love.graphics.polygon("fill", {-- Table<Number>
+    love.graphics.polygon("fill", {
         a_x, a_y,
         b_x, b_y,
         mid_x, mid_y

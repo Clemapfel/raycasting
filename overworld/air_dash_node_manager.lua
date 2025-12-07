@@ -157,6 +157,8 @@ function ow.AirDashNodeManager:update(delta)
 
     -- find next candidate
 
+    if player:get_is_ghost() then goto skip end
+
     local padding = self._max_node_radius
     bounds.x = bounds.x - padding
     bounds.y = bounds.y - padding
@@ -218,6 +220,10 @@ function ow.AirDashNodeManager:update(delta)
     end
 
     if best_entry == nil then
+        if self._next_node ~= nil then
+            player:set_directional_damping(rt.Direction.DOWN, 1)
+        end
+
         -- no candidate, highlight closest
         self._next_node = nil
 
@@ -226,8 +232,6 @@ function ow.AirDashNodeManager:update(delta)
         else
             self._recommended_node = nil
         end
-
-        player:set_directional_damping(rt.Direction.DOWN, 1)
     else
         local before = self._next_node
         self._next_node = best_entry.node
@@ -250,4 +254,6 @@ function ow.AirDashNodeManager:update(delta)
 
     -- disable double jump while in range
     player:set_jump_disabled(disable_double_jump)
+
+    ::skip::
 end

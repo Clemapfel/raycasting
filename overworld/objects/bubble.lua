@@ -32,7 +32,7 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     -- physics
 
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC) -- ow.MovableObject
+    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:add_tag("slippery", "no_blood", "unjumpable")
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
         if self._is_destroyed or cx == nil then return end -- popped, or player is sensor

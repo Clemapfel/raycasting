@@ -1,7 +1,7 @@
 require "common.random"
 require "common.color"
 
-rt.settings.overworld.player_tether_particle_effect = {
+rt.settings.overworld.tether_particle_effect = {
     min_radius = 2,
     max_radius = 3,
     min_initial_velocity = 2,
@@ -26,18 +26,18 @@ rt.settings.overworld.player_tether_particle_effect = {
     particle_density = 0.75 -- fraction
 }
 
---- @class ow.PlayerTetherParticleEffect
-ow.PlayerTetherParticleEffect = meta.class("PlayerTetherParticleEffect")
+--- @class ow.TetherParticleEffect
+ow.TetherParticleEffect = meta.class("TetherParticleEffect")
 
 --- @brief
-function ow.PlayerTetherParticleEffect:instantiate()
+function ow.TetherParticleEffect:instantiate()
     self._batches = {}
 end
 
 local _n_particles = 0 -- global count
 
 --- @brief
-function ow.PlayerTetherParticleEffect:emit(
+function ow.TetherParticleEffect:emit(
     path,
     color_r, color_g, color_b, color_a,
     velocity_x, velocity_y
@@ -57,7 +57,7 @@ function ow.PlayerTetherParticleEffect:emit(
 end
 
 --- @brief
-function ow.PlayerTetherParticleEffect:update(delta)
+function ow.TetherParticleEffect:update(delta)
     local to_remove = {}
     for batch_i, batch in ipairs(self._batches) do
         local is_done = self:_update_batch(batch, delta)
@@ -68,21 +68,21 @@ function ow.PlayerTetherParticleEffect:update(delta)
 end
 
 --- @brief
-function ow.PlayerTetherParticleEffect:draw()
+function ow.TetherParticleEffect:draw()
     for batch in values(self._batches) do
         self:_draw_batch(batch, false) -- no bloom
     end
 end
 
 --- @brief
-function ow.PlayerTetherParticleEffect:draw_bloom()
+function ow.TetherParticleEffect:draw_bloom()
     for batch in values(self._batches) do
         self:_draw_batch(batch, true)
     end
 end
 
 --- @brief
-function ow.PlayerTetherParticleEffect:clear()
+function ow.TetherParticleEffect:clear()
     self._batches = {}
 end
 
@@ -104,7 +104,7 @@ local _hue_velocity = 16
 local _hue_velocity_direction = 17
 
 --- @brief
-function ow.PlayerTetherParticleEffect:_init_batch(
+function ow.TetherParticleEffect:_init_batch(
     batch, path,
     color_r, color_g, color_b, color_a,
     velocity_x, velocity_y
@@ -112,11 +112,11 @@ function ow.PlayerTetherParticleEffect:_init_batch(
     require "table.new"
 
     local length = path:get_length()
-    local n_particles = length * rt.settings.overworld.player_tether_particle_effect.particle_density
+    local n_particles = length * rt.settings.overworld.tether_particle_effect.particle_density
 
     local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, color_a))
 
-    local settings = rt.settings.overworld.player_tether_particle_effect
+    local settings = rt.settings.overworld.tether_particle_effect
 
     local min_acceleration, max_acceleration = settings.min_acceleration, settings.max_acceleration
     local min_mass, max_mass = settings.min_mass, settings.max_mass
@@ -174,8 +174,8 @@ function ow.PlayerTetherParticleEffect:_init_batch(
 end
 
 --- @brief
-function ow.PlayerTetherParticleEffect:_update_batch(batch, delta)
-    local settings = rt.settings.overworld.player_tether_particle_effect
+function ow.TetherParticleEffect:_update_batch(batch, delta)
+    local settings = rt.settings.overworld.tether_particle_effect
 
     -- update particles
     local gravity_x = settings.gravity_x * delta
@@ -249,7 +249,7 @@ function ow.PlayerTetherParticleEffect:_update_batch(batch, delta)
 end
 
 --- @brief
-function ow.PlayerTetherParticleEffect:_draw_batch(batch, is_bloom)
+function ow.TetherParticleEffect:_draw_batch(batch, is_bloom)
     if is_bloom == nil then is_bloom = false end
 
     love.graphics.setLineWidth(1.2)

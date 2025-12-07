@@ -18,7 +18,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._stage = stage
 
     -- collision
-    self._body = object:create_physics_body(stage:get_physics_world(), b2.BodyType.KINEMATIC)
+    self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
 
     local bounce_group = rt.settings.player.bounce_collision_group

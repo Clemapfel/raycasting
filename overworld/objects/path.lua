@@ -7,7 +7,11 @@ require "overworld.movable_object"
 
 rt.settings.overworld.objects.path = {
     draw_line_width = 3,
-    segment_length = 5
+    segment_length = 5,
+
+    -- needed for stage config
+    class_id = "Path",
+    target_property_id = "target"
 }
 
 --- @class ow.Path
