@@ -21,12 +21,13 @@ function ow.Tether:instantiate()
     self._is_tethered = false
     self._rope = {}
 
-    self._draw_buldge = false
-    self._buldge_x, self._buldge_y = nil, nil -- Number
+    self._cached_path = nil -- rt.Path
+    self._path_needs_update = true
 end
 
 --- @brief
 function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
+    local settings = rt.settings.overworld.tether
     if self._is_tethered == true then
         local rope = self._rope
         rope.position_x, rope.position_y = attachment_x, attachment_y
@@ -37,20 +38,23 @@ function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
         rope.current_positions[#rope.current_positions - 1] = target_x
         rope.current_positions[#rope.current_positions - 0] = target_y
 
-        local n_nodes = math.ceil(math.clamp(math.distance(
-            attachment_x, attachment_y,
-            target_x, target_y
-        ) * rt.settings.overworld.tether.node_density,
-            rt.settings.overworld.tether.min_n_nodes,
-            rt.settings.overworld.tether.max_n_nodes
+        local n_nodes = math.ceil(math.clamp(
+            math.distance(attachment_x, attachment_y, target_x, target_y) * settings.node_density,
+            settings.min_n_nodes,
+            settings.max_n_nodes
         ))
 
-        -- extend / shorten if necessary
+        -- Use actual current node count derived from the buffer length to avoid drift
+        local current_n = math.floor(#rope.current_positions / 2)
+        rope.n_nodes = current_n
 
-        if rope.n_nodes ~= n_nodes then
-            if rope.n_nodes < n_nodes then
-                for node_i = rope.n_nodes, n_nodes do
-                    local t = (node_i - rope.n_nodes) / (n_nodes - rope.n_nodes)                        local x, y = math.mix2(end_x, end_y, target_x, target_y, t)
+        -- extend / shorten if necessary
+        if current_n ~= n_nodes then
+            if current_n < n_nodes then
+                -- extend
+                for node_i = current_n + 1, n_nodes do
+                    local t = (node_i - current_n) / (n_nodes - current_n)
+                    local x, y = math.mix2(end_x, end_y, target_x, target_y, t)
                     local x_index = (node_i - 1) * 2 + 1
                     local y_index = (node_i - 1) * 2 + 2
 
@@ -63,28 +67,34 @@ function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
                     rope.masses[node_i] = 1
                 end
 
-                rope.n_nodes = n_nodes
+                current_n = n_nodes
             else
-                while rope.n_nodes > n_nodes do
-                    table.remove(rope.current_positions)
-                    table.remove(rope.current_positions)
+                -- shorten
+                while current_n > n_nodes do
+                    table.remove(rope.current_positions) -- y
+                    table.remove(rope.current_positions) -- x
                     table.remove(rope.last_positions)
                     table.remove(rope.last_positions)
                     table.remove(rope.last_velocities)
                     table.remove(rope.last_velocities)
                     table.remove(rope.masses)
-                    rope.n_nodes = rope.n_nodes - 1
+                    current_n = current_n - 1
                 end
             end
 
-            assert(rope.n_nodes == n_nodes)
+            rope.n_nodes = n_nodes
         end
     else
         local ax, ay = attachment_x, attachment_y
         local bx, by = target_x, target_y
         local dx, dy = math.normalize(bx - ax, by - ay)
         local distance = math.distance(attachment_x, attachment_y, target_x, target_y)
-        local n_nodes = math.max(3, distance * rt.settings.overworld.tether.node_density)
+
+        local n_nodes = math.ceil(math.clamp(
+            distance * settings.node_density,
+            settings.min_n_nodes,
+            settings.max_n_nodes
+        ))
 
         local rope = {
             current_positions = {},
@@ -121,7 +131,8 @@ end
 --- @brief
 function ow.Tether:untether()
     if self._is_tethered == false then return end
-    self._ropes = {}
+    self._rope = {}
+    self._is_tethered = false
 end
 
 --- @brief
@@ -136,12 +147,14 @@ local _buldge = nil -- 2d vertives
 function ow.Tether:update(delta)
     require "common.player_body"
 
-    local todo = rt.settings.player_body.non_contour
     local rope = self._rope
+    if not rope.current_positions or #rope.current_positions < 2 then return end
+
+    -- Keep end at the target
     rope.current_positions[#rope.current_positions - 1] = rope.target_x
     rope.current_positions[#rope.current_positions - 0] = rope.target_y
 
-    rt.PlayerBody.update_rope({
+    local rope_changed = rt.PlayerBody.update_rope({
         current_positions = rope.current_positions,
         last_positions = rope.last_positions,
         last_velocities = rope.last_velocities,
@@ -166,19 +179,14 @@ function ow.Tether:update(delta)
     rope.current_positions[#rope.current_positions - 1] = rope.target_x
     rope.current_positions[#rope.current_positions - 0] = rope.target_y
 
-    if self._draw_buldge then
-        if self._path == nil then
-            self._path = rt.Path(rope.current_positions)
-        else
-            self._path:create_from(rope.current_positions)
-        end
-    end
+    if rope_changed == true then self._path_needs_update = true end
 end
 
 --- @brief
 function ow.Tether:draw()
     local r, g, b, a = love.graphics.getColor()
     local rope = self._rope
+    if not rope.current_positions or #rope.current_positions < 2 then return end
 
     love.graphics.setLineJoin("none")
     love.graphics.setLineStyle("rough")
@@ -198,7 +206,7 @@ function ow.Tether:draw()
         0.5 * line_width
     )
 
-    local eps = 0.4
+    -- Example of future bulge/path usage (kept as-is)
     local path = rt.Path(rope.current_positions)
     local length = path:get_length()
     local radius = 20
@@ -206,7 +214,6 @@ function ow.Tether:draw()
     local x, y = path:at(t)
     local ax, ay = path:at(t - (radius / length))
     local bx, by = path:at(t + (radius / length))
-
 end
 
 --- @brief
@@ -215,11 +222,10 @@ function ow.Tether:get_is_tethered()
 end
 
 --- @brief
-function ow.Tether:get_points()
-    return self._rope.current_positions
-end
-
---- @brief
 function ow.Tether:as_path()
-    return rt.Path(self._rope.current_positions)
+    if self._cached_path == nil or self._path_needs_update then
+        self._cached_path = rt.Path(self._rope.current_positions)
+    end
+
+    return self._cached_path
 end
