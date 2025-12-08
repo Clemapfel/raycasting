@@ -323,6 +323,10 @@ function rt.Player:instantiate()
         _is_ghost = false,
         _collision_disabled = false,
 
+        _position_override_active = false,
+        _position_override_x = nil, -- Number
+        _position_override_y = nil, -- Number
+
         -- flow
         _flow = 0,
         _override_flow = nil,
@@ -2129,6 +2133,17 @@ function rt.Player:update(delta)
     do
         local last_x, last_y = self._position_history[#self._position_history - 1], self._position_history[#self._position_history]
         local current_x, current_y = self:get_position()
+
+        if self._position_override_active then
+            if self._position_override_x ~= nil then
+                current_x = self._position_override_x
+            end
+
+            if self._position_override_y ~= nil then
+                current_y = self._position_override_y
+            end
+        end
+
         local distance = math.distance(current_x, current_y, last_x, last_y)
         local dx, dy = math.normalize(current_x - last_x, current_y - last_y)
         local step = _settings.position_history_sample_frequency
@@ -3104,6 +3119,9 @@ function rt.Player:reset()
 
     self._platform_velocity_x = 0
     self._platform_velocity_y = 0
+    self._position_override_active = false
+    self._position_override_x = nil
+    self._position_override_y = nil
     if self._world ~= nil then self._world:set_time_dilation(1) end
 
     self._top_wall = false
@@ -3211,4 +3229,16 @@ end
 --- @brief
 function rt.Player:get_idle_timer_frozen()
     return self._idle_timer_frozen
+end
+
+--- @brief
+--- @param x_or_nil Number?
+--- @param y Number
+function rt.Player:set_position_override(x_or_nil, y_or_nil)
+    self._position_override_x, self._position_override_y = x_or_nil, y_or_nil
+end
+
+--- @brief
+function rt.Player:set_position_override_active(b)
+    self._position_override_active = b
 end
