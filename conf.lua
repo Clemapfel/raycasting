@@ -1,5 +1,4 @@
 DEBUG = true -- overriden by build script
-io.stdout:setvbuf("no") -- makes it so love2d error message is printed to console immediately
 
 local VSYNC_ADAPTIVE = -1
 local VSYNC_OFF = 0

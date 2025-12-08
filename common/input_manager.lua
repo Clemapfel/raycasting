@@ -21,6 +21,11 @@ function rt.InputManager:instantiate()
 end
 
 --- @brief
+function rt.InputManager:reset()
+    self._subscribers = meta.make_weak({})
+end
+
+--- @brief
 function rt.InputManager:_notify_pressed(which, input_method)
     local time = love.timer.getTime()
     local data = ternary(

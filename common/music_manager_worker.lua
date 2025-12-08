@@ -62,7 +62,10 @@ local step = 1 / 120
 while true do
     while main_to_worker:peek() ~= nil do
         local message = main_to_worker:pop()
-        if message.message_id == "shutdown" then return end
+        if message.message_id == "shutdown" then
+            worker_to_main:push(message)
+            return
+        end
         handle_message(message)
     end
 

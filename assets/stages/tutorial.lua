@@ -4844,7 +4844,7 @@ return {
         {
           id = 1151,
           name = "",
-          type = "OneWayPlatformTarget",
+          type = "OneWayPlatformNode",
           shape = "point",
           x = -6016,
           y = 2160,
@@ -4935,7 +4935,7 @@ return {
         {
           id = 1165,
           name = "",
-          type = "OneWayPlatformTarget",
+          type = "OneWayPlatformNode",
           shape = "point",
           x = -5744,
           y = 2064,
@@ -4963,7 +4963,7 @@ return {
         {
           id = 1169,
           name = "",
-          type = "OneWayPlatformTarget",
+          type = "OneWayPlatformNode",
           shape = "point",
           x = -5463.92,
           y = 2060.27,

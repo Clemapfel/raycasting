@@ -4,6 +4,8 @@ require "common.thread_manager"
 rt.Thread = meta.class("Thread")
 meta.add_signal(rt.Thread, "shutdown")
 
+rt.Thread.SHUTDOWN_MESSAGE = "shutdown"
+
 --- @brief
 function rt.Thread:instantiate(path, _)
     meta.assert(path, "String", _, "Nil")

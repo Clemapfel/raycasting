@@ -40,6 +40,19 @@ rt.Translation = {
         })[grade]
     end,
 
+    -- error handler
+    error_handler = {
+        open_log_title = "Title TODO",
+        open_log_message = "Message TODO",
+        open_log_directory = "Open Log",
+        open_log_directory_decline = "Abort",
+
+        title = "Title TODO",
+        message = "Message TODO",
+        restart = "Restart",
+        exit = "Exit"
+    },
+
     -- pause menu
     pause_menu = {
         resume = "Resume",

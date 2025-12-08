@@ -38,5 +38,4 @@ function rt.ThreadManager:_notify_thread_added(thread)
 end
 
 
-
 rt.ThreadManager = rt.ThreadManager() -- singleton instance

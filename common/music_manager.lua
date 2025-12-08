@@ -31,6 +31,11 @@ function rt.MusicManager:instantiate()
         self._main_to_worker:push({
             message_id = _messages.shutdown
         })
+
+        local message
+        repeat
+            message = self._worker_to_main:demand()
+        until message.message_id == "shutdown";
     end)
 
     if not rt.ThreadManager:shutdown_active() then

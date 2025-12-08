@@ -302,6 +302,7 @@ while true do
             goto next_message -- fatal
         end
     elseif message.type == MessageType.SHUTDOWN then
+        worker_to_main:push(message)
         return
     else
         -- unhandled message

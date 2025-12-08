@@ -6,7 +6,9 @@ require "common.player"
 
 rt.settings.game_state = {
     min_double_click_threshold = 0.2, -- seconds
-    max_double_click_threshold = 0.5
+    max_double_click_threshold = 0.5,
+
+    log_directory = "logs"
 }
 
 --- @class rt.VSyncMode
@@ -588,5 +590,6 @@ end
 
 require "common.game_state_stage"
 require "common.game_state_save"
+require "common.game_state_log"
 
 rt.GameState = rt.GameState()

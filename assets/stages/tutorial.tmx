@@ -1036,7 +1036,7 @@
    </properties>
    <point/>
   </object>
-  <object id="1151" type="OneWayPlatformTarget" x="-6016" y="2160">
+  <object id="1151" type="OneWayPlatformNode" x="-6016" y="2160">
    <point/>
   </object>
   <object id="1160" type="PathNode" x="-5642.6" y="2189.27">
@@ -1072,7 +1072,7 @@
    </properties>
    <point/>
   </object>
-  <object id="1165" type="OneWayPlatformTarget" x="-5744" y="2064">
+  <object id="1165" type="OneWayPlatformNode" x="-5744" y="2064">
    <point/>
   </object>
   <object id="1168" name="OneWayPlatform" type="OneWayPlatform" x="-5459.45" y="2193.81">
@@ -1081,7 +1081,7 @@
    </properties>
    <point/>
   </object>
-  <object id="1169" type="OneWayPlatformTarget" x="-5463.92" y="2060.27">
+  <object id="1169" type="OneWayPlatformNode" x="-5463.92" y="2060.27">
    <point/>
   </object>
   <object id="1181" name="Portal" type="Portal" x="-7040" y="2144">

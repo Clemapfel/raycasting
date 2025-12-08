@@ -10,6 +10,7 @@ rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
     performance_metrics_n_frames = 144,
     fade_duration = 0.2,
+    fps_limit = 1000
 }
 
 --- @class SceneManager
@@ -434,6 +435,9 @@ love.focus = function(b)
     rt.SceneManager._is_focused = b
 end
 
+-- max uncapped fps
+local _fps_limit = 1000
+
 love.run = function()
     love.mouse.setVisible(false)
     love.mouse.setGrabbed(false)
@@ -537,146 +541,195 @@ love.run = function()
             love.timer.getTime() - state._frame_timestamp
         )
 
-        love.timer.sleep(1 / 1000) -- safeguard if vsync off
+        love.timer.sleep(1 / _fps_limit) -- safeguard if vsync off
     end
 end
 
-local utf8 = require("utf8")
-local function error_printer(msg, layer)
-    print((debug.traceback("Error: " .. tostring(msg), 1+(layer or 1)):gsub("\n[^\n]+$", "")))
-end
+function love.errorhandler(message)
+    local traceback
+    traceback = string.gsub(
+        debug.traceback("Error in " .. tostring(message), 3),
+        "\n[^\n]+$", ""
+    )
 
-local _log_prefix = "/log"
-function love.errorhandler(msg)
-    msg = tostring(msg)
+    traceback = string.gsub(traceback, "stack traceback:", "Traceback:")
 
-    error_printer(msg, 2)
+    io.stdout:write(traceback)
+    io.stdout:flush()
 
-    if not love.window or not love.graphics or not love.event then
-        return
+    local sanitized = {}
+    for char in string.gmatch(traceback, utf8.charpattern) do
+        table.insert(sanitized, char)
+    end
+    traceback = table.concat(sanitized, "")
+
+    traceback = string.gsub(traceback, "\t", "    ")
+    traceback = string.gsub(traceback, "\027%[[%d;]*m", "") -- strip control characters
+
+    local throw_inner_error = function(...)
+        io.stdout:write("\n")
+        io.stdout:write("In love.errorhandler: " .. table.concat({ ... }, ""))
+        io.stdout:write("\n")
+        io.stdout:flush()
     end
 
-    if not love.graphics.isCreated() or not love.window.isOpen() then
-        local success, status = pcall(love.window.setMode, 800, 600)
-        if not success or not status then
-            return
+    local safe_call = function(f, ...)
+        local success, error_or_result = pcall(f, ...)
+        if not success then
+            throw_inner_error(error_or_result)
+        else
+            return error_or_result
         end
     end
 
-    -- Reset state.
-    if love.mouse then
-        love.mouse.setVisible(true)
-        love.mouse.setGrabbed(false)
-        love.mouse.setRelativeMode(false)
-        if love.mouse.isCursorSupported() then
-            love.mouse.setCursor()
-        end
+    -- reset state
+    love.mouse.setVisible(true)
+    love.mouse.setGrabbed(false)
+    love.mouse.setRelativeMode(false)
+    if love.mouse.isCursorSupported() then
+        love.mouse.setCursor()
     end
 
-    if love.joystick then
-        -- Stop all joystick vibrations.
-        for i,v in ipairs(love.joystick.getJoysticks()) do
-            v:setVibration()
-        end
+    for joystick in values(love.joystick.getJoysticks()) do
+        joystick:setVibration(nil)
     end
 
-    if love.audio then love.audio.stop() end
-
+    love.audio.stop()
     love.graphics.reset()
+
+    safe_call(rt.InputManager.reset, rt.InputManager)
+
+    -- set default font
     love.graphics.setFont(love.graphics.newFont(15))
 
-    love.graphics.setColor(1, 1, 1)
+    local SHOULD_QUIT = true
+    local SHOULD_NOT_QUIT = false
 
-    local trace = debug.traceback()
-
-    love.graphics.origin()
-
-    local sanitizedmsg = {}
-    for char in msg:gmatch(utf8.charpattern) do
-        table.insert(sanitizedmsg, char)
-    end
-    sanitizedmsg = table.concat(sanitizedmsg)
-
-    local err = {}
-
-    table.insert(err, "Error\n")
-    table.insert(err, sanitizedmsg)
-
-    if #sanitizedmsg ~= #msg then
-        table.insert(err, "Invalid UTF-8 string in error message.")
+    local restart = function()
+        safe_call(rt.ThreadManager.request_shutdown, rt.ThreadManager)
+        love.event.restart()
+        return SHOULD_NOT_QUIT
     end
 
-    table.insert(err, "\n")
+    local function show_messages()
+        if rt.Translation == nil then return end
+        local entry = rt.Translation.error_handler
+        if entry == nil then return end
 
-    for l in trace:gmatch("(.-)\n") do
-        if not l:match("boot.lua") then
-            l = l:gsub("stack traceback:", "Traceback\n")
-            table.insert(err, l)
+        if not DEBUG then -- first dialog: ask if user wants to open logs
+            local buttons
+            if love.system.getOS() == "windows" then
+                -- windows orders buttons from right to left for some reason
+                buttons = { entry.open_log_directory, entry.open_log_directory_decline }
+            else
+                buttons = { entry.open_log_directory_decline, entry.open_log_directory }
+            end
+
+            local result = love.window.showMessageBox(
+                entry.open_log_title,
+                entry.open_log_message,
+                buttons,
+                "error",
+                false
+            )
+
+            if buttons[result] == entry.open_log_directory then
+                local _, file = pcall(rt.GameState.get_log_file_directory, rt.GameState, true)
+                local success, error = pcall(love.system.openURL, file)
+                if not success then
+                    io.stdout:write("\n")
+                    io.stdout:write("In love.errorhandler: unable to open file at `" .. file .. "`: " .. error)
+                    io.stdout:write("\n")
+                    io.stdout:flush()
+                end
+            elseif buttons[result] == entry.open_log_directory_decline then
+                -- noop, dialog closes
+            end
+        end
+
+        do -- second dialog, exit or restart
+            local buttons
+            if love.system.getOS() == "windows" then
+                buttons = { entry.restart, entry.exit }
+            else
+                buttons = { entry.exit, entry.restart }
+            end
+
+            local result = love.window.showMessageBox(
+                entry.title,
+                entry.message,
+                buttons,
+                "error",
+                false
+            )
+
+            if buttons[result] == entry.restart then
+                restart()
+                return SHOULD_NOT_QUIT
+            elseif buttons[result] == entry.exit then
+                return SHOULD_QUIT
+            end
         end
     end
 
-    local p = table.concat(err, "\n")
-
-    p = p:gsub("\t", "")
-    p = p:gsub("%[string \"(.-)\"%]", "%1")
-
-    local function draw()
-        if not love.graphics.isActive() then return end
-        local pos = 70
-        love.graphics.clear(rt.Palette.RED_5:unpack())
-        love.graphics.printf(p, pos, pos, love.graphics.getWidth() - pos)
-        love.graphics.present()
-    end
-
-    local fullErrorText = p
-    local function copyToClipboard()
-        if not love.system then return end
-        love.system.setClipboardText(fullErrorText)
-        p = p .. "\nCopied to clipboard!"
-    end
-
-    if love.system then
-        p = p .. "\n\nPress Ctrl+C or tap to copy this error"
-    end
-
-    if ENABLE_DEBUGGER == true then
-        debugger.connect()
-        if debugger.get_is_active() then
-            debugger.break_here()
-        end
-    end
+    -- TODO
+    restart = function() return SHOULD_QUIT end
+    show_messages = function() return SHOULD_QUIT end
+    local debugger_connected = false
 
     return function()
-        love.event.pump(0.1)
+        love.event.pump()
 
-        for e, a, b, c in love.event.poll() do
-            if e == "quit" then
-                return 1
-            elseif e == "keypressed" and a == "escape" then
-                return 1
-            elseif e == "keypressed" and a == "c" and love.keyboard.isDown("lctrl", "rctrl") then
-                copyToClipboard()
-            elseif e == "touchpressed" then
-                local name = love.window.getTitle()
-                if #name == 0 or name == "Untitled" then name = "Game" end
-                local buttons = {"OK", "Cancel"}
-                if love.system then
-                    buttons[3] = "Copy to clipboard"
+        -- check for events
+        for event, a, b, c, d, e, f in love.event.poll() do
+            if event == "quit" then
+                return 0
+            elseif event == "keypressed" then
+                local key = b
+                local to_call = ternary(
+                    key == "escape" or key == "space" or key == "return",
+                    restart,
+                    show_messages
+                )
+                if to_call() == SHOULD_QUIT then
+                    return 0
                 end
-                local pressed = love.window.showMessageBox("Quit "..name.."?", "", buttons)
-                if pressed == 1 then
-                    return 1
-                elseif pressed == 3 then
-                    copyToClipboard()
+            elseif event == "touchpressed"
+                or event == "mousepressed"
+                or event == "gamepadpressed"
+            then
+                if show_messages() == SHOULD_QUIT then
+                    return 0
                 end
             end
         end
 
-        draw()
+        -- draw
+        if love.graphics.isActive() then
+            if rt and rt.Palette and rt.Palette.RED_5 then
+                love.graphics.clear(rt.Palette.RED_5:unpack())
+            else
+                love.graphics.clear(1, 0, 0.2, 1)
+            end
 
-        if love.timer then
-            love.timer.sleep(0.001)
+            local margin = 70
+            love.graphics.printf(
+                traceback,
+                margin, margin,
+                love.graphics.getWidth() - 2 * margin
+            )
+            love.graphics.present()
         end
+
+        -- connect debugger after error is shown on screen
+        if not debugger_connected and DEBUG and debugger ~= nil then
+            pcall(debugger.connect)
+            if debugger.get_is_active() then
+                debugger.break_here()
+            end
+        end
+
+        love.timer.sleep(1 / _fps_limit)
     end
 end
 
