@@ -410,7 +410,7 @@ function ow.Portal:instantiate(object, stage, scene)
         local canvas_w, canvas_h = self._static_canvas:get_size()
         self._particle_axis = {
             0.5 * canvas_w, min_radius,
-            0.5 * canvas_w, length - 2 * min_radius
+            0.5 * canvas_w, length - min_radius
         }
 
         if self._direction == _LEFT then

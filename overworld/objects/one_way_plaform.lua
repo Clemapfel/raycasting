@@ -12,8 +12,8 @@ rt.settings.overworld.one_way_platform = {
 --- @types Rectangle
 ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
 
---- @class ow.OneWayPlatformTarget
-ow.OneWayPlatformTarget = meta.class("OneWayPlatformTarget")
+--- @class ow.OneWayPlatformNode
+ow.OneWayPlatformNode = meta.class("OneWayPlatformNode")
 
 local _shader = rt.Shader("overworld/objects/one_way_platform.glsl")
 
@@ -332,12 +332,6 @@ function ow.OneWayPlatform:draw()
     love.graphics.line(self._highlight_draw_vertices)
 
     love.graphics.pop()
-
-    for body in range(--self._body, self._sensor,
-        self._stencil_body
-    ) do
-        body:draw()
-    end
 end
 
 --- @brief

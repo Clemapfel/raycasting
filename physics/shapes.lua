@@ -42,6 +42,12 @@ function b2.Rectangle:_add_to_body(body)
     })
 end
 
+--- @brief
+function b2.Rectangle:translate(dx, dy)
+    self._x = self._x + dx
+    self._y = self._y + dy
+end
+
 --- @class b2.Circle
 --- @param x Number
 --- @param y Number
@@ -77,6 +83,12 @@ function b2.Circle:_add_to_body(body)
     return love.physics.newCircleShape(body, self._x, self._y, self._radius)
 end
 
+--- @brief
+function b2.Circle:translate(dx, dy)
+    self._x = self._x + dx
+    self._y = self._y + dy
+end
+
 --- @class b2.Polygon
 --- @param vertices Table<Number>
 b2.Polygon = meta.class("PhysicsPolygon", b2.Shape,function(self, vertices, ...)
@@ -110,6 +122,14 @@ function b2.Polygon:_add_to_body(body)
     end
 end
 
+--- @brief
+function b2.Polygon:translate(dx, dy)
+    for i = 1, #self._vertices, 2 do
+        self._vertices[i] = self._vertices[i] + dx
+        self._vertices[i + 1] = self._vertices[i + 1] + dy
+    end
+end
+
 --- @class b2.Segment
 --- @param vertices Table<Number>
 b2.Segment = meta.class("PhysicsSegment", b2.Shape,function(self, vertices, ...)
@@ -137,4 +157,12 @@ end
 --- @brief
 function b2.Segment:draw(mask_only)
     love.graphics.line(self._vertices)
+end
+
+--- @brief
+function b2.Segment:translate(dx, dy)
+    for i = 1, #self._vertices, 2 do
+        self._vertices[i] = self._vertices[i] + dx
+        self._vertices[i + 1] = self._vertices[i + 1] + dy
+    end
 end

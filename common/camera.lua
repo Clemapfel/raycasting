@@ -4,7 +4,7 @@ require "common.transform"
 
 rt.settings.camera = {
     speed = 0.8, -- in [0, 1], where 0 slowest, 1 fastest
-    max_velocity = 2000,
+    max_velocity = 1800,
     max_scale_velocity = 5, -- per second
     min_scale = 1 / 4,
     max_scale = 30,

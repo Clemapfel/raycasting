@@ -17,20 +17,23 @@ ow.MovableHitbox = meta.class("MovableHitbox", ow.MovableObject)
 function ow.MovableHitbox:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
+    self._world = self._stage:get_physics_world()
 
-    self._body = object:create_physics_body(stage:get_physics_world())
+
+    self._body = object:create_physics_body(self._world)
     self._body:set_collision_group(bit.bor(
         rt.settings.overworld.hitbox.collision_group
     ))
 
     self._body:set_use_continuous_collision(true)
-
+    local start_x, start_y = self._body:get_center_of_mass()
     self._elapsed = 0
 
     -- match tags from ow.Hitbox
     for property in range(
         "slippery",
-        "sticky"
+        "sticky",
+        "unjumpable"
     ) do
         if object:get_boolean(property) then
             self._body:add_tag(property)
@@ -46,7 +49,6 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     local _, tris, mesh_data
     _, tris, mesh_data = object:create_mesh()
 
-    local start_x, start_y = object:get_centroid()
     for i, data in ipairs(mesh_data) do
         data[1] = data[1] - start_x
         data[2] = data[2] - start_y
@@ -110,6 +112,8 @@ function ow.MovableHitbox:update(delta)
     if self._normal_map:get_is_done() == false then
         self._normal_map:update(delta) -- finish loading coroutine
     end
+
+    self._offset_x, self._offset_y = self._body:get_position()
 
     local is_visible = self._stage:get_is_body_visible(self._body)
 

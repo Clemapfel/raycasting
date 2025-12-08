@@ -59,7 +59,9 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._stage = stage
     self._player = self._scene:get_player()
 
-    local factor = object:get_number("velocity") or 1
+    local factor = object:get_number("velocity", false) or 1
+    self._velocity_factor = factor
+    dbg(factor)
     self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
 
     local axis_mandatory = false
@@ -157,7 +159,7 @@ function ow.BoostField:draw()
     _shader:send("player_influence", self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat()))
     _shader:send("axis", { self._axis_x, self._axis_y })
     _shader:send("brightness_offset", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("elapsed", rt.SceneManager:get_elapsed() * self._velocity_factor)
     love.graphics.draw(self._mesh:get_native())
     _shader:unbind()
 

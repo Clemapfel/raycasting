@@ -21,6 +21,7 @@ rt.settings.overworld.objects.path = {
 --- @types Polygon, Rectangle
 --- @field velocity Number?
 --- @field next ow.PathNode! pointer to path
+--- @field is_reversed Boolean?
 --- @field target Any object with set_velocity and set_position
 --- @field target_x Any additional targets, where x is 0-9
 ow.Path = meta.class("OverworldPath")
@@ -46,6 +47,12 @@ function ow.Path:instantiate(object, stage, scene)
 
     self._is_smooth = object:get_boolean("is_smooth", false)
     if self._is_smooth == nil then self._is_smooth = false end
+
+    self._is_reversed = object:get_boolean("is_reversed", false)
+    if self._is_reversed == nil then self._is_reversed = false end
+
+    self._is_absolute = object:get_boolean("is_absolute", false)
+    if self._is_absolute == nil then self._is_absolute = false end
 
     if self._is_visible then
         self._color = rt.RGBA(1, 1, 1, 1)
@@ -101,9 +108,16 @@ function ow.Path:instantiate(object, stage, scene)
             table.insert(path, path[2])
         end
 
-        for entry in values(self._entries) do
-            entry.offset_x = entry.offset_x - path[1]
-            entry.offset_y = entry.offset_y - path[2]
+        if self._is_absolute then
+            for entry in values(self._entries) do
+                entry.offset_x = 0
+                entry.offset_y = 0
+            end
+        else
+            for entry in values(self._entries) do
+                entry.offset_x = entry.offset_x - path[1]
+                entry.offset_y = entry.offset_y - path[2]
+            end
         end
 
         if self._is_smooth then
@@ -138,7 +152,9 @@ function ow.Path:instantiate(object, stage, scene)
     end)
 
     local centroid_x, centroid_y = object:get_centroid()
-    self._velocity = object:get_number("velocity", false) or rt.settings.overworld.moving_hitbox.default_velocity
+    self._velocity = rt.settings.overworld.moving_hitbox.default_velocity
+    self._velocity_factor = object:get_number("velocity", false) or 1
+    self._velocity = self._velocity * self._velocity_factor
 
     local easing = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT
     local easing_name = object:get_string("easing", false)
@@ -165,12 +181,12 @@ function ow.Path:update(delta)
         if distance_in_cycle <= length then
             -- going forwards
             t = distance_in_cycle / length
-            direction = 1
+            direction = ternary(self._is_reversed, -1, 1)
         else
             -- going backwards
             local backward_distance = distance_in_cycle - length
             t = (length - backward_distance) / length
-            direction = -1
+            direction = ternary(self._is_reversed, 1, -1)
         end
     end
 
@@ -243,7 +259,6 @@ end
 
 --- @brief
 function ow.Path:reset()
-    self._elapsed = 0
     local x, y = self._path:at(0)
     for entry in values(self._entries) do
         entry.target:set_position(
