@@ -116,26 +116,41 @@ function rt.Camera:pop()
 end
 
 --- @brief [internal]
+--- @brief [internal]
 function rt.Camera:_constrain(x, y)
     if self._apply_bounds == true then
         local screen_w, screen_h = love.graphics.getDimensions()
-        local w, h = screen_w / self._current_scale, screen_h / self._current_scale
-        x = math.clamp(x,
-            math.ceil(0.5 * w + self._bounds_x),
-            math.floor(0.5 * w - w + self._bounds_x + self._bounds_width)
-        )
 
-        y = math.clamp(y,
-            math.ceil(0.5 * h + self._bounds_y),
-            math.floor(0.5 * h - h + self._bounds_y + self._bounds_height)
-        )
+        local visible_w = screen_w / self._current_scale / 2
+        local visible_h = screen_h / self._current_scale / 2
+
+        if visible_w >= self._bounds_width then
+            x = self._bounds_x + self._bounds_width / 2
+        else
+            local min_x = self._bounds_x + visible_w
+            local max_x = self._bounds_x + self._bounds_width - visible_w
+            x = math.clamp(x, min_x, max_x)
+        end
+
+        if visible_h >= self._bounds_height then
+            y = self._bounds_y + self._bounds_height / 2
+        else
+            local min_y = self._bounds_y + visible_h
+            local max_y = self._bounds_y + self._bounds_height - visible_h
+            y = math.clamp(y, min_y, max_y)
+        end
     end
+
     return x, y
 end
 
 local _distance_f = function(x)
     local speed = rt.settings.camera.speed
     return math.sqrt(math.abs(x)) * math.abs(x)^(1 - (1 - speed)) * math.sign(x)
+end
+
+local _round = function(x)
+    return math.floor(x)
 end
 
 --- @brief
@@ -148,6 +163,11 @@ function rt.Camera:update(delta)
 
         self._current_scale = self._current_scale * math.exp(scale_velocity * delta)
         self._current_scale = math.clamp(self._current_scale, rt.settings.camera.min_scale, rt.settings.camera.max_scale)
+    end
+
+    -- Constrain target position based on current scale and bounds
+    if self._apply_bounds then
+        self._target_x, self._target_y = self:_constrain(self._target_x, self._target_y)
     end
 
     do -- movement
@@ -163,8 +183,8 @@ function rt.Camera:update(delta)
         local final_delta_y = self._velocity_y * delta
 
         self._last_x, self._last_y = self._current_x, self._current_y
-        self._current_x = math.round(self._current_x + final_delta_x)
-        self._current_y = math.round(self._current_y + final_delta_y)
+        self._current_x = _round(self._current_x + final_delta_x)
+        self._current_y = _round(self._current_y + final_delta_y)
     end
 
     if self._is_shaking then
