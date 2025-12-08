@@ -327,16 +327,16 @@ rt.Translation = {
         },
 
         [3] = {
-            id = "one_way_platform_tutorial",
-            title = "TODO: One Way Platforms",
+            id = "air_dash_node_tutorial",
+            title = "TODO",
             description = "TODO",
             difficulty = 0,
             target_time = math.huge,
         },
 
         [4] = {
-            id = "air_dash_node_tutorial",
-            title = "TODO: Air Dash",
+            id = "portal_tutorial",
+            title = "TODO",
             description = "TODO",
             difficulty = 0,
             target_time = math.huge,

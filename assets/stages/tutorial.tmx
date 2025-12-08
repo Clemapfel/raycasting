@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1190">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1197">
  <editorsettings>
   <export target="tutorial.lua" format="lua"/>
  </editorsettings>
@@ -339,7 +339,7 @@
    </properties>
    <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
   </object>
-  <object id="154" name="Spawn" type="PlayerSpawn" x="-6878.87" y="1987.55">
+  <object id="154" name="Spawn" type="PlayerSpawn" x="-6751.27" y="1985.08">
    <point/>
   </object>
   <object id="155" type="Hitbox" x="1168" y="2176">
@@ -909,205 +909,11 @@
    </properties>
    <polygon points="-2293.66,413.51 -3189.66,413.51 -4272.35,426.2 -4591.42,76.4513 -3943.78,-448.734 -3397.66,-338.49 -3397.66,173.51 -2965.66,173.51 -2869.66,125.51 -2805.66,61.51 -2773.66,-18.49 -2245.66,-18.49 -2245.66,173.51 -1558.94,175.203 -1093.66,45.51 -917.66,45.51 -917.66,-354.49 -763.587,123.527 -213.66,253.51 660.67,253.514 1472,256 1466.34,-18.4863 1610.34,-18.4863 2122.34,253.514 2266.34,253.514 2266.34,-82.4863 2378.34,-82.4863 2378.34,397.514 1616,400 506.335,400 -1285.66,397.51"/>
   </object>
-  <object id="879" type="MovingHitboxTarget" x="-3069.98" y="2202.88">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="880" type="MovingHitbox" x="-4976" y="2144">
-   <properties>
-    <property name="target" type="object" value="881"/>
-    <property name="velocity" type="float" value="500"/>
-   </properties>
-   <polygon points="1089.04,46.5606 1089.04,78.5606 1286.05,78.5606 1361.04,78.5606 1361.04,46.5606"/>
-  </object>
-  <object id="881" type="MovingHitboxTarget" x="-3758.96" y="2206.56">
-   <properties>
-    <property name="target" type="object" value="879"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="882" type="MovingHitboxTarget" x="-3069.98" y="2042.88">
-   <properties>
-    <property name="target" type="object" value="0"/>
-    <property name="velocity" type="float" value="50"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="883" type="MovingHitbox" x="-4976" y="1984">
-   <properties>
-    <property name="target" type="object" value="884"/>
-    <property name="velocity" type="float" value="250"/>
-   </properties>
-   <polygon points="1089.04,46.5606 1089.04,78.5606 1286.05,78.5606 1361.04,78.5606 1361.04,46.5606"/>
-  </object>
-  <object id="884" type="MovingHitboxTarget" x="-3758.96" y="2046.56">
-   <properties>
-    <property name="target" type="object" value="882"/>
-    <property name="velocity" type="float" value="50"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="885" type="MovingHitboxTarget" x="-3072" y="1872">
-   <properties>
-    <property name="target" type="object" value="0"/>
-    <property name="velocity" type="float" value="10"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="886" type="MovingHitbox" x="-4978.02" y="1813.12">
-   <properties>
-    <property name="target" type="object" value="887"/>
-    <property name="velocity" type="float" value="100"/>
-   </properties>
-   <polygon points="1089.04,46.5606 1089.04,78.5606 1286.05,78.5606 1361.04,78.5606 1361.04,46.5606"/>
-  </object>
-  <object id="887" type="MovingHitboxTarget" x="-3760.98" y="1875.68">
-   <properties>
-    <property name="target" type="object" value="885"/>
-    <property name="velocity" type="float" value="10"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="894" type="MovingHitboxTarget" x="-3069.98" y="2346.88">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="895" type="MovingHitbox" x="-7506.02" y="2288">
-   <properties>
-    <property name="target" type="object" value="896"/>
-    <property name="velocity" type="float" value="1000"/>
-   </properties>
-   <polygon points="3113.45,46.5606 3113.45,78.5606 3676.67,78.5606 3891.06,78.5606 3891.06,46.5606"/>
-  </object>
-  <object id="896" type="MovingHitboxTarget" x="-3758.96" y="2350.56">
-   <properties>
-    <property name="target" type="object" value="894"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="909" type="MovingHitboxTarget" x="-2380.13" y="1520">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="910" type="MovingHitbox" x="-2608" y="1617.88">
-   <properties>
-    <property name="target" type="object" value="911"/>
-    <property name="velocity" type="float" value="500"/>
-   </properties>
-   <polygon points="207.187,353.759 207.187,596.889 244.667,596.889 258.934,596.889 258.934,353.759"/>
-  </object>
-  <object id="911" type="MovingHitboxTarget" x="-2375.77" y="2108.85">
-   <properties>
-    <property name="target" type="object" value="909"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="912" type="MovingHitboxTarget" x="-2540.13" y="1408">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="913" type="MovingHitbox" x="-2768" y="1505.88">
-   <properties>
-    <property name="target" type="object" value="914"/>
-    <property name="velocity" type="float" value="100"/>
-   </properties>
-   <polygon points="207.187,353.759 207.187,596.889 244.667,596.889 258.934,596.889 258.934,353.759"/>
-  </object>
-  <object id="914" type="MovingHitboxTarget" x="-2535.77" y="1996.85">
-   <properties>
-    <property name="target" type="object" value="912"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="915" type="MovingHitboxTarget" x="-2716.13" y="1296">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="916" type="MovingHitbox" x="-2944" y="1393.88">
-   <properties>
-    <property name="target" type="object" value="917"/>
-    <property name="velocity" type="float" value="10"/>
-   </properties>
-   <polygon points="207.187,353.759 207.187,596.889 244.667,596.889 258.934,596.889 258.934,353.759"/>
-  </object>
-  <object id="917" type="MovingHitboxTarget" x="-2711.77" y="1884.85">
-   <properties>
-    <property name="target" type="object" value="915"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="941" type="MovingHitboxTarget" x="-3788.41" y="1496.99">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="942" type="MovingHitbox" x="-4155.46" y="1361.2">
-   <properties>
-    <property name="target" type="object" value="943"/>
-    <property name="velocity" type="float" value="10"/>
-   </properties>
-   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
-  </object>
-  <object id="943" type="MovingHitboxTarget" x="-3380.4" y="1668.55">
-   <properties>
-    <property name="target" type="object" value="941"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="944" type="MovingHitboxTarget" x="-3579.74" y="1312.86">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="945" type="MovingHitbox" x="-3703.44" y="1289.93">
-   <properties>
-    <property name="target" type="object" value="946"/>
-    <property name="velocity" type="float" value="200"/>
-   </properties>
-   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
-  </object>
-  <object id="946" type="MovingHitboxTarget" x="-2928.38" y="1597.28">
-   <properties>
-    <property name="target" type="object" value="944"/>
-   </properties>
-   <point/>
-  </object>
   <object id="955" type="Hitbox" x="-2400" y="3408">
    <properties>
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,0 144,160 320,0 144,-144 -32,32 144,224 400,-16 144,-208 -64,-16 -32,32"/>
-  </object>
-  <object id="965" type="MovingHitboxTarget" x="-4538.54" y="1661.6">
-   <properties>
-    <property name="target" type="object" value="0"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="966" type="MovingHitbox" x="-5310.22" y="1882.44">
-   <properties>
-    <property name="target" type="object" value="967"/>
-    <property name="velocity" type="float" value="1000"/>
-   </properties>
-   <polygon points="687.067,223.406 687.067,376.948 811.357,376.948 858.669,376.948 858.669,223.406"/>
-  </object>
-  <object id="967" type="MovingHitboxTarget" x="-4540" y="2202.86">
-   <properties>
-    <property name="target" type="object" value="965"/>
-   </properties>
-   <point/>
   </object>
   <object id="1011" name="Tether" type="DoubleJumpTether" x="-2341.75" y="821.215">
    <point/>
@@ -1215,13 +1021,12 @@
   <object id="1140" name="BoostField" type="BoostField" x="-6494.4" y="1667.39">
    <polygon points="0,0 0,112 128,64"/>
   </object>
-  <object id="1144" name="BubbleField" type="BubbleField" x="-7265.58" y="2003.96">
+  <object id="1144" name="BubbleField" type="BubbleField" x="-6628.12" y="1282.41">
    <polygon points="0,0 0,-154.042 172.31,-154.042 172.31,0"/>
   </object>
-  <object id="1147" name="Coin" type="Coin" x="-6330.57" y="1903.31">
+  <object id="1147" name="Coin" type="Coin" x="-6685.94" y="2097.87">
    <point/>
   </object>
-  <object id="1148" type="Hitbox" x="-6550.51" y="1841.32" width="106.707" height="448.765"/>
   <object id="1149" name="DoubleJumpTether" type="DoubleJumpTether" x="-5968.37" y="1943.03">
    <point/>
   </object>
@@ -1279,10 +1084,7 @@
   <object id="1169" type="OneWayPlatformTarget" x="-5463.92" y="2060.27">
    <point/>
   </object>
-  <object id="1180" type="PathNode" x="-6759.72" y="1884.27">
-   <point/>
-  </object>
-  <object id="1181" type="Portal" x="-6720" y="1968">
+  <object id="1181" name="Portal" type="Portal" x="-7040" y="2144">
    <properties>
     <property name="left_or_right" type="bool" value="false"/>
     <property name="other" type="object" value="1182"/>
@@ -1290,10 +1092,10 @@
    </properties>
    <point/>
   </object>
-  <object id="1182" type="PortalNode" x="-6682" y="2054.61">
+  <object id="1182" type="PortalNode" x="-6768" y="2144">
    <point/>
   </object>
-  <object id="1183" type="Portal" x="-7088" y="2108.5">
+  <object id="1183" name="Portal" type="Portal" x="-7120" y="1920">
    <properties>
     <property name="left_or_right" type="bool" value="false"/>
     <property name="other" type="object" value="1184"/>
@@ -1301,25 +1103,33 @@
    </properties>
    <point/>
   </object>
-  <object id="1184" type="PortalNode" x="-7008" y="2108.5">
+  <object id="1184" type="PortalNode" x="-7120" y="2032">
    <point/>
   </object>
-  <object id="1185" name="Path" type="Path" x="-6655.25" y="2112.24">
-   <properties>
-    <property name="next" type="object" value="1180"/>
-    <property name="target" type="object" value="1181"/>
-   </properties>
+  <object id="1186" type="PathNode" x="-7136" y="1872">
    <point/>
   </object>
-  <object id="1186" type="PathNode" x="-7040" y="1888">
-   <point/>
-  </object>
-  <object id="1187" name="Path" type="Path" x="-7040" y="2112">
+  <object id="1187" name="Path" type="Path" x="-7136" y="2080">
    <properties>
     <property name="next" type="object" value="1186"/>
     <property name="target_01" type="object" value="1183"/>
-    <property name="target_02" type="object" value="1144"/>
+    <property name="target_02" type="object" value="1190"/>
    </properties>
+   <point/>
+  </object>
+  <object id="1190" type="MovableHitbox" x="-7120" y="1888">
+   <polygon points="0,0 0,160 -48,160 -48,0"/>
+  </object>
+  <object id="1192" name="Coin" type="Coin" x="-6642.84" y="2118.32">
+   <point/>
+  </object>
+  <object id="1193" name="Coin" type="Coin" x="-6690.49" y="2122.3">
+   <point/>
+  </object>
+  <object id="1194" name="Coin" type="Coin" x="-6849.32" y="2032.96">
+   <point/>
+  </object>
+  <object id="1195" name="Coin" type="Coin" x="-6756.01" y="2021.04">
    <point/>
   </object>
  </objectgroup>

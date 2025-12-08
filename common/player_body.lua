@@ -711,8 +711,10 @@ rt.PlayerBody.update_rope = function(data)
 
     n_distance_iterations = n_distance_iterations + n_bending_iterations
 
+    local rope_changed = false
+
     while
-    (n_velocity_iterations_done < n_velocity_iterations)
+        (n_velocity_iterations_done < n_velocity_iterations)
         or (n_distance_iterations_done < n_distance_iterations)
         or (n_axis_iterations_done < n_axis_iterations)
         or (n_bending_iterations_done < n_bending_iterations)
@@ -745,8 +747,13 @@ rt.PlayerBody.update_rope = function(data)
                 end
 
                 -- sic: mass * gravity is intended
-                positions[i+0] = current_x + velocity_x + mass * gravity_x * delta + attraction_dx * mass
-                positions[i+1] = current_y + velocity_y + mass * gravity_y * delta + attraction_dy * mass
+                local delta_x = velocity_x + mass * gravity_x * delta + attraction_dx * mass
+                local delta_y = velocity_y + mass * gravity_y * delta + attraction_dy * mass
+
+                positions[i+0] = current_x + delta_x
+                positions[i+1] = current_y + delta_y
+
+                if math.magnitude(delta_x, delta_y) > 1 then rope_changed = true end
 
                 last_positions[i+0] = before_x
                 last_positions[i+1] = before_y
@@ -868,6 +875,8 @@ rt.PlayerBody.update_rope = function(data)
             n_distance_iterations_done = n_distance_iterations_done + 1
         end
     end
+
+    return rope_changed
 end
 
 --- @brief
