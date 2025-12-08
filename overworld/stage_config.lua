@@ -194,7 +194,7 @@ function ow.StageConfig:instantiate(stage_id)
 
             -- set object wrapper body type based on whether a path points to it
             for path in values(all_path_objects) do
-                for property in values(path:list_property_names()) do
+                for property in values(path:get_property_names()) do
                     if rt.settings.overworld.objects.path.is_target_property_pattern(property) then
                         path:get_object(property, true).should_be_kinematic = true
                     end
