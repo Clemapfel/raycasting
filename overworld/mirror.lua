@@ -40,6 +40,7 @@ end
 function ow.Mirror:draw()
     local should_stencil = self._draw_mirror_mask_callback ~= nil
 
+
     -- stencil mirror areas
     if should_stencil then
         local stencil_value = rt.graphics.get_stencil_value()
@@ -69,9 +70,10 @@ function ow.Mirror:draw()
 
     local camera = self._scene:get_camera()
     local player = self._scene:get_player()
+    local player_opacity = ternary(player:get_is_visible(), 1, 0)
 
     _shader:bind()
-    _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+    _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), player_opacity) })
     _shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_position()) })
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("camera_offset", { camera:get_offset() })

@@ -147,10 +147,12 @@ function ow.BoostField:draw()
     transform:translate(offset_x, offset_y)
     transform = transform:inverse()
 
+    local player_opacity = ternary(player:get_is_visible(), 1, 0)
+
     love.graphics.setColor(self._color)
     _shader:bind()
     _shader:send("player_position", { px, py })
-    _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) })
+    _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), player_opacity) })
     _shader:send("screen_to_world_transform", transform)
     _shader:send("player_influence", self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat()))
     _shader:send("axis", { self._axis_x, self._axis_y })
