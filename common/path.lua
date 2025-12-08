@@ -10,7 +10,13 @@ function rt.Path:instantiate(points, ...)
         points = { points, ... }
     end
 
-    rt.assert(#points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to create a path")
+    if #points < 2 then
+        points = { 0, 0, 0, 0 }
+    elseif #points < 4 then
+        table.insert(points, points[1])
+        table.insert(points, points[2])
+    end
+
     rt.assert(#points % 2 == 0, "In rt.Path: number of point coordinates must be even")
 
     local out = meta.install(self, {

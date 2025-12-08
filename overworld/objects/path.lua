@@ -2,7 +2,6 @@ require "common.path"
 require "common.spline"
 require "overworld.normal_map"
 require "overworld.mirror"
-require "overworld.objects.moving_hitbox_path"
 require "overworld.movable_object"
 
 rt.settings.overworld.objects.path = {
@@ -52,10 +51,14 @@ function ow.Path:instantiate(object, stage, scene)
         self._color = rt.RGBA(1, 1, 1, 1)
     end
 
+    self._stage:signal_connect("respawn", function()
+        self:reset()
+    end)
+
     local targets = {}
 
     -- get additional targets
-    for property_name in values(object:list_property_names()) do
+    for property_name in values(object:get_property_names()) do
         if rt.settings.overworld.objects.path.is_target_property_pattern(property_name) then
             table.insert(targets, object:get_object(property_name, true))
         end
@@ -74,8 +77,8 @@ function ow.Path:instantiate(object, stage, scene)
             local start_x, start_y = instance:get_position()
             local entry = {
                 target = instance,
-                start_x = start_x,
-                start_y = start_y,
+                offset_x = start_x,  -- will be transformed to offset below
+                offset_y = start_y,
             }
 
             table.insert(self._entries, entry)
@@ -97,36 +100,42 @@ function ow.Path:instantiate(object, stage, scene)
             table.insert(path, path[1])
             table.insert(path, path[2])
         end
-            if self._is_smooth then
-                local spline = rt.Spline(path)
-                local length = spline:get_length()
-                local segment_length = rt.settings.overworld.objects.path.segment_length
-                local n_segments = math.ceil(length / segment_length)
 
-                local spline_path = {}
-                for i = 1, n_segments do
-                    local t = (i - 1) / n_segments
-                    local x, y = spline:at(t)
-                    table.insert(spline_path, x)
-                    table.insert(spline_path, y)
-                end
+        for entry in values(self._entries) do
+            entry.offset_x = entry.offset_x - path[1]
+            entry.offset_y = entry.offset_y - path[2]
+        end
 
-                self._path = rt.Path(spline_path)
-            else
-                self._path = rt.Path(path)
+        if self._is_smooth then
+            local spline = rt.Spline(path)
+            local length = spline:get_length()
+            local segment_length = rt.settings.overworld.objects.path.segment_length
+            local n_segments = math.ceil(length / segment_length)
+
+            local spline_path = {}
+            for i = 1, n_segments do
+                local t = (i - 1) / n_segments
+                local x, y = spline:at(t)
+                table.insert(spline_path, x)
+                table.insert(spline_path, y)
             end
 
-            if self._is_visible then
-                self._camera_body = b2.Body(
-                    self._stage:get_physics_world(),
-                    b2.BodyType.STATIC,
-                    0, 0,
-                    b2.Segment(path)
-                )
-                self._camera_body:set_collides_with(0x0)
-                self._camera_body:set_collision_group(0x0)
-            end
-        end)
+            self._path = rt.Path(spline_path)
+        else
+            self._path = rt.Path(path)
+        end
+
+        if self._is_visible then
+            self._camera_body = b2.Body(
+                self._stage:get_physics_world(),
+                b2.BodyType.STATIC,
+                0, 0,
+                b2.Segment(path)
+            )
+            self._camera_body:set_collides_with(0x0)
+            self._camera_body:set_collision_group(0x0)
+        end
+    end)
 
     local centroid_x, centroid_y = object:get_centroid()
     self._velocity = object:get_number("velocity", false) or rt.settings.overworld.moving_hitbox.default_velocity
@@ -194,11 +203,11 @@ function ow.Path:update(delta)
     -- when object completes loop, snap to start to avoid numerical drift
     local difference = math.abs(self._last_t - t)
     if difference > 0.5 then
+        local x, y = self._path:at(0)
         for entry in values(self._entries) do
-            local x, y = self._path:at(0)
             entry.target:set_position(
-                x - entry.start_x,
-                y - entry.start_y
+                x + entry.offset_x,
+                y + entry.offset_y
             )
         end
     end
@@ -235,9 +244,12 @@ end
 --- @brief
 function ow.Path:reset()
     self._elapsed = 0
-
+    local x, y = self._path:at(0)
     for entry in values(self._entries) do
-        entry.target:set_position(entry.start_x, entry.start_y)
+        entry.target:set_position(
+            x + entry.offset_x,
+            y + entry.offset_y
+        )
     end
 end
 
