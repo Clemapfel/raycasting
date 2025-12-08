@@ -1148,6 +1148,11 @@ end
 --- @brief
 function ow.OverworldScene:reset()
     local before = self._stage_id
+
+    if before ~= nil then
+        rt.GameState:reinitialize_stage(before)
+    end
+
     self._stage_id = nil
     self._stage = nil
     self._stage_mapping = {}

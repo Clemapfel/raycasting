@@ -352,6 +352,7 @@ function ow.Stage:instantiate(scene, id)
     end
 
     self._is_initialized = true
+
     self:signal_emit("initialized")
 
     self._is_first_spawn = true
@@ -510,8 +511,11 @@ function ow.Stage:get_point_light_sources()
 
         local camera = self._scene:get_camera()
 
-        table.insert(positions, { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-        table.insert(colors, { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1)})
+        local player = self._scene:get_player()
+        if player:get_is_visible() then
+            table.insert(positions, { camera:world_xy_to_screen_xy(player:get_position()) })
+            table.insert(colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
+        end
 
         for body in values(self._light_sources) do
             local class = body:get_user_data()

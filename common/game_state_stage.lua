@@ -29,6 +29,11 @@ rt.settings.game_state.stage = {
 
 local _debug_output = false
 
+local warn = function(i, name)
+    rt.warning("In rt.Translation: stage entry `",  i,  "` does not have `",  name,  "` property")
+end
+
+
 --- @brief
 function rt.GameState:_initialize_stage()
     if self._stage_initialized == true then return end
@@ -38,10 +43,6 @@ function rt.GameState:_initialize_stage()
     self._stage_id_to_i = {}
 
     local path_prefix = rt.settings.overworld.stage_config.config_path
-
-    local warn = function(i, name)
-        rt.warning("In rt.Translation: stage entry `",  i,  "` does not have `",  name,  "` property")
-    end
 
     for i, entry in pairs(rt.Translation.stages) do
         local id = entry.id
@@ -127,6 +128,81 @@ function rt.GameState:_get_stage(id, scope)
         rt.error("In rt.GameState.", scope, "`: no stage with id `", id, "`")
     end
     return stage
+end
+
+--- @brief
+function rt.GameState:reinitialize_stage(stage_id)
+    local i = self._stage_id_to_i[stage_id]
+    local stage_entry = self._stages[i]
+    local entry = rt.Translation.stages[i]
+
+    local id = entry.id
+    if id == nil then
+        rt.error("In rt.Translation: stage entry `",  i,  "` does not have an id")
+    end
+
+    local title = entry.title
+    if title == nil then
+        warn(i, "title")
+        title = id
+    end
+
+    local description = entry.description
+    if description == nil then
+        warn(i, "description")
+        description = "(no description)"
+    end
+
+    local difficulty = entry.difficulty
+    if difficulty == nil then
+        warn(i, "difficulty")
+        difficulty = 0
+    end
+
+    local target_time = entry.target_time
+    if target_time == nil then
+        warn(i, "target_time")
+        target_time = math.huge
+    end
+
+    local config = ow.StageConfig(id)
+    local n_coins, n_checkpoints = 0, 0
+    for layer_i = 1, config:get_n_layers() do
+        for object in values(config:get_layer_object_wrappers(layer_i)) do
+            if object.class == "Coin" then
+                n_coins = n_coins + 1
+            elseif object.class == "Checkpoint" or object.class == "PlayerGoal" then
+                n_checkpoints = n_checkpoints + 1
+            end
+        end
+    end
+
+    local stage = {
+        id = id,
+        path = stage_entry.path,
+        title = title,
+        difficulty = difficulty,
+        description = description,
+        target_time = target_time,
+        n_coins = n_coins,
+        index = i,
+        splits = {
+            n_segments = n_checkpoints,
+            best_segments = table.rep(0, n_checkpoints), -- best time for individual segments
+            best_run = table.rep(0, n_checkpoints) -- overall splits of best run
+        }
+    }
+
+    self._stages[i] = stage
+
+    if _debug_output then
+        local t = 0
+        for segment_i = 1, n_checkpoints do
+            t = t + rt.random.number(0, 10)
+            stage.splits.best_segments[segment_i] = t
+            stage.splits.best_run[segment_i] = t
+        end
+    end
 end
 
 --- @brief
