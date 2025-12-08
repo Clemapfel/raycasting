@@ -107,8 +107,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._collapse_active = false
 
     self._stage:signal_connect("respawn", function()
-        self._transition_active = false
-        self._collapse_active = false
+        self:reset()
     end)
 
     -- wait for initialization, then set up geometry
@@ -120,7 +119,7 @@ function ow.Portal:instantiate(object, stage, scene)
             if not object:get_type() == ow.ObjectType.POINT then
                 rt.error("In ow.Portal: object `", object:get_id(), "` is not a point")
             end
-            local ax, ay = object.x, object.y
+            local bx, by = object.x, object.y -- sic, reverse winding order compared to tiled
 
             local other = object:get_object("other", true)
             if not other:get_type() == ow.ObjectType.POINT then
@@ -130,7 +129,7 @@ function ow.Portal:instantiate(object, stage, scene)
             if not other:get_class() == meta.get_typename(ow.PortalNode) then
                 rt.error("In ow.Portal: object `", other:get_id(), "` is not a `PortalNode`, despite being the `target` of portal `", object:get_id(), "`")
             end
-            local bx, by = other.x, other.y
+            local ax, ay = other.x, other.y
 
             self._offset_x, self._offset_y = math.mix2(ax, ay, bx, by, 0.5)
             self._ax = ax - self._offset_x
@@ -274,7 +273,9 @@ function ow.Portal:instantiate(object, stage, scene)
 
                 -- check if angle is shallower than 15 degrees
                 local threshold = math.cos(rt.settings.overworld.objects.portal.velocity_angle_min_threshold)
-                if dot_parallel > threshold then
+                if not self._scene:get_player():get_is_grounded()
+                    and dot_parallel > threshold
+                then
                     return nil
                 end
 
@@ -342,6 +343,7 @@ function ow.Portal:instantiate(object, stage, scene)
                     self._collapse_active = true
 
                     self._transition_active = true
+                    player:set_position_override_active(true)
                     self:_set_stencil_enabled(true)
                     self._target:_set_stencil_enabled(true)
 
@@ -361,6 +363,8 @@ function ow.Portal:instantiate(object, stage, scene)
 
         -- setup tether, wait for first update since both portals need to have been fully initialized
         self._world:signal_connect("step", function(_)
+            if not self._stage:get_is_initialized() then return end -- wait for normal map to be done
+
             if self._has_tether == nil then
                 local other = self._target
 
@@ -423,8 +427,8 @@ function ow.Portal:instantiate(object, stage, scene)
 
         -- distribute evenly across line
         local ax, ay, bx, by = table.unpack(self._particle_axis)
-        local t, direction = 0, 1
         for i = 1, n_particles do
+            local t = (i - 1) / n_particles
             local x, y = math.mix2(ax, ay, bx, by, t)
             local particle = {
                 [_x] = x,
@@ -434,20 +438,6 @@ function ow.Portal:instantiate(object, stage, scene)
                 [_scale] = rt.random.number(settings.min_scale, settings.max_scale),
                 [_t] = t
             }
-
-            if direction == _FORWARD then
-                t = t + min_radius / length
-            else
-                t = t - min_radius / length
-            end
-
-            if t > 1 then
-                t = 1
-                direction = not direction
-            elseif t < 0 then
-                t = 0
-                direction = not direction
-            end
 
             table.insert(self._particles, particle)
         end
@@ -469,7 +459,11 @@ end
 --- @brief
 function ow.Portal:_set_player_disabled(b)
     local player = self._scene:get_player()
-    player:set_is_ghost(b)
+    if b == true then
+        player:set_is_ghost(true)
+    end
+    -- ghost disable happens in _teleport
+
     self._scene:set_camera_mode(ow.CameraMode.MANUAL)
 end
 
@@ -527,13 +521,14 @@ function ow.Portal:update(delta)
 
         local transition_x, transition_y, path
         if self._tether ~= nil then
-            path = rt.Path(self._tether:get_points())
+            path = self._tether:as_path()
             transition_x, transition_y = path:at(t)
         else
-            path = rt.Path(self._target._tether:get_points())
+            path = self._target._tether:as_path()
             transition_x, transition_y = path:at(1 - t)
         end
         self._scene:get_camera():move_to(transition_x, transition_y)
+        player:set_position_override(transition_x, transition_y)
 
         -- reposition stencil body
         do
@@ -563,8 +558,8 @@ function ow.Portal:update(delta)
 
         -- once camera arrives, properly teleport
         if t >= 1 then
-            self:_teleport()
             self:_set_player_disabled(false)
+            self:_teleport()
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
             self._transition_active = false
@@ -584,11 +579,10 @@ function ow.Portal:update(delta)
     if self._stage:get_is_body_visible(self._area_sensor) == false then return end
 
     -- tether
-    if self._tether ~= nil and (self._object:get_physics_body_type() ~= b2.BodyType.STATIC or target._object:get_physics_body_type() ~= b2.BodyType.STATIC) then
-        self._tether:tether(
-            self._offset_x, self._offset_y,
-            target._offset_x, target._offset_y
-        )
+    if self._tether ~= nil then
+        local ax, ay = self._segment_sensor:get_position()
+        local bx, by = self._target._segment_sensor:get_position()
+        self._tether:tether(ax, ay, bx, by)
         self._tether:update(delta)
     end
 
@@ -671,17 +665,21 @@ function ow.Portal:_teleport()
     player:set_velocity(player_vx, player_vy)
 
     local elapsed = 0
+    -- continue setting velocity to assure 100% consistent exit velocity
+    -- ghost delayed to prevent dying on spawning inside a wall the target portal is on
     self._world:signal_connect("step", function(_, delta)
         player:set_velocity(player_vx, player_vy)
         elapsed = elapsed + delta
 
-        if elapsed > 4 / 60 then
+        if elapsed > 5 / 60 then
+            player:set_is_ghost(false)
             return meta.DISCONNECT_SIGNAL
         end
     end)
     self._player_teleported = true
 
     self._transition_active = false
+    player:set_position_override_active(false)
 
     -- make portals hue
     player:set_hue(self._hue)
@@ -715,8 +713,8 @@ function ow.Portal:draw()
     local r, g, b, a = table.unpack(self._color)
 
     if self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
-        love.graphics.setLineWidth(10)
-        love.graphics.setColor(r, g, b, a)
+        love.graphics.setLineWidth(2)
+        love.graphics.setColor(r, g, b, a * 0.5)
         self._tether:draw()
     end
 
