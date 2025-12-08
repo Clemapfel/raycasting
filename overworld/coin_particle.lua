@@ -35,7 +35,7 @@ function ow.CoinParticle:instantiate(radius, is_outline)
     })
 
     local n_points = math.max(16, 16 * radius / 16)
-    self._line_width = math.max(radius / 32, 0.5)
+    self._line_width = math.max(radius / 32, 1.5)
 
     local floor = math.floor
 

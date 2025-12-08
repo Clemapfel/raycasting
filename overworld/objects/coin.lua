@@ -19,6 +19,7 @@ rt.settings.overworld.coin = {
 
 --- @class ow.Coin
 --- @types Point
+--- @field should_move_in_place Boolean? whether to add noise while stationary
 ow.Coin = meta.class("Coin", ow.MovableObject)
 
 local _pulse_mesh = nil
@@ -97,6 +98,10 @@ function ow.Coin:instantiate(object, stage, scene)
 
     self._is_collected = false
     self._timestamp = -math.huge -- timestamp of collection
+    self._use_noise = object:get_boolean("should_move_in_place", false)
+    dbg(object:get_property_names())
+    if self._use_noise == nil then self._use_noise = true end
+
     self._noise_x, self._noise_y = 0, 0
     self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, 2 * math.pi)), math.sin(rt.random.number(0, 2 * math.pi))
     self._noise_amplitude = 1
@@ -107,6 +112,8 @@ function ow.Coin:instantiate(object, stage, scene)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
     self._body:signal_connect("collision_start", function(self_body, player_body)
+        if not player_body:has_tag("player") then return end
+
         if self._is_collected then return end
         rt.SoundManager:play(rt.settings.overworld.coin.sound_id)
         self:set_is_collected(true)
@@ -222,15 +229,18 @@ function ow.Coin:update(delta)
         if not self._stage:get_is_body_visible(self._body) then return end
 
         self._elapsed = self._elapsed + delta
-        local frequency = rt.settings.overworld.coin.translation_noise_frequency
-        local offset = self._radius
-        self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
-        self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
 
-        self._light_source_proxy:set_position(self._x + self._noise_x, self._y + self._noise_y)
+        if self._use_noise then
+            local frequency = rt.settings.overworld.coin.translation_noise_frequency
+            local offset = self._radius
+            self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+            self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
 
-        frequency = rt.settings.overworld.coin.amplitude_noise_frequency
-        self._noise_amplitude = rt.settings.overworld.coin.amplitude_max_offset * (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1)
+            self._light_source_proxy:set_position(self._x + self._noise_x, self._y + self._noise_y)
+
+            frequency = rt.settings.overworld.coin.amplitude_noise_frequency
+            self._noise_amplitude = rt.settings.overworld.coin.amplitude_max_offset * (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1)
+        end
     end
 end
 
@@ -259,7 +269,11 @@ function ow.Coin:draw()
             self._particle:draw(self._respawn_return_motion:get_position())
         else
             local offset_x, offset_y = self._body:get_position()
-            self._particle:draw(offset_x + self._noise_x, offset_y + self._noise_y)
+            if self._use_noise then
+                self._particle:draw(offset_x + self._noise_x, offset_y + self._noise_y)
+            else
+                self._particle:draw(offset_x, offset_y)
+            end
         end
     end
 end
