@@ -48,9 +48,9 @@ function mn.PauseMenu:instantiate(scene)
 
     local translation = rt.Translation.pause_menu
     self._control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.JUMP, translation.control_indicator_select,
-        rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
-        --rt.ControlIndicatorButton.START, translation.control_indicator_unpause
+        rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_select,
+        rt.ControlIndicatorButton.BACK, translation.control_indicator_unpause,
+    rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_move
     )
     self._control_indicator:set_has_frame(false)
 

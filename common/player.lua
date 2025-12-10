@@ -1160,32 +1160,22 @@ function rt.Player:update(delta)
             -- wall friction
             local net_friction_x, net_friction_y = 0, 0
 
+            -- 0 if slop is horizontal or sloping down, 0-1 if sloping up or vertical
             local function surface_slope_factor(velocity_x, velocity_y, normal_x, normal_y)
-                -- Normalize velocity to get direction
-                local vel_dir_x, vel_dir_y = math.normalize(velocity_x, velocity_y)
+                local dx, dy = math.normalize(velocity_x, velocity_y)
                 normal_x, normal_y = math.normalize(normal_x, normal_y)
 
-                -- Factor 1: How much the surface is NOT downward-facing
-                -- Clamp normal_y to [0, 1] so downward surfaces (normal_y < 0) give 0
                 local not_downward = math.max(0, normal_y)
-
-                -- Factor 2: How much the surface slopes towards the player
-                -- Dot product of velocity with normal (negative = opposing = slopes towards)
-                local horizontal_dot = vel_dir_x * normal_x
-                local towards_factor = math.max(0, -horizontal_dot)
-
-                -- Factor 3: Vertical surfaces should have high value
-                -- 1 - |normal_y| gives 1 for vertical, 0 for horizontal
+                local towards_factor = math.max(0, -dx * normal_x)
                 local vertical_factor = 1 - math.abs(normal_y)
 
-                -- Combine: not downward AND (slopes towards player OR is vertical)
-                -- Use max to favor whichever is stronger
                 local slope_contribution = math.max(towards_factor, vertical_factor)
-
-                -- Scale by how non-downward the surface is (but add bonus for vertical)
-                return rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(math.max(not_downward, vertical_factor) * slope_contribution)
+                return rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(
+                    math.max(not_downward, vertical_factor) * slope_contribution
+                )
             end
 
+            -- wall / ground friction
             local apply_friction = function(
                 normal_x, normal_y,
                 contact_x, contact_y,
@@ -1204,11 +1194,6 @@ function rt.Player:update(delta)
                     body_friction = body_friction - 1
                 end
 
-                -- Calculate surface verticality (0 = horizontal floor/ceiling, 1 = vertical wall)
-                -- Horizontal surfaces have normal pointing up/down (normal_x ≈ 0)
-                -- Vertical surfaces have normal pointing left/right (|normal_x| ≈ 1)
-
-                -- Get positions and velocities
                 local player_x, player_y = self._body:get_position()
                 local player_vx, player_vy = self._body:get_velocity()
                 local body_velocity_x, body_velocity_y = body:get_velocity()
@@ -1217,39 +1202,23 @@ function rt.Player:update(delta)
 
                 friction_multiplier = friction_multiplier * (surface_slope_factor(player_vx, player_vy, normal_x, normal_y))
 
-                -- Calculate relative velocity (player velocity relative to surface)
                 local relative_vx = player_vx - body_velocity_x
                 local relative_vy = player_vy - body_velocity_y
 
-                -- Get surface tangent (perpendicular to normal, points along surface)
                 local tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
-
-                -- Project relative velocity onto tangent to get sliding speed
-                -- Positive = sliding in tangent direction, Negative = sliding opposite
                 local slide_speed = math.dot(relative_vx, relative_vy, tangent_x, tangent_y)
 
-                -- Get surface friction coefficient from body
                 local surface_friction_coefficient = body_friction * _settings.friction_coefficient
 
-                -- Calculate normal force (how hard player is pressed into surface)
-                -- Component 1: Compression from penetration depth
                 local contact_distance = math.distance(player_x, player_y, contact_x, contact_y)
                 local penetration_ratio = 1 - (contact_distance / ray_length)
-                local compression_force = 1 --penetration_ratio * _settings.friction_compression_influence
 
-                -- Component 2: Velocity pressing into surface
                 local velocity_into_surface = -math.dot(relative_vx, relative_vy, normal_x, normal_y)
                 local velocity_normal_force = math.max(0, velocity_into_surface)
+                local base_normal_force = velocity_normal_force
 
-                -- Total normal force before modifiers
-                local base_normal_force = compression_force + velocity_normal_force
-
-                -- Apply joystick/button influence on normal force
-                -- Player pushing into surface increases friction, pulling away reduces it
                 local input_modifier = 1.0
                 if use_analog_input then
-                    -- Joystick: measure how much player is pushing against surface
-                    -- Dot product with flipped normal gives [-1, 1] where 1 = pushing directly into surface
                     local push_factor = math.dot(
                         self._joystick_position_x,
                         self._joystick_position_y,
@@ -1257,38 +1226,27 @@ function rt.Player:update(delta)
                     )
                     input_modifier = math.max(0, push_factor)
                 elseif down_is_down then
-                    -- Keyboard down button: gradually release wall cling
                     local release_progress = math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
                     input_modifier = 1 - math.sqrt(release_progress) -- square root easing
                 end
 
-                -- Apply all modifiers to get final normal force
                 local normal_force = base_normal_force * input_modifier
-
-                -- Calculate friction force magnitude
-                -- Friction = coefficient × normal_force, scaled by surface verticality
                 local friction_magnitude = math.abs(surface_friction_coefficient) * normal_force * friction_multiplier
 
-                -- Determine friction force based on surface friction sign
                 local friction_force_along_tangent
-
                 if math.abs(slide_speed) < math.eps then
-                    -- No sliding = no friction
+                    -- sliding, no friction
                     friction_force_along_tangent = 0
                 elseif surface_friction_coefficient < 0 then
-                    -- Negative friction: ACCELERATE in direction of sliding
-                    -- This creates a "boost" effect along the tangent
+                    -- negative friction: accelerate
                     friction_force_along_tangent = friction_magnitude * math.sign(slide_speed)
                 else
-                    -- Zero or positive friction: OPPOSE sliding motion
-                    -- Clamp to never exceed slide_speed (prevents reversing direction)
-                    -- This ensures friction only slows down, never speeds up or reverses
+                    -- otherwise, apply friction along opposite tangent
                     local max_opposition = math.abs(slide_speed)
                     local opposition_force = math.min(friction_magnitude, max_opposition)
                     friction_force_along_tangent = -opposition_force * math.sign(slide_speed)
                 end
 
-                -- Convert friction force from tangent space to world space
                 net_friction_x = tangent_x * friction_force_along_tangent
                 net_friction_y = tangent_y * friction_force_along_tangent
             end

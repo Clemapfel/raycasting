@@ -44,7 +44,7 @@ function rt.GameState:_init_save_worker()
             local message
             repeat
                 message = worker.worker_to_main:demand()
-            until message.message_id == MessageType.SHUTDOWN;
+            until message.type == MessageType.SHUTDOWN;
         end)
 
         if not rt.ThreadManager:shutdown_active() then

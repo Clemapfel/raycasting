@@ -672,27 +672,23 @@ function love.errorhandler(message)
         end
     end
 
-    -- TODO
-    restart = function() return SHOULD_QUIT end
-    show_messages = function() return SHOULD_QUIT end
-    local debugger_connected = false
-
     return function()
         love.event.pump()
 
         -- check for events
         for event, a, b, c, d, e, f in love.event.poll() do
             if event == "quit" then
-                return 0
+                return a or 1, b
             elseif event == "keypressed" then
                 local key = b
-                local to_call = ternary(
-                    key == "escape" or key == "space" or key == "return",
-                    restart,
-                    show_messages
-                )
-                if to_call() == SHOULD_QUIT then
-                    return 0
+                if key == "space" or key == "return" then
+                    restart()
+                elseif key == "escape" then
+                    return 0 -- quit
+                else
+                    if show_messages() == SHOULD_QUIT then
+                        return 0
+                    end
                 end
             elseif event == "touchpressed"
                 or event == "mousepressed"

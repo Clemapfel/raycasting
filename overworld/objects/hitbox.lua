@@ -69,7 +69,7 @@ function ow.Hitbox:instantiate(object, stage, scene)
             friction = 0
         end
     end
-    self._body:set_friction(friction or 1)
+    self._body:set_friction(friction or -1)
     self._body:set_use_continuous_collision(true)
 
     local _, tris = object:create_mesh()

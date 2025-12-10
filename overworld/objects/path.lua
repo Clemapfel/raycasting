@@ -181,12 +181,12 @@ function ow.Path:update(delta)
         if distance_in_cycle <= length then
             -- going forwards
             t = distance_in_cycle / length
-            direction = ternary(self._is_reversed, -1, 1)
+            direction = 1
         else
             -- going backwards
             local backward_distance = distance_in_cycle - length
             t = (length - backward_distance) / length
-            direction = ternary(self._is_reversed, 1, -1)
+            direction = -1
         end
     end
 

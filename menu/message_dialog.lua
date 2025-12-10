@@ -231,7 +231,7 @@ function mn.MessageDialog:handle_button(which)
             self._selected_item_i = self._selected_item_i + 1
             self:_update_selected_item()
         end
-    elseif which == rt.InputAction.A then
+    elseif which == rt.InputAction.CONFIRM then
         local success = self:signal_try_emit("selection", self._options[self._selected_item_i])
         if not success then
             self:close() -- default button behavior

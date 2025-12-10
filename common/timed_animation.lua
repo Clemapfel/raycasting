@@ -114,9 +114,17 @@ end
 --- @brief
 function rt.TimedAnimation:set_elapsed(elapsed)
     self._elapsed = elapsed
+    if self._elapsed >= self._duration then
+        self:signal_emit("done")
+    end
 end
 
 --- @brief
 function rt.TimedAnimation:set_fraction(f)
     self._elapsed = f * self._duration
+end
+
+--- @brief
+function rt.TimedAnimation:get_fraction()
+    return math.clamp(self._elapsed / self._duration, 0, 1)
 end

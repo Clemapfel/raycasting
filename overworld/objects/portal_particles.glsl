@@ -51,6 +51,7 @@ vec3 lch_to_rgb(vec3 lch) {
 
 uniform float elapsed;
 uniform float hue;
+uniform float lightness;
 uniform vec3 black;
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_position) {
@@ -79,7 +80,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coordinates, vec2 frag_posit
     float alpha = mm;
 
     float noise = 0.1 * (gradient_noise(vec3(texture_coordinates * 5, elapsed / 2)));
-    vec3 final_color = lch_to_rgb(vec3(0.8, 1, hue + noise)) - magnitude * 0.2;
+    vec3 final_color = lch_to_rgb(vec3(0.8 * lightness, 1, hue + noise)) - magnitude * 0.2;
 
     return vec4(final_color * alpha, alpha);
 }

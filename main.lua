@@ -10,10 +10,6 @@ require "assets.level_design_permutation_aid"
 require "overworld.stage_preview"
 local preview = ow.StagePreview(ow.StageConfig("air_dash_node_tutorial"))
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, pressed)
-
-end)
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
