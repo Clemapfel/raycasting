@@ -31,7 +31,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
-    local other = object:get_object("target", true)
+    local other = object:get_object("other", true)
     for x in range(object, other) do
         if not x:get_type() == ow.ObjectType.POINT then
             rt.error("In ow.OneWayPlatform: object `", x:get_id(), "` is not a point")
@@ -100,6 +100,9 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         self._stencil_body:set_collides_with(0x0)
         self._stencil_body:set_collision_group(0x0)
 
+        self._stencil_body:add_tag("stencil")
+        self._stencil_body:set_is_enabled(false)
+
         self._sensor_test_active = false
         self._sensor:signal_connect("collision_start", function(_)
             self._sensor_test_active = true
@@ -108,7 +111,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         end)
 
         self._sensor:signal_connect("collision_end", function(_)
-            self._stencil_body:remove_tag("stencil")
+            self._stencil_body:set_is_enabled(false)
             self._sensor_test_active = false
         end)
     end
@@ -273,7 +276,7 @@ function ow.OneWayPlatform:update(delta)
     )
 
     -- check distance to line segment
-    if side >= 0 then
+    if side <= 0 then
         local vx, vy = x2 - x1, y2 - y1
 
         local len = math.magnitude(vx, vy)
@@ -290,11 +293,8 @@ function ow.OneWayPlatform:update(delta)
         should_stencil = math.distance(px, py, cx, cy) > player:get_radius()
     end
 
-    if should_stencil then
-        self._stencil_body:add_tag("stencil")
-    else
-        self._stencil_body:remove_tag("stencil")
-    end
+    self._stencil_body:set_is_enabled(true)
+    dbg(should_stencil)
 end
 
 --- @brief
@@ -331,6 +331,10 @@ function ow.OneWayPlatform:draw()
     love.graphics.line(self._highlight_draw_vertices)
 
     love.graphics.pop()
+
+    for body in range(self._sensor) do
+        body:draw()
+    end
 end
 
 --- @brief
