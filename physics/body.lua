@@ -396,13 +396,8 @@ function b2.Body:_update_filter_data(shape)
 end
 
 --- @brief
-function b2.Body:set_collision_group(...)
-    local out = 0x0
-    for i = 1, select("#", ...) do
-        out = bit.bor(out, select(i, ...))
-    end
-
-    self._collision_group = out
+function b2.Body:set_collision_group(group)
+    self._collision_group = group
     for shape in values(self._native:getShapes()) do
         self:_update_filter_data(shape)
     end
@@ -414,14 +409,8 @@ function b2.Body:get_collision_group()
 end
 
 --- @brief
-function b2.Body:set_collides_with(...)
-    local n = select("#",  ...)
-    local out = 0x0
-    for i = 1, select("#", ...) do
-        out = bit.bor(out, select(i, ...))
-    end
-
-    self._collides_with = out
+function b2.Body:set_collides_with(mask)
+    self._collides_with = mask
     for shape in values(self._native:getShapes()) do
         self:_update_filter_data(shape)
     end

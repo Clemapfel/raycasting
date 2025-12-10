@@ -16,7 +16,9 @@ function b2.Spring:instantiate(body_a, body_b, x1, y1, x2, y2, target_distance)
         _lower_limit = 0,
         _upper_limit = 0,
         _target_distance = target_distance or math.distance(x1, y1, x2, y2),
-        _is_disabled = false
+        _is_disabled = false,
+
+        _stiffness = 0
     })
 
     self:_initialize()
@@ -40,18 +42,7 @@ function b2.Spring:_initialize()
             x1, y1,
             axis_x, axis_y,
             false
-        ),
-
-        --[[
-        _distance_joint = love.physics.newDistanceJoint(
-            self._body_a:get_native(),
-            self._body_b:get_native(),
-            x1, y1,
-            x2, y2,
-            self._target_distance,
-            false
         )
-        ]]--
     })
 
     self._prismatic_joint:setLimitsEnabled(true)
@@ -72,7 +63,6 @@ function b2.Spring:set_tolerance(lower, upper)
     self._lower_limit = lower
     self._upper_limit = upper
     self._prismatic_joint:setLimits(self._lower_limit, self._upper_limit)
-    --self._distance_joint:setMaxLength(self._upper_limit)
 end
 
 --- @brief

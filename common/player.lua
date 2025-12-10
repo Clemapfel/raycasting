@@ -732,13 +732,12 @@ function rt.Player:update(delta)
 
     local mask
     if self._is_ghost == false then
-        mask = bit.bor(
-            rt.settings.overworld.hitbox.collision_group,
-            _settings.bounce_relative_velocity,
-            bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.exempt_collision_group))
-        )
+        mask = bit.bnot(0x0) -- everything
+        mask = bit.band(mask, bit.bnot(_settings.player_outer_body_collision_group))
+        mask = bit.band(mask, bit.bnot(_settings.exempt_collision_group))
     else
-        mask = bit.band(_settings.ghost_collision_group, bit.bnot(_settings.exempt_collision_group))
+        mask = 0x0 -- nothing
+        mask = bit.bor(mask, _settings.ghost_collision_group)
     end
 
     local bubble_factor = 1
@@ -2196,6 +2195,7 @@ function rt.Player:move_to_world(world)
         inner_body_shape
     )
 
+    local inner_mask = bit.bnot(_settings.exempt_collision_group)
     function initialize_inner_body(body, is_bubble)
         body:set_is_enabled(false)
         body:set_user_data(self)
@@ -2203,6 +2203,7 @@ function rt.Player:move_to_world(world)
         body:add_tag("player")
         body:set_is_rotation_fixed(true)
         body:set_collision_group(_settings.player_collision_group)
+        body:set_collides_with(inner_mask)
         body:set_mass(1)
         body:set_friction(0)
         body:set_use_manual_velocity(true)
@@ -2232,9 +2233,14 @@ function rt.Player:move_to_world(world)
     local outer_body_shape = b2.Circle(0, 0, self._outer_body_radius)
     local step = (2 * math.pi) / _settings.n_outer_bodies
 
+    local outer_mask = bit.bnot(bit.bor(
+        _settings.player_outer_body_collision_group,
+        _settings.exempt_collision_group
+    ))
     function initialize_outer_body(body, is_bubble)
         body:set_is_enabled(false)
         body:set_collision_group(_settings.player_outer_body_collision_group)
+        body:set_collides_with(outer_mask)
         body:set_friction(0)
         body:set_is_rotation_fixed(false)
         body:set_use_continuous_collision(true)
@@ -2245,7 +2251,6 @@ function rt.Player:move_to_world(world)
 
     self._outer_collision_group, self._outer_collision_mask = nil, nil
 
-    local mask = bit.bnot(rt.settings.player.player_outer_body_collision_group)
     for angle = 0, 2 * math.pi, step do
         local offset_x = math.cos(angle) * core_radius
         local offset_y = math.sin(angle) * core_radius
@@ -2255,7 +2260,6 @@ function rt.Player:move_to_world(world)
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, outer_body_shape)
         initialize_outer_body(body, false)
         body:set_mass(10e-4 * _settings.outer_body_spring_strength)
-        body:set_collides_with(mask)
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only

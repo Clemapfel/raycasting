@@ -204,7 +204,8 @@ end
 
 local _step = 1 / 120
 local _max_n_steps_per_frame = 16 --math.huge
-local _n_velocity_iterations = 4
+local _n_velocity_iterations = 3
+local _n_position_iterations = 7
 
 --- @brief
 function b2.World:update(delta)
@@ -229,7 +230,7 @@ function b2.World:update(delta)
         end
 
         -- update
-        self._native:update(step, _n_velocity_iterations, 2)
+        self._native:update(step, _n_velocity_iterations, _n_position_iterations)
         self._n_updates = self._n_updates + 1
 
         self:_end_collision_resolution()
