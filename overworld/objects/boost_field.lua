@@ -78,7 +78,9 @@ function ow.BoostField:instantiate(object, stage, scene)
         self._axis_x, self._axis_y = math.normalize(end_x - start_x, end_y - start_y)
     end
 
-    self._color = { rt.lcha_to_rgba(0.8, 1, math.angle(self._axis_x, self._axis_y) / (2 * math.pi), 0.8) }
+    self._hue = object:get_number("hue", false)
+    if self._hue == nil then self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi) end
+    self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 0.8) }
 
     self._draw_offset_x, self._draw_offset_y = object:get_centroid()
     self._mesh = object:create_mesh()
@@ -185,7 +187,8 @@ function ow.BoostField:draw_bloom()
     if not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
-    love.graphics.translate(-self._draw_offset_x, -self._draw_offset_x)
+    local offset_x, offset_y = self._body:get_position()
+    love.graphics.translate(-self._draw_offset_x + offset_x, -self._draw_offset_y + offset_y)
     love.graphics.translate(self._body:get_position())
 
     rt.Palette.WHITE:bind()

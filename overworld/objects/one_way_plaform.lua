@@ -17,14 +17,7 @@ ow.OneWayPlatform = meta.class("OneWayPlatform", ow.MovableObject)
 ow.OneWayPlatformNode = meta.class("OneWayPlatformNode")
 
 local _shader = rt.Shader("overworld/objects/one_way_platform.glsl")
-
-local _hue_steps, _n_hue_steps = {}, 8
-do
-    for i = 0, _n_hue_steps - 1 do
-        table.insert(_hue_steps, i / _n_hue_steps)
-    end
-    rt.random.shuffle(_hue_steps)
-end
+local _n_hue_steps = 13
 
 --- @brief
 function ow.OneWayPlatform:instantiate(object, stage, scene)
@@ -208,7 +201,11 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         self._direction_mesh:set_vertex_map(indices)
     end
 
-    self._hue = _hue_steps[stage.one_way_platform_current_hue_step]
+    self._hue = object:get_number("hue")
+    if self._hue == nil then
+        self._hue = math.fract(stage.one_way_platform_current_hue_step / _n_hue_steps)
+    end
+
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
     stage.one_way_platform_current_hue_step = stage.one_way_platform_current_hue_step % _n_hue_steps + 1
 end
