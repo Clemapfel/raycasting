@@ -32,11 +32,10 @@ function rotate_segment_around_point(x1, y1, x2, y2, px, py, angle)
     return new_x1, new_y1, new_x2, new_y2
 end
 
-local _collision_group = bit.bnot(bit.bor(
-    rt.settings.player.player_collision_group,
-    rt.settings.player.player_outer_body_collision_group,
-    rt.settings.player.bounce_collision_group
-))
+local mask = bit.bnot(0x0)
+mask = bit.band(mask, bit.bnot(rt.settings.player.player_collision_group))
+mask = bit.band(mask, bit.bnot(rt.settings.player.player_outer_body_collision_group))
+mask = bit.band(mask, bit.bnot(rt.settings.player.bounce_collision_group))
 
 --- @brief
 function ow.CheckpointRope:instantiate(scene, stage, world, x1, y1, x2, y2)
@@ -64,8 +63,6 @@ function ow.CheckpointRope:_init_bodies()
     self._bodies = {}
     self._joints = {}
     self._n_segments = 0
-
-    local collision_group = rt.settings.player.exempt_collision_group
 
     local height = self._bottom_y - self._top_y
     local n_segments = math.max(math.floor(height / rt.settings.overworld.checkpoint_rope.segment_length), 2)
@@ -108,8 +105,8 @@ function ow.CheckpointRope:_init_bodies()
             end
         }
         body:set_user_data(instance)
-        body:set_collides_with(_collision_group)
-        body:set_collision_group(collision_group)
+        body:set_collides_with(mask)
+        body:set_collision_group(rt.settings.player.exempt_collision_group)
 
         body:set_collision_disabled(true)
         body:set_is_rotation_fixed(false)
@@ -175,7 +172,6 @@ function ow.CheckpointRope:cut()
         impulse = impulse * math.magnitude(vx, vy)
 
         for body in values(self._bodies) do
-            body:set_collides_with(_collision_group)
             local body_x, body_y = body:get_position()
             local dx, dy = math.normalize(body_x - (player_x + offset), body_y - player_y)
             body:apply_linear_impulse(dx * impulse, dy * impulse)
@@ -448,6 +444,8 @@ function ow.CheckpointRope:_update_mesh()
 
         -- end caps
         local add_end_cap = function(i1, i2, up_or_down)
+            if i1 == i2 then return end
+
             local start_x1, start_y1 = self._bodies[i1]:get_position()
             local start_x2, start_y2 = self._bodies[i2]:get_position()
             local start_dx, start_dy = math.normalize(start_x2 - start_x1, start_y2 - start_y1)
