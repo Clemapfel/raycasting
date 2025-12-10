@@ -414,8 +414,6 @@ function ow.Stage:draw_above_player()
 
         ow.Sprite.draw_all(entry.priority)
     end
-
-    self._world:draw()
 end
 
 --- @brief

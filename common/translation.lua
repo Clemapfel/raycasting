@@ -323,7 +323,7 @@ rt.Translation = {
     -- ## STAGES ## ---
 
     stages = { -- order matters
-        [1] = {
+        {
             id = "tutorial",
             title = "[DEBUG TUTORIAL]",
             description = "TODO",
@@ -331,7 +331,15 @@ rt.Translation = {
             target_time = math.huge,
         },
 
-        [2] = {
+        {
+            id = "jump_tutorial",
+            title = "TODO",
+            description = "TODO",
+            difficulty = 0,
+            target_time = math.huge
+        },
+
+        {
             id = "template",
             title = "[DEBUG TEMPLATE]",
             description = "TODO",
@@ -339,7 +347,7 @@ rt.Translation = {
             target_time = math.huge,
         },
 
-        [3] = {
+        {
             id = "air_dash_node_tutorial",
             title = "TODO",
             description = "TODO",
@@ -347,7 +355,7 @@ rt.Translation = {
             target_time = math.huge,
         },
 
-        [4] = {
+        {
             id = "portal_tutorial",
             title = "TODO",
             description = "TODO",

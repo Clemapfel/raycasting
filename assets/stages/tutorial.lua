@@ -4838,7 +4838,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 1151 }
+            ["other"] = { id = 1151 }
           }
         },
         {
@@ -4929,7 +4929,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 1165 }
+            ["other"] = { id = 1165 }
           }
         },
         {
@@ -4957,7 +4957,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["target"] = { id = 1169 }
+            ["other"] = { id = 1169 }
           }
         },
         {
