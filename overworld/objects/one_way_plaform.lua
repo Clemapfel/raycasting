@@ -97,9 +97,8 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
             y2 - ldy * sensor_r
         ))
 
-        for body in range(self._stencil_body) do
-            body:set_collides_with(0x0)
-        end
+        self._stencil_body:set_collides_with(0x0)
+        self._stencil_body:set_collision_group(0x0)
 
         self._sensor_test_active = false
         self._sensor:signal_connect("collision_start", function(_)
