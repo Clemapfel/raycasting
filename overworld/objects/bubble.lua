@@ -14,7 +14,6 @@ ow.Bubble = meta.class("Bubble", ow.MovableObject)
 
 local _shader = rt.Shader("overworld/objects/bubble.glsl")
 
-local _hue = 0
 local _n_hue_steps = 12
 
 function ow.Bubble:instantiate(object, stage, scene)
@@ -65,8 +64,12 @@ function ow.Bubble:instantiate(object, stage, scene)
 
     -- graphics
 
-    local hue = math.fract(_hue / _n_hue_steps)
-    _hue = _hue + 1
+    if stage.bubble_current_hue_step == nil then
+        stage.bubble_current_hue_step = 1
+    end
+
+    local hue = math.fract( stage.bubble_current_hue_step / _n_hue_steps)
+    stage.bubble_current_hue_step =  stage.bubble_current_hue_step + 1
     self._hue = hue
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
 

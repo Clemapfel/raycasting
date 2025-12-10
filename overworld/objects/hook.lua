@@ -16,7 +16,6 @@ ow.Hook = meta.class("OverworldHook", ow.MovableObject)
 local _shader = rt.Shader("overworld/objects/hook.glsl")
 
 -- global hue queue such that two elements don't have the same hue
-local _current_hue_step = 1
 local _hue_steps, _n_hue_steps = {}, 8
 do
     for i = 0, _n_hue_steps - 1 do
@@ -33,6 +32,11 @@ function ow.Hook:instantiate(object, stage, scene)
 
     self._scene = scene
     self._stage = stage
+
+    if stage.hook_current_hue_step == nil then
+        stage.hook_current_hue_step = 1
+    end
+
     self._radius = rt.settings.player.radius * rt.settings.overworld.objects.hook.radius_factor
     self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.objects.hook.hook_animation_duration)
     self._impulse = rt.ImpulseSubscriber()
@@ -45,9 +49,9 @@ function ow.Hook:instantiate(object, stage, scene)
         b2.Circle(0, 0, self._radius)
     )
 
-    self._hue = _current_hue_step
+    self._hue = stage.hook_current_hue_step
     self._original_hue = self._hue
-    _current_hue_step = (_current_hue_step % _n_hue_steps) + 1
+    stage.hook_current_hue_step = (stage.hook_current_hue_step % _n_hue_steps) + 1
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
 
     self._stage:signal_connect("respawn", function(_)

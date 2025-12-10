@@ -1,10 +1,11 @@
 require "overworld.movable_object"
 
-rt.settings.overworld.one_way_platform = {
+rt.settings.overworld.objects.one_way_platform = {
     thickness = 40,
     bloom_intensity = 0.5, -- fraction
     direction_light_intensity = 0.5, -- fraction
     line_width = 5,
+    outline_width_increase = 4,
     allow_fallthrough = false
 }
 
@@ -17,7 +18,6 @@ ow.OneWayPlatformNode = meta.class("OneWayPlatformNode")
 
 local _shader = rt.Shader("overworld/objects/one_way_platform.glsl")
 
-local _current_hue_step = 1
 local _hue_steps, _n_hue_steps = {}, 8
 do
     for i = 0, _n_hue_steps - 1 do
@@ -30,6 +30,10 @@ end
 function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
+
+    if stage.one_way_platform_current_hue_step == nil then
+        stage.one_way_platform_current_hue_step = 1
+    end
 
     local other = object:get_object("other", true)
     for x in range(object, other) do
@@ -49,11 +53,16 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     local dx, dy = x2 - x1, y2 - y1
 
+    local line_angle = math.angle(dx, dy)
+    self._arc_angle_left_start = line_angle + math.pi / 2
+    self._arc_angle_left_end = line_angle + 3 * math.pi / 2
+    self._arc_angle_right_start = line_angle - math.pi / 2
+    self._arc_angle_right_end = line_angle + math.pi / 2
+
     local shape = b2.Segment(x1, y1, x2, y2)
     shape:set_is_one_sided(true)
 
     self._original_x, self._original_y = x1, y1
-
     local body_type = object:get_physics_body_type()
 
     local world = stage:get_physics_world()
@@ -62,96 +71,50 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._body:add_tag("segment_light_source")
     self._body:set_user_data(self)
     self._body:set_use_continuous_collision(true)
+    self._body:set_collides_with(rt.settings.player.player_outer_body_collision_group)
 
-    local thickness = rt.settings.overworld.one_way_platform.thickness
+    local settings = rt.settings.overworld.objects.one_way_platform
+    local thickness = settings.thickness
 
-    local sensor_r = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+    local stencil_r = (settings.line_width + settings.outline_width_increase) * 0.5
     local ldx, ldy = math.turn_left(math.normalize(dx, dy))
     local rdx, rdy = math.turn_right(math.normalize(dx, dy))
 
-    self._sensor = b2.Body(world, body_type, centroid_x, centroid_y, b2.Polygon(
-        x1 + ldx * sensor_r,
-        y1 + ldy * sensor_r,
-        x1,
-        y1,
-        x2,
-        y2,
-        x2 + ldx * sensor_r,
-        y2 + ldy * sensor_r
-    ))
-    self._sensor:set_is_sensor(true)
-    self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
-    self._sensor:set_collision_group(rt.settings.player.bounce_collision_group)
-
     dx, dy = math.normalize(dx, dy)
+    self._stencil_body = b2.Body(world, body_type, centroid_x, centroid_y, b2.Polygon(
+        x1 + ldx * stencil_r,
+        y1 + ldy * stencil_r,
+        x2 - rdx * stencil_r,
+        y2 - rdy * stencil_r,
+        x2 - ldx * stencil_r,
+        y2 - ldy * stencil_r,
+        x1 + rdx * stencil_r,
+        y1 + rdy * stencil_r
+    ))
 
-    do -- bodies purely to stencil
-        self._stencil_body = b2.Body(world, body_type, centroid_x, centroid_y, b2.Polygon(
-            x1 - ldx * sensor_r,
-            y1 - ldy * sensor_r,
-            x1,
-            y1,
-            x2,
-            y2,
-            x2 - ldx * sensor_r,
-            y2 - ldy * sensor_r
-        ))
+    self._stencil_body:set_collides_with(0x0)
+    self._stencil_body:set_collision_group(0x0)
 
-        self._stencil_body:set_collides_with(0x0)
-        self._stencil_body:set_collision_group(0x0)
+    self._stencil_body:add_tag("stencil")
 
-        self._stencil_body:add_tag("stencil")
-        self._stencil_body:set_is_enabled(false)
-
-        self._sensor_test_active = false
-        self._sensor:signal_connect("collision_start", function(_)
-            self._sensor_test_active = true
-            -- continuously check, since if set immediately on
-            -- player entry, part of the player tail can be cut off
-        end)
-
-        self._sensor:signal_connect("collision_end", function(_)
-            self._stencil_body:set_is_enabled(false)
-            self._sensor_test_active = false
-        end)
-    end
-
-    if rt.settings.overworld.one_way_platform.allow_fallthrough == true then
-        self._sensor:signal_connect("collision_start", function(_)
-            local player =  self._scene:get_player()
-
-            -- buffered fallthrough
-            if player._down_button_is_down then
-                self._body:set_is_sensor(true)
-            else
-                player:signal_connect("duck", function(_)
-                    self._body:set_is_sensor(true)
-                    return meta.DISCONNECT_SIGNAL
-                end)
-            end
-        end)
-
-        self._sensor:signal_connect("collision_end", function(_)
-            self._body:set_is_sensor(false)
-        end)
-    end
-
+    -- graphics
     self._line_draw_vertices = {
         x1, y1,
         x2, y2,
     }
 
-    local line_width = rt.settings.overworld.one_way_platform.line_width
+    local line_width = rt.settings.overworld.objects.one_way_platform.line_width
     local highlight_offset = 0.5 * line_width - 2
     local highlight_shorten = 2 -- px
+    local highlight_dx, highlight_dy = 0, -1
     self._highlight_draw_vertices = {
-        x1 + ldx * highlight_offset + dx * highlight_shorten,
-        y1 + ldy * highlight_offset + dy * highlight_shorten,
-        x2 + ldx * highlight_offset - dx * highlight_shorten,
-        y2 + ldy * highlight_offset - dy * highlight_shorten,
+        x1 + highlight_dx * highlight_offset + dx * highlight_shorten,
+        y1 + highlight_dy * highlight_offset + dy * highlight_shorten,
+        x2 + highlight_dx * highlight_offset - dx * highlight_shorten,
+        y2 + highlight_dy * highlight_offset - dy * highlight_shorten,
     }
 
-    do -- direction mesh
+    do -- direction mesh, center quad with two quarter circles on both sides
         local width = 1 * thickness
         local down_x, down_y = math.turn_right(math.normalize(dx, dy))
         down_x = down_x * width
@@ -168,22 +131,19 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         x2 = x2 + left_x / 2
         y2 = y2 + left_y / 2
 
-        local r, alpha = 1, rt.settings.overworld.one_way_platform.direction_light_intensity
-        local segments = 8 -- Number of segments per quarter circle
+        local r, alpha = 1, rt.settings.overworld.objects.one_way_platform.direction_light_intensity
+        local segments = 8
 
-        -- Create vertices array
         local vertices = {}
 
-        -- Top vertices (center line)
-        table.insert(vertices, { x1, y1, 0, 0, r, r, r, alpha }) -- 1: top-left center
-        table.insert(vertices, { x2, y2, 0, 0, r, r, r, alpha }) -- 2: top-right center
+        table.insert(vertices, { x1, y1, 0, 0, r, r, r, alpha })
+        table.insert(vertices, { x2, y2, 0, 0, r, r, r, alpha })
 
-        -- Left quarter circle (from top-left to bottom-left)
+        -- left quarter circle
         for i = 0, segments do
             local t = i / segments
-            local angle = t * math.pi / 2 -- 0 to 90 degrees
+            local angle = t * math.pi / 2
 
-            -- Interpolate between left_x/y (forward) and down_x/y (perpendicular)
             local offset_x = left_x * math.cos(angle) + down_x * math.sin(angle)
             local offset_y = left_y * math.cos(angle) + down_y * math.sin(angle)
 
@@ -195,12 +155,11 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
             })
         end
 
-        -- Right quarter circle (from top-right to bottom-right)
+        -- right quarter circle
         for i = 0, segments do
             local t = i / segments
-            local angle = t * math.pi / 2 -- 0 to 90 degrees
+            local angle = t * math.pi / 2
 
-            -- Interpolate between right_x/y (backward) and down_x/y (perpendicular)
             local offset_x = right_x * math.cos(angle) + down_x * math.sin(angle)
             local offset_y = right_y * math.cos(angle) + down_y * math.sin(angle)
 
@@ -214,40 +173,34 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
         self._direction_mesh = rt.Mesh(vertices, rt.MeshDrawMode.TRIANGLES)
 
-        -- Generate triangulation
+        -- triangulate
         local indices = {}
+        local left_start = 3
+        local left_end = left_start + segments
 
-        -- Fan triangulation from top-left center (vertex 1)
-        local left_start = 3 -- First vertex of left quarter circle
-        local left_end = left_start + segments -- Last vertex of left quarter circle
+        local right_start = left_end + 1
+        local right_end = right_start + segments
 
         for i = left_start, left_end - 1 do
-            table.insert(indices, 1) -- top-left center
+            table.insert(indices, 1)
             table.insert(indices, i)
             table.insert(indices, i + 1)
         end
 
-        -- Connect the two arcs at the bottom
-        local right_start = left_end + 1 -- First vertex of right quarter circle
-        local right_end = right_start + segments -- Last vertex of right quarter circle
+        table.insert(indices, 1)
+        table.insert(indices, left_end)
+        table.insert(indices, 2)
 
-        -- Center quad (two triangles)
-        table.insert(indices, 1) -- top-left center
-        table.insert(indices, left_end) -- end of left arc
-        table.insert(indices, 2) -- top-right center
+        table.insert(indices, left_end)
+        table.insert(indices, right_end)
+        table.insert(indices, 2)
 
-        table.insert(indices, left_end) -- end of left arc
-        table.insert(indices, right_end) -- end of right arc
-        table.insert(indices, 2) -- top-right center
+        table.insert(indices, left_end)
+        table.insert(indices, right_start)
+        table.insert(indices, right_end)
 
-        -- Bottom connection
-        table.insert(indices, left_end) -- end of left arc
-        table.insert(indices, right_start) -- start of right arc
-        table.insert(indices, right_end) -- end of right arc
-
-        -- Fan triangulation from top-right center (vertex 2)
         for i = right_start, right_end - 1 do
-            table.insert(indices, 2) -- top-right center
+            table.insert(indices, 2)
             table.insert(indices, i)
             table.insert(indices, i + 1)
         end
@@ -255,51 +208,14 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         self._direction_mesh:set_vertex_map(indices)
     end
 
-    self._hue = _hue_steps[_current_hue_step]
+    self._hue = _hue_steps[stage.one_way_platform_current_hue_step]
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
-    _current_hue_step = _current_hue_step % _n_hue_steps + 1
-end
-
---- @brief
-function ow.OneWayPlatform:update(delta)
-    if not self._sensor_test_active or not self._stage:get_is_body_visible(self._sensor) then return end
-
-    local should_stencil = false
-
-    -- check which side of the line the player is on
-    local player =  self._scene:get_player()
-    local px, py = player:get_position()
-    local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
-    local side = math.cross(
-        x2 - x1, y2 - y1,
-        px - x1, py - y1
-    )
-
-    -- check distance to line segment
-    if side <= 0 then
-        local vx, vy = x2 - x1, y2 - y1
-
-        local len = math.magnitude(vx, vy)
-        local nx, ny = math.normalize(vx, vy)
-        local wx, wy = px - x1, py - y1
-
-        local t = math.dot(wx, wy, nx, ny)
-
-        if t < 0 then t = 0 end
-        if t > len then t = len end
-
-        local cx = x1 + nx * t
-        local cy = y1 + ny * t
-        should_stencil = math.distance(px, py, cx, cy) > player:get_radius()
-    end
-
-    self._stencil_body:set_is_enabled(true)
-    dbg(should_stencil)
+    stage.one_way_platform_current_hue_step = stage.one_way_platform_current_hue_step % _n_hue_steps + 1
 end
 
 --- @brief
 function ow.OneWayPlatform:draw()
-    if not self._stage:get_is_body_visible(self._sensor) then return end
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local offset_x, offset_y = self._body:get_position()
     love.graphics.push()
@@ -307,8 +223,8 @@ function ow.OneWayPlatform:draw()
 
     local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
 
-    local base_line_width = rt.settings.overworld.one_way_platform.line_width
-    local line_width = base_line_width + 4
+    local base_line_width = rt.settings.overworld.objects.one_way_platform.line_width
+    local line_width = base_line_width + rt.settings.overworld.objects.one_way_platform.outline_width_increase
     love.graphics.setLineWidth(line_width)
     rt.Palette.BLACK:bind()
     love.graphics.line(self._line_draw_vertices)
@@ -322,25 +238,25 @@ function ow.OneWayPlatform:draw()
     _shader:bind()
     self._direction_mesh:draw()
     _shader:unbind()
-    love.graphics.line(self._line_draw_vertices)
-    love.graphics.circle("fill", x1, y1, line_width * 0.5)
-    love.graphics.circle("fill", x2, y2, line_width * 0.5)
 
+    love.graphics.line(self._line_draw_vertices)
+    love.graphics.arc("fill", x1, y1, line_width * 0.5, self._arc_angle_left_start, self._arc_angle_left_end)
+    love.graphics.arc("fill", x2, y2, line_width * 0.5, self._arc_angle_right_start, self._arc_angle_right_end)
+
+    local highlight_line_width = 2
+    local highlight_x1, highlight_y1, highlight_x2, highlight_y2 = table.unpack(self._highlight_draw_vertices)
     love.graphics.setColor(1, 1, 1, 0.5)
-    love.graphics.setLineWidth(2)
-    love.graphics.line(self._highlight_draw_vertices)
+    love.graphics.setLineWidth(highlight_line_width)
+    love.graphics.line(highlight_x1, highlight_y1, highlight_x2, highlight_y2)
+    love.graphics.arc("fill", highlight_x1, highlight_y1, 0.5 * highlight_line_width, self._arc_angle_left_start, self._arc_angle_left_end)
+    love.graphics.arc("fill", highlight_x2, highlight_y2, 0.5 * highlight_line_width, self._arc_angle_right_start, self._arc_angle_right_end)
 
     love.graphics.pop()
-
-    for body in range(self._sensor) do
-        body:draw()
-    end
 end
 
 --- @brief
 function ow.OneWayPlatform:draw_bloom()
-    if not self._stage:get_is_body_visible(self._sensor) then return end
-
+    if not self._stage:get_is_body_visible(self._body) then return end
 
     local offset_x, offset_y = self._body:get_position()
     love.graphics.push()
@@ -368,13 +284,11 @@ end
 --- @brief
 function ow.OneWayPlatform:set_position(x, y)
     self._body:set_position(x, y)
-    self._sensor:set_position(x, y)
     self._stencil_body:set_position(x, y)
 end
 
 --- @brief
 function ow.OneWayPlatform:set_velocity(vx, vy)
     self._body:set_velocity(vx, vy)
-    self._sensor:set_velocity(vx, vy)
     self._stencil_body:set_velocity(vx, vy)
 end

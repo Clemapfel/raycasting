@@ -15,7 +15,6 @@ meta.add_signal(ow.DoubleJumpTether, "removed")
 
 local _shader
 
-local _current_hue_step = 1
 local _hue_steps, _n_hue_steps = {}, 8
 do
     for i = 0, _n_hue_steps - 1 do
@@ -40,6 +39,10 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
+    if stage.double_jump_tether_current_hue_step == nil then
+        stage.double_jump_tether_current_hue_step = 1
+    end
+
     -- collision
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
@@ -61,9 +64,9 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     end)
 
     -- graphics
-    self._hue = _hue_steps[_current_hue_step]
+    self._hue = _hue_steps[stage.double_jump_tether_current_hue_step]
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
-    _current_hue_step = _current_hue_step % _n_hue_steps + 1
+    stage.double_jump_tether_current_hue_step = stage.double_jump_tether_current_hue_step % _n_hue_steps + 1
     self._particle = ow.DoubleJumpTetherParticle(self._radius)
     self._line_opacity_motion = rt.SmoothedMotion1D(0, 3.5)
     self._tether= ow.Tether(self._scene)

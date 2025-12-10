@@ -2395,6 +2395,10 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
+
+    for body in values(self._spring_bodies) do
+        body:draw()
+    end
 end
 
 --- @brief
