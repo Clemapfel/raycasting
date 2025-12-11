@@ -91,7 +91,7 @@ do
         joint_length_threshold = 100,
 
         spring_damping = 1000,
-        spring_stiffness = 0,
+        spring_stiffness = 10,
 
         bubble_radius_factor = 2.25,
         bubble_inner_radius_scale = 1.7,
@@ -500,7 +500,7 @@ function rt.Player:_connect_input()
             self._up_button_is_down_elapsed = 0
         end
     end)
-    
+
     self._joystick_gesture:signal_connect("pressed", function(_, which, count)
         -- detect double tap gesture on joystick
         if count == 2 then
@@ -544,7 +544,7 @@ function rt.Player:_connect_input()
 
         if dpad_active then self._use_analog_input = false end
     end)
-    
+
     self._input:signal_connect("controller_button_released", function(_, which)
         if which == rt.ControllerButton.DPAD_UP then
             self._up_button_is_down = false
@@ -1657,7 +1657,7 @@ function rt.Player:update(delta)
                     -- decay, shared after bubble logic
                 end
             end
-            
+
             if is_touching_platform then
                 self._graphics_body:set_relative_velocity(self._platform_velocity_x, self._platform_velocity_y)
             else
@@ -1934,11 +1934,6 @@ function rt.Player:update(delta)
                 self._stage:get_active_checkpoint():spawn(true)
             end
         end
-    end
-
-    -- update spring simulation
-    for spring in values(self._spring_joints) do
-        spring:update(delta)
     end
 
     do -- safeguard against springs catching
@@ -2271,8 +2266,6 @@ function rt.Player:move_to_world(world)
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only
-        joint:set_damping(_settings.spring_damping)
-        joint:set_stiffness(_settings.spring_stiffness)
 
         table.insert(self._spring_bodies, body)
         table.insert(self._spring_joints, joint)
@@ -2388,7 +2381,7 @@ end
 --- @brief
 function rt.Player:draw_core()
     if self._is_visible == false then return end
-    
+
     local radius = self._core_radius
     local x, y = self:get_predicted_position()
 
