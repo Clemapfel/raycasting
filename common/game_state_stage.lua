@@ -90,6 +90,7 @@ function rt.GameState:_initialize_stage()
 
         local stage = {
             id = id,
+            config = config,
             path = path_prefix .. "/" .. id .. ".lua",
             title = title,
             difficulty = difficulty,
@@ -179,6 +180,7 @@ function rt.GameState:reinitialize_stage(stage_id)
 
     local stage = {
         id = id,
+        config = config,
         path = stage_entry.path,
         title = title,
         difficulty = difficulty,
@@ -602,5 +604,19 @@ function rt.GameState:stage_get_splits_best_run(stage_id)
         return table.deepcopy(entry.splits.best_run)
     else
         return {}
+    end
+end
+
+--- @brief
+function rt.GameState:stage_get_config(stage_id)
+    self:_initialize_stage()
+
+    meta.assert(stage_id, "String")
+    local entry = self:_get_stage(stage_id, "stage_get_config")
+
+    if entry ~= nil then
+        return entry.config
+    else
+        return nil
     end
 end

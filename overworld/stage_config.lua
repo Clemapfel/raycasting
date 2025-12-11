@@ -202,7 +202,6 @@ function ow.StageConfig:instantiate(stage_id)
             end
 
             -- construct tile spritebatches
-
             local tileset_to_spritebatch = {}
 
             for row_i = tile_min_y, tile_max_y do
@@ -236,7 +235,6 @@ function ow.StageConfig:instantiate(stage_id)
             end
 
             -- construct trivial hitboxes
-
             do
                 local min_x, min_y, max_x, max_y = is_solid_matrix:get_index_range()
 

@@ -27,17 +27,12 @@ rt.settings.overworld.stage = {
 ow.Stage = meta.class("Stage", rt.Drawable)
 meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done")
 
-local _config_atlas = {}
 
 --- @brief
 function ow.Stage:instantiate(scene, id)
     meta.assert(scene, "OverworldScene", id, "String")
 
-    local config = _config_atlas[id]
-    if config == nil then
-        config = ow.StageConfig(id)
-        _config_atlas[id] = config
-    end
+    local config = rt.GameState:stage_get_config(id)
 
     self._id = id
     meta.install(self, {
