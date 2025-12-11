@@ -202,10 +202,17 @@ function b2.World:get_gravity()
     return self._native:getGravity()
 end
 
-local _step = 1 / 120
 local _max_n_steps_per_frame = 16 --math.huge
-local _n_velocity_iterations = 3
-local _n_position_iterations = 7
+local _step = 1 / 120
+
+-- solver params are hardcoded to make for consistent
+-- constraint solving, springs are very sensitive to the
+-- number of iterations. Less velocity iterations make
+-- the sprint more "mushy", high position iterations
+-- cause it to oscillate around the constraint target.
+-- the optimal number of steps was determined empirically
+local _n_velocity_iterations = 4
+local _n_position_iterations = 4
 
 --- @brief
 function b2.World:update(delta)
@@ -221,7 +228,6 @@ function b2.World:update(delta)
     local total_step = 0
     local n_steps = 0
     while self._elapsed >= step and n_steps < _max_n_steps_per_frame do
-
         self:_start_collision_resolution()
 
         for body in keys(self._interpolating_bodies) do

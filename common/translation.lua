@@ -332,7 +332,7 @@ rt.Translation = {
         },
 
         {
-            id = "jump_tutorial",
+            id = "one_way_platform_tutorial",
             title = "TODO",
             description = "TODO",
             difficulty = 0,

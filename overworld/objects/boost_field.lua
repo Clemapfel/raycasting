@@ -30,6 +30,75 @@ do
     _shader = rt.Shader("overworld/objects/boost_field.glsl", defines)
 end
 
+-- linear regression
+function _fit_line(vertices)
+    -- vertices is a flat table: {x1, y1, x2, y2, ..., xn, yn}
+    local n = #vertices / 2
+
+    -- Calculate means
+    local sumX, sumY = 0, 0
+    for i = 1, #vertices, 2 do
+        sumX = sumX + vertices[i]
+        sumY = sumY + vertices[i + 1]
+    end
+    local meanX = sumX / n
+    local meanY = sumY / n
+
+    -- Calculate variance in x and y
+    local varX, varY = 0, 0
+    for i = 1, #vertices, 2 do
+        local dx = vertices[i] - meanX
+        local dy = vertices[i + 1] - meanY
+        varX = varX + dx * dx
+        varY = varY + dy * dy
+    end
+
+    -- Use PCA approach: fit line along direction of maximum variance
+    local covar = 0
+    for i = 1, #vertices, 2 do
+        local dx = vertices[i] - meanX
+        local dy = vertices[i + 1] - meanY
+        covar = covar + dx * dy
+    end
+
+    -- Calculate principal direction (eigenvector)
+    local dirX, dirY
+    if math.abs(varX) < 1e-10 and math.abs(varY) < 1e-10 then
+        -- All points are the same
+        dirX, dirY = 1, 0
+    elseif math.abs(varX) < 1e-10 then
+        -- Vertical line
+        dirX, dirY = 0, 1
+    else
+        -- General case: find direction of maximum variance
+        local angle = 0.5 * math.atan2(2 * covar, varX - varY)
+        dirX = math.cos(angle)
+        dirY = math.sin(angle)
+    end
+
+    -- Normalize direction
+    local mag = math.sqrt(dirX * dirX + dirY * dirY)
+    dirX, dirY = dirX / mag, dirY / mag
+
+    -- Project all points onto the line to find extent
+    local minProj, maxProj = math.huge, -math.huge
+    for i = 1, #vertices, 2 do
+        local dx = vertices[i] - meanX
+        local dy = vertices[i + 1] - meanY
+        local proj = dx * dirX + dy * dirY
+        minProj = math.min(minProj, proj)
+        maxProj = math.max(maxProj, proj)
+    end
+
+    -- Calculate endpoints
+    local x1 = meanX + minProj * dirX
+    local y1 = meanY + minProj * dirY
+    local x2 = meanX + maxProj * dirX
+    local y2 = meanY + maxProj * dirY
+
+    return x1, y1, x2, y2
+end
+
 --- @brief
 function ow.BoostField:instantiate(object, stage, scene)
     self._body = object:create_physics_body(stage:get_physics_world())
@@ -61,22 +130,35 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     local factor = object:get_number("velocity", false) or 1
     self._velocity_factor = factor
-    dbg(factor)
     self._target_velocity = rt.settings.overworld.boost_field.max_velocity * factor
 
-    local axis_mandatory = false
-    local axis = object:get_object("axis", axis_mandatory)
+    local axis = object:get_object("axis")
     if axis == nil then
-        local axis_x = object:get_number("axis_x", axis_mandatory)
-        local axis_y = object:get_number("axis_y", axis_mandatory)
-        self._axis_x = axis_x or 0
-        self._axis_y = axis_y or -1
+        local axis_x = object:get_number("axis_x")
+        local axis_y = object:get_number("axis_y")
+
+        if axis_x ~= nil and axis_y ~= nil then
+            -- if manually set, use as is
+            self._axis_x = axis_x
+            self._axis_y = axis_y
+        else
+            -- perform linear regression, use directed line as axis
+            local ax, ay, bx, by = _fit_line(object:create_contour())
+            if ay < by then
+                ax, ay, bx, by = bx, by, ax, ay
+            end
+            self._axis_x = bx - ax
+            self._axis_y = by - ay
+        end
     else
+        -- use point as direction indicator
         assert(axis:get_type() == ow.ObjectType.POINT, "In ow.BoostField.instantiate: `axis` target is not a point")
         local start_x, start_y = self._body:get_center_of_mass()
         local end_x, end_y = axis.x, axis.y
-        self._axis_x, self._axis_y = math.normalize(end_x - start_x, end_y - start_y)
+        self._axis_x, self._axis_y = end_x - start_x, end_y - start_y
     end
+
+    self._axis_x, self._axis_y = math.normalize(self._axis_x, self._axis_y)
 
     self._hue = object:get_number("hue", false)
     if self._hue == nil then self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi) end

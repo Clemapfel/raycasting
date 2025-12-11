@@ -52,6 +52,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._arc_angle_right_start = line_angle - math.pi / 2
     self._arc_angle_right_end = line_angle + math.pi / 2
 
+    local segment_thickness = 2
     local shape = b2.Segment(x1, y1, x2, y2)
     shape:set_is_one_sided(true)
 

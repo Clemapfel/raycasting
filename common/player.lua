@@ -90,6 +90,9 @@ do
         joint_force_threshold = 1000,
         joint_length_threshold = 100,
 
+        spring_damping = 1000,
+        spring_stiffness = 0,
+
         bubble_radius_factor = 2.25,
         bubble_inner_radius_scale = 1.7,
         bubble_target_velocity = 400,
@@ -644,7 +647,7 @@ function rt.Player:update(delta)
         self._trail:set_velocity(self:get_velocity())
         self._trail:set_hue(self:get_hue())
         self._trail:update(delta)
-        
+
         do
             local to_remove = {}
             for i, pulse in ipairs(self._pulses) do
@@ -1933,6 +1936,11 @@ function rt.Player:update(delta)
         end
     end
 
+    -- update spring simulation
+    for spring in values(self._spring_joints) do
+        spring:update(delta)
+    end
+
     do -- safeguard against springs catching
         local inner_x, inner_y = self._body:get_position()
         local max_distance = self._radius + self._inner_body_radius
@@ -2263,6 +2271,8 @@ function rt.Player:move_to_world(world)
 
         local joint = b2.Spring(self._body, body, x, y, cx, cy)
         joint:set_tolerance(0, 1) -- for animation only
+        joint:set_damping(_settings.spring_damping)
+        joint:set_stiffness(_settings.spring_stiffness)
 
         table.insert(self._spring_bodies, body)
         table.insert(self._spring_joints, joint)
@@ -2343,6 +2353,7 @@ function rt.Player:move_to_world(world)
             self._position_history[i+0] = x
             self._position_history[i+1] = y
         end
+
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -2399,10 +2410,6 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
-
-    for body in values(self._spring_bodies) do
-        body:draw()
-    end
 end
 
 --- @brief
