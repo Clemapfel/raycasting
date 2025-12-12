@@ -22,7 +22,7 @@ rt.StencilCompareMode = meta.enum("StencilCompareMode", {
     EQUAL = "equal",
     NOT_EQUAL = "notequal",
     LESS_THAN = "less",
-    LESS_THAN_OR_EUAL = "lequal",
+    LESS_THAN_OR_EQUAL = "lequal",
     GREATER_THAN = "greater",
     GREATER_THAN_OR_EQUAL = "gequal",
     ALWAYS = "always"
@@ -45,6 +45,7 @@ function rt.graphics.push_stencil()
     })
 end
 
+--- @brief
 function rt.graphics.pop_stencil()
     if #_stencil_stack == 0 then
         rt.error("In rt.graphics.pop_stencil: trying to pop, but stack is empty")
@@ -56,6 +57,7 @@ function rt.graphics.pop_stencil()
     love.graphics.setColorMask(table.unpack(front.mask))
 end
 
+--- @brief
 function rt.graphics.set_stencil_mode(value, mode, draw_or_compare_mode)
     if value == nil then
         love.graphics.setStencilState("keep", "always", value)
