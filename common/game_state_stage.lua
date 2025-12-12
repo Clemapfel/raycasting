@@ -319,6 +319,25 @@ function rt.GameState:set_stage_is_coin_collected(stage_id, coin_i, collected)
 end
 
 --- @brief
+function rt.GameState:get_stage_n_coins_collected(id)
+    meta.assert(id, "String")
+    local stage = self:_get_stage(id, "get_stage_n_coins_collected")
+    if stage == nil then return 0 end
+
+    local result_entry = self._state.stage_results[id]
+    if result_entry == nil then return 0 end
+
+    local n = 0
+    for i = 1, stage.n_coins do
+        if result_entry.collected_coins[i] == true then
+            n = n + 1
+        end
+    end
+
+    return n
+end
+
+--- @brief
 function rt.GameState:get_stage_n_coins(id)
     meta.assert(id, "String")
     local stage = self:_get_stage(id, "set_stage_coin_collected")

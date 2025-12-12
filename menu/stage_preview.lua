@@ -366,15 +366,11 @@ function mn.StagePreview:draw()
     love.graphics.setLineJoin("none")
     love.graphics.setLineStyle("smooth")
 
-    love.graphics.rectangle("line", self._bounds:unpack())
-
     for contour in values(self._contours) do
         love.graphics.line(contour)
     end
 
     love.graphics.pop()
-
-    self:draw_bounds()
 end
 
 --- @brief

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1197">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="5" nextobjectid="1198">
  <editorsettings>
   <export target="tutorial.lua" format="lua"/>
  </editorsettings>
@@ -338,9 +338,6 @@
     <property name="slippery" type="bool" value="true"/>
    </properties>
    <polygon points="0,-32 7.2836,-16.7253 16,-32"/>
-  </object>
-  <object id="154" name="Spawn" type="PlayerSpawn" x="-6751.27" y="1985.08">
-   <point/>
   </object>
   <object id="155" type="Hitbox" x="1168" y="2176">
    <polygon points="-80,-0.6977 112,-0.6977 112,47.3023 -80,47.3023"/>
@@ -1130,6 +1127,9 @@
    <point/>
   </object>
   <object id="1195" name="Coin" type="Coin" x="-6756.01" y="2021.04">
+   <point/>
+  </object>
+  <object id="1197" name="Spawn" type="PlayerSpawn" x="-302.817" y="-387.324">
    <point/>
   </object>
  </objectgroup>

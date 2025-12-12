@@ -181,11 +181,6 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
 
     local outer_offset, inner_offset = max_particle_r, math.max(max_particle_r, 4 * rt.settings.margin_unit)
 
-    local max_h = -math.huge
-    for widget in values(self._stage_id_to_widget) do
-        max_h = math.max(max_h, select(2, widget:measure()))
-    end
-
     local padding = 10
     local canvas_w, canvas_h = self._bounds.width + 2 * outer_offset + 2 * padding, love.graphics.getHeight()
 
@@ -195,6 +190,14 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
 
     self._canvas_x = x + 0.5 * width - 0.5 * canvas_w
     self._canvas_y = 0
+
+    local max_w, max_h = -math.huge, -math.huge
+    for widget in values(self._stage_id_to_widget) do
+        widget:reformat(0, 0, width, height)
+        local w, h = widget:measure()
+        max_w = math.max(max_w, w)
+        max_h = math.max(max_h, h)
+    end
 
     -- offset frame area to account for particle movement
     x = 0 + outer_offset + padding
@@ -210,11 +213,6 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
 
         local widget = self._stage_id_to_widget[stage_id]
         local page_w, page_h = widget:measure()
-        widget:reformat(0, 0, page_w, page_h)
-
-        page_w, page_h = widget:measure() -- may update after reformat
-        page_w = math.min(page_w, self._bounds.width - 2 * outer_offset)
-        page_h = math.min(page_h, self._bounds.height - 2 * outer_offset)
 
         local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
         page_y = page_y + page_offset
@@ -568,8 +566,6 @@ function mn.StageSelectItemframe:draw()
     end
 
     love.graphics.pop()
-
-    love.graphics.rectangle("line", self._bounds:unpack())
 end
 
 --- @brief

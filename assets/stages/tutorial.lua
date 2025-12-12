@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 5,
-  nextobjectid = 1197,
+  nextobjectid = 1198,
   properties = {
     ["title"] = "Not a Tutorial"
   },
@@ -1451,19 +1451,6 @@ return {
           properties = {
             ["slippery"] = true
           }
-        },
-        {
-          id = 154,
-          name = "Spawn",
-          type = "PlayerSpawn",
-          shape = "point",
-          x = -6751.27,
-          y = 1985.08,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         },
         {
           id = 155,
@@ -5128,6 +5115,19 @@ return {
           shape = "point",
           x = -6756.01,
           y = 2021.04,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 1197,
+          name = "Spawn",
+          type = "PlayerSpawn",
+          shape = "point",
+          x = -302.817,
+          y = -387.324,
           width = 0,
           height = 0,
           rotation = 0,
