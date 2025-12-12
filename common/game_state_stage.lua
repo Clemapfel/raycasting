@@ -62,12 +62,6 @@ function rt.GameState:_initialize_stage()
             description = "(no description)"
         end
 
-        local difficulty = entry.difficulty
-        if difficulty == nil then
-            warn(i, "difficulty")
-            difficulty = 0
-        end
-
         local target_time = entry.target_time
         if target_time == nil then
             warn(i, "target_time")
@@ -93,7 +87,6 @@ function rt.GameState:_initialize_stage()
             config = config,
             path = path_prefix .. "/" .. id .. ".lua",
             title = title,
-            difficulty = difficulty,
             description = description,
             target_time = target_time,
             n_coins = n_coins,
@@ -154,12 +147,6 @@ function rt.GameState:reinitialize_stage(stage_id)
         description = "(no description)"
     end
 
-    local difficulty = entry.difficulty
-    if difficulty == nil then
-        warn(i, "difficulty")
-        difficulty = 0
-    end
-
     local target_time = entry.target_time
     if target_time == nil then
         warn(i, "target_time")
@@ -183,7 +170,6 @@ function rt.GameState:reinitialize_stage(stage_id)
         config = config,
         path = stage_entry.path,
         title = title,
-        difficulty = difficulty,
         description = description,
         target_time = target_time,
         n_coins = n_coins,
@@ -391,12 +377,6 @@ end
 function rt.GameState:get_stage_name(id)
     local stage = self:_get_stage(id, "get_stage_name")
     return stage.title
-end
-
---- @brief
-function rt.GameState:get_stage_difficulty(id)
-    local stage = self:_get_stage(id, "get_stage_difficulty")
-    return stage.difficulty
 end
 
 --- @brief

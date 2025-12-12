@@ -151,7 +151,6 @@ rt.Translation = {
         coins_prefix = "Collected",
         coins_grade_prefix = "Coins",
         total_grade_prefix = "Total",
-        difficulty_prefix = "Difficulty",
     },
 
     -- verbose info
@@ -328,7 +327,6 @@ rt.Translation = {
             id = "tutorial",
             title = "[DEBUG TUTORIAL]",
             description = "TODO",
-            difficulty = 0,
             target_time = math.huge,
         },
 
@@ -336,7 +334,6 @@ rt.Translation = {
             id = "one_way_platform_tutorial",
             title = "TODO",
             description = "TODO",
-            difficulty = 0,
             target_time = math.huge
         },
 
@@ -344,7 +341,6 @@ rt.Translation = {
             id = "template",
             title = "[DEBUG TEMPLATE]",
             description = "TODO",
-            difficulty = 0,
             target_time = math.huge,
         },
 
@@ -352,7 +348,6 @@ rt.Translation = {
             id = "air_dash_node_tutorial",
             title = "TODO",
             description = "TODO",
-            difficulty = 0,
             target_time = math.huge,
         },
 
@@ -360,7 +355,6 @@ rt.Translation = {
             id = "portal_tutorial",
             title = "TODO",
             description = "TODO",
-            difficulty = 0,
             target_time = math.huge,
         },
     }
