@@ -204,7 +204,6 @@ function ow.ResultScreenScene:instantiate()
             option.frame:set_selection_state(rt.SelectionState.ACTIVE)
             option.frame:set_thickness(rt.settings.menu.pause_menu.selection_frame_thickness)
 
-
             option.blocked_node = rt.SelectionGraphNode()
             option.unblocked_node = rt.SelectionGraphNode()
 
@@ -212,8 +211,8 @@ function ow.ResultScreenScene:instantiate()
                 self[function_name](self)
             end
 
-            option.blocked_node:signal_connect(rt.InputAction.A, to_invoke)
-            option.unblocked_node:signal_connect(rt.InputAction.A, to_invoke)
+            option.blocked_node:signal_connect(rt.InputAction.CONFIRM, to_invoke)
+            option.unblocked_node:signal_connect(rt.InputAction.CONFIRM, to_invoke)
 
             if self._option_first_blocked_node == nil then
                 self._option_first_blocked_node = option.blocked_node

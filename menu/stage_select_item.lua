@@ -112,7 +112,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y, math.huge, math.huge)
     current_y = current_y + title_h + m
 
-    local preview_w = 300 * rt.get_pixel_scale()
+    local preview_w = 280 * rt.get_pixel_scale()
     local preview_h = preview_w / (16 / 9)
     local preview_x = x + 0.5 * width - 0.5 * preview_w
     local preview_y = current_y
@@ -130,16 +130,6 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
             love.graphics.setLineJoin("none")
         end
     }
-
-    table.insert(self._hrule_callbacks, function()
-        love.graphics.line(
-            preview_x , preview_y,
-            preview_x + preview_w, preview_y,
-            preview_x + preview_w, preview_y + preview_h,
-            preview_x, preview_y + preview_h,
-            preview_x , preview_y
-        )
-    end)
 
     local push_hrule = function(y)
         table.insert(self._hrule_callbacks, function()
@@ -167,7 +157,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     local function measure(...)
         local max_w, max_h = -math.huge, -math.huge
         for i = 1, select("#", ...) do
-            select(i, ...):reformat(0, 0, math.huge, math.huge)
+            select(i, ...):reformat(-math.huge, -math.huge, math.huge, math.huge)
             local w, h = select(i, ...):measure()
             max_w = math.max(max_w, w)
             max_h = math.max(max_h, h)
@@ -318,8 +308,7 @@ function mn.StageSelectItem:draw()
 
     for widget in range(
         self._title_label,
-        self._description_label,
-        self._stage_preview
+        self._description_label
     ) do
         widget:draw()
     end
@@ -329,6 +318,8 @@ function mn.StageSelectItem:draw()
     for callback in values(self._hrule_callbacks) do
         callback()
     end
+
+    self._stage_preview:draw() -- has to be here, uses hrule line config
 end
 
 --- @brief

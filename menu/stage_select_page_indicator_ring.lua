@@ -1,12 +1,12 @@
 rt.settings.menu.stage_select_page_indicator_ring = {
-    min_radius = 0.7, -- factor of thickness
+    min_radius = 0.5, -- factor of thickness
     max_radius = 1,
     min_velocity = 0.2,
     max_velocity = 1, -- factors of dxy
     linear_velocity = 5, -- px / s
     noise_velocity = 0.05, -- cycles per second
     max_noise_offset = 0.25, -- factor of thickness
-    coverage = 4
+    coverage = 1.9
 }
 
 --- @class mn.StageSelectPageIndicatorRing

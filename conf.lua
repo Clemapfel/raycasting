@@ -10,6 +10,7 @@ function love.conf(settings)
 
     local height = 600
     local aspect_ratio = 16 / 9
+    --aspect_ratio = 4 / 3
 
     settings.window.width = height * aspect_ratio
     settings.window.height = height

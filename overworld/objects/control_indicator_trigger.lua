@@ -15,6 +15,7 @@ do
     _types = table.concat(_types, "")
 end
 
+--- qbrief
 function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
     assert(object:get_type() ~= ow.ObjectType.POINT, "In ow.ControlIndicatorTrigger: object `", object:get_id(), "` is a point")
 

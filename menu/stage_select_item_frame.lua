@@ -576,8 +576,6 @@ function mn.StageSelectItemframe:draw()
     end
 
     love.graphics.pop()
-
-    self:draw_bounds()
 end
 
 --- @brief
@@ -669,5 +667,6 @@ function mn.StageSelectItemframe:measure()
         max_h = math.max(max_h, h)
     end
 
-    return max_w, max_h
+    local frame = rt.settings.menu.stage_select_item_frame.max_particle_radius * rt.get_pixel_scale()
+    return max_w + 2 * frame, max_h + 2 * frame
 end

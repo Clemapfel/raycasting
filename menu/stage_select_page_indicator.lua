@@ -268,12 +268,14 @@ function mn.StageSelectPageIndicator:draw()
     love.graphics.push()
     love.graphics.translate(0, self._scroll_offset)
 
+    --[[
     -- notifications
     rt.Palette.BLACK:bind()
+    local offset_x, offset_y = self._radius * 0.5, -self._radius * 0.5
     for i = 1, self._n_pages do
         local circle = self._circles[i]
         love.graphics.push()
-        love.graphics.translate(circle[1], circle[2])
+        love.graphics.translate(circle[1] + offset_x, circle[2] + offset_y)
         love.graphics.line(self._notification_outline)
         love.graphics.pop()
     end
@@ -282,10 +284,12 @@ function mn.StageSelectPageIndicator:draw()
     for i = 1, self._n_pages do
         local circle = self._circles[i]
         love.graphics.push()
-        love.graphics.translate(circle[1], circle[2])
+        love.graphics.translate(circle[1] + offset_x, circle[2] + offset_y)
         self._notification:draw()
         love.graphics.pop()
     end
+
+    ]]--
 
     love.graphics.pop()
     love.graphics.pop()

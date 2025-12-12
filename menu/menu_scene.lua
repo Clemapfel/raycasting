@@ -282,6 +282,7 @@ end
 
 --- @brief
 function mn.MenuScene:size_allocate(x, y, width, height)
+    self._bounds = rt.AABB(x, y, width, height)
     local m = rt.settings.margin_unit
     local outer_margin = 3 * m
 
@@ -405,18 +406,25 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         local item_frame_page_w, item_frame_page_h = stage_select.item_frame:measure()
         if item_frame_x + 0.5 * menu_w + 0.5 * item_frame_page_w > x + width - menu_right_margin then
             -- aligning with fraction would overlap page indicator, push as far right as possible
-            item_frame_x =  x + width - menu_right_margin - menu_w
+            item_frame_x = x + width - menu_right_margin - menu_w
+            local space_left = width - menu_right_margin - item_frame_page_w
+
             stage_select.item_frame:set_justify_mode(rt.JustifyMode.RIGHT)
+            stage_select.player_alignment = 0.5 * width
+                - space_left / 2
         else
             -- else keep at thirds
             stage_select.item_frame:set_justify_mode(rt.JustifyMode.CENTER)
+            stage_select.player_alignment = 0.5 * width
+                - width * fraction / 2
+                + self._player:get_radius() * 2
         end
 
         stage_select.item_frame:reformat(
             item_frame_x,
             y + control_h,
             menu_w,
-            self._bounds.height - control_h
+            self._bounds.height - 2 * control_h
         )
         stage_select.reveal_width = menu_w + page_indicator_w + 4 * outer_margin
 
@@ -678,9 +686,7 @@ function mn.MenuScene:update(delta)
         local stage_select = self._stage_select
 
         local w = love.graphics.getWidth()
-        local x_offset = 0.5 * w
-            - 0.5 *  rt.settings.menu_scene.stage_select.player_alignment * w
-            + 1.5 * self._player:get_radius() -- why 1.5, not 1?
+        local x_offset = offset_fraction * stage_select.player_alignment
 
         if self._state == mn.MenuSceneState.EXITING then
             self._camera:move_to(self._exit_x, self._exit_y)

@@ -21,10 +21,8 @@ local _noop_function = function() return nil end
 --- @signal rt.InputAction.RIGHT (rt.SelectionGraphNode) -> rt.SelectionGraphNode
 --- @signal rt.InputAction.DOWN (rt.SelectionGraphNode) -> rt.SelectionGraphNode
 --- @signal rt.InputAction.LEFT (rt.SelectionGraphNode) -> rt.SelectionGraphNode
---- @signal rt.InputAction.A (rt.SelectionGraphNode) -> nil
---- @signal rt.InputAction.B (rt.SelectionGraphNode) -> nil
---- @signal rt.InputAction.X (rt.SelectionGraphNode) -> nil
---- @signal rt.InputAction.Y (rt.SelectionGraphNode) -> nil
+--- @signal rt.InputAction.CONFIRM (rt.SelectionGraphNode) -> nil
+--- @signal rt.InputAction.BACK (rt.SelectionGraphNode) -> nil
 rt.SelectionGraphNode = meta.class("SelectionGraphNode", rt.Drawable)
 
 --- @brief
@@ -153,7 +151,7 @@ do
         local current = self._current_node
         if current == nil then return end
 
-        if button == rt.InputAction.A or button == rt.InputAction.B or button == rt.InputAction.X or button == rt.InputAction.Y then
+        if button == rt.InputAction.CONFIRM or button == rt.InputAction.BACK then
             current:signal_emit(button)
         else
             local f = _button_to_function_member[button]
