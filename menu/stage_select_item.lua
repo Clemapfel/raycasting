@@ -1,10 +1,11 @@
 require "common.label"
 require "menu.stage_grade_label"
+require "menu.stage_preview"
 require "overworld.coin_particle"
 require "overworld.objects.coin"
 
 rt.settings.menu.stage_select_item = {
-    coin_radius = 16,
+    coin_radius = 8,
     coins_max_n_per_row = 7,
     coins_n_rows = 2
 }
@@ -68,6 +69,8 @@ function mn.StageSelectItem:instantiate(stage_id)
 
     meta.install(self, {
         _title_label = extra_bold(title_prefix .. title .. title_postfix),
+
+        _stage_preview = mn.StagePreview(stage_id),
 
         _flow_prefix_label = bold(prefix_prefix .. translation.flow_prefix .. prefix_postfix),
         _flow_colon_label = regular(colon),
@@ -380,10 +383,40 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
 end
 
 --- @brief
+function mn.StageSelectItem:size_allocate(x, y, width, height)
+    local m = rt.settings.margin_unit
+    if self._last_window_height ~= love.graphics.getHeight() then
+        self:_init_coins()
+    end
+
+    local outer_margin = 2 * m
+
+    local current_x, current_y = x + outer_margin, y
+
+    self._title_label:reformat(0, 0, math.huge, math.huge)
+    local title_w, title_h = self._title_label:measure()
+    self._title_label:reformat(x + 0.5 * width - 0.5 * title_w, current_y, math.huge, math.huge)
+    current_y = current_y + title_h
+
+    local preview_w = width - 2 * outer_margin
+    local preview_h = preview_w / (16 / 9)
+    self._stage_preview:reformat(
+        x + 0.5 * width - 0.5 * preview_w, current_y,
+        preview_w, preview_h
+    )
+
+    current_y = current_y + preview_h + m
+
+
+    self._final_height = width
+    self._final_width = title_w + 2 * outer_margin
+end
+
+--- @brief
 function mn.StageSelectItem:realize()
-    local x, y = 100, 50
     for widget in range(
         self._title_label,
+        self._stage_preview,
         self._flow_prefix_label,
         self._flow_colon_label,
         self._flow_value_label,
@@ -414,6 +447,7 @@ end
 function mn.StageSelectItem:draw()
     for widget in range(
         self._title_label,
+        self._stage_preview,
         self._flow_prefix_label,
         self._flow_colon_label,
         self._flow_value_label,

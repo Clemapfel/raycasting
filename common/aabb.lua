@@ -39,6 +39,7 @@ function rt.AABB:contains(x, y)
     return _contains(x, y, self.x, self.y, self.width, self.height)
 end
 
+--- @brief
 function rt.AABB:intersects(x1, y1, x2, y2)
     local x, y, w, h = self:unpack()
     local right = x + w
@@ -51,11 +52,10 @@ function rt.AABB:intersects(x1, y1, x2, y2)
     end
 
     -- Fast case 2: Check if segment is entirely outside AABB bounds
-    -- If both points are on the same side of any edge, no intersection possible
-    if (x1 < x and x2 < x) or        -- both left
-        (x1 > right and x2 > right) or   -- both right
-        (y1 < y and y2 < y) or        -- both above
-        (y1 > bottom and y2 > bottom) then -- both below
+    if (x1 < x and x2 < x) or
+        (x1 > right and x2 > right) or
+        (y1 < y and y2 < y) or
+        (y1 > bottom and y2 > bottom) then
         return false
     end
 
@@ -63,45 +63,78 @@ function rt.AABB:intersects(x1, y1, x2, y2)
     local dx = x2 - x1
     local dy = y2 - y1
 
-    -- Use parametric intersection with slab method
     local tmin = 0.0
     local tmax = 1.0
 
     -- Check X slabs
     if dx ~= 0 then
-        local t1 = (x - x1) / dx      -- intersection with left edge
-        local t2 = (right - x1) / dx  -- intersection with right edge
+        local tx1 = (x - x1) / dx
+        local tx2 = (right - x1) / dx
 
-        if dx < 0 then
-            t1, t2 = t2, t1  -- swap if direction is negative
+        -- Handle infinity: if result is -inf or +inf, it means the slab extends infinitely
+        -- -inf means entry is at negative infinity (always entered)
+        -- +inf means exit is at positive infinity (never exited in that direction)
+        if dx > 0 then
+            -- Moving right: tx1 is entry, tx2 is exit
+            if tx1 ~= -math.huge then
+                tmin = math.max(tmin, tx1)
+            end
+            if tx2 ~= math.huge then
+                tmax = math.min(tmax, tx2)
+            end
+        else
+            -- Moving left: tx2 is entry, tx1 is exit
+            if tx2 ~= -math.huge then
+                tmin = math.max(tmin, tx2)
+            end
+            if tx1 ~= math.huge then
+                tmax = math.min(tmax, tx1)
+            end
         end
 
-        tmin = math.max(tmin, t1)
-        tmax = math.min(tmax, t2)
-
         if tmin > tmax then
-            return false  -- no overlap in X dimension
+            return false
+        end
+    else
+        -- dx == 0: segment is vertical, check if X is within bounds
+        if x1 < x or x1 > right then
+            return false
         end
     end
 
     -- Check Y slabs
     if dy ~= 0 then
-        local t1 = (y - y1) / dy      -- intersection with top edge
-        local t2 = (bottom - y1) / dy -- intersection with bottom edge
+        local ty1 = (y - y1) / dy
+        local ty2 = (bottom - y1) / dy
 
-        if dy < 0 then
-            t1, t2 = t2, t1  -- swap if direction is negative
+        if dy > 0 then
+            -- Moving down: ty1 is entry, ty2 is exit
+            if ty1 ~= -math.huge then
+                tmin = math.max(tmin, ty1)
+            end
+            if ty2 ~= math.huge then
+                tmax = math.min(tmax, ty2)
+            end
+        else
+            -- Moving up: ty2 is entry, ty1 is exit
+            if ty2 ~= -math.huge then
+                tmin = math.max(tmin, ty2)
+            end
+            if ty1 ~= math.huge then
+                tmax = math.min(tmax, ty1)
+            end
         end
 
-        tmin = math.max(tmin, t1)
-        tmax = math.min(tmax, t2)
-
         if tmin > tmax then
-            return false  -- no overlap in Y dimension
+            return false
+        end
+    else
+        -- dy == 0: segment is horizontal, check if Y is within bounds
+        if y1 < y or y1 > bottom then
+            return false
         end
     end
 
-    -- If we get here, the line segment intersects the AABB
     return true
 end
 

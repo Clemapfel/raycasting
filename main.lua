@@ -5,11 +5,6 @@ require "common.music_manager"
 require "common.sound_manager"
 require "common.input_manager"
 
-require "assets.level_design_permutation_aid"
-
-require "overworld.stage_preview"
-local preview = ow.StagePreview("tutorial")
-
 love.load = function(args)
     local w, h = love.graphics.getDimensions()
 
@@ -45,7 +40,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "one_way_platform_tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "one_way_platform_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -54,15 +49,9 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene)
-
-    local before = love.timer.getTime()
-    preview:realize()
-    preview:reformat(0, 0, love.graphics.getDimensions())
-    dbg((love.timer.getTime() - before) / (1 / 60))
+    rt.SceneManager:push(mn.MenuScene, true) -- skip title
 end
 
-local elapsed = 0
 love.update = function(delta)
     if rt.SceneManager ~= nil then
         rt.SceneManager:update(delta)
@@ -74,14 +63,10 @@ love.draw = function()
     if rt.SceneManager ~= nil then
         rt.SceneManager:draw()
     end
-
-    preview:draw()
 end
 
 love.resize = function(width, height)
     if rt.SceneManager ~= nil then
         rt.SceneManager:resize(width, height)
     end
-
-    preview:reformat(0, 0, love.graphics.getDimensions())
 end

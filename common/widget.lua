@@ -23,7 +23,7 @@ end
 
 --- @brief
 function rt.Widget:size_allocate(x, y, width, height)
-    rt.error("In Widget.size_allocate: abstract method called")
+    --rt.error("In Widget.size_allocate: abstract method called")
 end
 
 --- @brief

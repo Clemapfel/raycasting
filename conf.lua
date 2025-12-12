@@ -7,9 +7,13 @@ local VSYNC_ON = 1
 function love.conf(settings)
 
     --settings.graphics.renderers = {"opengl"}
-    settings.window.width = 800
-    settings.window.height = 600
-    settings.window.msaa = 4
+
+    local height = 600
+    local aspect_ratio = 16 / 9
+
+    settings.window.width = height * aspect_ratio
+    settings.window.height = height
+    settings.window.msaa = 8
     settings.window.resizable = true
     settings.window.vsync = VSYNC_ADAPTIVE
     settings.window.usedpiscale = false

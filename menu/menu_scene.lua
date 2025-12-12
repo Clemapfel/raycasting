@@ -30,7 +30,7 @@ rt.settings.menu_scene = {
     },
 
     stage_select = {
-        player_alignment = 0.5 * 1 / 3,
+        player_alignment = 1 / 5,
         reveal_animation_duration = 1,
         scroll_speed = 1,
         exititing_fraction = 2, -- number of screen heights until fade out starts
@@ -395,13 +395,16 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
         current_x = current_x - page_indicator_w - outer_margin
 
+        local fraction = 1 - rt.settings.menu_scene.stage_select.player_alignment
+
         -- level tiles
-        local menu_w = 2 / 3 * width - 2 * outer_margin - 2 * page_indicator_w
+        local menu_right_margin = 2 * outer_margin + page_indicator_w
+        local menu_w = fraction * (width - 2 * menu_right_margin)
         stage_select.item_frame:reformat(
-            x + 2 / 3 * width - 0.5 * menu_w,
+            x + width - menu_right_margin - menu_w,
             y,
             menu_w,
-            self._bounds.height
+            self._bounds.height - control_h
         )
         stage_select.reveal_width = menu_w + page_indicator_w + 4 * outer_margin
 

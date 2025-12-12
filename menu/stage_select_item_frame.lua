@@ -72,6 +72,9 @@ function mn.StageSelectItemframe:create_from_state()
             decoration:create_from_state()
         end
 
+        item:realize()
+        decoration:realize()
+
         self._page_i_to_stage_id[page_i] = id
         page_i = page_i + 1
     end
@@ -210,6 +213,9 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
         widget:reformat(0, 0, page_w, page_h)
 
         page_w, page_h = widget:measure() -- may update after reformat
+        page_w = math.min(page_w, self._bounds.width - 2 * outer_offset)
+        page_h = math.min(page_h, self._bounds.height - 2 * outer_offset)
+
         local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
         page_y = page_y + page_offset
         widget:reformat(page_x, page_y, page_w, page_h)
@@ -562,6 +568,8 @@ function mn.StageSelectItemframe:draw()
     end
 
     love.graphics.pop()
+
+    love.graphics.rectangle("line", self._bounds:unpack())
 end
 
 --- @brief

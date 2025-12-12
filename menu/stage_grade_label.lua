@@ -89,7 +89,9 @@ function mn.StageGradeLabel:draw()
     _shader_sdf:send("white", { rt.Palette.WHITE:unpack() })
     _shader_sdf:send("opacity", self._opacity)
 
-    love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
+    if self._label_sdf ~= nil then
+        love.graphics.draw(self._label_sdf, self._label_x, self._label_y)
+    end
 
     _shader_sdf:unbind()
 
@@ -114,7 +116,9 @@ function mn.StageGradeLabel:draw()
 
     self._color:bind()
 
-    love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
+    if self._label_sdf ~= nil then
+        love.graphics.draw(self._label_no_sdf, self._label_x, self._label_y)
+    end
 
     _shader_no_sdf:unbind()
 end

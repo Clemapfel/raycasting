@@ -450,22 +450,28 @@ love.run = function()
         local frame_before, frame_fater, update_before, update_after, draw_before, draw_after
 
         local state = rt.SceneManager
+        local current_scene = rt.SceneManager._current_scene
+
+        -- get events
+        love.event.pump()
+        for name, a, b, c, d, e, f in love.event.poll() do
+            if name == "quit" then
+                if love.quit then love.quit() end
+                return a or 0 -- for restart
+            end
+            love.handlers[name](a, b, c, d, e, f)
+        end
+
         state._frame_timestamp = love.timer.getTime()
-        
         local delta = love.timer.step()
-        
+
         update_before = love.timer.getTime()
 
-        -- skip if window unfocused
-        local current_scene = rt.SceneManager._current_scene
-        if state._ignore_next_step == true
-            or (not state._is_focused
-                and (current_scene == nil
-                    or current_scene:get_pause_on_focus_lost() == true
-                )
-            )
-        then
+        -- skip if window unfocused, prevent large delta after becoming active again
+        local pause_on_focus_lost = current_scene == nil or current_scene:get_pause_on_focus_lost() == true
+        if state._ignore_next_step == true or (not state._is_focused and pause_on_focus_lost) then
             state._ignore_next_step = false
+            state._accumulator = 0
             goto skip_update
         end
 
@@ -474,16 +480,6 @@ love.run = function()
         if rt.SceneManager._use_fixed_timestep then
             local n_steps = 0
             while state._accumulator >= state._step do
-                love.event.pump()
-                for name, a, b, c, d, e, f in love.event.poll() do
-                    if name == "quit" then
-                        if not love.quit or not love.quit() then
-                            return a or 0
-                        end
-                    end
-                    love.handlers[name](a, b, c, d, e, f)
-                end
-
                 if love.update then
                     love.update(state._step)
                 end
