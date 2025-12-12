@@ -44,6 +44,7 @@ function mn.StageSelectItemframe:instantiate()
     self._last_scroll_offset = 0
     self._canvas_x,self._canvas_y = 0, 0
     self._canvas_needs_update = true
+    self._justify_mode = rt.JustifyMode.CENTER
 
     self:create_from_state()
 end
@@ -214,7 +215,16 @@ function mn.StageSelectItemframe:size_allocate(x, y, width, height)
         local widget = self._stage_id_to_widget[stage_id]
         local page_w, page_h = widget:measure()
 
-        local page_x, page_y = 0.5 * canvas_w - 0.5 * page_w, 0.5 * canvas_h - 0.5 * page_h -- x: canvas-local
+        local page_x -- canvas local
+        if self._justify_mode == rt.JustifyMode.CENTER then
+            page_x = 0.5 * canvas_w - 0.5 * page_w
+        elseif self._justify_mode == rt.JustifyMode.LEFT then
+            page_x = 0
+        elseif self._justify_mode == rt.JustifyMode.RIGHT then
+            page_x = canvas_w - page_w - 2 * outer_offset
+        end
+
+        local page_y =0.5 * canvas_h - 0.5 * page_h
         page_y = page_y + page_offset
         widget:reformat(page_x, page_y, page_w, page_h)
 
@@ -566,6 +576,8 @@ function mn.StageSelectItemframe:draw()
     end
 
     love.graphics.pop()
+
+    self:draw_bounds()
 end
 
 --- @brief
@@ -641,4 +653,21 @@ end
 --- @brief
 function mn.StageSelectItemframe:get_hue()
     return self._hue
+end
+
+--- @brief
+function mn.StageSelectItemframe:set_justify_mode(mode)
+    self._justify_mode = mode
+end
+
+--- @brief
+function mn.StageSelectItemframe:measure()
+    local max_w, max_h = -math.huge, -math.huge
+    for widget in values(self._stage_id_to_widget) do
+        local w, h = widget:measure()
+        max_w = math.max(max_w, w)
+        max_h = math.max(max_h, h)
+    end
+
+    return max_w, max_h
 end

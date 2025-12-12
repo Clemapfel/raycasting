@@ -113,7 +113,7 @@ function mn.StageSelectItem:size_allocate(x, y, width, height)
     current_y = current_y + title_h + m
 
     local preview_w = 300 * rt.get_pixel_scale()
-    local preview_h = preview_w * (love.graphics.getHeight() / love.graphics.getWidth())
+    local preview_h = preview_w / (16 / 9)
     local preview_x = x + 0.5 * width - 0.5 * preview_w
     local preview_y = current_y
 

@@ -30,7 +30,7 @@ rt.settings.menu_scene = {
     },
 
     stage_select = {
-        player_alignment = 1 / 5,
+        player_alignment = 1 / 3,
         reveal_animation_duration = 1,
         scroll_speed = 1,
         exititing_fraction = 2, -- number of screen heights until fade out starts
@@ -373,7 +373,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         -- control indicator
         local control_w, control_h = stage_select.control_indicator:measure()
         stage_select.control_indicator:reformat(
-            x + width - control_w,
+            x,
             y + height - control_h,
             control_w, control_h
         )
@@ -395,14 +395,26 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
         current_x = current_x - page_indicator_w - outer_margin
 
-        local fraction = 1 - rt.settings.menu_scene.stage_select.player_alignment
+        local fraction = rt.settings.menu_scene.stage_select.player_alignment
 
         -- level tiles
         local menu_right_margin = 2 * outer_margin + page_indicator_w
-        local menu_w = fraction * (width - 2 * menu_right_margin)
+        local menu_w = (1 - fraction) * width
+        local item_frame_x = x + width - menu_w
+
+        local item_frame_page_w, item_frame_page_h = stage_select.item_frame:measure()
+        if item_frame_x + 0.5 * menu_w + 0.5 * item_frame_page_w > x + width - menu_right_margin then
+            -- aligning with fraction would overlap page indicator, push as far right as possible
+            item_frame_x =  x + width - menu_right_margin - menu_w
+            stage_select.item_frame:set_justify_mode(rt.JustifyMode.RIGHT)
+        else
+            -- else keep at thirds
+            stage_select.item_frame:set_justify_mode(rt.JustifyMode.CENTER)
+        end
+
         stage_select.item_frame:reformat(
-            x + width - menu_right_margin - menu_w,
-            y,
+            item_frame_x,
+            y + control_h,
             menu_w,
             self._bounds.height - control_h
         )
@@ -663,15 +675,19 @@ function mn.MenuScene:update(delta)
 
         -- transition player to left side of screen
         local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
-        local x_offset = 2 * offset_fraction * rt.settings.menu_scene.stage_select.player_alignment * self._bounds.width
+        local stage_select = self._stage_select
+
+        local w = love.graphics.getWidth()
+        local x_offset = 0.5 * w
+            - 0.5 *  rt.settings.menu_scene.stage_select.player_alignment * w
+            + 1.5 * self._player:get_radius() -- why 1.5, not 1?
 
         if self._state == mn.MenuSceneState.EXITING then
             self._camera:move_to(self._exit_x, self._exit_y)
         else
-            self._camera:move_to(px + x_offset / self._camera:get_final_scale(), py)
+            self._camera:move_to(px + x_offset, py)
         end
 
-        local stage_select = self._stage_select
         stage_select.n_items = rt.GameState:get_n_stages()
 
         if offset_fraction > 0.95 then
