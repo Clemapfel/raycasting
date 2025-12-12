@@ -226,9 +226,6 @@ function mn.MenuScene:instantiate(state)
         stage_select.selected_item_i = 1
 
         local stage_ids = rt.GameState:list_stage_ids()
-        table.sort(stage_ids, function(a, b)
-            return rt.GameState:get_stage_difficulty(a) < rt.GameState:get_stage_difficulty(b)
-        end)
 
         stage_select.item_frame = mn.StageSelectItemframe()
         stage_select.page_indicator = mn.StageSelectPageIndicator()
@@ -240,7 +237,7 @@ function mn.MenuScene:instantiate(state)
         local translation = rt.Translation.menu_scene.stage_select
         stage_select.control_indicator = rt.ControlIndicator(
             rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_confirm,
-            rt.ControlIndicatorButton.B, translation.control_indicator_back,
+            rt.ControlIndicatorButton.BACK, translation.control_indicator_back,
             rt.ControlIndicatorButton.UP_DOWN, translation.control_indicator_select
         )
 
@@ -417,7 +414,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             stage_select.item_frame:set_justify_mode(rt.JustifyMode.CENTER)
             stage_select.player_alignment = 0.5 * width
                 - width * fraction / 2
-                + self._player:get_radius() * 2
+                - self._player:get_radius() * 2 -- why is this necessary?
         end
 
         stage_select.item_frame:reformat(
