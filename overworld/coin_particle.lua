@@ -166,3 +166,8 @@ end
 function ow.CoinParticle:set_opacity(opacity)
     self._opacity = opacity
 end
+
+--- @brief
+function ow.CoinParticle:set_elapsed(elapsed)
+    self._elapsed_offset = elapsed
+end
