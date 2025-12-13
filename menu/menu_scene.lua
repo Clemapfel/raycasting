@@ -9,9 +9,9 @@ require "menu.stage_select_page_indicator"
 require "menu.stage_select_item_frame"
 require "menu.stage_select_debris_emitter"
 require "menu.stage_select_clouds"
+require "menu.coin_particle_swarm"
 require "menu.menu_scene_background"
 require "overworld.coin_particle"
-require "menu.overall_completion_bar"
 
 rt.settings.menu_scene = {
     player_max_falling_velocity = 1000,
@@ -232,7 +232,7 @@ function mn.MenuScene:instantiate(state)
         stage_select.page_indicator = mn.StageSelectPageIndicator()
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
         stage_select.clouds = mn.StageSelectClouds()
-        stage_select.completion_bar = mn.OverallCompletionBar()
+        stage_select.coin_particle_swarm = mn.CoinParticleSwarm()
         stage_select.exit_fade = rt.Fade(3, "overworld/overworld_scene_fade.glsl")
         stage_select.debris_emitter_initialized = false
 
@@ -267,7 +267,6 @@ function mn.MenuScene:realize()
     for widget in range(
         stage_select.page_indicator,
         stage_select.item_frame,
-        stage_select.completion_bar,
         stage_select.debris_emitter,
         stage_select.clouds,
         stage_select.control_indicator
@@ -435,15 +434,6 @@ function mn.MenuScene:size_allocate(x, y, width, height)
             self._bounds.height - 2 * control_h
         )
         stage_select.reveal_width = menu_w + page_indicator_w + 4 * outer_margin
-
-        local completion_w = width - 2 * outer_margin
-        local completion_h = nil
-        stage_select.completion_bar:reformat(
-            x + m,
-            y + outer_margin,
-            width - 2 * outer_margin,
-            50 * rt.get_pixel_scale()
-        )
     end
 end
 
@@ -709,6 +699,12 @@ function mn.MenuScene:update(delta)
 
         stage_select.clouds:set_opacity(self._player:get_flow())
         stage_select.clouds:update(delta)
+        stage_select.coin_particle_swarm:update(delta)
+
+        stage_select.coin_particle_swarm:set_target(
+            px, py,
+            self._player:get_velocity()
+        )
 
         if offset_fraction > 0.95 then
             stage_select.debris_emitter:update(delta)
@@ -724,7 +720,6 @@ function mn.MenuScene:update(delta)
             stage_select.item_reveal_animation:update(delta)
             stage_select.page_indicator:update(delta)
             stage_select.item_frame:update(delta)
-            stage_select.completion_bar:update(delta)
         end
 
         local hue = stage_select.item_frame:get_hue()
@@ -865,13 +860,19 @@ function mn.MenuScene:draw()
         stage_select.debris_emitter:draw()
         stage_select.clouds:draw()
 
+        -- TODO
+        --[[
+        self._camera:bind()
+        stage_select.coin_particle_swarm:draw()
+        self._camera:unbind()
+        ]]--
+
         love.graphics.push()
         local offset_x = stage_select.item_reveal_animation:get_value()
         love.graphics.translate(offset_x * stage_select.reveal_width, 0)
 
         stage_select.item_frame:draw()
         stage_select.page_indicator:draw()
-        stage_select.completion_bar:draw()
         stage_select.control_indicator:draw()
 
         love.graphics.pop()
@@ -909,6 +910,7 @@ function mn.MenuScene:draw()
 
     self._camera:bind()
     self._player:draw()
+    self._stage_select.coin_particle_swarm:draw()
     self._camera:unbind()
 
     self._stage_select.debris_emitter:draw_above()
