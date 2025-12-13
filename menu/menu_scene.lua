@@ -8,6 +8,7 @@ require "common.fade"
 require "menu.stage_select_page_indicator"
 require "menu.stage_select_item_frame"
 require "menu.stage_select_debris_emitter"
+require "menu.stage_select_clouds"
 require "menu.menu_scene_background"
 require "overworld.coin_particle"
 require "menu.overall_completion_bar"
@@ -230,6 +231,7 @@ function mn.MenuScene:instantiate(state)
         stage_select.item_frame = mn.StageSelectItemframe()
         stage_select.page_indicator = mn.StageSelectPageIndicator()
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
+        stage_select.clouds = mn.StageSelectClouds()
         stage_select.completion_bar = mn.OverallCompletionBar()
         stage_select.exit_fade = rt.Fade(3, "overworld/overworld_scene_fade.glsl")
         stage_select.debris_emitter_initialized = false
@@ -261,13 +263,19 @@ function mn.MenuScene:realize()
         item.selected_label:realize()
     end
 
-    self._stage_select.page_indicator:realize()
-    self._stage_select.item_frame:realize()
-    self._stage_select.completion_bar:realize()
-    self._stage_select.debris_emitter:realize()
-    self._stage_select.control_indicator:realize()
-    self._stage_select.control_indicator:set_has_frame(false)
+    local stage_select = self._stage_select
+    for widget in range(
+        stage_select.page_indicator,
+        stage_select.item_frame,
+        stage_select.completion_bar,
+        stage_select.debris_emitter,
+        stage_select.clouds,
+        stage_select.control_indicator
+    ) do
+        widget:realize()
+    end
 
+    self._stage_select.control_indicator:set_has_frame(false)
     self:_create_from_state()
 end
 
@@ -366,7 +374,10 @@ function mn.MenuScene:size_allocate(x, y, width, height)
 
     do -- stage select
         local stage_select = self._stage_select
-        stage_select.debris_emitter:reformat(self._bounds)
+        local bounds = self:get_bounds()
+
+        stage_select.debris_emitter:reformat(bounds)
+        stage_select.clouds:reformat(bounds)
 
         -- control indicator
         local control_w, control_h = stage_select.control_indicator:measure()
@@ -843,15 +854,18 @@ function mn.MenuScene:draw()
     if self._state == mn.MenuSceneState.FALLING or self._state == mn.MenuSceneState.STAGE_SELECT or self._state == mn.MenuSceneState.EXITING then
         local stage_select = self._stage_select
         stage_select.debris_emitter:draw()
+        stage_select.clouds:draw()
 
         love.graphics.push()
         local offset_x = stage_select.item_reveal_animation:get_value()
         love.graphics.translate(offset_x * stage_select.reveal_width, 0)
 
+        --[[ TODO
         stage_select.item_frame:draw()
         stage_select.page_indicator:draw()
         stage_select.completion_bar:draw()
         stage_select.control_indicator:draw()
+        ]]--
 
         love.graphics.pop()
 

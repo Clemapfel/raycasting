@@ -112,7 +112,6 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         float time = elapsed / 200;
         vec2 center = to_uv(0.5 * love_ScreenSize.xy, offset);
 
-
         // LCH-based gradient
         float bg_y = uv.y / 1.4;
         float gradient_alpha = symmetric(bg_y);// Invisible at the top, visible at the bottom
