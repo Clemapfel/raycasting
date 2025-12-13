@@ -34,7 +34,12 @@ function mn.StageSelectItem:instantiate(stage_id)
     meta.assert(stage_id, "String")
     self._id = stage_id
     self._hrule_callbacks = {}
-    
+
+    self:create_from_state()
+end
+
+--- @brief
+function mn.StageSelectItem:create_from_state()
     local translation = rt.Translation.stage_select_item
     local title_prefix, title_postfix = "<b><u>", "</u></b>"
     local flow_prefix, flow_postfix = "", ""
@@ -58,44 +63,62 @@ function mn.StageSelectItem:instantiate(stage_id)
         state:get_stage_n_coins_collected(id), state:get_stage_n_coins(id)
     )
 
-    local function extra_bold(text) return rt.Label(text, rt.FontSize.BIG, _extra_bold) end
-    local function bold(text) return rt.Label(text, rt.FontSize.BIG, _bold) end
-    local function regular(text) return rt.Label(text, rt.FontSize.BIG, _regular) end
-    local function small(text) return rt.Label(text, rt.FontSize.BIG, _regular)  end
+    -- if label already exists, set text, else allocate
+    local install_label = function(member_name, text, font_size, font)
+        if self[member_name] ~= nil then
+            self[member_name]:set_text(text)
+        else
+            self[member_name] = rt.Label(text, font_size, font)
+        end
+    end
+
+    local function extra_bold(text) return text, rt.FontSize.BIG, _extra_bold end
+    local function bold(text) return text, rt.FontSize.BIG, _bold end
+    local function regular(text) return text, rt.FontSize.BIG, _regular end
+    local function small(text) return text, rt.FontSize.BIG, _regular  end
+
+    install_label("_title_label", extra_bold(title_prefix .. title .. title_postfix))
 
     local grade_font_size = rt.FontSize.LARGER
 
-    meta.install(self, {
-        _title_label = extra_bold(title_prefix .. title .. title_postfix),
+    install_label("_flow_prefix_label", bold(prefix_prefix .. translation.flow_prefix .. prefix_postfix))
+    install_label("_flow_colon_label", regular(colon))
+    install_label("_flow_value_label", regular(flow_prefix .. flow .. flow_postfix))
 
-        _stage_preview = mn.StagePreview(stage_id),
+    install_label("_flow_grade_prefix_label", regular(prefix_prefix .. translation.flow_grade_prefix .. prefix_postfix))
+    install_label("_flow_grade_colon", regular(colon))
 
-        _flow_prefix_label = bold(prefix_prefix .. translation.flow_prefix .. prefix_postfix),
-        _flow_colon_label = regular(colon),
-        _flow_value_label = regular(flow_prefix .. flow .. flow_postfix),
+    install_label("_time_prefix_label", bold(prefix_prefix ..translation.time_prefix .. prefix_postfix))
+    install_label("_time_colon_label", regular(colon))
+    install_label("_time_value_label", regular(time_prefix .. time .. time_postfix))
 
-        _flow_grade_prefix_label = regular(prefix_prefix .. translation.flow_grade_prefix .. prefix_postfix),
-        _flow_grade_colon = regular(colon),
-        _flow_grade = mn.StageGradeLabel(flow_grade, grade_font_size),
+    install_label("_time_grade_prefix_label", regular(prefix_postfix .. translation.time_grade_prefix .. prefix_postfix))
+    install_label("_time_grade_colon", regular(colon))
 
-        _time_prefix_label = bold(prefix_prefix ..translation.time_prefix .. prefix_postfix),
-        _time_colon_label = regular(colon),
-        _time_value_label = regular(time_prefix .. time .. time_postfix),
+    install_label("_coins_prefix_label", bold(prefix_prefix .. translation.coins_prefix .. prefix_postfix))
+    install_label("_coins_colon_label", regular(colon))
+    install_label("_coins_value_label", regular(coins_prefix .. coins .. coins_postfix))
 
-        _time_grade_prefix_label = regular(prefix_postfix .. translation.time_grade_prefix .. prefix_postfix),
-        _time_grade_colon = regular(colon),
-        _time_grade = mn.StageGradeLabel(time_grade, grade_font_size),
+    install_label("_coins_grade_prefix_label", regular(prefix_prefix .. translation.coins_grade_prefix .. prefix_postfix))
+    install_label("_coins_grade_colon", regular(colon))
 
-        _coins_prefix_label = bold(prefix_prefix .. translation.coins_prefix .. prefix_postfix),
-        _coins_colon_label = regular(colon),
-        _coins_value_label = regular(coins_prefix .. coins .. coins_postfix),
+    install_label("_description_label", description_prefix .. description .. description_postfix, rt.FontSize.SMALL)
 
-        _coins_grade_prefix_label = regular(prefix_prefix .. translation.coins_grade_prefix .. prefix_postfix),
-        _coins_grade_colon = regular(colon),
-        _coins_grade = mn.StageGradeLabel(coin_grade, grade_font_size),
+    local install_grade = function(member_name, grade, font_size)
+        if self[member_name] == nil then
+            self[member_name] = mn.StageGradeLabel(grade, font_size)
+        else
+            self[member_name]:set_grade(grade)
+        end
+    end
 
-        _description_label = rt.Label(description_prefix .. description .. description_postfix, rt.FontSize.SMALL)
-    })
+    install_grade("_flow_grade", flow_grade, grade_font_size)
+    install_grade("_time_grade", time_grade, grade_font_size)
+    install_grade("_coins_grade", coin_grade, grade_font_size)
+
+    if self._stage_preview == nil then
+        self._stage_preview = mn.StagePreview(id)
+    end
 end
 
 --- @brief
@@ -336,9 +359,4 @@ end
 --- @brief
 function mn.StageSelectItem:get_stage_id()
     return self._id
-end
-
---- @brief
-function mn.StageSelectItem:create_from_state()
-    rt.critical("In mn.StageSelectItem.create_from_state: TODO")
 end
