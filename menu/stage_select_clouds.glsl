@@ -49,43 +49,56 @@ vec3 lch_to_rgb(vec3 lch) {
     return vec3(clamp(R, 0.0, 1.0), clamp(G, 0.0, 1.0), clamp(B, 0.0, 1.0));
 }
 
+#define PI 3.1415926535897932384626433832795
+float gaussian(float x, float ramp)
+{
+    return exp(((-4 * PI) / 3) * (ramp * x) * (ramp * x));
+}
+
 #ifdef PIXEL
 
 uniform float elapsed;
+uniform float hue;
+uniform float opacity;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
-    return vec4(length(texture_coords));
-
     const float ray_step = 0.2;
     const int n_steps = 7;
     const float density_multiplier = 0.2;
 
-    screen_coords.y += 0.75 * elapsed * love_ScreenSize.y;
+    // uv.x: 0 to 1 left to right, uv.y: rim density weight
+
+    float weight = 1 - 0.6 * distance(screen_coords.xy, love_ScreenSize.xy * 0.5) / (min(love_ScreenSize.x, love_ScreenSize.y) * 0.5);
+    weight = 1 - weight * 10 * 0.5;
+    weight *= texture_coords.y;
+    if (weight < 0.01) discard;
+
+    float angle_direction = 0.1;
+
+    float t = texture_coords.x * 2.0 - 1.0;
+    vec2 time_direction = normalize(texture_coords.x > 0.5 ? vec2(angle_direction, 1.0) : vec2(-angle_direction, 1.0));
+    screen_coords.xy += time_direction * elapsed * 250;
 
     vec3 ray_position = vec3(screen_coords * 0.01, 0);
     vec3 ray_direction = vec3(0, 0, 1);
 
-
     float final_density = 0;
-    float final_hue = 0;
     float accumulated_alpha = 0;
+
 
     for (int i = 0; i < n_steps; ++i) {
         float offset = ray_step * float(i);
-        float hue = float(i) / float(n_steps);
+        float hue = fract(float(i) / float(n_steps) + elapsed);
 
         vec3 sample_pos = ray_position + ray_direction * offset;
         float density = density_multiplier * (1 + gradient_noise(sample_pos)) / 2;
-        density *= length(texture_coords);
+        density *= weight;
 
         float alpha = density * (1.0 - accumulated_alpha);
-        final_hue += hue * alpha;
         accumulated_alpha += alpha;
-
-        final_density += density;
     }
 
-    return vec4(lch_to_rgb(vec3(0.8, 1, final_hue)), accumulated_alpha);
+    return vec4(lch_to_rgb(vec3(0.8, 1, hue)), accumulated_alpha * opacity);
 }
 
 #endif

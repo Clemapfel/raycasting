@@ -11,6 +11,10 @@ local _shader = rt.Shader("menu/stage_select_clouds.glsl")
 --- @brief
 function mn.StageSelectClouds:instantiate()
     self._mesh = nil -- rt.Mesh
+    self._hue = 0
+    self._speedup = 1
+    self._elapsed = 0
+    self._opacity = 0
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "k" then _shader:recompile() end
@@ -26,51 +30,38 @@ function mn.StageSelectClouds:size_allocate(x, y, width, height)
         })
     end
 
-    local t = rt.settings.menu.stage_select_clouds.depression_t
     local w, h = width, height
-    local rim_h = rt.settings.menu.stage_select_clouds.rim_t * h
-
-    -- base
-    add_vertex(
-        x, y + rim_h,
-        1, 1
-    )
-
+    local top_fraction = 0.25
+    local bottom_fraction = 1
 
     add_vertex(
-        x + 0.5 * w, y + t * h + rim_h,
-        1, 1
-    )
-
-    add_vertex(
-        x + w, y + rim_h,
-        1, 1
-    )
-
-    add_vertex(
-        x, y + h,
-        1, 1
-    )
-
-    add_vertex(
-        x + w, y + h,
-        1, 1
-    )
-
-    -- rim
-    add_vertex(
-        x, y,
+        x, y + top_fraction * h,
         0, 0
     )
 
     add_vertex(
-        x + 0.5 * w, y + t * h,
-        0, 0
+        x + 0.5 * w, y + bottom_fraction * h,
+        0.5, 0
     )
 
     add_vertex(
-        x + w, y,
-        0, 0
+        x + w, y + top_fraction * h,
+        1, 0
+    )
+
+    add_vertex(
+        x, y + bottom_fraction * h,
+        0, 1
+    )
+
+    add_vertex(
+        x + 0.5 * w, y + bottom_fraction * h + top_fraction * h,
+        0.5, 1
+    )
+
+    add_vertex(
+        x + w, y + bottom_fraction * h,
+        1, 1
     )
 
     if self._mesh == nil then
@@ -82,14 +73,10 @@ function mn.StageSelectClouds:size_allocate(x, y, width, height)
         )
 
         self._mesh:set_vertex_map(
-            1, 2, 4, -- left
-            3, 2, 5, -- right
-            4, 2, 5, -- bottom center
-
-            6, 7, 1, -- rim quads
-            7, 1, 2,
-            8, 7, 3,
-            7, 3, 2
+            1, 2, 4,
+            2, 4, 5,
+            3, 2, 6,
+            2, 5, 6
         )
     else
         self._mesh:replace_data(mesh_data)
@@ -97,12 +84,34 @@ function mn.StageSelectClouds:size_allocate(x, y, width, height)
 end
 
 --- @brief
+function mn.StageSelectClouds:update(delta)
+    self._elapsed = self._elapsed + (1 + self._speedup) * delta
+end
+
+--- @brief
 function mn.StageSelectClouds:draw()
     if self._mesh == nil then return end
 
     _shader:bind()
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("elapsed", self._elapsed)
+    _shader:send("hue", self._hue)
+    _shader:send("opacity", self._opacity)
     love.graphics.setColor(1, 1, 1, 1)
     self._mesh:draw()
     _shader:unbind()
+end
+
+--- @brief
+function mn.StageSelectClouds:set_hue(hue)
+    self._hue = hue
+end
+
+--- @brief
+function mn.StageSelectClouds:set_speedup(speedup)
+    self._speedup = speedup
+end
+
+--- @brief
+function mn.StageSelectClouds:set_opacity(opacity)
+    self._opacity = opacity
 end

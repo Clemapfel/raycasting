@@ -188,10 +188,10 @@ function mn.MenuScene:instantiate(state)
                 return
             end
 
-            if which == rt.InputAction.A then
+            if which == rt.InputAction.CONFIRM then
                 self:_set_state(mn.MenuSceneState.EXITING)
                 stage_select.waiting_for_exit = true
-            elseif which == rt.InputAction.B then
+            elseif which == rt.InputAction.BACK then
                 self._fade:start()
                 self._fade:signal_connect("hidden", function()
                     stage_select.debris_emitter:reset()
@@ -541,6 +541,7 @@ function mn.MenuScene:_set_state(next)
 
     if next == mn.MenuSceneState.TITLE_SCREEN then
         self._title_screen.input:activate()
+        self._player:set_flow(0)
 
         local w, h = self._bounds.width, self._bounds.height
         local r = self._player:get_radius()
@@ -687,7 +688,9 @@ function mn.MenuScene:update(delta)
             vy = vy + rt.settings.menu_scene.exit_acceleration * delta -- exponential acceleration
         end
         self._player:set_velocity(vx, vy)
-        self._camera:set_shake_frequency(vy / max_velocity)
+        local shake_t = vy / max_velocity * speedup
+        self._camera:set_shake_frequency(shake_t)
+        self._camera:set_shake_intensity_in_pixels(math.min(1, shake_t) * 1)
 
         -- transition player to left side of screen
         local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
@@ -703,6 +706,9 @@ function mn.MenuScene:update(delta)
         end
 
         stage_select.n_items = rt.GameState:get_n_stages()
+
+        stage_select.clouds:set_opacity(self._player:get_flow())
+        stage_select.clouds:update(delta)
 
         if offset_fraction > 0.95 then
             stage_select.debris_emitter:update(delta)
@@ -721,8 +727,11 @@ function mn.MenuScene:update(delta)
             stage_select.completion_bar:update(delta)
         end
 
-        stage_select.page_indicator:set_hue(stage_select.item_frame:get_hue())
+        local hue = stage_select.item_frame:get_hue()
+        stage_select.page_indicator:set_hue(hue)
+        stage_select.clouds:set_hue(hue)
         stage_select.debris_emitter:set_speedup(speedup)
+        stage_select.clouds:set_speedup(speedup)
         self._background:set_speedup(speedup)
 
         if self._state == mn.MenuSceneState.FALLING then
@@ -860,12 +869,10 @@ function mn.MenuScene:draw()
         local offset_x = stage_select.item_reveal_animation:get_value()
         love.graphics.translate(offset_x * stage_select.reveal_width, 0)
 
-        --[[ TODO
         stage_select.item_frame:draw()
         stage_select.page_indicator:draw()
         stage_select.completion_bar:draw()
         stage_select.control_indicator:draw()
-        ]]--
 
         love.graphics.pop()
 
