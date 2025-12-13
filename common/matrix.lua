@@ -59,3 +59,22 @@ function rt.Matrix:_update_index_range()
     self._max_x, self._max_y = max_x, max_y
     self._index_range_update_needed = false
 end
+
+function rt.Matrix:clear(keep_allocated)
+    if keep_allocated == true then
+        require "table.clear"
+        for row in values(self._data) do
+            for column in values(row) do
+                table.clear(column)
+            end
+        end
+    else
+        self._data = {}
+    end
+
+    self._min_x = 0
+    self._min_y = 0
+    self._max_x = 0
+    self._max_y = 0
+    self._index_range_update_needed = true
+end
