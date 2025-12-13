@@ -1,4 +1,9 @@
+local f = 100
 return {
-    air_dash_duration = 5 / 60,
-    air_dash_velocity = 1200
+    follow_force = f,
+    velocity_alignment_gain = 0,
+    separation_force = 100 * f,
+    separation_radius_factor = 1.1,
+    damping = 0.0,
+    max_force = 2
 }
