@@ -326,7 +326,7 @@ end
 --- @brief
 function rt.GameState:get_stage_n_coins(id)
     meta.assert(id, "String")
-    local stage = self:_get_stage(id, "set_stage_coin_collected")
+    local stage = self:_get_stage(id, "get_stage_n_coins")
     return stage.n_coins
 end
 
