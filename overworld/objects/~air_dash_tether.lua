@@ -1,6 +1,6 @@
 require "common.path"
 
-rt.settings.overworld.objects.air_dash_node = {
+rt.settings.overworld.air_dash_node = {
     core_radius = 10,
     dash_duration = 0.5, -- seconds
     dash_velocity = 1100, -- on exit
@@ -55,7 +55,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         if which == rt.InputAction.JUMP then
-            if not self._is_blocked and self._cooldown_elapsed >= rt.settings.overworld.objects.air_dash_node.dash_cooldown then
+            if not self._is_blocked and self._cooldown_elapsed >= rt.settings.overworld.air_dash_node.dash_cooldown then
                 self:_tether()
             elseif self._is_tethered then
                 self:_untether()
@@ -66,7 +66,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
 
     -- graphics
     self._sensor_circle = { self._x, self._y, self._radius } -- love.Circle
-    self._core_circle = { self._x, self._y, rt.settings.overworld.objects.air_dash_node.core_radius } -- love.Circle
+    self._core_circle = { self._x, self._y, rt.settings.overworld.air_dash_node.core_radius } -- love.Circle
     self._path_line = { self._x, self._y, self._x, self._y } -- love.Line
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, rt.random.number(0, 1), 1))
@@ -149,8 +149,8 @@ function ow.AirDashNode:update(delta)
 
     -- update velocity when tethered
     if self._is_tethered then
-        local duration = rt.settings.overworld.objects.air_dash_node.dash_duration
-        local target_velocity = rt.settings.overworld.objects.air_dash_node.dash_velocity
+        local duration = rt.settings.overworld.air_dash_node.dash_duration
+        local target_velocity = rt.settings.overworld.air_dash_node.dash_velocity
 
         local ax, ay = self._tether_path:at(0)
         local bx, by = self._tether_path:at(1)
@@ -209,7 +209,7 @@ function ow.AirDashNode:draw()
     if not self._stage:get_is_body_visible(self._sensor) then return end
     local r, g, b, a = self._color:unpack()
 
-    if not self._is_blocked and self._cooldown_elapsed >= rt.settings.overworld.objects.air_dash_node.dash_cooldown then
+    if not self._is_blocked and self._cooldown_elapsed >= rt.settings.overworld.air_dash_node.dash_cooldown then
         love.graphics.setColor(r, g, b, a)
         --love.graphics.circle("fill", table.unpack(self._sensor_circle))
 

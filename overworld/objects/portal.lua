@@ -1,6 +1,6 @@
 require "overworld.tether"
 
-rt.settings.overworld.objects.portal = {
+rt.settings.overworld.portal = {
     mesh_w = 100, -- px
     pulse_duration = 1, -- s
     transition_min_speed = 400,
@@ -55,7 +55,7 @@ local _t = 6
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
     if _particle_texture == nil then
-        local radius = rt.settings.overworld.objects.portal.particle.radius
+        local radius = rt.settings.overworld.portal.particle.radius
         local padding = 3
         _particle_texture = rt.RenderTexture(2 * (radius + padding), 2 * (radius + padding))
 
@@ -167,7 +167,7 @@ function ow.Portal:instantiate(object, stage, scene)
             target_instance._color = self._color
         else
             self._one_way_light_animation = rt.TimedAnimation(
-                rt.settings.overworld.objects.portal.one_way_light_animation_duration,
+                rt.settings.overworld.portal.one_way_light_animation_duration,
                 0, 1, -- inverted in draw
                 rt.InterpolationFunctions.ENVELOPE,
                 0.05, 1 - 0.05 - 0.5 -- attack, decay
@@ -235,7 +235,7 @@ function ow.Portal:instantiate(object, stage, scene)
             local outer = function() return 0, 0, 0, 0 end
             local inner = function() return 1, 1, 1, 1 end
 
-            local w = rt.settings.overworld.objects.portal.mesh_w
+            local w = rt.settings.overworld.portal.mesh_w
             local stencil_w = 2 * rt.settings.native_height
             -- long enough to hide player moving off-screen during transition
 
@@ -295,7 +295,7 @@ function ow.Portal:instantiate(object, stage, scene)
                     local dot_parallel = math.abs(math.dot(vx_norm, vy_norm, dx, dy))
 
                     -- check if angle is shallower than 15 degrees
-                    local threshold = math.cos(rt.settings.overworld.objects.portal.velocity_angle_min_threshold)
+                    local threshold = math.cos(rt.settings.overworld.portal.velocity_angle_min_threshold)
                     if not self._scene:get_player():get_is_grounded()
                         and dot_parallel > threshold
                     then
@@ -378,8 +378,8 @@ function ow.Portal:instantiate(object, stage, scene)
 
                         self._transition_elapsed = 0
                         self._transition_speed = math.max(
-                            rt.settings.overworld.objects.portal.transition_speed_factor * math.magnitude(player_vx, player_vy),
-                            rt.settings.overworld.objects.portal.transition_min_speed
+                            rt.settings.overworld.portal.transition_speed_factor * math.magnitude(player_vx, player_vy),
+                            rt.settings.overworld.portal.transition_min_speed
                         )
                         self._transition_velocity_x, self._transition_velocity_y = player_vx, player_vy
 
@@ -422,7 +422,7 @@ function ow.Portal:instantiate(object, stage, scene)
         end -- is one way
 
         -- particles
-        local settings = rt.settings.overworld.objects.portal.particle
+        local settings = rt.settings.overworld.portal.particle
         local min_radius = settings.radius * settings.min_scale
         local max_radius = settings.radius * settings.max_scale
 
@@ -570,7 +570,7 @@ function ow.Portal:update(delta)
 
         -- move player towards portal
         local magnitude = math.magnitude(self._transition_velocity_x, self._transition_velocity_y)
-        magnitude = math.max(rt.settings.overworld.objects.portal.min_velocity_magnitude, magnitude)
+        magnitude = math.max(rt.settings.overworld.portal.min_velocity_magnitude, magnitude)
         local dx, dy = -self._normal_x, -self._normal_y
         local portal_vx, portal_vy = math.flip(self._area_sensor:get_velocity())
         player:set_velocity(dx * magnitude + portal_vx, dy * magnitude + portal_vy)
@@ -611,7 +611,7 @@ function ow.Portal:update(delta)
 
     -- move particles
     self._pulse_elapsed = self._pulse_elapsed + delta
-    local pulse_duration = rt.settings.overworld.objects.portal.pulse_duration
+    local pulse_duration = rt.settings.overworld.portal.pulse_duration
     self._pulse_value = rt.InterpolationFunctions.ENVELOPE(
         self._pulse_elapsed / pulse_duration,
         0.05,
@@ -621,7 +621,7 @@ function ow.Portal:update(delta)
     local ax, ay, bx, by = table.unpack(self._particle_axis)
     local length = math.distance(ax, ay, bx, by)
 
-    local speed = rt.settings.overworld.objects.portal.particle.collapse_speed
+    local speed = rt.settings.overworld.portal.particle.collapse_speed
     local collapse_mean_distance = 0
 
     for particle in values(self._particles) do
@@ -656,7 +656,7 @@ function ow.Portal:update(delta)
         end
     end
 
-    if self._collapse_active and collapse_mean_distance < 2 * rt.settings.overworld.objects.portal.particle.radius then
+    if self._collapse_active and collapse_mean_distance < 2 * rt.settings.overworld.portal.particle.radius then
         self._collapse_active = false
     end
 
@@ -677,7 +677,7 @@ function ow.Portal:_teleport()
     -- exit velocity scales with entry
     local magnitude = math.max(
         math.magnitude(self._transition_velocity_x, self._transition_velocity_y),
-        rt.settings.overworld.objects.portal.min_velocity_magnitude
+        rt.settings.overworld.portal.min_velocity_magnitude
     )
 
     local player_vx, player_vy = target._normal_x * magnitude, target._normal_y * magnitude
@@ -750,7 +750,7 @@ function ow.Portal:draw()
         rt.graphics.set_stencil_mode(value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
 
         local w, h = _particle_texture:get_size()
-        local scale = math.mix(1, rt.settings.overworld.objects.portal.impulse_max_scale, self._impulse:get_beat())
+        local scale = math.mix(1, rt.settings.overworld.portal.impulse_max_scale, self._impulse:get_beat())
         for particle in values(self._particles) do
             love.graphics.draw(
                 _particle_texture:get_native(),

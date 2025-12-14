@@ -1,7 +1,7 @@
 require "overworld.deformable_mesh"
 require "overworld.movable_object"
 
-rt.settings.overworld.objects.decelerator_surface = {
+rt.settings.overworld.decelerator_surface = {
     friction = 1.15,
     subdivision_length = 4,
 
@@ -34,7 +34,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(_, other_body)
         for direction in values(directions) do
             local player = self._scene:get_player()
-            player:set_directional_damping(direction, 1 / rt.settings.overworld.objects.decelerator_surface.friction)
+            player:set_directional_damping(direction, 1 / rt.settings.overworld.decelerator_surface.friction)
         end
     end)
 
@@ -61,7 +61,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
 
     self._contour = rt.close_contour(rt.subdivide_contour(
         contour,
-        rt.settings.overworld.objects.decelerator_surface.subdivision_length
+        rt.settings.overworld.decelerator_surface.subdivision_length
     ))
 
     self._draw_contour = table.deepcopy(self._contour)
@@ -198,7 +198,7 @@ function ow.DeceleratorSurface:draw()
     love.graphics.pop()
 
     love.graphics.setLineStyle("rough")
-    love.graphics.setLineWidth(rt.settings.overworld.objects.decelerator_surface.subdivision_length)
+    love.graphics.setLineWidth(rt.settings.overworld.decelerator_surface.subdivision_length)
     for line in values(self._buldge) do
         love.graphics.line(line)
     end

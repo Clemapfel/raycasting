@@ -1,7 +1,7 @@
 require "common.stable_sort"
 require "common.path"
 
-rt.settings.overworld.objects.air_dash_node_manager = {
+rt.settings.overworld.air_dash_node_manager = {
     node_collision_group = b2.CollisionGroup.GROUP_09,
     dash_velocity = 1000, -- on exit
     dash_velocity_bubble = 500
@@ -105,7 +105,7 @@ function ow.AirDashNodeManager:notify_node_added(node)
     -- prepare body for aabb query
     local body = node:get_body()
     body:set_user_data(node)
-    body:set_collision_group(rt.settings.overworld.objects.air_dash_node_manager.node_collision_group)
+    body:set_collision_group(rt.settings.overworld.air_dash_node_manager.node_collision_group)
 
     self._max_node_radius = math.max(self._max_node_radius, node:get_radius())
 end
@@ -126,8 +126,8 @@ function ow.AirDashNodeManager:update(delta)
         player:set_directional_damping(rt.Direction.DOWN, 1) -- to prevent downwards dash being dampened
 
         local target_velocity = ternary(not player:get_is_bubble(),
-            rt.settings.overworld.objects.air_dash_node_manager.dash_velocity,
-            rt.settings.overworld.objects.air_dash_node_manager.dash_velocity_bubble
+            rt.settings.overworld.air_dash_node_manager.dash_velocity,
+            rt.settings.overworld.air_dash_node_manager.dash_velocity_bubble
         )
 
         local ax, ay = self._tether_path:at(0)
@@ -167,7 +167,7 @@ function ow.AirDashNodeManager:update(delta)
 
     local bodies = self._stage:get_physics_world():query_aabb(
         bounds.x, bounds.y, bounds.width, bounds.height,
-        rt.settings.overworld.objects.air_dash_node_manager.node_collision_group
+        rt.settings.overworld.air_dash_node_manager.node_collision_group
     )
 
     local disable_double_jump = false -- in range of at least one node

@@ -1,7 +1,7 @@
 require "common.smoothed_motion_1d"
 require "overworld.movable_object"
 
-rt.settings.overworld.objects.hook = {
+rt.settings.overworld.hook = {
     radius_factor = 1.8,
     hook_animation_duration = 3,
     hook_sound_id = "hook",
@@ -27,7 +27,7 @@ end
 --- @brief
 function ow.Hook:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Hook: object `" .. object:get_id() .. "` is not a point")
-    self._radius = rt.settings.player.radius * rt.settings.overworld.objects.hook.radius_factor
+    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
     self._cooldown_elapsed = math.huge
 
     self._scene = scene
@@ -37,8 +37,8 @@ function ow.Hook:instantiate(object, stage, scene)
         stage.hook_current_hue_step = 1
     end
 
-    self._radius = rt.settings.player.radius * rt.settings.overworld.objects.hook.radius_factor
-    self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.objects.hook.hook_animation_duration)
+    self._radius = rt.settings.player.radius * rt.settings.overworld.hook.radius_factor
+    self._motion = rt.SmoothedMotion1D(1, 1 / rt.settings.overworld.hook.hook_animation_duration)
     self._impulse = rt.ImpulseSubscriber()
 
     self._world = stage:get_physics_world()
@@ -121,7 +121,7 @@ end
 function ow.Hook:_hook()
     if self._is_hooked == true
         or self._is_blocked
-        or self._cooldown_elapsed < rt.settings.overworld.objects.hook.cooldown
+        or self._cooldown_elapsed < rt.settings.overworld.hook.cooldown
     then
         return
     end
@@ -283,7 +283,7 @@ function ow.Hook:draw()
     _shader:unbind()
 
     rt.Palette.BLACK:bind()
-    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.objects.hook.outline_width + 2)
+    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.hook.outline_width + 2)
     love.graphics.line(self._outline)
 
     local r, g, b, a = self._color:unpack()
@@ -293,7 +293,7 @@ function ow.Hook:draw()
         b * brightness_scale,
         a
     )
-    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.objects.hook.outline_width)
+    love.graphics.setLineWidth(brightness_scale * rt.settings.overworld.hook.outline_width)
     love.graphics.line(self._outline)
 
     love.graphics.pop()
@@ -311,7 +311,7 @@ function ow.Hook:draw_bloom()
     love.graphics.translate(self._body:get_position())
 
     self._color:bind()
-    love.graphics.setLineWidth(rt.settings.overworld.objects.hook.outline_width * 1.5)
+    love.graphics.setLineWidth(rt.settings.overworld.hook.outline_width * 1.5)
     love.graphics.line(self._outline)
 
     love.graphics.pop()

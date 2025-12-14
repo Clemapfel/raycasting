@@ -4,7 +4,7 @@ require "overworld.normal_map"
 require "overworld.mirror"
 require "overworld.movable_object"
 
-rt.settings.overworld.objects.path = {
+rt.settings.overworld.path = {
     draw_line_width = 3,
     segment_length = 5,
 
@@ -66,7 +66,7 @@ function ow.Path:instantiate(object, stage, scene)
 
     -- get additional targets
     for property_name in values(object:get_property_names()) do
-        if rt.settings.overworld.objects.path.is_target_property_pattern(property_name) then
+        if rt.settings.overworld.path.is_target_property_pattern(property_name) then
             table.insert(targets, object:get_object(property_name, true))
         end
     end
@@ -123,7 +123,7 @@ function ow.Path:instantiate(object, stage, scene)
         if self._is_smooth then
             local spline = rt.Spline(path)
             local length = spline:get_length()
-            local segment_length = rt.settings.overworld.objects.path.segment_length
+            local segment_length = rt.settings.overworld.path.segment_length
             local n_segments = math.ceil(length / segment_length)
 
             local spline_path = {}
@@ -244,7 +244,7 @@ function ow.Path:draw_bloom()
     if not self._is_visible or not self._stage:get_is_body_visible(self._camera_body) then return end
 
     self._color:bind()
-    love.graphics.setLineWidth(rt.settings.overworld.objects.path.draw_line_width)
+    love.graphics.setLineWidth(rt.settings.overworld.path.draw_line_width)
     love.graphics.line(self._path:get_points())
 end
 

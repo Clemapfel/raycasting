@@ -1,6 +1,6 @@
 require "overworld.movable_object"
 
-rt.settings.overworld.objects.one_way_platform = {
+rt.settings.overworld.one_way_platform = {
     thickness = 40,
     bloom_intensity = 0.5, -- fraction
     direction_light_intensity = 0.5, -- fraction
@@ -67,7 +67,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._body:set_use_continuous_collision(true)
     self._body:set_collides_with(rt.settings.player.player_outer_body_collision_group)
 
-    local settings = rt.settings.overworld.objects.one_way_platform
+    local settings = rt.settings.overworld.one_way_platform
     local thickness = settings.thickness
 
     local stencil_r = (settings.line_width + settings.outline_width_increase) * 0.5
@@ -97,7 +97,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         x2, y2,
     }
 
-    local line_width = rt.settings.overworld.objects.one_way_platform.line_width
+    local line_width = rt.settings.overworld.one_way_platform.line_width
     local highlight_offset = 0.5 * line_width - 2
     local highlight_shorten = 2 -- px
     local highlight_dx, highlight_dy = 0, -1
@@ -125,7 +125,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         x2 = x2 + left_x / 2
         y2 = y2 + left_y / 2
 
-        local r, alpha = 1, rt.settings.overworld.objects.one_way_platform.direction_light_intensity
+        local r, alpha = 1, rt.settings.overworld.one_way_platform.direction_light_intensity
         local segments = 8
 
         local vertices = {}
@@ -221,8 +221,8 @@ function ow.OneWayPlatform:draw()
 
     local x1, y1, x2, y2 = table.unpack(self._line_draw_vertices)
 
-    local base_line_width = rt.settings.overworld.objects.one_way_platform.line_width
-    local line_width = base_line_width + rt.settings.overworld.objects.one_way_platform.outline_width_increase
+    local base_line_width = rt.settings.overworld.one_way_platform.line_width
+    local line_width = base_line_width + rt.settings.overworld.one_way_platform.outline_width_increase
     love.graphics.setLineWidth(line_width)
     rt.Palette.BLACK:bind()
     love.graphics.line(self._line_draw_vertices)

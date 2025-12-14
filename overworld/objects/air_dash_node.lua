@@ -2,7 +2,7 @@ require "common.path"
 require "overworld.air_dash_node_particle"
 require "overworld.movable_object"
 
-rt.settings.overworld.objects.air_dash_node = {
+rt.settings.overworld.air_dash_node = {
     core_radius = 10,
     indicator_length = 30,
     cooldown = 45 / 60,
@@ -79,8 +79,8 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._queue_emit_elapsed = math.huge
 
     do
-        local glow_aliasing_width = rt.settings.overworld.objects.air_dash_node.glow_aliasing_width
-        local radius_a = 2 * rt.settings.overworld.objects.air_dash_node.core_radius
+        local glow_aliasing_width = rt.settings.overworld.air_dash_node.glow_aliasing_width
+        local radius_a = 2 * rt.settings.overworld.air_dash_node.core_radius
         local radius_b = self._radius
         local radius_c = self._radius + glow_aliasing_width
 
@@ -211,7 +211,7 @@ function ow.AirDashNode:set_is_tethered(b)
         local x, y = self._body:get_position()
         local px, py = self._tether_start_x, self._tether_start_y
         local dx, dy = math.normalize(x - px, y - py)
-        local magnitude = rt.settings.overworld.objects.air_dash_node.indicator_length
+        local magnitude = rt.settings.overworld.air_dash_node.indicator_length
         dx = dx * magnitude
         dy = dy * magnitude
 
@@ -268,7 +268,7 @@ end
 
 --- @brief
 function ow.AirDashNode:get_is_on_cooldown()
-    return self._cooldown_elapsed < rt.settings.overworld.objects.air_dash_node.cooldown
+    return self._cooldown_elapsed < rt.settings.overworld.air_dash_node.cooldown
 end
 
 --- @brief
@@ -293,14 +293,14 @@ function ow.AirDashNode:update(delta)
             local x, y = self._body:get_position()
             local px, py = self._scene:get_player():get_position()
             local dx, dy = math.normalize(x - px, y - py)
-            local magnitude = rt.settings.overworld.objects.air_dash_node.indicator_length
+            local magnitude = rt.settings.overworld.air_dash_node.indicator_length
             dx = dx * magnitude
             dy = dy * magnitude
 
             local bx, by = x + dx, y + dy
             local ax, ay = px, py --x - dx, y - dy
 
-            local width = rt.settings.overworld.objects.air_dash_node.core_radius  / 2
+            local width = rt.settings.overworld.air_dash_node.core_radius  / 2
             local left_x, left_y = math.turn_left(math.normalize(dx, dy))
             local right_x, right_y = math.turn_right(math.normalize(dx, dy))
 
@@ -357,7 +357,7 @@ function ow.AirDashNode:update(delta)
             }
         end
 
-        if self._queue_emit ~= nil and self._queue_emit_elapsed >= rt.settings.overworld.objects.air_dash_node.particle_emit_delay_duration then
+        if self._queue_emit ~= nil and self._queue_emit_elapsed >= rt.settings.overworld.air_dash_node.particle_emit_delay_duration then
             self._queue_emit()
             self._queue_emit = nil
         end
@@ -383,16 +383,16 @@ function ow.AirDashNode:draw(priority)
 
         local current_a = self._is_current_motion:get_value()
         if self._indicator_always_visible then current_a = 1 end
-        local cooldown_a = 1 - math.min(1, self._cooldown_elapsed / rt.settings.overworld.objects.air_dash_node.cooldown)
+        local cooldown_a = 1 - math.min(1, self._cooldown_elapsed / rt.settings.overworld.air_dash_node.cooldown)
         local opacity =  math.max(
             current_a,
             cooldown_a,
-            rt.settings.overworld.objects.air_dash_node.min_opacity
+            rt.settings.overworld.air_dash_node.min_opacity
         )
 
         do
-            local line_width = rt.settings.overworld.objects.air_dash_node.solid_outline_line_width
-            local alpha = rt.settings.overworld.objects.air_dash_node.solid_outline_alpha * self._is_current_motion:get_value()
+            local line_width = rt.settings.overworld.air_dash_node.solid_outline_line_width
+            local alpha = rt.settings.overworld.air_dash_node.solid_outline_alpha * self._is_current_motion:get_value()
 
             love.graphics.setColor(r, g, b, alpha)
             love.graphics.setLineWidth(line_width)
@@ -419,7 +419,7 @@ function ow.AirDashNode:draw(priority)
 
     elseif priority == _in_front_of_payer_priority then
         if self._indicator_mesh ~= nil and (self._is_current or self._is_tethered
-            or self._queue_emit_elapsed < rt.settings.overworld.objects.air_dash_node.particle_emit_delay_duration
+            or self._queue_emit_elapsed < rt.settings.overworld.air_dash_node.particle_emit_delay_duration
         ) then
             local line_width = 0.5 * rt.settings.player.radius
             love.graphics.setColor(black_r, black_g, black_b, 1)
