@@ -858,7 +858,9 @@ function ow._parse_object_group(object_group, scope)
         for key, id in pairs(wrapper.to_replace) do
             if id > 0 then
                 wrapper.properties[key] = object_id_to_wrapper[id]
-                rt.assert(wrapper.properties[key] ~= nil, "In ow._parse_object_group: object `",  wrapper.id,  "` points to `",  id,  "`, but no object with that id is located on the same layer")
+                if wrapper.properties[key] == nil then
+                    rt.warning("In ow._parse_object_group: object `",  wrapper.id,  "` points to `",  id,  "`, but no object with that id is located on the same layer")
+                end
             end
         end
         wrapper.to_replace = nil

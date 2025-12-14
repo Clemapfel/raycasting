@@ -67,7 +67,10 @@ function ow.Path:instantiate(object, stage, scene)
     -- get additional targets
     for property_name in values(object:get_property_names()) do
         if rt.settings.overworld.path.is_target_property_pattern(property_name) then
-            table.insert(targets, object:get_object(property_name, true))
+            local target = object:get_object(property_name, false)
+            if target ~= nil then
+                table.insert(targets, target)
+            end
         end
     end
 

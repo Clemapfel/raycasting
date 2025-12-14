@@ -274,16 +274,13 @@
    </properties>
    <point/>
   </object>
-  <object id="245" type="MovableHitbox" x="-1465.1" y="612.846">
-   <polygon points="137.096,123.154 57.0965,187.154 -48,160 -6.90354,59.1543"/>
-  </object>
   <object id="246" name="From" type="OneWayPlatform" x="-1568" y="704">
    <properties>
     <property name="other" type="object" value="247"/>
    </properties>
    <point/>
   </object>
-  <object id="247" name="To" type="OneWayPlatformNode" x="-1266" y="686.894">
+  <object id="247" name="To" type="OneWayPlatformNode" x="-1269.64" y="819.73">
    <point/>
   </object>
  </objectgroup>

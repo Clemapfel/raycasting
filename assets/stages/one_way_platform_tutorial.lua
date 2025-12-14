@@ -958,25 +958,6 @@ return {
           }
         },
         {
-          id = 245,
-          name = "",
-          type = "MovableHitbox",
-          shape = "polygon",
-          x = -1465.1,
-          y = 612.846,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 137.096, y = 123.154 },
-            { x = 57.0965, y = 187.154 },
-            { x = -48, y = 160 },
-            { x = -6.90354, y = 59.1543 }
-          },
-          properties = {}
-        },
-        {
           id = 246,
           name = "From",
           type = "OneWayPlatform",
@@ -996,8 +977,8 @@ return {
           name = "To",
           type = "OneWayPlatformNode",
           shape = "point",
-          x = -1266,
-          y = 686.894,
+          x = -1269.64,
+          y = 819.73,
           width = 0,
           height = 0,
           rotation = 0,
