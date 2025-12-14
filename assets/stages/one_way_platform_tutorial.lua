@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 236,
+  nextobjectid = 250,
   properties = {},
   tilesets = {
     {
@@ -84,12 +84,12 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 208, y = 0 },
+            { x = 32, y = 0 },
             { x = 848, y = 0 },
             { x = 848, y = -240 },
             { x = 1040, y = -240 },
             { x = 1040, y = 240 },
-            { x = 208, y = 240 }
+            { x = 32, y = 240 }
           },
           properties = {}
         },
@@ -112,6 +112,26 @@ return {
             { x = 224, y = -208 },
             { x = 224, y = -224 },
             { x = 16, y = -224 }
+          },
+          properties = {}
+        },
+        {
+          id = 249,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = -1664,
+          y = 960,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -208, y = -336 },
+            { x = 0, y = -512 },
+            { x = 1142.73, y = -452.689 },
+            { x = 1168.21, y = 36.8025 }
           },
           properties = {}
         }
@@ -845,7 +865,7 @@ return {
           name = "From",
           type = "OneWayPlatform",
           shape = "point",
-          x = -848,
+          x = -896,
           y = 864,
           width = 0,
           height = 0,
@@ -860,8 +880,124 @@ return {
           name = "To",
           type = "OneWayPlatformNode",
           shape = "point",
-          x = -1008,
-          y = 864,
+          x = -976,
+          y = 688,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 236,
+          name = "",
+          type = "Coin",
+          shape = "point",
+          x = -1088,
+          y = 848,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 237,
+          name = "",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -1216,
+          y = 848,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 239,
+          name = "",
+          type = "AirDashNode",
+          shape = "ellipse",
+          x = -1360,
+          y = 784,
+          width = 64,
+          height = 64,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 243,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -816,
+          y = 752,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 244,
+          name = "Path",
+          type = "Path",
+          shape = "point",
+          x = -1648,
+          y = 752,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 243 },
+            ["target"] = { id = 245 },
+            ["target_02"] = { id = 246 }
+          }
+        },
+        {
+          id = 245,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = -1465.1,
+          y = 612.846,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 137.096, y = 123.154 },
+            { x = 57.0965, y = 187.154 },
+            { x = -48, y = 160 },
+            { x = -6.90354, y = 59.1543 }
+          },
+          properties = {}
+        },
+        {
+          id = 246,
+          name = "From",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -1568,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 247 }
+          }
+        },
+        {
+          id = 247,
+          name = "To",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = -1266,
+          y = 686.894,
           width = 0,
           height = 0,
           rotation = 0,

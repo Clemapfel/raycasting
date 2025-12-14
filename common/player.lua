@@ -1037,16 +1037,16 @@ function rt.Player:update(delta)
         local acceleration_t = 0
         do
             -- horizontal movement
-            local magnitude
+            local input_magnitude
             if use_analog_input then
-                magnitude = self._joystick_position_x
+                input_magnitude = self._joystick_position_x
             else
                 if self._left_button_is_down and not self._right_button_is_down then
-                    magnitude = -1
+                    input_magnitude = -1
                 elseif self._right_button_is_down and not self._left_button_is_down then
-                    magnitude = 1
+                    input_magnitude = 1
                 else
-                    magnitude = 0
+                    input_magnitude = 0
                 end
             end
 
@@ -1058,7 +1058,7 @@ function rt.Player:update(delta)
             end
 
             local sprint_multiplier = self._sprint_multiplier
-            local target_velocity_x = magnitude * target * sprint_multiplier
+            local target_velocity_x = input_magnitude * target * sprint_multiplier
 
             current_velocity_x = current_velocity_x - self._platform_velocity_x
             current_velocity_y = current_velocity_y - self._platform_velocity_y

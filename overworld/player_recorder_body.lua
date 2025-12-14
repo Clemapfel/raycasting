@@ -73,7 +73,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
     self._body:set_collides_with(0x0)
     self._body:set_collision_group(0x0)
     self._body:set_user_data(self)
-    self._body:add_tag("light_source")
+    self._body:add_tag("point_light_source")
 end
 
 --- @brief
@@ -174,11 +174,17 @@ function ow.PlayerRecorderBody:get_radius()
 end
 
 --- @brief
+function ow.PlayerRecorderBody:get_physics_body()
+    return self._body
+end
+
+--- @brief
 function ow.PlayerRecorderBody:get_color()
     return self._color
 end
 
 --- @brief
-function ow.PlayerRecorderBody:get_physics_body()
-    return self._body
+function ow.PlayerRecorderBody:get_point_light_sources()
+    local x, y = self._body:get_position()
+    return { x, y, self._radius }, { self:get_color() }
 end

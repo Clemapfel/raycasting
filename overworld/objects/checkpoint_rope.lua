@@ -48,7 +48,7 @@ function ow.CheckpointRope:instantiate(scene, stage, world, x1, y1, x2, y2)
     self._cut_index = -1
     self._should_despawn = false
     self._is_despawned = false
-    self._color = { 1, 1, 1, 1 }
+    self._color = rt.RGBA(1, 1, 1, 1)
     self._impulse = rt.ImpulseSubscriber()
 
     self:_init_bodies()
@@ -100,10 +100,10 @@ function ow.CheckpointRope:_init_bodies()
                     angle
                 )
 
-                local color = table.deepcopy(self._color)
-                return {{ left_x, left_y, right_x, right_y }}, { color }
+                return { { left_x, left_y, right_x, right_y } }, { self._color }
             end
         }
+
         body:set_user_data(instance)
         body:set_collides_with(mask)
         body:set_collision_group(rt.settings.player.exempt_collision_group)
@@ -192,7 +192,7 @@ end
 
 --- @brief
 function ow.CheckpointRope:update(delta)
-    self._color = { rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1) }
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._scene:get_player():get_hue(), 1))
 
     if self._should_despawn then
         local seen = false
@@ -554,7 +554,7 @@ function ow.CheckpointRope:_draw(bloom_active)
 
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("color", self._color)
+    _shader:send("color", { self._color:unpack() })
     _shader:send("bloom_active", bloom_active)
     _shader:send("brightness_scale", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     love.graphics.setColor(1, 1, 1, 1)

@@ -304,9 +304,13 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
             part.body = b2.Body(self._world, b2.BodyType.DYNAMIC, part.x, part.y, b2.Polygon(part.vertices))
             part.body:add_tag("stencil", "unjumpable", "slippery")
 
-            part.body:add_tag("light_source")
-            part.get_color = function(self) return self.color end
+            -- proxy for point light query
+            part.body:add_tag("point_light_source")
             part.body:set_user_data(part)
+            part.get_point_light_sources = function(self)
+                local x, y = part.body:get_position()
+                return { { x, y, 1 } }, { part.color }
+            end
 
             local ball_mass = 1
             local shard_mass = part.body:get_mass()

@@ -48,7 +48,7 @@ function ow.DoubleJumpTether:instantiate(object, stage, scene)
     self._body:set_collides_with(rt.settings.player.bounce_collision_group)
     self._body:set_collision_group(rt.settings.player.bounce_collision_group)
 
-    self._body:add_tag("light_source")
+    self._body:add_tag("point_light_source")
     self._body:set_user_data(self)
 
     self._was_consumed = false
@@ -202,4 +202,11 @@ function ow.DoubleJumpTether:reset()
         player:remove_double_jump_source(self)
         self:update(0)
     end
+end
+
+--- @brief
+function ow.DoubleJumpTether:get_point_light_sources()
+    local x, y = self._body:get_position()
+    local radius = rt.settings.overworld.double_jump_tether_particle.core_radius_factor * self._radius
+    return { { x, y, radius } }, { self:get_color() }
 end

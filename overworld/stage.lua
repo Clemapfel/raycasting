@@ -67,10 +67,12 @@ function ow.Stage:instantiate(scene, id)
         _flow_graph = nil, -- ow.FlowGraph
         _flow_fraction = 0,
 
+        _segment_light_source_bodies = {},
         _segment_light_sources = {},
         _segment_light_colors = {},
         _segment_light_sources_need_update = true,
 
+        _point_light_source_bodies = {},
         _point_light_sources = {},
         _point_light_colors = {},
         _point_light_sources_need_update = true,
@@ -124,6 +126,7 @@ function ow.Stage:instantiate(scene, id)
         get_triangle_callback,
         draw_mask_callback
     )
+    self._normal_map._debug_draw_enabled = true
 
     -- static hitbox mirrors
 
@@ -462,19 +465,26 @@ function ow.Stage:update(delta)
         bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
 
         self._visible_bodies = {}
-        self._light_sources = {}
+        self._point_light_source_bodies = {}
+        self._segment_light_source_bodies = {}
+        
         self._world:get_native():queryShapesInArea(top_left_x, top_left_y, bottom_right_x, bottom_right_y, function(shape)
             local body = shape:getBody():getUserData()
             self._visible_bodies[body] = true
 
-            if body ~= nil and body:has_tag("light_source") then
-                table.insert(self._light_sources, body)
+            if body ~= nil and body:has_tag("point_light_source") then
+                table.insert(self._point_light_source_bodies, body)
+            end
+
+            if body ~= nil and body:has_tag("segment_light_source") then
+                table.insert(self._segment_light_source_bodies, body)
             end
 
             return true
         end)
-        self._segment_light_sources_need_update = true
+
         self._point_light_sources_need_update = true
+        self._segment_light_sources_need_update = true
     end
 
     self._player_recorder:update(delta)
@@ -492,43 +502,85 @@ function ow.Stage:update(delta)
     self._normal_map:update(delta)
 end
 
+local _error_no_userdata = function(scope, instance)
+    rt.error("In ow.Stage.", scope, " object `",  meta.typeof(instance),  "` is a point light source but, the body does not have a userdata pointing to an instance")
+end
+
+
 --- @brief
 function ow.Stage:get_point_light_sources()
     if self._point_light_sources_need_update == true then
-        local positions = {}
-        local colors = {}
+        local camera = self._scene:get_camera()
+        local max_n = rt.settings.overworld.normal_map.max_n_point_lights
+        local n = 0
+
+        local positions = {} -- Table<Table<Number, Number, Number>>
+        local colors = {} -- Table<rt.RGBA>
 
         -- sort to have consistent order if number of body exceeds
         -- normal map point light limit
-        table.sort(self._light_sources, function(a, b)
+        table.sort(self._point_light_source_bodies, function(a, b)
             return meta.hash(a) < meta.hash(b)
         end)
 
-        local camera = self._scene:get_camera()
-
         local player = self._scene:get_player()
         if player:get_is_visible() then
-            table.insert(positions, { camera:world_xy_to_screen_xy(player:get_position()) })
-            table.insert(colors, { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)})
+            local x, y = camera:world_xy_to_screen_xy(player:get_position())
+            table.insert(positions, {
+                x, y, player:get_radius()
+            })
+
+            table.insert(colors, {
+                rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)
+            })
         end
 
-        for body in values(self._light_sources) do
-            local class = body:get_user_data()
-            if class ~= nil and class.get_color then
-                local color = class:get_color()
-                if not meta.isa(color, rt.RGBA) then
-                    rt.error("In ow.Stage: object `",  meta.typeof(class),  "` has a get_color function that does not return an object of type `rt.RGBA`")
+        for body in values(self._point_light_source_bodies) do
+            local instance = body:get_user_data()
+
+            if DEBUG then
+                if instance == nil then
+                    _error_no_userdata("get_point_light_sources", instance)
                 end
 
-                if color.a == 0 then goto skip end
-                table.insert(colors, { class:get_color():unpack() })
-
-                local cx, cy = body:get_center_of_mass()
-                table.insert(positions, { camera:world_xy_to_screen_xy(cx, cy) })
+                if not meta.is_function(instance.get_point_light_sources) then
+                    rt.error("In ow.Stage.get_point_light_sources: object of type `", meta.typeof(instance), "` has the `light_source` tag, but does not implement `get_point_light_sources")
+                end
             end
-            ::skip::
+
+            local object_positions, object_colors = instance:get_point_light_sources()
+
+            if #object_positions > 0 then
+                if DEBUG then
+                    rt.assert(#object_positions == #object_colors, "In ow.Stage.get_point_light_sources: ", meta.typeof(instance), ".get_point_light_sources does not return two tables of equal size")
+
+                    for t in values(object_positions) do
+                        rt.assert(meta.is_table(t) and #t == 3, "In ow.Stage.get_point_light_sources: ", meta.typeof(instance), ".get_point_light_sources does not return a table of 3-tuples as its first return argument")
+                    end
+
+                    for color in values(object_colors) do
+                        rt.assert(meta.isa(color, rt.RGBA), "In ow.Stage.get_point_light_sources: ", meta.typeof(instance), ".get_segment_light_sources does not return a table of `rt.RGBA` as its second return argument")
+                    end
+                end
+
+                for i = 1, #object_positions do
+                    local data = object_positions[i]
+                    local x, y = camera:world_xy_to_screen_xy(data[1], data[2])
+                    table.insert(positions, {
+                        x, y, data[3] * camera:get_final_scale()
+                    })
+
+                    table.insert(colors, {
+                        object_colors[i]:unpack()
+                    })
+
+                    n = n + 1
+                    if n > max_n then goto finish end
+                end
+            end
         end
 
+        ::finish::
         self._point_light_sources, self._point_light_colors = positions, colors
         self._point_light_sources_need_update = false
     end
@@ -539,33 +591,73 @@ end
 --- @brief
 function ow.Stage:get_segment_light_sources()
     if self._segment_light_sources_need_update == true then
-        local segments, colors = self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
         local camera = self._scene:get_camera()
+        local max_n = rt.settings.overworld.normal_map.max_n_point_lights
+        local positions, colors = {}, {}
 
-        for body in keys(self._visible_bodies) do
-            if body:has_tag("segment_light_source") then
-                local instance = body:get_user_data()
-                assert(instance ~= nil, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag but userdata instance is not set")
-                assert(instance.get_segment_light_sources, "In ow.Stage:get_segment_light_sources: body has `segment_light_source` tag, but instance `",  meta.typeof(instance),  "` does not have `get_segment_light_sources` defined")
-                local current_segments, current_colors = instance:get_segment_light_sources()
+        do -- convert blood splatter
+            local blood_segments, blood_colors = self._blood_splatter:get_segment_light_sources(self._scene:get_camera():get_world_bounds())
+            for i, segment in ipairs(blood_segments) do
+                local x1, y1 = camera:world_xy_to_screen_xy(segment[1], segment[2])
+                local x2, y2 = camera:world_xy_to_screen_xy(segment[3], segment[4])
+                table.insert(positions, { x1, y1, x2, y2 })
+                table.insert(colors, {
+                    blood_colors[i]:unpack()
+                })
+            end
+        end
 
-                for segment in values(current_segments) do
-                    table.insert(segments, segment)
+        -- sort to have consistent order if number of body exceeds
+        -- normal map point light limit
+        table.sort(self._segment_light_source_bodies, function(a, b)
+            return meta.hash(a) < meta.hash(b)
+        end)
+
+        local n = 0
+        for body in values(self._segment_light_source_bodies) do
+            local instance = body:get_user_data()
+
+            if DEBUG then
+                if instance == nil then
+                    _error_no_userdata("get_segment_light_sources", instance)
                 end
 
-                for color in values(current_colors) do
-                    table.insert(colors, color)
+                if not meta.is_function(instance.get_segment_light_sources) then
+                    rt.error("In ow.Stage.get_segment_light_sources: object of type `", meta.typeof(instance), "` has the `light_source` tag, but does not implement `get_segment_light_sources")
+                end
+            end
+
+            local object_positions, object_colors = instance:get_segment_light_sources()
+
+            if #object_positions > 0 then
+                if DEBUG then
+                    rt.assert(#object_positions == #object_colors, "In ow.Stage.get_segment_light_sources: ", meta.typeof(instance), ".get_segment_light_sources does not return two tables of equal size")
+
+                    for t in values(object_positions) do
+                        rt.assert(meta.is_table(t) and #t == 4, "In ow.Stage.get_segment_light_sources: ", meta.typeof(instance), ".get_segment_light_sources does not return a table of 4-tuples as its first return argument")
+                    end
+
+                    for color in values(object_colors) do
+                        rt.assert(meta.isa(color, rt.RGBA), "In ow.Stage.get_segment_light_sources: ", meta.typeof(instance), ".get_segment_light_sources does not return a table of rt.RGBA as its second return argument")
+                    end
+                end
+
+                for i = 1, #object_positions do
+                    local segment = object_positions[i]
+                    local x1, y1 = camera:world_xy_to_screen_xy(segment[1], segment[2])
+                    local x2, y2 = camera:world_xy_to_screen_xy(segment[3], segment[4])
+                    table.insert(positions, { x1, y1, x2, y2 })
+                    table.insert(colors, {
+                        object_colors[i]:unpack()
+                    })
+                    n = n + 1
+                    if n > max_n then goto finish end
                 end
             end
         end
 
-        for segment in values(segments) do
-            segment[1], segment[2] = camera:world_xy_to_screen_xy(segment[1], segment[2])
-            segment[3], segment[4] = camera:world_xy_to_screen_xy(segment[3], segment[4])
-        end
-
-        self._segment_light_sources, self._segment_light_colors = segments, colors
-        self._segment_light_sources_need_update = false
+        ::finish::
+        self._segment_light_sources, self._segment_light_colors = positions, colors
     end
 
     return self._segment_light_sources, self._segment_light_colors

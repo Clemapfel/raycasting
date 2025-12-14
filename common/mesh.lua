@@ -259,33 +259,30 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
 
     local map = {}
 
-    -- Fill center triangles (if requested)
     if fill_center then
         for i = 0, n_outer_vertices - 1 do
             local inner_curr = 2 + i
             local inner_next = 2 + ((i + 1) % n_outer_vertices)
-            table.insert(map, 1)  -- center
+
+            table.insert(map, 1)
             table.insert(map, inner_curr)
             table.insert(map, inner_next)
         end
     end
 
-    -- Ring triangles (connecting inner and outer circles)
     for i = 0, n_outer_vertices - 1 do
         local inner_curr = 2 + i
         local inner_next = 2 + ((i + 1) % n_outer_vertices)
         local outer_curr = 2 + n_outer_vertices + i
         local outer_next = 2 + n_outer_vertices + ((i + 1) % n_outer_vertices)
 
-        -- First triangle of the quad
         table.insert(map, inner_curr)
         table.insert(map, outer_curr)
-        table.insert(map, inner_next)
-
-        -- Second triangle of the quad
-        table.insert(map, inner_next)
-        table.insert(map, outer_curr)
         table.insert(map, outer_next)
+
+        table.insert(map, inner_curr)
+        table.insert(map, outer_next)
+        table.insert(map, inner_next)
     end
 
     local native = love.graphics.newMesh(

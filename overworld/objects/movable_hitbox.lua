@@ -13,12 +13,18 @@ rt.settings.overworld.moving_hitbox = {
 --- @field target ow.MovableHitboxTarget! pointer to path
 ow.MovableHitbox = meta.class("MovableHitbox", ow.MovableObject)
 
+--- @class ow.SlipperyMovableHitbox
+--- @types Polygon, Rectangle, Ellipse
+ow.SlipperyMovableHitbox = function(object, stage, scene)
+    object.properties["slippery"] = true
+    return ow.MovableHitbox(object, stage, scene)
+end
+
 --- @brief
 function ow.MovableHitbox:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
     self._world = self._stage:get_physics_world()
-
 
     self._body = object:create_physics_body(self._world)
     self._body:set_collision_group(bit.bor(
@@ -71,6 +77,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         function() return self._tris end, -- get triangles
         function() self._mesh:draw() end -- draw mask
     )
+    --self._normal_map._debug_draw_enabled = true -- TODO
 
     self._is_slippery = object:get_boolean("slippery")
     if self._is_slippery == nil then self._is_slippery = false end
@@ -101,7 +108,8 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         self._body:add_tag("segment_light_source")
         self._body:set_user_data(self)
         self.get_segment_light_sources = function(self)
-            return self._blood_splatter:get_visible_segments(self._scene:get_camera():get_world_bounds())
+            -- blood splatter already notified of offset
+            return self._blood_splatter:get_segment_light_sources(self._scene:get_camera():get_world_bounds())
         end
     end
 end

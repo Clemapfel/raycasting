@@ -116,7 +116,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._offset_x, self._offset_y = 0, 0
     self._is_dead_end = false -- if true, player cannot enter portal
 
-    self._color = { 1, 1, 1, 1 } -- synched in initialize
+    self._color = rt.RGBA(1, 1, 1, 1) -- synched in initialize
 
     stage:signal_connect("initialized", function()
         do -- read segment position, move to origin
@@ -163,7 +163,7 @@ function ow.Portal:instantiate(object, stage, scene)
 
             self._hue_set = true
             target_instance._hue_set = true
-            self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 1) }
+            self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
             target_instance._color = self._color
         else
             self._one_way_light_animation = rt.TimedAnimation(
@@ -730,7 +730,7 @@ end
 function ow.Portal:draw()
     if not self._stage:get_is_body_visible(self._area_sensor) then return end
 
-    local r, g, b, a = table.unpack(self._color)
+    local r, g, b, a = self._color:unpack()
 
     if self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
         love.graphics.setLineWidth(2)
@@ -838,7 +838,7 @@ function ow.Portal:draw_bloom()
     love.graphics.scale(1 - self._pulse_value)
     love.graphics.translate(-pulse_origin_y, -pulse_origin_y)
 
-    local r, g, b = table.unpack(self._color)
+    local r, g, b = self._color:unpack()
     love.graphics.setColor(r, g, b, 1)
     _pulse_shader:bind()
     _pulse_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))
@@ -865,7 +865,7 @@ function ow.Portal:get_segment_light_sources()
     return {{
         self._ax + offset_x, self._ay + offset_y,
         self._bx + offset_x, self._by + offset_y
-    }}, { table.deepcopy(self._color) }
+    }}, { self._color }
 end
 
 --- @brief

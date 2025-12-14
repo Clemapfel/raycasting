@@ -54,7 +54,7 @@ function ow.Bubble:instantiate(object, stage, scene)
     self._body:set_collides_with(bounce_group)
     self._body:set_collision_group(bounce_group)
 
-    self._body:add_tag("light_source")
+    self._body:add_tag("point_light_source")
     self._body:set_user_data(self)
 
     self._stage:signal_connect("respawn", function()
@@ -234,4 +234,10 @@ end
 --- @brief
 function ow.Bubble:reset()
     self:_unpop()
+end
+
+--- @brief
+function ow.Bubble:get_point_light_sources()
+    local x, y = self._body:get_position()
+    return { { x, y, self._radius} }, { self:get_color() }
 end

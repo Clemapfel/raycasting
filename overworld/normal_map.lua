@@ -12,11 +12,12 @@ rt.settings.overworld.normal_map = {
     mask_slippery = true,
     max_distance = 16, -- < 256
 
-    point_light_intensity = 1,
-    segment_light_intensity = 0.75,
+    point_light_intensity = 0.75,
+    segment_light_intensity = 0.5,
 
-    max_n_point_lights = 64,
-    max_n_segment_lights = 32,
+    max_n_point_lights = 32,
+    max_n_segment_lights = 64,
+    light_range = 20, -- px
 
     yield_savepoint_fraction = 0.004
 }
@@ -39,6 +40,10 @@ local _draw_light_shader = rt.Shader("overworld/normal_map_draw_light.glsl", {
 })
 
 local _draw_shadow_shader = rt.Shader("overworld/normal_map_draw_shadow.glsl")
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "l" then _draw_light_shader:recompile() end
+end)
 
 local _frame_percentage = 0.6
 
@@ -474,149 +479,6 @@ function ow.NormalMap:draw_light(
     local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
     local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
 
-    local cell = rt.AABB()
-    local padding = 0.5 * chunk_size
-    local shader_bound = false
-
-    local max_n_point_lights = rt.settings.overworld.normal_map.max_n_point_lights
-    local max_n_segment_lights = rt.settings.overworld.normal_map.max_n_segment_lights
-
-    for chunk_x = min_chunk_x, max_chunk_x do
-        local column = self._chunks[chunk_x]
-        if column ~= nil then
-            for chunk_y = min_chunk_y, max_chunk_y do
-                local chunk = column[chunk_y]
-                if chunk ~= nil and chunk.is_initialized then
-                    cell:reformat(
-                        bounds.x + chunk_x * chunk_size - padding,
-                        bounds.y + chunk_y * chunk_size - padding,
-                        chunk_size + 2 * padding,
-                        chunk_size + 2 * padding
-                    )
-
-
-                    -- filter point lights in cell, translate to screen coords
-                    local point_lights_local = {}
-                    local point_colors = {}
-                    local n_point_lights = 0
-                    for i, point in ipairs(point_light_sources) do
-                        local world_x, world_y = table.unpack(point)
-
-                        if cell:contains(world_x + self._offset_x, world_y + self._offset_y) then
-                            table.insert(point_lights_local, { camera:world_xy_to_screen_xy(world_x, world_y) })
-                            table.insert(point_colors, point_light_colors[i])
-                            n_point_lights = n_point_lights + 1
-                            if n_point_lights >= max_n_point_lights then break end
-                        end
-                    end
-
-                    -- file segment lights in cell, translate to screen cords
-                    local segment_lights_local = {}
-                    local segment_colors = {}
-                    local n_segment_lights = 0
-
-                    for i, segment in ipairs(segment_light_sources) do
-                        local world_x1, world_y1, world_x2, world_y2 = table.unpack(segment)
-                        if cell:intersects(
-                            world_x1 + self._offset_x,
-                            world_y1 + self._offset_y,
-                            world_x2 + self._offset_x,
-                            world_y2 + self._offset_y
-                        ) then
-                            local local_x1, local_y1 = camera:world_xy_to_screen_xy(world_x1, world_y1)
-                            local local_x2, local_y2 = camera:world_xy_to_screen_xy(world_x2, world_y2)
-                            table.insert(segment_lights_local, { local_x1, local_y1, local_x2, local_y2 })
-                            table.insert(segment_colors, segment_light_colors[i])
-                            n_segment_lights = n_segment_lights + 1
-                            if n_segment_lights >= max_n_segment_lights then break end
-                        end
-                    end
-
-                    if n_point_lights + n_segment_lights > 0 then
-                        if n_point_lights > 0 then
-                            _draw_light_shader:send("point_lights", table.unpack(point_lights_local))
-                            _draw_light_shader:send("point_colors", table.unpack(point_colors))
-                        end
-
-                        if n_segment_lights > 0 then
-                            _draw_light_shader:send("segment_lights", table.unpack(segment_lights_local))
-                            _draw_light_shader:send("segment_colors", table.unpack(segment_colors))
-                        end
-
-                        _draw_light_shader:send("n_point_lights", n_point_lights)
-                        _draw_light_shader:send("n_segment_lights", n_segment_lights)
-
-
-                        if shader_bound == false then
-                            love.graphics.push("all")
-                            _draw_light_shader:bind()
-
-                            _draw_light_shader:send("camera_scale", camera:get_scale())
-                            _draw_light_shader:send("segment_light_intensity", rt.settings.overworld.normal_map.segment_light_intensity)
-                            _draw_light_shader:send("point_light_intensity", rt.settings.overworld.normal_map.point_light_intensity)
-
-                            love.graphics.setBlendMode("add", "premultiplied")
-                            local r, g, b, a = love.graphics.getColor() -- premultiply alpha
-                            love.graphics.setColor(r * a, g * a, b * a, a)
-                            shader_bound = true
-                        end
-
-                        love.graphics.draw(chunk.texture:get_native(), cell.x + padding, cell.y + padding)
-                    end
-                end
-            end
-        end
-    end
-
-    if shader_bound == true then
-        _draw_light_shader:unbind()
-        love.graphics.pop()
-    end
-
-    love.graphics.push()
-    love.graphics.origin()
-    love.graphics.setColor(1, 1, 1, 1)
-    if self._dbg ~= nil then
-        for pos in values(self._dbg) do
-            local x, y = table.unpack(pos)
-            love.graphics.circle("fill", x, y, 15)
-        end
-    end
-    love.graphics.pop()
-end
-
-function ow.NormalMap:draw_light(
-    camera,
-    point_light_sources, -- in screen coords
-    point_light_colors,
-    segment_light_sources, -- in screen coords
-    segment_light_colors
-)
-    if _disable then return end
-
-    meta.assert(
-        camera, rt.Camera,
-        point_light_sources, "Table",
-        point_light_colors, "Table",
-        segment_light_colors, "Table",
-        segment_light_colors, "Table"
-    )
-
-    if self._is_visible == false or not self._computation_started then return end
-
-    local chunk_size = self._chunk_size
-    local bounds = self._bounds
-
-    local x, y, w, h = camera:get_world_bounds():unpack()
-
-    x = x + self._offset_x
-    y = y + self._offset_y
-
-    local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
-    local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
-    local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
-    local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
-
     love.graphics.push("all")
 
     _draw_light_shader:send("n_point_light_sources", #point_light_sources)
@@ -636,6 +498,7 @@ function ow.NormalMap:draw_light(
     local scale = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
     _draw_light_shader:send("point_light_intensity", rt.settings.overworld.normal_map.point_light_intensity * scale)
     _draw_light_shader:send("segment_light_intensity", rt.settings.overworld.normal_map.segment_light_intensity * scale)
+    _draw_light_shader:send("light_range", rt.settings.overworld.normal_map.light_range * scale)
     _draw_light_shader:bind()
     love.graphics.setBlendMode("add", "premultiplied")
     local r, g, b, a = love.graphics.getColor() -- premultiply alpha
@@ -684,7 +547,6 @@ function ow.NormalMap:draw_shadow(camera)
             bounds.y + chunk_y * chunk_size
         )
     end
-
 
     local x, y, w, h = camera:get_world_bounds():unpack()
 

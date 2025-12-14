@@ -276,7 +276,7 @@ function ow.OneWayPlatform:get_segment_light_sources()
         vertices[i+0] = vertices[i+0] + offset_x
         vertices[i+1] = vertices[i+1] + offset_y
     end
-    return { vertices }, { { self._color:unpack() } }
+    return { vertices }, { self._color }
 end
 
 --- @brief

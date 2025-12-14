@@ -1,6 +1,7 @@
 rt.settings.overworld.wall = {
     point_light_intensity = 1,
-    segment_light_intensity = 0.2
+    segment_light_intensity = 1,
+    light_range = 30, -- px
 }
 
 --- @class ow.Wall
@@ -71,6 +72,7 @@ function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segme
     love.graphics.setColor(1, 1, 1, 1)
     _shader:bind()
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _shader:send("camera_scale", camera:get_final_scale())
     _shader:send("n_point_light_sources", #point_light_sources)
     if #point_light_sources > 0 then
         _shader:send("point_light_sources", table.unpack(point_light_sources))
@@ -87,12 +89,13 @@ function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segme
     _shader:send("point_light_intensity", rt.settings.overworld.wall.point_light_intensity * brightness_factor)
     _shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
     _shader:send("screen_to_world_transform", camera:get_transform():inverse())
+    _shader:send("light_range", rt.settings.overworld.wall.light_range * brightness_factor)
     _shader:send("outline_color", { rt.Palette.WALL:unpack() })
     love.graphics.draw(_mesh)
     _shader:unbind()
 
     rt.Palette.WALL_OUTLINE:bind()
-    love.graphics.setLineWidth(rt.settings.overworld.hitbox.outline_width)
+    love.graphics.setLineWidth(rt.settings.overworld.hitbox.slippery_outline_width)
     for line in values(_lines) do
         love.graphics.line(line)
     end

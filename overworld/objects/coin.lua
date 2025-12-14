@@ -131,7 +131,7 @@ function ow.Coin:instantiate(object, stage, scene)
     self._light_source_proxy:set_collides_with(0x0)
     self._light_source_proxy:set_collision_group(0x0)
     self._light_source_proxy:set_collision_disabled(true)
-    self._light_source_proxy:add_tag("light_source")
+    self._light_source_proxy:add_tag("point_light_source")
     self._light_source_proxy:set_user_data(self)
 
     if _pulse_mesh == nil then
@@ -330,4 +330,25 @@ function ow.Coin:set_velocity(vx, vy)
     if self._is_collected == false then
         self._body:set_velocity(vx, vy)
     end
+end
+
+--- @brief
+function ow.Coin:get_point_light_sources()
+    local x, y
+    if self._is_collected then
+        x, y = self._follow_x, self._follow_y
+    else
+        if self._is_returning then
+            x, y = self._respawn_return_motion:get_position()
+        else
+            local offset_x, offset_y = self._body:get_position()
+            if self._use_noise then
+                x, y = offset_x + self._noise_x, offset_y + self._noise_y
+            else
+                x, y = offset_x, offset_y
+            end
+        end
+    end
+
+    return { { x, y, self._radius } }, { self:get_color() }
 end

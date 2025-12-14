@@ -55,6 +55,8 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     self._body:set_is_sensor(true)
     self._body:set_collides_with(0x0)
     self._body:set_collision_group(0x0)
+    self._body:add_tag("point_light_source")
+    self._body:set_user_data(self)
 
     self._is_current = false -- if the player initiates tether, this is the target
     self._is_tethered = false -- player is currently tethered
@@ -464,4 +466,10 @@ end
 --- @brief
 function ow.AirDashNode:get_render_priority()
     return _behind_player_priority, _in_front_of_payer_priority
+end
+
+--- @brief
+function ow.AirDashNode:get_point_light_sources()
+    local x, y = self._body:get_position()
+    return { { x, y, self._radius } }, { self._color }
 end

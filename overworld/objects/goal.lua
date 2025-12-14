@@ -45,7 +45,7 @@ function ow.Goal:instantiate(object, stage, scene)
         _x = object.x,
         _y = object.y,
 
-        _color = { 1, 1, 1, 1 },
+        _color = rt.RGBA(1, 1, 1, 1),
 
         _elapsed = 0,
 
@@ -289,7 +289,9 @@ function ow.Goal:instantiate(object, stage, scene)
             end
 
             self.get_segment_light_sources = function(self)
-                return segment_lights, table.rep(self._color, #segment_lights)
+                local colors = {}
+                for i = 1, #segment_lights do table.insert(colors, self._color) end
+                return segment_lights, colors
             end
         end
 
@@ -368,7 +370,7 @@ function ow.Goal:update(delta)
 
     self._indicator_motion:update(delta)
     self._time_label:set_text(_format_time(self._scene:get_timer()))
-    self._time_label:set_color(table.unpack(self._color))
+    self._time_label:set_color(self._color:unpack())
     local w, h = self._time_label:measure()
 
     if not self._is_shattered then
@@ -380,7 +382,7 @@ function ow.Goal:update(delta)
     self._time_label_offset_x = self._indicator_x - w - 20 -- 20px hmargin
     self._time_label_offset_y = self._indicator_y - 0.5 * h
 
-    self._color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
+    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1))
 
     local closest_x, closest_y, t = self._path:get_closest_point(player:get_position())
     self._indicator_motion:set_target_value(t)
@@ -395,13 +397,13 @@ function ow.Goal:draw(priority)
     local brightness_scale = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
 
     if priority == _base_priority then
-        love.graphics.setColor(self._color)
+        self._color:bind()
         self._shatter_surface:draw()
 
         if self._is_shattered == false then
             _outline_shader:bind()
             _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-            _outline_shader:send("color", self._color)
+            _outline_shader:send("color", { self._color:unpack() })
             _outline_shader:send("brightness_scale", brightness_scale)
             _outline_shader:send("bloom_active", false)
             self._outline_mesh:draw()
@@ -444,7 +446,7 @@ function ow.Goal:draw_bloom()
 
         _outline_shader:bind()
         _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-        _outline_shader:send("color", self._color)
+        _outline_shader:send("color", { self._color:unpack() })
         _outline_shader:send("bloom_active", false)
         self._outline_mesh:draw()
         _outline_shader:unbind()

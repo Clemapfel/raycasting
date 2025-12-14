@@ -81,7 +81,7 @@ function ow.BloodSplatter:add(x, y, radius, hue, opacity, allow_override)
             local right_fraction = distance_2 / length
             assert(left_fraction <= right_fraction)
 
-            local color = { rt.lcha_to_rgba(0.9, 1, hue, opacity) }
+            local color = rt.RGBA(rt.lcha_to_rgba(0.9, 1, hue, opacity))
 
             for division in values(data.subdivisions) do
                 if allow_override == false and self._active_divisions[division] == true then goto skip end
@@ -131,7 +131,7 @@ function ow.BloodSplatter:draw()
     local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
     for division in keys(self._active_divisions) do
         if visible[division.shape] == true then
-            local r, g, b, a = table.unpack(division.color)
+            local r, g, b, a = division.color:unpack()
             love.graphics.setColor(
                 (r - t) * brightness_offset,
                 (g - t) * brightness_offset,
@@ -279,23 +279,19 @@ function ow.BloodSplatter:destroy()
 end
 
 --- @brief
-function ow.BloodSplatter:get_visible_segments(bounds)
+function ow.BloodSplatter:get_segment_light_sources(bounds)
     meta.assert(bounds, rt.AABB)
-    local segments, colors, n = {}, {}, 0
+    local segments, colors = {}, {}
 
-    --[[
-    for subdivision in keys(self._active_divisions) do
-        if bounds:intersects(table.unpack(subdivision.line)) then
-            table.insert(segments, table.deepcopy(subdivision.line))
-            table.insert(colors, table.deepcopy(subdivision.color))
-            n = n + 1
-        end
-    end
-    ]]--
+    local n = 0
 
-    self._world:queryShapesInArea(bounds.x - self._offset_x, bounds.y - self._offset_y, bounds.x + bounds.width, bounds.y + bounds.height, function(shape)
+    self._world:queryShapesInArea(
+        bounds.x - self._offset_x,
+        bounds.y - self._offset_y,
+        bounds.x + bounds.width,
+        bounds.y + bounds.height,
+    function(shape)
         local edge = shape:getUserData()
-
         local before = nil
         for current in values(edge.subdivisions) do
             if self._active_divisions[current] == true then
@@ -306,8 +302,8 @@ function ow.BloodSplatter:get_visible_segments(bounds)
                     segments[n][4] = current.line[4]
                     inserted = true
                 else
-                    table.insert(segments, table.deepcopy(current.line))
-                    table.insert(colors, table.deepcopy(current.color))
+                    table.insert(segments, current.line)
+                    table.insert(colors, current.color)
                     n = n + 1
                     inserted = true
                 end
@@ -323,7 +319,7 @@ function ow.BloodSplatter:get_visible_segments(bounds)
         return true
     end)
 
-    return segments, colors, n
+    return segments, colors
 end
 
 --- @brief
