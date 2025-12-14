@@ -860,13 +860,6 @@ function mn.MenuScene:draw()
         stage_select.debris_emitter:draw()
         stage_select.clouds:draw()
 
-        -- TODO
-        --[[
-        self._camera:bind()
-        stage_select.coin_particle_swarm:draw()
-        self._camera:unbind()
-        ]]--
-
         love.graphics.push()
         local offset_x = stage_select.item_reveal_animation:get_value()
         love.graphics.translate(offset_x * stage_select.reveal_width, 0)
