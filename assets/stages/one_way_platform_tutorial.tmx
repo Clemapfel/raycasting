@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="230">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="236">
  <editorsettings>
   <export target="one_way_platform_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -9,12 +9,19 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="5" name="aux"/>
- <objectgroup id="6" name="hitbox"/>
- <objectgroup id="2" name="main">
+ <objectgroup id="6" name="hitbox">
+  <object id="234" x="-1616" y="864">
+   <polygon points="208,0 848,0 848,-240 1040,-240 1040,240 208,240"/>
+  </object>
+  <object id="235" name="FIrst Jump" type="SlipperyHitbox" x="-800" y="832">
+   <polygon points="16,0 -16,32 32,32 32,-208 224,-208 224,-224 16,-224"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="2" name="front">
   <object id="3" name="Goal" type="Goal" x="631.506" y="-239.407">
    <point/>
   </object>
-  <object id="5" name="Checkpoint" type="Checkpoint" x="-805.309" y="152.793">
+  <object id="5" name="Checkpoint" type="Checkpoint" x="112" y="-656">
    <point/>
   </object>
   <object id="159" type="Hitbox" x="-1056" y="-384">
@@ -30,7 +37,7 @@
   <object id="162" name="To" type="OneWayPlatformNode" x="-816" y="-544">
    <point/>
   </object>
-  <object id="163" name="Spawn" type="PlayerSpawn" x="-571.823" y="-448.647">
+  <object id="163" name="Spawn" type="PlayerSpawn" x="-1152" y="832">
    <point/>
   </object>
   <object id="169" name="From" type="OneWayPlatform" x="-816" y="-560">
@@ -233,6 +240,15 @@
    <point/>
   </object>
   <object id="229" name="To" type="OneWayPlatformNode" x="-464" y="-496">
+   <point/>
+  </object>
+  <object id="232" name="From" type="OneWayPlatform" x="-848" y="864">
+   <properties>
+    <property name="other" type="object" value="233"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="233" name="To" type="OneWayPlatformNode" x="-1008" y="864">
    <point/>
   </object>
  </objectgroup>

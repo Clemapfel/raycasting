@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 230,
+  nextobjectid = 236,
   properties = {},
   tilesets = {
     {
@@ -71,13 +71,57 @@ return {
       parallaxx = 1,
       parallaxy = 1,
       properties = {},
-      objects = {}
+      objects = {
+        {
+          id = 234,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1616,
+          y = 864,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 208, y = 0 },
+            { x = 848, y = 0 },
+            { x = 848, y = -240 },
+            { x = 1040, y = -240 },
+            { x = 1040, y = 240 },
+            { x = 208, y = 240 }
+          },
+          properties = {}
+        },
+        {
+          id = 235,
+          name = "FIrst Jump",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -800,
+          y = 832,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 16, y = 0 },
+            { x = -16, y = 32 },
+            { x = 32, y = 32 },
+            { x = 32, y = -208 },
+            { x = 224, y = -208 },
+            { x = 224, y = -224 },
+            { x = 16, y = -224 }
+          },
+          properties = {}
+        }
+      }
     },
     {
       type = "objectgroup",
       draworder = "topdown",
       id = 2,
-      name = "main",
+      name = "front",
       class = "",
       visible = true,
       opacity = 1,
@@ -105,8 +149,8 @@ return {
           name = "Checkpoint",
           type = "Checkpoint",
           shape = "point",
-          x = -805.309,
-          y = 152.793,
+          x = 112,
+          y = -656,
           width = 0,
           height = 0,
           rotation = 0,
@@ -166,8 +210,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -571.823,
-          y = -448.647,
+          x = -1152,
+          y = 832,
           width = 0,
           height = 0,
           rotation = 0,
@@ -790,6 +834,34 @@ return {
           shape = "point",
           x = -464,
           y = -496,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 232,
+          name = "From",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -848,
+          y = 864,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 233 }
+          }
+        },
+        {
+          id = 233,
+          name = "To",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = -1008,
+          y = 864,
           width = 0,
           height = 0,
           rotation = 0,

@@ -13,7 +13,7 @@ rt.settings.overworld.normal_map = {
     max_distance = 16, -- < 256
 
     point_light_intensity = 1,
-    segment_light_intensity = 0.35,
+    segment_light_intensity = 0.75,
 
     max_n_point_lights = 64,
     max_n_segment_lights = 32,
@@ -546,10 +546,15 @@ function ow.NormalMap:draw_light(
                         _draw_light_shader:send("n_point_lights", n_point_lights)
                         _draw_light_shader:send("n_segment_lights", n_segment_lights)
 
+
                         if shader_bound == false then
                             love.graphics.push("all")
-                            _draw_light_shader:send("camera_scale", camera:get_scale())
                             _draw_light_shader:bind()
+
+                            _draw_light_shader:send("camera_scale", camera:get_scale())
+                            _draw_light_shader:send("segment_light_intensity", rt.settings.overworld.normal_map.segment_light_intensity)
+                            _draw_light_shader:send("point_light_intensity", rt.settings.overworld.normal_map.point_light_intensity)
+
                             love.graphics.setBlendMode("add", "premultiplied")
                             local r, g, b, a = love.graphics.getColor() -- premultiply alpha
                             love.graphics.setColor(r * a, g * a, b * a, a)

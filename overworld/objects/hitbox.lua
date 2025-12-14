@@ -3,7 +3,8 @@ require "common.mesh"
 
 rt.settings.overworld.hitbox = {
     collision_group = b2.CollisionGroup.GROUP_10,
-    outline_width = 3
+    sticky_outline_width = 3,
+    slippery_outline_width = 2
 }
 
 --- @class ow.Hitbox
@@ -77,6 +78,9 @@ function ow.Hitbox:instantiate(object, stage, scene)
     table.insert(contour, contour[1])
     table.insert(contour, contour[2])
 
+    self._contour = contour
+    self._stage = stage
+
     if self._body:has_tag("slippery") then
         for tri in values(tris) do
             table.insert(_slippery_tris, tri)
@@ -90,6 +94,10 @@ function ow.Hitbox:instantiate(object, stage, scene)
                 _slippery_max_y = math.max(_slippery_max_y, y)
             end
         end
+
+        self._color = rt.Palette.SLIPPERY_OUTLINE
+        self._outline_width = rt.settings.overworld.hitbox.slippery_outline_width
+        self._render_priority = -3
     else
         for tri in values(tris) do
             table.insert(_sticky_tris, tri)
@@ -103,6 +111,10 @@ function ow.Hitbox:instantiate(object, stage, scene)
                 _sticky_max_y = math.max(_sticky_max_y, y)
             end
         end
+
+        self._color = rt.Palette.STICKY_OUTLINE
+        self._outline_width = rt.settings.overworld.hitbox.sticky_outline_width
+        self._render_priority = -2
     end
 
     local id_to_group = {
@@ -194,6 +206,21 @@ local _initialize = function()
 end
 
 --- @brief
+function ow.Hitbox:get_render_priority()
+    return self._render_priority
+end
+
+--- @brief
+function ow.Hitbox:draw()
+    if not self._stage:get_is_body_visible(self._body) then return end
+
+    love.graphics.setLineWidth(self._outline_width)
+    love.graphics.setLineJoin("bevel")
+    self._color:bind()
+    love.graphics.line(self._contour)
+end
+
+--- @brief
 function ow.Hitbox:draw_stencil()
     self._body:draw()
 end
@@ -217,36 +244,19 @@ end
 function ow.Hitbox:draw_outline()
     if not _initialize() then return end
 
-    love.graphics.setLineWidth(rt.settings.overworld.hitbox.outline_width)
     love.graphics.setLineJoin("bevel")
 
-    local to_iterate = {}
-
-    if #_slippery_tris > 0 then
-        table.insert(to_iterate, {_slippery_lines, _slippery_mesh, rt.Palette.SLIPPERY_OUTLINE})
+    rt.Palette.SLIPPERY_OUTLINE:bind()
+    love.graphics.setLineWidth(rt.settings.overworld.hitbox.slippery_outline_width)
+    for contour in values(_slippery_lines) do
+        --love.graphics.line(contour)
     end
 
-    if #_slippery_tris > 0 then
-        table.insert(to_iterate,  {_sticky_lines, _sticky_mesh, rt.Palette.STICKY_OUTLINE})
+    rt.Palette.STICKY_OUTLINE:bind()
+    love.graphics.setLineWidth(rt.settings.overworld.hitbox.sticky_outline_width)
+    for contour in values(_sticky_lines) do
+        --love.graphics.line(contour)
     end
-
-    for lines_mesh_color in values(to_iterate) do
-        local lines, mesh, color = table.unpack(lines_mesh_color)
-        if mesh ~= nil then
-            local stencil_value = rt.graphics.get_stencil_value()
-            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-            love.graphics.draw(mesh)
-            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
-
-            color:bind()
-            for line in values(lines) do
-                love.graphics.line(line)
-            end
-
-        end
-    end
-
-    rt.graphics.set_stencil_mode(nil)
 end
 
 --- @brief
