@@ -1870,13 +1870,12 @@ function rt.Player:update(delta)
     end
 
     if should_decay_platform_velocity then
-        local body = ternary(self._is_bubble, self._bubble_body, self._body)
-        local player_nvx, player_nvy = math.normalize(body:get_velocity())
+        local player_nvx, player_nvy = math.normalize(self._last_velocity_x, self._last_velocity_y)
         local platform_nvx, platform_nvy = math.normalize(self._platform_velocity_x, self._platform_velocity_y)
-        local decay_factor = (math.dot(player_nvx, player_nvy, platform_nvx, platform_nvy) + 1) / 2 -- 0 if misaligned, 1 if aligned
+        local decay_factor = math.max(0, math.dot(player_nvx, player_nvy, platform_nvx, platform_nvy)) -- 0 if misaligned, 1 if aligned
 
         local default_decay = _settings.platform_velocity_decay
-        local decay = math.clamp(math.mix(0.8 * default_decay, default_decay, decay_factor), 0, 1)
+        local decay = math.clamp(math.mix(0, default_decay, decay_factor), 0, 1)
         self._platform_velocity_x = self._platform_velocity_x * decay
         self._platform_velocity_y = self._platform_velocity_y * decay
     end

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 250,
+  nextobjectid = 251,
   properties = {},
   tilesets = {
     {
@@ -953,8 +953,9 @@ return {
           visible = true,
           properties = {
             ["next"] = { id = 243 },
-            ["target"] = { id = 245 },
-            ["target_02"] = { id = 246 }
+            ["target"] = { id = 250 },
+            ["target_02"] = { id = 0 },
+            ["velocity"] = 2
           }
         },
         {
@@ -962,8 +963,8 @@ return {
           name = "From",
           type = "OneWayPlatform",
           shape = "point",
-          x = -1568,
-          y = 704,
+          x = -1536.72,
+          y = 618.263,
           width = 0,
           height = 0,
           rotation = 0,
@@ -977,12 +978,31 @@ return {
           name = "To",
           type = "OneWayPlatformNode",
           shape = "point",
-          x = -1269.64,
-          y = 819.73,
+          x = -1227.59,
+          y = 679.228,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 250,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = -1712,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -16, y = 96 },
+            { x = 208, y = 112 },
+            { x = 224, y = 0 }
+          },
           properties = {}
         }
       }

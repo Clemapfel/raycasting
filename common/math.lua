@@ -65,6 +65,43 @@ function math.clamp(x, lower_bound, upper_bound)
     return x
 end
 
+--- @brief
+function math.min2(x, y, min_x, min_y)
+    if min_y == nil then min_y = min_x end
+    if x > min_x then x = min_x end
+    if y > min_y then y = min_y end
+    return x, y
+end
+
+--- @brief
+function math.min3(x, y, z, min_x, min_y, min_z)
+    if min_y == nil then min_y = min_x end
+    if min_z == nil then min_z = min_y end
+    if x > min_x then x = min_x end
+    if y > min_y then y = min_y end
+    if z > min_z then z = min_z end
+    return x, y
+end
+
+--- @brief
+function math.max2(x, y, max_x, max_y)
+    if max_y == nil then max_y = max_x end
+    if x < max_x then x = max_x end
+    if y < max_y then y = max_y end
+    return x, y
+end
+
+--- @brief
+function math.max3(x, y, z, max_x, max_y, max_z)
+    if max_y == nil then max_y = max_x end
+    if max_z == nil then max_z = max_y end
+    if x < max_x then x = max_x end
+    if y < max_y then y = max_y end
+    if z < max_z then z = max_z end
+    return x, y
+end
+
+
 -- Calculate cosine similarity between two 2D vectors
 -- Takes 4 numbers: x1, y1, x2, y2 representing vector1(x1, y1) and vector2(x2, y2)
 -- Returns a value between -1 and 1, where 1 means same direction, -1 means opposite direction
@@ -476,7 +513,7 @@ end
 --- @brief Normalize a 2D vector.
 function math.normalize2(x, y)
     local magnitude = math.sqrt(x * x + y * y)
-    if magnitude == 0 then
+    if magnitude < math.eps then
         return 0, 0
     else
         return x / magnitude, y / magnitude
