@@ -16,9 +16,6 @@
   <object id="235" name="FIrst Jump" type="SlipperyHitbox" x="-800" y="832">
    <polygon points="16,0 -16,32 32,32 32,-208 224,-208 224,-224 16,-224"/>
   </object>
-  <object id="249" type="Wall" x="-1664" y="960">
-   <polygon points="0,0 -208,-336 0,-512 1142.73,-452.689 1168.21,36.8025"/>
-  </object>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="3" name="Goal" type="Goal" x="631.506" y="-239.407">
@@ -245,23 +242,14 @@
   <object id="229" name="To" type="OneWayPlatformNode" x="-464" y="-496">
    <point/>
   </object>
-  <object id="232" name="From" type="OneWayPlatform" x="-896" y="864">
+  <object id="232" name="From" type="OneWayPlatform" x="-877.462" y="611.422">
    <properties>
     <property name="other" type="object" value="233"/>
    </properties>
    <point/>
   </object>
-  <object id="233" name="To" type="OneWayPlatformNode" x="-976" y="688">
+  <object id="233" name="To" type="OneWayPlatformNode" x="-1164.85" y="620.8">
    <point/>
-  </object>
-  <object id="236" type="Coin" x="-1088" y="848">
-   <point/>
-  </object>
-  <object id="237" type="DoubleJumpTether" x="-1216" y="848">
-   <point/>
-  </object>
-  <object id="239" type="AirDashNode" x="-1360" y="784" width="64" height="64">
-   <ellipse/>
   </object>
   <object id="243" type="PathNode" x="-816" y="752">
    <point/>

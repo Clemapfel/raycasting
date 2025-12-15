@@ -1030,8 +1030,11 @@ function rt.Player:update(delta)
             self._sprint_multiplier = self._next_sprint_multiplier
         end
 
-        local next_velocity_x, next_velocity_y = self._last_velocity_x, self._last_velocity_y
+        local next_velocity_x, next_velocity_y = 0, 0
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
+
+        current_velocity_x = current_velocity_x - self._platform_velocity_x
+        current_velocity_y = current_velocity_y - self._platform_velocity_y
 
         -- update velocity
         local acceleration_t = 0
@@ -1059,9 +1062,6 @@ function rt.Player:update(delta)
 
             local sprint_multiplier = self._sprint_multiplier
             local target_velocity_x = input_magnitude * target * sprint_multiplier
-
-            current_velocity_x = current_velocity_x - self._platform_velocity_x
-            current_velocity_y = current_velocity_y - self._platform_velocity_y
 
             current_velocity_x = current_velocity_x / self._velocity_multiplier_x
             current_velocity_y = current_velocity_y / self._velocity_multiplier_y
@@ -1162,7 +1162,7 @@ function rt.Player:update(delta)
             -- wall friction
             local net_friction_x, net_friction_y = 0, 0
 
-            -- 0 if slop is horizontal or sloping down, 0-1 if sloping up or vertical
+            -- 0 if slope is horizontal or sloping down, 0-1 if sloping up or vertical
             local function surface_slope_factor(velocity_x, velocity_y, normal_x, normal_y)
                 local dx, dy = math.normalize(velocity_x, velocity_y)
                 normal_x, normal_y = math.normalize(normal_x, normal_y)
@@ -1173,7 +1173,7 @@ function rt.Player:update(delta)
 
                 local slope_contribution = math.max(towards_factor, vertical_factor)
                 return rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(
-                    math.max(not_downward, vertical_factor) * slope_contribution
+                    math.clamp(math.max(not_downward, vertical_factor) * slope_contribution, 0, 1)
                 )
             end
 
@@ -1197,7 +1197,7 @@ function rt.Player:update(delta)
                 end
 
                 local player_x, player_y = self._body:get_position()
-                local player_vx, player_vy = self._body:get_velocity()
+                local player_vx, player_vy = current_velocity_x, current_velocity_y
                 local body_velocity_x, body_velocity_y = body:get_velocity()
 
                 if math.abs(friction_multiplier) < math.eps then return end
@@ -1590,7 +1590,7 @@ function rt.Player:update(delta)
             local is_touching_platform = false
             do -- inherit platform velocity
                 local velocity_x, velocity_y, n = 0, 0, 0
-                local min_magnitude = 1
+                local min_magnitude = 0
 
                 local chosen_body = nil
                 if down_is_down then
@@ -1637,9 +1637,7 @@ function rt.Player:update(delta)
                     ) do
                         local body_vx, body_vy = body:get_velocity()
                         local magnitude = math.magnitude(body_vx, body_vy)
-                        if body:get_type() ~= b2.BodyType.STATIC
-                            and magnitude > min_magnitude
-                        then
+                        if body:get_type() ~= b2.BodyType.STATIC then
                             velocity_x, velocity_y = body_vx, body_vy
                             min_magnitude = magnitude
                             chosen_body = body
@@ -1647,7 +1645,7 @@ function rt.Player:update(delta)
                     end
                 end
 
-                is_touching_platform = chosen_body ~= nil and math.magnitude(chosen_body:get_velocity()) >= min_magnitude
+                is_touching_platform = chosen_body ~= nil
 
                 if is_touching_platform then
                     self._platform_velocity_x, self._platform_velocity_y = chosen_body:get_velocity()
@@ -1666,8 +1664,6 @@ function rt.Player:update(delta)
 
             self._is_touching_platform = is_touching_platform
 
-            next_velocity_y = next_velocity_y * self._damping
-
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
@@ -1675,7 +1671,6 @@ function rt.Player:update(delta)
             next_velocity_y = math.min(next_velocity_y, _settings.max_velocity) -- downwards unbounded
 
             -- componensate when going up slopes, which would slow down player in stock box2d
-            local before_projection_x, before_projection_y = next_velocity_x, next_velocity_y
             if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
                 local should_skip = false
                 for body in range(
@@ -1689,7 +1684,7 @@ function rt.Player:update(delta)
                     end
                 end
 
-                if should_skip then
+                if not should_skip then
                     local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
                     if next_magnitude > math.eps then
                         -- prefer normal in direction of movement, if available
@@ -1730,7 +1725,7 @@ function rt.Player:update(delta)
 
             -- instant turn around
             if self._queue_turn_around == true then
-                local vx, vy = self:get_velocity()
+                local vx, vy = current_velocity_x, current_velocity_y
                 if self._queue_turn_around_direction == rt.Direction.RIGHT and is_grounded then
                     next_velocity_x = math.max(math.abs(vx), _settings.instant_turnaround_velocity)
                 elseif self._queue_turn_around_direction == rt.Direction.LEFT and is_grounded then
@@ -1743,11 +1738,12 @@ function rt.Player:update(delta)
                 self._queue_turn_around = false
             end
 
+            next_velocity_x, next_velocity_y = _apply_damping(next_velocity_x, next_velocity_y)
             next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
             next_velocity_y = self._platform_velocity_y + next_velocity_y * self._velocity_multiplier_y
 
-            self._body:set_velocity(_apply_damping(next_velocity_x, next_velocity_y))
-            self._last_velocity_x, self._last_velocity_y = before_projection_x - self._platform_velocity_x, before_projection_y - self._platform_velocity_y
+            self._body:set_velocity(next_velocity_x, next_velocity_y)
+            self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
         end
 
         ::skip_velocity_update::
@@ -1870,12 +1866,12 @@ function rt.Player:update(delta)
     end
 
     if should_decay_platform_velocity then
-        local player_nvx, player_nvy = math.normalize(self._last_velocity_x, self._last_velocity_y)
+        local player_nvx, player_nvy = math.normalize(self:get_velocity())
         local platform_nvx, platform_nvy = math.normalize(self._platform_velocity_x, self._platform_velocity_y)
-        local decay_factor = math.max(0, math.dot(player_nvx, player_nvy, platform_nvx, platform_nvy)) -- 0 if misaligned, 1 if aligned
+        local decay_factor = math.clamp(math.dot(player_nvx, player_nvy, platform_nvx, platform_nvy), 0, 1) -- 0 if misaligned, 1 if aligned
 
         local default_decay = _settings.platform_velocity_decay
-        local decay = math.clamp(math.mix(0, default_decay, decay_factor), 0, 1)
+        local decay = decay_factor * default_decay
         self._platform_velocity_x = self._platform_velocity_x * decay
         self._platform_velocity_y = self._platform_velocity_y * decay
     end

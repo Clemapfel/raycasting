@@ -114,26 +114,6 @@ return {
             { x = 16, y = -224 }
           },
           properties = {}
-        },
-        {
-          id = 249,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = -1664,
-          y = 960,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -208, y = -336 },
-            { x = 0, y = -512 },
-            { x = 1142.73, y = -452.689 },
-            { x = 1168.21, y = 36.8025 }
-          },
-          properties = {}
         }
       }
     },
@@ -865,8 +845,8 @@ return {
           name = "From",
           type = "OneWayPlatform",
           shape = "point",
-          x = -896,
-          y = 864,
+          x = -877.462,
+          y = 611.422,
           width = 0,
           height = 0,
           rotation = 0,
@@ -880,49 +860,10 @@ return {
           name = "To",
           type = "OneWayPlatformNode",
           shape = "point",
-          x = -976,
-          y = 688,
+          x = -1164.85,
+          y = 620.8,
           width = 0,
           height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 236,
-          name = "",
-          type = "Coin",
-          shape = "point",
-          x = -1088,
-          y = 848,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 237,
-          name = "",
-          type = "DoubleJumpTether",
-          shape = "point",
-          x = -1216,
-          y = 848,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 239,
-          name = "",
-          type = "AirDashNode",
-          shape = "ellipse",
-          x = -1360,
-          y = 784,
-          width = 64,
-          height = 64,
           rotation = 0,
           visible = true,
           properties = {}
