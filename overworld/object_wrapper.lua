@@ -747,7 +747,6 @@ function ow._parse_object_group(object_group, scope)
     local group_visible = _get(object_group, "visible")
 
     local object_id_to_wrapper = {}
-
     for object in values(object_group.objects) do
         if _get(object, "shape") == "text" then goto continue end -- skip "text" objects
 

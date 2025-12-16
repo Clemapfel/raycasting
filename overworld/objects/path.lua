@@ -80,7 +80,7 @@ function ow.Path:instantiate(object, stage, scene)
     self._stage:signal_connect("initialized", function(_)
         for target in values(targets) do
             local instance = self._stage:object_wrapper_to_instance(target)
-            if not meta.isa(instance, ow.MovableObject) then
+            if not meta.isa(instance, ow.MovableObject) or meta.isa(instance, ow.Hitbox) then
                 rt.error("In ow.Path: instance type `" .. meta.typeof(instance) .. "` of object `" .. target:get_id() .. "` does not inherit from `ow.MovableObject`")
             end
 
