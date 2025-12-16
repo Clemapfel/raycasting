@@ -106,11 +106,11 @@ do
         air_resistance = 0.03, -- [0, 1]
         downwards_force = 3000,
 
-        friction_coefficient = 38,
-        friction_compression_influence = 1, -- fraction
-        down_button_friction_release_duration = 30 / 60, -- s
-        platform_velocity_decay = 0.98,
+        friction_coefficient = 12,
+        moving_body_friction_coefficient_factor = 2, -- factor
+        down_button_friction_release_duration = 10 / 60, -- s
 
+        platform_velocity_decay = 0.98,
         max_velocity = 2500,
 
         squeeze_multiplier = 1.4,
@@ -1205,6 +1205,23 @@ function rt.Player:update(delta)
                     tangent_x, tangent_y = math.flip(tangent_x, tangent_y)
                 end
 
+                -- increase if body is moving in opposite direction
+                local relative_nvx, relative_nvy = math.normalize(
+                    math.reverse_subtract(
+                        body_vx, body_vy,
+                        self._body:get_velocity() -- use sim velocity instead of average
+                    )
+                )
+                local opposing_motion = 1 + math.max(0,
+                    math.dot(
+                        -1 * relative_nvx,
+                        -1 * relative_nvy,
+                        math.normalize(body_vx, body_vy)
+                    )
+                )
+
+                local moving_body_factor = 1 + opposing_motion * _settings.moving_body_friction_coefficient_factor
+
                 local input_modifier = 1.0
                 if use_analog_input then
                     local push_factor = math.dot(
@@ -1215,16 +1232,13 @@ function rt.Player:update(delta)
                     input_modifier = math.max(0, push_factor)
                 elseif down_is_down then
                     local release_progress = math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
-                    input_modifier = 1 - math.sqrt(release_progress) -- square root easing
+                    input_modifier = 1 - release_progress -- linear easing
                 end
 
-                local force = input_modifier * slope_factor * _settings.friction_coefficient
+                local force = moving_body_factor * input_modifier * slope_factor * _settings.friction_coefficient
                 net_friction_x = net_friction_x + tangent_x * force
                 net_friction_y = net_friction_y + tangent_y * force
             end
-
-            local wall_cling_friction = 1
-            local slide_friction = 0
 
             if self._left_wall
                 and not self._left_wall_body:has_tag("slippery")
@@ -1232,9 +1246,7 @@ function rt.Player:update(delta)
             then
                 apply_friction(
                     left_nx, left_ny,
-                    self._left_wall_body,
-                    math.magnitude(left_dx, left_dy),
-                    ternary(left_is_down, wall_cling_friction, 1)
+                    self._left_wall_body
                 )
             end
 
