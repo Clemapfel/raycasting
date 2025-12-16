@@ -947,75 +947,81 @@ function rt.Player:update(delta)
             }
         end
 
-        do -- update down squish
-            local is_ducking = false
+        if self._is_bubble then
+            self._graphics_body:set_down_squish(false)
+            self._graphics_body:set_left_squish(false)
+            self._graphics_body:set_right_squish(false)
+        else
+            do -- update down squish
+                local is_ducking = false
 
-            -- on analog, prioritize disregarding side inputs
-            local should_duck
-            if self._use_analog_input then
-                should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
-                    and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < _settings.joystick_magnitude_left_threshold
-                    and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < _settings.joystick_magnitude_right_threshold
-            else
-                should_duck = down_is_down and not left_is_down and not right_is_down
-            end
-
-            if should_duck then
-                for wall_body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
-                    local entry = self._body_to_collision_normal[wall_body]
-                    if entry ~= nil then
-                        self._graphics_body:set_down_squish(true,
-                            entry.normal_x, entry.normal_y,
-                            entry.contact_x, entry.contact_y
-                        )
-                        is_ducking = true
-                    end
+                -- on analog, prioritize disregarding side inputs
+                local should_duck
+                if self._use_analog_input then
+                    should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
+                        and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < _settings.joystick_magnitude_left_threshold
+                        and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < _settings.joystick_magnitude_right_threshold
+                else
+                    should_duck = down_is_down and not left_is_down and not right_is_down
                 end
-            end
 
-            if not is_ducking then self._graphics_body:set_down_squish(false) end
-
-            if self._is_ducking == false and is_ducking == true then
-                self:signal_emit("duck")
-            end
-            self._is_ducking = is_ducking
-        end
-
-        local should_squish = function(button, ...)
-            local apply = button
-            for i = 1, select("#", ...) do
-                if select(i, ...) == nil then
-                    apply = false
-                    break
-                end
-            end
-
-            if apply then
-                for i = 1, select("#", ...) do
-                    local wall_body = select(i, ...)
-                    if wall_body ~= nil then
+                if should_duck then
+                    for wall_body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
                         local entry = self._body_to_collision_normal[wall_body]
-                        if entry == nil then return end
-
-                        return true,
-                            entry.normal_x, entry.normal_y,
-                            entry.contact_x, entry.contact_y
+                        if entry ~= nil then
+                            self._graphics_body:set_down_squish(true,
+                                entry.normal_x, entry.normal_y,
+                                entry.contact_x, entry.contact_y
+                            )
+                            is_ducking = true
+                        end
                     end
                 end
+
+                if not is_ducking then self._graphics_body:set_down_squish(false) end
+
+                if self._is_ducking == false and is_ducking == true then
+                    self:signal_emit("duck")
+                end
+                self._is_ducking = is_ducking
             end
 
-            return false
+            local should_squish = function(button, ...)
+                local apply = button
+                for i = 1, select("#", ...) do
+                    if select(i, ...) == nil then
+                        apply = false
+                        break
+                    end
+                end
+
+                if apply then
+                    for i = 1, select("#", ...) do
+                        local wall_body = select(i, ...)
+                        if wall_body ~= nil then
+                            local entry = self._body_to_collision_normal[wall_body]
+                            if entry == nil then return end
+
+                            return true,
+                            entry.normal_x, entry.normal_y,
+                            entry.contact_x, entry.contact_y
+                        end
+                    end
+                end
+
+                return false
+            end
+
+            self._graphics_body:set_left_squish(should_squish(
+                left_is_down,
+                left_wall_body
+            ))
+
+            self._graphics_body:set_right_squish(should_squish(
+                right_is_down,
+                right_wall_body
+            ))
         end
-
-        self._graphics_body:set_left_squish(should_squish(
-            left_is_down,
-            left_wall_body
-        ))
-
-        self._graphics_body:set_right_squish(should_squish(
-            right_is_down,
-            right_wall_body
-        ))
     end
 
     if not self._is_bubble then
@@ -1163,94 +1169,50 @@ function rt.Player:update(delta)
             local net_friction_x, net_friction_y = 0, 0
 
             -- 0 if slope is horizontal or sloping down, 0-1 if sloping up or vertical
-            local function surface_slope_factor(velocity_x, velocity_y, normal_x, normal_y)
-                local dx, dy = math.normalize(velocity_x, velocity_y)
-                normal_x, normal_y = math.normalize(normal_x, normal_y)
+            local function surface_slope_factor(vx, vy, nx, ny)
+                vx, vy = math.normalize(vx, vy)
+                local tx, ty = math.turn_right(nx, ny)
 
-                local not_downward = math.max(0, normal_y)
-                local towards_factor = math.max(0, -dx * normal_x)
-                local vertical_factor = 1 - math.abs(normal_y)
+                -- slope factor:
+                --  > 0  downhill
+                --  < 0  uphill
+                --  = 0  flat / perpendicular
+                local slope = math.dot(vx, vy, tx, ty)
+                if slope <= 0 then return 0 end -- no friction going down slopes
 
-                local slope_contribution = math.max(towards_factor, vertical_factor)
-                return rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(
-                    math.clamp(math.max(not_downward, vertical_factor) * slope_contribution, 0, 1)
-                )
-            end
+                -- overhang / wall factor
+                local wall_normal_x
+                if nx > 0 then
+                    wall_normal_x = -1
+                else
+                    wall_normal_x = 1
+                end
 
-            -- wall / ground friction
+
+                local facing = math.dot(nx, ny, wall_normal_x, 0)
+                    -- > 0 : surface faces velocity (wall / overhang)
+                    -- <= 0 : floor-like surface
+
+                    dbg(facing)
+                end
+
+
             local apply_friction = function(
                 normal_x, normal_y,
                 contact_x, contact_y,
                 body,
                 ray_length,
-                friction_multiplier,
-                apply_slope_factor
+                friction_multiplier
             )
-                if friction_multiplier == nil then friction_multiplier = 1 end
-
-                -- convert to factor
-                local body_friction = body:get_friction()
-                if body_friction >= 0 then
-                    body_friction = 1 + body_friction
-                elseif body_friction < 0 then
-                    body_friction = body_friction - 1
-                end
-
-                local player_x, player_y = self._body:get_position()
                 local player_vx, player_vy = current_velocity_x, current_velocity_y
-                local body_velocity_x, body_velocity_y = body:get_velocity()
+                local body_vx, body_vy = body:get_velocity()
 
-                if math.abs(friction_multiplier) < math.eps then return end
+                local slope_factor = (surface_slope_factor(
+                    player_vx, player_vy,
+                    normal_x, normal_y
+                ))
 
-                friction_multiplier = friction_multiplier * (surface_slope_factor(player_vx, player_vy, normal_x, normal_y))
-
-                local relative_vx = player_vx - body_velocity_x
-                local relative_vy = player_vy - body_velocity_y
-
-                local tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
-                local slide_speed = math.dot(relative_vx, relative_vy, tangent_x, tangent_y)
-
-                local surface_friction_coefficient = body_friction * _settings.friction_coefficient
-
-                local contact_distance = math.distance(player_x, player_y, contact_x, contact_y)
-                local penetration_ratio = 1 - (contact_distance / ray_length)
-
-                local velocity_into_surface = -math.dot(relative_vx, relative_vy, normal_x, normal_y)
-                local velocity_normal_force = math.max(0, velocity_into_surface)
-                local base_normal_force = velocity_normal_force
-
-                local input_modifier = 1.0
-                if use_analog_input then
-                    local push_factor = math.dot(
-                        self._joystick_position_x,
-                        self._joystick_position_y,
-                        -normal_x, -normal_y
-                    )
-                    input_modifier = math.max(0, push_factor)
-                elseif down_is_down then
-                    local release_progress = math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
-                    input_modifier = 1 - math.sqrt(release_progress) -- square root easing
-                end
-
-                local normal_force = base_normal_force * input_modifier
-                local friction_magnitude = math.abs(surface_friction_coefficient) * normal_force * friction_multiplier
-
-                local friction_force_along_tangent
-                if math.abs(slide_speed) < math.eps then
-                    -- sliding, no friction
-                    friction_force_along_tangent = 0
-                elseif surface_friction_coefficient < 0 then
-                    -- negative friction: accelerate
-                    friction_force_along_tangent = friction_magnitude * math.sign(slide_speed)
-                else
-                    -- otherwise, apply friction along opposite tangent
-                    local max_opposition = math.abs(slide_speed)
-                    local opposition_force = math.min(friction_magnitude, max_opposition)
-                    friction_force_along_tangent = -opposition_force * math.sign(slide_speed)
-                end
-
-                net_friction_x = tangent_x * friction_force_along_tangent
-                net_friction_y = tangent_y * friction_force_along_tangent
+                dbg(slope_factor)
             end
 
             local wall_cling_friction = 4
@@ -1265,8 +1227,7 @@ function rt.Player:update(delta)
                     left_x, left_y,
                     self._left_wall_body,
                     math.magnitude(left_dx, left_dy),
-                    ternary(left_is_down, wall_cling_friction, 1),
-                    true
+                    ternary(left_is_down, wall_cling_friction, 1)
                 )
             end
 
@@ -1279,8 +1240,7 @@ function rt.Player:update(delta)
                     right_x, right_y,
                     self._right_wall_body,
                     math.magnitude(right_dx, right_dy),
-                    ternary(right_is_down, wall_cling_friction, 1),
-                    true
+                    ternary(right_is_down, wall_cling_friction, 1)
                 )
             end
 
@@ -1293,8 +1253,7 @@ function rt.Player:update(delta)
                     top_left_x, top_left_y,
                     self._top_left_wall_body,
                     math.magnitude(top_left_dx, top_left_dy),
-                    1,
-                    math.magnitude(vx, vy) < math.eps
+                    1
                 )
             end
 
@@ -1307,8 +1266,7 @@ function rt.Player:update(delta)
                     top_x, top_y,
                     self._top_wall_body,
                     math.magnitude(top_dx, top_dy),
-                    1,
-                    math.magnitude(vx, vy) < math.eps
+                    1
                 )
             end
 
@@ -1321,8 +1279,7 @@ function rt.Player:update(delta)
                     top_right_x, top_right_y,
                     self._top_right_wall_body,
                     math.magnitude(top_right_dx, top_right_dy),
-                    1,
-                    math.magnitude(vx, vy) < math.eps
+                    1
                 )
             end
 
@@ -1336,8 +1293,7 @@ function rt.Player:update(delta)
                     bottom_left_x, bottom_left_y,
                     self._bottom_left_wall_body,
                     math.magnitude(bottom_left_dx, bottom_left_dy),
-                    ternary(down_is_down, slide_friction, 1),
-                    true
+                    ternary(down_is_down, slide_friction, 1)
                 )
             end
 
@@ -1351,8 +1307,7 @@ function rt.Player:update(delta)
                     bottom_x, bottom_y,
                     self._bottom_wall_body,
                     math.magnitude(bottom_dx, bottom_dy),
-                    ternary( down_is_down, slide_friction, 1),
-                    true
+                    ternary( down_is_down, slide_friction, 1)
                 )
             end
 
@@ -1366,8 +1321,7 @@ function rt.Player:update(delta)
                     bottom_right_x, bottom_right_y,
                     self._bottom_right_wall_body,
                     math.magnitude(bottom_right_dx, bottom_right_dy),
-                    ternary(down_is_down, slide_friction, 1),
-                    true
+                    ternary(down_is_down, slide_friction, 1)
                 )
             end
 
@@ -2002,7 +1956,7 @@ function rt.Player:update(delta)
     -- add blood splatter
     if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            local r = _settings.radius
+            local r = self:get_radius()
             local cx, cy = contact_x, contact_y
 
             -- at high velocities, interpolate
@@ -2017,13 +1971,20 @@ function rt.Player:update(delta)
 
                 for i = 0, num_steps do
                     local t = i / num_steps
-                    local interp_x = lcx + dx * t
-                    local interp_y = lcy + dy * t
+                    local interpolation_x = lcx + dx * t
+                    local interpolation_y = lcy + dy * t
 
-                    self._stage:get_blood_splatter():add(interp_x, interp_y, r, self._hue, 1)
+                    if math.distance(
+                        self._last_position_x, self._last_position_y,
+                        interpolation_x, interpolation_y
+                    ) < r then
+                        self._stage:get_blood_splatter():add(interpolation_x, interpolation_y, r, self._hue, 1)
+                    end
                 end
             else
-                self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
+                if math.distance(self._last_position_x, self._last_position_y, cx, cy) < r then
+                    self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
+                end
             end
         end
 

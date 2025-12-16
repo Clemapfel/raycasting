@@ -1000,7 +1000,7 @@ end
 
 --- @brief
 function rt.PlayerBody:_apply_squish(factor)
-   local magnitude = _settings.squish_magnitude * (factor or 1)
+    local magnitude = _settings.squish_magnitude * (factor or 1)
     local function apply(is_enabled, motion, nx, ny, ox, oy, default_nx, default_ny, default_ox, default_oy)
         if is_enabled == false then return end
         if motion == nil or motion.get_value == nil then return end

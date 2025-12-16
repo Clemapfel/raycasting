@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="184">
+ <editorsettings>
+  <export target="jump_tutorial.lua" format="lua"/>
+ </editorsettings>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
+ <imagelayer id="3" name="background" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="5" name="aux"/>
+ <objectgroup id="6" name="hitbox"/>
+ <objectgroup id="2" name="main">
+  <object id="3" name="Goal" type="Goal" x="631.506" y="-239.407">
+   <point/>
+  </object>
+  <object id="5" name="Checkpoint" type="Checkpoint" x="-493.091" y="-444.572">
+   <point/>
+  </object>
+  <object id="159" type="Hitbox" x="-1056" y="-384">
+   <polygon points="0,0 880,0 880,64 0,64"/>
+  </object>
+  <object id="160" name="From" type="OneWayPlatform" x="-928" y="-496">
+   <properties>
+    <property name="hue" type="float" value="0.1"/>
+    <property name="other" type="object" value="162"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="162" name="To" type="OneWayPlatformNode" x="-816" y="-496">
+   <point/>
+  </object>
+  <object id="163" name="Spawn" type="PlayerSpawn" x="-998.195" y="-425.993">
+   <point/>
+  </object>
+  <object id="164" name="Spawn" type="PlayerSpawn" x="-996.39" y="-425.993">
+   <point/>
+  </object>
+  <object id="169" name="From" type="OneWayPlatform" x="-816" y="-512">
+   <properties>
+    <property name="hue" type="float" value="0.1"/>
+    <property name="other" type="object" value="170"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="170" name="To" type="OneWayPlatformNode" x="-928" y="-512">
+   <point/>
+  </object>
+  <object id="172" type="BoostField" x="-928" y="-512">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="hue" type="float" value="0.1"/>
+    <property name="render_priority" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 0,16 112,16 112,0"/>
+  </object>
+  <object id="173" name="From" type="OneWayPlatform" x="-720" y="-560">
+   <properties>
+    <property name="other" type="object" value="174"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="174" name="To" type="OneWayPlatformNode" x="-608" y="-560">
+   <point/>
+  </object>
+  <object id="175" name="From" type="OneWayPlatform" x="-608" y="-576">
+   <properties>
+    <property name="other" type="object" value="176"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="176" name="To" type="OneWayPlatformNode" x="-720" y="-576">
+   <point/>
+  </object>
+  <object id="177" type="BoostField" x="-720" y="-576">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="render_priority" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 0,16 112,16 112,0"/>
+  </object>
+  <object id="178" name="From" type="OneWayPlatform" x="-896" y="-416">
+   <properties>
+    <property name="hue" type="float" value="0.1"/>
+    <property name="other" type="object" value="179"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="179" name="To" type="OneWayPlatformNode" x="-784" y="-416">
+   <point/>
+  </object>
+  <object id="180" name="From" type="OneWayPlatform" x="-784" y="-432">
+   <properties>
+    <property name="hue" type="float" value="0.1"/>
+    <property name="other" type="object" value="181"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="181" name="To" type="OneWayPlatformNode" x="-896" y="-432">
+   <point/>
+  </object>
+  <object id="183" x="-736" y="-416">
+   <polygon points="16,0 176,0 176,-16 16,-16 -32,-32 -32,-48 208,-48 208,32 -32,32 -32,16"/>
+  </object>
+ </objectgroup>
+ <layer id="4" name="noop" width="32" height="32">
+  <data encoding="base64" compression="zlib"/>
+ </layer>
+</map>

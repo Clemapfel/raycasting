@@ -841,9 +841,14 @@ function ow._parse_object_group(object_group, scope)
                 if object.rotation ~= nil then assert(object.rotation == 0) end
             end
 
-            if wrapper.class == nil then
-                rt.warning("In ow._parse_object_group (",  scope,  "): object `",  wrapper.id,  "` has no class, assuming `Hitbox`")
-                wrapper.class = "Hitbox"
+            if wrapper.class == nil or wrapper.class == "" then
+                if wrapper.type == ow.ObjectType.POINT then
+                    -- skip points, as they have no volume
+                    goto continue
+                else
+                    rt.warning("In ow._parse_object_group (",  scope,  "): object `",  wrapper.id,  "` has no class, assuming `Hitbox`")
+                    wrapper.class = "Hitbox"
+                end
             end
         end
 
@@ -867,7 +872,7 @@ function ow._parse_object_group(object_group, scope)
     end
 
     table.sort(objects, function(a, b)
-        return a.id < b.id
+        return meta.hash(a) < meta.hash(b)
     end)
 
     return objects

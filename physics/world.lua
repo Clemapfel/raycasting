@@ -211,7 +211,7 @@ local _step = 1 / 120
 -- the sprint more "mushy", high position iterations
 -- cause it to oscillate around the constraint target.
 -- the optimal number of steps was determined empirically
-local _n_velocity_iterations = 4
+local _n_velocity_iterations = 6
 local _n_position_iterations = 4
 
 --- @brief

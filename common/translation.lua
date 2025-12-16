@@ -326,35 +326,36 @@ rt.Translation = {
         {
             id = "tutorial",
             title = "[DEBUG TUTORIAL]",
-            description = "TODO",
             target_time = math.huge,
         },
 
         {
             id = "one_way_platform_tutorial",
             title = "TODO",
-            description = "TODO",
             target_time = math.huge
+        },
+
+        {
+            id = "bounce_tutorial",
+            title = "TODO",
+
         },
 
         {
             id = "template",
             title = "[DEBUG TEMPLATE]",
-            description = "TODO",
             target_time = math.huge,
         },
 
         {
             id = "air_dash_node_tutorial",
             title = "TODO",
-            description = "TODO",
             target_time = math.huge,
         },
 
         {
             id = "portal_tutorial",
             title = "TODO",
-            description = "TODO",
             target_time = math.huge,
         },
     }
