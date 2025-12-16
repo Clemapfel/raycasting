@@ -94,6 +94,12 @@ function b2.Body:instantiate(world, type, x, y, shape, ...)
 
     self._native:setUserData(self)
     self._world:_notify_body_added(self)
+
+    if type ~= b2.BodyType.DYNAMIC then
+        -- for non-dynamic, override origin from center of mass to position
+        local _, _, mass, inertia = self._native:getMassData()
+        self._native:setMassData(x, y, mass, inertia)
+    end
 end
 
 --- @brief
