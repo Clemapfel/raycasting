@@ -1637,7 +1637,7 @@ function rt.Player:update(delta)
                     ) do
                         local body_vx, body_vy = body:get_velocity()
                         local magnitude = math.magnitude(body_vx, body_vy)
-                        if body:get_type() ~= b2.BodyType.STATIC then
+                        if body:get_type() ~= b2.BodyType.STATIC and not body:get_is_sensor() then
                             velocity_x, velocity_y = body_vx, body_vy
                             min_magnitude = magnitude
                             chosen_body = body
@@ -2414,6 +2414,30 @@ function rt.Player:get_position()
     else
         return self._body:get_position()
     end
+end
+
+--- @brief average position, takes deformation into account
+function rt.Player:get_centroid()
+    if self._body == nil then return 0, 0 end
+    local body, outer_bodies
+    if self._is_bubble then
+        body = self._bubble_body
+        outer_bodies = self._bubble_spring_bodies
+    else
+        body = self._body
+        outer_bodies = self._spring_bodies
+    end
+
+    local x, y = body:get_position()
+    local n = 1
+    for other in values(outer_bodies) do
+        local other_x, other_y = other:get_position()
+        x = x + other_x
+        y = y + other_y
+        n = n + 1
+    end
+
+    return x / n, y / n
 end
 
 --- @brief

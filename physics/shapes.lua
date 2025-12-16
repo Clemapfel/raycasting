@@ -148,7 +148,11 @@ end
 --- @brief
 function b2.Segment:_add_to_body(body)
     if self._is_one_sided or #self._vertices > 4 then
-        return love.physics.newChainShape(body, false, self._vertices)
+        return love.physics.newChainShape(
+            body,
+            false, -- loop
+            self._vertices
+        )
     else
         return love.physics.newEdgeShape(body, table.unpack(self._vertices))
     end

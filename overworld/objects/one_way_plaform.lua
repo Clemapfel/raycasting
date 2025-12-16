@@ -2,7 +2,6 @@ require "overworld.movable_object"
 
 rt.settings.overworld.one_way_platform = {
     mesh_thickness = 40,
-    update_range = 100,
     bloom_intensity = 0.5, -- fraction
     direction_light_intensity = 0.5, -- fraction
     line_width = 5,
@@ -124,19 +123,24 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._stencil_body:set_collision_group(0x0)
     self._stencil_body:add_tag("stencil")
 
-    local protection_r = 100
+    -- add wide solid body on opposite site to prevent tunneling at high velocities
+    self._update_range = rt.settings.player.max_velocity * rt.SceneManager:get_timestep() * 4
+
+    local protection_r = self._update_range
+    local protection_offset = stencil_r -- so raycasting still hits segment instead of protection body
+
     local protection_shape
     if self._sidedness == 1 then
         protection_shape = b2.Polygon(
-            x1, y1,
-            x2, y2,
+            x1 + left_dx * protection_offset, y1 + left_dy * protection_offset,
+            x2 + left_dx * protection_offset, y2 + left_dy * protection_offset,
             x2 + left_dx * protection_r, y2 + left_dy * protection_r,
             x1 + left_dx * protection_r, y1 + left_dy * protection_r
         )
     else
         protection_shape = b2.Polygon(
-            x1, y1,
-            x2, y2,
+            x1 + right_dx * protection_offset, y1 + right_dy * protection_offset,
+            x2 + right_dx * protection_offset, y2 + right_dy * protection_offset,
             x2 + right_dx * protection_r, y2 + right_dy * protection_r,
             x1 + right_dx * protection_r, y1 + right_dy * protection_r
         )
@@ -144,30 +148,6 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
 
     self._velocity_protection_body = b2.Body(world, body_type, centroid_x, centroid_y, protection_shape)
     self._velocity_protection_body:set_is_sensor(true)
-
-    do -- precompute args for velocity body query in update
-        local center_x = (x1 + x2) * 0.5
-        local center_y = (y1 + y2) * 0.5
-
-        local edge_x = x2 - x1
-        local edge_y = y2 - y1
-
-        local width = math.magnitude(edge_x, edge_y)
-        local height = protection_r
-
-        local cos_a = edge_x / width
-        local sin_a = edge_y / width
-
-        if self._sidedness == 1 then
-            center_x = center_x + left_dx * protection_r * 0.5
-            center_y = center_y + left_dy * protection_r * 0.5
-        else
-            center_x = center_x + right_dx * protection_r * 0.5
-            center_y = center_y + right_dy * protection_r * 0.5
-        end
-
-        self._velocity_protection_bounds = { center_x, center_y, width, height, cos_a, sin_a }
-    end
 
     -- graphics
     self._line_draw_vertices = {
@@ -289,34 +269,22 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     stage.one_way_platform_current_hue_step = stage.one_way_platform_current_hue_step % _n_hue_steps + 1
 end
 
-local function _closest_point_on_segment(px, py, ax, ay, bx, by)
+--- @param r Number buffer to add to the end of each line, only affects is_on_segment
+--- @return Number, Number, Boolean
+local function _closest_point_on_segment(px, py, ax, ay, bx, by, r)
     local abx = bx - ax
     local aby = by - ay
-    local t = math.dot(px - ax, py - ay, abx, aby) / math.dot(abx, aby, abx, aby)
+    local apx = px - ax
+    local apy = py - ay
+    local ab_length_sq = math.dot(abx, aby, abx, aby)
+    local t = math.dot(apx, apy, abx, aby) / ab_length_sq
+
+    local ab_length = math.sqrt(ab_length_sq)
+    local t_buffer = r / ab_length
+
+    local is_on_segment = t >= -t_buffer and t <= 1.0 + t_buffer
     t = math.clamp(t, 0.0, 1.0)
-    return ax + t * abx, ay + t * aby
-end
-
--- Corrected: returns world-space closest point on oriented rectangle
--- Arguments should be precomputed once in instantiate and passed as a tuple:
---   (rect_center_x, rect_center_y, rect_w, rect_h, cos_a, sin_a)
-local function _closest_point_on_rectangle(px, py, rect_center_x, rect_center_y, rect_w, rect_h, cos_a, sin_a)
-    local dx = px - rect_center_x
-    local dy = py - rect_center_y
-
-    local local_x = dx * cos_a + dy * sin_a
-    local local_y = -dx * sin_a + dy * cos_a
-
-    local half_w = rect_w * 0.5
-    local half_h = rect_h * 0.5
-
-    local clamped_x = math.clamp(local_x, -half_w, half_w)
-    local clamped_y = math.clamp(local_y, -half_h, half_h)
-
-    local world_x = rect_center_x + clamped_x * cos_a - clamped_y * sin_a
-    local world_y = rect_center_y + clamped_x * sin_a + clamped_y * cos_a
-
-    return world_x, world_y
+    return ax + t * abx, ay + t * aby, is_on_segment
 end
 
 --- @brief
@@ -329,53 +297,21 @@ function ow.OneWayPlatform:update(delta)
     local player = self._scene:get_player()
     local player_r = player:get_radius()
 
-    local player_side, segment_distance
+    -- early check: segment in range
+    local px, py = player:get_position()
+    local closest_x, closest_y, is_on_segment = _closest_point_on_segment(px, py, cx1, cy1, cx2, cy2, -0.5 * player_r)
 
-    do -- check if segment should be sensor
-        -- early check: segment in range
-        local px, py = player:get_position()
-        local closest_x, closest_y = _closest_point_on_segment(px, py, cx1, cy1, cx2, cy2)
+    -- use closets point on player circle instead of center
+    local dx, dy = math.normalize(closest_x - px, closest_y - py)
+    px, py = px + dx * player_r, py + dy * player_r
 
-        -- use closets point on player circle instead of center
-        local dx, dy = math.normalize(closest_x - px, closest_y - py)
-        px, py = px + dx * player_r, py + dy * player_r
+    local segment_distance = math.distance(closest_x, closest_y, px, py)
+    if segment_distance < self._update_range then
+        px, py = player:get_centroid() -- compute more exact position as average of all player bodies
+        local player_side = _get_side(px, py, cx1, cy1, cx2, cy2)
 
-        segment_distance = math.distance(closest_x, closest_y, px, py)
-        if segment_distance < rt.settings.overworld.one_way_platform.update_range then
-            -- compute more exact position as average of all player bodies
-            px, py = self._scene:get_player():get_centroid()
-            player_side = _get_side(px, py, cx1, cy1, cx2, cy2)
-            self._body:set_is_sensor(player_side ~= self._sidedness)
-        end
-    end
-
-    do -- check if velocity protection should be enabled
-        local px, py = player:get_position()
-        if player_side == nil then
-            player_side = _get_side(px, py, cx1, cy1, cx2, cy2)
-        end
-
-        local should_be_enabled = player_side == self._sidedness and segment_distance > 2 * player_r
-        if false then --should_be_enabled then
-            -- get closest point
-            local center_x, center_y, w, h, cos_a, sin_a = table.unpack(self._velocity_protection_bounds)
-            center_x = center_x + offset_x
-            center_y = center_y + offset_y
-
-            local closest_x, closest_y = _closest_point_on_rectangle(
-                px, py, center_x, center_y, w, h, cos_a, sin_a
-            )
-
-            -- use distance between player circle, not center of player
-            local vx, vy = closest_x - px, closest_y - py
-            local dx, dy = math.normalize(vx, vy)
-            px, py = px + dx * player_r, py + dy * player_r
-
-            -- if too close, disable
-            should_be_enabled = math.distance(px, py, closest_x, closest_y) > 2 * player_r -- 4r insted of 2 to be safe
-        end
-
-        self._velocity_protection_body:set_is_sensor(not should_be_enabled)
+        self._body:set_is_sensor(not (player_side == self._sidedness))
+        self._velocity_protection_body:set_is_sensor(not (player_side == self._sidedness and is_on_segment))
     end
 end
 
@@ -418,14 +354,6 @@ function ow.OneWayPlatform:draw()
     love.graphics.arc("fill", highlight_x2, highlight_y2, 0.5 * highlight_line_width, self._arc_angle_right_start, self._arc_angle_right_end)
 
     love.graphics.pop()
-
-    if self._velocity_protection_body:get_is_sensor() ~= true then
-        self._velocity_protection_body:draw()
-    end
-
-    if self._dbg ~= nil then
-        love.graphics.circle("fill", self._dbg[1], self._dbg[2], 10)
-    end
 end
 
 --- @brief
@@ -457,12 +385,22 @@ end
 
 --- @brief
 function ow.OneWayPlatform:set_position(x, y)
-    self._body:set_position(x, y)
-    self._stencil_body:set_position(x, y)
+    for body in range(
+        self._body,
+        self._velocity_protection_body,
+        self._stencil_body
+    ) do
+        body:set_position(x, y)
+    end
 end
 
 --- @brief
 function ow.OneWayPlatform:set_velocity(vx, vy)
-    self._body:set_velocity(vx, vy)
-    self._stencil_body:set_velocity(vx, vy)
+    for body in range(
+        self._body,
+        self._velocity_protection_body,
+        self._stencil_body
+    ) do
+        body:set_velocity(vx, vy)
+    end
 end
