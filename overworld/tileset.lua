@@ -93,7 +93,11 @@ function ow.Tileset:instantiate(tileset_name)
         total_area = total_area + to_push.width * to_push.height
 
         if tile.objectGroup ~= nil then
-            to_push.objects = ow._parse_object_group(_get(tile, "objectGroup"), tileset_name .. " Tile #" .. id)
+            local success, error_or_objects = pcall(ow._parse_object_group, tileset_name .. " Tile #" .. id, _get(tile, "objectGroup"))
+            if not success then
+                rt.error("In ow.Tileset.instantiate: ", error_or_objects)
+            end
+            to_push.objects = error_or_objects
 
             -- remove trivial hitboxes and replace with is_solid property
             local to_remove = {}

@@ -83,6 +83,12 @@ function ow.StageConfig:instantiate(stage_id)
     local path_class_id = rt.settings.overworld.path.class_id
     local path_target_property_pattern = rt.settings.overworld.path.target_property_pattern
 
+    local success, error_or_return = pcall(ow._parse_object_groups, "Stage `" .. stage_id .. "`", _get(self._config, "layers"))
+    if not success then
+        rt.error("In ow.StageConfig.instantiate: for stage `", stage_id, "`: ", error_or_return)
+    end
+    local layer_i_to_objects = error_or_return
+
     local layer_i = 1
     local n_layers = 0
     for layer_entry in values(_get(self._config, "layers")) do
@@ -108,7 +114,7 @@ function ow.StageConfig:instantiate(stage_id)
 
         if layer_type == "objectgroup" then
             to_add.type = ow.LayerType.OBJECTS
-            for object in values(ow._parse_object_group(layer_entry, stage_id .. " Layer #" .. layer_i)) do
+            for object in values(layer_i_to_objects[layer_i]) do
                 assert(meta.typeof(object) == "ObjectWrapper")
                 table.insert(to_add.objects, object)
 

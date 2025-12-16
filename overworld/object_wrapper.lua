@@ -740,13 +740,11 @@ local function _decode_gid(gid)
     return true_id, flip_x, flip_y
 end
 
---- @return Table
-function ow._parse_object_group(object_group, scope)
+-- iterate object group and extract wrappers
+local function _parse_single_object_group(object_group, group_offset_x, group_offset_y, scope)
     local objects = {}
-    local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
-    local group_visible = _get(object_group, "visible")
-
     local object_id_to_wrapper = {}
+
     for object in values(object_group.objects) do
         if _get(object, "shape") == "text" then goto continue end -- skip "text" objects
 
@@ -845,7 +843,7 @@ function ow._parse_object_group(object_group, scope)
                     -- skip points, as they have no volume
                     goto continue
                 else
-                    rt.warning("In ow._parse_object_group (",  scope,  "): object `",  wrapper.id,  "` has no class, assuming `Hitbox`")
+                    rt.critical("In ", scope, ": object `",  wrapper.id,  "` has no class, assuming `Hitbox`")
                     wrapper.class = "Hitbox"
                 end
             end
@@ -857,13 +855,72 @@ function ow._parse_object_group(object_group, scope)
         ::continue::
     end
 
+    return objects, object_id_to_wrapper
+end
+
+function ow._parse_object_groups(scope, layers)
+    local layer_i_to_objects = {}
+    local object_id_to_wrapper = {}
+
+    -- first pass: extract objects
+
+    local layer_i = 1
+    for layer_entry in values(layers) do
+        if _get(layer_entry, "type") == "objectgroup" then
+            local object_group = layer_entry
+            local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
+            local group_visible = _get(object_group, "visible")
+
+            local objects, layer_object_id_to_wrapper = _parse_single_object_group(object_group, group_offset_x, group_offset_y, scope)
+
+            layer_i_to_objects[layer_i] = objects
+            for id, wrapper in pairs(layer_object_id_to_wrapper) do
+                object_id_to_wrapper[id] = wrapper
+            end
+        end
+
+        layer_i = layer_i + 1
+    end
+
+    -- second pass, set object reference properties
+
+    for wrapper in values(object_id_to_wrapper) do
+        for key, id in pairs(wrapper.to_replace) do
+            if id > 0 then
+                local other = object_id_to_wrapper[id]
+                if other == nil then
+                    error(string.paste("object `",  wrapper.id,  "` points to `",  id,  "`, but there is no object with that id"))
+                    -- sic, use lua error since this will be pcalled
+                end
+
+                wrapper.properties[key] = other
+            end
+        end
+        wrapper.to_replace = nil
+    end
+
+    for objects in values(layer_i_to_objects) do
+        table.sort(objects, function(a, b)
+            return meta.hash(a) < meta.hash(b)
+        end)
+    end
+
+    return layer_i_to_objects
+end
+
+function ow._parse_object_group(scope, object_group)
+    local group_offset_x, group_offset_y = _get(object_group, "offsetx"), _get(object_group, "offsety")
+    local group_visible = _get(object_group, "visible")
+
+    local objects, object_id_to_wrapper = _parse_single_object_group(scope, object_group, group_offset_x, group_offset_y)
+
     -- second pass, set "object" tiled property
     for wrapper in values(objects) do
         for key, id in pairs(wrapper.to_replace) do
             if id > 0 then
                 wrapper.properties[key] = object_id_to_wrapper[id]
                 if wrapper.properties[key] == nil then
-                    rt.warning("In ow._parse_object_group: object `",  wrapper.id,  "` points to `",  id,  "`, but no object with that id is located on the same layer")
+                    error("object `",  wrapper.id,  "` points to `",  id,  "`, but no object with that id is located on the same layer")
                 end
             end
         end

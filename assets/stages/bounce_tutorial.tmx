@@ -248,7 +248,7 @@
   <object id="244" name="path_from" type="Path" x="-1953.08" y="184.995">
    <properties>
     <property name="next" type="object" value="243"/>
-    <property name="target" type="object" value="250"/>
+    <property name="target" type="object" value="0"/>
     <property name="velocity" type="float" value="2"/>
    </properties>
    <point/>
