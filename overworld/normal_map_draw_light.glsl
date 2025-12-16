@@ -30,7 +30,7 @@ vec2 closest_point_on_segment(vec2 xy, vec4 segment) {
 
 vec2 closest_point_on_circle(vec2 xy, vec2 circle_xy, float radius) {
     vec2 delta = xy - circle_xy;
-    if (length(delta) < radius) return xy;
+    if (length(delta) < radius) return circle_xy;
     return circle_xy + normalize(delta) * radius;
 }
 
@@ -70,7 +70,7 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
     vec4 point_color = vec4(0.0);
     for (int i = 0; i < n_point_light_sources; ++i) {
         vec2 light_circle = point_light_sources[i].xy;
-        float light_radius = point_light_sources[i].z;
+        float light_radius = point_light_sources[i].z * camera_scale;
 
         vec2 light_position = closest_point_on_circle(screen_coords, light_circle, light_radius);
         point_color += compute_light(

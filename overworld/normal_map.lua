@@ -261,6 +261,26 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
             local start_yi = math.floor((tri_min_y - min_y) / chunk_size)
             local end_yi = math.floor((tri_max_y - min_y) / chunk_size)
 
+            do -- expand search range slightly to account for float precision on chunk boundary
+                local epsilon = 1
+                if (tri_min_x - min_x) % chunk_size < epsilon then
+                    start_xi = start_xi - 1
+                end
+                if (tri_min_y - min_y) % chunk_size < epsilon then
+                    start_yi = start_yi - 1
+                end
+
+                local x_mod = (tri_max_x - min_x) % chunk_size
+                if x_mod < epsilon or x_mod > chunk_size - epsilon then
+                    end_xi = end_xi + 1
+                end
+
+                local y_mod = (tri_max_y - min_y) % chunk_size
+                if y_mod < epsilon or y_mod > chunk_size - epsilon then
+                    end_yi = end_yi + 1
+                end
+            end
+
             for xi = start_xi, end_xi do
                 for yi = start_yi, end_yi do
                     local x = min_x + xi * chunk_size
@@ -447,6 +467,10 @@ function ow.NormalMap:update(delta)
     end
 end
 
+local _chunk_eps = function(chunk)
+    return chunk / 32
+end
+
 function ow.NormalMap:draw_light(
     camera,
     point_light_sources, -- in screen coords
@@ -471,13 +495,16 @@ function ow.NormalMap:draw_light(
 
     local x, y, w, h = camera:get_world_bounds():unpack()
 
-    x = x + self._offset_x
-    y = y + self._offset_y
+    local eps = _chunk_eps(chunk_size)
+    local camera_left = x - bounds.x - eps
+    local camera_right = x + w - bounds.x + eps
+    local camera_top = y - bounds.y - eps
+    local camera_bottom = y + h - bounds.y + eps
 
-    local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
-    local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
-    local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
-    local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
+    local min_chunk_x = math.floor(camera_left / chunk_size)
+    local max_chunk_x = math.floor(camera_right / chunk_size)
+    local min_chunk_y = math.floor(camera_top / chunk_size)
+    local max_chunk_y = math.floor(camera_bottom / chunk_size)
 
     love.graphics.push("all")
 
@@ -553,10 +580,16 @@ function ow.NormalMap:draw_shadow(camera)
     x = x + self._offset_x
     y = y + self._offset_y
 
-    local min_chunk_x = math.floor((x - bounds.x) / chunk_size)
-    local max_chunk_x = math.floor(((x + w - 1) - bounds.x) / chunk_size)
-    local min_chunk_y = math.floor((y - bounds.y) / chunk_size)
-    local max_chunk_y = math.floor(((y + h - 1) - bounds.y) / chunk_size)
+    local eps = _chunk_eps(chunk_size)
+    local camera_left = x - bounds.x - eps
+    local camera_right = x + w - bounds.x + eps
+    local camera_top = y - bounds.y - eps
+    local camera_bottom = y + h - bounds.y + eps
+
+    local min_chunk_x = math.floor(camera_left / chunk_size)
+    local max_chunk_x = math.floor(camera_right / chunk_size)
+    local min_chunk_y = math.floor(camera_top / chunk_size)
+    local max_chunk_y = math.floor(camera_bottom / chunk_size)
 
     for chunk_x = min_chunk_x, max_chunk_x do
         local column = self._chunks[chunk_x]
