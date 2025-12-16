@@ -10,10 +10,10 @@
  </imagelayer>
  <objectgroup id="5" name="aux"/>
  <objectgroup id="6" name="hitbox">
-  <object id="234" type="Hitbox" x="-1616" y="864">
-   <polygon points="32,0 848,0 848,-432 1040,-432 1040,26.3822 1152,128 1360,128 1472,0 1584,16 1728,128 1808,128 1776,-272 1984,-288 2048,240 1776,240 1376,240 1040,240 32,240"/>
+  <object id="234" type="MovableHitbox" x="-1616" y="864">
+   <polygon points="32,0 848,0 848,-432 1040,-432 1040,26.3822 1152,128 1360,128 1440,0 1584,16 1728,128 1808,128 1776,-272 1984,-288 2048,240 1776,240 1376,240 1040,240 32,240"/>
   </object>
-  <object id="235" name="FIrst Jump" type="SlipperyHitbox" x="-800" y="832">
+  <object id="235" name="FIrst Jump" type="SlipperyHitbox" x="-951.448" y="2244.03">
    <polygon points="16,0 -16,32 32,32 32,-400 224,-400 224,-416 16,-416"/>
   </object>
   <object id="272" type="Hitbox" x="-196.034" y="1657.22">
@@ -46,7 +46,7 @@
   <object id="162" name="To" type="OneWayPlatformNode" x="-816" y="-544">
    <point/>
   </object>
-  <object id="163" name="Spawn" type="PlayerSpawn" x="86.0498" y="626.424">
+  <object id="163" name="Spawn" type="PlayerSpawn" x="-459.839" y="826.015">
    <point/>
   </object>
   <object id="169" name="From" type="OneWayPlatform" x="-816" y="-560">
@@ -278,13 +278,13 @@
   <object id="263" name="To" type="OneWayPlatformNode" x="-832" y="528">
    <point/>
   </object>
-  <object id="266" name="path_to" type="PathNode" x="-95.7456" y="804.796">
+  <object id="266" name="path_to" type="PathNode" x="-583.862" y="1326.14">
    <point/>
   </object>
-  <object id="267" name="path_from" type="Path" x="-114.908" y="479.862">
+  <object id="267" name="path_from" type="Path" x="-528" y="288">
    <properties>
     <property name="next" type="object" value="266"/>
-    <property name="target" type="object" value="286"/>
+    <property name="target" type="object" value="234"/>
     <property name="velocity" type="float" value="1.5"/>
    </properties>
    <point/>

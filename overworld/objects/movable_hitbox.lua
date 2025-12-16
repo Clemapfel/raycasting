@@ -32,7 +32,7 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     ))
 
     self._body:set_use_continuous_collision(true)
-    local start_x, start_y = self._body:get_center_of_mass()
+    local start_x, start_y = self._body:get_position()
     self._elapsed = 0
 
     -- match tags from ow.Hitbox
@@ -77,7 +77,6 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         function() return self._tris end, -- get triangles
         function() self._mesh:draw() end -- draw mask
     )
-    --self._normal_map._debug_draw_enabled = true -- TODO
 
     self._is_slippery = object:get_boolean("slippery")
     if self._is_slippery == nil then self._is_slippery = false end

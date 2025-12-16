@@ -1189,14 +1189,15 @@ function rt.Player:update(delta)
                 player_vx = player_vx - body_vx
                 player_vy = player_vy - body_vy
 
+                -- only apply friction to mostly vertical walls
                 local wall_coefficient = math.dot(normal_x, normal_y, 0, 1) + 1
-                local slope_factor = wall_coefficient < 1 and 0 or wall_coefficient
+                local slope_factor = 1 - math.abs(wall_coefficient - 1)
 
-                -- if not wall or overhang, skip friction
-                if slope_factor == 0 then return end
+                -- if ground slope, no friction
+                if slope_factor < 0.5 then return end
 
-                -- if overhang, decrease friction depending on steepness
-                if slope_factor > 1 then slope_factor = 2 - slope_factor end
+                -- else weigh by how close to vertical the wall is
+                slope_factor = (slope_factor - 0.5) * 2
 
                 -- get tangent
                 local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
