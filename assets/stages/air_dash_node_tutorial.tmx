@@ -26,9 +26,6 @@
   <object id="2" name="Spawn" type="PlayerSpawn" x="-1367.8" y="1984.3">
    <point/>
   </object>
-  <object id="3" name="Goal" type="Goal" x="992" y="0">
-   <point/>
-  </object>
   <object id="5" name="Checkpoint" type="Checkpoint" x="512" y="0">
    <point/>
   </object>

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 288,
+  nextobjectid = 289,
   properties = {},
   tilesets = {
     {
@@ -206,19 +206,6 @@ return {
       parallaxy = 1,
       properties = {},
       objects = {
-        {
-          id = 3,
-          name = "Goal",
-          type = "Goal",
-          shape = "point",
-          x = 631.506,
-          y = -239.407,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
         {
           id = 5,
           name = "Checkpoint",
@@ -845,19 +832,6 @@ return {
           }
         },
         {
-          id = 224,
-          name = "",
-          type = "Goal",
-          shape = "point",
-          x = -192,
-          y = -1408,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 226,
           name = "From",
           type = "OneWayPlatform",
@@ -1130,6 +1104,19 @@ return {
             { x = 209.771, y = 112.575 },
             { x = 209.771, y = 0.574794 }
           },
+          properties = {}
+        },
+        {
+          id = 288,
+          name = "Goal",
+          type = "Goal",
+          shape = "rectangle",
+          x = -498.529,
+          y = 304,
+          width = 123.531,
+          height = 75.9062,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

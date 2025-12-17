@@ -655,8 +655,6 @@ function ow.ObjectWrapper:get_type()
 end
 
 --- @brief
---- @param id String
---- @param assert_exists Boolean?
 function ow.ObjectWrapper:draw()
     love.graphics.setPointSize(4)
     love.graphics.setLineWidth(1)
@@ -950,4 +948,9 @@ function ow.ObjectWrapper:get_property_names()
         table.insert(out, key)
     end
     return out
+end
+
+--- @brief
+function ow.ObjectWrapper:get_rotation()
+    return self.rotation
 end

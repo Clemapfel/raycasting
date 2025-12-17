@@ -324,16 +324,19 @@ rt.Translation = {
 
     stages = { -- order matters
         {
+            id = "one_way_platform_tutorial",
+            title = "TODO",
+            target_time = math.huge
+        },
+
+        --[[
+        {
             id = "tutorial",
             title = "[DEBUG TUTORIAL]",
             target_time = math.huge,
         },
 
-        {
-            id = "one_way_platform_tutorial",
-            title = "TODO",
-            target_time = math.huge
-        },
+
 
         {
             id = "bounce_tutorial",
@@ -358,6 +361,8 @@ rt.Translation = {
             title = "TODO",
             target_time = math.huge,
         },
+
+        ]]
     }
 }
 

@@ -7,7 +7,6 @@ require "common.label"
 rt.settings.overworld.goal = {
     result_screen_delay = 0.5,
     outline_width = 6,
-    size = 200, -- px, square,
 
     flash_animation_duration = 20 / 60, -- seconds
     time_dilation_animation_duration = 2,
@@ -78,6 +77,20 @@ function ow.Goal:instantiate(object, stage, scene)
         _impulse = rt.ImpulseSubscriber()
     })
 
+    rt.assert(object:get_type() == ow.ObjectType.RECTANGLE and object:get_rotation() == 0, "In ow.Goal: object `", object:get_id(), "` in stage `", self._stage:get_id(), "` is not an axis-aligned rectangle")
+
+    local contour = object:create_contour()
+    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
+    for i = 1, #contour, 2 do
+        local x, y = contour[i+0], contour[i+1]
+        min_x = math.min(min_x, x)
+        min_y = math.min(min_y, y)
+        max_x = math.max(max_x, x)
+        max_y = math.max(max_y, y)
+    end
+
+    self._bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
+
     -- animations
     do
         local duration = rt.settings.overworld.goal.flash_animation_duration
@@ -131,44 +144,16 @@ function ow.Goal:instantiate(object, stage, scene)
     end
 
     stage:signal_connect("initialized", function()
+        local _, _, w, h = self._bounds:unpack()
         local player = self._scene:get_player()
-        local size = rt.settings.overworld.goal.size
-
-        -- try to push out of level geometry, this may fail but catches common cases
-        local cast_ray = function(dx, dy)
-            local x, y = self._x, self._y
-            local rx, ry = self._world:query_ray(x, y, dx * size / 2, dy * size / 2)
-            if rx == nil then return size / 2 else return math.distance(x, y, rx, ry) end
-        end
-
-        local top_dist = cast_ray(0, -1)
-        self._y = self._y + (size / 2 - top_dist)
-
-        local bottom_dist = cast_ray(0, 1)
-        self._y = self._y - (size / 2 - bottom_dist)
-
-        local left_dist = cast_ray(-1, 0)
-        self._x = self._x - (size / 2 - left_dist)
-
-        local right_dist = cast_ray(1, 0)
-        self._x = self._x + (size / 2 - right_dist)
-        
-        local bx, by, bw, bh = -0.5 * size, -0.5 * size, size, size
         self._body = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
             self._x, self._y,
-            b2.Polygon(
-                bx, by,
-                bx + bw, by,
-                bx + bw, by + bh,
-                bx, by + bh
-            )
+            b2.Rectangle(0, 0, w, h)
         )
 
-        self._bounds = rt.AABB(self._x + bx, self._y + by, bw, bh)
         local offset = rt.settings.overworld.goal.outline_width / 2 -- for pixel perfect hitbox accuracy
 
-        -- setup outline mesh to be compatible with checkpoint_platform
-        function create_mesh(min_x, min_y, max_x, max_y, radius)
+        local function create_mesh(min_x, min_y, max_x, max_y, radius)
             meta.assert(min_x, "Number", min_y, "Number", max_x, "Number", max_y, "Number")
             if min_x > max_x then min_x, max_x = max_x, min_x end
             if min_y > max_y then min_y, max_y = max_y, min_y end
@@ -216,14 +201,11 @@ function ow.Goal:instantiate(object, stage, scene)
             return mesh
         end
 
-        do
-            local r = 2
-            self._outline_mesh = create_mesh(
-                self._x - 0.5 * size + r, self._y - 0.5 * size + r,
-                self._x + 0.5 * size - r, self._y + 0.5 * size - r,
-                rt.settings.overworld.checkpoint_rope.radius
-            )
-        end
+        self._outline_mesh = create_mesh(
+            self._bounds.x, self._bounds.y,
+            self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height ,
+            rt.settings.overworld.checkpoint_rope.radius
+        )
 
         self._path = rt.Path(
             self._bounds.x, self._bounds.y,
@@ -233,7 +215,7 @@ function ow.Goal:instantiate(object, stage, scene)
             self._bounds.x, self._bounds.y
         )
 
-        self._shatter_surface = ow.ShatterSurface(self._world, self._bounds:unpack())
+        self._shatter_surface = ow.ShatterSurface(self._scene, self._world, self._bounds:unpack())
 
         local collision_mask, collision_group = rt.settings.player.bounce_collision_group, rt.settings.player.bounce_collision_group
         self._body:set_collides_with(collision_mask)
@@ -340,7 +322,6 @@ function ow.Goal:update(delta)
 
     if self._is_shattered then
         self._shatter_surface:update(delta)
-
         self._flash_animation:update(delta)
         self._shatter_surface:set_flash(self._flash_animation:get_value())
 

@@ -894,9 +894,6 @@
   <object id="817" type="KillPlane" x="-2524.66" y="-443.602">
    <polygon points="0,0 128,80 224,32 112,-160"/>
   </object>
-  <object id="821" name="Goal" type="Goal" x="-513.967" y="-231.354">
-   <point/>
-  </object>
   <object id="860" type="Hitbox" x="-252.18" y="-876.21">
    <polygon points="0,0 928,16 736,-288"/>
   </object>

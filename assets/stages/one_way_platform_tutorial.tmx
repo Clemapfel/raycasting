@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="288">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="289">
  <editorsettings>
   <export target="one_way_platform_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -27,9 +27,6 @@
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
-  <object id="3" name="Goal" type="Goal" x="631.506" y="-239.407">
-   <point/>
-  </object>
   <object id="5" name="Checkpoint" type="Checkpoint" x="112" y="-656">
    <point/>
   </object>
@@ -228,9 +225,6 @@
    </properties>
    <polygon points="-80,96 -64,96 -64,-96 -80,-96"/>
   </object>
-  <object id="224" type="Goal" x="-192" y="-1408">
-   <point/>
-  </object>
   <object id="226" name="From" type="OneWayPlatform" x="-464" y="-432">
    <properties>
     <property name="hue" type="float" value="0.1"/>
@@ -319,6 +313,7 @@
   <object id="286" type="MovableHitbox" x="-246.53" y="190.783">
    <polygon points="0,0 0,112 209.771,112.575 209.771,0.574794"/>
   </object>
+  <object id="288" name="Goal" type="Goal" x="-498.529" y="304" width="123.531" height="75.9062"/>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">
   <data encoding="base64" compression="zlib"/>

@@ -35,9 +35,10 @@ local mesh_format = {
 local _shader = rt.Shader("overworld/shatter_surface.glsl")
 
 --- @brief
-function ow.ShatterSurface:instantiate(world, x, y, width, height)
+function ow.ShatterSurface:instantiate(scene, world, x, y, width, height)
     meta.assert(world, "PhysicsWorld")
 
+    self._scene = scene
     self._world = world
     self._bounds = rt.AABB(x, y, width, height)
     self._parts = {}
@@ -368,6 +369,10 @@ function ow.ShatterSurface:update(delta)
     self._time_since_shatter = self._time_since_shatter + delta
 end
 
+DEBUG_INPUT:signal_connect("pressed", function(_, which)
+    if which == "k" then _shader:recompile() end
+end)
+
 --- @brief
 function ow.ShatterSurface:draw()
      love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, rt.GameState:get_player():get_hue() , 1))
@@ -378,6 +383,12 @@ function ow.ShatterSurface:draw()
     _shader:send("draw_bloom", false)
     _shader:send("brightness_scale", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
     _shader:send("pulse", self._impulse:get_pulse())
+
+    local camera = self._scene:get_camera()
+    local transform = camera:get_transform()
+    transform = transform:inverse()
+    _shader:send("screen_to_world_transform", transform)
+    _shader:send("bounds", { self._bounds:unpack() })
 
     if not self._is_done then
         self._pre_shatter_mesh:draw()

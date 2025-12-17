@@ -116,15 +116,22 @@ uniform float fraction; // 0: start, 1: end;
 uniform bool draw_bloom = true;
 uniform float flash;
 uniform float brightness_scale;
+uniform vec2 mesh_size;
+uniform mat4x4 screen_to_world_transform;
+uniform vec4 bounds; // aabb mesh
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position) {
 
-    float noise = gradient_noise(vec3(texture_coords * 10 + vec2(0, -elapsed), 0));
+    vec2 uv = (screen_to_world_transform * vec4(vertex_position, 0.0, 1.0)).xy / love_ScreenSize.xy;
+    uv.x *= bounds.z / bounds.w;
+    uv *= 5;
+    uv += elapsed / 20;
+    float noise = gradient_noise(vec3(uv + vec2(0, -elapsed), 0));
 
     // uv encodes global position
     const float min_eps = 0.015;
     const float max_eps = 0.75;
-    float pattern_outline = checkerboard((5 * texture_coords) + mix(0.05, 0.6, fraction) * vec2(noise));
+    float pattern_outline = checkerboard((5 * uv) + mix(0.05, 0.6, fraction) * vec2(noise));
 
     float threshold_eps = draw_bloom ? 0.08 : 0.04;
     float threshold_a = 0.49;
@@ -133,10 +140,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 vertex_position
         smoothstep(threshold_b - threshold_eps, threshold_b + threshold_eps, pattern_outline);
     pattern_outline -= (1 - color.a);
 
-    float pattern_fill = checkerboard((5 * texture_coords) + 0.2 * noise);
+    float pattern_fill = checkerboard((5 * uv) + 0.2 * noise);
     pattern_fill = smoothstep(0.5 - threshold_eps, 0.5 + threshold_eps, pattern_fill);
 
-    float pattern_noise = gradient_noise(vec3(texture_coords * 10, elapsed));
+    float pattern_noise = gradient_noise(vec3(uv * 10, elapsed));
 
     float pattern_eps = 2; //fwidth(pattern_noise);
     float pattern_threshold = 0;
