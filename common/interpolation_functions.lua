@@ -217,6 +217,15 @@ rt.InterpolationFunctions = meta.enum("InterpolationFunction", {
         return math.sign(math.sin(math.pi * frequency * x)) / 2 + 0.5
     end,
 
+    SINE_WAVE_DECAY = function(x, frequency, ramp)
+        if x < 0 then return 0 elseif x > 2 then return 0.5 end
+        if frequency == nil then frequency = 1 end
+        if ramp == nil then ramp = 2 end -- default order
+
+        local butterworth = 1 / (1 + x^(2 * ramp))
+        return (math.sin(2 * math.pi * (frequency * x - 1)) / 2) * math.exp(-(ramp * x)^2)
+    end,
+
     CUBE_EASE_OUT = function(x, order)
         -- \left(x-1\right)^{3}+1
         if x >= 1 then return 1 elseif x <= 0 then return 0 end

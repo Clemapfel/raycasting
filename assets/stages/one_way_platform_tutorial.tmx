@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="289">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="292">
  <editorsettings>
   <export target="one_way_platform_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -272,13 +272,13 @@
   <object id="263" name="To" type="OneWayPlatformNode" x="-832" y="528">
    <point/>
   </object>
-  <object id="266" name="path_to" type="PathNode" x="-141.059" y="930.267">
+  <object id="266" name="path_to" type="PathNode" x="-288" y="528">
    <point/>
   </object>
-  <object id="267" name="path_from" type="Path" x="-128" y="256">
+  <object id="267" name="path_from" type="Path" x="-432" y="192">
    <properties>
     <property name="next" type="object" value="266"/>
-    <property name="target" type="object" value="286"/>
+    <property name="target" type="object" value="288"/>
     <property name="velocity" type="float" value="2"/>
    </properties>
    <point/>
@@ -313,7 +313,10 @@
   <object id="286" type="MovableHitbox" x="-246.53" y="190.783">
    <polygon points="0,0 0,112 209.771,112.575 209.771,0.574794"/>
   </object>
-  <object id="288" name="Goal" type="Goal" x="-498.529" y="304" width="123.531" height="75.9062"/>
+  <object id="288" name="Goal" type="Goal" x="-544.604" y="279.428" width="123.531" height="75.9062"/>
+  <object id="291" type="NPC" x="-688" y="512">
+   <point/>
+  </object>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">
   <data encoding="base64" compression="zlib"/>

@@ -75,6 +75,28 @@ function ow.NPCEyes:instantiate(position_x, position_y, radius)
     self._sleepy = rt.SmoothedMotion1D(0, speed)      -- lowers top eyelid (squinting)
     self._surprised = rt.SmoothedMotion1D(0, speed)   -- scales eyes larger (wide eyes)
 
+    self._nod_animation = rt.TimedAnimation(
+        1,
+        -1, 1,
+        rt.InterpolationFunctions.SINE_WAVE_DECAY,
+        1.5, -- frequency
+        1  -- ramp
+    )
+    self._shake_animation = rt.TimedAnimation(2)
+
+    for animation in range(
+        self._nod_animation,
+        self._shake_animation
+    ) do
+        animation:set_elapsed(10e6)
+    end
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "n" then
+            self._nod_animation:reset()
+        end
+    end)
+
     self._blink_timer = 0
 
     self._blink_duration = settings.blink_duration
@@ -469,13 +491,16 @@ function ow.NPCEyes:draw()
         local turn_magnitude_x = 30 -- the higher, the less it will react along that axis
         local turn_magnitude_y = 30
 
-        local nod_motion = math.sin(rt.SceneManager:get_elapsed() * 30) * 100
+        local nod_offset = self._nod_animation:get_value()
+        local shake_offset = self._shake_animation:get_value()
+        local shake_magnitude = turn_magnitude_x
+        local nod_magnitude = turn_magnitude_y * 0.25
 
         self._model_transform = rt.Transform()
         self._model_transform:set_target_to(
             self._center_x, self._center_y, self._center_z,
-            target_x / turn_magnitude_x,
-            (target_y + nod_motion) / turn_magnitude_y,
+            target_x / turn_magnitude_x, -- + (shake_offset * 2 - 1) * shake_magnitude,
+            target_y / turn_magnitude_y + nod_offset * nod_magnitude,
             target_z,
             0, 1, 0
         )
@@ -598,7 +623,9 @@ function ow.NPCEyes:update(delta)
         self._sleepy,
         self._happy,
         self._angry,
-        self._surprised
+        self._surprised,
+        self._nod_animation,
+        self._shake_animation
     ) do
         motion:update(delta)
     end
