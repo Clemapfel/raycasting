@@ -500,7 +500,7 @@ function ow.NPCEyes:draw()
         self._model_transform:set_target_to(
             self._center_x, self._center_y, self._center_z,
             target_x / turn_magnitude_x, -- + (shake_offset * 2 - 1) * shake_magnitude,
-            target_y / turn_magnitude_y + nod_offset * nod_magnitude,
+            target_y / turn_magnitude_y, -- + nod_offset * nod_magnitude,
             target_z,
             0, 1, 0
         )

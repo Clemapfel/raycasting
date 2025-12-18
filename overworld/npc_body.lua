@@ -19,7 +19,13 @@ rt.settings.overworld.cloth_body = {
 ow.NPCBody = meta.class("NPCBody")
 
 local _settings = rt.settings.overworld.cloth_body
-local _shader = rt.Shader("overworld/~npc_body.glsl")
+local _shader = rt.Shader("overworld/npc_body.glsl")
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "j" then
+        _shader:recompile()
+    end
+end)
 
 --- @brief
 function ow.NPCBody:instantiate(
@@ -64,13 +70,13 @@ function ow.NPCBody:_init(
 
     local mesh_data = {}
     local mesh_vertex_indices = {} -- 1-based
-    local function add_vertex(x, y)
+    local function add_vertex(x, y, t)
         local u = (x - min_x) / (max_x - min_x)
         local v = (y - min_y) / (max_y - min_y)
         table.insert(mesh_data, {
             x, y,
             u, v,
-            1, 1, 1, 1
+            1, 1, 1, t
         })
     end
 
@@ -126,7 +132,12 @@ function ow.NPCBody:_init(
                 next_y = strand.anchor_y + strand.axis_y * distance_b
             end
 
-            add_vertex(current_x, current_y)
+
+            local a = (segment_i - 1) / n_segments_per_strand
+            a = math.exp(-(7 * (a - 0.5 + 0.3))^2)
+            -- gaussian ring, applied in shader as rgb * (1 + a)
+
+            add_vertex(current_x, current_y, a)
 
             table.insert(strand.nodes, {
                 current_x = current_x,
@@ -163,10 +174,10 @@ function ow.NPCBody:_init(
 
     do -- add corners and connect them to the shape
         local corner_start_index = #mesh_data + 1
-        add_vertex(min_x, min_y)
-        add_vertex(max_x, min_y)
-        add_vertex(min_x, max_y)
-        add_vertex(max_x, max_y)
+        add_vertex(min_x, min_y, 0)
+        add_vertex(max_x, min_y, 0)
+        add_vertex(min_x, max_y, 0)
+        add_vertex(max_x, max_y, 0)
 
         local top_left = corner_start_index
         local top_right = corner_start_index + 1
@@ -299,8 +310,10 @@ end
 --- @brief
 function ow.NPCBody:draw()
     --love.graphics.setWireframe(true)
+    _shader:bind()
     love.graphics.setColor(1, 1, 1, 1)
     self._dilation_mesh:draw()
+    _shader:unbind()
     --love.graphics.setWireframe(false)
 end
 
