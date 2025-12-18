@@ -12,11 +12,29 @@ return setmetatable({
             speaker = "Mysterious Object",
             next = nil,
             state = {
-                test = "test"
+                test = "test test test test test test test test test test test test test test test test"
             },
 
             "Hey, pss, up here"
         },
+    },
+
+    one_way_platform_tutorial_cant_pass = {
+        {
+             "test test test test test test test test test test test test test test test test",
+            orientation = "right",
+
+            choices = {
+                {
+                    "choice A",
+                    next = nil
+                },
+                {
+                    "choice B",
+                    next = nil
+                }
+            }
+        }
     },
 
     -- template

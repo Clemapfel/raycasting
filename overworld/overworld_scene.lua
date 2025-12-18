@@ -51,8 +51,10 @@ ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
     MOTION_NON_BUBBLE = "MOTION_NON_BUBBLE",
     MOTION_BUBBLE = "MOTION_BUBBLE",
     INTERACT = "INTERACT",
-    DIALOG = "DIALOG",
-    DIALOG_EXIT = "DIALOG_EXIT",
+    DIALOG_CAN_ADVANCE_CAN_EXIT = "DIALOG_CAN_ADVANCE_CAN_EXIT",
+    DIALOG_CAN_ADVANCE_CANNOT_EXIT = "DIALOG_CAN_ADVANCE_CANNOT_EXIT",
+    DIALOG_CANNOT_ADVANCE_CAN_EXIT = "DIALOG_CANNOT_ADVANCE_CAN_EXIT",
+    DIALOG_CANNOT_ADVANCE_CANNOT_EXIT = "DIALOG_CANNOT_ADVANCE_CANNOT_EXIT",
     AIR_DASH = "AIR_DASH",
     DOUBLE_JUMP = "DOUBLE_JUMP",
     NONE = "NONE"
@@ -151,17 +153,6 @@ function ow.OverworldScene:instantiate(state)
     )
     self._interact_control_indicator:set_has_frame(true)
 
-    self._dialog_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.CONFIRM, translation.control_indicator_dialog_confirm,
-        rt.ControlIndicatorButton.INTERACT, translation.control_indicator_dialog_leave
-    )
-    self._dialog_control_indicator:set_has_frame(false)
-
-    self._dialog_leave_conrol_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.INTERACT, translation.control_indicator_dialog_leave
-    )
-    self._dialog_leave_conrol_indicator:set_has_frame(false)
-
     self._air_dash_control_indicator = rt.ControlIndicator(
         rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
         rt.ControlIndicatorButton.JUMP, translation.control_indicator_air_dash
@@ -174,15 +165,36 @@ function ow.OverworldScene:instantiate(state)
     )
     self._air_dash_control_indicator:set_has_frame(true)
 
+    local dialog_control_indicator = function(can_advance, can_exit)
+        if can_advance == false and can_exit == false then return nil end
+
+        local config = {}
+        if can_advance then
+            table.insert(config, rt.ControlIndicatorButton.CONFIRM)
+            table.insert(config, translation.control_indicator_dialog_confirm)
+        end
+
+        if can_exit then
+            table.insert(config, rt.ControlIndicatorButton.INTERACT)
+            table.insert(config, translation.control_indicator_dialog_leave)
+        end
+
+        local out = rt.ControlIndicator(table.unpack(config))
+        out:set_has_frame(false)
+        return out
+    end
+
     self._control_indicator_type_to_control_indicator = {
         [ow.ControlIndicatorType.MOTION_BUBBLE] = self._bubble_control_indicator,
         [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = self._non_bubble_control_indicator,
         [ow.ControlIndicatorType.INTERACT] = self._interact_control_indicator,
-        [ow.ControlIndicatorType.DIALOG] = self._dialog_control_indicator,
-        [ow.ControlIndicatorType.DIALOG_EXIT] = self._dialog_leave_conrol_indicator,
         [ow.ControlIndicatorType.AIR_DASH] = self._air_dash_control_indicator,
         [ow.ControlIndicatorType.DOUBLE_JUMP] = self._double_jump_control_indicator,
         [ow.ControlIndicatorType.NONE] = nil,
+        [ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT] = dialog_control_indicator(true, true),
+        [ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CANNOT_EXIT] = dialog_control_indicator(true, false),
+        [ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CAN_EXIT] = dialog_control_indicator(false, true),
+        [ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CANNOT_EXIT] = dialog_control_indicator(false, false),
     }
 
     self._control_indicator_opacity_motion = rt.SmoothedMotion1D(0, 1) -- opacity

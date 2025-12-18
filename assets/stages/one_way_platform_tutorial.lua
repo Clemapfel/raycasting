@@ -1131,8 +1131,9 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["enter_dialog_id"] = "one_way_platform_tutorial_debug",
-            ["should_focus"] = true
+            ["enter_dialog_id"] = "one_way_platform_tutorial_cant_pass",
+            ["should_focus"] = true,
+            ["should_lock"] = true
           }
         }
       }

@@ -117,7 +117,7 @@ rt.Translation = {
         control_indicator_sprint = "Sprint",
         control_indicator_bubble_move = "Move Around",
         control_indicator_interact = "Interact",
-        control_indicator_dialog_confirm = "Advance",
+        control_indicator_dialog_confirm = "Select",
         control_indicator_dialog_leave = "Leave",
         control_indicator_air_dash = "<i>(mid-air)</i> Dash"
     },

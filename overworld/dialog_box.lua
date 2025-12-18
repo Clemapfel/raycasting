@@ -151,14 +151,64 @@ function ow.DialogBox:realize()
         local node = {}
         node.id = key
 
+        node.type = ternary(node_entry[dialog_choice_key] ~= nil, _node_type_choice, _node_type_text)
+        node.labels = {}
+        node.next_id = node_entry[next_key]
+        node.state = node_entry[state_key] or {}
+
+        local speaker_id = node_entry[speaker_key]
+        local orientation = node_entry[orientation_key]
+        if orientation == nil or orientation == orientation_left then
+            node.speaker_orientation = true
+        elseif orientation == orientation_right then
+            node.speaker_orientation = false
+        else
+            rt.error("In ow.DialogBox: for dialog `",  self._id,  "` node `",  key,  "` has invalid value for `orientation` field, expected `",  orientation_left,  "` or `",  orientation_right,  "`, got: `",  orientation)
+            node.speaker_orientation = true
+        end
+
+        node.speaker = nil -- rt.Label
+        node.speaker_id = speaker_id
+        if speaker_id ~= nil then
+            node.speaker = rt.Label(speaker_prefix .. speaker_id .. speaker_postfix)
+            node.speaker:realize()
+
+            local label_w, label_h = node.speaker:measure()
+            node.speaker:set_justify_mode(rt.JustifyMode.CENTER)
+            node.speaker:reformat(
+                0,
+                0,
+                label_w + 2 * rt.settings.margin_unit,
+                math.huge
+            )
+        end
+
+        if not meta.is_string(node_entry[1]) then
+            rt.error("In ow.DialogBox: for dialog `",  self._id,  "`: node `",  node.id,  "` does not have any dialog text")
+        end
+
+        local i = 1
+        local text = node_entry[i]
+        while text ~= nil do
+            local label = rt.Label(text)
+            label:realize()
+            label:set_n_visible_characters(0)
+            table.insert(node.labels, label)
+            i = i + 1
+            text = node_entry[i]
+        end
+
         if node_entry[dialog_choice_key] ~= nil then
-            node.type = _node_type_choice
+            if node_entry[next_key] ~= nil then
+                rt.warning("In ow.DialogBox: for dialog `",  self._id,  "` multiple choice node `",  key,  "` has `", next_key, "` set, it will be ignore")
+                node.next = nil
+            end
 
             node.n_answers = 0
             node.highlighted_answer_i = 1
 
-            node.labels = {} -- Table<rt.Label>
-            node.highlighted_labels = {} -- Table<rt.Label>
+            node.choice_labels = {} -- Table<rt.Label>
+            node.highlighted_choice_labels = {} -- Table<rt.Label>
 
             node.answer_i_to_next_node_id = {}
             node.answer_i_to_next_node = {}
@@ -176,8 +226,8 @@ function ow.DialogBox:realize()
                 label:realize()
                 highlighted_label:realize()
 
-                table.insert(node.labels, label)
-                table.insert(node.highlighted_labels, highlighted_label)
+                table.insert(node.choice_labels, label)
+                table.insert(node.highlighted_choice_labels, highlighted_label)
 
                 node.n_answers = node.n_answers + 1
                 node.answer_i_to_next_node_id[i] = choice.next
@@ -186,54 +236,9 @@ function ow.DialogBox:realize()
             if node_entry[state_key] ~= nil then
                 rt.warning("In ow.DialogBox: dialog at `", self._id, "`: node `", node.id, "` is a multiple choice node, but has `", state_key, "` set. It will be ignored")
             end
-        else
-            node.type = _node_type_text
-            node.labels = {}
-            node.next_id = node_entry[next_key]
-            node.state = node_entry[state_key] or {}
-            
-            local speaker_id = node_entry[speaker_key]
-            local orientation = node_entry[orientation_key]
-            if orientation == nil or orientation == orientation_left then
-                node.speaker_orientation = true
-            elseif orientation == orientation_right then
-                node.speaker_orientation = false
-            else
-                rt.error("In ow.DialogBox: for dialog `",  self._id,  "` node `",  key,  "` has invalid value for `orientation` field, expected `",  orientation_left,  "` or `",  orientation_right,  "`, got: `",  orientation)
-                node.speaker_orientation = true
-            end
-
-            node.speaker = nil -- rt.Label
-            node.speaker_id = speaker_id
-            if speaker_id ~= nil then
-                node.speaker = rt.Label(speaker_prefix .. speaker_id .. speaker_postfix)
-                node.speaker:realize()
-
-                local label_w, label_h = node.speaker:measure()
-                node.speaker:set_justify_mode(rt.JustifyMode.CENTER)
-                node.speaker:reformat(
-                    0,
-                    0,
-                    label_w + 2 * rt.settings.margin_unit,
-                    math.huge
-                )
-            end
-
-            if not meta.is_string(node_entry[1]) then
-                rt.error("In ow.DialogBox: for dialog `",  self._id,  "`: node `",  node.id,  "` does not have any dialog text")
-            end
-
-            local i = 1
-            local text = node_entry[i]
-            while text ~= nil do
-                local label = rt.Label(text)
-                label:realize()
-                label:set_n_visible_characters(0)
-                table.insert(node.labels, label)
-                i = i + 1
-                text = node_entry[i]
-            end
         end
+
+        node.is_done = false
 
         can_be_visited[node] = false
         self._id_to_node[node.id] = node
@@ -283,18 +288,15 @@ function ow.DialogBox:_set_active_node(node)
             self._done_emitted = true
             self:signal_emit("done")
         end
-    elseif node.type == _node_type_choice then
-        self._active_choice_node = node
-        self._portrait_visible = false
-        self._speaker_visible = false
+    else
+        if node.type == _node_type_choice then
+            self._active_choice_node = node
 
-        local frame_w, frame_h = node.width + 4 * m, node.height + 2 * m
-        self._choice_frame:reformat(0, 0, frame_w, frame_h)
-        self._choice_frame_x = self._frame_x + m
-        self._choice_frame_y = self._frame_y - m - frame_h
-    elseif node.type == _node_type_text then
-        self._active_choice_node = nil
-        self._active_node = node
+            local frame_w, frame_h = node.width + 4 * m, node.height + 2 * m
+            self._choice_frame:reformat(0, 0, frame_w, frame_h)
+            self._choice_frame_x = self._frame_x + m
+            self._choice_frame_y = self._frame_y - m - frame_h
+        end
 
         self._portrait_visible = self._speaker_id_to_portrait_callback[node.speaker_id] ~= nil
         self._node_offset_x, self._node_offset_y = 0, 0
@@ -322,8 +324,6 @@ function ow.DialogBox:_set_active_node(node)
         end
 
         self._should_emit_advance = true
-    else
-        assert(false)
     end
 
     if before == nil or (node ~= nil and (before.speaker_id ~= node.speaker_id)) then
@@ -404,27 +404,30 @@ function ow.DialogBox:size_allocate(x, y, width, height)
     local area_h = frame_h - 2 * m
     local choice_w = area_w - portrait_w - 2 * m
     for node in values(self._id_to_node) do
-        local current_x, current_y = outer_margin, m
-        if node.type == _node_type_text then
+        local current_x = outer_margin
+
+        do
+            local current_y = m
             for label in values(node.labels) do
                 label:reformat(current_x, current_y, area_w)
                 current_y = current_y + select(2, label:measure())
             end
-        elseif node.type == _node_type_choice then
+        end
+
+        if node.type == _node_type_choice then
             -- measure all labels
             node.width = choice_w
             node.height = 0
+            local current_y = m
             for i = 1, node.n_answers do
-                node.labels[i]:reformat(current_x, current_y, math.huge) -- answer labels should only be one line
-                node.highlighted_labels[i]:reformat(current_x, current_y, math.huge)
+                node.choice_labels[i]:reformat(current_x, current_y, math.huge) -- answer labels should only be one line
+                node.highlighted_choice_labels[i]:reformat(current_x, current_y, math.huge)
 
-                local label_w, label_h = node.highlighted_labels[i]:measure()
+                local label_w, label_h = node.highlighted_choice_labels[i]:measure()
                 node.width = math.max(node.width, label_w)
                 node.height = node.height + label_h
                 current_y = current_y + label_h
             end
-        else
-            assert(false)
         end
     end
 
@@ -445,18 +448,15 @@ end
 
 --- @brief
 function ow.DialogBox:update(delta)
-    -- update animations
-    if self._active_choice_node ~= nil then
-        local node = self._active_choice_node
-        for i = 1, node.n_answers do
-            node.labels[i]:update(delta)
-            node.highlighted_labels[i]:update(delta)
-        end
-    end
-
     if self._active_node ~= nil then
-        for label in values(self._active_node.labels) do
-            label:update(delta)
+        for labels in range(
+            self._active_node.label,
+            self._active_node.choice_labels,  -- nil for non choice
+            self._active_node.highlighted_choice_labels
+        ) do
+            for label in values(labels) do
+                label:update(delta)
+            end
         end
 
         if self._is_first_update then
@@ -475,10 +475,17 @@ function ow.DialogBox:update(delta)
     if self._active_node ~= nil then
         local n_lines_visible = 0
         local at_least_one_label_not_done = false
-        for label in values(self._active_node.labels) do
-            -- inject local per-label values
+
+        local node = self._active_node
+
+        local init_label = function(label)
             if label.dialog_box_elapsed == nil then label.dialog_box_elapsed = 0 end
             if label.dialog_box_is_done == nil then label.dialog_box_is_done = false end
+        end
+
+        for label in values(node.labels) do
+            -- inject local per-label values
+            init_label(label)
 
             if label.dialog_box_is_done == true then
                 n_lines_visible = n_lines_visible + label:get_n_lines()
@@ -495,10 +502,23 @@ function ow.DialogBox:update(delta)
             end
         end
 
+        node.is_done = not at_least_one_label_not_done
+        if node.is_done and node.type == _node_type_choice then
+            for labels in range(node.choice_labels, node.highlighted_choice_labels) do
+                for label in values(labels) do
+                    init_label(label)
+                    label.dialog_box_elapsed = label.dialog_box_elapsed + delta
+                    label:update_n_visible_characters_from_elapsed(label.dialog_box_elapsed)
+                end
+            end
+        end
+
         self:_update_node_offset_from_n_lines_visible(n_lines_visible)
 
         if self._should_emit_advance == true then
-            self:signal_emit("advance", self._active_node.next ~= nil, self._active_node.state) -- can advance
+            local can_advance = self._active_node.next ~= nil or self._active_choice_node ~= nil
+            local can_exit = self._active_choice_node == nil
+            self:signal_emit("advance", can_advance, can_exit) -- can advance
             self._should_emit_advance = false
         end
 
@@ -539,11 +559,11 @@ end
 
 --- @brief
 function ow.DialogBox:handle_button(which)
-    if which == rt.InputAction.INTERACT then
+    if which == rt.InputAction.INTERACT and self._active_choice_node == nil then
         self:_set_active_node(nil)
     end
 
-    if self._active_choice_node ~= nil then
+    if self._active_choice_node ~= nil  and self._active_node.is_done == true then
         local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
         local confirm_sound_id = rt.settings.overwold.dialog_box.menu_confirm_sound_id
         local node = self._active_choice_node
@@ -649,16 +669,16 @@ function ow.DialogBox:draw()
         love.graphics.pop()
     end
 
-    if self._active_choice_node ~= nil then
+    if self._active_choice_node ~= nil and self._active_node.is_done then
         local node = self._active_choice_node
         love.graphics.push()
         love.graphics.translate(self._choice_frame_x, self._choice_frame_y)
         self._choice_frame:draw()
         for i = 1, node.n_answers do
             if i == node.highlighted_answer_i then
-                node.highlighted_labels[i]:draw()
+                node.highlighted_choice_labels[i]:draw()
             else
-                node.labels[i]:draw()
+                node.choice_labels[i]:draw()
             end
         end
         love.graphics.pop()
@@ -673,12 +693,18 @@ end
 --- @brief
 function ow.DialogBox:reset()
     for node in values(self._id_to_node) do
-        if node.type == _node_type_text then
-            for label in values(node.labels) do
+        for labels in range(
+            node.labels,
+            node.choice_labels,
+            node.highlighted_choice_labels
+        ) do
+            for label in values(labels) do
                 label.dialog_box_elapsed = nil
                 label.dialog_box_is_done = nil
                 label:set_n_visible_characters(0)
             end
+
+            node.is_done = false
         end
     end
 

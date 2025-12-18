@@ -53,13 +53,10 @@ function ow.NPC:instantiate(object, stage, scene)
     self._interact_allowed = false
 
     if self._has_interact_dialog then
-        local should_lock = object:get_boolean("should_lock", false) or object:get_boolean("interact_should_lock", false)
-        if should_lock == nil then should_lock = true end
         self._interact_dialog_emitter = ow.DialogEmitter(
             scene,
             interact_id,
-            self,
-            should_lock
+            self
         )
         self._interact_dialog_emitter:realize()
     end
@@ -95,6 +92,11 @@ function ow.NPC:instantiate(object, stage, scene)
 
     local should_focus = object:get_boolean("should_focus", false)
     if should_focus == nil then should_focus = true end
+
+    local should_lock = object:get_boolean("should_lock", false)
+    if should_lock == nil then should_lock = true end
+
+
     self._should_focus = should_focus
     for emitter in range(
         self._enter_dialog_emitter,
@@ -102,6 +104,27 @@ function ow.NPC:instantiate(object, stage, scene)
         self._exit_dialog_emitter
     ) do
         emitter:set_should_focus(should_focus)
+        emitter:set_should_lock(should_lock)
+    end
+
+    -- override with local
+    for tuple in range(
+        { self._enter_dialog_emitter, "enter" },
+        { self._exit_dialog_emitter, "exit" },
+        { self._interact_dialog_emitter, "interact" }
+    ) do
+        local emitter, prefix = table.unpack(tuple)
+        if emitter ~= nil then
+            local should_lock = object:get_boolean(prefix .. "_should_lock")
+            if should_lock ~= nil then
+                emitter:set_should_lock(should_lock)
+            end
+
+            local should_focus = object:get_boolean(prefix .. "_should_focus")
+            if should_focus ~= nil then
+                should_focus:set_should_focus(should_focus)
+            end
+        end
     end
 
     local target = object:get_object("target", false)

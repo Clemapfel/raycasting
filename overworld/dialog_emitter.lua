@@ -32,16 +32,21 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_foc
     self._dialog_box_y = 0
     self._dialog_box_height = 0
 
-    self._dialog_box:signal_connect("advance", function(_, can_advance)
-        if can_advance == true then
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG)
-        else
-            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_EXIT)
+    self._dialog_box:signal_connect("advance", function(_, can_advance, can_exit)
+        if can_advance == true and can_exit == true then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT)
+        elseif can_advance == true and can_exit == false then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CANNOT_EXIT)
+        elseif can_advance == false and can_exit == true then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CAN_EXIT)
+        elseif can_advance == false and can_exit == false then
+            self._scene:set_control_indicator_type(ow.ControlIndicatorType.DIALOG_CANNOT_ADVANCE_CANNOT_EXIT)
         end
     end)
 
     self._dialog_box:signal_connect("done", function(_)
         self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+        self:close()
     end)
 
     self._input_delay = 0 -- n frames
@@ -120,7 +125,14 @@ function ow.DialogEmitter:close()
     self._is_active = false
 
     if self._should_lock then
-        self._scene:get_player():set_movement_disabled(false)
+        local n_delay = 5
+        self._scene:signal_connect("update", function()
+            n_delay = n_delay - 1
+            if n_delay <= 0 then
+                self._scene:get_player():set_movement_disabled(false)
+                return meta.DISCONNECT_SIGNAL
+            end
+        end)
     end
 
     if self._should_focus then
@@ -202,7 +214,7 @@ function ow.DialogEmitter:_reformat_dialog_box(x, y, w, h)
     local y_margin = 3 * rt.settings.margin_unit
     y_margin = math.max(
         y_margin,
-        select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG):measure())
+        select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT):measure())
     )
 
     local dialog_box_y = y + y_margin

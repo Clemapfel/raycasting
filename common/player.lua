@@ -3138,7 +3138,17 @@ end
 
 --- @brief
 function rt.Player:set_movement_disabled(b)
+    local changed = b ~= self._movement_disabled
     self._movement_disabled = b
+
+    if changed then
+        self._left_button_is_down = false
+        self._right_button_is_down = false
+        self._down_button_is_down = false
+        self._up_button_is_down = false
+        self._jump_button_is_down = false
+        self._sprint_button_is_down = false
+    end
 end
 
 --- @brief

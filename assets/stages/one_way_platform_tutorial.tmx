@@ -316,8 +316,9 @@
   <object id="288" name="Goal" type="Goal" x="-544.604" y="279.428" width="123.531" height="75.9062"/>
   <object id="291" type="NPC" x="-688" y="512">
    <properties>
-    <property name="enter_dialog_id" value="one_way_platform_tutorial_debug"/>
+    <property name="enter_dialog_id" value="one_way_platform_tutorial_cant_pass"/>
     <property name="should_focus" type="bool" value="true"/>
+    <property name="should_lock" type="bool" value="true"/>
    </properties>
    <point/>
   </object>
