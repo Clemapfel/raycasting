@@ -55,7 +55,7 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_foc
     self._dialog_box:realize()
     self:reformat(self._scene:get_bounds():unpack())
 
-    self._dialog_box:signal_connect("speaker_changed", function(dialog_box, new_speaker)
+    self._dialog_box:signal_connect("speaker_changed", function(dialog_box, new_speaker, state)
         local px, py = self._x, self._y
         if new_speaker == rt.Translation.player_name then
             px, py = self._scene:get_player():get_position()

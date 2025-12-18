@@ -14,6 +14,7 @@ rt.settings.overworld.dialog_box = {
     speaker_orientation_right = "right",
     next_key = "next",
     dialog_choice_key = "choices",
+    state_key = "state",
 
     speaker_text_prefix = "",
     speaker_text_postfix = "",
@@ -41,7 +42,7 @@ meta.add_signals(ow.DialogBox,
     --- @signal (ow.DialogBox, new_speaker, before_speaker) -> nil
     "speaker_changed",
 
-    --- @signal (ow.DialogBox, is_last_node) -> nil
+    --- @signal (ow.DialogBox, is_last_node, state) -> nil
     "advance"
 )
 
@@ -49,7 +50,9 @@ local atlas = nil
 
 --- @brief
 function ow.DialogBox:instantiate(id)
-    if atlas == nil then atlas = require(rt.settings.overworld.dialog_box.config_location) end
+    if atlas == nil then atlas = require(
+        string.gsub(rt.settings.overworld.dialog_box.config_location, "[/\\]", "."))
+    end
 
     meta.assert(id, "String")
     self._id = id
@@ -132,6 +135,7 @@ function ow.DialogBox:realize()
     local speaker_key = settings.speaker_key
     local next_key = settings.next_key
     local dialog_choice_key = settings.dialog_choice_key
+    local state_key = settings.state_key
     local orientation_key = settings.speaker_orientation_key
     local orientation_left = settings.speaker_orientation_left
     local orientation_right = settings.speaker_orientation_right
@@ -178,12 +182,16 @@ function ow.DialogBox:realize()
                 node.n_answers = node.n_answers + 1
                 node.answer_i_to_next_node_id[i] = choice.next
             end
+
+            if node_entry[state_key] ~= nil then
+                rt.warning("In ow.DialogBox: dialog at `", self._id, "`: node `", node.id, "` is a multiple choice node, but has `", state_key, "` set. It will be ignored")
+            end
         else
             node.type = _node_type_text
             node.labels = {}
             node.next_id = node_entry[next_key]
-
-
+            node.state = node_entry[state_key] or {}
+            
             local speaker_id = node_entry[speaker_key]
             local orientation = node_entry[orientation_key]
             if orientation == nil or orientation == orientation_left then
@@ -490,7 +498,7 @@ function ow.DialogBox:update(delta)
         self:_update_node_offset_from_n_lines_visible(n_lines_visible)
 
         if self._should_emit_advance == true then
-            self:signal_emit("advance", self._active_node.next ~= nil) -- can advance
+            self:signal_emit("advance", self._active_node.next ~= nil, self._active_node.state) -- can advance
             self._should_emit_advance = false
         end
 

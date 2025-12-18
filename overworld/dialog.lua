@@ -11,6 +11,9 @@ return setmetatable({
         {
             speaker = "Mysterious Object",
             next = nil,
+            state = {
+                test = "test"
+            },
 
             "Hey, pss, up here"
         },
@@ -23,6 +26,10 @@ return setmetatable({
             speaker = NPC,
             orientation = NPC_SIDE,
             next = 2,
+            state = {
+                happy = 0.4,
+                other_state = "test",
+            },
 
             "Are|| you|||| sure about that?"
         },
