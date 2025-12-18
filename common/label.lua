@@ -7,6 +7,7 @@ require "common.render_texture"
 rt.settings.label = {
     outline_offset_padding = 8,
     scroll_speed = 40, -- beats per second
+    line_width_factor = 3 / 20
 }
 
 --- @class rt.TextEffect
@@ -172,6 +173,8 @@ function rt.Label:draw(x, y)
         justify_offset = self._justify_right_offset
     end
 
+    local true_font_size = self._font:get_actual_size(self._font_size)
+
     if self._use_caching then
         love.graphics.push("all")
 
@@ -194,7 +197,7 @@ function rt.Label:draw(x, y)
 
         love.graphics.setShader(_draw_outline_shader)
         _draw_outline_shader:send("elapsed", self._elapsed)
-        _draw_outline_shader:send("font_size", self._font:get_actual_size(self._font_size))
+        _draw_outline_shader:send("font_size", true_font_size)
 
         local justify_mode = self._justify_mode
         if justify_mode == rt.JustifyMode.CENTER then
@@ -204,7 +207,7 @@ function rt.Label:draw(x, y)
         end
 
         -- draw outlines
-        love.graphics.setLineWidth(3) -- line outline
+        love.graphics.setLineWidth(rt.settings.label.line_width_factor * true_font_size + 2) -- line outline
         for glyph in values(self._outlined_glyphs) do
             _draw_outline_shader:send("n_visible_characters", glyph.n_visible_characters)
             _draw_outline_shader:send("is_effect_wave", glyph.is_effect_wave)
@@ -238,10 +241,10 @@ function rt.Label:draw(x, y)
         -- draw glyphs
         love.graphics.setShader(_draw_text_shader)
         _draw_text_shader:send("elapsed", self._elapsed)
-        _draw_text_shader:send("font_size", self._font:get_actual_size(self._font_size))
+        _draw_text_shader:send("font_size", true_font_size)
         _draw_text_shader:send("opacity", 1)
 
-        love.graphics.setLineWidth(2)
+        love.graphics.setLineWidth(rt.settings.label.line_width_factor * true_font_size)
         for glyph in values(self._glyphs_only) do
             _draw_text_shader:send("n_visible_characters", glyph.n_visible_characters)
             _draw_text_shader:send("is_effect_rainbow", glyph.is_effect_rainbow)
@@ -1115,6 +1118,8 @@ end
 function rt.Label:_update_texture()
     if self._n_glyphs == 0 or self._texture == nil or not self._use_caching then return end
 
+    local true_font_size = self._font:get_actual_size(self._font_size)
+
     love.graphics.push("all")
     love.graphics.reset()
     love.graphics.setBlendMode("alpha")
@@ -1123,7 +1128,7 @@ function rt.Label:_update_texture()
     love.graphics.clear(0, 0, 0, 0)
     love.graphics.setShader(_draw_outline_shader)
     _draw_outline_shader:send("elapsed", self._elapsed)
-    _draw_outline_shader:send("font_size", self._font:get_actual_size(self._font_size))
+    _draw_outline_shader:send("font_size", true_font_size)
 
     local justify_mode = self._justify_mode
     if justify_mode == rt.JustifyMode.CENTER then
@@ -1133,7 +1138,7 @@ function rt.Label:_update_texture()
     end
 
     -- draw outlines
-    love.graphics.setLineWidth(3) -- line outline
+    love.graphics.setLineWidth(rt.settings.label.line_width_factor * true_font_size + 2) -- line outline
     for glyph in values(self._outlined_glyphs) do
         _draw_outline_shader:send("n_visible_characters", glyph.n_visible_characters)
         _draw_outline_shader:send("is_effect_wave", glyph.is_effect_wave)
@@ -1172,10 +1177,10 @@ function rt.Label:_update_texture()
     -- draw glyphs
     love.graphics.setShader(_draw_text_shader)
     _draw_text_shader:send("elapsed", self._elapsed)
-    _draw_text_shader:send("font_size", self._font:get_actual_size(self._font_size))
+    _draw_text_shader:send("font_size", true_font_size)
     _draw_text_shader:send("opacity", 1)
 
-    love.graphics.setLineWidth(2)
+    love.graphics.setLineWidth(rt.settings.label.line_width_factor * true_font_size)
     for glyph in values(self._glyphs_only) do
         _draw_text_shader:send("n_visible_characters", glyph.n_visible_characters)
         _draw_text_shader:send("is_effect_rainbow", glyph.is_effect_rainbow)
@@ -1391,10 +1396,12 @@ function rt.Glyph:draw(x, y)
         justify_offset = glyph.justify_right_offset
     end
 
+    local true_font_size = self._font:get_actual_size(glyph.font_size)
+
     if glyph.is_outlined then
         love.graphics.setShader(_draw_outline_shader)
         _draw_outline_shader:send("elapsed", self._elapsed)
-        _draw_outline_shader:send("font_size", self._font:get_actual_size(glyph.font_size))
+        _draw_outline_shader:send("font_size", true_font_size)
         _draw_outline_shader:send("n_visible_characters", glyph.n_visible_characters)
         _draw_outline_shader:send("is_effect_wave", glyph.is_effect_wave)
         _draw_outline_shader:send("is_effect_noise", glyph.is_effect_noise)
@@ -1417,8 +1424,7 @@ function rt.Glyph:draw(x, y)
         love.graphics.setShader(nil)
 
         if glyph.is_underlined or glyph.is_strikethrough then
-            love.graphics.setLineWidth(3)
-
+            love.graphics.setLineWidth(rt.settings.label.line_width_factor * true_font_size + 2)
             if glyph.is_underlined then
                 love.graphics.line(
                     glyph.underline_ax + x,
@@ -1444,7 +1450,7 @@ function rt.Glyph:draw(x, y)
     if self._is_animated then
         love.graphics.setShader(_draw_text_shader)
         _draw_text_shader:send("elapsed", self._elapsed)
-        _draw_text_shader:send("font_size", self._font:get_actual_size(glyph.font_size))
+        _draw_text_shader:send("font_size", true_font_size)
         _draw_text_shader:send("opacity", 1)
         _draw_text_shader:send("n_visible_characters", glyph.n_visible_characters)
         _draw_text_shader:send("is_effect_rainbow", glyph.is_effect_rainbow)
@@ -1469,7 +1475,7 @@ function rt.Glyph:draw(x, y)
     love.graphics.setShader(nil)
 
     if glyph.is_underlined or glyph.is_strikethrough then
-        love.graphics.setLineWidth(2)
+        love.graphics.setLineWidth(rt.settings.label.line_width_factor * true_font_size)
 
         if glyph.is_underlined then
             love.graphics.line(
