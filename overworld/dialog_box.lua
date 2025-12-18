@@ -27,7 +27,7 @@ rt.settings.overworld.dialog_box = {
     menu_move_sound_id = "menu_move",
     menu_confirm_sound_id = "menu_confirm",
 
-    asset_prefix = "assets/text",
+    config_location = "overworld/dialog",
 }
 
 --- @class ow.DialogBox
@@ -45,12 +45,15 @@ meta.add_signals(ow.DialogBox,
     "advance"
 )
 
+local atlas = nil
+
 --- @brief
 function ow.DialogBox:instantiate(id)
+    if atlas == nil then atlas = require(rt.settings.overworld.dialog_box.config_location) end
+
     meta.assert(id, "String")
     self._id = id
-    self._path = bd.join_path(rt.settings.overworld.dialog_box.asset_prefix, self._id) .. ".lua"
-    self._config = bd.load(self._path, false) -- no sandbox
+    self._config = atlas[id]
 
     meta.install(self, {
         _is_initialized = false,

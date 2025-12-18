@@ -13,7 +13,7 @@ rt.settings.overworld.npc = {
 ow.NPC = meta.class("NPC")
 
 --- @class ow.NPCInteractSensor
-ow.NPCInteractSensor = meta.class("NPCInteractSensor") -- proxy
+ow.NPCInteractSensor = meta.class("NPCInteractSensor", ow.MovableObject) -- proxy
 
 --- @brief
 function ow.NPC:instantiate(object, stage, scene)
@@ -63,7 +63,7 @@ function ow.NPC:instantiate(object, stage, scene)
         )
         self._interact_dialog_emitter:realize()
     end
-    
+
     local enter_id = object:get_string("enter_dialog_id", false)
     self._has_enter_dialog = enter_id ~= nil
     if self._has_enter_dialog then
@@ -90,6 +90,18 @@ function ow.NPC:instantiate(object, stage, scene)
             should_lock
         )
         self._exit_dialog_emitter:realize()
+    end
+
+
+    local should_focus = object:get_boolean("should_focus", false)
+    if should_focus == nil then should_focus = true end
+    self._should_focus = should_focus
+    for emitter in range(
+        self._enter_dialog_emitter,
+        self._interact_dialog_emitter,
+        self._exit_dialog_emitter
+    ) do
+        emitter:set_should_focus(should_focus)
     end
 
     local target = object:get_object("target", false)
@@ -229,7 +241,7 @@ function ow.NPC:draw(priority)
 end
 
 function ow.NPC:get_position()
-    return self._x, self._y
+    return self._sensor:get_position()
 end
 
 function ow.NPC:draw_bloom()

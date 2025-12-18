@@ -1,5 +1,7 @@
 require "common.input_action"
 
+rt.Translation = {}
+
 --- @class rt.Translation
 rt.Translation = {
     -- game state

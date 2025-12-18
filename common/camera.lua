@@ -285,6 +285,7 @@ end
 
 --- @brief
 function rt.Camera:move_to(x, y, override_bounds)
+    meta.assert(x, "Number", y, "Number")
     if override_bounds ~= true then
         self._target_x, self._target_y = self:_constrain(x, y)
     else

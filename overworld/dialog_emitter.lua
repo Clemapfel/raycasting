@@ -9,11 +9,14 @@ local _HIDDEN = 1
 local _REVEALED = 0
 
 --- @brief
-function ow.DialogEmitter:instantiate(scene, id, target, should_lock)
+function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_focus)
     self._scene = scene
 
     self._should_lock = should_lock
     if self._should_lock == nil then self._should_lock = true end
+
+    self._should_focus = should_focus
+    if self._should_focus == nil then self._should_focus = true end
 
     self._target = target -- may be nil
     if target ~= nil and target.get_position == nil then
@@ -56,12 +59,14 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock)
         local px, py = self._x, self._y
         if new_speaker == rt.Translation.player_name then
             px, py = self._scene:get_player():get_position()
-        elseif new_speaker == rt.Translation.npc_name then
+        elseif self._target ~= nil then
             if self._target.get_position ~= nil then
                 px, py = self._target:get_position()
             else
                 px, py = self._target_wrapper:get_centroid()
             end
+        else
+            return
         end
 
         self._scene:get_camera():move_to(px, py)
@@ -88,9 +93,11 @@ function ow.DialogEmitter:present()
     self._dialog_box_motion:set_target_value(_REVEALED)
 
     if self._should_lock then
-        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         self._scene:get_player():set_movement_disabled(true)
+    end
 
+    if self._should_focus then
+        self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         local camera = self._scene:get_camera()
         if self._target ~= nil then
             if self._target.get_position ~= nil then
@@ -113,8 +120,11 @@ function ow.DialogEmitter:close()
     self._is_active = false
 
     if self._should_lock then
-        self._scene:set_camera_mode(ow.CameraMode.AUTO)
         self._scene:get_player():set_movement_disabled(false)
+    end
+
+    if self._should_focus then
+        self._scene:set_camera_mode(ow.CameraMode.AUTO)
     end
 
     self._dialog_box_motion:set_target_value(_HIDDEN)
@@ -207,4 +217,14 @@ function ow.DialogEmitter:_reformat_dialog_box(x, y, w, h)
     self._dialog_box_motion_max_offset = (h - dialog_box_y) + 2 -- for _get_is_fully_off_screen
     self._dialog_box_y = dialog_box_y
     self._dialog_box_height = dialog_box_h
+end
+
+--- @brief
+function ow.DialogEmitter:set_should_lock(b)
+    self._should_lock = b
+end
+
+--- @brief
+function ow.DialogEmitter:set_should_focus(b)
+    self._should_focus = b
 end

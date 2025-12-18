@@ -1130,7 +1130,10 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["enter_dialog_id"] = "one_way_platform_tutorial_debug",
+            ["should_focus"] = true
+          }
         }
       }
     },
