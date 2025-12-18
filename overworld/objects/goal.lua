@@ -19,7 +19,7 @@ rt.settings.overworld.goal.time_dilation_duration = rt.settings.overworld.shatte
 
 --- @class ow.Goal
 --- @types Point
-ow.Goal = meta.class("Goal")
+ow.Goal = meta.class("Goal", ow.MovableObject)
 
 local _indicator_shader = rt.Shader("overworld/objects/goal_indicator.glsl")
 local _outline_shader = rt.Shader("overworld/objects/checkpoint_platform.glsl")
@@ -146,9 +146,9 @@ function ow.Goal:instantiate(object, stage, scene)
     stage:signal_connect("initialized", function()
         local _, _, w, h = self._bounds:unpack()
         local player = self._scene:get_player()
-        self._body = b2.Body(self._stage:get_physics_world(), b2.BodyType.STATIC,
+        self._body = b2.Body(self._stage:get_physics_world(), object:get_physics_body_type(),
             self._x, self._y,
-            b2.Rectangle(0, 0, w, h)
+            b2.Rectangle(-0.5 * w, -0.5 * h, w, h)
         )
 
         local offset = rt.settings.overworld.goal.outline_width / 2 -- for pixel perfect hitbox accuracy
@@ -170,7 +170,6 @@ function ow.Goal:instantiate(object, stage, scene)
             local oy1 = min_y - outer_thickness
             local ox2 = max_x + outer_thickness
             local oy2 = max_y + outer_thickness
-
 
             local mesh_data = {}
             local function add_vertex(x, y, u, v, alpha)
@@ -201,21 +200,29 @@ function ow.Goal:instantiate(object, stage, scene)
             return mesh
         end
 
-        self._outline_mesh = create_mesh(
-            self._bounds.x, self._bounds.y,
-            self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height ,
-            rt.settings.overworld.checkpoint_rope.radius
-        )
+        do
+            local x, y, width, height = self._bounds:unpack()
+            x, y = -0.5 * width, -0.5 * height
 
-        self._path = rt.Path(
-            self._bounds.x, self._bounds.y,
-            self._bounds.x + self._bounds.width, self._bounds.y,
-            self._bounds.x + self._bounds.width, self._bounds.y + self._bounds.height,
-            self._bounds.x, self._bounds.y + self._bounds.height,
-            self._bounds.x, self._bounds.y
-        )
+            self._outline_mesh = create_mesh(
+                x, y,
+                x + width, y + height ,
+                rt.settings.overworld.checkpoint_rope.radius
+            )
 
-        self._shatter_surface = ow.ShatterSurface(self._scene, self._world, self._bounds:unpack())
+            self._path = rt.Path(
+                x, y,
+                x + width, y,
+                x + width, y + height,
+                x, y + height,
+                x, y
+            )
+
+            self._shatter_surface = ow.ShatterSurface(
+                self._scene, self._world,
+                x, y, width, height
+            )
+        end
 
         local collision_mask, collision_group = rt.settings.player.bounce_collision_group, rt.settings.player.bounce_collision_group
         self._body:set_collides_with(collision_mask)
@@ -230,6 +237,7 @@ function ow.Goal:instantiate(object, stage, scene)
                 local min_y, max_y = self._bounds.y, self._bounds.y + self._bounds.height
 
                 local px, py = self._scene:get_player():get_position()
+                px, py = math.subtract(px, py, self._body:get_position())
                 self._final_player_position_x, self._final_player_position_y = px, py
                 self._shatter_surface:shatter(px, py, self._shatter_velocity_x, self._shatter_velocity_y)
 
@@ -238,7 +246,7 @@ function ow.Goal:instantiate(object, stage, scene)
                 self._world_time_dilation_animation:reset()
                 self._particles:spawn(
                     rt.settings.overworld.goal.n_particles,
-                    px, py,
+                    -0.5 * (max_x - min_x), -0.5 * (max_y - min_y),
                     player:get_hue(),
                     self._shatter_velocity_x, self._shatter_velocity_y
                 )
@@ -310,6 +318,8 @@ function ow.Goal:instantiate(object, stage, scene)
         self._time_label:reformat(-math.huge, -math.huge, math.huge, math.huge)
         self._time_label_offset_x, self._time_label_offset_y = 0, 0
 
+        self._shatter_surface:set_offset(self._body:get_position())
+
         return meta.DISCONNECT_SIGNAL
     end)
 end
@@ -319,9 +329,11 @@ function ow.Goal:update(delta)
     if not self._is_shattered and not self._stage:get_is_body_visible(self._body) then return end
 
     local player = self._scene:get_player()
+    self._shatter_surface:set_offset(self._body:get_position())
 
     if self._is_shattered then
         self._shatter_surface:update(delta)
+
         self._flash_animation:update(delta)
         self._shatter_surface:set_flash(self._flash_animation:get_value())
 
@@ -365,7 +377,11 @@ function ow.Goal:update(delta)
 
     self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1))
 
-    local closest_x, closest_y, t = self._path:get_closest_point(player:get_position())
+    local px, py = player:get_position()
+    local offset_x, offset_y = self._body:get_position()
+    px = px - offset_x
+    py = py - offset_y
+    local closest_x, closest_y, t = self._path:get_closest_point(px, py)
     self._indicator_motion:set_target_value(t)
 end
 
@@ -381,6 +397,11 @@ function ow.Goal:draw(priority)
         self._color:bind()
         self._shatter_surface:draw()
 
+
+        local offset_x, offset_y = self._body:get_position()
+        love.graphics.push()
+        love.graphics.translate(offset_x, offset_y)
+
         if self._is_shattered == false then
             _outline_shader:bind()
             _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
@@ -389,9 +410,8 @@ function ow.Goal:draw(priority)
             _outline_shader:send("bloom_active", false)
             self._outline_mesh:draw()
             _outline_shader:unbind()
-        end
 
-        if not self._is_shattered then -- dont draw time until result screen for suspense
+            -- dont draw time until result screen for suspense
             love.graphics.push()
             love.graphics.translate(self._indicator_x, self._indicator_y)
 
@@ -405,14 +425,15 @@ function ow.Goal:draw(priority)
         end
 
         self._particles:draw()
+        love.graphics.pop()
     elseif priority == _label_priority then
         if not self._is_shattered then
+            local offset_x, offset_y = self._body:get_position()
             love.graphics.push()
-            love.graphics.translate(
-                self._time_label_offset_x,
-                self._time_label_offset_y
-            )
+            love.graphics.translate(offset_x, offset_y)
+
             self._time_label:draw()
+
             love.graphics.pop()
         end
     end
@@ -452,4 +473,25 @@ end
 --- @brief
 function ow.Goal:get_render_priority()
     return _base_priority, _label_priority
+end
+
+--- @brief
+function ow.Goal:get_position()
+    if self._body == nil then
+        return self._x, self._y
+    else
+        return self._body:get_position()
+    end
+end
+
+--- @brief
+function ow.Goal:set_position(x, y)
+    self._body:set_position(x, y)
+    self._shatter_surface:set_offset(x, y)
+end
+
+--- @brief
+function ow.Goal:set_velocity(vx, vy)
+    if self._is_shattered then return end
+    self._body:set_velocity(vx, vy)
 end

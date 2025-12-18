@@ -42,12 +42,18 @@ function ow.ShatterSurface:instantiate(scene, world, x, y, width, height)
     self._world = world
     self._bounds = rt.AABB(x, y, width, height)
     self._parts = {}
-    self._pre_shatter_mesh = self._generate_mesh({
-        x, y,
-        x + width, y,
-        x + width, y + height,
-        x, y + height
-    }, x, y, x + width, y + height)
+
+    do
+        local mesh_x, mesh_y = -0.5 * width, -0.5 * height
+        self._pre_shatter_mesh = self._generate_mesh({
+            mesh_x, mesh_y,
+            mesh_x + width, mesh_y,
+            mesh_x + width, mesh_y + height,
+            mesh_x, mesh_y + height
+        }, mesh_x, mesh_y, mesh_x + width, mesh_y + height)
+    end
+
+    self._offset_x, self._offset_y = 0, 0
 
     self._is_shattered = false
     self._time_since_shatter = 0 -- time since shatter
@@ -302,7 +308,11 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
             local n_vertices = math.floor(#part.vertices / 2)
             part.n_vertices = n_vertices
 
-            part.body = b2.Body(self._world, b2.BodyType.DYNAMIC, part.x, part.y, b2.Polygon(part.vertices))
+            part.body = b2.Body(self._world, b2.BodyType.DYNAMIC,
+                part.x + self._offset_x,
+                part.y + self._offset_y,
+                b2.Polygon(part.vertices)
+            )
             part.body:add_tag("stencil", "unjumpable", "slippery")
 
             -- proxy for point light query
@@ -391,7 +401,10 @@ function ow.ShatterSurface:draw()
     _shader:send("bounds", { self._bounds:unpack() })
 
     if not self._is_done then
+        love.graphics.push()
+        love.graphics.translate(self._offset_x, self._offset_y)
         self._pre_shatter_mesh:draw()
+        love.graphics.pop()
     else
         for part in values(self._parts) do
             part.color:bind()
@@ -413,7 +426,12 @@ function ow.ShatterSurface:draw_bloom()
         _shader:send("elapsed", rt.SceneManager:get_elapsed())
         _shader:send("fraction", math.clamp(self._time_since_shatter / rt.settings.overworld.shatter_surface.fade_duration, 0, 1))
         _shader:send("draw_bloom", true)
+
+        love.graphics.push()
+        love.graphics.translate(self._offset_x, self._offset_y)
         self._pre_shatter_mesh:draw()
+        love.graphics.pop()
+
         _shader:unbind()
     end
 end
@@ -849,4 +867,9 @@ end
 --- @brief
 function ow.ShatterSurface:get_bounds()
     return self._bounds:clone()
+end
+
+--- @brief
+function ow.ShatterSurface:set_offset(x, y)
+    self._offset_x, self._offset_y = x, y
 end
