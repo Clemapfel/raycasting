@@ -146,7 +146,8 @@ meta.add_signals(rt.Player,
     "jump",      -- when jumping
     "grounded",   -- touching ground after being airborne
     "duck", -- when pressing down while grounded
-    "bubble" -- (Player, Boolean), when going from non-bubble to bubble or vice versa
+    "bubble", -- (Player, Boolean), when going from non-bubble to bubble or vice versa
+    "died" -- when respawning after a death
 )
 
 rt.PlayerState = meta.enum("PlayerState", {

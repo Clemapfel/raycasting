@@ -34,7 +34,7 @@ function rt.Blur:bind()
     end
     love.graphics.push("all")
     self._is_bound = true
-    lg.setCanvas({ self._texture_a, stencil = true })
+    love.graphics.setCanvas({ self._texture_a, stencil = true })
     self._blur_applied = false
 end
 
@@ -73,13 +73,13 @@ end
 function rt.Blur:_apply_blur()
     love.graphics.push("all")
     if self._blur_strength > 0 then
-        lg.push()
-        lg.origin()
+        love.graphics.push()
+        love.graphics.origin()
 
-        lg.setCanvas({ self._texture_b, stencil = true })
-        lg.origin()
-        lg.clear(0, 0, 0, 0)
-        lg.setCanvas(nil)
+        love.graphics.setCanvas({ self._texture_b, stencil = true })
+        love.graphics.origin()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.setCanvas(nil)
 
         _blur_shader_horizontal:send("texture_size", { self._texture_w, self._texture_h })
         _blur_shader_vertical:send("texture_size", { self._texture_w, self._texture_h })
@@ -98,18 +98,18 @@ function rt.Blur:_apply_blur()
         end
 
         for i = 1, math.ceil(self._blur_strength) * strength do
-            lg.setShader(shader_a)
-            lg.setCanvas(a)
-            lg.draw(b)
+            love.graphics.setShader(shader_a)
+            love.graphics.setCanvas(a)
+            love.graphics.draw(b)
 
-            lg.setShader(shader_b)
-            lg.setCanvas(b)
-            lg.draw(a)
+            love.graphics.setShader(shader_b)
+            love.graphics.setCanvas(b)
+            love.graphics.draw(a)
         end
 
-        lg.setCanvas(nil)
-        lg.setShader(nil)
-        lg.pop()
+        love.graphics.setCanvas(nil)
+        love.graphics.setShader(nil)
+        love.graphics.pop()
     end
 
     love.graphics.pop()
@@ -117,15 +117,15 @@ end
 
 --- @brief
 function rt.Blur:draw(...)
-    local before = lg.getShader()
+    local before = love.graphics.getShader()
 
     if self._blur_applied == false then
         self:_apply_blur()
         self._blur_applied = true
     end
 
-    lg.setShader(before)
-    lg.draw(self._texture_a, ...)
+    love.graphics.setShader(before)
+    love.graphics.draw(self._texture_a, ...)
 end
 
 --- @brief

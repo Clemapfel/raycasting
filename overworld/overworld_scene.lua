@@ -12,6 +12,7 @@ require "common.fade"
 require "overworld.stage_title_card"
 require "common.impulse_manager"
 require "overworld.reveal_particle_effect"
+require "common.blur"
 
 do
     local bloom = 0.2
@@ -129,6 +130,8 @@ function ow.OverworldScene:instantiate(state)
         _hide_debug_information = false,
 
         _fade_to_black = 0,
+        _blur_t = 0,
+        _blur = nil, -- rt.Blur
         _screenshot = nil
     })
 
@@ -566,6 +569,10 @@ function ow.OverworldScene:size_allocate(x, y, width, height)
     ) do
         widget:reformat(0, 0, width, height)
     end
+
+    if self._blur == nil or self._blur:get_width() ~= width or self._blur:get_height() ~= height then
+        self._blur = rt.Blur(width, height)
+    end
 end
 
 --- @brief
@@ -616,7 +623,7 @@ function ow.OverworldScene:draw()
     love.graphics.push("all")
 
     love.graphics.origin()
-    if not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
+    if self._blur_t == 0 and not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
         love.graphics.clear(0, 0, 0, 0)
         self._background:draw()
 
@@ -651,6 +658,30 @@ function ow.OverworldScene:draw()
             love.graphics.pop()
 
             bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+        end
+    elseif self._blur_t > 0 then -- respawning
+        if self._blur ~= nil then
+            self._blur:set_blur_strength(self._blur_t * 10)
+            self._blur:bind()
+
+            self._background:draw()
+            self._camera:bind()
+            self._stage:draw_below_player()
+            self._stage:draw_above_player()
+            self._camera:unbind()
+
+            self._blur:unbind()
+            self._blur:draw()
+
+            love.graphics.setColor(0, 0, 0, self._blur_t)
+            --love.graphics.rectangle("fill", self._bounds:unpack())
+
+            if self._player_is_visible then
+                self._camera:bind()
+                self._player:draw_body()
+                self._player:draw_core()
+                self._camera:unbind()
+            end
         end
     else -- fading
         self._background:draw()
@@ -1175,6 +1206,7 @@ function ow.OverworldScene:reset()
     rt.Sprite._path_to_spritesheet = {}
 
     self:set_fade_to_black(0)
+    self:set_blur(0)
 
     self:unpause()
     self:enter(before, false)
@@ -1307,5 +1339,10 @@ end
 --- @brief
 function ow.OverworldScene:get_control_indicator(type)
     return self._control_indicator_type_to_control_indicator[type]
+end
+
+--- @brief
+function ow.OverworldScene:set_blur(t)
+    self._blur_t = t
 end
 

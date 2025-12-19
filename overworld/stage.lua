@@ -40,6 +40,7 @@ function ow.Stage:instantiate(scene, id)
         _config = config,
         _is_initialized = false,
         _is_first_spawn = true,
+        _is_respawning = false,
 
         _world = b2.World(),
         _camera_bounds = rt.AABB(-math.huge, -math.huge, math.huge, math.huge),
@@ -855,7 +856,6 @@ end
 
 --- @brief
 function ow.Stage:clear_cache()
-    _config_atlas = {}
 end
 
 --- @brief

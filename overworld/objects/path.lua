@@ -173,6 +173,10 @@ function ow.Path:instantiate(object, stage, scene)
 end
 
 function ow.Path:update(delta)
+    if self._stage:get_active_checkpoint():get_is_respawning() then
+        return -- waiting for respawn to be finished
+    end
+
     self._elapsed = self._elapsed + delta
 
     if self._n_cycles >= self._max_n_cycles then return end
