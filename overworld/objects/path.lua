@@ -38,7 +38,9 @@ function ow.Path:instantiate(object, stage, scene)
     self._stage = stage
 
     self._elapsed = 0
+    self._n_cycles = 0
 
+    self._max_n_cycles = object:get_number("n_cycles", false) or math.huge
     self._should_loop = object:get_boolean("should_loop", false)
     if self._should_loop == nil then self._should_loop = false end
 
@@ -172,6 +174,9 @@ end
 
 function ow.Path:update(delta)
     self._elapsed = self._elapsed + delta
+
+    if self._n_cycles >= self._max_n_cycles then return end
+
     local length = self._path:get_length()
     local t, direction
 
@@ -232,6 +237,20 @@ function ow.Path:update(delta)
     end
 
     self._last_t = t
+
+    if self._last_direction ~= nil and self._last_direction ~= direction then
+        self._n_cycles = self._n_cycles + 1
+        if self._n_cycles >= self._max_n_cycles then
+            local x, y = self._path:at(ternary(direction == 1, 0, 1))
+            for entry in values(self._entries) do
+                entry.target:set_position(
+                    x + entry.offset_x,
+                    y + entry.offset_y
+                )
+            end
+        end
+    end
+    self._last_direction = direction
 end
 
 local _back_priority = -math.huge
@@ -263,6 +282,8 @@ end
 --- @brief
 function ow.Path:reset()
     local x, y = self._path:at(0)
+    self._elapsed = 0
+    self._n_cycles = 0
     for entry in values(self._entries) do
         entry.target:set_position(
             x + entry.offset_x,
