@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="292">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="314">
  <editorsettings>
   <export target="one_way_platform_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -11,19 +11,50 @@
  <objectgroup id="5" name="aux"/>
  <objectgroup id="6" name="hitbox">
   <object id="234" type="MovableHitbox" x="-1616" y="864">
-   <polygon points="32,0 848,0 848,-432 1040,-432 1040,26.3822 1152,128 1360,128 1472,0 1584,16 1728,128 1808,128 1776,-272 1984,-288 2048,240 1776,240 1376,240 1040,240 32,240"/>
+   <polygon points="32,0 848,0 848,-432 1040,-432 1040,240 32,240"/>
   </object>
   <object id="235" name="FIrst Jump" type="SlipperyHitbox" x="-800" y="832">
    <polygon points="16,0 -16,32 32,32 32,-400 224,-400 224,-416 16,-416"/>
   </object>
-  <object id="272" type="Hitbox" x="-196.034" y="1657.22">
-   <polygon points="1072,0 1072,-192 144,-192 144,-384 -144,-384 -144,0"/>
+  <object id="272" type="Hitbox" x="-192" y="1103.57">
+   <polygon points="1376,0.428574 1376,-383.571 1168,-383.571 1168,-191.571 144,-192 144,-384 -144,-384 -144,0"/>
   </object>
-  <object id="281" type="SlipperyHitbox" x="-321.359" y="1412.6">
-   <polygon points="0,-32 0,-48 288,-48 304,-48 304,144 320,160 288,160 288,-32"/>
+  <object id="281" name="Horizontal Sidedness" type="SlipperyHitbox" x="-336" y="751.571">
+   <polygon points="0,-32 0,-48 304,-48 304,144 1296,144.429 1296,-47.5714 1520,-47.5714 1520,-31.5714 1312,-31.5714 1312,160.429 288,160 288,-32"/>
   </object>
-  <object id="282" type="SlipperyHitbox" x="27.9664" y="1353.22">
-   <polygon points="32,0 32,16 128,16 128,0"/>
+  <object id="304" type="Hitbox" x="-1568" y="1440">
+   <polygon points="0,0 0,1616 176,1616 176,0"/>
+  </object>
+  <object id="305" type="Hitbox" x="-512" y="1440">
+   <polygon points="0,0 0,1616 -1056,1616 -1056,1824 176,1824 176,0"/>
+  </object>
+  <object id="306" type="SlipperyHitbox" x="-1392" y="1440">
+   <polygon points="0,0 16,0 16,1616 0,1616"/>
+  </object>
+  <object id="307" type="SlipperyHitbox" x="-528" y="1440">
+   <polygon points="0,0 16,0 16,1616 0,1616"/>
+  </object>
+  <object id="308" name="from" type="OneWayPlatform" x="-1248" y="2816">
+   <properties>
+    <property name="other" type="object" value="309"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="309" name="to" type="OneWayPlatformNode" x="-1248" y="2928">
+   <point/>
+  </object>
+  <object id="310" name="path_from" type="Path" x="-1248" y="2928">
+   <properties>
+    <property name="next" type="object" value="311"/>
+    <property name="target" type="object" value="308"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="311" name="path_to" type="PathNode" x="-1264" y="1616">
+   <point/>
+  </object>
+  <object id="313" type="KillPlane" x="-1132.52" y="2114.03">
+   <polygon points="0,0 100.328,272.65 484.328,16.6498"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
@@ -43,7 +74,7 @@
   <object id="162" name="To" type="OneWayPlatformNode" x="-816" y="-544">
    <point/>
   </object>
-  <object id="163" name="Spawn" type="PlayerSpawn" x="-669.642" y="387.346">
+  <object id="163" name="Spawn" type="PlayerSpawn" x="-973.031" y="3008.06">
    <point/>
   </object>
   <object id="169" name="From" type="OneWayPlatform" x="-816" y="-560">
@@ -272,26 +303,6 @@
   <object id="263" name="To" type="OneWayPlatformNode" x="-832" y="528">
    <point/>
   </object>
-  <object id="266" name="path_to" type="PathNode" x="-288" y="528">
-   <point/>
-  </object>
-  <object id="267" name="path_from" type="Path" x="-432" y="192">
-   <properties>
-    <property name="next" type="object" value="266"/>
-    <property name="target" type="object" value="288"/>
-    <property name="velocity" type="float" value="2"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="269" name="up_from" type="OneWayPlatform" x="80" y="416">
-   <properties>
-    <property name="other" type="object" value="270"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="270" name="up_to" type="OneWayPlatformNode" x="272" y="416">
-   <point/>
-  </object>
   <object id="264" x="-851" y="448">
    <properties>
     <property name="teno" type="object" value="265"/>
@@ -301,26 +312,71 @@
   <object id="265" x="-1267" y="864">
    <point/>
   </object>
-  <object id="283" name="down_from" type="OneWayPlatform" x="272" y="464">
+  <object id="293" name="From" type="OneWayPlatform" x="-32" y="704">
    <properties>
-    <property name="other" type="object" value="284"/>
+    <property name="has_end_cap" type="bool" value="false"/>
+    <property name="hue" type="float" value="0.333333333"/>
+    <property name="other" type="object" value="294"/>
    </properties>
    <point/>
   </object>
-  <object id="284" name="down_to" type="OneWayPlatformNode" x="80" y="464">
-   <point/>
-  </object>
-  <object id="286" type="MovableHitbox" x="-246.53" y="190.783">
-   <polygon points="0,0 0,112 209.771,112.575 209.771,0.574794"/>
-  </object>
-  <object id="288" name="Goal" type="Goal" x="-544.604" y="279.428" width="123.531" height="75.9062"/>
-  <object id="291" type="NPC" x="-688" y="512">
+  <object id="294" name="To" type="OneWayPlatformNode" x="352" y="704">
    <properties>
-    <property name="enter_dialog_id" value="one_way_platform_tutorial_cant_pass"/>
-    <property name="should_focus" type="bool" value="true"/>
-    <property name="should_lock" type="bool" value="true"/>
+    <property name="hue" type="float" value="0.333333333"/>
    </properties>
    <point/>
+  </object>
+  <object id="295" name="From" type="OneWayPlatform" x="672" y="704">
+   <properties>
+    <property name="has_end_cap" type="bool" value="false"/>
+    <property name="hue" type="float" value="0.333333333"/>
+    <property name="other" type="object" value="296"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="296" name="To" type="OneWayPlatformNode" x="960" y="704">
+   <properties>
+    <property name="hue" type="float" value="0.333333333"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="297" name="From" type="OneWayPlatform" x="672" y="704">
+   <properties>
+    <property name="has_end_cap" type="bool" value="false"/>
+    <property name="hue" type="float" value="0.333333333"/>
+    <property name="other" type="object" value="298"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="298" name="To" type="OneWayPlatformNode" x="352" y="704">
+   <properties>
+    <property name="hue" type="float" value="0.333333333"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="299" type="BoostField" x="240" y="767.571">
+   <properties>
+    <property name="axis_x" type="float" value="-1"/>
+    <property name="axis_y" type="float" value="0"/>
+    <property name="hue" type="float" value="0.33333"/>
+    <property name="velocity" type="float" value="2"/>
+   </properties>
+   <polygon points="-192,48.4286 -192,128.429 720,128.429 720,48.4286"/>
+  </object>
+  <object id="300" name="Coin" type="Coin" x="724.089" y="878.08">
+   <properties>
+    <property name="hue" type="float" value="0.333333"/>
+    <property name="should_move_in_place" type="bool" value="false"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="303" type="BoostField" x="240" y="767.571">
+   <properties>
+    <property name="axis_x" type="float" value="0"/>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="hue" type="float" value="0.33333"/>
+   </properties>
+   <polygon points="-192,128.857 -272,128.429 -272,48 -192,48.4286"/>
   </object>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">

@@ -100,10 +100,14 @@ function ow.CoinParticle:draw(x, y)
             love.graphics.line(outline)
         end
     else
-        love.graphics.setLineWidth(self._line_width)
         love.graphics.setColor(black_r, black_g, black_b, self._opacity)
         love.graphics.circle("fill", 0, 0, self._body_radius)
 
+        rt.Palette.BLACK:bind()
+        love.graphics.setLineWidth(self._line_width + 2)
+        love.graphics.line(self._body_outline)
+
+        love.graphics.setLineWidth(self._line_width)
         local r, g, b, a = table.unpack(self._color)
         love.graphics.setColor(r, g, b, a * self._opacity)
         love.graphics.line(self._body_outline)

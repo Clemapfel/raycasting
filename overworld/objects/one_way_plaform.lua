@@ -4,7 +4,7 @@ rt.settings.overworld.one_way_platform = {
     mesh_thickness = 40,
     bloom_intensity = 0.5, -- fraction
     direction_light_intensity = 0.5, -- fraction
-    line_width = 5,
+    line_width = 3,
     outline_width_increase = 4,
     allow_fallthrough = false,
 
@@ -62,15 +62,11 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     local left_dx, left_dy = math.turn_left(dx, dy)
     local right_dx, right_dy = math.turn_right(dx, dy)
 
-    local line_angle = math.angle(dx, dy)
-    self._arc_angle_left_start = line_angle + math.pi / 2
-    self._arc_angle_left_end = line_angle + 3 * math.pi / 2
-    self._arc_angle_right_start = line_angle - math.pi / 2
-    self._arc_angle_right_end = line_angle + math.pi / 2
+    self._has_end_cap = object:get_boolean("has_end_cap", false)
+    if self._has_end_cap == nil then self._has_end_cap = true end
 
     self._original_x, self._original_y = x1, y1
     local body_type = object:get_physics_body_type()
-
     local world = stage:get_physics_world()
 
     local segment_r = 3 --rt.settings.overworld.one_way_platform.segment_thickness
@@ -149,22 +145,36 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     self._velocity_protection_body = b2.Body(world, body_type, centroid_x, centroid_y, protection_shape)
     self._velocity_protection_body:set_is_sensor(true)
 
-    -- graphics
+    -- graphic
+
     self._line_draw_vertices = {
         x1, y1,
         x2, y2,
     }
 
+    local line_angle = math.angle(dx, dy)
+    self._arc_angle_left_start = line_angle + math.pi / 2
+    self._arc_angle_left_end = line_angle + 3 * math.pi / 2
+    self._arc_angle_right_start = line_angle - math.pi / 2
+    self._arc_angle_right_end = line_angle + math.pi / 2
+
     local line_width = rt.settings.overworld.one_way_platform.line_width
     local highlight_offset = 0.5 * line_width - 2
     local highlight_shorten = 2 -- px
-    local highlight_dx, highlight_dy = 0, -1
-    self._highlight_draw_vertices = {
-        x1 + highlight_dx * highlight_offset + dx * highlight_shorten,
-        y1 + highlight_dy * highlight_offset + dy * highlight_shorten,
-        x2 + highlight_dx * highlight_offset - dx * highlight_shorten,
-        y2 + highlight_dy * highlight_offset - dy * highlight_shorten,
-    }
+    local highlight_dx, highlight_dy = math.turn_left(dx, dy)
+
+    if self._has_end_cap then
+        self._highlight_draw_vertices = {
+            x1 + highlight_dx * highlight_offset + dx * highlight_shorten,
+            y1 + highlight_dy * highlight_offset + dy * highlight_shorten,
+            x2 + highlight_dx * highlight_offset - dx * highlight_shorten,
+            y2 + highlight_dy * highlight_offset - dy * highlight_shorten,
+        }
+    else
+        self._highlight_draw_vertices = {
+            x1, y1, x2, y2
+        }
+    end
 
     do -- direction mesh, center quad with two quarter circles on both sides
         local width = 1 * thickness
@@ -260,7 +270,7 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
         self._direction_mesh:set_vertex_map(indices)
     end
 
-    self._hue = object:get_number("hue")
+    self._hue = object:get_number("hue", false)
     if self._hue == nil then
         self._hue = math.fract(meta.hash(self) % _n_hue_steps / _n_hue_steps)
     end
@@ -297,7 +307,7 @@ function ow.OneWayPlatform:update(delta)
     local player = self._scene:get_player()
     local player_r = player:get_radius()
 
-    -- early check: segment in range
+    -- early check: segment in rangec
     local px, py = player:get_position()
     local closest_x, closest_y, is_on_segment = _closest_point_on_segment(px, py, cx1, cy1, cx2, cy2, -0.5 * player_r)
 
@@ -330,8 +340,11 @@ function ow.OneWayPlatform:draw()
     love.graphics.setLineWidth(line_width)
     rt.Palette.BLACK:bind()
     love.graphics.line(self._line_draw_vertices)
-    love.graphics.circle("fill", x1, y1, line_width * 0.5)
-    love.graphics.circle("fill", x2, y2, line_width * 0.5)
+
+    if self._has_end_cap == true then
+        love.graphics.circle("fill", x1, y1, line_width * 0.5)
+        love.graphics.circle("fill", x2, y2, line_width * 0.5)
+    end
 
     line_width = base_line_width
     love.graphics.setLineWidth(line_width)
@@ -342,16 +355,22 @@ function ow.OneWayPlatform:draw()
     _shader:unbind()
 
     love.graphics.line(self._line_draw_vertices)
-    love.graphics.arc("fill", x1, y1, line_width * 0.5, self._arc_angle_left_start, self._arc_angle_left_end)
-    love.graphics.arc("fill", x2, y2, line_width * 0.5, self._arc_angle_right_start, self._arc_angle_right_end)
+
+    if self._has_end_cap == true then
+        love.graphics.arc("fill", x1, y1, line_width * 0.5, self._arc_angle_left_start, self._arc_angle_left_end)
+        love.graphics.arc("fill", x2, y2, line_width * 0.5, self._arc_angle_right_start, self._arc_angle_right_end)
+    end
 
     local highlight_line_width = 2
     local highlight_x1, highlight_y1, highlight_x2, highlight_y2 = table.unpack(self._highlight_draw_vertices)
     love.graphics.setColor(1, 1, 1, 0.5)
     love.graphics.setLineWidth(highlight_line_width)
     love.graphics.line(highlight_x1, highlight_y1, highlight_x2, highlight_y2)
-    love.graphics.arc("fill", highlight_x1, highlight_y1, 0.5 * highlight_line_width, self._arc_angle_left_start, self._arc_angle_left_end)
-    love.graphics.arc("fill", highlight_x2, highlight_y2, 0.5 * highlight_line_width, self._arc_angle_right_start, self._arc_angle_right_end)
+
+    if self._has_end_cap == true then
+        love.graphics.arc("fill", highlight_x1, highlight_y1, 0.5 * highlight_line_width, self._arc_angle_left_start, self._arc_angle_left_end)
+        love.graphics.arc("fill", highlight_x2, highlight_y2, 0.5 * highlight_line_width, self._arc_angle_right_start, self._arc_angle_right_end)
+    end
 
     love.graphics.pop()
 end

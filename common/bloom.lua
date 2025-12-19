@@ -12,8 +12,6 @@ rt.Bloom = meta.class("Bloom")
 local _downsample_shader = rt.Shader("common/bloom_downsample.glsl")
 local _upsample_shader = rt.Shader("common/bloom_upsample.glsl")
 local _tonemap_shader = rt.Shader("common/bloom_tone_map.glsl")
-local _blur_shader_horizontal = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 1 })
-local _blur_shader_vertical = rt.Shader("common/blur.glsl", { HORIZONTAL_OR_VERTICAL = 0 })
 
 --- @brief
 function rt.Bloom:instantiate(width, height, msaa, texture_format, ...)
@@ -39,11 +37,6 @@ function rt.Bloom:instantiate(width, height, msaa, texture_format, ...)
             level = level + 1
             w = math.max(1, math.floor(w / 2))
             h = math.max(1, math.floor(h / 2))
-        end
-
-        if rt.settings.bloom.n_preprocessing_passes > 0 then
-            w, h = self._textures[1]:get_size()
-            self._blur_swap_texture = rt.RenderTexture(w, h, msaa, texture_format)
         end
     end
 
@@ -81,32 +74,8 @@ function rt.Bloom:_apply_bloom()
     local lg = love.graphics
     local n_levels = #self._textures
 
-    lg.push()
-    lg.origin()
-
-    if rt.settings.bloom.n_preprocessing_passes > 0 then
-        local texture_size = { self._blur_swap_texture:get_size() }
-        _blur_shader_horizontal:send("texture_size", texture_size)
-        _blur_shader_vertical:send("texture_size", texture_size)
-
-        local shader_a, shader_b = _blur_shader_horizontal, _blur_shader_vertical
-        local canvas_a, canvas_b = self._blur_swap_texture, self._textures[1]
-
-        for i = 1, rt.settings.bloom.n_preprocessing_passes do
-            shader_a:bind()
-            canvas_a:bind()
-            lg.clear(0, 0, 0, 0)
-            canvas_b:draw()
-            canvas_a:unbind()
-            shader_a:unbind()
-
-            shader_b:bind()
-            canvas_b:bind()
-            canvas_a:draw()
-            canvas_b:unbind()
-            shader_b:unbind()
-        end
-    end
+    love.graphics.push("all")
+    love.graphics.origin()
 
     -- downsample
     for level = 2, n_levels do
@@ -118,7 +87,7 @@ function rt.Bloom:_apply_bloom()
         _downsample_shader:send("texel_size", { 1 / destination:get_width(), 1 / destination:get_height()})
 
         destination:bind()
-        lg.clear(0, 0, 0, 0)
+        love.graphics.clear(0, 0, 0, 0)
 
         mesh:set_texture(source)
         mesh:draw()
@@ -143,7 +112,7 @@ function rt.Bloom:_apply_bloom()
         destination:bind()
 
         if level - 1 > 1 then
-            lg.clear(0, 0, 0, 0)
+            love.graphics.clear(0, 0, 0, 0)
         end
 
         mesh:set_texture(source)
@@ -154,7 +123,7 @@ function rt.Bloom:_apply_bloom()
         _upsample_shader:unbind()
     end
 
-    lg.pop()
+    love.graphics.pop()
 end
 
 --- @brief
@@ -175,6 +144,7 @@ function rt.Bloom:draw()
     local r, g, b, a = love.graphics.getColor()
     if self._update_needed then
         self:_apply_bloom()
+        self._update_needed = false
     end
 
     love.graphics.setColor(r, g, b, a)

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 292,
+  nextobjectid = 314,
   properties = {},
   tilesets = {
     {
@@ -88,18 +88,6 @@ return {
             { x = 848, y = 0 },
             { x = 848, y = -432 },
             { x = 1040, y = -432 },
-            { x = 1040, y = 26.3822 },
-            { x = 1152, y = 128 },
-            { x = 1360, y = 128 },
-            { x = 1472, y = 0 },
-            { x = 1584, y = 16 },
-            { x = 1728, y = 128 },
-            { x = 1808, y = 128 },
-            { x = 1776, y = -272 },
-            { x = 1984, y = -288 },
-            { x = 2048, y = 240 },
-            { x = 1776, y = 240 },
-            { x = 1376, y = 240 },
             { x = 1040, y = 240 },
             { x = 32, y = 240 }
           },
@@ -132,15 +120,17 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = -196.034,
-          y = 1657.22,
+          x = -192,
+          y = 1103.57,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 1072, y = 0 },
-            { x = 1072, y = -192 },
+            { x = 1376, y = 0.428574 },
+            { x = 1376, y = -383.571 },
+            { x = 1168, y = -383.571 },
+            { x = 1168, y = -191.571 },
             { x = 144, y = -192 },
             { x = 144, y = -384 },
             { x = -144, y = -384 },
@@ -150,11 +140,11 @@ return {
         },
         {
           id = 281,
-          name = "",
+          name = "Horizontal Sidedness",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = -321.359,
-          y = 1412.6,
+          x = -336,
+          y = 751.571,
           width = 0,
           height = 0,
           rotation = 0,
@@ -162,31 +152,169 @@ return {
           polygon = {
             { x = 0, y = -32 },
             { x = 0, y = -48 },
-            { x = 288, y = -48 },
             { x = 304, y = -48 },
             { x = 304, y = 144 },
-            { x = 320, y = 160 },
+            { x = 1296, y = 144.429 },
+            { x = 1296, y = -47.5714 },
+            { x = 1520, y = -47.5714 },
+            { x = 1520, y = -31.5714 },
+            { x = 1312, y = -31.5714 },
+            { x = 1312, y = 160.429 },
             { x = 288, y = 160 },
             { x = 288, y = -32 }
           },
           properties = {}
         },
         {
-          id = 282,
+          id = 304,
           name = "",
-          type = "SlipperyHitbox",
+          type = "Hitbox",
           shape = "polygon",
-          x = 27.9664,
-          y = 1353.22,
+          x = -1568,
+          y = 1440,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 32, y = 0 },
-            { x = 32, y = 16 },
-            { x = 128, y = 16 },
-            { x = 128, y = 0 }
+            { x = 0, y = 0 },
+            { x = 0, y = 1616 },
+            { x = 176, y = 1616 },
+            { x = 176, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 305,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -512,
+          y = 1440,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 1616 },
+            { x = -1056, y = 1616 },
+            { x = -1056, y = 1824 },
+            { x = 176, y = 1824 },
+            { x = 176, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 306,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -1392,
+          y = 1440,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 16, y = 0 },
+            { x = 16, y = 1616 },
+            { x = 0, y = 1616 }
+          },
+          properties = {}
+        },
+        {
+          id = 307,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -528,
+          y = 1440,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 16, y = 0 },
+            { x = 16, y = 1616 },
+            { x = 0, y = 1616 }
+          },
+          properties = {}
+        },
+        {
+          id = 308,
+          name = "from",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -1248,
+          y = 2816,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 309 }
+          }
+        },
+        {
+          id = 309,
+          name = "to",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = -1248,
+          y = 2928,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 310,
+          name = "path_from",
+          type = "Path",
+          shape = "point",
+          x = -1248,
+          y = 2928,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 311 },
+            ["target"] = { id = 308 }
+          }
+        },
+        {
+          id = 311,
+          name = "path_to",
+          type = "PathNode",
+          shape = "point",
+          x = -1264,
+          y = 1616,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 313,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -1132.52,
+          y = 2114.03,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 100.328, y = 272.65 },
+            { x = 484.328, y = 16.6498 }
           },
           properties = {}
         }
@@ -272,8 +400,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -669.642,
-          y = 387.346,
+          x = -973.031,
+          y = 3008.06,
           width = 0,
           height = 0,
           rotation = 0,
@@ -974,64 +1102,6 @@ return {
           properties = {}
         },
         {
-          id = 266,
-          name = "path_to",
-          type = "PathNode",
-          shape = "point",
-          x = -288,
-          y = 528,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 267,
-          name = "path_from",
-          type = "Path",
-          shape = "point",
-          x = -432,
-          y = 192,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["next"] = { id = 266 },
-            ["target"] = { id = 288 },
-            ["velocity"] = 2
-          }
-        },
-        {
-          id = 269,
-          name = "up_from",
-          type = "OneWayPlatform",
-          shape = "point",
-          x = 80,
-          y = 416,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 270 }
-          }
-        },
-        {
-          id = 270,
-          name = "up_to",
-          type = "OneWayPlatformNode",
-          shape = "point",
-          x = 272,
-          y = 416,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 264,
           name = "",
           type = "",
@@ -1060,80 +1130,162 @@ return {
           properties = {}
         },
         {
-          id = 283,
-          name = "down_from",
+          id = 293,
+          name = "From",
           type = "OneWayPlatform",
           shape = "point",
-          x = 272,
-          y = 464,
+          x = -32,
+          y = 704,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["other"] = { id = 284 }
+            ["has_end_cap"] = false,
+            ["hue"] = 0.333333333,
+            ["other"] = { id = 294 }
           }
         },
         {
-          id = 284,
-          name = "down_to",
+          id = 294,
+          name = "To",
           type = "OneWayPlatformNode",
           shape = "point",
-          x = 80,
-          y = 464,
+          x = 352,
+          y = 704,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
+          properties = {
+            ["hue"] = 0.333333333
+          }
         },
         {
-          id = 286,
+          id = 295,
+          name = "From",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 672,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["has_end_cap"] = false,
+            ["hue"] = 0.333333333,
+            ["other"] = { id = 296 }
+          }
+        },
+        {
+          id = 296,
+          name = "To",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 960,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["hue"] = 0.333333333
+          }
+        },
+        {
+          id = 297,
+          name = "From",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = 672,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["has_end_cap"] = false,
+            ["hue"] = 0.333333333,
+            ["other"] = { id = 298 }
+          }
+        },
+        {
+          id = 298,
+          name = "To",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = 352,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["hue"] = 0.333333333
+          }
+        },
+        {
+          id = 299,
           name = "",
-          type = "MovableHitbox",
+          type = "BoostField",
           shape = "polygon",
-          x = -246.53,
-          y = 190.783,
+          x = 240,
+          y = 767.571,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 112 },
-            { x = 209.771, y = 112.575 },
-            { x = 209.771, y = 0.574794 }
+            { x = -192, y = 48.4286 },
+            { x = -192, y = 128.429 },
+            { x = 720, y = 128.429 },
+            { x = 720, y = 48.4286 }
           },
-          properties = {}
+          properties = {
+            ["axis_x"] = -1,
+            ["axis_y"] = 0,
+            ["hue"] = 0.33333,
+            ["velocity"] = 2
+          }
         },
         {
-          id = 288,
-          name = "Goal",
-          type = "Goal",
-          shape = "rectangle",
-          x = -544.604,
-          y = 279.428,
-          width = 123.531,
-          height = 75.9062,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 291,
-          name = "",
-          type = "NPC",
+          id = 300,
+          name = "Coin",
+          type = "Coin",
           shape = "point",
-          x = -688,
-          y = 512,
+          x = 724.089,
+          y = 878.08,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["enter_dialog_id"] = "one_way_platform_tutorial_cant_pass",
-            ["should_focus"] = true,
-            ["should_lock"] = true
+            ["hue"] = 0.333333,
+            ["should_move_in_place"] = false
+          }
+        },
+        {
+          id = 303,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 240,
+          y = 767.571,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -192, y = 128.857 },
+            { x = -272, y = 128.429 },
+            { x = -272, y = 48 },
+            { x = -192, y = 48.4286 }
+          },
+          properties = {
+            ["axis_x"] = 0,
+            ["axis_y"] = -1,
+            ["hue"] = 0.33333
           }
         }
       }

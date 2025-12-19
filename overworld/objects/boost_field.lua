@@ -30,71 +30,56 @@ do
     _shader = rt.Shader("overworld/objects/boost_field.glsl", defines)
 end
 
--- linear regression
-function _fit_line(vertices)
-    -- vertices is a flat table: {x1, y1, x2, y2, ..., xn, yn}
+-- lineare regression
+local function _fit_line(vertices)
     local n = #vertices / 2
 
-    -- Calculate means
-    local sumX, sumY = 0, 0
+    local sum_x, sum_y = 0, 0
     for i = 1, #vertices, 2 do
-        sumX = sumX + vertices[i]
-        sumY = sumY + vertices[i + 1]
-    end
-    local meanX = sumX / n
-    local meanY = sumY / n
-
-    -- Calculate variance in x and y
-    local varX, varY = 0, 0
-    for i = 1, #vertices, 2 do
-        local dx = vertices[i] - meanX
-        local dy = vertices[i + 1] - meanY
-        varX = varX + dx * dx
-        varY = varY + dy * dy
+        sum_x = sum_x + vertices[i]
+        sum_y = sum_y + vertices[i + 1]
     end
 
-    -- Use PCA approach: fit line along direction of maximum variance
+    local mean_x = sum_x / n
+    local mean_y = sum_y / n
+
+    local var_x, var_y = 0, 0
     local covar = 0
     for i = 1, #vertices, 2 do
-        local dx = vertices[i] - meanX
-        local dy = vertices[i + 1] - meanY
+        local dx = vertices[i] - mean_x
+        local dy = vertices[i + 1] - mean_y
+        var_x = var_x + dx * dx
+        var_y = var_y + dy * dy
         covar = covar + dx * dy
     end
 
-    -- Calculate principal direction (eigenvector)
-    local dirX, dirY
-    if math.abs(varX) < 1e-10 and math.abs(varY) < 1e-10 then
-        -- All points are the same
-        dirX, dirY = 1, 0
-    elseif math.abs(varX) < 1e-10 then
-        -- Vertical line
-        dirX, dirY = 0, 1
+    local dir_x, dir_y
+    if math.equals(var_x, 0) and math.equals(var_y, 0) then
+        dir_x, dir_y = 1, 0
+    elseif math.equals(var_x, 0) then
+        dir_x, dir_y = 0, 1
     else
-        -- General case: find direction of maximum variance
-        local angle = 0.5 * math.atan2(2 * covar, varX - varY)
-        dirX = math.cos(angle)
-        dirY = math.sin(angle)
+        local theta = 0.5 * math.angle(var_x - var_y, 2 * covar)
+        dir_x = math.cos(theta)
+        dir_y = math.sin(theta)
     end
 
-    -- Normalize direction
-    local mag = math.sqrt(dirX * dirX + dirY * dirY)
-    dirX, dirY = dirX / mag, dirY / mag
+    dir_x, dir_y = math.normalize(dir_x, dir_y)
 
-    -- Project all points onto the line to find extent
-    local minProj, maxProj = math.huge, -math.huge
+    local min_proj = math.huge
+    local max_proj = -math.huge
     for i = 1, #vertices, 2 do
-        local dx = vertices[i] - meanX
-        local dy = vertices[i + 1] - meanY
-        local proj = dx * dirX + dy * dirY
-        minProj = math.min(minProj, proj)
-        maxProj = math.max(maxProj, proj)
+        local dx = vertices[i] - mean_x
+        local dy = vertices[i + 1] - mean_y
+        local proj = math.dot(dx, dy, dir_x, dir_y)
+        min_proj = math.min(min_proj, proj)
+        max_proj = math.max(max_proj, proj)
     end
 
-    -- Calculate endpoints
-    local x1 = meanX + minProj * dirX
-    local y1 = meanY + minProj * dirY
-    local x2 = meanX + maxProj * dirX
-    local y2 = meanY + maxProj * dirY
+    local x1 = mean_x + min_proj * dir_x
+    local y1 = mean_y + min_proj * dir_y
+    local x2 = mean_x + max_proj * dir_x
+    local y2 = mean_y + max_proj * dir_y
 
     return x1, y1, x2, y2
 end
@@ -159,6 +144,7 @@ function ow.BoostField:instantiate(object, stage, scene)
     end
 
     self._axis_x, self._axis_y = math.normalize(self._axis_x, self._axis_y)
+    rt.assert(math.magnitude(self._axis_x, self._axis_y) > 0, "In ow.BoostField.instantiate: axis of object `", object:get_id(), "` of stage `", self._stage:get_id(), "` cannot be 0")
 
     self._hue = object:get_number("hue", false)
     if self._hue == nil then self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi) end
@@ -175,12 +161,13 @@ end
 
 --- @brief
 function ow.BoostField:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then return end
 
     local is_active = self._is_active
     if self._use_exact_testing then
         is_active = self._body:test_point(self._player:get_position())
     end
+
+    if self._is_active == false and  not self._stage:get_is_body_visible(self._body) then return end
 
     if is_active then
         local vx, vy = self._player:get_physics_body():get_velocity() -- use actual velocity

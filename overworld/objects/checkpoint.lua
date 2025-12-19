@@ -6,10 +6,10 @@ require "overworld.objects.checkpoint_platform"
 require "common.label"
 
 rt.settings.overworld.checkpoint = {
-    explosion_duration = 1,
+    explosion_duration = 0.75,
     explosion_radius_factor = 9, -- times player radius
 
-    ray_duration = 0.1,
+    ray_duration = 0.05,
     ray_width_radius_factor = 8,
     ray_fade_out_duration = 0.5,
 
@@ -83,6 +83,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         _elapsed = 0,
         _split_send = false,
+        _should_emit_respawn = false,
 
         _spawn_elapsed = math.huge,
 
@@ -238,12 +239,15 @@ function ow.Checkpoint:spawn(also_kill)
     self._scene:set_fade_to_black(0)
     self._world:set_time_dilation(1)
 
+    self._should_emit_respawn = true
+
     local type = self._type
     if is_first_spawn then
         self:_set_state(_STATE_STAGE_ENTRY)
     else
         if also_kill then
             self:_set_state(_STATE_EXPLODING)
+            self._scene:get_player():signal_emit("died")
         else
             self:_set_state(_STATE_RAY)
         end
@@ -251,9 +255,10 @@ function ow.Checkpoint:spawn(also_kill)
 
     self:_restore_coins()
     self._stage:set_active_checkpoint(self)
-    self._stage:signal_emit("respawn")
     self._spawn_barrier:set_is_enabled(true)
     self._passed = true
+
+    self._stage:signal_emit("respawn")
 end
 
 --- @brief
@@ -328,7 +333,6 @@ function ow.Checkpoint:_set_state(state)
             spawn_y = math.max(self._y - screen_h, max_y)
         end
 
-
         self._top_y = spawn_y
         self._ray_area:reformat(self._top_x - 0.5 * ray_w, self._top_y, ray_w, self._bottom_y - self._top_y)
 
@@ -337,6 +341,7 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:teleport_to(self._top_x, spawn_y)
         player:set_is_ghost(true)
+        player:set_is_visible(false)
         player:clear_forces()
         player:disable()
 
@@ -389,15 +394,24 @@ function ow.Checkpoint:update(delta)
         self._explosion_fraction = self._explosion_elapsed / duration
         self._explosion_elapsed = self._explosion_elapsed + delta
 
+        self._scene:set_blur(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(math.min(1, self._explosion_elapsed / duration)))
+
         if self._explosion_elapsed > duration then
             self:_set_state(_STATE_RAY)
         end
     elseif self._state == _STATE_RAY then
+        if self._ray_fraction < 1 and self._should_emit_respawn then
+            self._stage:signal_emit("respawn")
+            self._should_emit_respawn = false
+            dbg("respawn")
+        end
         local threshold = self._bottom_y - 2 * player:get_radius()
         local player_x, player_y = player:get_position()
         if self._ray_fade_out_elapsed <= 0 and self._ray_fraction < 1 then
             self._ray_fraction = 1 - (player_y - threshold) / (self._top_y - threshold)
         end
+
+        self._scene:set_blur(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(1 - math.min(1, self._ray_fraction)))
 
         if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then
             self._ray_fade_out_elapsed = 0
@@ -505,4 +519,9 @@ function ow.Checkpoint:reset()
     end
 
     self:_set_state(_STATE_DEFAULT)
+end
+
+--- @brief
+function ow.Checkpoint:get_is_respawning()
+    return self._state ~= _STATE_DEFAULT
 end

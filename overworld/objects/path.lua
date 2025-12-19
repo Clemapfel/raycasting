@@ -37,6 +37,13 @@ function ow.Path:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
 
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "l" then
+            self:reset()
+        end
+    end)
+
     self._elapsed = 0
     self._n_cycles = 0
 
@@ -288,11 +295,16 @@ function ow.Path:reset()
     local x, y = self._path:at(0)
     self._elapsed = 0
     self._n_cycles = 0
+    self._last_direction = nil
+    self._last_x, self._last_y = x, y
+
     for entry in values(self._entries) do
         entry.target:set_position(
             x + entry.offset_x,
             y + entry.offset_y
         )
+
+        entry.target:set_velocity(self._path:get_tangent(0))
     end
 end
 

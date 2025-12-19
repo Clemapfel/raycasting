@@ -34,7 +34,10 @@ do
         player_canvas_scale = rt.settings.player_body.canvas_scale,
         player_canvas_size_radius_factor = rt.settings.player.bubble_radius_factor * 2.5,
 
-        screenshot_texture_format = rt.RGBA8
+        screenshot_texture_format = rt.RGBA8,
+
+        max_blur_strength = 10, -- gaussian sigma
+        max_blur_darkening = 0.82 -- fraction
     }
 end
 
@@ -661,7 +664,7 @@ function ow.OverworldScene:draw()
         end
     elseif self._blur_t > 0 then -- respawning
         if self._blur ~= nil then
-            self._blur:set_blur_strength(self._blur_t * 10)
+            self._blur:set_blur_strength(self._blur_t * rt.settings.overworld_scene.max_blur_strength)
             self._blur:bind()
 
             self._background:draw()
@@ -670,11 +673,16 @@ function ow.OverworldScene:draw()
             self._stage:draw_above_player()
             self._camera:unbind()
 
+            if rt.GameState:get_is_bloom_enabled() == true then
+                -- use stale texture, blur is expensive enough
+                rt.SceneManager:get_bloom():composite(rt.settings.overworld_scene.bloom_composite_strength)
+            end
+
+            love.graphics.setColor(0, 0, 0, math.mix(0, rt.settings.overworld_scene.max_blur_darkening, self._blur_t))
+            love.graphics.rectangle("fill", self._bounds:unpack())
+
             self._blur:unbind()
             self._blur:draw()
-
-            love.graphics.setColor(0, 0, 0, self._blur_t)
-            --love.graphics.rectangle("fill", self._bounds:unpack())
 
             if self._player_is_visible then
                 self._camera:bind()

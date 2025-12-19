@@ -99,7 +99,6 @@ function ow.Coin:instantiate(object, stage, scene)
     self._is_collected = false
     self._timestamp = -math.huge -- timestamp of collection
     self._use_noise = object:get_boolean("should_move_in_place", false)
-    dbg(object:get_property_names())
     if self._use_noise == nil then self._use_noise = true end
 
     self._noise_x, self._noise_y = 0, 0
