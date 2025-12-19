@@ -623,6 +623,25 @@ local _black_r, _black_g, _black_b = rt.color_unpack(rt.Palette.BLACK)
 function ow.OverworldScene:draw()
     if self._stage == nil then return end
 
+    local draw_bloom = function()
+        if rt.GameState:get_is_bloom_enabled() == true then
+            local bloom = rt.SceneManager:get_bloom()
+            love.graphics.push()
+            bloom:bind()
+            love.graphics.clear(0, 0, 0, 0)
+            self._camera:bind()
+            if self._player_is_visible then
+                self._player:draw_bloom()
+            end
+            self._stage:draw_bloom()
+            self._camera:unbind()
+            bloom:unbind()
+            love.graphics.pop()
+
+            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
+        end
+    end
+
     love.graphics.push("all")
 
     love.graphics.origin()
@@ -646,26 +665,12 @@ function ow.OverworldScene:draw()
         self._stage:draw_above_player()
         self._camera:unbind()
 
-        if rt.GameState:get_is_bloom_enabled() == true then
-            local bloom = rt.SceneManager:get_bloom()
-            love.graphics.push()
-            bloom:bind()
-            love.graphics.clear(0, 0, 0, 0)
-            self._camera:bind()
-            if self._player_is_visible then
-                self._player:draw_bloom()
-            end
-            self._stage:draw_bloom()
-            self._camera:unbind()
-            bloom:unbind()
-            love.graphics.pop()
-
-            bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
-        end
+        draw_bloom()
     elseif self._blur_t > 0 then -- respawning
         if self._blur ~= nil then
             self._blur:set_blur_strength(self._blur_t * rt.settings.overworld_scene.max_blur_strength)
             self._blur:bind()
+            love.graphics.clear(0, 0, 0, 0)
 
             self._background:draw()
             self._camera:bind()
@@ -673,15 +678,12 @@ function ow.OverworldScene:draw()
             self._stage:draw_above_player()
             self._camera:unbind()
 
-            if rt.GameState:get_is_bloom_enabled() == true then
-                -- use stale texture, blur is expensive enough
-                rt.SceneManager:get_bloom():composite(rt.settings.overworld_scene.bloom_composite_strength)
-            end
-
-            love.graphics.setColor(0, 0, 0, math.mix(0, rt.settings.overworld_scene.max_blur_darkening, self._blur_t))
-            love.graphics.rectangle("fill", self._bounds:unpack())
+            draw_bloom()
 
             self._blur:unbind()
+
+            local t = 1 - math.mix(0, rt.settings.overworld_scene.max_blur_darkening, self._blur_t)
+            love.graphics.setColor(t, t, t, 1)
             self._blur:draw()
 
             if self._player_is_visible then

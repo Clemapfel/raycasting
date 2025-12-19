@@ -1,6 +1,7 @@
 --- @class rt.Blur
 rt.Blur = meta.class("Blur")
 
+-- valid kernel sizes
 local _kernels = {
     --{ size = 19, sigma = 11.3 },
     --{ size = 17, sigma = 10.1 },
@@ -148,12 +149,13 @@ end
 function rt.Blur:draw(...)
     local before = love.graphics.getShader()
 
+    love.graphics.push("all")
     if self._blur_applied == false then
         self:_apply_blur()
         self._blur_applied = true
     end
 
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.pop("all")
     love.graphics.setShader(before)
     love.graphics.draw(self._texture_a, ...)
 end

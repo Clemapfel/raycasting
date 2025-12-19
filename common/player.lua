@@ -3093,7 +3093,15 @@ function rt.Player:reset()
     self._right_button_is_down = self._input:get_is_down(rt.InputAction.RIGHT)
     self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
 
-    self._sprint_multiplier = _settings.sprint_multiplier
+    if self._sprint_button_is_down then
+        self._sprint_multiplier = _settings.sprint_multiplier
+        self._next_sprint_multiplier = _settings.sprint_multiplier
+        self._next_sprint_multiplier_update_when_grounded = false
+    else
+        self._sprint_multiplier = 1
+        self._next_sprint_multiplier = 1
+        self._next_sprint_multiplier_update_when_grounded = false
+    end
 end
 
 --- @brief
