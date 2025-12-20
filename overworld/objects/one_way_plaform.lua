@@ -8,7 +8,8 @@ rt.settings.overworld.one_way_platform = {
     outline_width_increase = 4,
     allow_fallthrough = false,
 
-    segment_thickness = 1 -- px
+    segment_thickness = 1, -- px
+    push_through_coefficient = 0.57 -- the smaller, the more push through force is applied
 }
 
 --- @class ow.OneWayPlatform
@@ -125,6 +126,9 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
     local protection_r = self._update_range
     local protection_offset = stencil_r -- so raycasting still hits segment instead of protection body
 
+    local boost_r = rt.settings.player.radius
+    local boost_shape
+
     local protection_shape
     if self._sidedness == 1 then
         protection_shape = b2.Polygon(
@@ -133,6 +137,8 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
             x2 + left_dx * protection_r, y2 + left_dy * protection_r,
             x1 + left_dx * protection_r, y1 + left_dy * protection_r
         )
+
+        self._boost_axis_x, self._boost_axis_y = right_dx, right_dy
     else
         protection_shape = b2.Polygon(
             x1 + right_dx * protection_offset, y1 + right_dy * protection_offset,
@@ -140,6 +146,8 @@ function ow.OneWayPlatform:instantiate(object, stage, scene)
             x2 + right_dx * protection_r, y2 + right_dy * protection_r,
             x1 + right_dx * protection_r, y1 + right_dy * protection_r
         )
+
+        self._boost_axis_x, self._boost_axis_y = left_dx, left_dy
     end
 
     self._velocity_protection_body = b2.Body(world, body_type, centroid_x, centroid_y, protection_shape)
@@ -297,25 +305,84 @@ local function _closest_point_on_segment(px, py, ax, ay, bx, by, r)
     return ax + t * abx, ay + t * aby, is_on_segment
 end
 
+local function _ray_line_intersection(px, py, vx, vy, x1, y1, x2, y2)
+    local ray_dir_x, ray_dir_y = math.normalize(vx, vy)
+
+    local line_dx = x2 - x1
+    local line_dy = y2 - y1
+
+    local diff_x = px - x1
+    local diff_y = py - y1
+
+    local det = ray_dir_x * line_dy - ray_dir_y * line_dx
+
+    if math.abs(det) < math.eps then
+        return nil -- parallel
+    end
+
+    local t = (diff_x * line_dy - diff_y * line_dx) / det
+    local u = (diff_x * ray_dir_y - diff_y * ray_dir_x) / det
+
+    local intersection_x = px + ray_dir_x * t
+    local intersection_y = py + ray_dir_y * t
+    return intersection_x, intersection_y, t
+end
+
 --- @brief
 function ow.OneWayPlatform:update(delta)
     if not self._stage:get_is_body_visible(self._body) then return end
 
-    local offset_x, offset_y = self._body:get_position()
-    local cx1, cy1 = math.add(self._x1, self._y1, offset_x, offset_y)
-    local cx2, cy2 = math.add(self._x2, self._y2, offset_x, offset_y)
     local player = self._scene:get_player()
     local player_r = player:get_radius()
 
-    -- early check: segment in rangec
+    local offset_x, offset_y = self._body:get_position()
+    local cx1, cy1 = math.add(self._x1, self._y1, offset_x, offset_y)
+    local cx2, cy2 = math.add(self._x2, self._y2, offset_x, offset_y)
+
     local px, py = player:get_position()
+    local center_px, center_py = px, py
+
     local closest_x, closest_y, is_on_segment = _closest_point_on_segment(px, py, cx1, cy1, cx2, cy2, -0.5 * player_r)
+    local segment_distance = math.distance(px, py, closest_x, closest_y)
 
     -- use closets point on player circle instead of center
     local dx, dy = math.normalize(closest_x - px, closest_y - py)
     px, py = px + dx * player_r, py + dy * player_r
 
-    local segment_distance = math.distance(closest_x, closest_y, px, py)
+    -- if player is on non-solid side, apply force along player velocity to fully push player through
+    if segment_distance < player_r and _get_side(px, py, cx1, cy1, cx2, cy2) == self._sidedness then
+        local farthest_px, farthest_py = center_px - dx * player_r, center_py - dy * player_r
+        local target_distance = player_r + 1
+        local player_vx, player_vy = player:get_physics_body():get_velocity()
+        local player_nvx, player_nvy = math.normalize(player_vx, player_vy)
+
+        if player_nvx ~= 0 or player_nvy ~= 0 then
+            local intersection_x, intersection_y = _ray_line_intersection(
+                farthest_px, farthest_py, player_nvx, player_nvy,
+                cx1, cy1, cx2, cy2
+            )
+
+            if intersection_x ~= nil and intersection_y ~= nil then
+                local axis_x, axis_y = math.normalize(math.subtract(
+                    farthest_px, farthest_py,
+                    intersection_x, intersection_y
+                ))
+
+                local target_x = px + axis_x * target_distance
+                local target_y = py + axis_y * target_distance
+
+                local t = rt.settings.overworld.one_way_platform.push_through_coefficient
+                local correction_vx = (target_x - px) / (t * delta)
+                local correction_vy = (target_y - py) / (t * delta)
+
+                local new_vx = player_vx + correction_vx * delta
+                local new_vy = player_vy + correction_vy * delta
+
+                player:get_physics_body():set_velocity(new_vx, new_vy)
+            end
+        end
+    end
+
     if segment_distance < self._update_range then
         px, py = player:get_centroid() -- compute more exact position as average of all player bodies
         local player_side = _get_side(px, py, cx1, cy1, cx2, cy2)
@@ -407,7 +474,8 @@ function ow.OneWayPlatform:set_position(x, y)
     for body in range(
         self._body,
         self._velocity_protection_body,
-        self._stencil_body
+        self._stencil_body,
+        self._boost_body
     ) do
         body:set_position(x, y)
     end
@@ -418,7 +486,8 @@ function ow.OneWayPlatform:set_velocity(vx, vy)
     for body in range(
         self._body,
         self._velocity_protection_body,
-        self._stencil_body
+        self._stencil_body,
+        self._boost_body
     ) do
         body:set_velocity(vx, vy)
     end
