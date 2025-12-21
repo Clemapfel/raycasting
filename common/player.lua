@@ -1325,23 +1325,6 @@ function rt.Player:update(delta)
                 net_friction_y = math.max(net_friction_y, 0)
             end
 
-            -- downwards force, disabled when wall clinging, handled in friction handler
-            do
-                local should_apply
-                if self._use_analog_input then
-                    should_apply = self._is_ducking
-                else
-                    should_apply = down_is_down and not left_is_down and not right_is_down
-                end
-
-                if should_apply
-                    and not self._movement_disabled
-                    and not ((left_is_down and left_wall_body) or (right_is_down and right_wall_body))
-                then
-                    next_velocity_y = next_velocity_y + _settings.downwards_force * delta * time_dilation
-                end
-            end
-
             -- vertical movement
             next_velocity_y = current_velocity_y
 
@@ -1486,6 +1469,16 @@ function rt.Player:update(delta)
                     next_velocity_x = next_velocity_x * accelerator_max_velocity
                     next_velocity_y = next_velocity_y * accelerator_max_velocity
                 end
+            end
+
+            -- downwards force
+            if not self._movement_disabled
+                and down_is_down
+                and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
+                -- exclude wall clinging, handled by explicit friction release in apply_friction
+            then
+                next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta
+                next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta
             end
 
             local is_touching_platform = false
@@ -2916,7 +2909,7 @@ function rt.Player:jump()
         self._jump_allowed_override = nil
 
     -- regular jump
-    elseif not should_wall_jump and not self._jump_is_blocked then
+    elseif self._is_grounded and not should_wall_jump and not self._jump_is_blocked then
         allow_vertical_jump()
 
     -- double jump
