@@ -19,8 +19,11 @@ function mn.ScrollableList:instantiate()
     self._item_y_offset = 0
     self._max_item_y_offset = 0
     self._scrollbar = mn.Scrollbar()
+    self._scroll_offset = 0
     self._should_wrap = true
 
+    self._item_left_x = 0
+    self._item_right_x = 0
     self._item_top_y = 0
     self._item_bottom_y = 0
 end
@@ -75,6 +78,9 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
     local item_w = width - scrollbar_w - m
 
     self._item_top_y = y
+    self._item_left_x = x + frame_thickness
+    self._item_right_x = self._item_left_x + item_w - 2 * frame_thickness
+
     local item_total_height = item_h + item_y_margin
 
     for i, item in ipairs(self._items) do
@@ -87,6 +93,7 @@ function mn.ScrollableList:size_allocate(x, y, width, height)
                 item_w - 2 * frame_thickness,
                 item_h - 2 * frame_thickness
             )
+
         end
 
         item.widget:reformat(x, current_y, item_w, item_h)
@@ -104,7 +111,7 @@ function mn.ScrollableList:draw()
     love.graphics.setScissor(self._item_stencil:unpack())
     love.graphics.push()
     love.graphics.origin()
-    love.graphics.translate(0, math.floor(self._item_y_offset))
+    love.graphics.translate(0, math.floor(self._item_y_offset + self._scroll_offset))
 
     for i, item in ipairs(self._items) do
         if i == self._selected_item_i then
@@ -221,6 +228,12 @@ function mn.ScrollableList:can_scroll_down()
     end
 end
 
+--- @brief
+function mn.ScrollableList:apply_scroll(dx, dy)
+    self._scroll_offset = self._scroll_offset + dx
+end
+
+--- @brief
 function mn.ScrollableList:set_selected_item(i)
     meta.assert(i, "Number")
     if self._selected_item_i > self._n_items then return end

@@ -406,12 +406,12 @@ function rt.SceneManager:get_bloom()
 end
 
 --- @brief
-function rt.SceneManager:set_cursor_is_visible(b)
+function rt.SceneManager:set_is_cursor_visible(b)
     self._cursor_visible = b
 end
 
 --- @brief
-function rt.SceneManager:get_cursor_is_visible()
+function rt.SceneManager:get_is_cursor_visible()
     return self._cursor_visible
 end
 

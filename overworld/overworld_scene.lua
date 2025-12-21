@@ -216,7 +216,7 @@ function ow.OverworldScene:instantiate(state)
     self._control_indicator_particle_effect = ow.RevealParticleEffect()
 
     self._input:signal_connect("pressed", function(_, which)
-        self:_set_cursor_is_visible(false) -- on any input action
+        self:_set_is_cursor_visible(false) -- on any input action
 
         if which == rt.InputAction.PAUSE then
             if not self._pause_menu_active then
@@ -299,8 +299,8 @@ function ow.OverworldScene:instantiate(state)
         end
     end
 
-    function self:_set_cursor_is_visible(b)
-        rt.SceneManager:set_cursor_is_visible(b)
+    function self:_set_is_cursor_visible(b)
+        rt.SceneManager:set_is_cursor_visible(b)
         if b == false then
             self._camera_pan_up_speed = 0
             self._camera_pan_right_speed = 0
@@ -356,13 +356,13 @@ function ow.OverworldScene:instantiate(state)
             self._camera_pan_right_speed = math.max((x - (self._bounds.x + self._bounds.width - w)) / w, 0)
             self._camera_pan_down_speed = math.max((y - (self._bounds.y + self._bounds.height - w)) / w, 0)
             self._camera_pan_left_speed = math.max((w - x) / w, 0)
-            self:_set_cursor_is_visible(true)
+            self:_set_is_cursor_visible(true)
         end
     end)
 
     self._input:signal_connect("input_method_changed", function(_, which)
         if which ~= rt.InputMethod.KEYBOARD then
-            self:_set_cursor_is_visible(false)
+            self:_set_is_cursor_visible(false)
             self:_set_cursor_is_active(false)
             -- only hide, reveal could mess up out-of-window disable
         end
@@ -372,7 +372,7 @@ function ow.OverworldScene:instantiate(state)
     end)
 
     self._input:signal_connect("mouse_left_screen", function(_)
-        self:_set_cursor_is_visible(false)
+        self:_set_is_cursor_visible(false)
     end)
 
     self._input:signal_connect("mouse_wheel_moved", function(_, dx, dy)
@@ -734,7 +734,7 @@ function ow.OverworldScene:draw()
     if rt.settings.overworld_scene.allow_translation
         and not self._pause_menu_active
         and not self._fade:get_is_active()
-        and rt.SceneManager:get_cursor_is_visible()
+        and rt.SceneManager:get_is_cursor_visible()
     then
         local factor = 2
         love.graphics.setColor(1, 1, 1, factor * self._camera_pan_up_speed)
@@ -1087,7 +1087,7 @@ function ow.OverworldScene:update(delta)
     end
 
     -- mouse-based scrolling
-    if rt.SceneManager:get_cursor_is_visible() and not self._fade:get_is_active() then
+    if rt.SceneManager:get_is_cursor_visible() and not self._fade:get_is_active() then
         local max_velocity = rt.settings.overworld_scene.camera_translation_velocity
         self._camera_translation_velocity_x = (-1 * self._camera_pan_left_speed + 1 * self._camera_pan_right_speed) * max_velocity
         self._camera_translation_velocity_y = (-1 * self._camera_pan_up_speed + 1 * self._camera_pan_down_speed) * max_velocity

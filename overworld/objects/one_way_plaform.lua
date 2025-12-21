@@ -388,7 +388,12 @@ function ow.OneWayPlatform:update(delta)
         local player_side = _get_side(px, py, cx1, cy1, cx2, cy2)
 
         self._body:set_is_sensor(not (player_side == self._sidedness))
-        self._velocity_protection_body:set_is_sensor(not (player_side == self._sidedness and is_on_segment))
+
+        if self._body:get_type() == b2.BodyType.STATIC then
+            self._velocity_protection_body:set_is_enabled(player_side == self._sidedness and is_on_segment)
+        else
+            self._velocity_protection_body:set_is_sensor(not (player_side == self._sidedness and is_on_segment))
+        end
     end
 end
 

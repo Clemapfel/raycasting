@@ -257,7 +257,7 @@ function ow.BoostField:draw_bloom()
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
-    love.graphics.translate(-self._draw_offset_x + offset_x, -self._draw_offset_y + offset_y)
+    love.graphics.translate(offset_x, offset_y)
     love.graphics.translate(self._body:get_position())
 
     rt.Palette.WHITE:bind()

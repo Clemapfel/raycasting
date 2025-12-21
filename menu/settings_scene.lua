@@ -513,8 +513,13 @@ function mn.SettingsScene:instantiate()
     self._scroll_active = false
     self._scroll_direction = nil
 
+    self._mouse_input_active = false
+    self._mouse_x, self._mouse_y = -math.huge, -math.huge
+
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
+        self._mouse_input_active = false
+
         self._scale_active = false
         if which == rt.InputAction.UP then
             self:_start_scroll(rt.Direction.UP)
@@ -555,6 +560,8 @@ function mn.SettingsScene:instantiate()
     end)
 
     self._input:signal_connect("released", function(_, which)
+        self._mouse_input_active = false
+
         if which == rt.InputAction.LEFT or which == rt.InputAction.RIGHT then
             self._scale_active = false
         elseif which == rt.InputAction.UP or which == rt.InputAction.DOWN then
@@ -565,6 +572,8 @@ function mn.SettingsScene:instantiate()
     end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
+        self._mouse_input_active = false
+
         if y < 0 then
             self:_start_scroll(rt.Direction.UP)
         elseif y > 0 then
@@ -679,13 +688,14 @@ function mn.SettingsScene:enter()
     self._input:activate()
     rt.SceneManager:set_use_fixed_timestep(false)
     self._list:set_selected_item(1)
-
+    rt.SceneManager:set_is_cursor_visible(true)
     rt.MusicManager:play(rt.MusicIDs.settings_scene)
 end
 
 --- @brief
 function mn.SettingsScene:exit()
     self._input:deactivate()
+    rt.SceneManager:set_is_cursor_visible(false)
     rt.MusicManager:pause(rt.MusicIDs.settings_scene)
 end
 
@@ -728,6 +738,12 @@ function mn.SettingsScene:update(delta)
         end
 
         self._scroll_elapsed = self._scroll_elapsed + delta
+    end
+
+    if self._mouse_input_active then
+        self._list:set_selected_item_from_cursor_position(
+            self._mouse_x, self._mouse_y
+        )
     end
 end
 

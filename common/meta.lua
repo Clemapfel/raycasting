@@ -614,7 +614,9 @@ end
 --- @brief
 function meta.install(instance, values)
     for key, value in pairs(values) do
-        instance[key] = value
+        if instance[key] == nil then
+            instance[key] = value
+        end
     end
     return instance
 end
