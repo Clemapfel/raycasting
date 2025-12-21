@@ -414,9 +414,22 @@ function mn.CoinParticleSwarm:create_from_state()
     self._particles = {}
 
     local add = function(x, y, hue, quad)
+        local hx, hy
+        if rt.random.toss_coin() then
+            hx = rt.random.number(-2, -1)
+        else
+            hx = rt.random.number(1, 2)
+        end
+
+        if rt.random.toss_coin() then
+            hy = rt.random.number(-2, -1)
+        else
+            hy = rt.random.number(1, 2)
+        end
+
         table.insert(self._particles, {
-            x = x,
-            y = y,
+            x = x + hx * love.graphics.getWidth(),
+            y = y + hy * love.graphics.getHeight(),
             velocity_x = self._target_velocity_x,
             velocity_y = self._target_velocity_y,
             hue = hue,
@@ -476,6 +489,8 @@ end
 -- Main XPBD Update
 -- ==========================
 function mn.CoinParticleSwarm:update(delta)
+    if not love.keyboard.isDown("r") then return end
+
     local particles = self._particles
     if not particles or #particles == 0 then return end
 
@@ -655,7 +670,7 @@ function mn.CoinParticleSwarm:draw()
 
     local player_x = self._target_x
     local player_y = self._target_y
-    love.graphics.circle("fill", player_x, player_y, 2)
+    love.graphics.circle("line", player_x, player_y, rt.settings.player.radius)
 end
 
 --- @brief

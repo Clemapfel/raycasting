@@ -40,7 +40,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    rt.SceneManager:push(ow.OverworldScene, "one_way_platform_tutorial", false)
+    --rt.SceneManager:push(ow.OverworldScene, "one_way_platform_tutorial", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -49,7 +49,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    --rt.SceneManager:push(mn.MenuScene, true) -- skip title
+    rt.SceneManager:push(mn.MenuScene, true) -- skip title
 end
 
 love.update = function(delta)

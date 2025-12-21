@@ -24,12 +24,16 @@ end
 
 --- @param value Number
 function rt.Matrix:set(x, y, value)
-    if not self._data[x] then
+    if self._data[x] == nil then
         self._data[x] = {}
     end
 
     self._data[x][y] = value
-    self._index_range_update_needed = true
+
+    if x < self._min_x then self._min_x = x end
+    if x > self._max_x then self._max_x = x end
+    if y < self._min_y then self._min_y = y end
+    if y > self._max_y then self._max_y = y end
 end
 
 --- @return (Number, Number, Number, Number) min_x, min_y, max_x, max_y

@@ -1209,14 +1209,9 @@ function rt.Player:update(delta)
                 net_friction_x = net_friction_x + tangent_x * friction_force
                 net_friction_y = net_friction_y + tangent_y * friction_force
 
-                -- measure distance between outer shell and contact point
                 local px, py = self._body:get_position()
                 local dx, dy = math.normalize(math.subtract(px, py, contact_x, contact_x))
-                local cx, cy = px + dx * self._radius, py + dy * self._radius
-                local penetration = math.min(1, math.distance(cx, cy, contact_x, contact_y) / ray_length)
-
-                -- apply magnet force inversely proportional to penetration distance
-                penetration = 1 - penetration
+                local penetration = math.min(1, math.distance(px, py, contact_x, contact_y) / self._radius)
                 net_friction_x = net_friction_x + normal_x * friction_force * penetration
                 net_friction_y = net_friction_y + normal_y * friction_force * penetration
             end
