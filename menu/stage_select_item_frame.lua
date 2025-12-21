@@ -553,10 +553,11 @@ function mn.StageSelectItemframe:draw()
 
     love.graphics.pop()
 
-    local stencil = rt.graphics.get_stencil_value()
+    local stencil = 254
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
 
     _stencil_shader:bind()
+    love.graphics.setColor(1, 1, 1, 1)
     self._canvas:draw(self._canvas_x, self._canvas_y)
     _stencil_shader:unbind()
 
@@ -603,6 +604,7 @@ function mn.StageSelectItemframe:draw_bloom()
     _outline_shader:bind()
     _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _outline_shader:send("hue", self._hue)
+    love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(self._canvas:get_native())
     _outline_shader:unbind()
 

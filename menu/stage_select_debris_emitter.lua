@@ -304,7 +304,7 @@ function mn.StageSelectDebrisEmitter:update(delta)
     end
 end
 
-function mn.StageSelectDebrisEmitter:draw()
+function mn.StageSelectDebrisEmitter:draw_below_player()
     local interpolation = rt.SceneManager:get_frame_interpolation()
 
     love.graphics.push()
@@ -374,7 +374,7 @@ function mn.StageSelectDebrisEmitter:draw()
 end
 
 --- @brief
-function mn.StageSelectDebrisEmitter:draw_above()
+function mn.StageSelectDebrisEmitter:draw_above_player()
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
     local time = rt.settings.menu.stage_select_debris_emitter.collision_duration

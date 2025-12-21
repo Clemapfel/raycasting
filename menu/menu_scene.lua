@@ -196,6 +196,7 @@ function mn.MenuScene:instantiate(state)
                 self._fade:signal_connect("hidden", function()
                     stage_select.debris_emitter:reset()
                     stage_select.debris_emitter_initialized = false
+                    stage_select.coin_particle_swarm:reset()
                     self:_set_state(mn.MenuSceneState.TITLE_SCREEN)
                     self._shader_fraction = 0
                     self._background:set_fraction(0)
@@ -233,6 +234,9 @@ function mn.MenuScene:instantiate(state)
         stage_select.debris_emitter = mn.StageSelectDebrisEmitter()
         stage_select.clouds = mn.StageSelectClouds()
         stage_select.coin_particle_swarm = mn.CoinParticleSwarm()
+        stage_select.coin_particle_swarm:set_target(self._camera:world_xy_to_screen_xy(self._player:get_position()))
+        stage_select.coin_particle_swarm:reset()
+
         stage_select.exit_fade = rt.Fade(3, "overworld/overworld_scene_fade.glsl")
         stage_select.debris_emitter_initialized = false
 
@@ -555,7 +559,6 @@ function mn.MenuScene:_set_state(next)
         self._player:set_is_bubble(true)
         self._title_screen.opacity_fade_animation:reset()
         self._stage_select.item_reveal_animation:reset()
-
         return
     end
 
@@ -699,12 +702,6 @@ function mn.MenuScene:update(delta)
 
         stage_select.clouds:set_opacity(self._player:get_flow())
         stage_select.clouds:update(delta)
-        stage_select.coin_particle_swarm:update(delta)
-
-        stage_select.coin_particle_swarm:set_target(
-            px, py,
-            self._player:get_velocity()
-        )
 
         if offset_fraction > 0.95 then
             stage_select.debris_emitter:update(delta)
@@ -775,6 +772,33 @@ function mn.MenuScene:update(delta)
 
     self._background:set_fraction(self._shader_fraction)
 
+    do -- swarm
+        local swarm = self._stage_select.coin_particle_swarm
+        local screen_px, screen_py = self._camera:world_xy_to_screen_xy(self._player:get_position())
+        screen_py = screen_py - 4 * self._player:get_radius()
+
+        if self._state == mn.MenuSceneState.EXITING then
+            -- on exit: move towards bottom of the screen
+            swarm:set_target(screen_px, 2 * self._bounds.height)
+            swarm:set_mode(mn.CoinParticleSwarmMode.DISPERSE)
+        elseif self._state == mn.MenuSceneState.FALLING then
+            -- transition: enter from the top towards circle position
+            swarm:set_target(
+                screen_px - 0.5 * self._stage_select.player_alignment,
+                screen_py
+            )
+            swarm:set_mode(mn.CoinParticleSwarmMode.FOLLOW)
+        elseif self._state == mn.MenuSceneState.STAGE_SELECT then
+            -- stage select: circle
+            swarm:set_target(screen_px, screen_py)
+            swarm:set_mode(mn.CoinParticleSwarmMode.CIRCLE)
+        end
+    end
+
+    if self._state ~= mn.MenuSceneState.TITLE_SCREEN then
+        self._stage_select.coin_particle_swarm:update(delta)
+    end
+
     self._player:update(delta)
     self._world:update(delta)
     self._camera:update(delta)
@@ -790,17 +814,17 @@ function mn.MenuScene:draw()
         return
     end
 
-    -- draw background
     self._background:draw()
 
-    local bloom_updated = false
+    local title_screen = self._title_screen
+    local stage_select = self._stage_select
 
-    -- title screen
-    if self._state == mn.MenuSceneState.TITLE_SCREEN or self._state == mn.MenuSceneState.FALLING then
-        local title_screen = self._title_screen
-
-        -- draw title
+    if self._state == mn.MenuSceneState.TITLE_SCREEN
+        or self._state == mn.MenuSceneState.FALLING
+    then
+        -- title text
         love.graphics.push("all")
+
         love.graphics.translate(self._camera:get_offset())
         _title_shader_sdf:bind()
         _title_shader_sdf:send("elapsed", self._shader_elapsed)
@@ -821,7 +845,7 @@ function mn.MenuScene:draw()
         love.graphics.draw(title_screen.title_label_no_sdf, title_screen.title_x, title_screen.title_y)
         _title_shader_no_sdf:unbind()
 
-        -- draw menu
+        -- menu
         for i, item in ipairs(title_screen.menu_items) do
             if i == title_screen.selected_item_i then
                 item.selected_label:draw()
@@ -830,8 +854,9 @@ function mn.MenuScene:draw()
             end
         end
 
-        title_screen.control_indicator:draw()
-        love.graphics.pop()
+        self._camera:bind()
+        self._player:draw()
+        self._camera:unbind()
 
         if rt.GameState:get_is_bloom_enabled() then
             local bloom = rt.SceneManager:get_bloom()
@@ -851,65 +876,54 @@ function mn.MenuScene:draw()
             love.graphics.pop()
 
             bloom:unbind()
-            bloom_updated = true
+            bloom:composite()
         end
-    end
 
-    if self._state == mn.MenuSceneState.FALLING or self._state == mn.MenuSceneState.STAGE_SELECT or self._state == mn.MenuSceneState.EXITING then
-        local stage_select = self._stage_select
-        stage_select.debris_emitter:draw()
-        stage_select.clouds:draw()
-
-        love.graphics.push()
-        local offset_x = stage_select.item_reveal_animation:get_value()
-        love.graphics.translate(offset_x * stage_select.reveal_width, 0)
-
-        stage_select.item_frame:draw()
-        stage_select.page_indicator:draw()
-        stage_select.control_indicator:draw()
+        title_screen.control_indicator:draw()
 
         love.graphics.pop()
+    end
 
-        if not bloom_updated and rt.GameState:get_is_bloom_enabled() then
+    if self._state == mn.MenuSceneState.STAGE_SELECT
+        or self._state == mn.MenuSceneState.EXITING
+        or self._state == mn.MenuSceneState.FALLING
+    then
+        stage_select.debris_emitter:draw_below_player()
+        self._stage_select.coin_particle_swarm:draw_below_player()
+
+        self._camera:bind()
+        self._player:draw()
+        self._camera:unbind()
+
+        stage_select.coin_particle_swarm:draw_above_player()
+        stage_select.debris_emitter:draw_above_player()
+
+        if rt.GameState:get_is_bloom_enabled() then
             local bloom = rt.SceneManager:get_bloom()
-
             bloom:bind()
-            love.graphics.clear()
-
-            local stencil_value = rt.graphics.get_stencil_value()
-            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-            stage_select.page_indicator:draw()
-            stage_select.item_frame:draw_mask()
-
-            rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.EQUAL)
-
-            stage_select.debris_emitter:draw()
-
-            rt.graphics.set_stencil_mode(nil)
-
-            love.graphics.push()
-            love.graphics.translate(offset_x * stage_select.reveal_width, 0)
-            stage_select.item_frame:draw_bloom()
-            stage_select.page_indicator:draw_bloom()
-            love.graphics.pop()
+            love.graphics.clear(0, 0, 0, 0)
 
             self._camera:bind()
             self._player:draw_bloom()
             self._camera:unbind()
 
             bloom:unbind()
+            bloom:composite()
         end
-    end
 
-    self._camera:bind()
-    self._player:draw()
-    self._stage_select.coin_particle_swarm:draw()
-    self._camera:unbind()
+        local offset_x = stage_select.item_reveal_animation:get_value()
+        love.graphics.push()
+        love.graphics.translate(offset_x * stage_select.reveal_width, 0)
+        stage_select.item_frame:draw()
+        stage_select.page_indicator:draw()
+        love.graphics.pop()
 
-    self._stage_select.debris_emitter:draw_above()
+        stage_select.clouds:draw()
 
-    if rt.GameState:get_is_bloom_enabled() then
-        rt.SceneManager:get_bloom():composite(rt.settings.menu_scene.bloom_composite)
+        love.graphics.push()
+        love.graphics.translate(2 * offset_x * stage_select.reveal_width, 0)
+        stage_select.control_indicator:draw()
+        love.graphics.pop()
     end
 
     self._stage_select.exit_fade:draw()

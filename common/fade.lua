@@ -108,6 +108,12 @@ function rt.Fade:update(delta)
     if self._started then
         self._elapsed = self._elapsed + delta
     end
+
+    if self._queue_emit then
+        self:signal_emit("hidden")
+        self._signal_emitted = true
+        self._queue_emit = false
+    end
 end
 
 --- @brief
@@ -132,12 +138,6 @@ function rt.Fade:draw()
         love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
         self._shader:unbind()
         love.graphics.pop()
-    end
-
-    if self._queue_emit then
-        self:signal_emit("hidden")
-        self._signal_emitted = true
-        self._queue_emit = false
     end
 end
 
