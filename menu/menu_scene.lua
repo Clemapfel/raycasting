@@ -684,6 +684,7 @@ function mn.MenuScene:update(delta)
         local shake_t = vy / max_velocity * speedup
         self._camera:set_shake_frequency(shake_t)
         self._camera:set_shake_intensity_in_pixels(math.min(1, shake_t) * 1)
+        self._stage_select.coin_particle_swarm:set_speedup(speedup)
 
         -- transition player to left side of screen
         local offset_fraction = rt.InterpolationFunctions.SINUSOID_EASE_IN_OUT(self._shader_fraction)
@@ -889,13 +890,16 @@ function mn.MenuScene:draw()
         or self._state == mn.MenuSceneState.FALLING
     then
         stage_select.debris_emitter:draw_below_player()
-        self._stage_select.coin_particle_swarm:draw_below_player()
+
+        local camera_bounds = self._camera:get_world_bounds()
+        stage_select.coin_particle_swarm:set_offset(camera_bounds.x, camera_bounds.y)
 
         self._camera:bind()
+        stage_select.coin_particle_swarm:draw_below_player()
         self._player:draw()
+        stage_select.coin_particle_swarm:draw_above_player()
         self._camera:unbind()
 
-        stage_select.coin_particle_swarm:draw_above_player()
         stage_select.debris_emitter:draw_above_player()
 
         if rt.GameState:get_is_bloom_enabled() then

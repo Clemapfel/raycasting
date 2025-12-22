@@ -26,6 +26,9 @@ mn.CoinParticleSwarmMode = meta.enum("CoinParticleSwarmMode", {
 --- @brief
 function mn.CoinParticleSwarm:instantiate()
     self._target_x, self._target_y = 0, 0
+    self._offset_x, self._offset_y = 0, 0
+    self._speedup = 1
+
     self._spatial_hash = rt.Matrix()
     self._spatial_hash_cell_size = rt.settings.overworld.coin.radius * 2
 
@@ -279,7 +282,7 @@ function mn.CoinParticleSwarm:update(delta)
 
     local elapsed = rt.SceneManager:get_elapsed()
     local home_x_offset = settings.circle_width_radius_factor * rt.settings.player.radius
-    local max_home_velocity = settings.max_home_velocity
+    local max_home_velocity = settings.max_home_velocity * self._speedup
 
     require "table.clear"
     table.clear(self._above_player)
@@ -403,7 +406,7 @@ function mn.CoinParticleSwarm:_draw_particle(particle, native, scale)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(
         native, particle.quad,
-        particle.x, particle.y,
+        particle.x + self._offset_x, particle.y + self._offset_y,
         0,
         scale, scale,
         0.5 * w, 0.5 * h
@@ -445,4 +448,14 @@ function mn.CoinParticleSwarm:reset()
         particle.velocity_y = 0
         particle.home_offset = particle.home_offset_initial
     end
+end
+
+--- @brief
+function mn.CoinParticleSwarm:set_offset(x, y)
+    self._offset_x, self._offset_y = x, y
+end
+
+--- @brief
+function mn.CoinParticleSwarm:set_speedup(speedup)
+    self._speedup = speedup
 end
