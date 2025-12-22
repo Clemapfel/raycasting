@@ -147,7 +147,7 @@
   <object id="162" name="To" type="OneWayPlatformNode" x="-816" y="-544">
    <point/>
   </object>
-  <object id="163" name="Spawn" type="PlayerSpawn" x="793.206" y="2298.99">
+  <object id="163" name="Spawn" type="PlayerSpawn" x="776.696" y="2389.79">
    <point/>
   </object>
   <object id="169" name="From" type="OneWayPlatform" x="-816" y="-560">

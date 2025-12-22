@@ -38,8 +38,6 @@ do
 
         exempt_collision_group = b2.CollisionGroup.GROUP_11,
 
-        ground_target_velocity_x = 300,
-        air_target_velocity_x = 320,
         sprint_multiplier = 2,
         accelerator_friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
         bubble_accelerator_friction_coefficient = 1.5,
@@ -110,7 +108,7 @@ do
         down_button_friction_release_duration = 10 / 60, -- s
 
         platform_velocity_decay = 0.98,
-        max_velocity = 2500,
+        max_velocity = math.huge, -- 2500
 
         squeeze_multiplier = 1.4,
 
@@ -246,9 +244,6 @@ function rt.Player:instantiate()
 
         _last_velocity_x = 0,
         _last_velocity_y = 0,
-
-        _velocity_multiplier_x = 1,
-        _velocity_multiplier_y = 1,
 
         _last_bubble_force_x = 0,
         _last_bubble_force_y = 0,
@@ -1039,100 +1034,69 @@ function rt.Player:update(delta)
             self._sprint_multiplier = self._next_sprint_multiplier
         end
 
-        local next_velocity_x, next_velocity_y = 0, 0
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
+        local next_velocity_x, next_velocity_y = current_velocity_x, current_velocity_y
 
         current_velocity_x = current_velocity_x - self._platform_velocity_x
         current_velocity_y = current_velocity_y - self._platform_velocity_y
 
-        -- update velocity
-        local acceleration_t = 0
-        do
-            -- horizontal movement
-            local input_magnitude
-            if use_analog_input then
-                input_magnitude = self._joystick_position_x
+        -- x velocity update
+        local input_magnitude
+        if use_analog_input then
+            input_magnitude = self._joystick_position_x
+        else
+            if self._left_button_is_down and not self._right_button_is_down then
+                input_magnitude = -1
+            elseif self._right_button_is_down and not self._left_button_is_down then
+                input_magnitude = 1
             else
-                if self._left_button_is_down and not self._right_button_is_down then
-                    input_magnitude = -1
-                elseif self._right_button_is_down and not self._left_button_is_down then
-                    input_magnitude = 1
-                else
-                    input_magnitude = 0
-                end
+                input_magnitude = 0
             end
+        end
 
-            local target
-            if not (self._bottom_left_wall or self._bottom_wall or self._left_wall) then
-                target = _settings.air_target_velocity_x
+        local sprint_multiplier = self._sprint_multiplier
+        local target_velocity_x = input_magnitude * sprint_multiplier * _settings.target_velocity_x
+
+        if input_magnitude ~= 0 then
+            local velocity_delta = target_velocity_x - current_velocity_x
+            local is_accelerating = (math.sign(target_velocity_x) == math.sign(current_velocity_x)) and
+                (math.abs(target_velocity_x) > math.abs(current_velocity_x))
+
+            local acceleration_duration
+            if is_grounded then
+                acceleration_duration = ternary(is_accelerating,
+                    _settings.ground_acceleration_duration,
+                    _settings.ground_deceleration_duration
+                )
             else
-                target = _settings.ground_target_velocity_x
+                acceleration_duration = ternary(is_accelerating,
+                    _settings.air_acceleration_duration,
+                    _settings.air_deceleration_duration
+                )
             end
 
-            local sprint_multiplier = self._sprint_multiplier
-            local target_velocity_x = input_magnitude * target * sprint_multiplier
-
-            current_velocity_x = current_velocity_x / self._velocity_multiplier_x
-            current_velocity_y = current_velocity_y / self._velocity_multiplier_y
-
-            local is_accelerating = (target_velocity_x > 0 and current_velocity_x > 0 and target_velocity_x > current_velocity_x) or
-                (target_velocity_x < 0 and current_velocity_x < 0 and target_velocity_x < current_velocity_x) or
-                (target_velocity_x < 0 and current_velocity_x > 0 or target_velocity_x > 0 and current_velocity_y < 0)
-
-            local duration
-            local ground_deceleration = _settings.ground_deceleration_duration
-
-            if is_accelerating then
-                duration = self._bottom_wall and _settings.ground_acceleration_duration or _settings.air_acceleration_duration
-            else
-                duration = self._bottom_wall and ground_deceleration or _settings.air_deceleration_duration
-            end
-
-            -- if ducking, slide freely
-            if not is_accelerating
-                and is_grounded
-                and not (self._bottom_left_wall and self._bottom_left_wall_body:has_tag("use_friction"))
-                and not (self._bottom_wall and self._bottom_wall_body:has_tag("use_friction"))
-                and not (self._bottom_right_wall and self._bottom_right_wall_body:has_tag("use_friction"))
-                and (down_is_down and not (left_is_down or right_is_down))
-            then
-                duration = 0
-            end
-
-            duration = duration / time_dilation
-
-            -- acceleration
-            if duration == 0  then
+            if acceleration_duration == 0 then
                 next_velocity_x = target_velocity_x
             else
-                local velocity_delta = target_velocity_x - current_velocity_x
-
-                -- do not apply velocity decrease if mid air and holding no direction
-                local is_decelerating = (not right_is_down and next_velocity_x < 0 and velocity_delta > 0)
-                    or (not left_is_down and next_velocity_x > 0 and velocity_delta < 0)
-
-                if not (not is_grounded and is_decelerating) then
-                    next_velocity_x = current_velocity_x + (velocity_delta / duration) * delta
-                end
+                local acceleration_rate = math.abs(target_velocity_x) / acceleration_duration
+                local velocity_step = acceleration_rate * delta
+                next_velocity_x = current_velocity_x + math.clamp(velocity_delta, -velocity_step, velocity_step)
             end
+        else
+            local decay_duration = ternary(is_grounded,
+                _settings.ground_decay_duration,
+                _settings.air_decay_duration
+            )
 
+            next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration)
+        end
 
-            -- air resistance
-            if not is_grounded
-                and not self._left_wall
-                and not self._right_wall
-            then
-                local air_resistance_factor = 1 - _settings.air_resistance
-                next_velocity_x = next_velocity_x * air_resistance_factor
-                next_velocity_y = next_velocity_y * air_resistance_factor
-            end
+        -- override on disable
+        if self._movement_disabled then next_velocity_x = 0 end
 
-            -- override on disable
-            if self._movement_disabled then next_velocity_x = 0 end
-
-            -- wall friction
-            local net_friction_x, net_friction_y = 0, 0
-
+        -- wall friction
+        local net_friction_x, net_friction_y = 0, 0
+        do
             -- use average velocity instead of current for friction stability
             local average_vx, average_vy = 0, 0
             local max_magnitude = -math.huge
@@ -1320,337 +1284,334 @@ function rt.Player:update(delta)
             elseif current_velocity_y < 0 then
                 net_friction_y = math.max(net_friction_y, 0)
             end
+        end -- wall friction
 
-            -- vertical movement
-            next_velocity_y = current_velocity_y
+        -- vertical movement
+        next_velocity_y = current_velocity_y
 
-            if is_grounded then
-                self._jump_blocked = false
+        if is_grounded then
+            self._jump_blocked = false
+        end
+
+        if is_grounded or (left_before == true and self._left_wall == false) then
+            self._left_wall_jump_blocked = false
+        end
+
+        if is_grounded or (right_before == true and self._right_wall == false) then
+            self._right_wall_jump_blocked = false
+        end
+
+        -- buffered jump
+        if self._queue_jump_duration < _settings.jump_buffer_duration then
+            if self:jump() == true then
+                self._queue_jump_duration = math.huge
             end
+        end
+        self._queue_jump_duration = self._queue_jump_duration + delta
 
-            if is_grounded or (left_before == true and self._left_wall == false) then
-                self._left_wall_jump_blocked = false
+        -- prevent horizontal movement after walljump
+        if self._wall_jump_freeze_elapsed / time_dilation < _settings.wall_jump_freeze_duration
+            and math.sign(target_velocity_x) == self._wall_jump_freeze_sign
+        then
+            next_velocity_x = current_velocity_x
+        end
+
+        local should_apply_friction = true
+        local is_jumping = false
+
+        if self._jump_elapsed < _settings.jump_duration then
+            -- regular jump
+            if self._jump_button_is_down then
+                next_velocity_y = -1 * time_dilation * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
+                is_jumping = true
             end
+        elseif self._wall_jump_elapsed < _settings.wall_jump_duration then
+            -- wall jump: initial burst, then small sustain
+            if self._wall_jump_elapsed == 0 then
+                local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
 
-            if is_grounded or (right_before == true and self._right_wall == false) then
-                self._right_wall_jump_blocked = false
-            end
+                if self._right_wall then dx = dx * -1 end
+                local burst = _settings.wall_jump_initial_impulse + gravity
+                next_velocity_x, next_velocity_y = dx * burst, dy * burst
 
-            -- buffered jump
-            if self._queue_jump_duration < _settings.jump_buffer_duration then
-                if self:jump() == true then
-                    self._queue_jump_duration = math.huge
+                self._wall_jump_freeze_elapsed = 0
+
+                if self._left_wall then
+                    self._wall_jump_freeze_sign = -1
+                elseif self._right_wall then
+                    self._wall_jump_freeze_sign =  1
                 end
+
+                should_apply_friction = false
+                is_jumping = true
+            elseif self._jump_button_is_down then
+                -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
+                local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
+
+                if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
+                local force = _settings.wall_jump_sustained_impulse * delta + gravity
+                next_velocity_x = next_velocity_x + dx * force * time_dilation
+                next_velocity_y = next_velocity_y + dy * force * time_dilation
+
+                is_jumping = true
             end
-            self._queue_jump_duration = self._queue_jump_duration + delta
+        end
 
-            -- prevent horizontal movement after walljump
-            if self._wall_jump_freeze_elapsed / time_dilation < _settings.wall_jump_freeze_duration
-                and math.sign(target_velocity_x) == self._wall_jump_freeze_sign
-            then
-                next_velocity_x = current_velocity_x
+        self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+        self._jump_elapsed = self._jump_elapsed + delta
+        self._wall_jump_elapsed = self._wall_jump_elapsed + delta
+        self._coyote_elapsed = self._coyote_elapsed + delta
+
+        if is_grounded then
+            self._coyote_elapsed = 0
+
+            -- when touching ground, reset all jump states
+            if was_grounded == false then
+                self._wall_jump_elapsed = math.huge
+                self._wall_jump_freeze_elapsed = math.huge
+                self._jump_elapsed = math.huge
+            end
+        end
+
+        -- bounce
+        local fraction = time_dilation * self._bounce_elapsed / _settings.bounce_duration
+        if fraction <= 1 then
+            if _settings.bounce_duration == 0 then
+                next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force * time_dilation
+                next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force * time_dilation
+            else
+                local bounce_force = (1 - fraction) * self._bounce_force
+                next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force * time_dilation
+                next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force * time_dilation
+            end
+        else
+            self._bounce_force = 0
+        end
+        self._bounce_elapsed = self._bounce_elapsed + delta
+
+        -- accelerators
+        for surface in range(
+            { left_wall_body, left_nx, left_ny },
+            { top_wall_body, top_nx, top_ny },
+            { right_wall_body, right_nx, right_ny },
+            { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
+            { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
+            { bottom_wall_body, bottom_nx, bottom_ny }
+        ) do
+            local body, nx, ny = table.unpack(surface)
+            if body ~= nil and (body:has_tag("use_friction") or body:get_friction() < 0) then
+                local friction = body:get_friction()
+
+                local tx, ty = math.turn_left(nx, ny)
+                local vx, vy = next_velocity_x, next_velocity_y
+                local dot_product = vx * tx + vy * ty
+
+                local tangent_velocity_x = dot_product * tx
+                local tangent_velocity_y = dot_product * ty
+
+                local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
+                local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
+
+                -- apply tangential force
+                next_velocity_x = next_velocity_x + time_dilation * friction_force_x * delta
+                next_velocity_y = next_velocity_y + time_dilation * friction_force_y * delta
+
+                -- magnetize to surface
+                local flipped_x, flipped_y = math.flip(nx, ny)
+                next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
+                next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
+
+                should_apply_friction = false
             end
 
-            local should_apply_friction = true
-            local is_jumping = false
+            local accelerator_max_velocity = time_dilation * _settings.accelerator_max_velocity
+            if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
+                next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
+                next_velocity_x = next_velocity_x * accelerator_max_velocity
+                next_velocity_y = next_velocity_y * accelerator_max_velocity
+            end
+        end
 
-            if self._jump_elapsed < _settings.jump_duration then
-                -- regular jump
-                if self._jump_button_is_down then
-                    next_velocity_y = -1 * time_dilation * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
-                    is_jumping = true
+        -- downwards force
+        if not self._movement_disabled
+            and down_is_down
+            and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
+            -- exclude wall clinging, handled by explicit friction release in apply_friction
+        then
+            next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta
+            next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta
+        end
+
+        local is_touching_platform = false
+        do -- inherit platform velocity
+            local velocity_x, velocity_y, n = 0, 0, 0
+            local min_magnitude = 0
+
+            local chosen_body = nil
+            if down_is_down then
+                for first in range( -- automatically skips nils
+                    self._bottom_wall_body,
+                    self._bottom_left_wall_body,
+                    self._bottom_right_wall_body
+                ) do
+                    chosen_body = first
+                    break
                 end
-            elseif self._wall_jump_elapsed < _settings.wall_jump_duration then
-                -- wall jump: initial burst, then small sustain
-                if self._wall_jump_elapsed == 0 then
-                    local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
-
-                    if self._right_wall then dx = dx * -1 end
-                    local burst = _settings.wall_jump_initial_impulse + gravity
-                    next_velocity_x, next_velocity_y = dx * burst, dy * burst
-
-                    self._wall_jump_freeze_elapsed = 0
-
-                    if self._left_wall then
-                        self._wall_jump_freeze_sign = -1
-                    elseif self._right_wall then
-                        self._wall_jump_freeze_sign =  1
-                    end
-
-                    should_apply_friction = false
-                    is_jumping = true
-                elseif self._jump_button_is_down then
-                    -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
-                    local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
-
-                    if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
-                    local force = _settings.wall_jump_sustained_impulse * delta + gravity
-                    next_velocity_x = next_velocity_x + dx * force * time_dilation
-                    next_velocity_y = next_velocity_y + dy * force * time_dilation
-
-                    is_jumping = true
+            elseif left_is_down and self._left_wall_body then
+                for first in range(
+                    self._left_wall_body,
+                    self._bottom_left_wall_body,
+                    self._bottom_wall_body,
+                    self._bottom_right_wall_body
+                ) do
+                    chosen_body = first
+                    break
                 end
-            end
-
-            self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
-            self._jump_elapsed = self._jump_elapsed + delta
-            self._wall_jump_elapsed = self._wall_jump_elapsed + delta
-            self._coyote_elapsed = self._coyote_elapsed + delta
-
-            if is_grounded then
-                self._coyote_elapsed = 0
-
-                -- when touching ground, reset all jump states
-                if was_grounded == false then
-                    self._wall_jump_elapsed = math.huge
-                    self._wall_jump_freeze_elapsed = math.huge
-                    self._jump_elapsed = math.huge
-                end
-            end
-
-            -- bounce
-            local fraction = time_dilation * self._bounce_elapsed / _settings.bounce_duration
-            if fraction <= 1 then
-                if _settings.bounce_duration == 0 then
-                    next_velocity_x = next_velocity_x + self._bounce_direction_x * self._bounce_force * time_dilation
-                    next_velocity_y = next_velocity_y + self._bounce_direction_y * self._bounce_force * time_dilation
-                else
-                    local bounce_force = (1 - fraction) * self._bounce_force
-                    next_velocity_x = next_velocity_x + self._bounce_direction_x * bounce_force * time_dilation
-                    next_velocity_y = next_velocity_y + self._bounce_direction_y * bounce_force * time_dilation
+            elseif right_is_down and self.right_wall_body then
+                for first in range(
+                    self._right_wall_body,
+                    self._bottom_left_wall_body,
+                    self._bottom_wall_body,
+                    self._bottom_right_wall_body
+                ) do
+                    chosen_body = first
+                    break
                 end
             else
-                self._bounce_force = 0
-            end
-            self._bounce_elapsed = self._bounce_elapsed + delta
+                for body in range( -- priority queue
+                    self._left_wall_body,
+                    self._right_wall_body,
 
-            -- accelerators
-            for surface in range(
-                { left_wall_body, left_nx, left_ny },
-                { top_wall_body, top_nx, top_ny },
-                { right_wall_body, right_nx, right_ny },
-                { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
-                { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
-                { bottom_wall_body, bottom_nx, bottom_ny }
-            ) do
-                local body, nx, ny = table.unpack(surface)
-                if body ~= nil and (body:has_tag("use_friction") or body:get_friction() < 0) then
-                    local friction = body:get_friction()
-
-                    local tx, ty = math.turn_left(nx, ny)
-                    local vx, vy = next_velocity_x, next_velocity_y
-                    local dot_product = vx * tx + vy * ty
-
-                    local tangent_velocity_x = dot_product * tx
-                    local tangent_velocity_y = dot_product * ty
-
-                    local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
-                    local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
-
-                    -- apply tangential force
-                    next_velocity_x = next_velocity_x + time_dilation * friction_force_x * delta
-                    next_velocity_y = next_velocity_y + time_dilation * friction_force_y * delta
-
-                    -- magnetize to surface
-                    local flipped_x, flipped_y = math.flip(nx, ny)
-                    next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
-                    next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
-
-                    should_apply_friction = false
-                end
-
-                local accelerator_max_velocity = time_dilation * _settings.accelerator_max_velocity
-                if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
-                    next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
-                    next_velocity_x = next_velocity_x * accelerator_max_velocity
-                    next_velocity_y = next_velocity_y * accelerator_max_velocity
-                end
-            end
-
-            -- downwards force
-            if not self._movement_disabled
-                and down_is_down
-                and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
-                -- exclude wall clinging, handled by explicit friction release in apply_friction
-            then
-                next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta
-                next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta
-            end
-
-            local is_touching_platform = false
-            do -- inherit platform velocity
-                local velocity_x, velocity_y, n = 0, 0, 0
-                local min_magnitude = 0
-
-                local chosen_body = nil
-                if down_is_down then
-                    for first in range( -- automatically skips nils
-                        self._bottom_wall_body,
-                        self._bottom_left_wall_body,
-                        self._bottom_right_wall_body
-                    ) do
-                        chosen_body = first
-                        break
-                    end
-                elseif left_is_down and self._left_wall_body then
-                    for first in range(
-                        self._left_wall_body,
-                        self._bottom_left_wall_body,
-                        self._bottom_wall_body,
-                        self._bottom_right_wall_body
-                    ) do
-                        chosen_body = first
-                        break
-                    end
-                elseif right_is_down and self.right_wall_body then
-                    for first in range(
-                        self._right_wall_body,
-                        self._bottom_left_wall_body,
-                        self._bottom_wall_body,
-                        self._bottom_right_wall_body
-                    ) do
-                        chosen_body = first
-                        break
-                    end
-                else
-                    for body in range( -- priority queue
-                        self._left_wall_body,
-                        self._right_wall_body,
-
-                        self._bottom_wall_body,
-                        self._bottom_left_wall_body,
-                        self._bottom_right_wall_body,
-
-                        self._top_wall_body,
-                        self._top_left_wall_body,
-                        self._top_right_wall_body
-                    ) do
-                        local body_vx, body_vy = body:get_velocity()
-                        local magnitude = math.magnitude(body_vx, body_vy)
-                        if body:get_type() ~= b2.BodyType.STATIC and not body:get_is_sensor() then
-                            velocity_x, velocity_y = body_vx, body_vy
-                            min_magnitude = magnitude
-                            chosen_body = body
-                        end
-                    end
-                end
-
-                is_touching_platform = chosen_body ~= nil
-
-                if is_touching_platform then
-                    self._platform_velocity_x, self._platform_velocity_y = chosen_body:get_velocity()
-                    should_decay_platform_velocity = false
-                else
-                    should_decay_platform_velocity = true
-                    -- decay, shared after bubble logic
-                end
-            end
-
-            if is_touching_platform then
-                self._graphics_body:set_relative_velocity(self._platform_velocity_x, self._platform_velocity_y)
-            else
-                self._graphics_body:set_relative_velocity(0, 0)
-            end
-
-            self._is_touching_platform = is_touching_platform
-
-            -- friction
-            if should_apply_friction then
-                next_velocity_x = next_velocity_x + net_friction_x
-                next_velocity_y = next_velocity_y + net_friction_y
-            end
-
-            -- gravity
-            next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
-            next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
-
-            -- clamp
-            next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
-            next_velocity_y = math.min(next_velocity_y, _settings.max_velocity) -- downwards unbounded
-
-            -- componensate when going up slopes, which would slow down player in stock box2d
-            if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
-                local should_skip = false
-                for body in range(
+                    self._bottom_wall_body,
                     self._bottom_left_wall_body,
                     self._bottom_right_wall_body,
-                    self._bottom_wall_body
+
+                    self._top_wall_body,
+                    self._top_left_wall_body,
+                    self._top_right_wall_body
                 ) do
-                    if body:has_tag("use_friction") then
-                        should_skip = true
-                        break
-                    end
-                end
-
-                if not should_skip then
-                    local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
-                    if next_magnitude > math.eps then
-                        -- prefer normal in direction of movement, if available
-                        local ground_normal_x, ground_normal_y = bottom_nx, bottom_ny
-                        if next_velocity_x > 0 then
-                            if self._bottom_left_wall then
-                                ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
-                            end
-                        else
-                            if self._bottom_right_wall then
-                                ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
-                            end
-                        end
-
-                        -- compute ground tangent
-                        local ground_tangent_x, ground_tangent_y = 0, 0
-                        if next_velocity_x > 0 then
-                            ground_tangent_x, ground_tangent_y = math.turn_right(ground_normal_x, ground_normal_y)
-                        elseif next_velocity_x < 0 then
-                            ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
-                        end
-
-                        -- if going up slopes
-                        if ground_tangent_y < 0 then
-                            -- project current velocity onto the ground tangent
-                            local tangent_dot = math.dot(next_velocity_x, next_velocity_y, ground_tangent_x, ground_tangent_y)
-
-                            -- calculate gravity component along the slope (opposing movement)
-                            local gravity_along_slope = math.dot(0, gravity, ground_tangent_x, ground_tangent_y)
-
-                            next_velocity_x, next_velocity_y = math.multiply2(
-                                ground_tangent_x, ground_tangent_y, (tangent_dot - gravity_along_slope)
-                            )
-                        end
+                    local body_vx, body_vy = body:get_velocity()
+                    local magnitude = math.magnitude(body_vx, body_vy)
+                    if body:get_type() ~= b2.BodyType.STATIC and not body:get_is_sensor() then
+                        velocity_x, velocity_y = body_vx, body_vy
+                        min_magnitude = magnitude
+                        chosen_body = body
                     end
                 end
             end
 
-            -- instant turn around
-            if self._queue_turn_around == true then
-                local vx, vy = current_velocity_x, current_velocity_y
-                if self._queue_turn_around_direction == rt.Direction.RIGHT and is_grounded then
-                    next_velocity_x = math.max(math.abs(vx), _settings.instant_turnaround_velocity)
-                elseif self._queue_turn_around_direction == rt.Direction.LEFT and is_grounded then
-                    next_velocity_x = -1 * math.max(math.abs(vx), _settings.instant_turnaround_velocity)
-                elseif self._queue_turn_around_direction == rt.Direction.DOWN then -- even in air
-                    next_velocity_y = math.max(math.abs(vy), _settings.instant_turnaround_velocity)
-                end
+            is_touching_platform = chosen_body ~= nil
 
-                -- noop on rt.Direction.UP
-                self._queue_turn_around = false
+            if is_touching_platform then
+                self._platform_velocity_x, self._platform_velocity_y = chosen_body:get_velocity()
+                should_decay_platform_velocity = false
+            else
+                should_decay_platform_velocity = true
+                -- decay, shared after bubble logic
             end
-
-            next_velocity_x, next_velocity_y = _apply_damping(next_velocity_x, next_velocity_y)
-            next_velocity_x = self._platform_velocity_x + next_velocity_x * self._velocity_multiplier_x
-            next_velocity_y = self._platform_velocity_y + next_velocity_y * self._velocity_multiplier_y
-
-            self._body:set_velocity(next_velocity_x, next_velocity_y)
-            self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
         end
+
+        if is_touching_platform then
+            self._graphics_body:set_relative_velocity(self._platform_velocity_x, self._platform_velocity_y)
+        else
+            self._graphics_body:set_relative_velocity(0, 0)
+        end
+
+        self._is_touching_platform = is_touching_platform
+
+        -- friction
+        if should_apply_friction then
+            next_velocity_x = next_velocity_x + net_friction_x
+            next_velocity_y = next_velocity_y + net_friction_y
+        end
+
+        -- gravity
+        next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
+        next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
+
+        -- clamp
+        next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
+        next_velocity_y = math.min(next_velocity_y, _settings.max_velocity) -- downwards unbounded
+
+        -- componensate when going up slopes, which would slow down player in stock box2d
+        if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
+            local should_skip = false
+            for body in range(
+                self._bottom_left_wall_body,
+                self._bottom_right_wall_body,
+                self._bottom_wall_body
+            ) do
+                if body:has_tag("use_friction") then
+                    should_skip = true
+                    break
+                end
+            end
+
+            if not should_skip then
+                local next_magnitude = math.magnitude(next_velocity_x, next_velocity_y)
+                if next_magnitude > math.eps then
+                    -- prefer normal in direction of movement, if available
+                    local ground_normal_x, ground_normal_y = bottom_nx, bottom_ny
+                    if next_velocity_x > 0 then
+                        if self._bottom_left_wall then
+                            ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
+                        end
+                    else
+                        if self._bottom_right_wall then
+                            ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
+                        end
+                    end
+
+                    -- compute ground tangent
+                    local ground_tangent_x, ground_tangent_y = 0, 0
+                    if next_velocity_x > 0 then
+                        ground_tangent_x, ground_tangent_y = math.turn_right(ground_normal_x, ground_normal_y)
+                    elseif next_velocity_x < 0 then
+                        ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
+                    end
+
+                    -- if going up slopes
+                    if ground_tangent_y < 0 then
+                        -- project current velocity onto the ground tangent
+                        local tangent_dot = math.dot(next_velocity_x, next_velocity_y, ground_tangent_x, ground_tangent_y)
+
+                        -- calculate gravity component along the slope (opposing movement)
+                        local gravity_along_slope = math.dot(0, gravity, ground_tangent_x, ground_tangent_y)
+
+                        next_velocity_x, next_velocity_y = math.multiply2(
+                            ground_tangent_x, ground_tangent_y, (tangent_dot - gravity_along_slope)
+                        )
+                    end
+                end
+            end
+        end
+
+        -- instant turn around
+        if self._queue_turn_around == true then
+            local vx, vy = current_velocity_x, current_velocity_y
+            if self._queue_turn_around_direction == rt.Direction.RIGHT and is_grounded then
+                next_velocity_x = math.max(math.abs(vx), _settings.instant_turnaround_velocity)
+            elseif self._queue_turn_around_direction == rt.Direction.LEFT and is_grounded then
+                next_velocity_x = -1 * math.max(math.abs(vx), _settings.instant_turnaround_velocity)
+            elseif self._queue_turn_around_direction == rt.Direction.DOWN then -- even in air
+                next_velocity_y = math.max(math.abs(vy), _settings.instant_turnaround_velocity)
+            end
+
+            -- noop on rt.Direction.UP
+            self._queue_turn_around = false
+        end
+
+        next_velocity_x, next_velocity_y = _apply_damping(next_velocity_x, next_velocity_y)
+        next_velocity_x = self._platform_velocity_x + next_velocity_x
+        next_velocity_y = self._platform_velocity_y + next_velocity_y
+
+        self._body:set_velocity(next_velocity_x, next_velocity_y)
+        self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
 
         ::skip_velocity_update::
 
         if self._is_frozen then
-            self._body:set_velocity(
-                next_velocity_x * self._velocity_multiplier_x,
-                next_velocity_y * self._velocity_multiplier_y
-            )
+            self._body:set_velocity(next_velocity_x, next_velocity_y)
             self._last_velocity_x, self._last_velocity_y = next_velocity_x, next_velocity_y
         end
     else -- self._is_bubble == true
