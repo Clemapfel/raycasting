@@ -506,7 +506,7 @@ function mn.StageSelectItemframe:draw()
         self._canvas:bind()
         love.graphics.clear(0, 0, 0, 0)
 
-        love.graphics.push()
+        love.graphics.push("all")
         love.graphics.origin()
         love.graphics.translate(0, -1 * offset)
 
@@ -515,10 +515,10 @@ function mn.StageSelectItemframe:draw()
         for page_i in values(self:_get_active_pages()) do
             local page = self._pages[page_i]
 
+            love.graphics.setColor(1, 1, 1, 1)
             if page.mode == _MODE_HOLD then
                 page.static_mask:draw()
             else
-                love.graphics.setColor(1, 1, 1, 1)
                 love.graphics.polygon("fill", page.dynamic_mask)
             end
 
@@ -553,7 +553,7 @@ function mn.StageSelectItemframe:draw()
 
     love.graphics.pop()
 
-    local stencil = 254
+    local stencil = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil, rt.StencilMode.DRAW)
 
     _stencil_shader:bind()
