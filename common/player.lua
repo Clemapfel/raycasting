@@ -844,6 +844,7 @@ function rt.Player:update(delta)
     end
     self._is_grounded = is_grounded
 
+    -- damping here so it's vailable for both bubble and non-bubble
     local function _apply_damping(next_velocity_x, next_velocity_y)
         if next_velocity_x < 0 then next_velocity_x = next_velocity_x * self._direction_to_damping[rt.Direction.LEFT] end
         if next_velocity_x > 0 then next_velocity_x = next_velocity_x * self._direction_to_damping[rt.Direction.RIGHT] end
@@ -950,81 +951,80 @@ function rt.Player:update(delta)
             }
         end
 
+        -- update down squish
         if self._is_bubble then
             self._graphics_body:set_down_squish(false)
             self._graphics_body:set_left_squish(false)
             self._graphics_body:set_right_squish(false)
         else
-            do -- update down squish
-                local is_ducking = false
+            local is_ducking = false
 
-                -- on analog, prioritize disregarding side inputs
-                local should_duck
-                if self._use_analog_input then
-                    should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
-                        and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < _settings.joystick_magnitude_left_threshold
-                        and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < _settings.joystick_magnitude_right_threshold
-                else
-                    should_duck = down_is_down and not left_is_down and not right_is_down
-                end
-
-                if should_duck then
-                    for wall_body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
-                        local entry = self._body_to_collision_normal[wall_body]
-                        if entry ~= nil then
-                            self._graphics_body:set_down_squish(true,
-                                entry.normal_x, entry.normal_y,
-                                entry.contact_x, entry.contact_y
-                            )
-                            is_ducking = true
-                        end
-                    end
-                end
-
-                if not is_ducking then self._graphics_body:set_down_squish(false) end
-
-                if self._is_ducking == false and is_ducking == true then
-                    self:signal_emit("duck")
-                end
-                self._is_ducking = is_ducking
+            -- on analog, prioritize disregarding side inputs
+            local should_duck
+            if self._use_analog_input then
+                should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
+                    and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < _settings.joystick_magnitude_left_threshold
+                    and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < _settings.joystick_magnitude_right_threshold
+            else
+                should_duck = down_is_down and not left_is_down and not right_is_down
             end
 
-            local should_squish = function(button, ...)
-                local apply = button
-                for i = 1, select("#", ...) do
-                    if select(i, ...) == nil then
-                        apply = false
-                        break
-                    end
-                end
-
-                if apply then
-                    for i = 1, select("#", ...) do
-                        local wall_body = select(i, ...)
-                        if wall_body ~= nil then
-                            local entry = self._body_to_collision_normal[wall_body]
-                            if entry == nil then return end
-
-                            return true,
+            if should_duck then
+                for wall_body in range(self._bottom_body, self._bottom_left_body, self._bottom_wall_body) do
+                    local entry = self._body_to_collision_normal[wall_body]
+                    if entry ~= nil then
+                        self._graphics_body:set_down_squish(true,
                             entry.normal_x, entry.normal_y,
                             entry.contact_x, entry.contact_y
-                        end
+                        )
+                        is_ducking = true
                     end
                 end
-
-                return false
             end
 
-            self._graphics_body:set_left_squish(should_squish(
-                left_is_down,
-                left_wall_body
-            ))
+            if not is_ducking then self._graphics_body:set_down_squish(false) end
 
-            self._graphics_body:set_right_squish(should_squish(
-                right_is_down,
-                right_wall_body
-            ))
+            if self._is_ducking == false and is_ducking == true then
+                self:signal_emit("duck")
+            end
+            self._is_ducking = is_ducking
         end
+
+        local should_squish = function(button, ...)
+            local apply = button
+            for i = 1, select("#", ...) do
+                if select(i, ...) == nil then
+                    apply = false
+                    break
+                end
+            end
+
+            if apply then
+                for i = 1, select("#", ...) do
+                    local wall_body = select(i, ...)
+                    if wall_body ~= nil then
+                        local entry = self._body_to_collision_normal[wall_body]
+                        if entry == nil then return end
+
+                        return true,
+                        entry.normal_x, entry.normal_y,
+                        entry.contact_x, entry.contact_y
+                    end
+                end
+            end
+
+            return false
+        end
+
+        self._graphics_body:set_left_squish(should_squish(
+            left_is_down,
+            left_wall_body
+        ))
+
+        self._graphics_body:set_right_squish(should_squish(
+            right_is_down,
+            right_wall_body
+        ))
     end
 
     if not self._is_bubble then
@@ -1096,13 +1096,13 @@ function rt.Player:update(delta)
                 and not (self._bottom_right_wall and self._bottom_right_wall_body:has_tag("use_friction"))
                 and (down_is_down and not (left_is_down or right_is_down))
             then
-                duration = math.huge
+                duration = 0
             end
 
             duration = duration / time_dilation
 
             -- acceleration
-            if duration == 0 then
+            if duration == 0  then
                 next_velocity_x = target_velocity_x
             else
                 local velocity_delta = target_velocity_x - current_velocity_x
@@ -1115,6 +1115,7 @@ function rt.Player:update(delta)
                     next_velocity_x = current_velocity_x + (velocity_delta / duration) * delta
                 end
             end
+
 
             -- air resistance
             if not is_grounded
@@ -1553,14 +1554,17 @@ function rt.Player:update(delta)
 
             self._is_touching_platform = is_touching_platform
 
+            -- friction
             if should_apply_friction then
                 next_velocity_x = next_velocity_x + net_friction_x
                 next_velocity_y = next_velocity_y + net_friction_y
             end
 
+            -- gravity
             next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
             next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
+            -- clamp
             next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
             next_velocity_y = math.min(next_velocity_y, _settings.max_velocity) -- downwards unbounded
 
