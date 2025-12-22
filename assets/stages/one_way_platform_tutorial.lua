@@ -326,28 +326,6 @@ return {
           properties = {}
         },
         {
-          id = 315,
-          name = "",
-          type = "SlipperyHitbox",
-          shape = "polygon",
-          x = 1184,
-          y = 2336,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -32, y = 32 },
-            { x = 16, y = 32 },
-            { x = 16, y = -624 },
-            { x = 256, y = -624 },
-            { x = 256, y = -640 },
-            { x = 0, y = -640 }
-          },
-          properties = {}
-        },
-        {
           id = 316,
           name = "from",
           type = "OneWayPlatform",

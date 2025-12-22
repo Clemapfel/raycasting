@@ -1037,10 +1037,12 @@ function rt.Player:update(delta)
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
         local next_velocity_x, next_velocity_y = current_velocity_x, current_velocity_y
 
+        -- translate back from relative space
         current_velocity_x = current_velocity_x - self._platform_velocity_x
         current_velocity_y = current_velocity_y - self._platform_velocity_y
 
         -- x velocity update
+
         local input_magnitude
         if use_analog_input then
             input_magnitude = self._joystick_position_x
@@ -1055,7 +1057,10 @@ function rt.Player:update(delta)
         end
 
         local sprint_multiplier = self._sprint_multiplier
-        local target_velocity_x = input_magnitude * sprint_multiplier * _settings.target_velocity_x
+        local target_velocity_x = input_magnitude * sprint_multiplier * ternary(is_grounded,
+            _settings.ground_target_velocity_x,
+            _settings.air_target_velocity_x
+        )
 
         if input_magnitude ~= 0 then
             local velocity_delta = target_velocity_x - current_velocity_x
@@ -1088,7 +1093,17 @@ function rt.Player:update(delta)
                 _settings.air_decay_duration
             )
 
-            next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration)
+            -- if ducking, slide freely
+            local should_slide = is_grounded
+                and down_is_down
+                and not left_is_down
+                and not right_is_down
+
+            if should_slide then
+                next_velocity_x = current_velocity_x
+            else
+                next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration)
+            end
         end
 
         -- override on disable

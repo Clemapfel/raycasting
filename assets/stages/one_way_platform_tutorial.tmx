@@ -56,9 +56,6 @@
   <object id="314" type="Hitbox" x="-26.4434" y="2363.12">
    <polygon points="-5.55663,4.87968 -5.55663,116.88 1466.44,116.88 1466.44,-651.12 1226.44,-651.12 1226.44,4.87968 634.443,4.87968 634.443,-187.12 554.443,-187.12 554.443,4.87968"/>
   </object>
-  <object id="315" type="SlipperyHitbox" x="1184" y="2336">
-   <polygon points="0,0 -32,32 16,32 16,-624 256,-624 256,-640 0,-640"/>
-  </object>
   <object id="316" name="from" type="OneWayPlatform" x="320" y="2128">
    <properties>
     <property name="other" type="object" value="317"/>
