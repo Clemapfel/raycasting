@@ -79,7 +79,7 @@ function mn.StageSelectItem:create_from_state()
 
     install_label("_title_label", extra_bold(title_prefix .. title .. title_postfix))
 
-    local grade_font_size = rt.FontSize.LARGER
+    local grade_font_size = rt.FontSize.HUGE
 
     install_label("_flow_prefix_label", bold(prefix_prefix .. translation.flow_prefix .. prefix_postfix))
     install_label("_flow_colon_label", regular(colon))
