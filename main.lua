@@ -49,7 +49,7 @@ love.load = function(args)
     --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
-    rt.SceneManager:push(mn.MenuScene, false) -- skip title
+    rt.SceneManager:push(mn.MenuScene, true) -- skip title
 end
 
 love.update = function(delta)

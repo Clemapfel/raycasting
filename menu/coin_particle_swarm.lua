@@ -43,15 +43,13 @@ function mn.CoinParticleSwarm:instantiate()
         end
     end
 
-    -- TODO
-    for hue in range(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9) do
-        self._hue_to_quad[hue] = true
-    end
-    -- TODO
-
     local hues = {}
     for hue in keys(self._hue_to_quad) do table.insert(hues, hue) end
     table.sort(hues)
+
+    -- TODO
+    hues[0] = true
+    -- TODO
 
     -- build texture atlas
     local radius = self._canvas_scale * 9 -- TODOrt.settings.overworld.coin.radius
@@ -161,12 +159,14 @@ function mn.CoinParticleSwarm:create_from_state()
         end
     end
 
-    local hues = {}
+    -- TODO
+    local hues = { 0 }
     for hue in keys(self._hue_to_quad) do table.insert(hues, hue) end
-    for i = 1, 1000 do
+    for i = 1, 3 do
         local hue = rt.random.choose(hues)
         add(hue, self._hue_to_quad[hue])
     end
+    -- TODO
 
     -- distribute particles equally along both axes
     local home_x_width, home_y_width = self:_get_home_dimensions()

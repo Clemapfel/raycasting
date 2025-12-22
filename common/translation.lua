@@ -331,14 +331,13 @@ rt.Translation = {
             target_time = math.huge
         },
 
-        --[[
         {
             id = "tutorial",
             title = "[DEBUG TUTORIAL]",
             target_time = math.huge,
         },
 
-
+--[[
 
         {
             id = "bounce_tutorial",

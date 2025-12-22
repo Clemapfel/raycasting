@@ -1,6 +1,6 @@
 rt.settings.menu.stage_select_clouds = {
-    depression_t = 0.9, -- fraction
-    rim_t = 1 -- fraction
+    top_fraction = 0.15,
+    bottom_fraction = 1
 }
 
 --- @class mn.StageSelectClouds
@@ -31,8 +31,8 @@ function mn.StageSelectClouds:size_allocate(x, y, width, height)
     end
 
     local w, h = width, height
-    local top_fraction = 0.25
-    local bottom_fraction = 1
+    local top_fraction = rt.settings.menu.stage_select_clouds.top_fraction
+    local bottom_fraction = rt.settings.menu.stage_select_clouds.bottom_fraction
 
     add_vertex(
         x, y + top_fraction * h,

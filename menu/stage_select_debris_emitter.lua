@@ -375,6 +375,8 @@ end
 
 --- @brief
 function mn.StageSelectDebrisEmitter:draw_above_player()
+    -- disabled explosions
+    --[[
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
     local time = rt.settings.menu.stage_select_debris_emitter.collision_duration
@@ -385,6 +387,7 @@ function mn.StageSelectDebrisEmitter:draw_above_player()
         love.graphics.circle("fill", collision.x, collision.y, collision.radius)
     end
     love.graphics.pop()
+    ]]--
 end
 
 --- @brief
