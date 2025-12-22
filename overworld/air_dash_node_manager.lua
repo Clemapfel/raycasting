@@ -91,6 +91,7 @@ function ow.AirDashNodeManager:_tether(node)
     )
 
     player:pulse(node:get_color())
+    self._scene:get_camera():shake()
 end
 
 --- @brief

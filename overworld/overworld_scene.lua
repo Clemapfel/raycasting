@@ -1322,6 +1322,7 @@ function ow.OverworldScene:set_control_indicator_type(type, emit_particles)
             self._control_indicator_particle_effect:emit(
                 x, y + h, x + w, y + h
             )
+            self._camera:shake()
         end
     end
 

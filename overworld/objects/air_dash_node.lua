@@ -29,12 +29,6 @@ local _core_shader = rt.Shader("overworld/objects/air_dash_node_glow.glsl")
 local _hue = 0
 local _n_hue_steps = 12
 
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "j" then
-        rt.SceneManager:get_current_scene():get_camera():shake()
-    end
-end)
-
 --- @brief
 function ow.AirDashNode:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.ELLIPSE and math.equals(object.x_radius, object.y_radius), "In ow.AirDashNode: object `" .. object:get_id() .. "` is not a circle")
