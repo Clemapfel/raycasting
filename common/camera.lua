@@ -9,8 +9,17 @@ rt.settings.camera = {
     min_scale = 1 / 4,
     max_scale = 30,
     shake_max_frequency = 30,
-    shake_max_offset = 6,
+    shake_max_offset = 6, -- px
     shake_speed = 100,
+
+    shake_impulse = {
+        envelope_attack = 0.05,
+        envelope_decay = 0.05,
+        default_duration = 0.2,
+        default_intensity = 1,
+        max_offset = 8,
+        frequency = 1,
+    }
 }
 
 --- @class rt.Camera
@@ -55,6 +64,10 @@ function rt.Camera:instantiate()
         _shake_current_x = 0,
         _shake_current_y = 0,
 
+        _shake_impulse_sources = {}, -- cf. Camera.shake
+        _shake_impulse_offset_x = 0,
+        _shake_impulse_offset_y = 0,
+
         _bounds = rt.AABB(0, 0, 1, 1),
         _world_bounds = rt.AABB(0, 0, 0, 0),
         _bounds_needs_update = true,
@@ -75,7 +88,10 @@ function rt.Camera:bind()
     love.graphics.replaceTransform(self._transform:get_native())
 
     if rt.GameState:get_is_screen_shake_enabled() then
-        love.graphics.translate(self._shake_offset_x, self._shake_offset_y)
+        love.graphics.translate(
+            self._shake_offset_x + self._shake_impulse_offset_x,
+            self._shake_offset_y + self._shake_impulse_offset_y
+        )
     end
 end
 
@@ -97,6 +113,8 @@ function rt.Camera:push()
         _current_scale = self._current_scale,
         _shake_offset_x = self._shake_offset_x,
         _shake_offset_y = self._shake_offset_y,
+        _shake_impulse_offset_x = self._shake_impulse_offset_x,
+        _shake_impulse_offset_y = self._shake_impulse_offset_y
     })
 end
 
@@ -187,6 +205,7 @@ function rt.Camera:update(delta)
         self._current_y = _round(self._current_y + final_delta_y)
     end
 
+    -- continuous shaking
     if self._is_shaking then
         local max_frequency = rt.settings.camera.shake_max_frequency
         local offset = rt.settings.camera.shake_max_offset * self._shake_intensity
@@ -210,6 +229,66 @@ function rt.Camera:update(delta)
                 self._shake_offset_x, self._shake_offset_y = self._shake_current_x * offset, self._shake_current_y * offset
                 distance_traveled = 0
                 break
+            end
+        end
+    end
+
+    -- impulse shaking
+    do
+        self._shake_impulse_offset_x = 0
+        self._shake_impulse_offset_y = 0
+
+        local settings = debugger.get("shake_impulse") --rt.settings.camera.shake_impulse
+
+        local envelope = function(x)
+            return rt.InterpolationFunctions.ENVELOPE(x,
+                settings.envelope_attack,
+                settings.envelope_decay
+            )
+        end
+
+        local now = love.timer.getTime()
+        local max_offset = settings.max_offset
+        local frequency = settings.frequency
+
+        local i = 1
+        while i <= #self._shake_impulse_sources do
+            local source = self._shake_impulse_sources[i]
+            local elapsed = now - source.start
+
+            if elapsed >= source.duration then
+                table.remove(self._shake_impulse_sources, i)
+            else
+                local progress = elapsed / source.duration
+                local intensity = source.intensity * envelope(progress)
+                local offset = max_offset * intensity
+
+                local speed = frequency * rt.settings.camera.shake_max_frequency
+                local distance_traveled = speed * delta
+
+                while distance_traveled > 0 do
+                    local dist = math.distance(source.current_x, source.current_y, source.to_x, source.to_y)
+                    if distance_traveled >= dist then
+                        source.current_x = source.to_x
+                        source.current_y = source.to_y
+                        source.from_x = source.to_x
+                        source.from_y = source.to_y
+                        source.to_x = math.cos(rt.random.number(0, 2 * math.pi))
+                        source.to_y = math.sin(rt.random.number(0, 2 * math.pi))
+                        distance_traveled = distance_traveled - dist
+                    else
+                        local sdx, sdy = math.normalize(source.to_x - source.from_x, source.to_y - source.from_y)
+                        source.current_x = source.current_x + sdx * distance_traveled
+                        source.current_y = source.current_y + sdy * distance_traveled
+                        distance_traveled = 0
+                        break
+                    end
+                end
+
+                self._shake_impulse_offset_x = self._shake_impulse_offset_x + source.current_x * offset
+                self._shake_impulse_offset_y = self._shake_impulse_offset_y + source.current_y * offset
+
+                i = i + 1
             end
         end
     end
@@ -403,14 +482,34 @@ function rt.Camera:set_shake_frequency(i)
 end
 
 --- @brief
+function rt.Camera:shake(intensity, duration)
+    local inf = 10e5 -- position in noise frequency space, arbitrarily large to randomize starting position
+    local settings = rt.settings.camera.shake_impulse
+
+    local angle = rt.random.number(0, 2 * math.pi)
+    local x, y = math.cos(angle), math.sin(angle)
+    table.insert(self._shake_impulse_sources, {
+        start = love.timer.getTime(),
+        intensity = intensity or settings.default_intensity,
+        duration = duration or settings.default_duration,
+        from_x = x,
+        from_y = y,
+        current_x = x,
+        current_y = y,
+        to_x = x,
+        to_y = y
+    })
+end
+
+--- @brief
 function rt.Camera:get_offset()
     local w, h = love.graphics.getDimensions()
     local x_offset = -_floor(self._current_x) + _floor(0.5 * w)
     local y_offset = -_floor(self._current_y) + _floor(0.5 * h)
 
     if rt.GameState:get_is_screen_shake_enabled() then
-        x_offset = x_offset + self._shake_offset_x
-        y_offset = y_offset + self._shake_offset_y
+        x_offset = x_offset + self._shake_offset_x + self._shake_impulse_offset_x
+        y_offset = y_offset + self._shake_offset_y + self._shake_impulse_offset_y
     end
 
     return x_offset, y_offset
