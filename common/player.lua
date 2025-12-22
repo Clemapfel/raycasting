@@ -837,7 +837,16 @@ function rt.Player:update(delta)
     if was_grounded == false and is_grounded == true then
         self:signal_emit("grounded")
     end
+
     self._is_grounded = is_grounded
+
+    -- buffered jump
+    if self._queue_jump_duration < _settings.jump_buffer_duration then
+        if self:jump() == true then
+            self._queue_jump_duration = math.huge
+        end
+    end
+    self._queue_jump_duration = self._queue_jump_duration + delta
 
     -- damping here so it's vailable for both bubble and non-bubble
     local function _apply_damping(next_velocity_x, next_velocity_y)
@@ -1035,7 +1044,7 @@ function rt.Player:update(delta)
         end
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
-        local next_velocity_x, next_velocity_y = current_velocity_x, current_velocity_y
+        local next_velocity_x, next_velocity_y = 0, 0 --current_velocity_x, current_velocity_y
 
         -- translate back from relative space
         current_velocity_x = current_velocity_x - self._platform_velocity_x
@@ -1316,14 +1325,6 @@ function rt.Player:update(delta)
             self._right_wall_jump_blocked = false
         end
 
-        -- buffered jump
-        if self._queue_jump_duration < _settings.jump_buffer_duration then
-            if self:jump() == true then
-                self._queue_jump_duration = math.huge
-            end
-        end
-        self._queue_jump_duration = self._queue_jump_duration + delta
-
         -- prevent horizontal movement after walljump
         if self._wall_jump_freeze_elapsed / time_dilation < _settings.wall_jump_freeze_duration
             and math.sign(target_velocity_x) == self._wall_jump_freeze_sign
@@ -1379,13 +1380,6 @@ function rt.Player:update(delta)
 
         if is_grounded then
             self._coyote_elapsed = 0
-
-            -- when touching ground, reset all jump states
-            if was_grounded == false then
-                self._wall_jump_elapsed = math.huge
-                self._wall_jump_freeze_elapsed = math.huge
-                self._jump_elapsed = math.huge
-            end
         end
 
         -- bounce
@@ -2868,6 +2862,7 @@ function rt.Player:jump()
         self._jump_elapsed = 0
         self._jump_blocked = true
         jumped = true
+        dbg("allow")
     end
 
     -- override disable
@@ -2924,6 +2919,7 @@ function rt.Player:jump()
 
     if jumped then
         self:signal_emit("jump")
+        self._queue_jump_duration = math.huge
     end
 
     return jumped
