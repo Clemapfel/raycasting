@@ -19,7 +19,7 @@ do
         max_spring_length = radius * 3,
         outer_body_spring_strength = 2,
 
-        bottom_wall_ray_length_factor = 1.15,
+        bottom_wall_ray_length_factor = 1.5,
         side_wall_ray_length_factor = 1.05,
         corner_wall_ray_length_factor = 0.8,
         top_wall_ray_length_factor = 1,
@@ -39,6 +39,7 @@ do
         exempt_collision_group = b2.CollisionGroup.GROUP_11,
 
         sprint_multiplier = 2,
+        sprint_multiplier_transition_duration = 5 / 60,
         accelerator_friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
         bubble_accelerator_friction_coefficient = 1.5,
 
@@ -53,21 +54,27 @@ do
         position_history_sample_frequency = 5, -- px
         velocity_history_n = 3, -- n samples
 
-        ground_acceleration_duration = 20 / 60, -- seconds
-        ground_deceleration_duration = 5 / 60,
+        ground_acceleration_duration = 5 / 60, -- seconds to target velocity if currently slower
+        ground_deceleration_duration = 2 / 60, -- seconds to target velocity if currently faster
 
-        air_acceleration_duration = 15 / 60, -- seconds
-        air_deceleration_duration = 15 / 60,
+        air_acceleration_duration = 8 / 60,
+        air_deceleration_duration = 5 / 60,
+
+        air_decay_duration = 10 / 60, -- seconds to 0 if controller neutral
+        ground_decay_duration = 4.5 / 60, -- seconds to 0 if controller neutral
+
+        ground_target_velocity_x = 180, -- px / s
+        air_target_velocity_x = 150,
 
         instant_turnaround_velocity = 600,
 
         coyote_time = 8 / 60,
 
         jump_duration = 11 / 60,
-        jump_impulse = 520, -- 4 * 32 neutral jump
+        jump_impulse = 560, -- 10 * 16 tiles neutral jump
 
         wall_magnet_force = 200,
-        wall_jump_initial_impulse = 340,
+        wall_jump_initial_impulse = 400,
         wall_jump_sustained_impulse = 1200, -- force per second
         wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
         wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
@@ -83,7 +90,7 @@ do
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
 
-        jump_buffer_duration = 3 / 60,
+        jump_buffer_duration = 4 / 60,
 
         spring_constant = 1.8,
         joint_force_threshold = 1000,
@@ -276,7 +283,8 @@ function rt.Player:instantiate()
         _jump_button_is_down_elapsed = 0,
         _sprint_button_is_down_elapsed = 0,
 
-        _sprint_multiplier = 1,
+        _current_sprint_multiplier = 1,
+        _target_sprint_multiplier = 1,
         _next_sprint_multiplier = 1,
         _next_sprint_multiplier_update_when_grounded = false,
         _sprint_toggled = false,
@@ -1033,18 +1041,19 @@ function rt.Player:update(delta)
 
     if not self._is_bubble then
         -- update sprint once landed
-        if self._next_sprint_multiplier_update_when_grounded and (
-            self._bottom_wall
-            or self._bottom_left_wall
-            or self._bottom_right_wall_body
-            or self._left_wall
-            or self._right_wall
-        ) then
-            self._sprint_multiplier = self._next_sprint_multiplier
+        if self._next_sprint_multiplier_update_when_grounded and is_grounded then
+            self._target_sprint_multiplier = self._next_sprint_multiplier
         end
 
+        -- lerp instead of transitioning instantly
+        self._current_sprint_multiplier = math.mix(
+            self._current_sprint_multiplier,
+            self._target_sprint_multiplier,
+            1 - math.exp(-1 / _settings.sprint_multiplier_transition_duration * delta)
+        )
+
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
-        local next_velocity_x, next_velocity_y = 0, 0 --current_velocity_x, current_velocity_y
+        local next_velocity_x, next_velocity_y = current_velocity_x, current_velocity_y
 
         -- translate back from relative space
         current_velocity_x = current_velocity_x - self._platform_velocity_x
@@ -1065,8 +1074,7 @@ function rt.Player:update(delta)
             end
         end
 
-        local sprint_multiplier = self._sprint_multiplier
-        local target_velocity_x = input_magnitude * sprint_multiplier * ternary(is_grounded,
+        local target_velocity_x = input_magnitude * self._current_sprint_multiplier * ternary(is_grounded,
             _settings.ground_target_velocity_x,
             _settings.air_target_velocity_x
         )
@@ -1102,16 +1110,17 @@ function rt.Player:update(delta)
                 _settings.air_decay_duration
             )
 
-            -- if ducking, slide freely
             local should_slide = is_grounded
                 and down_is_down
                 and not left_is_down
                 and not right_is_down
 
             if should_slide then
+                -- if ducking, slide freely
                 next_velocity_x = current_velocity_x
             else
-                next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration)
+                -- else, linear decay
+                next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration) -- lerp is exponential
             end
         end
 
@@ -1311,8 +1320,6 @@ function rt.Player:update(delta)
         end -- wall friction
 
         -- vertical movement
-        next_velocity_y = current_velocity_y
-
         if is_grounded then
             self._jump_blocked = false
         end
@@ -1371,6 +1378,9 @@ function rt.Player:update(delta)
 
                 is_jumping = true
             end
+        else
+            next_velocity_y = select(2, self._body:get_velocity())
+            -- use solver velocity
         end
 
         self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
@@ -1456,6 +1466,7 @@ function rt.Player:update(delta)
             local velocity_x, velocity_y, n = 0, 0, 0
             local min_magnitude = 0
 
+            -- heuristically choose which platform to inherit if multiple
             local chosen_body = nil
             if down_is_down then
                 for first in range( -- automatically skips nils
@@ -1584,7 +1595,7 @@ function rt.Player:update(delta)
                         -- project current velocity onto the ground tangent
                         local tangent_dot = math.dot(next_velocity_x, next_velocity_y, ground_tangent_x, ground_tangent_y)
 
-                        -- calculate gravity component along the slope (opposing movement)
+                        -- gravity component along the slope
                         local gravity_along_slope = math.dot(0, gravity, ground_tangent_x, ground_tangent_y)
 
                         next_velocity_x, next_velocity_y = math.multiply2(
@@ -2862,7 +2873,6 @@ function rt.Player:jump()
         self._jump_elapsed = 0
         self._jump_blocked = true
         jumped = true
-        dbg("allow")
     end
 
     -- override disable
@@ -2871,7 +2881,24 @@ function rt.Player:jump()
         return false
     end
 
-    local should_wall_jump = (self._left_wall or self._right_wall) and not self._bottom_wall
+    local should_wall_jump = not self._bottom_wall and (self._left_wall or self._right_wall)
+    if should_wall_jump then
+        if self._left_wall
+            and (self._left_wall_body:has_tag("unjumpable") or self._left_wall_body:has_tag("slippery"))
+        then
+            return
+        elseif self._right_wall and (self._right_wall_body:has_tag("unjumpable") or self._right_wall_body:has_tag("slippery"))
+        then
+            return
+        end
+    else
+        if self._bottom_wall and self._bottom_wall_body:has_tag("unjumpable")
+            or self._bottom_left_wall and self._bottom_left_wall_body:has_tag("unjumpable")
+            or self._bottom_right_wall and self._bottom_right_wall_body:has_tag("unjumpable")
+        then
+            return
+        end
+    end
 
     -- overridden enable
     if self._jump_allowed_override == true then
@@ -3078,11 +3105,13 @@ function rt.Player:reset()
     self._left_button_is_down = self._input:get_is_down(rt.InputAction.LEFT)
 
     if self._sprint_button_is_down then
-        self._sprint_multiplier = _settings.sprint_multiplier
+        self._current_sprint_multiplier = _settings.sprint_multiplier
+        self._target_sprint_multiplier = _settings.sprint_multiplier
         self._next_sprint_multiplier = _settings.sprint_multiplier
         self._next_sprint_multiplier_update_when_grounded = false
     else
-        self._sprint_multiplier = 1
+        self._current_sprint_multiplier = 1
+        self._target_sprint_multiplier = 1
         self._next_sprint_multiplier = 1
         self._next_sprint_multiplier_update_when_grounded = false
     end
