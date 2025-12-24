@@ -175,6 +175,13 @@ function rt.PlayerBody:instantiate(config)
     self._right_squish_normal_y = nil
     self._right_squish_motion = rt.SmoothedMotion1D(1, _settings.squish_speed)
 
+    self._up_squish = false
+    self._up_squish_normal_x = nil
+    self._up_squish_normal_y = nil
+    self._up_squish_origin_x = nil
+    self._up_squish_normal_y = nil
+    self._up_squish_motion = rt.SmoothedMotion1D(1, _settings.squish_speed)
+
     -- init metaball ball mesh
 
     self._node_mesh = rt.MeshCircle(0, 0, self._node_mesh_radius)
@@ -1048,6 +1055,15 @@ function rt.PlayerBody:_apply_squish(factor)
         -1, 0,
         self._position_x + 0.5 * self._radius, self._position_y
     )
+
+    apply(
+        self._up_squish_squish,
+        self._up_squish_squish_motion,
+        self._up_squish_squish_normal_x, self._up_squish_squish_normal_y,
+        self._up_squish_squish_origin_x, self._up_squish_squish_origin_y,
+        0, 1,
+        self._position_x, self._position_y - 0.5 * self._radius
+    )
 end
 
 --- @brief
@@ -1360,6 +1376,21 @@ function rt.PlayerBody:set_right_squish(b, nx, ny, contact_x, contact_y)
         self._right_squish_motion:set_target_value(1)
     else
         self._right_squish_motion:set_target_value(0)
+    end
+end
+
+--- @brief
+function rt.PlayerBody:set_up_squish(b, nx, ny, contact_x, contact_y)
+    self._up_squish = b
+    self._up_squish_normal_x = nx or self._up_squish_normal_x
+    self._up_squish_normal_y = ny or self._up_squish_normal_y
+    self._up_squish_origin_x = contact_x or self._up_squish_origin_x
+    self._up_squish_origin_y = contact_y or self._up_squish_origin_y
+
+    if b == true then
+        self._up_squish_motion:set_target_value(1)
+    else
+        self._up_squish_motion:set_target_value(0)
     end
 end
 

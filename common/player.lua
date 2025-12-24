@@ -60,7 +60,7 @@ do
         air_acceleration_duration = 8 / 60,
         air_deceleration_duration = 5 / 60,
 
-        air_decay_duration = 10 / 60, -- seconds to 0 if controller neutral
+        air_decay_duration = 25 / 60, -- seconds to 0 if controller neutral
         ground_decay_duration = 4.5 / 60, -- seconds to 0 if controller neutral
 
         ground_target_velocity_x = 180, -- px / s
@@ -408,8 +408,6 @@ function rt.Player:instantiate()
     for i = 2, self._pulse_mesh:get_n_vertices() do
         self._pulse_mesh:set_vertex_color(i, 1, 1, 1, 1)
     end
-
-    self._up_x, self._up_y = math.normalize(self._up_x, self._up_y)
 end
 
 --- @brief
@@ -484,10 +482,10 @@ function rt.Player:_connect_input()
 
         if which == rt.InputAction.JUMP then
             self._jump_button_is_down = false
-            self._jump_button_is_down_elapsed = 0
+            self._jump_button_is_down_elapsed = math.huge
         elseif which == rt.InputAction.SPRINT then
             self._sprint_button_is_down = false
-            self._sprint_button_is_down_elapsed = 0
+            self._sprint_button_is_down_elapsed = math.huge
 
             if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.HOLD then
                 self._next_sprint_multiplier = 1
@@ -498,13 +496,13 @@ function rt.Player:_connect_input()
             self._left_button_is_down_elapsed = 0
         elseif which == rt.InputAction.RIGHT then
             self._right_button_is_down = false
-            self._right_button_is_down_elapsed = 0
+            self._right_button_is_down_elapsed = math.huge
         elseif which == rt.InputAction.DOWN then
             self._down_button_is_down = false
-            self._down_button_is_down_elapsed = 0
+            self._down_button_is_down_elapsed = math.huge
         elseif which == rt.InputAction.UP then
             self._up_button_is_down = false
-            self._up_button_is_down_elapsed = 0
+            self._up_button_is_down_elapsed = math.huge
         end
     end)
 
@@ -967,6 +965,7 @@ function rt.Player:update(delta)
 
         -- update down squish
         if self._is_bubble then
+            self._graphics_body:set_up_squish(false)
             self._graphics_body:set_down_squish(false)
             self._graphics_body:set_left_squish(false)
             self._graphics_body:set_right_squish(false)
@@ -1038,6 +1037,11 @@ function rt.Player:update(delta)
         self._graphics_body:set_right_squish(should_squish(
             right_is_down,
             right_wall_body
+        ))
+
+        self._graphics_body:set_up_squish(should_squish(
+            up_is_down,
+            top_wall_body or top_left_wall_body or top_right_wall_body
         ))
     end
 
@@ -1121,8 +1125,12 @@ function rt.Player:update(delta)
                 -- if ducking, slide freely
                 next_velocity_x = current_velocity_x
             else
-                -- else, linear decay
-                next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration) -- lerp is exponential
+                if not is_grounded and not self._sprint_button_is_down and not left_is_down and not right_is_down and not down_is_down then
+                    -- do not decay
+                else
+                    -- else, linear decay
+                    next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration) -- lerp is exponential
+                end
             end
         end
 
@@ -1344,35 +1352,19 @@ function rt.Player:update(delta)
         local should_apply_friction = true
         local is_jumping = false
 
-        do -- regular jump
-            local jump_up_x, jump_up_y = self._jump_up_x, self._jump_up_y
-            local lateral_x, lateral_y = math.turn_right(jump_up_x, jump_up_y)
-
+        do
             if self._jump_elapsed < _settings.jump_duration then
+                -- regular jump
                 if self._jump_button_is_down then
-                    local desired_u = time_dilation * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
-
-                    local current_u = next_velocity_x * jump_up_x + next_velocity_y * jump_up_y
-                    local delta_u = desired_u - current_u
-                    next_velocity_x = next_velocity_x + delta_u * jump_up_x
-                    next_velocity_y = next_velocity_y + delta_u * jump_up_y
-
+                    next_velocity_y = -1 * time_dilation * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
                     is_jumping = true
                 end
             elseif self._wall_jump_elapsed < _settings.wall_jump_duration then
+                -- wall jump: initial burst, then small sustain
                 if self._wall_jump_elapsed == 0 then
-                    -- initial burst
-                    local lateral_sign = 0
-                    if self._left_wall then
-                        lateral_sign = 1   -- away from left wall is +R (default U=(0,-1) => +x)
-                    elseif self._right_wall then
-                        lateral_sign = -1  -- away from right wall is -R
-                    end
+                    local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
 
-                    local angle = _settings.wall_jump_initial_angle
-                    local dx = lateral_x * lateral_sign * math.cos(angle) + jump_up_x * math.sin(angle)
-                    local dy = lateral_y * lateral_sign * math.cos(angle) + jump_up_y * math.sin(angle)
-
+                    if self._right_wall then dx = dx * -1 end
                     local burst = _settings.wall_jump_initial_impulse + gravity
                     next_velocity_x, next_velocity_y = dx * burst, dy * burst
 
@@ -1387,13 +1379,10 @@ function rt.Player:update(delta)
                     should_apply_friction = false
                     is_jumping = true
                 elseif self._jump_button_is_down then
-                    -- then sustain
-                    local lateral_sign = ternary(self._wall_jump_freeze_sign == 1, -1, 1)
+                    -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
+                    local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
 
-                    local a = _settings.wall_jump_sustained_angle
-                    local dx = lateral_x * lateral_sign * math.cos(a) + jump_up_x * math.sin(a)
-                    local dy = lateral_y * lateral_sign * math.cos(a) + jump_up_y * math.sin(a)
-
+                    if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
                     local force = _settings.wall_jump_sustained_impulse * delta + gravity
                     next_velocity_x = next_velocity_x + dx * force * time_dilation
                     next_velocity_y = next_velocity_y + dy * force * time_dilation
@@ -1401,8 +1390,7 @@ function rt.Player:update(delta)
                     is_jumping = true
                 end
             else
-                next_velocity_y = select(2, self._body:get_velocity())
-                -- use solver velocity
+                next_velocity_y = current_velocity_y
             end
 
             self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
@@ -1432,21 +1420,20 @@ function rt.Player:update(delta)
         self._bounce_elapsed = self._bounce_elapsed + delta
 
         do -- accelerators
-            for surface in range(
-                { left_wall_body, left_nx, left_ny },
+            local player_vx, player_vy = self._body:get_velocity()
+            for surface in range( -- if one body is multiple surfaces, repeated handling is intended
                 { top_wall_body, top_nx, top_ny },
+                { top_left_wall_body, top_left_nx, top_left_ny },
+                { top_right_wall_body, top_right_nx, top_right_ny },
+                { left_wall_body, left_nx, left_ny },
                 { right_wall_body, right_nx, right_ny },
                 { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
                 { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
-                { bottom_wall_body, bottom_nx, bottom_ny },
-                { top_left_wall_body, top_left_nx, top_left_ny },
-                { top_wall_body, top_nx, top_ny },
-                { top_right_wall_body, top_right_nx, top_right_ny }
+                { bottom_wall_body, bottom_nx, bottom_ny }
             ) do
                 local body, normal_x, normal_y = table.unpack(surface)
                 if body ~= nil and body:has_tag("use_friction") then
                     local friction = body:get_friction()
-                    local player_vx, player_vy = next_velocity_x, next_velocity_y
 
                     -- get surface tangent
                     local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
@@ -1473,12 +1460,30 @@ function rt.Player:update(delta)
                         next_velocity_y = nvy * max_velocity
                     end
 
-                    local velocity_t = math.magnitude(player_vx, player_vy) / max_velocity
+                    -- counteract gravity
+                    local gravity_along_normal = math.max(0, math.dot(self._gravity_direction_x, self._gravity_direction_y, normal_x, normal_y))
+                    gravity_along_normal = 2 * _settings.accelerator_gravity_negation_factor * gravity_along_normal
+                    next_velocity_x = next_velocity_x - normal_x * gravity * gravity_along_normal * delta
+                    next_velocity_y = next_velocity_y - normal_y * gravity * gravity_along_normal * delta
 
-                    -- magnetize to surface
-                    local magnet_acceleration = _settings.accelerator_magnet_acceleration * velocity_t
-                    next_velocity_x = next_velocity_x + -normal_x * magnet_acceleration * delta
-                    next_velocity_y = next_velocity_y + -normal_y * magnet_acceleration * delta
+                    -- if player holding against surface, magnetize
+                    if not self._jump_button_is_down then
+                        local input_x, input_y = 0, 0
+                        if use_analog_input then
+                            input_x, input_y = self._joystick_position_x, self._joystick_position_y
+                        else
+                            if left_is_down then input_x = input_x - 1 end
+                            if right_is_down then input_x = input_x + 1 end
+                            if up_is_down then input_y = input_y - 1 end
+                            if down_is_down then input_y = input_y + 1 end
+                        end
+
+                        local magnet_easing = math.max(0, math.dot(-normal_x, -normal_y, math.normalize(input_x, input_y)))
+
+                        local magnet_acceleration = _settings.accelerator_max_velocity * _settings.accelerator_magnet_acceleration
+                        next_velocity_x = next_velocity_x - normal_x * magnet_easing * magnet_acceleration * delta
+                        next_velocity_y = next_velocity_y - normal_y * magnet_easing * magnet_acceleration * delta
+                    end
                 end
             end
         end
@@ -2300,6 +2305,12 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
+
+    if self._dbg ~= nil then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.line(self._dbg)
+
+    end
 end
 
 --- @brief
