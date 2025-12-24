@@ -15,9 +15,9 @@ rt.settings.camera = {
     shake_impulse = {
         envelope_attack = 0,
         envelope_decay = 0,
-        default_duration = 0.1,
+        default_duration = 0.05,
         default_intensity = 1,
-        max_offset = 4,
+        max_offset = 5,
         frequency = 35, -- nodes per second
     }
 }
@@ -270,11 +270,6 @@ function rt.Camera:update(delta)
             self._shake_impulse_offset_x = self._shake_impulse_offset_x + x * max_offset * intensity
             self._shake_impulse_offset_y = self._shake_impulse_offset_y + y * max_offset * intensity
 
-            assert(not math.is_nan(t))
-            assert(not math.is_nan(intensity))
-            assert(not math.is_nan(x))
-            assert(not math.is_nan(y))
-
             if t >= 1 then
                 table.insert(to_remove, 1, i)
             end
@@ -284,12 +279,6 @@ function rt.Camera:update(delta)
             table.remove(self._shake_impulse_sources, i)
         end
     end
-
-    assert(not math.is_nan(self._shake_impulse_offset_x))
-    assert(not math.is_nan(self._shake_impulse_offset_y))
-    assert(not math.is_nan(self._shake_offset_x))
-    assert(not math.is_nan(self._shake_offset_y))
-
 
     -- update transform
     local t = self._transform:reset()
@@ -477,13 +466,17 @@ function rt.Camera:shake(intensity, duration)
     duration = duration or settings.default_duration
     local n_nodes = math.ceil(settings.frequency * duration)
 
-    -- pre-generate random walk on unit circle
+    -- pre-generate random walk on unit circle with opposing directions
     local path = { 0, 0 }
+    local current_angle = rt.random.number(0, 2 * math.pi)
 
     for i = 1, n_nodes do
-        local angle = rt.random.number(0, 2 * math.pi)
-        table.insert(path, math.cos(angle))
-        table.insert(path, math.sin(angle))
+        local angle_offset = rt.random.number(-math.pi / 4, math.pi / 4)
+        -- always make it so the new point is on the opposite half plane
+        current_angle = current_angle + math.pi + angle_offset
+
+        table.insert(path, math.cos(current_angle))
+        table.insert(path, math.sin(current_angle))
     end
 
     table.insert(path, 0)
