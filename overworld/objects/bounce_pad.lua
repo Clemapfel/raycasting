@@ -93,6 +93,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
         local player = self._scene:get_player()
         local restitution = player:bounce(nx, ny)
+        self._scene:get_camera():shake(math.min(1, restitution))
 
         -- color animation
         self._hue = player:get_hue()

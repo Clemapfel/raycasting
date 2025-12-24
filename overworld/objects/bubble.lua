@@ -2,8 +2,8 @@ require "overworld.movable_object"
 
 rt.settings.overworld.bubble = {
     respawn_duration = 4,
-    line_width = 1,
-    outline_width = 0.5, -- black outline
+    line_width = 2,
+    outline_width = 1, -- black outline
     max_motion_offset = 5,
     motion_velocity = 3.5, -- px / s
     motion_n_path_nodes = 10
@@ -239,5 +239,5 @@ end
 --- @brief
 function ow.Bubble:get_point_light_sources()
     local x, y = self._body:get_position()
-    return { { x, y, self._radius} }, { self:get_color() }
+    return { { x, y, math.min(self._x_radius, self._y_radius)} }, { self:get_color() }
 end
