@@ -1004,24 +1004,16 @@ function rt.Player:update(delta)
         end
 
         local should_squish = function(button, ...)
-            local apply = button
-            for i = 1, select("#", ...) do
-                if select(i, ...) == nil then
-                    apply = false
-                    break
-                end
-            end
-
-            if apply then
+            if button then
                 for i = 1, select("#", ...) do
                     local wall_body = select(i, ...)
                     if wall_body ~= nil then
                         local entry = self._body_to_collision_normal[wall_body]
-                        if entry == nil then return end
-
-                        return true,
-                        entry.normal_x, entry.normal_y,
-                        entry.contact_x, entry.contact_y
+                        if entry ~= nil then
+                            return true,
+                                entry.normal_x, entry.normal_y,
+                                entry.contact_x, entry.contact_y
+                        end
                     end
                 end
             end
@@ -1031,12 +1023,12 @@ function rt.Player:update(delta)
 
         self._graphics_body:set_left_squish(should_squish(
             left_is_down,
-            left_wall_body
+            left_wall_body or bottom_left_wall_body or top_left_wall_body
         ))
 
         self._graphics_body:set_right_squish(should_squish(
             right_is_down,
-            right_wall_body
+            right_wall_body or bottom_right_wall_body or top_right_wall_body
         ))
 
         self._graphics_body:set_up_squish(should_squish(
@@ -1443,10 +1435,27 @@ function rt.Player:update(delta)
 
                     local max_velocity = _settings.accelerator_max_velocity
 
+                    local input_x, input_y = 0, 0
+                    if use_analog_input then
+                        input_x, input_y = self._joystick_position_x, self._joystick_position_y
+                    else
+                        if left_is_down then input_x = input_x - 1 end
+                        if right_is_down then input_x = input_x + 1 end
+                        if up_is_down then input_y = input_y - 1 end
+                        if down_is_down then input_y = input_y + 1 end
+                    end
+
+                    local no_input = math.magnitude(input_x, input_y) < math.eps
+                    input_x, input_y = math.normalize(input_x, input_y)
+
                     -- accelerate along tangent
                     local acceleration = max_velocity / _settings.accelerator_acceleration_duration
                     local velocity_delta = max_velocity - math.magnitude(player_vx, player_vy)
                     local velocity_sign = math.sign(velocity_delta)
+
+                    -- test if player is holding along tangent
+                    local tangent_t = ternary(no_input, 0, math.dot(-input_x, -input_y, tangent_x, tangent_y))
+                    --acceleration = acceleration * tangent_t
 
                     if velocity_delta > 0 then -- only accelerate
                         next_velocity_x = next_velocity_x + friction * tangent_x * velocity_sign * acceleration * delta
@@ -1466,24 +1475,12 @@ function rt.Player:update(delta)
                     next_velocity_x = next_velocity_x - normal_x * gravity * gravity_along_normal * delta
                     next_velocity_y = next_velocity_y - normal_y * gravity * gravity_along_normal * delta
 
-                    -- if player holding against surface, magnetize
-                    if not self._jump_button_is_down then
-                        local input_x, input_y = 0, 0
-                        if use_analog_input then
-                            input_x, input_y = self._joystick_position_x, self._joystick_position_y
-                        else
-                            if left_is_down then input_x = input_x - 1 end
-                            if right_is_down then input_x = input_x + 1 end
-                            if up_is_down then input_y = input_y - 1 end
-                            if down_is_down then input_y = input_y + 1 end
-                        end
+                    -- magnetize if player is pushing against surface
+                    local magnet_easing = math.max(0, math.dot(-normal_x, -normal_y, math.normalize(input_x, input_y)))
+                    local magnet_acceleration = _settings.accelerator_max_velocity * _settings.accelerator_magnet_acceleration
+                    next_velocity_x = next_velocity_x - normal_x * magnet_easing * magnet_acceleration * delta
+                    next_velocity_y = next_velocity_y - normal_y * magnet_easing * magnet_acceleration * delta
 
-                        local magnet_easing = math.max(0, math.dot(-normal_x, -normal_y, math.normalize(input_x, input_y)))
-
-                        local magnet_acceleration = _settings.accelerator_max_velocity * _settings.accelerator_magnet_acceleration
-                        next_velocity_x = next_velocity_x - normal_x * magnet_easing * magnet_acceleration * delta
-                        next_velocity_y = next_velocity_y - normal_y * magnet_easing * magnet_acceleration * delta
-                    end
                 end
             end
         end

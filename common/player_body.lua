@@ -1013,7 +1013,6 @@ function rt.PlayerBody:_apply_squish(factor)
         if motion == nil or motion.get_value == nil then return end
 
         local amount = motion:get_value()
-        if amount < 0.01 then return end -- skip negligible contributions
 
         local squish_nx = (nx ~= nil) and nx or default_nx
         local squish_ny = (ny ~= nil) and ny or default_ny
