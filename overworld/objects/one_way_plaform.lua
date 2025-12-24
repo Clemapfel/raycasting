@@ -372,8 +372,10 @@ function ow.OneWayPlatform:update(delta)
                 local target_y = py + axis_y * target_distance
 
                 local t = rt.settings.overworld.one_way_platform.push_through_coefficient
-                local correction_vx = (target_x - px) / (t * delta)
-                local correction_vy = (target_y - py) / (t * delta)
+                local alignment = math.max(0, math.dot(axis_x, axis_y, math.normalize(player_vx, player_vy)))
+
+                local correction_vx = alignment * (target_x - px) / (t * delta)
+                local correction_vy = alignment * (target_y - py) / (t * delta)
 
                 local new_vx = player_vx + correction_vx * delta
                 local new_vy = player_vy + correction_vy * delta

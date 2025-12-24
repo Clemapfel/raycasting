@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 336,
+  nextobjectid = 339,
   properties = {},
   tilesets = {
     {
@@ -303,7 +303,7 @@ return {
         {
           id = 314,
           name = "",
-          type = "Hitbox",
+          type = "SlipperyHitbox",
           shape = "polygon",
           x = -26.4434,
           y = 2363.12,
@@ -313,17 +313,21 @@ return {
           visible = true,
           polygon = {
             { x = -5.55663, y = 4.87968 },
-            { x = -5.55663, y = 116.88 },
-            { x = 1466.44, y = 116.88 },
-            { x = 1466.44, y = -651.12 },
-            { x = 1226.44, y = -651.12 },
+            { x = 10.4434, y = 356.88 },
+            { x = 1274.44, y = 1156.88 },
+            { x = 2922.44, y = 500.88 },
+            { x = 2938.44, y = -203.12 },
+            { x = 2616.11, y = 468.386 },
+            { x = 1808.2, y = 382.688 },
             { x = 1226.44, y = 4.87968 },
             { x = 634.443, y = 4.87968 },
-            { x = 634.443, y = -187.12 },
-            { x = 554.443, y = -187.12 },
+            { x = 634.443, y = -155.12 },
+            { x = 554.443, y = -155.12 },
             { x = 554.443, y = 4.87968 }
           },
-          properties = {}
+          properties = {
+            ["is_slippery"] = true
+          }
         },
         {
           id = 316,
@@ -561,10 +565,59 @@ return {
         {
           id = 335,
           name = "",
-          type = "AirDashNode",
+          type = "BouncePad",
           shape = "ellipse",
-          x = 851.545,
-          y = 2191.25,
+          x = 928,
+          y = 2272,
+          width = 110,
+          height = 110,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 336,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 1888,
+          y = 1088,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 1648, y = 0 },
+            { x = 1648, y = -1408 },
+            { x = 1328, y = -1408 },
+            { x = 1328, y = -224 },
+            { x = 256, y = -224 },
+            { x = 256, y = -1408 },
+            { x = -16, y = -1408 }
+          },
+          properties = {}
+        },
+        {
+          id = 337,
+          name = "",
+          type = "BouncePad",
+          shape = "ellipse",
+          x = 928,
+          y = 2123.45,
+          width = 110,
+          height = 110,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 338,
+          name = "",
+          type = "Bubble",
+          shape = "ellipse",
+          x = 672,
+          y = 2144,
           width = 110,
           height = 110,
           rotation = 0,
