@@ -337,6 +337,12 @@ rt.Translation = {
             target_time = math.huge,
         },
 
+        {
+            id = "accelerator_tutorial",
+            title = "Accelerators",
+            target_time = math.huge,
+        },
+
 --[[
 
         {

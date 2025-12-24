@@ -30,7 +30,6 @@ end
 function rt.random.integer(min, max)
     return love.math.random(min, max)
 end
-
 --- @brief
 function rt.random.integers(n, min, max)
     local out = {}
