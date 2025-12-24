@@ -115,7 +115,7 @@ do
         down_button_friction_release_duration = 10 / 60, -- s
 
         platform_velocity_decay = 0.98,
-        max_velocity = math.huge, -- 2500
+        max_velocity = 2500,
 
         squeeze_multiplier = 1.4,
 
@@ -241,6 +241,8 @@ function rt.Player:instantiate()
 
         _jump_allowed_override = nil, -- Boolean
         _jump_disabled = nil, -- Boolean
+        _jump_up_x = 0,
+        _jump_up_y = -1,
 
         _bounce_direction_x = 0,
         _bounce_direction_y = 0,
@@ -1342,51 +1344,72 @@ function rt.Player:update(delta)
         local should_apply_friction = true
         local is_jumping = false
 
-        if self._jump_elapsed < _settings.jump_duration then
-            -- regular jump
-            if self._jump_button_is_down then
-                next_velocity_y = -1 * time_dilation * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
-                is_jumping = true
-            end
-        elseif self._wall_jump_elapsed < _settings.wall_jump_duration then
-            -- wall jump: initial burst, then small sustain
-            if self._wall_jump_elapsed == 0 then
-                local dx, dy = math.cos(_settings.wall_jump_initial_angle), math.sin(_settings.wall_jump_initial_angle)
+        do -- regular jump
+            local jump_up_x, jump_up_y = self._jump_up_x, self._jump_up_y
+            local lateral_x, lateral_y = math.turn_right(jump_up_x, jump_up_y)
 
-                if self._right_wall then dx = dx * -1 end
-                local burst = _settings.wall_jump_initial_impulse + gravity
-                next_velocity_x, next_velocity_y = dx * burst, dy * burst
+            if self._jump_elapsed < _settings.jump_duration then
+                if self._jump_button_is_down then
+                    local desired_u = time_dilation * _settings.jump_impulse * math.sqrt(self._jump_elapsed / _settings.jump_duration)
 
-                self._wall_jump_freeze_elapsed = 0
+                    local current_u = next_velocity_x * jump_up_x + next_velocity_y * jump_up_y
+                    local delta_u = desired_u - current_u
+                    next_velocity_x = next_velocity_x + delta_u * jump_up_x
+                    next_velocity_y = next_velocity_y + delta_u * jump_up_y
 
-                if self._left_wall then
-                    self._wall_jump_freeze_sign = -1
-                elseif self._right_wall then
-                    self._wall_jump_freeze_sign =  1
+                    is_jumping = true
                 end
+            elseif self._wall_jump_elapsed < _settings.wall_jump_duration then
+                if self._wall_jump_elapsed == 0 then
+                    -- initial burst
+                    local lateral_sign = 0
+                    if self._left_wall then
+                        lateral_sign = 1   -- away from left wall is +R (default U=(0,-1) => +x)
+                    elseif self._right_wall then
+                        lateral_sign = -1  -- away from right wall is -R
+                    end
 
-                should_apply_friction = false
-                is_jumping = true
-            elseif self._jump_button_is_down then
-                -- sustained jump, if not sprinting, add additional air time to make up for reduced x speed
-                local dx, dy = math.cos(_settings.wall_jump_sustained_angle), math.sin(_settings.wall_jump_sustained_angle)
+                    local angle = _settings.wall_jump_initial_angle
+                    local dx = lateral_x * lateral_sign * math.cos(angle) + jump_up_x * math.sin(angle)
+                    local dy = lateral_y * lateral_sign * math.cos(angle) + jump_up_y * math.sin(angle)
 
-                if self._wall_jump_freeze_sign == 1 then dx = dx * -1 end
-                local force = _settings.wall_jump_sustained_impulse * delta + gravity
-                next_velocity_x = next_velocity_x + dx * force * time_dilation
-                next_velocity_y = next_velocity_y + dy * force * time_dilation
+                    local burst = _settings.wall_jump_initial_impulse + gravity
+                    next_velocity_x, next_velocity_y = dx * burst, dy * burst
 
-                is_jumping = true
+                    self._wall_jump_freeze_elapsed = 0
+
+                    if self._left_wall then
+                        self._wall_jump_freeze_sign = -1
+                    elseif self._right_wall then
+                        self._wall_jump_freeze_sign =  1
+                    end
+
+                    should_apply_friction = false
+                    is_jumping = true
+                elseif self._jump_button_is_down then
+                    -- then sustain
+                    local lateral_sign = ternary(self._wall_jump_freeze_sign == 1, -1, 1)
+
+                    local a = _settings.wall_jump_sustained_angle
+                    local dx = lateral_x * lateral_sign * math.cos(a) + jump_up_x * math.sin(a)
+                    local dy = lateral_y * lateral_sign * math.cos(a) + jump_up_y * math.sin(a)
+
+                    local force = _settings.wall_jump_sustained_impulse * delta + gravity
+                    next_velocity_x = next_velocity_x + dx * force * time_dilation
+                    next_velocity_y = next_velocity_y + dy * force * time_dilation
+
+                    is_jumping = true
+                end
+            else
+                next_velocity_y = select(2, self._body:get_velocity())
+                -- use solver velocity
             end
-        else
-            next_velocity_y = select(2, self._body:get_velocity())
-            -- use solver velocity
-        end
 
-        self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
-        self._jump_elapsed = self._jump_elapsed + delta
-        self._wall_jump_elapsed = self._wall_jump_elapsed + delta
-        self._coyote_elapsed = self._coyote_elapsed + delta
+            self._wall_jump_freeze_elapsed = self._wall_jump_freeze_elapsed + delta
+            self._jump_elapsed = self._jump_elapsed + delta
+            self._wall_jump_elapsed = self._wall_jump_elapsed + delta
+            self._coyote_elapsed = self._coyote_elapsed + delta
+        end
 
         if is_grounded then
             self._coyote_elapsed = 0
@@ -1408,46 +1431,55 @@ function rt.Player:update(delta)
         end
         self._bounce_elapsed = self._bounce_elapsed + delta
 
-        -- accelerators
-        for surface in range(
-            { left_wall_body, left_nx, left_ny },
-            { top_wall_body, top_nx, top_ny },
-            { right_wall_body, right_nx, right_ny },
-            { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
-            { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
-            { bottom_wall_body, bottom_nx, bottom_ny }
-        ) do
-            local body, nx, ny = table.unpack(surface)
-            if body ~= nil and (body:has_tag("use_friction") or body:get_friction() < 0) then
-                local friction = body:get_friction()
+        do -- accelerators
+            for surface in range(
+                { left_wall_body, left_nx, left_ny },
+                { top_wall_body, top_nx, top_ny },
+                { right_wall_body, right_nx, right_ny },
+                { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
+                { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
+                { bottom_wall_body, bottom_nx, bottom_ny },
+                { top_left_wall_body, top_left_nx, top_left_ny },
+                { top_wall_body, top_nx, top_ny },
+                { top_right_wall_body, top_right_nx, top_right_ny }
+            ) do
+                local body, normal_x, normal_y = table.unpack(surface)
+                if body ~= nil and body:has_tag("use_friction") then
+                    local friction = body:get_friction()
+                    local player_vx, player_vy = next_velocity_x, next_velocity_y
 
-                local tx, ty = math.turn_left(nx, ny)
-                local vx, vy = next_velocity_x, next_velocity_y
-                local dot_product = vx * tx + vy * ty
+                    -- get surface tangent
+                    local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
+                    if math.dot(player_vx, player_vy, tangent_x, tangent_y) > 0 then
+                        tangent_x, tangent_y = math.flip(tangent_x, tangent_y)
+                    end
 
-                local tangent_velocity_x = dot_product * tx
-                local tangent_velocity_y = dot_product * ty
+                    local max_velocity = _settings.accelerator_max_velocity
 
-                local friction_force_x = -tangent_velocity_x * friction * _settings.accelerator_friction_coefficient
-                local friction_force_y = -tangent_velocity_y * friction * _settings.accelerator_friction_coefficient
+                    -- accelerate along tangent
+                    local acceleration = max_velocity / _settings.accelerator_acceleration_duration
+                    local velocity_delta = max_velocity - math.magnitude(player_vx, player_vy)
+                    local velocity_sign = math.sign(velocity_delta)
 
-                -- apply tangential force
-                next_velocity_x = next_velocity_x + time_dilation * friction_force_x * delta
-                next_velocity_y = next_velocity_y + time_dilation * friction_force_y * delta
+                    if velocity_delta > 0 then -- only accelerate
+                        next_velocity_x = next_velocity_x + friction * tangent_x * velocity_sign * acceleration * delta
+                        next_velocity_y = next_velocity_y + friction * tangent_y * velocity_sign * acceleration * delta
+                    end
 
-                -- magnetize to surface
-                local flipped_x, flipped_y = math.flip(nx, ny)
-                next_velocity_x = next_velocity_x + flipped_x * delta * _settings.accelerator_magnet_force
-                next_velocity_y = next_velocity_y + flipped_y * delta * _settings.accelerator_magnet_force
+                    -- clamp
+                    if math.magnitude(next_velocity_x, next_velocity_y) > max_velocity then
+                        local nvx, nvy = math.normalize(next_velocity_x, next_velocity_y)
+                        next_velocity_x = nvx * max_velocity
+                        next_velocity_y = nvy * max_velocity
+                    end
 
-                should_apply_friction = false
-            end
+                    local velocity_t = math.magnitude(player_vx, player_vy) / max_velocity
 
-            local accelerator_max_velocity = time_dilation * _settings.accelerator_max_velocity
-            if math.magnitude(next_velocity_x, next_velocity_y) > accelerator_max_velocity then
-                next_velocity_x, next_velocity_y = math.normalize(next_velocity_x, next_velocity_y)
-                next_velocity_x = next_velocity_x * accelerator_max_velocity
-                next_velocity_y = next_velocity_y * accelerator_max_velocity
+                    -- magnetize to surface
+                    local magnet_acceleration = _settings.accelerator_magnet_acceleration * velocity_t
+                    next_velocity_x = next_velocity_x + -normal_x * magnet_acceleration * delta
+                    next_velocity_y = next_velocity_y + -normal_y * magnet_acceleration * delta
+                end
             end
         end
 
@@ -1698,34 +1730,7 @@ function rt.Player:update(delta)
         end
 
         -- accelerators
-        local current_velocity_x, current_velocity_y = self._bubble_body:get_velocity()
-        for surface in range(
-            { left_wall_body, left_nx, left_ny },
-            { top_wall_body, top_nx, top_ny },
-            { right_wall_body, right_nx, right_ny },
-            { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
-            { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
-            { bottom_wall_body, bottom_nx, bottom_ny }
-        ) do
-            local body, nx, ny = table.unpack(surface)
-            if body ~= nil and body:has_tag("use_friction") then
-                local friction = body:get_friction()
-
-                local tx, ty = -ny, nx
-                local vx, vy = self._bubble_body:get_velocity()
-                local dot_product = vx * tx + vy * ty
-
-                local tangent_velocity_x = dot_product * tx
-                local tangent_velocity_y = dot_product * ty
-
-                local friction_force_x = -tangent_velocity_x * friction * _settings.bubble_accelerator_friction_coefficient
-                local friction_force_y = -tangent_velocity_y * friction * _settings.bubble_accelerator_friction_coefficient
-
-                -- apply tangential force
-                next_force_x = next_force_x + time_dilation * friction_force_x
-                next_force_y = next_force_y + time_dilation * friction_force_y
-            end
-        end
+        -- TODO
 
         self._bubble_body:apply_force(_apply_damping(next_force_x, next_force_y))
         self._last_bubble_force_x, self._last_bubble_force_y = next_force_x, next_force_y

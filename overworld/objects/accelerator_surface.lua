@@ -129,7 +129,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     -- mesh
     self._contour = rt.round_contour(object:create_contour(), 10)
-    self._mesh = object:create_mesh()
+
     self._body = object:create_physics_body(
         stage:get_physics_world(),
         b2.BodyType.KINEMATIC
@@ -148,12 +148,27 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         rt.settings.player.player_outer_body_collision_group
     ))
 
-    self._mesh = object:create_mesh()
-    self._outline = object:create_contour()
+    local x, y = self._body:get_position()
+
+    local _, tris, mesh_data
+    _, tris, mesh_data = object:create_mesh()
+
+    for i, data in ipairs(mesh_data) do
+        data[1] = data[1] - x
+        data[2] = data[2] - y
+    end
+
+    self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
+
+    local contour = object:create_contour()
+    for i = 1, #contour, 2 do
+        contour[i+0] = contour[i+0] - x
+        contour[i+1] = contour[i+1] - y
+    end
+    self._outline = contour
+
     table.insert(self._outline, self._outline[1])
     table.insert(self._outline, self._outline[2])
-
-    self._x, self._y = object:get_centroid()
 end
 
 function _get_friction(nx, ny, vx, vy)
@@ -260,7 +275,7 @@ function ow.AcceleratorSurface:draw()
     local offset_x, offset_y = self._body:get_position()
 
     love.graphics.push()
-    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+    love.graphics.translate(offset_x, offset_y)
 
     love.graphics.setColor(1, 1, 1, 1)
     local camera = self._scene:get_camera()
@@ -325,7 +340,7 @@ end
 function ow.AcceleratorSurface:draw_bloom()
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
-    love.graphics.translate(-self._x + offset_x, -self._y + offset_y)
+    love.graphics.translate(offset_x, offset_y)
 
     love.graphics.setColor(1, 1, 1, 1)
     _outline_shader:bind()

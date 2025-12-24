@@ -20,7 +20,6 @@ end)
 
 --- @brief
 function ow.DeceleratorSurface:instantiate(object, stage, scene)
-    rt.warning("In ow.DeceleratorSurface: FLICKERING todo")
     self._scene = scene
     self._stage = stage
 
@@ -46,7 +45,7 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     end)
 
     local contour = object:create_contour()
-    local centroid_x, centroid_y = object:get_centroid()
+    local centroid_x, centroid_y = self._body:get_position()
     for i = 1, #contour, 2 do
         contour[i+0] = contour[i+0] - centroid_x
         contour[i+1] = contour[i+1] - centroid_y
@@ -120,7 +119,6 @@ function ow.DeceleratorSurface:update(delta)
 
         local value = base_value
 
-
         if dist > sine_start then
             local frequency = 1 / 5
             local sine_wave = math.sin(x * frequency + offset) * math.cos(y * frequency)
@@ -136,7 +134,6 @@ function ow.DeceleratorSurface:update(delta)
             local sine_t = math.clamp(math.min(math.abs(x - px) / sine_r, math.abs(y - py) / sine_r), 0, 1)
             value = 0.5 * (value + 1) + sine_wave * sine_amplitude * math.min(sine_t, offset_envelope) --value + (1 - value) * 0.5 * sine_wave * sine_amplitude
         end
-
 
         return value / 2
     end
@@ -214,8 +211,9 @@ function ow.DeceleratorSurface:draw()
     rt.Palette.DECELERATOR_SURFACE_OUTLINE:bind()
     love.graphics.setLineWidth(line_width)
     love.graphics.line(self._draw_contour)
-end
 
+    self._body:draw()
+end
 
 --- @brief
 function ow.DeceleratorSurface:get_render_priority()
