@@ -1138,27 +1138,11 @@ function rt.Player:update(delta)
         -- wall friction
         local net_friction_x, net_friction_y = 0, 0
         do
-            -- use average velocity instead of current for friction stability
-            local average_vx, average_vy = 0, 0
-            local max_magnitude = -math.huge
-            for i = 1, #self._velocity_history, 2 do
-                average_vx = average_vx + self._velocity_history[i+0]
-                average_vy = average_vy + self._velocity_history[i+1]
-                max_magnitude = math.max(max_magnitude, math.magnitude(self._velocity_history[i+0], self._velocity_history[i+1]))
-            end
-
-            do
-                average_vx = average_vx / _settings.velocity_history_n
-                average_vy = average_vy / _settings.velocity_history_n
-                local sign_x, sign_y = math.sign(average_vx), math.sign(average_vy)
-                average_vx, average_vy = math.normalize(average_vx, average_vy)
-                average_vx = average_vx * max_magnitude
-                average_vy = average_vy * max_magnitude
-            end
+            local seen = {}
 
             -- apply friction along tangent, also magnetize towards surface
             local apply_friction = function(normal_x, normal_y, body, contact_x, contact_y, ray_length)
-                local player_vx, player_vy = average_vx, average_vy
+                local player_vx, player_vy = self._body:get_velocity()
                 local body_vx, body_vy = body:get_velocity()
 
                 -- compute relative velocity
@@ -1176,11 +1160,13 @@ function rt.Player:update(delta)
                 slope_factor = (slope_factor - 0.5) * 2
 
                 -- get tangent
-                local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
+                local gravity_x, gravity_y = self._gravity_direction_x, self._gravity_direction_y
 
-                -- flip tangent to oppose relative velocity direction
-                if math.dot(relative_vx, relative_vy, tangent_x, tangent_y) > 0 then
-                    tangent_x, tangent_y = math.flip(tangent_x, tangent_y)
+                local tangent_x, tangent_y
+                if math.dot(gravity_x, gravity_y, math.turn_left(normal_x, normal_y)) < 0 then
+                    tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
+                else
+                    tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
                 end
 
                 local input_modifier = 1.0
@@ -1196,13 +1182,9 @@ function rt.Player:update(delta)
                     input_modifier = 1 - release_progress -- linear easing
                 end
 
-                local px, py = self._body:get_position()
-                local dx, dy = math.normalize(math.subtract(px, py, contact_x, contact_y))
-                local penetration = math.min(1, math.distance(px, py, contact_x, contact_y) / (self._radius - 2))
-
                 local friction_force = input_modifier * slope_factor * _settings.friction_coefficient
-                net_friction_x = net_friction_x + tangent_x * friction_force * penetration
-                net_friction_y = net_friction_y + tangent_y * friction_force * penetration
+                net_friction_x = net_friction_x + tangent_x * friction_force
+                net_friction_y = net_friction_y + tangent_y * friction_force
             end
 
             if self._left_wall
@@ -1229,8 +1211,8 @@ function rt.Player:update(delta)
 
             if self._top_left_wall
                 and not self._top_left_wall_body:has_tag("slippery")
+                and left_is_down
             then
-                local vx, vy = self._top_left_wall_body:get_velocity()
                 apply_friction(
                     top_left_nx, top_left_ny,
                     self._top_left_wall_body,
@@ -1241,7 +1223,6 @@ function rt.Player:update(delta)
             if self._top_wall
                 and not self._top_wall_body:has_tag("slippery")
             then
-                local vx, vy = self._top_wall_body:get_velocity()
                 apply_friction(
                     top_nx, top_ny,
                     self._top_wall_body,
@@ -1251,8 +1232,8 @@ function rt.Player:update(delta)
 
             if self._top_right_wall
                 and not self._top_right_wall_body:has_tag("slippery")
+                and right_is_down
             then
-                local vx, vy = self._top_right_wall_body:get_velocity()
                 apply_friction(
                     top_right_nx, top_right_ny,
                     self._top_right_wall_body,
@@ -1264,7 +1245,6 @@ function rt.Player:update(delta)
                 and not self._bottom_left_wall_body:has_tag("slippery")
                 and not down_is_down
             then
-                local vx, vy = self._bottom_left_wall_body:get_velocity()
                 apply_friction(
                     bottom_left_nx, bottom_left_ny,
                     self._bottom_left_wall_body,
@@ -1276,7 +1256,6 @@ function rt.Player:update(delta)
                 and not self._bottom_wall_body:has_tag("slippery")
                 and not down_is_down
             then
-                local vx, vy = self._bottom_wall_body:get_velocity()
                 apply_friction(
                     bottom_nx, bottom_ny,
                     self._bottom_wall_body,
@@ -1288,7 +1267,6 @@ function rt.Player:update(delta)
                 and not self._bottom_right_wall_body:has_tag("slippery")
                 and not down_is_down
             then
-                local vx, vy = self._bottom_right_wall_body:get_velocity()
                 apply_friction(
                     bottom_right_nx, bottom_right_ny,
                     self._bottom_right_wall_body,
@@ -1296,17 +1274,28 @@ function rt.Player:update(delta)
                 )
             end
 
-            -- prevent friction moving player backwards
-            if current_velocity_x > 0 then
-                net_friction_x = math.min(net_friction_x, 0)
-            elseif current_velocity_x < 0 then
-                net_friction_x = math.max(net_friction_x, 0)
-            end
+            do -- clamp friction
+                local velocity_magnitude = math.magnitude(current_velocity_x, current_velocity_y)
 
-            if current_velocity_y > 0 then
-                net_friction_y = math.min(net_friction_y, 0)
-            elseif current_velocity_y < 0 then
-                net_friction_y = math.max(net_friction_y, 0)
+                local friction_dx, friction_dy = math.normalize(net_friction_x, net_friction_y)
+                local velocity_along_friction = math.dot(
+                    current_velocity_x, current_velocity_y,
+                    friction_dx, friction_dy
+                )
+
+                -- only oppose motion along friction direction
+                if velocity_along_friction < 0 then
+                    local clamped_magnitude = math.min(
+                        math.magnitude(net_friction_x, net_friction_y),
+                        -velocity_along_friction
+                    )
+
+                    net_friction_x = friction_dx * clamped_magnitude
+                    net_friction_y = friction_dy * clamped_magnitude
+                else
+                    net_friction_x = 0
+                    net_friction_y = 0
+                end
             end
         end -- wall friction
 

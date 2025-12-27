@@ -177,6 +177,27 @@ function math.equals(a, b, eps)
     return math.abs(a - b) <= eps
 end
 
+function math.less_than(a, b, eps)
+    if eps == nil then eps = 0 end
+    return a < b - eps
+end
+
+function math.greater_than(a, b, eps)
+    if eps == nil then eps = 0 end
+    return a > b + eps
+end
+
+function math.less_than_or_equal(a, b, eps)
+    if eps == nil then eps = 0 end
+    return a <= b + eps
+end
+
+function math.greater_than_or_equal(a, b, eps)
+    if eps == nil then eps = 0 end
+    return a >= b - eps
+end
+
+
 function math.is_nan(x)
     return x ~= x
 end
