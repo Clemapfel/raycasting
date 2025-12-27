@@ -3,6 +3,7 @@ require "common.spline"
 require "overworld.normal_map"
 require "overworld.mirror"
 require "overworld.movable_object"
+require "overworld.path_rail"
 
 rt.settings.overworld.path = {
     draw_line_width = 3,
@@ -36,7 +37,7 @@ function ow.Path:instantiate(object, stage, scene)
     assert(object:get_type() == ow.ObjectType.POINT, "In ow.Path: object `" .. object:get_id() .. "` is not a point")
     self._scene = scene
     self._stage = stage
-
+    self._color = rt.RGBA(1, 1, 1, 1)
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "l" then
@@ -63,9 +64,11 @@ function ow.Path:instantiate(object, stage, scene)
     self._is_absolute = object:get_boolean("is_absolute", false)
     if self._is_absolute == nil then self._is_absolute = false end
 
-    if self._is_visible then
-        self._color = rt.RGBA(1, 1, 1, 1)
-    end
+    self._is_absolute = object:get_boolean("is_absolute", false)
+    if self._is_absolute == nil then self._is_absolute = false end
+
+    self._is_visible = object:get_boolean("is_visible", false)
+    if self._is_visible == nil then self._is_visible = false end
 
     self._stage:signal_connect("respawn", function()
         self:reset()
@@ -160,6 +163,11 @@ function ow.Path:instantiate(object, stage, scene)
             )
             self._camera_body:set_collides_with(0x0)
             self._camera_body:set_collision_group(0x0)
+
+            if self._is_visible then
+                self._rail = ow.PathRail(self._path)
+                self._rail_attachment_x, self._rail_attachment_y = self._path:at(0)
+            end
         end
     end)
 
@@ -270,15 +278,22 @@ local _front_priority = math.huge
 --- @brief
 function ow.Path:draw(priority)
     if not self._is_visible or not self._stage:get_is_body_visible(self._camera_body) then return end
+
+    if priority == _back_priority then
+        self._rail:draw_rail()
+    elseif priority == _front_priority then
+        for entry in values(self._entries) do
+            local x, y = entry.target:get_position()
+            x = x - entry.offset_x
+            y = y - entry.offset_y
+            self._rail:draw_attachment(x, y)
+        end
+    end
 end
 
 --- @brief
 function ow.Path:draw_bloom()
     if not self._is_visible or not self._stage:get_is_body_visible(self._camera_body) then return end
-
-    self._color:bind()
-    love.graphics.setLineWidth(rt.settings.overworld.path.draw_line_width)
-    love.graphics.line(self._path:get_points())
 end
 
 --- @brief
@@ -286,7 +301,7 @@ function ow.Path:get_render_priority()
     if not self._is_visible then
         return nil
     else
-        return -math.huge
+        return _back_priority, _front_priority
     end
 end
 
