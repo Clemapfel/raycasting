@@ -8,7 +8,7 @@ rt.settings.overworld.tether = {
     min_n_nodes = 3,
     max_n_nodes = 1024,
 
-    buldge_radius = 20
+    line_width = 3
 }
 
 --- @class ow.Tether
@@ -191,7 +191,7 @@ function ow.Tether:draw()
     love.graphics.setLineJoin("none")
     love.graphics.setLineStyle("rough")
 
-    local line_width = love.graphics.getLineWidth()
+    local line_width = rt.settings.overworld.tether.line_width
     love.graphics.setLineWidth(line_width + 1.5)
     rt.Palette.BLACK:bind()
     love.graphics.line(rope.current_positions)

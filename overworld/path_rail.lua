@@ -1,8 +1,8 @@
 require "common.path"
 
 rt.settings.overworld.moving_hitbox_path = {
-    rail_inner_radius = 5,
-    rail_outer_radius = 6,
+    rail_inner_radius = 3,
+    rail_outer_radius = 4.5,
     attachment_outer_radius = 10,
     attachment_inner_radius = 7,
     contour_line_width = 1

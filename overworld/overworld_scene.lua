@@ -230,6 +230,13 @@ function ow.OverworldScene:instantiate(state)
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         -- debug reload
         if which == "^" then
+            for reload in range(
+                "common.player"
+            ) do
+                package.loaded[reload] = nil
+                require(reload)
+            end
+
             self._input:deactivate()
             self:unpause()
             self:reset()

@@ -74,18 +74,19 @@ do
         instant_turnaround_velocity = 600,
 
         coyote_time = 8 / 60,
+
         platform_velocity_decay = 0.7,
 
         jump_duration = 11 / 60,
-        jump_impulse = 560, -- 10 * 16 tiles neutral jump
+        jump_impulse = 550, -- 10 * 16 tiles neutral jump
 
         wall_magnet_force = 200,
         wall_jump_initial_impulse = 400,
-        wall_jump_sustained_impulse = 1200,
+        wall_jump_sustained_impulse = 1000,
         wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
         wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
-        wall_jump_duration = 12 / 60,
-        wall_jump_freeze_duration = 7 / 60,
+        wall_jump_duration = 10 / 60,
+        wall_jump_freeze_duration = 8 / 60,
 
         accelerator_max_velocity = 2000, -- vxy magnitude
         accelerator_magnet_force = 400,
@@ -96,6 +97,7 @@ do
         bounce_duration = 2 / 60,
 
         jump_buffer_duration = 6 / 60,
+        wall_jump_buffer_duration = 30 / 60,
 
         spring_constant = 1.8,
         joint_force_threshold = 1000,
@@ -218,9 +220,6 @@ function rt.Player:instantiate()
         _bottom_right_wall_body = nil,
         _bottom_right_ray = {0, 0, 0, 0},
 
-        _left_wall_elapsed = 0,
-        _right_wall_elapsed = 0,
-
         _is_grounded = false,
         _is_ducking = false,
 
@@ -232,9 +231,12 @@ function rt.Player:instantiate()
         _up_y = -1,
 
         _queue_jump_duration = math.huge, -- for buffering
+
         _jump_elapsed = math.huge,
         _jump_blocked = true,
         _coyote_elapsed = 0,
+        _left_wall_coyote_elapsed = 0,
+        _right_wall_coyote_elapsed = 0,
 
         _wall_jump_elapsed = math.huge,
         _left_wall_jump_blocked = true,
@@ -851,6 +853,19 @@ function rt.Player:update(delta)
 
     self._is_grounded = is_grounded
 
+    -- input method agnostic button state
+    local left_is_down = self._left_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
+
+    local right_is_down = self._right_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
+
+    local up_is_down = self._up_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.UP) > _settings.joystick_magnitude_up_threshold
+
+    local down_is_down = self._down_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
+
     -- buffered jump
     if self._queue_jump_duration <= _settings.jump_buffer_duration then
         if self:jump() == true then
@@ -896,19 +911,6 @@ function rt.Player:update(delta)
             self._double_jump_sources = {}
         end
     end
-
-    -- input method agnostic button state
-    local left_is_down = self._left_button_is_down or
-        self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
-
-    local right_is_down = self._right_button_is_down or
-        self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
-
-    local up_is_down = self._up_button_is_down or
-        self._joystick_gesture:get_magnitude(rt.InputAction.UP) > _settings.joystick_magnitude_up_threshold
-
-    local down_is_down = self._down_button_is_down or
-        self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
 
     do -- compute current normal for all colliding walls
         local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.player_collision_group))
@@ -1083,6 +1085,17 @@ function rt.Player:update(delta)
             _settings.air_target_velocity_x
         )
 
+        -- if on unwalkable, player will have no way to influence horizontal movement
+        local is_unwalkable = (self._bottom_wall and self._bottom_wall_body:has_tag("unwalkable"))
+            or (self._bottom_left_wall and self._bottom_left_wall_body:has_tag("unwalkable"))
+            or (self._bottom_right_wall and self._bottom_right_wall_body:has_tag("unwalkable"))
+
+        if is_unwalkable then
+            input_magnitude = 0
+            left_is_down = false
+            right_is_down = false
+        end
+
         if input_magnitude ~= 0 then
             local velocity_delta = target_velocity_x - current_velocity_x
             local is_accelerating = (math.sign(target_velocity_x) == math.sign(current_velocity_x)) and
@@ -1115,13 +1128,15 @@ function rt.Player:update(delta)
             )
 
             local should_slide = is_grounded
-                and down_is_down
                 and not left_is_down
                 and not right_is_down
 
-            if should_slide then
-                -- if ducking, slide freely
-                next_velocity_x = current_velocity_x
+            if should_slide and
+                (self._bottom_wall and self._bottom_wall_body:has_tag("slippery"))
+                or (self._bottom_left_wall and self._bottom_left_wall_body:has_tag("slippery"))
+                or (self._bottom_right_wall and self._bottom_right_wall_body:has_tag("slippery"))
+            then
+                next_velocity_x = current_velocity_x -- slide freely
             else
                 if not is_grounded and not self._sprint_button_is_down and not left_is_down and not right_is_down and not down_is_down then
                     -- do not decay
@@ -1244,6 +1259,7 @@ function rt.Player:update(delta)
             if self._bottom_left_wall
                 and not self._bottom_left_wall_body:has_tag("slippery")
                 and not down_is_down
+                and not is_unwalkable
             then
                 apply_friction(
                     bottom_left_nx, bottom_left_ny,
@@ -1321,7 +1337,6 @@ function rt.Player:update(delta)
 
         local should_apply_friction = true
         local is_jumping = false
-
         do
             if self._jump_elapsed < _settings.jump_duration then
                 -- regular jump
@@ -1372,6 +1387,10 @@ function rt.Player:update(delta)
 
         if is_grounded then
             self._coyote_elapsed = 0
+        end
+
+        if self._left_wall_body then
+            self.
         end
 
         -- bounce
@@ -1467,6 +1486,7 @@ function rt.Player:update(delta)
         -- downwards force
         if not self._movement_disabled
             and down_is_down
+            -- and is_grounded
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
@@ -1867,7 +1887,7 @@ function rt.Player:update(delta)
     -- add blood splatter
     if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            local r = self:get_radius()
+            local r = rt.settings.player.radius
             local cx, cy = contact_x, contact_y
 
             -- at high velocities, interpolate
@@ -2861,85 +2881,81 @@ end
 function rt.Player:jump()
     local jumped = false
 
-    local function allow_vertical_jump()
-        self._jump_elapsed = 0
-        self._jump_blocked = true
-        jumped = true
-    end
-
-    -- override disable
-    if self._jump_allowed_override == false then
-        self._jump_allowed_override = nil
-        return false
-    end
+    -- evaluate wall conditions
 
     local left_is_down = self._left_button_is_down or
         self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
+        or self._left_released_elapsed < _settings.wall_jump_buffer_duration
 
     local right_is_down = self._right_button_is_down or
         self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
+        or self._right_released_elapsed < _settings.wall_jump_buffer_duration
 
-
-    local should_wall_jump = (left_is_down and self._left_wall) or (right_is_down and self._right_wall)
-    if should_wall_jump then
-        if self._left_wall
-            and (self._left_wall_body:has_tag("unjumpable") or self._left_wall_body:has_tag("slippery"))
-        then
-            return
-        elseif self._right_wall and (self._right_wall_body:has_tag("unjumpable") or self._right_wall_body:has_tag("slippery"))
-        then
-            return
-        end
-    else
-        if self._bottom_wall and self._bottom_wall_body:has_tag("unjumpable")
-            or self._bottom_left_wall and self._bottom_left_wall_body:has_tag("unjumpable")
-            or self._bottom_right_wall and self._bottom_right_wall_body:has_tag("unjumpable")
-        then
-            return
-        end
+    local left_wall_jump_allowed = left_is_down
+    if not self._left_wall
+        or (self._left_wall and (self._left_wall_body:has_tag("slippery") or self._left_wall_body:has_tag("unjumpable")))
+    then
+        left_wall_jump_allowed = false
     end
 
-    -- overridden enable
-    if self._jump_allowed_override == true then
-        allow_vertical_jump()
-        self._jump_allowed_override = nil
+    local right_wall_jump_allowed = right_is_down
+    if not self._right_wall
+        or (self._right_wall and (self._right_wall_body:has_tag("slippery") or self._right_wall_body:has_tag("unjumpable")))
+    then
+        right_wall_jump_allowed = false
+    end
 
-    -- regular jump
-    elseif self._is_grounded and not should_wall_jump and not self._jump_is_blocked then
-        allow_vertical_jump()
+    -- wall jumps have priority
+    if left_wall_jump_allowed then
+        self._wall_jump_elapsed = 0
+        jumped = true
+        self._left_wall_jump_blocked = true
+    elseif right_wall_jump_allowed then
+        self._wall_jump_elapsed = 0
+        jumped = true
+        self._right_wall_jump_blocked = true
+    else
+        -- else try regular jump
+        local bottom = (self._bottom_wall and not self._bottom_wall_body:has_tag("unjumpable"))
+            or (not self._left_wall and not self._right_wall and self._coyote_elapsed < _settings.coyote_time)
 
-    -- double jump
-    elseif not self._is_grounded and not table.is_empty(self._double_jump_sources) then
-        allow_vertical_jump()
+        local regular_jump_allowed = not self._jump_blocked and bottom
 
-        -- consume double jump source
-        local instance = self._double_jump_sources[#self._double_jump_sources]
-        self:remove_double_jump_source(instance)
-
-        local color
-        if instance.get_color ~= nil then
-            color = instance:get_color()
-            if meta.isa(color, rt.RGBA) then
-                self:pulse(color)
-            end
-        else
-            color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1))
+        -- only bottom counts for grounded check, but bottom left/right can override with tags
+        if self._bottom_left_wall and self._bottom_left_wall_body:has_tag("unjumpable") or
+            self._bottom_right_wall and self._bottom_right_wall_body:has_tag("unjumpable")
+        then
+            regular_jump_allowed = false
         end
 
-    -- wall jump
-    elseif self._wall_jump_freeze_elapsed > _settings.wall_jump_freeze_duration then
-        local can_wall_jump = (self._left_wall and not self._left_wall_jump_blocked) or
-            (self._right_wall and not self._right_wall_jump_blocked)
+        if self._jump_allowed_override ~= nil then
+            regular_jump_allowed = self._jump_allowed_override
+            self._jump_allowed_override = nil
+        elseif not self._is_grounded
+            and regular_jump_allowed == false
+            and not table.is_empty(self._double_jump_sources)
+        then
+            -- consume double jump source if necessary
+            local instance = self._double_jump_sources[#self._double_jump_sources]
+            self:remove_double_jump_source(instance)
 
-        if can_wall_jump then
-            self._wall_jump_elapsed = 0
-            jumped = true
-
-            if self._left_wall then
-                self._left_wall_jump_blocked = true
-            elseif self._right_wall then
-                self._right_wall_jump_blocked = true
+            local color
+            if instance.get_color ~= nil then
+                color = instance:get_color()
+                if meta.isa(color, rt.RGBA) then
+                    self:pulse(color)
+                end
+            else
+                color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, self:get_hue(), 1))
             end
+
+            regular_jump_allowed = true
+        end
+
+        if regular_jump_allowed then
+            self._jump_elapsed = 0
+            self._jump_blocked = true
+            jumped = true
         end
     end
 

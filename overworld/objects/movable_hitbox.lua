@@ -39,7 +39,8 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
     for property in range(
         "slippery",
         "sticky",
-        "unjumpable"
+        "unjumpable",
+        "unwalkable"
     ) do
         if object:get_boolean(property) then
             self._body:add_tag(property)

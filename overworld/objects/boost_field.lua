@@ -150,7 +150,7 @@ function ow.BoostField:instantiate(object, stage, scene)
     if self._hue == nil then self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi) end
     self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 0.8) }
 
-    self._draw_offset_x, self._draw_offset_y = object:get_centroid()
+    self._draw_offset_x, self._draw_offset_y = self._body:get_position()
     self._mesh = object:create_mesh()
     self._outline = object:create_contour()
     table.insert(self._outline, self._outline[1])

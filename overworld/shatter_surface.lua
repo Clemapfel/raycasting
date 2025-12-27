@@ -313,7 +313,7 @@ function ow.ShatterSurface:shatter(origin_x, origin_y, velocity_x, velocity_y)
                 part.y + self._offset_y,
                 b2.Polygon(part.vertices)
             )
-            part.body:add_tag("stencil", "unjumpable", "slippery")
+            part.body:add_tag("stencil", "unjumpable", "unwalkable", "slippery")
 
             -- proxy for point light query
             part.body:add_tag("point_light_source")
