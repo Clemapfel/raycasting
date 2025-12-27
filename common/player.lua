@@ -78,7 +78,6 @@ do
         wall_jump_sustained_impulse = 1200, -- force per second
         wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
         wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
-        non_sprint_walljump_duration_multiplier = 1.4,
         wall_jump_duration = 12 / 60,
         wall_jump_freeze_duration = 7 / 60,
 
@@ -90,7 +89,7 @@ do
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
 
-        jump_buffer_duration = 4 / 60,
+        jump_buffer_duration = 6 / 60,
 
         spring_constant = 1.8,
         joint_force_threshold = 1000,
@@ -111,10 +110,8 @@ do
         downwards_force = 3000,
 
         friction_coefficient = 12,
-        moving_body_friction_coefficient_factor = 2, -- factor
         down_button_friction_release_duration = 10 / 60, -- s
 
-        platform_velocity_decay = 0.98,
         max_velocity = 2500,
 
         squeeze_multiplier = 1.4,
@@ -849,7 +846,7 @@ function rt.Player:update(delta)
     self._is_grounded = is_grounded
 
     -- buffered jump
-    if self._queue_jump_duration < _settings.jump_buffer_duration then
+    if self._queue_jump_duration <= _settings.jump_buffer_duration then
         if self:jump() == true then
             self._queue_jump_duration = math.huge
         end
@@ -1051,11 +1048,10 @@ function rt.Player:update(delta)
         )
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
-        local next_velocity_x, next_velocity_y = current_velocity_x, current_velocity_y
-
-        -- translate back from relative space
         current_velocity_x = current_velocity_x - self._platform_velocity_x
         current_velocity_y = current_velocity_y - self._platform_velocity_y
+
+        local next_velocity_x, next_velocity_y = current_velocity_x, current_velocity_y
 
         -- x velocity update
 
@@ -1070,6 +1066,10 @@ function rt.Player:update(delta)
             else
                 input_magnitude = 0
             end
+        end
+
+        if self._wall_jump_freeze_elapsed < _settings.wall_jump_freeze_duration then
+            input_magnitude = 0
         end
 
         local target_velocity_x = input_magnitude * self._current_sprint_multiplier * ternary(is_grounded,
@@ -1156,8 +1156,8 @@ function rt.Player:update(delta)
                 local body_vx, body_vy = body:get_velocity()
 
                 -- compute relative velocity
-                player_vx = player_vx - body_vx
-                player_vy = player_vy - body_vy
+                local relative_vx = player_vx - body_vx
+                local relative_vy = player_vy - body_vy
 
                 -- only apply friction to mostly vertical walls
                 local wall_coefficient = math.dot(normal_x, normal_y, 0, 1) + 1
@@ -1171,26 +1171,11 @@ function rt.Player:update(delta)
 
                 -- get tangent
                 local tangent_x, tangent_y = math.turn_right(normal_x, normal_y)
-                if math.dot(player_vx, player_vy, tangent_x, tangent_y) > 0 then
+
+                -- flip tangent to oppose relative velocity direction
+                if math.dot(relative_vx, relative_vy, tangent_x, tangent_y) > 0 then
                     tangent_x, tangent_y = math.flip(tangent_x, tangent_y)
                 end
-
-                -- increase if body is moving in opposite direction
-                local relative_nvx, relative_nvy = math.normalize(
-                    math.reverse_subtract(
-                        body_vx, body_vy,
-                        self._body:get_velocity() -- use sim velocity instead of average
-                    )
-                )
-                local opposing_motion = 1 + math.max(0,
-                    math.dot(
-                        -1 * relative_nvx,
-                        -1 * relative_nvy,
-                        math.normalize(body_vx, body_vy)
-                    )
-                )
-
-                local moving_body_factor = 1 + opposing_motion * _settings.moving_body_friction_coefficient_factor
 
                 local input_modifier = 1.0
                 if use_analog_input then
@@ -1205,15 +1190,13 @@ function rt.Player:update(delta)
                     input_modifier = 1 - release_progress -- linear easing
                 end
 
-                local friction_force = moving_body_factor * input_modifier * slope_factor * _settings.friction_coefficient
-                net_friction_x = net_friction_x + tangent_x * friction_force
-                net_friction_y = net_friction_y + tangent_y * friction_force
-
                 local px, py = self._body:get_position()
-                local dx, dy = math.normalize(math.subtract(px, py, contact_x, contact_x))
-                local penetration = math.min(1, math.distance(px, py, contact_x, contact_y) / self._radius)
-                net_friction_x = net_friction_x + normal_x * friction_force * penetration
-                net_friction_y = net_friction_y + normal_y * friction_force * penetration
+                local dx, dy = math.normalize(math.subtract(px, py, contact_x, contact_y))
+                local penetration = math.min(1, math.distance(px, py, contact_x, contact_y) / (self._radius - 2))
+
+                local friction_force = input_modifier * slope_factor * _settings.friction_coefficient
+                net_friction_x = net_friction_x + tangent_x * friction_force * penetration
+                net_friction_y = net_friction_y + tangent_y * friction_force * penetration
             end
 
             if self._left_wall
@@ -1379,6 +1362,7 @@ function rt.Player:update(delta)
                     next_velocity_x = next_velocity_x + dx * force * time_dilation
                     next_velocity_y = next_velocity_y + dy * force * time_dilation
 
+                    should_apply_friction = false
                     is_jumping = true
                 end
             else
@@ -1752,12 +1736,7 @@ function rt.Player:update(delta)
     end
 
     if should_decay_platform_velocity then
-        local player_nvx, player_nvy = math.normalize(self:get_velocity())
-        local platform_nvx, platform_nvy = math.normalize(self._platform_velocity_x, self._platform_velocity_y)
-        local decay_factor = math.clamp(math.dot(player_nvx, player_nvy, platform_nvx, platform_nvy), 0, 1) -- 0 if misaligned, 1 if aligned
-
-        local default_decay = _settings.platform_velocity_decay
-        local decay = decay_factor * default_decay
+        local decay = math.pow(_settings.platform_velocity_decay, delta)
         self._platform_velocity_x = self._platform_velocity_x * decay
         self._platform_velocity_y = self._platform_velocity_y * decay
     end
@@ -2894,7 +2873,14 @@ function rt.Player:jump()
         return false
     end
 
-    local should_wall_jump = not self._bottom_wall and (self._left_wall or self._right_wall)
+    local left_is_down = self._left_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
+
+    local right_is_down = self._right_button_is_down or
+        self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
+
+
+    local should_wall_jump = (left_is_down and self._left_wall) or (right_is_down and self._right_wall)
     if should_wall_jump then
         if self._left_wall
             and (self._left_wall_body:has_tag("unjumpable") or self._left_wall_body:has_tag("slippery"))

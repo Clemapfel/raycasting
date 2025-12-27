@@ -933,7 +933,15 @@ end
 function rt.PlayerBody:update(delta)
     -- non rope sim updates
     self._shader_elapsed = self._shader_elapsed + delta
-    self._down_squish_motion:update(delta)
+
+    for squish in range(
+        self._down_squish_motion,
+        self._left_squish_motion,
+        self._right_squish_motion,
+        self._up_squish_motion
+    ) do
+        squish:update(delta)
+    end
 
     if self._world ~= nil then
         self._stencil_bodies = {}
@@ -1009,7 +1017,7 @@ end
 function rt.PlayerBody:_apply_squish(factor)
     local magnitude = _settings.squish_magnitude * (factor or 1)
     local function apply(is_enabled, motion, nx, ny, ox, oy, default_nx, default_ny, default_ox, default_oy)
-        if is_enabled == false then return end
+        if motion ~= nil and motion:get_value() < 0 then return end
         if motion == nil or motion.get_value == nil then return end
 
         local amount = motion:get_value()
