@@ -40,8 +40,13 @@ do
 
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
-        accelerator_friction_coefficient = 2.5, -- factor of velocity projected onto surface tangent
-        bubble_accelerator_friction_coefficient = 1.5,
+
+        accelerator_magnet_acceleration = 20, -- factor of max velocity
+        accelerator_max_velocity = 1100,
+        accelerator_acceleration_duration = 0.05,
+        accelerator_acceleration_duration = 1.5,
+        accelerator_gravity_negation_factor = 2, --
+
 
         flow_increase_velocity = 1 / 200, -- percent per second
         flow_decrease_velocity = 1,
@@ -69,13 +74,14 @@ do
         instant_turnaround_velocity = 600,
 
         coyote_time = 8 / 60,
+        platform_velocity_decay = 0.7,
 
         jump_duration = 11 / 60,
         jump_impulse = 560, -- 10 * 16 tiles neutral jump
 
         wall_magnet_force = 200,
         wall_jump_initial_impulse = 400,
-        wall_jump_sustained_impulse = 1200, -- force per second
+        wall_jump_sustained_impulse = 1200,
         wall_jump_initial_angle = math.rad(18) - math.pi * 0.5,
         wall_jump_sustained_angle = math.rad(5) - math.pi * 0.5,
         wall_jump_duration = 12 / 60,
@@ -109,7 +115,7 @@ do
         air_resistance = 0.03, -- [0, 1]
         downwards_force = 3000,
 
-        friction_coefficient = 12,
+        friction_coefficient = 100,
         down_button_friction_release_duration = 10 / 60, -- s
 
         max_velocity = 2500,
@@ -1735,10 +1741,15 @@ function rt.Player:update(delta)
         self._bubble_body:apply_force(0, bubble_gravity)
     end
 
-    if should_decay_platform_velocity then
-        local decay = math.pow(_settings.platform_velocity_decay, delta)
-        self._platform_velocity_x = self._platform_velocity_x * decay
-        self._platform_velocity_y = self._platform_velocity_y * decay
+   if should_decay_platform_velocity then
+       if was_grounded == false and is_grounded == true then
+           self._platform_velocity_x = 0
+           self._platform_velocity_y = 0
+       else
+           local decay = math.pow(_settings.platform_velocity_decay, delta)
+           self._platform_velocity_x = self._platform_velocity_x * decay
+           self._platform_velocity_y = self._platform_velocity_y * decay
+       end
     end
 
     -- detect being squished by moving objects
