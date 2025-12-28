@@ -223,15 +223,28 @@ rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertice
 end
 
 --- @class rt.MeshRing
-rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices)
+rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)
     n_outer_vertices = n_outer_vertices or 16
     fill_center = fill_center == nil and true or fill_center
 
-    local data = {
-        {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1}, -- center vertex (index 1)
-    }
 
     local step = 2 * math.pi / n_outer_vertices
+
+    local inner_r, inner_g, inner_b, inner_a = 1, 1, 1, 1
+    if meta.isa(inner_color, rt.RGBA) then
+        inner_r, inner_g, inner_b, inner_a = inner_color:unpack()
+    end
+
+    local outer_r, outer_g, outer_b, outer_a = 1, 1, 1, 1
+    if meta.isa(outer_color, rt.RGBA) then
+        outer_r, outer_g, outer_b, outer_a = outer_color:unpack()
+    end
+
+    local data = {{
+      center_x, center_y,
+      0.5, 0.5,
+      inner_r, inner_g, inner_b, inner_a
+    }}
 
     -- Inner circle vertices (indices 2 to n_outer_vertices + 1)
     for i = 0, n_outer_vertices - 1 do
@@ -241,7 +254,7 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
             center_y + math.sin(angle) * inner_radius,
             0.5 + math.cos(angle) * 0.5 * (inner_radius / outer_radius),
             0.5 + math.sin(angle) * 0.5 * (inner_radius / outer_radius),
-            1, 1, 1, 1
+            inner_r, inner_g, inner_b, inner_a
         })
     end
 
@@ -253,7 +266,7 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
             center_y + math.sin(angle) * outer_radius,
             0.5 + math.cos(angle) * 0.5,
             0.5 + math.sin(angle) * 0.5,
-            1, 1, 1, 1
+            outer_r, outer_g, outer_b, outer_a
         })
     end
 

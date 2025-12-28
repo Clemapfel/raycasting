@@ -1390,7 +1390,6 @@ function rt.Player:update(delta)
         end
 
         if self._left_wall_body then
-            self.
         end
 
         -- bounce
@@ -2885,11 +2884,9 @@ function rt.Player:jump()
 
     local left_is_down = self._left_button_is_down or
         self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
-        or self._left_released_elapsed < _settings.wall_jump_buffer_duration
 
     local right_is_down = self._right_button_is_down or
         self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
-        or self._right_released_elapsed < _settings.wall_jump_buffer_duration
 
     local left_wall_jump_allowed = left_is_down
     if not self._left_wall
