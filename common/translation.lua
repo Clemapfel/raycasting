@@ -195,6 +195,9 @@ rt.Translation = {
         performance_mode_enabled_title = "Performance Mode",
         performance_mode_enabled_description = "Disables various visual-only effects, increases performance on low-end machines",
 
+        input_buffering_enabled_title = "Input Buffering",
+        input_buffering_enabled_description = "If enabled, pressing jump slightly before touching the ground or a wall will instantly jump",
+
         color_blind_mode_enabled_title = "Color Blind Mode",
         color_blind_mode_enabled_description = "Adds various non-diagetic visual elements to objects that rely on the user being able to differentiate colors",
 
@@ -287,6 +290,10 @@ rt.Translation = {
         performance_mode_prefix = "Performance Mode",
         performance_mode_on = "On",
         performance_mode_off = "Off",
+
+        input_buffering_enabled_prefix = "Input Buffering",
+        input_buffering_enabled_on = "Enabled",
+        input_buffering_enabled_off = "Disabled",
 
         draw_debug_info_prefix = "Draw Debug Info",
         draw_debug_info_on = "Yes",

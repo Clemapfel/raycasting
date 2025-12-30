@@ -25,6 +25,7 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     COLOR_BLIND_MODE_ENABLED = "color_blind_mode_enabled",
     DRAW_DEBUG_INFO_ENABLED = "draw_debug_info_enabled",
     DRAW_SPEEDRUN_SPLITS_ENABLED = "draw_speedrun_splits_enabled",
+    INPUT_BUFFERING_ENABLED = "input_buffering_enabled",
     JOYSTICK_DEADZONE = "joystick_deadzone",
     JOYSTICK_DEADZONE_WIDGET = "deadzone_visualization_widget",
     TEXT_SPEED = "text_speed",

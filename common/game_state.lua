@@ -58,6 +58,7 @@ function rt.GameState:instantiate()
         performance_mode_enabled = false,
         draw_debug_information = true,
         draw_speedrun_splits = false,
+        input_buffering_enabled = true,
         player_sprint_mode = rt.PlayerSprintMode.HOLD,
         color_blind_mode = false,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
@@ -196,6 +197,17 @@ end
 --- @brief
 function rt.GameState:get_player_sprint_mode()
     return self._state.player_sprint_mode
+end
+
+--- @brief
+function rt.GameState:get_is_input_buffering_enabled()
+    return self._state.input_buffering_enabled
+end
+
+--- @brief
+function rt.GameState:set_is_input_buffering_enabled(is_enabled)
+    meta.assert(is_enabled, "Boolean")
+    self._state.input_buffering_enabled = is_enabled
 end
 
 --- @brief

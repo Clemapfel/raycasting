@@ -23,6 +23,7 @@ rt.settings.settings_scene = {
     color_blind_mode_default = false,
     draw_debug_info_default = false,
     draw_speedrun_splits_default = false,
+    input_buffering_enabled_default = true,
     sprint_mode_default = rt.PlayerSprintMode.HOLD,
 
     scale_movement_ticks_per_second = 100,
@@ -257,33 +258,6 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- sprint mode
-        local sprint_mode_to_label = {
-            [rt.PlayerSprintMode.HOLD] = translation.sprint_mode_hold,
-            [rt.PlayerSprintMode.TOGGLE] = translation.sprint_mode_toggle
-        }
-        local label_to_sprint_mode = reverse(sprint_mode_to_label)
-
-        local sprint_mode_button = mn.OptionButton({
-            sprint_mode_to_label[rt.PlayerSprintMode.HOLD],
-            sprint_mode_to_label[rt.PlayerSprintMode.TOGGLE]
-        })
-
-        sprint_mode_button:set_option(sprint_mode_to_label[rt.GameState:get_player_sprint_mode()])
-        sprint_mode_button:signal_connect("selection", function(_, label)
-            rt.GameState:set_player_sprint_mode(label_to_sprint_mode[label])
-        end)
-
-        local item = add_item(
-            translation.sprint_mode_prefix, sprint_mode_button,
-            mn.VerboseInfoObject.SPRINT_MODE
-        )
-
-        item:signal_connect("reset", function(_)
-            sprint_mode_button:set_option(sprint_mode_to_label[rt.settings.settings_scene.sprint_mode_default])
-        end)
-    end
-
     do -- shake
         local shake_to_label = {
             [false] = translation.shake_off,
@@ -381,6 +355,7 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
+    --[[
     do -- double press threshold
         local double_press_threshold_scale = new_scale(rt.GameState:get_double_press_threshold())
         double_press_threshold_scale:signal_connect("value_changed", function(_, value)
@@ -396,6 +371,7 @@ function mn.SettingsScene:instantiate()
             double_press_threshold_scale:set_value(rt.settings.settings_scene.double_press_threshold_default)
         end)
     end
+    ]]--
 
     do -- color blind mode
         local color_blind_mode_to_label ={
@@ -444,6 +420,60 @@ function mn.SettingsScene:instantiate()
 
         item:signal_connect("reset", function(_)
             performance_mode_button:set_option(performance_mode_to_label[rt.settings.settings_scene.performance_mode_default])
+        end)
+    end
+
+    do -- sprint mode
+        local sprint_mode_to_label = {
+            [rt.PlayerSprintMode.HOLD] = translation.sprint_mode_hold,
+            [rt.PlayerSprintMode.TOGGLE] = translation.sprint_mode_toggle
+        }
+        local label_to_sprint_mode = reverse(sprint_mode_to_label)
+
+        local sprint_mode_button = mn.OptionButton({
+            sprint_mode_to_label[rt.PlayerSprintMode.HOLD],
+            sprint_mode_to_label[rt.PlayerSprintMode.TOGGLE]
+        })
+
+        sprint_mode_button:set_option(sprint_mode_to_label[rt.GameState:get_player_sprint_mode()])
+        sprint_mode_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_player_sprint_mode(label_to_sprint_mode[label])
+        end)
+
+        local item = add_item(
+            translation.sprint_mode_prefix, sprint_mode_button,
+            mn.VerboseInfoObject.SPRINT_MODE
+        )
+
+        item:signal_connect("reset", function(_)
+            sprint_mode_button:set_option(sprint_mode_to_label[rt.settings.settings_scene.sprint_mode_default])
+        end)
+    end
+
+    do -- input buffering
+        local input_buffering_enabled_to_label = {
+            [true] = translation.input_buffering_enabled_on,
+            [false] = translation.input_buffering_enabled_off,
+        }
+        local label_to_input_buffering_enabled = reverse(input_buffering_enabled_to_label)
+
+        local input_buffering_enabled_button = mn.OptionButton({
+            input_buffering_enabled_to_label[true],
+            input_buffering_enabled_to_label[false]
+        })
+
+        input_buffering_enabled_button:set_option(input_buffering_enabled_to_label[rt.GameState:get_is_input_buffering_enabled()])
+        input_buffering_enabled_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_input_buffering_enabled(label_to_input_buffering_enabled[label])
+        end)
+
+        local item = add_item(
+            translation.input_buffering_enabled_prefix, input_buffering_enabled_button,
+            mn.VerboseInfoObject.INPUT_BUFFERING_ENABLED
+        )
+
+        item:signal_connect("reset", function(_)
+            input_buffering_enabled_button:set_option(input_buffering_enabled_to_label[rt.settings.settings_scene.draw_speedrun_splits_default])
         end)
     end
 
@@ -500,7 +530,6 @@ function mn.SettingsScene:instantiate()
             draw_debug_info_button:set_option(draw_debug_info_to_label[rt.settings.settings_scene.draw_debug_info_default])
         end)
     end
-
 
     -- input
 

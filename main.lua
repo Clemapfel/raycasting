@@ -86,7 +86,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "first_stage", false)
+    rt.SceneManager:push(ow.OverworldScene, "first_stage", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -97,7 +97,7 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, true) -- skip title
 
-    init()
+    --init()
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "^" then
@@ -119,7 +119,7 @@ love.update = function(delta)
         eggs:set_target_position(batch_id, entry.path:at(t))
     end
 
-    eggs:update(delta)
+    --eggs:update(delta)
 end
 
 love.draw = function()
@@ -128,7 +128,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    eggs:draw()
+    --eggs:draw()
 end
 
 love.resize = function(width, height)
