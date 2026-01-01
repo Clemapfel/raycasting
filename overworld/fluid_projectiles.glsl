@@ -24,10 +24,9 @@ vec4 effect(vec4 color, Image img, vec2 texture_coordinates, vec2 frag_position)
 
 #elif MODE == MODE_OUTLINE
 
-uniform float sensitivy = 0.05;
 
 vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_position) {
-    vec2 pixel_size = vec2(1 / 750.0);
+    vec2 pixel_size = vec2(1 / 1000.0);
 
     float tl = texture(image, texture_coordinates + vec2(-1, -1) * pixel_size).a;
     float tm = texture(image, texture_coordinates + vec2( 0, -1) * pixel_size).a;
@@ -42,9 +41,8 @@ vec4 effect(vec4 color, Image image, vec2 texture_coordinates, vec2 frag_positio
     float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
     float magnitude = length(vec2(gradient_x, gradient_y));
-    float alpha = smoothstep(0.1, 1, magnitude);
 
-    return vec4(alpha) * color;
+    return vec4(magnitude) * color;
 }
 
 #endif

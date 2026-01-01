@@ -2,18 +2,19 @@ rt.settings.fluid_projectiles = {
     threshold = 0.6,
     smoothness = 0.0,
     density_factor = 1,
-    radius = 15,
+    radius = 15 * 3,
+    n_particles = 128,
     min_mass = 2,
     max_mass = 4,
     min_scale = 1,
     max_scale = 1,
-    core_scale = 0.9,
+    core_scale = 0.8,
 
-    follow_alpha = 0.2,          -- target attraction
-    core_follow_alpha = 0.005,
-    cohesion_alpha = 0.155,       -- particle-to-particle attraction
-    collision_alpha = 0.1,      -- prevents overlap
-    damping = 1,                   -- overall velocity damping
+    follow_alpha = 0.13,          -- target attraction
+    core_follow_alpha = 0.007,
+    cohesion_alpha = 0.16,       -- particle-to-particle attraction
+    collision_alpha = 0.05,      -- prevents overlap
+    damping = 0.7,                   -- overall velocity damping
     n_substeps = 10
 }
 
@@ -40,7 +41,7 @@ end
 function ow.FluidProjectiles:add(x, y, n_particles, radius)
     if x == nil then x = 0 end
     if y == nil then y = 0 end
-    if n_particles == nil then n_particles = 32 end
+    if n_particles == nil then n_particles = rt.settings.fluid_projectiles.n_particles end
     if radius == nil then radius = rt.settings.fluid_projectiles.radius end
 
     meta.assert(x, "Number", y, "Number", n_particles, "Number", radius, "Number")
@@ -80,8 +81,11 @@ function ow.FluidProjectiles:add(x, y, n_particles, radius)
         canvas_width = 0,
         canvas_height = 0,
         centroid_x = x,
-        centroid_y = y
+        centroid_y = y,
     }
+
+    local hue = (batch.id % 8) / 8
+    batch.core_r, batch.core_g, batch.core_b = rt.lcha_to_rgba(0.8, 1, hue, 1)
 
     local settings = rt.settings.fluid_projectiles
 
@@ -283,7 +287,12 @@ function ow.FluidProjectiles:update(delta)
     local follow_compliance = compliance_per_step(settings.follow_alpha)
     local cohesion_compliance = compliance_per_step(settings.cohesion_alpha)
     local collision_compliance = compliance_per_step(settings.collision_alpha)
-    local core_follow_compliance = compliance_per_step(settings.core_follow_alpha)
+
+    local a = settings.core_follow_alpha
+    if love.keyboard.isDown("p") then a = a / 100 end
+    local core_follow_compliance = compliance_per_step(a)
+
+
 
     local damping = settings.damping
     local viscosity = settings.viscosity
@@ -461,7 +470,7 @@ function ow.FluidProjectiles:update(delta)
                 batch.canvas = rt.RenderTexture(
                     new_w, new_h,
                     0,
-                    _texture_format
+                    rt.TextureFormat.RGBA8
                 )
                 batch.canvas_width, batch.canvas_height = batch.canvas:get_size()
             end
@@ -472,7 +481,11 @@ end
 --- @brief
 function ow.FluidProjectiles:draw()
     local n_batches = table.sizeof(self._batch_id_to_batch)
+
+    local darken = 0.8
+
     for i, batch in ipairs(self._batch_id_to_batch) do
+        if batch.canvas == nil then goto skip end
 
         love.graphics.push("all")
         batch.canvas:bind()
@@ -501,6 +514,16 @@ function ow.FluidProjectiles:draw()
         batch.canvas:unbind()
         love.graphics.pop()
 
+        love.graphics.setColor(darken * batch.core_r, darken * batch.core_g, darken * batch.core_b, 1)
+        love.graphics.line(batch.centroid_x, batch.centroid_y, batch.target_x, batch.target_y)
+
+        local r = batch.spatial_hash_cell_size / 6
+        love.graphics.setColor(batch.core_r, batch.core_g, batch.core_b, 1)
+        love.graphics.circle("fill", batch.target_x, batch.target_y, r)
+
+        love.graphics.setColor(darken * batch.core_r, darken * batch.core_g, darken * batch.core_b, 1)
+        love.graphics.circle("line", batch.target_x, batch.target_y, r)
+
         love.graphics.setBlendMode("alpha", "premultiplied")
         love.graphics.setColor(1, 1, 1, 1)
 
@@ -511,44 +534,40 @@ function ow.FluidProjectiles:draw()
             )
         end
 
-        rt.Palette.BLACK:bind()
-        _outline_shader:bind()
-        draw_canvas()
-        _outline_shader:unbind()
-
-        rt.Palette.WHITE:bind()
+        local fill_r, fill_g, fill_b = rt.Palette.BLACK:unpack()
+        local alpha = 1
+        love.graphics.setColor(alpha * fill_r, alpha * fill_g, alpha * fill_b, alpha)
         _threshold_shader:bind()
         _threshold_shader:send("threshold", rt.settings.fluid_projectiles.threshold)
         _threshold_shader:send("smoothness", rt.settings.fluid_projectiles.smoothness)
         draw_canvas()
         _threshold_shader:unbind()
 
-        love.graphics.setColor(0, 0, 0, 0.2)
-        for particle in values(batch.particles) do
-            local scale = particle.scale
-            --love.graphics.circle("line", particle.x, particle.y, particle.scale * particle.radius)
-        end
+
+        love.graphics.setColor(batch.core_r, batch.core_g, batch.core_b, 1)
+        _outline_shader:bind()
+        draw_canvas()
+        _outline_shader:unbind()
 
         love.graphics.setBlendMode("alpha")
-        rt.Palette.ORANGE_3:bind()
+
+        love.graphics.setColor(batch.core_r, batch.core_g, batch.core_b, 1)
         for particle in values(batch.core_particles) do
             love.graphics.circle("fill",
                 particle.x, particle.y, particle.radius * particle.scale
             )
         end
 
-        rt.Palette.ORANGE_4:bind()
+        love.graphics.setColor(darken * batch.core_r, darken * batch.core_g, darken * batch.core_b, 1)
         for particle in values(batch.core_particles) do
             love.graphics.circle("line",
                 particle.x, particle.y, particle.radius * particle.scale
             )
         end
+
+        ::skip::
     end
 
-    rt.Palette.BLACK:bind()
-    for batch in values(self._batch_id_to_batch) do
-        love.graphics.circle("fill", batch.target_x, batch.target_y, 0.5^3 * batch.spatial_hash_cell_size)
-    end
 end
 
 --- @brief

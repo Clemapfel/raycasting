@@ -9,7 +9,7 @@ local to_require = "overworld.fluid_projectiles"
 require(to_require)
 local eggs = nil
 local batch_id_to_entry = {}
-local n_eggs = 5
+local n_eggs = 1
 local n_particles_per_egg = 32
 local n_path_nodes = 20
 local velocity = 50 -- px / s
@@ -126,7 +126,7 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    love.graphics.clear(0.5, 0.5, 0.5, 1)
+    love.graphics.clear(0.4, 0.2, 0.4, 1)
     eggs:draw()
 end
 
