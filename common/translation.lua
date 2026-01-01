@@ -333,6 +333,12 @@ rt.Translation = {
 
     stages = { -- order matters
         {
+            id = "exhibition",
+            title = "Debug Level Name",
+            target_time = math.huge
+        },
+
+        {
             id = "first_stage",
             title = "The Shape of Jump to Come",
             target_time = math.huge

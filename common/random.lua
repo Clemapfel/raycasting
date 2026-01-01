@@ -63,6 +63,12 @@ end
 
 local _sizeof = table.sizeof
 
+--- @brief
+function rt.random.gaussian(min_value, max_value)
+    local r = love.math.randomNormal(0.25, 0.5) -- 95% fall into [0, 1]
+    return math.clamp(math.mix(min_value, max_value, r), min_value, max_value)
+end
+
 --- @brief pick random element from table
 --- @param set Table
 function rt.random.choose(...)

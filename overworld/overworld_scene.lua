@@ -655,11 +655,6 @@ function ow.OverworldScene:draw()
     if self._blur_t == 0 and not (self._show_title_card == true and (self._fade:get_is_active() or self._fade:get_is_visible())) then
         love.graphics.clear(0, 0, 0, 0)
         self._background:draw()
-        -- TODO
-
-        local darkness = 0.25
-        love.graphics.clear(0.25, 0.02, 0.25, 1)
-
 
         if self._fade_to_black > 0 then
             local r, g, b, _ = rt.Palette.BLACK:unpack()

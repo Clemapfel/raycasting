@@ -4,6 +4,7 @@ ow.CameraBounds = meta.class("CameraBounds")
 
 --- @brief
 function ow.CameraBounds:instantiate(object, stage, scene)
+    rt.assert(object:get_type() == ow.ObjectType.RECTANGLE, "In ow.CamerBounds: object `", object:get_id(), "` is not a rectangle")
     self._body = object:create_physics_body(stage:get_physics_world())
     self._body:set_is_sensor(true)
     self._body:set_collides_with(rt.settings.player.player_collision_group)

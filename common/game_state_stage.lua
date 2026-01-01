@@ -27,7 +27,7 @@ rt.settings.game_state.stage = {
     }
 }
 
-local _debug_output = false
+local _debug_output = true
 
 local warn = function(i, name)
     rt.warning("In rt.Translation: stage entry `",  i,  "` does not have `",  name,  "` property")
@@ -271,7 +271,7 @@ end
 --- @brief
 function rt.GameState:get_stage_is_coin_collected(stage_id, coin_i)
     meta.assert(stage_id, "String", coin_i, "Number")
-    if _debug_output then return false end
+    if _debug_output then return coin_i == 3 end
     local stage = self:_get_stage(stage_id, "get_stage_is_coin_collected")
     if coin_i > stage.n_coins then
         rt.error("In rt.GameState.get_stage_is_coin_collected: coin index `", coin_i, "` is out of bounds, stage `", stage_id, "` only has ", stage.n_coins, " coins")
@@ -472,7 +472,10 @@ function rt.GameState:get_stage_grades(id)
             rt.StageGrade.C,
             rt.StageGrade.F
         }
-        return rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades)
+        return rt.StageGrade.S, rt.StageGrade.B, rt.StageGrade.A, ({ rt.StageGrade.S,
+                                                                    rt.StageGrade.A,
+                                                                    rt.StageGrade.B
+        })[self:get_stage_index(id) % 3 + 1]--, rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades)
     end
 
     local time, flow = self:get_stage_best_time(id), self:get_stage_best_flow_percentage(id)

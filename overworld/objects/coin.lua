@@ -83,7 +83,7 @@ function ow.Coin:instantiate(object, stage, scene)
 
         -- recheck each respawn, since checkpoint uncollect coins
         self._stage:signal_connect("respawn", function(stage)
-            self:set_is_collected(stage:get_coin_is_collected(self._index))
+            --self:set_is_collected(stage:get_coin_is_collected(self._index))
         end)
 
         return meta.DISCONNECT_SIGNAL

@@ -41,7 +41,7 @@ do
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
 
-        accelerator_magnet_acceleration = 20, -- factor of max velocity
+        accelerator_magnet_acceleration = 0.5, -- factor of max velocity
         accelerator_max_velocity = 1100,
         accelerator_acceleration_duration = 0.05,
         accelerator_acceleration_duration = 1.5,
@@ -1473,6 +1473,7 @@ function rt.Player:update(delta)
         end
         self._bounce_elapsed = self._bounce_elapsed + delta
 
+        local skip_down_force = 0
         do -- accelerators
             local player_vx, player_vy = self._body:get_velocity()
             for surface in range( -- if one body is multiple surfaces, repeated handling is intended
@@ -1515,10 +1516,6 @@ function rt.Player:update(delta)
                     local velocity_delta = max_velocity - math.magnitude(player_vx, player_vy)
                     local velocity_sign = math.sign(velocity_delta)
 
-                    -- test if player is holding along tangent
-                    local tangent_t = ternary(no_input, 0, math.dot(-input_x, -input_y, tangent_x, tangent_y))
-                    --acceleration = acceleration * tangent_t
-
                     if velocity_delta > 0 then -- only accelerate
                         next_velocity_x = next_velocity_x + friction * tangent_x * velocity_sign * acceleration * delta
                         next_velocity_y = next_velocity_y + friction * tangent_y * velocity_sign * acceleration * delta
@@ -1543,9 +1540,12 @@ function rt.Player:update(delta)
                     next_velocity_x = next_velocity_x - normal_x * magnet_easing * magnet_acceleration * delta
                     next_velocity_y = next_velocity_y - normal_y * magnet_easing * magnet_acceleration * delta
 
+                    skip_down_force = skip_down_force + magnet_easing
                 end
             end
         end
+
+        skip_down_force = math.min(skip_down_force, 1)
 
         -- downwards force
         if not self._movement_disabled
@@ -1554,8 +1554,8 @@ function rt.Player:update(delta)
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
-            next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta
-            next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta
+            next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta * (1 - skip_down_force)
+            next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta * (1 - skip_down_force)
         end
 
         local is_touching_platform = false
@@ -2365,11 +2365,6 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
-
-    local px, py = self:get_position()
-    local dx = _settings.side_wall_ray_length_factor * self._radius
-    if self._right_wall then love.graphics.line(px, py, px + dx, py) end
-    if self._left_wall then love.graphics.line(px, py, px - dx, py) end
 end
 
 --- @brief

@@ -103,7 +103,7 @@ function ow.CoinParticle:draw(x, y)
         love.graphics.setColor(black_r, black_g, black_b, self._opacity)
         love.graphics.circle("fill", 0, 0, self._body_radius)
 
-        rt.Palette.BLACK:bind()
+        love.graphics.setColor(black_r, black_g, black_b, self._opacity)
         love.graphics.setLineWidth(self._line_width + 2)
         love.graphics.line(self._body_outline)
 
@@ -168,7 +168,8 @@ end
 
 --- @brief
 function ow.CoinParticle:set_opacity(opacity)
-    self._opacity = opacity
+    --dbg(debug.traceback())
+    --self._opacity = opacity
 end
 
 --- @brief
