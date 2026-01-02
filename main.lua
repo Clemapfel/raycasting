@@ -84,7 +84,7 @@ love.load = function(args)
     end
 
     require "overworld.overworld_scene"
-    --rt.SceneManager:push(ow.OverworldScene, "exhibition", false)
+    rt.SceneManager:push(ow.OverworldScene, "exhibition", false)
 
     require "menu.keybinding_scene"
     --rt.SceneManager:push(mn.KeybindingScene)
@@ -95,7 +95,7 @@ love.load = function(args)
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, false) -- skip title
 
-    init()
+    --init()
 
     DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "^" then
@@ -111,6 +111,7 @@ love.update = function(delta)
         rt.SceneManager:update(delta)
     end
 
+    --[[
     for batch_id, entry in pairs(batch_id_to_entry) do
         entry.elapsed = entry.elapsed + delta
         local t = math.fract((entry.elapsed * entry.speed * velocity) / entry.path:get_length())
@@ -118,6 +119,7 @@ love.update = function(delta)
     end
 
     eggs:update(delta)
+    ]]
 end
 
 love.draw = function()
@@ -126,8 +128,8 @@ love.draw = function()
         rt.SceneManager:draw()
     end
 
-    love.graphics.clear(0.4, 0.2, 0.4, 1)
-    eggs:draw()
+    --love.graphics.clear(0.4, 0.2, 0.4, 1)
+    --eggs:draw()
 end
 
 love.resize = function(width, height)

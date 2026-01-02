@@ -33,13 +33,11 @@ rt.PlayerSprintMode = meta.enum("PlayerSprintomde", {
     TOGGLE = "toggle"
 })
 
---- @brief rt.GameState
+--- @class rt.GameState
 rt.GameState = meta.class("GameState")
 
---- @brief
 function rt.GameState:instantiate()
     local width, height, mode = love.window.getMode()
-
     self._state = {
         -- settings
         is_fullscreen = mode.is_fullscreen,

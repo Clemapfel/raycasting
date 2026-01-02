@@ -41,13 +41,6 @@ do
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
 
-        accelerator_magnet_acceleration = 0.5, -- factor of max velocity
-        accelerator_max_velocity = 1100,
-        accelerator_acceleration_duration = 0.05,
-        accelerator_acceleration_duration = 1.5,
-        accelerator_gravity_negation_factor = 2, --
-
-
         flow_increase_velocity = 1 / 200, -- percent per second
         flow_decrease_velocity = 1,
         flow_max_velocity = 1, -- percent per second
@@ -89,9 +82,6 @@ do
         wall_jump_duration = 10 / 60,
         wall_jump_freeze_duration = 8 / 60,
 
-        accelerator_max_velocity = 2000, -- vxy magnitude
-        accelerator_magnet_force = 400,
-
         bounce_min_force = 200,
         bounce_max_force = 600,
         bounce_relative_velocity = 2000,
@@ -121,7 +111,7 @@ do
         friction_coefficient = 100,
         down_button_friction_release_duration = 10 / 60, -- s
 
-        max_velocity = 2500,
+        max_velocity = 10000,
 
         squeeze_multiplier = 1.4,
 
@@ -1097,6 +1087,7 @@ function rt.Player:update(delta)
         current_velocity_y = current_velocity_y - self._platform_velocity_y
 
         local next_velocity_x, next_velocity_y = current_velocity_x, current_velocity_y
+        local start_velocity_x, start_velocity_y = next_velocity_x, next_velocity_y
 
         -- x velocity update
 
@@ -1372,7 +1363,7 @@ function rt.Player:update(delta)
             next_velocity_x = current_velocity_x
         end
 
-        local should_apply_friction = true
+        local should_apply_friction, should_apply_gravity = true, true
         local is_jumping = false
         do
             if self._jump_elapsed <= _settings.jump_duration then
@@ -1473,8 +1464,25 @@ function rt.Player:update(delta)
         end
         self._bounce_elapsed = self._bounce_elapsed + delta
 
+        -- downwards force
+        if not self._movement_disabled
+            and down_is_down
+            -- and is_grounded
+            and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
+            -- exclude wall clinging, handled by explicit friction release in apply_friction
+        then
+            next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta
+            next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta
+        end
+
+        -- friction
+        if should_apply_friction then
+            next_velocity_x = next_velocity_x + net_friction_x
+            next_velocity_y = next_velocity_y + net_friction_y
+        end
+
         local skip_down_force = 0
-        do -- accelerators
+        if false then -- accelerators
             local player_vx, player_vy = self._body:get_velocity()
             for surface in range( -- if one body is multiple surfaces, repeated handling is intended
                 { top_wall_body, top_nx, top_ny },
@@ -1496,7 +1504,7 @@ function rt.Player:update(delta)
                         tangent_x, tangent_y = math.flip(tangent_x, tangent_y)
                     end
 
-                    local max_velocity = _settings.accelerator_max_velocity
+                    local max_velocity = _settings.accelerator_max_velocity_factor * _settings.ground_target_velocity_x
 
                     local input_x, input_y = 0, 0
                     if use_analog_input then
@@ -1545,17 +1553,115 @@ function rt.Player:update(delta)
             end
         end
 
-        skip_down_force = math.min(skip_down_force, 1)
+        do -- accelerators
+            local player_vx, player_vy = next_velocity_x, next_velocity_y
+            local player_magnitude = math.magnitude(self._body:get_position())
 
-        -- downwards force
-        if not self._movement_disabled
-            and down_is_down
-            -- and is_grounded
-            and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
-            -- exclude wall clinging, handled by explicit friction release in apply_friction
-        then
-            next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta * (1 - skip_down_force)
-            next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta * (1 - skip_down_force)
+            local new_velocity_x, new_velocity_y = start_velocity_x, start_velocity_y
+            local should_override = false
+
+            self._dbg = {} -- TODO
+            for surface in range( -- if one body is multiple surfaces, repeated handling is intended
+                { top_wall_body, top_nx, top_ny },
+                { top_left_wall_body, top_left_nx, top_left_ny },
+                { top_right_wall_body, top_right_nx, top_right_ny },
+                { left_wall_body, left_nx, left_ny },
+                { right_wall_body, right_nx, right_ny },
+                { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
+                { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
+                { bottom_wall_body, bottom_nx, bottom_ny }
+            ) do
+                local body, normal_x, normal_y = table.unpack(surface)
+                if body ~= nil and body:has_tag("use_friction") then
+
+                    local input_x, input_y = 0, 0
+                    if use_analog_input then
+                        input_x, input_y = self._joystick_position_x, self._joystick_position_y
+                    else
+                        if left_is_down then input_x = input_x - 1 end
+                        if right_is_down then input_x = input_x + 1 end
+                        if up_is_down then input_y = input_y - 1 end
+                        if down_is_down then input_y = input_y + 1 end
+                    end
+
+                    if math.magnitude(input_x, input_y) < math.eps then goto next_body end
+                    input_x, input_y = math.normalize(input_x, input_y)
+
+                    do
+                        local x, y = self._body:get_position()
+                        table.insert(self._dbg, {
+                            x, y, x + input_x, y + input_y
+                        })
+
+                        table.insert(self._dbg, {
+                            x, y, x + normal_x, y + normal_y
+                        })
+                    end
+
+                    local tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
+
+                    -- easing based on input vector direction and surface tangent
+                    -- if farther away than threshold, 0, else, 0 to 1
+                    local alignment = 0
+                    local raw_alignment = math.dot(normal_x, normal_y, math.turn_right(input_x, input_y))
+                    local alignment_threshold = math.cos(math.degrees_to_radians(45 * 1.5))
+                    if math.abs(raw_alignment) > alignment_threshold then
+                        local t = (math.abs(raw_alignment) - alignment_threshold) / (1.0 - alignment_threshold)
+                        alignment = t * raw_alignment
+                    end
+
+                    tangent_x, tangent_y = math.normalize(tangent_x * alignment, tangent_y * alignment)
+
+                    if math.abs(alignment) > math.eps then should_override = true end
+
+                    local max_velocity = _settings.accelerator_max_velocity_factor * _settings.ground_target_velocity_x * self._current_sprint_multiplier
+                    local duration = _settings.accelerator_acceleration_duration
+                    local acceleration = max_velocity / duration
+
+                    new_velocity_x = new_velocity_x + tangent_x * acceleration * delta
+                    new_velocity_y = new_velocity_y + tangent_y * acceleration * delta
+
+                    new_velocity_x = math.clamp(new_velocity_x, -max_velocity, max_velocity)
+                    new_velocity_y = math.clamp(new_velocity_y, -max_velocity, max_velocity)
+
+                    -- magnet easing
+                    local magnet = math.min(1, math.magnitude(new_velocity_x, new_velocity_y) / max_velocity)
+                    magnet = rt.InterpolationFunctions.EXPONENTIAL_ACCELERATION(magnet)
+                    magnet = magnet * _settings.accelerator_magnet_force
+
+                    -- cancel gravity's normal component to stick to surface
+                    local gravity_normal_component = math.dot(
+                        self._gravity_direction_x * gravity,
+                        self._gravity_direction_y * gravity,
+                        normal_x, normal_y
+                    )
+                    local gravity_cancel_x = -gravity_normal_component * normal_x * delta
+                    local gravity_cancel_y = -gravity_normal_component * normal_y * delta
+
+                    -- apply both magnet force and gravity cancellation
+                    new_velocity_x = new_velocity_x + (magnet * -normal_x + gravity_cancel_x) * delta
+                    new_velocity_y = new_velocity_y + (magnet * -normal_y + gravity_cancel_y) * delta
+
+                    -- magnetize to wall
+                    new_velocity_x = new_velocity_x + magnet * -normal_x * delta
+                    new_velocity_y = new_velocity_y + magnet * -normal_y * delta
+
+                    local magnet_eps = 0.05
+                    if magnet > magnet_eps then should_apply_friction = false end
+
+                    ::next_body::
+                end
+            end
+
+            if should_override then
+                if math.abs(new_velocity_x) > math.abs(next_velocity_x) then
+                    next_velocity_x = new_velocity_x
+                end
+
+                if math.abs(new_velocity_y) > math.abs(next_velocity_y) then
+                    next_velocity_y = new_velocity_y
+                end
+            end
         end
 
         local is_touching_platform = false
@@ -1636,19 +1742,15 @@ function rt.Player:update(delta)
 
         self._is_touching_platform = is_touching_platform
 
-        -- friction
-        if should_apply_friction then
-            next_velocity_x = next_velocity_x + net_friction_x
-            next_velocity_y = next_velocity_y + net_friction_y
+        -- gravity
+        if should_apply_gravity then
+            next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
+            next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
         end
 
-        -- gravity
-        next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
-        next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
-
-        -- clamp
+        -- clamp for stability
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
-        next_velocity_y = math.min(next_velocity_y, _settings.max_velocity) -- downwards unbounded
+        next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity, _settings.max_velocity)
 
         -- componensate when going up slopes, which would slow down player in stock box2d
         if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
@@ -2365,6 +2467,13 @@ function rt.Player:draw_core()
     end
 
     self._graphics_body:draw_core()
+
+    if self._dbg ~= nil then
+        love.graphics.setColor(1, 1, 1, 1)
+        for line in values(self._dbg) do
+            love.graphics.line(line)
+        end
+    end
 end
 
 --- @brief
