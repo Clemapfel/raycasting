@@ -341,6 +341,7 @@ function rt.Player:instantiate()
         _flow = 0,
         _override_flow = nil,
         _flow_velocity = 0,
+        _accelerator_flow_motion = rt.SmoothedMotion1D(0, 1 / 100),
 
         _flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n),
         _flow_fraction_history_sum = 0,
@@ -648,6 +649,7 @@ function rt.Player:update(delta)
             end
         end
 
+        self._accelerator_flow_motion:update(delta)
         self._trail:set_position(self:get_position())
         self._trail:set_velocity(self:get_velocity())
         self._trail:set_hue(self:get_hue())
@@ -1124,6 +1126,34 @@ function rt.Player:update(delta)
             right_is_down = false
         end
 
+        -- make player harder to steer if they are above the desired top speed
+        local steering_easing
+        do
+            local target
+            if is_grounded then
+                target = _settings.ground_target_velocity_x * _settings.sprint_multiplier
+            else
+                target = _settings.air_target_velocity_x * _settings.sprint_multiplier
+            end
+
+            -- clamp to factor 1 for any regular velocity, only ease above target speed
+            local alpha = math.max(0, math.abs(current_velocity_x) / target - 1)
+
+            local easing
+            if alpha < 1 then
+                -- sinusoid ease in, goes towards linear for x -> 1
+                -- \left(\cos\left(\frac{\pi}{2}\ \left(x-2\right)\right)+1\right)\ \left\{0<x<1\right\}
+                easing = function(x) return math.cos((math.pi / 2) * (x - 2)) + 1 end
+            else
+                -- linear, constant derivative connection to sinusoid at x = 1
+                -- 1+\left(\frac{\pi}{2}\left(x-1\right)\right)\left\{x>1\right\}
+                easing = function(x) return 1 + (math.pi / 2) * (x - 1)  end
+            end
+
+            steering_easing = 1 + easing(alpha)
+        end
+
+        -- on input, accelerates towards new target velocity / direction
         if input_magnitude ~= 0 then
             local velocity_delta = target_velocity_x - current_velocity_x
             local is_accelerating = (math.sign(target_velocity_x) == math.sign(current_velocity_x)) and
@@ -1144,18 +1174,24 @@ function rt.Player:update(delta)
                 end
             end
 
-            if acceleration_duration == 0 then
+            acceleration_duration = acceleration_duration * steering_easing
+
+            if acceleration_duration < math.eps then
                 next_velocity_x = target_velocity_x
             else
                 local acceleration_rate = math.abs(target_velocity_x) / acceleration_duration
                 local velocity_step = acceleration_rate * delta
                 next_velocity_x = current_velocity_x + math.clamp(velocity_delta, -velocity_step, velocity_step)
             end
-        else -- no directional input
-            local decay_duration = ternary(is_grounded,
-                _settings.ground_decay_duration,
-                _settings.air_decay_duration
-            )
+        else -- on no directional input, decay towards 0
+            local decay_duration
+            if is_grounded then
+                decay_duration = _settings.ground_decay_duration
+            else
+                decay_duration = _settings.air_decay_duration
+            end
+
+            decay_duration = decay_duration * steering_easing
 
             local should_slide = is_grounded
                 and not left_is_down
@@ -1168,21 +1204,15 @@ function rt.Player:update(delta)
             then
                 -- do not decay
             else
-                if not is_grounded then
-                    -- do no decay
-                else
-                    -- ground decay: linear decay
-                    next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration) -- lerp is exponential
-                end
+                -- linear decay
+                next_velocity_x = current_velocity_x * math.exp(-delta / decay_duration) -- lerp is exponential
             end
         end
 
         local should_apply_friction = true
-        local anti_gravity_x, anti_gravity_y = 0, 0
 
         do -- accelerators
             local player_vx, player_vy = next_velocity_x, next_velocity_y
-            local player_magnitude = math.magnitude(self._body:get_position())
 
             local new_velocity_x, new_velocity_y = 0, 0
             local should_override = false
@@ -1219,34 +1249,23 @@ function rt.Player:update(delta)
                     -- compare to surface tangent
                     local tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
 
-                    -- easing based on input vector direction and surface tangent
-                    -- if farther away than threshold, 0, else, 0 to 1
-                    local alignment = 0
-                    local input_alignment = math.dot(
-                        input_x, input_y,
-                        tangent_x, tangent_y
-                    )
-
-                    if not left_is_down and not right_is_down and not up_is_down and not down_is_down then
-                        input_alignment = 1
-                    end
-
                     local velocity_alignment = math.dot(
                         tangent_x, tangent_y,
                         math.normalize(player_vx, player_vy)
                     )
 
-                    local alignment_threshold = math.cos(math.degrees_to_radians(45 * 1.5))
-                    if math.abs(input_alignment) > alignment_threshold then
-                        local t = (math.abs(input_alignment) - alignment_threshold) / (1.0 - alignment_threshold)
-                        alignment = math.mix(t * input_alignment, velocity_alignment, math.min(1,
-                            math.magnitude(start_velocity_x, start_velocity_y) / max_velocity
-                        ))
-                    end
+                    tangent_x, tangent_y = math.normalize(
+                        tangent_x * velocity_alignment,
+                        tangent_y * velocity_alignment
+                    )
 
-                    tangent_x, tangent_y = math.normalize(tangent_x * alignment, tangent_y * alignment)
+                    -- easing based on input vector direction and surface tangent
+                    -- if farther away than threshold, 0, else, 0 to 1
+                    local input_alignment = math.max(0, math.dot(
+                        input_x, input_y,
+                        tangent_x, tangent_y
+                    ))
 
-                    if math.abs(alignment) > math.eps then should_override = true end
                     new_velocity_x = new_velocity_x + tangent_x * acceleration * delta
                     new_velocity_y = new_velocity_y + tangent_y * acceleration * delta
 
@@ -1261,18 +1280,6 @@ function rt.Player:update(delta)
                     local magnet_eps = 0.05
                     if magnet > magnet_eps then should_apply_friction = false end
 
-                    -- counteract gravity
-                    local gravity_along_normal = math.dot(
-                        self._gravity_direction_x * gravity,
-                        self._gravity_direction_y * gravity,
-                        normal_x, normal_y
-                    )
-
-                    if gravity_along_normal > 0 then
-                        anti_gravity_x = anti_gravity_x + -gravity_along_normal * normal_x * delta
-                        anti_gravity_y = anti_gravity_x + -gravity_along_normal * normal_y * delta
-                    end
-
                     ::next_body::
                 end
             end
@@ -1281,6 +1288,10 @@ function rt.Player:update(delta)
                 -- overrides velocity logic so far
                 next_velocity_x = math.clamp(start_velocity_x + new_velocity_x, -max_velocity, max_velocity)
                 next_velocity_y = math.clamp(start_velocity_y + new_velocity_y, -max_velocity, max_velocity)
+
+                self._accelerator_flow_motion:set_target_value(1)
+            else
+                self._accelerator_flow_motion:set_target_value(0)
             end
         end
 
@@ -1579,8 +1590,9 @@ function rt.Player:update(delta)
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
-            next_velocity_x = next_velocity_x + self._gravity_direction_x * _settings.downwards_force * delta
-            next_velocity_y = next_velocity_y + self._gravity_direction_y * _settings.downwards_force * delta
+            local force = 1 / steering_easing * _settings.downwards_force * delta
+            next_velocity_x = next_velocity_x + self._gravity_direction_x * force
+            next_velocity_y = next_velocity_y + self._gravity_direction_y * force
         end
 
         -- friction
@@ -1668,15 +1680,8 @@ function rt.Player:update(delta)
         self._is_touching_platform = is_touching_platform
 
         -- gravity
-        local gravity_x = self._gravity_direction_x * gravity
-        local gravity_y = self._gravity_direction_y * gravity
-
-        if math.magnitude(anti_gravity_x, anti_gravity_y) < math.magnitude(gravity_x, gravity) then
-            next_velocity_x = next_velocity_x + gravity_x - anti_gravity_x
-            next_velocity_y = next_velocity_y + gravity_y - anti_gravity_y
-        else
-            -- noop, all of gravity cancelled, prevent negative gravity
-        end
+        next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
+        next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
         -- clamp for stability
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
@@ -1826,9 +1831,6 @@ function rt.Player:update(delta)
             end
         end
 
-        -- accelerators
-        -- TODO
-
         self._bubble_body:apply_force(_apply_damping(next_force_x, next_force_y))
         self._last_bubble_force_x, self._last_bubble_force_y = next_force_x, next_force_y
 
@@ -1957,7 +1959,7 @@ function rt.Player:update(delta)
 
         local acceleration = (target_velocity - self._flow_velocity)
         self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
-        self._flow = self._flow + self._flow_velocity * delta
+        self._flow = self._flow + math.max(self._flow_velocity, self._accelerator_flow_motion:get_value()) * delta
         self._flow = math.clamp(self._flow, 0, 1)
     end
 
@@ -1966,7 +1968,7 @@ function rt.Player:update(delta)
     end
 
     do -- update trail
-        local value = rt.InterpolationFunctions.SINUSOID_EASE_IN(self._flow)
+        local value = rt.InterpolationFunctions.LINEAR(math.clamp(self._flow, 0, 1))
         self._trail:set_glow_intensity(value)
         self._trail:set_boom_intensity(value)
         self._trail:set_trail_intensity(value)
@@ -2351,9 +2353,6 @@ function rt.Player:draw_bloom()
 
     if self:get_flow() == 0 then
         self._graphics_body:draw_bloom()
-    elseif self._trail_visible then
-        self._trail:draw_below()
-        self._trail:draw_above()
     end
 end
 
