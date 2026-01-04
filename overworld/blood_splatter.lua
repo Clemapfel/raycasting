@@ -51,7 +51,7 @@ function _overlap(x1, y1, x2, y2, cx, cy, radius)
 end
 
 --- @brief
-function ow.BloodSplatter:add(x, y, radius, hue, opacity, allow_override)
+function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, allow_override)
     if opacity == nil then opacity = 1 end
     if allow_override == nil then allow_override = true end
 
@@ -81,7 +81,7 @@ function ow.BloodSplatter:add(x, y, radius, hue, opacity, allow_override)
             local right_fraction = distance_2 / length
             assert(left_fraction <= right_fraction)
 
-            local color = rt.RGBA(rt.lcha_to_rgba(0.9, 1, hue, opacity))
+            local color = rt.RGBA(color_r, color_g, color_b, opacity)
 
             for division in values(data.subdivisions) do
                 if allow_override == false and self._active_divisions[division] == true then goto skip end
@@ -90,7 +90,7 @@ function ow.BloodSplatter:add(x, y, radius, hue, opacity, allow_override)
                 local left_f, right_f = division.left_fraction, division.right_fraction
                 if (left_f >= left_fraction and left_f <= right_fraction) or (right_f >= left_fraction and right_f <= right_fraction) then
                     division.color = color
-                    division.hue = hue
+                    division.hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
                     if not division.is_active then
                         self._active_divisions[division] = true
                         division.is_active = true
@@ -296,7 +296,9 @@ function ow.BloodSplatter:get_segment_light_sources(bounds)
         for current in values(edge.subdivisions) do
             if self._active_divisions[current] == true then
                 local inserted = false
-                if before ~= nil and before.right_fraction == current.left_fraction and math.abs(before.hue - current.hue) < 0.05 then
+                if before ~= nil and before.right_fraction == current.left_fraction
+                    and math.abs(before.hue - current.hue) < 0.01
+                then
                     -- extend last colinear segment
                     segments[n][3] = current.line[3]
                     segments[n][4] = current.line[4]

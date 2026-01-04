@@ -3,7 +3,13 @@ require "common.player_body"
 
 rt.settings.overworld.player_recorder_body = {
     radius_factor = 1,
-    length_factor = 1
+    length_factor = 1,
+
+    opacity = 0.75,
+    gray_value = 0.175,
+
+    splatter_gray = 0.8,
+    splatter_opacity = 0.2 -- bloom will still render
 }
 
 --- @class ow.PlayerRecorderBody
@@ -23,25 +29,28 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
     self._radius = _settings.radius
 
     self._body = nil
-    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1))
-
+    self._color = rt.Palette.GRAY_2
+    self._body_color = rt.RGBA(_settings.gray_value, _settings.gray_value, _settings.gray_value, _settings.opacity)
+    self._splatter_color = rt.RGBA(_settings.splatter_gray, _settings.splatter_gray, _settings.splatter_gray, _settings.splatter_opacity)
     local radius_factor = _settings.radius_factor
     local length_factor = _settings.length_factor
 
-    self._radius = radius_factor * self._scene:get_player():get_radius()
+    self._radius = radius_factor * rt.settings.player.radius
     self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
     self._graphics_body = rt.PlayerBody({
         radius = self._radius,
-        max_radius = self._max_radius,
-        rope_length_radius_factor = rt.settings.player_body.default_rope_length_radius_factor * length_factor,
+        max_radius = self._max_radius
     })
+
     self._graphics_body:set_world(stage:get_physics_world())
+    self._graphics_body:set_color(self._color)
 
     -- core shape
     do
         local n_outer_vertices = rt.settings.player.n_outer_bodies
         local positions = {}
-        local r = radius_factor * self._scene:get_player():get_core_radius() - 1.5
+        local r = self._radius - (self._radius * 2 * math.pi) / rt.settings.player.n_outer_bodies / 1.5
+        self._blood_splatter_radius = r
         for i = 1, n_outer_vertices do
             local angle = (i - 1) / n_outer_vertices * 2 * math.pi
             table.insert(positions, math.cos(angle) * r)
@@ -49,8 +58,14 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
         end
 
         self._graphics_body:set_shape(positions)
-        self._graphics_body:set_opacity(0.5)
+        self._graphics_body:set_body_color(self._body_color)
+        self._graphics_body:set_saturation(0)
     end
+
+    self._graphics_body:set_up_squish(false)
+    self._graphics_body:set_down_squish(false)
+    self._graphics_body:set_left_squish(false)
+    self._graphics_body:set_right_squish(false)
 end
 
 --- @brief
@@ -66,7 +81,7 @@ function ow.PlayerRecorderBody:initialize(x, y)
     self._world = self._stage:get_physics_world()
     self._body = b2.Body(
         self._world,
-        b2.BodyType.DYNAMIC,
+        b2.BodyType.KINEMATIC,
         x, y,
         b2.Circle(0, 0, rt.settings.player.radius)
     )
@@ -109,9 +124,9 @@ function ow.PlayerRecorderBody:update(delta)
         )
 
         if body ~= nil then
-            blood_splatter:add(tx, ty, self._radius,
-                0,  -- hue
-                0.5, -- opacity
+            local color_r, color_g, color_b, color_a = self._splatter_color:unpack()
+            blood_splatter:add(tx, ty, self._blood_splatter_radius,
+                color_r, color_g, color_b, color_a,
                 false -- override
             )
         end
@@ -147,7 +162,6 @@ function ow.PlayerRecorderBody:draw()
     self._graphics_body:draw_body()
     self._graphics_body:draw_core()
 
-    love.graphics.setColor(1, 1, 1, 1)
     if self._dbg ~= nil then
         for line in values(self._dbg) do
             love.graphics.line(line)
@@ -186,5 +200,5 @@ end
 --- @brief
 function ow.PlayerRecorderBody:get_point_light_sources()
     local x, y = self._body:get_position()
-    return { x, y, self._radius }, { self:get_color() }
+    return { { x, y, self._radius } }, { self:get_color() }
 end

@@ -948,7 +948,7 @@ function rt.Player:update(delta)
         end
     end
 
-    local flow_target_value = nil
+    local flow_target_value = self._flow_override or 0
     local flow_decay_t = 1
     local flow_attack_t = 1
 
@@ -2013,6 +2013,7 @@ function rt.Player:update(delta)
     if self._sprint_button_is_down then self._sprint_button_is_down_elapsed = self._sprint_button_is_down_elapsed + delta end
 
     -- add blood splatter
+    local color_r, color_g, color_b, _ = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
     if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
             local r = rt.settings.player.radius
@@ -2037,12 +2038,12 @@ function rt.Player:update(delta)
                         self._last_position_x, self._last_position_y,
                         interpolation_x, interpolation_y
                     ) < r then
-                        self._stage:get_blood_splatter():add(interpolation_x, interpolation_y, r, self._hue, 1)
+                        self._stage:get_blood_splatter():add(interpolation_x, interpolation_y, r, color_r, color_g, color_b, 1)
                     end
                 end
             else
                 if math.distance(self._last_position_x, self._last_position_y, cx, cy) < r then
-                    self._stage:get_blood_splatter():add(cx, cy, r, self._hue, 1)
+                    self._stage:get_blood_splatter():add(cx, cy, r, color_r, color_g, color_b, 1)
                 end
             end
         end
@@ -2717,6 +2718,11 @@ end
 --- @brief
 function rt.Player:get_flow_velocity()
     return math.sign(self._flow_motion:get_target_value() - self._flow_motion:get_value())
+end
+
+--- @brief
+function rt.Player:set_flow_override(override)
+    self._flow_override = override
 end
 
 --- @brief
