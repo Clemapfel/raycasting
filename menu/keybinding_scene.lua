@@ -288,7 +288,6 @@ function mn.KeybindingScene:realize()
         self._confirm_reset_to_default_dialog,
         self._keybinding_invalid_dialog,
         self._verbose_info,
-        self._scrollbar,
         self._list
     ) do
         widget:realize()
@@ -323,7 +322,9 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
         control_w, control_h
     )
 
-    local verbose_info_w = (width - 2 * outer_margin) * rt.settings.settings_scene.verbose_info_width_fraction
+    local list_w = 2 / 3 * width - 2 * outer_margin + self._list:get_scrollbar_width()
+
+    local verbose_info_w = width - list_w - 2 * outer_margin - m
     local verbose_info_h = height - 2 * outer_margin - heading_frame_h - m
     self._verbose_info:reformat(
         x + width - outer_margin - verbose_info_w, current_y, verbose_info_w, verbose_info_h
@@ -336,7 +337,6 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
         max_prefix_w = math.max(max_prefix_w, prefix_w)
     end
 
-    local list_w = width - 2 * outer_margin - verbose_info_w - m
 
     for i = 1, self._list:get_n_items() do
         local item = self._list:get_item(i)
@@ -356,29 +356,32 @@ function mn.KeybindingScene:size_allocate(x, y, width, height)
             local widget_area_w = widget_right_x - widget_left_x
             local widget_margin = (widget_area_w - 2 * widget_w) / (2 + 1)
 
+            local left_indicator_x = love.graphics.getWidth() / 3 - 0.5 * widget_w
             self.keyboard_indicator:reformat(
-                widget_left_x + widget_margin,
+                left_indicator_x,
                 y + 0.5 * height - 0.5 * widget_h,
                 widget_w,
                 widget_h
             )
 
+            local right_indicator_x = love.graphics.getWidth() / 2 - 0.5 * widget_w
             self.controller_indicator:reformat(
-                widget_right_x - widget_margin - widget_w,
+                right_indicator_x,
                 y + 0.5 * height - 0.5 * widget_h,
                 widget_w,
                 widget_h
             )
 
+            local spacer_x = math.mix(love.graphics.getWidth() / 3, love.graphics.getWidth() / 2, 0.5)
             self.spacer:reformat(
-                widget_left_x + 0.5 * widget_area_w,
+                spacer_x,
                 y + m,
                 rt.settings.keybinding_scene.spacer_width * rt.get_pixel_scale(),
                 height - 2 * m
             )
 
             self.spacer_outline:reformat(
-                widget_left_x + 0.5 * widget_area_w - 1,
+                spacer_x,
                 y + m,
                 rt.settings.keybinding_scene.spacer_width * rt.get_pixel_scale() + 2,
                 height - 2 * m

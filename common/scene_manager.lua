@@ -65,7 +65,8 @@ function rt.SceneManager:instantiate()
         _sound_manager_accumulator = 0,
         _sound_manager_step = 1 / 240,
 
-        _is_focused = true
+        _is_focused = true,
+        _composition_overlay_visible = true
     })
 
     -- performance metrics
@@ -213,6 +214,34 @@ end
 function rt.SceneManager:draw(...)
     if self._current_scene ~= nil then
         self._current_scene:draw(...)
+    end
+
+    if self._composition_overlay_visible then
+        local width = love.graphics.getWidth()
+        local height = love.graphics.getHeight()
+        local m = 2 * rt.settings.margin_unit
+
+        -- thirds
+        love.graphics.setColor(1, 1, 1, 0.75)
+        for i = 1, 2 do
+            local x = width * (i / 3)
+            love.graphics.line(x, 0, x, height)
+
+            local y = height * (i / 3)
+            love.graphics.line(0, y, width, y)
+        end
+
+        -- halves
+        love.graphics.setColor(1, 1, 1, 0.5)
+        love.graphics.line(0.5 * width, 0, 0.5 * width, height)
+        love.graphics.line(0, 0.5 * height, width, 0.5 * height)
+
+        -- margin
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.line(m, 0, m, height)
+        love.graphics.line(width - m, 0, width - m, height)
+        love.graphics.line(0, m, width, m)
+        love.graphics.line(0, height - m, width, height - m)
     end
 
     rt.graphics._stencil_value = 1 -- reset running stencil value

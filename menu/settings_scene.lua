@@ -660,7 +660,9 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
         scale_control_w, scale_control_h
     )
 
-    local verbose_info_w = (width - 2 * outer_margin) * rt.settings.settings_scene.verbose_info_width_fraction
+    local list_w = 2 / 3 * width - 2 * outer_margin + self._list:get_scrollbar_width()
+
+    local verbose_info_w = width - list_w - 2 * outer_margin - m
     local verbose_info_h = height - 2 * outer_margin - heading_frame_h - m
     self._verbose_info:reformat(
         x + width - outer_margin - verbose_info_w, current_y, verbose_info_w, verbose_info_h
@@ -706,7 +708,7 @@ function mn.SettingsScene:size_allocate(x, y, width, height)
 
     self._list:reformat(
         current_x, current_y,
-        width - 2 * outer_margin - verbose_info_w - m,
+        list_w,
         verbose_info_h
     )
 end

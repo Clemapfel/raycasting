@@ -234,6 +234,11 @@ function mn.ScrollableList:apply_scroll(dx, dy)
 end
 
 --- @brief
+function mn.ScrollableList:get_scrollbar_width()
+    return 2 + rt.settings.settings_scene.scrollbar_width_factor * rt.settings.margin_unit + rt.settings.margin_unit
+end
+
+--- @brief
 function mn.ScrollableList:set_selected_item(i)
     meta.assert(i, "Number")
     if self._selected_item_i > self._n_items then return end
