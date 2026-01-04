@@ -1305,7 +1305,7 @@ function ow.ResultScreenScene:_transition_to(...)
     self._player:set_gravity(0.5)
     self._player:set_is_bubble(false)
     self._player:set_flow(1)
-    self._player:set_trail_visible(true)
+    self._player:set_trail_is_visible(true)
 
     for body in values(self._bodies) do
         body:set_is_enabled(false)

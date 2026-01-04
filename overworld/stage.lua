@@ -525,7 +525,7 @@ function ow.Stage:get_point_light_sources()
         end)
 
         local player = self._scene:get_player()
-        if player:get_is_visible() then
+        if player:get_is_visible() and player:get_trail_is_visible() then
             local x, y = camera:world_xy_to_screen_xy(player:get_position())
             table.insert(positions, {
                 x, y, player:get_radius()

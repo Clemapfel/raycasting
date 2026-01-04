@@ -582,14 +582,14 @@ function ow.Portal:update(delta)
         if self._queue_trail_invisible == true then
             -- test if point farther away on player core passed portal
             if self._transition_stencil:test_point(player:get_position()) == true then -- stencil clamped to line
-                player:set_trail_visible(false)
+                player:set_trail_is_visible(false)
                 self._queue_trail_invisible = false
             end
         end
 
         -- once camera arrives, properly teleport
         if t >= 1 then
-            player:set_trail_visible(true)
+            player:set_trail_is_visible(true)
             self:_set_player_disabled(false)
             self:_teleport()
             self._scene:set_camera_mode(ow.CameraMode.AUTO)

@@ -2694,9 +2694,14 @@ function rt.Player:set_is_frozen(b)
 end
 
 --- @brief
-function rt.Player:set_trail_visible(b)
+function rt.Player:set_trail_is_visible(b)
     meta.assert(b, "Boolean")
     self._trail:set_is_visible(b)
+end
+
+--- @brief
+function rt.Player:get_trail_is_visible()
+    return self._trail:get_is_visible()
 end
 
 --- @brief
@@ -3212,7 +3217,7 @@ function rt.Player:reset()
     self:set_is_visible(true)
     self:set_is_frozen(false)
     self:set_collision_disabled(false)
-    self:set_trail_visible(true)
+    self:set_trail_is_visible(true)
     self:reset_flow()
     self:set_gravity(1)
     self:set_velocity(0, 0)
