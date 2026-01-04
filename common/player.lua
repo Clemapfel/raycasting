@@ -9,6 +9,7 @@ require "common.path"
 require "common.timed_animation"
 require "common.direction"
 require "common.joystick_gesture_detector"
+require "common.flow_motion"
 
 do
     local radius = 13.5
@@ -41,12 +42,11 @@ do
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
 
-        flow_increase_velocity = 1 / 200, -- percent per second
-        flow_decrease_velocity = 1,
-        flow_max_velocity = 1, -- percent per second
+        flow_increase_velocity = 1 / 200, -- fraction
+        flow_decrease_velocity = 1, -- fraction
+
         flow_fraction_history_n = 100, -- n samples
         flow_fraction_sample_frequency = 60, -- n samples per second
-        velocity_interpolation_history_duration = 5 / 60, -- seconds
 
         position_history_n = 1000, -- n samples
         position_history_sample_frequency = 5, -- px
@@ -63,6 +63,17 @@ do
 
         ground_target_velocity_x = 180, -- px / s
         air_target_velocity_x = 150,
+
+        accelerator_acceleration_duration = 30 / 60,
+        accelerator_max_velocity_factor = 3.5,
+        accelerator_magnet_force = 2000, -- per second
+
+        flow_motion_min_attack_duration = 10, -- seconds
+        flow_motion_max_attack_duration = 10, -- seconds
+        flow_motion_min_decay_duration = 10 / 60,
+        flow_motion_max_decay_duration = 10,
+
+        flow_target_velocity = 180,
 
         instant_turnaround_velocity = 600,
 
@@ -117,7 +128,7 @@ do
 
         color_a = 1.0,
         color_b = 0.6,
-        hue_cycle_duration = 1,
+        hue_cycle_duration = 30, -- seconds
         hue_motion_velocity = 4, -- fraction per second
         pulse_duration = 0.6, -- seconds
         pulse_radius_factor = 2, -- factor
@@ -310,11 +321,9 @@ function rt.Player:instantiate()
 
         -- animation
         _trail = nil, -- rt.PlayerTrail
-        _trail_visible = true,
         _graphics_body = nil,
 
         _hue = 0,
-        _hue_duration = _settings.hue_cycle_duration,
         _hue_motion_current = 0,
         _hue_motion_target = 0,
 
@@ -338,19 +347,17 @@ function rt.Player:instantiate()
         _position_override_y = nil, -- Number
 
         -- flow
-        _flow = 0,
         _override_flow = nil,
-        _flow_velocity = 0,
-        _accelerator_flow_motion = rt.SmoothedMotion1D(0, 1 / 100),
+        _flow_motion = rt.FlowMotion(
+            _settings.flow_motion_max_attack_duration,
+            _settings.flow_motion_min_decay_duration
+        ),
 
         _flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n),
         _flow_fraction_history_sum = 0,
-
         _flow_fraction_history_elapsed = 0,
         _last_flow_fraction = 0,
         _skip_next_flow_update = true, -- skip when spawning
-
-        _flow_is_frozen = false,
 
         _position_history = {},
         _velocity_history = {},
@@ -649,7 +656,7 @@ function rt.Player:update(delta)
             end
         end
 
-        self._accelerator_flow_motion:update(delta)
+        self._flow_motion:update(delta)
         self._trail:set_position(self:get_position())
         self._trail:set_velocity(self:get_velocity())
         self._trail:set_hue(self:get_hue())
@@ -669,7 +676,7 @@ function rt.Player:update(delta)
             end
         end
 
-        self._hue = math.fract(self._hue + 1 / self._hue_duration * delta / 4 * math.min(self:get_flow()^0.7 + 0.1, 1))
+        self._hue = math.fract(self._hue + 1 / _settings.hue_cycle_duration * delta)
         self._hue_motion_target = self._hue
 
         do -- move gradually towards hue target, periodic in [0, 1]
@@ -941,6 +948,10 @@ function rt.Player:update(delta)
         end
     end
 
+    local flow_target_value = nil
+    local flow_decay_t = 1
+    local flow_attack_t = 1
+
     do -- compute current normal for all colliding walls
         local mask = bit.bnot(bit.bor(_settings.player_outer_body_collision_group, _settings.player_collision_group))
         local body = self._is_bubble and self._bubble_body or self._body
@@ -1127,7 +1138,7 @@ function rt.Player:update(delta)
         end
 
         -- make player harder to steer if they are above the desired top speed
-        local steering_easing
+        local velocity_easing
         do
             local target
             if is_grounded then
@@ -1139,18 +1150,18 @@ function rt.Player:update(delta)
             -- clamp to factor 1 for any regular velocity, only ease above target speed
             local alpha = math.max(0, math.abs(current_velocity_x) / target - 1)
 
-            local easing
-            if alpha < 1 then
-                -- sinusoid ease in, goes towards linear for x -> 1
-                -- \left(\cos\left(\frac{\pi}{2}\ \left(x-2\right)\right)+1\right)\ \left\{0<x<1\right\}
-                easing = function(x) return math.cos((math.pi / 2) * (x - 2)) + 1 end
-            else
-                -- linear, constant derivative connection to sinusoid at x = 1
-                -- 1+\left(\frac{\pi}{2}\left(x-1\right)\right)\left\{x>1\right\}
-                easing = function(x) return 1 + (math.pi / 2) * (x - 1)  end
+            local easing = function(x)
+                -- sinusoid ease in, goes towards linear for x -> 1, then linear
+                if x < 1 then
+                    -- \left(\cos\left(\frac{\pi}{2}\ \left(x-2\right)\right)+1\right)\ \left\{0<x<1\right\}
+                    return math.cos((math.pi / 2) * (x - 2)) + 1
+                else
+                    -- 1+\left(\frac{\pi}{2}\left(x-1\right)\right)\left\{x>1\right\}
+                    return 1 + (math.pi / 2) * (x - 1)
+                end
             end
 
-            steering_easing = 1 + easing(alpha)
+            velocity_easing = 1 + easing(alpha)
         end
 
         -- on input, accelerates towards new target velocity / direction
@@ -1174,7 +1185,7 @@ function rt.Player:update(delta)
                 end
             end
 
-            acceleration_duration = acceleration_duration * steering_easing
+            acceleration_duration = acceleration_duration * velocity_easing
 
             if acceleration_duration < math.eps then
                 next_velocity_x = target_velocity_x
@@ -1191,7 +1202,7 @@ function rt.Player:update(delta)
                 decay_duration = _settings.air_decay_duration
             end
 
-            decay_duration = decay_duration * steering_easing
+            decay_duration = decay_duration * velocity_easing
 
             local should_slide = is_grounded
                 and not left_is_down
@@ -1284,14 +1295,20 @@ function rt.Player:update(delta)
                 end
             end
 
+            local flow_target
             if math.magnitude(new_velocity_x, new_velocity_y) > 1 then
                 -- overrides velocity logic so far
                 next_velocity_x = math.clamp(start_velocity_x + new_velocity_x, -max_velocity, max_velocity)
                 next_velocity_y = math.clamp(start_velocity_y + new_velocity_y, -max_velocity, max_velocity)
-
-                self._accelerator_flow_motion:set_target_value(1)
+                flow_target = 1
             else
-                self._accelerator_flow_motion:set_target_value(0)
+                flow_target = 0
+            end
+
+            if flow_target_value == nil then
+                flow_target_value = flow_target
+            else
+                flow_target_value = math.max(flow_target_value, flow_target)
             end
         end
 
@@ -1590,7 +1607,7 @@ function rt.Player:update(delta)
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
-            local force = 1 / steering_easing * _settings.downwards_force * delta
+            local force = 1 / velocity_easing * _settings.downwards_force * delta
             next_velocity_x = next_velocity_x + self._gravity_direction_x * force
             next_velocity_y = next_velocity_y + self._gravity_direction_y * force
         end
@@ -1686,6 +1703,8 @@ function rt.Player:update(delta)
         -- clamp for stability
         next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
         next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity, _settings.max_velocity)
+
+        flow_decay_t = math.magnitude(next_velocity_x, next_velocity_y) / _settings.flow_target_velocity
 
         -- componensate when going up slopes, which would slow down player in stock box2d
         if not is_jumping and self._bottom_wall and (self._bottom_left_wall or self._bottom_right_wall) then
@@ -1929,7 +1948,10 @@ function rt.Player:update(delta)
     end
 
     -- update flow
-    if self._stage ~= nil and not self._flow_frozen and not (self._skip_next_flow_update == true) and self._state ~= rt.PlayerState.DISABLED then
+    if self._stage ~= nil
+        and not (self._skip_next_flow_update == true)
+        and self._state ~= rt.PlayerState.DISABLED
+    then
         self._flow_fraction_history_elapsed = self._flow_fraction_history_elapsed + delta
 
         -- compute whether the player was making progress over the last n samples
@@ -1948,19 +1970,27 @@ function rt.Player:update(delta)
         self._last_flow_fraction = next_flow_fraction
 
         local fraction_average = self._flow_fraction_history_sum / n
-        local should_increase = fraction_average > 0
+        local flow_history_value =  ternary(fraction_average > 0, 1, 0)
 
-        local target_velocity
-        if should_increase then
-            target_velocity = _settings.flow_increase_velocity
+        if flow_target_value == nil then
+            flow_target_value = flow_history_value
         else
-            target_velocity = -1 * _settings.flow_decrease_velocity
+            flow_target_value = math.max(flow_target_value, flow_history_value)
         end
 
-        local acceleration = (target_velocity - self._flow_velocity)
-        self._flow_velocity = math.clamp(self._flow_velocity + acceleration * delta, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
-        self._flow = self._flow + math.max(self._flow_velocity, self._accelerator_flow_motion:get_value()) * delta
-        self._flow = math.clamp(self._flow, 0, 1)
+        self._flow_motion:set_decay_duration(math.mix(
+            _settings.flow_motion_min_decay_duration,
+            _settings.flow_motion_max_decay_duration,
+            flow_decay_t
+        ))
+
+        self._flow_motion:set_attack_duration(math.mix(
+            _settings.flow_motion_min_attack_duration,
+            _settings.flow_motion_max_attack_duration,
+            flow_attack_t
+        ))
+
+        self._flow_motion:set_target_value(flow_target_value)
     end
 
     if self._skip_next_flow_update == true then
@@ -1968,7 +1998,7 @@ function rt.Player:update(delta)
     end
 
     do -- update trail
-        local value = rt.InterpolationFunctions.LINEAR(math.clamp(self._flow, 0, 1))
+        local value = rt.InterpolationFunctions.LINEAR(math.clamp(self:get_flow(), 0, 1))
         self._trail:set_glow_intensity(value)
         self._trail:set_boom_intensity(value)
         self._trail:set_trail_intensity(value)
@@ -2236,6 +2266,7 @@ function rt.Player:move_to_world(world)
         _settings.player_outer_body_collision_group,
         _settings.exempt_collision_group
     ))
+
     function initialize_outer_body(body, is_bubble)
         body:set_is_enabled(false)
         body:set_collision_group(_settings.player_outer_body_collision_group)
@@ -2360,15 +2391,9 @@ end
 function rt.Player:draw_body()
     if self._is_visible == false then return end
 
-    if self._trail_visible then
-        self._trail:draw_below()
-    end
-
+    self._trail:draw_below()
     self._graphics_body:draw_body()
-
-    if self._trail_visible then
-        self._trail:draw_above()
-    end
+    self._trail:draw_above()
 end
 
 --- @brief
@@ -2671,48 +2696,35 @@ end
 --- @brief
 function rt.Player:set_trail_visible(b)
     meta.assert(b, "Boolean")
-    if b ~= self._trail_visible then
-        self._trail:clear()
-    end
-
-    self._trail_visible = b
+    self._trail:set_is_visible(b)
 end
 
 --- @brief
 function rt.Player:get_flow()
-    return self._override_flow or self._flow
+    return self._override_flow or self._flow_motion:get_value()
 end
 
 --- @brief
 function rt.Player:set_flow(x)
-    self._flow = math.clamp(x, 0, 1)
+    self._flow_motion:set_value(x)
+end
+
+--- @brief
+function rt.Player:get_flow_velocity()
+    return math.sign(self._flow_motion:get_target_value() - self._flow_motion:get_value())
 end
 
 --- @brief
 function rt.Player:reset_flow()
-    self._flow = 0
     self._flow_fraction_history_sum = 0
     self._flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n)
+    self._flow_motion:set_value(0)
+    self._flow_motion:set_target_value(0)
 end
 
 --- @brief
 function rt.Player:set_override_flow(flow_or_nil)
     self._override_flow = flow_or_nil
-end
-
---- @brief
-function rt.Player:set_flow_velocity(x)
-    self._flow_velocity = math.clamp(x, -1 * _settings.flow_max_velocity, _settings.flow_max_velocity)
-end
-
---- @brief
-function rt.Player:get_flow_velocity()
-    return self._flow_velocity
-end
-
---- @brief
-function rt.Player:set_flow_is_frozen(b)
-    self._flow_frozen = b
 end
 
 --- @brief

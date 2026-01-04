@@ -96,6 +96,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._transition_elapsed = math.huge
     self._transition_velocity_x, self._transition_velocity_y = 0, 0
     self._transition_speed = 0
+    self._queue_trail_invisible = false
 
     -- collapse point where player enters, normalized to 0, 1
     self._entry_t = 0.5
@@ -283,7 +284,6 @@ function ow.Portal:instantiate(object, stage, scene)
         if not self._is_dead_end then
             -- start teleportation sequence
             self._segment_sensor:signal_connect("collision_start", function(self_body, other_body, nx, ny, contact_x, contact_y)
-
                 -- check if directed vector points towards or away from line
                 local function velocity_towards_line(ax, ay, bx, by, vx, vy)
                     local dx, dy = math.normalize(ax - bx, ay - by)
@@ -336,7 +336,8 @@ function ow.Portal:instantiate(object, stage, scene)
                     -- if player moves towards portal on the correct side
                     if self._direction == velocity_towards_line(
                         ax, ay, bx, by,
-                        player_vx, player_vy
+                        player_vx, player_vy,
+                        player:get_is_grounded()
                     ) then -- use sim velocity
                         do -- compute closest point
                             local ab_x = bx - ax
@@ -366,6 +367,7 @@ function ow.Portal:instantiate(object, stage, scene)
                         self._collapse_active = true
 
                         self._transition_active = true
+                        self._queue_trail_invisible = true
 
                         if self._target._is_dead_end then
                             self._target._one_way_light_animation:reset()
@@ -374,7 +376,6 @@ function ow.Portal:instantiate(object, stage, scene)
                         player:set_position_override_active(true)
                         self:_set_stencil_enabled(true)
                         self._target:_set_stencil_enabled(true)
-
 
                         self._transition_elapsed = 0
                         self._transition_speed = math.max(
@@ -492,6 +493,7 @@ function ow.Portal:_set_player_disabled(b)
     if b == true then
         player:set_is_ghost(true)
     end
+
     -- ghost disable happens in _teleport
 
     self._scene:set_camera_mode(ow.CameraMode.MANUAL)
@@ -520,6 +522,7 @@ local function _clamp_point_to_line(ax, ay, bx, by, normal_x, normal_y, x, y)
 
     return x, y
 end
+
 
 --- @brief
 function ow.Portal:update(delta)
@@ -575,8 +578,18 @@ function ow.Portal:update(delta)
         local portal_vx, portal_vy = math.flip(self._area_sensor:get_velocity())
         player:set_velocity(dx * magnitude + portal_vx, dy * magnitude + portal_vy)
 
+        -- wait for player to pass line, then set trail invisible
+        if self._queue_trail_invisible == true then
+            -- test if point farther away on player core passed portal
+            if self._transition_stencil:test_point(player:get_position()) == true then -- stencil clamped to line
+                player:set_trail_visible(false)
+                self._queue_trail_invisible = false
+            end
+        end
+
         -- once camera arrives, properly teleport
         if t >= 1 then
+            player:set_trail_visible(true)
             self:_set_player_disabled(false)
             self:_teleport()
             self._scene:set_camera_mode(ow.CameraMode.AUTO)
@@ -692,6 +705,7 @@ function ow.Portal:_teleport()
     -- ghost delayed to prevent dying on spawning inside a wall the target portal is on
     self._world:signal_connect("step", function(_, delta)
         player:set_velocity(player_vx, player_vy)
+
         elapsed = elapsed + delta
 
         if elapsed > 5 / 60 then
@@ -875,6 +889,7 @@ function ow.Portal:reset()
     self._transition_velocity_x, self._transition_velocity_y = 0, 0
     self._transition_speed = 0
     self._player_teleported = false
+    self._queue_trail_invisible = false
 
     self._is_disabled = false
     if self._transition_stencil ~= nil then

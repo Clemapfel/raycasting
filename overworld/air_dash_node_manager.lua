@@ -37,7 +37,7 @@ function ow.AirDashNodeManager:instantiate(scene, stage)
     end)
 end
 
-function _get_side(px, py, line)
+local function _get_side(px, py, line)
     local x1, y1, x2, y2 = table.unpack(line)
 
     local dx = x2 - x1

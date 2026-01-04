@@ -77,7 +77,7 @@ function ow.AirDashNode:instantiate(object, stage, scene)
     _is_first = false
 end
 
-function _get_side(px, py, x1, y1, x2, y2)
+local function _get_side(px, py, x1, y1, x2, y2)
     local dx = x2 - x1
     local dy = y2 - y1
 

@@ -268,76 +268,83 @@ function ow.AcceleratorSurface:update(delta)
     end
 end
 
+local base_priority = 0
+local particle_priority = math.huge
+
 --- @brief
-function ow.AcceleratorSurface:draw()
+function ow.AcceleratorSurface:draw(priority)
     if not self._stage:get_is_body_visible(self._body) then return end
 
     local offset_x, offset_y = self._body:get_position()
-
-    love.graphics.push()
-    love.graphics.translate(offset_x, offset_y)
-
     love.graphics.setColor(1, 1, 1, 1)
     local camera = self._scene:get_camera()
     local transform = self._scene:get_camera():get_transform()
     transform:translate(offset_x, offset_y)
     transform = transform:inverse()
 
-    local camera_bounds = camera:get_world_bounds()
+    if priority == base_priority then
+        love.graphics.push()
+        love.graphics.translate(offset_x, offset_y)
 
-    _body_shader:bind()
-    _body_shader:send("screen_to_world_transform", transform)
-    _body_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _body_shader:send("camera_position", { camera_bounds.x + camera_bounds.width * 0.5, camera_bounds.y + camera_bounds.height * 0.5})
-    _body_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-    _body_shader:send("player_hue", self._scene:get_player():get_hue())
-    love.graphics.push()
-    self._mesh:draw()
-    love.graphics.pop()
-    _body_shader:unbind()
+        local camera_bounds = camera:get_world_bounds()
 
-    _outline_shader:bind()
-    _outline_shader:send("screen_to_world_transform", transform)
-    _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _outline_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
-    _outline_shader:send("player_hue", self._scene:get_player():get_hue())
-    love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
-    love.graphics.line(self._outline)
-    _outline_shader:unbind()
+        _body_shader:bind()
+        _body_shader:send("screen_to_world_transform", transform)
+        _body_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        _body_shader:send("camera_position", { camera_bounds.x + camera_bounds.width * 0.5, camera_bounds.y + camera_bounds.height * 0.5})
+        _body_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+        _body_shader:send("player_hue", self._scene:get_player():get_hue())
+        love.graphics.push()
+        self._mesh:draw()
+        love.graphics.pop()
+        _body_shader:unbind()
 
-    love.graphics.pop()
+        _outline_shader:bind()
+        _outline_shader:send("screen_to_world_transform", transform)
+        _outline_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        _outline_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+        _outline_shader:send("player_hue", self._scene:get_player():get_hue())
+        love.graphics.setLineWidth(rt.settings.overworld.accelerator_surface.outline_width)
+        love.graphics.line(self._outline)
+        _outline_shader:unbind()
 
-    _particle_shader:bind()
-    _particle_shader:send("screen_to_world_transform", transform)
+        love.graphics.pop()
+    elseif false then -- TODO priority == particle_priority then
 
-    local frame_h = _particle_texture:get_height()
-    local texture = _particle_texture:get_native()
+        _particle_shader:bind()
+        _particle_shader:send("screen_to_world_transform", transform)
 
-    love.graphics.push()
-    for particle in values(self._particles) do
-        love.graphics.setColor(
-            1, 1, 1,
-            rt.InterpolationFunctions.ENVELOPE(
-                particle[_elapsed] / particle[_lifetime],
-                rt.settings.overworld.accelerator_surface.particle.attack,
-                rt.settings.overworld.accelerator_surface.particle.decay
+        local frame_h = _particle_texture:get_height()
+        local texture = _particle_texture:get_native()
+
+        love.graphics.push()
+        for particle in values(self._particles) do
+            love.graphics.setColor(
+                1, 1, 1,
+                rt.InterpolationFunctions.ENVELOPE(
+                    particle[_elapsed] / particle[_lifetime],
+                    rt.settings.overworld.accelerator_surface.particle.attack,
+                    rt.settings.overworld.accelerator_surface.particle.decay
+                )
             )
-        )
 
-        love.graphics.draw(texture, particle[_quad],
-            particle[_x], particle[_y],
-            particle[_angle],
-            particle[_scale], particle[_scale],
-            0.5 * frame_h, 0.5 * frame_h
-        )
+            love.graphics.draw(texture, particle[_quad],
+                particle[_x], particle[_y],
+                particle[_angle],
+                particle[_scale], particle[_scale],
+                0.5 * frame_h, 0.5 * frame_h
+            )
+        end
+        love.graphics.pop()
+
+        _particle_shader:unbind()
     end
-    love.graphics.pop()
-
-    _particle_shader:unbind()
 end
 
 --- @brief
-function ow.AcceleratorSurface:draw_bloom()
+function ow.AcceleratorSurface:draw_bloom(priority)
+    if not self._stage:get_is_body_visible(self._body) or priority ~= base_priority then return end
+
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
     love.graphics.translate(offset_x, offset_y)
@@ -352,6 +359,11 @@ function ow.AcceleratorSurface:draw_bloom()
     _outline_shader:unbind()
 
     love.graphics.pop()
+end
+
+--- @brief
+function ow.AcceleratorSurface:get_render_priority()
+    return base_priority, particle_priority
 end
 
 --- @brief
