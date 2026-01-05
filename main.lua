@@ -87,10 +87,10 @@ love.load = function(args)
     --rt.SceneManager:push(ow.OverworldScene, "exhibition", false)
 
     require "menu.keybinding_scene"
-    --rt.SceneManager:push(mn.KeybindingScene)
+    rt.SceneManager:push(mn.KeybindingScene)
 
     require "menu.settings_scene"
-    rt.SceneManager:push(mn.SettingsScene)
+    --rt.SceneManager:push(mn.SettingsScene)
 
     require "menu.menu_scene"
     --rt.SceneManager:push(mn.MenuScene, false) -- skip title

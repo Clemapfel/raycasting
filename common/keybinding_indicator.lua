@@ -1309,7 +1309,7 @@ end
 
 --- @brief
 function rt.KeybindingIndicator:create_from_keyboard_key(keyboard_key)
-    return self:create_as_key(rt.keyboard_key_to_string(keyboard_key), keyboard_key == "space")
+    return self:create_as_key(rt.Translation.keyboard_key_to_string(keyboard_key), keyboard_key == "space")
 end
 
 --- @brief

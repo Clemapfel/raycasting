@@ -66,7 +66,7 @@ function rt.SceneManager:instantiate()
         _sound_manager_step = 1 / 240,
 
         _is_focused = true,
-        _composition_overlay_visible = true
+        _composition_overlay_visible = false
     })
 
     -- performance metrics

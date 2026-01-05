@@ -64,35 +64,44 @@ end
 
 --- @brief
 function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button(indicator, button, is_keyboard)
+    local to_string = rt.Translation.keyboard_key_to_string
     if is_keyboard then
         if button == rt.ControlIndicatorButton.UP_DOWN then
             local up = rt.GameState:get_input_mapping(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
             local down = rt.GameState:get_input_mapping(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
-            indicator:create_as_two_vertical_keys(
-                rt.keyboard_key_to_string(up),
-                rt.keyboard_key_to_string(down)
-            )
+            if up ~= nil and down ~= nil then
+                indicator:create_as_two_vertical_keys(
+                    to_string(up),
+                    to_string(down)
+                )
+            end
         elseif button == rt.ControlIndicatorButton.LEFT_RIGHT then
             local left = rt.GameState:get_input_mapping(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
             local right = rt.GameState:get_input_mapping(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
-            indicator:create_as_two_horizontal_keys(
-                rt.keyboard_key_to_string(left),
-                rt.keyboard_key_to_string(right)
-            )
+            if left ~= nil and right ~= nil then
+                indicator:create_as_two_horizontal_keys(
+                    to_string(left),
+                    to_string(right)
+                )
+            end
         elseif button == rt.ControlIndicatorButton.ALL_DIRECTIONS then
             local up = rt.GameState:get_input_mapping(rt.InputAction.UP, rt.InputMethod.KEYBOARD)[1]
             local down = rt.GameState:get_input_mapping(rt.InputAction.DOWN, rt.InputMethod.KEYBOARD)[1]
             local left = rt.GameState:get_input_mapping(rt.InputAction.LEFT, rt.InputMethod.KEYBOARD)[1]
             local right = rt.GameState:get_input_mapping(rt.InputAction.RIGHT, rt.InputMethod.KEYBOARD)[1]
-            indicator:create_as_four_keys(
-                rt.keyboard_key_to_string(up),
-                rt.keyboard_key_to_string(right),
-                rt.keyboard_key_to_string(down),
-                rt.keyboard_key_to_string(left)
-            )
+            if up ~= nil and down ~= nil and left ~= nil and right ~= nil then
+                indicator:create_as_four_keys(
+                    to_string(up),
+                    to_string(right),
+                    to_string(down),
+                    to_string(left)
+                )
+            end
         else
             local binding = rt.GameState:get_input_mapping(button, rt.InputMethod.KEYBOARD)[1]
-            indicator:create_from_keyboard_key(binding)
+            if binding ~= nil then
+                indicator:create_from_keyboard_key(binding)
+            end
         end
     else
         if button == rt.ControlIndicatorButton.UP_DOWN then
@@ -103,7 +112,9 @@ function rt.ControlIndicator:_initialize_indicator_from_control_indicator_button
             indicator:create_as_dpad(false, false, false, false)
         else
             local binding = rt.GameState:get_input_mapping(button, rt.InputMethod.CONTROLLER)[1]
-            indicator:create_from_gamepad_button(binding)
+            if binding ~= nil then
+                indicator:create_from_gamepad_button(binding)
+            end
         end
     end
 end

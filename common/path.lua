@@ -10,7 +10,7 @@ function rt.Path:instantiate(points, ...)
         points = { points, ... }
     end
 
-    if #points < 2 then
+    if points == nil or #points < 2 then
         points = { 0, 0, 0, 0 }
     elseif #points < 4 then
         table.insert(points, points[1])
@@ -26,7 +26,8 @@ function rt.Path:instantiate(points, ...)
         _n_entries = 0,
         _length = 0,
         _first_distance = 0,
-        _last_distance = 0
+        _last_distance = 0,
+        _use_arclength = false  -- track whether to use arc-length parameterization
     })
     out:create_from(points, ...)
     return out
@@ -72,21 +73,32 @@ function rt.Path:_update()
         entries[1].fraction = 0
         entries[1].fraction_length = 1
     else
-        -- calculate fractions for multiple segments
-        for i = 1, n_entries do
-            local entry = entries[i]
-            if total_length > 0 then
-                entry.fraction = entry.cumulative_distance / total_length
-                if i < n_entries then
-                    local next_entry = entries[i + 1]
-                    entry.fraction_length = (next_entry.cumulative_distance - entry.cumulative_distance) / total_length
+        -- calculate fractions based on whether arc-length parameterization is enabled
+        if self._use_arclength then
+            -- arc-length: fractions based on cumulative distance
+            for i = 1, n_entries do
+                local entry = entries[i]
+                if total_length > 0 then
+                    entry.fraction = entry.cumulative_distance / total_length
+                    if i < n_entries then
+                        local next_entry = entries[i + 1]
+                        entry.fraction_length = (next_entry.cumulative_distance - entry.cumulative_distance) / total_length
+                    else
+                        entry.fraction_length = (total_length - entry.cumulative_distance) / total_length
+                    end
                 else
-                    entry.fraction_length = (total_length - entry.cumulative_distance) / total_length
+                    -- handle degenerate case where all segments have zero length
+                    entry.fraction = i == 1 and 0 or 1
+                    entry.fraction_length = 0
                 end
-            else
-                -- handle degenerate case where all segments have zero length
-                entry.fraction = i == 1 and 0 or 1
-                entry.fraction_length = 0
+            end
+        else
+            -- uniform: equal fraction for each segment
+            local fraction_per_segment = 1 / n_entries
+            for i = 1, n_entries do
+                local entry = entries[i]
+                entry.fraction = (i - 1) * fraction_per_segment
+                entry.fraction_length = fraction_per_segment
             end
         end
     end
@@ -167,7 +179,7 @@ function rt.Path:get_tangent(t)
 end
 
 --- @brief
-function rt.Path:_create_from(reparameterize_as_uniform, points, ...)
+function rt.Path:_create_from(reparameterize_as_uniform, use_arclength, points, ...)
     if meta.is_number(points) then
         points = { points, ... }
     end
@@ -235,17 +247,36 @@ function rt.Path:_create_from(reparameterize_as_uniform, points, ...)
 
     self._points = points
     self._n_points = n_points
+    self._use_arclength = use_arclength
     self:_update()
+    return self
 end
 
 --- @brief
 function rt.Path:create_from(...)
-    self:_create_from(false, ...)
+    return self:_create_from(
+        false, -- resample with uniform spacing
+        false, -- arc-length parameterize
+        ...
+    )
 end
 
 --- @brief
 function rt.Path:create_from_and_reparameterize(...)
-    self:_create_from(true, ...)
+    return self:_create_from(
+        false,
+        true,
+        ...
+    )
+end
+
+--- @brief
+function rt.Path:create_from_and_resample(...)
+    return self:_create_from(
+        true,
+        true,
+        ...
+    )
 end
 
 --- @brief
@@ -305,7 +336,7 @@ end
 
 --- @brief helper function to find closest point on a specific line segment
 --- @param x Number query point x
---- @param y Number query point y  
+--- @param y Number query point y
 --- @param entry Table segment entry from self._entries
 --- @return Number, Number, Number closest point x, y and global parameter t
 function rt.Path:_closest_point_on_segment(x, y, entry)
@@ -333,7 +364,7 @@ function rt.Path:_closest_point_on_segment(x, y, entry)
     return closest_x, closest_y, global_t
 end
 
---- @brief 
+--- @brief
 function rt.Path:get_closest_point(x, y)
     if self._n_entries == 0 then
         return nil, nil, nil

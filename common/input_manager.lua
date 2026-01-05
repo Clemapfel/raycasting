@@ -148,9 +148,17 @@ end
 --- @brief
 function rt.InputManager:get_is_down(action)
     if self._input_method == rt.InputMethod.KEYBOARD then
-        return self:is_keyboard_key_down(rt.GameState:get_input_mapping(action, rt.InputMethod.KEYBOARD))
+        local mapping = rt.GameState:get_input_mapping(action, rt.InputMethod.KEYBOARD)
+        for key in values(mapping) do
+            if self:is_keyboard_key_down(key) == true then return true end
+        end
+        return false
     else
-        return self:is_controller_button_down(rt.GameState:get_input_mapping(action, rt.InputMethod.CONTROLLER))
+        local mapping = rt.GameState:get_input_mapping(action, rt.InputMethod.CONTROLLER)
+        for button in values(mapping) do
+            if self:is_controller_button_down(button) == true then return true end
+        end
+        return false
     end
 end
 

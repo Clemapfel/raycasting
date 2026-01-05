@@ -286,28 +286,30 @@ function rt.GameState:load_default_input_mapping()
             controller = rt.ControllerButton.DPAD_RIGHT
         },
 
-        [rt.InputAction.X] = { -- INTERACT
-            keyboard = {"x"},
-            controller = rt.ControllerButton.TOP
-        },
-
-        [rt.InputAction.B] = { -- JUMP
-            keyboard = {"space"},
-            controller = rt.ControllerButton.BOTTOM
-        },
-
-        [rt.InputAction.A] = { -- DASH
-            keyboard = {"m"},
-            controller = rt.ControllerButton.RIGHT
-        },
-
-        [rt.InputAction.Y] = { -- SPRINT
-            keyboard = {"n", "lshift"},
+        [rt.InputAction.B] = { -- sprint / back
+            keyboard = {"n"},
             controller = rt.ControllerButton.LEFT
         },
 
+        [rt.InputAction.A] = { -- jump / confirm
+            keyboard = {"space"},
+            controller = { rt.ControllerButton.BOTTOM, rt.ControllerButton.RIGHT }
+        },
+
+        [rt.InputAction.X] = { -- interact / reset
+            keyboard = {"x", "m"},
+            controller = rt.ControllerButton.TOP
+        },
+
+        --[[
+        [rt.InputAction.Y] = { -- unused
+            keyboard = {"y"},
+            controller = rt.ControllerButton.RIGHT
+        },
+        ]]
+
         [rt.InputAction.L] = {
-            keyboard = {"l", "l"},
+            keyboard = {"l"},
             controller = rt.ControllerButton.LEFT_SHOULDER
         },
 
@@ -321,10 +323,12 @@ function rt.GameState:load_default_input_mapping()
             controller = rt.ControllerButton.START
         },
 
-        [rt.InputAction.SELECT] = {
+        --[[
+        [rt.InputAction.SELECT] = { -- unused
             keyboard = {"#"},
             controller = rt.ControllerButton.SELECT
         }
+        ]]
     }
 
     for mapping in values(self._state.input_mapping) do
@@ -357,6 +361,8 @@ function rt.GameState:_validate_input_mapping()
     local double_assigned_controller = {}
     local double_assigned_controller_active = false
 
+    local unused_actions = {}
+
     local input_actions = {} -- Set
     for action in values(meta.instances(rt.InputAction)) do
         input_actions[action] = true
@@ -364,36 +370,52 @@ function rt.GameState:_validate_input_mapping()
 
     -- verify that all actions have an assignment
     for action in keys(input_actions) do
-        local keyboard = self._state.input_mapping[action].keyboard
-        if #keyboard == 0 then
-            table.insert(unassigned_keyboard, action)
-            unassigned_keyboard_active = true
-        end
+        local keyboard_entry = self._state.input_mapping[action]
+        local keyboard_unused = false
+        local keyboard
 
-        for key in values(keyboard) do
-            local entry = native_keyboard_to_action[key]
-            if entry == nil then
-                entry = {}
-                native_keyboard_to_action[key] = entry
+        if keyboard_entry == nil then
+            keyboard_unused = false
+        else
+            local keyboard = keyboard_entry.keyboard
+            if #keyboard == 0 then
+                table.insert(unassigned_keyboard, action)
+                unassigned_keyboard_active = true
             end
 
-            entry[action] = true -- set, since enum has aliases
+            for key in values(keyboard) do
+                local entry = native_keyboard_to_action[key]
+                if entry == nil then
+                    entry = {}
+                    native_keyboard_to_action[key] = entry
+                end
+
+                entry[action] = true -- set, since enum has aliases
+            end
         end
 
-        local controller = self._state.input_mapping[action].controller
-        if #controller == 0 then
-            table.insert(unassigned_controller, action)
-            unassigned_controller_active = true
-        end
+        local controller_entry = self._state.input_mapping[action]
+        local controller_unused = false
+        local controller
 
-        for button in values(controller) do
-            local entry = native_controller_to_action[button]
-            if entry == nil then
-                entry = {}
-                native_controller_to_action[button] = entry
+        if controller_entry == nil then
+            controller_unused = true
+        else
+            local controller = controller_entry.controller
+            if #controller == 0 then
+                table.insert(unassigned_controller, action)
+                unassigned_controller_active = true
             end
 
-            entry[action] = true
+            for button in values(controller) do
+                local entry = native_controller_to_action[button]
+                if entry == nil then
+                    entry = {}
+                    native_controller_to_action[button] = entry
+                end
+
+                entry[action] = true
+            end
         end
     end
 
@@ -457,7 +479,7 @@ function rt.GameState:_validate_input_mapping()
         if double_assigned_keyboard_active then
             table.insert(error, translation.double_assigned_keyboard_message)
             for key, actions in pairs(double_assigned_keyboard) do
-                local line = { indent .. "<b>" .. rt.keyboard_key_to_string(key) .. "</b>: " }
+                local line = { indent .. "<b>" .. rt.Translation.keyboard_key_to_string(key) .. "</b>: " }
                 for i, action in ipairs(actions) do
                     table.insert(line, input_action_to_string(action))
                     if i ~= #actions then
@@ -471,7 +493,7 @@ function rt.GameState:_validate_input_mapping()
         if double_assigned_controller_active then
             table.insert(error, translation.double_assigned_controller_message)
             for button, actions in pairs(double_assigned_controller) do
-                local line = { indent .. rt.controller_button_to_string(button) .. ": "}
+                local line = { indent .. rt.Translation.controller_button_to_string(button) .. ": "}
                 for i, action in ipairs(actions) do
                     table.insert(line, input_action_to_string(action))
                     if i ~= #actions then
@@ -499,22 +521,24 @@ function rt.GameState:_update_reverse_mapping()
     for action in keys(input_actions) do
         local mapping = self._state.input_mapping[action]
 
-        for key in values(mapping.keyboard) do
-            local actions = self._keyboard_key_to_input_action[key]
-            if actions == nil then
-                actions = {}
-                self._keyboard_key_to_input_action[key] = actions
+        if mapping ~= nil then
+            for key in values(mapping.keyboard) do
+                local actions = self._keyboard_key_to_input_action[key]
+                if actions == nil then
+                    actions = {}
+                    self._keyboard_key_to_input_action[key] = actions
+                end
+                table.insert(actions, action)
             end
-            table.insert(actions, action)
-        end
 
-        for button in values(mapping.controller) do
-            local actions = self._controller_button_to_input_action[button]
-            if actions == nil then
-                actions = {}
-                self._controller_button_to_input_action[button] = actions
+            for button in values(mapping.controller) do
+                local actions = self._controller_button_to_input_action[button]
+                if actions == nil then
+                    actions = {}
+                    self._controller_button_to_input_action[button] = actions
+                end
+                table.insert(actions, action)
             end
-            table.insert(actions, action)
         end
     end
 end
@@ -522,13 +546,47 @@ end
 --- @brief
 function rt.GameState:get_input_mapping(input_action, method)
     meta.assert_enum_value(input_action, rt.InputAction, 1)
+    local keyboard_entry = self._state.input_mapping[input_action]
+    local controller_entry = self._state.input_mapping[input_action]
     if method == rt.InputMethod.KEYBOARD then
-        return table.deepcopy(self._state.input_mapping[input_action].keyboard)
+        if keyboard_entry == nil then
+            return {}
+        else
+            return table.deepcopy(keyboard_entry.keyboard)
+        end
     elseif method == rt.InputMethod.CONTROLLER then
-        return table.deepcopy(self._state.input_mapping[input_action].controller)
+        if controller_entry == nil then
+            return {}
+        else
+            return table.deepcopy(controller_entry.controller)
+        end
     elseif method == nil then
-        return table.deepcopy(self._state.input_mapping[input_action].keyboard),
-        table.deepcopy(self._state.input_mapping[input_action].controller)
+        local keyboard, controller = {}, {}
+        if keyboard_entry ~= nil then
+            keyboard = table.deepcopy(keyboard_entry.keyboard)
+        end
+
+        if controller_entry ~= nil then
+            controller = table.deepcopy(controller_entry.controller)
+        end
+
+        return keyboard, controller
+    else
+        meta.assert_enum_value(method, rt.InputMethod, 2) -- always throws
+    end
+end
+
+--- @brief
+function rt.GameState:get_has_input_mapping(input_action, method)
+    local keyboard_entry = self._state.input_mapping[input_action]
+    local controller_entry = self._state.input_mapping[input_action]
+
+    if method == rt.InputMethod.KEYBOARD then
+        return keyboard_entry ~= nil
+    elseif method == rt.InputMethod.CONTROLLER then
+        return controller_entry ~= nil
+    elseif method == nil then
+        return keyboard_entry ~= nil, controller_entry ~= nil
     else
         meta.assert_enum_value(method, rt.InputMethod, 2) -- always throws
     end

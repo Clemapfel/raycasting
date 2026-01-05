@@ -36,7 +36,7 @@ function ow.PlayerRecorder:instantiate(stage, scene)
     self._path_elapsed = 0
     self._path_n_snapshots = 0
 
-    self._position_interpolation = nil -- rt.Spline
+    self._path = nil -- rt.Path
 
     self._state = _STATE_IDLE
 
@@ -90,13 +90,12 @@ function ow.PlayerRecorder:play()
     self._body:get_physics_body():set_is_enabled(true)
 
     if self._state ~= _STATE_PLAYBACK then
-        self._position_interpolation = rt.Spline(self._position_data)
-        self._to_render = self._position_interpolation:discretize(rt.settings.overworld.player_recorder.path_step_size)
+        self._path = rt.Path(self._position_data)
     end
 
     self._state = _STATE_PLAYBACK
     self._path_elapsed = 0
-    self._path_x, self._path_y = self._position_interpolation:at(0)
+    self._path_x, self._path_y = self._path:at(0)
     self._body:initialize(self._path_x, self._path_y)
     self._body:relax()
 end
@@ -117,8 +116,8 @@ function ow.PlayerRecorder:update(delta)
         -- of fixed timestep used in physics sim
         local t_now = self._path_elapsed / self._path_duration
         local t_next = (self._path_elapsed + delta) / self._path_duration
-        local x1, y1 = self._position_interpolation:at(t_now)
-        local x2, y2 = self._position_interpolation:at(math.min(1, t_next))
+        local x1, y1 = self._path:at(t_now)
+        local x2, y2 = self._path:at(math.min(1, t_next))
 
         -- safety check for numerical error accumulating
         local px, py = self._body:get_position()
@@ -135,7 +134,7 @@ function ow.PlayerRecorder:update(delta)
 
         if t_now >= 1 then
             self._path_elapsed = 0
-            self._body:set_position(self._position_interpolation:at(0))
+            self._body:set_position(self._path:at(0))
             self._state = _STATE_PLAYBACK
         end
 
@@ -158,11 +157,6 @@ end
 --- @brief
 function ow.PlayerRecorder:draw()
     if self._state == _STATE_PLAYBACK then
-        if self._render ~= nil then
-            love.graphics.setColor(0.5, 0.5, 0.5, 1)
-            love.graphics.line(self._to_render)
-        end
-
         love.graphics.setColor(1, 1, 1, 1)
         self._body:draw()
     end

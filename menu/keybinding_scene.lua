@@ -112,8 +112,8 @@ function mn.KeybindingScene:instantiate()
 
     local scene = self
     for input_action in values(input_action_order) do
+        if not rt.GameState:get_has_input_mapping(input_action) then goto continue end
         local text = rt.Translation.input_action_to_string(input_action)
-        if text == nil then goto continue end -- button unused
 
         local info = input_action_to_verbose_info[input_action]
         assert(text ~= nil, input_action)
@@ -434,8 +434,15 @@ end
 function mn.KeybindingScene:_update_all_indicators()
     for i = 1, self._list:get_n_items() do
         local item = self._list:get_item(i)
-        item:set_keyboard_indicator(rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.KEYBOARD)[1])
-        item:set_controller_indicator(rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.CONTROLLER)[1])
+        local keyboard_mapping = rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.KEYBOARD)[1]
+        if keyboard_mapping ~= nil then
+            item:set_keyboard_indicator(keyboard_mapping)
+        end
+
+        local controller_mapping = rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.CONTROLLER)[1]
+        if controller_mapping ~= nil then
+            item:set_controller_indicator(controller_mapping)
+        end
     end
 
     if self:get_is_realized() then self:reformat() end
@@ -446,10 +453,14 @@ function mn.KeybindingScene:_was_modified()
     for i = 1, self._list:get_n_items() do
         local item = self._list:get_item(i)
         local expected = rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.KEYBOARD)[1]
-        if item.keyboard_key ~= nil and item.keyboard_key ~= expected then return true end
+        if expected ~= nil then
+            if item.keyboard_key ~= nil and item.keyboard_key ~= expected then return true end
+        end
 
         expected = rt.GameState:get_input_mapping(item.input_action, rt.InputMethod.CONTROLLER)[1]
-        if item.controller_button ~= nil and item.controller_button ~= expected then return true end
+        if expected ~= nil then
+            if item.controller_button ~= nil and item.controller_button ~= expected then return true end
+        end
     end
 
     return false
