@@ -333,6 +333,8 @@ function ow.DialogBox:_set_active_node(node)
             self:signal_emit("speaker_changed", node.speaker_id, before.speaker_id)
         end
     end
+
+    self._active_node = node
 end
 
 --- @brief
@@ -565,7 +567,7 @@ function ow.DialogBox:handle_button(which)
 
     if self._active_choice_node ~= nil  and self._active_node.is_done == true then
         local move_sound_id = rt.settings.overworld.dialog_box.menu_move_sound_id
-        local confirm_sound_id = rt.settings.overwold.dialog_box.menu_confirm_sound_id
+        local confirm_sound_id = rt.settings.overworld.dialog_box.menu_confirm_sound_id
         local node = self._active_choice_node
         if which == rt.InputAction.UP then
             if node.highlighted_answer_i > 1 then

@@ -66,36 +66,68 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
     self._graphics_body:set_down_squish(false)
     self._graphics_body:set_left_squish(false)
     self._graphics_body:set_right_squish(false)
+
+    self._is_bubble = false
+    self._position_x = 0
+    self._position_y = 0
+    self._velocity_x = 0
+    self._velocity_y = 0
+    self._is_initialized = false
 end
 
 --- @brief
-function ow.PlayerRecorderBody:initialize(x, y)
-    if self._body ~= nil then -- already initialized
-        self:set_position(x, y)
-        return
-    end
+function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
+    if self._is_initialized == true then return end
+
+    if body_type == nil then body_type = b2.BodyType.KINEMATIC end
+    if is_collidable == nil then is_collidable = false end
 
     -- physics shape
     local player_settings = rt.settings.player
 
+    self._position_x, self._position_y = x, y
+
     self._world = self._stage:get_physics_world()
     self._body = b2.Body(
         self._world,
-        b2.BodyType.KINEMATIC,
+        body_type,
         x, y,
         b2.Circle(0, 0, rt.settings.player.radius)
     )
-    self._body:set_collides_with(0x0)
-    self._body:set_collision_group(0x0)
-    self._body:set_user_data(self)
-    self._body:add_tag("point_light_source")
+    self._body:set_is_enabled(false)
+
+    self._bubble_body = b2.Body(
+        self._world,
+        body_type,
+        x, y,
+        b2.Circle(0, 0, rt.settings.player.radius * rt.settings.player.bubble_radius_factor)
+    )
+    self._bubble_body:set_is_enabled(false)
+    self._is_collidable = is_collidable
+
+    for body in range(self._body, self._bubble_body) do
+        if not is_collidable then
+            body:set_collides_with(0x0)
+            body:set_collision_group(0x0)
+        end
+
+        body:set_user_data(self)
+        body:add_tag("point_light_source")
+        body:add_tag("slippery", "unjumpable", "unwalkable", "stencil", "core_stencil")
+    end
+
+    self._graphics_body:set_use_stencils(false)
+
+    self:set_is_bubble(self._is_bubble)
+    self._is_initialized = true
 end
 
 --- @brief
 function ow.PlayerRecorderBody:update(delta)
-    if self._body == nil or not self._stage:get_is_body_visible(self._body) then return end
+    local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    if body == nil or not self._stage:get_is_body_visible(body) then return end
 
-    self._graphics_body:set_position(self._body:get_predicted_position())
+    self._graphics_body:set_position(body:get_predicted_position())
     self._graphics_body:update(delta)
 
     -- blood splatter
@@ -109,21 +141,21 @@ function ow.PlayerRecorderBody:update(delta)
 
     local blood_splatter = self._stage:get_blood_splatter()
     local n_rays = 8
-    local cx, cy = self._body:get_position()
+    local cx, cy = body:get_position()
     local ray_length = self._max_radius
 
     for ray_i = 1, n_rays do
         local angle = (ray_i - 1) / n_rays * 2 * math.pi
         local dx, dy = math.cos(angle), math.sin(angle)
 
-        local tx, ty, nx, ny, body = self._world:query_ray(
+        local tx, ty, nx, ny, hit_body = self._world:query_ray(
             cx, cy,
             ray_length * dx,
             ray_length * dy,
             mask
         )
 
-        if body ~= nil then
+        if hit_body ~= nil then
             local color_r, color_g, color_b, color_a = self._splatter_color:unpack()
             blood_splatter:add(tx, ty, self._blood_splatter_radius,
                 color_r, color_g, color_b, color_a,
@@ -140,33 +172,40 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:set_position(x, y)
+    self._position_x, self._position_y = x, y
+
+    self._bubble_body:set_position(x, y)
     self._body:set_position(x, y)
+
     self._graphics_body:set_position(x, y)
     self._graphics_body:relax()
 end
 
 --- @brief
 function ow.PlayerRecorderBody:get_position()
-    return self._body:get_position()
+    return self._position_x, self._position_y
 end
 
 --- @brief
-function ow.PlayerRecorderBody:set_velocity(dx, dy)
-    self._body:set_velocity(dx, dy)
+function ow.PlayerRecorderBody:set_velocity(vx, vy)
+    self._velocity_x, self._velocity_y = vx, vy
+
+    local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    body:set_velocity(vx, vy)
 end
 
 --- @brief
 function ow.PlayerRecorderBody:draw()
-    if self._body == nil or not self._stage:get_is_body_visible(self._body) then return end
+    local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    if body == nil or not self._stage:get_is_body_visible(body) then return end
 
     self._graphics_body:draw_body()
     self._graphics_body:draw_core()
+end
 
-    if self._dbg ~= nil then
-        for line in values(self._dbg) do
-            love.graphics.line(line)
-        end
-    end
+--- @brief
+function ow.PlayerRecorderBody:draw_bloom()
+    self._graphics_body:draw_bloom()
 end
 
 --- @brief
@@ -179,7 +218,31 @@ function ow.PlayerRecorderBody:update_input(
     jump_pressed,
     is_bubble
 )
+    self._is_bubble = is_bubble
     self._graphics_body:set_use_contour(is_bubble, rt.PlayerBodyContourType.CIRCLE)
+    self:set_position(self._position_x, self._position_y)
+    self:set_velocity(self._velocity_x, self._velocity_y)
+
+    -- disable both to prevent interaction
+    self._body:set_is_enabled(false)
+    self._bubble_body:set_is_enabled(false)
+
+    if self._is_bubble then
+        self._bubble_body:set_is_enabled(true)
+        self._bubble_body:set_position(self._position_x, self._position_y)
+    else
+        self._body:set_is_enabled(true)
+        self._body:set_position(self._position_x, self._position_y)
+    end
+end
+
+--- @brief
+function ow.PlayerRecorderBody:set_is_bubble(is_bubble)
+    self:update_input(
+        false, false, false, false,
+        false, false,
+        is_bubble
+    )
 end
 
 --- @brief
@@ -189,7 +252,7 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:get_physics_body()
-    return self._body
+    return ternary(self._is_bubble, self._bubble_body, self._body)
 end
 
 --- @brief
@@ -199,6 +262,7 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:get_point_light_sources()
-    local x, y = self._body:get_position()
+    local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    local x, y = body:get_position()
     return { { x, y, self._radius } }, { self:get_color() }
 end

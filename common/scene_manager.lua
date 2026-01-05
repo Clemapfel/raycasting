@@ -641,59 +641,26 @@ function love.errorhandler(message)
         local entry = rt.Translation.error_handler
         if entry == nil then return end
 
-        if not DEBUG then -- first dialog: ask if user wants to open logs
-            local buttons
-            if love.system.getOS() == "windows" then
-                -- windows orders buttons from right to left for some reason
-                buttons = { entry.open_log_directory, entry.open_log_directory_decline }
-            else
-                buttons = { entry.open_log_directory_decline, entry.open_log_directory }
-            end
-
-            local result = love.window.showMessageBox(
-                entry.open_log_title,
-                entry.open_log_message,
-                buttons,
-                "error",
-                false
-            )
-
-            if buttons[result] == entry.open_log_directory then
-                local _, file = pcall(rt.GameState.get_log_file_directory, rt.GameState, true)
-                local success, error = pcall(love.system.openURL, file)
-                if not success then
-                    io.stdout:write("\n")
-                    io.stdout:write("In love.errorhandler: unable to open file at `" .. file .. "`: " .. error)
-                    io.stdout:write("\n")
-                    io.stdout:flush()
-                end
-            elseif buttons[result] == entry.open_log_directory_decline then
-                -- noop, dialog closes
-            end
+        local buttons
+        if love.system.getOS() == "windows" then
+            buttons = { entry.open_log, entry.restart, entry.exit }
+        else
+            buttons = { entry.exit, entry.restart, entry.open_log }
         end
 
-        do -- second dialog, exit or restart
-            local buttons
-            if love.system.getOS() == "windows" then
-                buttons = { entry.restart, entry.exit }
-            else
-                buttons = { entry.exit, entry.restart }
-            end
+        local result = love.window.showMessageBox(
+            entry.title,
+            entry.message,
+            buttons,
+            "error",
+            false
+        )
 
-            local result = love.window.showMessageBox(
-                entry.title,
-                entry.message,
-                buttons,
-                "error",
-                false
-            )
-
-            if buttons[result] == entry.restart then
-                restart()
-                return SHOULD_NOT_QUIT
-            elseif buttons[result] == entry.exit then
-                return SHOULD_QUIT
-            end
+        if buttons[result] == entry.restart then
+            restart()
+            return SHOULD_NOT_QUIT
+        elseif buttons[result] == entry.exit then
+            return SHOULD_QUIT
         end
     end
 

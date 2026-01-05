@@ -5,17 +5,22 @@ local NPC_SIDE = "left"
 
 return setmetatable({
 
-    -- on_way_platform_tutorial
-
     one_way_platform_tutorial_debug = {
         {
             speaker = "Mysterious Object",
-            next = nil,
+            next = 2,
             state = {
                 test = "test test test test test test test test test test test test test test test test"
             },
 
             "Hey, pss, up here"
+        },
+
+        {
+            speaker = "Mysterious Object",
+            next = nil,
+           
+            "new line"
         },
     },
 

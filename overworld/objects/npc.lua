@@ -6,8 +6,16 @@ rt.settings.overworld.npc = {
     canvas_radius = 200,
     hole_radius = 20,
     eye_radius = 25,
-    interact_radius = 150
+    interact_radius = 150,
+
+    ghost_translation_frequency = 1 / 4,
+    ghost_translation_offset = 8 -- px
 }
+
+ow.NPCType = meta.enum("NPCType", {
+    EYES = "eyes",
+    GHOST = "ghost"
+})
 
 --- @class ow.NPC
 ow.NPC = meta.class("NPC")
@@ -31,22 +39,45 @@ function ow.NPC:instantiate(object, stage, scene)
     self._graphics_body_x = self._x - 0.5 * width
     self._graphics_body_y = self._y - 0.5 * height
 
-    local hole_radius = rt.settings.overworld.npc.hole_radius
-    self._graphics_body = ow.NPCBody(
-        self._graphics_body_x,
-        self._graphics_body_y,
-        width, height,
-        hole_radius
-    )
+    local type = object:get_string("type") or ow.NPCType.EYES
+    meta.assert_enum_value(type, ow.NPCType)
+    self._type = type
 
-    local eye_radius = rt.settings.overworld.npc.eye_radius
-    self._eyes = ow.NPCEyes(
-        self._graphics_body_x + 0.5 * width, -- center of eyes
-        self._graphics_body_y + 0.5 * height,
-        eye_radius
-    )
+    if self._type == ow.NPCType.EYES then
+        local hole_radius = rt.settings.overworld.npc.hole_radius
+        self._graphics_body = ow.NPCBody(
+            self._graphics_body_x,
+            self._graphics_body_y,
+            width, height,
+            hole_radius
+        )
 
-    self._dilation_motion = rt.SmoothedMotion1D(0)
+        local eye_radius = rt.settings.overworld.npc.eye_radius
+        self._eyes = ow.NPCEyes(
+            self._graphics_body_x + 0.5 * width, -- center of eyes
+            self._graphics_body_y + 0.5 * height,
+            eye_radius
+        )
+
+        self._dilation_motion = rt.SmoothedMotion1D(0)
+    elseif self._type == ow.NPCType.GHOST then
+        self._graphics_body = ow.PlayerRecorderBody(self._stage, self._scene)
+        self._graphics_body:initialize(
+            self._graphics_body_x + 0.5 * width,
+            self._graphics_body_y + 0.5 * height,
+            b2.BodyType.KINEMATIC,
+            true -- collidable
+        )
+        self._graphics_body:set_is_bubble(true)
+        self._graphics_body:relax()
+
+        self._noise_x, self._noise_y = 0, 0
+        self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, 2 * math.pi)), math.sin(rt.random.number(0, 2 * math.pi))
+        self._noise_origin_x = self._graphics_body_x + 0.5 * width
+        self._noise_origin_y = self._graphics_body_y + 0.5 * height
+        self._noise_amplitude = 1
+        self._elapsed = 0
+    end
 
     local interact_id = object:get_string("dialog_id", false) or object:get_string("interact_dialog_id", false)
     self._has_interact_dialog = interact_id ~= nil
@@ -89,13 +120,11 @@ function ow.NPC:instantiate(object, stage, scene)
         self._exit_dialog_emitter:realize()
     end
 
-
     local should_focus = object:get_boolean("should_focus", false)
     if should_focus == nil then should_focus = true end
 
     local should_lock = object:get_boolean("should_lock", false)
     if should_lock == nil then should_lock = true end
-
 
     self._should_focus = should_focus
     for emitter in range(
@@ -146,7 +175,10 @@ function ow.NPC:instantiate(object, stage, scene)
     self._sensor:set_collides_with(rt.settings.player.bounce_collision_group)
     self._sensor:set_is_sensor(true)
     self._sensor_active = self._sensor:test_point(self._scene:get_player():get_position())
-    self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
+
+    if self._type == ow.NPCType.EYES then
+        self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
+    end
 
     if self._has_interact_dialog then
         self._input = rt.InputSubscriber()
@@ -154,6 +186,7 @@ function ow.NPC:instantiate(object, stage, scene)
             if which == rt.InputAction.INTERACT then
                 if self._interact_allowed and self._interact_dialog_emitter:get_is_active() == false then
                     self._interact_dialog_emitter:present()
+                    self:_set_is_interactable(false)
                 end
             end
         end)
@@ -168,10 +201,6 @@ function ow.NPC:update(delta)
     local was_active = self._sensor_active
     self._sensor_active = is_active
 
-    if is_active ~= was_active then
-        self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
-    end
-
     local already_active = (self._has_interact_dialog and self._interact_dialog_emitter:get_is_active())
         or (self._has_enter_dialog and self._enter_dialog_emitter:get_is_active())
         or (self._has_exit_dialog and self._exit_dialog_emitter:get_is_active())
@@ -182,7 +211,10 @@ function ow.NPC:update(delta)
         elseif self._has_exit_dialog and was_active == true and is_active == false then
             self._exit_dialog_emitter:present()
         elseif was_active == false and is_active == true then
-            self:_set_is_interactable(true)
+            self:_set_is_interactable(self._has_interact_dialog
+                or self._has_enter_dialog
+                or self._has_exit_dialog
+            )
         elseif was_active == true and is_active == false then
             self:_set_is_interactable(false)
         end
@@ -207,52 +239,74 @@ function ow.NPC:update(delta)
         self._exit_dialog_emitter:update(delta)
     end
 
-    self._dilation_motion:update(delta)
-    self._graphics_body:set_dilation(self._dilation_motion:get_value())
+    if self._type == ow.NPCType.EYES then
+        if is_active ~= was_active then
+            self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
+        end
 
-    self._eyes:update(delta)
-    self._eyes:set_target(self._scene:get_player():get_position())
+        self._dilation_motion:update(delta)
+        self._graphics_body:set_dilation(self._dilation_motion:get_value())
+        self._eyes:update(delta)
+        self._eyes:set_target(self._scene:get_player():get_position())
+    elseif self._type == ow.NPCType.GHOST then
+
+        local frequency = rt.settings.overworld.npc.ghost_translation_frequency
+        local offset = rt.settings.overworld.npc.ghost_translation_offset
+        self._elapsed = self._elapsed + delta
+        self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+        self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
+
+        self._graphics_body:set_position(
+            self._noise_origin_x + self._noise_x,
+            self._noise_origin_y + self._noise_y
+        )
+        self._graphics_body:update(delta)
+    end
 end
 
 local exclude_from_drawing = false
 
 --- @brief
 function ow.NPC:draw(priority)
-    if exclude_from_drawing == true or not self._stage:get_is_body_visible(self._sensor) then return end
+    if self._type == ow.NPCType.EYES then
+        if exclude_from_drawing == true or not self._stage:get_is_body_visible(self._sensor) then return end
 
-    exclude_from_drawing = true -- prevent loop
-    local screenshot = self._scene:get_screenshot(true) -- draw player
-    exclude_from_drawing = false
+        exclude_from_drawing = true -- prevent loop
+        local screenshot = self._scene:get_screenshot(true) -- draw player
+        exclude_from_drawing = false
 
-    if screenshot == nil then return end
+        if screenshot == nil then return end
 
-    local canvas = self._graphics_body:get_texture()
+        local canvas = self._graphics_body:get_texture()
 
-    love.graphics.push("all")
-    love.graphics.reset()
-    canvas:bind()
-    love.graphics.clear(0, 0, 0, 0)
+        love.graphics.push("all")
+        love.graphics.reset()
+        canvas:bind()
+        love.graphics.clear(0, 0, 0, 0)
 
-    local screen_x, screen_y = self._scene:get_camera():world_xy_to_screen_xy(
-        self._graphics_body_x, self._graphics_body_y
-    )
+        local screen_x, screen_y = self._scene:get_camera():world_xy_to_screen_xy(
+            self._graphics_body_x, self._graphics_body_y
+        )
 
-    local scale = self._scene:get_camera():get_final_scale()
+        local scale = self._scene:get_camera():get_final_scale()
 
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.scale(1 / scale, 1 / scale)
-    love.graphics.translate(-screen_x, -screen_y)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.scale(1 / scale, 1 / scale)
+        love.graphics.translate(-screen_x, -screen_y)
 
-    screenshot:draw()
-    canvas:unbind()
+        screenshot:draw()
+        canvas:unbind()
 
-    love.graphics.pop()
+        love.graphics.pop()
 
-    -- draw backing, eyes, then overlay which opens on dilation
-    rt.Palette.BLACK:bind()
-    love.graphics.rectangle("fill", self._graphics_body_x, self._graphics_body_y, canvas:get_size())
-    self._eyes:draw()
-    self._graphics_body:draw()
+        -- draw backing, eyes, then overlay which opens on dilation
+        rt.Palette.BLACK:bind()
+        love.graphics.rectangle("fill", self._graphics_body_x, self._graphics_body_y, canvas:get_size())
+        self._eyes:draw()
+        self._graphics_body:draw()
+    elseif self._type == ow.NPCType.GHOST then
+        self._graphics_body:draw()
+    end
 
     if self._has_interact_dialog then
         self._interact_dialog_emitter:draw(priority)
@@ -268,6 +322,11 @@ function ow.NPC:get_position()
 end
 
 function ow.NPC:draw_bloom()
+    if self._type == ow.NPCType.EYES then
+        self._eyes:draw_bloom()
+    elseif self._type == ow.NPCType.GHOST then
+        self._graphics_body:draw_bloom()
+    end
 end
 
 --- @brief

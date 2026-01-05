@@ -19,11 +19,11 @@ rt.Translation = {
             [rt.InputAction.A] = "Jump / Confirm",
             [rt.InputAction.B] = "Sprint / Go Back",
             [rt.InputAction.X] = "Interact / Reset",
-            [rt.InputAction.Y] = "(# UNUSED_Y)", -- unused
+            [rt.InputAction.Y] = "(#INPUT_ACTION_Y)", -- unused
             [rt.InputAction.L] = "Zoom In",
             [rt.InputAction.R] = "Zoom Out",
             [rt.InputAction.START] = "Pause / Unpause",
-            [rt.InputAction.SELECT] = "(# UNUSED SELECT)", -- unused
+            [rt.InputAction.SELECT] = "(#INPUT_ACTION_SELECT)", -- unused
             [rt.InputAction.UP] = "Move Up",
             [rt.InputAction.RIGHT] = "Move Right",
             [rt.InputAction.DOWN] = "Move Down",
@@ -49,7 +49,6 @@ rt.Translation = {
     end,
 
     keyboard_key_to_string = function(key)
-
         local _keyboard_key_to_string = {
             ["ä"] = "Ä",
             ["ö"] = "Ö",
@@ -84,13 +83,9 @@ rt.Translation = {
 
     -- error handler
     error_handler = {
-        open_log_title = "Title TODO",
-        open_log_message = "Message TODO",
-        open_log_directory = "Open Log",
-        open_log_directory_decline = "Abort",
-
-        title = "Title TODO",
-        message = "Message TODO",
+        title = "Fatal Error",
+        message = "An error has occurred and the application was unable to recover.\nTo prevent issues like this in the future, please consider\n reviewing the log files and sending them to the developers.\nWhat would you like to do?",
+        open_log = "Open Log Files",
         restart = "Restart",
         exit = "Exit"
     },
@@ -108,7 +103,7 @@ rt.Translation = {
         confirm_exit_submessage = "All unsaved progress will be lost",
 
         confirm_restart_message = "Restart Stage?",
-        confirm_restart_submessage = "All Progress will be lost",
+        confirm_restart_submessage = "All progress will be lost",
 
         control_indicator_select = "Select",
         control_indicator_move = "Move",
@@ -136,18 +131,10 @@ rt.Translation = {
         grade_control_indicator_continue = "Continue"
     },
 
-    -- splits viewer
-    splits_viewer = {
-        current_header = "Current",
-        delta_header = "+/-",
-        best_header = "Best",
-        overall_prefix = "Total : ",
-        unknown = "\u{2014}" -- long dash
-    },
-
     -- overworld gameplay
     player_name = "Player",
-    npc_name = "NPC",
+    eyes_name = "Eyes",
+    ghost_name = "Ghost",
 
     overworld_scene = {
         control_indicator_move = "Move",

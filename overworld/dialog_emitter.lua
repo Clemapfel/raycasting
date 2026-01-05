@@ -87,6 +87,8 @@ end
 function ow.DialogEmitter:present()
     self._is_active = true
 
+    self._input_delay = 3
+
     if self._needs_reformat == true then
         self:reformat(self._scene:get_bounds():unpack())
         self._needs_reformat = false
@@ -182,7 +184,7 @@ function ow.DialogEmitter:update(delta)
         self:reset()
     end
 
-    if self._input_delay > 1 then
+    if self._input_delay > 0 then
         self._input_delay = self._input_delay - 1
     end
 end

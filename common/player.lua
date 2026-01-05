@@ -417,7 +417,7 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which, count)
-        if self._state == rt.PlayerState.DISABLED then return end
+        if self._state == rt.PlayerState.DISABLED or self._movement_disabled then return end
 
         local queue_sprint = function()
             self._sprint_toggled = not self._sprint_toggled
@@ -3224,6 +3224,7 @@ function rt.Player:reset()
     self:set_is_visible(true)
     self:set_is_frozen(false)
     self:set_collision_disabled(false)
+    self:set_movement_disabled(false)
     self:set_trail_is_visible(true)
     self:reset_flow()
     self:set_gravity(1)

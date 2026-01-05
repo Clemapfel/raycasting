@@ -140,6 +140,7 @@ function rt.PlayerBody:instantiate(config)
     self._saturation = 1
     self._opacity = 1
     self._hue = 0
+    self._use_stencils = true
     self._stretch_factor = 1
     self._stretch_axis_x = 0
     self._stretch_axis_y = 0
@@ -946,18 +947,21 @@ function rt.PlayerBody:update(delta)
     if self._world ~= nil then
         self._stencil_bodies = {}
         self._core_stencil_bodies = {}
-        local w, h = self._body_canvas_a:get_size()
-        local bodies = self._world:query_aabb(
-            self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h
-        )
 
-        for body in values(bodies) do
-            if body:has_tag("stencil") and not body:get_is_sensor() then
-                table.insert(self._stencil_bodies, body)
-            end
+        if self._use_stencils then
+            local w, h = self._body_canvas_a:get_size()
+            local bodies = self._world:query_aabb(
+                self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h
+            )
 
-            if body:has_tag("core_stencil") and not body:get_is_sensor() then
-                table.insert(self._core_stencil_bodies, body)
+            for body in values(bodies) do
+                if body:has_tag("stencil") and not body:get_is_sensor() then
+                    table.insert(self._stencil_bodies, body)
+                end
+
+                if body:has_tag("core_stencil") and not body:get_is_sensor() then
+                    table.insert(self._core_stencil_bodies, body)
+                end
             end
         end
     end
@@ -1432,4 +1436,9 @@ end
 --- @brief
 function rt.PlayerBody:get_attraction()
     return self._attraction_x, self._attraction_y, self._attraction_magnitude
+end
+
+--- @brief
+function rt.PlayerBody:set_use_stencils(b)
+    self._use_stencils = b
 end
