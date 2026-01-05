@@ -71,6 +71,18 @@ function ow.NPC:instantiate(object, stage, scene)
         self._graphics_body:set_is_bubble(true)
         self._graphics_body:relax()
 
+        local body = self._graphics_body:get_physics_body()
+        body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
+            if not other_body:has_tag("player") then return end
+            local player = self._scene:get_player()
+            local px, py = player:get_position()
+            local dx, dy = px - self._x, py - self._y
+            local restitution = player:bounce(math.multiply(0.5, 0.5, math.normalize(dx, dy)))
+        end)
+
+        body:set_collision_group(rt.settings.player.bounce_collision_group)
+        body:set_collides_with(rt.settings.player.bounce_collision_group)
+
         self._noise_x, self._noise_y = 0, 0
         self._noise_dx, self._noise_dy = math.cos(rt.random.number(0, 2 * math.pi)), math.sin(rt.random.number(0, 2 * math.pi))
         self._noise_origin_x = self._graphics_body_x + 0.5 * width
@@ -338,9 +350,20 @@ end
 function ow.NPC:_set_is_interactable(b)
     if b == true then
         self._scene:set_control_indicator_type(ow.ControlIndicatorType.INTERACT)
+
+        if self._should_focus then
+            self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+            self._scene:get_camera():move_to(self._x, self._y)
+        end
+
         self._interact_allowed = true
     elseif b == false then
         self._scene:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+
+        if self._should_focus then
+            self._scene:set_camera_mode(ow.CameraMode.AUTO)
+        end
+
         self._interact_allowed = false
     end
 end

@@ -417,7 +417,7 @@ end
 --- @brief
 function rt.Player:_connect_input()
     self._input:signal_connect("pressed", function(_, which, count)
-        if self._state == rt.PlayerState.DISABLED or self._movement_disabled then return end
+        if self._state == rt.PlayerState.DISABLED then return end
 
         local queue_sprint = function()
             self._sprint_toggled = not self._sprint_toggled
@@ -704,7 +704,11 @@ function rt.Player:update(delta)
         self._state ~= rt.PlayerState.ACTIVE
     then
         self._idle_elapsed = 0
-    elseif self._idle_timer_frozen == false then
+    elseif self._idle_timer_frozen == false
+        and not self._state == rt.PlayerState.DISABLED
+        and not self._movement_disabled
+        and not self._is_frozen
+    then
         self._idle_elapsed = self._idle_elapsed + delta
     end
 
@@ -869,6 +873,7 @@ function rt.Player:update(delta)
 
     local down_is_down = self._down_button_is_down or
         self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
+
 
     -- buffered jump
     if rt.GameState:get_is_input_buffering_enabled() then
@@ -1501,7 +1506,7 @@ function rt.Player:update(delta)
         end
 
         local is_jumping = false
-        do
+        if not self._movement_disabled then
             if self._jump_elapsed <= _settings.jump_duration then
                 -- regular jump
                 if self._jump_button_is_down then
@@ -3313,7 +3318,7 @@ function rt.Player:set_movement_disabled(b)
     local changed = b ~= self._movement_disabled
     self._movement_disabled = b
 
-    if changed then
+    if changed and b == true then
         self._left_button_is_down = false
         self._right_button_is_down = false
         self._down_button_is_down = false

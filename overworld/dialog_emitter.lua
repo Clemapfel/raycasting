@@ -25,6 +25,7 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_foc
 
     self._is_active = false
     self._should_reset = false
+    self._queue_dialog_box_close = false
 
     self._dialog_box = ow.DialogBox(id)
     self._dialog_box_motion = rt.SmoothedMotion1D(_HIDDEN)
@@ -53,7 +54,12 @@ function ow.DialogEmitter:instantiate(scene, id, target, should_lock, should_foc
     self._input = rt.InputSubscriber()
     self._input:signal_connect("pressed", function(_, which)
         if self._is_active and self._input_delay <= 0 then
-            self._dialog_box:handle_button(which)
+            if self._dialog_box:get_is_last_node() and which == rt.InputAction.INTERACT then
+                self._queue_dialog_box_close = true
+                self._dialog_box:signal_emit("done") -- hide animation
+            else
+                self._dialog_box:handle_button(which)
+            end
         end
     end)
 
@@ -152,6 +158,7 @@ end
 function ow.DialogEmitter:reset()
     local was_active = self._is_active
     self._is_active = false
+    self._queue_dialog_box_close = false
 
     if was_active then self:close() end
     self._dialog_box_motion:set_value(_HIDDEN)
@@ -168,7 +175,7 @@ end
 function ow.DialogEmitter:update(delta)
     if self._is_active
         and math.abs(self._dialog_box_motion:get_value() - _REVEALED) * self._dialog_box_motion_max_offset < 2
-        -- and dialog box is less than 2 px away from its final position
+    -- and dialog box is less than 2 px away from its final position
     then
         self._dialog_box:update(delta)
     end
@@ -179,7 +186,10 @@ function ow.DialogEmitter:update(delta)
     end
 
     self._dialog_box_motion:update(delta)
-    if self._should_reset and self:_get_is_fully_off_screen() then
+    local is_off_screen = self:_get_is_fully_off_screen()
+    if self._queue_dialog_box_close and is_off_screen then
+        self._dialog_box:handle_button(rt.InputAction.INTERACT)
+    elseif self._should_reset and is_off_screen then
         -- reset once fully of screen
         self:reset()
     end

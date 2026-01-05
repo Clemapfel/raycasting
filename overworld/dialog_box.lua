@@ -326,7 +326,7 @@ function ow.DialogBox:_set_active_node(node)
         self._should_emit_advance = true
     end
 
-    if before == nil or (node ~= nil and (before.speaker_id ~= node.speaker_id)) then
+    if (before == nil and node ~= nil) or (node ~= nil and (before.speaker_id ~= node.speaker_id)) then
         if before == nil then
             self:signal_emit("speaker_changed", node.speaker_id, nil)
         else
@@ -745,4 +745,9 @@ end
 --- @brief
 function ow.DialogBox:close()
     self:_set_active_node(nil)
+end
+
+--- @brief
+function ow.DialogBox:get_is_last_node()
+    return self._active_node == nil or self._active_node.next == nil
 end
