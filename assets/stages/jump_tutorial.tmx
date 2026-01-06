@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="184">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="421">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -9,102 +9,85 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="5" name="aux"/>
- <objectgroup id="6" name="hitbox"/>
- <objectgroup id="2" name="main">
-  <object id="3" name="Goal" type="Goal" x="631.506" y="-239.407">
+ <objectgroup id="6" name="hitbox">
+  <object id="388" name="Wall Jump 02" type="Hitbox" x="1664" y="672">
+   <polygon points="16,16 16,-96 0,-112 0,-192 16,-208 16,-272 0,-288 0,-368 16,-384 16,-448 0,-464 0,-544 16,-560 16,-608 64,-608 80,-624 80,-592 80,48 -384,48 -384,0 -144,0 -128,16 -16,16"/>
+  </object>
+  <object id="390" type="SlipperyHitbox" x="1520" y="672">
+   <polygon points="0,0 144,0 144,-112 160,-96 160,16 128,16 16,16"/>
+  </object>
+  <object id="391" type="SlipperyHitbox" x="1664" y="320">
+   <polygon points="0,64 0,160 16,144 16,80"/>
+  </object>
+  <object id="393" type="SlipperyHitbox" x="1664" y="112">
+   <polygon points="0,96 0,192 16,176 16,112"/>
+  </object>
+  <object id="394" type="SlipperyHitbox" x="1664" y="96">
+   <polygon points="0,32 0,-48 80,-48 64,-32 16,-32 16,16"/>
+  </object>
+  <object id="395" type="Hitbox" x="2292.07" y="672">
+   <polygon points="16,16 16,-96 0,-112 0,-192 16,-208 16,-368 0,-384 0,-480 16,-496 16,-672 64,-672 80,-688 80,-656 80,48 -384,48 -384,0 -32,0 -16,16"/>
+  </object>
+  <object id="396" type="SlipperyHitbox" x="2148.07" y="672">
+   <polygon points="112,0 144,0 144,-112 160,-96 160,16 128,16 128,16"/>
+  </object>
+  <object id="397" type="SlipperyHitbox" x="2288" y="320">
+   <polygon points="4.066,-32 4.066,160 20.066,144 20.066,-16"/>
+  </object>
+  <object id="399" type="SlipperyHitbox" x="2288" y="96">
+   <polygon points="4.066,96 4.066,-112 84.066,-112 68.066,-96 20.066,-96 20.066,80"/>
+  </object>
+  <object id="400" name="Spawn" type="PlayerSpawn" x="147.999" y="537.049">
    <point/>
   </object>
-  <object id="5" name="Checkpoint" type="Checkpoint" x="-493.091" y="-444.572">
+  <object id="401" name="Wall Jump 03" x="2100.07" y="528">
+   <polygon points="0,0 0,-191.669 -16,-208 -16,-368 0,-384 0,-496 -16.4272,-512 -64,-512 -64,0 0,0"/>
+  </object>
+  <object id="403" type="SlipperyHitbox" x="2084.07" y="176">
+   <polygon points="16,-32 16,160 0,144 0,-16"/>
+  </object>
+  <object id="404" type="SlipperyHitbox" x="2100.07" y="64">
+   <polygon points="0,-32 0,-189.391 48,-240 288,-240 288,-272 -64,-272 -64,-48 -16,-48"/>
+  </object>
+  <object id="405" type="Coin" x="2132.07" y="-144">
    <point/>
   </object>
-  <object id="159" type="Hitbox" x="-1056" y="-384">
-   <polygon points="0,0 880,0 880,64 0,64"/>
+  <object id="407" type="SlipperyHitbox" x="1839.28" y="1264">
+   <polygon points="0.0850234,-128.47 16.085,-112.47 16,80 0,64"/>
   </object>
-  <object id="160" name="From" type="OneWayPlatform" x="-928" y="-496">
-   <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="162"/>
-   </properties>
-   <point/>
+  <object id="409" name="First Walljump" type="Hitbox" x="1648" y="1808">
+   <polygon points="31.2841,-480 191.284,-480 207.284,-464 207.369,-656.47 191.369,-672.47 431.369,-672.47 431.284,-448 111.284,-448 111.284,112 -400.716,112 -400.716,-16 -352.716,-16 -352.716,48 79.2841,48 79.2841,16 79.2841,-303.776 71.448,-320 63.2841,-303.776 63.2841,32 -336.716,32 -336.716,0 -320.716,0 31.2841,0"/>
   </object>
-  <object id="162" name="To" type="OneWayPlatformNode" x="-816" y="-496">
-   <point/>
+  <object id="411" type="SlipperyHitbox" x="1664" y="1680">
+   <polygon points="47.2841,-175.671 47.2841,160 -352.716,160 -352.716,128 -336.716,128 -336.716,80 -352.716,80 -384.716,96 -416.716,96 -416.716,112 -368.716,112 -368.716,176 63.2841,176 63.2841,-175.671 55.8999,-192"/>
   </object>
-  <object id="163" name="Spawn" type="PlayerSpawn" x="-998.195" y="-425.993">
-   <point/>
+  <object id="412" type="SlipperyHitbox" x="1312" y="1752">
+   <polygon points="0,-8 -32,-24 -64,-24 -64,-40 -0.63091,-40.4704 -0.63091,-392.47 15.3691,-392.47 16,-40 16,-8"/>
   </object>
-  <object id="164" name="Spawn" type="PlayerSpawn" x="-996.39" y="-425.993">
-   <point/>
-  </object>
-  <object id="169" name="From" type="OneWayPlatform" x="-816" y="-512">
-   <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="170"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="170" name="To" type="OneWayPlatformNode" x="-928" y="-512">
-   <point/>
-  </object>
-  <object id="172" type="BoostField" x="-928" y="-512">
-   <properties>
-    <property name="axis_x" type="float" value="1"/>
-    <property name="axis_y" type="float" value="0"/>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="render_priority" type="float" value="-1"/>
-   </properties>
-   <polygon points="0,0 0,16 112,16 112,0"/>
-  </object>
-  <object id="173" name="From" type="OneWayPlatform" x="-720" y="-560">
-   <properties>
-    <property name="other" type="object" value="174"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="174" name="To" type="OneWayPlatformNode" x="-608" y="-560">
-   <point/>
-  </object>
-  <object id="175" name="From" type="OneWayPlatform" x="-608" y="-576">
-   <properties>
-    <property name="other" type="object" value="176"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="176" name="To" type="OneWayPlatformNode" x="-720" y="-576">
-   <point/>
-  </object>
-  <object id="177" type="BoostField" x="-720" y="-576">
+  <object id="413" type="BoostField" x="1248" y="1728">
    <properties>
     <property name="axis_x" type="float" value="1"/>
-    <property name="axis_y" type="float" value="0"/>
-    <property name="render_priority" type="float" value="-1"/>
+    <property name="render_priority" type="float" value="-10"/>
    </properties>
-   <polygon points="0,0 0,16 112,16 112,0"/>
+   <polygon points="0,0 32,0 64,16 80,16 80,32 64,32 32,48 0,48"/>
   </object>
-  <object id="178" name="From" type="OneWayPlatform" x="-896" y="-416">
-   <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="179"/>
-   </properties>
+  <object id="414" type="Hitbox" x="1296" y="1712">
+   <polygon points="15.3691,-0.470433 -48.7159,0 -48,-512 32,-512 31.3691,-352.47 15.3691,-352.47"/>
+  </object>
+  <object id="415" type="Hitbox" x="1701.02" y="1152">
+   <polygon points="-5.65047,47.5296 -21.6505,31.5296 -21.0191,-304 -277.019,-304 -277.019,-336 0,-336"/>
+  </object>
+  <object id="416" type="SlipperyHitbox" x="1695.37" y="1215.53">
+   <polygon points="0,-16 -31.3691,-15.53 -31.3691,-31.53 -95.3691,-95.53 -303.369,-95.53 -367.369,-31.53 -367.369,-15.53 -447.369,-15.53 -447.369,-367.53 -272,-368 -16,-368 -16,-32"/>
+  </object>
+  <object id="419" name="Coin" type="Coin" x="1360" y="1232">
    <point/>
   </object>
-  <object id="179" name="To" type="OneWayPlatformNode" x="-784" y="-416">
-   <point/>
-  </object>
-  <object id="180" name="From" type="OneWayPlatform" x="-784" y="-432">
-   <properties>
-    <property name="hue" type="float" value="0.1"/>
-    <property name="other" type="object" value="181"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="181" name="To" type="OneWayPlatformNode" x="-896" y="-432">
-   <point/>
-  </object>
-  <object id="183" x="-736" y="-416">
-   <polygon points="16,0 176,0 176,-16 16,-16 -32,-32 -32,-48 208,-48 208,32 -32,32 -32,16"/>
+  <object id="420" x="96" y="576">
+   <polygon points="0,0 112,0 112,64 736,64 736,0 976,0 976,80 0,80"/>
   </object>
  </objectgroup>
+ <objectgroup id="2" name="front"/>
  <layer id="4" name="noop" width="32" height="32">
   <data encoding="base64" compression="zlib"/>
  </layer>

@@ -25,29 +25,72 @@ function ow.BloodSplatter:set_bloom_factor(f)
     self._bloom_factor = f
 end
 
-function _overlap(x1, y1, x2, y2, cx, cy, radius)
-    -- overlap of segment xy and segment c - radius, c + radius
-    -- with c - radius, c + radius clamped to only lie on xy
-    local dx, dy = math.normalize(x1 - x2, y1 - y2)
+-- get part of segment that overlaps circle
+local function _clip_segment_in_circle(x1, y1, x2, y2, cx, cy, radius)
+    local px1, py1 = x1 - cx, y1 - cy
+    local px2, py2 = x2 - cx, y2 - cy
 
-    local dx_up, dy_up = dx * radius, dy * radius
-    local up_distance = math.distance(cx, cy, x1, y1)
-    if math.magnitude(dx_up, dy_up) > up_distance then
-        dx_up = dx * up_distance
-        dy_up = dy * up_distance
+    local distnace_1 = math.distance(0, 0, px1, py1)
+    local distance_2 = math.distance(0, 0, px2, py2)
+
+    local p1_inside = distnace_1 <= radius
+    local p2_inside = distance_2 <= radius
+
+    if p1_inside and p2_inside then
+        return x1, y1, x2, y2
     end
 
-    local dx_down, dy_down = dx * radius, dy * radius
-    local down_distance = math.distance(cx, cy, x2, y2)
-    if math.magnitude(dx_down, dy_down) > down_distance then
-        dx_down = dx * down_distance
-        dy_down = dy * down_distance
+    local dx, dy = px2 - px1, py2 - py1
+    local segment_length = math.magnitude(dx, dy)
+
+    -- early exit: closest point on segment is farther away than radius
+    if not p1_inside and not p2_inside then
+        local ndx, ndy = dx / segment_length, dy / segment_length
+        local t = math.clamp(-math.dot(px1, py1, ndx, ndy), 0, segment_length)
+        local closest_x, closest_y = px1 + t * ndx, py1 + t * ndy
+        if math.dot(closest_x, closest_y, closest_x, closest_y) > radius * radius then
+            return nil
+        end
     end
 
-    local ix1, iy1 = cx + dx_up, cy + dy_up
-    local ix2, iy2 = cx - dx_down, cy - dy_down
+    if segment_length == 0 then -- point segment
+        if p1_inside then
+            return x1, y1, x2, y2
+        else
+            return nil
+        end
+    end
 
-    return ix1, iy1, ix2, iy2
+    local ndx, ndy = math.normalize(dx, dy)
+
+    -- ray-circle intersection using quadratic formula
+    -- ray: p = px1 + t * (ndx, ndy), t in [0, seg_length]
+    -- circle: x^2 + y^2 = radius^2
+    -- substituting: (px1 + t*ndx)^2 + (py1 + t*ndy)^2 = radius^2
+
+    local a = 1.0 -- ndx^2 + ndy^2 = 1 (normalized)
+    local b = 2 * (px1 * ndx + py1 * ndy)
+    local c = px1 * px1 + py1 * py1 - radius * radius
+
+    local discriminant = b * b - 4 * a * c
+    if discriminant < 0 then -- no intersection
+        return nil
+    end
+
+    local t1 = (-b - math.sqrt(discriminant)) / (2 * a)
+    local t2 = (-b + math.sqrt(discriminant)) / (2 * a)
+
+    local t_min = math.max(0, t1)
+    local t_max = math.min(segment_length, t2)
+
+    if t_min > t_max then -- no overlap
+        return nil
+    end
+
+    local ix1, iy1 = px1 + t_min * ndx, py1 + t_min * ndy
+    local ix2, iy2 = px1 + t_max * ndx, py1 + t_max * ndy
+
+    return ix1 + cx, iy1 + cy, ix2 + cx, iy2 + cy
 end
 
 --- @brief
@@ -61,11 +104,20 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
     y = y - self._offset_y
 
     self._world:queryShapesInArea(x - r, y - r, x + r, y + r, function(shape)
+        local continue = true
+        local stop = false
+
         local data = shape:getUserData()
-        if data ~= nil then
-            local x1, y1, x2, y2 = table.unpack(data.line)
-            local cx, cy = x, y
-            local ix1, iy1, ix2, iy2 = _overlap(x1, y1, x2, y2, cx, cy, r)
+        if data == nil then return continue end
+
+        -- check for line-circle overlap
+        local x1, y1, x2, y2 = table.unpack(data.line)
+        local ix1, iy1, ix2, iy2 = _clip_segment_in_circle(
+            x1, y1, x2, y2,
+            x, y, r
+        )
+
+        if ix1 ~= nil then
 
             -- get left and right bounds as fraction in [0, 1]
             local distance_1 = math.distance(ix1, iy1, x1, y1)
@@ -81,30 +133,32 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
             local right_fraction = distance_2 / length
             assert(left_fraction <= right_fraction)
 
+            -- color all subdivsions in this interval
             local color = rt.RGBA(color_r, color_g, color_b, opacity)
-
+            local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
             for division in values(data.subdivisions) do
-                if allow_override == false and self._active_divisions[division] == true then goto skip end
+                -- if not already colored
+                if not (allow_override == false and self._active_divisions[division] == true) then
 
-                -- check if segment overlaps interval
-                local left_f, right_f = division.left_fraction, division.right_fraction
-                if (left_f >= left_fraction and left_f <= right_fraction) or (right_f >= left_fraction and right_f <= right_fraction) then
-                    division.color = color
-                    division.hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
-                    if not division.is_active then
-                        self._active_divisions[division] = true
-                        division.is_active = true
+                    -- check interval overlap
+                    local left_f, right_f = division.left_fraction, division.right_fraction
+                    if (left_f >= left_fraction and left_f <= right_fraction)
+                        or (right_f >= left_fraction and right_f <= right_fraction)
+                    then
+                        division.color = color
+                        division.hue = hue
+                        if not division.is_active then
+                            self._active_divisions[division] = true
+                            division.is_active = true
+                        end
+
+                        was_added = true
                     end
-
-                    was_added = true
-                    return false -- only use first result
                 end
-
-                ::skip::
             end
         end
 
-        return true
+        return continue
     end)
 
     return was_added

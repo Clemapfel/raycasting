@@ -822,14 +822,7 @@ function ow.Stage:get_blood_splatter()
 end
 --- @brief
 function ow.Stage:destroy()
-    local native = self._world:get_native()
-    for body in values(native:getBodies()) do
-        local instance = body:getUserData()
-        instance:signal_disconnect_all()
-        body:destroy()
-    end
-    native:destroy()
-
+    self._world:destroy()
     self._blood_splatter:destroy()
     self._mirror:destroy()
 end

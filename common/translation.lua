@@ -368,7 +368,7 @@ rt.Translation = {
         },
 
         {
-            id = "first_stage",
+            id = "jump_tutorial",
             title = "The Shape of Jump to Come",
             target_time = math.huge
         },

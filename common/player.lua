@@ -874,7 +874,6 @@ function rt.Player:update(delta)
     local down_is_down = self._down_button_is_down or
         self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
 
-
     -- buffered jump
     if rt.GameState:get_is_input_buffering_enabled() then
         local left_allowed, right_allowed = self:_get_walljump_allowed()
@@ -1014,12 +1013,7 @@ function rt.Player:update(delta)
         end
 
         -- update down squish
-        if self._is_bubble then
-            self._graphics_body:set_up_squish(false)
-            self._graphics_body:set_down_squish(false)
-            self._graphics_body:set_left_squish(false)
-            self._graphics_body:set_right_squish(false)
-        else
+        do
             local is_ducking = false
 
             -- on analog, prioritize disregarding side inputs
@@ -1870,6 +1864,11 @@ function rt.Player:update(delta)
         end
 
         self._bubble_body:apply_force(0, bubble_gravity)
+
+        self._graphics_body:set_up_squish(false)
+        self._graphics_body:set_down_squish(false)
+        self._graphics_body:set_left_squish(false)
+        self._graphics_body:set_right_squish(false)
     end
 
    if should_decay_platform_velocity then
@@ -2021,7 +2020,7 @@ function rt.Player:update(delta)
     local color_r, color_g, color_b, _ = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
     if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            local r = rt.settings.player.radius
+            local r = ternary(not self._is_bubble, self._radius, 2 / 3 * self._radius * _settings.bubble_radius_factor)
             local cx, cy = contact_x, contact_y
 
             -- at high velocities, interpolate
@@ -2029,7 +2028,7 @@ function rt.Player:update(delta)
                 local lcx, lcy = last_contact_x, last_contact_y
                 local dx = cx - lcx
                 local dy = cy - lcy
-                local distance = math.sqrt(dx * dx + dy * dy)
+                local distance = math.magnitude(dx, dy)
 
                 local step_size = r * 0.5
                 local num_steps = math.max(1, math.ceil(distance / step_size))
