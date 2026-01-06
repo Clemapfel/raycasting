@@ -270,8 +270,19 @@ end
 --- @brief
 function b2.World:draw()
     for body in values(self._native:getBodies()) do
-        body:getUserData():draw()
+        if body:isActive() then
+            body:getUserData():draw()
+        end
     end
+end
+
+--- @brief
+function b2.World:get_bodies()
+    local bodies = {}
+    for body in values(self._native:getBodies()) do
+        table.insert(bodies, body:getUserData())
+    end
+    return bodies
 end
 
 --- @brief

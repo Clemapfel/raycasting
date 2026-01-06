@@ -34,12 +34,14 @@ end
 --- @brief
 function b2.Rectangle:_add_to_body(body)
     local x, y, w, h = self._x, self._y, self._width, self._height
-    return love.physics.newPolygonShape(body, {
+    local out = love.physics.newPolygonShape(body, {
         x, y,
         x + w, y,
         x + w, y + h,
         x, y + h
     })
+    self._native = out
+    return out
 end
 
 --- @brief
@@ -80,7 +82,9 @@ end
 
 --- @brief
 function b2.Circle:_add_to_body(body)
-    return love.physics.newCircleShape(body, self._x, self._y, self._radius)
+    local out = love.physics.newCircleShape(body, self._x, self._y, self._radius)
+    self._native = out
+    return out
 end
 
 --- @brief
@@ -116,6 +120,7 @@ end
 function b2.Polygon:_add_to_body(body)
     local success, out = pcall(love.physics.newPolygonShape, body, self._vertices)
     if success == true then
+        self._native = out
         return out
     else
         return nil -- shape has volume of 0
@@ -147,15 +152,18 @@ end
 
 --- @brief
 function b2.Segment:_add_to_body(body)
+    local out
     if self._is_one_sided or #self._vertices > 4 then
-        return love.physics.newChainShape(
+        out = love.physics.newChainShape(
             body,
             false, -- loop
             self._vertices
         )
     else
-        return love.physics.newEdgeShape(body, table.unpack(self._vertices))
+        out = love.physics.newEdgeShape(body, table.unpack(self._vertices))
     end
+    self._native = out
+    return out
 end
 
 --- @brief
