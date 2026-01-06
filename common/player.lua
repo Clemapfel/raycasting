@@ -2322,6 +2322,7 @@ function rt.Player:move_to_world(world)
     )
 
     initialize_inner_body(self._bubble_body, true)
+    self._bubble_body:add_tag("player_bubble")
 
     local bubble_bounce_shape = love.physics.newCircleShape(self._bubble_body:get_native(), x, y, self._radius * _settings.bubble_radius_factor * 0.8)
     bubble_bounce_shape:setFilterData(bounce_group, bounce_group, 0)
@@ -2344,6 +2345,7 @@ function rt.Player:move_to_world(world)
 
         local body = b2.Body(self._world, b2.BodyType.DYNAMIC, cx, cy, bubble_outer_body_shape)
         initialize_outer_body(body, true)
+        body:add_tag("player_bubble")
         body:set_mass(0.001) -- experimentally determined for best bubble deformation
 
         local joint = b2.Spring(self._bubble_body, body, x, y, cx, cy)

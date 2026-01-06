@@ -876,6 +876,11 @@ function mn.MenuScene:draw()
 
         self._camera:bind()
         self._player:draw()
+
+        love.graphics.setLineWidth(20)
+        love.graphics.setColor(1, 1, 1, 1)
+        self._world:draw()
+
         self._camera:unbind()
 
         if rt.GameState:get_is_bloom_enabled() then
@@ -951,6 +956,8 @@ function mn.MenuScene:draw()
 
     self._stage_select.exit_fade:draw()
     self._fade:draw()
+
+
 end
 
 --- @brief
