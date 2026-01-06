@@ -2,9 +2,6 @@ require "common.smoothed_motion_1d"
 require "common.player_body"
 
 rt.settings.overworld.player_recorder_body = {
-    radius_factor = 1,
-    length_factor = 1,
-
     opacity = 0.75,
     gray_value = 0.175,
 
@@ -26,20 +23,18 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
 
     self._stage = stage
     self._scene = scene
-    self._radius = _settings.radius
 
     self._body = nil
     self._color = rt.Palette.GRAY_2
     self._body_color = rt.RGBA(_settings.gray_value, _settings.gray_value, _settings.gray_value, _settings.opacity)
     self._splatter_color = rt.RGBA(_settings.splatter_gray, _settings.splatter_gray, _settings.splatter_gray, _settings.splatter_opacity)
-    local radius_factor = _settings.radius_factor
-    local length_factor = _settings.length_factor
 
-    self._radius = radius_factor * rt.settings.player.radius
+    self._radius = rt.settings.player.radius
     self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
     self._graphics_body = rt.PlayerBody({
         radius = self._radius,
-        max_radius = self._max_radius
+        max_radius = self._max_radius,
+        rope_length_radius_factor = 1
     })
 
     self._graphics_body:set_world(stage:get_physics_world())
@@ -72,6 +67,9 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
     self._position_y = 0
     self._velocity_x = 0
     self._velocity_y = 0
+
+    self._core_offset_x = 0
+    self._core_offset_y = 0
     self._is_initialized = false
 end
 
@@ -201,12 +199,22 @@ function ow.PlayerRecorderBody:set_velocity(vx, vy)
 end
 
 --- @brief
+function ow.PlayerRecorderBody:set_core_offset(dx, dy)
+    self._core_offset_x = dx
+    self._core_offset_y = dy
+end
+
+--- @brief
 function ow.PlayerRecorderBody:draw()
     local body = ternary(self._is_bubble, self._bubble_body, self._body)
     if body == nil or not self._stage:get_is_body_visible(body) then return end
 
     self._graphics_body:draw_body()
+
+    love.graphics.push()
+    love.graphics.translate(self._core_offset_x, self._core_offset_y)
     self._graphics_body:draw_core()
+    love.graphics.pop()
 end
 
 --- @brief

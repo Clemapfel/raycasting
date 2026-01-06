@@ -155,7 +155,9 @@ rt.Translation = {
             title = "Chroma Drift",
             control_indicator_select = "Select",
             control_indicator_move = "Move",
+            control_indicator_exit = "Quit",
 
+            new_speedrun = "<s>New Run</s>",
             stage_select = "Stage Select",
             settings = "Settings",
             controls = "Controls",

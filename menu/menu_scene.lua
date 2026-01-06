@@ -103,45 +103,64 @@ function mn.MenuScene:instantiate(state)
         title_screen.n_menu_items = 0
         title_screen.selected_item_i = 1
 
-        for text in range(
-            translation.stage_select,
-            translation.settings,
-            translation.controls,
-            translation.quit
-        ) do
+        local item_to_item_i = {
+            stage_select = 1,
+            new_speedrun = 2,
+            settings = 3,
+            controls = 4,
+            quit = 5
+        }
+
+        local item_i_to_translation = {
+            [item_to_item_i.stage_select] = translation.stage_select,
+            [item_to_item_i.new_speedrun] = translation.new_speedrun,
+            [item_to_item_i.settings] = translation.settings,
+            [item_to_item_i.controls] = translation.controls,
+            [item_to_item_i.quit] = translation.quit
+        }
+
+        for item_i = 1, table.sizeof(item_to_item_i) do
+            local text = item_i_to_translation[item_i]
+
             local item = {
                 unselected_label = rt.Label("<o>" .. text .. "</o>", rt.FontSize.LARGE, title_screen.menu_font),
                 selected_label = rt.Label("<o><rainbow><b><color=SELECTION>" .. text .. "</color></b></o></rainbow>", rt.FontSize.LARGE, title_screen.menu_font),
             }
 
-            table.insert(title_screen.menu_items, item)
+            title_screen.menu_items[item_i] = item
             title_screen.n_menu_items =  title_screen.n_menu_items + 1
         end
 
         -- menu item: stage select
-        local stage_select_item = title_screen.menu_items[1]
+        local stage_select_item = title_screen.menu_items[item_to_item_i.stage_select]
         stage_select_item.activate = function()
             self:_set_state(mn.MenuSceneState.FALLING)
         end
 
+        -- menu item: new speedrun
+        local new_speedrun_item = title_screen.menu_items[item_to_item_i.new_speedrun]
+        new_speedrun_item.activate = function()
+            rt.critical("In menu_scene: item `", item_i_to_translation[item_to_item_i.new_speedrun], "` is not yet implemented")
+        end
+
         -- menu item: settings
-        local settings_item = title_screen.menu_items[2]
+        local settings_item = title_screen.menu_items[item_to_item_i.settings]
         settings_item.activate = function()
             require "menu.settings_scene"
             rt.SceneManager:push(mn.SettingsScene)
         end
 
         -- menu item: controls
-        local controls_item = title_screen.menu_items[3]
+        local controls_item = title_screen.menu_items[item_to_item_i.controls]
         controls_item.activate = function()
             require "menu.keybinding_scene"
             rt.SceneManager:push(mn.KeybindingScene)
         end
 
         -- menu item: quit
-        local quit_item = title_screen.menu_items[4]
+        local quit_item = title_screen.menu_items[item_to_item_i.quit]
         quit_item.activate = function()
-            exit(0)
+            love.event.push("close")
         end
 
         title_screen.input = rt.InputSubscriber()

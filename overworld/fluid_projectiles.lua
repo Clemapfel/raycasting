@@ -10,11 +10,11 @@ rt.settings.fluid_projectiles = {
     max_scale = 1,
     core_scale = 0.8,
 
-    follow_alpha = 0.13,          -- target attraction
+    follow_alpha = 0.13,         -- target attraction
     core_follow_alpha = 0.007,
     cohesion_alpha = 0.16,       -- particle-to-particle attraction
     collision_alpha = 0.05,      -- prevents overlap
-    damping = 0.7,                   -- overall velocity damping
+    damping = 0.7,               -- overall velocity damping
     n_substeps = 10
 }
 
@@ -293,7 +293,6 @@ function ow.FluidProjectiles:update(delta)
     local core_follow_compliance = compliance_per_step(a)
 
 
-
     local damping = settings.damping
     local viscosity = settings.viscosity
 
@@ -379,7 +378,8 @@ function ow.FluidProjectiles:update(delta)
                                     interaction_t = 1 --math.mix(1 - 0.05, 1, interaction_t)
 
                                     -- Collision constraint (prevent overlap)
-                                    local min_distance = 0.25 * current.scale * current.radius + other.scale * other.radius
+                                    local factor = ternary(love.keyboard.isDown("space"), 0.75, 0.15)
+                                    local min_distance = factor * current.scale * current.radius + other.scale * other.radius
 
                                     do
                                         local a_cx, a_cy, b_cx, b_cy = _enforce_min_distance(

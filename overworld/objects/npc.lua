@@ -9,7 +9,8 @@ rt.settings.overworld.npc = {
     interact_radius = 150,
 
     ghost_translation_frequency = 1 / 4,
-    ghost_translation_offset = 8 -- px
+    ghost_translation_offset = 8, -- px
+    ghost_core_offset_magnitude = 4 -- px
 }
 
 ow.NPCType = meta.enum("NPCType", {
@@ -71,13 +72,21 @@ function ow.NPC:instantiate(object, stage, scene)
         self._graphics_body:set_is_bubble(true)
         self._graphics_body:relax()
 
+        self._ghost_bounce_animation = rt.TimedAnimation(0.25, 0, 1, rt.InterpolationFunctions.GAUSSIAN)
+        self._bounce_offset_dx = 0
+        self._bounce_offset_dy = 0
+
         local body = self._graphics_body:get_physics_body()
         body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
             if not other_body:has_tag("player") then return end
             local player = self._scene:get_player()
             local px, py = player:get_position()
-            local dx, dy = px - self._x, py - self._y
-            local restitution = player:bounce(math.multiply(0.5, 0.5, math.normalize(dx, dy)))
+            local dx, dy = math.normalize(px - self._x, py - self._y)
+            player:bounce(math.multiply(0.5, 0.5, dx, dy))
+
+            -- bounce reaction animation
+            self._ghost_bounce_animation:reset()
+            self._bounce_offset_dx, self._bounce_offset_dy = math.flip(dx, dy)
         end)
 
         body:set_collision_group(rt.settings.player.bounce_collision_group)
@@ -273,6 +282,23 @@ function ow.NPC:update(delta)
             self._noise_origin_y + self._noise_y
         )
         self._graphics_body:update(delta)
+
+        -- orient recorder core to look towards player
+        self._ghost_bounce_animation:update(delta)
+
+        local max_r = rt.settings.overworld.npc.ghost_core_offset_magnitude
+        local bounce_offset = max_r * self._ghost_bounce_animation:get_value()
+
+        local px, py = self._scene:get_player():get_position()
+        local gx, gy = self._graphics_body:get_physics_body():get_position()
+
+        local dx, dy = math.normalize(px - gx, py - gy)
+        local distance_t = math.min(1, math.distance(px, py, gx, gy) /  rt.settings.overworld.npc.interact_radius)
+        local r = rt.InterpolationFunctions.LINEAR(distance_t) * max_r
+        self._graphics_body:set_core_offset(
+            dx * r + self._bounce_offset_dx * bounce_offset,
+            dy * r + self._bounce_offset_dy * bounce_offset
+        )
     end
 end
 
@@ -335,7 +361,7 @@ end
 
 function ow.NPC:draw_bloom()
     if self._type == ow.NPCType.EYES then
-        self._eyes:draw_bloom()
+        --self._eyes:draw_bloom()
     elseif self._type == ow.NPCType.GHOST then
         self._graphics_body:draw_bloom()
     end

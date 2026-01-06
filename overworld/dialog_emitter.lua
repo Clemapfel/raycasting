@@ -223,11 +223,8 @@ end
 --- @brief
 function ow.DialogEmitter:_reformat_dialog_box(x, y, w, h)
     local x_margin = 10 * rt.settings.margin_unit
-    local y_margin = 3 * rt.settings.margin_unit
-    y_margin = math.max(
-        y_margin,
-        select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT):measure())
-    )
+    local y_margin = select(2, self._scene:get_control_indicator(ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT):measure())
+    y_margin = y_margin - rt.settings.margin_unit
 
     local dialog_box_y = y + y_margin
     local dialog_box_h = h - 2 * y_margin

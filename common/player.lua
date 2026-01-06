@@ -2021,7 +2021,6 @@ function rt.Player:update(delta)
     local color_r, color_g, color_b, _ = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
     if self._stage ~= nil and not self._is_ghost then
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            if true then return end
             local r = rt.settings.player.radius
             local cx, cy = contact_x, contact_y
 

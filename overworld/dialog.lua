@@ -5,6 +5,19 @@ local NPC_SIDE = "left"
 
 return setmetatable({
 
+    on_bounce_complain = {
+        {
+            next = 2,
+            speaker = "Yet Unnamend Ghost",
+            "If you don't lock the player movement, the very first thing they are going to do is try to bounce on me",
+        },
+
+        {
+            speaker = "Yet Unnamend Ghost",
+            "Which is very rude"
+        }
+    },
+
     one_way_platform_tutorial_debug = {
         {
             speaker = "Mysterious Object",
@@ -19,7 +32,7 @@ return setmetatable({
         {
             speaker = "Mysterious Object",
             next = nil,
-           
+
             "new line"
         },
     },
