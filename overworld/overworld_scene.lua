@@ -239,6 +239,7 @@ function ow.OverworldScene:instantiate(state)
 
             self._input:deactivate()
             self:unpause()
+            meta.destroy(self._stage)
             self:reset()
             self._input:activate()
         elseif which == "h" then

@@ -489,12 +489,13 @@ end
 
 --- @brief
 function b2.World:destroy()
-    for body in values(self._world:get_bodies()) do
+    self:signal_disconnect_all()
+    for body in values(self:get_bodies()) do
         if body._native:isDestroyed() ~= true then
             body._native:destroy()
         end
 
-        meta.destroy(body)
+        body:destroy()
     end
 
     if self._native:isDestroyed() ~= true then

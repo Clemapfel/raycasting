@@ -440,16 +440,15 @@ function ow.Mirror:update(delta)
     local mirror_segments = {}
     local occluding_segments = {}
 
-    self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
+    local shapes = self._world:getShapesInArea(x, y, x + w, y + h)
+    for shape in values(shapes) do
         local data = shape:getUserData()
         if data.is_mirror == true then
             table.insert(mirror_segments, data.segment)
         else
             table.insert(occluding_segments, data.segment)
         end
-
-        return true
-    end)
+    end
 
     self._visible = _get_visible_subsegments(
         mirror_segments,

@@ -575,19 +575,19 @@ meta.add_signal = meta.add_signals
 
 --- @brief
 function meta.destroy(instance)
-    local function _destroy(table)
-        for key, value in pairs(table) do
-            if meta.is_table(value) then
-                _destroy(value)
-            else
-                if value.destroy ~= nil then value:destroy() end
-                table[key] = nil
-            end
+    if meta.is_table(instance) then
+        if meta.is_function(instance.signal_disconnect_all) then
+            instance:signal_disconnect_all()
+        end
+
+        if meta.is_function(instance.destroy) then
+            instance:destroy()
+        end
+
+        for key in pairs(instance) do
+            instance[key] = nil
         end
     end
-
-    instance:signal_disconnect_all()
-    _destroy(instance)
 end
 
 local _enum_to_instances = {}

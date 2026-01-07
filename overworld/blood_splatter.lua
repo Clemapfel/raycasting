@@ -103,12 +103,9 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
     x = x - self._offset_x
     y = y - self._offset_y
 
-    self._world:queryShapesInArea(x - r, y - r, x + r, y + r, function(shape)
-        local continue = true
-        local stop = false
-
+    for shape in values(self._world:getShapesInArea(x - r, y - r, x + r, y + r)) do
         local data = shape:getUserData()
-        if data == nil then return continue end
+        if data == nil then goto continue end
 
         -- check for line-circle overlap
         local x1, y1, x2, y2 = table.unpack(data.line)
@@ -117,49 +114,57 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
             x, y, r
         )
 
-        if ix1 ~= nil then
+        if ix1 == nil then goto continue end
 
-            -- get left and right bounds as fraction in [0, 1]
-            local distance_1 = math.distance(ix1, iy1, x1, y1)
-            local distance_2 = math.distance(ix2, iy2, x1, y1)
+        -- get left and right bounds as fraction in [0, 1]
+        local distance_1 = math.distance(ix1, iy1, x1, y1)
+        local distance_2 = math.distance(ix2, iy2, x1, y1)
 
-            if distance_2 < distance_1 then
-                distance_2 = math.distance(ix1, iy1, x2, y2)
-                distance_1 = math.distance(ix2, iy2, x2, y2)
-            end
+        if distance_2 < distance_1 then
+            distance_2 = math.distance(ix1, iy1, x2, y2)
+            distance_1 = math.distance(ix2, iy2, x2, y2)
+        end
 
-            local length = math.distance(x1, y1, x2, y2)
-            local left_fraction = distance_1 / length
-            local right_fraction = distance_2 / length
-            assert(left_fraction <= right_fraction)
+        local length = math.distance(x1, y1, x2, y2)
 
-            -- color all subdivsions in this interval
-            local color = rt.RGBA(color_r, color_g, color_b, opacity)
-            local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
-            for division in values(data.subdivisions) do
-                -- if not already colored
-                if not (allow_override == false and self._active_divisions[division] == true) then
+        if length < math.eps then goto continue end
 
-                    -- check interval overlap
-                    local left_f, right_f = division.left_fraction, division.right_fraction
-                    if (left_f >= left_fraction and left_f <= right_fraction)
-                        or (right_f >= left_fraction and right_f <= right_fraction)
-                    then
-                        division.color = color
-                        division.hue = hue
-                        if not division.is_active then
-                            self._active_divisions[division] = true
-                            division.is_active = true
-                        end
+        local left_fraction = distance_1 / length
+        local right_fraction = distance_2 / length
 
-                        was_added = true
+        -- swap, segment has wrong winding
+        if left_fraction > right_fraction then
+            x1, y1, x2, y2 = x2, y2, x1, y1
+            left_fraction, right_fraction = right_fraction, left_fraction
+            distance_1, distance_2 = distance_2, distance_1
+        end
+
+        -- color all subdivsions in this interval
+        local color = rt.RGBA(color_r, color_g, color_b, opacity)
+        local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
+        for division in values(data.subdivisions) do
+            -- if not already colored
+            if not (allow_override == false and self._active_divisions[division] == true) then
+
+                -- check interval overlap
+                local left_f, right_f = division.left_fraction, division.right_fraction
+                if (left_f >= left_fraction and left_f <= right_fraction)
+                    or (right_f >= left_fraction and right_f <= right_fraction)
+                then
+                    division.color = color
+                    division.hue = hue
+                    if not division.is_active then
+                        self._active_divisions[division] = true
+                        division.is_active = true
                     end
+
+                    was_added = true
                 end
             end
         end
 
-        return continue
-    end)
+        ::continue::
+    end
 
     return was_added
 end
@@ -173,10 +178,10 @@ function ow.BloodSplatter:draw()
     y = y - self._offset_y
     local visible = {}
     self._world:update(0)
-    self._world:queryShapesInArea(x, y, x + w, y + h, function(shape)
+
+    for shape in values(self._world:getShapesInArea(x, y, x + w, y + h)) do
         visible[shape] = true
-        return true
-    end)
+    end
 
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
@@ -339,12 +344,12 @@ function ow.BloodSplatter:get_segment_light_sources(bounds)
 
     local n = 0
 
-    self._world:queryShapesInArea(
+    for shape in values(self._world:getShapesInArea(
         bounds.x - self._offset_x,
         bounds.y - self._offset_y,
         bounds.x + bounds.width,
-        bounds.y + bounds.height,
-    function(shape)
+        bounds.y + bounds.height
+    )) do
         local edge = shape:getUserData()
         local before = nil
         for current in values(edge.subdivisions) do
@@ -371,9 +376,7 @@ function ow.BloodSplatter:get_segment_light_sources(bounds)
                 before = nil
             end
         end
-
-        return true
-    end)
+    end
 
     return segments, colors
 end

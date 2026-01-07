@@ -468,8 +468,11 @@ function ow.Stage:update(delta)
         self._visible_bodies = {}
         self._point_light_source_bodies = {}
         self._segment_light_source_bodies = {}
-        
-        self._world:get_native():queryShapesInArea(top_left_x, top_left_y, bottom_right_x, bottom_right_y, function(shape)
+
+        for shape in values(self._world:get_native():getShapesInArea(
+            top_left_x, top_left_y,
+            bottom_right_x, bottom_right_y
+        )) do
             local body = shape:getBody():getUserData()
             self._visible_bodies[body] = true
 
@@ -480,9 +483,7 @@ function ow.Stage:update(delta)
             if body ~= nil and body:has_tag("segment_light_source") then
                 table.insert(self._segment_light_source_bodies, body)
             end
-
-            return true
-        end)
+        end
 
         self._point_light_sources_need_update = true
         self._segment_light_sources_need_update = true
@@ -820,11 +821,15 @@ end
 function ow.Stage:get_blood_splatter()
     return self._blood_splatter
 end
+
 --- @brief
 function ow.Stage:destroy()
-    self._world:destroy()
-    self._blood_splatter:destroy()
+    if self._world ~= nil then
+        self._world:destroy()
+    end
+
     self._mirror:destroy()
+    self._blood_splatter:destroy()
 end
 
 --- @brief
