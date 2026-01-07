@@ -102,6 +102,8 @@ end
 
 --- @brief
 function ow.PlayerRecorder:update(delta)
+    if self._state == _STATE_IDLE then return end
+
     local step = 1 / rt.settings.overworld.player_recorder.snapshot_frequency
     if self._state == _STATE_RECORDING then
         self._update_elapsed = self._update_elapsed + delta

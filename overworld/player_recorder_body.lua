@@ -33,8 +33,7 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
     self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
     self._graphics_body = rt.PlayerBody({
         radius = self._radius,
-        max_radius = self._max_radius,
-        rope_length_radius_factor = 1
+        max_radius = self._max_radius
     })
 
     self._graphics_body:set_world(stage:get_physics_world())
@@ -182,7 +181,6 @@ function ow.PlayerRecorderBody:set_position(x, y)
     self._body:set_position(x, y)
 
     self._graphics_body:set_position(x, y)
-    self._graphics_body:relax()
 end
 
 --- @brief
@@ -233,7 +231,7 @@ function ow.PlayerRecorderBody:update_input(
     is_bubble
 )
     self._is_bubble = is_bubble
-    self._graphics_body:set_use_contour(is_bubble, rt.PlayerBodyContourType.CIRCLE)
+    self._graphics_body:set_use_contour(self._is_bubble, rt.PlayerBodyContourType.CIRCLE)
     self:set_position(self._position_x, self._position_y)
     self:set_velocity(self._velocity_x, self._velocity_y)
 
