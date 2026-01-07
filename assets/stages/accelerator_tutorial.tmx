@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="349">
+ <editorsettings>
+  <export target="accelerator_tutorial.lua" format="lua"/>
+ </editorsettings>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
+ <imagelayer id="3" name="background" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="5" name="aux"/>
+ <objectgroup id="6" name="hitbox">
+  <object id="339" type="Hitbox" x="-960" y="1440">
+   <polygon points="0,0 0,320 3040,320 3040,48 1312,56.9325 1312,-656 1056,-656 1056,16 176,16 176,0"/>
+  </object>
+  <object id="340" type="AcceleratorSurface" x="96" y="416">
+   <polygon points="0,368 384,368 384,352 -16,352 -16,1024 -880,1024 -880,1040 0,1040"/>
+  </object>
+  <object id="341" name="Spawn" type="PlayerSpawn" x="406.617" y="969.197">
+   <point/>
+  </object>
+  <object id="343" type="AcceleratorSurface" x="-960" y="1440">
+   <polygon points="0,0 -80,-16 -128,-32 -160,-48 -192,-64 -229.931,-91.5519 -260.448,-122.811 -288,-160 -304,-192 -326.525,-240.275 -345.431,-299.574 -353.146,-338.412 -353.791,-385.699 -352.265,-419.84 -346.103,-457.78 -325.92,-522.172 -300.932,-570.226 -249.995,-636.54 -205.786,-677.866 -151.965,-711.504 -81.8068,-738.414 -10.6872,-752.83 57.5493,-752.83 2544,-752 2587.54,-747.222 2634.11,-733.513 2665,-711.839 2680.61,-682.955 2695.84,-655.094 2708.07,-623.863 2714.75,-589.345 2720,-544 2720,-480 2722.2,-160.764 2712.31,-112.45 2704,-80 2689.73,-51.2942 2661.7,-27.775 2615.54,-14.9019 2511.22,-15.3647 2462.47,-21.0334 2441.32,-39.3277 2418.76,-77.9608 2410.18,-125.531 2404.48,-174.634 2397.66,-210.785 2384,-352 2384,-661.507 2383.18,-672.512 2377.61,-682.326 2368,-688 1936,-688 1936,-656 2304,-656 2368,-656 2368,32 3056,32 3056,-784 -384,-784 -384,32 0,32"/>
+  </object>
+  <object id="345" name="From" type="Path" x="432" y="1347.92">
+   <properties>
+    <property name="next" type="object" value="346"/>
+    <property name="target" type="object" value="348"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="346" name="To" type="PathNode" x="720" y="1344">
+   <properties>
+    <property name="easing" value="LINEAR"/>
+    <property name="velocity" type="float" value="3"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="348" type="AcceleratorSurface" x="368" y="1312">
+   <polygon points="0,0 0,64 320,64 320,0"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="2" name="front"/>
+ <layer id="4" name="noop" width="32" height="32">
+  <data encoding="base64" compression="zlib"/>
+ </layer>
+</map>

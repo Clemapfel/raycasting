@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="507">
+ <editorsettings>
+  <export target="exhibition.lua" format="lua"/>
+ </editorsettings>
+ <tileset firstgid="1" source="../tilesets/debug_tileset_objects.tsx"/>
+ <tileset firstgid="7" source="../tilesets/debug_tileset.tsx"/>
+ <imagelayer id="3" name="background" repeatx="1" repeaty="1">
+  <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
+ </imagelayer>
+ <objectgroup id="5" name="aux">
+  <object id="452" type="CameraBounds" x="-80" y="2609.2" width="1572.22" height="606.803"/>
+  <object id="453" type="BouncePad" x="1296" y="3136">
+   <polygon points="0,0 0,-447.704 48,-447.704 48,0"/>
+  </object>
+  <object id="456" type="Wall" x="-368" y="2708.29">
+   <polygon points="0,52.2367 0,507.707 2464,507.707 2464,-20.2929 0,-20.2929"/>
+  </object>
+  <object id="471" type="CameraBounds" x="-158.016" y="3831.86" width="1288.53" height="615.452"/>
+  <object id="473" type="Hitbox" x="-288" y="5616">
+   <polygon points="-352,0 -352,48 -800,48 -800,80 96,80 1504,80 1504,-640 -848,-656 -848,-624 1472,-608 1472,48 976,48 976,0 832,0 832,48 96,48 96,0"/>
+  </object>
+  <object id="475" type="AcceleratorSurface" x="688" y="5616">
+   <polygon points="0,0 368,0 391.832,-1.90818 409.697,-8.10042 424.627,-17.1573 436.548,-34.2316 443.265,-52.9569 446.883,-72.263 449.696,-94.4811 450.208,-121.389 448,-496 442.898,-516.509 434.308,-533.413 419.709,-544.967 399.312,-553.858 379.509,-558.936 352,-560 -1744,-560 -1744,-624 496,-608 496,48 0,48"/>
+  </object>
+  <object id="476" x="128" y="5056">
+   <polygon points="-1184,0 -1216,0 -1216,608 -1216,832 -1264,832 -1264,-64 -1184,-64"/>
+  </object>
+  <object id="478" name="Portal" type="Portal" x="-1088" y="5616">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="479"/>
+    <property name="target" type="object" value="480"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="479" name="Portal" type="PortalNode" x="-1088" y="5536">
+   <point/>
+  </object>
+  <object id="480" name="Portal" type="Portal" x="-1088" y="5264">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="481"/>
+    <property name="target" type="object" value="478"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="481" name="Portal" type="PortalNode" x="-1088" y="5056">
+   <point/>
+  </object>
+  <object id="506" type="CameraBounds" x="-1984" y="3648" width="1367.89" height="927.963"/>
+ </objectgroup>
+ <objectgroup id="6" name="hitbox">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="-1208.42" y="4044.76">
+   <point/>
+  </object>
+  <object id="422" name="Coin" type="Coin" x="400" y="1584">
+   <point/>
+  </object>
+  <object id="425" type="SlipperyHitbox" x="16" y="1600">
+   <polygon points="0,0 432,0 928,256 1024,256 1072,224 1232,224 1232,256 1232,320 928,320 432,64 0,64"/>
+  </object>
+  <object id="429" type="Hitbox" x="960" y="1856">
+   <polygon points="288,0 288,64 688,64 688,-576 960,-576 960,-624 624,-624 624,0"/>
+  </object>
+  <object id="435" type="SlipperyHitbox" x="1040" y="1776">
+   <polygon points="0,0 48,32 208,32 208,-768 0,-768"/>
+  </object>
+  <object id="436" type="BoostField" x="992" y="1776">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+    <property name="axis_y" type="float" value="0"/>
+   </properties>
+   <polygon points="32,0 32,80 48,80 96,48 192,48 192,32 96,32 48,0"/>
+  </object>
+  <object id="437" x="-64" y="3136">
+   <polygon points="-544,0 2288,0 2288,80 -544,80"/>
+  </object>
+  <object id="438" type="BubbleField" x="400.456" y="2861.21">
+   <polygon points="0,0 0,208 400,208 400,0"/>
+  </object>
+  <object id="446" name="Node" type="AirDashNode" x="1024.48" y="2910.5" width="147.277" height="147.277">
+   <ellipse/>
+  </object>
+  <object id="455" name="Tether" type="DoubleJumpTether" x="294.041" y="2975.89">
+   <point/>
+  </object>
+  <object id="458" x="-64" y="2608">
+   <polygon points="-544,0 2288,0 2288,80 -544,80"/>
+  </object>
+  <object id="459" x="1344" y="2688">
+   <polygon points="0,0 0,448 112,448 112,0"/>
+  </object>
+  <object id="460" x="-80" y="4368">
+   <polygon points="-256,0 864,0 864,80 -256,80"/>
+  </object>
+  <object id="463" name="Portal" type="Portal" x="400" y="4336">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="464"/>
+    <property name="target" type="object" value="465"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="464" name="Portal" type="PortalNode" x="256" y="4336">
+   <point/>
+  </object>
+  <object id="465" name="Portal" type="Portal" x="-16" y="4365.8">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="466"/>
+    <property name="target" type="object" value="463"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="466" type="PortalNode" x="-16" y="4205.8">
+   <point/>
+  </object>
+  <object id="467" type="PathNode" x="-42.1072" y="4165.83">
+   <point/>
+  </object>
+  <object id="468" name="Path" type="Path" x="-40.9122" y="4368.89">
+   <properties>
+    <property name="next" type="object" value="467"/>
+    <property name="target_01" type="object" value="465"/>
+    <property name="target_02" type="object" value="469"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="469" type="SlipperyMovableHitbox" x="-16" y="4205.8">
+   <polygon points="0,0 0,160 -48,160 -48,0"/>
+  </object>
+  <object id="472" type="SlipperyHitbox" x="256" y="4336">
+   <polygon points="0,0 -32,32 176,32 144,0"/>
+  </object>
+  <object id="474" type="AcceleratorSurface" x="-144" y="5616">
+   <polygon points="-48,0 -48,48 688,48 688,0"/>
+  </object>
+  <object id="485" type="AcceleratorSurface" x="-976" y="5616">
+   <polygon points="-112,0 -112,48 336,48 336,0 336,-80 38.7006,-10.5408 5.73247,-5.12295 -24.4623,-0.804894"/>
+  </object>
+  <object id="488" type="AcceleratorSurface" x="-592" y="5152">
+   <polygon points="0,0 640,0 640,32 0,32"/>
+  </object>
+  <object id="493" name="Portal" type="Portal" x="-496" y="5616">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="494"/>
+    <property name="target" type="object" value="495"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="494" name="Portal" type="PortalNode" x="-608" y="5616">
+   <point/>
+  </object>
+  <object id="495" name="Portal" type="Portal" x="-224" y="5616">
+   <properties>
+    <property name="left_or_right" type="bool" value="false"/>
+    <property name="other" type="object" value="496"/>
+    <property name="target" type="object" value="493"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="496" name="Portal" type="PortalNode" x="-384" y="5616">
+   <point/>
+  </object>
+  <object id="499" x="-1616" y="4128">
+   <polygon points="352,0 352,688 -80,688 -80,-1600 -32,-1600 -32,0"/>
+  </object>
+  <object id="500" type="SlipperyHitbox" x="-1648" y="4096">
+   <polygon points="0,0 16,16 384,16 384,32 0,32"/>
+  </object>
+  <object id="501" type="OneWayPlatform" x="-1035.25" y="3787.01">
+   <properties>
+    <property name="other" type="object" value="502"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="502" type="OneWayPlatformNode" x="-907.247" y="3787.01">
+   <point/>
+  </object>
+  <object id="503" name="Ghost" type="NPC" x="-1392" y="4016">
+   <properties>
+    <property name="dialog_id" value="on_bounce_complain"/>
+    <property name="should_focus" type="bool" value="true"/>
+    <property name="should_lock" type="bool" value="false"/>
+    <property name="type" value="eyes"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="2" name="front"/>
+ <layer id="4" name="noop" width="32" height="32">
+  <data encoding="base64" compression="zlib"/>
+ </layer>
+</map>
