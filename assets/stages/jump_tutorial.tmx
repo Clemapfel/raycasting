@@ -37,7 +37,7 @@
   <object id="399" type="SlipperyHitbox" x="2288" y="96">
    <polygon points="4.066,96 4.066,-112 84.066,-112 68.066,-96 20.066,-96 20.066,80"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="147.999" y="537.049">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="2177.08" y="627.518">
    <point/>
   </object>
   <object id="401" name="Wall Jump 03" x="2100.07" y="528">

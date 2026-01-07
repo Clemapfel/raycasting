@@ -78,7 +78,7 @@ do
         instant_turnaround_velocity = 600,
 
         coyote_time = 8 / 60, -- seconds after leaving ground
-        wall_jump_coyote_time = 20 / 60, -- seconds after letting go of direction against wall
+        wall_jump_coyote_time = 5 / 120, -- seconds after letting go of direction against wall
 
         platform_velocity_decay = 0.7,
 
@@ -1514,14 +1514,12 @@ function rt.Player:update(delta)
 
                     local should_skip = false
 
-                    if self._left_wall then
+                    local left_wall_jump_allowed, right_wall_jump_allowed = self:_get_walljump_allowed()
+
+                    if left_wall_jump_allowed then
                         self._wall_jump_freeze_sign = -1
-                    elseif self._right_wall then
+                    elseif right_wall_jump_allowed then
                         self._wall_jump_freeze_sign =  1
-                    elseif self._left_wall_coyote_elapsed <= _settings.wall_jump_coyote_time then
-                        self._wall_jump_freeze_sign =  1
-                    elseif self._right_wall_coyote_elapsed <= _settings.wall_jump_coyote_time then
-                        self._wall_jump_freeze_sign = -1
                     else
                         -- unknown sign, do not wall jump
                         self._wall_jump_elapsed = math.huge
@@ -1560,18 +1558,12 @@ function rt.Player:update(delta)
             self._wall_jump_elapsed = self._wall_jump_elapsed + delta
 
             self._left_wall_coyote_elapsed = self._left_wall_coyote_elapsed + delta
-            if left_is_down and self._left_wall
-                and not self._is_grounded
-                and not is_jumping
-            then
+            if left_before == true and self._left_wall == false then
                 self._left_wall_coyote_elapsed = 0
             end
 
             self._right_wall_coyote_elapsed = self._right_wall_coyote_elapsed + delta
-            if right_is_down and self._right_wall
-                and not self._is_grounded
-                and not is_jumping
-            then
+            if right_before == true and self._right_wall == false then
                 self._right_wall_coyote_elapsed = 0
             end
 
@@ -3003,25 +2995,28 @@ function rt.Player:_get_walljump_allowed()
     local right_is_down = self._right_button_is_down
         or self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
 
-    -- left wall
+    local left_wall_invalid = (self._left_wall and (self._left_wall_body:has_tag("slippery") or self._left_wall_body:has_tag("unjumpable")))
+        or (self._top_left_wall and (self._top_left_wall_body:has_tag("slippery") or self._top_left_wall_body:has_tag("unjumpable")))
+        or (self._bottom_left_wall and (self._bottom_left_wall_body:has_tag("slippery") or self._bottom_left_wall_body:has_tag("unjumpable")))
 
-    local left_wall_invalid = self._left_wall and (self._left_wall_body:has_tag("slippery") or self._left_wall_body:has_tag("unjumpable"))
-        or self._top_left_wall and self._top_left_wall_body:has_tag("unjumpable")
-        or self._bottom_left_wall and self._bottom_left_wall_body:has_tag("unjumpable")
+    local right_wall_invalid = (self._right_wall and (self._right_wall_body:has_tag("slippery") or self._right_wall_body:has_tag("unjumpable")))
+        or (self._top_right_wall and (self._top_right_wall_body:has_tag("slippery") or self._top_right_wall_body:has_tag("unjumpable")))
+        or (self._bottom_right_wall and (self._bottom_right_wall_body:has_tag("slippery") or self._bottom_right_wall_body:has_tag("unjumpable")))
 
-    TODO: last known left or right, then use coyote time self._left_wall_coyote_elapsed <= _settings.wall_jump_coyote_time
+    -- by default, player needs to be pressing towards wall
+    local left_wall_jump_allowed = left_is_down and self._left_wall and not left_wall_invalid
+    local right_wall_jump_allowed = right_is_down and self._right_wall and not right_wall_invalid
 
-    local left_wall_jump_allowed = not left_wall_invalid and ((left_is_down and self._left_wall) or left_override)
+    -- both conditions can be overriden by coyote time
+    if not self._is_grounded then
+        if not left_wall_jump_allowed then
+            left_wall_jump_allowed = self._left_wall_coyote_elapsed < _settings.wall_jump_coyote_time and not left_wall_invalid
+        end
 
-    -- right wall
-
-    local right_wall_invalid = self._right_wall and (self._right_wall_body:has_tag("slippery") or self._right_wall_body:has_tag("unjumpable"))
-        or self._top_right_wall and self._top_right_wall_body:has_tag("unjumpable")
-        or self._bottom_right_wall and self._bottom_right_wall_body:has_tag("unjumpable")
-
-    local right_override = left_is_down and self._right_wall_coyote_elapsed <= _settings.wall_jump_coyote_time
-
-    local right_wall_jump_allowed = not right_wall_invalid and ((right_is_down and self._right_wall) or right_override)
+        if not right_wall_jump_allowed then
+            right_wall_jump_allowed = self._right_wall_coyote_elapsed < _settings.wall_jump_coyote_time and not right_wall_invalid
+        end
+    end
 
     return left_wall_jump_allowed, right_wall_jump_allowed
 end
@@ -3097,10 +3092,6 @@ function rt.Player:jump()
     if jumped then
         self:signal_emit("jump")
         self._jump_buffer_elapsed = math.huge
-
-        self._coyote_elapsed = math.huge
-        self._left_wall_coyote_elapsed = math.huge
-        self._right_wall_coyote_elapsed = math.huge
     end
 
     return jumped
