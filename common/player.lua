@@ -78,7 +78,7 @@ do
         instant_turnaround_velocity = 600,
 
         coyote_time = 8 / 60, -- seconds after leaving ground
-        wall_jump_coyote_time = 10 / 60, -- seconds after letting go of direction against wall
+        wall_jump_coyote_time = 20 / 60, -- seconds after letting go of direction against wall
 
         platform_velocity_decay = 0.7,
 
@@ -3009,7 +3009,7 @@ function rt.Player:_get_walljump_allowed()
         or self._top_left_wall and self._top_left_wall_body:has_tag("unjumpable")
         or self._bottom_left_wall and self._bottom_left_wall_body:has_tag("unjumpable")
 
-    local left_override = right_is_down and self._left_wall_coyote_elapsed <= _settings.wall_jump_coyote_time
+    TODO: last known left or right, then use coyote time self._left_wall_coyote_elapsed <= _settings.wall_jump_coyote_time
 
     local left_wall_jump_allowed = not left_wall_invalid and ((left_is_down and self._left_wall) or left_override)
 
