@@ -1705,7 +1705,7 @@ function rt.Player:update(delta)
                 self._bottom_right_wall_body,
                 self._bottom_wall_body
             ) do
-                if body:has_tag("use_friction") then
+                if body:has_tag("use_friction") or body:has_tag("slippery") then
                     should_skip = true
                     break
                 end
