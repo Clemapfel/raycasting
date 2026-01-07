@@ -116,41 +116,32 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
 
         if ix1 == nil then goto continue end
 
-        -- get left and right bounds as fraction in [0, 1]
-        local distance_1 = math.distance(ix1, iy1, x1, y1)
-        local distance_2 = math.distance(ix2, iy2, x1, y1)
-
-        if distance_2 < distance_1 then
-            distance_2 = math.distance(ix1, iy1, x2, y2)
-            distance_1 = math.distance(ix2, iy2, x2, y2)
-        end
-
-        local length = math.distance(x1, y1, x2, y2)
+        local dx, dy = x2 - x1, y2 - y1
+        local length = math.magnitude(dx, dy)
 
         if length < math.eps then goto continue end
 
-        local left_fraction = distance_1 / length
-        local right_fraction = distance_2 / length
+        -- project clipped points onto the original segment to get fraction
+        local t1 = math.dot(ix1 - x1, iy1 - y1, dx, dy) / (length * length)
+        local t2 = math.dot(ix2 - x1, iy2 - y1, dx, dy) / (length * length)
 
-        -- swap, segment has wrong winding
-        if left_fraction > right_fraction then
-            x1, y1, x2, y2 = x2, y2, x1, y1
-            left_fraction, right_fraction = right_fraction, left_fraction
-            distance_1, distance_2 = distance_2, distance_1
-        end
+        -- ensure left < right
+        local left_fraction = math.min(t1, t2)
+        local right_fraction = math.max(t1, t2)
 
-        -- color all subdivsions in this interval
+        left_fraction = math.clamp(left_fraction, 0, 1)
+        right_fraction = math.clamp(right_fraction , 0, 1)
+
+        -- color all subdivisions in this interval
         local color = rt.RGBA(color_r, color_g, color_b, opacity)
         local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
         for division in values(data.subdivisions) do
-            -- if not already colored
-            if not (allow_override == false and self._active_divisions[division] == true) then
+            if division.left_fraction > right_fraction then
+                break
+            end
 
-                -- check interval overlap
-                local left_f, right_f = division.left_fraction, division.right_fraction
-                if (left_f >= left_fraction and left_f <= right_fraction)
-                    or (right_f >= left_fraction and right_f <= right_fraction)
-                then
+            if division.left_fraction <= right_fraction and division.right_fraction >= left_fraction then
+                if allow_override or not division.is_active then
                     division.color = color
                     division.hue = hue
                     if not division.is_active then
@@ -272,7 +263,7 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
         if count == 1 and hash_to_is_valid[hash] == true then
             local x1, y1, x2, y2 = _unhash(hash)
             local dx, dy = x2 - x1, y2 - y1
-            local length = math.sqrt(dx * dx + dy * dy)
+            local length = math.magnitude(dx, dy)
 
             local edge = love.physics.newEdgeShape(self._edge_body, x1, y1, x2, y2)
             local subdivisions = {}
@@ -280,31 +271,20 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
             if length > max_length then
                 local num_segments = math.ceil(length / max_length)
                 local segment_length = length / num_segments
-                local segment_dx = dx / num_segments
-                local segment_dy = dy / num_segments
 
                 for i = 0, num_segments - 1 do
-                    local sx1 = x1 + i * segment_dx
-                    local sy1 = y1 + i * segment_dy
-                    local sx2 = x1 + (i + 1) * segment_dx
-                    local sy2 = y1 + (i + 1) * segment_dy
+                    local left_fraction = i / num_segments
+                    local right_fraction = (i + 1) / num_segments
 
-                    -- precompute left and right fraction for overlap test
-                    local left_fration = math.distance(sx1, sy1, x1, y1)
-                    local right_fraction = math.distance(sx2, sy2, x1, y1)
-
-                    if right_fraction < left_fration then
-                        right_fraction = math.distance(sx1, sy1, x2, y2)
-                        left_fration = math.distance(sx2, sy2, x2, y2)
-                    end
-
-                    left_fration = left_fration / length
-                    right_fraction = right_fraction / length
+                    local sx1 = x1 + left_fraction * dx
+                    local sy1 = y1 + left_fraction * dy
+                    local sx2 = x1 + right_fraction * dx
+                    local sy2 = y1 + right_fraction * dy
 
                     table.insert(subdivisions, {
                         shape = edge,
-                        line = {sx1, sy1, sx2, sy2},
-                        left_fraction = left_fration,
+                        line = { sx1, sy1, sx2, sy2 },
+                        left_fraction = left_fraction,
                         right_fraction = right_fraction,
                         is_active = false,
                         hue = nil,
@@ -314,10 +294,11 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
             else
                 table.insert(subdivisions, {
                     shape = edge,
-                    line = {x1, y1, x2, y2},
+                    line = { x1, y1, x2, y2 },
                     left_fraction = 0,
                     right_fraction = 1,
                     is_active = false,
+                    hue = nil,
                     color = nil
                 })
             end
