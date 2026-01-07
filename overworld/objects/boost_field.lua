@@ -122,12 +122,15 @@ function ow.BoostField:instantiate(object, stage, scene)
         local axis_x = object:get_number("axis_x")
         local axis_y = object:get_number("axis_y")
 
+        if axis_x ~= nil and axis_y == nil then axis_y = 0 end
+        if axis_y ~= nil and axis_x == nil then axis_x = 0 end
+
         if axis_x ~= nil and axis_y ~= nil then
             -- if manually set, use as is
             self._axis_x = axis_x
             self._axis_y = axis_y
         else
-            -- perform linear regression, use directed line as axis
+            -- else perform linear regression, use directed line as axis
             local ax, ay, bx, by = _fit_line(object:create_contour())
             if ay < by then
                 ax, ay, bx, by = bx, by, ax, ay
@@ -170,7 +173,7 @@ function ow.BoostField:update(delta)
     if self._is_active == false and  not self._stage:get_is_body_visible(self._body) then return end
 
     if is_active then
-        local vx, vy = self._player:get_physics_body():get_velocity() -- use actual velocity
+        local vx, vy = self._player:get_velocity() -- use actual velocity
 
         local target = self._target_velocity
         local target_vx, target_vy = self._axis_x * target, self._axis_y * target
@@ -194,7 +197,7 @@ function ow.BoostField:update(delta)
         local new_vx = vx + dx * (1 / duration) * delta
         local new_vy = vy + dy * (1 / duration) * delta
 
-        self._player:get_physics_body():set_velocity(new_vx, new_vy)
+        self._player:set_velocity(new_vx, new_vy)
     end
 
     self._is_active = is_active
