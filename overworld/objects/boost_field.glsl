@@ -23,6 +23,8 @@ uniform float player_influence;
 uniform float elapsed;
 uniform float brightness_offset; // already scaled
 
+const float contrast = 0.4; // 0: no contrast, 1: max contrast
+
 vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_position) {
     vec2 uv = to_world_position(frag_position) / 500.0;
 
@@ -66,5 +68,5 @@ vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_
 
     vec4 color = mix(vertex_color, player_color, dist * player_influence);
 
-    return vec4(vec3(mix(0.2, brightness_offset, value)), 1.0) * color;
+    return vec4(vec3(mix(1 - contrast, brightness_offset, value)), 1.0) * color;
 }
