@@ -3,7 +3,18 @@ local PLAYER_SIDE = "right"
 local NPC = rt.Translation.npc_name
 local NPC_SIDE = "left"
 
+local EYES_NAME = "(# EYES_NAME)"
+local GHOST_NAME = "(# GHOST_NAME)"
+
 return setmetatable({
+
+    slippery_floor_tutorial = {
+        {
+            speaker = EYES_NAME,
+            "<b>Glass</b> like this is <wave>slippery</wave>, if you walk on it you slide around instead of stopping.",
+            "There is no way to climb walls made out of glass, and none of your \"paint\" will stick to it. Be careful and always try to keep in mind the type of surface you are touching"
+        }
+    },
 
     on_bounce_complain = {
         {

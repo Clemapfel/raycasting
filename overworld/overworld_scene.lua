@@ -239,7 +239,6 @@ function ow.OverworldScene:instantiate(state)
 
             self._input:deactivate()
             self:unpause()
-            meta.destroy(self._stage)
             self:reset()
             self._input:activate()
         elseif which == "h" then
@@ -1065,7 +1064,7 @@ function ow.OverworldScene:update(delta)
     self._player:update(delta)
     self._camera:update(delta)
 
-    self._stage:update(delta)
+    self._stage:update(delta) -- stage has to happen after player
 
     self._background:notify_camera_changed(self._camera)
     self._background:update(delta)
@@ -1225,6 +1224,7 @@ function ow.OverworldScene:reset()
 
     self:set_fade_to_black(0)
     self:set_blur(0)
+    self:set_control_indicator_type(ow.ControlIndicatorType.NONE)
 
     self:unpause()
     self:enter(before, false)

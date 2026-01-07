@@ -157,6 +157,30 @@ function ow.Stage:instantiate(scene, id)
     self._below_player = {}
     self._above_player = {}
 
+    -- add hitbox as renderable proxy
+    local hitbox_render_priority = rt.settings.overworld.hitbox.render_priority
+    render_priority_to_entry[hitbox_render_priority] = {
+        priority = hitbox_render_priority,
+        objects = {
+            { draw = function()
+                    local point_lights, point_colors = self:get_point_light_sources()
+                    local segment_lights, segment_colors = self:get_segment_light_sources()
+                    ow.Wall:draw_all(
+                        self._scene:get_camera(),
+                        point_lights,
+                        point_colors,
+                        segment_lights,
+                        segment_colors
+                    )
+
+                    ow.Hitbox:draw_base()
+                    self._normal_map:draw_shadow(self._scene:get_camera())
+                    ow.Hitbox:draw_outline()
+                end
+            }
+        }
+    }
+
     -- checkpoint to checkpoint split
     self._checkpoints = meta.make_weak({})
     local n_goals = 0 -- number ow.Goal, for warning
@@ -224,11 +248,6 @@ function ow.Stage:instantiate(scene, id)
                             }
 
                             render_priority_to_entry[priority] = entry
-                            if priority <= 0 then
-                                table.insert(self._below_player, entry)
-                            else
-                                table.insert(self._above_player, entry)
-                            end
                         end
 
                         table.insert(entry.objects, instance)
@@ -247,6 +266,15 @@ function ow.Stage:instantiate(scene, id)
                     table.insert(self._to_reset, instance)
                 end
             end
+        end
+    end
+
+    -- distribute drawables
+    for priority, entry in pairs(render_priority_to_entry) do
+        if priority <= 0 then
+            table.insert(self._below_player, entry)
+        else
+            table.insert(self._above_player, entry)
         end
     end
 
@@ -366,20 +394,6 @@ end
 
 --- @brief
 function ow.Stage:draw_below_player()
-    local point_lights, point_colors = self:get_point_light_sources()
-    local segment_lights, segment_colors = self:get_segment_light_sources()
-    ow.Wall:draw_all(
-        self._scene:get_camera(),
-        point_lights,
-        point_colors,
-        segment_lights,
-        segment_colors
-    )
-
-    ow.Hitbox:draw_base()
-    self._normal_map:draw_shadow(self._scene:get_camera())
-    ow.Hitbox:draw_outline()
-
     for entry in values(self._below_player) do
         for object in values(entry.objects) do
             object:draw(entry.priority)
@@ -828,6 +842,7 @@ function ow.Stage:destroy()
         self._world:destroy()
     end
 
+    self._player_recorder:destroy()
     self._mirror:destroy()
     self._blood_splatter:destroy()
 end

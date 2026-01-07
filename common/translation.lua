@@ -84,7 +84,7 @@ rt.Translation = {
     -- error handler
     error_handler = {
         title = "Fatal Error",
-        message = "An error has occurred and the application was unable to recover.\nTo prevent issues like this in the future, please consider\n reviewing the log files and sending them to the developers.\nWhat would you like to do?",
+        message = "An error has occurred and the application was unable to recover.\n\nTo prevent issues like this in the future, please consider\n reviewing the log files and sending them to the developers.\n\nWhat would you like to do?",
         open_log = "Open Log Files",
         restart = "Restart",
         exit = "Exit"
