@@ -148,9 +148,9 @@ function rt.Bloom:draw()
     end
 
     love.graphics.setColor(r, g, b, a)
-    --_tonemap_shader:bind()
+    _tonemap_shader:bind()
     love.graphics.draw(self._textures[1]:get_native())
-    --_tonemap_shader:unbind()
+    _tonemap_shader:unbind()
 end
 
 --- @brief

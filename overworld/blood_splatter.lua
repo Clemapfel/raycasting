@@ -171,7 +171,7 @@ function ow.BloodSplatter:draw()
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
 
-    local t = self._bloom_factor -- experimentally determined to compensate best
+    local t = 1 / 4 * self._bloom_factor -- experimentally determined to compensate best
     local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
     love.graphics.setLineWidth(line_width)
 
@@ -256,7 +256,7 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
 
     self._edge_body = love.physics.newBody(self._world, 0, 0, b2.BodyType.STATIC)
 
-    local max_length = rt.settings.player.radius / 2
+    local max_length = rt.settings.player.radius / 4
     for hash, count in pairs(tuples) do
         if count == 1 and hash_to_is_valid[hash] == true then
             local x1, y1, x2, y2 = _unhash(hash)
