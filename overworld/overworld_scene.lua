@@ -24,7 +24,7 @@ do
         camera_freeze_duration = 0.25,
         allow_translation = true,
 
-        bloom_blur_strength = 1.2, -- > 0
+        bloom_blur_strength = 1.3, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
         title_card_min_duration = 3, -- seconds
 
@@ -123,6 +123,7 @@ function ow.OverworldScene:instantiate(state)
         _title_card_elapsed = 0,
 
         _player_canvas = nil,
+        _player_canvas_needs_update = true,
 
         _timer_started = false,
         _timer_paused = false,
@@ -222,6 +223,12 @@ function ow.OverworldScene:instantiate(state)
             if not self._pause_menu_active then
                 self:pause()
             end
+        elseif which == rt.InputAction.RESET then
+            self._camera:set_scale(1)
+            self._camera_scale_velocity = 0
+            self._camera:set_position(self._player:get_position())
+            self._camera_translation_velocity_x = 0
+            self._camera_translation_velocity_y = 0
         elseif self._pause_menu_active and which == rt.InputAction.BACK then
             self:unpause()
         end
@@ -811,7 +818,6 @@ function ow.OverworldScene:_update_screenshot(draw_player)
     if rt.GameState:get_is_bloom_enabled() == true then
         local bloom = rt.SceneManager:get_bloom()
         -- skip bloom, use bloom from last update
-        --bloom:composite(rt.settings.overworld_scene.bloom_composite_strength)
     end
 
     self._screenshot:unbind()
@@ -1072,7 +1078,7 @@ function ow.OverworldScene:update(delta)
     self._screenshot_needs_update = true
 
     -- player canvas
-    if self._player_is_visible then
+    if self._player_is_visible and self._player_canvas_needs_update == true then
         love.graphics.push("all")
         love.graphics.reset()
         love.graphics.setColor(1, 1, 1, 1)
@@ -1270,6 +1276,7 @@ end
 
 --- @brief
 function ow.OverworldScene:get_player_canvas()
+    self._player_canvas_needs_update = true
     return self._player_canvas, self._player_canvas_scale, self._player_canvas_scale
 end
 
