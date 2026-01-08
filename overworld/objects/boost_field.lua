@@ -260,12 +260,15 @@ function ow.BoostField:draw_bloom()
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
-    love.graphics.translate(offset_x, offset_y)
-    love.graphics.translate(self._body:get_position())
+    love.graphics.translate(-self._draw_offset_x + offset_x, -self._draw_offset_y + offset_y)
 
-    rt.Palette.WHITE:bind()
-    love.graphics.setColor(self._color)
-    love.graphics.setLineWidth(rt.settings.overworld.boost_field.line_width)
+    love.graphics.setLineJoin("bevel")
+    local line_width = rt.settings.overworld.boost_field.line_width
+    local offset = math.mix(1, 1.4, self._impulse:get_pulse())
+
+    local r, g, b, a = table.unpack(self._color)
+    love.graphics.setColor(r * offset, g * offset, b * offset, a)
+    love.graphics.setLineWidth(line_width * offset)
     love.graphics.line(self._outline)
 
     love.graphics.pop()

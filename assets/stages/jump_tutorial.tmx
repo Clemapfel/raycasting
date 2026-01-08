@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="620">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="639">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -10,191 +10,191 @@
  </imagelayer>
  <objectgroup id="5" name="aux"/>
  <objectgroup id="6" name="hitbox">
-  <object id="388" name="Wall Jump 02" type="Hitbox" x="1664" y="672">
+  <object id="388" name="Wall Jump 02" type="Hitbox" x="1656.83" y="669.242">
    <polygon points="16,0 16,-112 0,-128 0,-208 16,-224 16,-272 0,-288 0,-512 16,-528 16,-576 0,-592 0,-656 80,-656 80,48 -384,48 -384,-16 -48,-16 -32,0"/>
   </object>
-  <object id="395" type="SlipperyHitbox" x="2292.07" y="672">
+  <object id="395" type="SlipperyHitbox" x="2284.9" y="669.242">
    <polygon points="-4.07,0 -4.07,-112 11.93,-128 11.93,-224 -4.07,-240 -4.07,-416 11.93,-432 11.93,-528 -4.07,-544 -4.07,-704 59.934,-704 59.93,48 -4.07,48"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="-1566.79" y="256.793">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="-1605.32" y="679.365">
    <point/>
   </object>
-  <object id="401" type="SlipperyHitbox" x="2100.79" y="527.284">
+  <object id="401" type="SlipperyHitbox" x="2093.62" y="524.526">
    <polygon points="-4.78582,0.71582 -4.78582,-127.284 -20.7858,-143.284 -20.7858,-239.284 -4.78582,-255.284 -4.78582,-447.284 -20.7858,-463.284 -20.7858,-559.284 -4.07,-576 -4.78582,-575.284 -4.78582,-671.284 43.2142,-719.284 283.93,-720 283.93,-752 -68.7858,-751.284 -68.7858,0.71582"/>
   </object>
-  <object id="405" type="Coin" x="2132.07" y="-144">
+  <object id="405" type="Coin" x="2124.9" y="-146.758">
    <point/>
   </object>
-  <object id="407" type="SlipperyHitbox" x="1839.28" y="1264">
+  <object id="407" type="SlipperyHitbox" x="1832.11" y="1261.24">
    <polygon points="0.0850234,-128.47 16.085,-112.47 16,80 0,64"/>
   </object>
-  <object id="409" name="First Walljump" type="Hitbox" x="1648" y="1808">
+  <object id="409" name="First Walljump" type="Hitbox" x="1640.83" y="1805.24">
    <polygon points="31.2841,-480 191.284,-480 207.284,-464 207.369,-656.47 191.369,-672.47 431.369,-672.47 431.284,-448 111.284,-448 111.284,112 -400.716,112 -400.716,-16 -352.716,-16 -352.716,48 79.2841,48 79.2841,16 79.2841,-303.776 71.448,-320 63.2841,-303.776 63.2841,32 -336.716,32 -336.716,0 -320.716,0 31.2841,0"/>
   </object>
-  <object id="411" type="SlipperyHitbox" x="1664" y="1680">
+  <object id="411" type="SlipperyHitbox" x="1656.83" y="1677.24">
    <polygon points="47.2841,-175.671 47.2841,160 -352.716,160 -352.716,128 -336.716,128 -336.716,80 -352.716,80 -384.716,96 -416.716,96 -416.716,112 -368.716,112 -368.716,176 63.2841,176 63.2841,-175.671 55.8999,-192"/>
   </object>
-  <object id="412" type="SlipperyHitbox" x="1312" y="1752">
+  <object id="412" type="SlipperyHitbox" x="1304.83" y="1749.24">
    <polygon points="0,-8 -32,-24 -64,-24 -64,-40 -0.63091,-40.4704 -0.63091,-392.47 15.3691,-392.47 16,-40 16,-8"/>
   </object>
-  <object id="413" type="BoostField" x="1248" y="1728">
+  <object id="413" type="BoostField" x="1240.83" y="1725.24">
    <properties>
     <property name="axis_x" type="float" value="1"/>
     <property name="render_priority" type="float" value="-10"/>
    </properties>
    <polygon points="0,0 32,0 64,16 80,16 80,32 64,32 32,48 0,48"/>
   </object>
-  <object id="414" type="Hitbox" x="1296" y="1712">
+  <object id="414" type="Hitbox" x="1288.83" y="1709.24">
    <polygon points="15.3691,-0.470433 -48.7159,0 -48,-512 32,-512 31.3691,-352.47 15.3691,-352.47"/>
   </object>
-  <object id="415" type="Hitbox" x="1701.02" y="1152">
+  <object id="415" type="Hitbox" x="1693.85" y="1149.24">
    <polygon points="-5.65047,47.5296 -21.6505,31.5296 -21.0191,-304 -277.019,-304 -277.019,-336 0,-336"/>
   </object>
-  <object id="416" type="SlipperyHitbox" x="1695.37" y="1215.53">
+  <object id="416" type="SlipperyHitbox" x="1688.2" y="1212.77">
    <polygon points="0,-16 -31.3691,-15.53 -31.3691,-31.53 -95.3691,-95.53 -303.369,-95.53 -367.369,-31.53 -367.369,-15.53 -447.369,-15.53 -447.369,-367.53 -272,-368 -16,-368 -16,-32"/>
   </object>
-  <object id="419" name="Coin" type="Coin" x="1360" y="1232">
+  <object id="419" name="Coin" type="Coin" x="1352.83" y="1229.24">
    <point/>
   </object>
-  <object id="420" name="Platform 01" type="Hitbox" x="-1568" y="-656">
+  <object id="420" name="Platform 01" type="Hitbox" x="-1575.17" y="-658.758">
    <polygon points="0,16 96,16 96,208 2957.9,208 2960,-368 2928,-400 3136,-400 3136,208 3136,240 0,240"/>
   </object>
-  <object id="533" type="Hitbox" x="2288" y="432">
+  <object id="533" type="Hitbox" x="2280.83" y="429.242">
    <polygon points="0,0 0,128 16,112 16,16"/>
   </object>
-  <object id="534" type="Hitbox" x="2096" y="272">
+  <object id="534" type="Hitbox" x="2088.83" y="269.242">
    <polygon points="0,0 -16,16 -16,112 0,128"/>
   </object>
-  <object id="537" type="Hitbox" x="2288" y="128">
+  <object id="537" type="Hitbox" x="2280.83" y="125.242">
    <polygon points="0,0 0,128 16,112 16,16"/>
   </object>
-  <object id="538" type="Hitbox" x="2096" y="-48">
+  <object id="538" type="Hitbox" x="2088.83" y="-50.7577">
    <polygon points="0,0 -16,16 -16,112 0,128"/>
   </object>
-  <object id="539" type="Hitbox" x="2288" y="656">
+  <object id="539" type="Hitbox" x="2280.83" y="653.242">
    <polygon points="0,0 0,64 -384,64 -384,0"/>
   </object>
-  <object id="540" type="Hitbox" x="2672" y="-48">
+  <object id="540" type="Hitbox" x="2664.83" y="-50.7577">
    <polygon points="0,0 0,16 -384,16 -384,0"/>
   </object>
-  <object id="541" type="SlipperyHitbox" x="1776" y="656">
+  <object id="541" type="SlipperyHitbox" x="1768.83" y="653.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="542" type="Hitbox" x="1776" y="640">
+  <object id="542" type="Hitbox" x="1768.83" y="637.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="543" type="SlipperyHitbox" x="1776" y="624">
+  <object id="543" type="SlipperyHitbox" x="1768.83" y="621.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="544" type="Hitbox" x="1776" y="608">
+  <object id="544" type="Hitbox" x="1768.83" y="605.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="545" type="SlipperyHitbox" x="1776" y="592">
+  <object id="545" type="SlipperyHitbox" x="1768.83" y="589.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="546" type="Hitbox" x="1776" y="576">
+  <object id="546" type="Hitbox" x="1768.83" y="573.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="547" type="SlipperyHitbox" x="1776" y="560">
+  <object id="547" type="SlipperyHitbox" x="1768.83" y="557.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="548" type="Hitbox" x="1776" y="544">
+  <object id="548" type="Hitbox" x="1768.83" y="541.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="549" type="SlipperyHitbox" x="1776" y="528">
+  <object id="549" type="SlipperyHitbox" x="1768.83" y="525.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="550" type="Hitbox" x="1776" y="512">
+  <object id="550" type="Hitbox" x="1768.83" y="509.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="551" type="SlipperyHitbox" x="1776" y="496">
+  <object id="551" type="SlipperyHitbox" x="1768.83" y="493.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="552" type="Hitbox" x="1776" y="480">
+  <object id="552" type="Hitbox" x="1768.83" y="477.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="553" type="SlipperyHitbox" x="1776" y="464">
+  <object id="553" type="SlipperyHitbox" x="1768.83" y="461.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="554" type="Hitbox" x="1776" y="448">
+  <object id="554" type="Hitbox" x="1768.83" y="445.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="555" type="SlipperyHitbox" x="1776" y="432">
+  <object id="555" type="SlipperyHitbox" x="1768.83" y="429.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="556" type="Hitbox" x="1776" y="416">
+  <object id="556" type="Hitbox" x="1768.83" y="413.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="557" type="SlipperyHitbox" x="1776" y="400">
+  <object id="557" type="SlipperyHitbox" x="1768.83" y="397.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="558" type="Hitbox" x="1776" y="384">
+  <object id="558" type="Hitbox" x="1768.83" y="381.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="559" type="SlipperyHitbox" x="1776" y="368">
+  <object id="559" type="SlipperyHitbox" x="1768.83" y="365.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="560" type="Hitbox" x="1776" y="352">
+  <object id="560" type="Hitbox" x="1768.83" y="349.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="561" type="SlipperyHitbox" x="1776" y="336">
+  <object id="561" type="SlipperyHitbox" x="1768.83" y="333.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="562" type="Hitbox" x="1776" y="320">
+  <object id="562" type="Hitbox" x="1768.83" y="317.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="563" type="SlipperyHitbox" x="1776" y="304">
+  <object id="563" type="SlipperyHitbox" x="1768.83" y="301.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="564" type="Hitbox" x="1776" y="288">
+  <object id="564" type="Hitbox" x="1768.83" y="285.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="565" type="SlipperyHitbox" x="1776" y="272">
+  <object id="565" type="SlipperyHitbox" x="1768.83" y="269.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="566" type="Hitbox" x="1776" y="256">
+  <object id="566" type="Hitbox" x="1768.83" y="253.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="567" type="SlipperyHitbox" x="1776" y="240">
+  <object id="567" type="SlipperyHitbox" x="1768.83" y="237.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="568" type="Hitbox" x="1776" y="224">
+  <object id="568" type="Hitbox" x="1768.83" y="221.242">
    <polygon points="0,0 0,16 16,16 16,0"/>
   </object>
-  <object id="571" type="SlipperyHitbox" x="1664" y="384">
+  <object id="571" type="SlipperyHitbox" x="1656.83" y="381.242">
    <polygon points="0,0 0,80 16,64 16,16"/>
   </object>
-  <object id="573" type="SlipperyHitbox" x="1664" y="208">
+  <object id="573" type="SlipperyHitbox" x="1656.83" y="205.242">
    <polygon points="0,-128 0,-48 16,-64 16,-112"/>
   </object>
-  <object id="574" type="SlipperyHitbox" x="1664" y="544">
+  <object id="574" type="SlipperyHitbox" x="1656.83" y="541.242">
    <polygon points="0,0 0,112 -48,112 -32,128 16,128 16,16"/>
   </object>
-  <object id="575" type="Hitbox" x="2496" y="976">
+  <object id="575" type="Hitbox" x="2488.83" y="973.242">
    <polygon points="0,-608 0,528 -16,544 -32,544 -32,-576"/>
   </object>
-  <object id="576" type="Hitbox" x="2544" y="976">
+  <object id="576" type="Hitbox" x="2536.83" y="973.242">
    <polygon points="0,-608 32,-576 32,544 16,544 0,528"/>
   </object>
-  <object id="577" type="SlipperyHitbox" x="2496" y="1504">
+  <object id="577" type="SlipperyHitbox" x="2488.83" y="1501.24">
    <polygon points="0,0 -16,16 -144,16 -144,48 -64,48 -48,64 0,64"/>
   </object>
-  <object id="578" type="SlipperyHitbox" x="2544" y="1504">
+  <object id="578" type="SlipperyHitbox" x="2536.83" y="1501.24">
    <polygon points="0,0 0,96 -16,112 -48,112 -48,144 32,144 32,16 16,16"/>
   </object>
-  <object id="579" type="Hitbox" x="2496" y="1616">
+  <object id="579" type="Hitbox" x="2488.83" y="1613.24">
    <polygon points="0,0 0,32 -208,32 -208,0"/>
   </object>
-  <object id="580" name="Chimney" type="SlipperyHitbox" x="2496" y="400">
+  <object id="580" name="Chimney" type="SlipperyHitbox" x="2488.83" y="397.242">
    <polygon points="0,-32 -32,0 -32,-160 256,-160 256,-128 32,-128 0,-104"/>
   </object>
-  <object id="581" type="SlipperyHitbox" x="2544" y="400">
+  <object id="581" type="SlipperyHitbox" x="2536.83" y="397.242">
    <polygon points="32,0 0,-32 64,-32 80,-16 80,0"/>
   </object>
-  <object id="582" type="Hitbox" x="2608" y="368">
+  <object id="582" type="Hitbox" x="2600.83" y="365.242">
    <polygon points="0,0 144,0 144,32 16,32 16,16"/>
   </object>
-  <object id="583" type="BoostField" x="2496" y="400">
+  <object id="583" type="BoostField" x="2488.83" y="397.242">
    <properties>
     <property name="axis_y" type="float" value="-1"/>
     <property name="render_priority" type="float" value="-1"/>
@@ -202,94 +202,136 @@
    </properties>
    <polygon points="0,-32 48,-32 48,1104 0,1104"/>
   </object>
-  <object id="584" type="Hitbox" x="-1248" y="-688">
+  <object id="584" type="Hitbox" x="-1255.17" y="-690.758">
    <polygon points="48,0 64,16 224,16 240,0"/>
   </object>
-  <object id="585" type="Hitbox" x="-832" y="-688">
+  <object id="585" type="Hitbox" x="-839.17" y="-690.758">
    <polygon points="48,0 64,16 272,16 288,0"/>
   </object>
-  <object id="586" type="Hitbox" x="-560" y="-688">
+  <object id="586" type="Hitbox" x="-567.17" y="-690.758">
    <polygon points="208,0 224,16 304,16 320,0"/>
   </object>
-  <object id="587" type="SlipperyHitbox" x="-1456" y="-560">
+  <object id="587" type="SlipperyHitbox" x="-1463.17" y="-562.758">
    <polygon points="-16,-80 16,-80 16,-48 48,-48 48,-16 80,-16 80,16 112,16 112,48 144,48 144,80 2816,80 2816,-432 2769.36,-479.677 2768,-496 2816,-496 2848,-464 2848,112 -16,112"/>
   </object>
-  <object id="590" type="SlipperyHitbox" x="-1008" y="-688">
+  <object id="590" type="SlipperyHitbox" x="-1015.17" y="-690.758">
    <polygon points="0,0 0,32 -192,32 -192,0 -176,16 -16,16"/>
   </object>
-  <object id="591" type="SlipperyHitbox" x="-784" y="-688">
+  <object id="591" type="SlipperyHitbox" x="-791.17" y="-690.758">
    <polygon points="0,0 0,32 240,32 240,0 224,16 16,16"/>
   </object>
-  <object id="592" type="SlipperyHitbox" x="-352" y="-688">
+  <object id="592" type="SlipperyHitbox" x="-359.17" y="-690.758">
    <polygon points="0,0 0,32 112,32 112,0 96,16 16,16"/>
   </object>
-  <object id="593" type="Hitbox" x="-320" y="-784">
+  <object id="593" type="Hitbox" x="-327.17" y="-786.758">
    <polygon points="208,0 224,16 272,16 288,0"/>
   </object>
-  <object id="594" type="SlipperyHitbox" x="-112" y="-784">
+  <object id="594" type="SlipperyHitbox" x="-119.17" y="-786.758">
    <polygon points="0,0 0,32 80,32 80,0 64,16 16,16"/>
   </object>
-  <object id="596" type="SlipperyHitbox" x="-96" y="-848">
+  <object id="596" type="SlipperyHitbox" x="-103.17" y="-850.758">
    <polygon points="176,-16 176,32 208,32 224,16 640,16 752,16 768,32 784,32 784,-256 640,-256 640,-176 544,-96 544,0 224,0 210.274,-16"/>
   </object>
-  <object id="597" type="Hitbox" x="112" y="-848">
+  <object id="597" type="Hitbox" x="104.83" y="-850.758">
    <polygon points="0,32 560,32 544,16 16,16"/>
   </object>
-  <object id="599" type="BoostField" x="-1248" y="-512">
+  <object id="599" type="BoostField" x="-1255.17" y="-514.758">
    <properties>
     <property name="axis_x" type="float" value="-1"/>
     <property name="velocity" type="float" value="1.5"/>
    </properties>
    <polygon points="48,0 48,32 2608,32 2608,0"/>
   </object>
-  <object id="601" type="SlipperyHitbox" x="-208" y="-992">
+  <object id="601" type="SlipperyHitbox" x="-215.17" y="-994.758">
    <polygon points="96,32 112,16 272,16 288,32 288,0 128,0 112,-16 96,-16"/>
   </object>
-  <object id="602" type="Hitbox" x="304" y="-1040">
+  <object id="602" type="Hitbox" x="296.83" y="-1042.76">
    <polygon points="176,-80 240,-48 240,-64 384,-64 384,-48 448,-80 400,-80 384,-96 240,-96 224,-80"/>
   </object>
-  <object id="603" type="BoostField" x="720" y="-1056">
+  <object id="603" type="BoostField" x="712.83" y="-1058.76">
    <properties>
     <property name="axis_y" type="float" value="-1"/>
     <property name="render_priority" type="float" value="-200"/>
    </properties>
    <polygon points="128,0 128,48 576,48 576,0"/>
   </object>
-  <object id="604" type="SlipperyHitbox" x="928" y="-1088">
+  <object id="604" type="SlipperyHitbox" x="920.83" y="-1090.76">
    <polygon points="128,144 144,160 160,144 159.608,27.6825 127.608,27.6825"/>
   </object>
-  <object id="608" type="Hitbox" x="128" y="-1040">
+  <object id="608" type="Hitbox" x="120.83" y="-1042.76">
    <polygon points="128,32 224,32 208,16 144,16"/>
   </object>
-  <object id="609" type="SlipperyHitbox" x="-80" y="-1040">
+  <object id="609" type="SlipperyHitbox" x="-87.17" y="-1042.76">
    <polygon points="336,0 336,32 352,16 416,16 432,32 432,-48"/>
   </object>
-  <object id="611" type="SlipperyHitbox" x="688" y="-1136">
+  <object id="611" type="SlipperyHitbox" x="680.83" y="-1138.76">
    <polygon points="0,0 16,16 80,16 80,0 0,0"/>
   </object>
-  <object id="612" type="SlipperyHitbox" x="320" y="-1136">
+  <object id="612" type="SlipperyHitbox" x="312.83" y="-1138.76">
    <polygon points="144,16 208,16 224,0 144,0"/>
   </object>
-  <object id="614" type="Hitbox" x="-112" y="-960">
+  <object id="614" type="Hitbox" x="-119.17" y="-962.758">
    <polygon points="0,0 192,0 176,-16 16,-16"/>
   </object>
-  <object id="615" x="-1486.13" y="402.403">
-   <polygon points="0,0 320,0 320,-320 352,-320 352,0 576,0 576,32 0,32"/>
+  <object id="615" x="-1540.96" y="719.222">
+   <polygon points="-1.868,-2.40305 318.132,-2.40305 318.132,-450.403 366.132,-450.403 366.132,-2.40305 916.648,-0.264626 916.648,-656.265 1124.65,-656.265 1124.65,-0.264626 1556.65,-0.264626 1556.65,95.7354 -1.868,93.5969"/>
   </object>
-  <object id="616" type="Hitbox" x="-782.321" y="254.266">
-   <polygon points="0,0 16,-16 16,-320 32,-320 32,0"/>
+  <object id="616" type="SlipperyHitbox" x="-1254.83" y="716.819">
+   <polygon points="0,0 16,-16 16,-447.365 32,-464 80,-464 96,-448 96,-16 112,0 80,0 80,-448 32,-448 32,0"/>
   </object>
-  <object id="617" type="MovableHitbox" x="-1344" y="272">
+  <object id="617" type="MovableHitbox" x="-1935.92" y="-502.348">
    <polygon points="0,0 0,48 48,48 48,0"/>
   </object>
-  <object id="618" type="Path" x="-1320.77" y="360.81">
+  <object id="618" name="From" type="Path" x="-1912.69" y="-413.538">
    <properties>
     <property name="next" type="object" value="619"/>
     <property name="target" type="object" value="617"/>
    </properties>
    <point/>
   </object>
-  <object id="619" type="PathNode" x="-1320.04" y="215.606">
+  <object id="619" name="To" type="PathNode" x="-1911.96" y="-558.742">
+   <point/>
+  </object>
+  <object id="620" type="BoostField" x="-1286.83" y="620.819">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 -48,0 -48,-80 -24.1008,-120.168 0,-80"/>
+  </object>
+  <object id="626" type="BoostField" x="-816" y="384">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 -48,0 -48,-87.832 -24.1008,-128 0,-87.832"/>
+  </object>
+  <object id="627" type="BoostField" x="-768" y="672">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 -48,0 -48.3416,-183.409 -24.4424,-223.577 -0.341642,-183.409"/>
+  </object>
+  <object id="629" type="BoostField" x="-880.313" y="30.9577">
+   <properties>
+    <property name="axis_x" type="float" value="1"/>
+   </properties>
+   <polygon points="224,0 224,-112 -128,-112 -128,0"/>
+  </object>
+  <object id="630" type="SlipperyHitbox" x="-624.313" y="62.9577">
+   <polygon points="0,0 0,656 -16,656 -16,0 -30.6349,-16.3468 -64,-17.1374 -64,-32 -16,-32 0,-16 208,-16 224,0 224,656 208,656 208,0"/>
+  </object>
+  <object id="633" type="BoostField" x="-400.313" y="78.9577">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+   </properties>
+   <polygon points="0,0 0.312886,49.0423 400.313,49.0423 400,0"/>
+  </object>
+  <object id="635" type="SlipperyHitbox" x="-1024.31" y="-81.0423">
+   <polygon points="-527.687,1.04229 368.313,1.04229 368.313,17.0423 384.313,17.0423 400.313,1.04229 609.059,1.04229 624.313,17.0423 768.313,17.0423 816.313,49.0423 864.313,17.0423 976.313,17.0423 1024.31,49.0423 1024,736 1040.31,737.042 1040.31,-14.9577 -527.687,-14.9577"/>
+  </object>
+  <object id="637" name="Boost Field 01" x="-1552" y="-96">
+   <polygon points="0,0 1568,0 1568,752 1648,752 1648,-80 0,-80"/>
+  </object>
+  <object id="638" name="Coin" type="Coin" x="-32" y="160">
    <point/>
   </object>
  </objectgroup>

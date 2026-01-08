@@ -244,7 +244,7 @@ local function _get_line_intersection_params(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
 end
 
 -- get all visible subsegments of `segments`, any segment in `segments` or `occluding_segments` can occlude
-function _get_visible_subsegments(segments, px, py, occluding_segments)
+local function _get_visible_subsegments(segments, px, py, occluding_segments)
     local eps = 10e-4
     local _ray_segment_intersection = function(px, py, dx, dy, x1, y1, x2, y2)
         local sx = x2 - x1

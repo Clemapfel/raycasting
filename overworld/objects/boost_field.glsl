@@ -35,7 +35,7 @@ vec4 effect(vec4 vertex_color, sampler2D _, vec2 texture_coordinates, vec2 frag_
     ) / 400.0), 3.0);
 
     #ifdef SHADER_DERIVATIVES_AVAILABLE
-    float distortion = pow(dist, 1.2);
+    float distortion = pow(dist, 1.1);
     vec2 dxy = vec2(dFdx(distortion), dFdy(distortion));
     #else
     vec2 dxy = vec2(0.0);
