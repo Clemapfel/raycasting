@@ -61,8 +61,24 @@ end
 
 --- @brief get magnitude of each direction
 function rt.JoystickGestureDetector:get_magnitude(input_action)
+    local joystick_x, joystick_y = rt.InputManager:get_left_joystick()
+    local value
+    if input_action == rt.InputAction.LEFT then
+        value = math.min(0, joystick_x)
+    elseif input_action == rt.InputAction.RIGHT then
+        value = math.max(0, joystick_x)
+    elseif input_action == rt.InputAction.UP then
+        value = math.min(0, joystick_y)
+    elseif input_action == rt.InputAction.DOWN then
+        value = math.max(0, joystick_y)
+    end
+
+    return math.abs(value)
+    --[[
+
     local entry = self._input_action_to_data[input_action]
     if entry == nil then return 0 else return entry.magnitude end
+    ]]--
 end
 
 local _direction_to_angle = {

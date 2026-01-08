@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 615,
+  nextobjectid = 620,
   properties = {},
   tilesets = {
     {
@@ -138,8 +138,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1696,
-          y = -662.64,
+          x = -1566.79,
+          y = 256.793,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1151,7 +1151,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = -576 },
+            { x = 0, y = -608 },
             { x = 0, y = 528 },
             { x = -16, y = 544 },
             { x = -32, y = 544 },
@@ -1171,7 +1171,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = -576 },
+            { x = 0, y = -608 },
             { x = 32, y = -576 },
             { x = 32, y = 544 },
             { x = 16, y = 544 },
@@ -1255,7 +1255,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = 0, y = -32 },
             { x = -32, y = 0 },
             { x = -32, y = -160 },
             { x = 256, y = -160 },
@@ -1277,7 +1277,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = 32, y = 0 },
             { x = 0, y = -32 },
             { x = 64, y = -32 },
             { x = 80, y = -16 },
@@ -1317,8 +1317,8 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 48, y = 0 },
+            { x = 0, y = -32 },
+            { x = 48, y = -32 },
             { x = 48, y = 1104 },
             { x = 0, y = 1104 }
           },
@@ -1779,6 +1779,97 @@ return {
             { x = 176, y = -16 },
             { x = 16, y = -16 }
           },
+          properties = {}
+        },
+        {
+          id = 615,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1486.13,
+          y = 402.403,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 320, y = 0 },
+            { x = 320, y = -320 },
+            { x = 352, y = -320 },
+            { x = 352, y = 0 },
+            { x = 576, y = 0 },
+            { x = 576, y = 32 },
+            { x = 0, y = 32 }
+          },
+          properties = {}
+        },
+        {
+          id = 616,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -782.321,
+          y = 254.266,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 16, y = -16 },
+            { x = 16, y = -320 },
+            { x = 32, y = -320 },
+            { x = 32, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 617,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = -1344,
+          y = 272,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 48 },
+            { x = 48, y = 48 },
+            { x = 48, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 618,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = -1320.77,
+          y = 360.81,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 619 },
+            ["target"] = { id = 617 }
+          }
+        },
+        {
+          id = 619,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -1320.04,
+          y = 215.606,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

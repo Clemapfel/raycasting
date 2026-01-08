@@ -76,6 +76,7 @@ do
         flow_target_velocity = 180,
 
         instant_turnaround_velocity = 600,
+        allow_instant_turn_around = false,
 
         coyote_time = 8 / 60, -- seconds after leaving ground
         wall_jump_coyote_time = 5 / 120, -- seconds after letting go of direction against wall
@@ -376,8 +377,6 @@ function rt.Player:instantiate()
         -- double jump
         _double_jump_sources = {},
 
-        _use_analog_input = rt.InputManager:get_input_method() == rt.InputMethod.CONTROLLER,
-
         _body_to_collision_normal = {},
 
         _time_dilation = 1,
@@ -528,15 +527,12 @@ function rt.Player:_connect_input()
                 self._queue_turn_around_direction = rt.Direction.UP
             end
         end
-
-        self._use_analog_input = true
     end)
 
     self._input:signal_connect("left_joystick_moved", function(_, x, y)
         -- direction handled in joystick gesture
         self._joystick_position_x = x
         self._joystick_position_y = y
-        self._use_analog_input = true
     end)
 
     self._input:signal_connect("controller_button_pressed", function(_, which)
@@ -554,8 +550,6 @@ function rt.Player:_connect_input()
             self._left_button_is_down = true
             dpad_active = true
         end
-
-        if dpad_active then self._use_analog_input = false end
     end)
 
     self._input:signal_connect("controller_button_released", function(_, which)
@@ -691,26 +685,11 @@ function rt.Player:update(delta)
         end
     end
 
-    local use_analog_input = self._use_analog_input
-
-    -- detect idle
-    if self._state == rt.PlayerState.ACTIVE and
-        self._up_button_is_down or
-        self._right_button_is_down or
-        self._down_button_is_down or
-        self._left_button_is_down or
-        self._jump_button_is_down or
-        (not self._is_bubble and self._bottom_wall == false) or
-        self._state ~= rt.PlayerState.ACTIVE
-    then
-        self._idle_elapsed = 0
-    elseif self._idle_timer_frozen == false
-        and not self._state == rt.PlayerState.DISABLED
-        and not self._movement_disabled
-        and not self._is_frozen
-    then
-        self._idle_elapsed = self._idle_elapsed + delta
-    end
+    local use_analog_input = math.magnitude(self._joystick_position_x, self._joystick_position_y) > math.eps
+        and not self._left_button_is_down
+        and not self._right_button_is_down
+        and not self._down_button_is_down
+        and not self._up_button_is_down
 
     local gravity = time_dilation * _settings.gravity * delta * self._gravity_multiplier
 
@@ -862,16 +841,16 @@ function rt.Player:update(delta)
     self._is_grounded = is_grounded
 
     -- input method agnostic button state
-    local left_is_down = self._left_button_is_down or
+    local left_is_down = self._left_button_is_down or use_analog_input and
         self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > _settings.joystick_magnitude_left_threshold
 
-    local right_is_down = self._right_button_is_down or
+    local right_is_down = self._right_button_is_down or use_analog_input and
         self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) > _settings.joystick_magnitude_right_threshold
 
-    local up_is_down = self._up_button_is_down or
+    local up_is_down = self._up_button_is_down or use_analog_input and
         self._joystick_gesture:get_magnitude(rt.InputAction.UP) > _settings.joystick_magnitude_up_threshold
 
-    local down_is_down = self._down_button_is_down or
+    local down_is_down = self._down_button_is_down or use_analog_input and
         self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
 
     -- buffered jump
@@ -1018,7 +997,7 @@ function rt.Player:update(delta)
 
             -- on analog, prioritize disregarding side inputs
             local should_duck
-            if self._use_analog_input then
+            if use_analog_input then
                 should_duck = self._joystick_gesture:get_magnitude(rt.InputAction.DOWN) > _settings.joystick_magnitude_down_threshold
                     and self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) < _settings.joystick_magnitude_left_threshold
                     and self._joystick_gesture:get_magnitude(rt.InputAction.RIGHT) < _settings.joystick_magnitude_right_threshold
@@ -1320,7 +1299,7 @@ function rt.Player:update(delta)
             local seen = {}
 
             -- apply friction along tangent, also magnetize towards surface
-            local apply_friction = function(normal_x, normal_y, body, contact_x, contact_y, ray_length)
+            local apply_friction = function(normal_x, normal_y, body, use_input_modifier)
                 local player_vx, player_vy = self._body:get_velocity()
                 local body_vx, body_vy = body:get_velocity()
 
@@ -1349,22 +1328,26 @@ function rt.Player:update(delta)
                 end
 
                 local input_modifier = 1.0
-                if use_analog_input then
-                    local push_factor = math.dot(
-                        self._joystick_position_x,
-                        self._joystick_position_y,
-                        -normal_x, -normal_y
-                    )
-                    input_modifier = math.max(0, push_factor)
-                elseif down_is_down then
-                    local release_progress = math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
-                    input_modifier = 1 - release_progress -- linear easing
+                if use_input_modifier then
+                    if use_analog_input then
+                        -- easing determined by joystick input, aggressive for lower values
+                        local easing = function(x) return 1 - x^(1 / 4)  end
+                        input_modifier = easing(math.max(0, math.dot(
+                            0, 1,
+                            math.normalize(self._joystick_position_x, self._joystick_position_y)
+                        )))
+                    elseif down_is_down then
+                        -- easing determined by how long down was held
+                        input_modifier = 1 - math.min(1, self._down_button_is_down_elapsed / _settings.down_button_friction_release_duration)
+                    end
                 end
 
                 local friction_force = input_modifier * slope_factor * _settings.friction_coefficient
                 net_friction_x = net_friction_x + tangent_x * friction_force
                 net_friction_y = net_friction_y + tangent_y * friction_force
             end
+
+            local use_input_modifier, do_not_use_input_modifier = true, false
 
             if self._left_wall
                 and not self._left_wall_body:has_tag("slippery")
@@ -1373,7 +1356,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     left_nx, left_ny,
                     self._left_wall_body,
-                    left_x, left_y, left_ray_length
+                    use_input_modifier
                 )
             end
 
@@ -1384,7 +1367,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     right_nx, right_ny,
                     self._right_wall_body,
-                    right_x, right_y, right_ray_length
+                    use_input_modifier
                 )
             end
 
@@ -1395,7 +1378,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     top_left_nx, top_left_ny,
                     self._top_left_wall_body,
-                    top_left_x, top_left_y, top_left_ray_length
+                    do_not_use_input_modifier
                 )
             end
 
@@ -1405,7 +1388,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     top_nx, top_ny,
                     self._top_wall_body,
-                    top_x, top_y, top_ray_length
+                    do_not_use_input_modifier
                 )
             end
 
@@ -1416,7 +1399,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     top_right_nx, top_right_ny,
                     self._top_right_wall_body,
-                    top_right_x, top_right_y, top_right_ray_length
+                    do_not_use_input_modifier
                 )
             end
 
@@ -1428,7 +1411,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     bottom_left_nx, bottom_left_ny,
                     self._bottom_left_wall_body,
-                    bottom_left_x, bottom_left_y, bottom_ray_length
+                   do_not_use_input_modifier
                 )
             end
 
@@ -1439,7 +1422,7 @@ function rt.Player:update(delta)
                 apply_friction(
                     bottom_nx, bottom_ny,
                     self._bottom_wall_body,
-                    bottom_x, bottom_y, bottom_ray_length
+                    do_not_use_input_modifier
                 )
             end
 
@@ -1450,32 +1433,31 @@ function rt.Player:update(delta)
                 apply_friction(
                     bottom_right_nx, bottom_right_ny,
                     self._bottom_right_wall_body,
-                    bottom_right_x, bottom_right_y, bottom_right_ray_length
+                    do_not_use_input_modifier
                 )
             end
 
-            do -- clamp friction
-                local velocity_magnitude = math.magnitude(current_velocity_x, current_velocity_y)
+            -- clamp friction
+            local velocity_magnitude = math.magnitude(current_velocity_x, current_velocity_y)
 
-                local friction_dx, friction_dy = math.normalize(net_friction_x, net_friction_y)
-                local velocity_along_friction = math.dot(
-                    current_velocity_x, current_velocity_y,
-                    friction_dx, friction_dy
+            local friction_dx, friction_dy = math.normalize(net_friction_x, net_friction_y)
+            local velocity_along_friction = math.dot(
+                current_velocity_x, current_velocity_y,
+                friction_dx, friction_dy
+            )
+
+            -- only oppose motion along friction direction
+            if velocity_along_friction < 0 then
+                local clamped_magnitude = math.min(
+                    math.magnitude(net_friction_x, net_friction_y),
+                    -velocity_along_friction
                 )
 
-                -- only oppose motion along friction direction
-                if velocity_along_friction < 0 then
-                    local clamped_magnitude = math.min(
-                        math.magnitude(net_friction_x, net_friction_y),
-                        -velocity_along_friction
-                    )
-
-                    net_friction_x = friction_dx * clamped_magnitude
-                    net_friction_y = friction_dy * clamped_magnitude
-                else
-                    net_friction_x = 0
-                    net_friction_y = 0
-                end
+                net_friction_x = friction_dx * clamped_magnitude
+                net_friction_y = friction_dy * clamped_magnitude
+            else
+                net_friction_x = 0
+                net_friction_y = 0
             end
         end -- wall friction
 
@@ -1594,11 +1576,14 @@ function rt.Player:update(delta)
         -- downwards force
         if not self._movement_disabled
             and down_is_down
-            -- and is_grounded
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
         then
             local force = 1 / velocity_easing * _settings.downwards_force * delta
+            if use_analog_input then
+                force = force * math.max(0, self._joystick_position_y) -- linear easing, only detect down
+            end
+
             next_velocity_x = next_velocity_x + self._gravity_direction_x * force
             next_velocity_y = next_velocity_y + self._gravity_direction_y * force
         end
@@ -1751,7 +1736,7 @@ function rt.Player:update(delta)
         end
 
         -- instant turn around
-        if self._queue_turn_around == true then
+        if _settings.allow_instant_turn_around and self._queue_turn_around == true then
             local vx, vy = current_velocity_x, current_velocity_y
             if self._queue_turn_around_direction == rt.Direction.RIGHT and is_grounded then
                 next_velocity_x = math.max(math.abs(vx), _settings.instant_turnaround_velocity)
@@ -1863,15 +1848,34 @@ function rt.Player:update(delta)
         self._graphics_body:set_right_squish(false)
     end
 
-   if should_decay_platform_velocity then
-       if was_grounded == false and is_grounded == true then
+    if should_decay_platform_velocity then
+        if was_grounded == false and is_grounded == true then
            self._platform_velocity_x = 0
            self._platform_velocity_y = 0
-       else
+        else
            local decay = math.pow(_settings.platform_velocity_decay, delta)
            self._platform_velocity_x = self._platform_velocity_x * decay
            self._platform_velocity_y = self._platform_velocity_y * decay
-       end
+        end
+    end
+
+    -- detect idle
+    if self._state == rt.PlayerState.ACTIVE and
+        use_analog_input
+        or self._up_button_is_down
+        or self._right_button_is_down
+        or self._down_button_is_down
+        or self._left_button_is_down
+        or self._jump_button_is_down
+        or (not self._is_bubble and not self._is_grounded)
+    then
+        self._idle_elapsed = 0
+    elseif self._idle_timer_frozen == false
+        and not self._state == rt.PlayerState.DISABLED
+        and not self._movement_disabled
+        and not self._is_frozen
+    then
+        self._idle_elapsed = self._idle_elapsed + delta
     end
 
     -- detect being squished by moving objects
@@ -2001,28 +2005,29 @@ function rt.Player:update(delta)
     end
 
     -- timers
-    if self._down_button_is_down then self._down_button_is_down_elapsed = self._down_button_is_down_elapsed + delta end
-    if self._up_button_is_down then self._up_button_is_down_elapsed = self._up_button_is_down_elapsed + delta end
-    if self._left_button_is_down then self._left_button_is_down_elapsed = self._left_button_is_down_elapsed + delta end
-    if self._right_button_is_down then self._right_button_is_down_elapsed = self._right_button_is_down_elapsed + delta end
+    if down_is_down then self._down_button_is_down_elapsed = self._down_button_is_down_elapsed + delta end
+    if up_is_down then self._up_button_is_down_elapsed = self._up_button_is_down_elapsed + delta end
+    if left_is_down then self._left_button_is_down_elapsed = self._left_button_is_down_elapsed + delta end
+    if right_is_down then self._right_button_is_down_elapsed = self._right_button_is_down_elapsed + delta end
     if self._jump_button_is_down then self._jump_button_is_down_elapsed = self._jump_button_is_down_elapsed + delta end
     if self._sprint_button_is_down then self._sprint_button_is_down_elapsed = self._sprint_button_is_down_elapsed + delta end
 
     -- add blood splatter
     local color_r, color_g, color_b, _ = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
     if self._stage ~= nil and not self._is_ghost then
-        local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
-            local r = ternary(not self._is_bubble, self._radius, 2 / 3 * self._radius * _settings.bubble_radius_factor)
-            local cx, cy = contact_x, contact_y
+        local cx, cy = self:get_position()
+        local radius = math.max(top_ray_length, right_ray_length, bottom_ray_length, left_ray_length)
 
+        local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
             -- at high velocities, interpolate
-            if last_contact_x ~= nil and last_contact_y ~= nil then
+            -- TODO
+            if false then --last_contact_x ~= nil and last_contact_y ~= nil then
                 local lcx, lcy = last_contact_x, last_contact_y
                 local dx = cx - lcx
                 local dy = cy - lcy
                 local distance = math.magnitude(dx, dy)
 
-                local step_size = r * 0.5
+                local step_size = radius * 0.5
                 local num_steps = math.max(1, math.ceil(distance / step_size))
 
                 for i = 0, num_steps do
@@ -2033,14 +2038,12 @@ function rt.Player:update(delta)
                     if math.distance(
                         self._last_position_x, self._last_position_y,
                         interpolation_x, interpolation_y
-                    ) < r then
-                        self._stage:get_blood_splatter():add(interpolation_x, interpolation_y, r, color_r, color_g, color_b, 1)
+                    ) < radius then
+                        self._stage:get_blood_splatter():add(interpolation_x, interpolation_y, radius, color_r, color_g, color_b, 1)
                     end
                 end
             else
-                if math.distance(self._last_position_x, self._last_position_y, cx, cy) < r then
-                    self._stage:get_blood_splatter():add(cx, cy, r, color_r, color_g, color_b, 1)
-                end
+                self._stage:get_blood_splatter():add(cx, cy, radius, color_r, color_g, color_b, 1)
             end
         end
 

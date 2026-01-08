@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="615">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="620">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -16,7 +16,7 @@
   <object id="395" type="SlipperyHitbox" x="2292.07" y="672">
    <polygon points="-4.07,0 -4.07,-112 11.93,-128 11.93,-224 -4.07,-240 -4.07,-416 11.93,-432 11.93,-528 -4.07,-544 -4.07,-704 59.934,-704 59.93,48 -4.07,48"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="-1696" y="-662.64">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="-1566.79" y="256.793">
    <point/>
   </object>
   <object id="401" type="SlipperyHitbox" x="2100.79" y="527.284">
@@ -171,10 +171,10 @@
    <polygon points="0,0 0,112 -48,112 -32,128 16,128 16,16"/>
   </object>
   <object id="575" type="Hitbox" x="2496" y="976">
-   <polygon points="0,-576 0,528 -16,544 -32,544 -32,-576"/>
+   <polygon points="0,-608 0,528 -16,544 -32,544 -32,-576"/>
   </object>
   <object id="576" type="Hitbox" x="2544" y="976">
-   <polygon points="0,-576 32,-576 32,544 16,544 0,528"/>
+   <polygon points="0,-608 32,-576 32,544 16,544 0,528"/>
   </object>
   <object id="577" type="SlipperyHitbox" x="2496" y="1504">
    <polygon points="0,0 -16,16 -144,16 -144,48 -64,48 -48,64 0,64"/>
@@ -186,10 +186,10 @@
    <polygon points="0,0 0,32 -208,32 -208,0"/>
   </object>
   <object id="580" name="Chimney" type="SlipperyHitbox" x="2496" y="400">
-   <polygon points="0,0 -32,0 -32,-160 256,-160 256,-128 32,-128 0,-104"/>
+   <polygon points="0,-32 -32,0 -32,-160 256,-160 256,-128 32,-128 0,-104"/>
   </object>
   <object id="581" type="SlipperyHitbox" x="2544" y="400">
-   <polygon points="0,0 0,-32 64,-32 80,-16 80,0"/>
+   <polygon points="32,0 0,-32 64,-32 80,-16 80,0"/>
   </object>
   <object id="582" type="Hitbox" x="2608" y="368">
    <polygon points="0,0 144,0 144,32 16,32 16,16"/>
@@ -200,7 +200,7 @@
     <property name="render_priority" type="float" value="-1"/>
     <property name="velocity" type="float" value="0.25"/>
    </properties>
-   <polygon points="0,0 48,0 48,1104 0,1104"/>
+   <polygon points="0,-32 48,-32 48,1104 0,1104"/>
   </object>
   <object id="584" type="Hitbox" x="-1248" y="-688">
    <polygon points="48,0 64,16 224,16 240,0"/>
@@ -272,6 +272,25 @@
   </object>
   <object id="614" type="Hitbox" x="-112" y="-960">
    <polygon points="0,0 192,0 176,-16 16,-16"/>
+  </object>
+  <object id="615" x="-1486.13" y="402.403">
+   <polygon points="0,0 320,0 320,-320 352,-320 352,0 576,0 576,32 0,32"/>
+  </object>
+  <object id="616" type="Hitbox" x="-782.321" y="254.266">
+   <polygon points="0,0 16,-16 16,-320 32,-320 32,0"/>
+  </object>
+  <object id="617" type="MovableHitbox" x="-1344" y="272">
+   <polygon points="0,0 0,48 48,48 48,0"/>
+  </object>
+  <object id="618" type="Path" x="-1320.77" y="360.81">
+   <properties>
+    <property name="next" type="object" value="619"/>
+    <property name="target" type="object" value="617"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="619" type="PathNode" x="-1320.04" y="215.606">
+   <point/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">

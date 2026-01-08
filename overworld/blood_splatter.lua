@@ -1,7 +1,7 @@
 require "common.contour"
 
 rt.settings.overworld.blood_splatter = {
-    sensor_radius = 5
+    line_width = 3.5
 }
 
 -- @class ow.BloodSplatter
@@ -136,10 +136,6 @@ function ow.BloodSplatter:add(x, y, radius, color_r, color_g, color_b, opacity, 
         local color = rt.RGBA(color_r, color_g, color_b, opacity)
         local hue = select(1, rt.rgba_to_hsva(color_r, color_g, color_b, opacity))
         for division in values(data.subdivisions) do
-            if division.left_fraction > right_fraction then
-                break
-            end
-
             if division.left_fraction <= right_fraction and division.right_fraction >= left_fraction then
                 if allow_override or not division.is_active then
                     division.color = color
@@ -162,7 +158,8 @@ end
 
 --- @brief
 function ow.BloodSplatter:draw()
-    love.graphics.setLineWidth(3.5)
+    local line_width = rt.settings.overworld.blood_splatter.line_width
+    love.graphics.setLineWidth(line_width)
 
     local x, y, w, h = self._scene:get_camera():get_world_bounds():unpack()
     x = x - self._offset_x
@@ -170,25 +167,26 @@ function ow.BloodSplatter:draw()
     local visible = {}
     self._world:update(0)
 
-    for shape in values(self._world:getShapesInArea(x, y, x + w, y + h)) do
-        visible[shape] = true
-    end
 
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
 
     local t = self._bloom_factor -- experimentally determined to compensate best
     local brightness_offset = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse())
-    for division in keys(self._active_divisions) do
-        if visible[division.shape] == true then
-            local r, g, b, a = division.color:unpack()
-            love.graphics.setColor(
-                (r - t) * brightness_offset,
-                (g - t) * brightness_offset,
-                (b - t) * brightness_offset,
-                a
-            )
-            love.graphics.line(division.line)
+    love.graphics.setLineWidth(line_width)
+
+    for shape in values(self._world:getShapesInArea(x, y, x + w, y + h)) do
+        for division in values(shape:getUserData().subdivisions) do
+            if division.is_active then
+                local r, g, b, a = division.color:unpack()
+                love.graphics.setColor(
+                    (r - t) * brightness_offset,
+                    (g - t) * brightness_offset,
+                    (b - t) * brightness_offset,
+                    a
+                )
+                love.graphics.line(division.line)
+            end
         end
     end
 
@@ -281,7 +279,9 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
                     local sx2 = x1 + right_fraction * dx
                     local sy2 = y1 + right_fraction * dy
 
-                    table.insert(subdivisions, {
+                    local hue = rt.random.number(0, 1)
+                    local color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, 1))
+                    local division ={
                         shape = edge,
                         line = { sx1, sy1, sx2, sy2 },
                         left_fraction = left_fraction,
@@ -289,7 +289,9 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
                         is_active = false,
                         hue = nil,
                         color = nil
-                    })
+                    }
+                    table.insert(subdivisions, division)
+                    self._active_divisions[division] = true
                 end
             else
                 table.insert(subdivisions, {
@@ -304,7 +306,7 @@ function ow.BloodSplatter:create_contour(tris, occluding_tris)
             end
 
             edge:setUserData({
-                line = {x1, y1, x2, y2},
+                line = { x1, y1, x2, y2 },
                 subdivisions = subdivisions
             })
 
@@ -322,40 +324,59 @@ end
 function ow.BloodSplatter:get_segment_light_sources(bounds)
     meta.assert(bounds, rt.AABB)
     local segments, colors = {}, {}
-
     local n = 0
 
+    local hue_threshold = 0.05
+    local x, y, w, h = bounds:unpack()
+    x = x - self._offset_x
+    y = y - self._offset_y
     for shape in values(self._world:getShapesInArea(
-        bounds.x - self._offset_x,
-        bounds.y - self._offset_y,
-        bounds.x + bounds.width,
-        bounds.y + bounds.height
+        x, y, x + w, y + h
     )) do
-        local edge = shape:getUserData()
-        local before = nil
-        for current in values(edge.subdivisions) do
-            if self._active_divisions[current] == true then
-                local inserted = false
-                if before ~= nil and before.right_fraction == current.left_fraction
-                    and math.abs(before.hue - current.hue) < 0.01
-                then
-                    -- extend last colinear segment
-                    segments[n][3] = current.line[3]
-                    segments[n][4] = current.line[4]
-                    inserted = true
-                else
-                    table.insert(segments, current.line)
-                    table.insert(colors, current.color)
-                    n = n + 1
-                    inserted = true
-                end
+        local data = shape:getUserData()
 
-                if inserted then
-                    before = current
+        local x1, y1, x2, y2 = nil, nil, nil, nil
+        local current_hue = nil
+        local current_color = nil
+        local segment_active = false
+
+        local start_segment = function(division)
+            -- start new line segment
+            x1, y1, x2, y2 = table.unpack(division.line)
+            current_hue = division.hue
+            current_color = division.color
+            segment_active = true
+        end
+
+        local push_segment = function()
+            -- finish new line segment
+            table.insert(segments, { x1, y1, x2, y2 })
+            table.insert(colors, current_color)
+
+            x1, y1, x2, y2 = nil, nil, nil, nil
+            current_hue = nil
+            current_color = nil
+            segment_active = false
+        end
+
+        for division in values(data.subdivisions) do
+            if division.is_active then
+                if current_hue == nil then
+                    start_segment(division)
+                elseif math.abs(current_hue - division.hue) <= hue_threshold then
+                    -- extend colinear segment if hue is close enough
+                    x2, y2 = division.line[3], division.line[4]
+                else
+                    push_segment()
+                    start_segment(division)
                 end
-            else
-                before = nil
+            elseif segment_active then
+                push_segment()
             end
+        end
+
+        if segment_active then
+            push_segment()
         end
     end
 

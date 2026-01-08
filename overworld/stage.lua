@@ -609,17 +609,16 @@ function ow.Stage:get_segment_light_sources()
     if self._segment_light_sources_need_update == true then
         local camera = self._scene:get_camera()
         local max_n = rt.settings.overworld.normal_map.max_n_point_lights
-        local positions, colors = {}, {}
+        local positions, colors = {}, nil
 
         do -- convert blood splatter
             local blood_segments, blood_colors = self._blood_splatter:get_segment_light_sources(self._scene:get_camera():get_world_bounds())
+            colors = blood_colors
+
             for i, segment in ipairs(blood_segments) do
                 local x1, y1 = camera:world_xy_to_screen_xy(segment[1], segment[2])
                 local x2, y2 = camera:world_xy_to_screen_xy(segment[3], segment[4])
                 table.insert(positions, { x1, y1, x2, y2 })
-                table.insert(colors, {
-                    blood_colors[i]:unpack()
-                })
             end
         end
 
