@@ -269,6 +269,16 @@ function ow.Stage:instantiate(scene, id)
         end
     end
 
+    -- add non-object updatables
+    table.insert(self._to_update, self._player_recorder)
+    for object in range(
+        self._mirror,
+        self._world,
+        self._normal_map
+    ) do
+        table.insert(self._to_update, object)
+    end
+
     -- distribute drawables
     for priority, entry in pairs(render_priority_to_entry) do
         if priority <= 0 then
@@ -469,7 +479,7 @@ function ow.Stage:update(delta)
         self._signal_done_emitted = true
     end
 
-    if self._normal_map_done then
+    if self._normal_map_done and rt.GameState:get_is_performance_mode_enabled() == false then
         -- collect light sources and visibel bodies
         local camera = self._scene:get_camera()
         local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
@@ -483,11 +493,10 @@ function ow.Stage:update(delta)
         self._point_light_source_bodies = {}
         self._segment_light_source_bodies = {}
 
-        for shape in values(self._world:get_native():getShapesInArea(
+        for body in values(self._world:query_aabb(
             top_left_x, top_left_y,
-            bottom_right_x, bottom_right_y
+            bottom_right_x - top_left_x, bottom_right_y - top_left_y
         )) do
-            local body = shape:getBody():getUserData()
             self._visible_bodies[body] = true
 
             if body ~= nil and body:has_tag("point_light_source") then
@@ -503,25 +512,64 @@ function ow.Stage:update(delta)
         self._segment_light_sources_need_update = true
     end
 
-    self._player_recorder:update(delta)
+    local should_profile = false
+    if should_profile then
+        if self._profile_data == nil then self._profile_data = {} end
+        if self._type_to_profile_data == nil then self._type_to_profile_data = {} end
+    end
 
     for object in values(self._to_update) do
+        local before = love.timer.getTime()
+
         object:update(delta)
+
+        if should_profile then
+            local type = meta.typeof(object)
+            local entry = self._type_to_profile_data[type]
+            if entry == nil then
+                entry = {
+                    type = type,
+                    max = -math.huge,
+                    history = table.rep(0, 100),
+                    sum = 0
+                }
+
+                self._type_to_profile_data[type] = entry
+                table.insert(self._profile_data, entry)
+            end
+
+            local elapsed = love.timer.getTime() - before
+            entry.max = math.max(entry.max, elapsed)
+
+            local first = entry.history[1]
+            table.remove(entry.history, 1)
+            table.insert(entry.history, elapsed)
+            entry.sum = entry.sum - first + elapsed
+        end
+    end
+
+    if should_profile then
+        table.sort(self._profile_data, function(a, b)
+            return a.max > b.max
+        end)
+
+        dbg("\n\n")
+        for entry in values(self._profile_data) do
+            local value = math.floor(entry.max / (1 / 60) * 100) / 100
+            if value > 0 then
+                dbg(entry.type, "\t", value)
+            end
+        end
     end
 
     if self._flow_graph ~= nil then
         self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
-
-    self._mirror:update(delta)
-    self._world:update(delta)
-    self._normal_map:update(delta)
 end
 
 local _error_no_userdata = function(scope, instance)
     rt.error("In ow.Stage.", scope, " object `",  meta.typeof(instance),  "` is a point light source but, the body does not have a userdata pointing to an instance")
 end
-
 
 --- @brief
 function ow.Stage:get_point_light_sources()
@@ -609,16 +657,19 @@ function ow.Stage:get_segment_light_sources()
     if self._segment_light_sources_need_update == true then
         local camera = self._scene:get_camera()
         local max_n = rt.settings.overworld.normal_map.max_n_point_lights
-        local positions, colors = {}, nil
+        local positions, colors = {}, {}
 
         do -- convert blood splatter
             local blood_segments, blood_colors = self._blood_splatter:get_segment_light_sources(self._scene:get_camera():get_world_bounds())
-            colors = blood_colors
 
             for i, segment in ipairs(blood_segments) do
                 local x1, y1 = camera:world_xy_to_screen_xy(segment[1], segment[2])
                 local x2, y2 = camera:world_xy_to_screen_xy(segment[3], segment[4])
                 table.insert(positions, { x1, y1, x2, y2 })
+            end
+
+            for color in values(blood_colors) do
+                table.insert(colors, { color:unpack() })
             end
         end
 

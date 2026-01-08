@@ -178,6 +178,8 @@ function ow.DialogEmitter:update(delta)
     -- and dialog box is less than 2 px away from its final position
     then
         self._dialog_box:update(delta)
+    else
+        return
     end
 
     if self._needs_reformat == true then

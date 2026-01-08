@@ -6,6 +6,8 @@ local NPC_SIDE = "left"
 local EYES_NAME = "(# EYES_NAME)"
 local GHOST_NAME = "(# GHOST_NAME)"
 
+local BOOST_FIELD_NAME = "Boost Field"
+
 return setmetatable({
 
     slippery_floor_tutorial = {
@@ -13,6 +15,13 @@ return setmetatable({
             speaker = EYES_NAME,
             "<b>Glass</b> like this is <wave>slippery</wave>, if you walk on it you slide around instead of stopping.",
             "There is no way to climb walls made out of glass, and none of your \"paint\" will stick to it. Be careful and always try to keep in mind the type of surface you are touching"
+        }
+    },
+
+    boost_field_tip_01 = {
+        {
+            speaker = EYES_NAME,
+            "These <b>" .. BOOST_FIELD_NAME .. "s</b> make you go faster while your are touching them. Make sure to <b>maximize the amount of time you are touching them</b> to get the most speed"
         }
     },
 
