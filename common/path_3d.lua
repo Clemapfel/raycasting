@@ -162,7 +162,7 @@ end
 
 --- @brief
 --- @return Number, Number, Number
-function rt.Path3D:get_tangent(t)
+function rt.Path3D:tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
     return segment.dx, segment.dy, segment.dz
 end

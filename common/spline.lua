@@ -1,3 +1,9 @@
+rt.settings.spline = {
+    discretize_maximum_recursion_depth = 15,
+    metric_threshold = 5,
+    metric_curvature_weight = 10
+}
+
 --- @brief rt.Spline
 rt.Spline = meta.class("Spline")
 
@@ -217,41 +223,70 @@ function rt.Spline:get_length()
     return self._length
 end
 
---- @brief Discretizes the spline into a series of points with a target distance between them.
--- @param step_size The desired distance between consecutive points along the curve.
--- @return A table of numbers {x1, y1, x2, y2, ...} representing the discretized points.
-function rt.Spline:discretize(step_size)
-    if not step_size or step_size <= 0 then
-        rt.error("In rt.Spline:discretize: step_size must be a positive number")
-        return {}
+--- @brief discretize into flat list of points, adaptive sampling
+function rt.Spline:discretize()
+    local result = {}
+    local points = self._points
+
+    local function add_point(t)
+        local x, y = self:at(t)
+        table.insert(result, x)
+        table.insert(result, y)
     end
 
-    local result = {}
-    local current_t = 0.0
-
-    local start_x, start_y = self:at(0)
-    table.insert(result, start_x)
-    table.insert(result, start_y)
-
-    while current_t < 1.0 do
-        local dx, dy = self:get_derivative_at(current_t)
+    local function get_curvature_metric(t)
+        local dx, dy = self:get_derivative_at(t)
         local speed = math.magnitude(dx, dy)
 
-        local delta_t = math.max(step_size / speed, 1e-3)
-        current_t = current_t + delta_t
+        -- sample nearby points to estimate curvature
+        local dt = 0.001
+        local t_prev = math.clamp(t - dt, 0, 1)
+        local t_next = math.clamp(t + dt, 0, 1)
 
-        if current_t < 1.0 then
-            local next_x, next_y = self:at(current_t)
-            table.insert(result, next_x)
-            table.insert(result, next_y)
+        local dx_prev, dy_prev = self:get_derivative_at(t_prev)
+        local dx_next, dy_next = self:get_derivative_at(t_next)
+
+        -- approximate second derivative
+        local ddx = (dx_next - dx_prev) / (2 * dt)
+        local ddy = (dy_next - dy_prev) / (2 * dt)
+        local curvature = math.magnitude(ddx, ddy)
+
+        return speed + curvature * rt.settings.spline.metric_curvature_weight
+    end
+
+    -- adaptive subdivision
+    local function subdivide(t_start, t_end, depth)
+        if depth > rt.settings.spline.discretize_maximum_recursion_depth then
+            add_point(t_end)
+            return
+        end
+
+        local t_mid = math.mix(t_start, t_end, 0.5)
+
+        local x_start, y_start = self:at(t_start)
+        local x_mid, y_mid = self:at(t_mid)
+        local x_end, y_end = self:at(t_end)
+
+        local x_interp = math.mix(x_start, x_end, 0.5)
+        local y_interp = math.mix(y_start, y_end, 0.5)
+
+        -- distance between actual midpoint and linear interpolation
+        local error = math.distance(x_mid, y_mid, x_interp, y_interp)
+
+        -- get curvature metric for adaptive threshold
+        local metric = get_curvature_metric(t_mid)
+        local threshold = math.max(rt.settings.spline.metric_threshold / (1 + metric), 0.5) -- metric threshold
+
+        if error > threshold then
+            subdivide(t_start, t_mid, depth + 1)
+            subdivide(t_mid, t_end, depth + 1)
+        else
+            add_point(t_end)
         end
     end
 
-    local end_x, end_y = self:at(1.0)
-    if math.distance(end_x, end_y, result[#result - 1], result[#result]) > math.eps then
-        table.insert(result, end_x)
-        table.insert(result, end_y)
-    end
+    add_point(0)
+    subdivide(0, 1, 0)
 
     return result
 end

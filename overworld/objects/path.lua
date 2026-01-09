@@ -233,7 +233,7 @@ function ow.Path:update(delta)
             local easing_t_dt = self._easing(math.clamp(t + dt, 0, 1))
             local easing_derivative = (easing_t_dt - eased_t) / dt
 
-            local dx, dy = self._path:get_tangent(math.clamp(eased_t, 0, 1))
+            local dx, dy = self._path:tangent_at(math.clamp(eased_t, 0, 1))
             local velocity_x = dx * self._velocity * direction * easing_derivative
             local velocity_y = dy * self._velocity * direction * easing_derivative
             entry.target:set_velocity(velocity_x, velocity_y)
@@ -319,7 +319,7 @@ function ow.Path:reset()
             y + entry.offset_y
         )
 
-        entry.target:set_velocity(self._path:get_tangent(0))
+        entry.target:set_velocity(self._path:tangent_at(0))
     end
 end
 

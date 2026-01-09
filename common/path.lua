@@ -173,7 +173,7 @@ function rt.Path:get_segment(t)
 end
 
 --- @brief
-function rt.Path:get_tangent(t)
+function rt.Path:tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
     return segment.dx, segment.dy
 end
@@ -391,6 +391,146 @@ function rt.Path:get_closest_point(x, y)
     end
 
     return closest_x, closest_y, closest_t
+end
+
+--- perpendicular distance from point to line segment
+local function _perpendicular_distance(px, py, x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local mag_sq = math.dot(dx, dy, dx, dy)
+
+    if mag_sq < math.eps then
+        -- degenerate line segment, return distance to point
+        return math.distance(px, py, x1, y1)
+    end
+
+    -- project point onto line and calculate perpendicular distance
+    -- using the cross product formula: distance = |cross(v1, v2)| / |v2|
+    local vx = px - x1
+    local vy = py - y1
+
+    -- cross product in 2D: vx * dy - vy * dx
+    local cross = math.abs(vx * dy - vy * dx)
+    local mag = math.sqrt(mag_sq)
+
+    return cross / mag
+end
+
+--- @brief recursive RDP helper
+--- @param points Table flat array of coordinates
+--- @param start_idx Number starting index (1-based, points to x coordinate)
+--- @param end_idx Number ending index (1-based, points to x coordinate)
+--- @param epsilon Number distance threshold
+--- @param keep Table boolean array marking which points to keep
+function rt.Path:_rdp_recursive(points, start_idx, end_idx, epsilon, keep)
+    if end_idx - start_idx <= 2 then
+        -- only two points, keep both
+        return
+    end
+
+    local x1, y1 = points[start_idx], points[start_idx + 1]
+    local x2, y2 = points[end_idx], points[end_idx + 1]
+
+    local max_distance = 0
+    local max_idx = 0
+
+    -- find point with maximum perpendicular distance
+    for i = start_idx + 2, end_idx - 2, 2 do
+        local px, py = points[i], points[i + 1]
+        local distance = _perpendicular_distance(px, py, x1, y1, x2, y2)
+
+        if distance > max_distance then
+            max_distance = distance
+            max_idx = i
+        end
+    end
+
+    -- if max distance exceeds epsilon, keep that point and recurse
+    if max_distance > epsilon then
+        keep[max_idx] = true
+        self:_rdp_recursive(points, start_idx, max_idx, epsilon, keep)
+        self:_rdp_recursive(points, max_idx, end_idx, epsilon, keep)
+    end
+end
+
+--- @brief decimate path using Ramer-Douglas-Peucker algorithm
+--- @param epsilon Number maximum perpendicular distance threshold
+function rt.Path:decimate(epsilon)
+    meta.assert(epsilon, "Number")
+
+    if self._n_points < 4 then
+        return self
+    end
+
+    local points = self._points
+    local n_points = self._n_points
+    local n_entries = self._n_entries
+
+    -- mark which points to keep
+    local keep = {}
+
+    -- always keep start and end
+    keep[1] = true
+    keep[n_points - 1] = true
+
+    self:_rdp_recursive(points, 1, n_points - 1, epsilon, keep)
+
+    -- build new points array and compute merged fraction lengths
+    local new_points = {}
+    local new_fractions = {}
+    local point_to_segment = {} -- map point index to segment index
+
+    -- build mapping from point indices to segment indices
+    for i = 1, n_entries do
+        local seg_start_idx = (i - 1) * 2 + 1
+        point_to_segment[seg_start_idx] = i
+    end
+
+    local current_fraction_sum = 0
+    local last_kept_segment = 0
+
+    for i = 1, n_points - 1, 2 do
+        if keep[i] then
+            table.insert(new_points, points[i])
+            table.insert(new_points, points[i + 1])
+
+            -- accumulate fractions from segments that were merged
+            local segment_idx = point_to_segment[i]
+            if segment_idx then
+                -- add all fractions from last kept segment to current
+                for j = last_kept_segment + 1, segment_idx do
+                    if j <= n_entries then
+                        current_fraction_sum = current_fraction_sum + self._entries[j].fraction_length
+                    end
+                end
+
+                table.insert(new_fractions, current_fraction_sum)
+                current_fraction_sum = 0
+                last_kept_segment = segment_idx
+            end
+        end
+    end
+
+    -- add remaining fractions for the last segment
+    for j = last_kept_segment + 1, n_entries do
+        current_fraction_sum = current_fraction_sum + self._entries[j].fraction_length
+    end
+    if current_fraction_sum > 0 then
+        table.insert(new_fractions, current_fraction_sum)
+    end
+
+    -- preserve parameterization type
+    local use_arclength = self._use_arclength
+    local reparameterize = false
+
+    self:_create_from(reparameterize, use_arclength, new_points)
+
+    -- if we have custom fractions, apply them to the new path
+    if #new_fractions > 0 and #new_fractions == self._n_entries then
+        self:override_parameterization(table.unpack(new_fractions))
+    end
+
+    return self
 end
 
 --- @brief
