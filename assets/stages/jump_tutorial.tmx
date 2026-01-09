@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="639">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="640">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -16,7 +16,7 @@
   <object id="395" type="SlipperyHitbox" x="2284.9" y="669.242">
    <polygon points="-4.07,0 -4.07,-112 11.93,-128 11.93,-224 -4.07,-240 -4.07,-416 11.93,-432 11.93,-528 -4.07,-544 -4.07,-704 59.934,-704 59.93,48 -4.07,48"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="-1605.32" y="679.365">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="166.334" y="-872.941">
    <point/>
   </object>
   <object id="401" type="SlipperyHitbox" x="2093.62" y="524.526">
@@ -212,7 +212,7 @@
    <polygon points="208,0 224,16 304,16 320,0"/>
   </object>
   <object id="587" type="SlipperyHitbox" x="-1463.17" y="-562.758">
-   <polygon points="-16,-80 16,-80 16,-48 48,-48 48,-16 80,-16 80,16 112,16 112,48 144,48 144,80 2816,80 2816,-432 2769.36,-479.677 2768,-496 2816,-496 2848,-464 2848,112 -16,112"/>
+   <polygon points="-12.9854,-79.3197 7.17,-79.3197 144,80 2816,80 2816,-432 2769.36,-479.677 2768,-496 2816,-496 2848,-464 2848,112 -15.3074,110.615"/>
   </object>
   <object id="590" type="SlipperyHitbox" x="-1015.17" y="-690.758">
    <polygon points="0,0 0,32 -192,32 -192,0 -176,16 -16,16"/>
@@ -274,7 +274,7 @@
    <polygon points="0,0 192,0 176,-16 16,-16"/>
   </object>
   <object id="615" x="-1540.96" y="719.222">
-   <polygon points="-1.868,-2.40305 318.132,-2.40305 318.132,-450.403 366.132,-450.403 366.132,-2.40305 916.648,-0.264626 916.648,-656.265 1124.65,-656.265 1124.65,-0.264626 1556.65,-0.264626 1556.65,95.7354 -1.868,93.5969"/>
+   <polygon points="-1.868,-2.40305 318.132,-2.40305 318.132,-450.403 366.132,-450.403 366.132,-2.40305 916.648,-0.264626 916.648,-656.265 1044.96,-656.265 1044.96,-0.264626 1476.96,-0.264626 1476.96,95.7354 -1.868,93.5969"/>
   </object>
   <object id="616" type="SlipperyHitbox" x="-1254.83" y="716.819">
    <polygon points="0,0 16,-16 16,-447.365 32,-464 80,-464 96,-448 96,-16 112,0 80,0 80,-448 32,-448 32,0"/>
@@ -317,33 +317,42 @@
    <polygon points="224,0 224,-112 -128,-112 -128,0"/>
   </object>
   <object id="630" type="SlipperyHitbox" x="-624.313" y="62.9577">
-   <polygon points="0,0 0,656 -16,656 -16,0 -30.6349,-16.3468 -64,-17.1374 -64,-32 -16,-32 0,-16 208,-16 224,0 224,656 208,656 208,0"/>
+   <polygon points="0,0 0,656 -16,656 -16,0 -30.6349,-16.3468 -64,-17.1374 -64,-32 -16,-32 0,-16 128.313,-16 144.313,0 144.313,656 128.313,656 128.313,0"/>
   </object>
   <object id="633" type="BoostField" x="-400.313" y="78.9577">
    <properties>
     <property name="axis_y" type="float" value="-1"/>
    </properties>
-   <polygon points="0,0 0.312886,49.0423 400.313,49.0423 400,0"/>
+   <polygon points="-79.6871,0 -79.3742,49.0423 320.626,49.0423 320.313,0"/>
   </object>
   <object id="635" type="SlipperyHitbox" x="-1024.31" y="-81.0423">
-   <polygon points="-527.687,1.04229 368.313,1.04229 368.313,17.0423 384.313,17.0423 400.313,1.04229 609.059,1.04229 624.313,17.0423 768.313,17.0423 816.313,49.0423 864.313,17.0423 976.313,17.0423 1024.31,49.0423 1024,736 1040.31,737.042 1040.31,-14.9577 -527.687,-14.9577"/>
+   <polygon points="-527.687,1.04229 529.372,1.04229 544.626,17.0423 688.626,17.0423 736.626,49.0423 784.626,17.0423 896.626,17.0423 944.626,49.0423 944.313,736 960.626,737.042 960.626,-14.9577 -527.687,-14.9577"/>
   </object>
   <object id="637" name="Boost Field 01" x="-1552" y="-96">
-   <polygon points="0,0 1568,0 1568,752 1648,752 1648,-80 0,-80"/>
+   <polygon points="0,0 1488.31,0 1488.31,752 1568.31,752 1568.31,-80 0,-80"/>
   </object>
-  <object id="638" name="Coin" type="Coin" x="-32" y="160">
+  <object id="638" name="Coin" type="Coin" x="-112" y="160">
    <point/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">
-  <object id="610" name="NPC" type="NPC" x="512" y="-896">
+  <object id="610" name="NPC" type="NPC" x="512" y="-880">
    <properties>
     <property name="dialog_id" value="slippery_floor_tutorial"/>
+    <property name="should_focus" type="bool" value="false"/>
     <property name="type" value="eyes"/>
    </properties>
    <point/>
   </object>
   <object id="613" name="Coin" type="Coin" x="512" y="-1040">
+   <point/>
+  </object>
+  <object id="639" name="NPC" type="NPC" x="-24.119" y="-1019.7">
+   <properties>
+    <property name="dialog_id" value="slippery_floor_tutorial"/>
+    <property name="should_focus" type="bool" value="false"/>
+    <property name="type" value="ghost"/>
+   </properties>
    <point/>
   </object>
  </objectgroup>

@@ -1067,13 +1067,19 @@ function ow.OverworldScene:update(delta)
     if self._stage == nil then return end
 
     local x, y = self._camera:world_xy_to_screen_xy(self._player:get_physics_body():get_predicted_position())
-    self._player:update(delta)
+
+    debugger.measure("player", function() self._player:update(delta) end)
+
     self._camera:update(delta)
 
-    self._stage:update(delta) -- stage has to happen after player
+    debugger.measure("stage", function() self._stage:update(delta) end)
+
+     -- stage has to happen after player
 
     self._background:notify_camera_changed(self._camera)
     self._background:update(delta)
+
+    --debugger.report()
 
     self._screenshot_needs_update = true
 

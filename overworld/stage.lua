@@ -452,26 +452,6 @@ function ow.Stage:draw_bloom()
     end
 end
 
-local _data = {}
-local _add_entry = function(type, t)
-    local entry = _data[type]
-    if entry == nil then
-        entry = {
-            n = 0,
-            sum = 0,
-            mean = 0,
-            max = -math.huge
-        }
-        _data[type] = entry
-    end
-
-    entry.type = type
-    entry.n = entry.n + 1
-    entry.sum = entry.sum + t
-    entry.max = math.max(entry.max, t / (1 / 60))
-    entry.mean = (entry.sum / entry.n) / (1 / 60)
-end
-
 --- @brief
 function ow.Stage:update(delta)
     if self._normal_map_done and self._is_initialized and self._signal_done_emitted == false then
@@ -480,90 +460,49 @@ function ow.Stage:update(delta)
     end
 
     if self._normal_map_done and rt.GameState:get_is_performance_mode_enabled() == false then
-        -- collect light sources and visibel bodies
-        local camera = self._scene:get_camera()
-        local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
-        local bottom_right_x, bottom_right_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
 
-        local padding = 8 * rt.settings.player.radius
-        top_left_x, top_left_y = math.subtract(top_left_x, top_left_y, padding, padding)
-        bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
+        debugger.measure("get_visible_bodies", function()
+            -- collect light sources and visibel bodies
+            local camera = self._scene:get_camera()
+            local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
+            local bottom_right_x, bottom_right_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
 
-        self._visible_bodies = {}
-        self._point_light_source_bodies = {}
-        self._segment_light_source_bodies = {}
+            local padding = 8 * rt.settings.player.radius
+            top_left_x, top_left_y = math.subtract(top_left_x, top_left_y, padding, padding)
+            bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
 
-        for body in values(self._world:query_aabb(
-            top_left_x, top_left_y,
-            bottom_right_x - top_left_x, bottom_right_y - top_left_y
-        )) do
-            self._visible_bodies[body] = true
+            self._visible_bodies = {}
+            self._point_light_source_bodies = {}
+            self._segment_light_source_bodies = {}
 
-            if body ~= nil and body:has_tag("point_light_source") then
-                table.insert(self._point_light_source_bodies, body)
+            for body in values(self._world:query_aabb(
+                top_left_x, top_left_y,
+                bottom_right_x - top_left_x, bottom_right_y - top_left_y
+            )) do
+                self._visible_bodies[body] = true
+
+                if body ~= nil and body:has_tag("point_light_source") then
+                    table.insert(self._point_light_source_bodies, body)
+                end
+
+                if body ~= nil and body:has_tag("segment_light_source") then
+                    table.insert(self._segment_light_source_bodies, body)
+                end
             end
 
-            if body ~= nil and body:has_tag("segment_light_source") then
-                table.insert(self._segment_light_source_bodies, body)
-            end
-        end
-
-        self._point_light_sources_need_update = true
-        self._segment_light_sources_need_update = true
-    end
-
-    local should_profile = false
-    if should_profile then
-        if self._profile_data == nil then self._profile_data = {} end
-        if self._type_to_profile_data == nil then self._type_to_profile_data = {} end
+            self._point_light_sources_need_update = true
+            self._segment_light_sources_need_update = true
+        end)
     end
 
     for object in values(self._to_update) do
-        local before = love.timer.getTime()
-
-        object:update(delta)
-
-        if should_profile then
-            local type = meta.typeof(object)
-            local entry = self._type_to_profile_data[type]
-            if entry == nil then
-                entry = {
-                    type = type,
-                    max = -math.huge,
-                    history = table.rep(0, 100),
-                    sum = 0
-                }
-
-                self._type_to_profile_data[type] = entry
-                table.insert(self._profile_data, entry)
-            end
-
-            local elapsed = love.timer.getTime() - before
-            entry.max = math.max(entry.max, elapsed)
-
-            local first = entry.history[1]
-            table.remove(entry.history, 1)
-            table.insert(entry.history, elapsed)
-            entry.sum = entry.sum - first + elapsed
-        end
-    end
-
-    if should_profile then
-        table.sort(self._profile_data, function(a, b)
-            return a.max > b.max
+        debugger.measure(meta.typeof(object), function()
+            object:update(delta)
         end)
-
-        dbg("\n\n")
-        for entry in values(self._profile_data) do
-            local value = math.floor(entry.max / (1 / 60) * 100) / 100
-            if value > 0 then
-                dbg(entry.type, "\t", value)
-            end
-        end
     end
 
     if self._flow_graph ~= nil then
-        self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
+        --self._flow_fraction = self._flow_graph:update_player_position(self._scene:get_player():get_position())
     end
 end
 

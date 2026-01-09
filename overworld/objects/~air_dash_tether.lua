@@ -158,7 +158,7 @@ function ow.AirDashNode:update(delta)
             math.mix(0.5, 1, (1 - math.distance(px, py, self._x, self._y) / math.distance(ax, ay, bx, by)))
         )
 
-        local tangent_x, tangent_y = self._tether_path:get_tangent(t)
+        local tangent_x, tangent_y = self._tether_path:tangent_at(t)
 
         local target_vx = t * target_velocity * -tangent_x
         local target_vy = t * target_velocity * -tangent_y
