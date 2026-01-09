@@ -452,7 +452,7 @@ end
 function ow.DialogBox:update(delta)
     if self._active_node ~= nil then
         for labels in range(
-            self._active_node.label,
+            self._active_node.labels,
             self._active_node.choice_labels,  -- nil for non choice
             self._active_node.highlighted_choice_labels
         ) do
