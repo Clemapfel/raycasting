@@ -38,6 +38,18 @@ rt.settings.player_body = {
         inverse_kinematics_intensity = 0
     },
 
+    non_contour_performace = {
+        n_velocity_iterations = 4,
+        n_distance_iterations = 6,
+        n_axis_iterations = 0,
+        axis_intensity = 0,
+        n_bending_iterations = 0,
+        velocity_damping = 1 - 0.15,
+        inertia = 0.8,
+        n_inverse_kinematics_iterations = 0,
+        inverse_kinematics_intensity = 0
+    },
+
     contour = {
         n_velocity_iterations = 1,
         n_distance_iterations = 1,
@@ -47,6 +59,18 @@ rt.settings.player_body = {
         velocity_damping = 1 - 0.3,
         inertia = 0,
         n_inverse_kinematics_iterations = 3,
+        inverse_kinematics_intensity = 0.1
+    },
+
+    contour_performance = {
+        n_velocity_iterations = 1,
+        n_distance_iterations = 1,
+        n_axis_iterations = 1,
+        axis_intensity = 1,
+        n_bending_iterations = 0,
+        velocity_damping = 1 - 0.3,
+        inertia = 0,
+        n_inverse_kinematics_iterations = 2,
         inverse_kinematics_intensity = 0.1
     },
 
@@ -92,7 +116,8 @@ function rt.PlayerBody:instantiate(config)
         n_rings = _settings.default_n_rings,
         n_ropes_per_ring = _settings.default_n_ropes_per_ring,
         n_segments_per_rope = _settings.default_n_segments_per_rope,
-        rope_length_radius_factor = _settings.default_rope_length_radius_factor
+        rope_length_radius_factor = _settings.default_rope_length_radius_factor,
+        use_performance_mode = false
     }) do
         if config[key] == nil then config[key] = default end
     end
@@ -112,6 +137,8 @@ function rt.PlayerBody:instantiate(config)
             self._n_segments_per_rope = value
         elseif key == "rope_length_radius_factor" then
             self._rope_length_radius_factor = value
+        elseif key == "use_performance_mode" then
+            self._use_performance_mode = value
         else
             rt.error("In rt.PlayerBody: unrecognized key `", key, "`")
         end
@@ -149,7 +176,7 @@ function rt.PlayerBody:instantiate(config)
     self._attraction_x = 0
     self._attraction_y = 0
     self._attraction_magnitude = 0
-    
+
     self._contour_type = rt.PlayerBodyContourType.CIRCLE
 
     self._core_canvas_needs_update = true
@@ -242,6 +269,11 @@ function rt.PlayerBody:set_position(x, y)
 end
 
 --- @brief
+function rt.PlayerBody:set_use_performance_mode(b)
+    self._use_performance_mode = b
+end
+
+--- @brief
 function rt.PlayerBody:set_shape(positions)
     self._core_vertices = positions
     table.insert(self._core_vertices, self._core_vertices[1])
@@ -256,13 +288,18 @@ function rt.PlayerBody:initialize()
     local n_ropes_per_ring = self._n_ropes_per_ring
     local n_segments = self._n_segments_per_rope
 
+
     local ring_to_ring_radius = function(ring_i)
         return ((ring_i - 1) / n_rings) * self._radius
     end
 
     local ring_to_n_ropes = function(ring_i)
         local t = ring_i / (n_rings + 1)
-        return math.ceil(t * self._n_ropes_per_ring)
+        local out = math.ceil(t * n_ropes_per_ring)
+        if self._use_performance_mode then
+            out = math.max(1, out - (ring_i - 1))
+        end
+        return out
     end
 
     local mass_easing = function(t)
@@ -272,7 +309,7 @@ function rt.PlayerBody:initialize()
 
     -- init ropes
     local max_rope_length = self._rope_length_radius_factor * self._radius
-    local contour_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius / 2
+    local contour_rope_length = max_rope_length / n_segments + self._node_mesh_radius / 2
     self._contour_rope_length = contour_rope_length
     self._t_to_ropes = {}
 
@@ -452,13 +489,15 @@ function rt.PlayerBody:_update_contour()
         end
     end
 
-    self._dbg = {}
-    local n = 64
+    self._contour_vertices = {}
+    local max_length = max_r + self._node_mesh_radius * 0.5
+
+    local n = #self._ropes
     for i = 1, n do
         local angle = (i - 1) / n * 2 * math.pi
-        local x, y = callback(angle, max_r)
-        table.insert(self._dbg, x)
-        table.insert(self._dbg, y)
+        local x, y = callback(angle, max_length)
+        table.insert(self._contour_vertices, x)
+        table.insert(self._contour_vertices, y)
     end
 end
 
@@ -935,13 +974,15 @@ function rt.PlayerBody:update(delta)
     -- non rope sim updates
     self._shader_elapsed = self._shader_elapsed + delta
 
-    for squish in range(
-        self._down_squish_motion,
-        self._left_squish_motion,
-        self._right_squish_motion,
-        self._up_squish_motion
-    ) do
-        squish:update(delta)
+    if not self._use_performance_mode then
+        for squish in range(
+            self._down_squish_motion,
+            self._left_squish_motion,
+            self._right_squish_motion,
+            self._up_squish_motion
+        ) do
+            squish:update(delta)
+        end
     end
 
     if self._world ~= nil then
@@ -974,43 +1015,54 @@ function rt.PlayerBody:update(delta)
         gravity_x, gravity_y = self._gravity_x or 0, self._gravity_y or 1 * _settings.gravity
     end
 
-    local todo = self._use_contour and _settings.contour or _settings.non_contour
+    local todo
+    if self._use_performance_mode or rt.GameState:get_is_performance_mode_enabled() then
+        todo = self._use_contour and _settings.contour_performance or _settings.non_contour_performace
+    else
+        todo = self._use_contour and _settings.contour or _settings.non_contour
+    end
 
-    for i, rope in ipairs(self._ropes) do
-        rt.PlayerBody.update_rope({
-            current_positions = rope.current_positions,
-            last_positions = rope.last_positions,
-            last_velocities = rope.last_velocities,
-            masses = rope.masses,
-            position_x = self._position_x,
-            position_y = self._position_y,
-            target_x = rope.target_x,
-            target_y = rope.target_y,
-            anchor_x = rope.anchor_x,
-            anchor_y = rope.anchor_y,
-            axis_x = rope.axis_x,
-            axis_y = rope.axis_y,
-            delta = delta,
-            segment_length = rope.segment_length,
-            contour_segment_length = rope.contour_segment_length,
-            use_contour = self._use_contour,
-            n_velocity_iterations = todo.n_velocity_iterations,
-            n_distance_iterations = todo.n_distance_iterations,
-            n_axis_iterations = todo.n_axis_iterations,
-            axis_intensity = todo.axis_intensity,
-            n_bending_iterations = todo.n_bending_iterations,
-            inertia = todo.inertia,
-            velocity_damping = todo.velocity_damping,
-            gravity_x = gravity_x,
-            gravity_y = gravity_y * (1 + self._down_squish_motion:get_value()),
-            attraction_x = self._attraction_x,
-            attraction_y = self._attraction_y,
-            attraction_magnitude = self._attraction_magnitude,
-            platform_delta_x = self._relative_velocity_x * delta,
-            platform_delta_y = self._relative_velocity_y * delta,
-            n_inverse_kinematics_iterations = todo.n_inverse_kinematics_iterations,
-            inverse_kinematics_intensity = todo.inverse_kinematics_intensity
-        })
+    if self._use_performance_mode
+        and self._use_contour
+    then
+        -- noop, use polygon instead of rope nodes for ow.NPC
+    else
+        for i, rope in ipairs(self._ropes) do
+            rt.PlayerBody.update_rope({
+                current_positions = rope.current_positions,
+                last_positions = rope.last_positions,
+                last_velocities = rope.last_velocities,
+                masses = rope.masses,
+                position_x = self._position_x,
+                position_y = self._position_y,
+                target_x = rope.target_x,
+                target_y = rope.target_y,
+                anchor_x = rope.anchor_x,
+                anchor_y = rope.anchor_y,
+                axis_x = rope.axis_x,
+                axis_y = rope.axis_y,
+                delta = delta,
+                segment_length = rope.segment_length,
+                contour_segment_length = rope.contour_segment_length,
+                use_contour = self._use_contour,
+                n_velocity_iterations = todo.n_velocity_iterations,
+                n_distance_iterations = todo.n_distance_iterations,
+                n_axis_iterations = todo.n_axis_iterations,
+                axis_intensity = todo.axis_intensity,
+                n_bending_iterations = todo.n_bending_iterations,
+                inertia = todo.inertia,
+                velocity_damping = todo.velocity_damping,
+                gravity_x = gravity_x,
+                gravity_y = gravity_y * (1 + self._down_squish_motion:get_value()),
+                attraction_x = self._attraction_x,
+                attraction_y = self._attraction_y,
+                attraction_magnitude = self._attraction_magnitude,
+                platform_delta_x = self._relative_velocity_x * delta,
+                platform_delta_y = self._relative_velocity_y * delta,
+                n_inverse_kinematics_iterations = todo.n_inverse_kinematics_iterations,
+                inverse_kinematics_intensity = todo.inverse_kinematics_intensity
+            })
+        end
     end
 
     self._core_canvas_needs_update = true
@@ -1019,6 +1071,8 @@ end
 
 --- @brief
 function rt.PlayerBody:_apply_squish(factor)
+    if self._use_performance_mode then return end
+
     local magnitude = _settings.squish_magnitude * (factor or 1)
     local function apply(is_enabled, motion, nx, ny, ox, oy, default_nx, default_ny, default_ox, default_oy)
         if motion ~= nil and motion:get_value() < 0 then return end
@@ -1113,39 +1167,43 @@ function rt.PlayerBody:draw_body()
             love.graphics.setColor(1, 1, 1, _settings.node_mesh_alpha)
         end
 
-        -- function to thin out only very last part of tail
-        local easing = function(t)
-            -- f\left(x\right)=\left(0.045\cdot e^{\ln\left(\frac{1}{0.045}+1\right)x}-0.045\right)^{b}
-            local buldge = 4--2.5 -- the higher, the closer to f(x) = x easing
-            t = t * 0.8
-            local v = (0.045 * math.exp(math.log(1 / 0.045 + 1) * t) - 0.045) ^ buldge
-            return 1 - math.clamp(v, 0, 1)
-        end
+        if not (self._use_performance_mode and self._use_contour) then
 
-        local rope_i, n_ropes = 0, self._n_ropes
-        local tw, th = self._node_mesh_texture:get_size()
-        for rope in values(self._ropes) do
-            local segment_i = 0
-            for i = 1, #rope.current_positions, 2 do
-                love.graphics.push()
-                self:_apply_squish(1 + 1 - (i - 1) / (#rope.current_positions / 2))
-                local scale = easing(segment_i / rope.n_segments) * math.min(1, rope.scale + _settings.non_contour_scale_offset / self._radius)
-                -- Use current_positions for drawing to reduce visual lag
-                local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
-                love.graphics.draw(self._node_mesh_texture:get_native(), x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
+            -- function to thin out only very last part of tail
+            local easing = function(t)
+                -- f\left(x\right)=\left(0.045\cdot e^{\ln\left(\frac{1}{0.045}+1\right)x}-0.045\right)^{b}
+                local buldge = 4--2.5 -- the higher, the closer to f(x) = x easing
+                t = t * 0.8
+                local v = (0.045 * math.exp(math.log(1 / 0.045 + 1) * t) - 0.045) ^ buldge
+                return 1 - math.clamp(v, 0, 1)
+            end
 
-                love.graphics.pop()
+            local rope_i, n_ropes = 0, self._n_ropes
+            local tw, th = self._node_mesh_texture:get_size()
+            for rope in values(self._ropes) do
+                local segment_i = 0
+                for i = 1, #rope.current_positions, 2 do
+                    love.graphics.push()
+                    self:_apply_squish(1 + 1 - (i - 1) / (#rope.current_positions / 2))
+                    local scale = easing(segment_i / rope.n_segments) * math.min(1, rope.scale + _settings.non_contour_scale_offset / self._radius)
+                    -- Use current_positions for drawing to reduce visual lag
+                    local x, y = rope.current_positions[i+0], rope.current_positions[i+1]
+                    love.graphics.draw(self._node_mesh_texture:get_native(), x, y, 0, scale, scale, 0.5 * tw, 0.5 * th)
 
-                segment_i = segment_i + 1
+                    love.graphics.pop()
+
+                    segment_i = segment_i + 1
+                end
             end
         end
 
         if self._use_contour then
-            --love.graphics.circle("fill", self._position_x, self._position_y, self._radius)
-            love.graphics.push()
-            love.graphics.translate(self._position_x, self._position_y)
-            love.graphics.polygon("fill", self._dbg)
-            love.graphics.pop()
+            if self._use_performance_mode then
+                love.graphics.push()
+                love.graphics.translate(self._position_x, self._position_y)
+                love.graphics.polygon("fill", self._contour_vertices)
+                love.graphics.pop()
+            end
         end
 
         rt.graphics.set_blend_mode(nil)
@@ -1222,7 +1280,7 @@ function rt.PlayerBody:draw_body()
 
     love.graphics.setLineWidth(1)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(self._dbg)
+    love.graphics.line(self._contour_vertices)
     love.graphics.pop()
     ]]--
 end

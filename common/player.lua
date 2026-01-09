@@ -1894,7 +1894,7 @@ function rt.Player:update(delta)
         local r = self:get_radius()
         local center_x, center_y = center_body:get_position()
 
-        -- get all nearby bodies, raycast too unreliable
+        -- get all nearby bodies, r              too unreliable
         local not_player_mask = bit.bnot(bit.bor(_settings.player_collision_group, _settings.player_outer_body_collision_group))
         local hitbox_mask = rt.settings.overworld.hitbox.collision_group
         local bodies = self._world:query_aabb(
@@ -3180,7 +3180,7 @@ function rt.Player:get_past_position(distance)
     end
 
     local position_x, position_y = self._position_history_path:at(t)
-    local velocity_x, velocity_y = self._position_history_path:get_tangent(t)
+    local velocity_x, velocity_y = self._position_history_path:tangent_at(t)
     return position_x, position_y, velocity_x, velocity_y
 end
 

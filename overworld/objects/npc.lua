@@ -10,7 +10,9 @@ rt.settings.overworld.npc = {
 
     ghost_translation_frequency = 1 / 4,
     ghost_translation_offset = 8, -- px
-    ghost_core_offset_magnitude = 4 -- px
+    ghost_core_offset_magnitude = 4, -- px
+
+    focus_indicator_radius = 6
 }
 
 ow.NPCType = meta.enum("NPCType", {
@@ -45,22 +47,43 @@ function ow.NPC:instantiate(object, stage, scene)
     self._type = type
 
     if self._type == ow.NPCType.EYES then
+        -- cache 3d eyes across an entire stage
+        local entry = self._stage.npc_entry
         local hole_radius = rt.settings.overworld.npc.hole_radius
-        self._graphics_body = ow.NPCBody(
-            self._graphics_body_x,
-            self._graphics_body_y,
-            width, height,
-            hole_radius
-        )
-
         local eye_radius = rt.settings.overworld.npc.eye_radius
-        self._eyes = ow.NPCEyes(
-            self._graphics_body_x + 0.5 * width, -- center of eyes
-            self._graphics_body_y + 0.5 * height,
-            eye_radius
-        )
+
+        if entry == nil then
+            entry = {
+                eyes = ow.NPCEyes(
+                    0 + 0.5 * width, -- center of eyes
+                    0 + 0.5 * height,
+                    eye_radius
+                ),
+
+                body = ow.NPCBody(
+                    0,
+                    0,
+                    width, height,
+                    hole_radius
+                ),
+
+                needs_update = true
+            }
+
+            self._scene:signal_connect("update", function()
+                entry.needs_update = true
+            end)
+        end
+
+        self._eye_entry = entry
+        self._eyes = entry.eyes
 
         self._dilation_motion = rt.SmoothedMotion1D(0)
+        self._graphics_body = entry.body
+
+        self._focus_indicator_x = self._graphics_body_x + 0.5 * width
+        self._focus_indicator_y = self._graphics_body_y + 0.5 * height - hole_radius
+
     elseif self._type == ow.NPCType.GHOST then
         self._graphics_body = ow.PlayerRecorderBody(self._stage, self._scene)
         self._graphics_body:initialize(
@@ -75,6 +98,9 @@ function ow.NPC:instantiate(object, stage, scene)
         self._ghost_bounce_animation = rt.TimedAnimation(0.25, 0, 1, rt.InterpolationFunctions.GAUSSIAN)
         self._bounce_offset_dx = 0
         self._bounce_offset_dy = 0
+
+        self._focus_indicator_x = self._graphics_body_x + 0.5 * width
+        self._focus_indicator_y = self._graphics_body_y + 0.5 * height - 0.5 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
 
         local body = self._graphics_body:get_physics_body()
         body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
@@ -99,6 +125,8 @@ function ow.NPC:instantiate(object, stage, scene)
         self._noise_amplitude = 1
         self._elapsed = 0
     end
+
+    self._focus_indicator_opacity_motion = rt.SmoothedMotion1D(0, 2) -- velocity x2
 
     local interact_id = object:get_string("dialog_id", false) or object:get_string("interact_dialog_id", false)
     self._has_interact_dialog = interact_id ~= nil
@@ -147,7 +175,7 @@ function ow.NPC:instantiate(object, stage, scene)
     local should_lock = object:get_boolean("should_lock", false)
     if should_lock == nil then should_lock = true end
 
-    self._should_focus = should_focus
+    self._should_focus = false --TODOshould_focus
     for emitter in range(
         self._enter_dialog_emitter,
         self._interact_dialog_emitter,
@@ -200,6 +228,8 @@ function ow.NPC:instantiate(object, stage, scene)
     if self._type == ow.NPCType.EYES then
         self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
     end
+
+    self._focus_indicator_opacity_motion:set_target_value(ternary(self._sensor_active, 1, 0))
 
     if self._has_interact_dialog then
         self._input = rt.InputSubscriber()
@@ -260,6 +290,11 @@ function ow.NPC:update(delta)
         self._exit_dialog_emitter:update(delta)
     end
 
+    self._focus_indicator_opacity_motion:update(delta)
+    if is_active ~= was_active then
+        self._focus_indicator_opacity_motion:set_target_value(ternary(self._sensor_active, 1, 0))
+    end
+
     if self._type == ow.NPCType.EYES then
         if is_active ~= was_active then
             self._dilation_motion:set_target_value(ternary(self._sensor_active, 1, 0))
@@ -267,10 +302,15 @@ function ow.NPC:update(delta)
 
         self._dilation_motion:update(delta)
         self._graphics_body:set_dilation(self._dilation_motion:get_value())
-        self._eyes:update(delta)
-        self._eyes:set_target(self._scene:get_player():get_position())
-    elseif self._type == ow.NPCType.GHOST then
 
+        if self._eye_entry.needs_update == true then
+            self._eyes:update(delta)
+            self._eye_entry.needs_update = false
+        end
+
+        local px, py = self._scene:get_player():get_position()
+        self._eyes:set_target(px - self._graphics_body_x, py - self._graphics_body_y)
+    elseif self._type == ow.NPCType.GHOST then
         local frequency = rt.settings.overworld.npc.ghost_translation_frequency
         local offset = rt.settings.overworld.npc.ghost_translation_offset
         self._elapsed = self._elapsed + delta
@@ -281,6 +321,7 @@ function ow.NPC:update(delta)
             self._noise_origin_x + self._noise_x,
             self._noise_origin_y + self._noise_y
         )
+
         self._graphics_body:update(delta)
 
         -- orient recorder core to look towards player
@@ -300,6 +341,73 @@ function ow.NPC:update(delta)
             dy * r + self._bounce_offset_dy * bounce_offset
         )
     end
+end
+-- precompute focus indicator
+local angle_offset = math.pi / 2  -- Start with bottom vertex (pointing down)
+local squish = 1 / 12 * math.pi / 2
+local _focus_indicator_bottom_x = math.cos(angle_offset)
+local _focus_indicator_bottom_y = math.sin(angle_offset)
+
+local _focus_indicator_top_left_x = math.cos(angle_offset + 2 * math.pi / 3 + squish)
+local _focus_indicator_top_left_y = math.sin(angle_offset + 2 * math.pi / 3 + squish)
+
+local _focus_indicator_top_right_x = math.cos(angle_offset + 4 * math.pi / 3 - squish)
+local _focus_indicator_top_right_y = math.sin(angle_offset + 4 * math.pi / 3 - squish)
+
+--- @brief
+function ow.NPC:_draw_focus_indicator(x, y)
+    require "common.cursor"
+    local radius = rt.settings.cursor.radius * 1.5
+    y = y - rt.settings.margin_unit - 0.5 * radius
+
+    local top_left_x = x + radius * _focus_indicator_top_left_x
+    local top_left_y = y + radius * _focus_indicator_top_left_y
+
+    local top_right_x = x + radius * _focus_indicator_top_right_x
+    local top_right_y = y + radius * _focus_indicator_top_right_y
+
+    local bottom_x = x + radius * _focus_indicator_bottom_x
+    local bottom_y = y + radius * _focus_indicator_bottom_y
+
+    -- Divot at the center of the top edge, above the circle center
+    local top_x = x
+    local top_y = y + 0.5 * radius * _focus_indicator_top_left_y  -- Same y as top edge vertices
+
+    local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
+    local r, g, b = rt.Cursor:_get_color()
+    local a = self._focus_indicator_opacity_motion:get_value()
+
+    love.graphics.setColor(black_r, black_g, black_b, a)
+    --[[
+    love.graphics.polygon("fill",
+        top_left_x, top_left_y,
+        top_right_x, top_right_y,
+        bottom_x, bottom_y
+    )
+    ]]
+
+    local line_width = 2
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineStyle("smooth")
+
+    love.graphics.setLineWidth(line_width + 1.5)
+    love.graphics.line(
+        top_left_x, top_left_y,
+        top_x, top_y,
+        top_right_x, top_right_y,
+        bottom_x, bottom_y,
+        top_left_x, top_left_y
+    )
+
+    love.graphics.setColor(r, g, b, a)
+    love.graphics.setLineWidth(line_width)
+    love.graphics.line(
+        top_left_x, top_left_y,
+        top_x, top_y,
+        top_right_x, top_right_y,
+        bottom_x, bottom_y,
+        top_left_x, top_left_y
+    )
 end
 
 local exclude_from_drawing = false
@@ -340,8 +448,12 @@ function ow.NPC:draw(priority)
         -- draw backing, eyes, then overlay which opens on dilation
         rt.Palette.BLACK:bind()
         love.graphics.rectangle("fill", self._graphics_body_x, self._graphics_body_y, canvas:get_size())
+
+        love.graphics.push()
+        love.graphics.translate(self._graphics_body_x, self._graphics_body_y)
         self._eyes:draw()
         self._graphics_body:draw()
+        love.graphics.pop()
     elseif self._type == ow.NPCType.GHOST then
         self._graphics_body:draw()
     end
@@ -352,6 +464,22 @@ function ow.NPC:draw(priority)
         self._exit_dialog_emitter:draw(priority)
     elseif self._has_enter_dialog then
         self._enter_dialog_emitter:draw(priority)
+    end
+
+    if self._sensor_active then
+        love.graphics.push()
+        love.graphics.origin()
+
+        local world_x, world_y
+        if self._type == ow.NPCType.EYES then
+            world_x, world_y = self._focus_indicator_x, self._focus_indicator_y
+        elseif self._type == ow.NPCType.GHOST then
+            world_x = self._focus_indicator_x + self._noise_x
+            world_y = self._focus_indicator_y + self._noise_y
+        end
+
+        self:_draw_focus_indicator(self._scene:get_camera():world_xy_to_screen_xy(world_x, world_y))
+        love.graphics.pop()
     end
 end
 

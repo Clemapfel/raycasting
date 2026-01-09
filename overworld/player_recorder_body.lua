@@ -33,7 +33,8 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
     self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
     self._graphics_body = rt.PlayerBody({
         radius = self._radius,
-        max_radius = self._max_radius
+        max_radius = self._max_radius,
+        use_performance_mode = true
     })
 
     self._graphics_body:set_world(stage:get_physics_world())
@@ -120,6 +121,7 @@ function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
     end
 
     self._graphics_body:set_use_stencils(false)
+    self._graphics_body:set_use_contour(self._is_bubble)
 
     self:set_is_bubble(self._is_bubble)
     self._is_initialized = true
@@ -127,11 +129,29 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:update(delta)
-    local body = ternary(self._is_bubble, self._bubble_body, self._body)
+    local body = self:get_physics_body()
     if body == nil or not self._stage:get_is_body_visible(body) then return end
 
-    self._graphics_body:set_position(body:get_predicted_position())
-    self._graphics_body:update(delta)
+    local px, py = body:get_predicted_position()
+    self._graphics_body:set_position(px, py)
+    self._graphics_body:set_use_contour(self._is_bubble)
+
+    local run_solver = true
+    do
+        local aabb = self._scene:get_camera():get_world_bounds()
+        local r = 4 * self._radius
+        aabb.x = aabb.x - r
+        aabb.y = aabb.y - r
+        aabb.width = aabb.width + 2 * r
+        aabb.height = aabb.height + 2 * r
+        run_solver = aabb:contains(px, py)
+    end
+
+    if run_solver then
+        self._graphics_body:update(delta)
+    else
+        self._graphics_body:relax()
+    end
 
     -- blood splatter
     local player_settings = rt.settings.player
@@ -175,25 +195,20 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:set_position(x, y)
-    self._position_x, self._position_y = x, y
-
     self._bubble_body:set_position(x, y)
     self._body:set_position(x, y)
-
     self._graphics_body:set_position(x, y)
 end
 
 --- @brief
 function ow.PlayerRecorderBody:get_position()
-    return self._position_x, self._position_y
+    return self:get_physics_body():get_position()
 end
 
 --- @brief
 function ow.PlayerRecorderBody:set_velocity(vx, vy)
-    self._velocity_x, self._velocity_y = vx, vy
-
-    local body = ternary(self._is_bubble, self._bubble_body, self._body)
-    body:set_velocity(vx, vy)
+    self._bubble_body:set_velocity(vx, vy)
+    self._body:set_velocity(vx, vy)
 end
 
 --- @brief
@@ -221,40 +236,20 @@ function ow.PlayerRecorderBody:draw_bloom()
 end
 
 --- @brief
-function ow.PlayerRecorderBody:update_input(
-    up_pressed,
-    right_pressed,
-    down_pressed,
-    left_pressed,
-    sprint_pressed,
-    jump_pressed,
-    is_bubble
-)
-    self._is_bubble = is_bubble
-    self._graphics_body:set_use_contour(self._is_bubble, rt.PlayerBodyContourType.CIRCLE)
-    self:set_position(self._position_x, self._position_y)
-    self:set_velocity(self._velocity_x, self._velocity_y)
-
-    -- disable both to prevent interaction
-    self._body:set_is_enabled(false)
-    self._bubble_body:set_is_enabled(false)
-
-    if self._is_bubble then
-        self._bubble_body:set_is_enabled(true)
-        self._bubble_body:set_position(self._position_x, self._position_y)
-    else
-        self._body:set_is_enabled(true)
-        self._body:set_position(self._position_x, self._position_y)
-    end
-end
-
---- @brief
 function ow.PlayerRecorderBody:set_is_bubble(is_bubble)
-    self:update_input(
-        false, false, false, false,
-        false, false,
-        is_bubble
-    )
+    if is_bubble ~= self._is_bubble then
+        self._bubble_body:set_is_enabled(false)
+        self._body:set_is_enabled(false)
+
+        if self._is_bubble then
+            self._bubble_body:set_is_enabled(true)
+        else
+            self._bubble_body:set_is_enabled(true)
+        end
+    end
+
+    self._graphics_body:set_use_contour(self._is_bubble)
+    self._is_bubble = is_bubble
 end
 
 --- @brief

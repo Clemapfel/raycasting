@@ -127,6 +127,7 @@ function ow.Coin:instantiate(object, stage, scene)
         object.x, object.y,
         b2.Circle(0, 0, rt.settings.overworld.coin.radius)
     )
+
     self._light_source_proxy:set_collides_with(0x0)
     self._light_source_proxy:set_collision_group(0x0)
     self._light_source_proxy:set_collision_disabled(true)
@@ -232,10 +233,14 @@ function ow.Coin:update(delta)
         if self._use_noise then
             local frequency = rt.settings.overworld.coin.translation_noise_frequency
             local offset = self._radius
+            local before_x, before_y = self._noise_x, self._noise_y
             self._noise_x = (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
             self._noise_y = (rt.random.noise(-self._noise_dx * self._elapsed * frequency, -self._noise_dy * self._elapsed * frequency) * 2 - 1) * offset
 
-            self._light_source_proxy:set_position(self._x + self._noise_x, self._y + self._noise_y)
+            self._light_source_proxy:set_velocity(
+                (self._noise_x - before_x) * delta,
+                (self._noise_y - before_y) * delta
+            )
 
             frequency = rt.settings.overworld.coin.amplitude_noise_frequency
             self._noise_amplitude = rt.settings.overworld.coin.amplitude_max_offset * (rt.random.noise(self._noise_dx * self._elapsed * frequency, self._noise_dy * self._elapsed * frequency) * 2 - 1)

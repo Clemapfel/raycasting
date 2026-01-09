@@ -1,14 +1,12 @@
 require "common.player"
 require "common.input_manager"
-require "common.spline"
 require "common.path"
 
 require "overworld.player_recorder_body"
 
 rt.settings.overworld.player_recorder = {
-    snapshot_frequency = 60, -- n per second
-    spline_quantization_max_n_steps = 10e5,
-    path_step_size = 5 -- px, adaptive step
+    delta_time_step_factor = 0.5,
+    correction_threshold = 1 / 3 * rt.settings.player.radius, -- pixels
 }
 
 --- @class ow.PlayerRecorder
@@ -26,17 +24,13 @@ function ow.PlayerRecorder:instantiate(stage, scene)
     self._scene = scene
     self._player = scene:get_player()
 
+    -- recording
     self._position_data = {}
-    self._input_data = {}
-
-    self._input = rt.InputSubscriber()
-    self._update_elapsed = 0
-
+    self._is_bubble_data = {}
     self._path_duration = 0
-    self._path_elapsed = 0
-    self._path_n_snapshots = 0
 
-    self._path = nil -- rt.Path
+    -- playback
+    self._path_elapsed = 0
 
     self._state = _STATE_IDLE
 
@@ -48,111 +42,83 @@ end
 --- @brief
 function ow.PlayerRecorder:_snapshot(step)
     local px, py = self._player:get_physics_body():get_position()
+
     for x in range(px, py) do
         table.insert(self._position_data, x)
     end
 
-    for x in range(
-        self._input:get_is_down(rt.InputAction.UP),
-        self._input:get_is_down(rt.InputAction.RIGHT),
-        self._input:get_is_down(rt.InputAction.DOWN),
-        self._input:get_is_down(rt.InputAction.LEFT),
-        self._input:get_is_down(rt.InputAction.SPRINT),
-        self._input:get_is_down(rt.InputAction.JUMP),
-        self._player:get_is_bubble()
-    ) do
-        table.insert(self._input_data, x)
-    end
-
+    table.insert(self._is_bubble_data, self._player:get_is_bubble())
     self._path_duration = self._path_duration + step
-    self._path_n_snapshots = self._path_n_snapshots + 1
 end
 
 --- @brief
 function ow.PlayerRecorder:record()
     if self._state == _STATE_RECORDING then return end
     self._state = _STATE_RECORDING
-    self:clear()
+
+    self._path_duration = 0
+    self._position_data = {}
+    self._recording_elapsed = 0
+    self._path = nil
     self._body:get_physics_body():set_is_enabled(false)
 end
 
 --- @brief
-function ow.PlayerRecorder:clear()
-    require "table.clear"
-    self._path_duration = 0
-    table.clear(self._position_data)
-    table.clear(self._input_data)
-end
-
---- @brief
 function ow.PlayerRecorder:play()
-    self:_snapshot(0)
-    self._body:get_physics_body():set_is_enabled(true)
+    self._state = _STATE_PLAYBACK
 
-    if self._state ~= _STATE_PLAYBACK then
+    if self._path == nil then
         self._path = rt.Path(self._position_data)
     end
 
-    self._state = _STATE_PLAYBACK
     self._path_elapsed = 0
-    self._path_x, self._path_y = self._path:at(0)
-    self._body:initialize(self._path_x, self._path_y)
-    self._body:relax()
+    self._body:initialize(self._path:at(0))
+    self._body:get_physics_body():set_is_enabled(true)
 end
 
 --- @brief
 function ow.PlayerRecorder:update(delta)
-    if self._state == _STATE_IDLE then return end
+    local step = rt.SceneManager:get_timestep() * rt.settings.overworld.player_recorder.delta_time_step_factor
 
-    local step = 1 / rt.settings.overworld.player_recorder.snapshot_frequency
+    if self._state == _STATE_IDLE then return end
+        -- noop
     if self._state == _STATE_RECORDING then
-        self._update_elapsed = self._update_elapsed + delta
-        while self._update_elapsed >= step do
+        local n_steps = 0
+
+        self._recording_elapsed = self._recording_elapsed + delta
+        while self._recording_elapsed > step do
             self:_snapshot(step)
-            self._update_elapsed = self._update_elapsed - step
+            self._recording_elapsed = self._recording_elapsed - step
+
+            n_steps = n_steps + 1
+            if n_steps > 16 then break end -- for safety
         end
     elseif self._state == _STATE_PLAYBACK then
-        self._path_elapsed = self._path_elapsed + delta
-
-        -- get numerical derivative, more stable than analytical because
-        -- of fixed timestep used in physics sim
-        local t_now = self._path_elapsed / self._path_duration
-        local t_next = (self._path_elapsed + delta) / self._path_duration
-        local x1, y1 = self._path:at(t_now)
-        local x2, y2 = self._path:at(math.min(1, t_next))
-
-        -- safety check for numerical error accumulating
-        local px, py = self._body:get_position()
-        if math.distance(px, py, x1, y1) > 0.5 * self._body:get_radius() then
-            self._body:set_position(x1, y1)
-        end
-
-        if delta > 0 then
-            self._body:set_velocity(
-                (x2 - x1) / delta,
-                (y2 - y1) / delta
-            )
-        end
-
-        if t_now >= 1 then
+        local t = self._path_elapsed / self._path_duration
+        if t == 0 or t >= 1 then
             self._path_elapsed = 0
             self._body:set_position(self._path:at(0))
-            self._state = _STATE_PLAYBACK
         end
 
-        local i = 7 * math.floor(math.mix(0, self._path_n_snapshots - 1, t_now)) + 1
-        i = math.min(i, #self._input_data - 7)
-
-        self._body:update_input(
-            self._input_data[i+0], -- up
-            self._input_data[i+1], -- right
-            self._input_data[i+2], -- down
-            self._input_data[i+3], -- left
-            self._input_data[i+4], -- sprint
-            self._input_data[i+5], -- jump
-            self._input_data[i+6]  -- is_bubble
+        local t_next = math.min(1, (self._path_elapsed + delta) / self._path_duration)
+        local x1, y1 = self._path:at(t)
+        local x2, y2 = self._path:at(t_next)
+        self._body:set_velocity(
+            (x2 - x1) / delta,
+            (y2 - y1) / delta
         )
+
+        local n = #self._is_bubble_data
+        local is_bubble = self._is_bubble_data[math.clamp(math.floor(t * n), 1, n)]
+        self._body:set_is_bubble(is_bubble)
         self._body:update(delta)
+
+        self._path_elapsed = self._path_elapsed + delta
+
+        -- manually set position to prevent numerical drift from velocity
+        if math.distance(x1, y1, self._body:get_physics_body():get_position()) > rt.settings.overworld.player_recorder.correction_threshold then
+            self._body:set_position(x1, y1)
+        end
     end
 end
 
@@ -161,5 +127,9 @@ function ow.PlayerRecorder:draw()
     if self._state == _STATE_PLAYBACK then
         love.graphics.setColor(1, 1, 1, 1)
         self._body:draw()
+    end
+
+    if self._path ~= nil then
+        love.graphics.line(self._path:get_points())
     end
 end
