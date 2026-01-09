@@ -327,6 +327,7 @@ function rt.Player:instantiate()
         _hue = 0,
         _hue_motion_current = 0,
         _hue_motion_target = 0,
+        _current_color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, 0, 1)),
 
         _mass = 1,
         _gravity_direction_x = 0,
@@ -638,7 +639,7 @@ function rt.Player:update(delta)
             if self._use_bubble_mesh_delay_n_steps <= 0 then
                 self._graphics_body:set_shape(positions)
                 self._graphics_body:set_position(center_x, center_y)
-                self._graphics_body:set_color(rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue_motion_current, 1)))
+                self._graphics_body:set_color(self._current_color)
 
                 if self:get_is_bubble() then
                     self._graphics_body:set_use_contour(true, self._bubble_contour_shape)
@@ -671,6 +672,8 @@ function rt.Player:update(delta)
         end
 
         self._hue = math.fract(self._hue + 1 / _settings.hue_cycle_duration * delta)
+        self:_update_color()
+
         self._hue_motion_target = self._hue
 
         do -- move gradually towards hue target, periodic in [0, 1]
@@ -2013,7 +2016,7 @@ function rt.Player:update(delta)
     if self._sprint_button_is_down then self._sprint_button_is_down_elapsed = self._sprint_button_is_down_elapsed + delta end
 
     -- add blood splatter
-    local color_r, color_g, color_b, _ = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+    local color_r, color_g, color_b, _ = self._current_color:unpack()
     if self._stage ~= nil and not self._is_ghost then
         local cx, cy = self:get_position()
         local radius = math.max(top_ray_length, right_ray_length, bottom_ray_length, left_ray_length)
@@ -2740,6 +2743,15 @@ function rt.Player:set_override_flow(flow_or_nil)
 end
 
 --- @brief
+function rt.Player:_update_color()
+    local r, g, b, a = rt.lcha_to_rgba(0.8, 1, self._hue, 1)
+    self._current_color.r = r
+    self._current_color.g = g
+    self._current_color.b = b
+    self._current_color.a = a
+end
+
+--- @brief
 function rt.Player:get_hue()
     return self._hue
 end
@@ -2748,6 +2760,12 @@ end
 function rt.Player:set_hue(value)
     self._hue = math.fract(value)
     self._hue_motion_target = value
+    self:_update_color()
+end
+
+--- @brief
+function rt.Player:get_color()
+    return self._current_color
 end
 
 --- @brief
@@ -3335,7 +3353,7 @@ function rt.Player:pulse(color_maybe)
 
     table.insert(self._pulses, {
         timestamp = love.timer.getTime(),
-        color = color_maybe or rt.RGBA(rt.lcha_to_rgba(0.8, 1, self._hue, 1))
+        color = color_maybe or self._current_color
     })
 end
 

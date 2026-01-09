@@ -245,6 +245,13 @@ function ow.NPC:instantiate(object, stage, scene)
 end
 
 --- @brief
+function ow.NPC:_get_dialog_is_active()
+    return (self._has_interact_dialog and self._interact_dialog_emitter:get_is_active())
+        or (self._has_enter_dialog and self._enter_dialog_emitter:get_is_active())
+        or (self._has_exit_dialog and self._exit_dialog_emitter:get_is_active())
+end
+
+--- @brief
 function ow.NPC:update(delta)
     if not self._stage:get_is_body_visible(self._sensor) then return end
 
@@ -252,9 +259,7 @@ function ow.NPC:update(delta)
     local was_active = self._sensor_active
     self._sensor_active = is_active
 
-    local already_active = (self._has_interact_dialog and self._interact_dialog_emitter:get_is_active())
-        or (self._has_enter_dialog and self._enter_dialog_emitter:get_is_active())
-        or (self._has_exit_dialog and self._exit_dialog_emitter:get_is_active())
+    local already_active = self:_get_dialog_is_active()
 
     if not already_active then
         if self._has_enter_dialog and was_active == false and is_active == true then
@@ -357,7 +362,7 @@ local _focus_indicator_top_right_y = math.sin(angle_offset + 4 * math.pi / 3 - s
 --- @brief
 function ow.NPC:_draw_focus_indicator(x, y)
     require "common.cursor"
-    local radius = rt.settings.cursor.radius * 1.5
+    local radius = rt.settings.cursor.radius * 2
     y = y - rt.settings.margin_unit - 0.5 * radius
 
     local top_left_x = x + radius * _focus_indicator_top_left_x
@@ -374,17 +379,15 @@ function ow.NPC:_draw_focus_indicator(x, y)
     local top_y = y + 0.5 * radius * _focus_indicator_top_left_y  -- Same y as top edge vertices
 
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-    local r, g, b = rt.Cursor:_get_color()
+    local r, g, b = self._scene:get_player():get_color():unpack() -- rt.Cursor:_get_color()
     local a = self._focus_indicator_opacity_motion:get_value()
 
     love.graphics.setColor(black_r, black_g, black_b, a)
-    --[[
     love.graphics.polygon("fill",
         top_left_x, top_left_y,
         top_right_x, top_right_y,
         bottom_x, bottom_y
     )
-    ]]
 
     local line_width = 2
     love.graphics.setLineJoin("bevel")
@@ -478,7 +481,9 @@ function ow.NPC:draw(priority)
             world_y = self._focus_indicator_y + self._noise_y
         end
 
-        self:_draw_focus_indicator(self._scene:get_camera():world_xy_to_screen_xy(world_x, world_y))
+        if not self:_get_dialog_is_active() then
+            self:_draw_focus_indicator(self._scene:get_camera():world_xy_to_screen_xy(world_x, world_y))
+        end
         love.graphics.pop()
     end
 end

@@ -160,6 +160,8 @@ end
 function ow.BloodSplatter:draw()
     local line_width = rt.settings.overworld.blood_splatter.line_width
     love.graphics.setLineWidth(line_width)
+    love.graphics.setLineStyle("rough")
+    love.graphics.setLineJoin("bevel")
 
     local x, y, w, h = self._scene:get_camera():get_world_bounds():unpack()
     x = x - self._offset_x

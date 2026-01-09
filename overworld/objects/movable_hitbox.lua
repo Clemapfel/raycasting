@@ -137,7 +137,7 @@ function ow.MovableHitbox:update(delta)
             if player:get_is_colliding_with(self._body) then
                 local nx, ny, cx, cy = player:get_collision_normal(self._body)
                 local r = player:get_radius() / 2
-                self._blood_splatter:add(cx, cy, r, rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1))
+                self._blood_splatter:add(cx, cy, r, player:get_color():unpack())
             end
         end
     end

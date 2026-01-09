@@ -74,7 +74,7 @@ function ow.Mirror:draw()
     local player_opacity = ternary(player:get_is_visible(), 1, 0)
 
     _shader:bind()
-    _shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, player:get_hue(), player_opacity) })
+    _shader:send("player_color", { player:get_color():unpack() })
     _shader:send("player_position", { camera:world_xy_to_screen_xy(player:get_position()) })
     _shader:send("elapsed", rt.SceneManager:get_elapsed())
     _shader:send("camera_offset", { camera:get_offset() })

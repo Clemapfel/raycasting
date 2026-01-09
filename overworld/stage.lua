@@ -534,7 +534,7 @@ function ow.Stage:get_point_light_sources()
             })
 
             table.insert(colors, {
-                rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1)
+                player:get_color():unpack()
             })
         end
 

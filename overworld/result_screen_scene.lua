@@ -1151,7 +1151,7 @@ function ow.ResultScreenScene:draw()
     _screenshot_shader:send("fraction", self._screenshot_fraction_animation:get_value())
     _screenshot_shader:send("transition_fraction", self._transition_fraction)
     _screenshot_shader:send("screen_to_world_transform", self._camera:get_transform():inverse())
-    _screenshot_shader:send("player_color", { rt.lcha_to_rgba(0.8, 1, self._player:get_hue(), 1)})
+    _screenshot_shader:send("player_color", { self._player:get_color():unpack() })
     self._screenshot_mesh:draw()
     _screenshot_shader:unbind()
 

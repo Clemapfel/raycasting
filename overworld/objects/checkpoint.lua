@@ -368,7 +368,7 @@ function ow.Checkpoint:update(delta)
     end
     if self._state == _STATE_DEFAULT and not self._stage:get_is_body_visible(self._body) then return end
 
-    self._color = { rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1) }
+    self._color = { player:get_color():unpack() }
     self._camera_offset = { camera:get_offset() }
     self._camera_scale = camera:get_scale()
 

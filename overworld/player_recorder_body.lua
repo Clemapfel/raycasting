@@ -6,7 +6,8 @@ rt.settings.overworld.player_recorder_body = {
     gray_value = 0.175,
 
     splatter_gray = 0.8,
-    splatter_opacity = 0.2 -- bloom will still render
+    splatter_opacity = 0.2, -- bloom will still render
+    blood_should_override = true
 }
 
 --- @class ow.PlayerRecorderBody
@@ -182,7 +183,7 @@ function ow.PlayerRecorderBody:update(delta)
             local color_r, color_g, color_b, color_a = self._splatter_color:unpack()
             blood_splatter:add(tx, ty, self._blood_splatter_radius,
                 color_r, color_g, color_b, color_a,
-                false -- override
+                rt.settings.overworld.player_recorder_body.blood_should_override -- override
             )
         end
     end

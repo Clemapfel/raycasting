@@ -375,7 +375,7 @@ function ow.Goal:update(delta)
     self._time_label_offset_x = self._indicator_x - w - 20 -- 20px hmargin
     self._time_label_offset_y = self._indicator_y - 0.5 * h
 
-    self._color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, player:get_hue(), 1))
+    self._color = player:get_color()
 
     local px, py = player:get_position()
     local offset_x, offset_y = self._body:get_position()
