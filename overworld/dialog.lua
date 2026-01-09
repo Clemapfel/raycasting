@@ -9,7 +9,6 @@ local GHOST_NAME = "(# GHOST_NAME)"
 local BOOST_FIELD_NAME = "Boost Field"
 
 return setmetatable({
-
     slippery_floor_tutorial = {
         {
             speaker = EYES_NAME,
@@ -21,7 +20,7 @@ return setmetatable({
     boost_field_tip_01 = {
         {
             speaker = EYES_NAME,
-            "These <b>" .. BOOST_FIELD_NAME .. "s</b> make you go faster while your are touching them. Make sure to <b>maximize the amount of time you are touching them</b> to get the most speed"
+            "These <b>" .. BOOST_FIELD_NAME .. "s</b> make you go faster whigle your are touching them. Make sure to <b>maximize the amount of time you are touching them</b> to get the most speed"
         }
     },
 
