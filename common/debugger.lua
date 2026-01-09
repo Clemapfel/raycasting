@@ -87,4 +87,68 @@ function debugger.traceback()
     return debug.traceback()
 end
 
+local _data = {}
+local _id_to_data = {}
+local _history_count = 120
+
+--- @brief
+function debugger.measure(id, callback)
+    meta.assert(id, "String", callback, "Function")
+
+    local before = love.timer.getTime()
+    callback()
+    local elapsed = math.floor((love.timer.getTime() - before) / (1 / 60) * 1000) / 1000
+
+    local entry = _id_to_data[id]
+    if entry == nil then
+        entry = {
+            id = id,
+            max = -math.huge,
+            history = table.rep(0, _history_count),
+            sum = 0
+        }
+
+        _id_to_data[id] = entry
+        table.insert(_data, entry)
+    end
+
+    entry.max = math.max(entry.max, elapsed)
+    local first = entry.history[1]
+    table.remove(entry.history, 1)
+    table.insert(entry.history, elapsed)
+    entry.sum = entry.sum - first + elapsed
+
+    if entry.max == first then
+        local new_max = -math.huge
+        for t in values(entry.history) do
+            new_max = math.max(t)
+        end
+        entry.max = new_max
+    end
+end
+
+--- @brief
+function debugger.report(use_max)
+    table.sort(_data, function(a, b)
+        return a.max > b.max
+    end)
+
+    local max_id_length = 2
+    for entry in values(_data) do
+        local value = ternary(use_max ~= false, entry.max, entry.sum / #entry.history)
+        if value > 0 then
+            max_id_length = math.max(max_id_length, #entry.id)
+        end
+    end
+
+    println("")
+    for entry in values(_data) do
+        local value = ternary(use_max ~= false, entry.max, entry.sum / #entry.history)
+        if value > 0 then
+            println(string.format("| %-" .. max_id_length .. "s | %.3f |", entry.id, value))
+        end
+    end
+    println("")
+end
+
 return debugger
