@@ -89,6 +89,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         -- only for player spawn
         _spawn_barrier = nil, -- b2.Body
+        _use_spawn_barrier = false,
 
         -- only for midway
         _particles = nil, -- ow.CheckpointParticles
@@ -103,9 +104,18 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             local left_x, left_y = x - 0.5 * platform_w, y
             local right_x, right_y = x + 0.5 * platform_w, y
 
-            self._platform = ow.CheckpointPlatform(
-                left_x, left_y, right_x, right_y, platform_h
+            -- check if solid ground alreaddy present
+            local bodies = self._world:query_aabb(
+                left_x, left_y, right_x - left_x, platform_h, rt.settings.overworld.hitbox.collision_group
             )
+
+            self._use_spawn_barrier = #bodies == 0
+
+            if self._use_spawn_barrier then
+                self._platform = ow.CheckpointPlatform(
+                    left_x, left_y, right_x, right_y, platform_h
+                )
+            end
 
             local min_x, max_x = left_x, right_x
             local min_y, max_y = y, y + platform_h
@@ -125,8 +135,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then
             create_platform(self._x, self._y)
-            self._spawn_barrier:set_is_enabled(true)
-
+            self._spawn_barrier:set_is_enabled(self._use_spawn_barrier)
             self._body = self._spawn_barrier
 
             self._top_x, self._top_y = self._x, self._y
@@ -252,7 +261,7 @@ function ow.Checkpoint:spawn(also_kill)
 
     self:_restore_coins()
     self._stage:set_active_checkpoint(self)
-    self._spawn_barrier:set_is_enabled(true)
+    self._spawn_barrier:set_is_enabled(self._use_spawn_barrier)
     self._passed = true
 
     self._stage:signal_emit("respawn")
@@ -365,7 +374,7 @@ function ow.Checkpoint:update(delta)
     self._camera_offset = { camera:get_offset() }
     self._camera_scale = camera:get_scale()
 
-    if self._spawn_barrier:get_is_enabled() then
+    if self._platform ~= nil and self._spawn_barrier:get_is_enabled() then
         self._platform:set_hue(self._scene:get_player():get_hue())
     end
 
@@ -430,7 +439,7 @@ function ow.Checkpoint:draw(priority)
         if self._particles ~= nil then self._particles:draw() end
     end
 
-    if self._stage:get_is_body_visible(self._spawn_barrier) then
+    if self._platform ~= nil and self._stage:get_is_body_visible(self._spawn_barrier) then
         self._platform:draw()
     end
 
@@ -480,7 +489,9 @@ function ow.Checkpoint:draw_bloom()
         self._rope:draw_bloom()
         self._particles:draw_bloom()
     elseif self._type == ow.CheckpointType.PLAYER_SPAWN then
-        self._platform:draw_bloom()
+        if self._platform ~= nil and self._spawn_barrier:get_is_enabled() then
+            self._platform:draw_bloom()
+        end
     end
 end
 
