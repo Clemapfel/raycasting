@@ -229,16 +229,13 @@ end
 --- @brief
 function ow.Checkpoint:spawn(also_kill)
     if also_kill == nil then also_kill = true end
-
     local is_first_spawn = self._stage:get_is_first_spawn()
 
     local player = self._scene:get_player()
     player:reset()
     player:disable()
 
-    self._scene:set_fade_to_black(0)
     self._world:set_time_dilation(1)
-
     self._should_emit_respawn = true
 
     local type = self._type
@@ -288,8 +285,8 @@ function ow.Checkpoint:_set_state(state)
         camera:set_position(self._bottom_x, self._bottom_y)
 
         player:reset()
-        player:teleport_to(self._top_x, spawn_y)
         player:set_is_ghost(true)
+        player:teleport_to(self._top_x, spawn_y)
         player:clear_forces()
         player:disable()
 
@@ -324,7 +321,11 @@ function ow.Checkpoint:_set_state(state)
         local ray_w = player:get_radius() * rt.settings.overworld.checkpoint.ray_width_radius_factor
 
         local screen_h = camera:get_world_bounds().height
-        local _, max_y = self._world:query_ray(self._x, self._y, 0, -10e8)
+        local _, max_y = self._world:query_ray(
+            self._x, self._y - rt.settings.player.radius * 2,
+            0, -b2.huge,
+            rt.settings.hitbox.collision_group -- only detect hitboxes
+        )
 
         local spawn_y
         if max_y == nil then
@@ -334,13 +335,18 @@ function ow.Checkpoint:_set_state(state)
         end
 
         self._top_y = spawn_y
-        self._ray_area:reformat(self._top_x - 0.5 * ray_w, self._top_y, ray_w, self._bottom_y - self._top_y)
 
-        player:teleport_to(self._x, spawn_y)
+        local ray_top_y = self._top_y --self._y - screen_h / 2 + 4 * rt.settings.player.radius
+        self._ray_area:reformat(
+            self._top_x - 0.5 * ray_w,
+            ray_top_y,
+            ray_w,
+            self._bottom_y - ray_top_y
+        )
 
         player:reset()
-        player:teleport_to(self._top_x, spawn_y)
         player:set_is_ghost(true)
+        player:teleport_to(self._top_x, spawn_y)
         player:set_is_visible(false)
         player:clear_forces()
         player:disable()
@@ -403,8 +409,8 @@ function ow.Checkpoint:update(delta)
         if self._ray_fraction < 1 and self._should_emit_respawn then
             self._stage:signal_emit("respawn")
             self._should_emit_respawn = false
-            dbg("respawn")
         end
+
         local threshold = self._bottom_y - 2 * player:get_radius()
         local player_x, player_y = player:get_position()
         if self._ray_fade_out_elapsed <= 0 and self._ray_fraction < 1 then
