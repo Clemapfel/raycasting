@@ -319,34 +319,21 @@ function ow.Checkpoint:_set_state(state)
         self._ray_fade_out_elapsed = 0
         self._ray_fade_out_fraction = 0
         local ray_w = player:get_radius() * rt.settings.overworld.checkpoint.ray_width_radius_factor
-
         local screen_h = camera:get_world_bounds().height
-        local _, max_y = self._world:query_ray(
-            self._x, self._y - rt.settings.player.radius * 2,
-            0, -b2.huge,
-            rt.settings.hitbox.collision_group -- only detect hitboxes
-        )
 
-        local spawn_y
-        if max_y == nil then
-            spawn_y = self._y - screen_h
-        else
-            spawn_y = math.max(self._y - screen_h, max_y)
-        end
+        self._top_y = self._y - (screen_h / 2 + 4 * rt.settings.player.radius)
 
-        self._top_y = spawn_y
-
-        local ray_top_y = self._top_y --self._y - screen_h / 2 + 4 * rt.settings.player.radius
+        local ray_top_y =
         self._ray_area:reformat(
             self._top_x - 0.5 * ray_w,
-            ray_top_y,
+            self._top_y,
             ray_w,
-            self._bottom_y - ray_top_y
+            self._bottom_y - self._top_y
         )
 
         player:reset()
         player:set_is_ghost(true)
-        player:teleport_to(self._top_x, spawn_y)
+        player:teleport_to(self._top_x, self._top_y)
         player:set_is_visible(false)
         player:clear_forces()
         player:disable()
