@@ -86,9 +86,6 @@ function ow.Stage:instantiate(scene, id)
 
         -- npc
         _player_recorder = nil, -- ow.PlayerRecorder
-
-        -- goal fade to black
-        _fade_to_black = 0
     })
 
     self._player_recorder = ow.PlayerRecorder(self, self._scene)
@@ -875,11 +872,4 @@ function ow.Stage:reset()
     for instance in values(self._to_reset) do
         instance:reset()
     end
-
-    self._fade_to_black = 0
-end
-
---- @brief
-function ow.Stage:set_fade_to_black(t)
-    self._fade_to_black = t
 end

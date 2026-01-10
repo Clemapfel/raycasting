@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 640,
+  nextobjectid = 649,
   properties = {},
   tilesets = {
     {
@@ -138,8 +138,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = 166.334,
-          y = -872.941,
+          x = -1450.85,
+          y = 1200.71,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2072,6 +2072,59 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 643,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -1312,
+          y = 1232,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 32 },
+            { x = 1184, y = 32 },
+            { x = 1184, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 647,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1312,
+          y = 1264,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 400 },
+            { x = 32, y = 400 },
+            { x = 32, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 648,
+          name = "",
+          type = "CameraFit",
+          shape = "rectangle",
+          x = -1465.08,
+          y = 946.279,
+          width = 1479.98,
+          height = 845.806,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["speed"] = 0.05
+          }
         }
       }
     },

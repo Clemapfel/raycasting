@@ -35,13 +35,11 @@ function rt.Camera:instantiate()
         _current_y = 0,
         _target_x = 0,
         _target_y = 0,
-        _speed = 1, -- fraction
 
         _current_angle = 0,
 
         _current_scale = 1,
         _target_scale = 1,
-        _scale_speed = 1, -- fraction
 
         _last_x = 0,
         _last_y = 0,
@@ -81,7 +79,7 @@ function rt.Camera:instantiate()
     self:set_shake_frequency(1)
 end
 
-local _round = function(x)
+local _floor = function(x)
     return math.floor(x)
 end
 
@@ -123,15 +121,21 @@ function rt.Camera:_constrain(x, y)
     local half_w = screen_w / self._current_scale / 2
     local half_h = screen_h / self._current_scale / 2
 
-    x = math.clamp(x,
-        self._bounds.x + half_w,
-        self._bounds.x + self._bounds.width - half_w
-    )
+    local min_x, max_x = self._bounds.x + half_w,
+    self._bounds.x + self._bounds.width - half_w
 
-    y = math.clamp(y,
-        self._bounds.y + half_h,
-        self._bounds.y + self._bounds.height - half_h
-    )
+    local min_y, max_y = self._bounds.y + half_h,
+    self._bounds.y + self._bounds.height - half_h
+
+    -- Conservative rounding so that after integer snapping the viewport remains inside the bounds.
+    min_x, max_x = math.ceil(min_x), math.floor(max_x)
+    min_y, max_y = math.ceil(min_y), math.floor(max_y)
+
+    if x > max_x then x = max_x end
+    if x < min_x then x = min_x end
+
+    if y > max_y then y = max_y end
+    if y < min_y then y = min_y end
 
     return x, y
 end
@@ -140,8 +144,8 @@ local _distance_easing = function(x, delta)
     return math.sign(x) * math.abs(x)^1.5 * delta
 end
 
-local _scale_easing = function(x, delta, speed_factor)
-    local duration = 0.5 / speed_factor  -- shorter duration = faster
+local _scale_easing = function(x, delta)
+    local duration = 0.5
     return x * (1 - (1 - delta / duration)^1.8)
 end
 
@@ -150,14 +154,12 @@ function rt.Camera:update(delta)
     local screen_w, screen_h = love.graphics.getDimensions()
 
     do -- scale
-        local scale_speed_factor = self._scale_speed
-
         -- work in log space, where relative scales are equidistant regardless of value
         local scale_eps = math.eps
         local current_scale = math.log(math.max(scale_eps, self._current_scale))
         local target_scale = math.log(math.max(scale_eps, self._target_scale))
 
-        local delta_scale = _scale_easing(target_scale - current_scale, delta, scale_speed_factor)
+        local delta_scale = _scale_easing(target_scale - current_scale, delta)
 
         -- convert limit to log space
         local max_scale_velocity = rt.settings.camera.max_scale_velocity
@@ -177,18 +179,17 @@ function rt.Camera:update(delta)
     end
 
     do -- movement
-        local speed_factor = self._speed
+        local dx = _distance_easing(self._target_x - self._current_x, delta)
+        local dy = _distance_easing(self._target_y - self._current_y, delta)
 
-        local dx = _distance_easing(self._target_x - self._current_x, delta * speed_factor)
-        local dy = _distance_easing(self._target_y - self._current_y, delta * speed_factor)
-
-        local max_displacement = speed_factor * rt.settings.player.max_velocity * delta
+        local max_displacement = rt.settings.player.max_velocity * delta
         dx = math.clamp(dx, -max_displacement, max_displacement)
         dy = math.clamp(dy, -max_displacement, max_displacement)
 
         self._last_x, self._last_y = self._current_x, self._current_y
-        self._current_x = _round(self._current_x + dx)
-        self._current_y = _round(self._current_y + dy)
+
+        self._current_x = self._current_x + dx
+        self._current_y = self._current_y + dy
     end
 
     -- continuous shaking
@@ -257,11 +258,12 @@ function rt.Camera:update(delta)
 
     -- update transform
     local t = self._transform:reset()
-    t:translate(_round(0.5 * screen_w), _round(0.5 * screen_h), 0)
+    t:translate(_floor(0.5 * screen_w), _floor(0.5 * screen_h), 0)
     t:scale(self._current_scale, self._current_scale, 1)
     t:scale(rt.get_pixel_scale())
     t:rotate_z(self._current_angle)
-    t:translate(-_round(self._current_x), -_round(self._current_y), 0)
+    -- Snap to integer pixels only at draw time to avoid blur; this also matches our conservative _constrain().
+    t:translate(-_floor(self._current_x), -_floor(self._current_y), 0)
 
     self._world_bounds_needs_update = true
 end
@@ -344,7 +346,8 @@ function rt.Camera:set_scale(s, override_bounds)
     self._target_scale = s
 
     if override_bounds ~= true then
-        self._target_x, self._target_x = self:_constrain(self._target_x, self._target_y)
+        -- Fix: assign both target X and Y after constraining.
+        self._target_x, self._target_y = self:_constrain(self._target_x, self._target_y)
     end
 
     self._world_bounds_needs_update = true
@@ -353,6 +356,27 @@ end
 --- @brief
 function rt.Camera:scale_to(s)
     self._target_scale = s
+end
+
+function rt.Camera:fit_to(bounds)
+    meta.assert(bounds, "AABB")
+
+    local screen_w, screen_h = love.graphics.getDimensions()
+    local pixel_scale = self:get_scale_delta()
+
+    local bw = math.max(math.eps, bounds.width)
+    local bh = math.max(math.eps, bounds.height)
+
+    local scale_x = screen_w / (pixel_scale * bw)
+    local scale_y = screen_h / (pixel_scale * bh)
+    local target_scale = math.min(scale_x, scale_y)
+    target_scale = math.clamp(target_scale, rt.settings.camera.min_scale, rt.settings.camera.max_scale)
+
+    local cx = bounds.x + 0.5 * bounds.width
+    local cy = bounds.y + 0.5 * bounds.height
+
+    self:scale_to(target_scale)
+    self:move_to(cx, cy, true)
 end
 
 --- @brief
@@ -462,8 +486,8 @@ end
 --- @brief
 function rt.Camera:get_offset()
     local w, h = love.graphics.getDimensions()
-    local x_offset = -_round(self._current_x + 0.5 * w)
-    local y_offset = -_round(self._current_y + 0.5 * h)
+    local x_offset = -_floor(self._current_x + 0.5 * w)
+    local y_offset = -_floor(self._current_y + 0.5 * h)
 
     if rt.GameState:get_is_screen_shake_enabled() then
         x_offset = x_offset + _clamp(self._shake_offset_x + self._shake_impulse_offset_x)
@@ -516,24 +540,4 @@ end
 --- @brief
 function rt.Camera:get_transform()
     return self._transform:clone()
-end
-
---- @brief
-function rt.Camera:set_scale_speed(fraction)
-    self._scale_speed = fraction
-end
-
---- @brief
-function rt.Camera:get_scale_speed()
-    return self._scale_speed
-end
-
---- @brief
-function rt.Camera:set_speed(fraction)
-    self._speed = fraction
-end
-
---- @brief
-function rt.Camera:get_speed()
-    return self._speed
 end

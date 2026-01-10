@@ -622,11 +622,6 @@ function ow.OverworldScene:unpause_timer()
 end
 
 --- @brief
-function ow.OverworldScene:set_camera_bounds(bounds)
-    self._camera:set_bounds(bounds)
-end
-
---- @brief
 function ow.OverworldScene:stop_timer()
     self._timer_stopped = true
 end
@@ -720,6 +715,8 @@ function ow.OverworldScene:draw()
             self._camera:bind()
             self._player:draw_body()
             self._player:draw_core()
+
+            -- TODO
             self._camera:unbind()
         end
 
@@ -1218,6 +1215,11 @@ function ow.OverworldScene:set_camera_mode(mode)
 end
 
 --- @brief
+function ow.OverworldScene:get_camera_mode()
+    return self._camera_mode
+end
+
+--- @brief
 function ow.OverworldScene:reset()
     local before = self._stage_id
 
@@ -1365,7 +1367,6 @@ end
 --- @brief
 function ow.OverworldScene:set_fade_to_black(t)
     self._fade_to_black = t
-    if self._stage ~= nil then self._stage:set_fade_to_black(t) end
 end
 
 --- @brief
