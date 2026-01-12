@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 649,
+  nextobjectid = 650,
   properties = {},
   tilesets = {
     {
@@ -2123,8 +2123,23 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["speed"] = 0.05
+            ["focus"] = { id = 649 },
+            ["scale_speed"] = -10,
+            ["speed"] = -10
           }
+        },
+        {
+          id = 649,
+          name = "Focus",
+          type = "CameraFitFocus",
+          shape = "point",
+          x = -701.627,
+          y = 1381.56,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },

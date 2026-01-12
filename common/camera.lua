@@ -35,11 +35,13 @@ function rt.Camera:instantiate()
         _current_y = 0,
         _target_x = 0,
         _target_y = 0,
+        _speed = 1, -- fraction
 
         _current_angle = 0,
 
         _current_scale = 1,
         _target_scale = 1,
+        _scale_speed = 1, -- fraction
 
         _last_x = 0,
         _last_y = 0,
@@ -140,12 +142,13 @@ function rt.Camera:_constrain(x, y)
     return x, y
 end
 
-local _distance_easing = function(x, delta)
-    return math.sign(x) * math.abs(x)^1.5 * delta
+local _distance_easing = function(x, delta, speed)
+    local exponent = math.mix(1, 2, speed / 2)
+    return math.sign(x) * math.abs(x)^exponent * delta
 end
 
-local _scale_easing = function(x, delta)
-    local duration = 0.5
+local _scale_easing = function(x, delta, speed)
+    local duration = 0.5 / speed
     return x * (1 - (1 - delta / duration)^1.8)
 end
 
@@ -159,7 +162,7 @@ function rt.Camera:update(delta)
         local current_scale = math.log(math.max(scale_eps, self._current_scale))
         local target_scale = math.log(math.max(scale_eps, self._target_scale))
 
-        local delta_scale = _scale_easing(target_scale - current_scale, delta)
+        local delta_scale = _scale_easing(target_scale - current_scale, delta, self._scale_speed)
 
         -- convert limit to log space
         local max_scale_velocity = rt.settings.camera.max_scale_velocity
@@ -179,8 +182,8 @@ function rt.Camera:update(delta)
     end
 
     do -- movement
-        local dx = _distance_easing(self._target_x - self._current_x, delta)
-        local dy = _distance_easing(self._target_y - self._current_y, delta)
+        local dx = _distance_easing(self._target_x - self._current_x, delta, self._speed)
+        local dy = _distance_easing(self._target_y - self._current_y, delta, self._speed)
 
         local max_displacement = rt.settings.player.max_velocity * delta
         dx = math.clamp(dx, -max_displacement, max_displacement)
@@ -358,7 +361,7 @@ function rt.Camera:scale_to(s)
     self._target_scale = s
 end
 
-function rt.Camera:fit_to(bounds)
+function rt.Camera:fit_to(bounds, center_x, center_y)
     meta.assert(bounds, "AABB")
 
     local screen_w, screen_h = love.graphics.getDimensions()
@@ -372,8 +375,8 @@ function rt.Camera:fit_to(bounds)
     local target_scale = math.min(scale_x, scale_y)
     target_scale = math.clamp(target_scale, rt.settings.camera.min_scale, rt.settings.camera.max_scale)
 
-    local cx = bounds.x + 0.5 * bounds.width
-    local cy = bounds.y + 0.5 * bounds.height
+    local cx = center_x or (bounds.x + 0.5 * bounds.width)
+    local cy = center_y or (bounds.y + 0.5 * bounds.height)
 
     self:scale_to(target_scale)
     self:move_to(cx, cy, true)
@@ -540,4 +543,24 @@ end
 --- @brief
 function rt.Camera:get_transform()
     return self._transform:clone()
+end
+
+--- @brief
+function rt.Camera:set_scale_speed(fraction)
+    self._scale_speed = fraction or 1
+end
+
+--- @brief
+function rt.Camera:get_scale_speed()
+    return self._scale_speed
+end
+
+--- @brief
+function rt.Camera:set_speed(fraction)
+    self._speed = fraction or 1
+end
+
+--- @brief
+function rt.Camera:get_speed()
+    return self._speed
 end
