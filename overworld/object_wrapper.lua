@@ -556,6 +556,10 @@ function ow.ObjectWrapper:get_string(id, assert_exists)
     return out
 end
 
+function ow.ObjectWrapper:get_has_property(id)
+    return self.properties[id] ~= nil
+end
+
 --- @brief
 --- @param id String
 --- @param assert_exists Boolean?
