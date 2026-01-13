@@ -144,7 +144,7 @@ function ow.NPC:instantiate(object, stage, scene)
 
         self._graphics_body:set_position(self._x, self._y)
 
-        local initial_velocity_x = object:get_number("initial_velocity_x", false) or 50
+        local initial_velocity_x = object:get_number("initial_velocity_x", false) or 0
         local initial_velocity_y = object:get_number("initial_velocity_y", false) or 0
         self._graphics_body:set_velocity(
             initial_velocity_x,
