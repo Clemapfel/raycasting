@@ -310,8 +310,8 @@ function rt.PlayerBody:initialize()
 
     -- init ropes
     local max_rope_length = self._rope_length_radius_factor * self._radius
-    local contour_rope_length = max_rope_length / ring_to_n_ropes(1) + self._node_mesh_radius / 2
-    self._contour_rope_length = contour_rope_length
+    local contour_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius
+    self._contour_rope_length = max_rope_length - self._node_mesh_radius
     self._t_to_ropes = {}
 
     for ring_i = 1, n_rings do
@@ -378,7 +378,8 @@ function rt.PlayerBody:initialize()
         end
     end
 
-    self:set_use_contour(false)
+    self._use_contour = false
+    self:_update_contour()
 
     self._is_initialized = true
     if self._queue_relax == true then
@@ -913,12 +914,9 @@ end
 
 --- @brief
 function rt.PlayerBody:update(delta)
-    -- non rope sim updates
-    debugger.push("shader_elapsed")
-    self._shader_elapsed = self._shader_elapsed + delta
-    debugger.pop("shader_elapsed")
 
-    debugger.push("squish_motion_update")
+    -- non rope sim updates
+    self._shader_elapsed = self._shader_elapsed + delta
     if not self._use_performance_mode then
         for squish in range(
             self._down_squish_motion,
@@ -929,19 +927,24 @@ function rt.PlayerBody:update(delta)
             squish:update(delta)
         end
     end
-    debugger.pop("squish_motion_update")
 
-    debugger.push("stencil_bodies_query")
     if self._world ~= nil then
         self._stencil_bodies = {}
         self._core_stencil_bodies = {}
 
         if self._use_stencils then
-            local w = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+            local w = self._contour_rope_length
             local h = w
 
+            local settings = rt.settings.player
+            local mask = bit.bnot(0x0)
+            mask = bit.band(mask, bit.bnot(settings.player_outer_body_collision_group))
+            mask = bit.band(mask, bit.bnot(settings.player_collision_group))
+            mask = bit.band(mask, bit.bnot(settings.bounce_collision_group))
+
             local bodies = self._world:query_aabb(
-                self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h
+                self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h,
+                mask
             )
 
             for body in values(bodies) do
@@ -955,10 +958,8 @@ function rt.PlayerBody:update(delta)
             end
         end
     end
-    debugger.pop("stencil_bodies_query")
 
     -- rope sim
-    debugger.push("rope_sim_setup")
     local gravity_x, gravity_y
     if self._use_contour then
         gravity_x, gravity_y = 0, 0
@@ -972,9 +973,7 @@ function rt.PlayerBody:update(delta)
     else
         todo = self._use_contour and _settings.contour or _settings.non_contour
     end
-    debugger.pop("rope_sim_setup")
 
-    debugger.push("rope_update")
     if self._use_performance_mode
         and self._use_contour
     then
@@ -1017,14 +1016,9 @@ function rt.PlayerBody:update(delta)
             })
         end
     end
-    debugger.pop("rope_update")
 
-    debugger.push("canvas_flags")
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
-    debugger.pop("canvas_flags")
-
-    debugger.report()
 end
 
 --- @brief
