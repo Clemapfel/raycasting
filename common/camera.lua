@@ -129,7 +129,6 @@ function rt.Camera:_constrain(x, y)
     local min_y, max_y = self._bounds.y + half_h,
     self._bounds.y + self._bounds.height - half_h
 
-    -- Conservative rounding so that after integer snapping the viewport remains inside the bounds.
     min_x, max_x = math.ceil(min_x), math.floor(max_x)
     min_y, max_y = math.ceil(min_y), math.floor(max_y)
 

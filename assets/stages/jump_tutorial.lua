@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 659,
+  nextobjectid = 662,
   properties = {},
   tilesets = {
     {
@@ -69,9 +69,27 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["scale_speed"] = 1,
-            ["speed"] = -10
+            ["speed"] = -5
           }
+        },
+        {
+          id = 659,
+          name = "",
+          type = "BubbleField",
+          shape = "polygon",
+          x = -1265.33,
+          y = 2065.33,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -176, y = 0 },
+            { x = -176, y = 224 },
+            { x = 1168, y = 224 },
+            { x = 1168, y = 0 }
+          },
+          properties = {}
         }
       }
     },
@@ -2152,46 +2170,58 @@ return {
           name = "Npc",
           type = "NPC",
           shape = "point",
-          x = -736,
-          y = 1680,
+          x = -768,
+          y = 1792,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["initial_velocity_x"] = 150,
+            ["initial_velocity_x"] = -150,
             ["is_dynamic"] = true,
-            ["type"] = "GHOST"
+            ["type"] = "GHOST_BUBBLE"
           }
         },
         {
-          id = 657,
+          id = 660,
           name = "",
           type = "BouncePad",
           shape = "polygon",
           x = -1296,
-          y = 1824,
+          y = 1584,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -465.333 },
-            { x = 544, y = -464 },
-            { x = 544, y = -496 },
-            { x = -32, y = -496 },
-            { x = -32, y = 32 },
-            { x = 1152, y = 32 },
-            { x = 1152, y = -496 },
-            { x = 1120, y = -496 },
-            { x = 576, y = -496 },
-            { x = 576, y = -464 },
-            { x = 1120, y = -464 },
-            { x = 1120, y = 0 }
+            { x = 0, y = -256 },
+            { x = 16, y = -256 },
+            { x = 16, y = 432 },
+            { x = 0, y = 432 }
           },
           properties = {
-            ["is_visible"] = true
+            ["is_visible"] = false
+          }
+        },
+        {
+          id = 661,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = -192,
+          y = 1584,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -256 },
+            { x = 16, y = -256 },
+            { x = 16, y = 432 },
+            { x = 0, y = 432 }
+          },
+          properties = {
+            ["is_visible"] = false
           }
         }
       }

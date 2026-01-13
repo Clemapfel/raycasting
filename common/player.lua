@@ -2022,12 +2022,16 @@ function rt.Player:update(delta)
     local color_r, color_g, color_b, _ = self._current_color:unpack()
     if self._stage ~= nil and not self._is_ghost then
         local cx, cy = self:get_position()
-        local radius = math.max(top_ray_length, right_ray_length, bottom_ray_length, left_ray_length)
+        local radius
+        if not self._is_bubble then
+            radius = math.max(top_ray_length, right_ray_length, bottom_ray_length, left_ray_length)
+        else
+            radius = self:get_radius()
+        end
 
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
             -- at high velocities, interpolate
-            -- TODO
-            if false then --last_contact_x ~= nil and last_contact_y ~= nil then
+            if last_contact_x ~= nil and last_contact_y ~= nil then
                 local lcx, lcy = last_contact_x, last_contact_y
                 local dx = cx - lcx
                 local dy = cy - lcy
@@ -2877,6 +2881,7 @@ function rt.Player:set_is_bubble(b)
         if self._use_bubble_mesh_delay_n_steps <= 0 then
             self._use_bubble_mesh = self._is_bubble
             self:signal_emit("bubble", self._is_bubble)
+
             return meta.DISCONNECT_SIGNAL
         else
             self._use_bubble_mesh_delay_n_steps = self._use_bubble_mesh_delay_n_steps - 1

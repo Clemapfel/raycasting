@@ -350,16 +350,23 @@ function string.first(str)
 end
 
 --- @brief split along character
-function string.split(str, separator)
+function string.split(str, sep)
     assert(type(str) == "string")
-    assert(type(separator) == "string")
+    assert(type(sep) == "string" and #sep == 1)
 
     local out = {}
-    for word, _ in string.gmatch(str, "([^".. separator .."]+)") do
+    local pattern = string.format("([^%s]+)", string.gsub(sep,
+        "(%W)", -- not alpha-numeric
+        "%%%1" -- "% literal" + first captured group
+    ))
+
+    for word in str:gmatch(pattern) do
         table.insert(out, word)
     end
-    return out
+
+    return table.unpack(out)
 end
+
 
 --- @brief check if pattern occurrs in string
 --- @param str string

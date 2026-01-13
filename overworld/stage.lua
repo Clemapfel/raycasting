@@ -97,6 +97,8 @@ function ow.Stage:instantiate(scene, id)
             self._player_recorder:record()
         elseif which == "t" then
             self._player_recorder:play()
+        elseif which == "ö" then
+            self._player_recorder:export("test.csv")
         end
     end)
     -- TODO

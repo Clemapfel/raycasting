@@ -811,8 +811,6 @@ function math.to_number(any)
         return 1
     elseif any == false then
         return 0
-    elseif any == nil then
-        return 0
     else
         return tonumber(any)
     end

@@ -239,12 +239,16 @@ function ow.PlayerRecorderBody:_step(delta)
 
     local gravity = player_settings.gravity * delta
     if self._is_bubble then
+        --[[
         local mass_multiplier = self._scene:get_player():get_bubble_mass_factor()
         local bubble_gravity = gravity * (mass_multiplier / delta) * player_settings.bubble_gravity_factor
         self._bubble_body:apply_force(
             self._gravity_direction_x * bubble_gravity,
             self._gravity_direction_y * bubble_gravity
         )
+        ]]--
+
+        -- no gravity as bubble
     else
         next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
         next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
@@ -312,6 +316,7 @@ end
 
 --- @brief
 function ow.PlayerRecorderBody:set_is_bubble(is_bubble)
+    meta.assert(is_bubble, "Boolean")
     self._is_bubble = is_bubble
 
     self._bubble_body:set_is_enabled(false)

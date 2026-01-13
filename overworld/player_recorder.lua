@@ -7,6 +7,9 @@ require "overworld.player_recorder_body"
 rt.settings.overworld.player_recorder = {
     delta_time_step_factor = 0.5,
     correction_threshold = 1 / 3 * rt.settings.player.radius, -- pixels
+
+    path_directory = "assets/paths",
+    path_directory_alias = "paths"
 }
 
 --- @class ow.PlayerRecorder
@@ -43,10 +46,8 @@ end
 function ow.PlayerRecorder:_snapshot(step)
     local px, py = self._player:get_physics_body():get_position()
 
-    for x in range(px, py) do
-        table.insert(self._position_data, x)
-    end
-
+    table.insert(self._position_data, px)
+    table.insert(self._position_data, py)
     table.insert(self._is_bubble_data, self._player:get_is_bubble())
     self._path_duration = self._path_duration + step
 end
@@ -58,6 +59,7 @@ function ow.PlayerRecorder:record()
 
     self._path_duration = 0
     self._position_data = {}
+    self._is_bubble_data = {}
     self._recording_elapsed = 0
     self._path = nil
     self._body:get_physics_body():set_is_enabled(false)
@@ -81,7 +83,7 @@ function ow.PlayerRecorder:update(delta)
     local step = rt.SceneManager:get_timestep() * rt.settings.overworld.player_recorder.delta_time_step_factor
 
     if self._state == _STATE_IDLE then return end
-        -- noop
+    -- noop
     if self._state == _STATE_RECORDING then
         local n_steps = 0
 
@@ -100,7 +102,7 @@ function ow.PlayerRecorder:update(delta)
             self._body:set_position(self._path:at(0))
         end
 
-        local t_next = math.min(1, (self._path_elapsed + delta) / self._path_duration)
+        local t_next = math.clamp((self._path_elapsed + delta) / self._path_duration, 0, 1)
         local x1, y1 = self._path:at(t)
         local x2, y2 = self._path:at(t_next)
         self._body:set_velocity(
@@ -108,11 +110,35 @@ function ow.PlayerRecorder:update(delta)
             (y2 - y1) / delta
         )
 
+        -- find closest two bubble samples, interpolate based on elapsed time
         local n = #self._is_bubble_data
-        local is_bubble = self._is_bubble_data[math.clamp(math.floor(t * n), 1, n)]
-        self._body:set_is_bubble(is_bubble)
-        self._body:update(delta)
+        if n > 0 then
+            -- Convert elapsed time to sample index (floating point)
+            local sample_f = self._path_elapsed / step
+            local i0 = math.floor(sample_f) + 1
+            local i1 = i0 + 1
 
+            i0 = math.clamp(i0, 1, n)
+            i1 = math.clamp(i1, 1, n)
+
+            -- Calculate interpolation factor based on position between samples
+            local alpha = sample_f - (i0 - 1)
+            alpha = math.clamp(alpha, 0, 1)
+
+            local b0 = self._is_bubble_data[i0]
+            local b1 = self._is_bubble_data[i1]
+
+            local is_bubble
+            if b0 == b1 then
+                is_bubble = b0
+            else
+                is_bubble = ternary(alpha >= 0.5, b1, b0)
+            end
+
+            self._body:set_is_bubble(is_bubble)
+        end
+
+        self._body:update(delta)
         self._path_elapsed = self._path_elapsed + delta
 
         -- manually set position to prevent numerical drift from velocity
@@ -131,5 +157,133 @@ function ow.PlayerRecorder:draw()
 
     if self._path ~= nil then
         love.graphics.line(self._path:get_points())
+    end
+end
+
+local _was_mounted = false
+require "common.filesystem"
+
+local _value_separator = " "
+local _line_separator = "\n"
+
+local _string_to_boolean = function(str)
+    if str == "1" then
+        return true
+    elseif str == "0" then
+        return false
+    else
+        rt.error("In ow.PlayerRecorder.import_from_string: string contains `", str, "` for boolean field, which is not `0` or `1`")
+        return
+    end
+end
+
+local _string_to_number = function(str)
+    local success, number_or_error = pcall(tonumber, str)
+    if not success or number_or_error == nil then
+        rt.error("In ow.PlayerRecorder.import_from_string: string contains `", str, "` which is not a number")
+        return
+    else
+        return number_or_error
+    end
+end
+
+local _number_to_string = function(number)
+    return string.format("%.3f", number)
+end
+
+local _boolean_to_string = function(b)
+    return ternary(b, "1", "0")
+end
+
+--- @brief
+function ow.PlayerRecorder:export_to_string()
+    local points = self._path:get_points()
+    assert(#self._is_bubble_data == #points / 2)
+
+    local to_concat = {}
+    local bubble_i = 1
+    for i = 1, #points, 2 do
+        local x = _number_to_string(points[i+0])
+        local y = _number_to_string(points[i+1])
+        local is_bubble = _boolean_to_string(self._is_bubble_data[bubble_i])
+
+        table.insert(to_concat,
+            table.concat({ x, y, is_bubble }, _value_separator)
+        )
+        bubble_i = bubble_i + 1
+    end
+
+    table.insert(to_concat, tostring(self._path_duration))
+    return table.concat(to_concat, _line_separator)
+end
+
+--- @brief
+function ow.PlayerRecorder:import_from_string(to_import_from)
+    local separated = { string.split(to_import_from, "\n") }
+    local duration = _string_to_number(separated[#separated]) -- validate duration too
+    if duration == nil then return end
+
+    -- last number is path duration
+    table.remove(separated, #separated)
+
+    local points, bubble_data = {}, {}
+    for line_i, line in ipairs(separated) do
+        local parts = { string.split(line, _value_separator) }
+
+        if #parts ~= 3 then
+            rt.error("In ow.PlayerRecorder.import_from_string: line ", line_i,
+                " has ", #parts, " values instead of 3")
+            return
+        end
+
+        local x, y, is_bubble = parts[1], parts[2], parts[3]
+
+        x = _string_to_number(x)
+        y = _string_to_number(y)
+        is_bubble = _string_to_boolean(is_bubble)
+
+        table.insert(points, x)
+        table.insert(points, y)
+        table.insert(bubble_data, is_bubble)
+    end
+
+    if self._path == nil then
+        self._path = rt.Path(points)
+    else
+        self._path:create_from(points)
+    end
+
+    self._path_elapsed = 0
+    self._path_duration = duration
+    self._is_bubble_data = bubble_data
+end
+
+--- @brief
+function ow.PlayerRecorder:export(file_name)
+    if self._path == nil then
+        rt.warning("In ow.PlayerRecorder.export: trying to export to file `", file_name, "`, but no recording is active")
+        return
+    end
+
+    if _was_mounted == false then
+        local source_prefix = bd.normalize_path(love.filesystem.getSource())
+        bd.mount_path(
+            bd.join_path(source_prefix, rt.settings.overworld.player_recorder.path_directory),
+            rt.settings.overworld.player_recorder.path_directory_alias
+        )
+        _was_mounted = true
+    end
+
+    bd.create_file(
+        bd.join_path(rt.settings.overworld.player_recorder.path_directory_alias, file_name),
+        self:export_to_string()
+    )
+end
+
+--- @brief
+function ow.PlayerRecorder:import(file_name)
+    local file = bd.read_file(bd.join_path(rt.settings.overworld.player_recorder.path_directory_alias), file_name)
+    if file ~= nil then
+        self:import_from_string(file)
     end
 end

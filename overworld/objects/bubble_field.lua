@@ -51,14 +51,14 @@ function ow.BubbleField:instantiate(object, stage, scene)
 
     local start_b = not self._inverted
     local end_b = self._inverted
-    self._body:signal_connect("collision_start", function()
-        local player = scene:get_player()
-        if player:get_is_bubble() == (not start_b) then
+    self._body:signal_connect("collision_start", function(_, other_body)
+        local other = other_body:get_user_data()
+        if other:get_is_bubble() == (not start_b) then
             self:_block_signals()
-            player:set_is_bubble(start_b)
+            other:set_is_bubble(start_b)
             self._is_active = true
 
-            local x, y = player:get_position()
+            local x, y = other:get_position()
             self:_excite_wave(x, y, -1) -- inward
         end
     end)

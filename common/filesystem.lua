@@ -138,6 +138,103 @@ function bd.mount_path(path, mount_point)
     end
 end
 
+--- @brief create a file from string
+function bd.create_file(path, content, should_overwrite)
+    if should_overwrite == nil then should_overwrite = true end
+    meta.assert(path, "String", content, "String", should_overwrite, "Boolean")
+
+    path = bd.normalize_path(path)
+
+    if bd.file_exists(path) then
+        if not should_overwrite then
+            return -- noop
+        end
+
+        if not bd.is_file(path) then
+            rt.error("In bd.create_file: object at `", path, "` is not a file")
+        end
+    end
+
+    local directory = bd.get_directory_prefix(path)
+    if directory ~= nil and directory ~= "" and not bd.file_exists(directory) then
+        bd.create_directory(directory)
+    end
+
+    local write_success, write_error_maybe = love.filesystem.write(path, content)
+    if not write_success then
+        rt.error("In bd.create_file: unable to write file to `", path, "`: ", write_error_maybe)
+    end
+end
+
+function bd.read_file(path)
+    meta.assert(path, "String")
+
+    path = bd.normalize_path(path)
+
+    if not bd.file_exists(path) then
+        return nil
+    end
+
+    if not bd.is_file(path) then
+        rt.error("In bd.read_file: object at `", path, "` is not a file")
+    end
+
+    local data, read_error_maybe = love.filesystem.read(path)
+    if not data then
+        rt.error("In bd.read_file: unable to read file at `", path, "`: ", read_error_maybe)
+    end
+
+    return data
+end
+
+--- @brief overwrite an existing file with string
+function bd.overwrite_file(path, content)
+    meta.assert(path, "String", content, "String")
+
+    path = bd.normalize_path(path)
+
+    if not bd.file_exists(path) then
+        rt.error("In bd.overwrite_file: file at `", path, "` does not exist")
+    end
+
+    if not bd.is_file(path) then
+        rt.error("In bd.overwrite_file: object at `", path, "` is not a file")
+    end
+
+    local write_success, write_error_maybe = love.filesystem.write(path, content)
+    if not write_success then
+        rt.error("In bd.overwrite_file: unable to write file to `", path, "`: ", write_error_maybe)
+    end
+end
+
+--- @brief append string to an existing file
+function bd.append_to_file(path, content)
+    meta.assert(path, "String", content, "String")
+
+    path = bd.normalize_path(path)
+
+    if not bd.file_exists(path) then
+        rt.error("In bd.append_to_file: file at `", path, "` does not exist")
+    end
+
+    if not bd.is_file(path) then
+        rt.error("In bd.append_to_file: object at `", path, "` is not a file")
+    end
+
+    local file = love.filesystem.openFile(path, "a")
+    if not file then
+        rt.error("In bd.append_to_file: unable to open file at `", path, "` for appending")
+    end
+
+    local success, write_error_maybe = file:write(content)
+    file:close()
+
+    if not success then
+        rt.error("In bd.append_to_file: unable to append to file at `", path, "`: ", write_error_maybe)
+    end
+end
+
+
 --- @brief copy a single file
 function bd.copy_file(source_file_path, destination_file_path)
     meta.assert(source_file_path, "String", destination_file_path, "String")
