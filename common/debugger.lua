@@ -90,14 +90,21 @@ end
 local _data = {}
 local _id_to_data = {}
 local _history_count = 120
+local _active_timings = {}
 
---- @brief
-function debugger.measure(id, callback)
-    meta.assert(id, "String", callback, "Function")
+function debugger.push(id)
+    meta.assert(id, "String")
+    _active_timings[id] = love.timer.getTime()
+end
 
-    local before = love.timer.getTime()
-    callback()
-    local elapsed = math.floor((love.timer.getTime() - before) / (1 / 60) * 1000) / 1000
+function debugger.pop(id)
+    meta.assert(id, "String")
+
+    local start_time = _active_timings[id]
+    if start_time == nil then return end
+
+    local elapsed = math.floor((love.timer.getTime() - start_time) / (1 / 60) * 1000) / 1000
+    _active_timings[id] = nil
 
     local entry = _id_to_data[id]
     if entry == nil then
@@ -121,7 +128,7 @@ function debugger.measure(id, callback)
     if entry.max == first then
         local new_max = -math.huge
         for t in values(entry.history) do
-            new_max = math.max(t)
+            new_max = math.max(new_max, t)
         end
         entry.max = new_max
     end

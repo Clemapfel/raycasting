@@ -177,8 +177,6 @@ function rt.PlayerBody:instantiate(config)
     self._attraction_y = 0
     self._attraction_magnitude = 0
 
-    self._contour_type = rt.PlayerBodyContourType.CIRCLE
-
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
 
@@ -286,8 +284,6 @@ function rt.PlayerBody:initialize()
 
     local n_rings = self._n_rings
     local n_ropes_per_ring = self._n_ropes_per_ring
-    local n_segments = self._n_segments_per_rope
-
 
     local ring_to_ring_radius = function(ring_i)
         return ((ring_i - 1) / n_rings) * self._radius
@@ -302,6 +298,11 @@ function rt.PlayerBody:initialize()
         return out
     end
 
+    local ring_to_n_segments_per_rope = function(ring_i)
+        local base = self._n_segments_per_rope
+        return base
+    end
+
     local mass_easing = function(t)
         -- only last node affected by gravity
         return ternary(t == 1, 1, 0.25)
@@ -309,23 +310,24 @@ function rt.PlayerBody:initialize()
 
     -- init ropes
     local max_rope_length = self._rope_length_radius_factor * self._radius
-    local contour_rope_length = max_rope_length / n_segments + self._node_mesh_radius / 2
+    local contour_rope_length = max_rope_length / ring_to_n_ropes(1) + self._node_mesh_radius / 2
     self._contour_rope_length = contour_rope_length
     self._t_to_ropes = {}
 
-    for ring = 1, n_rings do
-        local ring_radius = ring_to_ring_radius(ring)
-        local current_n_ropes = ring_to_n_ropes(ring)
+    for ring_i = 1, n_rings do
+        local ring_radius = ring_to_ring_radius(ring_i)
+        local current_n_ropes = ring_to_n_ropes(ring_i)
         local angle_step = (2 * math.pi) / current_n_ropes
         for i = 1, current_n_ropes do
             local angle = (i - 1) * angle_step
-            if ring % 2 == 1 then angle = angle + angle_step * 0.5 end
+            if ring_i % 2 == 1 then angle = angle + angle_step * 0.5 end
             local axis_x, axis_y = math.cos(angle), math.sin(angle)
             local center_x = axis_x * ring_radius
             local center_y = axis_y * ring_radius
-            local scale = ring / (n_rings)
+            local scale = ring_i / (n_rings)
 
             local rope_length = (1 - scale) * max_rope_length
+            local n_segments = ring_to_n_segments_per_rope(ring_i)
 
             local rope = {
                 current_positions = {},
@@ -375,8 +377,8 @@ function rt.PlayerBody:initialize()
             self._n_ropes = self._n_ropes + 1
         end
     end
-    
-    self:set_use_contour(false, self._contour_type)
+
+    self:set_use_contour(false)
 
     self._is_initialized = true
     if self._queue_relax == true then
@@ -412,72 +414,13 @@ function rt.PlayerBody:relax()
     end
 end
 
-local epicycloid_equation = function(k)
-    return function(angle, radius)
-        local amplitude = 0.25 * radius
-        local dist = radius + math.sin(k * angle) * amplitude
-        return math.cos(angle) * dist, math.sin(angle) * dist
-    end
-end
-
-local square_equation = function(rotation_offset)
-    return function(angle, radius)
-        local n = 5  -- higher = sharper corners (try 4-12)
-
-        local rotated_angle = angle + rotation_offset
-        local t = rotated_angle
-
-        local cos_t = math.cos(t)
-        local sin_t = math.sin(t)
-
-        local sign_cos = cos_t >= 0 and 1 or -1
-        local sign_sin = sin_t >= 0 and 1 or -1
-
-        local x = sign_cos * math.pow(math.abs(cos_t), 2 / n) * radius
-        local y = sign_sin * math.pow(math.abs(sin_t), 2 / n) * radius
-
-        return x, y
-    end
-end
-
-local triangle_equation = function(rotation_offset)
-    return function(angle, radius)
-        local n = 5
-
-        local t = angle % (2 * math.pi)
-
-        local cos_3t = math.cos(3 * t)
-        local sin_3t = math.sin(3 * t)
-
-        local sign_cos = cos_3t >= 0 and 1 or -1
-        local sign_sin = sin_3t >= 0 and 1 or -1
-
-        local r_cos = sign_cos * math.pow(math.abs(cos_3t), 2 / n)
-        local r_sin = sign_sin * math.pow(math.abs(sin_3t), 2 / n)
-
-
-        t = t + 0.5 * math.pi
-        local x = (r_cos * math.cos(t) - r_sin * math.sin(t)) * radius
-        local y = (r_cos * math.sin(t) + r_sin * math.cos(t)) * radius
-
-        return x, y
-    end
-end
-
-local contour_type_to_callback = {
-    [rt.PlayerBodyContourType.CIRCLE] = function(angle, radius)
-        return math.cos(angle) * radius, math.sin(angle) * radius
-    end,
-
-    [rt.PlayerBodyContourType.SQUARE] = square_equation(0),
-    [rt.PlayerBodyContourType.TRIANGLE] = triangle_equation(0),
-}
-
 --- @brief
 function rt.PlayerBody:_update_contour()
     local n_samples = #self._t_to_ropes
     local center_x, center_y = 0, 0
-    local callback = contour_type_to_callback[self._contour_type]
+    local callback = function(angle, radius)
+        return math.cos(angle) * radius, math.sin(angle) * radius
+    end
 
     local max_r = -math.huge
     for t, ropes in pairs(self._t_to_ropes) do
@@ -960,20 +903,22 @@ function rt.PlayerBody:set_world(physics_world)
 end
 
 --- @brief
-function rt.PlayerBody:set_use_contour(b, type)
+function rt.PlayerBody:set_use_contour(b)
     meta.assert(b, "Boolean")
-    self._use_contour = b
+    if self._use_contour == b then return end
 
-    local before = self._contour_type
-    self._contour_type = type or self._contour_type
+    self._use_contour = b
     self:_update_contour()
 end
 
 --- @brief
 function rt.PlayerBody:update(delta)
     -- non rope sim updates
+    debugger.push("shader_elapsed")
     self._shader_elapsed = self._shader_elapsed + delta
+    debugger.pop("shader_elapsed")
 
+    debugger.push("squish_motion_update")
     if not self._use_performance_mode then
         for squish in range(
             self._down_squish_motion,
@@ -984,13 +929,17 @@ function rt.PlayerBody:update(delta)
             squish:update(delta)
         end
     end
+    debugger.pop("squish_motion_update")
 
+    debugger.push("stencil_bodies_query")
     if self._world ~= nil then
         self._stencil_bodies = {}
         self._core_stencil_bodies = {}
 
         if self._use_stencils then
-            local w, h = self._body_canvas_a:get_size()
+            local w = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+            local h = w
+
             local bodies = self._world:query_aabb(
                 self._position_x - 0.5 * w, self._position_y - 0.5 * h, w, h
             )
@@ -1006,8 +955,10 @@ function rt.PlayerBody:update(delta)
             end
         end
     end
+    debugger.pop("stencil_bodies_query")
 
     -- rope sim
+    debugger.push("rope_sim_setup")
     local gravity_x, gravity_y
     if self._use_contour then
         gravity_x, gravity_y = 0, 0
@@ -1021,7 +972,9 @@ function rt.PlayerBody:update(delta)
     else
         todo = self._use_contour and _settings.contour or _settings.non_contour
     end
+    debugger.pop("rope_sim_setup")
 
+    debugger.push("rope_update")
     if self._use_performance_mode
         and self._use_contour
     then
@@ -1064,9 +1017,14 @@ function rt.PlayerBody:update(delta)
             })
         end
     end
+    debugger.pop("rope_update")
 
+    debugger.push("canvas_flags")
     self._core_canvas_needs_update = true
     self._body_canvas_needs_update = true
+    debugger.pop("canvas_flags")
+
+    debugger.report()
 end
 
 --- @brief
@@ -1168,7 +1126,6 @@ function rt.PlayerBody:draw_body()
         end
 
         if not (self._use_performance_mode and self._use_contour) then
-
             -- function to thin out only very last part of tail
             local easing = function(t)
                 -- f\left(x\right)=\left(0.045\cdot e^{\ln\left(\frac{1}{0.045}+1\right)x}-0.045\right)^{b}
@@ -1270,19 +1227,6 @@ function rt.PlayerBody:draw_body()
     end
 
     love.graphics.pop()
-
-
-    -- TODO
-    --[[
-    love.graphics.push()
-    love.graphics.origin()
-    love.graphics.translate(50, 50)
-
-    love.graphics.setLineWidth(1)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.line(self._contour_vertices)
-    love.graphics.pop()
-    ]]--
 end
 
 --- @brief

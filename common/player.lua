@@ -187,7 +187,6 @@ function rt.Player:instantiate()
         _bubble_inner_body_radius = _settings.inner_body_radius * _settings.bubble_inner_radius_scale,
         _bubble_outer_body_radius = (player_radius * _settings.bubble_radius_factor * 2 * math.pi) / _settings.n_outer_bodies / 2,
 
-        _bubble_contour_shape = rt.PlayerBodyContourType.CIRCLE,
         _core_radius = player_radius, -- set on world enter
 
         -- geometry detection
@@ -642,7 +641,7 @@ function rt.Player:update(delta)
                 self._graphics_body:set_color(self._current_color)
 
                 if self:get_is_bubble() then
-                    self._graphics_body:set_use_contour(true, self._bubble_contour_shape)
+                    self._graphics_body:set_use_contour(true)
                 else
                     self._graphics_body:set_use_contour(false)
                 end
