@@ -20,7 +20,7 @@ local _STATE_RECORDING = "recording"
 local _STATE_PLAYBACK = "playback"
 
 --- @brief
-function ow.PlayerRecorder:instantiate(stage, scene)
+function ow.PlayerRecorder:instantiate(stage, scene, x, y)
     meta.assert(stage, ow.Stage, scene, ow.OverworldScene)
 
     self._stage = stage
@@ -38,7 +38,13 @@ function ow.PlayerRecorder:instantiate(stage, scene)
     self._state = _STATE_IDLE
 
     self._body = ow.PlayerRecorderBody(self._stage, self._scene)
-    self._body:initialize(self._scene:get_player():get_position())
+
+    if x == nil then
+        self._body:initialize(self._scene:get_player():get_position())
+    else
+        self._body:initialize(x, y)
+    end
+
     self._body:get_physics_body():set_is_enabled(false)
 end
 
@@ -160,8 +166,19 @@ function ow.PlayerRecorder:draw()
     end
 end
 
-local _was_mounted = false
-require "common.filesystem"
+--- @brief
+function ow.PlayerRecorder:get_physics_body()
+    return self._body:get_physics_body()
+end
+
+do -- mount paths folder
+    require "common.filesystem"
+    local source_prefix = bd.normalize_path(love.filesystem.getSource())
+    bd.mount_path(
+        bd.join_path(source_prefix, rt.settings.overworld.player_recorder.path_directory),
+        rt.settings.overworld.player_recorder.path_directory_alias
+    )
+end
 
 local _value_separator = " "
 local _line_separator = "\n"
@@ -218,7 +235,7 @@ function ow.PlayerRecorder:export_to_string()
 end
 
 --- @brief
-function ow.PlayerRecorder:import_from_string(to_import_from)
+function ow.PlayerRecorder:import_from_string(to_import_from, origin_x, origin_y, interpolate, loop)
     local separated = { string.split(to_import_from, "\n") }
     local duration = _string_to_number(separated[#separated]) -- validate duration too
     if duration == nil then return end
@@ -247,6 +264,19 @@ function ow.PlayerRecorder:import_from_string(to_import_from)
         table.insert(bubble_data, is_bubble)
     end
 
+    -- translate to new origin
+    if origin_x ~= nil or origin_y ~= nil then
+        meta.assert_typeof(origin_x, "Number", 2)
+        meta.assert_typeof(origin_y, "Number", 3)
+
+        local start_x, start_y = points[1], points[2]
+        for i = 1, #points, 2 do
+            local x, y = points[i+0], points[i+1]
+            points[i+0] = x - start_x + origin_x
+            points[i+1] = y - start_y + origin_y
+        end
+    end
+
     if self._path == nil then
         self._path = rt.Path(points)
     else
@@ -265,15 +295,6 @@ function ow.PlayerRecorder:export(file_name)
         return
     end
 
-    if _was_mounted == false then
-        local source_prefix = bd.normalize_path(love.filesystem.getSource())
-        bd.mount_path(
-            bd.join_path(source_prefix, rt.settings.overworld.player_recorder.path_directory),
-            rt.settings.overworld.player_recorder.path_directory_alias
-        )
-        _was_mounted = true
-    end
-
     bd.create_file(
         bd.join_path(rt.settings.overworld.player_recorder.path_directory_alias, file_name),
         self:export_to_string()
@@ -281,9 +302,12 @@ function ow.PlayerRecorder:export(file_name)
 end
 
 --- @brief
-function ow.PlayerRecorder:import(file_name)
-    local file = bd.read_file(bd.join_path(rt.settings.overworld.player_recorder.path_directory_alias), file_name)
+function ow.PlayerRecorder:import(file_name, origin_x, origin_y)
+    local path = bd.join_path(rt.settings.overworld.player_recorder.path_directory_alias, file_name)
+    local file = bd.read_file(path)
     if file ~= nil then
-        self:import_from_string(file)
+        self:import_from_string(file, origin_x, origin_y)
+    else
+        rt.error("In ow.PlayerRecorder.import: unable to read file at `", path, "`")
     end
 end

@@ -62,8 +62,8 @@ return {
           name = "Fit",
           type = "CameraFit",
           shape = "rectangle",
-          x = -1328,
-          y = 1248,
+          x = -1386.67,
+          y = 1966.67,
           width = 1193.53,
           height = 671.361,
           rotation = 0,
@@ -77,8 +77,8 @@ return {
           name = "",
           type = "BubbleField",
           shape = "polygon",
-          x = -1265.33,
-          y = 2065.33,
+          x = -1232,
+          y = 1792,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2167,61 +2167,17 @@ return {
         },
         {
           id = 655,
-          name = "Npc",
-          type = "NPC",
+          name = "Recorder",
+          type = "PlayerRecorderPlayback",
           shape = "point",
-          x = -768,
-          y = 1792,
+          x = -1218.67,
+          y = 1197.33,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           properties = {
-            ["initial_velocity_x"] = -150,
-            ["is_dynamic"] = true,
-            ["type"] = "GHOST_BUBBLE"
-          }
-        },
-        {
-          id = 660,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = -1296,
-          y = 1584,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = -256 },
-            { x = 16, y = -256 },
-            { x = 16, y = 432 },
-            { x = 0, y = 432 }
-          },
-          properties = {
-            ["is_visible"] = false
-          }
-        },
-        {
-          id = 661,
-          name = "",
-          type = "BouncePad",
-          shape = "polygon",
-          x = -192,
-          y = 1584,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = -256 },
-            { x = 16, y = -256 },
-            { x = 16, y = 432 },
-            { x = 0, y = 432 }
-          },
-          properties = {
-            ["is_visible"] = false
+            ["path"] = "test.csv"
           }
         }
       }

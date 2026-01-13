@@ -459,45 +459,40 @@ function ow.Stage:update(delta)
     end
 
     if self._normal_map_done and rt.GameState:get_is_performance_mode_enabled() == false then
+        -- collect light sources and visibel bodies
+        local camera = self._scene:get_camera()
+        local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
+        local bottom_right_x, bottom_right_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
 
-        debugger.measure("get_visible_bodies", function()
-            -- collect light sources and visibel bodies
-            local camera = self._scene:get_camera()
-            local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
-            local bottom_right_x, bottom_right_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
+        local padding = 8 * rt.settings.player.radius
+        top_left_x, top_left_y = math.subtract(top_left_x, top_left_y, padding, padding)
+        bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
 
-            local padding = 8 * rt.settings.player.radius
-            top_left_x, top_left_y = math.subtract(top_left_x, top_left_y, padding, padding)
-            bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
+        self._visible_bodies = {}
+        self._point_light_source_bodies = {}
+        self._segment_light_source_bodies = {}
 
-            self._visible_bodies = {}
-            self._point_light_source_bodies = {}
-            self._segment_light_source_bodies = {}
+        for body in values(self._world:query_aabb(
+            top_left_x, top_left_y,
+            bottom_right_x - top_left_x, bottom_right_y - top_left_y
+        )) do
+            self._visible_bodies[body] = true
 
-            for body in values(self._world:query_aabb(
-                top_left_x, top_left_y,
-                bottom_right_x - top_left_x, bottom_right_y - top_left_y
-            )) do
-                self._visible_bodies[body] = true
-
-                if body ~= nil and body:has_tag("point_light_source") then
-                    table.insert(self._point_light_source_bodies, body)
-                end
-
-                if body ~= nil and body:has_tag("segment_light_source") then
-                    table.insert(self._segment_light_source_bodies, body)
-                end
+            if body ~= nil and body:has_tag("point_light_source") then
+                table.insert(self._point_light_source_bodies, body)
             end
 
-            self._point_light_sources_need_update = true
-            self._segment_light_sources_need_update = true
-        end)
+            if body ~= nil and body:has_tag("segment_light_source") then
+                table.insert(self._segment_light_source_bodies, body)
+            end
+        end
+
+        self._point_light_sources_need_update = true
+        self._segment_light_sources_need_update = true
     end
 
     for object in values(self._to_update) do
-        debugger.measure(meta.typeof(object), function()
-            object:update(delta)
-        end)
+        object:update(delta)
     end
 
     if self._flow_graph ~= nil then
