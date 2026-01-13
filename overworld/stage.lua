@@ -88,7 +88,7 @@ function ow.Stage:instantiate(scene, id)
         _player_recorder = nil, -- ow.PlayerRecorder
     })
 
-    self._player_recorder = ow.PlayerRecorder(self, self._scene)
+    self._player_recorder = ow.PlayerRecorder(self, self._scene, self._scene:get_player():get_position())
 
     -- TODO
     self._input = rt.InputSubscriber()

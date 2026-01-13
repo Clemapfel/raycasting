@@ -8,7 +8,7 @@ function ow.PlayerRecorderPlayback:instantiate(object, stage, scene)
 
     rt.assert(object:get_type() == ow.ObjectType.POINT, "In ow.PlayerRecorderPlayer: object `", object:get_id(), "` is not a POINT")
 
-    self._player_recorder = ow.PlayerRecorder(stage, scene, object.x, object.y)
+    self._player_recorder = ow.PlayerRecorder(stage, scene, object.x, object.y, true) -- is collidable
     self._path_directory = object:get_string("path", true)
 
     self._player_recorder:import(self._path_directory, object.x, object.y) -- relative path

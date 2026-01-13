@@ -20,8 +20,9 @@ local _STATE_RECORDING = "recording"
 local _STATE_PLAYBACK = "playback"
 
 --- @brief
-function ow.PlayerRecorder:instantiate(stage, scene, x, y)
-    meta.assert(stage, ow.Stage, scene, ow.OverworldScene)
+function ow.PlayerRecorder:instantiate(stage, scene, x, y, is_collidable)
+    if is_collidable == nil then is_collidable = false end
+    meta.assert(stage, ow.Stage, scene, ow.OverworldScene, x, "Number", y, "Number", is_collidable, "Boolean")
 
     self._stage = stage
     self._scene = scene
@@ -38,13 +39,11 @@ function ow.PlayerRecorder:instantiate(stage, scene, x, y)
     self._state = _STATE_IDLE
 
     self._body = ow.PlayerRecorderBody(self._stage, self._scene)
-
-    if x == nil then
-        self._body:initialize(self._scene:get_player():get_position())
-    else
-        self._body:initialize(x, y)
-    end
-
+    self._body:initialize(
+        x, y,
+        b2.BodyType.KINEMATIC,
+        is_collidable
+    )
     self._body:get_physics_body():set_is_enabled(false)
 end
 
@@ -156,6 +155,7 @@ end
 
 --- @brief
 function ow.PlayerRecorder:draw()
+    --[[
     if self._state == _STATE_PLAYBACK then
         love.graphics.setColor(1, 1, 1, 1)
         self._body:draw()
@@ -164,6 +164,9 @@ function ow.PlayerRecorder:draw()
     if self._path ~= nil then
         love.graphics.line(self._path:get_points())
     end
+    ]]
+
+    self._body:get_physics_body():draw()
 end
 
 --- @brief
@@ -215,7 +218,7 @@ end
 --- @brief
 function ow.PlayerRecorder:export_to_string()
     local points = self._path:get_points()
-    assert(#self._is_bubble_data == #points / 2)
+    rt.assert(#self._is_bubble_data == #points / 2, #self._is_bubble_data, #points)
 
     local to_concat = {}
     local bubble_i = 1

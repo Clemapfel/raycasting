@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 662,
+  nextobjectid = 666,
   properties = {},
   tilesets = {
     {
@@ -62,10 +62,10 @@ return {
           name = "Fit",
           type = "CameraFit",
           shape = "rectangle",
-          x = -1386.67,
-          y = 1966.67,
-          width = 1193.53,
-          height = 671.361,
+          x = -1323.66,
+          y = 1168,
+          width = 1165.24,
+          height = 655.449,
           rotation = 0,
           visible = true,
           properties = {
@@ -77,8 +77,8 @@ return {
           name = "",
           type = "BubbleField",
           shape = "polygon",
-          x = -1232,
-          y = 1792,
+          x = -1248,
+          y = 1680,
           width = 0,
           height = 0,
           rotation = 0,
@@ -88,6 +88,25 @@ return {
             { x = -176, y = 224 },
             { x = 1168, y = 224 },
             { x = 1168, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 664,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = -1424,
+          y = 1872,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 32 },
+            { x = 0, y = -192 },
+            { x = 1344, y = -192 },
+            { x = 1344, y = 32 }
           },
           properties = {}
         }
@@ -173,8 +192,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1450.85,
-          y = 1200.71,
+          x = -1369.38,
+          y = 1241.7,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2128,50 +2147,12 @@ return {
           properties = {}
         },
         {
-          id = 647,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -1312,
-          y = 1264,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -16, y = 0 },
-            { x = -16, y = 752 },
-            { x = 16, y = 752 },
-            { x = 16, y = 0 }
-          },
-          properties = {}
-        },
-        {
-          id = 653,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -160,
-          y = 1264,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = -16, y = 0 },
-            { x = -16, y = 752 },
-            { x = 16, y = 752 },
-            { x = 16, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 655,
           name = "Recorder",
           type = "PlayerRecorderPlayback",
           shape = "point",
-          x = -1218.67,
-          y = 1197.33,
+          x = -517.446,
+          y = 1104.71,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2179,6 +2160,57 @@ return {
           properties = {
             ["path"] = "test.csv"
           }
+        },
+        {
+          id = 662,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1296,
+          y = 1328,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 496 },
+            { x = 48, y = 496 },
+            { x = 48, y = 32 },
+            { x = 193.817, y = 32 },
+            { x = 48, y = 128 },
+            { x = 48, y = 160 },
+            { x = 240, y = 32 },
+            { x = 368, y = 32 },
+            { x = 416, y = 0 },
+            { x = 384, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 663,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -176,
+          y = 1328,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 496 },
+            { x = -48, y = 496 },
+            { x = -48, y = 32 },
+            { x = -193.817, y = 32 },
+            { x = -48, y = 128 },
+            { x = -48, y = 160 },
+            { x = -240, y = 32 },
+            { x = -368, y = 32 },
+            { x = -416, y = 0 }
+          },
+          properties = {}
         }
       }
     },

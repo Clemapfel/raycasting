@@ -332,6 +332,11 @@ function ow.PlayerRecorderBody:set_is_bubble(is_bubble)
 end
 
 --- @brief
+function ow.PlayerRecorderBody:get_is_bubble()
+    return self._is_bubble
+end
+
+--- @brief
 function ow.PlayerRecorderBody:get_radius()
     return self._radius
 end
