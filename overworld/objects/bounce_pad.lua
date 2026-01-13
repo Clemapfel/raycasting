@@ -91,12 +91,21 @@ function ow.BouncePad:instantiate(object, stage, scene)
     self._body:set_collision_group(bounce_group)
 
     self._body:signal_connect("collision_start", function(_, other_body, nx, ny, cx, cy)
-        local player = self._scene:get_player()
-        local restitution = player:bounce(nx, ny)
-        self._scene:get_camera():shake(math.min(1, restitution))
+        local other = other_body:get_user_data()
+
+        local restitution
+        if meta.is_function(other.bounce) then
+            restitution = other:bounce(nx, ny)
+        else
+            restitution = 0.5
+        end
+
+        if other_body:has_tag("player") then
+            self._scene:get_camera():shake(math.min(1, restitution))
+        end
 
         -- color animation
-        self._hue = player:get_hue()
+        self._hue = self._scene:get_player():get_hue()
 
         local settings = rt.settings.overworld.bounce_pad
 
@@ -113,7 +122,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
             settings.max_n_particles
         )
 
-        local vx, vy = player:get_velocity()
+        local vx, vy = other:get_velocity()
         local particle_nx, particle_ny = math.normalize(math.flip(vx, vy)) --math.reflect(vx, vy, nx, ny))
         self:_spawn_particles(
             cx, cy,

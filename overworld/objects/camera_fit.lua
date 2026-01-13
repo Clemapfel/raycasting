@@ -40,6 +40,14 @@ function ow.CameraFit:instantiate(object, stage, scene)
         rt.assert(focus:get_type() == ow.ObjectType.POINT, "In ow.CameraFit: property `focus` does not point to a `POINT` object")
         self._focus_x = focus.x
         self._focus_y = focus.y
+
+        -- shift body so focus is new center
+        local center_x, center_y = object.x + 0.5 * object.width, object.y + 0.5 * object.height
+        local current_x, current_y = self._body:get_position()
+        self._body:set_position(
+            current_x + (self._focus_x - center_x),
+            current_y + (self._focus_y - center_y)
+        )
     else
         self._focus_x = nil
         self._focus_y = nil

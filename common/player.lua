@@ -1768,7 +1768,7 @@ function rt.Player:update(delta)
         end
     else -- self._is_bubble == true
         -- bubble movement
-        local mass_multiplier = self._bubble_mass / self._mass
+        local mass_multiplier = self:get_bubble_mass_factor()
         local bubble_gravity = time_dilation * gravity * (mass_multiplier / delta) * _settings.bubble_gravity_factor
         local max_velocity = time_dilation * _settings.bubble_target_velocity
         local target_x, target_y = 0, 0
@@ -1843,7 +1843,10 @@ function rt.Player:update(delta)
             self._bounce_force = 0
         end
 
-        self._bubble_body:apply_force(0, bubble_gravity)
+        self._bubble_body:apply_force(
+            self._gravity_direction_x * bubble_gravity,
+            self._gravity_direction_y * bubble_gravity
+        )
 
         self._graphics_body:set_up_squish(false)
         self._graphics_body:set_down_squish(false)
@@ -3392,4 +3395,9 @@ end
 --- @brief
 function rt.Player:set_position_override_active(b)
     self._position_override_active = b
+end
+
+--- @brief
+function rt.Player:get_bubble_mass_factor()
+    return self._bubble_mass / self._mass
 end

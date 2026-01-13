@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="650">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="657">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -8,7 +8,18 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux"/>
+ <objectgroup id="5" name="aux">
+  <object id="650" name="Fit" type="CameraFit" x="-1328" y="1156" width="1193.53" height="671.361">
+   <properties>
+    <property name="focus" type="object" value="651"/>
+    <property name="scale_speed" type="float" value="1"/>
+    <property name="speed" type="float" value="-10"/>
+   </properties>
+  </object>
+  <object id="651" name="Focus" type="CameraFitFocus" x="-738.856" y="1456.29">
+   <point/>
+  </object>
+ </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="388" name="Wall Jump 02" type="Hitbox" x="1656.83" y="669.242">
    <polygon points="16,0 16,-112 0,-128 0,-208 16,-224 16,-272 0,-288 0,-512 16,-528 16,-576 0,-592 0,-656 80,-656 80,48 -384,48 -384,-16 -48,-16 -32,0"/>
@@ -334,20 +345,24 @@
   <object id="638" name="Coin" type="Coin" x="-112" y="160">
    <point/>
   </object>
-  <object id="643" type="SlipperyHitbox" x="-1312" y="1232">
+  <object id="643" type="SlipperyHitbox" x="-1329.41" y="1295.1">
    <polygon points="0,0 0,32 1184,32 1184,0"/>
   </object>
   <object id="647" x="-1312" y="1264">
-   <polygon points="0,0 0,400 32,400 32,0"/>
+   <polygon points="-16,0 -16,752 16,752 16,0"/>
   </object>
-  <object id="648" type="CameraFit" x="-1465.08" y="946.279" width="1479.98" height="845.806">
+  <object id="652" type="BubbleField" x="-1456" y="1792">
+   <polygon points="0,-64 1440,-64 1440,176 0,176"/>
+  </object>
+  <object id="653" x="-160" y="1264">
+   <polygon points="-16,0 -16,752 16,752 16,0"/>
+  </object>
+  <object id="654" type="BouncePad" x="-1334.86" y="1824" width="1205.27" height="16.239"/>
+  <object id="655" name="Npc" type="NPC" x="-736" y="1680">
    <properties>
-    <property name="focus" type="object" value="649"/>
-    <property name="scale_speed" type="float" value="-10"/>
-    <property name="speed" type="float" value="-10"/>
+    <property name="is_dynamic" type="bool" value="true"/>
+    <property name="type" value="GHOST"/>
    </properties>
-  </object>
-  <object id="649" name="Focus" type="CameraFitFocus" x="-701.627" y="1381.56">
    <point/>
   </object>
  </objectgroup>

@@ -143,13 +143,16 @@ function rt.Camera:_constrain(x, y)
 end
 
 local _distance_easing = function(x, delta, speed)
-    local exponent = math.mix(1, 2, speed / 2)
+    local eps = 0.5
+    local exponent = math.mix(1.5 - eps, 1.5 + eps, speed / 2)
     return math.sign(x) * math.abs(x)^exponent * delta
 end
 
 local _scale_easing = function(x, delta, speed)
-    local duration = 0.5 / speed
-    return x * (1 - (1 - delta / duration)^1.8)
+    local duration = 0.5
+    local eps = 0.2
+    local exponent = math.mix(1.8 - eps, 1.8 + eps, speed / 2)
+    return x * (1 - (1 - delta / duration)^exponent)
 end
 
 --- @brief
