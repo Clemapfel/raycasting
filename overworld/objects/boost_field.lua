@@ -111,6 +111,9 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     self._scene = scene
     self._stage = stage
+    self._is_visible = object:get_boolean("is_visible", false)
+    if self._is_visible == nil then self._is_visible = true end
+
     self._player = self._scene:get_player()
 
     local factor = object:get_number("velocity", false) or 1
@@ -149,6 +152,8 @@ function ow.BoostField:instantiate(object, stage, scene)
     self._axis_x, self._axis_y = math.normalize(self._axis_x, self._axis_y)
     rt.assert(math.magnitude(self._axis_x, self._axis_y) > 0, "In ow.BoostField.instantiate: axis of object `", object:get_id(), "` of stage `", self._stage:get_id(), "` cannot be 0")
 
+    if not self._is_visible then return end
+
     self._hue = object:get_number("hue", false)
     if self._hue == nil then self._hue = math.angle(self._axis_x, self._axis_y) / (2 * math.pi) end
     self._color = { rt.lcha_to_rgba(0.8, 1, self._hue, 0.8) }
@@ -164,7 +169,6 @@ end
 
 --- @brief
 function ow.BoostField:update(delta)
-
     local is_active = self._is_active
     if self._use_exact_testing then
         is_active = self._body:test_point(self._player:get_position())
@@ -202,13 +206,15 @@ function ow.BoostField:update(delta)
 
     self._is_active = is_active
 
+    if not self._is_visible then return end
+
     self._player_influence_motion:update(delta)
     self._player_influence_motion:set_target_value(ternary(is_active, 1, 0))
 end
 
 --- @brief batched drawing
 function ow.BoostField:draw()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
@@ -256,7 +262,7 @@ end
 
 --- @brief
 function ow.BoostField:draw_bloom()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()

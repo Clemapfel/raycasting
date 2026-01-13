@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 657,
+  nextobjectid = 659,
   properties = {},
   tilesets = {
     {
@@ -63,29 +63,15 @@ return {
           type = "CameraFit",
           shape = "rectangle",
           x = -1328,
-          y = 1156,
+          y = 1248,
           width = 1193.53,
           height = 671.361,
           rotation = 0,
           visible = true,
           properties = {
-            ["focus"] = { id = 651 },
             ["scale_speed"] = 1,
             ["speed"] = -10
           }
-        },
-        {
-          id = 651,
-          name = "Focus",
-          type = "CameraFitFocus",
-          shape = "point",
-          x = -738.856,
-          y = 1456.29,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
         }
       }
     },
@@ -2143,25 +2129,6 @@ return {
           properties = {}
         },
         {
-          id = 652,
-          name = "",
-          type = "BubbleField",
-          shape = "polygon",
-          x = -1456,
-          y = 1792,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = -64 },
-            { x = 1440, y = -64 },
-            { x = 1440, y = 176 },
-            { x = 0, y = 176 }
-          },
-          properties = {}
-        },
-        {
           id = 653,
           name = "",
           type = "",
@@ -2181,19 +2148,6 @@ return {
           properties = {}
         },
         {
-          id = 654,
-          name = "",
-          type = "BouncePad",
-          shape = "rectangle",
-          x = -1334.86,
-          y = 1824,
-          width = 1205.27,
-          height = 16.239,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 655,
           name = "Npc",
           type = "NPC",
@@ -2205,8 +2159,39 @@ return {
           rotation = 0,
           visible = true,
           properties = {
+            ["initial_velocity_x"] = 150,
             ["is_dynamic"] = true,
             ["type"] = "GHOST"
+          }
+        },
+        {
+          id = 657,
+          name = "",
+          type = "BouncePad",
+          shape = "polygon",
+          x = -1296,
+          y = 1824,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -465.333 },
+            { x = 544, y = -464 },
+            { x = 544, y = -496 },
+            { x = -32, y = -496 },
+            { x = -32, y = 32 },
+            { x = 1152, y = 32 },
+            { x = 1152, y = -496 },
+            { x = 1120, y = -496 },
+            { x = 576, y = -496 },
+            { x = 576, y = -464 },
+            { x = 1120, y = -464 },
+            { x = 1120, y = 0 }
+          },
+          properties = {
+            ["is_visible"] = true
           }
         }
       }

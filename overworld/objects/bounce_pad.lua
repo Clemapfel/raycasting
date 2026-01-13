@@ -76,12 +76,18 @@ function ow.BouncePad:instantiate(object, stage, scene)
         _signal = 0,
 
         -- particles
-        _batches = {}
+        _batches = {},
     })
+
+    self._is_visible = object:get_boolean("is_visible")
+    if self._is_visible == nil then self._is_visible = true end
 
     self._draw_inner_color = { rt.Palette.BOUNCE_PAD:unpack() }
     self._draw_outer_color = { rt.Palette.BOUNCE_PAD:unpack() }
     self._hue = self._scene:get_player():get_hue()
+
+    self._rotation_origin_x = object.rotation_origin_x
+    self._rotation_origin_y = object.rotation_origin_y
 
     -- collision
     self._body:add_tag("slippery", "no_blood", "unjumpable", "stencil")
@@ -97,8 +103,10 @@ function ow.BouncePad:instantiate(object, stage, scene)
         if meta.is_function(other.bounce) then
             restitution = other:bounce(nx, ny)
         else
-            restitution = 0.5
+            restitution = 0
         end
+
+        if cx == nil or cy == nil or restitution == 0 then return end
 
         if other_body:has_tag("player") then
             self._scene:get_camera():shake(math.min(1, restitution))
@@ -130,6 +138,8 @@ function ow.BouncePad:instantiate(object, stage, scene)
             n_particles, self._hue
         )
     end)
+
+    if not self._is_visible then goto skip_graphics end
 
     -- contour
     self._contour = rt.round_contour(
@@ -196,8 +206,13 @@ function ow.BouncePad:instantiate(object, stage, scene)
         table.insert(self._draw_contour, y)
     end
 
-    self._rotation_origin_x = object.rotation_origin_x
-    self._rotation_origin_y = object.rotation_origin_y
+    do
+        local centroid_x, centroid_y = object:get_centroid()
+        local mass_x, mass_y = self._body:get_position()
+        self._draw_offset_x = centroid_x - mass_x
+        self._draw_offset_y = centroid_y - mass_y
+    end
+    ::skip_graphics::
 end
 
 do
@@ -210,6 +225,8 @@ do
 
     --- @brief
     function ow.BouncePad:update(delta)
+        if not self._is_visible then return end
+
         if #self._batches > 0 then
             self:_update_particles(delta)
         end
@@ -304,10 +321,14 @@ end
 
 --- @brief
 function ow.BouncePad:draw()
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
     love.graphics.push()
-    love.graphics.translate(self._body:get_position())
+    local bx, by = self._body:get_position()
+    love.graphics.translate(
+        bx + self._draw_offset_x,
+        by + self._draw_offset_y
+    )
 
     local opacity = 1
 

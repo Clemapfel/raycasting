@@ -127,8 +127,10 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._particles = {}
     self._particle_elapsed = 0
 
-    -- mesh
-    self._contour = rt.round_contour(object:create_contour(), 10)
+    self._is_visible = object:get_boolean("is_visible", false)
+    if self._is_visible == nil then self._is_visible = true end
+
+    -- physics
 
     self._body = object:create_physics_body(
         stage:get_physics_world(),
@@ -158,6 +160,11 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         data[2] = data[2] - y
     end
 
+    -- mesh
+
+    if not self._is_visible then return end
+
+    self._contour = rt.round_contour(object:create_contour(), 10)
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 
     local contour = object:create_contour()
@@ -171,7 +178,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     table.insert(self._outline, self._outline[2])
 end
 
-function _get_friction(nx, ny, vx, vy)
+local function _get_friction(nx, ny, vx, vy)
     local dot = vx * nx + vy * ny
     local tangent_vx = vx - dot * nx
     local tangent_vy = vy - dot * ny
@@ -196,7 +203,7 @@ local _quad = 10
 
 --- @brief
 function ow.AcceleratorSurface:update(delta)
-    if not self._stage:get_is_body_visible(self._body) then
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then
         self._particles = {}
         return
     end
@@ -273,7 +280,7 @@ local particle_priority = math.huge
 
 --- @brief
 function ow.AcceleratorSurface:draw(priority)
-    if not self._stage:get_is_body_visible(self._body) then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) then return end
 
     local offset_x, offset_y = self._body:get_position()
     love.graphics.setColor(1, 1, 1, 1)
@@ -343,7 +350,7 @@ end
 
 --- @brief
 function ow.AcceleratorSurface:draw_bloom(priority)
-    if not self._stage:get_is_body_visible(self._body) or priority ~= base_priority then return end
+    if not self._is_visible or not self._stage:get_is_body_visible(self._body) or priority ~= base_priority then return end
 
     love.graphics.push()
     local offset_x, offset_y = self._body:get_position()
