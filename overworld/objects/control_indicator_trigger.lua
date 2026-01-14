@@ -21,7 +21,7 @@ function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
 
     self._scene = scene
     self._stage = stage
-    self._type = object:get_string("type", true)
+    self._type = string.upper(object:get_string("type", true))
     self._should_emit_particles = object:get_boolean("should_emit_particles", false)
     if self._should_emit_particles == nil then self._should_emit_particles = false end
 

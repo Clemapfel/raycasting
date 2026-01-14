@@ -310,8 +310,8 @@ function rt.PlayerBody:initialize()
 
     -- init ropes
     local max_rope_length = self._rope_length_radius_factor * self._radius
-    local contour_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius
-    self._contour_rope_length = max_rope_length - self._node_mesh_radius
+    local contour_rope_length = max_rope_length / self._n_segments_per_rope + self._node_mesh_radius / 2
+    self._contour_rope_length = max_rope_length - self._node_mesh_radius / 2
     self._t_to_ropes = {}
 
     for ring_i = 1, n_rings do

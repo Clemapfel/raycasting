@@ -26,7 +26,7 @@ rt.settings.overworld.normal_map = {
 ow.NormalMap = meta.class("NormalMap")
 meta.add_signal(ow.NormalMap, "done")
 
-local _disable = true -- TODO
+local _is_disabled = false -- TODO
 
 local _mask_texture_format = rt.TextureFormat.RGBA8  -- used to store alpha of walls
 local _jfa_texture_format = rt.TextureFormat.RGBA32F -- used during JFA
@@ -96,7 +96,7 @@ function ow.NormalMap:instantiate(id, get_triangles_callback, draw_mask_callback
     end
 
     self._callback = coroutine.create(function()
-        if _disable then
+        if _is_disabled then
             assert(false, "NormalMap was intentionally disabled")
         end
 
@@ -478,7 +478,7 @@ function ow.NormalMap:draw_light(
     segment_light_sources, -- in screen coords
     segment_light_colors
 )
-    if _disable then return end
+    if _is_disabled then return end
 
     meta.assert(
         camera, rt.Camera,
@@ -551,7 +551,7 @@ function ow.NormalMap:draw_light(
 end
 
 function ow.NormalMap:draw_shadow(camera)
-    if _disable then return end
+    if _is_disabled then return end
 
     meta.assert(camera, rt.Camera)
 

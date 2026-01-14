@@ -41,6 +41,7 @@ do
 
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
+        allow_sprint = false,
 
         flow_increase_velocity = 1 / 200, -- fraction
         flow_decrease_velocity = 1, -- fraction
@@ -99,7 +100,7 @@ do
         bounce_relative_velocity = 2000,
         bounce_duration = 2 / 60,
 
-        jump_buffer_duration = 6 / 60,
+        jump_buffer_duration = 4 / 60,
         wall_jump_buffer_duration = 3 / 60,
 
         spring_constant = 1.8,
@@ -866,8 +867,7 @@ function rt.Player:update(delta)
             and not right_allowed
             and up_allowed
         then
-            -- prevent buffering when only touching ground because of ray length scale
-            if math.magnitude(bottom_dx, bottom_dy) <= self._radius then
+            if math.distance(x, y, bottom_x, bottom_y) <= self._radius then
                 if self:jump() then
                     self._jump_buffer_elapsed = math.huge
                 end
@@ -1063,17 +1063,22 @@ function rt.Player:update(delta)
     end
 
     if not self._is_bubble then
-        -- update sprint once landed
-        if self._next_sprint_multiplier_update_when_grounded and is_grounded then
-            self._target_sprint_multiplier = self._next_sprint_multiplier
-        end
+        if _settings.allow_sprint then
+            -- update sprint once landed
+            if self._next_sprint_multiplier_update_when_grounded and is_grounded then
+                self._target_sprint_multiplier = self._next_sprint_multiplier
+            end
 
-        -- lerp instead of transitioning instantly
-        self._current_sprint_multiplier = math.mix(
-            self._current_sprint_multiplier,
-            self._target_sprint_multiplier,
-            1 - math.exp(-1 / _settings.sprint_multiplier_transition_duration * delta)
-        )
+            -- lerp instead of transitioning instantly
+            self._current_sprint_multiplier = math.mix(
+                self._current_sprint_multiplier,
+                self._target_sprint_multiplier,
+                1 - math.exp(-1 / _settings.sprint_multiplier_transition_duration * delta)
+            )
+        else
+            -- always sprint
+            self._current_sprint_multiplier = _settings.sprint_multiplier
+        end
 
         local current_velocity_x, current_velocity_y = self._body:get_velocity()
         current_velocity_x = current_velocity_x - self._platform_velocity_x
@@ -1575,6 +1580,8 @@ function rt.Player:update(delta)
         end
         self._bounce_elapsed = self._bounce_elapsed + delta
 
+        local is_sliding = false
+
         -- downwards force
         if not self._movement_disabled
             and down_is_down
@@ -1586,12 +1593,40 @@ function rt.Player:update(delta)
                 force = force * math.max(0, self._joystick_position_y) -- linear easing, only detect down
             end
 
-            next_velocity_x = next_velocity_x + self._gravity_direction_x * force
-            next_velocity_y = next_velocity_y + self._gravity_direction_y * force
+            local dx, dy = self._gravity_direction_x, self._gravity_direction_y
+
+            if is_grounded then
+                local ground_normal_x = bottom_nx or bottom_left_nx or bottom_right_nx
+                local ground_normal_y = bottom_ny or bottom_left_ny or bottom_right_ny
+
+                if next_velocity_x > 0 and self._bottom_left_wall then
+                    ground_normal_x, ground_normal_y = bottom_left_nx, bottom_left_ny
+                elseif next_velocity_x < 0 and self._bottom_right_wall then
+                    ground_normal_x, ground_normal_y = bottom_right_nx, bottom_right_ny
+                end
+
+                local ground_tangent_x, ground_tangent_y = math.turn_left(ground_normal_x, ground_normal_y)
+                local dot = math.dot(ground_tangent_x, ground_tangent_y, next_velocity_x, next_velocity_y)
+                local sign = math.sign(dot)
+
+                ground_tangent_x = ground_tangent_x * sign
+                ground_tangent_y = ground_tangent_y * sign
+
+                if ground_tangent_y <= 0 then
+                    dx, dy = self._gravity_direction_x, self._gravity_direction_y
+                else
+                    dx, dy = ground_tangent_x, ground_tangent_y
+                end
+            end
+
+            next_velocity_x = next_velocity_x + dx * force
+            next_velocity_y = next_velocity_y + dy * force
+
+            if is_grounded then is_sliding = true end
         end
 
         -- friction
-        if should_apply_friction then
+        if not is_sliding and should_apply_friction then
             next_velocity_x = next_velocity_x + net_friction_x
             next_velocity_y = next_velocity_y + net_friction_y
         end
@@ -1678,9 +1713,11 @@ function rt.Player:update(delta)
         next_velocity_x = next_velocity_x + self._gravity_direction_x * gravity
         next_velocity_y = next_velocity_y + self._gravity_direction_y * gravity
 
-        -- clamp for stability
-        next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
-        next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity, _settings.max_velocity)
+        if not is_sliding then
+            -- clamp max velocity, sliding removes limit
+            next_velocity_x = math.clamp(next_velocity_x, -_settings.max_velocity, _settings.max_velocity)
+            next_velocity_y = math.clamp(next_velocity_y, -_settings.max_velocity, _settings.max_velocity)
+        end
 
         flow_decay_t = math.magnitude(next_velocity_x, next_velocity_y) / _settings.flow_target_velocity
 
@@ -1692,7 +1729,8 @@ function rt.Player:update(delta)
                 self._bottom_right_wall_body,
                 self._bottom_wall_body
             ) do
-                if body:has_tag("use_friction") or body:has_tag("slippery") then
+                -- skip accelerators
+                if body:has_tag("use_friction") then
                     should_skip = true
                     break
                 end

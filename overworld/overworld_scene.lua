@@ -55,6 +55,7 @@ ow.ControlIndicatorType = meta.enum("ControlIndicatorType", {
     MOTION_NON_BUBBLE = "MOTION_NON_BUBBLE",
     MOTION_BUBBLE = "MOTION_BUBBLE",
     INTERACT = "INTERACT",
+    SLIDE = "SLIDE",
     DIALOG_CAN_ADVANCE_CAN_EXIT = "DIALOG_CAN_ADVANCE_CAN_EXIT",
     DIALOG_CAN_ADVANCE_CANNOT_EXIT = "DIALOG_CAN_ADVANCE_CANNOT_EXIT",
     DIALOG_CANNOT_ADVANCE_CAN_EXIT = "DIALOG_CANNOT_ADVANCE_CAN_EXIT",
@@ -142,35 +143,6 @@ function ow.OverworldScene:instantiate(state)
     self._background = ow.Background(self)
 
     local translation = rt.Translation.overworld_scene
-    self._non_bubble_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
-        rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
-        rt.ControlIndicatorButton.SPRINT, translation.control_indicator_sprint,
-        rt.ControlIndicatorButton.DOWN, translation.control_indicator_down
-    )
-    self._non_bubble_control_indicator:set_has_frame(true)
-
-    self._bubble_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_bubble_move
-    )
-    self._bubble_control_indicator:set_has_frame(true)
-
-    self._interact_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.INTERACT, translation.control_indicator_interact
-    )
-    self._interact_control_indicator:set_has_frame(true)
-
-    self._air_dash_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
-        rt.ControlIndicatorButton.JUMP, translation.control_indicator_air_dash
-    )
-    self._air_dash_control_indicator:set_has_frame(true)
-
-    self._double_jump_control_indicator = rt.ControlIndicator(
-        rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
-        rt.ControlIndicatorButton.JUMP, translation.control_indicator_double_jump
-    )
-    self._air_dash_control_indicator:set_has_frame(true)
 
     local dialog_control_indicator = function(can_advance, can_exit)
         if can_advance == false and can_exit == false then return nil end
@@ -191,12 +163,57 @@ function ow.OverworldScene:instantiate(state)
         return out
     end
 
+    local function create_non_bubble_indicator()
+        local indicator
+        if rt.settings.player.sprint_allowed then
+            indicator = rt.ControlIndicator(
+                rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
+                rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
+                rt.ControlIndicatorButton.SPRINT, translation.control_indicator_sprint,
+                rt.ControlIndicatorButton.DOWN, translation.control_indicator_down
+            )
+        else
+            indicator = rt.ControlIndicator(
+                rt.ControlIndicatorButton.LEFT_RIGHT, translation.control_indicator_move,
+                rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
+                rt.ControlIndicatorButton.DOWN, translation.control_indicator_down
+            )
+        end
+        indicator:set_has_frame(true)
+        return indicator
+    end
+
+    local function create_indicator(...)
+        local indicator = rt.ControlIndicator(...)
+        indicator:set_has_frame(true)
+        return indicator
+    end
+
     self._control_indicator_type_to_control_indicator = {
-        [ow.ControlIndicatorType.MOTION_BUBBLE] = self._bubble_control_indicator,
-        [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = self._non_bubble_control_indicator,
-        [ow.ControlIndicatorType.INTERACT] = self._interact_control_indicator,
-        [ow.ControlIndicatorType.AIR_DASH] = self._air_dash_control_indicator,
-        [ow.ControlIndicatorType.DOUBLE_JUMP] = self._double_jump_control_indicator,
+        [ow.ControlIndicatorType.MOTION_NON_BUBBLE] = create_non_bubble_indicator(),
+
+        [ow.ControlIndicatorType.MOTION_BUBBLE] = create_indicator(
+            rt.ControlIndicatorButton.ALL_DIRECTIONS, translation.control_indicator_bubble_move
+        ),
+
+        [ow.ControlIndicatorType.INTERACT] = create_indicator(
+            rt.ControlIndicatorButton.INTERACT, translation.control_indicator_interact
+        ),
+
+        [ow.ControlIndicatorType.AIR_DASH] = create_indicator(
+            rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
+            rt.ControlIndicatorButton.JUMP, translation.control_indicator_air_dash
+        ),
+
+        [ow.ControlIndicatorType.DOUBLE_JUMP] = create_indicator(
+            rt.ControlIndicatorButton.JUMP, translation.control_indicator_jump,
+            rt.ControlIndicatorButton.JUMP, translation.control_indicator_double_jump
+        ),
+
+        [ow.ControlIndicatorType.SLIDE] = create_indicator(
+            rt.ControlIndicatorButton.DOWN, translation.control_indicator_slide
+        ),
+
         [ow.ControlIndicatorType.NONE] = nil,
         [ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CAN_EXIT] = dialog_control_indicator(true, true),
         [ow.ControlIndicatorType.DIALOG_CAN_ADVANCE_CANNOT_EXIT] = dialog_control_indicator(true, false),
@@ -223,7 +240,7 @@ function ow.OverworldScene:instantiate(state)
             if not self._pause_menu_active then
                 self:pause()
             end
-        elseif which == rt.InputAction.RESET then
+        elseif which == rt.InputAction.RESET and self._camera_mode ~= ow.CameraMode.MANUAL then
             self._camera:set_scale(1)
             self._camera_scale_velocity = 0
             self._camera:set_position(self._player:get_position())
@@ -1235,6 +1252,7 @@ function ow.OverworldScene:reset()
     self:set_fade_to_black(0)
     self:set_blur(0)
     self:set_control_indicator_type(ow.ControlIndicatorType.NONE)
+    self._camera:set_scale(1)
 
     self:unpause()
     self:enter(before, false)

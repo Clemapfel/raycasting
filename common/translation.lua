@@ -146,7 +146,8 @@ rt.Translation = {
         control_indicator_interact = "Interact",
         control_indicator_dialog_confirm = "Select",
         control_indicator_dialog_leave = "Leave",
-        control_indicator_air_dash = "<i>(mid-air)</i> Dash"
+        control_indicator_air_dash = "<i>(mid-air)</i> Dash",
+        control_indicator_slide = "<i>(grounded)</i> slide freely"
     },
 
     -- title screen / stage select

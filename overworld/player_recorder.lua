@@ -76,6 +76,8 @@ function ow.PlayerRecorder:play()
 
     if self._path == nil then
         self._path = rt.Path(self._position_data)
+    else
+        self._path:create_from(self._position_data)
     end
 
     self._path_elapsed = 0
@@ -155,7 +157,6 @@ end
 
 --- @brief
 function ow.PlayerRecorder:draw()
-    --[[
     if self._state == _STATE_PLAYBACK then
         love.graphics.setColor(1, 1, 1, 1)
         self._body:draw()
@@ -164,9 +165,6 @@ function ow.PlayerRecorder:draw()
     if self._path ~= nil then
         love.graphics.line(self._path:get_points())
     end
-    ]]
-
-    self._body:get_physics_body():draw()
 end
 
 --- @brief
@@ -218,7 +216,7 @@ end
 --- @brief
 function ow.PlayerRecorder:export_to_string()
     local points = self._path:get_points()
-    rt.assert(#self._is_bubble_data == #points / 2, #self._is_bubble_data, #points)
+    rt.assert(#self._is_bubble_data == #points / 2)
 
     local to_concat = {}
     local bubble_i = 1

@@ -348,7 +348,7 @@ function ow.Checkpoint:_set_state(state)
         player:disable()
 
     elseif self._state == _STATE_DEFAULT then
-        self._scene:set_camera_mode(ow.CameraMode.AUTO)
+        --self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
         player:reset()
         player:enable()

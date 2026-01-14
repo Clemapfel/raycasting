@@ -60,7 +60,9 @@ function ow.CameraFit:instantiate(object, stage, scene)
 
     self._is_active = false
     self._stage:signal_connect("respawn", function()
-        self._is_active = false
+        if not self._bounds:contains(self._scene:get_player():get_position()) then
+            self:_unbind()
+        end
     end)
 end
 
