@@ -76,7 +76,7 @@ end
 -- Returns a flat list of 2D points (all contours concatenated).
 -- @param canvas love.graphics.Canvas
 -- @return table of {x, y} points (flat list)
-function rt.contour_from_canvas(canvas)
+function rt.contour.from_canvas(canvas)
     local data = love.graphics.readbackTexture(canvas:get_native())
     local width, height = data:getWidth(), data:getHeight()
 

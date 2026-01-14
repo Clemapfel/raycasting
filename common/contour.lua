@@ -1,3 +1,5 @@
+if rt.contour == nil then rt.contour = {} end
+
 local _round = function(x)
     return math.floor(x)
 end
@@ -19,7 +21,7 @@ local _unhash = function(hash)
 end
 
 --- @brief construct contour from list of triangles
-rt.contour_from_tris = function(tris, close_loop)
+rt.contour.from_tris = function(tris, close_loop)
     if close_loop == nil then close_loop = true end
     local segments = {}
     for tri in values(tris) do
@@ -84,7 +86,7 @@ rt.contour_from_tris = function(tris, close_loop)
         end
 
         if not found then
-            rt.warning("In rt.contour_from_tris: contour has duplicate edges")
+            rt.warning("In rt.contour.from_tris: contour has duplicate edges")
             break
         end -- degenerate contour with duplicate segments
     end
@@ -105,7 +107,7 @@ end
 --- @param length Number
 --- @param contour Table<Number>
 --- @param segment_length Number
-function rt.subdivide_contour(contour, segment_length)
+function rt.contour.subdivide(contour, segment_length)
     local subdivided = {}
 
     for i = 1, #contour, 2 do
@@ -136,7 +138,7 @@ end
 --- @return Table<Number>
 --- @param contour Table<Number>
 --- @return Table<Number>
-function rt.get_contour_normals(contour)
+function rt.contour.get_normals(contour)
     local normals = {}
     local num_vertices = #contour / 2
 
@@ -193,7 +195,7 @@ end
 
 --- ###
 
-function rt.smooth_contour(contour, n_iterations)
+function rt.contour.smooth(contour, n_iterations)
     local points = contour
     for smoothing_i = 1, n_iterations do
         local smoothed = {}
@@ -216,7 +218,7 @@ end
 
 --- ###
 
-function rt.round_contour(points, radius, samples_per_corner)
+function rt.contour.round(points, radius, samples_per_corner)
     local n = math.floor(#points / 2)
     radius = radius or 10
     samples_per_corner = samples_per_corner or 5
@@ -269,7 +271,7 @@ function rt.round_contour(points, radius, samples_per_corner)
     return new_points
 end
 
-function rt.is_contour_convex(vertices)
+function rt.contour.is_convex(vertices)
     local n = #vertices / 2
     if n < 3 then
         return false
@@ -307,7 +309,7 @@ function rt.is_contour_convex(vertices)
     return true
 end
 
-function rt.close_contour(contour)
+function rt.contour.close(contour)
     if #contour < 4 then return contour end
 
     local last_x, last_y = contour[#contour-1], contour[#contour]

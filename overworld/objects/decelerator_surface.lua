@@ -52,19 +52,19 @@ function ow.DeceleratorSurface:instantiate(object, stage, scene)
     end
 
     self._tris = {}
-    if rt.is_contour_convex(contour) then
+    if rt.contour.is_convex(contour) then
         self._tris = { contour }
     else
         self._tris = object:triangulate()
     end
 
-    self._contour = rt.close_contour(rt.subdivide_contour(
+    self._contour = rt.contour.close(rt.contour.subdivide(
         contour,
         rt.settings.overworld.decelerator_surface.subdivision_length
     ))
 
     self._draw_contour = table.deepcopy(self._contour)
-    self._contour_normals = rt.get_contour_normals(self._contour)
+    self._contour_normals = rt.contour.get_normals(self._contour)
     self._contour_amplitudes = table.deepcopy(self._contour)
 
     self._stage:signal_connect("initialized", function(_)

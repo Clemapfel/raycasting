@@ -238,7 +238,7 @@ function mn.StagePreview:realize()
             if #contour < 4 then
                 table.insert(empty_contour_is, 1, contour_i)
             else
-                rt.close_contour(contour)
+                rt.contour.close(contour)
             end
         end
 

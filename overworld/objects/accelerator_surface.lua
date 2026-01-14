@@ -164,7 +164,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     if not self._is_visible then return end
 
-    self._contour = rt.round_contour(object:create_contour(), 10)
+    self._contour = rt.contour.round(object:create_contour(), 10)
     self._mesh = rt.Mesh(mesh_data, rt.MeshDrawMode.TRIANGLES)
 
     local contour = object:create_contour()

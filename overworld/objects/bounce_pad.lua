@@ -142,7 +142,7 @@ function ow.BouncePad:instantiate(object, stage, scene)
     if not self._is_visible then goto skip_graphics end
 
     -- contour
-    self._contour = rt.round_contour(
+    self._contour = rt.contour.round(
         object:create_contour(),
         rt.settings.overworld.bounce_pad.corner_radius,
         16

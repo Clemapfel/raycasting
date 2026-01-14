@@ -84,11 +84,11 @@ function ow.BubbleField:instantiate(object, stage, scene)
     local contour = object:create_contour() -- flat array: {x1, y1, x2, y2, ..., xn, yn}
 
     -- subdivide contour
-    local subdivided = rt.subdivide_contour(contour, rt.settings.overworld.bubble_field.segment_length * rt.get_pixel_scale())
+    local subdivided = rt.contour.subdivide(contour, rt.settings.overworld.bubble_field.segment_length * rt.get_pixel_scale())
 
     -- laplacian smoothing
     local n_smoothing_iterations = rt.settings.overworld.bubble_field.n_smoothing_iterations
-    local points = rt.smooth_contour(subdivided, n_smoothing_iterations)
+    local points = rt.contour.smooth(subdivided, n_smoothing_iterations)
 
     table.insert(points, points[1])
     table.insert(points, points[2])

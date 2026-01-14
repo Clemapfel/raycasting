@@ -57,7 +57,7 @@ function ow.KillPlane:instantiate(object, stage, scene)
     table.insert(self._contour, self._contour[2])
 
 
-    if rt.is_contour_convex(self._contour) then
+    if rt.contour.is_convex(self._contour) then
         -- if convex, use regular centroid
 
         local vertex_map = {}

@@ -95,8 +95,8 @@ function ow.DeformableMesh:instantiate(scene, world, contour)
 
 
     -- subdivide, then get outer shape
-    contour = rt.subdivide_contour(contour, rt.settings.overworld.deformable_mesh.subdivide_step)
-    contour = rt.smooth_contour(contour, 2)
+    contour = rt.contour.subdivide(contour, rt.settings.overworld.deformable_mesh.subdivide_step)
+    contour = rt.contour.smooth(contour, 2)
 
     local mesh_data = {
         { center_x, center_y, 0, 0, 1, 1, 1, 1 }
