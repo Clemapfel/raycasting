@@ -108,25 +108,17 @@ function b2.Body:get_position()
     return self._native:getPosition()
 end
 
-local _position_callback = function(body, x, y)
-    body:setPosition(body, x, y)
-end
-
 --- @brief
 function b2.Body:set_position(x, y)
-    if not pcall(_position_callback, self._native, x, y) then
+    if not pcall(self._native.setPosition, self._native, x, y) then
         self._world:_notify_position_changed(self, x, y)
     end
     self._last_x, self._last_y = x, y
 end
 
-local _angle_callback = function(body, angle)
-    body:setAngle(body, angle)
-end
-
 --- @brief
 function b2.Body:set_rotation(angle)
-    if not pcall(_angle_callback, self._native, angle) then
+    if not pcall(self._native.setAngle, self._native, angle) then
         self._world:_notify_rotation_changed(self, angle)
     end
 end
@@ -134,42 +126,6 @@ end
 --- @brief
 function b2.Body:get_rotation()
     return self._native:getAngle()
-end
-
-function _hermite(t, a, b, tangent_a, tangent_b)
-    local t2 = t * t
-    local t3 = t2 * t
-    return (2 * t3 - 3 * t2 + 1) * a +
-        (t3 - 2 * t2 + t) * tangent_a +
-        (-2 * t3 + 3 * t2) * b +
-        (t3 - t2) * tangent_b
-end
-
-function math.slerp2(x0, y0, x1, y1, t)
-
-    x0, y0 = math.normalize(x0, y0)
-    x1, y1 = math.normalize(x1, y1)
-
-    -- Compute the dot product
-    local dot = x0 * x1 + y0 * y1
-
-    -- Clamp the dot product to avoid numerical errors
-    dot = math.max(-1, math.min(1, dot))
-
-    -- Compute the angle between the vectors
-    local theta = math.acos(dot)
-
-    -- If the angle is very small, linearly interpolate
-    if math.abs(theta) < 1e-5 then
-        return x0 * (1 - t) + x1 * t, y0 * (1 - t) + y1 * t
-    end
-
-    -- Compute the SLERP
-    local sin_theta = math.sin(theta)
-    local a = math.sin((1 - t) * theta) / sin_theta
-    local b = math.sin(t * theta) / sin_theta
-
-    return a * x0 + b * x1, a * y0 + b * y1
 end
 
 function b2.Body:get_predicted_position()

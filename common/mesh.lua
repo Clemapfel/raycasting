@@ -183,7 +183,7 @@ end
 --- @class rt.MeshCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
     y_radius = y_radius or x_radius
-    n_outer_vertices = _radius_to_n_vertices(x_radius, y_radius)
+    n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(x_radius, y_radius)
 
     local data = {
         {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1},
@@ -231,7 +231,7 @@ end
 
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)
-    n_outer_vertices = _radius_to_n_vertices(outer_radius, outer_radius)
+    n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(outer_radius, outer_radius)
 
     fill_center = fill_center == nil and true or fill_center
 

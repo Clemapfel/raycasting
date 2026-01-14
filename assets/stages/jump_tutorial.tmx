@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="696">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="704">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -8,14 +8,14 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="7" name="aux2" visible="0">
-  <object id="687" name="Control Trigger" type="ControlIndicatorTrigger" x="-416" y="2336" width="1216" height="771.219">
+ <objectgroup id="7" name="aux2">
+  <object id="687" name="Control Trigger" type="ControlIndicatorTrigger" x="-416" y="2368.4" width="1216" height="738.823">
    <properties>
     <property name="type" value="SLIDE"/>
    </properties>
   </object>
  </objectgroup>
- <objectgroup id="5" name="aux">
+ <objectgroup id="5" name="aux" visible="0">
   <object id="650" name="Fit" type="CameraFit" x="-1314.05" y="1199.92" width="1165.24" height="655.449">
    <properties>
     <property name="speed" type="float" value="-5"/>
@@ -371,13 +371,13 @@
    <polygon points="0,0 0,496 -48,496 -48,32 -193.817,32 -48,128 -48,160 -240,32 -368,32 -416,0"/>
   </object>
   <object id="670" type="SlipperyHitbox" x="-400" y="2512">
-   <polygon points="-16,-144 96,-144 112,-160 112,48 121.68,105.548 141.433,153.284 165.333,196 208,244 254.667,285.333 305.509,314.589 368,336 418.101,350.675 481.707,360.053 538.273,365.462 592,368 592,480 544,416 -16,416"/>
+   <polygon points="-16,-128 96,-128 112,-144 112,48 121.68,105.548 141.433,153.284 165.333,196 208,244 254.667,285.333 305.509,314.589 368,336 418.101,350.675 481.707,360.053 538.273,365.462 592,368 592,480 544,416 -16,416"/>
   </object>
   <object id="673" type="SlipperyHitbox" x="784" y="2512">
-   <polygon points="16,-144 -96,-144 -112,-160 -112,48 -121.68,105.548 -141.433,153.284 -165.333,196 -208,244 -254.667,285.333 -305.509,314.589 -368,336 -418.101,350.675 -481.707,360.053 -538.273,365.462 -592,368 -592,480 -544,416 16,416"/>
+   <polygon points="16,-128 -96,-128 -112,-144 -112,48 -121.68,105.548 -141.433,153.284 -165.333,196 -208,244 -254.667,285.333 -305.509,314.589 -368,336 -418.101,350.675 -481.707,360.053 -538.273,365.462 -592,368 -592,480 -544,416 16,416"/>
   </object>
   <object id="686" type="Hitbox" x="-288" y="2336">
-   <polygon points="0,16 -16,32 -128,32 -128,592 432,592 480,656 528,592 1088,592 1088,32 976,32 960,16 1312,16 1312,832 -128,832 -368,832 -368,16"/>
+   <polygon points="0,32 -16,48 -128,48 -128,592 432,592 480,656 528,592 1088,592 1088,48 976,48 960,32 1312,32 1312,832 -128,832 -368,832 -368,32"/>
   </object>
   <object id="690" type="Hitbox" x="-288" y="2272">
    <polygon points="0,0 -128,0 -128,-16 -16,-16"/>
@@ -388,16 +388,37 @@
   <object id="692" type="Wall" x="-416" y="1968">
    <polygon points="0,0 0,1120 1216,1120 1216,0"/>
   </object>
-  <object id="693" type="OneWayPlatform" x="-416" y="2256">
+  <object id="693" type="OneWayPlatform" x="-577.978" y="2007.07">
    <properties>
     <property name="other" type="object" value="694"/>
    </properties>
    <point/>
   </object>
-  <object id="694" type="OneWayPlatformNode" x="-416" y="2368">
+  <object id="694" type="OneWayPlatformNode" x="-577.978" y="2119.07">
    <point/>
   </object>
-  <object id="695" name="Fireflies" type="Fireflies" x="-352" y="2320">
+  <object id="695" name="Fireflies" type="Fireflies" x="-374.165" y="2347.28">
+   <point/>
+  </object>
+  <object id="697" name="Fireflies" type="Fireflies" x="-342.711" y="2335.89">
+   <point/>
+  </object>
+  <object id="698" name="Fireflies" type="Fireflies" x="-318.841" y="2351.24">
+   <point/>
+  </object>
+  <object id="699" name="Fireflies" type="Fireflies" x="-429.668" y="2334.19">
+   <point/>
+  </object>
+  <object id="700" name="Fireflies" type="Fireflies" x="-392.157" y="2317.14">
+   <point/>
+  </object>
+  <object id="701" name="Fireflies" type="Fireflies" x="-387.042" y="2344.42">
+   <point/>
+  </object>
+  <object id="702" name="Fireflies" type="Fireflies" x="-392.157" y="2349.53">
+   <point/>
+  </object>
+  <object id="703" name="Fireflies" type="Fireflies" x="-410.912" y="2346.12">
    <point/>
   </object>
  </objectgroup>

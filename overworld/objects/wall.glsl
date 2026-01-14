@@ -158,7 +158,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         point_color += compute_light(
             screen_coords,
             light_position,
-            point_light_colors[i],
+            point_light_colors[i] * point_light_colors[i].a,
             normal
         );
     }
@@ -171,7 +171,7 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         segment_color += compute_light(
             screen_coords,
             light_position,
-            segment_light_colors[i],
+            segment_light_colors[i] * segment_light_colors[i].a,
             normal
         );
     }

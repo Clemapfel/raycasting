@@ -1,52 +1,56 @@
 --- @class rt.Path1D
---- @brief arc-length parameterized chain of line segments for 1D values
+--- @brief arc-length parameterized chain of line segments for scalar values, unlike spline, extremely fast to evaluate
 rt.Path1D = meta.class("Path1D")
 
 --- @brief
-function rt.Path1D:instantiate(values, ...)
-    if meta.is_number(values) then
-        values = { values, ... }
+function rt.Path1D:instantiate(points, ...)
+    if meta.is_number(points) then
+        points = { points, ... }
     end
 
+    rt.assert(points ~= nil and #points >= 2, "In rt.Path1D: expected at least two values")
+
     local out = meta.install(self, {
-        _values = values,
+        _points = points,
         _entries = {},
-        _n_values = #values,
+        _n_points = #points,
         _n_entries = 0,
         _length = 0,
         _first_distance = 0,
         _last_distance = 0,
-        _use_arclength = false
+        _use_arclength = false  -- track whether to use arc-length parameterization
     })
-    out:create_from(values, ...)
+    out:create_from(points, ...)
     return out
 end
 
---- @brief
+--- @brief recompute internal segment entries from current points
 function rt.Path1D:_update()
     local entries = {}
-    local values = self._values
-    local n_values = self._n_values
+    local points = self._points
+    local n_points = self._n_points
     local total_length = 0
     local n_entries = 0
 
-    -- create entries for each segment
-    for i = 1, n_values - 1 do
-        local v1 = values[i]
-        local v2 = values[i+1]
+    -- create entries for each line segment
+    for i = 1, n_points - 1 do
+        local v1 = points[i]
+        local v2 = points[i + 1]
 
         local dv = v2 - v1
         local distance = math.abs(dv)
-        local direction = dv >= 0 and 1 or -1
+        local dir = 0
+        if dv > 0 then dir = 1 elseif dv < 0 then dir = -1 end
 
         local entry = {
-            from_v = v1,
-            to_v = v2,
-            dv = direction,  -- normalized direction (-1 or 1)
-            distance = distance,
+            from = v1,
+            to = v2,
+            dv = dv,                -- non-normalized delta (to - from)
+            dir = dir,              -- normalized direction in 1D (-1, 0, 1)
+            distance = distance,    -- length of segment in 1D
             cumulative_distance = total_length,
-            fraction = 0,
-            fraction_length = 0
+            fraction = 0,           -- set below
+            fraction_length = 0     -- set below
         }
 
         table.insert(entries, entry)
@@ -57,8 +61,7 @@ function rt.Path1D:_update()
     if n_entries == 1 then
         entries[1].fraction = 0
         entries[1].fraction_length = 1
-    else
-        -- calculate fractions based on whether arc-length parameterization is enabled
+    elseif n_entries > 1 then
         if self._use_arclength then
             -- arc-length: fractions based on cumulative distance
             for i = 1, n_entries do
@@ -95,7 +98,7 @@ function rt.Path1D:_update()
     self._last_distance = n_entries > 0 and entries[n_entries].fraction or 0
 end
 
---- @brief
+--- @brief binary search segment by global parameter t in [0, 1]
 function rt.Path1D:_find_segment(t)
     local entries = self._entries
     local n_entries = self._n_entries
@@ -114,7 +117,6 @@ function rt.Path1D:_find_segment(t)
         return entries[n_entries]
     end
 
-    -- binary search for the correct segment
     local low = 1
     local high = n_entries
 
@@ -135,107 +137,103 @@ function rt.Path1D:_find_segment(t)
     return entries[math.clamp(low, 1, n_entries)]
 end
 
---- @brief get value at parameter t [0, 1]
+--- @brief get value at parameter t in [0, 1]
 function rt.Path1D:at(t)
     t = math.clamp(t, 0, 1)
 
     local segment = self:_find_segment(t)
-    if segment.fraction_length == 0 then
-        return segment.from_v
-    end
-
     local local_t = (t - segment.fraction) / segment.fraction_length
-    local distance_along_segment = local_t * segment.distance
 
-    return segment.from_v + segment.dv * distance_along_segment
+    -- linear interpolation in 1D
+    return segment.from + local_t * segment.dv
 end
 
---- @brief
+--- @brief get segment endpoints (from, to) at parameter t
 function rt.Path1D:get_segment(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment.from_v, segment.to_v
+    return segment.from, segment.to
 end
 
---- @brief
+--- @brief get 1D tangent (direction) at parameter t; returns -1, 0, or 1
 function rt.Path1D:tangent_at(t)
     local segment = self:_find_segment(math.clamp(t, 0, 1))
-    return segment.dv
+    return segment.dir
 end
 
---- @brief
-function rt.Path1D:_create_from(reparameterize_as_uniform, use_arclength, values, ...)
-    if meta.is_number(values) then
-        values = { values, ... }
+--- @brief internal creator handling reparameterization and arclength toggles
+function rt.Path1D:_create_from(reparameterize_as_uniform, use_arclength, points, ...)
+    if meta.is_number(points) then
+        points = { points, ... }
     end
 
-    if values == nil or #values < 1 then
-        values = { 0, 0 }
-    elseif #values < 2 then
-        table.insert(values, values[1])
+    if points == nil or #points < 1 then
+        points = { 0, 0 }
+    elseif #points < 2 then
+        table.insert(points, points[1])
     end
 
-    local n_values = #values
+    local n_points = #points
+    rt.assert(n_points >= 2, "In rt.Path1D: expected at least two values")
 
     -- reparameterize to uniform spacing if requested
     if reparameterize_as_uniform then
-        local num_values = n_values
+        local num_points = n_points
 
-        -- calculate cumulative distances
+        -- calculate cumulative distances (arc-length in 1D)
         local distances = { 0 }
         local total_length = 0
-        for i = 1, n_values - 1 do
-            local dist = math.abs(values[i+1] - values[i])
+        for i = 1, n_points - 1 do
+            local dist = math.abs(points[i + 1] - points[i])
             total_length = total_length + dist
             distances[#distances + 1] = total_length
         end
 
         if total_length > 0 then
-            local uniform_values = {}
-            local target_spacing = total_length / (num_values - 1)
+            local uniform_points = {}
+            local target_spacing = total_length / (num_points - 1)
             local num_segments = #distances - 1
 
-            -- first value
-            uniform_values[1] = values[1]
+            -- first point
+            uniform_points[1] = points[1]
 
-            -- intermediate values
+            -- intermediate points
             local segment_idx = 1
-            for i = 1, num_values - 2 do
+            for i = 1, num_points - 2 do
                 local target_dist = i * target_spacing
 
-                -- advance segment_idx
+                -- advance segment index to the correct segment
                 while segment_idx < num_segments and target_dist > distances[segment_idx + 1] do
                     segment_idx = segment_idx + 1
                 end
 
-                -- interpolate within the segment
                 local seg_start_dist = distances[segment_idx]
                 local seg_end_dist = distances[segment_idx + 1]
                 local seg_length = seg_end_dist - seg_start_dist
 
                 local local_t = (target_dist - seg_start_dist) / seg_length
 
-                local v1 = values[segment_idx]
-                local v2 = values[segment_idx + 1]
+                local v1 = points[segment_idx]
+                local v2 = points[segment_idx + 1]
 
-                uniform_values[i + 1] = v1 + (v2 - v1) * local_t
+                uniform_points[i + 1] = v1 + local_t * (v2 - v1)
             end
 
-            -- last value
-            uniform_values[num_values] = values[n_values]
+            -- last point
+            uniform_points[num_points] = points[n_points]
 
-            values = uniform_values
-            n_values = #values
+            points = uniform_points
+            n_points = #points
         end
     end
 
-    self._values = values
-    self._n_values = n_values
+    self._points = points
+    self._n_points = n_points
     self._use_arclength = use_arclength
     self:_update()
     return self
 end
 
---- @brief
+--- @brief create from values, uniform parameterization
 function rt.Path1D:create_from(...)
     return self:_create_from(
         false, -- resample with uniform spacing
@@ -244,7 +242,7 @@ function rt.Path1D:create_from(...)
     )
 end
 
---- @brief
+--- @brief create from values, arc-length parameterization (no resampling)
 function rt.Path1D:create_from_and_reparameterize(...)
     return self:_create_from(
         false,
@@ -253,7 +251,7 @@ function rt.Path1D:create_from_and_reparameterize(...)
     )
 end
 
---- @brief
+--- @brief create from values, resample to uniform spacing and arc-length parameterize
 function rt.Path1D:create_from_and_resample(...)
     return self:_create_from(
         true,
@@ -262,22 +260,18 @@ function rt.Path1D:create_from_and_resample(...)
     )
 end
 
---- @brief
-function rt.Path1D:get_values()
-    local out = {}
-    for i = 1, self._n_values do
-        table.insert(out, self._values[i])
-    end
-    return out
+--- @brief return a copy of the underlying values
+function rt.Path1D:get_points()
+    return self._points
 end
 
---- @brief
+--- @brief total arc-length in 1D
 function rt.Path1D:get_length()
     return self._length
 end
 
---- @brief override arclength parameterization with custom per-segment fraction
---- @param ... Number of values equal to number of segments, must sum to 1
+--- @brief override arclength parameterization with custom per-segment fractions
+--- @param, . Number of values equal to number of segments, must sum to 1
 function rt.Path1D:override_parameterization(...)
     local n_args = select("#", ...)
     if n_args ~= self._n_entries then
@@ -286,9 +280,8 @@ function rt.Path1D:override_parameterization(...)
     end
 
     local total = 0
-    local args = {...}
+    local args = { ... }
 
-    -- validate arguments sum to 1
     for i = 1, n_args do
         local arg = args[i]
         if type(arg) ~= "number" or arg < 0 then
@@ -315,4 +308,51 @@ end
 --- @brief Get the number of segments in the path
 function rt.Path1D:get_segment_count()
     return self._n_entries
+end
+
+--- @brief helper function to find closest value on a specific line segment
+--- @param v Number query value
+--- @param entry Table segment entry from self._entries
+--- @return Number, Number closest value and global parameter t
+function rt.Path1D:_closest_value_on_segment(v, entry)
+    local v1 = entry.from
+    local v2 = entry.to
+    local dv = v2 - v1
+    local seg_len_sq = dv * dv
+
+    if seg_len_sq < 1e-20 then
+        -- degenerate segment
+        local global_t = entry.fraction + entry.fraction_length * 0.5
+        return v1, global_t
+    end
+
+    local local_t = math.clamp((v - v1) / dv, 0, 1)
+    local closest_v = v1 + local_t * dv
+    local global_t = entry.fraction + entry.fraction_length * local_t
+    return closest_v, global_t
+end
+
+--- @brief get closest value on path to query value; returns closest value and its parameter t
+function rt.Path1D:get_closest_value(v)
+    if self._n_entries == 0 then
+        return nil, nil
+    end
+
+    local closest_dist = math.huge
+    local closest_v = nil
+    local closest_t = 0
+
+    for i = 1, self._n_entries do
+        local entry = self._entries[i]
+        local seg_v, seg_t = self:_closest_value_on_segment(v, entry)
+        local d = math.abs(seg_v - v)
+
+        if d < closest_dist then
+            closest_dist = d
+            closest_v = seg_v
+            closest_t = seg_t
+        end
+    end
+
+    return closest_v, closest_t
 end

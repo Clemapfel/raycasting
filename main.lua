@@ -39,7 +39,7 @@ local init = function()
             table.insert(path, 0.5 * love.graphics.getHeight() + rt.random.number(-0.5, 0.5) * h)
         end
 
-        path = rt.close_contour(path)
+        path = rt.contour.close(path)
         batch_id_to_entry[batch_id] = {
             id = batch_id,
             path = rt.Spline(path),

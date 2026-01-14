@@ -407,7 +407,7 @@ function rt.Player:instantiate()
     })
     self:_connect_input()
 
-    self._pulse_mesh = rt.MeshCircle(0, 0, 1) -- scaled in draw
+    self._pulse_mesh = rt.MeshCircle(0, 0, 1, 1, 32) -- scaled in draw
     self._pulse_mesh:set_vertex_color(1, 1, 1, 1, 0)
     for i = 2, self._pulse_mesh:get_n_vertices() do
         self._pulse_mesh:set_vertex_color(i, 1, 1, 1, 1)
@@ -867,7 +867,9 @@ function rt.Player:update(delta)
             and not right_allowed
             and up_allowed
         then
-            if math.distance(x, y, bottom_x, bottom_y) <= self._radius then
+            local cx = bottom_x or bottom_left_x or bottom_right_x
+            local cy = bottom_y or bottom_left_y or bottom_right_y
+            if cx ~= nil and cy ~= nil and math.distance(x, y, cx, cy) <= self._radius then
                 if self:jump() then
                     self._jump_buffer_elapsed = math.huge
                 end
@@ -1972,20 +1974,6 @@ function rt.Player:update(delta)
 
             if should_kill then
                 self._stage:get_active_checkpoint():spawn(true)
-            end
-        end
-    end
-
-    do -- safeguard against springs catching
-        local inner_x, inner_y = self._body:get_position()
-        local max_distance = self._radius + self._inner_body_radius
-        for body_i, outer_body in ipairs(self._spring_bodies) do
-            if math.distance(inner_x, inner_y, outer_body:get_position()) > max_distance then
-                -- reset, let spring handle repositioning against geometry
-                outer_body:set_position(
-                    inner_x + self._spring_body_offsets_x[body_i],
-                    inner_y + self._spring_body_offsets_y[body_i]
-                )
             end
         end
     end
