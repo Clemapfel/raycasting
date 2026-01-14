@@ -10,13 +10,6 @@ function rt.Path:instantiate(points, ...)
         points = { points, ... }
     end
 
-    if points == nil or #points < 2 then
-        points = { 0, 0, 0, 0 }
-    elseif #points < 4 then
-        table.insert(points, points[1])
-        table.insert(points, points[2])
-    end
-
     rt.assert(#points % 2 == 0, "In rt.Path: number of point coordinates must be even")
 
     local out = meta.install(self, {
@@ -184,8 +177,14 @@ function rt.Path:_create_from(reparameterize_as_uniform, use_arclength, points, 
         points = { points, ... }
     end
 
+    if points == nil or #points < 2 then
+        points = { 0, 0, 0, 0 }
+    elseif #points < 4 then
+        table.insert(points, points[1])
+        table.insert(points, points[2])
+    end
+
     local n_points = #points
-    rt.assert(n_points >= 4, "In rt.Path: need at least 2 points (4 coordinates) to draw a path")
     rt.assert(n_points % 2 == 0, "In rt.Path: number of point coordinates must be even")
 
     -- reparameterize to uniform spacing if requested
