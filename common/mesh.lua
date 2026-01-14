@@ -174,10 +174,17 @@ rt.MeshRectangle3D = function(
     return out
 end
 
+local function _radius_to_n_vertices(rx, ry)
+    -- cf. https://github.com/love2d/love/blob/5670df13b6980afd025cd7e7d442a24499bf86a7/src/modules/graphics/Graphics.cpp#L2419C1-L2423C2
+    if ry == nil then ry = rx end
+    return math.max(8, math.floor(math.sqrt(((rx + ry) / 2) * 20.0)))
+end
+
 --- @class rt.MeshCircle
 rt.MeshCircle = function(center_x, center_y, x_radius, y_radius, n_outer_vertices)
     y_radius = y_radius or x_radius
-    n_outer_vertices = n_outer_vertices or 16
+    n_outer_vertices = _radius_to_n_vertices(x_radius, y_radius)
+
     local data = {
         {center_x, center_y, 0.5, 0.5, 1, 1, 1, 1},
     }
@@ -224,9 +231,9 @@ end
 
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)
-    n_outer_vertices = n_outer_vertices or 16
-    fill_center = fill_center == nil and true or fill_center
+    n_outer_vertices = _radius_to_n_vertices(outer_radius, outer_radius)
 
+    fill_center = fill_center == nil and true or fill_center
 
     local step = 2 * math.pi / n_outer_vertices
 

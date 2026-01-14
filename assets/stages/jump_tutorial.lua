@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 693,
+  nextobjectid = 696,
   properties = {},
   tilesets = {
     {
@@ -2388,6 +2388,47 @@ return {
             { x = 1216, y = 1120 },
             { x = 1216, y = 0 }
           },
+          properties = {}
+        },
+        {
+          id = 693,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -416,
+          y = 2256,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 694 }
+          }
+        },
+        {
+          id = 694,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = -416,
+          y = 2368,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 695,
+          name = "Fireflies",
+          type = "Fireflies",
+          shape = "point",
+          x = -352,
+          y = 2320,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }
