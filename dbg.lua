@@ -1,14 +1,14 @@
 return {
     collision_strength = 0.99,
-    collision_overlap_fraction = 10,
+    collision_overlap_factor = 10,
 
     cohesion_strength = 0,
-    cohesion_interaction_distance_fraction = 15,
+    cohesion_interaction_distance_factor = 5,
 
     follow_strength = 1 - 0.001,
 
     damping = 0.2,
-    n_sub_steps = 4,
+    n_sub_steps = 3,
     step_delta = 1 / 60,
 
     min_mass = 1,
@@ -16,7 +16,7 @@ return {
 
     threshold_shader_threshold = 0.05,
     composite_alpha = 1,
-    texture_scale = 8,
+    texture_scale = 2,
     threshold_shader_smoothness = 0.05
 }
 
