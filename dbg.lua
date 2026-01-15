@@ -8,7 +8,7 @@ return {
     follow_strength = 1 - 0.001,
 
     damping = 0.2,
-    n_sub_steps = 3,
+    n_sub_steps = 2,
     step_delta = 1 / 60,
 
     min_mass = 1,
@@ -16,7 +16,7 @@ return {
 
     threshold_shader_threshold = 0.05,
     composite_alpha = 1,
-    texture_scale = 2,
+    texture_scale = 10,
     threshold_shader_smoothness = 0.05
 }
 
