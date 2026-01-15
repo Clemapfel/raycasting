@@ -16,8 +16,8 @@ return {
 
     threshold_shader_threshold = 0.05,
     composite_alpha = 1,
-    texture_scale = 10,
-    threshold_shader_smoothness = 0.05
+    texture_scale = 2,
+    threshold_shader_smoothness = 0.01
 }
 
 --[[
