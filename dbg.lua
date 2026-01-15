@@ -3,7 +3,7 @@ return {
     collision_overlap_factor = 10,
 
     cohesion_strength = 0,
-    cohesion_interaction_distance_factor = 5,
+    cohesion_interaction_distance_factor = 1,
 
     follow_strength = 1 - 0.001,
 
