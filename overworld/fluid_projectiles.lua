@@ -292,7 +292,6 @@ function ow.FluidProjectiles:update(delta)
     if love.keyboard.isDown("p") then a = a / 100 end
     local core_follow_compliance = compliance_per_step(a)
 
-
     local damping = settings.damping
     local viscosity = settings.viscosity
 
