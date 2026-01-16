@@ -131,6 +131,15 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
             self._spawn_barrier:set_collision_group(rt.settings.player.ghost_collision_group)
             self._spawn_barrier:add_tag("stencil", "hitbox")
             self._spawn_barrier:set_is_enabled(false)
+
+            if self._platform ~= nil then
+                self._spawn_barrier:add_tag("segment_light_source")
+                self._spawn_barrier:set_user_data({
+                    get_segment_light_sources = function()
+                        return {{ left_x, left_y, right_x, right_y }}, { self._scene:get_player():get_color() }
+                    end
+                })
+            end
         end
 
         if self._type == ow.CheckpointType.PLAYER_SPAWN then

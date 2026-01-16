@@ -1973,7 +1973,7 @@ function rt.Player:update(delta)
             end
 
             if should_kill then
-                self._stage:get_active_checkpoint():spawn(true)
+                self:kill()
             end
         end
     end
@@ -3430,4 +3430,11 @@ end
 --- @brief
 function rt.Player:get_bubble_mass_factor()
     return self._bubble_mass / self._mass
+end
+
+--- @brief
+function rt.Player:kill()
+    if self._stage ~= nil then
+        self._stage:get_active_checkpoint():spawn(true)
+    end
 end

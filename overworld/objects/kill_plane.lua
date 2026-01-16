@@ -27,13 +27,14 @@ function ow.KillPlane:instantiate(object, stage, scene)
 
     self._is_blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
-        if self._is_blocked == true then return end
-        self._stage:get_active_checkpoint():spawn()
-        self._is_blocked = true
-        self._stage:get_physics_world():signal_connect("step", function()
-            self._is_blocked = false
-            return meta.DISCONNECT_SIGNAL
-        end)
+        if other_body:has_tag("player") then
+            if self._is_blocked == true then return end
+            self._is_blocked = true
+            self._stage:get_physics_world():signal_connect("step", function()
+                self._is_blocked = false
+                return meta.DISCONNECT_SIGNAL
+            end)
+        end
     end)
 
     -- visibility : disable mesh
@@ -56,10 +57,8 @@ function ow.KillPlane:instantiate(object, stage, scene)
     table.insert(self._contour, self._contour[1])
     table.insert(self._contour, self._contour[2])
 
-
     if rt.contour.is_convex(self._contour) then
         -- if convex, use regular centroid
-
         local vertex_map = {}
         local inner_mesh_data = {
             {

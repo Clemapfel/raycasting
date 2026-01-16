@@ -169,7 +169,6 @@ function ow.BloodSplatter:draw()
     local visible = {}
     self._world:update(0)
 
-
     love.graphics.push()
     love.graphics.translate(self._offset_x, self._offset_y)
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="704">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="709">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -15,7 +15,7 @@
    </properties>
   </object>
  </objectgroup>
- <objectgroup id="5" name="aux" visible="0">
+ <objectgroup id="5" name="aux">
   <object id="650" name="Fit" type="CameraFit" x="-1314.05" y="1199.92" width="1165.24" height="655.449">
    <properties>
     <property name="speed" type="float" value="-5"/>
@@ -29,6 +29,9 @@
   <object id="682" name="Focus" type="CameraFitFocus" x="192" y="2640">
    <point/>
   </object>
+  <object id="704" type="Wall" x="-1344" y="2176">
+   <polygon points="0,0 -32,656 544,528 432,-192"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="388" name="Wall Jump 02" type="Hitbox" x="1656.83" y="669.242">
@@ -37,7 +40,7 @@
   <object id="395" type="SlipperyHitbox" x="2284.9" y="669.242">
    <polygon points="-4.07,0 -4.07,-112 11.93,-128 11.93,-224 -4.07,-240 -4.07,-416 11.93,-432 11.93,-528 -4.07,-544 -4.07,-704 59.934,-704 59.93,48 -4.07,48"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="-722.418" y="2311.9">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="-1091.05" y="2458.73">
    <point/>
   </object>
   <object id="401" name="Wall Jump 03" type="SlipperyHitbox" x="2093.62" y="524.526">
@@ -388,13 +391,13 @@
   <object id="692" type="Wall" x="-416" y="1968">
    <polygon points="0,0 0,1120 1216,1120 1216,0"/>
   </object>
-  <object id="693" type="OneWayPlatform" x="-577.978" y="2007.07">
+  <object id="693" type="OneWayPlatform" x="-1243.4" y="2310.1">
    <properties>
     <property name="other" type="object" value="694"/>
    </properties>
    <point/>
   </object>
-  <object id="694" type="OneWayPlatformNode" x="-577.978" y="2119.07">
+  <object id="694" type="OneWayPlatformNode" x="-1243.4" y="2422.1">
    <point/>
   </object>
   <object id="695" name="Fireflies" type="Fireflies" x="-374.165" y="2347.28">
@@ -418,9 +421,16 @@
   <object id="702" name="Fireflies" type="Fireflies" x="-392.157" y="2349.53">
    <point/>
   </object>
-  <object id="703" name="Fireflies" type="Fireflies" x="-410.912" y="2346.12">
+  <object id="703" name="Fireflies" type="Fireflies" x="-1022.66" y="2424.93">
    <point/>
   </object>
+  <object id="707" name="Fish" type="KaizoFish" x="-622.878" y="2050.98" width="201.658" height="80">
+   <properties>
+    <property name="sensor" type="object" value="708"/>
+    <property name="velocity_y" type="float" value="1000"/>
+   </properties>
+  </object>
+  <object id="708" name="Fish Sensor" type="KaizoFishSensor" x="-707.056" y="2286.39" width="462.935" height="84.8467"/>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="610" name="NPC" type="NPC" x="512" y="-880">

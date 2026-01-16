@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 704,
+  nextobjectid = 709,
   properties = {},
   tilesets = {
     {
@@ -80,7 +80,7 @@ return {
       id = 5,
       name = "aux",
       class = "",
-      visible = false,
+      visible = true,
       opacity = 1,
       offsetx = 0,
       offsety = 0,
@@ -129,6 +129,25 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
+          properties = {}
+        },
+        {
+          id = 704,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = -1344,
+          y = 2176,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -32, y = 656 },
+            { x = 544, y = 528 },
+            { x = 432, y = -192 }
+          },
           properties = {}
         }
       }
@@ -213,8 +232,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -722.418,
-          y = 2311.9,
+          x = -1091.05,
+          y = 2458.73,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2395,8 +2414,8 @@ return {
           name = "",
           type = "OneWayPlatform",
           shape = "point",
-          x = -577.978,
-          y = 2007.07,
+          x = -1243.4,
+          y = 2310.1,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2410,8 +2429,8 @@ return {
           name = "",
           type = "OneWayPlatformNode",
           shape = "point",
-          x = -577.978,
-          y = 2119.07,
+          x = -1243.4,
+          y = 2422.1,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2514,10 +2533,39 @@ return {
           name = "Fireflies",
           type = "Fireflies",
           shape = "point",
-          x = -410.912,
-          y = 2346.12,
+          x = -1022.66,
+          y = 2424.93,
           width = 0,
           height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 707,
+          name = "Fish",
+          type = "KaizoFish",
+          shape = "rectangle",
+          x = -622.878,
+          y = 2050.98,
+          width = 201.658,
+          height = 80,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["sensor"] = { id = 708 },
+            ["velocity_y"] = 1000
+          }
+        },
+        {
+          id = 708,
+          name = "Fish Sensor",
+          type = "KaizoFishSensor",
+          shape = "rectangle",
+          x = -707.056,
+          y = 2286.39,
+          width = 462.935,
+          height = 84.8467,
           rotation = 0,
           visible = true,
           properties = {}

@@ -13,7 +13,8 @@ rt.settings.overworld.fireflies = {
     max_hover_offset = 18, -- px
     hover_cycle_duration = n_nodes / 2, -- seconds,
 
-    noise_speed = 2 -- unitless, in phase space
+    noise_speed = 2, -- unitless, in phase space
+    light_color_alpha = 0.25
 }
 
 --- @class ow.Fireflies
@@ -233,7 +234,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
             body = body
         }
 
-        entry.light_color.a = 0.5
+        entry.light_color.a = rt.settings.overworld.fireflies.light_color_alpha
         body:set_collides_with(0x0)
         body:set_collision_group(0x0)
         body:add_tag("point_light_source")

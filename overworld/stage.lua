@@ -104,7 +104,6 @@ function ow.Stage:instantiate(scene, id)
     -- TODO
 
     ow.Hitbox:reinitialize()
-    ow.Wall:reinitialize()
     ow.Sprite:reinitialize()
     ow.AirDashNode:reinitialize()
 
@@ -164,13 +163,6 @@ function ow.Stage:instantiate(scene, id)
             { draw = function()
                     local point_lights, point_colors = self:get_point_light_sources()
                     local segment_lights, segment_colors = self:get_segment_light_sources()
-                    ow.Wall:draw_all(
-                        self._scene:get_camera(),
-                        point_lights,
-                        point_colors,
-                        segment_lights,
-                        segment_colors
-                    )
 
                     ow.Hitbox:draw_base()
                     self._normal_map:draw_shadow(self._scene:get_camera())
@@ -506,6 +498,8 @@ end
 
 --- @brief
 function ow.Stage:get_point_light_sources()
+    if rt.GameState:get_is_performance_mode_enabled() then return {}, {} end
+
     if self._point_light_sources_need_update == true then
         local camera = self._scene:get_camera()
         local max_n = rt.settings.overworld.normal_map.max_n_point_lights
@@ -524,7 +518,7 @@ function ow.Stage:get_point_light_sources()
         if player:get_is_visible() and player:get_trail_is_visible() then
             local x, y = camera:world_xy_to_screen_xy(player:get_position())
             table.insert(positions, {
-                x, y, player:get_radius()
+                x, y, rt.settings.player.radius
             })
 
             table.insert(colors, {
@@ -587,6 +581,8 @@ end
 
 --- @brief
 function ow.Stage:get_segment_light_sources()
+    if rt.GameState:get_is_performance_mode_enabled() then return {}, {} end
+
     if self._segment_light_sources_need_update == true then
         local camera = self._scene:get_camera()
         local max_n = rt.settings.overworld.normal_map.max_n_point_lights
@@ -866,7 +862,17 @@ end
 
 --- @brief
 function ow.Stage:reset()
+    local body_to_is_enabled = {}
+    for body in values(self._world:get_bodies()) do
+        body_to_is_enabled[body] = body:get_is_enabled()
+        body:set_is_enabled(false)
+    end
+
     for instance in values(self._to_reset) do
         instance:reset()
+    end
+
+    for body in values(self._world:get_bodies()) do
+        body:set_is_enabled(body_to_is_enabled[body])
     end
 end

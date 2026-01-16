@@ -7,98 +7,85 @@ rt.settings.overworld.wall = {
 --- @class ow.Wall
 ow.Wall = meta.class("Wall")
 
-local _shader = rt.Shader("overworld/objects/wall.glsl", {
-    MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
-    MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights
+ow.WallPatternType = meta.enum("WallPatternType", {
+    FLAT = "FLAT",
+    SPHERES = "SPHERES"
 })
 
--- global batching
-local _tris = {}
-local _lines = {}
-local _mesh = nil
+local _pattern_to_shader = {
+    [ow.WallPatternType.FLAT] = rt.Shader("overworld/objects/wall_flat.glsl", {
+        MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
+        MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights
+    }),
+
+    [ow.WallPatternType.SPHERES] = rt.Shader("overworld/objects/wall_spheres.glsl", {
+        MAX_N_POINT_LIGHTS = rt.settings.overworld.normal_map.max_n_point_lights,
+        MAX_N_SEGMENT_LIGHTS = rt.settings.overworld.normal_map.max_n_segment_lights
+    })
+}
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then _pattern_to_shader[ow.WallPatternType.FLAT]:recompile() end
+end)
 
 function ow.Wall:instantiate(object, stage, scene)
-    local _, tris = object:create_mesh()
-    for tri in values(tris) do
-        table.insert(_tris, tri)
-    end
+    self._scene = scene
+    self._stage = stage
+    self._mesh = object:create_mesh()
+    self._contour = rt.contour.close(object:create_contour())
 
-    local contour =  object:create_contour()
-    table.insert(contour, contour[1])
-    table.insert(contour, contour[2])
-    table.insert(_lines, contour)
+    local pattern = object:get_string("pattern") or ow.WallPatternType.FLAT
+    self._pattern = string.upper(pattern)
+    meta.assert_enum_value(self._pattern, ow.WallPatternType)
+
+    self._shader = _pattern_to_shader[self._pattern]
+
+    if ow.Wall._impulse == nil then
+        ow.Wall._impulse = rt.ImpulseSubscriber()
+    end
 end
 
 --- @brief
-function ow.Wall:reinitialize()
-    _tris = {}
-    _lines = {}
-    _mesh = nil
-end
+function ow.Wall:draw()
+    love.graphics.push("all")
 
-local _try_initialize = function()
-    if _mesh ~= nil or #_tris == 0 then return end -- already initialized
-
-    local data = {}
-    local format = { {location = 0, name = rt.VertexAttribute.POSITION, format = "floatvec2"} }
-    local mode, usage = rt.MeshDrawMode.TRIANGLES, rt.GraphicsBufferUsage.STATIC
-
-    for tri in values(_tris) do
-        table.insert(data, { tri[1], tri[2] })
-        table.insert(data, { tri[3], tri[4] })
-        table.insert(data, { tri[5], tri[6] })
-    end
-
-    local success, mesh_or_error = pcall(love.graphics.newMesh, format, data, mode, usage)
-    if success then
-        _mesh = mesh_or_error
-    else
-        rt.critical("In ow.Wall._try_initialize: ", mesh_or_error)
-    end
-end
-
-local _wall_impulse = rt.ImpulseSubscriber()
-
---- @brief
-function ow.Wall:draw_all(camera, point_light_sources, point_light_colors, segment_light_sources, segment_light_colors)
-    if #_tris == 0 then return end
-
-    _try_initialize()
+    local camera = self._scene:get_camera()
+    local point_light_sources, point_light_colors = self._stage:get_point_light_sources()
+    local segment_light_sources, segment_light_colors = self._stage:get_segment_light_sources()
 
     love.graphics.setColor(1, 1, 1, 1)
-
-    local scene = rt.SceneManager:get_current_scene()
-
-    love.graphics.setColor(1, 1, 1, 1)
-    _shader:bind()
-    _shader:send("elapsed", rt.SceneManager:get_elapsed())
-    _shader:send("camera_scale", camera:get_final_scale())
-    _shader:send("n_point_light_sources", #point_light_sources)
+    local shader = self._shader
+    shader:bind()
+    shader:send("elapsed", rt.SceneManager:get_elapsed())
+    shader:send("camera_scale", camera:get_final_scale())
+    shader:send("n_point_light_sources", #point_light_sources)
     if #point_light_sources > 0 then
-        _shader:send("point_light_sources", table.unpack(point_light_sources))
-        _shader:send("point_light_colors", table.unpack(point_light_colors))
+        shader:send("point_light_sources", table.unpack(point_light_sources))
+        shader:send("point_light_colors", table.unpack(point_light_colors))
     end
 
-    _shader:send("n_segment_light_sources", #segment_light_sources)
+    shader:send("n_segment_light_sources", #segment_light_sources)
     if #segment_light_sources > 0 then
-        _shader:send("segment_light_sources", table.unpack(segment_light_sources))
-        _shader:send("segment_light_colors", table.unpack(segment_light_colors))
+        shader:send("segment_light_sources", table.unpack(segment_light_sources))
+        shader:send("segment_light_colors", table.unpack(segment_light_colors))
     end
 
-    local brightness_factor = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, _wall_impulse:get_pulse())
-    _shader:send("point_light_intensity", rt.settings.overworld.wall.point_light_intensity * brightness_factor)
-    _shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
-    _shader:send("screen_to_world_transform", camera:get_transform():inverse())
-    _shader:send("light_range", rt.settings.overworld.wall.light_range * brightness_factor)
-    _shader:send("outline_color", { rt.Palette.WALL:unpack() })
-    love.graphics.draw(_mesh)
-    _shader:unbind()
+    local brightness_factor = math.mix(1, rt.settings.impulse_manager.max_brightness_factor, ow.Wall._impulse:get_pulse())
+    shader:send("point_light_intensity", rt.settings.overworld.wall.point_light_intensity * brightness_factor)
+    shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
+    shader:send("screen_to_world_transform", camera:get_transform():inverse())
+    shader:send("light_range", rt.settings.overworld.wall.light_range * brightness_factor)
+    shader:send("outline_color", { rt.Palette.WALL:unpack() })
+    self._mesh:draw()
+    shader:unbind()
 
     rt.Palette.WALL_OUTLINE:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hitbox.slippery_outline_width)
-    for line in values(_lines) do
-        love.graphics.line(line)
-    end
+    love.graphics.line(self._contour)
+
+    love.graphics.pop()
 end
 
-
+function ow.Wall:get_render_priority()
+    return -math.huge
+end
