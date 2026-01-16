@@ -18,6 +18,9 @@ rt.settings.overworld.fireflies = {
 
     flow_source_duration = 2, -- seconds
     flow_source_magnitude = 1000, --0.25, -- fraction
+
+    min_scale = 0.75,
+    max_scale = 1.25
 }
 
 --- @class ow.Fireflies
@@ -191,7 +194,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
     local hover_cycle_duration = settings.hover_cycle_duration
     local noise_speed = settings.noise_speed
     local radius = settings.radius
-    local min_factor, max_factor = 0.75, 1.25
+    local min_factor, max_factor = settings.min_scale, settings.max_scale
 
     self._fly_entries = {}
 
@@ -259,24 +262,66 @@ function ow.Fireflies:instantiate(object, stage, scene)
     end
 end
 
---- @brief
 function ow.Fireflies:update(delta)
-    local target_x, target_y = self._scene:get_player():get_position()
+    local player = self._scene:get_player()
+    local px, py = player:get_position()
+
+    local target_x, target_y = px, py
     local bounds
+
+    -- helper: compute final visual position
+    local function get_final_position(entry)
+        if entry.mode == _MODE_FOLLOW_PLAYER then
+            return entry.follow_x + entry.hover_value_x,
+            entry.follow_y + entry.hover_value_y
+        else
+            local bx, by = self._body:get_position()
+            return bx + entry.hover_value_x + entry.x_offset,
+            by + entry.hover_value_y + entry.y_offset
+        end
+    end
+
+    local function get_min_distance(entry)
+        return player:get_radius() + entry.scale * rt.settings.overworld.fireflies.core_radius * 2
+    end
+
+    -- helper: push base position outward if overlapping (stable, no flipping)
+    local function resolve_overlap(entry)
+        local fx, fy = get_final_position(entry)
+        local dx = fx - px
+        local dy = fy - py
+        local distance = math.magnitude(dx, dy)
+        local min_distance = get_min_distance(entry)
+
+        if distance < min_distance and distance > math.eps then
+            local nx, ny = dx / distance, dy / distance
+            local push = min_distance - distance
+
+            if entry.mode == _MODE_FOLLOW_PLAYER then
+                entry.follow_x = entry.follow_x + nx * push
+                entry.follow_y = entry.follow_y + ny * push
+            else
+                local bx, by = self._body:get_position()
+                self._body:set_position(
+                    bx + nx * push,
+                    by + ny * push
+                )
+            end
+        end
+    end
 
     for entry in values(self._fly_entries) do
         if self._stage:get_is_body_visible(entry.body) then
+            -- glow update
             entry.glow_elapsed = entry.glow_elapsed + delta
             entry.glow_value = _glow_noise_path:at(
                 math.fract(entry.glow_elapsed / entry.glow_cycle_duration + entry.glow_offset_t)
             )
 
+            -- hover / noise update
             if self._should_move_in_place then
                 entry.noise_position = entry.noise_position + entry.noise_speed * delta
-                local noise = rt.random.noise(
-                    entry.noise_position,
-                    -entry.noise_position
-                )
+                local noise = rt.random.noise(entry.noise_position, -entry.noise_position)
 
                 entry.hover_elapsed = entry.hover_elapsed + noise * delta
                 entry.hover_value_x, entry.hover_value_y = _hover_offset_path:at(
@@ -295,8 +340,22 @@ function ow.Fireflies:update(delta)
                 bounds.height = bounds.height + 2 * padding * bounds.height
             end
 
-            local before_x, before_y = entry.follow_motion:get_position()
-            entry.follow_motion:set_target_position(target_x, target_y)
+            -- clamp follow target so it never enters player radius
+            local cx, cy = entry.follow_motion:get_position()
+            local dx = cx - px
+            local dy = cy - py
+            local distance = math.magnitude(dx, dy)
+
+            local tx, ty = target_x, target_y
+            local min_distance = get_min_distance(entry)
+            if distance < min_distance and distance > 1e-4 then
+                local nx, ny = dx / distance, dy / distance
+                tx = px + nx * min_distance
+                ty = py + ny * min_distance
+            end
+
+            local before_x, before_y = cx, cy
+            entry.follow_motion:set_target_position(tx, ty)
             entry.follow_motion:update(delta * entry.scale)
             entry.follow_x, entry.follow_y = entry.follow_motion:get_position()
 
@@ -305,13 +364,18 @@ function ow.Fireflies:update(delta)
                 (entry.follow_y - before_y) / delta
             )
 
-            -- when off-screen, reset
-            if math.distance(entry.follow_x, entry.follow_y, target_x, target_y) > 0.5 * math.max(bounds.width, bounds.height) then
+            -- reset when far off-screen
+            if math.distance(entry.follow_x, entry.follow_y, px, py) >
+                0.5 * math.max(bounds.width, bounds.height) then
                 self:_reset_entry(entry)
             end
         end
+
+        -- final safety constraint (stable, outward-only)
+        resolve_overlap(entry)
     end
 end
+
 
 --- @brief
 function ow.Fireflies:_reset_entry(entry)
