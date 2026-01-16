@@ -6,7 +6,8 @@ rt.settings.overworld.boost_field = {
     acceleration_duration = 0.2, -- seconds to accelerate player from 0 to max
     max_velocity = 1500,
     bloom = 0.4,
-    line_width = 3
+    line_width = 3,
+    max_velocity_influence = 6
 }
 
 --- @class ow.BoostField
@@ -93,21 +94,16 @@ function ow.BoostField:instantiate(object, stage, scene)
 
     self._is_active = false
     self._player_influence_motion = rt.SmoothedMotion1D(0, 1)
-    self._body:signal_connect("collision_start", function()
-        if not self._use_exact_testing then
+
+    if not self._use_exact_testing then
+        self._body:signal_connect("collision_start", function()
             self._is_active = true
-        end
+        end)
 
-        self._player:set_use_wall_friction(false)
-    end)
-
-    self._body:signal_connect("collision_end", function()
-        if not self._use_exact_testing then
+        self._body:signal_connect("collision_end", function()
             self._is_active = false
-        end
-
-        self._player:set_use_wall_friction(true)
-    end)
+        end)
+    end
 
     self._scene = scene
     self._stage = stage
@@ -169,44 +165,41 @@ end
 
 --- @brief
 function ow.BoostField:update(delta)
+    if not self._stage:get_is_body_visible(self._body) then return end
+
     local is_active = self._is_active
     if self._use_exact_testing then
         is_active = self._body:test_point(self._player:get_position())
     end
 
-    if self._is_active == false and  not self._stage:get_is_body_visible(self._body) then return end
+    self._is_active = is_active
+    if not is_active then return end
 
-    if is_active then
-        local vx, vy = self._player:get_velocity() -- use actual velocity
+    local vx, vy = self._player:get_velocity() -- use actual velocity
 
-        local target = self._target_velocity
-        local target_vx, target_vy = self._axis_x * target, self._axis_y * target
+    local target = self._target_velocity
+    local target_vx, target_vy = self._axis_x * target, self._axis_y * target
 
-        target_vy = target_vy - rt.settings.player.gravity * delta
+    target_vy = target_vy - rt.settings.player.gravity * delta
 
-        local duration = rt.settings.overworld.boost_field.acceleration_duration
+    local duration = rt.settings.overworld.boost_field.acceleration_duration
 
-        local dx = target_vx - vx
-        local dy = target_vy - vy
+    local dx = target_vx - vx
+    local dy = target_vy - vy
 
-        -- prevent decreasing velocity if already above target
-        if (dx > 0 and target_vx < 0) or (dx < 0 and target_vx > 0) then
-            dx = 0
-        end
-
-        if (dy > 0 and target_vy < 0) or (dy < 0 and target_vy > 0) then
-            dy = 0
-        end
-
-        local new_vx = vx + dx * (1 / duration) * delta
-        local new_vy = vy + dy * (1 / duration) * delta
-
-        self._player:set_velocity(new_vx, new_vy)
+    -- prevent decreasing velocity if already above target
+    if (dx > 0 and target_vx < 0) or (dx < 0 and target_vx > 0) then
+        dx = 0
     end
 
-    self._is_active = is_active
+    if (dy > 0 and target_vy < 0) or (dy < 0 and target_vy > 0) then
+        dy = 0
+    end
 
-    if not self._is_visible then return end
+    local new_vx = vx + dx * (1 / duration) * delta
+    local new_vy = vy + dy * (1 / duration) * delta
+
+    self._player:set_velocity(new_vx, new_vy)
 
     self._player_influence_motion:update(delta)
     self._player_influence_motion:set_target_value(ternary(is_active, 1, 0))
@@ -239,7 +232,7 @@ function ow.BoostField:draw()
     _shader:send("player_influence", self._player_influence_motion:get_value() * math.mix(1, 1.4, self._impulse:get_beat()))
     _shader:send("axis", { self._axis_x, self._axis_y })
     _shader:send("brightness_offset", math.mix(1, rt.settings.impulse_manager.max_brightness_factor, self._impulse:get_pulse()))
-    _shader:send("elapsed", rt.SceneManager:get_elapsed() * self._velocity_factor)
+    _shader:send("elapsed", rt.SceneManager:get_elapsed() * math.mix(0, rt.settings.overworld.boost_field.max_velocity_influence, self._velocity_factor))
     love.graphics.draw(self._mesh:get_native())
     _shader:unbind()
 

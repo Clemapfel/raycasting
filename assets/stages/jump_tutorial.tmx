@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="709">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="743">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -40,7 +40,7 @@
   <object id="395" type="SlipperyHitbox" x="2284.9" y="669.242">
    <polygon points="-4.07,0 -4.07,-112 11.93,-128 11.93,-224 -4.07,-240 -4.07,-416 11.93,-432 11.93,-528 -4.07,-544 -4.07,-704 59.934,-704 59.93,48 -4.07,48"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="-1091.05" y="2458.73">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="-1848.51" y="2965.64">
    <point/>
   </object>
   <object id="401" name="Wall Jump 03" type="SlipperyHitbox" x="2093.62" y="524.526">
@@ -383,10 +383,10 @@
    <polygon points="0,32 -16,48 -128,48 -128,592 432,592 480,656 528,592 1088,592 1088,48 976,48 960,32 1312,32 1312,832 -128,832 -368,832 -368,32"/>
   </object>
   <object id="690" type="Hitbox" x="-288" y="2272">
-   <polygon points="0,0 -128,0 -128,-16 -16,-16"/>
+   <polygon points="0,-80 -128,-80 -128,-96 -16,-96"/>
   </object>
   <object id="691" type="SlipperyHitbox" x="-288" y="2272">
-   <polygon points="0,0 0,-224 1008,-224 1008,-304 -128,-304 -128,-16 -16,-16"/>
+   <polygon points="0,-80 0,-224 1008,-224 1008,-304 -128,-304 -128,-96 -16,-96"/>
   </object>
   <object id="692" type="Wall" x="-416" y="1968">
    <polygon points="0,0 0,1120 1216,1120 1216,0"/>
@@ -424,13 +424,85 @@
   <object id="703" name="Fireflies" type="Fireflies" x="-1022.66" y="2424.93">
    <point/>
   </object>
-  <object id="707" name="Fish" type="KaizoFish" x="-622.878" y="2050.98" width="201.658" height="80">
-   <properties>
-    <property name="sensor" type="object" value="708"/>
-    <property name="velocity_y" type="float" value="1000"/>
-   </properties>
+  <object id="709" type="SlipperyHitbox" x="-416" y="3408">
+   <polygon points="208,224 304,224 553.386,457.386 576,475.123 593.759,490.619 615.001,501.643 642.416,507.467 674.298,511.108 708.429,511.55 741.813,507.92 778.051,501.414 808.999,490.092 828.995,474.218 845.663,453.421 861.741,430.585 871.915,406.48 878.628,380.792 880,325.34 880,128 1088,128 1088,560 576,560"/>
   </object>
-  <object id="708" name="Fish Sensor" type="KaizoFishSensor" x="-707.056" y="2286.39" width="462.935" height="84.8467"/>
+  <object id="712" type="BoostField" x="464" y="3648">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="0.5"/>
+   </properties>
+   <polygon points="0,-112 0,112 -16,112 -16,-112"/>
+  </object>
+  <object id="716" type="SlipperyHitbox" x="-1696" y="2304">
+   <polygon points="0,64 0,48 -16,16 -16,-208 16,-208 16,656 0,656"/>
+  </object>
+  <object id="718" type="BoostField" x="-1952" y="2992">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="0.5"/>
+   </properties>
+   <polygon points="0,32 16,16 16,-240 0,-256"/>
+  </object>
+  <object id="720" type="BoostField" x="896" y="1744">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="0.5"/>
+   </properties>
+   <polygon points="0,0 16,0 16,-1136 0,-1136"/>
+  </object>
+  <object id="723" x="-1968" y="2736">
+   <polygon points="16,0 0,0 0,-64 16,-64"/>
+  </object>
+  <object id="727" type="SlipperyHitbox" x="-1968" y="1984">
+   <polygon points="0,-944 0,-1040 96,-1184 96,-1296 121.356,-1296 121.356,-1280 112,-1264 112,-1184 16,-944 16,688 0,688 0,752 16,752 16,1040 32,1056 -16,1056 -16,672 0,656"/>
+  </object>
+  <object id="732" type="BoostField" x="-1728" y="2448">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="render_priority" type="float" value="-10"/>
+    <property name="velocity" type="float" value="0.75"/>
+   </properties>
+   <polygon points="0,176 32,208 32,176 32,-96 16,-128 16,-352 0,-352"/>
+  </object>
+  <object id="733" type="Hitbox" x="-1712" y="2096">
+   <polygon points="0,0 0,-48 -32,-128 -32,-224 -16,-224 -16,-1104 -16,-1152 -96,-1296 -96,-1392 48,-1392 48,0"/>
+  </object>
+  <object id="735" type="SlipperyHitbox" x="-1744" y="1312">
+   <polygon points="0,-272 -80,-512 -80,-592 -87.8053,-608 -87.8053,-624 -64,-624 -64,-512 16,-368 16,-272 16,560 0,560"/>
+  </object>
+  <object id="736" type="BoostField" x="-1952" y="1840">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="0.8"/>
+   </properties>
+   <polygon points="0,32 16,32 16,-176 32,-208 32,-288.769 48,-304 48,-384 23.2309,-408.109 0,-384"/>
+  </object>
+  <object id="737" type="BoostField" x="-1872" y="1232">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="2"/>
+   </properties>
+   <polygon points="0,1.46735 0,-48 32,-80 64,-48 64,1.46735"/>
+  </object>
+  <object id="738" type="BoostField" x="-1856" y="816">
+   <properties>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="render_priority" type="float" value="-2"/>
+   </properties>
+   <polygon points="0,-32 32,-32 32,-96 23.5137,-112.367 10.1936,-112.447 0,-96"/>
+  </object>
+  <object id="741" x="-1872" y="704">
+   <polygon points="0,0 0,96 -96,240 -96,1936 -112,1952 -112,2336 192,2336 208,2416 -160,2416 -160,16"/>
+  </object>
+  <object id="742" name="Fireflies" type="Fireflies" x="-1936" y="2704">
+   <properties>
+    <property name="count" type="int" value="1"/>
+    <property name="should_move_in_place" type="bool" value="false"/>
+    <property name="velocity" type="float" value="2"/>
+   </properties>
+   <point/>
+  </object>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="610" name="NPC" type="NPC" x="512" y="-880">

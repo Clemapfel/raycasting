@@ -35,10 +35,16 @@ function ow.ControlIndicatorTrigger:instantiate(object, stage, scene)
     body:set_collision_group(rt.settings.player.bounce_collision_group)
     
     body:signal_connect("collision_start", function(_, other_body)
-        self._scene:set_control_indicator_type(self._type, self._should_emit_particles)
+        if other_body:has_tag("player") then
+            self._scene:set_control_indicator_type(self._type, self._should_emit_particles)
+        end
     end)
 
     body:signal_connect("collision_end", function()
+        self._scene:set_control_indicator_type(nil)
+    end)
+
+    self._stage:signal_connect("respawn", function()
         self._scene:set_control_indicator_type(nil)
     end)
 end

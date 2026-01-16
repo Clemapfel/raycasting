@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 709,
+  nextobjectid = 743,
   properties = {},
   tilesets = {
     {
@@ -232,8 +232,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1091.05,
-          y = 2458.73,
+          x = -1848.51,
+          y = 2965.64,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2361,10 +2361,10 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = -128, y = 0 },
-            { x = -128, y = -16 },
-            { x = -16, y = -16 }
+            { x = 0, y = -80 },
+            { x = -128, y = -80 },
+            { x = -128, y = -96 },
+            { x = -16, y = -96 }
           },
           properties = {}
         },
@@ -2380,13 +2380,13 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = 0, y = -80 },
             { x = 0, y = -224 },
             { x = 1008, y = -224 },
             { x = 1008, y = -304 },
             { x = -128, y = -304 },
-            { x = -128, y = -16 },
-            { x = -16, y = -16 }
+            { x = -128, y = -96 },
+            { x = -16, y = -96 }
           },
           properties = {}
         },
@@ -2542,33 +2542,375 @@ return {
           properties = {}
         },
         {
-          id = 707,
-          name = "Fish",
-          type = "KaizoFish",
-          shape = "rectangle",
-          x = -622.878,
-          y = 2050.98,
-          width = 201.658,
-          height = 80,
+          id = 709,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -416,
+          y = 3408,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
+          polygon = {
+            { x = 208, y = 224 },
+            { x = 304, y = 224 },
+            { x = 553.386, y = 457.386 },
+            { x = 576, y = 475.123 },
+            { x = 593.759, y = 490.619 },
+            { x = 615.001, y = 501.643 },
+            { x = 642.416, y = 507.467 },
+            { x = 674.298, y = 511.108 },
+            { x = 708.429, y = 511.55 },
+            { x = 741.813, y = 507.92 },
+            { x = 778.051, y = 501.414 },
+            { x = 808.999, y = 490.092 },
+            { x = 828.995, y = 474.218 },
+            { x = 845.663, y = 453.421 },
+            { x = 861.741, y = 430.585 },
+            { x = 871.915, y = 406.48 },
+            { x = 878.628, y = 380.792 },
+            { x = 880, y = 325.34 },
+            { x = 880, y = 128 },
+            { x = 1088, y = 128 },
+            { x = 1088, y = 560 },
+            { x = 576, y = 560 }
+          },
+          properties = {}
+        },
+        {
+          id = 712,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 464,
+          y = 3648,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -112 },
+            { x = 0, y = 112 },
+            { x = -16, y = 112 },
+            { x = -16, y = -112 }
+          },
           properties = {
-            ["sensor"] = { id = 708 },
-            ["velocity_y"] = 1000
+            ["axis_y"] = -1,
+            ["velocity"] = 0.5
           }
         },
         {
-          id = 708,
-          name = "Fish Sensor",
-          type = "KaizoFishSensor",
-          shape = "rectangle",
-          x = -707.056,
-          y = 2286.39,
-          width = 462.935,
-          height = 84.8467,
+          id = 716,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -1696,
+          y = 2304,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
+          polygon = {
+            { x = 0, y = 64 },
+            { x = 0, y = 48 },
+            { x = -16, y = 16 },
+            { x = -16, y = -208 },
+            { x = 16, y = -208 },
+            { x = 16, y = 656 },
+            { x = 0, y = 656 }
+          },
           properties = {}
+        },
+        {
+          id = 718,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -1952,
+          y = 2992,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 32 },
+            { x = 16, y = 16 },
+            { x = 16, y = -240 },
+            { x = 0, y = -256 }
+          },
+          properties = {
+            ["axis_y"] = -1,
+            ["velocity"] = 0.5
+          }
+        },
+        {
+          id = 720,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = 896,
+          y = 1744,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 16, y = 0 },
+            { x = 16, y = -1136 },
+            { x = 0, y = -1136 }
+          },
+          properties = {
+            ["axis_y"] = -1,
+            ["velocity"] = 0.5
+          }
+        },
+        {
+          id = 723,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1968,
+          y = 2736,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 16, y = 0 },
+            { x = 0, y = 0 },
+            { x = 0, y = -64 },
+            { x = 16, y = -64 }
+          },
+          properties = {}
+        },
+        {
+          id = 727,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -1968,
+          y = 1984,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -944 },
+            { x = 0, y = -1040 },
+            { x = 96, y = -1184 },
+            { x = 96, y = -1296 },
+            { x = 121.356, y = -1296 },
+            { x = 121.356, y = -1280 },
+            { x = 112, y = -1264 },
+            { x = 112, y = -1184 },
+            { x = 16, y = -944 },
+            { x = 16, y = 688 },
+            { x = 0, y = 688 },
+            { x = 0, y = 752 },
+            { x = 16, y = 752 },
+            { x = 16, y = 1040 },
+            { x = 32, y = 1056 },
+            { x = -16, y = 1056 },
+            { x = -16, y = 672 },
+            { x = 0, y = 656 }
+          },
+          properties = {}
+        },
+        {
+          id = 732,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -1728,
+          y = 2448,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 176 },
+            { x = 32, y = 208 },
+            { x = 32, y = 176 },
+            { x = 32, y = -96 },
+            { x = 16, y = -128 },
+            { x = 16, y = -352 },
+            { x = 0, y = -352 }
+          },
+          properties = {
+            ["axis_y"] = -1,
+            ["render_priority"] = -10,
+            ["velocity"] = 0.75
+          }
+        },
+        {
+          id = 733,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -1712,
+          y = 2096,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -48 },
+            { x = -32, y = -128 },
+            { x = -32, y = -224 },
+            { x = -16, y = -224 },
+            { x = -16, y = -1104 },
+            { x = -16, y = -1152 },
+            { x = -96, y = -1296 },
+            { x = -96, y = -1392 },
+            { x = 48, y = -1392 },
+            { x = 48, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 735,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -1744,
+          y = 1312,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -272 },
+            { x = -80, y = -512 },
+            { x = -80, y = -592 },
+            { x = -87.8053, y = -608 },
+            { x = -87.8053, y = -624 },
+            { x = -64, y = -624 },
+            { x = -64, y = -512 },
+            { x = 16, y = -368 },
+            { x = 16, y = -272 },
+            { x = 16, y = 560 },
+            { x = 0, y = 560 }
+          },
+          properties = {}
+        },
+        {
+          id = 736,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -1952,
+          y = 1840,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 32 },
+            { x = 16, y = 32 },
+            { x = 16, y = -176 },
+            { x = 32, y = -208 },
+            { x = 32, y = -288.769 },
+            { x = 48, y = -304 },
+            { x = 48, y = -384 },
+            { x = 23.2309, y = -408.109 },
+            { x = 0, y = -384 }
+          },
+          properties = {
+            ["axis_y"] = -1,
+            ["velocity"] = 0.8
+          }
+        },
+        {
+          id = 737,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -1872,
+          y = 1232,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 1.46735 },
+            { x = 0, y = -48 },
+            { x = 32, y = -80 },
+            { x = 64, y = -48 },
+            { x = 64, y = 1.46735 }
+          },
+          properties = {
+            ["axis_y"] = -1,
+            ["velocity"] = 2
+          }
+        },
+        {
+          id = 738,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -1856,
+          y = 816,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = -32 },
+            { x = 32, y = -32 },
+            { x = 32, y = -96 },
+            { x = 23.5137, y = -112.367 },
+            { x = 10.1936, y = -112.447 },
+            { x = 0, y = -96 }
+          },
+          properties = {
+            ["axis_y"] = -1,
+            ["render_priority"] = -2
+          }
+        },
+        {
+          id = 741,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = -1872,
+          y = 704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 96 },
+            { x = -96, y = 240 },
+            { x = -96, y = 1936 },
+            { x = -112, y = 1952 },
+            { x = -112, y = 2336 },
+            { x = 192, y = 2336 },
+            { x = 208, y = 2416 },
+            { x = -160, y = 2416 },
+            { x = -160, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 742,
+          name = "Fireflies",
+          type = "Fireflies",
+          shape = "point",
+          x = -1936,
+          y = 2704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 1,
+            ["should_move_in_place"] = false,
+            ["velocity"] = 2
+          }
         }
       }
     },

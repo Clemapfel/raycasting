@@ -1,6 +1,7 @@
 rt.settings.player_trail = {
     decay_duration = 20 / 60,          -- controls fade time together with trail_intensity (lifetime ≈ decay_rate * 4 * trail_intensity)
-    glow_radius_factor = 4
+    glow_radius_factor = 4,
+    boom_min_velocity = 115
 }
 
 --- @class rt.PlayerTrail
@@ -437,8 +438,9 @@ function rt.PlayerTrail:draw_above()
         love.graphics.draw(self._glow_texture:get_native(), self._position_x - 0.5 * w, self._position_y - 0.5 * h)
     end
 
-    if self._boom_intensity > math.eps then
-        love.graphics.setColor(self._r, self._g, self._b, self._boom_intensity * self._opacity)
+    local boom_alpha = math.min(1, math.magnitude(self._velocity_x, self._velocity_y) / rt.settings.player_trail.boom_min_velocity)
+    if self._boom_intensity * boom_alpha > math.eps then
+        love.graphics.setColor(self._r, self._g, self._b, self._boom_intensity * self._opacity * boom_alpha)
         love.graphics.push()
         love.graphics.translate(self._position_x, self._position_y)
         love.graphics.rotate(self._angle)

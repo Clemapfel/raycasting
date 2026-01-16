@@ -14,7 +14,10 @@ rt.settings.overworld.fireflies = {
     hover_cycle_duration = n_nodes / 2, -- seconds,
 
     noise_speed = 2, -- unitless, in phase space
-    light_color_alpha = 0.25
+    light_color_alpha = 0.25,
+
+    flow_source_duration = 2, -- seconds
+    flow_source_magnitude = 1000, --0.25, -- fraction
 }
 
 --- @class ow.Fireflies
@@ -49,7 +52,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
             local outer_inner_r, outer_outer_r = 0.15, 1
             _circle_radius = inner_inner_r * texture_w
             local inner_color = rt.RGBA(1, 1, 1, 1)
-            local outer_color = rt.RGBA(1, 1, 1, 0.0)
+            local outer_color = rt.RGBA(0, 0, 0, 0.0)
 
             local inner_glow = rt.MeshRing(
                 x, y,
@@ -158,6 +161,10 @@ function ow.Fireflies:instantiate(object, stage, scene)
             for entry in values(self._fly_entries) do
                 if entry.mode ~= _MODE_FOLLOW_PLAYER then
                     player:pulse(entry.color)
+                    player:add_flow_source(
+                        rt.settings.overworld.fireflies.flow_source_magnitude,
+                        rt.settings.overworld.fireflies.flow_source_duration
+                    )
                     entry.follow_x, entry.follow_y =
                         x + entry.hover_value_x + entry.x_offset,
                         y + entry.hover_value_y + entry.y_offset
@@ -175,10 +182,11 @@ function ow.Fireflies:instantiate(object, stage, scene)
         end
     end)
 
-    self._follow_motion = rt.SmoothedMotion2D(object.x, object.y)
+    self._should_move_in_place = object:get_boolean("should_move_in_place", false)
+    if self._should_move_in_place == nil then self._should_move_in_place = true end
 
     -- individual flies
-    local n_flies = rt.random.number(3, 5)
+    local n_flies = object:get_number("count") or rt.random.number(3, 5)
     local glow_cycle_duration = settings.glow_cycle_duration
     local hover_cycle_duration = settings.hover_cycle_duration
     local noise_speed = settings.noise_speed
@@ -186,6 +194,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
     local min_factor, max_factor = 0.75, 1.25
 
     self._fly_entries = {}
+
     for i = 1, n_flies do
         local hue = _fly_hue_t
         _fly_hue_t = _fly_hue_t + _fly_hue_t_step
@@ -198,6 +207,8 @@ function ow.Fireflies:instantiate(object, stage, scene)
             object.x, object.y,
             b2.Circle(0, 0,1)
         )
+
+        local follow_speed = object:get_number("velocity") or rt.random.number(0, 1)
 
         local entry = {
             glow_offset_t = rt.random.number(0, 1),
@@ -222,12 +233,12 @@ function ow.Fireflies:instantiate(object, stage, scene)
             color = color,
             light_color = color:clone(),
 
-            follow_color = color,
             follow_motion = rt.SmoothedMotion2D(
                 object.x, object.y,
-                rt.random.number(1 / 8, 1), -- speed factor
+                math.mix(1 / 8, 1 + 1 / 8, follow_speed), -- speed factor
                 true -- linear instead of exponential
             ),
+
             follow_x = object.x,
             follow_y = object.y,
 
@@ -260,16 +271,18 @@ function ow.Fireflies:update(delta)
                 math.fract(entry.glow_elapsed / entry.glow_cycle_duration + entry.glow_offset_t)
             )
 
-            entry.noise_position = entry.noise_position + entry.noise_speed * delta
-            local noise = rt.random.noise(
-                entry.noise_position,
-                -entry.noise_position
-            )
+            if self._should_move_in_place then
+                entry.noise_position = entry.noise_position + entry.noise_speed * delta
+                local noise = rt.random.noise(
+                    entry.noise_position,
+                    -entry.noise_position
+                )
 
-            entry.hover_elapsed = entry.hover_elapsed + noise * delta
-            entry.hover_value_x, entry.hover_value_y = _hover_offset_path:at(
-                math.fract(entry.hover_elapsed / entry.hover_cycle_duration + entry.hover_offset_t)
-            )
+                entry.hover_elapsed = entry.hover_elapsed + noise * delta
+                entry.hover_value_x, entry.hover_value_y = _hover_offset_path:at(
+                    math.fract(entry.hover_elapsed / entry.hover_cycle_duration + entry.hover_offset_t)
+                )
+            end
         end
 
         if entry.mode == _MODE_FOLLOW_PLAYER then
@@ -283,7 +296,6 @@ function ow.Fireflies:update(delta)
             end
 
             local before_x, before_y = entry.follow_motion:get_position()
-
             entry.follow_motion:set_target_position(target_x, target_y)
             entry.follow_motion:update(delta * entry.scale)
             entry.follow_x, entry.follow_y = entry.follow_motion:get_position()
@@ -292,10 +304,6 @@ function ow.Fireflies:update(delta)
                 (entry.follow_x - before_x) / delta,
                 (entry.follow_y - before_y) / delta
             )
-
-            local hue = self._scene:get_player():get_hue()
-            hue = hue + math.mix(-0.1, 0.1, entry.hue)
-            entry.follow_color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, 1))
 
             -- when off-screen, reset
             if math.distance(entry.follow_x, entry.follow_y, target_x, target_y) > 0.5 * math.max(bounds.width, bounds.height) then
@@ -321,38 +329,39 @@ end
 --- @brief
 function ow.Fireflies:draw()
     love.graphics.push("all")
-    love.graphics.setBlendMode("alpha", "premultiplied")
-    local blend = 1
+    love.graphics.setBlendMode("add", "premultiplied")
     local x, y = self._body:get_position()
 
     local get_position = function(entry)
         if self._mode == _MODE_STATIONARY then
-            return x + entry.hover_value_x + entry.x_offset,
+            if self._should_move_in_place then
+                return x + entry.hover_value_x + entry.x_offset,
                 y + entry.hover_value_y + entry.y_offset
+            else
+                return x, y
+            end
         else
             return entry.follow_x + entry.hover_value_x,
                 entry.follow_y + entry.hover_value_y
         end
     end
 
-    local get_color = function(entry)
-        if self._mode == _MODE_STATIONARY then
-            return entry.color:unpack()
-        else
-            return entry.follow_color:unpack()
-        end
-    end
-
+    local texture_w, texture_h = _texture:get_size()
     for entry in values(self._fly_entries) do
         if self._stage:get_is_body_visible(entry.body) then
+            local blend = math.mix(0.75, 1.25, entry.glow_value)
+
             love.graphics.push()
+            love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
             love.graphics.translate(get_position(entry))
 
             love.graphics.scale(entry.scale)
 
-            local r, g, b, a = get_color(entry)
+            local r, g, b, a = entry.color:unpack()
             love.graphics.setColor(
-                blend * r, blend * g, blend * b,
+                blend * r * a,
+                blend * g * a,
+                blend * b * a,
                 a * entry.glow_value
             )
             _texture:draw()
@@ -367,19 +376,21 @@ function ow.Fireflies:draw()
     local radius = rt.settings.overworld.fireflies.core_radius
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     for entry in values(self._fly_entries) do
-        local texture_w, texture_h = _texture:get_size()
         local circle_x, circle_y = get_position(entry)
         circle_x = circle_x + 0.5 * texture_w * entry.scale
         circle_y = circle_y + 0.5 * texture_h * entry.scale
 
-        local r, g, b, a = get_color(entry)
+        love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
+
+        local r, g, b, a = entry.color:unpack()
+        a = math.mix(0.75, 1, entry.glow_value)
 
         local under = 0.4
         love.graphics.setColor(
             under * r,
             under * g,
             under * b,
-            a * entry.glow_value
+            a
         )
 
         love.graphics.circle("line",
@@ -387,12 +398,12 @@ function ow.Fireflies:draw()
             radius * entry.scale
         )
 
-        local over = 1.5
+        local over = math.mix(1.25, 1.75, entry.glow_value)
         love.graphics.setColor(
             over * r,
             over * g,
             over * b,
-            a * entry.glow_value
+            a
         )
 
         love.graphics.circle("fill",

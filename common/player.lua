@@ -74,6 +74,8 @@ do
         flow_motion_min_decay_duration = 10 / 60,
         flow_motion_max_decay_duration = 10,
 
+        flow_source_default_magnitude = 0.25,
+        flow_source_default_duration = 120 / 60,
         flow_target_velocity = 180,
 
         instant_turnaround_velocity = 600,
@@ -268,7 +270,6 @@ function rt.Player:instantiate()
         _last_bubble_force_y = 0,
 
         _is_frozen = false,
-        _use_wall_friction = true,
 
         _movement_disabled = false,
 
@@ -349,12 +350,12 @@ function rt.Player:instantiate()
         _position_override_y = nil, -- Number
 
         -- flow
-        _override_flow = nil,
         _flow_motion = rt.FlowMotion(
             _settings.flow_motion_max_attack_duration,
             _settings.flow_motion_min_decay_duration
         ),
 
+        _flow_sources = {}, -- cf. add_flow_source
         _flow_fraction_history = table.rep(0, _settings.flow_fraction_history_n),
         _flow_fraction_history_sum = 0,
         _flow_fraction_history_elapsed = 0,
@@ -2009,6 +2010,17 @@ function rt.Player:update(delta)
             flow_target_value = math.max(flow_target_value, flow_history_value)
         end
 
+        -- update flow sources
+        local to_remove = {}
+        for source_i, source in ipairs(self._flow_sources) do
+            flow_target_value = flow_target_value + (1 - math.min(1, source.elapsed / source.duration)) * source.magnitude
+            source.elapsed = source.elapsed + delta
+            if source.elapsed > source.magnitude then
+                table.insert(to_remove, source_i, 1)
+            end
+        end
+        for i in values(to_remove) do table.remove(self._flow_sources, i) end
+
         self._flow_motion:set_decay_duration(math.mix(
             _settings.flow_motion_min_decay_duration,
             _settings.flow_motion_max_decay_duration,
@@ -2699,16 +2711,6 @@ function rt.Player:get_velocity()
 end
 
 --- @brief
-function rt.Player:set_use_wall_friction(b)
-    self._use_wall_friction = b
-end
-
---- @brief
-function rt.Player:get_use_wall_friction()
-    return self._use_wall_friction
-end
-
---- @brief
 function rt.Player:bounce(nx, ny, magnitude)
     self._bounce_direction_x = nx
     self._bounce_direction_y = ny
@@ -2769,9 +2771,15 @@ function rt.Player:reset_flow()
     self._flow_motion:set_target_value(0)
 end
 
---- @brief
-function rt.Player:set_override_flow(flow_or_nil)
-    self._override_flow = flow_or_nil
+--- @brie
+function rt.Player:add_flow_source(value, duration)
+    if value == nil then value = _settings.flow_source_default_magnitude end
+    if duration == nil then duration = _settings.flow_source_default_duration end
+    table.insert(self._flow_sources, {
+        elapsed = 0,
+        duration = duration,
+        magnitude = value
+    })
 end
 
 --- @brief
@@ -3268,7 +3276,6 @@ end
 --- @brief
 function rt.Player:reset()
     self:set_jump_allowed(true)
-    self:set_use_wall_friction(true)
     self:set_is_ghost(false)
     self:set_is_bubble(false)
     self:set_is_visible(true)
