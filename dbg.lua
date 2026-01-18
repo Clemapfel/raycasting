@@ -1,23 +1,28 @@
 return {
-    collision_strength = 0.99,
-    collision_overlap_factor = 10,
+    collision_strength = 0.9999,
+    collision_overlap_factor = 3,
 
-    cohesion_strength = 0,
+    cohesion_strength = 0.7,
     cohesion_interaction_distance_factor = 1,
 
-    follow_strength = 1 - 0.001,
+    follow_strength = 0.999,
 
-    damping = 0.2,
-    n_sub_steps = 2,
+    damping = 0.6,
+    n_sub_steps = 3,
+    n_collision_steps = 3,
     step_delta = 1 / 60,
 
     min_mass = 1,
-    max_mass = 2,
+    max_mass = 1,
+    min_radius = 1,
+    max_radius = 4,
 
-    threshold_shader_threshold = 0.05,
+    threshold_shader_threshold = 0.3,
     composite_alpha = 1,
-    texture_scale = 2,
-    threshold_shader_smoothness = 0.01
+    texture_scale = 10,
+    threshold_shader_smoothness = 0.01,
+
+    motion_blur_multiplier = 0.001,
 }
 
 --[[
