@@ -1,16 +1,16 @@
 return {
-    collision_strength = 1, --0.9999,
+    collision_strength = 1,
     collision_overlap_factor = 2,
 
-    cohesion_strength = 1 - 0.0001,
+    cohesion_strength = 1 - 0.0006,
     cohesion_interaction_distance_factor = 3,
 
-    follow_strength = 0.999,
+    follow_strength = 0.996,
 
-    damping = 0.4,
+    damping = 0.095,
     n_sub_steps = 2,
-    n_collision_steps = 10,
-    step_delta = 1 / 60,
+    n_collision_steps = 4,
+    step_delta = 1 / 120,
 
     mass_distribution_variance = 4,
 
@@ -19,7 +19,7 @@ return {
     texture_scale = 20,
     threshold_shader_smoothness = 0.02,
 
-    motion_blur_multiplier = 0.001,
+    motion_blur_multiplier = 0.0005,
 }
 
 --[[
