@@ -7,17 +7,7 @@ return {
 
     follow_strength = 0.996,
 
-    damping = 0.095,
-    n_sub_steps = 2,
-    n_collision_steps = 4,
-    step_delta = 1 / 120,
-
-    mass_distribution_variance = 4,
-
-    threshold_shader_threshold = 0.3,
-    composite_alpha = 1,
-    texture_scale = 20,
-    threshold_shader_smoothness = 0.02,
+    damping = 0.08,
 
     motion_blur_multiplier = 0.0005,
 }
