@@ -251,6 +251,7 @@ end
 
 --- @brief wrap an index to always be inside 1, n
 function math.wrap(index, n_elements)
+    if n_elements == 0 then return index end
     return ((index - 1) % n_elements) + 1
 end
 
