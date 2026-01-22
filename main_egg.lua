@@ -1,1 +1,1 @@
-require "egg_fluid_simulation.main"
+require "egg_fluid_simulation.test"
