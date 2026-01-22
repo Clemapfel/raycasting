@@ -11,10 +11,9 @@ vec4 position(mat4 transform_projection, vec4 vertex_position) {
     vec2 previous_position = particle_position.zw;
 
     float scale = particle_radius;
-
     vec2 offset = mix(previous_position, current_position, interpolation_alpha);
-    vertex_position.xy = vertex_position.xy * scale + offset;
 
+    vertex_position.xy = vertex_position.xy * scale + offset;
     return transform_projection * vertex_position;
 }
 

@@ -55,7 +55,7 @@ function rt.PlayerBody:_initialize()
     self._ropes = {}
 
     local body_radius = rt.settings.player.radius
-    local max_rope_length = 7 * body_radius
+    local max_rope_length = 4 * body_radius
 
     local particle_texture_radius = rt.settings.player.radius * settings.particle_radius
     self._particle_texture_radius = particle_texture_radius
@@ -76,9 +76,7 @@ function rt.PlayerBody:_initialize()
 
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.rectangle("fill",
-            0.5 * w - particle_texture_radius,
-            0.5 * h - particle_texture_radius,
-            particle_texture_radius, particle_texture_radius
+            0, 0, w, h
         )
 
         _particle_texture_shader:unbind()
@@ -112,7 +110,7 @@ function rt.PlayerBody:_initialize()
             local contour_segment_length = contour_length / n_particles
 
             local radius_easing = function(i, n)
-                return math.max(3, (1 - (i / (n + 1))) * particle_texture_radius)
+                return ((i - 1) / n) * particle_texture_radius
             end
 
             local mass_easing = function(i, n)
@@ -147,7 +145,6 @@ function rt.PlayerBody:_initialize()
             table.insert(self._ropes, rope)
         end
 
-
         local ring_i_to_ring_radius = function(i, n)
             return ((i - 1) / n) * body_radius
         end
@@ -156,15 +153,15 @@ function rt.PlayerBody:_initialize()
             local circumference = 2 * math.pi * radius
             local n = math.floor(math.max(1, circumference / 3))
             if n % 2 == 0 then n = n + 1 end
-            return 8
+            return n
         end
 
         local ring_i_to_rope_length = function(i, n)
-            return (i / n) * max_rope_length
+            return (1 - (i - 1) / (n + 1)) * max_rope_length
         end
 
         local rope_length_to_n_particles = function(length)
-            return 16 --math.max(8, math.ceil(length / 10))
+            return math.ceil(length / 3)
         end
 
         local n_rings = 7
@@ -189,8 +186,8 @@ function rt.PlayerBody:_initialize()
             for rope_i = 1, n_ropes do
                 local angle = ((rope_i - 1) / n_ropes + (total_rope_i - 1) / total_n_ropes) * 2 * math.pi
                 local dx, dy = math.cos(angle), math.sin(angle)
-                local anchor_x = center_x + dx * ring_radius
-                local anchor_y = center_y + dy * ring_radius
+                local anchor_x = dx * ring_radius
+                local anchor_y = dy * ring_radius
 
                 add_rope(
                     n_particles,
@@ -237,10 +234,23 @@ function rt.PlayerBody:_initialize()
             { location = 5, name = "radius", format = "float" },
         }
 
+        self._particle_i_to_data_mesh_position = {}
+        for i = 1, self._n_particles do
+            self._particle_i_to_data_mesh_position[i] = i
+        end
+
+        -- sort so highest radius particles are drawn first
+        table.sort(self._particle_i_to_data_mesh_position, function(a_i, b_i)
+            local i1 = _particle_i_to_data_offset(a_i)
+            local i2 = _particle_i_to_data_offset(b_i)
+            return self._particle_data[i1 + _radius_offset] < self._particle_data[i2 + _radius_offset]
+        end)
+
         self._data_mesh_data = {}
         local data = self._particle_data
         for particle_i = 1, self._n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
+            local mapped_i = self._particle_i_to_data_mesh_position[particle_i]
+            local i = _particle_i_to_data_offset(mapped_i)
             table.insert(self._data_mesh_data, {
                 data[i + _x_offset],
                 data[i + _y_offset],
@@ -273,8 +283,9 @@ end
 function rt.PlayerBody:_update_data_mesh()
     local from = self._particle_data
     for particle_i = 1, self._n_particles do
-        local to = self._data_mesh_data[particle_i]
-        local i = _particle_i_to_data_offset(particle_i)
+        local mapped_i = self._particle_i_to_data_mesh_position[particle_i]
+        local to = self._data_mesh_data[mapped_i]
+        local i = _particle_i_to_data_offset(mapped_i)
         to[1] = from[i + _x_offset]
         to[2] = from[i + _y_offset]
         to[3] = from[i + _previous_x_offset]
@@ -425,55 +436,59 @@ do -- update helpers
     -- XPBD-style IK for segment orientation: rotate a single segment towards target direction
     -- Returns corrections for both particles of the segment
     local function _enforce_axis_alignment(
-        ax, ay,  -- first particle of segment
-        bx, by,  -- second particle of segment
-        inverse_mass_a, inverse_mass_b,
+        ax, ay,
+        bx, by,
+        inv_mass_a, inv_mass_b,
         segment_length,
-        target_dx, target_dy,  -- desired direction (should be normalized)
+        target_dx, target_dy,
         compliance
     )
-        -- Current segment vector
-        local seg_dx = bx - ax
-        local seg_dy = by - ay
-        local seg_len = math.magnitude(seg_dx, seg_dy)
+        local vx = bx - ax
+        local vy = by - ay
+        local len_sq = vx*vx + vy*vy
 
-        if seg_len < math.eps then
+        if len_sq < 1e-12 then
             return 0, 0, 0, 0
         end
 
-        seg_dx, seg_dy = math.normalize(seg_dx, seg_dy)
+        local len = math.sqrt(len_sq)
+        vx = vx / len
+        vy = vy / len
 
-        -- Where the second particle "should" be based on desired direction
-        local target_bx = ax + target_dx * segment_length
-        local target_by = ay + target_dy * segment_length
+        -- perpendicular to current segment
+        local px = -vy
+        local py =  vx
 
-        -- Positional error
-        local error_x = target_bx - bx
-        local error_y = target_by - by
+        -- desired endpoint of B
+        local tbx = ax + target_dx * segment_length
+        local tby = ay + target_dy * segment_length
 
-        -- Project onto perpendicular to avoid stretching
-        local perp_x = -seg_dy
-        local perp_y = seg_dx
-        local error_perp = error_x * perp_x + error_y * perp_y
+        -- positional error
+        local ex = tbx - bx
+        local ey = tby - by
 
-        error_x = perp_x * error_perp
-        error_y = perp_y * error_perp
+        -- project error onto perpendicular → pure rotation
+        local err = ex * px + ey * py
+        ex = px * err
+        ey = py * err
 
-        local mass_sum = inverse_mass_a + inverse_mass_b
-        local divisor = (mass_sum + compliance)
-        if divisor < math.eps then
+        local wsum = inv_mass_a + inv_mass_b
+        if wsum == 0 then
             return 0, 0, 0, 0
         end
 
-        local correction_scale = 1.0 / divisor
+        -- XPBD compliance
+        local alpha = compliance
+        local s = 1.0 / (wsum + alpha)
 
-        local a_cx = -error_x * correction_scale * inverse_mass_a
-        local a_cy = -error_y * correction_scale * inverse_mass_a
-        local b_cx = error_x * correction_scale * inverse_mass_b
-        local b_cy = error_y * correction_scale * inverse_mass_b
+        local axc = -ex * inv_mass_a * s
+        local ayc = -ey * inv_mass_a * s
+        local bxc =  ex * inv_mass_b * s
+        local byc =  ey * inv_mass_b * s
 
-        return a_cx, a_cy, b_cx, b_cy
+        return axc, ayc, bxc, byc
     end
+
 
     local function _post_solve(particles, n_particles, delta)
         for particle_i = 1, n_particles do
@@ -491,14 +506,16 @@ do -- update helpers
 
     --- @brief
     function rt.PlayerBody:_step(delta)
-        local damping = 0.95
+        local damping = 1 - 0.1
         local n_sub_steps = 1
+        local n_constraint_iterations = 5
+
         local sub_delta = delta / n_sub_steps
 
-        local distance_compliance = 0.01  -- Changed: much smaller for stiffer constraint
-        local bending_compliance  = 0.000  -- Added: bending strength (smaller -> stiffer)
-        local inverse_kinematics_compliance = 1  -- Added: IK strength (smaller -> stiffer)
-        local n_constraint_iterations = 1   -- Added: multiple iterations for convergence
+        -- compliance alphas, pre-calculated
+        local distance_compliance = 0.000 / (sub_delta^2)
+        local bending_compliance  = 0.001 / (sub_delta^2)
+        local inverse_kinematics_compliance = 0.00001 / (sub_delta^2)
 
         local data = self._particle_data
         local n_particles = self._n_particles
@@ -514,8 +531,8 @@ do -- update helpers
                 sub_delta
             )
 
-            for rope in values(self._ropes) do
-                for _ = 1, n_constraint_iterations do
+            for _ = 1, n_constraint_iterations do
+                for rope in values(self._ropes) do
                     local anchor_x = self._position_x + rope.anchor_x
                     local anchor_y = self._position_y + rope.anchor_y
 
@@ -524,7 +541,6 @@ do -- update helpers
                     data[anchor_i + _x_offset] = anchor_x
                     data[anchor_i + _y_offset] = anchor_y
 
-                    -- enforce distance
                     for node_i = rope.start_i, rope.end_i - 1, 1 do
                         local i1 = _particle_i_to_data_offset(node_i + 0)
                         local i2 = _particle_i_to_data_offset(node_i + 1)
@@ -550,74 +566,77 @@ do -- update helpers
                         data[i2 + _y_offset] = by + b_cy
                     end
 
-                    if self._use_contour then
-                        -- enforce bending
-                        for node_i = rope.start_i, rope.end_i - 2, 1 do
-                            local i1 = _particle_i_to_data_offset(node_i + 0)
-                            local i2 = _particle_i_to_data_offset(node_i + 1)
-                            local i3 = _particle_i_to_data_offset(node_i + 2)
+                    if not self._use_contour then goto next_rope end
 
-                            local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
-                            local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
-                            local cx, cy = data[i3 + _x_offset], data[i3 + _y_offset]
+                    -- enforce bending
+                    for node_i = rope.start_i, rope.end_i - 2, 1 do
+                        local i1 = _particle_i_to_data_offset(node_i + 0)
+                        local i2 = _particle_i_to_data_offset(node_i + 1)
+                        local i3 = _particle_i_to_data_offset(node_i + 2)
 
-                            local wa = data[i1 + _inverse_mass_offset]
-                            local wb = data[i2 + _inverse_mass_offset]
-                            local wc = data[i3 + _inverse_mass_offset]
+                        local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
+                        local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
+                        local cx, cy = data[i3 + _x_offset], data[i3 + _y_offset]
 
-                            local segment_length_ab = data[i1 + _segment_length_offset]
-                            local segment_length_bc = data[i2 + _segment_length_offset]
-                            local target_length = segment_length_ab + segment_length_bc
+                        local wa = data[i1 + _inverse_mass_offset]
+                        local wb = data[i2 + _inverse_mass_offset]
+                        local wc = data[i3 + _inverse_mass_offset]
 
-                            local a_cx, a_cy, _, _, c_cx, c_cy = _enforce_bending(
-                                ax, ay, bx, by, cx, cy,
-                                wa, wb, wc,
-                                target_length,
-                                bending_compliance
-                            )
+                        local segment_length_ab = data[i1 + _segment_length_offset]
+                        local segment_length_bc = data[i2 + _segment_length_offset]
+                        local target_length = segment_length_ab + segment_length_bc
 
-                            data[i1 + _x_offset] = ax + a_cx
-                            data[i1 + _y_offset] = ay + a_cy
+                        local a_cx, a_cy, _, _, c_cx, c_cy = _enforce_bending(
+                            ax, ay, bx, by, cx, cy,
+                            wa, wb, wc,
+                            target_length,
+                            bending_compliance
+                        )
 
-                            data[i3 + _x_offset] = cx + c_cx
-                            data[i3 + _y_offset] = cy + c_cy
-                        end
+                        data[i1 + _x_offset] = ax + a_cx
+                        data[i1 + _y_offset] = ay + a_cy
 
-                        for node_i = rope.start_i, rope.end_i - 1 do
-                            local i1 = _particle_i_to_data_offset(node_i)
-                            local i2 = _particle_i_to_data_offset(node_i + 1)
-
-                            local ax = data[i1 + _x_offset]
-                            local ay = data[i1 + _y_offset]
-                            local bx = data[i2 + _x_offset]
-                            local by = data[i2 + _y_offset]
-
-                            local wa = data[i1 + _inverse_mass_offset]
-                            local wb = data[i2 + _inverse_mass_offset]
-
-                            local segment_length = data[i1 + _segment_length_offset]
-
-                            local a_cx, a_cy, b_cx, b_cy = _enforce_axis_alignment(
-                                ax, ay, bx, by,
-                                wa, wb,
-                                segment_length,
-                                rope.axis_x, rope.axis_y,
-                                inverse_kinematics_compliance
-                            )
-
-                            data[i1 + _x_offset] = ax + a_cx
-                            data[i1 + _y_offset] = ay + a_cy
-                            data[i2 + _x_offset] = bx + b_cx
-                            data[i2 + _y_offset] = by + b_cy
-                        end
+                        data[i3 + _x_offset] = cx + c_cx
+                        data[i3 + _y_offset] = cy + c_cy
                     end
-                end
-            end
 
-            _post_solve(
-                data, n_particles,
-                sub_delta
-            )
+                    -- enforce axis
+                    for node_i = rope.start_i, rope.end_i - 1 do
+                        local i1 = _particle_i_to_data_offset(node_i)
+                        local i2 = _particle_i_to_data_offset(node_i + 1)
+
+                        local ax = data[i1 + _x_offset]
+                        local ay = data[i1 + _y_offset]
+                        local bx = data[i2 + _x_offset]
+                        local by = data[i2 + _y_offset]
+
+                        local wa = data[i1 + _inverse_mass_offset]
+                        local wb = data[i2 + _inverse_mass_offset]
+
+                        local segment_length = data[i1 + _segment_length_offset]
+
+                        local a_cx, a_cy, b_cx, b_cy = _enforce_axis_alignment(
+                            ax, ay, bx, by,
+                            wa, wb,
+                            segment_length,
+                            rope.axis_x, rope.axis_y,
+                            inverse_kinematics_compliance
+                        )
+
+                        data[i1 + _x_offset] = ax + a_cx
+                        data[i1 + _y_offset] = ay + a_cy
+                        data[i2 + _x_offset] = bx + b_cx
+                        data[i2 + _y_offset] = by + b_cy
+                    end
+
+                    ::next_rope::
+                end
+
+                _post_solve(
+                    data, n_particles,
+                    sub_delta
+                )
+            end -- ropes
         end -- n sub steps
 
         self:_update_data_mesh()
@@ -630,22 +649,9 @@ function rt.PlayerBody:draw_body()
     rt.Palette.WHITE:bind()
     _instance_draw_shader:bind()
     _instance_draw_shader:send("interpolation_alpha", 1)
-    --self._instance_mesh:draw_instanced(self._n_particles)
+    self._instance_mesh:draw_instanced(self._n_particles)
     _instance_draw_shader:unbind()
     love.graphics.pop()
-
-    love.graphics.setColor(1, 1, 1, 1)
-    for rope_i, rope in ipairs(self._ropes) do
-        love.graphics.setColor(rt.lcha_to_rgba(0.8, 1, (rope_i - 1) / #self._ropes, 1))
-        for particle_i = rope.start_i, rope.end_i, 1 do
-            local i = _particle_i_to_data_offset(particle_i)
-            love.graphics.circle("fill",
-                self._particle_data[i + _x_offset],
-                self._particle_data[i + _y_offset],
-                self._particle_data[i + _radius_offset] / self._particle_texture_radius * 3
-            )
-        end
-    end
 end
 
 --- @brief
