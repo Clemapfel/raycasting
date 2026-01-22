@@ -402,10 +402,7 @@ function rt.Player:instantiate()
 
     self._trail = rt.PlayerTrail(self._radius)
 
-    self._graphics_body = rt.PlayerBody({
-        radius = _settings.radius,
-        max_radius = _settings.radius * _settings.bubble_radius_factor
-    })
+    self._graphics_body = rt.PlayerBody(0, 0)
     self:_connect_input()
 
     self._pulse_mesh = rt.MeshCircle(0, 0, 1, 1, 32) -- scaled in draw

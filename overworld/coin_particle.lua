@@ -145,7 +145,7 @@ function ow.CoinParticle:set_hue(hue)
     self._color = { rt.lcha_to_rgba(0.8, 1, hue, 1) }
     self._outline_color = table.deepcopy(self._color)
     for i = 1, 3 do
-        self._outline_color[i] = self._outline_color[i] - rt.settings.player_body.outline_value_offset
+        self._outline_color[i] = self._outline_color[i] - rt.settings.player_body.outline_darkening
     end
 end
 

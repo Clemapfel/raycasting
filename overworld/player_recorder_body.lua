@@ -34,11 +34,7 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
 
     self._radius = rt.settings.player.radius
     self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
-    self._graphics_body = rt.PlayerBody({
-        radius = self._radius,
-        max_radius = self._max_radius,
-        use_performance_mode = true
-    })
+    self._graphics_body = rt.PlayerBody(0, 0)
 
     self._graphics_body:set_world(stage:get_physics_world())
     self._graphics_body:set_color(self._color)
