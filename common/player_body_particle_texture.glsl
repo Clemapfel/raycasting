@@ -11,9 +11,9 @@ float gaussian(float x, float ramp)
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) {
     // get normalized distance from center, using texture coordinates
     float dist = 2 * (0.5 - distance(texture_coords, vec2(0.5)));
-
+    return vec4(dist);
     // weight distance with gaussian for gaussian falloff
-    return vec4(vec3(1), gaussian(1 - dist, 1));
+    return vec4(vec3(1), gaussian(1 - dist, 0.95));
 }
 
 #endif

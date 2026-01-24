@@ -4,7 +4,7 @@ rt.settings.player_body = {
     canvas_scale = 3,
     outline_darkening = 0.5,
 
-    particle_radius = 2
+    particle_texture_scale = 1
 }
 
 --- @class rt.PlayerBody
@@ -46,6 +46,15 @@ end
 
 local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl")
 local _instance_draw_shader = rt.Shader("common/player_body_instanced_draw.glsl")
+local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
+
+DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+    if which == "k" then
+        for shader in range(_particle_texture_shader, _instance_draw_shader, _threshold_shader) do
+            shader:recompile()
+        end
+    end
+end)
 
 --- @brief
 function rt.PlayerBody:_initialize()
@@ -57,7 +66,7 @@ function rt.PlayerBody:_initialize()
     local body_radius = rt.settings.player.radius
     local max_rope_length = 4 * body_radius
 
-    local particle_texture_radius = rt.settings.player.radius * settings.particle_radius
+    local particle_texture_radius = rt.settings.player.radius
     self._particle_texture_radius = particle_texture_radius
 
     local texture_scale = 1
@@ -87,15 +96,24 @@ function rt.PlayerBody:_initialize()
     local max_particle_distance = -math.huge
     local max_particle_radius = -math.huge
 
-    function getLogarithmicSpiralPoint(center_x, center_y, radius, t, n_turns, growth_factor)
-        growth_factor = growth_factor or 0.2
+    local min_radius = 15
+    local radius_easing = function(i, n)
+        local t = ((i - 1) / n)^4
+        return particle_texture_radius * (1 - t)
+    end
+
+    local fraction_to_rope_length = function(t)
+        return (1 - t) * max_rope_length
+    end
+
+    local rope_length_to_n_nodes = function(length)
+        return math.ceil(length / (particle_texture_radius / 2))
+    end
+
+    local fraction_to_spiral_point = function(t, x, y, n_turns)
         local angle = t * n_turns * 2 * math.pi
-        local r = radius * math.exp(growth_factor * angle)
-
-        local x = center_x + r * math.cos(angle)
-        local y = center_y + r * math.sin(angle)
-
-        return x, y
+        local radius = t * body_radius
+        return x + radius * math.cos(angle), y + radius * math.sin(angle)
     end
 
     do -- particles
@@ -122,10 +140,6 @@ function rt.PlayerBody:_initialize()
 
             local segment_length = length / n_particles
             local contour_segment_length = contour_length / n_particles
-
-            local radius_easing = function(i, n)
-                return ((i - 1) / n) * particle_texture_radius
-            end
 
             local mass_easing = function(i, n)
                 return 1
@@ -163,6 +177,8 @@ function rt.PlayerBody:_initialize()
                     ))
                 end
 
+                x = x + dx * segment_length
+                y = y + dy * segment_length
                 particle_n = particle_n + 1
             end
 
@@ -170,58 +186,27 @@ function rt.PlayerBody:_initialize()
             table.insert(self._ropes, rope)
         end
 
-        local ring_i_to_ring_radius = function(i, n)
-            return ((i - 1) / n) * body_radius
-        end
-
-        local ring_radius_to_n_ropes = function(radius)
-            local circumference = 2 * math.pi * radius
-            local n = math.floor(math.max(1, circumference / 3))
-            if n % 2 == 0 then n = n + 1 end
-            return n
-        end
-
-        local ring_i_to_rope_length = function(i, n)
-            return (1 - (i - 1) / (n + 1)) * max_rope_length
-        end
-
-        local rope_length_to_n_particles = function(length)
-            return math.ceil(length / 3)
-        end
-
-        local n_rings = 7
         local contour_length_factor = rt.settings.player.bubble_radius_factor
-        local center_x, center_y = self._position_x, self._position_y
 
-        local total_n_ropes = 0
-        for ring_i = 1, n_rings do
-            local ring_radius = ring_i_to_ring_radius(ring_i, n_rings)
-            local n_ropes = ring_radius_to_n_ropes(ring_radius)
-            total_n_ropes = total_n_ropes + n_ropes
-        end
+        do -- spiral inwards for longer ropes
+            local n_inner_ropes = 41
+            local n_turns = n_inner_ropes / 13
+            for rope_i = 1, n_inner_ropes do
+                local t = (rope_i - 1) / n_inner_ropes
+                local anchor_x, anchor_y = fraction_to_spiral_point(
+                    t, 0, 0, n_turns
+                )
 
-        local total_rope_i = 1
-        for ring_i = 1, n_rings do
-            local rope_length = ring_i_to_rope_length(ring_i, n_rings)
-            local n_particles = rope_length_to_n_particles(rope_length)
-            local ring_radius = ring_i_to_ring_radius(ring_i, n_rings)
-            local n_ropes = ring_radius_to_n_ropes(ring_radius)
+                local dx, dy = math.normalize(anchor_x, anchor_y)
 
-            local angle_step = (2 * math.pi) / n_ropes
-            for rope_i = 1, n_ropes do
-                local angle = ((rope_i - 1) / n_ropes + (total_rope_i - 1) / total_n_ropes) * 2 * math.pi
-                local dx, dy = math.cos(angle), math.sin(angle)
-                local anchor_x = dx * ring_radius
-                local anchor_y = dy * ring_radius
-
+                local rope_length = fraction_to_rope_length(t)
+                local n_nodes = rope_length_to_n_nodes(rope_length)
                 add_rope(
-                    n_particles,
+                    n_nodes,
                     rope_length, contour_length_factor * rope_length,
                     anchor_x, anchor_y,
                     dx, dy
                 )
-
-                total_rope_i = total_rope_i + 1
             end
         end
 
@@ -237,7 +222,7 @@ function rt.PlayerBody:_initialize()
         self._body_render_texture = rt.RenderTexture(
             texture_w, texture_h,
             0,
-            rt.TextureFormat.RGBA32F
+            rt.TextureFormat.R32F
         )
         self._render_texture_needs_update = true
     end
@@ -640,32 +625,34 @@ do -- update helpers
                     end
 
                     -- enforce axis
-                    for node_i = rope.start_i, rope.end_i - 1 do
-                        local i1 = _particle_i_to_data_offset(node_i)
-                        local i2 = _particle_i_to_data_offset(node_i + 1)
+                    if rope.axis_x ~= 0 and rope.axis_y ~= 0 then
+                        for node_i = rope.start_i, rope.end_i - 1 do
+                            local i1 = _particle_i_to_data_offset(node_i)
+                            local i2 = _particle_i_to_data_offset(node_i + 1)
 
-                        local ax = data[i1 + _x_offset]
-                        local ay = data[i1 + _y_offset]
-                        local bx = data[i2 + _x_offset]
-                        local by = data[i2 + _y_offset]
+                            local ax = data[i1 + _x_offset]
+                            local ay = data[i1 + _y_offset]
+                            local bx = data[i2 + _x_offset]
+                            local by = data[i2 + _y_offset]
 
-                        local wa = data[i1 + _inverse_mass_offset]
-                        local wb = data[i2 + _inverse_mass_offset]
+                            local wa = data[i1 + _inverse_mass_offset]
+                            local wb = data[i2 + _inverse_mass_offset]
 
-                        local segment_length = data[i1 + _segment_length_offset]
+                            local segment_length = data[i1 + _segment_length_offset]
 
-                        local a_cx, a_cy, b_cx, b_cy = _enforce_axis_alignment(
-                            ax, ay, bx, by,
-                            wa, wb,
-                            segment_length,
-                            rope.axis_x, rope.axis_y,
-                            inverse_kinematics_compliance
-                        )
+                            local a_cx, a_cy, b_cx, b_cy = _enforce_axis_alignment(
+                                ax, ay, bx, by,
+                                wa, wb,
+                                segment_length,
+                                rope.axis_x, rope.axis_y,
+                                inverse_kinematics_compliance
+                            )
 
-                        data[i1 + _x_offset] = ax + a_cx
-                        data[i1 + _y_offset] = ay + a_cy
-                        data[i2 + _x_offset] = bx + b_cx
-                        data[i2 + _y_offset] = by + b_cy
+                            data[i1 + _x_offset] = ax + a_cx
+                            data[i1 + _y_offset] = ay + a_cy
+                            data[i2 + _x_offset] = bx + b_cx
+                            data[i2 + _y_offset] = by + b_cy
+                        end
                     end
 
                     ::next_rope::
@@ -687,6 +674,7 @@ end
 function rt.PlayerBody:draw_body()
     if self._render_texture_needs_update then
         love.graphics.push("all")
+        love.graphics.setBlendMode("add", "premultiplied")
         love.graphics.reset()
 
         local texture_w, texture_h = self._body_render_texture:get_size()
@@ -695,10 +683,11 @@ function rt.PlayerBody:draw_body()
             -1 * self._position_y + 0.5 * texture_h
         )
         self._body_render_texture:bind()
-        love.graphics.clear(1, 0, 1, 1)
+        love.graphics.clear(0, 0, 1, 0)
 
         rt.Palette.TRUE_WHITE:bind()
         _instance_draw_shader:bind()
+        _instance_draw_shader:send("texture_scale", rt.settings.player_body.particle_texture_scale)
         _instance_draw_shader:send("interpolation_alpha", 1)
         self._instance_mesh:draw_instanced(self._n_particles)
         _instance_draw_shader:unbind()
@@ -712,6 +701,7 @@ function rt.PlayerBody:draw_body()
     local texture_w, texture_h = self._body_render_texture:get_size()
     love.graphics.translate(self._position_x - 0.5 * texture_w, self._position_y - 0.5 * texture_w)
     rt.Palette.TRUE_WHITE:bind()
+    _threshold_shader:bind()
     self._body_render_texture:draw()
     love.graphics.pop()
 end
