@@ -84,6 +84,20 @@ function rt.PlayerBody:_initialize()
         love.graphics.pop()
     end
 
+    local max_particle_distance = -math.huge
+    local max_particle_radius = -math.huge
+
+    function getLogarithmicSpiralPoint(center_x, center_y, radius, t, n_turns, growth_factor)
+        growth_factor = growth_factor or 0.2
+        local angle = t * n_turns * 2 * math.pi
+        local r = radius * math.exp(growth_factor * angle)
+
+        local x = center_x + r * math.cos(angle)
+        local y = center_y + r * math.sin(angle)
+
+        return x, y
+    end
+
     do -- particles
         local particle_n = 1
         local add_rope = function(
@@ -128,7 +142,10 @@ function rt.PlayerBody:_initialize()
                 data[i + _velocity_y_offset] = 0
                 data[i + _previous_x_offset] = x
                 data[i + _previous_y_offset] = y
-                data[i + _radius_offset] = radius_easing(rope_node_i, n_particles)
+
+                local radius = radius_easing(rope_node_i, n_particles)
+                max_particle_radius = math.max(max_particle_radius, radius)
+                data[i + _radius_offset] = radius
 
                 local mass = mass_easing(rope_node_i, n_particles)
                 data[i + _mass_offset] = mass
@@ -137,6 +154,14 @@ function rt.PlayerBody:_initialize()
                 data[i + _contour_segment_length_offset] = contour_segment_length
                 data[i + _last_step_x_offset] = x
                 data[i + _last_step_y_offset] = y
+
+                if rope_node_i == n_particles then
+                    max_particle_distance = math.max(max_particle_distance, math.distance(
+                        anchor_x + dx * contour_length,
+                        anchor_y + dy * contour_length,
+                        0, 0
+                    ))
+                end
 
                 particle_n = particle_n + 1
             end
@@ -201,6 +226,20 @@ function rt.PlayerBody:_initialize()
         end
 
         self._n_particles = particle_n - 1
+    end
+
+    do -- render textures
+        local texture_r = max_particle_distance
+        local padding = max_particle_radius
+        local texture_w = 2 * (texture_r + padding)
+        local texture_h = texture_w
+
+        self._body_render_texture = rt.RenderTexture(
+            texture_w, texture_h,
+            0,
+            rt.TextureFormat.RGBA32F
+        )
+        self._render_texture_needs_update = true
     end
 
     do -- instance mesh
@@ -640,17 +679,40 @@ do -- update helpers
         end -- n sub steps
 
         self:_update_data_mesh()
+        self._render_texture_needs_update = true
     end
 end
 
 --- @brief
 function rt.PlayerBody:draw_body()
-    love.graphics.push("all")
-    rt.Palette.WHITE:bind()
-    _instance_draw_shader:bind()
-    _instance_draw_shader:send("interpolation_alpha", 1)
-    self._instance_mesh:draw_instanced(self._n_particles)
-    _instance_draw_shader:unbind()
+    if self._render_texture_needs_update then
+        love.graphics.push("all")
+        love.graphics.reset()
+
+        local texture_w, texture_h = self._body_render_texture:get_size()
+        love.graphics.translate(
+            -1 * self._position_x + 0.5 * texture_w,
+            -1 * self._position_y + 0.5 * texture_h
+        )
+        self._body_render_texture:bind()
+        love.graphics.clear(1, 0, 1, 1)
+
+        rt.Palette.TRUE_WHITE:bind()
+        _instance_draw_shader:bind()
+        _instance_draw_shader:send("interpolation_alpha", 1)
+        self._instance_mesh:draw_instanced(self._n_particles)
+        _instance_draw_shader:unbind()
+
+        self._body_render_texture:unbind()
+        love.graphics.pop() -- all
+    end
+
+    love.graphics.push()
+
+    local texture_w, texture_h = self._body_render_texture:get_size()
+    love.graphics.translate(self._position_x - 0.5 * texture_w, self._position_y - 0.5 * texture_w)
+    rt.Palette.TRUE_WHITE:bind()
+    self._body_render_texture:draw()
     love.graphics.pop()
 end
 
@@ -659,6 +721,7 @@ function rt.PlayerBody:draw_core()
     if self._core_vertices == nil then return end
     love.graphics.push("all")
     self._core_color:bind()
+
     love.graphics.translate(self._position_x, self._position_y)
     --love.graphics.polygon("fill", self._core_vertices)
     love.graphics.pop()
