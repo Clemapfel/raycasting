@@ -112,7 +112,7 @@ do
         spring_damping = 1000,
         spring_stiffness = 10,
 
-        bubble_radius_factor = 2.25,
+        bubble_radius_factor = 2.5,
         bubble_inner_radius_scale = 1.7,
         bubble_target_velocity = 400,
         bubble_acceleration = 2.5,
@@ -608,10 +608,9 @@ function rt.Player:update(delta)
                 center_x, center_y = self._bubble_body:get_predicted_position()
                 positions = {}
 
-                for body in values(self._bubble_spring_bodies) do
-                    local x, y = body:get_predicted_position()
-                    table.insert(positions, x)
-                    table.insert(positions, y)
+                for i = 1, #self._spring_bodies do
+                    table.insert(positions, self._spring_body_offsets_x[i])
+                    table.insert(positions, self._spring_body_offsets_y[i])
                 end
             else
                 local body_x, body_y = self._body:get_predicted_position()
@@ -808,33 +807,64 @@ function rt.Player:update(delta)
 
     -- update graphics body
     do
-        local collisions = {}
+        local lines = {}
         local add_collision = function(body, cx, cy, nx, ny)
-            if body == nil or not body:has_tag("hitbox") then return end
-            local x1, y1 = math.add(cx, cy, math.turn_left(nx, ny))
-            local x2, y2 = math.add(cx, cy, math.turn_right(nx, ny))
-            table.insert(collisions, {
-                contact_x = cx,
-                contact_y = cy,
-                x1 = x1,
-                y1 = y1,
-                x2 = x2,
-                y2 = y2,
-                normal_x = nx,
-                normal_y = ny
-            })
+            if body == nil then return end
+
+            if body:has_tag("hitbox") then
+                local x1, y1 = math.add(cx, cy, math.turn_left(nx, ny))
+                local x2, y2 = math.add(cx, cy, math.turn_right(nx, ny))
+                table.insert(lines, {
+                    contact_x = cx,
+                    contact_y = cy,
+                    x1 = x1,
+                    y1 = y1,
+                    x2 = x2,
+                    y2 = y2,
+                    normal_x = nx,
+                    normal_y = ny
+                })
+            end
         end
 
-        add_collision(top_wall_body, top_x, top_y, top_nx, top_ny)
-        add_collision(top_right_wall_body, top_right_x, top_right_y, top_right_nx, top_right_ny)
-        add_collision(right_wall_body, right_x, right_y, right_nx, right_ny)
+        if self._is_bubble then
+            add_collision(top_wall_body, top_x, top_y, top_nx, top_ny)
+            add_collision(top_right_wall_body, top_right_x, top_right_y, top_right_nx, top_right_ny)
+            add_collision(right_wall_body, right_x, right_y, right_nx, right_ny)
+            add_collision(left_wall_body, left_x, left_y, left_nx, left_ny)
+            add_collision(top_left_wall_body, top_left_x, top_left_y, top_left_nx, top_left_ny)
+        end
+
         add_collision(bottom_right_wall_body, bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny)
         add_collision(bottom_wall_body, bottom_x, bottom_y, bottom_nx, bottom_ny)
         add_collision(bottom_left_wall_body, bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny)
-        add_collision(left_wall_body, left_x, left_y, left_nx, left_ny)
-        add_collision(top_left_wall_body, top_left_x, top_left_y, top_left_nx, top_left_ny)
 
-        self._graphics_body:set_colliding_lines(collisions)
+        self._graphics_body:set_colliding_lines(lines)
+
+        local stencils = {}
+        do
+            local before = love.timer.getTime()
+            local w = 2 * self._bubble_radius
+            local h = w
+            local mask = bit.bnot(0x0)
+            mask = bit.band(mask, bit.bnot(_settings.player_outer_body_collision_group))
+            mask = bit.band(mask, bit.bnot(_settings.player_collision_group))
+            mask = bit.band(mask, bit.bnot(_settings.bounce_collision_group))
+
+            local x, y = self:get_position()
+            local bodies = self._world:query_aabb(
+                x - 0.5 * w, y - 0.5 * h, w, h,
+                mask
+            )
+
+            for body in values(bodies) do
+                if body:has_tag("stencil") and not body:get_is_sensor() then
+                    table.insert(stencils, body)
+                end
+            end
+        end
+
+        self._graphics_body:set_stencil_bodies(stencils)
     end
 
     local is_grounded = false
