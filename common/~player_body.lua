@@ -1438,3 +1438,485 @@ end
 function rt.PlayerBody:set_use_stencils(b)
     self._use_stencils = b
 end
+
+-- [UPDATE] Extend rope creation to allocate XPBD lambdas
+-- Insert into rt.PlayerBody:_initialize(), inside local add_rope(...)
+-- right after local rope = { ... } and before adding particles:
+
+rope.distance_lambdas = {}     -- size: n_particles - 1
+rope.bending_lambdas  = {}     -- size: n_particles - 2
+rope.axis_lambdas     = {}     -- size: n_particles - 1
+
+for k = 1, math.max(0, n_particles - 1) do
+    rope.distance_lambdas[k] = 0.0
+    rope.axis_lambdas[k] = 0.0
+end
+for k = 1, math.max(0, n_particles - 2) do
+    rope.bending_lambdas[k] = 0.0
+end
+
+-- [UPDATE] Prepare collision lambdas per line and particle
+-- Replace rt.PlayerBody:set_colliding_lines(t) with the following:
+
+function rt.PlayerBody:set_colliding_lines(t)
+    for entry in values(t) do
+        assert(entry.contact_x ~= nil
+            and entry.contact_y ~= nil
+            and entry.x1 ~= nil
+            and entry.y1 ~= nil
+            and entry.x2 ~= nil
+            and entry.y2 ~= nil
+            and entry.normal_x ~= nil
+            and entry.normal_y ~= nil
+        )
+    end
+
+    self._colliding_lines = t or {}
+
+    -- Allocate XPBD collision lambdas: [line_i][particle_i]
+    self._collision_lambdas = {}
+    local n_lines = #self._colliding_lines
+    local n_particles = self._n_particles or 0
+    for li = 1, n_lines do
+        local row = {}
+        for pi = 1, n_particles do
+            row[pi] = 0.0
+        end
+        self._collision_lambdas[li] = row
+    end
+end
+
+-- [UPDATE] Replace the entire 'do -- update helpers' block with XPBD lambdas versions
+
+do -- update helpers (XPBD with lambdas)
+    local _pre_solve = function(
+        particles, n_particles,
+        gravity_x, gravity_y,
+        damping, delta
+    )
+        for particle_i = 1, n_particles do
+            local i = (particle_i - 1) * _stride + 1
+            local x_i = i + _x_offset
+            local y_i = i + _y_offset
+            local velocity_x_i = i + _velocity_x_offset
+            local velocity_y_i = i + _velocity_y_offset
+
+            local x, y = particles[x_i], particles[y_i]
+
+            particles[i + _previous_x_offset] = x
+            particles[i + _previous_y_offset] = y
+
+            local velocity_x = particles[velocity_x_i] * damping
+            local velocity_y = particles[velocity_y_i] * damping
+
+            local mass = particles[i + _mass_offset]
+            velocity_x = velocity_x + mass * gravity_x * delta
+            velocity_y = velocity_y + mass * gravity_y * delta
+
+            particles[velocity_x_i] = velocity_x
+            particles[velocity_y_i] = velocity_y
+
+            particles[x_i] = x + delta * velocity_x
+            particles[y_i] = y + delta * velocity_y
+        end
+    end
+
+    -- XPBD distance constraint between two particles (A,B)
+    -- C = |b - a| - d0 = 0
+    local function _enforce_distance_xpbd(
+        ax, ay, bx, by,
+        inv_mass_a, inv_mass_b,
+        target_distance,
+        alpha,         -- compliance (already scaled by sub_delta^2)
+        lambda_prev    -- accumulated lambda for this constraint
+    )
+        local dx = bx - ax
+        local dy = by - ay
+        local len = math.sqrt(dx * dx + dy * dy)
+        if len < math.eps then
+            return 0, 0, 0, 0, lambda_prev
+        end
+        local nx = dx / len
+        local ny = dy / len
+
+        local C = len - target_distance
+        local wsum = inv_mass_a + inv_mass_b
+        local denom = wsum + alpha
+        if denom < math.eps then
+            return 0, 0, 0, 0, lambda_prev
+        end
+
+        local d_lambda = -(C + alpha * lambda_prev) / denom
+        local lambda_new = lambda_prev + d_lambda
+
+        -- x_i += w_i * d_lambda * gradC_i
+        local axc = inv_mass_a * d_lambda * (-nx) -- grad_a = -n
+        local ayc = inv_mass_a * d_lambda * (-ny)
+        local bxc = inv_mass_b * d_lambda * ( nx) -- grad_b = +n
+        local byc = inv_mass_b * d_lambda * ( ny)
+
+        return axc, ayc, bxc, byc, lambda_new
+    end
+
+    -- XPBD bending as end-to-end AC distance equals target (sum of adjacent segment lengths)
+    -- C = |c - a| - target_ac = 0
+    local function _enforce_bending_xpbd(
+        ax, ay, bx, by, cx, cy,  -- bx,by unused in gradient approx (kept for parity)
+        inv_mass_a, inv_mass_b, inv_mass_c, -- inv_mass_b unused here
+        target_ac_distance,
+        alpha,
+        lambda_prev
+    )
+        local dx = cx - ax
+        local dy = cy - ay
+        local len = math.sqrt(dx * dx + dy * dy)
+        if len < math.eps then
+            return 0, 0, 0, 0, 0, 0, lambda_prev
+        end
+        local nx = dx / len
+        local ny = dy / len
+
+        local C = len - target_ac_distance
+        local wsum = inv_mass_a + inv_mass_c
+        local denom = wsum + alpha
+        if denom < math.eps then
+            return 0, 0, 0, 0, 0, 0, lambda_prev
+        end
+
+        local d_lambda = -(C + alpha * lambda_prev) / denom
+        local lambda_new = lambda_prev + d_lambda
+
+        -- a += w_a * dλ * (-n); c += w_c * dλ * (n)
+        local axc = inv_mass_a * d_lambda * (-nx)
+        local ayc = inv_mass_a * d_lambda * (-ny)
+        local cxc = inv_mass_c * d_lambda * ( nx)
+        local cyc = inv_mass_c * d_lambda * ( ny)
+
+        -- B gets no direct correction in this simplified bending constraint
+        return axc, ayc, 0.0, 0.0, cxc, cyc, lambda_new
+    end
+
+    -- XPBD axis-alignment (1D scalar constraint: perpendicular projection to rotate segment towards axis)
+    -- Let target axis unit be t = (tx,ty), perpendicular p = (-vy, vx) from current segment dir (with sign flip to avoid 180° flip).
+    -- C = (b - (a + t * L)) · p = 0
+    -- grad_a ≈ -p, grad_b ≈ p (treat p as constant - ignore derivative w.r.t positions)
+    local function _enforce_axis_alignment_xpbd(
+        ax, ay,
+        bx, by,
+        inv_mass_a, inv_mass_b,
+        segment_length,
+        tx, ty,
+        alpha,
+        lambda_prev
+    )
+        local vx = bx - ax
+        local vy = by - ay
+        local vlen = math.sqrt(vx * vx + vy * vy)
+        if vlen < 1e-12 then
+            return 0, 0, 0, 0, lambda_prev
+        end
+        vx = vx / vlen
+        vy = vy / vlen
+
+        -- choose orientation to avoid 180° ambiguity
+        if vx * tx + vy * ty < 0 then
+            vx = -vx
+            vy = -vy
+        end
+
+        -- perpendicular to current segment
+        local px = -vy
+        local py =  vx
+
+        -- desired endpoint for B along target axis
+        local tbx = ax + tx * segment_length
+        local tby = ay + ty * segment_length
+
+        -- scalar error along perpendicular
+        local ex = tbx - bx
+        local ey = tby - by
+        local C = ex * px + ey * py
+
+        local wsum = inv_mass_a + inv_mass_b
+        local denom = wsum + alpha
+        if denom < math.eps then
+            return 0, 0, 0, 0, lambda_prev
+        end
+
+        local d_lambda = -(C + alpha * lambda_prev) / denom
+        local lambda_new = lambda_prev + d_lambda
+
+        -- x_i += w_i * dλ * gradC_i; grad_a = -p, grad_b = p
+        local axc = inv_mass_a * d_lambda * (-px)
+        local ayc = inv_mass_a * d_lambda * (-py)
+        local bxc = inv_mass_b * d_lambda * ( px)
+        local byc = inv_mass_b * d_lambda * ( py)
+
+        return axc, ayc, bxc, byc, lambda_new
+    end
+
+    -- XPBD line collision (inequality): C = n·(x - c) - r >= 0, λ >= 0
+    local function _enforce_line_collision_xpbd(
+        x, y, inv_mass,
+        radius,
+        line_contact_x, line_contact_y,
+        line_normal_x, line_normal_y,
+        alpha,
+        lambda_prev
+    )
+        local nlen = math.sqrt(line_normal_x * line_normal_x + line_normal_y * line_normal_y)
+        if nlen < math.eps then
+            return 0.0, 0.0, lambda_prev
+        end
+        local nx = line_normal_x / nlen
+        local ny = line_normal_y / nlen
+
+        local rx = x - line_contact_x
+        local ry = y - line_contact_y
+        local s = rx * nx + ry * ny
+
+        local C = s - radius
+        -- inactive if satisfied; reset lambda to 0 to avoid stickiness
+        if C >= 0.0 or inv_mass <= 0.0 then
+            return 0.0, 0.0, 0.0
+        end
+
+        local denom = inv_mass + alpha
+        if denom < math.eps then
+            return 0.0, 0.0, lambda_prev
+        end
+
+        -- inequality complementarity: clamp λ >= 0
+        local d_lambda = -(C + alpha * lambda_prev) / denom
+        local lambda_new = lambda_prev + d_lambda
+        if lambda_new < 0.0 then
+            lambda_new = 0.0
+        end
+        d_lambda = lambda_new - lambda_prev
+
+        -- x += w * dλ * n
+        local dx = inv_mass * d_lambda * nx
+        local dy = inv_mass * d_lambda * ny
+
+        return dx, dy, lambda_new
+    end
+
+    local function _post_solve(particles, n_particles, delta)
+        for particle_i = 1, n_particles do
+            local i = (particle_i - 1) * _stride + 1
+
+            local x = particles[i + _x_offset]
+            local y = particles[i + _y_offset]
+
+            local velocity_x = (x - particles[i + _previous_x_offset]) / delta
+            local velocity_y = (y - particles[i + _previous_y_offset]) / delta
+            particles[i + _velocity_x_offset] = velocity_x
+            particles[i + _velocity_y_offset] = velocity_y
+        end
+    end
+
+    -- PlayerBody:_step with XPBD lambdas
+    function rt.PlayerBody:_step(delta)
+        local damping = 1 - 0.1
+        local n_sub_steps = 2
+        local n_constraint_iterations = 4
+
+        local sub_delta = delta / n_sub_steps
+
+        -- compliance alphas (already scaled)
+        local distance_alpha = 0 / (sub_delta^2)
+        local bending_alpha  = 0.001 / (sub_delta^2)
+        local axis_alpha     = 0.00001 / (sub_delta^2)
+
+        -- collision compliance alpha (0 => hard)
+        local collision_alpha = 1 -- example softness; tune or drive from settings
+
+        local data = self._particle_data
+        local n_particles = self._n_particles
+
+        local gravity_dx, gravity_dy = 0, 1
+        local gravity = 250
+
+        for _ = 1, n_sub_steps do
+            -- reset XPBD lambdas for this substep (kept across iterations)
+            for rope in values(self._ropes) do
+                for i = 1, #rope.distance_lambdas do rope.distance_lambdas[i] = 0.0 end
+                for i = 1, #rope.bending_lambdas  do rope.bending_lambdas[i]  = 0.0 end
+                for i = 1, #rope.axis_lambdas     do rope.axis_lambdas[i]     = 0.0 end
+            end
+            if self._collision_lambdas ~= nil then
+                for li = 1, #self._collision_lambdas do
+                    local row = self._collision_lambdas[li]
+                    if row ~= nil then
+                        for pi = 1, n_particles do
+                            row[pi] = 0.0
+                        end
+                    end
+                end
+            end
+
+            _pre_solve(
+                data, n_particles,
+                gravity_dx * gravity, gravity_dy * gravity,
+                damping,
+                sub_delta
+            )
+
+            for _ = 1, n_constraint_iterations do
+                for rope in values(self._ropes) do
+                    local anchor_x = self._position_x + rope.anchor_x
+                    local anchor_y = self._position_y + rope.anchor_y
+
+                    -- pin first node to anchor each iteration
+                    local anchor_i = _particle_i_to_data_offset(rope.start_i)
+                    data[anchor_i + _x_offset] = anchor_x
+                    data[anchor_i + _y_offset] = anchor_y
+
+                    -- segment distance constraints (XPBD)
+                    for node_i = rope.start_i, rope.end_i - 1, 1 do
+                        local i1 = _particle_i_to_data_offset(node_i + 0)
+                        local i2 = _particle_i_to_data_offset(node_i + 1)
+
+                        local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
+                        local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
+
+                        local inv_a = data[i1 + _inverse_mass_offset]
+                        local inv_b = data[i2 + _inverse_mass_offset]
+
+                        local segment_length
+                        if not self._use_contour then
+                            segment_length = data[i1 + _segment_length_offset]
+                        else
+                            segment_length = data[i1 + _contour_segment_length_offset]
+                        end
+
+                        local seg_j = node_i - rope.start_i + 1
+                        local axc, ayc, bxc, byc, lambda_new = _enforce_distance_xpbd(
+                            ax, ay, bx, by,
+                            inv_a, inv_b,
+                            segment_length,
+                            distance_alpha,
+                            rope.distance_lambdas[seg_j] or 0.0
+                        )
+                        rope.distance_lambdas[seg_j] = lambda_new
+
+                        data[i1 + _x_offset] = ax + axc
+                        data[i1 + _y_offset] = ay + ayc
+                        data[i2 + _x_offset] = bx + bxc
+                        data[i2 + _y_offset] = by + byc
+                    end
+
+                    if not self._use_contour then goto next_rope end
+
+                    -- bending constraints (XPBD)
+                    for node_i = rope.start_i, rope.end_i - 2, 1 do
+                        local i1 = _particle_i_to_data_offset(node_i + 0)
+                        local i2 = _particle_i_to_data_offset(node_i + 1)
+                        local i3 = _particle_i_to_data_offset(node_i + 2)
+
+                        local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
+                        local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
+                        local cx, cy = data[i3 + _x_offset], data[i3 + _y_offset]
+
+                        local wa = data[i1 + _inverse_mass_offset]
+                        local wb = data[i2 + _inverse_mass_offset]
+                        local wc = data[i3 + _inverse_mass_offset]
+
+                        local segment_length_ab = data[i1 + _segment_length_offset]
+                        local segment_length_bc = data[i2 + _segment_length_offset]
+                        local target_length = segment_length_ab + segment_length_bc
+
+                        local bend_j = node_i - rope.start_i + 1
+                        local axc, ayc, _, _, cxc, cyc, lambda_new = _enforce_bending_xpbd(
+                            ax, ay, bx, by, cx, cy,
+                            wa, wb, wc,
+                            target_length,
+                            bending_alpha,
+                            rope.bending_lambdas[bend_j] or 0.0
+                        )
+                        rope.bending_lambdas[bend_j] = lambda_new
+
+                        data[i1 + _x_offset] = ax + axc
+                        data[i1 + _y_offset] = ay + ayc
+                        data[i3 + _x_offset] = cx + cxc
+                        data[i3 + _y_offset] = cy + cyc
+                    end
+
+                    -- axis alignment (XPBD, IK-like)
+                    for node_i = rope.start_i, rope.end_i - 1 do
+                        local i1 = _particle_i_to_data_offset(node_i)
+                        local i2 = _particle_i_to_data_offset(node_i + 1)
+
+                        local ax = data[i1 + _x_offset]
+                        local ay = data[i1 + _y_offset]
+                        local bx = data[i2 + _x_offset]
+                        local by = data[i2 + _y_offset]
+
+                        local wa = data[i1 + _inverse_mass_offset]
+                        local wb = data[i2 + _inverse_mass_offset]
+
+                        local segment_length = data[i1 + _segment_length_offset]
+
+                        local axis_j = node_i - rope.start_i + 1
+                        local axc, ayc, bxc, byc, lambda_new = _enforce_axis_alignment_xpbd(
+                            ax, ay, bx, by,
+                            wa, wb,
+                            segment_length,
+                            rope.axis_x, rope.axis_y,
+                            axis_alpha,
+                            rope.axis_lambdas[axis_j] or 0.0
+                        )
+                        rope.axis_lambdas[axis_j] = lambda_new
+
+                        data[i1 + _x_offset] = ax + axc
+                        data[i1 + _y_offset] = ay + ayc
+                        data[i2 + _x_offset] = bx + bxc
+                        data[i2 + _y_offset] = by + byc
+                    end
+
+                    ::next_rope::
+                end
+
+                -- collisions (XPBD inequality per line, per particle)
+                for li, line in ipairs(self._colliding_lines or {}) do
+                    local row = self._collision_lambdas and self._collision_lambdas[li]
+                    for particle_i = 1, self._n_particles do
+                        local i = _particle_i_to_data_offset(particle_i)
+
+                        local radius = self._use_contour
+                            and data[i + _contour_radius_offset]
+                            or  data[i + _radius_offset]
+
+                        local cx, cy, lambda_new = _enforce_line_collision_xpbd(
+                            data[i + _x_offset],
+                            data[i + _y_offset],
+                            data[i + _inverse_mass_offset],
+                            radius,
+                            line.contact_x,
+                            line.contact_y,
+                            line.normal_x,
+                            line.normal_y,
+                            collision_alpha,
+                            row and row[particle_i] or 0.0
+                        )
+
+                        data[i + _x_offset] = data[i + _x_offset] + cx
+                        data[i + _y_offset] = data[i + _y_offset] + cy
+
+                        if row ~= nil then
+                            row[particle_i] = lambda_new
+                        end
+                    end
+                end
+
+                _post_solve(
+                    data, n_particles,
+                    sub_delta
+                )
+            end -- constraint iterations
+        end -- n sub steps
+
+        self:_update_data_mesh()
+        self._render_texture_needs_update = true
+    end
+end

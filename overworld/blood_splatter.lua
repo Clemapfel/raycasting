@@ -393,3 +393,15 @@ end
 function ow.BloodSplatter:get_offset()
     return self._offset_x, self._offset_y
 end
+
+--- @brief
+function ow.BloodSplatter:get_contour_segments(min_x, min_y, max_x, max_y)
+    local segments = {}
+    for shape in values(self._world:getShapesInArea(min_x, min_y, max_x, max_y)) do
+        local data = shape:getUserData()
+        if data ~= nil then
+            table.insert(segments, table.deepcopy(data.line))
+        end
+    end
+    return segments
+end

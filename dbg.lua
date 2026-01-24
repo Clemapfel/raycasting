@@ -9,7 +9,7 @@ return {
 
     damping = 0.08,
 
-    motion_blur_multiplier = 0.0005,
+    motion_blur_multiplier = 0.0005
 }
 
 --[[

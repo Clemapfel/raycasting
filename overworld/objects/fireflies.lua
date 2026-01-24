@@ -17,7 +17,7 @@ rt.settings.overworld.fireflies = {
     light_color_alpha = 0.25,
 
     flow_source_duration = 2, -- seconds
-    flow_source_magnitude = 1000, --0.25, -- fraction
+    flow_source_magnitude = 0.25, -- fraction
 
     min_scale = 0.75,
     max_scale = 1.25
