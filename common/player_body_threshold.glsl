@@ -6,65 +6,56 @@ uniform float highlight_strength = 1;
 uniform bool use_shadow = true;
 uniform float shadow_strength = 1;
 
-uniform float threshold = 0.02;
-uniform float smoothness = 0.01;
+uniform float threshold = 0.4;
+uniform float smoothness = 0.3;
+
+float finalize(float x) {
+    return smoothstep(
+        threshold - smoothness,
+        threshold + smoothness,
+        x
+    );
+}
+
+uniform vec4 body_color;
+uniform vec4 outline_color;
 
 vec4 effect(vec4 color, sampler2D tex, vec2 texture_coordinates, vec2 screen_coords)
 {
     vec2 pixel_size = 1.0 / love_ScreenSize.xy;
 
-    // threshold alpha density
-    vec4 data = texture(tex, texture_coordinates);
-    vec4 center;
-    {
-        float value = smoothstep(
-            threshold - smoothness,
-            threshold + smoothness,
-            data.r
-        );
-
-        center = vec4(value) * color;
-    }
-
-    float opacity = smoothstep(threshold - smoothness, threshold + smoothness, center.a);
-
     // compute gradient using sobel kernel
-    float tl = texture(tex, texture_coordinates + vec2(-1.0, -1.0) * pixel_size).a;
-    float tm = texture(tex, texture_coordinates + vec2( 0.0, -1.0) * pixel_size).a;
-    float tr = texture(tex, texture_coordinates + vec2( 1.0, -1.0) * pixel_size).a;
-    float ml = texture(tex, texture_coordinates + vec2(-1.0,  0.0) * pixel_size).a;
-    float mr = texture(tex, texture_coordinates + vec2( 1.0,  0.0) * pixel_size).a;
-    float bl = texture(tex, texture_coordinates + vec2(-1.0,  1.0) * pixel_size).a;
-    float bm = texture(tex, texture_coordinates + vec2( 0.0,  1.0) * pixel_size).a;
-    float br = texture(tex, texture_coordinates + vec2( 1.0,  1.0) * pixel_size).a;
+    // Sample raw values
+    float tl_raw = texture(tex, texture_coordinates + vec2(-1.0, -1.0) * pixel_size).r;
+    float tm_raw = texture(tex, texture_coordinates + vec2( 0.0, -1.0) * pixel_size).r;
+    float tr_raw = texture(tex, texture_coordinates + vec2( 1.0, -1.0) * pixel_size).r;
+    float ml_raw = texture(tex, texture_coordinates + vec2(-1.0,  0.0) * pixel_size).r;
+    float mr_raw = texture(tex, texture_coordinates + vec2( 1.0,  0.0) * pixel_size).r;
+    float bl_raw = texture(tex, texture_coordinates + vec2(-1.0,  1.0) * pixel_size).r;
+    float bm_raw = texture(tex, texture_coordinates + vec2( 0.0,  1.0) * pixel_size).r;
+    float br_raw = texture(tex, texture_coordinates + vec2( 1.0,  1.0) * pixel_size).r;
 
+    // Apply box blur (average of all 8 neighbors)
+    float blurred = (tl_raw + tm_raw + tr_raw + ml_raw + mr_raw + bl_raw + bm_raw + br_raw) / 8.0;
+
+    // Finalize only for gradient computation
+    float tl = finalize(tl_raw);
+    float tm = finalize(tm_raw);
+    float tr = finalize(tr_raw);
+    float ml = finalize(ml_raw);
+    float mr = finalize(mr_raw);
+    float bl = finalize(bl_raw);
+    float bm = finalize(bm_raw);
+    float br = finalize(br_raw);
+
+    // Compute gradients with finalized values
     float gradient_x = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
     float gradient_y = -tl - 2.0 * tm - tr + bl + 2.0 * bm + br;
 
-    vec3 surface_normal = normalize(vec3(-gradient_x, -gradient_y, 1.0));
+    float magnitude = min(length(vec2(gradient_x, gradient_y)), 1);
 
-    // specular highlight
-    vec3 specular_light_direction = normalize(vec3(1.0, -1.0, 1.0));
-    float specular = 0.0;
-    const float specular_focus = 48; // how "tightly" the highlight is focused
-
-    if (use_highlight)
-    {
-        vec3 view_dir = vec3(0.0, 0.0, 1.0);
-        vec3 half_dir = normalize(specular_light_direction + view_dir);
-        specular += highlight_strength * pow(max(dot(surface_normal, half_dir), 0.0), specular_focus);
-    }
-
-    // shadows
-    vec3 shadow_light_direction = normalize(vec3(-0.5, 0.75, 0));
-    float shadow = 0;
-
-    if (use_shadow) {
-        shadow = dot(surface_normal, shadow_light_direction);
-        shadow = smoothstep(0, 1, clamp(shadow * shadow_strength, 0, 1));
-    }
-
-    return vec4(center.rgb - shadow + specular, center.a);
+    vec4 body = (finalize(texture(tex, texture_coordinates).r)) * body_color;
+    return mix(body, outline_color, magnitude);
 }
 
 #endif

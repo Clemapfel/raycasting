@@ -567,13 +567,6 @@ function rt.Player:_connect_input()
     self._input:signal_connect("keyboard_key_pressed", function(_, which)
         if which == "g" then -- TODO
             self:set_is_bubble(not self:get_is_bubble())
-        elseif which == "o" then
-            local x, y = self:get_position()
-            local r = 50
-            local angle = rt.random.number(0, 2 * math.pi)
-            x = x + r * math.cos(angle)
-            y = y + r * math.sin(angle)
-            self._graphics_body:set_attraction(x, y, 2)
         elseif false then --which == "h" then
             is_sleeping = not is_sleeping
 
@@ -812,6 +805,37 @@ function rt.Player:update(delta)
     self._top_left_wall = top_left_wall_body ~= nil and not top_left_wall_body:get_is_sensor()
     self._top_left_wall_body = top_left_wall_body
     self._top_left_ray = { x, y, x + top_left_dx, y + top_left_dy }
+
+    -- update graphics body
+    do
+        local collisions = {}
+        local add_collision = function(body, cx, cy, nx, ny)
+            if body == nil or not body:has_tag("hitbox") then return end
+            local x1, y1 = math.add(cx, cy, math.turn_left(nx, ny))
+            local x2, y2 = math.add(cx, cy, math.turn_right(nx, ny))
+            table.insert(collisions, {
+                contact_x = cx,
+                contact_y = cy,
+                x1 = x1,
+                y1 = y1,
+                x2 = x2,
+                y2 = y2,
+                normal_x = nx,
+                normal_y = ny
+            })
+        end
+
+        add_collision(top_wall_body, top_x, top_y, top_nx, top_ny)
+        add_collision(top_right_wall_body, top_right_x, top_right_y, top_right_nx, top_right_ny)
+        add_collision(right_wall_body, right_x, right_y, right_nx, right_ny)
+        add_collision(bottom_right_wall_body, bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny)
+        add_collision(bottom_wall_body, bottom_x, bottom_y, bottom_nx, bottom_ny)
+        add_collision(bottom_left_wall_body, bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny)
+        add_collision(left_wall_body, left_x, left_y, left_nx, left_ny)
+        add_collision(top_left_wall_body, top_left_x, top_left_y, top_left_nx, top_left_ny)
+
+        self._graphics_body:set_colliding_lines(collisions)
+    end
 
     local is_grounded = false
     local was_grounded = self._is_grounded

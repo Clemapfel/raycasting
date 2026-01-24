@@ -4,7 +4,8 @@ rt.settings.player_body = {
     canvas_scale = 3,
     outline_darkening = 0.5,
 
-    particle_texture_scale = 1
+    particle_texture_scale = 1,
+    core_outline_width = 0.5
 }
 
 --- @class rt.PlayerBody
@@ -32,12 +33,13 @@ local _velocity_y_offset = 3
 local _previous_x_offset = 4 -- last sub step
 local _previous_y_offset = 5
 local _radius_offset = 6 -- radius, px
-local _mass_offset = 7
-local _inverse_mass_offset = 8
-local _segment_length_offset = 9
-local _contour_segment_length_offset = 10
-local _last_step_x_offset = 11 -- last sim step
-local _last_step_y_offset = 12
+local _opacity_offset = 7
+local _mass_offset = 8
+local _inverse_mass_offset = 9
+local _segment_length_offset = 10
+local _contour_segment_length_offset = 11
+local _last_step_x_offset = 12 -- last sim step
+local _last_step_y_offset = 13
 
 local _stride = _last_step_y_offset + 1
 local _particle_i_to_data_offset = function(particle_i)
@@ -47,6 +49,7 @@ end
 local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl")
 local _instance_draw_shader = rt.Shader("common/player_body_instanced_draw.glsl")
 local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
+local _core_shader = rt.Shader("common/player_body_core.glsl")
 
 DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
     if which == "k" then
@@ -64,7 +67,7 @@ function rt.PlayerBody:_initialize()
     self._ropes = {}
 
     local body_radius = rt.settings.player.radius
-    local max_rope_length = 4 * body_radius
+    local max_rope_length = 4.5 * body_radius
 
     local particle_texture_radius = rt.settings.player.radius
     self._particle_texture_radius = particle_texture_radius
@@ -96,10 +99,17 @@ function rt.PlayerBody:_initialize()
     local max_particle_distance = -math.huge
     local max_particle_radius = -math.huge
 
-    local min_radius = 15
     local radius_easing = function(i, n)
-        local t = ((i - 1) / n)^4
-        return particle_texture_radius * (1 - t)
+        local t = ((i - 1) / n)
+
+        local function f(x) return x^-x  end
+        t = f(t + (1 / math.exp(1))) * math.exp(-t^2)
+
+        return math.max(4, particle_texture_radius * t)
+    end
+
+    local opacity_easing = function(i, n)
+        return 1 - ((i - 1) / n)
     end
 
     local fraction_to_rope_length = function(t)
@@ -164,6 +174,9 @@ function rt.PlayerBody:_initialize()
                 local mass = mass_easing(rope_node_i, n_particles)
                 data[i + _mass_offset] = mass
                 data[i + _inverse_mass_offset] = 1 / mass
+
+                data[i + _opacity_offset] = opacity_easing(rope_node_i, n_particles)
+
                 data[i + _segment_length_offset] = segment_length
                 data[i + _contour_segment_length_offset] = contour_segment_length
                 data[i + _last_step_x_offset] = x
@@ -186,32 +199,36 @@ function rt.PlayerBody:_initialize()
             table.insert(self._ropes, rope)
         end
 
-        local contour_length_factor = rt.settings.player.bubble_radius_factor
+        local contour_length_factor = max_rope_length / (rt.settings.player.radius * rt.settings.player.bubble_radius_factor)
 
         do -- spiral inwards for longer ropes
-            local n_inner_ropes = 41
-            local n_turns = n_inner_ropes / 13
-            for rope_i = 1, n_inner_ropes do
-                local t = (rope_i - 1) / n_inner_ropes
-                local anchor_x, anchor_y = fraction_to_spiral_point(
-                    t, 0, 0, n_turns
-                )
-
-                local dx, dy = math.normalize(anchor_x, anchor_y)
-
-                local rope_length = fraction_to_rope_length(t)
+            local n_rings = 4
+            local rope_r = 2
+            for ring_i = 1, n_rings do
+                local ring_t = (ring_i - 1) / n_rings
+                local ring_r = (1 - ring_t) * body_radius / n_rings
+                local n_ropes = math.max(3, math.ceil((2 * math.pi * ring_r) / rope_r))
+                if n_ropes % 2 == 0 then n_ropes = n_ropes + 1 end
+                local rope_length = fraction_to_rope_length(ring_t)
                 local n_nodes = rope_length_to_n_nodes(rope_length)
-                add_rope(
-                    n_nodes,
-                    rope_length, contour_length_factor * rope_length,
-                    anchor_x, anchor_y,
-                    dx, dy
-                )
+                for rope_i = 1, n_ropes do
+                    local angle = (rope_i - 1) / n_ropes * 2 * math.pi
+                    local dx, dy = math.cos(angle), math.sin(angle)
+                    local anchor_x, anchor_y = 0 + dx * ring_r, 0 + dy * ring_r
+                    add_rope(
+                        n_nodes,
+                        rope_length, rope_length * contour_length_factor,
+                        anchor_x, anchor_y,
+                        dx, dy
+                    )
+                end
             end
         end
 
         self._n_particles = particle_n - 1
     end
+
+    self._contour_radius = max_particle_distance - radius_easing(1, 1)
 
     do -- render textures
         local texture_r = max_particle_distance
@@ -256,6 +273,7 @@ function rt.PlayerBody:_initialize()
             { location = 3, name = "position", format = "floatvec4" }, -- xy: position, zw: previous position
             { location = 4, name = "velocity", format = "floatvec2" },
             { location = 5, name = "radius", format = "float" },
+            { location = 6, name = "opacity", format = "float" }
         }
 
         self._particle_i_to_data_mesh_position = {}
@@ -282,7 +300,8 @@ function rt.PlayerBody:_initialize()
                 data[i + _previous_y_offset],
                 data[i + _velocity_x_offset],
                 data[i + _velocity_y_offset],
-                data[i + _radius_offset]
+                data[i + _radius_offset],
+                data[i + _opacity_offset]
             })
         end
 
@@ -304,6 +323,23 @@ function rt.PlayerBody:_initialize()
 end
 
 --- @brief
+function rt.PlayerBody:set_colliding_lines(t)
+    for entry in values(t) do
+        assert(entry.contact_x ~= nil
+            and entry.contact_y ~= nil
+            and entry.x1 ~= nil
+            and entry.y1 ~= nil
+            and entry.x2 ~= nil
+            and entry.y2 ~= nil
+            and entry.normal_x ~= nil
+            and entry.normal_y ~= nil
+        )
+    end
+
+    self._colliding_lines = t
+end
+
+--- @brief
 function rt.PlayerBody:_update_data_mesh()
     local from = self._particle_data
     for particle_i = 1, self._n_particles do
@@ -317,6 +353,7 @@ function rt.PlayerBody:_update_data_mesh()
         to[5] = from[i + _velocity_x_offset]
         to[6] = from[i + _velocity_y_offset]
         to[7] = from[i + _radius_offset]
+        to[8] = from[i + _opacity_offset]
     end
 
     self._data_mesh:replace_data(self._data_mesh_data)
@@ -475,11 +512,16 @@ do -- update helpers
             return 0, 0, 0, 0
         end
 
-        local len = math.sqrt(len_sq)
+        local len = math.sqrt(vx*vx + vy*vy)
         vx = vx / len
         vy = vy / len
 
-        -- perpendicular to current segment
+        if vx * target_dx + vy * target_dy < 0 then
+            vx = -vx
+            vy = -vy
+        end
+
+        -- perpendicular
         local px = -vy
         local py =  vx
 
@@ -513,6 +555,55 @@ do -- update helpers
         return axc, ayc, bxc, byc
     end
 
+    local _enforce_line_collision = function(
+        x, y, radius, inverse_mass,
+        line_contact_x, line_contact_y,
+        line_normal_x, line_normal_y,
+        compliance
+    )
+        -- Degenerate normal → no correction
+        local n_len = math.magnitude(line_normal_x, line_normal_y)
+        if n_len < math.eps then
+            return 0.0, 0.0
+        end
+
+        -- Normalize normal
+        local nx = line_normal_x / n_len
+        local ny = line_normal_y / n_len
+
+        -- Signed distance along normal from line to particle center
+        local rx = x - line_contact_x
+        local ry = y - line_contact_y
+        local s = rx * nx + ry * ny
+
+        -- Violation of constraint n·(p - c) - r >= 0
+        local violation = s - radius
+
+        -- If satisfied or particle is immovable, nothing to do
+        if violation >= 0.0 or inverse_mass <= 0.0 then
+            return 0.0, 0.0
+        end
+
+        -- XPBD solve: delta_p = n * correction * inverse_mass
+        local mass_sum = inverse_mass
+        local divisor = mass_sum + compliance
+        if divisor < math.eps then
+            return 0.0, 0.0
+        end
+
+        -- correction magnitude in constraint space
+        local correction = -violation / divisor
+
+        -- Clamp to avoid overshoot/instability (mirrors distance constraint style)
+        local max_correction = math.abs(violation)
+        correction = math.clamp(correction, -max_correction, max_correction)
+
+        -- Apply to particle (line has zero inverse mass)
+        local dx = nx * correction * inverse_mass
+        local dy = ny * correction * inverse_mass
+
+        return dx, dy
+    end
 
     local function _post_solve(particles, n_particles, delta)
         for particle_i = 1, n_particles do
@@ -528,24 +619,27 @@ do -- update helpers
         end
     end
 
-    --- @brief
+    -- Inside the PlayerBody:_step method, integrate collision resolution
     function rt.PlayerBody:_step(delta)
         local damping = 1 - 0.1
-        local n_sub_steps = 1
-        local n_constraint_iterations = 5
+        local n_sub_steps = 2
+        local n_constraint_iterations = 4
 
         local sub_delta = delta / n_sub_steps
 
         -- compliance alphas, pre-calculated
-        local distance_compliance = 0.000 / (sub_delta^2)
+        local distance_compliance = 0 / (sub_delta^2)
         local bending_compliance  = 0.001 / (sub_delta^2)
         local inverse_kinematics_compliance = 0.00001 / (sub_delta^2)
+
+        -- collision compliance (0 = hard barrier; increase slightly for softness if desired)
+        local collision_compliance = 0.0 / (sub_delta^2)
 
         local data = self._particle_data
         local n_particles = self._n_particles
 
         local gravity_dx, gravity_dy = 0, 1
-        local gravity = 1
+        local gravity = 250
 
         for _ = 1, n_sub_steps do
             _pre_solve(
@@ -565,6 +659,7 @@ do -- update helpers
                     data[anchor_i + _x_offset] = anchor_x
                     data[anchor_i + _y_offset] = anchor_y
 
+                    -- segment distance constraints
                     for node_i = rope.start_i, rope.end_i - 1, 1 do
                         local i1 = _particle_i_to_data_offset(node_i + 0)
                         local i2 = _particle_i_to_data_offset(node_i + 1)
@@ -592,7 +687,7 @@ do -- update helpers
 
                     if not self._use_contour then goto next_rope end
 
-                    -- enforce bending
+                    -- bending constraints
                     for node_i = rope.start_i, rope.end_i - 2, 1 do
                         local i1 = _particle_i_to_data_offset(node_i + 0)
                         local i2 = _particle_i_to_data_offset(node_i + 1)
@@ -624,45 +719,64 @@ do -- update helpers
                         data[i3 + _y_offset] = cy + c_cy
                     end
 
-                    -- enforce axis
-                    if rope.axis_x ~= 0 and rope.axis_y ~= 0 then
-                        for node_i = rope.start_i, rope.end_i - 1 do
-                            local i1 = _particle_i_to_data_offset(node_i)
-                            local i2 = _particle_i_to_data_offset(node_i + 1)
+                    -- axis alignment (IK-like) constraints
+                    for node_i = rope.start_i, rope.end_i - 1 do
+                        local i1 = _particle_i_to_data_offset(node_i)
+                        local i2 = _particle_i_to_data_offset(node_i + 1)
 
-                            local ax = data[i1 + _x_offset]
-                            local ay = data[i1 + _y_offset]
-                            local bx = data[i2 + _x_offset]
-                            local by = data[i2 + _y_offset]
+                        local ax = data[i1 + _x_offset]
+                        local ay = data[i1 + _y_offset]
+                        local bx = data[i2 + _x_offset]
+                        local by = data[i2 + _y_offset]
 
-                            local wa = data[i1 + _inverse_mass_offset]
-                            local wb = data[i2 + _inverse_mass_offset]
+                        local wa = data[i1 + _inverse_mass_offset]
+                        local wb = data[i2 + _inverse_mass_offset]
 
-                            local segment_length = data[i1 + _segment_length_offset]
+                        local segment_length = data[i1 + _segment_length_offset]
 
-                            local a_cx, a_cy, b_cx, b_cy = _enforce_axis_alignment(
-                                ax, ay, bx, by,
-                                wa, wb,
-                                segment_length,
-                                rope.axis_x, rope.axis_y,
-                                inverse_kinematics_compliance
-                            )
+                        local a_cx, a_cy, b_cx, b_cy = _enforce_axis_alignment(
+                            ax, ay, bx, by,
+                            wa, wb,
+                            segment_length,
+                            rope.axis_x, rope.axis_y,
+                            inverse_kinematics_compliance
+                        )
 
-                            data[i1 + _x_offset] = ax + a_cx
-                            data[i1 + _y_offset] = ay + a_cy
-                            data[i2 + _x_offset] = bx + b_cx
-                            data[i2 + _y_offset] = by + b_cy
-                        end
+                        data[i1 + _x_offset] = ax + a_cx
+                        data[i1 + _y_offset] = ay + a_cy
+                        data[i2 + _x_offset] = bx + b_cx
+                        data[i2 + _y_offset] = by + b_cy
                     end
 
                     ::next_rope::
+                end
+
+                for line in values(self._colliding_lines) do
+                    for particle_i = 1, self._n_particles do
+                        local i = _particle_i_to_data_offset(particle_i)
+
+                        local cx, cy = _enforce_line_collision(
+                            data[i + _x_offset],
+                            data[i + _y_offset],
+                            data[i + _radius_offset] / 2,
+                            data[i + _inverse_mass_offset],
+                            line.contact_x,
+                            line.contact_y,
+                            line.normal_x,
+                            line.normal_y,
+                            collision_compliance
+                        )
+
+                        data[i + _x_offset] = data[i + _x_offset] + cx
+                        data[i + _y_offset] = data[i + _y_offset] + cy
+                    end
                 end
 
                 _post_solve(
                     data, n_particles,
                     sub_delta
                 )
-            end -- ropes
+            end -- constraint iterations
         end -- n sub steps
 
         self:_update_data_mesh()
@@ -674,8 +788,8 @@ end
 function rt.PlayerBody:draw_body()
     if self._render_texture_needs_update then
         love.graphics.push("all")
-        love.graphics.setBlendMode("add", "premultiplied")
         love.graphics.reset()
+        love.graphics.setBlendMode("add", "premultiplied")
 
         local texture_w, texture_h = self._body_render_texture:get_size()
         love.graphics.translate(
@@ -692,29 +806,61 @@ function rt.PlayerBody:draw_body()
         self._instance_mesh:draw_instanced(self._n_particles)
         _instance_draw_shader:unbind()
 
+        if self._use_contour then
+            love.graphics.circle("fill", self._position_x, self._position_y, rt.settings.player.radius * rt.settings.player.bubble_radius_factor)
+        elseif self._core_vertices ~= nil then
+            love.graphics.push()
+            love.graphics.translate(self._position_x, self._position_y)
+            love.graphics.polygon("fill", self._core_vertices)
+            love.graphics.pop()
+        end
+
         self._body_render_texture:unbind()
         love.graphics.pop() -- all
     end
 
     love.graphics.push()
-
     local texture_w, texture_h = self._body_render_texture:get_size()
     love.graphics.translate(self._position_x - 0.5 * texture_w, self._position_y - 0.5 * texture_w)
-    rt.Palette.TRUE_WHITE:bind()
+    _threshold_shader:send("body_color", { self._body_color:unpack() })
+    _threshold_shader:send("outline_color", { self._core_color:unpack() })
     _threshold_shader:bind()
     self._body_render_texture:draw()
+    _threshold_shader:unbind()
     love.graphics.pop()
 end
 
 --- @brief
 function rt.PlayerBody:draw_core()
     if self._core_vertices == nil then return end
-    love.graphics.push("all")
+
+    love.graphics.push()
     self._core_color:bind()
 
     love.graphics.translate(self._position_x, self._position_y)
-    --love.graphics.polygon("fill", self._core_vertices)
+
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineWidth(rt.settings.player_body.core_outline_width * 2)
+    love.graphics.line(self._core_vertices)
+
+    _core_shader:bind()
+    _core_shader:send("hue", self._hue)
+    _core_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    love.graphics.polygon("fill", self._core_vertices)
+    _core_shader:unbind()
+
     love.graphics.pop()
+
+    for line in values(self._colliding_lines) do
+        local left_x, left_y = math.turn_left(line.normal_x, line.normal_y)
+        local right_x, right_y = math.turn_right(line.normal_x, line.normal_y)
+        love.graphics.line(
+            line.contact_x + left_x * 100,
+            line.contact_y + left_y * 100,
+            line.contact_x + right_x * 100,
+            line.contact_y + right_y * 100
+        )
+    end
 end
 
 --- @brief
@@ -736,6 +882,7 @@ end
 function rt.PlayerBody:set_color(color)
     meta.assert(color, rt.RGBA)
     self._core_color = color
+    self._hue = select(3, rt.rgba_to_lcha(self._core_color:unpack()))
 end
 
 --- @brief
@@ -761,7 +908,18 @@ end
 
 --- @brief
 function rt.PlayerBody:draw_bloom()
+    if self._core_vertices == nil then return end
 
+    love.graphics.push()
+    self._core_color:bind()
+
+    love.graphics.translate(self._position_x, self._position_y)
+
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineWidth(rt.settings.player_body.core_outline_width * 2)
+    love.graphics.line(self._core_vertices)
+
+    love.graphics.pop()
 end
 
 --- @brief
