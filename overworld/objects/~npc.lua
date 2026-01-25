@@ -32,7 +32,6 @@ function ow.NPC:instantiate(object, stage, scene)
     self._radius = radius_factor * self._scene:get_player():get_radius()
     self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
     self._graphics_body = rt.PlayerBody()
-    self._graphics_body:set_world(self._world)
     self._graphics_body:set_gravity(0, 0)
 
     local bottom_x, bottom_y = self._world:query_ray(self._x, self._y, 0, 1 * 10e8)

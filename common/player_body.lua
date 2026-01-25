@@ -5,59 +5,147 @@ rt.settings.player_body = {
     outline_darkening = 0.5,
 
     particle_texture_scale = 1,
-    core_outline_width = 0.5,
+    core_outline_width = 2,
 
     contour_threshold = 0.05,
     threshold = 0.4,
 
-    max_rope_length_radius_factor = 4.5,
+    texture_scale = 2,
+
     particle_texture_radius_factor = 1,
     contour_radius_factor = 2,
 
     n_rings = 4,
     rope_radius = 3,
+    max_rope_length = 56,
+
+    contour_inflation_speed = 2, -- fraction
+    contour_deflation_speed = 1, -- fraction
+    squish_speed = 4, -- fraction
+    squish_magnitude = 0.16, -- fraction
+
+    relative_velocity_influence = 1 / 3, -- [0, 1] where 0 no influence
 
     non_contour = {
         n_sub_steps = 2,
-        n_constraint_iterations = 4,
+        n_constraint_iterations = 5,
+        damping = 1 - 0.2,
 
         distance_compliance = 0,
-        bending_compliance = 0.001,
-        axis_compliance = 0.05,
-        collision_compliance = 0.01,
-        damping = 1 - 0.1,
-        gravity = 250
+        bending_compliance = 1,
+        axis_compliance = 1,
+        collision_compliance = 0.05,
+
+        gravity = 500
     },
 
     contour = {
-        collision_compliance = 120,
-        axis_compliance = 0.00001,
+        n_sub_steps = 2,
+        n_constraint_iterations = 5,
+        damping = 1 - 0.2,
+
+        distance_compliance = 0,
+        bending_compliance = 1,
+        axis_compliance = 0,
+        collision_compliance = 0.05,
+
         gravity = 0
     }
 }
 
-do
-    -- copy settings if unassigned
-    local from, to = rt.settings.player_body.non_contour, rt.settings.player_body.contour
-    for k, v in pairs(from) do if to[k] == nil then to[k] = v end end
-end
-
 --- @class rt.PlayerBody
 rt.PlayerBody = meta.class("PlayerBody")
+
+local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl")
+local _instance_draw_shader = rt.Shader("common/player_body_instanced_draw.glsl")
+local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
+local _outline_shader = rt.Shader("common/player_body_outline.glsl")
+local _core_shader = rt.Shader("common/player_body_core.glsl")
 
 --- @brief
 function rt.PlayerBody:instantiate(position_x, position_y)
     meta.assert(position_x, "Number", position_y, "Number")
     self._position_x = position_x
     self._position_y = position_y
+    self._relative_velocity_x = 0
+    self._relative_velocity_y = 0
 
     self._core_vertices = nil
+    self._core_outline_scale = 1
     self._core_color = rt.Palette.WHITE
     self._body_color = rt.Palette.BLACK
+    self._opacity = 1
+    self._saturation = 1
+
+    local squish_speed = rt.settings.player_body.squish_speed
+
+    self._down_squish = false
+    self._down_squish_normal_x = nil
+    self._down_squish_normal_y = nil
+    self._down_squish_origin_x = nil
+    self._down_squish_normal_y = nil
+    self._down_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
+
+    self._left_squish = false
+    self._left_squish_normal_x = nil
+    self._left_squish_normal_y = nil
+    self._left_squish_origin_x = nil
+    self._left_squish_normal_y = nil
+    self._left_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
+
+    self._right_squish = false
+    self._right_squish_normal_x = nil
+    self._right_squish_normal_y = nil
+    self._right_squish_origin_x = nil
+    self._right_squish_normal_y = nil
+    self._right_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
+
+    self._up_squish = false
+    self._up_squish_normal_x = nil
+    self._up_squish_normal_y = nil
+    self._up_squish_origin_x = nil
+    self._up_squish_normal_y = nil
+    self._up_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
 
     self._stencil_bodies = {}
     self._use_contour = true
+    self._contour_transition_motion = rt.SmoothedMotion1D(0)
+    self._contour_transition_motion:set_speed(
+        rt.settings.player_body.contour_inflation_speed,
+        rt.settings.player_body.contour_deflation_speed
+    )
+    
+    self._particle_data = {}
+    self._ropes = {}
+    self._n_particles = 0
+    
+    self._colliding_lines = {} -- Table<Tuple<4>>
+    self._colliding_lines_to_lambda = {}
+    
+    self._particle_texture_radius = nil -- Number
+    self._particle_texture = nil -- rt.RenderTexture
+    
+    self._body_texture = nil -- rt.RenderTexture
+    self._body_outline_texture = nil -- rt.RenderTexture
+    self._render_texture_needs_update = false
+    
+    self._instance_mesh = nil -- rt.Mesh
+    self._data_mesh_format = nil -- cf. _initialize
+    self._data_mesh_data = {}
+    self._data_mesh = nil -- rt.Mesh
+    
+    self._particle_i_to_data_mesh_position = {}
 
+
+    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
+        if which == "k" then
+            for shader in range(_particle_texture_shader, _instance_draw_shader, _threshold_shader, _outline_shader, _core_shader) do
+                shader:recompile()
+            end
+            self:_initialize()
+        end
+    end)
+    
     self:_initialize()
 end
 
@@ -84,20 +172,6 @@ local _particle_i_to_data_offset = function(particle_i)
     return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
-local _particle_texture_shader = rt.Shader("common/player_body_particle_texture.glsl")
-local _instance_draw_shader = rt.Shader("common/player_body_instanced_draw.glsl")
-local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
-local _outline_shader = rt.Shader("common/player_body_outline.glsl")
-local _core_shader = rt.Shader("common/player_body_core.glsl")
-
-DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-    if which == "k" then
-        for shader in range(_particle_texture_shader, _instance_draw_shader, _threshold_shader, _outline_shader, _core_shader) do
-            shader:recompile()
-        end
-    end
-end)
-
 --- @brief
 function rt.PlayerBody:_initialize()
     local settings = rt.settings.player_body
@@ -105,10 +179,7 @@ function rt.PlayerBody:_initialize()
     self._particle_data = {}
     self._ropes = {}
 
-    local body_radius = rt.settings.player.radius
-    local max_rope_length = math.floor(settings.max_rope_length_radius_factor * body_radius) - 1
-
-    local particle_texture_radius = settings.particle_texture_radius_factor * rt.settings.player.radius - 1
+    local particle_texture_radius = rt.settings.player_body.particle_texture_radius * rt.settings.player.radius - 1
     self._particle_texture_radius = particle_texture_radius
 
     do -- particle texture
@@ -132,16 +203,20 @@ function rt.PlayerBody:_initialize()
         love.graphics.pop()
     end
 
+    local body_radius = rt.settings.player.radius
+    local max_rope_length = rt.settings.player_body.max_rope_length
+
+
     local max_particle_distance = -math.huge
     local max_particle_radius = -math.huge
 
     local radius_easing = function(i, n)
+        -- don't ask
         local t = ((i - 1) / n)
-
-        local function f(x) return x^-x  end
-        t = f(t + (1 / math.exp(1))) * math.exp(-t^2)
-
-        return particle_texture_radius * t
+        local function f(x) return (1 - x) * math.exp(-x^2) end
+        local sqrt3 = math.sqrt(3)
+        local result = 1 + math.exp(-t^2) * f((0.5 * (1 + sqrt3) * t) + (0.5 - (sqrt3 / 2)))
+        return 1 / math.sqrt(2) * result
     end
 
     local contour_radius = settings.contour_radius_factor * particle_texture_radius
@@ -151,7 +226,7 @@ function rt.PlayerBody:_initialize()
     end
 
     local opacity_easing = function(i, n)
-        return 1 - ((i - 1) / n)
+        return (1 - ((i - 1) / n))
     end
 
     local fraction_to_rope_length = function(t)
@@ -168,6 +243,8 @@ function rt.PlayerBody:_initialize()
 
     do -- particles
         local particle_n = 1
+        self._particle_data = {}
+
         local add_rope = function(
             n_particles,
             length, contour_length,
@@ -203,7 +280,7 @@ function rt.PlayerBody:_initialize()
                 data[i + _previous_x_offset] = x
                 data[i + _previous_y_offset] = y
 
-                local radius = radius_easing(rope_node_i, n_particles)
+                local radius = particle_texture_radius * radius_easing(rope_node_i, n_particles)
                 max_particle_radius = math.max(max_particle_radius, radius, contour_radius)
                 data[i + _radius_offset] = radius
                 data[i + _contour_radius_offset] = contour_radius
@@ -244,19 +321,30 @@ function rt.PlayerBody:_initialize()
         do
             local n_rings = settings.n_rings
             local rope_r = settings.rope_radius
+            local max_length = -math.huge
             for ring_i = 1, n_rings do
                 local ring_t = (ring_i - 1) / n_rings
                 local ring_r = (1 - ring_t) * body_radius / n_rings
                 local n_ropes = math.max(3, math.ceil((2 * math.pi * ring_r) / rope_r))
                 if n_ropes % 2 == 0 then n_ropes = n_ropes + 1 end
                 local rope_length = fraction_to_rope_length(ring_t)
+                max_length = math.max(max_length, rope_length)
+
                 local n_nodes = rope_length_to_n_nodes(rope_length)
+
+                -- Calculate total radius contribution for this rope
+                local total_radius = 0
+                for node_i = 1, n_nodes do
+                    local radius = particle_texture_radius * radius_easing(node_i, n_nodes)
+                    total_radius = total_radius + radius
+                end
 
                 for rope_i = 1, n_ropes do
                     local angle = (rope_i - 1) / n_ropes * 2 * math.pi
                     local dx, dy = math.cos(angle), math.sin(angle)
                     local anchor_x, anchor_y = 0 + dx * ring_r, 0 + dy * ring_r
-                    local contour_length = contour_max_length - math.magnitude(anchor_x, anchor_y) - contour_radius / 2
+                    local contour_length = contour_max_length - total_radius - math.magnitude(anchor_x, anchor_y)
+
                     add_rope(
                         n_nodes,
                         rope_length, contour_length,
@@ -271,18 +359,20 @@ function rt.PlayerBody:_initialize()
     end
 
     do -- render textures
+        local texture_scale = settings.texture_scale
+
         local texture_r = max_particle_distance
         local padding = max_particle_radius
-        local texture_w = 2 * (texture_r + padding)
+        local texture_w = 2 * (texture_r + padding) * texture_scale
         local texture_h = texture_w
 
-        self._body_render_texture = rt.RenderTexture(
+        self._body_texture = rt.RenderTexture(
             texture_w, texture_h,
             0,
             rt.TextureFormat.R32F
         )
 
-        self._body_outline_render_texture = rt.RenderTexture(
+        self._body_outline_texture = rt.RenderTexture(
             texture_w, texture_h
         )
 
@@ -315,10 +405,9 @@ function rt.PlayerBody:_initialize()
 
     do -- data mesh
         self._data_mesh_format = {
-            { location = 3, name = "position", format = "floatvec4" }, -- xy: position, zw: previous position
-            { location = 4, name = "velocity", format = "floatvec2" },
-            { location = 5, name = "radius", format = "floatvec2" }, -- x: regular, y: contour
-            { location = 6, name = "opacity", format = "float" }
+            { location = 3, name = "position", format = "floatvec2" }, -- xy: position
+            { location = 4, name = "radius", format = "floatvec2" }, -- x: regular, y: contour
+            { location = 5, name = "opacity", format = "float" }
         }
 
         self._particle_i_to_data_mesh_position = {}
@@ -342,10 +431,6 @@ function rt.PlayerBody:_initialize()
             table.insert(self._data_mesh_data, {
                 data[i + _x_offset],
                 data[i + _y_offset],
-                data[i + _previous_x_offset],
-                data[i + _previous_y_offset],
-                data[i + _velocity_x_offset],
-                data[i + _velocity_y_offset],
                 data[i + _radius_offset],
                 data[i + _contour_radius_offset],
                 data[i + _opacity_offset]
@@ -385,7 +470,7 @@ function rt.PlayerBody:set_colliding_lines(t)
     self._colliding_lines = t or {}
 
     -- Allocate XPBD collision lambdas: [line_i][particle_i]
-    self._collision_lambdas = {}
+    self._colliding_lines_to_lambda = {}
     local n_lines = #self._colliding_lines
     local n_particles = self._n_particles or 0
     for line_i = 1, n_lines do
@@ -393,7 +478,7 @@ function rt.PlayerBody:set_colliding_lines(t)
         for particle_i = 1, n_particles do
             row[particle_i] = 0.0
         end
-        self._collision_lambdas[line_i] = row
+        self._colliding_lines_to_lambda[line_i] = row
     end
 end
 
@@ -406,13 +491,9 @@ function rt.PlayerBody:_update_data_mesh()
         local i = _particle_i_to_data_offset(mapped_i)
         to[1] = from[i + _x_offset]
         to[2] = from[i + _y_offset]
-        to[3] = from[i + _previous_x_offset]
-        to[4] = from[i + _previous_y_offset]
-        to[5] = from[i + _velocity_x_offset]
-        to[6] = from[i + _velocity_y_offset]
-        to[7] = from[i + _radius_offset]
-        to[8] = from[i + _contour_radius_offset]
-        to[9] = from[i + _opacity_offset]
+        to[3] = from[i + _radius_offset]
+        to[4] = from[i + _contour_radius_offset]
+        to[5] = from[i + _opacity_offset]
     end
 
     self._data_mesh:replace_data(self._data_mesh_data)
@@ -429,24 +510,34 @@ function rt.PlayerBody:relax()
             local i = _particle_i_to_data_offset(particle_i)
             data[i + _x_offset] = x
             data[i + _y_offset] = y
+            data[i + _previous_x_offset] = x
+            data[i + _previous_y_offset] = y
+            data[i + _velocity_x_offset] = 0
+            data[i + _velocity_y_offset] = 0
 
-            local segment_length = data[i + _segment_length_offset]
-            x = x + dx * segment_length
-            y = y + dy * segment_length
+            if self._use_contour then
+                local segment_length = data[i + _segment_length_offset]
+                x = x + dx * segment_length
+                y = y + dy * segment_length
+            end
+
         end
     end
 
-    self:_update_data_mesh()
+    self._render_texture_needs_update = true
 end
 
 function rt.PlayerBody:update(delta)
     self:_step(delta)
+
+    self._contour_transition_motion:update(delta)
 end
 
 do -- update helpers (XPBD with lambdas)
     local _pre_solve = function(
         particles, n_particles,
         gravity_x, gravity_y,
+        relative_velocity_x, relative_velocity_y,
         damping, delta
     )
         for particle_i = 1, n_particles do
@@ -456,25 +547,38 @@ do -- update helpers (XPBD with lambdas)
             local velocity_x_i = i + _velocity_x_offset
             local velocity_y_i = i + _velocity_y_offset
 
-            local x, y = particles[x_i], particles[y_i]
+            local x = particles[x_i]
+            local y = particles[y_i]
 
+            -- store previous world positions for velocity update in post-solve
             particles[i + _previous_x_offset] = x
             particles[i + _previous_y_offset] = y
 
-            local velocity_x = particles[velocity_x_i] * damping
-            local velocity_y = particles[velocity_y_i] * damping
+            -- world velocity from previous step
+            local vwx = particles[velocity_x_i]
+            local vwy = particles[velocity_y_i]
 
+            -- convert to frame-relative before damping so the frame motion is not damped
+            local vrx = (vwx - relative_velocity_x) * damping
+            local vry = (vwy - relative_velocity_y) * damping
+
+            -- integrate external acceleration (gravity); y-down so positive gravity_y accelerates downward
             local mass = particles[i + _mass_offset]
-            velocity_x = velocity_x + mass * gravity_x * delta
-            velocity_y = velocity_y + mass * gravity_y * delta
+            vrx = vrx + mass * gravity_x * delta
+            vry = vry + mass * gravity_y * delta
 
-            particles[velocity_x_i] = velocity_x
-            particles[velocity_y_i] = velocity_y
+            -- convert back to world velocity for advection and storage
+            local vwx_new = vrx + relative_velocity_x
+            local vwy_new = vry + relative_velocity_y
 
-            particles[x_i] = x + delta * velocity_x
-            particles[y_i] = y + delta * velocity_y
+            particles[velocity_x_i] = vwx_new
+            particles[velocity_y_i] = vwy_new
 
-            -- reset lambdas
+            -- predict positions in world space (advected by frame)
+            particles[x_i] = x + vwx_new * delta
+            particles[y_i] = y + vwy_new * delta
+
+            -- reset XPBD lambdas per particle
             particles[i + _distance_lambda_offset] = 0
             particles[i + _bending_lambda_offset] = 0
             particles[i + _axis_lambda_offset] = 0
@@ -697,18 +801,22 @@ do -- update helpers (XPBD with lambdas)
         local gravity_dx, gravity_dy = 0, 1
         local gravity = settings.gravity
 
+        local t = 1 - math.clamp(rt.settings.player_body.relative_velocity_influence, 0, 1)
+        local relative_velocity_x, relative_velocity_y = t * self._relative_velocity_x, t * self._relative_velocity_y
+
         for _ = 1, n_sub_steps do
             _pre_solve(
                 data, n_particles,
                 gravity_dx * gravity, gravity_dy * gravity,
+                relative_velocity_x, relative_velocity_y,
                 damping,
                 sub_delta
             )
 
             -- reset collision lambdas
-            if self._collision_lambdas ~= nil then
-                for line_i = 1, #self._collision_lambdas do
-                    local row = self._collision_lambdas[line_i]
+            if self._colliding_lines_to_lambda ~= nil then
+                for line_i = 1, #self._colliding_lines_to_lambda do
+                    local row = self._colliding_lines_to_lambda[line_i]
                     if row ~= nil then
                         for particle_i = 1, n_particles do
                             row[particle_i] = 0.0
@@ -834,7 +942,7 @@ do -- update helpers (XPBD with lambdas)
 
                 -- collisions (XPBD inequality per line, per particle)
                 for li, line in ipairs(self._colliding_lines or {}) do
-                    local row = self._collision_lambdas and self._collision_lambdas[li]
+                    local row = self._colliding_lines_to_lambda and self._colliding_lines_to_lambda[li]
                     for particle_i = 1, self._n_particles do
                         local i = _particle_i_to_data_offset(particle_i)
 
@@ -874,9 +982,14 @@ do -- update helpers (XPBD with lambdas)
             )
         end -- n sub steps
 
-        self:_update_data_mesh()
         self._render_texture_needs_update = true
     end
+
+    -- export for other classes to use
+    rt.PlayerBody._enforce_distance = _enforce_distance_xpbd
+    rt.PlayerBody._enforce_axis_alignment = _enforce_axis_alignment_xpbd
+    rt.PlayerBody._enforce_bending = _enforce_bending_xpbd
+    rt.PlayerBody._enforce_line_collision_xpbd = _enforce_line_collision_xpbd
 end
 
 --- @brief
@@ -885,18 +998,102 @@ function rt.PlayerBody:set_stencil_bodies(t)
 end
 
 --- @brief
+function rt.PlayerBody:_apply_squish()
+    if self._use_contour then return end
+
+    local magnitude = rt.settings.player_body.squish_magnitude
+    local radius = rt.settings.player.radius
+
+    local function apply(is_enabled, motion, nx, ny, ox, oy, default_nx, default_ny, default_ox, default_oy)
+        if not is_enabled or motion == nil or motion.get_value == nil then return end
+        local amount = motion:get_value()
+        if amount <= 0 then return end
+
+        -- pick fallbacks if values aren't provided yet
+        local squish_nx = nx or default_nx
+        local squish_ny = ny or default_ny
+        local origin_x = ox or default_ox
+        local origin_y = oy or default_oy
+
+        -- normalize normal to avoid scaling artifacts
+        local nlen = math.sqrt((squish_nx or 0)^2 + (squish_ny or 0)^2)
+        if nlen < 1e-6 then return end
+        squish_nx, squish_ny = squish_nx / nlen, squish_ny / nlen
+
+        -- rotate so x-axis aligns with normal, scale x only (compress along normal),
+        -- then rotate back, around the contact point in world-space.
+        local angle = math.angle(squish_nx, squish_ny)
+        local sx = 1 - magnitude * amount
+        -- avoid flipping or killing the object entirely
+
+        love.graphics.translate(origin_x, origin_y)
+        love.graphics.rotate(angle)
+        love.graphics.scale(sx, 1)
+        love.graphics.rotate(-angle)
+        love.graphics.translate(-origin_x, -origin_y)
+    end
+
+    -- Down (floor)
+    apply(
+        self._down_squish,
+        self._down_squish_motion,
+        self._down_squish_normal_x, self._down_squish_normal_y,
+        self._down_squish_origin_x, self._down_squish_origin_y,
+        0, -1,
+        self._position_x, self._position_y + 0.5 * radius
+    )
+
+    -- Left (left wall)
+    apply(
+        self._left_squish,
+        self._left_squish_motion,
+        self._left_squish_normal_x, self._left_squish_normal_y,
+        self._left_squish_origin_x, self._left_squish_origin_y,
+        1, 0,
+        self._position_x - 0.5 * radius, self._position_y
+    )
+
+    -- Right (right wall)
+    apply(
+        self._right_squish,
+        self._right_squish_motion,
+        self._right_squish_normal_x, self._right_squish_normal_y,
+        self._right_squish_origin_x, self._right_squish_origin_y,
+        -1, 0,
+        self._position_x + 0.5 * radius, self._position_y
+    )
+
+    -- Up (ceiling)
+    apply(
+        self._up_squish,
+        self._up_squish_motion,
+        self._up_squish_normal_x, self._up_squish_normal_y,
+        self._up_squish_origin_x, self._up_squish_origin_y,
+        0, 1,
+        self._position_x, self._position_y - 0.5 * radius
+    )
+end
+
+--- @brief
 function rt.PlayerBody:draw_body()
     if self._render_texture_needs_update then
+        self:_update_data_mesh()
+
         love.graphics.push("all")
         love.graphics.reset()
         love.graphics.setBlendMode("add", "premultiplied")
 
-        local texture_w, texture_h = self._body_render_texture:get_size()
+        local w, h = self._body_texture:get_size()
+        local texture_scale = rt.settings.player_body.texture_scale
+        love.graphics.translate(0.5 * w, 0.5 * h)
+        love.graphics.scale(texture_scale, texture_scale)
+        love.graphics.translate(-0.5 * w, -0.5 * h)
+
         love.graphics.translate(
-            -1 * self._position_x + 0.5 * texture_w,
-            -1 * self._position_y + 0.5 * texture_h
+            -1 * self._position_x + 0.5 * w,
+            -1 * self._position_y + 0.5 * h
         )
-        self._body_render_texture:bind()
+        self._body_texture:bind()
         love.graphics.clear(0, 0, 1, 0)
 
         local stencil_value = rt.graphics.get_stencil_value()
@@ -909,72 +1106,75 @@ function rt.PlayerBody:draw_body()
         rt.Palette.TRUE_WHITE:bind()
         _instance_draw_shader:bind()
         _instance_draw_shader:send("texture_scale", rt.settings.player_body.particle_texture_scale)
-        _instance_draw_shader:send("interpolation_alpha", 1)
-        _instance_draw_shader:send("use_contour", self._use_contour)
+        _instance_draw_shader:send("contour_interpolation_factor", self._contour_transition_motion:get_value())
         self._instance_mesh:draw_instanced(self._n_particles)
         _instance_draw_shader:unbind()
 
         rt.graphics.set_stencil_mode(nil)
 
-        self._body_render_texture:unbind()
+        self._body_texture:unbind()
         love.graphics.pop()
 
         -- threshold for outline
         love.graphics.push("all")
         love.graphics.reset()
-        self._body_outline_render_texture:bind()
+        self._body_outline_texture:bind()
         love.graphics.clear(0, 0, 0, 0)
         _threshold_shader:bind()
         _threshold_shader:send("threshold", ternary(self._use_contour, rt.settings.player_body.contour_threshold, rt.settings.player_body.threshold))
-        self._body_render_texture:draw()
+        self._body_texture:draw()
         _threshold_shader:unbind()
-        self._body_outline_render_texture:unbind()
+        self._body_outline_texture:unbind()
         love.graphics.pop()
     end
 
     love.graphics.push()
-    local texture_w, texture_h = self._body_render_texture:get_size()
-    love.graphics.translate(self._position_x - 0.5 * texture_w, self._position_y - 0.5 * texture_w)
-    _outline_shader:send("body_color", { self._body_color:unpack() })
-    _outline_shader:send("outline_color", { self._core_color:unpack() })
+    local w, h = self._body_texture:get_size()
+    local texture_scale = rt.settings.player_body.texture_scale
+    self:_apply_squish()
+
+    love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
+    love.graphics.translate(0.5 * w, 0.5 * h)
+    love.graphics.scale(1 / texture_scale, 1 / texture_scale)
+    love.graphics.translate(-0.5 * w, -0.5 * h)
+
+    local body_r, body_g, body_b, body_a = self._body_color:unpack()
+    local outline_r, outline_g, outline_b, outline_a = self._core_color:unpack()
+    _outline_shader:send("body_color", { body_r, body_g, body_b, body_a * self._opacity })
+    _outline_shader:send("outline_color", { outline_r, outline_g, outline_b, outline_a * self._opacity })
     _outline_shader:bind()
-    self._body_outline_render_texture:draw()
+    self._body_outline_texture:draw()
     _outline_shader:unbind()
     love.graphics.pop()
 end
 
 --- @brief
+-- Ensure core is squished as well (call before translating to the player's local space).
 function rt.PlayerBody:draw_core()
     if self._core_vertices == nil then return end
 
     love.graphics.push()
-    self._core_color:bind()
+    self:_apply_squish()
+
+    local core_r, core_g, core_b, core_a = self._core_color:unpack()
 
     love.graphics.translate(self._position_x, self._position_y)
 
-    love.graphics.setLineJoin("bevel")
-    love.graphics.setLineWidth(rt.settings.player_body.core_outline_width * 2)
-    love.graphics.line(self._core_vertices)
+    love.graphics.push()
+    love.graphics.scale(self._core_outline_scale, self._core_outline_scale)
+    love.graphics.setColor(core_r, core_g, core_b, core_a * self._opacity)
+    love.graphics.polygon("fill", self._core_vertices)
+    love.graphics.pop()
 
     _core_shader:bind()
     _core_shader:send("hue", self._hue)
     _core_shader:send("elapsed", rt.SceneManager:get_elapsed())
+    _core_shader:send("saturation", self._saturation)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.polygon("fill", self._core_vertices)
     _core_shader:unbind()
 
     love.graphics.pop()
-
-    for line in values(self._colliding_lines) do
-        local left_x, left_y = math.turn_left(line.normal_x, line.normal_y)
-        local right_x, right_y = math.turn_right(line.normal_x, line.normal_y)
-        love.graphics.line(
-            line.contact_x + left_x * 100,
-            line.contact_y + left_y * 100,
-            line.contact_x + right_x * 100,
-            line.contact_y + right_y * 100
-        )
-    end
 end
 
 --- @brief
@@ -983,13 +1183,15 @@ function rt.PlayerBody:set_position(x, y)
     self._position_y = y
 end
 
---- @brief
 function rt.PlayerBody:set_shape(positions)
     self._core_vertices = positions
-end
+    local max_r = -math.huge
+    for i = 1, #positions, 2 do
+        max_r = math.max(max_r, math.distance(positions[i+0], positions[i+1], 0, 0))
+    end
 
-rt.PlayerBody.update_rope = function(data)
-
+    local outline_width = rt.settings.player_body.core_outline_width
+    self._core_outline_scale = 1 + (outline_width / max_r)
 end
 
 --- @brief
@@ -1007,17 +1209,18 @@ end
 
 --- @brief
 function rt.PlayerBody:set_core_color(color)
-
+    self._core_color = color
 end
 
 --- @brief
 function rt.PlayerBody:set_opacity(opacity)
-
+    self._opacity = opacity
 end
 
 --- @brief
 function rt.PlayerBody:set_use_contour(b)
     self._use_contour = b
+    self._contour_transition_motion:set_target_value(ternary(b, 1, 0))
 end
 
 --- @brief
@@ -1025,40 +1228,84 @@ function rt.PlayerBody:draw_bloom()
     if self._core_vertices == nil then return end
 
     love.graphics.push()
-    self._core_color:bind()
-
-    love.graphics.translate(self._position_x, self._position_y)
-
-    love.graphics.setLineJoin("bevel")
-    love.graphics.setLineWidth(rt.settings.player_body.core_outline_width * 2)
-    love.graphics.line(self._core_vertices)
-
+    local w, h = self._body_texture:get_size()
+    local texture_scale = rt.settings.player_body.texture_scale
+    love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
+    love.graphics.translate(0.5 * w, 0.5 * h)
+    love.graphics.scale(1 / texture_scale, 1 / texture_scale)
+    love.graphics.translate(-0.5 * w, -0.5 * h)
+    _outline_shader:send("body_color", { 0, 0, 0, 0 })
+    _outline_shader:send("outline_color", { self._core_color:unpack() })
+    _outline_shader:bind()
+    self._body_outline_texture:draw()
+    _outline_shader:unbind()
     love.graphics.pop()
 end
 
 --- @brief
 function rt.PlayerBody:set_relative_velocity(vx, vy)
-
+    self._relative_velocity_x = vx
+    self._relative_velocity_y = vy
 end
 
 --- @brief
 function rt.PlayerBody:set_down_squish(b, nx, ny, contact_x, contact_y)
+    self._down_squish = b
+    self._down_squish_normal_x = nx or self._down_squish_normal_x
+    self._down_squish_normal_y = ny or self._down_squish_normal_y
+    self._down_squish_origin_x = contact_x or self._down_squish_origin_x
+    self._down_squish_origin_y = contact_y or self._down_squish_origin_y
 
+    if b == true then
+        self._down_squish_motion:set_target_value(1)
+    else
+        self._down_squish_motion:set_target_value(0)
+    end
 end
 
 --- @brief
 function rt.PlayerBody:set_left_squish(b, nx, ny, contact_x, contact_y)
+    self._left_squish = b
+    self._left_squish_normal_x = nx or self._left_squish_normal_x
+    self._left_squish_normal_y = ny or self._left_squish_normal_y
+    self._left_squish_origin_x = contact_x or self._left_squish_origin_x
+    self._left_squish_origin_y = contact_y or self._left_squish_origin_y
 
+    if b == true then
+        self._left_squish_motion:set_target_value(1)
+    else
+        self._left_squish_motion:set_target_value(0)
+    end
 end
 
 --- @brief
 function rt.PlayerBody:set_right_squish(b, nx, ny, contact_x, contact_y)
+    self._right_squish = b
+    self._right_squish_normal_x = nx or self._right_squish_normal_x
+    self._right_squish_normal_y = ny or self._right_squish_normal_y
+    self._right_squish_origin_x = contact_x or self._right_squish_origin_x
+    self._right_squish_origin_y = contact_y or self._right_squish_origin_y
 
+    if b == true then
+        self._right_squish_motion:set_target_value(1)
+    else
+        self._right_squish_motion:set_target_value(0)
+    end
 end
 
 --- @brief
 function rt.PlayerBody:set_up_squish(b, nx, ny, contact_x, contact_y)
+    self._up_squish = b
+    self._up_squish_normal_x = nx or self._up_squish_normal_x
+    self._up_squish_normal_y = ny or self._up_squish_normal_y
+    self._up_squish_origin_x = contact_x or self._up_squish_origin_x
+    self._up_squish_origin_y = contact_y or self._up_squish_origin_y
 
+    if b == true then
+        self._up_squish_motion:set_target_value(1)
+    else
+        self._up_squish_motion:set_target_value(0)
+    end
 end
 
 --- @brief
@@ -1074,12 +1321,4 @@ end
 --- @brief
 function rt.PlayerBody:get_saturation()
     return self._saturation
-end
-
---- @brief
-function rt.PlayerBody:set_world(physics_world)
-end
-
---- @brief
-function rt.PlayerBody:set_use_stencils(b)
 end

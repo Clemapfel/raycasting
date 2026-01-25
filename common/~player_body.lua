@@ -1232,6 +1232,7 @@ function rt.PlayerBody:draw_core()
 
     if self._core_canvas_needs_update then
         self._core_canvas_needs_update = false
+
         -- core canvas for shader inlay
         self._core_canvas:bind()
         love.graphics.clear()

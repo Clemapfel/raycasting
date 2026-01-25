@@ -843,7 +843,6 @@ function rt.Player:update(delta)
 
         local stencils = {}
         do
-            local before = love.timer.getTime()
             local w = 2 * self._bubble_radius
             local h = w
             local mask = bit.bnot(0x0)
@@ -2110,11 +2109,9 @@ function rt.Player:update(delta)
     local color_r, color_g, color_b, _ = self._current_color:unpack()
     if self._stage ~= nil and not self._is_ghost then
         local cx, cy = self:get_position()
-        local radius
-        if not self._is_bubble then
-            radius = math.max(top_ray_length, right_ray_length, bottom_ray_length, left_ray_length)
-        else
-            radius = self:get_radius()
+        local radius = math.max(top_ray_length, right_ray_length, bottom_ray_length, left_ray_length)
+        if self._is_bubble then
+            radius = _settings.radius * _settings.bubble_radius_factor * 0.5
         end
 
         local function _add_blood_splatter(contact_x, contact_y, last_contact_x, last_contact_y)
@@ -2463,8 +2460,6 @@ function rt.Player:move_to_world(world)
     self:set_is_bubble(is_bubble)
     self:set_is_ghost(self._is_ghost)
     self:set_collision_disabled(self._collision_disabled)
-
-    self._graphics_body:set_world(world)
 
     -- reset history
     self._world:signal_connect("step", function()
@@ -3373,6 +3368,9 @@ function rt.Player:reset()
         self._next_sprint_multiplier = 1
         self._next_sprint_multiplier_update_when_grounded = false
     end
+
+    self._graphics_body:set_use_contour(self._is_bubble)
+    self._graphics_body:relax()
 end
 
 --- @brief

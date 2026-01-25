@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 743,
+  nextobjectid = 746,
   properties = {},
   tilesets = {
     {
@@ -232,8 +232,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -1848.51,
-          y = 2965.64,
+          x = -1852.98,
+          y = 2988.29,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2911,6 +2911,53 @@ return {
             ["should_move_in_place"] = false,
             ["velocity"] = 2
           }
+        },
+        {
+          id = 743,
+          name = "",
+          type = "PathNode",
+          shape = "point",
+          x = -2254.94,
+          y = 3649.26,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 744,
+          name = "",
+          type = "Path",
+          shape = "point",
+          x = -3452.43,
+          y = 3213.89,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 743 },
+            ["target"] = { id = 745 }
+          }
+        },
+        {
+          id = 745,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = -3552,
+          y = 3104,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 384, y = 0 },
+            { x = 208, y = 384 }
+          },
+          properties = {}
         }
       }
     },

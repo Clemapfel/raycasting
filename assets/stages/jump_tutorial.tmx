@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="743">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="746">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -40,7 +40,7 @@
   <object id="395" type="SlipperyHitbox" x="2284.9" y="669.242">
    <polygon points="-4.07,0 -4.07,-112 11.93,-128 11.93,-224 -4.07,-240 -4.07,-416 11.93,-432 11.93,-528 -4.07,-544 -4.07,-704 59.934,-704 59.93,48 -4.07,48"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="-1848.51" y="2965.64">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="-1852.98" y="2988.29">
    <point/>
   </object>
   <object id="401" name="Wall Jump 03" type="SlipperyHitbox" x="2093.62" y="524.526">
@@ -502,6 +502,19 @@
     <property name="velocity" type="float" value="2"/>
    </properties>
    <point/>
+  </object>
+  <object id="743" type="PathNode" x="-2254.94" y="3649.26">
+   <point/>
+  </object>
+  <object id="744" type="Path" x="-3452.43" y="3213.89">
+   <properties>
+    <property name="next" type="object" value="743"/>
+    <property name="target" type="object" value="745"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="745" type="MovableHitbox" x="-3552" y="3104">
+   <polygon points="0,0 384,0 208,384"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front">

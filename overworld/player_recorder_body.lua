@@ -36,7 +36,6 @@ function ow.PlayerRecorderBody:instantiate(stage, scene)
     self._max_radius = self._radius * rt.settings.player.bubble_radius_factor
     self._graphics_body = rt.PlayerBody(0, 0)
 
-    self._graphics_body:set_world(stage:get_physics_world())
     self._graphics_body:set_color(self._color)
 
     -- core shape
@@ -135,7 +134,6 @@ function ow.PlayerRecorderBody:initialize(x, y, body_type, is_collidable)
         body:add_tag("slippery", "unjumpable", "unwalkable", "stencil", "core_stencil")
     end
 
-    self._graphics_body:set_use_stencils(false)
     self._graphics_body:set_use_contour(self._is_bubble)
 
     self:set_is_bubble(self._is_bubble)
@@ -156,6 +154,30 @@ function ow.PlayerRecorderBody:update(delta)
     local px, py = body:get_predicted_position()
     self._graphics_body:set_position(px, py)
     self._graphics_body:set_use_contour(self._is_bubble)
+
+    do
+        local stencils = {}
+        local w = 2 * rt.settings.player.radius * rt.settings.player.bubble_radius_factor
+        local h = w
+        local mask = bit.bnot(0x0)
+        mask = bit.band(mask, bit.bnot(rt.settings.player.player_outer_body_collision_group))
+        mask = bit.band(mask, bit.bnot(rt.settings.player.player_collision_group))
+        mask = bit.band(mask, bit.bnot(rt.settings.player.bounce_collision_group))
+
+        local x, y = self:get_position()
+        local bodies = self._world:query_aabb(
+            x - 0.5 * w, y - 0.5 * h, w, h,
+            mask
+        )
+
+        for stencil in values(bodies) do
+            if stencil:has_tag("stencil") and not stencil:get_is_sensor() then
+                table.insert(stencils, stencil)
+            end
+        end
+
+        self._graphics_body:set_stencil_bodies(stencils)
+    end
 
     local run_solver = true
     do
