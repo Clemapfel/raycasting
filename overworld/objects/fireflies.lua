@@ -406,7 +406,7 @@ function ow.Fireflies:draw()
             end
         else
             return entry.follow_x + entry.hover_value_x,
-                entry.follow_y + entry.hover_value_y
+            entry.follow_y + entry.hover_value_y
         end
     end
 
@@ -416,10 +416,10 @@ function ow.Fireflies:draw()
             local blend = math.mix(0.75, 1.25, entry.glow_value)
 
             love.graphics.push()
-            love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
-            love.graphics.translate(get_position(entry))
-
+            local pos_x, pos_y = get_position(entry)
+            love.graphics.translate(pos_x, pos_y)
             love.graphics.scale(entry.scale)
+            love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
 
             local r, g, b, a = entry.color:unpack()
             love.graphics.setColor(
@@ -441,10 +441,6 @@ function ow.Fireflies:draw()
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     for entry in values(self._fly_entries) do
         local circle_x, circle_y = get_position(entry)
-        circle_x = circle_x + 0.5 * texture_w * entry.scale
-        circle_y = circle_y + 0.5 * texture_h * entry.scale
-
-        love.graphics.translate(-0.5 * texture_w, -0.5 * texture_h)
 
         local r, g, b, a = entry.color:unpack()
         a = math.mix(0.75, 1, entry.glow_value)

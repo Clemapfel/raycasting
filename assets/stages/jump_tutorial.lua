@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 746,
+  nextobjectid = 748,
   properties = {},
   tilesets = {
     {
@@ -2957,6 +2957,19 @@ return {
             { x = 384, y = 0 },
             { x = 208, y = 384 }
           },
+          properties = {}
+        },
+        {
+          id = 746,
+          name = "Tether",
+          type = "DoubleJumpTether",
+          shape = "point",
+          x = -1765.03,
+          y = 2936.17,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

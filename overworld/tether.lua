@@ -3,190 +3,273 @@ require "common.path"
 
 rt.settings.overworld.tether = {
     node_density = 0.1,
-    gravity = 4,
-
     min_n_nodes = 3,
     max_n_nodes = 1024,
+    length_overshoot = 1.1, -- fraction
+    line_width = 3,
 
-    line_width = 3
+    n_sub_steps = 1,
+    n_constraint_iterations = 1,
+    bending_compliance = 0.000001,
+    distance_compliance = 0.001,
+    damping = 1 - 0.5
 }
 
 --- @class ow.Tether
 ow.Tether = meta.class("Tether")
 
-local _bulge = nil
-
 --- @brief
 function ow.Tether:instantiate()
+    self._particle_data = {}
+    self._n_particles = 0
     self._is_tethered = false
-    self._rope = {}
+    self._path = nil -- rt.Path
 
-    self._cached_path = nil -- rt.Path
-    self._path_needs_update = true
+    self._from_x, self._from_y = 0, 0
+    self._to_x, self._to_y = 0, 0
+end
+
+local _x_offset = 0
+local _y_offset = 1
+local _previous_x_offset = 2 -- last sub step
+local _previous_y_offset = 3
+local _velocity_x_offset = 4
+local _velocity_y_offset = 5
+local _mass_offset = 6
+local _inverse_mass_offset = 7
+local _segment_length_offset = 8
+local _distance_lambda_offset = 9
+local _bending_lambda_offset = 10
+
+local _stride = _bending_lambda_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1 -- 1-based
 end
 
 --- @brief
 function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
+    meta.assert(attachment_x, "Number", attachment_y, "Number")
+
     local settings = rt.settings.overworld.tether
-    if self._is_tethered == true then
-        local rope = self._rope
-        rope.position_x, rope.position_y = attachment_x, attachment_y
-        rope.target_x, rope.target_y = target_x, target_y
+    local length = math.distance(attachment_x, attachment_y, target_x, target_y) * settings.length_overshoot
+    local new_n_particles = math.clamp(
+        math.ceil(length * rt.settings.overworld.tether.node_density),
+        settings.min_n_nodes,
+        settings.max_n_nodes
+    )
+    local data = self._particle_data
+    self._path_needs_update = self._n_particles ~= new_n_particles
+    self._is_tethered = true
 
-        local end_x = rope.current_positions[#rope.current_positions - 1]
-        local end_y = rope.current_positions[#rope.current_positions - 0]
-        rope.current_positions[#rope.current_positions - 1] = target_x
-        rope.current_positions[#rope.current_positions - 0] = target_y
-
-        local n_nodes = math.ceil(math.clamp(
-            math.distance(attachment_x, attachment_y, target_x, target_y) * settings.node_density,
-            settings.min_n_nodes,
-            settings.max_n_nodes
-        ))
-
-        -- Use actual current node count derived from the buffer length to avoid drift
-        local current_n = math.floor(#rope.current_positions / 2)
-        rope.n_nodes = current_n
-
-        -- extend / shorten if necessary
-        if current_n ~= n_nodes then
-            if current_n < n_nodes then
-                -- extend
-                for node_i = current_n + 1, n_nodes do
-                    local t = (node_i - current_n) / (n_nodes - current_n)
-                    local x, y = math.mix2(end_x, end_y, target_x, target_y, t)
-                    local x_index = (node_i - 1) * 2 + 1
-                    local y_index = (node_i - 1) * 2 + 2
-
-                    rope.current_positions[x_index] = x
-                    rope.current_positions[y_index] = y
-                    rope.last_positions[x_index] = x
-                    rope.last_positions[y_index] = y
-                    rope.last_velocities[x_index] = 0
-                    rope.last_velocities[y_index] = 0
-                    rope.masses[node_i] = 1
-                end
-
-                current_n = n_nodes
-            else
-                -- shorten
-                while current_n > n_nodes do
-                    table.remove(rope.current_positions) -- y
-                    table.remove(rope.current_positions) -- x
-                    table.remove(rope.last_positions)
-                    table.remove(rope.last_positions)
-                    table.remove(rope.last_velocities)
-                    table.remove(rope.last_velocities)
-                    table.remove(rope.masses)
-                    current_n = current_n - 1
-                end
-            end
-
-            rope.n_nodes = n_nodes
-        end
-    else
-        local ax, ay = attachment_x, attachment_y
-        local bx, by = target_x, target_y
-        local dx, dy = math.normalize(bx - ax, by - ay)
-        local distance = math.distance(attachment_x, attachment_y, target_x, target_y)
-
-        local n_nodes = math.ceil(math.clamp(
-            distance * settings.node_density,
-            settings.min_n_nodes,
-            settings.max_n_nodes
-        ))
-
-        local rope = {
-            current_positions = {},
-            last_positions = {},
-            last_velocities = {},
-            masses = {},
-            position_x = ax,
-            position_y = ay,
-            target_x = bx,
-            target_y = by,
-            segment_length = 4,
-            n_nodes = n_nodes
-        }
-
-        for node_i = 1, n_nodes do
-            local t = (node_i - 1) / n_nodes
-            local x, y = ax + t * dx * distance, ay + t * dy * distance
-            table.insert(rope.current_positions, x)
-            table.insert(rope.current_positions, y)
-            table.insert(rope.last_positions, x)
-            table.insert(rope.last_positions, y)
-            table.insert(rope.last_velocities, 0)
-            table.insert(rope.last_velocities, 0)
-            table.insert(rope.masses, 1)
-        end
-
-        self._rope = rope
-        self._is_tethered = true
+    local mass_easing = function(i, n)
+        return 1
     end
 
-    return self
+    self._from_x, self._from_y = attachment_x, attachment_y
+    self._to_x, self._to_y = target_x, target_y
+
+    if self._n_particles < new_n_particles then -- grow
+        local dx, dy = math.normalize(target_x - attachment_x, target_y - attachment_y)
+        local step = length / new_n_particles
+
+        -- start position
+        local x, y
+        if self._n_particles == 0 then
+            x, y = attachment_x, attachment_y
+        else
+            local i = _particle_i_to_data_offset(self._n_particles)
+            x = data[i + _x_offset]
+            y = data[i + _y_offset]
+        end
+
+        -- allocate new nodes, leave old alone
+        for particle_i = self._n_particles + 1, new_n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+            data[i + _previous_x_offset] = x
+            data[i + _previous_y_offset] = y
+            data[i + _velocity_x_offset] = 0
+            data[i + _velocity_y_offset] = 0
+
+            local mass = mass_easing(i, new_n_particles)
+            data[i + _mass_offset] = mass
+            data[i + _inverse_mass_offset] = 1 / mass
+            data[i + _segment_length_offset] = step
+
+            data[i + _distance_lambda_offset] = 0
+            data[i + _bending_lambda_offset] = 0
+
+            x = x + dx * step
+            y = y + dy * step
+        end
+
+        self._n_particles = new_n_particles
+    end
+
+    -- shrink if necessary
+    while self._n_particles > new_n_particles do
+        local last_i = _particle_i_to_data_offset(self._n_particles)
+        for offset = 1, _stride - 1 do
+            data[last_i + offset] = nil
+        end
+        self._n_particles = self._n_particles - 1
+    end
 end
 
 --- @brief
 function ow.Tether:untether()
-    if self._is_tethered == false then return end
-    self._rope = {}
     self._is_tethered = false
 end
 
 --- @brief
-function ow.Tether:set_draw_bulge(t)
-    self._draw_buldge = t ~= nil
-    self._buldge_x, self._buldge_y = t
-end
-
-local _buldge = nil -- 2d vertives
-
---- @brief
 function ow.Tether:update(delta)
-    require "common.player_body"
+    if self._is_tethered == false then return end
 
-    local rope = self._rope
-    if not rope.current_positions or #rope.current_positions < 2 then return end
+    local body_settings = rt.settings.player_body.non_contour
+    local tether_settings = rt.settings.overworld.tether
+    local damping = tether_settings.damping or body_settings.damping
+    local n_sub_steps = tether_settings.n_sub_steps or body_settings.n_sub_steps
+    local n_constraint_iterations = tether_settings.n_constraint_iterations or body_settings.n_constraint_iterations
+    local sub_delta = delta / n_sub_steps
 
-    -- Keep end at the target
-    rope.current_positions[#rope.current_positions - 1] = rope.target_x
-    rope.current_positions[#rope.current_positions - 0] = rope.target_y
+    local distance_alpha = (tether_settings.bending_compliance or body_settings.distance_compliance) / (sub_delta^2)
+    local bending_alpha = (tether_settings.bending_compliance or body_settings.bending_compliance) / (sub_delta^2)
 
-    local rope_changed = rt.PlayerBody.update_rope({
-        current_positions = rope.current_positions,
-        last_positions = rope.last_positions,
-        last_velocities = rope.last_velocities,
-        masses = rope.masses,
-        delta = delta,
-        position_x = rope.position_x,
-        position_y = rope.position_y,
-        target_x = rope.target_x,
-        target_y = rope.target_y,
-        segment_length = rope.segment_length,
+    local data = self._particle_data
+    local n_particles = self._n_particles
 
-        n_velocity_iterations = 4,
-        n_distance_iterations = 0,
-        n_bending_iterations = 2,
-        n_inverse_kinematics_iterations = 0,
-        inertia = 0,
-        velocity_damping = 1 - 0.5,
-        gravity_x = 0,
-        gravity_y = rt.settings.overworld.tether.gravity
-    })
+    local gravity_dx, gravity_dy = 0, 1
+    local gravity = body_settings.gravity
 
-    rope.current_positions[#rope.current_positions - 1] = rope.target_x
-    rope.current_positions[#rope.current_positions - 0] = rope.target_y
+    local pre_solve = rt.PlayerBody._pre_solve
+    local post_solve = rt.PlayerBody._post_solve
+    local enforce_distance = rt.PlayerBody._enforce_distance
+    local enforce_bending = rt.PlayerBody._enforce_bending
 
-    if rope_changed == true then self._path_needs_update = true end
+    for _ = 1, n_sub_steps do
+        for particle_i = 1, self._n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local new_x, new_y, new_vx, new_vy, prev_x, prev_y, dist_lambda, bend_lambda, _ = pre_solve(
+                data[i + _x_offset],
+                data[i + _y_offset],
+                data[i + _velocity_x_offset],
+                data[i + _velocity_y_offset],
+                data[i + _mass_offset],
+                gravity_dx * gravity, gravity_dy * gravity,
+                0, 0, -- relative velocity
+                damping, sub_delta
+            )
+
+            data[i + _x_offset] = new_x
+            data[i + _y_offset] = new_y
+            data[i + _velocity_x_offset] = new_vx
+            data[i + _velocity_y_offset] = new_vy
+            data[i + _previous_x_offset] = prev_x
+            data[i + _previous_y_offset] = prev_y
+            data[i + _distance_lambda_offset] = dist_lambda
+            data[i + _bending_lambda_offset] = bend_lambda
+        end
+
+        for _ = 1, n_constraint_iterations do
+            do -- pin first and last
+                local from_i = _particle_i_to_data_offset(1)
+                data[from_i + _x_offset] = self._from_x
+                data[from_i + _y_offset] = self._from_y
+
+                local to_i = _particle_i_to_data_offset(self._n_particles)
+                data[to_i + _x_offset] = self._to_x
+                data[to_i + _y_offset] = self._to_y
+            end
+
+            -- distance
+            for node_i = 1, self._n_particles - 1, 1 do
+                local i1 = _particle_i_to_data_offset(node_i + 0)
+                local i2 = _particle_i_to_data_offset(node_i + 1)
+
+                local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
+                local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
+
+                local inverse_mass_a = data[i1 + _inverse_mass_offset]
+                local inverse_mass_b = data[i2 + _inverse_mass_offset]
+
+                local segment_length = data[i1 + _segment_length_offset]
+
+                local axc, ayc, bxc, byc, lambda_new = enforce_distance(
+                    ax, ay, bx, by,
+                    inverse_mass_a, inverse_mass_b,
+                    segment_length,
+                    distance_alpha,
+                    data[i1 + _distance_lambda_offset]
+                )
+
+                data[i1 + _x_offset] = ax + axc
+                data[i1 + _y_offset] = ay + ayc
+                data[i2 + _x_offset] = bx + bxc
+                data[i2 + _y_offset] = by + byc
+                data[i1 + _distance_lambda_offset] = lambda_new
+            end
+
+            -- bending
+            for node_i = 1, self._n_particles - 2, 1 do
+                local i1 = _particle_i_to_data_offset(node_i + 0)
+                local i2 = _particle_i_to_data_offset(node_i + 1)
+                local i3 = _particle_i_to_data_offset(node_i + 2)
+
+                local ax, ay = data[i1 + _x_offset], data[i1 + _y_offset]
+                local bx, by = data[i2 + _x_offset], data[i2 + _y_offset]
+                local cx, cy = data[i3 + _x_offset], data[i3 + _y_offset]
+
+                local inverse_mass_a = data[i1 + _inverse_mass_offset]
+                local inverse_mass_b = data[i2 + _inverse_mass_offset]
+                local inverse_mass_c = data[i3 + _inverse_mass_offset]
+
+                local segment_length_ab = data[i1 + _segment_length_offset]
+                local segment_length_bc = data[i2 + _segment_length_offset]
+                local target_length = segment_length_ab + segment_length_bc
+
+                local correction_ax, correction_ay, _, _, correction_cx, correction_cy, lambda_new = enforce_bending(
+                    ax, ay, bx, by, cx, cy,
+                    inverse_mass_a, inverse_mass_b, inverse_mass_c,
+                    target_length,
+                    bending_alpha,
+                    data[i1 + _bending_lambda_offset]
+                )
+
+                data[i1 + _x_offset] = ax + correction_ax
+                data[i1 + _y_offset] = ay + correction_ay
+                data[i3 + _x_offset] = cx + correction_cx
+                data[i3 + _y_offset] = cy + correction_cy
+                data[i1 + _bending_lambda_offset] = lambda_new
+            end
+        end
+
+        for particle_i = 1, self._n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            local new_vx, new_vy = post_solve(
+                data[i + _x_offset],
+                data[i + _y_offset],
+                data[i + _previous_x_offset],
+                data[i + _previous_y_offset],
+                sub_delta
+            )
+
+            data[i + _velocity_x_offset] = new_vx
+            data[i + _velocity_y_offset] = new_vy
+        end
+    end -- n sub steps
+
+    self._path_needs_update = true
 end
 
 --- @brief
 function ow.Tether:draw()
+    if self._is_tethered == false then return end
+
+    love.graphics.push()
+
     local r, g, b, a = love.graphics.getColor()
-    local rope = self._rope
-    if not rope.current_positions or #rope.current_positions < 2 then return end
+    local points = self:as_path():get_points()
 
     love.graphics.setLineJoin("none")
     love.graphics.setLineStyle("rough")
@@ -194,38 +277,34 @@ function ow.Tether:draw()
     local line_width = rt.settings.overworld.tether.line_width
     love.graphics.setLineWidth(line_width + 1.5)
     rt.Palette.BLACK:bind()
-    love.graphics.line(rope.current_positions)
+    love.graphics.line(points)
 
     love.graphics.setLineWidth(line_width)
     love.graphics.setColor(r, g, b, a)
-    love.graphics.line(rope.current_positions)
+    love.graphics.line(points)
 
+    local last_i = _particle_i_to_data_offset(self._n_particles)
     love.graphics.circle("fill",
-        rope.current_positions[#rope.current_positions - 1],
-        rope.current_positions[#rope.current_positions - 0],
+        self._particle_data[last_i + _x_offset],
+        self._particle_data[last_i + _y_offset],
         0.5 * line_width
     )
 
-    -- Example of future bulge/path usage (kept as-is)
-    local path = rt.Path(rope.current_positions)
-    local length = path:get_length()
-    local radius = 20
-    local t = 0.5
-    local x, y = path:at(t)
-    local ax, ay = path:at(t - (radius / length))
-    local bx, by = path:at(t + (radius / length))
-end
-
---- @brief
-function ow.Tether:get_is_tethered()
-    return self._is_tethered
+    love.graphics.pop()
 end
 
 --- @brief
 function ow.Tether:as_path()
-    if self._cached_path == nil or self._path_needs_update then
-        self._cached_path = rt.Path(self._rope.current_positions)
+    if self._path == nil or self._path_needs_update then
+        local points = {}
+        for particle_i = 1, self._n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            table.insert(points, self._particle_data[i + _x_offset])
+            table.insert(points, self._particle_data[i + _y_offset])
+        end
+
+        self._path = rt.Path(points)
     end
 
-    return self._cached_path
+    return self._path
 end
