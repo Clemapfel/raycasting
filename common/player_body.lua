@@ -34,7 +34,7 @@ rt.settings.player_body = {
         distance_compliance = 0,
         bending_compliance = 1,
         axis_compliance = 1,
-        collision_compliance = 0.05,
+        collision_compliance = 0,
 
         gravity = 500
     },
@@ -144,17 +144,6 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._data_mesh = nil -- rt.Mesh
     
     self._particle_i_to_data_mesh_position = {}
-
-
-    DEBUG_INPUT:signal_connect("keyboard_key_pressed", function(_, which)
-        if which == "k" then
-            for shader in range(_particle_texture_shader, _instance_draw_shader, _threshold_shader, _outline_shader, _core_shader) do
-                shader:recompile()
-            end
-            self:_initialize()
-        end
-    end)
-    
     self:_initialize()
 end
 
@@ -231,7 +220,15 @@ function rt.PlayerBody:_initialize()
     local contour_radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
 
     local collision_easing = function(i, n)
-        return ((i - 1) / n)
+        local progress = (i - 1) / (n - 1)
+        local t = (max_rope_length - 3 * body_radius) / max_rope_length
+        if progress <= t then
+            return 0
+        end
+
+        -- 0 until start of tail, analytically smooth transition to 1
+        local x = (progress - t) / (1 - t)
+        return x * x * (3 - 2 * x)
     end
 
     local opacity_easing = function(i, n)
@@ -526,7 +523,6 @@ function rt.PlayerBody:relax()
             data[i + _distance_lambda_offset] = 0
             data[i + _bending_lambda_offset] = 0
             data[i + _axis_lambda_offset] = 0
-            data[i + _collision_strength_offset] = 0
 
             if self._use_contour then
                 -- if contour, align with axis, else keep at rope origin
@@ -965,7 +961,7 @@ do -- update helpers (XPBD with lambdas)
                             or  data[offset + _radius_offset]
 
                         local alpha_multiplier = data[offset + _collision_strength_offset]
-                        if alpha_multiplier > 0 then
+                        if self._use_contour or alpha_multiplier > math.eps then
                             local correction_x, correction_y, lambda_new = _enforce_line_collision_xpbd(
                                 data[offset + _x_offset],
                                 data[offset + _y_offset],
@@ -1136,6 +1132,15 @@ function rt.PlayerBody:draw_body()
     self._body_outline_texture:draw()
     _outline_shader:unbind()
     love.graphics.pop()
+
+    --[[
+    for line in values(self._colliding_lines) do
+        local cx, cy = line.contact_x, line.contact_y
+        local lx, ly = math.turn_left(line.normal_x, line.normal_y)
+        local rx, ry = math.turn_right(line.normal_x, line.normal_y)
+        love.graphics.line(cx + 100 * lx, cy + 100 * ly, cx + 100 * rx, cy + 100 * ry)
+    end
+    ]]--
 end
 
 --- @brief
