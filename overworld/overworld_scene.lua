@@ -24,7 +24,7 @@ do
         camera_freeze_duration = 0.25,
         allow_translation = true,
 
-        bloom_blur_strength = 1.3, -- > 0
+        bloom_blur_strength = 1.5, -- > 0
         bloom_composite_strength = bloom, -- [0, 1]
         title_card_min_duration = 3, -- seconds
 

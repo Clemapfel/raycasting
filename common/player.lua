@@ -869,22 +869,18 @@ function rt.Player:update(delta)
     local is_grounded = false
     local was_grounded = self._is_grounded
 
-    if not is_grounded and self._bottom_left_wall then
-        if math.distance(x, y, bottom_left_x, bottom_left_y) <= self._radius then
-            is_grounded = true
-        end
-    end
+    do -- check ground state
+        local radius = self._radius
+        local left = left_wall_body ~= nil and math.distance(x, y, left_x, left_y) <= radius
+        local bottom_left = bottom_left_wall_body ~= nil and math.distance(x, y, bottom_left_x, bottom_left_y) <= radius
+        local bottom = bottom_wall_body ~= nil and math.distance(x, y, bottom_x, bottom_y) <= radius
+        local bottom_right = bottom_right_wall_body ~= nil and math.distance(x, y, bottom_right_x, bottom_right_y) <= radius
+        local right = right_wall_body ~= nil and math.distance(x, y, right_x, right_y) <= radius
 
-    if not is_grounded and self._bottom_wall then
-        if math.distance(x, y, bottom_x, bottom_y) <= self._radius then
-            is_grounded = true
-        end
-    end
-
-    if not is_grounded and self._bottom_right_wall then
-        if math.distance(x, y, bottom_right_x, bottom_right_y) <= self._radius then
-            is_grounded = true
-        end
+        -- do not count walls detected by diagonal down rays
+        is_grounded = bottom
+            or (bottom_left and bottom_left_wall_body ~= left_wall_body)
+            or (bottom_right and bottom_right_wall_body ~= right_wall_body)
     end
 
     -- when going from air to ground, signal emission and re-lock double jump
@@ -960,6 +956,17 @@ function rt.Player:update(delta)
     -- check if tethers should be cleared
     if not self._is_bubble then
         local should_clear = false
+
+        local check_body = function(body)
+            if is_grounded then
+                -- any grond clears
+                return body ~= nil and body:has_tag("hitbox") and not body:has_tag("slippery")
+            else
+                -- only sticky walls clear
+                return body ~= nil and body:has_tag("hitbox") and not body:has_tag("slippery")
+            end
+        end
+
         for tuple in range(
             { bottom_wall_body, bottom_x, bottom_y },
             { bottom_left_wall_body, bottom_left_x, bottom_left_y },
@@ -968,9 +975,8 @@ function rt.Player:update(delta)
             { right_wall_body, right_x, right_y }
         ) do
             local body, ray_x, ray_y = table.unpack(tuple)
-            if body ~= nil and body:has_tag("hitbox") then
-                local distance = math.distance(x, y, ray_x, ray_y)
-                if distance < self._radius then
+            if check_body(body) then
+                if math.distance(x, y, ray_x, ray_y) < self._radius then
                     should_clear = true
                     break
                 end

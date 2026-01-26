@@ -141,13 +141,6 @@ end
 function ow.DoubleJumpTether:draw()
     local x, y = self._body:get_position()
 
-    local line_a = self._line_opacity_motion:get_value()
-    if line_a > eps then
-        local r, g, b = self._color:unpack()
-        love.graphics.setColor(r, g, b, 1)
-        self._tether:draw()
-    end
-
     self._particles:draw()
 
     if self._stage:get_is_body_visible(self._body) then
@@ -163,11 +156,26 @@ function ow.DoubleJumpTether:draw()
             self._particle:draw(x, y, true, true) -- both
         end
     end
+
+    if self._tether:get_is_tethered() then
+        -- tether on top
+        local line_a = self._line_opacity_motion:get_value()
+        if line_a > eps then
+            local r, g, b = self._color:unpack()
+            love.graphics.setColor(r, g, b, 1)
+            self._tether:draw()
+        end
+    end
 end
 
 --- @brief
 function ow.DoubleJumpTether:draw_bloom()
-    if self._stage:get_is_body_visible(self._body) == false then return end
+    if not self._tether:get_is_tethered()
+        and self._stage:get_is_body_visible(self._body) == false
+    then
+        return
+    end
+
     local x, y = self._body:get_position()
 
     local r, g, b = self._color:unpack()
@@ -177,11 +185,12 @@ function ow.DoubleJumpTether:draw_bloom()
         self._particle:draw(x, y, false, true) -- line only
     end
 
-    local line_a = self._line_opacity_motion:get_value()
-    if line_a > eps then
-        love.graphics.setColor(r, g, b, 1)
-        love.graphics.setLineWidth(2)
-        self._tether:draw()
+    if self._tether:get_is_tethered() then
+        local line_a = self._line_opacity_motion:get_value()
+        if line_a > eps then
+            love.graphics.setColor(r, g, b, 1)
+            self._tether:draw_bloom()
+        end
     end
 end
 

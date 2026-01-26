@@ -232,7 +232,6 @@ end
 --- @class rt.MeshRing
 rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_center, n_outer_vertices, inner_color, outer_color)
     n_outer_vertices = n_outer_vertices or _radius_to_n_vertices(outer_radius, outer_radius)
-
     fill_center = fill_center == nil and true or fill_center
 
     local step = 2 * math.pi / n_outer_vertices
@@ -248,14 +247,15 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
     end
 
     local data = {{
-      center_x, center_y,
-      0.5, 0.5,
-      inner_r, inner_g, inner_b, inner_a
-    }}
+                      center_x, center_y,
+                      0.5, 0.5,
+                      inner_r, inner_g, inner_b, inner_a
+                  }}
 
-    -- Inner circle vertices (indices 2 to n_outer_vertices + 1)
-    for i = 0, n_outer_vertices - 1 do
-        local angle = i * step
+    -- Inner ring vertices (indices 2 .. n_outer_vertices + 2)
+    -- Note: duplicate first vertex at the end to close the seam
+    for i = 0, n_outer_vertices do
+        local angle = (i % n_outer_vertices) * step
         table.insert(data, {
             center_x + math.cos(angle) * inner_radius,
             center_y + math.sin(angle) * inner_radius,
@@ -265,9 +265,9 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
         })
     end
 
-    -- Outer circle vertices (indices n_outer_vertices + 2 to 2*n_outer_vertices + 1)
-    for i = 0, n_outer_vertices - 1 do
-        local angle = i * step
+    -- Outer ring vertices (indices n_outer_vertices + 3 .. 2*n_outer_vertices + 3)
+    for i = 0, n_outer_vertices do
+        local angle = (i % n_outer_vertices) * step
         table.insert(data, {
             center_x + math.cos(angle) * outer_radius,
             center_y + math.sin(angle) * outer_radius,
@@ -279,10 +279,11 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
 
     local map = {}
 
+    -- Center fan
     if fill_center then
         for i = 0, n_outer_vertices - 1 do
             local inner_curr = 2 + i
-            local inner_next = 2 + ((i + 1) % n_outer_vertices)
+            local inner_next = inner_curr + 1
 
             table.insert(map, 1)
             table.insert(map, inner_curr)
@@ -290,16 +291,20 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
         end
     end
 
+    -- Ring quads (two triangles per segment)
     for i = 0, n_outer_vertices - 1 do
         local inner_curr = 2 + i
-        local inner_next = 2 + ((i + 1) % n_outer_vertices)
-        local outer_curr = 2 + n_outer_vertices + i
-        local outer_next = 2 + n_outer_vertices + ((i + 1) % n_outer_vertices)
+        local inner_next = inner_curr + 1
 
+        local outer_curr = 2 + (n_outer_vertices + 1) + i
+        local outer_next = outer_curr + 1
+
+        -- Triangle 1
         table.insert(map, inner_curr)
         table.insert(map, outer_curr)
         table.insert(map, outer_next)
 
+        -- Triangle 2
         table.insert(map, inner_curr)
         table.insert(map, outer_next)
         table.insert(map, inner_next)
@@ -322,6 +327,7 @@ rt.MeshRing = function(center_x, center_y, inner_radius, outer_radius, fill_cent
         _opacity = 1
     })
 end
+
 
 --- @class rt.MeshLine
 rt.MeshLine = function(x1, y1, x2, y2, thickness)

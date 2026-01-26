@@ -16,7 +16,8 @@ vec4 position(mat4 transform_projection, vec4 vertex_position) {
         contour_interpolation_factor
     ) * texture_scale;
 
-    vertex_position.xy = vertex_position.xy * scale + particle_position.xy;
+    vec2 offset = particle_position;
+    vertex_position.xy = vertex_position.xy * scale + offset;
 
     opacity = particle_opacity;
     return transform_projection * vertex_position;

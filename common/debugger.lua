@@ -136,6 +136,8 @@ end
 
 --- @brief
 function debugger.report(use_max)
+    if #_data == 0 then return end
+
     table.sort(_data, function(a, b)
         return a.max > b.max
     end)

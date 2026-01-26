@@ -2,17 +2,18 @@ require "common.player_body"
 require "common.path"
 
 rt.settings.overworld.tether = {
-    node_density = 0.1,
+    segment_length = 4,
     min_n_nodes = 3,
     max_n_nodes = 1024,
     length_overshoot = 1.1, -- fraction
     line_width = 3,
 
-    n_sub_steps = 1,
-    n_constraint_iterations = 1,
-    bending_compliance = 0.000001,
+    n_sub_steps = 2,
+    n_constraint_iterations = 4,
+    bending_compliance = 0,
     distance_compliance = 0.001,
-    damping = 1 - 0.5
+    damping = 1 - 0.5,
+    gravity = 1000
 }
 
 --- @class ow.Tether
@@ -52,8 +53,10 @@ function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
 
     local settings = rt.settings.overworld.tether
     local length = math.distance(attachment_x, attachment_y, target_x, target_y) * settings.length_overshoot
+
+    local step = settings.segment_length
     local new_n_particles = math.clamp(
-        math.ceil(length * rt.settings.overworld.tether.node_density),
+        math.ceil(length / step),
         settings.min_n_nodes,
         settings.max_n_nodes
     )
@@ -69,39 +72,72 @@ function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
     self._to_x, self._to_y = target_x, target_y
 
     if self._n_particles < new_n_particles then -- grow
-        local dx, dy = math.normalize(target_x - attachment_x, target_y - attachment_y)
-        local step = length / new_n_particles
 
-        -- start position
-        local x, y
-        if self._n_particles == 0 then
-            x, y = attachment_x, attachment_y
+        if rt.GameState:get_is_performance_mode_enabled() then
+            -- allocate points in a straight line starting from current end
+
+            local dx, dy = math.normalize(target_x - attachment_x, target_y - attachment_y)
+
+            -- start position
+            local x, y
+            if self._n_particles == 0 then
+                x, y = attachment_x, attachment_y
+            else
+                local i = _particle_i_to_data_offset(self._n_particles)
+                x = data[i + _x_offset]
+                y = data[i + _y_offset]
+            end
+
+            -- allocate new nodes, leave old alone
+            for particle_i = self._n_particles + 1, new_n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+                local t = (particle_i - 1) / new_n_particles
+                data[i + _x_offset] = x
+                data[i + _y_offset] = y
+                data[i + _previous_x_offset] = x
+                data[i + _previous_y_offset] = y
+                data[i + _velocity_x_offset] = 0
+                data[i + _velocity_y_offset] = 0
+
+                local mass = mass_easing(i, new_n_particles)
+                data[i + _mass_offset] = mass
+                data[i + _inverse_mass_offset] = 1 / mass
+                data[i + _segment_length_offset] = step
+
+                data[i + _distance_lambda_offset] = 0
+                data[i + _bending_lambda_offset] = 0
+
+                x = x + dx * step
+                y = y + dy * step
+            end
         else
-            local i = _particle_i_to_data_offset(self._n_particles)
-            x = data[i + _x_offset]
-            y = data[i + _y_offset]
-        end
+            -- fit spline through all current points, use it for continuation
+            local points = self:as_path():get_points()
+            table.insert(points, target_x)
+            table.insert(points, target_y)
+            local spline = rt.Spline(points)
 
-        -- allocate new nodes, leave old alone
-        for particle_i = self._n_particles + 1, new_n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            data[i + _x_offset] = x
-            data[i + _y_offset] = y
-            data[i + _previous_x_offset] = x
-            data[i + _previous_y_offset] = y
-            data[i + _velocity_x_offset] = 0
-            data[i + _velocity_y_offset] = 0
+            for particle_i = 1, new_n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+                local t = (particle_i - 1) / new_n_particles
+                local x, y = spline:at(t)
+                data[i + _x_offset] = x
+                data[i + _y_offset] = y
+                data[i + _previous_x_offset] = x
+                data[i + _previous_y_offset] = y
+                data[i + _velocity_x_offset] = 0
+                data[i + _velocity_y_offset] = 0
 
-            local mass = mass_easing(i, new_n_particles)
-            data[i + _mass_offset] = mass
-            data[i + _inverse_mass_offset] = 1 / mass
-            data[i + _segment_length_offset] = step
+                local mass = mass_easing(i, new_n_particles)
+                data[i + _mass_offset] = mass
+                data[i + _inverse_mass_offset] = 1 / mass
+                data[i + _segment_length_offset] = step
 
-            data[i + _distance_lambda_offset] = 0
-            data[i + _bending_lambda_offset] = 0
-
-            x = x + dx * step
-            y = y + dy * step
+                if particle_i > self._n_particles then
+                    data[i + _distance_lambda_offset] = 0
+                    data[i + _bending_lambda_offset] = 0
+                end
+            end
         end
 
         self._n_particles = new_n_particles
@@ -140,7 +176,7 @@ function ow.Tether:update(delta)
     local n_particles = self._n_particles
 
     local gravity_dx, gravity_dy = 0, 1
-    local gravity = body_settings.gravity
+    local gravity = tether_settings.gravity or body_settings.gravity
 
     local pre_solve = rt.PlayerBody._pre_solve
     local post_solve = rt.PlayerBody._post_solve
@@ -157,7 +193,7 @@ function ow.Tether:update(delta)
                 data[i + _velocity_y_offset],
                 data[i + _mass_offset],
                 gravity_dx * gravity, gravity_dy * gravity,
-                0, 0, -- relative velocity
+                0, 0, -- relative velocity unused
                 damping, sub_delta
             )
 
@@ -172,16 +208,6 @@ function ow.Tether:update(delta)
         end
 
         for _ = 1, n_constraint_iterations do
-            do -- pin first and last
-                local from_i = _particle_i_to_data_offset(1)
-                data[from_i + _x_offset] = self._from_x
-                data[from_i + _y_offset] = self._from_y
-
-                local to_i = _particle_i_to_data_offset(self._n_particles)
-                data[to_i + _x_offset] = self._to_x
-                data[to_i + _y_offset] = self._to_y
-            end
-
             -- distance
             for node_i = 1, self._n_particles - 1, 1 do
                 local i1 = _particle_i_to_data_offset(node_i + 0)
@@ -242,6 +268,18 @@ function ow.Tether:update(delta)
                 data[i3 + _y_offset] = cy + correction_cy
                 data[i1 + _bending_lambda_offset] = lambda_new
             end
+
+            -- realign first and last
+            local first_i, last_i = _particle_i_to_data_offset(1), _particle_i_to_data_offset(self._n_particles)
+            data[first_i + _x_offset] = self._from_x
+            data[first_i + _y_offset] = self._from_y
+            data[first_i + _previous_x_offset] = self._from_x
+            data[first_i + _previous_y_offset] = self._from_y
+
+            data[last_i + _x_offset] = self._to_x
+            data[last_i + _y_offset] = self._to_y
+            data[last_i + _previous_x_offset] = self._to_x
+            data[last_i + _previous_y_offset] = self._to_y
         end
 
         for particle_i = 1, self._n_particles do
@@ -264,14 +302,15 @@ end
 
 --- @brief
 function ow.Tether:draw()
-    if self._is_tethered == false then return end
+    if self._is_tethered == false or self._n_particles <= 0 then return end
 
     love.graphics.push()
 
     local r, g, b, a = love.graphics.getColor()
     local points = self:as_path():get_points()
+    local first_i, last_i = _particle_i_to_data_offset(1), _particle_i_to_data_offset(self._n_particles)
 
-    love.graphics.setLineJoin("none")
+    love.graphics.setLineJoin("bevel")
     love.graphics.setLineStyle("rough")
 
     local line_width = rt.settings.overworld.tether.line_width
@@ -279,15 +318,66 @@ function ow.Tether:draw()
     rt.Palette.BLACK:bind()
     love.graphics.line(points)
 
+    love.graphics.circle("fill",
+        self._particle_data[first_i + _x_offset],
+        self._particle_data[first_i + _y_offset],
+        line_width + 1.5
+    )
+
+    love.graphics.circle("fill",
+        self._particle_data[last_i + _x_offset],
+        self._particle_data[last_i + _y_offset],
+        line_width + 1.5
+    )
+
     love.graphics.setLineWidth(line_width)
     love.graphics.setColor(r, g, b, a)
     love.graphics.line(points)
 
-    local last_i = _particle_i_to_data_offset(self._n_particles)
+    love.graphics.circle("fill",
+        self._particle_data[first_i + _x_offset],
+        self._particle_data[first_i + _y_offset],
+        line_width
+    )
+
     love.graphics.circle("fill",
         self._particle_data[last_i + _x_offset],
         self._particle_data[last_i + _y_offset],
-        0.5 * line_width
+        line_width
+    )
+
+    love.graphics.pop()
+end
+
+--- @brief
+function ow.Tether:draw_bloom()
+    if self._is_tethered == false or self._n_particles <= 0 then return end
+
+    love.graphics.push()
+
+    local r, g, b, a = love.graphics.getColor()
+    local points = self:as_path():get_points()
+    local first_i, last_i = _particle_i_to_data_offset(1), _particle_i_to_data_offset(self._n_particles)
+
+    love.graphics.setLineJoin("bevel")
+    love.graphics.setLineStyle("rough")
+
+    local line_width = 1 --rt.settings.overworld.tether.line_width / 2
+
+    love.graphics.setLineWidth(line_width)
+    love.graphics.setColor(r, g, b, a)
+    love.graphics.line(points)
+
+    love.graphics.circle("fill",
+        self._particle_data[first_i + _x_offset],
+        self._particle_data[first_i + _y_offset],
+        line_width
+    )
+
+    love.graphics.circle("fill",
+        self._particle_data[last_i + _x_offset],
+        self._particle_data[last_i + _y_offset],
+        line_width
     )
 
     love.graphics.pop()
@@ -307,4 +397,9 @@ function ow.Tether:as_path()
     end
 
     return self._path
+end
+
+--- @brief
+function ow.Tether:get_is_tethered()
+    return self._is_tethered
 end

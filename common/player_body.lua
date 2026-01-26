@@ -21,8 +21,8 @@ rt.settings.player_body = {
 
     contour_inflation_speed = 2, -- fraction
     contour_deflation_speed = 1, -- fraction
-    squish_speed = 4, -- fraction
-    squish_magnitude = 0.16, -- fraction
+    squish_speed = 2, -- fraction
+    squish_magnitude = 0.2, -- fraction
 
     relative_velocity_influence = 1 / 3, -- [0, 1] where 0 no influence
 
@@ -68,6 +68,9 @@ local _threshold_shader = rt.Shader("common/player_body_threshold.glsl")
 local _outline_shader = rt.Shader("common/player_body_outline.glsl")
 local _core_shader = rt.Shader("common/player_body_core.glsl")
 
+local _squished = 1
+local _not_squished = 0
+
 --- @brief
 function rt.PlayerBody:instantiate(position_x, position_y)
     meta.assert(position_x, "Number", position_y, "Number")
@@ -90,28 +93,28 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._down_squish_normal_y = nil
     self._down_squish_origin_x = nil
     self._down_squish_normal_y = nil
-    self._down_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
+    self._down_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._left_squish = false
     self._left_squish_normal_x = nil
     self._left_squish_normal_y = nil
     self._left_squish_origin_x = nil
     self._left_squish_normal_y = nil
-    self._left_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
+    self._left_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._right_squish = false
     self._right_squish_normal_x = nil
     self._right_squish_normal_y = nil
     self._right_squish_origin_x = nil
     self._right_squish_normal_y = nil
-    self._right_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
+    self._right_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._up_squish = false
     self._up_squish_normal_x = nil
     self._up_squish_normal_y = nil
     self._up_squish_origin_x = nil
     self._up_squish_normal_y = nil
-    self._up_squish_motion = rt.SmoothedMotion1D(1, squish_speed)
+    self._up_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
     self._stencil_bodies = {}
     self._use_contour = true
@@ -124,7 +127,7 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._particle_data = {}
     self._ropes = {}
     self._n_particles = 0
-    
+
     self._colliding_lines = {} -- Table<Tuple<4>>
     self._colliding_lines_to_lambda = {}
     
@@ -411,7 +414,7 @@ function rt.PlayerBody:_initialize()
 
     do -- data mesh
         self._data_mesh_format = {
-            { location = 3, name = "position", format = "floatvec2" }, -- xy: position
+            { location = 3, name = "position", format = "floatvec2" },
             { location = 4, name = "radius", format = "floatvec2" }, -- x: regular, y: contour
             { location = 5, name = "opacity", format = "float" }
         }
@@ -520,13 +523,17 @@ function rt.PlayerBody:relax()
             data[i + _previous_y_offset] = y
             data[i + _velocity_x_offset] = 0
             data[i + _velocity_y_offset] = 0
+            data[i + _distance_lambda_offset] = 0
+            data[i + _bending_lambda_offset] = 0
+            data[i + _axis_lambda_offset] = 0
+            data[i + _collision_strength_offset] = 0
 
             if self._use_contour then
+                -- if contour, align with axis, else keep at rope origin
                 local segment_length = data[i + _segment_length_offset]
                 x = x + dx * segment_length
                 y = y + dy * segment_length
             end
-
         end
     end
 
@@ -536,7 +543,15 @@ end
 function rt.PlayerBody:update(delta)
     self:_step(delta)
 
-    self._contour_transition_motion:update(delta)
+    for motion in range(
+        self._down_squish_motion,
+        self._right_squish_motion,
+        self._up_squish_motion,
+        self._left_squish_motion,
+        self._contour_transition_motion
+    ) do
+        motion:update(delta)
+    end
 end
 
 do -- update helpers (XPBD with lambdas)
@@ -974,17 +989,17 @@ do -- update helpers (XPBD with lambdas)
             end -- constraint iterations
 
             for particle_i = 1, self._n_particles do
-                local offset = _particle_i_to_data_offset(particle_i)
+                local i = _particle_i_to_data_offset(particle_i)
                 local new_velocity_x, new_velocity_y = _post_solve(
-                    data[offset + _x_offset],
-                    data[offset + _y_offset],
-                    data[offset + _previous_x_offset],
-                    data[offset + _previous_y_offset],
+                    data[i + _x_offset],
+                    data[i + _y_offset],
+                    data[i + _previous_x_offset],
+                    data[i + _previous_y_offset],
                     sub_delta
                 )
 
-                data[offset + _velocity_x_offset] = new_velocity_x
-                data[offset + _velocity_y_offset] = new_velocity_y
+                data[i + _velocity_x_offset] = new_velocity_x
+                data[i + _velocity_y_offset] = new_velocity_y
             end
         end -- n sub steps
 
@@ -1012,73 +1027,39 @@ function rt.PlayerBody:_apply_squish()
     local magnitude = rt.settings.player_body.squish_magnitude
     local radius = rt.settings.player.radius
 
-    local function apply(is_enabled, motion, nx, ny, ox, oy, default_nx, default_ny, default_ox, default_oy)
-        if not is_enabled or motion == nil or motion.get_value == nil then return end
+    local function apply(motion, normal_x, normal_y, origin_x, origin_y)
         local amount = motion:get_value()
-        if amount <= 0 then return end
+        if amount <= 0.01 then return end
+        normal_x, normal_y = math.normalize(normal_x, normal_y)
 
-        -- pick fallbacks if values aren't provided yet
-        local squish_nx = nx or default_nx
-        local squish_ny = ny or default_ny
-        local origin_x = ox or default_ox
-        local origin_y = oy or default_oy
-
-        -- normalize normal to avoid scaling artifacts
-        local nlen = math.sqrt((squish_nx or 0)^2 + (squish_ny or 0)^2)
-        if nlen < 1e-6 then return end
-        squish_nx, squish_ny = squish_nx / nlen, squish_ny / nlen
-
-        -- rotate so x-axis aligns with normal, scale x only (compress along normal),
-        -- then rotate back, around the contact point in world-space.
-        local angle = math.angle(squish_nx, squish_ny)
-        local sx = 1 - magnitude * amount
-        -- avoid flipping or killing the object entirely
+        local angle = math.angle(normal_x, normal_y)
+        local scale_x = 1 - magnitude * amount
 
         love.graphics.translate(origin_x, origin_y)
         love.graphics.rotate(angle)
-        love.graphics.scale(sx, 1)
+        love.graphics.scale(scale_x, 1)
         love.graphics.rotate(-angle)
         love.graphics.translate(-origin_x, -origin_y)
     end
 
-    -- Down (floor)
-    apply(
-        self._down_squish,
-        self._down_squish_motion,
+    apply(self._down_squish_motion,
         self._down_squish_normal_x, self._down_squish_normal_y,
-        self._down_squish_origin_x, self._down_squish_origin_y,
-        0, -1,
-        self._position_x, self._position_y + 0.5 * radius
+        self._down_squish_origin_x, self._down_squish_origin_y
     )
 
-    -- Left (left wall)
-    apply(
-        self._left_squish,
-        self._left_squish_motion,
+    apply(self._left_squish_motion,
         self._left_squish_normal_x, self._left_squish_normal_y,
-        self._left_squish_origin_x, self._left_squish_origin_y,
-        1, 0,
-        self._position_x - 0.5 * radius, self._position_y
+        self._left_squish_origin_x, self._left_squish_origin_y
     )
 
-    -- Right (right wall)
-    apply(
-        self._right_squish,
-        self._right_squish_motion,
+    apply(self._right_squish_motion,
         self._right_squish_normal_x, self._right_squish_normal_y,
-        self._right_squish_origin_x, self._right_squish_origin_y,
-        -1, 0,
-        self._position_x + 0.5 * radius, self._position_y
+        self._right_squish_origin_x, self._right_squish_origin_y
     )
 
-    -- Up (ceiling)
-    apply(
-        self._up_squish,
-        self._up_squish_motion,
+    apply(self._up_squish_motion,
         self._up_squish_normal_x, self._up_squish_normal_y,
-        self._up_squish_origin_x, self._up_squish_origin_y,
-        0, 1,
-        self._position_x, self._position_y - 0.5 * radius
+        self._up_squish_origin_x, self._up_squish_origin_y
     )
 end
 
@@ -1239,6 +1220,7 @@ function rt.PlayerBody:draw_bloom()
     love.graphics.push()
     local w, h = self._body_texture:get_size()
     local texture_scale = rt.settings.player_body.texture_scale
+    self:_apply_squish()
     love.graphics.translate(self._position_x - 0.5 * w, self._position_y - 0.5 * w)
     love.graphics.translate(0.5 * w, 0.5 * h)
     love.graphics.scale(1 / texture_scale, 1 / texture_scale)
@@ -1248,6 +1230,14 @@ function rt.PlayerBody:draw_bloom()
     _outline_shader:bind()
     self._body_outline_texture:draw()
     _outline_shader:unbind()
+    love.graphics.pop()
+
+
+    local core_r, core_g, core_b, core_a = self._core_color:unpack()
+    love.graphics.push()
+    love.graphics.scale(self._core_outline_scale, self._core_outline_scale)
+    love.graphics.setColor(core_r, core_g, core_b, core_a * self._opacity)
+    love.graphics.polygon("line", self._core_vertices)
     love.graphics.pop()
 end
 
@@ -1266,9 +1256,9 @@ function rt.PlayerBody:set_down_squish(b, nx, ny, contact_x, contact_y)
     self._down_squish_origin_y = contact_y or self._down_squish_origin_y
 
     if b == true then
-        self._down_squish_motion:set_target_value(1)
+        self._down_squish_motion:set_target_value(_squished)
     else
-        self._down_squish_motion:set_target_value(0)
+        self._down_squish_motion:set_target_value(_not_squished)
     end
 end
 
@@ -1281,9 +1271,9 @@ function rt.PlayerBody:set_left_squish(b, nx, ny, contact_x, contact_y)
     self._left_squish_origin_y = contact_y or self._left_squish_origin_y
 
     if b == true then
-        self._left_squish_motion:set_target_value(1)
+        self._left_squish_motion:set_target_value(_squished)
     else
-        self._left_squish_motion:set_target_value(0)
+        self._left_squish_motion:set_target_value(_not_squished)
     end
 end
 
@@ -1296,9 +1286,9 @@ function rt.PlayerBody:set_right_squish(b, nx, ny, contact_x, contact_y)
     self._right_squish_origin_y = contact_y or self._right_squish_origin_y
 
     if b == true then
-        self._right_squish_motion:set_target_value(1)
+        self._right_squish_motion:set_target_value(_squished)
     else
-        self._right_squish_motion:set_target_value(0)
+        self._right_squish_motion:set_target_value(_not_squished)
     end
 end
 
@@ -1311,9 +1301,9 @@ function rt.PlayerBody:set_up_squish(b, nx, ny, contact_x, contact_y)
     self._up_squish_origin_y = contact_y or self._up_squish_origin_y
 
     if b == true then
-        self._up_squish_motion:set_target_value(1)
+        self._up_squish_motion:set_target_value(_squished)
     else
-        self._up_squish_motion:set_target_value(0)
+        self._up_squish_motion:set_target_value(_not_squished)
     end
 end
 
