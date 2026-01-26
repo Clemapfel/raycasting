@@ -805,6 +805,30 @@ function rt.Player:update(delta)
     self._top_left_wall_body = top_left_wall_body
     self._top_left_ray = { x, y, x + top_left_dx, y + top_left_dy }
 
+    local is_grounded = false
+    local was_grounded = self._is_grounded
+
+    do -- check ground state
+        local radius = self._radius
+        local left = left_wall_body ~= nil and math.distance(x, y, left_x, left_y) <= radius
+        local bottom_left = bottom_left_wall_body ~= nil and math.distance(x, y, bottom_left_x, bottom_left_y) <= radius
+        local bottom = bottom_wall_body ~= nil and math.distance(x, y, bottom_x, bottom_y) <= radius
+        local bottom_right = bottom_right_wall_body ~= nil and math.distance(x, y, bottom_right_x, bottom_right_y) <= radius
+        local right = right_wall_body ~= nil and math.distance(x, y, right_x, right_y) <= radius
+
+        -- do not count walls detected by diagonal down rays
+        is_grounded = bottom
+            or (bottom_left and bottom_left_wall_body ~= left_wall_body)
+            or (bottom_right and bottom_right_wall_body ~= right_wall_body)
+    end
+
+    -- when going from air to ground, signal emission and re-lock double jump
+    if was_grounded == false and is_grounded == true then
+        self:signal_emit("grounded")
+    end
+
+    self._is_grounded = is_grounded
+
     -- update graphics body
     do
         local lines = {}
@@ -835,9 +859,11 @@ function rt.Player:update(delta)
             add_collision(top_left_wall_body, top_left_x, top_left_y, top_left_nx, top_left_ny)
         end
 
-        add_collision(bottom_right_wall_body, bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny)
-        add_collision(bottom_wall_body, bottom_x, bottom_y, bottom_nx, bottom_ny)
-        add_collision(bottom_left_wall_body, bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny)
+        if is_grounded then
+            add_collision(bottom_right_wall_body, bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny)
+            add_collision(bottom_wall_body, bottom_x, bottom_y, bottom_nx, bottom_ny)
+            add_collision(bottom_left_wall_body, bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny)
+        end
 
         self._graphics_body:set_colliding_lines(lines)
 
@@ -865,30 +891,6 @@ function rt.Player:update(delta)
 
         self._graphics_body:set_stencil_bodies(stencils)
     end
-
-    local is_grounded = false
-    local was_grounded = self._is_grounded
-
-    do -- check ground state
-        local radius = self._radius
-        local left = left_wall_body ~= nil and math.distance(x, y, left_x, left_y) <= radius
-        local bottom_left = bottom_left_wall_body ~= nil and math.distance(x, y, bottom_left_x, bottom_left_y) <= radius
-        local bottom = bottom_wall_body ~= nil and math.distance(x, y, bottom_x, bottom_y) <= radius
-        local bottom_right = bottom_right_wall_body ~= nil and math.distance(x, y, bottom_right_x, bottom_right_y) <= radius
-        local right = right_wall_body ~= nil and math.distance(x, y, right_x, right_y) <= radius
-
-        -- do not count walls detected by diagonal down rays
-        is_grounded = bottom
-            or (bottom_left and bottom_left_wall_body ~= left_wall_body)
-            or (bottom_right and bottom_right_wall_body ~= right_wall_body)
-    end
-
-    -- when going from air to ground, signal emission and re-lock double jump
-    if was_grounded == false and is_grounded == true then
-        self:signal_emit("grounded")
-    end
-
-    self._is_grounded = is_grounded
 
     -- input method agnostic button state
     local left_is_down = self._left_button_is_down or use_analog_input and

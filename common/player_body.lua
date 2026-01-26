@@ -34,7 +34,7 @@ rt.settings.player_body = {
         distance_compliance = 0,
         bending_compliance = 1,
         axis_compliance = 1,
-        collision_compliance = 0,
+        collision_compliance = 0.2,
 
         gravity = 500
     },
@@ -961,7 +961,9 @@ do -- update helpers (XPBD with lambdas)
                             or  data[offset + _radius_offset]
 
                         local alpha_multiplier = data[offset + _collision_strength_offset]
-                        if self._use_contour or alpha_multiplier > math.eps then
+                        if self._use_contour then alpha_multiplier = 1 end
+
+                        if alpha_multiplier > math.eps then
                             local correction_x, correction_y, lambda_new = _enforce_line_collision_xpbd(
                                 data[offset + _x_offset],
                                 data[offset + _y_offset],
