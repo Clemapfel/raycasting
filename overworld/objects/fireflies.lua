@@ -4,7 +4,7 @@ local n_nodes = 128
 rt.settings.overworld.fireflies = {
     radius = 10, -- px
     texture_radius = 15, -- px
-    core_radius = 3.5,
+    core_radius = 1.5,
     path_n_nodes = n_nodes,
 
     max_glow_offset = 0.75,
@@ -20,7 +20,10 @@ rt.settings.overworld.fireflies = {
     flow_source_magnitude = 0.25, -- fraction
 
     min_scale = 0.75,
-    max_scale = 1.25
+    max_scale = 1.25,
+
+    max_follow_offset = 2000, -- px
+    glow_composite = 0.25, -- fraction
 }
 
 --- @class ow.Fireflies
@@ -201,7 +204,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
     for i = 1, n_flies do
         local hue = _fly_hue_t
         _fly_hue_t = _fly_hue_t + _fly_hue_t_step
-        local color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, 1))
+        local color = rt.RGBA(rt.lcha_to_rgba(0.8, 1, hue, rt.settings.overworld.fireflies.glow_componsite))
 
         -- light source proxy
         local body = b2.Body(
@@ -237,10 +240,13 @@ function ow.Fireflies:instantiate(object, stage, scene)
             light_color = color:clone(),
 
             follow_motion = rt.SmoothedMotion2D(
-                object.x, object.y,
-                math.mix(1 / 8, 1 + 1 / 8, follow_speed), -- speed factor
+                object.x, object.y,--,
+                1, --math.mix(1 / 8, 1 + 1 / 8, follow_speed), -- speed factor
                 true -- linear instead of exponential
             ),
+
+            follow_offset = 0,
+            follow_speed = follow_speed,
 
             follow_x = object.x,
             follow_y = object.y,
@@ -262,11 +268,13 @@ function ow.Fireflies:instantiate(object, stage, scene)
     end
 end
 
+local _path = nil
+local _last_frame = -1
+
 function ow.Fireflies:update(delta)
     local player = self._scene:get_player()
     local px, py = player:get_position()
 
-    local target_x, target_y = px, py
     local bounds
 
     -- helper: compute final visual position
@@ -282,7 +290,7 @@ function ow.Fireflies:update(delta)
     end
 
     local function get_min_distance(entry)
-        return player:get_radius() + entry.scale * rt.settings.overworld.fireflies.core_radius * 2
+        return rt.settings.player.radius + entry.scale * rt.settings.overworld.fireflies.core_radius * 2
     end
 
     -- helper: push base position outward if overlapping (stable, no flipping)
@@ -308,6 +316,23 @@ function ow.Fireflies:update(delta)
                 )
             end
         end
+    end
+
+    -- shared path instance
+    if _path == nil or _last_frame ~= rt.SceneManager:get_frame_index() then
+        -- get only the newest few points, so fireflies aim towards player but not beelining directly
+        local path = player:get_past_position_path()
+        local original_points = path:get_points()
+        local points = {}
+
+        local end_i = math.ceil(math.min(1, rt.settings.overworld.fireflies.max_follow_offset / path:get_length()) * #original_points)
+        if end_i % 2 == 0 then end_i = end_i + 1 end
+        for i = 1, end_i, 2 do
+            table.insert(points, original_points[i+0])
+            table.insert(points, original_points[i+1])
+        end
+        _path = rt.Path():create_from_and_reparameterize(points)
+        _last_frame = rt.SceneManager:get_frame_index()
     end
 
     for entry in values(self._fly_entries) do
@@ -346,7 +371,8 @@ function ow.Fireflies:update(delta)
             local dy = cy - py
             local distance = math.magnitude(dx, dy)
 
-            local tx, ty = target_x, target_y
+
+            local tx, ty = _path:at(math.mix(0, 0.15, entry.follow_speed))
             local min_distance = get_min_distance(entry)
             if distance < min_distance and distance > 1e-4 then
                 local nx, ny = dx / distance, dy / distance
@@ -413,7 +439,7 @@ function ow.Fireflies:draw()
     local texture_w, texture_h = _texture:get_size()
     for entry in values(self._fly_entries) do
         if self._stage:get_is_body_visible(entry.body) then
-            local blend = math.mix(0.75, 1.25, entry.glow_value)
+            local blend = math.mix(0.5, 1, entry.glow_value)
 
             love.graphics.push()
             local pos_x, pos_y = get_position(entry)
@@ -426,7 +452,7 @@ function ow.Fireflies:draw()
                 blend * r * a,
                 blend * g * a,
                 blend * b * a,
-                a * entry.glow_value
+                a * blend
             )
             _texture:draw()
             love.graphics.pop()
@@ -443,7 +469,7 @@ function ow.Fireflies:draw()
         local circle_x, circle_y = get_position(entry)
 
         local r, g, b, a = entry.color:unpack()
-        a = math.mix(0.75, 1, entry.glow_value)
+        a = math.mix(0.5, 1, entry.glow_value)
 
         local under = 0.4
         love.graphics.setColor(

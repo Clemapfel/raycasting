@@ -6,6 +6,8 @@ rt.Path2D = rt.Path -- alias to be consistent with `Path3D`
 
 --- @brief
 function rt.Path:instantiate(points, ...)
+    if points == nil then points = { 0, 0, 0, 0 } end
+
     if meta.is_number(points) then
         points = { points, ... }
     end

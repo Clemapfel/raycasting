@@ -66,16 +66,19 @@ float gaussian(float x, float sigma) {
 uniform float light_range = 30;
 
 vec4 compute_light(
-    vec2 screen_uv,
-    vec2 light_position,
-    vec4 light_color
+vec2 screen_uv,
+vec2 light_position,
+vec4 light_color
 ) {
-    const float sigma = 1;
+    const float sigma = 1.0;
 
     float dist = distance(light_position, screen_uv) / camera_scale;
     float attenuation = gaussian(dist / light_range, sigma);
 
-    return light_color * attenuation / 3.0; // manually dialed in for glass-like diffusion
+    // Clamp attenuation to prevent over-bright values
+    attenuation = clamp(attenuation, 0.0, 1.0);
+
+    return light_color * attenuation / 3.0;
 }
 
 vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) {
@@ -87,11 +90,14 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         float light_radius = point_light_sources[i].z;
         vec2 light_position = closest_point_on_circle(screen_coords, light_circle, light_radius);
 
-        point_color += compute_light(
-            screen_coords,
-            light_position,
-            point_light_colors[i] * point_light_colors[i].a
-        );
+        // Pre-multiply alpha but clamp the color
+        vec4 light_contrib = compute_light(
+        screen_coords,
+        light_position,
+        vec4(point_light_colors[i].rgb, 1.0)  // Don't pre-multiply alpha here
+        ) * point_light_colors[i].a;
+
+        point_color += light_contrib;
     }
 
     vec4 segment_color = vec4(0.0);
@@ -99,22 +105,22 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         vec4 light_segment = segment_light_sources[i];
         vec2 light_position = closest_point_on_segment(screen_coords, light_segment);
 
-        segment_color += compute_light(
-            screen_coords,
-            light_position,
-            segment_light_colors[i] * segment_light_colors[i].a
-        );
+        vec4 light_contrib = compute_light(
+        screen_coords,
+        light_position,
+        vec4(segment_light_colors[i].rgb, 1.0)
+        ) * segment_light_colors[i].a;
+
+        segment_color += light_contrib;
     }
 
-    vec4 result = vec4((
-        color * 0.05
-        + mix(
-            point_color * point_light_intensity,
-            segment_color * segment_light_intensity,
-            0.5
-        )
-    ).rgb, color.a * 0.8);
+    // Clamp accumulated colors before mixing
+    point_color = clamp(point_color * point_light_intensity, 0.0, 1.0);
+    segment_color = clamp(segment_color * segment_light_intensity, 0.0, 1.0);
 
-    result = min(result, vec4(1));
-    return result;
+    vec4 result = vec4((
+    color.rgb * 0.05 + mix(point_color.rgb, segment_color.rgb, 0.5)
+    ), color.a * 0.8);
+
+    return clamp(result, 0.0, 1.0);
 }

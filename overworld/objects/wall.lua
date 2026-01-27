@@ -34,7 +34,7 @@ function ow.Wall:instantiate(object, stage, scene)
     self._mesh = object:create_mesh()
     self._contour = rt.contour.close(object:create_contour())
 
-    local pattern = object:get_string("pattern") or ow.WallPatternType.FLAT
+    local pattern = object:get_string("type") or ow.WallPatternType.FLAT
     self._pattern = string.upper(pattern)
     meta.assert_enum_value(self._pattern, ow.WallPatternType)
 

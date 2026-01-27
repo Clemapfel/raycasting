@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 760,
+  nextobjectid = 763,
   properties = {},
   tilesets = {
     {
@@ -108,10 +108,10 @@ return {
           name = "Fit",
           type = "CameraFit",
           shape = "rectangle",
-          x = -560,
-          y = 2240,
-          width = 1506.53,
-          height = 847.426,
+          x = -415.843,
+          y = 2175.45,
+          width = 1212.23,
+          height = 814.443,
           rotation = 0,
           visible = true,
           properties = {
@@ -232,8 +232,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -2568.13,
-          y = 2606.47,
+          x = -555.934,
+          y = 2327,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2407,7 +2407,9 @@ return {
             { x = 1216, y = 1120 },
             { x = 1216, y = 0 }
           },
-          properties = {}
+          properties = {
+            ["type"] = "flat"
+          }
         },
         {
           id = 693,
@@ -3034,8 +3036,8 @@ return {
           name = "Portal",
           type = "Portal",
           shape = "point",
-          x = -3472,
-          y = 2864,
+          x = -2966.05,
+          y = 2562.14,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3051,8 +3053,8 @@ return {
           name = "",
           type = "PortalNode",
           shape = "point",
-          x = -3472,
-          y = 2976,
+          x = -2966.05,
+          y = 2674.14,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3066,6 +3068,34 @@ return {
           shape = "point",
           x = -2800,
           y = 2464,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 761,
+          name = "",
+          type = "OneWayPlatform",
+          shape = "point",
+          x = -416,
+          y = 2192,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["other"] = { id = 762 }
+          }
+        },
+        {
+          id = 762,
+          name = "",
+          type = "OneWayPlatformNode",
+          shape = "point",
+          x = -416,
+          y = 2368,
           width = 0,
           height = 0,
           rotation = 0,

@@ -3306,6 +3306,16 @@ function rt.Player:get_past_position(distance)
 end
 
 --- @brief
+function rt.Player:get_past_position_path(distance)
+    if self._position_history_path_needs_update == true then
+        self._position_history_path:create_from_and_reparameterize(self._position_history)
+        self._position_history_path_needs_update = nil
+    end
+
+    return self._position_history_path
+end
+
+--- @brief
 function rt.Player:get_idle_duration()
     return self._idle_elapsed
 end
