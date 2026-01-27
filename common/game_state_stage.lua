@@ -400,7 +400,7 @@ end
 --- @brief Convert time to grade (faster time = better grade)
 function rt.GameState:time_to_time_grade(time, target_time)
     meta.assert(time, "Number", target_time, "Number")
-    local time_fraction = time / target_time  -- FIXED: was target_time / time
+    local time_fraction = time / target_time
     local time_thresholds = rt.settings.game_state.stage.grade_time_thresholds
 
     for grade in range(
@@ -410,12 +410,12 @@ function rt.GameState:time_to_time_grade(time, target_time)
         rt.StageGrade.C,
         rt.StageGrade.F
     ) do
-        if time_fraction <= time_thresholds[grade] then  -- FIXED: was > now <=
+        if time_fraction <= time_thresholds[grade] then
             return grade
         end
     end
 
-    return rt.StageGrade.F  -- FIXED: was NONE, should be F for worst case
+    return rt.StageGrade.F
 end
 
 --- @brief Convert flow percentage to grade (higher flow = better grade)
@@ -472,7 +472,7 @@ function rt.GameState:get_stage_grades(id)
             rt.StageGrade.C,
             rt.StageGrade.F
         }
-        return rt.StageGrade.S, rt.StageGrade.B, rt.StageGrade.A, ({ rt.StageGrade.S,
+        return rt.StageGrade.S, rt.StageGrade.s, rt.StageGrade.S, ({ rt.StageGrade.S,
                                                                     rt.StageGrade.A,
                                                                     rt.StageGrade.B
         })[self:get_stage_index(id) % 3 + 1]--, rt.random.choose(grades), rt.random.choose(grades), rt.random.choose(grades)

@@ -7,13 +7,8 @@ layout (location = 2) in vec4 VertexColor;
 */
 
 layout (location = 3) in vec3 particle_position;
-layout (location = 4) in vec4 particle_color;
-layout (location = 5) in vec3 velocity;
-layout (location = 6) in vec3 explosion_direction;
-layout (location = 7) in float explosion_force;
-layout (location = 8) in float mass;
-layout (location = 9) in float radius;
-layout (location = 10) in float lifetime;
+layout (location = 4) in float particle_radius;
+layout (location = 5) in vec4 particle_color;
 
 out vec4 vertex_color;
 
@@ -23,7 +18,7 @@ vec4 position(mat4 transform_projection, vec4 vertex_position) {
     vec2 dxy = vertex_position.xy - center;
     float dist = length(dxy);
     dxy = normalize(dxy);
-    vertex_position.xy = particle_position.xy + dxy * radius * dist; // * dist to not scale center
+    vertex_position.xy = particle_position.xy + dxy * particle_radius * dist; // * dist to not scale center
 
     vertex_color = particle_color;
 

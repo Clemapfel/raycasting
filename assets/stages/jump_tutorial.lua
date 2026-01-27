@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 750,
+  nextobjectid = 753,
   properties = {},
   tilesets = {
     {
@@ -3010,6 +3010,19 @@ return {
             { x = -464, y = 64 },
             { x = 20.3193, y = 48 }
           },
+          properties = {}
+        },
+        {
+          id = 752,
+          name = "",
+          type = "Goal",
+          shape = "rectangle",
+          x = -2832.21,
+          y = 2529.42,
+          width = 176,
+          height = 112,
+          rotation = 0,
+          visible = true,
           properties = {}
         }
       }

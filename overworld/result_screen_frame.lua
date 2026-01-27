@@ -144,11 +144,15 @@ local function create_rect_path(x, y, width, height, radius)
         table.insert(path_points, corner_y)
     end
 
-    -- Return to starting point (center of right side)
+    -- Return to starting point (center of right side) to close the loop
     table.insert(path_points, x + width)
     table.insert(path_points, y + 0.5 * height)
 
-    return rt.Path(table.unpack(path_points))
+    -- Build as arc-length parameterized path so t is proportional to distance
+    local path = rt.Path(table.unpack(path_points))
+    path:create_from_and_reparameterize(table.unpack(path_points))
+
+    return path
 end
 
 --- @brief

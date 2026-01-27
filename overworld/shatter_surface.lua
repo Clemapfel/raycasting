@@ -455,7 +455,7 @@ function ow.ShatterSurface:reset()
         part.body:destroy()
     end
 
-    self:instantiate(self._world, self._bounds:unpack())
+    self:instantiate(self._scene, self._world, self._bounds:unpack())
 end
 
 --- @brief

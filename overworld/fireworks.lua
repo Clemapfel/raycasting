@@ -29,8 +29,6 @@ rt.settings.overworld.fireworks = {
     max_explosion_force_multiplier = 1.33,
 
     mass_easing = rt.InterpolationFunctions.SINUSOID_EASE_IN,
-    radius_easing = rt.InterpolationFunctions.LINEAR,
-    opacity_easing = rt.InterpolationFunctions.LINEAR
 }
 
 ow.Fireworks = meta.class("Fireworks")
@@ -40,13 +38,8 @@ meta.add_signal(ow.Fireworks, "done")
 
 local _data_mesh_format = {
     { location = 3, name = "position", format = "floatvec3" },
-    { location = 4, name = "color", format = "floatvec4" },
-    { location = 5, name = "velocity", format = "floatvec3" },
-    { location = 6, name = "explosion_direction", format = "floatvec3" },
-    { location = 7, name = "explosion_force", format = "float" },
-    { location = 8, name = "mass", format = "float" },
-    { location = 9, name = "radius", format = "float" },
-    { location = 10, name = "lifetime", format = "float" }
+    { location = 4, name = "radius", format = "float" },
+    { location = 5, name = "color", format = "floatvec4" },
 }
 
 local _particle_shader = rt.Shader("overworld/fireworks.glsl")
@@ -57,23 +50,28 @@ function ow.Fireworks:instantiate(player)
     self._batch_id = 0
 end
 
-local _position_x = 1
-local _position_y = 2
-local _position_z = 3
-local _color_r = 4
-local _color_g = 5
-local _color_b = 6
-local _color_a = 7
-local _velocity_x = 8
-local _velocity_y = 9
-local _velocity_z = 10
-local _explosion_direction_x = 11
-local _explosion_direction_y = 12
-local _explosion_direction_z = 13
-local _explosion_force = 14
-local _mass = 15
-local _radius = 16
-local _lifetime = 17
+local _position_x_offset = 0
+local _position_y_offset = 1
+local _position_z_offset = 2
+local _velocity_x_offset = 3
+local _velocity_y_offset = 4
+local _velocity_z_offset = 5
+local _explosion_direction_x_offset = 6
+local _explosion_direction_y_offset = 7
+local _explosion_direction_z_offset = 8
+local _explosion_force_offset = 9
+local _mass_offset = 10
+local _radius_offset = 11
+local _lifetime_offset = 12
+local _color_r_offset = 13
+local _color_g_offset = 14
+local _color_b_offset = 15
+local _color_a_offset = 16
+
+local _stride = _color_a_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1
+end
 
 local _settings = rt.settings.overworld.fireworks
 local _golden_ratio = (1 + math.sqrt(5)) / 2
@@ -89,8 +87,10 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
     meta.assert(n_particles, "Number", start_x, "Number", start_y, "Number", end_x, "Number", end_y, "Number", hue_min, "Number", hue_max, "Number")
 
     local data_mesh_data = {}
-    for i = 1, n_particles do
-        local idx = i - 0.5 - 1
+    local data = {}
+
+    for particle_i = 1, n_particles do
+        local idx = particle_i - 0.5 - 1
         local z = 1 - 2 * idx / n_particles
         local theta = 2 * math.pi * idx / _golden_ratio
 
@@ -110,27 +110,36 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
         local hue = _rng(hue_min, hue_max)
         local r, g, b, _ = rt.lcha_to_rgba(0.8, 1, hue, 1)
 
+        local i = #data + 1
+        data[i + _position_x_offset] = start_x
+        data[i + _position_y_offset] = start_y
+        data[i + _position_z_offset] = 0
+        data[i + _velocity_x_offset] = 0
+        data[i + _velocity_y_offset] = 0
+        data[i + _velocity_z_offset] = 0
+        data[i + _explosion_direction_x_offset] = x
+        data[i + _explosion_direction_y_offset] = y
+        data[i + _explosion_direction_z_offset] = z
+        data[i + _explosion_force_offset] = _rng(_settings.min_explosion_force, _settings.max_explosion_force)
+        data[i + _mass_offset] = _rng(_settings.min_mass, _settings.max_mass)
+        data[i + _radius_offset] = _rng(_settings.min_radius, _settings.max_radius)
+        data[i + _lifetime_offset] = _rng(_settings.min_lifetime, _settings.max_lifetime)
+        data[i + _color_r_offset] = r
+        data[i + _color_g_offset] = g
+        data[i + _color_b_offset] = b
+        data[i + _color_a_offset] = 1
+
         table.insert(data_mesh_data, {
-            [_position_x] = start_x,
-            [_position_y] = start_y,
-            [_position_z] = 0,
-            [_color_r] = r,
-            [_color_g] = g,
-            [_color_b] = b,
-            [_color_a] = 1,
-            [_velocity_x] = 0,
-            [_velocity_y] = 0,
-            [_velocity_z] = 0,
-            [_explosion_direction_x] = x,
-            [_explosion_direction_y] = y,
-            [_explosion_direction_z] = z,
-            [_explosion_force] = _rng(_settings.min_explosion_force, _settings.max_explosion_force),
-            [_mass] = _rng(_settings.min_mass, _settings.max_mass),
-            [_radius] = _rng(_settings.min_radius, _settings.max_radius),
-            [_lifetime] = _rng(_settings.min_lifetime, _settings.max_lifetime)
+            data[i + _position_x_offset],
+            data[i + _position_y_offset],
+            data[i + _position_z_offset],
+            data[i + _radius_offset],
+            data[i + _color_r_offset],
+            data[i + _color_g_offset],
+            data[i + _color_b_offset],
+            data[i + _color_a_offset]
         })
     end
-
 
     local n_outer_vertices = 8
     local center_x, center_y = 0, 0
@@ -244,6 +253,7 @@ function ow.Fireworks:spawn(n_particles, start_x, start_y, end_x, end_y, hue_min
         rocket_color = { rt.lcha_to_rgba(0.8, 1, math.mix(hue_min, hue_max, 0.5), 1) },
         explosion_force_multiplier = _rng(_settings.min_explosion_force_multiplier, _settings.max_explosion_force_multiplier),
         particle_mesh = particle_mesh,
+        particle_data = data,
         data_mesh_data = data_mesh_data,
         data_mesh = data_mesh,
         is_exploded = false,
@@ -333,17 +343,19 @@ function ow.Fireworks:update(delta)
                 }
             end
 
-            for particle in values(batch.data_mesh_data) do
-                particle[_position_x] = batch.rocket_x
-                particle[_position_y] = batch.rocket_y
+            local data = batch.particle_data
+            for particle_i = 1, batch.n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+                data[i + _position_x_offset] = batch.rocket_x
+                data[i + _position_y_offset] = batch.rocket_y
 
                 if batch.is_exploded then
                     local inherited_velocity_x = batch.explosion_rocket_velocity_x * _settings.particle_velocity_inheritance
                     local inherited_velocity_y = batch.explosion_rocket_velocity_y * _settings.particle_velocity_inheritance
 
-                    particle[_velocity_x] = particle[_explosion_direction_x] * particle[_explosion_force] * batch.explosion_force_multiplier + inherited_velocity_x
-                    particle[_velocity_y] = particle[_explosion_direction_y] * particle[_explosion_force] * batch.explosion_force_multiplier + inherited_velocity_y
-                    particle[_velocity_z] = particle[_explosion_direction_z] * particle[_explosion_force] * batch.explosion_force_multiplier * _settings.particle_z_damping
+                    data[i + _velocity_x_offset] = data[i + _explosion_direction_x_offset] * data[i + _explosion_force_offset] * batch.explosion_force_multiplier + inherited_velocity_x
+                    data[i + _velocity_y_offset] = data[i + _explosion_direction_y_offset] * data[i + _explosion_force_offset] * batch.explosion_force_multiplier + inherited_velocity_y
+                    data[i + _velocity_z_offset] = data[i + _explosion_direction_z_offset] * data[i + _explosion_force_offset] * batch.explosion_force_multiplier * _settings.particle_z_damping
                 end
             end
         else
@@ -361,8 +373,12 @@ function ow.Fireworks:update(delta)
             batch.elapsed = batch.elapsed + delta
             local is_done = true
 
-            for particle in values(batch.data_mesh_data) do
-                local lifetime = particle[_lifetime]
+            local data = batch.particle_data
+
+            for particle_i = 1, batch.n_particles do
+                local i = _particle_i_to_data_offset(particle_i)
+
+                local lifetime = data[i + _lifetime_offset]
                 local fraction = batch.elapsed / lifetime
 
                 if fraction >= 1 then
@@ -370,43 +386,61 @@ function ow.Fireworks:update(delta)
                     goto continue
                 end
 
-                local fade_out = _settings.particle_fade_out_duration
                 local opacity = 1
+                local fade_out = _settings.particle_fade_out_duration
                 if batch.elapsed > lifetime - fade_out then
-                    opacity = _settings.opacity_easing((lifetime - batch.elapsed) / fade_out)
+                    opacity = (lifetime - batch.elapsed) / fade_out
                 end
-                particle[_color_a] = opacity
+                data[i + _color_a_offset] = opacity
 
-
-                particle[_radius] = _settings.radius_easing(1 - fraction)
+                local radius = 1 - fraction
+                data[i + _radius_offset] = radius
 
                 local burn_factor = _settings.mass_easing(1 - fraction)
                 local velocity_burn_factor = math.mix(burn_rate, 1, burn_factor)
                 local mass_factor = math.mix(0.2, 1, burn_factor)
 
-                particle[_velocity_x] = particle[_velocity_x] * (velocity_burn_factor * air_resistance ^ delta)
-                particle[_velocity_y] = particle[_velocity_y] * (velocity_burn_factor * air_resistance ^ delta)
-                particle[_velocity_z] = particle[_velocity_z] * (velocity_burn_factor * air_resistance ^ delta)
+                local vx = data[i + _velocity_x_offset] * (velocity_burn_factor * air_resistance ^ delta)
+                local vy = data[i + _velocity_y_offset] * (velocity_burn_factor * air_resistance ^ delta)
+                local vz = data[i + _velocity_z_offset] * (velocity_burn_factor * air_resistance ^ delta)
 
-                particle[_velocity_y] = particle[_velocity_y] + mass_factor * gravity * delta
+                vy = vy + mass_factor * gravity * delta
 
-                particle[_position_x] = particle[_position_x] + particle[_velocity_x] * delta
-                particle[_position_y] = particle[_position_y] + particle[_velocity_y] * delta
-                particle[_position_z] = particle[_position_z] + particle[_velocity_z] * delta
+                local px = data[i + _position_x_offset] + vx * delta
+                local py = data[i + _position_y_offset] + vy * delta
+                local pz = data[i + _position_z_offset] + vz * delta
 
                 if self._player ~= nil then
-                    local particle_r = particle[_radius]
-                    if math.distance(particle[_position_x], particle[_position_y], player_x, player_y) < (player_r + particle_r) then
-                        local delta_x, delta_y = math.normalize(particle[_position_x] - player_x, particle[_position_y] - player_y)
-                        particle[_position_x] = player_x + delta_x * (player_r + particle_r)
-                        particle[_position_y] = player_y + delta_y * (player_r + particle_r)
-
-                        particle[_velocity_x] = delta_x * math.abs(particle[_velocity_x]) * restitution
-                        particle[_velocity_y] = delta_y * math.abs(particle[_velocity_y]) * restitution
+                    if math.distance(px, py, player_x, player_y) < (player_r + radius) then
+                        local delta_x, delta_y = math.normalize(px - player_x, py - player_y)
+                        px = player_x + delta_x * (player_r + radius)
+                        py = player_y + delta_y * (player_r + radius)
+                        vx = delta_x * math.abs(vx) * restitution
+                        vy = delta_y * math.abs(vy) * restitution
                     end
                 end
 
+                data[i + _velocity_x_offset] = vx
+                data[i + _velocity_y_offset] = vy
+                data[i + _velocity_z_offset] = vz
+
+                data[i + _position_x_offset] = px
+                data[i + _position_y_offset] = py
+                data[i + _position_z_offset] = pz
+
                 if opacity > 0 then is_done = false end
+
+                -- update data mesh
+
+                local data_mesh_data_data = batch.data_mesh_data[particle_i]
+                data_mesh_data_data[1] = px
+                data_mesh_data_data[2] = py
+                data_mesh_data_data[3] = px
+                data_mesh_data_data[4] = radius
+                data_mesh_data_data[5] = data[i + _color_r_offset]
+                data_mesh_data_data[6] = data[i + _color_g_offset]
+                data_mesh_data_data[7] = data[i + _color_b_offset]
+                data_mesh_data_data[8] = data[i + _color_a_offset]
 
                 ::continue::
             end

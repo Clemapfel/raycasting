@@ -589,6 +589,20 @@ function ow.ResultScreenScene:enter(player_x, player_y, screenshot, config)
 
     config.coins_grade = rt.GameState:n_coins_to_coin_grade(n_coins, #config.coins)
 
+
+
+    -- TODO
+    config.flow_grade = rt.StageGrade.S
+    config.time_grade = rt.StageGrade.S
+    config.coins_grade = rt.StageGrade.S
+    config.target_time = math.huge
+    config.flow = 1
+    for i = 1, #config.coins do
+        config.coins[i] = true
+    end
+    n_coins = #config.coins
+    -- TODO
+
     self._config = config
     self._stage_name_label:set_text(_format_title(config.stage_name))
 
