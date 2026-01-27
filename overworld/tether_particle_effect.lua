@@ -86,22 +86,27 @@ function ow.TetherParticleEffect:clear()
     self._batches = {}
 end
 
-local _position_x = 1
-local _position_y = 2
-local _velocity_x = 3
-local _velocity_y = 4
-local _acceleration = 6
-local _color_r = 7
-local _color_g = 8
-local _color_b = 9
-local _color_a = 10
-local _mass = 11
-local _radius = 12
-local _lifetime_elapsed = 13
-local _lifetime = 14
-local _hue = 15
-local _hue_velocity = 16
-local _hue_velocity_direction = 17
+local _position_x_offset = 0
+local _position_y_offset = 1
+local _velocity_x_offset = 2
+local _velocity_y_offset = 3
+local _acceleration_offset = 4
+local _color_r_offset = 5
+local _color_g_offset = 6
+local _color_b_offset = 7
+local _color_a_offset = 8
+local _mass_offset = 9
+local _radius_offset = 10
+local _lifetime_elapsed_offset = 11
+local _lifetime_offset = 12
+local _hue_offset = 13
+local _hue_velocity_offset = 14
+local _hue_velocity_direction_offset = 15
+
+local _stride = _hue_velocity_direction_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1
+end
 
 --- @brief
 function ow.TetherParticleEffect:_init_batch(
@@ -125,11 +130,14 @@ function ow.TetherParticleEffect:_init_batch(
     local min_initial_velocity, max_initial_velocity = settings.min_initial_velocity, settings.max_initial_velocity
     local min_hue_velocity, max_hue_velocity = settings.min_hue_velocity, settings.max_hue_velocity
 
-    batch.particles = {}
-    for i = 1, n_particles do
+    batch.particle_data = {}
+    batch.n_particles = 0
+
+    local data = batch.particle_data
+    for particle_i = 1, n_particles do
         if _n_particles > settings.max_n_particles then break end
 
-        local t = (i - 1) / n_particles
+        local t = (particle_i - 1) / n_particles
         local position_x, position_y = path:at(t)
         local dx, dy = path:tangent_at(t)
         local up_x, up_y = math.normalize(math.turn_left(dx, dy))
@@ -141,32 +149,31 @@ function ow.TetherParticleEffect:_init_batch(
         local magnitude = math.mix(min_initial_velocity, max_initial_velocity, mass_t)
 
         local vx, vy
-        if i % 2 == 0 then
+        if particle_i % 2 == 0 then
             vx, vy = up_x, up_y
         else
             vx, vy = down_x, down_y
         end
 
-        local particle = {
-            [_position_x] = position_x,
-            [_position_y] = position_y,
-            [_velocity_x] = (vx + velocity_x) * magnitude,
-            [_velocity_y] = (vy + velocity_y) * magnitude,
-            [_acceleration] = math.mix(min_acceleration, max_acceleration, mass_t),
-            [_color_r] = color_r,
-            [_color_g] = color_g,
-            [_color_b] = color_b,
-            [_color_a] = 1,
-            [_mass] = mass,
-            [_radius] = radius,
-            [_lifetime_elapsed] = 0,
-            [_lifetime] = rt.random.number(min_lifetime, max_lifetime),
-            [_hue] = hue,
-            [_hue_velocity] = math.mix(min_hue_velocity, max_hue_velocity, mass_t),
-            [_hue_velocity_direction] = rt.random.choose(-1, 1)
-        }
+        local i = #batch.particle_data + 1
+        data[i + _position_x_offset] = position_x
+        data[i + _position_y_offset] = position_y
+        data[i + _velocity_x_offset] = (vx + velocity_x) * magnitude
+        data[i + _velocity_y_offset] = (vy + velocity_y) * magnitude
+        data[i + _acceleration_offset] = math.mix(min_acceleration, max_acceleration, mass_t)
+        data[i + _color_r_offset] = color_r
+        data[i + _color_g_offset] = color_g
+        data[i + _color_b_offset] = color_b
+        data[i + _color_a_offset] = 1
+        data[i + _mass_offset] = mass
+        data[i + _radius_offset] = radius
+        data[i + _lifetime_elapsed_offset] = 0
+        data[i + _lifetime_offset] = rt.random.number(min_lifetime, max_lifetime)
+        data[i + _hue_offset] = hue
+        data[i + _hue_velocity_offset] = math.mix(min_hue_velocity, max_hue_velocity, mass_t)
+        data[i + _hue_velocity_direction_offset] = rt.random.choose(-1, 1)
 
-        table.insert(batch.particles, particle)
+        batch.n_particles = batch.n_particles + 1
         _n_particles = _n_particles + 1
     end
 
@@ -188,25 +195,32 @@ function ow.TetherParticleEffect:_update_batch(batch, delta)
     local turbulence_scale = settings.turbulence_scale
     local time_offset = rt.current_time or 0
 
-    for particle_i, particle in ipairs(batch.particles) do
-        local px, py = particle[_position_x], particle[_position_y]
+    local data = batch.particle_data
+    for particle_i = 1, batch.n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
 
-        particle[_lifetime_elapsed] = particle[_lifetime_elapsed] + delta
-        particle[_color_a] = math.clamp(
-            (particle[_lifetime] - particle[_lifetime_elapsed]) / settings.opacity_fade_duration,
-            0, 1
-        )
+        local px = data[i + _position_x_offset]
+        local py = data[i + _position_y_offset]
+        local vx = data[i + _velocity_x_offset]
+        local vy = data[i + _velocity_y_offset]
 
-        if particle[_lifetime_elapsed] > particle[_lifetime] then
+        local lifetime_elapsed = data[i + _lifetime_elapsed_offset] + delta
+        local lifetime = data[i + _lifetime_offset]
+        data[i + _lifetime_elapsed_offset] = lifetime_elapsed
+
+        local alpha = (lifetime - lifetime_elapsed) / settings.opacity_fade_duration
+        if alpha < 0 then alpha = 0 elseif alpha > 1 then alpha = 1 end
+        data[i + _color_a_offset] = alpha
+
+        if lifetime_elapsed > lifetime then
             table.insert(to_remove, 1, particle_i)
             goto continue
         end
 
-        local mass = particle[_mass]
-        local vx, vy = particle[_velocity_x], particle[_velocity_y]
+        local mass = data[i + _mass_offset]
+        local acceleration = data[i + _acceleration_offset]
 
         local dx, dy = math.normalize(vx, vy)
-        local acceleration = particle[_acceleration]
         vx = vx + (mass * gravity_x + dx * acceleration) * delta
         vy = vy + (mass * gravity_y + dy * acceleration) * delta
 
@@ -214,26 +228,26 @@ function ow.TetherParticleEffect:_update_batch(batch, delta)
         local noise_x = math.cos(angle)
         local noise_y = math.sin(angle)
 
-        local turbulence_x = noise_x * turbulence_strength * delta
-        local turbulence_y = noise_y * turbulence_strength * delta
-
-        vx = vx + turbulence_x * acceleration
-        vy = vy + turbulence_y * acceleration
+        local t = turbulence_strength * delta * acceleration
+        vx = vx + noise_x * t
+        vy = vy + noise_y * t
 
         px = px + vx * delta
         py = py + vy * delta
 
-        particle[_position_x] = px
-        particle[_position_y] = py
-        particle[_velocity_x] = vx
-        particle[_velocity_y] = vy
+        data[i + _position_x_offset] = px
+        data[i + _position_y_offset] = py
+        data[i + _velocity_x_offset] = vx
+        data[i + _velocity_y_offset] = vy
 
-        particle[_hue] = math.fract(particle[_hue] + particle[_hue_velocity_direction] * particle[_hue_velocity] * delta)
-        local r, g, b, a = rt.lcha_to_rgba(0.8, 1, particle[_hue], 1)
+        local hue = data[i + _hue_offset] + data[i + _hue_velocity_direction_offset] * data[i + _hue_velocity_offset] * delta
+        hue = hue - math.floor(hue)
+        data[i + _hue_offset] = hue
 
-        particle[_color_r] = r
-        particle[_color_g] = g
-        particle[_color_b] = b
+        local r, g, b = rt.lcha_to_rgba(0.8, 1, hue, 1)
+        data[i + _color_r_offset] = r
+        data[i + _color_g_offset] = g
+        data[i + _color_b_offset] = b
 
         n_updated = n_updated + 1
 
@@ -241,7 +255,11 @@ function ow.TetherParticleEffect:_update_batch(batch, delta)
     end
 
     for i in values(to_remove) do
-        table.remove(batch.particles, i)
+        local offset = _particle_i_to_data_offset(i)
+        for _ = 1, _stride do
+            table.remove(batch.particle_data, offset)
+        end
+        batch.n_particles = batch.n_particles - 1
         _n_particles = _n_particles - 1
     end
 
@@ -255,11 +273,13 @@ function ow.TetherParticleEffect:_draw_batch(batch, is_bloom)
     love.graphics.setLineWidth(1.2)
     local alpha = ternary(is_bloom, 0.4, 1)
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
-    for particle in values(batch.particles) do
-        local radius = particle[_radius] * particle[_mass]
+    local data = batch.particle_data
+    for particle_i = 1, batch.n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
+        local radius = data[i + _radius_offset] * data[i + _mass_offset]
         if radius > 1 then
-            love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], alpha * particle[_color_a])
-            love.graphics.circle("fill", particle[_position_x], particle[_position_y], particle[_radius])
+            love.graphics.setColor(data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset], alpha * data[i + _color_a_offset])
+            love.graphics.circle("fill", data[i + _position_x_offset], data[i + _position_y_offset], data[i + _radius_offset])
         end
     end
 end
