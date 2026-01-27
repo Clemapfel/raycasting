@@ -369,18 +369,23 @@ function ow.BouncePad:reset()
     self._batches = {}
 end
 
-local _position_x = 1
-local _position_y = 2
-local _velocity_x = 3
-local _velocity_y = 4
-local _t = 5
-local _velocity_decay = 6
-local _radius = 7
-local _hue = 8
-local _color_r = 9
-local _color_g = 10
-local _color_b = 11
-local _alpha = 12
+local _position_x_offset = 0
+local _position_y_offset = 1
+local _velocity_x_offset = 2
+local _velocity_y_offset = 3
+local _t_offset = 4 -- velocity decay accumulator
+local _velocity_decay_offset = 5
+local _radius_offset = 6
+local _hue_offset = 7
+local _color_r_offset = 8
+local _color_g_offset = 9
+local _color_b_offset = 10
+local _color_a_offset = 11
+
+local _stride = _color_a_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1
+end
 
 -- @brief
 function ow.BouncePad:_spawn_particles(x, y, normal_x, normal_y, n_particles, hue)
@@ -398,31 +403,38 @@ function ow.BouncePad:_spawn_particles(x, y, normal_x, normal_y, n_particles, hu
     local angle = math.angle(normal_x, normal_y)
     local angle_range = settings.angle_range
 
+    batch.particle_data = {}
+    batch.n_particles = n_particles
+
+    local data = batch.particle_data
     for particle_i = 1, n_particles do
         local theta = rt.random.number(angle - 0.5* angle_range, angle + 0.5 * angle_range)
 
         local vx, vy = math.cos(theta), math.sin(theta)
         local magnitude = rt.random.number(settings.min_velocity_x, settings.max_velocity_y)
-        local particle = {
-            [_position_x] = x,
-            [_position_y] = y,
-            [_velocity_x] = vx * magnitude,
-            [_velocity_y] = vy * magnitude,
-            [_t] = 1,
-            [_velocity_decay] = rt.random.number(settings.min_decay, settings.max_decay),
-            [_radius] = rt.random.number(settings.min_radius, settings.max_radius),
-            [_hue] = rt.random.number(hue - settings.hue_range, hue + settings.hue_range),
-            [_alpha] = 1
-        }
+        local i = #data + 1
+        data[i + _position_x_offset] = x
+        data[i + _position_y_offset] = y
+        data[i + _velocity_x_offset] = vx * magnitude
+        data[i + _velocity_y_offset] = vy * magnitude
+        data[i + _t_offset] = 1
+        data[i + _velocity_decay_offset] = rt.random.number(settings.min_decay, settings.max_decay)
+        data[i + _radius_offset] = rt.random.number(settings.min_radius, settings.max_radius)
 
-        particle[_color_r], particle[_color_g], particle[_color_b] = rt.hsva_to_rgba(
-            particle[_hue],
+        local current_hue =  rt.random.number(hue - settings.hue_range, hue + settings.hue_range)
+        data[i + _hue_offset] = current_hue
+
+        local r, g, b = rt.hsva_to_rgba(
+            current_hue,
             settings.saturation,
             1,
             1
         )
 
-        table.insert(batch, particle)
+        data[i + _color_r_offset] = r
+        data[i + _color_g_offset] = g
+        data[i + _color_b_offset] = b
+        data[i + _color_a_offset] = 1
     end
 end
 
@@ -454,44 +466,52 @@ function ow.BouncePad:_update_particles(delta)
     local batch_to_remove = {}
     for batch_i, batch in ipairs(self._batches) do
         local particle_to_remove = {}
-        for particle_i, particle in ipairs(batch) do
-            local x, y = particle[_position_x], particle[_position_y]
-            local vx, vy = particle[_velocity_x], particle[_velocity_y]
-            local t, decay = particle[_t], particle[_velocity_decay]
+        local data = batch.particle_data
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+
+            local x, y = data[i + _position_x_offset], data[i + _position_y_offset]
+            local vx, vy = data[i + _velocity_x_offset], data[i + _velocity_y_offset]
+            local t, decay = data[i + _t_offset], data[i + _velocity_decay_offset]
 
             x = x + vx * delta * t
             y = y + vy * delta * t
             t = t * decay
 
             local dx, dy
-            x, y, dx, dy = resolve_overlap(x, y, particle[_radius])
+            x, y, dx, dy = resolve_overlap(x, y, data[i + _radius_offset])
 
-            particle[_position_x], particle[_position_y] = x, y
-            particle[_velocity_x] = vx + dx
-            particle[_velocity_y] = vy + dy
-            particle[_t] = t
+            data[i + _position_x_offset], data[i + _position_y_offset] = x, y
+            data[i + _velocity_x_offset] = vx + dx
+            data[i + _velocity_y_offset] = vy + dy
+            data[i + _t_offset] = t
 
             if t < 0.001 then
                 table.insert(particle_to_remove, 1, particle_i)
             end
 
             if t < fade_out_fraction then
-                particle[_alpha] = t / fade_out_fraction
+                data[i + _color_a_offset] = t / fade_out_fraction
             end
 
-            particle[_color_r], particle[_color_g], particle[_color_b] = rt.hsva_to_rgba(
-                particle[_hue],
-                particle[_t] * saturation,
+            data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset] = rt.hsva_to_rgba(
+                data[i + _hue_offset],
+                data[i + _t_offset] * saturation,
                 1,
                 1
             )
         end
 
-        for i in values(particle_to_remove) do
-            table.remove(batch, i)
+        table.sort(particle_to_remove, function(a, b) return b > a end)
+        for _, particle_i in ipairs(particle_to_remove) do
+            local i = _particle_i_to_data_offset(particle_i)
+            for offset = _stride - 1, 0, -1 do
+                table.remove(batch.particle_data, i + offset)
+            end
+            batch.n_particles = batch.n_particles - 1
         end
 
-        if #batch == 0 then
+        if batch.n_particles == 0 then
             table.insert(batch_to_remove, 1, batch_i)
         end
     end
@@ -507,32 +527,37 @@ function ow.BouncePad:_draw_particles()
     local saturation = rt.settings.overworld.bounce_pad.saturation
     love.graphics.setLineWidth(1)
     for batch in values(self._batches) do
-        for particle in values(batch) do
-            love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], particle[_alpha])
+        local data = batch.particle_data
+
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            love.graphics.setColor(data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset], data[i + _color_a_offset])
             love.graphics.circle("fill",
-                particle[_position_x],
-                particle[_position_y],
-                particle[_radius]
+                data[i + _position_x_offset],
+                data[i + _position_y_offset],
+                data[i + _radius_offset]
             )
         end
 
         love.graphics.setLineWidth(1.5)
-        for particle in values(batch) do
-            love.graphics.setColor(black_r, black_g, black_b, particle[_alpha])
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            love.graphics.setColor(black_r, black_g, black_b, data[i + _color_a_offset])
             love.graphics.circle("line",
-                particle[_position_x],
-                particle[_position_y],
-                particle[_radius]
+                data[i + _position_x_offset],
+                data[i + _position_y_offset],
+                data[i + _radius_offset]
             )
         end
 
         love.graphics.setLineWidth(1)
-        for particle in values(batch) do
-            love.graphics.setColor(particle[_color_r], particle[_color_g], particle[_color_b], particle[_alpha])
+        for particle_i = 1, batch.n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
+            love.graphics.setColor(data[i + _color_r_offset], data[i + _color_g_offset], data[i + _color_b_offset], data[i + _color_a_offset])
             love.graphics.circle("line",
-                particle[_position_x],
-                particle[_position_y],
-                particle[_radius]
+                data[i + _position_x_offset],
+                data[i + _position_y_offset],
+                data[i + _radius_offset]
             )
         end
     end

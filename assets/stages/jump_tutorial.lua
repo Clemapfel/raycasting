@@ -3015,7 +3015,7 @@ return {
         {
           id = 752,
           name = "",
-          type = "Goal",
+          type = "BouncePad",
           shape = "rectangle",
           x = -2832.21,
           y = 2529.42,

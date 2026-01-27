@@ -522,7 +522,7 @@
   <object id="749" type="AcceleratorSurface" x="-2800" y="2768">
    <polygon points="20.3193,0 -144,0 -256,-32 -336,-144 -368,-272 -352,-400 -288,-512 -208,-576 0,-640 112,-624 304,-592 400,-480 448,-320 432,-192 384,-112 288,-48 160,-16 64,0 16,0 16,48 576,48 576,-704 -528,-704 -464,64 20.3193,48"/>
   </object>
-  <object id="752" type="Goal" x="-2832.21" y="2529.42" width="176" height="112"/>
+  <object id="752" type="BouncePad" x="-2832.21" y="2529.42" width="176" height="112"/>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="610" name="NPC" type="NPC" x="512" y="-880">
