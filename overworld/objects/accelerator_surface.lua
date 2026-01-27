@@ -124,8 +124,11 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
     self._scene = scene
     self._stage = stage
     self._elapsed = 0
-    self._particles = {}
+    self._particle_data = {}
     self._particle_elapsed = 0
+    self._stale_particle_indices = {}
+
+    self._n_particles = 0
 
     self._is_visible = object:get_boolean("is_visible", false)
     if self._is_visible == nil then self._is_visible = true end
@@ -190,27 +193,39 @@ local function _get_friction(nx, ny, vx, vy)
     return -tangent_vx, -tangent_vy
 end
 
-local _x = 1
-local _y = 2
-local _velocity_x = 3
-local _velocity_y = 4
-local _velocity_magnitude = 5
-local _elapsed = 6
-local _lifetime = 7
-local _scale = 8
-local _angle = 9
-local _quad = 10
+local _x_offset = 0
+local _y_offset = 1
+local _velocity_x_offset = 2
+local _velocity_y_offset = 3
+local _velocity_magnitude_offset = 4
+local _elapsed_offset = 5
+local _lifetime_offset = 6
+local _scale_offset = 7
+local _angle_offset = 8
+local _quad_i_offset = 9
+local _is_stale_offset = 10
+
+local _stride = _is_stale_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1
+end
+
+local _is_stale = 0
+local _is_not_stale = 1
 
 --- @brief
 function ow.AcceleratorSurface:update(delta)
     if not self._is_visible or not self._stage:get_is_body_visible(self._body) then
-        self._particles = {}
+        table.clear(self._particle_data)
+        table.clear(self._stale_particle_indices)
         return
     end
 
     local settings = rt.settings.overworld.accelerator_surface.particle
 
     local player = self._scene:get_player()
+    local data = self._particle_data
+
     if player:get_is_colliding_with(self._body) == true then
         self._particle_elapsed = self._particle_elapsed + delta
         local normal_x, normal_y = player:get_collision_normal(self._body)
@@ -230,48 +245,62 @@ function ow.AcceleratorSurface:update(delta)
         dx, dy = math.mix2(dx, dy, normal_x, normal_y, 0.5)
 
         while self._particle_elapsed > step do
-            local particle = {
-                [_x] = px,
-                [_y] = py,
-                [_velocity_x] = dx,
-                [_velocity_y] = dy,
-                [_velocity_magnitude] = rt.random.number(settings.min_speed, settings.max_speed),
-                [_elapsed] = 0,
-                [_lifetime] = rt.random.number(settings.min_lifetime, settings.max_lifetime),
-                [_scale] = rt.random.number(settings.min_scale, settings.max_scale * t),
-                [_angle] = rt.random.number(0, 2 * math.pi),
-                [_quad] = rt.random.choose(_particle_quads),
-            }
+            local i = #data + 1
+            data[i + _x_offset] = px
+            data[i + _y_offset] = py
+            data[i + _velocity_x_offset] = dx
+            data[i + _velocity_y_offset] = dy
+            data[i + _velocity_magnitude_offset] = rt.random.number(settings.min_speed, settings.max_speed)
+            data[i + _elapsed_offset] = 0
+            data[i + _lifetime_offset] = rt.random.number(settings.min_lifetime, settings.max_lifetime)
+            data[i + _scale_offset] = rt.random.number(settings.min_scale, settings.max_scale * t)
+            data[i + _angle_offset] = rt.random.number(0, 2 * math.pi)
+            data[i + _quad_i_offset] = rt.random.integer(1, #_particle_quads)
+            data[i + _is_stale_offset] = _is_not_stale
 
-            table.insert(self._particles, particle)
             self._particle_elapsed = self._particle_elapsed - step
+            self._n_particles = self._n_particles + 1
             self._stage.accelerator_total_n_particles = self._stage.accelerator_total_n_particles + 1
         end
     end
 
     local aabb = self._scene:get_camera():get_world_bounds()
-
-    local to_remove = {}
-    for i, particle in ipairs(self._particles) do
-        particle[_x] = particle[_x] + particle[_velocity_x] * particle[_velocity_magnitude] * delta
-        particle[_y] = particle[_y] + particle[_velocity_y] * particle[_velocity_magnitude] * delta
-        particle[_elapsed] = particle[_elapsed] + delta
-        particle[_velocity_magnitude] = particle[_velocity_magnitude] * settings.deceleration
-
-        if self._stage.accelerator_total_n_particles > settings.max_n_particles
-            or not aabb:contains(particle[_x], particle[_y])
-            or particle[_elapsed] > particle[_lifetime]
-        then
-            table.insert(to_remove, i)
-            self._stage.accelerator_total_n_particles = self._stage.accelerator_total_n_particles - 1
+    local x, y, w, h = aabb:unpack()
+    for particle_i = 1, self._n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
+        if data[i + _is_stale_offset] ~= _is_stale then
+            local px, py = data[i + _x_offset], data[i + _y_offset]
+            if self._stage.accelerator_total_n_particles > settings.max_n_particles
+                --or not (px >= x and px <= x + w and py >= y and py <= y + h)
+                or data[i + _elapsed_offset] > data[i + _lifetime_offset]
+            then
+                data[i + _is_stale_offset] = _is_stale
+                data[i + _elapsed_offset] = math.huge
+                table.insert(self._stale_particle_indices, particle_i)
+            else
+                data[i + _x_offset] = data[i + _x_offset] + data[i + _velocity_x_offset] * data[i + _velocity_magnitude_offset] * delta
+                data[i + _y_offset] = data[i + _y_offset] + data[i + _velocity_y_offset] * data[i + _velocity_magnitude_offset] * delta
+                data[i + _elapsed_offset] = data[i + _elapsed_offset] + delta
+                data[i + _velocity_magnitude_offset] = data[i + _velocity_magnitude_offset] * settings.deceleration
+            end
         end
     end
 
-    if #to_remove > 0 then
-        table.sort(to_remove, function(a, b) return a > b end)
-        for i in values(to_remove) do
-            table.remove(self._particles, i)
+    -- periodically remove stale particles
+    if #self._stale_particle_indices > 256 then
+        table.sort(self._stale_particle_indices, function(a, b) return a > b end)
+
+        for _, particle_i in ipairs(self._stale_particle_indices) do
+            local i = _particle_i_to_data_offset(particle_i)
+            for offset = _stride - 1, 0, -1 do
+                table.remove(self._particle_data, i + offset)
+            end
         end
+
+        local n_removed = #self._stale_particle_indices
+        self._n_particles = self._n_particles - n_removed
+        self._stage.accelerator_total_n_particles = self._stage.accelerator_total_n_particles - n_removed
+        table.clear(self._stale_particle_indices)
     end
 end
 
@@ -316,8 +345,7 @@ function ow.AcceleratorSurface:draw(priority)
         _outline_shader:unbind()
 
         love.graphics.pop()
-    elseif false then -- TODO priority == particle_priority then
-
+    elseif priority == particle_priority then
         _particle_shader:bind()
         _particle_shader:send("screen_to_world_transform", transform)
 
@@ -325,20 +353,22 @@ function ow.AcceleratorSurface:draw(priority)
         local texture = _particle_texture:get_native()
 
         love.graphics.push()
-        for particle in values(self._particles) do
+        local data = self._particle_data
+        for particle_i = 1, self._n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
             love.graphics.setColor(
                 1, 1, 1,
                 rt.InterpolationFunctions.ENVELOPE(
-                    particle[_elapsed] / particle[_lifetime],
+                    data[i + _elapsed_offset] / data[i + _lifetime_offset],
                     rt.settings.overworld.accelerator_surface.particle.attack,
                     rt.settings.overworld.accelerator_surface.particle.decay
                 )
             )
 
-            love.graphics.draw(texture, particle[_quad],
-                particle[_x], particle[_y],
-                particle[_angle],
-                particle[_scale], particle[_scale],
+            love.graphics.draw(texture, _particle_quads[data[i + _quad_i_offset]],
+                data[i + _x_offset], data[i + _y_offset],
+                data[i + _angle_offset],
+                data[i + _scale_offset], data[i + _scale_offset],
                 0.5 * frame_h, 0.5 * frame_h
             )
         end
