@@ -45,12 +45,17 @@ local _FORWARD = true
 local _BACKWARDS = not _FORWARD
 
 -- particle properties
-local _x = 1
-local _y = 2
-local _direction = 3
-local _speed = 4
-local _scale = 5
-local _t = 6
+local _x_offset = 0
+local _y_offset = 1
+local _direction_offset = 2
+local _speed_offset = 3
+local _scale_offset = 4
+local _t_offset = 5
+
+local _stride = _t_offset + 1
+local _particle_i_to_data_offset = function(particle_i)
+    return (particle_i - 1) * _stride + 1
+end
 
 --- @brief
 function ow.Portal:instantiate(object, stage, scene)
@@ -102,7 +107,7 @@ function ow.Portal:instantiate(object, stage, scene)
     self._entry_t = 0.5
 
     -- particles
-    self._particles = {}
+    self._particle_data = {}
     self._static_canvas = nil
     self._canvas_x, self._canvas_y, self._canvas_angle = 0, 0, 0
     self._canvas_needs_update = false
@@ -277,8 +282,8 @@ function ow.Portal:instantiate(object, stage, scene)
         )
         self._transition_stencil_radius = stencil_r
         self._transition_stencil:set_collides_with(0x0)
-        self._transition_stencil:set_collision_group(0x0)
-        self._transition_stencil:add_tag("unjumpable", "stencil", "core_stencil")
+        self._transition_stencil:set_collision_group(rt.settings.player.ghost_collision_group)
+        self._transition_stencil:add_tag("hitbox", "stencil", "core_stencil")
         self:_set_stencil_enabled(false)
 
         if not self._is_dead_end then
@@ -457,20 +462,22 @@ function ow.Portal:instantiate(object, stage, scene)
         end
 
         -- distribute evenly across line
-        local ax, ay, bx, by = table.unpack(self._particle_axis)
-        for i = 1, n_particles do
-            local t = (i - 1) / n_particles
-            local x, y = math.mix2(ax, ay, bx, by, t)
-            local particle = {
-                [_x] = x,
-                [_y] = y,
-                [_speed] = rt.random.number(settings.min_speed, settings.max_speed),
-                [_direction] = rt.random.choose(_FORWARD, _BACKWARDS),
-                [_scale] = rt.random.number(settings.min_scale, settings.max_scale),
-                [_t] = t
-            }
+        self._particle_data = {}
+        self._n_particles = 0
 
-            table.insert(self._particles, particle)
+        local data = self._particle_data
+        local ax, ay, bx, by = table.unpack(self._particle_axis)
+        for particle_i = 1, n_particles do
+            local t = (particle_i - 1) / n_particles
+            local x, y = math.mix2(ax, ay, bx, by, t)
+            local i = #self._particle_data + 1
+            data[i + _x_offset] = x
+            data[i + _y_offset] = y
+            data[i + _speed_offset] = rt.random.number(settings.min_speed, settings.max_speed)
+            data[i + _direction_offset] = rt.random.choose(_FORWARD, _BACKWARDS)
+            data[i + _scale_offset] = rt.random.number(settings.min_scale, settings.max_scale)
+            data[i + _t_offset] = t
+            self._n_particles = self._n_particles + 1
         end
 
         self._canvas_needs_update = true
@@ -633,39 +640,44 @@ function ow.Portal:update(delta)
 
     local ax, ay, bx, by = table.unpack(self._particle_axis)
     local length = math.distance(ax, ay, bx, by)
+    local particle_r = select(1, _particle_texture:get_size()) / 2
 
     local speed = rt.settings.overworld.portal.particle.collapse_speed
     local collapse_mean_distance = 0
 
-    for particle in values(self._particles) do
-        local t = particle[_t]
+    local data = self._particle_data
+    for particle_i = 1, self._n_particles do
+        local i = _particle_i_to_data_offset(particle_i)
+        local t = data[i + _t_offset]
+        local scale = data[i + _scale_offset]
+        local eps = (scale * particle_r) / length / 2
 
-        if particle[_direction] == _FORWARD then
-            t = t + particle[_speed] / length * delta
-            if t > 1 then
-                t = 1
-                particle[_direction] = not particle[_direction]
+        if data[i + _direction_offset] == _FORWARD then
+            t = t + data[i + _speed_offset] / length * delta
+            if t > 1 - eps then
+                t = 1 - eps
+                data[i + _direction_offset] = not data[i + _direction_offset]
             end
         else
-            t = t - particle[_speed] / length * delta
-            if t < 0 then
-                t = 0
-                particle[_direction] = not particle[_direction]
+            t = t - data[i + _speed_offset] / length * delta
+            if t < eps then
+                t = eps
+                data[i + _direction_offset] = not data[i + _direction_offset]
             end
         end
 
-        particle[_t] = t
+        data[i + _t_offset] = t
 
         if self._collapse_active then -- always collapsed if no entry
             t = self._entry_t
         end
         local target_x, target_y = math.mix2(ax, ay, bx, by, t)
 
-        particle[_x] = particle[_x] + speed * (target_x - particle[_x]) * delta
-        particle[_y] = particle[_y] + speed * (target_y - particle[_y]) * delta
+        data[i + _x_offset] = data[i + _x_offset] + speed * (target_x - data[i + _x_offset]) * delta
+        data[i + _y_offset] = data[i + _y_offset] + speed * (target_y - data[i + _y_offset]) * delta
 
         if self._collapse_active then
-            collapse_mean_distance = collapse_mean_distance + math.distance(target_x, target_y, particle[_x], particle[_y])
+            collapse_mean_distance = collapse_mean_distance + math.distance(target_x, target_y, data[i + _x_offset], data[i + _y_offset])
         end
     end
 
@@ -748,7 +760,7 @@ function ow.Portal:draw()
 
     if self._tether ~= nil and rt.GameState:get_is_color_blind_mode_enabled() then
         love.graphics.setLineWidth(2)
-        love.graphics.setColor(r, g, b, a * 0.5)
+        love.graphics.setColor(r, g, b, a)
         self._tether:draw()
     end
 
@@ -765,11 +777,13 @@ function ow.Portal:draw()
 
         local w, h = _particle_texture:get_size()
         local scale = math.mix(1, rt.settings.overworld.portal.impulse_max_scale, self._impulse:get_beat())
-        for particle in values(self._particles) do
+        local data = self._particle_data
+        for particle_i = 1, self._n_particles do
+            local i = _particle_i_to_data_offset(particle_i)
             love.graphics.draw(
                 _particle_texture:get_native(),
-                particle[_x], particle[_y], 0,
-                particle[_scale] * scale, particle[_scale] * scale,
+                data[i + _x_offset], data[i + _y_offset], 0,
+                data[i + _scale_offset] * scale, data[i + _scale_offset] * scale,
                 0.5 * w, 0.5 * h
             )
         end

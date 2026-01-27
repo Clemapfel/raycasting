@@ -273,7 +273,7 @@ vec4 effect(vec4 color, sampler2D tex, vec2 texture_coords, vec2 screen_coords) 
     {
         vec2 player_world_pos = to_world_position(player_position);
         float dist = distance(world_pos, player_world_pos) / 100.0;
-        shadow_attenuation = gaussian(dist, shadow_attenuation_sigma);
+        shadow_attenuation = 0; //gaussian(dist, shadow_attenuation_sigma);
     }
 
     vec3 cell_color = lch_to_rgb(vec3(shading, 1, mix_periodic(mix(min_hue, max_hue, cell_id), player_hue, attenuation)));

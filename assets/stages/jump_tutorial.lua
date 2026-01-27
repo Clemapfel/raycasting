@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 753,
+  nextobjectid = 760,
   properties = {},
   tilesets = {
     {
@@ -3013,14 +3013,61 @@ return {
           properties = {}
         },
         {
-          id = 752,
+          id = 753,
+          name = "Portal",
+          type = "Portal",
+          shape = "point",
+          x = -2800,
+          y = 2576,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 759 },
+            ["target"] = { id = 754 }
+          }
+        },
+        {
+          id = 754,
+          name = "Portal",
+          type = "Portal",
+          shape = "point",
+          x = -3472,
+          y = 2864,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["left_or_right"] = false,
+            ["other"] = { id = 755 },
+            ["target"] = { id = 753 }
+          }
+        },
+        {
+          id = 755,
           name = "",
-          type = "BouncePad",
-          shape = "rectangle",
-          x = -2832.21,
-          y = 2529.42,
-          width = 176,
-          height = 112,
+          type = "PortalNode",
+          shape = "point",
+          x = -3472,
+          y = 2976,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 759,
+          name = "",
+          type = "PortalNode",
+          shape = "point",
+          x = -2800,
+          y = 2464,
+          width = 0,
+          height = 0,
           rotation = 0,
           visible = true,
           properties = {}

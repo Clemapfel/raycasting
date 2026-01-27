@@ -867,7 +867,6 @@ function rt.Player:update(delta)
 
         self._graphics_body:set_colliding_lines(lines) -- empty if non-bubble and mid air
 
-        local stencils = {}
         do
             local w = 2 * self._bubble_radius
             local h = w
@@ -882,14 +881,23 @@ function rt.Player:update(delta)
                 mask
             )
 
+            local body_stencil = {}
+            local core_stencil = {}
             for body in values(bodies) do
-                if body:has_tag("stencil") and not body:get_is_sensor() then
-                    table.insert(stencils, body)
+                if not body:get_is_sensor() then
+                    if body:has_tag("stencil") or body:has_tag("body_stencil") then
+                        table.insert(body_stencil, body)
+                    end
+
+                    if body:has_tag("core_stencil") then
+                        table.insert(core_stencil, body)
+                    end
                 end
             end
-        end
 
-        self._graphics_body:set_stencil_bodies(stencils)
+            self._graphics_body:set_stencil_bodies(body_stencil)
+            self._graphics_body:set_core_stencil_bodies(core_stencil)
+        end
     end
 
     -- input method agnostic button state

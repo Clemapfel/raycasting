@@ -116,7 +116,8 @@ function rt.PlayerBody:instantiate(position_x, position_y)
     self._up_squish_normal_y = nil
     self._up_squish_motion = rt.SmoothedMotion1D(_not_squished, squish_speed)
 
-    self._stencil_bodies = {}
+    self._body_stencil_bodies = {}
+    self._core_stencil_bodies = {}
     self._use_contour = true
     self._contour_transition_motion = rt.SmoothedMotion1D(0)
     self._contour_transition_motion:set_speed(
@@ -1020,7 +1021,12 @@ end
 
 --- @brief
 function rt.PlayerBody:set_stencil_bodies(t)
-    self._stencil_bodies = t
+    self._body_stencil_bodies = t
+end
+
+--- @brief
+function rt.PlayerBody:set_core_stencil_bodies(t)
+    self._core_stencil_bodies = {}
 end
 
 --- @brief
@@ -1090,7 +1096,7 @@ function rt.PlayerBody:draw_body()
 
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
-        for body in values(self._stencil_bodies) do
+        for body in values(self._body_stencil_bodies) do
             body:draw(true) -- mask only
         end
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
@@ -1140,6 +1146,8 @@ function rt.PlayerBody:draw_body()
     _outline_shader:unbind()
     love.graphics.pop()
 
+    rt.graphics.set_stencil_mode(nil)
+
     --[[
     for line in values(self._colliding_lines) do
         local cx, cy = line.contact_x, line.contact_y
@@ -1148,6 +1156,7 @@ function rt.PlayerBody:draw_body()
         love.graphics.line(cx + 100 * lx, cy + 100 * ly, cx + 100 * rx, cy + 100 * ry)
     end
     ]]--
+
 end
 
 --- @brief
@@ -1156,6 +1165,15 @@ function rt.PlayerBody:draw_core()
     if self._core_vertices == nil then return end
 
     love.graphics.push()
+
+    local stencil_value = rt.graphics.get_stencil_value()
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
+    for body in values(self._body_stencil_bodies) do
+        body:draw(true) -- mask only
+    end
+    rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
+
+
     self:_apply_squish()
 
     local core_r, core_g, core_b, core_a = self._core_color:unpack()

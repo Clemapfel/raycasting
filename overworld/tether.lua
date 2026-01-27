@@ -73,7 +73,7 @@ function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
 
     if self._n_particles < new_n_particles then -- grow
 
-        if rt.GameState:get_is_performance_mode_enabled() then
+        if true then --rt.GameState:get_is_performance_mode_enabled() then
             -- allocate points in a straight line starting from current end
 
             local dx, dy = math.normalize(target_x - attachment_x, target_y - attachment_y)
@@ -151,11 +151,15 @@ function ow.Tether:tether(attachment_x, attachment_y, target_x, target_y)
         end
         self._n_particles = self._n_particles - 1
     end
+
+    return self
 end
 
 --- @brief
 function ow.Tether:untether()
     self._is_tethered = false
+
+    return self
 end
 
 --- @brief
