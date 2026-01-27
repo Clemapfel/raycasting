@@ -106,30 +106,31 @@ function table.sizeof(x)
     end
 end
 
-local function _deepcopy_inner(original, seen)
-    if type(original) ~= 'table' then
-        return original
-    end
-
-    if seen[original] then
-        error("In deepcopy: table `" .. tostring(original) .. "` is recursive, it cannot be deepcopied")
-        return {}
-    end
-
-    local copy = {}
-
-    seen[original] = copy
-    for k, v in pairs(original) do
-        copy[_deepcopy_inner(k, seen)] = _deepcopy_inner(v, seen)
-    end
-    seen[original] = nil
-
-    return copy
-end
-
 --- @brief deepcopy table, fails for recursive tables
 function table.deepcopy(t)
     if type(t) ~= "table" then return t end
+
+    local function _deepcopy_inner(original, seen)
+        if type(original) ~= 'table' then
+            return original
+        end
+
+        if seen[original] then
+            error("In deepcopy: table `" .. tostring(original) .. "` is recursive, it cannot be deepcopied")
+            return {}
+        end
+
+        local copy = {}
+
+        seen[original] = copy
+        for k, v in pairs(original) do
+            copy[_deepcopy_inner(k, seen)] = _deepcopy_inner(v, seen)
+        end
+        seen[original] = nil
+
+        return copy
+    end
+
     return _deepcopy_inner(t, {})
 end
 

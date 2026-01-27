@@ -3,7 +3,7 @@ require "common.impulse_manager"
 require "overworld.movable_object"
 
 rt.settings.overworld.boost_field = {
-    acceleration_duration = 0.2, -- seconds to accelerate player from 0 to max
+    acceleration_duration = 10 / 60, -- seconds to accelerate player from 0 to max
     max_velocity = 1500,
     bloom = 0.4,
     line_width = 3,

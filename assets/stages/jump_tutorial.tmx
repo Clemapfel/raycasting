@@ -347,7 +347,7 @@
    <properties>
     <property name="axis_y" type="float" value="-1"/>
    </properties>
-   <polygon points="-79.6871,0 -79.3742,49.0423 320.626,49.0423 320.313,0"/>
+   <polygon points="-79.687,1.0423 -79.687,34.0846 320.313,33.0423 320.313,0"/>
   </object>
   <object id="635" type="SlipperyHitbox" x="-1024.31" y="-81.0423">
    <polygon points="-527.687,1.04229 529.372,1.04229 544.626,17.0423 688.626,17.0423 736.626,49.0423 784.626,17.0423 896.626,17.0423 944.626,49.0423 944.313,736 960.626,737.042 960.626,-14.9577 -527.687,-14.9577"/>
@@ -483,7 +483,7 @@
     <property name="axis_y" type="float" value="-1"/>
     <property name="velocity" type="float" value="2"/>
    </properties>
-   <polygon points="0,1.46735 0,-48 32,-80 64,-48 64,1.46735"/>
+   <polygon points="0,48 0,-48 32,-80 64,-48 64,48"/>
   </object>
   <object id="738" type="BoostField" x="-1856" y="816">
    <properties>

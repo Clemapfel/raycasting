@@ -10,7 +10,7 @@ rt.settings.player_body = {
     contour_threshold = 0.05,
     threshold = 0.4,
 
-    texture_scale = 2,
+    texture_scale = 2.5,
 
     particle_texture_radius_factor = 1,
     contour_radius_factor = 1,
@@ -34,7 +34,7 @@ rt.settings.player_body = {
         distance_compliance = 0,
         bending_compliance = 1,
         axis_compliance = 1,
-        collision_compliance = 0.2,
+        collision_compliance = 0.025,
 
         gravity = 500
     },
@@ -220,8 +220,9 @@ function rt.PlayerBody:_initialize()
     local contour_radius = rt.settings.player.radius * rt.settings.player.bubble_radius_factor
 
     local collision_easing = function(i, n)
-        local progress = (i - 1) / (n - 1)
-        local t = (max_rope_length - 3 * body_radius) / max_rope_length
+        local progress = (i - 1) / n
+        local t = 0.25
+
         if progress <= t then
             return 0
         end
@@ -381,6 +382,10 @@ function rt.PlayerBody:_initialize()
         self._body_outline_texture = rt.RenderTexture(
             texture_w, texture_h
         )
+
+        for texture in range(self._body_texture, self._body_outline_texture) do
+            texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+        end
 
         self._render_texture_needs_update = true
     end

@@ -859,13 +859,13 @@ function rt.Player:update(delta)
             add_collision(top_left_wall_body, top_left_x, top_left_y, top_left_nx, top_left_ny)
         end
 
-        if is_grounded then
+        if self._is_bubble or is_grounded then
             add_collision(bottom_right_wall_body, bottom_right_x, bottom_right_y, bottom_right_nx, bottom_right_ny)
             add_collision(bottom_wall_body, bottom_x, bottom_y, bottom_nx, bottom_ny)
             add_collision(bottom_left_wall_body, bottom_left_x, bottom_left_y, bottom_left_nx, bottom_left_ny)
         end
 
-        self._graphics_body:set_colliding_lines(lines)
+        self._graphics_body:set_colliding_lines(lines) -- empty if non-bubble and mid air
 
         local stencils = {}
         do
