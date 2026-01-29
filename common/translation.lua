@@ -244,8 +244,8 @@ rt.Translation = {
         double_press_threshold_title = "Double Press",
         double_press_threshold_description = "Maximum amount of time that is allowed to elapsed for a double press to be recognized",
 
-        sprint_mode_title = "Sprint Button Mode",
-        sprint_mode_description = "How TODO",
+        sprint_mode_title = "Sprint Mode",
+        sprint_mode_description = "Whether the player should automatically sprint at all times, or only when the sprint button is held",
 
         input_action_a_title = "A: Jump / Confirm",
         input_action_b_title = "B: Sprint / Go Back",
@@ -310,8 +310,8 @@ rt.Translation = {
         bloom_off = "Off",
 
         sprint_mode_prefix = "Sprint Mode",
-        sprint_mode_hold = "Hold",
-        sprint_mode_toggle = "Toggle",
+        sprint_mode_manual = "Manual",
+        sprint_mode_auto = "Automatic",
 
         shake_prefix = "Screen Shake",
         shake_on = "On",

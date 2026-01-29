@@ -29,8 +29,8 @@ rt.MSAAQuality = meta.enum("MSAAQuality", {
 
 --- @class rt.PlayerSprintMode
 rt.PlayerSprintMode = meta.enum("PlayerSprintomde", {
-    HOLD = "hold",
-    TOGGLE = "toggle"
+    MANUAL = "manual",
+    AUTO = "auto"
 })
 
 --- @class rt.GameState
@@ -57,7 +57,7 @@ function rt.GameState:instantiate()
         draw_debug_information = true,
         draw_speedrun_splits = false,
         input_buffering_enabled = true,
-        player_sprint_mode = rt.PlayerSprintMode.HOLD,
+        player_sprint_mode = rt.PlayerSprintMode.MANUAL,
         color_blind_mode = false,
         input_mapping = {}, -- Table<rt.InputAction, { keyboard = rt.KeyboardKey, controller = rt.ControllerButton }>
 
