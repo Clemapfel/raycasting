@@ -9,7 +9,7 @@
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
  <objectgroup id="5" name="aux">
-  <object id="375" name="Coin" type="Coin" x="-1168" y="2240">
+  <object id="375" name="Coin" type="Coin" x="-1168" y="2224">
    <point/>
   </object>
   <object id="380" name="Bounds" type="CameraBounds" x="-4930.76" y="1696" width="6954.54" height="1234.08"/>
@@ -49,7 +49,7 @@
    <polygon points="336,0 656,0 656,32 1760,32 1776,16 1776,368 336,368"/>
   </object>
   <object id="352" type="AcceleratorSurface" x="-2928" y="2560">
-   <polygon points="0,0 0,32 1104,32 1136,0 1136,-96 1111.85,-90.5502 1081.2,-73.877 1049.27,-57.2503 1011.54,-37.4894 973.465,-23.5897 939.412,-14.0388 902.185,-5.18373 867.215,0"/>
+   <polygon points="0,0 0,32 1104,32 1120,16 1120,-64 1136,-80 1136,-96 1120.26,-94.9405 1101.05,-87.5915 1078.77,-75.0905 1049.27,-57.2503 1014.67,-39.2757 973.465,-23.5897 939.412,-14.0388 902.185,-5.18373 867.215,0"/>
   </object>
   <object id="358" x="-3568" y="3968">
    <polygon points="0,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 0,160"/>
@@ -70,7 +70,7 @@
    <polygon points="0,0 160,0 144,16 16,16"/>
   </object>
   <object id="368" type="SlipperyHitbox" x="-1792" y="2560">
-   <polygon points="0,0 -16,16 -16,368 0,368"/>
+   <polygon points="0,-80 -16,-64 -16,368 0,368"/>
   </object>
   <object id="369" type="SlipperyHitbox" x="-1152" y="2576">
    <polygon points="-32,-48 -32,352 -16,352 -16,0 0,-16 0,-48"/>
