@@ -120,24 +120,33 @@ function rt.Camera:constrain(x, y)
     local half_w = screen_w / self._current_scale / 2
     local half_h = screen_h / self._current_scale / 2
 
-    for bounds in keys(self._bounds) do
-        local min_x, max_x = bounds.x + half_w,
-        bounds.x + bounds.width - half_w
+    local best_x, best_y = x, y
+    local best_distance = math.huge
 
-        local min_y, max_y = bounds.y + half_h,
-        bounds.y + bounds.height - half_h
+    for bounds in keys(self._bounds) do
+        local min_x = bounds.x + half_w
+        local max_x = bounds.x + bounds.width - half_w
+        local min_y = bounds.y + half_h
+        local max_y = bounds.y + bounds.height - half_h
 
         min_x, max_x = math.ceil(min_x), math.floor(max_x)
         min_y, max_y = math.ceil(min_y), math.floor(max_y)
 
-        if x > max_x then x = max_x end
-        if x < min_x then x = min_x end
+        local constrained_x = math.max(min_x, math.min(max_x, x))
+        local constrained_y = math.max(min_y, math.min(max_y, y))
 
-        if y > max_y then y = max_y end
-        if y < min_y then y = min_y end
+        local dx = constrained_x - x
+        local dy = constrained_y - y
+        local distance = dx * dx + dy * dy
+
+        if distance < best_distance then
+            best_distance = distance
+            best_x = constrained_x
+            best_y = constrained_y
+        end
     end
 
-    return x, y
+    return best_x, best_y
 end
 
 local _distance_easing = function(x, delta, speed)

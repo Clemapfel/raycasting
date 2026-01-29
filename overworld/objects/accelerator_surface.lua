@@ -12,7 +12,7 @@ rt.settings.overworld.accelerator_surface = {
         min_scale = 0.1,
         max_scale = 0.4,
         deceleration = 0.985,
-        max_n_particles = 1000
+        max_n_particles = 256
     },
 
     outline_width = 2,
@@ -24,6 +24,7 @@ rt.settings.overworld.accelerator_surface = {
 ow.AcceleratorSurface = meta.class("AcceleratorSurface", ow.MovableObject)
 
 local _particle_texture, _particle_quads = nil, {}
+local _particle_spritebatch = nil
 
 -- init particle meshes
 local _vertex_counts = {}
@@ -119,6 +120,12 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
         end
 
         love.graphics.pop()
+
+        _particle_spritebatch = love.graphics.newSpriteBatch(
+            _particle_texture:get_native(),
+            rt.settings.overworld.accelerator_surface.particle.max_n_particles,
+            "stream"
+        )
     end
 
     self._scene = scene
@@ -213,7 +220,6 @@ end
 local _is_stale = 0
 local _is_not_stale = 1
 
---- @brief
 function ow.AcceleratorSurface:update(delta)
     if not self._is_visible or not self._stage:get_is_body_visible(self._body) then
         table.clear(self._particle_data)
@@ -272,8 +278,7 @@ function ow.AcceleratorSurface:update(delta)
         if data[i + _is_stale_offset] ~= _is_stale then
             local px, py = data[i + _x_offset], data[i + _y_offset]
             if data[i + _elapsed_offset] > data[i + _lifetime_offset]
-            --or self._stage.accelerator_total_n_particles > settings.max_n_particles
-            or not (px >= x and px <= x + w and py >= y and py <= y + h)
+                or not (px >= x and px <= x + w and py >= y and py <= y + h)
             then
                 data[i + _is_stale_offset] = _is_stale
                 data[i + _elapsed_offset] = math.huge
@@ -287,17 +292,20 @@ function ow.AcceleratorSurface:update(delta)
         end
     end
 
+    for particle_i = 1, math.max(0, self._n_particles - settings.max_n_particles) do
+        table.insert(self._stale_particle_indices, particle_i)
+    end
+
     -- periodically remove stale particles
-    if #self._stale_particle_indices > 256 then
+    if true then --#self._stale_particle_indices > 32 then
         table.sort(self._stale_particle_indices, function(a, b) return a > b end)
 
         local n_removed = 0
         for _, particle_i in ipairs(self._stale_particle_indices) do
-            local i = _particle_i_to_data_offset(particle_i - n_removed)
+            local i = _particle_i_to_data_offset(particle_i)
             for _ = 1, _stride do
                 table.remove(data, i)
             end
-
             n_removed = n_removed + 1
         end
 
@@ -349,34 +357,37 @@ function ow.AcceleratorSurface:draw(priority)
 
         love.graphics.pop()
     elseif priority == particle_priority then
-        _particle_shader:bind()
-        _particle_shader:send("screen_to_world_transform", transform)
+        _particle_spritebatch:clear()
 
         local frame_h = _particle_texture:get_height()
-        local texture = _particle_texture:get_native()
-
-        love.graphics.push()
         local data = self._particle_data
+
         for particle_i = 1, self._n_particles do
             local i = _particle_i_to_data_offset(particle_i)
-            love.graphics.setColor(
-                1, 1, 1,
-                rt.InterpolationFunctions.ENVELOPE(
+            if data[i + _is_stale_offset] ~= _is_stale then
+                local alpha = rt.InterpolationFunctions.ENVELOPE(
                     data[i + _elapsed_offset] / data[i + _lifetime_offset],
                     rt.settings.overworld.accelerator_surface.particle.attack,
                     rt.settings.overworld.accelerator_surface.particle.decay
                 )
-            )
 
-            love.graphics.draw(texture, _particle_quads[data[i + _quad_i_offset]],
-                data[i + _x_offset], data[i + _y_offset],
-                data[i + _angle_offset],
-                data[i + _scale_offset], data[i + _scale_offset],
-                0.5 * frame_h, 0.5 * frame_h
-            )
+                _particle_spritebatch:setColor(1, 1, 1, alpha)
+                _particle_spritebatch:add(
+                    _particle_quads[data[i + _quad_i_offset]],
+                    data[i + _x_offset],
+                    data[i + _y_offset],
+                    data[i + _angle_offset],
+                    data[i + _scale_offset],
+                    data[i + _scale_offset],
+                    0.5 * frame_h,
+                    0.5 * frame_h
+                )
+            end
         end
-        love.graphics.pop()
 
+        _particle_shader:bind()
+        _particle_shader:send("screen_to_world_transform", transform)
+        love.graphics.draw(_particle_spritebatch)
         _particle_shader:unbind()
     end
 end
