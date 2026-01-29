@@ -16,13 +16,26 @@ function rt.InputManager:instantiate()
         _last_active_joystick = nil,
         _input_method = rt.InputMethod.KEYBOARD,
         _keyboard_key_to_last_pressed = {},
-        _controller_button_to_last_pressed = {}
+        _controller_button_to_last_pressed = {},
+
+        _is_flushed = false
     })
 end
 
 --- @brief
 function rt.InputManager:reset()
     self._subscribers = meta.make_weak({})
+end
+
+--- @brief
+function rt.InputManager:flush()
+    self._is_flushed = true
+end
+
+--- @brief
+function rt.InputManager:_emit(subscriber, ...)
+    if rt.InputManager._is_flushed then return end
+    subscriber:signal_emit(...)
 end
 
 --- @brief
@@ -108,6 +121,8 @@ function rt.InputManager:_notify_end_of_frame()
     for sub in values(self._subscribers) do
         sub:_notify_end_of_frame()
     end
+
+    self._is_flushed = false -- reset flushed state
 end
 
 --- @brief [internal]
@@ -219,7 +234,7 @@ love.keypressed = function(key, scancode)
 
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("keyboard_key_pressed",
+            rt.InputManager:_emit(sub, "keyboard_key_pressed",
                 key,
                 rt.InputManager:get_count(key, rt.InputMethod.KEYBOARD)
             )
@@ -229,7 +244,7 @@ love.keypressed = function(key, scancode)
     for mapped in values(rt.GameState:get_reverse_input_mapping(key, rt.InputMethod.KEYBOARD)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("pressed",
+                rt.InputManager:_emit(sub, "pressed",
                     mapped,
                     rt.InputManager:get_count(key, rt.InputMethod.KEYBOARD)
                 )
@@ -244,7 +259,7 @@ love.keyreleased = function(key, scancode)
 
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("keyboard_key_released",
+            rt.InputManager:_emit(sub, "keyboard_key_released",
                 key,
                 rt.InputManager:get_count(key, rt.InputMethod.KEYBOARD)
             )
@@ -254,7 +269,7 @@ love.keyreleased = function(key, scancode)
     for mapped in values(rt.GameState:get_reverse_input_mapping(key, rt.InputMethod.KEYBOARD)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("released",
+                rt.InputManager:_emit(sub, "released",
                     mapped,
                     rt.InputManager:get_count(key, rt.InputMethod.KEYBOARD)
                 )
@@ -268,7 +283,7 @@ love.mousepressed = function(x, y, button_id, is_touch, count)
 
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("mouse_pressed", button_id, x, y, count)
+            rt.InputManager:_emit(sub, "mouse_pressed", button_id, x, y, count)
         end
     end
 end
@@ -278,7 +293,7 @@ love.mousereleased = function(x, y, button_id, is_touch, count)
 
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("mouse_released", button_id, x, y, count)
+            rt.InputManager:_emit(sub, "mouse_released", button_id, x, y, count)
         end
     end
 end
@@ -287,7 +302,7 @@ love.mousemoved = function(x, y, dx, dy)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("mouse_moved", x, y, dx, dy)
+            rt.InputManager:_emit(sub, "mouse_moved", x, y, dx, dy)
         end
     end
 end
@@ -296,7 +311,7 @@ love.mousefocus = function(b)
     if b == false then
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("mouse_left_screen")
+                sub:signal_emit("mouse_left_screen")  -- sic, focus ignores _flush
             end
         end
     else
@@ -312,7 +327,7 @@ love.wheelmoved = function(x, y)
     rt.InputManager:_set_input_method(rt.InputMethod.KEYBOARD)
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("mouse_wheel_moved", x, y)
+            rt.InputManager:_emit(sub, "mouse_wheel_moved", x, y)
         end
     end
 end
@@ -324,7 +339,7 @@ love.gamepadpressed = function(joystick, button)
 
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("controller_button_pressed",
+            rt.InputManager:_emit(sub, "controller_button_pressed",
                 button,
                 rt.InputManager:get_count(button, rt.InputMethod.CONTROLLER),
                 joystick:getID()
@@ -335,7 +350,7 @@ love.gamepadpressed = function(joystick, button)
     for mapped in values(rt.GameState:get_reverse_input_mapping(button, rt.InputMethod.CONTROLLER)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("pressed",
+                rt.InputManager:_emit(sub, "pressed",
                     mapped,
                     rt.InputManager:get_count(button, rt.InputMethod.CONTROLLER),
                     joystick:getID()
@@ -352,7 +367,7 @@ love.gamepadreleased = function(joystick, button)
 
     for sub in values(rt.InputManager._subscribers) do
         if sub:get_is_active() then
-            sub:signal_emit("controller_button_released",
+            rt.InputManager:_emit(sub, "controller_button_released",
                 button,
                 rt.InputManager:get_count(button, rt.InputMethod.CONTROLLER),
                 joystick:getID()
@@ -363,7 +378,7 @@ love.gamepadreleased = function(joystick, button)
     for mapped in values(rt.GameState:get_reverse_input_mapping(button, rt.InputMethod.CONTROLLER)) do
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("released",
+                rt.InputManager:_emit(sub, "released",
                     mapped,
                     rt.InputManager:get_count(button, rt.InputMethod.CONTROLLER),
                     joystick:getID()
@@ -378,6 +393,7 @@ local _axis_warning_printed = {}
 love.gamepadaxis = function(joystick, axis, value)
     rt.InputManager._last_active_joystick = joystick
     rt.InputManager:_set_input_method(rt.InputMethod.CONTROLLER)
+
     local joystick_deadzone = rt.GameState:get_joystick_deadzone()
     local apply_joystick_deadzone = function(x)
         if x > joystick_deadzone then
@@ -401,7 +417,7 @@ love.gamepadaxis = function(joystick, axis, value)
     if axis == "leftx" or axis == "lefty" then
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("left_joystick_moved",
+                rt.InputManager:_emit(sub, "left_joystick_moved",
                     apply_joystick_deadzone(joystick:getGamepadAxis("leftx")),
                     apply_joystick_deadzone(joystick:getGamepadAxis("lefty")),
                     joystick:getID()
@@ -411,7 +427,7 @@ love.gamepadaxis = function(joystick, axis, value)
     elseif axis == "rightx" or axis == "righty" then
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("right_joystick_moved",
+                rt.InputManager:_emit(sub, "right_joystick_moved",
                     apply_joystick_deadzone(joystick:getGamepadAxis("rightx")),
                     apply_joystick_deadzone(joystick:getGamepadAxis("righty")),
                     joystick:getID()
@@ -421,7 +437,7 @@ love.gamepadaxis = function(joystick, axis, value)
     elseif axis == "triggerleft" then
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("left_trigger_moved",
+                rt.InputManager:_emit(sub, "left_trigger_moved",
                     apply_trigger_deadzone(joystick:getGamepadAxis("triggerleft")),
                     joystick:getID()
                 )
@@ -430,7 +446,7 @@ love.gamepadaxis = function(joystick, axis, value)
     elseif axis == "triggerright" then
         for sub in values(rt.InputManager._subscribers) do
             if sub:get_is_active() then
-                sub:signal_emit("right_trigger_moved",
+                rt.InputManager:_emit(sub, "right_trigger_moved",
                     apply_trigger_deadzone(joystick:getGamepadAxis("triggerright")),
                     joystick:getID()
                 )
@@ -443,3 +459,4 @@ love.gamepadaxis = function(joystick, axis, value)
         end
     end
 end
+

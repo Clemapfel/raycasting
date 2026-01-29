@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="349">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="393">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -8,7 +8,13 @@
  <imagelayer id="3" name="background" repeatx="1" repeaty="1">
   <image source="../tilesets/debug_tileset_16x16/tile.png" width="16" height="16"/>
  </imagelayer>
- <objectgroup id="5" name="aux"/>
+ <objectgroup id="5" name="aux">
+  <object id="375" name="Coin" type="Coin" x="-1168" y="2240">
+   <point/>
+  </object>
+  <object id="380" name="Bounds" type="CameraBounds" x="-4930.76" y="1696" width="6954.54" height="1234.08"/>
+  <object id="391" name="Bounds" type="CameraBounds" x="900.556" y="1696" width="2363.44" height="2976"/>
+ </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="339" type="Hitbox" x="-960" y="1440">
    <polygon points="0,0 0,320 3040,320 3040,48 1312,56.9325 1312,-656 1056,-656 1056,16 176,16 176,0"/>
@@ -16,7 +22,7 @@
   <object id="340" type="AcceleratorSurface" x="96" y="416">
    <polygon points="0,368 384,368 384,352 -16,352 -16,1024 -880,1024 -880,1040 0,1040"/>
   </object>
-  <object id="341" name="Spawn" type="PlayerSpawn" x="406.617" y="969.197">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-3168" y="2496">
    <point/>
   </object>
   <object id="343" type="AcceleratorSurface" x="-960" y="1440">
@@ -38,6 +44,57 @@
   </object>
   <object id="348" type="AcceleratorSurface" x="368" y="1312">
    <polygon points="0,0 0,64 320,64 320,0"/>
+  </object>
+  <object id="350" type="Hitbox" x="-3584" y="2560">
+   <polygon points="336,0 656,0 656,32 1760,32 1776,16 1776,368 336,368"/>
+  </object>
+  <object id="352" type="AcceleratorSurface" x="-2928" y="2560">
+   <polygon points="0,0 0,32 1104,32 1136,0 1136,-96 1111.85,-90.5502 1081.2,-73.877 1049.27,-57.2503 1011.54,-37.4894 973.465,-23.5897 939.412,-14.0388 902.185,-5.18373 867.215,0"/>
+  </object>
+  <object id="358" x="-3568" y="3968">
+   <polygon points="0,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 0,160"/>
+  </object>
+  <object id="359" type="SlipperyHitbox" x="-3088" y="3968">
+   <polygon points="0,0 0,-224 -16,-224 -16,-400 0,-384 128,-384 144,-400 144,-224 128,-224 128,0 80,0 80,-288 96,-288 64,-336 32,-288 48,-288 48,0"/>
+  </object>
+  <object id="360" type="AcceleratorSurface" x="-3104" y="3664">
+   <polygon points="0,80 0,304 16,304 16,80"/>
+  </object>
+  <object id="361" type="AcceleratorSurface" x="-2960" y="3664">
+   <polygon points="0,80 0,304 16,304 16,80"/>
+  </object>
+  <object id="362" name="Coin" type="Coin" x="-3024" y="3280">
+   <point/>
+  </object>
+  <object id="363" x="-3104" y="3568">
+   <polygon points="0,0 160,0 144,16 16,16"/>
+  </object>
+  <object id="368" type="SlipperyHitbox" x="-1792" y="2560">
+   <polygon points="0,0 -16,16 -16,368 0,368"/>
+  </object>
+  <object id="369" type="SlipperyHitbox" x="-1152" y="2576">
+   <polygon points="-32,-48 -32,352 -16,352 -16,0 0,-16 0,-48"/>
+  </object>
+  <object id="374" x="-1184" y="2528">
+   <polygon points="16,48 16,48 32,32 1232,32 1248,32 1440,32 1440,400 16,400"/>
+  </object>
+  <object id="384" type="AcceleratorSurface" x="-1120" y="2528">
+   <polygon points="-32,0 -32,32 1184,32 1184,0 1184,-144 1184,-160 1168,-160 1104,-144 960,-96 704,-32 416,0"/>
+  </object>
+  <object id="385" type="SlipperyHitbox" x="64" y="2368">
+   <polygon points="0,0 0,192 192,192 192,560 208,560 208,160 208,0"/>
+  </object>
+  <object id="386" type="SlipperyHitbox" x="784" y="2368">
+   <polygon points="0,0 0,160 0,560 16,560 16,160 208,160 208,0"/>
+  </object>
+  <object id="388" type="KillPlane" x="-3712" y="2928" width="4524.69" height="329.181">
+   <properties>
+    <property name="is_visible" type="bool" value="false"/>
+    <property name="should_explode" type="bool" value="false"/>
+   </properties>
+  </object>
+  <object id="392" x="992" y="2528">
+   <polygon points="0,0 0,2144 -192,2144 -192,0"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

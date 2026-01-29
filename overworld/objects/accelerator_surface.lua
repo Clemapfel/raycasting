@@ -123,7 +123,7 @@ function ow.AcceleratorSurface:instantiate(object, stage, scene)
 
     self._scene = scene
     self._stage = stage
-    self._elapsed = 0
+    self._elapsed_offset = rt.random.number(-1000, 1000)
     self._particle_data = {}
     self._particle_elapsed = 0
     self._stale_particle_indices = {}
@@ -218,6 +218,7 @@ function ow.AcceleratorSurface:update(delta)
     if not self._is_visible or not self._stage:get_is_body_visible(self._body) then
         table.clear(self._particle_data)
         table.clear(self._stale_particle_indices)
+        self._n_particles = 0
         return
     end
 
@@ -236,7 +237,7 @@ function ow.AcceleratorSurface:update(delta)
         local t = math.min(math.magnitude(dx, dy) / 800, 1)
         local n_particle_per_second = math.mix(0, settings.max_n_particles_per_second, rt.InterpolationFunctions.SQUARE_ACCELERATION(t))
         local step = 1 / n_particle_per_second
-        
+
         dx, dy = math.normalize(dx, dy)
 
         local player_radius = rt.settings.player.radius * 2.5
@@ -270,9 +271,9 @@ function ow.AcceleratorSurface:update(delta)
         local i = _particle_i_to_data_offset(particle_i)
         if data[i + _is_stale_offset] ~= _is_stale then
             local px, py = data[i + _x_offset], data[i + _y_offset]
-            if self._stage.accelerator_total_n_particles > settings.max_n_particles
-                --or not (px >= x and px <= x + w and py >= y and py <= y + h)
-                or data[i + _elapsed_offset] > data[i + _lifetime_offset]
+            if data[i + _elapsed_offset] > data[i + _lifetime_offset]
+            --or self._stage.accelerator_total_n_particles > settings.max_n_particles
+            or not (px >= x and px <= x + w and py >= y and py <= y + h)
             then
                 data[i + _is_stale_offset] = _is_stale
                 data[i + _elapsed_offset] = math.huge
@@ -290,14 +291,16 @@ function ow.AcceleratorSurface:update(delta)
     if #self._stale_particle_indices > 256 then
         table.sort(self._stale_particle_indices, function(a, b) return a > b end)
 
+        local n_removed = 0
         for _, particle_i in ipairs(self._stale_particle_indices) do
-            local i = _particle_i_to_data_offset(particle_i)
-            for offset = _stride - 1, 0, -1 do
-                table.remove(self._particle_data, i + offset)
+            local i = _particle_i_to_data_offset(particle_i - n_removed)
+            for _ = 1, _stride do
+                table.remove(data, i)
             end
+
+            n_removed = n_removed + 1
         end
 
-        local n_removed = #self._stale_particle_indices
         self._n_particles = self._n_particles - n_removed
         self._stage.accelerator_total_n_particles = self._stage.accelerator_total_n_particles - n_removed
         table.clear(self._stale_particle_indices)
@@ -326,7 +329,7 @@ function ow.AcceleratorSurface:draw(priority)
 
         _body_shader:bind()
         _body_shader:send("screen_to_world_transform", transform)
-        _body_shader:send("elapsed", rt.SceneManager:get_elapsed())
+        _body_shader:send("elapsed", rt.SceneManager:get_elapsed() + self._elapsed_offset)
         _body_shader:send("camera_position", { camera_bounds.x + camera_bounds.width * 0.5, camera_bounds.y + camera_bounds.height * 0.5})
         _body_shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
         _body_shader:send("player_hue", self._scene:get_player():get_hue())

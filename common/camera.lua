@@ -46,10 +46,7 @@ function rt.Camera:instantiate()
         _last_x = 0,
         _last_y = 0,
 
-        _bounds = rt.AABB(
-            -math.huge, -math.huge,
-            math.huge, math.huge
-        ),
+        _bounds = {}, -- Set<rt.AABB>
         _apply_bounds = true,
 
         _is_shaking = false,
@@ -115,7 +112,7 @@ function rt.Camera:unbind()
 end
 
 --- @brief [internal]
-function rt.Camera:_constrain(x, y)
+function rt.Camera:constrain(x, y)
     if self._apply_bounds ~= true then return x, y end
 
     local screen_w, screen_h = love.graphics.getDimensions()
@@ -123,20 +120,22 @@ function rt.Camera:_constrain(x, y)
     local half_w = screen_w / self._current_scale / 2
     local half_h = screen_h / self._current_scale / 2
 
-    local min_x, max_x = self._bounds.x + half_w,
-    self._bounds.x + self._bounds.width - half_w
+    for bounds in keys(self._bounds) do
+        local min_x, max_x = bounds.x + half_w,
+        bounds.x + bounds.width - half_w
 
-    local min_y, max_y = self._bounds.y + half_h,
-    self._bounds.y + self._bounds.height - half_h
+        local min_y, max_y = bounds.y + half_h,
+        bounds.y + bounds.height - half_h
 
-    min_x, max_x = math.ceil(min_x), math.floor(max_x)
-    min_y, max_y = math.ceil(min_y), math.floor(max_y)
+        min_x, max_x = math.ceil(min_x), math.floor(max_x)
+        min_y, max_y = math.ceil(min_y), math.floor(max_y)
 
-    if x > max_x then x = max_x end
-    if x < min_x then x = min_x end
+        if x > max_x then x = max_x end
+        if x < min_x then x = min_x end
 
-    if y > max_y then y = max_y end
-    if y < min_y then y = min_y end
+        if y > max_y then y = max_y end
+        if y < min_y then y = min_y end
+    end
 
     return x, y
 end
@@ -180,7 +179,7 @@ function rt.Camera:update(delta)
     end
 
     if self._apply_bounds then
-        self._target_x, self._target_y = self:_constrain(self._target_x, self._target_y)
+        self._target_x, self._target_y = self:constrain(self._target_x, self._target_y)
     end
 
     do -- movement
@@ -309,7 +308,7 @@ end
 --- @brief
 function rt.Camera:set_position(x, y, override_bounds)
     if override_bounds ~= true then
-        x, y = self:_constrain(x, y)
+        x, y = self:constrain(x, y)
     end
 
     self._target_x = x
@@ -324,7 +323,7 @@ end
 function rt.Camera:move_to(x, y, override_bounds)
     meta.assert(x, "Number", y, "Number")
     if override_bounds ~= true then
-        self._target_x, self._target_y = self:_constrain(x, y)
+        self._target_x, self._target_y = self:constrain(x, y)
     else
         self._target_x, self._target_y = x, y
     end
@@ -352,7 +351,7 @@ function rt.Camera:set_scale(s, override_bounds)
 
     if override_bounds ~= true then
         -- Fix: assign both target X and Y after constraining.
-        self._target_x, self._target_y = self:_constrain(self._target_x, self._target_y)
+        self._target_x, self._target_y = self:constrain(self._target_x, self._target_y)
     end
 
     self._world_bounds_needs_update = true
@@ -364,7 +363,7 @@ function rt.Camera:scale_to(s)
 end
 
 function rt.Camera:fit_to(bounds, center_x, center_y)
-    meta.assert(bounds, "AABB")
+    meta.assert(bounds, rt.AABB)
 
     local screen_w, screen_h = love.graphics.getDimensions()
     local pixel_scale = self:get_scale_delta()
@@ -385,23 +384,55 @@ function rt.Camera:fit_to(bounds, center_x, center_y)
 end
 
 --- @brief
-function rt.Camera:set_bounds(bounds)
-    if bounds ~= nil then
-        meta.assert(bounds, "AABB")
-        self._bounds:reformat(bounds:unpack())
-    else
-        self._bounds:reformat(
-            -math.huge, -math.huge,
-            math.huge, math.huge
-        )
-    end
-
+function rt.Camera:add_bounds(bounds)
+    meta.assert(bounds, rt.AABB)
+    self._bounds[bounds] = true
     self._world_bounds_needs_update = true
 end
 
 --- @brief
+function rt.Camera:remove_bounds(bounds)
+    meta.assert(bounds, rt.AABB)
+    self._world_bounds_needs_update = self._bounds[bounds] ~= nil
+    self._bounds[bounds] = nil
+end
+
+--- @brief
+function rt.Camera:clear_bounds()
+    for key in keys(self._bounds) do
+        self._bounds[key] = nil
+    end
+end
+
+--- @brief
+function rt.Camera:snap_to_bounds()
+    self:set_position(self:constrain(self:get_position()))
+end
+
+--- @brief
 function rt.Camera:get_bounds()
-    return self._bounds:clone()
+    local bounds = {}
+    for bound in keys(self._bounds) do
+        table.insert(bounds, bound)
+    end
+
+    return bounds
+end
+
+--- @brief
+function rt.Camera:set_bounds(bounds_or_table, ...)
+    local bounds
+    if select("#", ...) > 0 then
+        bounds = { bounds_or_table, ... }
+    else
+        bounds = bounds_or_table
+    end
+
+    self:reset_bounds()
+    for i, bound in ipairs(bounds) do
+        meta.assert_typeof(bound, rt.AABB, i)
+        self._bounds[bound] = true
+    end
 end
 
 --- @brief

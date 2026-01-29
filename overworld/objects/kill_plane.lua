@@ -8,6 +8,7 @@ rt.settings.overworld.kill_plane = {
 --- @class ow.KillPlane
 --- @types Polygon, Rectangle, Ellipse
 --- @field is_visible Boolean?
+--- @field should_explode Boolean?
 ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
 
 local _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 })
@@ -25,10 +26,14 @@ function ow.KillPlane:instantiate(object, stage, scene)
     self._body:set_collides_with(bounce_group)
     self._body:set_collision_group(bounce_group)
 
+    self._should_explode = object:get_boolean("should_explode", false)
+    if self._should_explode == nil then self._should_explode = true end
+
     self._is_blocked = false
     self._body:signal_connect("collision_start", function(_, other_body)
         if other_body:has_tag("player") then
             if self._is_blocked == true then return end
+            self._scene:get_player():kill(self._should_explode)
             self._is_blocked = true
             self._stage:get_physics_world():signal_connect("step", function()
                 self._is_blocked = false
@@ -298,7 +303,6 @@ function ow.KillPlane:draw()
 
     local red = { rt.Palette.MINT:unpack() }
     love.graphics.setColor(1, 1, 1, 1)
-
 
     _inner_shader:bind()
     _inner_shader:send("elapsed", rt.SceneManager:get_elapsed() + meta.hash(self))

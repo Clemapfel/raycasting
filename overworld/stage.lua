@@ -24,9 +24,10 @@ rt.settings.overworld.stage = {
 
 --- @class ow.Stage
 --- @signal initialized (self) -> nil
+--- @signal respawn (self, is_first_spawn) -> nil
+--- @signal loading_done (self) -> nil
 ow.Stage = meta.class("Stage", rt.Drawable)
 meta.add_signals(ow.Stage, "initialized", "respawn", "loading_done")
-
 
 --- @brief
 function ow.Stage:instantiate(scene, id)

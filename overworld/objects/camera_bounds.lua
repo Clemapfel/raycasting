@@ -25,19 +25,18 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._scale_before = nil
     self._bounds_before = nil
 
+    self._stage:signal_connect("respawn", function(_, is_first_spawn)
+        local px, py = self._scene:get_player():get_position()
+        if self._body:test_point(px, py) then
+            self:_bind()
+            self._scene:get_camera():snap_to_bounds()
+        end
+
+        return meta.DISCONNECT_SIGNAL
+    end)
+
     self._body:signal_connect("collision_start", function()
-        local camera = self._scene:get_camera()
-
-        if self._should_apply_bounds then
-            self._bounds_before = camera:get_bounds()
-            camera:set_bounds(self._bounds)
-        end
-
-        if self._should_apply_scale then
-            self._scale_before = camera:get_scale()
-            camera:scale_to(self._scale)
-        end
-
+        self:_bind()
         self._stage:signal_connect("respawn", function()
             self._body:signal_emit("collision_end")
             return meta.DISCONNECT_SIGNAL
@@ -45,14 +44,32 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     end)
 
     self._body:signal_connect("collision_end", function()
-        local camera = self._scene:get_camera()
-
-        if self._should_apply_bounds then
-            camera:set_bounds(self._bounds_before)
-        end
-
-        if self._should_apply_scale then
-            camera:scale_to(self._scale_before)
-        end
+        self:_unbind()
     end)
+end
+
+--- @brief
+function ow.CameraBounds:_bind()
+    local camera = self._scene:get_camera()
+    if self._should_apply_bounds then
+        self._bounds_before = camera:get_bounds()
+        camera:add_bounds(self._bounds)
+    end
+
+    if self._should_apply_scale then
+        self._scale_before = camera:get_scale()
+        camera:scale_to(self._scale)
+    end
+end
+
+--- @brie
+function ow.CameraBounds:_unbind()
+    local camera = self._scene:get_camera()
+    if self._should_apply_bounds then
+        camera:remove_bounds(self._bounds)
+    end
+
+    if self._should_apply_scale then
+        camera:scale_to(self._scale_before)
+    end
 end

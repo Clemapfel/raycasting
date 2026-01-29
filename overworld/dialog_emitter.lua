@@ -112,6 +112,7 @@ function ow.DialogEmitter:present()
     if self._should_focus then
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
         local camera = self._scene:get_camera()
+        camera:set_apply_bounds(true)
         if self._target ~= nil then
             if self._target.get_position ~= nil then
                 camera:move_to(self._target:get_position())

@@ -865,7 +865,7 @@ function ow.OverworldScene:_draw_debug_information()
     local b = ternary(self._player._jump_button_is_down, pressed, unpressed)
 
     local sprint
-    if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.HOLD then
+    if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.MANUAL then
         sprint = self._player._sprint_button_is_down == true
     else
         sprint = self._player._sprint_toggled
@@ -1141,9 +1141,19 @@ function ow.OverworldScene:update(delta)
     _last_x, _last_y = px, py
 
     if self._player_is_focused and self._camera_mode ~= ow.CameraMode.MANUAL then
-        local x, y = self._player:get_position()
-        self._camera:move_to(x + self._camera_position_offset_x, y + self._camera_position_offset_y)
-        if self._camera:get_bounds():contains(x, y) == false then
+        local new_x, new_y = self._player:get_position()
+        self._camera:move_to(new_x + self._camera_position_offset_x, new_y + self._camera_position_offset_y)
+
+        local bounds = self._camera:get_bounds()
+        local is_contained = false
+        for bound in values(bounds) do
+            if bound:contains(new_x, new_y) then
+                is_contained = true
+                break
+            end
+        end
+
+        if not is_contained then
             self._camera:set_apply_bounds(false) -- unhook from bounds if player leaves them
         else
             self._camera:set_apply_bounds(true)
@@ -1161,7 +1171,7 @@ function ow.OverworldScene:update(delta)
             bottom_right_x = bottom_right_x - buffer
             bottom_right_y = bottom_right_y - buffer
 
-            local on_screen = x > top_left_x and x < bottom_right_x and y > top_left_y and y < bottom_right_y
+            local on_screen = new_x > top_left_x and new_x < bottom_right_x and new_y > top_left_y and new_y < bottom_right_y
         end
     elseif rt.settings.overworld_scene.allow_translation and self._camera_freeze_elapsed > rt.settings.overworld_scene.camera_freeze_duration and love.window.hasMouseFocus() then
         local cx, cy = self._camera:get_position()
@@ -1292,6 +1302,7 @@ function ow.OverworldScene:unpause()
     if self._player_was_disabled == true then
         -- noop, keep disabled
     else
+        rt.InputManager:flush()
         self._player:enable()
     end
 end

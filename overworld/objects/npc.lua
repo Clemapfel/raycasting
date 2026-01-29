@@ -552,6 +552,7 @@ function ow.NPC:_set_is_interactable(b)
 
         if self._should_focus then
             self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+            self._scene:get_camera():set_apply_bounds(true)
             self._scene:get_camera():move_to(self._x, self._y)
         end
 

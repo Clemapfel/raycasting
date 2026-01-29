@@ -76,6 +76,7 @@ function ow.Checkpoint:instantiate(object, stage, scene, type)
         _ray_area = rt.AABB(),
         _ray_fade_out_elapsed = math.huge,
 
+        _explosion_visible = true,
         _explosion_elapsed = math.huge,
         _explosion_fraction = math.huge,
         _explosion_player_position = { 0, 0 },
@@ -245,8 +246,10 @@ function ow.Checkpoint:_restore_coins()
 end
 
 --- @brief
-function ow.Checkpoint:spawn(also_kill)
+function ow.Checkpoint:spawn(also_kill, play_animation)
     if also_kill == nil then also_kill = true end
+    if play_animation == nil then play_animation = true end
+
     local is_first_spawn = self._stage:get_is_first_spawn()
 
     local player = self._scene:get_player()
@@ -261,6 +264,7 @@ function ow.Checkpoint:spawn(also_kill)
         self:_set_state(_STATE_STAGE_ENTRY)
     else
         if also_kill then
+            self._explosion_visible = play_animation
             self:_set_state(_STATE_EXPLODING)
             self._scene:get_player():signal_emit("died")
         else
@@ -273,7 +277,7 @@ function ow.Checkpoint:spawn(also_kill)
     self._spawn_barrier:set_is_enabled(self._use_spawn_barrier)
     self._passed = true
 
-    self._stage:signal_emit("respawn")
+    self._stage:signal_emit("respawn", is_first_spawn)
 end
 
 --- @brief
@@ -300,6 +304,7 @@ function ow.Checkpoint:_set_state(state)
         self._top_y = spawn_y
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+        camera:set_apply_bounds(true)
         camera:set_position(self._bottom_x, self._bottom_y)
 
         player:reset()
@@ -317,6 +322,7 @@ function ow.Checkpoint:_set_state(state)
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+        camera:set_apply_bounds(true)
         camera:move_to(explosion_x, explosion_y)
 
         self._explosion_elapsed = 0
@@ -331,6 +337,7 @@ function ow.Checkpoint:_set_state(state)
         self._spawn_elapsed = 0
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
+        camera:set_apply_bounds(true)
         camera:set_position(self._bottom_x, self._bottom_y)
 
         self._ray_fraction = 0
@@ -357,9 +364,10 @@ function ow.Checkpoint:_set_state(state)
         player:disable()
 
     elseif self._state == _STATE_DEFAULT then
-        --self._scene:set_camera_mode(ow.CameraMode.AUTO)
+        self._scene:set_camera_mode(ow.CameraMode.AUTO)
 
         player:reset()
+        player:clear_forces()
         player:enable()
     end
 end
@@ -412,7 +420,7 @@ function ow.Checkpoint:update(delta)
         end
     elseif self._state == _STATE_RAY then
         if self._ray_fraction < 1 and self._should_emit_respawn then
-            self._stage:signal_emit("respawn")
+            self._stage:signal_emit("respawn", false) -- is first spawn
             self._should_emit_respawn = false
         end
 
@@ -433,6 +441,8 @@ function ow.Checkpoint:update(delta)
         self._spawn_elapsed = self._spawn_elapsed + delta
     elseif self._state == _STATE_DEFAULT then
         -- ray fades out after player has spawned
+        self._scene:set_blur(0)
+
         local fade_out_duration = rt.settings.overworld.checkpoint.ray_fade_out_duration
         self._ray_fade_out_fraction = self._ray_fade_out_elapsed / fade_out_duration
         self._ray_fade_out_elapsed = self._ray_fade_out_elapsed + delta
@@ -477,7 +487,7 @@ function ow.Checkpoint:draw(priority)
         end
     elseif priority == _effect_priority then
         -- explosion draw above everything
-        if self._state == _STATE_EXPLODING then
+        if self._state == _STATE_EXPLODING and self._explosion_visible then
             _explosion_shader:bind()
             _explosion_shader:send("fraction", self._explosion_fraction)
             _explosion_shader:send("size", self._explosion_size)

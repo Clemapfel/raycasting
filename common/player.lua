@@ -41,7 +41,7 @@ do
 
         sprint_multiplier = 2,
         sprint_multiplier_transition_duration = 5 / 60,
-        allow_sprint = false,
+
 
         flow_increase_velocity = 1 / 200, -- fraction
         flow_decrease_velocity = 1, -- fraction
@@ -66,7 +66,7 @@ do
         air_target_velocity_x = 150,
 
         accelerator_acceleration_duration = 30 / 60,
-        accelerator_max_velocity_factor = 3.5,
+        accelerator_max_velocity_factor = 3.5 / 2,
         accelerator_magnet_force = 2000, -- per second
 
         flow_motion_min_attack_duration = 10, -- seconds
@@ -300,7 +300,6 @@ function rt.Player:instantiate()
         _target_sprint_multiplier = 1,
         _next_sprint_multiplier = 1,
         _next_sprint_multiplier_update_when_grounded = false,
-        _sprint_toggled = false,
 
         _interact_targets = {}, -- Set
 
@@ -418,12 +417,7 @@ function rt.Player:_connect_input()
         if self._state == rt.PlayerState.DISABLED then return end
 
         local queue_sprint = function()
-            self._sprint_toggled = not self._sprint_toggled
-            if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.TOGGLE then
-                self._next_sprint_multiplier = ternary(self._sprint_toggled, _settings.sprint_multiplier, 1)
-            else
-                self._next_sprint_multiplier = _settings.sprint_multiplier
-            end
+            self._next_sprint_multiplier = _settings.sprint_multiplier
             self._next_sprint_multiplier_update_when_grounded = true
         end
 
@@ -493,10 +487,8 @@ function rt.Player:_connect_input()
             self._sprint_button_is_down = false
             self._sprint_button_is_down_elapsed = math.huge
 
-            if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.HOLD then
-                self._next_sprint_multiplier = 1
-                self._next_sprint_multiplier_update_when_grounded = true
-            end
+            self._next_sprint_multiplier = 1
+            self._next_sprint_multiplier_update_when_grounded = true
         elseif which == rt.InputAction.LEFT then
             self._left_button_is_down = false
             self._left_button_is_down_elapsed = 0
@@ -1132,7 +1124,7 @@ function rt.Player:update(delta)
     end
 
     if not self._is_bubble then
-        if _settings.allow_sprint then
+        if rt.GameState:get_player_sprint_mode() == rt.PlayerSprintMode.MANUAL then
             -- update sprint once landed
             if self._next_sprint_multiplier_update_when_grounded and is_grounded then
                 self._target_sprint_multiplier = self._next_sprint_multiplier
@@ -1282,7 +1274,7 @@ function rt.Player:update(delta)
             local new_velocity_x, new_velocity_y = 0, 0
             local should_override = false
 
-            local max_velocity = _settings.accelerator_max_velocity_factor * _settings.ground_target_velocity_x * _settings.sprint_multiplier
+            local max_velocity = self._current_sprint_multiplier * _settings.accelerator_max_velocity_factor * _settings.ground_target_velocity_x * _settings.sprint_multiplier
             local acceleration = max_velocity / _settings.accelerator_acceleration_duration
 
             for surface in range( -- if one body is multiple surfaces, repeated handling is intended
@@ -1297,55 +1289,85 @@ function rt.Player:update(delta)
             ) do
                 local body, normal_x, normal_y = table.unpack(surface)
                 if body ~= nil and body:has_tag("use_friction") then
-                    -- read input direction vector
-                    local input_x, input_y = 0, 0
-                    if use_analog_input then
-                        input_x, input_y = self._joystick_position_x, self._joystick_position_y
-                    else
-                        if left_is_down then input_x = input_x - 1 end
-                        if right_is_down then input_x = input_x + 1 end
-                        if up_is_down then input_y = input_y - 1 end
-                        if down_is_down then input_y = input_y + 1 end
-                    end
-
-                    if math.magnitude(input_x, input_y) < math.eps then goto next_body end
-                    input_x, input_y = math.normalize(input_x, input_y)
-
-                    -- compare to surface tangent
+                    -- get surface tangent
                     local tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
-
-                    local velocity_alignment = math.dot(
+                    local tangent_sign = math.sign(math.dot(
                         tangent_x, tangent_y,
-                        math.normalize(player_vx, player_vy)
-                    )
+                        player_vx, player_vy
+                    ))
 
-                    tangent_x, tangent_y = math.normalize(
-                        tangent_x * velocity_alignment,
-                        tangent_y * velocity_alignment
-                    )
+                    tangent_x, tangent_y = tangent_sign * tangent_x, tangent_sign * tangent_y
+
+                    -- check if input aligns with tangent
+                    local input_alignment
+                    if use_analog_input then
+                        local input_x, input_y = self._joystick_position_x, self._joystick_position_y
+                        input_alignment = math.max(0, math.dot(input_x, input_y, tangent_x, tangent_y))
+                    else
+                        local candidates = { 0, 0 }
+
+                        if left_is_down then
+                            table.insert(candidates, -1)
+                            table.insert(candidates,  0)
+                        end
+
+                        if right_is_down then
+                            table.insert(candidates,  1)
+                            table.insert(candidates,  0)
+                        end
+
+                        if down_is_down then
+                            table.insert(candidates,  0)
+                            table.insert(candidates,  1)
+                        end
+
+                        if up_is_down then
+                            table.insert(candidates,  0)
+                            table.insert(candidates, -1)
+                        end
+
+                        -- check all of the 8 input vectors the button state allows
+                        -- chose the best one, this gives keyboard players a better chance to
+                        -- perfectly align with the surface
+                        input_alignment = 0
+                        for a_i = 1, #candidates, 2 do
+                            for b_i = 1, #candidates, 2 do
+                                if a_i ~= b_i then
+                                    local ax, ay = candidates[a_i], candidates[a_i+1]
+                                    local bx, by = candidates[b_i], candidates[b_i+1]
+
+                                    local candidate_x = ax + bx
+                                    local candidate_y = ay + by
+
+                                    input_alignment = math.max(input_alignment, math.dot(
+                                        tangent_x, tangent_y,
+                                        math.normalize(candidate_x, candidate_y)
+                                    ))
+                                end
+                            end
+                        end
+                    end
 
                     -- easing based on input vector direction and surface tangent
                     -- if farther away than threshold, 0, else, 0 to 1
-                    local input_alignment = math.max(0, math.dot(
-                        input_x, input_y,
-                        tangent_x, tangent_y
-                    ))
+                    input_alignment = math.max(0, input_alignment)
 
-                    new_velocity_x = new_velocity_x + tangent_x * acceleration * delta
-                    new_velocity_y = new_velocity_y + tangent_y * acceleration * delta
+                    if input_alignment > math.eps then
+                        -- accelerate along surface
+                        new_velocity_x = new_velocity_x + input_alignment * tangent_x * acceleration * delta
+                        new_velocity_y = new_velocity_y + input_alignment * tangent_y * acceleration * delta
 
-                    -- magnet easing
-                    local magnet = math.min(1, math.abs(input_alignment))
-                    magnet = magnet * _settings.accelerator_magnet_force
+                        -- magnet easing
+                        local magnet = math.min(1, math.abs(input_alignment))
+                        magnet = magnet * _settings.accelerator_magnet_force
 
-                    -- magnetize to wall
-                    new_velocity_x = new_velocity_x + magnet * -normal_x * delta
-                    new_velocity_y = new_velocity_y + magnet * -normal_y * delta
+                        -- magnetize to wall
+                        new_velocity_x = new_velocity_x + magnet * -normal_x * delta
+                        new_velocity_y = new_velocity_y + magnet * -normal_y * delta
 
-                    local magnet_eps = 0.05
-                    if magnet > magnet_eps then should_apply_friction = false end
-
-                    ::next_body::
+                        local magnet_eps = 0.05
+                        if magnet > magnet_eps then should_apply_friction = false end
+                    end
                 end
             end
 
@@ -1653,6 +1675,7 @@ function rt.Player:update(delta)
 
         -- downwards force
         if not self._movement_disabled
+            and not self._is_frozen
             and down_is_down
             and not ((left_is_down and self._left_wall) or (right_is_down and self._right_wall))
             -- exclude wall clinging, handled by explicit friction release in apply_friction
@@ -2640,6 +2663,7 @@ function rt.Player:teleport_to(x, y, relax_body)
         self._skip_next_flow_update = true
 
         if relax_body then
+            self._graphics_body:set_position(ternary(self._is_bubble, self._bubble_body, self._body):get_position())
             self._graphics_body:relax()
         end
     end
@@ -2652,8 +2676,6 @@ function rt.Player:teleport_to(x, y, relax_body)
     self._last_bottom_x, self._last_bottom_y = x, y
     self._last_bottom_left_x, self._last_bottom_left_y = x, y
     self._last_left_x, self._last_left_y = x, y
-
-    self:update(0) -- relax physics body
 end
 
 --- @brief
@@ -3395,7 +3417,9 @@ function rt.Player:reset()
         self._next_sprint_multiplier_update_when_grounded = false
     end
 
+    self:clear_forces()
     self._graphics_body:set_use_contour(self._is_bubble)
+    self._graphics_body:set_position(ternary(self._is_bubble, self._bubble_body, self._body):get_position())
     self._graphics_body:relax()
 end
 
@@ -3432,6 +3456,7 @@ function rt.Player:clear_forces()
     end)
 
     self._last_velocity_x, self._last_velocity_y = 0, 0
+    self._graphics_body:set_position(ternary(self._is_bubble, self._bubble_body, self._body):get_position())
     self._graphics_body:relax()
 end
 
@@ -3515,8 +3540,9 @@ function rt.Player:get_bubble_mass_factor()
 end
 
 --- @brief
-function rt.Player:kill()
+function rt.Player:kill(should_explode)
     if self._stage ~= nil then
-        self._stage:get_active_checkpoint():spawn(true)
+        if should_explode == nil then should_explode = true end
+        self._stage:get_active_checkpoint():spawn(true, should_explode)
     end
 end
