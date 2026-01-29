@@ -359,7 +359,7 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:set_is_ghost(true)
         player:teleport_to(self._top_x, self._top_y)
-        player:set_is_visible(false)
+        player:set_opacity(self._ray_fraction)
         player:clear_forces()
         player:disable()
 
@@ -430,6 +430,7 @@ function ow.Checkpoint:update(delta)
             self._ray_fraction = 1 - (player_y - threshold) / (self._top_y - threshold)
         end
 
+        player:set_opacity(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(self._ray_fraction))
         self._scene:set_blur(rt.InterpolationFunctions.GAUSSIAN_HIGHPASS(1 - math.min(1, self._ray_fraction)))
 
         if player_y >= threshold or self._spawn_elapsed > rt.settings.overworld.checkpoint.max_spawn_duration then

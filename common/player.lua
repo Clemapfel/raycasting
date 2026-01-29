@@ -3421,6 +3421,11 @@ function rt.Player:reset()
     self._graphics_body:set_use_contour(self._is_bubble)
     self._graphics_body:set_position(ternary(self._is_bubble, self._bubble_body, self._body):get_position())
     self._graphics_body:relax()
+
+    self._graphics_body:set_down_squish(false)
+    self._graphics_body:set_left_squish(false)
+    self._graphics_body:set_right_squish(false)
+    self._graphics_body:set_up_squish(false)
 end
 
 --- @brief
@@ -3545,4 +3550,14 @@ function rt.Player:kill(should_explode)
         if should_explode == nil then should_explode = true end
         self._stage:get_active_checkpoint():spawn(true, should_explode)
     end
+end
+
+--- @brief
+function rt.Player:set_opacity(alpha)
+    self._graphics_body:set_opacity(alpha)
+end
+
+--- @brief
+function rt.Player:get_opacity()
+    return self._graphics_body:get_opacity()
 end

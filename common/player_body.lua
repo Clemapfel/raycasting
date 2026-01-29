@@ -1160,7 +1160,6 @@ function rt.PlayerBody:draw_body()
 end
 
 --- @brief
--- Ensure core is squished as well (call before translating to the player's local space).
 function rt.PlayerBody:draw_core()
     if self._core_vertices == nil then return end
 
@@ -1173,11 +1172,9 @@ function rt.PlayerBody:draw_core()
     end
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.TEST, rt.StencilCompareMode.NOT_EQUAL)
 
-
     self:_apply_squish()
 
     local core_r, core_g, core_b, core_a = self._core_color:unpack()
-
     love.graphics.translate(self._position_x, self._position_y)
 
     love.graphics.push()
@@ -1190,7 +1187,7 @@ function rt.PlayerBody:draw_core()
     _core_shader:send("hue", self._hue)
     _core_shader:send("elapsed", rt.SceneManager:get_elapsed())
     _core_shader:send("saturation", self._saturation)
-    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.polygon("fill", self._core_vertices)
     _core_shader:unbind()
 
@@ -1256,17 +1253,19 @@ function rt.PlayerBody:draw_bloom()
     love.graphics.scale(1 / texture_scale, 1 / texture_scale)
     love.graphics.translate(-0.5 * w, -0.5 * h)
     _outline_shader:send("body_color", { 0, 0, 0, 0 })
-    _outline_shader:send("outline_color", { self._core_color:unpack() })
+
+    local core_r, core_g, core_b, core_a = self._core_color:unpack()
+    core_a = core_a * self._opacity
+    _outline_shader:send("outline_color", { core_r, core_g, core_b, core_a })
     _outline_shader:bind()
     self._body_outline_texture:draw()
     _outline_shader:unbind()
     love.graphics.pop()
 
 
-    local core_r, core_g, core_b, core_a = self._core_color:unpack()
     love.graphics.push()
     love.graphics.scale(self._core_outline_scale, self._core_outline_scale)
-    love.graphics.setColor(core_r, core_g, core_b, core_a * self._opacity)
+    love.graphics.setColor(core_r, core_g, core_b, core_a)
     love.graphics.polygon("line", self._core_vertices)
     love.graphics.pop()
 end

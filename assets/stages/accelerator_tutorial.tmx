@@ -22,7 +22,7 @@
   <object id="340" type="AcceleratorSurface" x="96" y="416">
    <polygon points="0,368 384,368 384,352 -16,352 -16,1024 -880,1024 -880,1040 0,1040"/>
   </object>
-  <object id="341" name="Spawn" type="PlayerSpawn" x="-3168" y="2496">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-3477.28" y="2592.22">
    <point/>
   </object>
   <object id="343" type="AcceleratorSurface" x="-960" y="1440">
