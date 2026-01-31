@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="415">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="416">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -52,8 +52,8 @@
   <object id="352" type="AcceleratorSurface" x="-2928" y="2560">
    <polygon points="0,0 0,32 1104,32 1120,16 1120,-64 1136,-80 1136,-96 1120.26,-94.9405 1101.05,-87.5915 1078.77,-75.0905 1049.27,-57.2503 1014.67,-39.2757 973.465,-23.5897 939.412,-14.0388 902.185,-5.18373 867.215,0"/>
   </object>
-  <object id="358" x="-4496" y="1312">
-   <polygon points="-176,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 -176,160"/>
+  <object id="358" type="Hitbox" x="-4496" y="1312">
+   <polygon points="208,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 -240,160 -240,0 -112,0 -112,128 208,128"/>
   </object>
   <object id="359" type="SlipperyHitbox" x="-4016" y="1312">
    <polygon points="0,0 0,-224 -16,-224 -16,-400 0,-384 128,-384 144,-400 144,-224 128,-224 128,0 80,0 80,-288 96,-288 64,-336 32,-288 48,-288 48,0"/>
@@ -150,8 +150,8 @@
    </properties>
   </object>
   <object id="413" type="Goal" x="-2720" y="5792" width="176" height="176"/>
-  <object id="414" type="FrontWall" x="-4672" y="1312">
-   <polygon points="0,0 0,-208 144,-256 272,-208 352,-64 384,0 272,0"/>
+  <object id="414" type="FakeHitbox" x="-4644.89" y="1181.88">
+   <polygon points="36.8924,258.117 36.8924,130.117 356.892,130.117 356.892,258.117"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

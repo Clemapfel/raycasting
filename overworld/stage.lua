@@ -54,6 +54,7 @@ function ow.Stage:instantiate(scene, id)
         _below_player = meta.make_weak({}),
         _above_player = meta.make_weak({}),
         _bloom_objects = meta.make_weak({}),
+        _above_bloom_objects = meta.make_weak({}),
 
         -- updatables
         _to_update = meta.make_weak({}),
@@ -108,10 +109,8 @@ function ow.Stage:instantiate(scene, id)
     ow.Sprite:reinitialize()
     ow.AirDashNode:reinitialize()
 
-    -- static hitbox normal_map
-
     local get_triangle_callback = function()
-        return ow.Hitbox:get_tris(true, true)
+        return ow.Hitbox:get_mesh_tris(true, true)
     end
 
     local draw_mask_callback = function()
@@ -227,6 +226,17 @@ function ow.Stage:instantiate(scene, id)
                         priorities[1] = wrapper:get_number("render_priority")
                     end
 
+                    do -- get above bloom
+                        local to_remove = {}
+                        for i, priority in ipairs(priorities) do
+                            if priority == math.huge then
+                                table.insert(self._above_bloom_objects, instance)
+                                table.insert(to_remove, 1, i)
+                            end
+                        end
+                        for i in values(to_remove) do table.remove(priorities, i) end
+                    end
+
                     for priority in values(priorities) do
                         if not meta.is_number(priority) then
                             rt.error("In ow.",  wrapper.class,  ".get_render_priority: does not return a number or tuple of numbers")
@@ -315,13 +325,13 @@ function ow.Stage:instantiate(scene, id)
     end)
 
     self._blood_splatter:create_contour(
-        ow.Hitbox:get_tris(true, false), -- sticky
-        ow.Hitbox:get_tris(false, true)  -- slippery occluding
+        ow.Hitbox:get_collision_tris(true, false), -- sticky
+        ow.Hitbox:get_collision_tris(false, true)  -- slippery occluding
     )
 
     self._mirror:create_contour(
-        ow.Hitbox:get_tris(false, true), -- mirror
-        ow.Hitbox:get_tris(true, false) -- occluding
+        ow.Hitbox:get_collision_tris(false, true), -- mirror
+        ow.Hitbox:get_collision_tris(true, false) -- occluding
     )
 
     -- create flow graph
@@ -441,6 +451,13 @@ function ow.Stage:draw_bloom()
 
     if rt.GameState:get_is_performance_mode_enabled() ~= true then
         self._mirror:draw()
+    end
+end
+
+--- @brief
+function ow.Stage:draw_above_bloom()
+    for object in values(self._above_bloom_objects) do
+        object:draw()
     end
 end
 

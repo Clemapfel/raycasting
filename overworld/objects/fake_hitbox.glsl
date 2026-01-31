@@ -41,7 +41,7 @@ uniform int n_segment_light_sources;
 uniform float segment_light_intensity = 0.5;
 
 uniform vec2 player_position; // screen coords
-uniform float player_stencil_radius = 30;
+uniform float player_stencil_radius = 10;
 
 uniform mat4x4 screen_to_world_transform;
 vec2 to_world_position(vec2 xy) {
@@ -120,14 +120,6 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
     point_color = clamp(point_color * point_light_intensity, 0.0, 1.0);
     segment_color = clamp(segment_color * segment_light_intensity, 0.0, 1.0);
 
-    float dist_to_player = distance(screen_coords, player_position) / camera_scale;
-    float normalized_dist = dist_to_player / player_stencil_radius;
-
-    float stencil_alpha = 0.5 * gaussian(normalized_dist, 1.5);
-
     // Apply lighting to base wall color, then subtract stencil from opacity
-    vec4 result = color + (point_color + segment_color);
-    result.a = 1.0 - stencil_alpha;
-
-    return clamp(result, 0.0, 1.0);
+    return color * clamp(point_color + segment_color, 0, 1);
 }

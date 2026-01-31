@@ -692,6 +692,11 @@ function ow.OverworldScene:draw()
         self._camera:unbind()
 
         draw_bloom()
+
+        self._camera:bind()
+        self._stage:draw_above_bloom()
+        self._camera:unbind()
+
     elseif self._blur_t > 0 then -- respawning
         if self._blur ~= nil then
             self._blur:set_blur_strength(self._blur_t * rt.settings.overworld_scene.max_blur_strength)
@@ -705,6 +710,10 @@ function ow.OverworldScene:draw()
             self._camera:unbind()
 
             draw_bloom()
+
+            self._camera:bind()
+            self._stage:draw_above_bloom()
+            self._camera:unbind()
 
             self._blur:unbind()
 

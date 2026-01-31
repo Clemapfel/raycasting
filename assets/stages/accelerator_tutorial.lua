@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 415,
+  nextobjectid = 416,
   properties = {},
   tilesets = {
     {
@@ -369,7 +369,7 @@ return {
         {
           id = 358,
           name = "",
-          type = "",
+          type = "Hitbox",
           shape = "polygon",
           x = -4496,
           y = 1312,
@@ -378,7 +378,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = -176, y = 0 },
+            { x = 208, y = 0 },
             { x = 528, y = 0 },
             { x = 528, y = -288 },
             { x = 512, y = -288 },
@@ -388,7 +388,11 @@ return {
             { x = 560, y = 0 },
             { x = 1280, y = 0 },
             { x = 1280, y = 160 },
-            { x = -176, y = 160 }
+            { x = -240, y = 160 },
+            { x = -240, y = 0 },
+            { x = -112, y = 0 },
+            { x = -112, y = 128 },
+            { x = 208, y = 128 }
           },
           properties = {}
         },
@@ -1018,22 +1022,19 @@ return {
         {
           id = 414,
           name = "",
-          type = "FrontWall",
+          type = "FakeHitbox",
           shape = "polygon",
-          x = -4672,
-          y = 1312,
+          x = -4644.89,
+          y = 1181.88,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = -208 },
-            { x = 144, y = -256 },
-            { x = 272, y = -208 },
-            { x = 352, y = -64 },
-            { x = 384, y = 0 },
-            { x = 272, y = 0 }
+            { x = 36.8924, y = 258.117 },
+            { x = 36.8924, y = 130.117 },
+            { x = 356.892, y = 130.117 },
+            { x = 356.892, y = 258.117 }
           },
           properties = {}
         }

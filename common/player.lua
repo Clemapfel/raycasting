@@ -2041,7 +2041,7 @@ function rt.Player:update(delta)
         local is_squished = function(x, y)
             local squished = false
             for body in values(bodies) do
-                if body:test_point(center_x, center_y) then
+                if body:get_is_sensor() ~= true and body:test_point(center_x, center_y) then
                     squished = true
                     break
                 end
