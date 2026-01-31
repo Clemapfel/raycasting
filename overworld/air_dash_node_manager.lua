@@ -113,7 +113,14 @@ end
 
 --- @brief
 function ow.AirDashNodeManager:update(delta)
-    local bounds = self._scene:get_camera():get_world_bounds()
+    local camera = self._scene:get_camera()
+    local bounds = camera:get_world_bounds()
+    local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
+    bounds.x = bounds.x - padding
+    bounds.y = bounds.y - padding
+    bounds.width = bounds.width + 2 * padding
+    bounds.height = bounds.height + 2 * padding
+
     local player = self._scene:get_player()
     local px, py = player:get_position()
     local pvx, pvy = player:get_velocity()

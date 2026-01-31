@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 408,
+  nextobjectid = 415,
   properties = {},
   tilesets = {
     {
@@ -95,6 +95,19 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 411,
+          name = "",
+          type = "CameraBounds",
+          shape = "rectangle",
+          x = -3685.6,
+          y = 3870.54,
+          width = 1573.6,
+          height = 2897.46,
+          rotation = 0,
+          visible = true,
+          properties = {}
         }
       }
     },
@@ -165,8 +178,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -2875.92,
-          y = 6662.86,
+          x = -4121.53,
+          y = 1257.79,
           width = 0,
           height = 0,
           rotation = 0,
@@ -365,7 +378,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 0, y = 0 },
+            { x = -176, y = 0 },
             { x = 528, y = 0 },
             { x = 528, y = -288 },
             { x = 512, y = -288 },
@@ -375,7 +388,7 @@ return {
             { x = 560, y = 0 },
             { x = 1280, y = 0 },
             { x = 1280, y = 160 },
-            { x = 0, y = 160 }
+            { x = -176, y = 160 }
           },
           properties = {}
         },
@@ -876,8 +889,8 @@ return {
           name = "Portal",
           type = "Portal",
           shape = "point",
-          x = -5536,
-          y = 6704,
+          x = -2720,
+          y = 5920,
           width = 0,
           height = 0,
           rotation = 0,
@@ -893,8 +906,8 @@ return {
           name = "",
           type = "PortalNode",
           shape = "point",
-          x = -5376,
-          y = 6704,
+          x = -2720,
+          y = 5840,
           width = 0,
           height = 0,
           rotation = 0,
@@ -966,13 +979,63 @@ return {
           polygon = {
             { x = 0, y = 0 },
             { x = 48, y = 0 },
-            { x = 48, y = -432 },
-            { x = 0, y = -432 }
+            { x = 48, y = -80 },
+            { x = 0, y = -80 }
           },
           properties = {
             ["axis_y"] = -1,
             ["velocity"] = 5
           }
+        },
+        {
+          id = 410,
+          name = "",
+          type = "Wall",
+          shape = "rectangle",
+          x = -4051.08,
+          y = 3637.16,
+          width = 2408.63,
+          height = 3130.78,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["type"] = "flat"
+          }
+        },
+        {
+          id = 413,
+          name = "",
+          type = "Goal",
+          shape = "rectangle",
+          x = -2720,
+          y = 5792,
+          width = 176,
+          height = 176,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 414,
+          name = "",
+          type = "FrontWall",
+          shape = "polygon",
+          x = -4672,
+          y = 1312,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -208 },
+            { x = 144, y = -256 },
+            { x = 272, y = -208 },
+            { x = 352, y = -64 },
+            { x = 384, y = 0 },
+            { x = 272, y = 0 }
+          },
+          properties = {}
         }
       }
     },

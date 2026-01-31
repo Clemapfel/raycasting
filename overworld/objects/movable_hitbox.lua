@@ -109,7 +109,15 @@ function ow.MovableHitbox:instantiate(object, stage, scene)
         self._body:set_user_data(self)
         self.get_segment_light_sources = function(self)
             -- blood splatter already notified of offset
-            return self._blood_splatter:get_segment_light_sources(self._scene:get_camera():get_world_bounds())
+            local camera = self._scene:get_camera()
+            local bounds = camera:get_world_bounds()
+            local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
+            bounds.x = bounds.x - padding
+            bounds.y = bounds.y - padding
+            bounds.width = bounds.width + 2 * padding
+            bounds.height = bounds.height + 2 * padding
+
+            return self._blood_splatter:get_segment_light_sources(bounds)
         end
     end
 end

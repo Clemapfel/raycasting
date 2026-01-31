@@ -433,7 +433,15 @@ end
 
 --- @brief
 function ow.Mirror:update(delta)
-    local camera_x, camera_y, camera_w, camera_h = self._scene:get_camera():get_world_bounds():unpack()
+    local camera = self._scene:get_camera()
+    local bounds = camera:get_world_bounds()
+    local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
+    bounds.x = bounds.x - padding
+    bounds.y = bounds.y - padding
+    bounds.width = bounds.width + 2 * padding
+    bounds.height = bounds.height + 2 * padding
+
+    local camera_x, camera_y, camera_w, camera_h = bounds:unpack()
 
     -- find segments near player
     local px, py = self._scene:get_player():get_physics_body():get_position()

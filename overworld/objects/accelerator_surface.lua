@@ -12,7 +12,7 @@ rt.settings.overworld.accelerator_surface = {
         min_scale = 0.1,
         max_scale = 0.4,
         deceleration = 0.985,
-        max_n_particles = 256
+        max_n_particles = 1024
     },
 
     outline_width = 2,
@@ -233,6 +233,8 @@ function ow.AcceleratorSurface:update(delta)
     local player = self._scene:get_player()
     local data = self._particle_data
 
+    local n_particles_before = self._n_particles
+
     if player:get_is_colliding_with(self._body) == true then
         self._particle_elapsed = self._particle_elapsed + delta
         local normal_x, normal_y = player:get_collision_normal(self._body)
@@ -271,17 +273,25 @@ function ow.AcceleratorSurface:update(delta)
         end
     end
 
+    _particle_spritebatch:clear()
+    local frame_h = _particle_texture:get_height()
+
     local aabb = self._scene:get_camera():get_world_bounds()
     local x, y, w, h = aabb:unpack()
-    for particle_i = 1, self._n_particles do
+
+    -- particle start out transparent, so they don't need to be added to the
+    -- spritebatch this frame, and they don't need to be updated
+    for particle_i = 1, n_particles_before do
         local i = _particle_i_to_data_offset(particle_i)
-        if data[i + _is_stale_offset] ~= _is_stale then
+        local is_stale = data[i + _is_stale_offset] == _is_stale
+        if not is_stale then
             local px, py = data[i + _x_offset], data[i + _y_offset]
             if data[i + _elapsed_offset] > data[i + _lifetime_offset]
                 or not (px >= x and px <= x + w and py >= y and py <= y + h)
             then
                 data[i + _is_stale_offset] = _is_stale
                 data[i + _elapsed_offset] = math.huge
+                is_stale = true
                 table.insert(self._stale_particle_indices, particle_i)
             else
                 data[i + _x_offset] = data[i + _x_offset] + data[i + _velocity_x_offset] * data[i + _velocity_magnitude_offset] * delta
@@ -290,14 +300,35 @@ function ow.AcceleratorSurface:update(delta)
                 data[i + _velocity_magnitude_offset] = data[i + _velocity_magnitude_offset] * settings.deceleration
             end
         end
+
+        if not is_stale then
+            local alpha = rt.InterpolationFunctions.ENVELOPE(
+                data[i + _elapsed_offset] / data[i + _lifetime_offset],
+                rt.settings.overworld.accelerator_surface.particle.attack,
+                rt.settings.overworld.accelerator_surface.particle.decay
+            )
+
+            _particle_spritebatch:setColor(1, 1, 1, alpha)
+            _particle_spritebatch:add(
+                _particle_quads[data[i + _quad_i_offset]],
+                data[i + _x_offset],
+                data[i + _y_offset],
+                data[i + _angle_offset],
+                data[i + _scale_offset],
+                data[i + _scale_offset],
+                0.5 * frame_h,
+                0.5 * frame_h
+            )
+        end
     end
 
-    for particle_i = 1, math.max(0, self._n_particles - settings.max_n_particles) do
+    -- reduce number if overwhelmed, use oldest particles at the start first
+    for particle_i = 1, math.max(0, self._stage.accelerator_total_n_particles - settings.max_n_particles) do
         table.insert(self._stale_particle_indices, particle_i)
     end
 
     -- periodically remove stale particles
-    if true then --#self._stale_particle_indices > 32 then
+    if #self._stale_particle_indices > 32 then
         table.sort(self._stale_particle_indices, function(a, b) return a > b end)
 
         local n_removed = 0
@@ -357,36 +388,9 @@ function ow.AcceleratorSurface:draw(priority)
 
         love.graphics.pop()
     elseif priority == particle_priority then
-        _particle_spritebatch:clear()
-
-        local frame_h = _particle_texture:get_height()
-        local data = self._particle_data
-
-        for particle_i = 1, self._n_particles do
-            local i = _particle_i_to_data_offset(particle_i)
-            if data[i + _is_stale_offset] ~= _is_stale then
-                local alpha = rt.InterpolationFunctions.ENVELOPE(
-                    data[i + _elapsed_offset] / data[i + _lifetime_offset],
-                    rt.settings.overworld.accelerator_surface.particle.attack,
-                    rt.settings.overworld.accelerator_surface.particle.decay
-                )
-
-                _particle_spritebatch:setColor(1, 1, 1, alpha)
-                _particle_spritebatch:add(
-                    _particle_quads[data[i + _quad_i_offset]],
-                    data[i + _x_offset],
-                    data[i + _y_offset],
-                    data[i + _angle_offset],
-                    data[i + _scale_offset],
-                    data[i + _scale_offset],
-                    0.5 * frame_h,
-                    0.5 * frame_h
-                )
-            end
-        end
-
         _particle_shader:bind()
         _particle_shader:send("screen_to_world_transform", transform)
+        love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(_particle_spritebatch)
         _particle_shader:unbind()
     end

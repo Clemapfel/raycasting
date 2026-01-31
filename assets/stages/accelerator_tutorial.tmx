@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="408">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="415">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -14,6 +14,7 @@
   </object>
   <object id="380" name="Bounds" type="CameraBounds" x="-4930.76" y="1696" width="7179.05" height="1234.08"/>
   <object id="395" type="CameraBounds" x="784" y="1680" width="1472" height="3136"/>
+  <object id="411" type="CameraBounds" x="-3685.6" y="3870.54" width="1573.6" height="2897.46"/>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="339" type="Hitbox" x="-960" y="1440">
@@ -22,7 +23,7 @@
   <object id="340" type="AcceleratorSurface" x="96" y="416">
    <polygon points="0,368 384,368 384,352 -16,352 -16,1024 -880,1024 -880,1040 0,1040"/>
   </object>
-  <object id="341" name="Spawn" type="PlayerSpawn" x="-2875.92" y="6662.86">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-4121.53" y="1257.79">
    <point/>
   </object>
   <object id="343" type="AcceleratorSurface" x="-960" y="1440">
@@ -52,7 +53,7 @@
    <polygon points="0,0 0,32 1104,32 1120,16 1120,-64 1136,-80 1136,-96 1120.26,-94.9405 1101.05,-87.5915 1078.77,-75.0905 1049.27,-57.2503 1014.67,-39.2757 973.465,-23.5897 939.412,-14.0388 902.185,-5.18373 867.215,0"/>
   </object>
   <object id="358" x="-4496" y="1312">
-   <polygon points="0,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 0,160"/>
+   <polygon points="-176,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 -176,160"/>
   </object>
   <object id="359" type="SlipperyHitbox" x="-4016" y="1312">
    <polygon points="0,0 0,-224 -16,-224 -16,-400 0,-384 128,-384 144,-400 144,-224 128,-224 128,0 80,0 80,-288 96,-288 64,-336 32,-288 48,-288 48,0"/>
@@ -116,7 +117,7 @@
    </properties>
    <point/>
   </object>
-  <object id="400" name="Portal" type="Portal" x="-5536" y="6704">
+  <object id="400" name="Portal" type="Portal" x="-2720" y="5920">
    <properties>
     <property name="left_or_right" type="bool" value="false"/>
     <property name="other" type="object" value="401"/>
@@ -124,7 +125,7 @@
    </properties>
    <point/>
   </object>
-  <object id="401" type="PortalNode" x="-5376" y="6704">
+  <object id="401" type="PortalNode" x="-2720" y="5840">
    <point/>
   </object>
   <object id="402" type="PortalNode" x="-2800" y="4736">
@@ -141,7 +142,16 @@
     <property name="axis_y" type="float" value="-1"/>
     <property name="velocity" type="float" value="5"/>
    </properties>
-   <polygon points="0,0 48,0 48,-432 0,-432"/>
+   <polygon points="0,0 48,0 48,-80 0,-80"/>
+  </object>
+  <object id="410" type="Wall" x="-4051.08" y="3637.16" width="2408.63" height="3130.78">
+   <properties>
+    <property name="type" value="flat"/>
+   </properties>
+  </object>
+  <object id="413" type="Goal" x="-2720" y="5792" width="176" height="176"/>
+  <object id="414" type="FrontWall" x="-4672" y="1312">
+   <polygon points="0,0 0,-208 144,-256 272,-208 352,-64 384,0 272,0"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

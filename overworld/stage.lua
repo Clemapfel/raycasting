@@ -19,7 +19,7 @@ for file in values(love.filesystem.getDirectoryItems("overworld/objects")) do
 end
 
 rt.settings.overworld.stage = {
-    physics_world_buffer_length = 0
+    visible_area_padding = 4 * rt.settings.player.radius, -- px
 }
 
 --- @class ow.Stage
@@ -454,20 +454,17 @@ function ow.Stage:update(delta)
     if self._normal_map_done and rt.GameState:get_is_performance_mode_enabled() == false then
         -- collect light sources and visibel bodies
         local camera = self._scene:get_camera()
-        local top_left_x, top_left_y = camera:screen_xy_to_world_xy(0, 0)
-        local bottom_right_x, bottom_right_y = camera:screen_xy_to_world_xy(love.graphics.getDimensions())
+        local bounds = camera:get_world_bounds()
 
-        local padding = 8 * rt.settings.player.radius
-        top_left_x, top_left_y = math.subtract(top_left_x, top_left_y, padding, padding)
-        bottom_right_x, bottom_right_y = math.add(bottom_right_x, bottom_right_y, padding, padding)
+        local padding = rt.settings.overworld.stage.visible_area_padding
 
         self._visible_bodies = {}
         self._point_light_source_bodies = {}
         self._segment_light_source_bodies = {}
 
         for body in values(self._world:query_aabb(
-            top_left_x, top_left_y,
-            bottom_right_x - top_left_x, bottom_right_y - top_left_y
+            bounds.x - padding, bounds.y - padding,
+            bounds.width + 2 * padding, bounds.height + 2 * padding
         )) do
             self._visible_bodies[body] = true
 
@@ -590,7 +587,14 @@ function ow.Stage:get_segment_light_sources()
         local positions, colors = {}, {}
 
         do -- convert blood splatter
-            local blood_segments, blood_colors = self._blood_splatter:get_segment_light_sources(self._scene:get_camera():get_world_bounds())
+            local bounds = camera:get_world_bounds()
+            local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
+            bounds.x = bounds.x - padding
+            bounds.y = bounds.y - padding
+            bounds.width = bounds.width + 2 * padding
+            bounds.height = bounds.height + 2 * padding
+
+            local blood_segments, blood_colors = self._blood_splatter:get_segment_light_sources(bounds)
 
             for i, segment in ipairs(blood_segments) do
                 local x1, y1 = camera:world_xy_to_screen_xy(segment[1], segment[2])

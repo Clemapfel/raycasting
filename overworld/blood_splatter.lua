@@ -163,7 +163,15 @@ function ow.BloodSplatter:draw()
     love.graphics.setLineStyle("rough")
     love.graphics.setLineJoin("bevel")
 
-    local x, y, w, h = self._scene:get_camera():get_world_bounds():unpack()
+    local camera = self._scene:get_camera()
+    local bounds = camera:get_world_bounds()
+    local padding = rt.settings.overworld.stage.visible_area_padding * camera:get_final_scale()
+    bounds.x = bounds.x - padding
+    bounds.y = bounds.y - padding
+    bounds.width = bounds.width + 2 * padding
+    bounds.height = bounds.height + 2 * padding
+    local x, y, w, h = bounds:unpack()
+
     x = x - self._offset_x
     y = y - self._offset_y
     local visible = {}

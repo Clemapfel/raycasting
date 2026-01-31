@@ -41,9 +41,6 @@ function ow.Goal:instantiate(object, stage, scene)
         _world = stage:get_physics_world(),
 
         _object = object,
-        _x = object.x,
-        _y = object.y,
-
         _color = rt.RGBA(1, 1, 1, 1),
 
         _elapsed = 0,
@@ -79,17 +76,8 @@ function ow.Goal:instantiate(object, stage, scene)
 
     rt.assert(object:get_type() == ow.ObjectType.RECTANGLE and object:get_rotation() == 0, "In ow.Goal: object `", object:get_id(), "` in stage `", self._stage:get_id(), "` is not an axis-aligned rectangle")
 
-    local contour = object:create_contour()
-    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
-    for i = 1, #contour, 2 do
-        local x, y = contour[i+0], contour[i+1]
-        min_x = math.min(min_x, x)
-        min_y = math.min(min_y, y)
-        max_x = math.max(max_x, x)
-        max_y = math.max(max_y, y)
-    end
 
-    self._bounds = rt.AABB(min_x, min_y, max_x - min_x, max_y - min_y)
+    self._bounds = rt.AABB(object.x, object.y, object.width, object.height)
 
     -- animations
     do
@@ -147,7 +135,7 @@ function ow.Goal:instantiate(object, stage, scene)
         local _, _, w, h = self._bounds:unpack()
         local player = self._scene:get_player()
         self._body = b2.Body(self._stage:get_physics_world(), object:get_physics_body_type(),
-            self._x, self._y,
+            self._bounds.x + 0.5 * self._bounds.width, self._bounds.y + 0.5 * self._bounds.height,
             b2.Rectangle(-0.5 * w, -0.5 * h, w, h)
         )
 

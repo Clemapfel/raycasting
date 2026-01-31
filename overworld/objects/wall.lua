@@ -56,8 +56,8 @@ function ow.Wall:draw()
     love.graphics.setColor(1, 1, 1, 1)
     local shader = self._shader
     shader:bind()
-    shader:send("elapsed", rt.SceneManager:get_elapsed())
     shader:send("camera_scale", camera:get_final_scale())
+
     shader:send("n_point_light_sources", #point_light_sources)
     if #point_light_sources > 0 then
         shader:send("point_light_sources", table.unpack(point_light_sources))
