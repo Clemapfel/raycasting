@@ -75,7 +75,6 @@ function ow.Wall:draw()
     shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
     shader:send("screen_to_world_transform", camera:get_transform():inverse())
     shader:send("light_range", rt.settings.overworld.wall.light_range * brightness_factor)
-    shader:send("outline_color", { rt.Palette.WALL:unpack() })
     self._mesh:draw()
     shader:unbind()
 

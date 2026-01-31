@@ -45,11 +45,14 @@ function ow.FrontWall:draw()
     shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
     shader:send("screen_to_world_transform", camera:get_transform():inverse())
     shader:send("light_range", rt.settings.overworld.wall.light_range) -- sic, use ow.Wall
-    shader:send("outline_color", { rt.Palette.WALL:unpack() })
+
+    shader:send("player_position", { camera:world_xy_to_screen_xy(self._scene:get_player():get_position()) })
+    shader:send("player_stencil_radius", rt.settings.player.radius * rt.settings.player.bubble_radius_factor)
+    rt.Palette.STICKY:bind()
     self._mesh:draw()
     shader:unbind()
 
-    rt.Palette.WALL_OUTLINE:bind()
+    rt.Palette.STICKY_OUTLINE:bind()
     love.graphics.setLineWidth(rt.settings.overworld.hitbox.slippery_outline_width)
     love.graphics.line(self._contour)
 

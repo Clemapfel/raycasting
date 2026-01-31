@@ -1,9 +1,8 @@
 rt.settings.bloom = {
-    n_preprocessing_passes = 0,
     default_blur_strength = 1.2,
-    default_msaa = 0,
-    default_texture_format = rt.TextureFormat.RG11B10F,
-    default_composite_strength = 0.1
+    default_composite_strength = 0.1,
+    msaa = 0,
+    texture_format = rt.TextureFormat.RG11B10F,
 }
 
 --- @class rt.Bloom
@@ -14,11 +13,12 @@ local _upsample_shader = rt.Shader("common/bloom_upsample.glsl")
 local _tonemap_shader = rt.Shader("common/bloom_tone_map.glsl")
 
 --- @brief
-function rt.Bloom:instantiate(width, height, msaa, texture_format, ...)
-    if msaa == nil then msaa = rt.settings.bloom.default_msaa end
-    if texture_format == nil then texture_format = rt.settings.bloom.default_texture_format end
-
+function rt.Bloom:instantiate(width, height, padding)
     self._bloom_strength = rt.settings.bloom.default_blur_strength
+
+    self._padding = padding or 0
+    width = width + 2 * padding
+    height = height + 2 * padding
 
     self._textures = {}
     self._meshes = {}
@@ -27,7 +27,7 @@ function rt.Bloom:instantiate(width, height, msaa, texture_format, ...)
         local level = 1
         while (w > 8 or h > 8) do
             local mesh = rt.MeshRectangle(0, 0, w, h)
-            local texture = rt.RenderTexture(w, h, msaa, texture_format)
+            local texture = rt.RenderTexture(w, h, rt.settings.bloom.msaa, rt.settings.bloom.texture_format)
             mesh:set_texture(texture)
             texture:set_wrap_mode(rt.TextureWrapMode.CLAMP)
             texture:set_scale_mode(rt.TextureScaleMode.LINEAR, rt.TextureScaleMode.LINEAR)
@@ -47,8 +47,15 @@ local _before
 local lg = love.graphics
 
 --- @brief
+function rt.Bloom:_bind_padding()
+    -- why is this not necessary?
+    --love.graphics.translate(-self._padding, -self._padding)
+end
+
+--- @brief
 function rt.Bloom:bind()
     love.graphics.push("all")
+    self:_bind_padding()
     self._textures[1]:bind()
 end
 
@@ -130,27 +137,37 @@ end
 function rt.Bloom:composite(strength)
     if strength == nil then strength = rt.settings.bloom.default_composite_strength end
     love.graphics.push("all")
+    self:_bind_padding()
     love.graphics.setBlendMode("add", "premultiplied")
     love.graphics.setColor(strength, strength, strength, strength)
 
-    self:draw()
+    self:draw_internal()
 
     love.graphics.setBlendMode("alpha")
     love.graphics.pop()
 end
 
 --- @brief
-function rt.Bloom:draw()
-    local r, g, b, a = love.graphics.getColor()
+function rt.Bloom:draw_internal()
     if self._update_needed then
         self:_apply_bloom()
         self._update_needed = false
     end
 
-    love.graphics.setColor(r, g, b, a)
     _tonemap_shader:bind()
     love.graphics.draw(self._textures[1]:get_native())
     _tonemap_shader:unbind()
+end
+
+--- @brief
+function rt.Bloom:draw()
+    local r, g, b, a = love.graphics.getColor()
+
+    love.graphics.push("all")
+    self:_bind_padding()
+    love.graphics.setColor(r, g, b, a)
+    self:draw_internal()
+    love.graphics.pop()
 end
 
 --- @brief

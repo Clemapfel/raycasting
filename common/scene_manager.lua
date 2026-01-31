@@ -284,7 +284,7 @@ function rt.SceneManager:resize(width, height)
     end
 
     if reallocate_bloom then
-        self._bloom = rt.Bloom(self._width, self._height)
+        self:_reallocate_bloom()
     end
 end
 
@@ -423,10 +423,20 @@ function rt.SceneManager:get_is_bloom_enabled()
 end
 
 --- @brief
+function rt.SceneManager:_reallocate_bloom()
+    require "overworld.stage"
+    self._bloom = rt.Bloom(
+        self._width,
+        self._height,
+        rt.settings.overworld.stage.visible_area_padding
+    )
+end
+
+--- @brief
 function rt.SceneManager:get_bloom()
     if rt.GameState:get_is_bloom_enabled() then
         if self._bloom == nil then
-            self._bloom = rt.Bloom(self._width, self._height)
+            self:_reallocate_bloom()
         end
         return self._bloom
     else

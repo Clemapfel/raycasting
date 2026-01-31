@@ -40,6 +40,9 @@ uniform vec4 segment_light_colors[MAX_N_SEGMENT_LIGHTS];
 uniform int n_segment_light_sources;
 uniform float segment_light_intensity = 0.5;
 
+uniform vec2 player_position; // screen coords
+uniform float player_stencil_radius = 30;
+
 uniform mat4x4 screen_to_world_transform;
 vec2 to_world_position(vec2 xy) {
     vec4 result = screen_to_world_transform * vec4(xy, 0.0, 1.0);
@@ -90,11 +93,10 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
         float light_radius = point_light_sources[i].z;
         vec2 light_position = closest_point_on_circle(screen_coords, light_circle, light_radius);
 
-        // Pre-multiply alpha but clamp the color
         vec4 light_contrib = compute_light(
         screen_coords,
         light_position,
-        vec4(point_light_colors[i].rgb, 1.0)  // Don't pre-multiply alpha here
+        vec4(point_light_colors[i].rgb, 1.0)
         ) * point_light_colors[i].a;
 
         point_color += light_contrib;
@@ -118,9 +120,14 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
     point_color = clamp(point_color * point_light_intensity, 0.0, 1.0);
     segment_color = clamp(segment_color * segment_light_intensity, 0.0, 1.0);
 
-    vec4 result = vec4((
-    color.rgb * 0.05 + mix(point_color.rgb, segment_color.rgb, 0.5)
-    ), color.a * 0.8);
+    float dist_to_player = distance(screen_coords, player_position) / camera_scale;
+    float normalized_dist = dist_to_player / player_stencil_radius;
+
+    float stencil_alpha = 0.5 * gaussian(normalized_dist, 1.5);
+
+    // Apply lighting to base wall color, then subtract stencil from opacity
+    vec4 result = color + (point_color + segment_color);
+    result.a = 1.0 - stencil_alpha;
 
     return clamp(result, 0.0, 1.0);
 }
