@@ -276,8 +276,6 @@ function ow.Checkpoint:spawn(also_kill, play_animation)
     self._stage:set_active_checkpoint(self)
     self._spawn_barrier:set_is_enabled(self._use_spawn_barrier)
     self._passed = true
-
-    self._stage:signal_emit("respawn", is_first_spawn)
 end
 
 --- @brief
@@ -316,7 +314,6 @@ function ow.Checkpoint:_set_state(state)
     elseif self._state == _STATE_EXPLODING then
         local explosion_x, explosion_y = player:get_position()
         self._explosion_player_position = { explosion_x, explosion_y }
-
         local player_radius = player:get_radius()
         local factor = rt.settings.overworld.checkpoint.explosion_radius_factor
         self._explosion_size = { 2 * factor * player_radius, 2 * factor * player_radius }
@@ -369,6 +366,7 @@ function ow.Checkpoint:_set_state(state)
         player:reset()
         player:clear_forces()
         player:enable()
+        self._stage:signal_emit("respawn")
     end
 end
 
@@ -488,7 +486,7 @@ function ow.Checkpoint:draw(priority)
         end
     elseif priority == _effect_priority then
         -- explosion draw above everything
-        if self._state == _STATE_EXPLODING and self._explosion_visible then
+        if self._state == _STATE_EXPLODING then
             _explosion_shader:bind()
             _explosion_shader:send("fraction", self._explosion_fraction)
             _explosion_shader:send("size", self._explosion_size)

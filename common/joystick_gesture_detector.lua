@@ -71,6 +71,8 @@ function rt.JoystickGestureDetector:get_magnitude(input_action)
         value = math.min(0, joystick_y)
     elseif input_action == rt.InputAction.DOWN then
         value = math.max(0, joystick_y)
+    else
+        value = 0
     end
 
     return math.abs(value)

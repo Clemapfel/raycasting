@@ -105,7 +105,8 @@ do -- load from image
     rt.Palette.DECELERATOR_SURFACE = rt.Palette.SLIPPERY
     rt.Palette.DECELERATOR_SURFACE_OUTLINE = rt.Palette.GRAY_4
 
-    rt.Palette.WALL = rt.Palette.GRAY_8
+    rt.Palette.WALL = rt.Palette.GRAY_10
+    rt.Palette.WALL.a = 0.8
     rt.Palette.WALL_OUTLINE = rt.Palette.GRAY_7
 
     rt.Palette.SPAWN_ACTIVE = rt.Palette.MINT

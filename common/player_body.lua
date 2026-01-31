@@ -1163,7 +1163,7 @@ end
 function rt.PlayerBody:draw_core()
     if self._core_vertices == nil then return end
 
-    love.graphics.push()
+    love.graphics.push("all")
 
     local stencil_value = rt.graphics.get_stencil_value()
     rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
@@ -1190,6 +1190,8 @@ function rt.PlayerBody:draw_core()
     love.graphics.setColor(1, 1, 1, self._opacity)
     love.graphics.polygon("fill", self._core_vertices)
     _core_shader:unbind()
+
+    rt.graphics.set_stencil_mode(nil)
 
     love.graphics.pop()
 end

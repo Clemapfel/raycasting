@@ -53,7 +53,6 @@ function ow.Wall:draw()
     local point_light_sources, point_light_colors = self._stage:get_point_light_sources()
     local segment_light_sources, segment_light_colors = self._stage:get_segment_light_sources()
 
-    love.graphics.setColor(1, 1, 1, 1)
     local shader = self._shader
     shader:bind()
     shader:send("camera_scale", camera:get_final_scale())
@@ -75,6 +74,7 @@ function ow.Wall:draw()
     shader:send("segment_light_intensity", rt.settings.overworld.wall.segment_light_intensity * brightness_factor)
     shader:send("screen_to_world_transform", camera:get_transform():inverse())
     shader:send("light_range", rt.settings.overworld.wall.light_range * brightness_factor)
+    rt.Palette.WALL:bind()
     self._mesh:draw()
     shader:unbind()
 

@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 7,
-  nextobjectid = 416,
+  nextobjectid = 437,
   properties = {},
   tilesets = {
     {
@@ -108,6 +108,40 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 419,
+          name = "",
+          type = "CameraBounds",
+          shape = "rectangle",
+          x = -4637.89,
+          y = 544,
+          width = 1421.89,
+          height = 930.093,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 420,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -4752,
+          y = 1584,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 1520, y = 0 },
+            { x = 1520, y = 144 },
+            { x = 0, y = 144 }
+          },
+          properties = {
+            ["is_visible"] = true
+          }
         }
       }
     },
@@ -178,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -4121.53,
-          y = 1257.79,
+          x = -7036.99,
+          y = 73.5829,
           width = 0,
           height = 0,
           rotation = 0,
@@ -378,7 +412,7 @@ return {
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 208, y = 0 },
+            { x = -144, y = 0 },
             { x = 528, y = 0 },
             { x = 528, y = -288 },
             { x = 512, y = -288 },
@@ -388,11 +422,7 @@ return {
             { x = 560, y = 0 },
             { x = 1280, y = 0 },
             { x = 1280, y = 160 },
-            { x = -240, y = 160 },
-            { x = -240, y = 0 },
-            { x = -112, y = 0 },
-            { x = -112, y = 128 },
-            { x = 208, y = 128 }
+            { x = -144, y = 160 }
           },
           properties = {}
         },
@@ -1020,21 +1050,271 @@ return {
           properties = {}
         },
         {
-          id = 414,
+          id = 423,
           name = "",
-          type = "FakeHitbox",
+          type = "Wall",
           shape = "polygon",
-          x = -4644.89,
-          y = 1181.88,
+          x = -4320,
+          y = 1312,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = false,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -688 },
+            { x = 768, y = -688 },
+            { x = 768, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 424,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = -5856,
+          y = 112,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
-            { x = 36.8924, y = 258.117 },
-            { x = 36.8924, y = 130.117 },
-            { x = 356.892, y = 130.117 },
-            { x = 356.892, y = 258.117 }
+            { x = -944, y = 0 },
+            { x = -416, y = 0 },
+            { x = -416, y = 144 },
+            { x = -944, y = 144 }
+          },
+          properties = {}
+        },
+        {
+          id = 425,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -6576,
+          y = 96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -160, y = 0 },
+            { x = -160, y = 16 },
+            { x = 304, y = 16 },
+            { x = 304, y = -32 },
+            { x = 160, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 426,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -6200.32,
+          y = -352,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 32 },
+            { x = 352, y = 32 },
+            { x = 352, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 427,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -6256,
+          y = 16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 864, y = 0 },
+            { x = 864, y = -16 },
+            { x = 0, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 428,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -6256,
+          y = 16,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 15.973 },
+            { x = 688, y = 15.973 },
+            { x = 688, y = 0 }
+          },
+          properties = {
+            ["axis_x"] = 0.5,
+            ["axis_y"] = -1,
+            ["velocity"] = 0.25
+          }
+        },
+        {
+          id = 429,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -5360,
+          y = 160,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 16 },
+            { x = 529.339, y = 16 },
+            { x = 689.339, y = -32 },
+            { x = 865.339, y = -32 },
+            { x = 865.339, y = -48 },
+            { x = 689.339, y = -48 },
+            { x = 528, y = 0 },
+            { x = 0, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 430,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -5360,
+          y = 128,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 16 },
+            { x = 0, y = 32 },
+            { x = 496, y = 32 },
+            { x = 496, y = 16 }
+          },
+          properties = {
+            ["axis_x"] = 0.5,
+            ["axis_y"] = 1,
+            ["velocity"] = 0.25
+          }
+        },
+        {
+          id = 431,
+          name = "",
+          type = "AcceleratorSurface",
+          shape = "polygon",
+          x = -4784,
+          y = 0,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 113.339, y = 0 },
+            { x = 977.339, y = 0 },
+            { x = 977.339, y = -16 },
+            { x = 113.339, y = -16 }
+          },
+          properties = {}
+        },
+        {
+          id = 432,
+          name = "",
+          type = "BoostField",
+          shape = "polygon",
+          x = -4784,
+          y = 0,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 113.339, y = 0 },
+            { x = 113.339, y = 15.973 },
+            { x = 801.339, y = 15.973 },
+            { x = 801.339, y = 0 }
+          },
+          properties = {
+            ["axis_x"] = 0.5,
+            ["axis_y"] = -1,
+            ["velocity"] = 0.25
+          }
+        },
+        {
+          id = 433,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = -4704,
+          y = 80,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 320, y = -16.3307 },
+            { x = 304, y = 15.6693 },
+            { x = 320, y = 15.6693 },
+            { x = 321.339, y = 128 },
+            { x = 337.339, y = 128 },
+            { x = 336, y = 15.6693 },
+            { x = 352, y = 15.6693 },
+            { x = 336, y = -16.3307 },
+            { x = 328.09, y = -32 }
+          },
+          properties = {}
+        },
+        {
+          id = 434,
+          name = "",
+          type = "KillPlane",
+          shape = "polygon",
+          x = -4320,
+          y = 112,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 96 },
+            { x = 304, y = 96 },
+            { x = 304, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 435,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = -6816,
+          y = -96,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = 352 },
+            { x = 3280, y = 336 },
+            { x = 3280, y = -32 }
           },
           properties = {}
         }

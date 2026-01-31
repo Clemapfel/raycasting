@@ -137,7 +137,11 @@ function ow.ResultScreenScene:instantiate()
     self._time_rainbow_active = false
     self._coins_rainbow_active = false
     self._flow_rainbow_active = false
-    self._rainbow_transition_animation = rt.TimedAnimation(rt.settings.overworld.result_screen_scene.rainbow_transition_duration, 0, 1, rt.InterpolationFunctions.LINEAR)
+    self._rainbow_transition_animation = rt.TimedAnimation(
+        rt.settings.overworld.result_screen_scene.rainbow_transition_duration,
+        0, 1,
+        rt.InterpolationFunctions.LINEAR
+    )
 
     -- exit animation
     self._transition_active = false

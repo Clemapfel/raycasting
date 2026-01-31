@@ -8,7 +8,6 @@ rt.settings.overworld.kill_plane = {
 --- @class ow.KillPlane
 --- @types Polygon, Rectangle, Ellipse
 --- @field is_visible Boolean?
---- @field should_explode Boolean?
 ow.KillPlane = meta.class("KillPlane", ow.MovableObject)
 
 local _inner_shader = rt.Shader("overworld/objects/kill_plane.glsl", { MODE = 0 })

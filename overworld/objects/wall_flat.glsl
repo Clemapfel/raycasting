@@ -118,9 +118,6 @@ vec4 effect(vec4 color, sampler2D img, vec2 texture_coords, vec2 screen_coords) 
     point_color = clamp(point_color * point_light_intensity, 0.0, 1.0);
     segment_color = clamp(segment_color * segment_light_intensity, 0.0, 1.0);
 
-    vec4 result = vec4((
-    color.rgb * 0.05 + mix(point_color.rgb, segment_color.rgb, 0.5)
-    ), color.a * 0.8);
-
+    vec4 result = vec4(color.rgb + point_color.rgb + segment_color.rgb, color.a);
     return clamp(result, 0.0, 1.0);
 }

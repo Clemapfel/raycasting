@@ -94,7 +94,7 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
         );
     }
 
-    return mix(
+    return vertex_color * mix(
         point_color * point_light_intensity, // * height,
         segment_color * segment_light_intensity * height,
         0.5

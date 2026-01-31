@@ -54,7 +54,6 @@ function ow.Stage:instantiate(scene, id)
         _below_player = meta.make_weak({}),
         _above_player = meta.make_weak({}),
         _bloom_objects = meta.make_weak({}),
-        _above_bloom_objects = meta.make_weak({}),
 
         -- updatables
         _to_update = meta.make_weak({}),
@@ -224,17 +223,6 @@ function ow.Stage:instantiate(scene, id)
                     -- render priority override
                     if wrapper:get_number("render_priority", false) ~= nil then
                         priorities[1] = wrapper:get_number("render_priority")
-                    end
-
-                    do -- get above bloom
-                        local to_remove = {}
-                        for i, priority in ipairs(priorities) do
-                            if priority == math.huge then
-                                table.insert(self._above_bloom_objects, instance)
-                                table.insert(to_remove, 1, i)
-                            end
-                        end
-                        for i in values(to_remove) do table.remove(priorities, i) end
                     end
 
                     for priority in values(priorities) do
@@ -421,7 +409,6 @@ end
 --- @brief
 function ow.Stage:draw_above_player()
     self._mirror:draw()
-
     local point_lights, point_colors = self:get_point_light_sources()
     local segment_lights, segment_colors = self:get_segment_light_sources()
     self._normal_map:draw_light(
@@ -451,13 +438,6 @@ function ow.Stage:draw_bloom()
 
     if rt.GameState:get_is_performance_mode_enabled() ~= true then
         self._mirror:draw()
-    end
-end
-
---- @brief
-function ow.Stage:draw_above_bloom()
-    for object in values(self._above_bloom_objects) do
-        object:draw()
     end
 end
 

@@ -65,7 +65,7 @@ do
         ground_target_velocity_x = 180, -- px / s
         air_target_velocity_x = 150,
 
-        accelerator_acceleration_duration = 30 / 60,
+        accelerator_acceleration_duration = 20 / 60,
         accelerator_max_velocity_factor = 3.5 / 2,
         accelerator_magnet_force = 2000, -- per second
 
@@ -1277,18 +1277,23 @@ function rt.Player:update(delta)
             local max_velocity = self._current_sprint_multiplier * _settings.accelerator_max_velocity_factor * _settings.ground_target_velocity_x * _settings.sprint_multiplier
             local acceleration = max_velocity / _settings.accelerator_acceleration_duration
 
-            for surface in range( -- if one body is multiple surfaces, repeated handling is intended
-                { top_wall_body, top_nx, top_ny },
-                { top_left_wall_body, top_left_nx, top_left_ny },
-                { top_right_wall_body, top_right_nx, top_right_ny },
+            local already_handled = {}
+            for surface in range( -- order matters
                 { left_wall_body, left_nx, left_ny },
                 { right_wall_body, right_nx, right_ny },
+
+                { bottom_wall_body, bottom_nx, bottom_ny },
                 { bottom_left_wall_body, bottom_left_nx, bottom_left_ny },
                 { bottom_right_wall_body, bottom_right_nx, bottom_right_ny },
-                { bottom_wall_body, bottom_nx, bottom_ny }
+
+                { top_wall_body, top_nx, top_ny },
+                { top_left_wall_body, top_left_nx, top_left_ny },
+                { top_right_wall_body, top_right_nx, top_right_ny }
             ) do
                 local body, normal_x, normal_y = table.unpack(surface)
-                if body ~= nil and body:has_tag("use_friction") then
+                if body ~= nil and body:has_tag("use_friction") and already_handled[body] ~= true then
+                    already_handled[body] = true
+
                     -- get surface tangent
                     local tangent_x, tangent_y = math.turn_left(normal_x, normal_y)
                     local tangent_sign = math.sign(math.dot(
@@ -1921,7 +1926,7 @@ function rt.Player:update(delta)
                     target_y = 1
                 end
             else
-                local threshold = _settings.joystick_magnitude_threshold
+                local threshold = math.eps -- deadzone handled by input manager
                 if self._joystick_gesture:get_magnitude(rt.InputAction.LEFT) > threshold then
                     target_x = -1
                 end
@@ -2132,7 +2137,7 @@ function rt.Player:update(delta)
     do -- update trail
         local value = rt.InterpolationFunctions.LINEAR(math.clamp(self:get_flow(), 0, 1))
         self._trail:set_glow_intensity(value)
-        self._trail:set_boom_intensity(value)
+        self._trail:set_boom_intensity(value * ternary(self._is_bubble, 0, 1))
         self._trail:set_trail_intensity(value)
     end
 

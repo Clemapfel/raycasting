@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="416">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="7" nextobjectid="437">
  <editorsettings>
   <export target="accelerator_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -15,6 +15,13 @@
   <object id="380" name="Bounds" type="CameraBounds" x="-4930.76" y="1696" width="7179.05" height="1234.08"/>
   <object id="395" type="CameraBounds" x="784" y="1680" width="1472" height="3136"/>
   <object id="411" type="CameraBounds" x="-3685.6" y="3870.54" width="1573.6" height="2897.46"/>
+  <object id="419" type="CameraBounds" x="-4637.89" y="544" width="1421.89" height="930.093"/>
+  <object id="420" type="KillPlane" x="-4752" y="1584">
+   <properties>
+    <property name="is_visible" type="bool" value="true"/>
+   </properties>
+   <polygon points="0,0 1520,0 1520,144 0,144"/>
+  </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
   <object id="339" type="Hitbox" x="-960" y="1440">
@@ -23,7 +30,7 @@
   <object id="340" type="AcceleratorSurface" x="96" y="416">
    <polygon points="0,368 384,368 384,352 -16,352 -16,1024 -880,1024 -880,1040 0,1040"/>
   </object>
-  <object id="341" name="Spawn" type="PlayerSpawn" x="-4121.53" y="1257.79">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-7036.99" y="73.5829">
    <point/>
   </object>
   <object id="343" type="AcceleratorSurface" x="-960" y="1440">
@@ -53,7 +60,7 @@
    <polygon points="0,0 0,32 1104,32 1120,16 1120,-64 1136,-80 1136,-96 1120.26,-94.9405 1101.05,-87.5915 1078.77,-75.0905 1049.27,-57.2503 1014.67,-39.2757 973.465,-23.5897 939.412,-14.0388 902.185,-5.18373 867.215,0"/>
   </object>
   <object id="358" type="Hitbox" x="-4496" y="1312">
-   <polygon points="208,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 -240,160 -240,0 -112,0 -112,128 208,128"/>
+   <polygon points="-144,0 528,0 528,-288 512,-288 544,-336 576,-288 560,-288 560,0 1280,0 1280,160 -144,160"/>
   </object>
   <object id="359" type="SlipperyHitbox" x="-4016" y="1312">
    <polygon points="0,0 0,-224 -16,-224 -16,-400 0,-384 128,-384 144,-400 144,-224 128,-224 128,0 80,0 80,-288 96,-288 64,-336 32,-288 48,-288 48,0"/>
@@ -150,8 +157,59 @@
    </properties>
   </object>
   <object id="413" type="Goal" x="-2720" y="5792" width="176" height="176"/>
-  <object id="414" type="FakeHitbox" x="-4644.89" y="1181.88">
-   <polygon points="36.8924,258.117 36.8924,130.117 356.892,130.117 356.892,258.117"/>
+  <object id="423" type="Wall" x="-4320" y="1312" visible="0">
+   <polygon points="0,0 0,-688 768,-688 768,0"/>
+  </object>
+  <object id="424" type="Hitbox" x="-5856" y="112">
+   <polygon points="-944,0 -416,0 -416,144 -944,144"/>
+  </object>
+  <object id="425" type="AcceleratorSurface" x="-6576" y="96">
+   <polygon points="-160,0 -160,16 304,16 304,-32 160,0"/>
+  </object>
+  <object id="426" type="KillPlane" x="-6200.32" y="-352">
+   <polygon points="0,0 0,32 352,32 352,0"/>
+  </object>
+  <object id="427" type="AcceleratorSurface" x="-6256" y="16">
+   <polygon points="0,0 864,0 864,-16 0,-16"/>
+  </object>
+  <object id="428" type="BoostField" x="-6256" y="16">
+   <properties>
+    <property name="axis_x" type="float" value="0.5"/>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="0.25"/>
+   </properties>
+   <polygon points="0,0 0,15.973 688,15.973 688,0"/>
+  </object>
+  <object id="429" type="AcceleratorSurface" x="-5360" y="160">
+   <polygon points="0,16 529.339,16 689.339,-32 865.339,-32 865.339,-48 689.339,-48 528,0 0,0"/>
+  </object>
+  <object id="430" type="BoostField" x="-5360" y="128">
+   <properties>
+    <property name="axis_x" type="float" value="0.5"/>
+    <property name="axis_y" type="float" value="1"/>
+    <property name="velocity" type="float" value="0.25"/>
+   </properties>
+   <polygon points="0,16 0,32 496,32 496,16"/>
+  </object>
+  <object id="431" type="AcceleratorSurface" x="-4784" y="0">
+   <polygon points="113.339,0 977.339,0 977.339,-16 113.339,-16"/>
+  </object>
+  <object id="432" type="BoostField" x="-4784" y="0">
+   <properties>
+    <property name="axis_x" type="float" value="0.5"/>
+    <property name="axis_y" type="float" value="-1"/>
+    <property name="velocity" type="float" value="0.25"/>
+   </properties>
+   <polygon points="113.339,0 113.339,15.973 801.339,15.973 801.339,0"/>
+  </object>
+  <object id="433" type="SlipperyHitbox" x="-4704" y="80">
+   <polygon points="320,-16.3307 304,15.6693 320,15.6693 321.339,128 337.339,128 336,15.6693 352,15.6693 336,-16.3307 328.09,-32"/>
+  </object>
+  <object id="434" type="KillPlane" x="-4320" y="112">
+   <polygon points="0,0 0,96 304,96 304,0"/>
+  </object>
+  <object id="435" type="Wall" x="-6816" y="-96">
+   <polygon points="0,0 0,352 3280,336 3280,-32"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

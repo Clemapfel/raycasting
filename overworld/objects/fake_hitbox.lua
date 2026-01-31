@@ -82,7 +82,6 @@ function ow.FakeHitbox:draw(priority)
     love.graphics.push("all")
 
     if priority == back_priority then
-
         local stencil_value = rt.graphics.get_stencil_value()
         rt.graphics.set_stencil_mode(stencil_value, rt.StencilMode.DRAW)
         ow.Hitbox:draw_mask(true, true)
@@ -105,7 +104,6 @@ function ow.FakeHitbox:draw(priority)
 
         rt.graphics.set_stencil_mode(nil)
     else
-
         -- lighting
         local point_light_sources, point_light_colors = self._stage:get_point_light_sources()
         local segment_light_sources, segment_light_colors = self._stage:get_segment_light_sources()

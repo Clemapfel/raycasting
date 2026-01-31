@@ -654,6 +654,8 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
 
         local flip_x = math.floor(0.5 * width)
         self._draw = function()
+            love.graphics.push("all")
+
             if l_or_r == true then
                 love.graphics.push()
                 love.graphics.translate(flip_x, 0)
@@ -687,6 +689,8 @@ function rt.KeybindingIndicator:create_as_l_or_r(l_or_r)
             for tri in values(stencil) do
                 --love.graphics.polygon("fill", tri)
             end
+
+            love.graphics.pop()
         end
     end
 
