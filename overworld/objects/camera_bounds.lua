@@ -26,6 +26,8 @@ function ow.CameraBounds:instantiate(object, stage, scene)
     self._bounds_before = nil
 
     self._stage:signal_connect("respawn", function(_, is_first_spawn)
+        self:_unbind()
+
         local px, py = self._scene:get_player():get_position()
         if self._body:test_point(px, py) then
             self:_bind()

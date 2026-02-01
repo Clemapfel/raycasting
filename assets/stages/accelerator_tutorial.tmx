@@ -30,7 +30,7 @@
   <object id="340" type="AcceleratorSurface" x="96" y="416">
    <polygon points="0,368 384,368 384,352 -16,352 -16,1024 -880,1024 -880,1040 0,1040"/>
   </object>
-  <object id="341" name="Spawn" type="PlayerSpawn" x="-7036.99" y="73.5829">
+  <object id="341" name="Spawn" type="PlayerSpawn" x="-6904.41" y="61.0265">
    <point/>
   </object>
   <object id="343" type="AcceleratorSurface" x="-960" y="1440">
@@ -192,7 +192,7 @@
    <polygon points="0,16 0,32 496,32 496,16"/>
   </object>
   <object id="431" type="AcceleratorSurface" x="-4784" y="0">
-   <polygon points="113.339,0 977.339,0 977.339,-16 113.339,-16"/>
+   <polygon points="113.339,0 882.086,0 918.168,3.86049 945.03,14.9118 966.196,39.2512 976,64 976,272 992,272 992,-16 113.339,-16"/>
   </object>
   <object id="432" type="BoostField" x="-4784" y="0">
    <properties>
@@ -202,14 +202,14 @@
    </properties>
    <polygon points="113.339,0 113.339,15.973 801.339,15.973 801.339,0"/>
   </object>
-  <object id="433" type="SlipperyHitbox" x="-4704" y="80">
+  <object id="433" type="KillPlane" x="-4736" y="80">
+   <properties>
+    <property name="outline_color" type="float" value="1.5"/>
+   </properties>
    <polygon points="320,-16.3307 304,15.6693 320,15.6693 321.339,128 337.339,128 336,15.6693 352,15.6693 336,-16.3307 328.09,-32"/>
   </object>
-  <object id="434" type="KillPlane" x="-4320" y="112">
-   <polygon points="0,0 0,96 304,96 304,0"/>
-  </object>
-  <object id="435" type="Wall" x="-6816" y="-96">
-   <polygon points="0,0 0,352 3280,336 3280,-32"/>
+  <object id="435" type="Wall" x="-6816" y="-96.0818">
+   <polygon points="0,0 0,351.1 3271.61,335.141 3271.61,-31.9182"/>
   </object>
  </objectgroup>
  <objectgroup id="2" name="front"/>

@@ -212,8 +212,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -7036.99,
-          y = 73.5829,
+          x = -6904.41,
+          y = 61.0265,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1227,8 +1227,14 @@ return {
           visible = true,
           polygon = {
             { x = 113.339, y = 0 },
-            { x = 977.339, y = 0 },
-            { x = 977.339, y = -16 },
+            { x = 882.086, y = 0 },
+            { x = 918.168, y = 3.86049 },
+            { x = 945.03, y = 14.9118 },
+            { x = 966.196, y = 39.2512 },
+            { x = 976, y = 64 },
+            { x = 976, y = 272 },
+            { x = 992, y = 272 },
+            { x = 992, y = -16 },
             { x = 113.339, y = -16 }
           },
           properties = {}
@@ -1259,9 +1265,9 @@ return {
         {
           id = 433,
           name = "",
-          type = "SlipperyHitbox",
+          type = "KillPlane",
           shape = "polygon",
-          x = -4704,
+          x = -4736,
           y = 80,
           width = 0,
           height = 0,
@@ -1278,26 +1284,9 @@ return {
             { x = 336, y = -16.3307 },
             { x = 328.09, y = -32 }
           },
-          properties = {}
-        },
-        {
-          id = 434,
-          name = "",
-          type = "KillPlane",
-          shape = "polygon",
-          x = -4320,
-          y = 112,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 96 },
-            { x = 304, y = 96 },
-            { x = 304, y = 0 }
-          },
-          properties = {}
+          properties = {
+            ["outline_color"] = 1.5
+          }
         },
         {
           id = 435,
@@ -1305,16 +1294,16 @@ return {
           type = "Wall",
           shape = "polygon",
           x = -6816,
-          y = -96,
+          y = -96.0818,
           width = 0,
           height = 0,
           rotation = 0,
           visible = true,
           polygon = {
             { x = 0, y = 0 },
-            { x = 0, y = 352 },
-            { x = 3280, y = 336 },
-            { x = 3280, y = -32 }
+            { x = 0, y = 351.1 },
+            { x = 3271.61, y = 335.141 },
+            { x = 3271.61, y = -31.9182 }
           },
           properties = {}
         }

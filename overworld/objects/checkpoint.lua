@@ -334,8 +334,7 @@ function ow.Checkpoint:_set_state(state)
         self._spawn_elapsed = 0
 
         self._scene:set_camera_mode(ow.CameraMode.MANUAL)
-        camera:set_apply_bounds(true)
-        camera:set_position(self._bottom_x, self._bottom_y)
+        camera:set_position(camera:constrain(self._bottom_x, self._bottom_y))
 
         self._ray_fraction = 0
         self._ray_fade_out_elapsed = 0

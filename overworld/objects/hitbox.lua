@@ -98,6 +98,16 @@ function ow.Hitbox:instantiate(object, stage, scene)
         self._render_priority = -2
     end
 
+    local brightness = object:get_number("outline_color")
+    if brightness ~= nil then
+        self._color = rt.RGBA(
+            self._color.r * brightness,
+            self._color.g * brightness,
+            self._color.b * brightness,
+            self._color.a
+        )
+    end
+
     local id_to_group = {
         [1] = b2.CollisionGroup.GROUP_01,
         [2] = b2.CollisionGroup.GROUP_02,
