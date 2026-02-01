@@ -102,6 +102,7 @@ function mn.MenuScene:instantiate(state)
         title_screen.menu_items = {}
         title_screen.n_menu_items = 0
         title_screen.selected_item_i = 1
+        title_screen.skip_selected_item_i = 2
 
         local item_to_item_i = {
             stage_select = 1,
@@ -110,6 +111,7 @@ function mn.MenuScene:instantiate(state)
             controls = 4,
             quit = 5
         }
+
 
         local item_i_to_translation = {
             [item_to_item_i.stage_select] = translation.stage_select,
@@ -167,19 +169,30 @@ function mn.MenuScene:instantiate(state)
         title_screen.input:signal_connect("pressed", function(_, which)
             if self._initialized == false or self._input_blocked == true then return end
 
+            local offset = nil
+
             if which == rt.InputAction.CONFIRM then
                 local item = title_screen.menu_items[title_screen.selected_item_i]
                 item.activate()
                 rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.confirm)
             elseif which == rt.InputAction.UP then
                 if title_screen.selected_item_i > 1 then
-                    title_screen.selected_item_i = title_screen.selected_item_i - 1
-                    rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.selection)
+                    offset = -1
                 end
             elseif which == rt.InputAction.DOWN then
                 if title_screen.selected_item_i < title_screen.n_menu_items then
-                    title_screen.selected_item_i = title_screen.selected_item_i + 1
-                    rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.selection)
+                    offset = 1
+                end
+            end
+
+            if offset ~= nil then
+                rt.SoundManager:play(rt.SoundIDs.menu_scene.title_screen.selection)
+                title_screen.selected_item_i = title_screen.selected_item_i + offset
+                while title_screen.selected_item_i == title_screen.skip_selected_item_i
+                    and title_screen.selected_item_i >= 1
+                    and title_screen.selected_item_i <= title_screen.n_menu_items
+                do
+                    title_screen.selected_item_i = title_screen.selected_item_i + offset
                 end
             end
         end)

@@ -71,6 +71,7 @@ uniform vec4 black = vec4(0, 0, 0, 1);
 uniform float elapsed;
 uniform float speedup = 1;
 uniform bool bloom = false;
+uniform bool use_hdr;
 
 const float threshold = 0.37;
 const float eps = 0.025;
@@ -154,8 +155,8 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         vec2 gradient_coords = to_uv(frag_position, camera_offset);
         vec2 gradient_center = to_uv(vec2(love_ScreenSize.xy / 2), camera_offset);
         float gradient_weight = min(
-            gaussian(2 * distance(gradient_coords.x, gradient_center.x), 0.25),
-            gaussian(2 * distance(gradient_coords.y, gradient_center.y), 0.3)
+        gaussian(2 * distance(gradient_coords.x, gradient_center.x), 0.25),
+        gaussian(2 * distance(gradient_coords.y, gradient_center.y), 0.3)
         );
 
         if (bloom) gradient_weight = 1;
@@ -165,7 +166,15 @@ vec4 effect(vec4 vertex_color, sampler2D img, vec2 texture_coordinates, vec2 fra
         balls = max(balls, vec4(0));
         bg += balls;
         bg *= 1.2; // bloom
-        bg = clamp(bg, vec4(0), vec4(1));
+
+        // HDR support: only clamp to [0,1] when not using HDR
+        if (use_hdr) {
+            // In HDR mode, only clamp the lower bound to 0, allow values > 1
+            bg = max(bg, vec4(0));
+        } else {
+            // In LDR mode, clamp to [0,1] range
+            bg = clamp(bg, vec4(0), vec4(1));
+        }
     }
 
     return vertex_color * bg;

@@ -43,7 +43,7 @@ function rt.GameState:instantiate()
         is_fullscreen = mode.is_fullscreen,
         vsync = mode.vsync,
         msaa = mode.msaa,
-        is_hdr_enabled = false,
+        is_hdr_enabled = true,
         is_bloom_enabled = true,
         is_screen_shake_enabled = true,
         resolution_x = width,
