@@ -388,8 +388,7 @@ function mn.MenuScene:size_allocate(x, y, width, height)
         -- control indicator
         local control_w, control_h = title_screen.control_indicator:measure()
         title_screen.control_indicator:reformat(
-            0 - 0.5 * width + width - m - control_w,
-            0 - 0.5 * height + height - m - control_h,
+            0.5 * width - control_w - m, 0.5 * height - control_h - m,
             control_w, control_h
         )
     end
@@ -845,7 +844,17 @@ function mn.MenuScene:draw()
         -- title text
         love.graphics.push("all")
 
-        love.graphics.translate(self._camera:get_offset())
+        self._camera:bind()
+
+        -- menu
+        for i, item in ipairs(title_screen.menu_items) do
+            if i == title_screen.selected_item_i then
+                item.selected_label:draw()
+            else
+                item.unselected_label:draw()
+            end
+        end
+
         _title_shader_sdf:bind()
         _title_shader_sdf:send("elapsed", self._shader_elapsed)
         _title_shader_sdf:send("black", _black)
@@ -865,22 +874,7 @@ function mn.MenuScene:draw()
         love.graphics.draw(title_screen.title_label_no_sdf, title_screen.title_x, title_screen.title_y)
         _title_shader_no_sdf:unbind()
 
-        -- menu
-        for i, item in ipairs(title_screen.menu_items) do
-            if i == title_screen.selected_item_i then
-                item.selected_label:draw()
-            else
-                item.unselected_label:draw()
-            end
-        end
-
-        self._camera:bind()
         self._player:draw()
-
-        love.graphics.setLineWidth(20)
-        love.graphics.setColor(1, 1, 1, 1)
-        self._world:draw()
-
         self._camera:unbind()
 
         if rt.GameState:get_is_bloom_enabled() then
@@ -904,7 +898,9 @@ function mn.MenuScene:draw()
             bloom:composite()
         end
 
+        self._camera:bind()
         title_screen.control_indicator:draw()
+        self._camera:unbind()
 
         love.graphics.pop()
     end
@@ -956,8 +952,6 @@ function mn.MenuScene:draw()
 
     self._stage_select.exit_fade:draw()
     self._fade:draw()
-
-
 end
 
 --- @brief
