@@ -13,6 +13,7 @@ rt.settings.settings_scene = {
     vsync_default = rt.VSyncMode.ADAPTIVE,
     msaa_default = rt.MSAAQuality.BEST,
     bloom_default = true,
+    hdr_default = false,
     shake_default = true,
     music_level_default = 1,
     sound_effect_level_default = 1,
@@ -258,31 +259,30 @@ function mn.SettingsScene:instantiate()
         end)
     end
 
-    do -- shake
-        local shake_to_label = {
-            [false] = translation.shake_off,
-            [true] = translation.shake_on
+    do -- hdr
+        local hdr_to_label = {
+            [false] = translation.hdr_off,
+            [true] = translation.hdr_on
         }
+        local label_to_hdr = reverse(hdr_to_label)
 
-        local label_to_shake = reverse(shake_to_label)
-
-        local shake_button = mn.OptionButton({
-            shake_to_label[false],
-            shake_to_label[true]
+        local hdr_button = mn.OptionButton({
+            hdr_to_label[false],
+            hdr_to_label[true],
         })
 
-        shake_button:set_option(shake_to_label[rt.GameState:get_is_screen_shake_enabled()])
-        shake_button:signal_connect("selection", function(_, label)
-            rt.GameState:set_is_screen_shake_enabled(label_to_shake[label])
+        hdr_button:set_option(hdr_to_label[rt.GameState:get_is_hdr_enabled()])
+        hdr_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_hdr_enabled(label_to_hdr[label])
         end)
 
         local item = add_item(
-            translation.shake_prefix, shake_button,
-            mn.VerboseInfoObject.SHAKE_ENABLED
+            translation.hdr_prefix, hdr_button,
+            mn.VerboseInfoObject.HDR
         )
 
         item:signal_connect("reset", function(_)
-            shake_button:set_option(shake_to_label[rt.settings.settings_scene.shake_default])
+            hdr_button:set_option(hdr_to_label[rt.settings.settings_scene.hdr_default])
         end)
     end
 
@@ -372,6 +372,34 @@ function mn.SettingsScene:instantiate()
         end)
     end
     ]]--
+
+    do -- shake
+        local shake_to_label = {
+            [false] = translation.shake_off,
+            [true] = translation.shake_on
+        }
+
+        local label_to_shake = reverse(shake_to_label)
+
+        local shake_button = mn.OptionButton({
+            shake_to_label[false],
+            shake_to_label[true]
+        })
+
+        shake_button:set_option(shake_to_label[rt.GameState:get_is_screen_shake_enabled()])
+        shake_button:signal_connect("selection", function(_, label)
+            rt.GameState:set_is_screen_shake_enabled(label_to_shake[label])
+        end)
+
+        local item = add_item(
+            translation.shake_prefix, shake_button,
+            mn.VerboseInfoObject.SHAKE_ENABLED
+        )
+
+        item:signal_connect("reset", function(_)
+            shake_button:set_option(shake_to_label[rt.settings.settings_scene.shake_default])
+        end)
+    end
 
     do -- color blind mode
         local color_blind_mode_to_label ={

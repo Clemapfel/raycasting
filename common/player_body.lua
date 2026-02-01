@@ -10,7 +10,7 @@ rt.settings.player_body = {
     contour_threshold = 0.05,
     threshold = 0.4,
 
-    texture_scale = 2.5,
+    texture_scale = 4,
 
     particle_texture_radius_factor = 1,
     contour_radius_factor = 1,

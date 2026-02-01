@@ -229,7 +229,7 @@ function mn.StageSelectPageIndicator:draw()
     end
 
     -- outlines
-    love.graphics.setLineWidth(rt.settings.player_body.outline_width)
+    love.graphics.setLineWidth(2)
     local black_r, black_g, black_b = rt.Palette.BLACK:unpack()
     love.graphics.setColor(black_r, black_g, black_b, self._a)
 

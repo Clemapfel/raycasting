@@ -15,6 +15,7 @@ mn.VerboseInfoObject = meta.enum("VerboseInfoObject", {
     MSAA = "msaa",
     MSAA_WIDGET = "msaa_visualization_widget",
     BLOOM = "bloom",
+    HDR = "hdr",
     SPRINT_MODE = "sprint_mode",
     SOUND_EFFECT_LEVEL = "sound_effect_level",
     SOUND_EFFECT_LEVEL_WIDGET = "sound_effect_level_widget",

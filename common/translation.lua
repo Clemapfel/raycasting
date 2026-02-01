@@ -210,6 +210,9 @@ rt.Translation = {
         bloom_title = "Bloom",
         bloom_description = "TODO",
 
+        hdr_title = "HDR (High Dynamic Range)",
+        hdr_description = "Use a larger range of colors for rendering, which can result in better video output on certain monitors, at worse performance",
+
         sound_effect_level_title = "Sound Effects",
         sound_effect_level_description = "Volume of non-music audio playback",
 
@@ -308,6 +311,10 @@ rt.Translation = {
         bloom_prefix = "Bloom",
         bloom_on = "On",
         bloom_off = "Off",
+
+        hdr_prefix = "HDR",
+        hdr_on = "On",
+        hdr_off = "Off",
 
         sprint_mode_prefix = "Sprint Mode",
         sprint_mode_manual = "Manual",

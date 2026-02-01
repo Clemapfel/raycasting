@@ -40,6 +40,11 @@ function rt.RenderTexture:instantiate(width, height, msaa, format, is_compute, u
     self:set_wrap_mode(rt.TextureWrapMode.CLAMP)
 end
 
+--- @brief
+function rt.RenderTexture:get_msaa()
+    return self._native:getMSAA()
+end
+
 --- @brief bbnd texture as render target, needs to be unbound manually later
 function rt.RenderTexture:bind()
     love.graphics.push("all")

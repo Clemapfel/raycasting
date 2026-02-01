@@ -59,6 +59,12 @@ function rt.Texture:get_wrap_mode()
     return self._native:getWrap()
 end
 
+--- @brief
+--- @return rt.TextureFormat
+function rt.Texture:get_format()
+    return self._native:getFormat()
+end
+
 --- @brief get resolution
 --- @return (Number, Number)
 function rt.Texture:get_size()

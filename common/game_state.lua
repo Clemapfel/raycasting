@@ -43,6 +43,7 @@ function rt.GameState:instantiate()
         is_fullscreen = mode.is_fullscreen,
         vsync = mode.vsync,
         msaa = mode.msaa,
+        is_hdr_enabled = false,
         is_bloom_enabled = true,
         is_screen_shake_enabled = true,
         resolution_x = width,
@@ -117,6 +118,17 @@ end
 function rt.GameState:set_is_bloom_enabled(b)
     meta.assert(b, "Boolean")
     self._state.is_bloom_enabled = b
+end
+
+--- @brief
+function rt.GameState:get_is_hdr_enabled()
+    return self._state.is_hdr_enabled
+end
+
+--- @brief
+function rt.GameState:set_is_hdr_enabled(b)
+    meta.assert(b, "Boolean")
+    self._state.is_hdr_enabled = b
 end
 
 --- @brief

@@ -1,10 +1,11 @@
 require "common.scene"
-require "common.scene"
 require "common.input_subscriber"
 require "common.fade"
 require "common.palette"
 require "common.cursor"
 require "common.thread_manager"
+require "common.bloom"
+require "common.hdr"
 
 rt.settings.scene_manager = {
     max_n_steps_per_frame = 8,
@@ -46,6 +47,7 @@ function rt.SceneManager:instantiate()
         _use_fixed_timestep = false,
 
         _bloom = nil, -- initialized on first use
+        _hdr = nil, -- ^
         _input = rt.InputSubscriber(),
 
         _cursor_visible = false,
@@ -212,6 +214,14 @@ end
 
 --- @brief
 function rt.SceneManager:draw(...)
+    local use_hdr = rt.GameState:get_is_hdr_enabled()
+    
+    if use_hdr then
+        if self._hdr == nil then self._hdr = rt.HDR() end
+        self._hdr:bind()
+        love.graphics.clear(0, 0, 0, 0)
+    end
+
     if self._current_scene ~= nil then
         self._current_scene:draw(...)
     end
@@ -250,8 +260,16 @@ function rt.SceneManager:draw(...)
         self._fade:draw()
     end
 
+    local width = love.graphics.getWidth()
+    local height = love.graphics.getHeight()
+
     if self._cursor_visible then
         self._cursor:draw()
+    end
+
+    if use_hdr then
+        self._hdr:unbind()
+        self._hdr:draw()
     end
 end
 
@@ -261,6 +279,14 @@ function rt.SceneManager:resize(width, height)
 
     self._width = width
     self._height = height
+
+    if rt.GameState:get_is_hdr_enabled() then
+        if self._hdr == nil then
+            self._hdr = rt.HDR()
+        end
+        self._hdr:reinitialize(width, height)
+    end
+
     rt.settings.margin_unit = 10 * rt.get_pixel_scale()
 
     local scene = self._current_scene

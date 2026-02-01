@@ -154,9 +154,13 @@ function rt.Bloom:draw_internal()
         self._update_needed = false
     end
 
-    _tonemap_shader:bind()
-    love.graphics.draw(self._textures[1]:get_native())
-    _tonemap_shader:unbind()
+    if rt.GameState:get_is_hdr_enabled() then
+        love.graphics.draw(self._textures[1]:get_native())
+    else
+        _tonemap_shader:bind()
+        love.graphics.draw(self._textures[1]:get_native())
+        _tonemap_shader:unbind()
+    end
 end
 
 --- @brief
