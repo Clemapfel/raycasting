@@ -9,12 +9,6 @@ rt.HDR = meta.class("HDR")
 
 local _shader = rt.Shader("common/hdr_tonemap.glsl")
 
-DEBUG_INPUT:signal_connect("keyboard_key_released", function(_, which)
-    if which == "l" then
-        _shader:recompile()
-    end
-end)
-
 --- @brief
 function rt.HDR:instantiate()
     self:reinitialize()
