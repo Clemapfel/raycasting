@@ -603,6 +603,18 @@ function math.distance3(x1, y1, z1, x2, y2, z2)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
+--- @brief get squared distance between two points
+--- @param x1 number x component of first point
+--- @param y1 number y component of first point
+--- @param x2 number x component of second point
+--- @param y2 number y component of second point
+--- @return number
+function math.squared_distance(x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    return math.dot(dx, dy, dx, dy)
+end
+
 function math.signed_distance(x1, y1, x2, y2)
     return x1 * y2 - y1 * x2
 end
