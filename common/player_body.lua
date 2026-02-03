@@ -45,7 +45,7 @@ rt.settings.player_body = {
         bending_compliance = 1,
         axis_compliance = 1,
         distance_compliance = 1e-5,
-        collision_override = 0,
+        collision_compliance = 0.0005,
 
         damping = 1 - 0.2,
 
@@ -796,8 +796,6 @@ do -- update helpers (XPBD with lambdas)
         local axis_alpha = settings.axis_compliance / (sub_delta^2)
         local collision_alpha = settings.collision_compliance / (sub_delta^2)
 
-        if self._use_contour then collision_alpha = settings.collision_override end -- override, this produces better deformation
-
         local data = self._particle_data
         local n_particles = self._n_particles
 
@@ -967,27 +965,25 @@ do -- update helpers (XPBD with lambdas)
                             or  data[offset + _radius_offset]
 
                         local alpha_multiplier = data[offset + _collision_strength_offset]
-                        if self._use_contour then alpha_multiplier = 1 end
+                        if self._use_contour then alpha_multiplier = 0 end
 
-                        if alpha_multiplier > math.eps then
-                            local correction_x, correction_y, lambda_new = _enforce_line_collision_xpbd(
-                                data[offset + _x_offset],
-                                data[offset + _y_offset],
-                                data[offset + _inverse_mass_offset],
-                                radius,
-                                line.contact_x,
-                                line.contact_y,
-                                line.normal_x,
-                                line.normal_y,
-                                collision_alpha * (1 - alpha_multiplier),
-                                row[particle_i]
-                            )
+                        local correction_x, correction_y, lambda_new = _enforce_line_collision_xpbd(
+                            data[offset + _x_offset],
+                            data[offset + _y_offset],
+                            data[offset + _inverse_mass_offset],
+                            radius,
+                            line.contact_x,
+                            line.contact_y,
+                            line.normal_x,
+                            line.normal_y,
+                            collision_alpha * (1 - alpha_multiplier),
+                            row[particle_i]
+                        )
 
-                            data[offset + _x_offset] = data[offset + _x_offset] + correction_x
-                            data[offset + _y_offset] = data[offset + _y_offset] + correction_y
+                        data[offset + _x_offset] = data[offset + _x_offset] + correction_x
+                        data[offset + _y_offset] = data[offset + _y_offset] + correction_y
 
-                            row[particle_i] = lambda_new
-                        end
+                        row[particle_i] = lambda_new
                     end
                 end
             end -- constraint iterations

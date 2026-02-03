@@ -40,7 +40,7 @@ end
 
 --- @brief
 function ow.Mirror:draw()
-    if #self._mirror_images == 0 then return end
+    if self._mirror_images == nil or #self._mirror_images == 0 then return end
 
     local should_stencil = self._draw_mirror_mask_callback ~= nil
 

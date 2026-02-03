@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 8,
-  nextobjectid = 763,
+  nextobjectid = 801,
   properties = {},
   tilesets = {
     {
@@ -89,21 +89,6 @@ return {
       properties = {},
       objects = {
         {
-          id = 650,
-          name = "Fit",
-          type = "CameraFit",
-          shape = "rectangle",
-          x = -1314.05,
-          y = 1199.92,
-          width = 1165.24,
-          height = 655.449,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["speed"] = -5
-          }
-        },
-        {
           id = 674,
           name = "Fit",
           type = "CameraFit",
@@ -129,25 +114,6 @@ return {
           height = 0,
           rotation = 0,
           visible = true,
-          properties = {}
-        },
-        {
-          id = 704,
-          name = "",
-          type = "Wall",
-          shape = "polygon",
-          x = -1344,
-          y = 2176,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = -32, y = 656 },
-            { x = 544, y = 528 },
-            { x = 432, y = -192 }
-          },
           properties = {}
         }
       }
@@ -232,8 +198,8 @@ return {
           name = "Spawn",
           type = "PlayerSpawn",
           shape = "point",
-          x = -555.934,
-          y = 2327,
+          x = 2362.39,
+          y = 3004.92,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1238,8 +1204,8 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 2720,
-          y = 3024,
+          x = 1408,
+          y = 2816,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1258,8 +1224,8 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 2768,
-          y = 3024,
+          x = 1456,
+          y = 2816,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1278,8 +1244,8 @@ return {
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = 2720,
-          y = 3552,
+          x = 1408,
+          y = 3344,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1300,8 +1266,8 @@ return {
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = 2768,
-          y = 3552,
+          x = 1456,
+          y = 3344,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1323,8 +1289,8 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 2720,
-          y = 3664,
+          x = 1408,
+          y = 3456,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1342,8 +1308,8 @@ return {
           name = "Chimney",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = 2720,
-          y = 2448,
+          x = 1408,
+          y = 2240,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1364,8 +1330,8 @@ return {
           name = "",
           type = "SlipperyHitbox",
           shape = "polygon",
-          x = 2768,
-          y = 2448,
+          x = 1456,
+          y = 2240,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1384,8 +1350,8 @@ return {
           name = "",
           type = "Hitbox",
           shape = "polygon",
-          x = 2832,
-          y = 2416,
+          x = 1520,
+          y = 2208,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1404,8 +1370,8 @@ return {
           name = "",
           type = "BoostField",
           shape = "polygon",
-          x = 2720,
-          y = 2448,
+          x = 1408,
+          y = 2240,
           width = 0,
           height = 0,
           rotation = 0,
@@ -2168,91 +2134,6 @@ return {
           properties = {}
         },
         {
-          id = 643,
-          name = "Bridge",
-          type = "SlipperyHitbox",
-          shape = "polygon",
-          x = -1329.41,
-          y = 1295.1,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 32 },
-            { x = 1184, y = 32 },
-            { x = 1184, y = 0 }
-          },
-          properties = {}
-        },
-        {
-          id = 655,
-          name = "Recorder",
-          type = "PlayerRecorderPlayback",
-          shape = "point",
-          x = -959.167,
-          y = 1782.84,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["path"] = "test.csv"
-          }
-        },
-        {
-          id = 662,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -1296,
-          y = 1328,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 496 },
-            { x = 48, y = 496 },
-            { x = 48, y = 32 },
-            { x = 193.817, y = 32 },
-            { x = 48, y = 128 },
-            { x = 48, y = 160 },
-            { x = 240, y = 32 },
-            { x = 368, y = 32 },
-            { x = 416, y = 0 },
-            { x = 384, y = 0 }
-          },
-          properties = {}
-        },
-        {
-          id = 663,
-          name = "",
-          type = "",
-          shape = "polygon",
-          x = -176,
-          y = 1328,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          polygon = {
-            { x = 0, y = 0 },
-            { x = 0, y = 496 },
-            { x = -48, y = 496 },
-            { x = -48, y = 32 },
-            { x = -193.817, y = 32 },
-            { x = -48, y = 128 },
-            { x = -48, y = 160 },
-            { x = -240, y = 32 },
-            { x = -368, y = 32 },
-            { x = -416, y = 0 }
-          },
-          properties = {}
-        },
-        {
           id = 670,
           name = "",
           type = "SlipperyHitbox",
@@ -2412,34 +2293,6 @@ return {
           }
         },
         {
-          id = 693,
-          name = "",
-          type = "OneWayPlatform",
-          shape = "point",
-          x = -1243.4,
-          y = 2310.1,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["other"] = { id = 694 }
-          }
-        },
-        {
-          id = 694,
-          name = "",
-          type = "OneWayPlatformNode",
-          shape = "point",
-          x = -1243.4,
-          y = 2422.1,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
           id = 695,
           name = "Fireflies",
           type = "Fireflies",
@@ -2524,19 +2377,6 @@ return {
           shape = "point",
           x = -392.157,
           y = 2349.53,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {}
-        },
-        {
-          id = 703,
-          name = "Fireflies",
-          type = "Fireflies",
-          shape = "point",
-          x = -1022.66,
-          y = 2424.93,
           width = 0,
           height = 0,
           rotation = 0,
@@ -3101,6 +2941,241 @@ return {
           rotation = 0,
           visible = true,
           properties = {}
+        },
+        {
+          id = 763,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 2480,
+          y = 1712,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -16, y = 0 },
+            { x = 832, y = 0 },
+            { x = 832, y = 64 },
+            { x = -16, y = 64 }
+          },
+          properties = {}
+        },
+        {
+          id = 764,
+          name = "",
+          type = "Wall",
+          shape = "polygon",
+          x = 1248,
+          y = 848,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 832, y = 0 },
+            { x = 832, y = 1072 },
+            { x = -96, y = 1072 },
+            { x = -96, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 767,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = 2704,
+          y = 1040,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 384 },
+            { x = 0, y = 528 },
+            { x = 0, y = 672 },
+            { x = -16, y = 670.949 },
+            { x = -16, y = 384 }
+          },
+          properties = {}
+        },
+        {
+          id = 770,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2512,
+          y = 1536,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = 0, y = -352 },
+            { x = -16, y = -352 },
+            { x = -16, y = 0 },
+            { x = -32, y = 16 },
+            { x = 0, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 771,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 2512,
+          y = 1168,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 16 },
+            { x = -16, y = 16 },
+            { x = -16, y = 368 },
+            { x = -32, y = 384 },
+            { x = -64, y = 384 },
+            { x = -64, y = -112 },
+            { x = 0, y = -112 }
+          },
+          properties = {}
+        },
+        {
+          id = 772,
+          name = "",
+          type = "Hitbox",
+          shape = "polygon",
+          x = 2688,
+          y = 1152,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 48, y = 0 },
+            { x = 64, y = 16 },
+            { x = 64, y = 560 },
+            { x = 400, y = 560 },
+            { x = 400, y = 0 }
+          },
+          properties = {}
+        },
+        {
+          id = 773,
+          name = "",
+          type = "SlipperyHitbox",
+          shape = "polygon",
+          x = 2736,
+          y = 1152,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -80, y = 0 },
+            { x = -80, y = 16 },
+            { x = -48, y = 48 },
+            { x = -32, y = 48 },
+            { x = -33.9633, y = 561.963 },
+            { x = 16, y = 560 },
+            { x = 16, y = 16 }
+          },
+          properties = {}
+        },
+        {
+          id = 778,
+          name = "",
+          type = "Fireflies",
+          shape = "point",
+          x = 2528,
+          y = 1168,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["count"] = 1
+          }
+        },
+        {
+          id = 783,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = 2448,
+          y = 2400,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 320 },
+            { x = 0, y = 512 },
+            { x = 16, y = 512 },
+            { x = 16, y = 320 }
+          },
+          properties = {}
+        },
+        {
+          id = 787,
+          name = "",
+          type = "SlipperyMovableHitbox",
+          shape = "polygon",
+          x = 2464,
+          y = 2704,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 16 },
+            { x = -16, y = 16 },
+            { x = -16, y = -192 },
+            { x = 0, y = -192 }
+          },
+          properties = {}
+        },
+        {
+          id = 788,
+          name = "",
+          type = "SlipperyMovableHitbox",
+          shape = "polygon",
+          x = 2464,
+          y = 2992,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -16, y = 0 },
+            { x = -16, y = -80 },
+            { x = 0, y = -80 }
+          },
+          properties = {}
+        },
+        {
+          id = 799,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = 2448,
+          y = 2000,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 320 },
+            { x = 0, y = 512 },
+            { x = 16, y = 512 },
+            { x = 16, y = 320 }
+          },
+          properties = {}
         }
       }
     },
@@ -3164,6 +3239,196 @@ return {
             ["should_focus"] = false,
             ["type"] = "ghost"
           }
+        },
+        {
+          id = 779,
+          name = "From",
+          type = "Path",
+          shape = "point",
+          x = 2752,
+          y = 1568,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["next"] = { id = 780 },
+            ["target"] = { id = 767 }
+          }
+        },
+        {
+          id = 780,
+          name = "To",
+          type = "PathNode",
+          shape = "point",
+          x = 2752,
+          y = 1376,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 784,
+          name = "From",
+          type = "Path",
+          shape = "point",
+          x = 2416,
+          y = 2800,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["cycle_offset"] = 0,
+            ["next"] = { id = 785 },
+            ["target_01"] = { id = 783 },
+            ["target_02"] = { id = 787 },
+            ["target_03"] = { id = 788 },
+            ["target_04"] = { id = 799 }
+          }
+        },
+        {
+          id = 785,
+          name = "To",
+          type = "PathNode",
+          shape = "point",
+          x = 2416,
+          y = 2560,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 786,
+          name = "",
+          type = "",
+          shape = "polygon",
+          x = 2416,
+          y = 3040,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = -240, y = 0 },
+            { x = 608, y = 0 },
+            { x = 592, y = 112 },
+            { x = -304, y = 128 }
+          },
+          properties = {}
+        },
+        {
+          id = 794,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = 2592,
+          y = 2240,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 352 },
+            { x = 0, y = 544 },
+            { x = 16, y = 544 },
+            { x = 16, y = 352 }
+          },
+          properties = {}
+        },
+        {
+          id = 795,
+          name = "",
+          type = "SlipperyMovableHitbox",
+          shape = "polygon",
+          x = 2608,
+          y = 2944,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 48 },
+            { x = -16, y = 48 },
+            { x = -16, y = -160 },
+            { x = 0, y = -160 }
+          },
+          properties = {}
+        },
+        {
+          id = 796,
+          name = "",
+          type = "SlipperyMovableHitbox",
+          shape = "polygon",
+          x = 2608,
+          y = 2592,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 0 },
+            { x = -16, y = 0 },
+            { x = -16, y = -80 },
+            { x = 0, y = -80 }
+          },
+          properties = {}
+        },
+        {
+          id = 797,
+          name = "From",
+          type = "Path",
+          shape = "point",
+          x = 2640,
+          y = 2800,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["cycle_offset"] = 0.5,
+            ["next"] = { id = 798 },
+            ["target_01"] = { id = 794 },
+            ["target_02"] = { id = 795 },
+            ["target_03"] = { id = 796 },
+            ["target_04"] = { id = 800 }
+          }
+        },
+        {
+          id = 798,
+          name = "To",
+          type = "PathNode",
+          shape = "point",
+          x = 2640,
+          y = 2544,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 800,
+          name = "",
+          type = "MovableHitbox",
+          shape = "polygon",
+          x = 2592,
+          y = 1968,
+          width = 0,
+          height = 0,
+          rotation = 0,
+          visible = true,
+          polygon = {
+            { x = 0, y = 352 },
+            { x = 0, y = 544 },
+            { x = 16, y = 544 },
+            { x = 16, y = 352 }
+          },
+          properties = {}
         }
       }
     },

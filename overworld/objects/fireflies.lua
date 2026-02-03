@@ -198,6 +198,7 @@ function ow.Fireflies:instantiate(object, stage, scene)
     local noise_speed = settings.noise_speed
     local radius = settings.radius
     local min_factor, max_factor = settings.min_scale, settings.max_scale
+    if n_flies == 1 then min_factor = max_factor end
 
     self._fly_entries = {}
 

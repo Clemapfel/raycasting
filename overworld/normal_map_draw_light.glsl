@@ -68,7 +68,7 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
     vec3 normal = normalize(vec3(gradient.x, gradient.y, 1.0 - height));
 
     vec4 point_color = vec4(0.0);
-    for (int i = 0; i < n_point_light_sources; ++i) {
+    for (int i = 0; i < min(n_point_light_sources, MAX_N_POINT_LIGHTS); ++i) {
         vec2 light_circle = point_light_sources[i].xy;
         float light_radius = point_light_sources[i].z * camera_scale;
 
@@ -82,7 +82,7 @@ vec4 effect(vec4 vertex_color, Image tex, vec2 texture_coords, vec2 screen_coord
     }
 
     vec4 segment_color = vec4(0.0);
-    for (int i = 0; i < n_segment_light_sources; ++i) {
+    for (int i = 0; i < min(n_segment_light_sources, MAX_N_SEGMENT_LIGHTS); ++i) {
         vec4 light_segment = segment_light_sources[i];
 
         vec2 light_position = closest_point_on_segment(screen_coords, light_segment);

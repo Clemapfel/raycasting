@@ -1,7 +1,7 @@
 // src: https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/README.md#pbr-neutral-specification
 
 uniform float fresnel_90 = 0.04;         // F_90: fresnel reflection at normal incidence (index of refraction = 1.5)
-uniform float compression_start = 0.95;  // K_s: highlight compression starts (0.8 - F_90)
+uniform float compression_start = 2;  // K_s: highlight compression starts (0.8 - F_90)
 uniform float desaturation_speed = 0.15; // K_d: speed of desaturation
 
 vec3 tonemap(vec3 rgb) {

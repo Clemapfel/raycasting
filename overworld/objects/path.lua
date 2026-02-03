@@ -22,7 +22,7 @@ rt.settings.overworld.path = {
 --- @types Polygon, Rectangle
 --- @field velocity Number?
 --- @field next ow.PathNode! pointer to path
---- @field is_reversed Boolean?
+--- @field cycle_offset Number? in [0, 1]
 --- @field target Any object with set_velocity and set_position
 --- @field target_x Any additional targets, where x is 0-9
 ow.Path = meta.class("OverworldPath")
@@ -58,8 +58,7 @@ function ow.Path:instantiate(object, stage, scene)
     self._is_smooth = object:get_boolean("is_smooth", false)
     if self._is_smooth == nil then self._is_smooth = false end
 
-    self._is_reversed = object:get_boolean("is_reversed", false)
-    if self._is_reversed == nil then self._is_reversed = false end
+    self._cycle_offset = object:get_number("cycle_offset", false) or 0
 
     self._is_absolute = object:get_boolean("is_absolute", false)
     if self._is_absolute == nil then self._is_absolute = false end
@@ -169,6 +168,8 @@ function ow.Path:instantiate(object, stage, scene)
                 self._rail_attachment_x, self._rail_attachment_y = self._path:at(0)
             end
         end
+
+        self:reset() -- apply cycle offset
     end)
 
     local centroid_x, centroid_y = object:get_centroid()
@@ -201,10 +202,15 @@ function ow.Path:update(delta)
 
     if self._should_loop then
         local distance = self._velocity * self._elapsed
-        t = (distance / length) % 1.0
+        -- Apply cycle_offset to the t calculation
+        t = ((distance / length) + self._cycle_offset) % 1.0
         direction = 1
     else
         local distance_in_cycle = (self._velocity * self._elapsed) % (2 * length)
+        -- Apply cycle_offset by adjusting the distance within the cycle
+        local offset_distance = self._cycle_offset * 2 * length
+        distance_in_cycle = (distance_in_cycle + offset_distance) % (2 * length)
+
         if distance_in_cycle <= length then
             -- going forwards
             t = distance_in_cycle / length
@@ -220,8 +226,9 @@ function ow.Path:update(delta)
     local dt = rt.SceneManager:get_timestep()
 
     -- find target position
-    local eased_t = self._easing(t)
-    local current_x, current_y = self._path:at(math.clamp(eased_t, 0, 1))
+    local eased_t = math.clamp(self._easing(t), 0, 1)
+
+    local current_x, current_y = self._path:at(eased_t)
 
     for entry in values(self._entries) do
         -- set velocity based on last frames position
@@ -237,6 +244,10 @@ function ow.Path:update(delta)
             local velocity_x = dx * self._velocity * direction * easing_derivative
             local velocity_y = dy * self._velocity * direction * easing_derivative
             entry.target:set_velocity(velocity_x, velocity_y)
+        end
+
+        if math.distance(current_x, current_y, entry.target:get_position()) > 1 then
+            entry.target:set_position(current_x + entry.offset_x, current_y + entry.offset_y)
         end
     end
 
@@ -307,10 +318,29 @@ end
 
 --- @brief
 function ow.Path:reset()
-    local x, y = self._path:at(0)
     self._elapsed = 0
     self._n_cycles = 0
     self._last_direction = nil
+
+    -- Calculate initial position based on cycle_offset
+    local length = self._path:get_length()
+    local t
+
+    if self._should_loop then
+        -- For looping paths, offset directly maps to t
+        t = self._cycle_offset % 1.0
+    else
+        -- For ping-pong paths, offset within a full cycle (forward + backward)
+        local offset_in_cycle = (self._cycle_offset * 2) % 2.0
+        if offset_in_cycle <= 1.0 then
+            t = offset_in_cycle
+        else
+            t = 2.0 - offset_in_cycle
+        end
+    end
+
+    local eased_t = math.clamp(self._easing(t), 0, 1)
+    local x, y = self._path:at(eased_t)
     self._last_x, self._last_y = x, y
 
     for entry in values(self._entries) do
@@ -319,7 +349,7 @@ function ow.Path:reset()
             y + entry.offset_y
         )
 
-        entry.target:set_velocity(self._path:tangent_at(0))
+        local dx, dy = self._path:tangent_at(eased_t)
+        entry.target:set_velocity(dx * self._velocity, dy * self._velocity)
     end
 end
-

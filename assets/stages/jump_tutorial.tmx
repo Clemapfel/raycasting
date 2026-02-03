@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="763">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="16" tileheight="16" infinite="1" nextlayerid="8" nextobjectid="801">
  <editorsettings>
   <export target="jump_tutorial.lua" format="lua"/>
  </editorsettings>
@@ -16,11 +16,6 @@
   </object>
  </objectgroup>
  <objectgroup id="5" name="aux">
-  <object id="650" name="Fit" type="CameraFit" x="-1314.05" y="1199.92" width="1165.24" height="655.449">
-   <properties>
-    <property name="speed" type="float" value="-5"/>
-   </properties>
-  </object>
   <object id="674" name="Fit" type="CameraFit" x="-415.843" y="2175.45" width="1212.23" height="814.443">
    <properties>
     <property name="focus" type="object" value="682"/>
@@ -28,9 +23,6 @@
   </object>
   <object id="682" name="Focus" type="CameraFitFocus" x="192" y="2640">
    <point/>
-  </object>
-  <object id="704" type="Wall" x="-1344" y="2176">
-   <polygon points="0,0 -32,656 544,528 432,-192"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="hitbox">
@@ -40,7 +32,7 @@
   <object id="395" type="SlipperyHitbox" x="2284.9" y="669.242">
    <polygon points="-4.07,0 -4.07,-112 11.93,-128 11.93,-224 -4.07,-240 -4.07,-416 11.93,-432 11.93,-528 -4.07,-544 -4.07,-704 59.934,-704 59.93,48 -4.07,48"/>
   </object>
-  <object id="400" name="Spawn" type="PlayerSpawn" x="-555.934" y="2327">
+  <object id="400" name="Spawn" type="PlayerSpawn" x="2362.39" y="3004.92">
    <point/>
   </object>
   <object id="401" name="Wall Jump 03" type="SlipperyHitbox" x="2093.62" y="524.526">
@@ -194,31 +186,31 @@
   <object id="574" type="SlipperyHitbox" x="1656.83" y="541.242">
    <polygon points="0,0 0,112 -48,112 -32,128 16,128 16,16"/>
   </object>
-  <object id="575" type="Hitbox" x="2720" y="3024">
+  <object id="575" type="Hitbox" x="1408" y="2816">
    <polygon points="0,-608 0,528 -16,544 -32,544 -32,-576"/>
   </object>
-  <object id="576" type="Hitbox" x="2768" y="3024">
+  <object id="576" type="Hitbox" x="1456" y="2816">
    <polygon points="0,-608 32,-576 32,544 16,544 0,528"/>
   </object>
-  <object id="577" type="SlipperyHitbox" x="2720" y="3552">
+  <object id="577" type="SlipperyHitbox" x="1408" y="3344">
    <polygon points="0,0 -16,16 -144,16 -144,48 -64,48 -48,64 0,64"/>
   </object>
-  <object id="578" type="SlipperyHitbox" x="2768" y="3552">
+  <object id="578" type="SlipperyHitbox" x="1456" y="3344">
    <polygon points="0,0 0,96 -16,112 -48,112 -48,144 32,144 32,16 16,16"/>
   </object>
-  <object id="579" type="Hitbox" x="2720" y="3664">
+  <object id="579" type="Hitbox" x="1408" y="3456">
    <polygon points="0,0 0,32 -208,32 -208,0"/>
   </object>
-  <object id="580" name="Chimney" type="SlipperyHitbox" x="2720" y="2448">
+  <object id="580" name="Chimney" type="SlipperyHitbox" x="1408" y="2240">
    <polygon points="0,-32 -32,0 -32,-160 256,-160 256,-128 32,-128 0,-104"/>
   </object>
-  <object id="581" type="SlipperyHitbox" x="2768" y="2448">
+  <object id="581" type="SlipperyHitbox" x="1456" y="2240">
    <polygon points="32,0 0,-32 64,-32 80,-16 80,0"/>
   </object>
-  <object id="582" type="Hitbox" x="2832" y="2416">
+  <object id="582" type="Hitbox" x="1520" y="2208">
    <polygon points="0,0 144,0 144,32 16,32 16,16"/>
   </object>
-  <object id="583" type="BoostField" x="2720" y="2448">
+  <object id="583" type="BoostField" x="1408" y="2240">
    <properties>
     <property name="axis_y" type="float" value="-1"/>
     <property name="render_priority" type="float" value="-1"/>
@@ -358,21 +350,6 @@
   <object id="638" name="Coin" type="Coin" x="-112" y="160">
    <point/>
   </object>
-  <object id="643" name="Bridge" type="SlipperyHitbox" x="-1329.41" y="1295.1">
-   <polygon points="0,0 0,32 1184,32 1184,0"/>
-  </object>
-  <object id="655" name="Recorder" type="PlayerRecorderPlayback" x="-959.167" y="1782.84">
-   <properties>
-    <property name="path" value="test.csv"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="662" x="-1296" y="1328">
-   <polygon points="0,0 0,496 48,496 48,32 193.817,32 48,128 48,160 240,32 368,32 416,0 384,0"/>
-  </object>
-  <object id="663" x="-176" y="1328">
-   <polygon points="0,0 0,496 -48,496 -48,32 -193.817,32 -48,128 -48,160 -240,32 -368,32 -416,0"/>
-  </object>
   <object id="670" type="SlipperyHitbox" x="-400" y="2512">
    <polygon points="-16,-128 96,-128 112,-144 112,48 121.68,105.548 141.433,153.284 165.333,196 208,244 254.667,285.333 305.509,314.589 368,336 418.101,350.675 481.707,360.053 538.273,365.462 592,368 592,480 544,416 -16,416"/>
   </object>
@@ -394,15 +371,6 @@
    </properties>
    <polygon points="0,0 0,1120 1216,1120 1216,0"/>
   </object>
-  <object id="693" type="OneWayPlatform" x="-1243.4" y="2310.1">
-   <properties>
-    <property name="other" type="object" value="694"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="694" type="OneWayPlatformNode" x="-1243.4" y="2422.1">
-   <point/>
-  </object>
   <object id="695" name="Fireflies" type="Fireflies" x="-374.165" y="2347.28">
    <point/>
   </object>
@@ -422,9 +390,6 @@
    <point/>
   </object>
   <object id="702" name="Fireflies" type="Fireflies" x="-392.157" y="2349.53">
-   <point/>
-  </object>
-  <object id="703" name="Fireflies" type="Fireflies" x="-1022.66" y="2424.93">
    <point/>
   </object>
   <object id="709" type="SlipperyHitbox" x="-416" y="3408">
@@ -556,6 +521,45 @@
   <object id="762" type="OneWayPlatformNode" x="-416" y="2368">
    <point/>
   </object>
+  <object id="763" type="Hitbox" x="2480" y="1712">
+   <polygon points="-16,0 832,0 832,64 -16,64"/>
+  </object>
+  <object id="764" type="Wall" x="1248" y="848">
+   <polygon points="832,0 832,1072 -96,1072 -96,0"/>
+  </object>
+  <object id="767" type="MovableHitbox" x="2704" y="1040">
+   <polygon points="0,384 0,528 0,672 -16,670.949 -16,384"/>
+  </object>
+  <object id="770" type="SlipperyHitbox" x="2512" y="1536">
+   <polygon points="0,0 0,-352 -16,-352 -16,0 -32,16 0,16"/>
+  </object>
+  <object id="771" type="Hitbox" x="2512" y="1168">
+   <polygon points="0,16 -16,16 -16,368 -32,384 -64,384 -64,-112 0,-112"/>
+  </object>
+  <object id="772" type="Hitbox" x="2688" y="1152">
+   <polygon points="48,0 64,16 64,560 400,560 400,0"/>
+  </object>
+  <object id="773" type="SlipperyHitbox" x="2736" y="1152">
+   <polygon points="0,0 -80,0 -80,16 -48,48 -32,48 -33.9633,561.963 16,560 16,16"/>
+  </object>
+  <object id="778" type="Fireflies" x="2528" y="1168">
+   <properties>
+    <property name="count" type="int" value="1"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="783" type="MovableHitbox" x="2448" y="2400">
+   <polygon points="0,320 0,512 16,512 16,320"/>
+  </object>
+  <object id="787" type="SlipperyMovableHitbox" x="2464" y="2704">
+   <polygon points="0,16 -16,16 -16,-192 0,-192"/>
+  </object>
+  <object id="788" type="SlipperyMovableHitbox" x="2464" y="2992">
+   <polygon points="0,0 -16,0 -16,-80 0,-80"/>
+  </object>
+  <object id="799" type="MovableHitbox" x="2448" y="2000">
+   <polygon points="0,320 0,512 16,512 16,320"/>
+  </object>
  </objectgroup>
  <objectgroup id="2" name="front">
   <object id="610" name="NPC" type="NPC" x="512" y="-880">
@@ -576,6 +580,59 @@
     <property name="type" value="ghost"/>
    </properties>
    <point/>
+  </object>
+  <object id="779" name="From" type="Path" x="2752" y="1568">
+   <properties>
+    <property name="next" type="object" value="780"/>
+    <property name="target" type="object" value="767"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="780" name="To" type="PathNode" x="2752" y="1376">
+   <point/>
+  </object>
+  <object id="784" name="From" type="Path" x="2416" y="2800">
+   <properties>
+    <property name="cycle_offset" type="float" value="0"/>
+    <property name="next" type="object" value="785"/>
+    <property name="target_01" type="object" value="783"/>
+    <property name="target_02" type="object" value="787"/>
+    <property name="target_03" type="object" value="788"/>
+    <property name="target_04" type="object" value="799"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="785" name="To" type="PathNode" x="2416" y="2560">
+   <point/>
+  </object>
+  <object id="786" x="2416" y="3040">
+   <polygon points="-240,0 608,0 592,112 -304,128"/>
+  </object>
+  <object id="794" type="MovableHitbox" x="2592" y="2240">
+   <polygon points="0,352 0,544 16,544 16,352"/>
+  </object>
+  <object id="795" type="SlipperyMovableHitbox" x="2608" y="2944">
+   <polygon points="0,48 -16,48 -16,-160 0,-160"/>
+  </object>
+  <object id="796" type="SlipperyMovableHitbox" x="2608" y="2592">
+   <polygon points="0,0 -16,0 -16,-80 0,-80"/>
+  </object>
+  <object id="797" name="From" type="Path" x="2640" y="2800">
+   <properties>
+    <property name="cycle_offset" type="float" value="0.5"/>
+    <property name="next" type="object" value="798"/>
+    <property name="target_01" type="object" value="794"/>
+    <property name="target_02" type="object" value="795"/>
+    <property name="target_03" type="object" value="796"/>
+    <property name="target_04" type="object" value="800"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="798" name="To" type="PathNode" x="2640" y="2544">
+   <point/>
+  </object>
+  <object id="800" type="MovableHitbox" x="2592" y="1968">
+   <polygon points="0,352 0,544 16,544 16,352"/>
   </object>
  </objectgroup>
  <layer id="4" name="noop" width="32" height="32">

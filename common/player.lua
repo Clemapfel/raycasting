@@ -2153,7 +2153,7 @@ function rt.Player:update(delta)
     local color_r, color_g, color_b, _ = self._current_color:unpack()
     if self._stage ~= nil and not self._is_ghost then
         local cx, cy = self:get_position()
-        local radius = math.max(top_ray_length, right_ray_length, bottom_ray_length, left_ray_length)
+        local radius = self:get_radius()
         if self._is_bubble then
             radius = _settings.radius * _settings.bubble_radius_factor * 0.5
         end

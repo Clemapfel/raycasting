@@ -29,6 +29,11 @@ end
 
 --- @brief
 function rt.SmoothedMotion2D:set_target_position(x, y)
+    if math.is_nan(x) or math.is_nan(y) then
+        rt.error("In rt.SmoothedMotion2D.set_target_position: argument is NaN")
+        return
+    end
+
     self._target_position_x, self._target_position_y = x, y
 end
 

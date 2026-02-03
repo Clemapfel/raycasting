@@ -98,14 +98,17 @@ do -- load from image
     rt.Palette.STICKY = rt.Palette.GRAY_8
     rt.Palette.STICKY_OUTLINE = rt.Palette.GRAY_4
 
-    rt.Palette.SLIPPERY = rt.Palette.GRAY_7
+    rt.Palette.SLIPPERY = rt.Palette.GRAY_6
+    for which in range("r", "g", "b") do
+        rt.Palette.SLIPPERY[which] = rt.Palette.SLIPPERY[which] * 1
+    end
     rt.Palette.SLIPPERY.a = 0.8
     rt.Palette.SLIPPERY_OUTLINE = rt.Palette.GRAY_5
 
     rt.Palette.DECELERATOR_SURFACE = rt.Palette.SLIPPERY
     rt.Palette.DECELERATOR_SURFACE_OUTLINE = rt.Palette.GRAY_4
 
-    rt.Palette.WALL = rt.Palette.GRAY_10
+    rt.Palette.WALL = rt.Palette.GRAY_9
     rt.Palette.WALL.a = 0.8
     rt.Palette.WALL_OUTLINE = rt.Palette.GRAY_7
 

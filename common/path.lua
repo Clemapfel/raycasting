@@ -150,6 +150,12 @@ function rt.Path:at(t)
     t = math.clamp(t, 0, 1)
 
     local segment = self:_find_segment(t)
+
+    -- handle degenerate segment (zero length) - return start point
+    if segment.fraction_length < 1e-10 then
+        return segment.from_x, segment.from_y
+    end
+
     local local_t = (t - segment.fraction) / segment.fraction_length
 
     local distance_along_segment = local_t * segment.distance

@@ -3,8 +3,8 @@ require "common.mesh"
 
 rt.settings.overworld.hitbox = {
     collision_group = b2.CollisionGroup.GROUP_10,
-    sticky_outline_width = 1,
-    slippery_outline_width = 1,
+    sticky_outline_width = 1.5,
+    slippery_outline_width = 1.5,
     render_priority = -1
 }
 
