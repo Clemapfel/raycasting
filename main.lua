@@ -124,11 +124,19 @@ love.load = function(args)
 
         require "common.fluid_simulation"
         fluid_sim = rt.FluidSimulation()
-        fluid_sim:add(
+        local batch_id = fluid_sim:add(
             0.5 * w, 0.5 * h,
             50,
             rt.Palette.WHITE
         )
+
+        DEBUG_INPUT:signal_connect("keyboard_key_released", function(_, which)
+            if which == "l" then
+                fluid_sim:set_config(batch_id, {
+                    batch_radius = 0
+                })
+            end
+        end)
     end
     -- TODO
 

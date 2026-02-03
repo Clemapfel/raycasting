@@ -85,6 +85,8 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
         config, "Table"
     )
 
+    config.batch_radius = radius
+
     local particle_radius = math.mix(
         config.min_radius,
         config.max_radius,
@@ -115,7 +117,6 @@ function rt.FluidSimulation:add(x, y, radius, color, config)
 
     local batch_id, batch = self:_new_batch(
         x, y,
-        radius, radius,
         n_particles,
         config
     )
@@ -213,8 +214,8 @@ end
 --- @brief update the mutable simulation parameters for the white
 --- @param config table table of properties, see the readme for a list of valid properties
 function rt.FluidSimulation:set_config(batch_id, config)
-    meta.assert(config, "Table")
-    self:_load_config(batch_id, config) -- egg white
+    meta.assert(batch_id, "Number", config, "Table")
+    self:_load_config(batch_id, config)
 end
 
 --- @brief
@@ -241,8 +242,9 @@ function rt.FluidSimulation:set_target_position(batch_id, x, y)
     if batch == nil then
         rt.warning( "In rt.FluidSimulation.set_target_position: no batch with id `", batch_id, "`")
     else
-        batch.target_x = x
-        batch.target_y = y
+        batch.follow_x = x
+        batch.follow_y = y
+        self._follow_changed = true
     end
 end
 
@@ -256,7 +258,7 @@ function rt.FluidSimulation:get_target_position(batch_id)
         rt.error( "In rt.FluidSimulation.get_target_position: no batch with id `", batch_id, "`")
         return nil, nil
     else
-        return batch.target_x, batch.target_y
+        return batch.follow_x, batch.follow_y
     end
 end
 
@@ -310,6 +312,9 @@ function rt.FluidSimulation:_reinitialize()
     self._batch_id_to_batch = {} -- Table<Number, Batch>
     self._current_batch_id = 1
     self._n_batches = 0
+
+    self._config_changed = true
+    self._follow_changed = true
 
     -- particle properties are stored inline
     self._data = {}
@@ -473,19 +478,23 @@ local _velocity_x_offset = 3 -- x velocity, px / s
 local _velocity_y_offset = 4 -- y velocity, px / s
 local _previous_x_offset = 5 -- last sub steps x position, px
 local _previous_y_offset = 6 -- last sub steps y position, px
-local _radius_offset = 7 -- radius, px
-local _mass_distribution_t_offset = 8
-local _mass_offset = 9 -- mass, fraction
-local _inverse_mass_offset = 10 -- 1 / mass, precomputed for performance
-local _cell_x_offset = 11 -- spatial hash x coordinate, set in _step
-local _cell_y_offset = 12 -- spatial hash y coordinate
-local _batch_id_offset = 13 -- batch id
-local _r_offset = 14 -- rgba red
-local _g_offset = 15 -- rgba green
-local _b_offset = 16 -- rgba blue
-local _a_offset = 17 -- rgba opacity
-local _last_update_x_offset = 18 -- last whole step x position, px
-local _last_update_y_offset = 19 -- last whole step x position, px
+local _radius_t_offset = 7
+local _radius_offset = 8 -- radius, px
+local _mass_t_offset = 9
+local _mass_offset = 10 -- mass, fraction
+local _inverse_mass_offset = 11 -- 1 / mass, precomputed for performance
+local _follow_x_offset = 12
+local _follow_y_offset = 13
+local _cell_x_offset = 14 -- spatial hash x coordinate, set in _step
+local _cell_y_offset = 15 -- spatial hash y coordinate
+local _batch_id_offset = 16 -- batch id
+local _batch_radius_offset = 17
+local _r_offset = 18 -- rgba red
+local _g_offset = 19 -- rgba green
+local _b_offset = 20 -- rgba blue
+local _a_offset = 21 -- rgba opacity
+local _last_update_x_offset = 22 -- last whole step x position, px
+local _last_update_y_offset = 23 -- last whole step x position, px
 
 local _stride = _last_update_y_offset + 1
 
@@ -618,16 +627,17 @@ end
 --- @brief [internal] create a new particle batch
 --- @private
 function rt.FluidSimulation:_new_batch(
-    center_x, center_y,
-    x_radius, y_radius, n_particles, config
+    center_x, center_y, n_particles, config
 )
     local batch = {
         particle_indices = {},
-        radius = math.max(x_radius, y_radius),
         color = config.color,
         config = config,
+        config_was_updated = true,
+
         target_x = center_x,
         target_y = center_y,
+
         centroid_x = center_x,
         centroid_y = center_y,
         centroid_needs_update = true
@@ -676,12 +686,15 @@ function rt.FluidSimulation:_new_batch(
     -- add particle data to the batch particle property buffer
     local add_particle = function(
         array, config,
-        x_radius, y_radius,
         particle_i, n_particles,
-        color, batch_id
+        batch_id
     )
         -- generate position
-        local dx, dy = fibonacci_spiral(particle_i, n_particles, x_radius, y_radius)
+        local dx, dy = fibonacci_spiral(
+            particle_i, n_particles,
+            config.batch_radius, config.batch_radius
+        )
+
         local x = center_x + dx
         local y = center_y + dy
 
@@ -705,20 +718,26 @@ function rt.FluidSimulation:_new_batch(
         array[i + _velocity_y_offset] = 0
         array[i + _previous_x_offset] = x
         array[i + _previous_y_offset] = y
+        array[i + _radius_t_offset] = t
         array[i + _radius_offset] = radius
-        array[i + _mass_distribution_t_offset] = t
+        array[i + _mass_t_offset] = t
         array[i + _mass_offset] = mass
         array[i + _inverse_mass_offset] = 1 / mass
+        array[i + _follow_x_offset] = x
+        array[i + _follow_y_offset] = y
         array[i + _cell_x_offset] = -math.huge
         array[i + _cell_y_offset] = -math.huge
         array[i + _batch_id_offset] = batch_id
-        array[i + _r_offset] = color.r
-        array[i + _g_offset] = color.g
-        array[i + _b_offset] = color.b
-        array[i + _a_offset] = color.a
+        array[i + _batch_radius_offset] = config.batch_radius
+        array[i + _r_offset] = config.color.r
+        array[i + _g_offset] = config.color.g
+        array[i + _b_offset] = config.color.b
+        array[i + _a_offset] = config.color.a
 
         array[i + _last_update_x_offset] = x
         array[i + _last_update_y_offset] = y
+
+        assert(#array - i == _stride - 1)
 
         self._max_radius = math.max(self._max_radius, radius)
         return i
@@ -731,9 +750,7 @@ function rt.FluidSimulation:_new_batch(
         table.insert(batch.particle_indices, add_particle(
             self._data,
             batch.config,
-            x_radius, y_radius,
             i, n_particles,
-            batch.color,
             batch_id
         ))
     end
@@ -820,7 +837,7 @@ end
 --- @private
 function rt.FluidSimulation:_update_particle_color(batch)
     local particles = self._data
-    local r, g, b, a = batch.color:unpack()
+    local r, g, b, a = batch.config.color:unpack()
     for _, particle_i in ipairs(batch.particle_indices) do
         local i = _particle_i_to_data_offset(particle_i)
         particles[i + _r_offset] = r
@@ -919,6 +936,12 @@ do
             max = nil
         },
 
+        batch_radius = {
+            type = "Number",
+            min = 0,
+            max = nil
+        },
+
         motion_blur = {
             type = "Number",
             min = 0,
@@ -992,6 +1015,10 @@ do
 
             batch.config[key] = value
 
+            self._mass_changed = string.contains(key, "mass")
+            self._particle_radius_changed = string.contains(key, "radius")
+            self._batch_radius_changed = string.contains(key, "batch_radius")
+
             ::ignore::
         end
     end
@@ -1026,9 +1053,6 @@ do
                 collided = {}, -- Set<Number> particle pair hash
 
                 spatial_hash = {}, -- Table<Number, Table<Number>> particle cell hash to list of particles
-                batch_id_to_follow_x = {}, -- Table<Number, Number>
-                batch_id_to_follow_y = {}, -- Table<Number, Number>
-                batch_id_to_radius = {},
 
                 damping = 1, -- overridden in _step
 
@@ -1043,6 +1067,11 @@ do
                 center_of_mass_y = 0,
                 centroid_x = 0,
                 centroid_y = 0,
+
+                should_update_follow = true,
+                should_update_batch_radius = true,
+                should_update_mass = true,
+                should_update_particle_radius = true
             }
         else
             -- if old env present, keep allocated to keep gc / allocation pressure low
@@ -1051,8 +1080,6 @@ do
             -- reset tables
             table.clear(env.spatial_hash)
             table.clear(env.collided)
-            table.clear(env.batch_id_to_follow_x)
-            table.clear(env.batch_id_to_follow_y)
 
             -- reset variables
             env.min_x = math.huge
@@ -1070,8 +1097,11 @@ do
     local _pre_solve = function(
         particles, n_particles,
         damping, delta,
-        should_update_mass, min_mass, max_mass,
-        should_update_radius, min_radius, max_radius
+        should_update_follow,
+        should_update_radius,
+        should_update_mass,
+        should_update_batch_radius,
+        batch_id_to_batch
     )
         for particle_i = 1, n_particles do
             local i = _particle_i_to_data_offset(particle_i)
@@ -1094,25 +1124,40 @@ do
             particles[x_i] = x + delta * velocity_x
             particles[y_i] = y + delta * velocity_y
 
-            -- recompute mass / radius from distribution
-            local mass_t = particles[i + _mass_distribution_t_offset]
+            local batch_id = particles[i + _batch_id_offset]
+            local batch = batch_id_to_batch[batch_id]
+
+            if should_update_follow then
+                particles[i + _follow_x_offset] = batch.follow_x
+                particles[i + _follow_y_offset] = batch.follow_y
+            end
+
             if should_update_mass then
-                local mass = math.mix(min_mass, max_mass, mass_t)
+                local mass = math.mix(
+                    batch.config.min_mass, batch.config.max_mass,
+                    particles[i + _mass_t_offset]
+                )
                 particles[i + _mass_offset] = mass
                 particles[i + _inverse_mass_offset] = 1 / mass
             end
 
             if should_update_radius then
-                particles[i + _radius_offset] = math.mix(min_radius, max_radius, mass_t)
+                particles[i + _radius_offset] = math.mix(
+                    batch.config.min_radius, batch.config.max_radius,
+                    particles[i + _radius_t_offset]
+                )
+            end
+
+            if should_update_batch_radius then
+                particles[i + _batch_radius_offset] = batch.config.batch_radius
             end
         end
     end
 
     --- make particles move towards target
     local _solve_follow_constraint = function(
-        particles, n_particles,
-        batch_id_to_radius, batch_id_to_follow_x, batch_id_to_follow_y,
-        compliance, dt
+        particles, n_particles, batch_id_to_radius,
+        compliance
     )
         for particle_i = 1, n_particles do
             local i = _particle_i_to_data_offset(particle_i)
@@ -1123,27 +1168,27 @@ do
             local radius_i = i + _radius_offset
 
             local batch_id = particles[batch_id_i]
-            local follow_x = batch_id_to_follow_x[batch_id]
-            local follow_y = batch_id_to_follow_y[batch_id]
+            local follow_x = particles[i + _follow_x_offset]
+            local follow_y = particles[i + _follow_y_offset]
 
             local x, y = particles[x_i], particles[y_i]
             local current_distance = math.distance(x, y, follow_x, follow_y)
-            local target_distance = 2 * batch_id_to_radius[batch_id]
+            local target_distance = particles[i + _batch_radius_offset]
 
             -- XPBD: enforce distance constraint with compliance
             local inverse_mass = particles[inverse_mass_i]
-            if inverse_mass > math.eps and current_distance > target_distance then
-                local dx, dy = math.normalize(follow_x - x, follow_y - y)
+            if inverse_mass < math.eps then return end
 
-                local constraint_violation = current_distance - target_distance
-                local delta_lambda = constraint_violation / (inverse_mass + compliance)
+            local dx, dy = math.normalize(follow_x - x, follow_y - y)
 
-                local x_correction = dx * delta_lambda * inverse_mass
-                local y_correction = dy * delta_lambda * inverse_mass
+            local constraint_violation = current_distance - target_distance
+            local delta_lambda = constraint_violation / (inverse_mass + compliance)
 
-                particles[x_i] = particles[x_i] + x_correction
-                particles[y_i] = particles[y_i] + y_correction
-            end
+            local x_correction = dx * delta_lambda * inverse_mass
+            local y_correction = dy * delta_lambda * inverse_mass
+
+            particles[x_i] = particles[x_i] + x_correction
+            particles[y_i] = particles[y_i] + y_correction
         end
     end
 
@@ -1405,13 +1450,20 @@ do
             env.n_particles = n_particles
 
             if old_env ~= nil then
-                env.should_update_mass = config.min_mass ~= old_env.min_mass
-                    or config.max_mass ~= old_env.max_mass
-                env.should_update_radius = config.min_radius ~= old_env.min_radius
-                    or config.max_radius ~= old_env.max_radius
+                env.should_update_mass = self._mass_changed
+                env.should_update_particle_radius = self._particle_radius_changed
+                env.should_update_batch_radius = self._batch_radius_changed
+                env.should_update_follow = self._follow_changed
+
+                self._mass_changed = false
+                self._particle_radius_changed = false
+                self._batch_radius_changed = false
+                self._follow_changed = false
             else
+                env.should_update_follow = true
                 env.should_update_mass = true
-                env.should_update_radius = true
+                env.should_update_particle_radius = true
+                env.should_update_batch_radius = true
             end
 
             env.min_mass = config.min_mass
@@ -1435,12 +1487,6 @@ do
             )
             env.spatial_hash_cell_radius = math.max(1, config.max_radius * max_factor)
 
-            -- precompute batch id to follow position for faster access
-            for batch_id, batch in pairs(self._batch_id_to_batch) do
-                env.batch_id_to_follow_x[batch_id] = batch.target_x
-                env.batch_id_to_follow_y[batch_id] = batch.target_y
-            end
-
             env.damping = 1 - math.clamp(config.damping, 0, 1)
 
             env.follow_compliance = _strength_to_compliance(config.follow_strength, sub_delta)
@@ -1453,11 +1499,6 @@ do
             self._last_env, self._default_config,
             self._data, self._total_n_particles
         )
-
-        -- update radii
-        for batch_id, batch in pairs(self._batch_id_to_batch) do
-            env.batch_id_to_radius[batch_id] = math.sqrt(batch.radius)
-        end
 
         -- update pre-step positions for frame interpolation
         local update_last_positions = function(env)
@@ -1491,20 +1532,17 @@ do
                 env.n_particles,
                 env.damping,
                 sub_delta,
+                env.should_update_follow,
+                env.should_update_particle_radius,
                 env.should_update_mass,
-                env.min_mass,
-                env.max_mass,
-                env.should_update_radius,
-                env.min_radius,
-                env.max_radius
+                env.should_update_batch_radius,
+                self._batch_id_to_batch
             )
 
             _solve_follow_constraint(
                 env.particles,
                 env.n_particles,
                 env.batch_id_to_radius,
-                env.batch_id_to_follow_x,
-                env.batch_id_to_follow_y,
                 env.follow_compliance
             )
 
