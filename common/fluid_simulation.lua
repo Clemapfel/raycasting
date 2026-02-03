@@ -13,7 +13,7 @@ function rt.FluidSimulation:instantiate()
 
     -- see README.md for a description of the parameters below
 
-    self._white_config = {
+    self._config = {
         -- dynamic
         damping = base_damping,
 
@@ -43,36 +43,6 @@ function rt.FluidSimulation:instantiate()
         motion_blur = 0.0003,
     }
 
-    self._yolk_config = {
-        -- dynamic
-        damping = base_damping ,
-
-        follow_strength = 1 - 0.004,
-
-        cohesion_strength = 1 - 0.002,
-        cohesion_interaction_distance_factor = 3,
-
-        collision_strength = 1 - 0.001,
-        collision_overlap_factor = 2,
-
-        color = rt.RGBA(0.969, 0.682, 0.141, 1),
-        outline_color = rt.RGBA(0.984, 0.522, 0.271, 1),
-        outline_thickness = outline_thickness,
-
-        highlight_strength = 1,
-        shadow_strength = 0,
-
-        -- static
-        min_mass = base_mass,
-        max_mass = base_mass * 1.35,
-
-        min_radius = particle_radius,
-        max_radius = particle_radius,
-
-        texture_scale = texture_scale,
-        motion_blur = 0.0003
-    }
-
     -- immutable properties
     self._particle_texture_shader_path = "common/fluid_simulation_particle_texture.glsl"
     self._outline_shader_path = "common/fluid_simulation_outline.glsl"
@@ -98,92 +68,62 @@ end
 --- @brief add a new batch to the simulation
 --- @param x number x position, px
 --- @param y number y position, px
---- @param white_radius number? radius of the egg white, px
---- @param yolk_radius number? radius of egg yolk, px
---- @param white_color rt.RGBA? color in rgba format, components in [0, 1]
---- @param yolk_color rt.RGBA? color in rgba format, components in [0, 1]
---- @param white_n_particles number? optional override option for white particle count
---- @param yolk_n_particles number? optional override option for yolk particle count
+--- @param radius number? radius of the egg white, px
+--- @param color rt.RGBA? color in rgba format, components in [0, 1]
+--- @param n_particles number? optional override option for white particle count
 --- @return number integer id of the new batch
 function rt.FluidSimulation:add(
     x, y,
-    white_radius, yolk_radius,
-    white_color, yolk_color,
-    white_n_particles, yolk_n_particles
+    radius,
+    color,
+    n_particles
 )
-    local white_particle_radius = math.mix(
-        self._white_config.min_radius,
-        self._white_config.max_radius,
+    local particle_radius = math.mix(
+        self._config.min_radius,
+        self._config.max_radius,
         0.5
     ) -- expected value. symmetrically normal distributed around mean
 
-    local yolk_particle_radius = math.mix(self._yolk_config.min_radius, self._yolk_config.max_radius, 0.5)
 
-    if white_radius == nil then
-        white_radius = white_particle_radius * 15
+    if radius == nil then
+        radius = particle_radius * 15
     end
 
-    if yolk_radius == nil then
-        yolk_radius = white_radius * (10 / 50)
-    end
+    color = color or self._config.color
 
-    white_color = white_color or self._white_config.color
-    yolk_color = yolk_color or self._yolk_config.color
-
-    white_n_particles = white_n_particles or math.ceil(
-        (math.pi * white_radius^2) / (math.pi * white_particle_radius^2)
+    n_particles = n_particles or math.ceil(
+        (math.pi * radius^2) / (math.pi * particle_radius^2)
     ) -- (area of white) / (area of particle), where circular area = pi r^2
-
-    yolk_n_particles = yolk_n_particles or math.ceil(
-        (math.pi * yolk_radius^2) / (math.pi * yolk_particle_radius^2)
-    )
 
     meta.assert(
         x, "Number",
         y, "Number",
-        white_radius, "Number",
-        yolk_radius, "Number",
-        white_color, rt.RGBA,
-        yolk_color, rt.RGBA,
-        white_n_particles, "Number",
-        yolk_n_particles, "Number"
+        radius, "Number",
+        color, rt.RGBA,
+        n_particles, "Number"
     )
 
-    if white_radius <= 0 then
+    if radius <= 0 then
         rt.error( "In rt.FluidSimulation.add: white radius cannot be 0 or negative")
     end
 
-    if yolk_radius <= 0 then
-        rt.error( "In rt.FluidSimulation.add: yolk radius cannot be 0 or negative")
-    end
-
-    if white_n_particles <= 1 then
+    if n_particles <= 1 then
         rt.error( "In rt.FluidSimulation.add: white particle count cannot be 1 or negative")
-    end
-
-    if yolk_n_particles <= 1 then
-        rt.error( "In rt.FluidSimulation.add: yolk particle count cannot be 1 or negative")
     end
 
     local warn = function(which, egg_radius, particle_radius, n_particles)
         rt.warning("In rt.FluidSimulation.add: trying to add ", which, " of radius `", egg_radius, "`, but the ", which, " particle radius is `~", particle_radius, "`, so only `", n_particles, "` particles will be created. Consider increasing the ", which, " radius or decreasing the ", which, " particle size")
     end
 
-    if white_n_particles < 10 then
-        warn("white", white_radius, white_particle_radius, white_n_particles)
+    if n_particles < 10 then
+        warn("white", radius, particle_radius, n_particles)
     end
 
-    if yolk_n_particles < 5 then
-        warn("yolk", yolk_radius, yolk_particle_radius, yolk_n_particles)
-    end
-
-    self._total_n_white_particles = self._total_n_white_particles + white_n_particles
-    self._total_n_yolk_particles = self._total_n_yolk_particles + yolk_n_particles
+    self._total_n_particles = self._total_n_particles + n_particles
 
     local batch_id, batch = self:_new_batch(
         x, y,
-        white_radius, white_radius, white_n_particles, white_color,
-        yolk_radius, yolk_radius, yolk_n_particles, yolk_color
+        radius, radius, n_particles, color
     )
 
     self._batch_id_to_batch[batch_id] = batch
@@ -206,10 +146,9 @@ function rt.FluidSimulation:remove(batch_id)
 
     self._batch_id_to_batch[batch_id] = nil
     self._n_batches = self._n_batches - 1
-    self._total_n_white_particles = self._total_n_white_particles - batch.n_white_particles
-    self._total_n_yolk_particles = self._total_n_yolk_particles - batch.n_yolk_particles
+    self._total_n_particles = self._total_n_particles - batch.n_particles
 
-    self:_remove(batch.white_particle_indices, batch.yolk_particle_indices)
+    self:_remove(batch.particle_indices)
 end
 
 --- @brief draw all batches
@@ -279,28 +218,15 @@ end
 
 --- @brief update the mutable simulation parameters for the white
 --- @param config table table of properties, see the readme for a list of valid properties
-function rt.FluidSimulation:set_white_config(config)
+function rt.FluidSimulation:set_config(config)
     meta.assert(config, "Table")
     self:_load_config(config, true) -- egg white
 end
 
---- @brief update the mutable simulation parameters for the yolk
---- @param config table table of properties, see the readme for a list of valid properties
-function rt.FluidSimulation:set_yolk_config(config)
-    meta.assert(config, "Table")
-    self:_load_config(config, false) -- egg yolk
-end
-
 --- @brief get current config for the white, contains all keys
 --- @return table read-only, writing to this table will not affect the handler
-function rt.FluidSimulation:get_white_config()
-    return table.deepcopy(self._white_config)
-end
-
---- @brief get current config for the white, contains all keys
---- @return table read-only, writing to this table will not affect the handler
-function rt.FluidSimulation:get_yolk_config()
-    return table.deepcopy(self._yolk_config)
+function rt.FluidSimulation:get_config()
+    return table.deepcopy(self._config)
 end
 
 --- @brief set the target position a batch should move to
@@ -364,13 +290,13 @@ end
 --- @return number
 function rt.FluidSimulation:get_n_particles(batch_or_nil)
     if batch_or_nil == nil then
-        return self._total_n_white_particles, self._total_n_yolk_particles
+        return self._total_n_particles
     else
         local batch = self._batch_id_to_batch[batch_or_nil]
         if batch == nil then
             rt.error("In rt.FluidSimulation:get_n_particles: no batch with id `", batch_or_nil, "`")
         end
-        return batch.n_white_particles, batch.n_yolk_particles
+        return batch.n_particles
     end
 end
 
@@ -385,17 +311,11 @@ function rt.FluidSimulation:_reinitialize()
     self._n_batches = 0
 
     -- particle properties are stored inline
-    self._white_data = {}
-    self._total_n_white_particles = 0
+    self._data = {}
+    self._total_n_particles = 0
 
-    self._yolk_data = {}
-    self._total_n_yolk_particles = 0
-
-    self._white_data_mesh_data = {}
-    self._white_color_data_mesh_data = {}
-
-    self._yolk_data_mesh_data = {}
-    self._yolk_color_data_mesh_data = {}
+    self._data_mesh_data = {}
+    self._color_data_mesh_data = {}
 
     self._max_radius = 1
     self._canvases_need_update = false
@@ -437,11 +357,9 @@ function rt.FluidSimulation:_reinitialize()
     self:_update_data_mesh()
     self:_update_color_mesh()
 
-    self._white_canvas = nil -- rt.RenderTexture
-    self._yolk_canvas = nil -- rt.RenderTexture
+    self._canvas = nil -- rt.RenderTexture
 
-    self._last_white_env = nil -- cf. _step
-    self._last_yolk_env = nil
+    self._last_env = nil -- cf. _step
     self._render_texture_format = "rgba8"
 
     -- step once to init environments
@@ -485,10 +403,7 @@ function rt.FluidSimulation:_initialize_particle_texture()
     -- instead love.graphics.scale'ing based on particle size,
     -- this way all draws are batched
 
-    local radius = math.max(
-        self._white_config.max_radius,
-        self._yolk_config.max_radius
-    ) * self._particle_texture_resolution_factor
+    local radius = self._config.max_radius * self._particle_texture_resolution_factor
 
     local padding = self._particle_texture_padding -- px
 
@@ -504,7 +419,6 @@ function rt.FluidSimulation:_initialize_particle_texture()
 
     self._particle_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
     self._particle_texture:set_wrap_mode(rt.TextureWrapMode.ZERO)
-
 
     local x, y, width, height = 0, 0, 2 * radius, 2 * radius
 
@@ -530,31 +444,24 @@ end
 --- @brief [internal] initialize data related to instanced drawing
 --- @private
 function rt.FluidSimulation:_initialize_instance_mesh()
-    local new = function()
-        -- 5-vertex quad with side length 1 centered at 0, 0
-        local x, y, r = 0, 0, 1
-        local mesh = rt.Mesh({
-            { x    , y    , 0.5, 0.5,  1, 1, 1, 1 },
-            { x - r, y - r, 0.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y - r, 1.0, 0.0,  1, 1, 1, 1 },
-            { x + r, y + r, 1.0, 1.0,  1, 1, 1, 1 },
-            { x - r, y + r, 0.0, 1.0,  1, 1, 1, 1 }
-        }, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
+    -- 5-vertex quad with side length 1 centered at 0, 0
+    local x, y, r = 0, 0, 1
+    local mesh = rt.Mesh({
+        { x    , y    , 0.5, 0.5,  1, 1, 1, 1 },
+        { x - r, y - r, 0.0, 0.0,  1, 1, 1, 1 },
+        { x + r, y - r, 1.0, 0.0,  1, 1, 1, 1 },
+        { x + r, y + r, 1.0, 1.0,  1, 1, 1, 1 },
+        { x - r, y + r, 0.0, 1.0,  1, 1, 1, 1 }
+    }, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
 
-        mesh:set_vertex_map(
-            1, 2, 3,
-            1, 3, 4,
-            1, 4, 5,
-            1, 5, 2
-        )
-        mesh:set_texture(self._particle_texture)
-        return mesh
-    end
-
-    -- we need two separate meshes for instance drawing because each
-    -- will have their own data mesh attached that holds all the particle data
-    self._white_instance_mesh = new()
-    self._yolk_instance_mesh = new()
+    mesh:set_vertex_map(
+        1, 2, 3,
+        1, 3, 4,
+        1, 4, 5,
+        1, 5, 2
+    )
+    mesh:set_texture(self._particle_texture)
+    self._instance_mesh = mesh
 end
 
 -- particle properties are stored inline, these are the offset
@@ -642,20 +549,12 @@ function rt.FluidSimulation:_update_data_mesh()
         end
     end
 
-    self._white_data_mesh = update_data_mesh(
-        self._white_data,
-        self._total_n_white_particles,
-        self._white_instance_mesh,
-        self._white_data_mesh_data,
-        self._white_data_mesh
-    )
-
-    self._yolk_data_mesh = update_data_mesh(
-        self._yolk_data,
-        self._total_n_yolk_particles,
-        self._yolk_instance_mesh,
-        self._yolk_data_mesh_data,
-        self._yolk_data_mesh
+    self._data_mesh = update_data_mesh(
+        self._data,
+        self._total_n_particles,
+        self._instance_mesh,
+        self._data_mesh_data,
+        self._data_mesh
     )
 end
 
@@ -706,20 +605,12 @@ function rt.FluidSimulation:_update_color_mesh()
         end
     end
 
-    self._white_color_data_mesh = update_color_mesh(
-        self._white_data,
-        self._total_n_white_particles,
-        self._white_instance_mesh,
-        self._white_color_data_mesh_data,
-        self._white_color_data_mesh
-    )
-
-    self._yolk_color_data_mesh = update_color_mesh(
-        self._yolk_data,
-        self._total_n_yolk_particles,
-        self._yolk_instance_mesh,
-        self._yolk_color_data_mesh_data,
-        self._yolk_color_data_mesh
+    self._color_data_mesh = update_color_mesh(
+        self._data,
+        self._total_n_particles,
+        self._instance_mesh,
+        self._color_data_mesh_data,
+        self._color_data_mesh
     )
 end
 
@@ -727,16 +618,12 @@ end
 --- @private
 function rt.FluidSimulation:_new_batch(
     center_x, center_y,
-    white_x_radius, white_y_radius, white_n_particles, white_color,
-    yolk_x_radius, yolk_y_radius, yolk_n_particles, yolk_color
+    x_radius, y_radius, n_particles, color
 )
     local batch = {
-        white_particle_indices = {},
-        yolk_particle_indices = {},
-        white_radius = math.max(white_x_radius, white_y_radius),
-        yolk_radius = math.max(yolk_x_radius, yolk_y_radius),
-        white_color = white_color,
-        yolk_color = yolk_color,
+        particle_indices = {},
+        radius = math.max(x_radius, y_radius),
+        color = color,
         target_x = center_x,
         target_y = center_y,
         centroid_x = center_x,
@@ -748,15 +635,6 @@ function rt.FluidSimulation:_new_batch(
     local random_uniform = function(min, max)
         local t = love.math.random(0, 1)
         return math.mix(min, max, t)
-    end
-
-    -- generate normally distributed value in interval
-    local random_normal = function(x_radius, y_radius)
-        local value
-        repeat
-            value = love.math.randomNormal(0.25, 0.5)
-        until value >= 0 and value <= 1
-        return value
     end
 
     -- uniformly distribute points across the disk using fibonacci spiral
@@ -847,13 +725,13 @@ function rt.FluidSimulation:_new_batch(
     local batch_id = self._current_batch_id
     self._current_batch_id = self._current_batch_id + 1
 
-    for i = 1, white_n_particles do
-        table.insert(batch.white_particle_indices, add_particle(
-            self._white_data,
-            self._white_config,
-            white_x_radius, white_y_radius,
-            i, white_n_particles,
-            batch.white_color,
+    for i = 1, n_particles do
+        table.insert(batch.particle_indices, add_particle(
+            self._data,
+            self._config,
+            x_radius, y_radius,
+            i, n_particles,
+            batch.color,
             batch_id
         ))
     end
@@ -869,7 +747,7 @@ function rt.FluidSimulation:_new_batch(
         ))
     end
 
-    batch.n_white_particles = white_n_particles
+    batch.n_particles = n_particles
     batch.n_yolk_particles = yolk_n_particles
 
     self:_update_data_mesh()
@@ -880,7 +758,7 @@ end
 
 --- @brief [internal] remove particle data from shared array
 --- @private
-function rt.FluidSimulation:_remove(white_indices, yolk_indices)
+function rt.FluidSimulation:_remove(indices, yolk_indices)
     local function remove_particles(indices, data, list_name)
         if not indices or #indices == 0 then return end
 
@@ -942,7 +820,7 @@ function rt.FluidSimulation:_remove(white_indices, yolk_indices)
         end
     end
 
-    remove_particles(white_indices, self._white_data, "white_particle_indices")
+    remove_particles(indices, self._data, "particle_indices")
     remove_particles(yolk_indices,  self._yolk_data,  "yolk_particle_indices")
 
     self:_update_data_mesh()
@@ -958,9 +836,9 @@ function rt.FluidSimulation:_update_particle_color(batch, yolk_or_white)
         indices = batch.yolk_particle_indices
         color = batch.yolk_color
     elseif yolk_or_white == false then
-        particles = self._white_data
-        indices = batch.white_particle_indices
-        color = batch.white_color
+        particles = self._data
+        indices = batch.particle_indices
+        color = batch.color
     end
 
     local r, g, b, a = color:unpack()
@@ -977,9 +855,9 @@ end
 --- @private
 function rt.FluidSimulation:_update_batch_centroid(batch)
     local x, y = 0, 0
-    for _, i in ipairs(batch.white_particle_indices) do
-        x = x + self._white_data[i + _x_offset]
-        y = y + self._white_data[i + _y_offset]
+    for _, i in ipairs(batch.particle_indices) do
+        x = x + self._data[i + _x_offset]
+        y = y + self._data[i + _y_offset]
     end
 
     for _, i in ipairs(batch.yolk_particle_indices) do
@@ -987,8 +865,8 @@ function rt.FluidSimulation:_update_batch_centroid(batch)
         y = y + self._yolk_data[i + _y_offset]
     end
 
-    batch.centroid_x = x / (batch.n_white_particles + batch.n_yolk_particles)
-    batch.centroid_y = y / (batch.n_white_particles + batch.n_yolk_particles)
+    batch.centroid_x = x / (batch.n_particles + batch.n_yolk_particles)
+    batch.centroid_y = y / (batch.n_particles + batch.n_yolk_particles)
 end
 
 do
@@ -1094,18 +972,18 @@ do
 
     --- @brief [internal] override config setting
     --- @private
-    function rt.FluidSimulation:_load_config(config, white_or_yolk)
+    function rt.FluidSimulation:_load_config(config, or_yolk)
         local error = function(...)
-            if white_or_yolk == true then
-                rt.error("In rt.FluidSimulation.set_white_config: ", ...)
+            if or_yolk == true then
+                rt.error("In rt.FluidSimulation.set_config: ", ...)
             else
                 rt.error("In rt.FluidSimulation.set_yolk_config: ", ...)
             end
         end
 
         local warning = function(...)
-            if white_or_yolk == true then
-                rt.warning("In rt.FluidSimulation.set_white_config: ", ...)
+            if or_yolk == true then
+                rt.warning("In rt.FluidSimulation.set_config: ", ...)
             else
                 rt.warning("In rt.FluidSimulation.set_yolk_config: ", ...)
             end
@@ -1140,9 +1018,9 @@ do
                 end
             end
 
-            if white_or_yolk == true then
-                self._white_config[key] = value
-            elseif white_or_yolk == false then
+            if or_yolk == true then
+                self._config[key] = value
+            elseif or_yolk == false then
                 self._yolk_config[key] = value
             end
 
@@ -1604,10 +1482,10 @@ do
             return env
         end
 
-        local white_config = self._white_config
-        local white_env = update_environment(
-            self._last_white_env, white_config,
-            self._white_data, self._total_n_white_particles
+        local config = self._config
+        local env = update_environment(
+            self._last_env, config,
+            self._data, self._total_n_particles
         )
 
         local yolk_config = self._yolk_config
@@ -1618,7 +1496,7 @@ do
 
         -- update radii
         for batch_id, batch in pairs(self._batch_id_to_batch) do
-            white_env.batch_id_to_radius[batch_id] = math.sqrt(batch.white_radius)
+            env.batch_id_to_radius[batch_id] = math.sqrt(batch.radius)
             yolk_env.batch_id_to_radius[batch_id] = math.sqrt(batch.yolk_radius)
         end
 
@@ -1645,22 +1523,22 @@ do
             end
         end
 
-        update_last_positions(white_env)
+        update_last_positions(env)
         update_last_positions(yolk_env)
 
         -- step the simulation
         for sub_step_i = 1, n_sub_steps do
             _pre_solve(
-                white_env.particles,
-                white_env.n_particles,
-                white_env.damping,
+                env.particles,
+                env.n_particles,
+                env.damping,
                 sub_delta,
-                white_env.should_update_mass,
-                white_env.min_mass,
-                white_env.max_mass,
-                white_env.should_update_radius,
-                white_env.min_radius,
-                white_env.max_radius
+                env.should_update_mass,
+                env.min_mass,
+                env.max_mass,
+                env.should_update_radius,
+                env.min_radius,
+                env.max_radius
             )
 
             _pre_solve(
@@ -1677,12 +1555,12 @@ do
             )
 
             _solve_follow_constraint(
-                white_env.particles,
-                white_env.n_particles,
-                white_env.batch_id_to_radius,
-                white_env.batch_id_to_follow_x,
-                white_env.batch_id_to_follow_y,
-                white_env.follow_compliance
+                env.particles,
+                env.n_particles,
+                env.batch_id_to_radius,
+                env.batch_id_to_follow_x,
+                env.batch_id_to_follow_y,
+                env.follow_compliance
             )
 
             _solve_follow_constraint(
@@ -1696,10 +1574,10 @@ do
 
             for collision_i = 1, n_collision_steps do
                 _rebuild_spatial_hash(
-                    white_env.particles,
-                    white_env.n_particles,
-                    white_env.spatial_hash,
-                    white_env.spatial_hash_cell_radius
+                    env.particles,
+                    env.n_particles,
+                    env.spatial_hash,
+                    env.spatial_hash_cell_radius
                 )
 
                 _rebuild_spatial_hash(
@@ -1710,15 +1588,15 @@ do
                 )
 
                 _solve_collision(
-                    white_env.particles,
-                    white_env.n_particles,
-                    white_env.spatial_hash,
-                    white_env.collided,
-                    white_config.collision_overlap_factor,
-                    white_env.collision_compliance,
-                    white_config.cohesion_interaction_distance_factor,
-                    white_env.cohesion_compliance,
-                    white_env.max_n_collisions
+                    env.particles,
+                    env.n_particles,
+                    env.spatial_hash,
+                    env.collided,
+                    config.collision_overlap_factor,
+                    env.collision_compliance,
+                    config.cohesion_interaction_distance_factor,
+                    env.cohesion_compliance,
+                    env.max_n_collisions
                 )
 
                 _solve_collision(
@@ -1736,19 +1614,19 @@ do
                 if collision_i < n_collision_steps then
                     -- clear after each pass to avoid double counting
                     -- do not clear on last, already done in _update_environment
-                    table.clear(white_env.spatial_hash)
-                    table.clear(white_env.collided)
+                    table.clear(env.spatial_hash)
+                    table.clear(env.collided)
                     table.clear(yolk_env.spatial_hash)
                     table.clear(yolk_env.collided)
                 end
             end
 
-            white_env.min_x, white_env.min_y,
-            white_env.max_x, white_env.max_y,
-            white_env.centroid_x, white_env.centroid_y,
-            white_env.max_radius, white_env.max_velocity = _post_solve(
-                white_env.particles,
-                white_env.n_particles,
+            env.min_x, env.min_y,
+            env.max_x, env.max_y,
+            env.centroid_x, env.centroid_y,
+            env.max_radius, env.max_velocity = _post_solve(
+                env.particles,
+                env.n_particles,
                 sub_delta
             )
 
@@ -1803,11 +1681,11 @@ do
             end
         end
 
-        self._white_canvas = resize_canvas_maybe(self._white_canvas, white_env)
+        self._canvas = resize_canvas_maybe(self._canvas, env)
         self._yolk_canvas  = resize_canvas_maybe(self._yolk_canvas,  yolk_env)
 
         -- keep env of last step
-        self._last_white_env = white_env
+        self._last_env = env
         self._last_yolk_env  = yolk_env
 
         self._canvases_need_update = true
@@ -1824,7 +1702,7 @@ do
     function rt.FluidSimulation:_update_canvases()
         if self._canvases_need_update == false
             or self._yolk_canvas == nil
-            or self._white_canvas == nil
+            or self._canvas == nil
         then return end
 
         local t = self._interpolation_alpha
@@ -1850,9 +1728,9 @@ do
         self._instanced_draw_shader:send("interpolation_alpha", t)
 
         do -- egg white
-            local canvas = self._white_canvas
+            local canvas = self._canvas
             local canvas_width, canvas_height = canvas:get_size()
-            local env = self._last_white_env
+            local env = self._last_env
             self._instanced_draw_shader:send("motion_blur", env.motion_blur)
             self._instanced_draw_shader:send("texture_scale", env.texture_scale)
             canvas:bind()
@@ -1860,7 +1738,7 @@ do
 
             love.graphics.push()
             love.graphics.translate(canvas_width / 2, canvas_height / 2)
-            draw_particles(self._last_white_env, self._white_instance_mesh)
+            draw_particles(self._last_env, self._instance_mesh)
             love.graphics.pop()
 
             canvas:unbind()
@@ -1892,7 +1770,7 @@ do
     --- @brief [internal] composite canvases to final image
     --- @private
     function rt.FluidSimulation:_draw_canvases()
-        if self._white_canvas == nil or self._yolk_canvas == nil then return end
+        if self._canvas == nil or self._yolk_canvas == nil then return end
 
         love.graphics.push("all")
         love.graphics.setBlendMode("alpha", "alphamultiply")
@@ -1939,9 +1817,9 @@ do
             self._lighting_shader:unbind()
         end
 
-        draw_canvas(self._white_canvas,
-            self._last_white_env,
-            self._white_config
+        draw_canvas(self._canvas,
+            self._last_env,
+            self._config
         )
 
         draw_canvas(self._yolk_canvas,
