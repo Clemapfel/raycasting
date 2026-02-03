@@ -557,8 +557,8 @@ function rt.FluidSimulation:_reinitialize()
     self:_update_data_mesh()
     self:_update_color_mesh()
 
-    self._white_canvas = nil -- love.Canvas
-    self._yolk_canvas = nil -- love.Canvas
+    self._white_canvas = nil -- rt.RenderTexture
+    self._yolk_canvas = nil -- rt.RenderTexture
 
     self._last_white_env = nil -- cf. _step
     self._last_yolk_env = nil
@@ -599,8 +599,9 @@ function rt.FluidSimulation:_initialize_shaders()
     -- on vulkan, first use of a shader would cause stutter, so force use here, equivalent to precompiling the shader
     if love.getVersion() >= 12 and love.graphics.getRendererInfo() == "Vulkan" then
         love.graphics.push("all")
-        local texture = love.graphics.newCanvas(1, 1)
-        love.graphics.setCanvas(texture)
+        local texture = rt.RenderTexture(1, 1)
+        texture:bind()
+
         for _, shader in ipairs({
             self._particle_texture_shader,
             self._lighting_shader,
@@ -610,6 +611,8 @@ function rt.FluidSimulation:_initialize_shaders()
             love.graphics.rectangle("fill", 0, 0, 1, 1)
             shader:unbind()
         end
+
+        texture:unbind()
         love.graphics.pop("all")
     end
 end
@@ -633,36 +636,22 @@ function rt.FluidSimulation:_initialize_particle_texture()
     local canvas_width = (radius + padding) * 2
     local canvas_height = canvas_width
 
-    self._particle_texture = love.graphics.newCanvas(canvas_width, canvas_height, {
-        format = self._render_texture_format,
-        msaa = 0,
-        readable = true,
-        dpiscale = 1
-    }
+    self._particle_texture = rt.RenderTexture(
+        canvas_width, canvas_height,
+        0,
+        self._render_texture_format
     )
-    self._particle_texture:setFilter("linear", "linear")
-    self._particle_texture:setWrap("clampzero")
 
-    -- create mesh with correct texture coordinates
-    -- before love12, love.graphics.rectangle does not have
-    -- the correct uv, so we need to use a temporary mesh
+    self._particle_texture:set_scale_mode(rt.TextureScaleMode.LINEAR)
+    self._particle_texture:set_wrap_mode(rt.TextureWrapMode.ZERO)
+
+
     local x, y, width, height = 0, 0, 2 * radius, 2 * radius
-    local mesh = love.graphics.newMesh({
-        { x,         y,          0, 0,  1, 1, 1, 1 },
-        { x + width, y,          1, 0,  1, 1, 1, 1 },
-        { x + width, y + height, 1, 1,  1, 1, 1, 1 },
-        { x,         y + height, 0, 1,  1, 1, 1, 1 }
-    }, "triangles", "static")
-
-    mesh:setVertexMap(
-        1, 2, 4,
-        2, 3, 4
-    )  -- triangulate
 
     -- fill particle with density data using shader
     love.graphics.push("all")
     love.graphics.reset()
-    love.graphics.setCanvas(self._particle_texture)
+    self._particle_texture:bind()
     self._particle_texture_shader:bind()
 
     love.graphics.translate(
@@ -671,10 +660,10 @@ function rt.FluidSimulation:_initialize_particle_texture()
     )
 
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(mesh)
+    love.graphics.rectangle("fill", x, y, width, height)
 
     self._particle_texture_shader:unbind()
-    love.graphics.setCanvas(nil)
+    self._particle_texture:unbind()
     love.graphics.pop()
 end
 
@@ -684,21 +673,21 @@ function rt.FluidSimulation:_initialize_instance_mesh()
     local new = function()
         -- 5-vertex quad with side length 1 centered at 0, 0
         local x, y, r = 0, 0, 1
-        local mesh = love.graphics.newMesh({
+        local mesh = rt.Mesh({
             { x    , y    , 0.5, 0.5,  1, 1, 1, 1 },
             { x - r, y - r, 0.0, 0.0,  1, 1, 1, 1 },
             { x + r, y - r, 1.0, 0.0,  1, 1, 1, 1 },
             { x + r, y + r, 1.0, 1.0,  1, 1, 1, 1 },
             { x - r, y + r, 0.0, 1.0,  1, 1, 1, 1 }
-        }, "triangles", "static")
+        }, rt.MeshDrawMode.TRIANGLES, rt.VertexFormat2D, rt.GraphicsBufferUsage.STATIC)
 
-        mesh:setVertexMap(
+        mesh:set_vertex_map(
             1, 2, 3,
             1, 3, 4,
             1, 4, 5,
             1, 5, 2
         )
-        mesh:setTexture(self._particle_texture)
+        mesh:set_texture(self._particle_texture)
         return mesh
     end
 
@@ -707,7 +696,6 @@ function rt.FluidSimulation:_initialize_instance_mesh()
     self._white_instance_mesh = new()
     self._yolk_instance_mesh = new()
 end
-
 
 -- particle properties are stored inline, these are the offset
 local _x_offset = 0  -- x position, px
@@ -773,22 +761,22 @@ function rt.FluidSimulation:_update_data_mesh()
 
         if mesh == nil or before ~= after then
             -- if resized, reallocate mesh
-            local data_mesh = love.graphics.newMesh(
-                self._data_mesh_format,
+            local data_mesh = rt.Mesh(
                 mesh_data,
-                "triangles", -- unused, this mesh will never be drawn
-                "stream"
+                rt.MeshDrawMode.TRIANGLES, -- unused, this mesh will never be drawn
+                self._data_mesh_format,
+                rt.GraphicsBufferUsage.STREAM
             )
 
             -- attach for rendering
             for _, entry in ipairs(self._data_mesh_format) do
-                instance_mesh:attachAttribute(entry.name, data_mesh, "perinstance")
+                instance_mesh:attach_attribute(data_mesh, entry.name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
             end
 
             return data_mesh
         else
             -- else upload vertex data
-            mesh:setVertices(mesh_data)
+            mesh:replace_data(mesh_data)
             mesh:flush()
             return mesh
         end
@@ -839,20 +827,20 @@ function rt.FluidSimulation:_update_color_mesh()
         local after = #mesh_data
 
         if mesh == nil or before ~= after then
-            local color_data_mesh = love.graphics.newMesh(
-                self._color_mesh_format,
+            local color_data_mesh = rt.Mesh(
                 mesh_data,
-                "triangles", -- unused
-                "stream"
+                rt.MeshDrawMode.TRIANGLES, -- unused
+                self._color_mesh_format,
+                rt.GraphicsBufferUsage.STREAM
             )
 
             for _, entry in ipairs(self._color_mesh_format) do
-                instance_mesh:attachAttribute(entry.name, color_data_mesh, "perinstance")
+                instance_mesh:attach_attribute(color_data_mesh, entry.name, rt.MeshAttributeAttachmentMode.PER_INSTANCE)
             end
 
             return color_data_mesh
         else
-            mesh:setVertices(mesh_data)
+            mesh:replace_data(mesh_data)
             mesh:flush()
             return mesh
         end
@@ -1941,7 +1929,7 @@ do
 
             local current_w, current_h = 0, 0
             if canvas ~= nil then
-                current_w, current_h = canvas:getDimensions()
+                current_w, current_h = canvas:get_size()
             end
 
             -- compute canvas padding
@@ -1957,18 +1945,16 @@ do
 
             -- reallocate if canvases needs to grow
             if new_w > current_w or new_h > current_h then
-                local new_canvas = love.graphics.newCanvas(
+                local new_canvas = rt.RenderTexture(
                     math.max(new_w, current_w),
                     math.max(new_h, current_h),
-                    {
-                        msaa = self._canvas_msaa,
-                        format = self._render_texture_format
-                    }
+                    self._canvas_msaa,
+                    self._render_texture_format
                 )
-                new_canvas:setFilter("linear", "linear")
+                new_canvas:set_scale_mode(rt.TextureScaleMode.LINEAR)
 
                 if canvas ~= nil then
-                    canvas:release() -- free old as early as possible, uses a lot of vram
+                    canvas:free() -- free old as early as possible, uses a lot of vram
                 end
                 return new_canvas
             else
@@ -2009,7 +1995,7 @@ do
             love.graphics.push()
             love.graphics.translate(-predicted_centroid_x, -predicted_centroid_y)
             love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.drawInstanced(instance_mesh, env.n_particles)
+            instance_mesh:draw_instanced(env.n_particles)
             love.graphics.pop()
         end
 
@@ -2024,33 +2010,36 @@ do
 
         do -- egg white
             local canvas = self._white_canvas
-            local canvas_width, canvas_height = canvas:getDimensions()
+            local canvas_width, canvas_height = canvas:get_size()
             local env = self._last_white_env
             self._instanced_draw_shader:send("motion_blur", env.motion_blur)
             self._instanced_draw_shader:send("texture_scale", env.texture_scale)
-            love.graphics.setCanvas(canvas)
+            canvas:bind()
             love.graphics.clear(0, 0, 0, 0)
 
             love.graphics.push()
             love.graphics.translate(canvas_width / 2, canvas_height / 2)
             draw_particles(self._last_white_env, self._white_instance_mesh)
             love.graphics.pop()
+
+            canvas:unbind()
         end
 
         do -- egg yolk
             local canvas = self._yolk_canvas
-            local canvas_width, canvas_height = canvas:getDimensions()
+            local canvas_width, canvas_height = canvas:get_size()
             local env = self._last_yolk_env
             self._instanced_draw_shader:send("motion_blur", env.motion_blur)
             self._instanced_draw_shader:send("texture_scale", env.texture_scale)
 
-            love.graphics.setCanvas(canvas)
+            canvas:bind()
             love.graphics.clear(0, 0, 0, 0)
 
             love.graphics.push()
             love.graphics.translate(canvas_width / 2, canvas_height / 2)
             draw_particles(self._last_yolk_env, self._yolk_instance_mesh)
             love.graphics.pop()
+            canvas:unbind()
         end
 
         self._instanced_draw_shader:unbind()
@@ -2075,7 +2064,7 @@ do
         self._lighting_shader:send("use_particle_color", self._use_particle_color)
 
         local draw_canvas = function(canvas, env, config)
-            local canvas_width, canvas_height = canvas:getDimensions()
+            local canvas_width, canvas_height = canvas:get_size()
             local canvas_x = env.centroid_x - 0.5 * canvas_width
             local canvas_y = env.centroid_y - 0.5 * canvas_height
 
@@ -2087,7 +2076,7 @@ do
                 self._outline_shader:bind()
                 self._outline_shader:send("outline_thickness", outline_thickness)
                 love.graphics.setColor(outline_color)
-                love.graphics.draw(canvas, canvas_x, canvas_y)
+                canvas:draw(canvas_x, canvas_y)
 
                 if self._use_particle_color then
                     love.graphics.setColor(1, 1, 1, 1)
@@ -2109,7 +2098,7 @@ do
                 config.shadow_strength > 0 and self._use_lighting
             )
 
-            love.graphics.draw(canvas, canvas_x, canvas_y)
+            canvas:draw(canvas_x, canvas_y)
 
             self._lighting_shader:unbind()
         end

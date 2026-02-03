@@ -596,3 +596,8 @@ end
 function rt.Mesh:attach_attribute(mesh, attribute_name, mode)
     self._native:attachAttribute(attribute_name, mesh:get_native(), mode or "pervertex")
 end
+
+--- @brief
+function rt.Mesh:flush()
+    self._native:flush()
+end
